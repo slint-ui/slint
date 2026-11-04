@@ -86,6 +86,27 @@ component TestExplicitStretchSame inherits Rectangle {
     out property <bool> test: r1.y == 0phx && r1.height == 80phx;
 }
 
+// An explicit cross-axis position stays, also when the layout has a padding on that side.
+component TestExplicitPosition inherits Rectangle {
+    width: 300phx;
+    height: 200phx;
+
+    HorizontalLayout {
+        padding: 10phx;
+        r1 := Rectangle { background: red; y: 25phx; }
+        r2 := Rectangle { background: green; }
+    }
+    VerticalLayout {
+        padding-left: 7phx;
+        r3 := Rectangle { background: blue; x: 3phx; width: 50phx; }
+    }
+
+    out property <bool> test:
+        r1.y == 25phx && r1.height == 180phx
+        && r2.y == 10phx && r2.height == 180phx
+        && r3.x == 3phx;
+}
+
 export component TestCase inherits Rectangle {
     max_clamp := TestMaxClamp {}
     min_wins := TestMinWins {}
@@ -93,10 +114,11 @@ export component TestCase inherits Rectangle {
     percent_pad := TestPercentWithPadding {}
     v_max := TestVerticalMaxClamp {}
     explicit_same := TestExplicitStretchSame {}
+    explicit_position := TestExplicitPosition {}
 
     out property <bool> test:
         max_clamp.test && min_wins.test && percent.test && percent_pad.test
-        && v_max.test && explicit_same.test;
+        && v_max.test && explicit_same.test && explicit_position.test;
 }
 
 /*

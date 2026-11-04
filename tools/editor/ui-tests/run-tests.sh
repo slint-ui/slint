@@ -16,5 +16,5 @@ else
     set -- -n "$worker_count" --dist=worksteal "$@"
 fi
 
-UV_CACHE_DIR="${UV_CACHE_DIR:-/private/tmp/slint-editor-ui-uv-cache}" \
+UV_CACHE_DIR="${UV_CACHE_DIR:-${TMPDIR:-/tmp}/slint-editor-ui-uv-cache}" \
 uv run --no-sync pytest -ra "$@"

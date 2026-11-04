@@ -1,13 +1,23 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Slider, BasicTheme } from "../src/basic.slint";
+import {
+    SliderStyle,
+    SliderStyles,
+    BasicTheme,
+} from "../src/basic.slint";
 import { SliderBase, LinearSliderSurface } from "../src/headless.slint";
+import { PreviewSlider } from "preview_controls.slint";
 import { ExampleSection } from "section.slint";
+import { PreviewSettings } from "preview_settings.slint";
 import { CircularSurface } from "circular_surface.slint";
 
 export component SliderExamples inherits Rectangle {
     vertical-stretch: 0;
+    in property <SliderStyle> preview-style: SliderStyles.standard;
+    in-out property <int> size-index: 1;
+    in-out property <bool> preview-disabled;
+
     in-out property <float> value: 40;
     in-out property <float> stepped-value: 50;
     in-out property <float> custom-value: 35;
@@ -18,6 +28,12 @@ export component SliderExamples inherits Rectangle {
 
     VerticalLayout {
         spacing: 20px;
+        PreviewSettings {
+            control-name: "Slider";
+            size-index <=> root.size-index;
+            disabled <=> root.preview-disabled;
+        }
+
         ExampleSection {
             title: "Base theme";
             description: "Horizontal, stepped, vertical, and disabled sliders using BasicTheme.";
@@ -35,7 +51,10 @@ export component SliderExamples inherits Rectangle {
                                 font-size: 12px;
                             }
 
-                            Slider {
+                            PreviewSlider {
+                                style: root.preview-style;
+                                size-index: root.size-index;
+                                enabled: !root.preview-disabled;
                                 accessible-label: "Default slider";
                                 value <=> root.value;
                                 changed(value) => { root.changes += 1; }
@@ -51,9 +70,12 @@ export component SliderExamples inherits Rectangle {
                                 font-size: 12px;
                             }
 
-                            Slider {
-                                accessible-label: "Disabled slider";
+                            PreviewSlider {
+                                style: root.preview-style;
+                                size-index: root.size-index;
                                 enabled: false;
+                                accessible-label: "Disabled slider";
+
                                 value: 60;
                             }
                         }
@@ -65,7 +87,10 @@ export component SliderExamples inherits Rectangle {
                         font-size: 12px;
                     }
 
-                    Slider {
+                    PreviewSlider {
+                        style: root.preview-style;
+                        size-index: root.size-index;
+                        enabled: !root.preview-disabled;
                         accessible-label: "Stepped slider";
                         step: 10;
                         value <=> root.stepped-value;
@@ -84,7 +109,10 @@ export component SliderExamples inherits Rectangle {
                         horizontal-alignment: center;
                     }
 
-                    Slider {
+                    PreviewSlider {
+                        style: root.preview-style;
+                        size-index: root.size-index;
+                        enabled: !root.preview-disabled;
                         accessible-label: "Vertical slider";
                         orientation: vertical;
                         height: 100px;
@@ -118,20 +146,19 @@ export component SliderExamples inherits Rectangle {
                 VerticalLayout {
                     spacing: 10px;
                     Text {
-                        text: "Color and shape override";
+                        text: "Custom fill and handle colors";
                         color: BasicTheme.disabled-foreground;
                         font-size: 12px;
                     }
 
-                    Slider {
+                    PreviewSlider {
+                        style: root.preview-style;
+                        fill-color: #0f766e;
+                        handle-color: #0f766e;
+                        size-index: root.size-index;
+                        enabled: !root.preview-disabled;
                         accessible-label: "Styled custom slider";
                         value <=> root.custom-value;
-                        fill-color: #0d9488;
-                        handle-color: #0d9488;
-                        handle-width: 16px;
-                        handle-height: 24px;
-                        handle-radius: 3px;
-                        track-thickness: 6px;
                         changed(value) => { root.custom-changes += 1; }
                         released(value) => { root.custom-releases += 1; }
                     }
@@ -143,6 +170,7 @@ export component SliderExamples inherits Rectangle {
                     }
 
                     custom := SliderBase {
+                        enabled: !root.preview-disabled;
                         accessible-label: "Custom slider";
                         value <=> root.custom-value;
                         preferred-height: 32px;
@@ -183,6 +211,7 @@ export component SliderExamples inherits Rectangle {
                     }
 
                     SliderBase {
+                        enabled: !root.preview-disabled;
                         accessible-label: "Circular slider";
                         width: 160px;
                         height: 140px;

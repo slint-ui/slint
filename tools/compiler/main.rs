@@ -7,6 +7,8 @@
 use clap::{Parser, ValueEnum};
 use i_slint_compiler::diagnostics::BuildDiagnostics;
 use i_slint_compiler::generator::OutputFormat;
+use i_slint_compiler::project_file::SlintEdition;
+use i_slint_compiler::source_path::SourcePath;
 use i_slint_compiler::*;
 use itertools::Itertools;
 use std::io::Cursor;
@@ -82,27 +84,30 @@ struct Cli {
 
     /// Specify include paths for imported .slint files or image resources.
     /// This is used for including external .slint files or image resources referenced by '@image-url'.
-    /// Wins over the include paths of the project file.
+    /// Comes before the include paths of the project file.
     #[arg(short = 'I', name = "include path", number_of_values = 1)]
     include_paths: Vec<std::path::PathBuf>,
 
     /// Define library paths in the format `<library>=<path>`.
     /// This can point to either a library directory or a .slint entry-point file.
-    /// Wins over the library paths of the project file.
+    /// Replaces the project file's library of the same name.
     #[arg(short = 'L', name = "library path", number_of_values = 1)]
     library_paths: Vec<String>,
 
-    /// Specify the path to the main .slint file to compile.
-    /// A slint-project.json in its directory, or in a directory above it, provides the settings.
-    /// A slint-project.json given here compiles its entry.
+    /// Specify a .slint file, project directory, or slint-project.json file to compile.
+    /// The project file must contain a main entry specifying the .slint file to compile.
     /// Use '-' to read from stdin.
     #[arg(name = "file")]
     path: std::path::PathBuf,
 
     /// Set the style for the UI (e.g., 'native' or 'fluent').
-    /// Wins over the style of the project file.
     #[arg(long, name = "style name")]
     style: Option<String>,
+
+    /// Set the edition whose language behavior to use, such as '1.19'.
+    /// This wins over the edition of the project file.
+    #[arg(long, name = "edition", value_parser = SlintEdition::parse_supported)]
+    edition: Option<SlintEdition>,
 
     /// Apply a constant scale factor to embedded assets, typically for high-DPI displays.
     /// This scale factor is also applied to the window by default.
@@ -156,46 +161,50 @@ struct Cli {
     cpp_files: Vec<std::path::PathBuf>,
 }
 
-/// Replaces a project file given as input by its entry,
-/// and returns the project file that applies to the input.
-fn resolve_project_file(args: &mut Cli) -> Option<i_slint_compiler::project_file::ProjectFile> {
+/// Parses the file to compile, the main file of a project directory given as input,
+/// and returns the project file that applies to it and the files it was found and read from.
+fn parse_input(
+    args: &Cli,
+    diag: &mut BuildDiagnostics,
+) -> (
+    Option<parser::SyntaxNode>,
+    Option<i_slint_compiler::project_file::ProjectFile>,
+    Vec<std::path::PathBuf>,
+) {
     // The Slint SC subset rejects the flags a project file could set, so it has none.
     #[cfg(feature = "slint-sc")]
-    if args.slint_sc {
-        if i_slint_compiler::project_file::is_project_file(&args.path) {
-            eprintln!("--slint-sc can't compile a project file, pass its entry instead");
-            std::process::exit(1);
-        }
-        return None;
+    if args.slint_sc && i_slint_compiler::project_file::project_root(&args.path).is_dir() {
+        eprintln!(
+            "--slint-sc can't compile a project file or directory, pass its main file instead"
+        );
+        std::process::exit(1);
     }
 
-    // Reading from stdin gives no directory to search from.
-    if args.path == std::path::Path::new("-") {
-        return None;
-    }
-
-    match i_slint_compiler::project_file::resolve_input(&args.path) {
-        Ok((path, project_file)) => {
-            args.path = path;
-            project_file
-        }
-        Err(message) => {
-            eprintln!("{message}");
-            std::process::exit(1);
-        }
-    }
+    let (input, input_files) = spin_on::spin_on(i_slint_compiler::project_file::load_input(
+        &SourcePath::File(args.path.clone()),
+        None,
+        None,
+        None,
+        diag,
+    ));
+    let Some(input) = input else { return (None, None, Vec::new()) };
+    (
+        Some(parser::parse(input.source_code, Some(input.source), diag)),
+        input.project_file,
+        input_files.into_iter().filter_map(SourcePath::into_native_path).collect(),
+    )
 }
 
 fn main() -> std::io::Result<()> {
     proc_macro2::fallback::force(); // avoid a abort if panic=abort is set
-    let mut args = Cli::parse();
-    let input_is_project_file = i_slint_compiler::project_file::is_project_file(&args.path);
-    let project_file = resolve_project_file(&mut args);
+    let args = Cli::parse();
+    let input = i_slint_compiler::project_file::project_root(&args.path);
+    let input_project_directory = input.is_dir().then(|| input.to_path_buf());
     let mut diag = BuildDiagnostics::default();
-    let syntax_node = parser::parse_file(&args.path, &mut diag);
+    let (syntax_node, project_file, input_files) = parse_input(&args, &mut diag);
     //println!("{:#?}", syntax_node);
     if diag.has_errors() {
-        diag.print();
+        diag.print_styled_if_terminal();
         std::process::exit(-1);
     }
 
@@ -300,11 +309,27 @@ fn main() -> std::io::Result<()> {
         compiler_config.coverage = args.coverage;
     }
 
-    if let Some(project_file) = &project_file {
-        project_file.apply_to(&mut compiler_config);
-        if input_is_project_file {
-            compiler_config.input_project_file = Some(project_file.source_path().to_path_buf());
-        }
+    let command_line_overrides = i_slint_compiler::project_file::Overrides {
+        project: i_slint_compiler::project_file::ProjectFileData {
+            include_paths: (!args.include_paths.is_empty()).then(|| args.include_paths.clone()),
+            library_paths: (!args.library_paths.is_empty()).then(|| {
+                args.library_paths
+                    .iter()
+                    .filter_map(|entry| {
+                        entry.split('=').collect_tuple().map(|(k, v)| (k.into(), v.into()))
+                    })
+                    .collect()
+            }),
+            edition: args.edition,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    command_line_overrides.apply(project_file.as_ref(), &mut compiler_config);
+    if project_file.is_some()
+        && let Some(project_directory) = input_project_directory
+    {
+        compiler_config.input_project_directory = Some(project_directory);
     }
 
     compiler_config.translation_domain = args.translation_domain;
@@ -330,16 +355,6 @@ fn main() -> std::io::Result<()> {
     }
 
     compiler_config.debug_info |= format == OutputFormat::Llr;
-    if !args.include_paths.is_empty() {
-        compiler_config.include_paths = args.include_paths;
-    }
-    if !args.library_paths.is_empty() {
-        compiler_config.library_paths = args
-            .library_paths
-            .iter()
-            .filter_map(|entry| entry.split('=').collect_tuple().map(|(k, v)| (k.into(), v.into())))
-            .collect();
-    }
     if let Some(style) = args.style {
         compiler_config.style = Some(style);
     }
@@ -357,7 +372,9 @@ fn main() -> std::io::Result<()> {
     let diag = diag.check_and_exit_on_error();
 
     if args.output == std::path::Path::new("-") {
-        generator::generate(format, &mut std::io::stdout(), None, &doc, &loader.compiler_config)?;
+        let mut stdout = std::io::BufWriter::new(std::io::stdout());
+        generator::generate(format, &mut stdout, None, &doc, &loader.compiler_config)?;
+        std::io::Write::flush(&mut stdout)?;
     } else {
         let mut cursor = Cursor::new(Vec::new());
         generator::generate(
@@ -374,9 +391,9 @@ fn main() -> std::io::Result<()> {
 
     if let Some(depfile) = args.depfile {
         let mut cursor = Cursor::new(Vec::new());
-        write!(cursor, "{}: {}", args.output.display(), args.path.display())?;
-        if let Some(project_file) = &project_file {
-            write!(cursor, " {}", project_file.source_path().display())?;
+        write!(cursor, "{}:", args.output.display())?;
+        for x in &input_files {
+            write!(cursor, " {}", x.display())?;
         }
         for x in diag.all_loaded_files.iter().filter_map(|p| p.as_native_path()) {
             if x.is_absolute() {

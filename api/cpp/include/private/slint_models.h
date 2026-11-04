@@ -11,6 +11,7 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <type_traits>
 #include <vector>
 
 namespace slint {
@@ -37,6 +38,12 @@ auto access_array_index(const std::shared_ptr<M> &model, int index)
     } else {
         return decltype(*v) {};
     }
+}
+
+/// A number model (`for i in n`) is its row count.
+inline int model_length(size_t row_count)
+{
+    return int(row_count);
 }
 
 template<typename M>
@@ -372,25 +379,6 @@ private:
     mutable std::vector<size_t> tracked_rows;
     mutable bool all_rows_tracked = false;
 };
-
-namespace private_api {
-/// Model to be used when we just want to repeat without data.
-struct UIntModel : Model<int>
-{
-    /// Constructs a new IntModel with \a d rows.
-    UIntModel(uint32_t d) : data(d) { }
-    /// \private
-    uint32_t data;
-    /// \copydoc Model::row_count
-    size_t row_count() const override { return data; }
-    std::optional<int> row_data(size_t value) const override
-    {
-        if (value >= row_count())
-            return {};
-        return static_cast<int>(value);
-    }
-};
-} // namespace private_api
 
 /// A Model backed by a SharedVector
 template<typename ModelData>
@@ -785,13 +773,7 @@ struct SortModelInner : private_api::ModelChangeListener
             auto inserted_value = source_model->row_data(row);
             if (!inserted_value)
                 continue;
-            auto insertion_point =
-                    std::lower_bound(sorted_rows.begin(), sorted_rows.end(), *inserted_value,
-                                     [this](size_t sorted_row, const ModelData &inserted_value) {
-                                         auto sorted_elem = source_model->row_data(sorted_row);
-                                         return sorted_elem && comp(*sorted_elem, inserted_value);
-                                     });
-
+            auto insertion_point = sorted_insertion_point(row, *inserted_value);
             insertion_point = sorted_rows.insert(insertion_point, row);
             target_model.notify_row_added(std::distance(sorted_rows.begin(), insertion_point), 1);
         }
@@ -810,13 +792,7 @@ struct SortModelInner : private_api::ModelChangeListener
         auto changed_value = source_model->row_data(changed_row);
         if (!changed_value)
             return;
-        auto insertion_point =
-                std::lower_bound(sorted_rows.begin(), sorted_rows.end(), *changed_value,
-                                 [this](size_t sorted_row, const ModelData &changed_value) {
-                                     auto sorted_elem = source_model->row_data(sorted_row);
-                                     return sorted_elem && comp(*sorted_elem, changed_value);
-                                 });
-
+        auto insertion_point = sorted_insertion_point(changed_row, *changed_value);
         insertion_point = sorted_rows.insert(insertion_point, changed_row);
         auto inserted_row = std::distance(sorted_rows.begin(), insertion_point);
 
@@ -865,6 +841,19 @@ struct SortModelInner : private_api::ModelChangeListener
         target_model.notify_reset();
     }
 
+    std::vector<size_t>::iterator sorted_insertion_point(size_t row, const ModelData &value)
+    {
+        return std::lower_bound(sorted_rows.begin(), sorted_rows.end(), row,
+                                [this, &value](size_t sorted_row, size_t inserted_row) {
+                                    auto sorted_elem = source_model->row_data(sorted_row);
+                                    if (!sorted_elem)
+                                        return false;
+                                    if (comp(*sorted_elem, value))
+                                        return true;
+                                    return !comp(value, *sorted_elem) && sorted_row < inserted_row;
+                                });
+    }
+
     void ensure_sorted()
     {
         if (!sorted_rows_dirty) {
@@ -875,11 +864,12 @@ struct SortModelInner : private_api::ModelChangeListener
         for (size_t i = 0; i < sorted_rows.size(); ++i)
             sorted_rows[i] = i;
 
-        std::sort(sorted_rows.begin(), sorted_rows.end(), [this](auto lhs_index, auto rhs_index) {
-            auto lhs_elem = source_model->row_data(lhs_index);
-            auto rhs_elem = source_model->row_data(rhs_index);
-            return rhs_elem && lhs_elem && comp(*lhs_elem, *rhs_elem);
-        });
+        std::stable_sort(sorted_rows.begin(), sorted_rows.end(),
+                         [this](auto lhs_index, auto rhs_index) {
+                             auto lhs_elem = source_model->row_data(lhs_index);
+                             auto rhs_elem = source_model->row_data(rhs_index);
+                             return rhs_elem && lhs_elem && comp(*lhs_elem, *rhs_elem);
+                         });
 
         sorted_rows_dirty = false;
     }
@@ -895,6 +885,7 @@ struct SortModelInner : private_api::ModelChangeListener
 /// The SortModel acts as an adapter model for a given source model by sorting all rows
 /// with by order provided by the given sorting function. The sorting function is called for
 /// pairs of elements of the source model.
+/// Rows that compare equal keep their order from the source model.
 ///
 /// \code
 /// auto source_model = std::make_shared<slint::VectorModel<SharedString>>(
@@ -1037,7 +1028,8 @@ private:
 
 namespace private_api {
 
-template<typename C, typename ModelData>
+/// With `IsNumberModel`, the model is the row count of `for i in n`.
+template<typename C, typename ModelData, bool IsNumberModel = false>
 class Repeater
 {
     struct RepeaterInner : ModelChangeListener
@@ -1052,12 +1044,25 @@ class Repeater
         private_api::Property<bool> is_dirty { true };
         std::shared_ptr<Model<ModelData>> model;
         cbindgen_private::RepeaterLayoutState layout_state {};
-        cbindgen_private::PendingScrollToRow scroll_to_row {};
+        cbindgen_private::ScrollToRowRequestOpaque scroll_to_row;
         const private_api::Property<bool> *instance_generation;
 
         explicit RepeaterInner(const private_api::Property<bool> *instance_generation)
             : instance_generation(instance_generation)
         {
+            cbindgen_private::slint_repeater_scroll_to_row_construct(&scroll_to_row);
+        }
+        ~RepeaterInner() { cbindgen_private::slint_repeater_scroll_to_row_drop(&scroll_to_row); }
+        RepeaterInner(const RepeaterInner &) = delete;
+        RepeaterInner &operator=(const RepeaterInner &) = delete;
+
+        std::optional<ModelData> row_data(size_t row) const
+        {
+            if constexpr (IsNumberModel) {
+                return int(row);
+            } else {
+                return model->row_data(row);
+            }
         }
 
         /// Call whenever `data` changes outside of `ensure_updated`.
@@ -1178,7 +1183,7 @@ class Repeater
                 bool created = !c.ptr;
                 if (created)
                     c.ptr = C::create(ctx->parent);
-                std::optional<ModelData> data = ctx->inner->model->row_data(row);
+                std::optional<ModelData> data = ctx->inner->row_data(row);
                 (*c.ptr)->update_data(row, data ? *data : ModelData {});
                 c.state = RepeaterInner::State::Clean;
                 return created;
@@ -1211,7 +1216,9 @@ class Repeater
         };
     }
 
-    private_api::Property<std::shared_ptr<Model<ModelData>>> model;
+    private_api::Property<
+            std::conditional_t<IsNumberModel, size_t, std::shared_ptr<Model<ModelData>>>>
+            model;
     mutable std::shared_ptr<RepeaterInner> inner;
     /// Marked dirty whenever the instance slots change, including when ensure_updated creates one.
     /// A row's data change alone doesn't mark it.
@@ -1232,17 +1239,39 @@ public:
 
     void refresh_model() const
     {
-        if (model.is_dirty()) {
-            auto old_model = model.get_internal();
-            auto m = model.get();
-            if (!inner || old_model != m) {
-                inner = std::make_shared<RepeaterInner>(&instance_generation);
-                instance_generation.mark_dirty();
-                if (m) {
-                    inner->model = m;
-                    m->attach_peer(inner);
+        if (!model.is_dirty())
+            return;
+        auto old_value = model.get_internal();
+        auto value = model.get();
+        if constexpr (IsNumberModel) {
+            if (inner) {
+                if (value > old_value) {
+                    inner->row_added(old_value, value - old_value);
+                } else if (value < old_value) {
+                    inner->row_removed(value, old_value - value);
                 }
+                return;
             }
+        } else if (inner && old_value == value) {
+            return;
+        }
+        inner = std::make_shared<RepeaterInner>(&instance_generation);
+        instance_generation.mark_dirty();
+        if constexpr (!IsNumberModel) {
+            if (value) {
+                inner->model = value;
+                value->attach_peer(inner);
+            }
+        }
+    }
+
+    size_t row_count() const
+    {
+        if constexpr (IsNumberModel) {
+            return model.get();
+        } else {
+            auto m = model.get();
+            return m ? m->row_count() : 0;
         }
     }
 
@@ -1256,13 +1285,9 @@ public:
         bool changed = false;
         if (inner && inner->is_dirty.get()) {
             inner->is_dirty.set(false);
-            if (auto m = model.get()) {
-                VTableContext<Parent> ctx { inner.get(), parent };
-                auto ops = make_ops(ctx);
-                cbindgen_private::slint_repeater_ensure_updated(&ops, 0, m->row_count());
-            } else {
-                inner->data.clear();
-            }
+            VTableContext<Parent> ctx { inner.get(), parent };
+            auto ops = make_ops(ctx);
+            cbindgen_private::slint_repeater_ensure_updated(&ops, 0, row_count());
             instance_generation.mark_dirty();
             changed = true;
         }
@@ -1285,14 +1310,10 @@ public:
 
         inner->is_dirty.set(false);
 
-        const auto m = model.get();
-        if (!m)
-            return false;
-
         VTableContext<Parent> ctx { inner.get(), parent };
         auto ops = make_ops(ctx);
         bool changed = cbindgen_private::slint_repeater_ensure_updated_listview(
-                &ops, &inner->layout_state, &inner->scroll_to_row, m->row_count(), content_width,
+                &ops, &inner->layout_state, &inner->scroll_to_row, row_count(), content_width,
                 content_height, content_y, listview_width, listview_height);
         if (changed)
             instance_generation.mark_dirty();
@@ -1305,8 +1326,7 @@ public:
                                      const cbindgen_private::ItemRc &flickable_rc) const
     {
         refresh_model();
-        const auto m = model.get();
-        if (!inner || !m)
+        if (!inner)
             return;
 
         std::vector<float> heights;
@@ -1317,7 +1337,7 @@ public:
         }
         if (cbindgen_private::slint_repeater_listview_ensure_row_visible(
                     &inner->layout_state, &inner->scroll_to_row,
-                    private_api::make_slice(heights.data(), heights.size()), m->row_count(), row,
+                    private_api::make_slice(heights.data(), heights.size()), row_count(), row,
                     behavior, &flickable_rc)) {
             inner->is_dirty.set(true);
         }
@@ -1441,9 +1461,11 @@ public:
         if (model.is_dirty()) {
             std::abort();
         }
-        if (auto m = model.get()) {
-            if (row < m->row_count()) {
-                m->set_row_data(row, data);
+        if constexpr (!IsNumberModel) {
+            if (auto m = model.get()) {
+                if (row < m->row_count()) {
+                    m->set_row_data(row, data);
+                }
             }
         }
     }

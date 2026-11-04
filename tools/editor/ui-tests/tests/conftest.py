@@ -15,7 +15,7 @@ from ui_reporting import TestReport, current_report
 UI_TEST_ROOT = Path(__file__).resolve().parents[1]
 REPOSITORY_ROOT = UI_TEST_ROOT.parents[2]
 FIXTURE_PROJECT = UI_TEST_ROOT / "fixtures" / "editor-project"
-DEFAULT_EDITOR_BINARY = REPOSITORY_ROOT / "target" / "debug" / "slint-editor"
+DEFAULT_EDITOR_BINARY = REPOSITORY_ROOT / "target" / "release" / "slint-editor"
 
 
 @pytest.fixture
@@ -36,7 +36,7 @@ def editor_environment(tmp_path_factory: pytest.TempPathFactory) -> dict[str, st
                 "SLINT_EDITOR_UI_TEST_BACKEND", "headless-skia"
             ),
             "SLINT_EMIT_DEBUG_INFO": "1",
-            "SLINT_ENABLE_EXPERIMENTAL_FEATURES": "1",
+            "SLINT_ENABLE_EXPERIMENTAL_FEATURES": "interfaces,shadowable,closures,named-slots,match,custom-mouse-cursor,component-container,new-with-existing-window,testable,internal-types",
             "HOME": str(settings_directory / "home"),
             "XDG_CONFIG_HOME": str(settings_directory / "config"),
         }

@@ -39,6 +39,7 @@ component EditorTreeRow {
     callback drag-started();
     callback row-hover-changed(int, bool);
     callback expanded-changed(int, bool);
+    callback add-tab-requested(string, int);
 
     property <bool> current: node.uri == current-source-uri && node.offset == current-offset;
     property <int> level-safe: max(1, node.indent-level + 1);
@@ -47,7 +48,7 @@ component EditorTreeRow {
         && root.tree-pointer.x >= root.absolute-position.x
         && root.tree-pointer.x < root.absolute-position.x + root.width
         && root.tree-pointer.y >= root.absolute-position.y + root.content-y
-        && root.tree-pointer.y < root.absolute-position.y + root.content-y + Metrics.outline-row-height - 4px;
+        && root.tree-pointer.y < root.absolute-position.y + root.content-y + Metrics.outline-row-height;
     property <string> row-label: node.element-id != "" ? node.element-id : node.element-type;
     property <DropLocation> active-drop-location: DropLocation.onto;
     property <bool> drop-allowed: false;
@@ -56,12 +57,14 @@ component EditorTreeRow {
     property <length> gap-height: root.gap-before || root.gap-after ? Metrics.outline-row-height : 0px;
     property <length> content-y: root.gap-before ? root.gap-height : 0px;
     property <image> row-icon: ElementVisuals.for-kind(node.icon-kind).icon;
+    property <bool> show-add-tab: root.current && root.node.element-type == "TabWidget";
 
     height: Metrics.outline-row-height + root.gap-height;
     vertical-stretch: 0;
     horizontal-stretch: 1;
     accessible-role: AccessibleRole.list-item;
     accessible-label: root.row-label;
+    accessible-item-index: root.row-index;
     accessible-description: @tr("Hierarchy level {}", root.level-safe);
     accessible-item-selectable: true;
     accessible-item-selected: root.current;
@@ -145,13 +148,13 @@ component EditorTreeRow {
             row-chrome := Rectangle {
                 opacity: root.hide-drag-source && row-drag.dragging ? 0 : 1;
                 horizontal-stretch: 1;
-                height: Metrics.outline-row-height - 4px + root.gap-height;
+                height: Metrics.outline-row-height + root.gap-height;
 
                 row-highlight := Rectangle {
-                    x: root.style.row.hit-size;
+                    x: Style.sidebar-spacing.list-inset;
                     width: parent.width - self.x;
                     y: root.content-y;
-                    height: Metrics.outline-row-height - 4px;
+                    height: Metrics.outline-row-height;
                     border-radius: root.style.row.radius;
                     border-width: row-drop.has-drag
                         && root.drop-allowed
@@ -257,8 +260,7 @@ component EditorTreeRow {
                     row-touch := TouchArea {
                         width: parent.width;
                         y: root.content-y;
-                        height: Metrics.outline-row-height - 4px;
-                        mouse-cursor: pointer;
+                        height: Metrics.outline-row-height;
                         pointer-event(event) => {
                             if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
                                 AppState.outline-drag-background = row-highlight.background;
@@ -278,7 +280,7 @@ component EditorTreeRow {
                         x: 0px;
                         y: root.content-y;
                         width: parent.width;
-                        height: Metrics.outline-row-height - 4px;
+                        height: Metrics.outline-row-height;
                         alignment: start;
                         cross-axis-alignment: center;
                         padding-left: root.style.row.padding-inline;
@@ -298,7 +300,6 @@ component EditorTreeRow {
                                 width: root.style.row.hit-size;
                                 height: root.style.row.hit-size;
                                 y: (parent.height - self.height) / 2;
-                                mouse-cursor: root.node.has-children ? MouseCursor.pointer : MouseCursor.default;
                                 clicked => {
                                     root.toggle-expanded();
                                 }
@@ -338,14 +339,54 @@ component EditorTreeRow {
                                 color: root.style.row.foreground;
                                 font-size: root.style.row.font-size;
                                 overflow: elide;
+
+                                if root.node.element-id != "": Tooltip {
+                                    text: @markdown("\{root.node.element-type}");
+                                }
                             }
+                        }
+
+                        if root.show-add-tab: Rectangle {
+                            width: root.style.row.hit-size;
+                        }
+                    }
+
+                    if root.show-add-tab: Rectangle {
+                        x: parent.width - self.width - root.style.row.padding-inline;
+                        y: root.content-y + (Metrics.outline-row-height - self.height) / 2;
+                        width: root.style.row.hit-size;
+                        height: root.style.row.hit-size;
+                        border-radius: root.style.row.radius;
+                        background: add-tab-touch.has-hover ? root.style.row.hover-background : transparent;
+                        accessible-role: AccessibleRole.button;
+                        accessible-label: @tr("Add Tab");
+                        accessible-action-default => {
+                            root.add-tab-requested(root.node.uri, root.node.offset);
+                        }
+
+                        add-tab-touch := TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => {
+                                root.add-tab-requested(root.node.uri, root.node.offset);
+                            }
+                        }
+
+                        Image {
+                            width: Metrics.icon-small;
+                            height: Metrics.icon-small;
+                            source: Icons.plus;
+                            colorize: root.style.row.foreground;
+                        }
+
+                        Tooltip {
+                            text: @markdown("\{@tr("Add Tab")}");
                         }
                     }
 
                     if root.gap-before || root.gap-after: OutlineDragRow {
                         style: root.style.row;
                         row-background: root.style.row.hover-background;
-                        y: root.gap-before ? 0px : Metrics.outline-row-height - 4px;
+                        y: root.gap-before ? 0px : Metrics.outline-row-height;
                         width: parent.width;
                         height: root.gap-height;
                         content-inset: root.style.row.padding-inline
@@ -390,6 +431,7 @@ export component EditorTreeView inherits FocusScope {
     callback row-current-requested(string, int);
     callback drag-started();
     callback row-expanded-changed(int, bool);
+    callback row-add-tab-requested(string, int);
 
     horizontal-stretch: 1;
     accessible-role: AccessibleRole.list;
@@ -497,6 +539,9 @@ export component EditorTreeView inherits FocusScope {
             }
             expanded-changed(row-index, expanded) => {
                 root.row-expanded-changed(row-index, expanded);
+            }
+            add-tab-requested(uri, offset) => {
+                root.row-add-tab-requested(uri, offset);
             }
         }
     }

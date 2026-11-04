@@ -5,7 +5,7 @@ import { z } from "astro/zod";
 import { glob } from "astro/loaders";
 import { docsSchema } from "@astrojs/starlight/schema";
 
-const experimentalDocs = process.env.SLINT_ENABLE_EXPERIMENTAL_FEATURES === "1";
+const experimentalDocs = !!process.env.SLINT_ENABLE_EXPERIMENTAL_FEATURES;
 
 const docsPattern = [
     "**/[^_]*.{md,mdx}",

@@ -1,0 +1,21 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component ShadowScene inherits Window {
+    width: 620px;
+    height: 460px;
+    background: #f2f4f7;
+    shadow-card := Rectangle {
+        x: 160px;
+        y: 130px;
+        width: 240px;
+        height: 160px;
+        background: #e5eaff;
+        border-radius: 12px;
+        @shadow-prefix@color: #29324c59;
+        @shadow-prefix@offset-x: 24px;
+        @shadow-prefix@offset-y: 32px;
+        @shadow-prefix@blur: 32px;
+        @shadow-prefix@spread: 10px;
+    }
+}

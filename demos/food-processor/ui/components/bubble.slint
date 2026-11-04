@@ -1,31 +1,37 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-export component Bubble inherits Image {
-    width: 70px;
-    source: @image-url("../images/bubble.jpg");
+import { Styles } from "../styles.slint";
+
+export component Bubble inherits Rectangle {
+    width: 144px;
+    height: 80px;
+    border-radius: Styles.border-radius;
+    background: #fafafa;
+    border-width: Styles.border-width;
+    border-color: #e5e5e5;
 
     in property <string> title;
     in property <string> time: "15 Min";
     in property <image> icon: @image-url("../images/prep.jpg");
 
     Rectangle {
-        x: 8px;
+        x: Styles.spacing-md;
         width: vl.preferred-width;
         height: vl.preferred-height;
         vl := VerticalLayout {
-            spacing: 2px;
+            spacing: Styles.spacing-xs;
             info := HorizontalLayout {
                 alignment: start;
-                spacing: 4px;
+                spacing: Styles.spacing-sm;
                 Image {
-                    width: 8px;
+                    width: Styles.small-icon-size;
                     source: root.icon;
                 }
 
                 Text {
                     text: root.title;
-                    font-size: 6px;
+                    font-size: Styles.caption-font-size;
                     font-weight: FontWeight.medium;
                     color: #737373;
                 }
@@ -33,7 +39,7 @@ export component Bubble inherits Image {
 
             Text {
                 text: root.time;
-                font-size: 9px;
+                font-size: Styles.regular-font-size;
                 font-weight: FontWeight.bold;
                 color: #171717;
             }

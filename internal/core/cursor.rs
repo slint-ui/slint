@@ -33,6 +33,49 @@ impl Default for MouseCursorInner {
     }
 }
 
+/// How a window adapter shows the mouse cursor that the window passes to
+/// [`WindowAdapterInternal::set_mouse_cursor`](crate::window::WindowAdapterInternal::set_mouse_cursor).
+#[derive(Debug, Clone, Default, PartialEq)]
+#[non_exhaustive]
+pub enum MouseCursorHandling {
+    /// The windowing system shows the cursor, or there is no cursor to show.
+    #[default]
+    Platform,
+    /// The renderer draws `image` on top of the window contents, with the hotspot at the
+    /// pointer position, for platforms where nothing else draws the cursor, such as when
+    /// rendering directly to a display.
+    ///
+    /// The hotspot is in image pixels from the top-left corner, clamped to the image.
+    /// Only moving the pointer then repaints just the area the cursor covers.
+    Render {
+        /// The image of the cursor.
+        image: crate::graphics::Image,
+        /// X pixel coordinate of the hotspot from the left edge of the image.
+        hotspot_x: i32,
+        /// Y pixel coordinate of the hotspot from the top edge of the image.
+        hotspot_y: i32,
+    },
+}
+
+impl MouseCursorHandling {
+    /// Renders custom cursors with their own image, nothing for `MouseCursor.none`, and every
+    /// other built-in cursor with `default_image`, with the hotspot at its top-left corner.
+    ///
+    /// Window adapters that have images for more cursor shapes can match on the cursor instead.
+    pub fn render_with_default_image(
+        cursor: &MouseCursorInner,
+        default_image: impl FnOnce() -> crate::graphics::Image,
+    ) -> Self {
+        match cursor {
+            MouseCursorInner::CustomMouseCursor { image, hotspot_x, hotspot_y } => {
+                Self::Render { image: image.clone(), hotspot_x: *hotspot_x, hotspot_y: *hotspot_y }
+            }
+            MouseCursorInner::BuiltIn(BuiltInMouseCursor::None) => Self::Platform,
+            _ => Self::Render { image: default_image(), hotspot_x: 0, hotspot_y: 0 },
+        }
+    }
+}
+
 /// Maps a custom cursor's hotspot from the source image into a buffer rendered at
 /// `rendered_size` pixels, clamped to stay inside it.
 pub fn scaled_hotspot(hotspot: i32, source_size: u32, rendered_size: u32) -> u32 {

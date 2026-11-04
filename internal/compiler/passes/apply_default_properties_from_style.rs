@@ -87,6 +87,26 @@ pub fn apply_default_properties_from_style(
                         .into(),
                         to: Type::Brush,
                     });
+                    elem.set_binding_if_not_set("selection-background-color".into(), || {
+                        Expression::Cast {
+                            from: Expression::PropertyReference(NamedReference::new(
+                                &palette.root_element,
+                                SmolStr::new_static("selection-background"),
+                            ))
+                            .into(),
+                            to: Type::Color,
+                        }
+                    });
+                    elem.set_binding_if_not_set("selection-foreground-color".into(), || {
+                        Expression::Cast {
+                            from: Expression::PropertyReference(NamedReference::new(
+                                &palette.root_element,
+                                SmolStr::new_static("selection-foreground"),
+                            ))
+                            .into(),
+                            to: Type::Color,
+                        }
+                    });
                 }
                 "Dialog" | "Window" => {
                     elem.set_binding_if_not_set("background".into(), || Expression::Cast {

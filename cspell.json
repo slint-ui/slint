@@ -8,6 +8,7 @@
         "AOSP", // Android Open Source Project
         "bbox",
         "bindgen",
+        "boxshadow",
         "boxshadowcache",
         "builtins",
         "canonicalize", // std::path::Path::canonicalize
@@ -22,6 +23,7 @@
         "glutin",
         "glutin's",
         "hookable",
+        "hypot",
         "maxx",
         "maxy",
         "minx",
@@ -153,7 +155,9 @@
     "distros",
     "embedders",
     "emsdk", // the Emscripten SDK, one of Skia's DEPS entries
+    "ERASEBKGND",
     "espflash",
+    "farlane", // McFarlane looks pascal case to cspell
     "Femto",
     "femtovg",
     "flexboxlayout",
@@ -186,6 +190,8 @@
     "listview",
     "lucide",
     "lvalue",
+    "mc",
+    "mcfarlane",
     "mdns",
     "microcontroller",
     "microcontrollers",
@@ -203,6 +209,7 @@
     "opengl",
     "opengles",
     "overdamped",
+    "oxipng",
     "Pandoc",
     "pico",
     "Pipfile",
@@ -243,6 +250,7 @@
     "streetsidesoftware",
     "tableview",
     "tabwidget",
+    "Tauri",
     "testcase",
     "textedit",
     "threadsafe", // asyncio loop.call_soon_threadsafe()
@@ -263,6 +271,7 @@
     "unerase",
     "unmapping",
     "unminimize",
+    "unrotated",
     "untracked",
     "viewbox",
     "virtualizes",
@@ -352,6 +361,7 @@
     "mintcream",
     "mistyrose",
     "navajowhite",
+    "NCDESTROY",
     "oldlace",
     "olivedrab",
     "orangered",
@@ -374,6 +384,7 @@
     "slategrey",
     "springgreen",
     "steelblue",
+    "subclassing",
     "whitesmoke",
     "yellowgreen",
     "hotspot",
@@ -476,6 +487,10 @@
     {
       "filename": "**/*.rst",
       "languageId": "restructuredtext"
+    },
+    {
+      "filename": "**/*.html.in",
+      "languageId": "html"
     },
     {
       "filename": "**/*.slint",

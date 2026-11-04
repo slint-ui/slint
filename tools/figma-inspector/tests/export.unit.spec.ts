@@ -25,7 +25,7 @@ async function result(captureJson?: string) {
         captureJson: json,
     });
     if (output.type !== "preview-source") throw Error(JSON.stringify(output));
-    return output;
+    return { ...output, exportPackage: requireValue(output.exportPackage) };
 }
 
 test("README lists a shared blend-mode limitation once across captured nodes", async () => {

@@ -16,6 +16,180 @@ use slint::{Model as _, SharedString, VecModel};
 
 use crate::preview::{properties, ui};
 
+pub fn setup(editor: &ui::EditorUi, api: &ui::Api<'_>) {
+    use slint::ComponentHandle as _;
+    let api_weak = <ui::Api as slint::Global<'_, ui::EditorUi>>::as_weak(api);
+    let selection_api_weak = api_weak.clone();
+    let has_property_api_weak = api_weak.clone();
+    let hooked_api_weak = api_weak.clone();
+    let hooked_editor_weak = editor.as_weak();
+    let editor_weak = editor.as_weak();
+    let selected_item = selected_item_cache(move || {
+        let editor = editor_weak.upgrade()?;
+        let _ = editor.global::<ui::Hover>().get_preview_generation();
+        let api = selection_api_weak.upgrade()?;
+        let element = api.get_current_element();
+        let instance_index = usize::try_from(api.get_selection().highlight_index).ok()?;
+        let instance = crate::preview::component_instance()?;
+        let source_uri = lsp_types::Url::parse(element.source_uri.as_str()).ok()?;
+        let path = i_slint_compiler::source_path::SourcePath::from_url(&source_uri);
+        let offset = u32::try_from(element.offset).ok()?;
+        instance.component_item(&path, offset, instance_index, i_slint_core::InternalToken)
+    });
+    api.on_source_property_value_data(move |property_name, fallback| {
+        api_weak
+            .upgrade()
+            .and_then(|api| ui::source_property_value_data(&api, property_name))
+            .unwrap_or(fallback)
+    });
+    api.on_has_property(move |property_name| {
+        has_property_api_weak
+            .upgrade()
+            .is_some_and(|api| ui::source_property_value_data(&api, property_name).is_some())
+    });
+    api.on_hooked_property_value_data(move |property_name, fallback| {
+        let value = (|| {
+            let editor = hooked_editor_weak.upgrade()?;
+            editor.global::<ui::Hover>().get_preview_generation();
+            let api = hooked_api_weak.upgrade()?;
+            api.get_inspector_generation();
+            let element = api.get_current_element();
+            let selection = crate::preview::element_selection::ElementSelection {
+                path: i_slint_compiler::source_path::SourcePath::from_url(
+                    &Url::parse(element.source_uri.as_str()).ok()?,
+                ),
+                offset: u32::try_from(element.offset).ok()?.into(),
+                instance_index: usize::try_from(api.get_selection().highlight_index)
+                    .unwrap_or_default(),
+                editing_text: false,
+            };
+            let instance = crate::preview::component_instance()?;
+            let node = selection.as_element_node_in(&instance)?;
+            let hash = node.with_element_debug(|debug| debug.element_hash);
+            if hash == 0 {
+                return None;
+            }
+            let id =
+                i_slint_compiler::passes::property_id(hash, &SmolStr::from(property_name.as_str()));
+            let overrides = crate::preview::PREVIEW_STATE
+                .with_borrow(|state| state.debug_hook_overrides.clone());
+            let mut overrides = (*overrides).borrow_mut();
+            overrides
+                .entry(id)
+                .or_insert_with(|| Box::pin(i_slint_core::Property::new(None)))
+                .as_ref()
+                .get()
+        })();
+        runtime_property_value(value, fallback)
+    });
+    api.on_runtime_property_value_data(move |property_name, fallback| {
+        let runtime = selected_item
+            .as_ref()
+            .get()
+            .upgrade()
+            .and_then(|item| runtime_property(&item, property_name.as_str()));
+        runtime_property_value(runtime, fallback)
+    });
+}
+
+fn selected_item_cache(
+    lookup: impl Fn() -> Option<i_slint_core::items::ItemRc> + 'static,
+) -> std::pin::Pin<Rc<i_slint_core::Property<i_slint_core::item_tree::ItemWeak>>> {
+    let selected_item = Rc::pin(i_slint_core::Property::default());
+    selected_item.set_binding(move || lookup().map(|item| item.downgrade()).unwrap_or_default());
+    selected_item
+}
+
+fn runtime_property(
+    item: &i_slint_core::items::ItemRc,
+    property_name: &str,
+) -> Option<slint_interpreter::Value> {
+    if matches!(property_name, "font-family" | "font-size" | "font-weight") {
+        let font = font_request(item)?;
+        return match property_name {
+            "font-family" => font.family.map(slint_interpreter::Value::String),
+            "font-size" => {
+                font.pixel_size.map(|size| slint_interpreter::Value::Number(size.get() as f64))
+            }
+            "font-weight" => {
+                font.weight.map(|weight| slint_interpreter::Value::Number(weight as f64))
+            }
+            _ => unreachable!(),
+        };
+    }
+    if matches!(property_name, "width" | "height") {
+        let size = item.geometry().size;
+        return Some(slint_interpreter::Value::Number(match property_name {
+            "width" => size.width as f64,
+            _ => size.height as f64,
+        }));
+    }
+    slint_interpreter::ComponentInstance::item_property(
+        item,
+        property_name,
+        i_slint_core::InternalToken,
+    )
+}
+
+fn font_request(item: &i_slint_core::items::ItemRc) -> Option<i_slint_core::graphics::FontRequest> {
+    use i_slint_core::item_rendering::HasFont;
+    use i_slint_core::items::{ComplexText, SimpleText, StyledTextItem, TextInput};
+    macro_rules! resolve_font {
+        ($($item_type:ty),*) => {
+            $(if let Some(text) = item.downcast::<$item_type>() {
+                return Some(text.as_pin_ref().font_request(item));
+            })*
+        };
+    }
+    resolve_font!(ComplexText, SimpleText, StyledTextItem, TextInput);
+    None
+}
+
+fn runtime_property_value(
+    runtime: Option<slint_interpreter::Value>,
+    fallback: ui::PropertyValue,
+) -> ui::PropertyValue {
+    use slint_interpreter::Value;
+    let Some(value) = runtime else { return fallback };
+    let mut property = ui::PropertyValue { value_resolved: true, ..Default::default() };
+    property.value_kind = match value {
+        Value::Number(number) => {
+            property.value_float = number as f32;
+            property.value_int = number as i32;
+            ui::PropertyValueKind::Float
+        }
+        Value::String(text) => {
+            property.value_string = text;
+            ui::PropertyValueKind::String
+        }
+        Value::Bool(value) => {
+            property.value_bool = value;
+            ui::PropertyValueKind::Boolean
+        }
+        Value::Brush(brush) => {
+            property.value_brush = brush;
+            ui::PropertyValueKind::Brush
+        }
+        Value::EnumerationValue(enumeration_name, value) => {
+            let enumeration_type = i_slint_compiler::typeregister::TypeRegister::builtin()
+                .borrow()
+                .lookup(&enumeration_name);
+            let mapped = ui::map_value_and_type_to_property_value(
+                &enumeration_type,
+                &Some(Value::EnumerationValue(enumeration_name, value)),
+                "",
+            );
+            property.visual_items = mapped.visual_items;
+            property.value_int = mapped.value_int;
+            property.value_string = mapped.value_string;
+            ui::PropertyValueKind::Enum
+        }
+        _ => return fallback,
+    };
+    property.kind = property.value_kind;
+    property
+}
+
 fn is_complex(expression: Option<syntax_nodes::Expression>, ty: &langtype::Type) -> bool {
     fn handle_node(node: i_slint_compiler::parser::SyntaxNode, ty: &langtype::Type) -> bool {
         match node.kind() {
@@ -63,6 +237,7 @@ fn map_property_to_ui(
     let expression = code_block_or_expression.as_ref().and_then(|cbe| cbe.expression());
 
     if let Some(expression) = &expression {
+        value.is_number_literal = convert_number_literal(expression).is_some();
         value.code = SharedString::from(expression.text().to_string());
 
         if let Some(qualified_name) = expression.QualifiedName() {
@@ -187,6 +362,11 @@ fn map_property_to_ui(
         }
     }
 
+    if let Some(code) = code_block_or_expression.as_ref().filter(|code| code.expression().is_none())
+    {
+        value.code = code.text().to_string().into();
+        value.kind = ui::PropertyValueKind::Code;
+    }
     if is_complex(expression, &property_info.ty) {
         value.kind = ui::PropertyValueKind::Code;
     }
@@ -378,6 +558,7 @@ fn convert_number_literal(
 #[cfg(test)]
 mod tests {
     use slint::{Model, SharedString};
+    use std::rc::Rc;
 
     use crate::preview::{properties, ui};
     use i_slint_editor_preview::test::loaded_document_cache;
@@ -416,6 +597,304 @@ mod tests {
         let (e, pi, dc, _) = properties_at_position(contents, property_line, 30).unwrap();
         let test1 = pi.iter().find(|pi| pi.name == "test1").unwrap();
         super::map_property_to_ui(&dc, &e.element, test1, None).0
+    }
+
+    #[test]
+    fn editor_property_values_preserve_fallbacks_without_preview_setup() {
+        use slint::ComponentHandle;
+
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = ui::create_ui().unwrap();
+        let api = editor.global::<ui::Api>();
+        let source = ui::PropertyValue {
+            code: "root.border".into(),
+            value_float: 12.0,
+            value_resolved: true,
+            value_kind: ui::PropertyValueKind::Float,
+            ..Default::default()
+        };
+        let source_value = source.clone();
+        api.on_source_property_value_data(move |name, fallback| {
+            if name == "border-radius" { source_value.clone() } else { fallback }
+        });
+        assert_eq!(api.invoke_editor_property_value_data("border-radius".into()), source);
+        assert_eq!(
+            api.invoke_hooked_property_value_data("border-top-left-radius".into(), source.clone()),
+            source
+        );
+    }
+
+    #[test]
+    fn hooked_properties_follow_selection_overrides_and_preview_replacement() {
+        use crate::preview::{self, SelectionNotification, element_selection::ElementSelection};
+        use slint::ComponentHandle;
+        use slint_interpreter::Value;
+
+        let editor = preview::tests::availability_test_editor();
+        let api = editor.global::<ui::Api>();
+        super::setup(&editor, &api);
+        let source = r#"export component Main inherits Window {
+            width: 300px;
+            height: 200px;
+            Rectangle { width: 40px; }
+            Rectangle { width: 60px; }
+        }"#;
+        preview::tests::apply_availability_test_source(&editor, source, true);
+        let path = i_slint_editor_preview::test::main_test_file_name();
+        let offsets = [source.find("Rectangle {").unwrap(), source.rfind("Rectangle {").unwrap()];
+        let select = |offset: usize| {
+            preview::element_selection::restore_selection(
+                ElementSelection {
+                    path: path.clone(),
+                    offset: (offset as u32).into(),
+                    instance_index: 0,
+                    editing_text: false,
+                },
+                SelectionNotification::Never,
+            );
+        };
+        let hook_id = |name: &str| {
+            let node = preview::PREVIEW_STATE
+                .with_borrow(|state| state.selected.clone())
+                .unwrap()
+                .as_element_node()
+                .unwrap();
+            i_slint_compiler::passes::property_id(
+                node.with_element_debug(|debug| debug.element_hash),
+                &smol_str::SmolStr::from(name),
+            )
+        };
+        select(offsets[0]);
+        let source_width =
+            api.invoke_source_property_value_data("width".into(), Default::default());
+        assert_eq!(source_width.value_float, 40.0);
+        let width = hook_id("width");
+        let absent = hook_id("test-absent-property");
+        preview::PREVIEW_STATE.with_borrow(|state| {
+            (*state.debug_hook_overrides).borrow_mut().remove(&absent);
+        });
+        let editor_weak = editor.as_weak();
+        let displayed = Box::pin(i_slint_core::Property::default());
+        displayed.as_ref().set_binding(move || {
+            editor_weak
+                .unwrap()
+                .global::<ui::Api>()
+                .invoke_editor_property_value_data("width".into())
+        });
+        let editor_weak = editor.as_weak();
+        let missing = Box::pin(i_slint_core::Property::default());
+        missing.as_ref().set_binding(move || {
+            editor_weak
+                .unwrap()
+                .global::<ui::Api>()
+                .invoke_editor_property_value_data("test-absent-property".into())
+        });
+        assert_eq!(displayed.as_ref().get(), source_width);
+        assert!(!missing.as_ref().get().value_resolved);
+        assert!(missing.as_ref().get().code.is_empty());
+        for (value, expected) in
+            [(Some(Value::Number(87.0)), 87.0), (Some(Value::Number(92.0)), 92.0), (None, 0.0)]
+        {
+            preview::set_override(&absent, value.clone());
+            let actual = missing.as_ref().get();
+            assert_eq!(actual.value_resolved, value.is_some());
+            assert_eq!(actual.value_float, expected);
+            assert_eq!(displayed.as_ref().get(), source_width);
+        }
+        preview::set_override(&width, Some(Value::Number(75.0)));
+        assert_eq!(displayed.as_ref().get().value_float, 75.0);
+        assert_eq!(
+            api.invoke_source_property_value_data("width".into(), Default::default()),
+            source_width
+        );
+        select(offsets[1]);
+        assert_eq!(displayed.as_ref().get().value_float, 60.0);
+        select(offsets[0]);
+        assert_eq!(displayed.as_ref().get().value_float, 75.0);
+        preview::PREVIEW_STATE.with_borrow_mut(|state| state.reset_preview_overrides());
+        assert_eq!(
+            displayed.as_ref().get(),
+            api.invoke_source_property_value_data("width".into(), Default::default())
+        );
+        preview::set_override(&width, Some(Value::Number(81.0)));
+        assert_eq!(displayed.as_ref().get().value_float, 81.0);
+        preview::tests::apply_availability_test_source(&editor, source, true);
+        select(offsets[0]);
+        assert_eq!(displayed.as_ref().get().value_float, 40.0);
+        preview::set_override(&hook_id("width"), Some(Value::Number(95.0)));
+        assert_eq!(displayed.as_ref().get().value_float, 95.0);
+        select(source.find("Window {").unwrap());
+        api.set_selection(ui::Selection { highlight_index: -1, ..api.get_selection() });
+        preview::set_override(&hook_id("width"), Some(Value::Number(350.0)));
+        assert_eq!(displayed.as_ref().get().value_float, 350.0);
+        let root = preview::PREVIEW_STATE
+            .with_borrow(|state| state.selected.clone())
+            .unwrap()
+            .as_element_node()
+            .unwrap();
+        root.element.borrow_mut().debug[root.debug_index].element_hash = 0;
+        preview::set_override(
+            &i_slint_compiler::passes::property_id(0, &smol_str::SmolStr::from("width")),
+            Some(Value::Number(123.0)),
+        );
+        assert_eq!(
+            api.invoke_hooked_property_value_data("width".into(), source_width.clone()),
+            source_width
+        );
+        preview::PREVIEW_STATE.with_borrow_mut(|state| state.clear_preview());
+        assert!(!displayed.as_ref().get().value_resolved);
+        assert!(displayed.as_ref().get().code.is_empty());
+    }
+
+    #[test]
+    fn runtime_property_values_are_independent_of_source_and_preserve_fallbacks() {
+        use slint_interpreter::Value;
+        let source = property_conversion_test(
+            "export component Test { in property <length> test1: 2rem; }",
+            0,
+        );
+        let resolved = super::runtime_property_value(Some(Value::Number(40.0)), source.clone());
+        assert_eq!(source.value_float, 2.0);
+        assert_eq!(resolved.value_float, 40.0);
+        assert!(resolved.code.is_empty());
+        assert_eq!(resolved.visual_items.row_count(), 0);
+        let fallback = ui::PropertyValue {
+            value_float: 12.0,
+            value_int: 400,
+            value_string: "Fallback".into(),
+            value_bool: true,
+            ..Default::default()
+        };
+        assert_eq!(super::runtime_property_value(None, fallback.clone()), fallback);
+        for value in [Value::Number(0.0), Value::String("".into()), Value::Bool(false)] {
+            let result = super::runtime_property_value(Some(value.clone()), fallback.clone());
+            assert!(result.value_resolved);
+            match value {
+                Value::Number(_) => assert_eq!(result.value_float, 0.0),
+                Value::String(_) => assert!(result.value_string.is_empty()),
+                Value::Bool(_) => assert!(!result.value_bool),
+                _ => unreachable!(),
+            }
+        }
+        let alignment = super::runtime_property_value(
+            Some(Value::EnumerationValue("TextHorizontalAlignment".into(), "right".into())),
+            fallback,
+        );
+        assert_eq!(alignment.value_int, 4);
+    }
+
+    #[test]
+    fn runtime_properties_follow_selected_occurrence_and_font_defaults() {
+        i_slint_backend_testing::init_no_event_loop();
+        let code = r#"
+export component Win inherits Window {
+    width: 300px;
+    height: 200px;
+    default-font-family: "Test Family";
+    default-font-size: 20px;
+    default-font-weight: 600;
+    in property <int> count: 2;
+    Rectangle { width: 70px; height: 80px; }
+    for index in count: Text {
+        text: "Row";
+        font-size: 2rem;
+        color: index == 0 ? red : blue;
+    }
+}"#;
+        let path = i_slint_compiler::source_path::SourcePath::new("/tmp/property-query.slint");
+        let mut compiler = slint_interpreter::Compiler::default();
+        compiler.compiler_configuration(i_slint_core::InternalToken).debug_hooks =
+            Some(std::hash::RandomState::new());
+        let compiled = spin_on::spin_on(compiler.build_from_source_path(
+            Some(code.into()),
+            path.clone(),
+            i_slint_core::InternalToken,
+        ));
+        assert!(!compiled.has_errors(), "{:?}", compiled.diagnostics().collect::<Vec<_>>());
+        let instance = compiled.components().next().unwrap().create().unwrap();
+        let rectangle = instance
+            .component_item(
+                &path,
+                code.find("Rectangle {").unwrap() as u32,
+                0,
+                i_slint_core::InternalToken,
+            )
+            .unwrap();
+        for (name, expected) in [("width", 70.0), ("height", 80.0)] {
+            assert_eq!(
+                super::runtime_property(&rectangle, name),
+                Some(slint_interpreter::Value::Number(expected))
+            );
+        }
+        drop(rectangle);
+        let offset = code.find("Text {").unwrap() as u32;
+        for (index, color) in
+            [slint::Color::from_rgb_u8(255, 0, 0), slint::Color::from_rgb_u8(0, 0, 255)]
+                .into_iter()
+                .enumerate()
+        {
+            let item =
+                instance.component_item(&path, offset, index, i_slint_core::InternalToken).unwrap();
+            assert_eq!(
+                slint_interpreter::ComponentInstance::item_property(
+                    &item,
+                    "color",
+                    i_slint_core::InternalToken
+                ),
+                Some(slint_interpreter::Value::Brush(color.into()))
+            );
+            let font = super::font_request(&item).unwrap();
+            assert_eq!(font.family.as_deref(), Some("Test Family"));
+            assert_eq!(font.pixel_size.unwrap().get(), 40.0);
+            assert_eq!(font.weight, Some(600));
+        }
+        let current_instance = Rc::new(std::cell::RefCell::new(instance));
+        let generation = Rc::pin(i_slint_core::Property::new(0));
+        let lookups = Rc::new(std::cell::Cell::new(0));
+        let cache = {
+            let current_instance = current_instance.clone();
+            let generation = generation.clone();
+            let lookups = lookups.clone();
+            let path = path.clone();
+            super::selected_item_cache(move || {
+                generation.as_ref().get();
+                lookups.set(lookups.get() + 1);
+                current_instance.borrow().component_item(
+                    &path,
+                    offset,
+                    1,
+                    i_slint_core::InternalToken,
+                )
+            })
+        };
+        assert!(cache.as_ref().get().upgrade().is_some());
+        assert!(cache.as_ref().get().upgrade().is_some());
+        assert_eq!(lookups.get(), 1);
+        current_instance
+            .borrow()
+            .set_property("count", slint_interpreter::Value::Number(1.0))
+            .unwrap();
+        assert!(cache.as_ref().get().upgrade().is_none());
+        current_instance
+            .borrow()
+            .set_property("count", slint_interpreter::Value::Number(3.0))
+            .unwrap();
+        let item = cache.as_ref().get().upgrade().unwrap();
+        assert_eq!(lookups.get(), 3);
+        drop(item);
+        let old_item = cache.as_ref().get();
+        let compiled = spin_on::spin_on(compiler.build_from_source_path(
+            Some(code.replace("Test Family", "Next Family")),
+            path,
+            i_slint_core::InternalToken,
+        ));
+        assert!(!compiled.has_errors());
+        *current_instance.borrow_mut() = compiled.components().next().unwrap().create().unwrap();
+        generation.set(1);
+        assert!(old_item.upgrade().is_none());
+        let item = cache.as_ref().get().upgrade().unwrap();
+        assert_eq!(super::font_request(&item).unwrap().family.as_deref(), Some("Next Family"));
+        assert_eq!(lookups.get(), 4);
     }
 
     #[test]
@@ -1041,6 +1520,44 @@ export component Test { in property <Foobar> test1; }"#,
         assert!(matches!(result.brush_kind, ui::BrushKind::Radial));
 
         let result = property_conversion_test(
+            r#"export component Test { in property <brush> test1: @radial-gradient(ellipse 40px 20px, #f00 0%, #00f 100%); }"#,
+            1,
+        );
+        assert!(matches!(result.brush_kind, ui::BrushKind::Radial));
+        assert!(result.value_resolved);
+        assert!(result.fill.radial_ellipse);
+        assert_eq!((result.fill.radius, result.fill.radius_y), (40., 20.));
+
+        let result = property_conversion_test(
+            r#"export component Test { in property <brush> test1: @radial-gradient(ellipse 40px 40px, #f00 0%, #00f 100%); }"#,
+            1,
+        );
+        assert!(matches!(result.brush_kind, ui::BrushKind::Radial));
+        assert!(result.value_resolved);
+        assert!(result.fill.radial_ellipse);
+        assert_eq!((result.fill.radius, result.fill.radius_y), (40., 40.));
+
+        let result = property_conversion_test(
+            r#"export component Test { in property <brush> test1: @radial-gradient(circle 0px, #f00 0%, #00f 100%); }"#,
+            1,
+        );
+        assert!(result.value_resolved);
+        assert!(result.fill.custom_radius);
+        assert_eq!(result.fill.radius, 0.);
+
+        let result = property_conversion_test(
+            r#"global Foo {
+                out property <brush> ellipse: @radial-gradient(ellipse, #f00 0%, #00f 100%);
+            }
+            export component Test { in property <brush> test1: Foo.ellipse; }"#,
+            3,
+        );
+        assert!(matches!(result.brush_kind, ui::BrushKind::Radial));
+        assert!(result.value_resolved);
+        assert!(result.fill.radial_ellipse);
+        assert!(!result.fill.custom_radius);
+
+        let result = property_conversion_test(
             r#"export component Test { in property <brush> test1: @linear-gradient(90deg, #3f87a6 0%, #ebf8e1 50% - 10%, #f69d3c 100%); }"#,
             1,
         );
@@ -1154,6 +1671,42 @@ export component Test { in property <Foobar> test1; }"#,
             0,
         );
         assert_eq!(result.kind, ui::PropertyValueKind::Code);
+    }
+
+    #[test]
+    fn inspector_boolean_source_defaults() {
+        let source = r#"
+import { Button, CheckBox, LineEdit, ProgressIndicator } from "std-widgets.slint";
+export component Main inherits Window {
+    Button { /*button*/ }
+    CheckBox { /*checked*/ }
+    LineEdit { /*read-only*/ }
+    ProgressIndicator { /*indeterminate*/ }
+    Text { /*font-italic*/ }
+}"#;
+        let (document_cache, url, _) = loaded_document_cache(source.into());
+        for (marker, property_name, expected) in [
+            ("button", "enabled", true),
+            ("button", "checkable", false),
+            ("checked", "checked", false),
+            ("read-only", "read-only", false),
+            ("indeterminate", "indeterminate", false),
+            ("font-italic", "font-italic", false),
+        ] {
+            let element = document_cache
+                .element_at_offset(
+                    &url,
+                    (source.find(&format!("/*{marker}*/")).unwrap() as u32).into(),
+                )
+                .unwrap();
+            let properties = properties::get_properties(&element, properties::LayoutKind::None);
+            let property =
+                properties.iter().find(|property| property.name == property_name).unwrap();
+            let value =
+                super::map_property_to_ui(&document_cache, &element.element, property, None).0;
+            assert_eq!(value.value_kind, ui::PropertyValueKind::Boolean, "{property_name}");
+            assert_eq!(value.value_bool, expected, "{property_name}");
+        }
     }
 
     #[test]

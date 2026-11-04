@@ -11,6 +11,7 @@ export component WidthDependentMaxLines inherits Window {
             wrap: word-wrap;
             max-lines: self.width / 100px;
 //                     >                 <warning{The binding for the property 'max-lines' is part of a binding loop (HorizontalLayout.width -> HorizontalLayout -> Text.width -> Text.max-lines -> HorizontalLayout -> root -> HorizontalLayout.width)↵Compute 'max-lines' without depending on a size or a position the layout produces, or set an 'x' or a 'y' on 'HorizontalLayout', so its parent stops sizing itself from it↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
+//                     >                 <^error{The binding for the property 'max-lines' is part of a binding loop (Text.max-lines -> HorizontalLayout -> Text.width -> Text.max-lines)↵Compute 'max-lines' without depending on a size or a position the layout produces}
         }
         StyledText {
             text: @markdown("One");

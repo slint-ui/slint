@@ -7,6 +7,7 @@ use crate::file_watcher::FileWatcher;
 use core::cell::RefCell;
 use core::task::Waker;
 use i_slint_core::api::{ComponentHandle, PlatformError};
+use slint_interpreter::{SetCallbackError, SetPropertyError};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -33,6 +34,7 @@ pub struct LiveReloadingComponent {
     properties: RefCell<HashMap<String, Value>>,
     callbacks: RefCell<HashMap<String, Rc<dyn Fn(&[Value]) -> Value + 'static>>>,
     post_reload_hook: Option<Box<dyn Fn(&ComponentInstance)>>,
+    error_hook: Box<dyn Fn(String)>,
     extra_watch_paths: Vec<PathBuf>,
 }
 
@@ -79,6 +81,7 @@ impl LiveReloadingComponent {
                 properties: Default::default(),
                 callbacks: Default::default(),
                 post_reload_hook: None,
+                error_hook: Box::new(|error| panic!("{error}")),
                 extra_watch_paths: Vec::new(),
             })
         });
@@ -116,22 +119,23 @@ impl LiveReloadingComponent {
     }
 
     /// Swap in a new instance from a result the compile worker produced.
-    /// Return false in case of errors.
-    fn apply_reload(&mut self, result: slint_interpreter::CompilationResult) -> bool {
+    /// Return the replaced instance, or `None` in case of errors.
+    fn apply_reload(
+        &mut self,
+        result: slint_interpreter::CompilationResult,
+    ) -> Option<ComponentInstance> {
         self.update_watched_paths(&result);
         result.print_diagnostics();
         if result.has_errors() {
-            return false;
+            return None;
         }
 
         if let Some(definition) = self.find_component(&result) {
             match definition.create_with_existing_window(self.instance().window()) {
-                Ok(instance) => {
-                    self.instance = Some(instance);
-                }
+                Ok(instance) => self.instance.replace(instance),
                 Err(e) => {
                     eprintln!("Error while creating the component: {e}");
-                    return false;
+                    None
                 }
             }
         } else {
@@ -139,9 +143,8 @@ impl LiveReloadingComponent {
                 "Component {} not found",
                 self.component_name.as_deref().unwrap_or("<default>")
             );
-            return false;
+            None
         }
-        true
     }
 
     fn find_component(
@@ -175,26 +178,24 @@ impl LiveReloadingComponent {
     pub fn reload_properties_and_callbacks(&self) {
         // Set the properties
         for (name, value) in self.properties.borrow_mut().iter() {
-            if let Some((global, prop)) = name.split_once('.') {
-                self.instance()
-                    .set_global_property(global, prop, value.clone())
-                    .unwrap_or_else(|e| panic!("Cannot set property {name}: {e}"));
+            let result = if let Some((global, prop)) = name.split_once('.') {
+                self.instance().set_global_property(global, prop, value.clone())
             } else {
-                self.instance()
-                    .set_property(name, value.clone())
-                    .unwrap_or_else(|e| panic!("Cannot set property {name}: {e}"));
+                self.instance().set_property(name, value.clone())
+            };
+            if let Err(e) = result {
+                (self.error_hook)(format!("Cannot set property {name}: {e}"));
             }
         }
         for (name, callback) in self.callbacks.borrow_mut().iter() {
             let callback = callback.clone();
-            if let Some((global, prop)) = name.split_once('.') {
-                self.instance()
-                    .set_global_callback(global, prop, move |args| callback(args))
-                    .unwrap_or_else(|e| panic!("Cannot set callback {name}: {e}"));
+            let result = if let Some((global, prop)) = name.split_once('.') {
+                self.instance().set_global_callback(global, prop, move |args| callback(args))
             } else {
-                self.instance()
-                    .set_callback(name, move |args| callback(args))
-                    .unwrap_or_else(|e| panic!("Cannot set callback {name}: {e}"));
+                self.instance().set_callback(name, move |args| callback(args))
+            };
+            if let Err(e) = result {
+                (self.error_hook)(format!("Cannot set callback {name}: {e}"));
             }
         }
 
@@ -210,6 +211,12 @@ impl LiveReloadingComponent {
         self.post_reload_hook = Some(Box::new(hook));
     }
 
+    /// Set a hook that receives the message for what can't be set again after a reload,
+    /// instead of panicking.
+    pub fn set_error_hook(&mut self, hook: impl Fn(String) + 'static) {
+        self.error_hook = Box::new(hook);
+    }
+
     /// Set extra file paths to watch in addition to the .slint file and its imports.
     pub fn set_extra_watch_paths(&mut self, paths: Vec<PathBuf>) {
         self.extra_watch_paths = paths;
@@ -222,10 +229,15 @@ impl LiveReloadingComponent {
 
     /// Set a property and remember its value for when the component is reloaded
     pub fn set_property(&self, name: &str, value: Value) {
-        self.properties.borrow_mut().insert(name.into(), value.clone());
-        self.instance()
-            .set_property(name, value)
+        self.try_set_property(name, value)
             .unwrap_or_else(|e| panic!("Cannot set property {name}: {e}"))
+    }
+
+    /// Like [`Self::set_property`], but returns the error instead of panicking.
+    pub fn try_set_property(&self, name: &str, value: Value) -> Result<(), SetPropertyError> {
+        self.instance().set_property(name, value.clone())?;
+        self.properties.borrow_mut().insert(name.into(), value);
+        Ok(())
     }
 
     /// Forward to get_property
@@ -244,18 +256,38 @@ impl LiveReloadingComponent {
 
     /// Forward to set_callback
     pub fn set_callback(&self, name: &str, callback: Rc<dyn Fn(&[Value]) -> Value + 'static>) {
-        self.callbacks.borrow_mut().insert(name.into(), callback.clone());
-        self.instance()
-            .set_callback(name, move |args| callback(args))
+        self.try_set_callback(name, callback)
             .unwrap_or_else(|e| panic!("Cannot set callback {name}: {e}"));
+    }
+
+    /// Like [`Self::set_callback`], but returns the error instead of panicking.
+    pub fn try_set_callback(
+        &self,
+        name: &str,
+        callback: Rc<dyn Fn(&[Value]) -> Value + 'static>,
+    ) -> Result<(), SetCallbackError> {
+        let handler = callback.clone();
+        self.instance().set_callback(name, move |args| handler(args))?;
+        self.callbacks.borrow_mut().insert(name.into(), callback);
+        Ok(())
     }
 
     /// forward to set_global_property
     pub fn set_global_property(&self, global_name: &str, name: &str, value: Value) {
-        self.properties.borrow_mut().insert(format!("{global_name}.{name}"), value.clone());
-        self.instance()
-            .set_global_property(global_name, name, value)
+        self.try_set_global_property(global_name, name, value)
             .unwrap_or_else(|e| panic!("Cannot set property {global_name}::{name}: {e}"))
+    }
+
+    /// Like [`Self::set_global_property`], but returns the error instead of panicking.
+    pub fn try_set_global_property(
+        &self,
+        global_name: &str,
+        name: &str,
+        value: Value,
+    ) -> Result<(), SetPropertyError> {
+        self.instance().set_global_property(global_name, name, value.clone())?;
+        self.properties.borrow_mut().insert(format!("{global_name}.{name}"), value);
+        Ok(())
     }
 
     /// forward to get_global_property
@@ -279,10 +311,21 @@ impl LiveReloadingComponent {
         name: &str,
         callback: Rc<dyn Fn(&[Value]) -> Value + 'static>,
     ) {
-        self.callbacks.borrow_mut().insert(format!("{global_name}.{name}"), callback.clone());
-        self.instance()
-            .set_global_callback(global_name, name, move |args| callback(args))
+        self.try_set_global_callback(global_name, name, callback)
             .unwrap_or_else(|e| panic!("Cannot set callback {global_name}::{name}: {e}"));
+    }
+
+    /// Like [`Self::set_global_callback`], but returns the error instead of panicking.
+    pub fn try_set_global_callback(
+        &self,
+        global_name: &str,
+        name: &str,
+        callback: Rc<dyn Fn(&[Value]) -> Value + 'static>,
+    ) -> Result<(), SetCallbackError> {
+        let handler = callback.clone();
+        self.instance().set_global_callback(global_name, name, move |args| handler(args))?;
+        self.callbacks.borrow_mut().insert(format!("{global_name}.{name}"), callback);
+        Ok(())
     }
 }
 
@@ -339,9 +382,10 @@ impl Watcher {
                 locked.waker = Some(cx.waker().clone());
                 locked.pending_result.take()
             };
-            if let Some(result) = reload
-                && instance.borrow_mut().apply_reload(result.into())
-            {
+            // Dropped once the borrow ends, as dropping it can run code that reaches `instance`.
+            let replaced =
+                reload.and_then(|result| instance.borrow_mut().apply_reload(result.into()));
+            if replaced.is_some() {
                 let borrowed = instance.borrow();
                 borrowed.reload_properties_and_callbacks();
                 if let Some(hook) = &borrowed.post_reload_hook {
@@ -449,6 +493,7 @@ mod ffi {
         translation_domain: Slice<u8>,
         no_default_translation_context: bool,
         bundled_translations_path: Slice<u8>,
+        edition: Slice<u8>,
     ) -> *const LiveReloadingComponentInner {
         // Owned, so that the worker thread can build a Compiler of its own from them
         let include_paths: Vec<PathBuf> =
@@ -463,6 +508,11 @@ mod ffi {
             .then(|| std::str::from_utf8(&translation_domain).unwrap().to_string());
         let bundled_translations_path = (!bundled_translations_path.is_empty())
             .then(|| PathBuf::from(std::str::from_utf8(&bundled_translations_path).unwrap()));
+        let edition = (!edition.is_empty()).then(|| {
+            let edition: i_slint_compiler::project_file::SlintEdition =
+                std::str::from_utf8(&edition).unwrap().parse().unwrap();
+            (edition.major, edition.minor)
+        });
 
         let compiler_factory = move || {
             let mut compiler = Compiler::default();
@@ -470,6 +520,9 @@ mod ffi {
             compiler.set_library_paths(library_paths.clone());
             if let Some(style) = &style {
                 compiler.set_style(style.clone());
+            }
+            if let Some(edition) = edition {
+                compiler.set_edition(edition);
             }
             if let Some(translation_domain) = &translation_domain {
                 compiler.set_translation_domain(translation_domain.clone());

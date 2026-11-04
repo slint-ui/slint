@@ -15,13 +15,10 @@ FIELDS = {
 }
 
 FLOATING_FIELDS = {
-    label: "Drop shadow"
-    for label in (
-        "Shadow color",
-        "Shadow color opacity",
-        "Shadow blur",
-        "Shadow blur value",
-    )
+    "Shadow color",
+    "Shadow color opacity",
+    "Shadow blur",
+    "Shadow blur value",
 }
 
 
@@ -36,9 +33,12 @@ def slider_track_position(
     slider: slint_testing.Element, progress: float
 ) -> slint_testing.LogicalPosition:
     track = element(slider, id="InspectorSlider::track")
+    thumb = element(slider, id="InspectorSlider::thumb")
     rect = track.absolute_rect
+    inset = thumb.size.width / 2
     return slint_testing.LogicalPosition(
-        x=rect.x + rect.width * progress, y=rect.y + rect.height / 2
+        x=rect.x + inset + (rect.width - 2 * inset) * progress,
+        y=rect.y + rect.height / 2,
     )
 
 
@@ -46,14 +46,16 @@ def inspector_field(
     window: slint_testing.Window,
     label: str,
     role: slint_testing.AccessibleRole | None = None,
+    *,
+    shadow: str | None = None,
 ) -> slint_testing.Element:
     pane = element(
         window, "Inspector and outline", role=slint_testing.AccessibleRole.Complementary
     )
-    opener = FLOATING_FIELDS.get(label)
-    if opener:
+    floating = label in FLOATING_FIELDS
+    if floating:
         fields = elements(window, label, role=role)
-        if len(fields) == 1:
+        if len(fields) == 1 and (shadow is None or elements(window, f"Close {shadow}")):
             return element(window, label, role=role)
     pane_rect = pane.absolute_rect
     position = slint_testing.LogicalPosition(
@@ -75,8 +77,17 @@ def inspector_field(
             <= divider.absolute_position.y
         ):
             return element(pane, label, role=role)
-        if opener:
-            controls = elements(pane, opener, role=slint_testing.AccessibleRole.Button)
+        if floating:
+            controls = [
+                control
+                for name in ((shadow,) if shadow else ("Drop shadow", "Inner shadow"))
+                for control in elements(
+                    pane, name, role=slint_testing.AccessibleRole.Button
+                )
+                if control.accessible_enabled
+            ]
+            if len(controls) > 1:
+                raise ValueError("Choose a shadow when both shadow effects are enabled")
             if len(controls) == 1 and (
                 pane.absolute_position.y <= controls[0].absolute_position.y
                 and controls[0].absolute_position.y + controls[0].size.height

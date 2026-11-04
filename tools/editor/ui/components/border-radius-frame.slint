@@ -22,6 +22,8 @@ export component BorderRadiusFrame inherits MoveResizeFrame {
     out property <Point> radius-tooltip-position: root.radius-handle-center(root.radius-edit-corner);
     out property <length> radius-tooltip-value;
     private property <bool> radius-handle-active;
+    private property <bool> radius-handle-pressed;
+    private property <CanvasCorner> radius-hovered-corner;
     out property <CanvasCorner> radius-edit-corner;
     private property <bool> radius-single-corner;
     private property <bool> radius-dragging;
@@ -29,6 +31,9 @@ export component BorderRadiusFrame inherits MoveResizeFrame {
     private property <length> drag-top-right-radius;
     private property <length> drag-bottom-right-radius;
     private property <length> drag-bottom-left-radius;
+
+    corner-highlighted: root.radius-handle-active;
+    highlighted-corner: root.radius-handle-pressed ? root.radius-edit-corner : root.radius-hovered-corner;
 
     function radius-from-handle(corner: CanvasCorner, pointer-x: length, pointer-y: length) -> length {
         let from-left = root.corner-on-left(corner) ? pointer-x : root.width - pointer-x;
@@ -158,7 +163,9 @@ export component BorderRadiusFrame inherits MoveResizeFrame {
         width: root.radius-style.size;
         height: root.radius-style.size;
         border-radius: root.radius-style.size / 2;
-        background: root.style.handle-background;
+        background: root.corner-highlighted && root.highlighted-corner == corner
+            ? Colors.focus
+            : root.style.handle-background;
         border-width: Metrics.border-width;
         border-color: Colors.focus;
 
@@ -175,11 +182,15 @@ export component BorderRadiusFrame inherits MoveResizeFrame {
 
             changed has-hover => {
                 root.radius-handle-active = self.has-hover || self.pressed;
-                if self.has-hover { root.control-hovered(); }
+                if self.has-hover {
+                    root.radius-hovered-corner = corner;
+                    root.control-hovered();
+                }
             }
 
             changed pressed => {
                 root.radius-handle-active = self.has-hover || self.pressed;
+                root.radius-handle-pressed = self.pressed;
                 if self.pressed {
                     self.press-position = { x: self.mouse-x, y: self.mouse-y };
                     root.radius-edit-corner = corner;

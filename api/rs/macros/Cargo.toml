@@ -7,7 +7,7 @@ description = "Macro helper for slint crate"
 authors.workspace = true
 edition = "2024"
 homepage = "https://slint.rs"
-keywords.workspace = true
+keywords = ["macro", "gui", "ui"]
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
@@ -26,9 +26,6 @@ i-slint-compiler = { workspace = true, features = ["default", "proc_macro_span",
 proc-macro2 = "1.0.17"
 quote = "1.0"
 spin_on = { workspace = true }
-
-[dev-dependencies]
-tempfile = "3"
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]

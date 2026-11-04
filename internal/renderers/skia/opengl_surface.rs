@@ -65,6 +65,7 @@ impl super::Surface for OpenGLSurface {
         display_handle: Arc<dyn raw_window_handle::HasDisplayHandle + Send + Sync>,
         size: PhysicalWindowSize,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
+        _transparent: bool,
     ) -> Result<Self, PlatformError> {
         Self::new_with_config(
             window_handle,
@@ -103,7 +104,7 @@ impl super::Surface for OpenGLSurface {
             &skia_safe::Canvas,
             Option<&mut skia_safe::gpu::DirectContext>,
             u8,
-        ) -> Option<DirtyRegion>,
+        ) -> Result<Option<DirtyRegion>, PlatformError>,
         pre_present_callback: &RefCell<Option<Box<dyn FnMut()>>>,
     ) -> Result<DrawOutcome, PlatformError> {
         self.ensure_context_current()?;
@@ -132,12 +133,13 @@ impl super::Surface for OpenGLSurface {
         let skia_canvas = surface.canvas();
 
         skia_canvas.save();
-        callback(
+        let result = callback(
             skia_canvas,
             Some(gr_context),
             u8::try_from(self.glutin_surface.buffer_age()).unwrap_or_default(),
         );
         skia_canvas.restore();
+        result?;
 
         if let Some(pre_present_callback) = pre_present_callback.borrow_mut().as_mut() {
             pre_present_callback();
@@ -211,6 +213,12 @@ impl super::Surface for OpenGLSurface {
                 skia_safe::AlphaType::Unpremul,
                 crate::sampled_texture_color_space(crate::TextureEncoding::Unorm),
             )
+        }
+    }
+
+    fn free_gpu_resources(&self) {
+        if self.ensure_context_current().is_ok() {
+            self.gr_context.borrow_mut().free_gpu_resources();
         }
     }
 }

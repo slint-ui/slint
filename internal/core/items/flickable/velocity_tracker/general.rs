@@ -46,6 +46,7 @@ impl<const N: usize> VelocityEstimator for GeneralVelocityTracker<N> {
         let mut x = Vec::with_capacity(self.buffer.len());
         let mut y = Vec::with_capacity(self.buffer.len());
 
+        let mut direction = Vector2D::<f32, LogicalPx>::default();
         let mut previous: Option<&(Instant, Vector2D<f32, LogicalPx>)> = None;
         let mut position = Vector2D::<f32, LogicalPx>::default(); // The entries are delta so we have to subtract
         // from newest to oldest
@@ -59,6 +60,12 @@ impl<const N: usize> VelocityEstimator for GeneralVelocityTracker<N> {
             let age = latest_time - e.0;
             if delta > ASSUME_POINTER_MOVE_STOPPED || age > HORIZON {
                 break;
+            }
+            if direction.x == 0. {
+                direction.x = e.1.x;
+            }
+            if direction.y == 0. {
+                direction.y = e.1.y;
             }
 
             let sample_time = -(age.as_secs_f32() * 1000.);
@@ -90,11 +97,13 @@ impl<const N: usize> VelocityEstimator for GeneralVelocityTracker<N> {
                 LeastSquaresSolver::<'_, _, N>::new(&time, &y).solve_weighted::<3>(degree, &weight);
 
             if let (Some(res_x), Some(res_y)) = (res_x, res_y) {
-                // Convert values
+                // The fit can overshoot when the pointer decelerates or samples arrive in bursts (#14511).
+                let along =
+                    |velocity: f32, sign: f32| if velocity * sign > 0. { velocity } else { 0. };
                 return Some(VelocityEstimate {
                     velocity: Vector2D::new(
-                        res_x.coefficients()[1] * 1000.,
-                        res_y.coefficients()[1] * 1000.,
+                        along(res_x.coefficients()[1] * 1000., direction.x),
+                        along(res_y.coefficients()[1] * 1000., direction.y),
                     ),
                     confidence: res_x.confidence * res_y.confidence,
                 });
@@ -179,6 +188,23 @@ mod tests_general_velocity_tracker {
         tracker.push(start + Duration::from_millis(20), LogicalVector::new(0., 60.));
         let estimate = tracker.estimate_velocity_internal().unwrap();
         values_equal!(estimate.velocity.y, 6000., 0.1);
+    }
+
+    #[test]
+    fn decelerating_drag_does_not_reverse() {
+        // #14511: the quadratic fit used to point downward at the release.
+        let start = crate::animations::current_tick();
+        let mut tracker = GeneralVelocityTracker::<20>::default();
+        tracker.push(start, LogicalVector::default());
+        let y = |i: u64| -120. * (1. - (1. - i as f32 / 8.).powi(3));
+        for i in 1..=8 {
+            tracker.push(
+                start + Duration::from_millis(i * 15),
+                LogicalVector::new(0., y(i) - y(i - 1)),
+            );
+        }
+        let estimate = tracker.estimate_velocity_internal().unwrap();
+        assert!(estimate.velocity.y <= 0., "Received: {:?}", estimate.velocity.y);
     }
 
     #[test]

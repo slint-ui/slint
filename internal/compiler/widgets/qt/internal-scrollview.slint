@@ -64,7 +64,7 @@ export component InternalScrollView {
 // called "ListView", for the compiler to recognize it.
 export component ListView inherits InternalScrollView {
     // The body will be overwritten
-    public function ensure-row-visible(row: int, behavior: ScrollBehavior) {}
+    @shadowable public function ensure-row-visible(row: int, behavior: ScrollBehavior) {}
 
     @children
 }

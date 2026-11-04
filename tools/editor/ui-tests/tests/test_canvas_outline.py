@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 import slint_testing
-from canvas_interactions import center
+from canvas_interactions import center, without_snapping
 from source_snapshot import SourceSnapshot
 from ui_driver import (
     element,
@@ -34,9 +34,10 @@ def test_resize_starts_outside_visible_handle(
         end = slint_testing.LogicalPosition(x=start.x + 20, y=start.y + 16)
         button = slint_testing.PointerEventButton.Left
         window.dispatch_event(slint_testing.PointerMoveEvent(start))
-        window.dispatch_event(slint_testing.PointerPressEvent(start, button))
-        window.dispatch_event(slint_testing.PointerMoveEvent(end))
-        assert frame.size.width == pytest.approx(initial_width + 20)
-        assert frame.size.height == pytest.approx(initial_height + 16)
-        snapshot.assert_unchanged_now()
-        window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
+        with without_snapping(window):
+            window.dispatch_event(slint_testing.PointerPressEvent(start, button))
+            window.dispatch_event(slint_testing.PointerMoveEvent(end))
+            assert frame.size.width == pytest.approx(initial_width + 20)
+            assert frame.size.height == pytest.approx(initial_height + 16)
+            snapshot.assert_unchanged_now()
+            window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))

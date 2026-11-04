@@ -113,6 +113,7 @@ pub fn setup(
 
     api.on_copy_nine_slice_expression(|value| copy_to_clipboard(&value, "nine-slice expression"));
     api.on_copy_file_path(|path| copy_to_clipboard(&path, "file path"));
+    api.on_open_file(|path| open_with_default_application(Path::new(path.as_str())));
 
     controller
 }
@@ -123,6 +124,23 @@ fn copy_to_clipboard(text: &str, what: &str) {
         Ok(())
     }) {
         tracing::warn!("Failed to copy {what} to clipboard: {err}");
+    }
+}
+
+fn open_with_default_application(path: &Path) {
+    #[cfg(target_os = "windows")]
+    let mut command = {
+        let mut command = std::process::Command::new("cmd");
+        command.args(["/C", "start", ""]);
+        command
+    };
+    #[cfg(target_os = "macos")]
+    let mut command = std::process::Command::new("open");
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    let mut command = std::process::Command::new("xdg-open");
+
+    if let Err(err) = command.arg(path).spawn() {
+        tracing::warn!("Failed to open {}: {err}", path.display());
     }
 }
 
@@ -304,10 +322,7 @@ pub(in crate::preview) fn open_project(
     project: &Project<'_>,
 ) {
     let Ok(root) = root.to_file_path() else { return };
-    let Ok(root) = std::fs::canonicalize(root) else { return };
-    if !root.is_dir() {
-        return;
-    }
+    let root = std::fs::canonicalize(&root).unwrap_or(root);
     *controller.borrow_mut() = Some(FileTreeController::new(root, None));
 
     if let Some(file_tree) = controller.borrow().as_ref() {
@@ -1182,6 +1197,24 @@ mod tests {
 
         controller = Some(FileTreeController::new(second_tree.root.clone(), None));
         assert_eq!(controller.unwrap().root, std::fs::canonicalize(&second_tree.root).unwrap());
+    }
+
+    #[test]
+    fn unavailable_project_root_replaces_the_previous_tree() {
+        use slint::ComponentHandle;
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::super::EditorUi::new().unwrap();
+        let project = editor.global::<Project>();
+        let api = editor.global::<Api>();
+        let tree = TempTree::new();
+        tree.file("old.slint");
+        let controller = Rc::new(RefCell::new(None));
+        open_project(&controller, &Url::from_directory_path(&tree.root).unwrap(), &api, &project);
+        assert!(project.get_file_tree().iter().any(|row| row.label == "old.slint"));
+        let missing = tree.root.join("unavailable");
+        open_project(&controller, &Url::from_directory_path(&missing).unwrap(), &api, &project);
+        assert_eq!(controller.borrow().as_ref().unwrap().root, missing);
+        assert!(!project.get_file_tree().iter().any(|row| row.label == "old.slint"));
     }
 
     #[test]

@@ -52,6 +52,14 @@ impl PartialEq for ElementType {
 }
 
 impl ElementType {
+    /// The experimental feature that must be enabled to use this element
+    pub fn experimental_feature(&self) -> Option<crate::ExperimentalFeature> {
+        match self {
+            Self::Builtin(b) => b.experimental_feature,
+            _ => None,
+        }
+    }
+
     /// Resolve a name written in `.slint` source.
     /// Resolve `name` in the given [`PropertyLookupMode`]. See
     /// [`crate::object_tree::Element::lookup_property`]. Only a component or an interface can have
@@ -168,8 +176,12 @@ impl ElementType {
             }
             Self::Builtin(builtin) => {
                 let looked_up = tr.lookup_element(name);
+                let accepts_no_children = builtin.disallow_global_types_as_child_elements
+                    && builtin.additional_accepted_child_types.is_empty()
+                    && !builtin.additional_accept_self;
                 if let Ok(ElementType::Builtin(b)) = &looked_up
                     && b.can_be_declared_without_children_slot
+                    && !accepts_no_children
                 {
                     return Ok(ElementType::Builtin(b.clone()));
                 }
@@ -309,6 +321,8 @@ pub struct BuiltinElement {
     pub accepts_focus: bool,
     pub is_global: bool,
     pub default_size_binding: DefaultSizeBinding,
+    /// `Some(stretch)` when the element's layout info is the default one with that stretch.
+    pub constant_layout_info_stretch: Option<f64>,
     /// When true this is an internal type not shown in the auto-completion
     pub is_internal: bool,
     /// Documentation sections of the builtin element declaration, preserving source order.
@@ -320,6 +334,8 @@ pub struct BuiltinElement {
     pub can_be_declared_without_children_slot: bool,
     /// When true this element is part of the Slint SC (safety-critical) subset.
     pub slint_sc: bool,
+    /// The experimental feature that must be enabled to use this element
+    pub experimental_feature: Option<crate::ExperimentalFeature>,
 }
 
 /// How [`crate::object_tree::Element::lookup_property`] resolves a name.

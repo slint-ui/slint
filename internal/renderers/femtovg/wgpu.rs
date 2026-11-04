@@ -4,7 +4,6 @@
 // cSpell: ignore readback Texel unpadded
 use std::{cell::RefCell, pin::Pin, rc::Rc};
 
-use i_slint_core::item_rendering::ItemRenderer;
 use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::RendererSealed;
 use i_slint_core::{api::PhysicalSize as PhysicalWindowSize, graphics::RequestedGraphicsAPI};
@@ -353,6 +352,17 @@ impl GraphicsBackend for WGPUBackend {
 }
 
 impl FemtoVGRenderer<WGPUBackend> {
+    /// Returns true if the surface is presented with its alpha channel honored, i.e. the
+    /// transparent parts of the scene show whatever is behind the window.
+    pub fn presentation_may_use_transparency(&self) -> bool {
+        use wgpu::CompositeAlphaMode::{PostMultiplied, PreMultiplied};
+        self.graphics_backend.surface_config.try_borrow().ok().is_some_and(|config| {
+            config
+                .as_ref()
+                .is_some_and(|config| matches!(config.alpha_mode, PreMultiplied | PostMultiplied))
+        })
+    }
+
     /// Synchronously initialize the WGPU surface. This uses the blocking init path
     /// and works on all platforms except WASM.
     pub fn set_surface(
@@ -429,6 +439,10 @@ impl FemtoVGRenderer<WGPUBackend> {
             .copied()
             .unwrap_or_else(|| swapchain_capabilities.formats[0]);
         surface_config.format = swapchain_format;
+        // femtovg's backdrop blur copies the output texture before reading it.
+        if swapchain_capabilities.usages.contains(wgpu::TextureUsages::COPY_SRC) {
+            surface_config.usage |= wgpu::TextureUsages::COPY_SRC;
+        }
 
         if let Some(mode) = composite_alpha_mode(transparent, &swapchain_capabilities.alpha_modes) {
             surface_config.alpha_mode = mode;
@@ -600,6 +614,10 @@ impl FemtoVGWGPURenderer {
     }
 
     /// Render the scene to the given texture view, with the specified size and format.
+    ///
+    /// `BackdropBlur` needs `wgpu::TextureUsages::COPY_SRC` on the view's texture,
+    /// and the view must cover mip 0 of a single-layer texture.
+    /// Otherwise the backdrop stays sharp.
     pub fn render_to_texture_view(
         &self,
         texture_view: &wgpu::TextureView,
@@ -633,6 +651,8 @@ impl FemtoVGWGPURenderer {
 
     /// Render the scene to the given texture.
     /// This is a convenience method that creates a texture view for the entire texture and calls `render_to_texture_view`.
+    ///
+    /// `BackdropBlur` needs `wgpu::TextureUsages::COPY_SRC` on `texture`; see `render_to_texture_view`.
     pub fn render_to_texture(&self, texture: &wgpu::Texture) -> Result<(), PlatformError> {
         let size = texture.size();
         self.render_to_texture_view(
@@ -653,7 +673,6 @@ pub trait FemtoVGWGPURendererExt {
     ///
     /// Use this for a screen mounted in a different orientation than the window's,
     /// where the translation brings the rotated scene back into the texture.
-    /// `post_render_cb` draws on top of the finished scene, for a cursor the platform renders.
     ///
     /// Leaves the texture untouched where [`Self::can_draw`] is false.
     fn render_to_texture_transformed(
@@ -661,7 +680,6 @@ pub trait FemtoVGWGPURendererExt {
         texture: &wgpu::Texture,
         rotation_angle_degrees: f32,
         translation: (f32, f32),
-        post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
     ) -> Result<(), PlatformError>;
 
     /// Whether rendering draws anything, which it doesn't for a zero-sized window or without
@@ -676,7 +694,6 @@ impl FemtoVGWGPURendererExt for FemtoVGWGPURenderer {
         texture: &wgpu::Texture,
         rotation_angle_degrees: f32,
         translation: (f32, f32),
-        post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
     ) -> Result<(), PlatformError> {
         let size = texture.size();
         self.render_to_texture_view_impl(
@@ -686,11 +703,10 @@ impl FemtoVGWGPURendererExt for FemtoVGWGPURenderer {
             texture.format(),
             || {
                 // The texture is the screen, whose size the rotation needs, not the window's.
-                self.0.render_transformed_with_post_callback(
+                self.0.render_transformed(
                     rotation_angle_degrees,
                     translation,
                     PhysicalWindowSize::new(size.width, size.height),
-                    post_render_cb,
                 )
             },
         )

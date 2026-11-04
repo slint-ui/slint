@@ -4,7 +4,7 @@
 use chrono::NaiveDate;
 use slint::SharedString;
 
-slint::slint!(export { Booker } from "booker.slint";);
+slint::slint!(#[edition = "1.19"] export { Booker } from "booker.slint";);
 
 pub fn main() {
     let booker = Booker::new().unwrap();

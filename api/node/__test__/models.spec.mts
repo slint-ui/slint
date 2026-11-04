@@ -663,6 +663,15 @@ test("Model.map/.filter/.sort/.reverse compose into a chained view", () => {
     // automatically.
     source.push(10);
     expect(Array.from(chained)).toEqual([20, 40, 60, 80, 100]);
+
+    // Only the outermost adapter runs its JS rowData; the chain reads its sources natively.
+    const rowData = vi.spyOn(
+        Object.getPrototypeOf(FilterModel.prototype),
+        "rowData",
+    );
+    expect(chained.rowData(0)).toBe(20);
+    expect(rowData).toHaveBeenCalledTimes(1);
+    rowData.mockRestore();
 });
 
 test("ReverseModel notifies the run-time", () => {
@@ -775,4 +784,78 @@ test("An adapter reports an exception raised while it handles a change notificat
     } finally {
         consoleError.mockRestore();
     }
+});
+
+test("setRowData on an array declared in Slint", () => {
+    const demo = loadSource(
+        `struct Item { name: string, tags: [string] }
+        export global Store {
+            in-out property <[int]> values: [10, 20];
+            in-out property <Item> current: { name: "c", tags: ["t"] };
+        }
+        export component App {
+            callback received([int]);
+            public function send() { received(numbers); }
+            in-out property <[int]> numbers: [1, 2, 3];
+            in-out property <[int]> copy;
+            in-out property <[Item]> items: [{ name: "a", tags: ["x", "y"] }];
+            out property <int> sum: numbers[0] + numbers[1] + numbers[2];
+            out property <string> first-tag: items[0].tags[0];
+            out property <int> store-sum: Store.values[0] + Store.values[1];
+        }`,
+        "",
+    ) as any;
+    const app = new demo.App();
+
+    // Writing used to be ignored with an error message, see #875.
+    app.numbers.setRowData(0, 100);
+    expect(app.sum).toBe(105);
+    expect(Array.from(app.numbers)).toStrictEqual([100, 2, 3]);
+
+    app.items.rowData(0).tags.setRowData(0, "z");
+    expect(app.first_tag).toBe("z");
+
+    const item = app.items.rowData(0);
+    item.name = "b";
+    app.items.setRowData(0, item);
+    expect(app.items.rowData(0).name).toBe("b");
+
+    app.Store.values.setRowData(1, 5);
+    expect(app.store_sum).toBe(15);
+
+    app.copy = app.numbers;
+    app.copy.setRowData(1, 7);
+    expect(app.sum).toBe(110);
+
+    expect(() => app.numbers.setRowData(3, 4)).toThrow(
+        "setRowData: row 3 is out of range for a model of 3 rows",
+    );
+    expect(app.numbers.rowData(3)).toBe(undefined);
+
+    for (const row of app.items) {
+        row.tags.setRowData(1, "w");
+    }
+    expect(Array.from(app.items.rowData(0).tags)).toStrictEqual(["z", "w"]);
+
+    app.Store.current.tags.setRowData(0, "u");
+    expect(Array.from(app.Store.current.tags)).toStrictEqual(["u"]);
+
+    // A model passed to a callback doesn't know the type of its rows.
+    let received: any;
+    app.received = (model: any) => {
+        received = model;
+    };
+    app.send();
+    const consoleError = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+    try {
+        received.setRowData(0, 1);
+        expect(consoleError).toHaveBeenCalledWith(
+            expect.stringContaining("setRowData called on a model"),
+        );
+    } finally {
+        consoleError.mockRestore();
+    }
+    expect(app.numbers.rowData(0)).toBe(100);
 });

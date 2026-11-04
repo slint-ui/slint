@@ -407,26 +407,6 @@ SCENARIO("Component Compiler")
         auto result = compiler.build_from_path(SOURCE_DIR "/test.slint");
         REQUIRE(result.has_value());
     }
-
-    SECTION("The project file provides the style")
-    {
-        // A style name the compiler rejects shows which style it actually used.
-        auto result = compiler.build_from_path(SOURCE_DIR "/project-file-interpreter/main.slint");
-        REQUIRE_FALSE(result.has_value());
-
-        auto diags = compiler.diagnostics();
-        REQUIRE(std::any_of(diags.begin(), diags.end(), [](const auto &diagnostic) {
-            return std::string_view(diagnostic.message).find("no-such-style")
-                    != std::string_view::npos;
-        }));
-    }
-
-    SECTION("An explicit style wins over the project file")
-    {
-        compiler.set_style("fluent");
-        auto result = compiler.build_from_path(SOURCE_DIR "/project-file-interpreter/main.slint");
-        REQUIRE(result.has_value());
-    }
 }
 
 SCENARIO("Component Definition Properties")

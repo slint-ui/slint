@@ -1,43 +1,82 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Switch, BasicTheme } from "../src/basic.slint";
+import {
+    SwitchStyle,
+    SwitchStyles,
+    BasicTheme,
+    Switch,
+} from "../src/basic.slint";
 import { SwitchBase } from "../src/headless.slint";
+import { PreviewSwitch } from "preview_controls.slint";
 import { ExampleSection } from "section.slint";
+import { PreviewSettings } from "preview_settings.slint";
 
 export component SwitchExamples inherits Rectangle {
     vertical-stretch: 0;
+    in property <SwitchStyle> preview-style: SwitchStyles.standard;
+    in-out property <int> size-index: 1;
+    in-out property <bool> preview-disabled;
+
     in-out property <int> toggles;
     in-out property <int> custom-toggles;
 
     VerticalLayout {
         spacing: 20px;
+        PreviewSettings {
+            control-name: "Switch";
+            size-index <=> root.size-index;
+            disabled <=> root.preview-disabled;
+        }
+
         ExampleSection {
             title: "Base theme";
             description: "Off, on, and disabled switches using BasicTheme.";
-            HorizontalLayout {
+            FlexboxLayout {
                 spacing: 12px;
-                standard := Switch {
+                cross-axis-alignment: start;
+                cross-axis-line-alignment: start;
+                standard := PreviewSwitch {
+                    style: root.preview-style;
+                    size-index: root.size-index;
+                    enabled: !root.preview-disabled;
                     text: "Notifications";
                     toggled => { root.toggles += 1; }
                 }
 
-                Switch {
+                PreviewSwitch {
+                    style: root.preview-style;
+                    size-index: root.size-index;
+                    enabled: !root.preview-disabled;
                     text: "Autosave";
                     checked: true;
                     toggled => { root.toggles += 1; }
                 }
 
-                Switch {
-                    text: "Disabled";
+                PreviewSwitch {
+                    style: root.preview-style;
+                    size-index: root.size-index;
                     enabled: false;
+                    text: "Disabled";
+                }
+
+                Switch {
+                    text: "";
+                    track-height: 12px;
+                    vertical-padding: 0px;
+                }
+
+                Switch {
+                    text: "Enable notifications\nFor messages and updates";
                 }
             }
 
-            Switch {
+            PreviewSwitch {
+                style: root.preview-style;
+                size-index: root.size-index;
+                enabled: false;
                 text: "Disabled on";
                 checked: true;
-                enabled: false;
             }
 
             Rectangle {
@@ -57,129 +96,66 @@ export component SwitchExamples inherits Rectangle {
 
         ExampleSection {
             title: "Custom switches";
-            description: "Override colors and dimensions, supply headless visuals, or replace the label.";
+            description: "Set a checked color, supply headless visuals, or bind the label to the checked state.";
             VerticalLayout {
                 spacing: 12px;
-                Switch {
-                    text: "Color override";
+                PreviewSwitch {
+                    style: root.preview-style;
+                    checked-color: #0f766e;
+                    size-index: root.size-index;
+                    enabled: !root.preview-disabled;
+                    text: "Custom checked color";
                     checked: true;
-                    track-color: self.checked ? #0f766e : BasicTheme.background;
-                    foreground: #115e59;
-                    track-width: 48px;
-                    track-height: 26px;
-                    thumb-size: 20px;
                     toggled => { root.custom-toggles += 1; }
                 }
 
                 bare := SwitchBase {
+                    enabled: !root.preview-disabled;
                     text: "Headless switch";
-                    content-padding: 6px;
-                    indicator << Rectangle {
-                        background: bare.checked ? #7c3aed : #f5f3ff;
-                        border-color: bare.has-focus ? #5b21b6 : #a78bfa;
-                        border-width: bare.has-focus ? 2px : 1px;
-                        border-radius: 4px;
+                    spacing: 8px;
+                    horizontal-padding: 6px;
+                    vertical-padding: 6px;
+                    content << VerticalLayout {
+                        padding-left: bare.left-padding;
+                        padding-right: bare.right-padding;
+                        padding-top: bare.top-padding;
+                        padding-bottom: bare.bottom-padding;
+                        spacing: bare.spacing;
+                        cross-axis-alignment: center;
                         Rectangle {
-                            width: 14px;
-                            height: parent.height - 6px;
-                            x: bare.checked ? parent.width - self.width - 3px : 3px;
-                            y: 3px;
-                            background: bare.checked ? white : #7c3aed;
-                            border-radius: 2px;
+                            width: 40px;
+                            height: 22px;
+                            vertical-stretch: 0;
+                            background: bare.checked ? #7c3aed : #f5f3ff;
+                            border-color: bare.has-focus ? #5b21b6 : #a78bfa;
+                            border-width: bare.has-focus ? 2px : 1px;
+                            border-radius: 4px;
+                            Rectangle {
+                                width: 14px;
+                                height: parent.height - 6px;
+                                x: bare.checked ? parent.width - self.width - 3px : 3px;
+                                y: 3px;
+                                background: bare.checked ? white : #7c3aed;
+                                border-radius: 2px;
+                            }
                         }
-                    }
-                    content << Text {
-                        text: bare.text;
-                        color: #5b21b6;
-                        font-size: 14px;
-                        vertical-alignment: center;
+                        Text {
+                            text: bare.text;
+                            color: #5b21b6;
+                            font-size: 14px;
+                            vertical-alignment: center;
+                        }
                     }
                     toggled => { root.custom-toggles += 1; }
                 }
 
-                custom := SwitchBase {
-                    in property <length> track-width: 40px;
-                    in property <length> track-height: 22px;
-                    in property <length> thumb-size: 16px;
-                    in property <length> thumb-padding: 3px;
-                    in property <length> track-radius: custom.track-height / 2;
-                    in property <length> thumb-radius: custom.thumb-size / 2;
-                    private property <brush> state-track: custom.checked ? BasicTheme.accent : BasicTheme.background;
-                    private property <brush> state-thumb: custom.checked ? BasicTheme.accent-foreground : BasicTheme.foreground;
-                    private property <brush> state-foreground: BasicTheme.foreground;
-                    in property <brush> track-color: custom.state-track;
-                    in property <brush> track-border-color: !custom.enabled ? BasicTheme.disabled-foreground
-                        : custom.checked ? custom.track-color : BasicTheme.border;
-                    in property <length> track-border-width: 1px;
-                    in property <brush> thumb-color: custom.state-thumb;
-                    in property <brush> foreground: custom.state-foreground;
-                    in property <length> font-size: 14px;
-                    in property <int> font-weight: 400;
+                custom := PreviewSwitch {
+                    style: root.preview-style;
+                    size-index: root.size-index;
+                    enabled: !root.preview-disabled;
+                    accessible-label: "Custom switch content";
+                    text: "Cloud sync · " + (self.checked ? "On" : "Off");
 
-                    indicator-width: custom.track-width;
-                    indicator-height: custom.track-height;
-                    content-padding: 6px;
-
-                    states [
-                        disabled when !custom.enabled: {
-                            custom.state-track: BasicTheme.disabled-background;
-                            custom.state-thumb: BasicTheme.disabled-foreground;
-                            custom.state-foreground: BasicTheme.disabled-foreground;
-                        }
-                        pressed when custom.pressed: {
-                            custom.state-track: custom.checked ? BasicTheme.accent-pressed : BasicTheme.pressed-background;
-                        }
-                        hover when custom.hovered: {
-                            custom.state-track: custom.checked ? BasicTheme.accent-hover : BasicTheme.hover-background;
-                        }
-                    ]
-
-                    indicator << Rectangle {
-                        background: custom.track-color;
-                        border-color: custom.track-border-color;
-                        border-width: custom.track-border-width;
-                        border-radius: custom.track-radius;
-
-                        Rectangle {
-                            width: min(custom.thumb-size, max(0px, min(parent.width, parent.height) - 2 * custom.thumb-padding));
-                            height: self.width;
-                            x: custom.checked ? max(0px, parent.width - self.width - custom.thumb-padding) : custom.thumb-padding;
-                            y: (parent.height - self.height) / 2;
-                            background: custom.thumb-color;
-                            border-radius: custom.thumb-radius;
-                        }
-
-                        if custom.enabled && custom.has-focus: Rectangle {
-                            x: -3px;
-                            y: -3px;
-                            width: parent.width + 6px;
-                            height: parent.height + 6px;
-                            border-width: 2px;
-                            border-color: BasicTheme.focus;
-                            border-radius: custom.track-radius + 2px;
-                        }
-                    }
-                    text: "Custom switch content";
-
-                    content << HorizontalLayout {
-                        spacing: 8px;
-                        alignment: start;
-                        Text {
-                            text: "Cloud sync";
-                            color: custom.foreground;
-                            font-size: custom.font-size;
-                            horizontal-stretch: 0;
-                            vertical-alignment: center;
-                        }
-
-                        Text {
-                            text: custom.checked ? "On" : "Off";
-                            color: BasicTheme.disabled-foreground;
-                            font-size: 12px;
-                            horizontal-stretch: 0;
-                            vertical-alignment: center;
-                        }
-                    }
                     toggled => { root.custom-toggles += 1; }
                 }
             }

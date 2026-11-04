@@ -8,17 +8,18 @@ export component TestCaseAfterHover inherits Window {
 
     TouchArea {
         clicked => { root.counter += 1; }
-    }
-    Flickable {
-        width: 100px;
-        height: 100px;
-        content-width: 100px;
-        content-height: 200px;
 
-        Rectangle {
+        Flickable {
             width: 100px;
-            height: 200px;
-            background: gray;
+            height: 100px;
+            content-width: 100px;
+            content-height: 200px;
+
+            Rectangle {
+                width: 100px;
+                height: 200px;
+                background: gray;
+            }
         }
     }
 
@@ -31,17 +32,18 @@ export component TestCaseDelayedStartDrag inherits Window {
 
     TouchArea {
         clicked => { root.counter += 1; }
-    }
-    flick := Flickable {
-        width: 100px;
-        height: 100px;
-        content-width: 100px;
-        content-height: 200px;
 
-        Rectangle {
+        flick := Flickable {
             width: 100px;
-            height: 200px;
-            background: gray;
+            height: 100px;
+            content-width: 100px;
+            content-height: 200px;
+
+            Rectangle {
+                width: 100px;
+                height: 200px;
+                background: gray;
+            }
         }
     }
 
@@ -55,31 +57,48 @@ export component TestCaseSecondFinger inherits Window {
 
     TouchArea {
         clicked => { root.counter += 1; }
-    }
-    Flickable {
-        width: 200px;
-        height: 200px;
-        content-width: 300px;
-        content-height: 300px;
+
+        Flickable {
+            width: 200px;
+            height: 200px;
+            content-width: 300px;
+            content-height: 300px;
+        }
     }
 
     out property <int> counter: 0;
 }
 
 export component TestCaseSwipeGestureHandler inherits Window {
-    width: 100px;
+    width: 200px;
     height: 100px;
 
     TouchArea {
+        x: 0;
+        width: 100px;
         clicked => { root.counter += 1; }
+
+        SwipeGestureHandler {
+            width: 100px;
+            height: 100px;
+            handle-swipe-down: true;
+        }
+    }
+
+    TouchArea {
+        x: 100px;
+        width: 100px;
+        clicked => { root.sibling-counter += 1; }
     }
     SwipeGestureHandler {
+        x: 100px;
         width: 100px;
         height: 100px;
         handle-swipe-down: true;
     }
 
     out property <int> counter: 0;
+    out property <int> sibling-counter: 0;
 }
 
 /*
@@ -130,6 +149,10 @@ instance.window().dispatch_event(WindowEvent::PointerPressed { position: Logical
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(50.0, 53.0) });
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(50.0, 53.0), button: PointerEventButton::Left });
 assert_eq!(instance.get_counter(), 2);
+
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(150.0, 50.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(150.0, 50.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_sibling_counter(), 0);
 ```
 
 ```rust

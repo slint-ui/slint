@@ -3,7 +3,6 @@
 
 //! Render with vello on WGPU, onto a DRM plane.
 
-use i_slint_core::item_rendering::ItemRenderer;
 use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::DrawOutcome;
 use i_slint_renderer_anyrender::VelloRenderer;
@@ -49,15 +48,9 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for VelloRendererAdapter
     fn render_and_present(
         &self,
         rotation: RenderingRotation,
-        draw_mouse_cursor_callback: &dyn Fn(&mut dyn ItemRenderer),
     ) -> Result<DrawOutcome, PlatformError> {
-        self.renderer.render_with_options(
-            rotation.degrees(),
-            rotation.translation_after_rotation(self.size),
-            Some(&|item_renderer| {
-                draw_mouse_cursor_callback(item_renderer);
-            }),
-        )
+        self.renderer
+            .render_transformed(rotation.degrees(), rotation.translation_after_rotation(self.size))
     }
 
     fn size(&self) -> i_slint_core::api::PhysicalSize {

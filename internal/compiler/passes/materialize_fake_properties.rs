@@ -8,9 +8,8 @@
 use crate::diagnostics::Spanned;
 use crate::element_type::{ElementType, PropertyLookupMode};
 use crate::expression_tree::{BindingExpression, Expression};
-use crate::expression_types::Unit;
+use crate::expression_types::{Orientation, Unit};
 use crate::langtype::Type;
-use crate::layout::Orientation;
 use crate::namedreference::NamedReference;
 use crate::object_tree::*;
 use smol_str::SmolStr;
@@ -216,15 +215,13 @@ pub fn initialize(elem: &ElementRc, name: &str) -> Option<Expression> {
 }
 
 fn layout_constraint_prop(elem: &ElementRc, field: &str, orient: Orientation) -> Expression {
-    let expr = match elem.borrow().effective_layout_info_prop(orient) {
-        Some(e) => Expression::PropertyReference(e.clone()),
-        None => crate::layout::implicit_layout_info_call(
-            elem,
-            orient,
-            crate::layout::BuiltinFilter::All,
-            None,
-        )
-        .unwrap(),
+    let layout_info_prop = elem.borrow().effective_layout_info_prop(orient).cloned();
+    let expr = match layout_info_prop {
+        Some(e) => Expression::PropertyReference(e),
+        None => {
+            crate::layout::implicit_layout_info(elem, orient, crate::layout::BuiltinFilter::All)
+                .unwrap()
+        }
     };
     Expression::StructFieldAccess { base: expr.into(), name: field.into() }
 }

@@ -6,9 +6,16 @@ import { EditorWindow } from "../index.slint";
 import { EditorScrollView } from "../editor-scroll-view.slint";
 import { InspectorIconButton } from "icon-button.slint";
 
-export component InspectorPickerPanel inherits Rectangle {
+import { InspectorSegment } from "segment.slint";
+
+import { FloatingSurface } from "../floating-surface.slint";
+
+export component InspectorPickerPanel inherits FloatingSurface {
     in property <FillPickerStyle> style: Style.fill-picker;
     in property <string> title;
+    in property <bool> show-fill-modes;
+    in property <bool> gradient;
+    callback mode-selected(bool);
     in-out property <Point> window-position;
     in property <Point> parent-origin;
     callback closed();
@@ -17,6 +24,7 @@ export component InspectorPickerPanel inherits Rectangle {
     private property <length> vertical-margin: min(root.style.margin, max(0px, root.available-space.height / 2));
     private property <Size> available-space: { width: EditorWindow.width - root.width, height: EditorWindow.height - root.height };
     private property <Point> drag-offset;
+    private property <length> mode-width: 2 * (Style.field.height + Metrics.space-small);
 
     pure function bounded-position(position: Point) -> Point {
         return {
@@ -43,15 +51,12 @@ export component InspectorPickerPanel inherits Rectangle {
     x: root.window-position.x - root.parent-origin.x;
     y: root.window-position.y - root.parent-origin.y;
     width: min(root.style.width, max(0px, EditorWindow.width - 2 * root.style.margin));
-    preferred-height: body-layout.preferred-height + header.height + divider.height + 4 * Metrics.space-medium;
+    preferred-height: root.style.body-top + body-layout.preferred-height + Metrics.space-large;
     height: min(self.preferred-height, max(0px, EditorWindow.height - 2 * root.style.margin));
     background: root.style.background;
     border-width: Metrics.border-width;
     border-color: root.style.border;
     border-radius: root.style.radius;
-    drop-shadow-color: root.style.shadow.color;
-    drop-shadow-blur: root.style.shadow.blur;
-    drop-shadow-offset-y: root.style.shadow.offset-y;
 
     TouchArea {
         pointer-event(event) => {
@@ -61,20 +66,21 @@ export component InspectorPickerPanel inherits Rectangle {
     }
 
     header := Rectangle {
-        x: Metrics.space-medium;
+        x: Metrics.space-large;
         y: Metrics.space-medium;
-        width: max(0px, parent.width - 2 * Metrics.space-medium);
-        height: Style.inspector-field.height;
+        width: max(0px, parent.width - 2 * Metrics.space-large);
+        height: Metrics.control-small;
         Text {
-            width: max(0px, parent.width - close-button.width - Metrics.space-small);
+            x: 0px;
+            width: max(0px, parent.width - close-button.width - Metrics.space-small - (root.show-fill-modes ? root.mode-width + Metrics.space-medium : 0px));
             text: root.title;
             color: Colors.foreground;
-            font-size: Typography.body.size;
-            font-weight: FontWeight.bold;
+            font-size: Typography.action.size;
+            font-weight: FontWeight.semi-bold;
             vertical-alignment: center;
         }
         drag-handle := TouchArea {
-            width: max(0px, parent.width - close-button.width - Metrics.space-small);
+            width: max(0px, parent.width - close-button.width - Metrics.space-small - (root.show-fill-modes ? root.mode-width + Metrics.space-medium : 0px));
             mouse-cursor: self.pressed ? grabbing : grab;
             accessible-role: button;
             accessible-label: @tr("Move {} picker", root.title);
@@ -93,7 +99,24 @@ export component InspectorPickerPanel inherits Rectangle {
                 }
             }
         }
+        if root.show-fill-modes: Rectangle {
+            x: parent.width - close-button.width - Metrics.space-medium - self.width;
+            width: root.mode-width; height: Style.field.height;
+            for gradient[i] in [false, true]: InspectorSegment {
+                x: i * (Style.field.height + Metrics.space-small);
+                width: Style.field.height; height: Style.field.height;
+                selected: root.gradient == gradient;
+                label: gradient ? @tr("Gradient") : @tr("Solid");
+                Image { width: 18px; height: 18px;
+                    source: gradient ? @image-url("../../assets/fill-gradient.svg") : @image-url("../../assets/fill-solid.svg");
+                    colorize: root.gradient == gradient ? Colors.foreground : Colors.muted;
+                }
+                clicked => { root.mode-selected(gradient); }
+                Tooltip { text: @markdown("\{gradient ? @tr("Gradient") : @tr("Solid")}"); }
+            }
+        }
         close-button := InspectorIconButton {
+            width: Style.field.height; height: Style.field.height;
             x: parent.width - self.width;
             kind: "close";
             label: @tr("Close {}", root.title);
@@ -101,16 +124,16 @@ export component InspectorPickerPanel inherits Rectangle {
         }
     }
     divider := Rectangle {
-        x: Metrics.space-medium;
-        y: header.y + header.height + Metrics.space-medium;
-        width: max(0px, parent.width - 2 * Metrics.space-medium);
+        x: Metrics.space-large;
+        y: header.y + header.height + Metrics.space-tight;
+        width: max(0px, parent.width - 2 * Metrics.space-large);
         height: Metrics.border-width;
-        background: root.style.border;
+        background: Style.inspector-layout.divider;
     }
     body := EditorScrollView {
-        x: Metrics.space-medium;
-        y: divider.y + divider.height + Metrics.space-medium;
-        width: max(0px, parent.width - 2 * Metrics.space-medium);
+        x: Metrics.space-large;
+        y: root.style.body-top;
+        width: max(0px, parent.width - 2 * Metrics.space-large);
         height: max(0px, parent.height - self.y - Metrics.space-medium);
         content-width: self.visible-width;
         content-height: body-content.height;

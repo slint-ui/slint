@@ -41,10 +41,6 @@ if(IOS)
 
     # Apps on iOS can't ship their own dynamic libraries outside of a framework
     set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
-
-    if(NOT SLINT_STYLE)
-        set(SLINT_STYLE "cupertino" CACHE STRING "" FORCE)
-    endif()
 endif()
 
 # When building for Android (NDK toolchain sets CMAKE_SYSTEM_NAME to "Android"),
@@ -66,11 +62,6 @@ if(ANDROID)
 
     # Android requires a shared library
     set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE)
-
-    # Default to Material style on Android
-    if(NOT SLINT_STYLE)
-        set(SLINT_STYLE "material" CACHE STRING "" FORCE)
-    endif()
 endif()
 
 # When building with the Emscripten toolchain, build for its Rust target and pick platform-level defaults.
@@ -305,6 +296,8 @@ if (SLINT_BUILD_RUNTIME)
         else()
             set_property(GLOBAL PROPERTY SLINT_STYLE ${SLINT_STYLE})
         endif()
+    else()
+        set_property(GLOBAL PROPERTY SLINT_STYLE "fluent")
     endif()
 
     # Build environments such as buildroot set PKG_CONFIG_SYSROOT_DIR in their toolchain file
@@ -477,6 +470,11 @@ if (SLINT_BUILD_RUNTIME)
 
     if(WIN32)
         install(FILES $<TARGET_LINKER_FILE:${slint_cpp_impl}> TYPE LIB)
+        # Cargo names the MSVC import library `slint_cpp.dll.lib`, but build systems other than
+        # CMake, look for `slint_cpp.lib`.
+        if(MSVC AND BUILD_SHARED_LIBS)
+            install(FILES $<TARGET_LINKER_FILE:${slint_cpp_impl}> TYPE LIB RENAME slint_cpp.lib)
+        endif()
     endif()
 
 endif(SLINT_BUILD_RUNTIME)

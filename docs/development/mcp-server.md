@@ -77,6 +77,24 @@ Root element handles for tracked windows are never evicted.
 
 When a handle is resolved via `IntrospectionState::element()`, the returned `ElementHandle` is checked with `is_valid()`. If the underlying UI element has been destroyed (e.g. the component was removed), the stale handle is cleaned up and an error is returned.
 
+### Testable Properties
+
+`element_properties()` fills `testableProperties` from `ElementHandle::testable_properties()`
+and `testable_property_value()`.
+They read the compiler-emitted per-element property table
+through `ItemTreeVTable::element_testable_properties` and `element_testable_property_value`
+(see `SubComponent::testable_properties` in the compiler's LLR).
+Values cross the vtable as strings in the `i_slint_core::debug_info` encoding;
+`mcp_server.rs::convert_testable_property_values` retypes them into JSON booleans and
+numbers for both `get_element_properties` and `get_element_tree`.
+The table exists only when the application was compiled with debug info.
+An item tree whose generator doesn't implement the entries reports "unsupported",
+which surfaces as a `note` instead of an empty list.
+Only properties declared with the experimental
+[`@testable` attribute](../astro/src/content/docs/guide/experimental/testable.mdx) are in the table,
+whatever their visibility.
+The compiler keeps them and their bindings alive, so the listing never depends on the optimizer.
+
 ## MCP Transport (`mcp_server.rs`)
 
 ### Protocol

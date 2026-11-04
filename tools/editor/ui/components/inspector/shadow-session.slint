@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Api, InspectorNumberChange, InspectorCommitResult } from "../../api.slint";
+import { Api, InspectorNumberChange } from "../../api.slint";
 import { CanvasView } from "../canvas-view.slint";
 import { FillSession } from "fill-session.slint";
 import { Diagnostics } from "../../diagnostics.slint";
@@ -20,13 +20,17 @@ export struct ShadowValues {
 }
 
 export global ShadowSession {
+    out property <bool> inner;
+    out property <string> prefix: Api.shadow-prefix(inner);
+    out property <string> title: ShadowSession.label(inner);
+    out property <float> direction: inner ? -1 : 1;
     out property <bool> open;
     out property <bool> dragging;
     in-out property <bool> canvas-focus;
     out property <float> maximum-blur: 128;
     out property <float> minimum-spread: -64;
     out property <float> maximum-spread: 64;
-    private property <bool> shadow-exists: Api.has-shadow("drop-shadow-");
+    private property <bool> shadow-exists: Api.has-shadow(prefix);
     out property <bool> canvas-visible: open && !Diagnostics.preview-status-visible
         && shadow-exists && selection-key == target-selection-key
         && Api.current-element.type-name == "Rectangle" && Api.selection.highlight-index >= 0;
@@ -38,18 +42,22 @@ export global ShadowSession {
     private property <string> gesture-key;
     out property <ShadowGesture> gesture;
     private property <ShadowValues> draft;
-    out property <bool> pending;
-    private property <int> pending-source-version;
     private property <ShadowValues> source-values: {
-        offset-x: Api.number-property("drop-shadow-offset-x", 0),
-        offset-y: Api.number-property("drop-shadow-offset-y", 8),
-        blur: Api.number-property("drop-shadow-blur", 16),
-        spread: Api.number-property("drop-shadow-spread", 0),
+        offset-x: Api.number-property(prefix + "offset-x", 0),
+        offset-y: Api.number-property(prefix + "offset-y", 8),
+        blur: Api.number-property(prefix + "blur", 16),
+        spread: Api.number-property(prefix + "spread", 0),
     };
-    out property <ShadowValues> values: dragging || pending ? draft : source-values;
+    out property <ShadowValues> values: dragging ? draft : {
+        offset-x: Api.editor-number-property(prefix + "offset-x", 0),
+        offset-y: Api.editor-number-property(prefix + "offset-y", 8),
+        blur: Api.editor-number-property(prefix + "blur", 16),
+        spread: Api.editor-number-property(prefix + "spread", 0),
+    };
     out property <Point> anchor-position;
     out property <Size> anchor-size;
     out property <int> opening-generation;
+    out property <int> anchor-focus-generation;
 
     changed selection-key => { ShadowSession.check-selection(); }
     changed shadow-exists => { ShadowSession.check-selection(); }
@@ -78,9 +86,33 @@ export global ShadowSession {
         };
     }
 
-    public function begin(position: Point, size: Size) {
+    public pure function label(inner: bool) -> string {
+        return inner ? @tr("Inner shadow") : @tr("Drop shadow");
+    }
+
+    public pure function moved(values: ShadowValues, gesture: ShadowGesture, dx: float, dy: float, blur-scale: float) -> ShadowValues {
+        return ShadowSession.updated(values, gesture,
+            gesture == ShadowGesture.offset ? values.offset-x + dx
+                : gesture == ShadowGesture.blur ? values.blur - ShadowSession.direction * dy * blur-scale : values.spread + ShadowSession.direction * dx,
+            values.offset-y + dy);
+    }
+
+    public function focus-anchor(position: Point) -> bool {
+        let origin = ShadowSession.anchor-position;
+        let size = ShadowSession.anchor-size;
+        if !ShadowSession.open || position.x < origin.x || position.y < origin.y
+            || position.x >= origin.x + size.width || position.y >= origin.y + size.height {
+            return false;
+        }
+        ShadowSession.canvas-focus = false;
+        ShadowSession.anchor-focus-generation += 1;
+        return true;
+    }
+
+    public function begin(position: Point, size: Size, inner: bool) {
         FillSession.close-picker(true, false);
         ShadowSession.cancel();
+        ShadowSession.inner = inner;
         ShadowSession.anchor-position = position;
         ShadowSession.anchor-size = size;
         ShadowSession.target-selection-key = ShadowSession.selection-key;
@@ -89,27 +121,18 @@ export global ShadowSession {
         ShadowSession.opening-generation += 1;
     }
     public function close() {
-        ShadowSession.pending = false;
         if ShadowSession.open {
             ShadowSession.cancel();
             ShadowSession.open = false;
             ShadowSession.canvas-focus = false;
-            if FillSession.open && FillSession.request.target.property-name == "drop-shadow-color" {
+            if FillSession.open && FillSession.request.target.property-name == ShadowSession.prefix + "color" {
                 FillSession.close-picker(true, false);
             }
         }
     }
-    public function source-refreshed() {
-        if ShadowSession.source-values == ShadowSession.draft
-            || Api.current-element.source-version != ShadowSession.pending-source-version {
-            ShadowSession.pending = false;
-        }
-    }
     public function start(gesture: ShadowGesture, canvas: bool) {
-        if ShadowSession.pending { return; }
         if !ShadowSession.canvas-active { ShadowSession.close(); return; }
         let values = ShadowSession.values;
-        ShadowSession.pending = false;
         FillSession.close-picker(true, false);
         ShadowSession.draft = values;
         ShadowSession.gesture = gesture;
@@ -121,17 +144,16 @@ export global ShadowSession {
     pure function changes(gesture: ShadowGesture, values: ShadowValues) -> [InspectorNumberChange] {
         if gesture == ShadowGesture.offset {
             return [
-                { name: "drop-shadow-offset-x", value: values.offset-x.round() },
-                { name: "drop-shadow-offset-y", value: values.offset-y.round() },
+                { name: ShadowSession.prefix + "offset-x", value: values.offset-x.round() },
+                { name: ShadowSession.prefix + "offset-y", value: values.offset-y.round() },
             ];
         }
         return [{
-            name: gesture == ShadowGesture.blur ? "drop-shadow-blur" : "drop-shadow-spread",
+            name: ShadowSession.prefix + (gesture == ShadowGesture.blur ? "blur" : "spread"),
             value: gesture == ShadowGesture.blur ? max(0, values.blur.round()) : values.spread.round(),
         }];
     }
     public function preview(values: ShadowValues) -> bool {
-        if ShadowSession.pending { return false; }
         if !ShadowSession.canvas-active { ShadowSession.close(); return false; }
         if !ShadowSession.dragging { return false; }
         if Api.inspector-preview-shadow(ShadowSession.gesture-key, ShadowSession.changes(ShadowSession.gesture, values)) {
@@ -142,26 +164,20 @@ export global ShadowSession {
         return false;
     }
     public function commit(gesture: ShadowGesture, values: ShadowValues) -> bool {
-        if ShadowSession.pending { return false; }
         if !ShadowSession.canvas-active { ShadowSession.close(); return false; }
         let source = ShadowSession.source-values;
         let unchanged = gesture == ShadowGesture.offset ? values.offset-x == source.offset-x && values.offset-y == source.offset-y
             : gesture == ShadowGesture.blur ? values.blur == source.blur : values.spread == source.spread;
         if unchanged { ShadowSession.cancel(); return true; }
         let key = ShadowSession.dragging ? ShadowSession.gesture-key : ShadowSession.key;
-        ShadowSession.draft = values;
         ShadowSession.dragging = false;
         CanvasView.manipulating = false;
         ShadowSession.gesture = gesture;
-        ShadowSession.pending-source-version = Api.current-element.source-version;
-        ShadowSession.pending = true;
-        let result = Api.inspector-commit-shadow(key, ShadowSession.changes(gesture, values));
-        ShadowSession.pending = result == InspectorCommitResult.pending;
-        if result == InspectorCommitResult.rejected { Api.inspector-cancel(); }
-        return result != InspectorCommitResult.rejected;
+        let accepted = Api.inspector-commit-shadow(key, ShadowSession.changes(gesture, values));
+        if !accepted { Api.inspector-cancel(); }
+        return accepted;
     }
     public function cancel() {
-        ShadowSession.pending = false;
         if ShadowSession.dragging {
             ShadowSession.dragging = false;
             CanvasView.manipulating = false;

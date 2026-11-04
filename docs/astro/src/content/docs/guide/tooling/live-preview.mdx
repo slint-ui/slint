@@ -1,5 +1,5 @@
 ---
-title: Live Preview for Rust and C++
+title: Live Preview in Your Application
 description: Reload .slint files at run time while your application is running
 ---
 
@@ -10,6 +10,7 @@ import LangRefLink from '@slint/common-files/src/components/LangRefLink.astro';
 When building a Slint application in Rust or C++,
 `.slint` files are normally compiled ahead of time into native code.
 This means every UI change requires recompiling and restarting the application.
+A Node.js application compiles them when it loads them, so every UI change requires restarting it.
 
 The **live preview** feature lets your running application watch `.slint` files on disk
 and reload them automatically when they change.
@@ -24,13 +25,14 @@ here the preview runs inside your application, wired up to your business logic.
 ## How It Works
 
 When live preview is enabled,
-The Slint compiler no longer compiles your components ahead-of-time, but generates an interface that uses the Slint interpreter at runtime.
+the Slint interpreter loads your components at runtime, instead of the code compiled ahead of time in Rust and C++.
 It reloads `.slint` files from disk whenever they change.
 The application keeps running during reloads,
-and properties, callbacks, and models are preserved.
+and the properties, callbacks, and models that your code set are preserved.
 If a `.slint` file has a syntax error, the previous version stays on screen until the error is fixed.
 
-If you change the Slint API that the native code interacts with, for example renaming a property or callback used from Rust or C++, the application may terminate.
+If you change the Slint API that your code interacts with, for example by renaming a property or callback it uses,
+the application may stop working.
 Recompile and restart to pick up those changes.
 
 This feature is intended for development only.
@@ -82,6 +84,29 @@ Live preview for C++ requires building Slint from source with the interpreter en
 </Steps>
 
 See the <LangRefLink lang="cpp" relpath="live-preview/">C++ live preview documentation</LangRefLink> for more details.
+
+</TabItem>
+<TabItem label="NodeJS" icon="node">
+
+Live preview for Node.js requires the `slint-ui-dev` package and the `SLINT_LIVE_PREVIEW` environment variable.
+
+<Steps>
+
+1. **Install `slint-ui-dev`** as a dev dependency, at the same version as `slint-ui`:
+
+   ```bash
+   npm install --save-dev slint-ui-dev
+   ```
+
+2. **Run your application** with the `SLINT_LIVE_PREVIEW` environment variable set:
+
+   ```bash
+   SLINT_LIVE_PREVIEW=1 node main.js
+   ```
+
+   Slint reloads the `.slint` files that you import or load with `loadFile()` whenever you save changes.
+
+</Steps>
 
 </TabItem>
 </Tabs>

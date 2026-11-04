@@ -8,8 +8,11 @@ use i_slint_compiler::diagnostics::BuildDiagnostics;
 
 pub fn process_file_source(path: &std::path::Path, source: String) {
     let mut parse_diagnostics = BuildDiagnostics::default();
-    let syntax_node =
-        i_slint_compiler::parser::parse(source.clone(), Some(path), &mut parse_diagnostics);
+    let syntax_node = i_slint_compiler::parser::parse(
+        source.clone(),
+        Some(i_slint_compiler::source_path::SourcePath::new(path)),
+        &mut parse_diagnostics,
+    );
     // Fuzz the native lowering pipeline. The interpreter is not usable here: it has
     // its own item-tree builder and is rejected by generator::generate(), and lowering
     // a document compiled for the interpreter would exercise a configuration (full
@@ -24,7 +27,7 @@ pub fn process_file_source(path: &std::path::Path, source: String) {
     .into_iter()
     .collect();
     compiler_config.embed_resources = i_slint_compiler::EmbedResourcesKind::OnlyBuiltinResources;
-    compiler_config.enable_experimental = true;
+    compiler_config.experimental_features = i_slint_compiler::ExperimentalFeatures::all();
     compiler_config.style = Some("fluent".into());
     compiler_config.components_to_generate =
         if source.contains("config:generate_all_exported_windows") {

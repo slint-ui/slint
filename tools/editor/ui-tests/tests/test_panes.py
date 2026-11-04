@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 import slint_testing
 from canvas_interactions import center
+from editor_sync import wait_for_source
 from inspector_interactions import inspector_field
 from slint_testing import keys
 from ui_assertions import expect
@@ -68,14 +69,6 @@ def drag_divider(
     window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
 
 
-def double_click(window: slint_testing.Window, element: slint_testing.Element) -> None:
-    position = center(element)
-    button = slint_testing.PointerEventButton.Left
-    for _ in range(2):
-        window.dispatch_event(slint_testing.PointerPressEvent(position, button))
-        window.dispatch_event(slint_testing.PointerReleaseEvent(position, button))
-
-
 @pytest.mark.parametrize(
     ("label", "pane_label", "setting", "direction"),
     [
@@ -128,7 +121,7 @@ def test_pane_width_drag_limits_reset_and_persistence(
         divider.accessible_value = "0"
         assert pane.size.width == pytest.approx(minimum, abs=1)
         divider.accessible_value = str(minimum + delta)
-        double_click(window, divider)
+        divider.double_click(slint_testing.PointerEventButton.Left)
         assert pane.size.width == pytest.approx(minimum, abs=1)
         wait_for_pane_settings(editor_environment, {setting: None})
         drag_divider(window, divider, direction * 2000, horizontal=True)
@@ -260,6 +253,7 @@ def test_pane_sizes_persist_across_relaunch(
     source_file = fixture_project / "Main.slint"
 
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        wait_for_source(source_file, source_file.read_bytes())
         window = first_window(editor)
         elements_divider = element(window, "Elements pane resize")
         outline_divider = element(window, "Outline pane resize")
@@ -270,7 +264,12 @@ def test_pane_sizes_persist_across_relaunch(
         drag_divider(window, outline_divider, -64)
 
         assert element(window, "FILES").accessible_label == "FILES"
-        assert element(window, "ELEMENTS").accessible_label == "ELEMENTS"
+        assert (
+            element(
+                window, "Element sources", role=slint_testing.AccessibleRole.TabList
+            ).accessible_label
+            == "Element sources"
+        )
         assert element(window, "OUTLINE").accessible_label == "OUTLINE"
         assert elements_divider.absolute_position.y > initial_elements_y
         assert outline_divider.absolute_position.y < initial_outline_y
@@ -299,6 +298,7 @@ def test_pane_sizes_persist_across_relaunch(
         )
 
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        wait_for_source(source_file, source_file.read_bytes())
         window = first_window(editor)
         elements_divider = element(window, "Elements pane resize")
         outline_divider = element(window, "Outline pane resize")
@@ -315,9 +315,9 @@ def test_pane_dividers_are_accessible_and_no_results_is_visible(
     editor_environment: dict[str, str],
     fixture_project: Path,
 ) -> None:
-    with launch_editor(
-        editor_binary, editor_environment, fixture_project / "Main.slint"
-    ) as editor:
+    source_file = fixture_project / "Main.slint"
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        wait_for_source(source_file, source_file.read_bytes())
         window = first_window(editor)
         elements = element(window, "Elements pane resize")
         outline = element(window, "Outline pane resize")
@@ -362,10 +362,10 @@ def test_pane_dividers_are_accessible_and_no_results_is_visible(
             == outline.accessible_value_maximum
         )
 
-        double_click(window, elements)
+        elements.double_click(slint_testing.PointerEventButton.Left)
         assert float(elements.accessible_value.split()[0]) == default_elements
 
-        double_click(window, outline)
+        outline.double_click(slint_testing.PointerEventButton.Left)
         assert float(outline.accessible_value.split()[0]) == default_outline
 
         search = element(window, "Search elements")
@@ -388,14 +388,13 @@ def test_pane_dividers_are_accessible_and_no_results_is_visible(
         assert no_results.absolute_position.x + no_results.size.width <= (
             pane.absolute_position.x + pane.size.width - 12
         )
-        double_click(window, elements)
+        elements.double_click(slint_testing.PointerEventButton.Left)
 
         assert float(elements.accessible_value.split()[0]) == default_elements
         wait_for_pane_settings(editor_environment, {"elements_pane_height": None})
 
-    with launch_editor(
-        editor_binary, editor_environment, fixture_project / "Main.slint"
-    ) as editor:
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        wait_for_source(source_file, source_file.read_bytes())
         window = first_window(editor)
         for label, default_height in [
             ("Elements pane resize", default_elements),

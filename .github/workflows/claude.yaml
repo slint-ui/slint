@@ -36,11 +36,15 @@ jobs:
       (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude'))))
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    # Claude reads diffs and comments written by anyone, so treat all of it as
+    # untrusted input. The commands it gets can only push the checked-out
+    # branch, and they don't see the tokens.
+    env:
+      CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: 1
+      # So that 'git rebase --continue' doesn't wait for an editor.
+      GIT_EDITOR: "true"
     permissions:
-      # Write, so '@claude rebase' can push the rebased branch. Claude reads
-      # diffs and comments written by anyone, so treat all of it as untrusted
-      # input; what limits it is that master is protected and a fork's branch
-      # is out of this token's reach.
+      # Write, so '@claude rebase' can push the rebased branch.
       contents: write
       pull-requests: write
       issues: write
@@ -117,27 +121,48 @@ jobs:
         if: steps.check.outputs.has_token != 'true'
         run: echo "No token for $GITHUB_ACTOR, see the comment on the issue."
 
+      # The action checks out the head of the pull request, and Cargo runs its
+      # build scripts. On a fork's pull request, that's code from outside the
+      # repository, in a job with write access whose caches master runs restore.
+      - name: Allow commands only on this repository's branches
+        id: tools
+        if: steps.check.outputs.has_token == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.issue.pull_request && github.event.issue.number || github.event.pull_request.number }}
+        run: |
+          head_repo=$GITHUB_REPOSITORY
+          if [ -n "$PR" ]; then
+            head_repo=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" --jq '.head.repo.full_name // ""')
+          fi
+          if [ "$head_repo" = "$GITHUB_REPOSITORY" ]; then
+            echo 'allowed_tools=--allowedTools "Bash(cargo check:*),Bash(cargo build:*),Bash(cargo test:*),Bash(cargo clippy:*),Bash(cargo fmt:*),Bash(git rebase origin/master),Bash(git rebase --continue),Bash(git rebase --abort),Bash(git push --force-with-lease origin HEAD)"' >> "$GITHUB_OUTPUT"
+          fi
+
+      # All branches with their history but without file contents, which git
+      # fetches when it needs them: about 30 MB instead of over 2 GB. So the
+      # merge base and origin/<branch> are there, and Claude needs no
+      # 'git fetch', whose arguments can name any URL.
       - uses: actions/checkout@v7
         if: steps.check.outputs.has_token == 'true'
         with:
-          # The action fetches the diff it reviews over the API, so a shallow
-          # clone is enough, and the full history is over 2 GB. It does leave
-          # the run without a merge base, so 'git log' and
-          # 'git diff master...HEAD' find nothing until Claude deepens it.
-          # The checkout leaves the job token in the git config, which is what
-          # lets Claude push a rebase. A push made with it starts no workflow,
-          # so CI stays on the pre-rebase result until someone reruns it.
-          fetch-depth: 1
+          fetch-depth: 0
+          filter: blob:none
 
+      # With bubblewrap, the commands Claude runs get a PID namespace of their
+      # own, so they can't read the tokens in the environment of the Claude
+      # process. The action only installs it with 'allowed_non_write_users',
+      # and Ubuntu 24.04 blocks the user namespaces it needs by default.
       - uses: ./.github/actions/install-linux-dependencies
         if: steps.check.outputs.has_token == 'true'
-
-      - uses: Swatinem/rust-cache@v2
-        if: steps.check.outputs.has_token == 'true'
         with:
-          # rust-cache keys on the job by default, which would never hit the
-          # caches the CI jobs write. Give these runs one slot of their own.
-          shared-key: claude
+          extra-packages: bubblewrap socat
+      - name: Allow bubblewrap's user namespaces
+        if: steps.check.outputs.has_token == 'true'
+        run: |
+          if [ -f /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
 
       - uses: anthropics/claude-code-action@v1
         if: steps.check.outputs.has_token == 'true'
@@ -153,5 +178,6 @@ jobs:
           # belong here rather than in AGENTS.md.
           claude_args: |
             --max-turns 40
-            --allowedTools "Bash(cargo:*),Bash(git fetch:*),Bash(git rebase:*),Bash(git push --force-with-lease:*)"
-            --append-system-prompt "When reviewing, pay attention to any change to the public API: added, removed or renamed items under api/, and any change to a .slint element's properties or callbacks. Say plainly whether it breaks compatibility. Write your review in plain English: short sentences, everyday words, and no jargon where a common word works. To rebase a branch, deepen the shallow checkout with 'git fetch --deepen' until the merge base is there, rebase onto origin/master, and push with 'git push --force-with-lease'. The token can't push to a branch in a fork, so report that instead of trying."
+            ${{ steps.tools.outputs.allowed_tools }}
+            --disallowedTools "Read(./.git/**),Read(//proc/**),Read(/${{ runner.temp }}/**),Bash(git remote:*)"
+            --append-system-prompt "When reviewing, pay attention to any change to the public API: added, removed or renamed items under api/, and any change to a .slint element's properties or callbacks. Say plainly whether it breaks compatibility. Write your review in plain English: short sentences, everyday words, and no jargon where a common word works. To rebase a branch, run 'git rebase origin/master', resolve conflicts and stage them with 'git add', continue with 'git rebase --continue', and push with exactly 'git push --force-with-lease origin HEAD'. A push starts CI on the rebased branch. On a pull request from a fork, you can't run commands, so review it by reading the code."

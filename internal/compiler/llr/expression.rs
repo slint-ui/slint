@@ -8,28 +8,53 @@ use super::{
 };
 use crate::builtin_functions::BuiltinFunction;
 use crate::expression_types::{
-    EasingCurve, ImageReference, MinMaxOp, OperatorClass, operator_class,
+    EasingCurve, ImageReference, MinMaxOp, OperatorClass, Orientation, operator_class,
 };
-use crate::langtype::{Keys, Type};
-use crate::layout::Orientation;
-use itertools::Either;
+use crate::langtype::{ConstantExpression, Keys, Type};
+use alloc::boxed::Box;
+use alloc::collections::BTreeMap;
+use alloc::string::String;
+use alloc::sync::Arc;
+use alloc::vec;
+use alloc::vec::Vec;
+use either::Either;
 use smol_str::SmolStr;
-use std::collections::BTreeMap;
-use std::sync::Arc;
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum ArrayOutput {
     Slice,
     Model,
     Vector,
 }
 
-pub use crate::expression_types::MouseCursorInner;
+pub use crate::expression_types::{MouseCursorInner, RadialGradientShape};
+
+/// Name of the local that carries the known width a measure pass measures a
+/// cell at. The generated code binds it around each static measure cell's
+/// `LayoutInfo` expression; shared by the flexbox and box layout measure
+/// passes.
+pub const MEASURE_KNOWN_W_LOCAL: &str = "measure_known_w";
+
+/// Name of the local the generated GridLayout vertical pass binds to the index
+/// of the repeated instance it is about to measure.
+pub const GRID_MEASURE_REPEATER_INDEX_LOCAL: &str = "grid_measure_repeater_index";
+
+/// Name of the local the generated repeated-Row `layout_item_info` binds to the
+/// flattened index of the child it is about to measure.
+pub const GRID_MEASURE_CHILD_INDEX_LOCAL: &str = "grid_measure_child_index";
+
+/// Name of the local that carries the cross-axis (container) width into the
+/// generated `flexbox_layout_item_info_at_cross_width` and
+/// `layout_item_info_at_cross_width` method bodies (the parameter name is
+/// derived from it).
+pub const CROSS_WIDTH_LOCAL: &str = "cross_width";
 
 /// One cell of a generated flexbox measure callback: how to re-measure it at a
 /// taffy-assigned width. See [`Expression::SolveFlexboxLayoutWithMeasure`].
 #[derive(Debug, Clone)]
 #[allow(clippy::large_enum_variant)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum FlexboxMeasureCell {
     /// A static height-for-width cell, with its vertical `LayoutInfo`-typed
     /// expression reading the `measure_known_w` local as its width constraint.
@@ -47,6 +72,7 @@ pub enum FlexboxMeasureCell {
 /// [`Expression::BoxLayoutInfoOrthoWithMeasure`].
 #[derive(Debug, Clone)]
 #[allow(clippy::large_enum_variant)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum BoxMeasureCell {
     /// A static cell: its vertical `LayoutInfo` expression. A height-for-width
     /// cell reads the `measure_known_w` local as its width constraint; any
@@ -59,6 +85,7 @@ pub enum BoxMeasureCell {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Expression {
     /// A string literal. The .0 is the content of the string, without the quotes
     StringLiteral(SmolStr),
@@ -120,6 +147,8 @@ pub enum Expression {
         function: BuiltinFunction,
         arguments: Vec<Expression>,
         /// The location of the call in the .slint source, for run-time diagnostics
+        #[cfg(feature = "std")]
+        #[cfg_attr(feature = "serde", serde(skip))]
         source_location: Option<crate::diagnostics::SourceLocation>,
     },
     CallBackCall {
@@ -196,6 +225,7 @@ pub enum Expression {
         output: ArrayOutput,
     },
     Struct {
+        #[cfg_attr(feature = "serde", serde(with = "crate::llr::serialize::structure"))]
         ty: Arc<crate::langtype::Struct>,
         values: BTreeMap<SmolStr, Expression>,
     },
@@ -214,9 +244,8 @@ pub enum Expression {
         /// Explicit gradient center in the element's local coordinate space (`at <x> <y>`).
         /// `None` means use the element's bbox centre.
         center: Option<(Box<Expression>, Box<Expression>)>,
-        /// Explicit radius in the element's local coordinate space (`circle <radius>`).
-        /// `None` means use the element's bbox half-diagonal.
-        radius: Option<Box<Expression>>,
+        /// Ending shape (`circle` or `ellipse`) with its optional explicit radii.
+        shape: RadialGradientShape<Expression>,
         /// First expression in the tuple is a color, second expression is the stop position
         stops: Vec<(Expression, Expression)>,
     },
@@ -414,6 +443,33 @@ pub fn split_element_argument<'a>(
 }
 
 impl Expression {
+    /// Lower a constant expression, such as the default value of a struct field
+    /// (see [`crate::langtype::Struct::field_defaults`]),
+    /// so that the code generators can compile it with their regular expression compilation.
+    pub fn from_constant(constant: &ConstantExpression) -> Self {
+        match constant {
+            ConstantExpression::StringLiteral(s) => Self::StringLiteral(s.clone()),
+            ConstantExpression::NumberLiteral(n, _unit) => Self::NumberLiteral(*n),
+            ConstantExpression::BoolLiteral(b) => Self::BoolLiteral(*b),
+            ConstantExpression::EnumerationValue(e) => Self::EnumerationValue(e.clone()),
+            ConstantExpression::Cast { from, to } => {
+                Self::Cast { from: Box::new(Self::from_constant(from)), to: to.clone() }
+            }
+            ConstantExpression::UnaryOp { sub, op } => {
+                Self::UnaryOp { sub: Box::new(Self::from_constant(sub)), op: *op }
+            }
+            ConstantExpression::Struct { ty, values } => Self::Struct {
+                ty: ty.clone(),
+                values: values.iter().map(|(k, v)| (k.clone(), Self::from_constant(v))).collect(),
+            },
+            ConstantExpression::Array { element_ty, values } => Self::Array {
+                element_ty: element_ty.clone(),
+                values: values.iter().map(Self::from_constant).collect(),
+                output: ArrayOutput::Model,
+            },
+        }
+    }
+
     pub fn default_value_for_type(ty: &Type) -> Option<Self> {
         Some(match ty {
             Type::Invalid
@@ -457,9 +513,7 @@ impl Expression {
                     .iter()
                     .map(|(k, v)| {
                         let value = match s.field_defaults.get(k) {
-                            Some(default_value) => {
-                                super::lower_expression::lower_constant_expression(default_value)
-                            }
+                            Some(default_value) => Expression::from_constant(default_value),
                             None => Expression::default_value_for_type(v)?,
                         };
                         Some((k.clone(), value))
@@ -484,6 +538,7 @@ impl Expression {
             Type::DataTransfer => Expression::EmptyDataTransfer,
             Type::ComponentFactory => Expression::EmptyComponentFactory,
             Type::StyledText => Expression::BuiltinFunctionCall {
+                #[cfg(feature = "std")]
                 source_location: None,
                 function: BuiltinFunction::StringToStyledText,
                 arguments: vec![Expression::StringLiteral(SmolStr::default())],
@@ -623,12 +678,12 @@ macro_rules! visit_impl {
                     $visitor(b);
                 }
             }
-            Expression::RadialGradient { center, radius, stops } => {
+            Expression::RadialGradient { center, shape, stops } => {
                 if let Some((cx, cy)) = center {
                     $visitor(cx);
                     $visitor(cy);
                 }
-                if let Some(r) = radius {
+                for r in shape.$iter() {
                     $visitor(r);
                 }
                 for (a, b) in stops {
@@ -796,6 +851,7 @@ impl Expression {
         self.visit_mut(|e| e.visit_recursive_mut(visitor));
     }
 
+    #[cfg(feature = "std")]
     pub fn visit_property_references(
         &self,
         ctx: &EvaluationContext,
@@ -923,6 +979,7 @@ impl<'a, T> EvaluationContext<'a, T> {
         }
     }
 
+    #[cfg(feature = "std")]
     pub(crate) fn property_info<'b>(&'b self, prop: &MemberReference) -> PropertyInfoResult<'b> {
         fn match_in_sub_component<'b>(
             cu: &'b super::CompilationUnit,
@@ -1054,6 +1111,7 @@ impl<'a, T> EvaluationContext<'a, T> {
 
     /// Resolve a reference to a user function, returning the function and the
     /// [`ContextMap`] to evaluate its body in the current context.
+    #[cfg(feature = "std")]
     pub(crate) fn function_info<'b>(
         &'b self,
         reference: &MemberReference,
@@ -1217,18 +1275,20 @@ impl<T> TypeResolutionContext for EvaluationContext<'_, T> {
     }
 }
 
+#[cfg(feature = "std")]
 #[derive(Default, Debug)]
 pub(crate) struct PropertyInfoResult<'a> {
-    pub analysis: Option<&'a crate::object_tree::PropertyAnalysis>,
+    pub analysis: Option<&'a crate::property_analysis::PropertyAnalysis>,
     pub binding: Option<(&'a super::BindingExpression, ContextMap)>,
     pub animation: Option<(&'a Expression, ContextMap)>,
     pub ty: Type,
-    pub use_count: Option<&'a std::cell::Cell<usize>>,
+    pub use_count: Option<&'a core::cell::Cell<usize>>,
 }
 
 /// Maps between two evaluation context.
 /// This allows to go from the current subcomponents context, to the context
 /// relative to the binding we want to inline
+#[cfg(feature = "std")]
 #[derive(Debug, Clone)]
 pub(crate) enum ContextMap {
     Identity,
@@ -1236,6 +1296,7 @@ pub(crate) enum ContextMap {
     InGlobal(GlobalIdx),
 }
 
+#[cfg(feature = "std")]
 impl ContextMap {
     fn from_parent_level(parent_level: usize) -> Self {
         if parent_level == 0 {

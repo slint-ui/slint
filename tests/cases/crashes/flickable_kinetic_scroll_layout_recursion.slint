@@ -1,0 +1,51 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company , info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A sibling reading `content-y` from within the same layout as the Flickable used to panic
+// with "Recursion detected" while a kinetic-scroll animation was running: solving the
+// layout needed the Text's natural size, which read `content-y`, which stepped the
+// animation, which re-derived the Flickable's own geometry from the very layout cache
+// still being solved.
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 400px;
+
+    VerticalLayout {
+        flick := Flickable {
+            content-width: 300px;
+            content-height: 2000px;
+            vertical-stretch: 1;
+
+            Rectangle {
+                width: 300px;
+                height: 2000px;
+            }
+        }
+
+        status := Text {
+            text: "content-y: " + round(flick.content-y / 1px);
+        }
+    }
+
+    out property <length> status-height: status.height;
+}
+
+/*
+```rust
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+let instance = TestCase::new().unwrap();
+
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(150.0, 200.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(150.0, 150.0) });
+slint_testing::mock_elapsed_time(16);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(150.0, 50.0) });
+slint_testing::mock_elapsed_time(16);
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(150.0, 50.0), button: PointerEventButton::Left });
+
+// Advance the kinetic-scroll animation, then force the layout to solve while it's
+// still running by reading a property computed from it.
+slint_testing::mock_elapsed_time(16);
+assert!(instance.get_status_height() > 0.);
+```
+*/

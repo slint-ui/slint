@@ -81,6 +81,7 @@ on:
 
 jobs:
     build_and_test:
+        if: ${{ inputs.test_workspace || inputs.test_integration || inputs.build_examples }}
         name: ${{ inputs.name }}
         timeout-minutes: ${{ inputs.timeout_minutes }}
         env:
@@ -112,7 +113,10 @@ jobs:
                 # sudo docker image prune --all --force
                 df -h
             - uses: actions/checkout@v7
+            # mesa-vulkan-drivers provides llvmpipe, the WGPU adapter for the FemtoVG screenshot tests.
             - uses: ./.github/actions/install-linux-dependencies
+              with:
+                  extra-packages: clang libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libavdevice-dev libasound2-dev pkg-config libunwind-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good mesa-vulkan-drivers
             - uses: ./.github/actions/install-skia-dependencies
             - uses: TheMrMilchmann/setup-msvc-dev@v4
               if: runner.os == 'Windows'
@@ -130,9 +134,6 @@ jobs:
                   version: "6.2.2"
                   setup-python: false
                   cache: true
-            - name: Install ffmpeg, alsa, gstreamer and libunwind (Linux)
-              if: runner.os == 'Linux'
-              run: sudo timeout 600 apt-get install clang libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libavdevice-dev libasound2-dev pkg-config libunwind-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good
             - name: Setup headless display
               if: runner.os != 'macOS'
               uses: pyvista/setup-headless-display-action@v5
@@ -177,6 +178,7 @@ jobs:
               run: "cargo test --locked --verbose --all-features --workspace --timings --manifest-path tests/Cargo.toml ${{ inputs.extra_args }} ${{ !inputs.test_rust_driver && '--exclude test-driver-rust' || '' }} --exclude doctests --exclude test-driver-nodejs --exclude test-driver-cpp --exclude test-driver-python --exclude test-driver-typescript -- --skip=qt"
               env:
                   SLINT_CREATE_SCREENSHOTS: 1
+                  SLINT_TEST_REQUIRE_WGPU: 1
               shell: bash
             - name: Run integration tests (qt)
               if: runner.os != 'Windows' && inputs.run_qt && inputs.test_integration
@@ -242,4 +244,3 @@ jobs:
             - name: Print Disk Usage
               if: always()
               run: df -h
-

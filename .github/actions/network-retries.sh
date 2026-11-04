@@ -9,18 +9,21 @@
 set -eu
 
 # curl reads $CURL_HOME/.curlrc (_curlrc on Windows), also when a build script
-# such as skia-bindings' runs it. --retry only retries timeouts and HTTP 408,
-# 429, 500, 502, 503 and 504, not a 404.
+# such as skia-bindings' runs it. --retry alone only retries timeouts and HTTP
+# 408, 429, 500, 502, 503 and 504, not a reset connection (curl error 56) or a
+# failed DNS lookup, so retry all errors. A 404 is retried too, which delays
+# skia-bindings' fallback to a source build by the retries' 50 seconds.
 curl_home="$RUNNER_TEMP/curl-home"
 if [ ! -f "$curl_home/.curlrc" ]; then
     mkdir -p "$curl_home"
-    printf 'retry = 5\nretry-delay = 10\nretry-connrefused\nconnect-timeout = 30\n' > "$curl_home/.curlrc"
+    printf 'retry = 5\nretry-delay = 10\nretry-all-errors\nconnect-timeout = 30\n' > "$curl_home/.curlrc"
     cp "$curl_home/.curlrc" "$curl_home/_curlrc"
     echo "CURL_HOME=$curl_home" >> "$GITHUB_ENV"
 fi
 
 # The Azure Ubuntu mirror sometimes stalls, and apt then waits until the step's
-# timeout. Give up on a request sooner and retry it.
+# timeout. Give up on a request sooner and retry it. Also skip the unused
+# Translation files.
 # Job containers, such as the flatpak and musl cross images, may have no apt
 # and no sudo, but run as root.
 apt_conf=/etc/apt/apt.conf.d/80-ci-network-retries
@@ -29,6 +32,6 @@ if [ "$RUNNER_OS" = "Linux" ] && [ -d "$(dirname "$apt_conf")" ] && [ ! -f "$apt
     if [ "$(id -u)" -ne 0 ]; then
         sudo=sudo
     fi
-    printf 'Acquire::Retries "5";\nAcquire::http::Timeout "30";\nAcquire::https::Timeout "30";\n' \
+    printf 'Acquire::Retries "5";\nAcquire::http::Timeout "30";\nAcquire::https::Timeout "30";\nAcquire::Languages "none";\n' \
         | $sudo tee "$apt_conf" > /dev/null
 fi

@@ -5,14 +5,18 @@ import { expect, test } from "vitest";
 import { packPreviewAssets } from "../src/asset-transport";
 import { normalizeSource } from "../src/plugin/normalize";
 import { convertSnapshot } from "../src/preview/converter";
-import { canvasPixels, mountPreview, readFixture } from "./browser-harness";
+import {
+    expectCanvasPixels,
+    mountCanvasPreview,
+    readFixture,
+} from "./browser-harness";
 
 test("rotated bars occupy the bounds defined by Figma transforms", async () => {
     const normalized = await normalizeSource(
         JSON.parse(await readFixture("fixtures/source/rotated-bars.json")),
     );
     if (!normalized.ok || normalized.empty) throw Error("Invalid fixture");
-    const p = await mountPreview();
+    const p = await mountCanvasPreview();
     for (const specialize of [false, true]) {
         const converted = convertSnapshot(normalized.snapshot, { specialize });
         if (!converted.ok) throw Error(JSON.stringify(converted.diagnostics));
@@ -24,22 +28,23 @@ test("rotated bars occupy the bounds defined by Figma transforms", async () => {
             exportPackage: { source: converted.source, files: [] },
         });
         await p.ready(revision);
-        const pixels = await canvasPixels(p);
-        const pixel = (x: number, y: number) => {
-            const offset = (y * pixels.width + x) * 4;
-            return Array.from(pixels.data.slice(offset, offset + 4));
-        };
-        expect(pixel(15, 60)).toEqual([255, 0, 0, 255]);
-        expect(pixel(15, 85)).toEqual([255, 255, 255, 255]);
-        expect(pixel(75, 30)).toEqual([0, 255, 0, 255]);
-        expect(pixel(75, 45)).toEqual([255, 255, 255, 255]);
-        expect(pixel(35, 30)).toEqual([0, 0, 255, 255]);
-        expect(pixel(45, 30)).toEqual([255, 255, 255, 255]);
+        await expectCanvasPixels(p, (pixels) => {
+            const pixel = (x: number, y: number) => {
+                const offset = (y * pixels.width + x) * 4;
+                return Array.from(pixels.data.slice(offset, offset + 4));
+            };
+            expect(pixel(15, 60)).toEqual([255, 0, 0, 255]);
+            expect(pixel(15, 85)).toEqual([255, 255, 255, 255]);
+            expect(pixel(75, 30)).toEqual([0, 255, 0, 255]);
+            expect(pixel(75, 45)).toEqual([255, 255, 255, 255]);
+            expect(pixel(35, 30)).toEqual([0, 0, 255, 255]);
+            expect(pixel(45, 30)).toEqual([255, 255, 255, 255]);
+        });
     }
 });
 
 test("preview image URLs remain live until replacement or clearing", async () => {
-    const p = await mountPreview();
+    const p = await mountCanvasPreview();
     const browser = p.win as Window & typeof globalThis;
     const urls = browser.URL;
     const create = urls.createObjectURL.bind(urls);
@@ -77,11 +82,12 @@ test("preview image URLs remain live until replacement or clearing", async () =>
         await p.ready(revision);
         expect(created.length).toBeGreaterThan(previous.length);
         expect(revoked).toEqual(previous);
-        const pixels = await canvasPixels(p);
-        const offset = (8 * pixels.width + 8) * 4;
-        expect(Array.from(pixels.data.slice(offset, offset + 4))).toEqual(
-            index === 0 ? [255, 0, 0, 255] : [0, 0, 255, 255],
-        );
+        await expectCanvasPixels(p, (pixels) => {
+            const offset = (8 * pixels.width + 8) * 4;
+            expect(Array.from(pixels.data.slice(offset, offset + 4))).toEqual(
+                index === 0 ? [255, 0, 0, 255] : [0, 0, 255, 255],
+            );
+        });
         previous = [...created];
     }
     p.send({ type: "preview-clear", revision: 3 });
@@ -90,7 +96,7 @@ test("preview image URLs remain live until replacement or clearing", async () =>
 });
 
 test("identical image revisions retain their URL and skip compilation until clearing", async () => {
-    const p = await mountPreview();
+    const p = await mountCanvasPreview();
     const browser = p.win as Window & typeof globalThis;
     const create = browser.URL.createObjectURL.bind(browser.URL);
     const revoke = browser.URL.revokeObjectURL.bind(browser.URL);
@@ -124,11 +130,12 @@ test("identical image revisions retain their URL and skip compilation until clea
         await p.ready(revision);
         expect(created).toHaveLength(1);
         expect(revoked).toEqual([]);
-        const pixels = await canvasPixels(p);
-        const offset = (8 * pixels.width + 8) * 4;
-        expect(Array.from(pixels.data.slice(offset, offset + 4))).toEqual([
-            255, 0, 0, 255,
-        ]);
+        await expectCanvasPixels(p, (pixels) => {
+            const offset = (8 * pixels.width + 8) * 4;
+            expect(Array.from(pixels.data.slice(offset, offset + 4))).toEqual([
+                255, 0, 0, 255,
+            ]);
+        });
     }
     const trace = p.messages.find(
         (message) =>

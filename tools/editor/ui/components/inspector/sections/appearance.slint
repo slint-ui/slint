@@ -1,0 +1,113 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Style, Colors, Metrics, Typography, InspectorStyle } from "../../../style.slint";
+import { Api } from "../../../api.slint";
+import { InspectorColorField, InspectorCornerEditor, InspectorPropertyRow, InspectorSection, InspectorSwitch } from "../index.slint";
+import { InspectorContext } from "context.slint";
+
+export component InspectorAppearanceSection inherits InspectorSection {
+    in property <InspectorStyle> style: Style.inspector-layout;
+    in property <length> pane-width;
+    private property <bool> clip-value: Api.editor-property-value-data("clip").value-bool;
+
+    title: @tr("APPEARANCE");
+    use-shared-title: true;
+
+    pure function corner-property(index: int) -> string {
+        return index < 0 ? "all-corners" : ["border-top-left-radius", "border-top-right-radius", "border-bottom-left-radius", "border-bottom-right-radius"][index];
+    }
+
+    VerticalLayout {
+        padding-left: root.style.padding;
+        padding-right: root.style.padding;
+        spacing: Metrics.space-small;
+
+        Text {
+            height: Metrics.icon-small;
+            text: InspectorContext.is-text-selection() ? @tr("Color") : @tr("Fill");
+            color: Colors.muted;
+            font-size: Typography.control.size;
+            vertical-alignment: center;
+        }
+
+        if InspectorContext.is-root-selection(): InspectorColorField {
+            accessible-name: @tr("Root background");
+            value: Api.source-property-value("background", "");
+            swatch: InspectorContext.property-brush("background");
+            commit-key: InspectorContext.field-key("background");
+            preview-key: InspectorContext.field-key("background");
+            session-key: InspectorContext.fill-session-key("background");
+            property-name: "background";
+            width: root.pane-width - 2 * root.style.padding;
+            accepted(text) => {
+                return InspectorContext.commit-code("background", text);
+            }
+        }
+
+        if InspectorContext.is-rectangle-selection(): InspectorColorField {
+            accessible-name: @tr("Rectangle background");
+            element-rotation: InspectorContext.control-values[0];
+            target-size: { width: InspectorContext.selected-width(), height: InspectorContext.selected-height() };
+            value: Api.source-property-value("background", "");
+            swatch: InspectorContext.property-brush("background");
+            commit-key: InspectorContext.field-key("background");
+            preview-key: InspectorContext.field-key("background");
+            session-key: InspectorContext.fill-session-key("background");
+            property-name: "background";
+            width: root.pane-width - 2 * root.style.padding;
+            accepted(text) => {
+                return InspectorContext.commit-code("background", text);
+            }
+        }
+
+        if InspectorContext.is-text-selection(): InspectorColorField {
+            accessible-name: @tr("Text color");
+            target-size: { width: InspectorContext.selected-width(), height: InspectorContext.selected-height() };
+            value: Api.source-property-value("color", "");
+            swatch: InspectorContext.property-brush("color");
+            commit-key: InspectorContext.field-key("color");
+            preview-key: InspectorContext.field-key("color");
+            session-key: InspectorContext.fill-session-key("color");
+            property-name: "color";
+            width: root.pane-width - 2 * root.style.padding;
+            accepted(text) => {
+                return InspectorContext.commit-code("color", text);
+            }
+        }
+    }
+    if InspectorContext.is-rectangle-selection(): HorizontalLayout {
+        padding-left: root.style.padding;
+        padding-right: root.style.padding;
+        InspectorCornerEditor {
+            width: root.pane-width - 2 * root.style.padding - Metrics.border-width;
+            values: [InspectorContext.control-values[1], InspectorContext.control-values[2], InspectorContext.control-values[3], InspectorContext.control-values[4]];
+            maximum: min(InspectorContext.selected-width(), InspectorContext.selected-height()) / 2px;
+            selection-key: InspectorContext.selection-key;
+            commit-key: InspectorContext.inspector-key;
+            preview(index, value) => { return Api.inspector-preview(InspectorContext.inspector-key, root.corner-property(index), value); }
+            accepted(index, value) => {
+                return InspectorContext.commit-inspector(root.corner-property(index), value);
+            }
+            canceled => { Api.inspector-cancel(); }
+        }
+    }
+
+    if InspectorContext.is-rectangle-selection(): InspectorPropertyRow {
+        private property <bool> value: root.clip-value;
+        changed value => { clip-toggle.checked = self.value; }
+
+        label: @tr("Clip");
+
+        clip-toggle := InspectorSwitch {
+            accessible-label: @tr("Clip");
+            checked: root.clip-value;
+            toggled => {
+                self.focus();
+                let requested = self.checked;
+                self.checked = root.clip-value;
+                InspectorContext.commit-code("clip", requested ? "true" : "false");
+            }
+        }
+    }
+}

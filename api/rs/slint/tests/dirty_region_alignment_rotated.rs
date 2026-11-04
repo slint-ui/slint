@@ -71,6 +71,7 @@ fn assert_frame(buffer: &[Rgb8Pixel], white_x: usize) {
 #[test]
 fn alignment_uses_panel_axes_when_rotated() {
     slint::slint! {
+        #[edition = "1.19"]
         export component App inherits Window {
             in property <int> rect-x: 3;
             background: black;

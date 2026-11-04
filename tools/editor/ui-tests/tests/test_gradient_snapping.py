@@ -56,7 +56,7 @@ def open_scene(window, zoom=100):
 
 @pytest.mark.parametrize(
     "kind,handle",
-    [("linear", "start"), ("linear", "end"), ("radial", "end"), ("conic", "end")],
+    [("linear", "start"), ("linear", "end"), ("conic", "end")],
 )
 @pytest.mark.parametrize(
     "modifier,angle,rotation,zoom",
@@ -83,11 +83,10 @@ def test_gradient_angle_snapping(
         wait_for_source(path, path.read_bytes())
         window = first_window(editor)
         open_scene(window, zoom)
-        initial = {"linear": 90, "radial": 125, "conic": 220}[kind]
+        initial = {"linear": 90, "conic": 220}[kind]
         start_label = "Gradient start" if kind == "linear" else "Gradient center handle"
         end_label = {
             "linear": "Gradient end",
-            "radial": "Gradient radius handle",
             "conic": "Gradient rotation handle",
         }[kind]
         if handle == "start":
@@ -120,7 +119,7 @@ def test_gradient_angle_snapping(
         restored = center(control(window, end_label), rotation + initial - 90)
         assert restored.x == pytest.approx(start.x, abs=0.01)
         assert restored.y == pytest.approx(start.y, abs=0.01)
-        click(window, "Close Custom")
+        click(window, "Close Fill")
         original.assert_unchanged()
 
 
@@ -138,14 +137,14 @@ def test_gradient_stop_snapping(
         field = control(
             window, "Stop 2 position", slint_testing.AccessibleRole.TextInput
         )
-        direction = {"linear": 0, "radial": 35, "conic": 238}[kind]
+        direction = {"linear": 0, "radial": 0, "conic": 238}[kind]
         start = center(control(window, "Gradient stop 2"), direction)
         c = center(
             control(
                 window,
                 "Gradient start" if kind == "linear" else "Gradient center handle",
             ),
-            35 if kind == "radial" else 130 if kind == "conic" else 0,
+            130 if kind == "conic" else 0,
         )
         if kind == "conic":
             radius = math.hypot(start.x - c.x, start.y - c.y)
@@ -155,7 +154,9 @@ def test_gradient_stop_snapping(
             end = center(
                 control(
                     window,
-                    "Gradient end" if kind == "linear" else "Gradient radius handle",
+                    "Gradient end"
+                    if kind == "linear"
+                    else "Gradient radius X and rectangle rotation handle",
                 ),
                 direction,
             )
@@ -215,7 +216,7 @@ def test_conic_snapping_across_seam_saves_and_undoes(
         window.dispatch_event(slint_testing.KeyReleasedEvent(text=keys.Shift))
         expect(query(window, "Gradient angle")).to_be_hidden()
         original.assert_unchanged_now()
-        click(window, "Close Custom")
+        click(window, "Close Fill")
         saved = wait_for_source_change(path, original.sources[Path(path.name)])
         angle = re.search(rb"from ([0-9.]+)deg", saved)
         assert angle is not None

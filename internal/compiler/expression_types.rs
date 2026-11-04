@@ -2,9 +2,11 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 //! The types that both the expression tree and the LLR use:
-//! units, operators, easing curves, cursors and image references
+//! units, operators, layout orientations, easing curves, cursors and image references
 
 use crate::langtype::Type;
+use alloc::boxed::Box;
+use alloc::string::String;
 use smol_str::SmolStr;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -42,15 +44,15 @@ macro_rules! declare_units {
             $($(#[$m])* $ident,)*
         }
 
-        impl std::fmt::Display for WrittenUnit {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        impl core::fmt::Display for WrittenUnit {
+            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
                 match self {
                     $(Self::$ident => write!(f, $string), )*
                 }
             }
         }
 
-        impl std::str::FromStr for WrittenUnit {
+        impl core::str::FromStr for WrittenUnit {
             type Err = ();
             fn from_str(s: &str) -> Result<Self, Self::Err> {
                 match s {
@@ -112,7 +114,7 @@ declare_units! {
     /// Turns
     Turn = "turn" -> Deg * 360.,
     /// Radians
-    Rad = "rad" -> Deg * 360./std::f32::consts::TAU,
+    Rad = "rad" -> Deg * 360./core::f32::consts::TAU,
 }
 
 /// The unit a [`Expression::NumberLiteral`] carries: always the canonical unit of
@@ -122,6 +124,7 @@ declare_units! {
 ///
 /// [`Expression::NumberLiteral`]: crate::expression_tree::Expression::NumberLiteral
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Unit {
     /// Dimension-less (`float`, `int`)
     #[default]
@@ -154,8 +157,8 @@ impl Unit {
     }
 }
 
-impl std::fmt::Display for Unit {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for Unit {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let s = match self {
             Unit::None => "",
             Unit::Percent => "%",
@@ -170,12 +173,14 @@ impl std::fmt::Display for Unit {
 }
 
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum MinMaxOp {
     Min,
     Max,
 }
 
 #[derive(Clone, Debug, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum EasingCurve {
     #[default]
     Linear,
@@ -194,6 +199,7 @@ pub enum EasingCurve {
 /// The compiled `mouse-cursor` value: either a built-in cursor or a custom one built from an
 /// image. Generic over the expression type so both the tree and the LLR reuse the same shape.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum MouseCursorInner<E> {
     BuiltIn(Box<E>),
     CustomMouseCursor { image: Box<E>, hotspot_x: Box<E>, hotspot_y: Box<E> },
@@ -205,10 +211,55 @@ impl<E: Default> Default for MouseCursorInner<E> {
     }
 }
 
+/// The ending shape of a `@radial-gradient`, with its explicit size in the element's local
+/// coordinate space. `None` means the shape's default size.
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum RadialGradientShape<E> {
+    /// `circle [<radius>]`
+    Circle(Option<Box<E>>),
+    /// `ellipse [<radius-x> <radius-y>]`
+    Ellipse(Option<(Box<E>, Box<E>)>),
+}
+
+impl<E> RadialGradientShape<E> {
+    /// Iterates over the explicit radii.
+    pub fn iter(&self) -> impl Iterator<Item = &E> {
+        let (a, b) = match self {
+            Self::Circle(r) => (r.as_deref(), None),
+            Self::Ellipse(r) => {
+                r.as_ref().map_or((None, None), |(rx, ry)| (Some(&**rx), Some(&**ry)))
+            }
+        };
+        a.into_iter().chain(b)
+    }
+
+    /// Iterates mutably over the explicit radii.
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut E> {
+        let (a, b) = match self {
+            Self::Circle(r) => (r.as_deref_mut(), None),
+            Self::Ellipse(r) => {
+                r.as_mut().map_or((None, None), |(rx, ry)| (Some(&mut **rx), Some(&mut **ry)))
+            }
+        };
+        a.into_iter().chain(b)
+    }
+
+    pub fn map<F>(&self, mut f: impl FnMut(&E) -> F) -> RadialGradientShape<F> {
+        match self {
+            Self::Circle(r) => RadialGradientShape::Circle(r.as_ref().map(|r| Box::new(f(r)))),
+            Self::Ellipse(r) => RadialGradientShape::Ellipse(
+                r.as_ref().map(|(rx, ry)| (Box::new(f(rx)), Box::new(f(ry)))),
+            ),
+        }
+    }
+}
+
 // The compiler resolves every `@image-url("foo.png")` into a `Source` or
 // `DataUri` reference; the resource lowering pass may then replace it with
 // `EmbeddedData`/`EmbeddedTexture` if configured.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum ImageReference {
     None,
     Source(crate::source_path::SourcePath),
@@ -227,11 +278,28 @@ impl ImageReference {
     /// Classify a URL returned by the resource mapper. It is already a URL, so
     /// the only distinction is a `data:` URI (kept as a string, see
     /// [`Self::DataUri`]) from any other URL.
+    #[cfg(feature = "std")]
     pub fn from_mapped_url(url: url::Url) -> Self {
         if url.scheme() == "data" {
             Self::DataUri(url.as_str().into())
         } else {
             Self::Source(url.into())
+        }
+    }
+}
+
+#[derive(Clone, Debug, Copy, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum Orientation {
+    Horizontal,
+    Vertical,
+}
+
+impl Orientation {
+    pub fn orthogonal(self) -> Self {
+        match self {
+            Orientation::Horizontal => Orientation::Vertical,
+            Orientation::Vertical => Orientation::Horizontal,
         }
     }
 }

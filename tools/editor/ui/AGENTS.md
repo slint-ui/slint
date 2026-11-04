@@ -1,5 +1,17 @@
 # Visual Editor Agent Notes
 
+## Inspector Property Values
+
+- Use `Api.editor-property-value-data(name)` for property editor displays: active debug-hook override first, then source value.
+- Use `Api.hooked-property-value-data(hook-name, fallback)` when hook and source names differ or a custom fallback is needed.
+  It returns the active debug-hook override, otherwise the supplied fallback.
+- Use `Api.source-property-value-data(name, fallback)` for authored expressions, units, binding presence, and comparisons that decide whether to submit edits.
+  These must remain independent of debug-hook overrides.
+- Use `Api.runtime-property-value-data(name, fallback)` only when the actual running value is required, such as matching rendered text.
+  It includes active debug hooks; wrapping it in another hook lookup is redundant.
+  Keep geometry editors on the selection geometry APIs.
+- For color swatches, reuse `InspectorContext.property-brush`: override, then source, with runtime fallback only for unresolved, unset root background and text color.
+
 ## Runtime
 
 For automated tests, follow [Test Best Practices](../TESTING.md); local runs default to headless Skia.
@@ -10,7 +22,7 @@ Do not substitute `slint-viewer`, a headless run, or the software renderer.
 From the repository root:
 
 ```sh
-SLINT_ENABLE_EXPERIMENTAL_FEATURES=1 \
+SLINT_ENABLE_EXPERIMENTAL_FEATURES=interfaces,shadowable,closures,named-slots,match,custom-mouse-cursor,component-container,new-with-existing-window,testable,internal-types \
 SLINT_BACKEND=winit-skia \
 cargo run -p slint-editor -- examples/7guis/counter.slint
 ```

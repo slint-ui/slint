@@ -6,7 +6,7 @@
 use std::rc::Rc;
 
 use crate::element_type::ElementType;
-use crate::object_tree::{Component, recurse_elem};
+use crate::object_tree::{Component, InitCodeEntry, recurse_elem};
 
 pub fn collect_init_code(component: &Rc<Component>) {
     recurse_elem(&component.root_element, &(), &mut |elem, _| {
@@ -18,7 +18,11 @@ pub fn collect_init_code(component: &Rc<Component>) {
         }
 
         if let Some(init_callback) = elem.borrow_mut().take_binding("init") {
-            component.init_code.borrow_mut().constructor_code.push(init_callback.expression);
+            component
+                .init_code
+                .borrow_mut()
+                .constructor_code
+                .push(InitCodeEntry { owner: Rc::downgrade(elem), code: init_callback.expression });
         }
     });
     for popup in component.popup_windows.borrow().iter() {

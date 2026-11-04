@@ -1,0 +1,120 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// SIZE=128x96
+// ROTATION_THRESHOLD=30  - Zeno anti-aliasing is slightly different in different rotation
+// SKIP_LINE_BY_LINE  - Path not implemented in line-by-line mode
+
+component Cell inherits Path {
+    width: 32px;
+    height: 32px;
+}
+
+export component TestCase inherits Window {
+    width: 128px;
+    height: 96px;
+    background: white;
+
+    property <string> triangle: "M 0 0 L 100 0 L 50 100 Z";
+    property <string> zigzag: "M 0 0 L 100 50 L 0 100";
+
+    Cell {
+        x: 0px;
+        y: 0px;
+        commands: root.triangle;
+        fill: @radial-gradient(circle, yellow, blue);
+    }
+
+    Cell {
+        x: 64px;
+        y: 0px;
+        commands: root.triangle;
+        fill: @linear-gradient(45deg, red, yellow 40%, blue);
+    }
+
+    // The stroke sticks out of the gradient box on the top and left, where the gradient pads.
+    Cell {
+        x: 96px;
+        y: 0px;
+        commands: root.zigzag;
+        stroke-width: 8px;
+        stroke: @linear-gradient(0deg, red, blue);
+    }
+
+    Cell {
+        x: 0px;
+        y: 32px;
+        commands: root.zigzag;
+        stroke-width: 8px;
+        stroke: @linear-gradient(90deg, red, blue);
+    }
+
+    Cell {
+        x: 32px;
+        y: 32px;
+        commands: root.triangle;
+        fill: @linear-gradient(90deg, red, blue);
+        stroke-width: 2px;
+        stroke: @radial-gradient(circle, black, lime);
+        opacity: 0.5;
+    }
+
+    Rectangle {
+        x: 72px;
+        y: 40px;
+        width: 16px;
+        height: 16px;
+        clip: true;
+
+        Cell {
+            x: -8px;
+            y: -8px;
+            commands: root.triangle;
+            fill: @linear-gradient(45deg, red, lime, blue);
+        }
+    }
+
+    Cell {
+        x: 96px;
+        y: 32px;
+        fit: preserve;
+        commands: "M 2 2 L 30 2 L 16 30 Z";
+        fill: @linear-gradient(135deg, magenta, cyan);
+        stroke-width: 4px;
+        stroke: @linear-gradient(0deg, black, orange);
+    }
+
+    // An odd stroke width offsets the gradient box by half a pixel.
+    Cell {
+        x: 0px;
+        y: 64px;
+        commands: root.triangle;
+        stroke-width: 1px;
+        stroke: @linear-gradient(45deg, red, blue);
+    }
+
+    Rectangle {
+        x: 40px;
+        y: 72px;
+        width: 16px;
+        height: 16px;
+        clip: true;
+
+        Cell {
+            x: -8px;
+            y: -8px;
+            commands: root.triangle;
+            fill: @radial-gradient(circle, yellow, blue);
+        }
+    }
+
+    // A single stop draws its color.
+    Cell {
+        x: 64px;
+        y: 64px;
+        commands: root.triangle;
+        fill: @linear-gradient(90deg, orange);
+        stroke-width: 2px;
+        stroke: @linear-gradient(0deg, purple);
+    }
+}

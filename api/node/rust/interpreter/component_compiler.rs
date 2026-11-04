@@ -22,38 +22,51 @@ pub struct JsComponentCompiler {
     diagnostics: Vec<slint_interpreter::Diagnostic>,
 }
 
+/// @hidden
+/// The options of `createLiveInstance`, like those of a `ComponentCompiler`.
+#[napi(object)]
+pub struct LiveBuildOptions {
+    pub style: Option<String>,
+    pub include_paths: Option<Vec<String>>,
+    pub library_paths: Option<HashMap<String, String>>,
+}
+
+/// A compiler with the include and library paths of `SLINT_INCLUDE_PATH` and `SLINT_LIBRARY_PATH`.
+fn compiler_from_env() -> Compiler {
+    let mut compiler = Compiler::default();
+    let include_paths = match std::env::var_os("SLINT_INCLUDE_PATH") {
+        Some(paths) => {
+            std::env::split_paths(&paths).filter(|path| !path.as_os_str().is_empty()).collect()
+        }
+        None => Vec::new(),
+    };
+    let library_paths = match std::env::var_os("SLINT_LIBRARY_PATH") {
+        Some(paths) => std::env::split_paths(&paths)
+            .filter_map(|entry| {
+                entry
+                    .to_str()
+                    .unwrap_or_default()
+                    .split('=')
+                    .collect_tuple()
+                    .map(|(k, v)| (k.into(), v.into()))
+            })
+            .collect(),
+        None => HashMap::new(),
+    };
+
+    // Environment variables rank below the project file, so they bypass the setters.
+    let config = compiler.compiler_configuration(i_slint_core::InternalToken);
+    config.include_paths = include_paths;
+    config.library_paths = library_paths;
+    compiler
+}
+
 #[napi]
 impl JsComponentCompiler {
     /// Returns a new ComponentCompiler.
     #[napi(constructor)]
     pub fn new() -> Self {
-        let mut compiler = Compiler::default();
-        let include_paths = match std::env::var_os("SLINT_INCLUDE_PATH") {
-            Some(paths) => {
-                std::env::split_paths(&paths).filter(|path| !path.as_os_str().is_empty()).collect()
-            }
-            None => Vec::new(),
-        };
-        let library_paths = match std::env::var_os("SLINT_LIBRARY_PATH") {
-            Some(paths) => std::env::split_paths(&paths)
-                .filter_map(|entry| {
-                    entry
-                        .to_str()
-                        .unwrap_or_default()
-                        .split('=')
-                        .collect_tuple()
-                        .map(|(k, v)| (k.into(), v.into()))
-                })
-                .collect(),
-            None => HashMap::new(),
-        };
-
-        // Environment variables rank below the project file, so they bypass the setters.
-        let config = compiler.compiler_configuration(i_slint_core::InternalToken);
-        config.include_paths = include_paths;
-        config.library_paths = library_paths;
-
-        Self { internal: compiler, diagnostics: Vec::new(), structs_and_enums: vec![] }
+        Self { internal: compiler_from_env(), diagnostics: Vec::new(), structs_and_enums: vec![] }
     }
 
     #[napi(setter)]
@@ -244,5 +257,54 @@ impl JsComponentCompiler {
         self.structs_and_enums =
             r.structs_and_enums(i_slint_core::InternalToken {}).cloned().collect::<Vec<_>>();
         r.components().map(|c| (c.name().to_owned(), c.into())).collect()
+    }
+}
+
+/// @hidden
+/// Creates an instance of `componentName` from `path`,
+/// which builds the file again and replaces itself when one of the files it reads changes.
+/// `options` are those of the `ComponentCompiler` that loaded `path`, for the thread that builds it.
+#[napi]
+pub fn create_live_instance(
+    env: &Env,
+    path: String,
+    component_name: String,
+    options: LiveBuildOptions,
+) -> napi::Result<super::JsComponentInstance> {
+    #[cfg(feature = "live-preview")]
+    {
+        let compiler_factory = move || {
+            let mut compiler = compiler_from_env();
+            if let Some(style) = options.style {
+                compiler.set_style(style);
+            }
+            if let Some(include_paths) = options.include_paths {
+                compiler.set_include_paths(include_paths.into_iter().map(PathBuf::from).collect());
+            }
+            if let Some(library_paths) = options.library_paths {
+                compiler.set_library_paths(
+                    library_paths.into_iter().map(|(k, v)| (k, PathBuf::from(v))).collect(),
+                );
+            }
+            compiler
+        };
+        let component = i_slint_live_preview::live_component::LiveReloadingComponent::new(
+            compiler_factory,
+            PathBuf::from(path),
+            Some(component_name),
+        )
+        .map_err(|e| napi::Error::from_reason(e.to_string()))?;
+        let env = *env;
+        component.borrow_mut().set_error_hook(move |error| {
+            crate::print_to_console(env, "warn", format_args!("Live preview: {error}"))
+        });
+        Ok(component.into())
+    }
+    #[cfg(not(feature = "live-preview"))]
+    {
+        let _ = (env, path, component_name, options);
+        Err(napi::Error::from_reason(
+            "Install slint-ui-dev, at the same version as slint-ui, to use the live preview",
+        ))
     }
 }

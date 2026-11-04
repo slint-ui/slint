@@ -1,15 +1,17 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style, PaintStyle, Metrics, Typography, Colors, DialogStyle } from "style.slint";
+import { Style, Metrics, Typography, Colors } from "style.slint";
 import "./assets/Inter-VariableFont.ttf";
 
-import { Api, EditorSurfaceMode, ElementKind, Hover, InspectorCommitResult } from "api.slint";
+import { Api, CoordinateSpace, EditorSurfaceMode, ElementKind, Hover, InlineTextEdit, InlineTextEditStart } from "api.slint";
 import { Project } from "project.slint";
+import { Snapping } from "snapping.slint";
 import { Diagnostics } from "diagnostics.slint";
 export { Diagnostics, Diagnostic, DiagnosticLevel, FileDiagnosticSummary, PreviewAvailability } from "diagnostics.slint";
 import { Preview } from "preview.slint";
-import { Springboard, SpringboardState, SpringboardView } from "@springboard";
+import { Springboard } from "@springboard";
+import { FloatingSurface } from "components/floating-surface.slint";
 import { StartupWizard } from "startup-wizard.slint";
 import { AppState, EditorCursors, EditorWindow, SidebarToggleButton, VerticalResizeDivider } from "components/index.slint";
 import { CanvasPanArea } from "components/canvas-pan-area.slint";
@@ -23,146 +25,13 @@ import { ImageAssetEditor } from "components/image-asset-editor.slint";
 import { InspectorPane } from "components/inspector-pane.slint";
 import { FillSession, FillSessionRequest, FillSessionTarget, InspectorFillPicker, ShadowSession, ShadowGesture, ShadowValues, InspectorShadowPicker } from "components/inspector/index.slint";
 import { LeftPane } from "components/left-pane.slint";
+import { NewFileErrorPopup } from "components/new-file-error-popup.slint";
 import { EditorTopBar } from "components/top-bar.slint";
 import { UpdateStatus, UpdateStatusBar, UpdateStatusPill } from "components/update-status.slint";
 
 export {
-    Api, EditorCursors, EditorWindow, Style, ElementVisuals, FillSession, FillSessionRequest,
-    FillSessionTarget, ShadowSession, ShadowGesture, ShadowValues, InspectorCommitResult, Hover, Preview, Project, Springboard,
-}
-
-component NewFileErrorPopup inherits PopupWindow {
-    in property <DialogStyle> style: Style.dialog;
-    in property <string> error;
-    callback dismissed();
-
-    width: root.style.width;
-    height: root.style.height;
-    close-policy: no-auto-close;
-
-    Rectangle {
-        border-width: Metrics.border-width;
-        border-color: root.style.border;
-        border-radius: Metrics.radius-large;
-        background: root.style.background;
-        clip: true;
-        drop-shadow-blur: root.style.shadow.blur;
-        drop-shadow-offset-y: root.style.shadow.offset-y;
-        drop-shadow-color: root.style.shadow.color;
-
-        VerticalLayout {
-            height: parent.height;
-
-            Rectangle {
-                vertical-stretch: 1;
-
-                VerticalLayout {
-                    padding: root.style.padding;
-                    spacing: Metrics.space-medium;
-
-                    HorizontalLayout {
-                        spacing: Metrics.space-medium;
-                        cross-axis-alignment: start;
-
-                        Rectangle {
-                            width: root.style.error.icon-size;
-                            height: root.style.error.icon-size;
-                            border-radius: root.style.error.icon-size / 2;
-                            background: root.style.error.icon-background;
-
-                            Text {
-                                text: "×";
-                                color: root.style.error.icon-foreground;
-                                font-size: root.style.error.icon-text.size;
-                                horizontal-alignment: center;
-                                vertical-alignment: center;
-                            }
-                        }
-
-                        VerticalLayout {
-                            spacing: Metrics.space-small;
-
-                            Text {
-                                text: @tr("Couldn’t create file");
-                                color: Colors.foreground;
-                                font-size: Typography.heading.size;
-                                font-weight: Typography.heading.weight;
-                            }
-
-                            Text {
-                                text: @tr("A new Slint file couldn’t be created in the project root.");
-                                color: Colors.muted;
-                                font-size: Typography.body.size;
-                                wrap: word-wrap;
-                            }
-                        }
-                    }
-
-                    Rectangle {
-                        height: root.style.error.height;
-                        border-width: Metrics.border-width;
-                        border-color: root.style.error.border;
-                        border-radius: root.style.error.radius;
-                        background: root.style.error.background;
-
-                        Text {
-                            x: root.style.error.inset;
-                            width: parent.width - 2 * root.style.error.inset;
-                            text: root.error;
-                            color: root.style.error.foreground;
-                            font-size: Typography.caption.size;
-                            wrap: word-wrap;
-                            vertical-alignment: center;
-                        }
-                    }
-                }
-            }
-
-            Rectangle {
-                height: root.style.footer-height;
-                vertical-stretch: 0;
-                background: root.style.footer-background;
-
-                Rectangle {
-                    height: Metrics.border-width;
-                    y: 0px;
-                    background: root.style.footer-border;
-                }
-
-                Rectangle {
-                    private property <PaintStyle> paint: close-touch.pressed ? root.style.close-button.appearance.pressed
-                        : close-touch.has-hover ? root.style.close-button.appearance.hover : root.style.close-button.appearance.normal;
-                    width: bt.width + 2 * root.style.close-button.padding-inline;
-                    height: root.style.close-button.height;
-                    x: parent.width - self.width - Metrics.space-large;
-                    y: (parent.height - self.height) / 2;
-                    border-width: Metrics.border-width;
-                    border-color: self.paint.border;
-                    border-radius: root.style.close-button.radius;
-                    background: self.paint.background;
-
-                    bt := Text {
-                        text: @tr("Close");
-                        color: parent.paint.foreground;
-                        font-size: root.style.close-button.text.size;
-                        font-weight: root.style.close-button.text.weight;
-                        horizontal-alignment: center;
-                        vertical-alignment: center;
-                    }
-
-                    close-touch := TouchArea {
-                        mouse-cursor: pointer;
-                        accessible-role: AccessibleRole.button;
-                        accessible-label: @tr("Close");
-                        clicked => {
-                            root.close();
-                            root.dismissed();
-                        }
-                    }
-                }
-            }
-        }
-    }
+    Api, CanvasView, EditorCursors, EditorWindow, Style, ElementVisuals, FillSession, FillSessionRequest,
+    FillSessionTarget, ShadowSession, ShadowGesture, ShadowValues, Hover, InlineTextEdit, InlineTextEditStart, Preview, Project, Snapping, Springboard,
 }
 
 export component EditorUi inherits Window {
@@ -173,7 +42,13 @@ export component EditorUi inherits Window {
             FillSession.close-picker(false, false);
         }
     }
+    private property <bool> editor-focus-requested;
+    public function focus-editor() { root.editor-focus-requested = true; }
     private property <bool> palette-drag-in-outline: false;
+    private property <Size> palette-text-drag-size: {
+        width: palette-text-metrics.width,
+        height: palette-text-metrics.height,
+    };
     preferred-width: Style.shell.width;
     preferred-height: Style.shell.height;
     min-width: Style.shell.min-width;
@@ -185,9 +60,13 @@ export component EditorUi inherits Window {
     init => {
         EditorWindow.width = root.width;
         EditorWindow.height = root.height;
+        AppState.palette-text-drag-size = root.palette-text-drag-size;
     }
     changed width => { EditorWindow.width = root.width; }
     changed height => { EditorWindow.height = root.height; }
+    changed palette-text-drag-size => {
+        AppState.palette-text-drag-size = root.palette-text-drag-size;
+    }
 
     property <bool> sidebars-collapsed: false;
     property <length> inspector-scroll-y: 0px;
@@ -250,6 +129,18 @@ export component EditorUi inherits Window {
         FillSession.apply-history(redo);
     }
 
+    palette-text-metrics := Text {
+        x: -10000px;
+        opacity: 0;
+        accessible-role: none;
+        text: @tr("Text");
+        font-family: Api.preview-default-font-family;
+        font-size: Api.preview-default-font-size * 1px;
+        font-weight: Api.preview-default-font-weight;
+        width: self.preferred-width;
+        height: self.preferred-height;
+    }
+
     function toggle-maximized() {
         if !root.perform-native-window-zoom() {
             root.maximized = !root.maximized;
@@ -290,10 +181,10 @@ export component EditorUi inherits Window {
                 enabled: !Api.startup-wizard-visible;
                 activated => { Project.close-project(); }
             }
-            // The macOS application menu already provides Quit.
-            if Platform.os != OperatingSystemType.macos: MenuSeparator { }
-            if Platform.os != OperatingSystemType.macos: MenuItem {
+            MenuSeparator { }
+            MenuItem {
                 title: @tr("Quit");
+                role: quit;
                 shortcut: @keys(Control + "q");
                 activated => { root.quit-requested(); }
             }
@@ -309,6 +200,27 @@ export component EditorUi inherits Window {
                 title: @tr("Redo");
                 enabled: Api.redo-enabled;
                 activated => { root.apply-history(true); }
+            }
+            MenuSeparator { }
+            Menu {
+                title: @tr("Wrap in Layout");
+                enabled: Diagnostics.preview-editable && Api.selection.highlight-index >= 0 && Api.selection.is-wrappable;
+
+                for layout in ["HorizontalLayout", "VerticalLayout", "GridLayout", "FlexboxLayout"]: MenuItem {
+                    title: layout;
+                    activated => {
+                        Api.selected-element-wrap-in-layout(layout);
+                        root.focus-editor();
+                    }
+                }
+                MenuSeparator { }
+                for layout in ["HorizontalBox", "VerticalBox", "GridBox"]: MenuItem {
+                    title: layout;
+                    activated => {
+                        Api.selected-element-wrap-in-layout(layout);
+                        root.focus-editor();
+                    }
+                }
             }
         }
         Menu {
@@ -327,7 +239,7 @@ export component EditorUi inherits Window {
             }
             MenuItem {
                 title: @tr("Zoom to Selection");
-                shortcut: @keys(Shift + "2");
+                shortcut: @keys(Control + Digit2);
                 enabled: root.canvas-zoom-enabled;
                 activated => {
                     CanvasView.zoom-to-selection(
@@ -365,10 +277,20 @@ export component EditorUi inherits Window {
         if !Api.startup-wizard-visible: editor := FocusScope {
             private property <bool> shadow-open: ShadowSession.open;
             changed shadow-open => { if !self.shadow-open { self.focus(); } }
+            private property <bool> editor-focus-requested: root.editor-focus-requested;
+            changed editor-focus-requested => {
+                if self.editor-focus-requested {
+                    root.editor-focus-requested = false;
+                    self.focus();
+                }
+            }
             property <bool> shift-pressed: false;
             private property <bool> window-active: Api.window-active();
             changed window-active => {
-                if !self.window-active { self.shift-pressed = false; }
+                if !self.window-active {
+                    self.shift-pressed = false;
+                    Snapping.disabled = false;
+                }
             }
             private property <int> fill-focus-generation: FillSession.focus-generation;
             changed fill-focus-generation => {
@@ -416,7 +338,7 @@ export component EditorUi inherits Window {
                     self.nudge-origin.x,
                     self.nudge-origin.y,
                     CanvasView.selection.width,
-                    CanvasView.selection.height);
+                    CanvasView.selection.height, CoordinateSpace.Root);
             }
 
             // Several edits in flight at once get lost, so quick taps share one write.
@@ -427,6 +349,7 @@ export component EditorUi inherits Window {
             }
 
             capture-key-pressed(event) => {
+                Snapping.disabled = Platform.os == OperatingSystemType.macos ? event.modifiers.meta : event.modifiers.control;
                 if root.canvas-zoom-enabled && event.modifiers.control && !event.modifiers.alt && !event.modifiers.meta && event.text == "=" {
                     CanvasView.set-zoom(CanvasView.next-zoom-level);
                     return accept;
@@ -443,6 +366,7 @@ export component EditorUi inherits Window {
             }
 
             capture-key-released(event) => {
+                Snapping.disabled = Platform.os == OperatingSystemType.macos ? event.modifiers.meta : event.modifiers.control;
                 if event.text == Key.Space {
                     CanvasView.space-pressed = false;
                 }
@@ -504,16 +428,35 @@ export component EditorUi inherits Window {
                         CanvasView.nudge-position.x,
                         CanvasView.nudge-position.y,
                         CanvasView.selection.width,
-                        CanvasView.selection.height);
+                        CanvasView.selection.height, CoordinateSpace.Root);
                     return accept;
                 }
                 reject
+            }
+
+            KeyBinding {
+                keys: @keys(Control + C);
+                enabled: Diagnostics.preview-editable && Api.selection.highlight-index >= 0;
+                activated => Api.selected-element-copy();
+            }
+
+            KeyBinding {
+                keys: @keys(Control + X);
+                enabled: Diagnostics.preview-editable && Api.selection.highlight-index >= 0;
+                activated => Api.selected-element-cut();
+            }
+
+            KeyBinding {
+                keys: @keys(Control + V);
+                enabled: Diagnostics.preview-editable && (CanvasView.pointer-inside || Api.selection.highlight-index >= 0);
+                activated => Api.paste-element(CanvasView.pointer-inside, CanvasView.pointer.x, CanvasView.pointer.y);
             }
 
             focus-lost => {
                 self.nudge-key-held = false;
                 self.write-nudge();
                 self.shift-pressed = false;
+                Snapping.disabled = false;
                 CanvasView.space-pressed = false;
                 CanvasView.panning = false;
             }
@@ -579,6 +522,7 @@ export component EditorUi inherits Window {
 
                             DragPreview {
                                 parent-origin: parent.absolute-position;
+                                palette-scale: CanvasView.zoom;
                                 show-outline: false;
                                 visible: AppState.palette-drag-kind != ElementKind.none
                                     && !(Api.editor-surface-mode == EditorSurfaceMode.component && !root.sidebars-collapsed && root.palette-drag-in-outline);
@@ -591,7 +535,6 @@ export component EditorUi inherits Window {
                                 root.palette-drag-in-outline = self.palette-drag-in-outline;
                             }
                             outline-pane-height: root.outline-pane-height;
-                            element-information: Api.current-element;
                             inspector-scroll-y <=> root.inspector-scroll-y;
                             outline-drag-started => { editor.focus(); }
                             outline-pane-resized(height) => {
@@ -662,26 +605,13 @@ export component EditorUi inherits Window {
                     }
                 }
 
-                if Springboard.state != SpringboardState.Stopped: SpringboardView {
-                    x: parent.width - self.width - 12px;
-                    y: Style.shell.top-bar-height;
-                    width: 260px;
-                    height: 300px;
-                    background: Colors.background;
-                }
-
-                if root.sidebars-collapsed: Rectangle {
+                if root.sidebars-collapsed: FloatingSurface {
                     x: Metrics.space-large;
                     y: Style.shell.top-bar-height + Metrics.space-medium;
                     width: Style.collapsed-sidebar.width;
                     height: Style.collapsed-sidebar.height;
                     border-radius: Style.collapsed-sidebar.radius;
                     border-width: Metrics.border-width;
-                    border-color: Style.floating-panel.border;
-                    background: Style.floating-panel.background;
-                    drop-shadow-blur: Style.floating-panel.shadow.blur;
-                    drop-shadow-offset-y: Style.floating-panel.shadow.offset-y;
-                    drop-shadow-color: Style.floating-panel.shadow.color;
 
                     HorizontalLayout {
                         padding-left: Metrics.space-medium;
@@ -717,7 +647,12 @@ export component EditorUi inherits Window {
                 visible: ShadowSession.open;
                 enabled: ShadowSession.open;
                 pointer-event(event) => {
-                    if event.kind == PointerEventKind.down { ShadowSession.close(); }
+                    if event.kind == PointerEventKind.down {
+                        let position = { x: self.absolute-position.x + self.mouse-x, y: self.absolute-position.y + self.mouse-y };
+                        if event.button != PointerEventButton.left || !ShadowSession.focus-anchor(position) {
+                            ShadowSession.close();
+                        }
+                    }
                 }
                 scroll-event(event) => {
                     let x = self.absolute-position.x + self.mouse-x - canvas-viewport.absolute-position.x;
@@ -746,7 +681,6 @@ export component EditorUi inherits Window {
                 InspectorShadowPicker {
                     parent-origin: shadow-layer.absolute-position;
                     history-requested(redo) => { root.apply-history(redo); }
-                    color-accepted(text) => { return ShadowSession.canvas-active && Api.commit-code-binding(Api.current-element, "drop-shadow-color", text); }
                 }
             }
 
@@ -755,7 +689,10 @@ export component EditorUi inherits Window {
                 enabled: FillSession.open;
                 pointer-event(event) => {
                     if event.kind == PointerEventKind.down {
-                        Api.dismiss-fill-picker({ x: self.absolute-position.x + self.mouse-x, y: self.absolute-position.y + self.mouse-y }, event.button);
+                        let position = { x: self.absolute-position.x + self.mouse-x, y: self.absolute-position.y + self.mouse-y };
+                        if event.button != PointerEventButton.left || !FillSession.focus-anchor(position) {
+                            Api.dismiss-fill-picker(position, event.button);
+                        }
                     }
                 }
                 scroll-event(event) => {

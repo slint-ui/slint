@@ -219,7 +219,8 @@ test("raster fallback exports only the selected root as one image", async () => 
     expect(pngExports).toBe(1);
     expect(captured.source.flattened).toBeUndefined();
     expect(captured.source.components).toBeUndefined();
-    expect(captured.source.root.type).toBe("VECTOR");
+    expect(captured.source.root.type).toBe(root.type);
+    expect(captured.source.rasterized).toBe(true);
     expect(captured.source.root.children).toEqual([]);
     expect(captured.source.root.exports?.png?.value).toEqual(png);
     expect(captured.work).toMatchObject({

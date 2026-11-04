@@ -4,7 +4,7 @@
 // Widget members added after 1.18 are `@shadowable`, so components that declared a member
 // with the same name keep compiling, with a warning.
 
-import { StandardTableView, TextEdit } from "std-widgets.slint";
+import { ListView, StandardTableView, TextEdit } from "std-widgets.slint";
 
 export component MyTextEdit inherits TextEdit {
     public function undo() -> string { "shadowed" }
@@ -18,4 +18,10 @@ export component MyTable inherits StandardTableView {
 //                           >                    <warning{'mouse-drag-pan-enabled' shadows the inherited property of the same name}
     callback scrolled(int);
 //           >      <warning{'scrolled' shadows the inherited callback of the same name}
+}
+
+export component MyListView inherits ListView {
+    callback ensure-row-visible(int);
+//           >                <warning{'ensure-row-visible' shadows the inherited function of the same name}
+    for i in 10: Rectangle { height: 10px; }
 }

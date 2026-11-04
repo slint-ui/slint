@@ -296,6 +296,9 @@ async fn message_loop(
         if stream.write_all(&binary_message).await.is_err() {
             break "Unable to write AUT response body";
         }
+        // `read_exact` doesn't yield when the next request is already buffered,
+        // so the event loop wouldn't run pending timers and change handlers before it.
+        futures_lite::future::yield_now().await;
     };
     eprintln!("{}, closing connection to test server", err_msg);
 
@@ -384,4 +387,90 @@ fn convert_window_event(
             i_slint_core::platform::WindowEvent::WindowActiveChanged(active)
         }
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn buffered_request_observes_pending_timers_and_change_handlers() {
+        use std::io::{Read, Write};
+
+        crate::init_integration_test_with_system_time();
+        slint::slint! {
+            #[edition = "1.19"]
+            export component App inherits Window {
+                in-out property <int> input;
+                out property <int> observed;
+                callback bump();
+                changed input => { observed = input; }
+                accessible-role: region;
+                accessible-label: "value " + observed;
+                accessible-action-default => { bump(); }
+            }
+        }
+        let app = App::new().unwrap();
+        let weak = app.as_weak();
+        app.on_bump(move || {
+            let weak = weak.clone();
+            slint::Timer::single_shot(std::time::Duration::ZERO, move || {
+                let app = weak.unwrap();
+                app.set_input(app.get_input() + 1);
+            });
+        });
+        let state = Rc::new(IntrospectionState::new());
+        state.add_window(
+            &i_slint_core::window::WindowInner::from_pub(app.window()).window_adapter(),
+        );
+        let root = Some(introspection::index_to_handle(
+            state.windows.borrow().values().next().unwrap().root_element_handle,
+        ));
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let client = Rc::new(TestingClient {
+            state,
+            message_loop_future: Default::default(),
+            server_addr: listener.local_addr().unwrap().to_string(),
+        });
+        client.start_if_needed();
+
+        let server = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut requests = Vec::new();
+            for msg in [
+                proto::request_to_aut::Msg::RequestInvokeElementAccessibilityAction(
+                    proto::RequestInvokeElementAccessibilityAction {
+                        element_handle: root,
+                        action: proto::ElementAccessibilityAction::Default as i32,
+                    },
+                ),
+                proto::request_to_aut::Msg::RequestElementProperties(
+                    proto::RequestElementProperties { element_handle: root },
+                ),
+            ] {
+                let request = proto::RequestToAut { msg: Some(msg) };
+                requests.write_u32::<BigEndian>(request.encoded_len() as u32).unwrap();
+                request.encode(&mut requests).unwrap();
+            }
+            stream.write_all(&requests).unwrap();
+            let mut response = None;
+            for _ in 0..2 {
+                let mut body = vec![0; stream.read_u32::<BigEndian>().unwrap() as usize];
+                stream.read_exact(&mut body).unwrap();
+                response = proto::AutResponse::decode(&body[..]).unwrap().msg;
+            }
+            response.unwrap()
+        });
+        let quit = std::thread::spawn(move || {
+            let response = server.join();
+            slint::invoke_from_event_loop(|| slint::quit_event_loop().unwrap()).unwrap();
+            response.unwrap()
+        });
+        slint::run_event_loop().unwrap();
+
+        let proto::aut_response::Msg::ElementProperties(properties) = quit.join().unwrap() else {
+            panic!("expected element properties");
+        };
+        assert_eq!(properties.accessible_label, "value 1");
+    }
 }

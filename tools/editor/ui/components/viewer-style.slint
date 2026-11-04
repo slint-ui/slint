@@ -1,0 +1,73 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ButtonBase } from "../../controls/src/headless.slint";
+import { ViewerStyle, Style, Metrics } from "../style.slint";
+export { ViewerStyle }
+import { FloatingSurface } from "floating-surface.slint";
+
+export component ViewerPopup inherits PopupWindow {
+    in property <length> anchor-width;
+    in property <length> anchor-height;
+    in property <length> panel-height;
+    out property <length> panel-width: Style.dialog.width;
+    in property <string> label;
+    close-policy: close-on-click-outside;
+    x: root.anchor-width - self.width + Metrics.space-large;
+    y: root.anchor-height + Metrics.space-small;
+    width: root.panel-width + 2 * Metrics.space-large;
+    height: panel.y + panel.height + Metrics.space-large;
+    panel := FloatingSurface {
+        x: Metrics.space-large; y: Metrics.space-regular;
+        width: root.panel-width; height: root.panel-height;
+        accessible-role: groupbox; accessible-label: root.label;
+        border-radius: Style.floating-surface.radius;
+        background: ViewerStyle.popup;
+        border-width: Metrics.border-width; border-color: ViewerStyle.border;
+        @children
+    }
+    arrow := Path {
+        x: root.anchor-width / 2 - root.x - self.width / 2; y: 0px;
+        width: Metrics.space-section; height: Metrics.space-regular;
+        commands: "M 0 10 L 14 -4 L 28 10";
+        fill: ViewerStyle.arrow; stroke: ViewerStyle.border; stroke-width: Metrics.border-width;
+    }
+}
+
+export component ViewerButton inherits ButtonBase {
+    slot body;
+    in property <bool> ghost;
+    height: Metrics.control-large;
+    background << Rectangle {
+        border-radius: Metrics.radius-medium;
+        border-width: !root.ghost || root.hovered || root.has-focus ? Metrics.border-width : 0px;
+        border-color: root.has-focus ? ViewerStyle.accent : ViewerStyle.field-border;
+        background: root.ghost ? transparent : root.hovered ? ViewerStyle.field-hover : ViewerStyle.field;
+    }
+    content << Rectangle {
+        body { }
+    }
+}
+
+export component Chevron inherits Image {
+    width: Metrics.icon-medium;
+    height: Metrics.icon-medium;
+    source: @image-url("../assets/lucide/chevron-down.svg");
+    colorize: ViewerStyle.icon;
+}
+
+export component Checkmark inherits Image {
+    width: Metrics.icon-medium;
+    height: Metrics.icon-medium;
+    source: @image-url("../assets/lucide/check.svg");
+    colorize: ViewerStyle.accent;
+}
+
+export component ViewerIcon inherits Image {
+    width: Metrics.icon-medium;
+    height: Metrics.icon-medium;
+    in property <bool> remote;
+    in property <color> ink: ViewerStyle.strong-icon;
+    source: root.remote ? @image-url("../assets/lucide/smartphone.svg") : @image-url("../assets/lucide/monitor.svg");
+    colorize: root.ink;
+}

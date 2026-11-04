@@ -96,17 +96,15 @@ fn swash_font_ref(font: &Font) -> swash::FontRef<'_> {
 }
 
 #[cfg(target_arch = "wasm32")]
-pub fn embed_glyphs<'a>(
-    _component: &Document,
+pub fn embed_glyphs(
+    _doc: &Document,
     _compiler_config: &CompilerConfiguration,
-    _scale_factor: f64,
     _pixel_sizes: Vec<i16>,
     _font_weights: Vec<u16>,
     _characters_seen: BTreeSet<char>,
-    _all_docs: impl Iterator<Item = &'a crate::object_tree::Document> + 'a,
+    _font_collection: &SharedFontCollection,
     _diag: &mut BuildDiagnostics,
-) -> bool {
-    false
+) {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -413,7 +411,7 @@ fn embed_font(
     let attrs = skrifa::attribute::Attributes::new(&font_ref);
 
     BitmapFont {
-        family_name,
+        family_name: family_name.into_bytes(),
         character_map,
         units_per_em: metrics.units_per_em as f32,
         ascent: metrics.ascent,

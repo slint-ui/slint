@@ -60,6 +60,20 @@ test("packed image assets compile through preview object URLs", async () => {
     await expect
         .poll(() => p.element("#source-view").textContent)
         .toBe(exportSource);
+    p.send({ type: "preview-source", revision: 2, source: packed });
+    await p.ready(2);
+    await expect
+        .poll(() => p.element("#source-view").textContent)
+        .toContain("Copy Slint includes the complete source");
+    expect(p.element<HTMLButtonElement>("#export-button").disabled).toBe(true);
+    const copied: string[] = [];
+    p.doc.execCommand = () => {
+        copied.push((p.doc.activeElement as HTMLTextAreaElement).value);
+        return true;
+    };
+    p.element<HTMLButtonElement>("#copy-button").click();
+    await expect.poll(() => copied).toEqual([source]);
+    expect(copied[0]).not.toContain("blob:");
 });
 
 test("oversized export validation cannot block the specialized preview", async () => {
@@ -234,7 +248,7 @@ test("real conversion worker supplies native source, raw clipboard text and the 
         selection: { nodeId: "export:root", nodeName: "Export sample" },
     };
     const expected = await convertCapture(request).then((result) => {
-        if (result.type !== "preview-source")
+        if (result.type !== "preview-source" || !result.exportPackage)
             throw Error(JSON.stringify(result));
         return result.exportPackage;
     });
@@ -352,7 +366,7 @@ test("pin controls send typed messages and diagnostics tabs support keyboard nav
         .toBe("true");
 });
 
-test("native variant failure blanks the previous preview and disables all output", async () => {
+test("native variant failure shows the new specialized preview and disables export", async () => {
     const p = await mountPreview();
     p.send({
         type: "preview-source",
@@ -376,21 +390,21 @@ test("native variant failure blanks the previous preview and disables all output
         revision: 2,
         captureJson: JSON.stringify(capture),
     });
-    await expect.poll(() => p.element("#status").dataset.state).toBe("error");
+    await p.ready(2);
     expect(p.element("#diagnostics").textContent).toContain(
         "Cyclic variable alias",
     );
-    expect(p.element("#diagnostics-tab").getAttribute("aria-selected")).toBe(
-        "true",
-    );
-    expect(p.element("#source-view").textContent).toBe("");
-    expect(p.element<HTMLButtonElement>("#copy-button").disabled).toBe(true);
+    await expect
+        .poll(() => p.element("#source-view").textContent)
+        .toContain("export component");
+    expect(p.element("#source-view").textContent).not.toBe(buttonSource);
+    expect(p.element<HTMLButtonElement>("#copy-button").disabled).toBe(false);
     expect(p.element<HTMLButtonElement>("#export-button").disabled).toBe(true);
     expect(
         p
             .element("#preview-canvas")
             .checkVisibility({ visibilityProperty: true }),
-    ).toBe(false);
+    ).toBe(true);
 });
 
 test("highlighted source keeps long lines and the last line reachable", async () => {

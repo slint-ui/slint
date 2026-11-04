@@ -1,70 +1,78 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+import { Styles } from "../styles.slint";
+import { RecipePhoto } from "recipe-photo.slint";
+
 export component RecipeCard inherits Rectangle {
-    width: 109px;
-    height: 109px;
+    width: Styles.recipe-card-size;
+    height: self.width;
 
     in property <image> photo;
     in property <string> title: "Recipe Name";
-    in property <string> rating: "4.8";
-    in property <int> reviews: 693;
     in property <string> time: "1 Std. 20 Min";
-    in property <int> portions: 4;
 
     callback recipe-clicked();
-    TouchArea {
-        clicked => {
-            root.recipe-clicked();
-        }
-    }
 
-    frame := Rectangle {
-
-        Image {
-            source: root.photo;
-            width: 100%;
-            height: 100%;
-            image-fit: contain;
-        }
-    }
-
-    title := Text {
-        y: 89px;
-        width: 80%;
-        text: root.title;
-        font-size: 8px;
-        font-weight: FontWeight.bold;
-        color: white;
-        overflow: elide;
-        horizontal-alignment: center;
-        letter-spacing: -0.1px;
-    }
-
-    Rectangle {
-        x: parent.width - self.width - 5px;
-        y: 5px;
-        width: 44px;
+    RecipePhoto {
+        width: 100%;
+        height: 100%;
+        photo: root.photo;
 
         Rectangle {
-            x: 4px;
-            y: 1px;
-            width: 40px;
-            height: 15px;
+            background: @linear-gradient(0deg, #000000b8 0%, #00000000 70%);
+        }
 
-            Image {
-                x: 5px;
-                width: 6px;
-                source: @image-url("../images/time.svg");
-            }
-            Text {
-                x: 14px;
-                y: 4px;
-                text: root.time;
-                color: #171717;
-                font-size: 6px;
-                font-weight: FontWeight.bold;
+        Text {
+            x: Styles.spacing-md;
+            y: parent.height - self.height - Styles.spacing-md;
+            width: parent.width - 2 * Styles.spacing-md;
+            text: root.title;
+            font-size: Styles.small-font-size;
+            font-weight: FontWeight.bold;
+            color: white;
+            overflow: elide;
+            horizontal-alignment: center;
+            letter-spacing: -0.2px;
+        }
+
+        Rectangle {
+            x: parent.width - self.width - Styles.spacing-md;
+            y: Styles.spacing-md;
+            width: max(80px, badge-content.preferred-width);
+            height: Styles.compact-row-height;
+            border-radius: Styles.border-radius;
+            background: white;
+            drop-shadow-blur: Styles.shadow-blur;
+            drop-shadow-offset-y: Styles.shadow-offset;
+            drop-shadow-color: #00000030;
+
+            badge-content := HorizontalLayout {
+                padding-left: Styles.spacing-sm;
+                padding-right: Styles.spacing-sm;
+                spacing: Styles.spacing-sm;
+                alignment: center;
+                cross-axis-alignment: center;
+
+                Image {
+                    width: Styles.small-icon-size;
+                    height: self.width;
+                    source: @image-url("../images/time.svg");
+                }
+
+                Text {
+                    text: root.time;
+                    color: #171717;
+                    font-size: Styles.caption-font-size;
+                    font-weight: FontWeight.bold;
+                    vertical-alignment: center;
+                }
             }
         }
+    }
+
+    TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.recipe-clicked(); }
     }
 }

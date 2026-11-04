@@ -264,7 +264,7 @@ mod tests {
     fn sub_component_ids(source: &str) -> Vec<SmolStr> {
         let mut compiler_config =
             crate::CompilerConfiguration::new(crate::generator::OutputFormat::Llr);
-        compiler_config.enable_experimental = true;
+        compiler_config.experimental_features = crate::ExperimentalFeatures::all();
         compiler_config.inline_all_elements = false;
         let mut diag = BuildDiagnostics::default();
         let doc_node = crate::parser::parse(

@@ -8,11 +8,13 @@
 //! on the line buffer
 
 use super::{Fixed, PhysicalLength, PhysicalRect};
-use crate::scene::PremultipliedGradientStop;
+use crate::scene::{
+    GradientFactor, GradientPosition, LinearGradientPosition, PremultipliedGradientStop,
+};
 use derive_more::{Add, Mul, Sub};
-use i_slint_core::Color;
 use i_slint_core::graphics::{Rgb8Pixel, TexturePixelFormat};
 use i_slint_core::lengths::{PointLengths, SizeLengths};
+use i_slint_core::{Color, InternalToken};
 #[allow(unused_imports)]
 use num_traits::Float;
 
@@ -42,6 +44,7 @@ pub(super) fn draw_texture_line(
     let dx = Fixed::<i32, 8>::from_fixed(dx);
     let dy = Fixed::<i32, 8>::from_fixed(dy);
     let off_x = Fixed::<i32, 8>::from_fixed(off_x);
+    let bpp = format.bpp();
 
     if !rotation.is_transpose() {
         let mut delta = dx;
@@ -83,21 +86,33 @@ pub(super) fn draw_texture_line(
         end = end.min(len);
         let mut begin = 0;
         let row_fract = row.fract();
+        let contiguous = delta == Fixed::from_integer(1)
+            && alpha == 0xff
+            && has_contiguous_path(format, colorize);
         while begin < len {
-            fetch_blend_pixel(
-                &mut line_buffer[begin..end],
-                format,
-                data,
-                alpha,
-                colorize,
-                (pixel_stride as usize, dy),
-                #[inline(always)]
-                |bpp| {
-                    let p = ((row_offset + pos.truncate() as usize) * bpp, pos.fract(), row_fract);
-                    pos += delta;
-                    p
-                },
-            );
+            if contiguous {
+                draw_contiguous_pixels(
+                    &mut line_buffer[begin..end],
+                    format,
+                    &data[(row_offset + pos.truncate() as usize) * bpp..][..(end - begin) * bpp],
+                );
+            } else {
+                fetch_blend_pixel(
+                    &mut line_buffer[begin..end],
+                    format,
+                    data,
+                    alpha,
+                    colorize,
+                    (pixel_stride as usize, dy),
+                    #[inline(always)]
+                    |bpp| {
+                        let p =
+                            ((row_offset + pos.truncate() as usize) * bpp, pos.fract(), row_fract);
+                        pos += delta;
+                        p
+                    },
+                );
+            }
             begin = end;
             end += tile_len;
             pos = acc_err + Fixed::from_integer(tile_start);
@@ -116,7 +131,6 @@ pub(super) fn draw_texture_line(
             end = end.min(len);
         }
     } else {
-        let bpp = format.bpp();
         let col = off_x + dx * y;
         let col_fract = col.fract();
         let col = (col.truncate() % source_size.width) as usize * bpp;
@@ -183,6 +197,82 @@ pub(super) fn draw_texture_line(
         }
     };
 
+    fn has_contiguous_path(format: TexturePixelFormat, colorize: Color) -> bool {
+        match format {
+            TexturePixelFormat::Rgb => true,
+            #[cfg(feature = "image-pixel-format-rgb565")]
+            TexturePixelFormat::Rgb565 => true,
+            #[cfg(feature = "image-pixel-format-gray8")]
+            TexturePixelFormat::Gray8 => true,
+            TexturePixelFormat::Rgba | TexturePixelFormat::RgbaPremultiplied => {
+                colorize.alpha() == 0
+            }
+            TexturePixelFormat::AlphaMap | TexturePixelFormat::SignedDistanceField => false,
+        }
+    }
+
+    fn draw_contiguous_pixels(
+        line_buffer: &mut [impl TargetPixel],
+        format: TexturePixelFormat,
+        src: &[u8],
+    ) {
+        match format {
+            TexturePixelFormat::Rgb => {
+                for (pix, p) in line_buffer.iter_mut().zip(src.as_chunks::<3>().0) {
+                    *pix = TargetPixel::from_rgb(p[0], p[1], p[2]);
+                }
+            }
+            #[cfg(feature = "image-pixel-format-rgb565")]
+            TexturePixelFormat::Rgb565 => {
+                for (pix, p) in line_buffer.iter_mut().zip(src.as_chunks::<2>().0) {
+                    let p = Rgb565Pixel(u16::from_ne_bytes(*p));
+                    *pix = TargetPixel::from_rgb(p.red(), p.green(), p.blue());
+                }
+            }
+            #[cfg(feature = "image-pixel-format-gray8")]
+            TexturePixelFormat::Gray8 => {
+                for (pix, &v) in line_buffer.iter_mut().zip(src) {
+                    *pix = TargetPixel::from_rgb(v, v, v);
+                }
+            }
+            TexturePixelFormat::Rgba => {
+                for (pix, p) in line_buffer.iter_mut().zip(src.as_chunks::<4>().0) {
+                    blend_rgba(pix, p[3], p);
+                }
+            }
+            TexturePixelFormat::RgbaPremultiplied => {
+                for (pix, p) in line_buffer.iter_mut().zip(src.as_chunks::<4>().0) {
+                    blend_premultiplied(pix, p);
+                }
+            }
+            TexturePixelFormat::AlphaMap | TexturePixelFormat::SignedDistanceField => {
+                unreachable!("rejected by has_contiguous_path")
+            }
+        }
+    }
+
+    #[inline(always)]
+    fn blend_rgba(pix: &mut impl TargetPixel, alpha: u8, p: &[u8]) {
+        match alpha {
+            0 => {}
+            0xff => *pix = TargetPixel::from_rgb(p[0], p[1], p[2]),
+            a => pix.blend(PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
+                a, p[0], p[1], p[2],
+            ))),
+        }
+    }
+
+    #[inline(always)]
+    fn blend_premultiplied(pix: &mut impl TargetPixel, p: &[u8]) {
+        match p[3] {
+            0 => {}
+            0xff => *pix = TargetPixel::from_rgb(p[0], p[1], p[2]),
+            alpha => {
+                pix.blend(PremultipliedRgbaColor { alpha, red: p[0], green: p[1], blue: p[2] })
+            }
+        }
+    }
+
     fn fetch_blend_pixel(
         line_buffer: &mut [impl TargetPixel],
         format: TexturePixelFormat,
@@ -232,55 +322,36 @@ pub(super) fn draw_texture_line(
                     for pix in line_buffer {
                         let pos = pos(4).0;
                         let p: &[u8] = &data[pos..pos + 4];
-                        let alpha = ((p[3] as u16 * alpha as u16) / 255) as u8;
-                        if alpha == 0xff {
-                            *pix = TargetPixel::from_rgb(p[0], p[1], p[2]);
-                        } else {
-                            pix.blend(PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
-                                alpha, p[0], p[1], p[2],
-                            )));
-                        }
+                        blend_rgba(pix, ((p[3] as u16 * alpha as u16) / 255) as u8, p);
                     }
                 } else {
+                    let opaque = TargetPixel::from_rgb(color.red(), color.green(), color.blue());
                     for pix in line_buffer {
                         let pos = pos(4).0;
-                        let alpha = ((data[pos + 3] as u16 * alpha as u16) / 255) as u8;
-                        let c = PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
-                            alpha,
-                            color.red(),
-                            color.green(),
-                            color.blue(),
-                        ));
-                        pix.blend(c);
+                        let coverage = ((data[pos + 3] as u16 * alpha as u16) / 255) as u8;
+                        blend_coverage(pix, opaque, color, coverage);
                     }
                 }
             }
             TexturePixelFormat::RgbaPremultiplied => {
                 if color.alpha() > 0 {
+                    let opaque = TargetPixel::from_rgb(color.red(), color.green(), color.blue());
                     for pix in line_buffer {
                         let pos = pos(4).0;
-                        let c = PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
-                            ((data[pos + 3] as u16 * alpha as u16) / 255) as u8,
-                            color.red(),
-                            color.green(),
-                            color.blue(),
-                        ));
-                        pix.blend(c);
+                        let coverage = ((data[pos + 3] as u16 * alpha as u16) / 255) as u8;
+                        blend_coverage(pix, opaque, color, coverage);
                     }
                 } else if alpha == 0xff {
                     for pix in line_buffer {
                         let pos = pos(4).0;
-                        let c = PremultipliedRgbaColor {
-                            alpha: data[pos + 3],
-                            red: data[pos + 0],
-                            green: data[pos + 1],
-                            blue: data[pos + 2],
-                        };
-                        pix.blend(c);
+                        blend_premultiplied(pix, &data[pos..pos + 4]);
                     }
                 } else {
                     for pix in line_buffer {
                         let pos = pos(4).0;
+                        if data[pos + 3] == 0 {
+                            continue;
+                        }
                         let c = PremultipliedRgbaColor {
                             alpha: (data[pos + 3] as u16 * alpha as u16 / 255) as u8,
                             red: (data[pos + 0] as u16 * alpha as u16 / 255) as u8,
@@ -292,15 +363,11 @@ pub(super) fn draw_texture_line(
                 }
             }
             TexturePixelFormat::AlphaMap => {
+                let opaque = TargetPixel::from_rgb(color.red(), color.green(), color.blue());
                 for pix in line_buffer {
                     let pos = pos(1).0;
-                    let c = PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
-                        ((data[pos] as u16 * alpha as u16) / 255) as u8,
-                        color.red(),
-                        color.green(),
-                        color.blue(),
-                    ));
-                    pix.blend(c);
+                    let coverage = ((data[pos] as u16 * alpha as u16) / 255) as u8;
+                    blend_coverage(pix, opaque, color, coverage);
                 }
             }
             #[cfg(feature = "image-pixel-format-gray8")]
@@ -324,6 +391,7 @@ pub(super) fn draw_texture_line(
             TexturePixelFormat::SignedDistanceField => {
                 const RANGE: i32 = 6;
                 let factor = (362 * 256 / delta.0) * RANGE; // 362 ≃ 255 * sqrt(2)
+                let opaque = TargetPixel::from_rgb(color.red(), color.green(), color.blue());
                 for pix in line_buffer {
                     let (pos, col_f, row_f) = pos(1);
                     let (col_f, row_f) = (col_f as i32, row_f as i32);
@@ -338,23 +406,31 @@ pub(super) fn draw_texture_line(
                         debug_assert_eq!(row_f, 0);
                     }
                     let a = ((((dist >> 8) * factor) >> 16) + 128).clamp(0, 255) * alpha as i32;
-                    let c = PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
-                        (a / 255) as u8,
-                        color.red(),
-                        color.green(),
-                        color.blue(),
-                    ));
-                    pix.blend(c);
+                    blend_coverage(pix, opaque, color, (a / 255) as u8);
                 }
             }
         };
     }
 }
 
+#[inline(always)]
+fn blend_coverage<T: TargetPixel>(pix: &mut T, opaque: T, color: Color, coverage: u8) {
+    match coverage {
+        0 => {}
+        0xff => *pix = opaque,
+        _ => pix.blend(PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
+            coverage,
+            color.red(),
+            color.green(),
+            color.blue(),
+        ))),
+    }
+}
+
 /// This is an integer shifted by 4 bits.
 /// Note: this is not a "fixed point" because multiplication and sqrt operation operate to
 /// the shifted integer
-#[derive(Clone, Copy, PartialEq, Ord, PartialOrd, Eq, Add, Sub, Mul)]
+#[derive(Clone, Copy, Default, PartialEq, Ord, PartialOrd, Eq, Add, Sub, Mul)]
 struct Shifted(u32);
 impl Shifted {
     const ONE: Self = Shifted(1 << 4);
@@ -365,20 +441,13 @@ impl Shifted {
         Self(value.try_into().unwrap_or_else(|_| panic!("Overflow {value:?}")) << 4)
     }
     #[inline(always)]
-    fn floor(self) -> u32 {
-        self.0 >> 4
-    }
-    #[inline(always)]
-    fn ceil(self) -> u32 {
-        (self.0 + Self::ONE.0 - 1) >> 4
-    }
-    #[inline(always)]
     fn saturating_sub(self, other: Self) -> Self {
         Self(self.0.saturating_sub(other.0))
     }
     #[inline(always)]
     fn sqrt(self) -> Self {
-        Self(self.0.isqrt())
+        let root = self.0.isqrt();
+        Self(if self.0 - root * root > root { root + 1 } else { root })
     }
 }
 impl core::ops::Mul for Shifted {
@@ -397,46 +466,125 @@ fn corner_radii_on_line(
     line: PhysicalLength,
     shape: &super::RoundedShape,
 ) -> ((i16, i16), (i16, i16), i16) {
-    let y1 = (line - span.origin.y_length()) + shape.top_clip;
-    let y2 = (span.origin.y_length() + span.size.height_length() - line) + shape.bottom_clip
-        - PhysicalLength::new(1);
-    let y = y1.min(y2).get();
+    let y1 = (line - span.origin.y_length()).get().saturating_add(shape.top_clip.get());
+    let y2 = (span.origin.y_length() + span.size.height_length() - line)
+        .get()
+        .saturating_add(shape.bottom_clip.get())
+        - 1;
+    let y = y1.min(y2);
     debug_assert!(y >= 0);
     let r = &shape.radius;
-    let left = if y1.get() < r.top_left {
-        (r.top_left, y1.get())
-    } else if y2.get() < r.bottom_left {
-        (r.bottom_left, y2.get())
+    let left = if y1 < r.top_left {
+        (r.top_left, y1)
+    } else if y2 < r.bottom_left {
+        (r.bottom_left, y2)
     } else {
         (0, 0)
     };
-    let right = if y1.get() < r.top_right {
-        (r.top_right, y1.get())
-    } else if y2.get() < r.bottom_right {
-        (r.bottom_right, y2.get())
+    let right = if y1 < r.top_right {
+        (r.top_right, y1)
+    } else if y2 < r.bottom_right {
+        (r.bottom_right, y2)
     } else {
         (0, 0)
     };
     (left, right, y)
 }
 
-/// Where a pixel line crosses a circle of radius `circle`,
-/// centered `r` in from both edges of a corner.
-/// Returns `(x1, x2)` measured from the vertical edge,
-/// at the line's sides nearer to and farther from the center.
-/// `y` is `r` minus the line's distance from the horizontal edge.
-/// Each crossing is `r - √(circle² - y²)`, from the circle equation.
-fn arc_crossing(r: Shifted, circle: Shifted, y: Shifted) -> (Shifted, Shifted) {
-    let x1 = r - (circle * circle).saturating_sub((y - Shifted::ONE) * (y - Shifted::ONE)).sqrt();
-    let x2 = r - (circle * circle).saturating_sub(y * y).sqrt();
-    (x1, x2)
+/// Where a pixel line crosses a corner arc, approximated by the arc's tangent
+/// at the line's vertical center, and measured from the corner's vertical edge.
+/// A pixel's coverage is 0.5 plus the distance of its center inside the tangent, clamped.
+#[derive(Clone, Copy, Default)]
+struct ArcEdge {
+    /// Where the tangent crosses the line's vertical center, in 1/16 pixel.
+    center: i32,
+    /// The x component of the tangent's unit normal, in 1/8192.
+    normal_x: i32,
+    /// The pixels the tangent covers partially.
+    first: u32,
+    end: u32,
 }
 
-/// Coverage, between 0 and 255, of pixel `x` by a shape whose edge goes from `x1` to `x2`
-/// across the pixel line, with the shape to the right of the edge.
-/// This interpolates linearly, which isn't exact, but good enough.
-fn edge_coverage(x: u32, x1: Shifted, x2: Shifted) -> u32 {
-    ((Shifted::ONE + Shifted::new(x) - x1).0 << 8) / (Shifted::ONE + x2 - x1).0
+/// The side of the shape a corner is on.
+#[derive(Clone, Copy)]
+enum Side {
+    Left,
+    /// The shape's right edge is at this pixel.
+    Right(u32),
+}
+
+impl ArcEdge {
+    const NORMAL_ONE: i32 = 1 << 13;
+
+    fn vertical(x: Shifted) -> Self {
+        Self::from_tangent(x.0 as i32, Self::NORMAL_ONE, Shifted::ONE.0 as i32 / 2)
+    }
+
+    /// The edge of a circle of radius `circle`, centered `r` in from both edges of a corner.
+    /// `y` is `r` minus the line's distance from the horizontal edge.
+    fn new(r: Shifted, circle: Shifted, y: Shifted) -> Self {
+        let center_y = y - Shifted(Shifted::ONE.0 / 2);
+        if center_y >= circle {
+            return Self::vertical(r);
+        }
+        // From the circle equation; nonzero, since `center_y` is at least half a pixel below `circle`.
+        let x = (circle * circle - center_y * center_y).sqrt().0;
+        Self::from_tangent(
+            (r.0 - x) as i32,
+            ((x * Self::NORMAL_ONE as u32) / circle.0) as i32,
+            ((Shifted::ONE.0 / 2 * circle.0) / x) as i32,
+        )
+    }
+
+    /// `half_width` is `0.5 / normal_x`, in 1/16 pixel:
+    /// how far from `center` the coverage reaches 0 and 255 along the line.
+    fn from_tangent(center: i32, normal_x: i32, half_width: i32) -> Self {
+        let half_pixel = Shifted::ONE.0 as i32 / 2;
+        let first = ((center - half_pixel - half_width) >> 4) + 1;
+        let end = (center - half_pixel + half_width + Shifted::ONE.0 as i32 - 1) >> 4;
+        Self { center, normal_x, first: first.max(0) as u32, end: end.max(0) as u32 }
+    }
+
+    /// Coverage, between 0 and 255, of pixel `x` from the corner's vertical edge.
+    #[inline(always)]
+    fn coverage(&self, x: u32) -> u32 {
+        let distance = x as i32 * Shifted::ONE.0 as i32 + Shifted::ONE.0 as i32 / 2 - self.center;
+        (128 + ((distance * self.normal_x) >> 9)).clamp(0, 255) as u32
+    }
+
+    /// The pixels of the shape the edge covers partially.
+    #[inline(always)]
+    fn pixels(&self, side: Side) -> core::ops::Range<u32> {
+        match side {
+            Side::Left => self.first..self.end,
+            Side::Right(right) => right.saturating_sub(self.end)..right.saturating_sub(self.first),
+        }
+    }
+
+    /// Coverage, between 0 and 255, of pixel `x` of the shape.
+    #[inline(always)]
+    fn shape_coverage(&self, side: Side, x: u32) -> u32 {
+        match side {
+            Side::Left => self.coverage(x),
+            Side::Right(right) => self.coverage(right - 1 - x),
+        }
+    }
+
+    /// Calls `process_pixel` with the buffer index and coverage of each pixel the edge covers partially,
+    /// for a buffer of `len` pixels starting at pixel `left_clip` of the shape.
+    #[inline(always)]
+    fn for_each_pixel(
+        &self,
+        side: Side,
+        left_clip: u32,
+        len: usize,
+        mut process_pixel: impl FnMut(usize, u32),
+    ) {
+        let pixels = self.pixels(side);
+        for x in pixels.start.max(left_clip)..pixels.end.min(left_clip + len as u32) {
+            process_pixel((x - left_clip) as usize, self.shape_coverage(side, x));
+        }
+    }
 }
 
 /// draw one line of the rounded rectangle in the line buffer
@@ -454,151 +602,112 @@ pub(super) fn draw_rounded_rectangle_line(
     let ((left_radius, left_y), (right_radius, right_y), y) =
         corner_radii_on_line(span, line, shape);
     let border = Shifted::new(rr.width.get());
-    let anti_alias = |x1: Shifted, x2: Shifted, process_pixel: &mut dyn FnMut(usize, u32)| {
-        // x1 and x2 are the coordinate on the top and bottom of the intersection of the pixel
-        // line and the curve.
-        // `process_pixel` be called for the coordinate in the array and a coverage between 0..255
-        for x in x1.floor()..x2.ceil() {
-            process_pixel(x as usize, edge_coverage(x, x1, x2));
-        }
-    };
-    let rev = |x: Shifted| {
-        (Shifted::new(width) + Shifted::new(shape.right_clip.get() + extra_right_clip))
-            .saturating_sub(x)
-    };
-    let calculate_xxxx = |r: i16, y: i16| {
+    // Everything below works in unclipped coordinates, so a clip through an anti-aliasing ramp
+    // doesn't change the ramp; only `to_buffer` and `for_each_pixel` map to buffer indices.
+    let left_clip = shape.left_clip.get().saturating_add(extra_left_clip) as u32;
+    let to_buffer = |x: u32| x.saturating_sub(left_clip).min(width as u32) as usize;
+    let right = Side::Right(
+        left_clip + width as u32 + shape.right_clip.get().saturating_add(extra_right_clip) as u32,
+    );
+    let corner = |r: i16, y: i16| {
         if r == 0 {
-            return (Shifted::ZERO, Shifted::ZERO, border, border);
+            return (ArcEdge::vertical(Shifted::ZERO), ArcEdge::vertical(border));
         }
         let r = Shifted::new(r);
         let y = r - Shifted::new(y);
-        let (x1, x2) = arc_crossing(r, r, y);
+        let outer = ArcEdge::new(r, r, y);
         if border == Shifted::ZERO {
-            return (x1, x2, x1, x2);
+            return (outer, outer);
         }
-        let (x3, x4) = arc_crossing(r, r.saturating_sub(border), y);
-        (x1, x2, x3, x4)
+        (outer, ArcEdge::new(r, r.saturating_sub(border), y))
     };
 
-    let (x1, x2, x3, x4) = calculate_xxxx(left_radius, left_y);
-    let (x8, x7, x6, x5) = if (right_radius, right_y) == (left_radius, left_y) {
-        (x1, x2, x3, x4)
+    let (outer_left, inner_left) = corner(left_radius, left_y);
+    let (outer_right, inner_right) = if (right_radius, right_y) == (left_radius, left_y) {
+        (outer_left, inner_left)
     } else {
-        calculate_xxxx(right_radius, right_y)
+        corner(right_radius, right_y)
     };
-    let (x5, x6, x7, x8) = (rev(x5), rev(x6), rev(x7), rev(x8));
-    // A corner wider than half the rectangle reaches past the opposite side's border.
-    // `rev` gives line buffer positions, while the left side's are relative to the rectangle.
-    let left_clip = Shifted::new(shape.left_clip.get() + extra_left_clip);
-    let x4 = x4.min(x6 + left_clip);
-    let x3 = x3.min(x4);
-    let x5 = x5.max(x3.saturating_sub(left_clip));
-    let x6 = x6.max(x5);
-    anti_alias(
-        x1.saturating_sub(Shifted::new(shape.left_clip.get() + extra_left_clip)),
-        x2.saturating_sub(Shifted::new(shape.left_clip.get() + extra_left_clip)),
-        &mut |x, cov| {
-            if x >= width {
-                return;
-            }
-            let c = if border == Shifted::ZERO { rr.inner_color } else { rr.border_color };
-            let col = PremultipliedRgbaColor {
-                alpha: (((c.alpha as u32) * cov as u32) / 255) as u8,
-                red: (((c.red as u32) * cov as u32) / 255) as u8,
-                green: (((c.green as u32) * cov as u32) / 255) as u8,
-                blue: (((c.blue as u32) * cov as u32) / 255) as u8,
-            };
-            line_buffer[x].blend(col);
-        },
-    );
+    let c = if border == Shifted::ZERO { rr.inner_color } else { rr.border_color };
+    let blend_outer = |line_buffer: &mut [_], x: usize, cov: u32| {
+        let col = PremultipliedRgbaColor {
+            alpha: (((c.alpha as u32) * cov as u32) / 255) as u8,
+            red: (((c.red as u32) * cov as u32) / 255) as u8,
+            green: (((c.green as u32) * cov as u32) / 255) as u8,
+            blue: (((c.blue as u32) * cov as u32) / 255) as u8,
+        };
+        TargetPixel::blend(&mut line_buffer[x], col);
+    };
+    let blend_range = |line_buffer: &mut [_], begin: u32, end: u32, color| {
+        let (begin, end) = (to_buffer(begin), to_buffer(end));
+        if begin < end {
+            TargetPixel::blend_slice(&mut line_buffer[begin..end], color)
+        }
+    };
+    let blend_inner = |line_buffer: &mut [_], x: usize, cov: u32| {
+        TargetPixel::blend(
+            &mut line_buffer[x],
+            interpolate_color(cov, rr.border_color, rr.inner_color),
+        )
+    };
+
+    outer_left
+        .for_each_pixel(Side::Left, left_clip, width, |x, cov| blend_outer(line_buffer, x, cov));
+    let outer_end = outer_left.pixels(Side::Left).end;
+    let outer_start = outer_right.pixels(right).start;
     if y < rr.width.get() {
-        // up or down border (x2 .. x7)
-        let l = x2
-            .ceil()
-            .saturating_sub((shape.left_clip.get() + extra_left_clip) as u32)
-            .min(width as u32) as usize;
-        let r = x7.floor().min(width as u32) as usize;
-        if l < r {
-            TargetPixel::blend_slice(&mut line_buffer[l..r], rr.border_color)
-        }
+        // up or down border
+        blend_range(line_buffer, outer_end, outer_start, rr.border_color);
     } else {
-        if border > Shifted::ZERO {
-            // 3. draw the border (between x2 and x3)
-            if Shifted::ONE + x2 <= x3 {
-                TargetPixel::blend_slice(
-                    &mut line_buffer[x2
-                        .ceil()
-                        .saturating_sub((shape.left_clip.get() + extra_left_clip) as u32)
-                        .min(width as u32) as usize
-                        ..x3.floor()
-                            .saturating_sub((shape.left_clip.get() + extra_left_clip) as u32)
-                            .min(width as u32) as usize],
-                    rr.border_color,
-                )
+        let (left_pixels, right_pixels) =
+            (inner_left.pixels(Side::Left), inner_right.pixels(right));
+        if left_pixels.end <= right_pixels.start {
+            if border > Shifted::ZERO {
+                blend_range(line_buffer, outer_end, left_pixels.start, rr.border_color);
+                inner_left.for_each_pixel(Side::Left, left_clip, width, |x, cov| {
+                    blend_inner(line_buffer, x, cov)
+                });
             }
-            // 4. anti-aliasing for the contents (x3 .. x4)
-            anti_alias(
-                x3.saturating_sub(Shifted::new(shape.left_clip.get() + extra_left_clip)),
-                x4.saturating_sub(Shifted::new(shape.left_clip.get() + extra_left_clip)),
-                &mut |x, cov| {
-                    if x >= width {
-                        return;
+            if rr.inner_color.alpha > 0 {
+                blend_range(line_buffer, left_pixels.end, right_pixels.start, rr.inner_color);
+            }
+            if border > Shifted::ZERO {
+                inner_right.for_each_pixel(right, left_clip, width, |x, cov| {
+                    blend_inner(line_buffer, x, cov)
+                });
+                blend_range(line_buffer, right_pixels.end, outer_start, rr.border_color);
+            }
+        } else {
+            // A corner wider than half the rectangle reaches past the opposite side's border,
+            // so both inner edges cross the same pixels.
+            let begin = left_pixels.start.min(right_pixels.start);
+            let end = left_pixels.end.max(right_pixels.end);
+            blend_range(line_buffer, outer_end, begin, rr.border_color);
+            for x in begin.max(left_clip)..end.min(left_clip + width as u32) {
+                let coverage = |edge: &ArcEdge, side, pixels: &core::ops::Range<u32>| {
+                    if x < pixels.start {
+                        if matches!(side, Side::Left) { 0 } else { 255 }
+                    } else if x >= pixels.end {
+                        if matches!(side, Side::Left) { 255 } else { 0 }
+                    } else {
+                        edge.shape_coverage(side, x)
                     }
-                    let col = interpolate_color(cov, rr.border_color, rr.inner_color);
-                    line_buffer[x].blend(col);
-                },
-            );
-        }
-        if rr.inner_color.alpha > 0 {
-            // 5. inside (x4 .. x5)
-            let begin = x4
-                .ceil()
-                .saturating_sub((shape.left_clip.get() + extra_left_clip) as u32)
-                .min(width as u32);
-            let end = x5.floor().min(width as u32);
-            if begin < end {
-                TargetPixel::blend_slice(
-                    &mut line_buffer[begin as usize..end as usize],
-                    rr.inner_color,
-                )
+                };
+                let cov = coverage(&inner_left, Side::Left, &left_pixels).min(coverage(
+                    &inner_right,
+                    right,
+                    &right_pixels,
+                ));
+                blend_inner(line_buffer, (x - left_clip) as usize, cov);
             }
-        }
-        if border > Shifted::ZERO {
-            // 6. border anti-aliasing: x5..x6
-            anti_alias(x5, x6, &mut |x, cov| {
-                if x >= width {
-                    return;
-                }
-                let col = interpolate_color(cov, rr.inner_color, rr.border_color);
-                line_buffer[x].blend(col)
-            });
-            // 7. border x6 .. x7
-            if Shifted::ONE + x6 <= x7 {
-                TargetPixel::blend_slice(
-                    &mut line_buffer[x6.ceil().min(width as u32) as usize
-                        ..x7.floor().min(width as u32) as usize],
-                    rr.border_color,
-                )
-            }
+            blend_range(line_buffer, end, outer_start, rr.border_color);
         }
     }
-    anti_alias(x7, x8, &mut |x, cov| {
-        if x >= width {
-            return;
-        }
-        let c = if border == Shifted::ZERO { rr.inner_color } else { rr.border_color };
-        let col = PremultipliedRgbaColor {
-            alpha: (((c.alpha as u32) * (255 - cov) as u32) / 255) as u8,
-            red: (((c.red as u32) * (255 - cov) as u32) / 255) as u8,
-            green: (((c.green as u32) * (255 - cov) as u32) / 255) as u8,
-            blue: (((c.blue as u32) * (255 - cov) as u32) / 255) as u8,
-        };
-        line_buffer[x].blend(col);
-    });
+    outer_right.for_each_pixel(right, left_clip, width, |x, cov| blend_outer(line_buffer, x, cov));
 }
 
 // a is between 0 and 255. When 0, we get color1, when 255 we get color2
-fn interpolate_color(
+pub(super) fn interpolate_color(
     a: u32,
     color1: PremultipliedRgbaColor,
     color2: PremultipliedRgbaColor,
@@ -624,9 +733,8 @@ fn interpolate_color(
     }
 }
 
-/// Taken as `dyn` by [`draw_gradient_line`] so it's only instantiated once per pixel type.
-pub(super) trait GradientCommand<T: TargetPixel> {
-    fn clip(&self) -> &super::GradientClip;
+/// Taken as `dyn` by [`draw_line_with_clips`] so it's only instantiated once per pixel type.
+pub(super) trait LineCommand<T: TargetPixel> {
     fn draw_line(
         &self,
         rect: &PhysicalRect,
@@ -645,298 +753,533 @@ pub(super) trait GradientCommand<T: TargetPixel> {
     );
 }
 
-impl<T: TargetPixel> GradientCommand<T> for super::LinearGradientCommand {
-    fn clip(&self) -> &super::GradientClip {
-        &self.clip
-    }
-    fn draw_line(
-        &self,
+macro_rules! impl_line_command {
+    ($ty:ty, |$cmd:ident, $rect:ident, $line:ident, $buffer:ident, $left:ident, $right:ident| $body:expr) => {
+        impl<T: TargetPixel> LineCommand<T> for $ty {
+            fn draw_line(
+                &self,
+                $rect: &PhysicalRect,
+                $line: PhysicalLength,
+                $buffer: &mut [T],
+                $left: i16,
+                $right: i16,
+            ) {
+                let $cmd = self;
+                $body
+            }
+            fn draw_scratch_line(
+                &self,
+                $rect: &PhysicalRect,
+                $line: PhysicalLength,
+                $buffer: &mut [PremultipliedRgbaColor],
+                $left: i16,
+                $right: i16,
+            ) {
+                let $cmd = self;
+                $body
+            }
+        }
+    };
+}
+
+pub(super) struct SolidColor(pub PremultipliedRgbaColor);
+
+impl_line_command!(SolidColor, |c, _rect, _line, buffer, _left, _right| {
+    TargetPixel::blend_slice(buffer, c.0)
+});
+impl_line_command!(super::RoundedRectangle, |rr, rect, line, buffer, left, right| {
+    draw_rounded_rectangle_line(rect, line, rr, buffer, left, right)
+});
+impl_line_command!(super::SceneTexture<'_>, |texture, rect, line, buffer, left, right| {
+    draw_texture_line(rect, line, texture, buffer, left, right)
+});
+impl_line_command!(super::LinearGradientCommand, |g, rect, line, buffer, left, _right| {
+    draw_linear_gradient(rect, line, g, buffer, left)
+});
+impl_line_command!(super::RadialGradientCommand, |g, rect, line, buffer, left, right| {
+    draw_radial_gradient(rect, line, g, buffer, left, right)
+});
+impl_line_command!(super::ConicGradientCommand, |g, rect, line, buffer, left, right| {
+    draw_conic_gradient(rect, line, g, buffer, left, right)
+});
+impl_line_command!(super::BoxShadowCommand, |shadow, rect, line, buffer, left, _right| {
+    super::box_shadow::draw_box_shadow_line(rect, line, shadow, buffer, left)
+});
+
+/// Where the arcs of one [`super::ShapeClip`] cross a line.
+/// The arcs are relative to the shape's left edge rather than the buffer,
+/// so the coverage doesn't depend on where the dirty region splits the line.
+#[derive(Clone, Copy, Default)]
+struct ClipSpan {
+    /// The shape's left edge, in pixels left of the buffer.
+    left_offset: u32,
+    len: usize,
+    shape_width: u32,
+    left_edge: ArcEdge,
+    right_edge: ArcEdge,
+    binary: bool,
+}
+
+impl ClipSpan {
+    fn new(
         rect: &PhysicalRect,
         line: PhysicalLength,
-        buffer: &mut [T],
+        clip: &super::ShapeClip,
+        len: usize,
         extra_left_clip: i16,
-        _extra_right_clip: i16,
-    ) {
-        draw_linear_gradient(rect, line, self, buffer, extra_left_clip)
+        extra_right_clip: i16,
+    ) -> Option<Self> {
+        let shape = &clip.shape;
+        let ((left_radius, left_y), (right_radius, right_y), _) =
+            corner_radii_on_line(rect, line, shape);
+        if left_radius == 0 && right_radius == 0 {
+            return None;
+        }
+        let left_offset = shape.left_clip.get().saturating_add(extra_left_clip) as u32;
+        let right_offset = shape.right_clip.get().saturating_add(extra_right_clip) as u32;
+        let shape_width = len as u32 + left_offset + right_offset;
+        let border = Shifted::new(clip.opaque_border.get());
+        let arc = |r: i16, y: i16| {
+            if r == 0 {
+                return ArcEdge::vertical(Shifted::ZERO);
+            }
+            let r = Shifted::new(r);
+            ArcEdge::new(r, r.saturating_sub(border), r - Shifted::new(y))
+        };
+        let left_edge = arc(left_radius, left_y);
+        let right_edge = if (right_radius, right_y) == (left_radius, left_y) {
+            left_edge
+        } else {
+            arc(right_radius, right_y)
+        };
+        Some(Self {
+            left_offset,
+            len,
+            shape_width,
+            left_edge,
+            right_edge,
+            binary: border > Shifted::ZERO,
+        })
     }
-    fn draw_scratch_line(
-        &self,
-        rect: &PhysicalRect,
-        line: PhysicalLength,
-        buffer: &mut [PremultipliedRgbaColor],
-        extra_left_clip: i16,
-        _extra_right_clip: i16,
-    ) {
-        draw_linear_gradient(rect, line, self, buffer, extra_left_clip)
+
+    fn right(&self) -> Side {
+        Side::Right(self.shape_width)
+    }
+
+    fn buffer_index(&self, x: u32) -> usize {
+        (x.saturating_sub(self.left_offset) as usize).min(self.len)
+    }
+
+    fn outer(&self) -> core::ops::Range<usize> {
+        let left = self.left_edge.pixels(Side::Left);
+        let right = self.right_edge.pixels(self.right());
+        self.buffer_index(left.start)..self.buffer_index(right.end)
+    }
+
+    fn inner(&self) -> core::ops::Range<usize> {
+        if self.binary {
+            // `draw_rounded_rectangle_line` anti-aliases the border's inner edge over this same
+            // span, so the command must have full coverage in it.
+            self.outer()
+        } else {
+            let left = self.left_edge.pixels(Side::Left);
+            let right = self.right_edge.pixels(self.right());
+            self.buffer_index(left.end)..self.buffer_index(right.start)
+        }
+    }
+
+    /// The coverage of buffer pixel `x`, which must be in `outer()`.
+    fn coverage(&self, x: usize) -> u32 {
+        if self.binary {
+            return 255;
+        }
+        let x = x as u32 + self.left_offset;
+        let right = self.right();
+        let left = if x >= self.left_edge.pixels(Side::Left).end {
+            255
+        } else {
+            self.left_edge.coverage(x)
+        };
+        let right = if x < self.right_edge.pixels(right).start {
+            255
+        } else {
+            self.right_edge.shape_coverage(right, x)
+        };
+        // On a narrow shape both arcs can cross the same pixel.
+        left.min(right)
     }
 }
 
-impl<T: TargetPixel> GradientCommand<T> for super::RadialGradientCommand {
-    fn clip(&self) -> &super::GradientClip {
-        &self.clip
-    }
-    fn draw_line(
-        &self,
-        rect: &PhysicalRect,
+/// Bounds the stack buffers of the edge pixels.
+/// Most edges fit in one chunk, but the flat top of a large corner takes several.
+const EDGE_CHUNK: usize = 16;
+
+/// Most runs have a few entries; a longer one recomputes its spans for each edge chunk.
+const CACHED_SPANS: usize = 4;
+
+/// A command's clip run on one line of its buffer.
+pub(super) struct LineClip<'a> {
+    rect: &'a PhysicalRect,
+    line: PhysicalLength,
+    clips: &'a [super::ShapeClip],
+    len: usize,
+    extra_left_clip: i16,
+    extra_right_clip: i16,
+    spans: [ClipSpan; CACHED_SPANS],
+    span_count: usize,
+    /// The pixels the run covers at all.
+    pub outer: core::ops::Range<usize>,
+    /// The pixels it covers fully.
+    pub inner: core::ops::Range<usize>,
+}
+
+impl<'a> LineClip<'a> {
+    /// `None` if the run doesn't clip this line of `len` pixels.
+    #[inline]
+    pub fn new(
+        rect: &'a PhysicalRect,
         line: PhysicalLength,
-        buffer: &mut [T],
+        clips: &'a [super::ShapeClip],
+        len: usize,
         extra_left_clip: i16,
         extra_right_clip: i16,
-    ) {
-        draw_radial_gradient(rect, line, self, buffer, extra_left_clip, extra_right_clip)
+    ) -> Option<Self> {
+        // The setup costs more than an MCU's fill of an unclipped line.
+        if clips.is_empty() {
+            return None;
+        }
+        let mut this = Self {
+            rect,
+            line,
+            clips,
+            len,
+            extra_left_clip,
+            extra_right_clip,
+            spans: Default::default(),
+            span_count: 0,
+            outer: 0..len,
+            inner: 0..len,
+        };
+        for span in this.compute_spans() {
+            if let Some(cached) = this.spans.get_mut(this.span_count) {
+                *cached = span;
+            }
+            this.span_count += 1;
+            let (outer, inner) = (span.outer(), span.inner());
+            this.outer = this.outer.start.max(outer.start)..this.outer.end.min(outer.end);
+            this.inner = this.inner.start.max(inner.start)..this.inner.end.min(inner.end);
+        }
+        if this.span_count == 0 {
+            return None;
+        }
+        this.outer.end = this.outer.end.max(this.outer.start);
+        let inner_start = this.inner.start.clamp(this.outer.start, this.outer.end);
+        this.inner = inner_start..this.inner.end.clamp(inner_start, this.outer.end);
+        Some(this)
     }
-    fn draw_scratch_line(
-        &self,
-        rect: &PhysicalRect,
-        line: PhysicalLength,
-        buffer: &mut [PremultipliedRgbaColor],
-        extra_left_clip: i16,
-        extra_right_clip: i16,
-    ) {
-        draw_radial_gradient(rect, line, self, buffer, extra_left_clip, extra_right_clip)
+
+    /// The spans of the clips that have a corner on this line; the others don't clip it.
+    fn compute_spans(&self) -> impl Iterator<Item = ClipSpan> + 'a {
+        let (rect, line, len) = (self.rect, self.line, self.len);
+        let (extra_left_clip, extra_right_clip) = (self.extra_left_clip, self.extra_right_clip);
+        self.clips.iter().filter_map(move |clip| {
+            ClipSpan::new(rect, line, clip, len, extra_left_clip, extra_right_clip)
+        })
+    }
+
+    /// Calls `f` with each chunk of the pixels between `outer` and `inner`, and their coverage.
+    /// Clips combine by their minimum, which is exact for coincident and concentric edges.
+    pub fn for_each_edge_chunk(&self, mut f: impl FnMut(core::ops::Range<usize>, &[u8])) {
+        let mut coverage = [0u8; EDGE_CHUNK];
+        for edge in [self.outer.start..self.inner.start, self.inner.end..self.outer.end] {
+            for start in edge.clone().step_by(EDGE_CHUNK) {
+                let chunk = start..(start + EDGE_CHUNK).min(edge.end);
+                let coverage = &mut coverage[..chunk.len()];
+                coverage.fill(255);
+                let mut apply = |span: &ClipSpan| {
+                    for (x, c) in chunk.clone().zip(coverage.iter_mut()) {
+                        *c = (*c as u32).min(span.coverage(x)) as u8;
+                    }
+                };
+                if self.span_count <= CACHED_SPANS {
+                    self.spans[..self.span_count].iter().for_each(&mut apply);
+                } else {
+                    self.compute_spans().for_each(|span| apply(&span));
+                }
+                f(chunk, coverage);
+            }
+        }
     }
 }
 
-impl<T: TargetPixel> GradientCommand<T> for super::ConicGradientCommand {
-    fn clip(&self) -> &super::GradientClip {
-        &self.clip
-    }
-    fn draw_line(
-        &self,
-        rect: &PhysicalRect,
-        line: PhysicalLength,
-        buffer: &mut [T],
-        extra_left_clip: i16,
-        extra_right_clip: i16,
-    ) {
-        draw_conic_gradient(rect, line, self, buffer, extra_left_clip, extra_right_clip)
-    }
-    fn draw_scratch_line(
-        &self,
-        rect: &PhysicalRect,
-        line: PhysicalLength,
-        buffer: &mut [PremultipliedRgbaColor],
-        extra_left_clip: i16,
-        extra_right_clip: i16,
-    ) {
-        draw_conic_gradient(rect, line, self, buffer, extra_left_clip, extra_right_clip)
-    }
-}
-
-/// Draw one line of a gradient, clipped to its rounded shape with anti-aliased corners.
-pub(super) fn draw_gradient_line<T: TargetPixel>(
+/// Draw one line of a command, clipped to its clip run with anti-aliased corners.
+#[inline]
+pub(super) fn draw_clipped_line<T: TargetPixel>(
     rect: &PhysicalRect,
     line: PhysicalLength,
-    g: &dyn GradientCommand<T>,
+    clips: &[super::ShapeClip],
+    cmd: &impl LineCommand<T>,
     buffer: &mut [T],
     extra_left_clip: i16,
     extra_right_clip: i16,
 ) {
-    let clip = g.clip();
-    let shape = &clip.shape;
-    let ((left_radius, left_y), (right_radius, right_y), _) = if shape.radius.is_zero() {
-        ((0, 0), (0, 0), 0)
+    if clips.is_empty() {
+        cmd.draw_line(rect, line, buffer, extra_left_clip, extra_right_clip);
     } else {
-        corner_radii_on_line(rect, line, shape)
-    };
-    if left_radius == 0 && right_radius == 0 {
-        g.draw_line(rect, line, buffer, extra_left_clip, extra_right_clip);
-        return;
+        draw_line_with_clips(rect, line, clips, cmd, buffer, extra_left_clip, extra_right_clip);
     }
+}
 
+fn draw_line_with_clips<T: TargetPixel>(
+    rect: &PhysicalRect,
+    line: PhysicalLength,
+    clips: &[super::ShapeClip],
+    cmd: &dyn LineCommand<T>,
+    buffer: &mut [T],
+    extra_left_clip: i16,
+    extra_right_clip: i16,
+) {
     let len = buffer.len();
-    // The edges are computed relative to the shape's left edge rather than the buffer,
-    // so the coverage doesn't depend on where the dirty region splits the line.
-    let left_offset = (shape.left_clip.get() + extra_left_clip) as u32;
-    let shape_width =
-        Shifted::new(len as u32 + left_offset + (shape.right_clip.get() + extra_right_clip) as u32);
-    let border = Shifted::new(clip.opaque_border.get());
-    let arc = |r: i16, y: i16| {
-        if r == 0 {
-            return (Shifted::ZERO, Shifted::ZERO);
-        }
-        let r = Shifted::new(r);
-        arc_crossing(r, r.saturating_sub(border), r - Shifted::new(y))
+    let Some(line_clip) = LineClip::new(rect, line, clips, len, extra_left_clip, extra_right_clip)
+    else {
+        cmd.draw_line(rect, line, buffer, extra_left_clip, extra_right_clip);
+        return;
     };
-    let (l1, l2) = arc(left_radius, left_y);
-    let (r2, r1) = if (right_radius, right_y) == (left_radius, left_y) {
-        (l1, l2)
-    } else {
-        arc(right_radius, right_y)
-    };
-    let (r1, r2) = (shape_width.saturating_sub(r1), shape_width.saturating_sub(r2));
-
-    let to_buffer = |x: u32| (x.saturating_sub(left_offset) as usize).min(len);
-    let begin = to_buffer(l1.floor());
-    let end = to_buffer(r2.ceil());
-    let clips = |range: &core::ops::Range<usize>| {
+    let extra_clips = |range: &core::ops::Range<usize>| {
         (extra_left_clip + range.start as i16, extra_right_clip + (len - range.end) as i16)
     };
 
-    if border > Shifted::ZERO {
-        // `draw_rounded_rectangle_line` anti-aliases the border's inner edge over this same
-        // span, so the gradient must have full coverage in it.
-        let inner = begin..end.max(begin);
-        let (left_clip, right_clip) = clips(&inner);
-        g.draw_line(rect, line, &mut buffer[inner], left_clip, right_clip);
-        return;
+    let inner = line_clip.inner.clone();
+    // `draw_texture_line` doesn't support an empty buffer.
+    if !inner.is_empty() {
+        let (left_clip, right_clip) = extra_clips(&inner);
+        cmd.draw_line(rect, line, &mut buffer[inner], left_clip, right_clip);
     }
 
-    let inner_begin = to_buffer(l2.ceil()).clamp(begin, end);
-    let inner_end = to_buffer(r1.floor()).clamp(inner_begin, end);
+    let mut scratch = [PremultipliedRgbaColor::default(); EDGE_CHUNK];
+    line_clip.for_each_edge_chunk(|chunk, coverage| {
+        let scratch = &mut scratch[..chunk.len()];
+        scratch.fill(PremultipliedRgbaColor::default());
+        let (left_clip, right_clip) = extra_clips(&chunk);
+        cmd.draw_scratch_line(rect, line, scratch, left_clip, right_clip);
+        for ((x, color), cov) in chunk.zip(scratch.iter()).zip(coverage.iter()) {
+            let color = interpolate_color(*cov as u32, PremultipliedRgbaColor::default(), *color);
+            buffer[x].blend(color);
+        }
+    });
+}
 
-    let inner = inner_begin..inner_end;
-    let (left_clip, right_clip) = clips(&inner);
-    g.draw_line(rect, line, &mut buffer[inner], left_clip, right_clip);
-
-    // On a narrow shape both arcs can cross the same pixel, so take the smaller coverage.
-    let coverage = |x: usize| {
-        let x = x as u32 + left_offset;
-        let left = if x >= l2.ceil() { 255 } else { edge_coverage(x, l1, l2) };
-        let right = if x < r1.floor() { 255 } else { 255 - edge_coverage(x, r1, r2) };
-        left.min(right)
-    };
-    // Bounds the stack scratch buffer. Most edges fit in one chunk;
-    // the flat top of a large corner takes several.
-    const CHUNK: usize = 16;
-    let mut scratch = [PremultipliedRgbaColor::default(); CHUNK];
-    for edge in [begin..inner_begin, inner_end..end] {
-        for start in edge.clone().step_by(CHUNK) {
-            let chunk = start..(start + CHUNK).min(edge.end);
-            let scratch = &mut scratch[..chunk.len()];
-            scratch.fill(PremultipliedRgbaColor::default());
-            let (left_clip, right_clip) = clips(&chunk);
-            g.draw_scratch_line(rect, line, scratch, left_clip, right_clip);
-            for (x, color) in chunk.zip(scratch.iter()) {
-                let color =
-                    interpolate_color(coverage(x), PremultipliedRgbaColor::default(), *color);
-                buffer[x].blend(color);
-            }
+#[cfg(feature = "path")]
+impl super::AnyGradientCommand {
+    pub(super) fn as_command<T: TargetPixel>(&self) -> &dyn LineCommand<T> {
+        match self {
+            Self::Linear(g) => g,
+            Self::Radial(g) => g,
+            Self::Conic(g) => g,
         }
     }
+}
+
+impl super::LinearGradientCommand {
+    /// Whether [`draw_linear_gradient`] overwrites every pixel of every line.
+    pub(super) fn covers_line(&self) -> bool {
+        self.stops.iter().all(|s| s.color.alpha == 255)
+    }
+}
+
+/// The Q15 channels at `position`, which is between `stop` and the next stop.
+#[inline]
+fn linear_gradient_channels(
+    stop: &super::LinearGradientStop,
+    position: LinearGradientPosition,
+) -> [u32; 4] {
+    let offset = GradientPosition::from_fixed(position - stop.position);
+    // Q12; the product stays below 2^31 since the offset is less than the distance.
+    let factor = ((offset.0 as u32 * stop.factor_step) >> 19) as i32;
+    let color = stop.channels();
+    core::array::from_fn(|i| (((color[i] as i32) << 15) + ((stop.delta[i] * factor) << 3)) as u32)
+}
+
+#[inline(always)]
+fn color_from_q15([r, g, b, a]: [u32; 4]) -> PremultipliedRgbaColor {
+    PremultipliedRgbaColor {
+        red: (r >> 15) as u8,
+        green: (g >> 15) as u8,
+        blue: (b >> 15) as u8,
+        alpha: (a >> 15) as u8,
+    }
+}
+
+// The per-pixel loops of `draw_linear_gradient` aren't inlined into it: with its setup around
+// them, Cortex-M0 runs out of registers and spills their state on every pixel.
+#[inline(never)]
+fn draw_linear_fill(
+    pixels: &mut [impl TargetPixel],
+    color: PremultipliedRgbaColor,
+    noise: GradientNoise,
+) {
+    blend_gradient_slice(pixels, color, noise)
+}
+
+/// Draws the pixels of a ramp from `stop` towards the next stop, `skipped` pixels into a
+/// segment of `len` pixels whose first pixel is at `start_position`.
+///
+/// Not inlined, see `draw_linear_fill`.
+#[inline(never)]
+fn draw_linear_ramp(
+    pixels: &mut [impl TargetPixel],
+    stop: &super::LinearGradientStop,
+    start_position: LinearGradientPosition,
+    len: usize,
+    skipped: usize,
+    mut noise: GradientNoise,
+) {
+    let last = len as i32 - 1;
+    // Keeps both ends of the ramp between the two stops' colors, so no channel wraps,
+    // then moves to the first pixel to draw.
+    let colors = stop.channels();
+    let fit = |value: u32, i: usize| {
+        let (color, delta, step) = (colors[i] as i32, stop.delta[i], stop.step[i]);
+        let (low, high) =
+            (color.min(color + delta) << 15, (color.max(color + delta) << 15) | 0x7fff);
+        let value = (value as i32).clamp(low, high);
+        let end = value + last * step;
+        ((value + end.clamp(low, high) - end) as u32)
+            .wrapping_add((skipped as u32).wrapping_mul(step as u32))
+    };
+    let [r, g, b, a] = linear_gradient_channels(stop, start_position);
+    let (mut r, mut g, mut b, mut a) = (fit(r, 0), fit(g, 1), fit(b, 2), fit(a, 3));
+    let [dr, dg, db, da] = stop.step.map(|step| step as u32);
+    for pix in pixels {
+        pix.blend_dithered(color_from_q15([r, g, b, a]), noise.next(), InternalToken);
+        r = r.wrapping_add(dr);
+        g = g.wrapping_add(dg);
+        b = b.wrapping_add(db);
+        a = a.wrapping_add(da);
+    }
+}
+
+/// Whether a pixel at `position` is past a stop at `stop_position`,
+/// going right on a line whose position changes by `dx` per pixel.
+fn crossed(
+    position: LinearGradientPosition,
+    stop_position: LinearGradientPosition,
+    dx: LinearGradientPosition,
+) -> bool {
+    if dx.0 > 0 { position >= stop_position } else { position < stop_position }
 }
 
 fn draw_linear_gradient(
     rect: &PhysicalRect,
     line: PhysicalLength,
     g: &super::LinearGradientCommand,
-    mut buffer: &mut [impl TargetPixel],
+    buffer: &mut [impl TargetPixel],
     extra_left_clip: i16,
 ) {
+    let stops = g.stops.as_slice();
+    let (Some(first), Some(last)) = (stops.first(), stops.last()) else { return };
     let noise = GradientNoise::new(rect.min_x() as i32 + extra_left_clip as i32, line.get() as i32);
-    let fill_col1 = g.flags & 0b010 != 0;
-    let fill_col2 = g.flags & 0b100 != 0;
-    let invert_slope = g.flags & 0b1 != 0;
+    // Everything below is relative to the rect's left edge rather than the buffer, so drawing a
+    // line in pieces gives the same pixels as drawing it whole.
+    let position = g.position + g.dy * (line.get() as i32 - rect.min_y() as i32);
+    let width = rect.width() as usize;
+    let offset = extra_left_clip.max(0) as usize;
+    let visible = offset..offset + buffer.len();
 
-    let y = (line.get() - rect.min_y() + g.top_clip.get()) as i32;
-    let size_y = (rect.height() + g.top_clip.get() + g.bottom_clip.get()) as i32;
-    let start = g.start as i32;
+    if g.dx.0 == 0 {
+        let segment = stops
+            .windows(2)
+            .find(|w| position >= w[0].position && position < w[1].position)
+            .map(|w| &w[0]);
+        let color = match segment {
+            Some(stop) => color_from_q15(linear_gradient_channels(stop, position)),
+            None if position < first.position => first.color,
+            None => last.color,
+        };
+        draw_linear_fill(buffer, color, noise);
+        return;
+    }
 
-    let (mut color1, mut color2) = (g.color1, g.color2);
-
-    if g.start == 0 {
-        let p = if invert_slope {
-            (255 - start) * y / size_y
+    // The index of the first pixel past `stop_position`, going right; see `crossed`.
+    // Every segment's ends come from here, so neighboring segments meet exactly.
+    let crossing = |stop_position: LinearGradientPosition| -> usize {
+        // Fits an i32 since stop positions are within ±63 and pixel positions near [0, 1];
+        // an i64 division is a library call on Cortex-M0.
+        let distance = stop_position - position;
+        let n = if g.dx.0 > 0 {
+            if distance.0 <= 0 { 0 } else { (distance - Fixed(1)) / g.dx + 1 }
+        } else if distance.0 > 0 {
+            0
         } else {
-            start + (255 - start) * y / size_y
+            -distance / -g.dx + 1
         };
-        if (fill_col1 || p >= 0) && (fill_col2 || p < 255) {
-            let col = interpolate_color(p.clamp(0, 255) as u32, color1, color2);
-            blend_gradient_slice(buffer, col, noise);
-        }
-        return;
+        (n as usize).min(width)
+    };
+
+    enum Region<'a> {
+        Fill(PremultipliedRgbaColor),
+        Ramp(&'a super::LinearGradientStop),
     }
-
-    let size_x = (rect.width() + g.left_clip.get() + g.right_clip.get()) as i32;
-
-    let mut x = if invert_slope {
-        (y * size_x * (255 - start)) / (size_y * start)
-    } else {
-        (size_y - y) * size_x * (255 - start) / (size_y * start)
-    } + g.left_clip.get() as i32
-        + extra_left_clip as i32;
-
-    let len = ((255 * size_x) / start) as usize;
-
-    let mut offset = 0;
-    if x < 0 {
-        let l = (-x as usize).min(buffer.len());
-        if invert_slope {
-            if fill_col1 {
-                blend_gradient_slice(&mut buffer[..l], g.color1, noise);
+    let mut draw = |segment: core::ops::Range<usize>, region| {
+        let range = segment.start.max(visible.start)..segment.end.min(visible.end);
+        if range.is_empty() {
+            return;
+        }
+        let noise = noise.skip(range.start - offset);
+        let pixels = &mut buffer[range.start - offset..range.end - offset];
+        match region {
+            Region::Fill(color) => draw_linear_fill(pixels, color, noise),
+            Region::Ramp(stop) => {
+                let start_position = position + g.dx * segment.start as i32;
+                let skipped = range.start - segment.start;
+                draw_linear_ramp(pixels, stop, start_position, segment.len(), skipped, noise);
             }
-        } else if fill_col2 {
-            blend_gradient_slice(&mut buffer[..l], g.color2, noise);
         }
-        buffer = &mut buffer[l..];
-        offset += l;
-        x = 0;
-    }
+    };
 
-    if buffer.len() + x as usize > len {
-        let l = len.saturating_sub(x as usize);
-        if invert_slope {
-            if fill_col2 {
-                blend_gradient_slice(&mut buffer[l..], g.color2, noise.skip(offset + l));
-            }
-        } else if fill_col1 {
-            blend_gradient_slice(&mut buffer[l..], g.color1, noise.skip(offset + l));
+    // The stops in the order they're crossed going right. Region 0 is before the first of them,
+    // region `n` after the last, and the regions in between interpolate between two stops.
+    let n = stops.len();
+    let boundary = |j: usize| if g.dx.0 > 0 { &stops[j] } else { &stops[n - 1 - j] };
+    let region = |j: usize| match j {
+        0 => Region::Fill(boundary(0).color),
+        _ if j == n => Region::Fill(boundary(n - 1).color),
+        _ => Region::Ramp(if g.dx.0 > 0 { boundary(j - 1) } else { boundary(j) }),
+    };
+    let visible_position = position + g.dx * visible.start as i32;
+    let mut j = 0;
+    while j < n && crossed(visible_position, boundary(j).position, g.dx) {
+        j += 1;
+    }
+    let mut start = if j == 0 { 0 } else { crossing(boundary(j - 1).position) };
+    loop {
+        let end = if j == n { width } else { crossing(boundary(j).position) };
+        draw(start..end, region(j));
+        if j == n || end >= visible.end {
+            break;
         }
-        buffer = &mut buffer[..l];
-    }
-
-    if buffer.is_empty() {
-        return;
-    }
-
-    if !invert_slope {
-        core::mem::swap(&mut color1, &mut color2);
-    }
-
-    let dr = (((color2.red as i32 - color1.red as i32) * start) << 15) / (255 * size_x);
-    let dg = (((color2.green as i32 - color1.green as i32) * start) << 15) / (255 * size_x);
-    let db = (((color2.blue as i32 - color1.blue as i32) * start) << 15) / (255 * size_x);
-    let da = (((color2.alpha as i32 - color1.alpha as i32) * start) << 15) / (255 * size_x);
-
-    let mut r = ((color1.red as u32) << 15).wrapping_add((x * dr) as _);
-    let mut g = ((color1.green as u32) << 15).wrapping_add((x * dg) as _);
-    let mut b = ((color1.blue as u32) << 15).wrapping_add((x * db) as _);
-    let mut a = ((color1.alpha as u32) << 15).wrapping_add((x * da) as _);
-
-    let mut noise = noise.skip(offset);
-    for pix in buffer {
-        let color = PremultipliedRgbaColor {
-            red: (r >> 15) as u8,
-            green: (g >> 15) as u8,
-            blue: (b >> 15) as u8,
-            alpha: (a >> 15) as u8,
-        };
-        pix.blend_dithered(color, noise.next());
-        r = r.wrapping_add(dr as _);
-        g = g.wrapping_add(dg as _);
-        b = b.wrapping_add(db as _);
-        a = a.wrapping_add(da as _);
+        start = end;
+        j += 1;
     }
 }
 
+/// Blends the color at `position`, which is clamped to [0, 1].
 fn blend_stops(
     stops: &i_slint_core::SharedVector<PremultipliedGradientStop>,
     pixel: &mut impl TargetPixel,
     position: f32,
     noise: &mut GradientNoise,
 ) {
+    let position = fixed_position(position);
     let mut fallback = stops.first().map(|s| s.color).unwrap_or_default();
 
     for [stop1, stop2] in stops.array_windows() {
         if position >= stop1.position && position <= stop2.position {
-            // Interpolate between the two stops
-            let t = if stop2.position == stop1.position {
-                0.0
-            } else {
-                (position - stop1.position) / (stop2.position - stop1.position)
-            };
+            let t = stop1.factor(position).0 as i32;
             let (c1, c2) = (stop1.color, stop2.color);
-            let lerp = |a: u8, b: u8| ((1.0 - t) * a as f32 + t * b as f32) as u8;
+            let lerp = |a: u8, b: u8| {
+                (a as i32 + (((b as i32 - a as i32) * t) >> GradientFactor::SHIFT)) as u8
+            };
 
             let color = PremultipliedRgbaColor {
                 alpha: lerp(c1.alpha, c2.alpha),
@@ -944,14 +1287,35 @@ fn blend_stops(
                 green: lerp(c1.green, c2.green),
                 blue: lerp(c1.blue, c2.blue),
             };
-            pixel.blend_dithered(color, noise.next());
+            pixel.blend_dithered(color, noise.next(), InternalToken);
 
             return;
         } else if position > stop2.position {
             fallback = stop2.color;
         }
     }
-    pixel.blend_dithered(fallback, noise.next());
+    pixel.blend_dithered(fallback, noise.next(), InternalToken);
+}
+
+/// `position` clamped to [0, 1].
+///
+/// Converts through the bits, since a float conversion and each float compare are library calls
+/// without an FPU.
+fn fixed_position(position: f32) -> GradientPosition {
+    let bits = position.to_bits();
+    // position.min(0)
+    if bits >> 31 != 0 {
+        return Fixed(0);
+    }
+    // position.max(1)
+    if bits >= 1f32.to_bits() {
+        return Fixed::from_integer(1);
+    }
+    let exponent = (bits >> 23) as i32 - 127;
+    let mantissa = (bits & 0x7f_ffff) | 0x80_0000;
+    // The value is `mantissa * 2^(exponent - 23)`, and the exponent is negative here.
+    let shift = (23 - GradientPosition::SHIFT as i32 - exponent) as u32;
+    Fixed(mantissa.checked_shr(shift).unwrap_or(0) as i32)
 }
 
 /// Draw a radial gradient on a line
@@ -972,23 +1336,23 @@ fn draw_radial_gradient(
     let center_y = rect.min_y() as f32 + g.center_y - 0.5;
 
     debug_assert!(
-        g.radius >= 0.0,
-        "radius must be resolved before constructing RadialGradientCommand"
+        g.radius_x > 0.0 && g.radius_y > 0.0,
+        "radii must be resolved before constructing RadialGradientCommand"
     );
-    let max_radius = g.radius.max(f32::EPSILON);
+    let inv_radius_x = 1. / g.radius_x;
+    let inv_radius_y = 1. / g.radius_y;
 
     let start_x = rect.min_x() + extra_left_clip;
-    let dy = line.get() as f32 - center_y;
-    let dy_squared = dy * dy;
+    let dy_norm = (line.get() as f32 - center_y) * inv_radius_y;
+    let dy_norm_squared = dy_norm * dy_norm;
     let mut noise = GradientNoise::new(start_x as i32, line.get() as i32);
 
-    for (i, pixel) in buffer.iter_mut().enumerate() {
-        let x = start_x + i as i16;
-        let dx = x as f32 - center_x;
-        let distance = (dx * dx + dy_squared).sqrt();
-        let position = (distance / max_radius).clamp(0.0, 1.0);
-
-        blend_stops(&g.stops, pixel, position, &mut noise);
+    let mut dx = start_x as f32 - center_x;
+    for pixel in buffer {
+        let dx_norm = dx * inv_radius_x;
+        let distance = (dx_norm * dx_norm + dy_norm_squared).sqrt();
+        blend_stops(&g.stops, pixel, distance, &mut noise);
+        dx += 1.;
     }
 }
 
@@ -1020,8 +1384,8 @@ fn draw_conic_gradient(
         offset += 1.;
     }
 
-    for (i, pixel) in buffer.iter_mut().enumerate() {
-        let dx = (start_x + i as i16) as f32 - center_x;
+    let mut dx = start_x as f32 - center_x;
+    for pixel in buffer {
         // position is in the range [-0.5, 1.5]
         let position = atan2_turns(dy, dx) + offset;
         // bits for integer compares
@@ -1037,6 +1401,7 @@ fn draw_conic_gradient(
         };
         // position is in [0, 1]
         blend_stops(&g.stops, pixel, position, &mut noise);
+        dx += 1.;
     }
 }
 
@@ -1114,7 +1479,7 @@ fn blend_gradient_slice(
     mut noise: GradientNoise,
 ) {
     for pix in slice {
-        pix.blend_dithered(color, noise.next());
+        pix.blend_dithered(color, noise.next(), InternalToken);
     }
 }
 
@@ -1180,8 +1545,9 @@ pub trait TargetPixel: Sized + Copy {
 
     /// Like `blend`, with `noise` in 0..=255 (a fraction of one quantization step).
     /// Formats with less than 8 bits per channel can use it to dither.
+    #[doc(hidden)]
     #[inline]
-    fn blend_dithered(&mut self, color: PremultipliedRgbaColor, _noise: u8) {
+    fn blend_dithered(&mut self, color: PremultipliedRgbaColor, _noise: u8, _: InternalToken) {
         self.blend(color)
     }
 }
@@ -1249,7 +1615,7 @@ impl TargetPixel for Rgb565Pixel {
         Rgb565Pixel::from_rgb(r, g, b)
     }
 
-    fn blend_dithered(&mut self, color: PremultipliedRgbaColor, noise: u8) {
+    fn blend_dithered(&mut self, color: PremultipliedRgbaColor, noise: u8, _: InternalToken) {
         self.blend(dither_rgb565(color, noise))
     }
 }
@@ -1301,7 +1667,7 @@ impl TargetPixel for Rgb565BigEndianPixel {
         self.0 = native.0.to_be();
     }
 
-    fn blend_dithered(&mut self, color: PremultipliedRgbaColor, noise: u8) {
+    fn blend_dithered(&mut self, color: PremultipliedRgbaColor, noise: u8, _: InternalToken) {
         self.blend(dither_rgb565(color, noise))
     }
 
@@ -1426,6 +1792,43 @@ fn atan2_turns_accuracy() {
 }
 
 #[test]
+fn arc_edge_coverage_matches_area() {
+    // (radius, circle) in pixels; a smaller circle is a border's inner arc.
+    for (r, circle) in [(1, 1), (2, 2), (3, 3), (4, 4), (16, 16), (64, 64), (16, 13), (20, 4)] {
+        let center = r as f64;
+        for dist in r - circle..r {
+            let line = dist as f64;
+            let edge = ArcEdge::new(Shifted::new(r), Shifted::new(circle), Shifted::new(r - dist));
+            let pixels = edge.pixels(Side::Left);
+            for x in pixels.start.saturating_sub(1)..pixels.end + 1 {
+                const SAMPLES: u32 = 64;
+                let inside = (0..SAMPLES * SAMPLES)
+                    .filter(|i| {
+                        let px = x as f64 + ((i % SAMPLES) as f64 + 0.5) / SAMPLES as f64;
+                        let py = line + ((i / SAMPLES) as f64 + 0.5) / SAMPLES as f64;
+                        px >= center
+                            || (px - center).powi(2) + (py - center).powi(2)
+                                <= (circle as f64).powi(2)
+                    })
+                    .count();
+                let exact = inside as f64 * 255. / (SAMPLES * SAMPLES) as f64;
+                let coverage = if x < pixels.start {
+                    0
+                } else if x >= pixels.end {
+                    255
+                } else {
+                    edge.coverage(x)
+                };
+                assert!(
+                    (coverage as f64 - exact).abs() <= 26.,
+                    "r {r}, circle {circle}, line {dist}, x {x}: {coverage} instead of {exact}"
+                );
+            }
+        }
+    }
+}
+
+#[test]
 fn gradient_noise_matches_formula() {
     let fract = |v: f64| v - v.floor();
     for y in -40..40 {
@@ -1460,22 +1863,25 @@ fn rgb565_dither_stays_premultiplied() {
     assert!(d.red <= d.alpha && d.green <= d.alpha && d.blue <= d.alpha);
 }
 
+#[cfg(test)]
+fn linear_gradient<const N: usize>(
+    stops: [(PremultipliedRgbaColor, f32); N],
+    position: LinearGradientPosition,
+    dx: LinearGradientPosition,
+    dy: LinearGradientPosition,
+) -> super::LinearGradientCommand {
+    let stops = super::LinearGradientStop::collect(stops.into_iter(), dx);
+    super::LinearGradientCommand { stops, position, dx, dy }
+}
+
 #[test]
 fn rgb565_gradient_is_dithered() {
     let rect = PhysicalRect::from_size(super::PhysicalSize::new(256, 64));
     let black = PremultipliedRgbaColor { red: 0, green: 0, blue: 0, alpha: 255 };
     let gray = PremultipliedRgbaColor { red: 8, green: 8, blue: 8, alpha: 255 };
-    let g = super::LinearGradientCommand {
-        color1: black,
-        color2: gray,
-        start: 0,
-        flags: 0b110,
-        left_clip: PhysicalLength::new(0),
-        right_clip: PhysicalLength::new(0),
-        top_clip: PhysicalLength::new(0),
-        bottom_clip: PhysicalLength::new(0),
-        clip: Default::default(),
-    };
+    let one = LinearGradientPosition::from_integer(1);
+    // Line 32's center is at 32/64.
+    let g = linear_gradient([(black, 0.), (gray, 1.)], -one / 128, Fixed(0), one / 64);
     // Halfway down, the color is about 3/8 of the way to the first non-black 565 red level.
     let line = PhysicalLength::new(32);
 
@@ -1515,20 +1921,17 @@ fn rgb565_linear_gradient_noise_follows_screen_position() {
     };
 
     for (color1, color2) in [opaque, translucent] {
-        for invert_slope in [0, 1] {
-            let g = super::LinearGradientCommand {
-                color1,
-                color2,
-                start: 200,
-                flags: 0b110 | invert_slope,
-                left_clip: PhysicalLength::new(-16),
-                right_clip: PhysicalLength::new(-16),
-                top_clip: PhysicalLength::new(0),
-                bottom_clip: PhysicalLength::new(0),
-                clip: Default::default(),
+        for reversed in [false, true] {
+            // The ramp covers the middle half of the first line, and moves right on later lines.
+            let one = LinearGradientPosition::from_integer(1);
+            let stops = [(color1, 0.25), (color2, 0.75)];
+            let g = if reversed {
+                linear_gradient(stops, one - one / 128, -one / 64, -one / 512)
+            } else {
+                linear_gradient(stops, one / 128, one / 64, one / 512)
             };
             let (left_fill, right_fill) =
-                if invert_slope == 1 { (color1, color2) } else { (color2, color1) };
+                if reversed { (color2, color1) } else { (color1, color2) };
             for y in 0..64 {
                 let line = PhysicalLength::new(y as i16);
                 let mut whole = [background; 64];
@@ -1541,8 +1944,300 @@ fn rgb565_linear_gradient_noise_follows_screen_position() {
                     let (left, right) = parts.split_at_mut(split);
                     draw_linear_gradient(&rect, line, &g, left, 0);
                     draw_linear_gradient(&rect, line, &g, right, split as i16);
-                    assert_eq!(parts, whole, "line {y}, split at {split}, invert {invert_slope}");
+                    assert_eq!(parts, whole, "line {y}, split at {split}, reversed {reversed}");
                 }
+            }
+        }
+    }
+}
+
+#[test]
+fn linear_gradient_segments_meet() {
+    // #6247: neighboring segments used to leave a pixel between them not drawn.
+    let rect = PhysicalRect::from_size(super::PhysicalSize::new(97, 1));
+    let line = PhysicalLength::new(0);
+    let color = |c| PremultipliedRgbaColor { red: c, green: c, blue: c, alpha: 255 };
+    let unset = PremultipliedRgbaColor { red: 255, green: 0, blue: 255, alpha: 255 };
+    let stops = [(color(255), 0.), (color(0x66), 0.5), (color(0), 1.)];
+    let one = LinearGradientPosition::from_integer(1);
+
+    for pixels_per_unit in [3, 7, 40, 97, 300, 2000] {
+        for direction in [1, -1] {
+            let dx = one * direction / pixels_per_unit;
+            for start in -6..=26 {
+                let g = linear_gradient(stops, one * start / 20, dx, Fixed(0));
+                let mut whole = [unset; 97];
+                draw_linear_gradient(&rect, line, &g, &mut whole, 0);
+                let context =
+                    alloc::format!("{pixels_per_unit} px per unit, dx {}, start {start}", dx.0);
+                assert!(whole.iter().all(|p| p.green == p.red), "unset pixel, {context}");
+                // The gradient darkens along its line, and never wraps around at 0 or 255.
+                assert!(
+                    whole.windows(2).all(|w| if dx.0 > 0 {
+                        w[1].red <= w[0].red
+                    } else {
+                        w[1].red >= w[0].red
+                    }),
+                    "not monotonic, {context}: {:?}",
+                    whole.map(|p| p.red)
+                );
+
+                for split in [1, 30, 48, 96] {
+                    let mut parts = [unset; 97];
+                    let (left, right) = parts.split_at_mut(split);
+                    draw_linear_gradient(&rect, line, &g, left, 0);
+                    draw_linear_gradient(&rect, line, &g, right, split as i16);
+                    assert!(
+                        parts.iter().zip(&whole).all(|(a, b)| a.red == b.red && a.green == b.green),
+                        "split at {split}, {context}"
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn linear_gradient_stop_before_previous_moves_to_it() {
+    let color = |c| PremultipliedRgbaColor { red: c, green: c, blue: c, alpha: 255 };
+    let one = LinearGradientPosition::from_integer(1);
+    let g = linear_gradient(
+        [(color(0), 0.5), (color(100), 0.25), (color(200), 1.)],
+        Fixed(0),
+        one / 64,
+        Fixed(0),
+    );
+    let positions: alloc::vec::Vec<_> = g.stops.iter().map(|s| s.position).collect();
+    assert_eq!(positions, [one / 2, one / 2, one]);
+    // The first segment is empty, so it has nothing to step.
+    assert_eq!((g.stops[0].factor_step, g.stops[0].step), (0, [0; 4]));
+}
+
+#[test]
+fn blend_coverage_matches_blend() {
+    fn check<T: TargetPixel, K: PartialEq + core::fmt::Debug>(dest: T, key: impl Fn(T) -> K) {
+        for c in (0..=255u8).step_by(3) {
+            let color = Color::from_rgb_u8(c, c.wrapping_mul(7), 255 - c);
+            let opaque = T::from_rgb(color.red(), color.green(), color.blue());
+            for coverage in [0, 0xff] {
+                let mut expected = dest;
+                expected.blend(PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
+                    coverage,
+                    color.red(),
+                    color.green(),
+                    color.blue(),
+                )));
+                let mut actual = dest;
+                blend_coverage(&mut actual, opaque, color, coverage);
+                assert_eq!(key(actual), key(expected), "color {color:?}, coverage {coverage}");
+            }
+        }
+    }
+    for d in (0..=255u8).step_by(5) {
+        check(Rgb8Pixel::new(d, 255 - d, d.wrapping_mul(3)), |p| p);
+        check(PremultipliedRgbaColor { red: d / 2, green: d / 3, blue: d / 4, alpha: d }, |p| {
+            (p.red, p.green, p.blue, p.alpha)
+        });
+        check(Rgb565Pixel::from_rgb(d, 255 - d, d.wrapping_mul(3)), |p| p);
+        check(Rgb565BigEndianPixel::from_rgb(d, 255 - d, d.wrapping_mul(3)), |p| p);
+    }
+}
+
+#[test]
+fn fixed_position_matches_float() {
+    let one = GradientPosition::from_integer(1);
+    for i in 0..=100_000 {
+        let position = i as f32 / 100_000.;
+        let expected = Fixed((position as f64 * one.0 as f64).floor() as i32);
+        assert_eq!(fixed_position(position), expected, "position {position}");
+    }
+    assert_eq!(fixed_position(-0.), Fixed(0));
+    assert_eq!(fixed_position(-0.5), Fixed(0));
+    assert_eq!(fixed_position(1.5), one);
+    assert_eq!(fixed_position(f32::INFINITY), one);
+    assert_eq!(fixed_position(f32::MIN_POSITIVE / 2.), Fixed(0));
+}
+
+#[test]
+fn blend_stops_interpolates_like_float() {
+    let color = |red, green, blue, alpha| PremultipliedRgbaColor { red, green, blue, alpha };
+    let stops = [
+        (color(0, 0, 0, 0), -0.25),
+        (color(200, 10, 80, 255), 0.3),
+        (color(20, 250, 0, 255), 0.3),
+        (color(120, 60, 255, 255), 0.9),
+        (color(30, 30, 30, 128), 2.),
+    ];
+    let fixed = PremultipliedGradientStop::collect(stops.iter().copied());
+    for i in 0..=1000 {
+        let position = i as f32 / 1000.;
+        let mut actual = PremultipliedRgbaColor::default();
+        blend_stops(&fixed, &mut actual, position, &mut GradientNoise::new(0, 0));
+
+        let [(c1, p1), (c2, p2)] = *stops
+            .array_windows()
+            .find(|[(_, p1), (_, p2)]| position >= *p1 && position <= *p2)
+            .unwrap();
+        let t = if p1 == p2 { 0. } else { (position - p1) as f64 / (p2 - p1) as f64 };
+        let lerp = |a: u8, b: u8| (a as f64 + (b as f64 - a as f64) * t).floor();
+        let near = |actual: u8, a: u8, b: u8| (actual as f64 - lerp(a, b)).abs() <= 1.;
+        assert!(
+            near(actual.red, c1.red, c2.red)
+                && near(actual.green, c1.green, c2.green)
+                && near(actual.blue, c1.blue, c2.blue)
+                && near(actual.alpha, c1.alpha, c2.alpha),
+            "position {position}: {actual:?}"
+        );
+    }
+}
+
+#[test]
+fn unscaled_texture_line_wraps_into_next_tile() {
+    use super::{SceneTexture, SceneTextureExtra};
+
+    // A 4×1 source drawn at 1:1 from x = 1.5 into 7 pixels samples these source pixels.
+    const SAMPLED: [usize; 7] = [1, 2, 3, 0, 1, 2, 3];
+
+    fn draw(format: TexturePixelFormat, data: &[u8]) -> [Rgb8Pixel; 7] {
+        let texture = SceneTexture {
+            data,
+            format,
+            pixel_stride: 4,
+            extra: SceneTextureExtra {
+                dx: Fixed::from_integer(1),
+                dy: Fixed::from_integer(1),
+                off_x: Fixed(24),
+                off_y: Fixed(0),
+                colorize: Color::default(),
+                alpha: 0xff,
+                rotation: Default::default(),
+            },
+        };
+        let mut line = [Rgb8Pixel::default(); 7];
+        draw_texture_line(
+            &PhysicalRect::from_size(euclid::size2(7, 1)),
+            PhysicalLength::new(0),
+            &texture,
+            &mut line,
+            0,
+            0,
+        );
+        line
+    }
+
+    let rgb = [0, 0, 0, 10, 20, 30, 40, 50, 60, 70, 80, 90];
+    assert_eq!(
+        draw(TexturePixelFormat::Rgb, &rgb),
+        SAMPLED.map(|i| Rgb8Pixel::new(rgb[i * 3], rgb[i * 3 + 1], rgb[i * 3 + 2]))
+    );
+
+    #[cfg(feature = "image-pixel-format-rgb565")]
+    {
+        let rgb565: [u16; 4] = [0x0000, 0xf800, 0x07e0, 0x001f];
+        let data: alloc::vec::Vec<u8> = rgb565.iter().flat_map(|p| p.to_ne_bytes()).collect();
+        assert_eq!(
+            draw(TexturePixelFormat::Rgb565, &data),
+            SAMPLED.map(|i| Rgb565Pixel(rgb565[i]).into())
+        );
+    }
+
+    #[cfg(feature = "image-pixel-format-gray8")]
+    {
+        let gray = [0, 85, 170, 255];
+        assert_eq!(
+            draw(TexturePixelFormat::Gray8, &gray),
+            SAMPLED.map(|i| Rgb8Pixel::new(gray[i], gray[i], gray[i]))
+        );
+    }
+
+    // Blended onto the black line buffer, so a pixel ends up as its premultiplied color.
+    let rgba = [0, 0, 0, 0, 200, 100, 50, 255, 200, 100, 50, 128, 10, 20, 30, 255];
+    assert_eq!(
+        draw(TexturePixelFormat::Rgba, &rgba),
+        SAMPLED.map(|i| {
+            let p = &rgba[i * 4..][..4];
+            let c =
+                PremultipliedRgbaColor::premultiply(Color::from_argb_u8(p[3], p[0], p[1], p[2]));
+            Rgb8Pixel::new(c.red, c.green, c.blue)
+        })
+    );
+
+    let premultiplied = [0, 0, 0, 0, 200, 100, 50, 255, 100, 50, 25, 128, 10, 20, 30, 255];
+    assert_eq!(
+        draw(TexturePixelFormat::RgbaPremultiplied, &premultiplied),
+        SAMPLED.map(|i| {
+            let p = &premultiplied[i * 4..][..4];
+            Rgb8Pixel::new(p[0], p[1], p[2])
+        })
+    );
+}
+
+#[test]
+fn identical_clips_combine_to_one() {
+    let clip = super::ShapeClip {
+        shape: super::RoundedShape {
+            radius: super::PhysicalBorderRadius::new_uniform(16),
+            ..Default::default()
+        },
+        opaque_border: PhysicalLength::new(0),
+    };
+    const SIZE: i16 = 40;
+    let rect = PhysicalRect::new(Default::default(), euclid::size2(SIZE, SIZE));
+    let color = SolidColor(PremultipliedRgbaColor { red: 0, green: 0, blue: 255, alpha: 255 });
+    // More clips than are cached, so the spans are recomputed for each edge chunk.
+    let clips = [clip; CACHED_SPANS + 1];
+    for line in 0..SIZE {
+        let line = PhysicalLength::new(line);
+        let mut one = [PremultipliedRgbaColor::default(); SIZE as usize];
+        draw_clipped_line(&rect, line, &clips[..1], &color, &mut one, 0, 0);
+        for count in 2..=clips.len() {
+            let mut many = [PremultipliedRgbaColor::default(); SIZE as usize];
+            draw_clipped_line(&rect, line, &clips[..count], &color, &mut many, 0, 0);
+            assert_eq!(
+                bytemuck::cast_slice::<_, u8>(&one),
+                bytemuck::cast_slice::<_, u8>(&many),
+                "line {line:?} with {count} clips"
+            );
+        }
+    }
+}
+
+#[test]
+fn clipped_line_does_not_depend_on_split() {
+    let clip = |radius, left, top, opaque_border| super::ShapeClip {
+        shape: super::RoundedShape {
+            radius,
+            left_clip: PhysicalLength::new(left),
+            right_clip: PhysicalLength::new(3),
+            top_clip: PhysicalLength::new(top),
+            bottom_clip: PhysicalLength::new(0),
+        },
+        opaque_border: PhysicalLength::new(opaque_border),
+    };
+    let asymmetric = super::PhysicalBorderRadius::new(13, 6, 17, 9);
+    let uniform = super::PhysicalBorderRadius::new_uniform(11);
+    let many: [_; CACHED_SPANS + 1] =
+        core::array::from_fn(|i| clip(uniform, i as i16, i as i16, 0));
+    let runs: [&[_]; 3] =
+        [&[clip(asymmetric, 2, 1, 0)], &[clip(uniform, 0, 0, 0), clip(asymmetric, 2, 1, 3)], &many];
+    const SIZE: i16 = 48;
+    let rect = PhysicalRect::new(Default::default(), euclid::size2(SIZE, SIZE));
+    let color = SolidColor(PremultipliedRgbaColor { red: 0, green: 0, blue: 255, alpha: 255 });
+    for (run, clips) in runs.iter().enumerate() {
+        for line in 0..SIZE {
+            let line = PhysicalLength::new(line);
+            let mut whole = [PremultipliedRgbaColor::default(); SIZE as usize];
+            draw_clipped_line(&rect, line, clips, &color, &mut whole, 0, 0);
+            for split in 1..SIZE {
+                let mut parts = [PremultipliedRgbaColor::default(); SIZE as usize];
+                let (left, right) = parts.split_at_mut(split as usize);
+                draw_clipped_line(&rect, line, clips, &color, left, 0, SIZE - split);
+                draw_clipped_line(&rect, line, clips, &color, right, split, 0);
+                assert_eq!(
+                    bytemuck::cast_slice::<_, u8>(&whole),
+                    bytemuck::cast_slice::<_, u8>(&parts),
+                    "run {run}, line {line:?} split at {split}"
+                );
             }
         }
     }

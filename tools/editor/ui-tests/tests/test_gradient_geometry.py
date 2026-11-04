@@ -15,6 +15,7 @@ from gradient_interactions import (
     gradient_document,
     open_gradient,
     picker_field,
+    picker_panel,
     shifted,
 )
 from gradient_interactions import click as click_picker_button
@@ -22,6 +23,7 @@ from slint_testing import keys
 from source_snapshot import SourceSnapshot, replace_once, wait_for_source_change
 from ui_assertions import expect
 from ui_driver import (
+    double_click_at,
     element,
     elements,
     first_window,
@@ -79,7 +81,7 @@ def test_custom_gradient_geometry_uses_layout_size(
         assert geometry == pytest.approx(
             (200, 200, math.hypot(200, 200) if kind == "radial" else 160), abs=0.001
         )
-        click_picker_button(window, "Close Custom")
+        click_picker_button(window, "Close Fill")
         assert source_file.read_text() == source
 
 
@@ -90,7 +92,7 @@ def test_non_canvas_gradient_keeps_numeric_geometry(
 ):
     from ui_driver import press_key
 
-    prefix = {"linear": "0deg", "radial": "circle", "conic": "from 0deg"}[kind]
+    prefix = {"linear": "36deg", "radial": "circle", "conic": "from 36deg"}[kind]
     stops = "red 0deg, blue 360deg" if kind == "conic" else "red 0%, blue 100%"
     file = tmp_path / "TextGradient.slint"
     file.write_text(f"""export component TextGradient inherits Window {{
@@ -127,15 +129,15 @@ def test_non_canvas_gradient_keeps_numeric_geometry(
         click_picker_button(window, picker)
         assert not elements(window, "Gradient center handle")
         assert not elements(window, "Gradient start")
-        if kind != "radial":
-            picker_field(window, "Gradient angle degrees").accessible_value = "36"
+        assert not elements(window, "Gradient angle degrees")
         if kind != "linear":
             set_picker_mode(window, "Gradient center", "Custom")
             picker_field(window, "Gradient center X").accessible_value = "37"
             picker_field(window, "Gradient center Y").accessible_value = "61"
         if kind == "radial":
             set_picker_mode(window, "Gradient radius mode", "Custom")
-            picker_field(window, "Gradient radius").accessible_value = "95"
+            picker_field(window, "Gradient radius X").accessible_value = "95"
+            picker_field(window, "Gradient radius Y").accessible_value = "95"
         labels = [
             text.accessible_label
             for text in window.root_element.query_descendants()
@@ -149,10 +151,10 @@ def test_non_canvas_gradient_keeps_numeric_geometry(
         press_key(window, keys.Space)
         picker_field(window, "Hex color")
         click_picker_button(window, "Close Stop color")
-        click_picker_button(window, "Close Custom")
+        click_picker_button(window, "Close Fill")
         geometry = {
             "linear": "36deg",
-            "radial": "circle 95px at 37px 61px",
+            "radial": "ellipse 95px 95px at 37px 61px",
             "conic": "from 36deg at 37px 61px",
         }[kind]
         saved_stops = (
@@ -166,11 +168,41 @@ def test_non_canvas_gradient_keeps_numeric_geometry(
             f"{property_name}: @{kind}-gradient({prefix}, {stops});".encode(),
             f"{property_name}: @{kind}-gradient({geometry}, {saved_stops});".encode(),
         )
+        if kind == "linear":
+            saved = original.sources[Path(file.name)]
         original.wait_for_applied(saved, file.name)
         click_picker_button(window, picker)
         click_picker_button(window, "Add gradient stop")
         press_key(window, keys.Escape)
         assert file.read_bytes() == saved
+
+
+def test_non_canvas_ellipse_radii_can_be_edited(
+    editor_binary, editor_environment, tmp_path
+):
+    file = tmp_path / "TextEllipse.slint"
+    file.write_text("""export component TextEllipse inherits Window {
+    width: 400px;
+    height: 400px;
+    label := Text {
+        text: "Gradient";
+        color: @radial-gradient(ellipse 90px 40px, red 0%, blue 100%);
+    }
+}
+""")
+    original = SourceSnapshot.capture(tmp_path)
+    with launch_editor(editor_binary, editor_environment, file) as editor:
+        wait_for_source(file, file.read_bytes())
+        window = first_window(editor)
+        select_outline_row(window, "label")
+        click_picker_button(window, "Text color color picker")
+        assert not elements(window, "Gradient shape")
+        picker_field(window, "Gradient radius X").accessible_value = "120"
+        picker_field(window, "Gradient radius Y").accessible_value = "55"
+        click_picker_button(window, "Close Fill")
+        saved = wait_for_source_change(file, original.sources[Path(file.name)])
+        assert b"@radial-gradient(ellipse 120px 55px," in saved
+        original.wait_for_applied(saved, file.name)
 
 
 def set_picker_mode(window, label, value):
@@ -213,7 +245,6 @@ def test_custom_geometry_survives_mode_changes(
 def test_stop_precision_survives_save_and_reopen(
     editor_binary, editor_environment, tmp_path, kind
 ):
-
     prefix = {"linear": "90deg", "radial": "circle", "conic": "from 0deg"}[kind]
     unit = "deg" if kind == "conic" else "%"
     expression = f"@{kind}-gradient({prefix}, #ff0000 0{unit} - 12.345678{unit}, #00ff0080 33.333333{unit}, blue 33.333333{unit}, white 123.456789{unit})"
@@ -226,7 +257,7 @@ def test_stop_precision_survives_save_and_reopen(
 
         def save():
             picker_field(
-                window, "Close Custom", slint_testing.AccessibleRole.Button
+                window, "Close Fill", slint_testing.AccessibleRole.Button
             ).invoke_accessible_default_action()
             content = wait_for_source_change(file, snapshot.sources[Path(file.name)])
             snapshot.wait_for_applied(content, file.name)
@@ -259,7 +290,7 @@ def test_stop_precision_survives_save_and_reopen(
         else:
             rotate_conic(window, 45, 46)
         picker_field(
-            window, "Close Custom", slint_testing.AccessibleRole.Button
+            window, "Close Fill", slint_testing.AccessibleRole.Button
         ).invoke_accessible_default_action()
         second = wait_for_source_change(file, first)
         snapshot.wait_for_applied(second, file.name)
@@ -333,7 +364,6 @@ def test_picker_crossing_keeps_canvas_identity_and_orders_rows(
 def test_picker_pointer_cancel_restores_stops(
     editor_binary, editor_environment, tmp_path, insert
 ):
-
     file = gradient_document(
         tmp_path, "@linear-gradient(90deg, red 0%, blue 50%, white 100%)"
     )
@@ -343,6 +373,16 @@ def test_picker_pointer_cancel_restores_stops(
         window = first_window(editor)
         select_outline_row(window, "fill")
         open_gradient(window)
+
+        def picker_beside_field():
+            panel = picker_panel(window, "main").absolute_rect
+            field = control(window, "Rectangle background color picker").absolute_rect
+            gap = field.x - panel.x - panel.width
+            return (
+                0 < gap < field.height and panel.y <= field.y < panel.y + panel.height
+            )
+
+        wait_until(picker_beside_field)
         role = slint_testing.AccessibleRole.Slider
         left = center(control(window, "Gradient stop 1", role))
         right = center(control(window, "Gradient stop 3", role))
@@ -359,7 +399,7 @@ def test_picker_pointer_cancel_restores_stops(
                 float(picker_field(window, f"Stop {index} position").accessible_value)
                 == position
             )
-        click_picker_button(window, "Close Custom")
+        click_picker_button(window, "Close Fill")
         original.assert_unchanged()
 
 
@@ -380,8 +420,7 @@ def test_stop_interactions_preserve_color_identity(
         left = center(control(window, "Gradient start"))
         right = center(control(window, "Gradient end"))
         insertion = shifted(left, x=(right.x - left.x) * 0.25)
-        for _ in range(2):
-            gesture(window, insertion, insertion)
+        double_click_at(window, insertion)
         control(window, "Gradient stop 4")
         click_picker_button(window, "Edit stop 2 color")
         expect(picker_field(window, "Hex color")).to_have_value("AA0055")
@@ -400,7 +439,7 @@ def test_stop_interactions_preserve_color_identity(
         click_picker_button(window, "Gradient stop 3")
         press_key(window, keys.Delete)
         original.assert_unchanged_now()
-        click_picker_button(window, "Close Custom")
+        click_picker_button(window, "Close Fill")
         saved = wait_for_source_change(file, original.sources[Path(file.name)])
         original.wait_for_applied(saved, file.name)
         assert b"#0000ff80 50%, #00ff00b0 75%" in saved
@@ -429,7 +468,7 @@ def test_gradient_session_cancel_undo_redo_and_reopen(
         select_outline_row(window, "fill")
         for cancel in [True, False]:
             open_gradient(window)
-            picker_field(window, "No recent fills", slint_testing.AccessibleRole.Text)
+            picker_field(window, "None yet", slint_testing.AccessibleRole.Text)
             click_picker_button(window, "Add gradient stop")
             click_picker_button(window, "Edit stop 2 color")
             color = picker_field(window, "Hex color")
@@ -450,7 +489,7 @@ def test_gradient_session_cancel_undo_redo_and_reopen(
                 press_key(window, keys.Escape)
                 original.assert_unchanged()
             else:
-                click_picker_button(window, "Close Custom")
+                click_picker_button(window, "Close Fill")
         saved = wait_for_source_change(file, source.encode())
         original.wait_for_applied(saved, file.name)
         assert b"#12345680 50%" in saved
@@ -469,7 +508,6 @@ def test_gradient_session_cancel_undo_redo_and_reopen(
 def test_recent_gradient_resets_custom_geometry_initialization(
     editor_binary, editor_environment, tmp_path
 ):
-
     file = gradient_document(tmp_path, "@radial-gradient(circle, red 0%, blue 100%)")
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, file) as editor:
@@ -478,7 +516,7 @@ def test_recent_gradient_resets_custom_geometry_initialization(
         select_outline_row(window, "fill")
         open_gradient(window)
         click_picker_button(window, "Add gradient stop")
-        click_picker_button(window, "Close Custom")
+        click_picker_button(window, "Close Fill")
         saved = wait_for_source_change(file, original.sources[Path(file.name)])
         original.wait_for_applied(saved, file.name)
         select_outline_row(window, "fill")
@@ -499,10 +537,9 @@ def test_recent_gradient_resets_custom_geometry_initialization(
 
 
 def radial_geometry(window, element_id="Gradient::fill"):
-
     rectangle = wait_until(lambda: next(iter(elements(window, id=element_id)), None))
-    c = center(control(window, "Gradient center handle"), 35)
-    r = center(control(window, "Gradient radius handle"), 35)
+    c = center(control(window, "Gradient center handle"))
+    r = center(control(window, "Gradient radius X and rectangle rotation handle"))
     return (
         c.x - rectangle.absolute_position.x,
         c.y - rectangle.absolute_position.y,
@@ -511,7 +548,6 @@ def radial_geometry(window, element_id="Gradient::fill"):
 
 
 def conic_geometry(window, angle=0, element_id="Gradient::fill"):
-
     rectangle = wait_until(lambda: next(iter(elements(window, id=element_id)), None))
     c = center(control(window, "Gradient center handle"), angle - 90)
     r = center(control(window, "Gradient rotation handle"), angle - 90)
@@ -523,32 +559,26 @@ def conic_geometry(window, angle=0, element_id="Gradient::fill"):
 
 
 def set_conic_center(window, x, y, angle=0):
-
     old_x, old_y, _ = conic_geometry(window, angle)
     c = center(control(window, "Gradient center handle"), angle - 90)
     gesture(window, c, shifted(c, x=x - old_x, y=y - old_y))
 
 
 def rotate_conic(window, previous, next_angle):
-
     c = center(control(window, "Gradient center handle"), previous - 90)
     r = center(control(window, "Gradient rotation handle"), previous - 90)
     gesture(window, r, around(c, math.hypot(r.x - c.x, r.y - c.y), next_angle))
 
 
 def set_radial_geometry(window, x, y, radius):
-
     old_x, old_y, _ = radial_geometry(window)
-    c = center(control(window, "Gradient center handle"), 35)
+    c = center(control(window, "Gradient center handle"))
     gesture(window, c, shifted(c, x=x - old_x, y=y - old_y))
-    c = center(control(window, "Gradient center handle"), 35)
-    r = center(control(window, "Gradient radius handle"), 35)
+    c = center(control(window, "Gradient center handle"))
+    r = center(control(window, "Gradient radius Y handle"), 90)
     gesture(
         window,
         r,
-        shifted(
-            c,
-            x=radius * math.cos(math.radians(35)),
-            y=radius * math.sin(math.radians(35)),
-        ),
+        shifted(c, y=radius),
+        shift=True,
     )

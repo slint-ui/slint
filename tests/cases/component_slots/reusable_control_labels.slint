@@ -11,6 +11,8 @@ component Panel inherits Rectangle {
 
     VerticalLayout {
         ComboBoxBase {
+            item-height: 32px;
+            popup-padding: 4px;
             accessible-label: root.prefix + "Headless combo";
             model: ["Zero", "One"];
             popup << ComboBoxPopup { }
@@ -21,7 +23,7 @@ component Panel inherits Rectangle {
         }
         SliderBase {
             accessible-label: root.prefix + "Headless slider";
-            surface << LinearSliderSurface { }
+            surface << LinearSliderSurface { handle-width: 20px; handle-height: 20px; track-thickness: 4px; }
         }
         Slider {
             accessible-label: root.prefix + "Basic slider";

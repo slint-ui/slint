@@ -4,6 +4,10 @@
 // cSpell: ignore blociga
 use std::error::Error;
 
+mod directory_input {
+    include!(concat!(env!("OUT_DIR"), "/directory.rs"));
+}
+
 slint::include_modules!();
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -58,6 +62,8 @@ mod tests {
         i_slint_backend_testing::init_no_event_loop();
         let ui = AppWindow::new().unwrap();
         let api = ui.global::<blogicb::BLogicBAPI>();
+        blogica::backend::init(ui.global::<blogica::backend::BLogicAAPI>());
+        blogicb::init(ui.global::<blogicb::BLogicBAPI>());
 
         api.set_status(slint::SharedString::from("HelloFromRust"));
 

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Style, Metrics, Colors, Typography, FillPickerStyle } from "../../style.slint";
+import { EditorScrollView } from "../editor-scroll-view.slint";
 import { Api, FillData } from "../../api.slint";
 
 export component InspectorRecentFills inherits Rectangle {
@@ -10,36 +11,49 @@ export component InspectorRecentFills inherits Rectangle {
     in property <bool> editable;
     callback chosen(FillData);
     private property <[FillData]> fills: Api.filter-recent-fills(Api.recent-fills, root.allow-gradient);
-    height: layout.preferred-height;
-    layout := VerticalLayout {
+    height: Metrics.space-medium + root.style.recent-swatch-size;
+    Rectangle { y: 0px; height: Metrics.border-width; background: Style.inspector-layout.divider; }
+    HorizontalLayout {
+        padding-top: Metrics.space-medium;
         spacing: Metrics.space-regular;
-        Text { text: @tr("Recent fills"); color: Colors.muted; font-size: Typography.caption.size; font-weight: FontWeight.semi-bold; }
-        if root.fills.length == 0: Text { text: @tr("No recent fills"); color: Colors.muted; font-size: Typography.caption.size; }
-        if root.fills.length > 0: HorizontalLayout {
-            spacing: Metrics.space-compact;
-            alignment: start;
-            for fill in root.fills: FocusScope {
-                width: root.style.recent-swatch-size;
-                height: root.style.recent-swatch-size;
-                key-pressed(event) => {
-                    if root.editable && (event.text == Key.Return || event.text == Key.Space) {
-                        root.chosen(fill);
-                        return accept;
+        Text {
+            text: @tr("Recent fills"); color: Colors.muted;
+            font-size: Typography.caption.size - 1px;
+            vertical-alignment: center;
+        }
+        if root.fills.length == 0: Text {
+            text: @tr("None yet"); color: Colors.muted;
+            font-size: Typography.caption.size - 1px;
+            horizontal-alignment: right; vertical-alignment: center;
+        }
+        if root.fills.length > 0: EditorScrollView {
+            horizontal-stretch: 1;
+            content-height: root.style.recent-swatch-size;
+            content-width: swatches.preferred-width;
+            swatches := HorizontalLayout {
+                spacing: Metrics.space-small;
+                for fill in root.fills: FocusScope {
+                    width: root.style.recent-swatch-size;
+                    height: root.style.recent-swatch-size;
+                    key-pressed(event) => {
+                        if root.editable && (event.text == Key.Return || event.text == Key.Space) {
+                            root.chosen(fill); return accept;
+                        }
+                        return reject;
                     }
-                    return reject;
-                }
-                Rectangle {
-                    border-radius: Metrics.radius-small;
-                    border-width: Metrics.border-width;
-                    border-color: parent.has-focus ? Colors.accent : Style.inspector-layout.divider;
-                    background: Api.fill-brush(fill);
-                }
-                TouchArea {
-                    enabled: root.editable;
-                    accessible-role: button;
-                    accessible-label: @tr("Recent fill {}", Api.fill-expression(fill));
-                    clicked => { parent.focus(); root.chosen(fill); }
-                    accessible-action-default => { if root.editable { root.chosen(fill); } }
+                    Rectangle {
+                        border-radius: Metrics.radius-small;
+                        border-width: Metrics.border-width;
+                        border-color: parent.has-focus ? Colors.accent : Style.inspector-layout.divider;
+                        background: Api.fill-brush(fill);
+                    }
+                    TouchArea {
+                        enabled: root.editable;
+                        accessible-role: button;
+                        accessible-label: @tr("Recent fill {}", Api.fill-expression(fill));
+                        clicked => { parent.focus(); root.chosen(fill); }
+                        accessible-action-default => { if root.editable { root.chosen(fill); } }
+                    }
                 }
             }
         }

@@ -10,10 +10,16 @@ component CustomButton inherits ButtonBase {
     min-width: 0px;
     min-height: 0px;
 
-    content << Rectangle {
-        preferred-width: 80px;
-        preferred-height: 20px;
-        accessible-role: none;
+    content << HorizontalLayout {
+        padding-left: 7px;
+        padding-right: 9px;
+        padding-top: 3px;
+        padding-bottom: 5px;
+        Rectangle {
+            preferred-width: 80px;
+            preferred-height: 20px;
+            accessible-role: none;
+        }
     }
 }
 
@@ -41,10 +47,6 @@ export component TestCase inherits Window {
             text: "A deliberately long label for accessibility only";
 
             accessible-label: "Custom action";
-            content-padding-left: 7px;
-            content-padding-right: 9px;
-            content-padding-top: 3px;
-            content-padding-bottom: 5px;
             width: self.preferred-width;
             height: self.preferred-height;
             forwarded-background << Rectangle {

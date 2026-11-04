@@ -8,12 +8,14 @@
 
 extern crate alloc;
 
+pub mod bitmapfont;
 pub mod builtin_functions;
 pub mod builtin_structs;
 #[cfg(feature = "color-parsing")]
 pub mod color_parsing;
 pub mod enums;
 pub mod key_codes;
+pub mod pre_rendered;
 
 #[cfg(feature = "shared-fontique")]
 pub mod sharedfontique;

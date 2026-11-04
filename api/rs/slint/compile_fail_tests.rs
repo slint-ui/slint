@@ -50,6 +50,61 @@ slint!{
 */
 const INVALID_RUST_ATTR: () = ();
 
+/**
+Test that an invalid `#[edition]` is a compilation error.
+
+This works:
+```
+slint::slint!{ #[edition = "1.19"] export component Hello { } }
+```
+
+But not a malformed edition:
+```compile_fail
+slint::slint!{ #[edition = "1.19.0"] export component Hello { } }
+```
+
+Nor one that isn't a string:
+```compile_fail
+slint::slint!{ #[edition = 1.19] export component Hello { } }
+```
+
+Nor one newer than this Slint:
+```compile_fail
+slint::slint!{ #[edition = "999.0"] export component Hello { } }
+```
+*/
+#[cfg(doctest)]
+const INVALID_EDITION: () = ();
+
+/**
+Test that an edition missing behavior changes gets a warning.
+
+This works:
+```
+#![deny(deprecated)]
+slint::slint!{ #[edition = "1.19"] export component Hello inherits Window { } }
+```
+
+But not an older edition:
+```compile_fail
+#![deny(deprecated)]
+slint::slint!{ #[edition = "1.18"] export component Hello inherits Window { } }
+```
+*/
+#[cfg(doctest)]
+const OUTDATED_EDITION: () = ();
+
+/**
+Test that a macro without `#[edition]` gets a warning.
+
+```compile_fail
+#![deny(deprecated)]
+slint::slint!{ export component Hello inherits Window { } }
+```
+*/
+#[cfg(doctest)]
+const MISSING_EDITION: () = ();
+
 #[cfg(doctest)]
 #[doc = include_str!("README.md")]
 const CHECK_README_EXAMPLES: () = ();

@@ -484,7 +484,14 @@ impl Layout {
         pos: PhysicalPoint,
     ) -> (usize, crate::items::TextCursorAffinity) {
         let Some(paragraph) = self.paragraph_by_y(pos.y_length()) else {
-            return (0, crate::items::TextCursorAffinity::NextCharacter);
+            // Below the lines a `max-lines` limit kept: the end of the last kept line, as a
+            // drag past the text's end lands on its last character.
+            let end = self.line_limit_cut.and_then(|(last_paragraph, last_line)| {
+                let paragraph = self.paragraphs.get(last_paragraph)?;
+                let line = paragraph.layout.lines().nth(last_line)?;
+                Some(paragraph.range.start + line.text_range().end.min(paragraph.range.len()))
+            });
+            return (end.unwrap_or(0), crate::items::TextCursorAffinity::PreviousCharacter);
         };
         let cursor = parley::editing::Cursor::from_point(
             &paragraph.layout,
@@ -521,72 +528,126 @@ impl Layout {
         )
     }
 
-    /// Returns an iterator over the run's glyphs, truncated if necessary to fit within the max width,
-    /// plus an optional ellipsis glyph with its font and size to be drawn separately.
-    /// Call this function only for the last line of the layout.
-    pub(super) fn glyphs_with_elision<'a>(
-        &'a self,
-        glyph_run: &'a parley::layout::GlyphRun<Brush>,
-        // When set, place an ellipsis even if the run fits the width. Used when lines below were
+    /// Decides where `line`, the last line drawn, is cut and where its ellipsis goes.
+    /// Returns `None` when the line is drawn whole.
+    pub(super) fn line_elision(
+        &self,
+        line: &parley::layout::Line<Brush>,
+        // parley right-aligns an overflowing right-to-left line whatever the alignment,
+        // so it overflows on the left.
+        is_rtl: bool,
+        // When set, place an ellipsis even if the line fits the width. Used when lines below were
         // dropped for the height, so the last visible line signals the vertical truncation.
         force_elision: bool,
-        // Advance width of the line's trailing whitespace. A vertically truncated line that fits
-        // the width anchors the appended ellipsis after the last non-whitespace glyph, so trailing
-        // spaces (e.g. left at a word-wrap break) don't push it away from the text.
-        trailing_whitespace: f32,
-    ) -> (
-        impl Iterator<Item = parley::layout::Glyph> + Clone + 'a,
-        Option<(parley::layout::Glyph, parley::FontData, PhysicalLength)>,
-    ) {
-        let ellipsis_advance =
-            self.elision_info.as_ref().map(|info| info.ellipsis_glyph.advance).unwrap_or(0.0);
-        let max_width = self
-            .elision_info
-            .as_ref()
-            .map(|info| info.max_physical_width)
-            .unwrap_or(PhysicalLength::new(f32::MAX));
+    ) -> Option<LineElision> {
+        let info = self.elision_info.as_ref()?;
+        let ellipsis_advance = info.ellipsis_glyph.advance;
+        let max_width = info.max_physical_width.get();
 
-        let run_start = PhysicalLength::new(glyph_run.offset());
-        let run_end = PhysicalLength::new(glyph_run.offset() + glyph_run.advance());
-
-        // Run starts after where the ellipsis would go - skip entirely
-        let run_beyond_elision = run_start > max_width;
-        // Run extends beyond max width (or the lines below it were dropped) and needs an ellipsis
-        let needs_elision = !run_beyond_elision
-            && (force_elision || run_end.get().floor() > max_width.get().ceil());
-
-        let truncated_glyphs = glyph_run.positioned_glyphs().take_while(move |glyph| {
-            !run_beyond_elision
-                && (!needs_elision
-                    || PhysicalLength::new(glyph.x + glyph.advance + ellipsis_advance) <= max_width)
-        });
-
-        let ellipsis = if needs_elision {
-            self.elision_info.as_ref().map(|info| {
-                let ellipsis_x = glyph_run
-                    .positioned_glyphs()
-                    .find(|glyph| {
-                        PhysicalLength::new(glyph.x + glyph.advance + info.ellipsis_glyph.advance)
-                            > info.max_physical_width
-                    })
-                    .map(|g| g.x)
-                    // Nothing overflows horizontally (force_elision): put the ellipsis right after
-                    // the run's last non-whitespace glyph, i.e. before any trailing whitespace.
-                    .unwrap_or(run_end.get() - trailing_whitespace);
-
-                let mut ellipsis_glyph = info.ellipsis_glyph;
-                ellipsis_glyph.x = ellipsis_x;
-                // The ellipsis glyph comes from a standalone layout; place it on this run's
-                // baseline so it lands on the right line (not just the first one).
-                ellipsis_glyph.y = glyph_run.baseline();
-
-                let font_size = PhysicalLength::new(glyph_run.run().font_size());
-                (ellipsis_glyph, info.font_for_ellipsis_glyph.clone(), font_size)
-            })
+        // parley hangs the trailing whitespace past the line's end edge, which is the left one for
+        // right-to-left text. Trailing spaces (e.g. left at a word-wrap break) neither overflow
+        // nor push the ellipsis away from the text.
+        let metrics = line.metrics();
+        let line_left = metrics.inline_min_coord + metrics.offset;
+        let (content_left, content_right) = if is_rtl {
+            (line_left + metrics.hanging_advance, line_left + metrics.advance)
         } else {
-            None
+            (line_left, line_left + metrics.advance - metrics.hanging_advance)
         };
+        let overflows = if is_rtl {
+            content_left.ceil() < 0.
+        } else {
+            content_right.floor() > max_width.ceil()
+        };
+        if !overflows && !force_elision {
+            return None;
+        }
 
-        (truncated_glyphs, ellipsis)
+        let cut = GlyphCut { is_rtl, ellipsis_advance, max_width };
+        let runs = || {
+            line.items().filter_map(|item| match item {
+                parley::PositionedLayoutItem::GlyphRun(run) => Some(run),
+                parley::PositionedLayoutItem::InlineBox(_) => None,
+            })
+        };
+        // positioned_glyphs() yields a run's glyphs in visual order, left to right, and the runs
+        // come in visual order too, so the first kept (or cut) glyph decides where the ellipsis
+        // goes. The ellipsis belongs to the run of the text it follows: right of it for
+        // right-to-left text, left of it otherwise.
+        let (ellipsis_x, ellipsis_run) = if is_rtl {
+            let ellipsis_end = runs()
+                .find_map(|run| run.positioned_glyphs().find(|glyph| cut.keeps(glyph)))
+                .map_or(content_right, |glyph| glyph.x)
+                .max(content_left);
+            let run = runs().position(|run| run.offset() + run.advance() > ellipsis_end);
+            (ellipsis_end - ellipsis_advance, run.unwrap_or(runs().count().saturating_sub(1)))
+        } else {
+            let ellipsis_start = runs()
+                .find_map(|run| run.positioned_glyphs().find(|glyph| !cut.keeps(glyph)))
+                .map_or(content_right, |glyph| glyph.x)
+                .min(content_right);
+            let run = runs().take_while(|run| run.offset() < ellipsis_start).count();
+            (ellipsis_start, run.saturating_sub(1))
+        };
+        let run = runs().nth(ellipsis_run)?;
+
+        let mut ellipsis_glyph = info.ellipsis_glyph;
+        ellipsis_glyph.x = ellipsis_x;
+        // The ellipsis glyph comes from a standalone layout; place it on this run's baseline so it
+        // lands on the right line (not just the first one).
+        ellipsis_glyph.y = run.baseline();
+        let font_size = PhysicalLength::new(run.run().font_size());
+        Some(LineElision {
+            cut,
+            ellipsis_run,
+            ellipsis: (ellipsis_glyph, info.font_for_ellipsis_glyph.clone(), font_size),
+        })
+    }
+}
+
+/// How the last line of an elided layout is cut. See [`Layout::line_elision`].
+pub(super) struct LineElision {
+    cut: GlyphCut,
+    /// Index of the glyph run, among the line's glyph runs, that draws the ellipsis.
+    ellipsis_run: usize,
+    ellipsis: (parley::layout::Glyph, parley::FontData, PhysicalLength),
+}
+
+struct GlyphCut {
+    is_rtl: bool,
+    ellipsis_advance: f32,
+    max_width: f32,
+}
+
+impl GlyphCut {
+    /// Whether `glyph` stays clear of the ellipsis, on the side the line is cut.
+    fn keeps(&self, glyph: &parley::layout::Glyph) -> bool {
+        if self.is_rtl {
+            glyph.x - self.ellipsis_advance >= 0.
+        } else {
+            glyph.x + glyph.advance + self.ellipsis_advance <= self.max_width
+        }
+    }
+}
+
+impl LineElision {
+    /// Returns the glyphs of `glyph_run` that aren't cut off.
+    pub(super) fn glyphs<'a>(
+        &'a self,
+        glyph_run: &'a parley::layout::GlyphRun<Brush>,
+    ) -> impl Iterator<Item = parley::layout::Glyph> + Clone + 'a {
+        let cut = &self.cut;
+        glyph_run
+            .positioned_glyphs()
+            .skip_while(move |glyph| cut.is_rtl && !cut.keeps(glyph))
+            .take_while(move |glyph| cut.is_rtl || cut.keeps(glyph))
+    }
+
+    /// Returns the ellipsis glyph with its font and size if the glyph run at `run_index` draws it.
+    pub(super) fn ellipsis_for_run(
+        &self,
+        run_index: usize,
+    ) -> Option<(parley::layout::Glyph, parley::FontData, PhysicalLength)> {
+        (run_index == self.ellipsis_run).then(|| self.ellipsis.clone())
     }
 }

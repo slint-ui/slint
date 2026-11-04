@@ -2,87 +2,191 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { CheckBoxBase } from "../headless.slint";
+import { FocusOutline } from "focus_outline.slint";
 import { BasicTheme } from "theme.slint";
 
+export struct CheckBoxStateStyle {
+    indicator-color: brush,
+    checkmark-color: brush,
+    foreground-color: brush,
+    indicator-border-color: brush,
+}
+
+export struct CheckBoxStateStyles {
+    rest: CheckBoxStateStyle,
+    hover: CheckBoxStateStyle,
+    pressed: CheckBoxStateStyle,
+    disabled: CheckBoxStateStyle,
+}
+
+export struct CheckBoxStyle {
+    unchecked: CheckBoxStateStyles,
+    checked: CheckBoxStateStyles,
+    focus-color: brush,
+}
+
+export global CheckBoxStyles {
+    out property <CheckBoxStyle> standard: {
+        unchecked: {
+            rest: {
+                indicator-color: BasicTheme.background,
+                checkmark-color: BasicTheme.accent-foreground,
+                foreground-color: BasicTheme.foreground,
+                indicator-border-color: BasicTheme.border,
+            },
+            hover: {
+                indicator-color: BasicTheme.hover-background,
+                checkmark-color: BasicTheme.accent-foreground,
+                foreground-color: BasicTheme.foreground,
+                indicator-border-color: BasicTheme.border,
+            },
+            pressed: {
+                indicator-color: BasicTheme.pressed-background,
+                checkmark-color: BasicTheme.accent-foreground,
+                foreground-color: BasicTheme.foreground,
+                indicator-border-color: BasicTheme.border,
+            },
+            disabled: {
+                indicator-color: BasicTheme.disabled-background,
+                checkmark-color: BasicTheme.disabled-foreground,
+                foreground-color: BasicTheme.disabled-foreground,
+                indicator-border-color: BasicTheme.disabled-foreground,
+            },
+        },
+        checked: {
+            rest: {
+                indicator-color: BasicTheme.accent,
+                checkmark-color: BasicTheme.accent-foreground,
+                foreground-color: BasicTheme.foreground,
+                indicator-border-color: BasicTheme.accent,
+            },
+            hover: {
+                indicator-color: BasicTheme.accent-hover,
+                checkmark-color: BasicTheme.accent-foreground,
+                foreground-color: BasicTheme.foreground,
+                indicator-border-color: BasicTheme.accent-hover,
+            },
+            pressed: {
+                indicator-color: BasicTheme.accent-pressed,
+                checkmark-color: BasicTheme.accent-foreground,
+                foreground-color: BasicTheme.foreground,
+                indicator-border-color: BasicTheme.accent-pressed,
+            },
+            disabled: {
+                indicator-color: BasicTheme.disabled-background,
+                checkmark-color: BasicTheme.disabled-foreground,
+                foreground-color: BasicTheme.disabled-foreground,
+                indicator-border-color: BasicTheme.disabled-foreground,
+            },
+        },
+        focus-color: BasicTheme.focus,
+    };
+}
+
 export component CheckBox inherits CheckBoxBase {
+    in property <CheckBoxStyle> style: CheckBoxStyles.standard;
+
+    in property <brush> checked-color: root.state-style.indicator-color;
+    in property <brush> foreground-color: root.state-style.foreground-color;
+
+    in property <string> font-family;
+    in property <bool> font-italic;
+
     in property <length> indicator-size: 20px;
-    private property <brush> state-indicator: root.checked ? BasicTheme.accent : BasicTheme.background;
-    private property <brush> state-foreground: BasicTheme.foreground;
-    in property <brush> indicator-color: root.state-indicator;
-    in property <brush> indicator-border-color: !root.enabled ? BasicTheme.disabled-foreground
-        : root.checked ? root.indicator-color : BasicTheme.border;
     in property <length> indicator-border-width: 1px;
     in property <length> indicator-radius: 4px;
-    in property <brush> checkmark-color: root.enabled ? BasicTheme.accent-foreground : BasicTheme.disabled-foreground;
-    in property <brush> foreground: root.state-foreground;
 
-    indicator-width: root.indicator-size;
-    indicator-height: root.indicator-size;
-    content-padding: 6px;
+    in property <length> checkmark-padding: 3px;
+    in property <length> checkmark-width: 2px;
+
+    in property <length> focus-width: 2px;
+    in property <length> focus-offset: 2px;
+
+    private property <CheckBoxStateStyles> selected-styles: root.checked ? root.style.checked : root.style.unchecked;
+    private property <CheckBoxStateStyle> state-style: root.selected-styles.rest;
+
     font-size: 14px;
     font-weight: 400;
-    min-height: 32px;
+    spacing: root.text == "" ? 0px : 6px;
+    horizontal-padding: 6px;
+    vertical-padding: 6px;
 
     states [
         disabled when !root.enabled: {
-            root.state-indicator: BasicTheme.disabled-background;
-            root.state-foreground: BasicTheme.disabled-foreground;
+            state-style: root.selected-styles.disabled;
         }
         pressed when root.pressed: {
-            root.state-indicator: root.checked ? BasicTheme.accent-pressed : BasicTheme.pressed-background;
+            state-style: root.selected-styles.pressed;
         }
         hover when root.hovered: {
-            root.state-indicator: root.checked ? BasicTheme.accent-hover : BasicTheme.hover-background;
+            state-style: root.selected-styles.hover;
         }
     ]
 
-    indicator << Rectangle {
-        background: root.indicator-color;
-        border-color: root.indicator-border-color;
-        border-width: root.indicator-border-width;
-        border-radius: root.indicator-radius;
+    content << HorizontalLayout {
+        padding-left: root.left-padding;
+        padding-right: root.right-padding;
+        padding-top: root.top-padding;
+        padding-bottom: root.bottom-padding;
+        spacing: root.spacing;
+        cross-axis-alignment: center;
 
-        if root.checked: Path {
-            x: 3px;
-            y: 3px;
-            width: parent.width - 6px;
-            height: parent.height - 6px;
-            viewbox-width: 16;
-            viewbox-height: 16;
-            stroke: root.checkmark-color;
-            stroke-width: 2px;
-            MoveTo {
-                x: 2;
-                y: 8;
+        indicator := Rectangle {
+            width: root.indicator-size;
+            height: root.indicator-size;
+            vertical-stretch: 0;
+            background: root.enabled && root.checked ? root.checked-color : root.state-style.indicator-color;
+            border-color: root.state-style.indicator-border-color;
+            border-width: root.indicator-border-width;
+            border-radius: root.indicator-radius;
+
+            if root.checked: Path {
+                x: root.checkmark-padding;
+                y: root.checkmark-padding;
+                width: max(0px, parent.width - 2 * root.checkmark-padding);
+                height: max(0px, parent.height - 2 * root.checkmark-padding);
+                viewbox-width: 16;
+                viewbox-height: 16;
+                stroke: root.state-style.checkmark-color;
+                stroke-width: root.checkmark-width;
+                MoveTo {
+                    x: 2;
+                    y: 8;
+                }
+
+                LineTo {
+                    x: 6;
+                    y: 12;
+                }
+
+                LineTo {
+                    x: 14;
+                    y: 4;
+                }
             }
 
-            LineTo {
-                x: 6;
-                y: 12;
-            }
-
-            LineTo {
-                x: 14;
-                y: 4;
+            focus-outline := FocusOutline {
+                active: root.enabled && root.has-focus;
+                outline-color: root.style.focus-color;
+                target-width: parent.width;
+                target-height: parent.height;
+                line-width: root.focus-width;
+                offset: root.focus-offset;
+                radius: root.indicator-radius;
             }
         }
 
-        if root.enabled && root.has-focus: Rectangle {
-            x: -3px;
-            y: -3px;
-            width: parent.width + 6px;
-            height: parent.height + 6px;
-            border-width: 2px;
-            border-color: BasicTheme.focus;
-            border-radius: root.indicator-radius + 2px;
+        HorizontalLayout {
+            if root.text != "": Text {
+                text: root.text;
+                color: root.enabled ? root.foreground-color : root.state-style.foreground-color;
+                font-size: root.font-size;
+                font-weight: root.font-weight;
+                font-family: root.font-family;
+                font-italic: root.font-italic;
+                vertical-alignment: center;
+            }
         }
-    }
-
-    content << Text {
-        text: root.text;
-        color: root.foreground;
-        font-size: root.font-size;
-        font-weight: root.font-weight;
-        vertical-alignment: center;
+        @children
     }
 }

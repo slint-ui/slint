@@ -1,7 +1,8 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-# Run full CI on active branches 3x/day, only if they have recent changes
+# Run full CI on active branches 3x/day, only if they have recent changes,
+# and delete the master Rust caches that newer ones replace
 name: Scheduled CI
 
 on:
@@ -33,13 +34,28 @@ jobs:
           permission-actions: write
           permission-contents: read
 
-      - name: Trigger CI on branches with recent changes
+      # Swatinem/rust-cache ends its keys with a hash of the lock files and manifests,
+      # so each dependency change leaves the previous master cache behind. Keep only
+      # the newest cache per job, OS and toolchain.
+      - name: Delete superseded Rust caches
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
-          if [ -n "${{ inputs.branch }}" ]; then
-            echo "Triggering full CI for ${{ inputs.branch }}"
-            gh workflow run "CI" --repo ${{ github.repository }} --ref "${{ inputs.branch }}" -f full=true
+          gh cache list --repo ${{ github.repository }} --ref refs/heads/master --key v0-rust- --limit 1000 \
+              --json id,key,createdAt \
+              --jq 'group_by(.key | sub("-[0-9a-f]{8}$"; "")) | .[] | sort_by(.createdAt) | .[:-1][].id' \
+          | while read -r id; do
+              gh cache delete --repo ${{ github.repository }} "$id" || echo "Could not delete cache $id"
+          done
+
+      - name: Trigger CI on branches with recent changes
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          BRANCH: ${{ inputs.branch }}
+        run: |
+          if [ -n "$BRANCH" ]; then
+            echo "Triggering full CI for $BRANCH"
+            gh workflow run "CI" --repo "$GITHUB_REPOSITORY" --ref "$BRANCH" -f full=true
             exit 0
           fi
 

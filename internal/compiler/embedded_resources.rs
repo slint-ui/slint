@@ -1,85 +1,40 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-#[cfg(feature = "renderer-software")]
-pub use resvg::tiny_skia::IntRect as Rect;
-
-#[derive(Debug, Clone, Copy, Default)]
-pub struct Size {
-    pub width: u32,
-    pub height: u32,
-}
-
-#[derive(Clone, Copy, Debug, strum::Display)]
-pub enum PixelFormat {
-    // 24 bit RGB
-    Rgb,
-    // 32 bit RGBA
-    Rgba,
-    // 32 bit RGBA, but the RGB values are pre-multiplied by the alpha
-    RgbaPremultiplied,
-    // 8bit alpha map with a given color
-    AlphaMap([u8; 3]),
-}
+use alloc::string::String;
+use alloc::vec::Vec;
 
 #[cfg(feature = "renderer-software")]
-#[derive(Debug, Clone)]
-pub struct Texture {
-    pub total_size: Size,
-    pub original_size: Size,
-    pub rect: Rect,
-    pub data: Vec<u8>,
-    pub format: PixelFormat,
-}
-
+use i_slint_common::bitmapfont::OwnedStorage;
 #[cfg(feature = "renderer-software")]
-impl Texture {
-    pub fn new_empty() -> Self {
-        Self {
-            total_size: Size::default(),
-            original_size: Size::default(),
-            rect: Rect::from_xywh(0, 0, 1, 1).unwrap(),
-            data: vec![0, 0, 0, 0],
-            format: PixelFormat::Rgba,
-        }
-    }
-}
-
+pub type Texture = i_slint_common::pre_rendered::StaticTextures<OwnedStorage>;
 #[cfg(feature = "renderer-software")]
-#[derive(Debug, Clone, Default)]
-pub struct BitmapGlyph {
-    pub x: i16,
-    pub y: i16,
-    pub width: i16,
-    pub height: i16,
-    pub x_advance: i16,
-    /// 8bit alpha map or SDF if `BitMapGlyphs`'s `sdf` is `true`.
-    pub data: Vec<u8>,
-}
-
+pub type BitmapGlyph = i_slint_common::bitmapfont::BitmapGlyph<OwnedStorage>;
 #[cfg(feature = "renderer-software")]
-#[derive(Debug, Clone)]
-pub struct BitmapGlyphs {
-    pub pixel_size: i16,
-    pub glyph_data: Vec<BitmapGlyph>,
-}
-
+pub type BitmapGlyphs = i_slint_common::bitmapfont::BitmapGlyphs<OwnedStorage>;
 #[cfg(feature = "renderer-software")]
-#[derive(Debug, Clone)]
-pub struct BitmapFont {
-    pub family_name: String,
-    /// Sorted code points; each one's position is its glyph index.
-    pub character_map: Vec<char>,
-    pub units_per_em: f32,
-    pub ascent: f32,
-    pub descent: f32,
-    pub x_height: f32,
-    pub cap_height: f32,
-    pub glyphs: Vec<BitmapGlyphs>,
-    pub weight: u16,
-    pub italic: bool,
-    /// true when the font is represented as a signed distance field
-    pub sdf: bool,
+pub type BitmapFont = i_slint_common::bitmapfont::BitmapFont<OwnedStorage>;
+
+/// The resources of `document` that the compiler pre-rendered, by [`EmbeddedResourcesIdx`].
+#[cfg(feature = "std")]
+pub fn pre_rendered_resources(
+    document: &crate::object_tree::Document,
+) -> Vec<Option<i_slint_common::pre_rendered::PreRenderedResource>> {
+    let resources = document.embedded_file_resources.borrow();
+    resources
+        .iter()
+        .map(|resource| match &resource.kind {
+            #[cfg(feature = "renderer-software")]
+            EmbeddedResourcesKind::TextureData(texture) => {
+                Some(i_slint_common::pre_rendered::PreRenderedResource::Texture(texture.clone()))
+            }
+            #[cfg(feature = "renderer-software")]
+            EmbeddedResourcesKind::BitmapFontData(font) => {
+                Some(i_slint_common::pre_rendered::PreRenderedResource::BitmapFont(font.clone()))
+            }
+            _ => None,
+        })
+        .collect()
 }
 
 #[derive(Debug, Clone)]
@@ -122,4 +77,5 @@ pub struct EmbeddedResources {
     derive_more::From,
     derive_more::Display,
 )]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct EmbeddedResourcesIdx(pub usize);

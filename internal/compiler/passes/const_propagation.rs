@@ -574,11 +574,17 @@ global G {
 
     in-out property <Enum> e: Enum.bb;
 }
+export global Style {
+    out property <float> out-value: 24;
+    in property <float> in-value: 48;
+}
 export component Foo {
     in property <int> input;
     out property<float> out1: G.w;
     out property<float> out2: G.out.v;
     out property<bool> out3: false ? input == 12 : input > 0 ? input == 11 : G.e == Enum.bb;
+    out property<float> out4: Style.out-value;
+    out property<float> out5: Style.in-value;
 }
 "#
         .into(),
@@ -616,6 +622,13 @@ export component Foo {
         },
         _ => panic!("not code block: {out3_binding:?}"),
     };
+    let out4_binding = root_element.borrow().binding("out4").unwrap().expression.clone();
+    match &out4_binding {
+        Expression::NumberLiteral(n, _) => assert_eq!(*n, 24.),
+        _ => panic!("not number {out4_binding:?}"),
+    }
+    let out5_binding = root_element.borrow().binding("out5").unwrap().expression.clone();
+    assert!(!matches!(out5_binding, Expression::NumberLiteral(..)), "{out5_binding:?}");
 }
 
 #[test]

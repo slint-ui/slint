@@ -162,10 +162,12 @@ use shaping::{
 /// back: `f` only borrows the [`Layout`], so no caller can lose the shaped paragraphs and cost the
 /// next use of the entry a reshape.
 ///
-/// The font context is borrowed from `window`'s Slint context for shaping and layout only, and
-/// released before `f` runs -- glyph drawing inside `f` re-enters it, and property bindings
-/// evaluated under `f` must not find it borrowed. The wrap mode and scale factor the cache entry
-/// is keyed on come from `layout_builder`, so shaping and layout cannot disagree about either.
+/// The font context is borrowed from `window`'s Slint context for shaping and layout only,
+/// and released before `f` runs, as glyph drawing inside `f` re-enters it.
+/// `f` runs with the cache entry checked out, which keeps the whole [`TextLayoutCache`] borrowed.
+/// So `f` must not read properties: a binding that measures text would panic.
+/// The wrap mode, line-height factor and scale factor the cache entry is keyed on come from
+/// `layout_builder`, so shaping and layout cannot disagree about them.
 ///
 /// Returns `None` only when `window` has no Slint context yet.
 fn with_text_layout<R>(
@@ -178,19 +180,29 @@ fn with_text_layout<R>(
     f: impl FnOnce(&Layout) -> R,
 ) -> Option<R> {
     let ctx = crate::window::WindowInner::from_pub(window).try_context()?;
-    let mut font_ctx = ctx.font_context().borrow_mut();
+    let font_context = ctx.font_context();
 
     let text_wrap = layout_builder.text_wrap;
     let scale_factor = layout_builder.scale_factor;
-    let mut guard =
-        cached_paragraphs(cache, item_rc, text_wrap, window, &mut font_ctx, &|font_context| {
-            shape_paragraphs(text, item_rc, text_wrap, scale_factor, font_context)
-        });
+    let mut guard = cached_paragraphs(
+        cache,
+        item_rc,
+        text_wrap,
+        layout_builder.line_height_factor,
+        text.measures_width_only(),
+        window,
+        &|| shape_paragraphs(text, item_rc, text_wrap, scale_factor, font_context),
+    );
 
     let line_breaking = guard.take_line_breaking();
-    let layout =
-        layout(layout_builder, &mut font_ctx, guard.take(), scale_factor, options, line_breaking);
-    drop(font_ctx);
+    let layout = layout(
+        layout_builder,
+        &mut font_context.borrow_mut(),
+        guard.take(),
+        scale_factor,
+        options,
+        line_breaking,
+    );
 
     if layout.broke_lines {
         #[cfg(feature = "testing")]
@@ -244,28 +256,19 @@ pub fn draw_text(
         None
     };
 
-    let layout_builder = shaping_builder(text, item_rc, text.wrap(), scale_factor);
-
     let window_adapter = item_renderer.window().window_adapter();
 
-    let (horizontal_align, vertical_align) = text.alignment();
     let text_overflow = text.overflow();
     let text_color = text.color().color();
+    let text_selection = text.selection();
 
-    let _ = with_text_layout(
-        cache,
-        item_rc,
+    let _ = with_render_text_layout(
+        scale_factor,
         text,
-        &layout_builder,
-        LayoutOptions {
-            horizontal_align,
-            vertical_align,
-            max_height: Some(max_height),
-            max_width: Some(max_width),
-            max_lines: text.line_limit(),
-            text_overflow,
-        },
+        item_rc,
+        size,
         window_adapter.window(),
+        cache,
         |layout| {
             // When `overflow: elide` can't even fit the first line, the line is still drawn
             // (rather than dropped, which would render nothing) but its vertical overflow needs
@@ -287,14 +290,23 @@ pub fn draw_text(
             };
 
             if render {
+                let mut selection_spans = SelectionSpans::default();
+                let selection = text_selection.and_then(|selection| {
+                    draw_selection_background(
+                        item_renderer,
+                        layout,
+                        selection.range,
+                        selection.background,
+                        selection.foreground,
+                        &mut selection_spans,
+                    )
+                });
                 layout.draw(
                     item_renderer,
                     platform_fill_brush,
                     platform_stroke_brush,
                     text_color,
-                    // `Text` has no selection today; the machinery is shared so wiring one up
-                    // later is a matter of passing spans here.
-                    None,
+                    selection.as_ref(),
                 );
             }
 
@@ -303,6 +315,36 @@ pub fn draw_text(
             }
         },
     );
+}
+
+/// Lays a `Text` or `StyledText` item out as it is drawn, `size` being the item's.
+fn with_render_text_layout<R>(
+    scale_factor: ScaleFactor,
+    text: Pin<&dyn crate::item_rendering::RenderText>,
+    item_rc: Option<&crate::item_tree::ItemRc>,
+    size: LogicalSize,
+    window: &crate::api::Window,
+    cache: Option<&TextLayoutCache>,
+    f: impl FnOnce(&Layout) -> R,
+) -> Option<R> {
+    let layout_builder = shaping_builder(text, item_rc, text.wrap(), scale_factor);
+    let (horizontal_align, vertical_align) = text.alignment();
+    with_text_layout(
+        cache,
+        item_rc,
+        text,
+        &layout_builder,
+        LayoutOptions {
+            horizontal_align,
+            vertical_align,
+            max_height: Some(size.height_length()),
+            max_width: Some(size.width_length()),
+            max_lines: text.line_limit(),
+            text_overflow: text.overflow(),
+        },
+        window,
+        f,
+    )
 }
 
 #[cfg(feature = "std")]
@@ -315,32 +357,68 @@ pub fn link_under_cursor(
     window: &crate::api::Window,
     cache: Option<&TextLayoutCache>,
 ) -> Option<std::string::String> {
-    let layout_builder = shaping_builder(text, Some(item_rc), text.wrap(), scale_factor);
-
-    let (horizontal_align, vertical_align) = text.alignment();
-
-    with_text_layout(
-        cache,
-        Some(item_rc),
-        text,
-        &layout_builder,
-        LayoutOptions {
-            horizontal_align,
-            vertical_align,
-            max_height: Some(size.height_length()),
-            max_width: Some(size.width_length()),
-            max_lines: text.line_limit(),
-            text_overflow: text.overflow(),
-        },
-        window,
-        |layout| link_in_layout(layout, cursor),
-    )
+    with_render_text_layout(scale_factor, text, Some(item_rc), size, window, cache, |layout| {
+        link_in_layout(layout, cursor)
+    })
     .flatten()
+}
+
+/// The byte offset into the raw text of the character under `cursor`,
+/// or of the nearest one on that line.
+/// `None` when nothing is laid out there.
+#[cfg(feature = "std")]
+pub fn byte_offset_under_cursor(
+    scale_factor: ScaleFactor,
+    text: Pin<&dyn crate::item_rendering::RenderText>,
+    item_rc: &crate::item_tree::ItemRc,
+    size: LogicalSize,
+    cursor: PhysicalPoint,
+    window: &crate::api::Window,
+    cache: Option<&TextLayoutCache>,
+) -> Option<usize> {
+    with_render_text_layout(scale_factor, text, Some(item_rc), size, window, cache, |layout| {
+        layout.byte_offset_from_point(cursor).0
+    })
+}
+
+/// Fills the highlight behind `range` and returns what recolors its glyphs.
+/// `None` when nothing of the range is on a drawn line.
+fn draw_selection_background<'a, R: GlyphRenderer>(
+    item_renderer: &mut R,
+    layout: &Layout,
+    range: core::ops::Range<usize>,
+    background: Color,
+    foreground: Color,
+    spans: &'a mut SelectionSpans,
+) -> Option<SelectionRendering<'a, R>> {
+    // When a piece of text is first selected, it gets an empty range like `1..1`. If the text
+    // starts with a multi-byte character then this selection would be within that character and
+    // parley would panic, so empty ranges are filtered out. The spans only feed drawing (the
+    // highlight fill and the glyph clip), so only the lines the clip lets through need any.
+    if range.is_empty() {
+        return None;
+    }
+    *spans = layout.selection_geometry(range, &draw::visible_band(item_renderer), |x| {
+        item_renderer.snap_selection_x(x)
+    });
+    if spans.is_empty() {
+        return None;
+    }
+    // Inside the clip, like the glyphs it sits under: a line box taller than the item would
+    // otherwise paint the highlight over whatever follows the item.
+    for rect in spans.backgrounds() {
+        item_renderer.fill_rectangle_with_color(rect, background);
+    }
+    // Selected glyphs are recolored by clipping, not by restyling the layout, so that a boundary
+    // landing inside a ligature cuts the glyph instead of recoloring all of it.
+    let foreground = item_renderer.platform_brush_for_color(&foreground)?;
+    Some(SelectionRendering { spans, foreground })
 }
 
 fn link_in_layout(layout: &Layout, cursor: PhysicalPoint) -> Option<std::string::String> {
     layout.paragraph_by_y(cursor.y_length()).and_then(|paragraph| {
-        let paragraph_y: f64 = paragraph.y.cast::<f64>().get();
+        // Where the paragraph is drawn: `y_offset` carries the vertical alignment.
+        let paragraph_y: f64 = (layout.y_offset + paragraph.y).cast::<f64>().get();
 
         paragraph
             .links
@@ -404,6 +482,12 @@ pub fn draw_text_input(
 
     let scale_factor = item_renderer.scale_factor();
 
+    let selection_background = text_input.selection_background_color();
+    let selection_foreground = text_input.selection_foreground_color();
+    let cursor = visual_representation
+        .cursor_position
+        .map(|cursor_pos| (cursor_pos, text_input.text_cursor_width() * scale_factor));
+
     let layout_builder =
         shaping_builder(text_input, Some(item_rc), text_input.wrap(), scale_factor);
 
@@ -432,42 +516,15 @@ pub fn draw_text_input(
             );
 
             if render {
-                // When a piece of text is first selected, it gets an empty range like `1..1`. If
-                // the text starts with a multi-byte character then this selection would be within
-                // that character and parley would panic, so empty ranges are filtered out. The
-                // spans only feed drawing (the highlight fill and the glyph clip), so only the
-                // lines the clip lets through need any.
-                let selection_spans = if selection_range.is_empty() {
-                    SelectionSpans::default()
-                } else {
-                    layout.selection_geometry(
-                        selection_range,
-                        &draw::visible_band(item_renderer),
-                        |x| item_renderer.snap_selection_x(x),
-                    )
-                };
-                // Inside the clip, like the glyphs it sits under: a line box taller than the item
-                // would otherwise paint the highlight over whatever follows the input.
-                for background in selection_spans.backgrounds() {
-                    item_renderer.fill_rectangle_with_color(
-                        background,
-                        text_input.selection_background_color(),
-                    );
-                }
-
-                // Selected glyphs are recolored by clipping, not by restyling the layout, so that
-                // a boundary landing inside a ligature cuts the glyph instead of recoloring all
-                // of it.
-                let selection = (!selection_spans.is_empty())
-                    .then(|| {
-                        item_renderer
-                            .platform_brush_for_color(&text_input.selection_foreground_color())
-                            .map(|foreground| SelectionRendering {
-                                spans: &selection_spans,
-                                foreground,
-                            })
-                    })
-                    .flatten();
+                let mut selection_spans = SelectionSpans::default();
+                let selection = draw_selection_background(
+                    item_renderer,
+                    layout,
+                    selection_range,
+                    selection_background,
+                    selection_foreground,
+                    &mut selection_spans,
+                );
 
                 layout.draw(
                     item_renderer,
@@ -477,11 +534,11 @@ pub fn draw_text_input(
                     selection.as_ref(),
                 );
 
-                if let Some(cursor_pos) = visual_representation.cursor_position {
+                if let Some((cursor_pos, cursor_width)) = cursor {
                     let cursor_rect = layout.cursor_rect_for_byte_offset(
                         cursor_pos,
                         visual_representation.cursor_affinity,
-                        text_input.text_cursor_width() * scale_factor,
+                        cursor_width,
                     );
                     item_renderer
                         .fill_rectangle_with_color(cursor_rect, visual_representation.cursor_color);
@@ -526,16 +583,6 @@ fn text_size_impl(
     cache: Option<&TextLayoutCache>,
 ) -> Option<LogicalSize> {
     let scale_factor = scale_factor?;
-
-    // Evaluate the properties that `shape_paragraphs` reads before borrowing font_context: they
-    // can trigger property bindings that re-enter text_size for other elements, which would panic
-    // on a second borrow_mut(). Afterwards they are clean, so shaping can read them again -- now
-    // without re-entering -- inside the cache entry's dependency tracker.
-    let _ = text_item.font_request(item_rc);
-    let _ = text_item.stroke();
-    let _ = text_item.link_color();
-    let _ = text_item.text();
-
     let window_adapter = window_adapter?;
 
     // Only `layout()`'s elision glyph reads this, and `TextOverflow::Clip` never asks for one.
@@ -585,24 +632,23 @@ fn text_content_widths_impl(
     cache: Option<&TextLayoutCache>,
 ) -> Option<crate::renderer::ContentWidths> {
     let scale_factor = scale_factor?;
-
-    // See text_size(): evaluate properties before borrowing font_context. Afterwards they are
-    // clean, so `compute` can read them again -- now without re-entering -- inside the cache
-    // entry's dependency tracker.
-    let _ = text_item.font_request(item_rc);
-    let _ = text_item.text();
-
     let ctx = ctx?;
-    let mut font_ctx = ctx.font_context().borrow_mut();
 
     // Reads the text, the font request and the line limit, so the cache entry depends on all
     // three. Nothing else feeds the widths: the wrap mode, the width and the color don't.
-    let compute = |font_ctx: &mut FontContext| {
+    // Reads them before borrowing the font context; see `shape_paragraphs`.
+    let compute = || {
         let layout_builder =
             shaping::content_widths_builder(text_item.font_request(item_rc), scale_factor);
+        let text = text_item.text();
+        let line_limit = text_item.line_limit();
 
-        let paragraphs_without_linebreaks =
-            create_text_paragraphs(&layout_builder, font_ctx, text_item.text(), Color::default());
+        let paragraphs_without_linebreaks = create_text_paragraphs(
+            &layout_builder,
+            &mut ctx.font_context().borrow_mut(),
+            text,
+            Color::default(),
+        );
 
         // No line breaking needed: parley derives the content widths from the break
         // opportunities. Paragraphs stack vertically, so both widths are the widest.
@@ -610,7 +656,7 @@ fn text_content_widths_impl(
         // that are not drawn, from both widths.
         let (min, max) = paragraphs_without_linebreaks
             .iter()
-            .take(text_item.line_limit().unwrap_or(usize::MAX))
+            .take(line_limit.unwrap_or(usize::MAX))
             .fold((0., 0.), |(min, max), p| {
                 let w = p.layout.calculate_content_widths();
                 (f32::max(min, w.min), f32::max(max, w.max))
@@ -624,20 +670,19 @@ fn text_content_widths_impl(
     // Without a window there is no way to notice a scale factor change, and the shaped
     // advances are in physical pixels, so an entry kept across one would be wrong.
     let Some((cache, window_adapter)) = cache.zip(window_adapter) else {
-        return Some(compute(&mut font_ctx));
+        return Some(compute());
     };
     cache.clear_if_scale_factor_changed(window_adapter.window());
-    Some(cache.content_widths(item_rc, || compute(&mut font_ctx)))
+    Some(cache.content_widths(item_rc, compute))
 }
 
 pub fn char_size(
     font_ctx: &mut FontContext,
-    text_item: Pin<&dyn crate::item_rendering::HasFont>,
-    item_rc: &crate::item_tree::ItemRc,
+    font_request: &FontRequest,
+    line_height_factor: Option<f32>,
     ch: char,
 ) -> Option<LogicalSize> {
-    let font_request = text_item.font_request(item_rc);
-    let font = &font_ctx.query_font(&font_request)?.font;
+    let font = &font_ctx.query_font(font_request)?.font;
 
     let char_map = font.charmap()?;
 
@@ -663,9 +708,7 @@ pub fn char_size(
         &location,
     );
     let natural_line_height = font_metrics.ascent - font_metrics.descent;
-    let line_height = font_request
-        .line_height_for_natural_height(natural_line_height)
-        .unwrap_or(natural_line_height);
+    let line_height = natural_line_height * line_height_factor.unwrap_or(1.0);
 
     Some(LogicalSize::from_lengths(advance_width, LogicalLength::new(line_height)))
 }
@@ -674,9 +717,11 @@ pub fn char_size(
 pub fn text_line_height(
     font_ctx: &mut FontContext,
     font_request: &FontRequest,
+    line_height_factor: Option<f32>,
 ) -> Option<LogicalLength> {
     let pixel_size = font_request.pixel_size.unwrap_or(DEFAULT_FONT_SIZE);
-    shaping::line_height_ratio(font_ctx, font_request).map(|ratio| pixel_size * ratio)
+    shaping::line_height_ratio(font_ctx, font_request, line_height_factor)
+        .map(|ratio| pixel_size * ratio)
 }
 
 pub fn font_metrics(

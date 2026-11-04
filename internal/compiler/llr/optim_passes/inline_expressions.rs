@@ -140,11 +140,17 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         | BuiltinFunction::TextInputPaste
         | BuiltinFunction::TextInputUndo
         | BuiltinFunction::TextInputRedo
+        | BuiltinFunction::StyledTextSetSelectionOffsets
+        | BuiltinFunction::StyledTextSelectAll
+        | BuiltinFunction::StyledTextClearSelection
+        | BuiltinFunction::StyledTextCopy
         | BuiltinFunction::SwipeGestureHandlerCancel
         | BuiltinFunction::ContextMenuClose
         | BuiltinFunction::WindowClose
         | BuiltinFunction::WindowHide => isize::MAX,
-        BuiltinFunction::HasSelection | BuiltinFunction::ContextMenuIsOpen => PROPERTY_ACCESS_COST,
+        BuiltinFunction::HasSelection
+        | BuiltinFunction::StyledTextHasSelection
+        | BuiltinFunction::ContextMenuIsOpen => PROPERTY_ACCESS_COST,
         BuiltinFunction::ItemFontMetrics => PROPERTY_ACCESS_COST,
         BuiltinFunction::StringToFloat => 50,
         BuiltinFunction::StringIsFloat => 50,
@@ -170,13 +176,17 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::Rgb => 50,
         BuiltinFunction::Hsv => 50,
         BuiltinFunction::Oklch => 50,
-        BuiltinFunction::ImplicitLayoutInfo(_) => isize::MAX,
+        // Between `INLINE_THRESHOLD` and `INLINE_SINGLE_THRESHOLD` because it can be expensive:
+        // a Text lays out its text to measure it, so the call isn't repeated in several readers,
+        // but it's inlined into a single one.
+        BuiltinFunction::ImplicitLayoutInfo(_) => 3 * PROPERTY_ACCESS_COST,
         BuiltinFunction::ItemAbsolutePosition => isize::MAX,
         BuiltinFunction::RegisterCustomFontByPath => isize::MAX,
         BuiltinFunction::RegisterCustomFontByMemory => isize::MAX,
         BuiltinFunction::RegisterBitmapFont => isize::MAX,
         BuiltinFunction::ColorScheme => PROPERTY_ACCESS_COST,
         BuiltinFunction::AccentColor => PROPERTY_ACCESS_COST,
+        BuiltinFunction::ReducedMotion => PROPERTY_ACCESS_COST,
         BuiltinFunction::SupportsNativeMenuBar => 10,
         BuiltinFunction::SetupMenuBar => isize::MAX,
         BuiltinFunction::SetupSystemTrayIcon => isize::MAX,
@@ -278,7 +288,13 @@ fn inline_simple_expressions_in_expression(
         let prop_info = ctx.property_info(prop);
         if prop_info.analysis.as_ref().is_some_and(|a| !a.is_set && !a.is_set_externally) {
             if let Some((binding, map)) = prop_info.binding {
-                if binding.animation.is_none() && binding.kind != super::super::BindingKind::State {
+                // A binding loop that is only a warning reaches this pass as a cycle. The binding
+                // being visited is mutably borrowed by `inline_simple_expressions`: don't inline
+                // it into itself.
+                if binding.expression.try_borrow().is_ok()
+                    && binding.animation.is_none()
+                    && binding.kind != super::super::BindingKind::State
+                {
                     let mapped_ctx = map.map_context(ctx);
                     let cost = expression_cost(&binding.expression.borrow(), &mapped_ctx);
                     let use_count = binding.use_count.get();
@@ -287,9 +303,10 @@ fn inline_simple_expressions_in_expression(
                         "We use a property and its count is zero: {}",
                         crate::llr::pretty_print::DisplayPropertyRef(prop, ctx)
                     );
-                    if cost <= INLINE_THRESHOLD
-                        || (use_count == 1 && cost <= INLINE_SINGLE_THRESHOLD)
-                    {
+                    // The binding's count includes one for being needed, so use the property's own.
+                    // A native item property has none: the item itself reads its binding.
+                    let read_once = prop_info.use_count.is_some_and(|c| c.get() == 1);
+                    if cost <= INLINE_THRESHOLD || (read_once && cost <= INLINE_SINGLE_THRESHOLD) {
                         // Perform inlining
                         *expr = binding.expression.borrow().clone();
                         map.map_expression(expr);
@@ -299,7 +316,7 @@ fn inline_simple_expressions_in_expression(
                             use_count.set(use_count.get() - 1);
                         }
                         adjust_use_count(expr, ctx, 1);
-                        if use_count == 1 {
+                        if read_once {
                             adjust_use_count(&binding.expression.borrow(), &mapped_ctx, -1);
                             binding.expression.replace(Expression::CodeBlock(Vec::new()));
                         }
@@ -480,6 +497,81 @@ mod tests {
             })
         });
         (constant, runtime)
+    }
+
+    /// Compile `source`, lower it to the LLR (which runs this pass),
+    /// and return the names of the properties left in the public component's root sub-component.
+    fn property_names(source: &str) -> Vec<String> {
+        let unit = crate::llr::lower_test_source(source);
+        let root = unit.public_components.iter().next().unwrap().item_tree.root;
+        unit.sub_components[root].properties.iter().map(|p| p.name.to_string()).collect()
+    }
+
+    #[test]
+    fn inlines_a_property_read_once() {
+        // Both bindings cost more than `INLINE_THRESHOLD`, so only the single read is inlined.
+        let names = property_names(
+            r#"
+export component Foo {
+    in property <int> a;
+    in property <int> b;
+    in property <int> c;
+    property <int> once: (root.a + root.b) * root.c;
+    property <int> twice: (root.a + root.b) * root.c;
+    out property <int> r1: root.once + 1;
+    out property <int> r2: root.twice + 1;
+    out property <int> r3: root.twice + 2;
+}
+"#,
+        );
+        assert!(!names.iter().any(|n| n.ends_with("_once")), "{names:?}");
+        assert!(names.iter().any(|n| n.ends_with("_twice")), "{names:?}");
+    }
+
+    #[test]
+    fn inlines_an_item_layout_info_read_once() {
+        // With a fixed size and position, only the out properties read the text's layout info.
+        let names = |reads: &str| {
+            property_names(&format!(
+                "export component Foo {{ t := Text {{ text: \"x\"; x: 0; y: 0; width: 10px; height: 10px; }} {reads} }}"
+            ))
+        };
+        let once = names("out property <length> w: t.preferred-width;");
+        assert!(!once.iter().any(|n| n.contains("implicit-layoutinfo")), "{once:?}");
+        let twice = names(
+            "out property <length> w: t.preferred-width; out property <length> m: t.min-width;",
+        );
+        assert!(twice.iter().any(|n| n.contains("implicit-layoutinfo-h")), "{twice:?}");
+    }
+
+    /// Without edition 1.19 or newer, a binding loop through the window layout is only
+    /// a warning, and it hides the inner loop.
+    #[test]
+    fn leaves_a_binding_loop_in_place() {
+        let unit = crate::llr::lower_test_source(
+            r#"
+export component TestCase inherits Window {
+    HorizontalLayout {
+        Rectangle {
+            VerticalLayout {
+                Rectangle { width: parent.width; }
+            }
+        }
+    }
+}
+"#,
+        );
+        // The loop is left as a binding that reads its own property.
+        let reads_itself = unit.sub_components.iter().any(|sc| {
+            sc.property_init.iter().any(|(prop, binding)| {
+                let mut found = false;
+                binding.expression.borrow().visit_recursive(&mut |e| {
+                    found |= matches!(e, Expression::PropertyReference(p) if p == prop);
+                });
+                found
+            })
+        });
+        assert!(reads_itself);
     }
 
     #[test]

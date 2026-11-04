@@ -2,7 +2,9 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import math
-from collections.abc import Callable
+import sys
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 
 import slint_testing
 from slint_testing import keys
@@ -110,6 +112,20 @@ def same_state(left: Frame, right: Frame) -> bool:
     return all(abs(a - b) < 0.01 for a, b in zip(left, right))
 
 
+def physical_control_key() -> str:
+    return keys.Meta if sys.platform == "darwin" else keys.Control
+
+
+@contextmanager
+def without_snapping(window: slint_testing.Window) -> Iterator[None]:
+    modifier = physical_control_key()
+    window.dispatch_event(slint_testing.KeyPressedEvent(text=modifier))
+    try:
+        yield
+    finally:
+        window.dispatch_event(slint_testing.KeyReleasedEvent(text=modifier))
+
+
 def manual_drag(
     window: slint_testing.Window,
     handle: slint_testing.Element,
@@ -140,50 +156,51 @@ def manual_drag(
         else None
     )
 
-    window.dispatch_event(slint_testing.PointerPressEvent(start, button))
-    if shift:
-        window.dispatch_event(slint_testing.KeyPressedEvent(text=keys.Shift))
+    with without_snapping(window):
+        window.dispatch_event(slint_testing.PointerPressEvent(start, button))
+        if shift:
+            window.dispatch_event(slint_testing.KeyPressedEvent(text=keys.Shift))
 
-    transient_states = []
-    for step in range(1, 4):
-        fraction = step / 3
-        position = slint_testing.LogicalPosition(
-            x=start.x + dx * fraction,
-            y=start.y + dy * fraction,
-        )
-        window.dispatch_event(slint_testing.PointerMoveEvent(position))
-        transient_states.append(element_frame(selected_handle))
+        transient_states = []
+        for step in range(1, 4):
+            fraction = step / 3
+            position = slint_testing.LogicalPosition(
+                x=start.x + dx * fraction,
+                y=start.y + dy * fraction,
+            )
+            window.dispatch_event(slint_testing.PointerMoveEvent(position))
+            transient_states.append(element_frame(selected_handle))
 
-    assert transient_states[-1] != initial_frame
-    assert len(set(transient_states)) >= 2
-    if fixed_handle_center is not None:
-        assert fixed_handle_label is not None
-        if follow_pointer:
+        assert transient_states[-1] != initial_frame
+        assert len(set(transient_states)) >= 2
+        if fixed_handle_center is not None:
+            assert fixed_handle_label is not None
+            if follow_pointer:
+                assert (
+                    position_distance(
+                        center(
+                            element(window, handle.accessible_label),
+                            rotation,
+                        ),
+                        end,
+                    )
+                    < 1.5
+                )
             assert (
                 position_distance(
                     center(
-                        element(window, handle.accessible_label),
+                        element(window, fixed_handle_label),
                         rotation,
                     ),
-                    end,
+                    fixed_handle_center,
                 )
                 < 1.5
             )
-        assert (
-            position_distance(
-                center(
-                    element(window, fixed_handle_label),
-                    rotation,
-                ),
-                fixed_handle_center,
-            )
-            < 1.5
-        )
 
-    snapshot.assert_unchanged_now()
-    window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
-    if shift:
-        window.dispatch_event(slint_testing.KeyReleasedEvent(text=keys.Shift))
+        snapshot.assert_unchanged_now()
+        window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
+        if shift:
+            window.dispatch_event(slint_testing.KeyReleasedEvent(text=keys.Shift))
     return fixed_handle_center
 
 
@@ -275,35 +292,36 @@ def live_modifier_resize(
     start = center(handle)
     end = slint_testing.LogicalPosition(x=start.x + 20, y=start.y + 16)
     button = slint_testing.PointerEventButton.Left
-    if not press_shift_during_drag:
-        window.dispatch_event(slint_testing.KeyPressedEvent(text=keys.Shift))
-    window.dispatch_event(slint_testing.PointerPressEvent(start, button))
-    window.dispatch_event(slint_testing.PointerMoveEvent(end))
-    before_modifier = selection_frame(window, "Rectangle")
-    snapshot.assert_unchanged_now()
+    with without_snapping(window):
+        if not press_shift_during_drag:
+            window.dispatch_event(slint_testing.KeyPressedEvent(text=keys.Shift))
+        window.dispatch_event(slint_testing.PointerPressEvent(start, button))
+        window.dispatch_event(slint_testing.PointerMoveEvent(end))
+        before_modifier = selection_frame(window, "Rectangle")
+        snapshot.assert_unchanged_now()
 
-    modifier_event = (
-        slint_testing.KeyPressedEvent(text=keys.Shift)
-        if press_shift_during_drag
-        else slint_testing.KeyReleasedEvent(text=keys.Shift)
-    )
-    window.dispatch_event(modifier_event)
-    after_modifier = wait_until(
-        lambda: (
-            frame
-            if (frame := selection_frame(window, "Rectangle")) != before_modifier
-            else None
+        modifier_event = (
+            slint_testing.KeyPressedEvent(text=keys.Shift)
+            if press_shift_during_drag
+            else slint_testing.KeyReleasedEvent(text=keys.Shift)
         )
-    )
-    if press_shift_during_drag:
-        assert after_modifier[2] == after_modifier[3]
-    else:
-        assert after_modifier[2] != after_modifier[3]
-    snapshot.assert_unchanged_now()
+        window.dispatch_event(modifier_event)
+        after_modifier = wait_until(
+            lambda: (
+                frame
+                if (frame := selection_frame(window, "Rectangle")) != before_modifier
+                else None
+            )
+        )
+        if press_shift_during_drag:
+            assert after_modifier[2] == after_modifier[3]
+        else:
+            assert after_modifier[2] != after_modifier[3]
+        snapshot.assert_unchanged_now()
 
-    window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
-    if press_shift_during_drag:
-        window.dispatch_event(slint_testing.KeyReleasedEvent(text=keys.Shift))
+        window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
+        if press_shift_during_drag:
+            window.dispatch_event(slint_testing.KeyReleasedEvent(text=keys.Shift))
 
 
 def manual_radius_drag(

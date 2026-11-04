@@ -19,6 +19,6 @@ export component HeightDependentFactor inherits Window {
     Text {
         text: "One";
         line-height-factor: self.height / 100px;
-//                          >                  <error{The binding for the property 'line-height-factor' is part of a binding loop (Text.line-height-factor -> Text.preferred-height -> Text.height -> Text.line-height-factor)}
+//                          >                  <error{The binding for the property 'line-height-factor' is part of a binding loop (Text.preferred-height -> Text.height -> Text.line-height-factor -> Text -> Text.preferred-height)↵Compute 'line-height-factor' without depending on a size or a position the layout produces}
     }
 }

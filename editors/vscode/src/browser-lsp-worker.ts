@@ -34,7 +34,7 @@ slint_init(slint_wasm_data)
             return await connection.sendRequest(method, params);
         }
 
-        async function load_file(path: string): Promise<string> {
+        async function load_file(path: string): Promise<string | null> {
             return await connection.sendRequest("slint/load_file", path);
         }
 

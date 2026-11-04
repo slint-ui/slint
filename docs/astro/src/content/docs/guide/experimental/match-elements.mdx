@@ -7,6 +7,7 @@ A `match` element conditionally renders elements from a set of cases based on th
 It is a more readable alternative to a chain of `if` elements when you need to select between several mutually exclusive states.
 
 > **Note**: `match` is experimental and subject to change.
+> Enable it with the `match` [experimental feature](../overview/).
 > Tracking issue: [slint-ui/slint#1307](https://github.com/slint-ui/slint/issues/1307).
 
 ## Syntax
@@ -110,6 +111,8 @@ A `match` must handle every value its subject can take.
 
 - For `bool` and enum subjects, either list all values explicitly or provide a `*` case. A missing value is an error (for example, `Non-exhaustive match on bool: missing 'false'`).
 - For all other types (`int`, `string`, `color`, `brush`, `length`, …) the set of values is unbounded, so a `*` case is required.
+
+A `*` case in an otherwise exhaustive match element is never hit, so it warns.
 
 A literal subject (for example `match 1 { … }`) warns, because the same case always applies.
 

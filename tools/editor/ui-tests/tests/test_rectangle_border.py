@@ -202,12 +202,9 @@ def test_border_defaults_and_rectangle_selection(
             window, "Border width", slint_testing.AccessibleRole.TextInput
         )
         suffixes = (
-            width.query_descendants()
-            .match_id("InspectorTextFieldBase::fixed-suffix")
-            .find_all()
+            width.query_descendants().match_id("EditorInput::fixed-suffix").find_all()
         )
-        assert len(suffixes) == 1
-        assert suffixes[0].accessible_label == "px"
+        assert not suffixes
         inspector_field(
             window, "Border color opacity", slint_testing.AccessibleRole.TextInput
         )
@@ -218,7 +215,7 @@ def test_border_defaults_and_rectangle_selection(
         element(window, "Hex color", role=slint_testing.AccessibleRole.TextInput)
         element(window, "Gradient", role=slint_testing.AccessibleRole.Button)
         element(
-            window, "Close Custom", role=slint_testing.AccessibleRole.Button
+            window, "Close Fill", role=slint_testing.AccessibleRole.Button
         ).invoke_accessible_default_action()
         for row in ("inspect-text", "inspect-image"):
             select_outline_row(window, row)

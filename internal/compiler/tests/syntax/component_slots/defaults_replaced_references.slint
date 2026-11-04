@@ -1,0 +1,127 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Don't add new cases to this file; add them to defaults.slint instead.
+// Syntax tests only compile the last exported component, and 'Callers' must replace every default here.
+
+component BindingHost inherits Rectangle {
+    slot content << lbl := Text {
+        text: "Default";
+    }
+    out property <length> label-width: lbl.width;
+//                                     >        <error{Move references to the default content of slot 'content' inside that content}
+    content { }
+}
+
+component TwoWayHost inherits Rectangle {
+    slot content << lbl := Text {
+        text: "Default";
+    }
+    out property <string> label <=> lbl.text;
+//                              >           <error{Move references to the default content of slot 'content' inside that content}
+    content { }
+}
+
+component StateHost inherits Rectangle {
+    slot content << lbl := Text {
+        text: "Default";
+    }
+    in property <bool> highlighted;
+    states [
+        highlighted when highlighted: {
+            lbl.color: red;
+//          >       <error{Move references to the default content of slot 'content' inside that content}
+        }
+    ]
+    content { }
+}
+
+component ChangedHost inherits Rectangle {
+    slot content << lbl := Text {
+        text: "Default";
+    }
+    in property <bool> highlighted;
+    changed highlighted => {
+        lbl.text = "Changed";
+//      >       <error{Move references to the default content of slot 'content' inside that content}
+    }
+    content { }
+}
+
+component FunctionHost inherits Rectangle {
+    slot content << lbl := Text {
+        text: "Default";
+    }
+    function label-text() -> string {
+//  >error{Move references to the default content of slot 'content' inside that content}
+        lbl.text
+    }
+//  <error{Move references to the default content of slot 'content' inside that content}
+    content { }
+}
+
+component SiblingHost inherits Rectangle {
+    slot content << lbl := Text {
+        text: "Default";
+    }
+    Text {
+        text: lbl.text;
+//            >       <error{Move references to the default content of slot 'content' inside that content}
+    }
+
+    content { }
+}
+
+component CrossDefaultHost inherits Rectangle {
+    slot first << lbl := Text {
+        text: "Default";
+    }
+    slot second << Text {
+        text: lbl.text;
+//            >       <error{Move references to the default content of slot 'first' inside that content}
+    }
+    first { }
+
+    second { }
+}
+
+component ForwardingMiddle inherits Rectangle {
+    slot outer;
+    BindingHost {
+        content << outer;
+    }
+}
+
+export component Callers inherits Window {
+    BindingHost {
+        content << Rectangle { }
+    }
+
+    TwoWayHost {
+        content << Rectangle { }
+    }
+
+    StateHost {
+        content << Rectangle { }
+    }
+
+    ChangedHost {
+        content << Rectangle { }
+    }
+
+    FunctionHost {
+        content << Rectangle { }
+    }
+
+    SiblingHost {
+        content << Rectangle { }
+    }
+
+    CrossDefaultHost {
+        first << Rectangle { }
+    }
+
+    ForwardingMiddle {
+        outer << Rectangle { }
+    }
+}

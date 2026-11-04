@@ -858,7 +858,7 @@ describe("release-regressions", () => {
                 "utf8",
             ),
         }).then((result) => {
-            if (result.type !== "preview-source")
+            if (result.type !== "preview-source" || !result.exportPackage)
                 throw Error(JSON.stringify(result));
             return result.exportPackage;
         });

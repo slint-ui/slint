@@ -1,24 +1,20 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::collections::HashSet;
 use std::{net::SocketAddr, rc::Rc};
 
 use i_slint_core::SharedString;
-use i_slint_live_preview::inspector::InspectorOverlay;
+use i_slint_live_preview::debug_agent::{DebugAgent, PreviewUpdate};
 use i_slint_live_preview::preview_sessions::{
     PreviewCompilation, PreviewSession, PreviewSessionCommands, PreviewSessionEvent,
-    PreviewSessionHandle, register_font,
+    PreviewSessionHandle,
 };
-use i_slint_live_preview::protocol::{PreviewComponent, PreviewToLspMessage, lsp_types};
+use i_slint_live_preview::protocol::{PreviewComponent, PreviewToLsp};
 use i_slint_live_preview::remote::{Connection, ConnectionMessage, PairingPolicy};
 use slint::ComponentHandle as _;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
-slint::slint! {
-    export { RemoteViewerWindow, RemoteViewerState } from "remote/main.slint";
-    export { AttributionItem } from "remote/licenses.slint";
-}
+slint::include_modules!();
 
 // CARGO_PKG_VERSION tracks the workspace version, so it is the Slint version.
 const SLINT_VERSION: &str = concat!("Slint ", env!("CARGO_PKG_VERSION"));
@@ -161,28 +157,12 @@ async fn run_async(
     spawn_preview_worker(&connection, session_commands, compile_receiver, event_sender.clone());
     let connection = Rc::new(connection);
 
-    // Forward all debug output to the LSP, so that the LSP can show it to the user.
-    // Slint Viewer itself only displays the previewed app, so it has no UI of its own to show debug messages in.
-    let connection_weak = Rc::downgrade(&connection);
-    let _ = i_slint_backend_selector::with_global_context(|ctx| {
-        ctx.set_log_message_handler(Some(Box::new(move |message| {
-            let location = crate::debug::log_message_handler(&message);
-            let Some(connection) = connection_weak.upgrade() else {
-                return;
-            };
-
-            connection
-                .send(PreviewToLspMessage::DebugMessage {
-                    location,
-                    message: message.message_arguments().to_string(),
-                })
-                .ok();
-        })))
-    })?;
+    let to_editor: Rc<dyn PreviewToLsp> = Rc::new(connection.preview_to_lsp());
+    let mut debug_agent = DebugAgent::new(Rc::downgrade(&to_editor))?;
 
     let mut placeholder = RemoteViewerWindow::new()?;
     forward_close_request(placeholder.window(), event_sender);
-    let inspector = InspectorOverlay::new(placeholder.window()).await?;
+    debug_agent.create_overlay(placeholder.window()).await?;
 
     #[cfg(not(target_vendor = "apple"))]
     let mdns = enable_mdns.then(mdns_sd::ServiceDaemon::new).transpose()?;
@@ -234,8 +214,6 @@ async fn run_async(
     let mut last_connection = None;
     let mut user_instance: Option<slint_interpreter::ComponentInstance> = None;
     let mut current_preview: Option<PreviewComponent> = None;
-    let mut current_highlight: Option<(lsp_types::Url, u32)> = None;
-    let mut registered_fonts = HashSet::<lsp_types::Url>::new();
     let mut generation = 0u64;
     while let Some(event) = event_receiver.recv().await {
         match event {
@@ -247,8 +225,7 @@ async fn run_async(
                         compilation,
                         &mut placeholder,
                         &mut user_instance,
-                        &inspector,
-                        current_highlight.as_ref(),
+                        &debug_agent,
                         &chrome,
                     )?;
                 }
@@ -265,43 +242,23 @@ async fn run_async(
                 }
                 continue;
             }
-            Event::Preview(message) => match message {
-                PreviewSessionEvent::SetUserSettings { .. } => {}
-                PreviewSessionEvent::ShowPreview { component } => {
-                    current_preview = Some(component);
-                    request_build(
-                        &compile_sender,
-                        &current_preview,
-                        prompt_on_screen,
-                        &mut generation,
-                        &placeholder,
-                        &user_instance,
-                    );
-                }
-                PreviewSessionEvent::ContentsChanged => {
-                    request_build(
-                        &compile_sender,
-                        &current_preview,
-                        prompt_on_screen,
-                        &mut generation,
-                        &placeholder,
-                        &user_instance,
-                    );
-                }
-                PreviewSessionEvent::HighlightFromEditor { url, offset } => {
-                    current_highlight = url.map(|url| (url, offset));
-                    inspector.update(user_instance.as_ref(), current_highlight.as_ref());
-                }
-                PreviewSessionEvent::RegisterFont { url, contents } => {
-                    let len = contents.len();
-                    if !registered_fonts.insert(url.clone()) {
-                        tracing::debug!("Font {url} already registered, skipping");
-                        continue;
+            Event::Preview(event) => {
+                match debug_agent.handle_event(event, user_instance.as_ref()) {
+                    None => continue,
+                    Some(PreviewUpdate::ShowPreview { component }) => {
+                        current_preview = Some(component)
                     }
-                    register_font(placeholder.window(), contents);
-                    tracing::debug!("Registered font {url} ({len} bytes)");
+                    Some(PreviewUpdate::ContentsChanged) => {}
                 }
-            },
+                request_build(
+                    &compile_sender,
+                    &current_preview,
+                    prompt_on_screen,
+                    &mut generation,
+                    &placeholder,
+                    &user_instance,
+                );
+            }
             Event::Connection(ConnectionMessage::Connected { remote_addr }) => {
                 last_connection = Some(remote_addr);
                 if !prompt_on_screen {
@@ -314,14 +271,14 @@ async fn run_async(
                 if last_connection == Some(remote_addr) {
                     last_connection = None;
                     current_preview = None;
-                    current_highlight = None;
+                    debug_agent.reset(user_instance.as_ref());
                     // Drop any compilation still in flight for the old session
                     generation += 1;
                     if !prompt_on_screen {
                         swap_to_placeholder(
                             &mut placeholder,
                             &mut user_instance,
-                            &inspector,
+                            &debug_agent,
                             &chrome,
                             "",
                             RemoteViewerState::WaitingForConnection,
@@ -341,7 +298,7 @@ async fn run_async(
                 swap_to_placeholder(
                     &mut placeholder,
                     &mut user_instance,
-                    &inspector,
+                    &debug_agent,
                     &chrome,
                     "",
                     RemoteViewerState::Pairing,
@@ -378,7 +335,7 @@ async fn run_async(
                     swap_to_placeholder(
                         &mut placeholder,
                         &mut user_instance,
-                        &inspector,
+                        &debug_agent,
                         &chrome,
                         "",
                         state,
@@ -493,8 +450,7 @@ fn apply_compiled(
     compilation: PreviewCompilation,
     placeholder: &mut RemoteViewerWindow,
     user_instance: &mut Option<slint_interpreter::ComponentInstance>,
-    inspector: &InspectorOverlay,
-    current_highlight: Option<&(lsp_types::Url, u32)>,
+    debug_agent: &DebugAgent,
     chrome: &Chrome,
 ) -> anyhow::Result<()> {
     tracing::debug!("apply_compiled");
@@ -503,7 +459,7 @@ fn apply_compiled(
         PreviewCompilation::Ready(compiled) => compiled.component_definition(),
         PreviewCompilation::ComponentNotFound => None,
         PreviewCompilation::CompilationError { message } => {
-            return show_error(placeholder, user_instance, inspector, chrome, &message);
+            return show_error(placeholder, user_instance, debug_agent, chrome, &message);
         }
         // No build happened at all, so nothing else takes the spinner down
         PreviewCompilation::Unavailable => {
@@ -512,7 +468,7 @@ fn apply_compiled(
                 None => show_error(
                     placeholder,
                     user_instance,
-                    inspector,
+                    debug_agent,
                     chrome,
                     "Could not load the preview",
                 ),
@@ -520,27 +476,24 @@ fn apply_compiled(
         }
     };
     let Some(component) = component else {
-        return show_error(placeholder, user_instance, inspector, chrome, "Component not found");
+        return show_error(placeholder, user_instance, debug_agent, chrome, "Component not found");
     };
 
-    show_compiled_component(component, placeholder, user_instance, inspector, current_highlight)
+    show_compiled_component(component, placeholder, user_instance, debug_agent)
 }
 
 fn show_compiled_component(
     component: slint_interpreter::ComponentDefinition,
     placeholder: &mut RemoteViewerWindow,
     user_instance: &mut Option<slint_interpreter::ComponentInstance>,
-    inspector: &InspectorOverlay,
-    current_highlight: Option<&(lsp_types::Url, u32)>,
+    debug_agent: &DebugAgent,
 ) -> anyhow::Result<()> {
     let new_instance = component
         .create_with_existing_window(placeholder.window())
         .map_err(|err| anyhow::anyhow!("Cannot create component instance: {err}"))?;
 
     new_instance.show().map_err(|err| anyhow::anyhow!("Cannot show component: {err}"))?;
-    *user_instance = Some(new_instance);
-    inspector.attach()?;
-    inspector.update(user_instance.as_ref(), current_highlight);
+    debug_agent.show(user_instance.insert(new_instance))?;
     // The placeholder is hidden now, but keep its state property truthful.
     placeholder.set_state(RemoteViewerState::Previewing);
     Ok(())
@@ -550,14 +503,14 @@ fn show_compiled_component(
 fn show_error(
     placeholder: &mut RemoteViewerWindow,
     user_instance: &mut Option<slint_interpreter::ComponentInstance>,
-    inspector: &InspectorOverlay,
+    debug_agent: &DebugAgent,
     chrome: &Chrome,
     message: &str,
 ) -> anyhow::Result<()> {
     swap_to_placeholder(
         placeholder,
         user_instance,
-        inspector,
+        debug_agent,
         chrome,
         message,
         RemoteViewerState::PreviewError,
@@ -595,12 +548,12 @@ impl Chrome {
 fn swap_to_placeholder(
     placeholder: &mut RemoteViewerWindow,
     user_instance: &mut Option<slint_interpreter::ComponentInstance>,
-    inspector: &InspectorOverlay,
+    debug_agent: &DebugAgent,
     chrome: &Chrome,
     message: &str,
     state: RemoteViewerState,
 ) -> anyhow::Result<()> {
-    inspector.detach();
+    debug_agent.hide();
     let fresh = RemoteViewerWindow::new_with_existing_window(placeholder.window())
         .map_err(|err| anyhow::anyhow!("Cannot create placeholder: {err}"))?;
     chrome.apply(&fresh);
@@ -656,6 +609,17 @@ mod tests {
             }
         }
     "#;
+
+    struct DiscardToEditor;
+
+    impl PreviewToLsp for DiscardToEditor {
+        fn send(
+            &self,
+            _: &i_slint_live_preview::protocol::PreviewToLspMessage,
+        ) -> i_slint_live_preview::protocol::Result<()> {
+            Ok(())
+        }
+    }
 
     struct SoftwareRendererPlatform(Rc<MinimalSoftwareWindow>);
 
@@ -733,26 +697,29 @@ mod tests {
             slint_interpreter::CompilationResult::from(compilation_result.into_send());
         let component = compilation_result.component("TestPreview").unwrap();
         let mut placeholder = RemoteViewerWindow::new().unwrap();
-        let inspector = crate::poll_ready(InspectorOverlay::new(placeholder.window())).unwrap();
-        let highlight = (
-            lsp_types::Url::from_file_path(&preview_path).unwrap(),
-            TEST_PREVIEW_SOURCE.find("Rectangle").unwrap() as u32,
+        let to_editor: Rc<dyn PreviewToLsp> = Rc::new(DiscardToEditor);
+        let mut debug_agent = DebugAgent::new(Rc::downgrade(&to_editor)).unwrap();
+        crate::poll_ready(debug_agent.create_overlay(placeholder.window())).unwrap();
+        let offset = TEST_PREVIEW_SOURCE.find("Rectangle").unwrap() as u32;
+        debug_agent.handle_event(
+            PreviewSessionEvent::HighlightFromEditor {
+                url: Some(
+                    i_slint_live_preview::protocol::lsp_types::Url::from_file_path(&preview_path)
+                        .unwrap(),
+                ),
+                offset,
+            },
+            None,
         );
         let mut user_instance = None;
-        show_compiled_component(
-            component,
-            &mut placeholder,
-            &mut user_instance,
-            &inspector,
-            Some(&highlight),
-        )
-        .unwrap();
+        show_compiled_component(component, &mut placeholder, &mut user_instance, &debug_agent)
+            .unwrap();
         let preview = user_instance.as_ref().unwrap();
         assert!(
             !preview
                 .component_positions(
                     &i_slint_compiler::source_path::SourcePath::new(&preview_path),
-                    highlight.1
+                    offset
                 )
                 .is_empty()
         );

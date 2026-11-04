@@ -52,6 +52,7 @@ fn cache_hit_avoids_reshaping() {
     let window = setup();
 
     slint::slint! {
+        #[edition = "1.19"]
         export component TestComponent inherits Window {
             Text {
                 text: "Hello World";
@@ -83,6 +84,7 @@ fn text_change_invalidates_cache() {
     let window = setup();
 
     slint::slint! {
+        #[edition = "1.19"]
         export component TestComponent inherits Window {
             in property <string> label: "Hello";
             Text {
@@ -110,10 +112,51 @@ fn text_change_invalidates_cache() {
 }
 
 #[test]
+fn text_change_repaints_after_eviction() {
+    let window = setup();
+
+    // A fixed geometry, because a size that follows the text would repaint it regardless.
+    slint::slint! {
+        #[edition = "1.19"]
+        export component EvictionComponent inherits Window {
+            in property <string> busy: "0";
+            in property <string> quiet: "Hello";
+            Text { y: 0px; width: 200px; height: 40px; text: busy; }
+            Text { y: 50px; width: 200px; height: 40px; text: quiet; }
+        }
+    }
+
+    let ui = EvictionComponent::new().unwrap();
+    ui.show().unwrap();
+    window.draw_if_needed(|renderer| {
+        render_and_get_miss_count(renderer);
+    });
+
+    // Every change reshapes, so this crosses the sweep threshold while `quiet` isn't redrawn.
+    for i in 1..=2048 {
+        ui.set_busy(i.to_string().into());
+        window.draw_if_needed(|renderer| {
+            render_and_get_miss_count(renderer);
+        });
+    }
+
+    ui.set_quiet("Goodbye".into());
+    let mut miss_count = 0u64;
+    assert!(
+        window.draw_if_needed(|renderer| {
+            miss_count = render_and_get_miss_count(renderer);
+        }),
+        "changing the evicted text must request a redraw"
+    );
+    assert!(miss_count > 0, "the evicted text must be reshaped");
+}
+
+#[test]
 fn font_size_change_invalidates_cache() {
     let window = setup();
 
     slint::slint! {
+        #[edition = "1.19"]
         export component TestComponent inherits Window {
             in property <length> size: 16px;
             Text {
@@ -146,6 +189,7 @@ fn font_weight_change_invalidates_cache() {
     let window = setup();
 
     slint::slint! {
+        #[edition = "1.19"]
         export component TestComponent inherits Window {
             in property <int> weight: 400;
             Text {
@@ -178,6 +222,7 @@ fn wrap_change_invalidates_cache() {
     let window = setup();
 
     slint::slint! {
+        #[edition = "1.19"]
         export component TestComponent inherits Window {
             in property <bool> use-no-wrap: false;
             Text {
@@ -206,11 +251,113 @@ fn wrap_change_invalidates_cache() {
 }
 
 #[test]
+fn line_height_factor_change_invalidates_cache() {
+    let window = setup();
+
+    // A fixed size, so the redraw can't come from a layout change.
+    slint::slint! {
+        #[edition = "1.19"]
+        export component TestComponent inherits Window {
+            in property <float> factor: 1;
+            Text {
+                width: 100px;
+                height: 50px;
+                text: "Hello\nWorld";
+                line-height-factor: factor;
+            }
+        }
+    }
+
+    let ui = TestComponent::new().unwrap();
+    ui.show().unwrap();
+    window.draw_if_needed(|renderer| {
+        render_and_get_miss_count(renderer);
+    });
+
+    ui.set_factor(2.0);
+
+    let mut miss_count = 0u64;
+    assert!(window.draw_if_needed(|renderer| {
+        miss_count = render_and_get_miss_count(renderer);
+    }));
+    assert!(miss_count > 0, "Expected cache miss after line-height-factor change");
+}
+
+#[test]
+fn width_dependent_line_height() {
+    let window = setup();
+
+    // #13799. The window is 200px wide, so the factor is 2.
+    slint::slint! {
+        #[edition = "1.19"]
+        export component TestComponent inherits Window {
+            in property <string> content: "Hello\nWorld";
+            out property <length> spaced-height: spaced.preferred-height;
+            out property <length> natural-height: natural.preferred-height;
+            HorizontalLayout {
+                spaced := Text { text: root.content; line-height-factor: self.width / 100px; }
+            }
+            natural := Text { text: "Hello\nWorld"; }
+        }
+    }
+
+    let ui = TestComponent::new().unwrap();
+    ui.show().unwrap();
+    window.draw_if_needed(|renderer| {
+        render_and_get_miss_count(renderer);
+    });
+    assert!((ui.get_spaced_height() - 2.0 * ui.get_natural_height()).abs() < 1.0);
+
+    ui.set_content("Hello\nOther World".into());
+
+    let mut miss_count = 0u64;
+    assert!(window.draw_if_needed(|renderer| {
+        miss_count = render_and_get_miss_count(renderer);
+    }));
+    assert_eq!(miss_count, 2, "Expected one shaping without the factor for the width, one with it");
+}
+
+#[test]
+fn width_dependent_line_height_with_word_wrap_shapes_once() {
+    let window = setup();
+
+    // A `word-wrap` Text measures its width through the content widths cache instead.
+    slint::slint! {
+        #[edition = "1.19"]
+        export component TestComponent inherits Window {
+            in property <string> content: "Hello\nWorld";
+            HorizontalLayout {
+                Text {
+                    text: root.content;
+                    wrap: word-wrap;
+                    line-height-factor: self.width / 100px;
+                }
+            }
+        }
+    }
+
+    let ui = TestComponent::new().unwrap();
+    ui.show().unwrap();
+    window.draw_if_needed(|renderer| {
+        render_and_get_miss_count(renderer);
+    });
+
+    ui.set_content("Hello\nOther World".into());
+
+    let mut miss_count = 0u64;
+    assert!(window.draw_if_needed(|renderer| {
+        miss_count = render_and_get_miss_count(renderer);
+    }));
+    assert_eq!(miss_count, 1, "Expected measuring the height and drawing to share one shaping");
+}
+
+#[test]
 fn wrapping_items_shape_once_per_layout_pass() {
     let window = setup();
 
     // A `word-wrap` Text wouldn't show this: its width comes from the content widths cache.
     slint::slint! {
+        #[edition = "1.19"]
         export component TestComponent inherits Window {
             in property <string> content: "Hello World this is a long text";
             HorizontalLayout {
@@ -241,6 +388,7 @@ fn alignment_change_does_not_reshape() {
     let window = setup();
 
     slint::slint! {
+        #[edition = "1.19"]
         export component TestComponent inherits Window {
             in property <bool> use-center-align: false;
             Text {
@@ -273,6 +421,7 @@ fn overflow_change_does_not_reshape() {
     let window = setup();
 
     slint::slint! {
+        #[edition = "1.19"]
         export component TestComponent inherits Window {
             in property <bool> use-elide: false;
             Text {
@@ -301,10 +450,46 @@ fn overflow_change_does_not_reshape() {
 }
 
 #[test]
+fn width_measurement_reuses_layout_with_line_height_factor() {
+    let window = setup();
+
+    // The overflow change re-measures the width, which mustn't evict the entry shaped with the
+    // factor.
+    slint::slint! {
+        #[edition = "1.19"]
+        export component TestComponent inherits Window {
+            in property <bool> use-elide: false;
+            HorizontalLayout {
+                Text {
+                    text: "Hello World";
+                    line-height-factor: 1.5;
+                    overflow: use-elide ? TextOverflow.elide : TextOverflow.clip;
+                }
+            }
+        }
+    }
+
+    let ui = TestComponent::new().unwrap();
+    ui.show().unwrap();
+    window.draw_if_needed(|renderer| {
+        render_and_get_miss_count(renderer);
+    });
+
+    ui.set_use_elide(true);
+
+    let mut miss_count = 0u64;
+    assert!(window.draw_if_needed(|renderer| {
+        miss_count = render_and_get_miss_count(renderer);
+    }));
+    assert_eq!(miss_count, 0, "Measuring the width should reuse the layout shaped with the factor");
+}
+
+#[test]
 fn color_change_does_not_reshape() {
     let window = setup();
 
     slint::slint! {
+        #[edition = "1.19"]
         export component TestComponent inherits Window {
             in property <color> text-color: black;
             Text {
@@ -340,6 +525,7 @@ fn scale_factor_change_invalidates_cache() {
     // it was shaped at. The renderers drop the cache when they notice a new scale factor, but that
     // happens when rendering starts -- and the layout pass that follows the change measures first.
     slint::slint! {
+        #[edition = "1.19"]
         export component ScaleComponent inherits Window {
             out property <length> preferred: label.preferred-width;
             HorizontalLayout {
@@ -380,6 +566,7 @@ fn link_color_survives_measuring() {
     // shape it identically -- otherwise whichever runs first wins and the other one's color is
     // silently dropped. Layout runs first, so a mismatch shows up as unstyled link text.
     slint::slint! {
+        #[edition = "1.19"]
         export component TestComponent inherits Window {
             background: white;
             StyledText {
@@ -402,6 +589,7 @@ fn text_input_cache_hit_avoids_reshaping() {
     let window = setup();
 
     slint::slint! {
+        #[edition = "1.19"]
         export component TestComponent inherits Window {
             in property <string> label: "Hello World";
             TextInput {
@@ -441,6 +629,7 @@ fn password_input_is_cached() {
     // A password field shapes a substituted text, but the substitution is the same on every path,
     // so the result is a pure function of its properties like any other text.
     slint::slint! {
+        #[edition = "1.19"]
         export component TestComponent inherits Window {
             in property <string> secret: "hunter2";
             TextInput {
@@ -484,6 +673,7 @@ fn composition_is_shaped_through_the_cache() {
     // cursor rect query is then the only thing that shapes the composed text, and the cache miss
     // it accounts for is what tells the two apart.
     slint::slint! {
+        #[edition = "1.19"]
         export component CursorComponent inherits Window {
             forward-focus: input;
             out property <length> cursor-x;
@@ -554,6 +744,7 @@ fn text_input_selection_still_colors_text() {
     // so the selected text is served from the very same cache entry as the unselected text and has
     // to come out red all the same.
     slint::slint! {
+        #[edition = "1.19"]
         export component TestComponent inherits Window {
             background: white;
             public function select() { input.select-all(); }
@@ -586,6 +777,7 @@ fn text_input_selection_change_does_not_reshape() {
     // selection, which is what keeps a drag-select from re-shaping the whole document on every
     // mouse move. Moving the cursor is the same story.
     slint::slint! {
+        #[edition = "1.19"]
         export component TestComponent inherits Window {
             in property <string> content: "Hello World";
             callback select(start: int, end: int);
@@ -642,6 +834,7 @@ fn ime_composition_is_not_served_a_stale_size() {
     // if drawing filled the entry without looking at the composition, a later measurement would
     // trust that entry and size the box for the pre-composition text.
     slint::slint! {
+        #[edition = "1.19"]
         export component ImeComponent inherits Window {
             forward-focus: input;
             out property <length> preferred: input.preferred-width;
@@ -696,6 +889,7 @@ fn unchanged_layout_inputs_reuse_the_line_breaking() {
     // reuses it wholesale. Anything else -- moving the item, vertical alignment -- must not break
     // lines again.
     slint::slint! {
+        #[edition = "1.19"]
         export component TestComponent inherits Window {
             in property <length> item-x: 0px;
             in property <length> w: 180px;
@@ -786,6 +980,7 @@ fn cursor_movement_reuses_the_cached_layout() {
     // retained the shaped glyphs. It stopped costing anything once the entry started retaining
     // the line breaking too, and this test is what keeps it that way.
     slint::slint! {
+        #[edition = "1.19"]
         export component TestComponent inherits Window {
             in-out property <string> content: "Hello World this text wraps across several lines and keeps going for a while";
             out property <int> offset: input.cursor-position-byte-offset;

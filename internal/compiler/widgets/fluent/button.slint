@@ -83,7 +83,6 @@ export component Button {
             alignment: center;
 
             if (root.icon.width > 0 && root.icon.height > 0) : Image {
-                y: (parent.height - self.height) / 2;
                 source <=> root.icon;
                 width: root.icon-size;
                 min-height: root.icon-size;

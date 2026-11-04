@@ -14,11 +14,6 @@ on:
                 options:
                     - nightly
                     - stable
-            save_if:
-                description: "Condition to save the cache"
-                required: false
-                type: boolean
-                default: true
 
     workflow_call:
         inputs:
@@ -27,10 +22,6 @@ on:
                 required: false
                 type: string
                 default: nightly
-
-    pull_request:
-        branches:
-            - visual-editor
 
 permissions:
     contents: read
@@ -52,10 +43,10 @@ jobs:
                     - arch: aarch64
                       # arm64 runners are free for public repositories, but the
                       # label does not resolve in private ones.
-                      runner: ubuntu-24.04-arm
+                      runner: ubuntu-26.04-arm
         runs-on: ${{ matrix.runner }}
         container:
-            image: ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-25.08
+            image: ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-26.08
             options: --privileged
         timeout-minutes: 120
         steps:
@@ -71,7 +62,6 @@ jobs:
             - uses: ./.github/actions/setup-rust
               with:
                   key: visual-editor-linux-flatpak-rust-${{ matrix.arch }}
-                  save_if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository || inputs.save_if }}
 
             - name: Restore flatpak-builder state
               uses: actions/cache@v6
@@ -96,6 +86,10 @@ jobs:
                   # Uploaded below instead, so the bundle and the repository
                   # travel together under one predictable artifact name.
                   upload-artifact: false
+
+            # The Freedesktop SDK no longer ships appstreamcli as of 26.08.
+            - name: Validate the metainfo
+              run: appstreamcli validate --no-net flatpak_app/files/share/metainfo/dev.slint.VisualEditor.metainfo.xml
 
             - name: Write the bundle
               run: >

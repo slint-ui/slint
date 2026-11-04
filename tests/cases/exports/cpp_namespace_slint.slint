@@ -1,0 +1,92 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+//cpp-namespace: my::slint::ui
+
+export enum Kind {
+    Small,
+    Large,
+}
+
+export struct TestStruct {
+    condition: bool,
+    kind: Kind,
+    name: string,
+}
+
+export global Globals {
+    in-out property <TestStruct> current: { condition: true, kind: Kind.Large, name: "global" };
+    callback changed(TestStruct) -> int;
+    public pure function count(items: [TestStruct]) -> int {
+        return items.length;
+    }
+}
+
+component Item inherits Rectangle {
+    in property <TestStruct> data;
+    out property <bool> selected: data.condition && data.kind == Kind.Large;
+}
+
+export component TestCase inherits Window {
+    in-out property <TestStruct> test_struct;
+    in-out property <[TestStruct]> items: [
+        { condition: true, kind: Kind.Small, name: "a" },
+        { condition: false, kind: Kind.Large, name: "b" },
+    ];
+    in-out property <string> text;
+    out property <int> item_count: Globals.count(items);
+    callback edited(TestStruct) -> TestStruct;
+
+    VerticalLayout {
+        for item in items: Item {
+            data: item;
+        }
+        if test_struct.condition: Text {
+            text: test_struct.name;
+        }
+    }
+
+    out property <bool> test: item_count == 2 && Globals.current.kind == Kind.Large;
+}
+
+/*
+```cpp
+auto handle = my::slint::ui::TestCase::create();
+const my::slint::ui::TestCase &instance = *handle;
+assert(instance.get_test());
+
+my::slint::ui::TestStruct test_struct {.condition = true, .kind = my::slint::ui::Kind::Small, .name = "hello"};
+instance.set_test_struct(test_struct);
+assert(instance.get_test_struct() == test_struct);
+
+auto items = std::make_shared<slint::VectorModel<my::slint::ui::TestStruct>>();
+items->push_back(test_struct);
+instance.set_items(items);
+assert(instance.get_item_count() == 1);
+
+instance.on_edited([](my::slint::ui::TestStruct value) {
+    value.name = "edited";
+    return value;
+});
+assert(instance.invoke_edited(test_struct).name == "edited");
+
+const auto &globals = instance.global<my::slint::ui::Globals>();
+assert(globals.get_current().name == "global");
+globals.on_changed([](my::slint::ui::TestStruct value) { return value.condition ? 1 : 0; });
+assert(globals.invoke_changed(test_struct) == 1);
+assert(globals.invoke_count(items) == 1);
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+let test_struct = TestStruct { condition: true, kind: Kind::Small, name: "hello".into() };
+instance.set_test_struct(test_struct.clone());
+assert_eq!(instance.get_test_struct(), test_struct);
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+```
+*/

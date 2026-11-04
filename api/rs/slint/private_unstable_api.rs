@@ -109,6 +109,29 @@ pub fn ensure_context() -> Result<i_slint_core::SlintContext, crate::PlatformErr
     i_slint_backend_selector::with_global_context(|ctx| ctx.clone())
 }
 
+/// Create a repeated component or a popup of the generated code:
+/// register the items of `item_tree` with `window_adapter` and run `init`.
+pub fn new_item_tree<T: vtable::HasStaticVTable<ItemTreeVTable> + 'static, Globals>(
+    item_tree: T,
+    window_adapter: Option<WindowAdapterRc>,
+    globals: Globals,
+    init: fn(VRcMapped<ItemTreeVTable, T>, Globals, u32, u32) -> Result<(), crate::PlatformError>,
+) -> Result<VRc<ItemTreeVTable, T>, crate::PlatformError> {
+    let self_rc = VRc::new(item_tree);
+    register_item_tree(&VRc::into_dyn(self_rc.clone()), window_adapter);
+    init(VRc::map(self_rc.clone(), |x| x), globals, 0, 1)?;
+    Ok(self_rc)
+}
+
+/// The `visit_dynamic` argument of `visit_item_tree` for an item tree without repeaters.
+pub fn no_dynamic_children(
+    _: TraversalOrder,
+    _: ItemVisitorRefMut<'_>,
+    _: u32,
+) -> VisitChildrenResult {
+    unreachable!()
+}
+
 /// Wrapper around `SlintContext::translate` for the generated code
 pub fn translate(
     ctx: &i_slint_core::SlintContext,
@@ -161,6 +184,7 @@ pub mod re_exports {
     pub use i_slint_core::cursor::MouseCursorInner;
     pub use i_slint_core::data_transfer::DataTransfer;
     pub use i_slint_core::date_time::*;
+    pub use i_slint_core::debug_info;
     pub use i_slint_core::graphics::*;
     pub use i_slint_core::input::{
         FocusEvent, FocusReason, InputEventResult, KeyEvent, KeyEventResult, KeyboardModifiers,
@@ -183,9 +207,10 @@ pub mod re_exports {
     pub use i_slint_core::menus::{Menu, MenuFromItemTree, MenuVTable};
     pub use i_slint_core::model::*;
     pub use i_slint_core::properties::{
-        ChangeTracker, Property, PropertyTracker, StateInfo, change_tracker_init_erased,
-        set_animated_property_binding_erased, set_callback_handler_erased,
-        set_property_binding_erased, set_property_state_binding_erased, set_state_binding,
+        ChangeTracker, ErasedPropertyOffset, Property, PropertyTracker, StateInfo,
+        change_tracker_init_erased, set_animated_property_binding_erased,
+        set_callback_handler_erased, set_constant_properties, set_property_binding_erased,
+        set_property_state_binding_erased, set_state_binding,
     };
     pub use i_slint_core::slice::Slice;
     pub use i_slint_core::timers::{Timer, TimerMode};

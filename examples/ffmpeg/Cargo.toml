@@ -22,17 +22,17 @@ name = "ffmpeg_lib"
 
 [dependencies]
 slint = { path = "../../api/rs/slint", features = ["backend-android-activity-06"] }
-ffmpeg-next = { version = "8.0.0" }
+ffmpeg-next = { version = "9.0.0" }
 smol = { version = "2.0.0" }
 anyhow = { version = "1.0" }
 futures = { version = "0.3.28" }
-cpal = "0.15.2"
-ringbuf = "0.3.3"
+cpal = "0.18.2"
+ringbuf = "0.5.3"
 bytemuck = "1.13.1"
 derive_more = { workspace = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
-ffmpeg-next = { version = "8.0.0", features = ["build"] }
+ffmpeg-next = { version = "9.0.0", features = ["build"] }
 
 [build-dependencies]
 slint-build = { path = "../../api/rs/build" }

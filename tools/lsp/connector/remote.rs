@@ -183,6 +183,8 @@ impl SharedState {
 
 pub struct RemoteLspToPreview {
     shared: SharedState,
+    #[cfg(feature = "preview-serial")]
+    serial: super::serial::SerialLspToPreview,
 }
 
 impl RemoteLspToPreview {
@@ -191,6 +193,11 @@ impl RemoteLspToPreview {
         to_previews: Weak<LspToPreviews>,
     ) -> Self {
         Self {
+            #[cfg(feature = "preview-serial")]
+            serial: super::serial::SerialLspToPreview::new(
+                preview_to_lsp_sender.clone(),
+                to_previews.clone(),
+            ),
             shared: SharedState {
                 connection: Arc::default(),
                 preview_to_lsp_sender: RemotePreviewSender(preview_to_lsp_sender),
@@ -230,7 +237,7 @@ impl RemoteLspToPreview {
     }
 
     /// Forward a connection-state transition to the local preview dialog.
-    fn emit_state(
+    pub(super) fn emit_state(
         to_previews: &Weak<LspToPreviews>,
         state: RemoteConnectionState,
         target: String,
@@ -657,12 +664,18 @@ impl RemoteLspToPreview {
     }
 
     pub fn disconnect(&self) -> impl Future<Output = ()> + 'static {
+        self.close(false)
+    }
+
+    /// Closes the connection, which reports it as disconnected unless it's `replaced`.
+    fn close(&self, replaced: bool) -> impl Future<Output = ()> + 'static {
         let shared = self.shared.clone();
         async move {
             shared.bump_generation();
             shared.connected_target.borrow_mut().take();
             let connection = shared.connection.lock().await.take();
             if let Some(mut connection) = connection {
+                connection.replaced.store(replaced, Ordering::Relaxed);
                 // Close handshake so the viewer sees a clean end of session
                 // instead of a connection reset.
                 connection.task.abort();
@@ -679,19 +692,13 @@ impl RemoteLspToPreview {
 struct RemotePreviewSender(mpsc::UnboundedSender<PreviewToLspMessage>);
 
 impl RemotePreviewSender {
-    /// A remote viewer runs on someone else's machine: it may report what it
-    /// compiled and ask for the files it needs, and nothing else. That, not
-    /// "does it reach the editor", is where the line is — a viewer's whole job
-    /// is to send back diagnostics.
-    ///
-    /// Listed positively on purpose: a new variant stays refused until it is
-    /// deliberately allowed.
+    /// Passes on what [`PreviewToLspMessage::is_allowed_from_remote_viewer`] allows.
     ///
     /// Refused messages are dropped rather than taken as grounds to hang up:
     /// the reconnect loop would only dial it again, and by then
     /// the peer already has everything the connection was going to give it.
     fn send(&self, message: PreviewToLspMessage) {
-        if !remote_client::is_allowed_message(&message) {
+        if !message.is_allowed_from_remote_viewer() {
             tracing::warn!(
                 "Ignoring message that a remote preview server may not send: {message:?}"
             );
@@ -710,6 +717,10 @@ impl RemotePreviewSender {
 // recurse forever.
 impl crate::editor_preview::RemoteTransport for RemoteLspToPreview {
     fn send(&self, message: &LspToPreviewMessage) {
+        #[cfg(feature = "preview-serial")]
+        if self.serial.is_connected() {
+            return self.serial.send(message);
+        }
         RemoteLspToPreview::send(self, message);
     }
 
@@ -718,10 +729,33 @@ impl crate::editor_preview::RemoteTransport for RemoteLspToPreview {
         addresses: Vec<String>,
         port: u16,
     ) -> Pin<Box<dyn Future<Output = crate::editor_preview::Result<()>>>> {
+        #[cfg(feature = "preview-serial")]
+        self.serial.disconnect();
         Box::pin(RemoteLspToPreview::connect(self, addresses, port))
     }
 
+    fn connect_serial(
+        &self,
+        port: String,
+    ) -> Pin<Box<dyn Future<Output = crate::editor_preview::Result<()>>>> {
+        #[cfg(feature = "preview-serial")]
+        {
+            let disconnected = RemoteLspToPreview::close(self, true);
+            self.serial.connect(port);
+            Box::pin(async move {
+                disconnected.await;
+                Ok(())
+            })
+        }
+        #[cfg(not(feature = "preview-serial"))]
+        Box::pin(async move {
+            Err(format!("Cannot connect to {port}: this build has no serial port support").into())
+        })
+    }
+
     fn disconnect(&self) -> Pin<Box<dyn Future<Output = ()>>> {
+        #[cfg(feature = "preview-serial")]
+        self.serial.disconnect();
         Box::pin(RemoteLspToPreview::disconnect(self))
     }
 
@@ -1708,9 +1742,11 @@ mod tests {
 
         let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
         let port = listener.local_addr().unwrap().port();
-        tokio::task::spawn_local(async move {
+        i_slint_editor_preview::spawn_local(async move {
             let (stream, _) = listener.accept().await.unwrap();
             // Echo the subprotocol back, or the client refuses the upgrade.
+            // tungstenite's Callback trait dictates the signature.
+            #[allow(clippy::result_large_err)]
             let select_protocol = |_req: &Request, mut response: Response| {
                 response
                     .headers_mut()

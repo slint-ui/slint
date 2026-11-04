@@ -1,15 +1,16 @@
 
+# Preliminary Slint Testing API
+
+This crate provides a preliminary API for UI testing of Slint apps.
+Use it to write automated UI tests that run headless in CI.
+Its built-in MCP server also lets AI agents inspect and drive a running Slint app.
+
 **NOTE**: This library is an **internal** crate of the [Slint project](https://slint.dev).
 This crate should **not be used directly** by applications using Slint.
 You should use the `slint` crate instead.
 
 **WARNING**: This crate does not follow the semver convention for versioning and can
 only be used with `version = "=x.y.z"` in Cargo.toml.
-
-# Preliminary Slint Testing API
-
-This crate provides the preliminary API that we're developing to enable different
-user interface (UI) testing scenarios for Slint applications.
 
 To use this functionality, you need to be cautious when importing dependencies since
 this crate does not adhere to semver and may introduce breaking changes in any patch release.
@@ -50,7 +51,7 @@ is the ability to introspect and modify the state from within what would be a re
 A regular application might have a `main()` entry-point like so:
 
 ```rust,no_run
-# slint::slint!{ export component App {} }
+# slint::slint!{ #[edition = "1.19"] export component App {} }
 fn main() -> Result<(), slint::PlatformError>
 {
     let app = App::new()?;
@@ -93,6 +94,7 @@ export component App {
 ```rust
 # use i_slint_core_macros::identity as test;
 # slint::slint!{
+#     #[edition = "1.19"]
 #     import { Button } from "std-widgets.slint";
 #     component Form {
 #     callback submit();
@@ -169,6 +171,7 @@ fn test_click()
 
     slint::spawn_local(async move {
         slint::slint! {
+            #[edition = "1.19"]
             export component App inherits Window {
                 out property <int> click-count: 0;
                 ta := TouchArea {
@@ -219,7 +222,13 @@ SLINT_EMIT_DEBUG_INFO=1 SLINT_MCP_PORT=8080 cargo run -p my-slint-app --features
 ```
 
 `SLINT_EMIT_DEBUG_INFO=1` is required for element introspection to work (it embeds element
-metadata into the compiled UI). `SLINT_MCP_PORT` controls which port the MCP server listens on.
+metadata into the compiled UI).
+It also enables `testableProperties` in `get_element_properties` and `get_element_tree`:
+each element's `@testable` properties with name, type, and typed current value,
+so you can verify state without diffing screenshots.
+Only properties declared with the experimental `@testable` attribute are listed, whatever their visibility.
+The compiler keeps them even when nothing else reads them.
+`SLINT_MCP_PORT` controls which port the MCP server listens on.
 If `SLINT_MCP_PORT` is not set, no server is started and there is no runtime overhead.
 The server binds to `127.0.0.1` by default; set `SLINT_MCP_HOST` to bind another address,
 for example `0.0.0.0` to reach it from outside the machine.

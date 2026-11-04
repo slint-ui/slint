@@ -19,27 +19,6 @@ interfaces also need special handling as opposed to mouse-based interaction.
 This page describes considerations that apply to all mobile platforms. The next pages dive into platform-specific
 issues on top of these.
 
-## Scrolling
-
-By default, Slint <Link type="ScrollView"/>s only scroll by dragging the scrollbar or the mouse wheel. This is fine for desktop, but
-touch interfaces are expected to scroll while panning the whole view.
-
-Enable it in Slint like this:
-
-```slint
-import { ScrollView } from "std-widgets.slint";
-export component MyComponent {
-    ScrollView {
-        mouse-drag-pan-enabled: true;
-
-        // Your own elements here
-    }
-}
-```
-
-Note that this also enables the behavior when a mouse is attached, which might not be desired. This will be fixed in
-a future version of Slint.
-
 ## Safe Area
 
 Operating system developers for mobile devices try to improve the limitations of the small screen by reducing the amount
@@ -100,7 +79,7 @@ is a non-floating virtual keyboard visible, Slint exposes this to the applicatio
 You can detect if the keyboard is shown by checking whether `virtual-keyboard-size.width * virtual-keyboard-size.height` is
 greater than 0.
 
-Some virtual keyboards are translucent, which means that the area below the keyboard can be visible to some extend. So,
+Some virtual keyboards are translucent, which means that the area below the keyboard can be visible to some extent. So,
 the application can display basic visual elements like a solid color there to let the keyboard appear to be integrated
 into the visual style.
 
@@ -133,8 +112,6 @@ area like this:
 import { LineEdit, ScrollView } from "std-widgets.slint";
 export component MyView {
     ScrollView {
-        mouse-drag-pan-enabled: true;
-
         VerticalLayout {
             label := Text {
                 text: "Text input";

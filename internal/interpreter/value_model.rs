@@ -25,8 +25,9 @@ impl Model for IntModel {
         &()
     }
 
+    /// The `usize` count, so that the `Repeater` recognizes a number model
     fn as_any(&self) -> &dyn core::any::Any {
-        self
+        &self.0
     }
 }
 

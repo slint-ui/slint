@@ -600,11 +600,11 @@ public:
     /// Returns the Window associated with this component. The window API can be used
     /// to control different aspects of the integration into the windowing system,
     /// such as the position on the screen.
-    const slint::Window &window() const
+    slint::Window &window() const
     {
         const cbindgen_private::WindowAdapterRcOpaque *win_ptr = nullptr;
         cbindgen_private::slint_interpreter_component_instance_window(inner(), &win_ptr);
-        return *reinterpret_cast<const slint::Window *>(win_ptr);
+        return *const_cast<slint::Window *>(reinterpret_cast<const slint::Window *>(win_ptr));
     }
     /// This is a convenience function that first calls show(), followed by
     /// slint::run_event_loop() and hide().
@@ -988,8 +988,6 @@ class ComponentCompiler
 public:
     /// Constructs a new ComponentCompiler instance.
     ///
-    /// A `slint-project.json` next to the compiled `.slint` file, or in a directory above
-    /// it, provides the settings. What you set below wins over it.
     ComponentCompiler() { cbindgen_private::slint_interpreter_component_compiler_new(&inner); }
 
     /// Destroys this ComponentCompiler.
@@ -999,14 +997,13 @@ public:
     }
 
     /// Sets the include paths used for looking up `.slint` imports to the specified vector of
-    /// paths. This wins over the include paths of the project file.
+    /// paths. These paths come before the include paths of the project file.
     void set_include_paths(const slint::SharedVector<slint::SharedString> &paths)
     {
         cbindgen_private::slint_interpreter_component_compiler_set_include_paths(&inner, &paths);
     }
 
     /// Sets the style to be used for widgets.
-    /// This wins over the style of the project file.
     void set_style(std::string_view style)
     {
         cbindgen_private::slint_interpreter_component_compiler_set_style(
@@ -1108,7 +1105,10 @@ public:
     ///
     /// \a path must be UTF-8 encoded; otherwise this function fails.
     ///
-    /// If `path` is a `slint-project.json`, its `entry` is compiled with its settings.
+    /// If `path` is a project file (`slint-project.json`) or a directory that contains one,
+    /// Slint loads that project file. The project file provides the settings not set on this
+    /// compiler. It must contain a `main` entry, which specifies the `.slint` file the compiler
+    /// loads. A `.slint` file path compiles without loading a project file.
     ///
     /// Returns the compiled `ComponentDefinition` if there were no errors.
     ///

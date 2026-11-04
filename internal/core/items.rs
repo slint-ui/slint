@@ -54,6 +54,7 @@ use vtable::*;
 mod component_container;
 pub use self::component_container::*;
 mod flickable;
+pub(crate) use flickable::Dimension;
 pub use flickable::{AutoBool, Flickable};
 mod text;
 pub use text::*;
@@ -1242,6 +1243,9 @@ pub struct PropertyAnimation {
     pub easing: crate::animations::EasingCurve,
     #[rtti_field]
     pub enabled: bool,
+    /// Interpolation method for angle properties (which arc / direction to take)
+    #[rtti_field]
+    pub angle_interpolation: AngleInterpolation,
 }
 
 impl Default for PropertyAnimation {
@@ -1255,6 +1259,7 @@ impl Default for PropertyAnimation {
             direction: Default::default(),
             easing: Default::default(),
             enabled: true,
+            angle_interpolation: Default::default(),
         }
     }
 }
@@ -1454,7 +1459,6 @@ impl WindowItem {
         local_font_weight: i32,
         local_font_size: LogicalLength,
         local_letter_spacing: LogicalLength,
-        local_line_height_factor: f32,
         local_italic: bool,
     ) -> FontRequest {
         let Some(window_item_rc) = next_window_item(self_rc) else {
@@ -1494,12 +1498,6 @@ impl WindowItem {
                 }
             },
             letter_spacing: Some(local_letter_spacing),
-            // 1 is neutral and negative or non-finite values behave like 1, all mapping to
-            // None (the font's natural line height); 0 is a valid factor and collapses lines.
-            line_height_factor: (local_line_height_factor.is_finite()
-                && local_line_height_factor >= 0.0
-                && local_line_height_factor != 1.0)
-                .then_some(local_line_height_factor),
             italic: local_italic,
         }
     }
@@ -1897,10 +1895,12 @@ impl Item for BoxShadow {
             // Inset shadow paints inside the geometry; never extends outside.
             geometry
         } else {
-            let pad = self.blur() + LogicalLength::new(self.spread().get().max(0 as crate::Coord));
-            geometry
-                .outer_rect(euclid::SideOffsets2D::from_length_all_same(pad))
-                .translate(LogicalVector::from_lengths(self.offset_x(), self.offset_y()))
+            crate::graphics::boxshadow::drop_shadow_bounding_rect(
+                geometry,
+                LogicalVector::from_lengths(self.offset_x(), self.offset_y()),
+                self.blur(),
+                self.spread(),
+            )
         }
     }
 

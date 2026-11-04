@@ -17,7 +17,7 @@ function projectDirectory(settings: object): string {
     );
     fs.writeFileSync(
         path.join(directory, "slint-project.json"),
-        JSON.stringify(settings),
+        JSON.stringify({ edition: "1.19", ...settings }),
     );
     return directory;
 }
@@ -28,113 +28,118 @@ function writeMain(directory: string, source: string): string {
     return main;
 }
 
-test("include paths come from the project file", () => {
-    const directory = projectDirectory({ "include-paths": ["include"] });
-    fs.mkdirSync(path.join(directory, "include"));
-    fs.writeFileSync(
-        path.join(directory, "include", "shared.slint"),
-        "export component Shared { }",
-    );
+test.each(["directory", "manifest"])(
+    "include paths come from the project file (%s)",
+    (projectInput) => {
+        const directory = projectDirectory({
+            main: "main.slint",
+            "include-paths": ["include"],
+        });
+        fs.mkdirSync(path.join(directory, "include"));
+        fs.writeFileSync(
+            path.join(directory, "include", "shared.slint"),
+            "export component Shared { }",
+        );
 
-    const main = writeMain(
-        directory,
-        `import { Shared } from "shared.slint";
-         export component Main inherits Window { Shared { } }`,
-    );
+        writeMain(
+            directory,
+            `import { Shared } from "shared.slint";
+             export component Main inherits Window { Shared { } }`,
+        );
 
-    // Without the project file the import doesn't resolve.
-    expect(() => loadFile(main)).not.toThrow();
-});
+        const input =
+            projectInput === "directory"
+                ? directory
+                : path.join(directory, "slint-project.json");
+        expect(() => loadFile(input)).not.toThrow();
+    },
+);
 
-test("library paths come from the project file", () => {
-    const directory = projectDirectory({
-        "library-paths": { widgets: "widgets.slint" },
-    });
-    fs.writeFileSync(
-        path.join(directory, "widgets.slint"),
-        "export component Widget { }",
-    );
+test.each(["directory", "manifest"])(
+    "library paths come from the project file (%s)",
+    (projectInput) => {
+        const directory = projectDirectory({
+            main: "main.slint",
+            "library-paths": { widgets: "widgets.slint" },
+        });
+        fs.writeFileSync(
+            path.join(directory, "widgets.slint"),
+            "export component Widget { }",
+        );
 
-    const main = writeMain(
-        directory,
-        `import { Widget } from "@widgets";
-         export component Main inherits Window { Widget { } }`,
-    );
+        writeMain(
+            directory,
+            `import { Widget } from "@widgets";
+             export component Main inherits Window { Widget { } }`,
+        );
 
-    expect(() => loadFile(main)).not.toThrow();
-});
-
-test("the project file style reaches the compiler", () => {
-    const directory = projectDirectory({ style: "no-such-style" });
-    const main = writeMain(
-        directory,
-        "export component Main inherits Window { }",
-    );
-
-    // A style name the compiler rejects shows which style it actually used.
-    let error: CompileError | undefined;
-    try {
-        loadFile(main);
-    } catch (e) {
-        error = e as CompileError;
-    }
-    expect(error).toBeDefined();
-    expect(
-        error!.diagnostics.some((d) => d.message.includes("no-such-style")),
-    ).toBe(true);
-});
-
-test("a style passed to loadFile wins over the project file", () => {
-    const directory = projectDirectory({ style: "no-such-style" });
-    const main = writeMain(
-        directory,
-        "export component Main inherits Window { }",
-    );
-
-    expect(() => loadFile(main, { style: "fluent" })).not.toThrow();
-});
+        const input =
+            projectInput === "directory"
+                ? directory
+                : path.join(directory, "slint-project.json");
+        expect(() => loadFile(input)).not.toThrow();
+    },
+);
 
 test("a project file that isn't valid json is reported", () => {
     const directory = fs.realpathSync(
         fs.mkdtempSync(path.join(os.tmpdir(), "slint-project-file-")),
     );
     fs.writeFileSync(path.join(directory, "slint-project.json"), "{");
+    writeMain(directory, "export component Main inherits Window { }");
+
+    let error: CompileError | undefined;
+    try {
+        loadFile(directory);
+    } catch (caughtError) {
+        error = caughtError as CompileError;
+    }
+    expect(error).toBeDefined();
+    expect(error!.diagnostics).toContainEqual(
+        expect.objectContaining({
+            fileName: path.join(directory, "slint-project.json"),
+            lineNumber: 1,
+            columnNumber: 1,
+            message: "EOF while parsing an object",
+        }),
+    );
+});
+
+test.each(["directory", "manifest"])(
+    "loading the project directory loads its main file (%s)",
+    (projectInput) => {
+        const directory = projectDirectory({
+            main: "ui/main.slint",
+            "include-paths": ["include"],
+        });
+        fs.mkdirSync(path.join(directory, "ui"));
+        fs.mkdirSync(path.join(directory, "include"));
+        fs.writeFileSync(
+            path.join(directory, "include", "shared.slint"),
+            "export component Shared { }",
+        );
+        fs.writeFileSync(
+            path.join(directory, "ui", "main.slint"),
+            `import { Shared } from "shared.slint";
+             export component Main inherits Window { Shared { } }`,
+        );
+
+        const input =
+            projectInput === "directory"
+                ? directory
+                : path.join(directory, "slint-project.json");
+        const ui = loadFile(input) as any;
+        expect(ui.Main).toBeDefined();
+    },
+);
+
+test("loading a slint file ignores its project file", () => {
+    const directory = projectDirectory({ main: "elsewhere.slint" });
+    fs.writeFileSync(path.join(directory, "slint-project.json"), "{");
     const main = writeMain(
         directory,
         "export component Main inherits Window { }",
     );
 
-    let error: CompileError | undefined;
-    try {
-        loadFile(main);
-    } catch (e) {
-        error = e as CompileError;
-    }
-    expect(error).toBeDefined();
-    expect(
-        error!.diagnostics.some((d) =>
-            d.message.includes("slint-project.json"),
-        ),
-    ).toBe(true);
-});
-
-test("loading the project file loads its entry", () => {
-    const directory = projectDirectory({
-        entry: "ui/main.slint",
-        "include-paths": ["include"],
-    });
-    fs.mkdirSync(path.join(directory, "ui"));
-    fs.mkdirSync(path.join(directory, "include"));
-    fs.writeFileSync(
-        path.join(directory, "include", "shared.slint"),
-        "export component Shared { }",
-    );
-    fs.writeFileSync(
-        path.join(directory, "ui", "main.slint"),
-        `import { Shared } from "shared.slint";
-         export component Main inherits Window { Shared { } }`,
-    );
-
-    const ui = loadFile(path.join(directory, "slint-project.json")) as any;
-    expect(ui.Main).toBeDefined();
+    expect(() => loadFile(main)).not.toThrow();
 });

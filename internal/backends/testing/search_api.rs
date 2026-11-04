@@ -509,6 +509,7 @@ impl ElementHandle {
     /// ```rust
     /// # i_slint_backend_testing::init_no_event_loop();
     /// slint::slint!{
+    /// #[edition = "1.19"]
     ///
     /// component PushButton {
     ///     /* .. */
@@ -544,6 +545,7 @@ impl ElementHandle {
     /// ```rust
     /// # i_slint_backend_testing::init_no_event_loop();
     /// slint::slint!{
+    /// #[edition = "1.19"]
     ///
     /// component PushButton {
     ///     /* .. */
@@ -578,6 +580,7 @@ impl ElementHandle {
     /// ```rust
     /// # i_slint_backend_testing::init_no_event_loop();
     /// slint::slint!{
+    /// #[edition = "1.19"]
     ///
     /// component ButtonBase {
     ///     /* .. */
@@ -630,6 +633,45 @@ impl ElementHandle {
     /// locate elements by their type/role, i.e. buttons, checkboxes, etc.
     pub fn accessible_role(&self) -> Option<crate::AccessibleRole> {
         self.item.upgrade().map(|item| item.accessible_role())
+    }
+
+    /// Returns the element's `@testable` properties, including inherited ones,
+    /// as `(name, type)` pairs.
+    /// Only properties declared `@testable` are listed, whatever their visibility;
+    /// they are kept alive for this purpose even when nothing else reads them.
+    ///
+    /// Returns `None` when the element is not valid anymore,
+    /// or when the application was built without debug info (see [`Self::id`]);
+    /// an element that declares no `@testable` property reports `Some` with an empty vector.
+    pub fn testable_properties(&self) -> Option<Vec<(SharedString, SharedString)>> {
+        if self.element_index != 0 {
+            return None;
+        }
+        self.item.upgrade().and_then(|item| {
+            let result = item.element_testable_properties();
+            if result.is_none() {
+                warn_missing_debug_info();
+            }
+            result
+        })
+    }
+
+    /// Returns the current value of the testable property `name` on this element,
+    /// encoded as a string:
+    /// booleans as `true`/`false`,
+    /// numbers in decimal (`length` in logical pixels, `duration` in milliseconds, `angle` in degrees),
+    /// colors and solid brushes as `#rrggbbaa`,
+    /// and enums as the `.slint` spelling of the value.
+    ///
+    /// Returns `None` when the element is not valid anymore,
+    /// the property does not exist (see [`Self::testable_properties`]),
+    /// its value has no string encoding,
+    /// or the application was built without debug info (see [`Self::id`]).
+    pub fn testable_property_value(&self, name: &str) -> Option<SharedString> {
+        if self.element_index != 0 {
+            return None;
+        }
+        self.item.upgrade().and_then(|item| item.element_testable_property_value(name))
     }
 
     /// Invokes the default accessible action on the element. For example a `MyButton` element might declare
@@ -1202,6 +1244,7 @@ fn test_optimized() {
     crate::init_no_event_loop();
 
     slint::slint! {
+        #[edition = "1.19"]
         export component App inherits Window {
             first := Rectangle {
                 second := Rectangle {
@@ -1242,6 +1285,7 @@ fn test_conditional() {
     crate::init_no_event_loop();
 
     slint::slint! {
+        #[edition = "1.19"]
         export component App inherits Window {
             in property <bool> condition: false;
             if condition: dynamic-elem := Rectangle {
@@ -1290,6 +1334,7 @@ fn test_matches() {
     crate::init_no_event_loop();
 
     slint::slint! {
+        #[edition = "1.19"]
         component Base inherits Rectangle {}
 
         export component App inherits Window {
@@ -1357,6 +1402,7 @@ fn test_normalize_id() {
     crate::init_no_event_loop();
 
     slint::slint! {
+        #[edition = "1.19"]
         export component App inherits Window {
             the_element := Text {
                 text: "Found me";
@@ -1377,6 +1423,7 @@ fn test_opacity() {
     crate::init_no_event_loop();
 
     slint::slint! {
+        #[edition = "1.19"]
         export component App inherits Window {
             Rectangle {
                 opacity: 0.5;
@@ -1417,6 +1464,7 @@ fn test_popups() {
     crate::init_no_event_loop();
 
     slint::slint! {
+        #[edition = "1.19"]
         export component App inherits Window {
             popup := PopupWindow {
                 close-policy: close-on-click-outside;
@@ -1512,6 +1560,7 @@ fn test_drag_touch_area() {
     crate::init_no_event_loop();
 
     slint::slint! {
+        #[edition = "1.19"]
         export component App inherits Window {
             width: 200px;
             height: 200px;
@@ -1548,6 +1597,7 @@ fn test_drag_zero_distance() {
     crate::init_no_event_loop();
 
     slint::slint! {
+        #[edition = "1.19"]
         export component App inherits Window {
             width: 100px;
             height: 100px;

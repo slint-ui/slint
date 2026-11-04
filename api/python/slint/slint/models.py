@@ -16,7 +16,7 @@ class Model[T](native.PyModelBase, Iterable[T]):
 
     Subclass Model to implement your own models, or use `ListModel` to wrap a list.
 
-    Models are iterable and can be used in for loops."""
+    Models are iterable, so you can use them in `for` loops."""
 
     def __new__(cls, *args: Any, **kwargs: Any) -> typing.Self:
         return super().__new__(cls)
@@ -38,8 +38,8 @@ class Model[T](native.PyModelBase, Iterable[T]):
 
     def set_row_data(self, row: int, value: T) -> None:
         """Call this method on mutable models to change the data for the given row.
-        The UI will also call this method when modifying a model's data.
-        Re-implement this method in a sub-class to handle the change."""
+        The UI also calls this method when modifying a model's data.
+        Re-implement this method in a subclass to handle the change."""
         print(
             "set_row_data called on a model which does not re-implement this method. This happens when trying to modify a read-only model",
             file=sys.stderr,
@@ -48,15 +48,15 @@ class Model[T](native.PyModelBase, Iterable[T]):
     @abstractmethod
     def row_count(self) -> int:
         """Returns the number of rows in the model.
-        Re-implement this method in a sub-class to provide the row count."""
+        Re-implement this method in a subclass to provide the row count."""
         ...
 
     @abstractmethod
     def row_data(self, row: int) -> T | None:
-        """Returns the data for the given row, or None if the row has no data.
-        None is not a row value of its own: models that wrap this model, such
+        """Returns the data for the given row, or `None` if the row has no data.
+        `None` isn't a row value of its own: models that wrap this model, such
         as `FilterModel`, treat such a row as having no data.
-        Re-implement this method in a sub-class to provide the data."""
+        Re-implement this method in a subclass to provide the data."""
         ...
 
     def push_row(self, value: T) -> None:
@@ -67,7 +67,7 @@ class Model[T](native.PyModelBase, Iterable[T]):
     def remove_row(self, row: int) -> None:
         """Remove the row at the given index.
         Raises an exception when the model rejects the modification.
-        The default implementation raises NotImplementedError. A model that
+        The default implementation raises `NotImplementedError`. A model that
         supports removing rows should also call `notify_row_removed`."""
         raise NotImplementedError(
             f"{type(self).__name__} does not support removing rows"
@@ -76,23 +76,23 @@ class Model[T](native.PyModelBase, Iterable[T]):
     def insert_row(self, row: int, value: T) -> None:
         """Insert a new row at the given index.
         Raises an exception when the model rejects the modification.
-        The default implementation raises NotImplementedError. A model that
+        The default implementation raises `NotImplementedError`. A model that
         supports inserting rows should also call `notify_row_added`."""
         raise NotImplementedError(
             f"{type(self).__name__} does not support inserting rows"
         )
 
     def notify_row_changed(self, row: int) -> None:
-        """Call this method from a sub-class to notify the views that a row has changed."""
+        """Call this method from a subclass to notify the views that a row has changed."""
         super().notify_row_changed(row)
 
     def notify_row_removed(self, row: int, count: int) -> None:
-        """Call this method from a sub-class to notify the views that
+        """Call this method from a subclass to notify the views that
         `count` rows have been removed starting at `row`."""
         super().notify_row_removed(row, count)
 
     def notify_row_added(self, row: int, count: int) -> None:
-        """Call this method from a sub-class to notify the views that
+        """Call this method from a subclass to notify the views that
         `count` rows have been added starting at `row`."""
         super().notify_row_added(row, count)
 
@@ -100,16 +100,16 @@ class Model[T](native.PyModelBase, Iterable[T]):
 class ListModel[T](Model[T]):
     """ListModel is a `Model` that stores its data in a Python list.
 
-    Construct a ListMode from an iterable (such as a list itself).
+    Construct a ListModel from an iterable, such as a list.
     Use `ListModel.push_row()`, or its `append` alias, to add items to the
     model, and use the `del` statement to remove items.
 
     Any changes to the model are automatically reflected in the views
-    in UI they're used with.
+    that use it.
     """
 
     def __init__(self, iterable: Iterable[T] | None = None):
-        """Constructs a new ListModel from the give iterable. All the values
+        """Constructs a new ListModel from the given iterable. All the values
         the iterable produces are stored in a list."""
 
         super().__init__()
@@ -180,10 +180,16 @@ class ListModel[T](Model[T]):
         super().notify_row_added(clamped, 1)
 
 
-class _AdapterModel[T](Model[T]):
+class _AdapterModel[S, T](Model[T]):
     """The base class of the models that wrap a model adapter of the Rust core library."""
 
     _adapter: native.PyModelAdapter
+    _source_model: Model[S]
+
+    @property
+    def source_model(self) -> Model[S]:
+        """The model whose rows this model provides."""
+        return self._source_model
 
     def _row_index(self, row: int) -> int:
         return row + self.row_count() if row < 0 else row
@@ -198,7 +204,7 @@ class _AdapterModel[T](Model[T]):
         return typing.cast(T | None, self._adapter.row_data(row))
 
 
-class MapModel[T, U](_AdapterModel[U]):
+class MapModel[T, U](_AdapterModel[T, U]):
     """MapModel is a read-only `Model` that provides the rows of a source model,
     each passed through a map function.
 
@@ -231,7 +237,7 @@ class MapModel[T, U](_AdapterModel[U]):
         Pass `map_function` to map the rows, or omit it in a subclass that
         implements `map_row`."""
         super().__init__()
-        self.source_model = source_model
+        self._source_model = source_model
         if map_function is None:
             if type(self).map_row is MapModel.map_row:
                 raise TypeError(
@@ -248,17 +254,17 @@ class MapModel[T, U](_AdapterModel[U]):
 
     def map_row(self, row_data: T) -> U:
         """Returns the row of this model for `row_data`, a row of the source model.
-        Re-implement this method in a sub-class that doesn't pass a map function
+        Re-implement this method in a subclass that doesn't pass a map function
         to the constructor."""
         raise NotImplementedError(f"{type(self).__name__} does not implement map_row()")
 
 
-class _WritableAdapterModel[T](_AdapterModel[T]):
+class _WritableAdapterModel[T](_AdapterModel[T, T]):
     """The base class of the adapter models whose rows can be set."""
 
     def set_row_data(self, row: int, value: T) -> None:
         """Sets the row of the source model that corresponds to `row`.
-        Raises IndexError if `row` is out of range."""
+        Raises `IndexError` if `row` is out of range."""
         index = self._row_index(row)
         if index < 0:
             raise IndexError("row index out of range")
@@ -283,13 +289,13 @@ class ReverseModel[T](_WritableAdapterModel[T]):
         """Constructs a new ReverseModel that provides the rows of `source_model`
         in reverse order."""
         super().__init__()
-        self.source_model = source_model
+        self._source_model = source_model
         self._adapter = native.PyModelAdapter.reverse(source_model, self)
 
 
 class FilterModel[T](_WritableAdapterModel[T]):
     """FilterModel is a `Model` that provides the rows of a source model for
-    which a filter function returns true.
+    which a filter function returns `True`.
 
     The FilterModel follows the changes of the source model.
     Setting a row sets the corresponding row of the source model.
@@ -325,13 +331,13 @@ class FilterModel[T](_WritableAdapterModel[T]):
         filter_function: Callable[[T], bool] | None = None,
     ):
         """Constructs a new FilterModel that provides the rows of `source_model`
-        for which the filter returns true.
+        for which the filter returns `True`.
         Pass `filter_function` to filter the rows, or omit it in a subclass that
         implements `filter_row`.
         The constructor applies the filter to all rows of the source model, so
         a subclass sets the state that `filter_row` uses before calling it."""
         super().__init__()
-        self.source_model = source_model
+        self._source_model = source_model
         if filter_function is None:
             if type(self).filter_row is FilterModel.filter_row:
                 raise TypeError(
@@ -349,8 +355,8 @@ class FilterModel[T](_WritableAdapterModel[T]):
         )
 
     def filter_row(self, row_data: T) -> bool:
-        """Returns true if `row_data`, a row of the source model, is a row of this model.
-        Re-implement this method in a sub-class that doesn't pass a filter function
+        """Returns `True` if `row_data`, a row of the source model, is a row of this model.
+        Re-implement this method in a subclass that doesn't pass a filter function
         to the constructor."""
         raise NotImplementedError(
             f"{type(self).__name__} does not implement filter_row()"
@@ -364,7 +370,7 @@ class FilterModel[T](_WritableAdapterModel[T]):
 
     def unfiltered_row(self, row: int) -> int:
         """Returns the index of the row of the source model that is `row` in this model.
-        Raises IndexError if `row` is out of range."""
+        Raises `IndexError` if `row` is out of range."""
         index = self._row_index(row)
         if index < 0:
             raise IndexError("row index out of range")
@@ -381,7 +387,7 @@ class SortModel[T](_WritableAdapterModel[T]):
     To sort by a comparison function, pass `key=functools.cmp_to_key(compare)`.
     Rows with a float NaN key sort last, followed by rows whose key raises an
     exception, regardless of `reverse`.
-    Keys that can't be ordered, such as tuples that contain NaN, raise ValueError.
+    Keys that can't be ordered, such as tuples that contain NaN, raise `ValueError`.
 
     The SortModel follows the changes of the source model.
     Setting a row sets the corresponding row of the source model.
@@ -409,7 +415,7 @@ class SortModel[T](_WritableAdapterModel[T]):
         Omit `key` to order the rows by themselves, or by `sort_key` in a
         subclass that implements it."""
         super().__init__()
-        self.source_model = source_model
+        self._source_model = source_model
         if key is None and type(self).sort_key is not SortModel.sort_key:
             this = weakref.ref(self)
 
@@ -423,7 +429,7 @@ class SortModel[T](_WritableAdapterModel[T]):
     def sort_key(self, row_data: T) -> Any:
         """Returns the value to order `row_data`, a row of the source model, by.
         The default implementation returns `row_data` itself.
-        Re-implement this method in a sub-class that doesn't pass a key to the
+        Re-implement this method in a subclass that doesn't pass a key to the
         constructor."""
         return row_data
 
@@ -435,7 +441,7 @@ class SortModel[T](_WritableAdapterModel[T]):
 
     def unsorted_row(self, row: int) -> int:
         """Returns the index of the row of the source model that is `row` in this model.
-        Raises IndexError if `row` is out of range."""
+        Raises `IndexError` if `row` is out of range."""
         index = self._row_index(row)
         if index < 0:
             raise IndexError("row index out of range")

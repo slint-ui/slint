@@ -3,7 +3,9 @@
 
 import { Style, TooltipStyle } from "../style.slint";
 
-export component CanvasValueTooltip inherits Rectangle {
+import { FloatingSurface } from "floating-surface.slint";
+
+export component CanvasValueTooltip inherits FloatingSurface {
     in property <TooltipStyle> style: Style.tooltip;
     in property <string> label;
     in property <string> value;
@@ -18,9 +20,6 @@ export component CanvasValueTooltip inherits Rectangle {
     height: tip.height + 2 * root.style.padding-block;
     border-radius: root.style.radius;
     background: root.style.normal.background;
-    drop-shadow-blur: root.style.shadow.blur;
-    drop-shadow-offset-y: root.style.shadow.offset-y;
-    drop-shadow-color: root.style.shadow.color;
     accessible-role: AccessibleRole.text;
     accessible-label: root.value-label;
     accessible-value: root.value + (root.secondary-text == "" ? "" : "\n" + root.secondary-text);

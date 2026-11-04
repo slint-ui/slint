@@ -365,14 +365,15 @@ impl Item for NativeButton {
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> FocusEventResult {
-        if self.enabled() {
-            Self::FIELD_OFFSETS
-                .has_focus()
-                .apply_pin(self)
-                .set(matches!(event, FocusEvent::FocusIn(_)));
-            FocusEventResult::FocusAccepted
-        } else {
-            FocusEventResult::FocusIgnored
+        match event {
+            FocusEvent::FocusIn(_) if !self.enabled() => FocusEventResult::FocusIgnored,
+            _ => {
+                Self::FIELD_OFFSETS
+                    .has_focus()
+                    .apply_pin(self)
+                    .set(matches!(event, FocusEvent::FocusIn(_)));
+                FocusEventResult::FocusAccepted
+            }
         }
     }
 

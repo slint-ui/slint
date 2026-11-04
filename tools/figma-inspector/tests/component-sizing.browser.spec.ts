@@ -7,13 +7,14 @@ import { convertSnapshot } from "../src/preview/converter";
 import { requireValue } from "../src/preview/slint-ir";
 import type { SourceCapture, SourceNode } from "../src/plugin/source";
 import {
-    mountPreview,
-    canvasPixels,
+    mountCanvasPreview,
+    type CanvasPixels,
+    expectCanvasPixels,
     readFixture,
     type Preview,
 } from "./browser-harness";
 
-type Pixels = Awaited<ReturnType<typeof canvasPixels>>;
+type Pixels = CanvasPixels;
 function bounds(pixels: Pixels, channel: number) {
     const points: [number, number][] = [];
     for (let y = 0; y < pixels.height; y++) {
@@ -103,7 +104,7 @@ for (const target of ["preview", "export"] as const) {
                 }
                 TouchArea { clicked => { root.show-icon = !root.show-icon; } }
             }`;
-        const p = await mountPreview();
+        const p = await mountCanvasPreview();
         p.send({
             type: "preview-source",
             revision: 1,
@@ -115,17 +116,21 @@ for (const target of ["preview", "export"] as const) {
         canvas.style.outline = "none";
         for (const [step, shown] of [true, false, true].entries()) {
             if (step) clickCanvas(p);
-            await expect
-                .poll(async () => bounds(await canvasPixels(p), 2))
-                .toEqual({ x: 0, y: 0, width: shown ? 68 : 40, height: 40 });
-            const pixels = await canvasPixels(p);
-            expect(bounds(pixels, 0)).toEqual({
-                x: shown ? 28 : 0,
-                y: 10,
-                width: 40,
-                height: 20,
+            await expectCanvasPixels(p, (pixels) => {
+                expect(bounds(pixels, 2)).toEqual({
+                    x: 0,
+                    y: 0,
+                    width: shown ? 68 : 40,
+                    height: 40,
+                });
+                expect(bounds(pixels, 0)).toEqual({
+                    x: shown ? 28 : 0,
+                    y: 10,
+                    width: 40,
+                    height: 20,
+                });
+                expect(bounds(pixels, 1) !== undefined).toBe(shown);
             });
-            expect(bounds(pixels, 1) !== undefined).toBe(shown);
         }
     });
 
@@ -160,7 +165,7 @@ for (const target of ["preview", "export"] as const) {
         const ids = [...source.matchAll(/\b(figma-helper-\d+)\s*:=/g)].map(
             (match) => match[1],
         );
-        const p = await mountPreview();
+        const p = await mountCanvasPreview();
         p.send({
             type: "preview-source",
             revision: 1,
@@ -170,7 +175,9 @@ for (const target of ["preview", "export"] as const) {
         await p.ready(1);
         expect(ids.length).toBeGreaterThan(2);
         expect(new Set(ids).size).toBe(ids.length);
-        expect(bounds(await canvasPixels(p), 0)).toBeDefined();
+        await expectCanvasPixels(p, (pixels) => {
+            expect(bounds(pixels, 0)).toBeDefined();
+        });
     });
 
     test(`${target}: overflow measurements follow public text bindings across variants`, async () => {
@@ -197,7 +204,7 @@ for (const target of ["preview", "export"] as const) {
             visit(variant.root, text);
         const prefix = await generate(capture, target);
         expect(prefix).toContain("figma-helper-");
-        const p = await mountPreview();
+        const p = await mountCanvasPreview();
         let revision = 0;
         for (const position of ["leading", "trailing", "both"]) {
             const source = `${prefix} export component OverflowVariants inherits Window {
@@ -214,7 +221,9 @@ for (const target of ["preview", "export"] as const) {
                 exportPackage: { source, files: [] },
             });
             await p.ready(revision);
-            expect(bounds(await canvasPixels(p), 0)).toBeDefined();
+            await expectCanvasPixels(p, (pixels) => {
+                expect(bounds(pixels, 0)).toBeDefined();
+            });
         }
     });
 
@@ -237,7 +246,7 @@ for (const target of ["preview", "export"] as const) {
             .variants)
             visit(variant.root, image);
         const prefix = await generate(capture, target);
-        const p = await mountPreview();
+        const p = await mountCanvasPreview();
         let revision = 0;
         for (const position of ["leading", "trailing", "both"]) {
             const source = `${prefix}
@@ -255,13 +264,15 @@ for (const target of ["preview", "export"] as const) {
                 exportPackage: { source, files: [] },
             });
             await p.ready(revision);
-            expect(bounds(await canvasPixels(p), 1)?.height).toBe(16);
+            await expectCanvasPixels(p, (pixels) => {
+                expect(bounds(pixels, 1)?.height).toBe(16);
+            });
         }
     });
 
     for (const nested of [false, true]) {
         test(`${target}: conditional ${nested ? "inner rows" : "roots"} retain button geometry`, async () => {
-            const p = await mountPreview();
+            const p = await mountCanvasPreview();
             let revision = 0;
             for (const padding of [4, 6, 10]) {
                 const capture = await fixture(nested);
@@ -302,32 +313,33 @@ for (const target of ["preview", "export"] as const) {
                         },
                     });
                     await p.ready(revision);
-                    const pixels = await canvasPixels(p);
-                    const contentWidth = position === "both" ? 95 : 71;
-                    expect(
-                        bounds(pixels, 2),
-                        `${nested}/${padding}/${position} background`,
-                    ).toEqual({
-                        x: 0,
-                        y: 0,
-                        width: nested ? 160 : contentWidth + 24,
-                        height: 20 + padding * 2,
-                    });
-                    if (nested) {
-                        const rowX =
-                            padding === 10 ? (160 - contentWidth) / 2 : 16;
-                        const labelX =
-                            rowX + (position === "trailing" ? 0 : 24);
+                    await expectCanvasPixels(p, (pixels) => {
+                        const contentWidth = position === "both" ? 95 : 71;
                         expect(
-                            Math.abs(
-                                requireValue(bounds(pixels, 0)).x - labelX,
-                            ),
-                        ).toBeLessThanOrEqual(1);
-                    }
-                    expect(bounds(pixels, 0)?.y).toBe(padding);
-                    expect(bounds(pixels, 0)?.height).toBe(20);
-                    expect(bounds(pixels, 1)?.y).toBe(padding + 2);
-                    expect(bounds(pixels, 1)?.height).toBe(16);
+                            bounds(pixels, 2),
+                            `${nested}/${padding}/${position} background`,
+                        ).toEqual({
+                            x: 0,
+                            y: 0,
+                            width: nested ? 160 : contentWidth + 24,
+                            height: 20 + padding * 2,
+                        });
+                        if (nested) {
+                            const rowX =
+                                padding === 10 ? (160 - contentWidth) / 2 : 16;
+                            const labelX =
+                                rowX + (position === "trailing" ? 0 : 24);
+                            expect(
+                                Math.abs(
+                                    requireValue(bounds(pixels, 0)).x - labelX,
+                                ),
+                            ).toBeLessThanOrEqual(1);
+                        }
+                        expect(bounds(pixels, 0)?.y).toBe(padding);
+                        expect(bounds(pixels, 0)?.height).toBe(20);
+                        expect(bounds(pixels, 1)?.y).toBe(padding + 2);
+                        expect(bounds(pixels, 1)?.height).toBe(16);
+                    });
                 }
             }
         }, 60000);
@@ -338,7 +350,7 @@ for (const target of ["preview", "export"] as const) {
         requireValue(
             capture.root.children,
         )[0].properties.layoutSizingHorizontal = "FILL";
-        const p = await mountPreview();
+        const p = await mountCanvasPreview();
         p.send({
             type: "preview-source",
             revision: 1,
@@ -349,11 +361,13 @@ for (const target of ["preview", "export"] as const) {
             },
         });
         await p.ready(1);
-        expect(bounds(await canvasPixels(p), 2)).toEqual({
-            x: 0,
-            y: 0,
-            width: 300,
-            height: 32,
+        await expectCanvasPixels(p, (pixels) => {
+            expect(bounds(pixels, 2)).toEqual({
+                x: 0,
+                y: 0,
+                width: 300,
+                height: 32,
+            });
         });
         const prefix = await generate(capture, target);
         p.send({
@@ -380,26 +394,27 @@ for (const target of ["preview", "export"] as const) {
             },
         });
         await p.ready(2);
-        const pixels = await canvasPixels(p);
-        expect(bounds(pixels, 2)).toEqual({
-            x: 0,
-            y: 0,
-            width: 224,
-            height: 112,
-        });
-        for (const y of [6, 46, 86]) {
-            let red = 0;
-            for (let x = 0; x < pixels.width; x++) {
-                const i = (y * pixels.width + x) * 4;
-                if (
-                    pixels.data[i] === 255 &&
-                    pixels.data[i + 1] === 0 &&
-                    pixels.data[i + 2] === 0
-                )
-                    red++;
+        await expectCanvasPixels(p, (pixels) => {
+            expect(bounds(pixels, 2)).toEqual({
+                x: 0,
+                y: 0,
+                width: 224,
+                height: 112,
+            });
+            for (const y of [6, 46, 86]) {
+                let red = 0;
+                for (let x = 0; x < pixels.width; x++) {
+                    const i = (y * pixels.width + x) * 4;
+                    if (
+                        pixels.data[i] === 255 &&
+                        pixels.data[i + 1] === 0 &&
+                        pixels.data[i + 2] === 0
+                    )
+                        red++;
+                }
+                expect(red).toBe(94);
             }
-            expect(red).toBe(94);
-        }
+        });
     });
 
     test(`${target}: Hug responds to label, icon and variant changes on the same instance`, async () => {
@@ -427,7 +442,7 @@ for (const target of ["preview", "export"] as const) {
             visit(variant.root, text);
         }
         const prefix = await generate(capture, target);
-        const p = await mountPreview();
+        const p = await mountCanvasPreview();
         p.send({
             type: "preview-source",
             revision: 1,
@@ -464,16 +479,15 @@ for (const target of ["preview", "export"] as const) {
         await p.ready(1);
         const widths: number[] = [];
         for (let step = 0; step < 4; step++) {
-            if (step) {
-                clickCanvas(p);
-                await expect
-                    .poll(async () => bounds(await canvasPixels(p), 2)?.width)
-                    .not.toBe(widths[step - 1]);
-            }
-            widths.push(requireValue(bounds(await canvasPixels(p), 2)).width);
+            if (step) clickCanvas(p);
+            const pixels = await expectCanvasPixels(p, (pixels) => {
+                expect(bounds(pixels, 2)).toBeDefined();
+                const width = requireValue(bounds(pixels, 2)).width;
+                if (step === 1) expect(width).toBeGreaterThan(widths[0] + 50);
+                if (step === 2) expect(widths[1] - width).toBe(24);
+                if (step === 3) expect(width - widths[1]).toBe(24);
+            });
+            widths.push(requireValue(bounds(pixels, 2)).width);
         }
-        expect(widths[1]).toBeGreaterThan(widths[0] + 50);
-        expect(widths[1] - widths[2]).toBe(24);
-        expect(widths[3] - widths[1]).toBe(24);
     });
 }

@@ -267,8 +267,9 @@ fn extract_path(literal: proc_macro::Literal) -> std::path::PathBuf {
 fn extract_compiler_config(
     mut stream: proc_macro::token_stream::IntoIter,
     compiler_config: &mut CompilerConfiguration,
-) -> impl Iterator<Item = TokenTree> {
+) -> Result<(impl Iterator<Item = TokenTree> + use<>, TokenStream), TokenStream> {
     let mut remaining_stream;
+    let mut edition_warning = TokenStream::new();
     loop {
         remaining_stream = stream.clone();
         match (stream.next(), stream.next()) {
@@ -327,82 +328,59 @@ fn extract_compiler_config(
                             _ => break,
                         }
                     }
+                    Some(TokenTree::Ident(edition_ident))
+                        if edition_ident.to_string() == "edition" =>
+                    {
+                        match (attr_stream.next(), attr_stream.next()) {
+                            (
+                                Some(TokenTree::Punct(equal_punct)),
+                                Some(TokenTree::Literal(value)),
+                            ) if equal_punct.as_char() == '=' => {
+                                let edition = parse_edition(&value)?;
+                                compiler_config.edition = Some(edition);
+                                edition_warning = behavior_change_warning(edition, &value);
+                            }
+                            _ => break,
+                        }
+                    }
                     _ => break,
                 }
             }
             _ => break,
         }
     }
-    remaining_stream
+    if compiler_config.edition.is_none() {
+        let span =
+            remaining_stream.clone().next().map_or_else(proc_macro::Span::call_site, |t| t.span());
+        edition_warning = missing_edition_warning(span);
+    }
+    Ok((remaining_stream, edition_warning))
 }
 
-/// The directory the search for `slint-project.json` starts in.
-///
-/// A macro body that does nothing but re-export from a single `.slint` file follows
-/// that file, so it picks up the same project file as compiling the file directly.
-/// Anything else is its own entry point and searches from the `.rs` file.
-fn project_file_search_directory(
-    document: &parser::syntax_nodes::Document,
-    source_path: &std::path::Path,
-) -> PathBuf {
-    let source_directory = i_slint_compiler::source_path::SourcePath::new(source_path)
-        .parent()
-        .into_native_path()
-        .unwrap_or_default();
+fn missing_edition_warning(span: proc_macro::Span) -> TokenStream {
+    let newer = project_file::SlintEdition::LATEST_BEHAVIOR_CHANGE;
+    let message = format!(
+        "'slint!' has no '#[edition]', so the language behavior changes up to {newer} don't apply: review them at {}, then add '#[edition = \"{newer}\"]'",
+        project_file::SlintEdition::behavior_changes_url()
+    );
+    diagnostics::macro_warning(span.into(), &message)
+}
 
-    let declares_anything = document.Component().next().is_some()
-        || document.StructDeclaration().next().is_some()
-        || document.EnumDeclaration().next().is_some()
-        || document.ExportsList().any(|exports| {
-            exports.Component().is_some()
-                || exports.StructDeclaration().next().is_some()
-                || exports.EnumDeclaration().next().is_some()
-        });
-    if declares_anything {
-        return source_directory;
-    }
-
-    let mut imported_uris = document
-        .ImportSpecifier()
-        .filter_map(|import| import.child_token(SyntaxKind::StringLiteral))
-        .chain(
-            document
-                .ExportsList()
-                .filter_map(|exports| exports.ExportModule())
-                .filter_map(|reexport| reexport.child_token(SyntaxKind::StringLiteral)),
-        );
-
-    let (Some(imported_uri), None) = (imported_uris.next(), imported_uris.next()) else {
-        return source_directory;
+fn behavior_change_warning(
+    edition: project_file::SlintEdition,
+    value: &proc_macro::Literal,
+) -> TokenStream {
+    let Some(message) = edition.behavior_change_warning("edition") else {
+        return TokenStream::new();
     };
-
-    // Same verbatim treatment as the type loader gives an import path.
-    let imported_path = imported_uri.text().to_string();
-    let imported_path = imported_path.trim_matches('"');
-
-    // A library import needs the library paths the project file is meant to supply.
-    if imported_path.is_empty() || imported_path.starts_with('@') {
-        return source_directory;
-    }
-
-    i_slint_compiler::source_path::SourcePath::new(&source_directory)
-        .join(imported_path)
-        .filter(|path| path.exists())
-        .and_then(|path| path.parent().into_native_path())
-        .unwrap_or(source_directory)
+    diagnostics::macro_warning(value.span().into(), &message)
 }
 
-fn apply_project_file(
-    search_directory: &std::path::Path,
-    compiler_config: &mut CompilerConfiguration,
-    diag: &mut BuildDiagnostics,
-) -> Result<(), String> {
-    if let Some(project_file) = project_file::ProjectFile::find(search_directory)? {
-        project_file.apply_to(compiler_config);
-        diag.all_loaded_files
-            .insert(i_slint_compiler::source_path::SourcePath::new(project_file.source_path()));
-    }
-    Ok(())
+fn parse_edition(value: &proc_macro::Literal) -> Result<project_file::SlintEdition, TokenStream> {
+    project_file::SlintEdition::parse_rust_macro_attribute(&value.to_string()).map_err(|message| {
+        let span = proc_macro2::Span::from(value.span());
+        quote::quote_spanned!(span => compile_error!{ #message }).into()
+    })
 }
 
 /// The external files whose changes should invalidate this expansion: the loaded
@@ -427,14 +405,20 @@ fn loaded_files(diag: &BuildDiagnostics) -> Vec<PathBuf> {
 /// are relative to the `.rs` file that contains the macro.
 /// For compatibility with older rust version, the files are also searched in the manifest directory that contains `Cargo.toml`.
 ///
-/// ### Project File
+/// ### Edition
 ///
-/// Settings such as the style or the include paths can come from a `slint-project.json` file.
-/// The search for it starts in the directory of the `.rs` file and goes up from there.
+/// Set the
+#[doc = concat!("[edition](https://slint.dev/releases/", env!("CARGO_PKG_VERSION"), "/docs/slint/guide/language/concepts/editions/)")]
+/// with an attribute at the start of the macro body:
 ///
-/// A macro body that only re-exports from a single `.slint` file, such as
-/// `export { App } from "ui/app.slint";`, searches from that file instead.
-/// Such a macro then uses the same project file as building `ui/app.slint` directly.
+/// ```rust,ignore
+/// slint::slint! {
+///     #[edition = "1.19"]
+///     export component App inherits Window { }
+/// }
+/// ```
+///
+/// Without it, the macro applies none of the behavior changes that depend on the edition, and warns.
 ///
 /// ### Limitations
 ///
@@ -462,8 +446,22 @@ pub fn slint(stream: TokenStream) -> TokenStream {
     let mut compiler_config =
         CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Rust);
 
-    let token_iter = extract_compiler_config(token_iter, &mut compiler_config);
+    let (token_iter, edition_warning) =
+        match extract_compiler_config(token_iter, &mut compiler_config) {
+            Ok(result) => result,
+            Err(error) => return error,
+        };
 
+    // Not part of the cached output, which loses the spans.
+    let mut result = expand(token_iter, compiler_config);
+    result.extend(edition_warning);
+    result
+}
+
+fn expand(
+    token_iter: impl Iterator<Item = TokenTree>,
+    mut compiler_config: CompilerConfiguration,
+) -> TokenStream {
     let mut tokens = Vec::new();
     fill_token_vec(token_iter, &mut tokens);
     // Position each token in the document the parser will see: the concatenation of the token
@@ -497,14 +495,6 @@ pub fn slint(stream: TokenStream) -> TokenStream {
     let mut diag = BuildDiagnostics::default();
     let syntax_node = parser::parse_tokens(tokens.clone(), source_file, &mut diag);
     if diag.has_errors() {
-        return diag.report_macro_diagnostic(&tokens);
-    }
-
-    // Before the cache key is taken, since the project file changes the generated output.
-    let document = parser::syntax_nodes::Document::from(syntax_node.clone());
-    let search_directory = project_file_search_directory(&document, &source_path);
-    if let Err(message) = apply_project_file(&search_directory, &mut compiler_config, &mut diag) {
-        diag.push_error_with_span(message, Default::default());
         return diag.report_macro_diagnostic(&tokens);
     }
 
@@ -576,159 +566,4 @@ pub fn slint(stream: TokenStream) -> TokenStream {
         expansion_cache::store(key, result.to_string(), &loaded);
     }
     result
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{apply_project_file, loaded_files, project_file_search_directory};
-    use i_slint_compiler::diagnostics::BuildDiagnostics;
-    use i_slint_compiler::parser;
-    use std::path::{Path, PathBuf};
-
-    fn search_directory_for(body: &str, source_path: &Path) -> PathBuf {
-        let mut diag = BuildDiagnostics::default();
-        let node = parser::parse(
-            body.to_string(),
-            Some(i_slint_compiler::source_path::SourcePath::new(source_path)),
-            &mut diag,
-        );
-        assert!(!diag.has_errors(), "{:?}", diag.to_string_vec());
-        let document = parser::syntax_nodes::Document::from(node);
-        project_file_search_directory(&document, source_path)
-    }
-
-    fn with_test_directory<R>(f: impl FnOnce(&Path) -> R) -> R {
-        let directory = tempfile::TempDir::new().unwrap();
-        let path = std::fs::canonicalize(directory.path()).unwrap();
-        f(&path)
-    }
-
-    #[test]
-    fn an_inline_component_searches_from_the_rust_file() {
-        with_test_directory(|root| {
-            let source_path = root.join("src/main.rs");
-            assert_eq!(
-                search_directory_for("export component App inherits Rectangle {}", &source_path),
-                root.join("src")
-            );
-        });
-    }
-
-    #[test]
-    fn a_lone_re_export_follows_the_slint_file() {
-        with_test_directory(|root| {
-            let ui_directory = root.join("ui");
-            std::fs::create_dir_all(&ui_directory).unwrap();
-            std::fs::write(ui_directory.join("main.slint"), "export component App {}").unwrap();
-            let source_path = root.join("src/main.rs");
-            std::fs::create_dir_all(source_path.parent().unwrap()).unwrap();
-
-            assert_eq!(
-                search_directory_for(r#"export { App } from "../ui/main.slint";"#, &source_path),
-                ui_directory
-            );
-        });
-    }
-
-    #[test]
-    fn a_lone_import_follows_the_slint_file() {
-        with_test_directory(|root| {
-            let ui_directory = root.join("ui");
-            std::fs::create_dir_all(&ui_directory).unwrap();
-            std::fs::write(ui_directory.join("main.slint"), "export component App {}").unwrap();
-            let source_path = root.join("main.rs");
-
-            assert_eq!(
-                search_directory_for(
-                    r#"import { App } from "ui/main.slint"; export { App }"#,
-                    &source_path
-                ),
-                ui_directory
-            );
-        });
-    }
-
-    #[test]
-    fn a_re_export_next_to_an_inline_component_searches_from_the_rust_file() {
-        with_test_directory(|root| {
-            let ui_directory = root.join("ui");
-            std::fs::create_dir_all(&ui_directory).unwrap();
-            std::fs::write(ui_directory.join("main.slint"), "export component App {}").unwrap();
-            let source_path = root.join("main.rs");
-
-            assert_eq!(
-                search_directory_for(
-                    r#"export { App } from "ui/main.slint"; export component Extra inherits Rectangle {}"#,
-                    &source_path
-                ),
-                *root
-            );
-        });
-    }
-
-    #[test]
-    fn two_imports_search_from_the_rust_file() {
-        with_test_directory(|root| {
-            let ui_directory = root.join("ui");
-            std::fs::create_dir_all(&ui_directory).unwrap();
-            std::fs::write(ui_directory.join("a.slint"), "export component A {}").unwrap();
-            std::fs::write(ui_directory.join("b.slint"), "export component B {}").unwrap();
-            let source_path = root.join("main.rs");
-
-            assert_eq!(
-                search_directory_for(
-                    r#"import { A } from "ui/a.slint"; import { B } from "ui/b.slint"; export { A, B }"#,
-                    &source_path
-                ),
-                *root
-            );
-        });
-    }
-
-    #[test]
-    fn a_library_import_searches_from_the_rust_file() {
-        with_test_directory(|root| {
-            let source_path = root.join("main.rs");
-            assert_eq!(
-                search_directory_for(r#"export { App } from "@widgets/main.slint";"#, &source_path),
-                *root
-            );
-        });
-    }
-
-    #[test]
-    fn the_project_file_is_a_loaded_file() {
-        with_test_directory(|root| {
-            let project_file = root.join(i_slint_compiler::project_file::FILE_NAME);
-            std::fs::write(&project_file, "{}").unwrap();
-            let source_path = root.join("src/main.rs");
-
-            let mut diag = BuildDiagnostics::default();
-            let node = parser::parse(
-                "export component App inherits Rectangle {}".into(),
-                Some(i_slint_compiler::source_path::SourcePath::new(&source_path)),
-                &mut diag,
-            );
-            let mut config = i_slint_compiler::CompilerConfiguration::new(
-                i_slint_compiler::generator::OutputFormat::Rust,
-            );
-            apply_project_file(&root.join("src"), &mut config, &mut diag).unwrap();
-            let (_, diag, _) =
-                spin_on::spin_on(i_slint_compiler::compile_syntax_node(node, diag, config));
-            assert!(!diag.has_errors(), "{:?}", diag.to_string_vec());
-
-            assert!(loaded_files(&diag).contains(&project_file));
-        });
-    }
-
-    #[test]
-    fn a_missing_slint_file_searches_from_the_rust_file() {
-        with_test_directory(|root| {
-            let source_path = root.join("main.rs");
-            assert_eq!(
-                search_directory_for(r#"export { App } from "ui/gone.slint";"#, &source_path),
-                *root
-            );
-        });
-    }
 }

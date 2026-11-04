@@ -17,6 +17,7 @@ path = "main.rs"
 name = "doctests"
 
 [build-dependencies]
+test_driver_lib = { path = "../driver/driverlib" }
 walkdir = "2"
 
 [dev-dependencies]

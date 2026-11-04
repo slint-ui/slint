@@ -163,6 +163,23 @@ instance.win_minimized = true;
 assert(instance.win_minimized);
 instance.win_full_screen = true;
 assert(instance.win_full_screen);
+
+// close() reports whether the application accepted the close request.
+let close_response = slintlib.CloseRequestResponse.KeepWindowShown;
+let close_count = 0;
+instance.window.onCloseRequested(() => {
+    ++close_count;
+    return close_response;
+});
+assert.equal(instance.do_close(), false);
+assert.equal(close_count, 1);
+
+close_response = slintlib.CloseRequestResponse.HideWindow;
+assert.equal(instance.do_close(), true);
+assert.equal(close_count, 2);
+
+assert.equal(instance.close_inner(), false);
+assert.equal(close_count, 2);
 ```
 
 ```rust

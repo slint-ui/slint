@@ -13,7 +13,10 @@ use core::ffi::c_void;
 use i_slint_core::SharedString;
 use i_slint_core::slice::Slice;
 use i_slint_core::styled_text::StyledText;
-use i_slint_core::window::{WindowAdapter, ffi::WindowAdapterRcOpaque};
+use i_slint_core::window::{
+    WindowAdapter,
+    ffi::{GraphicsAPI, WindowAdapterRcOpaque},
+};
 
 pub mod platform;
 
@@ -196,7 +199,7 @@ pub unsafe extern "C" fn slint_register_font_from_data(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_register_bitmap_font(
     win: *const WindowAdapterRcOpaque,
-    font_data: &'static i_slint_core::graphics::BitmapFont,
+    font_data: &'static i_slint_core::graphics::BitmapFont<i_slint_core::graphics::StaticStorage>,
 ) {
     let window_adapter = unsafe { &*(win as *const Rc<dyn WindowAdapter>) };
     window_adapter.renderer().register_bitmap_font(font_data);
@@ -286,6 +289,58 @@ use esp_backtrace as _;
 pub extern "C" fn slint_set_xdg_app_id(_app_id: &SharedString) {
     #[cfg(feature = "i-slint-backend-selector")]
     with_global_context(|ctx| ctx.set_xdg_app_id(_app_id.clone())).unwrap();
+}
+
+/// Empty names and a null `graphics_api` leave the choice to the selector.
+/// A `version_major` of 0 requests any version.
+/// Panics if the requirements can't be met.
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_select_backend(
+    backend_name: &SharedString,
+    renderer_name: &SharedString,
+    graphics_api: Option<&GraphicsAPI>,
+    version_major: u8,
+    version_minor: u8,
+) {
+    #[cfg(all(feature = "i-slint-backend-selector", not(target_os = "emscripten")))]
+    {
+        use alloc::string::ToString;
+        use i_slint_backend_selector::api::BackendSelector;
+        let mut selector = BackendSelector::new();
+        if !backend_name.is_empty() {
+            selector = selector.backend_name(backend_name.to_string());
+        }
+        if !renderer_name.is_empty() {
+            selector = selector.renderer_name(renderer_name.to_string());
+        }
+        let version = (version_major != 0).then_some((version_major, version_minor));
+        selector = match (graphics_api, version) {
+            (Some(GraphicsAPI::OpenGL), None) => selector.require_opengl(),
+            (Some(GraphicsAPI::OpenGL), Some((major, minor))) => {
+                selector.require_opengl_with_version(major, minor)
+            }
+            (Some(GraphicsAPI::OpenGLES), None) => selector.require_opengl_es(),
+            (Some(GraphicsAPI::OpenGLES), Some((major, minor))) => {
+                selector.require_opengl_es_with_version(major, minor)
+            }
+            (_, Some(_)) => {
+                panic!("A minimum OpenGL version is only supported with OpenGL and OpenGL ES")
+            }
+            (None, None) => selector,
+            (Some(GraphicsAPI::Metal), None) => selector.require_metal(),
+            (Some(GraphicsAPI::Vulkan), None) => selector.require_vulkan(),
+            (Some(GraphicsAPI::Direct3D), None) => selector.require_d3d(),
+            (Some(GraphicsAPI::Inaccessible), None) => {
+                panic!("GraphicsAPI::Inaccessible can't be required")
+            }
+        };
+        selector.select().expect("Failed to select a backend");
+    }
+    #[cfg(not(all(feature = "i-slint-backend-selector", not(target_os = "emscripten"))))]
+    {
+        let _ = (backend_name, renderer_name, graphics_api, version_major, version_minor);
+        panic!("Slint was built without any of the built-in backends");
+    }
 }
 
 #[unsafe(no_mangle)]

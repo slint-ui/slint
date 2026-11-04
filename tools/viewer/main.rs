@@ -11,6 +11,7 @@ mod remote;
 
 use clap::Parser;
 use i_slint_compiler::ComponentSelection;
+use i_slint_compiler::project_file::SlintEdition;
 use i_slint_live_preview::live_component::poll_ready;
 use itertools::Itertools;
 use slint_interpreter::{
@@ -61,16 +62,30 @@ type Result<T> = std::result::Result<T, Error>;
 #[command(author, version, about, long_about = None)]
 struct Cli {
     /// Include path for other .slint files or images
-    #[arg(short = 'I', value_name = "include path", number_of_values = 1, action)]
-    include_paths: Vec<std::path::PathBuf>,
+    #[arg(
+        short = 'I',
+        value_name = "include path",
+        number_of_values = 1,
+        action,
+        value_parser = clap::value_parser!(std::ffi::OsString)
+    )]
+    include_paths: Option<Vec<std::ffi::OsString>>,
 
     /// Specify Library location of the '@library' in the form 'library=/path/to/library'
     #[arg(short = 'L', value_name = "library=path", number_of_values = 1, action)]
-    library_paths: Vec<String>,
+    library_paths: Option<Vec<String>>,
 
-    /// The .slint file to load ('-' for stdin)
+    /// The .slint file, project directory, or slint-project.json file to load ('-' for stdin)
     #[arg(name = "path", action, required_unless_present = "remote")]
     path: Option<std::path::PathBuf>,
+
+    #[arg(
+        short = 'p',
+        long,
+        requires = "path",
+        help = "Load project settings from a directory or slint-project.json file"
+    )]
+    project_root: Option<std::path::PathBuf>,
 
     /// Start in remote viewer mode: listen for WebSocket connections from the LSP
     #[arg(long)]
@@ -94,6 +109,11 @@ struct Cli {
     /// The style name. Defaults to 'fluent' if not specified
     #[arg(long, value_name = "style name", action)]
     style: Option<String>,
+
+    /// The edition whose language behavior to use, such as '1.19'.
+    /// This wins over the edition of the project file.
+    #[arg(long, value_name = "edition", value_parser = SlintEdition::parse_supported)]
+    edition: Option<SlintEdition>,
 
     /// The name of the component to view. If unset, the last exported component of the file is used.
     /// If the component name is not in the .slint file , nothing will be shown
@@ -187,6 +207,16 @@ fn main() -> Result<()> {
     let args = Cli::parse_from(["slint-viewer", "--remote"]);
     #[cfg(not(all(target_os = "ios", feature = "remote")))]
     let args = Cli::parse();
+
+    if args.project_root.is_some()
+        && args
+            .path
+            .as_ref()
+            .is_some_and(|path| i_slint_compiler::project_file::project_root(path).is_dir())
+    {
+        eprintln!("A project file or directory cannot be combined with --project-root");
+        std::process::exit(2);
+    }
 
     if args.screenshot.is_some() {
         if args.auto_reload {
@@ -341,6 +371,13 @@ fn install_log_message_handler() -> Result<()> {
 
 fn init_compiler(args: &Cli) -> slint_interpreter::Compiler {
     let mut compiler = slint_interpreter::Compiler::new();
+    if let Some(root) = &args.project_root {
+        let root = std::path::absolute(root).unwrap_or_else(|_| root.clone());
+        compiler.set_project_root(
+            Some(i_slint_compiler::source_path::SourcePath::new(root)),
+            i_slint_core::InternalToken,
+        );
+    }
     #[cfg(feature = "gettext")]
     if let Some(domain) = args.translation_domain.clone() {
         compiler.set_translation_domain(domain);
@@ -350,20 +387,32 @@ fn init_compiler(args: &Cli) -> slint_interpreter::Compiler {
         compiler
             .set_default_translation_context(slint_interpreter::DefaultTranslationContext::None);
     }
-    compiler.set_include_paths(args.include_paths.clone());
-    compiler.set_library_paths(
-        args.library_paths
-            .iter()
-            .filter_map(|entry| entry.split('=').collect_tuple().map(|(k, v)| (k.into(), v.into())))
-            .collect(),
-    );
+    if let Some(paths) = &args.include_paths {
+        compiler.set_include_paths(
+            paths.iter().filter(|path| !path.is_empty()).map(PathBuf::from).collect(),
+        );
+    }
+    if let Some(entries) = &args.library_paths {
+        compiler.set_library_paths(
+            entries
+                .iter()
+                .filter_map(|entry| {
+                    entry.split('=').collect_tuple().map(|(k, v)| (k.into(), v.into()))
+                })
+                .collect(),
+        );
+    }
     if let Some(style) = &args.style {
         compiler.set_style(style.clone());
+    }
+    if let Some(edition) = args.edition {
+        compiler.set_edition((edition.major, edition.minor));
     }
 
     let cc = compiler.compiler_configuration(i_slint_core::InternalToken);
     cc.components_to_generate = match &args.component {
         Some(component) => ComponentSelection::Named(component.clone()),
+        None if args.check => ComponentSelection::AllExported,
         None => ComponentSelection::LastExported,
     };
     cc.is_preview = true;

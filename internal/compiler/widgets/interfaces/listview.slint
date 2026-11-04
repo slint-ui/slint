@@ -4,5 +4,5 @@
 import { ScrollView } from "./scrollview.slint";
 
 export interface ListView inherits ScrollView {
-    public function ensure-row-visible(row: int, behavior: ScrollBehavior);
+    @shadowable public function ensure-row-visible(row: int, behavior: ScrollBehavior);
 }

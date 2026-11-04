@@ -94,6 +94,14 @@ pub fn set_system_accent_color(color: i_slint_core::Color) {
         .expect("the testing backend must be initialized first");
 }
 
+/// Set the operating system's reduced-motion setting, as a platform backend would when it
+/// changes. While [`MotionPreference::Reduced`], animations that start go straight to their target.
+/// Must be called after initializing the testing backend (e.g. after [`init_no_event_loop()`]).
+pub fn set_motion_preference(preference: MotionPreference) {
+    i_slint_core::context::with_existing_context(|ctx| ctx.set_motion_preference(preference))
+        .expect("the testing backend must be initialized first");
+}
+
 /// Replace the font collection with embedded NotoSans fonts for deterministic test results.
 /// Must be called after initializing the testing backend (e.g. after [`init_no_event_loop()`]).
 #[cfg(feature = "internal")]
@@ -109,6 +117,12 @@ pub fn configure_test_fonts() {
         include_bytes!("../../../tests/screenshots/fonts/NotoSans-Regular.ttf"),
         include_bytes!("../../../tests/screenshots/fonts/NotoSans-Italic.ttf"),
         include_bytes!("../../../tests/screenshots/fonts/NotoSansSymbols2-Regular.ttf"),
+    ];
+    // Color emoji fonts, only for the cases that name them: left out of the fallback chain so
+    // they can't change any other case.
+    static NAMED_FONTS: &[&[u8]] = &[
+        include_bytes!("../../../tests/screenshots/fonts/NotoColorEmoji-Subset.ttf"),
+        include_bytes!("../../../tests/screenshots/fonts/TwemojiMozilla-Subset.ttf"),
     ];
 
     i_slint_core::with_existing_context(|ctx| {
@@ -131,6 +145,11 @@ pub fn configure_test_fonts() {
                 }
             }
         }
+        for font in NAMED_FONTS {
+            font_context
+                .collection
+                .register_fonts(fontique::Blob::new(std::sync::Arc::new(*font)), None);
+        }
         // Map the fallback generics plus monospace (used by markdown code spans) to the bundled
         // fonts, so all generic families resolve deterministically with system fonts disabled.
         for generic_family in
@@ -144,4 +163,5 @@ pub fn configure_test_fonts() {
     .expect("platform not set, initialize the testing backend first");
 }
 
+pub use i_slint_core::MotionPreference;
 pub use i_slint_core::items::{AccessibleLiveness, AccessibleRole, Orientation};

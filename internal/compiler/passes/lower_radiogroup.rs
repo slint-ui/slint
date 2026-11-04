@@ -43,6 +43,23 @@ pub async fn lower_radiogroup(
         return;
     }
 
+    // An instance of a subclass that declares its own RadioButtons (#14256):
+    // see the matching filter in `lower_tabwidget`.
+    radio_groups.retain(|elem| {
+        if !base_chain_declares_children(&elem.borrow().base_type, &seen) {
+            return true;
+        }
+        if !elem.borrow().children.is_empty() {
+            diag.push_error(
+                "Cannot add 'RadioButton' elements when instantiating a 'RadioGroup' subclass that already declares its own; declare them on the subclass instead".into(),
+                &*elem.borrow(),
+            );
+            // Left in place, they would also fail the inherited grid's row numbering.
+            elem.borrow_mut().children.clear();
+        }
+        false
+    });
+
     let mut ignore = BuildDiagnostics::default();
     let radio_group_impl = type_loader
         .import_component("std-widgets-impl.slint", "RadioGroupImpl", &mut ignore)
@@ -172,15 +189,21 @@ fn wire_radio_button(
     };
     let item_index_ref =
         || Expression::PropertyReference(NamedReference::new(child, "item-index".into()));
+    // Typed like `item-index`: with branches of different types, the LLR lowers the
+    // condition as a statement, which a non-constant `orientation` then exposes.
+    let zero = || Expression::Cast {
+        from: Expression::NumberLiteral(0.0, Unit::None).into(),
+        to: Type::Int32,
+    };
     let row_expr = Expression::Condition {
         condition: is_vertical.clone().into(),
         true_expr: item_index_ref().into(),
-        false_expr: Expression::NumberLiteral(0.0, Unit::None).into(),
+        false_expr: zero().into(),
         source_location: None,
     };
     let col_expr = Expression::Condition {
         condition: is_vertical.into(),
-        true_expr: Expression::NumberLiteral(0.0, Unit::None).into(),
+        true_expr: zero().into(),
         false_expr: item_index_ref().into(),
         source_location: None,
     };

@@ -49,8 +49,11 @@
 //!
 //! The `@flags` of an element are the boolean fields of `BuiltinElement` (`is_internal`,
 //! `is_global`, ...) plus `expands_to_parent_geometry` or `implicit_size` for the default size,
-//! `builtin_struct(Name)`, `sc` for an element of the Slint SC subset and `skip_inherited` to
+//! `builtin_struct(Name)`, `experimental_feature(Feature)` for an element that needs that feature,
+//! `sc` for an element of the Slint SC subset and `skip_inherited` to
 //! leave the docs of the native items out of the element's.
+//! `constant_layout_info(stretch)` gives the element the default layout info with that stretch,
+//! whatever item it lowers to.
 //! Member modifiers `@shadowable`, `@deprecated` (aliases only) and `@pure` keep their Slint
 //! meaning; `@constexpr` marks a property whose value is known at compile time, `@fake` one
 //! that exists only at compile time and `@sc` one of the Slint SC subset.
@@ -172,6 +175,8 @@ macro_rules! flag {
     ($e:ident expands_to_parent_geometry) => { $e.element.default_size_binding = DefaultSizeBinding::ExpandsToParentGeometry };
     ($e:ident implicit_size) => { $e.element.default_size_binding = DefaultSizeBinding::ImplicitSize };
     ($e:ident builtin_struct($s:ident)) => { $e.class.builtin_struct = Some(BuiltinStruct::$s) };
+    ($e:ident constant_layout_info($stretch:literal)) => { $e.element.constant_layout_info_stretch = Some($stretch) };
+    ($e:ident experimental_feature($f:ident)) => { $e.element.experimental_feature = Some(crate::ExperimentalFeature::$f) };
     ($e:ident $flag:ident) => { $e.element.$flag = true };
 }
 
@@ -396,7 +401,7 @@ impl Loader<'_> {
         if let Some(inner) = text.strip_prefix('[').and_then(|t| t.strip_suffix(']')) {
             return Type::Array(Arc::new(self.ty(inner)));
         }
-        let ty = self.types.lookup(&kebab(text));
+        let ty = self.types.lookup_including_disabled(&kebab(text));
         assert!(ty != Type::Invalid, "unknown type `{text}` in a builtin element");
         ty
     }
@@ -497,7 +502,7 @@ fn build(l: &mut Loader) {
         }};
     }
     macro_rules! element {
-        ($(#[doc = $d:literal])* $(@$flag:ident $(($arg:ident))?)* $Name:ident $(: $Item:ident)? $({ $($body:tt)* })?) => {{
+        ($(#[doc = $d:literal])* $(@$flag:ident $(($arg:tt))?)* $Name:ident $(: $Item:ident)? $({ $($body:tt)* })?) => {{
             let mut e = l.element(stringify!($Name), docs!($($d)*));
             $( l.base(&mut e, stringify!($Item)); )?
             $( flag!(e $flag $(($arg))?); )*
@@ -509,7 +514,7 @@ fn build(l: &mut Loader) {
     item! { Empty { } }
 
     element! {
-        @is_internal
+        @is_internal @constant_layout_info(1.)
         Empty: Empty
     }
 
@@ -668,7 +673,7 @@ fn build(l: &mut Loader) {
         //! <SlintProperty propName="drop-shadow-spread" typeName="length"/>
         //! Grows (positive) or shrinks (negative) the shadow shape on all sides before the blur is applied.
         //! Positive spread also thickens borders inward; negative spread thins them.
-        //! Supported by the Skia, FemtoVG, and Vello renderers.
+        //! Supported by the Skia, FemtoVG, Vello, and software renderers.
         //! The Qt backend ignores spread.
         //!
         //! ## Inner Shadows
@@ -808,7 +813,7 @@ fn build(l: &mut Loader) {
         /// }
         /// ```
         /// \group:elements
-        @sc @expands_to_parent_geometry
+        @sc @expands_to_parent_geometry @constant_layout_info(1.)
         Rectangle: BorderRectangle
     }
 
@@ -888,7 +893,6 @@ fn build(l: &mut Loader) {
         ///     image-rendering: pixelated;
         /// }
         /// ```
-        /// \default smooth
         in property <ImageRendering> image-rendering;
 
         @deprecated in property <angle> rotation-angle <=> transform-rotation;
@@ -896,14 +900,11 @@ fn build(l: &mut Loader) {
 
     item! { ClippedImage: ImageItem {
         /// The horizontal alignment of the image within the element.
-        /// \default center
         in property <ImageHorizontalAlignment> horizontal-alignment;
         /// The vertical alignment of the image within the element.
-        /// \default center
         in property <ImageVerticalAlignment> vertical-alignment;
         //! ## Image Tiling
         /// How the image is tiled horizontally.
-        /// \default none
         in property <ImageTiling> horizontal-tiling;
         /// ```slint imageAlt="image horizontal tiling repeat example" width="400" height="400"
         /// Image {
@@ -949,7 +950,6 @@ fn build(l: &mut Loader) {
         ///     horizontal-tiling: round;
         /// }
         /// ```
-        /// \default none
         in property <ImageTiling> vertical-tiling;
         // TODO: sets both horizontal-tiling and vertical-tiling at the same time.
         // in property <ImageTiling> tiling;
@@ -1045,7 +1045,7 @@ fn build(l: &mut Loader) {
     } }
 
     element! {
-        @accepts_focus
+        @accepts_focus @experimental_feature(ComponentContainer)
         ComponentContainer: ComponentContainer
     }
 
@@ -1057,7 +1057,7 @@ fn build(l: &mut Loader) {
     } }
 
     element! {
-        @is_internal @expands_to_parent_geometry
+        @is_internal @expands_to_parent_geometry @constant_layout_info(1.)
         Transform: Transform
     }
 
@@ -1285,6 +1285,33 @@ fn build(l: &mut Loader) {
         in property <TextVerticalAlignment> vertical-alignment;
         /// A callback that's invoked when a link in the text is clicked. The parameter contains the clicked link as a string.
         callback link-clicked(link: string);
+        /// Whether the text can be selected with the mouse.
+        /// Pressing and dragging selects, a double click selects a word and a triple click a paragraph.
+        /// A click that doesn't drag still follows a link.
+        /// The press takes the focus, and the selection goes when the focus does, as in a `TextInput`,
+        /// so at most one element shows a mouse selection at a time.
+        /// A change of `text` keeps the selection's offsets, clamped to the new text.
+        @shadowable in property <bool> selectable;
+        /// The background color of the selection.
+        /// \default depends on the style
+        @shadowable in property <color> selection-background-color: computed; // Palette.selection-background set in apply_default_properties_from_style
+        /// The foreground color of the selection.
+        /// \default depends on the style
+        @shadowable in property <color> selection-foreground-color: computed; // Palette.selection-foreground set in apply_default_properties_from_style
+        /// `true` when text is selected.
+        @shadowable out property <bool> has-selection { BuiltinFunction.StyledTextHasSelection }
+
+        /// Selects the text between two UTF-8 byte offsets.
+        /// `anchor` is the end of the selection that stays put and `focus` the end the cursor moves to,
+        /// so `focus` may precede `anchor` to select backwards.
+        /// Pass the same value for both to clear the selection.
+        function set-selection-offsets(anchor: int, focus: int) { BuiltinFunction.StyledTextSetSelectionOffsets }
+        /// Selects all text.
+        function select-all() { BuiltinFunction.StyledTextSelectAll }
+        /// Clears the selection.
+        function clear-selection() { BuiltinFunction.StyledTextClearSelection }
+        /// Copies the selected text to the clipboard.
+        function copy() { BuiltinFunction.StyledTextCopy }
     } }
 
     element! {
@@ -1422,8 +1449,6 @@ fn build(l: &mut Loader) {
         ///     width: 200px;
         ///     height: 100px;
         ///     area := TouchArea {
-        ///         width: parent.width;
-        ///         height: parent.height;
         ///         clicked => {
         ///             rect2.background = #ff0;
         ///         }
@@ -1443,7 +1468,7 @@ fn build(l: &mut Loader) {
         /// ```
         /// </NotInSC>
         /// \group:gestures
-        @sc @expands_to_parent_geometry
+        @sc @expands_to_parent_geometry @constant_layout_info(1.)
         TouchArea: TouchArea
     }
 
@@ -1461,7 +1486,7 @@ fn build(l: &mut Loader) {
         /// KeyBindings use **logical keys**, based on the character a key produces, not physical key positions.
         ///
         /// See <Link type="KeyBindingOverview" label="Key Bindings"/> for details.
-        @is_non_item_type
+        @is_non_item_type @constant_layout_info(0.)
         KeyBinding: KeyBinding
     }
 
@@ -1558,7 +1583,7 @@ fn build(l: &mut Loader) {
         /// If these callbacks return `EventResult::accept`, then event delivery is finished and the event has been handled. Otherwise, (recursively) try
         /// to deliver the key event to the parent element.
         /// \group:keyboard-input
-        @accepts_focus @expands_to_parent_geometry
+        @accepts_focus @expands_to_parent_geometry @constant_layout_info(1.)
         FocusScope: FocusScope {
             children: KeyBinding;
         }
@@ -1594,7 +1619,7 @@ fn build(l: &mut Loader) {
         /// For example, `scroll-to({ x: 0px, y: 100px }, ScrollBehavior.instant)` sets `content-y` to `-100px`.
         /// A `pos` outside the scrollable range is clamped to it.
         /// Pass `ScrollBehavior.instant` to jump or `ScrollBehavior.smooth` to animate.
-        function scroll-to(pos: Point, behavior: ScrollBehavior) { BuiltinFunction.ScrollTo }
+        @shadowable function scroll-to(pos: Point, behavior: ScrollBehavior) { BuiltinFunction.ScrollTo }
         /// Invoked when `content-x` or `content-y` is changed by a user action (dragging, scrolling).
         callback flicked;
     } }
@@ -1647,7 +1672,7 @@ fn build(l: &mut Loader) {
         ///       Moves that don't start a flick don't reset or cancel this delay.
         ///    2. If the release comes before the 100ms elapse, the press and the release are delivered right away.
         ///    3. If no element inside the `Flickable` handles the press, and it doesn't start a flick,
-        ///       the click goes to the elements behind the `Flickable`.
+        ///       the click goes to the parent elements of the `Flickable`, but not to other elements behind it.
         ///       They receive the press together with the release.
         /// 4. Dragging more than 8 logical pixels (10 on iOS) along an axis the `Flickable` can scroll starts a flick.
         ///    If an element inside already received the press, the drag must start within 500ms of the press,
@@ -1667,7 +1692,7 @@ fn build(l: &mut Loader) {
         /// To bring an element inside the `Flickable` into view, call
         /// [`ensure-visible()`](/reference/common/#ensure-visiblebehavior-scrollbehavior) on that element instead.
         /// \group:gestures
-        @expands_to_parent_geometry
+        @expands_to_parent_geometry @constant_layout_info(1.)
         Flickable: Flickable
     }
 
@@ -1762,7 +1787,7 @@ fn build(l: &mut Loader) {
         /// If the pointer moves by more than 8 logical pixels in one of the enabled swipe directions, the gesture is recognized, and events are no longer forwarded to the children.
         ///
         /// If no child handles a click, and the click doesn't start a swipe,
-        /// the click goes to the elements behind the `SwipeGestureHandler`, the same as with <Link type="Flickable"/>.
+        /// the click goes to the parent elements of the `SwipeGestureHandler`, the same as with <Link type="Flickable"/>.
         ///
         /// To keep the gesture-recognition area large enough to feel responsive, wrap the `SwipeGestureHandler` around the controls it should
         /// handle swipes for, rather than placing it as a sibling before them.
@@ -1773,7 +1798,7 @@ fn build(l: &mut Loader) {
         /// `Slider`'s `changed` and `released` callbacks.
         /// :::
         /// \group:gestures
-        @expands_to_parent_geometry
+        @expands_to_parent_geometry @constant_layout_info(1.)
         SwipeGestureHandler: SwipeGestureHandler
     }
 
@@ -1854,7 +1879,7 @@ fn build(l: &mut Loader) {
         /// The `rotation` property provides a cumulative rotation angle (starting at `0deg`).
         /// Use the `started` callback to capture your initial state, then multiply by `scale` and add `rotation` in the `updated` callback to apply the gesture.
         /// \group:gestures
-        @expands_to_parent_geometry
+        @expands_to_parent_geometry @constant_layout_info(1.)
         ScaleRotateGestureHandler: ScaleRotateGestureHandler
     }
 
@@ -1907,7 +1932,7 @@ fn build(l: &mut Loader) {
         ///
         /// See <Link type="DragAndDrop" /> for a usage guide and a complete example.
         /// \group:drag-and-drop
-        @expands_to_parent_geometry
+        @expands_to_parent_geometry @constant_layout_info(1.)
         DragArea: DragArea
     }
 
@@ -1942,7 +1967,7 @@ fn build(l: &mut Loader) {
         ///
         /// See <Link type="DragAndDrop" /> for a usage guide and a complete example.
         /// \group:drag-and-drop
-        @expands_to_parent_geometry
+        @expands_to_parent_geometry @constant_layout_info(1.)
         DropArea: DropArea
     }
 
@@ -1966,11 +1991,16 @@ fn build(l: &mut Loader) {
         in-out property <bool> checked: false;
         /// The icon shown next to the title.
         in property <image> icon;
+        /// The platform role of this `MenuItem`.
+        /// Use it to place translated "About", "Settings", and "Quit" items in the macOS application menu.
+        ///
+        /// This property can only be set in a `MenuItem` that is part of a <Link type="MenuBar"/>.
+        in property <MenuItemRole> role;
     } }
 
     element! {
         /// A `MenuItem` represents a single menu entry. It must be a child of a `Menu` element.
-        @is_non_item_type @disallow_global_types_as_child_elements
+        @is_non_item_type @disallow_global_types_as_child_elements @constant_layout_info(0.)
         MenuItem: MenuItem
     }
 
@@ -2064,6 +2094,53 @@ fn build(l: &mut Loader) {
         ///     // ... actual window content goes here
         /// }
         /// ```
+        ///
+        /// ### macOS Application Menu
+        ///
+        /// On macOS, the first menu in the menu bar is the application menu, which macOS titles with the application's name.
+        /// By default, it contains "About", "Services", "Hide", "Hide Others", "Show All", and "Quit" items with English titles.
+        ///
+        /// To provide your own, translated items, set the `role` property of a `MenuItem`, using a <Link type="MenuItemRole" /> value.
+        /// On macOS, Slint moves these items into the application menu.
+        /// On other platforms, "About", "Settings", and "Quit" items stay where you declare them,
+        /// and items with the macOS-only roles are hidden.
+        /// The same applies on macOS when Slint renders the menu bar in the window, such as with the Qt backend.
+        ///
+        /// ```slint
+        /// export component Example inherits Window {
+        ///     MenuBar {
+        ///         Menu {
+        ///             title: @tr("File");
+        ///             MenuItem {
+        ///                 title: @tr("Settings…");
+        ///                 role: preferences;
+        ///                 activated => { show-settings(); }
+        ///             }
+        ///             MenuItem {
+        ///                 title: @tr("Hide Example");
+        ///                 role: hide;
+        ///             }
+        ///             MenuItem {
+        ///                 title: @tr("Quit");
+        ///                 role: quit;
+        ///                 activated => { quit-requested(); }
+        ///             }
+        ///         }
+        ///         Menu {
+        ///             title: @tr("Help");
+        ///             MenuItem {
+        ///                 title: @tr("About Example");
+        ///                 role: about;
+        ///                 activated => { show-about(); }
+        ///             }
+        ///         }
+        ///     }
+        ///
+        ///     callback show-settings();
+        ///     callback show-about();
+        ///     callback quit-requested();
+        /// }
+        /// ```
         /// \skip_children
         @is_non_item_type @disallow_global_types_as_child_elements
         MenuBar {
@@ -2087,7 +2164,7 @@ fn build(l: &mut Loader) {
 
     element! {
         // The NativeItem, exported as ContextMenuInternal for the style
-        @is_internal @expands_to_parent_geometry
+        @is_internal @expands_to_parent_geometry @constant_layout_info(0.)
         ContextMenuInternal: ContextMenu {
             in property <[MenuEntry]> entries;
         }
@@ -2229,7 +2306,8 @@ fn build(l: &mut Loader) {
         /// On mobile devices, virtual keyboards (aka software keyboards or onscreen keyboards) are displayed on top of the application. When such a keyboard is shown, this property denotes the width and height of the rectangle covered by it in window coordinates.
         out property <Size> virtual-keyboard-size;
         /// Request that the window be closed.
-        /// This triggers the `close-requested` callback, giving the application a chance to cancel the close.
+        /// This invokes the close request handler that the application set on the window,
+        /// which can cancel the close.
         /// Returns `true` if the application accepted the close request; false otherwise.
         /// Returns `false` if called on a child `Window` element, which can't be closed independently.
         @shadowable function close() -> bool { BuiltinFunction.WindowClose }
@@ -2251,7 +2329,7 @@ fn build(l: &mut Loader) {
         /// Use the <Link type="MenuBar" /> element to declare a menu bar for the window.
         /// </NotInSC>
         /// \group:window
-        @sc
+        @sc @constant_layout_info(0.)
         Window: WindowItem {
             children: MenuBar;
         }
@@ -2303,7 +2381,7 @@ fn build(l: &mut Loader) {
         /// }
         /// ```
         /// \group:window
-        @expands_to_parent_geometry
+        @expands_to_parent_geometry @constant_layout_info(1.)
         WindowMoveArea: WindowMoveArea
     }
 
@@ -2324,7 +2402,7 @@ fn build(l: &mut Loader) {
     } }
 
     element! {
-        @is_internal @expands_to_parent_geometry
+        @is_internal @expands_to_parent_geometry @constant_layout_info(1.)
         BoxShadow: BoxShadow
     }
 
@@ -2337,7 +2415,7 @@ fn build(l: &mut Loader) {
     } }
 
     element! {
-        @is_internal @expands_to_parent_geometry
+        @is_internal @expands_to_parent_geometry @constant_layout_info(1.)
         BackdropBlur: BackdropBlur
     }
 
@@ -2366,7 +2444,6 @@ fn build(l: &mut Loader) {
         /// The vertical alignment of the text.
         in property <TextVerticalAlignment> vertical-alignment;
         /// The way the text input wraps. Only makes sense when `single-line` is false.
-        /// \default no-wrap
         in property <TextWrap> wrap;
         /// The letter spacing allows changing the spacing between the glyphs. A positive value increases the spacing and a negative value decreases the distance.
         /// \default 0
@@ -2387,7 +2464,6 @@ fn build(l: &mut Loader) {
         /// \default provided at run-time by the selected widget style
         in property <length> text-cursor-width: computed; // StyleMetrics.text-cursor-width  set in apply_default_properties_from_style
         ///  Use this to configure `TextInput` for editing special input, such as password fields.
-        /// \default text
         in property <InputType> input-type;
         /// Hints for the platform's input method (such as a soft keyboard), for example to configure auto-capitalization.
         /// The input method may take these hints into account, but might also ignore them.
@@ -2496,6 +2572,26 @@ fn build(l: &mut Loader) {
         ///  - `accessible-value: text;`
         ///  - `accessible-enabled: enabled;`
         ///  - `accessible-read-only: read-only; `
+        ///
+        /// Set `accessible-role: none` when the element around the `TextInput` takes the
+        /// `text-input` or `spinbox` role itself.
+        /// Both of them describe the text of the same input otherwise,
+        /// so a screen reader is given that text twice.
+        /// The compiler warns when both of them keep the role.
+        ///
+        /// ```slint
+        /// component CustomLineEdit {
+        ///     in-out property <string> text <=> input.text;
+        ///
+        ///     accessible-role: text-input;
+        ///     accessible-value <=> root.text;
+        ///
+        ///     input := TextInput {
+        ///         // The component around it describes this input
+        ///         accessible-role: none;
+        ///     }
+        /// }
+        /// ```
         /// \group:keyboard-input
         @accepts_focus @expands_to_parent_geometry
         TextInput: TextInput
@@ -2512,7 +2608,7 @@ fn build(l: &mut Loader) {
     } }
 
     element! {
-        @is_internal @expands_to_parent_geometry
+        @is_internal @expands_to_parent_geometry @constant_layout_info(1.)
         Clip: Clip
     }
 
@@ -2522,7 +2618,7 @@ fn build(l: &mut Loader) {
     } }
 
     element! {
-        @is_internal @expands_to_parent_geometry
+        @is_internal @expands_to_parent_geometry @constant_layout_info(1.)
         Opacity: Opacity
     }
 
@@ -2532,7 +2628,7 @@ fn build(l: &mut Loader) {
     } }
 
     element! {
-        @is_internal @expands_to_parent_geometry
+        @is_internal @expands_to_parent_geometry @constant_layout_info(1.)
         Layer: Layer
     }
 
@@ -2650,9 +2746,11 @@ fn build(l: &mut Loader) {
             /// The distance between the elements in the layout. This single value is applied to both horizontal and vertical spacing.
             in property <length> spacing;
             //! To target specific axis with different values use the following properties:
-            ///
+            /// Defaults to the value of `spacing`.
+            /// \default spacing
             in property <length> spacing-horizontal;
-            ///
+            /// Defaults to the value of `spacing`.
+            /// \default spacing
             in property <length> spacing-vertical;
             //! ## Padding Properties
             //!
@@ -2664,16 +2762,24 @@ fn build(l: &mut Loader) {
             //! To target specific sides with different values use the following properties:
             //!
             //! ### padding-left
-            //! <SlintProperty propName="padding-left" typeName="length"/>
+            //! <SlintProperty propName="padding-left" typeName="length" defaultValue="padding">
+            //! Defaults to the value of `padding`.
+            //! </SlintProperty>
             //!
             //! ### padding-right
-            //! <SlintProperty propName="padding-right" typeName="length"/>
+            //! <SlintProperty propName="padding-right" typeName="length" defaultValue="padding">
+            //! Defaults to the value of `padding`.
+            //! </SlintProperty>
             //!
             //! ### padding-top
-            //! <SlintProperty propName="padding-top" typeName="length"/>
+            //! <SlintProperty propName="padding-top" typeName="length" defaultValue="padding">
+            //! Defaults to the value of `padding`.
+            //! </SlintProperty>
             //!
             //! ### padding-bottom
-            //! <SlintProperty propName="padding-bottom" typeName="length"/>
+            //! <SlintProperty propName="padding-bottom" typeName="length" defaultValue="padding">
+            //! Defaults to the value of `padding`.
+            //! </SlintProperty>
 
             // Additional accepted child
             children: Row;
@@ -2733,16 +2839,24 @@ fn build(l: &mut Loader) {
             //!
             //! To target specific sides with different values use the following properties:
             //! ### padding-left
-            //! <SlintProperty propName="padding-left" typeName="length"/>
+            //! <SlintProperty propName="padding-left" typeName="length" defaultValue="padding">
+            //! Defaults to the value of `padding`.
+            //! </SlintProperty>
             //!
             //! ### padding-right
-            //! <SlintProperty propName="padding-right" typeName="length"/>
+            //! <SlintProperty propName="padding-right" typeName="length" defaultValue="padding">
+            //! Defaults to the value of `padding`.
+            //! </SlintProperty>
             //!
             //! ### padding-top
-            //! <SlintProperty propName="padding-top" typeName="length"/>
+            //! <SlintProperty propName="padding-top" typeName="length" defaultValue="padding">
+            //! Defaults to the value of `padding`.
+            //! </SlintProperty>
             //!
             //! ### padding-bottom
-            //! <SlintProperty propName="padding-bottom" typeName="length"/>
+            //! <SlintProperty propName="padding-bottom" typeName="length" defaultValue="padding">
+            //! Defaults to the value of `padding`.
+            //! </SlintProperty>
             //!
             //! ## Alignment Properties
             /// Set the alignment along the main (vertical) axis. Matches the CSS flex box.
@@ -2824,16 +2938,24 @@ fn build(l: &mut Loader) {
             //! To target specific sides with different values use the following properties:
             //!
             //! ### padding-left
-            //! <SlintProperty propName="padding-left" typeName="length"/>
+            //! <SlintProperty propName="padding-left" typeName="length" defaultValue="padding">
+            //! Defaults to the value of `padding`.
+            //! </SlintProperty>
             //!
             //! ### padding-right
-            //! <SlintProperty propName="padding-right" typeName="length"/>
+            //! <SlintProperty propName="padding-right" typeName="length" defaultValue="padding">
+            //! Defaults to the value of `padding`.
+            //! </SlintProperty>
             //!
             //! ### padding-top
-            //! <SlintProperty propName="padding-top" typeName="length"/>
+            //! <SlintProperty propName="padding-top" typeName="length" defaultValue="padding">
+            //! Defaults to the value of `padding`.
+            //! </SlintProperty>
             //!
             //! ### padding-bottom
-            //! <SlintProperty propName="padding-bottom" typeName="length"/>
+            //! <SlintProperty propName="padding-bottom" typeName="length" defaultValue="padding">
+            //! Defaults to the value of `padding`.
+            //! </SlintProperty>
             //!
             //! ## Alignment Properties
             /// Set the alignment along the main (horizontal) axis. Matches the CSS flex box.
@@ -2995,8 +3117,12 @@ fn build(l: &mut Loader) {
             in property <length> spacing;
             //! To target specific directions with different values use the following properties:
             /// The horizontal distance between items in the layout. CSS Flexbox calls this "column-gap".
+            /// Defaults to the value of `spacing`.
+            /// \default spacing
             in property <length> spacing-horizontal;
             /// The vertical distance between items in the layout. CSS Flexbox calls this "row-gap".
+            /// Defaults to the value of `spacing`.
+            /// \default spacing
             in property <length> spacing-vertical;
             //! ## Padding Properties
             //!
@@ -3007,16 +3133,24 @@ fn build(l: &mut Loader) {
             //!
             //! To target specific sides with different values use the following properties:
             //! ### padding-left
-            //! <SlintProperty propName="padding-left" typeName="length"/>
+            //! <SlintProperty propName="padding-left" typeName="length" defaultValue="padding">
+            //! Defaults to the value of `padding`.
+            //! </SlintProperty>
             //!
             //! ### padding-right
-            //! <SlintProperty propName="padding-right" typeName="length"/>
+            //! <SlintProperty propName="padding-right" typeName="length" defaultValue="padding">
+            //! Defaults to the value of `padding`.
+            //! </SlintProperty>
             //!
             //! ### padding-top
-            //! <SlintProperty propName="padding-top" typeName="length"/>
+            //! <SlintProperty propName="padding-top" typeName="length" defaultValue="padding">
+            //! Defaults to the value of `padding`.
+            //! </SlintProperty>
             //!
             //! ### padding-bottom
-            //! <SlintProperty propName="padding-bottom" typeName="length"/>
+            //! <SlintProperty propName="padding-bottom" typeName="length" defaultValue="padding">
+            //! Defaults to the value of `padding`.
+            //! </SlintProperty>
             //!
             //! ## Alignment Properties
             /// Set the alignment of items along the main axis. CSS Flexbox calls this "justify-content".
@@ -3142,17 +3276,14 @@ fn build(l: &mut Loader) {
         /// The color for filling the shape of the path.
         in property <brush> fill;
         /// The fill rule to use for the path.
-        /// \default nonzero
         in property <FillRule> fill-rule;
         /// The color for drawing the outline of the path.
         in property <brush> stroke;
         /// The width of the outline.
         in property <length> stroke-width;
         /// The appearance of the ends of the path's outline.
-        /// \default butt
         in property <LineCap> stroke-line-cap;
         /// The appearance of the joins between segments of stroked paths.
-        /// \default miter
         in property <LineJoin> stroke-line-join;
         /// The limit on the ratio of the miter length to the stroke width when `stroke-line-join` is set to `miter`.
         /// When the limit is exceeded, the join is rendered as a bevel instead.
@@ -3242,8 +3373,11 @@ fn build(l: &mut Loader) {
         //!
         //! ### Commands
         //! <SlintProperty propName="commands" typeName="string">
-        //! A string providing the commands according to the SVG path specification.
-        //! This property can only be set in a binding and cannot be accessed in an expression.
+        //! A string with the commands in the SVG path syntax.
+        //!
+        //! :::note[Note]
+        //! This property is special: you can set it with any expression, but other expressions can't read it.
+        //! :::
         //! </SlintProperty>
         //!
         //! ## Path Using SVG Path Elements
@@ -3308,7 +3442,7 @@ fn build(l: &mut Loader) {
         /// and `height` properties are non-zero, then the entire shape is fit into these bounds - by scaling
         /// accordingly.
         /// \group:elements
-        @disallow_global_types_as_child_elements @expands_to_parent_geometry
+        @disallow_global_types_as_child_elements @expands_to_parent_geometry @constant_layout_info(1.)
         Path: Path {
             children: MoveTo, LineTo, ArcTo, CubicTo, QuadraticTo, Close;
         }
@@ -3365,12 +3499,11 @@ fn build(l: &mut Loader) {
         ///     height: 100px;
         ///
         ///     popup := PopupWindow {
-        ///         Rectangle { height:100%; width: 100%; background: yellow; }
+        ///         Rectangle { background: yellow; }
         ///         x: 20px; y: 20px; height: 50px; width: 50px;
         ///     }
         ///
         ///     TouchArea {
-        ///         height:100%; width: 100%;
         ///         clicked => { popup.show(); }
         ///     }
         /// }
@@ -3394,7 +3527,6 @@ fn build(l: &mut Loader) {
 
             @constexpr in property <bool> close-on-click;
             /// By default, a PopupWindow closes when the user clicks. Set this to false to prevent that behavior and close it manually using the `close()` function.
-            /// \default close-on-click
 
             @constexpr in property <PopupClosePolicy> close-policy;
             /// Use this read-only property to style the element that opened the popup, for example
@@ -3428,7 +3560,7 @@ fn build(l: &mut Loader) {
 
     element! {
         // Internal hover tracker used with `Tooltip` lowering (the compiler inserts `TooltipArea` so `Tooltip` can react to hover and pointer position).
-        @is_internal @expands_to_parent_geometry
+        @is_internal @expands_to_parent_geometry @constant_layout_info(0.)
         TooltipArea: TooltipArea
     }
 
@@ -3589,7 +3721,7 @@ fn build(l: &mut Loader) {
         ///     }
         /// }
         /// ```
-        @is_non_item_type @disallow_global_types_as_child_elements
+        @is_non_item_type @disallow_global_types_as_child_elements @can_be_declared_without_children_slot
         Timer {
             /// The interval between timer ticks. This property is mandatory.
             /// ```slint "interval: 250ms;"
@@ -3674,7 +3806,7 @@ fn build(l: &mut Loader) {
         ///
         /// Same as <Link type="Window"/>.
         /// \group:window
-        @skip_inherited
+        @skip_inherited @constant_layout_info(0.)
         Dialog: WindowItem
     }
 
@@ -3687,6 +3819,7 @@ fn build(l: &mut Loader) {
             in property <easing> easing;
             in property <float> iteration-count: 1.0;
             in property <bool> enabled: true;
+            in property <AngleInterpolation> angle-interpolation;
         }
     }
 
@@ -4151,9 +4284,9 @@ fn build(l: &mut Loader) {
         /// :::
         ///
         /// :::note{Note}
-        /// A `SystemTrayIcon` must contain exactly one <Link type="Menu" /> child, and that `Menu` must not
-        /// be inside an `if` or a `for`. No other child element types are permitted. The menu itself may
-        /// use `if` / `for` to build its entries dynamically.
+        /// A `SystemTrayIcon` can contain one <Link type="Menu" /> child, and that `Menu` must not
+        /// be inside a `for`. The menu itself may use `if` / `for` to build its entries dynamically.
+        /// <Link type="Timer" /> children are also allowed.
         /// :::
         ///
         /// \skip_children
@@ -4271,7 +4404,7 @@ fn build(l: &mut Loader) {
         /// needs an extension such as *AppIndicator and KStatusNotifierItem Support*.
         ///
         /// \group:window
-        @is_non_item_type @disallow_global_types_as_child_elements
+        @is_non_item_type @disallow_global_types_as_child_elements @constant_layout_info(0.)
         SystemTrayIcon: SystemTrayIcon {
             children: Menu;
         }

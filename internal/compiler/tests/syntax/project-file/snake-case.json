@@ -1,0 +1,4 @@
+{
+  "include_paths": ["include"]
+//              |error{unknown field `include_paths`, expected one of `$schema`, `library-paths`, `include-paths`, `experimental-features`, `main`, `edition`, `metadata`}
+}

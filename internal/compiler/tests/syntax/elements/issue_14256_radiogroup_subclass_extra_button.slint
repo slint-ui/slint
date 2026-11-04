@@ -1,0 +1,15 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { RadioGroup } from "std-widgets.slint";
+
+component Colors inherits RadioGroup {
+    RadioButton { text: "Red"; }
+}
+
+export component Test inherits Window {
+    Colors {
+//  >     <error{Cannot add 'RadioButton' elements when instantiating a 'RadioGroup' subclass that already declares its own; declare them on the subclass instead}
+        RadioButton { text: "Blue"; }
+    }
+}

@@ -7,8 +7,9 @@ This will become part of the docs later, but for now, this is a placeholder.
 ## CI entry point
 
 The dedicated workflow is `.github/workflows/visual_editor_macos_dmg.yaml`.
-It runs on pull requests against the `visual-editor` branch, on manual dispatch,
-and as a reusable workflow.
+It runs on manual dispatch and as a reusable workflow.
+It holds the Apple signing secrets in every step, so it must not run on pull requests:
+same-repo pull requests receive the repository secrets.
 
 `.github/workflows/visual_editor_nightly.yaml` calls it once a night and
 publishes the result. It's a separate workflow rather than a job in
@@ -50,9 +51,7 @@ expects. GitHub documents repository and organization secrets here:
   key.
 - `EDITOR_SPARKLE_ED_PRIVATE_KEY`: the Sparkle EdDSA private key, base64 of the
   32-byte ed25519 seed, exactly as `generate_keys -x` writes it. Only the
-  appcast step uses it, and pull request runs don't get it: same-repo pull
-  requests do receive secrets, so keeping it out of their scope is the only
-  thing stopping a branch from printing it.
+  appcast step uses it.
 
 The nightly workflow additionally needs write access to the R2 bucket:
 

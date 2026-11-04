@@ -104,6 +104,9 @@ class ElementAssertion:
     def to_be_selected(self, selected: bool = True, *, timeout: float = 5) -> None:
         self._property("accessible_item_selected", selected, timeout)
 
+    def to_be_checked(self, checked: bool = True, *, timeout: float = 5) -> None:
+        self._property("accessible_checked", checked, timeout)
+
     def _count(self) -> int:
         if not isinstance(self.target, slint_testing.ElementQuery):
             raise TypeError("counting needs a query, not an element")

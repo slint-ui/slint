@@ -2,10 +2,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import * as slint from "slint-ui";
+import { AppWindow } from "../ui/demo.slint";
 
-const ui = slint.loadFile(new URL("../ui/demo.slint", import.meta.url));
-const appWindow = new ui.AppWindow();
+const appWindow = new AppWindow();
 const api = appWindow.Api;
 const date = api.current_date;
 const time = api.current_time;

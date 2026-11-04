@@ -1066,7 +1066,7 @@ async function captureNodeStrict(
         }
     }
     let node = sourceNode;
-    if (runtimeNodeType === "TABLE_CELL") {
+    if (runtimeNodeType === "TABLE_CELL" && !sourceNode.sourceRasterized) {
         const cell = node;
         const cellId =
             "id" in cell && typeof cell.id === "string"
@@ -1222,10 +1222,11 @@ async function captureNodeStrict(
     let autoLayout: SnapshotAutoLayout | null = null;
     let layoutFallback: "flex" | "freeform" = "freeform";
     if (
-        node.type === "FRAME" ||
-        node.type === "COMPONENT" ||
-        node.type === "INSTANCE" ||
-        node.type === "COMPONENT_SET"
+        !node.sourceRasterized &&
+        (node.type === "FRAME" ||
+            node.type === "COMPONENT" ||
+            node.type === "INSTANCE" ||
+            node.type === "COMPONENT_SET")
     ) {
         const capturedLayout = captureAutoLayout(node, mixedValue);
         if ("error" in capturedLayout) return { error: capturedLayout.error };
@@ -1246,6 +1247,14 @@ async function captureNodeStrict(
         id: node.id,
         name: node.name,
     };
+    if (node.sourceRasterized)
+        return normalizeVisual(
+            { ...node, type: "VECTOR" },
+            base,
+            context,
+            captureWarnings,
+            "vector",
+        );
     if (node.sourceMaskRaster) {
         const exported = await exportVisual(
             node,
@@ -1731,6 +1740,8 @@ async function normalizeValidatedSource(
             id: node.id,
             name: node.name,
             type: node.type,
+            sourceRasterized:
+                parent === undefined && source.rasterized === true,
             sourceSvgOmitted: node.exports?.svgOmitted === "png",
             sourcePngOmitted: node.exports?.pngOmitted === "svg",
             sourceSvgBounds: node.exports?.svgBounds,

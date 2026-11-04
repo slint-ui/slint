@@ -1,0 +1,127 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Button, CheckBox, Switch } from "../../../tools/editor/controls/src/basic.slint";
+
+export component TestCase inherits Window {
+    width: 500px;
+    height: 330px;
+    in-out property <bool> click-focus: true;
+    in-out property <bool> actions-enabled: true;
+    out property <bool> editor-focused: editor.has-focus;
+    out property <bool> toolbar-focused: toolbar.has-focus;
+    out property <bool> action-focused: action.has-focus;
+    out property <bool> checkbox-focused: checkbox.has-focus;
+    out property <bool> switch-focused: toggle.has-focus;
+    out property <int> activations;
+    out property <bool> test: root.activations == 0;
+
+    public function focus-editor() { editor.focus(); }
+
+    editor := TextInput {
+        x: 20px;
+        y: 20px;
+        width: 200px;
+        height: 32px;
+        text: "Edit without losing focus";
+    }
+    toolbar := Button {
+        x: 250px;
+        y: 20px;
+        width: 160px;
+        height: 32px;
+        text: "Reveal action";
+        focus-on-tab-navigation: false;
+        clicked => { root.activations += 1; }
+    }
+    action := Button {
+        x: 20px;
+        y: 90px;
+        width: 200px;
+        height: 44px;
+        text: "Form action";
+        enabled: root.actions-enabled;
+        focus-on-click: root.click-focus;
+        clicked => { root.activations += 1; }
+    }
+    checkbox := CheckBox {
+        x: 20px;
+        y: 160px;
+        width: 200px;
+        height: 44px;
+        text: "Form checkbox";
+        focus-on-click: root.click-focus;
+        toggled => { root.activations += 1; }
+    }
+    toggle := Switch {
+        x: 20px;
+        y: 230px;
+        width: 200px;
+        height: 44px;
+        text: "Form switch";
+        focus-on-click: root.click-focus;
+        toggled => { root.activations += 1; }
+    }
+}
+
+/*
+```rust
+use slint::platform::{Key, PointerEventButton};
+use slint_testing::ElementHandle;
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+let find = |label: &str| {
+    ElementHandle::find_by_accessible_label(&instance, label).next().unwrap()
+};
+let key = |key: Key, pressed: bool| {
+    slint_testing::send_keyboard_char(&instance, key.into(), pressed);
+};
+let tab = || { key(Key::Tab, true); key(Key::Tab, false); };
+
+instance.invoke_focus_editor();
+tab();
+assert!(instance.get_action_focused());
+assert!(!instance.get_toolbar_focused());
+tab();
+assert!(instance.get_checkbox_focused());
+tab();
+assert!(instance.get_switch_focused());
+tab();
+assert!(instance.get_editor_focused());
+key(Key::Shift, true);
+tab();
+key(Key::Shift, false);
+assert!(instance.get_switch_focused());
+
+for label in ["Form action", "Form checkbox", "Form switch"] {
+    instance.invoke_focus_editor();
+    find(label).mock_single_click(PointerEventButton::Left);
+    assert!(!instance.get_editor_focused());
+    assert_eq!(instance.get_action_focused(), label == "Form action");
+    assert_eq!(instance.get_checkbox_focused(), label == "Form checkbox");
+    assert_eq!(instance.get_switch_focused(), label == "Form switch");
+}
+assert_eq!(instance.get_activations(), 3, "the first click must focus and activate");
+
+instance.invoke_focus_editor();
+find("Reveal action").mock_single_click(PointerEventButton::Left);
+assert!(instance.get_editor_focused());
+assert_eq!(instance.get_activations(), 4);
+find("Form action").mock_single_click(PointerEventButton::Right);
+assert!(instance.get_editor_focused());
+assert_eq!(instance.get_activations(), 4);
+
+instance.set_click_focus(false);
+for label in ["Form action", "Form checkbox", "Form switch"] {
+    find(label).mock_single_click(PointerEventButton::Left);
+    assert!(instance.get_editor_focused());
+}
+assert_eq!(instance.get_activations(), 7);
+instance.set_click_focus(true);
+instance.set_actions_enabled(false);
+slint::platform::update_timers_and_animations();
+find("Form action").mock_single_click(PointerEventButton::Left);
+assert!(instance.get_editor_focused());
+assert_eq!(instance.get_activations(), 7);
+```
+*/

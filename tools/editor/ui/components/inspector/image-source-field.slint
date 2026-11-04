@@ -3,6 +3,7 @@
 
 import { Style, FieldStyle, Metrics } from "../../style.slint";
 
+import { InputSurface } from "../input-surface.slint";
 import { InspectorIconButton } from "icon-button.slint";
 
 export component InspectorImageSourceField inherits Rectangle {
@@ -22,10 +23,9 @@ export component InspectorImageSourceField inherits Rectangle {
             clicked => { root.browse(); }
         }
 
-        Rectangle {
+        InputSurface {
+            style: root.style;
             horizontal-stretch: 1;
-            border-radius: root.style.radius;
-            background: root.style.appearance.normal.background;
             accessible-role: AccessibleRole.text;
             accessible-label: @tr("Image source");
             accessible-value: root.value;

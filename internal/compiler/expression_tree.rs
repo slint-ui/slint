@@ -5,13 +5,14 @@ use crate::builtin_functions::BuiltinFunction;
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
 use crate::element_type::{BuiltinElement, PropertyLookupMode};
 use crate::expression_types::{
-    EasingCurve, ImageReference, MinMaxOp, MouseCursorInner, OperatorClass, Unit, operator_class,
+    EasingCurve, ImageReference, MinMaxOp, MouseCursorInner, OperatorClass, RadialGradientShape,
+    Unit, operator_class,
 };
 use crate::langtype::{ConstantExpression, EnumerationValue, Keys, Struct, Type};
-use crate::lookup::LookupCtx;
+use crate::lookup::{LookupCtx, TypeSpecificLookup};
 use crate::native_class::{BuiltinPropertyDefault, PropertyVisibility};
 use crate::object_tree::*;
-use crate::parser::{NodeOrToken, SyntaxNode};
+use crate::parser::{NodeOrToken, SyntaxKind, SyntaxNode};
 use crate::symbol_counters::SymbolCounters;
 use crate::typeregister;
 use core::cell::RefCell;
@@ -40,6 +41,7 @@ fn builtin_function_is_const(
         BuiltinFunction::AnimationTick => false,
         BuiltinFunction::ColorScheme => false,
         BuiltinFunction::AccentColor => false,
+        BuiltinFunction::ReducedMotion => false,
         BuiltinFunction::SupportsNativeMenuBar => false,
         BuiltinFunction::SetupMenuBar => false,
         BuiltinFunction::SetupSystemTrayIcon => false,
@@ -91,11 +93,17 @@ fn builtin_function_is_const(
         | BuiltinFunction::TextInputPaste
         | BuiltinFunction::TextInputUndo
         | BuiltinFunction::TextInputRedo
+        | BuiltinFunction::StyledTextSetSelectionOffsets
+        | BuiltinFunction::StyledTextSelectAll
+        | BuiltinFunction::StyledTextClearSelection
+        | BuiltinFunction::StyledTextCopy
         | BuiltinFunction::SwipeGestureHandlerCancel
         | BuiltinFunction::ContextMenuClose
         | BuiltinFunction::WindowClose
         | BuiltinFunction::WindowHide => false,
-        BuiltinFunction::HasSelection | BuiltinFunction::ContextMenuIsOpen => false,
+        BuiltinFunction::HasSelection
+        | BuiltinFunction::StyledTextHasSelection
+        | BuiltinFunction::ContextMenuIsOpen => false,
         BuiltinFunction::ItemFontMetrics => false, // depends also on Window's font properties
         BuiltinFunction::StringIsEmpty
         | BuiltinFunction::StringCharacterCount
@@ -375,9 +383,8 @@ pub enum Expression {
         /// Explicit gradient center in the element's local coordinate space (`at <x> <y>`).
         /// `None` means use the element's bbox centre.
         center: Option<(Box<Expression>, Box<Expression>)>,
-        /// Explicit radius in the element's local coordinate space (`circle <r>`).
-        /// `None` means use the element's bbox half-diagonal.
-        radius: Option<Box<Expression>>,
+        /// Ending shape (`circle` or `ellipse`) with its optional explicit radii.
+        shape: RadialGradientShape<Expression>,
         /// First expression in the tuple is a color, second expression is the stop position
         stops: Vec<(Expression, Expression)>,
     },
@@ -441,30 +448,30 @@ pub enum Expression {
     /// The orientation is the orientation of the cache, not the orientation of the layout.
     ComputeBoxLayoutInfo {
         layout: crate::layout::BoxLayout,
-        orientation: crate::layout::Orientation,
+        orientation: crate::expression_types::Orientation,
         /// only set in `layoutinfo-v-with-constraint`
         cross_axis_size: Option<Box<Expression>>,
     },
     ComputeGridLayoutInfo {
         layout_organized_data_prop: NamedReference,
         layout: crate::layout::GridLayout,
-        orientation: crate::layout::Orientation,
+        orientation: crate::expression_types::Orientation,
         /// only set in `layoutinfo-v-with-constraint`
         cross_axis_size: Option<Box<Expression>>,
     },
     /// Determine the coordinates of the items in the given orientation.
-    SolveBoxLayout(crate::layout::BoxLayout, crate::layout::Orientation),
+    SolveBoxLayout(crate::layout::BoxLayout, crate::expression_types::Orientation),
     SolveGridLayout {
         layout_organized_data_prop: NamedReference,
         layout: crate::layout::GridLayout,
-        orientation: crate::layout::Orientation,
+        orientation: crate::expression_types::Orientation,
     },
     /// Solve a FlexboxLayout - returns positions for all items (x, y, width, height per item)
     SolveFlexboxLayout(crate::layout::FlexboxLayout),
     /// Compute the LayoutInfo for the given FlexboxLayout.
     ComputeFlexboxLayoutInfo {
         layout: crate::layout::FlexboxLayout,
-        orientation: crate::layout::Orientation,
+        orientation: crate::expression_types::Orientation,
         /// The width parameter in `layoutinfo-v-with-constraint`, the flex's
         /// own height in `layoutinfo-h-at-own-height`
         cross_axis_size: Option<Box<Expression>>,
@@ -497,6 +504,18 @@ pub enum Expression {
 }
 
 impl Expression {
+    /// The property this expression reads, or the callback or function it calls
+    pub fn referenced_property(&self) -> Option<&NamedReference> {
+        match self {
+            Expression::PropertyReference(nr)
+            | Expression::FunctionCall {
+                function: Callable::Callback(nr) | Callable::Function(nr),
+                ..
+            } => Some(nr),
+            _ => None,
+        }
+    }
+
     /// Return the type of this property
     pub fn ty(&self) -> Type {
         match self {
@@ -710,12 +729,12 @@ impl Expression {
                     visitor(s);
                 }
             }
-            Expression::RadialGradient { center, radius, stops } => {
+            Expression::RadialGradient { center, shape, stops } => {
                 if let Some((cx, cy)) = center {
                     visitor(cx);
                     visitor(cy);
                 }
-                if let Some(r) = radius {
+                for r in shape.iter() {
                     visitor(r);
                 }
                 for (c, s) in stops {
@@ -860,12 +879,12 @@ impl Expression {
                     visitor(s);
                 }
             }
-            Expression::RadialGradient { center, radius, stops } => {
+            Expression::RadialGradient { center, shape, stops } => {
                 if let Some((cx, cy)) = center {
                     visitor(cx);
                     visitor(cy);
                 }
-                if let Some(r) = radius {
+                for r in shape.iter_mut() {
                     visitor(r);
                 }
                 for (c, s) in stops {
@@ -1014,9 +1033,9 @@ impl Expression {
                 angle.is_constant(ga)
                     && stops.iter().all(|(c, s)| c.is_constant(ga) && s.is_constant(ga))
             }
-            Expression::RadialGradient { center, radius, stops } => {
+            Expression::RadialGradient { center, shape, stops } => {
                 center.as_ref().is_none_or(|(cx, cy)| cx.is_constant(ga) && cy.is_constant(ga))
-                    && radius.as_ref().is_none_or(|r| r.is_constant(ga))
+                    && shape.iter().all(|r| r.is_constant(ga))
                     && stops.iter().all(|(c, s)| c.is_constant(ga) && s.is_constant(ga))
             }
             Expression::ConicGradient { from_angle, center, stops } => {
@@ -1054,7 +1073,7 @@ impl Expression {
     pub fn maybe_convert_to(
         self,
         target_type: Type,
-        node: &dyn Spanned,
+        node: Option<&NodeOrToken>,
         diag: &mut BuildDiagnostics,
         symbol_counters: &SymbolCounters,
     ) -> Expression {
@@ -1083,7 +1102,7 @@ impl Expression {
                             Type::Brush,
                             Type::Color
                         );
-                        diag.push_warning(message, node);
+                        diag.push_warning(message, &node);
                         self
                     }
                     _ => self,
@@ -1106,7 +1125,7 @@ impl Expression {
                             if !right.fields.contains_key(f) {
                                 diag.slint_sc_error(
                                     &format!("Providing the extra struct member '{f}' is"),
-                                    node,
+                                    &node,
                                 );
                             }
                         }
@@ -1114,7 +1133,7 @@ impl Expression {
                             if !left.fields.contains_key(f) {
                                 diag.slint_sc_error(
                                     &format!("Omitting the struct field '{f}' is"),
-                                    node,
+                                    &node,
                                 );
                             }
                         }
@@ -1135,7 +1154,7 @@ impl Expression {
                                 format!(
                                     "Conversion to {target_type} ignores the extra {noun} {list}"
                                 ),
-                                node,
+                                &node,
                             );
                         }
                     }
@@ -1273,7 +1292,7 @@ impl Expression {
                     };
                     diag.push_error(
                         format!("Cannot convert {ty} to {target_type}: Field '{f}' not found{available_fields_message}"),
-                        node,
+                        &node,
                     );
                     return self;
                 }
@@ -1337,7 +1356,10 @@ impl Expression {
                     "{message}. Use an unit, or multiply by 1{to_unit} to convert explicitly"
                 );
             }
-            diag.push_error(message, node);
+            if let Some(qualified) = shadowed_value(&target_type, node, diag) {
+                message = format!("{message}. Did you mean '{qualified}'?");
+            }
+            diag.push_error(message, &node);
             self
         }
     }
@@ -1672,8 +1694,8 @@ pub struct BindingExpression {
     /// 0 means the expression was added by some passes and it is not explicit in the source code
     pub priority: i32,
 
-    /// Whether a state is what created this binding. The value it takes while no state
-    /// applies is then the property's type default.
+    /// Whether a state created this binding. The passes that supply a default then fill in the
+    /// value it takes while no state applies. Only set with edition 1.19 or newer.
     pub from_state: bool,
 
     /// Whether the source wrote this binding, as opposed to a compiler pass making it up.
@@ -2016,11 +2038,24 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             }
             write!(f, ")")
         }
-        Expression::RadialGradient { center, radius, stops } => {
-            write!(f, "@radial-gradient(circle")?;
-            if let Some(r) = radius {
-                write!(f, " ")?;
-                pretty_print(f, r)?;
+        Expression::RadialGradient { center, shape, stops } => {
+            match shape {
+                RadialGradientShape::Circle(r) => {
+                    write!(f, "@radial-gradient(circle")?;
+                    if let Some(r) = r {
+                        write!(f, " ")?;
+                        pretty_print(f, r)?;
+                    }
+                }
+                RadialGradientShape::Ellipse(r) => {
+                    write!(f, "@radial-gradient(ellipse")?;
+                    if let Some((rx, ry)) = r {
+                        write!(f, " ")?;
+                        pretty_print(f, rx)?;
+                        write!(f, " ")?;
+                        pretty_print(f, ry)?;
+                    }
+                }
             }
             if let Some((cx, cy)) = center {
                 write!(f, " at ")?;
@@ -2136,4 +2171,35 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
         }
         Expression::DashArray(v) => write!(f, "dash-array({v:?})"),
     }
+}
+
+/// The qualified value of `target_type` that `node` names when it's just an identifier,
+/// such as `MouseCursor.text` for `text;` or `{ text }`.
+fn shadowed_value(
+    target_type: &Type,
+    node: Option<&NodeOrToken>,
+    diag: &mut BuildDiagnostics,
+) -> Option<SmolStr> {
+    let mut tokens =
+        node?.as_node()?.descendants_with_tokens().filter_map(|n| n.into_token()).filter(|t| {
+            !matches!(
+                t.kind(),
+                SyntaxKind::Whitespace
+                    | SyntaxKind::Comment
+                    | SyntaxKind::Semicolon
+                    | SyntaxKind::LBrace
+                    | SyntaxKind::RBrace
+            )
+        });
+    let (Some(identifier), None) = (tokens.next(), tokens.next()) else { return None };
+    if identifier.kind() != SyntaxKind::Identifier {
+        return None;
+    }
+    let register = typeregister::TypeRegister::default();
+    let mut ctx = LookupCtx::empty_context(&register, diag, Default::default());
+    ctx.expected_type = target_type.clone();
+    TypeSpecificLookup::qualified_name(
+        &ctx,
+        &crate::parser::normalize_identifier(identifier.text()),
+    )
 }

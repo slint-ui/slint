@@ -1,0 +1,34 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ComboBox, CheckBox, BasicTheme } from "../src/basic.slint";
+
+export component PreviewSettings inherits Rectangle {
+    in property <string> control-name;
+    in-out property <int> size-index: 1;
+    in-out property <bool> disabled;
+    vertical-stretch: 0;
+
+    HorizontalLayout {
+        spacing: 12px;
+        alignment: start;
+        Text {
+            text: "Preview size";
+            color: BasicTheme.foreground;
+            vertical-alignment: center;
+        }
+
+        ComboBox {
+            accessible-label: root.control-name + " preview size";
+            model: ["Small", "Medium", "Large"];
+            current-index <=> root.size-index;
+            width: 160px;
+        }
+
+        CheckBox {
+            text: "Disabled";
+            accessible-label: "Disable " + root.control-name + " previews";
+            checked <=> root.disabled;
+        }
+    }
+}

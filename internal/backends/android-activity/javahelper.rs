@@ -11,6 +11,7 @@ use super::*;
 use i_slint_common::unicode_utils::{
     byte_offset_to_utf16_offset, utf16_offset_to_byte_offset_clamped,
 };
+use i_slint_core::MotionPreference;
 use i_slint_core::SharedString;
 use i_slint_core::animations::Instant;
 use i_slint_core::api::{PhysicalPosition, PhysicalSize};
@@ -47,6 +48,10 @@ bind_java_type! {
         fn accent_color {
             name = "accent_color",
             sig = () -> jint,
+        },
+        fn animators_enabled {
+            name = "animators_enabled",
+            sig = () -> jboolean,
         },
         fn color_scheme {
             name = "color_scheme",
@@ -109,6 +114,14 @@ bind_java_type! {
             name = "show_action_menu",
             sig = (),
         },
+        fn hide_action_menu {
+            name = "hide_action_menu",
+            sig = (),
+        },
+        fn defer_action_menu {
+            name = "defer_action_menu",
+            sig = (deferred: jboolean),
+        },
         fn show_keyboard {
             name = "show_keyboard",
             sig = (),
@@ -162,6 +175,10 @@ bind_java_type! {
                     preedit_end: jint
             ) -> (),
             fn = callback_update_text,
+        },
+        pub static fn update_selection {
+            sig = (cursor_position: jint, anchor_position: jint) -> (),
+            fn = callback_update_selection,
         },
     },
 }
@@ -255,9 +272,14 @@ bind_java_type! {
             get = TYPE_TEXT_FLAG_AUTO_CORRECT,
         },
         #[allow(non_snake_case)]
-        static TYPE_TEXT_FLAG_AUTO_COMPLETE {
+        static TYPE_TEXT_FLAG_MULTI_LINE {
             sig = jint,
-            get = TYPE_TEXT_FLAG_AUTO_COMPLETE,
+            get = TYPE_TEXT_FLAG_MULTI_LINE,
+        },
+        #[allow(non_snake_case)]
+        static TYPE_TEXT_FLAG_NO_SUGGESTIONS {
+            sig = jint,
+            get = TYPE_TEXT_FLAG_NO_SUGGESTIONS,
         },
     }
 }
@@ -472,18 +494,27 @@ impl JavaHelper {
                     } else {
                         0 as jint
                     };
-                    let auto_complete_flag = if hints.auto_complete {
-                        AndroidInputType::TYPE_TEXT_FLAG_AUTO_COMPLETE(env)?
-                    } else {
+                    // Not TYPE_TEXT_FLAG_AUTO_COMPLETE: it asks the input method not to show its own
+                    // candidates and to expect completions from the app, which Slint doesn't provide.
+                    let no_suggestions_flag = if hints.auto_complete {
                         0 as jint
+                    } else {
+                        AndroidInputType::TYPE_TEXT_FLAG_NO_SUGGESTIONS(env)?
+                    };
+                    let multi_line_flag = if data.single_line {
+                        0 as jint
+                    } else {
+                        AndroidInputType::TYPE_TEXT_FLAG_MULTI_LINE(env)?
                     };
                     AndroidInputType::TYPE_CLASS_TEXT(env)?
                         | capitalization_flag
                         | auto_correct_flag
-                        | auto_complete_flag
+                        | no_suggestions_flag
+                        | multi_line_flag
                 }
                 InputType::Password => {
                     AndroidInputType::TYPE_TEXT_VARIATION_PASSWORD(env)?
+                        | AndroidInputType::TYPE_TEXT_FLAG_NO_SUGGESTIONS(env)?
                         | AndroidInputType::TYPE_CLASS_TEXT(env)?
                 }
                 InputType::Number => AndroidInputType::TYPE_CLASS_NUMBER(env)?,
@@ -552,6 +583,20 @@ impl JavaHelper {
         self.with_jni_env(|env, helper| helper.font_scale(env))
     }
 
+    /// Sets the motion preference of `ctx` to reduced when Android doesn't run animators,
+    /// which "Remove animations" under Settings > Accessibility turns off. Android sends no
+    /// configuration change for this setting, so call it at startup and again whenever the
+    /// window gains focus.
+    pub fn set_motion_preference(&self, ctx: &i_slint_core::SlintContext) {
+        if let Ok(enabled) = self.with_jni_env(|env, helper| helper.animators_enabled(env)) {
+            ctx.set_motion_preference(if enabled {
+                MotionPreference::NoPreference
+            } else {
+                MotionPreference::Reduced
+            });
+        }
+    }
+
     /// Returns the theme's `android:colorAccent`, or `None` if the theme doesn't set it.
     fn accent_color(&self) -> Result<Option<Color>, jni::errors::Error> {
         self.with_jni_env(|env, helper| {
@@ -602,6 +647,15 @@ impl JavaHelper {
 
     pub fn show_action_menu(&self) -> Result<(), jni::errors::Error> {
         self.with_jni_env(|env, helper| helper.show_action_menu(env))
+    }
+
+    pub fn hide_action_menu(&self) -> Result<(), jni::errors::Error> {
+        self.with_jni_env(|env, helper| helper.hide_action_menu(env))
+    }
+
+    /// Keeps the text selection menu from showing for a new selection while `deferred` is set.
+    pub fn defer_action_menu(&self, deferred: bool) -> Result<(), jni::errors::Error> {
+        self.with_jni_env(|env, helper| helper.defer_action_menu(env, deferred))
     }
 
     pub fn set_clipboard(&self, text: &str) -> Result<(), jni::errors::Error> {
@@ -692,6 +746,38 @@ fn callback_update_text<'local>(
     Ok(())
 }
 
+fn callback_update_selection<'local>(
+    _env: &mut Env<'local>,
+    _class: JClass<'local>,
+    cursor_position: jint,
+    anchor_position: jint,
+) -> Result<(), jni::errors::Error> {
+    i_slint_core::api::invoke_from_event_loop(move || {
+        if let Some(adaptor) = CURRENT_WINDOW.with_borrow(|x| x.upgrade()) {
+            adaptor.show_cursor_handles.set(false);
+            if let Some(focus_item) = i_slint_core::window::WindowInner::from_pub(&adaptor.window)
+                .focus_item
+                .borrow()
+                .upgrade()
+                && let Some(text_input) = focus_item.downcast::<i_slint_core::items::TextInput>()
+            {
+                let text_input = text_input.as_pin_ref();
+                let text = text_input.text();
+                let to_byte_offset =
+                    |pos: jint| utf16_offset_to_byte_offset_clamped(&text, pos as usize) as i32;
+                text_input.set_selection_offsets(
+                    &(adaptor.clone() as Rc<dyn WindowAdapter>),
+                    &focus_item,
+                    to_byte_offset(anchor_position),
+                    to_byte_offset(cursor_position),
+                );
+            }
+        }
+    })
+    .unwrap();
+    Ok(())
+}
+
 fn callback_set_night_mode<'local>(
     _env: &mut Env<'local>,
     _class: JClass<'local>,
@@ -741,6 +827,7 @@ fn callback_move_cursor_handle<'local>(
                 .upgrade()
             {
                 if let Some(text_input) = focus_item.downcast::<i_slint_core::items::TextInput>() {
+                    adaptor.show_cursor_handles.set(true);
                     let scale_factor = adaptor.window.scale_factor();
                     let adaptor = adaptor.clone() as Rc<dyn WindowAdapter>;
                     let size = text_input

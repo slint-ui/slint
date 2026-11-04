@@ -85,7 +85,7 @@ prost = { version = "0.14", optional = true }
 prost-build = { version = "0.14", optional = true }
 prost-types = { version = "0.14", optional = true }
 pbjson-build = { version = "0.9", optional = true }
-protox = { version = "0.9", optional = true }
+protox = { version = "0.10", optional = true }
 
 [dev-dependencies]
 slint = { path = "../../../api/rs/slint", default-features = false, features = ["std", "compat-1-2"] }

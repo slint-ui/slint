@@ -2,6 +2,8 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+# cspell:ignore appstreamcli metainfo
+
 # Build the Slint Visual Editor flatpak, with Skia compiled from source inside
 # the sandbox. Generates the source lists the manifest references, runs
 # flatpak-builder, and exports a single-file bundle.
@@ -12,8 +14,8 @@
 # behind is only good for checking that the manifest still builds, and that is
 # the rarer thing to want.
 #
-# Needs flatpak and flatpak-builder. The runtime, the SDK and the
-# rust-stable/llvm20 SDK extensions come from flathub; the remote is added to
+# Needs flatpak, flatpak-builder and appstreamcli. The runtime, the SDK and the
+# rust-stable/llvm22 SDK extensions come from flathub; the remote is added to
 # the user installation here if it is not there yet.
 #
 # Compiling Skia takes a long time and tens of gigabytes under
@@ -54,7 +56,7 @@ case "${1:-}" in
 esac
 [ $# -le 1 ] || { usage; die "expected at most one argument"; }
 
-require_tools git flatpak flatpak-builder
+require_tools git flatpak flatpak-builder appstreamcli
 
 repo_root="$(git rev-parse --show-toplevel)"
 manifest="${repo_root}/tools/editor/dev.slint.VisualEditor.yml"
@@ -116,6 +118,8 @@ flatpak-builder \
     --repo="${repo_dir}" \
     "${build_dir}" \
     "${manifest}"
+
+appstreamcli validate --no-net "${build_dir}/files/share/metainfo/${app_id}.metainfo.xml"
 
 flatpak build-bundle \
     "${repo_dir}" \

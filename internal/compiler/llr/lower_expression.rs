@@ -17,7 +17,7 @@ use super::{Animation, LocalMemberReference, MemberReference, PropertyIdx};
 use crate::builtin_functions::BuiltinFunction;
 use crate::expression_tree::{Callable, Expression as tree_Expression};
 use crate::expression_types::MouseCursorInner;
-use crate::langtype::{BuiltinStruct, ConstantExpression, Struct, StructName, Type};
+use crate::langtype::{BuiltinStruct, Struct, StructName, Type};
 use crate::llr::ArrayOutput as llr_ArrayOutput;
 use crate::llr::Expression as llr_Expression;
 use crate::llr::lower_to_item_tree::LoweredElement;
@@ -73,33 +73,6 @@ impl ExpressionLoweringCtx<'_> {
 impl super::TypeResolutionContext for ExpressionLoweringCtx<'_> {
     fn property_ty(&self, _: &MemberReference) -> &Type {
         unimplemented!()
-    }
-}
-
-/// Lower a constant expression, such as the default value of a struct field
-/// (see [`crate::langtype::Struct::field_defaults`]),
-/// so that the code generators can compile it with their regular expression compilation.
-pub fn lower_constant_expression(expression: &ConstantExpression) -> llr_Expression {
-    match expression {
-        ConstantExpression::StringLiteral(s) => llr_Expression::StringLiteral(s.clone()),
-        ConstantExpression::NumberLiteral(n, _unit) => llr_Expression::NumberLiteral(*n),
-        ConstantExpression::BoolLiteral(b) => llr_Expression::BoolLiteral(*b),
-        ConstantExpression::EnumerationValue(e) => llr_Expression::EnumerationValue(e.clone()),
-        ConstantExpression::Cast { from, to } => {
-            llr_Expression::Cast { from: Box::new(lower_constant_expression(from)), to: to.clone() }
-        }
-        ConstantExpression::UnaryOp { sub, op } => {
-            llr_Expression::UnaryOp { sub: Box::new(lower_constant_expression(sub)), op: *op }
-        }
-        ConstantExpression::Struct { ty, values } => llr_Expression::Struct {
-            ty: ty.clone(),
-            values: values.iter().map(|(k, v)| (k.clone(), lower_constant_expression(v))).collect(),
-        },
-        ConstantExpression::Array { element_ty, values } => llr_Expression::Array {
-            element_ty: element_ty.clone(),
-            values: values.iter().map(lower_constant_expression).collect(),
-            output: llr_ArrayOutput::Model,
-        },
     }
 }
 
@@ -398,14 +371,14 @@ fn lower_radial_gradient(
     expression: &tree_Expression,
     ctx: &mut ExpressionLoweringCtx<'_>,
 ) -> llr_Expression {
-    let tree_Expression::RadialGradient { center, radius, stops } = expression else {
+    let tree_Expression::RadialGradient { center, shape, stops } = expression else {
         unreachable!()
     };
     llr_Expression::RadialGradient {
         center: center.as_ref().map(|(cx, cy)| {
             (Box::new(lower_expression(cx, ctx)), Box::new(lower_expression(cy, ctx)))
         }),
-        radius: radius.as_ref().map(|r| Box::new(lower_expression(r, ctx))),
+        shape: shape.map(|r| lower_expression(r, ctx)),
         stops: stops
             .iter()
             .map(|(a, b)| (lower_expression(a, ctx), lower_expression(b, ctx)))
@@ -769,10 +742,28 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &mut ExpressionLoweringCtx<'_
                         || default_field(k, ty),
                         |v| lower_expression(&v.borrow().expression, ctx),
                     );
+                    let e = if k == "enabled" { honor_reduced_motion(e) } else { e };
                     (k.clone(), e)
                 })
                 .collect::<_>(),
             ty,
+        }
+    }
+
+    /// An animation only runs when the user didn't ask the operating system for less motion.
+    /// Evaluated in the generated code, where the component's context is reachable.
+    fn honor_reduced_motion(enabled: llr_Expression) -> llr_Expression {
+        llr_Expression::BinaryExpression {
+            lhs: Box::new(enabled),
+            rhs: Box::new(llr_Expression::UnaryOp {
+                sub: Box::new(llr_Expression::BuiltinFunctionCall {
+                    function: BuiltinFunction::ReducedMotion,
+                    arguments: Vec::new(),
+                    source_location: None,
+                }),
+                op: '!',
+            }),
+            op: '&',
         }
     }
 
@@ -840,7 +831,7 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &mut ExpressionLoweringCtx<'_
                                 ty: state_ref.ty(),
                             }
                             .into(),
-                            name: "change_time".into(),
+                            name: "change-time".into(),
                         },
                     ),
                 ])

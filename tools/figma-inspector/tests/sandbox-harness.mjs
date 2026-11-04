@@ -233,7 +233,8 @@ const rasterCapture = raster.messages.find(
 );
 const rasterSource = JSON.parse(rasterCapture.captureJson);
 assert.equal(rasterSource.flattened, undefined);
-assert.equal(rasterSource.root.type, "VECTOR");
+assert.equal(rasterSource.root.type, "RECTANGLE");
+assert.equal(rasterSource.rasterized, true);
 assert.equal(rasterSource.root.children, undefined);
 assert.notEqual(rasterSource.root.exports.png.value, undefined);
 assert.equal(rasterCapture.warnings[0].code, "SIMPLIFIED_CAPTURE");

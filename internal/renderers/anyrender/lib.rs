@@ -231,18 +231,16 @@ impl<W: SlintWindowRenderer> AnyrenderSlintRenderer<W> {
     }
 
     pub fn render(&self) -> Result<DrawOutcome, PlatformError> {
-        self.render_with_options(0., (0., 0.), None)
+        self.render_transformed(0., (0., 0.))
     }
 
-    /// Render with optional fixed-screen rotation (used by linuxkms for
-    /// portrait/landscape modes) and an optional callback invoked after
-    /// item rendering to draw additional content on top, typically the
-    /// software mouse cursor in linuxkms.
-    pub fn render_with_options(
+    /// Like [`Self::render`], but rotates the scene by `rotation_angle_degrees` around the
+    /// origin and then moves it by `translation`, for a screen mounted in a different
+    /// orientation than the window's (used by linuxkms).
+    pub fn render_transformed(
         &self,
         rotation_angle_degrees: f32,
         translation: (f32, f32),
-        post_render_cb: Option<&dyn Fn(&mut dyn i_slint_core::item_rendering::ItemRenderer)>,
     ) -> Result<DrawOutcome, PlatformError> {
         let window_adapter = self.try_window_adapter()?;
         let window = window_adapter.window();
@@ -329,10 +327,6 @@ impl<W: SlintWindowRenderer> AnyrenderSlintRenderer<W> {
                         if let Some(collector) = &collector {
                             collector
                                 .measure_frame_rendered(&mut item_renderer, Default::default());
-                        }
-
-                        if let Some(cb) = post_render_cb {
-                            cb(&mut item_renderer);
                         }
 
                         Ok(())

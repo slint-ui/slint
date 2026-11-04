@@ -2,7 +2,14 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { ScrollView } from "std-widgets.slint";
-import { Button, BasicTheme } from "../src/basic.slint";
+import {
+    Button,
+    ButtonStyles,
+    Switch,
+    BasicPalettes,
+    BasicTheme,
+    BasicThemeProvider,
+} from "../src/basic.slint";
 import { ButtonExamples } from "buttons.slint";
 import { CheckBoxExamples } from "check_boxes.slint";
 import { ComboBoxExamples } from "combo_boxes.slint";
@@ -12,6 +19,7 @@ import { LineEditExamples } from "line_edits.slint";
 
 export component ControlsDemo inherits Window {
     in-out property <int> current-page;
+    in-out property <bool> dark-mode;
     private property <[string]> pages: ["Button", "ComboBox", "Slider", "CheckBox", "Switch", "LineEdit"];
     title: "Slint controls — Component gallery";
     preferred-width: 1000px;
@@ -21,10 +29,14 @@ export component ControlsDemo inherits Window {
     background: BasicTheme.background;
     default-font-size: 14px;
 
+    BasicThemeProvider {
+        palette: root.dark-mode ? BasicPalettes.dark : BasicPalettes.light;
+    }
+
     HorizontalLayout {
         Rectangle {
             width: 220px;
-            background: white;
+            background: BasicTheme.background;
             Rectangle {
                 x: parent.width - self.width;
                 width: 1px;
@@ -60,11 +72,10 @@ export component ControlsDemo inherits Window {
 
                 for page[index] in root.pages: Button {
                     text: page;
-                    checked: root.current-page == index;
                     min-height: 44px;
-                    background-color: self.checked ? BasicTheme.accent.with-alpha(0.08) : transparent;
-                    foreground: self.checked ? BasicTheme.accent : BasicTheme.foreground;
-                    border-color: self.checked ? BasicTheme.accent.with-alpha(0.4) : transparent;
+                    style: ButtonStyles.invisible;
+                    background-color: root.current-page == index ? BasicTheme.accent.with-alpha(0.08) : transparent;
+                    foreground-color: root.current-page == index ? BasicTheme.accent : BasicTheme.foreground;
                     font-weight: 600;
                     clicked => { root.current-page = index; }
                 }
@@ -78,10 +89,15 @@ export component ControlsDemo inherits Window {
                     color: BasicTheme.disabled-foreground;
                     font-size: 12px;
                 }
+
+                Switch {
+                    text: "Dark mode";
+                    checked <=> root.dark-mode;
+                }
             }
         }
 
-        ScrollView {
+        content-scroll := ScrollView {
             horizontal-scrollbar-policy: always-off;
             content-width: self.width;
             VerticalLayout {

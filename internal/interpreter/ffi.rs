@@ -4,18 +4,16 @@
 // cSpell: ignore stru
 
 use super::*;
+use crate::prelude::*;
+use Rc;
 use core::ptr::NonNull;
 use i_slint_core::data_transfer::ffi::{PathValueType, path_from_units, path_to_units};
 use i_slint_core::model::{Model, ModelError, ModelNotify, ModelRc, SharedVectorModel};
 use i_slint_core::slice::Slice;
 use i_slint_core::window::WindowAdapter;
-use smol_str::SmolStr;
 use std::ffi::c_void;
 use std::path::PathBuf;
-use std::rc::Rc;
 use vtable::VRef;
-
-use crate::instance::Instance;
 
 /// Wrap a raw `&Instance` from the C side into a `ComponentInstanceInner`
 /// that exposes the name-based helpers. The underlying `VRc` is upgraded
@@ -607,7 +605,7 @@ pub unsafe extern "C" fn slint_interpreter_component_instance_component_definiti
     component_definition_ptr: *mut ComponentDefinitionOpaque,
 ) {
     let comp = wrap_instance(inst);
-    let definition = ComponentDefinition { inner: std::rc::Rc::new(comp.definition()) };
+    let definition = ComponentDefinition { inner: Rc::new(comp.definition()) };
     unsafe { std::ptr::write(component_definition_ptr as *mut ComponentDefinition, definition) };
 }
 
@@ -1162,6 +1160,8 @@ pub unsafe extern "C" fn slint_interpreter_component_definition_global_functions
 
 #[cfg(test)]
 mod tests {
+    use crate::prelude::*;
+
     #[test]
     fn no_strong_reference_leak_per_ffi_call() {
         i_slint_backend_testing::init_no_event_loop();
@@ -1174,7 +1174,7 @@ mod tests {
         assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
         let instance = result.component("Test").unwrap().create().unwrap();
         let vrc = &instance.inner.0;
-        let before = vtable::VRc::strong_count(vrc);
+        let before = VRc::strong_count(vrc);
         for _ in 0..3 {
             let val = super::slint_interpreter_component_instance_get_property(
                 vrc,
@@ -1183,6 +1183,6 @@ mod tests {
             assert!(!val.is_null());
             drop(unsafe { Box::from_raw(val) });
         }
-        assert_eq!(vtable::VRc::strong_count(vrc), before);
+        assert_eq!(VRc::strong_count(vrc), before);
     }
 }

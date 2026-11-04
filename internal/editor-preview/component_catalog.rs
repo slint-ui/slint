@@ -116,12 +116,24 @@ impl TypeInformation {
 
 #[cfg(feature = "preview-engine")]
 fn builtin_component_info(name: &str) -> ComponentInformation {
-    let is_layout = matches!(name, "GridLayout" | "HorizontalLayout" | "VerticalLayout");
-    let is_interactive =
-        matches!(name, "Flickable" | "FocusScope" | "SwipeGestureHandler" | "TouchArea");
+    let is_layout =
+        matches!(name, "GridLayout" | "HorizontalLayout" | "VerticalLayout" | "FlexboxLayout");
+    let is_interactive = matches!(
+        name,
+        "Flickable"
+            | "FocusScope"
+            | "SwipeGestureHandler"
+            | "TouchArea"
+            | "DragArea"
+            | "DropArea"
+            | "ScaleRotateGestureHandler"
+            | "WindowMoveArea"
+            | "TextInput"
+    );
 
     let default_properties = match name {
         "Text" | "TextInput" => vec![PropertyChange::new("text", format!("\"{name}\""))],
+        "StyledText" => vec![PropertyChange::new("text", "@markdown(\"Text\")".to_string())],
         "Image" => vec![PropertyChange::new("source", "@image-url(\"EDIT_ME.png\")".to_string())],
         _ => Vec::new(),
     };
@@ -156,7 +168,8 @@ fn builtin_component_info(name: &str) -> ComponentInformation {
     }
 }
 
-fn std_widgets_info(name: &str, is_global: bool) -> ComponentInformation {
+/// Describe a standard widget or global without loading its implementation.
+pub fn std_widgets_info(name: &str, is_global: bool) -> ComponentInformation {
     let is_layout = matches!(name, "GridBox" | "HorizontalBox" | "VerticalBox");
 
     let default_properties = match name {
@@ -293,8 +306,11 @@ pub fn all_exported_components(
     filter: &mut dyn FnMut(&ComponentInformation) -> bool,
     result: &mut Vec<ComponentInformation>,
 ) {
-    let enable_experimental =
-        document_cache.compiler_configuration().compiler_config.enable_experimental;
+    let interfaces_enabled = document_cache
+        .compiler_configuration()
+        .compiler_config
+        .experimental_features
+        .contains(i_slint_compiler::ExperimentalFeature::Interfaces);
 
     for url in document_cache.all_urls() {
         let Some(doc) = document_cache.get_document(&url) else { continue };
@@ -316,7 +332,7 @@ pub fn all_exported_components(
                 && exported_name.as_str() != "PopupWindow"
             {
                 Some(std_widgets_info(exported_name.as_str(), c.is_global()))
-            } else if is_std_widget_interfaces && enable_experimental {
+            } else if is_std_widget_interfaces && interfaces_enabled {
                 Some(std_widget_interfaces_info(exported_name.as_str()))
             } else if !is_builtin {
                 let offset =
@@ -446,9 +462,22 @@ mod tests {
         assert!(result.iter().all(|ci| ci.is_exported));
         assert!(result.iter().all(|ci| ci.is_builtin));
         assert!(result.iter().all(|ci| !ci.is_global));
-        assert!(
-            result.iter().any(|ci| &ci.name == "TouchArea" && ci.is_interactive && !ci.is_layout)
-        );
+        for name in [
+            "TouchArea",
+            "Flickable",
+            "FocusScope",
+            "SwipeGestureHandler",
+            "DragArea",
+            "DropArea",
+            "ScaleRotateGestureHandler",
+            "WindowMoveArea",
+            "TextInput",
+        ] {
+            assert!(
+                result.iter().any(|ci| ci.name == name && ci.is_interactive && !ci.is_layout),
+                "{name} must be interactive"
+            );
+        }
         assert!(
             result
                 .iter()

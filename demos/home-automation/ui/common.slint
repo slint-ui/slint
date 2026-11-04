@@ -98,9 +98,9 @@ export global Colors {
     out property <color> green40: #004d23;
     out property <color> green30: #00331a;
     out property <color> fadedyellow: #F2EED5;
-    out property <brush> dark-ramp: @linear-gradient(0deg, #0C1631, #241433);
-    out property <brush> light-ramp: @linear-gradient(0deg, Colors.foggybeige, Colors.foggylight);
-    out property <brush> music-gradient: @linear-gradient(0deg, Colors.white, Colors.foggylight);
+    out property <brush> dark-ramp: @linear-gradient(180deg, #0C1631, #241433);
+    out property <brush> light-ramp: @linear-gradient(180deg, Colors.foggybeige, Colors.foggylight);
+    out property <brush> music-gradient: @linear-gradient(180deg, Colors.white, Colors.foggylight);
 }
 
 export global Palette {
@@ -155,7 +155,7 @@ export global Palette {
     out property <brush> doors-notch-background: dark-color-scheme ? @linear-gradient(180deg, #2e3037, #25272c) : @linear-gradient(180deg, #ebebe4, #f5f5f1);
     out property <brush> door-light-on: dark-color-scheme ? Colors.orange100 : Colors.orange100;
     out property <brush> door-light-off: dark-color-scheme ? Colors.black : Colors.green30;
-    out property <brush> hvac-knob-background: dark-color-scheme ? @radial-gradient(circle, Colors.dustypurpledirt.darker(0.2) 0%, Colors.dustypurpledirt.darker(0.5) 100%) : @radial-gradient(circle, Colors.foggydirt 0%, Colors.foggypeat 100%);
+    out property <brush> hvac-knob-background: dark-color-scheme ? Colors.dustypurpledirt.darker(0.35) : Colors.foggydirt.mix(Colors.foggypeat, 0.5);
     out property <brush> hvac-knob-foreground: dark-color-scheme ? Colors.white : Colors.foggylight;
     out property <brush> hvac-foreground: dark-color-scheme ? Colors.purple100 : Colors.foggylight;
     out property <brush> tab: dark-color-scheme ? Colors.blue10 : Colors.foggybeige;

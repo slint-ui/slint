@@ -395,7 +395,11 @@ fn process_system_tray_icon(
     };
 
     let component = system_tray_elem.borrow().enclosing_component.upgrade().unwrap();
-    component.init_code.borrow_mut().constructor_code.push(setup);
+    component
+        .init_code
+        .borrow_mut()
+        .constructor_code
+        .push(InitCodeEntry { owner: Rc::downgrade(system_tray_elem), code: setup });
 }
 
 fn process_window(
@@ -464,6 +468,7 @@ fn process_window(
         enclosing_component: window.enclosing_component.clone(),
         repeated: condition.clone().map(|condition| crate::object_tree::RepeatedElementInfo {
             model: condition,
+            model_location: None,
             model_data_id: SmolStr::default(),
             index_id: SmolStr::default(),
             is_conditional_element: true,
@@ -589,7 +594,11 @@ fn process_window(
         arguments,
         source_location,
     };
-    component.init_code.borrow_mut().constructor_code.push(setup_menubar);
+    component
+        .init_code
+        .borrow_mut()
+        .constructor_code
+        .push(InitCodeEntry { owner: Rc::downgrade(&menu_bar), code: setup_menubar });
 
     true
 }
@@ -620,6 +629,9 @@ fn find_root_menu(
         } else {
             menu_elem = Some(x.clone());
         }
+    }
+    if let Some(menu_elem) = &menu_elem {
+        error_on_slot_default(menu_elem, &owner.borrow().base_type.as_builtin().name, diag);
     }
     menu_elem
 }
@@ -676,6 +688,22 @@ fn lower_menu_items(
                         "MenuItem shortcuts are currently only supported in the MenuBar".into(),
                         &*binding,
                     );
+                }
+
+                if !in_menubar && let Some(binding) = element.borrow().binding("role") {
+                    diag.push_error(
+                        "'role' is only supported on a 'MenuItem' in a 'MenuBar'".into(),
+                        &*binding,
+                    );
+                }
+
+                if matches!(&element.borrow().base_type, ElementType::Builtin(b) if b.name == "Timer")
+                {
+                    diag.push_error(
+                        "Timer cannot be in a menu, move it outside of the menu".into(),
+                        &*element.borrow(),
+                    );
+                    return false;
                 }
 
                 if element.borrow().base_type.type_name() == Some("MenuSeparator") {

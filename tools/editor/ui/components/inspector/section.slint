@@ -14,9 +14,9 @@ export component InspectorSection inherits Rectangle {
 
     section-layout := VerticalLayout {
         width: root.width;
-        padding-top: Metrics.space-regular;
-        padding-bottom: Metrics.space-regular;
-        spacing: Metrics.space-compact;
+        padding-top: Style.sidebar-spacing.padding;
+        padding-bottom: Style.sidebar-spacing.padding;
+        spacing: Style.sidebar-spacing.section-gap;
 
         Rectangle {
             height: Typography.section-heading.size + Metrics.space-small;
@@ -31,6 +31,7 @@ export component InspectorSection inherits Rectangle {
 
             if !root.use-shared-title: Text {
                 x: Style.inspector-layout.padding;
+                height: parent.height;
                 text: root.title;
                 color: Colors.foreground;
                 font-size: Typography.section-heading.size;

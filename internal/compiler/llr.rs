@@ -4,17 +4,26 @@
 // cSpell: ignore optim
 //! The Low Level Representation module
 
+#[cfg(feature = "std")]
 pub mod debug_info;
 mod expression;
 pub use expression::*;
 mod item_tree;
 pub use item_tree::*;
+#[cfg(feature = "std")]
 pub mod lower_expression;
+#[cfg(feature = "std")]
 pub mod lower_layout_expression;
+#[cfg(feature = "std")]
 pub mod lower_to_item_tree;
+#[cfg(feature = "std")]
 mod native_class_selection;
+#[cfg(feature = "std")]
 pub mod pretty_print;
+#[cfg(feature = "serde")]
+pub mod serialize;
 
+#[cfg(feature = "std")]
 /// The optimization passes over the LLR
 pub mod optim_passes {
     pub mod count_property_use;
@@ -31,7 +40,18 @@ pub mod optim_passes {
 /// Compiles `source` and lowers it to the LLR, which runs the optimization passes.
 #[cfg(test)]
 pub(crate) fn lower_test_source(source: &str) -> CompilationUnit {
-    let mut config = crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    lower_test_source_with_config(
+        source,
+        crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter),
+    )
+}
+
+/// Like [`lower_test_source()`], with `config` and the fluent style.
+#[cfg(test)]
+pub(crate) fn lower_test_source_with_config(
+    source: &str,
+    mut config: crate::CompilerConfiguration,
+) -> CompilationUnit {
     config.style = Some("fluent".into());
     let mut diags = crate::diagnostics::BuildDiagnostics::default();
     let doc_node = crate::parser::parse(

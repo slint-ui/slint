@@ -19,9 +19,15 @@ pub enum PreviewTarget {
 }
 
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[cfg_attr(test, derive(PartialEq))]
 pub enum PreviewToLspMessage {
     /// Report diagnostics to editor.
-    Diagnostics { uri: Url, version: SourceFileVersion, diagnostics: Vec<lsp_types::Diagnostic> },
+    Diagnostics {
+        uri: Url,
+        version: SourceFileVersion,
+        #[serde(with = "json_encoded")]
+        diagnostics: Vec<lsp_types::Diagnostic>,
+    },
     /// Show a document in the editor.
     ShowDocument { file: Url, selection: lsp_types::Range, take_focus: bool },
     /// Switch between native and WASM preview (if supported)
@@ -103,6 +109,49 @@ pub enum PreviewToLspMessage {
     Exited,
     /// Clear the highlight in the visual editor run preview.
     ClearHighlight,
+    /// Highlight an element in the visual editor run preview without showing it in the editor.
+    /// `None` clears the highlight.
+    HighlightInRunPreview { url: Option<Url>, offset: u32 },
+    /// The preview UI asked to show the design on a microcontroller connected to
+    /// this serial port. The LSP main process compiles the design and sends it.
+    ConnectSerial { port: String },
+}
+
+impl PreviewToLspMessage {
+    /// Whether the LSP takes this message from a remote viewer.
+    ///
+    /// A remote viewer runs on someone else's machine: it may report what it
+    /// compiled and ask for the files it needs, and nothing else. That, not
+    /// "does it reach the editor", is where the line is — a viewer's whole job
+    /// is to send back diagnostics.
+    ///
+    /// Listed positively on purpose: a new variant stays refused until it is
+    /// deliberately allowed.
+    pub fn is_allowed_from_remote_viewer(&self) -> bool {
+        matches!(
+            self,
+            Self::Diagnostics { .. } | Self::DebugMessage { .. } | Self::RequestState { .. }
+        )
+    }
+}
+
+/// `lsp_types` omits empty optional fields when serializing, which the
+/// remote preview's postcard encoding can't read back, so these travel as JSON.
+mod json_encoded {
+    use serde::{Deserialize as _, de::Error as _, ser::Error as _};
+
+    pub fn serialize<S: serde::Serializer, T: serde::Serialize>(
+        value: &T,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&serde_json::to_string(value).map_err(S::Error::custom)?)
+    }
+
+    pub fn deserialize<'de, D: serde::Deserializer<'de>, T: serde::de::DeserializeOwned>(
+        deserializer: D,
+    ) -> Result<T, D::Error> {
+        serde_json::from_str(&String::deserialize(deserializer)?).map_err(D::Error::custom)
+    }
 }
 
 /// One transport from a preview back to the LSP.
@@ -147,5 +196,33 @@ pub trait PreviewToLsp {
             return Err(err);
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn diagnostics_survive_the_wire_format() {
+        let message = PreviewToLspMessage::Diagnostics {
+            uri: Url::parse("file:///app.slint").unwrap(),
+            version: Some(3),
+            diagnostics: vec![lsp_types::Diagnostic {
+                severity: Some(lsp_types::DiagnosticSeverity::WARNING),
+                message: "unused property".into(),
+                ..Default::default()
+            }],
+        };
+        let bytes = postcard::to_allocvec(&message).unwrap();
+        let PreviewToLspMessage::Diagnostics { version, diagnostics, .. } =
+            postcard::from_bytes(&bytes).unwrap()
+        else {
+            panic!("Expected diagnostics");
+        };
+        assert_eq!(version, Some(3));
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].severity, Some(lsp_types::DiagnosticSeverity::WARNING));
+        assert_eq!(diagnostics[0].message, "unused property");
     }
 }

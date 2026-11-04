@@ -333,7 +333,7 @@ fn builtin_functions(path: &Path) -> anyhow::Result<()> {
     )?;
     writeln!(
         out,
-        "namespace slint::cbindgen_private {{ struct BuiltinItemArg; struct FontMetrics; extern \"C\" {{"
+        "namespace slint::cbindgen_private {{ struct FontMetrics; struct ItemRc; extern \"C\" {{"
     )?;
     macro_rules! print_builtin_functions {
         ($(
@@ -348,17 +348,9 @@ fn builtin_functions(path: &Path) -> anyhow::Result<()> {
         (@ $name:ident ($(& context $(,)?)? $($param:ident: $ty:tt $(<$gen:ident>)? $(=> $as:tt)?),*) -> $Ret:tt $body:block) => {
             let params = vec![
                 format!("{} *", rust_type_to_cpp(stringify!($Ret))),
-                $(format!("const {} *", cpp_param_type!($ty $(=> $as)?))),*
+                $(format!("const {} *", rust_type_to_cpp(stringify!($ty)))),*
             ];
             writeln!(out, "void slint_builtin_{}({});", stringify!($name), params.join(", "))?;
-        };
-    }
-    macro_rules! cpp_param_type {
-        ($item:ident => ElementReference) => {
-            "BuiltinItemArg"
-        };
-        ($ty:tt $(=> $as:tt)?) => {
-            rust_type_to_cpp(stringify!($ty))
         };
     }
     i_slint_common::for_each_builtin_function!(print_builtin_functions);
@@ -373,6 +365,8 @@ fn rust_type_to_cpp(rust_type: &str) -> &str {
         "f32" | "Coord" => "float",
         "f64" => "double",
         "RgbaColorU8" => "RgbaColor<uint8_t>",
+        // An `ItemArg<Item>` in Rust
+        "ItemArg" => "ItemRc",
         "()" => "void",
         other => other,
     }
@@ -441,6 +435,7 @@ fn default_config() -> cbindgen::Config {
         ("target_os = android".into(), "__ANDROID__".into()),
         ("feature = image-pixel-format-rgb565".into(), "SLINT_FEATURE_IMAGE_PIXEL_FORMAT_RGB565".into()),
         ("feature = image-pixel-format-gray8".into(), "SLINT_FEATURE_IMAGE_PIXEL_FORMAT_GRAY8".into()),
+        ("feature = owned-pre-rendered-resources".into(), "SLINT_DISABLED_CODE".into()),
         // Disable Rust WGPU specific API feature
         ("feature = unstable-wgpu-29".into(), "SLINT_DISABLED_CODE".into()),
         ("feature = unstable-wgpu-30".into(), "SLINT_DISABLED_CODE".into()),
@@ -448,6 +443,7 @@ fn default_config() -> cbindgen::Config {
     config.defines = defines.into_iter().collect();
     config.structure.associated_constants_in_body = true;
     config.constant.allow_constexpr = true;
+    config.enumeration.deprecated_variant_with_note = Some("[[deprecated({})]]".into());
     config
 }
 
@@ -521,7 +517,6 @@ fn gen_corelib(
         "ItemTreeVTable",
         "Slice",
         "WindowAdapterRcOpaque",
-        "BuiltinItemArg",
         "PropertyAnimation",
         "AnimationDirection",
         "EasingCurve",
@@ -544,6 +539,7 @@ fn gen_corelib(
         "PointerScrollEvent",
         "Rect",
         "BitmapFont",
+        "StaticStorage",
         "DataTransferOpaque",
         // Return type of the ItemTree vtable's flexbox_layout_item_info* methods.
         // cbindgen can't see those (not extern "C"), and it is no longer reachable
@@ -658,6 +654,7 @@ fn gen_corelib(
         .with_src(crate_dir.join("string.rs"))
         .with_src(crate_dir.join("styled_text.rs"))
         .with_src(crate_dir.join("slice.rs"))
+        .with_src(crate_dir.join("debug_info.rs"))
         .with_after_include("namespace slint { struct SharedString; struct StyledText; }")
         .generate()
         .context("Unable to generate bindings for slint_string_internal.h")?
@@ -738,7 +735,7 @@ fn gen_corelib(
                 "PHYSICAL_REGION_MAX_SIZE",
             ],
             "slint_image_internal.h",
-            "#include \"private/slint_color.h\"\nnamespace slint::cbindgen_private { struct ParsedSVG{}; struct HTMLImage{}; struct AnimatedImage{}; struct PhysicalPx; using namespace vtable; namespace types{ struct NineSliceImage{}; using slint::Rgb565Pixel; using slint::Gray8Pixel; } }",
+            "#include \"private/slint_color.h\"\nnamespace slint::cbindgen_private { struct ParsedSVG{}; struct HTMLImage{}; struct AnimatedImage{}; struct PhysicalPx; struct StaticStorage; using namespace vtable; namespace types{ struct NineSliceImage{}; using slint::Rgb565Pixel; using slint::Gray8Pixel; } }",
         ),
         (
             vec!["Color", "slint_color_brighter", "slint_color_darker",
@@ -757,7 +754,8 @@ fn gen_corelib(
         (
             vec!["Brush", "LinearGradient", "GradientStop", "RadialGradient", "ConicGradientBrush",
                  "slint_conic_gradient_normalize_stops", "slint_conic_gradient_apply_rotation",
-                 "slint_brush_compare_equal"],
+                 "slint_brush_compare_equal", "RADIAL_GRADIENT_DEFAULT_RADIUS",
+                 "RADIAL_GRADIENT_SHAPE_CIRCLE", "RADIAL_GRADIENT_SHAPE_ELLIPSE"],
             "slint_brush_internal.h",
             "",
         ),
@@ -886,6 +884,9 @@ fn gen_corelib(
             "slint_conic_gradient_normalize_stops",
             "slint_conic_gradient_apply_rotation",
             "slint_brush_compare_equal",
+            "RADIAL_GRADIENT_DEFAULT_RADIUS",
+            "RADIAL_GRADIENT_SHAPE_CIRCLE",
+            "RADIAL_GRADIENT_SHAPE_ELLIPSE",
             "PHYSICAL_REGION_MAX_SIZE",
         ]
         .into_iter()
@@ -923,6 +924,7 @@ fn gen_corelib(
             .with_src(crate_dir.join("graphics/brush.rs"))
             .with_src(crate_dir.join("graphics/image.rs"))
             .with_src(crate_dir.join("graphics/image/cache.rs"))
+            .with_src(crate_dir.join("../common/pre_rendered.rs"))
             .with_src(crate_dir.join("data_transfer/ffi.rs"))
             .with_src(crate_dir.join("animations.rs"))
             .with_src(crate_dir.join("input.rs"))
@@ -1064,6 +1066,7 @@ fn gen_corelib(
     cbindgen::Builder::new()
         .with_config(config)
         .with_src(crate_dir.join("lib.rs"))
+        .with_src(crate_dir.join("../common/bitmapfont.rs"))
         .with_include("private/slint_config.h")
         .with_include("private/vtable.h")
         .with_include("private/slint_string.h")

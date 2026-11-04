@@ -55,7 +55,7 @@ fn process_slint_code(
     if diag.has_errors() {
         match file.write_all(&code.as_bytes()[len..]) {
             Ok(()) => {
-                diag.print();
+                diag.print_styled_if_terminal();
                 Ok(true)
             }
             Err(e) => Err(e),

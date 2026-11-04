@@ -33,7 +33,7 @@ respective simulators. This is implemented through the <Link type="WinitBackend"
 The following steps assume that you have a Rust application with Slint prepared. If you're just getting started, use our [Slint Rust Template](https://github.com/slint-ui/slint-rust-template)
 to get a minimal application running.
 
-Use XCode to building, deploy, and submit iOS applications to the App Store.
+Use Xcode to build, deploy, and submit iOS applications to the App Store.
 Use [Xcodegen](https://github.com/yonaskolb/XcodeGen) to create an Xcode project from a minimal description.
 
 1. Verify that your application compiles for iOS, by running:
@@ -113,7 +113,6 @@ A Slint C++ iOS application is a standard CMake project (see the <Link type="get
 When you configure Slint with `CMAKE_SYSTEM_NAME` set to `iOS`, its `CMakeLists.txt` automatically:
 - Maps the SDK and architecture to the matching Rust target.
 - Builds Slint as a static library and selects the Skia renderer on Metal.
-- Sets the Cupertino style as default.
 - Embeds images and fonts in the binary, since paths from the build machine don't exist on the device.
 
 1. Build your application as an app bundle with an `Info.plist` template:

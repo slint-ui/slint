@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 #![cfg_attr(docsrs, feature(doc_cfg))]
+#![no_std]
 
 /*!
 # Slint interpreter library
@@ -57,6 +58,7 @@ let code = r#"
 "#;
 
 let mut compiler = Compiler::default();
+compiler.set_edition((1, 19));
 let result =
     spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
 assert_eq!(result.diagnostics().count(), 0);
@@ -72,11 +74,39 @@ instance.run().unwrap();
 #![warn(missing_docs)]
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 
-#[cfg(not(feature = "compat-1-18"))]
+#[cfg(not(any(feature = "compat-1-18", feature = "internal-mcu-interpreter")))]
 compile_error!(
     "The feature `compat-1-18` must be enabled to ensure \
     forward compatibility with future version of this crate"
 );
+
+extern crate alloc;
+#[cfg(feature = "std")]
+#[macro_use]
+extern crate std;
+
+mod prelude {
+    pub use alloc::borrow::ToOwned;
+    pub use alloc::boxed::Box;
+    pub use alloc::format;
+    pub use alloc::rc::Rc;
+    pub use alloc::string::{String, ToString};
+    pub use alloc::vec;
+    pub use alloc::vec::Vec;
+    pub use core::cell::{Cell, OnceCell, RefCell};
+    pub use core::pin::Pin;
+
+    pub use crate::api::Value;
+    pub use crate::instance::Instance;
+    #[cfg(not(feature = "std"))]
+    pub use hashbrown::HashMap;
+    pub use i_slint_core::item_tree::ItemTreeVTable;
+    pub use i_slint_core::{Callback, Property, SlintContext};
+    pub use smol_str::SmolStr;
+    #[cfg(feature = "std")]
+    pub use std::collections::HashMap;
+    pub use vtable::VRc;
+}
 
 mod api;
 mod bindings;
@@ -90,6 +120,7 @@ mod eval_layout;
 pub mod ffi;
 mod globals;
 #[cfg(feature = "internal-highlight")]
+#[doc(hidden)]
 pub mod highlight;
 mod instance;
 mod item_holder;
@@ -99,6 +130,11 @@ mod item_tree_vtable;
 pub mod json;
 mod popup;
 mod public_api;
+#[cfg(all(feature = "internal", feature = "internal-highlight"))]
+#[doc(hidden)]
+pub mod snapping;
+#[cfg(feature = "internal-mcu-interpreter")]
+mod static_resources;
 mod value_model;
 
 #[doc(inline)]
@@ -108,6 +144,7 @@ pub use api::*;
 #[doc(hidden)]
 pub use eval::{
     call_runtime_builtin_function, default_value_for_struct_field, default_value_for_type,
+    radial_gradient_brush, radial_gradient_shape_to_string,
 };
 
 #[cfg(test)]

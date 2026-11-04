@@ -16,8 +16,10 @@ component Wrapper {
 
 component WrapperInherited inherits Rectangle {
 //                                  >        <warning{The binding for the property 'layoutinfo-h' is part of a binding loop (VerticalLayout.width -> HorizontalLayout.width -> HorizontalLayout -> WrapperInherited.width -> VerticalLayout -> WrapperInherited -> HorizontalLayout -> VerticalLayout -> root -> VerticalLayout.width)↵Set an 'x' or a 'y' on 'VerticalLayout', so its parent stops sizing itself from it↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
+//                                  >        <^error{The binding for the property 'layoutinfo-h' is part of a binding loop (WrapperInherited.width -> VerticalLayout -> WrapperInherited -> HorizontalLayout -> WrapperInherited.width)↵Set an 'x' or a 'y' on 'VerticalLayout', so its parent stops sizing itself from it}
     VerticalLayout {
 //  >             <note{setting an 'x' or a 'y' here takes 'VerticalLayout' out of its parent's size, one way out of the binding loop reported for 'layoutinfo-h' at line 17}
+//  >             <^note{setting an 'x' or a 'y' here takes 'VerticalLayout' out of its parent's size, one way out of the binding loop reported for 'layoutinfo-h' at line 17}
         if root.width > 200px: Rectangle { }
     }
 }

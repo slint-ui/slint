@@ -6,6 +6,7 @@ from pathlib import Path
 
 import slint_testing
 from canvas_interactions import center as element_center
+from slint_testing import keys
 from ui_driver import element, elements, select_outline_row
 
 
@@ -30,12 +31,16 @@ def around(c, radius, degrees):
     return shifted(c, x=radius * math.cos(angle), y=radius * math.sin(angle))
 
 
-def gesture(window, start, end):
+def gesture(window, start, end, shift=False):
     button = slint_testing.PointerEventButton.Left
+    if shift:
+        window.dispatch_event(slint_testing.KeyPressedEvent(text=keys.Shift))
     window.dispatch_event(slint_testing.PointerMoveEvent(start))
     window.dispatch_event(slint_testing.PointerPressEvent(start, button))
     window.dispatch_event(slint_testing.PointerMoveEvent(end))
     window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
+    if shift:
+        window.dispatch_event(slint_testing.KeyReleasedEvent(text=keys.Shift))
 
 
 def picker_field(window, label, role=slint_testing.AccessibleRole.TextInput):
@@ -43,7 +48,9 @@ def picker_field(window, label, role=slint_testing.AccessibleRole.TextInput):
 
 
 def open_gradient(window):
-    click(window, "Rectangle background color picker")
+    control(window, "Rectangle background color picker").single_click(
+        slint_testing.PointerEventButton.Left
+    )
 
 
 def open_radial(window):
@@ -74,7 +81,13 @@ def picker_panel(window, name):
 
 def move_picker_to_files(window, name):
     panel = picker_panel(window, name)
-    title = "Custom" if name == "main" else "Stop color"
+    sidebar = element(
+        window, "Project pane resize", role=slint_testing.AccessibleRole.Slider
+    )
+    sidebar.accessible_value = str(
+        max(float(sidebar.accessible_value.removesuffix(" px")), panel.size.width + 24)
+    )
+    title = "Fill" if name == "main" else "Stop color"
     handle = control(window, f"Move {title} picker")
     files = control(window, "Files", slint_testing.AccessibleRole.Tree)
     point = center(handle)

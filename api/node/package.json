@@ -8,7 +8,11 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
-    "./register": "./register.mjs"
+    "./register": "./register.mjs",
+    "./esbuild": {
+      "types": "./esbuild.d.mts",
+      "default": "./esbuild.mjs"
+    }
   },
   "homepage": "https://github.com/slint-ui/slint",
   "license": "SEE LICENSE IN LICENSE.md",
@@ -17,25 +21,42 @@
     "url": "https://github.com/slint-ui/slint"
   },
   "keywords": [
-    "GUI",
-    "UI",
+    "gui",
+    "ui",
     "native",
-    "node",
-    "Slint",
     "desktop",
+    "desktop-app",
+    "node",
+    "deno",
+    "bun",
+    "javascript",
+    "typescript",
+    "cross-platform",
+    "no-webview",
+    "electron-alternative",
+    "slint",
     "embedded"
   ],
-  "description": "Slint is a declarative GUI toolkit to build native user interfaces for desktop and embedded applications.",
+  "description": "Native GUI toolkit for JavaScript and TypeScript to build desktop and embedded apps without a webview or Chromium",
   "devDependencies": {
     "@biomejs/biome": "catalog:",
-    "@napi-rs/cli": "3.10.8",
+    "@napi-rs/cli": "3.10.9",
     "@types/capture-console": "1.0.5",
     "@types/node": "catalog:",
     "capture-console": "1.0.2",
+    "esbuild": "0.28.2",
     "image-js": "1.7.1",
     "typescript": "catalog:",
-    "verdaccio": "6.10.5",
+    "verdaccio": "7.0.2",
     "vitest": "catalog:"
+  },
+  "peerDependencies": {
+    "esbuild": ">=0.20"
+  },
+  "peerDependenciesMeta": {
+    "esbuild": {
+      "optional": true
+    }
   },
   "engines": {
     "node": ">= 22.18"
@@ -44,10 +65,10 @@
     "artifacts": "napi artifacts",
     "compile": "tsc --build",
     "build": "napi build --platform --no-const-enum --release --js rust-module.cjs --dts rust-module.d.cts -c binaries.json",
-    "build:dev": "napi build --platform --no-const-enum --release --js rust-module-dev.cjs --dts rust-module.d.cts -c binaries-dev.json --features system-testing,mcp",
+    "build:dev": "napi build --platform --no-const-enum --release --js rust-module-dev.cjs --dts rust-module.d.cts -c binaries-dev.json --features system-testing,mcp,live-preview",
     "build:minimal": "napi build --platform --no-const-enum --js rust-module.cjs --dts rust-module.d.cts -c binaries.json --no-default-features",
-    "build:debug": "napi build --platform --no-const-enum --js rust-module-dev.cjs --dts rust-module.d.cts -c binaries-dev.json --features system-testing,mcp && pnpm compile",
-    "build:testing": "napi build --platform --no-const-enum --js rust-module.cjs --dts rust-module.d.cts -c binaries.json --features testing && pnpm compile",
+    "build:debug": "napi build --platform --no-const-enum --js rust-module-dev.cjs --dts rust-module.d.cts -c binaries-dev.json --features system-testing,mcp,live-preview && pnpm compile",
+    "build:testing": "napi build --platform --no-const-enum --js rust-module.cjs --dts rust-module.d.cts -c binaries.json --features testing,live-preview && pnpm compile",
     "docs": "pnpm build && pnpm -C ../../docs/nodejs run build",
     "docs:dev": "pnpm build && pnpm -C ../../docs/nodejs run dev",
     "docs:debug": "pnpm build:debug && pnpm -C ../../docs/nodejs run build",

@@ -26,6 +26,7 @@
 //!
 //!     // ... rest of your code ...
 //!     slint::slint!{
+//!         #[edition = "1.19"]
 //!         export component MainWindow inherits Window {
 //!             Text { text: "Hello World"; }
 //!         }
@@ -42,7 +43,7 @@
 //! crate-type = ["cdylib"]
 //!
 //! [dependencies]
-//! slint = { version = "1.6", features = ["backend-android-activity-06"] }
+//! slint = { version = "1.19.0", features = ["backend-android-activity-06"] }
 //! ```
 //!
 //! ## Building and Deploying

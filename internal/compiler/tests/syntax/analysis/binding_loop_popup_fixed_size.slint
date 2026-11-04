@@ -5,7 +5,7 @@
 export component Test inherits Window {
     popup := PopupWindow {
         width: t.preferred-width;
-//             >                <error{The binding for the property 'fixed-width' is part of a binding loop (popup.fixed-width -> t.text -> t.preferred-width -> popup.fixed-width)}
+//             >                <error{The binding for the property 'fixed-width' is part of a binding loop (popup.fixed-width -> t.text -> t -> t.preferred-width -> popup.fixed-width)↵Compute 'fixed-width' without depending on a size or a position the layout produces}
         t := Text { text: popup.width > 10px ? "a" : "bbbbbbbbbb"; }
 //                        >                                      <note{'text' is part of the binding loop reported for 'fixed-width' at line 7}
     }

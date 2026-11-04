@@ -140,8 +140,7 @@ fn wait_for_input(max_timeout: Option<Duration>) {
     let timer = unsafe {
         uefi::boot::create_event(EventType::TIMER, Tpl::APPLICATION, None, None).unwrap()
     };
-    uefi::boot::set_timer(&timer, TimerTrigger::Periodic((timeout.as_nanos() / 100) as u64))
-        .unwrap();
+    uefi::boot::set_timer(&timer, TimerTrigger::Periodic(timeout)).unwrap();
 
     uefi::boot::set_watchdog_timer(2 * watchdog_timeout.as_micros() as usize, 0x10000, None)
         .unwrap();
@@ -295,6 +294,7 @@ impl slint::platform::Platform for Platform {
         ));
 
         let mut position = slint::LogicalPosition::new(0.0, 0.0);
+        let mut buttons = [false; 2];
 
         let ptr = MOUSE_POINTER.load(Ordering::Relaxed);
         let mpointer = unsafe { &mut *ptr };
@@ -309,44 +309,48 @@ impl slint::platform::Platform for Platform {
             while let Some(key) = get_key_press() {
                 // EFI does not distinguish between pressed and released events.
                 let text = SharedString::from(key);
-                self.window.dispatch_event_with_result(WindowEvent::KeyPressed { text: text.clone() })?;
+                self.window
+                    .dispatch_event_with_result(WindowEvent::KeyPressed { text: text.clone() })?;
                 self.window.dispatch_event_with_result(WindowEvent::KeyReleased { text })?;
             }
             // mouse handle until no input
             while let Some(mut mouse) =
                 mpointer.read_state().expect("Failed to read state from Pointer.")
             {
-                position.x +=
-                    (mouse.relative_movement[0] as f32) / (mouse_mode.resolution[0] as f32);
-                position.y +=
-                    (mouse.relative_movement[1] as f32) / (mouse_mode.resolution[1] as f32);
-
-                let button: PointerEventButton = match mouse.button {
-                    [true, true] => PointerEventButton::Left,
-                    [true, false] => PointerEventButton::Left,
-                    [false, true] => PointerEventButton::Right,
-                    [false, false] => PointerEventButton::Other,
-                };
+                position.x += (mouse.relative_movement_x as f32) / (mouse_mode.resolution_x as f32);
+                position.y += (mouse.relative_movement_y as f32) / (mouse_mode.resolution_y as f32);
 
                 if position.x < 0.0 {
                     position.x = 0.0;
                 } else if position.x > (info.resolution().0 - pointer_x) as f32 {
                     position.x = (info.resolution().0 - pointer_x) as f32;
-                    mouse.relative_movement[0] = (info.resolution().0) as i32;
+                    mouse.relative_movement_x = (info.resolution().0) as i32;
                 }
 
                 if position.y < 0.0 {
                     position.y = 0.0;
                 } else if position.y > (info.resolution().1 - pointer_y) as f32 {
                     position.y = (info.resolution().1 - pointer_y) as f32;
-                    mouse.relative_movement[1] = (info.resolution().1) as i32;
+                    mouse.relative_movement_y = (info.resolution().1) as i32;
                 }
 
                 self.window.dispatch_event_with_result(WindowEvent::PointerMoved { position })?;
-                self.window.dispatch_event_with_result(WindowEvent::PointerExited {})?;
-                self.window.dispatch_event_with_result(WindowEvent::PointerPressed { position, button })?;
-                self.window
-                    .dispatch_event_with_result(WindowEvent::PointerReleased { position, button })?;
+
+                let pressed = [mouse.left_button.into(), mouse.right_button.into()];
+                for (index, button) in
+                    [PointerEventButton::Left, PointerEventButton::Right].into_iter().enumerate()
+                {
+                    if pressed[index] == buttons[index] {
+                        continue;
+                    }
+                    buttons[index] = pressed[index];
+                    let event = if buttons[index] {
+                        WindowEvent::PointerPressed { position, button }
+                    } else {
+                        WindowEvent::PointerReleased { position, button }
+                    };
+                    self.window.dispatch_event_with_result(event)?;
+                }
                 is_mouse_move = true;
             }
 

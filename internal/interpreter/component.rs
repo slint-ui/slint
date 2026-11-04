@@ -6,19 +6,22 @@
 //! The public API wraps these thin structs so downstream callers never
 //! see the compilation-unit surface directly.
 
-use crate::instance::Instance;
+#[cfg(feature = "std")]
+use crate::AnimationMode;
+use crate::prelude::*;
 use crate::public_api;
-use crate::{AnimationMode, Value};
+#[cfg(feature = "std")]
+use i_slint_compiler::ComponentSelection;
+#[cfg(feature = "std")]
 use i_slint_compiler::builtin_functions::BuiltinFunction;
 use i_slint_compiler::langtype::Type as LangType;
-use i_slint_compiler::llr::{CompilationUnit, Expression, GlobalComponent, PublicComponentIdx};
+#[cfg(feature = "std")]
+use i_slint_compiler::llr::Expression;
+use i_slint_compiler::llr::{CompilationUnit, GlobalComponent, PublicComponentIdx};
+use i_slint_compiler::names::normalize_identifier;
 use i_slint_compiler::native_class::PropertyVisibility;
-use i_slint_compiler::parser::normalize_identifier;
+#[cfg(feature = "std")]
 use i_slint_compiler::source_path::SourcePath;
-use i_slint_core::item_tree::ItemTreeVTable;
-use smol_str::SmolStr;
-use std::rc::Rc;
-use vtable::VRc;
 
 /// Pair of `TypeLoader`s retained alongside a compiled component for
 /// internal tooling (highlight, live preview, LSP).
@@ -31,21 +34,41 @@ use vtable::VRc;
 /// the other; passes are destructive.
 #[derive(Clone, Default)]
 pub struct TypeLoaders {
+    #[cfg(feature = "std")]
     #[cfg_attr(not(any(feature = "internal", feature = "internal-highlight")), allow(dead_code))]
-    pub type_loader: Option<std::rc::Rc<i_slint_compiler::typeloader::TypeLoader>>,
+    pub type_loader: Option<Rc<i_slint_compiler::typeloader::TypeLoader>>,
+    #[cfg(feature = "std")]
     #[cfg_attr(not(feature = "internal-highlight"), allow(dead_code))]
-    pub raw_type_loader: Option<std::rc::Rc<i_slint_compiler::typeloader::TypeLoader>>,
+    pub raw_type_loader: Option<Rc<i_slint_compiler::typeloader::TypeLoader>>,
     /// The object-tree component of each public component, indexed like
     /// `CompilationUnit::public_components`. Highlighting and the LSP
     /// resolve elements against the exact component the definition was
     /// built from — a name lookup could hit a same-named component from
     /// another document.
-    pub originals: std::rc::Rc<
+    #[cfg(feature = "std")]
+    pub originals: Rc<
         typed_index_collections::TiVec<
             PublicComponentIdx,
-            std::rc::Rc<i_slint_compiler::object_tree::Component>,
+            Rc<i_slint_compiler::object_tree::Component>,
         >,
     >,
+}
+
+/// Loads the contents of a resource file, such as an imported font, by its path or URL.
+#[cfg(feature = "std")]
+pub type ResourceLoader =
+    Rc<dyn Fn(SourcePath) -> Pin<Box<dyn Future<Output = std::io::Result<Vec<u8>>>>>>;
+
+/// The contents of the imported font files that were loaded while compiling,
+/// keyed by the path that the compiled code registers each font with.
+pub type FontFiles = HashMap<String, alloc::sync::Arc<Vec<u8>>>;
+
+/// What the compiled code refers to besides the compilation unit.
+#[derive(Clone, Default)]
+pub struct Resources {
+    pub font_files: FontFiles,
+    #[cfg(feature = "internal-mcu-interpreter")]
+    pub pre_rendered: crate::static_resources::PreRendered,
 }
 
 /// Compiled component, one per exported public component in the
@@ -58,6 +81,7 @@ pub struct ComponentDefinitionInner {
     /// `None` on both sides when the definition comes from a running
     /// instance without `TypeLoader` references.
     pub type_loaders: TypeLoaders,
+    pub resources: Rc<Resources>,
 }
 
 impl ComponentDefinitionInner {
@@ -76,19 +100,18 @@ impl ComponentDefinitionInner {
             self.public_index,
             window_adapter,
             self.type_loaders.clone(),
+            self.resources.clone(),
         );
         ComponentInstanceInner(vrc)
     }
 
     /// Instantiate the component with `context` instead of the thread's.
-    pub fn create_with_context(
-        &self,
-        context: i_slint_core::SlintContext,
-    ) -> ComponentInstanceInner {
+    pub fn create_with_context(&self, context: SlintContext) -> ComponentInstanceInner {
         let vrc = Instance::new_with_context(
             self.compilation_unit.clone(),
             self.public_index,
             self.type_loaders.clone(),
+            self.resources.clone(),
             context,
         );
         ComponentInstanceInner(vrc)
@@ -104,6 +127,7 @@ impl ComponentDefinitionInner {
             self.public_index,
             window_adapter,
             self.type_loaders.clone(),
+            self.resources.clone(),
         );
         ComponentInstanceInner(vrc)
     }
@@ -121,6 +145,7 @@ impl ComponentDefinitionInner {
             self.compilation_unit.clone(),
             self.public_index,
             self.type_loaders.clone(),
+            self.resources.clone(),
             parent,
             parent_item_tree_index,
         );
@@ -182,7 +207,7 @@ impl ComponentDefinitionInner {
             .globals
             .iter()
             .filter(|g| visible_in_public_api(g))
-            .flat_map(|g| g.aliases.iter().cloned().chain(std::iter::once(g.name.clone())))
+            .flat_map(|g| g.aliases.iter().cloned().chain(core::iter::once(g.name.clone())))
     }
 
     fn global_by_name(&self, name: &str) -> Option<&GlobalComponent> {
@@ -333,18 +358,26 @@ impl ComponentInstanceInner {
             compilation_unit: self.0.root_sub_component.compilation_unit.clone(),
             public_index,
             type_loaders: self.0.type_loaders.clone(),
+            resources: self.0.globals.resources.clone(),
         }
     }
 }
 
+#[cfg(feature = "std")]
 /// Lower a compiled `Document` to a `CompilationUnit` and wrap each public
 /// component in a `ComponentDefinitionInner`.
 pub fn build_from_document(
     document: &i_slint_compiler::object_tree::Document,
     compiler_config: &i_slint_compiler::CompilerConfiguration,
     mut type_loaders: TypeLoaders,
+    font_files: FontFiles,
     animation_mode: AnimationMode,
 ) -> Vec<ComponentDefinitionInner> {
+    let resources = Rc::new(Resources {
+        font_files,
+        #[cfg(feature = "internal-mcu-interpreter")]
+        pre_rendered: crate::static_resources::PreRendered::from_document(document),
+    });
     let mut unit =
         i_slint_compiler::llr::lower_to_item_tree::lower_to_item_tree(document, compiler_config);
     if matches!(animation_mode, AnimationMode::Static) {
@@ -353,17 +386,19 @@ pub fn build_from_document(
     let unit = Rc::new(unit);
     // `lower_to_item_tree` builds `public_components` from `exported_roots()`
     // in iteration order, so the indices line up.
-    type_loaders.originals = std::rc::Rc::new(document.exported_roots().collect());
+    type_loaders.originals = Rc::new(document.exported_roots().collect());
     unit.public_components
         .keys()
         .map(|public_index| ComponentDefinitionInner {
             compilation_unit: unit.clone(),
             public_index,
             type_loaders: type_loaders.clone(),
+            resources: resources.clone(),
         })
         .collect()
 }
 
+#[cfg(feature = "std")]
 fn make_static(compilation_unit: &mut CompilationUnit) {
     fn make_expression_static(expression: &mut Expression) {
         let replacement = match expression {
@@ -398,25 +433,106 @@ fn make_static(compilation_unit: &mut CompilationUnit) {
     }
 }
 
+/// Loads the imported fonts through `resource_loader`, or in the browser,
+/// which can't read them when a component is created, through `fetch`.
+/// Fonts that fail to load get a warning on their `import`.
+#[cfg(feature = "std")]
+#[cfg_attr(not(all(target_arch = "wasm32", target_os = "unknown")), allow(unused_variables))]
+async fn load_font_files(
+    type_loader: &i_slint_compiler::typeloader::TypeLoader,
+    config: &i_slint_compiler::CompilerConfiguration,
+    resource_loader: Option<&ResourceLoader>,
+    diag: &mut i_slint_compiler::diagnostics::BuildDiagnostics,
+) -> FontFiles {
+    let mut imports = std::collections::BTreeMap::new();
+    for doc in type_loader.all_documents() {
+        for (path, token) in &doc.custom_fonts {
+            imports.entry(path.clone()).or_insert_with(|| token.clone());
+        }
+    }
+    // Start every load before awaiting the first, so that they run in parallel.
+    let mut loads = Vec::new();
+    for (path, token) in imports {
+        let load = match resource_loader {
+            Some(loader) => loader(path.clone()),
+            #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+            None => Box::pin(fetch(&mapped_url(&path, config).await)),
+            #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
+            None => return Default::default(),
+        };
+        loads.push((path, token, load));
+    }
+    let mut files = HashMap::new();
+    for (path, token, load) in loads {
+        match load.await {
+            Ok(data) => {
+                files.insert(path.to_string(), alloc::sync::Arc::new(data));
+            }
+            Err(e) => diag.push_warning(format!("Cannot load the font: {e}"), &token),
+        }
+    }
+    files
+}
+
+#[cfg(all(feature = "std", target_arch = "wasm32", target_os = "unknown"))]
+async fn mapped_url(path: &SourcePath, config: &i_slint_compiler::CompilerConfiguration) -> String {
+    if let (Some(mapper), Some(url)) = (&config.resource_url_mapper, path.to_url())
+        && let Some(mapped) = mapper(&url).await
+    {
+        return mapped.to_string();
+    }
+    path.to_string()
+}
+
+/// Sends the request right away, so that several fetches overlap.
+#[cfg(all(feature = "std", target_arch = "wasm32", target_os = "unknown"))]
+fn fetch(url: &str) -> impl Future<Output = std::io::Result<Vec<u8>>> + 'static {
+    use wasm_bindgen::JsCast;
+    use wasm_bindgen_futures::JsFuture;
+    let request = web_sys::window().map(|window| JsFuture::from(window.fetch_with_str(url)));
+    async move {
+        let error = |e: wasm_bindgen::JsValue| std::io::Error::other(format!("{e:?}"));
+        let response: web_sys::Response = request
+            .ok_or_else(|| std::io::Error::other("no browser window"))?
+            .await
+            .map_err(error)?
+            .dyn_into()
+            .map_err(error)?;
+        if !response.ok() {
+            return Err(std::io::Error::other(format!(
+                "{} {}",
+                response.status(),
+                response.status_text()
+            )));
+        }
+        let buffer =
+            JsFuture::from(response.array_buffer().map_err(error)?).await.map_err(error)?;
+        Ok(js_sys::Uint8Array::new(&buffer).to_vec())
+    }
+}
+
+#[cfg(feature = "std")]
 /// What [`build_from_source`] produces: the diagnostics, a map of public
 /// component name → `ComponentDefinitionInner` for each exported root in the
 /// document, and the extra document metadata that the `internal` API of
 /// [`crate::CompilationResult`] exposes for the LSP and live preview.
 pub struct BuildResult {
     pub diagnostics: Vec<i_slint_compiler::diagnostics::Diagnostic>,
-    pub components: std::collections::HashMap<String, ComponentDefinitionInner>,
+    pub components: HashMap<String, ComponentDefinitionInner>,
     #[cfg(feature = "internal")]
     pub watch_paths: Vec<SourcePath>,
     #[cfg(feature = "internal")]
     pub structs_and_enums: Vec<LangType>,
 }
 
+#[cfg(feature = "std")]
 /// Compile a `.slint` source string.
 pub async fn build_from_source(
     source_code: String,
     path: SourcePath,
     mut config: i_slint_compiler::CompilerConfiguration,
     animation_mode: AnimationMode,
+    resource_loader: Option<ResourceLoader>,
 ) -> BuildResult {
     // If the native style should be used, resolve it here as we know the backend.
     if config.style.as_deref() == Some("native") {
@@ -482,10 +598,10 @@ pub async fn build_from_source(
             ..error_result(diag.into_iter().collect())
         };
     }
-    let type_loader = std::rc::Rc::new(loader);
+    let type_loader = Rc::new(loader);
     let type_loaders = TypeLoaders {
         type_loader: Some(type_loader.clone()),
-        raw_type_loader: raw_loader.map(std::rc::Rc::new),
+        raw_type_loader: raw_loader.map(Rc::new),
         originals: Default::default(),
     };
     let doc = match type_loader.get_document(&path) {
@@ -498,11 +614,15 @@ pub async fn build_from_source(
             };
         }
     };
-    let mut components = std::collections::HashMap::new();
-    for def in build_from_document(doc, &config, type_loaders, animation_mode) {
+    let font_files =
+        load_font_files(&type_loader, &config, resource_loader.as_ref(), &mut diag).await;
+    let mut components = HashMap::new();
+    for def in build_from_document(doc, &config, type_loaders, font_files, animation_mode) {
         components.insert(def.name().to_string(), def);
     }
-    if components.is_empty() {
+    if components.is_empty()
+        && !matches!(config.components_to_generate, ComponentSelection::AllExported)
+    {
         diag.push_error_with_span("No component found".into(), Default::default());
     }
     #[cfg(feature = "internal")]

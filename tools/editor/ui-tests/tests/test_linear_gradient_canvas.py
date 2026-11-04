@@ -66,7 +66,7 @@ def test_gradient_stop_partial_hex_typing_cancels_without_source_changes(
         original.assert_unchanged_now()
         screenshot(window).save(tmp_path / "partial-hex.png")
         press_key(window, keys.Escape)
-        expect(query(window, "Close Custom")).to_be_hidden()
+        expect(query(window, "Close Fill")).to_be_hidden()
         original.assert_unchanged()
         open_linear(window)
         expect(
@@ -77,7 +77,7 @@ def test_gradient_stop_partial_hex_typing_cancels_without_source_changes(
                 window, "Stop 2 color opacity", slint_testing.AccessibleRole.TextInput
             )
         ).to_have_value("100")
-        click(window, "Close Custom")
+        click(window, "Close Fill")
         original.assert_unchanged()
 
 
@@ -117,7 +117,7 @@ def test_live_rgb_typing_preserves_edit_start_alpha(
         screenshot(window).save(tmp_path / "alpha-edit.png")
         if surface == "stop-picker":
             click(window, "Close Stop color")
-        click(window, "Close Custom")
+        click(window, "Close Fill")
         expected = replace_once(
             original.sources[Path(scene.name)],
             ("#264052" + alpha).encode(),
@@ -149,11 +149,13 @@ def test_live_rgb_typing_recaptures_alpha_for_the_next_edit(
             control(
                 window, "Stop 2 color opacity", slint_testing.AccessibleRole.TextInput
             ).invoke_accessible_default_action()
+            expect(field).to_have_value("ABCDEF")
             field.invoke_accessible_default_action()
         press_keys(window, "654321")
         press_key(window, keys.Return)
+        expect(field).to_have_value("654321")
         original.assert_unchanged_now()
-        click(window, "Close Custom")
+        click(window, "Close Fill")
         expected = replace_once(
             original.sources[Path(scene.name)], b"#264052 55%", b"#654321ab 55%"
         )
@@ -206,7 +208,7 @@ def test_opacity_scrub_cancellation_preserves_exact_alpha(
         original.assert_unchanged_now()
         if surface == "stop-picker":
             click(window, "Close Stop color")
-        click(window, "Close Custom")
+        click(window, "Close Fill")
         original.assert_unchanged()
 
 
@@ -238,7 +240,7 @@ def test_gradient_stop_rows_edit_color_and_opacity_without_opening_stop_panel(
         assert not elements(window, "Close Stop color")
         original.assert_unchanged_now()
 
-        click(window, "Close Custom")
+        click(window, "Close Fill")
         expected = replace_once(
             original.sources[Path(scene.name)],
             b"#264052 55%",
@@ -287,7 +289,7 @@ def test_gradient_stop_opacity_scrub_keeps_capture(
             window.dispatch_event(
                 slint_testing.PointerReleaseEvent(shifted(start, x=-20), button)
             )
-            expect(query(window, "Close Custom")).to_be_hidden()
+            expect(query(window, "Close Fill")).to_be_hidden()
             original.assert_unchanged()
             return
 
@@ -304,7 +306,7 @@ def test_gradient_stop_opacity_scrub_keeps_capture(
             ).to_have_value("100")
         window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
         original.assert_unchanged_now()
-        click(window, "Close Custom")
+        click(window, "Close Fill")
         if outcome == "revert":
             original.assert_unchanged()
             return
@@ -351,14 +353,16 @@ def test_stop_drag_crosses_neighbors_without_losing_capture(
         window.dispatch_event(slint_testing.PointerPressEvent(start, button))
         for dx in (30, 70, 100, 130, 70, -50, -120, 20):
             window.dispatch_event(slint_testing.PointerMoveEvent(destination(dx)))
+            position = min(100, max(0, 55 + dx / 2))
             assert float(
                 control(
                     window, "Gradient stop 2", slint_testing.AccessibleRole.Slider
                 ).accessible_value
-            ) == pytest.approx(55 + dx / 2)
+            ) == pytest.approx(position)
             actual = center(control(window, "Gradient stop 2"), rotation)
-            assert actual.x == pytest.approx(destination(dx).x, abs=0.001)
-            assert actual.y == pytest.approx(destination(dx).y, abs=0.001)
+            expected = destination((position - 55) * 2)
+            assert actual.x == pytest.approx(expected.x, abs=0.001)
+            assert actual.y == pytest.approx(expected.y, abs=0.001)
         window.dispatch_event(
             slint_testing.PointerReleaseEvent(destination(20), button)
         )
@@ -435,7 +439,7 @@ def test_linear_endpoint_drag_and_session_history(
         )
         control(window, "Add gradient stop")
         original.assert_unchanged_now()
-        click(window, "Close Custom")
+        click(window, "Close Fill")
         saved = replace_once(
             original.sources[Path(scene.name)],
             b"@linear-gradient(90deg, #568fb8 0%, #264052 55%, #7e3b66 100%)",
@@ -469,7 +473,8 @@ def test_linear_double_click_and_delete(
         press_key(window, keys.Delete)
         assert not elements(window, "Gradient stop 3")
         press_key(window, keys.Delete)
-        control(window, "Gradient stop 2")
+        control(window, "Gradient stop 1")
+        assert not elements(window, "Gradient stop 2")
         control(window, "Gradient end")
         original.assert_unchanged_now()
         press_key(window, keys.Escape)
@@ -495,7 +500,7 @@ def test_linear_drag_escape_restores_gesture(
         restored = center(control(window, handle))
         assert restored.x == pytest.approx(start.x)
         assert restored.y == pytest.approx(start.y)
-        click(window, "Close Custom")
+        click(window, "Close Fill")
         original.assert_unchanged()
 
 
@@ -561,7 +566,7 @@ def test_linear_layout_size_and_keyboard(
         assert end.y - start.y == pytest.approx(-10, abs=0.001)
         click(window, "Gradient stop 1")
         press_key(window, keys.RightArrow)
-        click(window, "Close Custom")
+        click(window, "Close Fill")
         pattern = re.escape(baseline).replace(
             re.escape(b"@linear-gradient(90deg, red, blue)"),
             rb"@linear-gradient\([^()\n]+\)",
@@ -605,7 +610,7 @@ def test_linear_outside_click_accepts_before_selecting_another_rectangle(
         assert b"#123456" in saved
         assert b"background: yellow" in saved
         assert not elements(window, "Gradient start")
-        assert not elements(window, "Close Custom")
+        assert not elements(window, "Close Fill")
 
 
 def test_linear_external_edit_cancels_stale_draft(
@@ -625,7 +630,7 @@ def test_linear_external_edit_cancels_stale_draft(
         scene.write_text(external)
         wait_for_source(scene, external.encode())
         assert not elements(window, "Gradient start")
-        assert not elements(window, "Close Custom")
+        assert not elements(window, "Close Fill")
         assert scene.read_text() == external
         open_linear(window)
         click(window, "Edit stop 1 color")
@@ -646,7 +651,7 @@ def test_linear_extended_axis_round_trip(
         gesture(window, start, shifted(start, x=-50))
         end = center(control(window, "Gradient end"))
         gesture(window, end, shifted(end, x=50))
-        click(window, "Close Custom")
+        click(window, "Close Fill")
         saved = wait_for_source_change(scene, original.sources[Path(scene.name)])
         original.wait_for_applied(saved, scene.name)
         assert b"0% - 25%" in saved

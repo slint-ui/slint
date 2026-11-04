@@ -132,10 +132,13 @@ export component OutlineView inherits VerticalLayout {
             }
 
             bg := VerticalLayout {
-                Rectangle {
-                    x: indentation.width + 8px;
-                    height: 1px;
-                    background: Palette.border.transparentize(0.5);
+                HorizontalLayout {
+                    padding-left: indentation.width + 8px;
+
+                    Rectangle {
+                        height: 1px;
+                        background: Palette.border.transparentize(0.5);
+                    }
                 }
 
                 Rectangle {

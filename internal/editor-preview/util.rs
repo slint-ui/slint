@@ -218,7 +218,7 @@ fn resolve_repeater_models(scope: &[object_tree::ElementRc], tr: &TypeRegister) 
             ctx.component_scope = &scope[..i];
             ctx.property_type = ty.clone();
             let new_expr = Expression::from_expression_node(node.clone(), &mut ctx)
-                .maybe_convert_to(ty, &node, ctx.diag, &ctx.symbol_counters);
+                .maybe_convert_to(ty, Some(&node.into()), ctx.diag, &ctx.symbol_counters);
             match expr {
                 Expression::DebugHook { expression, .. } => **expression = new_expr,
                 _ => *expr = new_expr,

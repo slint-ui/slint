@@ -90,6 +90,7 @@ fn process_component_container(element: &ElementRc, empty_type: &ElementType) {
         inline_depth: elem.inline_depth,
         repeated: Some(RepeatedElementInfo {
             model: expression_tree::Expression::BoolLiteral(false),
+            model_location: None,
             model_data_id: Default::default(),
             index_id: Default::default(),
             is_conditional_element: true,

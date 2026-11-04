@@ -293,6 +293,8 @@ component PopupInner inherits Rectangle {
                     height: (root.visible-frames * root.frame-height);
 
                     list-view := VerticalLayout {
+                        padding-right: EditorSpaceSettings.default-padding / 2;
+
                         for frame[index] in root.filtered-model: frame-rect := Rectangle {
                             height: root.frame-height;
 
@@ -318,18 +320,21 @@ component PopupInner inherits Rectangle {
                             }
                             VerticalLayout {
                                 padding-top: EditorSpaceSettings.default-padding / 2;
-                                if !frame.is-in-root-component: Text {
-                                    x: EditorSpaceSettings.default-padding;
-                                    text: frame.file-name;
-                                    overflow: elide;
-                                    color: frame.is-selected ? Palette.accent-foreground : Palette.foreground;
-                                    font-size: EditorFontSettings.label-sub.font-size - 3px;
-                                    font-italic: true;
+                                if !frame.is-in-root-component: HorizontalLayout {
+                                    padding-left: EditorSpaceSettings.default-padding / 2;
+
+                                    Text {
+                                        text: frame.file-name;
+                                        overflow: elide;
+                                        color: frame.is-selected ? Palette.accent-foreground : Palette.foreground;
+                                        font-size: EditorFontSettings.label-sub.font-size - 3px;
+                                        font-italic: true;
+                                    }
                                 }
 
                                 HorizontalLayout {
                                     visible: (frame.type-name == "Window") ? false : true;
-                                    padding-left: EditorSpaceSettings.default-padding;
+                                    padding-left: EditorSpaceSettings.default-padding / 2;
                                     spacing: EditorSpaceSettings.default-spacing / 2.0;
                                     alignment: start;
 
@@ -447,7 +452,6 @@ component PopupInner inherits Rectangle {
                                 }
                             }
 
-                            x: -EditorSpaceSettings.default-padding / 2;
                             states [
                                 hover when ta.has-hover && !frame.is-selected: {
                                     background: Palette.accent-background.transparentize(0.9);

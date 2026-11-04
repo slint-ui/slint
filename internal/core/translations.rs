@@ -286,13 +286,24 @@ fn invalidate_gettext_cache() {
 
 #[cfg(feature = "gettext-rs")]
 /// Initialize the translation by calling the [`bindtextdomain`](https://man7.org/linux/man-pages/man3/bindtextdomain.3.html) function from gettext
+///
+/// The first call also sets the C library's `LC_MESSAGES` locale from the environment,
+/// so it must happen before other threads use the C locale.
 pub fn gettext_bindtextdomain(_domain: &str, _dirname: std::path::PathBuf) -> std::io::Result<()> {
     #[cfg(target_family = "unix")]
     {
         gettextrs::bindtextdomain(_domain, _dirname)?;
+        // gettext otherwise converts to the locale's character set, and gettext-rs panics on non-UTF-8.
+        gettextrs::bind_textdomain_codeset(_domain, "UTF-8")?;
         static START: std::sync::Once = std::sync::Once::new();
         START.call_once(|| {
-            gettextrs::setlocale(gettextrs::LocaleCategory::LcAll, "");
+            // gettext doesn't translate in the "C" locale that a process starts with.
+            // SAFETY: Setting the C locale isn't thread-safe; the caller runs this before other
+            // threads use it.
+            #[allow(unsafe_code)]
+            unsafe {
+                gettextrs::setlocale(gettextrs::LocaleCategory::LcMessages, "");
+            }
         });
 
         mark_all_translations_dirty();

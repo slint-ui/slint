@@ -44,8 +44,6 @@ export component InspectorInfoIcon inherits Rectangle {
     }
 
     touch := TouchArea {
-        mouse-cursor: pointer;
-
         clicked => {
             icon-focus.focus();
             root.activated();

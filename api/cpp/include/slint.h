@@ -14,7 +14,9 @@
 #include "private/slint_data_transfer.h"
 
 #include <vector>
+#include <charconv>
 #include <chrono>
+#include <cstdio>
 #include <span>
 #include <concepts>
 #include <limits>
@@ -74,9 +76,9 @@ inline vtable::Layout drop_in_place(ItemTreeRef item_tree)
 // so we have a relocation to a function that returns the address we seek. That
 // relocation will be resolved to the locally linked stub library, the implementation of
 // which will be patched.
-#        define SLINT_GET_ITEM_VTABLE(VTableName) slint::private_api::slint_get_##VTableName()
+#        define SLINT_GET_ITEM_VTABLE(VTableName) ::slint::private_api::slint_get_##VTableName()
 #    else
-#        define SLINT_GET_ITEM_VTABLE(VTableName) (&slint::private_api::VTableName)
+#        define SLINT_GET_ITEM_VTABLE(VTableName) (&::slint::private_api::VTableName)
 #    endif
 #endif // !defined(DOXYGEN)
 
@@ -93,6 +95,50 @@ upgrade_item_weak(const cbindgen_private::ItemWeak &item_weak)
 inline void debug(const SharedString &str)
 {
     cbindgen_private::slint_debug(&str);
+}
+
+/// Value formatting for the testable-property debug channel
+/// (`ItemTreeVTable::element_testable_property_value`).
+/// Mirrors the Rust `i_slint_core::debug_info` encoding,
+/// so both code generators produce the same string for the same value.
+inline SharedString debug_info_format_bool(bool value)
+{
+    return SharedString(value ? "true" : "false");
+}
+
+/// See `debug_info_format_bool`.
+inline SharedString debug_info_format_integer(int64_t value)
+{
+    char buf[24];
+    auto r = std::to_chars(buf, buf + sizeof(buf), value);
+    return SharedString(std::string_view(buf, r.ptr - buf));
+}
+
+/// See `debug_info_format_bool`.
+/// Formatted by the Rust runtime, so the digits are exactly what `f32` `Display` produces there.
+inline SharedString debug_info_format_float(float value)
+{
+    SharedString result;
+    cbindgen_private::slint_debug_info_format_float(&result, value);
+    return result;
+}
+
+/// See `debug_info_format_bool`. `#rrggbbaa`.
+inline SharedString debug_info_format_color(const Color &color)
+{
+    char buf[10];
+    std::snprintf(buf, sizeof(buf), "#%02x%02x%02x%02x", color.red(), color.green(), color.blue(),
+                  color.alpha());
+    return SharedString(buf);
+}
+
+/// See `debug_info_format_bool`.
+/// A solid color formats as `#rrggbbaa`; gradients have no encoding.
+inline std::optional<SharedString> debug_info_format_brush(const Brush &brush)
+{
+    if (brush != Brush(brush.color()))
+        return std::nullopt;
+    return debug_info_format_color(brush.color());
 }
 
 } // namespace private_api
@@ -799,6 +845,66 @@ void blocking_invoke_from_event_loop(Functor f)
 }
 #    endif
 #endif
+
+/// Requirements for select_backend(). Unset members leave the choice to Slint.
+struct BackendRequirements
+{
+    /// A version of OpenGL or OpenGL ES.
+    struct OpenGLVersion
+    {
+        /// The major version, such as 3 for OpenGL 3.2.
+        uint8_t major;
+        /// The minor version, such as 2 for OpenGL 3.2.
+        uint8_t minor;
+    };
+
+    /// The name of the backend, such as `winit`.
+    /// This is equivalent to setting the `SLINT_BACKEND` environment variable,
+    /// and requires that Slint was built with the corresponding backend feature.
+    std::string_view backend = {};
+    /// The name of the renderer, such as `skia`.
+    /// This requires that Slint was built with the corresponding renderer feature.
+    std::string_view renderer = {};
+    /// The graphics API that the renderer must use.
+    /// GraphicsAPI::Inaccessible isn't a valid requirement.
+    std::optional<GraphicsAPI> graphics_api = {};
+    /// The minimum version of OpenGL or OpenGL ES.
+    /// This requires \ref graphics_api to be GraphicsAPI::OpenGL or GraphicsAPI::OpenGLES.
+    std::optional<OpenGLVersion> min_opengl_version = {};
+};
+
+/// Selects one of Slint's built-in
+/// [backends with a renderer](slint:backends_and_renderers) that meets \a requirements,
+/// and makes it the active backend.
+/// This is a programmatic substitute for the `SLINT_BACKEND` environment variable.
+///
+/// Call this before creating any component or window.
+/// For example, to render with desktop OpenGL 3.2 or newer:
+///
+/// ```cpp
+/// slint::select_backend({ .graphics_api = slint::GraphicsAPI::OpenGL,
+///                         .min_opengl_version = { { 3, 2 } } });
+/// auto app = App::create();
+/// ```
+///
+/// Aborts the program with an error message if the requirements can't be met,
+/// or if a backend is already active.
+inline void select_backend(const BackendRequirements &requirements = {})
+{
+    private_api::assert_main_thread();
+
+    // A default std::string_view has a null data pointer, which SharedString doesn't accept.
+    auto to_shared_string = [](std::string_view s) {
+        return s.empty() ? SharedString() : SharedString(s);
+    };
+    SharedString backend = to_shared_string(requirements.backend);
+    SharedString renderer = to_shared_string(requirements.renderer);
+    auto version = requirements.min_opengl_version.value_or(BackendRequirements::OpenGLVersion {});
+    const GraphicsAPI *graphics_api =
+            requirements.graphics_api ? &*requirements.graphics_api : nullptr;
+    cbindgen_private::slint_select_backend(&backend, &renderer, graphics_api, version.major,
+                                           version.minor);
+}
 
 /// Sets the application id for use on Wayland or X11 with
 /// [xdg](https://specifications.freedesktop.org/desktop-entry-spec/latest/) compliant window

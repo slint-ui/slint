@@ -88,6 +88,10 @@ impl slint::platform::Platform for EspBackend {
         let window = slint::platform::software_renderer::MinimalSoftwareWindow::new(
             slint::platform::software_renderer::RepaintBufferType::ReusedBuffer,
         );
+        window.set_size(slint::PhysicalSize::new(
+            DISPLAY_SIZE.width as u32,
+            DISPLAY_SIZE.height as u32,
+        ));
         self.window.replace(Some(window.clone()));
         Ok(window)
     }
@@ -205,10 +209,6 @@ impl EspBackend {
             self.state.borrow_mut().take().expect("event loop already running");
         let pixel_buf: &mut [Rgb8Pixel] = &mut *pixel_buffer;
         let mut delay = Delay::new();
-
-        // Update the Slint window size from the display
-        let size = slint::PhysicalSize::new(DISPLAY_SIZE.width as u32, DISPLAY_SIZE.height as u32);
-        self.window.borrow().as_ref().unwrap().set_size(size);
 
         // Variable to track the last touch position
         let mut last_touch: Option<LogicalPosition> = None;

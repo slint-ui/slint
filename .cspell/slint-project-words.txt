@@ -6,6 +6,7 @@ actionchip
 addrs
 adipiscing
 Adressliste
+Adwaita
 aiohttp
 alignas
 alignof
@@ -32,6 +33,7 @@ armeabi
 armhf
 arrayvec
 artboard
+ashpd
 assetcatalog
 astrolib
 astrowind
@@ -54,6 +56,7 @@ BGRA
 BGRX
 bindgen
 bindtextdomain
+bitmapfont
 blit
 blogic
 blogica
@@ -141,6 +144,7 @@ datatypes
 datepickerpopup
 Datelike
 DBUILD
+dbus
 DCACHE
 DCMAKE
 DDEFAULT
@@ -356,6 +360,7 @@ libavformat
 libavutil
 LIBC
 LIBCLANG
+libdlmclient
 libdrm
 libegl
 libfile
@@ -395,6 +400,7 @@ lipo
 Literata
 Llff
 llms
+llvmpipe
 Lmaterial
 LOADADDR
 LOWORD
@@ -418,6 +424,7 @@ MCUX
 mdbook
 memsize
 menuconfig
+menuitemrole
 Meteo
 millihertz
 mimxrt
@@ -546,9 +553,11 @@ radiobuttontile
 Raleway
 Randriana
 rasterizer
+rasterizers
 rasterizes
 rasterizing
 RBUTTONUP
+readback
 recompiles
 rects
 redoable
@@ -592,6 +601,7 @@ segmenteditem
 semihosting
 Segoe
 serde
+serialport
 setattr
 SETFL
 Shaderiv
@@ -646,6 +656,7 @@ structval
 strvalue
 styledprop
 styledtext
+styledtextitem
 styledtextprop
 styledval
 stylemetrics
@@ -673,6 +684,7 @@ Tdefmt
 tempor
 termcolor
 testdata
+texel
 texels
 texteditor
 textinput
@@ -699,6 +711,7 @@ toucharea
 toupper
 trunc
 tungstenite
+Twemoji
 typedoc
 typeregister
 Tzimabazafi
@@ -720,6 +733,7 @@ unpark
 unparseable
 unpic
 Unpremul
+unpremultiplies
 unpremultiply
 unsendable
 usbc
@@ -768,6 +782,7 @@ WNDCLASS
 wordlike
 WQXGA
 writeback
+wrappable
 WRONLY
 Wtautological
 xbuild

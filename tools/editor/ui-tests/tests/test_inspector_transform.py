@@ -4,6 +4,7 @@
 import math
 import time
 from pathlib import Path
+from typing import cast
 
 import pytest
 import slint_testing
@@ -21,6 +22,7 @@ from ui_driver import (
     launch_editor,
     press_keys,
     press_shortcut,
+    screenshot,
     select_outline_row,
 )
 
@@ -142,6 +144,163 @@ def test_rotation_prefix_scrubs_with_transient_preview(
         press_shortcut(window, keys.Control, "z")
         snapshot.wait_for_applied(baseline, relative_path=SOURCE)
         wait_for_field(window, "Rotation", "32")
+
+
+def test_corner_slider_focus_ring_requires_keyboard_navigation(
+    editor_binary, editor_environment, fixture_project
+):
+    prepare(fixture_project)
+    with launch_editor(
+        editor_binary, editor_environment, fixture_project / SOURCE
+    ) as app:
+        window = first_window(app)
+        select_element(window, "Rectangle")
+        slider = element(window, "All corner radii slider")
+        thumb = element(slider, id="InspectorSlider::thumb")
+
+        def has_focus_ring():
+            rect = thumb.absolute_rect
+            pixel = cast(
+                tuple[int, int, int],
+                screenshot(window).getpixel(
+                    (round(rect.x), round(rect.y + rect.height / 2))
+                ),
+            )
+            return pixel[2] - pixel[0] > 90
+
+        point = center(thumb)
+        button = slint_testing.PointerEventButton.Left
+        window.dispatch_event(slint_testing.PointerMoveEvent(point))
+        window.dispatch_event(slint_testing.PointerPressEvent(point, button))
+        window.dispatch_event(slint_testing.PointerReleaseEvent(point, button))
+        assert not has_focus_ring()
+        press_keys(window, keys.Tab)
+        press_shortcut(window, keys.Shift, keys.Tab)
+        assert has_focus_ring()
+        window.dispatch_event(slint_testing.PointerPressEvent(point, button))
+        assert not has_focus_ring()
+        window.dispatch_event(slint_testing.PointerReleaseEvent(point, button))
+
+
+@pytest.mark.parametrize(
+    "index,position,delta",
+    [
+        (-1, 0.05, 12),
+        (-1, 0.5, 12),
+        (-1, 0.95, -12),
+        (0, 0.75, 12),
+        (1, 0.75, 12),
+        (2, 0.75, 12),
+        (3, 0.75, 12),
+    ],
+)
+def test_corner_field_scrubs_with_transient_preview(
+    editor_binary, editor_environment, fixture_project, index, position, delta
+):
+    baseline = prepare(fixture_project)
+    value = 12 + delta
+    expected = baseline
+    for corner in range(4) if index < 0 else [index]:
+        expected = expected.replace(
+            f"{PROPERTIES[corner]}: 12px".encode(),
+            f"{PROPERTIES[corner]}: {value}px".encode(),
+        )
+    label = "All corner radii" if index < 0 else LABELS[index]
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with launch_editor(
+        editor_binary, editor_environment, fixture_project / SOURCE
+    ) as app:
+        window = first_window(app)
+        select_element(window, "Rectangle")
+        if index >= 0:
+            action(window, "Separate corners")
+        field = element(window, label, role=slint_testing.AccessibleRole.TextInput)
+        rect = field.absolute_rect
+        start = slint_testing.LogicalPosition(
+            x=rect.x + rect.width * position, y=rect.y + rect.height / 2
+        )
+        end = slint_testing.LogicalPosition(x=start.x + delta, y=start.y)
+        button = slint_testing.PointerEventButton.Left
+        window.dispatch_event(slint_testing.PointerMoveEvent(start))
+        window.dispatch_event(slint_testing.PointerPressEvent(start, button))
+        wait_for_field(window, label, "12")
+        window.dispatch_event(slint_testing.PointerMoveEvent(end))
+        wait_for_field(window, label, str(value))
+        snapshot.assert_unchanged()
+        window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
+        snapshot.wait_for_applied(expected, relative_path=SOURCE)
+        press_shortcut(window, keys.Control, "z")
+        snapshot.wait_for_applied(baseline, relative_path=SOURCE)
+        wait_for_field(window, label, "12")
+
+
+@pytest.mark.parametrize("index", [-1, 0])
+def test_corner_scrub_clamps_and_cancels(
+    editor_binary, editor_environment, fixture_project, index
+):
+    baseline = prepare(fixture_project)
+    label = "All corner radii" if index < 0 else LABELS[index]
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with launch_editor(
+        editor_binary, editor_environment, fixture_project / SOURCE
+    ) as app:
+        window = first_window(app)
+        select_element(window, "Rectangle")
+        if index >= 0:
+            action(window, "Separate corners")
+        field = element(window, label, role=slint_testing.AccessibleRole.TextInput)
+        start = center(field)
+        end = slint_testing.LogicalPosition(x=start.x - 20, y=start.y)
+        button = slint_testing.PointerEventButton.Left
+        window.dispatch_event(slint_testing.PointerMoveEvent(start))
+        window.dispatch_event(slint_testing.PointerPressEvent(start, button))
+        window.dispatch_event(slint_testing.PointerMoveEvent(end))
+        wait_for_field(window, label, "0")
+        snapshot.assert_unchanged()
+        press_shortcut(window, keys.Escape)
+        wait_for_field(window, label, "12")
+        window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
+        snapshot.assert_unchanged()
+        assert (fixture_project / SOURCE).read_bytes() == baseline
+
+
+@pytest.mark.parametrize("index", [-1, 0])
+def test_corner_field_click_places_cursor_without_scrubbing(
+    editor_binary, editor_environment, fixture_project, index
+):
+    baseline = prepare(fixture_project)
+    expected = baseline
+    for corner in range(4) if index < 0 else [index]:
+        expected = expected.replace(
+            f"{PROPERTIES[corner]}: 12px".encode(),
+            f"{PROPERTIES[corner]}: 125px".encode(),
+        )
+    label = "All corner radii" if index < 0 else LABELS[index]
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with launch_editor(
+        editor_binary, editor_environment, fixture_project / SOURCE
+    ) as app:
+        window = first_window(app)
+        select_element(window, "Rectangle")
+        if index >= 0:
+            action(window, "Separate corners")
+        field = element(window, label, role=slint_testing.AccessibleRole.TextInput)
+        field.invoke_accessible_default_action()
+        text_input = element(field, id="EditorInput::input")
+        rect = text_input.absolute_rect
+        point = slint_testing.LogicalPosition(
+            x=rect.x + rect.width - 1, y=rect.y + rect.height / 2
+        )
+        button = slint_testing.PointerEventButton.Left
+        window.dispatch_event(slint_testing.PointerMoveEvent(point))
+        window.dispatch_event(slint_testing.PointerPressEvent(point, button))
+        window.dispatch_event(slint_testing.PointerReleaseEvent(point, button))
+        snapshot.assert_unchanged()
+        press_keys(window, "5")
+        wait_for_field(window, label, "125")
+        snapshot.assert_unchanged()
+        press_keys(window, keys.Return)
+        snapshot.wait_for_applied(expected, relative_path=SOURCE)
 
 
 @pytest.mark.parametrize("index", range(4))

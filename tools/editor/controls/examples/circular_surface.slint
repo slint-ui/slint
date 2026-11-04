@@ -63,7 +63,6 @@ export component CircularSurface {
 
     pointer := TouchArea {
         enabled: root.enabled;
-        mouse-cursor: MouseCursor.pointer;
         pointer-event(event) => {
             if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
                 root.started();

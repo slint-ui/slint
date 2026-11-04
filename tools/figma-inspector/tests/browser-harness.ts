@@ -13,9 +13,11 @@ export const readFixture = (path: string) =>
     server.commands.readFile(path, "utf8");
 
 /** Mount the exact built UI and complete its Figma message handshake. */
-export async function mountPreview(production = true) {
+export async function mountPreview(production = true, canvasLayout = false) {
     const iframe = document.createElement("iframe");
-    iframe.style.cssText = "width:640px;height:480px;border:0;display:block";
+    iframe.style.cssText = canvasLayout
+        ? "width:1280px;height:1280px;border:0;display:block"
+        : "width:640px;height:480px;border:0;display:block";
     const messages: UiToPluginMessage[] = [];
     const receive = (event: MessageEvent) => {
         if (event.source === iframe.contentWindow && event.data?.pluginMessage)
@@ -30,11 +32,23 @@ export async function mountPreview(production = true) {
         iframe.addEventListener("load", () => resolve(), { once: true }),
     );
     iframe.src = production ? "/production.html" : "/ui.html";
-    document.body.append(iframe);
+    if (canvasLayout) document.body.prepend(iframe);
+    else document.body.append(iframe);
     await loaded;
     const doc = iframe.contentDocument;
     const win = iframe.contentWindow;
     if (!doc || !win) throw Error("Preview document did not load");
+    if (canvasLayout) {
+        const style = doc.createElement("style");
+        // Align the canvas to device pixels before Slint creates its WebGL surface.
+        style.textContent =
+            "#preview-canvas {position:fixed!important;left:0!important;top:0!important;transform:none!important;border-radius:0!important;background:white!important;outline:none!important;z-index:2147483647!important}";
+        doc.head.append(style);
+        doc.querySelector("#preview-canvas")?.setAttribute(
+            "data-testid",
+            "preview-canvas",
+        );
+    }
     await expect
         .poll(() => messages.some((m) => m.type === "ui-ready"))
         .toBe(true);
@@ -58,33 +72,59 @@ export async function mountPreview(production = true) {
 }
 export type Preview = Awaited<ReturnType<typeof mountPreview>>;
 
+export const mountCanvasPreview = (production = true) =>
+    mountPreview(production, true);
+
+function canvasLocator(preview: Preview) {
+    return page
+        .frameLocator(page.elementLocator(preview.iframe))
+        .getByTestId("preview-canvas");
+}
+
+const canvasTimeout = 10000;
+
 /** Native browser screenshot of the composited canvas; WebGL buffers may be discarded. */
-export async function canvasPixels(preview: Preview) {
-    const canvas = preview.element<HTMLCanvasElement>("#preview-canvas");
-    const width = canvas.getBoundingClientRect().width,
-        height = canvas.getBoundingClientRect().height;
-    const style = preview.doc.createElement("style");
-    style.textContent = `html,body {margin:0!important;overflow:hidden!important;background:white!important} body * {visibility:hidden!important} #preview-canvas {visibility:visible!important;display:block!important;position:fixed!important;left:0!important;top:0!important;width:${width}px!important;height:${height}px!important;transform:none!important;border-radius:0!important;background:white!important}`;
-    preview.doc.head.append(style);
-    const previous = preview.iframe.style.cssText;
-    preview.iframe.style.width = `${width}px`;
-    preview.iframe.style.height = `${height}px`;
+export async function canvasPixels(preview: Preview, timeout = canvasTimeout) {
+    return decodePng(
+        await canvasLocator(preview).screenshot({ save: false, timeout }),
+    );
+}
+
+export type CanvasPixels = Awaited<ReturnType<typeof canvasPixels>>;
+
+export async function expectCanvasPixels(
+    preview: Preview,
+    check: (pixels: CanvasPixels) => void,
+    { timeout = canvasTimeout }: { timeout?: number } = {},
+): Promise<CanvasPixels> {
+    let actual: CanvasPixels | undefined;
+    const deadline = performance.now() + timeout;
     try {
-        // Resizing the iframe can invalidate its composited WebGL frame after
-        // the preview reports ready. Wait for presentation at the new size.
-        await new Promise<void>((resolve) =>
-            preview.win.requestAnimationFrame(() =>
-                preview.win.requestAnimationFrame(() => resolve()),
-            ),
-        );
-        const base64 = await page
-            .elementLocator(preview.iframe)
-            .screenshot({ save: false });
-        return await decodePng(base64);
-    } finally {
-        style.remove();
-        preview.iframe.style.cssText = previous;
+        await expect
+            .poll(
+                async ({ signal }) => {
+                    const pixels = await canvasPixels(
+                        preview,
+                        Math.max(1, deadline - performance.now()),
+                    );
+                    if (signal.aborted) return false;
+                    check(pixels);
+                    actual = pixels;
+                    return true;
+                },
+                { timeout },
+            )
+            .toBe(true);
+    } catch (error) {
+        const path = await canvasLocator(preview)
+            .screenshot({ timeout })
+            .catch(() => undefined);
+        if (error instanceof Error && path)
+            error.message += `\nFinal canvas screenshot: ${path}`;
+        throw error;
     }
+    if (!actual) throw Error("Missing canvas screenshot");
+    return actual;
 }
 
 export async function decodePng(base64: string) {

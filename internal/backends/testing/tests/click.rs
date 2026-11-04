@@ -10,6 +10,7 @@ fn test_click() {
 
     slint::spawn_local(async move {
         slint::slint! {
+            #[edition = "1.19"]
             export component App inherits Window {
                 out property <int> click-count: 0;
                 out property <int> double-click-count: 0;

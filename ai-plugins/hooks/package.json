@@ -1,0 +1,5 @@
+{
+    "name": "slint-plugin-hooks",
+    "private": true,
+    "type": "module"
+}

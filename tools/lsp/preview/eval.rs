@@ -247,29 +247,24 @@ fn eval_expression(
                 ),
             ))
         }
-        Expression::RadialGradient { stops, center, radius } => {
-            let mut gradient = i_slint_core::graphics::RadialGradientBrush::new_circle(
-                stops.iter().map(|(color, stop)| {
+        Expression::RadialGradient { stops, center, shape } => {
+            let stops = stops
+                .iter()
+                .map(|(color, stop)| {
                     let color =
                         eval_expression(color, local_context, None).try_into().unwrap_or_default();
                     let position =
                         eval_expression(stop, local_context, None).try_into().unwrap_or_default();
                     i_slint_core::graphics::GradientStop { color, position }
-                }),
-            );
-            if let Some((cx, cy)) = center {
-                let cx: f32 =
-                    eval_expression(cx, local_context, None).try_into().unwrap_or_default();
-                let cy: f32 =
-                    eval_expression(cy, local_context, None).try_into().unwrap_or_default();
-                gradient = gradient.with_center(cx, cy);
-            }
-            if let Some(radius) = radius {
-                let r: f32 =
-                    eval_expression(radius, local_context, None).try_into().unwrap_or_default();
-                gradient = gradient.with_radius(r);
-            }
-            Value::Brush(slint::Brush::RadialGradient(gradient))
+                })
+                .collect::<Vec<_>>();
+            let mut number = |e: &Expression| -> f32 {
+                eval_expression(e, local_context, None).try_into().unwrap_or_default()
+            };
+            let center = center.as_ref().map(|(cx, cy)| (number(cx), number(cy)));
+            Value::Brush(slint::Brush::RadialGradient(slint_interpreter::radial_gradient_brush(
+                shape, number, center, stops,
+            )))
         }
         Expression::ConicGradient { from_angle, stops, center } => {
             let mut gradient = i_slint_core::graphics::ConicGradientBrush::new(

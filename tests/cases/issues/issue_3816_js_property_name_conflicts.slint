@@ -1,0 +1,51 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export global settings {
+    in-out property <int> val: 99;
+}
+
+export component TestCase inherits Window {
+    in-out property <int> show: 1;
+    in-out property <int> hide: 2;
+    in-out property <int> window: 3;
+    in-out property <int> run: 4;
+    in-out property <int> settings: 42;
+    in-out property <bool> win-maximized <=> self.maximized;
+    out property <bool> test: show == 1 && hide == 2 && window == 3 && run == 4 && settings == 42;
+}
+
+/*
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+instance.show = 10;
+instance.window = 30;
+assert.equal(instance.show, 10);
+assert.equal(instance.window, 30);
+assert.equal(instance.settings, 42);
+
+instance[slintlib.windowSymbol].maximized = true;
+assert.equal(instance.win_maximized, true);
+assert.equal(instance[slintlib.globalsSymbol].settings.val, 99);
+```
+
+```d.ts
+export interface settings {
+    val: number;
+}
+
+export interface TestCase {
+    hide: number;
+    run: number;
+    settings: number;
+    show: number;
+    readonly test: boolean;
+    win_maximized: boolean;
+    window: number;
+    readonly [slint.globalsSymbol]: { readonly settings: settings; };
+}
+
+export declare const TestCase: { new(properties?: Partial<TestCase>): TestCase & Omit<slint.ComponentHandle, keyof TestCase> };
+```
+*/

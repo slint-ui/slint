@@ -17,6 +17,8 @@ const MAX_RECENT_PROJECTS: usize = 4;
 pub(crate) struct Project {
     pub root: PathBuf,
     pub preview: PreviewComponent,
+    #[serde(default)]
+    pub selected_canvas_preset: i32,
 }
 
 #[derive(Default, Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -45,13 +47,37 @@ impl VisualEditorSettings {
             .ok()
     }
 
-    pub(crate) fn add_recent_project(&mut self, project: Project) -> bool {
+    pub(crate) fn add_recent_project(&mut self, mut project: Project) -> bool {
+        if let Some(existing) =
+            self.recent_projects.iter().find(|recent| recent.root == project.root)
+        {
+            project.selected_canvas_preset = existing.selected_canvas_preset;
+        }
         if self.recent_projects.first() == Some(&project) {
             return false;
         }
         self.recent_projects.retain(|recent| recent.root != project.root);
         self.recent_projects.insert(0, project);
         self.recent_projects.truncate(MAX_RECENT_PROJECTS);
+        true
+    }
+
+    pub(crate) fn selected_canvas_preset(&self, root: &Path) -> i32 {
+        self.recent_projects
+            .iter()
+            .find(|recent| recent.has_root(root))
+            .map_or(0, |project| project.selected_canvas_preset.max(0))
+    }
+
+    pub(crate) fn set_selected_canvas_preset(&mut self, root: &Path, index: i32) -> bool {
+        let Some(project) = self.recent_projects.iter_mut().find(|recent| recent.has_root(root))
+        else {
+            return false;
+        };
+        if project.selected_canvas_preset == index {
+            return false;
+        }
+        project.selected_canvas_preset = index;
         true
     }
 
@@ -85,15 +111,39 @@ impl VisualEditorSettings {
 }
 
 impl Project {
-    pub(crate) fn from_file(
+    pub(crate) fn from_selected_file(
         path: impl AsRef<Path>,
         component: Option<String>,
     ) -> i_slint_editor_preview::Result<Self> {
-        let path = std::fs::canonicalize(path.as_ref())?;
-        let root = path
-            .parent()
-            .ok_or_else(|| format!("Failed to determine project root for {}", path.display()))?;
+        Self::from_input(path, component, None)
+    }
+
+    pub(crate) fn from_input(
+        path: impl AsRef<Path>,
+        component: Option<String>,
+        project_root: Option<&Path>,
+    ) -> i_slint_editor_preview::Result<Self> {
+        let path = i_slint_compiler::project_file::project_root(path.as_ref());
+        let path = std::fs::canonicalize(path).unwrap_or(std::path::absolute(path)?);
+        if path.is_dir() {
+            if project_root.is_some() {
+                return Err("A project directory cannot be combined with --project-root".into());
+            }
+            let (main, _) = i_slint_compiler::project_file::resolve_input(&path)
+                .map_err(|error| error.to_string())?;
+            return Self::from_root(&path, &main, component);
+        }
+        let root = project_root
+            .map(i_slint_compiler::project_file::project_root)
+            .unwrap_or(path.parent().ok_or("Project input has no parent directory")?);
         Self::from_root(root, &path, component)
+    }
+
+    fn has_root(&self, root: &Path) -> bool {
+        self.root == root
+            || Url::from_directory_path(root)
+                .ok()
+                .is_some_and(|url| Url::from_directory_path(&self.root).ok().as_ref() == Some(&url))
     }
 
     pub(crate) fn from_root(
@@ -101,22 +151,20 @@ impl Project {
         path: &Path,
         component: Option<String>,
     ) -> i_slint_editor_preview::Result<Self> {
-        let root = std::fs::canonicalize(root)?;
-        if !root.is_dir() {
-            return Err(format!("{} is not a directory", root.display()).into());
-        }
-        let path = std::fs::canonicalize(path)?;
-        if !path.is_file()
-            || !path
-                .extension()
-                .and_then(|extension| extension.to_str())
-                .is_some_and(|extension| extension.eq_ignore_ascii_case("slint"))
+        let root = std::fs::canonicalize(root)
+            .unwrap_or(i_slint_compiler::source_path::clean_path(&std::path::absolute(root)?));
+        let path = std::fs::canonicalize(path)
+            .unwrap_or(i_slint_compiler::source_path::clean_path(&std::path::absolute(path)?));
+        if !path
+            .extension()
+            .and_then(|extension| extension.to_str())
+            .is_some_and(|extension| extension.eq_ignore_ascii_case("slint"))
         {
             return Err(format!("{} is not a Slint file", path.display()).into());
         }
         let url = Url::from_file_path(&path)
             .map_err(|_| format!("Failed to convert {} to URL", path.display()))?;
-        Ok(Self { root, preview: PreviewComponent { url, component } })
+        Ok(Self { root, preview: PreviewComponent { url, component }, selected_canvas_preset: 0 })
     }
 }
 
@@ -195,6 +243,7 @@ mod tests {
     fn recent_project(root: impl Into<PathBuf>, url: Url, component: &str) -> Project {
         Project {
             root: root.into(),
+            selected_canvas_preset: 0,
             preview: PreviewComponent { url, component: Some(component.into()) },
         }
     }
@@ -302,6 +351,57 @@ mod tests {
     }
 
     #[test]
+    fn selected_canvas_preset_survives_preview_updates_and_older_settings() {
+        let root = Path::new("/project");
+        let mut settings = VisualEditorSettings::default();
+        settings.add_recent_project(recent_project(
+            root,
+            Url::parse("file:///project/main.slint").unwrap(),
+            "Main",
+        ));
+        assert!(settings.set_selected_canvas_preset(root, 1));
+        settings.add_recent_project(recent_project(
+            root,
+            Url::parse("file:///project/other.slint").unwrap(),
+            "Other",
+        ));
+        assert_eq!(settings.selected_canvas_preset(root), 1);
+        let serialized = settings.serialize();
+        assert_eq!(
+            VisualEditorSettings::deserialize(&serialized).unwrap().selected_canvas_preset(root),
+            1
+        );
+        let mut old: serde_json::Value = serde_json::from_str(&serialized).unwrap();
+        old["recent_projects"][0].as_object_mut().unwrap().remove("selected_canvas_preset");
+        assert_eq!(
+            VisualEditorSettings::deserialize(&old.to_string())
+                .unwrap()
+                .selected_canvas_preset(root),
+            0
+        );
+        assert!(settings.clear_recent_projects());
+        assert_eq!(settings.selected_canvas_preset(root), 0);
+    }
+
+    #[test]
+    fn canvas_selection_accepts_url_normalized_project_roots() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("main.slint");
+        std::fs::write(&path, "export component Main {}").unwrap();
+        let project = Project::from_root(directory.path(), &path, None).unwrap();
+        let canonical_root = project.root.clone();
+        let normalized_root =
+            Url::from_directory_path(&canonical_root).unwrap().to_file_path().unwrap();
+        let mut settings = VisualEditorSettings::default();
+        settings.add_recent_project(project);
+        assert!(settings.set_selected_canvas_preset(&normalized_root, 1));
+        for root in [&canonical_root, &normalized_root] {
+            assert_eq!(settings.selected_canvas_preset(root), 1);
+        }
+        assert!(!settings.set_selected_canvas_preset(&normalized_root, 1));
+    }
+
+    #[test]
     fn missing_recent_projects_stay_stored_but_are_not_visible() {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("visible.slint");
@@ -340,11 +440,23 @@ mod tests {
         let (directory, path) = project_file();
         let expected_url = Url::from_file_path(std::fs::canonicalize(&path).unwrap()).unwrap();
 
-        let project = Project::from_file(&path, Some("MainWindow".into())).unwrap();
+        let project = Project::from_input(&path, Some("MainWindow".into()), None).unwrap();
 
         assert_eq!(project.root, std::fs::canonicalize(directory.path().join("ui")).unwrap());
         assert_eq!(project.preview.url, expected_url);
         assert_eq!(project.preview.component.as_deref(), Some("MainWindow"));
+    }
+
+    #[test]
+    fn project_from_directory_reports_project_file_error_location() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = std::fs::canonicalize(directory.path()).unwrap();
+        let manifest = root.join(i_slint_compiler::project_file::FILE_NAME);
+        fs::write(&manifest, "{\n  \"edition\": 42\n}\n").unwrap();
+
+        let error = Project::from_input(&root, None, None).unwrap_err().to_string();
+        assert!(error.starts_with(&format!("{}:2: ", manifest.display())), "{error}");
+        assert!(error.contains("edition"), "{error}");
     }
 
     #[test]
@@ -356,5 +468,54 @@ mod tests {
 
         assert_eq!(project.root, std::fs::canonicalize(directory.path()).unwrap());
         assert_eq!(project.preview.url, expected_url);
+    }
+    #[test]
+    fn project_inputs_use_only_the_selected_root() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = std::fs::canonicalize(directory.path()).unwrap();
+        let nested = root.join("ui");
+        std::fs::create_dir(&nested).unwrap();
+        let manifest = root.join(i_slint_compiler::project_file::FILE_NAME);
+        std::fs::write(&manifest, r#"{"edition":"1.19","main":"ui/missing.slint"}"#).unwrap();
+        let source = nested.join("missing.slint");
+        let standalone = Project::from_input(&source, None, None).unwrap();
+        assert_eq!(standalone.root, nested);
+        assert_eq!(standalone.preview.url, Url::from_file_path(&source).unwrap());
+        let explicit = Project::from_input(&source, None, Some(&root)).unwrap();
+        assert_eq!(explicit.root, root);
+        let directory = Project::from_input(&root, None, None).unwrap();
+        assert_eq!(directory.preview.url, Url::from_file_path(&source).unwrap());
+        assert!(Project::from_input(&root, None, Some(&nested)).is_err());
+        let project = Project::from_input(&manifest, None, None).unwrap();
+        assert_eq!(project.root, root);
+        assert_eq!(project.preview.url, Url::from_file_path(&source).unwrap());
+        let explicit_manifest = Project::from_input(&source, None, Some(&manifest)).unwrap();
+        assert_eq!(explicit_manifest.root, root);
+        let missing_root = root.join("unavailable");
+        let path = missing_root.join("main.slint");
+        assert_eq!(Project::from_root(&missing_root, &path, None).unwrap().root, missing_root);
+        assert!(Project::from_input(root.join("other.json"), None, None).is_err());
+    }
+
+    #[test]
+    fn selecting_a_project_file_opens_its_directory_and_main_file() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = std::fs::canonicalize(directory.path()).unwrap();
+        let source = root.join("ui/main.slint");
+        std::fs::create_dir(source.parent().unwrap()).unwrap();
+        std::fs::write(&source, "export component Main inherits Window {}").unwrap();
+        let manifest = root.join(i_slint_compiler::project_file::FILE_NAME);
+        std::fs::write(&manifest, r#"{"edition":"1.19","main":"ui/main.slint"}"#).unwrap();
+
+        let project = Project::from_selected_file(&manifest, None).unwrap();
+        assert_eq!(project.root, root);
+        assert_eq!(project.preview.url, Url::from_file_path(&source).unwrap());
+        let project = Project::from_input(&manifest, None, None).unwrap();
+        assert_eq!(project.root, root);
+        assert_eq!(project.preview.url, Url::from_file_path(&source).unwrap());
+
+        std::fs::write(&manifest, r#"{"edition":"1.19"}"#).unwrap();
+        assert!(Project::from_selected_file(&manifest, None).is_err());
+        assert!(Project::from_selected_file(root.join("other.json"), None).is_err());
     }
 }

@@ -12,7 +12,7 @@ export component OutlinePane inherits Rectangle {
     in property <TreeStyle> style: Style.tree;
     property <[OutlineTreeNode]> outline-data <=> Api.outline;
     property <bool> image-mode: Api.editor-surface-mode == EditorSurfaceMode.image;
-    private property <Point> palette-pointer: AppState.palette-drag-pointer-position();
+    private property <Point> palette-pointer: AppState.palette-drag-pointer-position;
     out property <bool> palette-drag-in-outline: !root.image-mode && root.outline-data.length > 0
         && AppState.palette-drag-kind != ElementKind.none
         && root.palette-pointer.x >= root.absolute-position.x
@@ -21,18 +21,16 @@ export component OutlinePane inherits Rectangle {
         && root.palette-pointer.y < root.absolute-position.y + root.height;
     callback drag-started();
 
-    // background: root.style.row.hover-background;
-
     VerticalLayout {
-        padding-right: Metrics.space-medium;
-        padding-top: Metrics.space-medium;
-        padding-bottom: Metrics.space-medium;
+        padding-right: Style.sidebar-spacing.list-inset;
+        padding-top: Style.sidebar-spacing.padding;
+        padding-bottom: Style.sidebar-spacing.padding;
         spacing: Metrics.space-small;
 
         HorizontalLayout {
             alignment: start;
             cross-axis-alignment: center;
-            padding-left: Metrics.space-large;
+            padding-left: Style.sidebar-spacing.padding;
 
             SectionTitle {
                 label: @tr("OUTLINE");
@@ -195,6 +193,9 @@ export component OutlinePane inherits Rectangle {
                         }
                         row-expanded-changed(row-index, expanded) => {
                             Api.outline-set-expanded(row-index, expanded);
+                        }
+                        row-add-tab-requested(uri, offset) => {
+                            Api.outline-add-tab(uri, offset);
                         }
                         drag-started => {
                             Hover.tree-source-uri = "";

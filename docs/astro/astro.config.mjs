@@ -23,7 +23,7 @@ import {
     PYTHON_BASE_URL,
 } from "@slint/common-files/src/utils/site-config";
 
-const experimentalDocs = process.env.SLINT_ENABLE_EXPERIMENTAL_FEATURES === "1";
+const experimentalDocs = !!process.env.SLINT_ENABLE_EXPERIMENTAL_FEATURES;
 
 // Starlight prepends the base path to every sidebar link that is not a full
 // URL (http/https). Strip BASE_PATH so the re-added prefix produces the
@@ -51,7 +51,10 @@ export default defineSlintDocsConfig({
         "/reference/global-structs-enums/": `${BASE_PATH}reference/property-types/builtin-structs/`,
         "/guide/platforms/desktop/": `${BASE_PATH}guide/platforms/desktop/general/`,
         "/guide/platforms/other/": `${BASE_PATH}guide/platforms/desktop/general/`,
-        "/guide/platforms/packaging/windows-packaging/": `${BASE_PATH}guide/platforms/desktop/windows/packaging/`,
+        "/guide/platforms/packaging/windows-packaging/": `${BASE_PATH}guide/platforms/desktop/packaging/windows/`,
+        "/guide/platforms/desktop/windows/packaging/": `${BASE_PATH}guide/platforms/desktop/packaging/windows/`,
+        "/guide/platforms/desktop/macos/packaging/": `${BASE_PATH}guide/platforms/desktop/packaging/macos/`,
+        "/guide/platforms/desktop/linux/packaging/": `${BASE_PATH}guide/platforms/desktop/packaging/linux/`,
         "/guide/platforms/desktop/linux/": `${BASE_PATH}guide/platforms/desktop/linux/general/`,
     },
     markdown: {
@@ -142,6 +145,10 @@ export default defineSlintDocsConfig({
                                                 label: "Reactivity vs React.js",
                                                 slug: "guide/language/concepts/reactivity-vs-react",
                                             },
+                                            {
+                                                label: "Editions",
+                                                slug: "guide/language/concepts/editions",
+                                            },
                                         ],
                                     },
                                     {
@@ -191,10 +198,6 @@ export default defineSlintDocsConfig({
                                                 label: "Structs and Enums",
                                                 slug: "guide/language/coding/structs-and-enums",
                                             },
-                                            {
-                                                label: "Deprecating Members",
-                                                slug: "guide/language/coding/deprecation",
-                                            },
                                         ],
                                     },
                                 ],
@@ -227,38 +230,24 @@ export default defineSlintDocsConfig({
                                         label: "Desktop",
                                         collapsed: true,
                                         items: [
-                                            "guide/platforms/desktop/general",
                                             {
-                                                label: "Windows",
-                                                collapsed: true,
-                                                items: [
-                                                    {
-                                                        label: "Overview",
-                                                        slug: "guide/platforms/desktop/windows/general",
-                                                    },
-                                                    "guide/platforms/desktop/windows/packaging",
-                                                ],
+                                                label: "Overview",
+                                                slug: "guide/platforms/desktop/general",
                                             },
+                                            "guide/platforms/desktop/windows/general",
+                                            "guide/platforms/desktop/macos/general",
+                                            "guide/platforms/desktop/linux/general",
                                             {
-                                                label: "macOS",
+                                                label: "Packaging",
                                                 collapsed: true,
                                                 items: [
                                                     {
                                                         label: "Overview",
-                                                        slug: "guide/platforms/desktop/macos/general",
+                                                        slug: "guide/platforms/desktop/packaging/general",
                                                     },
-                                                    "guide/platforms/desktop/macos/packaging",
-                                                ],
-                                            },
-                                            {
-                                                label: "Linux",
-                                                collapsed: true,
-                                                items: [
-                                                    {
-                                                        label: "Overview",
-                                                        slug: "guide/platforms/desktop/linux/general",
-                                                    },
-                                                    "guide/platforms/desktop/linux/packaging",
+                                                    "guide/platforms/desktop/packaging/windows",
+                                                    "guide/platforms/desktop/packaging/macos",
+                                                    "guide/platforms/desktop/packaging/linux",
                                                 ],
                                             },
                                         ],
@@ -326,6 +315,10 @@ export default defineSlintDocsConfig({
                                               {
                                                   label: "Shadowable Members",
                                                   slug: "guide/experimental/shadowable",
+                                              },
+                                              {
+                                                  label: "Testable Properties",
+                                                  slug: "guide/experimental/testable",
                                               },
                                               {
                                                   label: "Custom Mouse Cursor",

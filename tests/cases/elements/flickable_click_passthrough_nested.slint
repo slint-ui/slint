@@ -58,28 +58,43 @@ export component TestCaseNestedDelayingChild inherits Window {
     out property <bool> ta-pressed: ta.pressed;
 }
 
-export component TestCaseNestedEmptyChild inherits Window {
+component NestedEmptyFlickables inherits Flickable {
     width: 100px;
     height: 100px;
+    content-width: 200px;
+    content-height: 100px;
 
-    TouchArea {
-        clicked => { root.counter += 1; }
-    }
     Flickable {
         width: 100px;
         height: 100px;
-        content-width: 200px;
-        content-height: 100px;
+        content-width: 100px;
+        content-height: 200px;
+    }
+}
 
-        Flickable {
-            width: 100px;
-            height: 100px;
-            content-width: 100px;
-            content-height: 200px;
-        }
+export component TestCaseNestedEmptyChild inherits Window {
+    width: 200px;
+    height: 100px;
+
+    TouchArea {
+        x: 0;
+        width: 100px;
+        clicked => { root.counter += 1; }
+
+        NestedEmptyFlickables { }
+    }
+
+    TouchArea {
+        x: 100px;
+        width: 100px;
+        clicked => { root.sibling-counter += 1; }
+    }
+    NestedEmptyFlickables {
+        x: 100px;
     }
 
     out property <int> counter: 0;
+    out property <int> sibling-counter: 0;
 }
 
 /*
@@ -118,5 +133,9 @@ let instance = TestCaseNestedEmptyChild::new().unwrap();
 instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(50.0, 50.0), button: PointerEventButton::Left });
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(50.0, 50.0), button: PointerEventButton::Left });
 assert_eq!(instance.get_counter(), 1);
+
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(150.0, 50.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(150.0, 50.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_sibling_counter(), 0);
 ```
 */

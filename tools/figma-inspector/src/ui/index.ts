@@ -22,6 +22,8 @@ import {
 } from "../protocol";
 import { createPreviewAssetPool, packPreviewAssets } from "../asset-transport";
 import { PreviewController } from "../preview/controller";
+import { exportFailure } from "../preview/export-diagnostic";
+import type { AssetPreview } from "../asset-transport";
 import { mountWorkspace, mountDialogFrame } from "./workspace";
 import { SourcePanelController } from "./source-panel";
 import { ConversionClient } from "./conversion-client";
@@ -118,25 +120,15 @@ keepaliveCanvas.setAttribute("aria-hidden", "true");
 keepaliveCanvas.style.cssText =
     "position: fixed; width: 1px; height: 1px; opacity: 0; pointer-events: none;";
 document.body.append(keepaliveCanvas);
-let successfulOutput:
-    | {
-          source: string;
-          json: string;
-          revision: number;
-          name: string;
-          exportPackage: ExportPackage;
-      }
-    | undefined;
-const pendingOutputs = new Map<
-    number,
-    {
-        source: string;
-        json: string;
-        revision: number;
-        name: string;
-        exportPackage: ExportPackage;
-    }
->();
+type PreviewOutput = {
+    source: string | AssetPreview;
+    json: string;
+    revision: number;
+    name: string;
+    exportPackage?: ExportPackage;
+};
+let successfulOutput: PreviewOutput | undefined;
+const pendingOutputs = new Map<number, PreviewOutput>();
 const previewAssetDisposers = new Map<number, () => void>();
 function disposePreviewAssets(revision: number): void {
     previewAssetDisposers.get(revision)?.();
@@ -188,7 +180,18 @@ function updateOutputProvenance(trace: TimingTrace): void {
             successfulOutput &&
             latestSourceRevision !== successfulOutput.revision
         ) {
-            latestSource = successfulOutput.source;
+            const previewSource = successfulOutput.source;
+            latestSource =
+                successfulOutput.exportPackage?.source ??
+                (typeof previewSource === "string"
+                    ? previewSource
+                    : previewSource.source
+                          .map((part) =>
+                              typeof part === "string"
+                                  ? part
+                                  : previewSource.assets[part],
+                          )
+                          .join(""));
             if (!latestSource) sourcePanel.clear();
             latestSnapshotJson = successfulOutput.json;
             latestSourceRevision = successfulOutput.revision;
@@ -226,7 +229,8 @@ let pinState: {
 } = { pinned: false, canPin: false };
 
 function renderCopyState(): void {
-    exportButtonElement.disabled = exporting || !successfulOutput;
+    exportButtonElement.disabled =
+        exporting || !successfulOutput?.exportPackage;
     copyButtonElement.disabled = !successfulOutput;
     if (copySourceElement) copySourceElement.disabled = !successfulOutput;
     if (copySnapshot) copySnapshot.disabled = !successfulOutput;
@@ -361,7 +365,7 @@ function showTrace(trace: TimingTrace, acknowledge = true): void {
         if (phase === "slintConversion") {
             const sourceTerm = document.createElement("dt");
             sourceTerm.className = "timing-breakdown";
-            sourceTerm.textContent = "Generated source";
+            sourceTerm.textContent = "Preview source";
             const sourceValue = document.createElement("dd");
             sourceValue.className = "timing-breakdown";
             sourceValue.dataset.generatedSourceLines = "";
@@ -463,6 +467,13 @@ const controller = new PreviewController(
     showTrace,
     keepaliveCanvas,
 );
+canvas.addEventListener("preview-export-error", (event) => {
+    const revision = (event as CustomEvent<{ revision: number }>).detail
+        .revision;
+    if (revision !== latestInputRevision) return;
+    const output = pendingOutputs.get(revision);
+    if (output) output.exportPackage = undefined;
+});
 const isPreviewTrigger = (value: string): value is PreviewTrigger =>
     value === "initial" ||
     value === "selection-change" ||
@@ -502,9 +513,10 @@ function receivedTrace(
 function acceptSource(
     source: string,
     revision: number,
-    exportPackage: ExportPackage,
+    exportPackage: ExportPackage | undefined,
     trace?: TimingTrace,
     warnings: readonly import("../plugin/snapshot").Diagnostic[] = [],
+    previewSource: string | AssetPreview = source,
 ): void {
     if (
         !Number.isSafeInteger(revision) ||
@@ -515,7 +527,7 @@ function acceptSource(
     }
     beginPreview(revision);
     pendingOutputs.set(revision, {
-        source: exportPackage.source,
+        source: previewSource,
         exportPackage,
         json: "",
         revision,
@@ -523,7 +535,7 @@ function acceptSource(
     });
     generatedSourceMetrics = {
         revision,
-        lineCount: sourceLineCount(exportPackage.source),
+        lineCount: sourceLineCount(source),
     };
     renderingSource = true;
     setPreviewBusy(true);
@@ -533,31 +545,39 @@ function acceptSource(
         revision,
         traceId: String(revision),
     };
-    const expandedValidation = exportValidationSource(exportPackage);
-    const validation =
-        expandedValidation.length <= MAX_LIVE_EXPORT_VALIDATION_LENGTH
-            ? materializeSharedPreviewAssets(
-                  packPreviewAssets(expandedValidation),
-              )
-            : undefined;
+    let validation:
+        | ReturnType<typeof materializeSharedPreviewAssets>
+        | undefined;
+    const renderWarnings = [...warnings];
+    try {
+        if (exportPackage !== undefined) {
+            const expandedValidation = exportValidationSource(exportPackage);
+            if (
+                expandedValidation.length <= MAX_LIVE_EXPORT_VALIDATION_LENGTH
+            ) {
+                validation = materializeSharedPreviewAssets(
+                    packPreviewAssets(expandedValidation),
+                );
+            } else {
+                renderWarnings.push({
+                    severity: "warning",
+                    code: "EXPORT_VALIDATION_SKIPPED",
+                    category: "omission",
+                    message:
+                        "Live export validation was skipped because the expanded export exceeds the browser compiler safety limit",
+                });
+            }
+        }
+    } catch (error) {
+        const output = pendingOutputs.get(revision);
+        if (output) output.exportPackage = undefined;
+        renderWarnings.push(exportFailure(error));
+    }
     const disposeSource = previewAssetDisposers.get(revision);
     previewAssetDisposers.set(revision, () => {
         disposeSource?.();
         validation?.dispose();
     });
-    const renderWarnings =
-        validation === undefined
-            ? [
-                  ...warnings,
-                  {
-                      severity: "warning" as const,
-                      code: "EXPORT_VALIDATION_SKIPPED",
-                      category: "omission" as const,
-                      message:
-                          "Live export validation was skipped because the expanded export exceeds the browser compiler safety limit",
-                  },
-              ]
-            : warnings;
     if (interpreterInitialization === undefined) {
         interpreterInitialization = controller.initialize(
             source,
@@ -808,6 +828,7 @@ window.addEventListener("message", (event: MessageEvent<unknown>) => {
                     message.exportPackage,
                     trace,
                     message.warnings ?? [],
+                    message.source,
                 );
             } catch (error) {
                 disposePreviewAssets(message.revision);
@@ -880,7 +901,7 @@ if (isFigmaUi) {
 }
 
 const copySlint = () => {
-    if (successfulOutput) sourcePanel.copy(successfulOutput.source);
+    if (successfulOutput) sourcePanel.copy(latestSource);
 };
 copyButtonElement.addEventListener("click", copySlint);
 if (DEVELOPMENT) {
@@ -918,7 +939,7 @@ if (DEVELOPMENT) {
 }
 exportButtonElement.addEventListener("click", async () => {
     const output = successfulOutput;
-    if (!output || exporting) return;
+    if (!output?.exportPackage || exporting) return;
     exporting = true;
     exportButtonElement.textContent = "Preparing ZIP…";
     renderCopyState();

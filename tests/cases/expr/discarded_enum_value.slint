@@ -3,6 +3,8 @@
 
 // An enum value in a statement whose value is discarded still resolves
 // against the type of the block, but doesn't make the handler return.
+// The target of an assignment is a property, even when it shares its name
+// with a value of the block's type.
 
 export component TestCase {
     in-out property <int> calls;
@@ -19,12 +21,21 @@ export component TestCase {
         reject
     }
 
+    in-out property <int> left;
+    callback align() -> TextHorizontalAlignment;
+    align => {
+        left = 1;
+        left += 2;
+        TextHorizontalAlignment.left
+    }
+
     callback check() -> bool;
     check => {
         calls = 0;
         handle("q") == EventResult.reject && calls == 1
             && handle("w") == EventResult.accept && calls == 11
             && handle("e") == EventResult.reject && calls == 11
+            && align() == TextHorizontalAlignment.left && left == 3
     }
 }
 

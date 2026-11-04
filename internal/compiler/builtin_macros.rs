@@ -42,7 +42,9 @@ pub fn lower_macro(
             Expression::Condition {
                 condition: Expression::BinaryExpression {
                     source_location: None,
-                    lhs: x.maybe_convert_to(Type::Float32, &arg_node, diag, symbol_counters).into(),
+                    lhs: x
+                        .maybe_convert_to(Type::Float32, arg_node.as_ref(), diag, symbol_counters)
+                        .into(),
                     rhs: Expression::NumberLiteral(0., Unit::None).into(),
                     op: '<',
                 }
@@ -196,9 +198,9 @@ fn min_max_macro(
     }
     let mut args = args.into_iter();
     let (base, arg_node) = args.next().unwrap();
-    let mut base = base.maybe_convert_to(ty.clone(), &arg_node, diag, symbol_counters);
+    let mut base = base.maybe_convert_to(ty.clone(), arg_node.as_ref(), diag, symbol_counters);
     for (next, arg_node) in args {
-        let rhs = next.maybe_convert_to(ty.clone(), &arg_node, diag, symbol_counters);
+        let rhs = next.maybe_convert_to(ty.clone(), arg_node.as_ref(), diag, symbol_counters);
         base = min_max_expression(base, rhs, op);
     }
     base
@@ -226,9 +228,9 @@ fn clamp_macro(
     }
 
     let (min, min_node) = args.get(1).unwrap().clone();
-    let min = min.maybe_convert_to(ty.clone(), &min_node, diag, symbol_counters);
+    let min = min.maybe_convert_to(ty.clone(), min_node.as_ref(), diag, symbol_counters);
     let (max, max_node) = args.get(2).unwrap().clone();
-    let max = max.maybe_convert_to(ty.clone(), &max_node, diag, symbol_counters);
+    let max = max.maybe_convert_to(ty.clone(), max_node.as_ref(), diag, symbol_counters);
 
     let value = min_max_expression(value, max, MinMaxOp::Min);
     min_max_expression(min, value, MinMaxOp::Max)
@@ -263,7 +265,7 @@ fn mod_macro(
     let function = Callable::Builtin(BuiltinFunction::Mod);
     let arguments = args
         .into_iter()
-        .map(|(e, n)| e.maybe_convert_to(common_ty.clone(), &n, diag, symbol_counters));
+        .map(|(e, n)| e.maybe_convert_to(common_ty.clone(), n.as_ref(), diag, symbol_counters));
     if matches!(common_ty, Type::Float32) {
         Expression::FunctionCall { function, arguments: arguments.collect(), source_location }
     } else {
@@ -303,7 +305,7 @@ fn abs_macro(
     if matches!(ty, Type::Float32) {
         let arguments = args
             .into_iter()
-            .map(|(e, n)| e.maybe_convert_to(ty.clone(), &n, diag, symbol_counters))
+            .map(|(e, n)| e.maybe_convert_to(ty.clone(), n.as_ref(), diag, symbol_counters))
             .collect();
         Expression::FunctionCall { function, arguments, source_location }
     } else {
@@ -344,7 +346,7 @@ fn rgb_macro(
                     Expression::BinaryExpression {
                         lhs: Box::new(expr.maybe_convert_to(
                             Type::Float32,
-                            &n,
+                            n.as_ref(),
                             diag,
                             symbol_counters,
                         )),
@@ -353,10 +355,10 @@ fn rgb_macro(
                         source_location: None,
                     }
                 } else {
-                    expr.maybe_convert_to(Type::Float32, &n, diag, symbol_counters)
+                    expr.maybe_convert_to(Type::Float32, n.as_ref(), diag, symbol_counters)
                 }
             } else {
-                expr.maybe_convert_to(Type::Float32, &n, diag, symbol_counters)
+                expr.maybe_convert_to(Type::Float32, n.as_ref(), diag, symbol_counters)
             }
         })
         .collect();
@@ -396,7 +398,7 @@ fn hsv_macro(
                     source_location: None,
                 }
             } else {
-                expr.maybe_convert_to(Type::Float32, &n, diag, symbol_counters)
+                expr.maybe_convert_to(Type::Float32, n.as_ref(), diag, symbol_counters)
             }
         })
         .collect();
@@ -444,7 +446,7 @@ fn oklch_macro(
                     source_location: None,
                 }
             } else {
-                expr.maybe_convert_to(Type::Float32, &n, diag, symbol_counters)
+                expr.maybe_convert_to(Type::Float32, n.as_ref(), diag, symbol_counters)
             }
         })
         .collect();
@@ -466,7 +468,7 @@ fn debug_macro(
 ) -> Expression {
     let mut string = None;
     for (expr, node) in args {
-        let val = to_debug_string(expr, &node, diag, symbol_counters);
+        let val = to_debug_string(expr, node.as_ref(), diag, symbol_counters);
         string = Some(match string {
             None => val,
             Some(string) => Expression::BinaryExpression {
@@ -510,7 +512,8 @@ fn array_push_macro(
 
     let (model_expr, _) = args.remove(0);
     let (value_expr, value_node) = args.remove(0);
-    let value = value_expr.maybe_convert_to(element_type, &value_node, diag, symbol_counters);
+    let value =
+        value_expr.maybe_convert_to(element_type, value_node.as_ref(), diag, symbol_counters);
     Expression::FunctionCall {
         function: Callable::Builtin(BuiltinFunction::ArrayPush),
         arguments: vec![model_expr, value],
@@ -534,7 +537,8 @@ fn array_remove_macro(
 
     let (model_expr, _) = args.remove(0);
     let (index_expr, index_node) = args.remove(0);
-    let index = index_expr.maybe_convert_to(Type::Int32, &index_node, diag, symbol_counters);
+    let index =
+        index_expr.maybe_convert_to(Type::Int32, index_node.as_ref(), diag, symbol_counters);
     Expression::FunctionCall {
         function: Callable::Builtin(BuiltinFunction::ArrayRemove),
         arguments: vec![model_expr, index],
@@ -562,8 +566,10 @@ fn array_insert_macro(
     let (model_expr, _) = args.remove(0);
     let (index_expr, index_node) = args.remove(0);
     let (value_expr, value_node) = args.remove(0);
-    let index = index_expr.maybe_convert_to(Type::Int32, &index_node, diag, symbol_counters);
-    let value = value_expr.maybe_convert_to(element_type, &value_node, diag, symbol_counters);
+    let index =
+        index_expr.maybe_convert_to(Type::Int32, index_node.as_ref(), diag, symbol_counters);
+    let value =
+        value_expr.maybe_convert_to(element_type, value_node.as_ref(), diag, symbol_counters);
     Expression::FunctionCall {
         function: Callable::Builtin(BuiltinFunction::ArrayInsert),
         arguments: vec![model_expr, index, value],
@@ -592,8 +598,12 @@ fn array_index_of_macro(
 
     let (model_expr, _) = args.remove(0);
     let (value_expr, value_node) = args.remove(0);
-    let value =
-        value_expr.maybe_convert_to(element_type.clone(), &value_node, diag, symbol_counters);
+    let value = value_expr.maybe_convert_to(
+        element_type.clone(),
+        value_node.as_ref(),
+        diag,
+        symbol_counters,
+    );
 
     // Evaluate `value` once, before the search: the closure body runs once per row, so
     // embedding `value` there directly would re-evaluate it per row instead of once.
@@ -627,7 +637,7 @@ fn array_index_of_macro(
 
 fn to_debug_string(
     expr: Expression,
-    node: &dyn Spanned,
+    node: Option<&NodeOrToken>,
     diag: &mut BuildDiagnostics,
     symbol_counters: &SymbolCounters,
 ) -> Expression {
@@ -646,7 +656,7 @@ fn to_debug_string(
         | Type::Model
         | Type::PathData
         | Type::Closure => {
-            diag.push_error("Cannot debug this expression".into(), node);
+            diag.push_error("Cannot debug this expression".into(), &node);
             Expression::Invalid
         }
         Type::Float32 | Type::Int32 => {

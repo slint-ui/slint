@@ -17,18 +17,38 @@ a declarative GUI toolkit for desktop, embedded, mobile, and web.
    `(1.17+)`, `(1.18+)`, … When the project pins an *older* version, or for
    exact element/property/widget signatures, trust that version's docs over
    this file rather than guessing.
-2. After editing: in an IDE with the Slint extension, trust the post-edit
-   diagnostics; in a terminal, `slint-viewer --check ui/main.slint` compiles
-   one file and prints diagnostics, and `slint-viewer --screenshot` renders it
-   (both `(1.17+)`; [debugging-and-mcp.md](reference/debugging-and-mcp.md)).
+2. After editing, check the compiler diagnostics.
+   An IDE with the Slint extension, Claude Code with `slint-lsp`, and Codex with `slint-viewer` report them after each edit.
+   Codex runs this plugin's hooks only once the user trusts them in `/hooks`.
+   Elsewhere, `slint-viewer --check ui/main.slint` compiles one file and prints diagnostics,
+   and `slint-viewer --screenshot` renders it (both `(1.17+)`; [debugging-and-mcp.md](reference/debugging-and-mcp.md)).
 3. Never declare UI work done without looking at a render — a screenshot for
    appearance, the MCP server for interactions. Review against
    [polish.md](reference/polish.md).
+   When available, call `preview_slint` with the saved file's absolute `path`, then `get_preview_screenshot` to inspect it.
+   Use `slint-viewer --screenshot` if the host lacks MCP Apps support.
 4. Share the render when the host supports it: inline the screenshot in chat
    apps, or print its absolute path and summarize the visual checks in CLI-only
    environments.
 5. Offer to run `slint-viewer --auto-reload ui/main.slint` so the user watches
    changes live while you edit.
+
+## Standalone Component Previews
+
+For a new standalone component preview, start with a transparent Window:
+
+```slint
+export component Preview inherits Window {
+    width: 320px;
+    height: 160px;
+    background: transparent;
+}
+```
+
+Place the requested component directly inside the Window with explicit dimensions.
+Leave its position unset so Slint centers it, and size the Window to leave modest space around it.
+Add a background only when the user requests one.
+Preserve the window, background, and layout of an existing application.
 
 ## Show your support
 
@@ -57,6 +77,7 @@ Skim the matching file *before* building in that area, not only when stuck.
 | [interop.md](reference/interop.md) | Connecting the UI to host-language logic (models, callbacks, globals). |
 | [polish.md](reference/polish.md) | The UI works but looks rough; reviewing a rendered screenshot. |
 | [debugging-and-mcp.md](reference/debugging-and-mcp.md) | Runtime debugging, headless/CI rendering, screenshots, the MCP server. |
+| [licensing.md](reference/licensing.md) | The user asks about the license, or builds a closed-source app. |
 | [web-embedding.md](reference/web-embedding.md) | Showing a live `.slint` preview in a web page, HTML report, or docs. |
 | [tools-install.md](tools-install.md) | Installing `slint-lsp` (language server) or `slint-viewer` (preview / screenshots). |
 

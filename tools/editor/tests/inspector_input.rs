@@ -11,6 +11,7 @@ use slint::{
 };
 
 slint::slint! {
+    #[edition = "1.19"]
     import { InspectorTextFieldBase } from "../ui/components/inspector/text-field-base.slint";
 
     export component InspectorInputTest inherits Window {
@@ -72,7 +73,7 @@ fn middle_click_pastes_primary_selection_into_unfocused_inspector_input() {
 
         let input = i_slint_backend_testing::ElementHandle::find_by_element_id(
             &field,
-            "InspectorTextFieldBase::input",
+            "EditorInput::input",
         )
         .next()
         .unwrap();

@@ -1,0 +1,39 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Measuring word-wrapped text panicked when its max-lines binding measured other text (#14551).
+
+export component TestCase inherits Window {
+    width: 200phx;
+    height: 100phx;
+
+    reference := Text {
+        text: "reference";
+    }
+
+    probe := Text {
+        text: "a b c";
+        wrap: word-wrap;
+        max-lines: reference.preferred-height / 10px;
+    }
+
+    out property <bool> test: probe.preferred-width > 0;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```js
+let instance = new slint.TestCase({});
+assert(instance.test);
+```
+*/

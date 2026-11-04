@@ -136,7 +136,6 @@ export component MenuItemBase {
 
                 Rectangle {
                     width: root.icon-size;
-                    y: (parent.height - self.height) / 2;
 
                     if entry.checked: Text {
                         text: "✓";
@@ -166,7 +165,6 @@ export component MenuItemBase {
 
                 if entry.has-sub-menu : Image {
                     width: root.icon-size;
-                    y: (parent.height - self.height) / 2;
                     source: root.sub-menu-icon;
                     colorize: label.color;
                     accessible-role: none;

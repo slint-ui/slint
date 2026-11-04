@@ -1052,6 +1052,17 @@ export component Test { in property <Foobar> test1; }"#,
         assert_eq!(result.kind, ui::PropertyValueKind::Brush);
         assert!(matches!(result.brush_kind, ui::BrushKind::Radial));
 
+        for gradient in ["ellipse", "ellipse 80px 40px", "circle 30px", "circle at 10px 20px"] {
+            let result = property_conversion_test(
+                &format!(
+                    "export component Test {{ in property <brush> test1: @radial-gradient({gradient}, #f00 0%, #00f 100%); }}"
+                ),
+                1,
+            );
+            assert_eq!(result.kind, ui::PropertyValueKind::Code, "{gradient}");
+            assert_eq!(result.display_string, "Radial Gradient", "{gradient}");
+        }
+
         let result = property_conversion_test(
             r#"export component Test { in property <brush> test1: @linear-gradient(90deg, #3f87a6 0%, #ebf8e1 50% - 10%, #f69d3c 100%); }"#,
             1,

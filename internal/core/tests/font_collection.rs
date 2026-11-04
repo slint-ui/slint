@@ -139,3 +139,33 @@ fn fonts_registered_in_bind_context_stay_registered() {
         assert_eq!(registered.blob.as_ref(), REGISTERED_FONT);
     });
 }
+
+#[test]
+fn supplied_collection_replaces_the_prefetch() {
+    on_new_thread(|| {
+        let mut collection = fontique::Collection::new(fontique::CollectionOptions {
+            shared: false,
+            system_fonts: false,
+        });
+        collection.register_fonts(fontique::Blob::new(std::sync::Arc::new(REGISTERED_FONT)), None);
+        i_slint_core::font_collection::supply(collection).unwrap();
+        assert!(i_slint_core::font_collection::prefetch().is_none());
+
+        i_slint_core::platform::set_platform(Box::new(TestPlatform { on_bind: None })).unwrap();
+        let context = SlintContext::current().unwrap();
+        let families: Vec<_> = context
+            .font_context()
+            .borrow_mut()
+            .collection
+            .family_names()
+            .map(str::to_owned)
+            .collect();
+        assert_eq!(families, ["Noto Sans"]);
+
+        let replacement = fontique::Collection::new(fontique::CollectionOptions {
+            shared: false,
+            system_fonts: false,
+        });
+        assert!(i_slint_core::font_collection::supply(replacement).is_err());
+    });
+}
