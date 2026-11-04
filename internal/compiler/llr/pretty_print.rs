@@ -205,6 +205,19 @@ impl PrettyPrinter<'_> {
                 DisplayExpression(&e.borrow(), &ctx)
             )?
         }
+        for (name, e) in [
+            ("layout-info-v-constrained-for-repeated", &sc.layout_info_v_constrained_for_repeated),
+            (
+                "layout-info-v-at-cross-width-for-repeated",
+                &sc.layout_info_v_at_cross_width_for_repeated,
+            ),
+            ("grid-row-child-cross-width", &sc.grid_row_child_cross_width),
+        ] {
+            if let Some(e) = e {
+                self.indent()?;
+                writeln!(self.writer, "{name}: {};", DisplayExpression(&e.borrow(), &ctx))?
+            }
+        }
         for (i, c) in sc.grid_layout_children.iter_enumerated() {
             self.indent()?;
             writeln!(
