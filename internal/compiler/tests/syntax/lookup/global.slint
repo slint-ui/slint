@@ -1,10 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-global MyGlobal := {
-//              ><warning{':=' to declare a global is deprecated. Remove the ':='}
-    property<length> custom_prop;
-    property<color> color_prop;
+global MyGlobal {
+    out property<length> custom_prop;
+    out property<color> color_prop;
     color_prop: red;
 }
 
@@ -12,9 +11,8 @@ export component SomeComp inherits Rectangle {
     property<length> foo;
 }
 
-global my_lowercase := {
-//                  ><warning{':=' to declare a global is deprecated. Remove the ':='}
-    property <int> glob;
+global my_lowercase {
+    out property <int> glob;
 }
 
 
