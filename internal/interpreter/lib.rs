@@ -141,6 +141,10 @@ mod value_model;
 #[doc(inline)]
 pub use api::*;
 
+#[cfg(all(feature = "std", any(feature = "internal", feature = "internal-highlight")))]
+#[doc(hidden)]
+pub use component::AnimationMode;
+
 #[cfg(feature = "internal")]
 #[doc(hidden)]
 pub use eval::{

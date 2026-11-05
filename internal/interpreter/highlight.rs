@@ -7,7 +7,6 @@ use crate::instance::SubComponentInstance;
 use crate::prelude::*;
 use i_slint_compiler::diagnostics::SourceLocation;
 use i_slint_compiler::llr::ItemInstanceIdx;
-use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::source_path::SourcePath;
 use i_slint_core::graphics::euclid;
 use i_slint_core::item_tree::{ItemTreeRc, TraversalOrder, VisitChildrenResult};
@@ -471,77 +470,6 @@ fn component_root_items(
         .and_then(|key| elements.get(&key))
         .map(|element| element.item_indices.clone())
         .unwrap_or_default()
-}
-
-/// Look up the `(ElementRc, index)` tuples whose `debug` entries cover
-/// the given source offset. Uses the `TypeLoader` stored on the instance
-/// (if available) to walk the original object-tree `Document`.
-pub(crate) fn element_node_at_source_code_position(
-    instance: &VRc<ItemTreeVTable, Instance>,
-    path: &SourcePath,
-    offset: u32,
-) -> Vec<(ElementRc, usize)> {
-    let Some(type_loader) = instance.type_loaders.type_loader.as_ref() else {
-        return Vec::new();
-    };
-    let Some(doc) = type_loader.get_document(path) else {
-        return Vec::new();
-    };
-    let mut result = Vec::new();
-    // `inner_components` lists every component defined in the file,
-    // exported or not.
-    for component in &doc.inner_components {
-        visit_element_for_position(&component.root_element, path, offset, &mut result);
-    }
-    result
-}
-
-fn visit_element_for_position(
-    element: &ElementRc,
-    path: &SourcePath,
-    offset: u32,
-    result: &mut Vec<(ElementRc, usize)>,
-) {
-    if element.borrow().repeated.is_some() {
-        // The children of a repeated element live in the component the
-        // repeater pass wrapped around it, which is not part of
-        // `inner_components` — descend explicitly. The wrapper's root
-        // element carries the same source node as the repeated element.
-        let base = match &element.borrow().base_type {
-            i_slint_compiler::element_type::ElementType::Component(c) => {
-                Some(c.root_element.clone())
-            }
-            _ => None,
-        };
-        if let Some(root) = base {
-            visit_element_for_position(&root, path, offset, result);
-        }
-        return;
-    }
-    for (index, node_path, node_range) in
-        element.borrow().debug.iter().enumerate().map(|(index, debug_info)| {
-            let text_range = debug_info
-                .node
-                .QualifiedName()
-                .map(|qualified_name| qualified_name.text_range())
-                .or_else(|| {
-                    debug_info
-                        .node
-                        .child_token(i_slint_compiler::parser::SyntaxKind::LBrace)
-                        .map(|left_brace| left_brace.text_range())
-                })
-                .expect("An Element must contain a LBrace somewhere");
-            (index, debug_info.node.source_file.path(), text_range)
-        })
-    {
-        if node_path == path && node_range.contains(offset.into()) {
-            result.push((element.clone(), index));
-        }
-    }
-    let children = element.borrow().children.clone();
-    for child in &children {
-        visit_element_for_position(child, path, offset, result);
-    }
 }
 
 /// `root` plus every instantiated repeated / conditional row instance

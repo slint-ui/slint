@@ -153,11 +153,6 @@ fn number_value(
     })
 }
 
-fn source_node(node: &ElementRcNode) -> Option<ElementRcNode> {
-    let ElementLocation { path, offset } = node.location();
-    document_cache()?.element_at_offset(&path.to_url()?, offset)
-}
-
 fn string_expression(value: &str) -> String {
     let mut expression = String::from("\"");
     for character in value.chars() {
@@ -181,7 +176,6 @@ fn edit_value(
     use i_slint_compiler::element_type::PropertyLookupMode;
     use i_slint_compiler::langtype::Type;
     use slint_interpreter::Value;
-    let node = source_node(node)?;
     let property_type = node
         .as_element()
         .borrow()
@@ -234,7 +228,7 @@ fn edit_value(
         }
         ui::PropertyEditKind::Fill => (
             ui::fill_expression(value.fill.clone()).to_string(),
-            fill_value(&node, name, &value.fill)?,
+            fill_value(node, name, &value.fill)?,
         ),
         _ => return None,
     };
@@ -293,9 +287,7 @@ fn changed_properties(
     node: &ElementRcNode,
     edits: &[PropertyEdit],
 ) -> Vec<i_slint_editor_preview::editing::PropertyChange> {
-    let properties = source_node(node)
-        .map(|node| properties::get_properties(&node, properties::LayoutKind::None))
-        .unwrap_or_default();
+    let properties = properties::get_properties(node, properties::LayoutKind::None);
     edits
         .iter()
         .filter(|edit| {

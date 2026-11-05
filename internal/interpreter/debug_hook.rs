@@ -42,6 +42,7 @@ pub(crate) mod tests {
         i_slint_backend_testing::init_no_event_loop();
 
         let mut compiler = Compiler::default();
+        compiler.set_keep_debug_info(true, i_slint_core::InternalToken);
         compiler.compiler_configuration(i_slint_core::InternalToken).debug_hooks = true;
         let compile_result = spin_on::spin_on(compiler.build_from_source_path(
             Some(code.to_string()),
@@ -328,6 +329,7 @@ export component Win inherits Window {
 }"#;
         let geometries = |debug_hooks: bool| -> Vec<(f32, f32, f32, f32)> {
             let mut compiler = Compiler::default();
+            compiler.set_keep_debug_info(true, i_slint_core::InternalToken);
             if debug_hooks {
                 compiler.compiler_configuration(i_slint_core::InternalToken).debug_hooks = true;
             }

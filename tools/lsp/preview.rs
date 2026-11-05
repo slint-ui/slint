@@ -1206,28 +1206,6 @@ fn start_parsing() {
     });
 }
 
-fn extract_resources(
-    dependencies: &HashSet<Url>,
-    component_instance: &ComponentInstance,
-) -> HashSet<Url> {
-    let type_loader = component_instance.definition().type_loader();
-
-    let mut result: HashSet<Url> = Default::default();
-
-    for dependency in dependencies {
-        let path = SourcePath::from_url(dependency);
-        let Some(doc) = type_loader.get_document(&path) else {
-            continue;
-        };
-
-        result.extend(
-            doc.embedded_file_resources.borrow().iter().filter_map(|er| er.path.as_ref()?.to_url()),
-        );
-    }
-
-    result
-}
-
 fn finish_parsing(preview_url: &Url, previewed_component: Option<String>, success: bool) {
     set_status_text("");
 
@@ -1321,33 +1299,12 @@ fn update_previewed_component(preview_url: &Url, previewed_component: Option<Str
                 ui::ui_set_uses_widgets(&api, uses_widgets);
                 ui::ui_set_known_components(&api, &preview_state.known_components, index);
                 let component =
-                    document_cache.get_document(source_url).and_then(
-                        |doc| match previewed_component.as_ref() {
-                            Some(c_id) => doc
-                                .inner_components
-                                .iter()
-                                .find(|c| {
-                                    c.id == c_id
-                                        || doc.export_names(c).first().is_some_and(|n| n == c_id)
-                                })
-                                .cloned(),
-                            None => doc.last_exported_component(),
-                        },
-                    );
+                    document_cache.component(source_url, previewed_component.as_deref());
                 outline::reset_outline(&api, component);
                 ui::ui_set_preview_data(&api, preview_data, previewed_component);
             }
         });
     }
-
-    PREVIEW_STATE.with_borrow_mut(|preview_state| {
-        if let Some(component_instance) = preview_state.component_instance() {
-            preview_state.resources =
-                extract_resources(&preview_state.dependencies, &component_instance);
-        } else {
-            preview_state.resources.clear();
-        }
-    });
 }
 
 fn config_changed(config: PreviewConfig) {
@@ -1483,15 +1440,7 @@ async fn reload_timer_function() {
             SelectionNotification::Never,
         );
 
-        if notify_editor
-            && let Some(component_instance) = component_instance()
-            && let Some((element, debug_index)) = component_instance
-                .element_node_at_source_code_position(&se.path, se.offset.into())
-                .first()
-        {
-            let Some(element_node) = ElementRcNode::new(element.clone(), *debug_index) else {
-                return;
-            };
+        if notify_editor && let Some(element_node) = se.as_element_node() {
             let format = PREVIEW_STATE.with_borrow(|ps| ps.format());
             let (path, pos) = element_node.with_element_node(|node| {
                 let sf = &node.source_file;
@@ -1553,6 +1502,15 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
     });
 }
 
+/// A successful compilation of the previewed component.
+struct Compiled {
+    definition: ComponentDefinition,
+    /// The tree as the user wrote it, which the `DocumentCache` of the preview is built from.
+    raw_type_loader: i_slint_compiler::typeloader::TypeLoader,
+    /// The files other than `.slint` documents that the compilation read.
+    resources: HashSet<Url>,
+}
+
 async fn parse_source(
     config: PreviewConfig,
     path: SourcePath,
@@ -1569,7 +1527,7 @@ async fn parse_source(
     > + 'static,
 ) -> (
     Vec<diagnostics::Diagnostic>,
-    Option<ComponentDefinition>,
+    Option<Compiled>,
     Option<editor_preview::document_cache::OpenImportCallback>,
     Rc<RefCell<editor_preview::document_cache::SourceFileVersionMap>>,
 ) {
@@ -1621,10 +1579,24 @@ async fn parse_source(
         }),
         i_slint_core::InternalToken,
     );
-    let result =
-        builder.build_from_source_path(source_code, path, i_slint_core::InternalToken).await;
+    let (result, raw_type_loader) = builder
+        .build_with_raw_type_loader(
+            source_code,
+            path,
+            slint_interpreter::AnimationMode::Running,
+            i_slint_core::InternalToken,
+        )
+        .await;
 
-    let compiled = result.components().next();
+    let compiled = result.components().next().zip(raw_type_loader).map(|(definition, raw)| {
+        let resources = result
+            .watch_paths(i_slint_core::InternalToken)
+            .iter()
+            .filter(|path| raw.get_document(path).is_none())
+            .filter_map(|path| path.to_url())
+            .collect();
+        Compiled { definition, raw_type_loader: raw, resources }
+    });
     (result.diagnostics().collect(), compiled, open_file_fallback, source_file_versions)
 }
 
@@ -1688,12 +1660,12 @@ async fn reload_preview_impl(
         return Ok(());
     }
     let success = compiled.is_some();
-    let loaded_component_name = compiled.as_ref().map(|c| c.name().to_string());
+    let loaded_component_name = compiled.as_ref().map(|c| c.definition.name().to_string());
 
     // Reflect the style the compiler actually used (after resolving the default,
     // SLINT_STYLE, and "native") in the ComboBox.
     if let Some(compiled) = &compiled {
-        set_current_style(compiled.type_loader().resolved_style.clone());
+        set_current_style(compiled.raw_type_loader.resolved_style.clone());
     }
 
     tracing::debug!(
@@ -2108,7 +2080,7 @@ fn set_status_text(text: &str) {
 
 /// This ensure that the preview window is visible and runs `set_preview_factory`
 fn update_preview_area(
-    compiled: Option<ComponentDefinition>,
+    compiled: Option<Compiled>,
     behavior: LoadBehavior,
     open_import_callback: Option<editor_preview::document_cache::OpenImportCallback>,
     source_file_versions: Rc<RefCell<editor_preview::document_cache::SourceFileVersionMap>>,
@@ -2122,25 +2094,23 @@ fn update_preview_area(
         let shared_handle = preview_state.handle.clone();
         let shared_document_cache = preview_state.document_cache.clone();
 
-        if let Some(compiled) = compiled {
+        if let Some(Compiled { definition, raw_type_loader, resources }) = compiled {
+            preview_state.resources = resources;
+            let document_cache = Rc::new(editor_preview::DocumentCache::new_from_raw_parts(
+                raw_type_loader,
+                open_import_callback,
+                source_file_versions,
+                format,
+            ));
             api.set_focus_previewed_element(behavior == LoadBehavior::BringWindowToFront);
             api.set_current_element(Default::default());
 
             set_preview_factory(
                 app_window,
                 &api,
-                compiled,
+                definition,
                 Box::new(move |instance| {
-                    if let Some(rtl) = instance.definition().raw_type_loader() {
-                        shared_document_cache.replace(Some(Rc::new(
-                            editor_preview::DocumentCache::new_from_raw_parts(
-                                rtl,
-                                open_import_callback.clone(),
-                                source_file_versions.clone(),
-                                format,
-                            ),
-                        )));
-                    }
+                    shared_document_cache.replace(Some(document_cache.clone()));
 
                     shared_handle.replace(Some(instance));
                 }),
@@ -2203,9 +2173,9 @@ pub mod test {
 
         let path = main_test_file_name();
         let source_code = code.get(&path).unwrap().clone();
-        let (diagnostics, component_definition, _, _) = spin_on::spin_on(super::parse_source(
+        let (diagnostics, compiled, _, versions) = spin_on::spin_on(super::parse_source(
             crate::preview::test::preview_config(),
-            path,
+            path.clone(),
             Some(24),
             Some(source_code.to_string()),
             style.to_string(),
@@ -2227,7 +2197,22 @@ pub mod test {
 
         assert!(diagnostics.is_empty());
 
-        component_definition.unwrap().create().unwrap()
+        // Register the compilation the way `update_preview_area` does.
+        let compiled = compiled.unwrap();
+        let document_cache = crate::editor_preview::DocumentCache::new_from_raw_parts(
+            compiled.raw_type_loader,
+            None,
+            versions,
+            crate::editor_preview::ByteFormat::Utf8,
+        );
+        super::PREVIEW_STATE.with_borrow_mut(|state| {
+            state.set_current_component(super::PreviewComponent {
+                url: path.to_url().unwrap(),
+                component: None,
+            });
+            state.document_cache.replace(Some(Rc::new(document_cache)));
+        });
+        compiled.definition.create().unwrap()
     }
 
     #[track_caller]
@@ -2263,6 +2248,29 @@ mod tests {
         });
     }
 
+    /// The files other than documents that a compilation reads reload the preview.
+    #[test]
+    fn a_compilation_lists_the_files_it_reads_as_resources() {
+        i_slint_backend_testing::init_no_event_loop();
+        let main = Url::parse("file:///project/main.slint").unwrap();
+        let source = r#"export component Main inherits Window {
+                Image { source: @image-url("logo.png"); }
+            }"#;
+        let (diagnostics, compiled, _, _) = spin_on::spin_on(parse_source(
+            crate::preview::test::preview_config(),
+            SourcePath::from_url(&main),
+            None,
+            Some(source.into()),
+            "fluent".into(),
+            None,
+            |_| Box::pin(async { Some(Err(std::io::ErrorKind::NotFound.into())) }),
+        ));
+        assert!(diagnostics.is_empty(), "{diagnostics:?}");
+        let resources = compiled.unwrap().resources;
+        assert!(resources.contains(&main.join("logo.png").unwrap()), "{resources:?}");
+        assert!(!resources.contains(&main), "{resources:?}");
+    }
+
     #[test]
     fn a_source_with_widgets_updates_the_live_preview_ui() {
         i_slint_backend_testing::init_no_event_loop();
@@ -2285,7 +2293,7 @@ mod tests {
         assert!(diagnostics.is_empty(), "{diagnostics:?}");
         let compiled = compiled.unwrap();
         let document_cache = editor_preview::DocumentCache::new_from_raw_parts(
-            compiled.raw_type_loader().unwrap(),
+            compiled.raw_type_loader,
             imports,
             versions,
             editor_preview::ByteFormat::Utf8,
@@ -2391,6 +2399,9 @@ mod tests {
                 "{diagnostics:?}"
             );
             assert_eq!(compiled.is_some(), !has_errors);
+            if let Some(compiled) = compiled {
+                assert!(compiled.resources.contains(&manifest), "{:?}", compiled.resources);
+            }
         }
         reset_preview_state(Default::default());
     }

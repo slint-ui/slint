@@ -595,7 +595,7 @@ fn drop_target_element_nodes(
     for candidate in
         &element_selection::collect_all_element_nodes_covering(position, component_instance)
     {
-        let Some(element) = candidate.as_element_node(component_instance) else {
+        let Some(element) = candidate.selection.as_element_node() else {
             continue;
         };
 
@@ -663,7 +663,7 @@ fn find_drop_location(
     position: LogicalPoint,
     component_type: &str,
 ) -> Option<DropInformation> {
-    let root_node_path = element_selection::root_element(component_instance)
+    let root_node_path = element_selection::root_element(component_instance)?
         .borrow()
         .debug
         .first()

@@ -11,8 +11,9 @@ use std::rc::Rc;
 
 fn compile(code: &str, name: &str) -> ComponentInstance {
     i_slint_backend_testing::init_no_event_loop();
-    let result =
-        spin_on::spin_on(Compiler::default().build_from_source(code.into(), Default::default()));
+    let mut compiler = Compiler::default();
+    compiler.set_keep_debug_info(true, i_slint_core::InternalToken);
+    let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
     assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
     result.component(name).expect("component should compile").create().unwrap()
 }
@@ -327,8 +328,8 @@ fn find_widget_after_conditional_sibling() {
     assert_eq!(labels, vec!["Extra".to_string(), "Always".to_string()]);
 }
 
-/// The interpreter always compiles with debug info, so every item must report
-/// its element infos, including the items the compiler synthesizes, such as the
+/// With debug info, every item must report its element infos,
+/// including the items the compiler synthesizes, such as the
 /// wrapper for a `visible` binding. The code generators do the same. Otherwise
 /// queries warn about missing debug info while walking the tree.
 #[test]

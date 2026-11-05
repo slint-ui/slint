@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // cSpell: ignore theproperty underscoresanddashespreserved xreadonly
+#[cfg(feature = "std")]
+use crate::component::AnimationMode;
 use crate::prelude::*;
 #[cfg(test)]
 use alloc::sync::Arc;
@@ -751,9 +753,7 @@ impl ComponentCompiler {
         let compiler = Compiler {
             config: self.config.clone(),
             overrides: self.overrides.clone(),
-            project_file_loader: None,
-            project_root: None,
-            resource_loader: None,
+            ..Default::default()
         };
         let r = compiler.build_from_path(path).await;
         self.diagnostics = r.diagnostics.into_iter().collect();
@@ -784,9 +784,7 @@ impl ComponentCompiler {
         let compiler = Compiler {
             config: self.config.clone(),
             overrides: self.overrides.clone(),
-            project_file_loader: None,
-            project_root: None,
-            resource_loader: None,
+            ..Default::default()
         };
         let r = compiler.build_from_source(source_code, path).await;
         self.diagnostics = r.diagnostics.into_iter().collect();
@@ -818,6 +816,7 @@ pub struct Compiler {
     project_file_loader: Option<i_slint_compiler::OpenImportCallback>,
     project_root: Option<SourcePath>,
     resource_loader: Option<crate::component::ResourceLoader>,
+    keep_debug_info: bool,
 }
 
 #[cfg(feature = "std")]
@@ -832,6 +831,7 @@ impl Default for Compiler {
             project_file_loader: None,
             project_root: None,
             resource_loader: None,
+            keep_debug_info: false,
         }
     }
 }
@@ -857,6 +857,12 @@ impl Compiler {
     #[cfg(feature = "internal")]
     pub fn set_project_root(&mut self, root: Option<SourcePath>, _: i_slint_core::InternalToken) {
         self.project_root = root.map(i_slint_compiler::project_file::normalize_project_root);
+    }
+
+    /// Compiles with debug info, whatever the project file or the overrides say.
+    #[doc(hidden)]
+    pub fn set_keep_debug_info(&mut self, keep: bool, _: i_slint_core::InternalToken) {
+        self.keep_debug_info = keep;
     }
 
     #[doc(hidden)]
@@ -1037,8 +1043,10 @@ impl Compiler {
             SourcePath::File(input_path),
             AnimationMode::Running,
             self.project_root.clone(),
+            false,
         )
         .await
+        .0
     }
 
     /// Compile some .slint code
@@ -1059,8 +1067,10 @@ impl Compiler {
             SourcePath::new(path),
             AnimationMode::Running,
             self.project_root.clone(),
+            false,
         )
         .await
+        .0
     }
 
     /// [`Self::build_from_source`] for a file that may only be reachable by URL.
@@ -1077,28 +1087,33 @@ impl Compiler {
         path: SourcePath,
         _: i_slint_core::InternalToken,
     ) -> CompilationResult {
-        self.build(source_code, path, AnimationMode::Running, self.project_root.clone()).await
+        self.build(source_code, path, AnimationMode::Running, self.project_root.clone(), false)
+            .await
+            .0
     }
 
-    /// [`Self::build_from_source_path`] without timers or animations.
+    /// [`Self::build_from_source_path`] with debug info, which also returns the type loader
+    /// in its state before most passes ran, or `None` if the loading or the compilation failed.
     #[doc(hidden)]
-    #[cfg(feature = "internal")]
-    pub async fn build_static_from_source(
+    #[cfg(any(feature = "internal", feature = "internal-highlight"))]
+    pub async fn build_with_raw_type_loader(
         &self,
         source_code: Option<String>,
         path: SourcePath,
+        animation_mode: AnimationMode,
         _: i_slint_core::InternalToken,
-    ) -> CompilationResult {
-        self.build(source_code, path, AnimationMode::Static, self.project_root.clone()).await
+    ) -> (CompilationResult, Option<i_slint_compiler::typeloader::TypeLoader>) {
+        self.build(source_code, path, animation_mode, self.project_root.clone(), true).await
     }
 
-    async fn build(
+    pub(crate) async fn build(
         &self,
         source_code: Option<String>,
         input: SourcePath,
         animation_mode: AnimationMode,
         project_root: Option<SourcePath>,
-    ) -> CompilationResult {
+        keep_raw_type_loader: bool,
+    ) -> (CompilationResult, Option<i_slint_compiler::typeloader::TypeLoader>) {
         let mut diagnostics = i_slint_compiler::diagnostics::BuildDiagnostics::default();
         #[cfg_attr(not(feature = "internal"), expect(unused_variables))]
         let (loaded, attempted_paths) = i_slint_compiler::project_file::load_input(
@@ -1110,24 +1125,31 @@ impl Compiler {
         )
         .await;
         #[cfg_attr(not(feature = "internal"), allow(unused_mut))]
-        let mut result = match loaded {
-            None => CompilationResult {
-                components: HashMap::new(),
-                diagnostics: diagnostics.into_iter().collect(),
-                #[cfg(feature = "internal")]
-                watch_paths: Vec::new(),
-                #[cfg(feature = "internal")]
-                structs_and_enums: Vec::new(),
-            },
+        let (mut result, raw_type_loader) = match loaded {
+            None => (
+                CompilationResult {
+                    components: HashMap::new(),
+                    diagnostics: diagnostics.into_iter().collect(),
+                    #[cfg(feature = "internal")]
+                    watch_paths: Vec::new(),
+                    #[cfg(feature = "internal")]
+                    structs_and_enums: Vec::new(),
+                },
+                None,
+            ),
             Some(loaded) => {
                 let mut config = self.config.clone();
                 self.overrides.apply(loaded.project_file.as_ref(), &mut config);
+                config.debug_info |= self.keep_debug_info
+                    || keep_raw_type_loader
+                    || i_slint_backend_selector::testing_backends_requested();
                 build_compilation_result(
                     loaded.source_code,
                     loaded.source,
                     config,
                     animation_mode,
                     self.resource_loader.clone(),
+                    keep_raw_type_loader,
                 )
                 .await
             }
@@ -1139,17 +1161,8 @@ impl Compiler {
             result.watch_paths.sort();
             result.watch_paths.dedup();
         }
-        result
+        (result, raw_type_loader)
     }
-}
-
-#[cfg(feature = "std")]
-pub(crate) enum AnimationMode {
-    /// In static mode, all timers & animations are disabled.
-    /// The item tree should not update anything without interaction.
-    #[cfg_attr(not(feature = "internal"), allow(dead_code))]
-    Static,
-    Running,
 }
 
 #[cfg(feature = "std")]
@@ -1159,13 +1172,15 @@ async fn build_compilation_result(
     config: i_slint_compiler::CompilerConfiguration,
     animation_mode: AnimationMode,
     resource_loader: Option<crate::component::ResourceLoader>,
-) -> CompilationResult {
+    keep_raw_type_loader: bool,
+) -> (CompilationResult, Option<i_slint_compiler::typeloader::TypeLoader>) {
     let result = crate::component::build_from_source(
         source_code,
         path,
         config,
         animation_mode,
         resource_loader,
+        keep_raw_type_loader,
     )
     .await;
     let components = result
@@ -1173,14 +1188,15 @@ async fn build_compilation_result(
         .into_iter()
         .map(|(name, def)| (name, ComponentDefinition { inner: Rc::new(def) }))
         .collect::<HashMap<String, ComponentDefinition>>();
-    CompilationResult {
+    let compilation_result = CompilationResult {
         components,
         diagnostics: result.diagnostics,
         #[cfg(feature = "internal")]
         watch_paths: result.watch_paths,
         #[cfg(feature = "internal")]
         structs_and_enums: result.structs_and_enums,
-    }
+    };
+    (compilation_result, result.raw_type_loader)
 }
 
 /// A [`CompilationResult`] that can be sent to another thread.
@@ -1272,7 +1288,6 @@ impl CompilationResult {
                 let inner = Rc::new(crate::component::ComponentDefinitionInner {
                     compilation_unit: compilation_unit.clone()?,
                     public_index,
-                    type_loaders: Default::default(),
                     resources: resources.clone(),
                 });
                 Some((name, ComponentDefinition { inner }))
@@ -1699,44 +1714,6 @@ impl ComponentDefinition {
     pub fn is_window(&self) -> bool {
         self.inner.top_level_type() == i_slint_compiler::llr::TopLevelComponentType::Window
     }
-
-    /// This gives access to the tree of Elements.
-    #[cfg(all(feature = "internal", feature = "std"))]
-    #[doc(hidden)]
-    pub fn root_component(&self) -> Rc<i_slint_compiler::object_tree::Component> {
-        self.inner
-            .type_loaders
-            .originals
-            .get(self.inner.public_index)
-            .expect("root_component() called on a definition built without compiler state")
-            .clone()
-    }
-
-    /// Return the `TypeLoader` used when parsing the code in the interpreter.
-    ///
-    /// WARNING: this is not part of the public API
-    #[cfg(feature = "internal-highlight")]
-    pub fn type_loader(&self) -> Rc<i_slint_compiler::typeloader::TypeLoader> {
-        self.inner.type_loaders.type_loader.clone().expect(
-            "TypeLoader was not retained for this ComponentDefinition (reconstructed from an instance)",
-        )
-    }
-
-    /// Return the `TypeLoader` used when parsing the code in the interpreter in
-    /// a state before most passes were applied by the compiler.
-    ///
-    /// Each returned type loader is a deep copy of the entire state connected to it,
-    /// so this is a fairly expensive function!
-    ///
-    /// WARNING: this is not part of the public API
-    #[cfg(feature = "internal-highlight")]
-    pub fn raw_type_loader(&self) -> Option<i_slint_compiler::typeloader::TypeLoader> {
-        self.inner
-            .type_loaders
-            .raw_type_loader
-            .as_ref()
-            .and_then(|tl| i_slint_compiler::typeloader::snapshot(tl))
-    }
 }
 
 /// Print the diagnostics to stderr
@@ -1995,6 +1972,8 @@ impl ComponentInstance {
 
     /// Find all positions of the components which are pointed by a given source location.
     ///
+    /// Returns nothing for components compiled without debug info.
+    ///
     /// WARNING: this is not part of the public API
     #[cfg(feature = "internal-highlight")]
     pub fn component_positions(
@@ -2048,6 +2027,8 @@ impl ComponentInstance {
 
     /// Find source elements rendered under `position`, in selection order.
     ///
+    /// Returns nothing for components compiled without debug info.
+    ///
     /// WARNING: this is not part of the public API
     #[cfg(feature = "internal-highlight")]
     pub fn element_candidates_at(
@@ -2055,18 +2036,6 @@ impl ComponentInstance {
         position: i_slint_core::lengths::LogicalPoint,
     ) -> Vec<crate::highlight::ElementCandidate> {
         crate::highlight::element_candidates_at(self.inner.vrc(), position)
-    }
-
-    /// Find the `element` that was defined at the text position.
-    ///
-    /// WARNING: this is not part of the public API
-    #[cfg(feature = "internal-highlight")]
-    pub fn element_node_at_source_code_position(
-        &self,
-        path: &SourcePath,
-        offset: u32,
-    ) -> Vec<(i_slint_compiler::object_tree::ElementRc, usize)> {
-        crate::highlight::element_node_at_source_code_position(self.inner.vrc(), path, offset)
     }
 
     /// Set a callback triggered by `Expression::DebugHook`.
@@ -2699,6 +2668,7 @@ fn compile(code: &str) -> (ComponentInstance, SourcePath) {
     i_slint_backend_testing::init_no_event_loop();
     let mut compiler = Compiler::default();
     compiler.set_style("fluent".into());
+    compiler.set_keep_debug_info(true, i_slint_core::InternalToken);
     let path = SourcePath::new("/tmp/test.slint");
 
     let compile_result = spin_on::spin_on(compiler.build_from_source_path(
@@ -2717,36 +2687,6 @@ fn compile(code: &str) -> (ComponentInstance, SourcePath) {
     let instance = definition.create().unwrap();
 
     (instance, path)
-}
-
-#[cfg(feature = "internal-highlight")]
-#[test]
-fn test_element_node_at_source_code_position() {
-    let code = r#"
-component Bar1 {}
-
-component Foo1 {
-}
-
-export component Foo2 inherits Window  {
-    Bar1 {}
-    Foo1   {}
-}"#;
-
-    let (handle, path) = compile(code);
-
-    for i in 0..code.len() as u32 {
-        let elements = handle.element_node_at_source_code_position(&path, i);
-        eprintln!("{i}: {}", code.as_bytes()[i as usize] as char);
-        match i {
-            16 => assert_eq!(elements.len(), 1),       // Bar1 (def)
-            35 => assert_eq!(elements.len(), 1),       // Foo1 (def)
-            71..=78 => assert_eq!(elements.len(), 1),  // Window + WS (from Foo2)
-            85..=89 => assert_eq!(elements.len(), 1),  // Bar1 + WS (use)
-            97..=103 => assert_eq!(elements.len(), 1), // Foo1 + WS (use)
-            _ => assert!(elements.is_empty()),
-        }
-    }
 }
 
 /// `component_positions` must return one rect per *instantiation*: a component
@@ -2854,7 +2794,9 @@ export component App inherits Window {
 }
 "#;
     let path = PathBuf::from("/virtual/round-trip.slint");
-    let result = spin_on::spin_on(Compiler::default().build_from_source(code.into(), path.clone()));
+    let mut compiler = Compiler::default();
+    compiler.set_keep_debug_info(true, i_slint_core::InternalToken);
+    let result = spin_on::spin_on(compiler.build_from_source(code.into(), path.clone()));
     assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
     let result = CompilationResult::from(result.into_send());
     let instance = result.component("App").unwrap().create().unwrap();
@@ -2924,6 +2866,7 @@ export component App inherits Window {
     let main_path = PathBuf::from("/virtual/main.slint");
     let imported_path = PathBuf::from("/virtual/lib.slint");
     let mut compiler = Compiler::default();
+    compiler.set_keep_debug_info(true, i_slint_core::InternalToken);
     compiler.set_file_loader({
         let imported_path = imported_path.clone();
         move |path| {
@@ -2992,7 +2935,6 @@ export component App inherits Window {
     let definition = crate::component::build_from_document(
         &document,
         &compiler_configuration,
-        Default::default(),
         Default::default(),
         AnimationMode::Running,
     )
@@ -3125,11 +3067,14 @@ mod project_file_tests {
     ) -> super::CompilationResult {
         let source = source.into();
         if static_compilation {
-            spin_on::spin_on(compiler.build_static_from_source(
+            spin_on::spin_on(compiler.build(
                 Some(source),
                 path,
-                i_slint_core::InternalToken,
+                super::AnimationMode::Static,
+                compiler.project_root.clone(),
+                false,
             ))
+            .0
         } else {
             spin_on::spin_on(compiler.build_from_source_path(
                 Some(source),
@@ -3529,11 +3474,14 @@ mod project_file_tests {
                         vec![include_directory.clone()];
                     compiler.set_include_paths(Vec::new());
                     let result = if static_compilation {
-                        spin_on::spin_on(compiler.build_static_from_source(
+                        spin_on::spin_on(compiler.build(
                             Some(source.into()),
                             path.clone(),
-                            i_slint_core::InternalToken,
+                            super::AnimationMode::Static,
+                            compiler.project_root.clone(),
+                            false,
                         ))
+                        .0
                     } else {
                         spin_on::spin_on(compiler.build_from_source_path(
                             Some(source.into()),

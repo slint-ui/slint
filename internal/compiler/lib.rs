@@ -525,35 +525,20 @@ pub async fn compile_syntax_node(
 /// Pass a file to the compiler and process it fully, applying all the
 /// necessary compilation passes.
 ///
-/// This returns a `Tuple` containing a set of `BuildDiagnostics` and a
-/// `TypeLoader` with all compilation passes applied.
+/// This returns a `Tuple` containing a set of `BuildDiagnostics`, a `TypeLoader`
+/// with all compilation passes applied and, if `keep_raw` is set, another
+/// `TypeLoader` with a minimal set of passes applied to it.
 #[cfg(feature = "std")]
 pub async fn load_root_file(
     path: &SourcePath,
     source_code: String,
     mut diagnostics: diagnostics::BuildDiagnostics,
     #[allow(unused_mut)] mut compiler_config: CompilerConfiguration,
-) -> (diagnostics::BuildDiagnostics, typeloader::TypeLoader) {
-    let mut loader = prepare_for_compile(&mut diagnostics, compiler_config, path);
-    loader.load_root_file(path, source_code, false, &mut diagnostics).await;
-    (diagnostics, loader)
-}
-
-/// Pass a file to the compiler and process it fully, applying all the
-/// necessary compilation passes, just like `load_root_file`.
-///
-/// This returns a `Tuple` containing a set of `BuildDiagnostics`, a `TypeLoader`
-/// with all compilation passes applied and another `TypeLoader` with a minimal
-/// set of passes applied to it.
-#[cfg(feature = "std")]
-pub async fn load_root_file_with_raw_type_loader(
-    path: &SourcePath,
-    source_code: String,
-    mut diagnostics: diagnostics::BuildDiagnostics,
-    #[allow(unused_mut)] mut compiler_config: CompilerConfiguration,
+    keep_raw: bool,
 ) -> (diagnostics::BuildDiagnostics, typeloader::TypeLoader, Option<typeloader::TypeLoader>) {
     let mut loader = prepare_for_compile(&mut diagnostics, compiler_config, path);
-    let raw_type_loader = loader.load_root_file(path, source_code, true, &mut diagnostics).await;
+    let raw_type_loader =
+        loader.load_root_file(path, source_code, keep_raw, &mut diagnostics).await;
     (diagnostics, loader, raw_type_loader)
 }
 

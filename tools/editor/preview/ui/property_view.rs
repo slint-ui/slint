@@ -61,17 +61,13 @@ pub fn setup(editor: &ui::EditorUi, api: &ui::Api<'_>) {
             let properties_api = hooked_properties_api_weak.upgrade()?;
             properties_api.get_inspector_generation();
             let element = api.get_current_element();
-            let selection = crate::preview::element_selection::ElementSelection {
+            let id = i_slint_compiler::object_tree::ElementLocation {
                 path: i_slint_compiler::source_path::SourcePath::from_url(
                     &Url::parse(element.source_uri.as_str()).ok()?,
                 ),
                 offset: u32::try_from(element.offset).ok()?.into(),
-                instance_index: usize::try_from(api.get_selection().highlight_index)
-                    .unwrap_or_default(),
-                editing_text: false,
-            };
-            let instance = crate::preview::component_instance()?;
-            let id = selection.as_element_node_in(&instance)?.property(&property_name);
+            }
+            .property(&property_name);
             let overrides = crate::preview::PREVIEW_STATE
                 .with_borrow(|state| state.debug_hook_overrides.clone());
             let mut overrides = (*overrides).borrow_mut();
@@ -813,6 +809,7 @@ export component Win inherits Window {
 }"#;
         let path = i_slint_compiler::source_path::SourcePath::new("/tmp/property-query.slint");
         let mut compiler = slint_interpreter::Compiler::default();
+        compiler.set_keep_debug_info(true, i_slint_core::InternalToken);
         compiler.compiler_configuration(i_slint_core::InternalToken).debug_hooks = true;
         let compiled = spin_on::spin_on(compiler.build_from_source_path(
             Some(code.into()),

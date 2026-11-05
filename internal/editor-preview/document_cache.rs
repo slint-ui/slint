@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use i_slint_compiler::diagnostics::{BuildDiagnostics, SourceFile};
-use i_slint_compiler::object_tree::Document;
+use i_slint_compiler::object_tree::{Component, Document, ElementLocation};
 use i_slint_compiler::parser::{TextSize, syntax_nodes};
 use i_slint_compiler::source_path::SourcePath;
 use i_slint_compiler::typeloader::TypeLoader;
@@ -469,6 +469,23 @@ impl DocumentCache {
         None
     }
 
+    /// Returns the element that starts at `location`.
+    pub fn element_node_at(&self, location: &ElementLocation) -> Option<ElementRcNode> {
+        let doc = self.get_document_by_path(&location.path)?;
+        self.element_at_document_and_offset(doc, location.offset)
+            .filter(|node| node.with_element_node(|n| n.text_range().start() == location.offset))
+    }
+
+    /// Returns the component `name` of the document at `url`, or its last exported component.
+    pub fn component(&self, url: &Url, name: Option<&str>) -> Option<Rc<Component>> {
+        let doc = self.get_document(url)?;
+        let Some(name) = name else { return doc.last_exported_component() };
+        doc.exports
+            .find(name)
+            .and_then(|exported| exported.left())
+            .or_else(|| doc.inner_components.iter().find(|c| c.id == name).cloned())
+    }
+
     pub fn element_at_offset(
         &self,
         text_document_uri: &Url,
@@ -528,6 +545,33 @@ mod tests {
         assert_eq!(id_at_position(&dc, &url, 1, 0), None);
         assert_eq!(id_at_position(&dc, &url, 55, 1), None);
         assert_eq!(id_at_position(&dc, &url, 56, 5), None);
+    }
+
+    /// The previews select an element by its start, so only element starts resolve:
+    /// definitions, uses, and an element that only consists of a `{` block.
+    #[test]
+    fn element_node_at_resolves_element_starts() {
+        let code = r#"
+component Bar1 {}
+
+component Foo1 {
+}
+
+export component Foo2 inherits Window  {
+    Bar1 {}
+    Foo1   {}
+}"#;
+        let (dc, url, _) = crate::test::loaded_document_cache(code.into());
+        let path = SourcePath::from_url(&url);
+        let starts = [16, 35, 71, 85, 97];
+        for offset in 0..code.len() as u32 {
+            let location = ElementLocation { path: path.clone(), offset: offset.into() };
+            let node = dc.element_node_at(&location);
+            assert_eq!(node.is_some(), starts.contains(&offset), "offset {offset}");
+            if let Some(node) = node {
+                assert_eq!(node.location(), location);
+            }
+        }
     }
 
     #[test]

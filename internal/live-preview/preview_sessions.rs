@@ -341,6 +341,7 @@ impl PreviewSession {
 
     fn create_compiler(self: &Rc<Self>) -> slint_interpreter::Compiler {
         let mut compiler = slint_interpreter::Compiler::new();
+        compiler.set_keep_debug_info(true, InternalToken);
         let manifest_session = Rc::downgrade(self);
         compiler.set_project_file_loader(
             Rc::new(move |path| {

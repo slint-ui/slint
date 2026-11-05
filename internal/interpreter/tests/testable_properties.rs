@@ -20,8 +20,9 @@ fn compile(code: &str) -> ComponentInstance {
     unsafe {
         std::env::set_var("SLINT_ENABLE_EXPERIMENTAL_FEATURES", "testable");
     }
-    let result =
-        spin_on::spin_on(Compiler::default().build_from_source(code.into(), Default::default()));
+    let mut compiler = Compiler::default();
+    compiler.set_keep_debug_info(true, i_slint_core::InternalToken);
+    let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
     assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
     result.component("TestCase").expect("component should compile").create().unwrap()
 }

@@ -49,9 +49,8 @@ fn source_text(node: &ElementRcNode) -> Option<SharedString> {
 
 fn source_target(
     selection: &ElementSelection,
-    instance: &ComponentInstance,
 ) -> Option<(ElementRcNode, SharedString, ElementProperty, ElementProperty)> {
-    let node = selection.as_element_node_in(instance)?;
+    let node = selection.as_element_node()?;
     let text = source_text(&node)?;
     if text.contains('\n') || text.contains('\r') {
         return None;
@@ -61,10 +60,10 @@ fn source_target(
     Some((node, text, color_override, stroke_override))
 }
 
-pub(super) fn reseed_mask(instance: &ComponentInstance) {
+pub(super) fn reseed_mask() {
     let target = PREVIEW_STATE.with_borrow(|state| {
         let session = state.text_edit_session.as_ref()?;
-        source_target(&session.target, instance)
+        source_target(&session.target)
     });
     if let Some((_, _, color_override, stroke_override)) = target {
         PREVIEW_STATE.with_borrow_mut(|state| {
@@ -88,8 +87,7 @@ pub(super) fn reseed_mask(instance: &ComponentInstance) {
 fn target() -> Option<Target> {
     let selection = selected_element()?;
     let instance = component_instance()?;
-    let (source_node, text, color_override, stroke_override) =
-        source_target(&selection, &instance)?;
+    let (source_node, text, color_override, stroke_override) = source_target(&selection)?;
     let item = instance.component_item(
         &selection.path,
         selection.offset.into(),
@@ -169,8 +167,7 @@ fn finish(accepted: bool, accepted_text: Option<SharedString>) {
     });
     if let Some(session) = session {
         if let Some(text) = accepted_text
-            && let Some(instance) = component_instance()
-            && let Some((node, _, _, _)) = source_target(&session.target, &instance)
+            && let Some((node, _, _, _)) = source_target(&session.target)
         {
             set_override(&node.property("text"), Some(slint_interpreter::Value::String(text)));
         }
@@ -459,6 +456,7 @@ export component Win inherits Window {
     }
     plain := Text { text: "Plain"; }
 }"#;
+        PREVIEW_STATE.with_borrow_mut(|state| *state = PreviewState::default());
         let instance = super::super::test::interpret_test("fluent", code);
         let editor = ui::create_ui().unwrap();
         setup(&editor);
@@ -467,22 +465,14 @@ export component Win inherits Window {
         api.set_selection(ui::Selection { highlight_index: 0, ..Default::default() });
         let path = i_slint_editor_preview::test::main_test_file_name();
         let offset = code.find("Text {").unwrap() as u32;
-        let cache = i_slint_editor_preview::DocumentCache::new_from_raw_parts(
-            instance.definition().raw_type_loader().unwrap(),
-            None,
-            Rc::new(RefCell::new(HashMap::from([(path.clone(), Some(24))]))),
-            i_slint_editor_preview::ByteFormat::Utf8,
-        );
         let to_lsp = Rc::new(PreviewToLsp::default());
         let overrides = PREVIEW_STATE.with_borrow_mut(|state| {
-            *state = PreviewState::default();
             state.editor_ui = Some(editor.clone_strong());
             state.to_lsp.replace(Some(to_lsp.clone()));
             state.api = <ui::Api as slint::Global<'_, ui::EditorUi>>::as_weak(&api);
             state.properties =
                 <ui::Properties as slint::Global<'_, ui::EditorUi>>::as_weak(&properties_api);
             state.handle.replace(Some(instance.clone_strong()));
-            state.document_cache.replace(Some(Rc::new(cache)));
             state.selected = Some(ElementSelection {
                 path: path.clone(),
                 offset: offset.into(),
@@ -584,24 +574,14 @@ export component Win inherits Window {
         let overrides = PREVIEW_STATE.with_borrow(|state| state.debug_hook_overrides.clone());
         (*overrides).borrow_mut().clear();
         install_debug_hook_callback(&reloaded, overrides.clone());
-        reseed_mask(&reloaded);
+        reseed_mask();
         let color_override = PREVIEW_STATE
             .with_borrow(|state| state.text_edit_session.as_ref().unwrap().color_override.clone());
         assert_eq!(
             (*overrides).borrow().get(&color_override).unwrap().as_ref().get(),
             Some(slint_interpreter::Value::Brush(slint::Brush::default()))
         );
-        PREVIEW_STATE.with_borrow(|state| {
-            state.handle.replace(Some(reloaded.clone_strong()));
-            state.document_cache.replace(Some(Rc::new(
-                i_slint_editor_preview::DocumentCache::new_from_raw_parts(
-                    reloaded.definition().raw_type_loader().unwrap(),
-                    None,
-                    Rc::new(RefCell::new(HashMap::from([(path.clone(), Some(25))]))),
-                    i_slint_editor_preview::ByteFormat::Utf8,
-                ),
-            )));
-        });
+        PREVIEW_STATE.with_borrow(|state| state.handle.replace(Some(reloaded.clone_strong())));
         refresh();
         assert_eq!(begin().text, "Source");
         assert_eq!(begin().color, original_color);
