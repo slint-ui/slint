@@ -922,3 +922,160 @@ fn partial_rendering_popup_position_size_change() {
         }
     }
 }
+const GREEN: slint::Color = slint::Color::from_rgb_u8(0, 255, 0);
+
+#[test]
+/// #8495
+fn nested_opacity_layers() {
+    slint::slint! {
+        #[edition = "1.19"]
+        export component Ui inherits Window {
+            in property outer-opacity <=> outer.opacity;
+            in property mid-opacity <=> mid.opacity;
+            in property deep-opacity <=> deep.opacity;
+            in property deep-x <=> deep.x;
+            in property outer-child-color <=> outer-child.background;
+            in property mid-child-color <=> mid-child.background;
+            in property deep-child-color <=> deep-child.background;
+            in property overlap-color <=> overlap.background;
+            in property crossing-color <=> crossing.background;
+            in property outside-color <=> outside.background;
+            background: white;
+            // Window coordinates are in the comments.
+            outer := Rectangle {
+                // 10,10 100x100
+                x: 10px; y: 10px; width: 100px; height: 100px; background: red;
+                opacity: 0.8;
+                // 15,15 20x10
+                outer-child := Rectangle { x: 5px; y: 5px; width: 20px; height: 10px; background: black; }
+                mid := Rectangle {
+                    // 40,40 60x60
+                    x: 30px; y: 30px; width: 60px; height: 60px; background: blue;
+                    opacity: 0.8;
+                    // 45,45 20x10
+                    mid-child := Rectangle { x: 5px; y: 5px; width: 20px; height: 10px; background: black; }
+                    deep := Rectangle {
+                        // 70,70 25x25
+                        x: 30px; y: 30px; width: 25px; height: 25px; background: green;
+                        opacity: 0.8;
+                        // 75,75 10x10
+                        deep-child := Rectangle { x: 5px; y: 5px; width: 10px; height: 10px; background: black; }
+                    }
+                }
+            }
+            // Overlaps the corner of `outer` only.
+            overlap := Rectangle { x: 0px; y: 0px; width: 15px; height: 15px; background: yellow; }
+            // Crosses the corner of all three layers, but no child.
+            crossing := Rectangle { x: 60px; y: 60px; width: 12px; height: 12px; background: yellow; }
+            outside := Rectangle { x: 130px; y: 10px; width: 20px; height: 20px; background: yellow; }
+        }
+    }
+
+    let (ui, window) = show_in_skia_window(Ui::new, 180, 260);
+
+    ui.set_overlap_color(GREEN.into());
+    assert_skia_repaints(&window, &[(0, 0, 15, 15)]);
+    ui.set_crossing_color(GREEN.into());
+    assert_skia_repaints(&window, &[(60, 60, 12, 12)]);
+    ui.set_deep_child_color(GREEN.into());
+    assert_skia_repaints(&window, &[(75, 75, 10, 10)]);
+    ui.set_mid_child_color(GREEN.into());
+    assert_skia_repaints(&window, &[(45, 45, 20, 10)]);
+    ui.set_outer_child_color(GREEN.into());
+    assert_skia_repaints(&window, &[(15, 15, 20, 10)]);
+    ui.set_outside_color(GREEN.into());
+    assert_skia_repaints(&window, &[(130, 10, 20, 20)]);
+
+    ui.set_deep_opacity(0.5);
+    assert_skia_repaints(&window, &[(70, 70, 25, 25)]);
+    ui.set_deep_child_color(slint::Color::default().into());
+    assert_skia_repaints(&window, &[(75, 75, 10, 10)]);
+    ui.set_mid_opacity(0.5);
+    assert_skia_repaints(&window, &[(40, 40, 60, 60)]);
+    ui.set_crossing_color(slint::Color::default().into());
+    assert_skia_repaints(&window, &[(60, 60, 12, 12)]);
+    ui.set_deep_child_color(GREEN.into());
+    assert_skia_repaints(&window, &[(75, 75, 10, 10)]);
+    ui.set_outer_opacity(0.5);
+    assert_skia_repaints(&window, &[(10, 10, 100, 100)]);
+    ui.set_mid_child_color(slint::Color::default().into());
+    assert_skia_repaints(&window, &[(45, 45, 20, 10)]);
+
+    ui.set_deep_x(20.);
+    assert_skia_repaints(&window, &[(60, 70, 35, 25)]);
+    ui.set_deep_child_color(slint::Color::default().into());
+    assert_skia_repaints(&window, &[(65, 75, 10, 10)]);
+}
+
+#[test]
+fn cached_layer_between_opacity_layers() {
+    slint::slint! {
+        #[edition = "1.19"]
+        export component Ui inherits Window {
+            in property outer-child-color <=> outer-child.background;
+            in property deep-child-color <=> deep-child.background;
+            in property crossing-color <=> crossing.background;
+            background: white;
+            Rectangle {
+                // 10,10 100x100
+                x: 10px; y: 10px; width: 100px; height: 100px; background: red;
+                opacity: 0.8;
+                // 15,15 20x10
+                outer-child := Rectangle { x: 5px; y: 5px; width: 20px; height: 10px; background: black; }
+                Rectangle {
+                    // 40,40 60x60
+                    x: 30px; y: 30px; width: 60px; height: 60px; background: blue;
+                    cache-rendering-hint: true;
+                    Rectangle {
+                        // 70,70 25x25
+                        x: 30px; y: 30px; width: 25px; height: 25px; background: green;
+                        opacity: 0.8;
+                        // 75,75 10x10
+                        deep-child := Rectangle { x: 5px; y: 5px; width: 10px; height: 10px; background: black; }
+                    }
+                }
+            }
+            // Crosses the corner of the three layers, but no child.
+            crossing := Rectangle { x: 60px; y: 60px; width: 12px; height: 12px; background: yellow; }
+        }
+    }
+
+    let (ui, window) = show_in_skia_window(Ui::new, 180, 260);
+
+    for color in [GREEN, slint::Color::default()] {
+        ui.set_crossing_color(color.into());
+        assert_skia_repaints(&window, &[(60, 60, 12, 12)]);
+        ui.set_deep_child_color(color.into());
+        assert_skia_repaints(&window, &[(40, 40, 60, 60)]);
+        ui.set_outer_child_color(color.into());
+        assert_skia_repaints(&window, &[(15, 15, 20, 10)]);
+    }
+}
+
+#[test]
+fn opacity_layer_child_change_after_scrolling_into_view() {
+    slint::slint! {
+        #[edition = "1.19"]
+        export component Ui inherits Window {
+            in property inner-color <=> inner.background;
+            in-out property content-y <=> flickable.content-y;
+            background: white;
+            flickable := Flickable {
+                x: 10px; y: 10px; width: 60px; height: 40px;
+                content-height: 200px;
+                Rectangle {
+                    width: 60px; height: 200px; background: red;
+                    opacity: 0.5;
+                    inner := Rectangle { x: 0px; y: 100px; width: 20px; height: 10px; background: blue; }
+                }
+            }
+        }
+    }
+
+    let (ui, window) = show_in_skia_window(Ui::new, 180, 260);
+
+    ui.set_content_y(-90.);
+    assert_skia_repaints(&window, &[(10, 10, 60, 40)]);
+    ui.set_inner_color(GREEN.into());
+    assert_skia_repaints(&window, &[(10, 20, 20, 10)]);
+}
