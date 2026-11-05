@@ -11,7 +11,7 @@
 //! Files the session pushes on its own don't go through here,
 //! such as the loaded sources and the fonts they import.
 
-use crate::EditorSession;
+use crate::DocumentCache;
 use i_slint_compiler::source_path::{SourcePath, clean_path};
 
 use std::collections::HashSet;
@@ -23,15 +23,16 @@ pub(crate) struct PreviewFileAccess {
 }
 
 impl PreviewFileAccess {
-    /// The session's `paths_to_watch`.
+    /// The files the project's sources name: the documents the compiler loaded or imports,
+    /// and the resources the documents reference.
     /// Also the session's `document_roots`, which the cache drops while they reload from disk.
-    pub(crate) fn new(session: &EditorSession) -> Self {
-        let mut files = session.paths_to_watch();
+    pub(crate) fn new(
+        document_cache: &DocumentCache,
+        document_roots: &HashSet<lsp_types::Url>,
+    ) -> Self {
+        let mut files = document_cache.all_paths_to_watch();
         files.extend(
-            session
-                .document_roots()
-                .iter()
-                .filter_map(|url| SourcePath::from_url(url).into_native_path()),
+            document_roots.iter().filter_map(|url| SourcePath::from_url(url).into_native_path()),
         );
         Self { files: files.iter().map(|path| clean_path(path)).collect() }
     }
@@ -45,8 +46,11 @@ impl PreviewFileAccess {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::DocumentCache;
     use crate::test::empty_document_cache;
+
+    fn access(document_cache: &DocumentCache) -> PreviewFileAccess {
+        PreviewFileAccess::new(document_cache, &HashSet::new())
+    }
 
     #[test]
     fn reads_a_source_the_compiler_loaded_whatever_its_name() {
@@ -58,7 +62,7 @@ mod tests {
 
         let mut session = crate::test::session_with(empty_document_cache());
         crate::test::load(&mut session, &source, contents);
-        let access = PreviewFileAccess::new(&session);
+        let access = access(&session.document_cache);
 
         assert!(access.allows(&source));
         // ... but a file beside it that the compiler never loaded is refused.
@@ -91,7 +95,7 @@ mod tests {
 
         let mut session = crate::test::session_with(empty_document_cache());
         crate::test::load(&mut session, &source, contents);
-        let access = PreviewFileAccess::new(&session);
+        let access = access(&session.document_cache);
 
         assert!(access.allows(&background));
         assert!(access.allows(&font));
@@ -111,7 +115,7 @@ mod tests {
 
         let mut session = crate::test::session_with(empty_document_cache());
         crate::test::load(&mut session, &source, contents);
-        let access = PreviewFileAccess::new(&session);
+        let access = access(&session.document_cache);
 
         assert!(access.allows(&logo));
         assert!(!access.allows(&unused));
@@ -131,7 +135,7 @@ mod tests {
 
         let mut session = crate::test::session_with(empty_document_cache());
         crate::test::load(&mut session, &source, contents);
-        let access = PreviewFileAccess::new(&session);
+        let access = access(&session.document_cache);
 
         assert!(access.allows(&assets.join("logo.png")));
     }
@@ -154,7 +158,7 @@ mod tests {
             [("widgets".to_string(), entry_point.clone())].into_iter().collect();
         let mut session = crate::test::session_with(DocumentCache::new(configuration));
         crate::test::load(&mut session, &main, main_source);
-        let access = PreviewFileAccess::new(&session);
+        let access = access(&session.document_cache);
 
         assert!(access.allows(&entry_point));
         assert!(access.allows(&logo));
