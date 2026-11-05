@@ -4,9 +4,7 @@
 
 import * as slint from "slint-ui";
 
-let demo = slint.loadFile(
-    new URL("../ui/carousel_demo.slint", import.meta.url),
-);
+let demo = slint.loadFile(new URL("../slint-project.json", import.meta.url));
 let app = new demo.MainWindow();
 
 app.run();
