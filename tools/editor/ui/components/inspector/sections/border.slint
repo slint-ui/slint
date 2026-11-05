@@ -47,7 +47,6 @@ export component InspectorBorderSection inherits InspectorSection {
         InspectorColorField {
             accessible-name: @tr("Border color");
             target-size: { width: InspectorContext.selected-width(), height: InspectorContext.selected-height() };
-            swatch: InspectorContext.property-brush("border-color");
             commit-key: InspectorContext.field-key("border-color");
             preview-key: InspectorContext.field-key("border-color");
             session-key: InspectorContext.fill-session-key("border-color");

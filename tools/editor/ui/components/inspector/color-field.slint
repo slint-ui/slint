@@ -15,7 +15,6 @@ import { Api } from "../../api.slint";
 export component InspectorColorField inherits Rectangle {
     in property <ColorFieldStyle> style: Style.color-field;
     in property <string> accessible-name: "";
-    in property <brush> swatch;
     in property <Size> target-size: {
         width: Properties.runtime-property-value-data("width", {}).value-float * 1px,
         height: Properties.runtime-property-value-data("height", {}).value-float * 1px,
@@ -29,6 +28,9 @@ export component InspectorColorField inherits Rectangle {
     callback accepted(string) -> bool;
     private property <PropertyValue> value: Properties.editor-property-value-data(root.property-name);
     private property <ColorFieldData> data: Properties.color-field-data(root.value);
+    // Show the rendered color when the editor cannot resolve the property.
+    private property <brush> swatch: root.value.value-resolved ? root.value.value-brush
+        : Properties.runtime-property-value-data(root.property-name, {}).value-brush;
     private property <FillData> swatch-fill: Properties.brush-fill(root.swatch);
     private property <bool> is-literal-color: root.data.mode == ColorFieldMode.solid;
     private property <bool> is-gradient: root.data.mode == ColorFieldMode.gradient;
