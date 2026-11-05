@@ -4,6 +4,7 @@
 use super::element::{parse_element, parse_element_content};
 use super::prelude::*;
 use super::r#type::{parse_enum_declaration, parse_rustattr, parse_struct_declaration};
+use crate::project_file::SlintEdition;
 
 #[cfg_attr(test, parser_test)]
 /// ```test,Document
@@ -128,7 +129,11 @@ pub fn parse_component(p: &mut impl Parser) -> bool {
     let mut interface_inherits = false;
     if is_global {
         if p.peek().kind() == SyntaxKind::ColonEqual {
-            p.warning("':=' to declare a global is deprecated. Remove the ':='");
+            if p.edition() >= Some(SlintEdition::V1_20) {
+                p.error("':=' to declare a global isn't supported from edition 1.20. Remove the ':=', then review the behavior changes of 1.20 on the 'Editions' page of the documentation");
+            } else {
+                p.warning("':=' to declare a global is deprecated. Remove the ':='");
+            }
             p.consume();
         }
     } else if is_interface {
