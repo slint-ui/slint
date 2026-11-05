@@ -7,6 +7,7 @@ use crate::instance::SubComponentInstance;
 use crate::prelude::*;
 use i_slint_compiler::diagnostics::SourceLocation;
 use i_slint_compiler::llr::ItemInstanceIdx;
+use i_slint_compiler::object_tree::ElementLocation;
 use i_slint_compiler::source_path::SourcePath;
 use i_slint_core::graphics::euclid;
 use i_slint_core::item_tree::{ItemTreeRc, TraversalOrder, VisitChildrenResult};
@@ -95,27 +96,24 @@ pub struct ElementCandidate {
     pub instance_index: usize,
 }
 
-/// Return the geometry of every runtime item whose source location covers
-/// the given `(path, offset)` pair.
+/// Return the geometry of every runtime item whose source location covers `location`.
 pub(crate) fn component_positions(
     root: &VRc<ItemTreeVTable, Instance>,
-    path: &SourcePath,
-    offset: u32,
+    location: &ElementLocation,
 ) -> Vec<HighlightedRect> {
     let sources = SourceOccurrences::new(root);
-    sources.matching_occurrences(path, offset).map(|(_, geometry)| geometry).collect()
+    sources.matching_occurrences(location).map(|(_, geometry)| geometry).collect()
 }
 
 #[cfg(feature = "internal")]
 pub(crate) fn component_item(
     root: &VRc<ItemTreeVTable, Instance>,
-    path: &SourcePath,
-    offset: u32,
+    location: &ElementLocation,
     instance_index: usize,
 ) -> Option<ItemRc> {
     let sources = SourceOccurrences::new(root);
     sources
-        .matching_occurrences(path, offset)
+        .matching_occurrences(location)
         .nth(instance_index)
         .map(|(item_index, _)| sources.items[item_index].as_item_rc())
 }
@@ -400,12 +398,11 @@ impl<'a> SourceOccurrences<'a> {
 
     fn matching_occurrences(
         &self,
-        path: &SourcePath,
-        offset: u32,
+        location: &ElementLocation,
     ) -> impl Iterator<Item = (usize, HighlightedRect)> {
         self.elements
             .values()
-            .filter(|element| source_location_contains(&element.source_location, path, offset))
+            .filter(|element| source_location_contains(&element.source_location, location))
             .flat_map(|element| element.occurrences(&self.items, self.root))
             .collect::<BTreeMap<_, _>>()
             .into_iter()
@@ -672,16 +669,12 @@ enum SourceMatch {
     Start,
 }
 
-fn source_location_contains(
-    source_location: &SourceLocation,
-    target_path: &SourcePath,
-    target_offset: u32,
-) -> bool {
+fn source_location_contains(source_location: &SourceLocation, target: &ElementLocation) -> bool {
     let Some(source_file) = source_location.source_file.as_ref() else { return false };
-    if source_file.path() != target_path {
+    if source_file.path() != &target.path {
         return false;
     }
-    let target_offset = target_offset as usize;
+    let target_offset = usize::from(target.offset);
     source_location.span.offset <= target_offset
         && target_offset < source_location.span.offset.saturating_add(source_location.span.length)
 }
@@ -704,7 +697,13 @@ mod tests {
     ) -> crate::highlight::HighlightedRect {
         let id_position = code.find(id).unwrap_or_else(|| panic!("{id} not found"));
         let offset = id_position + code[id_position..].find("Rectangle").unwrap();
-        *instance.component_positions(&test_path(), offset as u32).first().expect("geometry")
+        *instance
+            .component_positions(&i_slint_compiler::object_tree::ElementLocation {
+                path: test_path(),
+                offset: (offset as u32).into(),
+            })
+            .first()
+            .expect("geometry")
     }
 
     fn runtime_item_of(instance: &ComponentInstance, source: &str, element_id: &str) -> ItemRc {
@@ -1006,7 +1005,11 @@ export component Win inherits Window {
             width",
             )
             .unwrap();
-        let geometries = instance.component_positions(&test_path(), offset as u32);
+        let geometries =
+            instance.component_positions(&i_slint_compiler::object_tree::ElementLocation {
+                path: test_path(),
+                offset: (offset as u32).into(),
+            });
         assert_eq!(geometries.len(), 2);
         for (geometry, expected) in geometries.iter().zip([382.25, -397.5]) {
             assert_eq!(geometry.transform_rotation, expected);

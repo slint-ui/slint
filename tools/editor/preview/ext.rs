@@ -3,7 +3,6 @@
 
 use i_slint_compiler::expression_types::Orientation;
 use i_slint_compiler::layout::LayoutKind;
-use i_slint_compiler::object_tree::ElementLocation;
 use i_slint_core::lengths::{LogicalPoint, LogicalRect};
 
 use crate::preview::ui;
@@ -45,8 +44,7 @@ impl ElementRcNodeExt for i_slint_editor_preview::ElementRcNode {
     }
 
     fn geometries(&self, component_instance: &ComponentInstance) -> Vec<HighlightedRect> {
-        let ElementLocation { path, offset } = self.location();
-        component_instance.component_positions(&path, offset.into())
+        component_instance.component_positions(&self.location())
     }
 
     fn geometry_at(

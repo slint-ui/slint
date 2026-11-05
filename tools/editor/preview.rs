@@ -747,9 +747,9 @@ fn set_contents(url: &VersionedUrl, content: String) {
             SourceCodeCacheEntry { version: *url.version(), code: content.clone() },
         );
         let version_changed = old.as_ref().is_none_or(|old| old.version != *url.version());
-        let selected_document =
-            preview_state.selected.as_ref().and_then(|selected| selected.path.to_url()).as_ref()
-                == Some(url.url());
+        let selected_url =
+            preview_state.selected.as_ref().and_then(|selected| selected.location.path.to_url());
+        let selected_document = selected_url.as_ref() == Some(url.url());
         let dependency = preview_state.dependencies.contains(url.url());
         let invalidate =
             (selected_document && (changed || version_changed)) || (dependency && changed);
@@ -906,7 +906,7 @@ fn add_new_component() {
         return;
     };
 
-    if let Some((edit, drop_data)) =
+    if let Some((edit, inserted)) =
         drop_location::add_new_component(&document_cache, &component_name, document)
         && send_workspace_edit(format!("Add {component_name}"), edit, true)
     {
@@ -919,8 +919,7 @@ fn add_new_component() {
                 component: Some(component_name),
             });
             preview_state.selected = Some(ElementSelection {
-                path: drop_data.path,
-                offset: drop_data.selection_offset,
+                location: inserted,
                 instance_index: 0,
                 editing_text: false,
             });
@@ -1325,8 +1324,8 @@ fn drop_component(data: DataTransfer, x: f32, y: f32) {
     let drop_result = drop_location::drop_at(&document_cache, position, &component)
         .map(|(e, d)| (e, d, component.name.clone()));
 
-    if let Some((edit, drop_data, component_name)) = drop_result {
-        submit_component_drop(edit, drop_data, component_name, kind);
+    if let Some((edit, inserted, component_name)) = drop_result {
+        submit_component_drop(edit, inserted, component_name, kind);
     };
 }
 
@@ -1358,22 +1357,21 @@ fn drop_component_with_geometry(
         drop_location::drop_at_with_geometry(&document_cache, hit_position, &component, geometry)
             .map(|(edit, data)| (edit, data, component.name.clone()));
 
-    if let Some((edit, drop_data, component_name)) = drop_result {
-        submit_component_drop(edit, drop_data, component_name, kind);
+    if let Some((edit, inserted, component_name)) = drop_result {
+        submit_component_drop(edit, inserted, component_name, kind);
     };
 }
 
 fn submit_component_drop(
     edit: lsp_types::WorkspaceEdit,
-    drop_data: drop_location::DropData,
+    inserted: ElementLocation,
     component_name: String,
     kind: ui::ElementKind,
 ) {
     if send_workspace_edit(format!("Add element {component_name}"), edit, false) {
         set_selected_element(
             Some(ElementSelection {
-                path: drop_data.path,
-                offset: drop_data.selection_offset,
+                location: inserted,
                 instance_index: 0,
                 editing_text: kind == ui::ElementKind::Text,
             }),
@@ -1399,7 +1397,7 @@ fn delete_selected_element() {
         return;
     };
 
-    let Some(url) = selected.path.to_url() else {
+    let Some(url) = selected.location.path.to_url() else {
         return;
     };
 
@@ -1436,9 +1434,9 @@ fn wrap_selected_element_in_layout(layout: SharedString) {
     };
     let Some(document_cache) = document_cache() else { return };
 
-    let import_file =
-        get_component_info(&layout).and_then(|info| info.import_file_name(&selected.path.to_url()));
-    let Some((edit, drop_data)) = drop_location::create_wrap_in_layout_workspace_edit(
+    let import_file = get_component_info(&layout)
+        .and_then(|info| info.import_file_name(&selected.location.path.to_url()));
+    let Some((edit, inserted)) = drop_location::create_wrap_in_layout_workspace_edit(
         &document_cache,
         &selected_node,
         &layout,
@@ -1449,12 +1447,7 @@ fn wrap_selected_element_in_layout(layout: SharedString) {
 
     if send_workspace_edit(format!("Wrap in {layout}"), edit, true) {
         set_selected_element(
-            Some(ElementSelection {
-                path: drop_data.path,
-                offset: drop_data.selection_offset,
-                instance_index: 0,
-                editing_text: false,
-            }),
+            Some(ElementSelection { location: inserted, instance_index: 0, editing_text: false }),
             SelectionNotification::AfterUpdate,
         );
     }
@@ -1506,7 +1499,7 @@ fn paste_element(at_pointer: bool, x: f32, y: f32) {
             )
         })
     };
-    let Some((edit, drop_data)) = paste_edit else {
+    let Some((edit, inserted)) = paste_edit else {
         return;
     };
     if drop_location::workspace_edit_compiles(&document_cache, &edit)
@@ -1516,8 +1509,7 @@ fn paste_element(at_pointer: bool, x: f32, y: f32) {
     }
 
     element_selection::select_element_at_source_code_position(
-        drop_data.path,
-        drop_data.selection_offset,
+        inserted,
         None,
         SelectionNotification::AfterUpdate,
     );
@@ -2368,7 +2360,7 @@ fn notify_restored_selection() {
         let source_file = &node.source_file;
         (
             source_file.path().to_url(),
-            util::text_size_to_lsp_position(source_file, selection.offset, format),
+            util::text_size_to_lsp_position(source_file, selection.location.offset, format),
         )
     });
     if let Some(url) = path {
@@ -2381,8 +2373,9 @@ fn hovered_element_changed(source_uri: SharedString, offset: i32) {
     let lsp = PREVIEW_STATE.with_borrow(|state| state.to_lsp.borrow().clone());
     let Some(lsp) = lsp else { return };
     let (url, offset) = if source_uri.is_empty() {
-        selected_element()
-            .map_or((None, 0), |selection| (selection.path.to_url(), selection.offset.into()))
+        selected_element().map_or((None, 0), |selection| {
+            (selection.location.path.to_url(), selection.location.offset.into())
+        })
     } else {
         (Url::parse(&source_uri).ok(), u32::try_from(offset).unwrap_or_default())
     };
@@ -2775,12 +2768,8 @@ pub fn highlight(url: Option<Url>, offset: TextSize) {
         return;
     };
 
-    let selected = selected_element();
-
-    if let Some(selected) = &selected
-        && selected.path == path
-        && selected.offset == offset
-    {
+    let location = ElementLocation { path, offset };
+    if selected_element().is_some_and(|selected| selected.location == location) {
         return;
     }
 
@@ -2789,13 +2778,8 @@ pub fn highlight(url: Option<Url>, offset: TextSize) {
     });
 
     if contains_dependency {
-        if Some((path.clone(), offset)) == selected.map(|s| (s.path, s.offset)) {
-            // Already selected!
-            return;
-        }
         element_selection::select_element_at_source_code_position(
-            path,
-            offset,
+            location,
             None,
             SelectionNotification::Never,
         );
@@ -2918,12 +2902,12 @@ fn set_selected_element(
 
             if let Some(document_cache) = document_cache_from(preview_state)
                 && let Some((uri, version, selection)) = selection.as_ref().and_then(|selection| {
-                    let url = selection.path.to_url()?;
+                    let url = selection.location.path.to_url()?;
                     let version = document_cache.document_version(&url);
                     Some((
                         url.clone(),
                         version,
-                        document_cache.element_at_offset(&url, selection.offset)?,
+                        document_cache.element_at_offset(&url, selection.location.offset)?,
                     ))
                 })
             {
@@ -3581,15 +3565,20 @@ mod tests {
         let offset = source.find("Text {").unwrap() as u32;
         PREVIEW_STATE.with_borrow_mut(|state| {
             state.selected = Some(ElementSelection {
-                path: path.clone(),
-                offset: offset.into(),
+                location: ElementLocation { path: path.clone(), offset: offset.into() },
                 instance_index: 0,
                 editing_text: false,
             });
         });
         let global = editor.global::<ui::InlineTextEdit>();
         let instance = component_instance().unwrap();
-        let item = instance.component_item(&path, offset, 0, i_slint_core::InternalToken).unwrap();
+        let item = instance
+            .component_item(
+                &ElementLocation { path: path.clone(), offset: offset.into() },
+                0,
+                i_slint_core::InternalToken,
+            )
+            .unwrap();
         let paint = || {
             ["color", "stroke"].map(|property_name| {
                 ComponentInstance::item_property(&item, property_name, i_slint_core::InternalToken)
@@ -3690,8 +3679,10 @@ mod tests {
             let generation = editor.global::<ui::Hover>().get_preview_generation();
             PREVIEW_STATE.with_borrow_mut(|state| {
                 state.selected = Some(ElementSelection {
-                    path: SourcePath::from_url(&main),
-                    offset: 0.into(),
+                    location: ElementLocation {
+                        path: SourcePath::from_url(&main),
+                        offset: 0.into(),
+                    },
                     instance_index: 0,
                     editing_text: false,
                 });
@@ -3985,7 +3976,7 @@ mod tests {
 
         element_selection::select_element_at(30.0, 30.0, false);
         let selected = selected_element().expect("Rectangle selected");
-        assert_eq!(selected.offset, (code.find("Rectangle").unwrap() as u32).into());
+        assert_eq!(selected.location.offset, (code.find("Rectangle").unwrap() as u32).into());
         messages.as_ref().borrow_mut().clear();
 
         let previous_instance = PREVIEW_STATE.with_borrow(|state| state.handle.take());
@@ -4012,8 +4003,10 @@ mod tests {
             reset_preview_state(messages.clone());
             PREVIEW_STATE.with_borrow_mut(|state| {
                 state.selected = Some(ElementSelection {
-                    path: i_slint_editor_preview::test::main_test_file_name(),
-                    offset: 0.into(),
+                    location: ElementLocation {
+                        path: i_slint_editor_preview::test::main_test_file_name(),
+                        offset: 0.into(),
+                    },
                     instance_index: 0,
                     editing_text: false,
                 });
@@ -4051,8 +4044,10 @@ mod tests {
         {
             set_selected_element(
                 Some(ElementSelection {
-                    path: i_slint_editor_preview::test::main_test_file_name(),
-                    offset: (offset.unwrap() as u32).into(),
+                    location: ElementLocation {
+                        path: i_slint_editor_preview::test::main_test_file_name(),
+                        offset: (offset.unwrap() as u32).into(),
+                    },
                     instance_index: 0,
                     editing_text: false,
                 }),
@@ -4082,8 +4077,10 @@ mod tests {
 
             set_selected_element(
                 Some(ElementSelection {
-                    path: i_slint_editor_preview::test::main_test_file_name(),
-                    offset: 0.into(),
+                    location: ElementLocation {
+                        path: i_slint_editor_preview::test::main_test_file_name(),
+                        offset: 0.into(),
+                    },
                     instance_index: 0,
                     editing_text: false,
                 }),
@@ -4385,8 +4382,7 @@ export component Main inherits Rectangle {
             state.properties =
                 <ui::Properties as slint::Global<'_, ui::EditorUi>>::as_weak(&properties_api);
             state.selected = Some(ElementSelection {
-                path: SourcePath::new(path),
-                offset: 0.into(),
+                location: ElementLocation { path: SourcePath::new(path), offset: 0.into() },
                 instance_index: 0,
                 editing_text: false,
             });
@@ -4475,8 +4471,11 @@ export component Main {
         instance: &ComponentInstance,
         id: &str,
     ) -> slint_interpreter::highlight::HighlightedRect {
-        let path = i_slint_editor_preview::test::main_test_file_name();
-        *instance.component_positions(&path, element_offset(id)).first().expect("geometry")
+        let location = ElementLocation {
+            path: i_slint_editor_preview::test::main_test_file_name(),
+            offset: element_offset(id).into(),
+        };
+        *instance.component_positions(&location).first().expect("geometry")
     }
 
     fn element_node_of(id: &str) -> ElementRcNode {
@@ -4538,10 +4537,12 @@ export component Main {
         );
         element_selection::restore_selection(
             ElementSelection {
-                path: SourcePath::from_url(
-                    &PREVIEW_STATE.with_borrow(|state| state.current_component().unwrap().url),
-                ),
-                offset: element_offset("inner").into(),
+                location: ElementLocation {
+                    path: SourcePath::from_url(
+                        &PREVIEW_STATE.with_borrow(|state| state.current_component().unwrap().url),
+                    ),
+                    offset: element_offset("inner").into(),
+                },
                 instance_index: 0,
                 editing_text: false,
             },
@@ -4580,7 +4581,10 @@ export component Main {
         }
         let instance = component_instance().unwrap();
         assert_eq!(
-            instance.component_positions(&SourcePath::from_url(&url), element_offset("inner"))[0]
+            instance.component_positions(&ElementLocation {
+                path: SourcePath::from_url(&url),
+                offset: element_offset("inner").into()
+            })[0]
                 .transform_rotation,
             60.
         );
@@ -4589,7 +4593,10 @@ export component Main {
         assert!(!inspector::commit_properties());
         inspector::cancel();
         assert_eq!(
-            instance.component_positions(&SourcePath::from_url(&url), element_offset("inner"))[0]
+            instance.component_positions(&ElementLocation {
+                path: SourcePath::from_url(&url),
+                offset: element_offset("inner").into()
+            })[0]
                 .transform_rotation,
             60.
         );
@@ -4860,8 +4867,7 @@ export component Main {
         let path = i_slint_editor_preview::test::main_test_file_name();
         element_selection::restore_selection(
             ElementSelection {
-                path,
-                offset: element_offset("inner").into(),
+                location: ElementLocation { path, offset: element_offset("inner").into() },
                 instance_index: 0,
                 editing_text: false,
             },

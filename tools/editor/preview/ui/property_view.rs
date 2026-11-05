@@ -36,9 +36,11 @@ pub fn setup(editor: &ui::EditorUi, api: &ui::Api<'_>) {
         let instance_index = usize::try_from(api.get_selection().highlight_index).ok()?;
         let instance = crate::preview::component_instance()?;
         let source_uri = lsp_types::Url::parse(element.source_uri.as_str()).ok()?;
-        let path = i_slint_compiler::source_path::SourcePath::from_url(&source_uri);
-        let offset = u32::try_from(element.offset).ok()?;
-        instance.component_item(&path, offset, instance_index, i_slint_core::InternalToken)
+        let location = i_slint_compiler::object_tree::ElementLocation {
+            path: i_slint_compiler::source_path::SourcePath::from_url(&source_uri),
+            offset: u32::try_from(element.offset).ok()?.into(),
+        };
+        instance.component_item(&location, instance_index, i_slint_core::InternalToken)
     });
     properties_api.on_source_property_value_data(move |property_name, fallback| {
         properties_api_weak
@@ -666,8 +668,10 @@ mod tests {
         let select = |offset: usize| {
             preview::element_selection::restore_selection(
                 ElementSelection {
-                    path: path.clone(),
-                    offset: (offset as u32).into(),
+                    location: i_slint_compiler::object_tree::ElementLocation {
+                        path: path.clone(),
+                        offset: (offset as u32).into(),
+                    },
                     instance_index: 0,
                     editing_text: false,
                 },
@@ -832,8 +836,10 @@ export component Win inherits Window {
         let instance = compiled.components().next().unwrap().create().unwrap();
         let rectangle = instance
             .component_item(
-                &path,
-                code.find("Rectangle {").unwrap() as u32,
+                &i_slint_compiler::object_tree::ElementLocation {
+                    path: path.clone(),
+                    offset: (code.find("Rectangle {").unwrap() as u32).into(),
+                },
                 0,
                 i_slint_core::InternalToken,
             )
@@ -845,14 +851,16 @@ export component Win inherits Window {
             );
         }
         drop(rectangle);
-        let offset = code.find("Text {").unwrap() as u32;
+        let text = i_slint_compiler::object_tree::ElementLocation {
+            path: path.clone(),
+            offset: (code.find("Text {").unwrap() as u32).into(),
+        };
         for (index, color) in
             [slint::Color::from_rgb_u8(255, 0, 0), slint::Color::from_rgb_u8(0, 0, 255)]
                 .into_iter()
                 .enumerate()
         {
-            let item =
-                instance.component_item(&path, offset, index, i_slint_core::InternalToken).unwrap();
+            let item = instance.component_item(&text, index, i_slint_core::InternalToken).unwrap();
             assert_eq!(
                 slint_interpreter::ComponentInstance::item_property(
                     &item,
@@ -873,16 +881,11 @@ export component Win inherits Window {
             let current_instance = current_instance.clone();
             let generation = generation.clone();
             let lookups = lookups.clone();
-            let path = path.clone();
+            let text = text.clone();
             super::selected_item_cache(move || {
                 generation.as_ref().get();
                 lookups.set(lookups.get() + 1);
-                current_instance.borrow().component_item(
-                    &path,
-                    offset,
-                    1,
-                    i_slint_core::InternalToken,
-                )
+                current_instance.borrow().component_item(&text, 1, i_slint_core::InternalToken)
             })
         };
         assert!(cache.as_ref().get().upgrade().is_some());

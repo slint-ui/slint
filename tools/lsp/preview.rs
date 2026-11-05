@@ -467,12 +467,11 @@ fn add_new_component() {
         return;
     };
 
-    if let Some((edit, drop_data)) =
+    if let Some((edit, inserted)) =
         drop_location::add_new_component(&document_cache, &component_name, document)
     {
         element_selection::select_element_at_source_code_position(
-            drop_data.path,
-            drop_data.selection_offset,
+            inserted,
             None,
             SelectionNotification::AfterUpdate,
         );
@@ -934,10 +933,9 @@ fn drop_component(data: DataTransfer, x: f32, y: f32) {
     let drop_result = drop_location::drop_at(&document_cache, position, &component)
         .map(|(e, d)| (e, d, component.name.clone()));
 
-    if let Some((edit, drop_data, component_name)) = drop_result {
+    if let Some((edit, inserted, component_name)) = drop_result {
         element_selection::select_element_at_source_code_position(
-            drop_data.path,
-            drop_data.selection_offset,
+            inserted,
             None,
             SelectionNotification::AfterUpdate,
         );
@@ -963,7 +961,7 @@ fn delete_selected_element() {
         return;
     };
 
-    let Some(url) = selected.path.to_url() else {
+    let Some(url) = selected.location.path.to_url() else {
         return;
     };
 
@@ -1119,7 +1117,7 @@ fn move_selected_element(x: f32, y: f32, mouse_x: f32, mouse_y: f32) {
         return;
     };
 
-    if let Some((edit, drop_data)) = drop_location::move_element_to(
+    if let Some((edit, inserted)) = drop_location::move_element_to(
         &document_cache,
         selected_element_node,
         selected.instance_index,
@@ -1127,8 +1125,7 @@ fn move_selected_element(x: f32, y: f32, mouse_x: f32, mouse_y: f32) {
         mouse_position,
     ) {
         element_selection::select_element_at_source_code_position(
-            drop_data.path,
-            drop_data.selection_offset,
+            inserted,
             None,
             SelectionNotification::AfterUpdate,
         );
@@ -1434,8 +1431,7 @@ async fn reload_timer_function() {
 
     if let Some(se) = selected {
         element_selection::select_element_at_source_code_position(
-            se.path.clone(),
-            se.offset,
+            se.location.clone(),
             None,
             SelectionNotification::Never,
         );
@@ -1444,7 +1440,10 @@ async fn reload_timer_function() {
             let format = PREVIEW_STATE.with_borrow(|ps| ps.format());
             let (path, pos) = element_node.with_element_node(|node| {
                 let sf = &node.source_file;
-                (sf.path().to_url(), util::text_size_to_lsp_position(sf, se.offset, format))
+                (
+                    sf.path().to_url(),
+                    util::text_size_to_lsp_position(sf, se.location.offset, format),
+                )
             });
             let lsp = PREVIEW_STATE.with_borrow(|ps| ps.to_lsp.borrow().clone().unwrap());
             if let Some(url) = path {
@@ -1795,12 +1794,8 @@ pub fn highlight(url: Option<Url>, offset: TextSize) {
         return;
     };
 
-    let selected = selected_element();
-
-    if let Some(selected) = &selected
-        && selected.path == path
-        && selected.offset == offset
-    {
+    let location = ElementLocation { path, offset };
+    if selected_element().is_some_and(|selected| selected.location == location) {
         return;
     }
 
@@ -1809,13 +1804,8 @@ pub fn highlight(url: Option<Url>, offset: TextSize) {
     });
 
     if contains_dependency {
-        if Some((path.clone(), offset)) == selected.map(|s| (s.path, s.offset)) {
-            // Already selected!
-            return;
-        }
         element_selection::select_element_at_source_code_position(
-            path,
-            offset,
+            location,
             None,
             SelectionNotification::Never,
         );
@@ -1945,19 +1935,22 @@ fn set_selected_element(
                             find_last_component_identifier(document)
                         }?;
 
-                        let path = identifier.source_file.path().clone();
-                        let offset = identifier.text_range().start();
-
-                        Some(ElementSelection { path, offset, instance_index: 0 })
+                        Some(ElementSelection {
+                            location: ElementLocation {
+                                path: identifier.source_file.path().clone(),
+                                offset: identifier.text_range().start(),
+                            },
+                            instance_index: 0,
+                        })
                     })
                     .as_ref()
                     .and_then(|selection| {
-                        let url = selection.path.to_url()?;
+                        let url = selection.location.path.to_url()?;
                         let version = document_cache.document_version(&url);
                         Some((
                             url.clone(),
                             version,
-                            document_cache.element_at_offset(&url, selection.offset)?,
+                            document_cache.element_at_offset(&url, selection.location.offset)?,
                         ))
                     })
             {

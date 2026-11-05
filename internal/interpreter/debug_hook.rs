@@ -88,8 +88,7 @@ pub(crate) mod tests {
         code: &str,
         search_term: &str,
     ) -> i_slint_core::lengths::LogicalRect {
-        let offset = code.find(search_term).unwrap() as u32;
-        instance.component_positions(&test_path(), offset).first().expect("geometry").rect
+        instance.component_positions(&element_at(code, search_term)).first().expect("geometry").rect
     }
 
     // Editor-style override store + callback (must be installed before the first evaluation so
@@ -338,11 +337,11 @@ export component Win inherits Window {
             ));
             assert!(!r.has_errors(), "{:?}", r.diagnostics);
             let instance = r.components().next().unwrap().create().unwrap();
-            [code.find("Rectangle").unwrap(), code.find("Text").unwrap()]
+            ["Rectangle", "Text"]
                 .into_iter()
-                .map(|offset| {
+                .map(|search_term| {
                     let geometry = instance
-                        .component_positions(&test_path(), offset as u32)
+                        .component_positions(&element_at(code, search_term))
                         .first()
                         .expect("geometry")
                         .rect;
