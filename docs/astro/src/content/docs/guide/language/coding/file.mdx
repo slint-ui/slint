@@ -237,10 +237,10 @@ so that your build and your editor find the library:
 ```
 
 Point to the library's own project file when it has one, as for `otherlibrary`.
-The library then keeps its settings, such as its include paths.
+The library then keeps its settings, such as its [edition](../../concepts/editions/) and include paths.
 `@otherlibrary` imports its `main` file, and only what that file exports is available through `@otherlibrary`.
 Otherwise, point to a directory, as for `mylibrary`, or to the `.slint` file that a bare `@library` imports.
-To share a library of your own, give it a project file with its `main`.
+To share a library of your own, give it a project file with its `edition` and `main`.
 For details, see [Libraries](../../../tooling/project-file/#libraries).
 
 Without a project file, define the library paths where you compile your `.slint` files:

@@ -7,11 +7,15 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 import LangRefLink from '@slint/common-files/src/components/LangRefLink.astro';
 
 An edition is the Slint release whose language behavior your project uses, such as `1.19`.
+A project is an application or a library.
 
 When a Slint release changes the behavior of the language,
 the change applies only if your edition is that release or newer.
 Newer versions of Slint keep compiling your project the way your edition's release did,
 until you raise the edition.
+A library with its own [project file](../../../tooling/project-file/#libraries) keeps its edition
+in an application that uses another one.
+Each component follows the edition of the project it belongs to.
 You can use new features with any edition.
 
 ## Choosing the Edition

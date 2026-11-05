@@ -2,22 +2,55 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // A library path that names a project file uses that project's `main`, include paths,
-// and library paths.
+// library paths, and edition, here 1.18 while the application uses the current one.
 
 //library_path(old_lib): ../../helper_components/edition_1_18_library/slint-project.json
 import { NestedRepeatedText, RepeatedText, Slot, StatesOnly } from "@old_lib";
+
+component AppRepeatedText inherits Rectangle {
+    if true: Text { text: "foo"; }
+}
+
+component AppStatesOnly inherits Rectangle {
+    width: 100px;
+    height: 100px;
+    in property <bool> moved;
+    out property <length> inner-x: inner.x;
+    inner := Rectangle {
+        width: 40px;
+        height: 20px;
+        states [
+            moved when moved: { x: 5px; }
+        ]
+    }
+}
 
 export component TestCase inherits Window {
     width: 100px;
     height: 100px;
 
+    // Before edition 1.19, an `if` child doesn't count toward its parent's size (#407).
+    // The edition of the component that declares the child decides, wherever it's inlined.
     lib-text := RepeatedText { }
     nested-text := NestedRepeatedText { }
-    Slot { }
-    lib-states := StatesOnly { }
+    app-text := AppRepeatedText { }
+    slot := Slot {
+        if true: Text { text: "foo"; }
+    }
+    out property <bool> lib-text-ignored: lib-text.min-height == 0px;
+    out property <bool> nested-text-counts: nested-text.min-height > 0px;
+    out property <bool> app-text-counts: app-text.min-height > 0px;
+    out property <bool> slot-text-counts: slot.min-height > 0px;
 
-    out property <bool> test: lib-text.width == 100px && nested-text.width == 100px
-        && lib-states.width == 100px;
+    // Before edition 1.19, an `x` that only states set is zero while no state applies (#8852).
+    // From 1.19, it keeps centering the element.
+    lib-states := StatesOnly { }
+    app-states := AppStatesOnly { }
+    out property <length> lib-states-x: lib-states.inner-x;
+    out property <length> app-states-x: app-states.inner-x;
+
+    out property <bool> test: lib-text-ignored && nested-text-counts && app-text-counts
+        && slot-text-counts && lib-states-x == 0px && app-states-x == 30px;
 }
 
 /*

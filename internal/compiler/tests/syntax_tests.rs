@@ -533,6 +533,7 @@ fn process_file_source(
     let typeloader_tests = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/typeloader");
     compiler_config.library_paths = [
         ("test-lib", "library"),
+        ("test-project-lib", "project_library/slint-project.json"),
         ("test-broken-project-lib", "broken_project_library/slint-project.json"),
         ("test-no-main-project-lib", "no_main_project_library/slint-project.json"),
     ]

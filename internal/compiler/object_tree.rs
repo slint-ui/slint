@@ -1649,6 +1649,20 @@ impl Element {
         r
     }
 
+    /// The edition of the component that declares the element, which inlining doesn't change.
+    /// An element that a pass created takes the edition of its component.
+    pub fn edition(&self) -> Option<crate::project_file::SlintEdition> {
+        if let Some(file) = self.source_file() {
+            return file.edition();
+        }
+        let component = self.enclosing_component.upgrade()?;
+        if let Some(node) = &component.node {
+            return node.source_file.edition();
+        }
+        let root = component.root_element.try_borrow().ok()?;
+        root.source_file()?.edition()
+    }
+
     pub fn from_node(
         node: syntax_nodes::Element,
         id: SmolStr,
