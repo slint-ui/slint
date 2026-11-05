@@ -6,6 +6,8 @@ export enum PreviewEndpointKind {
     Remote,
     Manual,
     Serial,
+    // Only connecting tells whether a viewer is there.
+    SerialPath,
 }
 
 export struct PreviewEndpoint {
@@ -16,8 +18,6 @@ export struct PreviewEndpoint {
     version-mismatch: string,
     // Whether a discovered endpoint is also in `saved-endpoints`.
     saved: bool,
-    // A USB device that is plugged in, which stays saved while it is.
-    plugged-in: bool,
 }
 
 export enum SpringboardState {
@@ -78,6 +78,8 @@ export global Springboard {
     // An empty host resets `manual-endpoint`.
     callback probe-address(host: string, port: int);
     callback connect-manual-endpoint();
+    // A serial port by its path, such as a pseudo-terminal.
+    callback connect-serial-path(path: string);
     // Index into `saved-endpoints`.
     callback forget-device(endpoint-index: int);
     callback discover-devices();

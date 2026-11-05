@@ -93,6 +93,9 @@ enum EndpointIdentity {
     Manual { host: String, port: u16 },
     /// A microcontroller running the Slint viewer firmware.
     Serial(SerialIdentity),
+    /// A serial port the user entered by path, such as the pseudo-terminal of the
+    /// `mcu-viewer` simulator, which gets another one on every start.
+    SerialPath { path: String },
 }
 
 /// Identifies a device on a serial port, whichever port it's on.
@@ -199,6 +202,13 @@ impl Springboard {
                 let _ = probe_handle.task_sender.send(Box::new(move |task| {
                     task.manual_probe = ManualProbe::start(host, port);
                     task.update_ui();
+                }));
+            });
+            let serial_path_handle = handle.clone();
+            global.on_connect_serial_path(move |path| {
+                let path = path.trim().to_owned();
+                let _ = serial_path_handle.task_sender.send(Box::new(move |task| {
+                    task.select_endpoint(EndpointIdentity::SerialPath { path })
                 }));
             });
             global.on_submit_pairing_code(move |code| {
@@ -431,6 +441,9 @@ impl SpringboardTask {
                 let Some(port) = self.usb_port(identity) else { return };
                 self.connection = Connection::serial(port.name.clone());
             }
+            EndpointIdentity::SerialPath { path } => {
+                self.connection = Connection::serial(path.clone());
+            }
         }
     }
 
@@ -524,8 +537,17 @@ impl SpringboardTask {
     /// Persist the saved endpoints and the selection through the editor, which
     /// owns the filesystem.
     fn store_settings(&self) {
-        let settings =
-            SpringboardSettings::new(self.saved_endpoints.clone(), self.selected_endpoint.clone());
+        // A pseudo-terminal's path changes when its program restarts,
+        // and may then belong to a console, so a serial path is kept for this session only
+        let stored =
+            |identity: &EndpointIdentity| !matches!(identity, EndpointIdentity::SerialPath { .. });
+        let saved = self.saved_endpoints.iter().filter(|identity| stored(identity)).cloned();
+        let selected = if stored(&self.selected_endpoint) {
+            self.selected_endpoint.clone()
+        } else {
+            EndpointIdentity::Local
+        };
+        let settings = SpringboardSettings::new(saved.collect(), selected);
         let _ = self.to_editor.send(PreviewToLspMessage::UpdateUserSettings {
             name: SPRINGBOARD_SETTINGS_FILE.into(),
             contents: settings.serialize(),
@@ -610,7 +632,6 @@ impl SpringboardTask {
                 Some(_) => Default::default(),
                 None => "Device isn't connected".into(),
             },
-            plugged_in: port.is_some(),
             saved: !self.is_unsaved(&EndpointIdentity::Serial(identity.clone())),
             ..Default::default()
         }
@@ -664,6 +685,19 @@ impl SpringboardTask {
                 ..Default::default()
             },
             EndpointIdentity::Serial(identity) => self.serial_row(identity),
+            EndpointIdentity::SerialPath { path } => ui::PreviewEndpoint {
+                name: path.into(),
+                kind: ui::PreviewEndpointKind::SerialPath,
+                address: path.into(),
+                unavailable_reason: if identity == &self.selected_endpoint
+                    && self.connection.state == ui::ConnectionState::Failed
+                {
+                    self.connection.error.as_str().into()
+                } else {
+                    Default::default()
+                },
+                ..Default::default()
+            },
         }
     }
 
@@ -2293,8 +2327,7 @@ mod tests {
                 controller.start();
                 wait_condition(&controller, |task| {
                     let row = task.serial_row(&paired_usb_viewer());
-                    !row.plugged_in
-                        && row.unavailable_reason == "Device isn't connected"
+                    row.unavailable_reason == "Device isn't connected"
                         && !task.connection.is_started()
                 })
                 .await;
@@ -2302,12 +2335,61 @@ mod tests {
                 wait_condition(&controller, |task| {
                     let row = task.serial_row(&paired_usb_viewer());
                     row.name == "m5stack-cores3"
-                        && row.plugged_in
+                        && row.address == "/dev/no-such-port-2"
                         && row.saved
                         && task.connection.state == ui::ConnectionState::Failed
                         && task.connection.error.starts_with("Cannot open /dev/no-such-port-2")
                 })
                 .await;
+                controller.close();
+            })
+            .await;
+    }
+
+    #[tokio::test]
+    async fn a_serial_path_is_saved_only_once_it_connects() {
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                let (controller, _upstream, _discovered, _usb) = controller("echo_child");
+                reply_settings(&controller, Vec::new(), EndpointIdentity::Local);
+                controller.start();
+                controller
+                    .task_sender
+                    .send(Box::new(|task| {
+                        task.select_endpoint(EndpointIdentity::SerialPath {
+                            path: "/dev/no-such-pty".into(),
+                        })
+                    }))
+                    .unwrap();
+                wait_condition(&controller, |task| {
+                    task.connection.state == ui::ConnectionState::Failed
+                        && task.connection.error.starts_with("Cannot open /dev/no-such-pty")
+                        && task.saved_endpoints.is_empty()
+                })
+                .await;
+                controller.close();
+            })
+            .await;
+    }
+
+    #[tokio::test]
+    async fn a_serial_path_is_not_stored() {
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                let (controller, mut upstream, _discovered, _usb) = controller("echo_child");
+                reply_settings(&controller, Vec::new(), EndpointIdentity::Local);
+                let path = EndpointIdentity::SerialPath { path: "/dev/pts/3".into() };
+                controller
+                    .task_sender
+                    .send(Box::new(move |task| {
+                        task.saved_endpoints = vec![path.clone(), remote("Saved")];
+                        task.selected_endpoint = path;
+                        task.store_settings();
+                    }))
+                    .unwrap();
+                let settings = stored_settings(&mut upstream).await;
+                assert_eq!(settings.saved, [remote("Saved")]);
+                assert_eq!(settings.selected, EndpointIdentity::Local);
                 controller.close();
             })
             .await;
