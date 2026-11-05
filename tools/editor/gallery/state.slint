@@ -99,25 +99,23 @@ export global Gallery {
     }
     public function open-picker(anchor: Point, size: Size) {
         FillSession.begin({
-            fill: fill, expression: Properties.fill-expression(fill),
             target: {
                 key: "sample", property-name: "background", size: { width: 240px, height: 160px },
                 session-key: "gallery:0:" + Api.selection.highlight-index + ":" + Properties.inspector-fill-generation + ":background",
             },
-            unsupported: scenario == "Unsupported", allow-gradient: true,
             anchor-position: anchor, anchor-size: size,
         });
     }
     out property <PropertyValue> preview-value;
     pure callback source-value <=> Properties.source-property-value-data;
     source-value(name, fallback) => {
-        return { kind: PropertyValueKind.brush, value-kind: PropertyValueKind.brush, value-resolved: true, fill: Gallery.fill, code: Properties.fill-expression(Gallery.fill) };
+        return { kind: PropertyValueKind.brush, value-kind: PropertyValueKind.brush, value-resolved: Gallery.scenario != "Unsupported", fill: Gallery.fill, code: Properties.fill-expression(Gallery.fill) };
     }
     callback property-cancel <=> Properties.inspector-cancel;
     property-cancel() => { Gallery.preview-value = {}; }
     callback property-preview <=> Properties.inspector-preview;
     property-preview(name, value) => {
-        if value.kind == PropertyEditKind.fill { Gallery.preview-value = { fill: value.fill, value-resolved: true }; }
+        if value.kind == PropertyEditKind.fill { Gallery.preview-value = { kind: PropertyValueKind.brush, fill: value.fill, value-resolved: true }; }
         return true;
     }
     callback property-commit <=> Properties.inspector-commit;

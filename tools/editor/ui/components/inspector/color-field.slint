@@ -177,7 +177,6 @@ export component InspectorColorField inherits Rectangle {
             return;
         }
         FillSession.begin({
-            fill: root.data.fill,
             target: {
                 key: root.preview-key,
                 session-key: root.session-key,
@@ -186,9 +185,6 @@ export component InspectorColorField inherits Rectangle {
                 canvas: root.property-name == "background" && Api.current-element.type-name == "Rectangle",
                 element-rotation: root.element-rotation,
             },
-            expression: root.value.code,
-            unsupported: root.data.unsupported,
-            allow-gradient: root.data.allow-gradient,
             anchor-position: root.absolute-position,
             anchor-size: { width: root.width, height: root.height },
             activation-position: root.is-gradient ? root.absolute-position : swatch-focus.absolute-position,
