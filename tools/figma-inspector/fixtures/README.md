@@ -84,18 +84,3 @@ and consumer here when adding one.
 | `scaled-instance.json` | `layout-normalization.unit.spec.ts` |
 | `stroke-alignment.json` | `appearance-normalization.unit.spec.ts` |
 | `translucent-styled-text.json` | `converter.unit.spec.ts` |
-
-## REST and live-property parity
-
-`authored/rest-live.json` pairs a real `JSON_REST_V1` export with live plugin
-property reads from the same authored nodes, captured in Figma Desktop on
-November 4, 2026. The test compares supported fields and paint semantics,
-including omitted defaults and separate node and paint opacity.
-
-To recapture, create a default 100×100 frame at (-100000, -100000), a 24×18
-rectangle at (0, 0) with RGB (0.25, 0.5, 0.75), and a 20×20 ellipse at (32, 0)
-with RGB (1, 0.2, 0), paint opacity 0.4 and node opacity 0.7. Export the frame
-with `format: "JSON_REST_V1"` and record every available property named by
-`sourceProperties` in `capture.ts` from all three live nodes. Keep the raw
-REST result and an ID-keyed map of live properties. Do not replace omitted
-REST fields with synthesized defaults in this fixture.

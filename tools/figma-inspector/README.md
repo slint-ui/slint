@@ -18,15 +18,6 @@ Export generation errors and compiler diagnostics keep a successful preview and 
 Export ZIP stays disabled when the reusable project cannot be generated or compiled.
 Unexpected interpreter failures require restarting the plugin.
 
-Large selections retain the full selected tree and its component definitions.
-The preview appears before project export generation and validation finish.
-Large previews scale to fit; snapshots and project exports keep their original dimensions.
-Repeat selections reuse completed work when the document and referenced components are unchanged.
-Variable definitions and the document color profile are checked before reuse.
-Failed captures are read again.
-Repeat selections also check font availability before reusing text rendered as images.
-Wasm initializes during the first capture.
-
 In Dev Mode, choose Slint to generate a snippet for the selected node only.
 Enable Use Variables to reference existing Slint variable globals; it is off by
 default. Use preview and project export for the complete selected tree.
@@ -62,16 +53,3 @@ Family matching does not establish that Figma uses the same font version.
 Native exports remain editable text and require the matching fonts installed or imported.
 
 See [fixture instructions](fixtures/README.md) and [publishing](PUBLISH.md).
-
-## Capture Profiling
-
-Development diagnostics and Copy Trace report capture reads, encoding, component discovery, bulk JSON, asset exports, and browser presentation.
-Capture categories report operation counts, summed duration, active time, and overlap with synchronous work.
-Their intervals overlap; add neither category durations nor nested work to estimate total capture time.
-Export validation has separate source-preparation, compiler-queue, compilation, and completion timings.
-
-Start each cold measurement in a fresh plugin session with the file already open.
-For a repeat measurement, select another node, wait for completion, and return to the original selection in the same page.
-Keep the developer console closed until conversion and export validation finish.
-Record the source revision, selection ID, capture counts, preview time, and export-validation completion time.
-Report errors and timeouts separately from successful conversion timings.
