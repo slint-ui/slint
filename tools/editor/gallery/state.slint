@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Properties, PropertyEditKind, FillData, BrushKind } from "../ui/properties.slint";
+import { Properties, PropertyEditKind, PropertyValue, PropertyValueKind, FillData, BrushKind } from "../ui/properties.slint";
 
 import { Api, OutlineTreeNode, ElementKind, EditorSurfaceMode } from "../ui/api.slint";
 import { FillSession } from "../ui/components/inspector/index.slint";
@@ -108,14 +108,20 @@ export global Gallery {
             anchor-position: anchor, anchor-size: size,
         });
     }
-    private property <FillData> preview-fill;
+    out property <PropertyValue> preview-value;
+    pure callback source-value <=> Properties.source-property-value-data;
+    source-value(name, fallback) => {
+        return { kind: PropertyValueKind.brush, value-kind: PropertyValueKind.brush, value-resolved: true, fill: Gallery.fill, code: Properties.fill-expression(Gallery.fill) };
+    }
+    callback property-cancel <=> Properties.inspector-cancel;
+    property-cancel() => { Gallery.preview-value = {}; }
     callback property-preview <=> Properties.inspector-preview;
     property-preview(name, value) => {
-        if value.kind == PropertyEditKind.fill { Gallery.preview-fill = value.fill; }
+        if value.kind == PropertyEditKind.fill { Gallery.preview-value = { fill: value.fill, value-resolved: true }; }
         return true;
     }
     callback property-commit <=> Properties.inspector-commit;
-    property-commit() => { Gallery.fill = Gallery.preview-fill; return true; }
+    property-commit() => { Gallery.fill = Gallery.preview-value.fill; Gallery.preview-value = {}; return true; }
     callback select-row <=> Api.outline-select-element;
     select-row(uri, offset, notify) => {
         Api.current-element = { source-uri: uri, offset: offset };

@@ -39,7 +39,7 @@ export global FillSession {
     out property <int> opening-generation;
 
     private property <FillData> draft;
-    out property <FillData> working-fill;
+    out property <FillData> working-fill: Properties.editor-property-value-data(FillSession.request.target.property-name).fill;
     out property <float> element-rotation;
     private property <angle> initial-selection-angle;
     out property <angle> canvas-rotation: FillSession.initial-selection-angle + (FillSession.element-rotation - FillSession.request.target.element-rotation) * 1deg;
@@ -192,7 +192,6 @@ export global FillSession {
                 FillSession.conic-center-initialized = FillSession.conic-center-initialized || fill.custom-center;
             }
             FillSession.has-preview = true;
-            FillSession.working-fill = fill;
             return true;
         }
         Properties.inspector-cancel();
@@ -303,8 +302,6 @@ export global FillSession {
         FillSession.request.fill.stops = Properties.clone-gradient-stops(request.fill.stops);
         FillSession.stop-panel-open = false;
         FillSession.selected-stop = 0;
-        FillSession.working-fill = FillSession.request.fill;
-        FillSession.working-fill.stops = Properties.clone-gradient-stops(FillSession.request.fill.stops);
         FillSession.radial-center-initialized = FillSession.request.fill.kind == BrushKind.radial && FillSession.request.fill.custom-center;
         FillSession.conic-center-initialized = FillSession.request.fill.kind == BrushKind.conic && FillSession.request.fill.custom-center;
         FillSession.radius-initialized = FillSession.request.fill.kind == BrushKind.radial && FillSession.request.fill.custom-radius;
@@ -329,7 +326,6 @@ export global FillSession {
             if FillSession.has-preview {
                 Properties.inspector-cancel();
             }
-            FillSession.working-fill = FillSession.request.fill;
             FillSession.element-rotation = FillSession.request.target.element-rotation;
         } else if FillSession.has-preview {
             Properties.add-recent-fill(FillSession.working-fill);
