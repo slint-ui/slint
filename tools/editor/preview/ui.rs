@@ -280,16 +280,6 @@ pub fn initialize_editor(
     properties_api.on_property_declaration_ranges(super::property_declaration_ranges);
     property_view::setup(editor_ui, &api);
     super::inline_text_edit::setup(editor_ui);
-    let color_field_api_weak = properties_api_weak.clone();
-    properties_api.on_source_color_field_data(move |property_name| {
-        let Some(properties_api) = color_field_api_weak.upgrade() else {
-            return ColorFieldData::default();
-        };
-
-        source_property_value_data(&properties_api, property_name)
-            .map(brushes::color_field_data)
-            .unwrap_or_default()
-    });
     let property_value_api_weak = properties_api_weak.clone();
     properties_api.on_source_property_value(move |property_name, fallback| {
         let Some(properties_api) = property_value_api_weak.upgrade() else {
@@ -2335,16 +2325,44 @@ mod tests {
         assert_eq!(steps, [vec![(TopLeft, Some(50.))], vec![(TopLeft, Some(60.))]]);
     }
 
+    fn connect_fill_editor(
+        editor: &super::EditorUi,
+    ) -> std::pin::Pin<std::rc::Rc<i_slint_core::Property<Option<super::FillData>>>> {
+        let properties_api = editor.global::<super::Properties>();
+        let editor_weak = editor.as_weak();
+        properties_api.on_source_property_value_data(move |_, _| PropertyValue {
+            fill: editor_weak.unwrap().global::<super::FillSession>().get_request().fill,
+            ..Default::default()
+        });
+        let pending = std::rc::Rc::pin(i_slint_core::Property::new(None::<super::FillData>));
+        let value = pending.clone();
+        properties_api.on_hooked_property_value_data(move |_, fallback| {
+            value
+                .as_ref()
+                .get()
+                .map_or(fallback, |fill| PropertyValue { fill, ..Default::default() })
+        });
+        let value = pending.clone();
+        properties_api.on_inspector_preview(move |_, edit| {
+            value.as_ref().set(Some(edit.fill));
+            true
+        });
+        let value = pending.clone();
+        properties_api.on_inspector_cancel(move || value.as_ref().set(None));
+        pending
+    }
+
     #[test]
     fn begin_fill_session_accepts_previous_target_before_replacing_it() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
         let properties_api = editor.global::<super::Properties>();
         super::brushes::setup(&properties_api);
-        properties_api.on_inspector_preview(|_, _| true);
+        let pending = connect_fill_editor(&editor);
         let commits = std::rc::Rc::new(std::cell::Cell::new(0));
         let count = commits.clone();
         properties_api.on_inspector_commit(move || {
+            pending.as_ref().set(None);
             count.set(count.get() + 1);
             true
         });
@@ -2439,15 +2457,6 @@ mod tests {
             let properties_api = editor.global::<super::Properties>();
             api.on_highlight_positions(|_, _| {
                 std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle::default()])).into()
-            });
-            let editor_weak = editor.as_weak();
-            properties_api.on_source_color_field_data(move |name| {
-                super::brushes::color_field_data(
-                    editor_weak
-                        .unwrap()
-                        .global::<super::Properties>()
-                        .invoke_source_property_value_data(name, Default::default()),
-                )
             });
             api.set_current_element(super::ElementInformation {
                 id: if type_name == "Window" { "root" } else { "selected" }.into(),
@@ -3559,6 +3568,7 @@ mod tests {
         let api = editor.global::<super::Api>();
         let properties_api = editor.global::<super::Properties>();
         super::brushes::setup(&properties_api);
+        connect_fill_editor(&editor);
         editor
             .global::<super::Diagnostics>()
             .set_preview_availability(super::PreviewAvailability::Current);
@@ -3625,7 +3635,7 @@ mod tests {
             let api = editor.global::<super::Api>();
             let properties_api = editor.global::<super::Properties>();
             super::brushes::setup(&properties_api);
-            properties_api.on_inspector_preview(|_, _| true);
+            connect_fill_editor(&editor);
             let session = editor.global::<super::FillSession>();
             let mut element = api.get_current_element();
             element.type_name = "Rectangle".into();
@@ -3719,11 +3729,14 @@ mod tests {
             let api = editor.global::<super::Api>();
             let properties_api = editor.global::<super::Properties>();
             super::brushes::setup(&properties_api);
-            properties_api.on_inspector_preview(|_, _| true);
+            let pending = connect_fill_editor(&editor);
             properties_api.on_inspector_commit(|| panic!("stale sessions must not commit"));
             let canceled = std::rc::Rc::new(std::cell::Cell::new(0));
             let count = canceled.clone();
-            properties_api.on_inspector_cancel(move || count.set(count.get() + 1));
+            properties_api.on_inspector_cancel(move || {
+                pending.as_ref().set(None);
+                count.set(count.get() + 1);
+            });
             let session = editor.global::<super::FillSession>();
             let mut element = api.get_current_element();
             element.source_uri = "file:///scene.slint".into();
@@ -3777,7 +3790,7 @@ mod tests {
         let editor = super::EditorUi::new().unwrap();
         let properties_api = editor.global::<super::Properties>();
         super::brushes::setup(&properties_api);
-        properties_api.on_inspector_preview(|_, _| true);
+        connect_fill_editor(&editor);
         let session = editor.global::<super::FillSession>();
         session.invoke_begin(Default::default());
         let kinds = [super::BrushKind::Linear, super::BrushKind::Radial, super::BrushKind::Conic];
@@ -3828,6 +3841,7 @@ mod tests {
         let editor = super::EditorUi::new().unwrap();
         let properties_api = editor.global::<super::Properties>();
         super::brushes::setup(&properties_api);
+        connect_fill_editor(&editor);
         let stops = std::rc::Rc::new(VecModel::from(vec![
             super::GradientStop { position: 0., color: slint::Color::from_rgb_u8(255, 0, 0) },
             super::GradientStop { position: 1., color: slint::Color::from_rgb_u8(0, 0, 255) },
@@ -3854,7 +3868,7 @@ mod tests {
         let editor = super::EditorUi::new().unwrap();
         let properties_api = editor.global::<super::Properties>();
         super::brushes::setup(&properties_api);
-        properties_api.on_inspector_preview(|_, _| true);
+        connect_fill_editor(&editor);
         let session = editor.global::<super::FillSession>();
         session.invoke_begin(super::FillSessionRequest {
             fill: super::FillData {
@@ -3918,13 +3932,13 @@ mod tests {
                 },
                 ..Default::default()
             });
-            properties_api.on_inspector_preview(move |property, _| {
-                assert_eq!(property, "background");
-                true
-            });
+            let pending = connect_fill_editor(&editor);
             let canceled = std::rc::Rc::new(std::cell::Cell::new(0));
             let count = canceled.clone();
-            properties_api.on_inspector_cancel(move || count.set(count.get() + 1));
+            properties_api.on_inspector_cancel(move || {
+                pending.as_ref().set(None);
+                count.set(count.get() + 1);
+            });
             assert!(session.invoke_preview_color(slint::Color::from_rgb_u8(0, 0, 255)));
             if reject_preview {
                 properties_api.on_inspector_preview(|_, _| false);
