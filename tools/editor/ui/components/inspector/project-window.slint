@@ -1,0 +1,36 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Project } from "../../project.slint";
+import { Style, Metrics, Typography, Colors } from "../../style.slint";
+import { InspectorSection, InspectorValueField } from "index.slint";
+
+export component ProjectWindowSection inherits InspectorSection {
+    title: @tr("Project window size");
+    VerticalLayout {
+        padding-left: Style.inspector-layout.padding;
+        padding-right: Style.inspector-layout.padding;
+        spacing: Metrics.space-compact;
+        HorizontalLayout {
+            spacing: Metrics.space-tight;
+            InspectorValueField {
+                horizontal-stretch: 1; min-width: 0px;
+                accessible-name: @tr("Project window width");
+                prefix: "W"; value: "\{Project.window-size.width / 1px}";
+                accepted(text) => { return Project.update-window-size(text, "\{Project.window-size.height / 1px}"); }
+            }
+            InspectorValueField {
+                horizontal-stretch: 1; min-width: 0px;
+                accessible-name: @tr("Project window height");
+                prefix: "H"; value: "\{Project.window-size.height / 1px}";
+                accepted(text) => { return Project.update-window-size("\{Project.window-size.width / 1px}", text); }
+            }
+        }
+        if Project.window-size-error != "": Text {
+            text: Project.window-size-error; color: Colors.danger;
+            font-size: Typography.caption.size; wrap: word-wrap;
+            accessible-role: text; accessible-label: @tr("Project window size error");
+            accessible-value: self.text;
+        }
+    }
+}

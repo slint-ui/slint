@@ -3,7 +3,7 @@
 
 import { Style, Colors, Metrics, Typography, InspectorStyle } from "../style.slint";
 import { Api } from "../api.slint";
-import { CanvasPresetsSection } from "inspector/canvas-presets.slint";
+import { ProjectWindowSection } from "inspector/project-window.slint";
 import { Diagnostics } from "../diagnostics.slint";
 import { EdgeDivider, HorizontalResizeDivider } from "index.slint";
 import { OutlinePane } from "outline-pane.slint";
@@ -81,7 +81,7 @@ export component InspectorPane inherits Rectangle {
                 width: parent.width;
                 alignment: start;
 
-                if Api.selection.highlight-index < 0: CanvasPresetsSection { }
+                if Api.selection.highlight-index < 0: ProjectWindowSection { }
 
                 if InspectorContext.has-backend-rect(): InspectorGeometrySection { }
 

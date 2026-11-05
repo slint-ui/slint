@@ -6,6 +6,7 @@ import { EditorGrid } from "editor-grid.slint";
 import { Style, Metrics, ArtboardStyle, CanvasSurfaceStyle } from "../style.slint";
 import { Api, DropMark, ElementKind } from "../api.slint";
 import { Diagnostics, PreviewAvailability } from "../diagnostics.slint";
+import { PreviewDisplays } from "../preview-displays.slint";
 import { AppState, EditorCursors, PreviewMetrics } from "index.slint";
 import { CanvasInteractionLayer } from "canvas-interaction-layer.slint";
 import { PreviewDiagnostics } from "preview-diagnostics.slint";
@@ -86,8 +87,10 @@ export component EditorCanvas inherits TouchArea {
         CanvasChrome {
             style: root.artboard-style;
             ComponentContainer {
-                width: 100%;
-                height: 100%;
+                x: 0px;
+                y: 0px;
+                width: PreviewDisplays.fixed-root-size.width >= 0px ? PreviewDisplays.fixed-root-size.width : PreviewDisplays.size.width;
+                height: PreviewDisplays.fixed-root-size.height >= 0px ? PreviewDisplays.fixed-root-size.height : PreviewDisplays.size.height;
                 component-factory: Api.preview-area;
             }
 

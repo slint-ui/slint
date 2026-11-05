@@ -1,0 +1,30 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export struct PreviewDisplay {
+    name: string,
+    width: length,
+    height: length,
+    kind: string,
+    rotatable: bool,
+}
+
+export global PreviewDisplays {
+    in-out property <[PreviewDisplay]> displays;
+    in-out property <int> selected-index: -1;
+    in-out property <bool> landscape;
+    in-out property <Size> size: { width: 390px, height: 720px };
+    in-out property <Size> fixed-root-size: { width: -1px, height: -1px };
+    in-out property <string> error;
+    out property <string> selected-name: selected-index >= 0 && selected-index < displays.length
+        ? displays[selected-index].name : @tr("Project size");
+    out property <bool> can-rotate: selected-index >= 0 && selected-index < displays.length
+        && displays[selected-index].rotatable;
+    callback select-project-size();
+    callback select-display(int);
+    callback add-display(PreviewDisplay) -> bool;
+    callback add-custom-display(string, string, bool) -> bool;
+    callback delete-display(int);
+    callback set-landscape(bool);
+    pure callback search(string) -> [PreviewDisplay];
+}
