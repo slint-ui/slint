@@ -719,19 +719,19 @@ impl EditorSession {
         self.pending_recompile.extend(self.document_roots());
     }
 
+    fn active_project_file_contents(&self, url: &Url) -> Option<(SourceFileVersion, &[u8])> {
+        let path = SourcePath::from_url(url).into_native_path()?;
+        let state = self.active_projects.get(&path)?;
+        Some((state.version, state.contents.as_deref()?))
+    }
+
     fn project_file_contents_message(&self, url: Url) -> LspToPreviewMessage {
-        if let Some(state) = SourcePath::from_url(&url)
-            .into_native_path()
-            .as_ref()
-            .and_then(|path| self.active_projects.get(path))
-            && let Some(contents) = &state.contents
-        {
-            LspToPreviewMessage::SetContents {
-                url: VersionedUrl::new(url, state.version),
-                contents: contents.clone(),
-            }
-        } else {
-            LspToPreviewMessage::ForgetFile { url }
+        match self.active_project_file_contents(&url) {
+            Some((version, contents)) => LspToPreviewMessage::SetContents {
+                url: VersionedUrl::new(url, version),
+                contents: contents.to_vec(),
+            },
+            None => LspToPreviewMessage::ForgetFile { url },
         }
     }
 
@@ -878,12 +878,6 @@ impl EditorSession {
         #[cfg(feature = "preview-remote")]
         let mut fonts_sent = HashSet::<SourcePath>::new();
         for url in files {
-            if SourcePath::from_url(url).file_name()
-                == Some(i_slint_compiler::project_file::FILE_NAME)
-            {
-                preview.to_preview.send(&self.project_file_contents_message(url.clone()));
-                continue;
-            }
             match self.preview_file_contents(url, &file_access) {
                 Ok((version, contents)) => {
                     tracing::debug!("Sending {url} ({} bytes) to the preview", contents.len());
@@ -911,6 +905,9 @@ impl EditorSession {
         url: &Url,
         file_access: &std::cell::OnceCell<crate::preview_files::PreviewFileAccess>,
     ) -> Result<(SourceFileVersion, Vec<u8>), String> {
+        if let Some((version, contents)) = self.active_project_file_contents(url) {
+            return Ok((version, contents.to_vec()));
+        }
         if let Some(node) = self.document_cache.get_document(url).and_then(|doc| doc.node.as_ref())
         {
             let version = self.document_cache.document_version_by_path(node.source_file.path());
