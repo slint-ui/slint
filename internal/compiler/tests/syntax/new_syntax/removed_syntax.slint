@@ -6,3 +6,21 @@ export global OldGlobal := {}
 //                      ><error{':=' to declare a global isn't supported from edition 1.20. Remove the ':=', then review the behavior changes of 1.20 on the 'Editions' page of the documentation}
 
 export component Test {}
+
+OldComponent := Rectangle {}
+//           ><error{':=' to declare a component isn't supported from edition 1.20. Use 'component OldComponent inherits Rectangle {', then review the behavior changes of 1.20 on the 'Editions' page of the documentation}
+
+export OldWindow := Window { OldComponent {} }
+//               ><error{':=' to declare a component isn't supported from edition 1.20. Use 'component OldWindow inherits Window {', then review the behavior changes of 1.20 on the 'Editions' page of the documentation}
+
+Legacy_Name := Rectangle {}
+//          ><error{':=' to declare a component isn't supported from edition 1.20. Use 'component Legacy-Name inherits Rectangle {', then review the behavior changes of 1.20 on the 'Editions' page of the documentation}
+
+Dotted := Foo.My_Bar {}
+//     ><error{':=' to declare a component isn't supported from edition 1.20. Use 'component Dotted inherits Foo.My-Bar {', then review the behavior changes of 1.20 on the 'Editions' page of the documentation}
+
+Long := a.b.c.d.e.f.g.h.i.j.k.l.m.n.o.p.q {}
+//   ><error{':=' to declare a component isn't supported from edition 1.20. Use 'component Long inherits a.b.c.d.e.f.g.h.i.j.k.l.m.n.o.p.… {', then review the behavior changes of 1.20 on the 'Editions' page of the documentation}
+
+NoBase := {}
+//        ^error{Syntax error: expected Identifier}
