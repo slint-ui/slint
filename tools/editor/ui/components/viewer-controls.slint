@@ -4,7 +4,7 @@
 import { ButtonBase } from "../../controls/src/headless.slint";
 import { Style, Metrics, Typography, Motion } from "../style.slint";
 import { Preview } from "../preview.slint";
-import { Springboard, ConnectionState } from "@springboard";
+import { Springboard, ConnectionState, PreviewEndpointKind } from "@springboard";
 import { EditorScrollView } from "editor-scroll-view.slint";
 import { ViewerStyle, ViewerPopup, ViewerButton, ViewerIcon, Chevron, Checkmark } from "viewer-style.slint";
 import { FloatingSurface } from "floating-surface.slint";
@@ -162,7 +162,8 @@ export component ViewerControls inherits Rectangle {
                                 width: parent.width;
                                 height: Style.combo-menu.row-height;
                                 text: index == 0 ? Preview.local-name : endpoint.name;
-                                enabled: endpoint.unavailable-reason == "";
+                                // A serial path's reason is its last error, so it stays selectable to retry
+                                enabled: endpoint.unavailable-reason == "" || endpoint.kind == PreviewEndpointKind.SerialPath;
                                 accessible-description: endpoint.unavailable-reason;
                                 clicked => {
                                     if !Preview.is-running { Preview.run(); }
@@ -188,7 +189,7 @@ export component ViewerControls inherits Rectangle {
                                         font-size: Typography.control.size;
                                         overflow: elide;
                                     }
-                                    if !option.enabled: Text {
+                                    if endpoint.unavailable-reason != "": Text {
                                         max-width: parent.width / 2;
                                         text: endpoint.unavailable-reason;
                                         color: ViewerStyle.unavailable;

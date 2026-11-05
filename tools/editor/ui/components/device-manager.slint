@@ -18,6 +18,7 @@ enum DeviceManagerPage {
     SavedDevices,
     NearbyDevices,
     ManualAddress,
+    PseudoTerminal,
     Pairing,
 }
 
@@ -64,6 +65,27 @@ component SoftButton inherits DeviceAction {
             vertical-alignment: center;
             overflow: elide;
         }
+    }
+}
+
+component FallbackAction inherits DeviceAction {
+    height: Metrics.control-compact;
+    Rectangle {
+        border-radius: Metrics.radius-medium;
+        background: root.hovered ? ViewerStyle.pill-hover : transparent;
+    }
+    HorizontalLayout {
+        padding-left: Metrics.space-regular;
+        padding-right: Metrics.space-regular;
+        spacing: Metrics.space-regular;
+        cross-axis-alignment: center;
+        Text {
+            horizontal-stretch: 1;
+            text: root.label;
+            color: ViewerStyle.action-text;
+            font-size: Typography.control.size;
+        }
+        Chevron { transform-rotation: -90deg; }
     }
 }
 
@@ -133,7 +155,7 @@ component SavedDevicesPage inherits Rectangle {
                             overflow: elide;
                         }
                         Text {
-                            text: index == 0 ? @tr("This computer") : device.unavailable-reason != "" ? device.unavailable-reason : @tr("Available · {}", device.address);
+                            text: index == 0 ? @tr("This computer") : device.unavailable-reason != "" ? device.unavailable-reason : device.kind == PreviewEndpointKind.SerialPath ? @tr("Pseudo-terminal") : @tr("Available · {}", device.address);
                             color: ViewerStyle.muted;
                             font-size: Typography.caption.size;
                             overflow: elide;
@@ -147,7 +169,7 @@ component SavedDevicesPage inherits Rectangle {
                         font-size: Typography.caption.size;
                         color: ViewerStyle.muted;
                     }
-                    if index > 0 && !device.plugged-in: trash := DeviceAction {
+                    if index > 0: trash := DeviceAction {
                         width: Metrics.control-compact;
                         height: Metrics.control-compact;
                         label: @tr("Remove {}", device.name);
@@ -199,6 +221,7 @@ component SavedDevicesPage inherits Rectangle {
 component NearbyDevicesPage inherits Rectangle {
     callback pair(int);
     callback manual();
+    callback pseudo-terminal();
     preferred-height: content.preferred-height;
     content := VerticalLayout {
         spacing: Metrics.space-regular;
@@ -282,31 +305,42 @@ component NearbyDevicesPage inherits Rectangle {
                 }
             }
         }
-        Text {
-            text: @tr("Don't see your remote device?");
-            color: ViewerStyle.ink;
-            font-size: Typography.caption.size;
+        FallbackAction {
+            label: @tr("Add pseudo-terminal path...");
+            activated => { root.pseudo-terminal(); }
         }
-        manual-fallback := DeviceAction {
-            height: Metrics.control-compact;
+        FallbackAction {
             label: @tr("Enter IP address...");
             activated => { root.manual(); }
-            Rectangle {
-                border-radius: Metrics.radius-medium;
-                background: manual-fallback.hovered ? ViewerStyle.pill-hover : transparent;
-            }
-            HorizontalLayout {
-                padding-left: Metrics.space-regular;
-                padding-right: Metrics.space-regular;
-                spacing: Metrics.space-regular;
-                cross-axis-alignment: center;
-                Text {
-                    horizontal-stretch: 1;
-                    text: manual-fallback.label;
-                    color: ViewerStyle.action-text;
-                    font-size: Typography.control.size;
-                }
-                Chevron { transform-rotation: -90deg; }
+        }
+    }
+}
+
+component PseudoTerminalPage inherits Rectangle {
+    in-out property <string> path;
+    callback pairing();
+    preferred-height: content.preferred-height;
+    content := VerticalLayout {
+        spacing: Metrics.space-medium;
+        Text {
+            text: @tr("Enter the pseudo-terminal that the mcu-viewer simulator\nshows in its window.");
+            color: ViewerStyle.muted;
+            font-size: Typography.control.size;
+            wrap: word-wrap;
+        }
+        DeviceField {
+            value <=> root.path;
+            placeholder: Platform.os == OperatingSystemType.macos ? "/dev/ttys003" : "/dev/pts/3";
+        }
+        Rectangle { vertical-stretch: 1; }
+        SoftButton {
+            label: @tr("Connect");
+            primary: true;
+            enabled: root.path != "";
+            activated => {
+                if !Preview.is-running { Preview.run(); }
+                Springboard.connect-serial-path(root.path);
+                root.pairing();
             }
         }
     }
@@ -391,7 +425,8 @@ component ManualAddressPage inherits Rectangle {
 
 component PairingPage inherits Rectangle {
     in-out property <string> code;
-    private property <bool> serial: Springboard.selected-endpoint.kind == PreviewEndpointKind.Serial;
+    private property <bool> serial: Springboard.selected-endpoint.kind == PreviewEndpointKind.Serial
+        || Springboard.selected-endpoint.kind == PreviewEndpointKind.SerialPath;
     preferred-height: content.preferred-height;
     content := VerticalLayout {
         spacing: Metrics.space-medium;
@@ -467,6 +502,7 @@ export component DeviceManager inherits Rectangle {
     private property <DeviceManagerPage> page;
     private property <string> host;
     private property <string> port: "9000";
+    private property <string> pseudo-terminal;
     private property <string> code;
     private property <string> message;
     private property <ConnectionState> connection-state: Springboard.connection.state;
@@ -526,7 +562,8 @@ export component DeviceManager inherits Rectangle {
             horizontal-stretch: 1;
             text: root.page == DeviceManagerPage.SavedDevices ? @tr("Devices")
                 : root.page == DeviceManagerPage.NearbyDevices ? @tr("Pair a device")
-                : root.page == DeviceManagerPage.ManualAddress ? @tr("Enter IP address") : @tr("Pair device");
+                : root.page == DeviceManagerPage.ManualAddress ? @tr("Enter IP address")
+                : root.page == DeviceManagerPage.PseudoTerminal ? @tr("Add pseudo-terminal path") : @tr("Pair device");
             color: ViewerStyle.ink;
             font-size: Typography.heading.size;
             font-weight: Typography.heading.weight;
@@ -567,12 +604,17 @@ export component DeviceManager inherits Rectangle {
                     root.page = DeviceManagerPage.Pairing;
                 }
                 manual => { root.page = DeviceManagerPage.ManualAddress; }
+                pseudo-terminal => { root.page = DeviceManagerPage.PseudoTerminal; }
             }
             ManualAddress: ManualAddressPage {
                 host <=> root.host;
                 port <=> root.port;
                 pairing => { root.page = DeviceManagerPage.Pairing; }
                 retry => { root.probe(); }
+            }
+            PseudoTerminal: PseudoTerminalPage {
+                path <=> root.pseudo-terminal;
+                pairing => { root.page = DeviceManagerPage.Pairing; }
             }
             Pairing: PairingPage { code <=> root.code; }
         }
