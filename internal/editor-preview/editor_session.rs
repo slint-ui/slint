@@ -719,19 +719,19 @@ impl EditorSession {
         self.pending_recompile.extend(self.document_roots());
     }
 
+    fn active_project_file_contents(&self, url: &Url) -> Option<(SourceFileVersion, &[u8])> {
+        let path = SourcePath::from_url(url).into_native_path()?;
+        let state = self.active_projects.get(&path)?;
+        Some((state.version, state.contents.as_deref()?))
+    }
+
     fn project_file_contents_message(&self, url: Url) -> LspToPreviewMessage {
-        if let Some(state) = SourcePath::from_url(&url)
-            .into_native_path()
-            .as_ref()
-            .and_then(|path| self.active_projects.get(path))
-            && let Some(contents) = &state.contents
-        {
-            LspToPreviewMessage::SetContents {
-                url: VersionedUrl::new(url, state.version),
-                contents: contents.clone(),
-            }
-        } else {
-            LspToPreviewMessage::ForgetFile { url }
+        match self.active_project_file_contents(&url) {
+            Some((version, contents)) => LspToPreviewMessage::SetContents {
+                url: VersionedUrl::new(url, version),
+                contents: contents.to_vec(),
+            },
+            None => LspToPreviewMessage::ForgetFile { url },
         }
     }
 
@@ -878,14 +878,8 @@ impl EditorSession {
         #[cfg(feature = "preview-remote")]
         let mut fonts_sent = HashSet::<SourcePath>::new();
         for url in files {
-            if SourcePath::from_url(url).file_name()
-                == Some(i_slint_compiler::project_file::FILE_NAME)
-            {
-                preview.to_preview.send(&self.project_file_contents_message(url.clone()));
-                continue;
-            }
             match self.preview_file_contents(url, &file_access) {
-                Ok((version, contents)) => {
+                Ok(Some((version, contents))) => {
                     tracing::debug!("Sending {url} ({} bytes) to the preview", contents.len());
                     preview.to_preview.send(&LspToPreviewMessage::SetContents {
                         url: VersionedUrl::new(url.clone(), version),
@@ -893,6 +887,9 @@ impl EditorSession {
                     });
                     #[cfg(feature = "preview-remote")]
                     self.send_referenced_fonts(preview, url, &mut fonts_sent);
+                }
+                Ok(None) => {
+                    preview.to_preview.send(&LspToPreviewMessage::ForgetFile { url: url.clone() });
                 }
                 Err(reason) => {
                     tracing::warn!("Not sending {url} to the preview: {reason}");
@@ -902,6 +899,9 @@ impl EditorSession {
         }
     }
 
+    /// The contents to send a preview for `url`.
+    /// A project file comes from the session's project state, never from disk,
+    /// and is `None` if the session has no active project file at `url`.
     #[cfg(all(
         not(target_arch = "wasm32"),
         any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"),
@@ -910,11 +910,16 @@ impl EditorSession {
         &self,
         url: &Url,
         file_access: &std::cell::OnceCell<crate::preview_files::PreviewFileAccess>,
-    ) -> Result<(SourceFileVersion, Vec<u8>), String> {
+    ) -> Result<Option<(SourceFileVersion, Vec<u8>)>, String> {
+        if Self::project_file_source(url).is_some() {
+            return Ok(self
+                .active_project_file_contents(url)
+                .map(|(version, contents)| (version, contents.to_vec())));
+        }
         if let Some(node) = self.document_cache.get_document(url).and_then(|doc| doc.node.as_ref())
         {
             let version = self.document_cache.document_version_by_path(node.source_file.path());
-            return Ok((version, node.text().to_string().into()));
+            return Ok(Some((version, node.text().to_string().into())));
         }
         let path = url.to_file_path().map_err(|()| "not a local file path".to_string())?;
         let file_access = file_access.get_or_init(|| {
@@ -928,7 +933,7 @@ impl EditorSession {
         }
         let contents = std::fs::read(&path)
             .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
-        Ok((None, contents))
+        Ok(Some((None, contents)))
     }
 
     /// Read each font file imported by the `.slint` at `doc_url` and push it

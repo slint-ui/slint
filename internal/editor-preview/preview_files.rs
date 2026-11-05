@@ -204,6 +204,38 @@ mod tests {
         assert_eq!(served, 2, "both requested files should have been served: {recorded:?}");
     }
 
+    #[test]
+    fn refuses_an_inactive_referenced_project_file() {
+        use i_slint_live_preview::protocol::LspToPreviewMessage;
+
+        let project = tempfile::tempdir().unwrap();
+        let project_file = project.path().join(i_slint_compiler::project_file::FILE_NAME);
+        std::fs::write(&project_file, r#"{"edition":"1.19"}"#).unwrap();
+        let main = project.path().join("main.slint");
+        let main_source = r#"
+            export component Main {
+                Image { source: @image-url("slint-project.json"); }
+            }
+        "#;
+        std::fs::write(&main, main_source).unwrap();
+
+        let (capture, recorded) = crate::test::preview_capture();
+        let mut session = crate::test::session_with(empty_document_cache());
+        session.replace_preview_transport(0, capture);
+        crate::test::load(&mut session, &main, main_source);
+        recorded.borrow_mut().clear();
+        assert!(session.document_cache.all_paths_to_watch().contains(&project_file));
+        let url = lsp_types::Url::from_file_path(&project_file).unwrap();
+
+        session.send_files_to_preview(0, std::slice::from_ref(&url));
+
+        let recorded = recorded.borrow();
+        assert!(
+            matches!(recorded.as_slice(), [LspToPreviewMessage::ForgetFile { url: refused }] if refused == &url),
+            "{recorded:?}"
+        );
+    }
+
     // On Windows, such a URL is a UNC path.
     #[cfg(not(windows))]
     #[test]
