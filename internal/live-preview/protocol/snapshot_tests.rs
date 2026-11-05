@@ -101,6 +101,11 @@ fn wire_format_matches_snapshots() {
         id: 7,
         request: vec![1, 2, 3],
     }));
+    for enabled in [true, false] {
+        snapshots.assert_roundtrip(L::DebuggerMessage(DebuggerToPreviewMessage::SetInspectMode {
+            enabled,
+        }));
+    }
     for response in [Ok(vec![1, 2, 3]), Err("disabled".into())] {
         snapshots.assert_roundtrip(P::DebuggerMessage(
             PreviewToDebuggerMessage::SystemTestResponse { id: 7, response },
@@ -111,6 +116,12 @@ fn wire_format_matches_snapshots() {
     ));
     snapshots
         .assert_roundtrip(P::DebuggerMessage(PreviewToDebuggerMessage::Reloaded { success: true }));
+    for source in [Some((url(), 1000)), None] {
+        snapshots.assert_roundtrip(P::DebuggerMessage(PreviewToDebuggerMessage::InspectSelected {
+            handle: (300, 7),
+            source,
+        }));
+    }
 
     let mut sealer = session::Sealer::new([7; 32]);
     let frames = [sealer.seal(b"a".to_vec()).unwrap(), sealer.seal(b"b".to_vec()).unwrap()];

@@ -564,8 +564,12 @@ impl SpringboardTask {
     }
 
     fn send_debugger_message(&mut self, message: DebuggerToPreviewMessage) {
-        let &DebuggerToPreviewMessage::SystemTestRequest { id, .. } = &message;
-        if let Err(error) = self.connection.send_debugger_message(message) {
+        let request_id = match &message {
+            DebuggerToPreviewMessage::SystemTestRequest { id, .. } => Some(*id),
+            DebuggerToPreviewMessage::SetInspectMode { .. } => None,
+        };
+        if let (Err(error), Some(id)) = (self.connection.send_debugger_message(message), request_id)
+        {
             let _ = self.to_debugger.send(PreviewToLspMessage::DebuggerMessage(
                 PreviewToDebuggerMessage::SystemTestResponse { id, response: Err(error) },
             ));
