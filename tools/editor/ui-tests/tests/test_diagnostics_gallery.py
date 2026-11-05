@@ -62,6 +62,12 @@ def test_diagnostics_gallery_uses_preview_only_mock_data(
         else:
             expect(query(pane, "Stale preview")).to_be_hidden()
             expect(query(pane, "Preview unavailable")).to_be_hidden()
+        if scenario in {"Stale", "Unavailable", "ManyErrors", "Imports"}:
+            element(
+                pane,
+                "Toggle advanced error details",
+                role=slint_testing.AccessibleRole.Button,
+            ).invoke_accessible_default_action()
         if scenario == "Imports":
             folder = element(
                 pane,

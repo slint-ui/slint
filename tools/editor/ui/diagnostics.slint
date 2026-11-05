@@ -23,6 +23,7 @@ export global Diagnostics {
     in property <[Diagnostic]> errors: Platform.uses-mock-data ? DiagnosticsMock.errors : [];
     in property <[Diagnostic]> warnings: Platform.uses-mock-data ? DiagnosticsMock.warnings : [];
     in property <bool> compiling;
+    in property <bool> can-undo-change;
     in property <PreviewAvailability> preview-availability: Platform.uses-mock-data ? DiagnosticsMock.availability : PreviewAvailability.Unavailable;
     out property <bool> preview-editable: self.preview-availability == PreviewAvailability.Current;
     out property <bool> preview-status-visible: !self.preview-editable
@@ -36,6 +37,9 @@ export global Diagnostics {
         return { error-count: 0, warning-count: 0 };
     }
     pure callback format-location(diagnostic: Diagnostic) -> string;
+    in property <string> file-name: Platform.uses-mock-data ? "Main.slint" : "";
+    callback open-in-editor();
+    callback undo-change();
     format-location(diagnostic) => {
         if Platform.uses-mock-data {
             return diagnostic.line > 0 ? "\{diagnostic.file}:\{diagnostic.line}:\{diagnostic.column}" : diagnostic.file;

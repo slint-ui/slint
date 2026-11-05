@@ -1,114 +1,177 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Button } from "std-widgets.slint";
+import { ButtonBase } from "../../controls/src/headless.slint";
 import { Diagnostics, Diagnostic, PreviewAvailability } from "../diagnostics.slint";
-import { Project } from "../project.slint";
-import { Style, Colors, Metrics, Typography, PreviewDiagnosticsStyle } from "../style.slint";
-import { Icons } from "icons.slint";
+import { Style, Colors, Metrics, Typography, Theme, ButtonStyle, PaintStyle, PreviewDiagnosticsStyle } from "../style.slint";
+import { DiagnosticBadge } from "icons.slint";
 import { EditorScrollView } from "editor-scroll-view.slint";
+import { FloatingSurface } from "floating-surface.slint";
+
+component DiagnosticAction inherits ButtonBase {
+    in property <ButtonStyle> style: Style.compact-button;
+    in property <bool> quiet;
+    private property <PaintStyle> paint: !root.enabled ? root.style.appearance.disabled
+        : root.pressed ? root.style.appearance.pressed
+        : root.hovered ? root.style.appearance.hover : root.style.appearance.normal;
+    height: root.style.height;
+    background << Rectangle {
+        background: root.quiet && !root.hovered ? transparent : root.paint.background;
+        border-color: root.focus-visible ? Colors.focus : root.quiet ? transparent : root.paint.border;
+        border-width: root.style.border-width;
+        border-radius: root.style.radius;
+    }
+    content << HorizontalLayout {
+        padding-left: root.style.padding-inline;
+        padding-right: root.style.padding-inline;
+        Text {
+            text: root.text;
+            color: root.paint.foreground;
+            font-size: root.style.text.size;
+            font-weight: root.style.text.weight;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+}
 
 export component PreviewDiagnostics inherits Rectangle {
     in property <PreviewDiagnosticsStyle> style: Style.preview-diagnostics;
     private property <bool> empty: Diagnostics.preview-availability == PreviewAvailability.NoComponent;
     private property <bool> stale: Diagnostics.preview-availability == PreviewAvailability.Stale;
     private property <bool> warnings-open;
-    private property <string> title: root.empty ? @tr("Nothing to preview")
-        : root.stale ? @tr("Preview paused") : @tr("Couldn't preview this file");
+    private property <bool> advanced-open;
+    private property <string> file-name: Diagnostics.file-name;
+    changed file-name => { root.advanced-open = false; }
 
     if !Diagnostics.preview-editable: TouchArea { }
 
     if Diagnostics.preview-status-visible: Rectangle {
         background: root.style.veil;
 
-        card := Rectangle {
+        card := FloatingSurface {
             width: max(0px, min(root.style.max-width, root.width - 2 * root.style.margin));
             height: min(content.preferred-height, max(0px, root.height - 2 * root.style.margin));
             x: (parent.width - self.width) / 2;
             y: (parent.height - self.height) / 2;
-            background: root.style.background;
-            border-color: root.empty ? root.style.border : Colors.danger.with-alpha(0.5);
-            border-width: Metrics.border-width;
             border-radius: root.style.radius;
             accessible-role: AccessibleRole.region;
             accessible-label: root.empty ? @tr("No component to preview") : root.stale ? @tr("Stale preview") : @tr("Preview unavailable");
 
             content := VerticalLayout {
                 padding: root.style.padding;
-                spacing: Metrics.space-medium;
+                spacing: Metrics.space-large;
                 HorizontalLayout {
-                    spacing: Metrics.space-small;
+                    spacing: Metrics.space-medium;
                     cross-axis-alignment: center;
-                    if !root.empty: Image {
-                        source: Icons.alert;
-                        width: Metrics.icon-small;
-                        height: Metrics.icon-small;
-                        colorize: Colors.danger;
+                    if !root.empty: Rectangle {
+                        width: 32px;
+                        height: 34px;
+                        Image {
+                            x: 0px; y: 0px;
+                            source: @image-url("../assets/primer-file-code.svg");
+                            width: 27px;
+                            height: 28px;
+                            colorize: root.style.muted;
+                        }
+                        DiagnosticBadge {
+                            x: 18px; y: 18px;
+                            width: 16px; height: 16px;
+                            icon-inset: 2px;
+                            background: Style.floating-surface.background;
+                        }
                     }
                     Text {
                         horizontal-stretch: 1;
-                        text: root.title;
+                        text: root.empty ? @tr("Nothing to preview") : root.file-name;
                         color: root.style.foreground;
-                        font-size: Typography.body.size;
+                        font-size: Typography.heading.size;
                         font-weight: 600;
-                        wrap: word-wrap;
+                        wrap: char-wrap;
                     }
                 }
                 Text {
                     text: root.empty
                         ? @tr("No component is available for this preview. Select another file or component to continue.")
-                        : root.stale
-                        ? @tr("Showing the last successful render. Fix the errors below to resume editing.")
-                        : @tr("Fix the errors below. The preview will update automatically when the file compiles.");
-                    color: root.style.muted;
-                    font-size: Typography.body.size;
-                    wrap: word-wrap;
-                }
-                Text {
-                    text: Project.selected-project-file;
-                    color: root.style.muted;
-                    font-size: Typography.body.size;
-                    wrap: char-wrap;
-                }
-                if !root.empty: details := EditorScrollView {
-                    height: min(errors.preferred-height, root.style.max-details-height, max(40px, root.height - 260px));
-                    content-width: self.width;
-                    content-height: errors.preferred-height;
-                    horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
-                    vertical-scrollbar-policy: ScrollBarPolicy.as-needed;
-                    errors := VerticalLayout {
-                        width: details.width;
-                        spacing: Metrics.space-medium;
-                        for index in min(3, Diagnostics.errors.length): VerticalLayout {
-                            private property <Diagnostic> diagnostic: Diagnostics.errors[index];
-                            spacing: Metrics.space-tight;
-                            Text {
-                                text: Diagnostics.format-location(diagnostic);
-                                color: root.style.muted;
-                                font-size: Typography.body.size;
-                                wrap: char-wrap;
-                            }
-                            Text {
-                                text: diagnostic.message;
-                                color: root.style.foreground;
-                                font-size: Typography.body.size;
-                                wrap: word-wrap;
-                            }
-                        }
-                    }
-                }
-                if !root.empty && Diagnostics.errors.length > 3: Text {
-                    text: "\{Diagnostics.errors.length - 3} more errors. Copy diagnostics to see all messages.";
+                        : @tr("This file has an error and can’t be displayed.");
                     color: root.style.muted;
                     font-size: Typography.body.size;
                     wrap: word-wrap;
                 }
                 if !root.empty: HorizontalLayout {
-                    alignment: start;
-                    Button {
-                        text: @tr("Copy diagnostics");
-                        accessible-label: @tr("Copy preview diagnostics");
-                        clicked => { Diagnostics.copy-to-clipboard(); }
+                    spacing: Metrics.space-regular;
+                    cross-axis-alignment: center;
+                    if Diagnostics.can-undo-change: DiagnosticAction {
+                        text: @tr("Undo change");
+                        style: Style.primary-button;
+                        clicked => { Diagnostics.undo-change(); }
+                    }
+                    Rectangle { horizontal-stretch: 1; }
+                    DiagnosticAction {
+                        text: @tr("Advanced…");
+                        quiet: true;
+                        accessible-label: @tr("Toggle advanced error details");
+                        clicked => { root.advanced-open = !root.advanced-open; }
+                    }
+                }
+                if !root.empty && root.advanced-open: Rectangle {
+                    height: advanced.preferred-height;
+                    background: Theme.surfaces.recessed;
+                    border-radius: Metrics.radius-medium;
+                    advanced := VerticalLayout {
+                        padding: Metrics.space-large;
+                        spacing: Metrics.space-medium;
+                        Text {
+                            text: @tr("Error details");
+                            color: root.style.foreground;
+                            font-size: Typography.control.size;
+                            font-weight: 600;
+                        }
+                        details := EditorScrollView {
+                            height: min(errors.preferred-height, root.style.max-details-height, max(40px, root.height - 320px));
+                            content-width: self.width;
+                            content-height: errors.preferred-height;
+                            horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
+                            vertical-scrollbar-policy: ScrollBarPolicy.as-needed;
+                            errors := VerticalLayout {
+                                width: details.width;
+                                spacing: Metrics.space-medium;
+                                for index in min(3, Diagnostics.errors.length): VerticalLayout {
+                                    private property <Diagnostic> diagnostic: Diagnostics.errors[index];
+                                    spacing: Metrics.space-small;
+                                    Text {
+                                        text: Diagnostics.format-location(diagnostic);
+                                        color: root.style.muted;
+                                        font-size: Typography.caption.size;
+                                        wrap: char-wrap;
+                                    }
+                                    Text {
+                                        text: diagnostic.message;
+                                        color: root.style.foreground;
+                                        font-size: Typography.control.size;
+                                        wrap: word-wrap;
+                                    }
+                                }
+                            }
+                        }
+                        if Diagnostics.errors.length > 3: Text {
+                            text: "\{Diagnostics.errors.length - 3} more errors. Copy diagnostics to see all messages.";
+                            color: root.style.muted;
+                            font-size: Typography.control.size;
+                            wrap: word-wrap;
+                        }
+                        FlexboxLayout {
+                            spacing: Metrics.space-regular;
+                            DiagnosticAction {
+                                text: @tr("Copy diagnostics");
+                                accessible-label: @tr("Copy preview diagnostics");
+                                clicked => { Diagnostics.copy-to-clipboard(); }
+                            }
+                            DiagnosticAction {
+                                text: @tr("Open in editor");
+                                clicked => { Diagnostics.open-in-editor(); }
+                            }
+                        }
                     }
                 }
             }
@@ -140,12 +203,12 @@ export component PreviewDiagnostics inherits Rectangle {
                     font-size: Typography.body.size;
                     wrap: word-wrap;
                 }
-                Button {
+                DiagnosticAction {
                     text: root.warnings-open ? @tr("Hide") : @tr("Details");
                     accessible-label: @tr("Toggle preview warning details");
                     clicked => { root.warnings-open = !root.warnings-open; }
                 }
-                Button {
+                DiagnosticAction {
                     text: @tr("Copy");
                     accessible-label: @tr("Copy preview diagnostics");
                     clicked => { Diagnostics.copy-to-clipboard(); }

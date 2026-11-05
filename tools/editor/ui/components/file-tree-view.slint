@@ -4,7 +4,7 @@
 import { Style, Colors, Metrics, TreeStyle } from "../style.slint";
 import { EditorInput } from "editor-input.slint";
 import { FileTreeIcons } from "file-tree-icons.slint";
-import { Icons } from "icons.slint";
+import { Icons, DiagnosticBadge } from "icons.slint";
 
 import { Api, FileTreeNode, FileTreeNodeKind } from "../api.slint";
 import { Project } from "../project.slint";
@@ -173,19 +173,13 @@ component FileTreeRow inherits Rectangle {
                             : FileTreeIcons.file-code;
                         colorize: root.folder ? root.style.row.directory-icon : root.style.row.muted;
                     }
-                    if root.diagnostic-summary.error-count > 0 || root.diagnostic-summary.warning-count > 0: Rectangle {
+                    if root.diagnostic-summary.error-count > 0 || root.diagnostic-summary.warning-count > 0: DiagnosticBadge {
                         x: parent.width - self.width + 2px;
                         y: parent.height - self.height + 2px;
                         width: 11px;
                         height: 11px;
-                        border-radius: self.width / 2;
                         background: root.style.row.selected-background;
-                        Image {
-                            source: Icons.alert;
-                            width: parent.width;
-                            height: parent.height;
-                            colorize: root.diagnostic-summary.error-count > 0 ? Colors.danger : Colors.warning;
-                        }
+                        foreground: root.diagnostic-summary.error-count > 0 ? Colors.danger : Colors.warning;
                     }
                 }
 

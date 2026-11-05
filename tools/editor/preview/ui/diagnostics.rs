@@ -25,6 +25,7 @@ pub fn setup(global: &ui::Diagnostics<'_>) {
         .into(),
     );
     global.on_format_location(|diagnostic| format_location(&diagnostic, project_root().as_deref()));
+    global.on_undo_change(crate::preview::undo_redo::undo_failed_change);
     let global_weak = <ui::Diagnostics as slint::Global<'_, ui::EditorUi>>::as_weak(global);
     global.on_file_diagnostics({
         let global_weak = global_weak.clone();
@@ -35,11 +36,51 @@ pub fn setup(global: &ui::Diagnostics<'_>) {
                 .unwrap_or_default()
         }
     });
+    global.on_open_in_editor({
+        let global_weak = global_weak.clone();
+        move || {
+            let Some(global) = global_weak.upgrade() else { return };
+            let path = global
+                .get_errors()
+                .iter()
+                .find_map(|diagnostic| {
+                    (!diagnostic.file.is_empty()).then(|| PathBuf::from(diagnostic.file.as_str()))
+                })
+                .or_else(|| {
+                    crate::preview::PREVIEW_STATE
+                        .with_borrow(|state| state.current_component()?.url.to_file_path().ok())
+                });
+            let Some(path) = path else { return };
+            let path = if path.is_absolute() {
+                path
+            } else {
+                project_root().unwrap_or_default().join(path)
+            };
+            open_in_editor(&path);
+        }
+    });
     global.on_copy_to_clipboard(move || {
         if let Some(global) = global_weak.upgrade() {
             copy_to_clipboard(&global);
         }
     });
+}
+
+fn open_in_editor(path: &Path) {
+    #[cfg(target_os = "macos")]
+    let mut command = {
+        let mut command = std::process::Command::new("open");
+        command.arg("-t");
+        command
+    };
+    #[cfg(target_os = "windows")]
+    let mut command = std::process::Command::new("notepad");
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    let mut command = std::process::Command::new("xdg-open");
+
+    if let Err(error) = command.arg(path).spawn() {
+        tracing::warn!("Failed to open {} in a text editor: {error}", path.display());
+    }
 }
 
 fn file_diagnostics(
@@ -194,6 +235,10 @@ pub(in crate::preview) fn set_compilation_diagnostics(
         diagnostics.retain(|diagnostic| !is_no_component_diagnostic(diagnostic));
     }
     crate::preview::PREVIEW_STATE.with_borrow_mut(|preview_state| {
+        crate::preview::undo_redo::compilation_finished(
+            preview_state,
+            !has_component && !no_component,
+        );
         if no_component {
             preview_state.clear_preview();
             preview_state.set_preview_availability(ui::PreviewAvailability::NoComponent);

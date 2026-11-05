@@ -71,6 +71,11 @@ def test_broken_preview_reports_locations_blocks_edits_and_recovers(
             )
         )
         assert "errors" in file_row(window, fixture_project).accessible_description
+        element(
+            card,
+            "Toggle advanced error details",
+            role=slint_testing.AccessibleRole.Button,
+        ).invoke_accessible_default_action()
         labels = [
             element.accessible_label for element in card.query_descendants().find_all()
         ]

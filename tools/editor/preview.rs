@@ -296,6 +296,7 @@ pub struct PreviewState {
     initial_live_data: preview_data::PreviewDataMap,
     current_live_data: preview_data::PreviewDataMap,
     undo_redo_stack: undo_redo::UndoRedoStack,
+    preview_recovery: Option<undo_redo::PreviewRecovery>,
     pending_history: std::collections::VecDeque<bool>,
     inspector_edit: Option<inspector::Edit>,
     text_edit_session: Option<inline_text_edit::Session>,
@@ -343,6 +344,12 @@ impl PreviewState {
             self.dependencies.clear();
         }
         self.dependencies.insert(component.url.clone());
+        if let Some(editor) = &self.editor_ui {
+            let path = SourcePath::from_url(&component.url);
+            editor
+                .global::<ui::Diagnostics>()
+                .set_file_name(path.file_name().unwrap_or_default().into());
+        }
         self.current_previewed_component = Some(component);
     }
 
@@ -363,6 +370,10 @@ impl PreviewState {
     }
 
     fn clear_preview(&mut self) {
+        self.preview_recovery = None;
+        if let Some(editor) = &self.editor_ui {
+            editor.global::<ui::Diagnostics>().set_can_undo_change(false);
+        }
         self.property_range_declarations = None;
         self.handle.replace(None);
         self.document_cache.replace(None);
@@ -2057,6 +2068,12 @@ enum CompilationResult {
 
 pub(super) fn workspace_edit_finished(edit: lsp_types::WorkspaceEdit, applied: bool) {
     let _ = slint::invoke_from_event_loop(move || {
+        if !applied {
+            PREVIEW_STATE.with_borrow_mut(|state| {
+                state.preview_recovery = None;
+                undo_redo::set_undo_redo_enabled(state);
+            });
+        }
         project_file::workspace_edit_finished(&edit, applied);
         if !inline_text_edit::workspace_edit_finished(&edit, applied) && !applied {
             PREVIEW_STATE.with_borrow_mut(|state| state.workspace_edit_sent = false);
@@ -2113,6 +2130,8 @@ fn send_workspace_edit(label: String, edit: lsp_types::WorkspaceEdit, test_edit:
             tracing::debug!(%label, "Preview: rejecting an edit while another is pending");
             return false;
         }
+        preview_state.preview_recovery =
+            undo_redo::recovery_candidate(preview_state, reverse_edit.as_ref(), &file_hashes);
         preview_state.undo_redo_stack.push(label.clone(), reverse_edit, file_hashes);
         preview_state.workspace_edit_sent = true;
         undo_redo::set_undo_redo_enabled(preview_state);
@@ -2420,6 +2439,7 @@ async fn reload_timer_function(project_generation: u64) {
 fn preview_instance_ready() {
     let (selection, notify_editor) = PREVIEW_STATE.with_borrow_mut(|state| {
         state.workspace_edit_sent = false;
+        undo_redo::set_undo_redo_enabled(state);
         (
             state
                 .text_edit_session
@@ -2490,6 +2510,9 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
         behavior
     );
     PREVIEW_STATE.with_borrow_mut(|preview_state| {
+        if let Some(editor) = &preview_state.editor_ui {
+            editor.global::<ui::Diagnostics>().set_can_undo_change(false);
+        }
         match behavior {
             LoadBehavior::Reload => {
                 if preview_state.component_instance().is_some() {
@@ -3588,12 +3611,21 @@ mod tests {
         let (diagnostics, compiled, open_import_callback, source_file_versions, no_component) =
             spin_on::spin_on(parse_source(
                 Default::default(),
-                path,
+                path.clone(),
                 Some(24),
                 source_available.then(|| source.into()),
                 "fluent".into(),
                 requested.component.clone(),
-                |_| Box::pin(async { Some(Err(std::io::ErrorKind::NotFound.into())) }),
+                move |requested_path| {
+                    let missing = !source_available && requested_path == path;
+                    Box::pin(async move {
+                        Some(if missing {
+                            Err(std::io::ErrorKind::NotFound.into())
+                        } else {
+                            get_path_from_cache(&requested_path)
+                        })
+                    })
+                },
             ));
         let mut diagnostics = test::without_info(diagnostics);
         let loaded_component_name = compiled.as_ref().map(|compiled| compiled.name().to_string());
@@ -3616,6 +3648,155 @@ mod tests {
                 state.current_previewed_component.as_mut().unwrap().component = Some(name);
             });
         }
+    }
+
+    struct RecoveryFixture {
+        editor: ui::EditorUi,
+        directory: tempfile::TempDir,
+        messages: Rc<RefCell<Vec<PreviewToLspMessage>>>,
+    }
+
+    impl RecoveryFixture {
+        fn new() -> Self {
+            let editor = availability_test_editor();
+            undo_redo::setup(&editor.global::<ui::Api>());
+            let directory = tempfile::tempdir().unwrap();
+            let manifest = directory.path().join("slint-project.json");
+            let contents = r#"{"edition":"1.19"}"#;
+            fs::write(&manifest, contents).unwrap();
+            let messages = Rc::new(RefCell::new(Vec::new()));
+            PREVIEW_STATE.with_borrow_mut(|state| {
+                state.current_project_root =
+                    Some(Url::from_directory_path(directory.path()).unwrap());
+                state.config.format_utf8 = true;
+                state.source_code.insert(
+                    Url::from_file_path(manifest).unwrap(),
+                    SourceCodeCacheEntry { version: None, code: contents.into() },
+                );
+                *state.to_lsp.borrow_mut() =
+                    Some(Rc::new(CapturePreviewToLsp { messages: messages.clone() }));
+            });
+            Self { editor, directory, messages }
+        }
+
+        fn load(&self, name: &str, source: &str) -> Url {
+            let url = Url::from_file_path(self.directory.path().join(name)).unwrap();
+            PREVIEW_STATE.with_borrow_mut(|state| {
+                state.set_current_component(PreviewComponent { url: url.clone(), component: None });
+            });
+            self.change(&url, source);
+            url
+        }
+
+        fn change(&self, url: &Url, source: &str) {
+            fs::write(url.to_file_path().unwrap(), source).unwrap();
+            set_contents(&VersionedUrl::new(url.clone(), None), source.into());
+            self.reload();
+        }
+
+        fn reload(&self) {
+            let source = PREVIEW_STATE.with_borrow_mut(|state| {
+                state.loading_state = PreviewFutureState::Loading;
+                state.current_load_behavior = None;
+                state.preview_loading_delay_timer = None;
+                state.source_code[&state.current_component().unwrap().url].code.clone()
+            });
+            apply_availability_test_source(&self.editor, &source, true);
+            PREVIEW_STATE
+                .with_borrow_mut(|state| state.loading_state = PreviewFutureState::Pending);
+            preview_instance_ready();
+        }
+
+        fn submit_unchecked(&self, url: &Url, source: &str) {
+            let original = fs::read_to_string(url.to_file_path().unwrap()).unwrap();
+            let edit = i_slint_editor_preview::editing::create_workspace_edit(
+                url.clone(),
+                None,
+                vec![lsp_types::TextEdit::new(
+                    lsp_types::Range::new(
+                        lsp_types::Position::new(0, 0),
+                        lsp_types::Position::new(0, original.len() as u32),
+                    ),
+                    source.into(),
+                )],
+            );
+            assert!(send_workspace_edit("Change file".into(), edit, false));
+            self.apply_edit();
+        }
+
+        fn apply_edit(&self) {
+            let edit = self
+                .messages
+                .borrow()
+                .iter()
+                .find_map(|message| match message {
+                    PreviewToLspMessage::SendWorkspaceEdit { edit, .. } => Some(edit.clone()),
+                    _ => None,
+                })
+                .unwrap();
+            self.messages.as_ref().borrow_mut().clear();
+            let edited = text_edit::apply_workspace_edit_with_source(
+                &edit,
+                i_slint_editor_preview::ByteFormat::Utf8,
+                |url| {
+                    let path = SourcePath::from_url(url);
+                    Some(std::sync::Arc::new(i_slint_compiler::diagnostics::SourceFileInner::new(
+                        path.clone(),
+                        path.read_to_string().ok()?,
+                    )))
+                },
+            )
+            .unwrap();
+            for edit in edited {
+                self.change(&edit.url, &edit.contents);
+            }
+        }
+    }
+
+    impl Drop for RecoveryFixture {
+        fn drop(&mut self) {
+            reset_preview_state(Default::default());
+        }
+    }
+
+    #[test]
+    fn app_edit_failure_can_undo_the_failed_change() {
+        let fixture = RecoveryFixture::new();
+        let original = "export component Main inherits Window { width: 100px; }";
+        let url = fixture.load("Main.slint", original);
+        let diagnostics = fixture.editor.global::<ui::Diagnostics>();
+        assert_eq!(diagnostics.get_preview_availability(), ui::PreviewAvailability::Current);
+        fixture.submit_unchecked(&url, "export component Main inherits Window { unknown: 1; }");
+        assert_eq!(diagnostics.get_preview_availability(), ui::PreviewAvailability::Stale);
+        assert!(diagnostics.get_can_undo_change());
+        diagnostics.invoke_undo_change();
+        fixture.apply_edit();
+        assert_eq!(fs::read_to_string(url.to_file_path().unwrap()).unwrap(), original);
+        assert_eq!(diagnostics.get_preview_availability(), ui::PreviewAvailability::Current);
+        assert!(!diagnostics.get_can_undo_change());
+    }
+
+    #[test]
+    fn external_failure_does_not_offer_unrelated_undo() {
+        let fixture = RecoveryFixture::new();
+        let other = Url::from_file_path(fixture.directory.path().join("Other.slint")).unwrap();
+        let dependency = "export component Other inherits Rectangle {}";
+        fs::write(other.to_file_path().unwrap(), dependency).unwrap();
+        set_contents(&VersionedUrl::new(other.clone(), None), dependency.into());
+        let original = "import { Other } from \"Other.slint\"; export component Main inherits Window { width: 100px; Other {} }";
+        let edited = original.replace("100px", "200px");
+        let url = fixture.load("Main.slint", original);
+        fixture.submit_unchecked(&url, &edited);
+        fixture.change(&other, "export component Other inherits Rectangle { unknown: 1; }");
+        let diagnostics = fixture.editor.global::<ui::Diagnostics>();
+        assert_eq!(diagnostics.get_preview_availability(), ui::PreviewAvailability::Stale);
+        assert!(fixture.editor.global::<ui::Api>().get_undo_enabled());
+        assert!(!diagnostics.get_can_undo_change());
+        fixture.messages.as_ref().borrow_mut().clear();
+        diagnostics.invoke_undo_change();
+        assert!(fixture.messages.as_ref().borrow().is_empty());
+        assert!(fixture.editor.global::<ui::Api>().get_undo_enabled());
+        assert_eq!(fs::read_to_string(url.to_file_path().unwrap()).unwrap(), edited);
     }
 
     #[test]

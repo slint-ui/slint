@@ -324,7 +324,6 @@ export struct PreviewDiagnosticsStyle {
     background: color,
     foreground: color,
     muted: color,
-    border: color,
     veil: color,
 }
 
@@ -1557,10 +1556,10 @@ export global Style {
     out property <brush> brightness-spectrum: @linear-gradient(0deg, black, transparent);
 
     out property <PreviewDiagnosticsStyle> preview-diagnostics: {
+        radius: Metrics.radius-large,
         background: Colors.surface,
         foreground: Colors.foreground,
         muted: Colors.muted,
-        border: Colors.border,
         veil: Colors.background.with-alpha(0.72),
     };
     out property <ScrollIndicatorStyle> scroll-indicator: {
