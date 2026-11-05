@@ -1142,15 +1142,10 @@ export component AppWindow inherits Window {
                 spacing: 10px;
                 VerticalLayout {
                     horizontal-stretch: 1;
+                    alignment: center;
                     Flaps {
                         text: "WHERE TO?";
                         size: root.narrow ? 17px : 21px;
-                    }
-
-                    Text {
-                        text: root.kiosk ? "Random flights, or pick your own" : "Pick the airports, then take off";
-                        color: Theme.muted;
-                        font-size: 12px;
                     }
                 }
 
