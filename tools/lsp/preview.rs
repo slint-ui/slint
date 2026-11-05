@@ -15,6 +15,7 @@ use crate::editor_preview::{
 };
 use crate::preview::element_selection::ElementSelection;
 use crate::util;
+use i_slint_compiler::object_tree::ElementLocation;
 use i_slint_compiler::parser::{TextSize, syntax_nodes};
 use i_slint_compiler::source_path::SourcePath;
 use i_slint_compiler::{EmbedResourcesKind, diagnostics};
@@ -1017,16 +1018,15 @@ fn resize_selected_element_impl(
     let component_instance = component_instance()?;
 
     // They all have the same size anyway:
-    let (path, offset) = element_node.path_and_offset();
+    let ElementLocation { path, offset } = element_node.location();
     let geometry = element_node.geometries(&component_instance).get(instance_index).cloned()?.rect;
 
     let position = rect.origin;
     let parent = element_node
         .parent()
         .and_then(|parent_element| {
-            let (parent_path, parent_offset) = parent_element.path_and_offset();
-            component_instance
-                .component_positions(&parent_path, parent_offset.into())
+            parent_element
+                .geometries(&component_instance)
                 .iter()
                 .find(|geometry| geometry.contains(position))
                 .map(|geometry| geometry.rect.origin)

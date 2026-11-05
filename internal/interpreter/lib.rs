@@ -111,6 +111,7 @@ mod prelude {
 mod api;
 mod bindings;
 mod component;
+#[cfg(feature = "std")]
 mod debug_hook;
 mod erased;
 mod eval;
