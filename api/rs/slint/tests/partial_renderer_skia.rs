@@ -70,11 +70,60 @@ impl SkiaTestWindow {
         let pixels = pixels.as_ref().unwrap();
         pixels.as_slice()[(y * pixels.width() + x) as usize]
     }
-    fn last_dirty_region_bounding_box_origin(&self) -> Option<slint::LogicalPosition> {
-        self.render_buffer.last_dirty_region.borrow().as_ref().map(|r| {
-            let origin = r.bounding_rect().origin;
-            slint::LogicalPosition::new(origin.x as _, origin.y as _)
-        })
+}
+
+/// Creates a component with `create` and shows it in the Skia test window, after a first full frame.
+fn show_in_skia_window<T: slint::ComponentHandle>(
+    create: impl FnOnce() -> Result<T, PlatformError>,
+    width: u32,
+    height: u32,
+) -> (T, Rc<SkiaTestWindow>) {
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+    let window = SKIA_WINDOW.with(|w| w.clone());
+    let ui = create().unwrap();
+    window.set_size(slint::PhysicalSize::new(width, height).into());
+    ui.show().unwrap();
+    assert!(window.draw_if_needed());
+    assert_eq!(
+        window.last_dirty_region_bounding_box_size(),
+        Some(slint::LogicalSize::new(width as f32, height as f32))
+    );
+    assert!(!window.draw_if_needed());
+    (ui, window)
+}
+
+/// A color the renderer never writes, as it's not opaque.
+const MARKER: slint::Rgba8Pixel = slint::Rgba8Pixel::new(1, 2, 3, 4);
+
+/// Asserts that the next frame repaints exactly the pixels in `rects` (x, y, width, height),
+/// like a full repaint, and that the frame after repaints nothing.
+#[track_caller]
+fn assert_skia_repaints(window: &SkiaTestWindow, rects: &[(u32, u32, u32, u32)]) {
+    let pixels = || window.render_buffer.pixels.borrow().clone().unwrap();
+    let before = pixels();
+    window.render_buffer.pixels.borrow_mut().as_mut().unwrap().make_mut_slice().fill(MARKER);
+    assert!(window.draw_if_needed());
+    let partial = pixels();
+    assert!(!window.draw_if_needed());
+
+    *window.render_buffer.pixels.borrow_mut() = None;
+    window.window.request_redraw();
+    assert!(window.draw_if_needed());
+    let full = pixels();
+
+    let width = full.width();
+    let pixels = partial.as_slice().iter().zip(full.as_slice()).zip(before.as_slice());
+    for (i, ((partial, full), before)) in pixels.enumerate() {
+        let (x, y) = (i as u32 % width, i as u32 / width);
+        if rects
+            .iter()
+            .any(|&(rx, ry, rw, rh)| (rx..rx + rw).contains(&x) && (ry..ry + rh).contains(&y))
+        {
+            assert_eq!(partial, full, "({x}, {y}) should be repainted like in a full repaint");
+        } else {
+            assert_eq!(*partial, MARKER, "({x}, {y}) shouldn't be repainted");
+            assert_eq!(before, full, "({x}, {y}) should be unchanged");
+        }
     }
 }
 
@@ -173,48 +222,16 @@ fn rotated_image() {
         }
     }
 
-    slint::platform::set_platform(Box::new(TestPlatform)).ok();
-
-    let window = SKIA_WINDOW.with(|w| w.clone());
-    let ui = Ui::new().unwrap();
-    window.set_size(slint::PhysicalSize::new(250, 250).into());
-    ui.show().unwrap();
-
-    assert!(window.draw_if_needed());
-    assert_eq!(
-        window.last_dirty_region_bounding_box_size(),
-        Some(slint::LogicalSize { width: 250., height: 250. })
-    );
-    assert_eq!(
-        window.last_dirty_region_bounding_box_origin(),
-        Some(slint::LogicalPosition { x: 0., y: 0. })
-    );
-
-    assert!(!window.draw_if_needed());
+    let (ui, window) = show_in_skia_window(Ui::new, 250, 250);
 
     ui.set_x_pos(51.);
 
-    assert!(window.draw_if_needed());
-    assert_eq!(
-        window.last_dirty_region_bounding_box_size(),
-        Some(slint::LogicalSize { width: 51., height: 150. })
-    );
-    assert_eq!(
-        window.last_dirty_region_bounding_box_origin(),
-        Some(slint::LogicalPosition { x: 50., y: 50. })
-    );
+    assert_skia_repaints(&window, &[(50, 50, 51, 150)]);
 
     ui.set_rotation(90.);
 
-    assert!(window.draw_if_needed());
-    assert_eq!(
-        window.last_dirty_region_bounding_box_size(),
-        Some(slint::LogicalSize { width: 150., height: 150. })
-    );
-    assert_eq!(
-        window.last_dirty_region_bounding_box_origin(),
-        Some(slint::LogicalPosition { x: 1., y: 50. })
-    );
+    // The rotated rect starts at y = 99.99999, which rounds out to row 99.
+    assert_skia_repaints(&window, &[(51, 50, 50, 150), (1, 99, 150, 51)]);
 }
 
 #[test]
@@ -237,45 +254,22 @@ fn shadow_redraw_beyond_geometry() {
         }
     }
 
-    slint::platform::set_platform(Box::new(TestPlatform)).ok();
-
-    let window = SKIA_WINDOW.with(|w| w.clone());
-    let ui = Ui::new().unwrap();
-    window.set_size(slint::PhysicalSize::new(250, 250).into());
-    ui.show().unwrap();
-
-    assert!(window.draw_if_needed());
-    assert_eq!(
-        window.last_dirty_region_bounding_box_size(),
-        Some(slint::LogicalSize { width: 250., height: 250. })
-    );
-    assert_eq!(
-        window.last_dirty_region_bounding_box_origin(),
-        Some(slint::LogicalPosition { x: 0., y: 0. })
-    );
-
-    assert!(!window.draw_if_needed());
+    let (ui, window) = show_in_skia_window(Ui::new, 250, 250);
 
     ui.set_x_pos(20.);
 
-    assert!(window.draw_if_needed());
+    let shadow_size = /* rect size */ 20 + 2 * /* blur */ 5;
+    let old_shadow_x = /* rect x */ 10 + /* shadow offset */ 15 - /* blur */ 5;
+    let shadow_y = /* rect y */ 10 + /* shadow offset */ 5 - /* blur */ 5;
+    let new_shadow_x = old_shadow_x + /* move */ 10;
 
-    let shadow_width = /* rect width */ 20. + 2. * /* blur */ 5.;
-    let move_delta = 10.;
-    let shadow_height = /* rect height */ 20. + 2. * /*blur */ 5.;
-
-    let old_rect_x = 10.;
-    let old_shadow_x = old_rect_x + /* shadow offset */ 15. - /* blur */ 5.;
-    let old_shadow_y = /* rect y */ 10. + /* shadow offset */ 5. - /* blur */ 5.;
-    let new_shadow_right = old_shadow_x + move_delta + shadow_width;
-
-    assert_eq!(
-        window.last_dirty_region_bounding_box_size(),
-        Some(slint::LogicalSize { width: new_shadow_right - old_rect_x, height: shadow_height })
-    );
-    assert_eq!(
-        window.last_dirty_region_bounding_box_origin(),
-        Some(slint::LogicalPosition { x: old_rect_x, y: old_shadow_y })
+    assert_skia_repaints(
+        &window,
+        &[
+            (10, 10, 20, 20),
+            (old_shadow_x, shadow_y, shadow_size, shadow_size),
+            (new_shadow_x, shadow_y, shadow_size, shadow_size),
+        ],
     );
 }
 
@@ -303,36 +297,16 @@ fn backdrop_blur_redraws_as_a_whole() {
         }
     }
 
-    slint::platform::set_platform(Box::new(TestPlatform)).ok();
-
-    let window = SKIA_WINDOW.with(|w| w.clone());
-    let ui = Ui::new().unwrap();
-    window.set_size(slint::PhysicalSize::new(250, 250).into());
-    ui.show().unwrap();
-
-    assert!(window.draw_if_needed());
-    assert!(!window.draw_if_needed());
+    let (ui, window) = show_in_skia_window(Ui::new, 250, 250);
 
     // Moving far from the blur only repaints the old and new position.
     ui.set_x_pos(20.);
-    assert!(window.draw_if_needed());
-    assert_eq!(
-        window.last_dirty_region_bounding_box_size(),
-        Some(slint::LogicalSize { width: 20., height: 10. })
-    );
+    assert_skia_repaints(&window, &[(10, 20, 20, 10)]);
 
     // Moving next to the blur, within the 3 * 4px it samples beyond its edges, repaints the
     // whole blur and that margin (clipped to the window at the top).
     ui.set_x_pos(30.);
-    assert!(window.draw_if_needed());
-    assert_eq!(
-        window.last_dirty_region_bounding_box_origin(),
-        Some(slint::LogicalPosition { x: 20., y: 0. })
-    );
-    assert_eq!(
-        window.last_dirty_region_bounding_box_size(),
-        Some(slint::LogicalSize { width: 142., height: 62. })
-    );
+    assert_skia_repaints(&window, &[(20, 20, 20, 10), (38, 0, 124, 62)]);
 }
 
 #[test]
@@ -355,13 +329,7 @@ fn backdrop_blur_opacity_over_translucent_backdrop() {
         }
     }
 
-    slint::platform::set_platform(Box::new(TestPlatform)).ok();
-
-    let window = SKIA_WINDOW.with(|w| w.clone());
-    let ui = Ui::new().unwrap();
-    window.set_size(slint::PhysicalSize::new(250, 250).into());
-    ui.show().unwrap();
-    assert!(window.draw_if_needed());
+    let (_ui, window) = show_in_skia_window(Ui::new, 250, 250);
 
     // Blurring and fading a uniform backdrop leaves it as it is, inside and outside the blur.
     let expected = slint::Rgba8Pixel { r: 64, g: 64, b: 64, a: 64 };
@@ -402,27 +370,11 @@ fn backdrop_blur_redraws_as_a_whole_for_a_removed_item() {
         }
     }
 
-    slint::platform::set_platform(Box::new(TestPlatform)).ok();
-
-    let window = SKIA_WINDOW.with(|w| w.clone());
-    let ui = Ui::new().unwrap();
-    window.set_size(slint::PhysicalSize::new(250, 250).into());
-    ui.show().unwrap();
-
-    assert!(window.draw_if_needed());
-    assert!(!window.draw_if_needed());
+    let (ui, window) = show_in_skia_window(Ui::new, 250, 250);
 
     // The removed rectangle overlaps the blur, so the whole blur and its 3 * 4px margin repaint.
     ui.set_show(false);
-    assert!(window.draw_if_needed());
-    assert_eq!(
-        window.last_dirty_region_bounding_box_origin(),
-        Some(slint::LogicalPosition { x: 38., y: 38. })
-    );
-    assert_eq!(
-        window.last_dirty_region_bounding_box_size(),
-        Some(slint::LogicalSize { width: 132., height: 64. })
-    );
+    assert_skia_repaints(&window, &[(38, 38, 124, 64), (140, 60, 30, 10)]);
 }
 
 #[test]
@@ -456,29 +408,13 @@ fn backdrop_blur_redraws_for_changes_outside_its_clip() {
         }
     }
 
-    slint::platform::set_platform(Box::new(TestPlatform)).ok();
-
-    let window = SKIA_WINDOW.with(|w| w.clone());
-    let ui = Ui::new().unwrap();
-    window.set_size(slint::PhysicalSize::new(250, 250).into());
-    ui.show().unwrap();
-
-    assert!(window.draw_if_needed());
-    assert!(!window.draw_if_needed());
+    let (ui, window) = show_in_skia_window(Ui::new, 250, 250);
 
     // The red rectangle is outside the clip, but within the 3 * 4px the blur samples beyond it.
     // Everything the blur samples is repainted, including the parts outside of the clip,
     // so that the blur doesn't read the previous frame's pixels there.
     ui.set_x_pos(35.);
-    assert!(window.draw_if_needed());
-    assert_eq!(
-        window.last_dirty_region_bounding_box_origin(),
-        Some(slint::LogicalPosition { x: 30., y: 38. })
-    );
-    assert_eq!(
-        window.last_dirty_region_bounding_box_size(),
-        Some(slint::LogicalSize { width: 132., height: 64. })
-    );
+    assert_skia_repaints(&window, &[(30, 60, 15, 10), (38, 38, 124, 64)]);
 }
 
 #[test]
@@ -498,36 +434,11 @@ fn text_alignment() {
         }
     }
 
-    slint::platform::set_platform(Box::new(TestPlatform)).ok();
-
-    let window = SKIA_WINDOW.with(|w| w.clone());
-    let ui = Ui::new().unwrap();
-    window.set_size(slint::PhysicalSize::new(250, 250).into());
-    ui.show().unwrap();
-
-    assert!(window.draw_if_needed());
-    assert_eq!(
-        window.last_dirty_region_bounding_box_size(),
-        Some(slint::LogicalSize { width: 250., height: 250. })
-    );
-    assert_eq!(
-        window.last_dirty_region_bounding_box_origin(),
-        Some(slint::LogicalPosition { x: 0., y: 0. })
-    );
-
-    assert!(!window.draw_if_needed());
+    let (ui, window) = show_in_skia_window(Ui::new, 250, 250);
 
     ui.set_c(slint::Color::from_rgb_u8(45, 12, 13));
 
-    assert!(window.draw_if_needed());
-    assert_eq!(
-        window.last_dirty_region_bounding_box_size(),
-        Some(slint::LogicalSize { width: 200., height: 50. })
-    );
-    assert_eq!(
-        window.last_dirty_region_bounding_box_origin(),
-        Some(slint::LogicalPosition { x: 10., y: 10. })
-    );
+    assert_skia_repaints(&window, &[(10, 10, 200, 50)]);
 }
 
 /// Items under a `transform-scale` parent at large local coordinates must not
@@ -559,14 +470,7 @@ fn partial_rendering_does_not_cull_scaled_items() {
         }
     }
 
-    slint::platform::set_platform(Box::new(TestPlatform)).ok();
-    let window = SKIA_WINDOW.with(|w| w.clone());
-    let ui = Ui::new().unwrap();
-    window.set_size(slint::PhysicalSize::new(300, 300).into());
-    ui.show().unwrap();
-
-    // Frame 1: full repaint.
-    assert!(window.draw_if_needed());
+    let (ui, window) = show_in_skia_window(Ui::new, 300, 300);
 
     // Check that the scaled rectangle is visible via pixel data.
     // At scale 0.5 from origin (0,0), rect at local (400,400) size 100
@@ -637,13 +541,7 @@ fn partial_rendering_does_not_cull_rotated_items() {
         }
     }
 
-    slint::platform::set_platform(Box::new(TestPlatform)).ok();
-    let window = SKIA_WINDOW.with(|w| w.clone());
-    let ui = Ui::new().unwrap();
-    window.set_size(slint::PhysicalSize::new(300, 300).into());
-    ui.show().unwrap();
-
-    assert!(window.draw_if_needed());
+    let (_ui, window) = show_in_skia_window(Ui::new, 300, 300);
 
     // 90° clockwise rotation around (150,150):
     // local (250,150) → screen (100,250). Check center at (125, 275).
@@ -696,13 +594,7 @@ fn partial_rendering_nested_scales() {
         }
     }
 
-    slint::platform::set_platform(Box::new(TestPlatform)).ok();
-    let window = SKIA_WINDOW.with(|w| w.clone());
-    let ui = Ui::new().unwrap();
-    window.set_size(slint::PhysicalSize::new(300, 300).into());
-    ui.show().unwrap();
-
-    assert!(window.draw_if_needed());
+    let (_ui, window) = show_in_skia_window(Ui::new, 300, 300);
 
     // Combined scale 0.25: local (800,800) size 200 → screen (200,200) size 50.
     {
@@ -755,16 +647,10 @@ fn layer_visible_after_becoming_non_zero_sized() {
         }
     }
 
-    slint::platform::set_platform(Box::new(TestPlatform)).ok();
-    let window = SKIA_WINDOW.with(|w| w.clone());
-    let ui = Ui::new().unwrap();
-    window.set_size(slint::PhysicalSize::new(32, 32).into());
-    ui.show().unwrap();
-
     // Frame 1: the layer is 0-height, so the cache update closure returns
     // None. The fix re-invokes the bounds closure with tracking so the
     // dependency on `content-height` gets registered.
-    assert!(window.draw_if_needed());
+    let (ui, window) = show_in_skia_window(Ui::new, 32, 32);
 
     ui.set_content_height(24.);
 
@@ -931,8 +817,6 @@ fn partial_rendering_popup_position_size_change() {
         }
     }
 
-    slint::platform::set_platform(Box::new(TestPlatform)).ok();
-    let window = SKIA_WINDOW.with(|w| w.clone());
     const WINDOW_WIDTH: usize = 600;
     const WINDOW_HEIGHT: usize = 600;
     const POPUP_WIDTH: usize = 100;
@@ -940,12 +824,7 @@ fn partial_rendering_popup_position_size_change() {
     const RGB_COLOR_WINDOW: (u8, u8, u8) = (255, 0, 0);
     const RGB_COLOR_POPUP: (u8, u8, u8) = (0, 0, 255);
 
-    let ui = Ui::new().unwrap();
-    // Required otherwise the buffer gets not initialized
-    window.set_size(slint::PhysicalSize::new(WINDOW_WIDTH as u32, WINDOW_HEIGHT as u32).into());
-    ui.show().unwrap();
-
-    assert!(window.draw_if_needed());
+    let (ui, window) = show_in_skia_window(Ui::new, WINDOW_WIDTH as u32, WINDOW_HEIGHT as u32);
 
     let get_pixel_values = |pixel_index: usize| {
         let pixels = window.render_buffer.pixels.borrow();
