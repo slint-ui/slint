@@ -102,6 +102,11 @@ fn wire_format_matches_snapshots() {
         id: 7,
         request: vec![1, 2, 3],
     }));
+    for enabled in [true, false] {
+        snapshots.assert_roundtrip(ToPreview::Debug(DebuggerToPreviewMessage::SetInspectMode {
+            enabled,
+        }));
+    }
     snapshots.assert_roundtrip(FromPreview::Lsp(P::Pong));
     for response in [Ok(vec![1, 2, 3]), Err("disabled".into())] {
         snapshots.assert_roundtrip(FromPreview::Debug(
@@ -133,6 +138,12 @@ fn wire_format_matches_snapshots() {
         location: Some((PathBuf::from("app.slint"), 300, 1000)),
         message: "hello".into(),
     }));
+    for source in [Some((url(), 1000)), None] {
+        snapshots.assert_roundtrip(FromPreview::Debug(PreviewToDebuggerMessage::InspectSelected {
+            handle: (300, 7),
+            source,
+        }));
+    }
 
     let mut sealer = session::Sealer::new([7; 32]);
     let frames = [sealer.seal(b"a".to_vec()).unwrap(), sealer.seal(b"b".to_vec()).unwrap()];

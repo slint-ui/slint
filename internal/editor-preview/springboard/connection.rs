@@ -267,7 +267,10 @@ impl Connection {
         &mut self,
         message: DebuggerToPreviewMessage,
     ) -> Result<(), DebuggerToPreviewMessage> {
-        let &DebuggerToPreviewMessage::SystemTestRequest { id, .. } = &message;
+        let request_id = match &message {
+            DebuggerToPreviewMessage::SystemTestRequest { id, .. } => Some(*id),
+            DebuggerToPreviewMessage::SetInspectMode { .. } => None,
+        };
         match &self.preview {
             Some(ActivePreview::Local { preview, .. }) => preview.send_debugger_message(&message),
             Some(ActivePreview::Remote { connection, .. })
@@ -277,7 +280,7 @@ impl Connection {
             }
             _ => return Err(message),
         }
-        if let Some(pending) = &mut self.pending_requests {
+        if let (Some(pending), Some(id)) = (&mut self.pending_requests, request_id) {
             pending.ids.insert(id);
         }
         Ok(())
