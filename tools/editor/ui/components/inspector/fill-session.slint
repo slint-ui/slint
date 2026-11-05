@@ -1,9 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Properties, PropertyEditKind, FillData, BrushKind, LinearGradientAxis } from "../../properties.slint";
+import { Properties, PropertyEditKind, PropertyValue, ColorFieldData, FillData, BrushKind, LinearGradientAxis } from "../../properties.slint";
 
-import { Api, SelectionRectangle } from "../../api.slint";
+import { Api } from "../../api.slint";
+import { CanvasView } from "../canvas-view.slint";
 
 export struct FillSessionTarget {
     key: string,
@@ -15,11 +16,7 @@ export struct FillSessionTarget {
 }
 
 export struct FillSessionRequest {
-    fill: FillData,
     target: FillSessionTarget,
-    expression: string,
-    unsupported: bool,
-    allow-gradient: bool,
     anchor-position: Point,
     anchor-size: Size,
     activation-position: Point,
@@ -39,8 +36,11 @@ export global FillSession {
     out property <int> opening-generation;
 
     private property <FillData> draft;
-    out property <FillData> working-fill: Properties.editor-property-value-data(FillSession.request.target.property-name).fill;
-    out property <float> element-rotation;
+    out property <PropertyValue> value: Properties.editor-property-value-data(request.target.property-name);
+    out property <ColorFieldData> field-data: Properties.color-field-data(value);
+    out property <FillData> working-fill: value.fill;
+    out property <float> element-rotation: Properties.hooked-property-value-data(
+        "transform-rotation", { value-float: request.target.element-rotation }).value-float;
     private property <angle> initial-selection-angle;
     out property <angle> canvas-rotation: FillSession.initial-selection-angle + (FillSession.element-rotation - FillSession.request.target.element-rotation) * 1deg;
     in-out property <int> selected-stop;
@@ -49,22 +49,22 @@ export global FillSession {
 
     out property <color> working-color: FillSession.working-fill.kind == BrushKind.solid ? FillSession.working-fill.color : FillSession.working-fill.stops[FillSession.selected-stop].color;
     private property <bool> has-preview;
-    private property <bool> session-active;
-    out property <bool> editable: open && !request.unsupported;
+    out property <bool> editable: open && !field-data.unsupported;
     out property <int> focus-generation;
     out property <int> anchor-focus-generation;
-    private property <bool> canvas-editable: editable && session-active && request.target.canvas
+    private property <bool> canvas-editable: editable && request.target.canvas
         && Api.current-element.type-name == "Rectangle"
         && Api.selection.highlight-index >= 0;
     out property <bool> radial-active: canvas-editable && working-fill.kind == BrushKind.radial;
     out property <bool> conic-active: canvas-editable && working-fill.kind == BrushKind.conic;
     out property <bool> canvas-active: canvas-editable && working-fill.kind != BrushKind.solid;
 
-    in-out property <LinearGradientAxis> axis;
+    private property <LinearGradientAxis> handle-axis;
+    out property <LinearGradientAxis> axis: working-fill.kind == BrushKind.radial && handle-axis.end.x <= handle-axis.start.x
+        ? Properties.radial-gradient-axis(working-fill, request.target.size) : handle-axis;
     out property <LinearGradientAxis> y-axis: Properties.radial-gradient-y-axis(FillSession.working-fill, FillSession.request.target.size);
     in-out property <Point> canvas-origin;
     in-out property <Size> canvas-size;
-    in-out property <SelectionRectangle> selection;
     private property <string> current-session-key: Api.current-element.source-uri + ":" + Api.current-element.offset + ":" + Api.selection.highlight-index + ":" + Properties.inspector-fill-generation + ":" + request.target.property-name;
     changed current-session-key => {
         if FillSession.open && FillSession.request.target.session-key != FillSession.current-session-key {
@@ -73,10 +73,9 @@ export global FillSession {
     }
 
     function reset-axis() {
-        FillSession.axis = FillSession.working-fill.kind == BrushKind.conic
+        FillSession.handle-axis = FillSession.working-fill.kind == BrushKind.radial ? {}
+            : FillSession.working-fill.kind == BrushKind.conic
             ? Properties.conic-gradient-axis(FillSession.working-fill, FillSession.request.target.size)
-            : FillSession.working-fill.kind == BrushKind.radial
-            ? Properties.radial-gradient-axis(FillSession.working-fill, FillSession.request.target.size)
             : Properties.linear-gradient-axis(FillSession.working-fill, FillSession.request.target.size);
     }
     public function move-axis(fill: FillData, previous: LinearGradientAxis, next: LinearGradientAxis) {
@@ -89,26 +88,18 @@ export global FillSession {
             ? Properties.remap-radial-gradient(fill, previous, next)
             : Properties.remap-linear-gradient(fill, FillSession.request.target.size, previous, next);
         if FillSession.preview-fill(updated) {
-            FillSession.axis = next;
+            FillSession.handle-axis = next;
         }
     }
     public function move-y-axis(fill: FillData, previous: LinearGradientAxis, next: LinearGradientAxis, match-radius: bool) {
         if next.end.y - next.start.y < 1px { return; }
         let updated = Properties.remap-radial-gradient-y(fill, FillSession.request.target.size, previous, next, match-radius);
-        if FillSession.preview-fill(updated) {
-            FillSession.reset-axis();
-        }
+        if FillSession.preview-fill(updated) { FillSession.handle-axis = {}; }
     }
     public function move-rotated-axis(fill: FillData, previous: LinearGradientAxis, next: LinearGradientAxis, rotation: float, match-radius: bool) {
         if next.end.x - next.start.x < 1px { return; }
         let updated = Properties.resize-radial-gradient-x(fill, FillSession.request.target.size, previous, next, match-radius);
-        let old-rotation = FillSession.element-rotation;
-        FillSession.element-rotation = rotation;
-        if FillSession.preview-fill(updated) {
-            FillSession.reset-axis();
-        } else {
-            FillSession.element-rotation = old-rotation;
-        }
+        if FillSession.preview-fill-with-rotation(updated, rotation) { FillSession.handle-axis = {}; }
     }
     public pure function stop-point(position: float) -> Point {
         return FillSession.working-fill.kind == BrushKind.conic
@@ -172,7 +163,11 @@ export global FillSession {
     }
 
     public function preview-fill(fill: FillData) -> bool {
-        if !FillSession.session-active || !FillSession.editable {
+        return FillSession.preview-fill-with-rotation(fill, FillSession.element-rotation);
+    }
+
+    function preview-fill-with-rotation(fill: FillData, rotation: float) -> bool {
+        if !FillSession.editable {
             return false;
         }
         if FillSession.request.target.session-key != "" && FillSession.request.target.session-key != FillSession.current-session-key {
@@ -181,8 +176,8 @@ export global FillSession {
         }
         Properties.inspector-cancel();
         if Properties.inspector-preview(FillSession.request.target.property-name, { kind: PropertyEditKind.fill, fill: fill })
-            && (!FillSession.request.target.canvas || FillSession.element-rotation == FillSession.request.target.element-rotation || Properties.inspector-preview("transform-rotation", {
-                kind: PropertyEditKind.number, number: FillSession.element-rotation, unit: "deg",
+            && (!FillSession.request.target.canvas || rotation == FillSession.request.target.element-rotation || Properties.inspector-preview("transform-rotation", {
+                kind: PropertyEditKind.number, number: rotation, unit: "deg",
             })) {
             if fill.kind == BrushKind.radial {
                 FillSession.radial-center-initialized = FillSession.radial-center-initialized || fill.custom-center;
@@ -199,12 +194,8 @@ export global FillSession {
         FillSession.close-picker(false, false);
         return false;
     }
-    public function restore-gesture(fill: FillData, rotation: float) -> bool {
-        let previous = FillSession.element-rotation;
-        FillSession.element-rotation = rotation;
-        if FillSession.preview-fill(fill) { return true; }
-        FillSession.element-rotation = previous;
-        return false;
+    public function restore-gesture(fill: FillData, rotation: float, axis: LinearGradientAxis) {
+        if FillSession.preview-fill-with-rotation(fill, rotation) { FillSession.handle-axis = axis; }
     }
     public function preview-color(c: color) -> bool {
         FillSession.prepare-draft(FillSession.working-fill);
@@ -297,41 +288,36 @@ export global FillSession {
     public function begin(request: FillSessionRequest) {
         FillSession.close-picker(true, false);
         FillSession.request = request;
-        FillSession.element-rotation = request.target.element-rotation;
-        FillSession.initial-selection-angle = FillSession.selection.angle;
-        FillSession.request.fill.stops = Properties.clone-gradient-stops(request.fill.stops);
+        FillSession.initial-selection-angle = CanvasView.selection.angle;
+        let fill = FillSession.working-fill;
         FillSession.stop-panel-open = false;
         FillSession.selected-stop = 0;
-        FillSession.radial-center-initialized = FillSession.request.fill.kind == BrushKind.radial && FillSession.request.fill.custom-center;
-        FillSession.conic-center-initialized = FillSession.request.fill.kind == BrushKind.conic && FillSession.request.fill.custom-center;
-        FillSession.radius-initialized = FillSession.request.fill.kind == BrushKind.radial && FillSession.request.fill.custom-radius;
-        FillSession.linear-fill = FillSession.request.fill.kind == BrushKind.linear ? FillSession.working-fill : {kind: BrushKind.linear, angle: 90};
-        FillSession.radial-fill = FillSession.request.fill.kind == BrushKind.radial ? FillSession.working-fill : {kind: BrushKind.radial};
-        FillSession.conic-fill = FillSession.request.fill.kind == BrushKind.conic ? FillSession.working-fill : {kind: BrushKind.conic};
-        FillSession.last-gradient = FillSession.request.fill.kind == BrushKind.solid ? BrushKind.linear : FillSession.request.fill.kind;
-        FillSession.has-preview = false;
-        FillSession.session-active = true;
+        FillSession.radial-center-initialized = fill.kind == BrushKind.radial && fill.custom-center;
+        FillSession.conic-center-initialized = fill.kind == BrushKind.conic && fill.custom-center;
+        FillSession.radius-initialized = fill.kind == BrushKind.radial && fill.custom-radius;
+        FillSession.linear-fill = fill.kind == BrushKind.linear ? fill : {kind: BrushKind.linear, angle: 90};
+        FillSession.radial-fill = fill.kind == BrushKind.radial ? fill : {kind: BrushKind.radial};
+        FillSession.conic-fill = fill.kind == BrushKind.conic ? fill : {kind: BrushKind.conic};
+        FillSession.last-gradient = fill.kind == BrushKind.solid ? BrushKind.linear : fill.kind;
         FillSession.reset-axis();
         FillSession.open = true;
         FillSession.opening-generation += 1;
     }
 
     public function close-picker(accept: bool, return-focus: bool) {
-        if !FillSession.session-active {
+        if !FillSession.open {
             return;
         }
-        FillSession.session-active = false;
+        FillSession.open = false;
         FillSession.stop-panel-open = false;
-        if !accept || (FillSession.has-preview && !Properties.inspector-commit()) {
-            if FillSession.has-preview {
+        if FillSession.has-preview {
+            if accept && Properties.inspector-commit() {
+                Properties.add-recent-fill(FillSession.working-fill);
+            } else {
                 Properties.inspector-cancel();
             }
-            FillSession.element-rotation = FillSession.request.target.element-rotation;
-        } else if FillSession.has-preview {
-            Properties.add-recent-fill(FillSession.working-fill);
+            FillSession.has-preview = false;
         }
-        FillSession.has-preview = false;
-        FillSession.open = false;
         if return-focus {
             FillSession.focus-generation += 1;
         }
