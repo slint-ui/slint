@@ -44,6 +44,7 @@ anyrender = [
   "dep:anyrender",
   "dep:anyrender_serialize",
   "dep:anyrender_vello_cpu",
+  "dep:vello_cpu",
   "dep:kurbo",
   "dep:peniko",
   "dep:serde_json",
@@ -78,6 +79,9 @@ i-slint-renderer-anyrender = { workspace = true, optional = true }
 anyrender = { version = "0.15", optional = true }
 anyrender_serialize = { version = "0.9", optional = true }
 anyrender_vello_cpu = { version = "0.19", optional = true, features = ["filters"] }
+# anyrender_vello_cpu leaves out vello_cpu's `png` feature, without which bitmap glyphs (such as
+# Noto Color Emoji's) aren't drawn. GPU vello, which applications use, always draws them.
+vello_cpu = { version = "0.4", optional = true, default-features = false, features = ["png"] }
 kurbo = { version = "0.13", optional = true }
 peniko = { version = "0.6", optional = true }
 serde_json = { version = "1", optional = true }

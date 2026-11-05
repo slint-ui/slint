@@ -33,6 +33,7 @@ rgb = "0.8.27"
 
 peniko = { version = "0.6" }
 kurbo = { version = "0.13" }
+skrifa = { workspace = true }
 
 # anyrender's size assertion for `FilterEffect` expects the wrong size on 32-bit x86,
 # so it doesn't compile there. See the matching `cfg` in lib.rs.
