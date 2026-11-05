@@ -4,9 +4,8 @@
 from pathlib import Path
 from typing import cast
 
-from PIL import Image
-
 from editor_sync import wait_for_source
+from PIL import Image
 from ui_driver import element, file_row, first_window, launch_editor, screenshot
 
 
