@@ -98,6 +98,7 @@ export function textRequiresRasterPreview(
     )
         return true;
     const result = node.sourceSegments;
+    let previewFamily = font?.family.trim().toLowerCase();
     let coveredText = "";
     let complete = result !== undefined && "segments" in result;
     if (result !== undefined && "segments" in result) {
@@ -108,6 +109,14 @@ export function textRequiresRasterPreview(
             }
             if (segment.characters.length === 0) continue;
             const segmentFont = effectiveFont(segment.fontName ?? font);
+            const family = segmentFont?.family.trim().toLowerCase();
+            if (
+                family !== undefined &&
+                previewFamily !== undefined &&
+                family !== previewFamily
+            )
+                return true;
+            previewFamily ??= family;
             const settings = record(segment.fontName)
                 ? segment.fontName.variationSettings
                 : variations;
