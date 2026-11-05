@@ -2399,3 +2399,21 @@ export async function variableFingerprint(
 export function captureColorProfile(): string {
     return figma.root?.documentColorProfile ?? "LEGACY";
 }
+
+export async function fontFingerprint(
+    fonts: readonly string[],
+): Promise<string | undefined> {
+    if (!fonts.length) return "";
+    try {
+        const available = new Set(
+            (
+                await withHostCallTimeout(() => figma.listAvailableFontsAsync())
+            ).map(({ fontName }) =>
+                JSON.stringify([fontName.family, fontName.style]),
+            ),
+        );
+        return JSON.stringify(fonts.map((font) => available.has(font)));
+    } catch {
+        return undefined;
+    }
+}

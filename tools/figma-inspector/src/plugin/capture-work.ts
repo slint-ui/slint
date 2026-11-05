@@ -1,7 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import type { SourceBytes, SourceCapture, SourceNode } from "./source";
+import {
+    decodeValue,
+    type SourceBytes,
+    type SourceCapture,
+    type SourceNode,
+} from "./source";
 
 export function reusableCapture(source: SourceCapture<SourceBytes>): boolean {
     const seen = new Set<string>();
@@ -12,7 +17,7 @@ export function reusableCapture(source: SourceCapture<SourceBytes>): boolean {
             node.errors.length ||
             node.exports?.png?.error ||
             node.exports?.svg.error ||
-            (node.type === "TEXT" && node.exports !== undefined)
+            node.segments?.error
         )
             return false;
         return (node.children ?? []).every(reusable);
@@ -223,4 +228,40 @@ export function captureBusyTime(now: () => number = Date.now) {
             return elapsed + (active ? Math.max(0, now() - started) : 0);
         },
     };
+}
+
+/** Font availability can change without a document edit. Check only rasterized text. */
+export function sourceRasterFonts(
+    source: SourceCapture<SourceBytes>,
+): readonly string[] | undefined {
+    const fonts = new Set<string>();
+    const seen = new Set<string>();
+    let complete = true;
+    const add = (value: unknown): boolean => {
+        if (!value || typeof value !== "object") return false;
+        const font = value as { family?: unknown; style?: unknown };
+        if (typeof font.family !== "string" || typeof font.style !== "string")
+            return false;
+        fonts.add(JSON.stringify([font.family, font.style]));
+        return true;
+    };
+    const visit = (node: SourceNode<SourceBytes>) => {
+        if (seen.has(node.id)) return;
+        seen.add(node.id);
+        if (node.type === "TEXT" && node.exports) {
+            const segments = decodeValue(node.segments?.value);
+            if (Array.isArray(segments) && segments.length)
+                complete =
+                    segments.every((segment) => add(segment?.fontName)) &&
+                    complete;
+            else
+                complete =
+                    add(decodeValue(node.properties.fontName)) && complete;
+        }
+        for (const child of node.children ?? []) visit(child);
+    };
+    visit(source.root);
+    for (const definition of source.components?.definitions ?? [])
+        for (const variant of definition.variants) visit(variant.root);
+    return complete ? [...fonts].sort() : undefined;
 }

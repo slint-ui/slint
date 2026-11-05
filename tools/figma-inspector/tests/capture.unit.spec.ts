@@ -16,6 +16,7 @@ import {
     captureSelectionSource,
     sourceVariableIds,
     variableFingerprint,
+    fontFingerprint,
     captureSource,
     svgExportSettings,
 } from "../src/plugin/capture";
@@ -2880,9 +2881,9 @@ test("returns stable diagnostics for selection and unsupported-node failures", a
 test("unavailable fonts always export complete text layers", async () => {
     const mixed = Symbol("mixed");
     for (const [family, style, characters, kind] of [
-        ["Roboto", "Regular", "Hello", "text"],
+        ["Roboto", "Regular", "Hello", "svg"],
         ["Example Font", "Regular", "Hello", "svg"],
-        ["Roboto", "Regular", "Hello\nWorld", "text"],
+        ["Roboto", "Regular", "Hello\nWorld", "svg"],
         ["Inter", "Bold Italic", "Hello", "svg"],
         [" inter ", "Regular", "Hello", "text"],
         ["Roboto", "Regular", "", "text"],
@@ -3802,37 +3803,25 @@ test("uniform SVG vectors with equal paths and networks share one export", async
     });
 });
 
-test("Material Roboto labels retain native text without any host exports", async () => {
+test("Material Roboto labels use Figma images without adding a runtime font", async () => {
     const node = {
         ...text,
-        fontName: {
-            family: "Roboto",
-            style: "Regular",
-            variationSettings: { wdth: 100, wght: 400 },
-        },
+        fontName: { family: "Roboto", style: "Regular" },
         getStyledTextSegments: () => [],
     } as unknown as SceneNode;
+    const png = new Uint8Array(await readFile("fixtures/authored/square.png"));
     const captured = await captureSource(
         node,
         Symbol("mixed"),
-        async () => {
-            throw Error("Roboto must not export SVG");
-        },
+        async () => "",
         undefined,
-        async () => {
-            throw Error("Roboto must not export PNG");
-        },
+        async () => png,
     );
-    expect(captured.work).toMatchObject({ pngExports: 0, svgExports: 0 });
-    expect(captured.fontMetrics).toEqual({
-        requests: 0,
-        exports: 0,
-        cacheHits: 0,
-    });
-    const normalized = await normalizeSource(captured.source);
-    expect(normalized).toMatchObject({
+    expect(captured.work.pngExports).toBe(1);
+    expect(captured.source.root.exports?.png?.value).toEqual(png);
+    expect(await normalizeSource(captured.source)).toMatchObject({
         ok: true,
-        snapshot: { root: { kind: "text", fontFamily: "Roboto" } },
+        snapshot: { root: { kind: "svg" } },
     });
 });
 
@@ -4788,3 +4777,32 @@ test.each(["BOOLEAN_OPERATION", "ELLIPSE", "POLYGON", "STAR"] as const)(
         expect(() => validateSource(source)).toThrow();
     },
 );
+
+test("font fingerprints detect installation and removal without depending on inventory order", async () => {
+    const list = vi.fn();
+    vi.stubGlobal("figma", { listAvailableFontsAsync: list });
+    const fonts = ['["Roboto","Regular"]'];
+    try {
+        list.mockResolvedValue([
+            { fontName: { family: "Inter", style: "Regular" } },
+        ]);
+        expect(await fontFingerprint(fonts)).toBe("[false]");
+        list.mockResolvedValue([
+            { fontName: { family: "Roboto", style: "Regular" } },
+            { fontName: { family: "Inter", style: "Regular" } },
+        ]);
+        expect(await fontFingerprint(fonts)).toBe("[true]");
+        list.mockResolvedValue([
+            { fontName: { family: "Inter", style: "Regular" } },
+            { fontName: { family: "Roboto", style: "Regular" } },
+        ]);
+        expect(await fontFingerprint(fonts)).toBe("[true]");
+        list.mockRejectedValue(Error("Host unavailable"));
+        expect(await fontFingerprint(fonts)).toBeUndefined();
+        list.mockClear();
+        expect(await fontFingerprint([])).toBe("");
+        expect(list).not.toHaveBeenCalled();
+    } finally {
+        vi.unstubAllGlobals();
+    }
+});

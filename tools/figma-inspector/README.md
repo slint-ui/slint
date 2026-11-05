@@ -23,8 +23,9 @@ The preview appears before project export generation and validation finish.
 Large previews scale to fit; snapshots and project exports keep their original dimensions.
 Repeat selections reuse completed work when the document and referenced components are unchanged.
 Variable definitions and the document color profile are checked before reuse.
-Failed captures and text rendered as images are read again.
-Wasm and fonts initialize during the first capture.
+Failed captures are read again.
+Repeat selections also check font availability before reusing text rendered as images.
+Wasm initializes during the first capture.
 
 In Dev Mode, choose Slint to generate a snippet for the selected node only.
 Enable Use Variables to reference existing Slint variable globals; it is off by
@@ -51,7 +52,7 @@ output for preview and export.
 `pnpm build:slint` builds its Slint runtime from `api/wasm-interpreter` in this repository.
 Use `pnpm build:slint:dev` for a development interpreter build.
 
-`pnpm check` verifies the checked-in font capability manifest against the runtime's embedded fonts and the preview's bundled Roboto font.
+`pnpm check` verifies the checked-in font capability manifest against the runtime's embedded fonts.
 The manifest records font families, glyph coverage, weight axes, and italic availability.
 When the runtime's embedded fonts change, run `node scripts/build-font-capabilities.mjs --update` and review the manifest.
 Static checks do not need a runtime build.

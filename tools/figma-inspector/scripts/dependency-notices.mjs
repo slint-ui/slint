@@ -1,7 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { previewFontPath } from "./preview-font.mjs";
 import { execFileSync } from "node:child_process";
 import { readFile, readdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
@@ -106,9 +105,6 @@ export async function dependencyNotices(moduleIds) {
             `## ${id}\nLicense: ${pkg.license ?? "SEE LICENSE FILE"}\n\n${texts.join("\n\n")}`,
         );
     }
-    sections.push(
-        `## Roboto\n\n${await readFile(`${previewFontPath}.license`, "utf8")}`,
-    );
     // Include upstream license texts, including fonts and vendored components.
     for (const name of (await readdir(resolve(repoRoot, "LICENSES"))).sort())
         sections.push(

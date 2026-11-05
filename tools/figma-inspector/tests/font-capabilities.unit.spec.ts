@@ -8,9 +8,9 @@ import { textRequiresRasterPreview } from "../src/plugin/normalization-text";
 import type { MaterializedNode } from "../src/plugin/normalization-context";
 
 test.each([
-    ["Roboto", "Regular", 400, { wdth: 100, wght: 400 }, "Label", true],
+    ["Roboto", "Regular", 400, { wdth: 100, wght: 400 }, "Label", false],
     ["Roboto", "Regular", 400, { wdth: 90, wght: 400 }, "Label", false],
-    ["Roboto", "Regular", 400, { wght: 650 }, "Label", true],
+    ["Roboto", "Regular", 400, { wght: 650 }, "Label", false],
     ["Roboto", "Italic", 400, { wdth: 100 }, "Label", false],
     ["Inter", "Regular", 400, undefined, "Hello", true],
     ["Inter", "Bold", 700, undefined, "Hello", true],

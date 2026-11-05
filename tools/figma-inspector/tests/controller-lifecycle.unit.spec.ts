@@ -9,7 +9,6 @@ const runtime = vi.hoisted(() => ({
     initialize: vi.fn(),
     compile: vi.fn(),
     run: vi.fn(),
-    registerFont: vi.fn(),
 }));
 
 vi.mock("@interpreter/slint_wasm_interpreter_bg.wasm?url&inline", () => ({
@@ -19,7 +18,6 @@ vi.mock("@interpreter/slint_wasm_interpreter.js", () => ({
     default: runtime.initialize,
     compile_from_string: runtime.compile,
     run_event_loop: runtime.run,
-    register_font_from_memory: runtime.registerFont,
 }));
 
 function deferred<T>() {
@@ -324,22 +322,6 @@ test("export compiler rejection reports a runtime failure and blocks further run
     expect(runtime.compile).toHaveBeenCalledTimes(2);
 });
 
-test("registers the bundled font before compiling selected text", async () => {
-    const { controller } = setup();
-    runtime.compile.mockResolvedValue(compiled().result);
-    await controller.initialize(
-        'export component Preview inherits Window { Text { text: "Label"; font-family: "Roboto"; } }',
-        1,
-    );
-    expect(runtime.registerFont).toHaveBeenCalledOnce();
-    expect(
-        (runtime.registerFont.mock.calls[0][0] as Uint8Array).byteLength,
-    ).toBeGreaterThan(100_000);
-    expect(runtime.registerFont.mock.invocationCallOrder[0]).toBeLessThan(
-        runtime.compile.mock.invocationCallOrder[0],
-    );
-});
-
 test("export validation preserves the shown preview and serializes a newer render", async () => {
     const { controller, canvas, status } = setup();
     const preview = compiled(),
@@ -424,7 +406,6 @@ test("runtime warmup overlaps capture and the first source shares its initializa
     runtimeReady.resolve();
     await warm;
     await render;
-    expect(runtime.registerFont).toHaveBeenCalledOnce();
     expect(controller.currentInstance).toBeDefined();
 });
 

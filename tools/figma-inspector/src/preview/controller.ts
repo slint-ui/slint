@@ -1,11 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import robotoDataUrl from "@preview-font/Roboto-VariableFont.ttf?url&inline";
 import wasmDataUrl from "@interpreter/slint_wasm_interpreter_bg.wasm?url&inline";
 import initialize, {
     compile_from_string,
-    register_font_from_memory,
     run_event_loop,
     type WrappedInstance,
 } from "@interpreter/slint_wasm_interpreter.js";
@@ -115,11 +113,6 @@ export class PreviewController {
                 // The browser event loop exits through an exception.
             }
             await this.initializeKeepalive();
-            register_font_from_memory(
-                Uint8Array.from(atob(robotoDataUrl.split(",")[1]), (byte) =>
-                    byte.charCodeAt(0),
-                ),
-            );
             this.wasmInitializationDurationMs = Math.max(
                 0,
                 defaultClock.monotonicNow() - start,

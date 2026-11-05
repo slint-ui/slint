@@ -2,7 +2,11 @@
 // SPDX-License-Identifier: MIT
 
 import { WindowPreferences } from "./window-preferences";
-import { CaptureCache, reusableCapture } from "./capture-work";
+import {
+    CaptureCache,
+    reusableCapture,
+    sourceRasterFonts,
+} from "./capture-work";
 import { CaptureAssetSender } from "../asset-transport";
 import {
     type TimingTrace,
@@ -15,6 +19,7 @@ import {
     captureColorProfile,
     sourceVariableIds,
     variableFingerprint,
+    fontFingerprint,
     collectSelectionNodeIds,
     observeComponentDependencies,
 } from "./capture";
@@ -33,6 +38,8 @@ type CachedCapture = {
     readonly capture: CompletedCapture;
     readonly variableIds: readonly string[];
     readonly variables: string;
+    readonly fontNames: readonly string[];
+    readonly fonts: string;
 };
 
 export function startPreview(): void {
@@ -258,9 +265,13 @@ export function startPreview(): void {
         const result = await trace.measureAsync("figmaCapture", async () => {
             const old = previousCapture;
             if (old) {
+                const [variables, fonts] = await Promise.all([
+                    variableFingerprint(old.variableIds),
+                    fontFingerprint(old.fontNames),
+                ]);
                 if (
-                    (await variableFingerprint(old.variableIds)) ===
-                        old.variables &&
+                    variables === old.variables &&
+                    fonts === old.fonts &&
                     captureCache.valid(token)
                 ) {
                     reused = true;
@@ -273,10 +284,16 @@ export function startPreview(): void {
             const result = await load();
             if (!result.ok || result.empty || !reusableCapture(result.source))
                 return result;
+            const fontNames = sourceRasterFonts(result.source);
+            if (fontNames === undefined) return result;
             const variableIds = sourceVariableIds(result.source);
-            const variables = await variableFingerprint(variableIds);
+            const [variables, fonts] = await Promise.all([
+                variableFingerprint(variableIds),
+                fontFingerprint(fontNames),
+            ]);
             if (
                 variables !== undefined &&
+                fonts !== undefined &&
                 captureCache.valid(token) &&
                 currentRevision === revision
             ) {
@@ -293,7 +310,13 @@ export function startPreview(): void {
                 );
                 captureCache.put<CachedCapture>(
                     key,
-                    { capture: result, variableIds, variables },
+                    {
+                        capture: result,
+                        variableIds,
+                        variables,
+                        fontNames,
+                        fonts,
+                    },
                     metadata.length * 2 + bytes,
                     token,
                 );

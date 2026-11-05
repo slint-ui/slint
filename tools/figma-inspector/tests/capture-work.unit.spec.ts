@@ -3,7 +3,12 @@
 
 import { describe, expect, test } from "vitest";
 
-import { CaptureCache, CaptureCancelled } from "../src/plugin/capture-work";
+import {
+    CaptureCache,
+    CaptureCancelled,
+    sourceRasterFonts,
+    reusableCapture,
+} from "../src/plugin/capture-work";
 import {
     captureBusyTime,
     captureScheduler,
@@ -516,4 +521,44 @@ test("repeated labels and icons share exports while retaining every captured nod
     children[2].children[0].absoluteTransform[0][2] += 0.25;
     await capture();
     expect(pngExports).toBe(4);
+});
+
+test("cached raster text tracks mixed-run fonts and retries incomplete captures", () => {
+    const source = {
+        sourceVersion: 1 as const,
+        images: {},
+        exportScale: 1,
+        pngEnabled: true,
+        root: {
+            id: "label",
+            name: "Label",
+            type: "TEXT",
+            properties: { fontName: { $source: "mixed" } },
+            errors: [] as { property: string; message: string }[],
+            segments: {
+                value: [
+                    { fontName: { family: "Roboto", style: "Regular" } },
+                    { fontName: { family: "Example", style: "Bold" } },
+                    { fontName: { family: "Roboto", style: "Regular" } },
+                ],
+            },
+            exports: {
+                svg: {} as { error?: string },
+                png: { value: new Uint8Array([1]) },
+            },
+        },
+    };
+    expect(reusableCapture(source)).toBe(true);
+    expect(sourceRasterFonts(source)).toEqual([
+        '["Example","Bold"]',
+        '["Roboto","Regular"]',
+    ]);
+    source.root.exports.svg.error = "Temporary host failure";
+    expect(reusableCapture(source)).toBe(false);
+    delete source.root.exports.svg.error;
+    source.root.errors.push({ property: "fills", message: "Unavailable" });
+    expect(reusableCapture(source)).toBe(false);
+    source.root.errors = [];
+    source.root.segments.value = [];
+    expect(sourceRasterFonts(source)).toBeUndefined();
 });

@@ -8,6 +8,7 @@ import { startPreview } from "../src/plugin/preview-main";
 const capture = vi.hoisted(() => ({
     read: vi.fn(),
     variables: vi.fn(),
+    fonts: vi.fn(),
     dependencies: [] as {
         changed: () => void;
         stop: ReturnType<typeof vi.fn>;
@@ -18,6 +19,7 @@ vi.mock("../src/plugin/capture", () => ({
     captureColorProfile: () => "LEGACY",
     sourceVariableIds: () => [],
     variableFingerprint: capture.variables,
+    fontFingerprint: capture.fonts,
     collectSelectionNodeIds: (nodes: { id: string }[]) =>
         nodes.map((node) => node.id),
     observeComponentDependencies: (
@@ -34,6 +36,7 @@ vi.mock("../src/plugin/capture", () => ({
 beforeEach(() => {
     vi.resetAllMocks();
     capture.dependencies.length = 0;
+    capture.fonts.mockResolvedValue("");
     capture.variables.mockResolvedValue("variables");
     capture.read.mockImplementation(async (selection: { id: string }[]) => ({
         ok: true,
@@ -290,4 +293,48 @@ test("a failed resend after a reuse miss reports diagnostics", async () => {
             ],
         }),
     );
+});
+
+test("rasterized labels reuse complete captures and invalidate when fonts become available", async () => {
+    const complete = capture.read.getMockImplementation()!;
+    capture.read.mockImplementation(async (...args: unknown[]) => {
+        const result = await complete(...args);
+        result.source.root.children = [
+            {
+                id: result.source.root.id + "-label",
+                name: "Label",
+                type: "TEXT",
+                properties: {
+                    fontName: { family: "Roboto", style: "Regular" },
+                },
+                errors: [],
+                exports: { svg: {}, png: { value: [1] }, svgOmitted: "png" },
+            },
+        ];
+        return result;
+    });
+    capture.fonts.mockResolvedValue("[false]");
+    const p = setup();
+    await vi.waitFor(() => expect(p.captures()).toHaveLength(1));
+    await p.select("Buttons", 2);
+    await p.select("Icon Button", 3);
+    await p.select("Buttons", 4);
+    expect(capture.read).toHaveBeenCalledTimes(2);
+    expect(p.captures()[3]).toMatchObject({
+        type: "preview-reuse",
+        trace: { captureMetrics: { sourceCacheHit: true } },
+    });
+    expect(capture.fonts).toHaveBeenCalledWith(['["Roboto","Regular"]']);
+    capture.fonts.mockResolvedValue("[true]");
+    await p.select("Buttons", 5);
+    expect(capture.read).toHaveBeenCalledTimes(3);
+    expect(p.captures()[4].type).toBe("preview-capture");
+});
+
+test("unavailable font inventories prevent stale rasterized-text reuse", async () => {
+    capture.fonts.mockResolvedValue(undefined);
+    const p = setup();
+    await vi.waitFor(() => expect(p.captures()).toHaveLength(1));
+    await p.select("Icon Button", 2);
+    expect(capture.read).toHaveBeenCalledTimes(2);
 });
