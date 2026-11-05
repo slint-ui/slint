@@ -52,7 +52,8 @@ struct EspPlatform : public slint::platform::Platform
           buffer1(config.buffer1),
           buffer2(config.buffer2),
           byte_swap(config.byte_swap),
-          rotation(config.rotation)
+          rotation(config.rotation),
+          dirty_region_alignment(config.dirty_region_alignment)
     {
         task = xTaskGetCurrentTaskHandle();
     }
@@ -73,6 +74,7 @@ private:
     std::optional<std::span<PixelType>> buffer2;
     bool byte_swap;
     slint::platform::SoftwareRenderer::RenderingRotation rotation;
+    slint::PhysicalSize dirty_region_alignment;
     class EspWindowAdapter *m_window = nullptr;
 
     // Need to be static because we can't pass user data to the touch interrupt callback
@@ -95,6 +97,8 @@ std::unique_ptr<slint::platform::WindowAdapter> EspPlatform<PixelType>::create_w
     auto window = std::make_unique<EspWindowAdapter>(buffer_type, size);
     m_window = window.get();
     m_window->m_renderer.set_rendering_rotation(rotation);
+    m_window->m_renderer.set_dirty_region_alignment(dirty_region_alignment.width,
+                                                    dirty_region_alignment.height);
     return window;
 }
 
@@ -341,6 +345,13 @@ void EspPlatform<PixelType>::run_event_loop()
                             draw_bitmap(0, 0, size.width, size.height, buffer1->data());
 
                             std::swap(buffer1, buffer2);
+                        }
+                    } else if (dirty_region_alignment.height > 1) {
+                        auto o = region.bounding_box_origin();
+                        auto s = region.bounding_box_size();
+                        if (s.width > 0 && s.height > 0) {
+                            draw_bitmap(0, o.y, stride, o.y + s.height,
+                                        buffer1->data() + o.y * stride);
                         }
                     } else {
                         for (auto [o, s] : region.rectangles()) {
