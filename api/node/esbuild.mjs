@@ -46,22 +46,28 @@ export function slint({ runtimeDir = "." } = {}) {
                 ].join("\n"),
             };
 
-            build.onLoad({ filter: /(?:\.slint|[\\/]slint-project\.json)$/ }, (args) => {
-                const url = path.posix.join(
-                    runtimeDir,
-                    path.relative(outdir, args.path).split(path.sep).join("/"),
-                );
-                return {
-                    contents: [
-                        `import { loadFile } from ${JSON.stringify(slintEntry)};`,
-                        reexports(
-                            slintUi.loadFile(args.path),
-                            `loadFile(new URL(${JSON.stringify(url)}, import.meta.url))`,
-                        ),
-                    ].join("\n"),
-                    loader: "js",
-                };
-            });
+            build.onLoad(
+                { filter: /(?:\.slint|[\\/]slint-project\.json)$/ },
+                (args) => {
+                    const url = path.posix.join(
+                        runtimeDir,
+                        path
+                            .relative(outdir, args.path)
+                            .split(path.sep)
+                            .join("/"),
+                    );
+                    return {
+                        contents: [
+                            `import { loadFile } from ${JSON.stringify(slintEntry)};`,
+                            reexports(
+                                slintUi.loadFile(args.path),
+                                `loadFile(new URL(${JSON.stringify(url)}, import.meta.url))`,
+                            ),
+                        ].join("\n"),
+                        loader: "js",
+                    };
+                },
+            );
 
             build.onEnd((result) => {
                 if (result.errors.length === 0) {

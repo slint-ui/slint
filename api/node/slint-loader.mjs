@@ -50,7 +50,10 @@ export function reexports(module, expression) {
 
 /** `resolve` hook for `node:module`. */
 export function resolve(specifier, context, nextResolve) {
-    if (specifier.endsWith(".slint") || specifier.endsWith("/slint-project.json")) {
+    if (
+        specifier.endsWith(".slint") ||
+        specifier.endsWith("/slint-project.json")
+    ) {
         return {
             url: new URL(specifier, context.parentURL).href,
             format: "module",
