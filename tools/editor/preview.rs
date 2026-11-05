@@ -4724,7 +4724,7 @@ export component Main {
     }
 
     #[test]
-    fn fill_transactions_submit_only_the_latest_values_without_updating_recents() {
+    fn fill_transactions_submit_only_the_latest_values_without_updating_recent_fills() {
         let editor = availability_test_editor();
         let source = ROTATED_SOURCE.replace(
             "height: 60px;",
