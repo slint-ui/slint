@@ -1246,13 +1246,23 @@ export component AppWindow inherits Window {
                 }
             }
 
-            HorizontalLayout {
+            if !root.narrow: HorizontalLayout {
                 alignment: end;
                 MadeWithSlint {
-                    height: root.narrow ? 30px : 36px;
+                    height: 36px;
                 }
             }
         }
+    }
+
+    // On a phone, the badge sits in a corner of the globe's place, rather than taking rows from
+    // the planner's list.
+    if root.narrow: MadeWithSlint {
+        visible: root.planner-away < 1;
+        opacity: 1 - root.planner-away;
+        height: 30px;
+        x: root.width - self.width - root.right-edge;
+        y: root.entry-globe-y + root.entry-globe-height - self.height;
     }
 
     // On a wide screen during a flight, the badge sits above the controls.
