@@ -40,11 +40,20 @@ use super::{PhysicalLength, PhysicalPoint, PhysicalRect, PhysicalSize};
 /// on the versions we build against only the cost remains.
 const UNCLIPPED: kurbo::Rect = kurbo::Rect::new(0., 0., 1e9, 1e9);
 
-/// Whether `font` has color glyphs, in layers (COLR) or as bitmaps (CBDT, sbix).
+/// Whether `font` has color glyphs, in layers (COLR) or as bitmaps (CBDT, sbix). The answer is
+/// kept per font, so its tables are read once and not for every glyph run drawn.
 fn has_color_glyphs(font: &parley::FontData) -> bool {
     use skrifa::raw::TableProvider as _;
-    skrifa::FontRef::from_index(font.data.data(), font.index)
-        .is_ok_and(|font| font.colr().is_ok() || font.cbdt().is_ok() || font.sbix().is_ok())
+    thread_local! {
+        static HAS_COLOR_GLYPHS: std::cell::RefCell<std::collections::HashMap<(u64, u32), bool>> =
+            Default::default();
+    }
+    HAS_COLOR_GLYPHS.with_borrow_mut(|cache| {
+        *cache.entry((font.data.id(), font.index)).or_insert_with(|| {
+            skrifa::FontRef::from_index(font.data.data(), font.index)
+                .is_ok_and(|font| font.colr().is_ok() || font.cbdt().is_ok() || font.sbix().is_ok())
+        })
+    })
 }
 
 #[derive(Clone, Copy)]
