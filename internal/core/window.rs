@@ -710,6 +710,8 @@ pub struct WindowInner {
     /// for the ComponentContainer
     pub(crate) prevent_focus_change: Cell<bool>,
     cursor_blinker: RefCell<pin_weak::rc::PinWeak<crate::input::TextCursorBlinker>>,
+    /// Only the `TextInput` that has the mouse grab uses it.
+    pub(crate) text_input_pointer_selection: Cell<crate::items::PointerSelection>,
 
     pinned_fields: Pin<Box<WindowPinnedFields>>,
 
@@ -789,6 +791,7 @@ impl WindowInner {
             focus_item_position_tracker: Default::default(),
             last_ime_text: Default::default(),
             cursor_blinker: Default::default(),
+            text_input_pointer_selection: Default::default(),
             active_popups: Default::default(),
             next_popup_id: Cell::new(NonZeroU32::MIN),
             overlays: Default::default(),

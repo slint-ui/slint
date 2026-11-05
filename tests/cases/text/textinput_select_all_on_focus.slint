@@ -1,0 +1,64 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A selection set when the press focuses the input survives a slightly moving click (#13739).
+
+export component TestCase inherits Window {
+    width: 200phx;
+    height: 100phx;
+    out property <int> anchor: ti.anchor-position-byte-offset;
+    out property <int> cursor: ti.cursor-position-byte-offset;
+    out property <bool> other-focused: other.has-focus;
+
+    ti := TextInput {
+        y: 0;
+        height: 20phx;
+        font-family: "FixedTestFont";
+        font-size: 10px;
+        text: "hello world";
+        changed has-focus => {
+            if self.has-focus {
+                self.select-all();
+            }
+        }
+    }
+
+    other := TextInput {
+        y: 50phx;
+        height: 20phx;
+    }
+}
+
+/*
+```rust
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+
+let instance = TestCase::new().unwrap();
+let press = |x: f32| instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(x, 5.0), button: PointerEventButton::Left });
+let move_to = |x: f32| instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(x, 5.0) });
+let release = |x: f32| instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(x, 5.0), button: PointerEventButton::Left });
+
+// A click that moves by a pixel keeps the selection that focusing made.
+press(52.0);
+move_to(53.0);
+release(53.0);
+assert_eq!((instance.get_anchor(), instance.get_cursor()), (0, 11));
+
+// Once focused, dragging selects as usual.
+slint_testing::mock_elapsed_time(1000);
+press(22.0);
+move_to(82.0);
+release(82.0);
+assert_eq!((instance.get_anchor(), instance.get_cursor()), (2, 8));
+
+// Dragging into an unfocused input selects from the press position.
+slint_testing::send_mouse_click(&instance, 50.0, 60.0);
+assert!(instance.get_other_focused());
+slint_testing::mock_elapsed_time(1000);
+press(22.0);
+move_to(52.0);
+move_to(82.0);
+release(82.0);
+assert_eq!((instance.get_anchor(), instance.get_cursor()), (2, 8));
+```
+*/
