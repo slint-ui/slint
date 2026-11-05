@@ -731,9 +731,10 @@ fn border_strength(eye: Vec3, height: f32) -> f32 {
 struct Frames {
     textures: Vec<wgpu::Texture>,
     next: usize,
+    /// The format the globe renders through: an sRGB view of the textures where the device
+    /// supports one, so Slint shows the bytes as they are.
+    view_format: wgpu::TextureFormat,
 }
-
-const FRAME_VIEW_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8UnormSrgb;
 
 impl Frames {
     fn texture(&mut self, device: &wgpu::Device, width: u32, height: u32) -> wgpu::Texture {
@@ -747,11 +748,14 @@ impl Frames {
                         mip_level_count: 1,
                         sample_count: 1,
                         dimension: wgpu::TextureDimension::D2,
-                        // Written through an sRGB view, so Slint shows the bytes as they are.
                         format: wgpu::TextureFormat::Rgba8Unorm,
                         usage: wgpu::TextureUsages::RENDER_ATTACHMENT
                             | wgpu::TextureUsages::TEXTURE_BINDING,
-                        view_formats: &[FRAME_VIEW_FORMAT],
+                        view_formats: if self.view_format.is_srgb() {
+                            &[wgpu::TextureFormat::Rgba8UnormSrgb]
+                        } else {
+                            &[]
+                        },
                     })
                 })
                 .collect();
@@ -982,7 +986,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     // The renderer and Slint's device, once Slint set up rendering.
     let mut graphics: Option<(Renderer, wgpu::Device)> = None;
-    let mut frames = Frames { textures: Vec::new(), next: 0 };
+    let mut frames =
+        Frames { textures: Vec::new(), next: 0, view_format: wgpu::TextureFormat::Rgba8Unorm };
     let mut last_frame = web_time::Instant::now();
     let mut frame_count = 0u32;
     let mut fps_window_start = web_time::Instant::now();
@@ -1029,11 +1034,15 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 .expect("the night imagery is a valid JPEG")
                 .compress(device.features());
             let info = device.adapter_info();
+            // OpenGL, and WebGL in a browser without WebGPU, can't view a texture as sRGB.
+            if info.backend != wgpu::Backend::Gl {
+                frames.view_format = wgpu::TextureFormat::Rgba8UnormSrgb;
+            }
             app.set_gpu_text(
                 format!("{} ({:?}, {:?})", info.name, info.backend, imagery.format).into(),
             );
             graphics = Some((
-                Renderer::new(device, queue, &map, &imagery, &night, FRAME_VIEW_FORMAT),
+                Renderer::new(device, queue, &map, &imagery, &night, frames.view_format),
                 device.clone(),
             ));
             return;
@@ -1137,7 +1146,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         let pixels =
             (size * (shown / size).max_element() * density).floor().clamp(Vec2::ONE, largest);
         let view = texture.create_view(&wgpu::TextureViewDescriptor {
-            format: Some(FRAME_VIEW_FORMAT),
+            format: Some(frames.view_format),
             ..Default::default()
         });
         renderer.render(

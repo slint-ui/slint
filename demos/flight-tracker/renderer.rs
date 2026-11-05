@@ -96,6 +96,8 @@ pub struct Renderer {
     border_pipeline: wgpu::RenderPipeline,
     border_segments: wgpu::Buffer,
     border_segment_count: u32,
+    /// Whether the shader encodes sRGB, because the target's format doesn't.
+    encode_srgb: bool,
 }
 
 const GLOBAL_FLOATS: usize = 48;
@@ -346,6 +348,7 @@ impl Renderer {
             border_pipeline,
             border_segments,
             border_segment_count: segments.len() as u32,
+            encode_srgb: !format.is_srgb(),
         }
     }
 
@@ -359,6 +362,7 @@ impl Renderer {
         globals[36..40].copy_from_slice(&frame.sun.extend(frame.night).to_array());
         globals[40..44].copy_from_slice(&options.to_array());
         globals[44..46].copy_from_slice(&frame.viewport.to_array());
+        globals[46] = self.encode_srgb as u8 as f32;
         self.queue.write_buffer(&self.globals, 0, bytemuck::cast_slice(&globals));
 
         let mut encoder = self.device.create_command_encoder(&Default::default());
