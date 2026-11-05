@@ -7,6 +7,8 @@
 #[cfg(not(target_arch = "wasm32"))]
 pub mod child_process;
 pub mod component_catalog;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod console;
 pub mod document_cache;
 pub mod editing;
 pub mod editor_session;

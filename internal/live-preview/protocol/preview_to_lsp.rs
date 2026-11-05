@@ -25,7 +25,7 @@ pub enum PreviewToLspMessage {
     Diagnostics {
         uri: Url,
         version: SourceFileVersion,
-        #[serde(with = "json_encoded")]
+        #[serde(with = "super::json_encoded")]
         diagnostics: Vec<lsp_types::Diagnostic>,
     },
     /// Show a document in the editor.
@@ -132,25 +132,6 @@ impl PreviewToLspMessage {
             self,
             Self::Diagnostics { .. } | Self::DebugMessage { .. } | Self::RequestState { .. }
         )
-    }
-}
-
-/// `lsp_types` omits empty optional fields when serializing, which the
-/// remote preview's postcard encoding can't read back, so these travel as JSON.
-mod json_encoded {
-    use serde::{Deserialize as _, de::Error as _, ser::Error as _};
-
-    pub fn serialize<S: serde::Serializer, T: serde::Serialize>(
-        value: &T,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error> {
-        serializer.serialize_str(&serde_json::to_string(value).map_err(S::Error::custom)?)
-    }
-
-    pub fn deserialize<'de, D: serde::Deserializer<'de>, T: serde::de::DeserializeOwned>(
-        deserializer: D,
-    ) -> Result<T, D::Error> {
-        serde_json::from_str(&String::deserialize(deserializer)?).map_err(D::Error::custom)
     }
 }
 

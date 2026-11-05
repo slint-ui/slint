@@ -1,3 +1,9 @@
+Debug(DebugMessage { location: Some(("app.slint", 300, 1000)), message: "hello" })
+010601096170702e736c696e74ac02e8070568656c6c6f
+
+Debug(Diagnostics { uri: Url { scheme: "file", cannot_be_a_base: false, username: "", password: None, host: None, port: None, path: "/project/app.slint", query: None, fragment: None }, diagnostics: [Diagnostic { range: Range { start: Position { line: 0, character: 0 }, end: Position { line: 0, character: 0 } }, severity: Some(Warning), code: None, code_description: None, source: None, message: "unused property", related_information: None, tags: None, data: None }] })
+01051966696c653a2f2f2f70726f6a6563742f6170702e736c696e74765b7b2272616e6765223a7b227374617274223a7b226c696e65223a302c22636861726163746572223a307d2c22656e64223a7b226c696e65223a302c22636861726163746572223a307d7d2c227365766572697479223a322c226d657373616765223a22756e757365642070726f7065727479227d5d
+
 Debug(ElementTreeChanged { subscription: 300, changed: [1, 2, 3] })
 0102ac0203010203
 

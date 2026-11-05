@@ -121,6 +121,18 @@ fn wire_format_matches_snapshots() {
     }));
     snapshots
         .assert_roundtrip(FromPreview::Debug(PreviewToDebuggerMessage::Reloaded { success: true }));
+    snapshots.assert_roundtrip(FromPreview::Debug(PreviewToDebuggerMessage::Diagnostics {
+        uri: url(),
+        diagnostics: vec![lsp_types::Diagnostic {
+            severity: Some(lsp_types::DiagnosticSeverity::WARNING),
+            message: "unused property".into(),
+            ..Default::default()
+        }],
+    }));
+    snapshots.assert_roundtrip(FromPreview::Debug(PreviewToDebuggerMessage::DebugMessage {
+        location: Some((PathBuf::from("app.slint"), 300, 1000)),
+        message: "hello".into(),
+    }));
 
     let mut sealer = session::Sealer::new([7; 32]);
     let frames = [sealer.seal(b"a".to_vec()).unwrap(), sealer.seal(b"b".to_vec()).unwrap()];
