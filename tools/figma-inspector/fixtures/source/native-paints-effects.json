@@ -1,0 +1,4487 @@
+{
+  "sourceVersion": 1,
+  "root": {
+    "id": "1:2",
+    "name": "Slint native effects and paints",
+    "type": "FRAME",
+    "properties": {
+      "x": 0,
+      "y": 0,
+      "width": 256,
+      "height": 192,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "fills": [
+        {
+          "type": "SOLID",
+          "visible": true,
+          "opacity": 1,
+          "blendMode": "NORMAL",
+          "color": {
+            "r": 0.8980392217636108,
+            "g": 0.9137254953384399,
+            "b": 0.929411768913269
+          },
+          "boundVariables": {}
+        }
+      ],
+      "strokes": [],
+      "effects": [],
+      "cornerRadius": 0,
+      "topLeftRadius": 0,
+      "topRightRadius": 0,
+      "bottomLeftRadius": 0,
+      "bottomRightRadius": 0,
+      "strokeWeight": 1,
+      "strokeAlign": "INSIDE",
+      "strokeTopWeight": 1,
+      "strokeRightWeight": 1,
+      "strokeBottomWeight": 1,
+      "strokeLeftWeight": 1,
+      "strokeCap": "NONE",
+      "strokeJoin": "MITER",
+      "strokeMiterLimit": 4,
+      "dashPattern": [],
+      "clipsContent": false,
+      "layoutMode": "NONE",
+      "layoutPositioning": "AUTO",
+      "layoutSizingHorizontal": "FIXED",
+      "layoutSizingVertical": "FIXED",
+      "minWidth": null,
+      "minHeight": null,
+      "maxWidth": null,
+      "maxHeight": null
+    },
+    "errors": [],
+    "children": [
+      {
+        "id": "1:3",
+        "name": "Rounded inner shadow",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 12,
+          "y": 12,
+          "width": 40,
+          "height": 40,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.4470588266849518,
+                "g": 0.6196078658103943,
+                "b": 0.7686274647712708
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 0.5,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.7529411911964417,
+                "g": 0.125490203499794,
+                "b": 0.125490203499794
+              },
+              "boundVariables": {}
+            }
+          ],
+          "effects": [
+            {
+              "type": "INNER_SHADOW",
+              "visible": true,
+              "radius": 8,
+              "boundVariables": {},
+              "color": {
+                "r": 0.062745101749897,
+                "g": 0.125490203499794,
+                "b": 0.1882352977991104,
+                "a": 0.699999988079071
+              },
+              "offset": {
+                "x": 2,
+                "y": 3
+              },
+              "spread": 2,
+              "blendMode": "NORMAL"
+            },
+            {
+              "type": "DROP_SHADOW",
+              "visible": true,
+              "radius": 4,
+              "boundVariables": {},
+              "color": {
+                "r": 0,
+                "g": 0,
+                "b": 0,
+                "a": 0.4000000059604645
+              },
+              "offset": {
+                "x": 2,
+                "y": 2
+              },
+              "spread": 2,
+              "blendMode": "NORMAL",
+              "showShadowBehindNode": false
+            }
+          ],
+          "cornerRadius": 8,
+          "topLeftRadius": 8,
+          "topRightRadius": 8,
+          "bottomLeftRadius": 8,
+          "bottomRightRadius": 8,
+          "strokeWeight": 3,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 3,
+          "strokeRightWeight": 3,
+          "strokeBottomWeight": 3,
+          "strokeLeftWeight": 3,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:4",
+        "name": "Two inner shadows",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 76,
+          "y": 12,
+          "width": 40,
+          "height": 40,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.4470588266849518,
+                "g": 0.6196078658103943,
+                "b": 0.7686274647712708
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [
+            {
+              "type": "INNER_SHADOW",
+              "visible": true,
+              "radius": 6,
+              "boundVariables": {},
+              "color": {
+                "r": 0,
+                "g": 0.125490203499794,
+                "b": 0.250980406999588,
+                "a": 0.699999988079071
+              },
+              "offset": {
+                "x": 3,
+                "y": 0
+              },
+              "spread": -1,
+              "blendMode": "NORMAL"
+            },
+            {
+              "type": "INNER_SHADOW",
+              "visible": true,
+              "radius": 4,
+              "boundVariables": {},
+              "color": {
+                "r": 1,
+                "g": 1,
+                "b": 1,
+                "a": 0.6000000238418579
+              },
+              "offset": {
+                "x": -2,
+                "y": 1
+              },
+              "spread": 1,
+              "blendMode": "NORMAL"
+            }
+          ],
+          "cornerRadius": 8,
+          "topLeftRadius": 8,
+          "topRightRadius": 8,
+          "bottomLeftRadius": 8,
+          "bottomRightRadius": 8,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:5",
+        "name": "Spread drop shadow",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 140,
+          "y": 12,
+          "width": 40,
+          "height": 40,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.4470588266849518,
+                "g": 0.6196078658103943,
+                "b": 0.7686274647712708
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [
+            {
+              "type": "DROP_SHADOW",
+              "visible": true,
+              "radius": 4,
+              "boundVariables": {},
+              "color": {
+                "r": 0.062745101749897,
+                "g": 0.125490203499794,
+                "b": 0.1882352977991104,
+                "a": 0.699999988079071
+              },
+              "offset": {
+                "x": 3,
+                "y": 2
+              },
+              "spread": 3,
+              "blendMode": "NORMAL",
+              "showShadowBehindNode": false
+            }
+          ],
+          "cornerRadius": 8,
+          "topLeftRadius": 8,
+          "topRightRadius": 8,
+          "bottomLeftRadius": 8,
+          "bottomRightRadius": 8,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:6",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 192,
+          "y": 0,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.8784313797950745,
+                "g": 0.7529411911964417,
+                "b": 0.5647059082984924
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:7",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 200,
+          "y": 0,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.125490203499794,
+                "g": 0.250980406999588,
+                "b": 0.3764705955982208
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:8",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 208,
+          "y": 0,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.8784313797950745,
+                "g": 0.7529411911964417,
+                "b": 0.5647059082984924
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:9",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 216,
+          "y": 0,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.125490203499794,
+                "g": 0.250980406999588,
+                "b": 0.3764705955982208
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:10",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 224,
+          "y": 0,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.8784313797950745,
+                "g": 0.7529411911964417,
+                "b": 0.5647059082984924
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:11",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 232,
+          "y": 0,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.125490203499794,
+                "g": 0.250980406999588,
+                "b": 0.3764705955982208
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:12",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 240,
+          "y": 0,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.8784313797950745,
+                "g": 0.7529411911964417,
+                "b": 0.5647059082984924
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:13",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 248,
+          "y": 0,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.125490203499794,
+                "g": 0.250980406999588,
+                "b": 0.3764705955982208
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:14",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 192,
+          "y": 8,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.125490203499794,
+                "g": 0.250980406999588,
+                "b": 0.3764705955982208
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:15",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 200,
+          "y": 8,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.8784313797950745,
+                "g": 0.7529411911964417,
+                "b": 0.5647059082984924
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:16",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 208,
+          "y": 8,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.125490203499794,
+                "g": 0.250980406999588,
+                "b": 0.3764705955982208
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:17",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 216,
+          "y": 8,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.8784313797950745,
+                "g": 0.7529411911964417,
+                "b": 0.5647059082984924
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:18",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 224,
+          "y": 8,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.125490203499794,
+                "g": 0.250980406999588,
+                "b": 0.3764705955982208
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:19",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 232,
+          "y": 8,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.8784313797950745,
+                "g": 0.7529411911964417,
+                "b": 0.5647059082984924
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:20",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 240,
+          "y": 8,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.125490203499794,
+                "g": 0.250980406999588,
+                "b": 0.3764705955982208
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:21",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 248,
+          "y": 8,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.8784313797950745,
+                "g": 0.7529411911964417,
+                "b": 0.5647059082984924
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:22",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 192,
+          "y": 16,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.8784313797950745,
+                "g": 0.7529411911964417,
+                "b": 0.5647059082984924
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:23",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 200,
+          "y": 16,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.125490203499794,
+                "g": 0.250980406999588,
+                "b": 0.3764705955982208
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:24",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 208,
+          "y": 16,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.8784313797950745,
+                "g": 0.7529411911964417,
+                "b": 0.5647059082984924
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:25",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 216,
+          "y": 16,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.125490203499794,
+                "g": 0.250980406999588,
+                "b": 0.3764705955982208
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:26",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 224,
+          "y": 16,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.8784313797950745,
+                "g": 0.7529411911964417,
+                "b": 0.5647059082984924
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:27",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 232,
+          "y": 16,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.125490203499794,
+                "g": 0.250980406999588,
+                "b": 0.3764705955982208
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:28",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 240,
+          "y": 16,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.8784313797950745,
+                "g": 0.7529411911964417,
+                "b": 0.5647059082984924
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:29",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 248,
+          "y": 16,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.125490203499794,
+                "g": 0.250980406999588,
+                "b": 0.3764705955982208
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:30",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 192,
+          "y": 24,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.125490203499794,
+                "g": 0.250980406999588,
+                "b": 0.3764705955982208
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:31",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 200,
+          "y": 24,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.8784313797950745,
+                "g": 0.7529411911964417,
+                "b": 0.5647059082984924
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:32",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 208,
+          "y": 24,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.125490203499794,
+                "g": 0.250980406999588,
+                "b": 0.3764705955982208
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:33",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 216,
+          "y": 24,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.8784313797950745,
+                "g": 0.7529411911964417,
+                "b": 0.5647059082984924
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:34",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 224,
+          "y": 24,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.125490203499794,
+                "g": 0.250980406999588,
+                "b": 0.3764705955982208
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:35",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 232,
+          "y": 24,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.8784313797950745,
+                "g": 0.7529411911964417,
+                "b": 0.5647059082984924
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:36",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 240,
+          "y": 24,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.125490203499794,
+                "g": 0.250980406999588,
+                "b": 0.3764705955982208
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:37",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 248,
+          "y": 24,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.8784313797950745,
+                "g": 0.7529411911964417,
+                "b": 0.5647059082984924
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:38",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 192,
+          "y": 32,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.8784313797950745,
+                "g": 0.7529411911964417,
+                "b": 0.5647059082984924
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:39",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 200,
+          "y": 32,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.125490203499794,
+                "g": 0.250980406999588,
+                "b": 0.3764705955982208
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:40",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 208,
+          "y": 32,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.8784313797950745,
+                "g": 0.7529411911964417,
+                "b": 0.5647059082984924
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:41",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 216,
+          "y": 32,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.125490203499794,
+                "g": 0.250980406999588,
+                "b": 0.3764705955982208
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:42",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 224,
+          "y": 32,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.8784313797950745,
+                "g": 0.7529411911964417,
+                "b": 0.5647059082984924
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:43",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 232,
+          "y": 32,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.125490203499794,
+                "g": 0.250980406999588,
+                "b": 0.3764705955982208
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:44",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 240,
+          "y": 32,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.8784313797950745,
+                "g": 0.7529411911964417,
+                "b": 0.5647059082984924
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:45",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 248,
+          "y": 32,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.125490203499794,
+                "g": 0.250980406999588,
+                "b": 0.3764705955982208
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:46",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 192,
+          "y": 40,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.125490203499794,
+                "g": 0.250980406999588,
+                "b": 0.3764705955982208
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:47",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 200,
+          "y": 40,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.8784313797950745,
+                "g": 0.7529411911964417,
+                "b": 0.5647059082984924
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:48",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 208,
+          "y": 40,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.125490203499794,
+                "g": 0.250980406999588,
+                "b": 0.3764705955982208
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:49",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 216,
+          "y": 40,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.8784313797950745,
+                "g": 0.7529411911964417,
+                "b": 0.5647059082984924
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:50",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 224,
+          "y": 40,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.125490203499794,
+                "g": 0.250980406999588,
+                "b": 0.3764705955982208
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:51",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 232,
+          "y": 40,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.8784313797950745,
+                "g": 0.7529411911964417,
+                "b": 0.5647059082984924
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:52",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 240,
+          "y": 40,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.125490203499794,
+                "g": 0.250980406999588,
+                "b": 0.3764705955982208
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:53",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 248,
+          "y": 40,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.8784313797950745,
+                "g": 0.7529411911964417,
+                "b": 0.5647059082984924
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:54",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 192,
+          "y": 48,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.8784313797950745,
+                "g": 0.7529411911964417,
+                "b": 0.5647059082984924
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:55",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 200,
+          "y": 48,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.125490203499794,
+                "g": 0.250980406999588,
+                "b": 0.3764705955982208
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:56",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 208,
+          "y": 48,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.8784313797950745,
+                "g": 0.7529411911964417,
+                "b": 0.5647059082984924
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:57",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 216,
+          "y": 48,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.125490203499794,
+                "g": 0.250980406999588,
+                "b": 0.3764705955982208
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:58",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 224,
+          "y": 48,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.8784313797950745,
+                "g": 0.7529411911964417,
+                "b": 0.5647059082984924
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:59",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 232,
+          "y": 48,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.125490203499794,
+                "g": 0.250980406999588,
+                "b": 0.3764705955982208
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:60",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 240,
+          "y": 48,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.8784313797950745,
+                "g": 0.7529411911964417,
+                "b": 0.5647059082984924
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:61",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 248,
+          "y": 48,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.125490203499794,
+                "g": 0.250980406999588,
+                "b": 0.3764705955982208
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:62",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 192,
+          "y": 56,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.125490203499794,
+                "g": 0.250980406999588,
+                "b": 0.3764705955982208
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:63",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 200,
+          "y": 56,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.8784313797950745,
+                "g": 0.7529411911964417,
+                "b": 0.5647059082984924
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:64",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 208,
+          "y": 56,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.125490203499794,
+                "g": 0.250980406999588,
+                "b": 0.3764705955982208
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:65",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 216,
+          "y": 56,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.8784313797950745,
+                "g": 0.7529411911964417,
+                "b": 0.5647059082984924
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:66",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 224,
+          "y": 56,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.125490203499794,
+                "g": 0.250980406999588,
+                "b": 0.3764705955982208
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:67",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 232,
+          "y": 56,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.8784313797950745,
+                "g": 0.7529411911964417,
+                "b": 0.5647059082984924
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:68",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 240,
+          "y": 56,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.125490203499794,
+                "g": 0.250980406999588,
+                "b": 0.3764705955982208
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:69",
+        "name": "Backdrop checker",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 248,
+          "y": 56,
+          "width": 8,
+          "height": 8,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.8784313797950745,
+                "g": 0.7529411911964417,
+                "b": 0.5647059082984924
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 0,
+          "topLeftRadius": 0,
+          "topRightRadius": 0,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 0,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:70",
+        "name": "Normal background blur",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 204,
+          "y": 12,
+          "width": 40,
+          "height": 40,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 0.20000000298023224,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 1,
+                "g": 1,
+                "b": 1
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [],
+          "effects": [
+            {
+              "type": "BACKGROUND_BLUR",
+              "visible": true,
+              "radius": 8,
+              "boundVariables": {},
+              "blurType": "NORMAL"
+            }
+          ],
+          "cornerRadius": 8,
+          "topLeftRadius": 8,
+          "topRightRadius": 8,
+          "bottomLeftRadius": 8,
+          "bottomRightRadius": 8,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:71",
+        "name": "Offset linear gradient",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 8,
+          "y": 80,
+          "width": 48,
+          "height": 32,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "GRADIENT_LINEAR",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "gradientStops": [
+                {
+                  "color": {
+                    "r": 1,
+                    "g": 0,
+                    "b": 0,
+                    "a": 1
+                  },
+                  "position": 0,
+                  "boundVariables": {}
+                },
+                {
+                  "color": {
+                    "r": 0,
+                    "g": 1,
+                    "b": 0,
+                    "a": 1
+                  },
+                  "position": 0.375,
+                  "boundVariables": {}
+                },
+                {
+                  "color": {
+                    "r": 0,
+                    "g": 0,
+                    "b": 1,
+                    "a": 1
+                  },
+                  "position": 1,
+                  "boundVariables": {}
+                }
+              ],
+              "gradientTransform": [
+                [
+                  1.2999999523162842,
+                  0.20000000298023224,
+                  -0.25
+                ],
+                [
+                  0,
+                  1,
+                  0
+                ]
+              ]
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 8,
+          "topLeftRadius": 8,
+          "topRightRadius": 8,
+          "bottomLeftRadius": 8,
+          "bottomRightRadius": 8,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:72",
+        "name": "Offset radial gradient",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 76,
+          "y": 76,
+          "width": 40,
+          "height": 40,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "GRADIENT_RADIAL",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "gradientStops": [
+                {
+                  "color": {
+                    "r": 1,
+                    "g": 0,
+                    "b": 0,
+                    "a": 1
+                  },
+                  "position": 0,
+                  "boundVariables": {}
+                },
+                {
+                  "color": {
+                    "r": 0,
+                    "g": 1,
+                    "b": 0,
+                    "a": 1
+                  },
+                  "position": 0.375,
+                  "boundVariables": {}
+                },
+                {
+                  "color": {
+                    "r": 0,
+                    "g": 0,
+                    "b": 1,
+                    "a": 1
+                  },
+                  "position": 1,
+                  "boundVariables": {}
+                }
+              ],
+              "gradientTransform": [
+                [
+                  0.8999999761581421,
+                  0,
+                  0.10000000149011612
+                ],
+                [
+                  0,
+                  1.399999976158142,
+                  -0.20000000298023224
+                ]
+              ]
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 8,
+          "topLeftRadius": 8,
+          "topRightRadius": 8,
+          "bottomLeftRadius": 8,
+          "bottomRightRadius": 8,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:73",
+        "name": "Angular gradient",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 140,
+          "y": 76,
+          "width": 40,
+          "height": 40,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "GRADIENT_ANGULAR",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "gradientStops": [
+                {
+                  "color": {
+                    "r": 1,
+                    "g": 0,
+                    "b": 0,
+                    "a": 1
+                  },
+                  "position": 0,
+                  "boundVariables": {}
+                },
+                {
+                  "color": {
+                    "r": 0,
+                    "g": 1,
+                    "b": 0,
+                    "a": 1
+                  },
+                  "position": 0.375,
+                  "boundVariables": {}
+                },
+                {
+                  "color": {
+                    "r": 0,
+                    "g": 0,
+                    "b": 1,
+                    "a": 1
+                  },
+                  "position": 1,
+                  "boundVariables": {}
+                }
+              ],
+              "gradientTransform": [
+                [
+                  1,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  1,
+                  0
+                ]
+              ]
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "cornerRadius": 8,
+          "topLeftRadius": 8,
+          "topRightRadius": 8,
+          "bottomLeftRadius": 8,
+          "bottomRightRadius": 8,
+          "strokeWeight": 1,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 1,
+          "strokeRightWeight": 1,
+          "strokeBottomWeight": 1,
+          "strokeLeftWeight": 1,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:74",
+        "name": "INSIDE dashed outline",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 204,
+          "y": 76,
+          "width": 40,
+          "height": 40,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 1,
+                "g": 1,
+                "b": 1
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.0941176488995552,
+                "g": 0.250980406999588,
+                "b": 0.43921568989753723
+              },
+              "boundVariables": {}
+            }
+          ],
+          "effects": [],
+          "cornerRadius": 8,
+          "topLeftRadius": 8,
+          "topRightRadius": 8,
+          "bottomLeftRadius": 8,
+          "bottomRightRadius": 8,
+          "strokeWeight": 2,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 2,
+          "strokeRightWeight": 2,
+          "strokeBottomWeight": 2,
+          "strokeLeftWeight": 2,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [
+            6,
+            4
+          ],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:75",
+        "name": "CENTER dashed outline",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 12,
+          "y": 140,
+          "width": 40,
+          "height": 40,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 1,
+                "g": 1,
+                "b": 1
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.0941176488995552,
+                "g": 0.250980406999588,
+                "b": 0.43921568989753723
+              },
+              "boundVariables": {}
+            }
+          ],
+          "effects": [],
+          "cornerRadius": 8,
+          "topLeftRadius": 8,
+          "topRightRadius": 8,
+          "bottomLeftRadius": 8,
+          "bottomRightRadius": 8,
+          "strokeWeight": 2,
+          "strokeAlign": "CENTER",
+          "strokeTopWeight": 2,
+          "strokeRightWeight": 2,
+          "strokeBottomWeight": 2,
+          "strokeLeftWeight": 2,
+          "strokeCap": "ROUND",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [
+            6,
+            4
+          ],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:76",
+        "name": "OUTSIDE dashed outline",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 76,
+          "y": 140,
+          "width": 40,
+          "height": 40,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 1,
+                "g": 1,
+                "b": 1
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.0941176488995552,
+                "g": 0.250980406999588,
+                "b": 0.43921568989753723
+              },
+              "boundVariables": {}
+            }
+          ],
+          "effects": [],
+          "cornerRadius": {
+            "$source": "mixed"
+          },
+          "topLeftRadius": 3,
+          "topRightRadius": 8,
+          "bottomLeftRadius": 0,
+          "bottomRightRadius": 12,
+          "strokeWeight": 2,
+          "strokeAlign": "OUTSIDE",
+          "strokeTopWeight": 2,
+          "strokeRightWeight": 2,
+          "strokeBottomWeight": 2,
+          "strokeLeftWeight": 2,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [
+            6,
+            4
+          ],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      },
+      {
+        "id": "1:77",
+        "name": "Centered text outline",
+        "type": "TEXT",
+        "properties": {
+          "x": 140,
+          "y": 138,
+          "width": 40,
+          "height": 44,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 1,
+                "g": 0.8156862854957581,
+                "b": 0.250980406999588
+              },
+              "boundVariables": {}
+            }
+          ],
+          "strokes": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 0.125490203499794,
+                "g": 0.250980406999588,
+                "b": 0.3764705955982208
+              },
+              "boundVariables": {}
+            }
+          ],
+          "effects": [],
+          "strokeWeight": 2,
+          "strokeAlign": "CENTER",
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null,
+          "characters": "S",
+          "fontName": {
+            "family": "Inter",
+            "style": "Bold",
+            "variationSettings": {
+              "slnt": 0,
+              "wght": 700
+            }
+          },
+          "fontSize": 36,
+          "fontWeight": 700,
+          "textAlignHorizontal": "LEFT",
+          "textAlignVertical": "TOP",
+          "textAutoResize": "NONE",
+          "lineHeight": {
+            "unit": "AUTO"
+          },
+          "letterSpacing": {
+            "unit": "PERCENT",
+            "value": 0
+          },
+          "maxLines": null,
+          "textTruncation": "DISABLED"
+        },
+        "errors": [],
+        "segments": {
+          "value": [
+            {
+              "characters": "S",
+              "start": 0,
+              "end": 1,
+              "fontSize": 36,
+              "fontName": {
+                "family": "Inter",
+                "style": "Bold",
+                "variationSettings": {
+                  "slnt": 0,
+                  "wght": 700
+                }
+              },
+              "fontWeight": 700,
+              "fontStyle": "BOLD",
+              "textDecoration": "NONE",
+              "textCase": "ORIGINAL",
+              "lineHeight": {
+                "unit": "AUTO"
+              },
+              "letterSpacing": {
+                "unit": "PERCENT",
+                "value": 0
+              },
+              "fills": [
+                {
+                  "type": "SOLID",
+                  "visible": true,
+                  "opacity": 1,
+                  "blendMode": "NORMAL",
+                  "color": {
+                    "r": 1,
+                    "g": 0.8156862854957581,
+                    "b": 0.250980406999588
+                  },
+                  "boundVariables": {}
+                }
+              ]
+            }
+          ]
+        },
+        "exports": {
+          "svg": {
+            "value": "<svg width=\"40\" height=\"44\" viewBox=\"0 0 40 44\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M16.4787 16.348C16.3764 15.3168 15.9375 14.5156 15.1619 13.9446C14.3864 13.3736 13.3338 13.0881 12.0043 13.0881C11.1009 13.0881 10.3381 13.2159 9.71591 13.4716C9.09375 13.7188 8.61648 14.0639 8.28409 14.5071C7.96023 14.9503 7.7983 15.4531 7.7983 16.0156C7.78125 16.4844 7.87926 16.8935 8.09233 17.2429C8.31392 17.5923 8.61648 17.8949 9 18.1506C9.38352 18.3977 9.8267 18.6151 10.3295 18.8026C10.8324 18.9815 11.3693 19.1349 11.9403 19.2628L14.2926 19.8253C15.4347 20.081 16.483 20.4219 17.4375 20.848C18.392 21.2741 19.2188 21.7983 19.9176 22.4205C20.6165 23.0426 21.1577 23.7756 21.5412 24.6193C21.9332 25.4631 22.1335 26.4304 22.142 27.5213C22.1335 29.1236 21.7244 30.5128 20.9148 31.6889C20.1136 32.8565 18.9545 33.7642 17.4375 34.4119C15.929 35.0511 14.1094 35.3707 11.9787 35.3707C9.86506 35.3707 8.02415 35.0469 6.45597 34.3991C4.89631 33.7514 3.67756 32.7926 2.79972 31.5227C1.9304 30.2443 1.47443 28.6634 1.43182 26.7798H6.78835C6.84801 27.6577 7.09943 28.3906 7.54261 28.9787C7.99432 29.5582 8.59517 29.9972 9.34517 30.2955C10.1037 30.5852 10.9602 30.7301 11.9148 30.7301C12.8523 30.7301 13.6662 30.5938 14.3565 30.321C15.0554 30.0483 15.5966 29.669 15.9801 29.1832C16.3636 28.6974 16.5554 28.1392 16.5554 27.5085C16.5554 26.9205 16.3807 26.4261 16.0312 26.0256C15.6903 25.625 15.1875 25.2841 14.5227 25.0028C13.8665 24.7216 13.0611 24.4659 12.1065 24.2358L9.25568 23.5199C7.0483 22.983 5.3054 22.1435 4.02699 21.0014C2.74858 19.8594 2.11364 18.321 2.12216 16.3864C2.11364 14.8011 2.53551 13.4162 3.38778 12.2315C4.24858 11.0469 5.42898 10.1222 6.92898 9.45739C8.42898 8.79261 10.1335 8.46023 12.0426 8.46023C13.9858 8.46023 15.6818 8.79261 17.1307 9.45739C18.5881 10.1222 19.7216 11.0469 20.5312 12.2315C21.3409 13.4162 21.7585 14.7884 21.7841 16.348H16.4787Z\" fill=\"#FFD040\" stroke-width=\"2\" stroke=\"#204060\"/>\n</svg>\n"
+          }
+        }
+      },
+      {
+        "id": "1:78",
+        "name": "Translucent gradient border",
+        "type": "RECTANGLE",
+        "properties": {
+          "x": 204,
+          "y": 140,
+          "width": 40,
+          "height": 40,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "fills": [
+            {
+              "type": "GRADIENT_RADIAL",
+              "visible": true,
+              "opacity": 1,
+              "blendMode": "NORMAL",
+              "gradientStops": [
+                {
+                  "color": {
+                    "r": 1,
+                    "g": 0,
+                    "b": 0,
+                    "a": 1
+                  },
+                  "position": 0,
+                  "boundVariables": {}
+                },
+                {
+                  "color": {
+                    "r": 0,
+                    "g": 0,
+                    "b": 1,
+                    "a": 0
+                  },
+                  "position": 1,
+                  "boundVariables": {}
+                }
+              ],
+              "gradientTransform": [
+                [
+                  1,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  1,
+                  0
+                ]
+              ]
+            }
+          ],
+          "strokes": [
+            {
+              "type": "SOLID",
+              "visible": true,
+              "opacity": 0.699999988079071,
+              "blendMode": "NORMAL",
+              "color": {
+                "r": 1,
+                "g": 1,
+                "b": 1
+              },
+              "boundVariables": {}
+            }
+          ],
+          "effects": [],
+          "cornerRadius": 8,
+          "topLeftRadius": 8,
+          "topRightRadius": 8,
+          "bottomLeftRadius": 8,
+          "bottomRightRadius": 8,
+          "strokeWeight": 3,
+          "strokeAlign": "INSIDE",
+          "strokeTopWeight": 3,
+          "strokeRightWeight": 3,
+          "strokeBottomWeight": 3,
+          "strokeLeftWeight": 3,
+          "strokeCap": "NONE",
+          "strokeJoin": "MITER",
+          "strokeMiterLimit": 4,
+          "dashPattern": [],
+          "layoutPositioning": "AUTO",
+          "layoutSizingHorizontal": "FIXED",
+          "layoutSizingVertical": "FIXED",
+          "minWidth": null,
+          "minHeight": null,
+          "maxWidth": null,
+          "maxHeight": null
+        },
+        "errors": []
+      }
+    ]
+  },
+  "images": {},
+  "exportScale": 1,
+  "pngEnabled": false
+}

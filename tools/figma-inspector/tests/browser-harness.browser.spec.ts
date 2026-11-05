@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: MIT
 
 import { expect, test } from "vitest";
-import { server } from "vitest/browser";
 import { normalizeSource } from "../src/plugin/normalize";
 import { convertSnapshot } from "../src/preview/converter";
 import {
     canvasPixels,
     decodePng,
+    readRasterReference,
     expectCanvasPixels,
     mountCanvasPreview,
     readFixture,
@@ -70,7 +70,10 @@ async function fixture(preview: Preview, kind: "SVG" | "PNG") {
     const expected =
         kind === "PNG"
             ? await decodePng(
-                  await server.commands.readFile(`${path}.png`, "base64"),
+                  await readRasterReference(
+                      "asymmetric",
+                      preview.win.devicePixelRatio,
+                  ),
               )
             : undefined;
     const check = (pixels: CanvasPixels) => {

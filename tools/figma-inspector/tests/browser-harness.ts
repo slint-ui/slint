@@ -12,6 +12,34 @@ afterEach(() => {
 export const readFixture = (path: string) =>
     server.commands.readFile(path, "utf8");
 
+export async function readRasterReference(
+    name: string,
+    density: number,
+): Promise<string> {
+    const index = ["asymmetric", "stroke", "mask-shadow"].indexOf(name);
+    if (index < 0) throw Error(`Unknown raster reference: ${name}`);
+    const image = new Image();
+    image.src = `data:image/png;base64,${await server.commands.readFile(`fixtures/authored/raster/legacy-${density}x.png`, "base64")}`;
+    await image.decode();
+    const canvas = document.createElement("canvas");
+    canvas.width = 32 * density;
+    canvas.height = 24 * density;
+    const context = canvas.getContext("2d");
+    if (!context) throw Error("Missing 2D context");
+    context.drawImage(
+        image,
+        index * canvas.width,
+        0,
+        canvas.width,
+        canvas.height,
+        0,
+        0,
+        canvas.width,
+        canvas.height,
+    );
+    return canvas.toDataURL("image/png").split(",")[1];
+}
+
 /** Mount the exact built UI and complete its Figma message handshake. */
 export async function mountPreview(production = true, canvasLayout = false) {
     const iframe = document.createElement("iframe");
