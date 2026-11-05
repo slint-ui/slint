@@ -1658,7 +1658,6 @@ dependencies = [
  "console_error_panic_hook",
  "glam",
  "image",
- "js-sys",
  "slint",
  "slint-build",
  "unicode-segmentation",
