@@ -35,8 +35,13 @@ const ARRIVED_SECONDS: f32 = 7.0;
 /// it takes off.
 const PROPOSE_SECONDS: f32 = 2.5;
 const TAKE_OFF_SECONDS: f32 = 4.0;
-/// How long the globe takes to grow from its place on the entry screen to the window, or back.
-const ZOOM_SECONDS: f32 = 0.9;
+/// How long the globe takes to grow from its place on the entry screen to the window.
+const ZOOM_IN_SECONDS: f32 = 0.9;
+/// How long the globe takes to shrink back into its place, while the camera turns to the entry
+/// screen's view.
+const ZOOM_OUT_SECONDS: f32 = 1.3;
+/// How long the planner's slide trails the globe's zoom, so that the globe leads.
+const PLANNER_LAG: f32 = 0.2;
 /// How fast the globe on the entry screen turns, in radians per second.
 const ENTRY_SPIN: f32 = 0.08;
 /// How long the globe on the entry screen waits after the user turned it, before it turns on
@@ -203,14 +208,12 @@ fn route_range(flight: &Flight, aspect: f32) -> f32 {
 }
 
 /// What the demo shows: the entry screen, the zoom between the globe's place there and the
-/// window, or a flight. `Returning` turns the camera back to the entry screen's view before
-/// zooming out.
+/// window, or a flight.
 #[derive(Clone, Copy, PartialEq)]
 enum Stage {
     Entry,
     ZoomingIn,
     Flight,
-    Returning,
     ZoomingOut,
 }
 
@@ -383,8 +386,8 @@ impl Demo {
             // The globe turns on from over the aircraft.
             let position = self.flight.position();
             self.reset_entry(position.x.atan2(position.z));
-            self.camera.transition(VIEW_TRANSITION);
-            self.set_stage(Stage::Returning);
+            self.camera.transition(ZOOM_OUT_SECONDS);
+            self.set_stage(Stage::ZoomingOut);
         }
     }
 
@@ -398,9 +401,23 @@ impl Demo {
     fn zoom_progress(&self) -> f32 {
         match self.stage {
             Stage::Entry => 0.0,
-            Stage::ZoomingIn => camera::ease(self.stage_time / ZOOM_SECONDS),
-            Stage::Flight | Stage::Returning => 1.0,
-            Stage::ZoomingOut => 1.0 - camera::ease(self.stage_time / ZOOM_SECONDS),
+            Stage::ZoomingIn => camera::ease(self.stage_time / ZOOM_IN_SECONDS),
+            Stage::Flight => 1.0,
+            Stage::ZoomingOut => 1.0 - camera::ease(self.stage_time / ZOOM_OUT_SECONDS),
+        }
+    }
+
+    /// How far the planner has slid away, from 0 to 1. It leaves ahead of the globe's zoom, and
+    /// comes back behind it, landing together with the globe.
+    fn planner_away(&self) -> f32 {
+        match self.stage {
+            Stage::Entry => 0.0,
+            Stage::ZoomingIn => camera::ease(self.stage_time / (ZOOM_IN_SECONDS - PLANNER_LAG)),
+            Stage::Flight => 1.0,
+            Stage::ZoomingOut => {
+                let t = (self.stage_time - PLANNER_LAG) / (ZOOM_OUT_SECONDS - PLANNER_LAG);
+                1.0 - camera::ease(t)
+            }
         }
     }
 
@@ -508,11 +525,8 @@ impl Demo {
                 }
                 return;
             }
-            Stage::ZoomingIn if self.stage_time >= ZOOM_SECONDS => self.set_stage(Stage::Flight),
-            Stage::Returning if self.stage_time >= VIEW_TRANSITION => {
-                self.set_stage(Stage::ZoomingOut)
-            }
-            Stage::ZoomingOut if self.stage_time >= ZOOM_SECONDS => {
+            Stage::ZoomingIn if self.stage_time >= ZOOM_IN_SECONDS => self.set_stage(Stage::Flight),
+            Stage::ZoomingOut if self.stage_time >= ZOOM_OUT_SECONDS => {
                 self.set_stage(Stage::Entry);
                 // The next flight starts where this one landed.
                 let origin = self.flight.destination;
@@ -567,7 +581,7 @@ impl Demo {
             self.entry_target = self.camera.pose.target;
             self.entry_heading = self.camera.pose.heading;
             self.entry_held = 0.0;
-        } else if matches!(self.stage, Stage::Entry | Stage::Returning | Stage::ZoomingOut) {
+        } else if matches!(self.stage, Stage::Entry | Stage::ZoomingOut) {
             let goal = self.entry_pose();
             self.camera.follow(goal, dt);
         } else if self.view == View::Free {
@@ -1097,10 +1111,11 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         app.set_view(demo.view);
         app.set_screen(match demo.stage {
             Stage::Entry => Screen::Entry,
-            Stage::ZoomingIn | Stage::Returning | Stage::ZoomingOut => Screen::Zoom,
+            Stage::ZoomingIn | Stage::ZoomingOut => Screen::Zoom,
             Stage::Flight => Screen::Flight,
         });
         app.set_zoom_progress(demo.zoom_progress());
+        app.set_planner_away(demo.planner_away());
         if let Some((origin, destination)) = demo.proposal.take() {
             let item = |index: Option<usize>| {
                 index.map_or(AirportItem::default(), |index| airport_item(&demo.airports, index))

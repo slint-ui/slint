@@ -797,6 +797,8 @@ export component AppWindow inherits Window {
     in property <Screen> screen;
     /// How far the globe has grown from its place on the entry screen to the window, from 0 to 1.
     in property <float> zoom-progress;
+    /// How far the planner has slid away for a flight, from 0 to 1.
+    in property <float> planner-away;
     // The globe's place on the entry screen: beside the planner, or above it on a phone held
     // upright.
     property <length> panel-width: min(400px, root.content-width * 0.42);
@@ -1129,8 +1131,8 @@ export component AppWindow inherits Window {
     // so its fields keep their text during a flight.
     Glass {
         property <length> rest-y: root.narrow ? root.entry-globe-y + root.entry-globe-height + 8px : root.top-edge;
-        visible: root.zoom-progress < 1;
-        property <float> away: 1 - root.planner-in + root.zoom-progress;
+        visible: root.planner-away < 1;
+        property <float> away: 1 - root.planner-in + root.planner-away;
         x: root.narrow ? root.left-edge : root.left-edge - self.away * (self.width + root.left-edge + 30px);
         y: root.narrow ? self.rest-y + self.away * (root.height - self.rest-y + 30px) : self.rest-y;
         width: root.narrow ? root.content-width : root.panel-width;
