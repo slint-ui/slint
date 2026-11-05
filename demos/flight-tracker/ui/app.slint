@@ -51,6 +51,8 @@ export struct AirportItem {
 
 export struct FlightInfo {
     phase: Phase,
+    /// The flight number, with Slint as the airline.
+    number: string,
     origin: AirportItem,
     destination: AirportItem,
     /// The flown part of the distance, from 0 to 1.
@@ -87,6 +89,13 @@ export struct Label {
     y: float,
     name: string,
     opacity: float,
+}
+
+/// The "#MadeWithSlint" badge, at the size of its height.
+component MadeWithSlint inherits Image {
+    source: @image-url("icons/MadeWithSlint-logo-light.svg");
+    width: self.height * 212 / 97;
+    accessible-label: "#MadeWithSlint";
 }
 
 /// A panel of the board's housing.
@@ -459,13 +468,23 @@ component FlightCard inherits Glass {
         padding: root.small ? 14px : 18px;
         spacing: root.small ? 8px : 10px;
         HorizontalLayout {
+            spacing: 8px;
+            Flaps {
+                text: root.flight.number;
+                size: 12px;
+                lit: true;
+            }
+
             Caption {
+                horizontal-stretch: 1;
+                vertical-alignment: center;
                 text: root.flight.phase == Phase.boarding ? "Boarding" : root.flight.phase == Phase.arrived ? "Landed" : "In flight";
                 color: Theme.accent-light;
             }
 
             Caption {
                 horizontal-alignment: right;
+                vertical-alignment: center;
                 text: root.kiosk ? "Random flights" : "Your flight";
             }
         }
@@ -549,10 +568,21 @@ component FlightCard inherits Glass {
             }
         }
 
-        if !root.brief: Text {
-            text: root.flight.arrival-light;
-            color: Theme.muted;
-            font-size: 13px;
+        if !root.brief: HorizontalLayout {
+            spacing: 12px;
+            Text {
+                horizontal-stretch: 1;
+                text: root.flight.arrival-light;
+                color: Theme.muted;
+                font-size: 13px;
+                overflow: elide;
+            }
+
+            Text {
+                text: "Operated by Slint";
+                color: Theme.muted;
+                font-size: 13px;
+            }
         }
     }
 }
@@ -609,7 +639,7 @@ component StatusCard inherits Glass {
         if root.flight.phase == Phase.boarding: VerticalLayout {
             spacing: 4px;
             Caption {
-                text: "Next flight";
+                text: "Next flight \{root.flight.number}";
             }
 
             Text {
@@ -1215,7 +1245,22 @@ export component AppWindow inherits Window {
                     }
                 }
             }
+
+            HorizontalLayout {
+                alignment: end;
+                MadeWithSlint {
+                    height: root.narrow ? 30px : 36px;
+                }
+            }
         }
+    }
+
+    // On a wide screen during a flight, the badge sits above the controls.
+    if !root.narrow: MadeWithSlint {
+        visible: root.flight-in > 0;
+        height: 40px;
+        x: root.width - self.width - root.right-edge;
+        y: controls.y - self.height - 12px;
     }
 
     flight-card := FlightCard {
