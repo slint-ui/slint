@@ -486,7 +486,7 @@ pub enum Expression {
 
     DebugHook {
         expression: Box<Expression>,
-        id: SmolStr,
+        id: ElementProperty,
         /// True if this hook was materialized for a property that had no binding in the source.
         /// Passes should treat a synthetic hook as "no binding" — the same as `Expression::Invalid`.
         synthetic: bool,
@@ -2169,7 +2169,7 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             if *synthetic {
                 write!(f, " SYNTHETIC")?;
             }
-            write!(f, "\"{id}\")")
+            write!(f, " {id:?})")
         }
         Expression::Closure { arg_name, expression } => {
             let display_name = arg_name.strip_prefix("local_").unwrap_or(arg_name);

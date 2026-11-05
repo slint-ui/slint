@@ -2070,7 +2070,7 @@ impl ComponentInstance {
     }
 
     /// Set a callback triggered by `Expression::DebugHook`.
-    #[cfg(feature = "internal")]
+    #[cfg(all(feature = "internal", feature = "std"))]
     pub fn set_debug_hook_callback(&self, callback: Option<crate::debug_hook::DebugHookCallback>) {
         crate::debug_hook::set_debug_hook_callback(self.inner.vrc(), callback);
     }

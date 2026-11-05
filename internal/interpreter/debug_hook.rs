@@ -8,7 +8,8 @@
 use crate::eval::EvalContext;
 use crate::prelude::*;
 
-pub type DebugHookCallback = Box<dyn Fn(&str) -> Option<Value>>;
+pub type DebugHookCallback =
+    Box<dyn Fn(&i_slint_compiler::object_tree::ElementProperty) -> Option<Value>>;
 
 #[cfg(feature = "internal")]
 pub(crate) fn set_debug_hook_callback(
@@ -19,7 +20,10 @@ pub(crate) fn set_debug_hook_callback(
 }
 
 /// `Some` when the installed callback overrides the value, `None` to evaluate the binding.
-pub(crate) fn trigger_debug_hook(ctx: &EvalContext, id: &SmolStr) -> Option<Value> {
+pub(crate) fn trigger_debug_hook(
+    ctx: &EvalContext,
+    id: &i_slint_compiler::object_tree::ElementProperty,
+) -> Option<Value> {
     let globals = ctx.globals.upgrade()?;
     let callback = globals.debug_hook_callback.borrow();
     callback.as_ref().and_then(|callback| callback(id))
@@ -29,6 +33,7 @@ pub(crate) fn trigger_debug_hook(ctx: &EvalContext, id: &SmolStr) -> Option<Valu
 pub(crate) mod tests {
     use super::*;
     use crate::{Compiler, ComponentInstance};
+    use i_slint_compiler::object_tree::{ElementLocation, ElementProperty};
     use i_slint_compiler::source_path::SourcePath;
     use i_slint_core::{Property, graphics::ApproxEq};
     use std::{cell::RefCell, collections::HashMap, pin::Pin, rc::Rc};
@@ -37,8 +42,7 @@ pub(crate) mod tests {
         i_slint_backend_testing::init_no_event_loop();
 
         let mut compiler = Compiler::default();
-        compiler.compiler_configuration(i_slint_core::InternalToken).debug_hooks =
-            Some(std::hash::RandomState::new());
+        compiler.compiler_configuration(i_slint_core::InternalToken).debug_hooks = true;
         let compile_result = spin_on::spin_on(compiler.build_from_source_path(
             Some(code.to_string()),
             test_path(),
@@ -52,17 +56,17 @@ pub(crate) mod tests {
         let store: Store = Default::default();
         {
             let store = Rc::clone(&store);
-            instance.set_debug_hook_callback(Some(Box::new(move |id: &str| -> Option<Value> {
+            instance.set_debug_hook_callback(Some(Box::new(move |id| -> Option<Value> {
                 let mut m = (*store).borrow_mut();
-                let p = m.entry(SmolStr::from(id)).or_insert_with(|| Box::pin(Property::new(None)));
+                let p = m.entry(id.clone()).or_insert_with(|| Box::pin(Property::new(None)));
                 p.as_ref().get()
             })));
         }
         store
     }
 
-    fn set_override(store: &Store, element_hash: u64, name: &str, value: Option<Value>) {
-        let id = i_slint_compiler::passes::property_id(element_hash, &SmolStr::from(name));
+    fn set_override(store: &Store, element: &ElementLocation, name: &str, value: Option<Value>) {
+        let id = element.property(name);
         let mut store = (*store).borrow_mut();
         let override_property = store.entry(id).or_insert_with(|| Box::pin(Property::new(None)));
         (&**override_property).set(value);
@@ -73,16 +77,10 @@ pub(crate) mod tests {
         SourcePath::new("/tmp/test.slint")
     }
 
-    fn find_element_hash(instance: &ComponentInstance, code: &str, search_term: &str) -> u64 {
+    /// Returns the location of the element that starts at `search_term`.
+    fn element_at(code: &str, search_term: &str) -> ElementLocation {
         let offset = code.find(search_term).unwrap() as u32;
-        let (element, debug_index) = instance
-            .element_node_at_source_code_position(&test_path(), offset)
-            .first()
-            .cloned()
-            .expect("element resolved");
-        let element_hash = element.borrow().debug[debug_index].element_hash;
-        assert_ne!(element_hash, 0, "debug_hooks should populate element_hash");
-        element_hash
+        ElementLocation { path: test_path(), offset: offset.into() }
     }
 
     fn geometry_at(
@@ -96,7 +94,7 @@ pub(crate) mod tests {
 
     // Editor-style override store + callback (must be installed before the first evaluation so
     // the hooked bindings register a dependency on the override properties while still `None`).
-    type Store = Rc<RefCell<HashMap<SmolStr, Pin<Box<Property<Option<Value>>>>>>>;
+    type Store = Rc<RefCell<HashMap<ElementProperty, Pin<Box<Property<Option<Value>>>>>>>;
 
     // Validates the "live drag" mechanism the visual editor relies on: with `debug_hooks`
     // enabled, a `set_debug_hook_callback` that reads a per-id `Property<Option<Value>>` lets the
@@ -118,14 +116,14 @@ export component Win inherits Window {
 
         let instance = compile_with_debug_hooks(code);
 
-        let element_hash = find_element_hash(&instance, code, "Rectangle");
+        let element = element_at(code, "Rectangle");
 
         let store = install_debug_hook_store(&instance);
 
         let base = geometry_at(&instance, code, "Rectangle");
 
-        set_override(&store, element_hash, "x", Some(Value::Number(100.0)));
-        set_override(&store, element_hash, "width", Some(Value::Number(70.0)));
+        set_override(&store, &element, "x", Some(Value::Number(100.0)));
+        set_override(&store, &element, "width", Some(Value::Number(70.0)));
         let after = geometry_at(&instance, code, "Rectangle");
         assert!(
             after.origin.x.approx_eq(&(base.origin.x + 90.0)),
@@ -140,8 +138,8 @@ export component Win inherits Window {
             after.size.width
         );
 
-        set_override(&store, element_hash, "x", None);
-        set_override(&store, element_hash, "width", None);
+        set_override(&store, &element, "x", None);
+        set_override(&store, &element, "width", None);
         let reverted = geometry_at(&instance, code, "Rectangle");
         assert!(reverted.origin.x.approx_eq(&base.origin.x), "x should revert");
         assert!(reverted.size.width.approx_eq(&base.size.width), "width should revert");
@@ -170,18 +168,18 @@ export component Win inherits Window {
         )));
         assert_eq!(instance.get_property("sub-background").unwrap(), blue);
 
-        let element_hash = find_element_hash(&instance, code, "Sub {");
+        let element = element_at(code, "Sub {");
 
         let red = Value::Brush(i_slint_core::Brush::SolidColor(i_slint_core::Color::from_rgb_u8(
             255, 0, 0,
         )));
-        set_override(&store, element_hash, "background", Some(red.clone()));
+        set_override(&store, &element, "background", Some(red.clone()));
         assert_eq!(instance.get_property("sub-background").unwrap(), red);
-        set_override(&store, element_hash, "background", None);
+        set_override(&store, &element, "background", None);
         assert_eq!(instance.get_property("sub-background").unwrap(), blue);
 
         let base = geometry_at(&instance, code, "Sub {");
-        set_override(&store, element_hash, "x", Some(Value::Number(110.0)));
+        set_override(&store, &element, "x", Some(Value::Number(110.0)));
         let after = geometry_at(&instance, code, "Sub {");
         assert!(
             (after.origin.x - base.origin.x - 100.0).abs() < 0.5,
@@ -189,17 +187,17 @@ export component Win inherits Window {
             base.origin.x,
             after.origin.x
         );
-        set_override(&store, element_hash, "x", None);
+        set_override(&store, &element, "x", None);
 
         // Overriding the injected transform-rotation hook must be possible (the Transform
         // wrapper element is reified around the instance) and must not affect the geometry.
-        set_override(&store, element_hash, "transform-rotation", Some(Value::Number(45.0)));
+        set_override(&store, &element, "transform-rotation", Some(Value::Number(45.0)));
         let rotated = geometry_at(&instance, code, "Sub {");
         assert!(
             (rotated.origin.x - base.origin.x).abs() < 0.5,
             "rotation must not move the origin"
         );
-        set_override(&store, element_hash, "transform-rotation", None);
+        set_override(&store, &element, "transform-rotation", None);
     }
 
     #[test]
@@ -226,7 +224,7 @@ export component Win inherits Window {
 }"#;
         let instance = compile_with_debug_hooks(code);
         let store = install_debug_hook_store(&instance);
-        let first_hash = find_element_hash(&instance, code, "Sub { seed: root.first-seed");
+        let first = element_at(code, "Sub { seed: root.first-seed");
 
         assert_eq!(instance.get_property("first-value").unwrap(), Value::Number(10.0));
         assert_eq!(instance.get_property("second-value").unwrap(), Value::Number(20.0));
@@ -238,13 +236,13 @@ export component Win inherits Window {
         instance.set_property("first-active", Value::Bool(true)).unwrap();
         assert_eq!(instance.get_property("first-value").unwrap(), Value::Number(50.0));
 
-        set_override(&store, first_hash, "inherited-value", Some(Value::Number(90.0)));
+        set_override(&store, &first, "inherited-value", Some(Value::Number(90.0)));
         instance.set_property("first-active", Value::Bool(false)).unwrap();
         instance.set_property("first-seed", Value::Number(25.0)).unwrap();
         assert_eq!(instance.get_property("first-value").unwrap(), Value::Number(90.0));
         assert_eq!(instance.get_property("second-value").unwrap(), Value::Number(20.0));
 
-        set_override(&store, first_hash, "inherited-value", None);
+        set_override(&store, &first, "inherited-value", None);
         assert_eq!(instance.get_property("first-value").unwrap(), Value::Number(25.0));
         assert_eq!(instance.get_property("second-value").unwrap(), Value::Number(20.0));
     }
@@ -331,8 +329,7 @@ export component Win inherits Window {
         let geometries = |debug_hooks: bool| -> Vec<(f32, f32, f32, f32)> {
             let mut compiler = Compiler::default();
             if debug_hooks {
-                compiler.compiler_configuration(i_slint_core::InternalToken).debug_hooks =
-                    Some(std::hash::RandomState::new());
+                compiler.compiler_configuration(i_slint_core::InternalToken).debug_hooks = true;
             }
             let r = spin_on::spin_on(compiler.build_from_source_path(
                 Some(code.to_string()),

@@ -5,7 +5,7 @@ use i_slint_compiler::source_path::SourcePath;
 use std::rc::Rc;
 
 use i_slint_compiler::{
-    object_tree::ElementRc,
+    object_tree::{ElementLocation, ElementRc},
     parser::{SyntaxKind, TextSize},
 };
 use i_slint_core::lengths::LogicalPoint;
@@ -154,7 +154,7 @@ fn select_element_node(
     selected_element: &editor_preview::ElementRcNode,
     position: Option<LogicalPoint>,
 ) {
-    let (path, offset) = selected_element.path_and_offset();
+    let ElementLocation { path, offset } = selected_element.location();
 
     select_element_at_source_code_position_impl(
         component_instance,
@@ -200,8 +200,8 @@ impl SelectionCandidate {
         component_instance: &ComponentInstance,
         selection: &editor_preview::ElementRcNode,
     ) -> bool {
-        self.as_element_node(component_instance).map(|element| element.path_and_offset())
-            == Some(selection.path_and_offset())
+        self.as_element_node(component_instance).map(|element| element.location())
+            == Some(selection.location())
     }
 
     pub fn as_element_node(
@@ -338,7 +338,7 @@ pub fn selection_stack_at(x: f32, y: f32) -> slint::ModelRc<ui::SelectionStackFr
             let (type_name, id, is_layout, is_selected, path, offset) = candidate
                 .as_element_node(component_instance)
                 .map(|element| {
-                    let (path, offset) = element.path_and_offset();
+                    let ElementLocation { path, offset } = element.location();
                     let path = path.to_string();
                     let offset: u32 = offset.into();
 
@@ -581,6 +581,7 @@ pub fn reselect_element() {
 mod tests {
     use crate::editor_preview::test;
 
+    use i_slint_compiler::object_tree::ElementLocation;
     use i_slint_compiler::source_path::SourcePath;
 
     use i_slint_core::lengths::LogicalPoint;
@@ -631,7 +632,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
             .position(|candidate| {
                 candidate
                     .as_element_node(&type_loader)
-                    .map(|element| element.path_and_offset().0)
+                    .map(|element| element.location().path)
                     .as_ref()
                     != Some(&button_path)
             })
@@ -644,7 +645,8 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
         assert_eq!(covers_center.len(), expected_offsets.len());
 
         for (candidate, expected_offset) in covers_center.iter().zip(&expected_offsets) {
-            let (path, offset) = candidate.as_element_node(&type_loader).unwrap().path_and_offset();
+            let ElementLocation { path, offset } =
+                candidate.as_element_node(&type_loader).unwrap().location();
             assert_eq!(path, test_file);
             assert_eq!(offset, (*expected_offset).into());
         }
@@ -659,8 +661,8 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
 
         for (below, center) in covers_below.iter().zip(&covers_center[3..]) {
             assert_eq!(
-                below.as_element_node(&type_loader).map(|element| element.path_and_offset()),
-                center.as_element_node(&type_loader).map(|element| element.path_and_offset())
+                below.as_element_node(&type_loader).map(|element| element.location()),
+                center.as_element_node(&type_loader).map(|element| element.location())
             );
         }
     }
@@ -675,12 +677,12 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
         )
         .iter()
         .flat_map(|candidate| candidate.as_element_node(&component_instance))
-        .map(|element| element.path_and_offset())
+        .map(|element| element.location())
         .collect::<Vec<_>>();
 
         tracing::debug!("Covers:");
-        for (i, (p, ts)) in covers_center.iter().enumerate() {
-            tracing::debug!("   {i}: {p:?}:{ts:?}");
+        for (i, location) in covers_center.iter().enumerate() {
+            tracing::debug!("   {i}: {location:?}");
         }
         tracing::debug!("Done");
 
@@ -692,7 +694,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
             false,
         )
         .unwrap();
-        assert_eq!(&select.path_and_offset(), covers_center.first().unwrap());
+        assert_eq!(&select.location(), covers_center.first().unwrap());
 
         // Try to move towards the viewer:
         assert!(
@@ -715,7 +717,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
             false,
         )
         .unwrap();
-        assert_eq!(&next.path_and_offset(), covers_center.get(2).unwrap());
+        assert_eq!(&next.location(), covers_center.get(2).unwrap());
         let next = super::select_element_behind_impl(
             &component_instance,
             &next,
@@ -724,7 +726,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
             false,
         )
         .unwrap();
-        assert_eq!(&next.path_and_offset(), covers_center.get(3).unwrap());
+        assert_eq!(&next.location(), covers_center.get(3).unwrap());
         let next = super::select_element_behind_impl(
             &component_instance,
             &next,
@@ -733,7 +735,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
             false,
         )
         .unwrap();
-        assert_eq!(&next.path_and_offset(), covers_center.get(4).unwrap());
+        assert_eq!(&next.location(), covers_center.get(4).unwrap());
 
         assert!(
             super::select_element_behind_impl(
@@ -755,7 +757,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
             true,
         )
         .unwrap();
-        assert_eq!(&prev.path_and_offset(), covers_center.get(3).unwrap());
+        assert_eq!(&prev.location(), covers_center.get(3).unwrap());
         let prev = super::select_element_behind_impl(
             &component_instance,
             &prev,
@@ -764,7 +766,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
             true,
         )
         .unwrap();
-        assert_eq!(&prev.path_and_offset(), covers_center.get(2).unwrap());
+        assert_eq!(&prev.location(), covers_center.get(2).unwrap());
         let prev = super::select_element_behind_impl(
             &component_instance,
             &prev,
@@ -773,7 +775,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
             true,
         )
         .unwrap();
-        assert_eq!(&prev.path_and_offset(), covers_center.first().unwrap());
+        assert_eq!(&prev.location(), covers_center.first().unwrap());
 
         // Select with crossing component boundaries
         // --------------------------------------------------------------------
@@ -783,7 +785,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
             true,
         )
         .unwrap();
-        assert_eq!(&select.path_and_offset(), covers_center.first().unwrap());
+        assert_eq!(&select.location(), covers_center.first().unwrap());
 
         // Move deeper into the image:
         let next = super::select_element_behind_impl(
@@ -794,7 +796,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
             false,
         )
         .unwrap();
-        assert_eq!(&next.path_and_offset(), covers_center.get(2).unwrap());
+        assert_eq!(&next.location(), covers_center.get(2).unwrap());
         let next = super::select_element_behind_impl(
             &component_instance,
             &next,
@@ -803,7 +805,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
             false,
         )
         .unwrap();
-        assert_eq!(&next.path_and_offset(), covers_center.get(3).unwrap());
+        assert_eq!(&next.location(), covers_center.get(3).unwrap());
         let next = super::select_element_behind_impl(
             &component_instance,
             &next,
@@ -812,7 +814,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
             false,
         )
         .unwrap();
-        assert_eq!(&next.path_and_offset(), covers_center.get(4).unwrap());
+        assert_eq!(&next.location(), covers_center.get(4).unwrap());
 
         assert!(
             super::select_element_behind_impl(
@@ -834,7 +836,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
             true,
         )
         .unwrap();
-        assert_eq!(&prev.path_and_offset(), covers_center.get(3).unwrap());
+        assert_eq!(&prev.location(), covers_center.get(3).unwrap());
         let prev = super::select_element_behind_impl(
             &component_instance,
             &prev,
@@ -843,7 +845,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
             true,
         )
         .unwrap();
-        assert_eq!(&prev.path_and_offset(), covers_center.get(2).unwrap());
+        assert_eq!(&prev.location(), covers_center.get(2).unwrap());
         let prev = super::select_element_behind_impl(
             &component_instance,
             &prev,
@@ -852,7 +854,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
             true,
         )
         .unwrap();
-        assert_eq!(&prev.path_and_offset(), covers_center.first().unwrap());
+        assert_eq!(&prev.location(), covers_center.first().unwrap());
 
         assert!(
             super::select_element_behind_impl(
@@ -922,7 +924,7 @@ export component MyInput {
         )
         .expect("a click on MyInput should select something");
 
-        let (path, _offset) = selected.path_and_offset();
+        let path = selected.location().path;
         assert_eq!(
             path, main_path,
             "selection without `enter_component` should land on the MyInput use site \
@@ -982,7 +984,7 @@ export component Main inherits Page {
             );
             let selected = super::select_element_at_impl(&component_instance, position, false)
                 .expect("the GroupBox should be selectable");
-            assert_eq!(u32::from(selected.path_and_offset().1), expected_offset);
+            assert_eq!(u32::from(selected.location().offset), expected_offset);
 
             let covering_offsets =
                 super::collect_all_element_nodes_covering(position, &component_instance)

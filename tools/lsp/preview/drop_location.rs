@@ -1113,7 +1113,7 @@ pub fn create_drop_element_workspace_edit(
                 as u32,
         );
 
-    let (path, _) = drop_info.target_element_node.path_and_offset();
+    let path = drop_info.target_element_node.location().path;
 
     let doc = document_cache.get_document_by_path(&path)?;
     let source_file = doc.node.as_ref().unwrap().source_file.clone();
@@ -1190,7 +1190,8 @@ pub fn create_move_element_workspace_edit(
                 instance_index,
                 LogicalRect::new(position, size),
             )?;
-            let (path, selection_offset) = element.path_and_offset();
+            let object_tree::ElementLocation { path, offset: selection_offset } =
+                element.location();
             return Some((edit, DropData { selection_offset, path }));
         } else {
             let children = &drop_info.target_element_node.children();
@@ -1252,7 +1253,7 @@ pub fn create_swap_element_workspace_edit(
         }
     };
 
-    let (path, _) = drop_info.target_element_node.path_and_offset();
+    let path = drop_info.target_element_node.location().path;
 
     let document_cache = preview::document_cache()?;
     let doc = document_cache.get_document_by_path(&path)?;

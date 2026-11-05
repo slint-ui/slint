@@ -255,12 +255,10 @@ impl PrettyPrinter<'_> {
             if let Some(item_debug_entries) =
                 sc.debug_info.as_ref().and_then(|debug| debug.items.get(item_idx))
             {
-                for ItemDebugInfo { source_location, qualified_id, element_hash } in
-                    item_debug_entries
-                {
+                for ItemDebugInfo { source_location, qualified_id } in item_debug_entries {
                     let id = qualified_id.as_ref().map(|id| format!(" ({id})")).unwrap_or_default();
                     self.indent()?;
-                    writeln!(self.writer, "// {element_hash}{id} @ {source_location}",)?;
+                    writeln!(self.writer, "//{id} @ {source_location}",)?;
                 }
                 if item_debug_entries.is_empty() {
                     self.indent()?;

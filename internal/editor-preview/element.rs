@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::DocumentCache;
-use i_slint_compiler::object_tree::ElementRc;
+use i_slint_compiler::object_tree::{ElementLocation, ElementProperty, ElementRc};
 use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, TextSize, syntax_nodes};
 use i_slint_compiler::source_path::SourcePath;
 
@@ -70,13 +70,13 @@ pub struct ElementRcNode {
 
 impl std::cmp::PartialEq for ElementRcNode {
     fn eq(&self, other: &Self) -> bool {
-        self.path_and_offset() == other.path_and_offset() && self.debug_index == other.debug_index
+        self.location() == other.location() && self.debug_index == other.debug_index
     }
 }
 
 impl std::fmt::Debug for ElementRcNode {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let (path, offset) = self.path_and_offset();
+        let ElementLocation { path, offset } = self.location();
         write!(formatter, "ElementNode {{ {path:?}:{offset:?} }}")
     }
 }
@@ -164,8 +164,13 @@ impl ElementRcNode {
         function(find_element_with_decoration(&element.debug.get(self.debug_index).unwrap().node))
     }
 
-    pub fn path_and_offset(&self) -> (SourcePath, TextSize) {
-        self.with_element_node(|node| (node.source_file.path().clone(), node.text_range().start()))
+    pub fn location(&self) -> ElementLocation {
+        self.with_element_node(ElementLocation::of)
+    }
+
+    /// Returns the property `name` of this element, such as the one a debug hook observes.
+    pub fn property(&self, name: &str) -> ElementProperty {
+        self.location().property(name)
     }
 
     pub fn as_element(&self) -> &ElementRc {

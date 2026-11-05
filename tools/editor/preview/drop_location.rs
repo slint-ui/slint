@@ -1188,7 +1188,7 @@ pub fn create_drop_element_workspace_edit_with_properties(
                 as u32,
         );
 
-    let (path, _) = drop_info.target_element_node.path_and_offset();
+    let path = drop_info.target_element_node.location().path;
 
     let doc = document_cache.get_document_by_path(&path)?;
     let source_file = doc.node.as_ref().unwrap().source_file.clone();
@@ -1279,7 +1279,7 @@ pub fn create_swap_element_workspace_edit(
         }
     };
 
-    let (path, _) = drop_info.target_element_node.path_and_offset();
+    let path = drop_info.target_element_node.location().path;
 
     let document_cache = preview::document_cache()?;
     let doc = document_cache.get_document_by_path(&path)?;
@@ -1646,7 +1646,7 @@ fn create_paste_text_workspace_edit(
     component_info: ComponentInfoLookup,
 ) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
     let (insert_offset, replacement_range, new_text, element_offset) = insertion;
-    let (path, _) = target.path_and_offset();
+    let path = target.location().path;
     let doc = document_cache.get_document_by_path(&path)?;
     let source_file = doc.node.as_ref()?.source_file.clone();
     let format = document_cache.format;
@@ -1696,7 +1696,7 @@ pub fn create_wrap_in_layout_workspace_edit(
 ) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
     element.parent()?;
 
-    let (path, _) = element.path_and_offset();
+    let path = element.location().path;
     let doc = document_cache.get_document_by_path(&path)?;
     let source_file = doc.node.as_ref()?.source_file.clone();
     let format = document_cache.format;

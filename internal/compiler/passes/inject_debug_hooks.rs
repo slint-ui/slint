@@ -25,20 +25,19 @@ use crate::native_class::PropertyVisibility;
 use crate::object_tree::forward_inherited_expression::{
     ForwardedReferenceCache, InheritedExpression, forward_inherited_expression,
 };
-use crate::object_tree::{self, Element, ElementDebugInfo, ElementRc};
+use crate::object_tree::{self, Element, ElementLocation, ElementRc};
 use crate::symbol_counters::SymbolCounters;
 use std::rc::Rc;
 
 pub fn inject_debug_hooks(
     root_components: &[Rc<object_tree::Component>],
-    random_state: &std::hash::RandomState,
     symbol_counters: &SymbolCounters,
     forwarded_references: &mut ForwardedReferenceCache,
 ) {
     for component in root_components {
         let root = component.root_element.clone();
         object_tree::recurse_elem(&root, &(), &mut |element, &()| {
-            process_existing_bindings(element, random_state);
+            process_existing_bindings(element);
         });
     }
 
@@ -53,10 +52,6 @@ pub fn inject_debug_hooks(
             process_missing_bindings(element, symbol_counters, forwarded_references, is_root);
         });
     }
-}
-
-pub fn property_id(element_id: u64, name: &smol_str::SmolStr) -> smol_str::SmolStr {
-    smol_str::format_smolstr!("?{element_id}-{name}")
 }
 
 /// Guard rail, run near the end of the passes when debug hooks are enabled: every synthetic
@@ -102,43 +97,7 @@ pub fn validate_no_orphan_synthetic_hooks(component: &std::rc::Rc<object_tree::C
     );
 }
 
-fn calculate_element_hash(
-    debug_info: &ElementDebugInfo,
-    random_state: &std::hash::RandomState,
-) -> u64 {
-    // At early-injection time (before any inlining) every element has exactly one debug entry.
-    let node = &debug_info.node;
-
-    let elem_path = node.source_file.path();
-    let elem_offset = node
-        .child_token(crate::parser::SyntaxKind::LBrace)
-        .expect("All elements have a opening Brace")
-        .text_range()
-        .start();
-
-    use std::hash::{BuildHasher, Hash, Hasher};
-    let mut hasher = random_state.build_hasher();
-    elem_path.hash(&mut hasher);
-    hasher.write_u32(elem_offset.into());
-    hasher.finish()
-}
-
-fn assign_element_hash(element: &ElementRc, random_state: &std::hash::RandomState) -> u64 {
-    let mut elem = element.borrow_mut();
-
-    // Each element in the source has one debug entry.
-    // There may be more if elements have been inlined.
-    // This should not yet have happened so that we can identify which source element this is.
-    debug_assert!(elem.debug.len() == 1);
-    let debug_info = &mut elem.debug[0];
-    if debug_info.element_hash == 0 {
-        let hash = calculate_element_hash(debug_info, random_state);
-        debug_info.element_hash = hash;
-    }
-    debug_info.element_hash
-}
-
-fn hook_existing_bindings(element: &ElementRc, element_hash: u64) {
+fn hook_existing_bindings(element: &ElementRc, location: &ElementLocation) {
     let elem = element.borrow();
     elem.bindings_including_synthetic().for_each(|(name, be)| {
         // Only hook properties — callback handlers and functions also live in
@@ -161,7 +120,7 @@ fn hook_existing_bindings(element: &ElementRc, element_hash: u64) {
             } else {
                 Expression::DebugHook {
                     expression: Box::new(expr),
-                    id: property_id(element_hash, name),
+                    id: location.property(name),
                     synthetic: false,
                 }
             }
@@ -270,7 +229,7 @@ fn transform_properties<'a>(
 
 fn add_hooks_for_non_existent_bindings(
     element: &ElementRc,
-    element_hash: u64,
+    location: &ElementLocation,
     symbol_counters: &SymbolCounters,
     forwarded_references: &mut ForwardedReferenceCache,
     is_root: bool,
@@ -333,7 +292,7 @@ fn add_hooks_for_non_existent_bindings(
             InheritedExpression::TwoWayBinding(_) => continue,
             InheritedExpression::Unbound => default_expression,
         };
-        let id = property_id(element_hash, &name);
+        let id = location.property(&name);
         let mut binding: crate::expression_tree::BindingExpression =
             Expression::DebugHook { expression: Box::new(expression), id, synthetic }.into();
         binding.priority = 0;
@@ -357,14 +316,18 @@ fn is_hookable(element: &ElementRc) -> bool {
     true
 }
 
-fn process_existing_bindings(element: &ElementRc, random_state: &std::hash::RandomState) {
+/// The location of a hookable element, which its hooks are keyed by.
+/// Before any inlining, an element has exactly one debug entry.
+fn location(element: &ElementRc) -> ElementLocation {
+    ElementLocation::of(&element.borrow().debug[0].node)
+}
+
+fn process_existing_bindings(element: &ElementRc) {
     if !is_hookable(element) {
         return;
     }
 
-    let element_hash = assign_element_hash(element, random_state);
-
-    hook_existing_bindings(element, element_hash);
+    hook_existing_bindings(element, &location(element));
 }
 
 fn process_missing_bindings(
@@ -377,12 +340,9 @@ fn process_missing_bindings(
         return;
     }
 
-    let element_hash = element.borrow().debug[0].element_hash;
-    debug_assert_ne!(element_hash, 0);
-
     add_hooks_for_non_existent_bindings(
         element,
-        element_hash,
+        &location(element),
         symbol_counters,
         forwarded_references,
         is_root,
@@ -392,14 +352,14 @@ fn process_missing_bindings(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::object_tree::Component;
+    use crate::object_tree::{Component, ElementProperty};
     use std::rc::Rc;
 
     fn compile(source: &str) -> crate::object_tree::Document {
         let mut config =
             crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
         config.style = Some("fluent".into());
-        config.debug_hooks = Some(std::hash::RandomState::new());
+        config.debug_hooks = true;
         config.inline_all_elements = false;
         config.edition = Some(crate::project_file::SlintEdition::current());
         let mut diags = crate::diagnostics::BuildDiagnostics::default();
@@ -435,6 +395,10 @@ mod tests {
         rec(root, id).unwrap_or_else(|| panic!("element {id} not found"))
     }
 
+    fn hook_id(element: &ElementRc, property: &str) -> ElementProperty {
+        location(element).property(property)
+    }
+
     /// The inner expression of a property's DebugHook, or None if the binding is not a hook.
     fn hooked(elem: &ElementRc, name: &str) -> Option<Expression> {
         let e = elem.borrow();
@@ -461,7 +425,7 @@ mod tests {
             let root = component(&doc, "Win").root_element.clone();
             let layout = child(&root, "layout");
             for name in ["padding", "spacing"] {
-                let id = property_id(layout.borrow().debug[0].element_hash, &name.into());
+                let id = hook_id(&layout, name);
                 let mut found = false;
                 object_tree::recurse_elem(&root, &(), &mut |element, &()| {
                     for (_, binding) in element.borrow().bindings_including_synthetic() {
@@ -525,9 +489,6 @@ mod tests {
             !matches!(bg_inner.ignore_debug_hooks(), Expression::Invalid),
             "rect.background should wrap its real value"
         );
-
-        // Top-level elements carry a non-zero element_hash (used to build the hook ids).
-        assert_ne!(txt.borrow().debug.first().unwrap().element_hash, 0);
     }
 
     #[test]
@@ -567,12 +528,9 @@ mod tests {
             });
             assert!(references_tint, "{what}: background must still reference tint, got {inner:?}");
             assert_eq!(
-                property_id(
-                    borrowed.debug[0].element_hash,
-                    &smol_str::SmolStr::new_static("background")
-                ),
+                hook_id(element, "background"),
                 id,
-                "{what}: hook id must use the instance element hash"
+                "{what}: hook id must use the instance element location"
             );
             assert!(
                 matches!(borrowed.base_type, crate::element_type::ElementType::Component(_)),
@@ -712,7 +670,7 @@ mod tests {
         let synthetic_hook = || -> BindingExpression {
             Expression::DebugHook {
                 expression: Box::new(Expression::NumberLiteral(0., Default::default())),
-                id: "?42-prop".into(),
+                id: ElementProperty { property: "prop".into(), ..Default::default() },
                 synthetic: true,
             }
             .into()
@@ -730,7 +688,7 @@ mod tests {
         match &binding.expression {
             Expression::DebugHook { expression, id, synthetic } => {
                 assert!(!synthetic, "upgraded hook must no longer be synthetic");
-                assert_eq!(id, "?42-prop", "the hook id must survive the merge");
+                assert_eq!(id.property, "prop", "the hook id must survive the merge");
                 assert!(
                     matches!(**expression, Expression::NumberLiteral(v, _) if v == 7.),
                     "the definition's expression must be taken"
@@ -760,7 +718,7 @@ mod tests {
         // Real (non-synthetic hook) binding keeps priority over anything.
         let mut binding: BindingExpression = Expression::DebugHook {
             expression: Box::new(Expression::NumberLiteral(1., Default::default())),
-            id: "?42-prop".into(),
+            id: ElementProperty { property: "prop".into(), ..Default::default() },
             synthetic: false,
         }
         .into();
@@ -770,7 +728,7 @@ mod tests {
 
     /// The injected `transform-rotation` hook must cause the Transform wrapper element to be
     /// reified so the property actually exists at runtime, and the hook (carrying the source
-    /// element's hash id) must survive as a non-synthetic binding. A binding left on a property
+    /// element's location) must survive as a non-synthetic binding. A binding left on a property
     /// that is never materialized would abort the interpreter at instantiation time.
     #[test]
     fn transform_rotation_hook_is_reified() {
@@ -783,9 +741,7 @@ mod tests {
         );
         let foo = component(&doc, "Foo");
         let rect = child(&foo.root_element, "rect");
-        let rect_hash = rect.borrow().debug.first().unwrap().element_hash;
-        let rotation_hook_id =
-            property_id(rect_hash, &smol_str::SmolStr::new_static("transform-rotation"));
+        let rotation_hook_id = hook_id(&rect, "transform-rotation");
 
         // A Transform wrapper element must have been injected for the rectangle.
         let transform_element = child(&foo.root_element, "rect-Transform");
@@ -799,7 +755,7 @@ mod tests {
             .expect("the Transform element must bind transform-rotation");
         match &binding_expression.borrow().expression {
             Expression::DebugHook { id, synthetic, expression } => {
-                assert_eq!(id, &rotation_hook_id, "hook id must be derived from rect's hash");
+                assert_eq!(id, &rotation_hook_id, "hook id must be derived from rect's location");
                 assert!(!synthetic, "the injected rotation hook must be non-synthetic");
                 assert!(
                     matches!(**expression, Expression::NumberLiteral(v, _) if v == 0.),
@@ -823,12 +779,11 @@ mod tests {
         );
         let foo = component(&doc, "Foo");
         let img = child(&foo.root_element, "img");
-        let img_hash = img.borrow().debug.first().unwrap().element_hash;
 
         // The geometry properties are materialized into declarations and the declarations
         // (with their bindings) are moved to the root by move_declarations — so look the hook
         // up by its id across the whole component instead of by name on the img element.
-        let find_hook_by_id = |wanted_id: &smol_str::SmolStr| -> Option<Expression> {
+        let find_hook_by_id = |wanted_id: &ElementProperty| -> Option<Expression> {
             let mut found = None;
             object_tree::recurse_elem(&foo.root_element, &(), &mut |elem, &()| {
                 for (_, binding_expression) in elem.borrow().bindings_including_synthetic() {
@@ -849,8 +804,7 @@ mod tests {
             // skip the image, leaving it with no layout binding.  The resulting hook
             // must therefore be non-synthetic: either upgraded by default_geometry itself or
             // by materialize_fake_properties' initialization.
-            let hook_id = property_id(img_hash, &smol_str::SmolStr::new_static(property));
-            let expression = find_hook_by_id(&hook_id)
+            let expression = find_hook_by_id(&hook_id(&img, property))
                 .unwrap_or_else(|| panic!("a debug hook for img.{property} must survive"));
             assert!(
                 matches!(expression, Expression::DebugHook { synthetic: false, .. }),

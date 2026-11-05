@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use i_slint_compiler::layout;
+use i_slint_compiler::object_tree::ElementLocation;
 use i_slint_core::lengths::{LogicalPoint, LogicalRect};
 
 use crate::editor_preview;
@@ -49,7 +50,7 @@ impl ElementRcNodeExt for editor_preview::ElementRcNode {
     }
 
     fn geometries(&self, component_instance: &ComponentInstance) -> Vec<HighlightedRect> {
-        let (path, offset) = self.path_and_offset();
+        let ElementLocation { path, offset } = self.location();
         component_instance.component_positions(&path, offset.into())
     }
 
