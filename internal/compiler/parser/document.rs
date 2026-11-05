@@ -128,7 +128,6 @@ pub fn parse_component(p: &mut impl Parser) -> bool {
     let mut interface_inherits = false;
     if is_global {
         if p.peek().kind() == SyntaxKind::ColonEqual {
-            p.warning("':=' to declare a global is deprecated. Remove the ':='");
             p.consume();
         }
     } else if is_interface {

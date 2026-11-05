@@ -267,3 +267,24 @@ export component Example inherits Window {
 ```
 
 To fix the loop, remove `width: parent.width;`: a layout already stretches its cells to its width.
+
+#### Globals Declared With `:=` Are an Error
+
+Before 1.19, declaring a global with `global Settings := { ... }` was deprecated, and only caused a warning.
+With edition 1.19, it's an error: remove the `:=`.
+
+Without the `:=`, some behavior changes:
+
+- A property without `in`, `out`, or `in-out` is private, instead of `in-out`.
+  Add `in-out` where your code reads or sets it from outside the global.
+- Some deprecation warnings, such as for a binding that calls a function that isn't `pure`, become errors.
+
+```slint
+global Settings {
+    in-out property <bool> dark-mode;
+}
+
+export component Example inherits Window {
+    background: Settings.dark-mode ? black : white;
+}
+```
