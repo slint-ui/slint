@@ -630,6 +630,7 @@ async fn show_component(
 mod tests {
     use super::*;
     use crate::protocol::VersionedUrl;
+    use std::collections::BTreeMap;
     use std::path::PathBuf;
 
     #[derive(Default)]
@@ -644,7 +645,7 @@ mod tests {
 
     fn take_diagnostics(
         editor: &CaptureToEditor,
-    ) -> HashMap<Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)> {
+    ) -> BTreeMap<Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)> {
         editor
             .0
             .take()

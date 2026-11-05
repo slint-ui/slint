@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use i_slint_compiler::diagnostics::{self, ByteFormat, Diagnostic, DiagnosticLevel, Spanned};
 use lsp_types::Url;
@@ -23,8 +23,8 @@ pub fn diagnostics_by_url(
     diagnostics: &[Diagnostic],
     files: impl IntoIterator<Item = (Url, SourceFileVersion)>,
     format: ByteFormat,
-) -> HashMap<Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)> {
-    let mut result: HashMap<_, _> =
+) -> BTreeMap<Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)> {
+    let mut result: BTreeMap<_, _> =
         files.into_iter().map(|(url, version)| (url, (version, Vec::new()))).collect();
     for diagnostic in diagnostics {
         if let Some(url) = diagnostic_url(diagnostic) {

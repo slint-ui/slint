@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use lsp_types::Url;
 
@@ -171,7 +171,7 @@ pub trait PreviewToLsp {
     /// Tell the editor about diagnostics
     fn notify_diagnostics(
         &self,
-        diagnostics: HashMap<lsp_types::Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)>,
+        diagnostics: BTreeMap<lsp_types::Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)>,
     ) -> Result<()> {
         for (uri, (version, diagnostics)) in diagnostics {
             self.send(&PreviewToLspMessage::Diagnostics { uri, version, diagnostics })?;
