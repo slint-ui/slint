@@ -2,11 +2,10 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use super::ui;
-use core::hash::{Hash, Hasher as _};
+use core::hash::{Hash as _, Hasher as _};
 use i_slint_compiler::source_path::SourcePath;
 use i_slint_editor_preview::editing::text_edit;
 use i_slint_live_preview::protocol::PreviewToLspMessage;
-use slint::ComponentHandle;
 
 use std::collections::HashMap;
 
@@ -24,124 +23,10 @@ pub fn compute_file_hashes(
     edits.iter().map(|e| (e.url.clone(), content_hash(&e.contents))).collect()
 }
 
-fn content_hash(content: impl Hash) -> u64 {
+fn content_hash(content: &str) -> u64 {
     let mut hasher = std::hash::DefaultHasher::new();
     content.hash(&mut hasher);
     hasher.finish()
-}
-
-pub(super) struct PreviewRecovery {
-    component: super::PreviewComponent,
-    config: super::PreviewConfig,
-    sources: FileHashes,
-    resources: FileHashes,
-    reverse_edit: lsp_types::WorkspaceEdit,
-    failed: bool,
-}
-
-impl PreviewRecovery {
-    fn matches(&self, state: &super::PreviewState) -> bool {
-        state.current_previewed_component.as_ref() == Some(&self.component)
-            && state.config == self.config
-            && state.undo_redo_stack.undo_stack.last().is_some_and(|item| {
-                item.edit == self.reverse_edit
-                    && item
-                        .file_hashes
-                        .iter()
-                        .all(|(url, hash)| self.sources.get(url) == Some(hash))
-            })
-            && state.dependencies.iter().all(|url| self.sources.contains_key(url))
-            && self.sources.iter().all(|(url, hash)| {
-                state.source_code.get(url).is_some_and(|source| content_hash(&source.code) == *hash)
-                    && SourcePath::from_url(url)
-                        .read_to_string()
-                        .is_ok_and(|source| content_hash(&source) == *hash)
-            })
-            && self.resources.iter().all(|(url, hash)| resource_hash(url) == Some(*hash))
-    }
-}
-
-fn resource_hash(url: &lsp_types::Url) -> Option<u64> {
-    std::fs::read(url.to_file_path().ok()?).ok().map(content_hash)
-}
-
-pub(super) fn recovery_candidate(
-    state: &super::PreviewState,
-    reverse_edit: Option<&lsp_types::WorkspaceEdit>,
-    file_hashes: &FileHashes,
-) -> Option<PreviewRecovery> {
-    let editor = state.editor_ui.as_ref()?;
-    if editor.global::<ui::Diagnostics>().get_preview_availability()
-        != ui::PreviewAvailability::Current
-        || state.loading_state != super::PreviewFutureState::Pending
-        || edit_pending(state)
-    {
-        return None;
-    }
-    let mut sources = state
-        .dependencies
-        .iter()
-        .chain(file_hashes.keys())
-        .map(|url| {
-            let source = state.source_code.get(url)?;
-            let disk = SourcePath::from_url(url).read_to_string().ok()?;
-            (source.code == disk).then(|| (url.clone(), content_hash(&source.code)))
-        })
-        .collect::<Option<FileHashes>>()?;
-    if file_hashes.iter().all(|(url, hash)| sources.get(url) == Some(hash)) {
-        return None;
-    }
-    sources.extend(file_hashes.clone());
-    Some(PreviewRecovery {
-        component: state.current_component()?,
-        config: state.config.clone(),
-        sources,
-        resources: state
-            .resources
-            .iter()
-            .filter(|url| url.scheme() == "file")
-            .map(|url| Some((url.clone(), resource_hash(url)?)))
-            .collect::<Option<FileHashes>>()?,
-        reverse_edit: reverse_edit?.clone(),
-        failed: false,
-    })
-}
-
-pub(super) fn compilation_finished(state: &mut super::PreviewState, failed: bool) {
-    if state.loading_state == super::PreviewFutureState::NeedsReload {
-        return;
-    }
-    let recovery =
-        state.preview_recovery.take().filter(|recovery| failed && recovery.matches(state));
-    state.preview_recovery = recovery.map(|mut recovery| {
-        recovery.failed = true;
-        recovery
-    });
-    set_undo_redo_enabled(state);
-}
-
-fn can_undo_failed_change(state: &super::PreviewState) -> bool {
-    !edit_pending(state)
-        && state.loading_state == super::PreviewFutureState::Pending
-        && state
-            .preview_recovery
-            .as_ref()
-            .is_some_and(|recovery| recovery.failed && recovery.matches(state))
-}
-
-pub(super) fn undo_failed_change() {
-    let api = super::PREVIEW_STATE.with_borrow_mut(|state| {
-        if can_undo_failed_change(state) {
-            state.api.upgrade()
-        } else {
-            state.preview_recovery = None;
-            set_undo_redo_enabled(state);
-            None
-        }
-    });
-    if let Some(api) = api {
-        api.invoke_undo();
-    }
 }
 
 fn prepare_history_edit(
@@ -149,19 +34,8 @@ fn prepare_history_edit(
     source_code: &super::SourceCodeCache,
     item: &EditItem,
 ) -> Option<(lsp_types::WorkspaceEdit, FileHashes)> {
-    let source_file = |url: &lsp_types::Url| {
-        source_code
-            .get(url)
-            .map(|source| {
-                std::sync::Arc::new(i_slint_compiler::diagnostics::SourceFileInner::new(
-                    SourcePath::from_url(url),
-                    source.code.clone(),
-                ))
-            })
-            .or_else(|| super::workspace_edit_source_file(document_cache, source_code, url))
-    };
     for (url, expected) in &item.file_hashes {
-        let source_file = source_file(url)?;
+        let source_file = super::workspace_edit_source_file(document_cache, source_code, url)?;
         let cached = source_file.source()?;
         let disk = SourcePath::from_url(url).read_to_string().ok()?;
         let cached_hash = content_hash(cached);
@@ -172,10 +46,13 @@ fn prepare_history_edit(
         }
     }
     let result =
-        text_edit::apply_workspace_edit_with_source(&item.edit, document_cache.format, source_file)
-            .ok()?;
-    let reverse =
-        text_edit::reversed_edit_with_source(&item.edit, document_cache.format, source_file)?;
+        text_edit::apply_workspace_edit_with_source(&item.edit, document_cache.format, |url| {
+            super::workspace_edit_source_file(document_cache, source_code, url)
+        })
+        .ok()?;
+    let reverse = text_edit::reversed_edit_with_source(&item.edit, document_cache.format, |url| {
+        super::workspace_edit_source_file(document_cache, source_code, url)
+    })?;
     Some((reverse, compute_file_hashes(&result)))
 }
 
@@ -240,7 +117,6 @@ pub fn setup(api: &ui::Api<'_>) {
                 tracing::debug!("Preview: Undo requested without history");
                 return;
             };
-            state.preview_recovery = None;
             let Some((reverse, file_hashes)) =
                 prepare_history_edit(&document_cache, &state.source_code, &edit)
             else {
@@ -285,13 +161,11 @@ pub fn setup(api: &ui::Api<'_>) {
                 set_undo_redo_enabled(state);
                 return;
             };
-            let recovery = recovery_candidate(state, Some(&reverse), &file_hashes);
             state.undo_redo_stack.undo_stack.push(EditItem {
                 title: edit.title.clone(),
                 edit: reverse,
                 file_hashes,
             });
-            state.preview_recovery = recovery;
             state
                 .to_lsp
                 .borrow()
@@ -333,9 +207,6 @@ pub fn set_undo_redo_enabled(state: &super::PreviewState) {
     if let Some(api) = state.api.upgrade() {
         api.set_undo_enabled(!state.undo_redo_stack.undo_stack.is_empty());
         api.set_redo_enabled(!state.undo_redo_stack.redo_stack.is_empty());
-    }
-    if let Some(editor) = state.editor_ui.as_ref() {
-        editor.global::<ui::Diagnostics>().set_can_undo_change(can_undo_failed_change(state));
     }
 }
 

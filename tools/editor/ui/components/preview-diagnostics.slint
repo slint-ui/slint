@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { ButtonBase } from "../../controls/src/headless.slint";
+import { Api } from "../api.slint";
 import { Diagnostics, Diagnostic, PreviewAvailability } from "../diagnostics.slint";
 import { Style, Colors, Metrics, Typography, Theme, ButtonStyle, PaintStyle, PreviewDiagnosticsStyle } from "../style.slint";
 import { DiagnosticBadge } from "icons.slint";
@@ -101,10 +102,10 @@ export component PreviewDiagnostics inherits Rectangle {
                 if !root.empty: HorizontalLayout {
                     spacing: Metrics.space-regular;
                     cross-axis-alignment: center;
-                    if Diagnostics.can-undo-change: DiagnosticAction {
+                    if Diagnostics.can-undo-change && Api.undo-enabled: DiagnosticAction {
                         text: @tr("Undo change");
                         style: Style.primary-button;
-                        clicked => { Diagnostics.undo-change(); }
+                        clicked => { Api.undo(); }
                     }
                     Rectangle { horizontal-stretch: 1; }
                     DiagnosticAction {
