@@ -1,10 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use crate::DocumentCache;
 use i_slint_compiler::object_tree::{ElementLocation, ElementProperty, ElementRc};
 use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, TextSize, syntax_nodes};
-use i_slint_compiler::source_path::SourcePath;
 
 /// Marks nodes that the language server and preview ignore during code analysis.
 pub const NODE_IGNORE_COMMENT: &str = "@lsp:ignore-node";
@@ -88,49 +86,20 @@ impl ElementRcNode {
         Some(Self { element, debug_index })
     }
 
-    pub fn in_document_cache(&self, document_cache: &DocumentCache) -> Option<Self> {
-        self.with_element_node(|element_node| {
-            let element_start = element_node.text_range().start();
-            let path = element_node.source_file.path();
-
-            let document = document_cache.get_document_by_path(path)?;
-            let component = document.inner_components.iter().find(|component| {
-                let Some(component_node) = &component.node else {
-                    return false;
-                };
-                component_node.text_range().contains(element_start)
-            })?;
-            ElementRcNode::find_in_or_below(
-                component.root_element.clone(),
-                path,
-                u32::from(element_start),
-            )
-        })
-    }
-
     pub fn next_element_rc_node(&self) -> Option<Self> {
         Self::new(self.element.clone(), self.debug_index + 1)
     }
 
-    pub fn find_in(element: ElementRc, path: &SourcePath, offset: u32) -> Option<Self> {
+    pub fn find_in_or_below(element: ElementRc, location: &ElementLocation) -> Option<Self> {
         let debug_index = element.borrow().debug.iter().position(|debug_info| {
-            u32::from(debug_info.node.text_range().start()) == offset
-                && debug_info.node.source_file.path() == path
-        })?;
-
-        Some(Self { element, debug_index })
-    }
-
-    pub fn find_in_or_below(element: ElementRc, path: &SourcePath, offset: u32) -> Option<Self> {
-        let debug_index = element.borrow().debug.iter().position(|debug_info| {
-            u32::from(debug_info.node.text_range().start()) == offset
-                && debug_info.node.source_file.path() == path
+            debug_info.node.text_range().start() == location.offset
+                && *debug_info.node.source_file.path() == location.path
         });
         if let Some(debug_index) = debug_index {
             Some(Self { element, debug_index })
         } else {
             for child in &element.borrow().children {
-                let result = Self::find_in_or_below(child.clone(), path, offset);
+                let result = Self::find_in_or_below(child.clone(), location);
                 if result.is_some() {
                     return result;
                 }
@@ -186,8 +155,7 @@ impl ElementRcNode {
                 continue;
             }
 
-            let (parent_path, parent_offset) =
-                (parent.source_file.path().to_owned(), u32::from(parent.text_range().start()));
+            let parent_location = ElementLocation::of(&parent.clone().into());
 
             ancestor = parent.parent();
 
@@ -201,7 +169,7 @@ impl ElementRcNode {
                 current_root
             };
 
-            let result = Self::find_in_or_below(root_element, &parent_path, parent_offset);
+            let result = Self::find_in_or_below(root_element, &parent_location);
 
             if result.is_some() {
                 return result;
@@ -216,13 +184,9 @@ impl ElementRcNode {
             let mut children = Vec::new();
             for child in node.children() {
                 if let Some(element) = extract_element(child.clone()) {
-                    let element_path = element.source_file.path().clone();
-                    let element_offset = u32::from(element.text_range().start());
-
                     let Some(child_node) = ElementRcNode::find_in_or_below(
                         self.as_element().clone(),
-                        &element_path,
-                        element_offset,
+                        &ElementLocation::of(&element),
                     ) else {
                         continue;
                     };

@@ -1970,34 +1970,31 @@ impl ComponentInstance {
     #[cfg(feature = "internal-highlight")]
     pub fn component_positions(
         &self,
-        path: &SourcePath,
-        offset: u32,
+        location: &i_slint_compiler::object_tree::ElementLocation,
     ) -> Vec<crate::highlight::HighlightedRect> {
-        crate::highlight::component_positions(self.inner.vrc(), path, offset)
+        crate::highlight::component_positions(self.inner.vrc(), location)
     }
 
     #[doc(hidden)]
     #[cfg(all(feature = "internal", feature = "internal-highlight"))]
     pub fn snapping_geometry(
         &self,
-        path: &SourcePath,
-        offset: u32,
+        location: &i_slint_compiler::object_tree::ElementLocation,
         instance_index: usize,
         _: i_slint_core::InternalToken,
     ) -> Option<crate::snapping::SnappingGeometry> {
-        crate::snapping::snapping_geometry(self.inner.vrc(), path, offset, instance_index)
+        crate::snapping::snapping_geometry(self.inner.vrc(), location, instance_index)
     }
 
     #[doc(hidden)]
     #[cfg(all(feature = "internal", feature = "internal-highlight"))]
     pub fn component_item(
         &self,
-        path: &SourcePath,
-        offset: u32,
+        location: &i_slint_compiler::object_tree::ElementLocation,
         instance_index: usize,
         _: i_slint_core::InternalToken,
     ) -> Option<i_slint_core::items::ItemRc> {
-        crate::highlight::component_item(self.inner.vrc(), path, offset, instance_index)
+        crate::highlight::component_item(self.inner.vrc(), location, instance_index)
     }
 
     #[doc(hidden)]
@@ -2718,8 +2715,12 @@ export component Foo3 inherits Window {
 
     let (handle, path) = compile(code);
 
-    let positions_at =
-        |pattern: &str| handle.component_positions(&path, code.find(pattern).unwrap() as u32);
+    let positions_at = |pattern: &str| {
+        handle.component_positions(&i_slint_compiler::object_tree::ElementLocation {
+            path: path.clone(),
+            offset: (code.find(pattern).unwrap() as u32).into(),
+        })
+    };
 
     // Each MyBox use highlights only its own instance.
     let b1_rects = positions_at("MyBox { x: 0px");
@@ -2746,8 +2747,23 @@ export component Foo3 inherits Window {
     // component_positions covers the same shapes, and an offset outside any
     // element matches nothing.
     let offset = code.find("Rectangle {\n        x: xo").unwrap() as u32;
-    assert_eq!(handle.component_positions(&path, offset).len(), 3);
-    assert!(handle.component_positions(&path, code.len() as u32 - 1).is_empty());
+    assert_eq!(
+        handle
+            .component_positions(&i_slint_compiler::object_tree::ElementLocation {
+                path: path.clone(),
+                offset: offset.into()
+            })
+            .len(),
+        3
+    );
+    assert!(
+        handle
+            .component_positions(&i_slint_compiler::object_tree::ElementLocation {
+                path: path.clone(),
+                offset: (code.len() as u32 - 1).into()
+            })
+            .is_empty()
+    );
 }
 
 #[cfg(feature = "internal-highlight")]
@@ -2803,7 +2819,10 @@ export component App inherits Window {
 
     let positions_at = |pattern: &str, inside_pattern: usize| {
         let offset = code.find(pattern).unwrap() + inside_pattern;
-        instance.component_positions(&SourcePath::new(&path), offset as u32)
+        instance.component_positions(&i_slint_compiler::object_tree::ElementLocation {
+            path: SourcePath::new(&path),
+            offset: (offset as u32).into(),
+        })
     };
 
     let first = positions_at("Derived { x: 10px", 2);
@@ -2817,7 +2836,11 @@ export component App inherits Window {
     assert_eq!(definition.len(), 6, "{definition:?}");
 
     let conditional_offset = code.find("Rectangle {\n        x: 100px").unwrap() as u32 + 4;
-    let conditional = instance.component_positions(&SourcePath::new(&path), conditional_offset);
+    let conditional =
+        instance.component_positions(&i_slint_compiler::object_tree::ElementLocation {
+            path: SourcePath::new(&path),
+            offset: conditional_offset.into(),
+        });
     assert_eq!(conditional.len(), 1, "{conditional:?}");
     assert_eq!(conditional[0].rect.origin, euclid::point2(100., 200.));
 
@@ -2883,7 +2906,11 @@ export component App inherits Window {
         (&imported_path, imported_code, "Rectangle"),
     ] {
         let offset = code.find(pattern).unwrap() as u32;
-        let positions = instance.component_positions(&SourcePath::new(path), offset);
+        let positions =
+            instance.component_positions(&i_slint_compiler::object_tree::ElementLocation {
+                path: SourcePath::new(path),
+                offset: offset.into(),
+            });
         assert_eq!(positions.len(), 1, "{positions:?}");
         assert_eq!(positions[0].rect.origin, euclid::point2(25., 35.));
         assert_eq!(positions[0].rect.size, euclid::size2(40., 30.));
@@ -2961,7 +2988,11 @@ export component App inherits Window {
     assert_eq!(matching_repeated_elements, 2);
 
     let instance = definition.create().unwrap();
-    let mut positions = instance.component_positions(&path, repeated_offset as u32 + 3);
+    let mut positions =
+        instance.component_positions(&i_slint_compiler::object_tree::ElementLocation {
+            path: path.clone(),
+            offset: (repeated_offset as u32 + 3).into(),
+        });
     positions.sort_by(|left, right| left.rect.origin.x.total_cmp(&right.rect.origin.x));
     assert_eq!(positions.len(), 4, "{positions:?}");
     for (geometry, expected_x) in positions.iter().zip([10., 30., 100., 120.]) {

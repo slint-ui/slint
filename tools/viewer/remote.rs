@@ -724,10 +724,10 @@ mod tests {
         let preview = user_instance.as_ref().unwrap();
         assert!(
             !preview
-                .component_positions(
-                    &i_slint_compiler::source_path::SourcePath::new(&preview_path),
-                    offset
-                )
+                .component_positions(&i_slint_compiler::object_tree::ElementLocation {
+                    path: i_slint_compiler::source_path::SourcePath::new(&preview_path),
+                    offset: offset.into(),
+                })
                 .is_empty()
         );
         let preview_item_tree = preview.as_item_tree(i_slint_core::InternalToken);
