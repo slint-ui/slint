@@ -164,14 +164,15 @@ component FileTreeRow inherits Rectangle {
                     horizontal-stretch: 0;
                     width: root.style.row.icon-size;
                     height: root.style.row.icon-size;
-                    Image {
+                    file-icon := Image {
                         width: parent.width;
                         height: parent.height;
                         source: root.folder
                             ? root.node.is-expanded ? FileTreeIcons.directory-open : FileTreeIcons.directory
                             : root.node.kind == FileTreeNodeKind.image ? Icons.image
+                            : root.node.is-slint-file ? FileTreeIcons.file-slint
                             : FileTreeIcons.file-code;
-                        colorize: root.folder ? root.style.row.directory-icon : root.style.row.muted;
+                        colorize: root.folder ? root.style.row.directory-icon : root.node.is-slint-file ? root.style.row.accent : root.style.row.muted;
                     }
                     if root.diagnostic-summary.error-count > 0 || root.diagnostic-summary.warning-count > 0: Rectangle {
                         x: parent.width - self.width + 2px;
