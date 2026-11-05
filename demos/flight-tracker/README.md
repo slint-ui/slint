@@ -30,7 +30,7 @@ cargo run --release -p flight-tracker --manifest-path demos/Cargo.toml
 
 ## Running in a Browser
 
-The web build uses Slint's FemtoVG renderer on WebGPU.
+The web build uses Slint's FemtoVG renderer on WebGPU, or on WebGL 2 where the browser has no WebGPU.
 Uncomment the `#wasm#` lines in `Cargo.toml`, then build and serve this directory:
 
 ```sh
@@ -38,7 +38,7 @@ wasm-pack build --release --target web
 python3 -m http.server
 ```
 
-Open <http://localhost:8000> in a browser with WebGPU.
+Open <http://localhost:8000> in a browser with WebGPU or WebGL 2.
 
 ## How It Works
 

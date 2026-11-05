@@ -16,7 +16,8 @@ struct Globals {
     // y: how wide the borders are in pixels, z: the seconds since the start, for the twinkling
     // stars, w: how strongly the borders show.
     options: vec4<f32>,
-    // xy: the size of the frame in pixels.
+    // xy: the size of the frame in pixels, z: 1 where the shader encodes the output as sRGB,
+    // because the target can't.
     viewport: vec4<f32>,
 }
 
@@ -158,7 +159,16 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let premultiplied = mix(glow, ground, coverage) + starlight * (1.0 - coverage) * space;
     let alpha = mix(coverage + (1.0 - coverage) * glow_alpha, 1.0, space);
     // Slint shows the frame with straight alpha.
-    return vec4<f32>(premultiplied / max(alpha, 1e-4), alpha);
+    return vec4<f32>(output(premultiplied / max(alpha, 1e-4)), alpha);
+}
+
+fn output(color: vec3<f32>) -> vec3<f32> {
+    if globals.viewport.z == 0.0 {
+        return color;
+    }
+    let linear = clamp(color, vec3<f32>(0.0), vec3<f32>(1.0));
+    let curve = 1.055 * pow(linear, vec3<f32>(1.0 / 2.4)) - 0.055;
+    return select(curve, linear * 12.92, linear <= vec3<f32>(0.0031308));
 }
 
 struct BorderOutput {
@@ -209,5 +219,5 @@ fn fs_border(in: BorderOutput) -> @location(0) vec4<f32> {
     let sunlight = dot(normal, globals.sun.xyz);
     let day = mix(1.0, smoothstep(-0.02, 0.05, sunlight), globals.sun.w);
     let edge = clamp(globals.options.y * 0.5 + 0.5 - abs(in.across), 0.0, 1.0);
-    return vec4<f32>(0.95, 0.95, 0.85, edge * facing * day * 0.45 * globals.options.w);
+    return vec4<f32>(output(vec3<f32>(0.95, 0.95, 0.85)), edge * facing * day * 0.45 * globals.options.w);
 }
