@@ -22,6 +22,7 @@ import {
     type NodeResult,
 } from "./normalization-context";
 import type { ImageResolver } from "./normalize";
+import { radialGeometry, conicGeometry } from "../gradient-geometry";
 import type {
     Diagnostic,
     SnapshotImage,
@@ -164,14 +165,32 @@ async function paint(
     if (value.type === "SOLID") {
         return { kind: "solid", color: color(value.color, node), opacity };
     }
-    if (value.type === "GRADIENT_LINEAR") {
+    if (value.type === "GRADIENT_LINEAR" || value.type === "GRADIENT_ANGULAR") {
         if (value.gradientStops.length < 2)
             throw new CompatibilityError(
                 "linear gradients require at least two stops",
             );
+        const matrix = transform(value.gradientTransform, node);
+        if (
+            value.type === "GRADIENT_ANGULAR" &&
+            !conicGeometry(matrix, node.width, node.height).circular
+        )
+            throw new CompatibilityError(
+                "angular gradient requires a circular, unreflected transform",
+            );
+        if (
+            value.type === "GRADIENT_LINEAR" &&
+            Math.abs(matrix[0][0]) + Math.abs(matrix[0][1]) < 1e-12
+        )
+            throw new CompatibilityError(
+                "linear gradient transform must have a direction",
+            );
         return {
-            kind: "linear-gradient",
-            transform: transform(value.gradientTransform, node),
+            kind:
+                value.type === "GRADIENT_LINEAR"
+                    ? "linear-gradient"
+                    : "conic-gradient",
+            transform: matrix,
             stops: value.gradientStops.map((stop) => {
                 if (
                     !number(stop.position) ||
@@ -200,6 +219,25 @@ async function paint(
             throw new CompatibilityError(
                 "radial gradients require at least two stops",
             );
+        const stopsData = value.gradientStops.map((stop) => {
+            if (
+                !number(stop.position) ||
+                stop.position < 0 ||
+                stop.position > 1
+            )
+                throw new CompatibilityError(
+                    "gradient stop position must be between 0 and 1",
+                );
+            return { position: stop.position, color: color(stop.color, node) };
+        });
+        const gradientTransform = transform(value.gradientTransform, node);
+        if (radialGeometry(gradientTransform).axisAligned)
+            return {
+                kind: "radial-gradient",
+                transform: gradientTransform,
+                stops: stopsData,
+                opacity,
+            };
         const matrix = [
             d / 2,
             -b / 2,
@@ -366,7 +404,30 @@ export async function visiblePaints(
     const warnings: Diagnostic[] = [];
     for (const item of visible) {
         try {
-            paints.push(await paint(item, node, imageResolver));
+            const converted = await paint(item, node, imageResolver);
+            if (property === "strokes" && converted.kind === "image") {
+                warnings.push({
+                    ...problem(
+                        "UNSUPPORTED_STROKE_PAINT",
+                        node,
+                        "Stroke paint requires an image and was omitted",
+                        property,
+                    ),
+                    severity: "warning",
+                });
+                continue;
+            }
+            paints.push(converted);
+            if (item.blendMode !== undefined && item.blendMode !== "NORMAL")
+                warnings.push({
+                    ...problem(
+                        "PAINT_BLEND_MODE_IGNORED",
+                        node,
+                        "Paint blend mode uses normal compositing",
+                        property,
+                    ),
+                    severity: "warning",
+                });
             if (item.type === "IMAGE" && item.imageHash) {
                 const image = await imageResolver(item.imageHash);
                 if (

@@ -18,7 +18,7 @@ import { validVisualBounds, type VisualBounds } from "./source";
  * be used in Node and browser tests without a Figma host.
  */
 
-export const SNAPSHOT_SCHEMA_VERSION = 8 as const;
+export const SNAPSHOT_SCHEMA_VERSION = 9 as const;
 
 export type SnapshotSizing = "fixed" | "hug" | "fill";
 
@@ -62,7 +62,10 @@ export type SnapshotPaint =
           readonly opacity: number;
       }
     | {
-          readonly kind: "linear-gradient";
+          readonly kind:
+              | "linear-gradient"
+              | "radial-gradient"
+              | "conic-gradient";
           readonly transform: SnapshotTransform;
           readonly stops: readonly {
               readonly position: number;
@@ -98,8 +101,10 @@ export type SnapshotStroke = {
     readonly strokeRightWeight: number;
     readonly strokeBottomWeight: number;
     readonly strokeLeftWeight: number;
-    /** The original dash pattern. A non-empty pattern is rendered solid. */
     readonly dashPattern: readonly number[];
+    readonly lineCap?: "butt" | "round" | "square";
+    readonly lineJoin?: "miter" | "round" | "bevel";
+    readonly miterLimit?: number;
 };
 
 export type SnapshotShadow = {
@@ -109,6 +114,7 @@ export type SnapshotShadow = {
     readonly offsetY: number;
     readonly blur: number;
     readonly spread: number;
+    readonly showBehind?: boolean;
 };
 
 export type SnapshotAppearance = {
@@ -117,6 +123,7 @@ export type SnapshotAppearance = {
     readonly cornerRadii: readonly [number, number, number, number];
     readonly clipsContent: boolean;
     readonly shadows: readonly SnapshotShadow[];
+    readonly backdropBlur?: number;
 };
 
 type SnapshotGeometry = {
@@ -244,6 +251,11 @@ export type SnapshotTextAutoResize =
     | "truncate";
 
 export type SnapshotTextNode = SnapshotGeometry & {
+    readonly outline?: {
+        readonly paint: SnapshotPaint;
+        readonly width: number;
+        readonly align: "center" | "outside";
+    };
     readonly layoutSizingHorizontal: SnapshotSizing | null;
     readonly layoutSizingVertical: SnapshotSizing | null;
     readonly kind: "text";
@@ -533,6 +545,8 @@ function validatePaint(value: unknown, path: string): Diagnostic[] {
         !recordObject(value) ||
         (value.kind !== "solid" &&
             value.kind !== "linear-gradient" &&
+            value.kind !== "radial-gradient" &&
+            value.kind !== "conic-gradient" &&
             value.kind !== "image")
     )
         return [diagnostic("Expected a supported paint", path)];
@@ -547,8 +561,28 @@ function validatePaint(value: unknown, path: string): Diagnostic[] {
                 `${path}.opacity`,
             ),
         );
-    if (value.kind === "linear-gradient") {
+    if (
+        ["linear-gradient", "radial-gradient", "conic-gradient"].includes(
+            String(value.kind),
+        )
+    ) {
         errors.push(...validateTransform(value.transform, `${path}.transform`));
+        if (
+            validateTransform(value.transform, `${path}.transform`).length === 0
+        ) {
+            const [[a, c], [b, d]] = value.transform as SnapshotTransform;
+            if (
+                value.kind === "linear-gradient"
+                    ? Math.abs(a) + Math.abs(c) < 1e-12
+                    : Math.abs(a * d - b * c) < 1e-12
+            )
+                errors.push(
+                    diagnostic(
+                        "Gradient transform must have a direction and nonzero area",
+                        `${path}.transform`,
+                    ),
+                );
+        }
         if (!Array.isArray(value.stops) || value.stops.length < 2)
             errors.push(
                 diagnostic(
@@ -807,6 +841,16 @@ function validateAppearance(
     path: string,
 ): Diagnostic[] {
     const errors: Diagnostic[] = [];
+    if (
+        value.backdropBlur !== undefined &&
+        (!finite(value.backdropBlur) || value.backdropBlur < 0)
+    )
+        errors.push(
+            diagnostic(
+                "Backdrop blur must be finite and non-negative",
+                `${path}.backdropBlur`,
+            ),
+        );
     if (!Array.isArray(value.fills))
         errors.push(diagnostic("Fills must be an array", `${path}.fills`));
     else
@@ -832,6 +876,30 @@ function validateAppearance(
                     `${path}.strokes.${index}.paint`,
                 ),
             );
+            for (const [key, options] of [
+                ["lineCap", ["butt", "round", "square"]],
+                ["lineJoin", ["miter", "round", "bevel"]],
+            ] as const)
+                if (
+                    stroke[key] !== undefined &&
+                    !(options as readonly unknown[]).includes(stroke[key])
+                )
+                    errors.push(
+                        diagnostic(
+                            `Unsupported ${key}`,
+                            `${path}.strokes.${index}.${key}`,
+                        ),
+                    );
+            if (
+                stroke.miterLimit !== undefined &&
+                (!finite(stroke.miterLimit) || stroke.miterLimit < 0)
+            )
+                errors.push(
+                    diagnostic(
+                        "Miter limit must be finite and non-negative",
+                        `${path}.strokes.${index}.miterLimit`,
+                    ),
+                );
             if (
                 stroke.align !== undefined &&
                 stroke.align !== "INSIDE" &&
@@ -902,6 +970,16 @@ function validateAppearance(
                 return;
             }
             errors.push(...validateColor(shadow.color, `${shadowPath}.color`));
+            if (
+                shadow.showBehind !== undefined &&
+                typeof shadow.showBehind !== "boolean"
+            )
+                errors.push(
+                    diagnostic(
+                        "Shadow showBehind must be boolean",
+                        `${shadowPath}.showBehind`,
+                    ),
+                );
             if (shadow.kind !== undefined && shadow.kind !== "inner")
                 errors.push(
                     diagnostic("Unsupported shadow kind", `${shadowPath}.kind`),
@@ -1144,6 +1222,42 @@ function validateNode(value: unknown, path: string): Diagnostic[] {
                 ),
             );
     } else if (value.kind === "text") {
+        if (value.outline !== undefined) {
+            const outline = value.outline;
+            if (!recordObject(outline))
+                errors.push(
+                    diagnostic("Expected a text outline", `${path}.outline`),
+                );
+            else {
+                errors.push(
+                    ...validatePaint(outline.paint, `${path}.outline.paint`),
+                );
+                if (
+                    recordObject(outline.paint) &&
+                    outline.paint.kind === "image"
+                )
+                    errors.push(
+                        diagnostic(
+                            "Text outline requires a brush",
+                            `${path}.outline.paint`,
+                        ),
+                    );
+                if (!finite(outline.width) || outline.width <= 0)
+                    errors.push(
+                        diagnostic(
+                            "Outline width must be finite and positive",
+                            `${path}.outline.width`,
+                        ),
+                    );
+                if (outline.align !== "center" && outline.align !== "outside")
+                    errors.push(
+                        diagnostic(
+                            "Unsupported outline alignment",
+                            `${path}.outline.align`,
+                        ),
+                    );
+            }
+        }
         if (
             value.paintBounds !== undefined &&
             !validVisualBounds(value.paintBounds)

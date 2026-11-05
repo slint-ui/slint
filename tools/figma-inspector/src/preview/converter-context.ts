@@ -11,6 +11,7 @@ import type {
     SnapshotPaintWithImage,
 } from "../plugin/snapshot";
 import { utf8ToBase64 } from "../images";
+import { radialGeometry, conicGeometry } from "../gradient-geometry";
 
 export type RenderContext = {
     helperIds?: Map<string, string>;
@@ -51,6 +52,37 @@ export function color(value: SnapshotColor, opacity = 1): string {
     return alpha >= 1 ? base : `${base}${channel(alpha)}`;
 }
 
+/** Keep generated stroke geometry in the original layer's paint coordinates. */
+export function paintInBounds(
+    value: SnapshotPaintWithImage,
+    original: { readonly width: number; readonly height: number },
+    bounds: {
+        readonly x: number;
+        readonly y: number;
+        readonly width: number;
+        readonly height: number;
+    },
+): string {
+    if (
+        value.kind === "solid" ||
+        value.kind === "image" ||
+        original.width <= 0 ||
+        original.height <= 0
+    )
+        return paint(value);
+    const [first, second] = value.transform;
+    const row = ([a, c, e]: readonly number[]): [number, number, number] => [
+        (a * bounds.width) / original.width,
+        (c * bounds.height) / original.height,
+        e + (a * bounds.x) / original.width + (c * bounds.y) / original.height,
+    ];
+    return paint({ ...value, transform: [row(first), row(second)] });
+}
+
+function gradientNumber(value: number): string {
+    return String(Number(value.toPrecision(12)));
+}
+
 export function paint(value: SnapshotPaintWithImage): string {
     if (value.kind === "solid") return color(value.color, value.opacity);
     if (value.kind === "image" && value.grayscale) {
@@ -59,16 +91,79 @@ export function paint(value: SnapshotPaintWithImage): string {
     }
     if (value.kind === "image")
         return `@image-url("data:${value.mimeType};base64,${value.data}")`;
-    const [a, b] = value.transform[0];
+    // Figma interpolates straight RGBA; Slint interpolates premultiplied RGBA.
+    const resolvedStops = value.stops.flatMap((stop, index) => {
+        const next = value.stops[index + 1];
+        const subdivisions =
+            next &&
+            next.position > stop.position &&
+            next.color.a !== stop.color.a &&
+            ["r", "g", "b"].some(
+                (channel) =>
+                    next.color[channel as "r" | "g" | "b"] !==
+                    stop.color[channel as "r" | "g" | "b"],
+            )
+                ? 16
+                : 1;
+        return Array.from({ length: subdivisions }, (_, sample) => {
+            const fraction = sample / subdivisions;
+            const mix = (a: number, b: number) => a + (b - a) * fraction;
+            return sample === 0
+                ? stop
+                : {
+                      position: mix(stop.position, next.position),
+                      color: {
+                          r: mix(stop.color.r, next.color.r),
+                          g: mix(stop.color.g, next.color.g),
+                          b: mix(stop.color.b, next.color.b),
+                          a: mix(stop.color.a, next.color.a),
+                      },
+                  };
+        });
+    });
+    if (value.kind === "radial-gradient") {
+        const geometry = radialGeometry(value.transform);
+        const stops = resolvedStops
+            .map(
+                (stop) =>
+                    `${color(stop.color, value.opacity)} ${gradientNumber(stop.position * 100)}%`,
+            )
+            .join(", ");
+        return `@radial-gradient(ellipse self.width * ${gradientNumber(geometry.radiusX)} self.height * ${gradientNumber(geometry.radiusY)} at self.width * ${gradientNumber(geometry.centerX)} self.height * ${gradientNumber(geometry.centerY)}, ${stops})`;
+    }
+    if (value.kind === "conic-gradient") {
+        const geometry = conicGeometry(value.transform, 1, 1);
+        const [, [b, d]] = value.transform;
+        const angle =
+            b === 0
+                ? d > 0
+                    ? "90deg"
+                    : "270deg"
+                : `90deg + Math.atan2(${gradientNumber(-b)} * self.height / 1px, ${gradientNumber(d)} * self.width / 1px)`;
+        const stops = resolvedStops
+            .map(
+                (stop) =>
+                    `${color(stop.color, value.opacity)} ${gradientNumber(stop.position * 360)}deg`,
+            )
+            .join(", ");
+        return `@conic-gradient(from ${angle} at self.width * ${gradientNumber(geometry.centerX)} self.height * ${gradientNumber(geometry.centerY)}, ${stops})`;
+    }
+    const [a, c, offset] = value.transform[0];
+    const extent = Math.abs(a) + Math.abs(c);
+    // Figma's affine map gives the stop coordinate at each point in the layer.
+    // Slint spans the whole box, so remap stops from that box's extrema.
+    const start = offset + Math.min(0, a) + Math.min(0, c);
     const angle =
-        (90 + Math.round(Math.atan2(b, a) * (180 / Math.PI)) + 360) % 360;
-    const stops = value.stops
+        a === 0 || c === 0
+            ? `${gradientNumber((90 + (Math.atan2(c, a) * 180) / Math.PI + 360) % 360)}deg`
+            : `90deg + Math.atan2(${gradientNumber(c)} * self.width / 1px, ${gradientNumber(a)} * self.height / 1px)`;
+    const stops = resolvedStops
         .map(
             (stop) =>
-                `${color(stop.color, value.opacity)} ${Math.round(stop.position * 100)}%`,
+                `${color(stop.color, value.opacity)} ${gradientNumber(((stop.position - start) / extent) * 100)}%`,
         )
         .join(", ");
-    return `@linear-gradient(${angle}deg, ${stops})`;
+    return `@linear-gradient(${angle}, ${stops})`;
 }
 
 export function escaped(value: string): string {
