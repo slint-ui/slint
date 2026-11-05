@@ -230,8 +230,8 @@ pub async fn run_passes(
             type_loader.compiler_config.edition,
         );
         crate::layout::mark_repeated_cells_child_of_layout(component);
-        lower_layout::optimize_single_cell_layouts(component);
         lower_layout::synthesize_layoutinfo_v_with_constraint(component);
+        lower_layout::optimize_single_cell_layouts(component);
         lower_absolute_coordinates::lower_absolute_coordinates(component);
         z_order::reorder_by_z_order(component);
         lower_property_to_element::lower_property_to_element(

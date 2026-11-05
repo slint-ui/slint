@@ -99,13 +99,18 @@ Each section lists what a release changed, and how to update your code if the ch
 
 ### 1.19
 
-#### `if` and `for` Elements Count Toward Their Parent's Size
+#### `if` and `for` Elements Are Sized Like Other Elements
 
-A non-layout parent, such as a `Rectangle`, computes its minimum and preferred size from its children.
-Before 1.19, it ignored any child created with `if` or `for`.
-Wrapping an element in `if true:` changed the layout around it, which was a bug
-([#407](https://github.com/slint-ui/slint/issues/407)).
-With edition 1.19, a parent counts every child, however it was created.
+Before 1.19, wrapping an element in `if true:` could change the layout around it, which was a bug:
+
+- A non-layout parent, such as a `Rectangle`, computes its minimum and preferred size from its children.
+  It ignored any child created with `if` or `for`
+  ([#407](https://github.com/slint-ui/slint/issues/407)).
+- A word-wrapped `Text` with its own `width` in an `if` or `for` element was measured at the layout's width.
+  When the layout was wider, the element came out short and the next element overlapped it
+  ([#14705](https://github.com/slint-ui/slint/issues/14705)).
+
+With edition 1.19, an element created with `if` or `for` gets the same size as one written without them.
 
 In this example, both rectangles hold the same text.
 Before, the layout gave the first one a height of `0px`, as if it were empty.
@@ -131,8 +136,9 @@ export component Example inherits Window {
 If you wrote code for the old behavior, it might need these changes:
 
 - A parent now grows to fit its `if` and `for` children,
-  which can change the size of the elements around it in a layout.
-  Where the parent should keep a size of its own, give it an explicit `width` or `height`.
+  and an element holding wrapped text can grow by a line.
+  This can change the size of the elements around it in a layout.
+  Where an element should keep a size of its own, give it an explicit `width` or `height`.
 - A child that computes its size, or another property, from that parent's size now forms a binding loop,
   which the compiler reports as an error.
 
