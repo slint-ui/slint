@@ -39,9 +39,9 @@
            under the toolbars while they show. */
         canvas {
             position: fixed; left: 0; top: 0; display: block; outline: none;
-            width: 100vw !important;
+            width: var(--app-width, 100vw) !important;
             height: 100vh !important;
-            height: 100lvh !important;
+            height: var(--app-height, 100lvh) !important;
             /* Leaves dragging and pinching to the demo, instead of scrolling or zooming the page. */
             touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
         }
@@ -92,11 +92,28 @@
         // that the notch, the home indicator, and the browser's toolbars cover from here.
         const canvas = document.getElementById("canvas");
         const safeArea = document.getElementById("safe-area");
+        // Opened from the Home Screen on iOS, the viewport is short by the status bar that the page
+        // draws under, so the canvas takes the size of the screen there, and has no toolbars.
+        const homeScreen = navigator.standalone === true;
+        function fitToScreen() {
+            if (!homeScreen) {
+                return;
+            }
+            const long = Math.max(screen.width, screen.height);
+            const short = Math.min(screen.width, screen.height);
+            const portrait = matchMedia("(orientation: portrait)").matches;
+            const root = document.documentElement.style;
+            root.setProperty("--app-width", (portrait ? short : long) + "px");
+            root.setProperty("--app-height", (portrait ? long : short) + "px");
+        }
         function updateInsets() {
+            fitToScreen();
             const style = getComputedStyle(safeArea);
             const rect = canvas.getBoundingClientRect();
             const viewport = window.visualViewport;
-            const visible = viewport
+            const visible = homeScreen
+                ? rect
+                : viewport
                 ? { left: viewport.offsetLeft, top: viewport.offsetTop, right: viewport.offsetLeft + viewport.width, bottom: viewport.offsetTop + viewport.height }
                 : { left: 0, top: 0, right: window.innerWidth, bottom: window.innerHeight };
             const env = (side) => parseFloat(style.getPropertyValue("padding-" + side)) || 0;
@@ -109,6 +126,7 @@
         }
         updateInsets();
         window.addEventListener("resize", updateInsets);
+        window.addEventListener("orientationchange", updateInsets);
         window.visualViewport?.addEventListener("resize", updateInsets);
         window.visualViewport?.addEventListener("scroll", updateInsets);
 
