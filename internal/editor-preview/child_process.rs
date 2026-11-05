@@ -7,11 +7,11 @@ use std::{cell::RefCell, ffi::OsString, path::PathBuf, sync::Arc};
 use std::{io::BufRead, rc::Rc};
 
 use i_slint_live_preview::protocol::{
-    DebuggerToPreviewMessage, FromPreview, LspToPreviewMessage, PreviewTarget,
-    PreviewToDebuggerMessage, PreviewToLspMessage, ToPreviewRef,
+    DebuggerToPreviewMessage, FromPreview, LspToPreviewMessage, PreviewTarget, PreviewToLspMessage,
+    ToPreviewRef,
 };
 #[cfg(any(test, feature = "preview-process"))]
-use i_slint_live_preview::protocol::{FromPreviewRef, ToPreview};
+use i_slint_live_preview::protocol::{FromPreviewRef, PreviewToDebuggerMessage, ToPreview};
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt},
     sync::mpsc,

@@ -187,7 +187,7 @@ fn run_preview(args: &LivePreview) -> std::result::Result<(), slint::PlatformErr
                         slint::invoke_from_event_loop(move || preview::lsp_to_preview(message))?
                     }
                     ToPreview::Debug(message) => {
-                        tracing::warn!("Ignoring debugger message {message:?}")
+                        tracing::debug!("Ignoring debugger message {message:?}")
                     }
                 }
                 Ok(())
