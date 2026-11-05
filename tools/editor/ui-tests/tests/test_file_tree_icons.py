@@ -2,9 +2,40 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 from pathlib import Path
+from typing import cast
+
+from PIL import Image
 
 from editor_sync import wait_for_source
 from ui_driver import element, file_row, first_window, launch_editor, screenshot
+
+
+def _icon_coverage(image: Image.Image) -> tuple[float, ...]:
+    """Return pixel contrast normalized by the icon's maximum contrast."""
+    image = image.convert("RGB")
+    background = cast(tuple[int, int, int], image.getpixel((0, 0)))
+    distances = tuple(
+        max(
+            abs(value - base)
+            for value, base in zip(
+                cast(tuple[int, int, int], image.getpixel((x, y))),
+                background,
+                strict=True,
+            )
+        )
+        for y in range(image.height)
+        for x in range(image.width)
+    )
+    contrast = max(distances)
+    assert contrast > 8, "Icon must be visible above background dithering"
+    return tuple(distance / contrast for distance in distances)
+
+
+def _shape_similarity(first: tuple[float, ...], second: tuple[float, ...]) -> float:
+    pairs = tuple(zip(first, second, strict=True))
+    return sum(min(left, right) for left, right in pairs) / sum(
+        max(left, right) for left, right in pairs
+    )
 
 
 def test_slint_files_have_a_distinct_icon_shape(
@@ -22,7 +53,7 @@ def test_slint_files_have_a_distinct_icon_shape(
         wait_for_source(source, source.read_bytes())
         window = first_window(editor)
 
-        def icon_shape(path: Path) -> tuple[tuple[int, int], tuple[bool, ...]]:
+        def icon_shape(path: Path) -> tuple[tuple[int, int], tuple[float, ...]]:
             icon = element(file_row(window, path), id="FileTreeRow::file-icon")
             bounds = icon.absolute_rect
             image = screenshot(window)
@@ -35,15 +66,12 @@ def test_slint_files_have_a_distinct_icon_shape(
                     round((bounds.y + bounds.height) * scale),
                 )
             )
-            background = crop.getpixel((0, 0))
-            mask = tuple(
-                crop.getpixel((x, y)) != background
-                for y in range(crop.height)
-                for x in range(crop.width)
-            )
-            assert any(mask) and not all(mask)
-            return crop.size, mask
+            return crop.size, _icon_coverage(crop)
 
         code_shape = icon_shape(first_code)
-        assert icon_shape(second_code) == code_shape
-        assert icon_shape(fixture_project / "Sibling.slint") != code_shape
+        second_size, second_coverage = icon_shape(second_code)
+        assert second_size == code_shape[0]
+        assert _shape_similarity(code_shape[1], second_coverage) > 0.9
+        slint_size, slint_coverage = icon_shape(fixture_project / "Sibling.slint")
+        assert slint_size == code_shape[0]
+        assert _shape_similarity(code_shape[1], slint_coverage) < 0.5
