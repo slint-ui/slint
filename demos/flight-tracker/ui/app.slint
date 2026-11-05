@@ -457,7 +457,6 @@ component AircraftIcon inherits Image {
 /// The route from the origin to the destination, and how far along the aircraft is.
 component FlightCard inherits Glass {
     in property <FlightInfo> flight;
-    in property <bool> kiosk;
     /// Smaller, for phones.
     in property <bool> small;
     /// Leaves out the light at arrival, for short windows.
@@ -467,28 +466,6 @@ component FlightCard inherits Glass {
     layout := VerticalLayout {
         padding: root.small ? 14px : 18px;
         spacing: root.small ? 8px : 10px;
-        HorizontalLayout {
-            spacing: 8px;
-            Flaps {
-                text: root.flight.number;
-                size: 12px;
-                lit: true;
-            }
-
-            Caption {
-                horizontal-stretch: 1;
-                vertical-alignment: center;
-                text: root.flight.phase == Phase.boarding ? "Boarding" : root.flight.phase == Phase.arrived ? "Landed" : "In flight";
-                color: Theme.accent-light;
-            }
-
-            Caption {
-                horizontal-alignment: right;
-                vertical-alignment: center;
-                text: root.kiosk ? "Random flights" : "Your flight";
-            }
-        }
-
         HorizontalLayout {
             spacing: 12px;
             VerticalLayout {
@@ -1279,7 +1256,6 @@ export component AppWindow inherits Window {
         y: root.top-edge - (1 - root.flight-in) * (self.height + root.top-edge + 30px);
         width: root.narrow ? root.content-width : min(420px, root.content-width - 56px);
         flight: root.flight;
-        kiosk: root.kiosk;
         small: root.narrow || root.short;
         brief: root.short;
     }
