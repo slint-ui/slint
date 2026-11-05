@@ -217,6 +217,11 @@ enum Stage {
     ZoomingOut,
 }
 
+/// A flight number with Slint's airline code, the same for every flight on a route.
+fn flight_number(origin: usize, destination: usize) -> String {
+    format!("SL {}", 100 + (origin * 7919 + destination * 104_729) % 900)
+}
+
 fn airport_item(airports: &[Airport], index: usize) -> AirportItem {
     let airport = &airports[index];
     AirportItem {
@@ -600,6 +605,7 @@ impl Demo {
         let heading = flight.heading_degrees();
         FlightInfo {
             phase: self.phase,
+            number: flight_number(flight.origin, flight.destination).into(),
             origin: airport_item(&self.airports, flight.origin),
             destination: airport_item(&self.airports, flight.destination),
             progress: flight.progress(),
