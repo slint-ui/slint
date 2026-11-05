@@ -22,3 +22,8 @@ export component StatesOnly inherits Rectangle {
         ]
     }
 }
+
+export component WrappedText inherits VerticalLayout {
+    in property <string> text;
+    Text { width: 150px; wrap: word-wrap; text: root.text; }
+}

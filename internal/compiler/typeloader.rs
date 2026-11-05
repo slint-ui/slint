@@ -1002,6 +1002,7 @@ struct LibraryProject {
     /// The directory of the project file, which holds the library's files.
     root: SourcePath,
     main: Option<SourcePath>,
+    edition: crate::project_file::SlintEdition,
     include_paths: Vec<PathBuf>,
     library_paths: HashMap<String, PathBuf>,
 }
@@ -1015,6 +1016,7 @@ impl LibraryProject {
 
 /// The settings for the files of the application, or of a library with a project file.
 struct ProjectSettings<'a> {
+    edition: Option<crate::project_file::SlintEdition>,
     include_paths: &'a [PathBuf],
     library_paths: &'a HashMap<String, PathBuf>,
 }
@@ -1714,6 +1716,7 @@ impl TypeLoader {
                         source_path: project.source_path().clone(),
                         root: project.source_path().parent(),
                         main: project.main(),
+                        edition: project.edition(),
                         include_paths: data.include_paths.unwrap_or_default(),
                         library_paths: data.library_paths.unwrap_or_default(),
                     })
@@ -1822,14 +1825,28 @@ impl TypeLoader {
     fn project_settings(&self, file: Option<&SourcePath>) -> ProjectSettings<'_> {
         match file.and_then(|file| self.library_project_of(file)) {
             Some(project) => ProjectSettings {
+                edition: Some(project.edition),
                 include_paths: &project.include_paths,
                 library_paths: &project.library_paths,
             },
             None => ProjectSettings {
+                edition: self.compiler_config.edition,
                 include_paths: &self.compiler_config.include_paths,
                 library_paths: &self.compiler_config.library_paths,
             },
         }
+    }
+
+    /// Sets the edition of the file of `node` from the project that the file belongs to.
+    pub(crate) fn set_edition(&self, node: &syntax_nodes::Document) {
+        if let Some(edition) = self.project_edition(node.source_file.path()) {
+            node.source_file.set_edition(edition);
+        }
+    }
+
+    /// The edition of the project that the file at `path` belongs to.
+    pub fn project_edition(&self, path: &SourcePath) -> Option<crate::project_file::SlintEdition> {
+        self.project_settings(Some(path)).edition
     }
 
     /// Waits until no other task loads `path`, and then claims it unless it's loaded.
@@ -2028,6 +2045,7 @@ impl TypeLoader {
         )
         .await;
 
+        state.borrow().tl.set_edition(&dependency_doc);
         let ignore_missing_font_files =
             state.borrow().tl.compiler_config.resource_url_mapper.is_some();
         let symbol_counters = state.borrow().tl.symbol_counters.clone();
@@ -3283,6 +3301,15 @@ export component Main { Button { } Rel { } }
     assert_eq!(loader.library_import_for(&SourcePath::new("/lib/button.slint")), None);
     // The library's own project is open, so its files aren't private
     assert!(!loader.is_private_library_file(&SourcePath::new("/lib/button.slint")));
+
+    assert_eq!(
+        loader.project_settings(Some(&main)).edition,
+        Some(crate::project_file::SlintEdition::V1_19)
+    );
+    assert_eq!(
+        loader.project_settings(Some(&SourcePath::new("/lib/button.slint"))).edition,
+        Some((1, 18).into())
+    );
 
     let relative_project_file = SourcePath::new(cwd.join("rel/slint-project.json"));
     assert!(!loader.drop_document(&relative_project_file).unwrap().is_empty());

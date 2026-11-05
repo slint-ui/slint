@@ -76,7 +76,8 @@ To use its settings, map the library name to that project file:
 
 `@widgets` imports the `main` file of the library.
 Only what that file exports is available through `@widgets`: a path such as `@widgets/button.slint` is an error.
-The files in the library's directory use the include paths and library paths of the library's project file.
+The files in the library's directory use the edition, include paths, and library paths of the library's project file.
+So a library keeps its [edition](../../language/concepts/editions/) in an application that uses another one.
 Give an application inside a library's directory, such as an example, a project file of its own,
 so that its files use its own settings in your build and your editor.
 Experimental features apply to the whole application, so enable them in the application's project file.

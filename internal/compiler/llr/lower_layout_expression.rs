@@ -1285,9 +1285,9 @@ fn cell_layout_info(
         Orientation::Vertical => cross_axis_size_override
             .filter(|_| is_height_for_width_cell(elem))
             .map(|size| {
-                match fixed_size_property(constraints, Orientation::Horizontal)
-                    .filter(|_| ctx.state.measure_fixed_width_cells_at_own_width)
-                {
+                match fixed_size_property(constraints, Orientation::Horizontal).filter(|_| {
+                    elem.borrow().edition() >= Some(crate::project_file::SlintEdition::V1_19)
+                }) {
                     Some(width) => {
                         crate::expression_tree::Expression::PropertyReference(width.clone())
                     }
