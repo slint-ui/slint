@@ -24,22 +24,25 @@
             --accent: #2379f4;
             color-scheme: dark;
         }
-        /* Keeps the demo clear of a phone's notch and home indicator. */
-        body { box-sizing: border-box; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
         html, body {
             margin: 0; height: 100%; overflow: hidden; overscroll-behavior: none;
             background: var(--background); color: var(--text);
             font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
         }
-        /* Overrides the preferred size that Slint sets on the canvas, so the demo fills the page. */
+        /* Overrides the preferred size that Slint sets on the canvas, so the demo fills the screen,
+           under a phone's notch and the browser's toolbars. The large viewport height reaches
+           under the toolbars while they show. */
         canvas {
-            display: block; outline: none;
-            width: calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right)) !important;
-            /* Mobile Safari's toolbars come and go, which the dynamic viewport height follows. */
-            height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
-            height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+            position: fixed; left: 0; top: 0; display: block; outline: none;
+            width: 100vw !important;
+            height: 100vh !important;
+            height: 100lvh !important;
             /* Leaves dragging and pinching to the demo, instead of scrolling or zooming the page. */
             touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+        }
+        #safe-area {
+            position: fixed; visibility: hidden; pointer-events: none;
+            padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
         }
         #loading {
             position: fixed; inset: 0; display: grid; place-content: center; justify-items: center;
@@ -65,6 +68,7 @@
 
 <body>
     <canvas id="canvas"></canvas>
+    <div id="safe-area"></div>
     <div id="loading" role="status">
         <h1>Slint Flight Tracker</h1>
         <div id="bar" role="progressbar" aria-label="Loading the demo" aria-valuemin="0" aria-valuemax="100"><div id="fill"></div></div>
@@ -78,6 +82,30 @@
         const fill = document.getElementById("fill");
         const message = document.getElementById("message");
         const megabytes = (bytes) => (bytes / 1e6).toFixed(1);
+
+        // Slint's safe-area-insets are zero on the web, so the demo reads the edges of the canvas
+        // that the notch, the home indicator, and the browser's toolbars cover from here.
+        const canvas = document.getElementById("canvas");
+        const safeArea = document.getElementById("safe-area");
+        function updateInsets() {
+            const style = getComputedStyle(safeArea);
+            const rect = canvas.getBoundingClientRect();
+            const viewport = window.visualViewport;
+            const visible = viewport
+                ? { left: viewport.offsetLeft, top: viewport.offsetTop, right: viewport.offsetLeft + viewport.width, bottom: viewport.offsetTop + viewport.height }
+                : { left: 0, top: 0, right: window.innerWidth, bottom: window.innerHeight };
+            const env = (side) => parseFloat(style.getPropertyValue("padding-" + side)) || 0;
+            window.flightTrackerInsets = {
+                top: Math.max(env("top"), visible.top - rect.top, 0),
+                right: Math.max(env("right"), rect.right - visible.right, 0),
+                bottom: Math.max(env("bottom"), rect.bottom - visible.bottom, 0),
+                left: Math.max(env("left"), visible.left - rect.left, 0),
+            };
+        }
+        updateInsets();
+        window.addEventListener("resize", updateInsets);
+        window.visualViewport?.addEventListener("resize", updateInsets);
+        window.visualViewport?.addEventListener("scroll", updateInsets);
 
         function show(received, total) {
             // A compressed download's length counts compressed bytes, so it can run out early.

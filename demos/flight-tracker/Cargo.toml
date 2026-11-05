@@ -32,6 +32,7 @@ slint = { path = "../../api/rs/slint", features = ["renderer-skia", "unstable-wg
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 slint = { path = "../../api/rs/slint", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-femtovg-wgpu", "unstable-wgpu-30"] }
 wasm-bindgen = { version = "0.2" }
+js-sys = "0.3"
 console_error_panic_hook = "0.1.5"
 
 [build-dependencies]
