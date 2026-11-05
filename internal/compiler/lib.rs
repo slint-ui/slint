@@ -264,7 +264,7 @@ pub struct CompilerConfiguration {
     pub coverage: bool,
 
     /// Generate debug hooks to inspect/override properties.
-    pub debug_hooks: Option<std::hash::RandomState>,
+    pub debug_hooks: bool,
 
     pub components_to_generate: ComponentSelection,
 
@@ -406,7 +406,7 @@ impl CompilerConfiguration {
             error_on_binding_loop_with_window_layout: false,
             debug_info,
             coverage: false,
-            debug_hooks: None,
+            debug_hooks: false,
             components_to_generate: ComponentSelection::ExportedWindows,
             #[cfg(all(feature = "renderer-software", feature = "sdf-fonts"))]
             use_sdf_fonts: false,

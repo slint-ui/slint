@@ -11,6 +11,7 @@
 //! the case of `native` runs in a separate thread at this time.
 
 use crate::preview::element_selection::ElementSelection;
+use i_slint_compiler::object_tree::{ElementLocation, ElementProperty};
 use i_slint_compiler::parser::{TextSize, syntax_nodes};
 use i_slint_compiler::source_path::SourcePath;
 use i_slint_compiler::{EmbedResourcesKind, diagnostics};
@@ -33,7 +34,6 @@ use i_slint_live_preview::protocol::{
 use lsp_types::Url;
 use slint::{LogicalPosition, LogicalSize, PlatformError, SharedString, ToSharedString};
 use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance};
-use smol_str::SmolStr;
 use std::borrow::BorrowMut;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
@@ -244,8 +244,9 @@ struct SourceCodeCacheEntry {
 type SourceCodeCache = HashMap<Url, SourceCodeCacheEntry>;
 
 /// Property overrides the editor pushes into the previewed instance, keyed by debug hook id.
-type DebugHookOverrides =
-    Rc<RefCell<HashMap<SmolStr, Pin<Box<i_slint_core::Property<Option<DebugHookOverride>>>>>>>;
+type DebugHookOverrides = Rc<
+    RefCell<HashMap<ElementProperty, Pin<Box<i_slint_core::Property<Option<DebugHookOverride>>>>>>,
+>;
 
 #[derive(Clone, PartialEq, Debug)]
 struct DebugHookOverride {
@@ -263,17 +264,20 @@ impl From<slint_interpreter::Value> for DebugHookOverride {
 /// Routes `instance`'s debug hooks through `overrides`, so that the editor can override a
 /// property of the previewed element without going through the source.
 fn install_debug_hook_callback(instance: &ComponentInstance, overrides: DebugHookOverrides) {
-    instance.set_debug_hook_callback(Some(Box::new(move |id: &str| {
+    instance.set_debug_hook_callback(Some(Box::new(move |id| {
         let mut hooks = (*overrides).borrow_mut();
-        let property = hooks.entry(SmolStr::from(id)).or_insert_with(|| {
-            tracing::trace!("Inserting Property override: {id}");
-            Box::pin(i_slint_core::Property::new(None))
-        });
-        property.as_ref().get().map(|override_value| override_value.value)
+        if let Some(property) = hooks.get(id) {
+            return property.as_ref().get().map(|override_value| override_value.value);
+        }
+        tracing::trace!("Inserting Property override: {id:?}");
+        let property = Box::pin(i_slint_core::Property::<Option<DebugHookOverride>>::new(None));
+        let value = property.as_ref().get().map(|override_value| override_value.value);
+        hooks.insert(id.clone(), property);
+        value
     })));
 }
 
-fn set_override(id: &SmolStr, value: Option<slint_interpreter::Value>) {
+fn set_override(id: &ElementProperty, value: Option<slint_interpreter::Value>) {
     let value = value.map(DebugHookOverride::from);
 
     PREVIEW_STATE.with_borrow(|state| {
@@ -1574,7 +1578,7 @@ fn rotate_selected_element_impl(
 ) -> Option<(lsp_types::WorkspaceEdit, String)> {
     let rotation = override_selected_element_rotation_impl(element_node, instance_index, angle)?;
 
-    let (path, offset) = element_node.path_and_offset();
+    let ElementLocation { path, offset } = element_node.location();
     let url = path.to_url()?;
     let document_cache = document_cache()?;
 
@@ -1615,18 +1619,6 @@ fn override_selected_element_rotation_impl(
 
     let component_instance = component_instance()?;
 
-    let element_hash = element_node
-        .element
-        .borrow()
-        .debug
-        .get(element_node.debug_index)
-        .map(|debug| debug.element_hash)
-        .unwrap_or(0);
-    if element_hash == 0 {
-        tracing::debug!("Element does not have a hash, cannot override rotation");
-        return None;
-    }
-
     // `transform-rotation` is relative to the element's parent, so subtract the parent's
     // absolute rotation. Like `parent_origin` for the geometry override, the parent's rotation
     // rides along on the selected instance's geometry, so we don't have to guess which parent
@@ -1646,10 +1638,7 @@ fn override_selected_element_rotation_impl(
 
     PREVIEW_STATE.with_borrow(|preview_state| {
         let overrides = (*preview_state.debug_hook_overrides).borrow();
-        let id = i_slint_compiler::passes::property_id(
-            element_hash,
-            &SmolStr::from("transform-rotation"),
-        );
+        let id = element_node.property("transform-rotation");
         let Some(rotation_override) = overrides.get(&id) else {
             tracing::debug!(
                 "Element does not have a transform-rotation debug hook, cannot override rotation"
@@ -1762,18 +1751,6 @@ fn override_selected_element_geometry_impl(
     tracing::trace!("Setting geometry preview: {rect:?} in {coordinate_space:?}");
     let component_instance = component_instance()?;
 
-    let element_hash = element_node
-        .element
-        .borrow()
-        .debug
-        .get(element_node.debug_index)
-        .map(|debug| debug.element_hash)
-        .unwrap_or(0);
-    if element_hash == 0 {
-        tracing::debug!("Element does not have a hash, cannot override geometry");
-        return None;
-    }
-
     // The parent frame rides along on the selected instance's geometry, so we don't have to
     // guess which parent instance contains the dragged point (which breaks once the element is
     // dragged outside of its parent).
@@ -1808,13 +1785,13 @@ fn override_selected_element_geometry_impl(
         })
         .collect::<Vec<_>>();
 
+    let location = element_node.location();
     PREVIEW_STATE.with_borrow(|preview_state| {
         let overrides = (*preview_state.debug_hook_overrides).borrow();
         let property_overrides = values
             .into_iter()
             .map(|(name, value)| {
-                let id = i_slint_compiler::passes::property_id(element_hash, &SmolStr::from(name));
-                let property_override = overrides.get(&id)?;
+                let property_override = overrides.get(&location.property(name))?;
                 Some((property_override, value))
             })
             .collect::<Option<Vec<_>>>()?;
@@ -1858,18 +1835,6 @@ fn set_selected_element_border_radius_override(
     let Some(element_node) = element_selection.as_element_node() else { return };
     let Some(component_instance) = component_instance() else { return };
 
-    let element_hash = element_node
-        .element
-        .borrow()
-        .debug
-        .get(element_node.debug_index)
-        .map(|d| d.element_hash)
-        .unwrap_or(0);
-    if element_hash == 0 {
-        tracing::debug!("Element does not have a hash, cannot override geometry");
-        return;
-    }
-
     let property_name = match corner {
         ui::CanvasCorner::TopLeft => "border-top-left-radius",
         ui::CanvasCorner::TopRight => "border-top-right-radius",
@@ -1879,7 +1844,7 @@ fn set_selected_element_border_radius_override(
 
     PREVIEW_STATE.with_borrow(|preview_state| {
         let m = (*preview_state.debug_hook_overrides).borrow();
-        let id = i_slint_compiler::passes::property_id(element_hash, &SmolStr::from(property_name));
+        let id = element_node.property(property_name);
         let Some(property_override) = m.get(&id) else {
             tracing::debug!(
                 "Property debug hook {property_name} does not exist, cannot override geometry",
@@ -1900,20 +1865,8 @@ fn persist_selected_element_border_radius() {
         return;
     };
 
-    let element_hash = element_node
-        .element
-        .borrow()
-        .debug
-        .get(element_node.debug_index)
-        .map(|d| d.element_hash)
-        .unwrap_or(0);
-    if element_hash == 0 {
-        tracing::debug!("Element does not have a hash, cannot resize");
-        return;
-    }
-
     // They all have the same size anyway:
-    let (path, offset) = element_node.path_and_offset();
+    let location = element_node.location();
 
     // Apply the overrides permanently
     let properties = [
@@ -1928,10 +1881,8 @@ fn persist_selected_element_border_radius() {
         properties
             .into_iter()
             .filter_map(|property| {
-                let id =
-                    i_slint_compiler::passes::property_id(element_hash, &SmolStr::from(property));
                 overrides
-                    .get(&id)
+                    .get(&location.property(property))
                     .and_then(|property_override| property_override.as_ref().get())
                     .and_then(|value| {
                         if let slint_interpreter::Value::Number(value) = value.value && value.is_finite() {
@@ -1955,7 +1906,7 @@ fn persist_selected_element_border_radius() {
         return;
     }
 
-    let Some(url) = path.to_url() else {
+    let Some(url) = location.path.to_url() else {
         return;
     };
     let Some(document_cache) = document_cache() else {
@@ -1968,7 +1919,7 @@ fn persist_selected_element_border_radius() {
         &document_cache,
         i_slint_editor_preview::editing::VersionedPosition::new(
             VersionedUrl::new(url, version),
-            offset,
+            location.offset,
         ),
         geometry_changes,
     )
@@ -1998,19 +1949,7 @@ fn resize_selected_element_impl(
 fn persist_selected_element_geometry_impl(
     element_node: &ElementRcNode,
 ) -> Option<(lsp_types::WorkspaceEdit, String)> {
-    let element_hash = element_node
-        .element
-        .borrow()
-        .debug
-        .get(element_node.debug_index)
-        .map(|d| d.element_hash)
-        .unwrap_or(0);
-    if element_hash == 0 {
-        tracing::debug!("Element does not have a hash, cannot persist geometry");
-        return None;
-    }
-
-    let (path, offset) = element_node.path_and_offset();
+    let location = element_node.location();
 
     let properties = ["x", "y", "width", "height"];
     let geometry_changes = PREVIEW_STATE.with_borrow(|preview_state| {
@@ -2019,10 +1958,8 @@ fn persist_selected_element_geometry_impl(
         properties
             .into_iter()
             .filter_map(|property| {
-                let id =
-                    i_slint_compiler::passes::property_id(element_hash, &SmolStr::from(property));
                 overrides
-                    .get(&id)
+                    .get(&location.property(property))
                     .and_then(|property_override| property_override.as_ref().get())
                     .and_then(|value| {
                         if let slint_interpreter::Value::Number(value) = value.value && value.is_finite() {
@@ -2046,7 +1983,7 @@ fn persist_selected_element_geometry_impl(
         return None;
     }
 
-    let url = path.to_url()?;
+    let url = location.path.to_url()?;
     let document_cache = document_cache()?;
 
     let version = document_cache.document_version(&url);
@@ -2055,7 +1992,7 @@ fn persist_selected_element_geometry_impl(
         &document_cache,
         i_slint_editor_preview::editing::VersionedPosition::new(
             VersionedUrl::new(url, version),
-            offset,
+            location.offset,
         ),
         geometry_changes,
     )
@@ -2582,7 +2519,7 @@ async fn parse_source(
     i_slint_editor_preview::document_cache::configure_preview(cc, component);
     cc.resource_url_mapper = resource_url_mapper();
     cc.embed_resources = EmbedResourcesKind::ListAllResources;
-    cc.debug_hooks = Some(std::hash::RandomState::new());
+    cc.debug_hooks = true;
 
     let (open_file_fallback, source_file_versions) =
         i_slint_editor_preview::document_cache::document_cache_parts_setup(
@@ -3169,7 +3106,7 @@ fn update_preview_area(
                         )));
                     }
 
-                    // element_hash (and thus hook ids) change on every recompile, so drop stale overrides.
+                    // Hook ids may point to other elements after a recompile, so drop stale overrides.
                     (*shared_overrides).borrow_mut().clear();
                     install_debug_hook_callback(&instance, shared_overrides.clone());
 

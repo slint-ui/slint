@@ -7,8 +7,8 @@ pub(super) struct Session {
     pub(super) target: ElementSelection,
     initial_text: SharedString,
     original_color: slint::Brush,
-    color_override: SmolStr,
-    stroke_override: SmolStr,
+    color_override: ElementProperty,
+    stroke_override: ElementProperty,
     pending_edit: Option<(lsp_types::WorkspaceEdit, SharedString)>,
 }
 
@@ -16,8 +16,8 @@ struct Target {
     selection: ElementSelection,
     text: SharedString,
     color: slint::Brush,
-    color_override: SmolStr,
-    stroke_override: SmolStr,
+    color_override: ElementProperty,
+    stroke_override: ElementProperty,
     scale: f32,
     grow_width: bool,
 }
@@ -50,19 +50,14 @@ fn source_text(node: &ElementRcNode) -> Option<SharedString> {
 fn source_target(
     selection: &ElementSelection,
     instance: &ComponentInstance,
-) -> Option<(ElementRcNode, SharedString, SmolStr, SmolStr)> {
+) -> Option<(ElementRcNode, SharedString, ElementProperty, ElementProperty)> {
     let node = selection.as_element_node_in(instance)?;
     let text = source_text(&node)?;
     if text.contains('\n') || text.contains('\r') {
         return None;
     }
-    let hash = node.with_element_debug(|debug| debug.element_hash);
-    if hash == 0 {
-        return None;
-    }
-    let color_override = i_slint_compiler::passes::property_id(hash, &SmolStr::new_static("color"));
-    let stroke_override =
-        i_slint_compiler::passes::property_id(hash, &SmolStr::new_static("stroke"));
+    let color_override = node.property("color");
+    let stroke_override = node.property("stroke");
     Some((node, text, color_override, stroke_override))
 }
 
@@ -177,10 +172,7 @@ fn finish(accepted: bool, accepted_text: Option<SharedString>) {
             && let Some(instance) = component_instance()
             && let Some((node, _, _, _)) = source_target(&session.target, &instance)
         {
-            let hash = node.with_element_debug(|debug| debug.element_hash);
-            let text_override =
-                i_slint_compiler::passes::property_id(hash, &SmolStr::new_static("text"));
-            set_override(&text_override, Some(slint_interpreter::Value::String(text)));
+            set_override(&node.property("text"), Some(slint_interpreter::Value::String(text)));
         }
         for override_id in [&session.color_override, &session.stroke_override] {
             set_override(override_id, None);
