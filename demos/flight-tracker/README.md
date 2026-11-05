@@ -39,8 +39,6 @@ python3 -m http.server
 ```
 
 Open <http://localhost:8000> in a browser with WebGPU.
-On an iPhone, add the page to the Home Screen and open it from there, so the globe fills the whole screen, under the status bar.
-In a Safari tab, it stays between Safari's bars.
 
 ## How It Works
 

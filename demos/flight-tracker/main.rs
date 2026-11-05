@@ -703,28 +703,6 @@ fn border_strength(eye: Vec3, height: f32) -> f32 {
     t * t * (3.0 - 2.0 * t)
 }
 
-/// Passes the edges of the canvas that the page reports as covered to the UI, see `index.html`.
-#[cfg(target_arch = "wasm32")]
-fn update_page_insets(app: &AppWindow) {
-    use js_sys::Reflect;
-    let Ok(insets) = Reflect::get(&js_sys::global(), &"flightTrackerInsets".into()) else {
-        return;
-    };
-    let edge = |name: &str| {
-        Reflect::get(&insets, &name.into()).ok().and_then(|value| value.as_f64()).unwrap_or(0.0)
-            as f32
-    };
-    let insets = Insets {
-        top: edge("top"),
-        right: edge("right"),
-        bottom: edge("bottom"),
-        left: edge("left"),
-    };
-    if app.get_page_insets() != insets {
-        app.set_page_insets(insets);
-    }
-}
-
 /// Renders into one of two textures, so Slint can show the previous one meanwhile.
 /// They're as large as the largest frame, so that a change in the render scale or in the globe's
 /// place doesn't create new ones.
@@ -1041,8 +1019,6 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         if !matches!(rendering_state, slint::RenderingState::BeforeRendering) {
             return;
         }
-        #[cfg(target_arch = "wasm32")]
-        update_page_insets(&app);
         let Some((renderer, device)) = &graphics else { return };
         let now = web_time::Instant::now();
         // After an idle period the first frame would otherwise jump.
