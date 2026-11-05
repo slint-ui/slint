@@ -3376,7 +3376,10 @@ fn load_legacy_declarations(lib_minor_edition: u32, minor_edition: u32) -> Vec<S
             SourcePath::new("/lib/slint-project.json"),
             format!(r#"{{ "edition": "1.{lib_minor_edition}", "main": "lib.slint" }}"#),
         ),
-        (SourcePath::new("/lib/lib.slint"), "export global Settings := { }".into()),
+        (
+            SourcePath::new("/lib/lib.slint"),
+            "export global Settings := { }\nexport Old := Rectangle { }".into(),
+        ),
     ]);
     let mut compiler_config =
         CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
@@ -3392,9 +3395,10 @@ fn load_legacy_declarations(lib_minor_edition: u32, minor_edition: u32) -> Vec<S
 
     let main = SourcePath::new("/app/main.slint");
     let main_source = r#"
-import { Settings } from "@lib";
+import { Settings, Old } from "@lib";
 global Local := { }
-export component Main { }
+Legacy := Rectangle { }
+export component Main { Legacy { } }
 "#;
     let (build_diagnostics, _) = spin_on::spin_on(crate::load_root_file(
         &main,
@@ -3407,7 +3411,7 @@ export component Main { }
 
 #[cfg(test)]
 fn assert_legacy_declarations(diagnostics: &[String], file: &str, message: &str) {
-    for kind in ["global"] {
+    for kind in ["global", "component"] {
         let message = format!("':=' to declare a {kind} {message}");
         assert!(
             diagnostics
@@ -3421,7 +3425,7 @@ fn assert_legacy_declarations(diagnostics: &[String], file: &str, message: &str)
 #[test]
 fn test_legacy_declarations_use_the_edition_of_their_file() {
     let diagnostics = load_legacy_declarations(19, 20);
-    assert_eq!(diagnostics.len(), 2, "{diagnostics:?}");
+    assert_eq!(diagnostics.len(), 4, "{diagnostics:?}");
     assert_legacy_declarations(&diagnostics, "/lib/lib.slint", "is deprecated");
     assert_legacy_declarations(
         &diagnostics,
@@ -3430,7 +3434,7 @@ fn test_legacy_declarations_use_the_edition_of_their_file() {
     );
 
     let diagnostics = load_legacy_declarations(20, 19);
-    assert_eq!(diagnostics.len(), 2, "{diagnostics:?}");
+    assert_eq!(diagnostics.len(), 4, "{diagnostics:?}");
     assert_legacy_declarations(&diagnostics, "/lib/lib.slint", "isn't supported from edition 1.20");
     assert_legacy_declarations(&diagnostics, "/app/main.slint", "is deprecated");
 }
