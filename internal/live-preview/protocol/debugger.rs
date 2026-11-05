@@ -29,4 +29,7 @@ pub enum PreviewToDebuggerMessage {
     /// or because the preview replaced or took down the instance they observe,
     /// or because an editor disconnected.
     SubscriptionsEnded { subscriptions: Vec<u64> },
+    /// A compilation finished; its `Diagnostics` follow.
+    /// `success` says whether it produced a component to show.
+    Reloaded { success: bool },
 }

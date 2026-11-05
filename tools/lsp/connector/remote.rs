@@ -628,7 +628,7 @@ impl RemoteLspToPreview {
                                     shared.preview_to_lsp_sender.send(msg);
                                 }
                                 Ok(FromPreview::Debug(msg)) => {
-                                    tracing::warn!(
+                                    tracing::debug!(
                                         "Ignoring debugger message from remote preview server: {msg:?}"
                                     );
                                 }

@@ -4,6 +4,9 @@ Debug(ElementTreeChanged { subscription: 300, changed: [1, 2, 3] })
 Debug(PropertiesChanged { subscription: 300, changed: [1, 2, 3] })
 0101ac0203010203
 
+Debug(Reloaded { success: true })
+010401
+
 Debug(SubscriptionsEnded { subscriptions: [300, 7] })
 010302ac0207
 
