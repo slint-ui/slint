@@ -13,6 +13,9 @@ OldComponent := Rectangle {}
 export OldWindow := Window { OldComponent {} }
 //               ><error{':=' to declare a component isn't supported from edition 1.20. Use 'component OldWindow inherits Window {', then review the behavior changes of 1.20 on the 'Editions' page of the documentation}
 
+export struct OldStruct := {}
+//                      ><error{':=' to declare a struct isn't supported from edition 1.20. Remove the ':='}
+
 Legacy_Name := Rectangle {}
 //          ><error{':=' to declare a component isn't supported from edition 1.20. Use 'component Legacy-Name inherits Rectangle {', then review the behavior changes of 1.20 on the 'Editions' page of the documentation}
 

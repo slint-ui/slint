@@ -3378,7 +3378,8 @@ fn load_legacy_declarations(lib_minor_edition: u32, minor_edition: u32) -> Vec<S
         ),
         (
             SourcePath::new("/lib/lib.slint"),
-            "export global Settings := { }\nexport Old := Rectangle { }".into(),
+            "export global Settings := { }\nexport Old := Rectangle { }\nexport struct Point := { }"
+                .into(),
         ),
     ]);
     let mut compiler_config =
@@ -3395,9 +3396,10 @@ fn load_legacy_declarations(lib_minor_edition: u32, minor_edition: u32) -> Vec<S
 
     let main = SourcePath::new("/app/main.slint");
     let main_source = r#"
-import { Settings, Old } from "@lib";
+import { Settings, Old, Point } from "@lib";
 global Local := { }
 Legacy := Rectangle { }
+export struct Size := { }
 export component Main { Legacy { } }
 "#;
     let (build_diagnostics, _) = spin_on::spin_on(crate::load_root_file(
@@ -3411,7 +3413,7 @@ export component Main { Legacy { } }
 
 #[cfg(test)]
 fn assert_legacy_declarations(diagnostics: &[String], file: &str, message: &str) {
-    for kind in ["global", "component"] {
+    for kind in ["global", "component", "struct"] {
         let message = format!("':=' to declare a {kind} {message}");
         assert!(
             diagnostics
@@ -3425,7 +3427,7 @@ fn assert_legacy_declarations(diagnostics: &[String], file: &str, message: &str)
 #[test]
 fn test_legacy_declarations_use_the_edition_of_their_file() {
     let diagnostics = load_legacy_declarations(19, 20);
-    assert_eq!(diagnostics.len(), 4, "{diagnostics:?}");
+    assert_eq!(diagnostics.len(), 6, "{diagnostics:?}");
     assert_legacy_declarations(&diagnostics, "/lib/lib.slint", "is deprecated");
     assert_legacy_declarations(
         &diagnostics,
@@ -3434,7 +3436,7 @@ fn test_legacy_declarations_use_the_edition_of_their_file() {
     );
 
     let diagnostics = load_legacy_declarations(20, 19);
-    assert_eq!(diagnostics.len(), 4, "{diagnostics:?}");
+    assert_eq!(diagnostics.len(), 6, "{diagnostics:?}");
     assert_legacy_declarations(&diagnostics, "/lib/lib.slint", "isn't supported from edition 1.20");
     assert_legacy_declarations(&diagnostics, "/app/main.slint", "is deprecated");
 }
