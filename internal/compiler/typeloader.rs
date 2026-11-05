@@ -3369,6 +3369,72 @@ export component Main { Button { } Rel { } }
     assert!(!build_diagnostics.has_errors(), "{:?}", build_diagnostics.to_string_vec());
 }
 
+#[cfg(test)]
+fn load_legacy_declarations(lib_minor_edition: u32, minor_edition: u32) -> Vec<String> {
+    let files = HashMap::from([
+        (
+            SourcePath::new("/lib/slint-project.json"),
+            format!(r#"{{ "edition": "1.{lib_minor_edition}", "main": "lib.slint" }}"#),
+        ),
+        (SourcePath::new("/lib/lib.slint"), "export global Settings := { }".into()),
+    ]);
+    let mut compiler_config =
+        CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    compiler_config.style = Some("fluent".into());
+    compiler_config.edition =
+        Some(crate::project_file::SlintEdition { major: 1, minor: minor_edition });
+    compiler_config.library_paths =
+        HashMap::from([("lib".into(), PathBuf::from("/lib/slint-project.json"))]);
+    compiler_config.open_import_callback = Some(Rc::new(move |path| {
+        let source = files.get(&path).cloned().map(Ok);
+        Box::pin(async move { source })
+    }));
+
+    let main = SourcePath::new("/app/main.slint");
+    let main_source = r#"
+import { Settings } from "@lib";
+global Local := { }
+export component Main { }
+"#;
+    let (build_diagnostics, _) = spin_on::spin_on(crate::load_root_file(
+        &main,
+        main_source.into(),
+        BuildDiagnostics::default(),
+        compiler_config,
+    ));
+    build_diagnostics.to_string_vec()
+}
+
+#[cfg(test)]
+fn assert_legacy_declarations(diagnostics: &[String], file: &str, message: &str) {
+    for kind in ["global"] {
+        let message = format!("':=' to declare a {kind} {message}");
+        assert!(
+            diagnostics
+                .iter()
+                .any(|d| d.replace('\\', "/").starts_with(file) && d.contains(&message)),
+            "{diagnostics:?}"
+        );
+    }
+}
+
+#[test]
+fn test_legacy_declarations_use_the_edition_of_their_file() {
+    let diagnostics = load_legacy_declarations(19, 20);
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:?}");
+    assert_legacy_declarations(&diagnostics, "/lib/lib.slint", "is deprecated");
+    assert_legacy_declarations(
+        &diagnostics,
+        "/app/main.slint",
+        "isn't supported from edition 1.20",
+    );
+
+    let diagnostics = load_legacy_declarations(20, 19);
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:?}");
+    assert_legacy_declarations(&diagnostics, "/lib/lib.slint", "isn't supported from edition 1.20");
+    assert_legacy_declarations(&diagnostics, "/app/main.slint", "is deprecated");
+}
+
 #[test]
 fn test_library_project_file_without_main() {
     let project_file = SourcePath::new("/lib/slint-project.json");
