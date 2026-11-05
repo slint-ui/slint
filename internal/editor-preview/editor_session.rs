@@ -392,7 +392,15 @@ impl EditorSession {
         self.reapply_effective_configuration().await
     }
 
-    pub fn active_project_file_paths(&self) -> impl Iterator<Item = &std::path::Path> {
+    /// The files to watch for changes: the files the compiler loaded or references,
+    /// and the project files.
+    pub fn paths_to_watch(&self) -> HashSet<PathBuf> {
+        let mut paths = self.document_cache.all_paths_to_watch();
+        paths.extend(self.project_file_paths.iter().cloned());
+        paths
+    }
+
+    fn active_project_file_paths(&self) -> impl Iterator<Item = &std::path::Path> {
         self.project_file_paths.iter().map(PathBuf::as_path)
     }
 
@@ -693,7 +701,7 @@ impl EditorSession {
             .filter_map(|state| state.parsed.as_ref().ok()?.main()?.to_url())
     }
 
-    fn document_roots(&self) -> HashSet<Url> {
+    pub(crate) fn document_roots(&self) -> HashSet<Url> {
         let mut roots = self
             .open_urls
             .iter()
@@ -922,12 +930,8 @@ impl EditorSession {
             return Ok((version, node.text().to_string().into()));
         }
         let path = url.to_file_path().map_err(|()| "not a local file path".to_string())?;
-        let file_access = file_access.get_or_init(|| {
-            crate::preview_files::PreviewFileAccess::new(
-                &self.document_cache,
-                &self.document_roots(),
-            )
-        });
+        let file_access =
+            file_access.get_or_init(|| crate::preview_files::PreviewFileAccess::new(self));
         if !file_access.allows(&path) {
             return Err("not a file of the project being previewed".into());
         }
@@ -1885,7 +1889,7 @@ mod preview_tests {
     }
 
     #[test]
-    fn unavailable_and_unknown_project_files_never_fall_back_to_disk_when_sent() {
+    fn only_known_project_files_fall_back_to_disk_when_sent() {
         let (mut session, messages) = session_with_recording_previews();
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join(i_slint_compiler::project_file::FILE_NAME);
@@ -1903,16 +1907,16 @@ mod preview_tests {
             .unwrap();
         assert!(!session.active_projects.contains_key(&path));
         assert_eq!(session.active_project_file_paths().collect::<Vec<_>>(), [path.as_path()]);
-        std::fs::write(&path, r#"{"edition":"1.20","experimental-features":["match"]}"#).unwrap();
+        assert!(session.paths_to_watch().contains(&path));
+        let on_disk = r#"{"edition":"1.20","experimental-features":["match"]}"#;
+        std::fs::write(&path, on_disk).unwrap();
         for (preview_index, messages) in messages.iter().enumerate() {
             messages.borrow_mut().clear();
             session.send_state_to_preview(preview_index);
             assert!(messages.borrow().iter().any(|message| matches!(message, LspToPreviewMessage::ForgetFile { url: sent } if sent == &url)));
             messages.borrow_mut().clear();
             session.send_files_to_preview(preview_index, std::slice::from_ref(&url));
-            assert!(
-                matches!(messages.borrow().as_slice(), [LspToPreviewMessage::ForgetFile { url: sent }] if sent == &url)
-            );
+            assert_project_contents(messages, &url, on_disk, None);
         }
         spin_on::spin_on(session.trigger_file_watcher(url.clone(), FileChangeKind::Created))
             .unwrap();
@@ -1920,6 +1924,7 @@ mod preview_tests {
         spin_on::spin_on(session.trigger_file_watcher(url, FileChangeKind::Deleted)).unwrap();
         assert!(!session.active_projects.contains_key(&path));
         assert!(session.active_project_file_paths().next().is_none());
+        assert!(!session.paths_to_watch().contains(&path));
     }
 
     #[test]
