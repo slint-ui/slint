@@ -16,18 +16,13 @@ use crate::preview::{self, SelectionNotification, ext::ElementRcNodeExt, ui};
 
 #[derive(Clone, Debug)]
 pub struct ElementSelection {
-    pub path: SourcePath,
-    pub offset: TextSize,
+    pub location: ElementLocation,
     pub instance_index: usize,
 }
 
 impl ElementSelection {
-    pub fn location(&self) -> ElementLocation {
-        ElementLocation { path: self.path.clone(), offset: self.offset }
-    }
-
     pub fn as_element_node(&self) -> Option<editor_preview::ElementRcNode> {
-        super::document_cache()?.element_node_at(&self.location())
+        super::document_cache()?.element_node_at(&self.location)
     }
 }
 
@@ -67,8 +62,7 @@ pub fn unselect_element() {
 }
 
 pub fn select_element_at_source_code_position(
-    path: SourcePath,
-    offset: TextSize,
+    location: ElementLocation,
     position: Option<LogicalPoint>,
     editor_notification: preview::SelectionNotification,
 ) {
@@ -77,8 +71,7 @@ pub fn select_element_at_source_code_position(
     };
     select_element_at_source_code_position_impl(
         &component_instance,
-        path,
-        offset,
+        location,
         position,
         editor_notification,
     )
@@ -86,19 +79,18 @@ pub fn select_element_at_source_code_position(
 
 fn select_element_at_source_code_position_impl(
     component_instance: &ComponentInstance,
-    path: SourcePath,
-    offset: TextSize,
+    location: ElementLocation,
     position: Option<LogicalPoint>,
     editor_notification: SelectionNotification,
 ) {
-    let positions = component_instance.component_positions(&path, offset.into());
+    let positions = component_instance.component_positions(&location.path, location.offset.into());
 
     let instance_index = position
         .and_then(|p| positions.iter().enumerate().find_map(|(i, g)| g.contains(p).then_some(i)))
         .unwrap_or_default();
 
     super::set_selected_element(
-        Some(ElementSelection { path, offset, instance_index }),
+        Some(ElementSelection { location, instance_index }),
         editor_notification,
     );
 }
@@ -131,12 +123,9 @@ fn select_element_node(
     selected_element: &editor_preview::ElementRcNode,
     position: Option<LogicalPoint>,
 ) {
-    let ElementLocation { path, offset } = selected_element.location();
-
     select_element_at_source_code_position_impl(
         component_instance,
-        path,
-        offset,
+        selected_element.location(),
         position,
         SelectionNotification::Never, // We update directly;-)
     );
@@ -169,7 +158,7 @@ pub struct SelectionCandidate {
 
 impl SelectionCandidate {
     pub fn is_selected_element_node(&self, selection: &editor_preview::ElementRcNode) -> bool {
-        self.selection.location() == selection.location()
+        self.selection.location == selection.location()
     }
 }
 
@@ -212,8 +201,7 @@ pub fn collect_all_element_nodes_covering(
             }
             let offset = u32::try_from(candidate.source_location.span.offset).ok()?.into();
             let selection = ElementSelection {
-                path: source_file.path().clone(),
-                offset,
+                location: ElementLocation { path: source_file.path().clone(), offset },
                 instance_index: candidate.instance_index,
             };
             let element = selection.as_element_node()?;
@@ -940,8 +928,8 @@ export component Main inherits Page {
             let covering_offsets =
                 super::collect_all_element_nodes_covering(position, &component_instance)
                     .into_iter()
-                    .filter(|candidate| candidate.selection.path == path)
-                    .map(|candidate| u32::from(candidate.selection.offset))
+                    .filter(|candidate| candidate.selection.location.path == path)
+                    .map(|candidate| u32::from(candidate.selection.location.offset))
                     .collect::<Vec<_>>();
             assert!(covering_offsets.contains(&expected_offset));
             assert!(!covering_offsets.contains(&unexpected_offset));

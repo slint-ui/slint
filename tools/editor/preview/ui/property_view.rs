@@ -660,8 +660,10 @@ mod tests {
         let select = |offset: usize| {
             preview::element_selection::restore_selection(
                 ElementSelection {
-                    path: path.clone(),
-                    offset: (offset as u32).into(),
+                    location: i_slint_compiler::object_tree::ElementLocation {
+                        path: path.clone(),
+                        offset: (offset as u32).into(),
+                    },
                     instance_index: 0,
                     editing_text: false,
                 },

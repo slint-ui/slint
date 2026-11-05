@@ -73,8 +73,10 @@ fn current_target() -> Option<(ElementRcNode, Url, SourceFileVersion, String)> {
         let no_selected_instance = -1;
         (
             ElementSelection {
-                path: i_slint_compiler::source_path::SourcePath::from(url),
-                offset: (element.offset as u32).into(),
+                location: ElementLocation {
+                    path: i_slint_compiler::source_path::SourcePath::from(url),
+                    offset: (element.offset as u32).into(),
+                },
                 instance_index: 0,
                 editing_text: false,
             },

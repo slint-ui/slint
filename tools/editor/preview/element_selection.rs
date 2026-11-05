@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 use i_slint_compiler::{
     object_tree::{ElementLocation, ElementRc},
-    parser::{SyntaxKind, TextSize},
+    parser::SyntaxKind,
     source_path::SourcePath,
 };
 use i_slint_core::{lengths::LogicalPoint, properties::ChangeTracker};
@@ -16,25 +16,18 @@ use crate::preview::{self, SelectionNotification, ext::ElementRcNodeExt, ui};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ElementSelection {
-    pub path: SourcePath,
-    pub offset: TextSize,
+    pub location: ElementLocation,
     pub instance_index: usize,
     pub editing_text: bool,
 }
 
 impl ElementSelection {
     pub fn same_element(&self, other: &Self) -> bool {
-        self.path == other.path
-            && self.offset == other.offset
-            && self.instance_index == other.instance_index
-    }
-
-    pub fn location(&self) -> ElementLocation {
-        ElementLocation { path: self.path.clone(), offset: self.offset }
+        self.location == other.location && self.instance_index == other.instance_index
     }
 
     pub fn as_element_node(&self) -> Option<i_slint_editor_preview::ElementRcNode> {
-        super::document_cache()?.element_node_at(&self.location())
+        super::document_cache()?.element_node_at(&self.location)
     }
 }
 
@@ -62,8 +55,7 @@ pub fn unselect_element(editor_notification: SelectionNotification) {
 }
 
 pub fn select_element_at_source_code_position(
-    path: SourcePath,
-    offset: TextSize,
+    location: ElementLocation,
     position: Option<LogicalPoint>,
     editor_notification: preview::SelectionNotification,
 ) {
@@ -72,8 +64,7 @@ pub fn select_element_at_source_code_position(
     };
     select_element_at_source_code_position_impl(
         &component_instance,
-        path,
-        offset,
+        location,
         position,
         editor_notification,
     )
@@ -81,19 +72,18 @@ pub fn select_element_at_source_code_position(
 
 fn select_element_at_source_code_position_impl(
     component_instance: &ComponentInstance,
-    path: SourcePath,
-    offset: TextSize,
+    location: ElementLocation,
     position: Option<LogicalPoint>,
     editor_notification: SelectionNotification,
 ) {
-    let positions = component_instance.component_positions(&path, offset.into());
+    let positions = component_instance.component_positions(&location.path, location.offset.into());
 
     let instance_index = position
         .and_then(|p| positions.iter().enumerate().find_map(|(i, g)| g.contains(p).then_some(i)))
         .unwrap_or_default();
 
     super::set_selected_element(
-        Some(ElementSelection { path, offset, instance_index, editing_text: false }),
+        Some(ElementSelection { location, instance_index, editing_text: false }),
         editor_notification,
     );
 }
@@ -106,7 +96,7 @@ pub fn restore_selection(
         return;
     };
     if component_instance
-        .component_positions(&selection.path, selection.offset.into())
+        .component_positions(&selection.location.path, selection.location.offset.into())
         .get(selection.instance_index)
         .is_none()
     {
@@ -227,12 +217,9 @@ fn select_element_node(
     selected_element: &i_slint_editor_preview::ElementRcNode,
     position: Option<LogicalPoint>,
 ) {
-    let ElementLocation { path, offset } = selected_element.location();
-
     select_element_at_source_code_position_impl(
         component_instance,
-        path,
-        offset,
+        selected_element.location(),
         position,
         SelectionNotification::Never, // We update directly;-)
     );
@@ -280,7 +267,7 @@ impl SelectionCandidate {
         &self,
         selection: &i_slint_editor_preview::ElementRcNode,
     ) -> bool {
-        self.selection.location() == selection.location()
+        self.selection.location == selection.location()
     }
 }
 
@@ -323,8 +310,7 @@ pub fn collect_all_element_nodes_covering(
             }
             let offset = u32::try_from(candidate.source_location.span.offset).ok()?.into();
             let selection = ElementSelection {
-                path: source_file.path().clone(),
-                offset,
+                location: ElementLocation { path: source_file.path().clone(), offset },
                 instance_index: candidate.instance_index,
                 editing_text: false,
             };
@@ -426,7 +412,7 @@ fn hovered_element_at_impl(
         selected.is_some_and(|selection| selection.same_element(&candidate.selection));
     let is_over_selected_element = selected.is_some_and(|selection| {
         component_instance
-            .component_positions(&selection.path, selection.offset.into())
+            .component_positions(&selection.location.path, selection.location.offset.into())
             .get(selection.instance_index)
             .is_some_and(|geometry| geometry.contains(position))
     });
@@ -1234,8 +1220,10 @@ export component Demo inherits Window {{
         assert_ne!(first.geometry.row_data(0).unwrap().x, first.geometry.row_data(1).unwrap().x);
 
         let selection = super::ElementSelection {
-            path: SourcePath::new(first.element_path.as_str()),
-            offset: TextSize::from(first.element_offset as u32),
+            location: ElementLocation {
+                path: SourcePath::new(first.element_path.as_str()),
+                offset: TextSize::from(first.element_offset as u32),
+            },
             instance_index: 1,
             editing_text: false,
         };
