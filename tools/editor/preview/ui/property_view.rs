@@ -61,22 +61,20 @@ pub fn setup(editor: &ui::EditorUi, api: &ui::Api<'_>) {
             let properties_api = hooked_properties_api_weak.upgrade()?;
             properties_api.get_inspector_generation();
             let element = api.get_current_element();
-            let selection = crate::preview::element_selection::ElementSelection {
-                path: i_slint_compiler::source_path::SourcePath::from_url(
-                    &Url::parse(element.source_uri.as_str()).ok()?,
-                ),
-                offset: u32::try_from(element.offset).ok()?.into(),
-                instance_index: usize::try_from(api.get_selection().highlight_index)
-                    .unwrap_or_default(),
-                editing_text: false,
+            let id = i_slint_compiler::object_tree::ElementProperty {
+                element: i_slint_compiler::object_tree::ElementLocation {
+                    path: i_slint_compiler::source_path::SourcePath::from_url(
+                        &Url::parse(element.source_uri.as_str()).ok()?,
+                    ),
+                    offset: u32::try_from(element.offset).ok()?.into(),
+                },
+                property: property_name.as_str().into(),
             };
-            let instance = crate::preview::component_instance()?;
-            let id = selection.as_element_node_in(&instance)?.property(&property_name);
             let overrides = crate::preview::PREVIEW_STATE
                 .with_borrow(|state| state.debug_hook_overrides.clone());
             let mut overrides = (*overrides).borrow_mut();
             let runtime = overrides
-                .entry(id.clone())
+                .entry(id)
                 .or_insert_with(|| Box::pin(i_slint_core::Property::new(None)))
                 .as_ref()
                 .get()?;
@@ -817,6 +815,13 @@ export component Win inherits Window {
 }"#;
         let path = i_slint_compiler::source_path::SourcePath::new("/tmp/property-query.slint");
         let mut compiler = slint_interpreter::Compiler::default();
+        compiler.set_overrides(
+            i_slint_compiler::project_file::Overrides {
+                debug_info: Some(true),
+                ..Default::default()
+            },
+            i_slint_core::InternalToken,
+        );
         compiler.compiler_configuration(i_slint_core::InternalToken).debug_hooks = true;
         let compiled = spin_on::spin_on(compiler.build_from_source_path(
             Some(code.into()),

@@ -32,7 +32,7 @@ pub(crate) fn trigger_debug_hook(
 #[cfg(all(test, feature = "internal", feature = "internal-highlight"))]
 pub(crate) mod tests {
     use super::*;
-    use crate::{Compiler, ComponentInstance};
+    use crate::ComponentInstance;
     use i_slint_compiler::object_tree::{ElementLocation, ElementProperty};
     use i_slint_compiler::source_path::SourcePath;
     use i_slint_core::{Property, graphics::ApproxEq};
@@ -41,7 +41,7 @@ pub(crate) mod tests {
     pub fn compile_with_debug_hooks(code: &str) -> ComponentInstance {
         i_slint_backend_testing::init_no_event_loop();
 
-        let mut compiler = Compiler::default();
+        let mut compiler = crate::api::compiler_with_debug_info();
         compiler.compiler_configuration(i_slint_core::InternalToken).debug_hooks = true;
         let compile_result = spin_on::spin_on(compiler.build_from_source_path(
             Some(code.to_string()),
@@ -327,7 +327,7 @@ export component Win inherits Window {
     txt := Text { text: "Hello"; }   // implicit (font-dependent) size, inherited font
 }"#;
         let geometries = |debug_hooks: bool| -> Vec<(f32, f32, f32, f32)> {
-            let mut compiler = Compiler::default();
+            let mut compiler = crate::api::compiler_with_debug_info();
             if debug_hooks {
                 compiler.compiler_configuration(i_slint_core::InternalToken).debug_hooks = true;
             }
