@@ -8,6 +8,7 @@ import {
     Springboard,
     ConnectionState,
     ManualEndpointState,
+    PreviewEndpointKind,
 } from "@springboard";
 import { Preview } from "../preview.slint";
 import { ViewerStyle, Chevron, ViewerIcon } from "viewer-style.slint";
@@ -146,7 +147,7 @@ component SavedDevicesPage inherits Rectangle {
                         font-size: Typography.caption.size;
                         color: ViewerStyle.muted;
                     }
-                    if index > 0: trash := DeviceAction {
+                    if index > 0 && !device.plugged-in: trash := DeviceAction {
                         width: Metrics.control-compact;
                         height: Metrics.control-compact;
                         label: @tr("Remove {}", device.name);
@@ -178,7 +179,7 @@ component SavedDevicesPage inherits Rectangle {
             }
         }
         SoftButton {
-            label: @tr("Pair nearby device");
+            label: @tr("Pair a device");
             primary: true;
             activated => { root.nearby(); }
         }
@@ -202,7 +203,7 @@ component NearbyDevicesPage inherits Rectangle {
     content := VerticalLayout {
         spacing: Metrics.space-regular;
         Text {
-            text: @tr("Open Slint Preview on your phone or tablet.\nUse the same Wi-Fi network as this computer.");
+            text: @tr("Open Slint Preview on your phone or tablet on the same Wi-Fi,\nor connect a microcontroller flashed with it over USB.");
             color: ViewerStyle.muted;
             font-size: Typography.caption.size;
             wrap: word-wrap;
@@ -218,7 +219,7 @@ component NearbyDevicesPage inherits Rectangle {
             }
             Text {
                 horizontal-stretch: 1;
-                text: @tr("Looking for nearby viewers");
+                text: @tr("Looking for viewers");
                 color: ViewerStyle.muted;
                 font-size: Typography.caption.size;
             }
@@ -282,7 +283,7 @@ component NearbyDevicesPage inherits Rectangle {
             }
         }
         Text {
-            text: @tr("Don't see your device?");
+            text: @tr("Don't see your remote device?");
             color: ViewerStyle.ink;
             font-size: Typography.caption.size;
         }
@@ -390,6 +391,7 @@ component ManualAddressPage inherits Rectangle {
 
 component PairingPage inherits Rectangle {
     in-out property <string> code;
+    private property <bool> serial: Springboard.selected-endpoint.kind == PreviewEndpointKind.Serial;
     preferred-height: content.preferred-height;
     content := VerticalLayout {
         spacing: Metrics.space-medium;
@@ -423,7 +425,7 @@ component PairingPage inherits Rectangle {
             }
         }
         Text {
-            text: Springboard.connection.state == ConnectionState.UnpairedConfirmationRequired ? @tr("This viewer does not encrypt its connection.") : Springboard.connection.state == ConnectionState.Connecting ? @tr("Connecting to your viewer…") : @tr("Enter the code shown on your device.");
+            text: Springboard.connection.state == ConnectionState.UnpairedConfirmationRequired ? @tr("This viewer does not encrypt its connection.") : Springboard.connection.state == ConnectionState.Connecting ? @tr("Connecting to your viewer…") : root.serial ? @tr("Couldn’t connect to this device.") : @tr("Enter the code shown on your device.");
             color: ViewerStyle.muted;
             font-size: Typography.control.size;
             wrap: word-wrap;
@@ -440,7 +442,7 @@ component PairingPage inherits Rectangle {
             font-size: Typography.caption.size;
         }
         Rectangle { vertical-stretch: 1; }
-        SoftButton {
+        if !root.serial: SoftButton {
             label: Springboard.connection.state == ConnectionState.UnpairedConfirmationRequired ? @tr("Connect unencrypted") : @tr("Pair device");
             primary: true;
             enabled: Springboard.connection.state == ConnectionState.UnpairedConfirmationRequired || (Springboard.connection.state == ConnectionState.PairingRequired && root.code.character-count == Springboard.connection.pairing-code-length);
@@ -450,7 +452,7 @@ component PairingPage inherits Rectangle {
                 } else { Springboard.submit-pairing-code(root.code); root.code = ""; }
             }
         }
-        Text {
+        if !root.serial: Text {
             text: @tr("A restart may require a new pairing code.");
             color: ViewerStyle.muted;
             font-size: Typography.caption.size;
@@ -523,7 +525,7 @@ export component DeviceManager inherits Rectangle {
         Text {
             horizontal-stretch: 1;
             text: root.page == DeviceManagerPage.SavedDevices ? @tr("Devices")
-                : root.page == DeviceManagerPage.NearbyDevices ? @tr("Pair nearby device")
+                : root.page == DeviceManagerPage.NearbyDevices ? @tr("Pair a device")
                 : root.page == DeviceManagerPage.ManualAddress ? @tr("Enter IP address") : @tr("Pair device");
             color: ViewerStyle.ink;
             font-size: Typography.heading.size;

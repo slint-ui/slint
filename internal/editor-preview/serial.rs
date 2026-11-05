@@ -30,9 +30,9 @@ use i_slint_live_preview::{REBUILD_DEBOUNCE, SLINT_VERSION};
 use lsp_types::Url;
 use tokio::sync::mpsc as tokio_mpsc;
 
-/// How long a device may take to answer the handshake: the viewer firmware answers between
-/// two frames, so a port that stays silent longer doesn't run it.
-const READY_TIMEOUT: Duration = Duration::from_secs(1);
+/// How long a device may take to answer the handshake,
+/// also when opening the port resets it and it has to boot first.
+const READY_TIMEOUT: Duration = Duration::from_secs(5);
 /// How long a device may take to show a design.
 const LOAD_TIMEOUT: Duration = Duration::from_secs(60);
 /// How long a write may wait for the device to read, which it does between its other work.
@@ -52,7 +52,8 @@ enum Input {
 #[derive(Debug)]
 pub enum SerialEvent {
     /// The device shows the design, or `problem` tells why it doesn't show the current one.
-    Connected { problem: Option<String> },
+    /// `board` is the device, as its firmware names it.
+    Connected { problem: Option<String>, board: String },
     /// The connection is lost, or was never made.
     Failed(String),
     /// For the editor, such as a log line or a request for the documents to show.
@@ -120,15 +121,30 @@ pub struct UsbSerialPort {
     pub name: String,
     /// The product, or the manufacturer, that the device reports.
     pub product: String,
+    pub vid: u16,
+    pub pid: u16,
+    /// USB-Serial-JTAG chips, such as the ESP32-S3, report their MAC address.
+    pub serial_number: Option<String>,
+}
+
+impl UsbSerialPort {
+    /// Identifies the device, also once it's plugged in again under another `name`.
+    /// A device without a serial number is only identified by its port.
+    pub fn hardware_id(&self) -> String {
+        let Self { vid, pid, .. } = self;
+        match &self.serial_number {
+            Some(serial_number) => format!("{vid:04x}:{pid:04x}:{serial_number}"),
+            None => format!("{vid:04x}:{pid:04x}@{}", self.name),
+        }
+    }
 }
 
 /// How often a UI lists the USB serial ports again while it shows them.
 pub const SERIAL_SCAN_INTERVAL: Duration = Duration::from_secs(2);
 
 /// The USB serial ports of this computer.
-pub fn usb_serial_ports() -> Vec<UsbSerialPort> {
-    serialport::available_ports()
-        .unwrap_or_default()
+pub fn usb_serial_ports() -> Result<Vec<UsbSerialPort>, serialport::Error> {
+    Ok(serialport::available_ports()?
         .into_iter()
         .filter_map(|port| match port.port_type {
             serialport::SerialPortType::UsbPort(usb) => Some(UsbSerialPort {
@@ -137,10 +153,13 @@ pub fn usb_serial_ports() -> Vec<UsbSerialPort> {
                     .product
                     .or(usb.manufacturer)
                     .unwrap_or_else(|| "USB serial device".into()),
+                vid: usb.vid,
+                pid: usb.pid,
+                serial_number: usb.serial_number,
             }),
             _ => None,
         })
-        .collect()
+        .collect())
 }
 
 fn open_port(name: &str) -> Result<Box<dyn serialport::SerialPort>, String> {
@@ -301,6 +320,7 @@ struct Compiled {
 
 /// What the device said it is, in its [`DeviceMessage::Ready`], and what it keeps.
 struct Device {
+    board: String,
     scale_factor: f32,
     /// Changes when the device drops the blob being stored.
     epoch: u32,
@@ -320,8 +340,8 @@ struct Shown {
 }
 
 impl Device {
-    fn new(scale_factor: f32) -> Self {
-        Self { scale_factor, epoch: 0, resources: HashSet::new(), shown: None }
+    fn new(board: String, scale_factor: f32) -> Self {
+        Self { board, scale_factor, epoch: 0, resources: HashSet::new(), shown: None }
     }
 
     /// Forgets what the device keeps, so that it's all sent again.
@@ -374,7 +394,7 @@ fn run_session(
 ) -> Result<(), String> {
     let mut design = Design::default();
     let Some(device) = handshake(&mut port, inputs, &mut design, report)? else { return Ok(()) };
-    report(SerialEvent::Connected { problem: None });
+    report(SerialEvent::Connected { problem: None, board: device.board.clone() });
     // Ask for the documents, the configuration and the component to show
     report(SerialEvent::Message(PreviewToLspMessage::RequestState {
         files: Vec::new(),
@@ -419,7 +439,10 @@ fn run_session(
 impl<P: Write> Session<'_, P> {
     /// Shows `problem` in the preview, or that there's none.
     fn report_problem(&self, problem: Option<String>) {
-        (self.report)(SerialEvent::Connected { problem: problem.clone() });
+        (self.report)(SerialEvent::Connected {
+            problem: problem.clone(),
+            board: self.device.board.clone(),
+        });
         if let Some(problem) = problem {
             log_to(self.report, problem);
         }
@@ -605,7 +628,12 @@ fn handshake(
         .map_err(|err| format!("Cannot write to the port: {err}"))?;
     let deadline = Instant::now() + READY_TIMEOUT;
     loop {
-        let input = inputs.recv_timeout(deadline.saturating_duration_since(Instant::now()));
+        // `recv_timeout` returns a queued input even with no time left,
+        // and a device that keeps logging always has one
+        let input = match deadline.checked_duration_since(Instant::now()) {
+            Some(left) => inputs.recv_timeout(left),
+            None => Err(mpsc::RecvTimeoutError::Timeout),
+        };
         match input {
             Ok(Input::Device(DeviceMessage::Ready {
                 protocol,
@@ -626,7 +654,7 @@ fn handshake(
                     ));
                 }
                 log(format!("Connected to {board}"));
-                return Ok(Some(Device::new(scale_factor)));
+                return Ok(Some(Device::new(board, scale_factor)));
             }
             Ok(Input::Device(DeviceMessage::Error { message, .. })) => return Err(message),
             Ok(Input::Device(DeviceMessage::Loaded { .. })) => {}
@@ -681,6 +709,30 @@ mod tests {
     use i_slint_live_preview::protocol::VersionedUrl;
     use i_slint_live_preview::serial::{DeviceEvent, DeviceSession};
     use slint_interpreter::LoadedResource;
+
+    #[test]
+    fn identifies_a_device_by_its_serial_number_on_any_port() {
+        let port = |name: &str, serial_number: Option<&str>| UsbSerialPort {
+            name: name.into(),
+            product: String::new(),
+            vid: 0x303a,
+            pid: 0x1001,
+            serial_number: serial_number.map(Into::into),
+        };
+        let serial_number = Some("30:ED:A0:D4:C2:A8");
+        assert_eq!(
+            port("/dev/ttyACM0", serial_number).hardware_id(),
+            "303a:1001:30:ED:A0:D4:C2:A8"
+        );
+        assert_eq!(
+            port("/dev/ttyACM0", serial_number).hardware_id(),
+            port("/dev/ttyACM1", serial_number).hardware_id()
+        );
+        assert_ne!(
+            port("/dev/ttyACM0", None).hardware_id(),
+            port("/dev/ttyACM1", None).hardware_id()
+        );
+    }
 
     /// Plays the device: starts, answers the handshake with `slint_version`, and reads back
     /// each unit it receives. Returns the components it showed, once the host cleared the screen.
@@ -804,7 +856,7 @@ mod tests {
         let feeder = inputs.clone();
         let session = std::thread::spawn(move || {
             let report = |event| match event {
-                SerialEvent::Connected { problem } => {
+                SerialEvent::Connected { problem, .. } => {
                     let _ = problems.send(problem);
                 }
                 SerialEvent::Message(PreviewToLspMessage::DebugMessage { message, .. }) => {
