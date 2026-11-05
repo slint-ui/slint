@@ -3,11 +3,11 @@
 // SPDX-License-Identifier: MIT
 
 // This example demonstrates using Slint with TypeScript.
-// At runtime, `--import slint-ui/register` enables importing .slint files directly.
+// At runtime, `--import slint-ui/register` enables importing project files directly.
 // For IDE autocomplete, run `npm run generate` to create the .d.ts file.
 
 import * as slint from "slint-ui";
-import { MainWindow, TodoItem } from "../ui/todo.slint";
+import { MainWindow, TodoItem } from "../slint-project.json";
 
 const app = new MainWindow();
 

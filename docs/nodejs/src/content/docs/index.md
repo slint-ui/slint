@@ -220,6 +220,13 @@ let component = new MainWindow({
 });
 ```
 
+To use the `main` entry and compiler settings from a project file,
+import `slint-project.json` instead:
+
+```js
+import { MainWindow } from "./slint-project.json";
+```
+
 Load `slint-ui/register` before your own code, so the runtime knows what a `.slint` file is:
 
 ```sh
@@ -528,11 +535,21 @@ The TypeScript compiler and editors don't know `.slint` files, though:
 
 #### Generating Type Declarations
 
-Use `slint-compiler` to generate a `.d.ts` file next to the `.slint` file:
+Use `slint-compiler` to generate a declaration file next to the `.slint` file:
 
 ```sh
 npx slint-compiler -f typescript ui/main.slint -o ui/main.slint.d.ts
 ```
+
+For a project file import, generate declarations from the project file:
+
+```sh
+npx slint-compiler -f typescript slint-project.json -o slint-project.d.json.ts
+```
+
+With `resolveJsonModule` enabled, TypeScript reads `slint-project.json` itself instead of `slint-project.json.d.ts`.
+Disabling it would also prevent TypeScript from resolving other JSON imports.
+Use the `.d.json.ts` name and set `allowArbitraryExtensions: true` in `tsconfig.json`.
 
 This gives you full IDE autocomplete and type checking for all properties,
 callbacks, structs, and enums exported from the `.slint` file.
@@ -552,7 +569,7 @@ and call it from a script:
 }
 ```
 
-Add `*.slint.d.ts` to `.gitignore` — the generated file is a build artifact.
+Add `*.slint.d.ts` or `*.d.json.ts` to `.gitignore` — the generated file is a build artifact.
 The app runs without it; you just lose type checking.
 
 #### tsconfig Setup
@@ -567,6 +584,7 @@ also map `slint-ui` with `paths`, or TypeScript silently types every component a
     "compilerOptions": {
         "module": "esnext",
         "moduleResolution": "bundler",
+        "allowArbitraryExtensions": true,
         "paths": {
             "slint-ui": ["./node_modules/slint-ui"]
         }

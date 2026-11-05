@@ -18,7 +18,7 @@ if (typeof Bun !== "undefined") {
     Bun.plugin({
         name: "slint",
         setup(build) {
-            build.onLoad({ filter: /\.slint$/ }, (args) => ({
+            build.onLoad({ filter: /(?:\.slint|[\\/]slint-project\.json)$/ }, (args) => ({
                 contents: moduleSource(pathToFileURL(args.path).href),
                 loader: "js",
             }));

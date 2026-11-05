@@ -294,6 +294,7 @@ fn main() -> std::io::Result<()> {
         && !name.ends_with(".d.ts")
         // What TypeScript looks for with `allowArbitraryExtensions`, such as for `nodenext` modules
         && !name.ends_with(".d.slint.ts")
+        && !name.ends_with(".d.json.ts")
     {
         eprintln!("The TypeScript output is a declaration file: name it '{name}.d.ts'");
         std::process::exit(1);

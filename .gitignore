@@ -42,6 +42,7 @@ sparkle-bin
 
 *.node
 *.d.ts
+*.d.json.ts
 
 __pycache__
 .cache

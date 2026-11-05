@@ -22,7 +22,7 @@ export function takeCompiled(url) {
 }
 
 /**
- * Compile the `.slint` file at `url` and return the source of a module that
+ * Compile the UI at `url` and return the source of a module that
  * re-exports what it declares. The names come from the compiler rather than
  * from reading the markup, so they match what `loadFile` returns.
  */
@@ -50,7 +50,7 @@ export function reexports(module, expression) {
 
 /** `resolve` hook for `node:module`. */
 export function resolve(specifier, context, nextResolve) {
-    if (specifier.endsWith(".slint")) {
+    if (specifier.endsWith(".slint") || specifier.endsWith("/slint-project.json")) {
         return {
             url: new URL(specifier, context.parentURL).href,
             format: "module",
@@ -62,7 +62,7 @@ export function resolve(specifier, context, nextResolve) {
 
 /** `load` hook for `node:module`. */
 export function load(url, context, nextLoad) {
-    if (url.endsWith(".slint")) {
+    if (url.endsWith(".slint") || url.endsWith("/slint-project.json")) {
         return {
             format: "module",
             source: moduleSource(url),

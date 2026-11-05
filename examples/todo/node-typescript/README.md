@@ -5,10 +5,10 @@ generated type definitions for full IDE autocomplete and type checking.
 
 ## Prerequisites
 
-Before running, generate the type definitions from the `.slint` file:
+Before running, generate type definitions from the project file:
 
 ```sh
-npx slint-compiler -f typescript ../ui/todo.slint -o ../ui/todo.slint.d.ts
+npx slint-compiler -f typescript ../slint-project.json -o ../slint-project.d.json.ts
 ```
 
 Or use the npm script:
@@ -23,7 +23,9 @@ pnpm run generate
 pnpm start
 ```
 
-`main.ts` imports `../ui/todo.slint` directly, which `slint-ui/register` makes possible.
+`main.ts` imports `../slint-project.json` directly, which `slint-ui/register` makes possible.
+Importing `../ui/todo.slint` still works too.
+For that import, generate `../ui/todo.slint.d.ts` from `../ui/todo.slint` instead.
 The same source runs unchanged on Deno and Bun, which spell the flag differently:
 
 ```sh

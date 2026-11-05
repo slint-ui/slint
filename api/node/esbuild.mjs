@@ -46,7 +46,7 @@ export function slint({ runtimeDir = "." } = {}) {
                 ].join("\n"),
             };
 
-            build.onLoad({ filter: /\.slint$/ }, (args) => {
+            build.onLoad({ filter: /(?:\.slint|[\\/]slint-project\.json)$/ }, (args) => {
                 const url = path.posix.join(
                     runtimeDir,
                     path.relative(outdir, args.path).split(path.sep).join("/"),

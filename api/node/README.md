@@ -119,6 +119,12 @@ let component = new MainWindow({
 });
 ```
 
+To load the `main` entry with its project settings, import the project file:
+
+```js
+import { MainWindow } from "./slint-project.json";
+```
+
 #### `loadFile()`
 
 Alternatively, call `loadFile()` at runtime.
