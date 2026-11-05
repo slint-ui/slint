@@ -45,7 +45,6 @@ export component InspectorAppearanceSection inherits InspectorSection {
 
         if InspectorContext.is-root-selection(): InspectorColorField {
             accessible-name: @tr("Root background");
-            swatch: InspectorContext.property-brush("background");
             commit-key: InspectorContext.field-key("background");
             preview-key: InspectorContext.field-key("background");
             session-key: InspectorContext.fill-session-key("background");
@@ -60,7 +59,6 @@ export component InspectorAppearanceSection inherits InspectorSection {
             accessible-name: @tr("Rectangle background");
             element-rotation: InspectorContext.selected-transform-rotation();
             target-size: { width: InspectorContext.selected-width(), height: InspectorContext.selected-height() };
-            swatch: InspectorContext.property-brush("background");
             commit-key: InspectorContext.field-key("background");
             preview-key: InspectorContext.field-key("background");
             session-key: InspectorContext.fill-session-key("background");
@@ -74,7 +72,6 @@ export component InspectorAppearanceSection inherits InspectorSection {
         if InspectorContext.is-text-selection(): InspectorColorField {
             accessible-name: @tr("Text color");
             target-size: { width: InspectorContext.selected-width(), height: InspectorContext.selected-height() };
-            swatch: InspectorContext.property-brush("color");
             commit-key: InspectorContext.field-key("color");
             preview-key: InspectorContext.field-key("color");
             session-key: InspectorContext.fill-session-key("color");

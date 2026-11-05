@@ -2437,7 +2437,7 @@ mod tests {
     }
 
     #[test]
-    fn brush_editors_prefer_hooks_and_source_with_only_unset_style_defaults_using_runtime() {
+    fn brush_editors_prefer_hooks_then_source_then_runtime() {
         use i_slint_backend_testing::{TestingBackend, TestingBackendOptions};
 
         slint::platform::set_platform(Box::new(TestingBackend::new(TestingBackendOptions {
@@ -2446,11 +2446,11 @@ mod tests {
             ..Default::default()
         })))
         .unwrap();
-        for (type_name, property_name, label, style_default) in [
-            ("Window", "background", "Root background", true),
-            ("Text", "color", "Text color", true),
-            ("Rectangle", "background", "Rectangle background", false),
-            ("Rectangle", "border-color", "Border color", false),
+        for (type_name, property_name, label) in [
+            ("Window", "background", "Root background"),
+            ("Text", "color", "Text color"),
+            ("Rectangle", "background", "Rectangle background"),
+            ("Rectangle", "border-color", "Border color"),
         ] {
             let editor = super::create_ui().unwrap();
             let api = editor.global::<super::Api>();
@@ -2484,9 +2484,9 @@ mod tests {
             let mut transparent_pixel = None;
             for (code, resolved, runtime, hooked, expected) in [
                 ("", false, false, None, None),
-                ("", false, true, None, style_default.then_some([0, 0, 255])),
+                ("", false, true, None, Some([0, 0, 255])),
                 ("root.paint", true, true, None, Some([255, 0, 0])),
-                ("root.unknown", false, true, None, None),
+                ("root.unknown", false, true, None, Some([0, 0, 255])),
                 ("", true, true, None, Some([255, 0, 0])),
                 ("", false, true, Some(green.clone()), Some([0, 255, 0])),
                 ("root.paint", true, true, Some(green.clone()), Some([0, 255, 0])),

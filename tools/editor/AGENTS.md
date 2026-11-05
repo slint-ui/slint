@@ -50,4 +50,3 @@ Always report if you need to use another function to display a property value, f
 - Use `Properties.runtime-property-value-data(name, fallback)` only when the actual running value is required, such as matching rendered text.
   It includes active debug hooks; wrapping it in another hook lookup is redundant.
   Keep geometry editors on the selection geometry APIs.
-- For color swatches, reuse `InspectorContext.property-brush`: override, then source, with runtime fallback only for unresolved, unset root background and text color.
