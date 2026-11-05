@@ -23,7 +23,7 @@ use objc2::{
     AllocAnyThread, DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send, sel,
 };
 use objc2_app_kit::{
-    NSAppearance, NSAppearanceCustomization, NSAppearanceNameAqua, NSAppearanceNameDarkAqua,
+    NSAppearance, NSAppearanceCustomization, NSAppearanceNameAqua,
     NSControlStateValueOn, NSImage, NSMenu, NSMenuItem, NSStatusBar, NSStatusItem,
     NSVariableStatusItemLength,
 };
@@ -137,16 +137,15 @@ fn scheme_for_appearance(appearance: &NSAppearance) -> ColorScheme {
     // variants down to whichever of these two best matches, so we don't have to
     // enumerate them. `None` means it didn't match either family — surface that
     // as `Unknown` rather than guessing.
-    let names = [unsafe { NSAppearanceNameAqua }, unsafe { NSAppearanceNameDarkAqua }];
+    // `NSAppearanceNameDarkAqua` is a 10.14+ SDK symbol, so the name is a string
+    // to keep this compiling on macOS < 10.14.
+    let dark_aqua = ns_string!("NSAppearanceNameDarkAqua");
+    let names = [unsafe { NSAppearanceNameAqua }, dark_aqua];
     let candidates = NSArray::from_slice(&names);
     let Some(best) = appearance.bestMatchFromAppearancesWithNames(&candidates) else {
         return ColorScheme::Unknown;
     };
-    if &*best == unsafe { NSAppearanceNameDarkAqua } {
-        ColorScheme::Dark
-    } else {
-        ColorScheme::Light
-    }
+    if &*best == dark_aqua { ColorScheme::Dark } else { ColorScheme::Light }
 }
 
 // ---------------------------------------------------------------------------
