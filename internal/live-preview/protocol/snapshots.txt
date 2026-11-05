@@ -1,8 +1,20 @@
 DebugMessage { location: Some(("app.slint", 300, 1000)), message: "hello" }
 0801096170702e736c696e74ac02e8070568656c6c6f
 
+DebuggerMessage(InspectSelected { handle: (300, 7), source: None })
+1a03ac020700
+
+DebuggerMessage(InspectSelected { handle: (300, 7), source: Some((Url { scheme: "file", cannot_be_a_base: false, username: "", password: None, host: None, port: None, path: "/project/app.slint", query: None, fragment: None }, 1000)) })
+1a03ac0207011966696c653a2f2f2f70726f6a6563742f6170702e736c696e74e807
+
 DebuggerMessage(Reloaded { success: true })
 1a0201
+
+DebuggerMessage(SetInspectMode { enabled: false })
+0d0100
+
+DebuggerMessage(SetInspectMode { enabled: true })
+0d0101
 
 DebuggerMessage(SubscriptionNotification { notification: [1, 2, 3] })
 1a0103010203
