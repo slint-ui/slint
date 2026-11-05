@@ -270,14 +270,15 @@ To fix the loop, remove `width: parent.width;`: a layout already stretches its c
 
 ### 1.20
 
-#### Components and Globals Declared With `:=` Are an Error
+#### Components, Globals, and Structs Declared With `:=` Are an Error
 
 Before 1.20, declaring a component with `Card := Rectangle { ... }` was deprecated, and only caused a warning.
-The same goes for a global declared with `global Settings := { ... }`.
+The same goes for a global declared with `global Settings := { ... }`, and a struct declared with `struct Point := { ... }`.
 With edition 1.20, it's an error.
-Declare the component with `component Card inherits Rectangle { ... }`, and remove the `:=` from the global.
+Declare the component with `component Card inherits Rectangle { ... }`, and remove the `:=` from the global or struct.
 
-Without the `:=`, some behavior changes:
+A struct behaves the same without the `:=`.
+For a component or global, some behavior changes:
 
 - A property without `in`, `out`, or `in-out` is private, instead of `in-out`.
   Add `in-out` where your code reads or sets it from outside the component or global.
