@@ -10,8 +10,9 @@ use crate::langtype::{StructName, Type};
 use crate::llr::debug_info::ItemDebugInfo;
 
 use super::{
-    Animation, CompilationUnit, EvaluationContext, Expression, LocalMemberIndex,
-    LocalMemberReference, MemberReference, ParentScope, RadialGradientShape, SubComponentIdx,
+    Animation, BoxMeasureCell, CompilationUnit, EvaluationContext, Expression, FlexboxMeasureCell,
+    LayoutRepeatedElement, LocalMemberIndex, LocalMemberReference, MEASURE_KNOWN_W_LOCAL,
+    MemberReference, ParentScope, RadialGradientShape, SubComponentIdx,
 };
 
 pub fn pretty_print(root: &CompilationUnit, writer: &mut dyn Write) -> Result {
@@ -718,14 +719,7 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
                         .iter()
                         .map(|x| match x {
                             Either::Left(x) => e(x).to_string(),
-                            Either::Right(r) => match &r.cross_width {
-                                Some(w) => format!(
-                                    "@repeater({} at cross-width {})",
-                                    usize::from(r.repeater_index),
-                                    e(w)
-                                ),
-                                None => format!("@repeater({})", usize::from(r.repeater_index)),
-                            },
+                            Either::Right(r) => DisplayRepeated(r, ctx).to_string(),
                         })
                         .join(", "),
                     match orientation {
@@ -744,19 +738,98 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
                 }
                 write!(f, "{} }}", e(sub_expression))
             }
-            Expression::WithFlexboxLayoutItemInfo { .. } => {
-                write!(f, "WithFlexboxLayoutItemInfo(TODO)",)
+            Expression::WithFlexboxLayoutItemInfo {
+                cells_h_variable,
+                cells_v_variable,
+                flex_props_variable,
+                repeater_indices_var_name,
+                elements,
+                repeated_cross_width,
+                sub_expression,
+            } => {
+                write!(
+                    f,
+                    "{{ ({cells_h_variable}, {cells_v_variable}{}) = [{}] /*flexbox*/; ",
+                    flex_props_variable.as_ref().map(|v| format!(", {v}")).unwrap_or_default(),
+                    elements
+                        .iter()
+                        .map(|x| match x {
+                            Either::Left((h, v, props)) => match flex_props_variable {
+                                Some(_) => format!("({}, {}, {})", e(h), e(v), e(props)),
+                                None => format!("({}, {})", e(h), e(v)),
+                            },
+                            Either::Right(r) => DisplayRepeated(r, ctx).to_string(),
+                        })
+                        .join(", "),
+                )?;
+                if let Some(v) = repeater_indices_var_name {
+                    write!(f, "{v} = @repeater-indices; ")?;
+                }
+                if let Some(w) = repeated_cross_width {
+                    write!(f, "@repeated-cross-width = {}; ", e(w))?;
+                }
+                write!(f, "{} }}", e(sub_expression))
             }
-            Expression::BoxLayoutInfoOrthoWithMeasure { .. } => {
-                write!(f, "BoxLayoutInfoOrthoWithMeasure(TODO)",)
+            Expression::BoxLayoutInfoOrthoWithMeasure {
+                solve_data,
+                padding_ortho,
+                measure_cells,
+            } => {
+                write!(
+                    f,
+                    "box_layout_info_ortho_with_measure({}, {}, measure({MEASURE_KNOWN_W_LOCAL}): [{}])",
+                    e(solve_data),
+                    e(padding_ortho),
+                    measure_cells
+                        .iter()
+                        .map(|c| match c {
+                            BoxMeasureCell::Static { info } => e(info).to_string(),
+                            BoxMeasureCell::Repeated(r) => DisplayRepeated(r, ctx).to_string(),
+                        })
+                        .join(", ")
+                )
             }
-            Expression::FlexboxLayoutInfoCrossAxisWithMeasure { .. } => {
-                write!(f, "FlexboxLayoutInfoCrossAxisWithMeasure(TODO)",)
+            Expression::FlexboxLayoutInfoCrossAxisWithMeasure { arguments, measure_cells } => {
+                write!(
+                    f,
+                    "flexbox_layout_info_cross_axis_with_measure({}, measure({MEASURE_KNOWN_W_LOCAL}): [{}])",
+                    arguments.iter().map(e).join(", "),
+                    DisplayFlexboxMeasureCells(measure_cells, ctx)
+                )
             }
-            Expression::SolveFlexboxLayoutWithMeasure { .. } => {
-                write!(f, "SolveFlexboxLayoutWithMeasure(TODO)",)
+            Expression::SolveFlexboxLayoutWithMeasure { data, repeater_indices, measure_cells } => {
+                write!(
+                    f,
+                    "solve_flexbox_layout_with_measure({}, {}, measure({MEASURE_KNOWN_W_LOCAL}): [{}])",
+                    e(data),
+                    e(repeater_indices),
+                    DisplayFlexboxMeasureCells(measure_cells, ctx)
+                )
             }
-            Expression::WithGridInputData { .. } => write!(f, "WithGridInputData(TODO)",),
+            Expression::WithGridInputData {
+                cells_variable,
+                repeater_indices_var_name,
+                repeater_steps_var_name,
+                elements,
+                sub_expression,
+            } => {
+                write!(
+                    f,
+                    "{{ {cells_variable} = [{}] /*grid*/; {repeater_indices_var_name} = @repeater-indices; {repeater_steps_var_name} = @repeater-steps; {} }}",
+                    elements
+                        .iter()
+                        .map(|x| match x {
+                            Either::Left(x) => e(x).to_string(),
+                            Either::Right(r) => format!(
+                                "@repeater({}{})",
+                                usize::from(r.repeater_index),
+                                if r.new_row { ", new-row" } else { "" }
+                            ),
+                        })
+                        .join(", "),
+                    e(sub_expression)
+                )
+            }
             Expression::MinMax { ty: _, op, lhs, rhs } => match op {
                 MinMaxOp::Min => write!(f, "min({}, {})", e(lhs), e(rhs)),
                 MinMaxOp::Max => write!(f, "max({}, {})", e(lhs), e(rhs)),
@@ -789,5 +862,34 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
                 write!(f, "debug-hook({id:?}, {})", DisplayExpression(expression, ctx))
             }
         }
+    }
+}
+
+struct DisplayRepeated<'a, T>(&'a LayoutRepeatedElement, &'a EvaluationContext<'a, T>);
+impl<T> Display for DisplayRepeated<'_, T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result {
+        let r = self.0;
+        match &r.cross_width {
+            Some(w) => write!(
+                f,
+                "@repeater({} at cross-width {})",
+                usize::from(r.repeater_index),
+                DisplayExpression(w, self.1)
+            ),
+            None => write!(f, "@repeater({})", usize::from(r.repeater_index)),
+        }
+    }
+}
+
+struct DisplayFlexboxMeasureCells<'a, T>(&'a [FlexboxMeasureCell], &'a EvaluationContext<'a, T>);
+impl<T> Display for DisplayFlexboxMeasureCells<'_, T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result {
+        let ctx = self.1;
+        let cells = self.0.iter().map(|c| match c {
+            FlexboxMeasureCell::Static { v_info } => DisplayExpression(v_info, ctx).to_string(),
+            FlexboxMeasureCell::Repeated(r) => DisplayRepeated(r, ctx).to_string(),
+            FlexboxMeasureCell::Fixed => "fixed".into(),
+        });
+        write!(f, "{}", cells.format(", "))
     }
 }
