@@ -605,9 +605,9 @@ export component Main inherits Window {
     }
 
     fn install_selection(id: &str, instance_index: usize) -> slint_interpreter::ComponentInstance {
+        PREVIEW_STATE.with_borrow_mut(|state| *state = Default::default());
         let instance = crate::preview::test::interpret_test("fluent", SOURCE);
         PREVIEW_STATE.with_borrow_mut(|state| {
-            *state = Default::default();
             state.handle.replace(Some(instance.clone_strong()));
             state.selected = Some(ElementSelection {
                 path: i_slint_editor_preview::test::main_test_file_name(),

@@ -341,6 +341,7 @@ impl PreviewSession {
 
     fn create_compiler(self: &Rc<Self>) -> slint_interpreter::Compiler {
         let mut compiler = slint_interpreter::Compiler::new();
+        apply_configuration(&mut compiler, &PreviewConfig::default());
         let manifest_session = Rc::downgrade(self);
         compiler.set_project_file_loader(
             Rc::new(move |path| {
@@ -506,7 +507,9 @@ impl PreviewSession {
 }
 
 fn apply_configuration(compiler: &mut slint_interpreter::Compiler, configuration: &PreviewConfig) {
-    compiler.set_overrides(configuration.overrides.clone(), InternalToken);
+    let mut overrides = configuration.overrides.clone();
+    overrides.debug_info = Some(true);
+    compiler.set_overrides(overrides, InternalToken);
 }
 
 impl PreviewSessionHandle {

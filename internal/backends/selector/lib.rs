@@ -196,6 +196,19 @@ pub fn init_testing_backends() {
     }
 }
 
+/// Returns true if the system-testing or MCP server starts with the platform.
+pub fn testing_backends_requested() -> bool {
+    #[cfg(feature = "system-testing")]
+    if i_slint_backend_testing::systest::requested() {
+        return true;
+    }
+    #[cfg(feature = "mcp")]
+    if i_slint_backend_testing::mcp_server::requested() {
+        return true;
+    }
+    false
+}
+
 /// Run the callback with the platform abstraction.
 /// Create the backend if it does not exist yet
 pub fn with_platform<R>(
