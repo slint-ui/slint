@@ -3612,6 +3612,7 @@ dependencies = [
  "lyon_path",
  "peniko",
  "rgb",
+ "skrifa",
  "vello",
  "vtable",
 ]

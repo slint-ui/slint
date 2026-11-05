@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore cbdt colr sbix
+
 use std::pin::Pin;
 use std::sync::Arc;
 
@@ -37,6 +39,13 @@ use super::{PhysicalLength, PhysicalPoint, PhysicalRect, PhysicalSize};
 /// frontend rewrite in vello_cpu 0.1 fixed that (linebender/vello#1701), so
 /// on the versions we build against only the cost remains.
 const UNCLIPPED: kurbo::Rect = kurbo::Rect::new(0., 0., 1e9, 1e9);
+
+/// Whether `font` has color glyphs, in layers (COLR) or as bitmaps (CBDT, sbix).
+fn has_color_glyphs(font: &parley::FontData) -> bool {
+    use skrifa::raw::TableProvider as _;
+    skrifa::FontRef::from_index(font.data.data(), font.index)
+        .is_ok_and(|font| font.colr().is_ok() || font.cbdt().is_ok() || font.sbix().is_ok())
+}
 
 #[derive(Clone, Copy)]
 struct RenderState {
@@ -915,6 +924,21 @@ impl<'a, S: PaintScene> GlyphRenderer for AnyrenderItemRenderer<'a, S> {
             .map(|degrees| kurbo::Affine::skew(-degrees.to_radians().tan() as f64, 0.0));
         let glyphs: Vec<_> =
             glyphs_it.map(|g| anyrender::Glyph { id: g.id, x: g.x, y: g.y }).collect();
+        // Color glyphs (emoji) keep their own colors: vello applies the brush, alpha included,
+        // only to COLR layers that use the text color (0xFFFF). So a translucent solid color is
+        // drawn opaque, inside a layer that carries its alpha.
+        let mut peniko_brush = brush.peniko_brush;
+        let mut layer_alpha = None;
+        if let peniko::Brush::Solid(color) = peniko_brush
+            && color.components[3] < 1.0
+            && has_color_glyphs(font)
+        {
+            layer_alpha = Some(color.components[3]);
+            peniko_brush = peniko::Brush::Solid(color.with_alpha(1.0));
+        }
+        if let Some(alpha) = layer_alpha {
+            self.push_unclipped_layer(peniko::BlendMode::default(), alpha);
+        }
         self.scene.draw_glyphs(
             font,
             font_size.get(),
@@ -922,12 +946,15 @@ impl<'a, S: PaintScene> GlyphRenderer for AnyrenderItemRenderer<'a, S> {
             normalized_coords,
             kurbo::Vec2::ZERO,
             peniko::StyleRef::from(&brush.style),
-            peniko::BrushRef::from(&brush.peniko_brush),
+            peniko::BrushRef::from(&peniko_brush),
             1.0,
             transform,
             glyph_transform,
             glyphs.into_iter(),
         );
+        if layer_alpha.is_some() {
+            self.scene.pop_layer();
+        }
     }
 
     fn fill_rectangle(
