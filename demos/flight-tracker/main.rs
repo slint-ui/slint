@@ -178,12 +178,14 @@ fn daylight(point: Vec3, hours: f32) -> &'static str {
 
 /// Path commands through the projected `points`, leaving gaps where a point is hidden, and
 /// with `dashed`, between every other pair of points.
-fn path(points: impl Iterator<Item = Option<Vec2>>, dashed: bool) -> String {
+/// The SVG commands for a line through `points`. Each point comes with the index of its sample
+/// along the route, and a dashed line draws the segments that end at an odd sample.
+fn path(points: impl Iterator<Item = (usize, Option<Vec2>)>, dashed: bool) -> String {
     let mut commands = String::new();
     let mut previous: Option<Vec2> = None;
-    for (index, point) in points.enumerate() {
+    for (sample, point) in points {
         if let (Some(from), Some(to)) = (previous, point)
-            && (!dashed || index % 2 == 1)
+            && (!dashed || sample % 2 == 1)
         {
             commands += &format!("M {:.1} {:.1} L {:.1} {:.1} ", from.x, from.y, to.x, to.y);
         }
@@ -1062,11 +1064,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         let samples = (flight.distance_km / 60.0).clamp(24.0, 400.0) as usize;
         let progress = flight.progress();
         let screen = |t: f32| screen_point(view_projection, eye, flight.point(t), size);
-        let steps = (0..=samples).map(|i| i as f32 / samples as f32);
-        let flown = steps.clone().take_while(|t| *t < progress).chain([progress]);
-        let ahead = [progress].into_iter().chain(steps.skip_while(|t| *t <= progress));
-        app.set_flown_path(path(flown.map(screen), false).into());
-        app.set_remaining_path(path(ahead.map(screen), true).into());
+        let steps = (0..=samples).map(|i| (i, i as f32 / samples as f32));
+        let flown = steps.clone().take_while(|(_, t)| *t < progress).chain([(0, progress)]);
+        let ahead = [(0, progress)].into_iter().chain(steps.skip_while(|(_, t)| *t <= progress));
+        let on_screen = |(sample, t): (usize, f32)| (sample, screen(t));
+        app.set_flown_path(path(flown.map(on_screen), false).into());
+        app.set_remaining_path(path(ahead.map(on_screen), true).into());
 
         let position = flight.position();
         let nose = (position + flight.track() * 0.005).normalize();
