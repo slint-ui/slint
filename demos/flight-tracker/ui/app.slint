@@ -32,6 +32,13 @@ global Theme {
     out property <length> margin: 16px;
 }
 
+export struct Insets {
+    top: length,
+    right: length,
+    bottom: length,
+    left: length,
+}
+
 export enum View { follow, route, globe, free }
 
 export enum Phase { boarding, flying, arrived }
@@ -778,6 +785,8 @@ component AirportField inherits Rectangle {
 
 export component AppWindow inherits Window {
     in property <image> texture;
+    /// The edges of the window that the page covers on the web, see `index.html`.
+    in property <Insets> page-insets;
     /// The part of `texture` that the globe was rendered into, in pixels from the top left.
     in property <int> texture-used-width;
     in property <int> texture-used-height;
@@ -862,10 +871,14 @@ export component AppWindow inherits Window {
     property <bool> compact: root.width < 900px || root.height < 620px;
     property <length> margin: root.narrow || root.short ? 10px : Theme.margin;
     // The edges of the area for controls, clear of a phone's notch and home indicator.
-    property <length> left-edge: root.safe-area-insets.left + root.margin;
-    property <length> right-edge: root.safe-area-insets.right + root.margin;
-    property <length> top-edge: root.safe-area-insets.top + root.margin;
-    property <length> bottom-edge: root.safe-area-insets.bottom + root.margin;
+    property <length> inset-left: max(root.safe-area-insets.left, root.page-insets.left);
+    property <length> inset-right: max(root.safe-area-insets.right, root.page-insets.right);
+    property <length> inset-top: max(root.safe-area-insets.top, root.page-insets.top);
+    property <length> inset-bottom: max(root.safe-area-insets.bottom, root.page-insets.bottom);
+    property <length> left-edge: root.inset-left + root.margin;
+    property <length> right-edge: root.inset-right + root.margin;
+    property <length> top-edge: root.inset-top + root.margin;
+    property <length> bottom-edge: root.inset-bottom + root.margin;
     property <length> content-width: root.width - root.left-edge - root.right-edge;
 
     title: "Slint Flight Tracker";
@@ -1359,7 +1372,7 @@ export component AppWindow inherits Window {
 
     if !root.narrow: Text {
         x: root.width - self.width - root.right-edge;
-        y: root.height - self.height - root.safe-area-insets.bottom - 4px;
+        y: root.height - self.height - root.inset-bottom - 4px;
         text: "\{root.gpu-text}  ·  \{root.fps-text}";
         color: Theme.faint;
         font-size: 10px;
