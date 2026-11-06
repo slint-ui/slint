@@ -16,27 +16,12 @@ Conversion consumes versioned JSON; Figma API mocks belong only at the capture b
   geometry with transparent padding, used by capture, binary transport, and PNG
   dimension/validation tests. These are inputs, not Figma visual references.
 - `authored/raster/`: independent Figma references and production-capture JSON
-  for the raster browser suite.
-  `legacy-<scale>x.png` contains three authored 32×24 frames, left to right, at 1×, 1.25× and 2×:
+  for the raster browser suite. Three authored 32×24 frames at 1×, 1.25× and 2×:
   translucent asymmetric vector geometry, an outside vector stroke, and a rounded alpha
   mask with a shadow. Created and exported in Figma Desktop on September 8, 2026.
   References use PNG, sRGB, contentsOnly and useAbsoluteBounds. Never regenerate
   these references from Slint output. Tests read the committed files offline;
   no original Figma document or account is required. See the maintenance recipe below.
-- `source/native-paints-effects.json` and `authored/raster/native-paints-<scale>x.png`:
-  a 256×192 gallery authored and exported in Figma Desktop on November 5, 2026.
-  The [editable Figma gallery](https://www.figma.com/design/Uedh6KT7IGaXE2yiXr5yrX/Untitled?node-id=1-2)
-  contains twelve 64×64 cells in reading order:
-  rounded inner shadow below a translucent inside border with a drop shadow,
-  multiple signed-spread inner shadows, positive-spread drop shadow,
-  background blur over a checkerboard, offset linear gradient, elliptical radial gradient,
-  circular angular gradient, inside dashes, centered round-cap dashes, outside dashes with unequal corner radii,
-  centered text outline, and a translucent radial gradient with an inside border.
-  `raster.browser.spec.ts` checks ordinary and specialized preview and export conversion at all three scales.
-  The blur reference validates Figma radius 8 against Slint Gaussian sigma 4.
-  Preview retains the existing outlined-font imagery; native text export checks outline and fill coverage
-  because embedded Inter and Figma's font version can have different glyph rasters.
-  `native-paints-effects.unit.spec.ts` checks metadata, unsupported effects, schema validation, scaling, and shared component values.
 
 ## Maintaining raster references
 
@@ -61,11 +46,7 @@ For each changed frame, obtain fresh production-capture JSON with PNG capture
 enabled at export scales 1, 1.25 and 2. Independently export the same frame from
 Figma as PNG at each scale, with sRGB, `contentsOnly: true` and
 `useAbsoluteBounds: true`. Replace both JSON and PNG in
-`authored/raster/<name>-<scale>x.json` and the corresponding cell in
-`authored/raster/legacy-<scale>x.png` together.
-Keep atlas cells at their original resolution without resampling.
-Optimize new PNGs with `oxipng -o max --strip all`.
-Run `pnpm test:browser`
+`authored/raster/<name>-<scale>x.{json,png}` together. Run `pnpm test:browser`
 and inspect the references before accepting the change. Never use the plugin's
 Slint preview as the reference image.
 
@@ -94,7 +75,6 @@ and consumer here when adding one.
 | `inner-shadow.json` | `appearance-normalization.unit.spec.ts` |
 | `multiple-failures.json` | `recovery.unit.spec.ts` |
 | `negative-gap.json` | `layout-normalization.unit.spec.ts`, `capture.unit.spec.ts` |
-| `native-paints-effects.json` | `raster.browser.spec.ts` compares native effects and paints with independent Figma exports |
 | `nested-container.json` | `recovery.unit.spec.ts` |
 | `png-first.json` | `source.unit.spec.ts`, `asset-transport.unit.spec.ts` |
 | `rectangular-mask.json` | `image-normalization.unit.spec.ts`, `source.unit.spec.ts` |

@@ -222,6 +222,14 @@ test("plain text outlines survive export and preview scaling", async () => {
     expect(scalePreview(normalized.snapshot, 0.5).root).toMatchObject({
         outline: { width: 1 },
     });
+    const output = await convertCapture({
+        type: "preview-capture",
+        revision: 1,
+        captureJson: JSON.stringify(source),
+    });
+    if (output.type !== "preview-source" || !output.exportPackage)
+        throw Error(JSON.stringify(output));
+    expect(output.exportPackage.source).toContain("stroke-style: outside;");
     source.root.properties.strokeAlign = "INSIDE";
     expect(
         (await convert(source)).normalized.warnings.map(
@@ -309,10 +317,41 @@ test("repeated component templates retain different native shadow and blur value
 });
 
 test("native properties agree across preview, root-only snippets, and project exports", async () => {
-    const captureJson = await readFile(
-        "fixtures/source/native-paints-effects.json",
-        "utf8",
-    );
+    const source = await seed();
+    source.root.type = "FRAME";
+    source.root.children = [
+        "GRADIENT_LINEAR",
+        "GRADIENT_RADIAL",
+        "GRADIENT_ANGULAR",
+    ].map((type, index) => {
+        const child = structuredClone(source.root);
+        child.id = `paint-${index}`;
+        child.type = "RECTANGLE";
+        Object.assign(child.properties, {
+            width: 60,
+            height: 60,
+            fills: [
+                {
+                    type,
+                    opacity: 1,
+                    gradientTransform: [
+                        [1, 0, 0],
+                        [0, 1, 0],
+                    ],
+                    gradientStops: [
+                        { position: 0, color: { r: 1, g: 0, b: 0, a: 1 } },
+                        { position: 1, color: { r: 0, g: 0, b: 1, a: 1 } },
+                    ],
+                },
+            ],
+            strokeWeight: 2,
+            dashPattern: [6, 4],
+        });
+        child.properties.strokes = child.properties.fills;
+        child.properties.effects.push({ type: "BACKGROUND_BLUR", radius: 8 });
+        return child;
+    });
+    const captureJson = JSON.stringify(source);
     const output = await convertCapture({
         type: "preview-capture",
         revision: 9,
@@ -333,7 +372,15 @@ test("native properties agree across preview, root-only snippets, and project ex
         throw Error(JSON.stringify(normalized));
     const feature =
         /^\s*(?:inner-shadow-[\w-]+:|drop-shadow-[\w-]+:|backdrop-blur:|stroke-dash-[\w-]+:|stroke-style:|stroke-width:|stroke:|(?:background|border-color):.*@(?:linear|radial|conic)-gradient)/u;
-    let checked = 0;
+    for (const property of [
+        "@linear-gradient(",
+        "@radial-gradient(",
+        "@conic-gradient(",
+        "inner-shadow-blur:",
+        "backdrop-blur:",
+        "stroke-dash-array:",
+    ])
+        expect(output.exportPackage.source).toContain(property);
     for (const child of normalized.snapshot.root.children) {
         const snippet = convertSnapshot(
             { ...normalized.snapshot, root: child },
@@ -344,12 +391,9 @@ test("native properties agree across preview, root-only snippets, and project ex
             .split("\n")
             .filter((line) => feature.test(line))) {
             expect(output.exportPackage.source).toContain(line.trim());
-            if (child.kind !== "text") expect(preview).toContain(line.trim());
-            checked++;
+            expect(preview).toContain(line.trim());
         }
     }
-    expect(checked).toBeGreaterThan(40);
-    expect(output.exportPackage.source).toContain("stroke-style: center;");
 });
 
 test("invalid effects preserve clipped, translucent parents and their valid children", async () => {
