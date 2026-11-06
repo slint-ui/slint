@@ -1,8 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Properties } from "../../../properties.slint";
-
 import { Style, InspectorStyle } from "../../../style.slint";
 
 import { InspectorCodeField, InspectorSection } from "../index.slint";
@@ -20,11 +18,9 @@ export component InspectorTitleSection inherits InspectorSection {
         InspectorCodeField {
             accessible-name: @tr("Title");
             prefix: @tr("Title");
-            value: Properties.source-property-value("title", "\"\"");
+            fallback: "\"\"";
+            property-name: "title";
             commit-key: InspectorContext.field-key("title");
-            accepted(text) => {
-                return InspectorContext.commit-code("title", text);
-            }
         }
     }
 }

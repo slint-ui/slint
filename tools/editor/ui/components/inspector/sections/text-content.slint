@@ -1,8 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Properties } from "../../../properties.slint";
-
 import { Style, InspectorStyle } from "../../../style.slint";
 
 import { InspectorCodeField, InspectorSection } from "../index.slint";
@@ -20,11 +18,9 @@ export component InspectorTextContentSection inherits InspectorSection {
         InspectorCodeField {
             accessible-name: @tr("Text content");
             prefix: @tr("Text");
-            value: Properties.source-property-value("text", InspectorContext.has-styled-text-property() ? "@markdown(\"\")" : "\"\"");
+            fallback: InspectorContext.has-styled-text-property() ? "@markdown(\"\")" : "\"\"";
+            property-name: "text";
             commit-key: InspectorContext.field-key("text");
-            accepted(text) => {
-                return InspectorContext.commit-code("text", text);
-            }
         }
     }
 }

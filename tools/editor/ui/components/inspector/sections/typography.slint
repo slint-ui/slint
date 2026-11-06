@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Properties, PropertyEditKind } from "../../../properties.slint";
+import { Properties, PropertyEditKind, PropertyValue } from "../../../properties.slint";
 
 import { Style, Metrics, InspectorStyle } from "../../../style.slint";
 import { InspectorComboBox, InspectorEditableField, InspectorEnumOptions, InspectorPropertyRow, InspectorSection, InspectorSwitch } from "../index.slint";
@@ -12,6 +12,7 @@ export component InspectorTypographySection inherits InspectorSection {
     in property <length> field-width;
     in property <length> popup-bottom;
     private property <bool> italic: Properties.editor-property-value-data("font-italic").value-bool;
+    private property <PropertyValue> font-family-value: Properties.editor-property-value-data("font-family");
 
     title: @tr("Typography");
 
@@ -21,12 +22,20 @@ export component InspectorTypographySection inherits InspectorSection {
 
         if Properties.has-property("font-family"): InspectorEditableField {
             accessible-name: @tr("Font family");
-            value: InspectorContext.text-font-family-value();
+            value: root.font-family-value.code == "" ? @tr("Default font")
+                : root.font-family-value.value-string != "" ? root.font-family-value.value-string
+                : root.font-family-value.display-string != "" ? root.font-family-value.display-string : root.font-family-value.code;
             commit-key: InspectorContext.field-key("font-family");
+            preview-edit: true;
+            preview(text) => {
+                if text == "" || !Properties.inspector-preview("font-family", { kind: PropertyEditKind.string, text: text }) {
+                    Properties.inspector-cancel();
+                }
+            }
             wide: true;
             width: root.field-width;
             accepted(text) => {
-                return text != "" && InspectorContext.commit-string("font-family", text);
+                return text != "" && InspectorContext.commit-value("font-family", { kind: PropertyEditKind.string, text: text });
             }
         }
 

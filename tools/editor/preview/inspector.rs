@@ -215,6 +215,16 @@ fn edit_value(
         ui::PropertyEditKind::String if property_type == Type::String => {
             (string_expression(&value.text), Value::String(value.text.clone()))
         }
+        ui::PropertyEditKind::Code if property_type == Type::String => {
+            let tokens = i_slint_compiler::lexer::lex(&value.text);
+            if tokens.len() != 1
+                || tokens[0].kind != i_slint_compiler::parser::SyntaxKind::StringLiteral
+            {
+                return None;
+            }
+            let text = i_slint_compiler::literals::unescape_string(&value.text)?;
+            (value.text.to_string(), Value::String(text.as_str().into()))
+        }
         ui::PropertyEditKind::Enumeration if property_type == Type::MouseCursor => {
             let cursor = value.text.parse::<i_slint_core::items::BuiltInMouseCursor>().ok()?;
             (
