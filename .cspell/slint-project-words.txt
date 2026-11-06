@@ -430,6 +430,7 @@ mcp
 mcus
 MCUX
 mdbook
+Memberwise
 memsize
 menuconfig
 menuitemrole
