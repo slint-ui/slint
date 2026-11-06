@@ -2109,22 +2109,16 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
         fill_rule: FillRule,
         rounded_clips: &[RoundedClip],
     ) {
-        // Like rectangles and textures, only draw within the dirty region: a partial repaint
-        // must not draw over pixels that items above the path don't repaint.
-        for clip in self.dirty_region.intersection(&clip_geometry).iter_box() {
-            let clip = clip.to_rect();
-            self.clips.clear();
-            self.clips.extend(shape_clips(rounded_clips, &clip));
-            path::render_filled_path(
-                &commands,
-                &path_geometry,
-                &clip,
-                &self.clips,
-                &paint,
-                fill_rule,
-                self.buffer,
-            );
-        }
+        path::render_filled_path(
+            &commands,
+            &path_geometry,
+            &self.dirty_region.intersection(&clip_geometry),
+            rounded_clips,
+            &mut self.clips,
+            &paint,
+            fill_rule,
+            self.buffer,
+        );
     }
 
     #[cfg(feature = "path")]
@@ -2137,21 +2131,16 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
         stroke_style: path::StrokeStyle<'_>,
         rounded_clips: &[RoundedClip],
     ) {
-        // See process_filled_path.
-        for clip in self.dirty_region.intersection(&clip_geometry).iter_box() {
-            let clip = clip.to_rect();
-            self.clips.clear();
-            self.clips.extend(shape_clips(rounded_clips, &clip));
-            path::render_stroked_path(
-                &commands,
-                &path_geometry,
-                &clip,
-                &self.clips,
-                &paint,
-                stroke_style,
-                self.buffer,
-            );
-        }
+        path::render_stroked_path(
+            &commands,
+            &path_geometry,
+            &self.dirty_region.intersection(&clip_geometry),
+            rounded_clips,
+            &mut self.clips,
+            &paint,
+            stroke_style,
+            self.buffer,
+        );
     }
 }
 
