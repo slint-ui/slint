@@ -191,6 +191,7 @@ export global Properties {
         return Properties.hooked-property-value-data(name, { value-float: Properties.number-property(name, fallback) }).value-float;
     }
     pure callback combo-option-index(value: string, options: [InspectorComboOption]) -> int;
+    pure callback combo-option-values(options: [InspectorComboOption]) -> [string];
 
     // Inspector Edits
     in property <int> inspector-generation;

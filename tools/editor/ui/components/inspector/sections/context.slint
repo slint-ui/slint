@@ -357,7 +357,14 @@ export global InspectorContext {
     }
 
     public pure function text-font-size-value() -> string {
-        return InspectorContext.property-length-label("font-size", @tr("Default size"));
+        let value = Properties.editor-property-value-data("font-size");
+        if value.code == "" {
+            return "\{Api.preview-default-font-size}";
+        }
+        if value.kind == PropertyValueKind.float && value.visual-items[value.value-int] == "px" {
+            return "\{value.value-float}";
+        }
+        return value.code;
     }
 
     public function set-image-alignment(column: int, row: int) -> bool {

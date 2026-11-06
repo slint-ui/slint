@@ -60,6 +60,12 @@ const defaults: Record<string, string> = {
     "drop-shadow-offset-x": "0px",
     "drop-shadow-offset-y": "0px",
     "drop-shadow-spread": "0px",
+    "inner-shadow-color": "transparent",
+    "inner-shadow-blur": "0px",
+    "inner-shadow-offset-x": "0px",
+    "inner-shadow-offset-y": "0px",
+    "inner-shadow-spread": "0px",
+    "backdrop-blur": "0px",
 };
 function elementKey(element: Element): string {
     return `${element.type}:${element.role ?? element.origin?.name ?? "helper"}`;

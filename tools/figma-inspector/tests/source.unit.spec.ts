@@ -763,7 +763,7 @@ describe("milestone7", () => {
         expect(
             validateSnapshot({
                 ...badSideWeight,
-                schemaVersion: 8,
+                schemaVersion: 9,
                 selection: { nodeId: "x", nodeName: "x" },
             }).ok,
         ).toBe(false);
@@ -772,7 +772,7 @@ describe("milestone7", () => {
         expect(
             validateSnapshot({
                 ...badShadow,
-                schemaVersion: 8,
+                schemaVersion: 9,
                 selection: { nodeId: "x", nodeName: "x" },
             }).ok,
         ).toBe(false);
@@ -781,7 +781,7 @@ describe("milestone7", () => {
         expect(
             validateSnapshot({
                 ...negativeSpread,
-                schemaVersion: 8,
+                schemaVersion: 9,
                 selection: { nodeId: "x", nodeName: "x" },
             }).ok,
         ).toBe(true);
@@ -790,7 +790,7 @@ describe("milestone7", () => {
         expect(
             validateSnapshot({
                 ...badRotation,
-                schemaVersion: 8,
+                schemaVersion: 9,
                 selection: { nodeId: "x", nodeName: "x" },
             }).ok,
         ).toBe(false);
@@ -802,7 +802,7 @@ describe("milestone7", () => {
         expect(
             validateSnapshot({
                 ...badRun,
-                schemaVersion: 8,
+                schemaVersion: 9,
                 selection: { nodeId: "x", nodeName: "x" },
             }).ok,
         ).toBe(false);

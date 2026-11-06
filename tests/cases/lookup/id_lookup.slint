@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
- TestCase := Rectangle {
+component TestCase inherits Rectangle {
 
     property<int> bar: 5;
     property<int> foo: 3;
@@ -11,8 +11,8 @@
         property<int> inner: bar * 10 + self.bar * 100 + parent.bar * 1000;
     }
 
-    property<int> p1: foo.inner;
-    property<int> p2: self.foo *10 + foo.foo * 100 + bar *1000;
+    out property<int> p1: foo.inner;
+    out property<int> p2: self.foo *10 + foo.foo * 100 + bar *1000;
 }
 /*
 ```cpp
