@@ -44,7 +44,7 @@ This method combines your Rust code with the `.slint` design markup in one file,
 
 ```rust,no_run
 slint::slint!{
-    #[edition = "1.19"]
+    #[edition = "1.20"]
     export component HelloWorld inherits Window {
         Text {
             text: "hello world";
@@ -542,7 +542,7 @@ pub mod android;
 /// Helper type that helps checking that the generated code is generated for the right version
 #[doc(hidden)]
 #[allow(non_camel_case_types)]
-pub struct VersionCheck_1_19_0;
+pub struct VersionCheck_1_20_0;
 
 #[cfg(doctest)]
 mod compile_fail_tests;
@@ -594,7 +594,7 @@ pub mod wgpu_30 {
     //!
     //! `Cargo.toml`:
     //! ```toml
-    //! slint = { version = "~1.19", features = ["unstable-wgpu-30"] }
+    //! slint = { version = "~1.20", features = ["unstable-wgpu-30"] }
     //! ```
     //!
     //! `main.rs`:
@@ -604,7 +604,7 @@ pub mod wgpu_30 {
     //! use wgpu::util::DeviceExt;
     //!
     //!slint::slint!{
-    //!    #[edition = "1.19"]
+    //!    #[edition = "1.20"]
     //!    export component HelloWorld inherits Window {
     //!        preferred-width: 320px;
     //!        preferred-height: 300px;
@@ -684,7 +684,7 @@ pub mod winit_030 {
     //!
     //! `Cargo.toml`:
     //! ```toml
-    //! slint = { version = "~1.19", features = ["unstable-winit-030"] }
+    //! slint = { version = "~1.20", features = ["unstable-winit-030"] }
     //! ```
     //!
     //! `main.rs`:
@@ -693,7 +693,7 @@ pub mod winit_030 {
     //! use slint::winit_030::{WinitWindowAccessor, winit};
     //!
     //! slint::slint!{
-    //!     #[edition = "1.19"]
+    //!     #[edition = "1.20"]
     //!     import { VerticalBox, Button } from "std-widgets.slint";
     //!     export component HelloWorld inherits Window {
     //!         callback clicked;
@@ -765,7 +765,7 @@ pub mod fontique_012 {
     ///
     /// `Cargo.toml`:
     /// ```toml
-    /// slint = { version = "~1.19", features = ["unstable-fontique-012"] }
+    /// slint = { version = "~1.20", features = ["unstable-fontique-012"] }
     /// ```
     ///
     /// `main.rs`:

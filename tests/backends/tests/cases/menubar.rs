@@ -8,7 +8,7 @@
 #[satchel::test]
 fn native_menu_bar_does_not_leak_the_window_adapter() {
     slint::slint! {
-        #[edition = "1.19"]
+        #[edition = "1.20"]
         export component App inherits Window {
             MenuBar {
                 Menu {

@@ -2981,7 +2981,7 @@ mod tests {
         let directory = tempfile::TempDir::new().unwrap();
         std::fs::write(
             directory.path().join(i_slint_compiler::project_file::FILE_NAME),
-            r#"{ "edition": "1.19", "main": "entry.slint" }"#,
+            r#"{ "edition": "1.20", "main": "entry.slint" }"#,
         )
         .unwrap();
         std::fs::write(directory.path().join("entry.slint"), r#"import { EntryWidget } from "widgets.slint"; export component Entry inherits EntryWidget {}"#).unwrap();

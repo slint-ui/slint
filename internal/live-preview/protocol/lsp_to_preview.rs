@@ -162,7 +162,7 @@ mod configuration_tests {
     fn future_overrides() -> serde_json::Value {
         serde_json::json!({
             "style": "fluent",
-            "project": { "include-paths": [], "edition": "1.19" },
+            "project": { "include-paths": [], "edition": "1.20" },
             "embed_resources": "FutureEmbedding",
             "default_translation_context": "FutureContext",
             "debug_info": false,
