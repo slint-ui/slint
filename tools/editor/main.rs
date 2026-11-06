@@ -22,6 +22,8 @@ use i_slint_live_preview::protocol::{
 use lsp_types::{MessageType, Url};
 use slint::ComponentHandle;
 
+#[cfg(feature = "debugger")]
+mod debugger;
 #[cfg(not(target_arch = "wasm32"))]
 mod file_dialog;
 #[cfg(target_os = "linux")]
@@ -90,6 +92,8 @@ fn main() -> Result<()> {
         }
     });
     let editor_ui_weak = editor_ui.as_weak();
+    #[cfg(feature = "debugger")]
+    let open_debugger = cli.debugger;
     let start_project = Rc::new(move |project| {
         let mut session_slot = active_session.borrow_mut();
         if let Some(session_sender) = session_slot.as_ref() {
@@ -98,7 +102,10 @@ fn main() -> Result<()> {
         let Some(editor_ui) = editor_ui_weak.upgrade() else {
             return false;
         };
-        *session_slot = Some(start_editor_session(&editor_ui, project, startup::load_settings()));
+        let session_sender = start_editor_session(&editor_ui, project, startup::load_settings());
+        #[cfg(feature = "debugger")]
+        debugger::connect(&editor_ui, session_sender.clone(), open_debugger);
+        *session_slot = Some(session_sender);
         true
     });
     startup::setup(&editor_ui, &settings, start_project.clone(), close_project);
@@ -182,6 +189,9 @@ struct Cli {
         help = "Use a directory or slint-project.json file as the project root"
     )]
     project_root: Option<PathBuf>,
+    #[cfg(feature = "debugger")]
+    #[arg(long, help = "Open the Slint Debugger window once a project is open")]
+    debugger: bool,
 }
 
 fn headless_requested() -> bool {
@@ -1423,6 +1433,17 @@ mod tests {
         }));
         assert!(session.primary_preview().component().cloned().is_none());
         assert_eq!(session.preview(1).unwrap().component().cloned(), Some(component));
+    }
+
+    #[cfg(feature = "debugger")]
+    #[test]
+    fn debugger_flag_opens_the_debugger() {
+        use clap::Parser;
+
+        assert!(!Cli::try_parse_from(["slint-editor", "main.slint"]).unwrap().debugger);
+        let cli = Cli::try_parse_from(["slint-editor", "--debugger", "main.slint"]).unwrap();
+        assert!(cli.debugger);
+        assert_eq!(cli.file.as_deref(), Some("main.slint"));
     }
 
     #[test]
