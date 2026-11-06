@@ -107,6 +107,8 @@ impl DebugAgent {
             }) => {
                 crate::system_testing::answer_request(id, request, self.to_editor.clone());
             }
+            // #14727
+            PreviewSessionEvent::Debug(DebuggerToPreviewMessage::SetInspectMode { .. }) => {}
         }
         None
     }

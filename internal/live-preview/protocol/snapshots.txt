@@ -7,11 +7,23 @@ Debug(Diagnostics { uri: Url { scheme: "file", cannot_be_a_base: false, username
 Debug(ElementTreeChanged { subscription: 300, changed: [1, 2, 3] })
 0102ac0203010203
 
+Debug(InspectSelected { handle: (300, 7), source: None })
+0107ac020700
+
+Debug(InspectSelected { handle: (300, 7), source: Some((Url { scheme: "file", cannot_be_a_base: false, username: "", password: None, host: None, port: None, path: "/project/app.slint", query: None, fragment: None }, 1000)) })
+0107ac0207011966696c653a2f2f2f70726f6a6563742f6170702e736c696e74e807
+
 Debug(PropertiesChanged { subscription: 300, changed: [1, 2, 3] })
 0101ac0203010203
 
 Debug(Reloaded { success: true })
 010401
+
+Debug(SetInspectMode { enabled: false })
+010100
+
+Debug(SetInspectMode { enabled: true })
+010101
 
 Debug(SubscriptionsEnded { subscriptions: [300, 7] })
 010302ac0207
