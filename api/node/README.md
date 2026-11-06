@@ -98,6 +98,9 @@ which is how it is exposed on the instance.
 
 #### `import` the `.slint` File (Recommended)
 
+Place `slint-project.json` beside the imported `.slint` file to apply project settings such as library paths.
+The import selects the source file. The project file's `main` entry is used when you load the project itself.
+
 Import `.slint` files directly.
 Load `slint-ui/register` before your own code:
 
