@@ -18,7 +18,7 @@
 //!    This register dependencies only on the rendering tracker.
 //!
 
-// cspell:ignore occluders postorder
+// cspell:ignore occluders postorder overclaim
 
 #[cfg(feature = "occlusion-culling")]
 use crate::Brush;
