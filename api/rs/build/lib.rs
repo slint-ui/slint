@@ -790,7 +790,7 @@ fn explicit_settings_add_to_the_project_file_paths() {
                 PathBuf::from("build-lib.slint"),
             )]))
             .with_style("build-style".into())
-            .with_edition((1, 19))
+            .with_edition((1, 18))
             .with_absolute_paths(&test_root)
             .resolve_project_file(&test_root)
             .unwrap();
@@ -807,7 +807,7 @@ fn explicit_settings_add_to_the_project_file_paths() {
             ])
         );
         assert_eq!(config.style.as_deref(), Some("build-style"));
-        assert_eq!(config.edition, Some(project_file::SlintEdition::V1_19));
+        assert_eq!(config.edition, Some((1, 18).into()));
     });
 }
 
