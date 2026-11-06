@@ -365,8 +365,7 @@ export component GradientOverlay inherits FocusScope {
         if event.text == Key.Escape {
             if root.dragging {
                 root.dragging = false;
-                FillSession.restore-gesture(root.original-fill, root.original-rotation);
-                FillSession.axis = root.original-axis;
+                FillSession.restore-gesture(root.original-fill, root.original-rotation, root.original-axis);
                 FillSession.selected-stop = root.original-selected;
             } else {
                 FillSession.close-picker(false, true);
