@@ -4,6 +4,7 @@
 use super::JsComponentDefinition;
 use super::JsDiagnostic;
 use i_slint_compiler::langtype::Type;
+use i_slint_compiler::source_path::SourcePath;
 use itertools::Itertools;
 use napi::bindgen_prelude::*;
 use napi::{Env, JsValue};
@@ -27,6 +28,7 @@ pub struct JsComponentCompiler {
 #[napi(object)]
 pub struct LiveBuildOptions {
     pub style: Option<String>,
+    pub project_root: Option<String>,
     pub include_paths: Option<Vec<String>>,
     pub library_paths: Option<HashMap<String, String>>,
 }
@@ -233,6 +235,11 @@ impl JsComponentCompiler {
         Ok(())
     }
 
+    #[napi(setter)]
+    pub fn set_project_root(&mut self, root: String) {
+        self.internal.set_project_root(Some(SourcePath::new(root)), i_slint_core::InternalToken);
+    }
+
     /// Compile a .slint file into a ComponentDefinition
     ///
     /// Returns the compiled `ComponentDefinition` if there were no errors.
@@ -275,6 +282,10 @@ pub fn create_live_instance(
     {
         let compiler_factory = move || {
             let mut compiler = compiler_from_env();
+            compiler.set_project_root(
+                options.project_root.map(SourcePath::new),
+                i_slint_core::InternalToken,
+            );
             if let Some(style) = options.style {
                 compiler.set_style(style);
             }
