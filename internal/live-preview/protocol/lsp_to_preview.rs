@@ -183,7 +183,7 @@ mod configuration_tests {
         assert_eq!(config.overrides.project.include_paths, Some(Vec::new()));
         assert_eq!(
             config.overrides.project.edition,
-            Some(i_slint_compiler::project_file::SlintEdition::V1_19)
+            Some(i_slint_compiler::project_file::SlintEdition::current())
         );
         assert_eq!(config.overrides.debug_info, Some(false));
         assert_eq!(config.overrides.const_scale_factor, Some(2.));
