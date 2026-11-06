@@ -61,13 +61,25 @@ pub fn ident(name: &str) -> String {
     if is_csharp_keyword(&pascal) { format!("@{pascal}") } else { pascal }
 }
 
+/// The members that every C# class inherits from `object`.
+const OBJECT_MEMBERS: &[&str] =
+    &["Equals", "GetHashCode", "GetType", "MemberwiseClone", "ToString"];
+
+/// The members that the C# compiler adds to a `record`.
+const RECORD_MEMBERS: &[&str] = &["EqualityContract", "PrintMembers"];
+
 /// The member names already used in a C# type.
 #[derive(Default)]
 struct Members(HashSet<String>);
 
 impl Members {
     fn new(reserved: &[&str]) -> Self {
-        Self(reserved.iter().map(|s| s.to_string()).collect())
+        Self(reserved.iter().chain(OBJECT_MEMBERS).map(|s| s.to_string()).collect())
+    }
+
+    /// The members of the record that `class` names, before its fields claim theirs.
+    fn record(class: &str) -> Self {
+        Self::new(&[&[class], RECORD_MEMBERS].concat())
     }
 
     /// Returns `name`, with `_` suffixes until it doesn't collide with an earlier member.
@@ -184,7 +196,7 @@ fn constant_value(expr: &ConstantExpression, ty: &Type) -> Option<String> {
         },
         Type::Struct(s) if matches!(s.name, StructName::User { .. }) => match expr {
             ConstantExpression::Struct { values, .. } => {
-                let mut field_names = Members::new(&[csharp_type(ty).as_str()]);
+                let mut field_names = Members::record(&csharp_type(ty));
                 let fields = s
                     .fields
                     .iter()
@@ -481,7 +493,7 @@ fn write_struct(
     models: &mut BTreeSet<String>,
 ) {
     let class = ident(name);
-    let mut field_names = Members::new(&[class.as_str()]);
+    let mut field_names = Members::record(&class);
     let fields = structty
         .fields
         .iter()
@@ -658,10 +670,6 @@ pub fn generate(
             "Run",
             "RunAsync",
             "Dispose",
-            "Equals",
-            "GetHashCode",
-            "GetType",
-            "ToString",
         ]);
 
         let _ =

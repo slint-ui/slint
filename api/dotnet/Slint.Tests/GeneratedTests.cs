@@ -41,6 +41,19 @@ public sealed class GeneratedTests
     });
 
     [TestMethod]
+    public void StructFieldsNamedLikeRecordMembers() => SlintThread.Run(() =>
+    {
+        using var app = Generated.Create();
+        Assert.AreEqual("text", app.RecordMembers.ToString_);
+        Assert.IsTrue(app.RecordMembers.Equals_);
+        Assert.AreEqual(3, app.RecordMembers.Finalize);
+        Assert.AreEqual(new RecordMembers { ToString_ = "default", GetType_ = 7 }, new RecordHolder().Inner);
+
+        app.RecordMembers = app.RecordMembers with { EqualityContract_ = 1, PrintMembers_ = 2, GetHashCode_ = 4, GetType_ = 5, MemberwiseClone_ = 6 };
+        Assert.AreEqual(new RecordMembers { EqualityContract_ = 1, PrintMembers_ = 2, ToString_ = "text", Equals_ = true, GetHashCode_ = 4, GetType_ = 5, MemberwiseClone_ = 6, Finalize = 3 }, app.RecordMembers);
+    });
+
+    [TestMethod]
     public void ModelsOfStructs() => SlintThread.Run(() =>
     {
         using var app = Generated.Create();
