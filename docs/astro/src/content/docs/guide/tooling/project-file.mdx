@@ -140,10 +140,11 @@ The arguments you pass to `slint.load_file` win over the project file.
 </TabItem>
 </Tabs>
 
-The `slint-compiler` command line tool accepts the project file or its directory, too:
+The `slint-compiler` and [`slint-tr-extractor`](../../development/translations/#extracting-translatable-strings) command line tools accept the project file or its directory, too:
 
 ```bash
 slint-compiler slint-project.json -o main.h
+slint-tr-extractor slint-project.json -o messages.pot
 ```
 
 ## Editor Support
