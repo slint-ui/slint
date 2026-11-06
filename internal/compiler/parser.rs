@@ -672,6 +672,9 @@ fn nesting_weight(kind: SyntaxKind) -> usize {
     match kind {
         SyntaxKind::FunctionCallExpression => 4,
         SyntaxKind::Array | SyntaxKind::ConditionalElement | SyntaxKind::RepeatedElement => 3,
+        // The `Expression` around it already counts: a link of an `else if` or `? :` chain
+        // costs one level.
+        SyntaxKind::ConditionalExpression => 0,
         _ => 1,
     }
 }

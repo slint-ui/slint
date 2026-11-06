@@ -437,7 +437,7 @@ pub(super) fn type_exports(
             // A `#[deprecated] pub use` does not warn on use, but a deprecated type alias does.
             deprecated_type_exports.push(quote! {
                 #[deprecated(note = #note)]
-                #[allow(dead_code)]
+                #[allow(dead_code, non_camel_case_types)]
                 pub type #exported = #generated_mod::#internal;
             });
         } else if e.is_alias() {
@@ -516,6 +516,8 @@ fn generate_public_component(
     let new_with_existing_window_enabled = compiler_config
         .experimental_features
         .contains(crate::ExperimentalFeature::NewWithExistingWindow);
+
+    let new_with_context_vis = new_with_existing_window_enabled.then(|| quote!(pub));
 
     let new_with_existing_window_impl: Option<TokenStream> = match llr.top_level_type {
         llr::TopLevelComponentType::Window => Some(quote!(
@@ -619,17 +621,10 @@ fn generate_public_component(
 
         impl #public_component_id {
             pub fn new() -> ::core::result::Result<Self, slint::PlatformError> {
-                let context = slint::private_unstable_api::ensure_context()?;
-                let inner = #inner_component_id::new(context)?;
-                #eager_create_window
-                #init_bundle_translations
-                #inner_component_id::user_init(sp::VRc::map(inner.clone(), |x| x));
-                #ensure_tree_instantiated
-                ::core::result::Result::Ok(Self(inner))
+                Self::new_with_context(slint::private_unstable_api::ensure_context()?)
             }
 
-            #[cfg(#new_with_existing_window_enabled)]
-            pub fn new_with_context(ctx: sp::SlintContext) -> ::core::result::Result<Self, slint::PlatformError> {
+            #new_with_context_vis fn new_with_context(ctx: sp::SlintContext) -> ::core::result::Result<Self, slint::PlatformError> {
                 let inner = #inner_component_id::new(ctx)?;
                 #eager_create_window
                 #init_bundle_translations
@@ -798,6 +793,10 @@ fn generate_shared_globals(
 
             #pub_token fn context(&self) -> &sp::SlintContext {
                 &self.context
+            }
+
+            fn scale_factor(&self) -> f32 {
+                self.window_adapter_ref().unwrap().window().scale_factor()
             }
 
             fn window_adapter_ref(&self) -> sp::Result<&sp::Rc<dyn sp::WindowAdapter>, slint::PlatformError>
@@ -2854,13 +2853,7 @@ fn generate_item_tree_body(
         }
 
         fn get_item_ref(self: ::core::pin::Pin<&Self>, index: u32) -> ::core::pin::Pin<sp::ItemRef<'_>> {
-            match &self.get_item_tree().as_slice()[index as usize] {
-                sp::ItemTreeNode::Item { item_array_index, .. } => {
-                    Self::item_array()[*item_array_index as usize].apply_pin(self)
-                }
-                sp::ItemTreeNode::DynamicTree { .. } => panic!("get_item_ref called on dynamic tree"),
-
-            }
+            slint::private_unstable_api::get_item_ref(self, Self::item_tree(), Self::item_array(), index)
         }
 
         fn get_item_tree(
@@ -4426,23 +4419,30 @@ fn compile_image_reference(expr: &Expression) -> TokenStream {
 }
 
 fn compile_condition(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
-    let Expression::Condition { condition, true_expr, false_expr } = expr else { unreachable!() };
-    let condition_code = compile_expression_no_parenthesis(condition, ctx);
+    // Every link of an `else if` chain has the type of the chain's last false branch
     let (compile, semi): (fn(&Expression, &EvaluationContext) -> TokenStream, _) =
-        if false_expr.ty(ctx) == Type::Void {
+        if expr.ty(ctx) == Type::Void {
             (compile_expression, quote!(;))
         } else {
             (compile_expression_to_value, quote!(as _))
         };
-    let true_code = compile(true_expr, ctx);
-    let false_code = remove_parenthesis(false_expr, ctx, compile);
-    quote!(
-        if #condition_code {
-            (#true_code) #semi
-        } else {
-            #false_code
-        }
-    )
+    // An `else if` chain nests in the false branch: iterate it, so the stack depth stays bounded.
+    let mut links = Vec::new();
+    let mut expr = expr;
+    while let Expression::Condition { condition, true_expr, false_expr } = expr {
+        links.push((compile_expression_no_parenthesis(condition, ctx), compile(true_expr, ctx)));
+        expr = false_expr;
+    }
+    let false_code = remove_parenthesis(expr, ctx, compile);
+    links.into_iter().rev().fold(false_code, |false_code, (condition_code, true_code)| {
+        quote!(
+            if #condition_code {
+                (#true_code) #semi
+            } else {
+                #false_code
+            }
+        )
+    })
 }
 
 /// Maximum number of elements an array literal constructs in one function.
@@ -4741,6 +4741,18 @@ fn struct_field_access(s: &Struct, name: &str) -> proc_macro2::TokenTree {
     }
 }
 
+/// The globals for a popup, in `shared_global`'s scope: with its own window adapter when
+/// `window`'s backend creates one.
+fn popup_globals(window: &TokenStream, window_kind: &TokenStream) -> TokenStream {
+    quote! {
+        if let Some(popup_window_adapter) = #window.create_child_window_adapter(#window_kind) {
+            shared_global.clone_with_window_adapter(popup_window_adapter)
+        } else {
+            shared_global.clone()
+        }
+    }
+}
+
 #[allow(
     clippy::redundant_closure_call,
     reason = "in debug builds, the closures keep the locals of the arms out of this recursive frame"
@@ -4845,13 +4857,7 @@ fn compile_builtin_function_call(
                 } else {
                     quote!(sp::WindowKind::Popup)
                 };
-                let globals_init = quote! {
-                    if let Some(popup_window_adapter) = window.create_child_window_adapter(#window_kind) {
-                        shared_global.clone_with_window_adapter(popup_window_adapter)
-                    } else {
-                        shared_global.clone()
-                    }
-                };
+                let globals_init = popup_globals(&quote!(window), &window_kind);
                 // The optional 4th argument is a property reference to the synthesized `is-open`,
                 // mapped in this show call's own frame (see lower_show_popup_window), so it resolves
                 // directly against `ctx`/`_self`, exactly like `parent_ref`.
@@ -5015,12 +5021,18 @@ fn compile_builtin_function_call(
                     #popup_id::user_init(popup_instance_vrc);
                 };
 
+                let menu_globals = popup_globals(
+                    &quote!(sp::WindowInner::from_pub(window_adapter.window())),
+                    &quote!(sp::WindowKind::Menu),
+                );
                 let common_init = quote! {
                     let position = #position;
-                    let popup_instance = #popup_id::new(_self.globals.get().unwrap().clone()).unwrap();
+                    let window_adapter = #window_adapter_tokens;
+                    let shared_global = _self.globals.get().unwrap();
+                    let globals = #menu_globals;
+                    let popup_instance = #popup_id::new(globals).unwrap();
                     let popup_instance_vrc = sp::VRc::map(popup_instance.clone(), |x| x);
                     let parent_weak = _self.self_weak.get().unwrap().clone();
-                    let window_adapter = #window_adapter_tokens;
                 };
 
                 if let Expression::NumberLiteral(tree_index) = entries {
@@ -5170,10 +5182,10 @@ fn compile_builtin_function_call(
                 panic!("internal error: invalid args to RegisterBitmapFont must be a number")
             }
         })(),
-        BuiltinFunction::GetWindowScaleFactor => (|| {
-            let window_adapter_tokens = access_window_adapter_field(ctx);
-            quote!(sp::WindowInner::from_pub(#window_adapter_tokens.window()).scale_factor())
-        })(),
+        BuiltinFunction::GetWindowScaleFactor => {
+            let global_access = &ctx.generator_state.global_access;
+            quote!(#global_access.scale_factor())
+        }
         BuiltinFunction::GetWindowDefaultFontSize => {
             quote!(
                 sp::WindowItem::resolved_default_font_size(sp::VRcMapped::origin(

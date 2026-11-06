@@ -188,6 +188,14 @@ export function planReachableVariants<Node extends ReachabilityNode>(
     selection: ReachabilitySelection,
 ): ReachabilityResult {
     const definitions = new Map(library.definitions.map((d) => [d.id, d]));
+    const variantIndexes = new Map(
+        library.definitions.map((definition) => [
+            definition.id,
+            new Map(
+                definition.variants.map((variant) => [variant.id, variant]),
+            ),
+        ]),
+    );
     const variants = new Map<string, Set<string>>();
     const completeFamilies = new Set<string>();
     const diagnostics: string[] = [];
@@ -200,6 +208,7 @@ export function planReachableVariants<Node extends ReachabilityNode>(
             diagnostics.push(`${reason}: unknown component family ${id}`);
             return;
         }
+        if (completeFamilies.has(id)) return;
         completeFamilies.add(id);
         variants.set(id, new Set(definition.variants.map((v) => v.id)));
         for (const variant of definition.variants)
@@ -217,7 +226,7 @@ export function planReachableVariants<Node extends ReachabilityNode>(
             );
             return;
         }
-        const variant = definition.variants.find((v) => v.id === variantId);
+        const variant = variantIndexes.get(definitionId)?.get(variantId);
         if (!variant) {
             full(definitionId, `${reason}: unknown variant ${variantId}`);
             diagnostics.push(`${reason}: unknown variant ${variantId}`);

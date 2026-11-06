@@ -89,13 +89,11 @@ export type MaterializedNode = {
     readonly sourceRasterBounds?: VisualBounds;
     readonly textPaintBounds?: unknown;
     readonly sourceMaskRaster?: boolean;
-    readonly sourceRasterized?: boolean;
 };
 
 export type NormalizationContext = {
     readonly assets: NormalizationAssets;
     readonly target: GenerationTarget;
-    readonly nativeTextOnly?: boolean;
     readonly metrics: {
         durationMs: number;
         requests: number;

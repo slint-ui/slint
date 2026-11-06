@@ -9,7 +9,7 @@ This should work:
 ```
 mod x {
     use slint::*;
-    slint!{ Hello := Rectangle { } }
+    slint!{ #[edition = "1.18"] Hello := Rectangle { } }
 }
 ```
 
@@ -18,7 +18,7 @@ But his not:
 ```compile_fail
 mod x {
     use slint::*;
-    slint!{ Hello : = Rectangle { } }
+    slint!{ #[edition = "1.18"] Hello : = Rectangle { } }
 }
 ```
 

@@ -111,6 +111,7 @@ fn compile_and_show(
     let source = std::fs::read_to_string(absolute_path)?;
     let mut compiler = slint_interpreter::Compiler::default();
     compiler.set_style("fluent".into());
+    compiler.set_edition(test_driver_lib::edition_version_or_current(&source));
     let compiled =
         poll_once(compiler.build_from_source(source, absolute_path.to_path_buf())).unwrap();
 

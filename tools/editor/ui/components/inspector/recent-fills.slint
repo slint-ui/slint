@@ -1,16 +1,17 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Properties, FillData } from "../../properties.slint";
+
 import { Style, Metrics, Colors, Typography, FillPickerStyle } from "../../style.slint";
 import { EditorScrollView } from "../editor-scroll-view.slint";
-import { Api, FillData } from "../../api.slint";
 
 export component InspectorRecentFills inherits Rectangle {
     in property <FillPickerStyle> style: Style.fill-picker;
     in property <bool> allow-gradient;
     in property <bool> editable;
     callback chosen(FillData);
-    private property <[FillData]> fills: Api.filter-recent-fills(Api.recent-fills, root.allow-gradient);
+    private property <[FillData]> fills: Properties.filter-recent-fills(Properties.recent-fills, root.allow-gradient);
     height: Metrics.space-medium + root.style.recent-swatch-size;
     Rectangle { y: 0px; height: Metrics.border-width; background: Style.inspector-layout.divider; }
     HorizontalLayout {
@@ -45,12 +46,12 @@ export component InspectorRecentFills inherits Rectangle {
                         border-radius: Metrics.radius-small;
                         border-width: Metrics.border-width;
                         border-color: parent.has-focus ? Colors.accent : Style.inspector-layout.divider;
-                        background: Api.fill-brush(fill);
+                        background: Properties.fill-brush(fill);
                     }
                     TouchArea {
                         enabled: root.editable;
                         accessible-role: button;
-                        accessible-label: @tr("Recent fill {}", Api.fill-expression(fill));
+                        accessible-label: @tr("Recent fill {}", Properties.fill-expression(fill));
                         clicked => { parent.focus(); root.chosen(fill); }
                         accessible-action-default => { if root.editable { root.chosen(fill); } }
                     }

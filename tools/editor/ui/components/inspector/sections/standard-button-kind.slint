@@ -23,7 +23,7 @@ export component InspectorStandardButtonKindSection inherits InspectorSection {
             wide: true;
             popup-available-height: max(Style.inspector-field.height, root.popup-bottom - self.absolute-position.y - Metrics.space-medium);
             accepted(text) => {
-                return text != "" && InspectorContext.commit-code("kind", text);
+                return text != "" && InspectorContext.commit-enum("kind", text);
             }
         }
     }
