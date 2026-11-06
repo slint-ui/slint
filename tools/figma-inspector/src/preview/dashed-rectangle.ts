@@ -41,14 +41,17 @@ export function dashedRectangleSource(
             ? [...stroke.dashPattern, ...stroke.dashPattern]
             : stroke.dashPattern;
     const period = pattern.reduce((sum, entry) => sum + entry, 0);
+    const sourceDepth = depth;
     const source = (
         commands: string,
         dashes: readonly number[],
         offset = 0,
+        depth = sourceDepth,
+        origin = { x: -expansion, y: -expansion },
     ): SlintLine[] => [
         openElement("Path", depth),
-        binding("x", `${number(-expansion)}px`, depth + 1),
-        binding("y", `${number(-expansion)}px`, depth + 1),
+        binding("x", `${number(origin.x)}px`, depth + 1),
+        binding("y", `${number(origin.y)}px`, depth + 1),
         binding("width", `${number(width)}px`, depth + 1),
         binding("height", `${number(height)}px`, depth + 1),
         // Slint reserves half the stroke width around the path's view box.
@@ -80,7 +83,32 @@ export function dashedRectangleSource(
             : [binding("stroke-miter-limit", stroke.miterLimit, depth + 1)]),
         closeElement(depth),
     ];
+    const clippedSource = (
+        commands: string,
+        dashes: readonly number[],
+        offset: number,
+        bounds?: { x: number; y: number; width: number; height: number },
+    ): SlintLine[] => {
+        if (bounds && (bounds.width <= 0 || bounds.height <= 0)) return [];
+        if (!bounds || !stroke.lineCap || stroke.lineCap === "butt")
+            return source(commands, dashes, offset);
+        return [
+            openElement("Rectangle", depth),
+            binding("x", `${number(bounds.x)}px`, depth + 1),
+            binding("y", `${number(bounds.y)}px`, depth + 1),
+            binding("width", `${number(bounds.width)}px`, depth + 1),
+            binding("height", `${number(bounds.height)}px`, depth + 1),
+            binding("clip", true, depth + 1),
+            ...source(commands, dashes, offset, depth + 1, {
+                x: -expansion - bounds.x,
+                y: -expansion - bounds.y,
+            }),
+            closeElement(depth),
+        ];
+    };
     const [tl, tr, br, bl] = radii;
+    const inset = Math.max(0, weight - expansion);
+    const endpoint = (radius: number) => radius || inset;
     const result: SlintLine[] = [];
     // Figma fits rectangular dashes independently to each edge and corner,
     // with half a dash on either end of each segment.
@@ -88,6 +116,8 @@ export function dashedRectangleSource(
         commands: string,
         originalLength: number,
         radialScale = 1,
+        skipped = 0,
+        clip?: { x: number; y: number; width: number; height: number },
     ) => {
         if (originalLength <= 0) return;
         const cycles = period > 0 ? Math.round(originalLength / period) : 0;
@@ -95,28 +125,61 @@ export function dashedRectangleSource(
             ? (originalLength / (cycles * period)) * radialScale
             : 1;
         result.push(
-            ...source(
+            ...clippedSource(
                 commands,
                 cycles ? pattern.map((length) => length * scale) : [],
-                cycles ? (pattern[0] * scale) / 2 : 0,
+                cycles ? (pattern[0] * scale) / 2 + skipped : 0,
+                clip,
             ),
         );
     };
     segment(
-        `M ${move(tl, delta)} L ${move(node.width - tr, delta)}`,
+        `M ${move(endpoint(tl), delta)} L ${move(node.width - endpoint(tr), delta)}`,
         node.width - tl - tr,
+        1,
+        tl === 0 ? inset : 0,
+        {
+            x: endpoint(tl),
+            y: -expansion,
+            width: node.width - endpoint(tl) - endpoint(tr),
+            height: weight,
+        },
     );
     segment(
-        `M ${move(node.width - delta, tr)} L ${move(node.width - delta, node.height - br)}`,
+        `M ${move(node.width - delta, endpoint(tr))} L ${move(node.width - delta, node.height - endpoint(br))}`,
         node.height - tr - br,
+        1,
+        tr === 0 ? inset : 0,
+        {
+            x: node.width - inset,
+            y: endpoint(tr),
+            width: weight,
+            height: node.height - endpoint(tr) - endpoint(br),
+        },
     );
     segment(
-        `M ${move(node.width - br, node.height - delta)} L ${move(bl, node.height - delta)}`,
+        `M ${move(node.width - endpoint(br), node.height - delta)} L ${move(endpoint(bl), node.height - delta)}`,
         node.width - br - bl,
+        1,
+        br === 0 ? inset : 0,
+        {
+            x: endpoint(bl),
+            y: node.height - inset,
+            width: node.width - endpoint(bl) - endpoint(br),
+            height: weight,
+        },
     );
     segment(
-        `M ${move(delta, node.height - bl)} L ${move(delta, tl)}`,
+        `M ${move(delta, node.height - endpoint(bl))} L ${move(delta, endpoint(tl))}`,
         node.height - bl - tl,
+        1,
+        bl === 0 ? inset : 0,
+        {
+            x: -expansion,
+            y: endpoint(tl),
+            width: weight,
+            height: node.height - endpoint(tl) - endpoint(bl),
+        },
     );
     const corners = [
         [node.width - tr, tr, tr, -Math.PI / 2],
@@ -127,14 +190,14 @@ export function dashedRectangleSource(
     for (const [cx, cy, radius, angle] of corners) {
         const centerRadius = Math.max(0, radius - delta);
         if (radius === 0) {
-            if (expansion > 0) {
+            if (expansion > 0 || inset > 0) {
                 const sx = cx === 0 ? -1 : 1;
                 const sy = cy === 0 ? -1 : 1;
                 const first = move(cx + sx * expansion, cy);
                 const last = move(cx, cy + sy * expansion);
                 const join = stroke.lineJoin ?? "miter";
                 const corner =
-                    join === "round"
+                    join === "round" && expansion > 0
                         ? `A ${number(expansion)} ${number(expansion)} 0 0 ${sx * sy > 0 ? 1 : 0} ${last}`
                         : join === "bevel" ||
                             (stroke.miterLimit ?? 4) < Math.SQRT2
@@ -150,7 +213,7 @@ export function dashedRectangleSource(
                     binding("viewbox-height", height, depth + 1),
                     binding(
                         "commands",
-                        `"M ${move(cx, cy)} L ${first} ${corner} Z"`,
+                        `"M ${move(cx - sx * inset, cy - sy * inset)} L ${move(cx + sx * expansion, cy - sy * inset)} L ${first} ${corner} L ${move(cx - sx * inset, cy + sy * expansion)} Z"`,
                         depth + 1,
                     ),
                     binding("fill", brush, depth + 1),
@@ -165,6 +228,13 @@ export function dashedRectangleSource(
             `M ${move(cx + centerRadius * Math.cos(angle), cy + centerRadius * Math.sin(angle))} A ${number(centerRadius)} ${number(centerRadius)} 0 0 1 ${move(cx + centerRadius * Math.cos(end), cy + centerRadius * Math.sin(end))}`,
             (radius * Math.PI) / 2,
             centerRadius / radius,
+            0,
+            {
+                x: angle <= 0 ? cx : -expansion,
+                y: angle === 0 || angle === Math.PI / 2 ? cy : -expansion,
+                width: radius + expansion,
+                height: radius + expansion,
+            },
         );
     }
     return result;
