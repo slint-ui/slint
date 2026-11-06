@@ -1,17 +1,18 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Api } from "../../../api.slint";
 import { Properties, PropertyEditKind } from "../../../properties.slint";
-
-import { Style, Metrics, InspectorStyle } from "../../../style.slint";
+import { Style, Metrics, Colors, Typography, InspectorStyle } from "../../../style.slint";
 import { InspectorComboBox, InspectorEditableField, InspectorEnumOptions, InspectorPropertyRow, InspectorSection, InspectorSwitch } from "../index.slint";
 import { InspectorContext } from "context.slint";
+import { InspectorSpinField } from "../spin-field.slint";
 
 export component InspectorTypographySection inherits InspectorSection {
     in property <InspectorStyle> style: Style.inspector-layout;
     in property <length> field-width;
-    in property <length> popup-bottom;
     private property <bool> italic: Properties.editor-property-value-data("font-italic").value-bool;
+    private property <float> font-size: Properties.editor-number-property("font-size", Api.preview-default-font-size);
 
     title: @tr("Typography");
 
@@ -33,26 +34,43 @@ export component InspectorTypographySection inherits InspectorSection {
         HorizontalLayout {
             spacing: root.style.column-gap;
 
-            if Properties.has-property("font-weight"): InspectorComboBox {
-                accessible-name: @tr("Font weight");
-                fit-options: true;
-                value: InspectorEnumOptions.text-font-weight-label();
-                selected-index: InspectorEnumOptions.text-font-weight-index();
-                options: InspectorEnumOptions.text-font-weight-options;
-                popup-available-height: max(Style.inspector-field.height, root.popup-bottom - self.absolute-position.y - Metrics.space-medium);
-                accepted(text) => {
-                    return text.is-float() && InspectorContext.commit-value("font-weight", { kind: PropertyEditKind.integer, integer: text.to-float() });
+            if Properties.has-property("font-weight"): VerticalLayout {
+                spacing: Metrics.space-compact;
+                Text {
+                    text: @tr("Weight"); color: Colors.muted;
+                    font-size: Typography.control.size;
+                }
+                InspectorComboBox {
+                    commit-key: InspectorContext.inspector-key;
+                    accessible-name: @tr("Font weight");
+                    value: InspectorEnumOptions.text-font-weight-label();
+                    selected-index: InspectorEnumOptions.text-font-weight-index();
+                    options: InspectorEnumOptions.text-font-weight-options;
+                    accepted(text) => {
+                        return text.is-float() && InspectorContext.commit-value("font-weight", { kind: PropertyEditKind.integer, integer: text.to-float() });
+                    }
                 }
             }
 
-            if Properties.has-property("font-size"): InspectorEditableField {
-                accessible-name: @tr("Font size");
-                value: InspectorContext.text-font-size-value();
-                commit-key: InspectorContext.field-key("font-size");
-                accepted(text) => {
-                    return text.is-float()
-                        ? InspectorContext.commit-number("font-size", text.to-float(), "px")
-                        : InspectorContext.commit-code("font-size", text);
+            if Properties.has-property("font-size"): VerticalLayout {
+                spacing: Metrics.space-compact;
+                Text {
+                    text: @tr("Size"); color: Colors.muted;
+                    font-size: Typography.control.size;
+                }
+                InspectorSpinField {
+                    accessible-name: @tr("Font size");
+                    value: InspectorContext.text-font-size-value();
+                    number: root.font-size;
+                    commit-key: InspectorContext.field-key("font-size");
+                    accepted(text) => {
+                        return text.is-float()
+                            ? text.to-float() > 0 && InspectorContext.commit-number("font-size", text.to-float(), "px")
+                            : InspectorContext.commit-code("font-size", text);
+                    }
+                    preview(value) => { return InspectorContext.preview-number("font-size", value, "px"); }
+                    scrub-accepted(value) => { return InspectorContext.commit-number("font-size", value, "px"); }
+                    canceled => { Properties.inspector-cancel(); }
                 }
             }
         }

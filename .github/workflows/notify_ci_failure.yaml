@@ -71,12 +71,14 @@ jobs:
                       | jq -s . > .triage/failed_jobs.json
                   # A broken build fails dozens of matrix jobs with the same error.
                   # gh refuses to print the color codes of cargo's output unless
-                  # allowed, and they'd get in the way of Grep, so strip them.
+                  # allowed. They and the timestamps get in the way of Grep and of
+                  # quoting a line, so strip them.
                   for id in $(jq -r '.[:20][].id' .triage/failed_jobs.json); do
                       gh api --allow-escape-sequences "repos/$GITHUB_REPOSITORY/actions/jobs/$id/logs" \
-                          | sed 's/\x1b\[[0-9;]*[A-Za-z]//g' > ".triage/logs/$id.log" \
+                          | sed -e 's/\x1b\[[0-9;]*[A-Za-z]//g' -e 's/^[0-9-]*T[0-9:.]*Z //' > ".triage/logs/$id.log" \
                           || echo "::warning::Could not fetch the log of job $id"
                   done
+                  wc -l .triage/logs/* || echo "::warning::No job log was fetched"
 
                   last_green=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$WORKFLOW_ID/runs?branch=$BRANCH&event=workflow_dispatch&status=success&per_page=1" \
                       -q '.workflow_runs[0].head_sha // ""')
@@ -108,7 +110,7 @@ jobs:
                       --max-turns 40
                       --allowedTools "Read(./**),Grep(./**),Glob(./**)"
                       --disallowedTools "Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch"
-                      --json-schema '{"type":"object","additionalProperties":false,"required":["category","key_error","summary"],"properties":{"category":{"type":"string","enum":["regression","flaky","infrastructure","unclear"]},"key_error":{"type":"string","maxLength":300},"summary":{"type":"string","maxLength":1500}}}'
+                      --json-schema '{"type":"object","additionalProperties":false,"required":["category","log_lines","summary"],"properties":{"category":{"type":"string","enum":["regression","flaky","infrastructure","unclear"]},"log_lines":{"type":"array","maxItems":5,"items":{"type":"string","maxLength":300}},"summary":{"type":"string","maxLength":500}}}'
                   prompt: |
                       Triage a failed CI run on a branch of the Slint repository.
 
@@ -127,13 +129,15 @@ jobs:
                         - `flaky`: a test that fails intermittently, unrelated to the recent changes.
                         - `infrastructure`: the runner, the network, a download, a cache, or an external service failed.
                         - `unclear`: none of the above fits with confidence.
-                      - `key_error`: the one log line that shows the failure, verbatim, or empty if there's none.
-                      - `summary`: plain text for a chat message, at most about six short lines.
-                        Markdown isn't rendered, so don't use it, and don't repeat the key error.
-                        Name the failing jobs and give the likely cause.
+                      - `log_lines`: the log lines that show the error, verbatim, at most five. Empty if there are none.
+                      - `summary`: plain text for a chat message, one to three short lines.
+                        Markdown isn't rendered, so don't use it.
+                        Don't repeat the log lines or the job names, which the message already shows.
+                        Say what broke and why, and the fix if it's obvious.
                         For a regression, name the suspect commit by its short hash and author.
-                        Suggest a fix if one is obvious.
-                        Say plainly when you're not sure.
+                        For a network error, one short sentence such as "Network error while downloading the Android NDK." is enough.
+                        Don't describe what you checked, retries, or earlier runs.
+                        When you're not sure, say so in a few words.
 
             - name: Post to Mattermost
               if: ${{ !cancelled() }}
@@ -166,10 +170,10 @@ jobs:
                       | ($result.category? // "") as $category
                       | [$header]
                       + if $emoji[$category] == null then [] else
-                          # A code span renders nothing inside, as long as it has no backtick or line break.
-                          ($result.key_error | inert | gsub("[`\n\r]"; " ")) as $key_error
+                          # A code block renders nothing inside, as long as no line in it closes the block.
+                          ($result.log_lines | map(inert | gsub("[\n\r]"; " ") | gsub("``"; "`\u200b`"))) as $log_lines
                           | ["", "\($emoji[$category]) [Triage](\($triage)): **\($category)**"]
-                          + (if $key_error == "" then [] else ["`\($key_error)`"] end)
+                          + (if $log_lines == [] then [] else ["```"] + $log_lines + ["```"] end)
                           + [$result.summary | literal]
                         end
                       | {text: join("\n")}' \
