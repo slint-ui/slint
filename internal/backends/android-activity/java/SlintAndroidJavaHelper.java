@@ -423,18 +423,18 @@ class SlintInputView extends View {
         }
 
         // Through TextInput, like the floating menu, so that it applies its rules, such as not
-        // copying passwords. The ids are the ones callback_popup_menu_action in javahelper.rs expects.
+        // copying passwords.
         @Override
         public boolean performContextMenuAction(int id) {
             int action;
             if (id == android.R.id.cut) {
-                action = 0;
+                action = MENU_CUT;
             } else if (id == android.R.id.copy) {
-                action = 1;
+                action = MENU_COPY;
             } else if (id == android.R.id.paste) {
-                action = 2;
+                action = MENU_PASTE;
             } else if (id == android.R.id.selectAll) {
-                action = 3;
+                action = MENU_SELECT_ALL;
             } else {
                 return false;
             }
