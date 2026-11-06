@@ -2160,6 +2160,7 @@ fn build(l: &mut Loader) {
         function close() { BuiltinFunction.ContextMenuClose }
         @pure function is-open() -> bool { BuiltinFunction.ContextMenuIsOpen }
         in property <bool> enabled: true;
+        in property <bool> is-menu-bar;
     } }
 
     element! {

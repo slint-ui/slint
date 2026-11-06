@@ -3,11 +3,11 @@
 
 // issue #422
 
-export TestCase := Window {
+export component TestCase inherits Window {
     width: 100phx;
     height: 100phx;
 
-    property<bool> combo_has_focus;
+    out property<bool> combo_has_focus;
 
     if (true): combo := FocusScope {
         if (true): TouchArea {

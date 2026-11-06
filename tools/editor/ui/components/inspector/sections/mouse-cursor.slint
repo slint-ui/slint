@@ -7,7 +7,6 @@ import { InspectorContext } from "context.slint";
 
 export component InspectorMouseCursorSection inherits InspectorSection {
     in property <InspectorStyle> style: Style.inspector-layout;
-    in property <length> popup-bottom;
 
     title: @tr("Mouse Cursor");
 
@@ -16,12 +15,12 @@ export component InspectorMouseCursorSection inherits InspectorSection {
         spacing: Metrics.space-compact;
 
         InspectorComboBox {
+            commit-key: InspectorContext.inspector-key;
             accessible-name: @tr("Mouse Cursor");
             value: InspectorEnumOptions.option-label("mouse-cursor", "default", InspectorEnumOptions.mouse-cursor-options);
             selected-index: InspectorEnumOptions.option-index("mouse-cursor", "default", InspectorEnumOptions.mouse-cursor-options);
             options: InspectorEnumOptions.mouse-cursor-options;
             wide: true;
-            popup-available-height: max(Style.inspector-field.height, root.popup-bottom - self.absolute-position.y - Metrics.space-medium);
             accepted(text) => {
                 return text != "" && InspectorContext.commit-enum("mouse-cursor", text);
             }

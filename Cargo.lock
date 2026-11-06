@@ -7562,6 +7562,7 @@ dependencies = [
  "chrono",
  "i-slint-backend-linuxkms",
  "i-slint-backend-selector",
+ "i-slint-backend-testing",
  "i-slint-common",
  "i-slint-compiler",
  "i-slint-core",

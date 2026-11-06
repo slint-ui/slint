@@ -64,7 +64,7 @@ tracing-subscriber = { workspace = true }
 slint-build = { workspace = true, features = ["experimental-module-builds"] }
 
 [dev-dependencies]
-i-slint-backend-testing = { path = "../../internal/backends/testing", features = ["internal"] }
+i-slint-backend-testing = { path = "../../internal/backends/testing", features = ["internal", "renderer-software"] }
 i-slint-editor-preview = { path = "../../internal/editor-preview", features = ["testing"] }
 spin_on = { workspace = true }
 tempfile = "3"

@@ -1,16 +1,16 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
- TestCase := Rectangle {
-    property<int> t1: floor(42.2);
-    property<int> t2: floor(23.5);
-    property<int> t3: floor(24.6);
-    property<int> t4: floor(25);
+component TestCase inherits Rectangle {
+    out property<int> t1: floor(42.2);
+    out property<int> t2: floor(23.5);
+    out property<int> t3: floor(24.6);
+    out property<int> t4: floor(25);
 
-    property<int> n1: floor(-42.2);
-    property<int> n2: floor(-23.5);
-    property<int> n3: floor(-24.6);
-    property<int> n4: floor(-25);
+    out property<int> n1: floor(-42.2);
+    out property<int> n2: floor(-23.5);
+    out property<int> n3: floor(-24.6);
+    out property<int> n4: floor(-25);
 }
 /*
 ```cpp
