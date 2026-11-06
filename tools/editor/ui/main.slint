@@ -29,11 +29,13 @@ import { FillSession, FillSessionRequest, FillSessionTarget, InspectorFillPicker
 import { LeftPane } from "components/left-pane.slint";
 import { NewFileErrorPopup } from "components/new-file-error-popup.slint";
 import { EditorTopBar } from "components/top-bar.slint";
+import { ShellTitleBar } from "components/title-bar.slint";
 import { UpdateStatus, UpdateStatusBar, UpdateStatusPill } from "components/update-status.slint";
 
 export {
     Api, Properties, CanvasView, EditorCursors, EditorWindow, Style, ElementVisuals, FillSession, FillSessionRequest,
     FillSessionTarget, ShadowSession, ShadowGesture, ShadowValues, Hover, InlineTextEdit, InlineTextEditStart, Preview, Project, Snapping, Springboard,
+    Metrics
 }
 
 export component EditorUi inherits Window {
@@ -483,12 +485,8 @@ export component EditorUi inherits Window {
                 }
 
                 VerticalLayout {
-                    title-move-area := WindowMoveArea {
-                        height: Style.shell.top-bar-height;
-
-                        title-touch-area := TouchArea {
-                            double-clicked => { root.toggle-maximized(); }
-                        }
+                    title-bar := ShellTitleBar {
+                        zoom-requested => { root.toggle-maximized(); }
 
                         EditorTopBar { }
                     }
