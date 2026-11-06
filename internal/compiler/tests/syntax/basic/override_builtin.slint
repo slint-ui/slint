@@ -109,3 +109,16 @@ export component Test7 inherits Flickable {
     callback scroll-to(int);
 //           >       <warning{'scroll-to' shadows the builtin function of the same name}
 }
+
+// `GridLayout.column-count` was added after 1.18 and can be shadowed by code that declared it before
+export component Test8 inherits GridLayout {
+    in property <string> column-count;
+//                       >          <warning{'column-count' shadows the builtin property of the same name}
+}
+
+export component Test9 {
+    GridLayout {
+        property <int> column-count: 2;
+//                     >          <warning{'column-count' shadows the builtin property of the same name}
+    }
+}

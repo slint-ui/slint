@@ -651,7 +651,10 @@ pub fn binding_reference(element: &ElementRc, name: &'static str) -> Option<Name
 
 /// Return a named reference to a property if it is set by a binding, an assignment,
 /// or a two-way binding, from this component or from outside of it
-fn set_property_reference(element: &ElementRc, name: &'static str) -> Option<NamedReference> {
+pub(crate) fn set_property_reference(
+    element: &ElementRc,
+    name: &'static str,
+) -> Option<NamedReference> {
     let elem = element.borrow();
     let set_externally =
         elem.property_analysis.borrow().get(name).is_some_and(|a| a.is_set_externally);
@@ -702,6 +705,9 @@ pub struct GridLayout {
 
     /// Whether any of the row/column expressions use 'auto'
     pub uses_auto: bool,
+
+    /// The number of columns at which auto-placed cells wrap to the next row
+    pub column_count: Option<NamedReference>,
 }
 
 impl GridLayout {
@@ -714,6 +720,9 @@ impl GridLayout {
     }
 
     pub fn visit_rowcol_named_references(&mut self, visitor: &mut dyn FnMut(&mut NamedReference)) {
+        if let Some(column_count) = &mut self.column_count {
+            visitor(column_count);
+        }
         for elem in &mut self.elems {
             let mut cell = elem.cell.borrow_mut();
             if let RowColExpr::Named(ref mut e) = cell.col_expr {

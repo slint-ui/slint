@@ -3,6 +3,16 @@
 
 export component X inherits Rectangle {
 
+    GridLayout {
+        column-count: -1;
+//                    > <error{'column-count' must be a positive integer}
+    }
+
+    GridLayout {
+        column-count: 1.5;
+//                    >  <error{'column-count' must be a positive integer}
+    }
+
     lay := GridLayout {
         property<string> foo: "hello";
         Row {

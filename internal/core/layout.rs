@@ -807,9 +807,10 @@ pub fn organize_grid_layout(
     input_data: Slice<GridLayoutInputData>,
     repeater_indices: Slice<u32>,
     repeater_steps: Slice<u32>,
+    column_count: f32,
 ) -> GridLayoutOrganizedData {
     let (organized_data, errors) =
-        organize_grid_layout_impl(input_data, repeater_indices, repeater_steps);
+        organize_grid_layout_impl(input_data, repeater_indices, repeater_steps, column_count);
     for error in errors {
         crate::debug_log!("Slint layout error: {}", error);
     }
@@ -821,6 +822,7 @@ fn organize_grid_layout_impl(
     input_data: Slice<GridLayoutInputData>,
     repeater_indices: Slice<u32>,
     repeater_steps: Slice<u32>,
+    column_count: f32,
 ) -> (GridLayoutOrganizedData, Errors) {
     let mut organized_data = GridLayoutOrganizedData::default();
     // Cache size: static_cells * 4 + num_repeaters * 4 (jump cells)
@@ -841,19 +843,19 @@ fn organize_grid_layout_impl(
 
     fn clamp_to_u16(value: f32, field_name: &str, errors: &mut Vec<String>) -> u16 {
         if value < 0.0 {
-            errors.push(format!("cell {field_name} {value} is negative, clamping to 0"));
+            errors.push(format!("{field_name} {value} is negative, clamping to 0"));
             0
         } else if value > u16::MAX as f32 {
-            errors
-                .push(format!("cell {field_name} {value} is too large, clamping to {}", u16::MAX));
+            errors.push(format!("{field_name} {value} is too large, clamping to {}", u16::MAX));
             u16::MAX
         } else {
             value as u16
         }
     }
 
-    let mut row = 0;
-    let mut col = 0;
+    let column_count = clamp_to_u16(column_count, "GridLayout column-count", &mut errors);
+    let mut row: u16 = 0;
+    let mut col: u16 = 0;
     let mut first = true;
     for cell in input_data.as_slice().iter() {
         if cell.new_row && !first {
@@ -863,18 +865,28 @@ fn organize_grid_layout_impl(
         first = false;
 
         if cell.row != i_slint_common::ROW_COL_AUTO {
-            let cell_row = clamp_to_u16(cell.row, "row", &mut errors);
+            let cell_row = clamp_to_u16(cell.row, "cell row", &mut errors);
             if row != cell_row {
                 row = cell_row;
                 col = 0;
             }
         }
         if cell.col != i_slint_common::ROW_COL_AUTO {
-            col = clamp_to_u16(cell.col, "col", &mut errors);
+            col = clamp_to_u16(cell.col, "cell col", &mut errors);
         }
 
-        let colspan = clamp_to_u16(cell.colspan, "colspan", &mut errors);
-        let rowspan = clamp_to_u16(cell.rowspan, "rowspan", &mut errors);
+        let colspan = clamp_to_u16(cell.colspan, "cell colspan", &mut errors);
+        let rowspan = clamp_to_u16(cell.rowspan, "cell rowspan", &mut errors);
+        let is_auto_placed =
+            cell.row == i_slint_common::ROW_COL_AUTO && cell.col == i_slint_common::ROW_COL_AUTO;
+        if is_auto_placed
+            && column_count > 0
+            && col > 0
+            && col.saturating_add(colspan) > column_count
+        {
+            row = row.saturating_add(1);
+            col = 0;
+        }
         col = col.min(u16::MAX - colspan); // ensure col + colspan doesn't overflow
         generator.add(col, colspan, row, rowspan);
         col += colspan;
@@ -2477,9 +2489,11 @@ pub(crate) mod ffi {
         input_data: Slice<GridLayoutInputData>,
         repeater_indices: Slice<u32>,
         repeater_steps: Slice<u32>,
+        column_count: f32,
         result: &mut GridLayoutOrganizedData,
     ) {
-        *result = super::organize_grid_layout(input_data, repeater_indices, repeater_steps);
+        *result =
+            super::organize_grid_layout(input_data, repeater_indices, repeater_steps, column_count);
     }
 
     #[unsafe(no_mangle)]
@@ -2838,6 +2852,7 @@ mod tests {
             Slice::from_slice(&input),
             repeater_indices,
             Slice::from_slice(&[]),
+            0.,
         );
         assert_eq!(
             organized_data.as_slice(),
@@ -2886,6 +2901,7 @@ mod tests {
             Slice::from_slice(&input),
             repeater_indices,
             Slice::from_slice(&[]),
+            0.,
         );
         assert_eq!(
             organized_data.as_slice(),
@@ -2924,6 +2940,7 @@ mod tests {
             Slice::from_slice(&input),
             repeater_indices,
             Slice::from_slice(&[]),
+            0.,
         );
         assert_eq!(
             organized_data.as_slice(),
@@ -3001,8 +3018,12 @@ mod tests {
         let repeater_steps_arr = [num_columns];
         let repeater_steps = Slice::from_slice(&repeater_steps_arr);
         let repeater_indices = Slice::from_slice(&repeater_indices_arr);
-        let (organized_data, errors) =
-            organize_grid_layout_impl(Slice::from_slice(&input), repeater_indices, repeater_steps);
+        let (organized_data, errors) = organize_grid_layout_impl(
+            Slice::from_slice(&input),
+            repeater_indices,
+            repeater_steps,
+            0.,
+        );
         assert_eq!(
             organized_data.as_slice(),
             &[
@@ -3102,6 +3123,7 @@ mod tests {
             Slice::from_slice(&[cell]),
             Slice::from_slice(&[0, 1]),
             Slice::from_slice(&steps),
+            0.,
         );
         let data =
             GridLayoutData { organized_data, size: 100., spacing: 0., padding: Padding::default() };
@@ -3147,8 +3169,12 @@ mod tests {
         let repeater_steps_arr = [2, 3];
         let repeater_steps = Slice::from_slice(&repeater_steps_arr);
         let repeater_indices = Slice::from_slice(&repeater_indices_arr);
-        let (organized_data, errors) =
-            organize_grid_layout_impl(Slice::from_slice(&input), repeater_indices, repeater_steps);
+        let (organized_data, errors) = organize_grid_layout_impl(
+            Slice::from_slice(&input),
+            repeater_indices,
+            repeater_steps,
+            0.,
+        );
         assert_eq!(
             organized_data.as_slice(),
             &[

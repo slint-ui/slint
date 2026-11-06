@@ -1,0 +1,263 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { GridBox } from "std-widgets.slint";
+
+component Cell inherits Rectangle {
+    width: 10phx;
+    height: 10phx;
+}
+
+component ThreeColumns inherits GridLayout {
+    column-count: 3;
+}
+
+// Declared before `GridLayout.column-count` existed: this property has nothing to do with wrapping
+component ShadowingColumns inherits GridLayout {
+    in-out property <int> column-count: 1;
+    Cell { }
+
+    last := Cell { }
+
+    out property <int> last-row: last.row;
+    out property <int> last-col: last.col;
+}
+
+export component TestCase inherits Window {
+    width: 300phx;
+    height: 300phx;
+
+    property <int> dynamic-columns: 2;
+
+    Rectangle {
+        GridLayout {
+            column-count: 2;
+            for i in 5: Cell { }
+
+            after-repeater := Cell { }
+        }
+    }
+
+    Rectangle {
+        GridLayout {
+            column-count: root.dynamic-columns;
+            first := Cell { }
+
+            second := Cell { }
+
+            third := Cell { }
+
+            fourth := Cell { }
+        }
+    }
+
+    Rectangle {
+        GridLayout {
+            column-count: 2;
+            span-a := Cell { }
+
+            // doesn't fit in the first row
+            span-b := Cell {
+                colspan: 2;
+            }
+
+            // the row is full, but nothing wraps until a cell needs it
+            span-c := Cell { }
+        }
+    }
+
+    Rectangle {
+        GridLayout {
+            column-count: 2;
+            exact-a := Cell { }
+
+            exact-b := Cell { }
+
+            // a full row doesn't leave an empty row before a Row element
+            Row {
+                in-row-a := Cell { }
+
+                in-row-b := Cell { }
+
+                in-row-c := Cell { }
+            }
+
+            after-row := Cell { }
+        }
+    }
+
+    Rectangle {
+        GridLayout {
+            column-count: 2;
+            Cell { }
+
+            // explicit coordinates win over wrapping
+            explicit-col := Cell {
+                col: 4;
+            }
+
+            explicit-then-wrap := Cell { }
+
+            explicit-row := Cell {
+                row: 5;
+            }
+
+            explicit-row-col := Cell {
+                row: 5;
+                col: 3;
+            }
+        }
+    }
+
+    Rectangle {
+        GridLayout {
+            column-count: 1;
+            wide-a := Cell {
+                colspan: 3;
+            }
+
+            wide-b := Cell {
+                colspan: 3;
+            }
+        }
+    }
+
+    Rectangle {
+        GridLayout {
+            column-count: 0;
+            for i in 4: Cell { }
+
+            no-wrap-last := Cell { }
+        }
+    }
+
+    Rectangle {
+        GridLayout {
+            column-count: 2;
+            for i in 2: Row {
+                Cell { }
+
+                Cell { }
+
+                for i in 1: Cell { }
+            }
+
+            repeated-row-next := Cell { }
+        }
+    }
+
+    Rectangle {
+        ThreeColumns {
+            for i in 4: Cell { }
+
+            inherited-last := Cell { }
+        }
+    }
+
+    Rectangle {
+        GridBox {
+            column-count: 1;
+            box-a := Cell { }
+
+            box-b := Cell { }
+        }
+    }
+
+    Rectangle {
+        assigned-grid := GridLayout {
+            assigned-a := Cell { }
+
+            assigned-b := Cell { }
+
+            assigned-c := Cell { }
+        }
+    }
+
+    property <bool> assigned-before-ok: assigned-c.row == 0 && assigned-c.col == 2;
+    property <bool> assigned-after-ok: assigned-c.row == 1 && assigned-c.col == 0 && assigned-c.y == 10phx;
+
+    Rectangle {
+        shadowing-component := ShadowingColumns { }
+    }
+
+    Rectangle {
+        shadowing-set := ShadowingColumns {
+            column-count: 1;
+        }
+    }
+
+    Rectangle {
+        shadowing-local := GridLayout {
+            property <int> column-count: 1;
+            Cell { }
+
+            shadowing-local-last := Cell { }
+        }
+    }
+
+    property <bool> shadowing-ok: shadowing-component.last-row == 0 && shadowing-component.last-col == 1
+        && shadowing-set.last-row == 0 && shadowing-set.last-col == 1
+        && shadowing-local-last.row == 0 && shadowing-local-last.col == 1;
+
+    out property <bool> positions-ok: after-repeater.row == 2 && after-repeater.col == 1
+        && after-repeater.x == 10phx && after-repeater.y == 20phx
+        && span-a.row == 0 && span-b.row == 1 && span-b.col == 0 && span-c.row == 2 && span-c.col == 0
+        && exact-b.row == 0 && exact-b.col == 1
+        && in-row-a.row == 1 && in-row-a.col == 0 && in-row-b.row == 1 && in-row-b.col == 1
+        && in-row-c.row == 2 && in-row-c.col == 0 && after-row.row == 3 && after-row.col == 0
+        && explicit-col.row == 0 && explicit-col.col == 4
+        && explicit-then-wrap.row == 1 && explicit-then-wrap.col == 0
+        && explicit-row.row == 5 && explicit-row.col == 0
+        && explicit-row-col.row == 5 && explicit-row-col.col == 3
+        && wide-a.row == 0 && wide-a.col == 0 && wide-b.row == 1 && wide-b.col == 0
+        && no-wrap-last.row == 0 && no-wrap-last.col == 4
+        && repeated-row-next.row == 4 && repeated-row-next.col == 0
+        && inherited-last.row == 1 && inherited-last.col == 1
+        && box-a.row == 0 && box-b.row == 1 && box-b.col == 0;
+
+    property <bool> two-columns-ok: third.row == 1 && third.col == 0 && fourth.row == 1 && fourth.col == 1
+        && fourth.x == 10phx && fourth.y == 10phx;
+
+    property <bool> three-columns-ok: third.row == 0 && third.col == 2 && fourth.row == 1 && fourth.col == 0
+        && third.x == 20phx && fourth.y == 10phx;
+
+    property <bool> no-wrap-ok: fourth.row == 0 && fourth.col == 3 && fourth.x == 30phx;
+
+    init => {
+        shadowing-local.column-count = 1;
+        shadowing-component.column-count = 1;
+        if !shadowing-ok { error = "!shadowing-ok"; }
+        if !assigned-before-ok { error = "!assigned-before-ok"; }
+        assigned-grid.column-count = 2;
+        if !assigned-after-ok { error = "!assigned-after-ok"; }
+        if !two-columns-ok { error = "!two-columns-ok"; }
+        dynamic-columns = 3;
+        if !three-columns-ok { error = "!three-columns-ok"; }
+        dynamic-columns = 0;
+        if !no-wrap-ok { error = "!no-wrap-ok"; }
+    }
+
+    out property <string> error;
+    out property <bool> test: error == "" && positions-ok;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_error(), "");
+assert!(instance.get_positions_ok());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_error() == "");
+assert(instance.get_positions_ok());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.error, "");
+assert(instance.positions_ok);
+```
+*/

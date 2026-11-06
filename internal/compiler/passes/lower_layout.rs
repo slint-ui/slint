@@ -442,7 +442,11 @@ fn lower_grid_layout(
         geometry: LayoutGeometry::new(grid_layout_element),
         dialog_button_roles: None,
         uses_auto: false,
+        column_count: crate::layout::set_property_reference(grid_layout_element, "column-count"),
     };
+    crate::layout::find_binding(grid_layout_element, "column-count", |b, _, _| {
+        check_number_literal_is_positive_integer(&b.expression, "column-count", b, diag);
+    });
 
     let layout_organized_data_prop = create_new_prop(
         grid_layout_element,
@@ -1890,6 +1894,7 @@ fn lower_dialog_layout(
         geometry: LayoutGeometry::new(dialog_element),
         dialog_button_roles: None,
         uses_auto: true,
+        column_count: None,
     };
     let metrics = &style_metrics.root_element;
     grid.geometry

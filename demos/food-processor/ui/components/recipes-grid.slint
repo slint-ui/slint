@@ -28,12 +28,11 @@ export component RecipesGrid {
             x: Styles.side-margin;
             y: Styles.spacing-md;
             spacing: root.spacing;
+            column-count: root.columns;
             for recipe[index] in root.recipes: RecipeCard {
                 photo: recipe.photo;
                 title: recipe.title;
                 time: recipe.total-time + " Min.";
-                col: (index.mod(columns));
-                row: (index / columns);
                 recipe-clicked => {
                     root.item-clicked(index);
                 }
