@@ -19,6 +19,7 @@ fn main() {
        supports_direct3d: { all(target_family = "windows", enable_skia_wgpu) },
        supports_vulkan: { all(enable_skia_wgpu, any(all(target_family = "unix", not(target_vendor = "apple")), all(any(target_vendor = "apple", target_family = "windows"), feature = "renderer-skia-vulkan"))) },
        xdg_desktop_settings: { not(any(target_family = "windows", target_vendor = "apple", target_arch = "wasm32", target_os = "android")) },
+       startup_notify: { all(unix, not(any(target_vendor = "apple", target_os = "android", target_os = "emscripten", target_os = "redox")), any(feature = "wayland", feature = "x11")) },
        muda: { all(feature = "muda", any(target_os = "windows", target_os = "macos")) },
     }
     println!("cargo:rustc-check-cfg=cfg(slint_nightly_test)");
