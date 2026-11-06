@@ -7240,8 +7240,7 @@ checksum = "33f4fe9184a62d842c9ef383018f3306d8ba224fd9d836f56d7288308847c256"
 [[package]]
 name = "skia-bindings"
 version = "0.157.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3930c7f5e8d813364d74c3b17b227f3bb3a84504f93bb1f8c222d8fd5a7d9c6f"
+source = "git+https://github.com/rust-skia/rust-skia?rev=6a89d0f01c38c4b73bd1a303c547774c10da2e51#6a89d0f01c38c4b73bd1a303c547774c10da2e51"
 dependencies = [
  "bindgen 0.73.2",
  "cc",
@@ -7257,12 +7256,21 @@ dependencies = [
 [[package]]
 name = "skia-safe"
 version = "0.157.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc1c946dbc1a10b6b1ace7e368ea71f96c81448bbf55effcad0a9a3a392358eb"
+source = "git+https://github.com/rust-skia/rust-skia?rev=6a89d0f01c38c4b73bd1a303c547774c10da2e51#6a89d0f01c38c4b73bd1a303c547774c10da2e51"
 dependencies = [
  "bitflags 2.13.2",
  "skia-bindings",
+ "skia-wgpu",
  "windows",
+]
+
+[[package]]
+name = "skia-wgpu"
+version = "0.157.0"
+source = "git+https://github.com/rust-skia/rust-skia?rev=6a89d0f01c38c4b73bd1a303c547774c10da2e51#6a89d0f01c38c4b73bd1a303c547774c10da2e51"
+dependencies = [
+ "skia-bindings",
+ "wgpu 30.0.1",
 ]
 
 [[package]]
