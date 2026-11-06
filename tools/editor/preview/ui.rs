@@ -3475,7 +3475,7 @@ mod tests {
         });
         editor.show().unwrap();
         editor.window().set_size(slint::LogicalSize::new(1360., 1200.));
-        for (type_name, alignment, line_alignment) in [
+        for (type_name, alignment, flexbox) in [
             ("HorizontalLayout", true, false),
             ("VerticalLayout", true, false),
             ("FlexboxLayout", true, true),
@@ -3486,9 +3486,11 @@ mod tests {
             element.type_name = type_name.into();
             api.set_current_element(element);
             slint::platform::update_timers_and_animations();
-            for (label, expected) in
-                [("Layout Alignment", alignment), ("Cross Axis Line Alignment", line_alignment)]
-            {
+            for (label, expected) in [
+                ("Flex Direction", flexbox),
+                ("Layout Alignment", alignment),
+                ("Cross Axis Line Alignment", flexbox),
+            ] {
                 assert_eq!(
                     i_slint_backend_testing::ElementHandle::find_by_accessible_label(
                         &editor, label

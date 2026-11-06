@@ -26,6 +26,8 @@ LABELS = {
     "space-between": "Space between",
     "space-around": "Space around",
     "space-evenly": "Space evenly",
+    "row": "Row",
+    "column-reverse": "Column reverse",
 }
 
 
@@ -68,12 +70,22 @@ LABELS = {
             b"        y: 280px;\n        width: 200px;\n",
             b"        y: 280px;\n        width: 200px;\n        cross-axis-line-alignment: center;\n",
         ),
+        (
+            "default-flexbox-layout",
+            "FlexboxLayout",
+            "Flex Direction",
+            "row",
+            "column-reverse",
+            b"        y: 280px;\n        width: 200px;\n",
+            b"        y: 280px;\n        width: 200px;\n        flex-direction: column-reverse;\n",
+        ),
     ],
     ids=(
         "horizontal-layout-alignment",
         "vertical-layout-alignment",
         "flexbox-layout-alignment",
         "flexbox-layout-line-alignment",
+        "flexbox-layout-direction",
     ),
 )
 def test_layout_alignment_writes_exact_source(
