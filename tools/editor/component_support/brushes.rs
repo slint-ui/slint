@@ -218,19 +218,48 @@ pub fn create_brush(
     color: slint::Color,
     stops: slint::ModelRc<ui::GradientStop>,
 ) -> slint::Brush {
+    create_brush_with_color_space(
+        kind,
+        angle,
+        color,
+        stops,
+        i_slint_core::graphics::GradientColorSpace::Srgb,
+    )
+}
+
+fn create_brush_with_color_space(
+    kind: ui::BrushKind,
+    angle: f32,
+    color: slint::Color,
+    stops: slint::ModelRc<ui::GradientStop>,
+    color_space: i_slint_core::graphics::GradientColorSpace,
+) -> slint::Brush {
     let mut stops = sorted_gradient_stops(stops);
 
     match kind {
         ui::BrushKind::Solid => slint::Brush::SolidColor(color),
         ui::BrushKind::Linear => slint::Brush::LinearGradient(
-            i_slint_core::graphics::LinearGradientBrush::new(angle, stops.drain(..)),
+            (i_slint_core::graphics::LinearGradientBrush::new(angle, stops.drain(..)))
+                .with_color_space(color_space),
         ),
         ui::BrushKind::Radial => slint::Brush::RadialGradient(
-            i_slint_core::graphics::RadialGradientBrush::new_circle(stops.drain(..)),
+            (i_slint_core::graphics::RadialGradientBrush::new_circle(stops.drain(..)))
+                .with_color_space(color_space),
         ),
         ui::BrushKind::Conic => slint::Brush::ConicGradient(
-            i_slint_core::graphics::ConicGradientBrush::new(angle, stops.drain(..)),
+            (i_slint_core::graphics::ConicGradientBrush::new(angle, stops.drain(..)))
+                .with_color_space(color_space),
         ),
+    }
+}
+
+fn color_space_to_string(
+    color_space: i_slint_core::graphics::GradientColorSpace,
+) -> slint::SharedString {
+    if color_space == i_slint_core::graphics::GradientColorSpace::Srgb {
+        slint::SharedString::new()
+    } else {
+        slint::format!("{color_space}")
     }
 }
 
@@ -244,6 +273,7 @@ pub fn fill_from_brush(brush: slint::Brush) -> Option<ui::FillData> {
         slint::Brush::LinearGradient(g) => {
             fill.kind = ui::BrushKind::Linear;
             fill.angle = g.angle();
+            fill.color_space = color_space_to_string(g.color_space());
             g.stops().copied().collect()
         }
         slint::Brush::RadialGradient(g) => {
@@ -257,6 +287,7 @@ pub fn fill_from_brush(brush: slint::Brush) -> Option<ui::FillData> {
                 fill.radius = radius_x;
                 fill.radius_y = radius_y;
             }
+            fill.color_space = color_space_to_string(g.color_space());
             g.stops().copied().collect()
         }
         slint::Brush::ConicGradient(g) => {
@@ -264,6 +295,7 @@ pub fn fill_from_brush(brush: slint::Brush) -> Option<ui::FillData> {
             let center = g.center_or_default(0., 0.);
             fill.custom_center = center == g.center_or_default(2., 2.);
             (fill.center_x, fill.center_y) = center;
+            fill.color_space = color_space_to_string(g.color_space());
             g.stops().copied().collect()
         }
         _ => Vec::new(),
@@ -279,11 +311,14 @@ pub fn fill_from_brush(brush: slint::Brush) -> Option<ui::FillData> {
 }
 
 pub fn fill_brush(fill: ui::FillData) -> slint::Brush {
-    let brush = create_brush(fill.kind, fill.angle, fill.color, fill.stops);
+    let color_space = fill.color_space.parse().unwrap_or_default();
+    let brush =
+        create_brush_with_color_space(fill.kind, fill.angle, fill.color, fill.stops, color_space);
     match brush {
         slint::Brush::RadialGradient(mut g) => {
             if fill.radial_ellipse {
-                g = i_slint_core::graphics::RadialGradientBrush::new_ellipse(g.stops().copied());
+                g = i_slint_core::graphics::RadialGradientBrush::new_ellipse(g.stops().copied())
+                    .with_color_space(g.color_space());
             }
             if fill.custom_center {
                 g = g.with_center(fill.center_x, fill.center_y);
@@ -327,9 +362,14 @@ pub fn fill_expression(fill: ui::FillData) -> slint::SharedString {
         return color_to_string(fill.color);
     }
     let stops = sorted_gradient_stops(fill.stops);
+    let color_space = if fill.color_space.is_empty() {
+        String::new()
+    } else {
+        format!("in {} ", fill.color_space)
+    };
     if fill.kind == ui::BrushKind::Linear {
         return slint::format!(
-            "@linear-gradient({}deg{})",
+            "@linear-gradient({color_space}{}deg{})",
             fill.angle,
             stops
                 .iter()
@@ -358,7 +398,7 @@ pub fn fill_expression(fill: ui::FillData) -> slint::SharedString {
         };
         let shape = if fill.radial_ellipse { "ellipse" } else { "circle" };
         slint::format!(
-            "@radial-gradient({shape}{radius}{center}{})",
+            "@radial-gradient({color_space}{shape}{radius}{center}{})",
             stops
                 .iter()
                 .map(|s| format!(
@@ -370,7 +410,7 @@ pub fn fill_expression(fill: ui::FillData) -> slint::SharedString {
         )
     } else {
         slint::format!(
-            "@conic-gradient(from {}deg{center}, {})",
+            "@conic-gradient({color_space}from {}deg{center}, {})",
             fill.angle,
             stops
                 .iter()
@@ -802,5 +842,37 @@ mod tests {
         let empty = super::gradient_stop_order(make_empty_model(), 0);
         assert_eq!(empty.selected, -1);
         assert_eq!(empty.indices.row_count(), 0);
+    }
+
+    #[test]
+    fn color_space_round_trips_through_fill_data() {
+        for kind in [ui::BrushKind::Linear, ui::BrushKind::Radial, ui::BrushKind::Conic] {
+            let stops = make_model();
+            for color_space in ["", "oklch", "oklab", "hsl"] {
+                let fill = ui::FillData {
+                    kind,
+                    stops: stops.clone(),
+                    color_space: color_space.into(),
+                    ..Default::default()
+                };
+                let brush = super::fill_brush(fill.clone());
+                let round_tripped = super::fill_from_brush(brush).unwrap();
+                assert_eq!(
+                    round_tripped.color_space.as_str(),
+                    color_space,
+                    "color space did not round-trip for {kind:?}"
+                );
+
+                let expression = super::fill_expression(fill);
+                if color_space.is_empty() {
+                    assert!(!expression.contains("in "), "unexpected 'in' clause in {expression}");
+                } else {
+                    assert!(
+                        expression.contains(&format!("in {color_space} ")),
+                        "missing 'in {color_space}' clause in {expression}"
+                    );
+                }
+            }
+        }
     }
 }
