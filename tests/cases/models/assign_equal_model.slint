@@ -1,11 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-TestCase := Rectangle {
-    property <[int]> foo: [1, 2, 3];
-    property <[int]> bar: [1, 2, 3];
-    property <int> first: foo[0];
-    property <int> foo-changes;
+component TestCase inherits Rectangle {
+    in-out property <[int]> foo: [1, 2, 3];
+    in-out property <[int]> bar: [1, 2, 3];
+    out property <int> first: foo[0];
+    out property <int> foo-changes;
     changed foo => { foo-changes += 1; }
 
     callback do() -> bool;
@@ -29,25 +29,26 @@ TestCase := Rectangle {
         return true;
     }
 
-    property <bool> test: do();
+    out property <bool> test;
+    init => { test = do(); }
 }
 
 /*
 ```cpp
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
-assert(instance.invoke_do());
+assert(instance.get_test());
 ```
 
 
 ```rust
 let instance = TestCase::new().unwrap();
-assert!(instance.invoke_do());
+assert!(instance.get_test());
 ```
 
 ```js
 var instance = new slint.TestCase({});
-assert(instance.do());
+assert(instance.test);
 
 // Assigning the model a property already holds isn't a change.
 function changes() {
@@ -91,7 +92,7 @@ assert.equal(instance.first, 20);
 
 ```csharp
 using var instance = TestCase.Create();
-Assert.IsTrue(instance.InvokeDo());
+Assert.IsTrue(instance.Test);
 
 // Assigning the model that a property already holds isn't a change.
 int Changes()

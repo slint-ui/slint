@@ -13,7 +13,8 @@ To apply these settings, pass the project file or its directory to the compiler.
 
 Name the file `slint-project.json` and place it in your project directory.
 Passing either `/projects/app` or `/projects/app/slint-project.json` loads `/projects/app/slint-project.json`.
-Compiling `/projects/app/ui/main.slint` directly doesn't load a project file.
+Importing a `.slint` file in Node.js or generating TypeScript declarations for it loads `slint-project.json` from the source file's directory.
+For example, importing `/projects/app/ui/main.slint` looks for `/projects/app/ui/slint-project.json`.
 
 ## Example
 
@@ -140,10 +141,11 @@ The arguments you pass to `slint.load_file` win over the project file.
 </TabItem>
 </Tabs>
 
-The `slint-compiler` command line tool accepts the project file or its directory, too:
+The `slint-compiler` and [`slint-tr-extractor`](../../development/translations/#extracting-translatable-strings) command line tools accept the project file or its directory, too:
 
 ```bash
 slint-compiler slint-project.json -o main.h
+slint-tr-extractor slint-project.json -o messages.pot
 ```
 
 ## Editor Support

@@ -11,6 +11,7 @@ use itertools::Itertools as _;
 use std::rc::Rc;
 
 pub fn setup(properties_api: &ui::Properties<'_>) {
+    properties_api.on_color_field_data(color_field_data);
     properties_api.on_fill_brush(fill_brush);
     properties_api.on_brush_fill(|brush| fill_from_brush(brush).unwrap_or_default());
     properties_api.on_fill_expression(fill_expression);
@@ -163,12 +164,7 @@ fn color_field_input_has_alpha(expression: &str) -> bool {
 }
 
 fn color_field_edit(color: slint::Color) -> ui::ColorFieldEdit {
-    ui::ColorFieldEdit {
-        valid: true,
-        color,
-        expression: color_to_string(color),
-        display: color_to_short_string(color).into(),
-    }
+    ui::ColorFieldEdit { valid: true, color, display: color_to_short_string(color).into() }
 }
 
 fn color_value_color_edit(color: slint::Color, text: slint::SharedString) -> ui::ColorFieldEdit {
@@ -197,12 +193,7 @@ fn color_value_opacity_edit(color: slint::Color, text: slint::SharedString) -> u
     }
     let opacity = opacity.clamp(0., 100.);
     let color = color_value_with_opacity(color, opacity);
-    ui::ColorFieldEdit {
-        valid: true,
-        color,
-        expression: color_to_string(color),
-        display: format!("{opacity:.0}").into(),
-    }
+    ui::ColorFieldEdit { valid: true, color, display: format!("{opacity:.0}").into() }
 }
 
 pub fn string_to_color(text: &str) -> Option<slint::Color> {
@@ -580,14 +571,12 @@ mod tests {
             let edit = super::color_value_color_edit(fill.color, input.into());
             assert!(edit.valid);
             assert_eq!(edit.color, slint::Color::from_argb_u8(77, 0x1a, 0x2d, 0xac));
-            assert_eq!(edit.expression, "#1a2dac4d");
             assert_eq!(edit.display, "1A2DAC");
         }
 
         let edit = super::color_value_color_edit(fill.color, "#1234".into());
         assert!(edit.valid);
         assert_eq!(edit.color, slint::Color::from_argb_u8(0x44, 0x11, 0x22, 0x33));
-        assert_eq!(edit.expression, "#11223344");
 
         let invalid = super::color_value_color_edit(Default::default(), "not a color".into());
         assert!(!invalid.valid);
@@ -599,17 +588,11 @@ mod tests {
             color: slint::Color::from_rgb_u8(0x1a, 0x2d, 0xac),
             ..Default::default()
         };
-        for (input, expression, display, alpha) in [
-            ("-1", "#1a2dac00", "0", 0),
-            ("30", "#1a2dac4d", "30", 77),
-            ("101", "#1a2dac", "100", 255),
-        ] {
+        for (input, display, alpha) in [("-1", "0", 0), ("30", "30", 77), ("101", "100", 255)] {
             let edit = super::color_value_opacity_edit(fill.color, input.into());
             assert!(edit.valid);
             assert_eq!(edit.color.alpha(), alpha);
-            assert_eq!(edit.expression, expression);
             assert_eq!(edit.display, display);
-            assert_eq!(super::string_to_color(expression).unwrap().alpha(), alpha);
         }
 
         let invalid = super::color_value_opacity_edit(fill.color, "opaque".into());

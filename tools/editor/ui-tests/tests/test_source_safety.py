@@ -66,7 +66,7 @@ def test_imported_file_edit_targets_only_nested_source(
         field = element(
             window, "Text content", role=slint_testing.AccessibleRole.TextInput
         )
-        field.accessible_value = '"Edited import"'
+        field.accessible_value = "Edited import"
         expected = nested_baseline.replace(
             b'        text: "Imported component";',
             b'        text: "Edited import";',

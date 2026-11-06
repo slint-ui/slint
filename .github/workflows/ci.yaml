@@ -184,7 +184,7 @@ jobs:
         uses: ./.github/workflows/dotnet_test_reusable.yaml
         with:
           name: ".NET macOS"
-          os: "macos-14"
+          os: "macos-15"
     dotnet_test_windows:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_dotnet') }}
         uses: ./.github/workflows/dotnet_test_reusable.yaml

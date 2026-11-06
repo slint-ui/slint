@@ -81,13 +81,17 @@ pub fn setup(editor: &ui::EditorUi, api: &ui::Api<'_>) {
             let overrides = crate::preview::PREVIEW_STATE
                 .with_borrow(|state| state.debug_hook_overrides.clone());
             let mut overrides = (*overrides).borrow_mut();
-            overrides
-                .entry(id)
+            let runtime = overrides
+                .entry(id.clone())
                 .or_insert_with(|| Box::pin(i_slint_core::Property::new(None)))
                 .as_ref()
-                .get()
+                .get()?;
+            Some(crate::preview::inspector::property_value(
+                &id,
+                runtime_property_value(Some(runtime), fallback.clone()),
+            ))
         })();
-        runtime_property_value(value, fallback)
+        value.unwrap_or(fallback)
     });
     properties_api.on_runtime_property_value_data(move |property_name, fallback| {
         let runtime = selected_item
@@ -174,8 +178,13 @@ fn runtime_property_value(
             ui::PropertyValueKind::Boolean
         }
         Value::Brush(brush) => {
+            property.fill = ui::brushes::fill_from_brush(brush.clone()).unwrap_or_default();
             property.value_brush = brush;
-            ui::PropertyValueKind::Brush
+            if fallback.value_kind == ui::PropertyValueKind::Color {
+                ui::PropertyValueKind::Color
+            } else {
+                ui::PropertyValueKind::Brush
+            }
         }
         Value::MouseCursorInner(i_slint_core::cursor::MouseCursorInner::BuiltIn(cursor)) => {
             property.value_string = cursor.to_string().into();

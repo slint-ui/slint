@@ -135,8 +135,8 @@ for i in 1..11 {
     assert_eq!(instance.global::<Properties<'_>>().get_popup_x(), i as f32 * 10., "Iteration: {}", i);
     assert_eq!(instance.global::<Properties<'_>>().get_popup_y(), i as f32 * 20., "Iteration: {}", i);
 
-    assert_eq!(inner.active_popups.borrow().len(), 1);
-    let popups = inner.active_popups.borrow();
+    assert_eq!(inner.active_popups().len(), 1);
+    let popups = inner.active_popups();
     if let slint_testing::PopupWindowLocation::ChildWindow(position) = popups.first().unwrap().location {
         assert_eq!(position, slint_testing::LogicalPoint::new(i as f32 * 10., i as f32 * 20.))
     } else {

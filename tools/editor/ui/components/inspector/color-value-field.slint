@@ -21,13 +21,13 @@ export component InspectorColorValueField inherits Rectangle {
     in property <string> swatch-accessible-name: @tr("{} color picker", root.accessible-name);
     in property <string> commit-key: "";
     out property <bool> input-focused: color-input.input-focused || opacity-input.input-focused;
-    callback accepted(color, string) -> bool;
+    callback accepted(color) -> bool;
     callback preview(color) -> bool;
     callback scrub-accepted(color) -> bool;
     callback scrub-canceled(color);
     callback swatch-activated();
     callback remove-requested();
-    accepted(color, expression) => { return root.preview(color); }
+    accepted(color) => { return root.preview(color); }
     scrub-accepted(color) => { return root.preview(color); }
     scrub-canceled(color) => { root.preview(color); }
     private property <ColorValueData> data: Properties.color-value-data(root.value);
@@ -45,12 +45,12 @@ export component InspectorColorValueField inherits Rectangle {
 
     function accept-color(text: string) -> bool {
         root.color-edit = Properties.color-value-color-edit(root.color-edit-original, text);
-        return root.color-edit.valid && root.accepted(root.color-edit.color, root.color-edit.expression);
+        return root.color-edit.valid && root.accepted(root.color-edit.color);
     }
 
     function accept-opacity(text: string) -> bool {
         root.opacity-edit = Properties.color-value-opacity-edit(root.value, text);
-        return root.opacity-edit.valid && root.accepted(root.opacity-edit.color, root.opacity-edit.expression);
+        return root.opacity-edit.valid && root.accepted(root.opacity-edit.color);
     }
 
     segmented-field := InputSurface {
