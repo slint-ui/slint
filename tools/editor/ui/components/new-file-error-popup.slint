@@ -1,7 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style, PaintStyle, Metrics, Typography, Colors, DialogStyle } from "../style.slint";
+import { Style, Metrics, Typography, Colors, Theme, DialogStyle } from "../style.slint";
+import { Button } from "../../controls/src/basic.slint";
+import { ErrorNotice } from "error-notice.slint";
 import { FloatingSurface } from "floating-surface.slint";
 
 export component NewFileErrorPopup inherits PopupWindow {
@@ -10,86 +12,62 @@ export component NewFileErrorPopup inherits PopupWindow {
     callback dismissed();
 
     width: root.style.width;
-    height: root.style.height;
+    height: max(root.style.height, content.preferred-height);
     close-policy: no-auto-close;
 
     FloatingSurface {
         border-width: Metrics.border-width;
         border-color: root.style.border;
         border-radius: Metrics.radius-large;
-        background: Style.floating-surface.background;
 
-        VerticalLayout {
-            height: parent.height;
+        content := VerticalLayout {
+            VerticalLayout {
+                padding: root.style.padding;
+                spacing: Metrics.space-medium;
 
-            Rectangle {
-                vertical-stretch: 1;
-
-                VerticalLayout {
-                    padding: root.style.padding;
+                HorizontalLayout {
                     spacing: Metrics.space-medium;
+                    cross-axis-alignment: start;
 
-                    HorizontalLayout {
-                        spacing: Metrics.space-medium;
-                        cross-axis-alignment: start;
+                    Rectangle {
+                        width: Metrics.control-medium;
+                        height: Metrics.control-medium;
+                        border-radius: Metrics.radius-medium;
+                        background: Theme.surfaces.raised;
+                        border-width: Metrics.border-width;
+                        border-color: Theme.surfaces.raised-border;
 
-                        Rectangle {
-                            width: root.style.error.icon-size;
-                            height: root.style.error.icon-size;
-                            border-radius: root.style.error.icon-size / 2;
-                            background: root.style.error.icon-background;
-
-                            Text {
-                                text: "×";
-                                color: root.style.error.icon-foreground;
-                                font-size: root.style.error.icon-text.size;
-                                horizontal-alignment: center;
-                                vertical-alignment: center;
-                            }
-                        }
-
-                        VerticalLayout {
-                            spacing: Metrics.space-small;
-
-                            Text {
-                                text: @tr("Couldn’t create file");
-                                color: Colors.foreground;
-                                font-size: Typography.heading.size;
-                                font-weight: Typography.heading.weight;
-                            }
-
-                            Text {
-                                text: @tr("A new Slint file couldn’t be created in the project root.");
-                                color: Colors.muted;
-                                font-size: Typography.body.size;
-                                wrap: word-wrap;
-                            }
+                        Image {
+                            width: Metrics.icon-small;
+                            height: Metrics.icon-small;
+                            source: @image-url("../assets/lucide/file-plus.svg");
+                            colorize: Colors.muted;
                         }
                     }
 
-                    Rectangle {
-                        height: root.style.error.height;
-                        border-width: Metrics.border-width;
-                        border-color: root.style.error.border;
-                        border-radius: root.style.error.radius;
-                        background: root.style.error.background;
-
+                    VerticalLayout {
+                        spacing: Metrics.space-small;
                         Text {
-                            x: root.style.error.inset;
-                            width: parent.width - 2 * root.style.error.inset;
-                            text: root.error;
-                            color: root.style.error.foreground;
-                            font-size: Typography.caption.size;
+                            text: @tr("Couldn’t create file");
+                            color: Colors.foreground;
+                            font-size: Typography.heading.size;
+                            font-weight: Typography.heading.weight;
                             wrap: word-wrap;
-                            vertical-alignment: center;
+                        }
+                        Text {
+                            text: @tr("A new Slint file couldn’t be created in the project root.");
+                            color: Colors.muted;
+                            font-size: Typography.body.size;
+                            wrap: word-wrap;
                         }
                     }
                 }
+
+                ErrorNotice { text: root.error; }
             }
 
             Rectangle {
                 height: root.style.footer-height;
-                vertical-stretch: 0;
                 background: root.style.footer-background;
 
                 Rectangle {
@@ -98,30 +76,44 @@ export component NewFileErrorPopup inherits PopupWindow {
                     background: root.style.footer-border;
                 }
 
-                Rectangle {
-                    private property <PaintStyle> paint: close-touch.pressed ? root.style.close-button.appearance.pressed
-                        : close-touch.has-hover ? root.style.close-button.appearance.hover : root.style.close-button.appearance.normal;
-                    width: bt.width + 2 * root.style.close-button.padding-inline;
-                    height: root.style.close-button.height;
-                    x: parent.width - self.width - Metrics.space-large;
-                    y: (parent.height - self.height) / 2;
-                    border-width: Metrics.border-width;
-                    border-color: self.paint.border;
-                    border-radius: root.style.close-button.radius;
-                    background: self.paint.background;
+                HorizontalLayout {
+                    padding-left: Metrics.space-large;
+                    padding-right: Metrics.space-large;
+                    alignment: end;
+                    cross-axis-alignment: center;
 
-                    bt := Text {
+                    Button {
                         text: @tr("Close");
-                        color: parent.paint.foreground;
-                        font-size: root.style.close-button.text.size;
-                        font-weight: root.style.close-button.text.weight;
-                        horizontal-alignment: center;
-                        vertical-alignment: center;
-                    }
-
-                    close-touch := TouchArea {
-                        accessible-role: AccessibleRole.button;
-                        accessible-label: @tr("Close");
+                        height: Style.compact-button.height;
+                        horizontal-padding: Style.compact-button.padding-inline;
+                        vertical-padding: 0px;
+                        border-radius: Style.compact-button.radius;
+                        border-width: Style.compact-button.border-width;
+                        font-size: Style.compact-button.text.size;
+                        font-weight: Style.compact-button.text.weight;
+                        style: {
+                            rest: {
+                                background-color: Style.compact-button.appearance.normal.background,
+                                foreground-color: Style.compact-button.appearance.normal.foreground,
+                                border-color: Style.compact-button.appearance.normal.border,
+                            },
+                            hover: {
+                                background-color: Style.compact-button.appearance.hover.background,
+                                foreground-color: Style.compact-button.appearance.hover.foreground,
+                                border-color: Style.compact-button.appearance.hover.border,
+                            },
+                            pressed: {
+                                background-color: Style.compact-button.appearance.pressed.background,
+                                foreground-color: Style.compact-button.appearance.pressed.foreground,
+                                border-color: Style.compact-button.appearance.pressed.border,
+                            },
+                            disabled: {
+                                background-color: Style.compact-button.appearance.disabled.background,
+                                foreground-color: Style.compact-button.appearance.disabled.foreground,
+                                border-color: Style.compact-button.appearance.disabled.border,
+                            },
+                            focus-color: Style.compact-button.appearance.focus-border,
+                        };
                         clicked => {
                             root.close();
                             root.dismissed();
