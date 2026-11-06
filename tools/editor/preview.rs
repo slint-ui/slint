@@ -19,6 +19,7 @@ use i_slint_core::component_factory::FactoryContext;
 use i_slint_core::lengths::{
     LogicalPoint, LogicalRect, LogicalSize as CoreLogicalSize, LogicalVector,
 };
+use i_slint_core::platform::Clipboard;
 use i_slint_editor_preview::{
     ElementRcNode,
     component_catalog::{self, ComponentInformation},
@@ -73,7 +74,10 @@ pub fn initialize(
     PREVIEW_STATE.with_borrow_mut(|preview_state| {
         *preview_state.to_lsp.borrow_mut() = Some(to_lsp.clone());
         let api = editor_ui.global::<ui::Api>();
+        let properties_api = editor_ui.global::<ui::Properties>();
         preview_state.api = <ui::Api as slint::Global<'_, ui::EditorUi>>::as_weak(&api);
+        preview_state.properties =
+            <ui::Properties as slint::Global<'_, ui::EditorUi>>::as_weak(&properties_api);
         preview_state.editor_ui = Some(editor_ui.clone_strong());
         preview_state.settings = settings;
     });
@@ -278,6 +282,7 @@ fn set_override(id: &SmolStr, value: Option<slint_interpreter::Value>) {
 pub struct PreviewState {
     pub editor_ui: Option<ui::EditorUi>,
     pub api: slint::Weak<ui::Api<'static>>,
+    pub properties: slint::Weak<ui::Properties<'static>>,
     property_range_declarations: Option<ui::PropertyDeclarations>,
     /// The handle to the previewed component instance
     handle: Rc<RefCell<Option<slint_interpreter::ComponentInstance>>>,
@@ -293,7 +298,6 @@ pub struct PreviewState {
     undo_redo_stack: undo_redo::UndoRedoStack,
     pending_history: std::collections::VecDeque<bool>,
     inspector_edit: Option<inspector::Edit>,
-    fill_refresh: Option<inspector::FillRefresh>,
     text_edit_session: Option<inline_text_edit::Session>,
 
     source_code: SourceCodeCache,
@@ -369,14 +373,13 @@ impl PreviewState {
         self.initial_live_data.clear();
         self.current_live_data.clear();
         self.inspector_edit = None;
-        self.fill_refresh = None;
         self.resources.clear();
         if let Some(api) = self.api.upgrade() {
+            let properties_api = self.properties.upgrade().unwrap();
             api.set_preview_area(Default::default());
             api.set_current_element(Default::default());
-            api.set_properties(Default::default());
+            properties_api.set_properties(Default::default());
             api.set_selection(ui::Selection { highlight_index: -1, ..Default::default() });
-            api.set_inspector_fill_refresh_pending(false);
             ui::ui_set_project_components(&api, &[]);
             ui::ui_set_preview_data(&api, Default::default(), None);
             outline::reset_outline(&api, None);
@@ -713,12 +716,10 @@ fn apply_live_preview_data() {
 }
 
 fn set_contents(url: &VersionedUrl, content: String) {
-    let own_fill_edit = inspector::fill_contents_changed(url.url(), &content);
     let (reload, invalidate) = PREVIEW_STATE.with_borrow_mut(|preview_state| {
         let changed = preview_state.source_code.get(url.url()).is_none_or(|old| old.code != content);
         tracing::debug!(url = %url.url(), changed, edit_pending = preview_state.workspace_edit_sent, "Preview: source notification");
-        if changed && !own_fill_edit
-            && !preview_state.undo_redo_stack.check_set_contents_valid(url.url(), &content)
+        if changed && !preview_state.undo_redo_stack.check_set_contents_valid(url.url(), &content)
         {
             tracing::debug!(url = %url.url(), "Preview: source change invalidated history");
             undo_redo::set_undo_redo_enabled(preview_state);
@@ -1059,47 +1060,28 @@ fn set_code_binding(
     )
 }
 
+fn notify_property_changed() {
+    let lsp = PREVIEW_STATE.with_borrow(|state| state.to_lsp.borrow().clone().unwrap());
+    lsp.send_telemetry(&mut [(
+        "type".to_string(),
+        serde_json::to_value("property_changed").unwrap(),
+    )])
+    .ok();
+}
+
 fn set_code_bindings(
     element_url: slint::SharedString,
     element_version: i32,
     element_offset: i32,
     bindings: impl IntoIterator<Item = ui::CodeBinding>,
 ) -> bool {
-    let lsp = PREVIEW_STATE.with_borrow(|ps| ps.to_lsp.borrow().clone().unwrap());
-    lsp.send_telemetry(&mut [(
-        "type".to_string(),
-        serde_json::to_value("property_changed").unwrap(),
-    )])
-    .ok();
+    notify_property_changed();
 
     let Some(edit) = evaluate_bindings(element_url, element_version, element_offset, bindings)
     else {
         return false;
     };
     send_workspace_edit("Edit properties".to_string(), edit, true)
-}
-
-fn set_color_binding(
-    element_url: slint::SharedString,
-    element_version: i32,
-    element_offset: i32,
-    property_name: slint::SharedString,
-    value: slint::Color,
-) {
-    // We need a CSS value which is rgba, color converts to a argb only :-/
-    let rgba: slint::RgbaColor<u8> = value.into();
-    let value: u32 = ((rgba.red as u32) << 24)
-        + ((rgba.green as u32) << 16)
-        + ((rgba.blue as u32) << 8)
-        + (rgba.alpha as u32);
-
-    let _ = set_code_binding(
-        element_url,
-        element_version,
-        element_offset,
-        property_name,
-        format!("#{value:08x}").into(),
-    );
 }
 
 fn set_element_id(
@@ -1458,6 +1440,70 @@ fn wrap_selected_element_in_layout(layout: SharedString) {
             SelectionNotification::AfterUpdate,
         );
     }
+}
+
+fn copy_selected_element() -> bool {
+    let Some(selected_node) = selected_element().and_then(|s| s.as_element_node()) else {
+        return false;
+    };
+    let text = drop_location::element_clipboard_text(&selected_node);
+    i_slint_backend_selector::with_platform(|platform| {
+        platform.set_clipboard_text(&text, Clipboard::DefaultClipboard);
+        Ok(())
+    })
+    .inspect_err(|err| tracing::warn!("Failed to copy element to clipboard: {err}"))
+    .is_ok()
+}
+
+fn cut_selected_element() {
+    if copy_selected_element() {
+        delete_selected_element();
+    }
+}
+
+fn paste_element(at_pointer: bool, x: f32, y: f32) {
+    let Some(document_cache) = document_cache() else { return };
+    let Some(text) = i_slint_backend_selector::with_platform(|platform| {
+        Ok(platform.clipboard_text(Clipboard::DefaultClipboard))
+    })
+    .ok()
+    .flatten() else {
+        return;
+    };
+
+    let paste_edit = if at_pointer {
+        drop_location::create_paste_element_at_workspace_edit(
+            &document_cache,
+            LogicalPoint::new(x, y),
+            &text,
+            &get_component_info,
+        )
+    } else {
+        selected_element().and_then(|s| s.as_element_node()).and_then(|selected_node| {
+            drop_location::create_paste_element_workspace_edit(
+                &document_cache,
+                &selected_node,
+                &text,
+                &get_component_info,
+            )
+        })
+    };
+    let Some((edit, drop_data)) = paste_edit else {
+        return;
+    };
+    if drop_location::workspace_edit_compiles(&document_cache, &edit)
+        != CompilationResult::ChangeCompiles
+    {
+        return;
+    }
+
+    element_selection::select_element_at_source_code_position(
+        drop_data.path,
+        drop_data.selection_offset,
+        None,
+        SelectionNotification::AfterUpdate,
+    );
+    send_workspace_edit("Paste element".to_string(), edit, false);
 }
 
 fn resize_selected_element(x: f32, y: f32, width: f32, height: f32) {
@@ -2012,8 +2058,8 @@ enum CompilationResult {
 pub(super) fn workspace_edit_finished(edit: lsp_types::WorkspaceEdit, applied: bool) {
     let _ = slint::invoke_from_event_loop(move || {
         project_file::workspace_edit_finished(&edit, applied);
-        if !inline_text_edit::workspace_edit_finished(&edit, applied) {
-            inspector::workspace_edit_finished(edit, applied);
+        if !inline_text_edit::workspace_edit_finished(&edit, applied) && !applied {
+            PREVIEW_STATE.with_borrow_mut(|state| state.workspace_edit_sent = false);
         }
     });
 }
@@ -2036,15 +2082,6 @@ fn workspace_edit_source_file(
 }
 
 fn send_workspace_edit(label: String, edit: lsp_types::WorkspaceEdit, test_edit: bool) -> bool {
-    submit_workspace_edit(label, edit, test_edit, None)
-}
-
-fn submit_workspace_edit(
-    label: String,
-    edit: lsp_types::WorkspaceEdit,
-    test_edit: bool,
-    fill: Option<ui::FillData>,
-) -> bool {
     let Some(document_cache) = document_cache() else {
         return false;
     };
@@ -2054,28 +2091,6 @@ fn submit_workspace_edit(
         })
     });
     let Ok(result) = result else { return false };
-    let fill_refresh = if let Some(fill) = fill.clone() {
-        let [expected] = result.as_slice() else { return false };
-        let unchanged = PREVIEW_STATE.with_borrow(|state| {
-            state
-                .source_code
-                .get(&expected.url)
-                .is_some_and(|source| source.code == expected.contents)
-        });
-        if unchanged {
-            inspector::cancel();
-            return true;
-        }
-        Some((
-            fill,
-            text_edit::EditedText {
-                url: expected.url.clone(),
-                contents: expected.contents.clone(),
-            },
-        ))
-    } else {
-        None
-    };
     let file_hashes = undo_redo::compute_file_hashes(&result);
 
     if test_edit {
@@ -2093,26 +2108,12 @@ fn submit_workspace_edit(
         })
     });
 
-    let accepted = PREVIEW_STATE.with_borrow_mut(|preview_state| {
+    PREVIEW_STATE.with_borrow_mut(|preview_state| {
         if undo_redo::edit_pending(preview_state) {
             tracing::debug!(%label, "Preview: rejecting an edit while another is pending");
             return false;
         }
-        if let Some((fill, expected)) = fill_refresh {
-            let Some(reverse) = reverse_edit else { return false };
-            preview_state.fill_refresh = Some(inspector::FillRefresh {
-                expected,
-                submitted_edit: edit.clone(),
-                fill,
-                undo: Some(undo_redo::EditItem {
-                    title: label.clone(),
-                    edit: reverse,
-                    file_hashes,
-                }),
-            });
-        } else {
-            preview_state.undo_redo_stack.push(label.clone(), reverse_edit, file_hashes);
-        }
+        preview_state.undo_redo_stack.push(label.clone(), reverse_edit, file_hashes);
         preview_state.workspace_edit_sent = true;
         undo_redo::set_undo_redo_enabled(preview_state);
         preview_state
@@ -2123,14 +2124,7 @@ fn submit_workspace_edit(
             .send(&PreviewToLspMessage::SendWorkspaceEdit { label: Some(label), edit })
             .unwrap();
         true
-    });
-    if accepted && fill.is_some() {
-        let api = PREVIEW_STATE.with_borrow(|state| state.api.upgrade());
-        if let Some(api) = api {
-            api.set_inspector_fill_refresh_pending(true);
-        }
-    }
-    accepted
+    })
 }
 
 fn change_style() {
@@ -2247,12 +2241,13 @@ fn previewed_component_changed() {
                 .unwrap_or_default();
 
             if let Some(api) = preview_state.api.upgrade() {
+                let properties_api = preview_state.properties.upgrade().unwrap();
                 if let Some(editor_ui) = &preview_state.editor_ui {
                     let win = i_slint_core::window::WindowInner::from_pub(editor_ui.window())
                         .window_adapter();
                     let palettes =
                         ui::palette::collect_palette(&document_cache, &previewed_url, &win);
-                    ui::palette::set_palette(&api, palettes);
+                    ui::palette::set_palette(&properties_api, palettes);
                 }
                 ui::ui_set_uses_widgets(&api, uses_widgets);
                 ui::ui_set_project_components(&api, &preview_state.known_components);
@@ -2980,6 +2975,7 @@ fn set_selected_element(
         };
 
         if let Some(api) = preview_state.api.upgrade() {
+            let properties_api = preview_state.properties.upgrade().unwrap();
             api.set_selection(ui::Selection {
                 highlight_index: selection.as_ref().map(|s| s.instance_index as i32).unwrap_or(-1),
                 layout_data: layout_kind,
@@ -3004,7 +3000,7 @@ fn set_selected_element(
                     let win = i_slint_core::window::WindowInner::from_pub(editor_ui.window())
                         .window_adapter();
                     let palettes = ui::palette::collect_palette(&document_cache, &uri, &win);
-                    ui::palette::set_palette(&api, palettes);
+                    ui::palette::set_palette(&properties_api, palettes);
                 }
 
                 let in_layout = match parent_layout_kind {
@@ -3017,6 +3013,7 @@ fn set_selected_element(
                 if let Some(editor_ui) = &preview_state.editor_ui {
                     preview_state.property_range_declarations = Some(ui::ui_set_properties(
                         &api,
+                        &properties_api,
                         editor_ui.window(),
                         &document_cache,
                         properties::query_properties(&uri, version, &selection, in_layout).ok(),
@@ -3027,7 +3024,7 @@ fn set_selected_element(
                     && !preview_state.workspace_edit_sent)
             {
                 api.set_current_element(Default::default());
-                api.set_properties(Default::default());
+                properties_api.set_properties(Default::default());
                 api.set_selection(ui::Selection { highlight_index: -1, ..Default::default() });
                 preview_state.property_range_declarations = None;
                 selection = None;
@@ -3558,10 +3555,13 @@ mod tests {
         reset_preview_state(Default::default());
         let editor = ui::create_ui().unwrap();
         let api = editor.global::<ui::Api>();
+        let properties_api = editor.global::<ui::Properties>();
         ui::diagnostics::setup(&editor.global::<ui::Diagnostics>());
         PREVIEW_STATE.with_borrow_mut(|state| {
             state.editor_ui = Some(editor.clone_strong());
             state.api = <ui::Api as slint::Global<'_, ui::EditorUi>>::as_weak(&api);
+            state.properties =
+                <ui::Properties as slint::Global<'_, ui::EditorUi>>::as_weak(&properties_api);
             state.set_current_component(PreviewComponent {
                 url: i_slint_editor_preview::test::main_test_file_name().to_url().unwrap(),
                 component: None,
@@ -3696,7 +3696,11 @@ mod tests {
             global.set_compiling(compiling);
             assert_eq!(global.get_preview_availability(), ui::PreviewAvailability::Stale);
         }
-        apply_availability_test_source(&editor, "export Main := Rectangle {}", true);
+        apply_availability_test_source(
+            &editor,
+            "export component Main inherits Rectangle { color: red; }",
+            true,
+        );
         assert_eq!(global.get_preview_availability(), ui::PreviewAvailability::Current);
         assert!(global.get_preview_editable());
         assert_eq!(global.get_errors().row_count(), 0);
@@ -4116,12 +4120,15 @@ mod tests {
         i_slint_backend_testing::init_no_event_loop();
         let editor = ui::EditorUi::new().unwrap();
         let api = editor.global::<ui::Api>();
+        let properties_api = editor.global::<ui::Properties>();
         for notification in [SelectionNotification::Never, SelectionNotification::Now] {
             let notify_now = notification == SelectionNotification::Now;
             let messages = Rc::new(RefCell::new(Vec::new()));
             reset_preview_state(messages.clone());
             PREVIEW_STATE.with_borrow_mut(|state| {
                 state.api = <ui::Api as slint::Global<'_, ui::EditorUi>>::as_weak(&api);
+                state.properties =
+                    <ui::Properties as slint::Global<'_, ui::EditorUi>>::as_weak(&properties_api);
             });
 
             set_selected_element(
@@ -4338,7 +4345,7 @@ export component Main inherits Rectangle {
 
         let document_cache = Rc::new(document_cache);
         let offset = SOURCE.find("Rectangle {").unwrap() as i32;
-        for kind in ["single", "batch", "color"] {
+        for kind in ["single", "batch"] {
             for case in ["valid", "stale", "pending", "invalid"] {
                 let messages = Rc::new(RefCell::new(Vec::new()));
                 reset_preview_state(messages.clone());
@@ -4361,14 +4368,14 @@ export component Main inherits Rectangle {
                 );
                 assert!(messages.borrow().is_empty());
                 let accepted = match kind {
-                    "single" => Some(set_code_binding(
+                    "single" => set_code_binding(
                         url.as_str().into(),
                         version,
                         offset,
                         name,
                         "#12345678".into(),
-                    )),
-                    "batch" => Some(set_code_bindings(
+                    ),
+                    "batch" => set_code_bindings(
                         url.as_str().into(),
                         version,
                         offset,
@@ -4376,22 +4383,10 @@ export component Main inherits Rectangle {
                             ui::CodeBinding { name, value: "#12345678".into() },
                             ui::CodeBinding { name: "width".into(), value: "40px".into() },
                         ],
-                    )),
-                    "color" => {
-                        set_color_binding(
-                            url.as_str().into(),
-                            version,
-                            offset,
-                            name,
-                            slint::Color::from_argb_u8(0x78, 0x12, 0x34, 0x56),
-                        );
-                        None
-                    }
+                    ),
                     _ => unreachable!(),
                 };
-                if let Some(accepted) = accepted {
-                    assert_eq!(accepted, case == "valid", "{kind}: {case}");
-                }
+                assert_eq!(accepted, case == "valid", "{kind}: {case}");
                 let messages = messages.borrow();
                 assert_eq!(
                     messages
@@ -4433,10 +4428,13 @@ export component Main inherits Rectangle {
         reset_preview_state(Default::default());
         let editor = ui::EditorUi::new().unwrap();
         let api = editor.global::<ui::Api>();
+        let properties_api = editor.global::<ui::Properties>();
         let path = std::env::temp_dir().join("inspector-push.slint");
         let url = Url::from_file_path(&path).unwrap();
         PREVIEW_STATE.with_borrow_mut(|state| {
             state.api = <ui::Api as slint::Global<'_, ui::EditorUi>>::as_weak(&api);
+            state.properties =
+                <ui::Properties as slint::Global<'_, ui::EditorUi>>::as_weak(&properties_api);
             state.selected = Some(ElementSelection {
                 path: SourcePath::new(path),
                 offset: 0.into(),
@@ -4449,14 +4447,14 @@ export component Main inherits Rectangle {
                 .insert(url.clone(), SourceCodeCacheEntry { version: Some(1), code: "old".into() });
         });
         set_contents(&VersionedUrl::new(url.clone(), Some(1)), "old".into());
-        assert_eq!(api.get_inspector_generation(), 0);
+        assert_eq!(properties_api.get_inspector_generation(), 0);
         let unrelated = Url::from_file_path(std::env::temp_dir().join("unrelated.slint")).unwrap();
         set_contents(&VersionedUrl::new(unrelated, Some(2)), "other".into());
-        assert_eq!(api.get_inspector_generation(), 0);
+        assert_eq!(properties_api.get_inspector_generation(), 0);
         set_contents(&VersionedUrl::new(url.clone(), Some(2)), "old".into());
-        assert_eq!(api.get_inspector_generation(), 1);
+        assert_eq!(properties_api.get_inspector_generation(), 1);
         set_contents(&VersionedUrl::new(url, Some(2)), "new".into());
-        assert_eq!(api.get_inspector_generation(), 2);
+        assert_eq!(properties_api.get_inspector_generation(), 2);
         reset_preview_state(Default::default());
     }
 
@@ -4553,6 +4551,345 @@ export component Main {
         install_debug_hook_callback(instance, overrides);
     }
 
+    fn inspector_test_messages() -> Rc<RefCell<Vec<PreviewToLspMessage>>> {
+        let messages = Rc::new(RefCell::new(Vec::new()));
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            *state.to_lsp.borrow_mut() =
+                Some(Rc::new(CapturePreviewToLsp { messages: messages.clone() }));
+        });
+        messages
+    }
+
+    fn inspector_test_workspace_edit(messages: &[PreviewToLspMessage]) -> lsp_types::WorkspaceEdit {
+        let mut edits = messages.iter().filter_map(|message| match message {
+            PreviewToLspMessage::SendWorkspaceEdit { edit, .. } => Some(edit),
+            _ => None,
+        });
+        let edit = edits.next().expect("Expected one workspace edit").clone();
+        assert!(edits.next().is_none());
+        edit
+    }
+
+    fn apply_inspector_test_edit(edit: &lsp_types::WorkspaceEdit) -> Vec<text_edit::EditedText> {
+        let cache = document_cache().unwrap();
+        PREVIEW_STATE.with_borrow(|state| {
+            text_edit::apply_workspace_edit_with_source(edit, cache.format, |url| {
+                workspace_edit_source_file(&cache, &state.source_code, url)
+            })
+            .unwrap()
+        })
+    }
+
+    fn inspector_test_target(editor: &ui::EditorUi, source: &str) {
+        apply_availability_test_source(editor, source, true);
+        let properties_api = editor.global::<ui::Properties>();
+        properties_api.on_inspector_preview(inspector::preview_property);
+        properties_api.on_inspector_commit(inspector::commit_properties);
+        properties_api.on_inspector_cancel(inspector::cancel);
+        slint_editor::component_support::recent_fills::setup(
+            &properties_api,
+            <ui::Properties as slint::Global<'_, ui::EditorUi>>::as_weak(&properties_api),
+        );
+        element_selection::restore_selection(
+            ElementSelection {
+                path: SourcePath::from_url(
+                    &PREVIEW_STATE.with_borrow(|state| state.current_component().unwrap().url),
+                ),
+                offset: element_offset("inner").into(),
+                instance_index: 0,
+                editing_text: false,
+            },
+            SelectionNotification::Never,
+        );
+    }
+
+    fn inspector_number(number: f32, unit: &str) -> ui::PropertyEditValue {
+        ui::PropertyEditValue {
+            kind: ui::PropertyEditKind::Number,
+            number,
+            unit: unit.into(),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn inspector_typed_edits_commit_latest_values_together() {
+        let editor = availability_test_editor();
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("main.slint");
+        let url = Url::from_file_path(&path).unwrap();
+        std::fs::write(&path, ROTATED_SOURCE).unwrap();
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            state.set_current_component(PreviewComponent { url: url.clone(), component: None });
+        });
+        inspector_test_target(&editor, ROTATED_SOURCE);
+        undo_redo::setup(&editor.global::<ui::Api>());
+        let messages = inspector_test_messages();
+        for (name, value) in [
+            ("transform-rotation", inspector_number(45., "deg")),
+            ("border-width", inspector_number(3., "px")),
+            ("transform-rotation", inspector_number(60., "deg")),
+        ] {
+            assert!(inspector::preview_property(name.into(), value));
+        }
+        let instance = component_instance().unwrap();
+        assert_eq!(
+            instance.component_positions(&SourcePath::from_url(&url), element_offset("inner"))[0]
+                .transform_rotation,
+            60.
+        );
+        assert!(inspector::commit_properties());
+        assert!(editor.global::<ui::Api>().get_undo_enabled());
+        assert!(!inspector::commit_properties());
+        inspector::cancel();
+        assert_eq!(
+            instance.component_positions(&SourcePath::from_url(&url), element_offset("inner"))[0]
+                .transform_rotation,
+            60.
+        );
+        let sent = messages.as_ref().borrow();
+        let edit = inspector_test_workspace_edit(&sent);
+        assert_eq!(sent.iter().filter(|message| matches!(message,
+            PreviewToLspMessage::TelemetryEvent(event) if event.get("type") == Some(&serde_json::json!("property_changed"))
+        )).count(), 1);
+        let result = apply_inspector_test_edit(&edit);
+        assert_eq!(result.len(), 1);
+        assert!(result[0].contents.contains("transform-rotation: 60deg;"));
+        assert!(result[0].contents.contains("border-width: 3px;"));
+        assert!(!result[0].contents.contains("45deg"));
+        let mut current_source = result[0].contents.clone();
+        drop(sent);
+        for (redo, expected) in
+            [(false, ROTATED_SOURCE.to_string()), (true, current_source.clone())]
+        {
+            std::fs::write(&path, &current_source).unwrap();
+            set_contents(&VersionedUrl::new(url.clone(), None), current_source.clone());
+            apply_availability_test_source(&editor, &current_source, true);
+            preview_instance_ready();
+            messages.as_ref().borrow_mut().clear();
+            if redo {
+                editor.global::<ui::Api>().invoke_redo();
+            } else {
+                editor.global::<ui::Api>().invoke_undo();
+            }
+            let sent = messages.as_ref().borrow();
+            let edit = inspector_test_workspace_edit(&sent);
+            let restored = apply_inspector_test_edit(&edit);
+            assert_eq!(restored[0].contents, expected);
+            current_source = restored[0].contents.clone();
+        }
+        reset_preview_state(Default::default());
+    }
+
+    #[test]
+    fn inspector_typed_values_preserve_literal_intent_and_validate_types() {
+        let editor = availability_test_editor();
+        let source = ROTATED_SOURCE.replace(
+            "height: 60px;",
+            r#"height: 60px;
+            opacity: 0.2 + 0.3;
+            in-out property <bool> enabled: false;
+            in-out property <int> count: 1;
+            in-out property <string> label: "before";
+            in-out property <TextHorizontalAlignment> alignment: left;
+        "#,
+        );
+        inspector_test_target(&editor, &source);
+        let messages = inspector_test_messages();
+        let mut value = ui::PropertyEditValue::default();
+        for (name, kind) in [
+            ("enabled", ui::PropertyEditKind::Boolean),
+            ("count", ui::PropertyEditKind::Integer),
+            ("label", ui::PropertyEditKind::String),
+            ("alignment", ui::PropertyEditKind::Enumeration),
+            ("background", ui::PropertyEditKind::Fill),
+        ] {
+            value.kind = kind;
+            value.boolean = true;
+            value.integer = 7;
+            value.text =
+                if name == "alignment" { "center".into() } else { "after\n\"text\"".into() };
+            value.fill.color = slint::Color::from_rgb_u8(18, 52, 86);
+            assert!(inspector::preview_property(name.into(), value.clone()), "{name}");
+        }
+        value.kind = ui::PropertyEditKind::Enumeration;
+        value.text = "invalid-member".into();
+        assert!(!inspector::preview_property("alignment".into(), value));
+        assert!(inspector::preview_property("opacity".into(), inspector_number(0.5, "")));
+        assert!(inspector::commit_properties());
+        let messages = messages.as_ref().borrow();
+        let edit = inspector_test_workspace_edit(&messages);
+        let result = apply_inspector_test_edit(&edit);
+        for expression in ["enabled: true;", "count: 7;", "alignment: center;", "opacity: 0.5;"] {
+            assert!(result[0].contents.contains(expression), "{expression}");
+        }
+        assert!(result[0].contents.contains(r#"label: "after\n\"text\"";"#));
+        reset_preview_state(Default::default());
+    }
+
+    #[test]
+    fn fill_transactions_submit_only_the_latest_values_without_updating_recent_fills() {
+        let editor = availability_test_editor();
+        let source = ROTATED_SOURCE.replace(
+            "height: 60px;",
+            "height: 60px; background: #112233; border-color: #445566; drop-shadow-color: #778899;",
+        );
+        inspector_test_target(&editor, &source);
+        let messages = inspector_test_messages();
+        let api = editor.global::<ui::Api>();
+        let properties_api = editor.global::<ui::Properties>();
+        let first = slint::Color::from_rgb_u8(255, 0, 0);
+        let border = slint::Color::from_rgb_u8(0, 0, 255);
+        let latest = slint::Color::from_rgb_u8(0, 255, 0);
+        for (name, color) in [
+            ("background", first),
+            ("border-color", border),
+            ("background", latest),
+            ("drop-shadow-color", slint::Color::from_rgb_u8(0x77, 0x88, 0x99)),
+        ] {
+            assert!(inspector::preview_property(
+                name.into(),
+                ui::PropertyEditValue {
+                    kind: ui::PropertyEditKind::Fill,
+                    fill: ui::FillData { color, ..Default::default() },
+                    ..Default::default()
+                }
+            ));
+        }
+        assert_eq!(properties_api.get_recent_fills().row_count(), 0);
+        assert!(inspector::commit_properties());
+        assert!(file_edit_pending());
+        assert!(api.get_undo_enabled());
+        assert_eq!(properties_api.get_recent_fills().row_count(), 0);
+        let edit = inspector_test_workspace_edit(&messages.as_ref().borrow());
+        let result = apply_inspector_test_edit(&edit);
+        assert!(result[0].contents.contains("background: #00ff00;"));
+        assert!(result[0].contents.contains("border-color: #0000ff;"));
+        assert!(result[0].contents.contains("drop-shadow-color: #778899;"));
+        assert!(!inspector::commit_properties());
+        inspector::cancel();
+        assert_eq!(properties_api.get_recent_fills().row_count(), 0);
+        reset_preview_state(Default::default());
+    }
+
+    #[test]
+    fn canceled_unchanged_and_rejected_fills_do_not_become_recent() {
+        let editor = availability_test_editor();
+        let source = ROTATED_SOURCE.replace("height: 60px;", "height: 60px; background: #112233;");
+        for action in ["cancel", "unchanged", "pending"] {
+            inspector_test_target(&editor, &source);
+            let messages = inspector_test_messages();
+            let color = if action == "unchanged" {
+                slint::Color::from_rgb_u8(17, 34, 51)
+            } else {
+                slint::Color::from_rgb_u8(255, 0, 0)
+            };
+            assert!(inspector::preview_property(
+                "background".into(),
+                ui::PropertyEditValue {
+                    kind: ui::PropertyEditKind::Fill,
+                    fill: ui::FillData { color, ..Default::default() },
+                    ..Default::default()
+                }
+            ));
+            match action {
+                "cancel" => inspector::cancel(),
+                "unchanged" => assert!(inspector::commit_properties()),
+                _ => {
+                    PREVIEW_STATE.with_borrow_mut(|state| state.workspace_edit_sent = true);
+                    assert!(!inspector::commit_properties());
+                    PREVIEW_STATE.with_borrow_mut(|state| state.workspace_edit_sent = false);
+                }
+            }
+            assert_eq!(editor.global::<ui::Properties>().get_recent_fills().row_count(), 0);
+            assert!(messages.as_ref().borrow().is_empty());
+            PREVIEW_STATE.with_borrow(|state| assert!(state.inspector_edit.is_none()));
+        }
+        reset_preview_state(Default::default());
+    }
+
+    #[test]
+    fn inspector_typed_edits_restore_overrides_on_cancel_noop_and_stale_target() {
+        let editor = availability_test_editor();
+        for action in ["cancel", "noop", "selection", "generation", "pending"] {
+            inspector_test_target(&editor, ROTATED_SOURCE);
+            let messages = inspector_test_messages();
+            let instance = component_instance().unwrap();
+            let before = geometry_of(&instance, "inner").transform_rotation;
+            assert!(
+                override_selected_element_rotation_impl(
+                    &element_node_of(&instance, "inner"),
+                    0,
+                    42.,
+                )
+                .is_some()
+            );
+            let previous = geometry_of(&instance, "inner").transform_rotation;
+            let value = if action == "noop" { before } else { 60. };
+            assert!(inspector::preview_property(
+                "transform-rotation".into(),
+                inspector_number(value, "deg"),
+            ));
+            match action {
+                "cancel" => inspector::cancel(),
+                "noop" => assert!(inspector::commit_properties()),
+                "selection" => {
+                    element_selection::unselect_element(SelectionNotification::Never);
+                    assert!(!inspector::commit_properties());
+                }
+                "pending" => {
+                    PREVIEW_STATE.with_borrow_mut(|state| state.workspace_edit_sent = true);
+                    assert!(!inspector::commit_properties());
+                    PREVIEW_STATE.with_borrow_mut(|state| state.workspace_edit_sent = false);
+                }
+                _ => {
+                    let properties_api = editor.global::<ui::Properties>();
+                    properties_api
+                        .set_inspector_generation(properties_api.get_inspector_generation() + 1);
+                    assert!(!inspector::commit_properties());
+                }
+            }
+            assert_eq!(geometry_of(&instance, "inner").transform_rotation, previous);
+            PREVIEW_STATE.with_borrow(|state| assert!(state.inspector_edit.is_none()));
+            assert!(!file_edit_pending());
+            assert!(messages.as_ref().borrow().is_empty());
+        }
+        reset_preview_state(Default::default());
+    }
+
+    #[test]
+    fn inspector_typed_edits_reject_invalid_values_without_changing_the_draft() {
+        let editor = availability_test_editor();
+        inspector_test_target(&editor, ROTATED_SOURCE);
+        let instance = component_instance().unwrap();
+        assert!(inspector::preview_property(
+            "transform-rotation".into(),
+            inspector_number(60., "deg"),
+        ));
+        for (name, value) in [
+            ("transform-rotation", inspector_number(f32::NAN, "deg")),
+            ("transform-rotation", inspector_number(1., "px")),
+            ("border-width", inspector_number(-1., "px")),
+            ("drop-shadow-blur", inspector_number(-1., "px")),
+            ("inner-shadow-blur", inspector_number(-1., "px")),
+            ("missing-property", inspector_number(1., "px")),
+            (
+                "transform-rotation",
+                ui::PropertyEditValue {
+                    kind: ui::PropertyEditKind::Boolean,
+                    boolean: true,
+                    ..Default::default()
+                },
+            ),
+        ] {
+            assert!(!inspector::preview_property(name.into(), value));
+            assert_eq!(geometry_of(&instance, "inner").transform_rotation, 60.);
+        }
+        inspector::cancel();
+        assert_eq!(geometry_of(&instance, "inner").transform_rotation, 45.);
+        reset_preview_state(Default::default());
+    }
+
     #[test]
     fn stale_preview_restores_compiled_values_after_temporary_overrides() {
         let editor = availability_test_editor();
@@ -4583,12 +4920,10 @@ export component Main {
             SelectionNotification::Never,
         );
         assert!(override_selected_element_rotation_impl(&node, 0, before.angle + 10.).is_some());
-        let (path, offset) = node.path_and_offset();
-        let url = path.to_url().unwrap();
-        let version = document_cache().unwrap().document_version(&url).unwrap();
-        let generation = editor.global::<ui::Api>().get_inspector_generation();
-        let key = format!("{url}:{version}:{}:0:{generation}", u32::from(offset));
-        assert!(inspector::preview(key.into(), "transform-rotation".into(), 60.));
+        assert!(inspector::preview_property(
+            "transform-rotation".into(),
+            inspector_number(60., "deg")
+        ));
         assert_ne!(geometry_of(&instance, "inner").transform_rotation, before.transform_rotation);
 
         apply_availability_test_source(&editor, "export component Main { invalid }", true);

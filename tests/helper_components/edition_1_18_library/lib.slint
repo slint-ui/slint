@@ -1,0 +1,26 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The include path of this library's project file finds it
+import { RepeatedText } from "repeated-text.slint";
+import { RepeatedText as NestedRepeatedText } from "@nested";
+
+export { RepeatedText, NestedRepeatedText }
+
+export component Slot inherits Rectangle {
+    @children
+}
+
+export component StatesOnly inherits Rectangle {
+    width: 100px;
+    height: 100px;
+    in property <bool> moved;
+    out property <length> inner-x: inner.x;
+    inner := Rectangle {
+        width: 40px;
+        height: 20px;
+        states [
+            moved when moved: { x: 5px; }
+        ]
+    }
+}

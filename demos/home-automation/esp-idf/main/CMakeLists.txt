@@ -8,7 +8,7 @@ idf_component_register(
     PRIV_REQUIRES esp_lcd_touch_gt911
 )
 
-slint_target_sources(${COMPONENT_LIB} ../../ui/demo-sw-renderer.slint)
+slint_target_sources(${COMPONENT_LIB} ../../ui/demo-sw-renderer.slint EDITION 1.19)
 target_link_options(${COMPONENT_LIB} PUBLIC -Wl,--allow-multiple-definition)
 
 # ESP-IDF 6 builds with a global -Werror. The GT911 config macro and

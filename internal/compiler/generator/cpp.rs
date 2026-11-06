@@ -264,6 +264,7 @@ pub mod cpp_ast {
     #[derive(Default, Debug)]
     pub struct Struct {
         pub name: SmolStr,
+        pub base: Option<SmolStr>,
         pub members: Vec<(Access, Declaration)>,
         pub friends: Vec<SmolStr>,
     }
@@ -274,7 +275,10 @@ pub mod cpp_ast {
             if self.members.is_empty() && self.friends.is_empty() {
                 writeln!(f, "class {};", self.name)
             } else {
-                writeln!(f, "class {} {{", self.name)?;
+                match &self.base {
+                    Some(base) => writeln!(f, "class {} : public {base} {{", self.name)?,
+                    None => writeln!(f, "class {} {{", self.name)?,
+                }
                 INDENTATION.with(|x| x.set(x.get() + 1));
                 let mut access = Access::Private;
                 for m in &self.members {
@@ -488,6 +492,7 @@ use std::cell::Cell;
 use std::collections::{BTreeMap, BTreeSet};
 
 const SHARED_GLOBAL_CLASS: &str = "SharedGlobals";
+const SHARED_GLOBALS_OWNER: &str = "std::shared_ptr<const SharedGlobals>";
 
 #[derive(Default)]
 struct ConditionalIncludes {
@@ -864,6 +869,8 @@ pub fn generate(
             &llr,
             None,
             Access::Public,
+            false,
+            false,
             &mut file,
             &conditional_includes,
         );
@@ -871,8 +878,11 @@ pub fn generate(
         file.declarations.push(Declaration::Struct(sub_compo_struct));
     }
 
-    let mut globals_struct =
-        Struct { name: SmolStr::new_static(SHARED_GLOBAL_CLASS), ..Default::default() };
+    let mut globals_struct = Struct {
+        name: SmolStr::new_static(SHARED_GLOBAL_CLASS),
+        base: Some(format_smolstr!("std::enable_shared_from_this<{SHARED_GLOBAL_CLASS}>")),
+        ..Default::default()
+    };
 
     // The window need to be the first member so it is destroyed last
     globals_struct.members.push((
@@ -961,9 +971,8 @@ pub fn generate(
 
     // The globals are not initialized in the constructor: a global's init may evaluate a
     // binding (e.g. `Palette.color-scheme`) that resolves the root through `root_weak` and the
-    // root component's `globals` pointer. Those are only set after the SharedGlobals member has
-    // been constructed, so the init is deferred to `init_globals()`, called from the root
-    // component's `create()` once `globals` and `root_weak` are in place.
+    // root component's `globals` pointer. The root component's `create()` only sets those after
+    // constructing the SharedGlobals, so it calls `init_globals()` once they are in place.
     globals_struct.members.push((
         Access::Public,
         Declaration::Function(Function {
@@ -984,7 +993,7 @@ pub fn generate(
         }),
     ));
 
-    // Build initializer-list string for the clone_with_window_adapter constructor
+    // Build initializer-list string for the constructor that clones with a different window adapter
     {
         let global_inits = std::iter::once("root_weak(source.root_weak)".to_string())
             .chain(clone_constructor_global_inits)
@@ -993,9 +1002,8 @@ pub fn generate(
         let init_list =
             if global_inits.is_empty() { String::new() } else { format!(" : {global_inits}") };
 
-        // A private constructor for cloning with a different window adapter
         globals_struct.members.push((
-                Access::Private,
+                Access::Public,
                 Declaration::Function(Function {
                     name: globals_struct.name.clone(),
                     is_constructor_or_destructor: true,
@@ -1003,18 +1011,6 @@ pub fn generate(
                         "(const {SHARED_GLOBAL_CLASS}& source, const ::slint::private_api::WindowAdapterRc& adapter){init_list}"
                     ),
                     statements: Some(vec!["m_window.emplace(adapter);".into()]),
-                    ..Default::default()
-                }),
-            ));
-
-        globals_struct.members.push((
-                Access::Public,
-                Declaration::Function(Function {
-                    name: "clone_with_window_adapter".into(),
-                    signature: format!("(const ::slint::private_api::WindowAdapterRc& adapter) const -> {SHARED_GLOBAL_CLASS}*"),
-                    statements: Some(vec![format!(
-                        "return new {SHARED_GLOBAL_CLASS}(*this, adapter);"
-                    )]),
                     ..Default::default()
                 }),
             ));
@@ -1467,16 +1463,6 @@ fn generate_public_component(
 
     let mut component_struct = Struct { name: component_id.clone(), ..Default::default() };
 
-    // need to be the first member, because it contains the window which is to be destroyed last
-    component_struct.members.push((
-        Access::Private,
-        Declaration::Var(Var {
-            ty: SmolStr::new_static(SHARED_GLOBAL_CLASS),
-            name: "m_globals".into(),
-            ..Default::default()
-        }),
-    ));
-
     for glob in unit.globals.iter().filter(|glob| glob.must_generate() && !glob.is_builtin) {
         component_struct.friends.push(ident(&glob.name));
     }
@@ -1487,13 +1473,13 @@ fn generate_public_component(
         let accessor_statement = if glob.is_builtin {
             builtin_globals.push(format!("std::is_same_v<T, {}>", ident(&glob.name)));
             format!(
-                "{0}if constexpr(std::is_same_v<T, {1}>) {{ return {1}(m_globals.global_{1}); }}",
+                "{0}if constexpr(std::is_same_v<T, {1}>) {{ return {1}(globals->global_{1}); }}",
                 if global_accessor_function_body.is_empty() { "" } else { "else " },
                 concatenate_ident(&glob.name),
             )
         } else {
             format!(
-                "{0}if constexpr(std::is_same_v<T, {1}>) {{ return *m_globals.global_{1}.get(); }}",
+                "{0}if constexpr(std::is_same_v<T, {1}>) {{ return *globals->global_{1}.get(); }}",
                 if global_accessor_function_body.is_empty() { "" } else { "else " },
                 concatenate_ident(&glob.name),
             )
@@ -1528,7 +1514,7 @@ fn generate_public_component(
         compilation_unit: unit,
         current_scope: EvaluationScope::SubComponent(component.item_tree.root, None),
         generator_state: CppGeneratorContext {
-            global_access: "(&this->m_globals)".to_string(),
+            global_access: "this->globals".to_string(),
             conditional_includes,
         },
         argument_types: &[],
@@ -1570,7 +1556,7 @@ fn generate_public_component(
     // `run()` entirely (a tray icon doesn't drive the event loop).
     let (show_body, hide_body) = match component.top_level_type {
         llr::TopLevelComponentType::Window => {
-            ("m_globals.window().show();".to_string(), "m_globals.window().hide();".to_string())
+            ("globals->window().show();".to_string(), "globals->window().hide();".to_string())
         }
         llr::TopLevelComponentType::SystemTrayIcon => {
             let root_sub = &unit.sub_components[component.item_tree.root];
@@ -1615,7 +1601,7 @@ fn generate_public_component(
                 Declaration::Function(Function {
                     name: "window".into(),
                     signature: "() const -> ::slint::Window&".into(),
-                    statements: Some(vec!["return m_globals.window();".into()]),
+                    statements: Some(vec!["return globals->window();".into()]),
                     ..Default::default()
                 }),
             ));
@@ -1681,12 +1667,15 @@ fn generate_item_tree(
         item_tree_class_name
     ));
 
+    let owns_globals = is_popup || parent_ctx.is_none();
     generate_sub_component(
         target_struct,
         sub_tree.root,
         root,
         parent_ctx,
         field_access,
+        true,
+        owns_globals,
         file,
         conditional_includes,
     );
@@ -1696,6 +1685,7 @@ fn generate_item_tree(
         root,
         parent_ctx,
         is_popup,
+        owns_globals,
         item_tree_class_name,
         file,
         conditional_includes,
@@ -1708,6 +1698,7 @@ fn generate_item_tree_body(
     root: &llr::CompilationUnit,
     parent_ctx: Option<&ParentScope>,
     is_popup: bool,
+    owns_globals: bool,
     item_tree_class_name: SmolStr,
     file: &mut File,
     conditional_includes: &ConditionalIncludes,
@@ -2071,132 +2062,95 @@ fn generate_item_tree_body(
         }),
     ));
 
-    target_struct.members.push((
-        Access::Private,
-        Declaration::Function(Function {
-            name: "accessible_role".into(),
-            signature:
-                "([[maybe_unused]] ::slint::private_api::ItemTreeRef component, uint32_t index) -> ::slint::cbindgen_private::AccessibleRole"
-                    .into(),
-            is_static: true,
-            statements: Some(vec![format!(
-                "return reinterpret_cast<const {}*>(component.instance)->accessible_role(index);",
-                item_tree_class_name
-            )]),
-            ..Default::default()
-        }),
-    ));
-
-    target_struct.members.push((
-        Access::Private,
-        Declaration::Function(Function {
-            name: "accessible_string_property".into(),
-            signature:
-                "([[maybe_unused]] ::slint::private_api::ItemTreeRef component, uint32_t index, ::slint::cbindgen_private::AccessibleStringProperty what, ::slint::SharedString *result) -> bool"
-                    .into(),
-            is_static: true,
-            statements: Some(vec![format!(
-                "if (auto r = reinterpret_cast<const {}*>(component.instance)->accessible_string_property(index, what)) {{ *result = *r; return true; }} else {{ return false; }}",
-                item_tree_class_name
-            )]),
-            ..Default::default()
-        }),
-    ));
-
-    target_struct.members.push((
-        Access::Private,
-        Declaration::Function(Function {
-            name: "accessibility_action".into(),
-            signature:
-                "([[maybe_unused]] ::slint::private_api::ItemTreeRef component, uint32_t index, const ::slint::cbindgen_private::AccessibilityAction *action) -> void"
-                    .into(),
-            is_static: true,
-            statements: Some(vec![format!(
-                "reinterpret_cast<const {}*>(component.instance)->accessibility_action(index, *action);",
-                item_tree_class_name
-            )]),
-            ..Default::default()
-        }),
-    ));
-
-    target_struct.members.push((
-        Access::Private,
-        Declaration::Function(Function {
-            name: "supported_accessibility_actions".into(),
-            signature:
-                "([[maybe_unused]] ::slint::private_api::ItemTreeRef component, uint32_t index) -> uint32_t"
-                    .into(),
-            is_static: true,
-            statements: Some(vec![format!(
-                "return reinterpret_cast<const {}*>(component.instance)->supported_accessibility_actions(index);",
-                item_tree_class_name
-            )]),
-            ..Default::default()
-        }),
-    ));
-
-    target_struct.members.push((
-        Access::Private,
-        Declaration::Function(Function {
-            name: "element_infos".into(),
-            signature:
-                "([[maybe_unused]] ::slint::private_api::ItemTreeRef component, [[maybe_unused]] uint32_t index, [[maybe_unused]] ::slint::SharedString *result) -> bool"
-                    .into(),
-            is_static: true,
-            statements: Some(if root.has_debug_info {
-                vec![
-                    format!("if (auto infos = reinterpret_cast<const {}*>(component.instance)->element_infos(index)) {{ *result = *infos; }};",
-                    item_tree_class_name),
-                    "return true;".into()
-                ]
-            } else {
-                vec!["return false;".into()]
+    let root_component = &root.sub_components[sub_tree.root];
+    let has_accessibility = root_component.has_accessibility(root);
+    let instance = format!("reinterpret_cast<const {item_tree_class_name}*>(component.instance)");
+    let mut vtable_function = |name: &str, signature: &str, statements: Vec<String>| {
+        target_struct.members.push((
+            Access::Private,
+            Declaration::Function(Function {
+                name: name.into(),
+                signature: signature.into(),
+                is_static: true,
+                statements: Some(statements),
+                ..Default::default()
             }),
-            ..Default::default()
-        }),
-    ));
+        ));
+    };
 
-    target_struct.members.push((
-        Access::Private,
-        Declaration::Function(Function {
-            name: "element_testable_properties".into(),
-            signature:
-                "([[maybe_unused]] ::slint::private_api::ItemTreeRef component, [[maybe_unused]] uint32_t index, [[maybe_unused]] ::slint::SharedString *result) -> bool"
-                    .into(),
-            is_static: true,
-            statements: Some(if root.has_debug_info {
-                vec![
-                    format!("if (auto props = reinterpret_cast<const {}*>(component.instance)->element_testable_properties(index)) {{ *result = *props; }};",
-                    item_tree_class_name),
-                    "return true;".into()
-                ]
-            } else {
-                vec!["return false;".into()]
-            }),
-            ..Default::default()
-        }),
-    ));
+    vtable_function(
+        "accessible_role",
+        "([[maybe_unused]] ::slint::private_api::ItemTreeRef component, [[maybe_unused]] uint32_t index) -> ::slint::cbindgen_private::AccessibleRole",
+        vec![if has_accessibility {
+            format!("return {instance}->accessible_role(index);")
+        } else {
+            "return {};".into()
+        }],
+    );
+    vtable_function(
+        "accessible_string_property",
+        "([[maybe_unused]] ::slint::private_api::ItemTreeRef component, [[maybe_unused]] uint32_t index, [[maybe_unused]] ::slint::cbindgen_private::AccessibleStringProperty what, [[maybe_unused]] ::slint::SharedString *result) -> bool",
+        vec![if has_accessibility {
+            format!(
+                "if (auto r = {instance}->accessible_string_property(index, what)) {{ *result = *r; return true; }} else {{ return false; }}"
+            )
+        } else {
+            "return false;".into()
+        }],
+    );
+    vtable_function(
+        "accessibility_action",
+        "([[maybe_unused]] ::slint::private_api::ItemTreeRef component, [[maybe_unused]] uint32_t index, [[maybe_unused]] const ::slint::cbindgen_private::AccessibilityAction *action) -> void",
+        if has_accessibility {
+            vec![format!("{instance}->accessibility_action(index, *action);")]
+        } else {
+            vec![]
+        },
+    );
+    vtable_function(
+        "supported_accessibility_actions",
+        "([[maybe_unused]] ::slint::private_api::ItemTreeRef component, [[maybe_unused]] uint32_t index) -> uint32_t",
+        vec![if has_accessibility {
+            format!("return {instance}->supported_accessibility_actions(index);")
+        } else {
+            "return 0;".into()
+        }],
+    );
 
-    target_struct.members.push((
-        Access::Private,
-        Declaration::Function(Function {
-            name: "element_testable_property_value".into(),
-            signature:
-                "([[maybe_unused]] ::slint::private_api::ItemTreeRef component, [[maybe_unused]] uint32_t index, [[maybe_unused]] ::slint::cbindgen_private::Slice<uint8_t> property_name, [[maybe_unused]] ::slint::SharedString *result) -> bool"
-                    .into(),
-            is_static: true,
-            statements: Some(if root.has_debug_info {
-                vec![
-                    format!("if (auto value = reinterpret_cast<const {}*>(component.instance)->element_testable_property_value(index, std::string_view(reinterpret_cast<const char*>(property_name.ptr), property_name.len))) {{ *result = *value; return true; }};",
-                    item_tree_class_name),
-                    "return false;".into()
-                ]
-            } else {
-                vec!["return false;".into()]
-            }),
-            ..Default::default()
-        }),
-    ));
+    let debug_info_query = |has: bool, query: &str| {
+        if !root.has_debug_info {
+            vec!["return false;".into()]
+        } else if has {
+            vec![
+                format!("if (auto r = {instance}->{query}(index)) {{ *result = *r; }};"),
+                "return true;".into(),
+            ]
+        } else {
+            vec!["return true;".into()]
+        }
+    };
+    let has_testable_properties = root_component.has_testable_properties(root);
+    vtable_function(
+        "element_infos",
+        "([[maybe_unused]] ::slint::private_api::ItemTreeRef component, [[maybe_unused]] uint32_t index, [[maybe_unused]] ::slint::SharedString *result) -> bool",
+        debug_info_query(root_component.has_element_infos(root), "element_infos"),
+    );
+    vtable_function(
+        "element_testable_properties",
+        "([[maybe_unused]] ::slint::private_api::ItemTreeRef component, [[maybe_unused]] uint32_t index, [[maybe_unused]] ::slint::SharedString *result) -> bool",
+        debug_info_query(has_testable_properties, "element_testable_properties"),
+    );
+    vtable_function(
+        "element_testable_property_value",
+        "([[maybe_unused]] ::slint::private_api::ItemTreeRef component, [[maybe_unused]] uint32_t index, [[maybe_unused]] ::slint::cbindgen_private::Slice<uint8_t> property_name, [[maybe_unused]] ::slint::SharedString *result) -> bool",
+        has_testable_properties
+            .then(|| format!(
+                "if (auto value = {instance}->element_testable_property_value(index, std::string_view(reinterpret_cast<const char*>(property_name.ptr), property_name.len))) {{ *result = *value; return true; }};"
+            ))
+            .into_iter()
+            .chain(["return false;".into()])
+            .collect(),
+    );
 
     let window_adapter_vtable_statements = if needs_window_adapter {
         vec![format!(
@@ -2279,32 +2233,36 @@ fn generate_item_tree_body(
         "self->self_weak = vtable::VWeak(self_rc).into_dyn();".into(),
     ];
 
-    if is_popup {
-        create_code.push("self->globals = globals;".into());
-        create_parameters.push("const SharedGlobals *globals".into());
-    } else if parent_ctx.is_none() {
-        create_code.push("::slint::cbindgen_private::slint_ensure_backend();".into());
+    if owns_globals {
+        if is_popup {
+            create_code.push("self->globals = std::move(globals);".into());
+            create_parameters.push(format!("{SHARED_GLOBALS_OWNER} globals"));
+        } else {
+            create_code.push("::slint::cbindgen_private::slint_ensure_backend();".into());
 
-        #[cfg(feature = "bundle-translations")]
-        if let Some(translations) = &root.translations {
-            let lang_len = translations.languages.len();
-            create_code.push(format!("::slint::cbindgen_private::slint_translate_set_bundled_languages(::slint::private_api::make_slice(slint_translation_bundle_languages, {lang_len}));"));
+            #[cfg(feature = "bundle-translations")]
+            if let Some(translations) = &root.translations {
+                let lang_len = translations.languages.len();
+                create_code.push(format!("::slint::cbindgen_private::slint_translate_set_bundled_languages(::slint::private_api::make_slice(slint_translation_bundle_languages, {lang_len}));"));
+            }
+
+            create_code.push(format!("auto globals = std::make_shared<{SHARED_GLOBAL_CLASS}>();"));
+            create_code.push("self->globals = globals;".into());
+            create_code.push("globals->root_weak = self->self_weak;".into());
+            // Now that `globals` and `root_weak` are set, the globals can be initialized: their
+            // init may resolve the root window adapter through these (see `init_globals`).
+            create_code.push("globals->init_globals();".into());
         }
-
-        create_code.push("self->globals = &self->m_globals;".into());
-        create_code.push("self->m_globals.root_weak = self->self_weak;".into());
-        // Now that `globals` and `root_weak` are set, the globals can be initialized: their
-        // init may resolve the root window adapter through these (see `init_globals`).
-        create_code.push("self->m_globals.init_globals();".into());
     }
 
-    let global_access =
-        if !is_popup && parent_ctx.is_some() { "parent->globals" } else { "self->globals" };
+    let global_access = if owns_globals { "self->globals" } else { "parent->globals" };
     create_code.extend([
         format!(
             "::slint::private_api::register_item_tree(&self_rc.into_dyn(), {global_access}->m_window);",
         ),
-        format!("self->init({global_access}, self->self_weak, 0, 1 {init_parent_parameters});"),
+        format!(
+            "self->init(std::to_address({global_access}), self->self_weak, 0, 1 {init_parent_parameters});"
+        ),
     ]);
 
     // Repeaters run their user_init() code from Repeater::ensure_updated() after update() initialized model_data/index.
@@ -2315,7 +2273,7 @@ fn generate_item_tree_body(
             // Rust codegen order.
             create_code.push(format!("auto &window = {global_access}->window();"));
             create_code.push("self->user_init();".to_string());
-            create_code.push("self->m_globals.window();".to_string());
+            create_code.push(format!("{global_access}->window();"));
             create_code.push(
                 "::slint::cbindgen_private::slint_windowrc_ensure_tree_instantiated(\
                  reinterpret_cast<const ::slint::cbindgen_private::WindowAdapterRcOpaque*>\
@@ -2367,6 +2325,8 @@ fn generate_sub_component(
     root: &llr::CompilationUnit,
     parent_ctx: Option<&ParentScope>,
     field_access: Access,
+    is_item_tree_root: bool,
+    owns_globals: bool,
     file: &mut File,
     conditional_includes: &ConditionalIncludes,
 ) {
@@ -2377,6 +2337,8 @@ fn generate_sub_component(
         root,
         parent_ctx,
         field_access,
+        is_item_tree_root,
+        owns_globals,
         conditional_includes,
     );
 }
@@ -2452,12 +2414,14 @@ fn generate_sub_component_body(
     root: &llr::CompilationUnit,
     parent_ctx: Option<&ParentScope>,
     field_access: Access,
+    is_item_tree_root: bool,
+    owns_globals: bool,
     conditional_includes: &ConditionalIncludes,
 ) {
     let globals_type_ptr = "const class SharedGlobals*";
 
     let mut init_parameters = vec![
-        format!("{} globals", globals_type_ptr),
+        format!("[[maybe_unused]] {globals_type_ptr} globals"),
         "::slint::cbindgen_private::ItemTreeWeak enclosing_component".into(),
         "uint32_t tree_index".into(),
         "uint32_t tree_index_of_first_child".into(),
@@ -2475,15 +2439,18 @@ fn generate_sub_component_body(
         }),
     ));
 
+    // Before the items, so that the window of the globals it owns outlives them
     target_struct.members.push((
         field_access,
         Declaration::Var(Var {
-            ty: globals_type_ptr.into(),
+            ty: if owns_globals { SHARED_GLOBALS_OWNER } else { globals_type_ptr }.into(),
             name: "globals".into(),
             ..Default::default()
         }),
     ));
-    init.push("self->globals = globals;".into());
+    if !owns_globals {
+        init.push("self->globals = globals;".into());
+    }
 
     target_struct.members.push((
         field_access,
@@ -2613,7 +2580,9 @@ fn generate_sub_component_body(
         init.push(format!(
             "this->{sub_field}.init(globals, self_weak.into_dyn(), {global_index}, {global_children});"
         ));
-        user_init.push(format!("this->{sub_field}.user_init();"));
+        if sub_sc.needs_user_init(root) {
+            user_init.push(format!("this->{sub_field}.user_init();"));
+        }
 
         let sub_component_repeater_count = sub_sc.repeater_count(root);
         if sub_component_repeater_count > 0 {
@@ -2856,15 +2825,18 @@ fn generate_sub_component_body(
         }),
     ));
 
-    target_struct.members.push((
-        field_access,
-        Declaration::Function(Function {
-            name: "user_init".into(),
-            signature: "() -> void".into(),
-            statements: Some(user_init),
-            ..Default::default()
-        }),
-    ));
+    debug_assert_eq!(component.needs_user_init(root), user_init.len() > 1);
+    if is_item_tree_root || component.needs_user_init(root) {
+        target_struct.members.push((
+            field_access,
+            Declaration::Function(Function {
+                name: "user_init".into(),
+                signature: "() -> void".into(),
+                statements: Some(user_init),
+                ..Default::default()
+            }),
+        ));
+    }
 
     target_struct.members.push((
         field_access,
@@ -2885,7 +2857,14 @@ fn generate_sub_component_body(
     ));
 
     let mut dispatch_item_function =
-        |name: &str, signature: &str, forward_args: &str, code: Vec<String>| {
+        |name: &str,
+         signature: &str,
+         forward_args: &str,
+         code: Vec<String>,
+         has: fn(&llr::SubComponent, &llr::CompilationUnit) -> bool| {
+            if !has(component, root) {
+                return;
+            }
             let mut code = ["[[maybe_unused]] auto self = this;".into()]
                 .into_iter()
                 .chain(code)
@@ -2894,6 +2873,9 @@ fn generate_sub_component_body(
             let mut else_ = "";
             for sub in &component.sub_components {
                 let sub_sc = &ctx.compilation_unit.sub_components[sub.ty];
+                if !has(sub_sc, root) {
+                    continue;
+                }
                 let sub_items_count = sub_sc.child_item_count(ctx.compilation_unit);
                 code.push(format!("{else_}if (index == {}) {{", sub.index_in_tree,));
                 code.push(format!(
@@ -2950,6 +2932,7 @@ fn generate_sub_component_body(
         "(uint32_t index) const -> ::slint::cbindgen_private::Rect",
         "",
         item_geometry_cases,
+        |_, _| true,
     );
 
     let mut accessible_role_cases = vec!["switch (index) {".into()];
@@ -2998,12 +2981,14 @@ fn generate_sub_component_body(
         "(uint32_t index) const -> ::slint::cbindgen_private::AccessibleRole",
         "",
         accessible_role_cases,
+        llr::SubComponent::has_accessibility,
     );
     dispatch_item_function(
         "accessible_string_property",
         "(uint32_t index, ::slint::cbindgen_private::AccessibleStringProperty what) const -> std::optional<::slint::SharedString>",
         ", what",
         accessible_string_cases,
+        llr::SubComponent::has_accessibility,
     );
 
     dispatch_item_function(
@@ -3011,6 +2996,7 @@ fn generate_sub_component_body(
         "(uint32_t index, const ::slint::cbindgen_private::AccessibilityAction &action) const -> void",
         ", action",
         accessibility_action_cases,
+        llr::SubComponent::has_accessibility,
     );
 
     dispatch_item_function(
@@ -3018,6 +3004,7 @@ fn generate_sub_component_body(
         "(uint32_t index) const -> uint32_t",
         "",
         supported_accessibility_actions_cases,
+        llr::SubComponent::has_accessibility,
     );
 
     let mut element_infos_cases = vec!["switch (index) {".to_string()];
@@ -3034,6 +3021,7 @@ fn generate_sub_component_body(
         "(uint32_t index) const -> std::optional<::slint::SharedString>",
         "",
         element_infos_cases,
+        llr::SubComponent::has_element_infos,
     );
 
     let mut element_testable_properties_cases = vec!["switch (index) {".to_string()];
@@ -3053,6 +3041,7 @@ fn generate_sub_component_body(
         "(uint32_t index) const -> std::optional<::slint::SharedString>",
         "",
         element_testable_properties_cases,
+        llr::SubComponent::has_testable_properties,
     );
 
     let mut element_testable_property_value_cases = vec!["switch (index) {".to_string()];
@@ -3079,9 +3068,10 @@ fn generate_sub_component_body(
         "(uint32_t index, [[maybe_unused]] std::string_view property_name) const -> std::optional<::slint::SharedString>",
         ", property_name",
         element_testable_property_value_cases,
+        llr::SubComponent::has_testable_properties,
     );
 
-    {
+    if is_item_tree_root || component.has_repeaters(root) {
         let mut stmts = vec![
             "[[maybe_unused]] auto self = this;".to_owned(),
             "bool _changed = false;".to_owned(),
@@ -4792,17 +4782,26 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             }
             None => resource_ref.to_string(),
         })(),
-        Expression::Condition { condition, true_expr, false_expr } => (|| {
+        Expression::Condition { .. } => (|| {
+            // Every link of an `else if` chain has the type of the chain's last false branch
             let ty = expr.ty(ctx);
-            let cond_code = compile_expression(condition, ctx);
-            let cond_code = remove_parentheses(&cond_code);
-            let true_code = compile_expression(true_expr, ctx);
-            let false_code = compile_expression(false_expr, ctx);
-            if ty == Type::Void {
-                format!("if ({cond_code}) {{ {true_code}; }} else {{ {false_code}; }}")
-            } else {
-                format!("({cond_code} ? {true_code} : {false_code})")
+            // An `else if` chain nests in the false branch: iterate it, so the stack depth stays bounded.
+            let mut links = Vec::new();
+            let mut expr = expr;
+            while let Expression::Condition { condition, true_expr, false_expr } = expr {
+                let cond_code = compile_expression(condition, ctx);
+                let cond_code = remove_parentheses(&cond_code).to_string();
+                links.push((cond_code, compile_expression(true_expr, ctx)));
+                expr = false_expr;
             }
+            let false_code = compile_expression(expr, ctx);
+            links.into_iter().rev().fold(false_code, |false_code, (cond_code, true_code)| {
+                if ty == Type::Void {
+                    format!("if ({cond_code}) {{ {true_code}; }} else {{ {false_code}; }}")
+                } else {
+                    format!("({cond_code} ? {true_code} : {false_code})")
+                }
+            })
         })(),
         Expression::Array { element_ty, values, output } => (|| {
             let ty = element_ty.cpp_type().unwrap();

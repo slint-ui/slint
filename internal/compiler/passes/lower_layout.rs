@@ -1150,7 +1150,8 @@ impl GridLayout {
 /// runtime solver, and the layout info computation.
 ///
 /// Runs after the default_geometry pass so that every cell's layout info
-/// property exists.
+/// property exists, and after `synthesize_layoutinfo_v_with_constraint`,
+/// whose function needs the layout's padding to compute the width it gives its cell.
 pub fn optimize_single_cell_layouts(component: &Rc<Component>) {
     recurse_elem_including_sub_components(component, &(), &mut |elem, _| {
         // Collect first: the rewrite modifies the bindings.

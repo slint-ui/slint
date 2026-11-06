@@ -1,0 +1,25 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A library with its own project file keeps its edition, 1.18, for its binding loops
+
+import { InnerLoop } from "@test-project-lib";
+
+component AppInnerLoop {
+    HorizontalLayout {
+        Rectangle {
+            VerticalLayout {
+//          >             <note{setting an 'x' or a 'y' here takes 'VerticalLayout' out of its parent's size, one way out of the binding loop reported for 'width' at line 13}
+                Rectangle { width: parent.width; }
+//                                 >           <error{The binding for the property 'width' is part of a binding loop (Rectangle.width -> VerticalLayout.width -> Rectangle.width -> VerticalLayout -> Rectangle -> Rectangle.width)↵Compute 'width' without depending on a size or a position the layout produces, or set an 'x' or a 'y' on 'VerticalLayout', so its parent stops sizing itself from it}
+            }
+        }
+    }
+}
+
+export component Test inherits Window {
+    VerticalLayout {
+        InnerLoop { }
+        AppInnerLoop { }
+    }
+}

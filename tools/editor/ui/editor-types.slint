@@ -1,0 +1,19 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+/// A Range in a source
+export struct Range {
+    start: int,
+    end: int,
+}
+
+/// Information on an Element a Property belongs to
+export struct ElementInformation {
+    id: string,
+    component-name: string,
+    type-name: string,
+    source-uri: string,
+    source-version: int,
+    /// The offset within source-uri
+    offset: int,
+}

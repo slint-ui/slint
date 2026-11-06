@@ -1,8 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-global MyType := {
-//            ><warning{':=' to declare a global is deprecated. Remove the ':='}
+global MyType {
     property <int> aaa;
     property <int> aaa;
 //                 > <error{Cannot override property 'aaa'}
@@ -16,6 +15,7 @@ global MyType := {
 //  >        <error{A global component cannot have states}
     transitions [ ]
 //  >             <error{A global component cannot have transitions}
+//  >             <^error{'transitions' block are no longer supported. Use 'in {...}' and 'out {...}' directly in the state definition}
     @children
 //  >       <error{A global component cannot have sub elements}
     Rectangle { }
@@ -36,8 +36,7 @@ global MyType := {
 //  >             <error{Functions must have a code block}
 }
 
-export SuperSimple := Rectangle {
-//                 ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+export component SuperSimple inherits Rectangle {
     MyType {
 //  >     <error{Cannot create an instance of a global component}
         ccc: "hello";

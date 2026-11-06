@@ -15,6 +15,7 @@ export const slint_language = <monaco.languages.IMonarchLanguage>{
         "global",
         "component",
         "struct",
+        "enum",
         "inherits",
     ],
     inner_keywords: [
@@ -24,6 +25,9 @@ export const slint_language = <monaco.languages.IMonarchLanguage>{
         "states",
         "transitions",
         "if",
+        "else",
+        "return",
+        "let",
         "for",
         "in",
         "out",
@@ -32,22 +36,41 @@ export const slint_language = <monaco.languages.IMonarchLanguage>{
         "function",
         "pure",
         "public",
+        "protected",
+        "changed",
+        "as",
     ],
-    lang_keywords: ["root", "parent", "this", "if"],
+    lang_keywords: [
+        "root",
+        "parent",
+        "self",
+        "if",
+        "else",
+        "return",
+        "let",
+        "true",
+        "false",
+    ],
     type_keywords: [
         "int",
         "string",
         "float",
+        "bool",
         "length",
-        "physical_length",
+        "physical-length",
+        "relative-font-size",
         "duration",
+        "angle",
+        "percent",
         "color",
         "brush",
+        "image",
+        "easing",
     ],
     escapes:
         /\\(?:[abfnrtv\\"']|x[0-9A-Fa-f]{1,4}|u[0-9A-Fa-f]{4}|U[0-9A-Fa-f]{8})/,
 
-    symbols: /[#!%&*+\-./:;<=>@^|_?,()]+/,
+    symbols: /[#!%&*+\-./:<=>@^|_?,()]+|;/,
 
     tokenizer: {
         root: [
@@ -98,7 +121,7 @@ export const slint_language = <monaco.languages.IMonarchLanguage>{
 
         type: [
             [
-                /[a-zA-Z_][a-zA-Z0-9_]*/,
+                /[a-zA-Z_][a-zA-Z0-9_-]*/,
                 {
                     cases: {
                         "@type_keywords": { token: "keyword.type" },
@@ -118,8 +141,7 @@ export const slint_language = <monaco.languages.IMonarchLanguage>{
             { include: "@whitespace" },
             [/\{/, "", "@binding_1"],
             [/;/, "", "@pop"],
-            // that should not be needed, but ends recovering after a for
-            [/\}/, "", "@pop"],
+            [/\}/, { token: "", next: "@pop", goBack: 1 }],
             [
                 /[a-zA-Z_][a-zA-Z0-9_]*/,
                 {

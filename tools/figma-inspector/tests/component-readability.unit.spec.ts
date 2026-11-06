@@ -3,6 +3,7 @@
 
 import { readFile } from "node:fs/promises";
 import { expect, test } from "vitest";
+import { repeatedPreview } from "./repeated-preview";
 import { buttonFamily } from "./button-family";
 import { normalizeSource } from "../src/plugin/normalize";
 import { convertSnapshot } from "../src/preview/converter";
@@ -107,4 +108,34 @@ test("true structural alternatives keep an unconditional layout and pass only re
     expect(privateParts).not.toContain("variant-position:");
     expect(privateParts).not.toContain("in property <string> label");
     expect(privateParts).toContain("in property <bool> icons");
+});
+
+test("preview templates share structure while retaining every occurrence value", async () => {
+    const capture = repeatedPreview(
+        JSON.parse(
+            await readFile("fixtures/source/conditional-root.json", "utf8"),
+        ),
+        200,
+    );
+    const normalized = await normalizeSource(capture);
+    if (!normalized.ok || normalized.empty)
+        throw Error("Invalid repeated fixture");
+    const before = JSON.stringify(normalized.snapshot);
+    const generated = convertSnapshot(normalized.snapshot, {
+        specialize: true,
+    });
+    if (!generated.ok) throw Error(JSON.stringify(generated));
+    expect(generated.source.match(/^component /gm)).toHaveLength(1);
+    expect(generated.source.match(/^ {4}RootSizingPreview \{/gm)).toHaveLength(
+        200,
+    );
+    expect(generated.source).toContain("in property <brush>");
+    expect(generated.source).toContain("in property <string>");
+    for (let index = 0; index < 200; index++)
+        expect(generated.source).toContain(`"Label ${index}"`);
+    expect(generated.source).not.toContain("variant-state");
+    expect(JSON.stringify(normalized.snapshot)).toBe(before);
+    expect(convertSnapshot(normalized.snapshot, { specialize: true })).toEqual(
+        generated,
+    );
 });

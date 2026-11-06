@@ -277,7 +277,7 @@ fn project_error(message: String, path: &SourcePath) -> Diagnostic {
     )
 }
 
-fn project_load_error(
+pub fn project_load_error(
     path: &SourcePath,
     error: Box<dyn Error>,
     source: Option<Vec<u8>>,
@@ -482,6 +482,16 @@ impl ProjectFile {
         Self::load_with_file_loader_and_source(path, file_loader).await.map_err(|(error, _)| error)
     }
 
+    pub async fn load_with_file_loader_diagnostic(
+        path: SourcePath,
+        file_loader: Option<&crate::OpenImportCallback>,
+    ) -> Result<Self, Diagnostic> {
+        let path = normalize_project_file_path(path);
+        Self::load_with_file_loader_and_source(path.clone(), file_loader)
+            .await
+            .map_err(|(error, source)| project_load_error(&path, error, source))
+    }
+
     async fn load_with_file_loader_and_source(
         path: SourcePath,
         file_loader: Option<&crate::OpenImportCallback>,
@@ -573,6 +583,7 @@ impl ProjectFile {
     pub fn apply_to(&self, compiler_config: &mut crate::CompilerConfiguration) {
         self.resolved_data().apply_to(compiler_config);
         compiler_config.edition_location = Some(self.edition_location());
+        compiler_config.project_roots = vec![normalize_project_root(self.source_path.clone())];
     }
 
     pub fn resolved_data(&self) -> ProjectFileData {

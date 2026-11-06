@@ -1,8 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-Button1 := Rectangle {
-//      ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+component Button1 inherits Rectangle {
     property <bool> cond;
     accessible-role: cond ? button : AccessibleRole.text;
 //                   >                                  <error{The `accessible-role` property must be a constant expression}
@@ -15,22 +14,19 @@ Button1 := Rectangle {
     }
 }
 
-Button2 := Rectangle {
-//      ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+component Button2 inherits Rectangle {
     accessible-label: "the button";
 //                    >           <error{The `accessible-label` property can only be set in combination to `accessible-role`}
 }
 
-Button3 := Rectangle {
-//      ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+component Button3 inherits Rectangle {
     Rectangle {
         accessible-role: text;
         accessible-label: "the button";
     }
 }
 
-export Test := Window {
-//          ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+export component Test inherits Window {
 
     Button1 { }
     Button1 { accessible-description: "ok"; } // ok because Button1 has a role

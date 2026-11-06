@@ -1,5 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+//edition: 1.18
 
 // cSpell: ignore alala gyoyo
 global G := {
@@ -40,7 +41,7 @@ export X := Rectangle {
         x <=> self.loop_on_x;
 //      >                   <error{The binding for the property 'x' is part of a binding loop (Rectangle.loop-on-x -> Rectangle.x -> Rectangle.loop-on-x)}
         property <length> loop_on_x <=> x;
-//                                  >    <note{'loop-on-x' is part of the binding loop reported for 'x' at line 40}
+//                                  >    <note{'loop-on-x' is part of the binding loop reported for 'x' at line 41}
     }
 
     property gyoyo <=> G.yoyo;
