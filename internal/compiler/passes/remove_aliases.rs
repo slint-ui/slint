@@ -12,6 +12,7 @@ use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{BindingExpression, Expression, NamedReference, TwoWayBinding};
 use crate::langtype::Type;
 use crate::object_tree::*;
+use smol_str::SmolStr;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
@@ -27,13 +28,40 @@ struct PropertySets {
     map: HashMap<NamedReference, PropertySet>,
     /// Every set, in creation order. A set that `add_link` merged into another one is empty.
     all_sets: Vec<PropertySet>,
+    /// The declarations that an instance binds two ways to a struct field or a model value.
+    /// Only a property of the component can host such a link, so they stay local, see [`stays_local`].
+    bound_to_field_or_model: HashSet<NamedReference>,
 }
 
 impl PropertySets {
     /// Puts `p1` and `p2` in one set, merging the sets they're already in,
     /// unless [`Self::can_merge`] rejects the link.
+    /// A property of an instance joins as a global when its declaration in a base component
+    /// is bound two ways to that global, and doesn't [`stays_local`].
     fn add_link(&mut self, p1: NamedReference, p2: NamedReference) {
-        if !self.can_merge(&p1, &p2) {
+        let global_of_base_declaration = |property: &NamedReference| -> Option<NamedReference> {
+            let declaration = base_declaration(&property.element().borrow(), property.name())?;
+            let global = declaration
+                .element()
+                .borrow()
+                .binding(declaration.name())?
+                .two_way_bindings
+                .iter()
+                .find_map(|twb| match twb {
+                    TwoWayBinding::Property { property: target_property, field_access }
+                        if field_access.is_empty() && is_in_global(target_property) =>
+                    {
+                        Some(target_property.clone())
+                    }
+                    _ => None,
+                })?;
+            let is_callback = matches!(property.ty(), Type::Callback(..));
+            (!is_callback && !stays_local(&declaration, &self.bound_to_field_or_model))
+                .then_some(global)
+        };
+        let p1 = global_of_base_declaration(&p1).unwrap_or(p1);
+        let p2 = global_of_base_declaration(&p2).unwrap_or(p2);
+        if p1 == p2 || !self.can_merge(&p1, &p2) {
             return;
         }
 
@@ -119,6 +147,8 @@ struct Links {
 /// 4. Every reference to a property to remove is replaced by its master.
 /// 5. [`remove_alias`] moves the binding and `changed` handlers of each property to remove
 ///    onto its master, and removes its declaration.
+/// 6. [`move_links_off_global_declarations`] moves the remaining links off the properties of
+///    instances that are a global.
 ///
 /// A link that [`PropertySets::can_merge`] rejects, and a property that [`choose_masters`] doesn't map,
 /// stay two-way bindings.
@@ -144,23 +174,26 @@ pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
     for (remove, (to, set)) in aliases_to_remove {
         remove_alias(&remove, &to, &set, diag);
     }
+
+    move_links_off_global_declarations(doc);
 }
 
 /// Collects the two-way bindings between properties of all used components, without field access.
 /// Reports a property that aliases itself.
 fn collect_links(doc: &Document, diag: &mut BuildDiagnostics) -> Links {
     let mut links = Links::default();
+    links.property_sets.bound_to_field_or_model = collect_bound_to_field_or_model(doc);
 
     let mut process_element = |e: &ElementRc| {
         'bindings: for (name, binding) in e.borrow().real_bindings() {
             for twb in &binding.borrow().two_way_bindings {
-                if let TwoWayBinding::Property { property, field_access } = twb {
+                if let TwoWayBinding::Property { property: target_property, field_access } = twb {
                     if !field_access.is_empty() {
                         // Don't optimize two way bindings to fields for now
                         continue;
                     }
-                    let other_e = property.element();
-                    if name == property.name() && Rc::ptr_eq(e, &other_e) {
+                    let other_e = target_property.element();
+                    if name == target_property.name() && Rc::ptr_eq(e, &other_e) {
                         diag.push_error(
                             "Property cannot alias to itself".into(),
                             &*binding.borrow(),
@@ -169,12 +202,13 @@ fn collect_links(doc: &Document, diag: &mut BuildDiagnostics) -> Links {
                     }
                     let source = NamedReference::new(e, name.clone());
                     if matches!(source.ty(), Type::Callback(..)) {
-                        let bucket = links.callback_aliases.entry(property.clone()).or_default();
+                        let bucket =
+                            links.callback_aliases.entry(target_property.clone()).or_default();
                         if !bucket.contains(&source) {
                             bucket.push(source.clone());
                         }
                     }
-                    links.property_sets.add_link(source, property.clone());
+                    links.property_sets.add_link(source, target_property.clone());
                 }
             }
         }
@@ -185,6 +219,25 @@ fn collect_links(doc: &Document, diag: &mut BuildDiagnostics) -> Links {
     });
 
     links
+}
+
+/// Collects [`PropertySets::bound_to_field_or_model`].
+fn collect_bound_to_field_or_model(doc: &Document) -> HashSet<NamedReference> {
+    let mut declarations = HashSet::new();
+    doc.visit_all_used_components(|component| {
+        recurse_elem_including_sub_components(component, &(), &mut |e, &()| {
+            let e = e.borrow();
+            for (name, binding) in e.real_bindings() {
+                let bound_to_field_or_model = binding.borrow().two_way_bindings.iter().any(|twb| {
+                    !matches!(twb, TwoWayBinding::Property { field_access, .. } if field_access.is_empty())
+                });
+                if bound_to_field_or_model && let Some(declaration) = base_declaration(&e, name) {
+                    declarations.insert(declaration);
+                }
+            }
+        })
+    });
+    declarations
 }
 
 /// Warns about callbacks bound two ways to the same callback when none of their set has a handler:
@@ -246,14 +299,12 @@ fn choose_masters(property_sets: PropertySets, diag: &mut BuildDiagnostics) -> M
         let best_is_global = is_in_global(&best);
         for x in set.iter() {
             if *x != best {
-                // Keep a property with a `changed` handler or an animation in its own
-                // component rather than aliasing it onto a global (a singleton it can't
-                // reach); the replacement in `remove_aliases` leaves it two-way bound to `best`.
-                let elem = x.element();
-                let elem = elem.borrow();
-                let carries_local_state = elem.change_callbacks.contains_key(x.name())
-                    || elem.binding(x.name()).is_some_and(|binding| binding.animation.is_some());
-                if best_is_global && !is_in_global(x) && carries_local_state {
+                // The replacement in `remove_aliases` leaves a property that `stays_local`
+                // two-way bound to `best`.
+                if best_is_global
+                    && !is_in_global(x)
+                    && stays_local(x, &property_sets.bound_to_field_or_model)
+                {
                     continue;
                 }
                 aliases_to_remove.insert(x.clone(), (best.clone(), Rc::clone(&set_rc)));
@@ -480,6 +531,69 @@ fn remove_declaration(remove: &NamedReference, to: &NamedReference) {
             to.mark_as_set();
         }
     }
+}
+
+/// Drops the links of the properties of instances whose declaration is now an alias of a global
+/// (see [`PropertySets::add_link`]), and puts the ones to other properties on their other end
+/// as `other <=> global`, which always resolves.
+fn move_links_off_global_declarations(doc: &Document) {
+    let global_declaration = |e: &ElementRc, name: &SmolStr| -> Option<NamedReference> {
+        let declaration = base_declaration(&e.borrow(), name)?;
+        let target = declaration
+            .element()
+            .borrow()
+            .property_declarations
+            .get(declaration.name())?
+            .is_alias
+            .clone()?;
+        is_in_global(&target).then_some(target)
+    };
+    let mut moved_links = Vec::new();
+    doc.visit_all_used_components(|component| {
+        recurse_elem_including_sub_components(component, &(), &mut |e, &()| {
+            for (name, binding) in e.borrow().real_bindings() {
+                if binding.borrow().two_way_bindings.is_empty() {
+                    continue;
+                }
+                let Some(global) = global_declaration(e, name) else { continue };
+                binding.borrow_mut().two_way_bindings.retain(|twb| match twb {
+                    TwoWayBinding::Property { property, field_access }
+                        if field_access.is_empty() =>
+                    {
+                        let other = global_declaration(&property.element(), property.name());
+                        if other.as_ref().unwrap_or(property) != &global {
+                            moved_links.push((property.clone(), global.clone()));
+                        }
+                        false
+                    }
+                    _ => true,
+                });
+                global.mark_as_set();
+            }
+        })
+    });
+    for (property, global) in moved_links {
+        add_two_way_link(&property, &global);
+    }
+}
+
+/// The declaration of the property `name` of `e` in a base component.
+fn base_declaration(e: &Element, name: &SmolStr) -> Option<NamedReference> {
+    let component = e.declaring_base_component(name)?;
+    Some(NamedReference::new(&component.root_element, name.clone()))
+}
+
+/// Whether `property` keeps its own property instead of being aliased to a global:
+/// a global can't run its `changed` handler or animation, or host its partial two-way bindings.
+fn stays_local(
+    property: &NamedReference,
+    bound_to_field_or_model: &HashSet<NamedReference>,
+) -> bool {
+    let element = property.element();
+    let element = element.borrow();
+    element.change_callbacks.contains_key(property.name())
+        || element.binding(property.name()).is_some_and(|binding| binding.animation.is_some())
+        || bound_to_field_or_model.contains(property)
 }
 
 /// Binds `property` two ways to `to`, keeping its other bindings.

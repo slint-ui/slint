@@ -13,6 +13,92 @@ global DualBindingGlop  {
     in-out property third <=> Glop.third;
 }
 
+global Linked {
+    in-out property <int> value;
+}
+
+global Valued {
+    in-out property <int> value;
+}
+
+component ValuedWidget {
+    in-out property <int> value <=> Valued.value;
+}
+
+global ChainA {
+    in-out property <int> a <=> ChainB.b;
+}
+
+global ChainB {
+    in-out property <int> b <=> ChainC.c;
+}
+
+global ChainC {
+    in-out property <int> c: 1;
+}
+
+global Other {
+    in-out property <int> o;
+}
+
+component ChainWidget {
+    in-out property <int> p <=> ChainA.a;
+}
+
+component OtherWidget {
+    in-out property <int> q <=> Other.o;
+}
+
+component MiddleWidget inherits ChainWidget { }
+
+struct FieldStruct {
+    x: int,
+    y: int,
+}
+
+global Fields {
+    in-out property <FieldStruct> s;
+    in-out property <int> v;
+    in-out property <int> m;
+}
+
+component FieldWidget {
+    in-out property <int> f <=> Fields.s.x;
+}
+
+component ValueWidget {
+    in-out property <int> v <=> Fields.v;
+}
+
+component ModelWidget {
+    in-out property <int> m <=> Fields.m;
+}
+
+global Watched {
+    in-out property <int> value;
+}
+
+component WatchedWidget {
+    in-out property <int> watched <=> Watched.value;
+    changed watched => { }
+}
+
+global Paired {
+    in-out property <int> first;
+    in-out property <int> second;
+    in-out property <int> third;
+}
+
+component PairWidget {
+    in-out property <int> first <=> Paired.first;
+    in-out property <int> second <=> Paired.second;
+}
+
+component Holder {
+    in-out property <int> held;
+    ChainWidget { p <=> root.held; }
+}
+
 component Widget inherits Rectangle {
     in-out property second <=> Glop.second;
 }
@@ -22,12 +108,94 @@ export component TestCase inherits Rectangle {
     // Unfortunately, this is only a native global with the Qt backend and not with the Test backend
     out property <length> alias_to_native <=> StyleMetrics.text_cursor_width;
     in-out property <int> alias_to_global <=> Glop.hello;
-    in-out property <bool> test: root.alias_to_native == StyleMetrics.text_cursor_width && root.alias_to_global == 42 && root.indirect == 88;
+    in-out property <bool> test: root.alias_to_native == StyleMetrics.text_cursor_width && root.alias_to_global == 42 && root.indirect == 88
+        && Valued.value == 7 && root.valued-alias == 7;
     in-out property <int> indirect <=> widget.second;
     in-out property <int> direct: Glop.second;
     in-out property <int> dual <=> DualBindingGlop.third;
 
     widget := Widget { }
+
+    // Two-way bindings on instances whose declaration is an alias to a global (#14170).
+    same-global := Widget { second <=> Glop.second; }
+    in-out property <int> via-root <=> Glop.second;
+    Widget { second <=> root.via-root; }
+    other-global := Widget { second <=> Linked.value; }
+    in-out property <int> watched;
+    changed watched => { }
+    Widget { second <=> root.watched; }
+    in-out property <int> animated;
+    animate animated { duration: 100ms; }
+    Widget { second <=> root.animated; }
+    in-out property <int> repeated;
+    for i in 2: Widget { second <=> root.repeated; }
+    // The value an instance sets is kept.
+    valued := ValuedWidget { value: 7; }
+    in-out property <int> valued-alias <=> valued.value;
+
+    // The same with a chain of globals, and between instances.
+    chain-end := ChainWidget { p <=> ChainC.c; }
+    chain-middle := ChainWidget { p <=> ChainB.b; }
+    middle := MiddleWidget { p <=> ChainA.a; }
+    holder := Holder { }
+    in-out property <int> chain-local-1 <=> chain-local-2;
+    in-out property <int> chain-local-2;
+    ChainWidget { p <=> root.chain-local-1; }
+    peer := ChainWidget { }
+    linked-peer := ChainWidget { p <=> peer.p; }
+    OtherWidget { q <=> chain-end.p; }
+    // Two properties of one instance, and a property the root aliases to another global.
+    PairWidget { first <=> self.second; }
+    in-out property <int> via-paired <=> Paired.third;
+    paired := PairWidget { second <=> root.via-paired; }
+    // A declaration with a `changed` handler stays in its component.
+    in-out property <int> watched-value: 9;
+    watched-widget := WatchedWidget { watched <=> root.watched-value; }
+
+    // Struct fields and model values.
+    in-out property <int> field-local;
+    FieldWidget { f <=> root.field-local; }
+    value-to-field := ValueWidget { v <=> Fields.s.y; }
+    in-out property <FieldStruct> local-struct;
+    ValueWidget { v <=> root.local-struct.x; }
+    in-out property <[int]> model: [1];
+    for item in model: ModelWidget { m <=> item; }
+
+    public function check-fields() -> bool {
+        Fields.s.x = 8;
+        if root.field-local != 8 {
+            return false;
+        }
+        Fields.v = 9;
+        if Fields.s.y != 9 || value-to-field.v != 9 || root.local-struct.x != 9 {
+            return false;
+        }
+        Fields.m = 10;
+        return root.model[0] == 10;
+    }
+
+    public function check-chains() -> bool {
+        ChainC.c = 3;
+        if ChainA.a != 3 || chain-end.p != 3 || chain-middle.p != 3 || middle.p != 3
+            || holder.held != 3 || root.chain-local-2 != 3 || linked-peer.p != 3
+            || Other.o != 3 {
+            return false;
+        }
+        Other.o = 4;
+        root.watched-value = 5;
+        Paired.first = 11;
+        return ChainA.a == 4 && ChainB.b == 4 && ChainC.c == 4 && peer.p == 4
+            && root.chain-local-1 == 4 && Watched.value == 5 && watched-widget.watched == 5
+            && Paired.second == 11 && Paired.third == 11 && paired.first == 11
+            && root.via-paired == 11;
+    }
+
+    public function check-links() -> bool {
+        Linked.value = 6;
+        return Glop.second == 6 && widget.second == 6 && same-global.second == 6
+            && root.via-root == 6 && other-global.second == 6 && root.watched == 6
+            && root.repeated == 6;
+    }
 }
 
 /*
@@ -41,7 +209,9 @@ assert_eq!(instance.get_indirect(), 88);
 instance.set_indirect(99);
 assert_eq!(instance.get_direct(), 99);
 assert_eq!(instance.get_dual(), 102);
-
+assert!(instance.invoke_check_links());
+assert!(instance.invoke_check_chains());
+assert!(instance.invoke_check_fields());
 ```
 
 ```cpp
@@ -49,6 +219,9 @@ auto handle = TestCase::create();
 const TestCase &instance = *handle;
 assert(instance.get_test());
 assert_eq(instance.get_dual(), 102);
+assert(instance.invoke_check_links());
+assert(instance.invoke_check_chains());
+assert(instance.invoke_check_fields());
 ```
 
 ```js
@@ -61,6 +234,9 @@ assert.equal(instance.indirect, 88);
 instance.indirect = 99;
 assert.equal(instance.direct, 99);
 assert.equal(instance.dual, 102);
+assert(instance.check_links());
+assert(instance.check_chains());
+assert(instance.check_fields());
 ```
 
 */
