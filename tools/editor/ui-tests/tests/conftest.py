@@ -10,6 +10,8 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+import slint_testing
+from ui_driver import launch_editor
 from ui_reporting import TestReport, current_report
 
 UI_TEST_ROOT = Path(__file__).resolve().parents[1]
@@ -65,6 +67,16 @@ def radial_scene(tmp_path: Path) -> Path:
 }
 """)
     return path
+
+
+@pytest.fixture
+def debugger_editor(
+    editor_binary: Path, editor_environment: dict[str, str], radial_scene: Path
+) -> Iterator[slint_testing.Application]:
+    with launch_editor(
+        editor_binary, editor_environment, radial_scene, ["--debugger"]
+    ) as editor:
+        yield editor
 
 
 def replay_pause_seconds(value: str) -> float:
