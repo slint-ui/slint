@@ -164,6 +164,14 @@ macro_rules! for_each_builtin_structs {
                 cap_height: Coord,
             }
 
+            /// Base styling for a `StyledText` element, set through its `default-style` property.
+            #[non_exhaustive]
+            pub struct RichTextStyle {
+                /// The line height as a factor of the font's natural line height.
+                /// Behaves like the `line-height-factor` property of `Text`.
+                line_height_factor: f32 = 1.0,
+            }
+
             /// This structure holds the hints that a `TextInput` gives to the platform's input method
             /// (e.g. a soft keyboard) about the expected input.
             /// The input method may take these hints into account, but might also ignore them.
