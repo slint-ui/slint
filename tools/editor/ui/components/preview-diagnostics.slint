@@ -43,7 +43,9 @@ export component PreviewDiagnostics inherits Rectangle {
     private property <bool> warnings-open;
     private property <bool> advanced-open;
     private property <string> file-name: Diagnostics.file-name;
+    private property <bool> status-visible: Diagnostics.preview-status-visible;
     changed file-name => { root.advanced-open = false; }
+    changed status-visible => { root.advanced-open = false; }
 
     if !Diagnostics.preview-editable: TouchArea { }
 
@@ -66,19 +68,21 @@ export component PreviewDiagnostics inherits Rectangle {
                     spacing: Metrics.space-medium;
                     cross-axis-alignment: center;
                     if !root.empty: Rectangle {
-                        width: 32px;
-                        height: 34px;
+                        width: Metrics.control-small + Metrics.space-compact;
+                        height: self.width;
                         Image {
                             x: 0px; y: 0px;
                             source: @image-url("../assets/primer-file-code.svg");
-                            width: 27px;
-                            height: 28px;
+                            width: Metrics.control-small;
+                            height: self.width;
                             colorize: root.style.muted;
                         }
                         DiagnosticBadge {
-                            x: 18px; y: 18px;
-                            width: 16px; height: 16px;
-                            icon-inset: 2px;
+                            x: parent.width - self.width;
+                            y: parent.height - self.height;
+                            width: Metrics.icon-medium;
+                            height: self.width;
+                            icon-inset: Metrics.space-tight;
                             background: Style.floating-surface.background;
                         }
                     }
@@ -94,7 +98,8 @@ export component PreviewDiagnostics inherits Rectangle {
                 Text {
                     text: root.empty
                         ? @tr("No component is available for this preview. Select another file or component to continue.")
-                        : @tr("This file has an error and can’t be displayed.");
+                        : root.stale ? @tr("This file has an error. Showing the last working preview.")
+                        : @tr("This file has an error and can't be displayed.");
                     color: root.style.muted;
                     font-size: Typography.body.size;
                     wrap: word-wrap;
@@ -156,7 +161,7 @@ export component PreviewDiagnostics inherits Rectangle {
                             }
                         }
                         if Diagnostics.errors.length > 3: Text {
-                            text: "\{Diagnostics.errors.length - 3} more errors. Copy diagnostics to see all messages.";
+                            text: @tr("{n} more error. Copy diagnostics to see all messages." | "{n} more errors. Copy diagnostics to see all messages." % (Diagnostics.errors.length - 3));
                             color: root.style.muted;
                             font-size: Typography.control.size;
                             wrap: word-wrap;
@@ -168,7 +173,7 @@ export component PreviewDiagnostics inherits Rectangle {
                                 accessible-label: @tr("Copy preview diagnostics");
                                 clicked => { Diagnostics.copy-to-clipboard(); }
                             }
-                            DiagnosticAction {
+                            if Diagnostics.can-open-in-editor: DiagnosticAction {
                                 text: @tr("Open in editor");
                                 clicked => { Diagnostics.open-in-editor(); }
                             }
