@@ -70,6 +70,18 @@ slint::slint! {
             stroke-width: 4px;
         }
     }
+
+    export component TextureCase inherits Window {
+        width: 256px;
+        height: 256px;
+        background: white;
+        in property <image> source;
+        Image {
+            width: 50%;
+            height: 50%;
+            source: root.source;
+        }
+    }
 }
 
 const SIZE: u32 = 256;
@@ -156,6 +168,21 @@ fn init_offscreen_platform() -> Option<Wgpu> {
 fn render(wgpu: &Wgpu) -> (Vec<u8>, Vec<u8>) {
     let scene = Scene::new().unwrap();
     scene.show().unwrap();
+    let gpu = render_last_window(wgpu);
+    let snapshot = scene.window().take_snapshot().unwrap();
+    let cpu = snapshot
+        .as_slice()
+        .iter()
+        .flat_map(|p| {
+            let premultiply = |c: u8| (c as u32 * p.a as u32 / 255) as u8;
+            [premultiply(p.r), premultiply(p.g), premultiply(p.b), p.a]
+        })
+        .collect();
+    (gpu, cpu)
+}
+
+/// Renders the window that was created last into a new texture, and returns its pixels.
+fn render_last_window(wgpu: &Wgpu) -> Vec<u8> {
     let texture = wgpu.device.create_texture(&wgpu::TextureDescriptor {
         label: Some("scene"),
         size: wgpu::Extent3d { width: SIZE, height: SIZE, depth_or_array_layers: 1 },
@@ -171,16 +198,35 @@ fn render(wgpu: &Wgpu) -> (Vec<u8>, Vec<u8>) {
     });
     let window = LAST_WINDOW.take().unwrap();
     window.renderer.render_to_texture(&texture).unwrap();
-    let snapshot = scene.window().take_snapshot().unwrap();
-    let cpu = snapshot
-        .as_slice()
-        .iter()
-        .flat_map(|p| {
-            let premultiply = |c: u8| (c as u32 * p.a as u32 / 255) as u8;
-            [premultiply(p.r), premultiply(p.g), premultiply(p.b), p.a]
-        })
-        .collect();
-    (read_texture(wgpu, &texture), cpu)
+    read_texture(wgpu, &texture)
+}
+
+fn solid_texture(wgpu: &Wgpu, pixel: [u8; 4]) -> wgpu::Texture {
+    let size = wgpu::Extent3d { width: 4, height: 4, depth_or_array_layers: 1 };
+    let texture = wgpu.device.create_texture(&wgpu::TextureDescriptor {
+        label: Some("solid texture"),
+        size,
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: wgpu::TextureFormat::Rgba8Unorm,
+        usage: wgpu::TextureUsages::TEXTURE_BINDING
+            | wgpu::TextureUsages::RENDER_ATTACHMENT
+            | wgpu::TextureUsages::COPY_DST,
+        view_formats: &[],
+    });
+    wgpu.queue.write_texture(
+        texture.as_image_copy(),
+        &pixel.repeat(16),
+        wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(16), rows_per_image: None },
+        size,
+    );
+    texture
+}
+
+fn pixel(pixels: &[u8], x: u32, y: u32) -> [u8; 4] {
+    let i = ((y * SIZE + x) * 4) as usize;
+    [pixels[i], pixels[i + 1], pixels[i + 2], pixels[i + 3]]
 }
 
 fn read_texture(wgpu: &Wgpu, texture: &wgpu::Texture) -> Vec<u8> {
@@ -250,4 +296,13 @@ fn graphite_matches_cpu() {
     let percent = differing as f64 * 100. / (SIZE * SIZE) as f64;
     writeln!(std::io::stderr(), "{percent:.2}% of the pixels differ").unwrap();
     assert!(percent < 2., "{percent:.2}% of the pixels differ");
+
+    // The image covers the top left quarter of the window.
+    let texture_case = TextureCase::new().unwrap();
+    texture_case
+        .set_source(slint::Image::try_from(solid_texture(&wgpu, [0, 0, 255, 255])).unwrap());
+    texture_case.show().unwrap();
+    let pixels = render_last_window(&wgpu);
+    assert_eq!(pixel(&pixels, SIZE / 4, SIZE / 4), [0, 0, 255, 255], "the texture is not drawn");
+    assert_eq!(pixel(&pixels, SIZE * 3 / 4, SIZE * 3 / 4), [255, 255, 255, 255]);
 }

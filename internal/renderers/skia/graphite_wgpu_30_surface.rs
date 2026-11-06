@@ -66,7 +66,16 @@ impl graphite::ImageProvider for ImageProvider {
     }
 }
 
-/// The color type that describes `format` to Skia.
+/// The color type that describes `format` to Skia when it samples a texture.
+#[cfg(feature = "unstable-wgpu-30")]
+fn sampled_color_type(format: wgpu::TextureFormat) -> Option<skia_safe::ColorType> {
+    match format {
+        wgpu::TextureFormat::Rgba8UnormSrgb => Some(skia_safe::ColorType::SRGBA8888),
+        format => color_type(format),
+    }
+}
+
+/// The color type that describes `format` to Skia when it renders into a texture.
 fn color_type(format: wgpu::TextureFormat) -> Option<skia_safe::ColorType> {
     use wgpu::TextureFormat::*;
     match format {
@@ -141,20 +150,22 @@ impl GraphiteWGPUSurface {
         let color_space = crate::attachment_color_space(
             crate::TextureEncoding::from_format_is_srgb(texture.format().is_srgb()),
         );
-        let mut recorder = self.recorder.borrow_mut();
-        {
-            let mut skia_surface = graphite::wgpu::surfaces::wrap_texture(
-                &mut recorder,
-                texture,
-                color_type,
-                color_space,
-                None,
-            )
-            .ok_or_else(|| PlatformError::from("Failed to wrap the wgpu texture for Skia"))?;
-            callback(skia_surface.canvas())?;
-        }
-        let mut recording =
-            recorder.snap().ok_or_else(|| PlatformError::from("Skia recorded nothing"))?;
+        let mut skia_surface = graphite::wgpu::surfaces::wrap_texture(
+            &mut self.recorder.borrow_mut(),
+            texture,
+            color_type,
+            color_space,
+            None,
+        )
+        .ok_or_else(|| PlatformError::from("Failed to wrap the wgpu texture for Skia"))?;
+        // `import_wgpu_texture` borrows the recorder while the callback draws.
+        callback(skia_surface.canvas())?;
+        drop(skia_surface);
+        let mut recording = self
+            .recorder
+            .borrow_mut()
+            .snap()
+            .ok_or_else(|| PlatformError::from("Skia recorded nothing"))?;
         let mut context = self.context.borrow_mut();
         context.insert_recording(&graphite::InsertRecordingInfo::new(&mut recording));
         if !context.submit(None) {
@@ -279,6 +290,29 @@ impl crate::Surface for GraphiteWGPUSurface {
             self.wgpu.device.clone(),
             self.wgpu.queue.clone(),
         ))
+    }
+
+    #[cfg(feature = "unstable-wgpu-30")]
+    fn import_wgpu_texture(
+        &self,
+        _canvas: &skia_safe::Canvas,
+        texture: &i_slint_core::graphics::WGPUTexture,
+    ) -> Option<skia_safe::Image> {
+        let texture = match texture {
+            i_slint_core::graphics::WGPUTexture::WGPU30Texture(texture) => texture,
+            #[allow(unreachable_patterns)]
+            _ => return None,
+        };
+        let mut recorder = self.recorder.try_borrow_mut().ok()?;
+        graphite::wgpu::images::wrap_texture(
+            &mut recorder,
+            texture,
+            sampled_color_type(texture.format())?,
+            skia_safe::AlphaType::Unpremul,
+            crate::sampled_texture_color_space(crate::TextureEncoding::from_format_is_srgb(
+                texture.format().is_srgb(),
+            )),
+        )
     }
 
     fn as_any(&self) -> &dyn core::any::Any {
