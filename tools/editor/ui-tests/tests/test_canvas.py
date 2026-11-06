@@ -617,8 +617,9 @@ def test_image_asset_mode_destroys_canvas_without_replaying_palette_drop(
         wait_for_source_change(source_file, baseline)
         snapshot = SourceSnapshot.capture(fixture_project)
 
-        asset_directory_row = file_row(window, asset_directory)
-        asset_directory_row.single_click(slint_testing.PointerEventButton.Left)
+        element(window, "Assets", role=slint_testing.AccessibleRole.Tab).single_click(
+            slint_testing.PointerEventButton.Left
+        )
         image_row = file_row(window, image_file)
         image_row.single_click(slint_testing.PointerEventButton.Left)
         preview_tab = element(
@@ -634,6 +635,9 @@ def test_image_asset_mode_destroys_canvas_without_replaying_palette_drop(
             .find_all()
         )
 
+        element(
+            window, "Slint files", role=slint_testing.AccessibleRole.Tab
+        ).single_click(slint_testing.PointerEventButton.Left)
         component_row = file_row(window, source_file)
         component_row.single_click(slint_testing.PointerEventButton.Left)
         element(window, "Artboard", role=slint_testing.AccessibleRole.Region)

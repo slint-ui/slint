@@ -263,7 +263,7 @@ def test_pane_sizes_persist_across_relaunch(
         drag_divider(window, elements_divider, 72)
         drag_divider(window, outline_divider, -64)
 
-        assert element(window, "FILES").accessible_label == "FILES"
+        element(window, "Project files", role=slint_testing.AccessibleRole.TabList)
         assert (
             element(
                 window, "Element sources", role=slint_testing.AccessibleRole.TabList

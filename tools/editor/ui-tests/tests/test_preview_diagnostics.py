@@ -64,7 +64,6 @@ def test_broken_preview_reports_locations_blocks_edits_and_recovers(
         if relative_path.startswith("components/"):
             folder = file_row(window, fixture_project / "components")
             assert "errors" in folder.accessible_description
-            folder.invoke_accessible_expand_action()
         wait_until(
             lambda: (
                 True if file_row(window, broken_file).accessible_description else None

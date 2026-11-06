@@ -191,40 +191,23 @@ def test_file_tree_limits_rename_error_to_edited_row(
         expect(query(window, "A file with that name already exists")).to_be_visible()
 
 
-def test_file_tree_opens_sibling_component(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
-    fixture_project: Path,
-) -> None:
-    snapshot = SourceSnapshot.capture(fixture_project)
-    source = fixture_project / "Main.slint"
-    with launch_editor(editor_binary, editor_environment, source) as editor:
-        wait_for_source(source, source.read_bytes())
-        window = first_window(editor)
-        file_row(
-            window, fixture_project / "Sibling.slint"
-        ).invoke_accessible_default_action()
-        element(window, "sibling-rectangle", role=slint_testing.AccessibleRole.ListItem)
-        assert not elements(window, "root-text")
-        snapshot.assert_unchanged()
-
-
-def test_file_tree_switches_image_and_component_surfaces(
+def test_project_files_switch_assets_and_component_surfaces(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
 ) -> None:
     snapshot = SourceSnapshot.capture(fixture_project)
     source_file = fixture_project / "Main.slint"
-    assets = fixture_project / "assets"
-    image = assets / "checker.svg"
+    image = fixture_project / "assets" / "checker.svg"
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         wait_for_source(source_file, source_file.read_bytes())
         window = first_window(editor)
         element(window, "Editor canvas", role=slint_testing.AccessibleRole.Main)
         assert not elements(window, str(image))
-        file_row(window, assets).invoke_accessible_default_action()
-        file_row(window, image).invoke_accessible_default_action()
+        element(window, "Assets", role=slint_testing.AccessibleRole.Tab).single_click(
+            slint_testing.PointerEventButton.Left
+        )
+        file_row(window, image).single_click(slint_testing.PointerEventButton.Left)
         image_editor = element(
             window, "Image asset editor", role=slint_testing.AccessibleRole.Main
         )
@@ -240,9 +223,118 @@ def test_file_tree_switches_image_and_component_surfaces(
         expect(query(window, "Editor canvas")).to_be_hidden()
         for kind in PALETTE_KINDS:
             assert not palette_row(window, kind).accessible_enabled
-        file_row(window, source_file).invoke_accessible_default_action()
+        element(
+            window, "Slint files", role=slint_testing.AccessibleRole.Tab
+        ).single_click(slint_testing.PointerEventButton.Left)
+        file_row(window, fixture_project / "Sibling.slint").single_click(
+            slint_testing.PointerEventButton.Left
+        )
+        element(window, "sibling-rectangle", role=slint_testing.AccessibleRole.ListItem)
+        expect(query(window, "root-text")).to_be_hidden()
+        file_row(window, source_file).single_click(
+            slint_testing.PointerEventButton.Left
+        )
         element(window, "Editor canvas", role=slint_testing.AccessibleRole.Main)
         element(window, "Fixture text", role=slint_testing.AccessibleRole.Text)
-        file_row(window, assets).invoke_accessible_default_action()
         expect(query(window, str(image))).to_be_hidden()
+        snapshot.assert_unchanged()
+
+
+def test_project_files_filter_tabs_and_search(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source = fixture_project / "Main.slint"
+    image = fixture_project / "assets" / "checker.svg"
+    fonts = fixture_project / "assets" / "fonts"
+    fonts.mkdir()
+    font = fonts / "Example.OTF"
+    font.write_bytes(b"")
+    unrelated = fonts / "README.md"
+    unrelated.write_text("Font notes")
+    snapshot = SourceSnapshot.capture(fixture_project)
+
+    with launch_editor(editor_binary, editor_environment, source) as editor:
+        window = first_window(editor)
+        element(window, "Fixture text", role=slint_testing.AccessibleRole.Text)
+        file_row(window, source)
+        expect(query(window, str(image))).to_be_hidden()
+        expect(query(window, str(font))).to_be_hidden()
+        expect(query(window, str(unrelated))).to_be_hidden()
+        expect(query(window, str(fonts))).to_be_hidden()
+
+        slint_files = element(
+            window, "Slint files", role=slint_testing.AccessibleRole.Tab
+        )
+        assets = element(window, "Assets", role=slint_testing.AccessibleRole.Tab)
+        slint_files.single_click(slint_testing.PointerEventButton.Left)
+        press_key(window, keys.RightArrow)
+        expect(assets).to_be_selected()
+        press_key(window, keys.RightArrow)
+        expect(slint_files).to_be_selected()
+        press_key(window, keys.LeftArrow)
+        expect(assets).to_be_selected()
+        expect(query(window, str(source))).to_be_hidden()
+        file_row(window, image)
+        file_row(window, font).single_click(slint_testing.PointerEventButton.Left)
+        expect.poll(lambda: file_row(window, font).accessible_item_selected).to_equal(
+            True
+        )
+        element(window, "Editor canvas", role=slint_testing.AccessibleRole.Main)
+        expect(query(window, str(unrelated))).to_be_hidden()
+
+        search = element(
+            window, "Search project files", role=slint_testing.AccessibleRole.TextInput
+        )
+        search.accessible_value = "FoNtS"
+        file_row(window, font)
+        expect(query(window, str(image))).to_be_hidden()
+        search.accessible_value = "no-such-file"
+        files = element(window, "Files", role=slint_testing.AccessibleRole.Tree)
+        expect(query(files, "No Results")).to_be_visible()
+        search.accessible_value = ""
+        file_row(window, image)
+        snapshot.assert_unchanged()
+
+
+def test_project_file_groups_collapse_independently_and_search_hidden_files(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source = fixture_project / "Main.slint"
+    group = fixture_project / "ui" / "components"
+    group.mkdir(parents=True)
+    child = group / "Nested.slint"
+    child.write_text("export component Nested inherits Rectangle {}")
+    snapshot = SourceSnapshot.capture(fixture_project)
+
+    with launch_editor(editor_binary, editor_environment, source) as editor:
+        window = first_window(editor)
+        file_row(window, child)
+        file_row(window, group).single_click(slint_testing.PointerEventButton.Left)
+        expect(query(window, str(child))).to_be_hidden()
+        file_row(window, fixture_project).single_click(
+            slint_testing.PointerEventButton.Left
+        )
+        expect(query(window, str(source))).to_be_hidden()
+
+        search = element(
+            window, "Search project files", role=slint_testing.AccessibleRole.TextInput
+        )
+        search.single_click(slint_testing.PointerEventButton.Left)
+        press_keys(window, "nEsTeD")
+        file_row(window, child)
+        expect(query(window, str(source))).to_be_hidden()
+        for _ in "nEsTeD":
+            press_key(window, keys.Backspace)
+        expect(search).to_have_value("")
+        press_keys(window, "missing")
+        expect(search).to_have_value("missing")
+        search.accessible_value = ""
+        expect(query(window, str(child))).to_be_hidden()
+        file_row(window, group).single_click(slint_testing.PointerEventButton.Left)
+        file_row(window, child)
+        expect(query(window, str(source))).to_be_hidden()
         snapshot.assert_unchanged()

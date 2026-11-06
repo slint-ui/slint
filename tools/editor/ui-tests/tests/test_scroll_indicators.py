@@ -29,6 +29,11 @@ def test_file_selection_preserves_scrolled_row_positions(
     with launch_editor(editor_binary, editor_environment, source) as editor:
         wait_for_source(source, source.read_bytes())
         window = first_window(editor)
+        element(window, "Elements pane resize").accessible_value = "120"
+        if suffix == "svg":
+            element(
+                window, "Assets", role=slint_testing.AccessibleRole.Tab
+            ).single_click(slint_testing.PointerEventButton.Left)
         tree = element(window, "Files", role=slint_testing.AccessibleRole.Tree)
 
         def row_frames():

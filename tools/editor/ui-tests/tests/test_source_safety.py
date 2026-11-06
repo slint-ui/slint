@@ -48,8 +48,6 @@ def test_imported_file_edit_targets_only_nested_source(
         wait_for_source(main_file, main_file.read_bytes())
         window = first_window(editor)
         expect(file_row(window, main_file)).to_be_selected(timeout=15)
-        components = fixture_project / "components"
-        file_row(window, components).invoke_accessible_default_action()
         file_row(window, nested_file).invoke_accessible_default_action()
         element(
             window,
