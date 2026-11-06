@@ -207,7 +207,8 @@ impl crate::Surface for GraphiteWGPUSurface {
                 matches!(f, wgpu::TextureFormat::Rgba8Unorm | wgpu::TextureFormat::Bgra8Unorm)
             })
             .unwrap_or(capabilities.formats[0]);
-        // Skia reads the destination back for backdrop blur and some blend modes.
+        // Skia copies or samples the backdrop of a backdrop blur, and without either usage
+        // draws the blur over nothing.
         surface_config.usage |= capabilities.usages
             & (wgpu::TextureUsages::COPY_SRC | wgpu::TextureUsages::TEXTURE_BINDING);
         surface_config.present_mode = wgpu::PresentMode::AutoVsync;
