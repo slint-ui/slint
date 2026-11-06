@@ -3254,7 +3254,7 @@ fn test_library_project_files() {
         (SourcePath::new("/lib/button.slint"), "export component Button { }"),
         (
             SourcePath::new(cwd.join("rel/slint-project.json")),
-            r#"{ "edition": "1.19", "main": "rel.slint" }"#,
+            r#"{ "edition": "1.20", "main": "rel.slint" }"#,
         ),
         (SourcePath::new(cwd.join("rel/rel.slint")), "export component Rel { }"),
     ]);
@@ -3350,7 +3350,7 @@ fn test_library_project_file_without_main() {
     let project_file_ = project_file.clone();
     compiler_config.open_import_callback = Some(Rc::new(move |path| {
         let is_project_file = path == project_file_;
-        Box::pin(async move { is_project_file.then(|| Ok(r#"{ "edition": "1.19" }"#.to_owned())) })
+        Box::pin(async move { is_project_file.then(|| Ok(r#"{ "edition": "1.20" }"#.to_owned())) })
     }));
 
     let mut test_diags = crate::diagnostics::BuildDiagnostics::default();

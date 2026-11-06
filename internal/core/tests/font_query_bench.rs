@@ -55,7 +55,7 @@ impl TargetPixel for Pixel {
 }
 
 slint::slint! {
-    #[edition = "1.19"]
+    #[edition = "1.20"]
     export component Bench inherits Window {
         in property <[string]> model;
         in property <length> gap: 0px;

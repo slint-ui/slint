@@ -19,7 +19,7 @@ Compiling `/projects/app/ui/main.slint` directly doesn't load a project file.
 
 ```json
 {
-    "edition": "1.19",
+    "edition": "1.20",
     "main": "ui/main.slint",
     "include-paths": ["ui/shared"],
     "library-paths": {
@@ -37,7 +37,7 @@ All other settings are optional.
 
 | Setting | Type | Description |
 |---------|------|-------------|
-| `edition` | string | Required. The Slint release whose language behavior your project uses, such as `"1.19"`. See [Editions](../../language/concepts/editions/). |
+| `edition` | string | Required. The Slint release whose language behavior your project uses, such as `"1.20"`. See [Editions](../../language/concepts/editions/). |
 | `main` | string | The `.slint` file to compile when you pass the project file or its directory. See [Compiling a Project](#compiling-a-project). |
 | `include-paths` | array of strings | Directories to search for imported `.slint` files. |
 | `library-paths` | object | Maps a library name to a file, a directory, or the library's project file, for `@library` imports. See [Libraries](#libraries). |
@@ -66,7 +66,7 @@ To use its settings, map the library name to that project file:
 
 ```json
 {
-    "edition": "1.19",
+    "edition": "1.20",
     "main": "ui/main.slint",
     "library-paths": {
         "widgets": "../widgets/slint-project.json"
@@ -88,7 +88,7 @@ To compile your project, first set `main` to the main `.slint` file of your appl
 
 ```json
 {
-    "edition": "1.19",
+    "edition": "1.20",
     "main": "ui/main.slint"
 }
 ```
