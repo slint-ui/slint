@@ -124,34 +124,37 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     // the sun rises or sets.
     let starlight = stars(direction) * smoothstep(1.02, 1.12, miss_distance);
     let limb_sun = dot(normalize(closest), sun);
-    let limb_light = mix(1.0, smoothstep(-0.3, 0.25, limb_sun), sun_strength);
+    let limb_light = mix(1.0, smoothstep(-0.2, 0.4, limb_sun), sun_strength);
     let limb_dusk = exp(-pow(limb_sun / 0.1, 2.0)) * sun_strength;
-    let halo = exp(-max(miss_distance - 1.0, 0.0) * 30.0) * select(0.0, 1.0, along > 0.0);
-    let halo_color = vec3<f32>(0.35, 0.6, 1.0);
-    let glow = (halo_color * limb_light + vec3<f32>(1.0, 0.5, 0.2) * limb_dusk * 0.6) * halo * 0.6;
+    let halo = exp(-max(miss_distance - 1.0, 0.0) * 55.0) * select(0.0, 1.0, along > 0.0);
+    let halo_color = vec3<f32>(0.4, 0.65, 1.0);
+    let glow = (halo_color * limb_light + vec3<f32>(1.0, 0.5, 0.2) * limb_dusk * 0.4) * halo * 0.8;
 
     // The ground.
     let view = -direction;
     let facing = max(dot(normal, view), 0.0);
     let fresnel = pow(1.0 - facing, 5.0);
     let sunlight = dot(normal, sun);
-    let day = mix(1.0, smoothstep(-0.02, 0.05, sunlight), sun_strength);
-    // Twilight lasts while the sun is up to 4° below the horizon.
-    let twilight = (1.0 - day) * smoothstep(-0.07, 0.0, sunlight) * sun_strength;
-    // The line where the sun rises and sets.
-    let terminator = exp(-pow(sunlight / 0.01, 2.0)) * sun_strength;
-    let terminator_color = vec3<f32>(1.0, 0.62, 0.3);
-    let diffuse = mix(1.0, clamp(sunlight * 1.2 + 0.25, 0.0, 1.0), sun_strength * 0.8);
+    // The sunlight fades with its angle to the ground, slightly wrapped so that the edge to the
+    // night is soft, and reddens where it crosses the most air, low over the horizon.
+    let lambert = clamp((sunlight + 0.06) / 1.06, 0.0, 1.0);
+    let reddening = mix(vec3<f32>(1.0, 0.58, 0.36), vec3<f32>(1.0), smoothstep(0.0, 0.3, sunlight));
+    let sun_light = mix(vec3<f32>(1.0), reddening * lambert * 1.2, sun_strength);
+    // The night side under faint, bluish moonlight, and the cities' lights coming on at dusk.
+    let darkness = smoothstep(0.08, -0.12, sunlight) * sun_strength;
+    let moonlight = vec3<f32>(0.03, 0.04, 0.075) * darkness;
+    let lights = vec3<f32>(1.0, 0.62, 0.3) * city_light * 2.4 * darkness;
 
-    var lit = imagery * diffuse;
+    var ground = imagery * (sun_light + moonlight) + lights;
     let half_way = normalize(sun + view);
-    let glint = pow(max(dot(normal, half_way), 0.0), 500.0) * (1.0 - land) * 0.15 * day;
-    lit += vec3<f32>(1.0, 0.92, 0.8) * glint;
-    let night_ground = imagery * vec3<f32>(0.02, 0.025, 0.04);
-    let lights = vec3<f32>(1.0, 0.72, 0.38) * city_light * 2.0;
-    var ground = mix(night_ground + lights + vec3<f32>(0.05, 0.03, 0.035) * twilight, lit, day);
-    ground += vec3<f32>(0.35, 0.6, 1.0) * fresnel * mix(0.03, 0.25, day);
-    ground += terminator_color * terminator * 0.16;
+    let glint = pow(max(dot(normal, half_way), 0.0), 500.0) * (1.0 - land) * 0.15 * lambert;
+    ground += vec3<f32>(1.0, 0.92, 0.8) * glint;
+    // Towards the edge of the disk, the day side fades into the atmosphere's blue haze.
+    let haze = pow(1.0 - facing, 3.0) * 0.35 * mix(1.0, smoothstep(-0.1, 0.4, sunlight), sun_strength);
+    ground = mix(ground, vec3<f32>(0.4, 0.62, 1.0) * mix(1.0, lambert + 0.15, sun_strength), haze);
+    ground += vec3<f32>(0.35, 0.6, 1.0) * fresnel * 0.03 * (1.0 - darkness);
+    // A soft shoulder, so that bright deserts and the glint don't clip.
+    ground = ground * 1.2 / (1.0 + ground * 0.2);
 
     // Where there's no space, the frame is transparent but for the atmosphere's glow.
     let space = globals.options.x;
