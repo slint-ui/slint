@@ -3585,6 +3585,7 @@ dependencies = [
  "miniz_oxide 0.8.9",
  "notify",
  "postcard",
+ "prost",
  "rand 0.10.3",
  "rand_core 0.6.4",
  "scopeguard",

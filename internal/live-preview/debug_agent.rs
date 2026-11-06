@@ -123,8 +123,10 @@ impl DebugAgent {
         Ok(())
     }
 
-    /// Draws the highlight over `instance`, which the preview just put on screen.
+    /// Draws the highlight over `instance`, which the preview just put on screen,
+    /// and ends the subscriptions of the debugger, which observed the instance it replaced.
     pub fn show(&self, instance: &ComponentInstance) -> anyhow::Result<()> {
+        crate::system_testing::clear_subscriptions(&self.to_editor);
         let inspector =
             self.inspector.as_ref().ok_or_else(|| anyhow::anyhow!("No inspector overlay"))?;
         inspector.attach()?;
@@ -132,17 +134,20 @@ impl DebugAgent {
         Ok(())
     }
 
-    /// Removes the highlight before the preview takes its instance off screen.
+    /// Removes the highlight and ends the subscriptions of the debugger
+    /// before the preview takes its instance off screen.
     pub fn hide(&self) {
+        crate::system_testing::clear_subscriptions(&self.to_editor);
         if let Some(inspector) = &self.inspector {
             inspector.detach();
         }
     }
 
-    /// Forgets the highlight of an editor that disconnected,
-    /// and removes it from `shown`, the instance on screen.
+    /// Forgets the highlight and the subscriptions of an editor that disconnected,
+    /// and removes the highlight from `shown`, the instance on screen.
     pub fn reset(&mut self, shown: Option<&ComponentInstance>) {
         self.highlight = None;
+        crate::system_testing::clear_subscriptions(&self.to_editor);
         if let Some(inspector) = &self.inspector {
             inspector.update(shown, None);
         }

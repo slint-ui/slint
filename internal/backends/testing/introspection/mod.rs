@@ -20,7 +20,7 @@ slotmap::new_key_type! {
 }
 
 #[allow(dead_code, non_snake_case, unused_imports, non_camel_case_types, clippy::all)]
-pub(crate) mod proto;
+pub mod proto;
 #[cfg(feature = "system-testing")]
 pub(crate) mod subscriptions;
 

@@ -21,6 +21,8 @@ pub use testing_backend::{TestingWindow, mock_elapsed_time};
 mod ffi;
 #[cfg(any(feature = "system-testing", feature = "mcp"))]
 pub(crate) mod introspection;
+#[cfg(all(feature = "internal", any(feature = "system-testing", feature = "mcp")))]
+pub use introspection::proto;
 #[cfg(feature = "mcp")]
 pub mod mcp_server;
 #[cfg(feature = "system-testing")]

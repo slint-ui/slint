@@ -1,3 +1,12 @@
+Debug(ElementTreeChanged { subscription: 300, changed: [1, 2, 3] })
+0102ac0203010203
+
+Debug(PropertiesChanged { subscription: 300, changed: [1, 2, 3] })
+0101ac0203010203
+
+Debug(SubscriptionsEnded { subscriptions: [300, 7] })
+010302ac0207
+
 Debug(SystemTestRequest { id: 7, request: [1, 2, 3] })
 01000703010203
 
