@@ -391,7 +391,15 @@ impl EditorSession {
         self.reapply_effective_configuration().await
     }
 
-    pub fn active_project_file_paths(&self) -> impl Iterator<Item = &std::path::Path> {
+    /// The files to watch for changes: the files the compiler loaded or references,
+    /// and the project files.
+    pub fn paths_to_watch(&self) -> HashSet<PathBuf> {
+        let mut paths = self.document_cache.all_paths_to_watch();
+        paths.extend(self.project_file_paths.iter().cloned());
+        paths
+    }
+
+    fn active_project_file_paths(&self) -> impl Iterator<Item = &std::path::Path> {
         self.project_file_paths.iter().map(PathBuf::as_path)
     }
 
@@ -1910,6 +1918,7 @@ mod preview_tests {
             .unwrap();
         assert!(!session.active_projects.contains_key(&path));
         assert_eq!(session.active_project_file_paths().collect::<Vec<_>>(), [path.as_path()]);
+        assert!(session.paths_to_watch().contains(&path));
         std::fs::write(&path, r#"{"edition":"1.19","experimental-features":["match"]}"#).unwrap();
         for (preview_index, messages) in messages.iter().enumerate() {
             messages.borrow_mut().clear();
@@ -1927,6 +1936,7 @@ mod preview_tests {
         spin_on::spin_on(session.trigger_file_watcher(url, FileChangeKind::Deleted)).unwrap();
         assert!(!session.active_projects.contains_key(&path));
         assert!(session.active_project_file_paths().next().is_none());
+        assert!(!session.paths_to_watch().contains(&path));
     }
 
     #[test]
