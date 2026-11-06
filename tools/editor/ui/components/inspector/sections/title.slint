@@ -18,7 +18,6 @@ export component InspectorTitleSection inherits InspectorSection {
         InspectorCodeField {
             accessible-name: @tr("Title");
             prefix: @tr("Title");
-            fallback: "\"\"";
             property-name: "title";
             commit-key: InspectorContext.field-key("title");
         }
