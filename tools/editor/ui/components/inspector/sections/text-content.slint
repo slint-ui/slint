@@ -38,7 +38,8 @@ export component InspectorTextContentSection inherits InspectorSection {
         if InspectorContext.has-styled-text-property(): InspectorCodeField {
             accessible-name: @tr("Text content");
             prefix: @tr("Text");
-            value: Properties.source-property-value("text", "@markdown(\"\")");
+            fallback: "@markdown(\"\")";
+            property-name: "text";
             commit-key: InspectorContext.field-key("text");
             accepted(text) => {
                 return InspectorContext.commit-code("text", text);
