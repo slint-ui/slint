@@ -130,6 +130,14 @@ Tool calls arrive as `tools/call` JSON-RPC methods. The `handle_tool_call()` fun
 
 The `initialize` response includes a detailed `instructions` field that guides MCP clients through the workflow, handle format, enum values, and query syntax. This is the primary documentation that AI clients see when connecting.
 
+### Scrolling Into View
+
+`query_element_descendants` with `scrollIntoView` also searches content clipped by Flickables.
+For virtualized lists, it pages through each Flickable and searches nested lists before advancing the outer page.
+This keeps off-screen inner lists instantiated while their rows are searched.
+A search without a match restores scroll positions in surviving Flickables.
+Paging can recreate virtualized rows, invalidating their handles and resetting state stored in those rows.
+
 ## Proto Build Pipeline (`build.rs`)
 
 Both `system-testing` and `mcp` features trigger the same build pipeline:
