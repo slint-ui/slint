@@ -274,6 +274,7 @@ pub(super) fn create_text_paragraphs(
     layout_builder: &LayoutWithoutLineBreaksBuilder,
     font_context: &mut FontContext,
     text: PlainOrStyledText,
+    plain_formatting: Vec<i_slint_common::styled_text::FormattedSpan>,
     link_color: Color,
 ) -> Vec<TextParagraph> {
     let paragraph_from_text =
@@ -310,11 +311,22 @@ pub(super) fn create_text_paragraphs(
     match text {
         PlainOrStyledText::Plain(ref text) => {
             for range in paragraph_ranges(text) {
+                let formatting = plain_formatting
+                    .iter()
+                    .filter_map(|span| {
+                        let start = span.range.start.max(range.start);
+                        let end = span.range.end.min(range.end);
+                        (start < end).then(|| i_slint_common::styled_text::FormattedSpan {
+                            range: start - range.start..end - range.start,
+                            style: span.style.clone(),
+                        })
+                    })
+                    .collect();
                 paragraphs.push(paragraph_from_text(
                     font_context,
                     &text[range.clone()],
                     range,
-                    Default::default(),
+                    formatting,
                     Default::default(),
                 ));
             }
@@ -407,10 +419,12 @@ pub(super) fn shape_paragraphs(
     let builder = shaping_builder(text, item_rc, text_wrap, scale_factor);
     let plain_or_styled_text = text.text();
     let link_color = text.link_color();
+    let plain_formatting = text.formatting();
     create_text_paragraphs(
         &builder,
         &mut font_context.borrow_mut(),
         plain_or_styled_text,
+        plain_formatting,
         link_color,
     )
 }

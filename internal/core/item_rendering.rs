@@ -526,6 +526,10 @@ pub enum PlainOrStyledText {
 pub trait RenderString: HasFont {
     /// The text to lay out.
     fn text(self: Pin<&Self>) -> PlainOrStyledText;
+    /// Styles for spans of [`Self::text`] when it is plain text.
+    fn formatting(self: Pin<&Self>) -> alloc::vec::Vec<i_slint_common::styled_text::FormattedSpan> {
+        Default::default()
+    }
     /// The `max-lines` property; see [`Self::line_limit`].
     fn max_lines(self: Pin<&Self>) -> i32 {
         0
