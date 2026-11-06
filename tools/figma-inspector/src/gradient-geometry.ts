@@ -17,7 +17,7 @@ export function radialGeometry(transform: SnapshotTransform) {
     };
 }
 
-export function conicGeometry(
+export function isCircularGradient(
     transform: SnapshotTransform,
     width: number,
     height: number,
@@ -25,12 +25,10 @@ export function conicGeometry(
     const [[a, c], [b, d]] = transform;
     const xx = (a * a + b * b) / (width * width);
     const yy = (c * c + d * d) / (height * height);
-    return {
-        ...radialGeometry(transform),
-        circular:
-            a * d - b * c > 0 &&
-            Math.abs(xx - yy) <= 1e-6 * Math.max(xx, yy) &&
-            Math.abs((a * c + b * d) / (width * height)) <=
-                1e-6 * Math.sqrt(xx * yy),
-    };
+    return (
+        a * d - b * c > 0 &&
+        Math.abs(xx - yy) <= 1e-6 * Math.max(xx, yy) &&
+        Math.abs((a * c + b * d) / (width * height)) <=
+            1e-6 * Math.sqrt(xx * yy)
+    );
 }

@@ -22,7 +22,7 @@ import {
     type NodeResult,
 } from "./normalization-context";
 import type { ImageResolver } from "./normalize";
-import { radialGeometry, conicGeometry } from "../gradient-geometry";
+import { radialGeometry, isCircularGradient } from "../gradient-geometry";
 import type {
     Diagnostic,
     SnapshotImage,
@@ -173,7 +173,7 @@ async function paint(
         const matrix = transform(value.gradientTransform, node);
         if (
             value.type === "GRADIENT_ANGULAR" &&
-            !conicGeometry(matrix, node.width, node.height).circular
+            !isCircularGradient(matrix, node.width, node.height)
         )
             throw new CompatibilityError(
                 "angular gradient requires a circular, unreflected transform",
@@ -209,7 +209,8 @@ async function paint(
         };
     }
     if (value.type === "GRADIENT_RADIAL") {
-        const [[a, c, e], [b, d, f]] = transform(value.gradientTransform, node);
+        const gradientTransform = transform(value.gradientTransform, node);
+        const [[a, c, e], [b, d, f]] = gradientTransform;
         const determinant = a * d - b * c;
         if (Math.abs(determinant) < 1e-12)
             throw new CompatibilityError(
@@ -230,7 +231,6 @@ async function paint(
                 );
             return { position: stop.position, color: color(stop.color, node) };
         });
-        const gradientTransform = transform(value.gradientTransform, node);
         if (radialGeometry(gradientTransform).axisAligned)
             return {
                 kind: "radial-gradient",
@@ -248,17 +248,9 @@ async function paint(
         ]
             .map((entry) => entry / determinant)
             .join(" ");
-        const stops = value.gradientStops
+        const stops = stopsData
             .map((stop) => {
-                if (
-                    !number(stop.position) ||
-                    stop.position < 0 ||
-                    stop.position > 1
-                )
-                    throw new CompatibilityError(
-                        "gradient stop position must be between 0 and 1",
-                    );
-                const rgba = color(stop.color, node);
+                const rgba = stop.color;
                 const rgb = [rgba.r, rgba.g, rgba.b]
                     .map((channel) => Math.round(channel * 255))
                     .join(",");

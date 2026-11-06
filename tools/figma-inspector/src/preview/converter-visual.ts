@@ -403,16 +403,15 @@ export function shadowLayersSource(
     context: RenderContext,
     depth: number,
 ): SlintLine[] {
-    const appearance = node;
-    const outerShadows = appearance.shadows.filter(
+    const outerShadows = node.shadows.filter(
         (shadow) => shadow.kind !== "inner",
     );
     if (
         outerShadows.length === 0 ||
-        (outerShadows.length === 1 && !separateShadowCaster(appearance))
+        (outerShadows.length === 1 && !separateShadowCaster(node))
     )
         return [];
-    if (appearance.clipsContent)
+    if (node.clipsContent)
         context.warnings.push({
             severity: "warning",
             code:
@@ -425,15 +424,13 @@ export function shadowLayersSource(
             message:
                 "Separate shadow casters are subject to the node's content clip in Slint",
         });
-    const fill = appearance.fills.find(
-        (candidate) => candidate.kind !== "image",
-    );
+    const fill = node.fills.find((candidate) => candidate.kind !== "image");
     return outerShadows.flatMap((shadow) => [
         openElement("Rectangle", depth),
         property("x", "0px", depth + 1),
         ...appearanceSource(
             {
-                ...appearance,
+                ...node,
                 fills: fill === undefined ? [] : [fill],
                 shadows: [],
                 clipsContent: false,

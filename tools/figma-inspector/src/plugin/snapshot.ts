@@ -566,10 +566,12 @@ function validatePaint(value: unknown, path: string): Diagnostic[] {
             String(value.kind),
         )
     ) {
-        errors.push(...validateTransform(value.transform, `${path}.transform`));
-        if (
-            validateTransform(value.transform, `${path}.transform`).length === 0
-        ) {
+        const transformErrors = validateTransform(
+            value.transform,
+            `${path}.transform`,
+        );
+        errors.push(...transformErrors);
+        if (transformErrors.length === 0) {
             const [[a, c], [b, d]] = value.transform as SnapshotTransform;
             if (
                 value.kind === "linear-gradient"

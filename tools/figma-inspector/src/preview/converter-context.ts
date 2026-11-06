@@ -11,7 +11,7 @@ import type {
     SnapshotPaintWithImage,
 } from "../plugin/snapshot";
 import { utf8ToBase64 } from "../images";
-import { radialGeometry, conicGeometry } from "../gradient-geometry";
+import { radialGeometry } from "../gradient-geometry";
 
 export type RenderContext = {
     helperIds?: Map<string, string>;
@@ -132,7 +132,7 @@ export function paint(value: SnapshotPaintWithImage): string {
         return `@radial-gradient(ellipse self.width * ${gradientNumber(geometry.radiusX)} self.height * ${gradientNumber(geometry.radiusY)} at self.width * ${gradientNumber(geometry.centerX)} self.height * ${gradientNumber(geometry.centerY)}, ${stops})`;
     }
     if (value.kind === "conic-gradient") {
-        const geometry = conicGeometry(value.transform, 1, 1);
+        const geometry = radialGeometry(value.transform);
         const [, [b, d]] = value.transform;
         const angle =
             b === 0
