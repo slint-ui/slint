@@ -22,6 +22,9 @@ on:
                 description: "Artifact of this run with the signed slint-viewer-<abi>.apk files to verify"
                 type: string
                 default: ""
+            os:
+                description: The runner for the build job
+                type: string
 
 jobs:
     build:
@@ -29,7 +32,7 @@ jobs:
         # An older runner image than the F-Droid job's, so the two builds share
         # as little as possible. disorderfs reverses every directory listing,
         # which catches build scripts that walk directories without sorting.
-        runs-on: ubuntu-22.04
+        runs-on: ${{ inputs.os || 'ubuntu-22.04' }}
         steps:
             - uses: actions/checkout@v7
             - uses: ./.github/actions/setup-android-viewer-build
