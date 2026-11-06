@@ -4860,7 +4860,10 @@ export component Main {
     #[test]
     fn inspector_typed_edits_reject_invalid_values_without_changing_the_draft() {
         let editor = availability_test_editor();
-        inspector_test_target(&editor, ROTATED_SOURCE);
+        let source = ROTATED_SOURCE
+            .replace("height: 60px;", "height: 60px; in-out property <length> font-size: 12px;");
+        inspector_test_target(&editor, &source);
+        assert!(inspector::preview_property("font-size".into(), inspector_number(20., "px")));
         let instance = component_instance().unwrap();
         assert!(inspector::preview_property(
             "transform-rotation".into(),
@@ -4870,6 +4873,9 @@ export component Main {
             ("transform-rotation", inspector_number(f32::NAN, "deg")),
             ("transform-rotation", inspector_number(1., "px")),
             ("border-width", inspector_number(-1., "px")),
+            ("font-size", inspector_number(0., "px")),
+            ("font-size", inspector_number(-1., "px")),
+            ("font-size", inspector_number(f32::NAN, "px")),
             ("drop-shadow-blur", inspector_number(-1., "px")),
             ("inner-shadow-blur", inspector_number(-1., "px")),
             ("missing-property", inspector_number(1., "px")),

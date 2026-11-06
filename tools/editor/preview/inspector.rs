@@ -201,7 +201,7 @@ fn edit_value(
                         | "drop-shadow-blur"
                         | "inner-shadow-blur"
                 );
-            if nonnegative && value.number < 0. {
+            if (nonnegative && value.number < 0.) || (name == "font-size" && value.number <= 0.) {
                 return None;
             }
             (format!("{}{}", value.number, value.unit), Value::Number(runtime))

@@ -8,13 +8,12 @@ import { Style, Colors, Metrics, Typography, InspectorStyle } from "../../../sty
 import { InspectorColorField, InspectorCornerEditor, InspectorPropertyRow, InspectorSection, InspectorSwitch } from "../index.slint";
 import { InspectorContext } from "context.slint";
 
-export component InspectorAppearanceSection inherits InspectorSection {
+export component InspectorAppearanceFields inherits VerticalLayout {
     in property <InspectorStyle> style: Style.inspector-layout;
     in property <length> pane-width;
     private property <bool> clip-value: Properties.editor-property-value-data("clip").value-bool;
 
-    title: @tr("APPEARANCE");
-    use-shared-title: true;
+    spacing: Metrics.space-small;
 
     pure function corner-property(index: int) -> string {
         return ["border-top-left-radius", "border-top-right-radius", "border-bottom-left-radius", "border-bottom-right-radius"][index];
@@ -118,5 +117,18 @@ export component InspectorAppearanceSection inherits InspectorSection {
                 InspectorContext.commit-code("clip", requested ? "true" : "false");
             }
         }
+    }
+}
+
+export component InspectorAppearanceSection inherits InspectorSection {
+    in property <InspectorStyle> style: Style.inspector-layout;
+    in property <length> pane-width;
+
+    title: @tr("APPEARANCE");
+    use-shared-title: true;
+
+    InspectorAppearanceFields {
+        style: root.style;
+        pane-width: root.pane-width;
     }
 }

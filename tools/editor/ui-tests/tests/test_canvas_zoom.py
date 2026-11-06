@@ -138,21 +138,17 @@ def test_zoom_to_selection_uses_largest_fitting_level(
 
 @pytest.mark.parametrize("shift", [keys.Shift, keys.ShiftR])
 @pytest.mark.parametrize(
-    ("row", "label", "prefix", "suffix", "old", "new"),
+    ("row", "label", "old", "new"),
     [
         (
             "root-rectangle",
             "Width",
-            "",
-            "",
             b"width: 180px;\n        height: 120px;",
             b"width: 2px;\n        height: 120px;",
         ),
         (
             "root-text",
             "Text content",
-            '"',
-            '"',
             b'text: "Fixture text";',
             b'text: "2";',
         ),
@@ -165,8 +161,6 @@ def test_shift_two_types_in_inspector_without_zooming(
     shift,
     row,
     label,
-    prefix,
-    suffix,
     old,
     new,
 ):
@@ -180,13 +174,11 @@ def test_shift_two_types_in_inspector_without_zooming(
         field = inspector_field(window, label, slint_testing.AccessibleRole.TextInput)
         field.single_click(slint_testing.PointerEventButton.Left)
         press_shortcut(window, keys.Control, "a")
-        press_keys(window, prefix)
         # Belgian AZERTY produces "2" with Shift held.
         press_shortcut(window, shift, "2")
-        press_keys(window, suffix)
-        expect(field).to_have_value(prefix + "2" + suffix)
+        expect(field).to_have_value("2")
         expect(element(window, "Editor canvas")).to_have_value("100%")
-        press_key(window, keys.Return)
+        press_key(window, keys.Tab)
         original.wait_for_applied(replace_once(baseline, old, new))
 
 
