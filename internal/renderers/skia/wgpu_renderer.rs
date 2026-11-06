@@ -342,3 +342,37 @@ mod signature_tests {
         wgpu_29::Queue,
     ) -> Result<SkiaWGPURenderer, PlatformError> = SkiaWGPURenderer::new;
 }
+
+/// Renders into wgpu 30 textures with Skia Graphite. Experimental.
+#[cfg(feature = "graphite-wgpu-30")]
+pub type SkiaGraphiteWGPU30Renderer =
+    SkiaWGPURendererGeneric<crate::graphite_wgpu_30_surface::GraphiteWGPUSurface>;
+
+#[cfg(feature = "graphite-wgpu-30")]
+impl SkiaGraphiteWGPU30Renderer {
+    /// Creates a renderer that draws with Skia Graphite on the given wgpu device.
+    pub fn new(
+        instance: wgpu_30::Instance,
+        device: wgpu_30::Device,
+        queue: wgpu_30::Queue,
+    ) -> Result<Self, PlatformError> {
+        Ok(Self::new_with_surface(
+            crate::graphite_wgpu_30_surface::GraphiteWGPUSurface::new_offscreen(
+                instance, device, queue,
+            )?,
+        ))
+    }
+
+    /// Renders the scene to `texture`, which needs `RENDER_ATTACHMENT` usage.
+    pub fn render_to_texture(&self, texture: &wgpu_30::Texture) -> Result<(), PlatformError> {
+        let surface = self.surface();
+        self.renderer.invoke_rendering_notifier_setup(&*surface)?;
+        let window_adapter = self.renderer.window_adapter()?;
+        let window = window_adapter.window();
+        surface.render_to_texture(texture, &mut |canvas| {
+            self.renderer
+                .render_to_canvas(canvas, 0., (0., 0.), None, 0, Some(&*surface), window, true)
+                .map(|_| ())
+        })
+    }
+}

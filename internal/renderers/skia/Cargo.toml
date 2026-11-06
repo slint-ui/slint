@@ -44,6 +44,9 @@ wgpu-29 = ["i-slint-core/wgpu-29", "dep:wgpu-29", "dep:spin_on", "dep:windows-co
 unstable-wgpu-29 = ["i-slint-core/unstable-wgpu-29", "wgpu-29"]
 wgpu-30 = ["i-slint-core/wgpu-30", "dep:wgpu-30", "dep:spin_on", "dep:windows-core", "dep:wgpu-hal-30"]
 unstable-wgpu-30 = ["i-slint-core/unstable-wgpu-30", "wgpu-30"]
+# Experimental: renders with Graphite, Skia's Dawn backend running on wgpu through skia-wgpu.
+# Builds Skia from source.
+graphite-wgpu-30 = ["wgpu-30", "skia-safe/wgpu-30"]
 default = ["softbuffer", "wgpu-30"]
 
 [dependencies]
