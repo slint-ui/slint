@@ -134,6 +134,14 @@ impl Springboard {
         Self::spawn(local_preview, to_editor, DiscoveredViewers::start(), UsbDiscovery::start())
     }
 
+    #[cfg(feature = "testing")]
+    pub fn without_discovery(
+        local_preview: LocalPreviewConfig,
+        to_editor: mpsc::UnboundedSender<PreviewToLspMessage>,
+    ) -> Self {
+        Self::spawn(local_preview, to_editor, DiscoveredViewers::default(), UsbDiscovery::default())
+    }
+
     fn spawn(
         local_preview: LocalPreviewConfig,
         to_editor: mpsc::UnboundedSender<PreviewToLspMessage>,
