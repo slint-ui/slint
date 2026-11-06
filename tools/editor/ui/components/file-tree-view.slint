@@ -226,7 +226,6 @@ component FileTreeRow inherits Rectangle {
             y: (root.style.row.height - Style.field.height) / 2;
             width: root.width + root.rename-right-extension - self.x;
             value: root.rename-name;
-            live-edit: true;
             select-all-on-focus: false;
             accessible-name: @tr("Rename {}", root.node.label);
             border-color: root.rename-error == "" ? self.paint.border : root.error-color;
@@ -234,7 +233,8 @@ component FileTreeRow inherits Rectangle {
                 self.focus-input();
                 self.select-range(0, root.node.rename-selection-end);
             }
-            accepted(value) => { root.rename-name = value; return true; }
+            edit-input(value) => { root.rename-name = value; }
+            accepted(value) => { self.edit-input(value); return true; }
             focus-lost => { if root.editing { root.rename-submitted(); } }
             keyboard(event) => {
                 if event.text == Key.Return {

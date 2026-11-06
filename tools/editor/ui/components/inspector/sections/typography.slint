@@ -26,7 +26,7 @@ export component InspectorTypographySection inherits InspectorSection {
             accessible-name: @tr("Font family");
             value: root.font-family-value.code == "" ? @tr("Default font") : root.font-family-value.value-string;
             commit-key: InspectorContext.field-key("font-family");
-            preview(text) => {
+            edit-input(text) => {
                 if text == "" || !Properties.inspector-preview("font-family", { kind: PropertyEditKind.string, text: text }) {
                     Properties.inspector-cancel();
                 }

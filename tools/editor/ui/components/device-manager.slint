@@ -91,8 +91,8 @@ component FallbackAction inherits DeviceAction {
 
 component DeviceField inherits EditorInput {
     accessible-name: root.placeholder;
-    live-edit: true;
-    accepted(value) => { root.value = value; return true; }
+    edit-input(value) => { root.value = value; }
+    accepted(value) => { root.edit-input(value); return true; }
 }
 
 component DeviceList inherits Rectangle {

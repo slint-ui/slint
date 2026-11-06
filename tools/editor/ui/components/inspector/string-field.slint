@@ -73,7 +73,7 @@ export component InspectorStringField inherits Rectangle {
             clear-label: root.clear-label;
             commit-key: root.commit-key;
             accepted(text) => { return root.accept-value(text); }
-            text-edited(text) => { root.preview-value(text); }
+            edit-input(text) => { root.preview-value(text); }
             focus-lost => { if !root.expanded-open { root.cancel-preview(); } }
             keyboard(event) => {
                 if event.text == Key.Escape {
