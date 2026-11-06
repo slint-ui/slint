@@ -127,7 +127,7 @@ pub async fn run_passes(
         );
     }
 
-    collect_libraries::collect_libraries(doc);
+    collect_libraries::collect_libraries(doc, type_loader);
     collect_subcomponents::collect_subcomponents(doc);
     doc.visit_all_used_components(|component| {
         lower_typed_slots::prepare(component, &doc.local_registry);
