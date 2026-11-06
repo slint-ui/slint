@@ -42,6 +42,8 @@ jobs:
                     - os: blacksmith-4vcpu-windows-2025
                       name: "Windows 2025 1.95"
                       rust_version: "1.95"
+                      # Blacksmith's Windows VMs have no WGPU adapter, not even WARP.
+                      no_wgpu_adapter: true
                       # The platform-independent interpreter test driver only runs on macOS
                       extra_args: "--exclude ffmpeg --exclude gstreamer-player --exclude material-gallery --exclude test-driver-interpreter"
                       pr_test_styles: "fluent"
@@ -56,6 +58,7 @@ jobs:
             name: ${{ matrix.name }}
             rust_version: ${{ matrix.rust_version }}
             extra_args: ${{ matrix.extra_args }}
+            require_wgpu: ${{ !matrix.no_wgpu_adapter }}
             run_qt: ${{ inputs.full || contains(fromJSON(inputs.changes), 'qt') }}
             test_workspace: ${{ inputs.full || (contains(fromJSON(inputs.changes), 'slint') && (!contains(matrix.os, 'macos') || contains(fromJSON(inputs.changes), 'qt'))) }}
             test_integration: ${{ inputs.full || contains(fromJSON(inputs.changes), 'integration') || contains(fromJSON(inputs.changes), 'tests') || contains(fromJSON(inputs.changes), 'integration_tests') }}
@@ -914,6 +917,7 @@ jobs:
                       extra_args: "--exclude plotter"
                     - os: blacksmith-4vcpu-windows-2025
                       name: "Windows 2025 nightly (cargo update)"
+                      no_wgpu_adapter: true
                       rust_version: "nightly"
                       extra_args: "--exclude ffmpeg --exclude gstreamer-player"
                     - os: blacksmith-6vcpu-macos-15
@@ -926,6 +930,7 @@ jobs:
             name: ${{ matrix.name }}
             rust_version: ${{ matrix.rust_version }}
             extra_args: ${{ matrix.extra_args }}
+            require_wgpu: ${{ !matrix.no_wgpu_adapter }}
             update: true
             save_if: false
 
