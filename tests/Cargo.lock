@@ -5218,7 +5218,7 @@ dependencies = [
 
 [[package]]
 name = "test-driver-dotnet"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "i-slint-compiler",
  "serde_json",
