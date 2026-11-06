@@ -93,30 +93,30 @@ fn main() -> std::io::Result<()> {
         file
     };
 
+    let mut diag = BuildDiagnostics::default();
     for path in &args.paths {
-        if project_file::project_root(path).is_dir() {
-            process_project(path, &mut messages, &args)?
+        let path_diag = if project_file::project_root(path).is_dir() {
+            process_project(path, &mut messages, &args)
         } else {
-            process_file(path, &mut messages, &args)?
+            process_file(path, &mut messages, &args)
+        };
+        for diagnostic in path_diag {
+            diag.push_compiler_error(diagnostic);
         }
     }
+    diag.print_warnings_and_exit_on_error();
 
     messages.save(&output.to_string_lossy());
     Ok(())
 }
 
-fn process_file(
-    path: &std::path::Path,
-    messages: &mut Messages,
-    args: &Cli,
-) -> std::io::Result<()> {
+fn process_file(path: &std::path::Path, messages: &mut Messages, args: &Cli) -> BuildDiagnostics {
     let mut diag = BuildDiagnostics::default();
-    let syntax_node = i_slint_compiler::parser::parse_file(path, &mut diag)
-        .ok_or_else(|| std::io::Error::other(diag.to_string_vec().join(", ")))?;
-    let file = syntax_node.source_file.path().to_string();
-    visit_node(syntax_node, messages, None, &file, args);
-
-    Ok(())
+    if let Some(syntax_node) = i_slint_compiler::parser::parse_file(path, &mut diag) {
+        let file = syntax_node.source_file.path().to_string();
+        visit_node(syntax_node, messages, None, &file, args);
+    }
+    diag
 }
 
 /// Extracts the messages of the main file of the project at `path`,
@@ -125,7 +125,7 @@ fn process_project(
     path: &std::path::Path,
     messages: &mut Messages,
     args: &Cli,
-) -> std::io::Result<()> {
+) -> BuildDiagnostics {
     /// `path` relative to the absolute `base`, with `/` separators as gettext tools expect.
     /// Returns `None` if they don't share a root, such as two drives on Windows.
     fn relative_path(path: &std::path::Path, base: &std::path::Path) -> Option<String> {
@@ -156,15 +156,13 @@ fn process_project(
         None,
         &mut diag,
     ));
-    let mut diag = diag.check_and_exit_on_error();
-    let input = input.expect("loading the input reports an error when it fails");
+    let Some(input) = input else { return diag };
     let config = input
         .project_file
         .expect("load_input returns the project file of a project directory")
         .into_compiler_configuration(OutputFormat::Llr);
     let mut loader = TypeLoader::new(config, &mut diag);
     poll_ready(loader.load_file(&input.source, input.source_code, false, &mut diag));
-    diag.print_warnings_and_exit_on_error();
 
     let mut documents =
         loader.all_file_documents().filter(|(path, _)| !path.is_builtin()).collect::<Vec<_>>();
@@ -178,7 +176,7 @@ fn process_project(
             .unwrap_or_else(|| path.to_string());
         visit_node(document.clone().into(), messages, None, &file, args);
     }
-    Ok(())
+    diag
 }
 
 /// Runs a compiler future that has no file loader, so it completes on the first poll.
