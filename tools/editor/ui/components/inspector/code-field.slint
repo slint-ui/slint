@@ -11,11 +11,11 @@ export component InspectorCodeField inherits Rectangle {
     in property <FieldStyle> style: Style.code-field;
     in property <string> accessible-name: "";
     in property <string> prefix: "";
-    private property <PropertyValue> editor-value: Properties.hooked-property-value-data(root.property-name,
-        Properties.source-property-value-data(root.property-name, {}));
-    in property <string> value: root.editor-value.code != "" ? root.editor-value.code : "\"\"";
+    private property <PropertyValue> editor-value: Properties.editor-property-value-data(root.property-name);
+    in property <string> value: root.editor-value.code != "" ? root.editor-value.code : root.fallback;
     in property <string> commit-key: "";
     in property <string> property-name: "";
+    in property <string> fallback: "";
     callback accepted(string) -> bool;
 
     horizontal-stretch: 1;
@@ -27,7 +27,7 @@ export component InspectorCodeField inherits Rectangle {
         width: parent.width;
         value: root.value;
         commit-key: root.commit-key;
-        preview(text) => {
+        edit-input(text) => {
             if root.property-name != "" && !Properties.inspector-preview(root.property-name, { kind: PropertyEditKind.code, text: text }) {
                 Properties.inspector-cancel();
             }
