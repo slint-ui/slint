@@ -134,6 +134,8 @@ fn builtin_function_is_const(
         BuiltinFunction::Oklch => true,
         BuiltinFunction::SetTextInputFocused => false,
         BuiltinFunction::TextInputFocused => false,
+        BuiltinFunction::TextInputType => false,
+        BuiltinFunction::TextInputMethodHints => false,
         BuiltinFunction::ImplicitLayoutInfo(_) => false,
         BuiltinFunction::ItemAbsolutePosition => true,
         BuiltinFunction::RegisterCustomFontByPath

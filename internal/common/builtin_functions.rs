@@ -214,6 +214,8 @@ macro_rules! for_each_builtin_function {
             ParseDate: pure fn(date: SharedString, format: SharedString) -> [i32]
             TextInputFocused: pure fn() -> bool
             SetTextInputFocused: impure fn(focused: bool) -> ()
+            TextInputType: pure fn() -> InputType
+            TextInputMethodHints: pure fn() -> InputMethodHints
             #[strum(disabled)]
             ImplicitLayoutInfo(Orientation): pure fn(element: ElementReference, constraint: f32) -> LayoutInfo
             SwipeGestureHandlerCancel: impure fn swipe_gesture_handler_cancel(handler: ItemArg<SwipeGestureHandler> => ElementReference) -> () {

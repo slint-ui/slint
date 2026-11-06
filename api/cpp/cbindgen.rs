@@ -876,6 +876,8 @@ fn gen_corelib(
             "slint_windowrc_wlsurface_wayland",
             "slint_windowrc_wldisplay_wayland",
             "slint_windowrc_nsview_appkit",
+            "slint_windowrc_get_text_input_type",
+            "slint_windowrc_get_text_input_method_hints",
             "GradientStop",
             "ConicGradientBrush",
             // Handwritten in private/slint_color.h
