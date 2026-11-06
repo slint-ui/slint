@@ -86,10 +86,14 @@ pub fn setup(editor: &ui::EditorUi, api: &ui::Api<'_>) {
                 .or_insert_with(|| Box::pin(i_slint_core::Property::new(None)))
                 .as_ref()
                 .get()?;
-            Some(crate::preview::inspector::property_value(
-                &id,
-                runtime_property_value(Some(runtime), fallback.clone()),
-            ))
+            let mut result = runtime_property_value(Some(runtime.value), fallback.clone());
+            if let Some(expression) = runtime.expression {
+                result.code = expression.into();
+            }
+            if let Some(fill) = runtime.fill {
+                result.fill = fill;
+            }
+            Some(result)
         })();
         value.unwrap_or(fallback)
     });
