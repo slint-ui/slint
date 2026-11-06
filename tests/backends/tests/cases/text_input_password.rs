@@ -4,7 +4,7 @@
 #[satchel::test]
 fn text_input_password() {
     slint::slint! {
-        #[edition = "1.19"]
+        #[edition = "1.20"]
         import { CheckBox } from "std-widgets.slint";
         export component MainWindow inherits Window {
             width: 600px;

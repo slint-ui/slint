@@ -19,7 +19,7 @@ from ui_driver import (
 
 
 def project_file(main: str | None = None) -> str:
-    contents = {"edition": "1.19"}
+    contents = {"edition": "1.20"}
     if main is not None:
         contents["main"] = main
     return json.dumps(contents)
@@ -187,7 +187,7 @@ def test_explicit_project_root_keeps_the_selected_source(
     manifest.write_text(
         json.dumps(
             {
-                "edition": "1.19",
+                "edition": "1.20",
                 "main": "Sibling.slint",
                 "include-paths": ["include"],
             }

@@ -51,7 +51,7 @@ is the ability to introspect and modify the state from within what would be a re
 A regular application might have a `main()` entry-point like so:
 
 ```rust,no_run
-# slint::slint!{ #[edition = "1.19"] export component App {} }
+# slint::slint!{ #[edition = "1.20"] export component App {} }
 fn main() -> Result<(), slint::PlatformError>
 {
     let app = App::new()?;
@@ -94,7 +94,7 @@ export component App {
 ```rust
 # use i_slint_core_macros::identity as test;
 # slint::slint!{
-#     #[edition = "1.19"]
+#     #[edition = "1.20"]
 #     import { Button } from "std-widgets.slint";
 #     component Form {
 #     callback submit();
@@ -171,7 +171,7 @@ fn test_click()
 
     slint::spawn_local(async move {
         slint::slint! {
-            #[edition = "1.19"]
+            #[edition = "1.20"]
             export component App inherits Window {
                 out property <int> click-count: 0;
                 ta := TouchArea {

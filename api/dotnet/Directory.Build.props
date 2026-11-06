@@ -7,7 +7,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <Version>1.19.0</Version>
+    <Version>1.20.0</Version>
     <!-- NuGet license expressions only know SPDX licenses, so the packages carry LICENSE.md, which lists all three. -->
     <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
     <PackageTags>gui;ui;toolkit;slint;desktop;embedded</PackageTags>
