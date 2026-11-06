@@ -7,5 +7,5 @@ fn main() {
     if target.contains("android") || target.contains("wasm32") {
         config = config.with_bundled_translations("../lang");
     }
-    slint_build::compile_with_config("../ui/printerdemo.slint", config).unwrap();
+    slint_build::compile_with_config("../slint-project.json", config).unwrap();
 }

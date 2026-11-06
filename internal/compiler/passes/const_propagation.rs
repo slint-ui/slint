@@ -362,11 +362,11 @@ fn simplify_condition(
     let mut can_inline = simplify_expression(condition, ga, cache);
     can_inline &= match &**condition {
         Expression::BoolLiteral(true) => {
-            *expr = *true_expr.clone();
+            *expr = std::mem::take(&mut **true_expr);
             simplify_expression(expr, ga, cache)
         }
         Expression::BoolLiteral(false) => {
-            *expr = *false_expr.clone();
+            *expr = std::mem::take(&mut **false_expr);
             simplify_expression(expr, ga, cache)
         }
         _ => simplify_expression(true_expr, ga, cache) & simplify_expression(false_expr, ga, cache),
@@ -381,7 +381,7 @@ fn simplify_single_statement_code_block(
     cache: &mut ConstPropCache,
 ) -> bool {
     let Expression::CodeBlock(stmts) = expr else { unreachable!() };
-    *expr = stmts[0].clone();
+    *expr = std::mem::take(&mut stmts[0]);
     simplify_expression(expr, ga, cache)
 }
 

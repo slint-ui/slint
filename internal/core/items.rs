@@ -548,7 +548,7 @@ impl RenderBorderRectangle for BasicBorderRectangle {
         self.border_width()
     }
     fn border_radius(self: Pin<&Self>) -> LogicalBorderRadius {
-        LogicalBorderRadius::from_length(self.border_radius())
+        LogicalBorderRadius::from_length(self.border_radius()).max(Default::default())
     }
     fn border_color(self: Pin<&Self>) -> Brush {
         self.border_color()
@@ -682,6 +682,7 @@ impl RenderBorderRectangle for BorderRectangle {
             self.border_bottom_right_radius(),
             self.border_bottom_left_radius(),
         )
+        .max(Default::default())
     }
     fn border_color(self: Pin<&Self>) -> Brush {
         self.border_color()
@@ -838,6 +839,7 @@ impl Clip {
             self.border_bottom_right_radius(),
             self.border_bottom_left_radius(),
         )
+        .max(Default::default())
     }
 }
 
@@ -1795,6 +1797,7 @@ impl BoxShadow {
             self.border_bottom_right_radius(),
             self.border_bottom_left_radius(),
         )
+        .max(Default::default())
     }
 }
 
@@ -1939,6 +1942,7 @@ impl BackdropBlur {
             self.border_bottom_right_radius(),
             self.border_bottom_left_radius(),
         )
+        .max(Default::default())
     }
 }
 

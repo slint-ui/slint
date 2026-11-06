@@ -146,12 +146,13 @@ pub async fn run_passes(
             &palette,
             diag,
         );
+        let edition = component.root_element.borrow().edition();
         lower_states::lower_states(
             component,
             &doc.local_registry,
             &symbol_counters,
             &mut forwarded_references,
-            type_loader.compiler_config.edition,
+            edition,
             diag,
         );
         lower_text_input_interface::lower_text_input_interface(component);
@@ -223,15 +224,10 @@ pub async fn run_passes(
         deprecated_rotation_origin::handle_rotation_origin(component, diag);
         flickable::handle_flickable(component, &global_type_registry.borrow());
         lower_layout::lower_layouts(component, type_loader, &style_metrics, diag);
-        default_geometry::default_geometry(
-            component,
-            diag,
-            &symbol_counters,
-            type_loader.compiler_config.edition,
-        );
+        default_geometry::default_geometry(component, diag, &symbol_counters);
         crate::layout::mark_repeated_cells_child_of_layout(component);
-        lower_layout::optimize_single_cell_layouts(component);
         lower_layout::synthesize_layoutinfo_v_with_constraint(component);
+        lower_layout::optimize_single_cell_layouts(component);
         lower_absolute_coordinates::lower_absolute_coordinates(component);
         z_order::reorder_by_z_order(component);
         lower_property_to_element::lower_property_to_element(

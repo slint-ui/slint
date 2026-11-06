@@ -14,7 +14,7 @@ function init_virtual_keyboard(mainWindow: any) {
 }
 
 const ui = slint.loadFile(
-    new URL("../ui/main_window.slint", import.meta.url),
+    new URL("../slint-project.json", import.meta.url),
 ) as any;
 const mainWindow = new ui.MainWindow();
 

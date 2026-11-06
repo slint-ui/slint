@@ -25,7 +25,7 @@ export component InspectorOrientationSection inherits InspectorSection {
             wide: true;
             popup-available-height: max(Style.inspector-field.height, root.popup-bottom - self.absolute-position.y - Metrics.space-medium);
             accepted(text) => {
-                return text != "" && InspectorContext.commit-code("orientation", text);
+                return text != "" && InspectorContext.commit-enum("orientation", text);
             }
         }
     }
