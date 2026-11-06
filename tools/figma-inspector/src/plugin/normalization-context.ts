@@ -41,6 +41,9 @@ export type MaterializedNode = {
     readonly strokeLeftWeight?: unknown;
     readonly strokeAlign?: string;
     readonly dashPattern?: readonly number[];
+    readonly strokeCap?: string;
+    readonly strokeJoin?: string;
+    readonly strokeMiterLimit?: number;
     readonly clipsContent: boolean;
     readonly blendMode?: string;
     readonly isMask?: boolean;

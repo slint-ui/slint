@@ -91,15 +91,13 @@ describe("inner-shadow", () => {
             shadows: [{ kind: "inner" }, { blur: 12 }],
         });
         expect(result.warnings.map((w) => w.code)).toEqual(
-            expect.arrayContaining([
-                "INNER_SHADOW_APPROXIMATED",
-                "EFFECT_OMITTED",
-            ]),
+            expect.arrayContaining(["EFFECT_OMITTED"]),
         );
         const converted = convertSnapshot(result.snapshot);
         if (!converted.ok) throw Error("Expected Slint");
         expect(converted.source).toContain("drop-shadow-color:");
-        expect(converted.source).toContain("@linear-gradient(90deg");
+        expect(converted.source).toContain("inner-shadow-blur: 12px;");
+        expect(converted.source).not.toContain("@linear-gradient(");
         expect(converted.source).not.toMatch(
             /Rectangle \{\n\s+x: 0px;\n\s+y: 0px;\n\s+clip: true;/u,
         );
