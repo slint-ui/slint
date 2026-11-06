@@ -21,7 +21,7 @@ Button, CheckBox, Switch, ComboBox, and LineEdit accept these `in` properties:
 | Property | Type | Default |
 | --- | --- | --- |
 | `font-family` | `string` | Application default font |
-| `font-size` | `length` | `14px` |
+| `font-size` | `length` | `1rem`, following `Window.default-font-size` |
 | `font-weight` | `int` | `400` |
 | `font-italic` | `bool` | `false` |
 | `horizontal-padding` | `length` | See each control |

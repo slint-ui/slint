@@ -1,0 +1,51 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Button, CheckBox, Switch, ComboBox, ComboBoxPopup, LineEdit } from "../../../tools/editor/controls/src/basic.slint";
+
+export component TestCase inherits Window {
+    width: 400px;
+    height: 400px;
+    in-out property <length> application-font-size: 14px;
+    default-font-size: root.application-font-size;
+    out property <[length]> font-sizes: [button.font-size, checkbox.font-size, switch.font-size,
+        combo.font-size, field.font-size, popup.font-size];
+    out property <length> explicit-font-size: explicit.font-size;
+    out property <length> button-height: button.height;
+    out property <length> field-height: field.height;
+
+    VerticalLayout {
+        padding: 16px;
+        spacing: 8px;
+        alignment: start;
+        button := Button { text: "Save changes"; }
+        checkbox := CheckBox { text: "Notifications"; }
+        switch := Switch { text: "Automatic updates"; }
+        combo := ComboBox { model: ["First", "Second"]; }
+        field := LineEdit { placeholder-text: "Your name"; }
+        explicit := Button { text: "Explicit font size"; font-size: 16px; }
+    }
+    popup := ComboBoxPopup { }
+}
+
+/*
+```rust
+use slint::Model;
+let instance = TestCase::new().unwrap();
+instance.show().unwrap();
+let initial_button_height = instance.get_button_height();
+let initial_field_height = instance.get_field_height();
+for size in [14., 21., 28., 14.] {
+    instance.set_application_font_size(size);
+    let sizes: Vec<_> = instance.get_font_sizes().iter().collect();
+    assert_eq!(sizes, vec![size; 6]);
+    assert_eq!(instance.get_explicit_font_size(), 16.);
+    if size == 28. {
+        assert!(instance.get_button_height() > initial_button_height);
+        assert!(instance.get_field_height() > initial_field_height);
+    }
+}
+assert_eq!(instance.get_button_height(), initial_button_height);
+assert_eq!(instance.get_field_height(), initial_field_height);
+```
+*/
