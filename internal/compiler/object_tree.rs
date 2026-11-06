@@ -17,6 +17,7 @@ use crate::layout::LayoutConstraints;
 use crate::namedreference::NamedReference;
 use crate::native_class::PropertyVisibility;
 use crate::parser::{SyntaxKind, SyntaxNode, syntax_nodes};
+use crate::project_file::SlintEdition;
 use crate::property_analysis::PropertyAnalysis;
 use crate::source_path::SourcePath;
 use crate::typeloader::{ImportKind, ImportedTypes, LibraryInfo};
@@ -629,6 +630,36 @@ pub struct Component {
 
     /// True if this component is imported from an external library.
     pub from_library: Cell<bool>,
+}
+
+/// Reports a global declared with ':=', which is an error from edition 1.19.
+fn check_legacy_declaration(node: &syntax_nodes::Component, diag: &mut BuildDiagnostics) {
+    let Some(colon_equal) = node.child_token(SyntaxKind::ColonEqual) else { return };
+    if node.child_text(SyntaxKind::Identifier).is_none_or(|t| t != "global") {
+        return;
+    }
+    if node.source_file.edition() >= Some(SlintEdition::V1_19) {
+        diag.push_error(
+            "':=' to declare a global isn't supported from edition 1.19. Remove the ':=', then review the behavior changes of 1.19 on the 'Editions' page of the documentation".into(),
+            &colon_equal,
+        );
+    } else {
+        diag.push_warning(
+            "':=' to declare a global is deprecated. Remove the ':='".into(),
+            &colon_equal,
+        );
+    }
+}
+
+/// Reports the globals of `doc` declared with ':=', which is an error from edition 1.19.
+pub fn check_legacy_declarations(doc: &syntax_nodes::Document, diag: &mut BuildDiagnostics) {
+    let exported =
+        doc.children().filter(|n| n.kind() == SyntaxKind::ExportsList).flat_map(|n| n.children());
+    for n in doc.children().chain(exported) {
+        if n.kind() == SyntaxKind::Component {
+            check_legacy_declaration(&n.into(), diag);
+        }
+    }
 }
 
 impl Component {
