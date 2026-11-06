@@ -666,6 +666,12 @@ impl Element {
                     format!("Change callback on a private property '{prop}'"),
                     &ch.DeclaredIdentifier(),
                 );
+            } else if prop == "is-open" && r.builtin_type().is_some_and(|b| b.name == "PopupWindow")
+            {
+                diag.push_warning(
+                    "'is-open' is always true from within the PopupWindow. Bind 'is-open' to a property outside the popup and use 'changed' on that property instead".into(),
+                    &ch.DeclaredIdentifier(),
+                );
             }
             let handler = Expression::Uncompiled(ch.clone().into());
             match r.change_callbacks.entry(lookup_result.internal_or_resolved_name()) {

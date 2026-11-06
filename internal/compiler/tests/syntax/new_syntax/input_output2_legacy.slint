@@ -1,0 +1,48 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+//edition: 1.18
+
+OldCompo := Rectangle {
+//       ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+    property <int> inout2: 42;
+    private property <int> priv2: inout2;
+    out property <int> output1: priv2;
+    in property <int> input1: output1;
+    in-out property <int> inout1: input1;
+
+    TouchArea {
+        clicked => {
+            inout2 = 32;
+            priv2 = 78;
+            output1 = input1;
+            input1 = 75;
+//          >         <error{Assignment on an 'in' property}
+            inout1 = 75;
+            pressed-x = 45px;
+//          >              <warning{Assignment on an 'out' property is deprecated}
+            pressed-y -= 45px;
+//          >               <warning{Self assignment on an 'out' property is deprecated}
+        }
+        has-hover: true;
+//      >       <warning{Assigning to 'out' property 'has-hover' is deprecated}
+    }
+}
+
+export component Foo inherits Rectangle {
+    c1 := OldCompo {
+
+    }
+
+    TouchArea {
+        clicked => {
+            c1.inout2 = 32;
+            c1.priv2 = 78;
+//             >   <error{The property 'priv2' is private. Annotate it with 'in', 'out' or 'in-out' to make it accessible from other components}
+            c1.output1 = c1.input1;
+//          >                    <error{Assignment on an 'out' property}
+            c1.input1 = 75;
+            c1.inout1 = 75;
+        }
+    }
+}

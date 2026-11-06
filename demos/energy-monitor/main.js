@@ -4,9 +4,7 @@
 
 import * as slint from "slint-ui";
 
-const ui = slint.loadFile(
-    new URL("ui/desktop_window.slint", import.meta.url),
-);
+const ui = slint.loadFile(new URL("slint-project.json", import.meta.url));
 const appWindow = new ui.MainWindow();
 
 // --- Live clock ---

@@ -20,7 +20,7 @@ path = "lib.rs"
 name = "wgpu_texture_lib"
 
 [dependencies]
-slint = { path = "../../api/rs/slint", features = ["unstable-wgpu-30", "backend-android-activity-06"] }
+slint = { path = "../../api/rs/slint", features = ["unstable-wgpu-30", "renderer-femtovg-wgpu", "backend-android-activity-06"] }
 bytemuck = { workspace = true }
 wgpu-30 = { workspace = true, features = ["wgsl"] }
 

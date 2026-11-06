@@ -57,7 +57,8 @@ fn main() -> ! {
         let viewer = viewer.clone();
         move || viewer.poll()
     });
-    slint::run_event_loop().unwrap();
+    // Showing a design hides the idle screen first, leaving no window visible for a moment
+    slint::run_event_loop_until_quit().unwrap();
     panic!("the event loop returned");
 }
 
@@ -103,7 +104,7 @@ impl<Link: HostLink> Viewer<Link> {
                         Err(err) => self.send(&DeviceMessage::Error {
                             id: None,
                             message: alloc::format!(
-                                "Cannot read an image or font ({err}): check that the firmware and the LSP are built from the same Slint sources"
+                                "Cannot read an image or font ({err}): the firmware needs the exact same Slint version as the editor"
                             ),
                         }),
                     }
@@ -150,7 +151,7 @@ impl<Link: HostLink> Viewer<Link> {
         let unit = serialize::from_bytes(unit)
             .map_err(|err| {
                 alloc::format!(
-                    "Cannot read the design ({err}): check that the firmware and the LSP are built from the same Slint sources"
+                    "Cannot read the design ({err}): the firmware needs the exact same Slint version as the editor"
                 )
             })?;
         drop(session);

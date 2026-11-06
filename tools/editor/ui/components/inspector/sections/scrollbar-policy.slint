@@ -29,7 +29,7 @@ export component InspectorScrollBarPolicySection inherits InspectorSection {
                 options: InspectorEnumOptions.scrollbar-policy-options;
                 popup-available-height: max(Style.inspector-field.height, root.popup-bottom - self.absolute-position.y - Metrics.space-medium);
                 accepted(text) => {
-                    return text != "" && InspectorContext.commit-code("horizontal-scrollbar-policy", text);
+                    return text != "" && InspectorContext.commit-enum("horizontal-scrollbar-policy", text);
                 }
             }
 
@@ -50,7 +50,7 @@ export component InspectorScrollBarPolicySection inherits InspectorSection {
                 options: InspectorEnumOptions.scrollbar-policy-options;
                 popup-available-height: max(Style.inspector-field.height, root.popup-bottom - self.absolute-position.y - Metrics.space-medium);
                 accepted(text) => {
-                    return text != "" && InspectorContext.commit-code("vertical-scrollbar-policy", text);
+                    return text != "" && InspectorContext.commit-enum("vertical-scrollbar-policy", text);
                 }
             }
 

@@ -583,6 +583,7 @@ impl ProjectFile {
     pub fn apply_to(&self, compiler_config: &mut crate::CompilerConfiguration) {
         self.resolved_data().apply_to(compiler_config);
         compiler_config.edition_location = Some(self.edition_location());
+        compiler_config.project_roots = vec![normalize_project_root(self.source_path.clone())];
     }
 
     pub fn resolved_data(&self) -> ProjectFileData {

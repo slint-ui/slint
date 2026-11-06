@@ -4,7 +4,7 @@
 use cfg_aliases::cfg_aliases;
 
 fn main() {
-    slint_build::compile("scene.slint").unwrap();
+    slint_build::compile("slint-project.json").unwrap();
     cfg_aliases! {
        slint_gstreamer_egl: { target_os = "linux" },
     }

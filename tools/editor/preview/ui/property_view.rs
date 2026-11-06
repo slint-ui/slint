@@ -19,9 +19,13 @@ use crate::preview::{properties, ui};
 pub fn setup(editor: &ui::EditorUi, api: &ui::Api<'_>) {
     use slint::ComponentHandle as _;
     let api_weak = <ui::Api as slint::Global<'_, ui::EditorUi>>::as_weak(api);
+    let properties_api = editor.global::<ui::Properties>();
+    let properties_api_weak =
+        <ui::Properties as slint::Global<'_, ui::EditorUi>>::as_weak(&properties_api);
     let selection_api_weak = api_weak.clone();
-    let has_property_api_weak = api_weak.clone();
+    let has_property_api_weak = properties_api_weak.clone();
     let hooked_api_weak = api_weak.clone();
+    let hooked_properties_api_weak = properties_api_weak.clone();
     let hooked_editor_weak = editor.as_weak();
     let editor_weak = editor.as_weak();
     let selected_item = selected_item_cache(move || {
@@ -36,23 +40,26 @@ pub fn setup(editor: &ui::EditorUi, api: &ui::Api<'_>) {
         let offset = u32::try_from(element.offset).ok()?;
         instance.component_item(&path, offset, instance_index, i_slint_core::InternalToken)
     });
-    api.on_source_property_value_data(move |property_name, fallback| {
-        api_weak
+    properties_api.on_source_property_value_data(move |property_name, fallback| {
+        properties_api_weak
             .upgrade()
-            .and_then(|api| ui::source_property_value_data(&api, property_name))
+            .and_then(|properties_api| {
+                ui::source_property_value_data(&properties_api, property_name)
+            })
             .unwrap_or(fallback)
     });
-    api.on_has_property(move |property_name| {
-        has_property_api_weak
-            .upgrade()
-            .is_some_and(|api| ui::source_property_value_data(&api, property_name).is_some())
+    properties_api.on_has_property(move |property_name| {
+        has_property_api_weak.upgrade().is_some_and(|properties_api| {
+            ui::source_property_value_data(&properties_api, property_name).is_some()
+        })
     });
-    api.on_hooked_property_value_data(move |property_name, fallback| {
+    properties_api.on_hooked_property_value_data(move |property_name, fallback| {
         let value = (|| {
             let editor = hooked_editor_weak.upgrade()?;
             editor.global::<ui::Hover>().get_preview_generation();
             let api = hooked_api_weak.upgrade()?;
-            api.get_inspector_generation();
+            let properties_api = hooked_properties_api_weak.upgrade()?;
+            properties_api.get_inspector_generation();
             let element = api.get_current_element();
             let selection = crate::preview::element_selection::ElementSelection {
                 path: i_slint_compiler::source_path::SourcePath::from_url(
@@ -82,7 +89,7 @@ pub fn setup(editor: &ui::EditorUi, api: &ui::Api<'_>) {
         })();
         runtime_property_value(value, fallback)
     });
-    api.on_runtime_property_value_data(move |property_name, fallback| {
+    properties_api.on_runtime_property_value_data(move |property_name, fallback| {
         let runtime = selected_item
             .as_ref()
             .get()
@@ -169,6 +176,10 @@ fn runtime_property_value(
         Value::Brush(brush) => {
             property.value_brush = brush;
             ui::PropertyValueKind::Brush
+        }
+        Value::MouseCursorInner(i_slint_core::cursor::MouseCursorInner::BuiltIn(cursor)) => {
+            property.value_string = cursor.to_string().into();
+            ui::PropertyValueKind::Enum
         }
         Value::EnumerationValue(enumeration_name, value) => {
             let enumeration_type = i_slint_compiler::typeregister::TypeRegister::builtin()
@@ -605,7 +616,7 @@ mod tests {
 
         i_slint_backend_testing::init_no_event_loop();
         let editor = ui::create_ui().unwrap();
-        let api = editor.global::<ui::Api>();
+        let properties_api = editor.global::<ui::Properties>();
         let source = ui::PropertyValue {
             code: "root.border".into(),
             value_float: 12.0,
@@ -614,12 +625,16 @@ mod tests {
             ..Default::default()
         };
         let source_value = source.clone();
-        api.on_source_property_value_data(move |name, fallback| {
+        properties_api.on_source_property_value_data(move |name, fallback| {
             if name == "border-radius" { source_value.clone() } else { fallback }
         });
-        assert_eq!(api.invoke_editor_property_value_data("border-radius".into()), source);
         assert_eq!(
-            api.invoke_hooked_property_value_data("border-top-left-radius".into(), source.clone()),
+            properties_api.invoke_editor_property_value_data("border-radius".into()),
+            source
+        );
+        assert_eq!(
+            properties_api
+                .invoke_hooked_property_value_data("border-top-left-radius".into(), source.clone()),
             source
         );
     }
@@ -632,6 +647,7 @@ mod tests {
 
         let editor = preview::tests::availability_test_editor();
         let api = editor.global::<ui::Api>();
+        let properties_api = editor.global::<ui::Properties>();
         super::setup(&editor, &api);
         let source = r#"export component Main inherits Window {
             width: 300px;
@@ -666,7 +682,7 @@ mod tests {
         };
         select(offsets[0]);
         let source_width =
-            api.invoke_source_property_value_data("width".into(), Default::default());
+            properties_api.invoke_source_property_value_data("width".into(), Default::default());
         assert_eq!(source_width.value_float, 40.0);
         let width = hook_id("width");
         let absent = hook_id("test-absent-property");
@@ -678,7 +694,7 @@ mod tests {
         displayed.as_ref().set_binding(move || {
             editor_weak
                 .unwrap()
-                .global::<ui::Api>()
+                .global::<ui::Properties>()
                 .invoke_editor_property_value_data("width".into())
         });
         let editor_weak = editor.as_weak();
@@ -686,7 +702,7 @@ mod tests {
         missing.as_ref().set_binding(move || {
             editor_weak
                 .unwrap()
-                .global::<ui::Api>()
+                .global::<ui::Properties>()
                 .invoke_editor_property_value_data("test-absent-property".into())
         });
         assert_eq!(displayed.as_ref().get(), source_width);
@@ -704,7 +720,7 @@ mod tests {
         preview::set_override(&width, Some(Value::Number(75.0)));
         assert_eq!(displayed.as_ref().get().value_float, 75.0);
         assert_eq!(
-            api.invoke_source_property_value_data("width".into(), Default::default()),
+            properties_api.invoke_source_property_value_data("width".into(), Default::default()),
             source_width
         );
         select(offsets[1]);
@@ -714,7 +730,7 @@ mod tests {
         preview::PREVIEW_STATE.with_borrow_mut(|state| state.reset_preview_overrides());
         assert_eq!(
             displayed.as_ref().get(),
-            api.invoke_source_property_value_data("width".into(), Default::default())
+            properties_api.invoke_source_property_value_data("width".into(), Default::default())
         );
         preview::set_override(&width, Some(Value::Number(81.0)));
         assert_eq!(displayed.as_ref().get().value_float, 81.0);
@@ -738,7 +754,7 @@ mod tests {
             Some(Value::Number(123.0)),
         );
         assert_eq!(
-            api.invoke_hooked_property_value_data("width".into(), source_width.clone()),
+            properties_api.invoke_hooked_property_value_data("width".into(), source_width.clone()),
             source_width
         );
         preview::PREVIEW_STATE.with_borrow_mut(|state| state.clear_preview());
@@ -781,6 +797,14 @@ mod tests {
             fallback,
         );
         assert_eq!(alignment.value_int, 4);
+        let cursor = super::runtime_property_value(
+            Some(Value::MouseCursorInner(i_slint_core::cursor::MouseCursorInner::BuiltIn(
+                i_slint_core::items::BuiltInMouseCursor::Pointer,
+            ))),
+            Default::default(),
+        );
+        assert_eq!(cursor.value_kind, ui::PropertyValueKind::Enum);
+        assert_eq!(cursor.value_string, "pointer");
     }
 
     #[test]
