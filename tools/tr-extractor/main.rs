@@ -19,7 +19,7 @@ type Messages = rspolib::POFile;
 #[command(author, version, about, long_about = None)]
 struct Cli {
     /// Specify .slint files, project directories, or slint-project.json files to extract from.
-    /// A project directory or slint-project.json file also selects every file that its main file imports.
+    /// A project directory or slint-project.json file extracts strings from every file in the project.
     #[arg(name = "path to .slint file(s) or project", action, required = true)]
     paths: Vec<std::path::PathBuf>,
 
@@ -93,18 +93,19 @@ fn main() -> std::io::Result<()> {
         file
     };
 
-    let mut diag = BuildDiagnostics::default();
+    let mut has_errors = false;
     for path in &args.paths {
-        let path_diag = if project_file::project_root(path).is_dir() {
+        let diag = if project_file::project_root(path).is_dir() {
             process_project(path, &mut messages, &args)
         } else {
             process_file(path, &mut messages, &args)
         };
-        for diagnostic in path_diag {
-            diag.push_compiler_error(diagnostic);
-        }
+        has_errors |= diag.has_errors();
+        diag.print();
     }
-    diag.print_warnings_and_exit_on_error();
+    if has_errors {
+        std::process::exit(-1);
+    }
 
     messages.save(&output.to_string_lossy());
     Ok(())
@@ -126,28 +127,6 @@ fn process_project(
     messages: &mut Messages,
     args: &Cli,
 ) -> BuildDiagnostics {
-    /// `path` relative to the absolute `base`, with `/` separators as gettext tools expect.
-    /// Returns `None` if they don't share a root, such as two drives on Windows.
-    fn relative_path(path: &std::path::Path, base: &std::path::Path) -> Option<String> {
-        let path = base.join(path);
-        let shares_root = path.components().next() == base.components().next();
-        let mut path_components = path.components().peekable();
-        let mut base_components = base.components().peekable();
-        while let (Some(a), Some(b)) = (path_components.peek(), base_components.peek())
-            && a == b
-        {
-            path_components.next();
-            base_components.next();
-        }
-        shares_root.then(|| {
-            base_components
-                .map(|_| "..".into())
-                .chain(path_components.map(|component| component.as_os_str().to_string_lossy()))
-                .collect::<Vec<_>>()
-                .join("/")
-        })
-    }
-
     let mut diag = BuildDiagnostics::default();
     let (input, _) = poll_ready(project_file::load_input(
         &SourcePath::File(path.into()),
@@ -167,13 +146,11 @@ fn process_project(
     let mut documents =
         loader.all_file_documents().filter(|(path, _)| !path.is_builtin()).collect::<Vec<_>>();
     documents.sort_by_key(|(path, _)| *path);
-    let current_dir = std::env::current_dir().ok();
+    let current_dir = std::env::current_dir().ok().map(SourcePath::File);
     for (path, document) in documents {
-        let file = current_dir
-            .as_deref()
-            .zip(path.as_native_path())
-            .and_then(|(base, path)| relative_path(path, base))
-            .unwrap_or_else(|| path.to_string());
+        let relative = current_dir.as_ref().and_then(|base| path.relative_to(base));
+        let file =
+            relative.as_ref().unwrap_or(path).to_string().replace(std::path::MAIN_SEPARATOR, "/");
         visit_node(document.clone().into(), messages, None, &file, args);
     }
     diag

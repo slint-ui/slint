@@ -32,7 +32,7 @@ Usage: slint-tr-extractor [OPTIONS] <path to .slint file(s) or project>...
 Arguments:
   <path to .slint file(s) or project>...
           Specify .slint files, project directories, or slint-project.json files to extract from.
-          A project directory or slint-project.json file also selects every file that its main file imports
+          A project directory or slint-project.json file extracts strings from every file in the project
 
 Options:
   -d, --default-domain <DOMAIN>
