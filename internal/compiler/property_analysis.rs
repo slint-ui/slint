@@ -33,6 +33,7 @@ impl PropertyAnalysis {
     pub fn merge_with_base(&mut self, other: &PropertyAnalysis) {
         self.is_set |= other.is_set;
         self.is_read |= other.is_read;
+        self.is_linked |= other.is_linked;
     }
 
     /// Merge the analysis

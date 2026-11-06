@@ -587,21 +587,22 @@ impl LayoutGeometry {
     }
 
     pub fn new(layout_element: &ElementRc) -> Self {
-        let spacing_ref = || binding_reference(layout_element, "spacing");
-        let alignment = binding_reference(layout_element, "alignment");
-        let padding_ref = || binding_reference(layout_element, "padding");
+        let spacing_ref = || set_property_reference(layout_element, "spacing");
+        let alignment = set_property_reference(layout_element, "alignment");
+        let padding_ref = || set_property_reference(layout_element, "padding");
 
         let padding = Padding {
-            left: binding_reference(layout_element, "padding-left").or_else(padding_ref),
-            right: binding_reference(layout_element, "padding-right").or_else(padding_ref),
-            top: binding_reference(layout_element, "padding-top").or_else(padding_ref),
-            bottom: binding_reference(layout_element, "padding-bottom").or_else(padding_ref),
+            left: set_property_reference(layout_element, "padding-left").or_else(padding_ref),
+            right: set_property_reference(layout_element, "padding-right").or_else(padding_ref),
+            top: set_property_reference(layout_element, "padding-top").or_else(padding_ref),
+            bottom: set_property_reference(layout_element, "padding-bottom").or_else(padding_ref),
         };
 
         let spacing = Spacing {
-            horizontal: binding_reference(layout_element, "spacing-horizontal")
+            horizontal: set_property_reference(layout_element, "spacing-horizontal")
                 .or_else(spacing_ref),
-            vertical: binding_reference(layout_element, "spacing-vertical").or_else(spacing_ref),
+            vertical: set_property_reference(layout_element, "spacing-vertical")
+                .or_else(spacing_ref),
         };
 
         // After building `padding` and `spacing`, so that the layout doesn't depend on the
@@ -646,6 +647,16 @@ pub(crate) fn find_binding<R>(
 /// Return a named reference to a property if a binding is set on that property
 pub fn binding_reference(element: &ElementRc, name: &'static str) -> Option<NamedReference> {
     find_binding(element, name, |_, _, _| NamedReference::new(element, SmolStr::new_static(name)))
+}
+
+/// Return a named reference to a property if it is set by a binding, an assignment,
+/// or a two-way binding, from this component or from outside of it
+fn set_property_reference(element: &ElementRc, name: &'static str) -> Option<NamedReference> {
+    let elem = element.borrow();
+    let set_externally =
+        elem.property_analysis.borrow().get(name).is_some_and(|a| a.is_set_externally);
+    (set_externally || elem.is_property_set(name))
+        .then(|| NamedReference::new(element, SmolStr::new_static(name)))
 }
 
 /// Whether `name`'s binding is set directly on `element` (depth 0) rather than

@@ -1,6 +1,17 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+component ForwardedSpacing {
+    in property <length> gap <=> grid.spacing;
+    out property <length> second-x: second.x;
+    grid := GridLayout {
+        Row {
+            Rectangle { width: 5phx; height: 5phx; }
+            second := Rectangle { width: 5phx; height: 5phx; }
+        }
+    }
+}
+
 export component TestCase inherits Rectangle {
     width: 600phx;
     height: 300phx;
@@ -83,7 +94,110 @@ export component TestCase inherits Rectangle {
     out property <bool> rect3_pos_ok: rect3.x == 25phx && rect3.y == 0phx;
     out property <bool> rect4_pos_ok: rect4.x == 25phx && rect4.y == 35phx;
 
-    out property <bool> test: rect1_pos_ok && rect2_pos_ok &&rect3_pos_ok && rect4_pos_ok;
+    property <length> shared-spacing: 10phx;
+    property <length> vertical-spacing: 30phx;
+
+    Rectangle {
+        width: 300phx;
+        height: 300phx;
+        GridLayout {
+            spacing: shared-spacing;
+            spacing-vertical: vertical-spacing;
+            Row {
+                Rectangle {
+                    width: 5phx;
+                    height: 5phx;
+                }
+
+                rect5 := Rectangle {
+                    width: 5phx;
+                    height: 5phx;
+                }
+            }
+
+            Row {
+                Rectangle {
+                    width: 5phx;
+                    height: 5phx;
+                }
+
+                rect6 := Rectangle {
+                    width: 5phx;
+                    height: 5phx;
+                }
+            }
+        }
+    }
+
+    Rectangle {
+        assigned-spacing := GridLayout {
+            Row {
+                Rectangle { width: 5phx; height: 5phx; }
+                rect7 := Rectangle { width: 5phx; height: 5phx; }
+            }
+            Row {
+                rect8 := Rectangle { width: 5phx; height: 5phx; }
+            }
+        }
+    }
+
+    Rectangle {
+        assigned-axis := GridLayout {
+            spacing: 10phx;
+            Row {
+                Rectangle { width: 5phx; height: 5phx; }
+                rect9 := Rectangle { width: 5phx; height: 5phx; }
+            }
+            Row {
+                rect10 := Rectangle { width: 5phx; height: 5phx; }
+            }
+        }
+    }
+
+    property <length> two-way-spacing <=> two-way.spacing;
+    Rectangle {
+        two-way := GridLayout {
+            Row {
+                Rectangle { width: 5phx; height: 5phx; }
+                rect11 := Rectangle { width: 5phx; height: 5phx; }
+            }
+        }
+    }
+
+    Rectangle {
+        forwarded := ForwardedSpacing {
+            gap: 3phx;
+        }
+    }
+
+    Rectangle {
+        forwarded-unset := ForwardedSpacing { }
+    }
+
+    property <bool> assigned_initial_ok: rect7.x == 5phx && rect8.y == 5phx
+        && rect9.x == 15phx && rect10.y == 15phx
+        && rect11.x == 5phx && forwarded.second-x == 8phx && forwarded-unset.second-x == 5phx;
+    property <bool> assigned_changed_ok: rect7.x == 25phx && rect8.y == 25phx
+        && rect9.x == 12phx && rect10.y == 15phx
+        && rect11.x == 19phx;
+
+    property <bool> dynamic_initial_ok: rect5.x == 15phx && rect6.y == 35phx;
+    property <bool> dynamic_changed_ok: rect5.x == 25phx && rect6.y == 45phx;
+    out property <string> error;
+
+    init => {
+        if !dynamic_initial_ok { error = "!dynamic_initial_ok"; }
+        shared-spacing = 20phx;
+        vertical-spacing = 40phx;
+        if !dynamic_changed_ok { error = "!dynamic_changed_ok"; }
+        if !assigned_initial_ok { error = "!assigned_initial_ok"; }
+        assigned-spacing.spacing = 20phx;
+        assigned-axis.spacing-horizontal = 7phx;
+        two-way-spacing = 14phx;
+        if !assigned_changed_ok { error = "!assigned_changed_ok"; }
+    }
+
+    out property <bool> test: rect1_pos_ok && rect2_pos_ok &&rect3_pos_ok && rect4_pos_ok && error == "";
 }
 
 /*
@@ -95,6 +209,7 @@ assert(instance.get_rect1_pos_ok());
 assert(instance.get_rect2_pos_ok());
 assert(instance.get_rect3_pos_ok());
 assert(instance.get_rect4_pos_ok());
+assert(instance.get_test());
 ```
 
 
@@ -104,6 +219,7 @@ assert!(instance.get_rect1_pos_ok());
 assert!(instance.get_rect2_pos_ok());
 assert!(instance.get_rect3_pos_ok());
 assert!(instance.get_rect4_pos_ok());
+assert!(instance.get_test());
 ```
 
 */
