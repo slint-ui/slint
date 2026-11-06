@@ -18,7 +18,6 @@ export component InspectorPlaceholderSection inherits InspectorSection {
         InspectorCodeField {
             accessible-name: @tr("Placeholder text");
             prefix: @tr("Placeholder");
-            fallback: "\"\"";
             property-name: "placeholder-text";
             commit-key: InspectorContext.field-key("placeholder-text");
         }
