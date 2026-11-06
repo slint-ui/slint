@@ -25,6 +25,7 @@ import type {
     SnapshotRectangleNode,
     SnapshotNode,
     SnapshotPaintWithImage,
+    SnapshotStroke,
 } from "../plugin/snapshot";
 
 function opaquePaint(paint: SnapshotPaintWithImage): boolean {
@@ -37,6 +38,14 @@ function opaquePaint(paint: SnapshotPaintWithImage): boolean {
     );
 }
 
+function uniformStroke(stroke: SnapshotStroke): boolean {
+    return [
+        stroke.strokeRightWeight,
+        stroke.strokeBottomWeight,
+        stroke.strokeLeftWeight,
+    ].every((width) => width === stroke.strokeTopWeight);
+}
+
 function separateInnerBorder(appearance: SnapshotAppearance): boolean {
     const stroke = appearance.strokes[0];
     return (
@@ -45,11 +54,7 @@ function separateInnerBorder(appearance: SnapshotAppearance): boolean {
         (stroke.align === undefined || stroke.align === "INSIDE") &&
         stroke.dashPattern.length === 0 &&
         stroke.strokeTopWeight > 0 &&
-        [
-            stroke.strokeRightWeight,
-            stroke.strokeBottomWeight,
-            stroke.strokeLeftWeight,
-        ].every((width) => width === stroke.strokeTopWeight)
+        uniformStroke(stroke)
     );
 }
 
@@ -85,11 +90,7 @@ export function shadowWarnings(
             (stroke.align === "outside" ||
                 stroke.align === "center" ||
                 stroke.dashPattern.length > 0 ||
-                ![
-                    stroke.strokeRightWeight,
-                    stroke.strokeBottomWeight,
-                    stroke.strokeLeftWeight,
-                ].every((width) => width === stroke.strokeTopWeight)))
+                !uniformStroke(stroke)))
     )
         context.warnings.push({
             severity: "warning",
@@ -164,27 +165,22 @@ export function appearanceSource(
     )
         lines.push(property("background", paint(fill), depth));
     const stroke = appearance.strokes[0];
-    if (stroke !== undefined) {
-        const uniform =
-            stroke.strokeTopWeight === stroke.strokeRightWeight &&
-            stroke.strokeRightWeight === stroke.strokeBottomWeight &&
-            stroke.strokeBottomWeight === stroke.strokeLeftWeight;
-        if (
-            uniform &&
-            !separateInnerBorder(appearance) &&
-            stroke.dashPattern.length === 0 &&
-            (stroke.align === undefined || stroke.align === "INSIDE") &&
-            stroke.strokeTopWeight !== 0
-        ) {
-            lines.push(
-                property(
-                    "border-width",
-                    `${number(stroke.strokeTopWeight)}px`,
-                    depth,
-                ),
-                property("border-color", paint(stroke.paint), depth),
-            );
-        }
+    if (
+        stroke !== undefined &&
+        uniformStroke(stroke) &&
+        !separateInnerBorder(appearance) &&
+        stroke.dashPattern.length === 0 &&
+        (stroke.align === undefined || stroke.align === "INSIDE") &&
+        stroke.strokeTopWeight !== 0
+    ) {
+        lines.push(
+            property(
+                "border-width",
+                `${number(stroke.strokeTopWeight)}px`,
+                depth,
+            ),
+            property("border-color", paint(stroke.paint), depth),
+        );
     }
     if (appearance.backdropBlur !== undefined)
         lines.push(
@@ -222,14 +218,11 @@ export function strokeLayersSource(
         stroke.strokeBottomWeight,
         stroke.strokeLeftWeight,
     ];
-    const uniform = weights.every((weight) => weight === weights[0]);
+    const uniform = uniformStroke(stroke);
     if (uniform && stroke.dashPattern.length > 0)
         return dashedRectangleSource(node, stroke, depth);
 
-    if (
-        (stroke.align === undefined || stroke.align === "INSIDE") &&
-        weights.every((weight) => weight === weights[0])
-    )
+    if ((stroke.align === undefined || stroke.align === "INSIDE") && uniform)
         return separateInnerBorder(node)
             ? [
                   openElement("Rectangle", depth),

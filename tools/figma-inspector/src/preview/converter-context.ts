@@ -98,11 +98,9 @@ export function paint(value: SnapshotPaintWithImage): string {
             next &&
             next.position > stop.position &&
             next.color.a !== stop.color.a &&
-            ["r", "g", "b"].some(
-                (channel) =>
-                    next.color[channel as "r" | "g" | "b"] !==
-                    stop.color[channel as "r" | "g" | "b"],
-            )
+            (next.color.r !== stop.color.r ||
+                next.color.g !== stop.color.g ||
+                next.color.b !== stop.color.b)
                 ? 16
                 : 1;
         return Array.from({ length: subdivisions }, (_, sample) => {
@@ -121,14 +119,23 @@ export function paint(value: SnapshotPaintWithImage): string {
                   };
         });
     });
+    const [a, c, offset] = value.transform[0];
+    const linear = value.kind === "linear-gradient";
+    // Figma's affine map gives the stop coordinate at each point in the layer.
+    // Slint spans the whole box, so remap linear stops from that box's extrema.
+    const start = linear ? offset + Math.min(0, a) + Math.min(0, c) : 0;
+    const extent = linear ? Math.abs(a) + Math.abs(c) : 1;
+    const conic = value.kind === "conic-gradient";
+    const range = conic ? 360 : 100;
+    const unit = conic ? "deg" : "%";
+    const stops = resolvedStops
+        .map(
+            (stop) =>
+                `${color(stop.color, value.opacity)} ${gradientNumber(((stop.position - start) / extent) * range)}${unit}`,
+        )
+        .join(", ");
     if (value.kind === "radial-gradient") {
         const geometry = radialGeometry(value.transform);
-        const stops = resolvedStops
-            .map(
-                (stop) =>
-                    `${color(stop.color, value.opacity)} ${gradientNumber(stop.position * 100)}%`,
-            )
-            .join(", ");
         return `@radial-gradient(ellipse self.width * ${gradientNumber(geometry.radiusX)} self.height * ${gradientNumber(geometry.radiusY)} at self.width * ${gradientNumber(geometry.centerX)} self.height * ${gradientNumber(geometry.centerY)}, ${stops})`;
     }
     if (value.kind === "conic-gradient") {
@@ -140,29 +147,12 @@ export function paint(value: SnapshotPaintWithImage): string {
                     ? "90deg"
                     : "270deg"
                 : `90deg + Math.atan2(${gradientNumber(-b)} * self.height / 1px, ${gradientNumber(d)} * self.width / 1px)`;
-        const stops = resolvedStops
-            .map(
-                (stop) =>
-                    `${color(stop.color, value.opacity)} ${gradientNumber(stop.position * 360)}deg`,
-            )
-            .join(", ");
         return `@conic-gradient(from ${angle} at self.width * ${gradientNumber(geometry.centerX)} self.height * ${gradientNumber(geometry.centerY)}, ${stops})`;
     }
-    const [a, c, offset] = value.transform[0];
-    const extent = Math.abs(a) + Math.abs(c);
-    // Figma's affine map gives the stop coordinate at each point in the layer.
-    // Slint spans the whole box, so remap stops from that box's extrema.
-    const start = offset + Math.min(0, a) + Math.min(0, c);
     const angle =
         a === 0 || c === 0
             ? `${gradientNumber((90 + (Math.atan2(c, a) * 180) / Math.PI + 360) % 360)}deg`
             : `90deg + Math.atan2(${gradientNumber(c)} * self.width / 1px, ${gradientNumber(a)} * self.height / 1px)`;
-    const stops = resolvedStops
-        .map(
-            (stop) =>
-                `${color(stop.color, value.opacity)} ${gradientNumber(((stop.position - start) / extent) * 100)}%`,
-        )
-        .join(", ");
     return `@linear-gradient(${angle}, ${stops})`;
 }
 

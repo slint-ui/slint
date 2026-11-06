@@ -151,6 +151,16 @@ function transform(
     ];
 }
 
+function gradientStops(value: GradientPaint, node: MaterializedNode) {
+    return value.gradientStops.map((stop) => {
+        if (!number(stop.position) || stop.position < 0 || stop.position > 1)
+            throw new CompatibilityError(
+                "gradient stop position must be between 0 and 1",
+            );
+        return { position: stop.position, color: color(stop.color, node) };
+    });
+}
+
 async function paint(
     value: Paint,
     node: MaterializedNode,
@@ -191,20 +201,7 @@ async function paint(
                     ? "linear-gradient"
                     : "conic-gradient",
             transform: matrix,
-            stops: value.gradientStops.map((stop) => {
-                if (
-                    !number(stop.position) ||
-                    stop.position < 0 ||
-                    stop.position > 1
-                )
-                    throw new CompatibilityError(
-                        "gradient stop position must be between 0 and 1",
-                    );
-                return {
-                    position: stop.position,
-                    color: color(stop.color, node),
-                };
-            }),
+            stops: gradientStops(value, node),
             opacity,
         };
     }
@@ -220,17 +217,7 @@ async function paint(
             throw new CompatibilityError(
                 "radial gradients require at least two stops",
             );
-        const stopsData = value.gradientStops.map((stop) => {
-            if (
-                !number(stop.position) ||
-                stop.position < 0 ||
-                stop.position > 1
-            )
-                throw new CompatibilityError(
-                    "gradient stop position must be between 0 and 1",
-                );
-            return { position: stop.position, color: color(stop.color, node) };
-        });
+        const stopsData = gradientStops(value, node);
         if (radialGeometry(gradientTransform).axisAligned)
             return {
                 kind: "radial-gradient",
