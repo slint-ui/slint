@@ -186,12 +186,13 @@ export component InspectorGradientStops inherits Rectangle {
                             horizontal-stretch: 1;
                             accessible-name: @tr("Stop {} color", index + 1);
                             swatch-accessible-name: @tr("Edit stop {} color", index + 1);
-                            value: stop.color; enabled: FillSession.editable; live-edit: true;
+                            value: stop.color; enabled: FillSession.editable;
                             commit-key: root.session-key + ":" + index;
                             changed input-focused => { if self.input-focused { root.selected-index = index; } }
                             private property <int> focus-generation: root.focus-generation;
                             changed focus-generation => { if !FillSession.request.target.canvas && root.selected-index == index { self.focus-swatch(); } }
                             preview(color) => { root.selected-index = index; return FillSession.preview-color(color); }
+                            edit-input(color) => { root.selected-index = index; FillSession.preview-color(color); }
                             swatch-activated => { FillSession.edit-stop-color(index); }
                             remove-requested => { FillSession.remove-stop(index); }
                         }

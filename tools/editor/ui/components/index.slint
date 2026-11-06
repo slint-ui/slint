@@ -217,8 +217,8 @@ export component PrimerTextInput inherits EditorInput {
     in property <string> leading-text;
     value: root.text;
     input-type: InputType.search;
-    live-edit: true;
-    accepted(value) => { root.text = value; return true; }
+    edit-input(value) => { root.text = value; }
+    accepted(value) => { root.edit-input(value); return true; }
 
     if root.leading-text != "": Text {
         text: root.leading-text;

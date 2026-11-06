@@ -6,7 +6,6 @@ import { InputSurface } from "input-surface.slint";
 export component EditorInput inherits InputSurface {
     in property <string> accessible-name: "";
     in property <string> value;
-    in property <bool> live-edit: false;
     in property <bool> select-all-on-focus: true;
     in property <bool> muted-value: false;
     in property <TextHorizontalAlignment> horizontal-alignment: TextHorizontalAlignment.left;
@@ -32,7 +31,7 @@ export component EditorInput inherits InputSurface {
     private property <bool> edited: false;
     callback edit-started();
     callback accepted(string) -> bool;
-    callback preview(string);
+    callback edit-input(string);
     callback normalized(string) -> string;
 
     accessible-role: AccessibleRole.text-input;
@@ -41,7 +40,7 @@ export component EditorInput inherits InputSurface {
     accessible-enabled: root.enabled;
     accessible-action-set-value(value) => {
         if root.enabled {
-            root.accept-input(value, true);
+            root.accept-input(value);
         }
     }
     accessible-action-default => {
@@ -69,7 +68,7 @@ export component EditorInput inherits InputSurface {
         }
     }
 
-    function accept-input(text: string, normalize: bool) -> bool {
+    function accept-input(text: string) -> bool {
         if root.active-commit-key != root.commit-key {
             input.text = root.value;
             root.active-commit-key = root.commit-key;
@@ -77,7 +76,7 @@ export component EditorInput inherits InputSurface {
         }
         root.begin-edit();
         let accepted = root.accepted(text);
-        if accepted && normalize && root.normalize-accepted {
+        if accepted && root.normalize-accepted {
             input.text = root.normalized(text);
             root.edited = false;
         }
@@ -128,12 +127,11 @@ export component EditorInput inherits InputSurface {
 
                 edited => {
                     root.begin-edit();
-                    root.preview(self.text);
-                    if root.live-edit { root.accept-input(self.text, false); }
+                    root.edit-input(self.text);
                 }
 
                 accepted => {
-                    if !root.accept-input(self.text, true) {
+                    if !root.accept-input(self.text) {
                         self.text = root.value;
                     }
                 }
@@ -155,7 +153,7 @@ export component EditorInput inherits InputSurface {
                         if root.select-all-on-focus { self.select-all(); }
                     }
                     if !self.has-focus && (self.text != root.value || root.edited) {
-                        if !root.accept-input(self.text, true) {
+                        if !root.accept-input(self.text) {
                             self.text = root.value;
                         }
                     }
