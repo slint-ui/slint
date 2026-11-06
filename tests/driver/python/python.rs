@@ -143,6 +143,10 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         // Append the python code to the bottom of the generated file and run it
 
         let mut f = std::fs::File::options().append(true).open(&python_file).unwrap();
+        f.write_all(
+            b"if \"backend-testing\" in slint.native.build_features():\n    slint.native._configure_test_fonts()\n",
+        )
+        .unwrap();
         f.write_all(python_script.as_bytes()).unwrap();
     };
 
