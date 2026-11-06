@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Style, Colors, Metrics, FieldStyle, PaintStyle, ComboMenuStyle } from "../../style.slint";
-import { Api } from "../../api.slint";
+import { Properties } from "../../properties.slint";
 import { InspectorComboOption } from "control-data.slint";
 import { EditorWindow } from "../index.slint";
 
@@ -33,7 +33,7 @@ export component InspectorComboBox inherits ComboBoxBase {
     item-height: root.row-step;
     popup-padding: root.menu-style.padding;
     maximum-visible-items: max(1, floor((root.popup-height - 2 * root.popup-padding) / root.row-step));
-    model: Api.combo-option-values(root.options);
+    model: Properties.combo-option-values(root.options);
     current-index: root.selected-index;
     accessible-label: root.accessible-name;
     accessible-value: root.value;

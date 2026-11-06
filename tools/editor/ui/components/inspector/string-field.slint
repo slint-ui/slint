@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Button, TextEdit } from "std-widgets.slint";
-import { Api, PropertyValue, PropertyValueKind } from "../../api.slint";
+import { Properties, PropertyValue, PropertyValueKind } from "../../properties.slint";
 import { Style, Metrics, Typography, Colors } from "../../style.slint";
 import { FloatingSurface } from "../floating-surface.slint";
 import { InspectorTextFieldBase } from "text-field-base.slint";
@@ -48,7 +48,7 @@ export component InspectorStringField inherits Rectangle {
 
     function accept-value(value: string) -> bool {
         let accepted = root.accepted(root.plain-text
-            ? Api.string-to-code(value, root.source-value.is-translatable, root.source-value.tr-context, root.source-value.tr-plural, root.source-value.tr-plural-expression)
+            ? Properties.string-to-code(value, root.source-value.is-translatable, root.source-value.tr-context, root.source-value.tr-plural, root.source-value.tr-plural-expression)
             : value);
         if !accepted { root.cancel-preview(); }
         root.previewing = false;

@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Api, PropertyValueKind } from "../../../api.slint";
+import { Properties, PropertyValueKind } from "../../../properties.slint";
 import { Style, Metrics, Colors, Typography, InspectorStyle } from "../../../style.slint";
 import { InspectorEnumOptions, InspectorComboOption, InspectorSection } from "../index.slint";
 import { InspectorAlignmentGroup } from "../alignment-group.slint";
@@ -18,16 +18,16 @@ export component InspectorTextAlignmentSection inherits InspectorSection {
     title: @tr("Alignment");
 
     pure function effective-index(name: string, fallback: string, options: [InspectorComboOption]) -> int {
-        let property = Api.editor-property-value-data(name);
+        let property = Properties.editor-property-value-data(name);
         let value = property.value-kind == PropertyValueKind.enum && property.value-int >= 0 && property.value-int < property.visual-items.length
             ? property.visual-items[property.value-int] : fallback;
-        let index = Api.combo-option-index(value, options);
-        return index >= 0 ? index : Api.combo-option-index(fallback, options);
+        let index = Properties.combo-option-index(value, options);
+        return index >= 0 ? index : Properties.combo-option-index(fallback, options);
     }
 
     function set-horizontal(value: string) {
         if root.horizontal-option < 0 || InspectorEnumOptions.text-horizontal-alignment-options[root.horizontal-option].value != value {
-            InspectorContext.commit-code("horizontal-alignment", value);
+            InspectorContext.commit-enum("horizontal-alignment", value);
         }
     }
 
@@ -83,7 +83,7 @@ export component InspectorTextAlignmentSection inherits InspectorSection {
                 vertical: true;
                 accessible-name: @tr("Vertical Alignment");
                 selected-index: root.vertical-index;
-                chosen(index) => { if index != root.vertical-index { InspectorContext.commit-code("vertical-alignment", ["top", "center", "bottom"][index]); } }
+                chosen(index) => { if index != root.vertical-index { InspectorContext.commit-enum("vertical-alignment", ["top", "center", "bottom"][index]); } }
             }
         }
     }

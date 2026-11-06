@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Properties } from "../../../properties.slint";
+import { Properties, PropertyEditKind } from "../../../properties.slint";
 
 import { Style, InspectorStyle } from "../../../style.slint";
 
@@ -25,20 +25,20 @@ export component InspectorTextContentSection inherits InspectorSection {
 
         if !InspectorContext.has-styled-text-property(): InspectorStringField {
             accessible-name: @tr("Text content");
-            source-value: Api.source-property-value-data("text", {});
-            default-value: Api.runtime-property-value-data("text", {}).value-string;
+            source-value: Properties.source-property-value-data("text", {});
+            default-value: Properties.editor-property-value-data("text").value-string;
             commit-key: InspectorContext.field-key("text");
             expandable: true;
             accepted(text) => { return InspectorContext.commit-code("text", text); }
-            preview(text) => { return Api.inspector-preview-string(InspectorContext.inspector-key, "text", text); }
-            canceled => { Api.inspector-cancel(); }
+            preview(text) => { return Properties.inspector-preview("text", { kind: PropertyEditKind.string, text: text }); }
+            canceled => { Properties.inspector-cancel(); }
             history-key(event) => { return root.history-key(event); }
         }
 
         if InspectorContext.has-styled-text-property(): InspectorCodeField {
             accessible-name: @tr("Text content");
             prefix: @tr("Text");
-            value: Properties.source-property-value("text", InspectorContext.has-styled-text-property() ? "@markdown(\"\")" : "\"\"");
+            value: Properties.source-property-value("text", "@markdown(\"\")");
             commit-key: InspectorContext.field-key("text");
             accepted(text) => {
                 return InspectorContext.commit-code("text", text);

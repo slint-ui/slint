@@ -357,10 +357,9 @@ export global InspectorContext {
     }
 
     public pure function text-font-size-value() -> string {
-        let value = Api.source-property-value-data("font-size", {});
+        let value = Properties.editor-property-value-data("font-size");
         if value.code == "" {
-            let runtime = Api.runtime-property-value-data("font-size", { value-float: Api.preview-default-font-size });
-            return "\{runtime.value-float}";
+            return "\{Api.preview-default-font-size}";
         }
         if value.kind == PropertyValueKind.float && value.visual-items[value.value-int] == "px" {
             return "\{value.value-float}";

@@ -1,7 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Api, PropertyValue } from "../../../api.slint";
+import { Api } from "../../../api.slint";
+import { Properties, PropertyEditKind } from "../../../properties.slint";
 import { Style, Metrics, Colors, Typography, InspectorStyle } from "../../../style.slint";
 import { InspectorComboBox, InspectorEditableField, InspectorEnumOptions, InspectorPropertyRow, InspectorSection, InspectorSwitch } from "../index.slint";
 import { InspectorContext } from "context.slint";
@@ -10,12 +11,8 @@ import { InspectorSpinField } from "../spin-field.slint";
 export component InspectorTypographySection inherits InspectorSection {
     in property <InspectorStyle> style: Style.inspector-layout;
     in property <length> field-width;
-    private property <PropertyValue> runtime-italic: Api.runtime-property-value-data("font-italic", {});
-    private property <PropertyValue> source-italic: Api.source-property-value-data("font-italic", {});
-    private property <bool> italic: root.runtime-italic.value-resolved
-        ? root.runtime-italic.value-bool
-        : root.source-italic.code != "" && root.source-italic.value-bool;
-    private property <PropertyValue> runtime-size: Api.runtime-property-value-data("font-size", { value-float: Api.preview-default-font-size });
+    private property <bool> italic: Properties.editor-property-value-data("font-italic").value-bool;
+    private property <float> font-size: Properties.editor-number-property("font-size", Api.preview-default-font-size);
 
     title: @tr("Typography");
 
@@ -23,21 +20,21 @@ export component InspectorTypographySection inherits InspectorSection {
         padding-left: root.style.padding;
         spacing: Metrics.space-compact;
 
-        if Api.has-property("font-family"): InspectorEditableField {
+        if Properties.has-property("font-family"): InspectorEditableField {
             accessible-name: @tr("Font family");
             value: InspectorContext.text-font-family-value();
             commit-key: InspectorContext.field-key("font-family");
             wide: true;
             width: root.field-width;
             accepted(text) => {
-                return text != "" && InspectorContext.commit-code("font-family", InspectorContext.quote(text));
+                return text != "" && InspectorContext.commit-string("font-family", text);
             }
         }
 
         HorizontalLayout {
             spacing: root.style.column-gap;
 
-            if Api.has-property("font-weight"): VerticalLayout {
+            if Properties.has-property("font-weight"): VerticalLayout {
                 spacing: Metrics.space-compact;
                 Text {
                     text: @tr("Weight"); color: Colors.muted;
@@ -50,12 +47,12 @@ export component InspectorTypographySection inherits InspectorSection {
                     selected-index: InspectorEnumOptions.text-font-weight-index();
                     options: InspectorEnumOptions.text-font-weight-options;
                     accepted(text) => {
-                        return InspectorContext.commit-code("font-weight", text);
+                        return text.is-float() && InspectorContext.commit-value("font-weight", { kind: PropertyEditKind.integer, integer: text.to-float() });
                     }
                 }
             }
 
-            if Api.has-property("font-size"): VerticalLayout {
+            if Properties.has-property("font-size"): VerticalLayout {
                 spacing: Metrics.space-compact;
                 Text {
                     text: @tr("Size"); color: Colors.muted;
@@ -64,22 +61,22 @@ export component InspectorTypographySection inherits InspectorSection {
                 InspectorSpinField {
                     accessible-name: @tr("Font size");
                     value: InspectorContext.text-font-size-value();
-                    number: root.runtime-size.value-float;
+                    number: root.font-size;
                     commit-key: InspectorContext.field-key("font-size");
                     accepted(text) => {
                         return text.is-float()
-                            ? text.to-float() > 0 && InspectorContext.commit-px-code("font-size", text)
+                            ? text.to-float() > 0 && InspectorContext.commit-number("font-size", text.to-float(), "px")
                             : InspectorContext.commit-code("font-size", text);
                     }
-                    preview(value) => { return Api.inspector-preview(InspectorContext.inspector-key, "font-size", value); }
-                    scrub-accepted(value) => { return InspectorContext.commit-inspector("font-size", value); }
-                    canceled => { Api.inspector-cancel(); }
+                    preview(value) => { return InspectorContext.preview-number("font-size", value, "px"); }
+                    scrub-accepted(value) => { return InspectorContext.commit-number("font-size", value, "px"); }
+                    canceled => { Properties.inspector-cancel(); }
                 }
             }
         }
     }
 
-    if Api.has-property("font-italic"): InspectorPropertyRow {
+    if Properties.has-property("font-italic"): InspectorPropertyRow {
         label: @tr("Italic");
 
         InspectorSwitch {
@@ -91,7 +88,7 @@ export component InspectorTypographySection inherits InspectorSection {
                 self.focus();
                 let requested = self.checked;
                 self.checked = root.italic;
-                InspectorContext.commit-code("font-italic", requested ? "true" : "false");
+                InspectorContext.commit-boolean("font-italic", requested);
             }
         }
     }

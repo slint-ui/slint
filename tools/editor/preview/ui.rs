@@ -2457,6 +2457,10 @@ mod tests {
             let editor = super::create_ui().unwrap();
             let api = editor.global::<super::Api>();
             let properties_api = editor.global::<super::Properties>();
+            if type_name == "Text" {
+                connect_has_property(&properties_api);
+                set_test_properties(&properties_api, &["text", "color"]);
+            }
             api.on_highlight_positions(|_, _| {
                 std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle::default()])).into()
             });
@@ -2789,6 +2793,7 @@ mod tests {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
         let api = editor.global::<super::Api>();
+        let properties_api = editor.global::<super::Properties>();
         editor
             .global::<super::Diagnostics>()
             .set_preview_availability(super::PreviewAvailability::Current);
@@ -2800,9 +2805,9 @@ mod tests {
         let mut selection = api.get_selection();
         selection.highlight_index = 0;
         api.set_selection(selection);
-        connect_has_property(&api);
-        set_test_properties(&api, &["title"]);
-        api.on_source_property_value_data(|name, fallback| {
+        connect_has_property(&properties_api);
+        set_test_properties(&properties_api, &["title"]);
+        properties_api.on_source_property_value_data(|name, fallback| {
             if name == "title" {
                 PropertyValue {
                     kind: PropertyValueKind::String,
@@ -2816,13 +2821,13 @@ mod tests {
         });
         let previews = std::rc::Rc::new(std::cell::Cell::new(0));
         let calls = previews.clone();
-        api.on_inspector_preview_string(move |_, _, _| {
+        properties_api.on_inspector_preview(move |_, _| {
             calls.set(calls.get() + 1);
             true
         });
         let cancellations = std::rc::Rc::new(std::cell::Cell::new(0));
         let calls = cancellations.clone();
-        api.on_inspector_cancel(move || calls.set(calls.get() + 1));
+        properties_api.on_inspector_cancel(move || calls.set(calls.get() + 1));
         editor.show().unwrap();
         editor.window().set_size(slint::LogicalSize::new(1360., 2000.));
         slint::platform::update_timers_and_animations();
@@ -2855,6 +2860,7 @@ mod tests {
         for editable in [true, false] {
             let editor = super::EditorUi::new().unwrap();
             let api = editor.global::<super::Api>();
+            let properties_api = editor.global::<super::Properties>();
             editor
                 .global::<super::Diagnostics>()
                 .set_preview_availability(super::PreviewAvailability::Current);
@@ -2865,8 +2871,8 @@ mod tests {
             let mut selection = api.get_selection();
             selection.highlight_index = 0;
             api.set_selection(selection);
-            connect_has_property(&api);
-            set_test_properties(&api, &["title"]);
+            connect_has_property(&properties_api);
+            set_test_properties(&properties_api, &["title"]);
             api.set_undo_enabled(true);
             let undo_count = std::rc::Rc::new(std::cell::Cell::new(0));
             let calls = undo_count.clone();
@@ -3608,6 +3614,7 @@ mod tests {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
         let api = editor.global::<super::Api>();
+        let properties_api = editor.global::<super::Properties>();
         editor
             .global::<super::Diagnostics>()
             .set_preview_availability(super::PreviewAvailability::Current);
@@ -3622,15 +3629,15 @@ mod tests {
             }]))
             .into()
         });
-        api.on_combo_option_index(super::combo_option_index);
-        api.on_source_property_value_data(|name, fallback| match name.as_str() {
+        properties_api.on_combo_option_index(super::combo_option_index);
+        properties_api.on_source_property_value_data(|name, fallback| match name.as_str() {
             "horizontal-alignment" => alignment(&name, "start"),
             "vertical-alignment" => alignment(&name, "top"),
             _ => fallback,
         });
         let overrides = std::rc::Rc::pin(i_slint_core::Property::new(None::<(&str, &str)>));
         let hooked = overrides.clone();
-        api.on_hooked_property_value_data(move |name, fallback| {
+        properties_api.on_hooked_property_value_data(move |name, fallback| {
             match (name.as_str(), hooked.as_ref().get()) {
                 ("horizontal-alignment", Some((value, _)))
                 | ("vertical-alignment", Some((_, value))) => alignment(&name, value),
