@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use lsp_types::Url;
 
@@ -25,7 +25,7 @@ pub enum PreviewToLspMessage {
     Diagnostics {
         uri: Url,
         version: SourceFileVersion,
-        #[serde(with = "json_encoded")]
+        #[serde(with = "super::json_encoded")]
         diagnostics: Vec<lsp_types::Diagnostic>,
     },
     /// Show a document in the editor.
@@ -135,25 +135,6 @@ impl PreviewToLspMessage {
     }
 }
 
-/// `lsp_types` omits empty optional fields when serializing, which the
-/// remote preview's postcard encoding can't read back, so these travel as JSON.
-mod json_encoded {
-    use serde::{Deserialize as _, de::Error as _, ser::Error as _};
-
-    pub fn serialize<S: serde::Serializer, T: serde::Serialize>(
-        value: &T,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error> {
-        serializer.serialize_str(&serde_json::to_string(value).map_err(S::Error::custom)?)
-    }
-
-    pub fn deserialize<'de, D: serde::Deserializer<'de>, T: serde::de::DeserializeOwned>(
-        deserializer: D,
-    ) -> Result<T, D::Error> {
-        serde_json::from_str(&String::deserialize(deserializer)?).map_err(D::Error::custom)
-    }
-}
-
 /// One transport from a preview back to the LSP.
 pub trait PreviewToLsp {
     fn send(&self, message: &PreviewToLspMessage) -> Result<()>;
@@ -171,7 +152,7 @@ pub trait PreviewToLsp {
     /// Tell the editor about diagnostics
     fn notify_diagnostics(
         &self,
-        diagnostics: HashMap<lsp_types::Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)>,
+        diagnostics: BTreeMap<lsp_types::Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)>,
     ) -> Result<()> {
         for (uri, (version, diagnostics)) in diagnostics {
             self.send(&PreviewToLspMessage::Diagnostics { uri, version, diagnostics })?;

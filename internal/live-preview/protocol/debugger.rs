@@ -12,6 +12,9 @@ pub enum DebuggerToPreviewMessage {
 
 /// A message from a preview to the debugger.
 /// A subscription push can arrive after the debugger unsubscribed.
+///
+/// The Springboard also produces `Diagnostics` and `DebugMessage`
+/// from the preview's [`super::PreviewToLspMessage`]s of the same name.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum PreviewToDebuggerMessage {
     /// The protobuf-encoded `AutResponse` to the
@@ -29,4 +32,15 @@ pub enum PreviewToDebuggerMessage {
     /// or because the preview replaced or took down the instance they observe,
     /// or because an editor disconnected.
     SubscriptionsEnded { subscriptions: Vec<u64> },
+    /// A compilation finished; its `Diagnostics` follow.
+    /// `success` says whether it produced a component to show.
+    Reloaded { success: bool },
+    /// A preview's compiler diagnostics for `uri`.
+    Diagnostics {
+        uri: lsp_types::Url,
+        #[serde(with = "super::json_encoded")]
+        diagnostics: Vec<lsp_types::Diagnostic>,
+    },
+    /// A preview's `debug()` output; `location` is the file path, line and column.
+    DebugMessage { location: Option<(std::path::PathBuf, usize, usize)>, message: String },
 }
