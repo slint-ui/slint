@@ -32,12 +32,17 @@ struct RenderState {
     transform: i_slint_core::lengths::ItemTransform,
 }
 
+struct SavedState {
+    state: RenderState,
+    canvas_save_count: usize,
+}
+
 pub struct SkiaItemRenderer<'a> {
     pub canvas: &'a skia_safe::Canvas,
     pub scale_factor: ScaleFactor,
     pub window: &'a i_slint_core::api::Window,
     surface: Option<&'a dyn crate::Surface>,
-    state_stack: Vec<RenderState>,
+    state_stack: Vec<SavedState>,
     current_state: RenderState,
     image_cache: &'a ItemCache<Option<skia_safe::Image>>,
     layer_cache: &'a ItemCache<Option<(PhysicalPoint, skia_safe::Image)>>,
@@ -1003,13 +1008,15 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
     }
 
     fn save_state(&mut self) {
-        self.canvas.save();
-        self.state_stack.push(self.current_state);
+        let canvas_save_count = self.canvas.save();
+        self.state_stack.push(SavedState { state: self.current_state, canvas_save_count });
     }
 
     fn restore_state(&mut self) {
-        self.current_state = self.state_stack.pop().unwrap();
-        self.canvas.restore();
+        let saved = self.state_stack.pop().unwrap();
+        debug_assert!(self.canvas.save_count() > saved.canvas_save_count);
+        self.current_state = saved.state;
+        self.canvas.restore_to_count(saved.canvas_save_count);
     }
 
     fn scale_factor(&self) -> ScaleFactor {
@@ -1104,26 +1111,13 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
                 paint.set_alpha_f(opacity);
                 paint
             };
+            // `restore_state` closes the layer after the children.
             self.canvas.save_layer(&layer.paint(&paint));
-            self.state_stack.push(self.current_state);
             self.current_state.alpha = 1.0;
-
-            let window_adapter = WindowInner::from_pub(self.window).window_adapter();
-
-            i_slint_core::item_rendering::render_item_children(
-                self,
-                item_rc.item_tree(),
-                item_rc.index() as isize,
-                &window_adapter,
-            );
-
-            self.current_state = self.state_stack.pop().unwrap();
-            self.canvas.restore();
-            RenderingResult::ContinueRenderingWithoutChildren
         } else {
             self.apply_opacity(opacity);
-            RenderingResult::ContinueRenderingChildren
         }
+        RenderingResult::ContinueRenderingChildren
     }
 
     fn visit_layer(
