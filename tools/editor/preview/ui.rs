@@ -5,6 +5,7 @@
 use std::collections::BTreeMap;
 use std::{collections::HashMap, iter::once, rc::Rc};
 
+use i_slint_compiler::object_tree::ElementLocation;
 use i_slint_compiler::parser::TextRange;
 use i_slint_compiler::source_path::SourcePath;
 use i_slint_compiler::{expression_types, langtype};
@@ -193,8 +194,10 @@ pub fn initialize_editor(
     });
     api.on_select_element(|path, offset, x, y| {
         super::element_selection::select_element_at_source_code_position(
-            SourcePath::new(path.as_str()),
-            preview::TextSize::from(offset as u32),
+            ElementLocation {
+                path: SourcePath::new(path.as_str()),
+                offset: preview::TextSize::from(offset as u32),
+            },
             Some(i_slint_core::lengths::LogicalPoint::new(x, y)),
             SelectionNotification::Now,
         );

@@ -5,7 +5,7 @@ use std::cell::RefCell;
 use std::num::NonZeroUsize;
 
 use i_slint_compiler::diagnostics::{BuildDiagnostics, SourceFile};
-use i_slint_compiler::object_tree;
+use i_slint_compiler::object_tree::{self, ElementLocation};
 use i_slint_compiler::parser::{
     SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize, syntax_nodes,
 };
@@ -540,7 +540,7 @@ pub fn add_new_component(
     document_cache: &i_slint_editor_preview::DocumentCache,
     component_name: &str,
     document: &syntax_nodes::Document,
-) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
+) -> Option<(lsp_types::WorkspaceEdit, ElementLocation)> {
     let insert_position = insert_position_before_first_component(document_cache, document)?;
     let new_text = format!(
         "{}component {component_name} {{ }}{}",
@@ -579,7 +579,7 @@ pub fn add_new_component(
             source_file.path(),
             vec![edit],
         )?,
-        DropData { selection_offset, path },
+        ElementLocation { path, offset: selection_offset },
     ))
 }
 
@@ -592,7 +592,7 @@ fn drop_target_element_nodes(
     let mut result = Vec::with_capacity(3);
 
     for sc in &element_selection::collect_all_element_nodes_covering(position, component_instance) {
-        let Some(en) = sc.as_element_node(component_instance) else {
+        let Some(en) = sc.selection.as_element_node() else {
             continue;
         };
 
@@ -660,7 +660,7 @@ fn find_drop_location(
     position: LogicalPoint,
     component_type: &str,
 ) -> Option<DropInformation> {
-    let root_node_path = element_selection::root_element(component_instance)
+    let root_node_path = element_selection::root_element(component_instance)?
         .borrow()
         .debug
         .first()
@@ -863,15 +863,6 @@ pub fn edited_text_compiles(
     }
 }
 
-/// Extra data on an added Element, relevant to the Preview side only.
-#[derive(Clone, Debug)]
-pub struct DropData {
-    /// The offset to select next. This is different from the insert position
-    /// due to indentation, etc.
-    pub selection_offset: TextSize,
-    pub path: SourcePath,
-}
-
 fn pretty_node_removal_range(node: &SyntaxNode) -> Option<TextRange> {
     let first_et = node.first_token()?;
     let before_et = first_et.prev_token()?;
@@ -925,13 +916,13 @@ fn drop_ignored_elements_from_node(
 
 /// Find a location in a file that would be a good place to insert the new component at
 ///
-/// Return a WorkspaceEdit to send to the editor and extra info for the live preview in
-/// the DropData struct.
+/// Return a WorkspaceEdit to send to the editor,
+/// and the location of the element for the live preview to select.
 pub fn drop_at(
     document_cache: &i_slint_editor_preview::DocumentCache,
     position: LogicalPoint,
     component: &i_slint_editor_preview::component_catalog::ComponentInformation,
-) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
+) -> Option<(lsp_types::WorkspaceEdit, ElementLocation)> {
     let component_instance = preview::component_instance()?;
 
     let drop_info = find_drop_location(&component_instance, position, &component.name)?;
@@ -948,7 +939,7 @@ pub fn drop_at_with_geometry(
     position: LogicalPoint,
     component: &i_slint_editor_preview::component_catalog::ComponentInformation,
     geometry: LogicalRect,
-) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
+) -> Option<(lsp_types::WorkspaceEdit, ElementLocation)> {
     let component_instance = preview::component_instance()?;
 
     let drop_info = find_drop_location(&component_instance, position, &component.name)?;
@@ -1144,7 +1135,7 @@ pub fn create_drop_element_workspace_edit(
     document_cache: &i_slint_editor_preview::DocumentCache,
     component: &i_slint_editor_preview::component_catalog::ComponentInformation,
     drop_info: &DropInformation,
-) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
+) -> Option<(lsp_types::WorkspaceEdit, ElementLocation)> {
     create_drop_element_workspace_edit_with_properties(document_cache, component, drop_info, &[])
 }
 
@@ -1153,7 +1144,7 @@ pub fn create_drop_element_workspace_edit_with_properties(
     component: &i_slint_editor_preview::component_catalog::ComponentInformation,
     drop_info: &DropInformation,
     extra_properties: &[i_slint_editor_preview::editing::PropertyChange],
-) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
+) -> Option<(lsp_types::WorkspaceEdit, ElementLocation)> {
     let placeholder = if component.is_layout { placeholder() } else { String::new() };
 
     let is_list_view = drop_info.target_element_node.with_element_node(|node| {
@@ -1188,7 +1179,7 @@ pub fn create_drop_element_workspace_edit_with_properties(
                 as u32,
         );
 
-    let (path, _) = drop_info.target_element_node.path_and_offset();
+    let path = drop_info.target_element_node.location().path;
 
     let doc = document_cache.get_document_by_path(&path)?;
     let source_file = doc.node.as_ref().unwrap().source_file.clone();
@@ -1239,7 +1230,7 @@ pub fn create_drop_element_workspace_edit_with_properties(
             source_file.path(),
             edits,
         )?,
-        DropData { selection_offset, path },
+        ElementLocation { path, offset: selection_offset },
     ))
 }
 
@@ -1248,7 +1239,7 @@ pub fn create_swap_element_workspace_edit(
     element: &i_slint_editor_preview::ElementRcNode,
     placeholder_text: String,
     format: i_slint_editor_preview::ByteFormat,
-) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
+) -> Option<(lsp_types::WorkspaceEdit, ElementLocation)> {
     let component_type = element.component_type();
     let new_text = {
         let element_text_lines = extract_text_of_element(element, &["x", "y"]);
@@ -1279,7 +1270,7 @@ pub fn create_swap_element_workspace_edit(
         }
     };
 
-    let (path, _) = drop_info.target_element_node.path_and_offset();
+    let path = drop_info.target_element_node.location().path;
 
     let document_cache = preview::document_cache()?;
     let doc = document_cache.get_document_by_path(&path)?;
@@ -1354,7 +1345,7 @@ pub fn create_swap_element_workspace_edit(
 
     Some((
         i_slint_editor_preview::editing::create_workspace_edit_from_single_text_edits(edits),
-        DropData { selection_offset, path },
+        ElementLocation { path, offset: selection_offset },
     ))
 }
 
@@ -1555,7 +1546,7 @@ pub fn create_paste_element_workspace_edit(
     selected: &i_slint_editor_preview::ElementRcNode,
     text: &str,
     component_info: ComponentInfoLookup,
-) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
+) -> Option<(lsp_types::WorkspaceEdit, ElementLocation)> {
     let pasted = PastedElement::parse(text, &selected.with_element_node(|n| ids_in_component(n)))?;
 
     if !selected.parent().is_some_and(|parent| parent.is_same_component_as(selected)) {
@@ -1590,7 +1581,7 @@ pub fn create_paste_element_at_workspace_edit(
     position: LogicalPoint,
     text: &str,
     component_info: ComponentInfoLookup,
-) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
+) -> Option<(lsp_types::WorkspaceEdit, ElementLocation)> {
     let component_instance = preview::component_instance()?;
     let type_name = PastedElement::parse(text, &Default::default())?.type_names.first()?.clone();
     let drop_info = find_drop_location(&component_instance, position, &type_name)?;
@@ -1620,7 +1611,7 @@ fn create_paste_into_workspace_edit(
     info: &InsertInformation,
     pasted: &PastedElement,
     component_info: ComponentInfoLookup,
-) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
+) -> Option<(lsp_types::WorkspaceEdit, ElementLocation)> {
     let source_file = target.with_element_node(|n| n.source_file.clone());
     let placeholder_edits =
         drop_ignored_elements_from_node(target, &source_file, document_cache.format);
@@ -1644,9 +1635,9 @@ fn create_paste_text_workspace_edit(
     insertion: (TextSize, u32, String, usize),
     pasted: &PastedElement,
     component_info: ComponentInfoLookup,
-) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
+) -> Option<(lsp_types::WorkspaceEdit, ElementLocation)> {
     let (insert_offset, replacement_range, new_text, element_offset) = insertion;
-    let (path, _) = target.path_and_offset();
+    let path = target.location().path;
     let doc = document_cache.get_document_by_path(&path)?;
     let source_file = doc.node.as_ref()?.source_file.clone();
     let format = document_cache.format;
@@ -1682,7 +1673,7 @@ fn create_paste_text_workspace_edit(
             source_file.path(),
             edits,
         )?,
-        DropData { selection_offset, path },
+        ElementLocation { path, offset: selection_offset },
     ))
 }
 
@@ -1693,10 +1684,10 @@ pub fn create_wrap_in_layout_workspace_edit(
     element: &i_slint_editor_preview::ElementRcNode,
     layout: &str,
     import_file: &Option<String>,
-) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
+) -> Option<(lsp_types::WorkspaceEdit, ElementLocation)> {
     element.parent()?;
 
-    let (path, _) = element.path_and_offset();
+    let path = element.location().path;
     let doc = document_cache.get_document_by_path(&path)?;
     let source_file = doc.node.as_ref()?.source_file.clone();
     let format = document_cache.format;
@@ -1746,7 +1737,7 @@ pub fn create_wrap_in_layout_workspace_edit(
 
     Some((
         i_slint_editor_preview::editing::create_workspace_edit_from_single_text_edits(edits),
-        DropData { selection_offset, path },
+        ElementLocation { path, offset: selection_offset },
     ))
 }
 
@@ -2006,7 +1997,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 582
         let doc = document_cache.get_document_by_path(&test::main_test_file_name()).unwrap();
         let doc_node = doc.node.as_ref().unwrap();
 
-        let (workspace_edit, drop_data) =
+        let (workspace_edit, inserted) =
             super::add_new_component(&document_cache, "TestComponent", doc_node).unwrap();
 
         let result = text_edit::apply_workspace_edit(&document_cache, &workspace_edit).unwrap();
@@ -2014,8 +2005,8 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 582
         assert_eq!(SourcePath::from_url(&result[0].url), test::main_test_file_name());
         assert_eq!(&result[0].contents, output);
 
-        assert_eq!(drop_data.path, test::main_test_file_name());
-        assert_eq!(drop_data.selection_offset, selection_offset.into());
+        assert_eq!(inserted.path, test::main_test_file_name());
+        assert_eq!(inserted.offset, selection_offset.into());
 
         assert_eq!(
             super::workspace_edit_compiles(&document_cache, &workspace_edit),
@@ -2187,7 +2178,7 @@ export component Main inherits Window {
             .element_at_position(&url, &lsp_types::Position::new(line, character))
             .unwrap();
 
-        let (workspace_edit, drop_data) = super::create_wrap_in_layout_workspace_edit(
+        let (workspace_edit, inserted) = super::create_wrap_in_layout_workspace_edit(
             &document_cache,
             &element,
             layout,
@@ -2200,9 +2191,9 @@ export component Main inherits Window {
         );
         let result = text_edit::apply_workspace_edit(&document_cache, &workspace_edit).unwrap();
         assert_eq!(result.len(), 1);
-        assert_eq!(drop_data.path, test::main_test_file_name());
+        assert_eq!(inserted.path, test::main_test_file_name());
         let contents = result[0].contents.clone();
-        assert!(contents[usize::from(drop_data.selection_offset)..].starts_with(layout));
+        assert!(contents[usize::from(inserted.offset)..].starts_with(layout));
         Some(contents)
     }
 
@@ -2265,7 +2256,7 @@ export component Main inherits Window {
         let selected =
             document_cache.element_at_offset(&url, TextSize::new(selected_offset)).unwrap();
 
-        let (workspace_edit, drop_data) = super::create_paste_element_workspace_edit(
+        let (workspace_edit, inserted) = super::create_paste_element_workspace_edit(
             &document_cache,
             &selected,
             clipboard,
@@ -2275,9 +2266,7 @@ export component Main inherits Window {
 
         let result = text_edit::apply_workspace_edit(&document_cache, &workspace_edit).unwrap();
         assert_eq!(&result[0].contents, output);
-        assert!(
-            result[0].contents[usize::from(drop_data.selection_offset)..].starts_with("Text {")
-        );
+        assert!(result[0].contents[usize::from(inserted.offset)..].starts_with("Text {"));
         assert_eq!(
             super::workspace_edit_compiles(&document_cache, &workspace_edit),
             super::preview::CompilationResult::ChangeCompiles

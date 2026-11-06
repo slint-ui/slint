@@ -7,8 +7,6 @@ pub(super) struct Session {
     pub(super) target: ElementSelection,
     initial_text: SharedString,
     original_color: slint::Brush,
-    color_override: SmolStr,
-    stroke_override: SmolStr,
     pending_edit: Option<(lsp_types::WorkspaceEdit, SharedString)>,
 }
 
@@ -16,8 +14,6 @@ struct Target {
     selection: ElementSelection,
     text: SharedString,
     color: slint::Brush,
-    color_override: SmolStr,
-    stroke_override: SmolStr,
     scale: f32,
     grow_width: bool,
 }
@@ -47,62 +43,50 @@ fn source_text(node: &ElementRcNode) -> Option<SharedString> {
     })
 }
 
-fn source_target(
-    selection: &ElementSelection,
-    instance: &ComponentInstance,
-) -> Option<(ElementRcNode, SharedString, SmolStr, SmolStr)> {
-    let node = selection.as_element_node_in(instance)?;
+/// The properties that hide the original text while editing it.
+fn masked_properties(selection: &ElementSelection) -> [ElementProperty; 2] {
+    ["color", "stroke"].map(|name| selection.location.property(name))
+}
+
+fn source_target(selection: &ElementSelection) -> Option<(ElementRcNode, SharedString)> {
+    let node = selection.as_element_node()?;
     let text = source_text(&node)?;
     if text.contains('\n') || text.contains('\r') {
         return None;
     }
-    let hash = node.with_element_debug(|debug| debug.element_hash);
-    if hash == 0 {
-        return None;
-    }
-    let color_override = i_slint_compiler::passes::property_id(hash, &SmolStr::new_static("color"));
-    let stroke_override =
-        i_slint_compiler::passes::property_id(hash, &SmolStr::new_static("stroke"));
-    Some((node, text, color_override, stroke_override))
+    Some((node, text))
 }
 
-pub(super) fn reseed_mask(instance: &ComponentInstance) {
-    let target = PREVIEW_STATE.with_borrow(|state| {
-        let session = state.text_edit_session.as_ref()?;
-        source_target(&session.target, instance)
+pub(super) fn reseed_mask() {
+    PREVIEW_STATE.with_borrow(|state| {
+        let Some(session) = state.text_edit_session.as_ref() else { return };
+        if source_target(&session.target).is_none() {
+            return;
+        }
+        let mut overrides = (*state.debug_hook_overrides).borrow_mut();
+        for override_id in masked_properties(&session.target) {
+            overrides.insert(
+                override_id,
+                Box::pin(i_slint_core::Property::new(Some(slint_interpreter::Value::Brush(
+                    slint::Brush::default(),
+                )))),
+            );
+        }
     });
-    if let Some((_, _, color_override, stroke_override)) = target {
-        PREVIEW_STATE.with_borrow_mut(|state| {
-            if let Some(session) = state.text_edit_session.as_mut() {
-                session.color_override = color_override.clone();
-                session.stroke_override = stroke_override.clone();
-                let mut overrides = (*state.debug_hook_overrides).borrow_mut();
-                for override_id in [color_override, stroke_override] {
-                    overrides.insert(
-                        override_id,
-                        Box::pin(i_slint_core::Property::new(Some(
-                            slint_interpreter::Value::Brush(slint::Brush::default()),
-                        ))),
-                    );
-                }
-            }
-        });
-    }
 }
 
 fn target() -> Option<Target> {
     let selection = selected_element()?;
     let instance = component_instance()?;
-    let (source_node, text, color_override, stroke_override) =
-        source_target(&selection, &instance)?;
+    let (source_node, text) = source_target(&selection)?;
     let item = instance.component_item(
-        &selection.path,
-        selection.offset.into(),
+        &selection.location.path,
+        selection.location.offset.into(),
         selection.instance_index,
         i_slint_core::InternalToken,
     )?;
     let geometry = instance
-        .component_positions(&selection.path, selection.offset.into())
+        .component_positions(&selection.location.path, selection.location.offset.into())
         .get(selection.instance_index)
         .copied()?;
     let size = item.geometry().size;
@@ -131,6 +115,7 @@ fn target() -> Option<Target> {
     else {
         return None;
     };
+    let color_override = selection.location.property("color");
     let available = PREVIEW_STATE
         .with_borrow(|state| (*state.debug_hook_overrides).borrow().contains_key(&color_override));
     if !available {
@@ -144,15 +129,7 @@ fn target() -> Option<Target> {
                     == Some("width")
         })
     }) && api.get_selection().is_resizable;
-    Some(Target {
-        selection,
-        text,
-        color,
-        color_override,
-        stroke_override,
-        scale: scale_y,
-        grow_width,
-    })
+    Some(Target { selection, text, color, scale: scale_y, grow_width })
 }
 
 pub(super) fn notify_finished(accepted: bool) {
@@ -174,16 +151,12 @@ fn finish(accepted: bool, accepted_text: Option<SharedString>) {
     });
     if let Some(session) = session {
         if let Some(text) = accepted_text
-            && let Some(instance) = component_instance()
-            && let Some((node, _, _, _)) = source_target(&session.target, &instance)
+            && let Some((node, _)) = source_target(&session.target)
         {
-            let hash = node.with_element_debug(|debug| debug.element_hash);
-            let text_override =
-                i_slint_compiler::passes::property_id(hash, &SmolStr::new_static("text"));
-            set_override(&text_override, Some(slint_interpreter::Value::String(text)));
+            set_override(&node.property("text"), Some(slint_interpreter::Value::String(text)));
         }
-        for override_id in [&session.color_override, &session.stroke_override] {
-            set_override(override_id, None);
+        for override_id in masked_properties(&session.target) {
+            set_override(&override_id, None);
         }
     }
     refresh();
@@ -255,20 +228,10 @@ pub(super) fn refresh() {
             if let Some(selection) = state.selected.as_mut() {
                 selection.editing_text = false;
             }
-            state
-                .text_edit_session
-                .take()
-                .map(|session| (session.color_override, session.stroke_override))
+            state.text_edit_session.take().map(|session| masked_properties(&session.target))
         } else {
             None
         };
-        if let Some(session) = state.text_edit_session.as_mut()
-            && let Some(target) = &target
-            && session.target.same_element(&target.selection)
-        {
-            session.color_override = target.color_override.clone();
-            session.stroke_override = target.stroke_override.clone();
-        }
         (
             state.editor_ui.as_ref().map(|editor| editor.clone_strong()),
             pending,
@@ -276,15 +239,15 @@ pub(super) fn refresh() {
             obsolete_override,
         )
     });
-    if let Some((color_override, stroke_override)) = &obsolete_override {
-        for override_id in [color_override, stroke_override] {
+    if let Some(obsolete_override) = &obsolete_override {
+        for override_id in obsolete_override {
             set_override(override_id, None);
         }
     }
     if active && let Some(target) = &target {
-        for override_id in [&target.color_override, &target.stroke_override] {
+        for override_id in masked_properties(&target.selection) {
             set_override(
-                override_id,
+                &override_id,
                 Some(slint_interpreter::Value::Brush(slint::Brush::default())),
             );
         }
@@ -313,8 +276,6 @@ fn start_session(target: &Target) {
             target: selection,
             initial_text: target.text.clone(),
             original_color: target.color.clone(),
-            color_override: target.color_override.clone(),
-            stroke_override: target.stroke_override.clone(),
             pending_edit: None,
         });
     });
@@ -361,7 +322,7 @@ fn commit(text: SharedString) -> bool {
         return false;
     }
     let Some(document_cache) = document_cache() else { return false };
-    let Some(url) = selection.path.to_url() else { return false };
+    let Some(url) = selection.location.path.to_url() else { return false };
     let current_source = PREVIEW_STATE.with_borrow(|state| {
         state.source_code.get(&url).is_none_or(|source| {
             document_cache
@@ -374,7 +335,10 @@ fn commit(text: SharedString) -> bool {
     if !current_source {
         return false;
     }
-    if document_cache.element_at_offset(&url, selection.offset).as_ref().and_then(source_text)
+    if document_cache
+        .element_at_offset(&url, selection.location.offset)
+        .as_ref()
+        .and_then(source_text)
         == Some(text.clone())
     {
         finish(true, None);
@@ -386,7 +350,7 @@ fn commit(text: SharedString) -> bool {
         &document_cache,
         i_slint_editor_preview::editing::VersionedPosition::new(
             VersionedUrl::new(url, version),
-            selection.offset,
+            selection.location.offset,
         ),
         vec![i_slint_editor_preview::editing::PropertyChange::new("text", code)],
     ) else {
@@ -467,6 +431,7 @@ export component Win inherits Window {
     }
     plain := Text { text: "Plain"; }
 }"#;
+        PREVIEW_STATE.with_borrow_mut(|state| *state = PreviewState::default());
         let instance = super::super::test::interpret_test("fluent", code);
         let editor = ui::create_ui().unwrap();
         setup(&editor);
@@ -475,25 +440,16 @@ export component Win inherits Window {
         api.set_selection(ui::Selection { highlight_index: 0, ..Default::default() });
         let path = i_slint_editor_preview::test::main_test_file_name();
         let offset = code.find("Text {").unwrap() as u32;
-        let cache = i_slint_editor_preview::DocumentCache::new_from_raw_parts(
-            instance.definition().raw_type_loader().unwrap(),
-            None,
-            Rc::new(RefCell::new(HashMap::from([(path.clone(), Some(24))]))),
-            i_slint_editor_preview::ByteFormat::Utf8,
-        );
         let to_lsp = Rc::new(PreviewToLsp::default());
         let overrides = PREVIEW_STATE.with_borrow_mut(|state| {
-            *state = PreviewState::default();
             state.editor_ui = Some(editor.clone_strong());
             state.to_lsp.replace(Some(to_lsp.clone()));
             state.api = <ui::Api as slint::Global<'_, ui::EditorUi>>::as_weak(&api);
             state.properties =
                 <ui::Properties as slint::Global<'_, ui::EditorUi>>::as_weak(&properties_api);
             state.handle.replace(Some(instance.clone_strong()));
-            state.document_cache.replace(Some(Rc::new(cache)));
             state.selected = Some(ElementSelection {
-                path: path.clone(),
-                offset: offset.into(),
+                location: ElementLocation { path: path.clone(), offset: offset.into() },
                 instance_index: 0,
                 editing_text: false,
             });
@@ -592,24 +548,15 @@ export component Win inherits Window {
         let overrides = PREVIEW_STATE.with_borrow(|state| state.debug_hook_overrides.clone());
         (*overrides).borrow_mut().clear();
         install_debug_hook_callback(&reloaded, overrides.clone());
-        reseed_mask(&reloaded);
-        let color_override = PREVIEW_STATE
-            .with_borrow(|state| state.text_edit_session.as_ref().unwrap().color_override.clone());
+        reseed_mask();
+        let [color_override, _] = PREVIEW_STATE.with_borrow(|state| {
+            masked_properties(&state.text_edit_session.as_ref().unwrap().target)
+        });
         assert_eq!(
             (*overrides).borrow().get(&color_override).unwrap().as_ref().get(),
             Some(slint_interpreter::Value::Brush(slint::Brush::default()))
         );
-        PREVIEW_STATE.with_borrow(|state| {
-            state.handle.replace(Some(reloaded.clone_strong()));
-            state.document_cache.replace(Some(Rc::new(
-                i_slint_editor_preview::DocumentCache::new_from_raw_parts(
-                    reloaded.definition().raw_type_loader().unwrap(),
-                    None,
-                    Rc::new(RefCell::new(HashMap::from([(path.clone(), Some(25))]))),
-                    i_slint_editor_preview::ByteFormat::Utf8,
-                ),
-            )));
-        });
+        PREVIEW_STATE.with_borrow(|state| state.handle.replace(Some(reloaded.clone_strong())));
         refresh();
         assert_eq!(begin().text, "Source");
         assert_eq!(begin().color, original_color);
@@ -692,8 +639,7 @@ export component Win inherits Window {
             + "plain := ".len()) as u32;
         PREVIEW_STATE.with_borrow_mut(|state| {
             state.selected = Some(ElementSelection {
-                path: path.clone(),
-                offset: plain_offset.into(),
+                location: ElementLocation { path: path.clone(), offset: plain_offset.into() },
                 instance_index: 0,
                 editing_text: false,
             });
@@ -721,15 +667,15 @@ export component Win inherits Window {
         PREVIEW_STATE.with_borrow_mut(|state| {
             state.workspace_edit_sent = false;
             state.selected = Some(ElementSelection {
-                path: path.clone(),
-                offset: offset.into(),
+                location: ElementLocation { path: path.clone(), offset: offset.into() },
                 instance_index: 0,
                 editing_text: false,
             });
         });
         assert!(begin().success);
-        PREVIEW_STATE
-            .with_borrow_mut(|state| state.selected.as_mut().unwrap().offset = u32::MAX.into());
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            state.selected.as_mut().unwrap().location.offset = u32::MAX.into()
+        });
         refresh();
         assert!(!selected_element().unwrap().editing_text);
         assert!(!editor.global::<ui::InlineTextEdit>().get_active());
@@ -740,8 +686,7 @@ export component Win inherits Window {
         );
         PREVIEW_STATE.with_borrow_mut(|state| {
             state.selected = Some(ElementSelection {
-                path: path.clone(),
-                offset: offset.into(),
+                location: ElementLocation { path: path.clone(), offset: offset.into() },
                 instance_index: 0,
                 editing_text: false,
             });

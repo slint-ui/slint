@@ -688,9 +688,10 @@ mod tests {
 
         let preview_path =
             std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test-preview.slint");
+        let mut compiler = slint_interpreter::Compiler::default();
+        compiler.set_keep_debug_info(true, i_slint_core::InternalToken);
         let compilation_result = crate::poll_ready(
-            slint_interpreter::Compiler::default()
-                .build_from_source(TEST_PREVIEW_SOURCE.into(), preview_path.clone()),
+            compiler.build_from_source(TEST_PREVIEW_SOURCE.into(), preview_path.clone()),
         );
         assert!(!compilation_result.has_errors());
         let compilation_result =

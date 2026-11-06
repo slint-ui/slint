@@ -60,8 +60,7 @@ fn run_test(
     let mut compiler = new_compiler(testcase, &source)?;
 
     if inject_debug_hooks {
-        compiler.compiler_configuration(i_slint_core::InternalToken).debug_hooks =
-            Some(std::hash::RandomState::new());
+        compiler.compiler_configuration(i_slint_core::InternalToken).debug_hooks = true;
     }
 
     let result =

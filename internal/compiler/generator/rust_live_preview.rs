@@ -184,6 +184,9 @@ fn generate_public_component(
         let (major, minor) = (edition.major, edition.minor);
         quote!(compiler.set_edition((#major, #minor));)
     });
+    let debug_info = compiler_config
+        .debug_info
+        .then(|| quote!(compiler.set_keep_debug_info(true, sp::live_preview::InternalToken);));
     let new_with_existing_window_enabled = compiler_config
         .experimental_features
         .contains(crate::ExperimentalFeature::NewWithExistingWindow);
@@ -198,6 +201,7 @@ fn generate_public_component(
             #(compiler.set_translation_domain(#translation_domain.to_string());)*
             #bundled_translations
             #no_default_translation_context
+            #debug_info
             compiler
         };
     );
