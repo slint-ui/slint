@@ -278,6 +278,8 @@ message RequestDispatchKeyEvent {
     KeyEventType event_type = 3;
 }
 
+// Over system testing, a missing element_handle requests the tree of every window,
+// and a max_elements of 0 requests as many elements as the agent allows.
 message RequestGetElementTree {
     Handle element_handle = 1;
     uint32 max_elements = 2;
@@ -444,7 +446,22 @@ message DispatchWindowEventResponse {
 message DispatchKeyEventResponse {
 }
 
+// An element of a GetElementTreeResponse.
+// Elements that an optimization merged into this one are its first children.
+message ElementTreeNode {
+    Handle handle = 1;
+    uint32 depth = 2;
+    repeated ElementTypeNameAndId type_names_and_ids = 3;
+}
+
+// The elements in pre-order.
+// A root has depth 0, and a child is one deeper than its parent.
 message GetElementTreeResponse {
+    repeated ElementTreeNode elements = 1;
+    bool truncated = 2;
+    // False when the application was built without debug info,
+    // so the tree holds no elements.
+    bool debug_info_available = 3;
 }
 
 message ElementQueryResponse {

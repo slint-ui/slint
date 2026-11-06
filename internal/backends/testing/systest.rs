@@ -209,8 +209,15 @@ impl TestingClient {
             Req::RequestStopEventRecording(..) => {
                 Resp::StopEventRecordingResponse(dispatch::stop_event_recording(state))
             }
+            Req::RequestGetElementTree(proto::RequestGetElementTree {
+                element_handle,
+                max_elements,
+            }) => {
+                let root = element_handle.map(handle_to_index).transpose()?;
+                Resp::GetElementTreeResponse(dispatch::element_tree(state, root, max_elements)?)
+            }
             // MCP-only tools — not supported over the binary system-testing transport
-            Req::RequestDispatchKeyEvent(..) | Req::RequestGetElementTree(..) => {
+            Req::RequestDispatchKeyEvent(..) => {
                 return Err("this request is only supported via the MCP transport".into());
             }
         })
