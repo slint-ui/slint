@@ -4,6 +4,21 @@
 import { Mode, Person } from "shared.slint";
 export { Mode, Person }
 
+export struct RecordMembers {
+    equality-contract: int,
+    print-members: int,
+    to-string: string,
+    equals: bool,
+    get-hash-code: int,
+    get-type: int,
+    memberwise-clone: int,
+    finalize: int,
+}
+
+export struct RecordHolder {
+    inner: RecordMembers = { to-string: "default", get-type: 7 },
+}
+
 export global Settings {
     in-out property <string> theme: "dark";
     callback changed(string) -> string;
@@ -24,6 +39,8 @@ export component Generated inherits Window {
     in-out property <Person> person: { name: "Ada", age: 36, tags: ["math"] };
     in-out property <[Person]> people;
     in-out property <[int]> numbers: [1, 2, 3];
+    in-out property <RecordMembers> record-members: { to-string: "text", equals: true, finalize: 3 };
+    in-out property <RecordHolder> record-holder;
     out property <int> people-count: people.length;
     callback clicked(int, string) -> string;
     callback notify();
