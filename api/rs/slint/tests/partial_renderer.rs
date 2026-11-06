@@ -689,6 +689,51 @@ fn moving_rendering_dirty_item_clears_old_position() {
 }
 
 #[test]
+/// A clip that moves without being rendering-dirty still clips its children's dirty rects.
+fn moving_clip_clips_overflowing_children() {
+    slint::slint! {
+        #[edition = "1.19"]
+        export component Ui inherits Window {
+            in property <length> pos;
+            background: black;
+            Rectangle {
+                x: root.pos;
+                y: 50px;
+                width: 20px;
+                height: 20px;
+                Rectangle {
+                    clip: true;
+                    Rectangle {
+                        x: 0px;
+                        y: 0px;
+                        width: 100px;
+                        height: 10px;
+                        background: red;
+                    }
+                }
+            }
+        }
+    }
+
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+    let ui = Ui::new().unwrap();
+    let window = WINDOW.with(|x| x.clone());
+    window.set_size(slint::PhysicalSize::new(400, 200));
+    ui.set_pos(200.);
+    ui.show().unwrap();
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 0, 0, 400, 200);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+
+    // Without the clip, the child would also dirty 220..300 at its old position.
+    ui.set_pos(20.);
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 20, 50, 220, 70);
+    }));
+}
+
+#[test]
 /// Two overlapping siblings swapping their dynamic z order must repaint the overlap,
 /// even though nothing but the stacking order changed. See #12397.
 fn dynamic_z_order() {
