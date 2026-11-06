@@ -7,7 +7,7 @@ use futures_util::{SinkExt as _, StreamExt as _};
 use tokio_tungstenite_wasm::{Message, WebSocketStream};
 
 use i_slint_live_preview::protocol::{
-    LspToPreviewMessage, PROTOCOL_SUBPROTOCOL, PairingRejection, PreviewToLspMessage,
+    FromPreview, LspToPreviewMessage, PROTOCOL_SUBPROTOCOL, PairingRejection, PreviewToLspMessage,
     SLINT_PROTOCOLS_HEADER, SLINT_VERSION, SLINT_VERSION_HEADER, pairing, session,
 };
 
@@ -232,10 +232,13 @@ async fn confirm_unpaired(
                 let Some(message) = message else {
                     return Err(AuthenticationError::Failed("The viewer closed the connection while waiting for the user".into()));
                 };
-                if initial_request.is_none() && matches!(&message, PreviewToLspMessage::RequestState { files, .. } if files.is_empty()) {
-                    initial_request = Some(message);
-                } else {
-                    tracing::debug!("Ignoring {message:?} while the user decides");
+                match message {
+                    FromPreview::Lsp(PreviewToLspMessage::RequestState { files, settings })
+                        if initial_request.is_none() && files.is_empty() =>
+                    {
+                        initial_request = Some(PreviewToLspMessage::RequestState { files, settings });
+                    }
+                    message => tracing::debug!("Ignoring {message:?} while the user decides"),
                 }
             }
         }
@@ -279,7 +282,7 @@ fn handshake_deadline() -> tokio::time::Instant {
     tokio::time::Instant::now() + HANDSHAKE_TIMEOUT
 }
 
-async fn next_message(socket: &mut WebSocketStream) -> Option<PreviewToLspMessage> {
+async fn next_message<T: serde::de::DeserializeOwned>(socket: &mut WebSocketStream) -> Option<T> {
     loop {
         match socket.next().await? {
             Ok(Message::Binary(bytes)) => match postcard::from_bytes(&bytes) {
@@ -396,9 +399,9 @@ pub(crate) mod tests {
                     socket.send(ServerMessage::Binary(postcard::to_allocvec(&PreviewToLspMessage::PairingReady).unwrap().into())).await.unwrap();
                     let ServerMessage::Binary(hello) = socket.next().await.unwrap().unwrap() else { panic!("Expected pairing hello"); };
                     assert!(matches!(postcard::from_bytes(&hello), Ok(LspToPreviewMessage::PairingHello { token: None })));
-                    for message in [PreviewToLspMessage::PairingAccepted, PreviewToLspMessage::RequestState { files: Vec::new(), settings: Vec::new() }] {
-                        socket.send(ServerMessage::Binary(postcard::to_allocvec(&message).unwrap().into())).await.unwrap();
-                    }
+                    socket.send(ServerMessage::Binary(postcard::to_allocvec(&PreviewToLspMessage::PairingAccepted).unwrap().into())).await.unwrap();
+                    let request_state = FromPreview::Lsp(PreviewToLspMessage::RequestState { files: Vec::new(), settings: Vec::new() });
+                    socket.send(ServerMessage::Binary(postcard::to_allocvec(&request_state).unwrap().into())).await.unwrap();
                     socket.send(ServerMessage::Ping(vec![1].into())).await.unwrap();
                     assert!(matches!(socket.next().await.unwrap().unwrap(), ServerMessage::Pong(_)));
                     consent_ready.send(()).unwrap();

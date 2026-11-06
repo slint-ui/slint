@@ -176,11 +176,20 @@ fn run_preview(args: &LivePreview) -> std::result::Result<(), slint::PlatformErr
         ));
     }
 
+    use i_slint_live_preview::protocol::ToPreview;
+
     slint::BackendSelector::new().select().ok();
     let to_lsp: Rc<dyn editor_preview::PreviewToLsp> =
         Rc::new(editor_preview::child_process::RemoteControlledPreviewToLsp::new(
             |message| {
-                slint::invoke_from_event_loop(move || preview::lsp_to_preview(message))?;
+                match message {
+                    ToPreview::Lsp(message) => {
+                        slint::invoke_from_event_loop(move || preview::lsp_to_preview(message))?
+                    }
+                    ToPreview::Debug(message) => {
+                        tracing::debug!("Ignoring debugger message {message:?}")
+                    }
+                }
                 Ok(())
             },
             || {

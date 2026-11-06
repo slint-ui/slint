@@ -9,19 +9,22 @@ use slint_interpreter::ComponentInstance;
 
 use crate::inspector::InspectorOverlay;
 use crate::preview_sessions::PreviewSessionEvent;
-use crate::protocol::{PreviewComponent, PreviewToLsp, PreviewToLspMessage};
+use crate::protocol::{
+    DebuggerToPreviewMessage, PreviewComponent, PreviewToLsp, PreviewToLspMessage,
+};
 
 /// The part of a preview that serves the editor's tools,
 /// shared by every preview that runs a [`crate::preview_sessions::PreviewSession`].
 ///
 /// It forwards the `debug()` output to the editor, draws the editor's highlight,
-/// and registers the fonts the editor sends.
+/// registers the fonts the editor sends, and answers the debugger's system-testing requests.
 /// Pass each [`PreviewSessionEvent`] to [`Self::handle_event()`],
 /// and call [`Self::show()`] for each component instance the preview puts on screen.
 pub struct DebugAgent {
     inspector: Option<InspectorOverlay>,
     highlight: Option<(Url, u32)>,
     registered_fonts: HashSet<Url>,
+    to_editor: Weak<dyn PreviewToLsp>,
 }
 
 /// A [`PreviewSessionEvent`] that changes what the preview shows,
@@ -38,6 +41,7 @@ impl DebugAgent {
     pub fn new(
         to_editor: Weak<dyn PreviewToLsp>,
     ) -> Result<Self, slint_interpreter::PlatformError> {
+        let log_to_editor = to_editor.clone();
         i_slint_backend_selector::with_global_context(|context| {
             context.set_log_message_handler(Some(Box::new(move |message| {
                 let arguments = message.message_arguments();
@@ -52,7 +56,7 @@ impl DebugAgent {
                 } else {
                     tracing::info!("DEBUG> {arguments}");
                 }
-                let Some(to_editor) = to_editor.upgrade() else { return };
+                let Some(to_editor) = log_to_editor.upgrade() else { return };
                 to_editor
                     .send(&PreviewToLspMessage::DebugMessage {
                         location,
@@ -61,7 +65,7 @@ impl DebugAgent {
                     .ok();
             })))
         })?;
-        Ok(Self { inspector: None, highlight: None, registered_fonts: HashSet::new() })
+        Ok(Self { inspector: None, highlight: None, registered_fonts: HashSet::new(), to_editor })
     }
 
     /// Handles `event` for `shown`, the instance on screen,
@@ -96,6 +100,12 @@ impl DebugAgent {
                 })
                 .ok();
                 tracing::debug!("Registered font {url} ({len} bytes)");
+            }
+            PreviewSessionEvent::Debug(DebuggerToPreviewMessage::SystemTestRequest {
+                id,
+                request,
+            }) => {
+                crate::system_testing::answer_request(id, request, self.to_editor.clone());
             }
         }
         None

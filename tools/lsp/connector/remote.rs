@@ -28,8 +28,8 @@ use i_slint_editor_preview::remote_client::{self, CONNECT_TIMEOUT, PING_INTERVAL
 use i_slint_live_preview::protocol::pairing::{MAX_ATTEMPTS, Token, TokenId};
 use i_slint_live_preview::protocol::session;
 use i_slint_live_preview::protocol::{
-    LspToPreviewMessage, PROTOCOL_SUBPROTOCOL, PairingRejection, PreviewToLspMessage,
-    RemoteConnectionState,
+    FromPreview, LspToPreviewMessage, PROTOCOL_SUBPROTOCOL, PairingRejection, PreviewToLspMessage,
+    RemoteConnectionState, ToPreviewRef,
 };
 use tokio::sync::mpsc;
 use tokio_tungstenite_wasm::{Message, WebSocketStream};
@@ -258,7 +258,7 @@ impl RemoteLspToPreview {
     pub fn send(&self, message: &LspToPreviewMessage) {
         tracing::debug!("Sending websocket message {message:?}");
         let connection = Arc::downgrade(&self.shared.connection);
-        let message = match postcard::to_allocvec(message) {
+        let message = match postcard::to_allocvec(&ToPreviewRef::Lsp(message)) {
             Ok(bytes) => bytes,
             Err(err) => {
                 tracing::error!("Failed to serialize message for remote preview server: {err}");
@@ -515,7 +515,9 @@ impl RemoteLspToPreview {
     /// Ping the viewer every [`PING_INTERVAL`] and return — ending the
     /// session — when pongs stay out for [`PONG_TIMEOUT`] or sending fails.
     async fn keepalive_task(shared: &SharedState, last_pong: &Cell<Instant>) {
-        let Ok(ping) = postcard::to_allocvec(&LspToPreviewMessage::Ping) else { return };
+        let Ok(ping) = postcard::to_allocvec(&ToPreviewRef::Lsp(&LspToPreviewMessage::Ping)) else {
+            return;
+        };
         loop {
             tokio::time::sleep(PING_INTERVAL).await;
             if last_pong.get().elapsed() > PONG_TIMEOUT {
@@ -618,12 +620,17 @@ impl RemoteLspToPreview {
                                 );
                                 return;
                             };
-                            match postcard::from_bytes::<PreviewToLspMessage>(&plain) {
-                                Ok(PreviewToLspMessage::Pong) => {
+                            match postcard::from_bytes::<FromPreview>(&plain) {
+                                Ok(FromPreview::Lsp(PreviewToLspMessage::Pong)) => {
                                     last_pong.set(Instant::now());
                                 }
-                                Ok(msg) => {
+                                Ok(FromPreview::Lsp(msg)) => {
                                     shared.preview_to_lsp_sender.send(msg);
+                                }
+                                Ok(FromPreview::Debug(msg)) => {
+                                    tracing::warn!(
+                                        "Ignoring debugger message from remote preview server: {msg:?}"
+                                    );
                                 }
                                 Err(e) => {
                                     tracing::error!(
@@ -1199,11 +1206,11 @@ mod tests {
                 )
                 .await;
                 viewer
-                    .send(PreviewToLspMessage::Diagnostics {
+                    .send(FromPreview::Lsp(PreviewToLspMessage::Diagnostics {
                         uri: test_url("fresh.slint"),
                         version: None,
                         diagnostics: Vec::new(),
-                    })
+                    }))
                     .unwrap();
                 expect_message(
                     &mut to_lsp_rx,
@@ -1530,7 +1537,7 @@ mod tests {
             result.unwrap();
             let initial = expect_message(&mut to_editor, |_| true, "initial state request").await;
             assert!(matches!(initial, PreviewToLspMessage::RequestState { files, settings } if files.is_empty() && settings.is_empty()));
-            viewer.send(PreviewToLspMessage::DebugMessage { location: None, message: "after initial state".into() }).unwrap();
+            viewer.send(FromPreview::Lsp(PreviewToLspMessage::DebugMessage { location: None, message: "after initial state".into() })).unwrap();
             let next = expect_message(&mut to_editor, |_| true, "message after the initial request").await;
             assert!(matches!(next, PreviewToLspMessage::DebugMessage { message, .. } if message == "after initial state"));
             connector.disconnect().await;
@@ -1622,19 +1629,19 @@ mod tests {
                 // A message that drives the editor, followed by one a viewer is
                 // allowed to send.
                 viewer
-                    .send(PreviewToLspMessage::RequestPreview {
+                    .send(FromPreview::Lsp(PreviewToLspMessage::RequestPreview {
                         component: PreviewComponent {
                             url: test_url("test.slint"),
                             component: None,
                         },
-                    })
+                    }))
                     .unwrap();
                 viewer
-                    .send(PreviewToLspMessage::Diagnostics {
+                    .send(FromPreview::Lsp(PreviewToLspMessage::Diagnostics {
                         uri: test_url("test.slint"),
                         version: None,
                         diagnostics: Vec::new(),
-                    })
+                    }))
                     .unwrap();
 
                 // The channel keeps the order the viewer sent in, so the
