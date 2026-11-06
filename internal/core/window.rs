@@ -720,7 +720,8 @@ pub struct WindowInner {
     next_popup_id: Cell<NonZeroU32>,
     overlays: RefCell<Vec<ItemTreeRc>>,
     had_popup_on_press: Cell<bool>,
-    press_blocked_by_menu: Cell<Option<PointerEventButton>>,
+    /// Bit mask of the buttons whose press an open menu blocked, indexed by `PointerEventButton as u8`.
+    buttons_blocked_by_menu: Cell<u8>,
     close_requested: Callback<(), CloseRequestResponse>,
     click_state: ClickState,
     ctx: core::cell::OnceCell<crate::SlintContext>,
@@ -794,7 +795,7 @@ impl WindowInner {
             next_popup_id: Cell::new(NonZeroU32::MIN),
             overlays: Default::default(),
             had_popup_on_press: Default::default(),
-            press_blocked_by_menu: Default::default(),
+            buttons_blocked_by_menu: Default::default(),
             close_requested: Default::default(),
             click_state: ClickState::default(),
             prevent_focus_change: Default::default(),
@@ -813,7 +814,7 @@ impl WindowInner {
         self.focus_item_position_tracker.clear();
         self.focus_item.replace(Default::default());
         self.mouse_input_state.replace(Default::default());
-        self.press_blocked_by_menu.set(None);
+        self.buttons_blocked_by_menu.set(0);
         self.touch_state.replace(Default::default());
         self.component.replace(ItemTreeRc::downgrade(component));
         self.pinned_fields.window_properties_tracker.set_dirty(); // component changed, layout constraints for sure must be re-calculated
@@ -1116,13 +1117,14 @@ impl WindowInner {
                 blocked_by_menu = menubar_item.is_none();
             }
 
+            let blocked_buttons = self.buttons_blocked_by_menu.get();
+            let bit = |button: &PointerEventButton| 1u8 << *button as u8;
             match &event {
-                MouseEvent::Pressed { button, .. } => {
-                    self.press_blocked_by_menu.set(blocked_by_menu.then_some(*button));
+                MouseEvent::Pressed { button, .. } if blocked_by_menu => {
+                    self.buttons_blocked_by_menu.set(blocked_buttons | bit(button));
                 }
-                MouseEvent::Released { button, .. }
-                    if self.press_blocked_by_menu.take() == Some(*button) =>
-                {
+                MouseEvent::Released { button, .. } if blocked_buttons & bit(button) != 0 => {
+                    self.buttons_blocked_by_menu.set(blocked_buttons & !bit(button));
                     item_tree = None;
                     menubar_item = None;
                 }
@@ -1134,13 +1136,14 @@ impl WindowInner {
                     (item_tree.map(|item_tree| ItemRc::new_root(item_tree.clone())), Vec::new())
                 }
                 Some(menubar_item) => {
-                    let mut ancestors: Vec<ItemRc> = core::iter::successors(
+                    let mut menu_owner_path: Vec<ItemWeak> = core::iter::successors(
                         menubar_item.parent_item(ParentItemTraversalMode::StopAtPopups),
                         |item| item.parent_item(ParentItemTraversalMode::StopAtPopups),
                     )
+                    .map(|item| item.downgrade())
                     .collect();
-                    let root = ancestors.pop();
-                    let menu_owner_path = ancestors.iter().rev().map(ItemRc::downgrade).collect();
+                    let root = menu_owner_path.pop().and_then(|root| root.upgrade());
+                    menu_owner_path.reverse();
                     (root, menu_owner_path)
                 }
             };

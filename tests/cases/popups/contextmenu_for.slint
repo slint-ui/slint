@@ -117,6 +117,15 @@ instance.window().dispatch_event(WindowEvent::PointerReleased { position: Logica
 instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(0.0, 0.0), button: PointerEventButton::Left });
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(0.0, 0.0), button: PointerEventButton::Left });
 assert_eq!(instance.get_result(), "");
+
+// a second button pressed and released meanwhile still leaves the first release blocked
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(15.0, 15.0), button: PointerEventButton::Right });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(15.0, 15.0), button: PointerEventButton::Right });
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(0.0, 0.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(0.0, 0.0), button: PointerEventButton::Middle });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(0.0, 0.0), button: PointerEventButton::Middle });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(0.0, 0.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_result(), "DownMiddleUpMiddle");
 ```
 
 ```cpp
