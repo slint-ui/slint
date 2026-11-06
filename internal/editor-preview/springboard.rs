@@ -263,7 +263,8 @@ impl Springboard {
     }
 
     /// Sends the debugger's `message` to the running preview.
-    /// Without one, the debugger gets an error response.
+    /// The debugger gets an error response without one,
+    /// or when a request with the same ID is still unanswered.
     pub fn send_debugger_message(&self, message: DebuggerToPreviewMessage) {
         let _ = self.task_sender.send(Box::new(move |task| task.send_debugger_message(message)));
     }
@@ -530,15 +531,12 @@ impl SpringboardTask {
     }
 
     fn send_debugger_message(&mut self, message: DebuggerToPreviewMessage) {
-        let Err(DebuggerToPreviewMessage::SystemTestRequest { id, .. }) =
-            self.connection.send_debugger_message(message)
-        else {
-            return;
-        };
-        let _ = self.to_debugger.send(PreviewToDebuggerMessage::SystemTestResponse {
-            id,
-            response: Err("No preview is running".into()),
-        });
+        let &DebuggerToPreviewMessage::SystemTestRequest { id, .. } = &message;
+        if let Err(error) = self.connection.send_debugger_message(message) {
+            let _ = self
+                .to_debugger
+                .send(PreviewToDebuggerMessage::SystemTestResponse { id, response: Err(error) });
+        }
     }
 
     fn close(&mut self) {
@@ -1308,6 +1306,46 @@ mod tests {
                     receive_debugger(&mut debugger).await,
                     PreviewToDebuggerMessage::SystemTestResponse { id: 7, response: Err(_) }
                 ));
+                controller.shutdown().await;
+            })
+            .await;
+    }
+
+    #[tokio::test]
+    async fn a_request_reusing_an_unanswered_id_gets_an_error() {
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                let (controller, mut receiver, mut debugger, _discovery, _usb) =
+                    controller_with_debugger("echo_child");
+                controller.start();
+                started(&mut receiver).await;
+                let (sender, endpoint) = mpsc::unbounded_channel();
+                controller
+                    .task_sender
+                    .send(Box::new(move |task| task.connection.replace_local_receiver(endpoint)))
+                    .unwrap();
+                for _ in 0..2 {
+                    controller.send_debugger_message(DebuggerToPreviewMessage::SystemTestRequest {
+                        id: 7,
+                        request: vec![1],
+                    });
+                }
+                assert!(matches!(
+                    receive_debugger(&mut debugger).await,
+                    PreviewToDebuggerMessage::SystemTestResponse { id: 7, response: Err(_) }
+                ));
+                controller
+                    .task_sender
+                    .send(Box::new(move |_| {
+                        sender.send(FromPreview::Lsp(PreviewToLspMessage::Exited)).unwrap();
+                    }))
+                    .unwrap();
+                assert!(matches!(
+                    receive_debugger(&mut debugger).await,
+                    PreviewToDebuggerMessage::SystemTestResponse { id: 7, response: Err(_) }
+                ));
+                wait_idle(&controller).await;
+                assert!(debugger.try_recv().is_err());
                 controller.shutdown().await;
             })
             .await;

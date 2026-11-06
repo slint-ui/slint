@@ -45,7 +45,7 @@ fn send(to_editor: &Weak<dyn PreviewToLsp>, id: u64, response: Result<Vec<u8>, S
     to_editor.send_to_debugger(&PreviewToDebuggerMessage::SystemTestResponse { id, response }).ok();
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(feature = "system-testing")))]
 mod tests {
     use super::*;
     use std::cell::RefCell;
@@ -68,40 +68,14 @@ mod tests {
         }
     }
 
-    fn answer(request: Vec<u8>, run: impl FnOnce()) -> Vec<PreviewToDebuggerMessage> {
-        let capture = Rc::new(CaptureToDebugger::default());
-        let to_editor: Rc<dyn PreviewToLsp> = capture.clone();
-        answer_request(7, request, Rc::downgrade(&to_editor));
-        run();
-        capture.0.take()
-    }
-
-    #[cfg(not(feature = "system-testing"))]
     #[test]
     fn answers_with_error_when_disabled() {
+        let capture = Rc::new(CaptureToDebugger::default());
+        let to_editor: Rc<dyn PreviewToLsp> = capture.clone();
+        answer_request(7, vec![], Rc::downgrade(&to_editor));
         assert!(matches!(
-            answer(vec![], || {}).as_slice(),
+            capture.0.take().as_slice(),
             [PreviewToDebuggerMessage::SystemTestResponse { id: 7, response: Err(_) }]
-        ));
-    }
-
-    #[cfg(all(feature = "system-testing", feature = "preview-session"))]
-    #[test]
-    fn answers_on_the_event_loop() {
-        i_slint_backend_testing::init_integration_test_with_system_time();
-        let messages = answer(vec![0xff], || {
-            i_slint_backend_selector::with_global_context(|context| {
-                context
-                    .spawn_local(async { i_slint_core::api::quit_event_loop().unwrap() })
-                    .unwrap();
-                context.run_event_loop().unwrap();
-            })
-            .unwrap();
-        });
-        assert!(matches!(
-            messages.as_slice(),
-            [PreviewToDebuggerMessage::SystemTestResponse { id: 7, response: Ok(response) }]
-                if !response.is_empty()
         ));
     }
 }

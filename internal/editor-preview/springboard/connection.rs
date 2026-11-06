@@ -262,12 +262,15 @@ impl Connection {
     }
 
     /// Forward the debugger's `message` to the preview, once connected.
-    /// Returns `message` when there is no preview to forward it to.
+    /// Returns why it wasn't forwarded.
     pub(super) fn send_debugger_message(
         &mut self,
         message: DebuggerToPreviewMessage,
-    ) -> Result<(), DebuggerToPreviewMessage> {
+    ) -> Result<(), String> {
         let &DebuggerToPreviewMessage::SystemTestRequest { id, .. } = &message;
+        if self.pending_requests.as_ref().is_some_and(|pending| pending.ids.contains(&id)) {
+            return Err(format!("The request with ID {id} is still unanswered"));
+        }
         match &self.preview {
             Some(ActivePreview::Local { preview, .. }) => preview.send_debugger_message(&message),
             Some(ActivePreview::Remote { connection, .. })
@@ -275,7 +278,7 @@ impl Connection {
             {
                 connection.send_debugger_message(message)
             }
-            _ => return Err(message),
+            _ => return Err("No preview is running".into()),
         }
         if let Some(pending) = &mut self.pending_requests {
             pending.ids.insert(id);

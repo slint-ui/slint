@@ -92,6 +92,7 @@ protocol = [
   "dep:hkdf",
   "dep:chacha20poly1305",
   "dep:getrandom",
+  "dep:base64",
 ]
 file-watcher = ["dep:notify", "dep:i-slint-compiler"]
 live-component = ["file-watcher", "dep:slint-interpreter", "dep:i-slint-core", "slint-interpreter/bundle-translations"]
@@ -125,8 +126,7 @@ remote = [
 # Answer `SystemTestRequest` messages in the preview.
 # The backend selector's feature registers the windows with the system-testing agent.
 system-testing = [
-  "protocol",
-  "dep:i-slint-backend-selector",
+  "preview-session",
   "dep:i-slint-backend-testing",
   "i-slint-backend-testing/system-testing",
   "i-slint-backend-selector/system-testing",
