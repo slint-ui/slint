@@ -19,7 +19,7 @@ use slint::{ComponentHandle, Image};
 use wgpu_30 as wgpu;
 
 slint::slint! {
-    #[edition = "1.19"]
+    #[edition = "1.20"]
     export component TextureCase inherits Window {
         width: 40px;
         height: 40px;

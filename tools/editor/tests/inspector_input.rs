@@ -11,7 +11,7 @@ use slint::{
 };
 
 slint::slint! {
-    #[edition = "1.19"]
+    #[edition = "1.20"]
     import { InspectorTextFieldBase } from "../ui/components/inspector/text-field-base.slint";
     import { InspectorComboBox } from "../ui/components/inspector/combo-box.slint";
     import { EditorWindow } from "../ui/components/index.slint";

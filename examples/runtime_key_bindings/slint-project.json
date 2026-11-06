@@ -1,4 +1,4 @@
 {
-    "edition": "1.19",
+    "edition": "1.20",
     "main": "ui/main_window.slint"
 }
