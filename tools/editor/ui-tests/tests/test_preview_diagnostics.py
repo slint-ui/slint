@@ -146,6 +146,7 @@ def test_warnings_show_details_without_blocking_editing(
     source.write_text(
         'export Warnings := Window { width: 320px; height: 240px; label := Text { text: "Warning preview"; } }\n'
     )
+    (fixture_project / "slint-project.json").write_text('{"edition": "1.18"}')
     with launch_editor(editor_binary, editor_environment, source) as editor:
         window = first_window(editor)
         element(window, "Warning preview", role=slint_testing.AccessibleRole.Text)

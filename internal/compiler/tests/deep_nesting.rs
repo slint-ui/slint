@@ -78,6 +78,17 @@ fn conditional_expression_chain() {
 }
 
 #[test]
+fn else_if_chain() {
+    compile_deepest_on_small_stack(|n| {
+        let chain: String =
+            (0..n).map(|i| format!("if v == {i} {{ return {i}; }} else ")).collect();
+        component(&format!(
+            "pure function f() -> int {{ {chain} {{ return -1; }} }} out property <int> o: f();"
+        ))
+    });
+}
+
+#[test]
 fn if_statement_chain() {
     compile_deepest_on_small_stack(|n| {
         let mut code = "1".to_string();

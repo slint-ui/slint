@@ -1,11 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Properties, FillData, LinearGradientAxis } from "../properties.slint";
+
 import { CanvasValueTooltip } from "canvas-value-tooltip.slint";
 import { EditorAngles } from "index.slint";
 import { CanvasView } from "canvas-view.slint";
 import { Style, Metrics, Colors, GradientOverlayStyle } from "../style.slint";
-import { Api, FillData, LinearGradientAxis, SelectionRectangle } from "../api.slint";
+import { SelectionRectangle } from "../api.slint";
 import { FillSession } from "inspector/index.slint";
 
 import { EditorGradientStopMarker } from "gradient-stop-marker.slint";
@@ -257,7 +259,7 @@ export component GradientOverlay inherits FocusScope {
             return;
         }
         if root.conic && root.drag-kind != GradientGestureKind.start-handle {
-            let degrees = Api.gradient-angular-delta(root.axis.start, root.press, local);
+            let degrees = Properties.gradient-angular-delta(root.axis.start, root.press, local);
             root.press = local;
             root.accumulated-angle += degrees;
             if root.drag-kind == GradientGestureKind.stop {
@@ -266,7 +268,7 @@ export component GradientOverlay inherits FocusScope {
             } else {
                 FillSession.move-axis(FillSession.working-fill, root.axis, {
                     start: root.axis.start,
-                    end: Api.conic-gradient-point(root.axis, (root.snap(root.accumulated-angle, 15, 1) - FillSession.working-fill.angle) / 360),
+                    end: Properties.conic-gradient-point(root.axis, (root.snap(root.accumulated-angle, 15, 1) - FillSession.working-fill.angle) / 360),
                 });
             }
             return;
@@ -332,7 +334,7 @@ export component GradientOverlay inherits FocusScope {
             } else {
                 FillSession.move-axis(FillSession.working-fill, root.axis, {
                     start: root.axis.start,
-                    end: Api.conic-gradient-point(root.axis, amount),
+                    end: Properties.conic-gradient-point(root.axis, amount),
                 });
             }
             return accept;

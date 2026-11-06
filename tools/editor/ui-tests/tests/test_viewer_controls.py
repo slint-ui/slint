@@ -154,7 +154,7 @@ def test_viewer_transport_and_popup(
         assert center(heading).y == pytest.approx(center(close).y)
         assert close.size.width == close.size.height == pytest.approx(24)
         pair = element(
-            window, "Pair nearby device", role=slint_testing.AccessibleRole.Button
+            window, "Pair a device", role=slint_testing.AccessibleRole.Button
         )
         assert (
             devices_panel.absolute_rect.y
@@ -165,7 +165,7 @@ def test_viewer_transport_and_popup(
         )
         screenshot(window).save(tmp_path / "device-manager-saved.png")
         element(
-            window, "Pair nearby device", role=slint_testing.AccessibleRole.Button
+            window, "Pair a device", role=slint_testing.AccessibleRole.Button
         ).single_click(left)
         screenshot(window).save(tmp_path / "device-manager-nearby.png")
         element(

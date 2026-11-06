@@ -10,4 +10,4 @@ endif()
 
 add_executable(dnd-kanban kanban.cpp)
 target_link_libraries(dnd-kanban PRIVATE Slint::Slint)
-slint_target_sources(dnd-kanban kanban.slint)
+slint_target_sources(dnd-kanban slint-project.json)

@@ -5,7 +5,7 @@ import { SubType } from "./dependency_local.slint";
 import { AnotherType } from "dependency_from_incpath.slint";
 import { LibraryType } from "@library";
 
-export Main := Rectangle {
+export component Main inherits Rectangle {
     SubType {}
     AnotherType {}
     LibraryType {}

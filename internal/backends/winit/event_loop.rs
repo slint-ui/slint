@@ -248,6 +248,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
 
         if let Err(err) = self.shared_backend_data.create_inactive_windows(event_loop) {
             self.loop_error = Some(err);
+            event_loop.exit();
         }
 
         if !event_loop.exiting() {

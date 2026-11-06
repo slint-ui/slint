@@ -23,7 +23,7 @@ export component InspectorMouseCursorSection inherits InspectorSection {
             wide: true;
             popup-available-height: max(Style.inspector-field.height, root.popup-bottom - self.absolute-position.y - Metrics.space-medium);
             accepted(text) => {
-                return text != "" && InspectorContext.commit-code("mouse-cursor", text);
+                return text != "" && InspectorContext.commit-enum("mouse-cursor", text);
             }
         }
     }

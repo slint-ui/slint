@@ -546,6 +546,21 @@ impl EditorSession {
         let (project_data, diagnostics) =
             self.merged_project_data(std::mem::take(&mut overrides.project));
         project_data.apply_to(&mut config.compiler_config);
+        config.compiler_config.project_roots = self
+            .active_project_file_paths()
+            .map(|path| {
+                i_slint_compiler::project_file::normalize_project_root(
+                    i_slint_compiler::source_path::SourcePath::new(path),
+                )
+            })
+            .collect();
+        if config.compiler_config.project_roots.is_empty() {
+            config.compiler_config.project_roots = self
+                .workspace_roots
+                .iter()
+                .map(i_slint_compiler::source_path::SourcePath::new)
+                .collect();
+        }
         overrides.apply(None, &mut config.compiler_config);
         (config, diagnostics)
     }
@@ -719,19 +734,19 @@ impl EditorSession {
         self.pending_recompile.extend(self.document_roots());
     }
 
+    fn active_project_file_contents(&self, url: &Url) -> Option<(SourceFileVersion, &[u8])> {
+        let path = SourcePath::from_url(url).into_native_path()?;
+        let state = self.active_projects.get(&path)?;
+        Some((state.version, state.contents.as_deref()?))
+    }
+
     fn project_file_contents_message(&self, url: Url) -> LspToPreviewMessage {
-        if let Some(state) = SourcePath::from_url(&url)
-            .into_native_path()
-            .as_ref()
-            .and_then(|path| self.active_projects.get(path))
-            && let Some(contents) = &state.contents
-        {
-            LspToPreviewMessage::SetContents {
-                url: VersionedUrl::new(url, state.version),
-                contents: contents.clone(),
-            }
-        } else {
-            LspToPreviewMessage::ForgetFile { url }
+        match self.active_project_file_contents(&url) {
+            Some((version, contents)) => LspToPreviewMessage::SetContents {
+                url: VersionedUrl::new(url, version),
+                contents: contents.to_vec(),
+            },
+            None => LspToPreviewMessage::ForgetFile { url },
         }
     }
 
@@ -867,76 +882,65 @@ impl EditorSession {
     }
 
     /// Send `files` to the preview at `preview_index`.
-    /// Files that aren't loaded are read from disk only if they belong to the project,
-    /// where `workspace_folders` are the directories the user opened.
+    /// Files that aren't loaded are read from disk only if the project's sources name them.
     #[cfg(all(
         not(target_arch = "wasm32"),
         any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"),
     ))]
-    pub fn send_files_to_preview(
-        &self,
-        preview_index: usize,
-        files: &[lsp_types::Url],
-        workspace_folders: &[PathBuf],
-    ) {
+    pub fn send_files_to_preview(&self, preview_index: usize, files: &[lsp_types::Url]) {
         let Some(preview) = self.preview(preview_index) else { return };
         let file_access = std::cell::OnceCell::new();
         #[cfg(feature = "preview-remote")]
         let mut fonts_sent = HashSet::<SourcePath>::new();
         for url in files {
-            if SourcePath::from_url(url).file_name()
-                == Some(i_slint_compiler::project_file::FILE_NAME)
-            {
-                preview.to_preview.send(&self.project_file_contents_message(url.clone()));
-                continue;
-            }
-            if let Some(node) =
-                self.document_cache.get_document(url).and_then(|doc| doc.node.as_ref())
-            {
-                let version = self.document_cache.document_version_by_path(node.source_file.path());
-                let contents = node.text().to_string().into();
-                tracing::debug!("Sending cached file {} to preview", url);
-                preview.to_preview.send(&LspToPreviewMessage::SetContents {
-                    url: VersionedUrl::new(url.clone(), version),
-                    contents,
-                });
-                #[cfg(feature = "preview-remote")]
-                self.send_referenced_fonts(preview, url, &mut fonts_sent);
-                continue;
-            }
-            let Some(path) = url.to_file_path().ok() else {
-                tracing::warn!("Cannot convert URL to file path: {url}");
-                preview.to_preview.send(&LspToPreviewMessage::ForgetFile { url: url.clone() });
-                continue;
-            };
-            let file_access = file_access.get_or_init(|| {
-                crate::preview_files::PreviewFileAccess::new(
-                    workspace_folders,
-                    &self.document_cache,
-                )
-            });
-            if !file_access.allows(&path) {
-                tracing::warn!(
-                    "Refusing to send {} to the preview: not a file of the project being previewed",
-                    path.display()
-                );
-                preview.to_preview.send(&LspToPreviewMessage::ForgetFile { url: url.clone() });
-                continue;
-            }
-            match std::fs::read(&path) {
-                Ok(contents) => {
-                    tracing::debug!("Sending file {} ({} bytes) to preview", url, contents.len());
+            match self.preview_file_contents(url, &file_access) {
+                Ok((version, contents)) => {
+                    tracing::debug!("Sending {url} ({} bytes) to the preview", contents.len());
                     preview.to_preview.send(&LspToPreviewMessage::SetContents {
-                        url: VersionedUrl::new(url.clone(), None),
+                        url: VersionedUrl::new(url.clone(), version),
                         contents,
                     });
+                    #[cfg(feature = "preview-remote")]
+                    self.send_referenced_fonts(preview, url, &mut fonts_sent);
                 }
-                Err(err) => {
-                    tracing::warn!("Failed to read file {}: {err}", path.display());
+                Err(reason) => {
+                    tracing::warn!("Not sending {url} to the preview: {reason}");
                     preview.to_preview.send(&LspToPreviewMessage::ForgetFile { url: url.clone() });
                 }
             }
         }
+    }
+
+    #[cfg(all(
+        not(target_arch = "wasm32"),
+        any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"),
+    ))]
+    fn preview_file_contents(
+        &self,
+        url: &Url,
+        file_access: &std::cell::OnceCell<crate::preview_files::PreviewFileAccess>,
+    ) -> Result<(SourceFileVersion, Vec<u8>), String> {
+        if let Some((version, contents)) = self.active_project_file_contents(url) {
+            return Ok((version, contents.to_vec()));
+        }
+        if let Some(node) = self.document_cache.get_document(url).and_then(|doc| doc.node.as_ref())
+        {
+            let version = self.document_cache.document_version_by_path(node.source_file.path());
+            return Ok((version, node.text().to_string().into()));
+        }
+        let path = url.to_file_path().map_err(|()| "not a local file path".to_string())?;
+        let file_access = file_access.get_or_init(|| {
+            crate::preview_files::PreviewFileAccess::new(
+                &self.document_cache,
+                &self.document_roots(),
+            )
+        });
+        if !file_access.allows(&path) {
+            return Err("not a file of the project being previewed".into());
+        }
+        let contents = std::fs::read(&path)
+            .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
+        Ok((None, contents))
     }
 
     /// Read each font file imported by the `.slint` at `doc_url` and push it
@@ -1606,7 +1610,7 @@ mod preview_tests {
                 session.send_state_to_preview(preview_index);
                 assert_project_contents(messages, &url, source, version);
                 messages.borrow_mut().clear();
-                session.send_files_to_preview(preview_index, std::slice::from_ref(&url), &[]);
+                session.send_files_to_preview(preview_index, std::slice::from_ref(&url));
                 assert_project_contents(messages, &url, source, version);
             }
         }
@@ -1895,11 +1899,7 @@ mod preview_tests {
         let url = Url::from_file_path(&path).unwrap();
         std::fs::write(&path, r#"{"edition":"1.19"}"#).unwrap();
         for (preview_index, messages) in messages.iter().enumerate() {
-            session.send_files_to_preview(
-                preview_index,
-                std::slice::from_ref(&url),
-                &[directory.path().to_path_buf()],
-            );
+            session.send_files_to_preview(preview_index, std::slice::from_ref(&url));
             assert!(
                 matches!(messages.borrow().as_slice(), [LspToPreviewMessage::ForgetFile { url: sent }] if sent == &url)
             );
@@ -1916,11 +1916,7 @@ mod preview_tests {
             session.send_state_to_preview(preview_index);
             assert!(messages.borrow().iter().any(|message| matches!(message, LspToPreviewMessage::ForgetFile { url: sent } if sent == &url)));
             messages.borrow_mut().clear();
-            session.send_files_to_preview(
-                preview_index,
-                std::slice::from_ref(&url),
-                &[directory.path().to_path_buf()],
-            );
+            session.send_files_to_preview(preview_index, std::slice::from_ref(&url));
             assert!(
                 matches!(messages.borrow().as_slice(), [LspToPreviewMessage::ForgetFile { url: sent }] if sent == &url)
             );
@@ -2047,7 +2043,7 @@ mod preview_tests {
         assert!(session.preview_mut(2).is_none());
         session.send_to_preview(2, &LspToPreviewMessage::Quit);
         session.send_state_to_preview(2);
-        session.send_files_to_preview(2, &[], &[]);
+        session.send_files_to_preview(2, &[]);
         session.show_preview(2, component, None);
 
         assert!(messages.iter().all(|messages| messages.borrow().is_empty()));
@@ -2104,8 +2100,10 @@ mod preview_tests {
         let (mut session, messages) = session_with_recording_previews();
         let temp_directory = tempfile::tempdir().unwrap();
         let path = temp_directory.path().join("requested.slint");
-        std::fs::write(&path, "export component Requested {}").unwrap();
-        let url = Url::from_file_path(path).unwrap();
+        let source =
+            r#"export component Requested { Image { source: @image-url("requested.png"); } }"#;
+        std::fs::write(&path, source).unwrap();
+        let (url, _) = crate::test::load(&mut session, &path, source);
         let component = PreviewComponent { url, component: Some("Requested".into()) };
         let asset = temp_directory.path().join("requested.png");
         std::fs::write(&asset, []).unwrap();
@@ -2116,11 +2114,7 @@ mod preview_tests {
         }
 
         session.send_state_to_preview(1);
-        session.send_files_to_preview(
-            1,
-            &[Url::from_file_path(asset).unwrap()],
-            &[temp_directory.path().to_path_buf()],
-        );
+        session.send_files_to_preview(1, &[Url::from_file_path(asset).unwrap()]);
 
         assert!(messages[0].borrow().is_empty());
         let secondary_messages = messages[1].borrow();

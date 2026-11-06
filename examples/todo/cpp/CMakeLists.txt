@@ -9,7 +9,7 @@ if (NOT TARGET Slint::Slint)
 endif()
 
 add_library(todo_lib STATIC app.cpp)
-slint_target_sources(todo_lib ../ui/todo.slint NAMESPACE todo_ui)
+slint_target_sources(todo_lib ../slint-project.json NAMESPACE todo_ui)
 target_link_libraries(todo_lib PUBLIC Slint::Slint)
 
 if(ANDROID)

@@ -1,16 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-Test2 := Path {
-//    ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+component Test2 inherits Path {
     width: 640px;
     height: 480px;
     commands: "M 0 0 M -100 0 A 100 100 0 1 0 100 0 Å 100 100 0 1 0 100 0 Z";
 //            >                                                              <error{Error parsing SVG commands (Line 0 Column 37: Expected number, got "".)}
 }
 
-export TestCase := Rectangle {
-//              ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+export component TestCase inherits Rectangle {
     Path {
         width: 100px;
         height: 100px;

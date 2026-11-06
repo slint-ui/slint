@@ -75,4 +75,4 @@ if(DEFINED SLINT_ZEPHYR_RGB565_NATIVE_ENDIAN)
         SLINT_ZEPHYR_RGB565_NATIVE_ENDIAN=${SLINT_ZEPHYR_RGB565_NATIVE_ENDIAN})
 endif()
 
-slint_target_sources(app ../ui/printerdemo.slint)
+slint_target_sources(app ../slint-project.json)

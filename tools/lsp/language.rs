@@ -143,14 +143,7 @@ pub fn store_user_settings(name: &str, contents: &str) {
     any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"),
 ))]
 pub fn send_files_to_preview(ctx: &Context, files: &[lsp_types::Url]) {
-    let workspace_folders: Vec<_> =
-        crate::host_language_search::resolve_workspace_folders(&ctx.init_param)
-            .iter()
-            .filter_map(|folder| {
-                i_slint_compiler::source_path::SourcePath::from_url(&folder.uri).into_native_path()
-            })
-            .collect();
-    ctx.session.send_files_to_preview(0, files, &workspace_folders);
+    ctx.session.send_files_to_preview(0, files);
 }
 
 #[cfg(all(target_arch = "wasm32", any(feature = "preview-external", feature = "preview-engine")))]

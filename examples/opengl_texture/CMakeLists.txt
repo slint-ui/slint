@@ -10,4 +10,4 @@ endif()
 
 add_executable(opengl_texture main.cpp)
 target_link_libraries(opengl_texture PRIVATE Slint::Slint OpenGLES2::OpenGLES2)
-slint_target_sources(opengl_texture scene.slint)
+slint_target_sources(opengl_texture slint-project.json)
