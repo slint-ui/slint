@@ -4,14 +4,22 @@
 import { Style, Typography, FieldStyle } from "../../style.slint";
 
 import { InspectorTextFieldBase } from "text-field-base.slint";
+import { Properties, PropertyEditKind, PropertyValue } from "../../properties.slint";
+import { Api } from "../../api.slint";
 
 export component InspectorCodeField inherits Rectangle {
     in property <FieldStyle> style: Style.code-field;
     in property <string> accessible-name: "";
     in property <string> prefix: "";
-    in property <string> value;
+    private property <PropertyValue> editor-value: Properties.editor-property-value-data(root.property-name);
+    in property <string> value: root.editor-value.code != ""
+        ? root.editor-value.code : root.fallback;
     in property <string> commit-key: "";
+    in property <string> property-name: "";
+    in property <string> fallback: "";
+    in property <bool> preview-edit: root.property-name != "";
     callback accepted(string) -> bool;
+    callback preview(string);
 
     horizontal-stretch: 1;
     height: root.style.height;
@@ -22,7 +30,26 @@ export component InspectorCodeField inherits Rectangle {
         width: parent.width;
         value: root.value;
         commit-key: root.commit-key;
+        preview-edit: root.preview-edit;
+        preview(text) => {
+            if root.property-name != "" {
+                if !Properties.inspector-preview(root.property-name, { kind: PropertyEditKind.code, text: text }) {
+                    Properties.inspector-cancel();
+                }
+            } else {
+                root.preview(text);
+            }
+        }
         accepted(text) => {
+            if root.property-name != "" {
+                if Properties.inspector-preview(root.property-name, { kind: PropertyEditKind.code, text: text }) {
+                    if Properties.inspector-commit() { return true; }
+                    Properties.inspector-cancel();
+                    return false;
+                }
+                Properties.inspector-cancel();
+                return Properties.commit-code-binding(Api.current-element, root.property-name, text);
+            }
             return root.accepted(text);
         }
 
