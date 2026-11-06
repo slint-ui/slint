@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-#![cfg(all(feature = "springboard", not(target_arch = "wasm32")))]
+#![cfg(all(feature = "springboard", feature = "testing", not(target_arch = "wasm32")))]
 
 use std::time::{Duration, Instant};
 
@@ -54,7 +54,7 @@ fn every_attached_window_shows_the_state_and_forwards_callbacks() {
         let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
         tokio::task::LocalSet::new().block_on(&runtime, async move {
             let (to_editor, _from_springboard) = tokio::sync::mpsc::unbounded_channel();
-            let springboard = Springboard::new(
+            let springboard = Springboard::without_discovery(
                 LocalPreviewConfig {
                     executable: "slint-preview-not-started".into(),
                     arguments: Vec::new(),
