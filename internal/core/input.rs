@@ -1787,8 +1787,11 @@ pub struct MouseInputResult {
 /// Process the `mouse_event` on the `component`. The `mouse_input_state` is the previous
 /// dispatch state (grab stack, cursor, in-flight drag); the returned [`MouseInputResult`]
 /// carries the state that replaces it and whether the event was consumed.
+/// A non-empty `menu_owner_path` is the path from `root` to the menu bar,
+/// and restricts the event to the menu bar's subtree.
 pub fn process_mouse_input(
     root: ItemRc,
+    menu_owner_path: &[ItemWeak],
     mouse_event: &MouseEvent,
     window_adapter: &Rc<dyn WindowAdapter>,
     mut mouse_input_state: MouseInputState,
@@ -1808,7 +1811,7 @@ pub fn process_mouse_input(
         mouse_input_state.top_item().as_ref(),
         None,
         mouse_event,
-        &[],
+        menu_owner_path,
     );
     let accepted = r.has_aborted();
     if matches!(mouse_event, MouseEvent::DragMove { .. }) {
@@ -1856,6 +1859,7 @@ pub fn process_mouse_input(
         // outcome the caller sees — the synthetic Moved is an internal implementation detail.
         let moved = process_mouse_input(
             root,
+            menu_owner_path,
             &MouseEvent::Moved {
                 position: *position,
                 touch_finger_id: 0,
@@ -1950,6 +1954,7 @@ pub(crate) fn resolve_delayed_event_on_release(
     let Some(((root, _), replay_path)) = mouse_input_state.item_stack.split_first() else {
         return mouse_input_state;
     };
+    let replay_path: Vec<ItemWeak> = replay_path.iter().map(|(item, _)| item.clone()).collect();
     let Some(root) = root.upgrade() else {
         return mouse_input_state;
     };
@@ -1973,7 +1978,7 @@ pub(crate) fn resolve_delayed_event_on_release(
         last_top_item.as_ref(),
         Some(true),
         &original_event,
-        replay_path,
+        &replay_path,
     );
 
     if !r.has_aborted() {
@@ -1998,7 +2003,7 @@ fn send_mouse_event_to_item(
     last_top_item: Option<&ItemRc>,
     replaying: Option<bool>,
     original_event: &MouseEvent,
-    replay_path: &[(ItemWeak, InputEventFilterResult)],
+    subtree_path: &[ItemWeak],
 ) -> VisitChildrenResult {
     let item = item_rc.borrow();
     let geom = item_rc.geometry();
@@ -2067,9 +2072,9 @@ fn send_mouse_event_to_item(
         let mut actual_visitor =
             |component: &ItemTreeRc, index: u32, _: Pin<ItemRef>| -> VisitChildrenResult {
                 let child = ItemRc::new(component.clone(), index);
-                let child_path = match replay_path.split_first() {
+                let child_path = match subtree_path.split_first() {
                     None => &[][..],
-                    Some(((next, _), rest)) if *next == child.downgrade() => rest,
+                    Some((next, rest)) if *next == child.downgrade() => rest,
                     Some(_) => return VisitChildrenResult::CONTINUE,
                 };
                 send_mouse_event_to_item(

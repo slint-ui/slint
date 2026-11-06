@@ -189,6 +189,7 @@ export component MenuBarImpl {
     context-menu := ContextMenuInternal {
         // Only manual calls to `show` should open the menu, and we shouldn't react to clicks.
         enabled: false;
+        is-menu-bar: true;
         activated(entry) => { root.activated(entry); self.close(); }
         sub-menu(entry) => { root.sub-menu(entry); }
     }
