@@ -55,7 +55,7 @@ export component InspectorShadowControl inherits Rectangle {
                         border-radius: self.width / 2;
                         border-width: Metrics.border-width;
                         outline-color: Style.color-field.swatch-border;
-                        color: Properties.source-color-field-data(root.prefix + "color").fill.color;
+                        color: Properties.editor-property-value-data(root.prefix + "color").fill.color;
                         checker-light: Style.color-field.checker.light;
                         checker-dark: Style.color-field.checker.dark;
                     }
@@ -139,8 +139,6 @@ export component InspectorShadowPicker inherits FocusScope {
             }
             InspectorColorField {
                 accessible-name: @tr("Shadow color");
-                value: Properties.source-property-value(root.color-property, "");
-                swatch: Properties.editor-property-value-data(root.color-property).value-brush;
                 wide: true;
                 width: parent.width - Style.effect-slider.label-width - Metrics.space-small;
                 horizontal-stretch: 1;

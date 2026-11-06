@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Properties, PropertyEditKind, BrushKind, ColorFieldData, ColorFieldMode, FillData } from "../../properties.slint";
+import { Properties, PropertyValue, PropertyEditKind, BrushKind, ColorFieldData, ColorFieldMode, FillData } from "../../properties.slint";
 
 import { Style, Metrics, ColorFieldStyle } from "../../style.slint";
 import { ColorIndicator } from "../../../../lsp/ui/components/widgets/color-indicator.slint";
@@ -15,8 +15,6 @@ import { Api } from "../../api.slint";
 export component InspectorColorField inherits Rectangle {
     in property <ColorFieldStyle> style: Style.color-field;
     in property <string> accessible-name: "";
-    in property <string> value;
-    in property <brush> swatch;
     in property <Size> target-size: {
         width: Properties.runtime-property-value-data("width", {}).value-float * 1px,
         height: Properties.runtime-property-value-data("height", {}).value-float * 1px,
@@ -28,7 +26,11 @@ export component InspectorColorField inherits Rectangle {
     in property <string> property-name: "";
     in property <float> element-rotation;
     callback accepted(string) -> bool;
-    private property <ColorFieldData> data: Properties.source-color-field-data(root.property-name);
+    private property <PropertyValue> value: Properties.editor-property-value-data(root.property-name);
+    private property <ColorFieldData> data: Properties.color-field-data(root.value);
+    // Show the rendered color when the editor cannot resolve the property.
+    private property <brush> swatch: root.value.value-resolved ? root.value.value-brush
+        : Properties.runtime-property-value-data(root.property-name, {}).value-brush;
     private property <FillData> swatch-fill: Properties.brush-fill(root.swatch);
     private property <bool> is-literal-color: root.data.mode == ColorFieldMode.solid;
     private property <bool> is-gradient: root.data.mode == ColorFieldMode.gradient;
@@ -44,7 +46,7 @@ export component InspectorColorField inherits Rectangle {
         swatch-visible: false;
         width: parent.width;
         commit-key: root.commit-key;
-        accepted(color, expression) => {
+        accepted(color) => {
             return root.commit-color(color);
         }
         preview(color) => {
@@ -91,7 +93,7 @@ export component InspectorColorField inherits Rectangle {
         style: root.style.field;
         accessible-name: root.accessible-name;
         width: parent.width;
-        value: root.value;
+        value: root.value.code;
         focused: self.input-focused || swatch-focus.has-focus;
         commit-key: root.commit-key;
         accepted(text) => { return root.accepted(text); }
@@ -175,7 +177,6 @@ export component InspectorColorField inherits Rectangle {
             return;
         }
         FillSession.begin({
-            fill: root.data.fill,
             target: {
                 key: root.preview-key,
                 session-key: root.session-key,
@@ -184,9 +185,6 @@ export component InspectorColorField inherits Rectangle {
                 canvas: root.property-name == "background" && Api.current-element.type-name == "Rectangle",
                 element-rotation: root.element-rotation,
             },
-            expression: root.value,
-            unsupported: root.data.unsupported,
-            allow-gradient: root.data.allow-gradient,
             anchor-position: root.absolute-position,
             anchor-size: { width: root.width, height: root.height },
             activation-position: root.is-gradient ? root.absolute-position : swatch-focus.absolute-position,

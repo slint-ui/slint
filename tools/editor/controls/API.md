@@ -217,6 +217,7 @@ Sources: [styled](src/basic/combo_box.slint), [headless](src/headless/combo_box_
 | `out` | `highlighted-index` | `int` | Highlighted popup row; initially `-1` |
 | `out` | `expanded` | `bool` | Popup is open |
 | `out` | `hovered`, `pressed` | `bool` | Current interaction state |
+| `out` | `focus-visible` | `bool` | The field has keyboard navigation focus |
 | `in` | `maximum-visible-items` | `int` | `8` |
 | `in` | `popup-width` | `length` | Field width |
 | `in` | `popup-height` | `length` | Visible row count times `item-height`, plus twice `popup-padding` |
@@ -227,7 +228,12 @@ An empty model uses `current-index: -1`.
 While the popup is open, keyboard navigation changes the highlight; Enter or Space commits it, and Escape closes without committing.
 Clearing an open model closes the popup and restores field focus.
 
-Additional callback: `highlighted(index: int)`.
+Additional callbacks:
+
+- `highlighted(index: int)` reports a changed popup highlight.
+- `opening()` runs before the popup opens.
+- `accept-selection(index: int) -> bool` defaults to `true`.
+  Return `false` to leave selection and popup state unchanged.
 
 | Public Function | Effect |
 | --- | --- |

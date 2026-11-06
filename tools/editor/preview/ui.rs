@@ -280,16 +280,6 @@ pub fn initialize_editor(
     properties_api.on_property_declaration_ranges(super::property_declaration_ranges);
     property_view::setup(editor_ui, &api);
     super::inline_text_edit::setup(editor_ui);
-    let color_field_api_weak = properties_api_weak.clone();
-    properties_api.on_source_color_field_data(move |property_name| {
-        let Some(properties_api) = color_field_api_weak.upgrade() else {
-            return ColorFieldData::default();
-        };
-
-        source_property_value_data(&properties_api, property_name)
-            .map(brushes::color_field_data)
-            .unwrap_or_default()
-    });
     let property_value_api_weak = properties_api_weak.clone();
     properties_api.on_source_property_value(move |property_name, fallback| {
         let Some(properties_api) = property_value_api_weak.upgrade() else {
@@ -299,6 +289,9 @@ pub fn initialize_editor(
         source_property_value(&properties_api, property_name, fallback)
     });
     properties_api.on_combo_option_index(combo_option_index);
+    properties_api.on_combo_option_values(|options| {
+        Rc::new(slint::MapModel::new(options, |option| option.value)).into()
+    });
     properties_api.on_image_source_file_name(file_tree::image_source_file_name);
     let editor_weak = editor_ui.as_weak();
     properties_api.on_choose_image_file(move |source_uri| {
@@ -2335,16 +2328,43 @@ mod tests {
         assert_eq!(steps, [vec![(TopLeft, Some(50.))], vec![(TopLeft, Some(60.))]]);
     }
 
+    fn connect_fill_editor(
+        editor: &super::EditorUi,
+        fill: super::FillData,
+    ) -> std::pin::Pin<std::rc::Rc<i_slint_core::Property<Option<super::FillData>>>> {
+        let properties_api = editor.global::<super::Properties>();
+        properties_api.on_source_property_value_data(move |_, _| PropertyValue {
+            fill: fill.clone(),
+            kind: PropertyValueKind::Brush,
+            value_resolved: true,
+            ..Default::default()
+        });
+        let pending = std::rc::Rc::pin(i_slint_core::Property::new(None::<super::FillData>));
+        let value = pending.clone();
+        properties_api.on_hooked_property_value_data(move |_, fallback| {
+            value.as_ref().get().map_or(fallback.clone(), |fill| PropertyValue { fill, ..fallback })
+        });
+        let value = pending.clone();
+        properties_api.on_inspector_preview(move |_, edit| {
+            value.as_ref().set(Some(edit.fill));
+            true
+        });
+        let value = pending.clone();
+        properties_api.on_inspector_cancel(move || value.as_ref().set(None));
+        pending
+    }
+
     #[test]
     fn begin_fill_session_accepts_previous_target_before_replacing_it() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
         let properties_api = editor.global::<super::Properties>();
         super::brushes::setup(&properties_api);
-        properties_api.on_inspector_preview(|_, _| true);
+        let pending = connect_fill_editor(&editor, Default::default());
         let commits = std::rc::Rc::new(std::cell::Cell::new(0));
         let count = commits.clone();
         properties_api.on_inspector_commit(move || {
+            pending.as_ref().set(None);
             count.set(count.get() + 1);
             true
         });
@@ -2366,7 +2386,7 @@ mod tests {
         assert_eq!(session.get_request().target.key, "second");
         assert_eq!(
             properties_api.invoke_fill_brush(session.get_working_fill()),
-            properties_api.invoke_fill_brush(request.fill.clone())
+            slint::Brush::default()
         );
         session.invoke_close_picker(true, false);
         session.invoke_begin(request);
@@ -2419,7 +2439,7 @@ mod tests {
     }
 
     #[test]
-    fn brush_editors_prefer_hooks_and_source_with_only_unset_style_defaults_using_runtime() {
+    fn brush_editors_prefer_hooks_then_source_then_runtime() {
         use i_slint_backend_testing::{TestingBackend, TestingBackendOptions};
 
         slint::platform::set_platform(Box::new(TestingBackend::new(TestingBackendOptions {
@@ -2428,26 +2448,21 @@ mod tests {
             ..Default::default()
         })))
         .unwrap();
-        for (type_name, property_name, label, style_default) in [
-            ("Window", "background", "Root background", true),
-            ("Text", "color", "Text color", true),
-            ("Rectangle", "background", "Rectangle background", false),
-            ("Rectangle", "border-color", "Border color", false),
+        for (type_name, property_name, label) in [
+            ("Window", "background", "Root background"),
+            ("Text", "color", "Text color"),
+            ("Rectangle", "background", "Rectangle background"),
+            ("Rectangle", "border-color", "Border color"),
         ] {
             let editor = super::create_ui().unwrap();
             let api = editor.global::<super::Api>();
             let properties_api = editor.global::<super::Properties>();
+            if type_name == "Text" {
+                connect_has_property(&properties_api);
+                set_test_properties(&properties_api, &["text", "color"]);
+            }
             api.on_highlight_positions(|_, _| {
                 std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle::default()])).into()
-            });
-            let editor_weak = editor.as_weak();
-            properties_api.on_source_color_field_data(move |name| {
-                super::brushes::color_field_data(
-                    editor_weak
-                        .unwrap()
-                        .global::<super::Properties>()
-                        .invoke_source_property_value_data(name, Default::default()),
-                )
             });
             api.set_current_element(super::ElementInformation {
                 id: if type_name == "Window" { "root" } else { "selected" }.into(),
@@ -2475,9 +2490,9 @@ mod tests {
             let mut transparent_pixel = None;
             for (code, resolved, runtime, hooked, expected) in [
                 ("", false, false, None, None),
-                ("", false, true, None, style_default.then_some([0, 0, 255])),
+                ("", false, true, None, Some([0, 0, 255])),
                 ("root.paint", true, true, None, Some([255, 0, 0])),
-                ("root.unknown", false, true, None, None),
+                ("root.unknown", false, true, None, Some([0, 0, 255])),
                 ("", true, true, None, Some([255, 0, 0])),
                 ("", false, true, Some(green.clone()), Some([0, 255, 0])),
                 ("root.paint", true, true, Some(green.clone()), Some([0, 255, 0])),
@@ -2748,6 +2763,7 @@ mod tests {
         selection.highlight_index = 0;
         api.set_selection(selection);
         properties_api.on_test_code_binding(|_, _, _, _, _| true);
+        properties_api.on_string_to_code(super::string_to_code);
         let commits = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
         let recorded = commits.clone();
         properties_api.on_set_code_binding(move |_, _, _, name, value| {
@@ -2766,8 +2782,132 @@ mod tests {
                         == Some(i_slint_backend_testing::AccessibleRole::TextInput)
                 })
                 .unwrap();
-        field.set_accessible_value("\"Settings\"");
+        field.set_accessible_value("Settings");
         assert_eq!(*commits.borrow(), [("title".to_string(), "\"Settings\"".to_string())]);
+    }
+
+    #[test]
+    fn unchanged_text_draft_cancels_preview_on_blur() {
+        use slint::platform::Key;
+
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        let properties_api = editor.global::<super::Properties>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        api.set_current_element(super::ElementInformation {
+            type_name: "GroupBox".into(),
+            source_uri: "file:///test.slint".into(),
+            ..Default::default()
+        });
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        connect_has_property(&properties_api);
+        set_test_properties(&properties_api, &["title"]);
+        properties_api.on_source_property_value_data(|name, fallback| {
+            if name == "title" {
+                PropertyValue {
+                    kind: PropertyValueKind::String,
+                    code: "\"Original\"".into(),
+                    value_string: "Original".into(),
+                    ..Default::default()
+                }
+            } else {
+                fallback
+            }
+        });
+        let previews = std::rc::Rc::new(std::cell::Cell::new(0));
+        let calls = previews.clone();
+        properties_api.on_inspector_preview(move |_, _| {
+            calls.set(calls.get() + 1);
+            true
+        });
+        let cancellations = std::rc::Rc::new(std::cell::Cell::new(0));
+        let calls = cancellations.clone();
+        properties_api.on_inspector_cancel(move || calls.set(calls.get() + 1));
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 2000.));
+        slint::platform::update_timers_and_animations();
+        let field =
+            i_slint_backend_testing::ElementHandle::find_by_accessible_label(&editor, "Title")
+                .find(|element| {
+                    element.accessible_role()
+                        == Some(i_slint_backend_testing::AccessibleRole::TextInput)
+                })
+                .unwrap();
+        field.invoke_accessible_default_action();
+        test_press_key(&editor, "Draft".into());
+        assert_eq!(field.accessible_value().as_deref(), Some("Draft"));
+        editor.window().dispatch_event(WindowEvent::KeyPressed { text: Key::Control.into() });
+        test_press_key(&editor, "a".into());
+        editor.window().dispatch_event(WindowEvent::KeyReleased { text: Key::Control.into() });
+        test_press_key(&editor, "Original".into());
+        assert_eq!(field.accessible_value().as_deref(), Some("Original"));
+        assert!(previews.get() >= 2);
+        assert_eq!(cancellations.get(), 0);
+        test_press_key(&editor, Key::Tab.into());
+        assert_eq!(cancellations.get(), 1);
+    }
+
+    #[test]
+    fn clean_text_field_history_uses_editor_guards() {
+        use slint::platform::Key;
+
+        i_slint_backend_testing::init_no_event_loop();
+        for editable in [true, false] {
+            let editor = super::EditorUi::new().unwrap();
+            let api = editor.global::<super::Api>();
+            let properties_api = editor.global::<super::Properties>();
+            editor
+                .global::<super::Diagnostics>()
+                .set_preview_availability(super::PreviewAvailability::Current);
+            api.set_current_element(super::ElementInformation {
+                type_name: "GroupBox".into(),
+                ..Default::default()
+            });
+            let mut selection = api.get_selection();
+            selection.highlight_index = 0;
+            api.set_selection(selection);
+            connect_has_property(&properties_api);
+            set_test_properties(&properties_api, &["title"]);
+            api.set_undo_enabled(true);
+            let undo_count = std::rc::Rc::new(std::cell::Cell::new(0));
+            let calls = undo_count.clone();
+            api.on_undo(move || calls.set(calls.get() + 1));
+            editor.show().unwrap();
+            editor.window().set_size(slint::LogicalSize::new(1360., 2000.));
+            slint::platform::update_timers_and_animations();
+            let field =
+                i_slint_backend_testing::ElementHandle::find_by_accessible_label(&editor, "Title")
+                    .find(|element| {
+                        element.accessible_role()
+                            == Some(i_slint_backend_testing::AccessibleRole::TextInput)
+                    })
+                    .unwrap();
+            field.invoke_accessible_default_action();
+            editor.global::<super::CanvasView>().set_nudging(true);
+            if !editable {
+                editor
+                    .global::<super::Diagnostics>()
+                    .set_preview_availability(super::PreviewAvailability::Stale);
+            }
+            editor.window().dispatch_event(WindowEvent::KeyPressed { text: Key::Control.into() });
+            test_press_key(&editor, "z".into());
+            editor.window().dispatch_event(WindowEvent::KeyReleased { text: Key::Control.into() });
+            assert_eq!(undo_count.get(), i32::from(editable));
+            if editable {
+                assert!(!editor.global::<super::CanvasView>().get_nudging());
+            }
+        }
+    }
+
+    fn test_press_key(editor: &super::EditorUi, text: SharedString) {
+        editor.window().dispatch_event(WindowEvent::KeyPressed { text: text.clone() });
+        editor.window().dispatch_event(WindowEvent::KeyReleased { text });
+        slint::platform::update_timers_and_animations();
     }
 
     #[test]
@@ -3455,6 +3595,80 @@ mod tests {
     }
 
     #[test]
+    fn alignment_buttons_follow_source_and_temporary_overrides() {
+        fn alignment(name: &str, value: &str) -> PropertyValue {
+            let enum_name = if name == "horizontal-alignment" {
+                "TextHorizontalAlignment"
+            } else {
+                "TextVerticalAlignment"
+            };
+            let ty =
+                i_slint_compiler::typeregister::TypeRegister::builtin().borrow().lookup(enum_name);
+            super::map_value_and_type_to_property_value(
+                &ty,
+                &Some(slint_interpreter::Value::EnumerationValue(enum_name.into(), value.into())),
+                "",
+            )
+        }
+
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        let properties_api = editor.global::<super::Properties>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        api.on_highlight_positions(|_, _| {
+            std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle {
+                width: 200.,
+                height: 30.,
+                ..Default::default()
+            }]))
+            .into()
+        });
+        properties_api.on_combo_option_index(super::combo_option_index);
+        properties_api.on_source_property_value_data(|name, fallback| match name.as_str() {
+            "horizontal-alignment" => alignment(&name, "start"),
+            "vertical-alignment" => alignment(&name, "top"),
+            _ => fallback,
+        });
+        let overrides = std::rc::Rc::pin(i_slint_core::Property::new(None::<(&str, &str)>));
+        let hooked = overrides.clone();
+        properties_api.on_hooked_property_value_data(move |name, fallback| {
+            match (name.as_str(), hooked.as_ref().get()) {
+                ("horizontal-alignment", Some((value, _)))
+                | ("vertical-alignment", Some((_, value))) => alignment(&name, value),
+                _ => fallback,
+            }
+        });
+        api.set_current_element(super::ElementInformation {
+            type_name: "Text".into(),
+            ..Default::default()
+        });
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 1600.));
+        for (value, horizontal, vertical) in [
+            (None, "Align left", "Align top"),
+            (Some(("end", "bottom")), "Align right", "Align bottom"),
+            (Some(("center", "center")), "Align center", "Align middle"),
+            (None, "Align left", "Align top"),
+        ] {
+            overrides.as_ref().set(value);
+            slint::platform::update_timers_and_animations();
+            for label in [horizontal, vertical] {
+                assert_eq!(
+                    find_element(&editor, label).accessible_checked(),
+                    Some(true),
+                    "{label}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn layout_alignment_rows_follow_selected_element_type() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
@@ -3578,8 +3792,9 @@ mod tests {
         editor.window().set_size(slint::LogicalSize::new(1360., 860.));
         slint::platform::update_timers_and_animations();
         let session = editor.global::<super::FillSession>();
-        session.invoke_begin(super::FillSessionRequest {
-            fill: super::FillData {
+        connect_fill_editor(
+            &editor,
+            super::FillData {
                 kind: super::BrushKind::Linear,
                 angle: 90.,
                 stops: std::rc::Rc::new(VecModel::from(vec![
@@ -3595,6 +3810,8 @@ mod tests {
                 .into(),
                 ..Default::default()
             },
+        );
+        session.invoke_begin(super::FillSessionRequest {
             target: super::FillSessionTarget {
                 canvas: true,
                 key: "replaced-inspector-field".into(),
@@ -3627,7 +3844,7 @@ mod tests {
             let api = editor.global::<super::Api>();
             let properties_api = editor.global::<super::Properties>();
             super::brushes::setup(&properties_api);
-            properties_api.on_inspector_preview(|_, _| true);
+            connect_fill_editor(&editor, super::FillData { kind, ..Default::default() });
             let session = editor.global::<super::FillSession>();
             let mut element = api.get_current_element();
             element.type_name = "Rectangle".into();
@@ -3636,7 +3853,6 @@ mod tests {
             selection.highlight_index = 0;
             api.set_selection(selection);
             let mut request = super::FillSessionRequest {
-                fill: super::FillData { kind, ..Default::default() },
                 target: super::FillSessionTarget { canvas: true, ..Default::default() },
                 ..Default::default()
             };
@@ -3651,10 +3867,6 @@ mod tests {
             element.type_name = "Rectangle".into();
             api.set_current_element(element);
             assert!(session.get_canvas_active());
-            request.unsupported = true;
-            session.invoke_begin(request.clone());
-            assert!(!session.get_canvas_active());
-            request.unsupported = false;
             request.target.canvas = false;
             session.invoke_begin(request.clone());
             assert!(!session.get_canvas_active());
@@ -3721,11 +3933,14 @@ mod tests {
             let api = editor.global::<super::Api>();
             let properties_api = editor.global::<super::Properties>();
             super::brushes::setup(&properties_api);
-            properties_api.on_inspector_preview(|_, _| true);
+            let pending = connect_fill_editor(&editor, Default::default());
             properties_api.on_inspector_commit(|| panic!("stale sessions must not commit"));
             let canceled = std::rc::Rc::new(std::cell::Cell::new(0));
             let count = canceled.clone();
-            properties_api.on_inspector_cancel(move || count.set(count.get() + 1));
+            properties_api.on_inspector_cancel(move || {
+                pending.as_ref().set(None);
+                count.set(count.get() + 1);
+            });
             let session = editor.global::<super::FillSession>();
             let mut element = api.get_current_element();
             element.source_uri = "file:///scene.slint".into();
@@ -3768,7 +3983,7 @@ mod tests {
             assert_eq!(canceled.get() - previous_cancellations, 1);
             assert_eq!(
                 properties_api.invoke_fill_brush(session.get_working_fill()),
-                properties_api.invoke_fill_brush(session.get_request().fill)
+                slint::Brush::default()
             );
         }
     }
@@ -3779,7 +3994,7 @@ mod tests {
         let editor = super::EditorUi::new().unwrap();
         let properties_api = editor.global::<super::Properties>();
         super::brushes::setup(&properties_api);
-        properties_api.on_inspector_preview(|_, _| true);
+        connect_fill_editor(&editor, Default::default());
         let session = editor.global::<super::FillSession>();
         session.invoke_begin(Default::default());
         let kinds = [super::BrushKind::Linear, super::BrushKind::Radial, super::BrushKind::Conic];
@@ -3825,41 +4040,15 @@ mod tests {
     }
 
     #[test]
-    fn fill_session_owns_its_initial_stop_snapshot() {
-        i_slint_backend_testing::init_no_event_loop();
-        let editor = super::EditorUi::new().unwrap();
-        let properties_api = editor.global::<super::Properties>();
-        super::brushes::setup(&properties_api);
-        let stops = std::rc::Rc::new(VecModel::from(vec![
-            super::GradientStop { position: 0., color: slint::Color::from_rgb_u8(255, 0, 0) },
-            super::GradientStop { position: 1., color: slint::Color::from_rgb_u8(0, 0, 255) },
-        ]));
-        let original = stops.iter().collect::<Vec<_>>();
-        let session = editor.global::<super::FillSession>();
-        session.invoke_begin(super::FillSessionRequest {
-            fill: super::FillData {
-                kind: super::BrushKind::Linear,
-                stops: stops.clone().into(),
-                ..Default::default()
-            },
-            ..Default::default()
-        });
-        stops.set_row_data(0, super::GradientStop { position: 0.25, ..original[1] });
-        assert_eq!(session.get_request().fill.stops.iter().collect::<Vec<_>>(), original);
-        session.invoke_close_picker(false, false);
-        assert_eq!(session.get_working_fill().stops.iter().collect::<Vec<_>>(), original);
-    }
-
-    #[test]
     fn stop_mutations_preserve_shared_gesture_snapshots() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
         let properties_api = editor.global::<super::Properties>();
         super::brushes::setup(&properties_api);
-        properties_api.on_inspector_preview(|_, _| true);
         let session = editor.global::<super::FillSession>();
-        session.invoke_begin(super::FillSessionRequest {
-            fill: super::FillData {
+        connect_fill_editor(
+            &editor,
+            super::FillData {
                 kind: super::BrushKind::Linear,
                 stops: std::rc::Rc::new(VecModel::from(vec![
                     super::GradientStop {
@@ -3878,8 +4067,8 @@ mod tests {
                 .into(),
                 ..Default::default()
             },
-            ..Default::default()
-        });
+        );
+        session.invoke_begin(super::FillSessionRequest { ..Default::default() });
         let snapshot = session.get_working_fill();
         let stops = snapshot.stops.iter().collect::<Vec<_>>();
         session.set_selected_stop(1);
@@ -3888,7 +4077,6 @@ mod tests {
         session.invoke_add_stop_position(0.25);
         session.invoke_remove_stop(0);
         assert_eq!(snapshot.stops.iter().collect::<Vec<_>>(), stops);
-        assert_eq!(session.get_request().fill.stops.iter().collect::<Vec<_>>(), stops);
         assert!(session.invoke_preview_fill(snapshot));
         assert_eq!(session.get_working_fill().stops.iter().collect::<Vec<_>>(), stops);
         properties_api.on_inspector_preview(|_, _| false);
@@ -3912,7 +4100,6 @@ mod tests {
                 ..Default::default()
             };
             session.invoke_begin(super::FillSessionRequest {
-                fill: original.clone(),
                 target: super::FillSessionTarget {
                     key: target.clone(),
                     property_name: "background".into(),
@@ -3920,13 +4107,13 @@ mod tests {
                 },
                 ..Default::default()
             });
-            properties_api.on_inspector_preview(move |property, _| {
-                assert_eq!(property, "background");
-                true
-            });
+            let pending = connect_fill_editor(&editor, original.clone());
             let canceled = std::rc::Rc::new(std::cell::Cell::new(0));
             let count = canceled.clone();
-            properties_api.on_inspector_cancel(move || count.set(count.get() + 1));
+            properties_api.on_inspector_cancel(move || {
+                pending.as_ref().set(None);
+                count.set(count.get() + 1);
+            });
             assert!(session.invoke_preview_color(slint::Color::from_rgb_u8(0, 0, 255)));
             if reject_preview {
                 properties_api.on_inspector_preview(|_, _| false);

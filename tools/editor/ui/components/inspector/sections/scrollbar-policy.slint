@@ -7,7 +7,6 @@ import { InspectorContext } from "context.slint";
 
 export component InspectorScrollBarPolicySection inherits InspectorSection {
     in property <InspectorStyle> style: Style.inspector-layout;
-    in property <length> popup-bottom;
 
     title: @tr("Scroll Bars");
 
@@ -23,11 +22,11 @@ export component InspectorScrollBarPolicySection inherits InspectorSection {
             }
 
             InspectorComboBox {
+                commit-key: InspectorContext.inspector-key;
                 accessible-name: @tr("Horizontal Scroll Bar Policy");
                 value: InspectorEnumOptions.option-label("horizontal-scrollbar-policy", "as-needed", InspectorEnumOptions.scrollbar-policy-options);
                 selected-index: InspectorEnumOptions.option-index("horizontal-scrollbar-policy", "as-needed", InspectorEnumOptions.scrollbar-policy-options);
                 options: InspectorEnumOptions.scrollbar-policy-options;
-                popup-available-height: max(Style.inspector-field.height, root.popup-bottom - self.absolute-position.y - Metrics.space-medium);
                 accepted(text) => {
                     return text != "" && InspectorContext.commit-enum("horizontal-scrollbar-policy", text);
                 }
@@ -44,11 +43,11 @@ export component InspectorScrollBarPolicySection inherits InspectorSection {
             }
 
             InspectorComboBox {
+                commit-key: InspectorContext.inspector-key;
                 accessible-name: @tr("Vertical Scroll Bar Policy");
                 value: InspectorEnumOptions.option-label("vertical-scrollbar-policy", "as-needed", InspectorEnumOptions.scrollbar-policy-options);
                 selected-index: InspectorEnumOptions.option-index("vertical-scrollbar-policy", "as-needed", InspectorEnumOptions.scrollbar-policy-options);
                 options: InspectorEnumOptions.scrollbar-policy-options;
-                popup-available-height: max(Style.inspector-field.height, root.popup-bottom - self.absolute-position.y - Metrics.space-medium);
                 accepted(text) => {
                     return text != "" && InspectorContext.commit-enum("vertical-scrollbar-policy", text);
                 }
