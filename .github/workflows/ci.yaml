@@ -195,7 +195,7 @@ jobs:
     cpp_test_driver:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_cpp') }}
         env:
-            DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/5.15.2/clang_64/lib
+            DYLD_FRAMEWORK_PATH: ${{ github.workspace }}/../Qt/5.15.2/clang_64/lib
             QT_QPA_PLATFORM: offscreen
             RUSTFLAGS: -D warnings
         strategy:
@@ -260,7 +260,7 @@ jobs:
     cpp_cmake:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_cpp') || contains(fromJSON(inputs.changes), 'examples') }}
         env:
-            DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.5.1/clang_64/lib
+            DYLD_FRAMEWORK_PATH: ${{ github.workspace }}/../Qt/6.5.1/clang_64/lib
             QT_QPA_PLATFORM: offscreen
             SLINT_EMIT_DEBUG_INFO: 1
         strategy:
