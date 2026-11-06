@@ -720,6 +720,8 @@ pub struct WindowInner {
     next_popup_id: Cell<NonZeroU32>,
     overlays: RefCell<Vec<ItemTreeRc>>,
     had_popup_on_press: Cell<bool>,
+    /// Bit mask of the buttons whose press an open menu blocked, indexed by `PointerEventButton as u8`.
+    buttons_blocked_by_menu: Cell<u8>,
     close_requested: Callback<(), CloseRequestResponse>,
     click_state: ClickState,
     ctx: core::cell::OnceCell<crate::SlintContext>,
@@ -793,6 +795,7 @@ impl WindowInner {
             next_popup_id: Cell::new(NonZeroU32::MIN),
             overlays: Default::default(),
             had_popup_on_press: Default::default(),
+            buttons_blocked_by_menu: Default::default(),
             close_requested: Default::default(),
             click_state: ClickState::default(),
             prevent_focus_change: Default::default(),
@@ -811,6 +814,7 @@ impl WindowInner {
         self.focus_item_position_tracker.clear();
         self.focus_item.replace(Default::default());
         self.mouse_input_state.replace(Default::default());
+        self.buttons_blocked_by_menu.set(0);
         self.touch_state.replace(Default::default());
         self.component.replace(ItemTreeRc::downgrade(component));
         self.pinned_fields.window_properties_tracker.set_dirty(); // component changed, layout constraints for sure must be re-calculated
@@ -1078,12 +1082,14 @@ impl WindowInner {
             let mut item_tree = self.component.borrow().upgrade();
             let mut offset = LogicalPoint::default();
             let mut menubar_item = None;
+            let mut blocked_by_menu = false;
             for (idx, popup) in active_popups.borrow().iter().enumerate().rev() {
                 if matches!(popup.window_kind, WindowKind::ToolTip) {
                     continue;
                 }
                 item_tree = None;
                 menubar_item = None;
+                blocked_by_menu = false;
                 if let PopupWindowLocation::ChildWindow(coordinates) = &popup.location {
                     let geom = ItemTreeRc::borrow_pin(&popup.component).as_ref().item_geometry(0);
                     let mouse_inside_popup = event
@@ -1106,18 +1112,41 @@ impl WindowInner {
                     popup_to_close = Some(popup.popup_id);
                 }
 
-                menubar_item = popup.parent_item.upgrade();
+                menubar_item = popup.parent_item.upgrade().filter(|item| {
+                    item.downcast::<crate::items::ContextMenu>()
+                        .is_some_and(|menu| menu.as_pin_ref().is_menu_bar())
+                });
+                blocked_by_menu = menubar_item.is_none();
             }
 
-            let root = match menubar_item {
-                None => item_tree.map(|item_tree| ItemRc::new_root(item_tree.clone())),
+            let blocked_buttons = self.buttons_blocked_by_menu.get();
+            let bit = |button: &PointerEventButton| 1u8 << *button as u8;
+            match &event {
+                MouseEvent::Pressed { button, .. } if blocked_by_menu => {
+                    self.buttons_blocked_by_menu.set(blocked_buttons | bit(button));
+                }
+                MouseEvent::Released { button, .. } if blocked_buttons & bit(button) != 0 => {
+                    self.buttons_blocked_by_menu.set(blocked_buttons & !bit(button));
+                    item_tree = None;
+                    menubar_item = None;
+                }
+                _ => {}
+            }
+
+            let (root, menu_owner_path) = match menubar_item {
+                None => {
+                    (item_tree.map(|item_tree| ItemRc::new_root(item_tree.clone())), Vec::new())
+                }
                 Some(menubar_item) => {
-                    event.translate(
-                        menubar_item
-                            .map_to_item_tree(Default::default(), &self.component())
-                            .to_vector(),
-                    );
-                    menubar_item.parent_item(ParentItemTraversalMode::StopAtPopups)
+                    let mut menu_owner_path: Vec<ItemWeak> = core::iter::successors(
+                        menubar_item.parent_item(ParentItemTraversalMode::StopAtPopups),
+                        |item| item.parent_item(ParentItemTraversalMode::StopAtPopups),
+                    )
+                    .map(|item| item.downgrade())
+                    .collect();
+                    let root = menu_owner_path.pop().and_then(|root| root.upgrade());
+                    menu_owner_path.reverse();
+                    (root, menu_owner_path)
                 }
             };
 
@@ -1126,6 +1155,7 @@ impl WindowInner {
                 let crate::input::MouseInputResult { mut state, accepted } =
                     crate::input::process_mouse_input(
                         root,
+                        &menu_owner_path,
                         &event,
                         &window_adapter,
                         mouse_input_state,
