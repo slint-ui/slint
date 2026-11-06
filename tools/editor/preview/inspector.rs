@@ -22,6 +22,26 @@ struct PropertyEdit {
     override_id: SmolStr,
     previous_override: Option<slint_interpreter::Value>,
     expression: String,
+    value: ui::PropertyEditValue,
+}
+
+pub(super) fn property_value(
+    override_id: &SmolStr,
+    mut property: ui::PropertyValue,
+) -> ui::PropertyValue {
+    PREVIEW_STATE.with_borrow(|state| {
+        if let Some(edit) = state
+            .inspector_edit
+            .as_ref()
+            .and_then(|edit| edit.properties.iter().find(|edit| &edit.override_id == override_id))
+        {
+            property.code = edit.expression.as_str().into();
+            if edit.value.kind == ui::PropertyEditKind::Fill {
+                property.fill = edit.value.fill.clone();
+            }
+        }
+    });
+    property
 }
 
 pub(super) fn invalidate_fill() {
@@ -181,7 +201,7 @@ fn edit_value(
                         | "drop-shadow-blur"
                         | "inner-shadow-blur"
                 );
-            if nonnegative && value.number < 0. {
+            if (nonnegative && value.number < 0.) || (name == "font-size" && value.number <= 0.) {
                 return None;
             }
             (format!("{}{}", value.number, value.unit), Value::Number(runtime))
@@ -250,16 +270,19 @@ pub(super) fn preview_property(name: SharedString, value: ui::PropertyEditValue)
             edit.properties.iter_mut().find(|property_edit| property_edit.name == name.as_str())
         {
             property_edit.expression = expression;
+            property_edit.value = value;
         } else {
             edit.properties.push(PropertyEdit {
                 name: name.to_string(),
                 override_id,
                 previous_override,
                 expression,
+                value,
             });
         }
     });
     property.as_ref().set(Some(runtime));
+    property.as_ref().mark_dirty();
     drop(overrides);
     if let Some(instance) = component_instance() {
         instance.window().request_redraw();

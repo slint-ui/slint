@@ -320,6 +320,19 @@ export component EditorUi inherits Window {
                 self.focus();
             }
 
+            function handle-history-key(event: KeyEvent) -> EventResult {
+                let redo-y = Platform.os == OperatingSystemType.windows && (event.text == "y" || event.text == "Y");
+                if !(event.modifiers.control || event.modifiers.meta)
+                    || !(event.text == "z" || event.text == "Z" || redo-y) { return reject; }
+                if self.nudge-write-pending || self.nudge-key-held {
+                    self.nudge-key-held = false;
+                    self.cancel-nudge();
+                } else {
+                    root.apply-history(event.modifiers.shift || redo-y);
+                }
+                return accept;
+            }
+
             function is-arrow-key(text: string) -> bool {
                 text == Key.LeftArrow || text == Key.RightArrow || text == Key.UpArrow || text == Key.DownArrow
             }
@@ -388,16 +401,7 @@ export component EditorUi inherits Window {
                     CanvasView.space-pressed = true;
                     return accept;
                 }
-                let redo-y = Platform.os == OperatingSystemType.windows && (event.text == "y" || event.text == "Y");
-                if (event.modifiers.control || event.modifiers.meta) && (event.text == "z" || event.text == "Z" || redo-y) {
-                    if self.nudge-write-pending || self.nudge-key-held {
-                        self.nudge-key-held = false;
-                        self.cancel-nudge();
-                        return accept;
-                    }
-                    root.apply-history(event.modifiers.shift || redo-y);
-                    return accept;
-                }
+                if self.handle-history-key(event) == accept { return accept; }
                 if event.text == Key.Escape && AppState.has-active-drag() {
                     AppState.cancel-active-drags();
                     return accept;
@@ -532,6 +536,7 @@ export component EditorUi inherits Window {
                         }
 
                         if root.inspector-visible && !root.sidebars-collapsed: InspectorPane {
+                            history-key(event) => { return editor.handle-history-key(event); }
                             width: root.displayed-inspector-width;
                             changed palette-drag-in-outline => {
                                 root.palette-drag-in-outline = self.palette-drag-in-outline;
@@ -717,7 +722,7 @@ export component EditorUi inherits Window {
                         y: FillSession.canvas-origin.y - parent.absolute-position.y;
                         width: FillSession.canvas-size.width;
                         height: FillSession.canvas-size.height;
-                        selection: FillSession.selection;
+                        selection: CanvasView.selection;
                     }
                 }
                 InspectorFillPicker { }

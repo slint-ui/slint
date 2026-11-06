@@ -70,8 +70,8 @@ const tools = [
         description:
             "Preview saved Slint source using the matching Wasm interpreter. " +
             "Pass `path` to preview a file on disk, with its imports and images, or `source` for a snippet that imports only from std-widgets.slint. " +
-            "Compile errors are reported back to you once the preview has loaded. " +
-            "Then call get_preview_screenshot to see the preview as the user sees it.",
+            "This acknowledges the request, not a successful render. " +
+            "Always call get_preview_screenshot and check for errors before confirming the preview works.",
         inputSchema: {
             type: "object",
             properties: {
@@ -239,6 +239,10 @@ const toolCalls = {
                     type: "text",
                     text: `Rendering Slint preview ${latestPreview.id}.`,
                 },
+                {
+                    type: "text",
+                    text: "Preview requested; rendering is unverified. Call get_preview_screenshot before confirming success.",
+                },
             ],
             _meta: { "slint/previewId": latestPreview.id },
         };
@@ -292,7 +296,7 @@ const toolCalls = {
         const runtime = capture.runtime ? ` with ${capture.runtime}` : "";
         if (capture.error) {
             return {
-                ...textResult(`Preview ${id}${runtime} has no screenshot: ${capture.error}`),
+                ...textResult(`Preview ${id}${runtime} has no screenshot: ${capture.error}`, true),
                 structuredContent,
             };
         }
@@ -314,6 +318,9 @@ const toolCalls = {
         const preview = latestPreview;
         if (args.previewId !== preview?.id) {
             return textResult("This belongs to an older preview.");
+        }
+        if (preview.capture?.error) {
+            return textResult("This preview has already failed.");
         }
         preview.viewStarted = true;
         preview.stage = args.stage ?? "started";

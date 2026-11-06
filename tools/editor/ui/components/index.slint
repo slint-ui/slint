@@ -7,10 +7,6 @@ import { ElementVisuals } from "element-presentation.slint";
 import { Project } from "../project.slint";
 import { Api, CanvasCorner, ElementKind } from "../api.slint";
 
-export global EditorIcons {
-    out property <image> select-chevron: @image-url("../assets/octicons/select-chevron.svg");
-}
-
 export global EditorCursors {
     out property <MouseCursor> corner-radius: MouseCursor.custom(
         @image-url("../assets/cursors/corner-radius.png"),
