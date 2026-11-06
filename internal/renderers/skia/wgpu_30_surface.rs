@@ -627,9 +627,9 @@ impl crate::Surface for WGPUSurface {
     }
 }
 
-struct WindowAndDisplayHandle(
-    Arc<dyn raw_window_handle::HasWindowHandle + Send + Sync>,
-    Arc<dyn raw_window_handle::HasDisplayHandle + Send + Sync>,
+pub(crate) struct WindowAndDisplayHandle(
+    pub(crate) Arc<dyn raw_window_handle::HasWindowHandle + Send + Sync>,
+    pub(crate) Arc<dyn raw_window_handle::HasDisplayHandle + Send + Sync>,
 );
 
 impl raw_window_handle::HasWindowHandle for WindowAndDisplayHandle {

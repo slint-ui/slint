@@ -45,6 +45,8 @@ pub mod software_surface;
 #[cfg(any(not(target_vendor = "apple"), target_os = "macos"))]
 pub mod opengl_surface;
 
+#[cfg(feature = "graphite-wgpu-30")]
+pub mod graphite_wgpu_30_surface;
 #[cfg(skia_wgpu_vulkan)]
 mod vulkan_handle;
 #[cfg(feature = "wgpu-29")]
@@ -53,6 +55,8 @@ pub mod wgpu_29_surface;
 pub mod wgpu_30_surface;
 #[cfg(any(feature = "wgpu-29", feature = "wgpu-30"))]
 mod wgpu_renderer;
+#[cfg(feature = "graphite-wgpu-30")]
+pub use wgpu_renderer::SkiaGraphiteWGPU30Renderer;
 #[cfg(feature = "wgpu-29")]
 pub use wgpu_renderer::SkiaWGPU29Renderer;
 #[cfg(any(feature = "wgpu-29", feature = "wgpu-30"))]
@@ -220,6 +224,17 @@ fn default_wgpu_surface_factory(
     requested_graphics_api: Option<RequestedGraphicsAPI>,
     transparent: bool,
 ) -> Result<Box<dyn Surface>, PlatformError> {
+    #[cfg(feature = "graphite-wgpu-30")]
+    if std::env::var_os("SLINT_SKIA_GRAPHITE").is_some() {
+        return surface_factory::<graphite_wgpu_30_surface::GraphiteWGPUSurface>(
+            context,
+            window_handle,
+            display_handle,
+            size,
+            requested_graphics_api,
+            transparent,
+        );
+    }
     core::cfg_select! {
         feature = "wgpu-30" => {
             surface_factory::<wgpu_30_surface::WGPUSurface>(
