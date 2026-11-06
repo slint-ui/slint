@@ -1,0 +1,4 @@
+{
+    "edition": "1.19",
+    "main": "ui/carousel_demo.slint"
+}

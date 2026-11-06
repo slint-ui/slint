@@ -1,7 +1,7 @@
 // Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// SIZE=100x52
+// SIZE=100x76
 // ROTATION_THRESHOLD=70  - the border radius algorithm doesn't give the same result from every rotation
 
 // Corner radii whose sum exceeds a side scale down by one shared factor:
@@ -15,7 +15,7 @@ component Cell inherits Rectangle {
 
 export component TestCase inherits Window {
     width: 100px;
-    height: 52px;
+    height: 76px;
     background: black;
 
     // One corner larger than both of its sides.
@@ -93,5 +93,29 @@ export component TestCase inherits Window {
         border-radius: 100px;
         border-width: 3px;
         border-color: orange;
+    }
+
+    // A negative radius clips with a sharp corner.
+    Rectangle {
+        x: 4px;
+        y: 52px;
+        width: 20px;
+        height: 20px;
+        clip: true;
+        border-radius: -8px;
+        Rectangle {
+            background: #2a6bd8;
+        }
+    }
+
+    // A negative radius casts a sharp-cornered drop shadow.
+    Cell {
+        x: 25px;
+        y: 52px;
+        border-bottom-left-radius: 8px;
+        border-bottom-right-radius: -8px;
+        drop-shadow-color: orange;
+        drop-shadow-offset-x: 3px;
+        drop-shadow-offset-y: 3px;
     }
 }

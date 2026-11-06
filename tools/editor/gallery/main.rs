@@ -7,11 +7,8 @@ mod ui {
     slint::slint! {
         #[edition = "1.19"]
         export { GalleryWindow, Gallery, GalleryPage } from "gallery.slint";
-        export {
-            Api, BrushKind, ColorFieldData, ColorFieldEdit, ColorFieldMode,
-            ColorValueData, ElementKind, ElementLibraryEntry, ElementLibraryGroup, ElementLibrarySection, FillData,
-            GradientStop, GradientStopOrder, LinearGradientAxis, PropertyValue, PropertyValueKind
-        } from "../ui/api.slint";
+        export { Api, ElementKind, ElementLibraryEntry, ElementLibraryGroup, ElementLibrarySection } from "../ui/api.slint";
+        export { Properties, BrushKind, ColorFieldData, ColorFieldEdit, ColorFieldMode, ColorValueData, FillData, GradientStop, GradientStopOrder, LinearGradientAxis, PropertyValue, PropertyValueKind } from "../ui/properties.slint";
     }
 }
 
@@ -20,14 +17,18 @@ mod ui {
 mod component_support;
 
 use component_support::{brushes, element_library, recent_fills};
-use ui::{Api, Gallery, GalleryWindow};
+use ui::{Api, Gallery, GalleryWindow, Properties};
 
 fn main() -> Result<(), slint::PlatformError> {
     let window = GalleryWindow::new()?;
     let api = window.global::<Api>();
-    brushes::setup(&api);
+    let properties_api = window.global::<Properties>();
+    brushes::setup(&properties_api);
     element_library::setup(&api);
-    recent_fills::setup(&api, <Api as slint::Global<'_, GalleryWindow>>::as_weak(&api));
+    recent_fills::setup(
+        &properties_api,
+        <Properties as slint::Global<'_, GalleryWindow>>::as_weak(&properties_api),
+    );
     window.global::<Gallery>().invoke_navigate(window.global::<Gallery>().get_page(), 0);
     window.run()
 }

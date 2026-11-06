@@ -1,15 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-Inline1 := Rectangle {
-//      ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+component Inline1 inherits Rectangle {
     Rectangle {
         x: 66phx;
     }
 }
 
-export SubElements := Rectangle {
-//                 ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+export component SubElements inherits Rectangle {
     Inline1 {
         background: yellow;
         invalid: yellow;

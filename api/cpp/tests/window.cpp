@@ -16,7 +16,7 @@ TEST_CASE("Basic Window Visibility")
 
     ComponentCompiler compiler;
     auto comp_def = compiler.build_from_source(R"(
-        export App := Window {
+        export component App inherits Window {
         }
     )",
                                                "");
@@ -40,7 +40,7 @@ TEST_CASE("Window Scale Factory Existence")
 
     ComponentCompiler compiler;
     auto comp_def = compiler.build_from_source(R"(
-        export App := Window {
+        export component App inherits Window {
         }
     )",
                                                "");

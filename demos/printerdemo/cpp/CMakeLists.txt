@@ -10,7 +10,7 @@ endif()
 
 add_executable(printerdemo main.cpp)
 target_link_libraries(printerdemo PRIVATE Slint::Slint)
-slint_target_sources(printerdemo ../ui/printerdemo.slint)
+slint_target_sources(printerdemo ../slint-project.json)
 
 find_package(Intl)
 if(Intl_FOUND AND SLINT_FEATURE_GETTEXT)
