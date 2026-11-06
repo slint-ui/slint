@@ -31,7 +31,8 @@ Slint's input system handles mouse, touch, keyboard events and focus management.
 `MouseEvent` (`internal/core/input.rs`) is what an item's input handlers receive:
 
 - `Pressed` and `Released`, with a position, a `PointerEventButton`, the click count, and a touch
-  finger id (set for touch input, 0 for the mouse); `Moved`, with a position and finger id
+  finger id (set for touch input, 0 for the mouse), and whether it belongs to a window-activating
+  click (see "Activation Clicks" below); `Moved`, with a position and finger id
 - `Wheel` for the mouse wheel or a touchpad scroll: a position, an x and y delta, and a
   `TouchPhase`
 - `DragMove` and `Drop`, each with the `DropEvent` and the allowed drag actions
@@ -51,6 +52,31 @@ remembering the timestamp, count, position and button of the last press.
 - If press occurs within `click_interval` of previous press, at same position, with same button → increment `click_count`
 - Otherwise reset to count 0
 - `click_count` is included in Press/Release events
+- An activation click (see below) resets the state and always carries `click_count` 0, so it neither continues nor starts a multi-click sequence
+
+### Activation Clicks (macOS "first mouse")
+
+On macOS, a click on an inactive window activates the window, and by
+convention only "safe" interactions (selection, scrolling, text-cursor
+placement) react to that click, while action-triggering controls (buttons)
+ignore it. The backend tags both the press and the matching release of such a
+click with `is_activation_click` (always false on other platforms and for
+events from the public `platform::WindowEvent` API).
+
+The policy is applied at delivery time by the items:
+
+- `TouchArea` suppresses the pressed state (and therefore `clicked` /
+  `double-clicked` / `moved`) for activation clicks, while keeping the grab
+  and still emitting `pointer-event` with the `is-activation-click` field
+  set. The `accepts-activation-clicks` property opts a `TouchArea` into
+  normal processing — used by selection surfaces (list/table rows) and
+  scrollbar thumbs in the std-widgets.
+- `Text` ignores an activation release for `link-clicked`.
+- `SliderBase` (std-widgets) returns early from its `pointer-event` handler,
+  since it changes the value on pointer-down directly.
+- `Flickable`, `TextInput`, `SwipeGestureHandler`, and `ContextMenuArea`
+  process activation clicks normally on purpose: panning, cursor placement,
+  and context menus are safe on a window-activating click.
 
 ### Mouse Input State
 
