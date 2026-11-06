@@ -36,8 +36,8 @@ jobs:
             fail-fast: false
             matrix:
                 include:
-                    - { runner: macos-14, rid: osx-arm64, target: aarch64-apple-darwin }
-                    - { runner: macos-14, rid: osx-x64, target: x86_64-apple-darwin }
+                    - { runner: macos-15, rid: osx-arm64, target: aarch64-apple-darwin }
+                    - { runner: macos-15, rid: osx-x64, target: x86_64-apple-darwin }
                     - { runner: ubuntu-22.04, rid: linux-x64, target: x86_64-unknown-linux-gnu }
                     - { runner: ubuntu-22.04-arm, rid: linux-arm64, target: aarch64-unknown-linux-gnu }
                     - { runner: windows-2022, rid: win-x64, target: x86_64-pc-windows-msvc }
@@ -199,7 +199,7 @@ jobs:
         strategy:
             fail-fast: false
             matrix:
-                runner: [macos-14, ubuntu-22.04, windows-2022]
+                runner: [macos-15, ubuntu-22.04, windows-2022]
         runs-on: ${{ matrix.runner }}
         steps:
             - uses: actions/checkout@v7
