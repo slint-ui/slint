@@ -406,20 +406,17 @@ impl TextParagraph {
                 let extra_padding = ascent * VERTICAL_PADDING_RATIO;
                 let half_height = inner_half_height + extra_padding;
 
-                // Padding is laid out as spacing (see `INLINE_CODE_PADDING`): the right one
-                // after the code's last character, so it is in the advance of the run that
-                // ends the code; the left one after the character before the code, so the
-                // capsule of the run that starts the code reaches back over it. Code that
-                // starts a line has no character before it there, and its padding hangs
-                // outside the text. Where code wraps, the pieces meet the line's edges
-                // without padding, as CSS's `box-decoration-break: slice` does. The text isn't
-                // modified, so selection, hit-testing and copy/paste keep working on the
-                // underlying characters.
+                // Padding is laid out as spacing (see `INLINE_CODE_PADDING`): the right one is in
+                // the advance of the run that ends the code, the left one follows the character
+                // before it. A line's first character has none before it on the line, so
+                // the capsule starts at the text's edge, as CSS's `box-decoration-break: slice`.
                 let advance = glyph_run.advance();
                 if advance <= 0.0 {
                     continue;
                 }
-                let padding_left = if run_range.start == self.code_ranges[code].start {
+                let padding_left = if run_range.start == self.code_ranges[code].start
+                    && run_range.start != line.text_range().start
+                {
                     run.font_size() * super::shaping::INLINE_CODE_PADDING
                 } else {
                     0.0
@@ -803,10 +800,10 @@ struct Capsule {
 impl Capsule {
     /// Whether `next` is more of the same code, right after this in either direction.
     fn continued_by(&self, next: &Capsule) -> bool {
-        const TOUCHING: f32 = 0.5;
+        const JOIN_TOLERANCE_PX: f32 = 0.5;
         self.code == next.code
-            && ((next.left - self.right).abs() < TOUCHING
-                || (self.left - next.right).abs() < TOUCHING)
+            && ((next.left - self.right).abs() < JOIN_TOLERANCE_PX
+                || (self.left - next.right).abs() < JOIN_TOLERANCE_PX)
     }
 
     fn joined(self, other: Capsule) -> Capsule {

@@ -252,21 +252,24 @@ impl LayoutWithoutLineBreaksBuilder {
 
             // The padding inside inline code's capsule, on both sides, laid out as spacing after
             // single characters: the text stays as it is, and so does what is copied from it.
-            // By the character's start, its range and the extra spacing: a character could be
-            // both the last of one code range and the one before the next.
             let padding = self.pixel_size.get() * INLINE_CODE_FONT_SCALE * INLINE_CODE_PADDING;
-            let mut gaps = alloc::collections::BTreeMap::<usize, (Range<usize>, f32)>::new();
-            for range in inline_code_gaps(text, &code_ranges) {
-                gaps.entry(range.start).or_insert((range, 0.)).1 += padding;
+            // Keyed by the character's start: one can end a code range and precede the next.
+            let mut padded_chars =
+                alloc::collections::BTreeMap::<usize, (Range<usize>, f32)>::new();
+            for range in inline_code_padded_chars(text, &code_ranges) {
+                padded_chars.entry(range.start).or_insert((range, 0.)).1 += padding;
             }
-            if !gaps.is_empty() {
+            if !padded_chars.is_empty() {
                 let letter_spacing = self
                     .font_request
                     .as_ref()
                     .and_then(|font_request| font_request.letter_spacing)
                     .map_or(0., |letter_spacing| letter_spacing.get());
-                for (range, gap) in gaps.into_values() {
-                    builder.push(parley::StyleProperty::LetterSpacing(letter_spacing + gap), range);
+                for (range, padding) in padded_chars.into_values() {
+                    builder.push(
+                        parley::StyleProperty::LetterSpacing(letter_spacing + padding),
+                        range,
+                    );
                 }
             }
 
@@ -285,13 +288,10 @@ pub(super) fn line_height_ratio(
     Some(natural_ratio * line_height_factor.unwrap_or(1.0))
 }
 
-/// Splits plain text into paragraph byte ranges at `'\n'`. The `'\n'` and any preceding `'\r'`
-/// are excluded from the range: parley treats a lone CR as a mandatory line break, so a CRLF
-/// left in the paragraph would render an extra empty line.
 /// The characters that inline code's padding follows, as byte ranges into `text`: the one
 /// before each code range (where there is one), for the room left of it, and the code's last
 /// one, for the room right of it.
-pub(super) fn inline_code_gaps<'a>(
+pub(super) fn inline_code_padded_chars<'a>(
     text: &'a str,
     code_ranges: &'a [Range<usize>],
 ) -> impl Iterator<Item = Range<usize>> + 'a {
@@ -306,6 +306,9 @@ pub(super) fn inline_code_gaps<'a>(
         .flatten()
 }
 
+/// Splits plain text into paragraph byte ranges at `'\n'`. The `'\n'` and any preceding `'\r'`
+/// are excluded from the range: parley treats a lone CR as a mandatory line break, so a CRLF
+/// left in the paragraph would render an extra empty line.
 pub(super) fn paragraph_ranges(text: &str) -> impl Iterator<Item = Range<usize>> + '_ {
     let mut start = 0;
     text.split('\n').map(move |paragraph| {
