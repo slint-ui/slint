@@ -1181,7 +1181,7 @@ mod tests {
     #[test]
     fn a_minimal_project_file_is_valid() {
         let parsed = load_project_file(r#"{ "edition": "1.19" }"#).unwrap();
-        assert_eq!(parsed.edition(), SlintEdition::V1_19);
+        assert_eq!(parsed.edition(), SlintEdition::current());
         assert_eq!(parsed.library_paths(), None);
         assert_eq!(parsed.include_paths(), None);
         assert_eq!(parsed.experimental_features(), None);
@@ -1219,7 +1219,7 @@ mod tests {
             let mut config = crate::CompilerConfiguration::new(OutputFormat::Llr);
             config.edition = Some(SlintEdition { major: 1, minor: 10 });
             ProjectFile::load(path).unwrap().apply_to(&mut config);
-            assert_eq!(config.edition, Some(SlintEdition::V1_19));
+            assert_eq!(config.edition, Some(SlintEdition::current()));
         });
     }
 

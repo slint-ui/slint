@@ -2932,10 +2932,14 @@ mod tests {
         let temp = TempDir::new().unwrap();
         let url = Url::from_file_path(temp.path().join("main.rs")).unwrap();
         let mut session = session();
+        let current = SlintEdition::current().to_string();
         for (content, expected) in [
             (r#"slint::slint!{ #[edition = "1.18"] export component A {} }"#, Some("1.18")),
             (r#"slint::slint!{ export component A {} }"#, None),
-            (r#"slint::slint!{ #[edition = "1.19"] export component A {} }"#, Some("1.19")),
+            (
+                r#"slint::slint!{ #[edition = "1.19"] export component A {} }"#,
+                Some(current.as_str()),
+            ),
         ] {
             spin_on::spin_on(session.load_document(content.into(), url.clone(), Some(1))).unwrap();
             let expected = expected.map(|e| e.parse::<SlintEdition>().unwrap());
@@ -2979,7 +2983,7 @@ mod tests {
 
         assert_eq!(
             session.document_cache.compiler_configuration().compiler_config.edition,
-            Some(i_slint_compiler::project_file::SlintEdition::V1_19)
+            Some(i_slint_compiler::project_file::SlintEdition::current())
         );
         let inner_url = Url::from_file_path(&inner).unwrap();
         let (_, _, warnings) = diagnostics.iter().find(|(url, _, _)| url == &inner_url).unwrap();
