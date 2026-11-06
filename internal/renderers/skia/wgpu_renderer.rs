@@ -364,6 +364,9 @@ impl SkiaGraphiteWGPU30Renderer {
     }
 
     /// Renders the scene to `texture`, which needs `RENDER_ATTACHMENT` usage.
+    ///
+    /// For backdrop blur, the texture also needs `COPY_SRC` or `TEXTURE_BINDING` usage.
+    /// Without either, the blur has no backdrop.
     pub fn render_to_texture(&self, texture: &wgpu_30::Texture) -> Result<(), PlatformError> {
         let surface = self.surface();
         self.renderer.invoke_rendering_notifier_setup(&*surface)?;
