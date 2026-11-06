@@ -20,6 +20,7 @@ enum MenuNode {
     Separator,
     SubMenu { label: std::string::String, enabled: bool, children: std::vec::Vec<MenuNode> },
     Standard { label: std::string::String, enabled: bool, entry_index: usize },
+    Checkmark { label: std::string::String, enabled: bool, entry_index: usize, checked: bool },
 }
 
 enum Event {
@@ -91,6 +92,22 @@ fn node_to_ksni(
                     // click off to the dispatcher task living on the Slint event loop.
                     let _ = tx.try_send(Event::Menu(entry_index));
                 }),
+                ..Default::default()
+            }
+            .into()
+        }
+        MenuNode::Checkmark { label, enabled, entry_index, checked } => {
+            let tx = event_tx.clone();
+            let entry_index = *entry_index;
+            ::ksni::menu::CheckmarkItem {
+                label: label.clone(),
+                enabled: *enabled,
+                activate: std::boxed::Box::new(move |_tray: &mut KsniTray| {
+                    // ksni runs the callback on its own thread; the channel hands the
+                    // click off to the dispatcher task living on the Slint event loop.
+                    let _ = tx.try_send(Event::Menu(entry_index));
+                }),
+                checked: *checked,
                 ..Default::default()
             }
             .into()
@@ -339,10 +356,19 @@ fn entry_to_node(
     } else {
         let entry_index = entries_out.len();
         entries_out.push(entry.clone());
-        MenuNode::Standard {
-            label: entry.title.as_str().into(),
-            enabled: entry.enabled,
-            entry_index,
+        if entry.checkable {
+            MenuNode::Checkmark {
+                label: entry.title.as_str().into(),
+                enabled: entry.enabled,
+                entry_index,
+                checked: entry.checked,
+            }
+        } else {
+            MenuNode::Standard {
+                label: entry.title.as_str().into(),
+                enabled: entry.enabled,
+                entry_index,
+            }
         }
     }
 }

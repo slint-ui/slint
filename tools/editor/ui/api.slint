@@ -1,12 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { InspectorComboOption } from "components/inspector/control-data.slint";
-
-export struct CodeBinding {
-    name: string,
-    value: string,
-}
+import { PropertyValue } from "properties.slint";
+import { Range, ElementInformation } from "editor-types.slint";
+export { Range, ElementInformation } from "editor-types.slint";
 
 export enum CoordinateSpace { Root, Parent }
 
@@ -23,8 +20,6 @@ export struct GeometryResult {
     valid: bool,
     geometry: Geometry,
 }
-
-export enum InspectorCommitResult { rejected, unchanged, pending }
 
 export enum CanvasCorner {
     top-left,
@@ -70,11 +65,6 @@ export struct ElementLibraryGroup {
     section: ElementLibrarySection,
     label: string,
     entries: [ElementLibraryEntry],
-}
-
-export struct InspectorNumberChange {
-    name: string,
-    value: float,
 }
 
 /// One device discovered as a possible remote-preview target.
@@ -146,6 +136,7 @@ export struct SelectionRectangle {
     width: length,
     height: length,
     angle: angle,
+    transform-rotation: angle,
     // False when the element renders as a parallelogram, which these fields cannot describe.
     // Editing its geometry is refused, so don't offer it.
     describes-element: bool,
@@ -230,150 +221,10 @@ export enum SelectionStackFilter {
     Everything,
 }
 
-/// A Range in a source
-export struct Range {
-    start: int,
-    end: int,
-}
-
-export enum PropertyValueKind {
-    boolean,
-    brush,
-    code,
-    color,
-    enum,
-    float,
-    integer,
-    string,
-}
-
-export enum BrushKind {
-    solid,
-    linear,
-    radial,
-    conic,
-}
-
-export struct GradientStop {
-    position: float, // between 0 and 1!
-    color: color,
-}
-
-export struct LinearGradientAxis {
-    start: Point,
-    end: Point,
-}
-
-export struct GradientStopOrder {
-    indices: [int],
-    selected: int,
-}
-
-export struct FillData {
-    kind: BrushKind,
-    color: color,
-    stops: [GradientStop],
-    angle: float,
-    custom-center: bool,
-    center-x: float,
-    center-y: float,
-    custom-radius: bool,
-    radius: float,
-    radial-ellipse: bool,
-    radius-y: float,
-}
-
-export enum ColorFieldMode {
-    source,
-    solid,
-    gradient,
-}
-
-export struct ColorFieldData {
-    mode: ColorFieldMode,
-    fill: FillData,
-    label: string,
-    unsupported: bool,
-    allow-gradient: bool,
-}
-
-export struct ColorFieldEdit {
-    valid: bool,
-    color: color,
-    expression: string,
-    display: string,
-}
-
-export struct ColorValueData {
-    color-text: string,
-    opacity: int,
-}
-
-/// Data about the property value for use in "simple" mode
-// cSpell: ignore dataonly
-export struct PropertyValue {
-    is-number-literal: bool,
-    display-string: string, // ALWAYS, its a string description of what is there
-    fill: FillData,
-    value-resolved: bool, // Whether value-brush/value-* came from a successful evaluation
-    value-bool: bool, // boolean
-    is-translatable: bool, // string
-    kind: PropertyValueKind, // Defines what to display this as
-    value-kind: PropertyValueKind, // If kind == code, then this is the real kind of data
-    brush-kind: BrushKind, // brush
-    gradient-stops: [GradientStop], // brush
-    value-brush: brush, // brush, color
-    value-float: float, // float, brush (angle)
-    value-int: int, // integer, enum/float (current index into visual_items)
-    default-selection: int, // enum/float (default index into visual_items)
-    value-string: string, // enum (name), string, brush (palette name or empty)
-    visual-items: [string], // enum (enum members), float (units)
-    tr-context: string, // string
-    tr-plural: string, // string
-    tr-plural-expression: string, // string
-    code: string, // ALWAYS, empty if property is not explicitly defined
-    accessor-path: string, // set for struct members and such
-    was-edited: bool, // Used by preview dataonly!
-    edited-value: string, // Used in preview dataonly!
-}
-
 export struct PropertyValueTable {
     is-array: bool,
     headers: [string],
     values: [[PropertyValue]],
-}
-
-/// Important Ranges in the property definition
-///
-/// The URL and version is the same as in the Element it belongs to
-export struct PropertyDefinition {
-    definition-range: Range,
-    selection-range: Range,
-    expression-range: Range,
-    expression-value: string,
-}
-
-/// The Property Declaration
-export struct PropertyDeclaration {
-    defined-at: PropertyDefinition,
-
-    source-path: string,
-    source-version: int,
-    range: Range,
-}
-
-/// Information on one Property
-export struct PropertyInformation {
-    name: string,
-    type-name: string,
-    value: PropertyValue,
-    display-priority: int,
-}
-
-/// Grouping for properties
-export struct PropertyGroup {
-    group-name: string,
-    properties: [PropertyInformation],
 }
 
 export enum PreviewDataKind {
@@ -394,17 +245,6 @@ export struct PropertyContainer {
     container-name: string,
     container-id: string,
     properties: [PreviewData],
-}
-
-/// Information on an Element a Property belongs to
-export struct ElementInformation {
-    id: string,
-    component-name: string,
-    type-name: string,
-    source-uri: string,
-    source-version: int,
-    /// The offset within source-uri
-    offset: int,
 }
 
 export struct InlineTextEditStart {
@@ -438,13 +278,6 @@ export global InlineTextEdit {
         return select;
     }
 }
-
-export struct PaletteEntry {
-    name: string,
-    value: PropertyValue,
-}
-
-
 
 /// A node in the outline tree
 export struct OutlineTreeNode {
@@ -541,49 +374,8 @@ export global Api {
     // set to true to resize
     in property <bool> resize-to-preferred-size: false;
 
-    // ## Palette data:
-    in-out property <[PaletteEntry]> palettes;
-    in-out property <[FillData]> recent-fills;
-
     // ## Property Editor
     in-out property <ElementInformation> current-element;
-    in-out property <[PropertyGroup]> properties;
-    callback properties-search(string);
-    pure callback source-property-value-data(property-name: string, fallback: PropertyValue) -> PropertyValue;
-    pure callback has-property(property-name: string) -> bool;
-    pure callback runtime-property-value-data(property-name: string, fallback: PropertyValue) -> PropertyValue;
-    pure callback source-property-value(property-name: string, fallback: string) -> string;
-    pure callback source-color-field-data(property-name: string) -> ColorFieldData;
-    pure callback combo-option-index(value: string, options: [InspectorComboOption]) -> int;
-    public pure function number-property(name: string, fallback: float) -> float {
-        let property = Api.source-property-value-data(name, {});
-        return property.code != "" && (property.kind == PropertyValueKind.float || property.value-kind == PropertyValueKind.float)
-            ? property.value-float : fallback;
-    }
-    public pure function shadow-prefix(inner: bool) -> string {
-        return inner ? "inner-shadow-" : "drop-shadow-";
-    }
-    public pure function has-shadow(prefix: string) -> bool {
-        return Api.source-property-value-data(prefix + "color", {}).code != ""
-            || Api.source-property-value-data(prefix + "blur", {}).code != ""
-            || Api.source-property-value-data(prefix + "spread", {}).code != ""
-            || Api.source-property-value-data(prefix + "offset-x", {}).code != ""
-            || Api.source-property-value-data(prefix + "offset-y", {}).code != "";
-    }
-    public function toggle-shadow(element: ElementInformation, inner: bool) {
-        Api.inspector-cancel();
-        let prefix = Api.shadow-prefix(inner);
-        let enabled = !Api.has-shadow(prefix);
-        Api.set-code-bindings(element.source-uri, element.source-version, element.offset, [
-            { name: prefix + "color", value: enabled ? (inner ? "#00000030" : "#00000040") : "" },
-            { name: prefix + "blur", value: enabled ? "16px" : "" },
-            { name: prefix + "spread", value: enabled ? "0px" : "" },
-            { name: prefix + "offset-x", value: enabled ? "0px" : "" },
-            { name: prefix + "offset-y", value: enabled ? "8px" : "" },
-        ]);
-    }
-    pure callback image-source-file-name(source: string) -> string;
-    callback choose-image-file(source-uri: string) -> string;
 
     // ## Outline
     in-out property <[OutlineTreeNode]> outline;
@@ -617,13 +409,6 @@ export global Api {
 
     // # Callbacks
 
-    // ## Custom conversion functions:
-    pure callback color-value-data(color) -> ColorValueData;
-    pure callback color-value-color-edit(color: color, text: string) -> ColorFieldEdit;
-    pure callback color-value-opacity-edit(color: color, text: string) -> ColorFieldEdit;
-    pure callback color-value-with-opacity(color: color, opacity: float) -> color;
-    pure callback fill-with-color(fill: FillData, color: color) -> FillData;
-
     // ## Style:
     callback style-changed();
 
@@ -651,6 +436,9 @@ export global Api {
 
     callback selected-element-delete();
     callback selected-element-wrap-in-layout(layout: string);
+    callback selected-element-copy();
+    callback selected-element-cut();
+    callback paste-element(at-pointer: bool, x: length, y: length);
 
     // ## Element selection:
     callback selection-stack-at(x: length, y: length) -> [SelectionStackFrame];
@@ -678,53 +466,10 @@ export global Api {
     callback reload-preview();
 
     pure callback window-active() -> bool;
-    in property <int> inspector-generation;
-    in property <int> inspector-fill-generation;
-    in property <bool> inspector-fill-refresh-pending;
-    pure callback inspector-values(key: string) -> [float];
-    callback inspector-preview(key: string, name: string, value: float) -> bool;
-    callback inspector-commit(key: string, name: string, value: float) -> bool;
-    callback inspector-cancel();
-    callback inspector-preview-shadow(key: string, changes: [InspectorNumberChange]) -> bool;
-    callback inspector-commit-shadow(key: string, changes: [InspectorNumberChange]) -> InspectorCommitResult;
-    callback inspector-fill-preview(key: string, name: string, value: FillData, rotation: float, rotate-element: bool) -> bool;
-    callback inspector-fill-commit(key: string, name: string, value: FillData, rotation: float, fill-changed: bool, rotation-changed: bool) -> bool;
-    callback dismiss-fill-picker(position: Point, button: PointerEventButton);
 
     // ## Property Editor
-    pure callback test-code-binding(element-url: string, element-version: int, element-offset: int, property-name: string, property-value: string) -> bool;
-    pure callback set-code-binding(element-url: string, element-version: int, element-offset: int, property-name: string, property-value: string) -> bool;
-    pure callback set-code-bindings(element-url: string, element-version: int, element-offset: int, bindings: [CodeBinding]) -> bool;
-    public function commit-code-binding(element: ElementInformation, name: string, value: string) -> bool {
-        return value != "" && element.source-uri != ""
-            && Api.test-code-binding(element.source-uri, element.source-version, element.offset, name, value)
-            && Api.set-code-binding(element.source-uri, element.source-version, element.offset, name, value);
-    }
-    pure callback set-color-binding(element-url: string, element-version: int, element-offset: int, property-name: string, property-value: color);
+
     callback set-element-id(element-url: string, element-version: int, element-offset: int, new-id: string);
-
-    pure callback string-is-single-line(value: string) -> bool;
-    pure callback string-to-code(value: string, is_translatable: bool, tr_context: string, tr_plural: string, tr_plural_expression: string) -> string;
-
-    pure callback fill-brush(value: FillData) -> brush;
-    pure callback fill-expression(value: FillData) -> string;
-    pure callback linear-gradient-axis(value: FillData, size: Size) -> LinearGradientAxis;
-    pure callback radial-gradient-axis(value: FillData, size: Size) -> LinearGradientAxis;
-    pure callback radial-gradient-y-axis(value: FillData, size: Size) -> LinearGradientAxis;
-    pure callback remap-radial-gradient(value: FillData, previous: LinearGradientAxis, next: LinearGradientAxis) -> FillData;
-    pure callback resize-radial-gradient-x(value: FillData, size: Size, previous: LinearGradientAxis, next: LinearGradientAxis, match-radius: bool) -> FillData;
-    pure callback remap-radial-gradient-y(value: FillData, size: Size, previous: LinearGradientAxis, next: LinearGradientAxis, match-radius: bool) -> FillData;
-    pure callback conic-gradient-axis(value: FillData, size: Size) -> LinearGradientAxis;
-    pure callback remap-conic-gradient(value: FillData, previous: LinearGradientAxis, next: LinearGradientAxis) -> FillData;
-    pure callback conic-gradient-point(axis: LinearGradientAxis, position: float) -> Point;
-    pure callback conic-gradient-position(axis: LinearGradientAxis, point: Point) -> float;
-    pure callback gradient-angular-delta(center: Point, previous: Point, next: Point) -> float;
-    pure callback gradient-axis-point(axis: LinearGradientAxis, position: float) -> Point;
-    pure callback gradient-axis-position(axis: LinearGradientAxis, point: Point) -> float;
-    pure callback linear-gradient-point(angle: float, size: Size, position: float) -> Point;
-    pure callback linear-gradient-position(angle: float, size: Size, point: Point) -> float;
-    pure callback remap-linear-gradient(value: FillData, size: Size, previous: LinearGradientAxis, next: LinearGradientAxis) -> FillData;
-
 
     // ## preview data
     pure callback get-property-value(component: string, name: string) -> PropertyValue;
@@ -735,28 +480,6 @@ export global Api {
     pure callback remove-row-from-value-table(table: PropertyValueTable, remove-row: int);
 
     pure callback set-json-preview-data(component: string, name: string, json-value: string, send-telemetry: bool) -> string;
-
-
-    pure callback sample-fill-stop(fill: FillData, position: float) -> GradientStop;
-    pure callback nearest-gradient-stop(stops: [GradientStop], position: float) -> int;
-    pure callback nearest-conic-gradient-stop(stops: [GradientStop], position: float) -> int;
-    pure callback gradient-stop-gap(stops: [GradientStop]) -> float;
-    pure callback add-gradient-stop(stops: [GradientStop], value: GradientStop) -> int;
-    pure callback remove-gradient-stop(stops: [GradientStop], row: int);
-    pure callback gradient-stop-order(stops: [GradientStop], selected: int) -> GradientStopOrder;
-    pure callback clone-gradient-stops(stops: [GradientStop]) -> [GradientStop];
-
-    pure callback create-brush(kind: BrushKind, angle: float, color: color, stops: [GradientStop]) -> brush;
-
-    // Get the property declaration/definition ranges
-    callback property-declaration-ranges(property-name: string) -> PropertyDeclaration;
-
-    // Palettes:
-    pure callback filter-palettes(palettes: [PaletteEntry], pattern: string) -> [PaletteEntry];
-    callback add-recent-fill(FillData);
-    pure callback filter-recent-fills(fills: [FillData], allow-gradient: bool) -> [FillData];
-    pure callback is-css-color(code: string) -> bool;
-
 
     // ## Undo/Redo
     callback undo();

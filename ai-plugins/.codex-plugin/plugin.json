@@ -1,13 +1,14 @@
 {
   "name": "slint",
   "version": "1.19.0",
-  "description": "Enhances Codex's ability to work with, debug, and build Slint GUI applications",
+  "description": "Write, debug, and live-preview Slint GUIs for desktop, embedded, and mobile apps",
   "author": {
     "name": "Slint",
     "email": "info@slint.dev"
   },
   "homepage": "https://slint.dev",
   "repository": "https://github.com/slint-ui/slint",
+  "keywords": ["slint", "gui", "ui", "hmi", "declarative", "rust", "cpp", "javascript", "python", "embedded", "mcu", "esp32", "stm32", "desktop", "mobile", "android", "ios", "live-preview"],
   "license": "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0",
   "skills": "./skills/",
   "hooks": "./hooks/codex.json",

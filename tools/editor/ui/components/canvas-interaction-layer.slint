@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Properties } from "../properties.slint";
+
 import { CanvasValueTooltip } from "canvas-value-tooltip.slint";
 import { CanvasView } from "canvas-view.slint";
 import { Snapping, SnapGuideLine, SnapGuide, SnapPreview } from "../snapping.slint";
@@ -40,17 +42,17 @@ component SelectedCanvasFrame inherits Rectangle {
     }
 
     function current-corner-radius(property-name: string) -> length {
-        let corner = Api.source-property-value-data(property-name, {});
+        let corner = Properties.source-property-value-data(property-name, {});
         return corner.code != ""
             ? corner.value-float * 1px
-            : Api.source-property-value-data("border-radius", {}).value-float * 1px;
+            : Properties.source-property-value-data("border-radius", {}).value-float * 1px;
     }
 
     function has-independent-corner-radii() -> bool {
-        return Api.source-property-value-data("border-top-left-radius", {}).code != ""
-            || Api.source-property-value-data("border-top-right-radius", {}).code != ""
-            || Api.source-property-value-data("border-bottom-right-radius", {}).code != ""
-            || Api.source-property-value-data("border-bottom-left-radius", {}).code != "";
+        return Properties.source-property-value-data("border-top-left-radius", {}).code != ""
+            || Properties.source-property-value-data("border-top-right-radius", {}).code != ""
+            || Properties.source-property-value-data("border-bottom-right-radius", {}).code != ""
+            || Properties.source-property-value-data("border-bottom-left-radius", {}).code != "";
     }
 
     function accept-preview(preview: SnapPreview) {
@@ -345,6 +347,7 @@ export component CanvasInteractionLayer inherits TouchArea {
     }
     changed has-hover => {
         if !root.has-hover && !root.hover-selection-active {
+            CanvasView.pointer-inside = false;
             root.suppress-hover();
         }
     }
@@ -462,6 +465,8 @@ export component CanvasInteractionLayer inherits TouchArea {
             x: canvas-origin.x + position.x,
             y: canvas-origin.y + position.y,
         };
+        CanvasView.pointer = CanvasView.to-preview(position);
+        CanvasView.pointer-inside = true;
         if root.text-editing || FillSession.canvas-active || ShadowSession.canvas-visible || root.hover-selection-active || root.pressed {
             return;
         }
@@ -633,26 +638,26 @@ export component CanvasInteractionLayer inherits TouchArea {
                 color: root.text-edit-color;
                 selection-background-color: Style.field.appearance.selection;
                 selection-foreground-color: Style.field.appearance.focus.foreground;
-                font-family: Api.runtime-property-value-data("font-family", {
+                font-family: Properties.runtime-property-value-data("font-family", {
                     value-string: Api.preview-default-font-family,
                 }).value-string;
-                font-size: Api.runtime-property-value-data("font-size", {
+                font-size: Properties.runtime-property-value-data("font-size", {
                     value-float: Api.preview-default-font-size,
                 }).value-float
                     * InlineTextEdit.scale * CanvasView.zoom * 1px;
-                font-weight: Api.runtime-property-value-data("font-weight", {
+                font-weight: Properties.runtime-property-value-data("font-weight", {
                     value-int: Api.preview-default-font-weight,
                 }).value-int;
-                font-italic: Api.runtime-property-value-data("font-italic", {}).value-bool;
+                font-italic: Properties.runtime-property-value-data("font-italic", {}).value-bool;
                 horizontal-alignment: root.horizontal-text-alignment(
-                    Api.runtime-property-value-data("horizontal-alignment", {}).value-int,
+                    Properties.runtime-property-value-data("horizontal-alignment", {}).value-int,
                 );
                 vertical-alignment: root.vertical-text-alignment(
-                    Api.runtime-property-value-data("vertical-alignment", {}).value-int,
+                    Properties.runtime-property-value-data("vertical-alignment", {}).value-int,
                 );
-                letter-spacing: Api.runtime-property-value-data("letter-spacing", {}).value-float
+                letter-spacing: Properties.runtime-property-value-data("letter-spacing", {}).value-float
                     * InlineTextEdit.scale * CanvasView.zoom * 1px;
-                line-height-factor: Api.runtime-property-value-data("line-height-factor", {
+                line-height-factor: Properties.runtime-property-value-data("line-height-factor", {
                     value-float: 1,
                 }).value-float;
                 read-only: InlineTextEdit.commit-pending;

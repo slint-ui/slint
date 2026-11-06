@@ -1,15 +1,18 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-export TestCase := Window {
+export component TestCase inherits Window {
     preferred-width: 800px;
     preferred-height: 600px;
     background: white;
 
     Rectangle {
         background: purple;
+        y: 0;
         height: 50px;
         Text {
+            x: 0;
+            y: 0;
             text: "This is purple rectangle, for comparison";
         }
     }
@@ -18,11 +21,14 @@ export TestCase := Window {
         opacity: 0.5;
         width: 200px;
         height: 100px;
+        x: 0;
         y: 50px;
 
         background: red;
 
         Text {
+            x: 0;
+            y: 0;
             text: "This rectangle should be rose";
         }
 
@@ -36,6 +42,8 @@ export TestCase := Window {
             Text {
                 text: "This rectangle should be evenly filled with a blue'ish tint, not purple as well as be wider than the rose rectangle.";
                 color: green;
+                x: 0;
+                y: 0;
                 width: 400px;
                 wrap: word-wrap;
             }

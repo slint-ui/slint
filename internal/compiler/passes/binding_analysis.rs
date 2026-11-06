@@ -82,7 +82,6 @@ pub fn binding_analysis(
         &reverse_aliases,
         &mut global_analysis,
         compiler_config.error_on_binding_loop_with_window_layout,
-        compiler_config.edition,
         diag,
     );
     global_analysis
@@ -188,7 +187,6 @@ struct AnalysisContext<'a> {
     /// And we should issue a warning if that's part of a loop instead of an error
     window_layout_property: Option<PropertyPath>,
     error_on_binding_loop_with_window_layout: bool,
-    edition: Option<SlintEdition>,
     /// Set once `MAX_ANALYSIS_DEPTH` was reported, so a document yields one error
     depth_limit_reported: bool,
     /// For each place a binding loop diagnostic or note points at, whether one of those loops
@@ -202,12 +200,10 @@ fn perform_binding_analysis(
     reverse_aliases: &ReverseAliases,
     global_analysis: &mut GlobalAnalysis,
     error_on_binding_loop_with_window_layout: bool,
-    edition: Option<SlintEdition>,
     diag: &mut BuildDiagnostics,
 ) {
     let mut context = AnalysisContext {
         error_on_binding_loop_with_window_layout,
-        edition,
         visited: HashSet::new(),
         currently_analyzing: Default::default(),
         window_layout_property: None,
@@ -623,8 +619,13 @@ fn report_binding_loop(
     // From edition 1.19, an error one is still reported: it may be a shorter loop inside an
     // earlier one, such as a warning through the window layout.
     let is_error = context.error_on_binding_loop_with_window_layout || !has_window_layout;
-    let report_hidden_errors = context.edition.is_some_and(|v| v >= SlintEdition::V1_19);
-    if all_reported && !(is_error && report_hidden_errors) {
+    let has_binding_of_edition_1_19 = || {
+        reportable
+            .iter()
+            .filter_map(|(_, span, _)| span.source_file.as_ref())
+            .any(|file| file.edition() >= Some(SlintEdition::V1_19))
+    };
+    if all_reported && !(is_error && has_binding_of_edition_1_19()) {
         return;
     }
     // Of equal blame, one in the user's own file over one in a widget, then the one written

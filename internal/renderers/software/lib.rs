@@ -50,6 +50,8 @@ use i_slint_core::item_rendering::{
     RenderBorderRectangle, RenderImage, RenderRectangle, clip_content_box,
 };
 use i_slint_core::item_tree::ItemTreeWeak;
+#[cfg(feature = "path")]
+use i_slint_core::items::FillRule;
 use i_slint_core::items::{ItemRc, RenderingResult, TextOverflow, TextWrap};
 use i_slint_core::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
@@ -1594,6 +1596,7 @@ trait ProcessScene {
         clip_geometry: PhysicalRect,
         commands: alloc::vec::Vec<path::Command>,
         paint: path::Paint,
+        fill_rule: FillRule,
         rounded_clips: &[RoundedClip],
     );
     #[cfg(feature = "path")]
@@ -2103,6 +2106,7 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
         clip_geometry: PhysicalRect,
         commands: alloc::vec::Vec<path::Command>,
         paint: path::Paint,
+        fill_rule: FillRule,
         rounded_clips: &[RoundedClip],
     ) {
         self.clips.clear();
@@ -2113,6 +2117,7 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
             &clip_geometry,
             &self.clips,
             &paint,
+            fill_rule,
             self.buffer,
         );
     }
@@ -2353,6 +2358,7 @@ impl ProcessScene for PrepareScene {
         _clip_geometry: PhysicalRect,
         _commands: alloc::vec::Vec<path::Command>,
         _paint: path::Paint,
+        _fill_rule: FillRule,
         _rounded_clips: &[RoundedClip],
     ) {
         // Path rendering is not supported in line-by-line mode (PrepareScene/render_by_line)
@@ -3397,6 +3403,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                 clipped_geom,
                 zeno_commands.clone(),
                 paint,
+                path.fill_rule(),
                 &self.rounded_clips,
             );
         }
@@ -3753,16 +3760,14 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
         // quantizes the glyph origin and the clip it cuts glyphs with. Truncating here puts a
         // selection highlight edge a whole pixel away from the glyph clip meant to line up with it,
         // as soon as the item's own offset lands on a fractional device pixel.
-        let geometry: PhysicalRect = physical_rect.round().cast().transformed(self.rotation);
+        let geometry = physical_rect.round().transformed(self.rotation);
         // These fills reach the processor directly rather than through `draw_rectangle`, so they
         // have to bring the clip along themselves. Without it a text decoration, a selection
         // highlight or a cursor taller than the item it belongs to paints right over its
         // surroundings, while the glyphs beside it are clipped.
         let Some(clip) = self.physical_clip() else { return };
-        let mut args = target_pixel_buffer::DrawRectangleArgs::from_rect(
-            geometry.cast(),
-            Brush::SolidColor(color),
-        );
+        let mut args =
+            target_pixel_buffer::DrawRectangleArgs::from_rect(geometry, Brush::SolidColor(color));
 
         if radius.get() > 0.0 {
             let r = radius.get().min(args.width / 2.0).min(args.height / 2.0);

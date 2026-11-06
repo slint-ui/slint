@@ -127,8 +127,7 @@ impl<'a> SkiaItemRenderer<'a> {
         );
 
         if let Some(radius) = shadow_options.opaque_source_radius() {
-            let radius = (radius + PhysicalBorderRadius::new_uniform(shadow_options.spread.get()))
-                .max(Default::default());
+            let radius = radius.spread(shadow_options.spread.get());
             let rounded_rect = to_skia_rrect(
                 &PhysicalRect::new(shadow_options.shape_origin(), shape_size),
                 &radius,
@@ -775,6 +774,10 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
                     path.fitted_path_events(item_rc)?;
 
                 let mut builder = skia_safe::PathBuilder::new();
+                builder.set_fill_type(match path.fill_rule() {
+                    i_slint_core::items::FillRule::Evenodd => skia_safe::PathFillType::EvenOdd,
+                    i_slint_core::items::FillRule::Nonzero | _ => skia_safe::PathFillType::Winding,
+                });
 
                 for x in path_events.iter() {
                     match x {

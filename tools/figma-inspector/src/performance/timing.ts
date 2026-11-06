@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+import { isCaptureTimings } from "./capture-timing";
 import type { PreviewTrigger } from "../protocol";
 import type { CaptureMetrics } from "../plugin/snapshot";
 
@@ -8,6 +9,7 @@ export const TIMING_PHASES = [
     "figmaCapture",
     "captureSerialization",
     "captureParse",
+    "bulkHydration",
     "normalization",
     "workerQueueAndTransport",
     "jsonSerialization",
@@ -41,8 +43,24 @@ type FontToImageConversionBreakdown = {
     readonly count: number;
 };
 
+export type PresentationTiming = {
+    readonly firstFrameMs: number;
+    readonly secondFrameMs: number;
+};
+
 export type TimingBreakdowns = {
+    readonly presentation?: PresentationTiming;
     readonly fontToImageConversion: FontToImageConversionBreakdown | null;
+};
+
+export type ExportValidationTiming = {
+    readonly sourcePreparationMs: number;
+    readonly queueMs: number;
+    readonly compilationMs: number;
+    readonly totalMs: number;
+    readonly completedAtEpochMs: number;
+    readonly cacheHit: boolean;
+    readonly outcome: "valid" | "failed" | "crashed" | "skipped" | "superseded";
 };
 
 export type TimingTrace = {
@@ -56,6 +74,7 @@ export type TimingTrace = {
     readonly coldStart?: boolean;
     readonly outcome?: TraceOutcome;
     readonly captureMetrics?: CaptureMetrics;
+    readonly exportValidation?: ExportValidationTiming;
     readonly phases: Record<TimingPhase, number | null>;
     readonly breakdowns: TimingBreakdowns;
     readonly totalPluginMs?: number;
@@ -94,6 +113,9 @@ export function cloneTimingBreakdowns(
     const conversion = breakdowns.fontToImageConversion;
     return {
         fontToImageConversion: conversion === null ? null : { ...conversion },
+        ...(breakdowns.presentation
+            ? { presentation: { ...breakdowns.presentation } }
+            : {}),
     };
 }
 
@@ -102,6 +124,9 @@ export function freezeTimingBreakdowns(
 ): TimingBreakdowns {
     const cloned = cloneTimingBreakdowns(breakdowns);
     return Object.freeze({
+        ...(cloned.presentation
+            ? { presentation: Object.freeze(cloned.presentation) }
+            : {}),
         fontToImageConversion:
             cloned.fontToImageConversion === null
                 ? null
@@ -260,7 +285,12 @@ export function finalizeSandboxTiming(
         pluginSentAtEpochMs: sandboxTrace.pluginSentAtEpochMs,
         totalPluginMs: sandboxTrace.totalPluginMs,
         phases,
-        breakdowns: freezeTimingBreakdowns(sandboxTrace.breakdowns),
+        breakdowns: freezeTimingBreakdowns({
+            ...sandboxTrace.breakdowns,
+            ...(uiTrace.breakdowns.presentation
+                ? { presentation: uiTrace.breakdowns.presentation }
+                : {}),
+        }),
     };
 }
 
@@ -301,6 +331,20 @@ export function isTimingTrace(value: unknown): value is TimingTrace {
         return false;
     }
     const breakdowns = candidate.breakdowns as Record<string, unknown>;
+    if (breakdowns.presentation !== undefined) {
+        const frames = breakdowns.presentation as PresentationTiming;
+        if (
+            !frames ||
+            typeof frames !== "object" ||
+            [frames.firstFrameMs, frames.secondFrameMs].some(
+                (value) =>
+                    typeof value !== "number" ||
+                    !Number.isFinite(value) ||
+                    value < 0,
+            )
+        )
+            return false;
+    }
     if (!isFontToImageConversionBreakdown(breakdowns.fontToImageConversion))
         return false;
     if (
@@ -340,6 +384,32 @@ export function isTimingTrace(value: unknown): value is TimingTrace {
             return false;
         }
     }
+    if (candidate.exportValidation !== undefined) {
+        const timing = candidate.exportValidation as ExportValidationTiming;
+        if (
+            !timing ||
+            typeof timing !== "object" ||
+            typeof timing.cacheHit !== "boolean" ||
+            !["valid", "failed", "crashed", "skipped", "superseded"].includes(
+                timing.outcome,
+            ) ||
+            [
+                "sourcePreparationMs",
+                "queueMs",
+                "compilationMs",
+                "totalMs",
+                "completedAtEpochMs",
+            ].some((key) => {
+                const value = timing[key as keyof ExportValidationTiming];
+                return (
+                    typeof value !== "number" ||
+                    !Number.isFinite(value) ||
+                    value < 0
+                );
+            })
+        )
+            return false;
+    }
     const phases = candidate.phases as Record<string, unknown>;
     return (
         (candidate.captureMetrics === undefined ||
@@ -359,6 +429,13 @@ export function isTimingTrace(value: unknown): value is TimingTrace {
 export function isCaptureMetrics(value: unknown): value is CaptureMetrics {
     if (typeof value !== "object" || value === null) return false;
     const candidate = value as Record<string, unknown>;
+    if (
+        candidate.sourceCacheHit !== undefined &&
+        typeof candidate.sourceCacheHit !== "boolean"
+    )
+        return false;
+    if (candidate.timings !== undefined && !isCaptureTimings(candidate.timings))
+        return false;
     const counts = ["requests", "exports", "cacheHits"] as const;
     if (
         typeof candidate.durationMs !== "number" ||
@@ -392,6 +469,33 @@ export function isCaptureMetrics(value: unknown): value is CaptureMetrics {
                 return false;
         }
     }
+    if (candidate.work && typeof candidate.work === "object") {
+        const work = candidate.work as Record<string, unknown>;
+        for (const [mapKey, countKey] of [
+            ["pngByType", "pngExports"],
+            ["svgByType", "svgExports"],
+        ]) {
+            const map = work[mapKey];
+            if (map === undefined) continue;
+            if (!map || typeof map !== "object" || Array.isArray(map))
+                return false;
+            const counts = Object.values(map);
+            if (
+                counts.some(
+                    (count) =>
+                        typeof count !== "number" ||
+                        !Number.isSafeInteger(count) ||
+                        count < 0,
+                ) ||
+                counts.reduce(
+                    (sum: number, count) => sum + (count as number),
+                    0,
+                ) !== work[countKey]
+            )
+                return false;
+        }
+    }
+
     const requests = candidate.requests as number;
     const exports = candidate.exports as number;
     const cacheHits = candidate.cacheHits as number;

@@ -3,7 +3,7 @@
 
 //! This module contains the GraphicsWindow that used to be within corelib.
 
-// cspell:ignore accesskit borderless corelib nesw webgl winit winsys xlib
+// cspell:ignore accesskit borderless capslock corelib nesw webgl winit winsys xlib
 
 use core::cell::{Cell, RefCell};
 #[cfg(target_os = "macos")]
@@ -1328,6 +1328,25 @@ impl WinitWindowAdapter {
         // that we only update the internal maximized state when the window is
         // not minimized. Otherwise, the window would be restored in a
         // non-maximized state even if it was maximized before being minimized.
+        //
+        // On macOS, winit's `is_maximized` temporarily makes a window titled and resizable.
+        // AppKit then moves the window below the menu bar and emits another resize
+        // (rust-windowing/winit#4071).
+        // The user can't zoom a window that lacks either, so the last requested state is accurate.
+        #[cfg(target_os = "macos")]
+        let maximized = if crate::macos::ns_view(&winit_window)
+            .and_then(|view| view.window())
+            .is_some_and(|ns_window| {
+                use objc2_app_kit::NSWindowStyleMask;
+                ns_window
+                    .styleMask()
+                    .contains(NSWindowStyleMask::Titled | NSWindowStyleMask::Resizable)
+            }) {
+            winit_window.is_maximized()
+        } else {
+            self.maximized.get()
+        };
+        #[cfg(not(target_os = "macos"))]
         let maximized = winit_window.is_maximized();
         if !self.window().is_minimized() {
             self.maximized.set(maximized);
@@ -1476,7 +1495,18 @@ impl WinitWindowAdapter {
         match event {
             WinitWindowEvent::RedrawRequested => self.draw()?,
             WinitWindowEvent::Resized(size) => {
-                let resized = self.resize_event(*size);
+                // winit has a bug where it defers a Resize event if it is raised at the same time
+                // as an event handler, which might happen if something's size is responsively
+                // changing while the user is also dragging to resize the window. Then that event
+                // comes back around when the user finishes dragging, but it still has the old size
+                // from the time it was raised.
+                //
+                // TODO: remove this when we have a version of winit featuring the following change:
+                // <https://github.com/rust-windowing/winit/pull/4625>
+                let size =
+                    if cfg!(target_os = "macos") { winit_window.surface_size() } else { *size };
+
+                let resized = self.resize_event(size);
 
                 // Entering fullscreen, maximizing or minimizing the window will
                 // trigger a resize event. We need to update the internal window
@@ -1618,6 +1648,20 @@ impl WinitWindowAdapter {
                 };
 
                 self.dispatch_internal_event(event);
+            }
+            WinitWindowEvent::ModifiersChanged(modifiers) => {
+                // A modifier's release can arrive as a key that doesn't map to the modifier,
+                // such as Shift's `Caps_Lock` level with xkb's `shift:both_capslock_cancel` (#14429).
+                let state = modifiers.state();
+                let mut held = corelib::items::KeyboardModifiers::default();
+                held.alt = state.alt_key();
+                held.shift = state.shift_key();
+                (held.control, held.meta) = if i_slint_core::is_apple_platform() {
+                    (state.super_key(), state.control_key())
+                } else {
+                    (state.control_key(), state.super_key())
+                };
+                WindowInner::from_pub(self.window()).release_modifiers_not_held(held);
             }
             WinitWindowEvent::Ime(winit::event::Ime::Preedit(string, preedit_selection)) => {
                 let event = InternalKeyEvent {

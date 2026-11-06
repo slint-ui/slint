@@ -1,10 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Properties } from "properties.slint";
+
 import { Style, Metrics, Typography, Colors } from "style.slint";
 import "./assets/Inter-VariableFont.ttf";
 
-import { Api, CoordinateSpace, EditorSurfaceMode, ElementKind, Hover, InspectorCommitResult, InlineTextEdit, InlineTextEditStart } from "api.slint";
+import { Api, CoordinateSpace, EditorSurfaceMode, ElementKind, Hover, InlineTextEdit, InlineTextEditStart } from "api.slint";
 import { Project } from "project.slint";
 import { Snapping } from "snapping.slint";
 import { Diagnostics } from "diagnostics.slint";
@@ -30,8 +32,8 @@ import { EditorTopBar } from "components/top-bar.slint";
 import { UpdateStatus, UpdateStatusBar, UpdateStatusPill } from "components/update-status.slint";
 
 export {
-    Api, CanvasView, EditorCursors, EditorWindow, Style, ElementVisuals, FillSession, FillSessionRequest,
-    FillSessionTarget, ShadowSession, ShadowGesture, ShadowValues, InspectorCommitResult, Hover, InlineTextEdit, InlineTextEditStart, Preview, Project, Snapping, Springboard,
+    Api, Properties, CanvasView, EditorCursors, EditorWindow, Style, ElementVisuals, FillSession, FillSessionRequest,
+    FillSessionTarget, ShadowSession, ShadowGesture, ShadowValues, Hover, InlineTextEdit, InlineTextEditStart, Preview, Project, Snapping, Springboard,
 }
 
 export component EditorUi inherits Window {
@@ -434,6 +436,24 @@ export component EditorUi inherits Window {
                 reject
             }
 
+            KeyBinding {
+                keys: @keys(Control + C);
+                enabled: Diagnostics.preview-editable && Api.selection.highlight-index >= 0;
+                activated => Api.selected-element-copy();
+            }
+
+            KeyBinding {
+                keys: @keys(Control + X);
+                enabled: Diagnostics.preview-editable && Api.selection.highlight-index >= 0;
+                activated => Api.selected-element-cut();
+            }
+
+            KeyBinding {
+                keys: @keys(Control + V);
+                enabled: Diagnostics.preview-editable && (CanvasView.pointer-inside || Api.selection.highlight-index >= 0);
+                activated => Api.paste-element(CanvasView.pointer-inside, CanvasView.pointer.x, CanvasView.pointer.y);
+            }
+
             focus-lost => {
                 self.nudge-key-held = false;
                 self.write-nudge();
@@ -673,7 +693,7 @@ export component EditorUi inherits Window {
                     if event.kind == PointerEventKind.down {
                         let position = { x: self.absolute-position.x + self.mouse-x, y: self.absolute-position.y + self.mouse-y };
                         if event.button != PointerEventButton.left || !FillSession.focus-anchor(position) {
-                            Api.dismiss-fill-picker(position, event.button);
+                            Properties.dismiss-fill-picker(position, event.button);
                         }
                     }
                 }

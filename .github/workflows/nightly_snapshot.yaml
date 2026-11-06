@@ -59,10 +59,8 @@ jobs:
             developer_id: ${{ secrets.APPLE_DEV_ID }}
     docs:
         uses: ./.github/workflows/build_docs.yaml
-        secrets: inherit
         with:
           release: ${{ github.event.inputs.mode == 'release' }}
-          app-id: ${{ vars.READ_WRITE_APP_ID }}
           slint-sc-coverage: true
 
     wasm_demo:
@@ -316,7 +314,7 @@ jobs:
               working-directory: editors/vscode
               run: pnpm install --frozen-lockfile
             - name: Install wasm-pack
-              run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+              run: curl https://wasm-bindgen.github.io/wasm-pack/installer/init.sh -sSf | sh
             - name: Package the extension
               id: package
               working-directory: editors/vscode
@@ -831,12 +829,12 @@ jobs:
               uses: actions/cache@v6
               with:
                   path: ~/.cargo/bin/cargo-apk2
-                  key: cargo-apk2-1.4.2
+                  key: cargo-apk2-1.5.0
             - uses: dtolnay/rust-toolchain@stable
               if: steps.cargo-apk2-cache.outputs.cache-hit != 'true'
             - name: Install cargo-apk2
               if: steps.cargo-apk2-cache.outputs.cache-hit != 'true'
-              run: cargo install --locked cargo-apk2@1.4.2
+              run: cargo install --locked cargo-apk2@1.5.0
 
             # Stable with arm64-v8a for the cargo-apk2 demos.
             - uses: ./.github/actions/setup-rust

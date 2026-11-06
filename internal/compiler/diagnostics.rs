@@ -52,6 +52,8 @@ pub struct SourceFileInner {
 
     /// The offset of each linebreak
     line_offsets: std::sync::OnceLock<Vec<usize>>,
+
+    edition: std::sync::OnceLock<crate::project_file::SlintEdition>,
 }
 
 impl std::fmt::Debug for SourceFileInner {
@@ -62,11 +64,21 @@ impl std::fmt::Debug for SourceFileInner {
 
 impl SourceFileInner {
     pub fn new(path: SourcePath, source: String) -> Self {
-        Self { path, source: Some(source), line_offsets: Default::default() }
+        Self { path, source: Some(source), ..Default::default() }
     }
 
     pub fn path(&self) -> &SourcePath {
         &self.path
+    }
+
+    /// The edition of the project that the file belongs to.
+    pub fn edition(&self) -> Option<crate::project_file::SlintEdition> {
+        self.edition.get().copied()
+    }
+
+    /// Sets the edition of the file, unless it's already set.
+    pub(crate) fn set_edition(&self, edition: crate::project_file::SlintEdition) {
+        let _ = self.edition.set(edition);
     }
 
     /// Create a SourceFile that has just a path, but no contents
@@ -258,6 +270,10 @@ pub struct Diagnostic {
 
 //NOTE! Diagnostic is re-exported in the public API of the interpreter
 impl Diagnostic {
+    pub(crate) fn error(message: String, span: SourceLocation) -> Self {
+        Self { message, span, level: DiagnosticLevel::Error }
+    }
+
     /// Return the level for this diagnostic
     pub fn level(&self) -> DiagnosticLevel {
         self.level

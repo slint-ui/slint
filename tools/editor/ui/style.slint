@@ -1005,7 +1005,7 @@ export global LightTheme {
     out property <color> drop-background: #eaf5ff;
 
     out property <PaletteRowStyle> palette-row: {
-        hover: LightTheme.colors.subtle,
+        hover: LightTheme.tree-row.hover-background,
         selected: LightTheme.colors.subtle-selection,
         foreground: LightTheme.colors.foreground,
         selected-foreground: LightTheme.colors.focus,
@@ -1283,7 +1283,7 @@ export global DarkTheme {
     out property <color> drop-background: DarkTheme.colors.accent.with-alpha(0.14);
 
     out property <PaletteRowStyle> palette-row: {
-        hover: DarkTheme.colors.subtle,
+        hover: root.neutral-700,
         selected: DarkTheme.colors.subtle-selection,
         foreground: DarkTheme.colors.foreground,
         selected-foreground: DarkTheme.colors.focus,
@@ -2070,12 +2070,6 @@ export global Style {
 }
 
 export global ViewerStyle {
-    // Keep toolbar dimensions independent of the larger popup geometry.
-    out property <float> pill-scale: 2 / 3;
-    out property <float> scale: 0.8;
-    out property <length> radius: 17px * root.pill-scale;
-    out property <length> inset: 12px * root.scale;
-    out property <length> row-height: 47px * root.scale;
     out property <bool> dark: Theme.current == ThemeKind.dark;
     out property <color> ink: Colors.foreground;
     out property <color> muted: Colors.muted;

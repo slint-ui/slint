@@ -12,8 +12,8 @@ use crate::api::{
 use crate::cursor::{MouseCursorHandling, MouseCursorInner};
 use crate::input::{
     BackendDragEvent, ClickState, DragData, FocusEvent, FocusReason, InternalKeyEvent,
-    KeyEventResult, KeyEventType, Keys, MouseEvent, MouseInputState, PointerEventButton,
-    TextCursorBlinker, TouchHistory, TouchPhase, TouchState, key_codes,
+    KeyEventResult, KeyEventType, KeyboardModifiers, Keys, MouseEvent, MouseInputState,
+    PointerEventButton, TextCursorBlinker, TouchHistory, TouchPhase, TouchState, key_codes,
 };
 use crate::item_tree::{
     ItemRc, ItemTreeRc, ItemTreeRef, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak, ItemWeak,
@@ -870,6 +870,11 @@ impl WindowInner {
         crate::debug_log!("Slint: long callback/instantiation chain detected");
     }
 
+    /// When this window is a native popup, the window that lists it in its active popups.
+    fn parent_window_adapter(&self) -> Option<WindowAdapterRc> {
+        self.window_adapter().internal(crate::InternalToken)?.get_parent()
+    }
+
     /// Returns a slice of the active popups.
     pub fn active_popups(&self) -> core::cell::Ref<'_, [PopupWindow]> {
         core::cell::Ref::map(self.active_popups.borrow(), |v| v.as_slice())
@@ -1020,10 +1025,7 @@ impl WindowInner {
             );
         }
 
-        let parent_adapter = window_adapter
-            .internal(crate::InternalToken)
-            .and_then(|internal| internal.get_parent())
-            .unwrap_or_else(|| window_adapter.clone());
+        let parent_adapter = self.parent_window_adapter().unwrap_or_else(|| window_adapter.clone());
         let active_popups = &WindowInner::from_pub(parent_adapter.window()).active_popups;
         let native_popup_index =
             active_popups.borrow().iter().position(|p| p.is_native_window(&window_adapter));
@@ -1447,15 +1449,7 @@ impl WindowInner {
             && internal_key_event.key_event.text.starts_with(key_codes::Escape)
         {
             // Closes top most popup on ESC key pressed when policy is not no-auto-close
-
-            // Try to get the parent window in case `self` is the popup itself
-            let mut adapter = self.window_adapter();
-            let item_tree = self.component();
-            let mut a = None;
-            ItemTreeRc::borrow_pin(&item_tree).as_ref().window_adapter(false, &mut a);
-            if let Some(a) = a {
-                adapter = a;
-            }
+            let adapter = self.parent_window_adapter().unwrap_or_else(|| self.window_adapter());
             let window = WindowInner::from_pub(adapter.window());
 
             let close_on_escape = if let Some(popup) = window.active_popups.borrow().last() {
@@ -1777,6 +1771,13 @@ impl WindowInner {
         if !have_focus {
             self.context().modifiers().take();
         }
+    }
+
+    /// Releases the keyboard modifiers that the platform reports as not held.
+    /// Call it when the platform reports the modifier state.
+    pub fn release_modifiers_not_held(&self, held: KeyboardModifiers) {
+        let modifiers = self.context().modifiers();
+        modifiers.set(modifiers.get().release_not_held(held));
     }
 
     /// Returns true of the window is the active window. That typically implies having the
@@ -2429,10 +2430,7 @@ impl WindowInner {
     /// when the user starts moving the parent window.
     pub fn close_as_popup(&self) -> bool {
         let window_adapter = self.window_adapter();
-        let Some(parent_adapter) = window_adapter
-            .internal(crate::InternalToken)
-            .and_then(|internal| internal.get_parent())
-        else {
+        let Some(parent_adapter) = self.parent_window_adapter() else {
             return false;
         };
         let parent = WindowInner::from_pub(parent_adapter.window());
