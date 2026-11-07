@@ -18,6 +18,9 @@ global Theme {
     out property <color> faint: #f2efe650;
     out property <color> accent: #f5c400;
     out property <color> accent-light: #ffd84a;
+    /// The upper and lower halves of a lit flap.
+    out property <color> lit-upper: #ffd21f;
+    out property <color> lit-lower: #e3b400;
     /// Behind the globe on the entry screen.
     out property <color> background: #060606;
     out property <color> surface: #0d0e10;
@@ -244,7 +247,7 @@ component Flaps {
     in property <color> color: Theme.text;
     /// Shows all of the text on one flap.
     in property <bool> whole;
-    /// Dark on yellow, like a sign.
+    /// Dark on the accent color, like a sign.
     in property <bool> lit;
     /// How long the flaps show a text before they flip to a newer one.
     in property <duration> hold: 50ms;
@@ -275,8 +278,8 @@ component Flaps {
         flip-duration: root.flip-duration;
         size: root.size;
         ink: root.lit ? #111111 : root.color;
-        upper: root.lit ? #ffd21f : #2a2b30;
-        lower: root.lit ? #e3b400 : #18191c;
+        upper: root.lit ? Theme.lit-upper : #2a2b30;
+        lower: root.lit ? Theme.lit-lower : #18191c;
     }
 }
 
@@ -482,7 +485,7 @@ component FlightCard inherits Glass {
                 }
             }
 
-            // The progress along the route, as tiles that turn yellow.
+            // The progress along the route, as tiles that light up.
             Rectangle {
                 property <int> tiles: 14;
                 property <length> tiles-y: origin-code.height / 2 + 6px;
