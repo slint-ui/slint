@@ -354,7 +354,7 @@ Slint owns the entry point on Android, as in the C++ API:
 2. `NativeActivity` loads `libslint_dotnet.so`, named by the `android.app.lib_name` meta-data,
    and android-activity runs `android_main` in `api/dotnet/native/android.rs` on a thread of its own.
 3. `android_main` installs Slint's Android platform, claims that thread as the Slint thread, and calls the entry point,
-   which extracts the `.slint` assets and runs `SlintMain`.
+   which extracts the `.slint` assets, if there are any, and runs `SlintMain`.
 4. The platform's event listener passes Android's activity events back to C#, while `Run` polls them:
    the saved state, and the pause, resume, and low-memory events.
 
@@ -362,10 +362,11 @@ Slint's state is thread-local, and `SLINT_THREAD` stays with the first thread,
 so a second `android_main` in the same process can't use Slint.
 `SlintActivity` handles configuration changes itself, and ends the process in `OnDestroy`.
 
-An APK has no output directory.
-On Android, `Slint.targets` adds the files of `SlintFile` and `SlintProject` items as assets under `slint/`,
+An APK has no output directory, so `SlintEmbedFiles` is on by default on Android and iOS,
+and the assembly embeds the `.slint` files with the images and fonts they use.
+With `SlintEmbedFiles=false`, `Slint.targets` adds only the files of `SlintFile` and `SlintProject` items as assets under `slint/`,
 at the paths that the generated code loads, and their runtime paths stay relative even with `SlintCopyToOutput=false`.
-`SlintActivity` extracts them to its files directory and sets `GeneratedApi.BaseDirectory`.
+`SlintActivity` then extracts them to its files directory and sets `GeneratedApi.BaseDirectory`.
 
 The `net10.0-android` build of `Slint.csproj` needs the .NET Android workload, so it's only built with `SlintAndroid=true`,
 in `obj/android` and `bin/android`.
@@ -406,8 +407,9 @@ An iOS app embeds `slint-dotnet` as a dynamic framework, like SkiaSharp and the 
 - For a `net10.0-ios` app, `Slint.targets` adds it as a `NativeReference` of kind `Framework`,
   from `ios/` in the package, outside `runtimes/` so that NuGet doesn't treat it as native assets.
 - `NativeLibraryResolver` loads `@rpath/slint_dotnet.framework/slint_dotnet` on iOS, so `Slint.dll` needs no iOS build.
-- `Slint.targets` adds the `.slint` files as bundle resources, at the paths that the generated code loads relative to the bundle,
-  and keeps the desktop library that `Slint.csproj` copies out of the app.
+- The assembly embeds the `.slint` files, as on Android.
+  With `SlintEmbedFiles=false`, `Slint.targets` adds them as bundle resources instead, at the paths that the generated code loads relative to the bundle.
+- `Slint.targets` keeps the desktop library that `Slint.csproj` copies out of the app.
 
 ```sh
 scripts/build_dotnet_ios.sh
@@ -687,9 +689,14 @@ Next:
       That dry run also caught a bug in `Slint.targets`, which failed every desktop build from the packages, now fixed,
       and a second dry run passed every job.
       Published in 1.19.0-preview.10, with the templates of item 20.
-    - Phase 4, in progress:
+    - Phase 4, done, retested on 2026-11-07 with 1.20.0:
       - On an iPhone 13 with iOS, signed by a free personal team, Release builds of the todo example and lols work.
         lols reaches 202,000 to 210,000 LOL/s in canvas mode and 880 LOL/s in elements mode, like the Motorola edge 60 neo.
+      - On the iPhone, the todo example takes text from the on-screen keyboard, keeps its list across the background,
+        and follows rotation; an app from `dotnet new slint-ios` with the preview.11 packages of nuget.org starts.
+      - Apps on Android and iOS lacked the images of their `.slint` files, such as the todo example's window icon,
+        since only the `.slint` files went into the APK or the bundle.
+        `SlintEmbedFiles` is now on by default there, and the assembly embeds the images too.
       - The OpenGL samples run without their OpenGL content on iOS, as designed: Slint renders with Skia through WGPU on Metal,
         and its rendering notifier offers no OpenGL there. The plotter, which draws 3D in C#, works.
       - The app lifecycle needs no bindings: UIKit's notifications, which .NET for iOS offers in C#, arrive on the main thread,
@@ -698,10 +705,10 @@ Next:
       - Native AOT works on the iPhone, with `PublishAot` in the app's project and `dotnet publish -r ios-arm64`:
         the app has no Mono runtime or assemblies, only its executable and the framework.
         The iOS SDK takes `PublishAot` only when publishing for a device, and as `-p:`, it would also reach `Slint.csproj`.
-      - Postponed until .NET 11, like on Android: Hot Reload on iOS.
-        `dotnet watch` needs `--device` with more than one simulator booted,
-        and the iOS SDK refuses it unless Mono's interpreter is on, with `UseInterpreter` in the project,
-        since iOS allows no JIT; `.slint` live reload would also need the changed files in the app's container.
+    - Later, postponed until .NET 11, like on Android: Hot Reload on iOS.
+      `dotnet watch` needs `--device` with more than one simulator booted,
+      and the iOS SDK refuses it unless Mono's interpreter is on, with `UseInterpreter` in the project,
+      since iOS allows no JIT; `.slint` live reload would also need the changed files in the app's container.
     - Later, postponed: drawing with Metal from C#. Slint's notifier hands over Rust `wgpu` objects, and only behind an unstable feature,
       so it would need the `MTLDevice` and command queue under WGPU as raw pointers, which the `Metal` API of .NET for iOS could use,
       and a way to show a Metal texture in an `Image`, both new work in Slint.
@@ -817,7 +824,7 @@ Next:
       it now excludes only `target_os = "unknown"`, like the interpreter's web-only code.
     - The todo example runs as one executable from a single-file publish, and with Native AOT as the executable and the library;
       the gallery runs with its images and German translation, on the desktop and in the browser.
-    - Live preview still loads the source files, and Android and iOS keep their assets and bundle resources.
+    - Live preview still loads the source files.
   - Phase 2, postponed until an app needs it, static linking for Native AOT: `<DirectPInvoke Include="slint_dotnet" />`
     and `<NativeLibrary Include="slint_dotnet.lib" />` link the native library into the executable.
     It needs a `staticlib` build of `api/dotnet/native` for each runtime identifier, with the C runtime that Native AOT links,
