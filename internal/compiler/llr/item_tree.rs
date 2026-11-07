@@ -170,6 +170,11 @@ pub struct BindingExpression {
     /// The amount of time this binding is used.
     /// Only valid after the [`count_property_use`](super::optim_passes::count_property_use) pass.
     pub use_count: Cell<usize>,
+
+    /// Whether a global or a parent ends up holding this binding, so that it can run after the
+    /// sub component that set it is gone.
+    /// Only valid after the [`mark_outliving_bindings`](super::optim_passes::mark_outliving_bindings) pass.
+    pub can_outlive_sub_component: Cell<bool>,
 }
 
 #[derive(Debug, Clone)]

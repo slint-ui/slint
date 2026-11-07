@@ -813,7 +813,13 @@ fn lower_sub_component(
 
             sub_component.property_init.push((
                 prop.clone(),
-                BindingExpression { expression, animation, kind, use_count: 0.into() },
+                BindingExpression {
+                    expression,
+                    animation,
+                    kind,
+                    use_count: 0.into(),
+                    can_outlive_sub_component: false.into(),
+                },
             ));
         }
 
@@ -1666,6 +1672,7 @@ fn lower_global_expressions(
                 animation: None,
                 kind: if is_constant { BindingKind::Constant } else { BindingKind::Normal },
                 use_count: 0.into(),
+                can_outlive_sub_component: false.into(),
             },
         );
     }

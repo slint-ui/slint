@@ -297,8 +297,14 @@ fn install_property_init(
                 i_slint_compiler::llr::NativeMemberKind::Property => {
                     let expr = mut_expression_clone(&binding.expression);
                     let weak_sub_eval = weak_sub.clone();
+                    let sc = &instance.compilation_unit.sub_components[instance.sub_component_idx];
+                    let ty = sc.items[*item_index].ty.lookup_property(prop_name).cloned();
                     let closure: Box<dyn Fn() -> Value> = Box::new(move || {
-                        let Some(owner) = weak_sub_eval.upgrade() else { return Value::Void };
+                        let Some(owner) = weak_sub_eval.upgrade() else {
+                            return ty
+                                .as_ref()
+                                .map_or(Value::Void, crate::eval::default_value_for_type);
+                        };
                         let mut ctx = EvalContext::new(Pin::new(owner));
                         eval_expression(&mut ctx, &expr)
                     });
@@ -412,8 +418,11 @@ fn install_property_binding(
         return;
     }
 
+    let property_ty = ty.clone();
     let binding_fn: Box<dyn Fn() -> Value> = Box::new(move || {
-        let Some(owner) = weak_sub_eval.upgrade() else { return Value::Void };
+        let Some(owner) = weak_sub_eval.upgrade() else {
+            return crate::eval::default_value_for_type(&property_ty);
+        };
         let mut ctx = EvalContext::new(Pin::new(owner));
         eval_expression(&mut ctx, &expr)
     });
