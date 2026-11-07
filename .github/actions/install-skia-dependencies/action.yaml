@@ -11,12 +11,14 @@ runs:
         # libclang must not be newer than the clang bundled with Visual Studio,
         # otherwise bindgen ends up parsing VS's older clang resource headers
         # (mmintrin.h & friends) with a libclang that no longer knows their
-        # builtins. VS 2022 bundles clang 19; newer images bundle clang >= 20
-        # and work with the LLVM preinstalled on the image.
+        # builtins. VS 2022 bundles clang 19; newer VS bundles clang >= 20
+        # and works with the LLVM preinstalled on the image.
+        # Blacksmith's Windows 2025 image still has VS 2022.
         - name: Pin LLVM to match the Visual Studio 2022 bundled clang
           if: runner.os == 'Windows'
           run: |
-              if [ "$ImageOS" = "win22" ]; then
+              vs=$(cygpath -u "$("/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe" -latest -property installationPath)")
+              if [ -d "$vs/VC/Tools/Llvm/x64/lib/clang/19" ]; then
                   # The download from GitHub sometimes fails with HTTP 504.
                   choco upgrade llvm --version "19.1.7" --allow-downgrade \
                       || { sleep 10 && choco upgrade llvm --version "19.1.7" --allow-downgrade; }
