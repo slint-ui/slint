@@ -507,6 +507,7 @@ module.exports = grammar({
           $.value,
           $.gradient_call,
           $.image_call,
+          $.from_json_call,
           $.reference_identifier,
           $.simple_identifier,
           $.function_call,
@@ -856,6 +857,14 @@ module.exports = grammar({
         ")",
       ),
 
+    from_json_call: ($) =>
+      seq(
+        field("name", $.from_json_identifier),
+        "(",
+        field("path", $.string_value),
+        ")",
+      ),
+
     typed_identifier: ($) =>
       seq(field("name", $.simple_identifier), ":", field("type", $.type)),
 
@@ -1030,6 +1039,7 @@ module.exports = grammar({
     radial_gradient_kind: (_) => choice("circle", "ellipse"),
     conic_gradient_identifier: (_) =>
       choice("@conic-gradient", "@conic_gradient"),
+    from_json_identifier: (_) => choice("@from-json", "@from_json"),
 
     reference_identifier: (_) => choice("parent", "root", "self"),
 
