@@ -1,0 +1,33 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { TabWidget } from "std-widgets.slint";
+import { TabBarItem } from "std-widget-interfaces.slint";
+
+component Bar {
+    in property <[TabBarItem]> tabs;
+    in property <Orientation> orientation;
+    in-out property <int> current-index;
+    out property <int> focused-index: -1;
+    public function focus-tab(index: int) { }
+    @children
+}
+
+component Pages inherits TabWidget {
+    bar << Bar { }
+    Tab { title: "Page"; }
+}
+
+export component Test inherits Window {
+    standard := TabWidget { Tab { title: "Standard"; } }
+    custom := TabWidget { bar << Bar { } Tab { title: "Custom"; } }
+    inherited := Pages { }
+    init => {
+        standard.orientation = Orientation.vertical;
+//      >                                         <error{The property must be known at compile time and cannot be changed at runtime}
+        custom.orientation = Orientation.vertical;
+//      >                                       <error{The property must be known at compile time and cannot be changed at runtime}
+        inherited.orientation = Orientation.vertical;
+//      >                                          <error{The property must be known at compile time and cannot be changed at runtime}
+    }
+}

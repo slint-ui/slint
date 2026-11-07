@@ -82,3 +82,35 @@ TabWidget {
 }
 ```
 </SlintProperty>
+
+## Custom Headers
+
+The experimental `header` slot replaces one tab's header while keeping its page content in the same declaration.
+Enable the `interfaces` and `named-slots` experimental features.
+The supplied component must provide `TabHeaderInterface` from `std-widget-interfaces.slint`.
+Custom headers require a custom `bar`.
+
+```slint no-test
+TabWidget {
+    bar << ApplicationTabBar { }
+    Tab {
+        title: "Downloads";
+        header << DownloadsTabHeader { }
+        DownloadsPage { }
+    }
+}
+```
+
+The widget supplies the header's `title`, `selected`, and `focused` inputs.
+Emit `activated()` to select the page and focus its header.
+Ordinary Tab children remain page content; only the header slot goes into the bar.
+Individual headers don't need their own keyboard focus scopes; the bar manages keyboard navigation.
+
+## Custom Bars
+
+The experimental `bar` slot replaces the arrangement of all headers, including the default style's headers.
+The supplied component must provide `TabBarInterface` from `std-widget-interfaces.slint` and accept the generated headers as children.
+
+The widget supplies `tabs` and `orientation`, and connects `current-index` and `focused-index`.
+Each `tabs` entry contains its `index` and `title`.
+The bar must expose `focus-tab(index)` for header activation.

@@ -133,7 +133,7 @@ pub async fn run_passes(
         lower_typed_slots::prepare(component, &doc.local_registry);
     });
     lower_tooltips::lower_tooltips(doc, type_loader, diag).await;
-    lower_tabwidget::lower_tabwidget(doc, type_loader, diag).await;
+    lower_tabwidget::lower_tabwidget(doc, type_loader, &mut forwarded_references, diag).await;
     lower_radiogroup::lower_radiogroup(doc, type_loader, diag).await;
     lower_menus::lower_menus(doc, type_loader, diag).await;
     lower_component_container::lower_component_container(doc, type_loader, diag);
