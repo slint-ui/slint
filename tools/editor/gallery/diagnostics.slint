@@ -36,8 +36,9 @@ export component DiagnosticsGalleryWindow inherits Window {
         Project.selected-project-file = "Main.slint";
         Project.file-tree = [
             { label: "Sample project", path: "/mock/project", kind: FileTreeNodeKind.folder, has-children: true, is-expanded: true },
-            { label: "Main.slint", path: "/mock/project/Main.slint", kind: FileTreeNodeKind.file, is-slint-file: true, is-selected: true, indent-level: 1 },
+            { label: "Main.slint", path: "/mock/project/Main.slint", parent-path: "/mock/project", kind: FileTreeNodeKind.file, is-slint-file: true, is-selected: true, indent-level: 1 },
             { label: "components", path: "/mock/project/components", kind: FileTreeNodeKind.folder, has-children: true, indent-level: 1 },
+            { label: "Card.slint", path: "/mock/project/components/Card.slint", parent-path: "/mock/project/components", kind: FileTreeNodeKind.file, is-slint-file: true },
         ];
     }
 

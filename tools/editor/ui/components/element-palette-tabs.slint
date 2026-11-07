@@ -62,23 +62,24 @@ component ElementPaletteTab inherits ButtonBase {
 export component ElementPaletteTabs inherits FocusScope {
     in property <ElementPaletteTabStyle> style: Style.element-palette-tab;
     in-out property <int> selected;
+    in property <[string]> labels: [@tr("Primitives"), @tr("Libraries"), @tr("Project")];
+    in property <string> accessible-name: @tr("Element sources");
+    private property <bool> request-focus;
     height: 32px;
     focus-on-tab-navigation: false;
     accessible-role: tab-list;
-    accessible-label: @tr("Element sources");
+    accessible-label: root.accessible-name;
 
     function select(index: int) {
         root.selected = index;
-        if index == 0 { primitives.focus(); }
-        else if index == 1 { libraries.focus(); }
-        else { project.focus(); }
+        root.request-focus = true;
     }
     key-pressed(event) => {
         if event.modifiers.control || event.modifiers.alt || event.modifiers.meta { return reject; }
-        if event.text == Key.LeftArrow { root.select(mod(root.selected + 2, 3)); return accept; }
-        if event.text == Key.RightArrow { root.select(mod(root.selected + 1, 3)); return accept; }
+        if event.text == Key.LeftArrow { root.select(mod(root.selected + root.labels.length - 1, root.labels.length)); return accept; }
+        if event.text == Key.RightArrow { root.select(mod(root.selected + 1, root.labels.length)); return accept; }
         if event.text == Key.Home { root.select(0); return accept; }
-        if event.text == Key.End { root.select(2); return accept; }
+        if event.text == Key.End { root.select(root.labels.length - 1); return accept; }
         return reject;
     }
     Rectangle {
@@ -93,23 +94,15 @@ export component ElementPaletteTabs inherits FocusScope {
             clip: true;
             HorizontalLayout {
                 spacing: 0.5px;
-                primitives := ElementPaletteTab {
+                for label[index] in root.labels: ElementPaletteTab {
+                    private property <bool> focus-requested: root.request-focus && root.selected == index;
+                    changed focus-requested => {
+                        if self.focus-requested { self.focus(); }
+                    }
                     style: root.style;
-                    text: @tr("Primitives");
-                    checked: root.selected == 0;
-                    clicked => { root.selected = 0; }
-                }
-                libraries := ElementPaletteTab {
-                    style: root.style;
-                    text: @tr("Libraries");
-                    checked: root.selected == 1;
-                    clicked => { root.selected = 1; }
-                }
-                project := ElementPaletteTab {
-                    style: root.style;
-                    text: @tr("Project");
-                    checked: root.selected == 2;
-                    clicked => { root.selected = 2; }
+                    text: label;
+                    checked: root.selected == index;
+                    clicked => { root.selected = index; }
                 }
             }
         }
