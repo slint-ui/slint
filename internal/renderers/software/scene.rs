@@ -4,10 +4,12 @@
 //! This is the module contain data structures for a scene of items that can be rendered
 
 use super::box_shadow::BoxShadowCommand;
+use super::shape_coverage::ShapeCoverage;
 use super::{
     Fixed, PhysicalBorderRadius, PhysicalLength, PhysicalPoint, PhysicalRect, PhysicalRegion,
     PhysicalSize, PremultipliedRgbaColor, RenderingRotation,
 };
+use alloc::rc::Rc;
 use alloc::vec::Vec;
 use euclid::Length;
 use i_slint_core::Color;
@@ -20,6 +22,7 @@ use i_slint_core::lengths::{PhysicalPx, PointLengths as _, SizeLengths as _};
 pub struct SceneVectors {
     pub textures: Vec<SceneTexture<'static>>,
     pub rounded_rectangles: Vec<RoundedRectangle>,
+    pub shaped_rectangles: Vec<ShapedRectangle>,
     pub shared_buffers: Vec<SharedBufferCommand>,
     pub linear_gradients: Vec<LinearGradientCommand>,
     pub radial_gradients: Vec<RadialGradientCommand>,
@@ -360,6 +363,10 @@ pub enum SceneCommand {
     RoundedRectangle {
         rectangle_index: u16,
     },
+    /// rectangle_index is an index in the [`SceneVectors::shaped_rectangles`] array
+    ShapedRectangle {
+        rectangle_index: u16,
+    },
     /// linear_gradient_index is an index in the [`SceneVectors::linear_gradients`] array
     LinearGradient {
         linear_gradient_index: u16,
@@ -642,9 +649,27 @@ pub struct RoundedShape {
     pub bottom_clip: PhysicalLength,
 }
 
+/// A shape that clips a command.
+#[derive(Debug, Clone)]
+pub enum ShapeClip {
+    Rounded(RoundedShapeClip),
+    /// A shape whose corners have a `CornerShape`, in screen coordinates.
+    Shaped(Rc<ShapeCoverage<1>>),
+}
+
+impl ShapeClip {
+    /// Whether the clip has an effect on a command in `geometry`.
+    pub fn clips(&self, geometry: &PhysicalRect) -> bool {
+        match self {
+            Self::Rounded(clip) => clip.touches_corner(geometry.size),
+            Self::Shaped(coverage) => !coverage.opaque.contains_rect(geometry),
+        }
+    }
+}
+
 /// A rounded shape that clips a command.
 #[derive(Debug, Default, Clone, Copy)]
-pub struct ShapeClip {
+pub struct RoundedShapeClip {
     pub shape: RoundedShape,
     /// The width of an opaque border drawn over the command, or 0.
     /// When set, the command is clipped without anti-aliasing to the border's inner edge.
@@ -652,7 +677,7 @@ pub struct ShapeClip {
     pub opaque_border: PhysicalLength,
 }
 
-impl ShapeClip {
+impl RoundedShapeClip {
     /// Whether a command of `size` reaches into one of the shape's rounded corners.
     /// Outside of them, the clip has no effect.
     pub fn touches_corner(&self, size: PhysicalSize) -> bool {
@@ -686,6 +711,15 @@ pub struct RoundedRectangle {
     pub width: PhysicalLength,
     pub border_color: PremultipliedRgbaColor,
     pub inner_color: PremultipliedRgbaColor,
+}
+
+/// A rectangle whose corners have a `CornerShape`.
+#[derive(Debug)]
+pub struct ShapedRectangle {
+    /// The coverage of the background, and of the border over it.
+    pub coverage: ShapeCoverage<2>,
+    pub background: PremultipliedRgbaColor,
+    pub border: PremultipliedRgbaColor,
 }
 
 pub enum AnyGradientCommand {
@@ -942,8 +976,8 @@ fn next_line_keeps_exactly_the_items_on_the_current_line() {
 
 #[test]
 fn touches_corner() {
-    let clip =
-        |radius: PhysicalBorderRadius, left: i16, top: i16, right: i16, bottom: i16| ShapeClip {
+    let clip = |radius: PhysicalBorderRadius, left: i16, top: i16, right: i16, bottom: i16| {
+        RoundedShapeClip {
             shape: RoundedShape {
                 radius,
                 left_clip: Length::new(left),
@@ -952,7 +986,8 @@ fn touches_corner() {
                 bottom_clip: Length::new(bottom),
             },
             opaque_border: PhysicalLength::new(0),
-        };
+        }
+    };
     let size = PhysicalSize::new(10, 10);
     let all = PhysicalBorderRadius::new_uniform(4);
     // The whole shape.

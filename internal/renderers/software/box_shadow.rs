@@ -4,13 +4,16 @@
 //! Box shadows, blurred analytically line by line, without a texture.
 
 use super::draw_functions::{PremultipliedRgbaColor, TargetPixel};
+use super::shape_coverage::{Point, ShapeCoverage, to_u8};
 use super::{
     Fixed, PhysicalLength, PhysicalRect, PhysicalSize, ProcessScene, RotationInfo, RoundedClip,
-    Transform, target_pixel_buffer,
+    ShapedRectangle, Transform, target_pixel_buffer,
 };
 use alloc::vec::Vec;
 use i_slint_core::graphics::BorderRadius;
 use i_slint_core::graphics::boxshadow::BoxShadowOptions;
+use i_slint_core::graphics::corner_geometry::{Contour, offset_outline};
+use i_slint_core::item_rendering::BorderRectLayout;
 use i_slint_core::lengths::{PhysicalPx, PointLengths};
 use i_slint_core::{Brush, Color};
 #[allow(unused_imports)]
@@ -41,6 +44,18 @@ pub(super) fn process_drop_shadow(
     if color.alpha() == 0 || options.shape_size().is_empty() {
         return;
     }
+    if options.corner_shape.rounded_rect_radius(options.radius).is_none() {
+        process_shaped_drop_shadow(
+            processor,
+            options,
+            origin,
+            color,
+            clip,
+            rounded_clips,
+            rotation,
+        );
+        return;
+    }
     let spread = options.spread.get();
     type Radius = BorderRadius<f32, PhysicalPx>;
     let mut shapes = [(euclid::Rect::zero(), Radius::default(), 0.); MAX_SHADOW_SHAPES];
@@ -58,26 +73,12 @@ pub(super) fn process_drop_shadow(
             1.,
         );
     } else {
-        // The blur is evaluated analytically, which needs each shape's alpha to be uniform,
-        // so a translucent gradient counts as opaque.
-        let alpha = |brush: &Brush| match brush {
-            Brush::SolidColor(c) => c.alpha() as f32 / 255.,
-            Brush::LinearGradient(_) | Brush::RadialGradient(_) | Brush::ConicGradient(_)
-                if brush.is_transparent() =>
-            {
-                0.
-            }
-            _ => 1.,
-        };
-        let fill = alpha(background);
-        let border = if layout.border_width.get() > 0. { alpha(&layout.border_color) } else { 0. };
-        // The border is stroked centered on `border_rect`, between an outer edge O and an
-        // inner edge I, over the fill F, with I ⊆ F ⊆ O. Its alpha is
-        // fill·F + border·(O − I) − fill·border·(F − I).
+        // The border is stroked centered on `border_rect`.
+        let [fill, outer, inner] = source_weights(background, layout);
         let half = layout.border_width.get() / 2.;
         let r = layout.border_radius;
         let grow = |r: f32| if r > 0. { r + half } else { 0. };
-        push(layout.background_rect, layout.background_radius, fill * (1. - border));
+        push(layout.background_rect, layout.background_radius, fill);
         push(
             layout.border_rect.inflate(half, half),
             Radius::new(
@@ -86,13 +87,9 @@ pub(super) fn process_drop_shadow(
                 grow(r.bottom_right),
                 grow(r.bottom_left),
             ),
-            border,
+            outer,
         );
-        push(
-            layout.border_rect.inflate(-half, -half),
-            r.inner(euclid::Length::new(half)),
-            -border * (1. - fill),
-        );
+        push(layout.border_rect.inflate(-half, -half), r.inner(euclid::Length::new(half)), inner);
     }
     let shapes = &mut shapes[..shape_count];
     for (rect, radius, _) in shapes.iter_mut() {
@@ -135,15 +132,130 @@ pub(super) fn process_drop_shadow(
     else {
         return;
     };
-    // The shadow is point sampled at pixel centers, which aliases once σ nears a pixel.
-    // Adding the variance of a pixel's box filter, 1/12 px², keeps the edges anti-aliased.
-    let sigma = (options.blur_sigma().powi(2) + 1. / 12.).sqrt();
-    for (rect, ..) in shapes.iter_mut() {
-        *rect = rect.translate(-geometry.origin.cast::<f32>().to_vector());
-    }
+    let sigma = point_sampled_sigma(options);
+    let outlines: [_; MAX_SHADOW_SHAPES] = core::array::from_fn(|i| {
+        let (rect, radius, weight) = shapes.get(i).copied().unwrap_or_default();
+        let rect = rect.translate(-geometry.origin.cast::<f32>().to_vector());
+        (ShadowOutline::Rounded(rect, radius), weight)
+    });
     processor.process_box_shadow(
         geometry,
-        BoxShadowCommand::new(geometry.size, shapes, sigma, color.into()),
+        BoxShadowCommand::new(geometry.size, &outlines[..shapes.len()], sigma, color.into()),
+        rounded_clips,
+    );
+}
+
+/// The standard deviation of the blur of `options`.
+fn point_sampled_sigma(options: &BoxShadowOptions) -> f32 {
+    // The shadow is point sampled at pixel centers, which aliases once σ nears a pixel.
+    // Adding the variance of a pixel's box filter, 1/12 px², keeps the edges anti-aliased.
+    (options.blur_sigma().powi(2) + 1. / 12.).sqrt()
+}
+
+/// The alpha of `brush`, which the analytic blur needs to be uniform over a shape,
+/// so a translucent gradient counts as opaque.
+fn uniform_alpha(brush: &Brush) -> f32 {
+    match brush {
+        Brush::SolidColor(c) => c.alpha() as f32 / 255.,
+        Brush::LinearGradient(_) | Brush::RadialGradient(_) | Brush::ConicGradient(_)
+            if brush.is_transparent() =>
+        {
+            0.
+        }
+        _ => 1.,
+    }
+}
+
+/// The weights of the fill F of a translucent source, and of its border's outer edge O and
+/// inner edge I, with I ⊆ F ⊆ O.
+/// The source's alpha is fill·F + border·(O − I) − fill·border·(F − I).
+fn source_weights(background: &Brush, layout: &BorderRectLayout) -> [f32; 3] {
+    let fill = uniform_alpha(background);
+    let border =
+        if layout.border_width.get() > 0. { uniform_alpha(&layout.border_color) } else { 0. };
+    [fill * (1. - border), border, -border * (1. - fill)]
+}
+
+/// [`process_drop_shadow`] for corners with a `CornerShape`.
+fn process_shaped_drop_shadow(
+    processor: &mut dyn ProcessScene,
+    options: &BoxShadowOptions,
+    origin: euclid::Point2D<f32, PhysicalPx>,
+    color: Color,
+    clip: &PhysicalRect,
+    rounded_clips: &[RoundedClip],
+    rotation: RotationInfo,
+) {
+    let Some((background, layout)) = &options.source else { return };
+    let spread = options.spread.get();
+    let mut shapes: Vec<(Vec<Vec<Point>>, f32)> = Vec::new();
+    let mut push = |contour: Contour, weight: f32| {
+        let polygons = rotation.screen_polygons(contour, origin.to_vector());
+        if weight != 0. && polygons.iter().any(|polygon| polygon.len() > 2) {
+            shapes.push((polygons, weight));
+        }
+    };
+    if options.opaque_source_radius().is_some() {
+        let geometry =
+            euclid::Rect::from_size(euclid::size2(options.width.get(), options.height.get()));
+        push(offset_outline(geometry, options.radius, options.corner_shape, spread), 1.);
+    } else {
+        let Some((fill_contour, border)) = layout.shaped_contours(spread) else { return };
+        let [fill, outer, inner] = source_weights(background, layout);
+        push(fill_contour, fill);
+        if let Some(border) = border {
+            push(border.outer, outer);
+            push(border.inner, inner);
+        }
+    }
+    let blur = options.blur.get();
+
+    if blur <= 0. {
+        // Without a blur, the shapes' exact coverage anti-aliases the edges.
+        let layers: [&[Vec<Point>]; MAX_SHADOW_SHAPES] =
+            core::array::from_fn(|i| shapes.get(i).map_or(&[][..], |(polygons, _)| polygons));
+        let weights: [f32; MAX_SHADOW_SHAPES] =
+            core::array::from_fn(|i| shapes.get(i).map_or(0., |(_, weight)| *weight));
+        let Some(coverage) = ShapeCoverage::new(layers, clip, |coverage| {
+            [to_u8(coverage.iter().zip(weights).map(|(c, w)| c * w).sum()), 0]
+        }) else {
+            return;
+        };
+        if let Some(geometry) = coverage.rect.intersection(clip) {
+            let background = color.into();
+            let border = Default::default();
+            processor.process_shaped_rectangle(
+                geometry,
+                ShapedRectangle { coverage, background, border },
+                rounded_clips,
+            );
+        }
+        return;
+    }
+
+    let support = euclid::default::Box2D::from_points(
+        shapes.iter().flat_map(|(polygons, _)| polygons.iter().flatten()),
+    )
+    .inflate(blur, blur);
+    let Some(geometry) = euclid::Rect::<f32, PhysicalPx>::from_untyped(&support.to_rect())
+        .round_out()
+        .intersection(&clip.cast())
+        .and_then(|r| r.try_cast::<i16>())
+    else {
+        return;
+    };
+    let sigma = point_sampled_sigma(options);
+    let to_geometry = geometry.origin.cast::<f32>().to_vector().to_untyped();
+    for p in shapes.iter_mut().flat_map(|(polygons, _)| polygons.iter_mut().flatten()) {
+        *p -= to_geometry;
+    }
+    let outlines: Vec<_> = shapes
+        .iter()
+        .map(|(polygons, weight)| (ShadowOutline::Shaped(polygons), *weight))
+        .collect();
+    processor.process_box_shadow(
+        geometry,
+        BoxShadowCommand::new(geometry.size, &outlines, sigma, color.into()),
         rounded_clips,
     );
 }
@@ -283,25 +395,37 @@ struct ShadowShape {
     top: Fixed<i32, 8>,
     right: Fixed<i32, 8>,
     bottom: Fixed<i32, 8>,
+    /// Unused with [`ShapedEdges`].
     radius: BorderRadius<Fixed<i32, 8>, PhysicalPx>,
     /// In Q15, negative to cut a shape out of the others.
     weight: i32,
 }
 
 impl ShadowShape {
-    /// Where the top corner curves end and the bottom ones start.
-    fn curve_bounds(&self) -> (Fixed<i32, 8>, Fixed<i32, 8>) {
+    /// Where the top corner curves end and the bottom ones start, from `edges` if the shape
+    /// has them.
+    fn curve_bounds(&self, edges: Option<&ShapedEdges>) -> (Fixed<i32, 8>, Fixed<i32, 8>) {
         let radius = &self.radius;
-        let top_curve_end = (self.top + radius.top_left.max(radius.top_right)).min(self.bottom);
-        let bottom_curve_start =
-            (self.bottom - radius.bottom_left.max(radius.bottom_right)).max(top_curve_end);
-        (top_curve_end, bottom_curve_start)
+        let (top_curve_end, bottom_curve_start) = match edges {
+            Some(edges) => edges.curve_bounds(),
+            None => (
+                self.top + radius.top_left.max(radius.top_right),
+                self.bottom - radius.bottom_left.max(radius.bottom_right),
+            ),
+        };
+        let top_curve_end = top_curve_end.min(self.bottom);
+        (top_curve_end, bottom_curve_start.max(top_curve_end))
     }
 
     /// Whether any of the `height` rows can be drawn from a [`StraightRowProfile`].
-    fn has_straight_rows(&self, sigma: Fixed<i32, 8>, height: i32) -> bool {
+    fn has_straight_rows(
+        &self,
+        edges: Option<&ShapedEdges>,
+        sigma: Fixed<i32, 8>,
+        height: i32,
+    ) -> bool {
         let cutoff = Gaussian::new(sigma).cutoff();
-        let (top_curve_end, bottom_curve_start) = self.curve_bounds();
+        let (top_curve_end, bottom_curve_start) = self.curve_bounds(edges);
         let first = if top_curve_end > self.top {
             first_pixel_at(top_curve_end + cutoff).max(0)
         } else {
@@ -319,10 +443,133 @@ impl ShadowShape {
 /// The most shapes a [`BoxShadowCommand`] combines.
 const MAX_SHADOW_SHAPES: usize = 3;
 
+/// The outline of one of the shapes of a [`BoxShadowCommand`].
+#[derive(Clone, Copy)]
+pub(super) enum ShadowOutline<'a> {
+    Rounded(euclid::Rect<f32, PhysicalPx>, BorderRadius<f32, PhysicalPx>),
+    /// Corners with a `CornerShape`, as disjoint polygons.
+    Shaped(&'a [Vec<Point>]),
+}
+
+/// The left and right edges of a shape whose corners have a `CornerShape`, sampled on the
+/// rows at its top and bottom where they aren't straight.
+#[derive(Debug)]
+struct ShapedEdges {
+    /// Between the samples.
+    step: Fixed<i32, 8>,
+    /// Where `top` starts.
+    top_y: Fixed<i32, 8>,
+    top: Vec<(Fixed<i32, 8>, Fixed<i32, 8>)>,
+    /// Where `bottom` starts.
+    bottom_y: Fixed<i32, 8>,
+    bottom: Vec<(Fixed<i32, 8>, Fixed<i32, 8>)>,
+}
+
+/// The most samples [`ShapedEdges`] takes over a shape's height, bounding the cost of a huge
+/// shape.
+const MAX_EDGE_SAMPLES: i32 = 4096;
+
+impl ShapedEdges {
+    /// The edges of `polygons`, clamped to the bounds that `shape` holds.
+    fn new(polygons: &[Vec<Point>], shape: &ShadowShape) -> Self {
+        let fixed = |v: f32| Fixed::<i32, 8>((v * 256.).round() as i32);
+        let (top, bottom) = (shape.top, shape.bottom);
+        let step = Fixed(((bottom - top).0 / MAX_EDGE_SAMPLES + 1).max(32));
+        let count = ((bottom - top).0 / step.0 + 1) as usize;
+        let sample = |i: usize| {
+            let y_fixed = top + step * i as i32;
+            let y = y_fixed.0 as f32 / 256.;
+            let (mut x0, mut x1) = (f32::INFINITY, f32::NEG_INFINITY);
+            for polygon in polygons {
+                let Some(&last) = polygon.last() else { continue };
+                let mut from = last;
+                for &to in polygon {
+                    let (a, b) = if from.y < to.y { (from, to) } else { (to, from) };
+                    from = to;
+                    if a.y == b.y || y_fixed < fixed(a.y) || y_fixed > fixed(b.y) {
+                        continue;
+                    }
+                    let x = a.x + (b.x - a.x) * ((y - a.y) / (b.y - a.y)).clamp(0., 1.);
+                    (x0, x1) = (x0.min(x), x1.max(x));
+                }
+            }
+            if x0 > x1 {
+                return (shape.left, shape.left);
+            }
+            let clamp = |x: f32| fixed(x).clamp(shape.left, shape.right);
+            (clamp(x0), clamp(x1))
+        };
+        // Rows whose edges are the bounds' are straight.
+        let close = |a: Fixed<i32, 8>, b: Fixed<i32, 8>| (a - b).0.abs() <= 1;
+        let straight = |&(x0, x1): &(Fixed<i32, 8>, Fixed<i32, 8>)| {
+            close(x0, shape.left) && close(x1, shape.right)
+        };
+        // Only the rows down to the first straight one, and up to the last, are sampled.
+        let mut top_samples = Vec::new();
+        for i in 0..count {
+            let s = sample(i);
+            top_samples.push(s);
+            if straight(&s) {
+                break;
+            }
+        }
+        let top_end = top_samples.len() - 1;
+        let mut bottom_samples = Vec::new();
+        let mut bottom_start = count - 1;
+        if straight(&top_samples[top_end]) {
+            for i in (top_end..count).rev() {
+                let s = sample(i);
+                bottom_samples.push(s);
+                bottom_start = i;
+                if straight(&s) {
+                    break;
+                }
+            }
+            bottom_samples.reverse();
+        } else {
+            bottom_samples.push(top_samples[top_end]);
+        }
+        Self {
+            step,
+            top_y: top,
+            top: top_samples,
+            bottom_y: top + step * bottom_start as i32,
+            bottom: bottom_samples,
+        }
+    }
+
+    /// Where the curved rows at the top end and those at the bottom start.
+    fn curve_bounds(&self) -> (Fixed<i32, 8>, Fixed<i32, 8>) {
+        (self.top_y + self.step * (self.top.len() as i32 - 1), self.bottom_y)
+    }
+
+    /// The edges at `y`, or `None` where they're straight.
+    fn at(&self, y: Fixed<i32, 8>) -> Option<(Fixed<i32, 8>, Fixed<i32, 8>)> {
+        let interpolate = |samples: &[(Fixed<i32, 8>, Fixed<i32, 8>)], offset: Fixed<i32, 8>| {
+            let i = (offset.0 / self.step.0) as usize;
+            let (a, b) = (*samples.get(i)?, *samples.get(i + 1).unwrap_or(&samples[i]));
+            let t = offset.0 % self.step.0;
+            let lerp = |a: Fixed<i32, 8>, b: Fixed<i32, 8>| {
+                Fixed(a.0 + ((b.0 - a.0) as i64 * t as i64 / self.step.0 as i64) as i32)
+            };
+            Some((lerp(a.0, b.0), lerp(a.1, b.1)))
+        };
+        if y < self.top_y {
+            self.top.first().copied()
+        } else if y >= self.bottom_y {
+            interpolate(&self.bottom, y - self.bottom_y).or_else(|| self.bottom.last().copied())
+        } else {
+            interpolate(&self.top, y - self.top_y)
+        }
+    }
+}
+
 /// A blurred drop shadow: a weighted sum of rounded rectangles, convolved with a Gaussian.
 #[derive(Debug)]
 pub struct BoxShadowCommand {
     shapes: [ShadowShape; MAX_SHADOW_SHAPES],
+    /// The edges of the shapes whose corners have a `CornerShape`.
+    edges: [Option<ShapedEdges>; MAX_SHADOW_SHAPES],
     shape_count: u8,
     sigma: Fixed<i32, 8>,
     color: PremultipliedRgbaColor,
@@ -341,7 +588,7 @@ impl BoxShadowCommand {
     /// The shapes are relative to the origin of the geometry of `size` they're drawn in.
     pub(super) fn new(
         size: PhysicalSize,
-        shapes: &[(euclid::Rect<f32, PhysicalPx>, BorderRadius<f32, PhysicalPx>, f32)],
+        shapes: &[(ShadowOutline, f32)],
         sigma: f32,
         mut color: PremultipliedRgbaColor,
     ) -> Self {
@@ -355,12 +602,22 @@ impl BoxShadowCommand {
         let height = Fixed::from_integer(size.height as i32);
         let mut command = Self {
             shapes: Default::default(),
+            edges: Default::default(),
             shape_count: shapes.len() as u8,
             sigma,
             color,
             profile: None,
         };
-        for (shape, &(rect, radius, weight)) in command.shapes.iter_mut().zip(shapes) {
+        for ((shape, edges), &(outline, weight)) in
+            command.shapes.iter_mut().zip(&mut command.edges).zip(shapes)
+        {
+            let (rect, radius) = match outline {
+                ShadowOutline::Rounded(rect, radius) => (rect, radius),
+                ShadowOutline::Shaped(polygons) => {
+                    let bounds = euclid::default::Box2D::from_points(polygons.iter().flatten());
+                    (euclid::Rect::from_untyped(&bounds.to_rect()), Default::default())
+                }
+            };
             let radius = BorderRadius::new(
                 fixed(radius.top_left),
                 fixed(radius.top_right),
@@ -378,20 +635,24 @@ impl BoxShadowCommand {
                 radius,
                 weight: (weight * GAUSSIAN_ONE as f32).round() as i32,
             };
+            if let ShadowOutline::Shaped(polygons) = outline {
+                *edges = Some(ShapedEdges::new(polygons, shape));
+            }
         }
-        if let [shape] = &mut command.shapes[..shapes.len()] {
+        if let ([shape], [edges, ..]) = (&mut command.shapes[..shapes.len()], &command.edges) {
             // A single shape's weight scales the color instead, which the profile needs.
             color = scale_color(color, (shape.weight.max(0) as u32) << 1).unwrap_or_default();
             command.color = color;
             shape.weight = GAUSSIAN_ONE as i32;
-            command.profile = shape.has_straight_rows(sigma, size.height as i32).then(|| {
-                StraightRowProfile::new(
-                    size.width as i32,
-                    shape.left,
-                    shape.right,
-                    Gaussian::new(sigma),
-                )
-            });
+            command.profile =
+                shape.has_straight_rows(edges.as_ref(), sigma, size.height as i32).then(|| {
+                    StraightRowProfile::new(
+                        size.width as i32,
+                        shape.left,
+                        shape.right,
+                        Gaussian::new(sigma),
+                    )
+                });
         }
         command
     }
@@ -485,6 +746,7 @@ fn corner_inset(r: Fixed<i32, 8>, distance: Fixed<i32, 8>) -> Fixed<i32, 8> {
 /// and returns their count.
 fn shape_bands(
     shape: &ShadowShape,
+    edges: Option<&ShapedEdges>,
     gaussian: Gaussian,
     y_center: Fixed<i32, 8>,
     bands: &mut [Band],
@@ -500,7 +762,7 @@ fn shape_bands(
         return 0;
     }
 
-    let (top_curve_end, bottom_curve_start) = shape.curve_bounds();
+    let (top_curve_end, bottom_curve_start) = shape.curve_bounds(edges);
     let in_window = |a: Fixed<i32, 8>, b: Fixed<i32, 8>| (a.max(window_top), b.min(window_bottom));
     let intervals = [
         (in_window(top, top_curve_end), true),
@@ -536,12 +798,16 @@ fn shape_bands(
             if weight == 0 {
                 continue;
             }
-            let x0 = left
-                + corner_inset(radius.top_left, middle - top)
-                    .max(corner_inset(radius.bottom_left, bottom - middle));
-            let x1 = right
-                - corner_inset(radius.top_right, middle - top)
-                    .max(corner_inset(radius.bottom_right, bottom - middle));
+            let (x0, x1) = match edges {
+                Some(edges) => edges.at(middle).unwrap_or((left, right)),
+                None => (
+                    left + corner_inset(radius.top_left, middle - top)
+                        .max(corner_inset(radius.bottom_left, bottom - middle)),
+                    right
+                        - corner_inset(radius.top_right, middle - top)
+                            .max(corner_inset(radius.bottom_right, bottom - middle)),
+                ),
+            };
             let close = |a: Fixed<i32, 8>, b: Fixed<i32, 8>| (a - b).0.abs() <= sigma.0;
             match band_count.checked_sub(1).map(|last| &mut bands[last]) {
                 Some(last)
@@ -607,7 +873,7 @@ pub(super) fn draw_box_shadow_line(
     if let (Some(profile), [shape]) = (profile, shadow.shapes()) {
         let window_top = shape.top.max(y_center - cutoff);
         let window_bottom = shape.bottom.min(y_center + cutoff);
-        let (top_curve_end, bottom_curve_start) = shape.curve_bounds();
+        let (top_curve_end, bottom_curve_start) = shape.curve_bounds(shadow.edges[0].as_ref());
         if window_top < window_bottom
             && window_top >= top_curve_end
             && window_bottom <= bottom_curve_start
@@ -621,8 +887,9 @@ pub(super) fn draw_box_shadow_line(
 
     let mut bands = [Band::default(); MAX_SHADOW_SHAPES * MAX_BANDS];
     let mut band_count = 0;
-    for shape in shadow.shapes() {
-        band_count += shape_bands(shape, gaussian, y_center, &mut bands[band_count..][..MAX_BANDS]);
+    for (shape, edges) in shadow.shapes().iter().zip(&shadow.edges) {
+        let bands = &mut bands[band_count..][..MAX_BANDS];
+        band_count += shape_bands(shape, edges.as_ref(), gaussian, y_center, bands);
     }
     let bands = &bands[..band_count];
     // Pixels this far inside every band see the CDFs saturate, so their coverage is constant.
@@ -751,6 +1018,7 @@ impl BoxShadowCommand {
     ) -> Self {
         Self {
             shapes: [shape, Default::default(), Default::default()],
+            edges: Default::default(),
             shape_count: 1,
             sigma,
             color,
@@ -926,14 +1194,14 @@ fn box_shadow_has_straight_rows_matches_a_row_scan() {
             weight: GAUSSIAN_ONE as i32,
         };
         let cutoff = Gaussian::new(Fixed(sigma)).cutoff();
-        let (top_curve_end, bottom_curve_start) = shape.curve_bounds();
+        let (top_curve_end, bottom_curve_start) = shape.curve_bounds(None);
         let scanned = (0..height).any(|line| {
             let y_center = Fixed::from_integer(line) + HALF_PIXEL;
             shape.top.max(y_center - cutoff) >= top_curve_end
                 && shape.bottom.min(y_center + cutoff) <= bottom_curve_start
         });
         assert_eq!(
-            shape.has_straight_rows(Fixed(sigma), height),
+            shape.has_straight_rows(None, Fixed(sigma), height),
             scanned,
             "top {top}, sigma {sigma}"
         );
@@ -1183,4 +1451,48 @@ fn drop_shadow_of_huge_shape_matches_a_smaller_one() {
     let huge_blur =
         render_drop_shadow(screen_size, &options(3e7, 3e7, 3e7), euclid::point2(-1e7, -1e7));
     assert!(huge_blur.iter().any(|p| p.alpha > 0));
+}
+
+#[test]
+fn shaped_shadow_of_round_corners_matches_a_rounded_one() {
+    use super::PhysicalPoint;
+    use i_slint_core::graphics::{CornerShape, CornerShapes};
+    let white = PremultipliedRgbaColor { red: 255, green: 255, blue: 255, alpha: 255 };
+    let size = PhysicalSize::new(120, 100);
+    let span = PhysicalRect::new(PhysicalPoint::new(0, 0), size);
+    let rect = euclid::rect(20.3, 15.6, 70.4, 61.);
+    let radius = BorderRadius::new(17., 6.5, 25., 0.);
+    let polygons = offset_outline(
+        rect.to_untyped(),
+        radius,
+        CornerShapes::new_uniform(CornerShape::Round),
+        0.,
+    )
+    .into_polygons();
+    for sigma in [0.3, 1.2, 3.7, 9.] {
+        // The flattened arcs stray up to 0.05 px inside the circle, which shifts the blurred
+        // edge by as much, so the coverage by up to 0.05 px times the Gaussian's peak density.
+        let tolerance = 2. + 255. * 0.05 * 0.4 / sigma;
+        let rounded = BoxShadowCommand::new(
+            size,
+            &[(ShadowOutline::Rounded(rect, radius), 1.)],
+            sigma,
+            white,
+        );
+        let shaped =
+            BoxShadowCommand::new(size, &[(ShadowOutline::Shaped(&polygons), 1.)], sigma, white);
+        for line in 0..size.height {
+            let draw = |shadow: &BoxShadowCommand| {
+                let mut buffer = [PremultipliedRgbaColor::default(); 120];
+                draw_box_shadow_line(&span, PhysicalLength::new(line), shadow, &mut buffer, 0);
+                buffer.map(|pixel| pixel.alpha)
+            };
+            for (x, (a, b)) in draw(&rounded).into_iter().zip(draw(&shaped)).enumerate() {
+                assert!(
+                    a.abs_diff(b) as f32 <= tolerance,
+                    "sigma {sigma}, line {line}, x {x}: {a} vs {b}"
+                );
+            }
+        }
+    }
 }
