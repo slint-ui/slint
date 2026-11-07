@@ -15,6 +15,27 @@ export component InspectorLayoutAlignmentSection inherits InspectorSection {
         padding-left: root.style.padding;
         spacing: Metrics.space-compact;
 
+        if InspectorContext.is-flexbox-layout-selection(): Row {
+            InspectorFieldLabel {
+                text: @tr("Direction");
+                vertical-alignment: center;
+                horizontal-stretch: 0;
+            }
+
+            InspectorComboBox {
+                accessible-name: @tr("Flex Direction");
+                value: InspectorEnumOptions.option-label("flex-direction", "row", InspectorEnumOptions.flex-direction-options);
+                selected-index: InspectorEnumOptions.option-index("flex-direction", "row", InspectorEnumOptions.flex-direction-options);
+                options: InspectorEnumOptions.flex-direction-options;
+                popup-available-height: max(Style.inspector-field.height, root.popup-bottom - self.absolute-position.y - Metrics.space-medium);
+                accepted(text) => {
+                    return text != "" && InspectorContext.commit-enum("flex-direction", text);
+                }
+            }
+
+            Rectangle { }
+        }
+
         Row {
             InspectorFieldLabel {
                 text: @tr("Main axis");
