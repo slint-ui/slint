@@ -7,8 +7,9 @@
   with the images and fonts they use and the bundled translations, instead of copying them next to the app.
   It's on by default with `PublishSingleFile`, and with Native AOT the output is the executable and the native library.
   See [Publishing](README.md#publishing).
-- Desktop apps start faster: the build compiles the `.slint` files, with their images and fonts,
-  and the app runs the result instead of compiling them at startup, such as 17 ms instead of 106 ms for the gallery example.
+- Apps start faster: the build compiles the `.slint` files, with their images and fonts,
+  and the app runs the result instead of compiling them at startup.
+  Creating the gallery example takes 17 ms instead of 106 ms on the desktop, and 165 ms instead of 385 ms in the browser.
   Set `SlintPrecompile` to `false` to compile them at startup, as before.
 - On Android and iOS, apps show the images that their `.slint` files use, such as a window icon,
   since `SlintEmbedFiles` is on by default there.

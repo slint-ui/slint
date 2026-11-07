@@ -201,8 +201,8 @@ Set these properties to change the generated code:
 - `SlintEmbedFiles`: `true` to embed the `.slint` files in the assembly instead of copying them, see [Publishing](#publishing).
   It's on by default on Android and iOS.
 - `SlintPrecompile`: `false` to compile the `.slint` files when the app starts.
-  By default on the desktop, the build compiles them, and the app starts without compiling them again,
-  such as about 90 ms sooner for the gallery example.
+  By default, the build compiles them, and the app starts without compiling them again,
+  such as about 90 ms sooner for the gallery example on the desktop, and 220 ms sooner in the browser.
   With `SLINT_STYLE` set to a style other than the build's, the app compiles them at startup.
 - `SlintIncludePaths`: directories that imports search, separated by semicolons.
 

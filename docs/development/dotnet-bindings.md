@@ -930,7 +930,15 @@ Next:
     - A unit fixes the style, from `SlintStyle` or else `fluent`, and `SlintStyle=native` writes no unit.
     - `llr::bundle` records the Slint version, so a unit of another version compiles instead,
       but two builds of one version can't tell apart a change of the format.
-  - Phase 2, 2–3 days: the browser, Android, and iOS, with the startup measured on each; the browser gains the most.
+  - Phase 2, done: units on Android, iOS, and in the browser, where `SlintPrecompile` is now on by default too.
+    `App.Create()`, or `MainWindow.Create()` of the todo example, in release builds:
+    - The gallery in Chrome with the GPU: 165 ms instead of 385 ms; reading the unit takes 22 ms, and the instance 110 ms.
+      Headless Chrome with SwiftShader, as in CI, spends 400 to 600 ms creating the WebGL context, so it can't measure this.
+    - The todo example on the Pixel 9 emulator: 24 ms instead of 57 ms.
+    - The todo example on an iPhone 13: 73 to 95 ms instead of 99 to 133 ms,
+      both with the 50 to 70 ms of creating the platform, which is the first call into `slint-dotnet` there.
+    - The gallery renders its icons from the unit in the browser, and the browser test steps of CI pass.
+    - Android and iOS apps embed the `.slint` files too, for the fallback, which a unit of the same build never takes.
   - Phase 3, 2–3 days: the test driver runs every case from units too, and the documentation, What's New, and CI.
 
 - **28.** Mapsui for Slint, in a branch `slint` of a fork of [Mapsui](https://github.com/Mapsui/Mapsui), MIT licensed, 3–4 weeks:

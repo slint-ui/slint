@@ -39,7 +39,7 @@
                         a single-file publish needs no ui/ directory, and an Android or iOS app has the images they use;
                         on by default with PublishSingleFile, and on Android and iOS
     SlintPrecompile     false makes the generated code compile the .slint files at startup, instead of running
-                        the unit that the build compiles them to; true by default on the desktop.
+                        the unit that the build compiles them to; true by default.
                         The generated code also compiles them when SLINT_STYLE names another style.
     SlintLivePreview    true makes the generated code load the .slint files from their source directory,
                         and reload components when the files change; for development only.
@@ -64,7 +64,7 @@
     <_SlintEmbed Condition="'$(_SlintBrowser)' == 'true' or '$(SlintEmbedFiles)' == 'true'">true</_SlintEmbed>
     <_SlintFromSource Condition="'$(SlintCopyToOutput)' == 'false' and '$(_SlintOnDevice)' != 'true'">true</_SlintFromSource>
     <_SlintLiveAllowed Condition="'$(_SlintOnDevice)' != 'true' and '$(_SlintBrowser)' != 'true'">true</_SlintLiveAllowed>
-    <SlintPrecompile Condition="'$(SlintPrecompile)' == '' and '$(_SlintOnDevice)' != 'true' and '$(_SlintBrowser)' != 'true'">true</SlintPrecompile>
+    <SlintPrecompile Condition="'$(SlintPrecompile)' == ''">true</SlintPrecompile>
     <!-- From the package, outside runtimes/ so that NuGet leaves it alone, or else from scripts/build_dotnet_ios.sh in the repository. -->
     <_SlintIOSLibrary Condition="'$(_SlintPlatform)' == 'ios'">$(MSBuildThisFileDirectory)../ios/slint_dotnet.xcframework</_SlintIOSLibrary>
     <_SlintIOSLibrary Condition="'$(_SlintPlatform)' == 'ios' and !Exists('$(_SlintIOSLibrary)')">$(MSBuildThisFileDirectory)../../../../target/ios/slint_dotnet.xcframework</_SlintIOSLibrary>
