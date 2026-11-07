@@ -16,24 +16,24 @@ global Theme {
     out property <color> muted: #98a2b6;
     /// Placeholders and the frame rate, dimmer than `muted`.
     out property <color> faint: #f4efe350;
-    /// Pale champagne, for text, lines, and markers.
-    out property <color> accent: #cdbd98;
-    out property <color> accent-light: #e2d7bd;
-    /// Gold surfaces, such as the primary button: lit from above like polished metal, with a
-    /// faint reflection at the bottom.
-    out property <brush> gold: @linear-gradient(180deg, #f7f1e4 0%, #dcd0b6 22%, #b3a585 47%, #8f8166 53%, #c3b698 78%, #e9e0cc 100%);
-    /// Text and icons on gold.
-    out property <color> on-gold: #0b1528;
+    /// Silver, for text, lines, and markers.
+    out property <color> accent: #c3cad6;
+    out property <color> accent-light: #dfe4ec;
+    /// Metal surfaces, such as the primary button: lit from above like polished silver, with a
+    /// reflection at the bottom.
+    out property <brush> metal: @linear-gradient(180deg, #fbfcfe 0%, #dde2ea 22%, #a9b1bf 47%, #7f8898 53%, #bcc4d0 78%, #e6eaf0 100%);
+    /// Text and icons on metal.
+    out property <color> on-metal: #0b1528;
     /// The upper and lower halves of a flap, and of a lit one.
     out property <color> flap-upper: #1d2a44;
     out property <color> flap-lower: #121c30;
-    out property <brush> lit-upper: @linear-gradient(180deg, #f7f1e4 0%, #c8bb9d 100%);
-    out property <brush> lit-lower: @linear-gradient(180deg, #8f8166 0%, #d8ccb1 100%);
+    out property <brush> lit-upper: @linear-gradient(180deg, #fbfcfe 0%, #bcc4d0 100%);
+    out property <brush> lit-lower: @linear-gradient(180deg, #7f8898 0%, #d6dbe4 100%);
     /// Behind the globe on the entry screen.
     out property <color> background: #040915;
     out property <color> surface: #0b1528;
     out property <color> glass: self.surface.with-alpha(self.blur ? 0.86 : 0.95);
-    out property <color> line: #cdbd9830;
+    out property <color> line: #c3cad630;
     /// A tint over the glass for buttons and fields, and its hover and pressed states.
     out property <color> fill: #ffffff0d;
     out property <color> fill-hover: #ffffff1f;
@@ -255,7 +255,7 @@ component Flaps {
     in property <color> color: Theme.text;
     /// Shows all of the text on one flap.
     in property <bool> whole;
-    /// Dark on gold, like a sign.
+    /// Dark on metal, like a sign.
     in property <bool> lit;
     /// How long the flaps show a text before they flip to a newer one.
     in property <duration> hold: 50ms;
@@ -285,7 +285,7 @@ component Flaps {
         hold: root.hold + index * root.flip-duration * 0.15;
         flip-duration: root.flip-duration;
         size: root.size;
-        ink: root.lit ? Theme.on-gold : root.color;
+        ink: root.lit ? Theme.on-metal : root.color;
         upper: root.lit ? Theme.lit-upper : Theme.flap-upper;
         lower: root.lit ? Theme.lit-lower : Theme.flap-lower;
     }
@@ -298,13 +298,13 @@ component PillButton inherits Rectangle {
     in property <bool> primary;
     in property <bool> enabled: true;
     callback clicked;
-    property <color> ink: root.primary ? Theme.on-gold : Theme.text;
+    property <color> ink: root.primary ? Theme.on-metal : Theme.text;
     height: 36px;
     min-width: content.preferred-width + 28px;
     border-radius: 3px;
     opacity: root.enabled ? 1 : 0.4;
     background: root.primary
-        ? (touch.pressed ? Theme.gold.darker(0.2) : touch.has-hover ? Theme.gold.brighter(0.1) : Theme.gold)
+        ? (touch.pressed ? Theme.metal.darker(0.2) : touch.has-hover ? Theme.metal.brighter(0.1) : Theme.metal)
         : (touch.pressed ? Theme.fill-pressed : touch.has-hover ? Theme.fill-hover : Theme.fill);
     content := HorizontalLayout {
         alignment: center;
@@ -345,7 +345,7 @@ component RoundButton inherits Glass {
     width: 40px;
     height: 40px;
     border-radius: 3px;
-    background: root.checked ? Theme.gold : Theme.glass;
+    background: root.checked ? Theme.metal : Theme.glass;
     Rectangle {
         border-radius: root.border-radius;
         background: touch.pressed ? Theme.fill-pressed : touch.has-hover ? Theme.fill-hover : transparent;
@@ -362,7 +362,7 @@ component RoundButton inherits Glass {
         width: 18px;
         height: 18px;
         source: root.icon;
-        colorize: root.checked ? Theme.on-gold : Theme.text;
+        colorize: root.checked ? Theme.on-metal : Theme.text;
     }
 
     touch := TouchArea {
@@ -505,7 +505,7 @@ component FlightCard inherits Glass {
                     width: (parent.width + 2px) / parent.tiles - 2px;
                     height: 10px;
                     border-radius: 1px;
-                    background: tile < root.flight.progress * parent.tiles ? Theme.gold : Theme.track;
+                    background: tile < root.flight.progress * parent.tiles ? Theme.metal : Theme.track;
                 }
 
                 AircraftIcon {
