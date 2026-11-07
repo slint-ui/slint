@@ -7,19 +7,20 @@ use cpp::*;
 use i_slint_common::sharedfontique::HashedBlob;
 use i_slint_core::DataTransfer;
 use i_slint_core::cursor::{MouseCursorHandling, MouseCursorInner, scaled_hotspot};
+use i_slint_core::graphics::corner_path::{PathSink, contour_path, shaped_paths};
 use i_slint_core::graphics::rendering_metrics_collector::{
     RenderingMetrics, RenderingMetricsCollector,
 };
 use i_slint_core::graphics::{
-    Brush, Color, ImageCacheKey, IntSize, Point, Rgba8Pixel, SharedImageBuffer, SharedPixelBuffer,
-    euclid,
+    Brush, Color, CornerShapes, ImageCacheKey, IntSize, Rgba8Pixel, SharedImageBuffer,
+    SharedPixelBuffer, euclid,
 };
 use i_slint_core::input::{
     BackendDragEvent, BackendMouseEvent, InternalKeyEvent, KeyEvent, KeyEventType, TouchPhase,
 };
 use i_slint_core::item_rendering::{
-    CachedRenderingData, ItemCache, ItemRenderer, RenderBorderRectangle, RenderImage,
-    RenderRectangle, RenderText,
+    BorderRectLayout, CachedRenderingData, ItemCache, ItemRenderer, RenderBorderRectangle,
+    RenderImage, RenderRectangle, RenderText, clip_content_contour,
 };
 use i_slint_core::item_tree::{
     ItemTreeRc, ItemTreeRef, ItemTreeRefPin, ItemTreeWeak, ParentItemTraversalMode,
@@ -689,6 +690,45 @@ impl QPainterPath {
     }
 }
 
+fn to_qpointf(p: lyon_path::math::Point) -> qttypes::QPointF {
+    qttypes::QPointF { x: p.x as _, y: p.y as _ }
+}
+
+/// Builds a `QPainterPath` with the nonzero fill rule, as Qt defaults to even-odd.
+struct WindingPathSink(QPainterPath);
+
+impl Default for WindingPathSink {
+    fn default() -> Self {
+        let mut path = QPainterPath::default();
+        path.set_fill_rule(key_generated::Qt_FillRule_WindingFill);
+        Self(path)
+    }
+}
+
+impl PathSink for WindingPathSink {
+    type Path = QPainterPath;
+    fn move_to(&mut self, to: lyon_path::math::Point) {
+        self.0.move_to(to_qpointf(to));
+    }
+    fn line_to(&mut self, to: lyon_path::math::Point) {
+        self.0.line_to(to_qpointf(to));
+    }
+    fn cubic_to(
+        &mut self,
+        ctrl1: lyon_path::math::Point,
+        ctrl2: lyon_path::math::Point,
+        to: lyon_path::math::Point,
+    ) {
+        self.0.cubic_to(to_qpointf(ctrl1), to_qpointf(ctrl2), to_qpointf(to));
+    }
+    fn close(&mut self) {
+        self.0.close();
+    }
+    fn build(self) -> QPainterPath {
+        self.0
+    }
+}
+
 fn into_qbrush(
     brush: i_slint_core::Brush,
     width: qttypes::qreal,
@@ -876,14 +916,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
         size: LogicalSize,
         _: &CachedRenderingData,
     ) {
-        Self::draw_rectangle_impl(
-            &mut self.painter,
-            check_geometry!(size),
-            rect.background(),
-            rect.border_color(),
-            rect.border_width().get(),
-            rect.border_radius(),
-        );
+        Self::draw_border_rectangle_impl(&mut self.painter, rect, size, rect.background(), true);
     }
 
     fn draw_window_background(
@@ -971,9 +1004,6 @@ impl ItemRenderer for QtItemRenderer<'_> {
         });
 
         for x in path_events.iter() {
-            fn to_qpointf(p: Point) -> qttypes::QPointF {
-                qttypes::QPointF { x: p.x as _, y: p.y as _ }
-            }
             match x {
                 lyon_path::Event::Begin { at } => {
                     painter_path.move_to(to_qpointf(at));
@@ -1046,7 +1076,8 @@ impl ItemRenderer for QtItemRenderer<'_> {
         _size: LogicalSize,
     ) {
         let pixmap : qttypes::QPixmap = self.cache.get_or_update_cache_entry( item_rc, || {
-                let shadow_rect = check_geometry!(item_rc.geometry().size);
+                let shadow_size = item_rc.geometry().size;
+                let shadow_rect = check_geometry!(shadow_size);
 
                 let source_size = qttypes::QSize {
                     width: shadow_rect.width.ceil() as _,
@@ -1062,18 +1093,17 @@ impl ItemRenderer for QtItemRenderer<'_> {
                     return std::make_unique<QPainter>(img);
                 });
 
-                let (background, border_color, border_width) = if box_shadow.inset() {
-                    (Brush::SolidColor(Color::from_rgb_u8(0, 0, 0)), Brush::default(), 0.)
+                let (background, with_border) = if box_shadow.inset() {
+                    (Brush::SolidColor(Color::from_rgb_u8(0, 0, 0)), false)
                 } else {
-                    (box_shadow.background(), box_shadow.border_color(), box_shadow.border_width().get())
+                    (box_shadow.background(), true)
                 };
-                Self::draw_rectangle_impl(
+                Self::draw_border_rectangle_impl(
                     &mut painter_,
-                    qttypes::QRectF { x: 0., y: 0., width: shadow_rect.width, height: shadow_rect.height },
+                    box_shadow,
+                    shadow_size,
                     background,
-                    border_color,
-                    border_width,
-                    box_shadow.logical_border_radius(),
+                    with_border,
                 );
                 let color = box_shadow.color().as_argb_encoded();
                 let painter = &mut painter_;
@@ -1189,6 +1219,27 @@ impl ItemRenderer for QtItemRenderer<'_> {
                 QPainterPath path = to_painter_path(clip_rect, top_left_radius, top_right_radius, bottom_right_radius, bottom_left_radius);
                 (*painter)->setClipPath(path, Qt::IntersectClip);
             }
+            return !(*painter)->clipBoundingRect().isEmpty();
+        }}
+    }
+
+    fn combine_contour_clip(
+        &mut self,
+        _item_rc: &ItemRc,
+        size: LogicalSize,
+        radius: LogicalBorderRadius,
+        border_width: LogicalLength,
+        shape: CornerShapes,
+    ) -> bool {
+        let path = contour_path::<WindingPathSink>(&clip_content_contour(
+            size,
+            radius,
+            border_width,
+            shape,
+        ));
+        let painter: &mut QPainterPtr = &mut self.painter;
+        cpp! { unsafe [painter as "QPainterPtr*", path as "QPainterPath"] -> bool as "bool" {
+            (*painter)->setClipPath(path, Qt::IntersectClip);
             return !(*painter)->clipBoundingRect().isEmpty();
         }}
     }
@@ -2091,6 +2142,63 @@ impl QtItemRenderer<'_> {
                 }};
             }
         }
+    }
+
+    /// Draws `rect` at `size`, filled with `background`, and with its border if `with_border`.
+    fn draw_border_rectangle_impl(
+        painter: &mut QPainterPtr,
+        rect: Pin<&dyn RenderBorderRectangle>,
+        size: LogicalSize,
+        background: Brush,
+        with_border: bool,
+    ) {
+        let geometry = check_geometry!(size);
+        let corner_shape = rect.border_corner_shape();
+        if let Some(radius) = corner_shape.rounded_rect_radius(rect.border_radius()) {
+            let (border_color, border_width) = if with_border {
+                (rect.border_color(), rect.border_width().get())
+            } else {
+                (Brush::default(), 0.)
+            };
+            Self::draw_rectangle_impl(
+                painter,
+                geometry,
+                background,
+                border_color,
+                border_width,
+                radius,
+            );
+            return;
+        }
+        // The painter works in logical pixels.
+        let Some(mut layout) = BorderRectLayout::new(rect, size, ScaleFactor::new(1.)) else {
+            return;
+        };
+        if !with_border {
+            layout.border_width = euclid::Length::new(0.);
+        }
+        let Some(contours) = layout.shaped_contours(0.) else { return };
+        let (background_path, border_path) = shaped_paths::<WindingPathSink>(contours);
+        let has_border = border_path.is_some();
+        let border_path = border_path.unwrap_or_default();
+        let brush: qttypes::QBrush = into_qbrush(background, geometry.width, geometry.height);
+        let border_brush: qttypes::QBrush =
+            into_qbrush(layout.border_color, geometry.width, geometry.height);
+        cpp! { unsafe [
+                painter as "QPainterPtr*",
+                brush as "QBrush",
+                border_brush as "QBrush",
+                background_path as "QPainterPath",
+                has_border as "bool",
+                border_path as "QPainterPath"] {
+            (*painter)->save();
+            auto cleanup = qScopeGuard([&] { (*painter)->restore(); });
+            (*painter)->setRenderHint(QPainter::Antialiasing, true);
+            (*painter)->fillPath(background_path, brush);
+            if (has_border) {
+                (*painter)->fillPath(border_path, border_brush);
+            }
+        }}
     }
 
     fn draw_rectangle_impl(

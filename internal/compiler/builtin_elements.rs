@@ -631,7 +631,6 @@ fn build(l: &mut Loader) {
         in property <length> border-radius;
         /// The shape of all four corners, sized by the border radius.
         /// See <Link type="corner-shape" label="corner-shape" /> for the available shapes.
-        /// Only the Skia, FemtoVG, software, and Vello renderers draw corner shapes; the other renderers draw every corner round.
         /// \default round
         in property <corner-shape> border-corner-shape;
     } }
