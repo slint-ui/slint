@@ -542,47 +542,7 @@
           "id": 0,
           "x": 15.7794,
           "y": 12.828
-        }
-      ],
-      "hint": false,
-      "normalized_coords": [],
-      "style": {
-        "Fill": "NonZero"
-      },
-      "transform": [
-        1.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        63.312
-      ]
-    }
-  },
-  {
-    "GlyphRun": {
-      "brush": {
-        "Solid": {
-          "components": [
-            0.0,
-            0.1333,
-            0.3333,
-            1.0
-          ]
-        }
-      },
-      "brush_alpha": 1.0,
-      "embolden": {
-        "x": 0.0,
-        "y": 0.0
-      },
-      "font_data": {
-        "index": 0,
-        "resource_id": 0
-      },
-      "font_size": 12.0,
-      "glyph_transform": null,
-      "glyphs": [
+        },
         {
           "id": 1,
           "x": 22.9794,

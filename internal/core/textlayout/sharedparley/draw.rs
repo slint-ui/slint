@@ -370,9 +370,15 @@ impl TextParagraph {
             // last character, which the padding follows, is shaped apart, and so is text in
             // a fallback font.
             let mut pending: Option<Capsule> = None;
+            // Where the left padding of a code starts, if it is on this line.
+            let mut padding_start: Option<(usize, f32)> = None;
             for item in line.items() {
-                let parley::PositionedLayoutItem::GlyphRun(glyph_run) = item else {
-                    continue;
+                let glyph_run = match item {
+                    parley::PositionedLayoutItem::GlyphRun(glyph_run) => glyph_run,
+                    parley::PositionedLayoutItem::InlineBox(inline_box) => {
+                        padding_start = Some((inline_box.id as usize, inline_box.x));
+                        continue;
+                    }
                 };
                 let run = glyph_run.run();
                 let run_range = run.text_range();
@@ -406,24 +412,17 @@ impl TextParagraph {
                 let extra_padding = ascent * VERTICAL_PADDING_RATIO;
                 let half_height = inner_half_height + extra_padding;
 
-                // Padding is laid out as spacing (see `INLINE_CODE_PADDING`): the right one is in
-                // the advance of the run that ends the code, the left one follows the character
-                // before it. A line's first character has none before it on the line, so
-                // the capsule starts at the text's edge, as CSS's `box-decoration-break: slice`.
                 let advance = glyph_run.advance();
                 if advance <= 0.0 {
                     continue;
                 }
-                let padding_left = if run_range.start == self.code_ranges[code].start
-                    && run_range.start != line.text_range().start
-                {
-                    run.font_size() * super::shaping::INLINE_CODE_PADDING
-                } else {
-                    0.0
+                let left = match padding_start.take() {
+                    Some((id, x)) if id == code => x,
+                    _ => glyph_run.offset(),
                 };
                 let capsule = Capsule {
                     code,
-                    left: glyph_run.offset() - padding_left,
+                    left,
                     right: glyph_run.offset() + advance,
                     top: center - half_height,
                     bottom: center + half_height,
