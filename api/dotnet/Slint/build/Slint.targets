@@ -11,9 +11,10 @@
                                                            and copies the project file and the .slint files under ui
 
   A file outside the project directory is copied to the root of the output directory; set Link to place it elsewhere.
-  On Android, the files go into the APK's assets under slint/ instead, and SlintActivity extracts them at startup.
-  On iOS, they go into the app bundle as bundle resources, and the app embeds the framework of the package or of target/ios.
-  With SlintEmbedFiles, and in the browser (browser-wasm), the assembly embeds them with the images and fonts they use,
+  On iOS, the app embeds the framework of the package or of target/ios.
+  With SlintEmbedFiles=false on Android, the files go into the APK's assets under slint/ instead, and SlintActivity extracts them at startup;
+  on iOS, they go into the app bundle as bundle resources. Neither has the images that the files use.
+  With SlintEmbedFiles, on Android and iOS, and in the browser (browser-wasm), the assembly embeds them with the images and fonts they use,
   and the bundled translations, at their paths relative to the project, and the compiler reads them from memory.
   A path with a space doesn't work there, since the dependency file of slint-compiler separates paths with spaces.
   In the browser, the app links the library of the package or of target/browser, which needs the wasm-tools workload.
@@ -35,7 +36,8 @@
     SlintCopyToOutput   false loads the .slint files from their source directory instead, such as for
                         a file that refers to images outside the project; not on Android and iOS, where the source isn't
     SlintEmbedFiles     true embeds the files in the assembly instead of copying them to the output, so that
-                        a single-file publish needs no ui/ directory; on by default with PublishSingleFile; not on Android and iOS
+                        a single-file publish needs no ui/ directory, and an Android or iOS app has the images they use;
+                        on by default with PublishSingleFile, and on Android and iOS
     SlintLivePreview    true makes the generated code load the .slint files from their source directory,
                         and reload components when the files change; for development only.
                         LivePreview metadata on a SlintFile overrides it for that file.
@@ -55,8 +57,8 @@
     <_SlintPlatform>$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)'))</_SlintPlatform>
     <_SlintOnDevice Condition="'$(_SlintPlatform)' == 'android' or '$(_SlintPlatform)' == 'ios'">true</_SlintOnDevice>
     <_SlintBrowser Condition="'$(RuntimeIdentifier)' == 'browser-wasm'">true</_SlintBrowser>
-    <SlintEmbedFiles Condition="'$(SlintEmbedFiles)' == '' and '$(PublishSingleFile)' == 'true'">true</SlintEmbedFiles>
-    <_SlintEmbed Condition="'$(_SlintBrowser)' == 'true' or ('$(SlintEmbedFiles)' == 'true' and '$(_SlintOnDevice)' != 'true')">true</_SlintEmbed>
+    <SlintEmbedFiles Condition="'$(SlintEmbedFiles)' == '' and ('$(PublishSingleFile)' == 'true' or '$(_SlintOnDevice)' == 'true')">true</SlintEmbedFiles>
+    <_SlintEmbed Condition="'$(_SlintBrowser)' == 'true' or '$(SlintEmbedFiles)' == 'true'">true</_SlintEmbed>
     <_SlintFromSource Condition="'$(SlintCopyToOutput)' == 'false' and '$(_SlintOnDevice)' != 'true'">true</_SlintFromSource>
     <_SlintLiveAllowed Condition="'$(_SlintOnDevice)' != 'true' and '$(_SlintBrowser)' != 'true'">true</_SlintLiveAllowed>
     <!-- From the package, outside runtimes/ so that NuGet leaves it alone, or else from scripts/build_dotnet_ios.sh in the repository. -->
@@ -194,7 +196,7 @@
   <Target Name="SlintGenerate"
           DependsOnTargets="_SlintPrepare"
           Inputs="@(SlintFile);@(_SlintProjectSource);@(_SlintCompilerInput);$(MSBuildAllProjects);$(_SlintOptionsFile)"
-          Outputs="@(_SlintGenerate->'%(GeneratedFile)')">
+          Outputs="@(_SlintGenerate->'%(GeneratedFile)');@(_SlintGenerate->'%(DependencyFile)')">
     <MakeDir Directories="@(_SlintGenerate->'%(GeneratedFile)'->DirectoryName())" />
     <!-- NuGet doesn't keep the executable bit of files in packages. -->
     <Exec Command="chmod +x &quot;$(SlintCompilerPath)&quot;" Condition="'$(OS)' != 'Windows_NT' and '$(_SlintCompilerIsPackaged)' == 'true'" />
@@ -205,7 +207,7 @@
 
   <!-- The output directory isn't part of an APK, so the files go into its assets, at the paths that the generated code loads. -->
   <Target Name="_SlintAndroidAssets" BeforeTargets="_ComputeAndroidAssetsPaths" DependsOnTargets="_SlintPrepare"
-          Condition="'$(TargetPlatformIdentifier)' == 'android'">
+          Condition="'$(TargetPlatformIdentifier)' == 'android' and '$(_SlintEmbed)' != 'true'">
     <ItemGroup>
       <AndroidAsset Include="@(_SlintAssigned)" LogicalName="slint/%(_SlintAssigned.TargetPath)" />
     </ItemGroup>
@@ -221,10 +223,10 @@
   <Target Name="_SlintBundleResources" BeforeTargets="_CollectBundleResources" DependsOnTargets="_SlintPrepare"
           Condition="'$(TargetPlatformIdentifier)' == 'ios'">
     <Warning Code="SLINT003" Text="The Slint library for iOS, $(_SlintIOSLibrary), doesn't exist; run scripts/build_dotnet_ios.sh in the Slint repository." Condition="!Exists('$(_SlintIOSLibrary)')" />
-    <ItemGroup>
+    <ItemGroup Condition="'$(_SlintEmbed)' != 'true'">
       <BundleResource Include="@(_SlintAssigned)" LogicalName="%(_SlintAssigned.TargetPath)" />
     </ItemGroup>
-    <ItemGroup Condition="'@(_SlintProjectSource)' != ''">
+    <ItemGroup Condition="'@(_SlintProjectSource)' != '' and '$(_SlintEmbed)' != 'true'">
       <_SlintProjectResource Include="@(_SlintProjectSource)">
         <LogicalName>$([MSBuild]::MakeRelative('$(MSBuildProjectDirectory)/', '%(FullPath)'))</LogicalName>
       </_SlintProjectResource>

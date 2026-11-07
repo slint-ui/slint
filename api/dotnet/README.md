@@ -199,6 +199,7 @@ Set these properties to change the generated code:
 - `SlintStyle`: the widget style, such as `fluent` or `cupertino`.
 - `SlintCopyToOutput`: `false` to load the `.slint` files from the project directory instead of copying them.
 - `SlintEmbedFiles`: `true` to embed the `.slint` files in the assembly instead of copying them, see [Publishing](#publishing).
+  It's on by default on Android and iOS.
 - `SlintIncludePaths`: directories that imports search, separated by semicolons.
 
 To use a [project file](https://snapshots.slint.dev/master/docs/slint/guide/tooling/project-file/), add its directory instead of a file:
@@ -683,9 +684,8 @@ protected override void SlintRestoreState(byte[] state) => Apply(JsonSerializer.
 All of them run on Slint's thread, unlike `OnPause` and the other methods of `Activity`.
 Android drops the saved state when the user closes the app, so keep what must outlast that in files or preferences.
 
-The build puts the `<SlintFile>` and `<SlintProject>` files into the APK, and `SlintActivity` extracts them at startup.
-Add the images that `.slint` files use as `<SlintFile Include="ui/images/logo.png" Generate="false" />`,
-under the project directory, so that they keep their paths relative to the `.slint` files.
+The assembly embeds the `<SlintFile>` and `<SlintProject>` files, with the images and fonts they use, as on iOS.
+With `SlintEmbedFiles` set to `false`, the build puts only the `.slint` files into the APK, and `SlintActivity` extracts them at startup.
 `examples/todo/dotnet-android` is a complete example,
 and `examples/lols/dotnet-android` runs the [LOLs per second](https://github.com/jonathanpeppers/lols) test on Android.
 

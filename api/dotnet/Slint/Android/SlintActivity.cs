@@ -126,7 +126,10 @@ public abstract unsafe class SlintActivity : global::Android.App.NativeActivity
         try
         {
             var activity = s_current!;
-            GeneratedApi.BaseDirectory = ExtractAssets(activity.Assets!, Path.Combine(activity.FilesDir!.AbsolutePath, AssetDirectory));
+            if (activity.Assets!.List(AssetDirectory) is { Length: > 0 })
+            {
+                GeneratedApi.BaseDirectory = ExtractAssets(activity.Assets, Path.Combine(activity.FilesDir!.AbsolutePath, AssetDirectory));
+            }
             activity.SlintMain();
         }
         catch (Exception e)
