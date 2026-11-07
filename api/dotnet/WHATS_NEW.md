@@ -7,6 +7,9 @@
   with the images and fonts they use and the bundled translations, instead of copying them next to the app.
   It's on by default with `PublishSingleFile`, and with Native AOT the output is the executable and the native library.
   See [Publishing](README.md#publishing).
+- On Android and iOS, apps show the images that their `.slint` files use, such as a window icon,
+  since `SlintEmbedFiles` is on by default there.
+  Before, only the `.slint` files went into the app, and loading an image failed.
 - `ObservableCollectionModel<T>` turns a collection of a view model, such as an `ObservableCollection<T>`, into a model that Slint follows,
   with the changes of items that implement `INotifyPropertyChanged`.
 - `WatchProperty` and `WatchGlobalProperty` of `ComponentInstance` run code after a property changes, such as one that the user edits.

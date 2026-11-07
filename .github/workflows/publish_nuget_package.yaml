@@ -302,9 +302,11 @@ jobs:
                   dotnet build -c Release
                   apk=$(find bin -name '*-Signed.apk' | head -1)
                   contents=$(unzip -l "$apk")
-                  for file in lib/arm64-v8a/libslint_dotnet.so lib/x86_64/libslint_dotnet.so assets/slint/ui/app.slint; do
+                  for file in lib/arm64-v8a/libslint_dotnet.so lib/x86_64/libslint_dotnet.so; do
                       grep -q "$file" <<<"$contents" || { echo "::error::$file is missing from $apk"; exit 1; }
                   done
+                  # The assembly embeds the .slint files, from the files that their dependency file lists.
+                  [ -n "$(find obj -name 'app.slint.g.cs.d')" ] || { echo "::error::The build didn't embed ui/app.slint"; exit 1; }
                   echo ok
             - name: Build apps from the templates with the packages
               shell: bash
@@ -319,9 +321,10 @@ jobs:
                   dotnet new slint-android -o Android --no-restore
                   dotnet build Android
                   contents=$(unzip -l "$(find Android/bin -name '*-Signed.apk' | head -1)")
-                  for file in lib/arm64-v8a/libslint_dotnet.so lib/x86_64/libslint_dotnet.so assets/slint/ui/app-window.slint; do
+                  for file in lib/arm64-v8a/libslint_dotnet.so lib/x86_64/libslint_dotnet.so; do
                       grep -q "$file" <<<"$contents" || { echo "::error::$file is missing from the APK of slint-android"; exit 1; }
                   done
+                  [ -n "$(find Android/obj -name 'app-window.slint.g.cs.d')" ] || { echo "::error::slint-android didn't embed ui/app-window.slint"; exit 1; }
                   dotnet new slint-xplat -o XPlat --platforms android --no-restore
                   dotnet build XPlat/XPlat.slnx
 
@@ -379,7 +382,7 @@ jobs:
                   dotnet add package "$SLINT_PACKAGE_ID" --version "$version"
                   dotnet build
                   bundle=bin/Debug/net10.0-ios/iossimulator-arm64/app.app
-                  for file in Frameworks/slint_dotnet.framework/slint_dotnet ui/app.slint; do
+                  for file in Frameworks/slint_dotnet.framework/slint_dotnet; do
                       [ -e "$bundle/$file" ] || { echo "::error::$file is missing from $bundle"; exit 1; }
                   done
                   "$GITHUB_WORKSPACE/scripts/dotnet_ios_smoke_test.sh" "$bundle" dev.slint.dotnet.packagetest 30
