@@ -8,6 +8,7 @@ import { Diagnostics } from "../diagnostics.slint";
 import { Preview } from "../preview.slint";
 
 import { Project } from "../project.slint";
+import { PreviewDisplayControls } from "preview-display-controls.slint";
 
 export component EditorTopBar inherits Rectangle {
     height: Style.shell.top-bar-height;
@@ -19,8 +20,14 @@ export component EditorTopBar inherits Rectangle {
         background: Colors.border;
     }
 
+    displays := PreviewDisplayControls {
+        x: Style.shell.titlebar-safe-left;
+        y: (parent.height - self.height) / 2;
+        enabled: Diagnostics.preview-editable;
+    }
+
     HorizontalLayout {
-        x: viewer.width + Metrics.space-large;
+        x: max(viewer.width + Metrics.space-large, displays.x + displays.width + Metrics.space-large);
         width: max(0px, parent.width - 2 * self.x);
         alignment: center;
         cross-axis-alignment: center;

@@ -1,0 +1,77 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Project } from "project.slint";
+
+export struct PreviewDisplay {
+    name: string,
+    width: length,
+    height: length,
+    kind: string,
+    rotatable: bool,
+}
+
+export global PreviewDisplays {
+    out property <[PreviewDisplay]> displays: [
+        { name: "Desktop", width: 1280px, height: 720px, kind: "desktop", rotatable: false },
+        { name: "Mobile", width: 390px, height: 844px, kind: "mobile", rotatable: true },
+        { name: "Tablet", width: 768px, height: 1024px, kind: "tablet", rotatable: true },
+    ];
+    out property <int> selected-index: -1;
+    out property <bool> landscape;
+    private property <bool> has-selection: self.selected-index >= 0 && self.selected-index < self.displays.length;
+    private property <PreviewDisplay> selected-display: self.displays[self.selected-index];
+    out property <Size> project-size: Project.canvas-presets[0];
+    out property <string> selected-name: self.has-selection ? self.selected-display.name : @tr("Project size");
+    out property <bool> can-rotate: self.has-selection && self.selected-display.rotatable;
+    out property <Size> size: !self.has-selection ? self.project-size
+        : !self.can-rotate ? { width: self.selected-display.width, height: self.selected-display.height }
+        : self.landscape ? {
+            width: max(self.selected-display.width, self.selected-display.height),
+            height: min(self.selected-display.width, self.selected-display.height),
+        } : {
+            width: min(self.selected-display.width, self.selected-display.height),
+            height: max(self.selected-display.width, self.selected-display.height),
+        };
+
+    public function select-project-size() {
+        self.selected-index = -1;
+    }
+    public function select-display(index: int) {
+        if index >= 0 && index < self.displays.length {
+            self.selected-index = index;
+            self.landscape = self.selected-display.width > self.selected-display.height;
+        }
+    }
+    public function set-landscape(landscape: bool) {
+        if self.can-rotate { self.landscape = landscape; }
+    }
+    public pure function valid-dimension(value: string) -> bool {
+        return value.is-float() && value.to-float() > 0 && value.to-float() < 2147483648
+            && value.to-float().floor() == value.to-float();
+    }
+    public function add-custom-display(width: string, height: string, rotatable: bool) -> bool {
+        if !self.valid-dimension(width) || !self.valid-dimension(height) { return false; }
+        let display = {
+            name: "\{width.to-float()} × \{height.to-float()}",
+            width: width.to-float() * 1px,
+            height: height.to-float() * 1px,
+            kind: "custom",
+            rotatable: rotatable,
+        };
+        let index = self.displays.index-of(display);
+        if index < 0 { self.displays.push(display); }
+        self.select-display(index < 0 ? self.displays.length - 1 : index);
+        return true;
+    }
+    public function delete-display(index: int) {
+        if index >= 0 && index < self.displays.length {
+            self.displays.remove(index);
+            if index == self.selected-index {
+                self.select-project-size();
+            } else if index < self.selected-index {
+                self.selected-index -= 1;
+            }
+        }
+    }
+}
