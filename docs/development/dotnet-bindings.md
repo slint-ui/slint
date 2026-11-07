@@ -317,6 +317,13 @@ so C# code in `tools/compiler` needs `#[cfg(feature = "csharp")]`, which only th
 A clean checkout has no build of `Slint.SourceGenerator` when MSBuild evaluates a project,
 so `Slint.targets` adds it as an analyzer in a target, after the project references are built.
 
+GitHub runs no workflow for a pull request with merge conflicts, so a push that doesn't start CI needs a merge of `master`.
+A version bump of `master` conflicts in `Cargo.toml`, where `i-slint-backend-emscripten` is ours,
+and `scripts/upgrade_version.sh` also bumps `api/dotnet/Directory.Build.props`.
+When `master` ports the test cases, it doesn't update their `csharp` blocks,
+such as `assign_equal_model`, which now calls `do()` in `init`, so its block reads `test` instead.
+The .NET jobs run on `macos-15`, since GitHub retired `macos-14` and cancels its jobs before they start.
+
 `api/dotnet/global.json` pins the .NET SDK to 10.0.401, accepting newer patches of its feature band locally,
 and the workflows install exactly that version.
 The day a new SDK appears in the release list, its download can still fail, which broke every .NET job once.
@@ -429,7 +436,7 @@ Done:
 - **6.** Publishing to nuget.org with trusted publishing, see [Packages](#packages).
   Until the Slint project publishes them, a fork publishes community packages under its own IDs,
   such as `yurkinh.slint.net` and `yurkinh.slint.net.Compiler`.
-  `api/dotnet/WHATS_NEW.md` lists what each preview added, up to 1.19.0-preview.9.
+  `api/dotnet/WHATS_NEW.md` lists what each preview added, up to 1.19.0-preview.12.
   To build packages without the workflow, such as for a fork or an unpublished change,
   follow [Building the Packages Locally](#building-the-packages-locally);
   to generate the C# code in a script, "Generating the Code by Hand" in `api/dotnet/README.md`.
@@ -485,13 +492,18 @@ Done:
 - **14.** The upstream pull request, [#14498](https://github.com/slint-ui/slint/pull/14498), out of draft.
   On 2026-11-04, `dotnet_bindings` merged `dotnet_dev` up to item 25, phase 4,
   so it has iOS, the templates, Microcharts' `Image.FromPremultipliedRgba8`, the browser, embedding, and MVVM,
-  items 17 and 20 to 25, and its 48 CI checks pass.
-  Its description lists what each preview added only up to preview 8, so it needs previews 9 to 12.
+  items 17 and 20 to 25.
+  Its description lists what each preview added, up to preview 12.
+  On 2026-11-06, it renamed struct fields that collide with the members of a C# record, which a Copilot review found,
+  and merged `master` at 1.20.0.
+  Its .NET jobs pass locally; the Visual Editor job fails for every pull request from a fork,
+  since Slint's server for the tokens of the UI tests answers 500, and Python macOS fails on `master` too.
   The `linuxkms` change of the manual test fixes Slint itself, so it went upstream on its own,
   as [#14565](https://github.com/slint-ui/slint/pull/14565), merged on 2026-10-31.
   Before it's merged, it needs the official `Slint` package IDs, a squash, and a `ChangeLog:` trailer.
-  Until then, `master` of the fork mirrors `slint-ui/slint`, and `dotnet_bindings` merges it after each sync,
-  and `dotnet_dev` after each piece of work.
+  Until then, `master` of the fork mirrors `slint-ui/slint`, and `dotnet_bindings` merges it after each sync.
+  `dotnet_bindings` takes only fixes for the review and CI now, with new work staying on `dotnet_dev`,
+  which merges `dotnet_bindings` back.
   The README links to `WHATS_NEW.md` and the community page on the fork, which the pull request points at `slint-ui/slint` instead.
 
 - **19.** Performance compared with Rust, measured with lols and profiled on macOS and an Android emulator.
