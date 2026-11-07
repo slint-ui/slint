@@ -8,15 +8,19 @@ use anyrender::PaintScene;
 use i_slint_core::graphics::ResolvedBrush;
 #[cfg(any(feature = "image-pixel-format-rgb565", feature = "image-pixel-format-gray8"))]
 use i_slint_core::graphics::Rgba8Pixel;
+use i_slint_core::graphics::corner_geometry::offset_outline;
+use i_slint_core::graphics::corner_path::{self, Outline, PathSink, contour_path, shaped_paths};
 use i_slint_core::graphics::euclid;
-use i_slint_core::graphics::{Image, ImageCacheKey, IntSize, SharedImageBuffer, SharedPixelBuffer};
+use i_slint_core::graphics::{
+    CornerShapes, Image, ImageCacheKey, IntSize, SharedImageBuffer, SharedPixelBuffer,
+};
 use i_slint_core::item_rendering::{
     BorderRectLayout, CachedRenderingData, ItemCache, ItemRenderer, RenderBorderRectangle,
-    RenderImage, RenderRectangle, RenderText,
+    RenderImage, RenderRectangle, RenderText, clip_content_box, clip_content_contour,
 };
 use i_slint_core::items::{self, FillRule, ImageFit, ImageRendering, ItemRc};
 use i_slint_core::lengths::{
-    LogicalBorderRadius, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
+    LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
     PhysicalBorderRadius, ScaleFactor, logical_size_from_api,
 };
 use i_slint_core::textlayout::sharedparley::{self, GlyphRenderer, fontique, parley};
@@ -161,6 +165,16 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
         };
 
         let transform = self.current_state.transform;
+        if let Some(contours) = layout.shaped_contours(0.) {
+            self.fill_shaped(
+                &shaped_paths::<BezPathSink>(contours),
+                [rect.background(), layout.border_color],
+                layout.brush_size,
+                transform,
+            );
+            return;
+        }
+
         self.fill_with_brush(
             rect.background(),
             layout.brush_size,
@@ -574,17 +588,15 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
         let blur = (box_shadow.blur() * sf).get().max(0.) as f64;
         let phys_size = size * sf;
 
-        let radius = box_shadow.logical_border_radius() * sf;
-
         if box_shadow.inset() {
             self.draw_inset_shadow(
                 color,
-                kurbo::Vec2::new(offset.x as f64, offset.y as f64),
+                offset,
                 spread,
                 blur,
-                radius,
-                radius.spread(-spread as f32),
-                to_kurbo_size(phys_size),
+                box_shadow.logical_border_radius() * sf,
+                box_shadow.logical_corner_shape(),
+                phys_size,
             );
             return;
         }
@@ -598,6 +610,40 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
             return;
         }
         if let Some(radius) = options.opaque_source_radius() {
+            if options.corner_shape.rounded_rect_radius(options.radius).is_none() {
+                let outline = contour_path::<BezPathSink>(&offset_outline(
+                    PhysicalRect::new(offset, phys_size).to_untyped(),
+                    options.radius,
+                    options.corner_shape,
+                    spread as f32,
+                ));
+                // The blurred primitive only draws round corners (linebender/vello#1245).
+                let filter = blur_filter(blur);
+                let blurred = filter.is_some();
+                if blurred {
+                    self.scene.push_layer(
+                        peniko::Fill::NonZero,
+                        peniko::BlendMode::default(),
+                        1.,
+                        self.current_state.transform,
+                        &kurbo::Shape::bounding_box(&outline)
+                            .inflate(2. * blur + 1., 2. * blur + 1.),
+                        filter,
+                        None,
+                    );
+                }
+                self.scene.fill(
+                    peniko::Fill::default(),
+                    self.current_state.transform,
+                    peniko::BrushRef::Solid(to_peniko_color(color)),
+                    None,
+                    &outline,
+                );
+                if blurred {
+                    self.scene.pop_layer();
+                }
+                return;
+            }
             let radius = radius.spread(spread as f32);
             let rect = kurbo::Rect::new(
                 offset.x as f64 - spread,
@@ -634,37 +680,42 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
             phys_size.height as f64 + spread,
         )
         .inflate(2. * blur + 1., 2. * blur + 1.);
-        let filter = (blur > 0.).then(|| {
-            Arc::new(anyrender::Filter::single(anyrender::filters::FilterEffect::blur(
-                (blur / 2.) as f32,
-            )))
-        });
         self.scene.push_layer(
             peniko::Fill::NonZero,
             peniko::BlendMode::default(),
             1.,
             transform,
             &extent,
-            filter,
+            blur_filter(blur),
             None,
         );
-        if !layout.background_rect.is_empty() {
-            self.fill_with_brush(
-                background,
+        if let Some(contours) = layout.shaped_contours(spread as f32) {
+            self.fill_shaped(
+                &shaped_paths::<BezPathSink>(contours),
+                [background, layout.border_color],
                 layout.brush_size,
                 transform,
-                peniko::Fill::default(),
-                &phys_rect_shape(layout.background_rect, layout.background_radius),
             );
-        }
-        if layout.border_width.get() > 0. {
-            self.stroke_with_brush(
-                layout.border_color,
-                layout.brush_size,
-                transform,
-                &kurbo::Stroke::new(layout.border_width.get() as f64).with_join(kurbo::Join::Miter),
-                &phys_rect_shape(layout.border_rect, layout.border_radius),
-            );
+        } else {
+            if !layout.background_rect.is_empty() {
+                self.fill_with_brush(
+                    background,
+                    layout.brush_size,
+                    transform,
+                    peniko::Fill::default(),
+                    &phys_rect_shape(layout.background_rect, layout.background_radius),
+                );
+            }
+            if layout.border_width.get() > 0. {
+                self.stroke_with_brush(
+                    layout.border_color,
+                    layout.brush_size,
+                    transform,
+                    &kurbo::Stroke::new(layout.border_width.get() as f64)
+                        .with_join(kurbo::Join::Miter),
+                    &phys_rect_shape(layout.border_rect, layout.border_radius),
+                );
+            }
         }
         // Color the combined source alpha before blurring it, preserving overlap between
         // partially transparent fill and border paint.
@@ -689,28 +740,26 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
     }
 
     fn combine_clip(&mut self, clip_rect: LogicalRect, radius: LogicalBorderRadius) -> bool {
-        let clip = &mut self.current_state.clip_rect;
-        let clip_region_valid = match clip.intersection(&clip_rect) {
-            Some(r) => {
-                *clip = r;
-                true
-            }
-            None => {
-                *clip = LogicalRect::default();
-                false
-            }
-        };
-
         let clip_shape = phys_rect_shape(clip_rect * self.scale_factor, radius * self.scale_factor);
+        self.push_clip(clip_rect, &clip_shape)
+    }
 
-        self.scene.push_clip_layer(
-            peniko::Fill::NonZero,
-            self.current_state.transform,
-            &clip_shape,
+    fn combine_contour_clip(
+        &mut self,
+        _item_rc: &ItemRc,
+        size: LogicalSize,
+        radius: LogicalBorderRadius,
+        border_width: LogicalLength,
+        shape: CornerShapes,
+    ) -> bool {
+        let (clip_rect, _) = clip_content_box(size, radius, border_width);
+        let inner = clip_content_contour(
+            size * self.scale_factor,
+            radius * self.scale_factor,
+            border_width * self.scale_factor,
+            shape,
         );
-        self.current_state.layer_count += 1;
-
-        clip_region_valid
+        self.push_clip(clip_rect, &contour_path::<BezPathSink>(&inner))
     }
 
     fn get_current_clip(&self) -> LogicalRect {
@@ -948,18 +997,20 @@ impl<'a, S: PaintScene> AnyrenderItemRenderer<'a, S> {
     fn draw_inset_shadow(
         &mut self,
         color: Color,
-        offset: kurbo::Vec2,
+        offset: PhysicalPoint,
         spread: f64,
         blur: f64,
         radius: PhysicalBorderRadius,
-        interior_radius: PhysicalBorderRadius,
-        size: kurbo::Size,
+        corner_shape: CornerShapes,
+        size: PhysicalSize,
     ) {
-        let border_rect = kurbo::Rect::new(0., 0., size.width, size.height);
+        let geometry = PhysicalRect::from_size(size);
+        let border_rect = to_kurbo_rect(geometry);
         if border_rect.is_zero_area() {
             return;
         }
-        let border_shape = RectShape::new(border_rect, radius);
+        let rounded_radius = corner_shape.rounded_rect_radius(radius);
+        let border_shape = RectShape::from(Outline::new(geometry, radius, corner_shape, 0.));
 
         // The shadow must not paint outside the item.
         self.scene.push_clip_layer(
@@ -976,10 +1027,10 @@ impl<'a, S: PaintScene> AnyrenderItemRenderer<'a, S> {
         );
 
         let interior = kurbo::Rect::new(
-            offset.x + spread,
-            offset.y + spread,
-            offset.x + size.width - spread,
-            offset.y + size.height - spread,
+            offset.x as f64 + spread,
+            offset.y as f64 + spread,
+            offset.x as f64 + size.width as f64 - spread,
+            offset.y as f64 + size.height as f64 - spread,
         );
         if interior.width() > 0. && interior.height() > 0. {
             // Bounded to the border box, which the outer clip enforces anyway:
@@ -997,27 +1048,72 @@ impl<'a, S: PaintScene> AnyrenderItemRenderer<'a, S> {
             // Punch out at full strength so the interior is completely
             // clear of shadow, regardless of the shadow color's alpha.
             let opaque = peniko::color::palette::css::BLACK;
-            if blur == 0. {
+            if blur > 0.
+                && let Some(radius) = rounded_radius
+            {
+                self.scene.draw_box_shadow(
+                    self.current_state.transform,
+                    interior,
+                    opaque,
+                    blurred_shadow_radius(radius.spread(-spread as f32)),
+                    blur / 2.,
+                );
+            } else {
+                let hole = RectShape::from(Outline::new(
+                    geometry.translate(offset.to_vector()),
+                    radius,
+                    corner_shape,
+                    -spread as f32,
+                ));
+                let filter = blur_filter(blur);
+                let blurred = filter.is_some();
+                if blurred {
+                    self.scene.push_layer(
+                        peniko::Fill::NonZero,
+                        peniko::BlendMode::default(),
+                        1.,
+                        self.current_state.transform,
+                        &interior.inflate(2. * blur + 1., 2. * blur + 1.),
+                        filter,
+                        None,
+                    );
+                }
                 self.scene.fill(
                     peniko::Fill::default(),
                     self.current_state.transform,
                     peniko::BrushRef::Solid(opaque),
                     None,
-                    &RectShape::new(interior, interior_radius),
+                    &hole,
                 );
-            } else {
-                self.scene.draw_box_shadow(
-                    self.current_state.transform,
-                    interior,
-                    opaque,
-                    blurred_shadow_radius(interior_radius),
-                    blur / 2.,
-                );
+                if blurred {
+                    self.scene.pop_layer();
+                }
             }
             self.scene.pop_layer();
         }
 
         self.scene.pop_layer();
+    }
+
+    /// Clips further drawing to `shape` until `restore_state`, with `clip_rect` its bounds.
+    /// Returns whether the clip region covers an area.
+    fn push_clip(&mut self, clip_rect: LogicalRect, shape: &impl kurbo::Shape) -> bool {
+        let clip = &mut self.current_state.clip_rect;
+        let clip_region_valid = match clip.intersection(&clip_rect) {
+            Some(r) => {
+                *clip = r;
+                true
+            }
+            None => {
+                *clip = LogicalRect::default();
+                false
+            }
+        };
+
+        self.scene.push_clip_layer(peniko::Fill::NonZero, self.current_state.transform, shape);
+        self.current_state.layer_count += 1;
+
+        clip_region_valid
     }
 
     /// Push a compositing layer that does not clip its content.
@@ -1071,6 +1167,32 @@ impl<'a, S: PaintScene> AnyrenderItemRenderer<'a, S> {
                 peniko::BrushRef::from(&brush),
                 brush_transform,
                 shape,
+            );
+        }
+    }
+
+    /// Fills the background and border of `paths` with `brushes`, in that order.
+    fn fill_shaped(
+        &mut self,
+        (background, border): &corner_path::ShapedPaths<kurbo::BezPath>,
+        [background_brush, border_brush]: [Brush; 2],
+        brush_size: PhysicalSize,
+        transform: kurbo::Affine,
+    ) {
+        self.fill_with_brush(
+            background_brush,
+            brush_size,
+            transform,
+            peniko::Fill::NonZero,
+            background,
+        );
+        if let Some(border) = border {
+            self.fill_with_brush(
+                border_brush,
+                brush_size,
+                transform,
+                peniko::Fill::NonZero,
+                border,
             );
         }
     }
@@ -1199,6 +1321,47 @@ fn phys_rect_shape(rect: PhysicalRect, radius: PhysicalBorderRadius) -> RectShap
     RectShape::new(to_kurbo_rect(rect), radius)
 }
 
+/// The filter for a shadow's `blur`, or `None` without one.
+fn blur_filter(blur: f64) -> Option<Arc<anyrender::Filter>> {
+    (blur > 0.).then(|| {
+        Arc::new(anyrender::Filter::single(anyrender::filters::FilterEffect::blur(
+            (blur / 2.) as f32,
+        )))
+    })
+}
+
+/// Builds a kurbo path from corner geometry.
+#[derive(Default)]
+struct BezPathSink(kurbo::BezPath);
+
+impl PathSink for BezPathSink {
+    type Path = kurbo::BezPath;
+    fn move_to(&mut self, to: lyon_path::math::Point) {
+        self.0.move_to(sink_point(to));
+    }
+    fn line_to(&mut self, to: lyon_path::math::Point) {
+        self.0.line_to(sink_point(to));
+    }
+    fn cubic_to(
+        &mut self,
+        ctrl1: lyon_path::math::Point,
+        ctrl2: lyon_path::math::Point,
+        to: lyon_path::math::Point,
+    ) {
+        self.0.curve_to(sink_point(ctrl1), sink_point(ctrl2), sink_point(to));
+    }
+    fn close(&mut self) {
+        self.0.close_path();
+    }
+    fn build(self) -> kurbo::BezPath {
+        self.0
+    }
+}
+
+fn sink_point(p: lyon_path::math::Point) -> kurbo::Point {
+    kurbo::Point::new(p.x as f64, p.y as f64)
+}
+
 /// The average of `radius`, since anyrender's blurred box shadow takes a single radius
 /// (linebender/vello#1245).
 fn blurred_shadow_radius(radius: PhysicalBorderRadius) -> f64 {
@@ -1206,7 +1369,8 @@ fn blurred_shadow_radius(radius: PhysicalBorderRadius) -> f64 {
 }
 
 /// A rectangle that may have rounded corners, staying a plain
-/// [`kurbo::Rect`] when none of them do.
+/// [`kurbo::Rect`] when none of them do, or a path when a corner has
+/// another [`CornerShape`](i_slint_core::items::CornerShape).
 ///
 /// [`kurbo::RoundedRect`] does not collapse zero radii: it emits one
 /// degenerate cubic per corner whatever the radii are, which backends then
@@ -1214,10 +1378,20 @@ fn blurred_shadow_radius(radius: PhysicalBorderRadius) -> f64 {
 /// interface, and keeping those a `Rect` also keeps
 /// [`kurbo::Shape::as_rect`] answering, so a backend with a fast path for
 /// axis-aligned rectangles can still recognize one.
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 enum RectShape {
     Sharp(kurbo::Rect),
     Rounded(kurbo::RoundedRect),
+    Shaped(kurbo::BezPath),
+}
+
+impl From<Outline> for RectShape {
+    fn from(outline: Outline) -> Self {
+        match outline {
+            Outline::RoundedRect(rect, radius) => Self::new(to_kurbo_rect(rect), radius),
+            Outline::Shaped(contour) => Self::Shaped(contour_path::<BezPathSink>(&contour)),
+        }
+    }
 }
 
 impl RectShape {
@@ -1251,18 +1425,20 @@ impl RectShape {
 // hands out for a rounded rectangle, and the iterator is a short-lived local.
 // Boxing it would move an allocation into every fill.
 #[allow(clippy::large_enum_variant)]
-enum RectShapePathIter {
+enum RectShapePathIter<'a> {
     Sharp(kurbo::RectPathIter),
     Rounded(kurbo::RoundedRectPathIter),
+    Shaped(std::iter::Copied<std::slice::Iter<'a, kurbo::PathEl>>),
 }
 
-impl Iterator for RectShapePathIter {
+impl Iterator for RectShapePathIter<'_> {
     type Item = kurbo::PathEl;
 
     fn next(&mut self) -> Option<kurbo::PathEl> {
         match self {
             Self::Sharp(iter) => iter.next(),
             Self::Rounded(iter) => iter.next(),
+            Self::Shaped(iter) => iter.next(),
         }
     }
 }
@@ -1270,12 +1446,13 @@ impl Iterator for RectShapePathIter {
 /// Delegates to whichever variant is held, so that a `RectShape` behaves
 /// exactly like the `kurbo` shape inside it.
 impl kurbo::Shape for RectShape {
-    type PathElementsIter<'iter> = RectShapePathIter;
+    type PathElementsIter<'iter> = RectShapePathIter<'iter>;
 
-    fn path_elements(&self, tolerance: f64) -> RectShapePathIter {
+    fn path_elements(&self, tolerance: f64) -> RectShapePathIter<'_> {
         match self {
             Self::Sharp(rect) => RectShapePathIter::Sharp(rect.path_elements(tolerance)),
             Self::Rounded(rect) => RectShapePathIter::Rounded(rect.path_elements(tolerance)),
+            Self::Shaped(path) => RectShapePathIter::Shaped(path.elements().iter().copied()),
         }
     }
 
@@ -1283,6 +1460,7 @@ impl kurbo::Shape for RectShape {
         match self {
             Self::Sharp(rect) => rect.area(),
             Self::Rounded(rect) => rect.area(),
+            Self::Shaped(path) => path.area(),
         }
     }
 
@@ -1290,6 +1468,7 @@ impl kurbo::Shape for RectShape {
         match self {
             Self::Sharp(rect) => rect.perimeter(accuracy),
             Self::Rounded(rect) => rect.perimeter(accuracy),
+            Self::Shaped(path) => path.perimeter(accuracy),
         }
     }
 
@@ -1297,6 +1476,7 @@ impl kurbo::Shape for RectShape {
         match self {
             Self::Sharp(rect) => rect.winding(pt),
             Self::Rounded(rect) => rect.winding(pt),
+            Self::Shaped(path) => path.winding(pt),
         }
     }
 
@@ -1304,6 +1484,7 @@ impl kurbo::Shape for RectShape {
         match self {
             Self::Sharp(rect) => rect.bounding_box(),
             Self::Rounded(rect) => rect.bounding_box(),
+            Self::Shaped(path) => path.bounding_box(),
         }
     }
 
@@ -1311,6 +1492,7 @@ impl kurbo::Shape for RectShape {
         match self {
             Self::Sharp(rect) => rect.as_rect(),
             Self::Rounded(rect) => rect.as_rect(),
+            Self::Shaped(path) => path.as_rect(),
         }
     }
 
@@ -1318,6 +1500,7 @@ impl kurbo::Shape for RectShape {
         match self {
             Self::Sharp(rect) => rect.as_rounded_rect(),
             Self::Rounded(rect) => rect.as_rounded_rect(),
+            Self::Shaped(path) => path.as_rounded_rect(),
         }
     }
 }
