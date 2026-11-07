@@ -8,7 +8,8 @@ use futures_util::{
     stream::{SplitSink, SplitStream},
 };
 use i_slint_live_preview::protocol::{
-    LspToPreviewMessage, PROTOCOL_SUBPROTOCOL, PreviewToLspMessage, SLINT_VERSION_HEADER, session,
+    DebuggerToPreviewMessage, FromPreview, LspToPreviewMessage, PROTOCOL_SUBPROTOCOL,
+    PreviewToDebuggerMessage, PreviewToLspMessage, SLINT_VERSION_HEADER, ToPreview, session,
 };
 use tokio::sync::{mpsc, oneshot};
 use tokio_tungstenite_wasm::{CloseCode, Message, WebSocketStream};
@@ -30,13 +31,14 @@ pub(super) enum ConnectionEvent {
         problem: Option<String>,
     },
     Message(PreviewToLspMessage),
+    DebuggerMessage(PreviewToDebuggerMessage),
     Ended {
         error: Option<String>,
     },
 }
 
 pub(super) struct RemoteConnection {
-    sender: mpsc::UnboundedSender<LspToPreviewMessage>,
+    sender: mpsc::UnboundedSender<ToPreview>,
     receiver: mpsc::UnboundedReceiver<ConnectionEvent>,
     close_sender: Option<oneshot::Sender<()>>,
 }
@@ -54,7 +56,11 @@ impl RemoteConnection {
     }
 
     pub fn send(&self, message: LspToPreviewMessage) {
-        let _ = self.sender.send(message);
+        let _ = self.sender.send(ToPreview::Lsp(message));
+    }
+
+    pub fn send_debugger_message(&self, message: DebuggerToPreviewMessage) {
+        let _ = self.sender.send(ToPreview::Debug(message));
     }
 
     pub async fn next_event(&mut self) -> Option<ConnectionEvent> {
@@ -73,7 +79,7 @@ impl Drop for RemoteConnection {
 async fn run(
     viewer: RemoteViewer,
     credentials: Option<PairingCredentials>,
-    messages: mpsc::UnboundedReceiver<LspToPreviewMessage>,
+    messages: mpsc::UnboundedReceiver<ToPreview>,
     events: &mpsc::UnboundedSender<ConnectionEvent>,
     mut close_receiver: oneshot::Receiver<()>,
 ) -> Result<(), String> {
@@ -195,8 +201,13 @@ async fn receive(
                     }
                 };
                 match message {
-                    PreviewToLspMessage::Pong => last_pong.set(tokio::time::Instant::now()),
-                    message => forward(events, message),
+                    FromPreview::Lsp(PreviewToLspMessage::Pong) => {
+                        last_pong.set(tokio::time::Instant::now())
+                    }
+                    FromPreview::Lsp(message) => forward(events, message),
+                    FromPreview::Debug(message) => {
+                        let _ = events.send(ConnectionEvent::DebuggerMessage(message));
+                    }
                 }
             }
             Ok(Message::Text(_)) => {}
@@ -229,7 +240,7 @@ fn forward(events: &mpsc::UnboundedSender<ConnectionEvent>, message: PreviewToLs
 async fn send(
     socket: &mut SplitSink<WebSocketStream, Message>,
     mut sealing: session::Sealing,
-    mut messages: mpsc::UnboundedReceiver<LspToPreviewMessage>,
+    mut messages: mpsc::UnboundedReceiver<ToPreview>,
     last_pong: &Cell<tokio::time::Instant>,
 ) -> Result<(), String> {
     let mut heartbeat =
@@ -239,10 +250,10 @@ async fn send(
             message = messages.recv() => match message { Some(message) => message, None => return Ok(()) },
             _ = heartbeat.tick() => {
                 if last_pong.get().elapsed() >= PONG_TIMEOUT { return Err("Viewer stopped responding to heartbeat".into()); }
-                LspToPreviewMessage::Ping
+                ToPreview::Lsp(LspToPreviewMessage::Ping)
             }
         };
-        if matches!(message, LspToPreviewMessage::Quit) {
+        if matches!(message, ToPreview::Lsp(LspToPreviewMessage::Quit)) {
             continue;
         }
         let plain = postcard::to_allocvec(&message).map_err(|error| error.to_string())?;
@@ -359,7 +370,7 @@ mod tests {
                 let mut ping_seen = Some(ping_seen);
                 while let Some(Ok(frame)) = socket.next().await {
                     if let tokio_tungstenite::tungstenite::Message::Binary(bytes) = frame {
-                        assert!(matches!(postcard::from_bytes(&bytes), Ok(LspToPreviewMessage::Ping)));
+                        assert!(matches!(postcard::from_bytes(&bytes), Ok(ToPreview::Lsp(LspToPreviewMessage::Ping))));
                         if let Some(ping_seen) = ping_seen.take() { let _ = ping_seen.send(()); }
                     }
                 }

@@ -6,7 +6,12 @@ use std::{cell::RefCell, ffi::OsString, path::PathBuf, sync::Arc};
 #[cfg(feature = "preview-process")]
 use std::{io::BufRead, rc::Rc};
 
-use i_slint_live_preview::protocol::{LspToPreviewMessage, PreviewTarget, PreviewToLspMessage};
+use i_slint_live_preview::protocol::{
+    DebuggerToPreviewMessage, FromPreview, LspToPreviewMessage, PreviewTarget, PreviewToLspMessage,
+    ToPreviewRef,
+};
+#[cfg(any(test, feature = "preview-process"))]
+use i_slint_live_preview::protocol::{FromPreviewRef, PreviewToDebuggerMessage, ToPreview};
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt},
     sync::mpsc,
@@ -24,8 +29,31 @@ pub struct ChildProcessLspToPreview {
     inner: RefCell<Option<ChildProcessLspToPreviewInner>>,
     executable: PathBuf,
     arguments: Vec<OsString>,
-    preview_to_lsp_channel: mpsc::UnboundedSender<PreviewToLspMessage>,
+    channel: FromChildChannel,
     on_started: Option<PreviewStartedCallback>,
+}
+
+#[derive(Clone)]
+enum FromChildChannel {
+    /// Drops the debugger messages.
+    Lsp(mpsc::UnboundedSender<PreviewToLspMessage>),
+    All(mpsc::UnboundedSender<FromPreview>),
+}
+
+impl FromChildChannel {
+    fn send(&self, message: FromPreview) {
+        match (self, message) {
+            (Self::Lsp(channel), FromPreview::Lsp(message)) => {
+                let _ = channel.send(message);
+            }
+            (Self::Lsp(_), FromPreview::Debug(message)) => {
+                tracing::debug!("Dropping debugger message {message:?}")
+            }
+            (Self::All(channel), message) => {
+                let _ = channel.send(message);
+            }
+        }
+    }
 }
 
 impl ChildProcessLspToPreview {
@@ -34,13 +62,25 @@ impl ChildProcessLspToPreview {
         arguments: Vec<OsString>,
         preview_to_lsp_channel: mpsc::UnboundedSender<PreviewToLspMessage>,
     ) -> Self {
-        Self {
-            inner: RefCell::new(None),
-            executable,
-            arguments,
-            preview_to_lsp_channel,
-            on_started: None,
-        }
+        Self::with_channel(executable, arguments, FromChildChannel::Lsp(preview_to_lsp_channel))
+    }
+
+    /// Like [`Self::new`], but passes the debugger messages to `channel` too,
+    /// in the order the preview sent them.
+    pub fn new_with_debugger(
+        executable: PathBuf,
+        arguments: Vec<OsString>,
+        channel: mpsc::UnboundedSender<FromPreview>,
+    ) -> Self {
+        Self::with_channel(executable, arguments, FromChildChannel::All(channel))
+    }
+
+    fn with_channel(
+        executable: PathBuf,
+        arguments: Vec<OsString>,
+        channel: FromChildChannel,
+    ) -> Self {
+        Self { inner: RefCell::new(None), executable, arguments, channel, on_started: None }
     }
 
     pub fn with_started_callback(mut self, callback: Option<PreviewStartedCallback>) -> Self {
@@ -71,21 +111,20 @@ impl ChildProcessLspToPreview {
         let from_child = child.stdout.take().expect("Child has no stdout");
         let mut to_child = child.stdin.take().expect("Child has no stdin");
 
-        let channel = self.preview_to_lsp_channel.clone();
+        let channel = self.channel.clone();
 
         let communication_handle = tokio::spawn(async move {
             let _exited_guard = scopeguard::guard(channel.clone(), |channel| {
-                channel.send(PreviewToLspMessage::Exited).ok();
+                channel.send(FromPreview::Lsp(PreviewToLspMessage::Exited));
             });
             let reader = tokio::io::BufReader::new(from_child);
             let mut lines = reader.lines();
             while let Some(line) = lines.next_line().await.map_err(|error| error.to_string())? {
-                if let Ok(message) = serde_json::from_str(&line) {
-                    if let Some(on_started) = on_started.take() {
-                        on_started(process_id);
-                    }
-                    let _ = channel.send(message);
+                let Ok(message) = serde_json::from_str(&line) else { continue };
+                if let Some(on_started) = on_started.take() {
+                    on_started(process_id);
                 }
+                channel.send(message);
             }
 
             let exit_status = child.wait().await.map_err(|error| error.to_string());
@@ -96,12 +135,12 @@ impl ChildProcessLspToPreview {
                         .to_string();
                 tracing::error!("{message}");
 
-                let _ = channel.send(PreviewToLspMessage::SendShowMessage {
+                channel.send(FromPreview::Lsp(PreviewToLspMessage::SendShowMessage {
                     message: lsp_types::ShowMessageParams {
                         typ: lsp_types::MessageType::ERROR,
                         message,
                     },
-                });
+                }));
             }
             Ok(())
         });
@@ -124,8 +163,16 @@ impl ChildProcessLspToPreview {
     }
 
     pub(crate) fn send_running(&self, message: &LspToPreviewMessage) {
+        self.send_to_child(ToPreviewRef::Lsp(message));
+    }
+
+    pub fn send_debugger_message(&self, message: &DebuggerToPreviewMessage) {
+        self.send_to_child(ToPreviewRef::Debug(message));
+    }
+
+    fn send_to_child(&self, message: ToPreviewRef) {
         if let Some(inner) = self.inner.borrow().as_ref()
-            && let Ok(message) = serde_json::to_string(message)
+            && let Ok(message) = serde_json::to_string(&message)
         {
             let _ = inner.to_child_sender.send(message);
         }
@@ -135,7 +182,8 @@ impl ChildProcessLspToPreview {
 impl Drop for ChildProcessLspToPreview {
     fn drop(&mut self) {
         if let Some(inner) = self.inner.borrow_mut().take() {
-            let message = serde_json::to_string(&LspToPreviewMessage::Quit).unwrap();
+            let message =
+                serde_json::to_string(&ToPreviewRef::Lsp(&LspToPreviewMessage::Quit)).unwrap();
             let _ = inner.to_child_sender.send(message);
         }
     }
@@ -170,7 +218,7 @@ impl RemoteControlledPreviewToLsp {
     /// Note: If the Slint backend has not been set yet, this will set a backend with the
     /// default Slint BackendSelector.
     pub fn new(
-        message_handler: impl Fn(LspToPreviewMessage) -> crate::Result<()> + Send + 'static,
+        message_handler: impl Fn(ToPreview) -> crate::Result<()> + Send + 'static,
         connection_closed: impl Fn() + Send + 'static,
     ) -> Self {
         // Ensure the backend is set up before the reader thread starts. This fixes
@@ -208,12 +256,21 @@ impl RemoteControlledPreviewToLsp {
 
 #[cfg(feature = "preview-process")]
 impl crate::PreviewToLsp for RemoteControlledPreviewToLsp {
-    #[allow(clippy::print_stdout)]
     fn send(&self, message: &PreviewToLspMessage) -> crate::Result<()> {
-        let message = serde_json::to_string(message).map_err(|error| error.to_string())?;
-        println!("{message}");
-        Ok(())
+        print_message(FromPreviewRef::Lsp(message))
     }
+
+    fn send_to_debugger(&self, message: &PreviewToDebuggerMessage) -> crate::Result<()> {
+        print_message(FromPreviewRef::Debug(message))
+    }
+}
+
+#[cfg(feature = "preview-process")]
+#[allow(clippy::print_stdout)]
+fn print_message(message: FromPreviewRef) -> crate::Result<()> {
+    let message = serde_json::to_string(&message).map_err(|error| error.to_string())?;
+    println!("{message}");
+    Ok(())
 }
 
 #[cfg(feature = "preview-process")]
@@ -291,24 +348,26 @@ pub(crate) mod tests {
         println!();
         println!(
             "{}",
-            serde_json::to_string(&PreviewToLspMessage::DebugMessage {
+            serde_json::to_string(&FromPreviewRef::Lsp(&PreviewToLspMessage::DebugMessage {
                 location: None,
                 message: std::process::id().to_string(),
-            })
+            }))
             .unwrap()
         );
         println!(
             "{}",
-            serde_json::to_string(&PreviewToLspMessage::RequestState {
+            serde_json::to_string(&FromPreviewRef::Lsp(&PreviewToLspMessage::RequestState {
                 files: Vec::new(),
                 settings: Vec::new(),
-            })
+            }))
             .unwrap()
         );
         std::io::stdout().flush().unwrap();
         true
     }
 
+    /// Answers each system-test request with an empty response,
+    /// and echoes every other message as a `DebugMessage`.
     #[test]
     #[ignore]
     fn echo_child() {
@@ -317,17 +376,20 @@ pub(crate) mod tests {
         }
         for line in std::io::stdin().lock().lines() {
             let line = line.unwrap();
-            if matches!(serde_json::from_str(&line), Ok(LspToPreviewMessage::Quit)) {
-                std::process::exit(0);
-            }
-            println!(
-                "{}",
-                serde_json::to_string(&PreviewToLspMessage::DebugMessage {
+            let reply = match serde_json::from_str(&line) {
+                Ok(ToPreview::Lsp(LspToPreviewMessage::Quit)) => std::process::exit(0),
+                Ok(ToPreview::Debug(DebuggerToPreviewMessage::SystemTestRequest {
+                    id, ..
+                })) => FromPreview::Debug(PreviewToDebuggerMessage::SystemTestResponse {
+                    id,
+                    response: Ok(Vec::new()),
+                }),
+                _ => FromPreview::Lsp(PreviewToLspMessage::DebugMessage {
                     location: None,
                     message: line,
-                })
-                .unwrap()
-            );
+                }),
+            };
+            println!("{}", serde_json::to_string(&reply).unwrap());
             std::io::stdout().flush().unwrap();
         }
     }
@@ -402,7 +464,7 @@ pub(crate) mod tests {
             panic!("Expected forwarded preview request");
         };
         assert!(
-            matches!(serde_json::from_str(&message), Ok(LspToPreviewMessage::ShowPreview(current)) if current == component())
+            matches!(serde_json::from_str(&message), Ok(ToPreview::Lsp(LspToPreviewMessage::ShowPreview(current))) if current == component())
         );
         transport.send(&LspToPreviewMessage::Quit);
         assert!(matches!(receive(&mut receiver).await, PreviewToLspMessage::Exited));
