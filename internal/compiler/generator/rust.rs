@@ -1833,23 +1833,27 @@ fn generate_sub_component_body(
         .collect::<Vec<_>>();
 
     for twb in &component.two_way_bindings {
-        let p1 = access_local_member(&twb.prop1, &ctx);
+        let p1 = access_member(&twb.prop1, &ctx);
+        let p2 = access_member(&twb.prop2, &ctx);
         let r = if let Some(info) = twb.resolve_model(&ctx) {
-            generate_model_two_way_binding(&ctx, &info, &p1, &twb.field_access)
+            generate_model_two_way_binding(&ctx, &info, &p1.unwrap(), &twb.field_access)
         } else {
-            let p2 = access_member(&twb.prop2, &ctx);
-            p2.then(|p2| {
-                if twb.field_access.is_empty() {
-                    quote!(sp::Property::link_two_way(#p1, #p2))
-                } else {
-                    let (access, ty) =
-                        lower_field_access_chain(ctx.property_ty(&twb.prop2), &twb.field_access);
-                    let to_property_value =
-                        set_primitive_property_value(&ty, quote!(s #access .clone()));
-                    let to_struct_value =
-                        primitive_value_from_property_value(&ty, quote!((*v).clone()));
-                    quote!(sp::Property::link_two_way_with_map(#p2, #p1, |s| #to_property_value, |s, v| s #access = #to_struct_value))
-                }
+            p1.then_named("p1", |p1| {
+                p2.then(|p2| {
+                    if twb.field_access.is_empty() {
+                        quote!(sp::Property::link_two_way(#p1, #p2))
+                    } else {
+                        let (access, ty) = lower_field_access_chain(
+                            ctx.property_ty(&twb.prop2),
+                            &twb.field_access,
+                        );
+                        let to_property_value =
+                            set_primitive_property_value(&ty, quote!(s #access .clone()));
+                        let to_struct_value =
+                            primitive_value_from_property_value(&ty, quote!((*v).clone()));
+                        quote!(sp::Property::link_two_way_with_map(#p2, #p1, |s| #to_property_value, |s, v| s #access = #to_struct_value))
+                    }
+                })
             })
         };
         init.push(quote!(#r;))

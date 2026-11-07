@@ -423,7 +423,7 @@ mod visitor {
             .collect();
 
         for twb in two_way_bindings {
-            visit_local_member_reference(&mut twb.prop1, &scope, state, visitor);
+            visit_member_reference(&mut twb.prop1, &scope, state, visitor);
             visit_member_reference(&mut twb.prop2, &scope, state, visitor);
         }
         for c in const_properties {

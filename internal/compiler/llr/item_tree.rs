@@ -316,7 +316,7 @@ impl<T: Into<LocalMemberIndex>> From<T> for LocalMemberReference {
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct TwoWayBinding {
-    pub prop1: LocalMemberReference,
+    pub prop1: MemberReference,
     pub prop2: MemberReference,
     /// `Some` when the binding targets a model row. `prop2` is then the
     /// `model_data` property of the enclosing `for`'s body sub-component,

@@ -12,6 +12,7 @@ use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{BindingExpression, Expression, NamedReference, TwoWayBinding};
 use crate::langtype::Type;
 use crate::object_tree::*;
+use smol_str::SmolStr;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
@@ -120,8 +121,9 @@ struct Links {
 /// 5. [`remove_alias`] moves the binding and `changed` handlers of each property to remove
 ///    onto its master, and removes its declaration.
 ///
-/// A link that [`PropertySets::can_merge`] rejects, and a property that [`choose_masters`] doesn't map,
-/// stay two-way bindings.
+/// These stay two-way bindings: a link that [`PropertySets::can_merge`] rejects,
+/// a property that [`choose_masters`] doesn't map, and a link on an instance property
+/// that [`declaration_aliases_global`] finds.
 pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
     let Links { property_sets, callback_aliases } = collect_links(doc, diag);
     check_callback_aliases(&property_sets, &callback_aliases, diag);
@@ -173,6 +175,8 @@ fn collect_links(doc: &Document, diag: &mut BuildDiagnostics) -> Links {
                         if !bucket.contains(&source) {
                             bucket.push(source.clone());
                         }
+                    } else if declaration_aliases_global(&e.borrow(), name) {
+                        continue;
                     }
                     links.property_sets.add_link(source, property.clone());
                 }
@@ -185,6 +189,35 @@ fn collect_links(doc: &Document, diag: &mut BuildDiagnostics) -> Links {
     });
 
     links
+}
+
+/// Whether the property `name` of an instance is declared in a base component that links it to a global.
+fn declaration_aliases_global(e: &Element, name: &SmolStr) -> bool {
+    let Some(base) = e.declaring_base_component(name) else { return false };
+    let mut pending = vec![(base.root_element.clone(), name.clone())];
+    let mut visited = HashSet::new();
+    while let Some((element, name)) = pending.pop() {
+        if !visited.insert((Rc::as_ptr(&element), name.clone())) {
+            continue;
+        }
+        let element = element.borrow();
+        if let Some(binding) = element.binding(&name) {
+            for twb in &binding.two_way_bindings {
+                if let TwoWayBinding::Property { property, field_access } = twb
+                    && field_access.is_empty()
+                {
+                    if is_in_global(property) {
+                        return true;
+                    }
+                    pending.push((property.element(), property.name().clone()));
+                }
+            }
+        }
+        if let Some(base) = element.declaring_base_component(&name) {
+            pending.push((base.root_element.clone(), name));
+        }
+    }
+    false
 }
 
 /// Warns about callbacks bound two ways to the same callback when none of their set has a handler:
@@ -506,7 +539,8 @@ fn best_property(p1: NamedReference, p2: NamedReference) -> NamedReference {
         let element = x.element();
         let element = element.borrow();
         let is_declaration = element.property_declarations.contains_key(x.name());
-        (!is_in_global(x), is_declaration, element.id.clone(), x.name().clone())
+        let is_global_alias = declaration_aliases_global(&element, x.name());
+        (!is_in_global(x), !is_global_alias, is_declaration, element.id.clone(), x.name().clone())
     };
 
     if canonical_order(&p1) < canonical_order(&p2) { p1 } else { p2 }
