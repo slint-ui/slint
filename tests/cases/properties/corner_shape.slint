@@ -1,0 +1,50 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company , info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase {
+    shape := Rectangle {
+        border-corner-shape: bevel;
+        border-top-left-corner-shape: scoop;
+    }
+
+    // A per-corner radius selects the same native item, so the shape fans out too.
+    radius := Rectangle {
+        border-corner-shape: notch;
+        border-top-left-radius: 10px;
+    }
+
+    // Lowering `clip` and the drop shadow into separate elements keeps the fan-out.
+    clipped := Rectangle {
+        clip: true;
+        drop-shadow-blur: 2px;
+        drop-shadow-color: black;
+        border-radius: 4px;
+        border-corner-shape: squircle;
+        border-bottom-right-corner-shape: bevel;
+        Rectangle { }
+    }
+
+    out property <bool> shape-ok: shape.border-top-left-corner-shape == CornerShape.scoop
+        && shape.border-top-right-corner-shape == CornerShape.bevel
+        && shape.border-bottom-right-corner-shape == CornerShape.bevel
+        && shape.border-bottom-left-corner-shape == CornerShape.bevel;
+    out property <bool> radius-ok: radius.border-top-left-corner-shape == CornerShape.notch
+        && radius.border-bottom-right-corner-shape == CornerShape.notch;
+    out property <bool> clipped-ok: clipped.border-top-left-corner-shape == CornerShape.squircle
+        && clipped.border-bottom-right-corner-shape == CornerShape.bevel;
+
+    out property <bool> test: shape-ok && radius-ok && clipped-ok;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+*/

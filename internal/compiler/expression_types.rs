@@ -196,6 +196,31 @@ pub enum EasingCurve {
     // Custom(Box<dyn Fn(f32)->f32>),
 }
 
+/// A `corner-shape` keyword.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum CornerShape {
+    #[default]
+    Round,
+    Notch,
+    Scoop,
+    Bevel,
+    Squircle,
+    Square,
+}
+
+impl CornerShape {
+    /// Every shape spelled as a keyword, with its keyword.
+    pub const KEYWORDS: [(&'static str, CornerShape); 6] = [
+        ("notch", CornerShape::Notch),
+        ("scoop", CornerShape::Scoop),
+        ("bevel", CornerShape::Bevel),
+        ("round", CornerShape::Round),
+        ("squircle", CornerShape::Squircle),
+        ("square", CornerShape::Square),
+    ];
+}
+
 /// The compiled `mouse-cursor` value: either a built-in cursor or a custom one built from an
 /// image. Generic over the expression type so both the tree and the LLR reuse the same shape.
 #[derive(Clone, Debug)]

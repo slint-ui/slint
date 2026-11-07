@@ -9,7 +9,7 @@
 #![allow(missing_docs)]
 
 use crate::api::LogicalPosition;
-use crate::graphics::{Brush, Color, HsvaColor, OklchColor, RgbaColorU8};
+use crate::graphics::{Brush, Color, CornerShape, HsvaColor, OklchColor, RgbaColorU8};
 use crate::input::Keys;
 use crate::item_tree::ItemRc;
 use crate::items::{

@@ -947,11 +947,13 @@ fn with_opaque_source(options: BoxShadowOptions) -> BoxShadowOptions {
     let rect = euclid::Rect::from_size(size);
     let layout = i_slint_core::item_rendering::BorderRectLayout {
         brush_size: size,
+        radius: options.radius,
         outer_radius: options.radius,
         background_rect: rect,
         background_radius: options.radius,
         border_rect: rect,
         border_radius: options.radius,
+        corner_shape: None,
         border_width: Default::default(),
         border_color: Brush::default(),
     };
