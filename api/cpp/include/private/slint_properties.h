@@ -132,28 +132,29 @@ struct Property
 
     static void link_two_way(const Property<T> *p1, const Property<T> *p2)
     {
-        auto value = p2->get();
-        cbindgen_private::PropertyHandleOpaque handle {};
-        if ((reinterpret_cast<uintptr_t>(p2->inner._0) & 0b10) == 0b10) {
-            std::swap(handle, const_cast<Property<T> *>(p2)->inner);
+        auto common1 = TwoWayBinding::common_of(p1);
+        auto common2 = TwoWayBinding::common_of(p2);
+        if (common1 && common1 == common2) {
+            return;
         }
-        auto common_property = std::make_shared<Property<T>>(handle, std::move(value));
-        cbindgen_private::slint_property_set_binding(
-                &p1->inner, TwoWayBinding::call_fn, new TwoWayBinding { common_property },
-                TwoWayBinding::del_fn, TwoWayBinding::intercept_fn,
-                TwoWayBinding::intercept_binding_fn);
-        cbindgen_private::slint_property_set_binding(
-                &p2->inner, TwoWayBinding::call_fn, new TwoWayBinding { common_property },
-                TwoWayBinding::del_fn, TwoWayBinding::intercept_fn,
-                TwoWayBinding::intercept_binding_fn);
+        const Property<T> *p2_end = common2 ? common2.get() : p2;
+        bool p2_wins = (reinterpret_cast<uintptr_t>(p2_end->inner._0) & 0b10) == 0b10;
+        if (!common1 || p2_wins) {
+            const Property<T> *p1_end = common1 ? common1.get() : p1;
+            TwoWayBinding::link(p1_end,
+                                common2 ? std::move(common2) : TwoWayBinding::make_common(p2));
+            return;
+        }
+        auto value = p2->get();
+        TwoWayBinding::link(p2, std::move(common1));
+        p2->set(value);
     }
 
     template<typename T2, typename M1, typename M2>
     static void link_two_way_with_map(const Property<T> *prop1, const Property<T2> *prop2, M1 map1,
                                       M2 map2)
     {
-        // TODO: neither this nor link_two_way manages to re-use a common_property like the Rust
-        // equivalent does.
+        // TODO: this doesn't manage to re-use a common_property like the Rust equivalent does.
 
         auto value = prop1->get();
         cbindgen_private::PropertyHandleOpaque handle {};
@@ -214,10 +215,7 @@ struct Property
             return true;
         };
 
-        cbindgen_private::slint_property_set_binding(
-                &prop1->inner, TwoWayBinding::call_fn, new TwoWayBinding { common_property },
-                TwoWayBinding::del_fn, TwoWayBinding::intercept_fn,
-                TwoWayBinding::intercept_binding_fn);
+        TwoWayBinding::link(prop1, common_property);
 
         cbindgen_private::slint_property_set_binding(
                 &prop2->inner, call_fn, new TwoWayBindingWithMap { common_property, map1, map2 },
@@ -279,6 +277,33 @@ private:
     {
         std::shared_ptr<Property<T>> common_property;
 
+        static std::shared_ptr<Property<T>> common_of(const Property<T> *p)
+        {
+            TwoWayBinding *last = nullptr;
+            while (auto user_data =
+                           cbindgen_private::slint_property_binding_user_data(&p->inner, call_fn)) {
+                last = reinterpret_cast<TwoWayBinding *>(user_data);
+                p = last->common_property.get();
+            }
+            return last ? last->common_property : nullptr;
+        }
+        static std::shared_ptr<Property<T>> make_common(const Property<T> *p)
+        {
+            auto value = p->get();
+            cbindgen_private::PropertyHandleOpaque handle {};
+            if ((reinterpret_cast<uintptr_t>(p->inner._0) & 0b10) == 0b10) {
+                std::swap(handle, const_cast<Property<T> *>(p)->inner);
+            }
+            auto common = std::make_shared<Property<T>>(handle, std::move(value));
+            link(p, common);
+            return common;
+        }
+        static void link(const Property<T> *p, std::shared_ptr<Property<T>> common)
+        {
+            cbindgen_private::slint_property_set_binding(
+                    &p->inner, call_fn, new TwoWayBinding { std::move(common) }, del_fn,
+                    intercept_fn, intercept_binding_fn);
+        }
         static void del_fn(void *user_data)
         {
             delete reinterpret_cast<TwoWayBinding *>(user_data);
