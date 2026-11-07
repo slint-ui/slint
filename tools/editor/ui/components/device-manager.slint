@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style, Metrics, Typography, ButtonStyle } from "../style.slint";
+import { Style, Theme, Metrics, Typography, ButtonStyle } from "../style.slint";
 import { EditorInput } from "editor-input.slint";
 import { ButtonBase } from "../../controls/src/headless.slint";
 import {
@@ -13,6 +13,7 @@ import {
 import { Preview } from "../preview.slint";
 import { ViewerStyle, Chevron, ViewerIcon } from "viewer-style.slint";
 import { EditorScrollView } from "editor-scroll-view.slint";
+import { ErrorNotice } from "error-notice.slint";
 
 enum DeviceManagerPage {
     SavedDevices,
@@ -134,8 +135,10 @@ component SavedDevicesPage inherits Rectangle {
         }
         DeviceList {
             for device[index] in Springboard.saved-endpoints: Rectangle {
-                height: Metrics.control-medium + 2 * Metrics.space-medium;
-                background: ViewerStyle.device-row;
+                height: device.unavailable-reason == ""
+                    ? Metrics.control-medium + 2 * Metrics.space-medium
+                    : max(Metrics.control-medium, saved-details.preferred-height) + 2 * Metrics.space-medium;
+                background: device.unavailable-reason == "" ? ViewerStyle.device-row : Theme.surfaces.recessed;
                 HorizontalLayout {
                     padding: Metrics.space-medium;
                     spacing: Metrics.space-medium;
@@ -144,7 +147,7 @@ component SavedDevicesPage inherits Rectangle {
                         remote: index > 0;
                         ink: device.unavailable-reason == "" ? ViewerStyle.strong-icon : ViewerStyle.unavailable;
                     }
-                    VerticalLayout {
+                    saved-details := VerticalLayout {
                         horizontal-stretch: 1;
                         spacing: Metrics.space-small;
                         Text {
@@ -158,7 +161,8 @@ component SavedDevicesPage inherits Rectangle {
                             text: index == 0 ? @tr("This computer") : device.unavailable-reason != "" ? device.unavailable-reason : device.kind == PreviewEndpointKind.SerialPath ? @tr("Pseudo-terminal") : @tr("Available · {}", device.address);
                             color: ViewerStyle.muted;
                             font-size: Typography.caption.size;
-                            overflow: elide;
+                            wrap: device.unavailable-reason == "" ? no-wrap : word-wrap;
+                            overflow: device.unavailable-reason == "" ? elide : clip;
                             if device.unavailable-reason != "": Tooltip {
                                 text: @markdown("\{device.unavailable-reason}");
                             }
@@ -201,6 +205,7 @@ component SavedDevicesPage inherits Rectangle {
             }
         }
         SoftButton {
+            max-width: self.preferred-width;
             label: @tr("Pair a device");
             primary: true;
             activated => { root.nearby(); }
@@ -250,6 +255,7 @@ component NearbyDevicesPage inherits Rectangle {
         DeviceList {
             for device[index] in Springboard.discovered-endpoints: Rectangle {
                 height: max(device-details.preferred-height, Style.primary-button.height) + 2 * Metrics.space-medium;
+                background: device.unavailable-reason != "" || device.version-mismatch != "" ? Theme.surfaces.recessed : transparent;
                 HorizontalLayout {
                     padding: Metrics.space-medium;
                     spacing: Metrics.space-medium;
@@ -267,9 +273,10 @@ component NearbyDevicesPage inherits Rectangle {
                         }
                         Text {
                             text: device.version-mismatch != "" ? @tr("Incompatible viewer version") : device.unavailable-reason != "" ? device.unavailable-reason : device.saved ? @tr("Saved viewer") : device.address;
-                            color: device.unavailable-reason != "" ? ViewerStyle.warning : ViewerStyle.muted;
+                            color: ViewerStyle.muted;
                             font-size: Typography.caption.size;
-                            overflow: elide;
+                            wrap: device.unavailable-reason != "" || device.version-mismatch != "" ? word-wrap : no-wrap;
+                            overflow: device.unavailable-reason != "" || device.version-mismatch != "" ? clip : elide;
                             if device.unavailable-reason != "": Tooltip {
                                 text: @markdown("\{device.unavailable-reason}");
                             }
@@ -278,7 +285,7 @@ component NearbyDevicesPage inherits Rectangle {
                             text: Springboard.version-description(device.version-mismatch);
                             color: ViewerStyle.muted;
                             font-size: Typography.caption.size;
-                            overflow: elide;
+                            wrap: word-wrap;
                         }
                         if device.version-mismatch != "": Text {
                             text: @tr("Update Slint Preview on this device.");
@@ -351,6 +358,10 @@ component ManualAddressPage inherits Rectangle {
     in-out property <string> port;
     callback pairing();
     callback retry();
+    private property <bool> has-error: Springboard.manual-endpoint.state == ManualEndpointState.Unreachable
+        || Springboard.manual-endpoint.state == ManualEndpointState.Incompatible;
+    private property <string> status: @tr("Enter an address and port");
+    private property <string> explanation: @tr("Use the address shown on your device.");
     preferred-height: content.preferred-height;
     content := VerticalLayout {
         spacing: Metrics.space-medium;
@@ -371,20 +382,28 @@ component ManualAddressPage inherits Rectangle {
                 DeviceField { width: 2 * Metrics.control-medium + Metrics.space-large; value <=> root.port; placeholder: "9000"; input-type: InputType.number; }
             }
         }
-        status := Text {
-            text: @tr("Enter an address and port");
-            color: ViewerStyle.ink;
-            font-size: Typography.strong-body.size;
-            font-weight: Typography.strong-body.weight;
+        if root.has-error: ErrorNotice {
+            title: root.status;
+            text: root.explanation;
         }
-        explanation := Text {
-            text: @tr("Use the address shown on your device.");
-            color: ViewerStyle.muted;
-            font-size: Typography.caption.size;
-            wrap: word-wrap;
+        if !root.has-error: VerticalLayout {
+            spacing: Metrics.space-medium;
+            Text {
+                text: root.status;
+                color: ViewerStyle.ink;
+                font-size: Typography.strong-body.size;
+                font-weight: Typography.strong-body.weight;
+            }
+            Text {
+                text: root.explanation;
+                color: ViewerStyle.muted;
+                font-size: Typography.caption.size;
+                wrap: word-wrap;
+            }
         }
         Rectangle { vertical-stretch: 1; }
         connect := SoftButton {
+            max-width: root.has-error ? self.preferred-width : parent.width;
             label: @tr("Connect");
             primary: true;
             enabled: false;
@@ -399,25 +418,23 @@ component ManualAddressPage inherits Rectangle {
     }
     states [
         probing when Springboard.manual-endpoint.state == ManualEndpointState.Probing: {
-            status.text: @tr("Looking for Slint Preview…");
-            explanation.text: @tr("Checking the viewer at this address.");
+            root.status: @tr("Looking for Slint Preview…");
+            root.explanation: @tr("Checking the viewer at this address.");
             connect.label: @tr("Searching…");
         }
         unreachable when Springboard.manual-endpoint.state == ManualEndpointState.Unreachable: {
-            status.text: @tr("Couldn’t connect to this address");
-            status.color: ViewerStyle.warning;
-            explanation.text: @tr("Check the IP address and port, and make sure\nSlint Preview is open on your device.");
+            root.status: @tr("Couldn’t connect to this address");
+            root.explanation: @tr("Check the IP address and port, and make sure\nSlint Preview is open on your device.");
             connect.label: @tr("Search again");
             connect.enabled: true;
         }
         incompatible when Springboard.manual-endpoint.state == ManualEndpointState.Incompatible: {
-            status.text: @tr("Incompatible Slint version");
-            status.color: ViewerStyle.warning;
-            explanation.text: Springboard.version-description(Springboard.manual-endpoint.version) + "\n" + @tr("Update Slint Preview on this device.");
+            root.status: @tr("Incompatible Slint version");
+            root.explanation: Springboard.version-description(Springboard.manual-endpoint.version) + "\n" + @tr("Update Slint Preview on this device.");
         }
         reachable when Springboard.manual-endpoint.state == ManualEndpointState.Reachable: {
-            status.text: @tr("Slint Preview found");
-            explanation.text: @tr("Connect to pair with this device.");
+            root.status: @tr("Slint Preview found");
+            root.explanation: @tr("Connect to pair with this device.");
             connect.enabled: true;
         }
     ]
@@ -470,14 +487,12 @@ component PairingPage inherits Rectangle {
             placeholder: @tr("{}-digit pairing code", Springboard.connection.pairing-code-length);
             input-type: InputType.number;
         }
-        if Springboard.connection.error != "": Text {
+        if Springboard.connection.error != "": ErrorNotice {
             text: Springboard.connection.error;
-            wrap: word-wrap;
-            color: ViewerStyle.error;
-            font-size: Typography.caption.size;
         }
         Rectangle { vertical-stretch: 1; }
         if !root.serial: SoftButton {
+            max-width: Springboard.connection.error != "" ? self.preferred-width : parent.width;
             label: Springboard.connection.state == ConnectionState.UnpairedConfirmationRequired ? @tr("Connect unencrypted") : @tr("Pair device");
             primary: true;
             enabled: Springboard.connection.state == ConnectionState.UnpairedConfirmationRequired || (Springboard.connection.state == ConnectionState.PairingRequired && root.code.character-count == Springboard.connection.pairing-code-length);
