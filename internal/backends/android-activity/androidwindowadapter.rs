@@ -6,7 +6,7 @@
 use super::*;
 use crate::javahelper::{JavaHelper, print_jni_error};
 use android_activity::input::{
-    ButtonState, InputEvent, KeyAction, KeyMapChar, Keycode, MotionAction, MotionEvent,
+    Axis, ButtonState, InputEvent, KeyAction, KeyMapChar, Keycode, MotionAction, MotionEvent,
 };
 use android_activity::{InputStatus, MainEvent, PollEvent};
 use i_slint_core::SharedString;
@@ -558,7 +558,27 @@ impl AndroidWindowAdapter {
                             }
                             InputStatus::Handled
                         }
-                        MotionAction::Scroll => todo!(),
+                        MotionAction::Scroll => {
+                            let position = position_for_event(motion_event, offset, scale);
+                            let (delta_x, delta_y) =
+                                motion_event.pointers().next().map_or((0.0, 0.0), |p| {
+                                    (
+                                        -p.axis_value(Axis::Hscroll) * 50.0,
+                                        p.axis_value(Axis::Vscroll) * 50.0,
+                                    )
+                                });
+                            if delta_x != 0.0 || delta_y != 0.0 {
+                                result = self
+                                    .window
+                                    .dispatch_event_with_result(WindowEvent::PointerScrolled {
+                                        position,
+                                        delta_x,
+                                        delta_y,
+                                    })
+                                    .map(|_| ());
+                            }
+                            InputStatus::Handled
+                        }
                         MotionAction::HoverEnter | MotionAction::HoverExit => {
                             InputStatus::Unhandled
                         }
