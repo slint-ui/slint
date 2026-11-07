@@ -19,15 +19,17 @@ global Theme {
     /// Silver, for text, lines, and markers.
     out property <color> accent: #c3cad6;
     out property <color> accent-light: #dfe4ec;
-    /// Metal surfaces, such as the primary button: brushed aluminum, lit softly from above.
-    out property <brush> metal: @linear-gradient(180deg, #f4f6f9 0%, #dde2e9 55%, #c5ccd6 100%);
+    /// Metal surfaces, such as the primary button: satin graphite, like dark trim on a car,
+    /// with a fine light edge.
+    out property <brush> metal: @linear-gradient(180deg, #3c4557 0%, #2b3343 100%);
+    out property <color> metal-edge: #ffffff33;
     /// Text and icons on metal.
-    out property <color> on-metal: #0b1528;
+    out property <color> on-metal: #eef1f5;
     /// The upper and lower halves of a flap, and of a lit one.
     out property <color> flap-upper: #1d2a44;
     out property <color> flap-lower: #121c30;
-    out property <brush> lit-upper: @linear-gradient(180deg, #f4f6f9 0%, #e2e6ec 100%);
-    out property <brush> lit-lower: @linear-gradient(180deg, #ccd2db 0%, #bcc3ce 100%);
+    out property <brush> lit-upper: @linear-gradient(180deg, #48526a 0%, #3b4457 100%);
+    out property <brush> lit-lower: @linear-gradient(180deg, #2f3748 0%, #283040 100%);
     /// Behind the globe on the entry screen.
     out property <color> background: #040915;
     out property <color> surface: #0b1528;
@@ -254,7 +256,7 @@ component Flaps {
     in property <color> color: Theme.text;
     /// Shows all of the text on one flap.
     in property <bool> whole;
-    /// Dark on metal, like a sign.
+    /// On a metal flap, like a sign.
     in property <bool> lit;
     /// How long the flaps show a text before they flip to a newer one.
     in property <duration> hold: 50ms;
@@ -301,6 +303,8 @@ component PillButton inherits Rectangle {
     height: 36px;
     min-width: content.preferred-width + 28px;
     border-radius: 3px;
+    border-width: root.primary ? 1px : 0px;
+    border-color: Theme.metal-edge;
     opacity: root.enabled ? 1 : 0.4;
     background: root.primary
         ? (touch.pressed ? Theme.metal.darker(0.2) : touch.has-hover ? Theme.metal.brighter(0.1) : Theme.metal)
@@ -345,6 +349,7 @@ component RoundButton inherits Glass {
     height: 40px;
     border-radius: 3px;
     background: root.checked ? Theme.metal : Theme.glass;
+    border-color: root.checked ? Theme.metal-edge : Theme.line;
     Rectangle {
         border-radius: root.border-radius;
         background: touch.pressed ? Theme.fill-pressed : touch.has-hover ? Theme.fill-hover : transparent;
@@ -416,6 +421,7 @@ component Segmented {
             size: 12px;
             whole: true;
             lit: index == root.current;
+            color: Theme.muted;
         }
 
         TouchArea {
@@ -504,7 +510,7 @@ component FlightCard inherits Glass {
                     width: (parent.width + 2px) / parent.tiles - 2px;
                     height: 10px;
                     border-radius: 1px;
-                    background: tile < root.flight.progress * parent.tiles ? Theme.metal : Theme.track;
+                    background: tile < root.flight.progress * parent.tiles ? Theme.accent : Theme.track;
                 }
 
                 AircraftIcon {
