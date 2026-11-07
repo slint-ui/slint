@@ -18,9 +18,9 @@ use super::*;
 const INLINE_CODE_FONT_SCALE: f32 = 0.85;
 
 /// Room between an inline `code` run's capsule edges and its first and last glyph, as a
-/// fraction of the run's font size. It is laid out, as extra spacing after the character
-/// before the run and after the run's last one, so that the capsule never covers its
-/// neighbours; `draw_inline_code_backgrounds` paints the capsule over it.
+/// fraction of the run's font size. The left room is an inline box before the code and the right
+/// room is spacing after its last character, so the capsule never covers its neighbors;
+/// `draw_inline_code_backgrounds` paints the capsule over it.
 pub(super) const INLINE_CODE_PADDING: f32 = 0.35;
 
 std::thread_local! {
@@ -250,25 +250,32 @@ impl LayoutWithoutLineBreaksBuilder {
                 }
             }
 
-            // The padding inside inline code's capsule, on both sides, laid out as spacing after
-            // single characters: the text stays as it is, and so does what is copied from it.
+            // The padding inside inline code's capsule. The left one is an inline box before the
+            // code, which takes room without being part of the text. The right one is spacing
+            // after the code's last character, so the capsule never ends on its neighbor.
             let padding = self.pixel_size.get() * INLINE_CODE_FONT_SCALE * INLINE_CODE_PADDING;
-            // Keyed by the character's start: one can end a code range and precede the next.
-            let mut padded_chars =
-                alloc::collections::BTreeMap::<usize, (Range<usize>, f32)>::new();
-            for range in inline_code_padded_chars(text, &code_ranges) {
-                padded_chars.entry(range.start).or_insert((range, 0.)).1 += padding;
+            for (id, code) in code_ranges.iter().enumerate() {
+                builder.push_inline_box(parley::InlineBox {
+                    id: id as u64,
+                    kind: parley::InlineBoxKind::InFlow,
+                    index: code.start,
+                    width: padding,
+                    height: 0.,
+                    baseline: None,
+                    vertical_align: parley::VerticalAlign::BASELINE,
+                });
             }
-            if !padded_chars.is_empty() {
-                let letter_spacing = self
-                    .font_request
-                    .as_ref()
-                    .and_then(|font_request| font_request.letter_spacing)
-                    .map_or(0., |letter_spacing| letter_spacing.get());
-                for (range, padding) in padded_chars.into_values() {
+            let letter_spacing = self
+                .font_request
+                .as_ref()
+                .and_then(|font_request| font_request.letter_spacing)
+                .map_or(0., |letter_spacing| letter_spacing.get());
+            for code in &code_ranges {
+                if let Some(last) = text[code.clone()].char_indices().next_back() {
+                    let start = code.start + last.0;
                     builder.push(
                         parley::StyleProperty::LetterSpacing(letter_spacing + padding),
-                        range,
+                        start..start + last.1.len_utf8(),
                     );
                 }
             }
@@ -286,24 +293,6 @@ pub(super) fn line_height_ratio(
 ) -> Option<f32> {
     let natural_ratio = font_ctx.query_font(font_request)?.natural_line_height_ratio?;
     Some(natural_ratio * line_height_factor.unwrap_or(1.0))
-}
-
-/// The characters that inline code's padding follows, as byte ranges into `text`: the one
-/// before each code range (where there is one), for the room left of it, and the code's last
-/// one, for the room right of it.
-pub(super) fn inline_code_padded_chars<'a>(
-    text: &'a str,
-    code_ranges: &'a [Range<usize>],
-) -> impl Iterator<Item = Range<usize>> + 'a {
-    let last_char = |range: Range<usize>| {
-        text[range.clone()].char_indices().next_back().map(|(index, character)| {
-            range.start + index..range.start + index + character.len_utf8()
-        })
-    };
-    code_ranges
-        .iter()
-        .flat_map(move |code| [last_char(0..code.start), last_char(code.clone())])
-        .flatten()
 }
 
 /// Splits plain text into paragraph byte ranges at `'\n'`. The `'\n'` and any preceding `'\r'`

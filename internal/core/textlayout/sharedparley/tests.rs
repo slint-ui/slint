@@ -490,16 +490,3 @@ fn test_control_glyphs() {
         .collect::<Vec<_>>();
     assert_eq!(missing_glyphs, paragraph.control_glyphs(&line));
 }
-
-#[test]
-fn inline_code_padding_follows_the_character_before_the_code_and_its_last_one() {
-    let gaps = |text: &'static str, code: &[Range<usize>]| {
-        super::shaping::inline_code_padded_chars(text, code)
-            .map(|range| &text[range])
-            .collect::<Vec<_>>()
-    };
-    assert_eq!(gaps("a bc d", &[2..4]), [" ", "c"]);
-    // Code that starts the text has nothing before it; characters are whole, not bytes.
-    assert_eq!(gaps("äö ü", &[0..4]), ["ö"]);
-    assert_eq!(gaps("ä(ö)", &[3..5]), ["(", "ö"]);
-}
