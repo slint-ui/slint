@@ -7,6 +7,7 @@
 //! This is the module for the functions that are drawing the pixels
 //! on the line buffer
 
+use super::scene::texture_offset;
 use super::{Fixed, PhysicalLength, PhysicalRect};
 use crate::scene::{
     GradientFactor, GradientPosition, LinearGradientPosition, PremultipliedGradientStop,
@@ -34,29 +35,32 @@ pub(super) fn draw_texture_line(
         pixel_stride,
         extra: super::SceneTextureExtra { colorize, alpha, rotation, dx, dy, off_x, off_y },
     } = *texture;
+    let off_x = super::scene::TextureStep::from_fixed(off_x);
+    let off_y = super::scene::TextureStep::from_fixed(off_y);
 
     let source_size = texture.source_size().cast::<i32>();
+    let source_width = source_size.width;
+    let source_height = source_size.height;
     let len = line_buffer.len();
+    if len == 0 {
+        return;
+    }
     let y = line - span.origin.y_length();
-    let y = if rotation.mirror_width() { span.size.height - y.get() - 1 } else { y.get() } as i32;
-
-    let off_y = Fixed::<i32, 8>::from_fixed(off_y);
-    let dx = Fixed::<i32, 8>::from_fixed(dx);
-    let dy = Fixed::<i32, 8>::from_fixed(dy);
-    let off_x = Fixed::<i32, 8>::from_fixed(off_x);
+    let y = (if rotation.mirror_width() { span.size.height - y.get() - 1 } else { y.get() }) as i32;
     let bpp = format.bpp();
+    let sdf_delta = Fixed::<i32, 8>::from_fixed(dy).max(Fixed(1));
 
     if !rotation.is_transpose() {
         let mut delta = dx;
-        let row = off_y + dy * y;
+        let row = texture_offset(off_y, dy, y, source_height);
         // The position where to start in the image array for a this row
-        let row_offset = (row.truncate() % source_size.height) as usize * pixel_stride as usize;
+        let row_offset = (row.truncate() % source_height) as usize * pixel_stride as usize;
         let mut tile_start = 0;
 
         // the size of the tile in physical pixels in the target
-        let tile_len = (Fixed::from_integer(source_size.width) / delta) as usize;
+        let tile_len = (Fixed::from_integer(source_width) / delta) as usize;
         // the amount of missing image pixel on one tile
-        let mut remainder = Fixed::from_integer(source_size.width) % delta;
+        let mut remainder = Fixed::from_integer(source_width) % delta;
         // The position in image pixel where to get the image
         let mut pos;
         // the end index in the target buffer
@@ -64,20 +68,19 @@ pub(super) fn draw_texture_line(
         // the accumulated error in image pixels
         let mut acc_err;
         if rotation.mirror_height() {
-            let o = (off_x + (delta * (extra_clip_end as i32 + len as i32 - 1)))
-                % Fixed::from_integer(source_size.width);
+            let o =
+                texture_offset(off_x, delta, extra_clip_end as i32 + len as i32 - 1, source_width);
             pos = o;
-            tile_start = source_size.width;
+            tile_start = source_width;
             end = (o / delta) as usize + 1;
             acc_err = -delta + o % delta;
             delta = -delta;
             remainder = -remainder;
         } else {
-            let o =
-                (off_x + delta * extra_clip_begin as i32) % Fixed::from_integer(source_size.width);
+            let o = texture_offset(off_x, delta, extra_clip_begin as i32, source_width);
             pos = o;
-            end = ((Fixed::from_integer(source_size.width) - o) / delta) as usize;
-            acc_err = (Fixed::from_integer(source_size.width) - o) % delta;
+            end = ((Fixed::from_integer(source_width) - o) / delta) as usize;
+            acc_err = (Fixed::from_integer(source_width) - o) % delta;
             if acc_err != Fixed::default() {
                 acc_err = delta - acc_err;
                 end += 1;
@@ -103,7 +106,7 @@ pub(super) fn draw_texture_line(
                     data,
                     alpha,
                     colorize,
-                    (pixel_stride as usize, dy),
+                    (pixel_stride as usize, sdf_delta),
                     #[inline(always)]
                     |bpp| {
                         let p =
@@ -131,30 +134,33 @@ pub(super) fn draw_texture_line(
             end = end.min(len);
         }
     } else {
-        let col = off_x + dx * y;
+        let col = texture_offset(off_x, dx, y, source_width);
         let col_fract = col.fract();
-        let col = (col.truncate() % source_size.width) as usize * bpp;
+        let col = (col.truncate() % source_width) as usize * bpp;
         let stride = pixel_stride as usize * bpp;
         let mut row_delta = dy;
-        let tile_len = (Fixed::from_integer(source_size.height) / row_delta) as usize;
-        let mut remainder = Fixed::from_integer(source_size.height) % row_delta;
+        let tile_len = (Fixed::from_integer(source_height) / row_delta) as usize;
+        let mut remainder = Fixed::from_integer(source_height) % row_delta;
         let mut end;
         let mut row_init = Fixed::default();
         let mut row;
         let mut acc_err;
         if rotation.mirror_height() {
-            row_init = Fixed::from_integer(source_size.height);
-            row = (off_y + (row_delta * (extra_clip_end as i32 + len as i32 - 1)))
-                % Fixed::from_integer(source_size.height);
+            row_init = Fixed::from_integer(source_height);
+            row = texture_offset(
+                off_y,
+                row_delta,
+                extra_clip_end as i32 + len as i32 - 1,
+                source_height,
+            );
             end = (row / row_delta) as usize + 1;
             acc_err = -row_delta + row % row_delta;
             row_delta = -row_delta;
             remainder = -remainder;
         } else {
-            row = (off_y + row_delta * extra_clip_begin as i32)
-                % Fixed::from_integer(source_size.height);
-            end = ((Fixed::from_integer(source_size.height) - row) / row_delta) as usize;
-            acc_err = (Fixed::from_integer(source_size.height) - row) % row_delta;
+            row = texture_offset(off_y, row_delta, extra_clip_begin as i32, source_height);
+            end = ((Fixed::from_integer(source_height) - row) / row_delta) as usize;
+            acc_err = (Fixed::from_integer(source_height) - row) % row_delta;
             if acc_err != Fixed::default() {
                 acc_err = row_delta - acc_err;
                 end += 1;
@@ -169,7 +175,7 @@ pub(super) fn draw_texture_line(
                 data,
                 alpha,
                 colorize,
-                (stride, dy),
+                (stride, sdf_delta),
                 #[inline(always)]
                 |_| {
                     let pos = (row.truncate() as usize * stride + col, col_fract, row.fract());
