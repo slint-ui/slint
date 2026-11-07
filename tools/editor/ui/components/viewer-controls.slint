@@ -64,9 +64,12 @@ export component ViewerControls inherits Rectangle {
                 }
                 Text {
                     text: Preview.status;
-                    color: ViewerStyle.muted;
+                    color: Springboard.connection.state == ConnectionState.Failed ? ViewerStyle.warning : ViewerStyle.muted;
                     font-size: Typography.caption.size;
                     overflow: elide;
+                    if Springboard.connection.state == ConnectionState.Failed: Tooltip {
+                        text: @markdown("\{Springboard.connection.error}");
+                    }
                 }
             }
         }
@@ -222,9 +225,9 @@ export component ViewerControls inherits Rectangle {
             }
             if root.error != "": Text {
                 text: root.error;
-                color: ViewerStyle.muted;
+                color: ViewerStyle.warning;
                 font-size: Typography.caption.size;
-                overflow: elide;
+                wrap: word-wrap;
             }
         }
     }
