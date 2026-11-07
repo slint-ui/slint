@@ -8,6 +8,19 @@
 
 ## Testing
 
+Before reporting implementation complete, run the repository checks:
+
+```
+mise run --force ci:autofix:fix
+mise run --force ci:autofix:lint
+mise run --force lint:spell
+```
+
+Inspect any changes made by the fix task. These commands cover repository checks, not the affected functional tests.
+
+Run the functional tests separately, using the relevant CI jobs to identify commands, features, and environment settings.
+Report any checks that remain blocked or not run.
+
 - `examples/`, `demos/`, `tests/`, and `ui-libraries/material/` are separate Cargo workspaces.
   Use `--manifest-path <dir>/Cargo.toml` to target them.
 - Run `cargo test` directly; no preceding `cargo build` is needed.
@@ -25,6 +38,8 @@
 - For `api/slint-sc`, every line, function, code region, and branch outcome requires coverage, with no exclusions.
   Each requirement anchor `{#sls.…}` inside an `<SC>` block on an `SC: true` page needs a matching `//#sls.…` test in the same change.
   Run `scripts/slint_sc_test_suite.sh target/slint-sc-coverage` and `scripts/build_safety_manual_coverage.sh`.
+- Compiler or interpreter changes may affect the language bindings and tools as well as the edited crate.
+  Search for affected expectations across languages; cover all potentially affected language bindings in testing.
 
 ## References
 
