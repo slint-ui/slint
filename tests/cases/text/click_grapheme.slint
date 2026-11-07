@@ -1,0 +1,27 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A click or drag lands on a grapheme boundary, never inside a grapheme cluster.
+
+export component TestCase inherits TextInput {
+    width: 100phx;
+    height: 100phx;
+    // the fixed test font maps a click to a byte offset, which can fall inside a grapheme
+    font-family: "FixedTestFont";
+    font-size: 10phx;
+    text: "e\u{0301}e\u{0301}";
+    in-out property<int> test_cursor_pos: self.cursor_position_byte_offset;
+    in-out property<int> test_anchor_pos: self.anchor_position_byte_offset;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+// "é" is 3 bytes (e + combining acute), so a boundary is 0, 3 or 6.
+for x in 0..100 {
+    slint_testing::send_mouse_click(&instance, x as f32, 5.);
+    assert_eq!(instance.get_test_cursor_pos() % 3, 0, "click at {x}");
+    assert_eq!(instance.get_test_anchor_pos() % 3, 0, "click at {x}");
+}
+```
+*/
