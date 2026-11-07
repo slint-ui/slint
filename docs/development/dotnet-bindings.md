@@ -887,8 +887,8 @@ Next:
 - **26.** Postponed: UI written in C#, with a shared core and two front ends.
   Slint creates no elements from C# at run time, so the core turns a tree of C# builders into `.slint` source,
   which the interpreter compiles once per page, and C# then sets the page's properties.
-  Measured on an Apple Silicon Mac with the release build: a page without the standard widgets compiles in 11 ms,
-  one with `Button` and `VerticalBox` in 180 ms, the gallery in 815 ms, and an instance of a compiled component takes 0.11 ms.
+  Measured on an Apple Silicon Mac with the release build, see item 27: a page without the standard widgets compiles in 1 ms,
+  one with `Button` and `VerticalBox` in 17 ms, the gallery in 102 ms, and an instance of a compiled component takes 0.11 ms.
   - The core, 2.5–3 weeks, from a 3–4 day spike: typed builders, generated from the elements and widgets of the compiler,
     layout helpers, a cache of compiled pages, `.slint` components and raw expressions as escape hatches,
     and hot reload through a .NET metadata update handler.
@@ -902,9 +902,31 @@ Next:
     `.Bind()`, `.BindCommand()`, `.Row()`, and `.Column()` on the builders, through the bindings of item 25.
   - Not classic MVU, such as MauiReactor's: a `Render()` that runs on every change would recompile whenever the structure changes,
     and lose the focus, scrolling, and animations of the UI.
-- **27.** Faster compiling, 1–2 weeks: every app compiles the standard widgets at startup, about 170 ms of the 180 ms above, and more in the browser.
-  Keep the compiled widget library across builds in the compiler's type loader, or compile the `.slint` files at build time.
-  This speeds up the startup of every app, and the pages of item 26.
+- **27.** Faster startup: the generated code compiles its `.slint` files at startup, which a Rust app does at build time.
+  - Phase 0, done on 2026-11-07, with release builds on an Apple Silicon Mac:
+    - Compiling takes 24 ms for the todo example, 41 ms for the printer demo, and 102 ms for the gallery.
+      The 180 ms of item 26 for `Button` and `VerticalBox` didn't hold: that page compiles in 17 ms.
+    - The first call into `slint-dotnet` takes about 35 ms more, for creating the winit platform, which a Rust app also does.
+    - In the gallery, loading the files, the standard widgets included, takes 16% of the time,
+      the passes over the inlined tree 51%, and lowering to the item tree 27%.
+      So keeping the widgets across compiles would save at most 15 ms, and only on a second compile in a process.
+    - `i_slint_compiler::llr::serialize`, which the visual editor uses for previews on microcontrollers,
+      writes a compiled unit as bytes, and `CompilationResult::from_compilation_unit` of the interpreter runs it.
+      Reading a unit takes 0.5 ms for the todo example, 1 ms for the printer demo, and 3 to 5 ms for the gallery,
+      from units of 100, 243, and 818 KB.
+  - Phase 1, 3–4 days: units at build time, for the desktop.
+    `slint-compiler -f csharp` also writes the unit, which the assembly embeds,
+    and `GeneratedApi.Create` reads it instead of compiling, through a new export of `slint-dotnet`.
+    - The unit refers to images by their paths on the build machine,
+      so the build turns them into `data:` URLs, like `SlintEmbedFiles` does at run time.
+    - A unit carries no font files, so the interpreter needs a way to take them with it.
+    - `slint-dotnet` needs the interpreter's `internal-mcu-interpreter` feature, which adds owned textures to the core.
+    - The unit fixes the style, from `SlintStyle` or else `fluent`;
+      with `SLINT_STYLE` set to another style, or with live preview, the generated code compiles as today.
+    - The format isn't stable, so the unit records the Slint version, and a different one compiles instead.
+  - Phase 2, 2–3 days: the browser, Android, and iOS, with the startup measured on each; the browser gains the most.
+  - Phase 3, 2–3 days: the test driver runs every case from units too, and the documentation, What's New, and CI.
+
 - **28.** Mapsui for Slint, in a branch `slint` of a fork of [Mapsui](https://github.com/Mapsui/Mapsui), MIT licensed, 3–4 weeks:
   `Mapsui.UI.Slint` next to Mapsui's controls for MAUI, Avalonia, WPF, WinUI, Uno, Eto, Blazor, Android, and iOS, for a pull request to Mapsui.
   Mapsui is a map component for .NET that draws with SkiaSharp,
