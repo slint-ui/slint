@@ -324,7 +324,7 @@ dependencies = [
  "objc2-foundation 0.3.2",
  "parking_lot",
  "percent-encoding",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
  "x11rb",
 ]
 
@@ -1274,7 +1274,7 @@ dependencies = [
  "libc",
  "option-ext",
  "redox_users",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -1521,7 +1521,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -1657,6 +1657,7 @@ dependencies = [
  "bytemuck",
  "console_error_panic_hook",
  "glam",
+ "i-slint-renderer-skia",
  "image",
  "slint",
  "slint-build",
@@ -2589,6 +2590,8 @@ dependencies = [
  "spin_on",
  "unicode-segmentation",
  "vtable",
+ "wasm-bindgen",
+ "web-sys",
  "wgpu",
  "wgpu-hal",
  "windows",
@@ -4431,7 +4434,7 @@ dependencies = [
  "once_cell",
  "socket2",
  "tracing",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -4771,7 +4774,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.12.1",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -4828,7 +4831,7 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -5052,7 +5055,7 @@ checksum = "33f4fe9184a62d842c9ef383018f3306d8ba224fd9d836f56d7288308847c256"
 [[package]]
 name = "skia-bindings"
 version = "0.157.0"
-source = "git+https://github.com/rust-skia/rust-skia?rev=6a89d0f01c38c4b73bd1a303c547774c10da2e51#6a89d0f01c38c4b73bd1a303c547774c10da2e51"
+source = "git+https://github.com/slint-ui/rust-skia?rev=aafdaa6f3dcb20b7c80023f264b68f9662cd167a#aafdaa6f3dcb20b7c80023f264b68f9662cd167a"
 dependencies = [
  "bindgen",
  "cc",
@@ -5063,16 +5066,28 @@ dependencies = [
  "serde_json",
  "tar",
  "toml",
+ "web-sys",
 ]
 
 [[package]]
 name = "skia-safe"
 version = "0.157.0"
-source = "git+https://github.com/rust-skia/rust-skia?rev=6a89d0f01c38c4b73bd1a303c547774c10da2e51#6a89d0f01c38c4b73bd1a303c547774c10da2e51"
+source = "git+https://github.com/slint-ui/rust-skia?rev=aafdaa6f3dcb20b7c80023f264b68f9662cd167a#aafdaa6f3dcb20b7c80023f264b68f9662cd167a"
 dependencies = [
  "bitflags 2.13.2",
  "skia-bindings",
+ "skia-wgpu",
  "windows",
+]
+
+[[package]]
+name = "skia-wgpu"
+version = "0.157.0"
+source = "git+https://github.com/slint-ui/rust-skia?rev=aafdaa6f3dcb20b7c80023f264b68f9662cd167a#aafdaa6f3dcb20b7c80023f264b68f9662cd167a"
+dependencies = [
+ "skia-bindings",
+ "wasm-bindgen-futures",
+ "wgpu",
 ]
 
 [[package]]
@@ -5477,10 +5492,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.4.3",
+ "getrandom 0.3.4",
  "once_cell",
  "rustix 1.1.6",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -5499,7 +5514,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "230a1b821ccbd75b185820a1f1ff7b14d21da1e442e22c0863ea5f08771a8874"
 dependencies = [
  "rustix 1.1.6",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -6533,7 +6548,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
