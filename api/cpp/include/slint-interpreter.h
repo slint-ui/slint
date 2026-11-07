@@ -881,9 +881,10 @@ public:
         return u.result;
     }
 
-    /// Returns a vector of PropertyDescriptor instances that describe the list of
-    /// public properties that can be read and written using ComponentInstance::set_property and
-    /// ComponentInstance::get_property.
+    /// Returns a vector of PropertyDescriptor instances that describe the public properties
+    /// the component declares at its root (not inherited).
+    /// Read and write them using ComponentInstance::get_property and
+    /// ComponentInstance::set_property.
     slint::SharedVector<PropertyDescriptor> properties() const
     {
         slint::SharedVector<PropertyDescriptor> props;
@@ -891,8 +892,9 @@ public:
         return props;
     }
 
-    /// Returns a vector of strings that describe the list of public callbacks that can be invoked
-    /// using ComponentInstance::invoke and set using ComponentInstance::set_callback.
+    /// Returns the names of the callbacks the component declares at its root.
+    /// Invoke them using ComponentInstance::invoke and set them using
+    /// ComponentInstance::set_callback.
     slint::SharedVector<slint::SharedString> callbacks() const
     {
         slint::SharedVector<slint::SharedString> callbacks;
@@ -900,8 +902,8 @@ public:
         return callbacks;
     }
 
-    /// Returns a vector of strings that describe the list of public functions that can be invoked
-    /// using ComponentInstance::invoke.
+    /// Returns the names of the public functions the component declares at its root.
+    /// Invoke them using ComponentInstance::invoke.
     slint::SharedVector<slint::SharedString> functions() const
     {
         slint::SharedVector<slint::SharedString> functions;

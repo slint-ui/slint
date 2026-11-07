@@ -68,8 +68,10 @@ export component Button {
 ```
 
 All properties declared at the top level of a component that aren't `private`
-are accessible from the outside when using the component as an element,
-and via the language bindings from the business logic.
+are accessible from the outside when using the component as an element.
+The language bindings also expose them for the exported component (but not inherited ones).
+To expose any other property, such as an inherited one or one of a child element,
+declare a property in the exported component and link it with a [two-way binding](../../../../reference/language/two-way-bindings/).
 
 For the exact rules, see the [Properties](../../../../reference/language/properties/) and
 [Bindings](../../../../reference/language/bindings/) chapters of the language reference;
