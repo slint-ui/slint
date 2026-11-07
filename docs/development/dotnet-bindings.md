@@ -499,6 +499,7 @@ Done:
   On 2026-11-06, it renamed struct fields that collide with the members of a C# record, which a Copilot review found,
   and merged `master` at 1.20.0.
   Then all its 47 CI jobs passed, with 17 skipped.
+  On 2026-11-07, it took the embedding of `.slint` files and their images on Android and iOS, from iOS phase 4 of item 17.
   The `linuxkms` change of the manual test fixes Slint itself, so it went upstream on its own,
   as [#14565](https://github.com/slint-ui/slint/pull/14565), merged on 2026-10-31.
   Before it's merged, it needs the official `Slint` package IDs, a squash, and a `ChangeLog:` trailer.
@@ -634,6 +635,92 @@ Done:
     - The download: `wasm-opt` on the link, and `.slint` files compiled at build time, so that the compiler stays out of the app.
     - Paths with spaces, the files of several assemblies in directories of their own, and include paths from Windows builds.
     - WebAssembly AOT compilation of the C# code.
+- **20.** `dotnet new` templates, in the package `yurkinh.slint.net.Templates`, with the version of the other packages:
+  `slint` for the desktop, `slint-android`, `slint-ios`, and `slint-xplat`, a solution with a project per platform.
+  Debug builds turn on `SlintLivePreview` on the desktop, for `dotnet watch`; Android and iOS wait for .NET 11, see item 17.
+  Release builds turn on `PublishAot` on the desktop and iOS, in the project, and keep .NET for Android's default AOT.
+  The UI lives in `ui/`, and C# that the platforms share in `Shared/`, which each project compiles,
+  since each one generates its own classes and packs its own `.slint` files.
+  - Phase 1, done: `api/dotnet/Templates/Slint.Templates.csproj`, which writes the package ID and version into each `template.json` when it packs,
+    and the desktop template `slint`, with `--style` and `--slint-version`.
+    An app from it builds and runs, live preview included, and `dotnet publish -r osx-arm64` builds it with Native AOT.
+    The template content has no license headers, since `dotnet new` copies it into the user's project; `REUSE.toml` licenses it as MIT.
+  - Phase 2, done: `slint-android`, with `SlintActivity`, and `slint-ios`, with the `Info.plist` for Slint's scene delegate and Native AOT in Release builds.
+    Both take `--app-id`, which is `com.companyname.<name>` by default.
+    An Android app from preview.9 runs on the Pixel 9 emulator, and an iOS app from a local package with the framework in the simulator.
+  - Phase 3, done: `slint-xplat`, a `.slnx` with `<name>.Desktop`, `<name>.Android`, and `<name>.iOS`,
+    and a `Directory.Build.props` that gives each one the package, the style, `ui/`, and `Shared/`.
+    `--platforms` picks the projects, for a machine without the Android or iOS workload.
+    Each template has `--no-restore`, and an `ide.host.json` that shows its options in Visual Studio.
+    All three projects run: on the desktop, on the Pixel 9 emulator, and in the iOS simulator.
+  - Phase 4, done: `pack` of the publish workflow packs the templates with the README of the other packages, and `publish` pushes them.
+    The package tests create an app from each template and build it with the packages:
+    `slint` also publishes with Native AOT on each desktop runner, and `slint-ios` starts in a simulator.
+    The .NET job of CI only instantiates each template, since it has no packages to build them with.
+    The dry run passed every job, Native AOT on the Linux and Windows runners included, and 1.19.0-preview.10 published the templates.
+  - Phase 5, done: the README's Quick Start lists the four templates, and its Android and iOS sections start from them.
+    The documentation page and the article have them too, and What's New lists them in 1.19.0-preview.10.
+  - Later: a test project, which needs the testing backend in the packaged library.
+- **22.** Desktop apps published as one file, without the `ui/` directory and `slint_dotnet` next to the executable.
+  With phase 1, a single-file publish with `IncludeNativeLibrariesForSelfExtract=true` gives one executable,
+  and Native AOT gives `MyApp.exe` and `slint_dotnet.dll`, without `ui/`.
+  - Phase 1, done: `SlintEmbedFiles`, on by default with `PublishSingleFile`, makes `Slint.targets` embed the `.slint` files,
+    the images and fonts that they use, and the bundled translations into the assembly, from the compiler's dependency file,
+    as for the browser of item 24, which now takes the same path.
+    `GeneratedApi` hands them to the compiler, below a directory that exists only for it,
+    and `slint_dotnet_compiler_set_embedded_files` serves them from memory through three hooks of the interpreter:
+    the file loader for `.slint` files, the resource URL mapper, which turns each image into a `data:` URL,
+    and the resource loader for imported fonts.
+    `Compiler.BuildFromPath` compiles an embedded main file from its source, since the interpreter reads the main file from disk.
+    - The compiler reads bundled translations only from a directory, so `GeneratedApi` writes the `.po` files below the user's temporary files;
+      reading them from memory needs a change to `translations.rs`, whose parser takes contents too.
+    - `SourcePath::to_url` gave no URL for a file on any WebAssembly target, so Emscripten's images missed the mapper;
+      it now excludes only `target_os = "unknown"`, like the interpreter's web-only code.
+    - The todo example runs as one executable from a single-file publish, and with Native AOT as the executable and the library;
+      the gallery runs with its images and German translation, on the desktop and in the browser.
+    - Live preview still loads the source files.
+  - Phase 2, postponed until an app needs it, static linking for Native AOT: `<DirectPInvoke Include="slint_dotnet" />`
+    and `<NativeLibrary Include="slint_dotnet.lib" />` link the native library into the executable.
+    It needs a `staticlib` build of `api/dotnet/native` for each runtime identifier, with the C runtime that Native AOT links,
+    such as `+crt-static` on Windows, and `Slint.targets` adding the items when `PublishAot` is set.
+    - Gains: one executable that runs in place, unlike a single-file publish that extracts to a temporary directory;
+      no missing, mismatched, or planted `slint_dotnet` library; and one file to sign and ship.
+      The direct calls and the saved library load take microseconds, so speed doesn't change.
+    - Costs: larger packages, a static build per runtime identifier, and longer links.
+      `SLINT_DOTNET_NATIVE_LIBRARY` and swapping in a debug build of the library stop working, and apps without Native AOT gain nothing.
+    - Prototype it on Windows first, and measure how much the static libraries add to the package.
+- **25.** MVVM: view models drive a `.slint` UI through bindings, without glue code, first of items 25 to 27.
+  The bindings use the interfaces of .NET, which [CommunityToolkit.Mvvm](https://www.nuget.org/packages/CommunityToolkit.Mvvm) implements,
+  so the `Slint` package doesn't depend on the toolkit:
+  `INotifyPropertyChanged`, `INotifyCollectionChanged`, `ICommand`, and `INotifyDataErrorInfo`.
+  The messenger and dependency injection of the toolkit need nothing from Slint.
+  - Phase 1, done: `ComponentInstance.WatchProperty` and `WatchGlobalProperty` call C# after a property changes,
+    through a `ChangeTracker` of Slint's core, which runs once per frame.
+    `ObservableCollectionModel<T>` follows a list with `INotifyCollectionChanged`, and the items with `INotifyPropertyChanged`,
+    and passes the rows that `.slint` code sets, inserts, or removes to the list; Slint has no notification for a move,
+    so a move is a removal and an insertion.
+    A watch of a live component reads the instance it started with, until it reads again after a reload.
+  - Phase 2, done: `ComponentInstance.Bind(viewModel)` returns a `ViewModelBinding<T>`,
+    whose `Property`, `Collection`, `Command`, and `ToViewModel` bind members one by one.
+    On `PropertyChanged`, from any thread, it reads its getters again on the Slint thread and sets the values that changed,
+    so a property computed from others needs no notification of its own.
+    `[SlintViewModel(typeof(Component))]` makes the source generator in `api/dotnet/Slint.SourceGenerator`,
+    packed in `analyzers/` of the package, generate `component.Bind(viewModel)`, which binds members by their C# names,
+    and warns with `SLINT102` and `SLINT103` about members whose types don't fit.
+    It reads the Slint names from `[SlintName]`, which `slint-compiler -f csharp` now puts on properties and the `On` methods of callbacks.
+    One generator doesn't see what another generates, so it derives the members of `[ObservableProperty]` and `[RelayCommand]`
+    from the rules of CommunityToolkit.Mvvm.
+    The tests bind a view model of CommunityToolkit.Mvvm both ways, with a command whose `CanExecute` follows a property.
+  - Phase 3, done: a bound command refreshes the bindings when it raises `PropertyChanged`,
+    so `IsRunning` of an asynchronous command binds as a property, which the generator does for a boolean `save-running`.
+    `Errors` binds a string property to the errors of a field from `INotifyDataErrorInfo`, refreshed on `ErrorsChanged`,
+    which the generator does for a string `name-error`; `HasErrors` binds by name.
+    The test binds an `ObservableValidator` with `[NotifyDataErrorInfo]`, and an asynchronous `[RelayCommand]`.
+  - Phase 4, done: `[SlintViewModel]` also takes the class of an exported global, which `slint-compiler -f csharp` marks with `[SlintName]`,
+    and its `Bind` calls `BindGlobal`, which reads and writes the global's properties and callbacks.
+    `examples/mvvm/dotnet`, in `examples/dotnet.slnx`, binds the view models of [MVVM-Samples](https://github.com/CommunityToolkit/MVVM-Samples)
+    to a Slint UI, one global per page, ported with their MIT notice.
+    `dotnet new slint --mvvm` adds a `MainViewModel`; CI instantiates it, and the publish workflow builds it with the packages.
 
 Next:
 
@@ -729,32 +816,6 @@ Next:
       The runners also have a Hyper-V display; `linuxkms` takes the first card with a connected output, which is `vkms`'s `card0`.
       The step passed its first run in the job itself.
     - Next: a Raspberry Pi, for real hardware and a touchscreen.
-- **20.** `dotnet new` templates, in the package `yurkinh.slint.net.Templates`, with the version of the other packages:
-  `slint` for the desktop, `slint-android`, `slint-ios`, and `slint-xplat`, a solution with a project per platform.
-  Debug builds turn on `SlintLivePreview` on the desktop, for `dotnet watch`; Android and iOS wait for .NET 11, see item 17.
-  Release builds turn on `PublishAot` on the desktop and iOS, in the project, and keep .NET for Android's default AOT.
-  The UI lives in `ui/`, and C# that the platforms share in `Shared/`, which each project compiles,
-  since each one generates its own classes and packs its own `.slint` files.
-  - Phase 1, done: `api/dotnet/Templates/Slint.Templates.csproj`, which writes the package ID and version into each `template.json` when it packs,
-    and the desktop template `slint`, with `--style` and `--slint-version`.
-    An app from it builds and runs, live preview included, and `dotnet publish -r osx-arm64` builds it with Native AOT.
-    The template content has no license headers, since `dotnet new` copies it into the user's project; `REUSE.toml` licenses it as MIT.
-  - Phase 2, done: `slint-android`, with `SlintActivity`, and `slint-ios`, with the `Info.plist` for Slint's scene delegate and Native AOT in Release builds.
-    Both take `--app-id`, which is `com.companyname.<name>` by default.
-    An Android app from preview.9 runs on the Pixel 9 emulator, and an iOS app from a local package with the framework in the simulator.
-  - Phase 3, done: `slint-xplat`, a `.slnx` with `<name>.Desktop`, `<name>.Android`, and `<name>.iOS`,
-    and a `Directory.Build.props` that gives each one the package, the style, `ui/`, and `Shared/`.
-    `--platforms` picks the projects, for a machine without the Android or iOS workload.
-    Each template has `--no-restore`, and an `ide.host.json` that shows its options in Visual Studio.
-    All three projects run: on the desktop, on the Pixel 9 emulator, and in the iOS simulator.
-  - Phase 4, done: `pack` of the publish workflow packs the templates with the README of the other packages, and `publish` pushes them.
-    The package tests create an app from each template and build it with the packages:
-    `slint` also publishes with Native AOT on each desktop runner, and `slint-ios` starts in a simulator.
-    The .NET job of CI only instantiates each template, since it has no packages to build them with.
-    The dry run passed every job, Native AOT on the Linux and Windows runners included, and 1.19.0-preview.10 published the templates.
-  - Phase 5, done: the README's Quick Start lists the four templates, and its Android and iOS sections start from them.
-    The documentation page and the article have them too, and What's New lists them in 1.19.0-preview.10.
-  - Later: a test project, which needs the testing backend in the packaged library.
 - **21.** Microcharts for Slint, in the branch [`slint`](https://github.com/yurkinh/Microcharts/tree/slint) of the fork yurkinh/Microcharts, MIT licensed:
   `Microcharts.Slint` next to its views for MAUI, iOS, and Android, for a pull request to Microcharts.
   There's no package of our own: apps use Microcharts' packages, and `Microcharts.Slint` once Microcharts publishes it.
@@ -807,34 +868,6 @@ Next:
     which depends on `yurkinh.slint.net`, until Slint.NET has an official package ID.
   - Risks: on embedded Linux, SkiaSharp needs fontconfig and the fonts that the labels use.
     Native AOT on iOS links both Skias into one executable, which is untested.
-- **22.** Desktop apps published as one file, without the `ui/` directory and `slint_dotnet` next to the executable.
-  With phase 1, a single-file publish with `IncludeNativeLibrariesForSelfExtract=true` gives one executable,
-  and Native AOT gives `MyApp.exe` and `slint_dotnet.dll`, without `ui/`.
-  - Phase 1, done: `SlintEmbedFiles`, on by default with `PublishSingleFile`, makes `Slint.targets` embed the `.slint` files,
-    the images and fonts that they use, and the bundled translations into the assembly, from the compiler's dependency file,
-    as for the browser of item 24, which now takes the same path.
-    `GeneratedApi` hands them to the compiler, below a directory that exists only for it,
-    and `slint_dotnet_compiler_set_embedded_files` serves them from memory through three hooks of the interpreter:
-    the file loader for `.slint` files, the resource URL mapper, which turns each image into a `data:` URL,
-    and the resource loader for imported fonts.
-    `Compiler.BuildFromPath` compiles an embedded main file from its source, since the interpreter reads the main file from disk.
-    - The compiler reads bundled translations only from a directory, so `GeneratedApi` writes the `.po` files below the user's temporary files;
-      reading them from memory needs a change to `translations.rs`, whose parser takes contents too.
-    - `SourcePath::to_url` gave no URL for a file on any WebAssembly target, so Emscripten's images missed the mapper;
-      it now excludes only `target_os = "unknown"`, like the interpreter's web-only code.
-    - The todo example runs as one executable from a single-file publish, and with Native AOT as the executable and the library;
-      the gallery runs with its images and German translation, on the desktop and in the browser.
-    - Live preview still loads the source files.
-  - Phase 2, postponed until an app needs it, static linking for Native AOT: `<DirectPInvoke Include="slint_dotnet" />`
-    and `<NativeLibrary Include="slint_dotnet.lib" />` link the native library into the executable.
-    It needs a `staticlib` build of `api/dotnet/native` for each runtime identifier, with the C runtime that Native AOT links,
-    such as `+crt-static` on Windows, and `Slint.targets` adding the items when `PublishAot` is set.
-    - Gains: one executable that runs in place, unlike a single-file publish that extracts to a temporary directory;
-      no missing, mismatched, or planted `slint_dotnet` library; and one file to sign and ship.
-      The direct calls and the saved library load take microseconds, so speed doesn't change.
-    - Costs: larger packages, a static build per runtime identifier, and longer links.
-      `SLINT_DOTNET_NATIVE_LIBRARY` and swapping in a debug build of the library stop working, and apps without Native AOT gain nothing.
-    - Prototype it on Windows first, and measure how much the static libraries add to the package.
 - **23.** DrawnUI for Slint, in the branch [`slint`](https://github.com/yurkinh/DrawnUi.Maui/tree/slint) of the fork yurkinh/DrawnUi.Maui, MIT licensed:
   `DrawnUi.Slint`, a host for DrawnUI next to its MAUI, Blazor, OpenTK, and WPF hosts, for a pull request to DrawnUI.
   DrawnUI is a UI framework drawn with SkiaSharp; a host gives its `Canvas` a surface, input, a UI thread, and frames.
@@ -851,38 +884,6 @@ Next:
   - Next: the pull request to [DrawnUi/DrawnUi.Net](https://github.com/DrawnUi/DrawnUi.Net),
     so DrawnUI publishes the packages with its other hosts, depending on `yurkinh.slint.net` until Slint.NET has an official package ID.
   - Limits: one pointer per view, so no pinch or rotation; inside a view, screen readers see one image.
-- **25.** MVVM: view models drive a `.slint` UI through bindings, without glue code, first of items 25 to 27.
-  The bindings use the interfaces of .NET, which [CommunityToolkit.Mvvm](https://www.nuget.org/packages/CommunityToolkit.Mvvm) implements,
-  so the `Slint` package doesn't depend on the toolkit:
-  `INotifyPropertyChanged`, `INotifyCollectionChanged`, `ICommand`, and `INotifyDataErrorInfo`.
-  The messenger and dependency injection of the toolkit need nothing from Slint.
-  - Phase 1, done: `ComponentInstance.WatchProperty` and `WatchGlobalProperty` call C# after a property changes,
-    through a `ChangeTracker` of Slint's core, which runs once per frame.
-    `ObservableCollectionModel<T>` follows a list with `INotifyCollectionChanged`, and the items with `INotifyPropertyChanged`,
-    and passes the rows that `.slint` code sets, inserts, or removes to the list; Slint has no notification for a move,
-    so a move is a removal and an insertion.
-    A watch of a live component reads the instance it started with, until it reads again after a reload.
-  - Phase 2, done: `ComponentInstance.Bind(viewModel)` returns a `ViewModelBinding<T>`,
-    whose `Property`, `Collection`, `Command`, and `ToViewModel` bind members one by one.
-    On `PropertyChanged`, from any thread, it reads its getters again on the Slint thread and sets the values that changed,
-    so a property computed from others needs no notification of its own.
-    `[SlintViewModel(typeof(Component))]` makes the source generator in `api/dotnet/Slint.SourceGenerator`,
-    packed in `analyzers/` of the package, generate `component.Bind(viewModel)`, which binds members by their C# names,
-    and warns with `SLINT102` and `SLINT103` about members whose types don't fit.
-    It reads the Slint names from `[SlintName]`, which `slint-compiler -f csharp` now puts on properties and the `On` methods of callbacks.
-    One generator doesn't see what another generates, so it derives the members of `[ObservableProperty]` and `[RelayCommand]`
-    from the rules of CommunityToolkit.Mvvm.
-    The tests bind a view model of CommunityToolkit.Mvvm both ways, with a command whose `CanExecute` follows a property.
-  - Phase 3, done: a bound command refreshes the bindings when it raises `PropertyChanged`,
-    so `IsRunning` of an asynchronous command binds as a property, which the generator does for a boolean `save-running`.
-    `Errors` binds a string property to the errors of a field from `INotifyDataErrorInfo`, refreshed on `ErrorsChanged`,
-    which the generator does for a string `name-error`; `HasErrors` binds by name.
-    The test binds an `ObservableValidator` with `[NotifyDataErrorInfo]`, and an asynchronous `[RelayCommand]`.
-  - Phase 4, done: `[SlintViewModel]` also takes the class of an exported global, which `slint-compiler -f csharp` marks with `[SlintName]`,
-    and its `Bind` calls `BindGlobal`, which reads and writes the global's properties and callbacks.
-    `examples/mvvm/dotnet`, in `examples/dotnet.slnx`, binds the view models of [MVVM-Samples](https://github.com/CommunityToolkit/MVVM-Samples)
-    to a Slint UI, one global per page, ported with their MIT notice.
-    `dotnet new slint --mvvm` adds a `MainViewModel`; CI instantiates it, and the publish workflow builds it with the packages.
 - **26.** Postponed: UI written in C#, with a shared core and two front ends.
   Slint creates no elements from C# at run time, so the core turns a tree of C# builders into `.slint` source,
   which the interpreter compiles once per page, and C# then sets the page's properties.
