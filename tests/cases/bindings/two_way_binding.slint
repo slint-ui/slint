@@ -12,6 +12,28 @@ component OtherComp inherits Rectangle {
     in-out property <int> some_value_alias <=> some_value;
 }
 
+component NestedAlias {
+    in-out property <string> nested-text <=> inner.t;
+    inner := OtherComp { }
+}
+
+component PrivateAlias {
+    in-out property <int> shown <=> hidden;
+    property <int> hidden;
+    out property <int> read: hidden;
+}
+
+component DerivedAlias inherits PrivateAlias { }
+
+component DiamondBase {
+    in-out property <int> a <=> target;
+    in-out property <int> target;
+}
+
+component Diamond inherits DiamondBase {
+    a <=> self.target;
+}
+
 export component TestCase inherits Rectangle {
 
     in-out property <string> text1: "Hello";
@@ -49,6 +71,30 @@ export component TestCase inherits Rectangle {
         some_value_alias <=> othercomp_some_value_alias2;
     }
 
+    in-out property <string> nested-local;
+    nested := NestedAlias { nested-text <=> root.nested-local; }
+    in-out property <int> private-local;
+    private-alias := PrivateAlias { shown <=> root.private-local; }
+    in-out property <int> derived-local;
+    derived := DerivedAlias { shown <=> root.derived-local; }
+    in-out property <int> diamond-local;
+    diamond := Diamond { a <=> root.diamond-local; }
+
+    public function check-aliases() -> bool {
+        root.nested-local = "nested";
+        root.private-local = 3;
+        root.derived-local = 4;
+        root.diamond-local = 7;
+        if nested.nested-text != "nested" || private-alias.read != 3 || derived.read != 4
+            || diamond.target != 7 {
+            return false;
+        }
+        nested.nested-text = "changed";
+        private-alias.shown = 5;
+        derived.shown = 6;
+        return root.nested-local == "changed" && root.private-local == 5 && root.derived-local == 6;
+    }
+
     callback set_ti1(string);
     set_ti1(a) => { ti1.text = a; }
     callback set_ti2(string);
@@ -60,6 +106,7 @@ export component TestCase inherits Rectangle {
 
 ```rust
 let instance = TestCase::new().unwrap();
+assert!(instance.invoke_check_aliases());
 assert_eq!(instance.get_text1(), slint::SharedString::from("Hello"));
 assert_eq!(instance.get_text2(), slint::SharedString::from("Blah"));
 assert_eq!(instance.get_ti1_text(), slint::SharedString::from("Hello"));
@@ -108,6 +155,7 @@ assert_eq!(instance.get_othercomp_some_value_alias2(), 1);
 ```cpp
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
+assert(instance.invoke_check_aliases());
 assert_eq(instance.get_text1(), slint::SharedString("Hello"));
 assert_eq(instance.get_text2(), slint::SharedString("Blah"));
 assert_eq(instance.get_ti1_text(), slint::SharedString("Hello"));
@@ -154,6 +202,7 @@ assert_eq(instance.get_othercomp_some_value_alias2(), 1);
 
 ```js
 let instance = new slint.TestCase({});
+assert(instance.check_aliases());
 assert.equal(instance.text1, "Hello");
 assert.equal(instance.text2, "Blah");
 assert.equal(instance.ti1_text, "Hello");
