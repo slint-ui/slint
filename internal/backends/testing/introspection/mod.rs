@@ -21,6 +21,8 @@ slotmap::new_key_type! {
 
 #[allow(dead_code, non_snake_case, unused_imports, non_camel_case_types, clippy::all)]
 pub(crate) mod proto;
+#[cfg(feature = "system-testing")]
+pub(crate) mod subscriptions;
 
 /// Maximum number of element handles kept in the arena before evicting the least recently used.
 const ELEMENT_HANDLE_CAP: usize = 10_000;
@@ -172,6 +174,8 @@ pub(crate) struct TrackedWindow {
 pub(crate) struct TrackedElement {
     pub element: ElementHandle,
     last_used: Cell<u64>,
+    /// How many tree subscriptions hold the handle.
+    pins: Cell<u32>,
 }
 
 /// Shared introspection state: window and element handle arenas.
@@ -179,6 +183,7 @@ pub(crate) struct IntrospectionState {
     pub windows: RefCell<SlotMap<ArenaIndex, TrackedWindow>>,
     pub element_handles: RefCell<SlotMap<ArenaIndex, TrackedElement>>,
     element_handle_clock: Cell<u64>,
+    pinned_handle_count: Cell<usize>,
     /// Reverse lookup into `element_handles`, so an element that is mentioned again
     /// keeps its handle. `ElementHandle` compares by pointer and doesn't hash, so
     /// entries are bucketed by a hint that equal elements share.
@@ -189,6 +194,10 @@ pub(crate) struct IntrospectionState {
     unknown_event_count: Cell<u64>,
     unknown_event_warned: Cell<bool>,
     recording_enabled: Cell<bool>,
+    #[cfg(feature = "system-testing")]
+    windows_generation: core::pin::Pin<Box<i_slint_core::Property<u32>>>,
+    #[cfg(feature = "system-testing")]
+    pub subscriptions: subscriptions::Subscriptions,
 }
 
 impl IntrospectionState {
@@ -197,6 +206,7 @@ impl IntrospectionState {
             windows: Default::default(),
             element_handles: Default::default(),
             element_handle_clock: Default::default(),
+            pinned_handle_count: Default::default(),
             element_handle_lookup: Default::default(),
             event_log: Default::default(),
             next_event_sequence: Default::default(),
@@ -204,6 +214,10 @@ impl IntrospectionState {
             unknown_event_count: Default::default(),
             unknown_event_warned: Cell::new(false),
             recording_enabled: Cell::new(false),
+            #[cfg(feature = "system-testing")]
+            windows_generation: Box::pin(Default::default()),
+            #[cfg(feature = "system-testing")]
+            subscriptions: Default::default(),
         }
     }
 
@@ -214,29 +228,46 @@ impl IntrospectionState {
             let root_wrapper = RootWrapper(&item_tree);
             self.element_to_handle(root_wrapper.root_element())
         };
-        let mut windows = self.windows.borrow_mut();
-        windows.retain(|_, window| window.window_adapter.strong_count() > 0);
-        // A window shows again with a new component when the live preview recompiles.
-        let shown_again = windows.values_mut().find(|window| {
-            window.window_adapter.upgrade().is_some_and(|known| Rc::ptr_eq(&known, adapter))
-        });
-        match shown_again {
-            Some(window) => window.root_element_handle = root_element_handle,
-            None => {
-                windows.insert(TrackedWindow {
-                    window_adapter: Rc::downgrade(adapter),
-                    root_element_handle,
-                });
+        {
+            let mut windows = self.windows.borrow_mut();
+            windows.retain(|_, window| window.window_adapter.strong_count() > 0);
+            // A window shows again with a new component when the live preview recompiles.
+            let shown_again = windows.values_mut().find(|window| {
+                window.window_adapter.upgrade().is_some_and(|known| Rc::ptr_eq(&known, adapter))
+            });
+            match shown_again {
+                Some(window) => window.root_element_handle = root_element_handle,
+                None => {
+                    windows.insert(TrackedWindow {
+                        window_adapter: Rc::downgrade(adapter),
+                        root_element_handle,
+                    });
+                }
             }
         }
+        #[cfg(feature = "system-testing")]
+        {
+            let generation = self.windows_generation.as_ref();
+            generation.set(generation.get_untracked().wrapping_add(1));
+        }
+    }
+
+    /// Returns the adapters of the tracked windows that still exist.
+    /// A binding that calls it depends on windows being added.
+    #[cfg(feature = "system-testing")]
+    fn live_window_adapters(&self) -> Vec<Rc<dyn WindowAdapter>> {
+        self.windows_generation.as_ref().get();
+        self.windows
+            .borrow()
+            .values()
+            .filter_map(|window| window.window_adapter.upgrade())
+            .collect()
     }
 
     /// Returns the root elements of the tracked windows that still show a component.
     #[cfg(feature = "system-testing")]
     fn window_root_elements(&self) -> Vec<ElementHandle> {
-        let adapters: Vec<_> =
-            self.windows.borrow().values().filter_map(|w| w.window_adapter.upgrade()).collect();
-        adapters
+        self.live_window_adapters()
             .iter()
             .filter_map(|adapter| WindowInner::from_pub(adapter.window()).try_component())
             .map(|item_tree| RootWrapper(&item_tree).root_element())
@@ -310,19 +341,24 @@ impl IntrospectionState {
         }
 
         let mut arena = self.element_handles.borrow_mut();
-        let index = arena.insert(TrackedElement { element, last_used: Cell::new(self.tick()) });
+        let index = arena.insert(TrackedElement {
+            element,
+            last_used: Cell::new(self.tick()),
+            pins: Cell::new(0),
+        });
         if let Some(hint) = hint {
             self.element_handle_lookup.borrow_mut().entry(hint).or_default().push(index);
         }
-        if arena.len() > ELEMENT_HANDLE_CAP {
+        let unpinned = arena.len() - self.pinned_handle_count.get();
+        if unpinned > ELEMENT_HANDLE_CAP {
             let root_indices: HashSet<ArenaIndex> =
                 self.windows.borrow().iter().map(|(_, w)| w.root_element_handle).collect();
             let mut candidates: Vec<(u64, ArenaIndex)> = arena
                 .iter()
-                .filter(|(index, _)| !root_indices.contains(index))
+                .filter(|(index, tracked)| tracked.pins.get() == 0 && !root_indices.contains(index))
                 .map(|(index, tracked)| (tracked.last_used.get(), index))
                 .collect();
-            let excess = (arena.len() + ELEMENT_HANDLE_EVICTION_SLACK - ELEMENT_HANDLE_CAP)
+            let excess = (unpinned + ELEMENT_HANDLE_EVICTION_SLACK - ELEMENT_HANDLE_CAP)
                 .min(candidates.len());
             if excess > 0 {
                 candidates.select_nth_unstable_by_key(excess - 1, |(last_used, _)| *last_used);
@@ -340,6 +376,27 @@ impl IntrospectionState {
             }
         }
         index
+    }
+
+    /// Keeps the handle from being evicted until a matching [`Self::unpin_handle`].
+    #[cfg(feature = "system-testing")]
+    fn pin_handle(&self, index: ArenaIndex) {
+        if let Some(tracked) = self.element_handles.borrow().get(index) {
+            tracked.pins.set(tracked.pins.get() + 1);
+            if tracked.pins.get() == 1 {
+                self.pinned_handle_count.set(self.pinned_handle_count.get() + 1);
+            }
+        }
+    }
+
+    #[cfg(feature = "system-testing")]
+    fn unpin_handle(&self, index: ArenaIndex) {
+        if let Some(tracked) = self.element_handles.borrow().get(index) {
+            tracked.pins.set(tracked.pins.get() - 1);
+            if tracked.pins.get() == 0 {
+                self.pinned_handle_count.set(self.pinned_handle_count.get() - 1);
+            }
+        }
     }
 
     /// How many handles one response can return before
@@ -390,7 +447,9 @@ impl IntrospectionState {
             })
             .ok_or_else(|| format!("Invalid element handle for {request}"))?;
         if !element.is_valid() {
-            self.element_handles.borrow_mut().remove(index);
+            if self.element_handles.borrow_mut().remove(index).is_some_and(|t| t.pins.get() > 0) {
+                self.pinned_handle_count.set(self.pinned_handle_count.get() - 1);
+            }
             return Err(format!(
                 "Element handle for {request} refers to element that was destroyed"
             ));
@@ -793,6 +852,35 @@ pub(crate) fn element_properties(element: &ElementHandle) -> proto::ElementPrope
     }
 }
 
+/// Returns None when the application doesn't support inspection.
+#[cfg(feature = "system-testing")]
+fn inspectable_properties(element: &ElementHandle) -> Option<Vec<proto::TestableProperty>> {
+    Some(
+        element
+            .inspectable_properties()?
+            .iter()
+            .map(|property| proto::TestableProperty {
+                name: property.name.to_string(),
+                type_name: property.ty.to_string(),
+                value: property.value().map(|value| value.to_string()),
+            })
+            .collect(),
+    )
+}
+
+#[cfg(feature = "system-testing")]
+pub(crate) fn tree_node(
+    element: &ElementHandle,
+    handle: ArenaIndex,
+    depth: usize,
+) -> proto::ElementTreeNode {
+    proto::ElementTreeNode {
+        handle: Some(index_to_handle(handle)),
+        depth: depth as u32,
+        type_names_and_ids: type_names_and_ids(element),
+    }
+}
+
 pub(crate) fn query_element_descendants(
     element: ElementHandle,
     query_stack: Vec<proto::ElementQueryInstruction>,
@@ -1030,18 +1118,10 @@ pub(crate) mod dispatch {
         element: ArenaIndex,
     ) -> Result<proto::ElementInspectablePropertiesResponse, String> {
         let element = state.element("element_inspectable_properties", element)?;
-        let properties = element.inspectable_properties();
+        let properties = super::inspectable_properties(&element);
         Ok(proto::ElementInspectablePropertiesResponse {
             available: properties.is_some(),
-            properties: properties
-                .unwrap_or_default()
-                .iter()
-                .map(|property| proto::TestableProperty {
-                    name: property.name.to_string(),
-                    type_name: property.ty.to_string(),
-                    value: property.value().map(|value| value.to_string()),
-                })
-                .collect(),
+            properties: properties.unwrap_or_default(),
         })
     }
 
@@ -1066,11 +1146,8 @@ pub(crate) mod dispatch {
                 if elements.len() == max_elements {
                     return std::ops::ControlFlow::Break(());
                 }
-                elements.push(proto::ElementTreeNode {
-                    type_names_and_ids: super::type_names_and_ids(&element),
-                    handle: Some(index_to_handle(state.element_to_handle(element))),
-                    depth: depth as u32,
-                });
+                let handle = state.element_to_handle(element.clone());
+                elements.push(super::tree_node(&element, handle, depth));
                 std::ops::ControlFlow::Continue(())
             })
             .is_some()

@@ -290,6 +290,24 @@ message RequestElementInspectableProperties {
     Handle element_handle = 1;
 }
 
+// Only over the debugger transport.
+message RequestSubscribeElementProperties {
+    Handle element_handle = 1;
+}
+
+// Only over the debugger transport.
+// A missing element_handle subscribes to the trees of every window.
+message RequestSubscribeElementTree {
+    Handle element_handle = 1;
+}
+
+// Only over the debugger transport.
+// Ends a property or tree subscription.
+// Succeeds for a subscription that already ended.
+message RequestUnsubscribe {
+    uint64 subscription_id = 1;
+}
+
 message RequestQueryElementDescendants {
     Handle element_handle = 1;
     repeated ElementQueryInstruction query_stack = 2;
@@ -332,6 +350,9 @@ message RequestToAUT {
         RequestStartEventRecording request_start_event_recording = 16;
         RequestStopEventRecording request_stop_event_recording = 17;
         RequestElementInspectableProperties request_element_inspectable_properties = 18;
+        RequestSubscribeElementProperties request_subscribe_element_properties = 19;
+        RequestSubscribeElementTree request_subscribe_element_tree = 20;
+        RequestUnsubscribe request_unsubscribe = 21;
     }
 }
 
@@ -438,6 +459,21 @@ message ElementInspectablePropertiesResponse {
     bool available = 2;
 }
 
+message SubscribeElementPropertiesResponse {
+    // Meaningful only when available is true.
+    uint64 subscription_id = 1;
+    // The initial values, which later changes are relative to.
+    repeated TestableProperty properties = 2;
+    // Same meaning as in ElementInspectablePropertiesResponse.
+    // No subscription exists when this is false.
+    bool available = 3;
+}
+
+// The payload of a PropertiesChanged debugger message.
+message ElementPropertiesChanged {
+    repeated TestableProperty changed = 1;
+}
+
 message InvokeElementAccessibilityActionResponse {
 }
 
@@ -476,6 +512,34 @@ message GetElementTreeResponse {
     // False when the application was built without debug info,
     // so the tree holds no elements.
     bool debug_info_available = 3;
+}
+
+message SubscribeElementTreeResponse {
+    uint64 subscription_id = 1;
+    // The initial tree, in the GetElementTreeResponse layout, which later changes are relative to.
+    repeated ElementTreeNode elements = 2;
+    // Same meaning as in GetElementTreeResponse.
+    bool debug_info_available = 3;
+}
+
+// The payload of an ElementTreeChanged debugger message.
+// Apply removals first, then insertions in order.
+message ElementTreeChanged {
+    // Roots of removed subtrees; their descendants are removed with them.
+    repeated Handle removed = 1;
+    repeated InsertedElements inserted = 2;
+}
+
+message InsertedElements {
+    // The element these follow in the pre-order list, after the removals
+    // and the insertions before this one.
+    // Missing when they start the list.
+    Handle after = 1;
+    // In pre-order, with absolute depths.
+    repeated ElementTreeNode elements = 2;
+}
+
+message UnsubscribeResponse {
 }
 
 message ElementQueryResponse {
@@ -538,5 +602,8 @@ message AUTResponse {
         StartEventRecordingResponse start_event_recording_response = 17;
         StopEventRecordingResponse stop_event_recording_response = 18;
         ElementInspectablePropertiesResponse element_inspectable_properties_response = 19;
+        SubscribeElementPropertiesResponse subscribe_element_properties_response = 20;
+        SubscribeElementTreeResponse subscribe_element_tree_response = 21;
+        UnsubscribeResponse unsubscribe_response = 22;
     }
 }
