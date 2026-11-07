@@ -49,13 +49,14 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
         Some(common)
     }
 
-    /// If the property is linked through a mapping to a common property of type `U`,
-    /// return that common property
-    #[cfg_attr(not(feature = "rtti"), allow(dead_code))]
+    /// If the property or its common property is linked through a mapping to a common property
+    /// of type `U`, return that common property
     pub(crate) fn check_mapped_common_property<U: 'static>(
         self: Pin<&Self>,
     ) -> Option<Pin<Rc<Property<U>>>> {
-        self.with_common_property(|c: &MappedCommonProperty<U>| c.0.clone())
+        let direct =
+            |p: Pin<&Self>| p.with_common_property(|c: &MappedCommonProperty<U>| c.0.clone());
+        direct(self).or_else(|| direct(self.check_common_property()?.as_ref()))
     }
 
     /// Calls `f` with the common property of this property's binding, if it's a `C`
@@ -168,6 +169,19 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
             }
             common_property
         };
+        #[inline(never)]
+        fn is_mapped_to<T: PartialEq + Clone + 'static, T2: PartialEq + Clone + 'static>(
+            prop2: Pin<&Property<T2>>,
+            common_property: &Pin<Rc<Property<T>>>,
+        ) -> bool {
+            prop2.check_mapped_common_property::<T>().is_some_and(|mapped| {
+                let root = mapped.as_ref().check_common_property().unwrap_or(mapped);
+                core::ptr::eq(&*root, &**common_property)
+            })
+        }
+        if is_mapped_to(prop2, &common_property) {
+            return;
+        }
         Self::link_two_way_with_map_to_common_property(
             common_property,
             prop2,
@@ -718,6 +732,21 @@ fn test_two_way_link_chains_in_any_order() {
             }
         }
     }
+}
+
+#[test]
+fn test_two_way_with_map_already_linked() {
+    let source = Rc::pin(Property::new((1, 2)));
+    let mapped = Rc::pin(Property::new(0));
+    let other = Rc::pin(Property::new(0));
+    Property::link_two_way(mapped.as_ref(), other.as_ref());
+    for _ in 0..2 {
+        Property::link_two_way_with_map(source.as_ref(), mapped.as_ref(), |s| s.0, |s, v| s.0 = *v);
+    }
+    other.as_ref().set(3);
+    assert_eq!(source.as_ref().get(), (3, 2));
+    source.as_ref().set((4, 5));
+    assert_eq!(mapped.as_ref().get(), 4);
 }
 
 /// Regression test for use-after-free in `link_two_way_with_map_to_common_property`.
