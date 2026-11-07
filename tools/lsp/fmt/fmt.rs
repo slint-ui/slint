@@ -6,11 +6,15 @@
 use super::writer::TokenWriter;
 use i_slint_compiler::parser::{NodeOrToken, SyntaxKind, SyntaxNode, syntax_nodes};
 
+/// One level of indentation, unless the editor asks for something else.
+pub const DEFAULT_INDENTATION: &str = "    ";
+
 pub fn format_document(
     doc: syntax_nodes::Document,
+    indentation: &str,
     writer: &mut impl TokenWriter,
 ) -> Result<(), std::io::Error> {
-    let mut state = FormatState::default();
+    let mut state = FormatState { indentation: indentation.into(), ..Default::default() };
     format_node(&doc, writer, &mut state)
 }
 
@@ -28,6 +32,7 @@ struct FormatState {
 
     /// The level of indentation
     indentation_level: u32,
+    indentation: String,
 
     /// A counter that is incremented when something is inserted
     insertion_count: usize,
@@ -57,9 +62,19 @@ impl FormatState {
         }
         let mut new_line = String::from("\n");
         for _ in 0..self.indentation_level {
-            new_line += "    ";
+            new_line += &self.indentation;
         }
         self.whitespace_to_add = Some(new_line);
+    }
+
+    /// `whitespace` kept as written, with the indentation of its last line converted from
+    /// `DEFAULT_INDENTATION` to `self.indentation`, or `None` if that doesn't change it.
+    fn convert_indentation(&self, whitespace: &str) -> Option<String> {
+        if self.indentation == DEFAULT_INDENTATION {
+            return None;
+        }
+        let (lines, indent) = whitespace.rsplit_once('\n')?;
+        Some(format!("{lines}\n{}", indent.replace(DEFAULT_INDENTATION, &self.indentation)))
     }
 
     fn insert_whitespace(&mut self, arg: &str) {
@@ -284,6 +299,10 @@ fn fold(
                     writer.with_new_content(t, "")?;
                     return Ok(());
                 }
+                if let Some(ws) = state.convert_indentation(t.text()) {
+                    state.insertion_count += 1;
+                    return writer.with_new_content(t, &ws);
+                }
             } else {
                 state.after_comment = t.kind() == SyntaxKind::Comment;
                 state.skip_all_whitespace = false;
@@ -292,7 +311,7 @@ fn fold(
                 {
                     // restore the previously skipped spaces before comment.
                     state.insertion_count += 1;
-                    writer.insert_before(t, &ws)?;
+                    writer.insert_before(t, &state.convert_indentation(&ws).unwrap_or(ws))?;
                     state.whitespace_to_add = None;
                     return Ok(());
                 }
@@ -2450,6 +2469,11 @@ mod tests {
     // FIXME more descriptive errors when an assertion fails
     #[track_caller]
     fn assert_formatting(unformatted: &str, formatted: &str) {
+        assert_formatting_with_indentation(unformatted, formatted, DEFAULT_INDENTATION);
+    }
+
+    #[track_caller]
+    fn assert_formatting_with_indentation(unformatted: &str, formatted: &str, indentation: &str) {
         // Parse the unformatted string
         let syntax_node = i_slint_compiler::parser::parse(
             String::from(unformatted),
@@ -2459,7 +2483,7 @@ mod tests {
         // Turn the syntax node into a document
         let doc = syntax_nodes::Document::new(syntax_node).unwrap();
         let mut file = Vec::new();
-        format_document(doc, &mut FileWriter { file: &mut file }).unwrap();
+        format_document(doc, indentation, &mut FileWriter { file: &mut file }).unwrap();
         let first_pass = String::from_utf8(file).unwrap();
         assert_eq!(first_pass, formatted);
 
@@ -2470,13 +2494,30 @@ mod tests {
         );
         let doc = syntax_nodes::Document::new(syntax_node).unwrap();
         let mut file = Vec::new();
-        format_document(doc, &mut FileWriter { file: &mut file }).unwrap();
+        format_document(doc, indentation, &mut FileWriter { file: &mut file }).unwrap();
         assert_eq!(String::from_utf8(file).unwrap(), first_pass);
     }
 
     #[test]
     fn basic_formatting() {
         assert_formatting("A:=Text{}", "A := Text { }\n");
+    }
+
+    #[test]
+    fn indent_with_tabs() {
+        assert_formatting_with_indentation(
+            r#"component A {
+    Text { }
+    // first
+    Rectangle {
+        /* inner */
+        width: 1px;
+    }
+}
+"#,
+            "component A {\n\tText { }\n\t// first\n\tRectangle {\n\t\t/* inner */\n\t\twidth: 1px;\n\t}\n}\n",
+            "\t",
+        );
     }
 
     #[test]
