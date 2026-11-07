@@ -23,9 +23,10 @@ enum MenuNode {
     Checkmark { label: std::string::String, enabled: bool, entry_index: usize, checked: bool },
 }
 
+/// A click, with the XDG activation token the host sent for it.
 enum Event {
-    Activate(i32, i32),
-    Menu(usize),
+    Activate(Option<std::string::String>),
+    Menu(usize, Option<std::string::String>),
 }
 
 struct KsniTray {
@@ -42,8 +43,9 @@ impl ::ksni::Tray for KsniTray {
         "slint-tray".into()
     }
 
-    fn activate(&mut self, x: i32, y: i32) {
-        let _ = self.event_tx.try_send(Event::Activate(x, y));
+    fn activate(&mut self, _x: i32, _y: i32) {
+        let token = ::ksni::current_xdg_activation_token();
+        let _ = self.event_tx.try_send(Event::Activate(token));
     }
 
     // Slint's `tooltip` is the hover text — it goes into SNI `ToolTip.title`,
@@ -81,38 +83,37 @@ fn node_to_ksni(
             ..Default::default()
         }
         .into(),
-        MenuNode::Standard { label, enabled, entry_index } => {
-            let tx = event_tx.clone();
-            let entry_index = *entry_index;
-            ::ksni::menu::StandardItem {
-                label: label.clone(),
-                enabled: *enabled,
-                activate: std::boxed::Box::new(move |_tray: &mut KsniTray| {
-                    // ksni runs the callback on its own thread; the channel hands the
-                    // click off to the dispatcher task living on the Slint event loop.
-                    let _ = tx.try_send(Event::Menu(entry_index));
-                }),
-                ..Default::default()
-            }
-            .into()
+        MenuNode::Standard { label, enabled, entry_index } => ::ksni::menu::StandardItem {
+            label: label.clone(),
+            enabled: *enabled,
+            activate: menu_click(event_tx, *entry_index),
+            ..Default::default()
         }
+        .into(),
         MenuNode::Checkmark { label, enabled, entry_index, checked } => {
-            let tx = event_tx.clone();
-            let entry_index = *entry_index;
             ::ksni::menu::CheckmarkItem {
                 label: label.clone(),
                 enabled: *enabled,
-                activate: std::boxed::Box::new(move |_tray: &mut KsniTray| {
-                    // ksni runs the callback on its own thread; the channel hands the
-                    // click off to the dispatcher task living on the Slint event loop.
-                    let _ = tx.try_send(Event::Menu(entry_index));
-                }),
+                activate: menu_click(event_tx, *entry_index),
                 checked: *checked,
                 ..Default::default()
             }
             .into()
         }
     }
+}
+
+fn menu_click(
+    event_tx: &async_channel::Sender<Event>,
+    entry_index: usize,
+) -> std::boxed::Box<dyn Fn(&mut KsniTray) + Send> {
+    let tx = event_tx.clone();
+    std::boxed::Box::new(move |_tray: &mut KsniTray| {
+        // ksni runs the callback on its own thread; the channel hands the
+        // click off to the dispatcher task living on the Slint event loop.
+        let token = ::ksni::current_xdg_activation_token();
+        let _ = tx.try_send(Event::Menu(entry_index, token));
+    })
 }
 
 pub struct PlatformTray {
@@ -150,7 +151,7 @@ impl PlatformTray {
             spawn_tray(icon.clone(), tooltip.clone(), title.clone(), menu.clone(), &event_tx)?;
 
         let dispatcher = context
-            .spawn_local(dispatch_loop(event_rx, self_weak))
+            .spawn_local(dispatch_loop(event_rx, self_weak, context.downgrade()))
             .map_err(Error::EventLoopError)?;
 
         Ok(Self {
@@ -299,21 +300,32 @@ static IN_SANDBOX: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| {
         })
 });
 
-async fn dispatch_loop(rx: async_channel::Receiver<Event>, self_weak: crate::item_tree::ItemWeak) {
+async fn dispatch_loop(
+    rx: async_channel::Receiver<Event>,
+    self_weak: crate::item_tree::ItemWeak,
+    context: crate::SlintContextWeak,
+) {
     while let Ok(event) = rx.recv().await {
         let Some(item_rc) = self_weak.upgrade() else { continue };
         let Some(tray) = item_rc.downcast::<super::SystemTrayIcon>() else { continue };
         let tray = tray.as_pin_ref();
 
+        // Plasma shows a launch entry on its task bar for each token it hands out, until a window
+        // uses that token.
+        let (Event::Activate(token) | Event::Menu(_, token)) = &event;
+        if let (Some(token), Some(context)) = (token, context.upgrade()) {
+            context.platform().set_xdg_activation_token(token.clone(), crate::InternalToken);
+        }
+
         match event {
-            Event::Menu(entry_index) => {
+            Event::Menu(entry_index, _) => {
                 let menu_borrow = tray.data.menu.borrow();
                 let Some(state) = menu_borrow.as_ref() else { continue };
                 if let Some(entry) = state.entries.get(entry_index) {
                     vtable::VRc::borrow(&state.menu_vrc).activate(entry);
                 }
             }
-            Event::Activate(_x, _y) => {
+            Event::Activate(_) => {
                 tray.clicked.call(&());
             }
         }
@@ -370,5 +382,60 @@ fn entry_to_node(
                 entry_index,
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Clicks the tray icon and its menu the way the hosts do: the activation token first, then the click.
+    /// Runs on the session bus, and is skipped without one.
+    #[test]
+    fn a_click_carries_the_activation_token_the_host_sent_for_it() {
+        let Ok(bus) = zbus::blocking::Connection::session() else {
+            std::eprintln!("skipped: no D-Bus session bus");
+            return;
+        };
+        let (event_tx, event_rx) = async_channel::unbounded();
+        let menu =
+            std::vec![MenuNode::Standard { label: "Open".into(), enabled: true, entry_index: 0 }];
+        let icon = ::ksni::Icon { width: 0, height: 0, data: std::vec::Vec::new() };
+        let tray = KsniTray { icon, tooltip: "".into(), title: "".into(), menu, event_tx };
+        let handle = tray.assume_sni_available(true).spawn().unwrap();
+
+        let prefix = std::format!("org.kde.StatusNotifierItem-{}-", std::process::id());
+        let names = zbus::blocking::fdo::DBusProxy::new(&bus).unwrap().list_names().unwrap();
+        let name = names.into_iter().find(|name| name.starts_with(&prefix)).unwrap();
+        let sni = zbus::blocking::Proxy::new(
+            &bus,
+            name.clone(),
+            "/StatusNotifierItem",
+            "org.kde.StatusNotifierItem",
+        )
+        .unwrap();
+        let menu =
+            zbus::blocking::Proxy::new(&bus, name, "/MenuBar", "com.canonical.dbusmenu").unwrap();
+
+        sni.call::<_, _, ()>("ProvideXdgActivationToken", &("activate-token",)).unwrap();
+        sni.call::<_, _, ()>("Activate", &(0_i32, 0_i32)).unwrap();
+        assert!(matches!(
+            event_rx.recv_blocking().unwrap(),
+            Event::Activate(Some(token)) if token == "activate-token"
+        ));
+
+        sni.call::<_, _, ()>("ProvideXdgActivationToken", &("menu-token",)).unwrap();
+        let data = zbus::zvariant::Value::from(0_u8);
+        menu.call::<_, _, ()>("Event", &(1_i32, "clicked", data, 0_u32)).unwrap();
+        assert!(matches!(
+            event_rx.recv_blocking().unwrap(),
+            Event::Menu(0, Some(token)) if token == "menu-token"
+        ));
+
+        // A click without a token takes none, not the one sent before an earlier click.
+        sni.call::<_, _, ()>("Activate", &(0_i32, 0_i32)).unwrap();
+        assert!(matches!(event_rx.recv_blocking().unwrap(), Event::Activate(None)));
+
+        handle.shutdown().wait();
     }
 }

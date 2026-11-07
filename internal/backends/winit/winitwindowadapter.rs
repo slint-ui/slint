@@ -730,7 +730,10 @@ impl WinitWindowAdapter {
                 EventLoopExtStartupNotify, WindowAttributesExtStartupNotify,
                 reset_activation_token_env,
             };
-            if let Some(token) = active_event_loop.read_token_from_env() {
+            // The token of a click on a tray icon comes before the one the app was launched with.
+            let tray_token = self.shared_backend_data.take_xdg_activation_token();
+            let token = tray_token.map(winit::window::ActivationToken::from_raw);
+            if let Some(token) = token.or_else(|| active_event_loop.read_token_from_env()) {
                 window_attributes = window_attributes.with_activation_token(token);
             }
             reset_activation_token_env();
