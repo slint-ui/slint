@@ -19,16 +19,15 @@ global Theme {
     /// Silver, for text, lines, and markers.
     out property <color> accent: #c3cad6;
     out property <color> accent-light: #dfe4ec;
-    /// Metal surfaces, such as the primary button: lit from above like polished silver, with a
-    /// reflection at the bottom.
-    out property <brush> metal: @linear-gradient(180deg, #fbfcfe 0%, #dde2ea 22%, #a9b1bf 47%, #7f8898 53%, #bcc4d0 78%, #e6eaf0 100%);
+    /// Metal surfaces, such as the primary button: brushed aluminum, lit softly from above.
+    out property <brush> metal: @linear-gradient(180deg, #f4f6f9 0%, #dde2e9 55%, #c5ccd6 100%);
     /// Text and icons on metal.
     out property <color> on-metal: #0b1528;
     /// The upper and lower halves of a flap, and of a lit one.
     out property <color> flap-upper: #1d2a44;
     out property <color> flap-lower: #121c30;
-    out property <brush> lit-upper: @linear-gradient(180deg, #fbfcfe 0%, #bcc4d0 100%);
-    out property <brush> lit-lower: @linear-gradient(180deg, #7f8898 0%, #d6dbe4 100%);
+    out property <brush> lit-upper: @linear-gradient(180deg, #f4f6f9 0%, #e2e6ec 100%);
+    out property <brush> lit-lower: @linear-gradient(180deg, #ccd2db 0%, #bcc3ce 100%);
     /// Behind the globe on the entry screen.
     out property <color> background: #040915;
     out property <color> surface: #0b1528;
