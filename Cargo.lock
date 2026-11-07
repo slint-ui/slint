@@ -379,7 +379,7 @@ dependencies = [
  "objc2-foundation 0.3.2",
  "parking_lot",
  "percent-encoding",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
  "x11rb",
 ]
 
@@ -754,7 +754,7 @@ dependencies = [
  "lazy_static",
  "lazycell",
  "log",
- "prettyplease 0.2.37",
+ "prettyplease",
  "proc-macro2",
  "quote",
  "regex",
@@ -775,7 +775,7 @@ dependencies = [
  "clang-sys",
  "itertools 0.13.0",
  "log",
- "prettyplease 0.2.37",
+ "prettyplease",
  "proc-macro2",
  "quote",
  "regex",
@@ -794,7 +794,7 @@ dependencies = [
  "cexpr",
  "clang-sys",
  "log",
- "prettyplease 0.3.0",
+ "prettyplease",
  "proc-macro2",
  "quote",
  "regex",
@@ -1280,7 +1280,7 @@ checksum = "af491d569909a7e4dee0ad7db7f5341fef5c614d5b8ec8cf765732aba3cff681"
 dependencies = [
  "serde",
  "termcolor",
- "unicode-width 0.2.3",
+ "unicode-width 0.1.14",
 ]
 
 [[package]]
@@ -1830,7 +1830,7 @@ dependencies = [
  "libc",
  "option-ext",
  "redox_users",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -2085,7 +2085,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -3666,6 +3666,8 @@ dependencies = [
  "spin_on",
  "unicode-segmentation",
  "vtable",
+ "wasm-bindgen",
+ "web-sys",
  "wgpu 29.0.4",
  "wgpu 30.0.1",
  "wgpu-hal 29.0.4",
@@ -5114,7 +5116,7 @@ version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -6029,16 +6031,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "prettyplease"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2bfe0f4c752e450fc2faf62654f1c134747922825d5b04ca717b8874f41a40c0"
-dependencies = [
- "proc-macro2",
- "syn 3.0.9",
-]
-
-[[package]]
 name = "proc-macro-crate"
 version = "3.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6096,7 +6088,7 @@ dependencies = [
  "log",
  "multimap",
  "petgraph",
- "prettyplease 0.2.37",
+ "prettyplease",
  "prost",
  "prost-types",
  "regex",
@@ -6799,7 +6791,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.12.1",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -6856,7 +6848,7 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -7240,7 +7232,7 @@ checksum = "33f4fe9184a62d842c9ef383018f3306d8ba224fd9d836f56d7288308847c256"
 [[package]]
 name = "skia-bindings"
 version = "0.157.0"
-source = "git+https://github.com/rust-skia/rust-skia?rev=6a89d0f01c38c4b73bd1a303c547774c10da2e51#6a89d0f01c38c4b73bd1a303c547774c10da2e51"
+source = "git+https://github.com/slint-ui/rust-skia?rev=465d0c068c15b90e863f727e681d3082cf4dd54f#465d0c068c15b90e863f727e681d3082cf4dd54f"
 dependencies = [
  "bindgen 0.73.2",
  "cc",
@@ -7251,12 +7243,13 @@ dependencies = [
  "serde_json",
  "tar",
  "toml 1.1.8+spec-1.1.0",
+ "web-sys",
 ]
 
 [[package]]
 name = "skia-safe"
 version = "0.157.0"
-source = "git+https://github.com/rust-skia/rust-skia?rev=6a89d0f01c38c4b73bd1a303c547774c10da2e51#6a89d0f01c38c4b73bd1a303c547774c10da2e51"
+source = "git+https://github.com/slint-ui/rust-skia?rev=465d0c068c15b90e863f727e681d3082cf4dd54f#465d0c068c15b90e863f727e681d3082cf4dd54f"
 dependencies = [
  "bitflags 2.13.2",
  "skia-bindings",
@@ -7267,9 +7260,11 @@ dependencies = [
 [[package]]
 name = "skia-wgpu"
 version = "0.157.0"
-source = "git+https://github.com/rust-skia/rust-skia?rev=6a89d0f01c38c4b73bd1a303c547774c10da2e51#6a89d0f01c38c4b73bd1a303c547774c10da2e51"
+source = "git+https://github.com/slint-ui/rust-skia?rev=465d0c068c15b90e863f727e681d3082cf4dd54f#465d0c068c15b90e863f727e681d3082cf4dd54f"
 dependencies = [
  "skia-bindings",
+ "wasm-bindgen-futures",
+ "web-sys",
  "wgpu 30.0.1",
 ]
 
@@ -8172,10 +8167,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.4.3",
+ "getrandom 0.3.4",
  "once_cell",
  "rustix 1.1.6",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -8194,7 +8189,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "230a1b821ccbd75b185820a1f1ff7b14d21da1e442e22c0863ea5f08771a8874"
 dependencies = [
  "rustix 1.1.6",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -9736,7 +9731,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
@@ -10203,7 +10198,7 @@ dependencies = [
  "anyhow",
  "heck",
  "indexmap",
- "prettyplease 0.2.37",
+ "prettyplease",
  "syn 2.0.119",
  "wasm-metadata",
  "wit-bindgen-core",
@@ -10217,7 +10212,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ad19eec017904e04c60719592a803ee5da76cb51c81e3f6fbf9457f59db49799"
 dependencies = [
  "anyhow",
- "prettyplease 0.2.37",
+ "prettyplease",
  "proc-macro2",
  "quote",
  "syn 2.0.119",

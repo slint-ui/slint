@@ -356,7 +356,7 @@ dependencies = [
  "objc2-foundation 0.3.2",
  "parking_lot",
  "percent-encoding",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
  "x11rb",
 ]
 
@@ -1539,7 +1539,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -2480,6 +2480,8 @@ dependencies = [
  "spin_on",
  "unicode-segmentation",
  "vtable",
+ "wasm-bindgen",
+ "web-sys",
  "wgpu",
  "wgpu-hal",
  "windows",
@@ -4496,7 +4498,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.12.1",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -4745,7 +4747,7 @@ dependencies = [
 [[package]]
 name = "skia-bindings"
 version = "0.157.0"
-source = "git+https://github.com/rust-skia/rust-skia?rev=6a89d0f01c38c4b73bd1a303c547774c10da2e51#6a89d0f01c38c4b73bd1a303c547774c10da2e51"
+source = "git+https://github.com/slint-ui/rust-skia?rev=465d0c068c15b90e863f727e681d3082cf4dd54f#465d0c068c15b90e863f727e681d3082cf4dd54f"
 dependencies = [
  "bindgen",
  "cc",
@@ -4756,12 +4758,13 @@ dependencies = [
  "serde_json",
  "tar",
  "toml",
+ "web-sys",
 ]
 
 [[package]]
 name = "skia-safe"
 version = "0.157.0"
-source = "git+https://github.com/rust-skia/rust-skia?rev=6a89d0f01c38c4b73bd1a303c547774c10da2e51#6a89d0f01c38c4b73bd1a303c547774c10da2e51"
+source = "git+https://github.com/slint-ui/rust-skia?rev=465d0c068c15b90e863f727e681d3082cf4dd54f#465d0c068c15b90e863f727e681d3082cf4dd54f"
 dependencies = [
  "bitflags 2.13.2",
  "skia-bindings",
@@ -5173,10 +5176,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.4.3",
+ "getrandom 0.3.4",
  "once_cell",
  "rustix 1.1.6",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -6247,7 +6250,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]

@@ -133,8 +133,8 @@ rustybuzz = { version = "0.20.0" }
 send_wrapper = { version = "0.6.0" }
 serde = { version = "1.0.163", default-features = false, features = ["derive"] }
 serde_json = { version = "1.0.96" }
-# The `wgpu-30` feature for Graphite is not released yet.
-skia-safe = { version = "0.157.0", git = "https://github.com/rust-skia/rust-skia", rev = "6a89d0f01c38c4b73bd1a303c547774c10da2e51" }
+# Experimental: rust-skia's branch for Skia on wasm32-unknown-unknown with Graphite on WebGPU.
+skia-safe = { version = "0.157.0", git = "https://github.com/slint-ui/rust-skia", rev = "465d0c068c15b90e863f727e681d3082cf4dd54f", default-features = false }
 softbuffer = { version = "0.4.4", default-features = false }
 spin_on = { version = "0.1" }
 strum = { version = "0.28", default-features = false, features = ["derive"] }
