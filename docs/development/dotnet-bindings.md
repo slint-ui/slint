@@ -155,9 +155,10 @@ which uses the test fonts and reports Windows as the operating system, like the 
 It passes the include and library paths and the bundled translations of a case like the other drivers do.
 Like them, it compiles each case with the edition of this Slint, since layout fixes such as #407 only apply from edition 1.19,
 and a case with an `//edition:` line gets that edition instead.
-The generated code compiles the case again in the runner, which takes an edition only from a project file,
-so the driver writes one per case into the runner's `projects` directory, like the Node.js and Python drivers.
-It also lists the case's include and library paths, as absolute paths.
+It compiles each case to a unit too, with the same settings, and the runner embeds them, so every case runs from its unit.
+The generated code would compile the case at run time without it, from a project directory that the driver doesn't create,
+so a unit that doesn't load fails the case.
+The driver generates the cases on every core, which takes it to about a minute on an Apple Silicon Mac.
 
 The ```` ```csharp ```` blocks of a case go into `cases/<case>.test.cs`, which the runner calls after the `test` check.
 The runner is the assembly `Slint.TestDriver`, which sees the internal `Slint.Testing`.
@@ -939,7 +940,10 @@ Next:
       both with the 50 to 70 ms of creating the platform, which is the first call into `slint-dotnet` there.
     - The gallery renders its icons from the unit in the browser, and the browser test steps of CI pass.
     - Android and iOS apps embed the `.slint` files too, for the fallback, which a unit of the same build never takes.
-  - Phase 3, 2–3 days: the test driver runs every case from units too, and the documentation, What's New, and CI.
+  - Phase 3, done: the test driver runs every case from its unit, see [Test Driver](#test-driver),
+    and `GeneratedTests` covers the fallback that compiles at startup.
+    The publish workflow checks that the apps built from the packages compile their units,
+    and runs the desktop one again without its `.slint` file.
 
 - **28.** Mapsui for Slint, in a branch `slint` of a fork of [Mapsui](https://github.com/Mapsui/Mapsui), MIT licensed, 3–4 weeks:
   `Mapsui.UI.Slint` next to Mapsui's controls for MAUI, Avalonia, WPF, WinUI, Uno, Eto, Blazor, Android, and iOS, for a pull request to Mapsui.

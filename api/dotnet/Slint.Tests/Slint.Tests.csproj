@@ -27,6 +27,7 @@
     <SlintFile Include="ui/view-model.slint" />
     <SlintFile Include="ui/form-view.slint" />
     <SlintFile Include="ui/counter-page.slint" />
+    <SlintFile Include="ui/compiled-at-startup.slint" />
     <SlintProject Include="ui/project" />
     <SlintLibraryPath Include="tags" Path="ui/lib/" />
   </ItemGroup>

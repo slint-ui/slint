@@ -232,6 +232,9 @@ jobs:
                   # An explicit Main, since Windows needs [STAThread], like the README says.
                   printf 'static class Program\n{\n    [System.STAThread]\n    static int Main()\n    {\n        using var a = app.App.Create();\n        a.Counter++;\n        if (a.Counter != 42) return 1;\n        System.Console.WriteLine("ok");\n        return 0;\n    }\n}\n' > Program.cs
                   dotnet run
+                  # Without the .slint file next to it, the app runs the unit that the build compiled it to.
+                  rm "$(find bin -name app.slint | head -1)"
+                  dotnet run --no-build
             - name: Build apps from the templates with the packages
               shell: bash
               run: |
@@ -307,6 +310,7 @@ jobs:
                   done
                   # The assembly embeds the .slint files, from the files that their dependency file lists.
                   [ -n "$(find obj -name 'app.slint.g.cs.d')" ] || { echo "::error::The build didn't embed ui/app.slint"; exit 1; }
+                  [ -s "$(find obj -name 'app.slint.g.cs.unit' | head -1)" ] || { echo "::error::The build didn't compile ui/app.slint to a unit"; exit 1; }
                   echo ok
             - name: Build apps from the templates with the packages
               shell: bash
@@ -325,6 +329,7 @@ jobs:
                       grep -q "$file" <<<"$contents" || { echo "::error::$file is missing from the APK of slint-android"; exit 1; }
                   done
                   [ -n "$(find Android/obj -name 'app-window.slint.g.cs.d')" ] || { echo "::error::slint-android didn't embed ui/app-window.slint"; exit 1; }
+                  [ -s "$(find Android/obj -name 'app-window.slint.g.cs.unit' | head -1)" ] || { echo "::error::slint-android didn't compile ui/app-window.slint to a unit"; exit 1; }
                   dotnet new slint-xplat -o XPlat --platforms android --no-restore
                   dotnet build XPlat/XPlat.slnx
 
@@ -385,6 +390,7 @@ jobs:
                   for file in Frameworks/slint_dotnet.framework/slint_dotnet; do
                       [ -e "$bundle/$file" ] || { echo "::error::$file is missing from $bundle"; exit 1; }
                   done
+                  [ -s "$(find obj -name 'app.slint.g.cs.unit' | head -1)" ] || { echo "::error::The build didn't compile ui/app.slint to a unit"; exit 1; }
                   "$GITHUB_WORKSPACE/scripts/dotnet_ios_smoke_test.sh" "$bundle" dev.slint.dotnet.packagetest 30
             - name: Build apps from the templates with the packages and start one in a simulator
               shell: bash
@@ -432,6 +438,7 @@ jobs:
                   sed -i -e 's/app.OnRequestIncreaseValue(() => app.Counter++);/app.OnRequestIncreaseValue(() => System.Console.WriteLine($"counter: {++app.Counter}"));/' \
                          -e 's/await app.RunAsync();/System.Console.WriteLine("ready");\n        await app.RunAsync();/' WebApp/Program.cs
                   dotnet publish WebApp -c Release
+                  [ -s "$(find WebApp/obj -name 'app-window.slint.g.cs.unit' | head -1)" ] || { echo "::error::slint-web didn't compile ui/app-window.slint to a unit"; exit 1; }
                   printf '[{ "wait": "ready" }, { "sleep": 500 }, { "click": [160, 118] }, { "wait": "counter: 43" }]\n' > steps.json
                   CHROME=$(command -v google-chrome) node "$GITHUB_WORKSPACE/scripts/run_in_chrome.mjs" steps.json WebApp/bin/Release/net10.0/publish/wwwroot
                   dotnet new slint-xplat -o XPlat --platforms web --no-restore

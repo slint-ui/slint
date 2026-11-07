@@ -72,6 +72,8 @@ public sealed class GeneratedTests
         try
         {
             Assert.IsNull(global::Slint.Generated.GeneratedApi.LoadUnit(typeof(Generated).Assembly, "slint-unit:ui/generated.slint", "fluent"));
+            using var app = CompiledAtStartup.Create();
+            Assert.AreEqual(7, app.Count);
         }
         finally
         {
