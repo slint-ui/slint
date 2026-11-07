@@ -110,12 +110,7 @@ pub fn lower_to_item_tree(
     document: &crate::object_tree::Document,
     compiler_config: &CompilerConfiguration,
 ) -> CompilationUnit {
-    let mut state = LoweringState {
-        measure_fixed_width_cells_at_own_width: compiler_config
-            .edition
-            .is_some_and(|v| v >= crate::project_file::SlintEdition::V1_19),
-        ..Default::default()
-    };
+    let mut state = LoweringState::default();
 
     #[cfg(feature = "bundle-translations")]
     {
@@ -337,9 +332,6 @@ pub struct LoweringState {
     /// to one lowering (a fresh `LoweringState` is created per backend), so the
     /// numbering is deterministic regardless of how many backends run.
     struct_assignment_count: usize,
-    /// Whether a height-for-width layout cell with a fixed width is measured at that width,
-    /// rather than at the width its layout gives its cells.
-    pub measure_fixed_width_cells_at_own_width: bool,
 }
 
 impl LoweringState {
@@ -1411,7 +1403,7 @@ fn lower_repeated_component_body(
             listview_height: ctx.map_property_reference(&lv.listview_height),
             listview_width: ctx.map_property_reference(&lv.listview_width),
             prop_y: sc.mapping.map_property_reference(&geom.y, ctx.state),
-            prop_height: sc.mapping.map_property_reference(&geom.height, ctx.state),
+            prop_height: sc.mapping.map_property_reference(&lv.row_height, ctx.state),
         }
     });
 

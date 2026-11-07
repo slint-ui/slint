@@ -30,7 +30,7 @@ def display_project(tmp_path: Path) -> Path:
     (tmp_path / "slint-project.json").write_text(
         json.dumps(
             {
-                "edition": "1.19",
+                "edition": "1.20",
                 "main": "Main.slint",
                 "metadata": {
                     "visual-editor": {"canvas-presets": [{"width": 320, "height": 240}]}

@@ -55,8 +55,10 @@ export function slint({ runtimeDir = "." } = {}) {
                     contents: [
                         `import { loadFile } from ${JSON.stringify(slintEntry)};`,
                         reexports(
-                            slintUi.loadFile(args.path),
-                            `loadFile(new URL(${JSON.stringify(url)}, import.meta.url))`,
+                            slintUi.loadFile(args.path, {
+                                loadProjectFile: true,
+                            }),
+                            `loadFile(new URL(${JSON.stringify(url)}, import.meta.url), { loadProjectFile: true })`,
                         ),
                     ].join("\n"),
                     loader: "js",

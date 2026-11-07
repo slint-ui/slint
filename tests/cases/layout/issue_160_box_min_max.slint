@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-export TestCase := Window {
+export component TestCase inherits Window {
     width:  600px;
     height: 300px;
     property<[int]> xs: [200,100,300];
@@ -33,9 +33,9 @@ export TestCase := Window {
         r2 := Rectangle { background: blue; width: 10px; }
     }
 
-    property <bool> check_ok : r2.x == r1.x + 2*10px + 300px + 10px;
+    out property <bool> check_ok : r2.x == r1.x + 2*10px + 300px + 10px;
 
-    property <bool> test: check_ok;
+    out property <bool> test: check_ok;
 }
 
 /*

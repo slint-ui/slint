@@ -44,7 +44,7 @@ instance.window().dispatch_event(WindowEvent::PointerPressed { position: Logical
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(102.0, 50.0) });
 assert!(instance.get_sibling_hover());
 instance.invoke_open_popup();
-assert_eq!(slint_testing::WindowInner::from_pub(instance.window()).active_popups.borrow().len(), 1);
+assert_eq!(slint_testing::WindowInner::from_pub(instance.window()).active_popups().len(), 1);
 assert!(instance.get_sibling_hover(), "opening the popup does not clear the hover");
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(106.0, 50.0) });
 assert!(!instance.get_sibling_hover());

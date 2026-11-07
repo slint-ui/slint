@@ -1,5 +1,5 @@
 {
   "$schema": "é", "main": 42,
 //                          |error{invalid type: integer `42`, expected path string}
-  "edition": "1.19"
+  "edition": "1.20"
 }

@@ -33,7 +33,7 @@ backend-linuxkms = [
 ]
 backend-linuxkms-libseat = ["backend-linuxkms", "slint-interpreter/backend-linuxkms-libseat"]
 backend-linuxkms-libinput = ["backend-linuxkms", "slint-interpreter/backend-linuxkms-libinput"]
-backend-testing = ["i-slint-backend-selector/backend-testing"]
+backend-testing = ["i-slint-backend-selector/backend-testing", "dep:i-slint-backend-testing"]
 
 # The features below are additive and binary-compatible with the default build:
 # they don't change the PyO3 surface, only enabling extra runtime behavior, and
@@ -57,6 +57,7 @@ accessibility = ["slint-interpreter/accessibility"]
 
 [dependencies]
 i-slint-backend-selector = { workspace = true }
+i-slint-backend-testing = { workspace = true, optional = true, features = ["internal"] }
 i-slint-common = { workspace = true, features = ["color-parsing"] }
 i-slint-core = { workspace = true, features = ["tr"] }
 slint-interpreter = { workspace = true, default-features = false, features = ["backend-default", "renderer-femtovg", "renderer-software", "accessibility", "compat-1-18", "system-tray", "display-diagnostics", "internal", "internal-highlight"] }

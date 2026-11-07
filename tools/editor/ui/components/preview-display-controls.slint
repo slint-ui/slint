@@ -4,7 +4,6 @@
 import { PreviewDisplays } from "../preview-displays.slint";
 import { Colors, Metrics, Style, SegmentStyle } from "../style.slint";
 import { InputSurface } from "input-surface.slint";
-import { EditorIcons } from "index.slint";
 import { DisplayManager } from "display-manager.slint";
 import { ButtonBase } from "../../controls/src/headless.slint";
 
@@ -74,7 +73,8 @@ export component PreviewDisplayControls inherits Rectangle {
             }
             Image {
                 width: Metrics.icon-medium; height: Metrics.icon-medium;
-                source: EditorIcons.select-chevron;
+                source: @image-url("../assets/lucide/chevron-down.svg");
+                transform-rotation: popup.is-open ? 180deg : 0deg;
                 colorize: selector.style.appearance.muted;
             }
         }

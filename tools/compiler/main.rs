@@ -104,7 +104,7 @@ struct Cli {
     #[arg(long, name = "style name")]
     style: Option<String>,
 
-    /// Set the edition whose language behavior to use, such as '1.19'.
+    /// Set the edition whose language behavior to use, such as '1.20'.
     /// This wins over the edition of the project file.
     #[arg(long, name = "edition", value_parser = SlintEdition::parse_supported)]
     edition: Option<SlintEdition>,
@@ -180,10 +180,18 @@ fn parse_input(
         std::process::exit(1);
     }
 
+    let input_path = SourcePath::File(args.path.clone());
+    #[cfg(feature = "typescript")]
+    let project_root = (matches!(args.format, Some(generator::OutputFormat::TypeScript))
+        && input_path.extension() == Some("slint")
+        && !args.path.is_dir())
+    .then(|| input_path.parent());
+    #[cfg(not(feature = "typescript"))]
+    let project_root = None;
     let (input, input_files) = spin_on::spin_on(i_slint_compiler::project_file::load_input(
-        &SourcePath::File(args.path.clone()),
+        &input_path,
         None,
-        None,
+        project_root,
         None,
         diag,
     ));

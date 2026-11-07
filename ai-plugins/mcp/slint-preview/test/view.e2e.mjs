@@ -180,7 +180,7 @@ const COMPONENT = (name) =>
 test("resolves imports through the project's include and library paths, and by absolute path", async () => {
     writeFiles({
         "project/slint-project.json": JSON.stringify({
-            "edition": "1.19",
+            "edition": "1.20",
             "include-paths": ["shared/include"],
             "library-paths": {
                 relative: "libraries/relative",
@@ -275,7 +275,7 @@ for (const [name, files] of Object.entries(IMAGE_CASES)) {
         const { project, import: from, icon } = files(root);
         writeFiles({
             [`${directory}/slint-project.json`]: JSON.stringify({
-                "edition": "1.19",
+                "edition": "1.20",
                 ...project,
             }),
             [`${directory}/main.slint`]: [

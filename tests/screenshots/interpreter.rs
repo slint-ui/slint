@@ -68,7 +68,9 @@ fn compiler(
     let config = compiler.compiler_configuration(InternalToken);
     config.experimental_features = i_slint_compiler::ExperimentalFeatures::all();
     config.const_scale_factor = Some(scale_factor);
-    (std::fs::read_to_string(path).unwrap(), compiler)
+    let source = std::fs::read_to_string(path).unwrap();
+    compiler.set_edition(test_driver_lib::edition_version_or_current(&source));
+    (source, compiler)
 }
 
 fn create(

@@ -27,7 +27,7 @@ fn main() {
 
 // ANCHOR_END: tiles
 slint::slint! {
-    #[edition = "1.19"]
+    #[edition = "1.20"]
     struct TileData {
         image: image,
         image_visible: bool,
