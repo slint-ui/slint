@@ -36,12 +36,12 @@ pub struct SkiaWGPURendererGeneric<Surface> {
 
 /// Renders into wgpu 29 textures. Available with the `unstable-wgpu-29` feature;
 /// the matching wgpu API types are re-exported in the `slint::wgpu_29` module.
-#[cfg(feature = "wgpu-29")]
+#[cfg(all(feature = "wgpu-29", skia_ganesh))]
 pub type SkiaWGPU29Renderer = SkiaWGPURendererGeneric<crate::wgpu_29_surface::WGPUSurface>;
 
 /// Renders into wgpu 30 textures. Available with the `unstable-wgpu-30` feature;
 /// the matching wgpu API types are re-exported in the `slint::wgpu_30` module.
-#[cfg(feature = "wgpu-30")]
+#[cfg(all(feature = "wgpu-30", skia_ganesh))]
 pub type SkiaWGPU30Renderer = SkiaWGPURendererGeneric<crate::wgpu_30_surface::WGPUSurface>;
 
 /// Deprecated alias for the newest enabled wgpu version: wgpu 30 when the
@@ -51,7 +51,7 @@ pub type SkiaWGPU30Renderer = SkiaWGPURendererGeneric<crate::wgpu_30_surface::WG
 /// they don't change meaning when another `unstable-wgpu-*` feature gets enabled elsewhere
 /// in the dependency graph.
 #[deprecated(since = "1.18.0", note = "Use `SkiaWGPU29Renderer` or `SkiaWGPU30Renderer` instead")]
-#[cfg(feature = "wgpu-30")]
+#[cfg(all(feature = "wgpu-30", skia_ganesh))]
 pub type SkiaWGPURenderer = SkiaWGPU30Renderer;
 /// Deprecated alias for the newest enabled wgpu version: wgpu 30 when the
 /// `unstable-wgpu-30` feature is enabled, wgpu 29 otherwise.
@@ -60,7 +60,7 @@ pub type SkiaWGPURenderer = SkiaWGPU30Renderer;
 /// they don't change meaning when another `unstable-wgpu-*` feature gets enabled elsewhere
 /// in the dependency graph.
 #[deprecated(since = "1.18.0", note = "Use `SkiaWGPU29Renderer` or `SkiaWGPU30Renderer` instead")]
-#[cfg(all(feature = "wgpu-29", not(feature = "wgpu-30")))]
+#[cfg(all(feature = "wgpu-29", not(feature = "wgpu-30"), skia_ganesh))]
 pub type SkiaWGPURenderer = SkiaWGPU29Renderer;
 
 impl<Surface: crate::Surface + 'static> SkiaWGPURendererGeneric<Surface> {
@@ -82,7 +82,7 @@ impl<Surface: crate::Surface + 'static> SkiaWGPURendererGeneric<Surface> {
 // The version-specific constructors and render entry points below are kept in sync manually,
 // like the wgpu_29_surface/wgpu_30_surface modules they build on.
 
-#[cfg(feature = "wgpu-29")]
+#[cfg(all(feature = "wgpu-29", skia_ganesh))]
 impl SkiaWGPU29Renderer {
     /// Creates a new SkiaWGPU29Renderer.
     ///
@@ -150,7 +150,7 @@ impl SkiaWGPU29Renderer {
     }
 }
 
-#[cfg(feature = "wgpu-30")]
+#[cfg(all(feature = "wgpu-30", skia_ganesh))]
 impl SkiaWGPU30Renderer {
     /// Creates a new SkiaWGPU30Renderer.
     ///
@@ -193,7 +193,7 @@ impl SkiaWGPU30Renderer {
 /// Rendering for Slint's own backends.
 /// `slint` doesn't re-export this trait, so it isn't part of the public API.
 #[doc(hidden)]
-#[cfg(feature = "wgpu-30")]
+#[cfg(all(feature = "wgpu-30", skia_ganesh))]
 pub trait SkiaWGPU30RendererExt {
     /// Like [`SkiaWGPU30Renderer::render_to_texture`], but rotates the scene by
     /// `rotation_angle_degrees` around the origin and then moves it by `translation`,
@@ -207,7 +207,7 @@ pub trait SkiaWGPU30RendererExt {
 }
 
 #[doc(hidden)]
-#[cfg(feature = "wgpu-30")]
+#[cfg(all(feature = "wgpu-30", skia_ganesh))]
 impl SkiaWGPU30RendererExt for SkiaWGPU30Renderer {
     fn render_to_texture_transformed(
         &self,

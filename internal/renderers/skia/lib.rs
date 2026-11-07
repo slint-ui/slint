@@ -42,29 +42,29 @@ mod itemrenderer;
 #[cfg(skia_backend_software)]
 pub mod software_surface;
 
-#[cfg(any(not(target_vendor = "apple"), target_os = "macos"))]
+#[cfg(all(any(not(target_vendor = "apple"), target_os = "macos"), not(target_arch = "wasm32")))]
 pub mod opengl_surface;
 
 #[cfg(feature = "graphite-wgpu-30")]
 pub mod graphite_wgpu_30_surface;
 #[cfg(skia_wgpu_vulkan)]
 mod vulkan_handle;
-#[cfg(feature = "wgpu-29")]
+#[cfg(all(feature = "wgpu-29", skia_ganesh))]
 pub mod wgpu_29_surface;
-#[cfg(feature = "wgpu-30")]
+#[cfg(all(feature = "wgpu-30", skia_ganesh))]
 pub mod wgpu_30_surface;
 #[cfg(any(feature = "wgpu-29", feature = "wgpu-30"))]
 mod wgpu_renderer;
 #[cfg(feature = "graphite-wgpu-30")]
 pub use wgpu_renderer::SkiaGraphiteWGPU30Renderer;
-#[cfg(feature = "wgpu-29")]
+#[cfg(all(feature = "wgpu-29", skia_ganesh))]
 pub use wgpu_renderer::SkiaWGPU29Renderer;
-#[cfg(any(feature = "wgpu-29", feature = "wgpu-30"))]
+#[cfg(all(any(feature = "wgpu-29", feature = "wgpu-30"), skia_ganesh))]
 #[allow(deprecated)]
 pub use wgpu_renderer::SkiaWGPURenderer;
 #[cfg(any(feature = "wgpu-29", feature = "wgpu-30"))]
 pub use wgpu_renderer::SkiaWGPURendererGeneric;
-#[cfg(feature = "wgpu-30")]
+#[cfg(all(feature = "wgpu-30", skia_ganesh))]
 pub use wgpu_renderer::{SkiaWGPU30Renderer, SkiaWGPU30RendererExt};
 
 use itemrenderer::to_skia_rect;
@@ -164,16 +164,46 @@ pub(crate) fn gradient_colors<'a>(
     )
 }
 
+/// The Ganesh context that a surface renders with, if any.
+#[cfg(skia_ganesh)]
+pub use skia_safe::gpu::DirectContext;
+
+/// The Ganesh context that a surface renders with. Skia has no Ganesh in the browser, so there is
+/// never one.
+#[cfg(not(skia_ganesh))]
+pub enum DirectContext {}
+
+#[cfg(feature = "wgpu-30")]
+pub(crate) struct WindowAndDisplayHandle(
+    pub(crate) Arc<dyn raw_window_handle::HasWindowHandle + Send + Sync>,
+    pub(crate) Arc<dyn raw_window_handle::HasDisplayHandle + Send + Sync>,
+);
+
+#[cfg(feature = "wgpu-30")]
+impl raw_window_handle::HasWindowHandle for WindowAndDisplayHandle {
+    fn window_handle(
+        &self,
+    ) -> Result<raw_window_handle::WindowHandle<'_>, raw_window_handle::HandleError> {
+        self.0.window_handle()
+    }
+}
+
+#[cfg(feature = "wgpu-30")]
+impl raw_window_handle::HasDisplayHandle for WindowAndDisplayHandle {
+    fn display_handle(
+        &self,
+    ) -> Result<raw_window_handle::DisplayHandle<'_>, raw_window_handle::HandleError> {
+        self.1.display_handle()
+    }
+}
+
 /// Draws with `render` into a render target that `gr_context` allocates and reads it back,
 /// for [`Surface::render_snapshot`].
-#[cfg(skia_backend_wgpu)]
+#[cfg(all(skia_backend_wgpu, skia_ganesh))]
 pub(crate) fn render_snapshot_on_gpu(
-    gr_context: &mut skia_safe::gpu::DirectContext,
+    gr_context: &mut DirectContext,
     size: PhysicalWindowSize,
-    render: &mut dyn FnMut(
-        &skia_safe::Canvas,
-        &mut skia_safe::gpu::DirectContext,
-    ) -> Result<(), PlatformError>,
+    render: &mut dyn FnMut(&skia_safe::Canvas, &mut DirectContext) -> Result<(), PlatformError>,
 ) -> Result<SharedPixelBuffer<i_slint_core::graphics::Rgba8Pixel>, PlatformError> {
     let target_info = image_info(
         (size.width as i32, size.height as i32),
@@ -236,6 +266,20 @@ fn default_wgpu_surface_factory(
         );
     }
     core::cfg_select! {
+        all(not(skia_ganesh), feature = "graphite-wgpu-30") => {
+            surface_factory::<graphite_wgpu_30_surface::GraphiteWGPUSurface>(
+                context,
+                window_handle,
+                display_handle,
+                size,
+                requested_graphics_api,
+                transparent,
+            )
+        }
+        not(skia_ganesh) => {
+            let _ = (context, window_handle, display_handle, size, requested_graphics_api, transparent);
+            Err("Skia renders with Graphite in the browser, which needs the `graphite-wgpu-30` feature".into())
+        }
         feature = "wgpu-30" => {
             surface_factory::<wgpu_30_surface::WGPUSurface>(
                 context,
@@ -337,7 +381,7 @@ fn create_default_surface(
             transparent,
         );
     }
-    #[cfg(feature = "unstable-wgpu-30")]
+    #[cfg(all(feature = "unstable-wgpu-30", skia_ganesh))]
     if matches!(requested_graphics_api, Some(RequestedGraphicsAPI::WGPU30(..))) {
         // this is also what would happen if we got the default wgpu surface since 30 is newest
         return surface_factory::<wgpu_30_surface::WGPUSurface>(
@@ -429,9 +473,9 @@ fn create_partial_renderer_state(
 #[derive(Default)]
 struct SkiaSharedContextInner {
     // Weak: the surfaces own these, see `SharedWgpuState`.
-    #[cfg(feature = "wgpu-29")]
+    #[cfg(all(feature = "wgpu-29", skia_ganesh))]
     wgpu_29_state: RefCell<Weak<wgpu_29_surface::SharedWgpuState>>,
-    #[cfg(feature = "wgpu-30")]
+    #[cfg(all(feature = "wgpu-30", skia_ganesh))]
     wgpu_30_state: RefCell<Weak<wgpu_30_surface::SharedWgpuState>>,
 }
 
@@ -538,11 +582,13 @@ impl SkiaRenderer {
     #[cfg(any(not(target_vendor = "apple"), target_os = "macos"))]
     /// Creates a new SkiaRenderer that will always use Skia's OpenGL renderer.
     pub fn default_opengl(context: &SkiaSharedContext) -> Self {
-        Self::new_with_surface_factory(
-            context,
-            surface_factory::<opengl_surface::OpenGLSurface>,
-            create_partial_renderer_state(None),
-        )
+        #[cfg(not(target_arch = "wasm32"))]
+        let factory = surface_factory::<opengl_surface::OpenGLSurface>;
+        #[cfg(target_arch = "wasm32")]
+        let factory: SurfaceFactoryFn = |_, _, _, _, _, _| {
+            Err("Skia renders with WebGPU in the browser, not with WebGL".into())
+        };
+        Self::new_with_surface_factory(context, factory, create_partial_renderer_state(None))
     }
 
     #[cfg(all(target_vendor = "apple", skia_backend_wgpu))]
@@ -578,11 +624,11 @@ impl SkiaRenderer {
     #[cfg(feature = "wgpu-30")]
     /// Creates a new SkiaRenderer that will always use Skia's WGPU 30.x renderer.
     pub fn default_wgpu_30(context: &SkiaSharedContext) -> Self {
-        Self::new_with_surface_factory(
-            context,
-            surface_factory::<wgpu_30_surface::WGPUSurface>,
-            create_partial_renderer_state(None),
-        )
+        #[cfg(skia_ganesh)]
+        let factory = surface_factory::<wgpu_30_surface::WGPUSurface>;
+        #[cfg(not(skia_ganesh))]
+        let factory = default_wgpu_surface_factory;
+        Self::new_with_surface_factory(context, factory, create_partial_renderer_state(None))
     }
 
     #[cfg(feature = "wgpu-29")]
@@ -649,6 +695,36 @@ impl SkiaRenderer {
         self.clear_graphics_caches();
         self.rendering_first_time.set(true);
         *self.surface.borrow_mut() = Some(surface);
+    }
+
+    /// Renders into a window's wgpu `surface` with Graphite, with wgpu objects that the caller
+    /// created, such as in a browser, where creating them is asynchronous.
+    #[cfg(feature = "wgpu-30")]
+    pub fn set_wgpu_30_window_surface(
+        &self,
+        instance: wgpu_30::Instance,
+        adapter: &wgpu_30::Adapter,
+        device: wgpu_30::Device,
+        queue: wgpu_30::Queue,
+        surface: wgpu_30::Surface<'static>,
+        size: PhysicalWindowSize,
+    ) -> Result<(), PlatformError> {
+        #[cfg(feature = "graphite-wgpu-30")]
+        {
+            self.suspend()?;
+            self.set_surface(Box::new(
+                graphite_wgpu_30_surface::GraphiteWGPUSurface::new_for_window(
+                    instance, adapter, device, queue, surface, size,
+                )?,
+            ));
+            Ok(())
+        }
+        #[cfg(not(feature = "graphite-wgpu-30"))]
+        {
+            let _ = (instance, adapter, device, queue, surface, size);
+            Err("Rendering into a wgpu window surface requires the `graphite-wgpu-30` feature"
+                .into())
+        }
     }
 
     /// Releases the graphics caches and destroys the surface.
@@ -790,7 +866,7 @@ impl SkiaRenderer {
         skia_canvas: &skia_safe::Canvas,
         rotation_angle_degrees: f32,
         translation: (f32, f32),
-        gr_context: Option<&mut skia_safe::gpu::DirectContext>,
+        gr_context: Option<&mut DirectContext>,
         back_buffer_age: u8,
         surface: Option<&dyn Surface>,
         window: &i_slint_core::api::Window,
@@ -830,7 +906,9 @@ impl SkiaRenderer {
     fn render_components_to_canvas(
         &self,
         skia_canvas: &skia_safe::Canvas,
-        mut gr_context: Option<&mut skia_safe::gpu::DirectContext>,
+        #[cfg_attr(not(skia_ganesh), allow(unused_mut, unused_variables))] mut gr_context: Option<
+            &mut DirectContext,
+        >,
         back_buffer_age: u8,
         surface: Option<&dyn Surface>,
         window: &i_slint_core::api::Window,
@@ -957,6 +1035,7 @@ impl SkiaRenderer {
                 // For the BeforeRendering rendering notifier callback it's important that this happens *after* clearing
                 // the back buffer, in order to allow the callback to provide its own rendering of the background.
                 // Skia's clear() will merely schedule a clear call, so flush right away to make it immediate.
+                #[cfg(skia_ganesh)]
                 if let Some(ctx) = gr_context.as_mut() {
                     ctx.flush(None).map_err(|err| format!("Skia renderer: {err}"))?;
                 }
@@ -1003,6 +1082,7 @@ impl SkiaRenderer {
             }
         }
 
+        #[cfg(skia_ganesh)]
         if let Some(ctx) = gr_context.as_mut() {
             ctx.flush(None).map_err(|err| format!("Skia renderer: {err}"))?;
         }
@@ -1194,7 +1274,7 @@ pub trait Surface {
         size: PhysicalWindowSize,
         render_callback: &dyn Fn(
             &skia_safe::Canvas,
-            Option<&mut skia_safe::gpu::DirectContext>,
+            Option<&mut DirectContext>,
             u8,
         ) -> Result<Option<DirtyRegion>, PlatformError>,
         pre_present_callback: &RefCell<Option<Box<dyn FnMut()>>>,
@@ -1236,7 +1316,7 @@ pub trait Surface {
         _size: PhysicalWindowSize,
         _render_callback: &mut dyn FnMut(
             &skia_safe::Canvas,
-            &mut skia_safe::gpu::DirectContext,
+            &mut DirectContext,
         ) -> Result<(), PlatformError>,
     ) -> Option<Result<SharedPixelBuffer<i_slint_core::graphics::Rgba8Pixel>, PlatformError>> {
         None
