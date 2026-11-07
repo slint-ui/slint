@@ -1979,6 +1979,10 @@ pub struct BackdropBlur {
     pub border_top_right_radius: Property<LogicalLength>,
     pub border_bottom_left_radius: Property<LogicalLength>,
     pub border_bottom_right_radius: Property<LogicalLength>,
+    pub border_top_left_corner_shape: Property<CornerShape>,
+    pub border_top_right_corner_shape: Property<CornerShape>,
+    pub border_bottom_left_corner_shape: Property<CornerShape>,
+    pub border_bottom_right_corner_shape: Property<CornerShape>,
     pub cached_rendering_data: CachedRenderingData,
 }
 
@@ -1991,6 +1995,15 @@ impl BackdropBlur {
             self.border_bottom_left_radius(),
         )
         .max(Default::default())
+    }
+
+    pub fn logical_corner_shape(self: Pin<&Self>) -> CornerShapes {
+        CornerShapes::new(
+            self.border_top_left_corner_shape(),
+            self.border_top_right_corner_shape(),
+            self.border_bottom_right_corner_shape(),
+            self.border_bottom_left_corner_shape(),
+        )
     }
 }
 
