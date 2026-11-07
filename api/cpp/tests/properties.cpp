@@ -76,6 +76,23 @@ SCENARIO("Linking a property that has a binding")
     REQUIRE(p2.get() == 8);
 }
 
+SCENARIO("Linking a property again after a link with a map")
+{
+    using Pair = std::pair<int, int>;
+    Property<Pair> pair(Pair { 1, 2 });
+    Property<Pair> other(Pair { 3, 4 });
+    Property<int> first(0);
+    Property<Pair>::link_two_way(&other, &pair);
+    Property<Pair>::link_two_way_with_map(
+            &pair, &first, [](const Pair &p) { return p.first; },
+            [](Pair &p, const int &v) { p.first = v; });
+    Property<Pair>::link_two_way(&pair, &other);
+    first.set(5);
+    REQUIRE(pair.get().first == 5);
+    REQUIRE(other.get().first == 5);
+    REQUIRE(pair.get().second == 2);
+}
+
 SCENARIO("Linking chains of properties in any order")
 {
     const std::array<std::pair<int, int>, 4> links { { { 0, 1 }, { 2, 3 }, { 0, 2 }, { 1, 3 } } };
@@ -99,6 +116,29 @@ SCENARIO("Linking chains of properties in any order")
             }
         }
     } while (std::next_permutation(order.begin(), order.end()));
+}
+
+SCENARIO("Linking the same map twice")
+{
+    using Source = std::pair<int, int>;
+    Property<Source> source(Source { 1, 2 });
+    Property<int> mapped(0);
+    Property<int> other(0);
+    Property<int>::link_two_way(&mapped, &other);
+    auto link = [&] {
+        Property<Source>::link_two_way_with_map(
+                &source, &mapped, [](const Source &s) { return s.first; },
+                [](Source &s, const int &v) { s.first = v; });
+    };
+    link();
+    link();
+    Property<Source>::link_two_way_with_map(
+            &source, &mapped, [](const Source &s) { return s.first; },
+            [](Source &s, const int &v) { s.first = v; });
+    other.set(3);
+    REQUIRE(source.get() == Source { 3, 2 });
+    source.set(Source { 4, 5 });
+    REQUIRE(mapped.get() == 4);
 }
 
 SCENARIO("Linking to a linked property keeps the binding")
