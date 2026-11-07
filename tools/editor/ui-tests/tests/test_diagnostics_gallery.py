@@ -58,10 +58,27 @@ def test_diagnostics_gallery_uses_preview_only_mock_data(
             )
         ).to_equal(True)
         if state:
-            element(pane, state, role=slint_testing.AccessibleRole.Region)
+            card = element(pane, state, role=slint_testing.AccessibleRole.Region)
         else:
             expect(query(pane, "Stale preview")).to_be_hidden()
             expect(query(pane, "Preview unavailable")).to_be_hidden()
+        if scenario in {"Stale", "Unavailable", "ManyErrors", "Imports"}:
+            title = "components/Card.slint" if scenario == "Imports" else "Main.slint"
+            element(card, title, role=slint_testing.AccessibleRole.Text)
+            message = (
+                "This file has an error and can't be displayed."
+                if scenario == "Unavailable"
+                else "This file has an error. Showing the last working preview."
+            )
+            element(card, message, role=slint_testing.AccessibleRole.Text)
+            element(
+                pane,
+                "Toggle advanced error details",
+                role=slint_testing.AccessibleRole.Button,
+            ).invoke_accessible_default_action()
+            expect(
+                query(pane, "Open in editor", role=slint_testing.AccessibleRole.Button)
+            ).to_be_hidden()
         if scenario == "Imports":
             folder = element(
                 pane,

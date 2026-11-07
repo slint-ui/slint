@@ -24,6 +24,7 @@ from ui_driver import (
     launch_editor,
     palette_row,
     press_key,
+    query,
     screenshot,
     select_outline_row,
     wait_until,
@@ -54,6 +55,7 @@ def test_broken_preview_reports_locations_blocks_edits_and_recovers(
         card = element(
             window, "Stale preview", role=slint_testing.AccessibleRole.Region
         )
+        element(card, relative_path, role=slint_testing.AccessibleRole.Text)
         element(window, "Fixture text", role=slint_testing.AccessibleRole.Text)
         assert editor.process.poll() is None
         assert window.handle == handle
@@ -71,6 +73,11 @@ def test_broken_preview_reports_locations_blocks_edits_and_recovers(
             )
         )
         assert "errors" in file_row(window, fixture_project).accessible_description
+        element(
+            card,
+            "Toggle advanced error details",
+            role=slint_testing.AccessibleRole.Button,
+        ).invoke_accessible_default_action()
         labels = [
             element.accessible_label for element in card.query_descendants().find_all()
         ]
@@ -108,6 +115,19 @@ def test_broken_preview_reports_locations_blocks_edits_and_recovers(
         assert file_row(window, broken_file).accessible_description == ""
         assert editor.process.poll() is None
         element(window, "Selected Text", role=slint_testing.AccessibleRole.Region)
+        broken_file.write_bytes(repaired + b"\nthis is not valid Slint\n")
+        card = element(
+            window, "Stale preview", role=slint_testing.AccessibleRole.Region
+        )
+        expect(
+            query(
+                card,
+                "Copy preview diagnostics",
+                role=slint_testing.AccessibleRole.Button,
+            )
+        ).to_be_hidden()
+        broken_file.write_bytes(repaired)
+        expect(query(window, "Stale preview")).to_be_hidden()
 
 
 def test_unavailable_preview_hides_unrelated_render_and_recovers(

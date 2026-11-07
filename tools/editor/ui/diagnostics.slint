@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Project } from "project.slint";
+
 export enum DiagnosticLevel { Debug, Note, Info, Warning, Error }
 
 export struct Diagnostic {
@@ -23,6 +25,8 @@ export global Diagnostics {
     in property <[Diagnostic]> errors: Platform.uses-mock-data ? DiagnosticsMock.errors : [];
     in property <[Diagnostic]> warnings: Platform.uses-mock-data ? DiagnosticsMock.warnings : [];
     in property <bool> compiling;
+    in property <bool> can-undo-change;
+    in property <bool> can-open-in-editor;
     in property <PreviewAvailability> preview-availability: Platform.uses-mock-data ? DiagnosticsMock.availability : PreviewAvailability.Unavailable;
     out property <bool> preview-editable: self.preview-availability == PreviewAvailability.Current;
     out property <bool> preview-status-visible: !self.preview-editable
@@ -36,6 +40,11 @@ export global Diagnostics {
         return { error-count: 0, warning-count: 0 };
     }
     pure callback format-location(diagnostic: Diagnostic) -> string;
+    in property <string> file-name: Platform.uses-mock-data ? DiagnosticsMock.file-name
+        : self.errors.length > 0 && self.errors[0].file != ""
+            ? self.format-location({ file: self.errors[0].file, line: 0, column: 0, message: "", level: DiagnosticLevel.Error })
+            : Project.selected-project-file;
+    callback open-in-editor();
     format-location(diagnostic) => {
         if Platform.uses-mock-data {
             return diagnostic.line > 0 ? "\{diagnostic.file}:\{diagnostic.line}:\{diagnostic.column}" : diagnostic.file;
@@ -53,6 +62,7 @@ export enum DiagnosticMockScenario { Current, Warnings, Stale, Unavailable, NoCo
 export global DiagnosticsMock {
     in-out property <DiagnosticMockScenario> scenario: DiagnosticMockScenario.Current;
     in-out property <int> copy-count;
+    out property <string> file-name: self.errors.length > 0 ? self.errors[0].file : self.root-error.file;
     private property <Diagnostic> root-error: {
         file: "Main.slint", line: 18, column: 5,
         message: "Expected '}'", level: DiagnosticLevel.Error,
