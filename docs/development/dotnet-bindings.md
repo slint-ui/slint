@@ -496,8 +496,7 @@ Done:
   Its description lists what each preview added, up to preview 12.
   On 2026-11-06, it renamed struct fields that collide with the members of a C# record, which a Copilot review found,
   and merged `master` at 1.20.0.
-  Its .NET jobs pass locally; the Visual Editor job fails for every pull request from a fork,
-  since Slint's server for the tokens of the UI tests answers 500, and Python macOS fails on `master` too.
+  Then all its 47 CI jobs passed, with 17 skipped.
   The `linuxkms` change of the manual test fixes Slint itself, so it went upstream on its own,
   as [#14565](https://github.com/slint-ui/slint/pull/14565), merged on 2026-10-31.
   Before it's merged, it needs the official `Slint` package IDs, a squash, and a `ChangeLog:` trailer.
