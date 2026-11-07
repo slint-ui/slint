@@ -75,11 +75,6 @@ impl BoxShadowOptions {
         euclid::point2(self.blur.get(), self.blur.get())
     }
 
-    /// The corner radii of the hole an inset shadow leaves around round corners.
-    pub fn inner_radius(&self) -> PhysicalBorderRadius {
-        self.radius.spread(-self.spread.get())
-    }
-
     /// The shape of a drop shadow whose source has an opaque background, at
     /// [`Self::shape_origin`] within the drop shadow texture, or `None` for any other source.
     #[cfg(feature = "path")]
