@@ -100,7 +100,7 @@ test("all tools declare their annotations", async () => {
 
 function assertServesInterpreter(content, url, hosts) {
     assert.equal(content.mimeType, "text/html;profile=mcp-app");
-    assert.doesNotMatch(content.text, /__[A-Z_]+__/);
+    assert.doesNotMatch(content.text, /__[A-Za-z_-]+__/);
     assert.ok(content.text.includes(url), url);
     const { csp } = content._meta.ui;
     assert.deepEqual(csp.connectDomains, hosts);
@@ -126,8 +126,9 @@ test("serves the view with the interpreter of the plugin's release on the releas
             "assets/slint.svg",
             "mcp/slint-preview/server.mjs",
             "mcp/slint-preview/view.html.in",
+            "mcp/slint-preview/assets",
         ]) {
-            cpSync(new URL(file, pluginRoot), join(root, file));
+            cpSync(new URL(file, pluginRoot), join(root, file), { recursive: true, dereference: true });
         }
         writeFileSync(
             join(root, "mcp/slint-preview/channel.json"),
