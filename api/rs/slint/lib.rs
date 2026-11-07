@@ -480,10 +480,12 @@ pub mod platform {
         )
     ))]
     pub mod skia_renderer {
-        #[cfg(feature = "unstable-wgpu-29")]
+        // In the browser, Skia is built without Ganesh, which these renderers use.
+        #[cfg(all(feature = "unstable-wgpu-29", not(target_arch = "wasm32")))]
         pub use i_slint_renderer_skia::SkiaWGPU29Renderer;
-        #[cfg(feature = "unstable-wgpu-30")]
+        #[cfg(all(feature = "unstable-wgpu-30", not(target_arch = "wasm32")))]
         pub use i_slint_renderer_skia::SkiaWGPU30Renderer;
+        #[cfg(not(target_arch = "wasm32"))]
         #[allow(deprecated)]
         pub use i_slint_renderer_skia::SkiaWGPURenderer;
     }

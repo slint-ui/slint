@@ -220,8 +220,9 @@ impl super::WinitCompatibleRenderer for WinitSkiaRenderer {
         &self,
         active_event_loop: &winit::event_loop::ActiveEventLoop,
         window_attributes: winit::window::WindowAttributes,
-        _window_adapter_weak: std::rc::Weak<crate::winitwindowadapter::WinitWindowAdapter>,
+        window_adapter_weak: std::rc::Weak<crate::winitwindowadapter::WinitWindowAdapter>,
     ) -> Result<Arc<winit::window::Window>, PlatformError> {
+        let _ = &window_adapter_weak;
         let transparent = window_attributes.transparent;
         let winit_window = Arc::new(active_event_loop.create_window(window_attributes).map_err(
             |winit_os_error| {
@@ -232,12 +233,51 @@ impl super::WinitCompatibleRenderer for WinitSkiaRenderer {
             },
         )?);
 
-        let size = winit_window.surface_size();
-
+        // In the browser, getting a WebGPU device is asynchronous, so the surface is set once
+        // it completes. Graphite needs WebGPU, so WebGL is avoided.
+        #[cfg(all(target_arch = "wasm32", skia_wgpu_30))]
+        {
+            let _ = transparent;
+            let context = {
+                let window_adapter = window_adapter_weak.upgrade().ok_or_else(|| {
+                    PlatformError::from("Cannot initialize wgpu: window adapter is destroyed")
+                })?;
+                use i_slint_core::platform::WindowAdapter;
+                i_slint_core::window::WindowInner::from_pub(window_adapter.window())
+                    .context()
+                    .clone()
+            };
+            let window_handle = Box::new(winit_window.clone())
+                as Box<dyn i_slint_core::graphics::wgpu_30::wgpu::DisplayAndWindowHandle>;
+            let winit_window_for_size = winit_window.clone();
+            i_slint_core::graphics::wgpu_30::init_instance_adapter_device_queue_surface_then(
+                &context,
+                window_handle,
+                self.requested_graphics_api.clone(),
+                i_slint_core::graphics::wgpu_30::wgpu::Backends::GL,
+                move |instance, adapter, device, queue, surface| {
+                    let Some(window_adapter) = window_adapter_weak.upgrade() else {
+                        return Ok(());
+                    };
+                    let this = (window_adapter.renderer() as &dyn std::any::Any)
+                        .downcast_ref::<WinitSkiaRenderer>()
+                        .ok_or_else(|| PlatformError::from("The window's renderer is not Skia"))?;
+                    let size = physical_size_to_slint(&winit_window_for_size.surface_size());
+                    this.renderer.set_wgpu_30_window_surface(
+                        instance, &adapter, device, queue, surface, size,
+                    )?;
+                    i_slint_core::debug_log!("Slint: Using Skia Graphite on WebGPU");
+                    use i_slint_core::platform::WindowAdapter;
+                    window_adapter.request_redraw();
+                    Ok(())
+                },
+            )?;
+        }
+        #[cfg(not(all(target_arch = "wasm32", skia_wgpu_30)))]
         self.renderer.set_window_handle(
             winit_window.clone(),
             winit_window.clone(),
-            physical_size_to_slint(&size),
+            physical_size_to_slint(&winit_window.surface_size()),
             self.requested_graphics_api.clone(),
             transparent,
         )?;

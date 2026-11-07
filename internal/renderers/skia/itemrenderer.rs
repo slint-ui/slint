@@ -526,7 +526,8 @@ impl<'a> SkiaItemRenderer<'a> {
                 let tile = if src == skia_image.bounds() {
                     Some(skia_image.clone())
                 } else {
-                    skia_image
+                    #[cfg(skia_ganesh)]
+                    let subset = skia_image
                         .make_subset(
                             self.canvas
                                 .recording_context()
@@ -546,7 +547,16 @@ impl<'a> SkiaItemRenderer<'a> {
                                     src,
                                     skia_safe::image::RequiredProperties::default(),
                                 )
-                        })
+                        });
+                    // Without Ganesh, as in the browser, the subset is taken without a recorder,
+                    // which works for raster images.
+                    #[cfg(not(skia_ganesh))]
+                    let subset = skia_image.make_subset(
+                        None::<&mut dyn skia_safe::Recorder>,
+                        src,
+                        skia_safe::image::RequiredProperties::default(),
+                    );
+                    subset
                 };
                 if let Some(shader) = tile.and_then(|i| {
                     i.to_shader((TileMode::Repeat, TileMode::Repeat), filter_mode, &matrix)

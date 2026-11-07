@@ -124,10 +124,62 @@ pub(crate) fn as_skia_image(
         ImageInner::WGPUTexture(any_wgpu_texture) => {
             surface.and_then(|surface| surface.import_wgpu_texture(canvas, any_wgpu_texture))
         }
+        #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
+        ImageInner::HTMLImage(html_image) => {
+            // Reading the loading state makes the item's cached image depend on it, so the image
+            // is made again once the browser has loaded it.
+            if !html_image.is_loaded() {
+                return None;
+            }
+            let size = html_image.size()?;
+            let (width, height) = if html_image.is_svg() {
+                let size = i_slint_core::graphics::transformed_scalable_render_size(
+                    size,
+                    image_fit,
+                    target_size_fn(),
+                    scale_factor,
+                    Default::default(),
+                    transform_scale,
+                )?;
+                (size.width, size.height)
+            } else {
+                (size.width, size.height)
+            };
+            html_image_to_skia_image(&html_image.dom_element, width, height)
+        }
         _ => image_inner
             .render_to_buffer(None)
             .and_then(|buffer| image_buffer_to_skia_image(&buffer)),
     }
+}
+
+/// Draws the browser's decoded `element` at `width` x `height` pixels, and reads the pixels back.
+#[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
+fn html_image_to_skia_image(
+    element: &web_sys::HtmlImageElement,
+    width: u32,
+    height: u32,
+) -> Option<skia_safe::Image> {
+    use wasm_bindgen::JsCast;
+    let canvas = web_sys::OffscreenCanvas::new(width, height).ok()?;
+    let context = canvas
+        .get_context("2d")
+        .ok()??
+        .dyn_into::<web_sys::OffscreenCanvasRenderingContext2d>()
+        .ok()?;
+    let (w, h) = (width as f64, height as f64);
+    context.draw_image_with_html_image_element_and_dw_and_dh(element, 0., 0., w, h).ok()?;
+    let pixels = context.get_image_data(0., 0., w, h).ok()?.data().0;
+    let image_info = crate::image_info(
+        skia_safe::ISize::new(width as i32, height as i32),
+        skia_safe::ColorType::RGBA8888,
+        skia_safe::AlphaType::Unpremul,
+    );
+    skia_safe::images::raster_from_data(
+        &image_info,
+        skia_safe::Data::new_copy(&pixels),
+        width as usize * 4,
+    )
 }
 
 fn image_buffer_to_skia_image(buffer: &SharedImageBuffer) -> Option<skia_safe::Image> {
