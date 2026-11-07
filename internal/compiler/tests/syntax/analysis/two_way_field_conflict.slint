@@ -1,0 +1,80 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+struct Pair { a: int, b: int }
+
+global Shared {
+    in-out property <int> value;
+    in-out property <int> other;
+}
+
+component Alias {
+    in-out property <int> value <=> Shared.value;
+    in-out property <int> other <=> Shared.other;
+}
+
+component SameField {
+    in-out property <Pair> s;
+    Alias { value <=> root.s.a; }
+    Alias { value <=> root.s.a; }
+}
+
+component SameFieldThroughAlias {
+    in-out property <Pair> s;
+    in-out property <Pair> t <=> s;
+    Alias { value <=> root.s.a; }
+    Alias { value <=> root.t.a; }
+}
+
+component OtherFieldOnOtherProperty {
+    in-out property <Pair> s;
+    Alias { value <=> root.s.a; }
+    Alias { other <=> root.s.b; }
+}
+
+component OtherStruct {
+    in-out property <Pair> s1;
+    in-out property <Pair> s2;
+    Alias { value <=> root.s1.a; }
+    Alias { value <=> root.s2.b; }
+}
+
+component TwoFields {
+    in-out property <Pair> s;
+    Alias { value <=> root.s.a; }
+//          >                 <note{'s.a' is linked here}
+    Alias { value <=> root.s.b; }
+//          >                 <error{This property is already linked to 's.a', so it can't also be linked to 's.b'. Link it to one field only}
+}
+
+component Inner {
+    in-out property <Pair> s;
+    in-out property <int> v <=> s.a;
+}
+
+component ThroughDeclaration {
+    in-out property <Pair> s;
+    Inner { s <=> root.s; v <=> root.s.a; }
+    Inner { s <=> root.s; v <=> root.s.b; }
+//                        >             <error{This property is already linked to 's.b', so it can't also be linked to 's.a'. Link it to one field only}
+}
+
+component WithChangedHandler {
+    in-out property <Pair> s;
+    in-out property <int> c <=> s.b;
+//                          >      <note{'s.b' is linked here}
+    changed c => { }
+    Alias { value <=> root.c; }
+    Alias { value <=> root.s.a; }
+//          >                 <error{This property is already linked to 's.b', so it can't also be linked to 's.a'. Link it to one field only}
+}
+
+export component TestCase inherits Window {
+    SameField { }
+    SameFieldThroughAlias { }
+    OtherFieldOnOtherProperty { }
+    OtherStruct { }
+    TwoFields { }
+    ThroughDeclaration { }
+    WithChangedHandler { }
+}
