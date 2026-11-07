@@ -131,9 +131,7 @@ fn main() -> Result<()> {
 /// auto-updater driving the update section of the editor UI.
 #[cfg(target_os = "macos")]
 fn setup_macos_chrome(editor_ui: &preview::ui::EditorUi) -> Option<Rc<crate::sparkle::Sparkle>> {
-    use slint::ComponentHandle;
-
-    preview::macos_titlebar::setup(editor_ui.as_weak());
+    editor_ui.on_perform_native_window_zoom(preview::macos_titlebar::setup(editor_ui));
     crate::sparkle::connect(editor_ui)
 }
 

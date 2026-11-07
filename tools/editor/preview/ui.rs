@@ -4142,10 +4142,10 @@ mod tests {
 
         let title_move_area = i_slint_backend_testing::ElementHandle::find_by_element_id(
             &editor,
-            "EditorUi::title-move-area",
+            "EditorUi::title-bar",
         )
         .next()
-        .expect("the title move area must be inside EditorUi's FocusScope");
+        .expect("the title bar must be inside EditorUi's FocusScope");
         let position = title_move_area.absolute_position();
         let size = title_move_area.size();
         let start =
@@ -4174,10 +4174,10 @@ mod tests {
 
         let title_touch_area = i_slint_backend_testing::ElementHandle::find_by_element_id(
             &editor,
-            "EditorUi::title-touch-area",
+            "ShellTitleBar::touch-area",
         )
         .next()
-        .expect("the title touch area must be inside the window move area");
+        .expect("the title bar must have a touch area");
 
         title_touch_area.mock_single_click(PointerEventButton::Left);
         title_touch_area.mock_single_click(PointerEventButton::Left);
@@ -4197,6 +4197,29 @@ mod tests {
         title_touch_area.mock_single_click(PointerEventButton::Left);
         assert_eq!(native_zoom_count.get(), 1);
         assert!(!editor.window().is_maximized());
+    }
+
+    #[test]
+    fn viewer_controls_sit_at_the_right_of_the_title_bar() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        editor.show().unwrap();
+
+        let find = |id| {
+            i_slint_backend_testing::ElementHandle::find_by_element_id(&editor, id)
+                .next()
+                .unwrap_or_else(|| panic!("{id} must exist"))
+        };
+        let title_bar = find("EditorUi::title-bar");
+        let viewer = find("EditorTopBar::viewer");
+
+        let title_bar_right = title_bar.absolute_position().x + title_bar.size().width;
+        let viewer_right = viewer.absolute_position().x + viewer.size().width;
+        assert_eq!(title_bar_right - viewer_right, 16.);
+        let title_bar_middle = title_bar.absolute_position().y + title_bar.size().height / 2.;
+        let viewer_middle = viewer.absolute_position().y + viewer.size().height / 2.;
+        assert!((title_bar_middle - viewer_middle).abs() < 1.);
     }
 
     const LEFT_PANE: usize = 0;
