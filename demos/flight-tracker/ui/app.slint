@@ -16,24 +16,24 @@ global Theme {
     out property <color> muted: #98a2b6;
     /// Placeholders and the frame rate, dimmer than `muted`.
     out property <color> faint: #f4efe350;
-    /// Champagne gold, for text, lines, and markers.
-    out property <color> accent: #d4b16a;
-    out property <color> accent-light: #e6c98c;
+    /// Pale champagne, for text, lines, and markers.
+    out property <color> accent: #cdbd98;
+    out property <color> accent-light: #e2d7bd;
     /// Gold surfaces, such as the primary button: lit from above like polished metal, with a
     /// faint reflection at the bottom.
-    out property <brush> gold: @linear-gradient(180deg, #f5e2ad 0%, #dbbb7c 40%, #b38d4c 62%, #d9b877 100%);
+    out property <brush> gold: @linear-gradient(180deg, #f7f1e4 0%, #dcd0b6 22%, #b3a585 47%, #8f8166 53%, #c3b698 78%, #e9e0cc 100%);
     /// Text and icons on gold.
     out property <color> on-gold: #0b1528;
     /// The upper and lower halves of a flap, and of a lit one.
     out property <color> flap-upper: #1d2a44;
     out property <color> flap-lower: #121c30;
-    out property <brush> lit-upper: @linear-gradient(180deg, #f5e2ad 0%, #dcbc7e 100%);
-    out property <brush> lit-lower: @linear-gradient(180deg, #b38d4c 0%, #d6b574 100%);
+    out property <brush> lit-upper: @linear-gradient(180deg, #f7f1e4 0%, #c8bb9d 100%);
+    out property <brush> lit-lower: @linear-gradient(180deg, #8f8166 0%, #d8ccb1 100%);
     /// Behind the globe on the entry screen.
     out property <color> background: #040915;
     out property <color> surface: #0b1528;
     out property <color> glass: self.surface.with-alpha(self.blur ? 0.86 : 0.95);
-    out property <color> line: #d4b16a2e;
+    out property <color> line: #cdbd9830;
     /// A tint over the glass for buttons and fields, and its hover and pressed states.
     out property <color> fill: #ffffff0d;
     out property <color> fill-hover: #ffffff1f;
