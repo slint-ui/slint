@@ -627,26 +627,7 @@ impl crate::Surface for WGPUSurface {
     }
 }
 
-pub(crate) struct WindowAndDisplayHandle(
-    pub(crate) Arc<dyn raw_window_handle::HasWindowHandle + Send + Sync>,
-    pub(crate) Arc<dyn raw_window_handle::HasDisplayHandle + Send + Sync>,
-);
-
-impl raw_window_handle::HasWindowHandle for WindowAndDisplayHandle {
-    fn window_handle(
-        &self,
-    ) -> Result<raw_window_handle::WindowHandle<'_>, raw_window_handle::HandleError> {
-        self.0.window_handle()
-    }
-}
-
-impl raw_window_handle::HasDisplayHandle for WindowAndDisplayHandle {
-    fn display_handle(
-        &self,
-    ) -> Result<raw_window_handle::DisplayHandle<'_>, raw_window_handle::HandleError> {
-        self.1.display_handle()
-    }
-}
+pub(crate) use crate::WindowAndDisplayHandle;
 
 pub(crate) enum Backend {
     #[cfg(target_vendor = "apple")]

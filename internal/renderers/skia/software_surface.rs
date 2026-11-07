@@ -186,7 +186,7 @@ impl super::Surface for SoftwareSurface {
         size: PhysicalWindowSize,
         callback: &dyn Fn(
             &skia_safe::Canvas,
-            Option<&mut skia_safe::gpu::DirectContext>,
+            Option<&mut crate::DirectContext>,
             u8,
         )
             -> Result<Option<DirtyRegion>, i_slint_core::platform::PlatformError>,

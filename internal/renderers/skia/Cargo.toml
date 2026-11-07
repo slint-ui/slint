@@ -64,7 +64,7 @@ raw-window-handle = { version = "0.6", features = ["std"] }
 clru = { workspace = true }
 bytemuck = { workspace = true }
 
-skia-safe = { workspace = true, features = ["gl"] }
+skia-safe = { workspace = true }
 glow = { workspace = true }
 unicode-segmentation = { workspace = true }
 
@@ -72,7 +72,19 @@ wgpu-29 = { workspace = true, optional = true }
 wgpu-30 = { workspace = true, optional = true }
 spin_on = { version = "0.1", optional = true }
 
-[target.'cfg(any(not(target_vendor = "apple"), target_os = "macos"))'.dependencies]
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+skia-safe = { workspace = true, features = ["gl", "binary-cache", "embed-icudtl", "pdf"] }
+
+# In the browser, wgpu renders with WebGPU, and Skia with Graphite through skia-wgpu, whose
+# handles must be Send and Sync.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+# Graphite only. The `wgpu` feature downloads Dawn's headers with `binary-cache`.
+skia-safe = { workspace = true, features = ["binary-cache"] }
+wgpu-30 = { workspace = true, optional = true, features = ["webgpu", "wgsl", "fragile-send-sync-non-atomic-wasm"] }
+web-sys = { workspace = true, features = ["HtmlImageElement", "OffscreenCanvas", "OffscreenCanvasRenderingContext2d", "ImageData"] }
+wasm-bindgen = "0.2"
+
+[target.'cfg(all(any(not(target_vendor = "apple"), target_os = "macos"), not(target_arch = "wasm32")))'.dependencies]
 glutin = { workspace = true, default-features = false, features = ["egl", "wgl"] }
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
@@ -107,7 +119,7 @@ read-fonts = { workspace = true }
 # Pinned to 0.50 to align with read-fonts from parley and avoid duplicated dependencies
 write-fonts = { version = "0.50" }
 
-[target.'cfg(not(any(target_vendor = "apple", target_family = "windows")))'.dependencies]
+[target.'cfg(not(any(target_vendor = "apple", target_family = "windows", target_arch = "wasm32")))'.dependencies]
 skia-safe = { workspace = true, features = ["gl", "vulkan"] }
 wgpu-29 = { workspace = true, optional = true, features = ["vulkan"] }
 wgpu-30 = { workspace = true, optional = true, features = ["vulkan"] }

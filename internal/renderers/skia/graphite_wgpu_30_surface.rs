@@ -130,6 +130,43 @@ impl GraphiteWGPUSurface {
         })
     }
 
+    /// Renders into a window's `surface`, with wgpu objects that the caller created, such as
+    /// in a browser, where creating them is asynchronous.
+    pub fn new_for_window(
+        instance: wgpu::Instance,
+        adapter: &wgpu::Adapter,
+        device: wgpu::Device,
+        queue: wgpu::Queue,
+        surface: wgpu::Surface<'static>,
+        size: PhysicalWindowSize,
+    ) -> Result<Self, PlatformError> {
+        let mut surface_config = surface
+            .get_default_config(adapter, size.width.max(1), size.height.max(1))
+            .ok_or_else(|| PlatformError::from("WGPU surface is not compatible with adapter"))?;
+        let capabilities = surface.get_capabilities(adapter);
+        surface_config.format = capabilities
+            .formats
+            .iter()
+            .copied()
+            .find(|f| {
+                matches!(f, wgpu::TextureFormat::Rgba8Unorm | wgpu::TextureFormat::Bgra8Unorm)
+            })
+            .unwrap_or(capabilities.formats[0]);
+        // Skia copies or samples the backdrop of a backdrop blur, and without either usage
+        // draws the blur over nothing.
+        let backdrop_usages = wgpu::TextureUsages::COPY_SRC | wgpu::TextureUsages::TEXTURE_BINDING;
+        // A WebGPU canvas takes both, but wgpu reports only what every canvas format supports.
+        #[cfg(target_arch = "wasm32")]
+        let supported_usages = backdrop_usages;
+        #[cfg(not(target_arch = "wasm32"))]
+        let supported_usages = capabilities.usages;
+        surface_config.usage |= supported_usages & backdrop_usages;
+        surface_config.present_mode = wgpu::PresentMode::AutoVsync;
+        surface.configure(&device, &surface_config);
+
+        Self::new_with_parts(WgpuState { instance, device, queue }, Some((surface, surface_config)))
+    }
+
     pub(crate) fn new_offscreen(
         instance: wgpu::Instance,
         device: wgpu::Device,
@@ -144,6 +181,9 @@ impl GraphiteWGPUSurface {
         texture: &wgpu::Texture,
         callback: &mut dyn FnMut(&skia_safe::Canvas) -> Result<(), PlatformError>,
     ) -> Result<(), PlatformError> {
+        // Retires finished submissions, which a non-yielding context, as in a browser, never
+        // waits for.
+        self.context.borrow_mut().check_async_work_completion();
         let color_type = color_type(texture.format()).ok_or_else(|| {
             PlatformError::from(format!("Unsupported texture format {:?}", texture.format()))
         })?;
@@ -187,34 +227,13 @@ impl crate::Surface for GraphiteWGPUSurface {
     ) -> Result<Self, PlatformError> {
         let (instance, adapter, device, queue, surface) =
             i_slint_core::graphics::wgpu_30::init_instance_adapter_device_queue_surface(
-                Box::new(crate::wgpu_30_surface::WindowAndDisplayHandle(
-                    window_handle,
-                    display_handle,
-                )) as Box<dyn wgpu::DisplayAndWindowHandle>,
+                Box::new(crate::WindowAndDisplayHandle(window_handle, display_handle))
+                    as Box<dyn wgpu::DisplayAndWindowHandle>,
                 requested_graphics_api,
                 i_slint_core::graphics::wgpu_30::default_backends_to_avoid(),
             )?;
 
-        let mut surface_config = surface
-            .get_default_config(&adapter, size.width.max(1), size.height.max(1))
-            .ok_or_else(|| PlatformError::from("WGPU surface is not compatible with adapter"))?;
-        let capabilities = surface.get_capabilities(&adapter);
-        surface_config.format = capabilities
-            .formats
-            .iter()
-            .copied()
-            .find(|f| {
-                matches!(f, wgpu::TextureFormat::Rgba8Unorm | wgpu::TextureFormat::Bgra8Unorm)
-            })
-            .unwrap_or(capabilities.formats[0]);
-        // Skia copies or samples the backdrop of a backdrop blur, and without either usage
-        // draws the blur over nothing.
-        surface_config.usage |= capabilities.usages
-            & (wgpu::TextureUsages::COPY_SRC | wgpu::TextureUsages::TEXTURE_BINDING);
-        surface_config.present_mode = wgpu::PresentMode::AutoVsync;
-        surface.configure(&device, &surface_config);
-
-        Self::new_with_parts(WgpuState { instance, device, queue }, Some((surface, surface_config)))
+        Self::new_for_window(instance, &adapter, device, queue, surface, size)
     }
 
     fn name(&self) -> &'static str {
@@ -240,7 +259,7 @@ impl crate::Surface for GraphiteWGPUSurface {
         _size: PhysicalWindowSize,
         callback: &dyn Fn(
             &skia_safe::Canvas,
-            Option<&mut skia_safe::gpu::DirectContext>,
+            Option<&mut crate::DirectContext>,
             u8,
         ) -> Result<Option<DirtyRegion>, PlatformError>,
         pre_present_callback: &RefCell<Option<Box<dyn FnMut()>>>,

@@ -8,6 +8,8 @@ fn main() {
     cfg_aliases! {
        skia_backend_opengl: { any(feature = "opengl", not(any(target_vendor = "apple", target_family = "windows", target_arch = "wasm32"))) },
        skia_backend_wgpu: { any(feature = "wgpu-29", feature = "wgpu-30") },
+       // In the browser, Skia renders only with Graphite, and is built without Ganesh.
+       skia_ganesh: { not(target_arch = "wasm32") },
        skia_backend_software: { not(target_os = "android") },
        skia_backend_softbuffer: { all(skia_backend_software, feature = "softbuffer") },
        // Targets where wgpu and Skia both have their Vulkan backend compiled in.
