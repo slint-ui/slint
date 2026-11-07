@@ -9,7 +9,7 @@ use std::rc::Rc;
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::element_type::ElementType;
 use crate::expression_tree::{BindingExpression, Expression, NamedReference};
-use crate::object_tree::{Component, Element, ElementRc};
+use crate::object_tree::{Component, Element, ElementRc, InjectedFor, InjectedProperty};
 use crate::typeregister::TypeRegister;
 
 pub fn handle_clip(
@@ -62,6 +62,10 @@ fn create_clip_element(parent_elem: &ElementRc, clip_type: &ElementType) {
         base_type: clip_type.clone(),
         children: std::mem::take(&mut parent.children),
         enclosing_component: parent.enclosing_component.clone(),
+        injected_for: Some(InjectedFor {
+            element: Rc::downgrade(parent_elem),
+            properties: vec![InjectedProperty::same_name("clip")],
+        }),
         ..Element::default()
     });
 

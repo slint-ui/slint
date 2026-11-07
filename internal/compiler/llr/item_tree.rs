@@ -387,14 +387,22 @@ pub struct Property {
     pub use_count: Cell<usize>,
 }
 
-/// One entry of [`SubComponent::testable_properties`]:
-/// a property declared on an element, under its source name,
+/// One entry of [`SubComponent::testable_properties`], also part of [`InspectableProperty`]:
+/// a property of an element, under its source name,
 /// with the reference to read its value in the sub-component's scope.
 #[derive(Debug, Clone)]
-pub struct TestableProperty {
+pub struct ElementProperty {
     pub name: SmolStr,
     pub ty: Type,
     pub prop: MemberReference,
+}
+
+/// One entry of [`SubComponent::inspectable_properties`].
+#[derive(Debug, Clone)]
+pub struct InspectableProperty {
+    pub property: ElementProperty,
+    /// `property.prop` holds the negation of the value.
+    pub negated: bool,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -676,7 +684,15 @@ pub struct SubComponent {
     /// Populated only when `CompilerConfiguration::debug_info` is set;
     /// see `ItemTreeVTable::element_testable_property_value`.
     #[cfg_attr(feature = "serde", serde(skip))]
-    pub testable_properties: BTreeMap<u32, Vec<TestableProperty>>,
+    pub testable_properties: BTreeMap<u32, Vec<ElementProperty>>,
+
+    /// Maps item index to the declarations the source can name,
+    /// then the properties that elements injected for it implement.
+    /// Lists neither the fields of the item's native class nor properties optimized away.
+    /// Every element has an entry, possibly empty, except injected elements.
+    /// Populated only when `CompilerConfiguration::debug_info` is set.
+    #[cfg_attr(feature = "serde", serde(skip))]
+    pub inspectable_properties: BTreeMap<u32, Vec<InspectableProperty>>,
 
     #[cfg(feature = "std")]
     #[cfg_attr(feature = "serde", serde(skip))]

@@ -104,8 +104,10 @@ fn create_property_element(
     element_name: &SmolStr,
     type_register: &TypeRegister,
 ) -> ElementRc {
+    let properties: Vec<&'static str> = properties.collect();
     let bindings = properties
-        .map(|property_name| {
+        .iter()
+        .map(|&property_name| {
             let property_name = SmolStr::new_static(property_name);
             let mut bind = BindingExpression::new_two_way(
                 NamedReference::new(child, property_name.clone()).into(),
@@ -120,11 +122,23 @@ fn create_property_element(
         })
         .collect();
 
+    let base_type = type_register.lookup_element(element_name).unwrap();
+    // Not `ElementType::lookup_property`, which also finds reserved properties such as
+    // `transform-scale` that the native item doesn't have.
+    let injected_properties = properties
+        .into_iter()
+        .filter(|name| base_type.as_builtin().native_class.lookup_property(name).is_some())
+        .map(object_tree::InjectedProperty::same_name)
+        .collect();
     let element = Element {
         id: format_smolstr!("{}-{}", child.borrow().id, element_name),
-        base_type: type_register.lookup_element(element_name).unwrap(),
+        base_type,
         enclosing_component: child.borrow().enclosing_component.clone(),
         bindings,
+        injected_for: Some(object_tree::InjectedFor {
+            element: Rc::downgrade(child),
+            properties: injected_properties,
+        }),
         ..Default::default()
     };
     element.make_rc()
