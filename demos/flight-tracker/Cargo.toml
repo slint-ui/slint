@@ -30,7 +30,9 @@ web-time = "1"
 slint = { path = "../../api/rs/slint", features = ["renderer-skia", "unstable-wgpu-30"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-slint = { path = "../../api/rs/slint", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-femtovg-wgpu", "unstable-wgpu-30"] }
+slint = { path = "../../api/rs/slint", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-skia", "unstable-wgpu-30"] }
+# Graphite on the browser's WebGPU, through skia-wgpu.
+i-slint-renderer-skia = { path = "../../internal/renderers/skia", default-features = false, features = ["graphite-wgpu-30"] }
 wasm-bindgen = { version = "0.2" }
 console_error_panic_hook = "0.1.5"
 
