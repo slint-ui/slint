@@ -418,6 +418,57 @@ impl ElementHandle {
         })
     }
 
+    /// Visits this element, then its descendants in pre-order,
+    /// passing each one's depth below this element.
+    /// Unlike [`Self::visit_descendants`], it includes elements that are clipped away,
+    /// and visits a popup after the element that shows it.
+    #[cfg(feature = "system-testing")]
+    pub(crate) fn visit_tree<R>(
+        &self,
+        mut visitor: impl FnMut(ElementHandle, usize) -> ControlFlow<R>,
+    ) -> Option<R> {
+        let item = self.item.upgrade()?;
+        match Self::visit_tree_impl(
+            &item,
+            self.element_index,
+            0,
+            &self.active_popups(),
+            &mut visitor,
+        ) {
+            ControlFlow::Break(result) => Some(result),
+            ControlFlow::Continue(()) => None,
+        }
+    }
+
+    #[cfg(feature = "system-testing")]
+    fn visit_tree_impl<R>(
+        item: &ItemRc,
+        first_element: usize,
+        depth: usize,
+        active_popups: &[(ItemRc, ItemTreeRc)],
+        visitor: &mut dyn FnMut(ElementHandle, usize) -> ControlFlow<R>,
+    ) -> ControlFlow<R> {
+        // Items the compiler synthesized have no element info.
+        let element_count = item.element_count().unwrap_or(0);
+        let child_depth = if element_count > first_element { depth + 1 } else { depth };
+        for element_index in first_element..element_count {
+            let element = ElementHandle { item: item.downgrade(), element_index };
+            visitor(element, if element_index == first_element { depth } else { child_depth })?;
+        }
+        for (popup_parent, popup) in active_popups {
+            if popup_parent == item {
+                let popup_root = ItemRc::new_root(popup.clone());
+                Self::visit_tree_impl(&popup_root, 0, child_depth, active_popups, visitor)?;
+            }
+        }
+        let mut child = item.first_child();
+        while let Some(item) = child {
+            Self::visit_tree_impl(&item, 0, child_depth, active_popups, visitor)?;
+            child = item.next_sibling();
+        }
+        ControlFlow::Continue(())
+    }
+
     /// Returns whether both handles refer to the same element of the same item.
     #[cfg(any(feature = "system-testing", feature = "mcp"))]
     pub(crate) fn is_same_element(&self, other: &ElementHandle) -> bool {
