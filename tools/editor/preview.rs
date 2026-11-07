@@ -52,7 +52,6 @@ mod inspector;
 pub mod macos_titlebar;
 mod preview_data;
 use ext::ElementRcNodeExt;
-mod displays;
 mod outline;
 mod project_file;
 mod properties;
@@ -111,7 +110,6 @@ pub fn initialize(
     editor_ui.on_elements_pane_reset(reset_pane(PaneSize::ElementsHeight));
     editor_ui.on_outline_pane_reset(reset_pane(PaneSize::OutlineHeight));
     project_file::setup(editor_ui);
-    displays::setup(editor_ui);
 
     to_lsp
         .send_telemetry(&mut [(
@@ -615,8 +613,17 @@ fn record_current_project() {
     }
     let Some(component_name) = component.component else { return };
     let Ok(url) = Url::from_file_path(path) else { return };
-    let project =
-        Project { root, preview: PreviewComponent { url, component: Some(component_name) } };
+    let selected_canvas_preset = PREVIEW_STATE.with_borrow(|state| {
+        state
+            .editor_ui
+            .as_ref()
+            .map_or(0, |editor| editor.global::<ui::Project>().get_selected_canvas_preset())
+    });
+    let project = Project {
+        root,
+        preview: PreviewComponent { url, component: Some(component_name) },
+        selected_canvas_preset,
+    };
     let update = PREVIEW_STATE.with_borrow_mut(|preview_state| {
         if !preview_state.settings.add_recent_project(project) {
             return None;
@@ -2852,40 +2859,12 @@ fn set_preview_factory(
         })));
 
     let editor_ui_weak = editor_ui.as_weak();
-    let root_component = compiled.root_component();
-    let fixed_dimension = |name| {
-        root_component
-            .root_element
-            .borrow()
-            .binding(name)
-            .is_some_and(|binding| binding.from_source && binding.expression.is_constant(None))
-    };
-    let fixed_width = fixed_dimension("width");
-    let fixed_height = fixed_dimension("height");
     let factory = slint::ComponentFactory::new(move |ctx: FactoryContext| {
         if let Some(editor_ui) = editor_ui_weak.upgrade() {
             let hover = editor_ui.global::<ui::Hover>();
             hover.set_preview_generation(hover.get_preview_generation().wrapping_add(1));
         }
         let instance = compiled.create_embedded(ctx).unwrap();
-
-        if let Some(editor_ui) = editor_ui_weak.upgrade() {
-            let dimension = |name, fixed| {
-                if fixed
-                    && let Ok(slint_interpreter::Value::Number(value)) = instance.get_property(name)
-                    && value.is_finite()
-                    && value >= 0.
-                {
-                    value as f32
-                } else {
-                    -1.
-                }
-            };
-            editor_ui.global::<ui::PreviewDisplays>().set_fixed_root_size(LogicalSize::new(
-                dimension("width", fixed_width),
-                dimension("height", fixed_height),
-            ));
-        }
 
         callback(instance.clone_strong());
 
@@ -4010,10 +3989,10 @@ mod tests {
         let source_file = PREVIEW_STATE.with_borrow(|state| {
             workspace_edit_source_file(&document_cache, &state.source_code, &url).unwrap()
         });
-        let edit = project_file::update_window_size_edit(
+        let edit = project_file::update_canvas_presets_edit(
             &source_file,
             Some(1),
-            &settings::DisplaySize { width: 720, height: 1280 },
+            &[project_file::CanvasPreset { width: 720, height: 1280 }],
             document_cache.format,
         )
         .unwrap();

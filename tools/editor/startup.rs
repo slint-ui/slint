@@ -73,16 +73,6 @@ pub fn setup(
             tracing::warn!("Failed to create project file {}: {error}", path.display());
             return false;
         }
-        let manifest = root.join(i_slint_compiler::project_file::FILE_NAME);
-        let contents = serde_json::json!({
-            "edition": "1.19",
-            "main": NEW_PROJECT_MAIN_FILE,
-            "metadata": { "visual-editor": { "window-size": { "width": 390, "height": 720 } } }
-        });
-        if let Err(error) = std::fs::write(&manifest, format!("{contents:#}\n")) {
-            tracing::warn!("Failed to create project file {}: {error}", manifest.display());
-            return false;
-        }
         match Project::from_root(&root, &path, None) {
             Ok(project) => start_new_project(project),
             Err(error) => {

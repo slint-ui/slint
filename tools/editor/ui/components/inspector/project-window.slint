@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Project } from "../../project.slint";
+import { PreviewDisplays } from "../../preview-displays.slint";
 import { Style, Metrics, Typography, Colors } from "../../style.slint";
 import { InspectorSection, InspectorValueField } from "index.slint";
 
@@ -16,18 +17,18 @@ export component ProjectWindowSection inherits InspectorSection {
             InspectorValueField {
                 horizontal-stretch: 1; min-width: 0px;
                 accessible-name: @tr("Project window width");
-                prefix: "W"; value: "\{Project.window-size.width / 1px}";
-                accepted(text) => { return Project.update-window-size(text, "\{Project.window-size.height / 1px}"); }
+                prefix: "W"; value: "\{PreviewDisplays.project-size.width / 1px}";
+                accepted(text) => { return Project.update-canvas-preset(0, text, "\{PreviewDisplays.project-size.height / 1px}"); }
             }
             InspectorValueField {
                 horizontal-stretch: 1; min-width: 0px;
                 accessible-name: @tr("Project window height");
-                prefix: "H"; value: "\{Project.window-size.height / 1px}";
-                accepted(text) => { return Project.update-window-size("\{Project.window-size.width / 1px}", text); }
+                prefix: "H"; value: "\{PreviewDisplays.project-size.height / 1px}";
+                accepted(text) => { return Project.update-canvas-preset(0, "\{PreviewDisplays.project-size.width / 1px}", text); }
             }
         }
-        if Project.window-size-error != "": Text {
-            text: Project.window-size-error; color: Colors.danger;
+        if Project.canvas-presets-error != "": Text {
+            text: Project.canvas-presets-error; color: Colors.danger;
             font-size: Typography.caption.size; wrap: word-wrap;
             accessible-role: text; accessible-label: @tr("Project window size error");
             accessible-value: self.text;

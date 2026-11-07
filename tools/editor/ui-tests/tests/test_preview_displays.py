@@ -33,7 +33,7 @@ def display_project(tmp_path: Path) -> Path:
                 "edition": "1.19",
                 "main": "Main.slint",
                 "metadata": {
-                    "visual-editor": {"window-size": {"width": 320, "height": 240}}
+                    "visual-editor": {"canvas-presets": [{"width": 320, "height": 240}]}
                 },
             }
         )
@@ -119,9 +119,6 @@ def test_custom_displays_can_be_added_and_deleted_independently(
             element(
                 window, "Add display", role=slint_testing.AccessibleRole.Button
             ).single_click(left)
-            element(
-                window, "Custom display…", role=slint_testing.AccessibleRole.Button
-            ).single_click(left)
             picker = element(window, id="DisplayManager::picker")
             for label, value in [("Width", width), ("Height", height)]:
                 field = element(
@@ -148,6 +145,4 @@ def test_custom_displays_can_be_added_and_deleted_independently(
         element(
             window, "Add display", role=slint_testing.AccessibleRole.Button
         ).single_click(left)
-        expect(
-            query(window, "Custom display…", role=slint_testing.AccessibleRole.Button)
-        ).to_be_visible()
+        expect(query(window, id="DisplayManager::picker")).to_be_visible()

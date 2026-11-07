@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Typography, ViewerStyle, Colors } from "../style.slint";
+import { ViewerStyle, Colors } from "../style.slint";
 import { PreviewDisplays } from "../preview-displays.slint";
 import { FloatingSurface } from "floating-surface.slint";
 import { DeviceField } from "device-manager.slint";
@@ -45,20 +45,19 @@ component Row inherits DisplayAction {
     in property <string> kind;
     in property <Size> display-size: { width: 600px, height: 300px };
     in property <bool> selected;
-    in property <bool> forward;
     height: 40px;
     Rectangle {
         border-radius: 6px;
         background: root.selected ? ViewerStyle.selected : root.hovered ? ViewerStyle.pill-hover : transparent;
     }
-    if root.kind != "custom" && root.kind != "embedded": Image {
+    if root.kind != "custom": Image {
         x: 12px; width: 18px; height: 18px;
         source: root.kind == "desktop" ? @image-url("../assets/lucide/monitor.svg")
             : root.kind == "project" ? @image-url("../assets/lucide/panels-top-left.svg")
             : @image-url("../assets/lucide/smartphone.svg");
         colorize: root.selected ? ViewerStyle.accent : ViewerStyle.icon;
     }
-    if root.kind == "custom" || root.kind == "embedded": Rectangle {
+    if root.kind == "custom": Rectangle {
         x: 13px;
         width: root.display-size.width > root.display-size.height ? 16px : root.display-size.width < root.display-size.height ? 10px : 14px;
         height: root.display-size.width > root.display-size.height ? 10px : root.display-size.width < root.display-size.height ? 16px : 14px;
@@ -74,28 +73,25 @@ component Row inherits DisplayAction {
         vertical-alignment: center;
         overflow: elide;
     }
-    if root.selected || root.forward: Image {
+    if root.selected: Image {
         x: parent.width - 30px; width: 16px; height: 16px;
-        source: root.selected ? @image-url("../assets/lucide/check.svg") : @image-url("../assets/lucide/chevron-down.svg");
-        colorize: root.selected ? ViewerStyle.accent : ViewerStyle.icon;
-        transform-rotation: root.selected ? 0deg : -90deg;
+        source: @image-url("../assets/lucide/check.svg");
+        colorize: ViewerStyle.accent;
     }
 }
 
 component AddDisplayPicker inherits FloatingSurface {
-    in-out property <bool> custom;
-    private property <string> query;
     private property <string> custom-width: "600";
     private property <string> custom-height: "300";
     private property <bool> custom-rotatable;
-    private property <bool> valid-size: root.custom-width.is-float() && root.custom-height.is-float()
-        && root.custom-width.to-float() > 0 && root.custom-height.to-float() > 0;
+    private property <bool> valid-size: PreviewDisplays.valid-dimension(root.custom-width)
+        && PreviewDisplays.valid-dimension(root.custom-height);
     callback closed();
-    height: root.custom ? 224px : 200px;
+    height: 224px;
 
     Text {
-        x: root.custom ? 42px : 16px; y: 15px;
-        text: root.custom ? @tr("Custom display") : @tr("Add display");
+        x: 16px; y: 15px;
+        text: @tr("Add display");
         color: ViewerStyle.ink; font-size: 14px; font-weight: 600;
     }
     close := DisplayAction {
@@ -109,45 +105,7 @@ component AddDisplayPicker inherits FloatingSurface {
             colorize: ViewerStyle.icon;
         }
     }
-    if root.custom: back := DisplayAction {
-        x: 8px; y: 8px; width: 28px; height: 28px;
-        label: @tr("Back to search");
-        activated => { root.custom = false; }
-        Rectangle { border-radius: 6px; background: back.hovered ? ViewerStyle.pill-hover : transparent; }
-        Image {
-            width: 16px; height: 16px;
-            source: @image-url("../assets/lucide/chevron-down.svg");
-            transform-rotation: 90deg; colorize: ViewerStyle.icon;
-        }
-    }
-    if !root.custom: search := DeviceField {
-        x: 16px; y: 46px; width: parent.width - 32px;
-        value <=> root.query;
-        placeholder: @tr("Search iPhone, iPad, Android…");
-        init => { self.focus-input(); }
-    }
-    if !root.custom: EditorScrollView {
-        x: 8px; y: 82px; width: parent.width - 16px; height: 70px;
-        content-width: self.width; content-height: matches.preferred-height;
-        horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
-        matches := VerticalLayout {
-            width: parent.width;
-            for display[index] in PreviewDisplays.search(root.query): Row {
-                height: 35px;
-                label: display.name; kind: display.kind;
-                display-size: { width: display.width, height: display.height };
-                activated => {
-                    if PreviewDisplays.add-display(display) { root.closed(); }
-                }
-            }
-        }
-    }
-    if !root.custom: Row {
-        x: 8px; y: 158px; width: parent.width - 16px; height: 34px;
-        label: @tr("Custom display…"); kind: "custom"; forward: true;
-        activated => { root.custom = true; }
-    }
-    if root.custom: HorizontalLayout {
+    HorizontalLayout {
         x: 16px; y: 58px; width: parent.width - 32px; height: 52px;
         spacing: 12px;
         VerticalLayout {
@@ -161,7 +119,7 @@ component AddDisplayPicker inherits FloatingSurface {
             DeviceField { value <=> root.custom-height; placeholder: @tr("Height"); input-type: InputType.number; }
         }
     }
-    if root.custom: Rectangle {
+    Rectangle {
         x: 16px; y: 126px; width: parent.width - 32px; height: 20px;
         Text {
             x: 0px; width: parent.width - 48px;
@@ -176,12 +134,7 @@ component AddDisplayPicker inherits FloatingSurface {
             toggled => { self.focus(); }
         }
     }
-    if PreviewDisplays.error != "": Text {
-        x: 16px; y: root.custom ? 151px : 115px; width: parent.width - 32px;
-        text: PreviewDisplays.error; color: Colors.danger;
-        font-size: Typography.caption.size; wrap: word-wrap;
-    }
-    if root.custom: AddDisplayButton {
+    AddDisplayButton {
         x: 16px; y: 180px; width: parent.width - 32px; height: 32px;
         label: @tr("Add display"); enabled: root.valid-size;
         activated => {
@@ -193,7 +146,6 @@ component AddDisplayPicker inherits FloatingSurface {
 
 export component DisplayManager inherits FloatingSurface {
     callback closed();
-    private property <bool> custom;
     private property <int> display-count: PreviewDisplays.displays.length;
     private property <int> selected-index: PreviewDisplays.selected-index;
     init => { root.reveal-selected(); }
@@ -218,7 +170,6 @@ export component DisplayManager inherits FloatingSurface {
         width: 304px; height: picker.height;
         close-policy: close-on-click-outside;
         picker := AddDisplayPicker {
-            custom <=> root.custom;
             closed => { add-popup.close(); }
         }
     }
@@ -229,7 +180,7 @@ export component DisplayManager inherits FloatingSurface {
     plus := DisplayAction {
         x: parent.width - 48px; y: 12px; width: 32px; height: 32px;
         label: @tr("Add display");
-        activated => { root.custom = false; PreviewDisplays.error = ""; add-popup.show(); }
+        activated => { add-popup.show(); }
         Rectangle { border-radius: 6px; background: plus.hovered ? ViewerStyle.pill-hover : transparent; }
         Image {
             width: 18px; height: 18px;

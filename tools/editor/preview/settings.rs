@@ -1,7 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use i_slint_live_preview::protocol::PreviewComponent;
@@ -14,88 +13,22 @@ pub(crate) const TOOL_NAME: &str = "visual-editor";
 const MAX_RECENT_PROJECTS: usize = 4;
 
 #[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
-pub(crate) struct DisplaySize {
-    pub width: i32,
-    pub height: i32,
-}
-
-impl Default for DisplaySize {
-    fn default() -> Self {
-        Self { width: 390, height: 720 }
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
-pub(crate) struct PreviewDisplay {
-    pub name: String,
-    pub width: i32,
-    pub height: i32,
-    pub kind: String,
-    #[serde(default)]
-    pub rotatable: bool,
-}
-
-impl PreviewDisplay {
-    pub(crate) fn can_rotate(&self) -> bool {
-        matches!(self.kind.as_str(), "mobile" | "tablet")
-            || (self.kind == "custom" && self.rotatable)
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
-pub(crate) struct PreviewState {
-    pub display: PreviewDisplay,
-    pub landscape: bool,
-}
-
-fn default_displays() -> Vec<PreviewDisplay> {
-    [
-        ("Desktop", 1280, 720, "desktop"),
-        ("Mobile", 390, 844, "mobile"),
-        ("Tablet", 768, 1024, "tablet"),
-    ]
-    .into_iter()
-    .map(|(name, width, height, kind)| PreviewDisplay {
-        name: name.into(),
-        width,
-        height,
-        kind: kind.into(),
-        rotatable: matches!(kind, "mobile" | "tablet"),
-    })
-    .collect()
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) struct Project {
     pub root: PathBuf,
     pub preview: PreviewComponent,
+    #[serde(default)]
+    pub selected_canvas_preset: i32,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Default, Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(try_from = "VisualEditorSettingsSerde", into = "VisualEditorSettingsSerde")]
 pub(crate) struct VisualEditorSettings {
     recent_projects: Vec<Project>,
-    pub(crate) displays: Vec<PreviewDisplay>,
-    pub(crate) preview_states: BTreeMap<PathBuf, PreviewState>,
     pub(crate) elements_pane_height: Option<i32>,
     pub(crate) outline_pane_height: Option<i32>,
     pub(crate) left_pane_width: Option<i32>,
     pub(crate) inspector_pane_width: Option<i32>,
-}
-
-impl Default for VisualEditorSettings {
-    fn default() -> Self {
-        Self {
-            recent_projects: Vec::new(),
-            displays: default_displays(),
-            preview_states: BTreeMap::new(),
-            elements_pane_height: None,
-            outline_pane_height: None,
-            left_pane_width: None,
-            inspector_pane_width: None,
-        }
-    }
 }
 
 impl VisualEditorSettings {
@@ -114,7 +47,12 @@ impl VisualEditorSettings {
             .ok()
     }
 
-    pub(crate) fn add_recent_project(&mut self, project: Project) -> bool {
+    pub(crate) fn add_recent_project(&mut self, mut project: Project) -> bool {
+        if let Some(existing) =
+            self.recent_projects.iter().find(|recent| recent.root == project.root)
+        {
+            project.selected_canvas_preset = existing.selected_canvas_preset;
+        }
         if self.recent_projects.first() == Some(&project) {
             return false;
         }
@@ -124,21 +62,23 @@ impl VisualEditorSettings {
         true
     }
 
-    pub(crate) fn preview_state(&self, root: &Path) -> Option<&PreviewState> {
-        self.preview_states.get(&project_key(root))
+    pub(crate) fn selected_canvas_preset(&self, root: &Path) -> i32 {
+        self.recent_projects
+            .iter()
+            .find(|recent| recent.has_root(root))
+            .map_or(0, |project| project.selected_canvas_preset.max(0))
     }
 
-    pub(crate) fn set_preview_state(&mut self, root: &Path, state: PreviewState) -> bool {
-        let key = project_key(root);
-        if self.preview_states.get(&key) == Some(&state) {
+    pub(crate) fn set_selected_canvas_preset(&mut self, root: &Path, index: i32) -> bool {
+        let Some(project) = self.recent_projects.iter_mut().find(|recent| recent.has_root(root))
+        else {
+            return false;
+        };
+        if project.selected_canvas_preset == index {
             return false;
         }
-        self.preview_states.insert(key, state);
+        project.selected_canvas_preset = index;
         true
-    }
-
-    pub(crate) fn clear_preview_state(&mut self, root: &Path) -> bool {
-        self.preview_states.remove(&project_key(root)).is_some()
     }
 
     pub(crate) fn clear_recent_projects(&mut self) -> bool {
@@ -199,6 +139,13 @@ impl Project {
         Self::from_root(root, &path, component)
     }
 
+    fn has_root(&self, root: &Path) -> bool {
+        self.root == root
+            || Url::from_directory_path(root)
+                .ok()
+                .is_some_and(|url| Url::from_directory_path(&self.root).ok().as_ref() == Some(&url))
+    }
+
     pub(crate) fn from_root(
         root: &Path,
         path: &Path,
@@ -217,7 +164,7 @@ impl Project {
         }
         let url = Url::from_file_path(&path)
             .map_err(|_| format!("Failed to convert {} to URL", path.display()))?;
-        Ok(Self { root, preview: PreviewComponent { url, component } })
+        Ok(Self { root, preview: PreviewComponent { url, component }, selected_canvas_preset: 0 })
     }
 }
 
@@ -230,10 +177,6 @@ struct VisualEditorSettingsSerde {
     version: u32,
     #[serde(default)]
     recent_projects: Vec<Project>,
-    #[serde(default = "default_displays")]
-    displays: Vec<PreviewDisplay>,
-    #[serde(default)]
-    preview_states: BTreeMap<PathBuf, PreviewState>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     elements_pane_height: Option<i32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -259,19 +202,6 @@ impl TryFrom<VisualEditorSettingsSerde> for VisualEditorSettings {
         recent_projects.truncate(MAX_RECENT_PROJECTS);
         Ok(Self {
             recent_projects,
-            displays: {
-                let mut displays = settings.displays;
-                displays.retain(|display| {
-                    display.width > 0 && display.height > 0 && !display.name.is_empty()
-                });
-                displays
-            },
-            preview_states: settings
-                .preview_states
-                .into_iter()
-                .filter(|(_, state)| state.display.width > 0 && state.display.height > 0)
-                .map(|(root, state)| (project_key(&root), state))
-                .collect(),
             elements_pane_height: positive_size(settings.elements_pane_height),
             outline_pane_height: positive_size(settings.outline_pane_height),
             left_pane_width: positive_size(settings.left_pane_width),
@@ -284,8 +214,6 @@ impl From<VisualEditorSettings> for VisualEditorSettingsSerde {
     fn from(value: VisualEditorSettings) -> Self {
         let VisualEditorSettings {
             recent_projects,
-            displays,
-            preview_states,
             elements_pane_height,
             outline_pane_height,
             left_pane_width,
@@ -294,18 +222,12 @@ impl From<VisualEditorSettings> for VisualEditorSettingsSerde {
         Self {
             version: VisualEditorSettings::CURRENT_VERSION,
             recent_projects,
-            displays,
-            preview_states,
             elements_pane_height: positive_size(elements_pane_height),
             outline_pane_height: positive_size(outline_pane_height),
             left_pane_width: positive_size(left_pane_width),
             inspector_pane_width: positive_size(inspector_pane_width),
         }
     }
-}
-
-fn project_key(root: &Path) -> PathBuf {
-    std::fs::canonicalize(root).unwrap_or_else(|_| i_slint_compiler::source_path::clean_path(root))
 }
 
 fn positive_size(size: Option<i32>) -> Option<i32> {
@@ -321,6 +243,7 @@ mod tests {
     fn recent_project(root: impl Into<PathBuf>, url: Url, component: &str) -> Project {
         Project {
             root: root.into(),
+            selected_canvas_preset: 0,
             preview: PreviewComponent { url, component: Some(component.into()) },
         }
     }
@@ -337,7 +260,6 @@ mod tests {
             outline_pane_height: None,
             left_pane_width: None,
             inspector_pane_width: None,
-            ..Default::default()
         };
         let serialized = settings.serialize();
         let json: serde_json::Value = serde_json::from_str(&serialized).unwrap();
@@ -363,7 +285,6 @@ mod tests {
             outline_pane_height: Some(240),
             left_pane_width: Some(400),
             inspector_pane_width: Some(360),
-            ..Default::default()
         };
         let json = settings.serialize();
         assert_eq!(VisualEditorSettings::deserialize(&json), Some(settings));
@@ -430,6 +351,57 @@ mod tests {
     }
 
     #[test]
+    fn selected_canvas_preset_survives_preview_updates_and_older_settings() {
+        let root = Path::new("/project");
+        let mut settings = VisualEditorSettings::default();
+        settings.add_recent_project(recent_project(
+            root,
+            Url::parse("file:///project/main.slint").unwrap(),
+            "Main",
+        ));
+        assert!(settings.set_selected_canvas_preset(root, 1));
+        settings.add_recent_project(recent_project(
+            root,
+            Url::parse("file:///project/other.slint").unwrap(),
+            "Other",
+        ));
+        assert_eq!(settings.selected_canvas_preset(root), 1);
+        let serialized = settings.serialize();
+        assert_eq!(
+            VisualEditorSettings::deserialize(&serialized).unwrap().selected_canvas_preset(root),
+            1
+        );
+        let mut old: serde_json::Value = serde_json::from_str(&serialized).unwrap();
+        old["recent_projects"][0].as_object_mut().unwrap().remove("selected_canvas_preset");
+        assert_eq!(
+            VisualEditorSettings::deserialize(&old.to_string())
+                .unwrap()
+                .selected_canvas_preset(root),
+            0
+        );
+        assert!(settings.clear_recent_projects());
+        assert_eq!(settings.selected_canvas_preset(root), 0);
+    }
+
+    #[test]
+    fn canvas_selection_accepts_url_normalized_project_roots() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("main.slint");
+        std::fs::write(&path, "export component Main {}").unwrap();
+        let project = Project::from_root(directory.path(), &path, None).unwrap();
+        let canonical_root = project.root.clone();
+        let normalized_root =
+            Url::from_directory_path(&canonical_root).unwrap().to_file_path().unwrap();
+        let mut settings = VisualEditorSettings::default();
+        settings.add_recent_project(project);
+        assert!(settings.set_selected_canvas_preset(&normalized_root, 1));
+        for root in [&canonical_root, &normalized_root] {
+            assert_eq!(settings.selected_canvas_preset(root), 1);
+        }
+        assert!(!settings.set_selected_canvas_preset(&normalized_root, 1));
+    }
+
+    #[test]
     fn missing_recent_projects_stay_stored_but_are_not_visible() {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("visible.slint");
@@ -447,7 +419,6 @@ mod tests {
             outline_pane_height: None,
             left_pane_width: None,
             inspector_pane_width: None,
-            ..Default::default()
         };
 
         let visible = settings.visible_recent_projects();

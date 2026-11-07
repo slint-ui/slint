@@ -735,44 +735,39 @@ async fn handle_workspace_edit(
     let mut sources = std::collections::HashMap::new();
     for url in &urls {
         let path = SourcePath::from_url(url);
-        let source_file = if path
-            .as_native_path()
-            .is_some_and(i_slint_compiler::project_file::is_project_file)
-        {
-            match path.read_to_string() {
-                Ok(contents) => std::sync::Arc::new(
-                    i_slint_compiler::diagnostics::SourceFileInner::new(path, contents),
-                ),
-                Err(error) if error.kind() == std::io::ErrorKind::NotFound => std::sync::Arc::new(
-                    i_slint_compiler::diagnostics::SourceFileInner::new(path, String::new()),
-                ),
-                Err(error) => {
+        let source_file =
+            if path.as_native_path().is_some_and(i_slint_compiler::project_file::is_project_file) {
+                match path.read_to_string() {
+                    Ok(contents) => std::sync::Arc::new(
+                        i_slint_compiler::diagnostics::SourceFileInner::new(path, contents),
+                    ),
+                    Err(error) => {
+                        tracing::error!(%url, %error, "Failed to load a workspace edit document");
+                        return false;
+                    }
+                }
+            } else {
+                if session
+                    .document_cache
+                    .get_document(url)
+                    .and_then(|document| document.node.as_ref())
+                    .is_none()
+                    && let Err(error) = session.reload_document(url.clone()).await
+                {
                     tracing::error!(%url, %error, "Failed to load a workspace edit document");
                     return false;
                 }
-            }
-        } else {
-            if session
-                .document_cache
-                .get_document(url)
-                .and_then(|document| document.node.as_ref())
-                .is_none()
-                && let Err(error) = session.reload_document(url.clone()).await
-            {
-                tracing::error!(%url, %error, "Failed to load a workspace edit document");
-                return false;
-            }
-            let Some(source_file) = session
-                .document_cache
-                .get_document(url)
-                .and_then(|document| document.node.as_ref())
-                .map(|node| node.source_file.clone())
-            else {
-                tracing::warn!(%url, "Cannot apply a workspace edit with an unloaded document");
-                return false;
+                let Some(source_file) = session
+                    .document_cache
+                    .get_document(url)
+                    .and_then(|document| document.node.as_ref())
+                    .map(|node| node.source_file.clone())
+                else {
+                    tracing::warn!(%url, "Cannot apply a workspace edit with an unloaded document");
+                    return false;
+                };
+                source_file
             };
-            source_file
-        };
         sources.insert(url.clone(), source_file);
     }
     match editor_preview::editing::text_edit::apply_workspace_edit_with_source(
@@ -785,17 +780,6 @@ async fn handle_workspace_edit(
             for editor_preview::editing::text_edit::EditedText { url, contents } in edited_texts {
                 match SourcePath::from_url(&url).into_native_path() {
                     Some(path) => {
-                        if i_slint_compiler::project_file::is_project_file(&path)
-                            && i_slint_compiler::project_file::ProjectFile::parse(
-                                SourcePath::from_url(&url),
-                                contents.as_bytes().to_vec(),
-                            )
-                            .is_err()
-                        {
-                            tracing::error!(%url, "Cannot save an invalid project file");
-                            applied = false;
-                            continue;
-                        }
                         if let Err(err) = std::fs::write(&path, &contents) {
                             applied = false;
                             tracing::error!(
@@ -803,11 +787,6 @@ async fn handle_workspace_edit(
                                 label.unwrap_or("(unnamed)"),
                                 path.display()
                             );
-                        } else if i_slint_compiler::project_file::is_project_file(&path)
-                            && let Err(error) =
-                                session.load_document(contents, url.clone(), None).await
-                        {
-                            tracing::error!(%url, %error, "Failed to refresh saved project settings");
                         }
                     }
                     None => {
@@ -1379,6 +1358,7 @@ mod tests {
         let missing_root = old_project.path().join("missing");
         let project = Project {
             root: missing_root.clone(),
+            selected_canvas_preset: 0,
             preview: PreviewComponent {
                 url: Url::from_file_path(missing_root.join("main.slint")).unwrap(),
                 component: Some("Missing".into()),
