@@ -37,7 +37,9 @@ reqwest = { version = "0.13", default-features = false, features = ["blocking", 
 directories = { version = "6.0", optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-slint = { path = "../../api/rs/slint", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-femtovg-wgpu", "unstable-wgpu-30"] }
+slint = { path = "../../api/rs/slint", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-skia", "unstable-wgpu-30"] }
+# Graphite on the browser's WebGPU, through skia-wgpu.
+i-slint-renderer-skia = { path = "../../internal/renderers/skia", default-features = false, features = ["graphite-wgpu-30"] }
 wasm-bindgen = { version = "0.2" }
 wasm-bindgen-futures = "0.4"
 js-sys = "0.3"
