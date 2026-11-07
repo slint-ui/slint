@@ -30,15 +30,20 @@ cargo run --release -p flight-tracker --manifest-path demos/Cargo.toml
 
 ## Running in a Browser
 
-The web build uses Slint's FemtoVG renderer on WebGPU, or on WebGL 2 where the browser has no WebGPU.
-Uncomment the `#wasm#` lines in `Cargo.toml`, then build and serve this directory:
+The web build renders Slint's UI with Skia's Graphite on the browser's WebGPU, through wgpu.
+This is experimental, and builds Skia from source with the [Emscripten SDK](https://emscripten.org/docs/getting_started/downloads.html).
+Bindgen also needs libclang 20 or later.
+
+Uncomment the `#wasm#` lines in `Cargo.toml`, point `EMSDK` at the Emscripten SDK, then build and serve this directory:
 
 ```sh
+export EMSDK=~/emsdk
 wasm-pack build --release --target web
 python3 -m http.server
 ```
 
-Open <http://localhost:8000> in a browser with WebGPU or WebGL 2.
+If your default libclang is older, set `LIBCLANG_PATH`, for example to `/usr/lib/llvm-20/lib`.
+Open <http://localhost:8000> in a browser with WebGPU.
 
 ## How It Works
 

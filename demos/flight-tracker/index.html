@@ -135,8 +135,8 @@
 
         const nextFrame = () => new Promise((resolve) => requestAnimationFrame(() => resolve()));
 
-        if (!navigator.gpu && !document.createElement("canvas").getContext("webgl2")) {
-            fail("This demo renders with WebGPU or WebGL 2, which this browser doesn't offer. Open it in a recent Chrome, Edge, Safari, or Firefox.");
+        if (!navigator.gpu) {
+            fail("This demo renders with WebGPU, which this browser doesn't offer. Open it in a recent Chrome, Edge, Safari, or Firefox.");
         } else {
             try {
                 const bytes = await download(new URL("./pkg/flight_tracker_bg.wasm", import.meta.url));
