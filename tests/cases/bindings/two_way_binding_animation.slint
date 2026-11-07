@@ -132,4 +132,29 @@ assert.equal(instance.hello, 45);
 assert.equal(instance.binding_dep, 125);
 
 ```
+
+```csharp
+using var instance = TestCase.Create();
+Assert.AreEqual(40, instance.Hello);
+Assert.AreEqual(100, instance.BindingDep);
+instance.Condition = false;
+instance.Hello = 60;
+Assert.AreEqual(40, instance.Hello);
+Assert.AreEqual(100, instance.BindingDep);
+Testing.MockElapsedTime(600);
+Assert.AreEqual(50, instance.Hello);
+Assert.AreEqual(125, instance.BindingDep);
+Testing.MockElapsedTime(600);
+Assert.AreEqual(60, instance.Hello);
+Assert.AreEqual(150, instance.BindingDep);
+Testing.MockElapsedTime(100);
+Assert.AreEqual(60, instance.Hello);
+Assert.AreEqual(150, instance.BindingDep);
+// The animation starts without reading the value in between.
+instance.Condition = true;
+instance.Hello = 30;
+Testing.MockElapsedTime(600);
+Assert.AreEqual(45, instance.Hello);
+Assert.AreEqual(125, instance.BindingDep);
+```
 */

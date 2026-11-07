@@ -1,0 +1,14 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Matches the members of PersonViewModel by name, for the generated binding of [SlintViewModel].
+export component PersonForm {
+    in-out property <string> name;
+    in property <float> age;
+    in property <[string]> tags;
+    in property <bool> save-enabled;
+    out property <int> tag-count: tags.length;
+    callback save();
+    public function type-name(text: string) { name = text; }
+    public function click-save() { save(); }
+}

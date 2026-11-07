@@ -78,4 +78,21 @@ assert(!instance.focused);
 instance.focus_the_line_edit();
 assert(instance.focused);
 ```
+
+```csharp
+using var instance = TestCase.Create();
+Assert.IsFalse(instance.Focused);
+instance.InvokeFocusTheLineEdit();
+Assert.IsTrue(instance.Focused);
+instance.InvokeFocusTheFocusScope();
+Assert.IsFalse(instance.Focused);
+instance.InvokeFocusTheLineEdit();
+Assert.IsTrue(instance.Focused);
+instance.InvokeSetManual(false);
+Assert.IsFalse(instance.Focused);
+instance.InvokeFocusTheFocusScope();
+Assert.IsFalse(instance.Focused);
+instance.InvokeFocusTheLineEdit();
+Assert.IsTrue(instance.Focused);
+```
 */

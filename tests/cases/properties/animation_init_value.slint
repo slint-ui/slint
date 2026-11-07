@@ -145,4 +145,21 @@ assert.equal(instance.sheet_visible, true);
 assert.equal(instance.panel_x, 50.); // Complete panel is visible. So position is 100px - 50px
 ```
 
+```csharp
+using var instance = TestCase.Create();
+Assert.AreEqual(-1f, instance.PanelX);
+Assert.IsFalse(instance.SheetVisible);
+instance.InvokeShowSheet();
+// Instantiates the sheet; with no time, the animation wouldn't start.
+Testing.MockElapsedTime(0);
+Assert.IsTrue(instance.SheetVisible);
+const int Wait = 10;
+Testing.MockElapsedTime(Wait);
+Assert.AreEqual(100f - 50f * Wait / 1000, instance.PanelX);
+Testing.MockElapsedTime(500 - Wait);
+// Half of the 50 px panel is visible.
+Assert.AreEqual(75f, instance.PanelX);
+Testing.MockElapsedTime(500);
+Assert.AreEqual(50f, instance.PanelX);
+```
 */

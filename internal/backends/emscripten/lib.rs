@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore desynchronized
+// cSpell: ignore inputmode
 
 //! Platform for `wasm32-unknown-emscripten`: renders a single window into an HTML canvas,
 //! with FemtoVG on WebGL 2 or with the software renderer.
@@ -9,22 +9,25 @@
 //! The browser glue lives in `slint_emscripten.js`, which must be passed to the Emscripten
 //! linker with `--js-library`.
 
-use std::boxed::Box;
+#![cfg(target_os = "emscripten")]
+
 use std::cell::{Cell, RefCell};
 use std::ffi::{CStr, CString, c_char, c_int};
 use std::rc::{Rc, Weak};
-use std::string::ToString;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::vec::Vec;
-use std::{eprintln, format, thread_local};
 
 use i_slint_core::api::{LogicalPosition, LogicalSize, PhysicalSize};
 use i_slint_core::cursor::{MouseCursorHandling, MouseCursorInner};
+use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventType};
+use i_slint_core::items::{InputType, TextChangeNotify, TextInput};
 use i_slint_core::platform::{
-    EventLoopProxy, Platform, PlatformError, PointerEventButton, WindowAdapter, WindowEvent,
+    Clipboard, EventLoopProxy, Platform, PlatformError, PointerEventButton, WindowAdapter,
+    WindowEvent,
 };
-use i_slint_core::window::{WindowAdapterInternal, WindowProperties};
+use i_slint_core::window::{
+    InputMethodRequest, WindowAdapterInternal, WindowInner, WindowProperties,
+};
 use i_slint_core::{SharedString, api::WindowSize};
 
 #[allow(unsafe_code)]
@@ -50,6 +53,16 @@ mod ffi {
         pub fn slint_em_set_canvas_buffer_size(width: u32, height: u32);
         pub fn slint_em_set_cursor(name: *const c_char);
         pub fn slint_em_set_title(title: *const c_char);
+        pub fn slint_em_show_text_input(
+            x: f32,
+            y: f32,
+            width: f32,
+            height: f32,
+            input_mode: *const c_char,
+        );
+        pub fn slint_em_hide_text_input();
+        pub fn slint_em_copied(text: *const c_char);
+        pub fn slint_em_write_clipboard(text: *const c_char);
         #[cfg(feature = "renderer-software")]
         pub fn slint_em_put_image_data(pixels: *const u8, width: u32, height: u32);
     }
@@ -105,43 +118,38 @@ fn set_title(title: &str) {
     unsafe { ffi::slint_em_set_title(title.as_ptr()) };
 }
 
+#[allow(unsafe_code)]
+fn show_text_input(origin: LogicalPosition, size: LogicalSize, input_type: InputType) {
+    // The `inputmode` attribute picks the keyboard on phones.
+    let input_mode = match input_type {
+        InputType::Number => c"numeric",
+        InputType::Decimal => c"decimal",
+        InputType::Search => c"search",
+        _ => c"text",
+    };
+    unsafe {
+        ffi::slint_em_show_text_input(
+            origin.x,
+            origin.y,
+            size.width,
+            size.height,
+            input_mode.as_ptr(),
+        )
+    };
+}
+
 #[cfg(feature = "renderer-femtovg")]
 mod webgl {
     #![allow(unsafe_code)]
 
-    use std::boxed::Box;
     use std::ffi::{CStr, c_char, c_int, c_void};
-    use std::format;
     use std::num::NonZeroU32;
 
     use i_slint_core::platform::PlatformError;
 
-    /// Mirrors `EmscriptenWebGLContextAttributes` from `emscripten/html5_webgl.h`.
-    #[repr(C)]
-    struct ContextAttributes {
-        alpha: bool,
-        depth: bool,
-        stencil: bool,
-        antialias: bool,
-        premultiplied_alpha: bool,
-        preserve_drawing_buffer: bool,
-        power_preference: c_int,
-        fail_if_major_performance_caveat: bool,
-        major_version: c_int,
-        minor_version: c_int,
-        enable_extensions_by_default: bool,
-        explicit_swap_control: bool,
-        proxy_context_to_main_thread: c_int,
-        render_via_offscreen_back_buffer: bool,
-        desynchronized: bool,
-    }
-
     unsafe extern "C" {
-        fn emscripten_webgl_init_context_attributes(attributes: *mut ContextAttributes);
-        fn emscripten_webgl_create_context(
-            target: *const c_char,
-            attributes: *const ContextAttributes,
-        ) -> usize;
+        // Implemented in slint_emscripten.js
+        fn slint_em_create_webgl_context() -> usize;
         fn emscripten_webgl_make_context_current(context: usize) -> c_int;
         fn emscripten_webgl_get_proc_address(name: *const c_char) -> *const c_void;
     }
@@ -150,16 +158,7 @@ mod webgl {
 
     impl WebGLContext {
         pub fn new() -> Result<Self, PlatformError> {
-            let context = unsafe {
-                let mut attributes = std::mem::MaybeUninit::<ContextAttributes>::uninit();
-                emscripten_webgl_init_context_attributes(attributes.as_mut_ptr());
-                let mut attributes = attributes.assume_init();
-                attributes.major_version = 2;
-                attributes.stencil = true;
-                attributes.antialias = false;
-                // Registered by slint_em_attach_canvas
-                emscripten_webgl_create_context(c"!slint-canvas".as_ptr(), &attributes)
-            };
+            let context = unsafe { slint_em_create_webgl_context() };
             if context == 0 {
                 return Err(PlatformError::Other("Could not create a WebGL 2 context".into()));
             }
@@ -427,6 +426,17 @@ impl WindowAdapter for EmscriptenWindowAdapter {
 }
 
 impl WindowAdapterInternal for EmscriptenWindowAdapter {
+    #[allow(unsafe_code)]
+    fn input_method_request(&self, request: InputMethodRequest) {
+        match request {
+            InputMethodRequest::Enable(props) | InputMethodRequest::Update(props) => {
+                show_text_input(props.cursor_rect_origin, props.cursor_rect_size, props.input_type)
+            }
+            InputMethodRequest::Disable => unsafe { ffi::slint_em_hide_text_input() },
+            _ => {}
+        }
+    }
+
     fn set_mouse_cursor(&self, cursor: MouseCursorInner) -> MouseCursorHandling {
         match cursor {
             MouseCursorInner::BuiltIn(cursor) => set_cursor(&cursor.to_string()),
@@ -447,6 +457,12 @@ fn current_window() -> Option<Rc<EmscriptenWindowAdapter>> {
 
 static QUIT_REQUESTED: AtomicBool = AtomicBool::new(false);
 static QUEUED_CALLBACKS: Mutex<Vec<Box<dyn FnOnce() + Send>>> = Mutex::new(Vec::new());
+
+thread_local! {
+    static ON_QUIT: RefCell<Option<Box<dyn FnOnce()>>> = const { RefCell::new(None) };
+    /// The text of the clipboard event that the page is handling, see `with_clipboard_event`.
+    static CLIPBOARD_EVENT: RefCell<Option<String>> = const { RefCell::new(None) };
+}
 
 struct Proxy;
 
@@ -473,6 +489,9 @@ extern "C" fn run_frame() {
     }
     if QUIT_REQUESTED.swap(false, Ordering::Relaxed) {
         unsafe { ffi::emscripten_cancel_main_loop() };
+        if let Some(on_quit) = ON_QUIT.take() {
+            on_quit();
+        }
         return;
     }
     i_slint_core::platform::update_timers_and_animations();
@@ -530,6 +549,54 @@ impl Platform for Backend {
     fn new_event_loop_proxy(&self) -> Option<Box<dyn EventLoopProxy>> {
         Some(Box::new(Proxy))
     }
+
+    /// Writes the clipboard event's data, or else the system clipboard, which the browser may refuse.
+    #[allow(unsafe_code)]
+    fn set_clipboard_text(&self, text: &str, clipboard: Clipboard) {
+        if clipboard != Clipboard::DefaultClipboard {
+            return;
+        }
+        let in_event = CLIPBOARD_EVENT
+            .with_borrow_mut(|data| data.as_mut().map(|data| *data = text.into()).is_some());
+        if !in_event {
+            let text = CString::new(text).unwrap_or_default();
+            unsafe { ffi::slint_em_write_clipboard(text.as_ptr()) };
+        }
+    }
+
+    /// The browser lets a page read the clipboard synchronously only in a `paste` event.
+    fn clipboard_text(&self, clipboard: Clipboard) -> Option<String> {
+        if clipboard != Clipboard::DefaultClipboard {
+            return None;
+        }
+        CLIPBOARD_EVENT.with_borrow(|data| data.clone())
+    }
+}
+
+/// Runs `f` with the focused `TextInput`, and with `data` as the clipboard's text, and returns what `f` left there.
+fn with_clipboard_event(
+    data: String,
+    f: impl FnOnce(&Rc<dyn WindowAdapter>, std::pin::Pin<&TextInput>, &i_slint_core::items::ItemRc),
+) -> String {
+    let Some(window) = current_window() else { return data };
+    let adapter: Rc<dyn WindowAdapter> = window;
+    let focus_item = WindowInner::from_pub(adapter.window()).focus_item.borrow().upgrade();
+    CLIPBOARD_EVENT.set(Some(data));
+    if let Some(focus_item) = focus_item
+        && let Some(text_input) = focus_item.downcast::<TextInput>()
+    {
+        f(&adapter, text_input.as_pin_ref(), &focus_item);
+    }
+    CLIPBOARD_EVENT.take().unwrap_or_default()
+}
+
+/// Runs the event loop from the browser's animation frames, and returns.
+/// Use it instead of `run_event_loop` when the caller can't leave `main()` by unwinding,
+/// such as a .NET runtime. `on_quit` runs when the loop stops.
+#[allow(unsafe_code)]
+pub fn start_event_loop(on_quit: Box<dyn FnOnce()>) {
+    ON_QUIT.set(Some(on_quit));
+    unsafe { ffi::emscripten_set_main_loop(run_frame, 0, false) };
 }
 
 // Called from slint_emscripten.js
@@ -602,6 +669,63 @@ extern "C" fn slint_em_on_focus(focused: bool) {
 extern "C" fn slint_em_on_resize(width: f32, height: f32, scale_factor: f32) {
     let Some(window) = current_window() else { return };
     window.update_size(LogicalSize::new(width, height), scale_factor);
+}
+
+/// Text from the hidden `<input>` that no key event brought, such as from a phone's keyboard.
+#[unsafe(no_mangle)]
+#[allow(unsafe_code)]
+extern "C" fn slint_em_on_text(text: *const c_char) {
+    let Some(window) = current_window() else { return };
+    let text: SharedString = unsafe { CStr::from_ptr(text) }.to_string_lossy().as_ref().into();
+    window.dispatch(WindowEvent::KeyPressed { text: text.clone() });
+    window.dispatch(WindowEvent::KeyReleased { text });
+}
+
+/// The composition of an input method: the text so far, or the committed text.
+#[unsafe(no_mangle)]
+#[allow(unsafe_code)]
+extern "C" fn slint_em_on_composition(commit: bool, text: *const c_char) {
+    let Some(window) = current_window() else { return };
+    let text: SharedString = unsafe { CStr::from_ptr(text) }.to_string_lossy().as_ref().into();
+    let event = if commit {
+        let mut key_event = KeyEvent::default();
+        key_event.text = text;
+        InternalKeyEvent {
+            key_event,
+            event_type: KeyEventType::CommitComposition,
+            ..Default::default()
+        }
+    } else {
+        InternalKeyEvent {
+            preedit_text: text,
+            event_type: KeyEventType::UpdateComposition,
+            ..Default::default()
+        }
+    };
+    window.dispatch(WindowEvent::internal(event));
+}
+
+#[unsafe(no_mangle)]
+#[allow(unsafe_code)]
+extern "C" fn slint_em_on_paste(text: *const c_char) {
+    let text = unsafe { CStr::from_ptr(text) }.to_string_lossy().into_owned();
+    with_clipboard_event(text, |adapter, text_input, item| text_input.paste(adapter, item));
+}
+
+/// Hands the selection to `slint_em_copied`, and deletes it if `cut`.
+#[unsafe(no_mangle)]
+#[allow(unsafe_code)]
+extern "C" fn slint_em_on_copy(cut: bool) {
+    let text = with_clipboard_event(String::new(), |adapter, text_input, item| {
+        text_input.copy(adapter);
+        if cut && !text_input.is_password() {
+            text_input.delete_selection(adapter, item, TextChangeNotify::TriggerCallbacks);
+        }
+    });
+    if !text.is_empty() {
+        let text = CString::new(text).unwrap_or_default();
+        unsafe { ffi::slint_em_copied(text.as_ptr()) };
+    }
 }
 
 /// Maps a DOM `KeyboardEvent.key` to the text of a Slint key event.

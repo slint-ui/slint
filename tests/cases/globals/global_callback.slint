@@ -73,4 +73,12 @@ assert.equal(instance.six, 6);
 assert.equal(instance.profit, 1000);
 ```
 
+```csharp
+using var instance = TestCase.Create();
+instance.OnSum((a, b) => a + b);
+instance.OnMul((a, b) => a * b);
+Assert.AreEqual(5, instance.Five);
+Assert.AreEqual(6, instance.Six);
+Assert.AreEqual(1000, instance.Profit);
+```
 */

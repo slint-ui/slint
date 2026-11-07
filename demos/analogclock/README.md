@@ -12,9 +12,9 @@ clock. The face is black, so a round AMOLED only lights the pixels it needs.
 The software renderer cannot rotate items, so the ticks and hands are chains
 of dots placed with sin/cos.
 
-| `.slint` Design | Rust Source | Online wasm Preview |
-| --- | --- | --- |
-| [`ui/clock.slint`](./ui/clock.slint) | [`rust/main.rs`](./rust/main.rs) | [Online simulation](https://slintpad.com/?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/demos/analogclock/ui/clock.slint) |
+| `.slint` Design | Rust Source | C# Source | Online wasm Preview |
+| --- | --- | --- | --- |
+| [`ui/clock.slint`](./ui/clock.slint) | [`rust/main.rs`](./rust/main.rs) | [`Program.cs`](./dotnet/Program.cs) | [Online simulation](https://slintpad.com/?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/demos/analogclock/ui/clock.slint) |
 
 Run on the desktop (simulator):
 

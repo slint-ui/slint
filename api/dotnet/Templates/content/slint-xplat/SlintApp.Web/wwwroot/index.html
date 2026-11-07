@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SlintApp</title>
+</head>
+<body style="margin: 0">
+  <!--
+    Slint renders into the canvas with the id "canvas", at the window's preferred size.
+    Give it a size in its style attribute, such as style="width: 100vw; height: 100vh", to make the window follow the page.
+  -->
+  <canvas id="canvas"></canvas>
+  <script type="module">
+    import { dotnet } from "./_framework/dotnet.js";
+    await dotnet.run();
+  </script>
+</body>
+</html>

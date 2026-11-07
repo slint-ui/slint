@@ -64,4 +64,15 @@ instance.test = False
 assert not instance.test
 assert len(list(instance.data)) == 8
 ```
+
+```csharp
+using var instance = TestCase.Create();
+Assert.IsTrue(instance.Test);
+Assert.AreEqual(0, instance.Data.RowCount);
+
+instance.Test = false;
+Assert.IsFalse(instance.Test);
+Assert.AreEqual(8, instance.Data.RowCount);
+Assert.AreEqual(new Data { Text = "Blue", Color = Color.FromArgb(0xff0000ff), Bg = Color.FromArgb(0xffeeeeee) }, instance.Data[0]);
+```
 */

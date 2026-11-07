@@ -75,4 +75,19 @@ assert.equal(instance.subbed_obs, 8);
 assert.equal(instance.mulled_obs, 100);
 assert.equal(instance.divided_obs, 100);
 ```
+
+```csharp
+using var instance = TestCase.Create();
+instance.Go();
+Testing.MockElapsedTime(100);
+Assert.AreEqual(58, instance.AddedObs);
+Assert.AreEqual(58, instance.SubbedObs);
+Assert.AreEqual(55, instance.MulledObs);
+Assert.AreEqual(150, instance.DividedObs);
+Testing.MockElapsedTime(100);
+Assert.AreEqual(108, instance.AddedObs);
+Assert.AreEqual(8, instance.SubbedObs);
+Assert.AreEqual(100, instance.MulledObs);
+Assert.AreEqual(100, instance.DividedObs);
+```
 */

@@ -148,6 +148,7 @@ api_cpp:
  - 'internal/compiler/generator/cpp*{,/**}'
  # The renderers are not part of the `internal` group, but are exposed in the C++ API
  - 'internal/renderers/{skia,software}/**'
+ - 'internal/backends/emscripten/**'
 
 # The CMake setup of the C++ API, which the package test checks.
 cpp_cmake_config:
@@ -170,6 +171,27 @@ api_python: &api_python
  - 'api/python/**'
  - 'internal/compiler/generator/python*{,/**}'
  - '.github/workflows/python_test_reusable.yaml'
+
+api_dotnet:
+ - 'api/dotnet/**'
+ - 'internal/compiler/generator/csharp*{,/**}'
+ - 'tests/driver/dotnet/**'
+ - 'examples/**/dotnet/**'
+ - 'demos/**/dotnet/**'
+ - 'examples/dotnet-viewer/**'
+ - 'examples/dotnet.slnx'
+ - 'examples/dotnet-smoke-test.cs'
+ - 'examples/*/dotnet-android/**'
+ - 'examples/*/dotnet-ios/**'
+ - 'scripts/dotnet_android_smoke_test.sh'
+ - 'scripts/build_dotnet_ios.sh'
+ - 'scripts/dotnet_ios_smoke_test.sh'
+ - 'examples/*/dotnet-browser/**'
+ - 'internal/backends/emscripten/**'
+ - 'scripts/build_dotnet_browser.sh'
+ - 'scripts/strip_wasm_features.py'
+ - 'scripts/run_in_chrome.mjs'
+ - '.github/workflows/dotnet_test_reusable.yaml'
 
 api_node: &api_node
  - 'api/node/**'

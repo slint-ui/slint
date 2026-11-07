@@ -297,4 +297,54 @@ if new_keys is not None:
 # TODO: Simulate shortcuts in Python
 ```
 
+```csharp
+using var instance = TestCase.Create();
+var shortcut = instance.FirstShortcut;
+
+// ToString uses the format of the platform, like `.to-string()` in Slint.
+Assert.AreEqual(instance.ShortcutAsString, shortcut.ToString());
+Assert.AreEqual(instance.ShortcutAAsString, instance.Shortcuts[1].ToString());
+Assert.AreEqual(instance.ShortcutPlusAsString, instance.Shortcuts[2].ToString());
+
+Assert.AreEqual(instance.FirstShortcut, shortcut);
+Assert.AreNotEqual(instance.Shortcuts[1], shortcut);
+
+instance.FirstShortcut = instance.Shortcuts[1];
+Assert.AreEqual(instance.Shortcuts[1], instance.FirstShortcut);
+Assert.AreEqual(instance.ShortcutAAsString, instance.FirstShortcut.ToString());
+
+const string Escape = "\u001b";
+const string Shift = "\u0010";
+const string Control = "\u0011";
+const string Alt = "\u0012";
+void Send(params string[] keys) => Testing.SendKeyCombo(instance.Instance, keys);
+
+// Wrong modifiers don't match.
+Send(Escape);
+Send(Control, Escape);
+Send(Alt, Escape);
+Send(Control, Alt, Shift, Escape);
+Assert.AreEqual(0, instance.Matches);
+
+Send(Control, Shift, Escape);
+Assert.AreEqual(1, instance.Matches);
+
+Send(Control, "+");
+Send(Control, Shift, "+");
+Send(Control, Shift, "A");
+// A lowercase 'a' together with Shift may appear if caps-lock is active, or on the Qt backend.
+Send(Control, Shift, "a");
+Assert.AreEqual(5, instance.Matches);
+
+Send(Control, Alt, "+");
+Send(Control, "A");
+Send(Control, "a");
+Assert.AreEqual(5, instance.Matches);
+
+// NFC é matches directly, and NFD é after normalization.
+Send("é");
+Assert.AreEqual(6, instance.Matches);
+Send("é");
+Assert.AreEqual(7, instance.Matches);
+```
 */

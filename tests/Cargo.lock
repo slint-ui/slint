@@ -5217,6 +5217,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "test-driver-dotnet"
+version = "1.20.0"
+dependencies = [
+ "i-slint-compiler",
+ "spin_on",
+ "test_driver_lib",
+]
+
+[[package]]
 name = "test-driver-interpreter"
 version = "1.20.0"
 dependencies = [

@@ -7,9 +7,9 @@ Browse twelve recipes in a vertically scrolling grid, look at their ingredients 
 The photographs are by Eiliv Aceron on Unsplash; [REUSE.toml](../../REUSE.toml) records each source and license.
 Ingredient SVGs come from [Glitch](https://github.com/tinyspeck/glitch-items) (CC0-1.0), [Twemoji](https://github.com/twitter/twemoji) (CC-BY-4.0), and [Game-icons.net](https://game-icons.net/1x1/delapouite/asparagus.html) (CC-BY-3.0).
 
-| `.slint` Design | Rust Source | Online wasm Preview | Open in SlintPad |
-| --- | --- | --- | --- |
-| [`demo.slint`](./ui/demo.slint) | [`lib.rs`](./rust/lib.rs) | [Online simulation](https://slint.dev/snapshots/master/demos/food-processor/) | [Preview in Online Code Editor](https://slint.dev/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/demos/food-processor/ui/demo.slint) |
+| `.slint` Design | Rust Source | C# Source | Online wasm Preview | Open in SlintPad |
+| --- | --- | --- | --- | --- |
+| [`demo.slint`](./ui/demo.slint) | [`lib.rs`](./rust/lib.rs) | [`Program.cs`](./dotnet/Program.cs) | [Online simulation](https://slint.dev/snapshots/master/demos/food-processor/) | [Preview in Online Code Editor](https://slint.dev/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/demos/food-processor/ui/demo.slint) |
 
 ## Running
 

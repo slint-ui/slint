@@ -91,4 +91,15 @@ slintlib.private_api.mock_elapsed_time(1);
 slintlib.private_api.mock_elapsed_time(100);
 assert.equal(instance.result, "tt");
 ```
+
+```csharp
+using var instance = TestCase.Create();
+Testing.MockElapsedTime(1);
+Testing.MockElapsedTime(100);
+Assert.AreEqual("t", instance.Result);
+Testing.SendMouseClick(instance.Instance, 50, 50);
+Testing.MockElapsedTime(1);
+Testing.MockElapsedTime(100);
+Assert.AreEqual("tt", instance.Result);
+```
 */

@@ -132,4 +132,10 @@ assert.equal(instance.test_global_prop_value, instance.expected_full_order);
 ```
 
 
+```csharp
+using var instance = TestCase.Create();
+Assert.IsTrue(instance.Test);
+Testing.SendMouseClick(instance.Instance, 5, 5);
+Assert.AreEqual(instance.ExpectedFullOrder, instance.TestGlobalPropValue);
+```
 */

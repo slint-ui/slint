@@ -1,0 +1,45 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> -->
+<!-- SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 -->
+<!--
+  The templates for dotnet new, in content/<template>.
+  Pack writes the package ID and the version into each template.json, as @SlintPackageId@ and @SlintVersion@,
+  so that a created app references the Slint package of the same pack.
+-->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>$(SlintPackageId).Templates</PackageId>
+    <PackageType>Template</PackageType>
+    <Description>$(SlintDescriptionPrefix)Templates that create Slint apps with C#: dotnet new slint -o MyApp.</Description>
+    <PackageTags>$(PackageTags);dotnet-new;templates</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <IncludeSymbols>false</IncludeSymbols>
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <!-- Keeps the .gitignore of the templates. -->
+    <NoDefaultExcludes>true</NoDefaultExcludes>
+    <!-- A template package has no lib/ folder. -->
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <_SlintTemplateJson Include="content/*/.template.config/template.json" />
+    <Content Include="content/**/*" Exclude="@(_SlintTemplateJson);content/**/bin/**;content/**/obj/**" Pack="true" PackagePath="content/" />
+    <None Include="../README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+  <Target Name="_SlintTemplateJson" BeforeTargets="_GetPackageFiles">
+    <ItemGroup>
+      <_SlintTemplateJsonOut Include="@(_SlintTemplateJson)">
+        <OutFile>$(IntermediateOutputPath)%(RecursiveDir)template.json</OutFile>
+      </_SlintTemplateJsonOut>
+    </ItemGroup>
+    <MakeDir Directories="@(_SlintTemplateJsonOut->'%(OutFile)'->DirectoryName())" />
+    <!-- template.json has no semicolons, which WriteLinesToFile would split lines at. -->
+    <WriteLinesToFile File="%(_SlintTemplateJsonOut.OutFile)"
+                      Lines="$([System.IO.File]::ReadAllText('%(_SlintTemplateJsonOut.FullPath)').Replace('@SlintPackageId@', '$(SlintPackageId)').Replace('@SlintVersion@', '$(Version)'))"
+                      Overwrite="true" WriteOnlyWhenDifferent="true" />
+    <ItemGroup>
+      <None Include="@(_SlintTemplateJsonOut->'%(OutFile)')" Pack="true" PackagePath="content/%(_SlintTemplateJsonOut.RecursiveDir)" />
+    </ItemGroup>
+  </Target>
+</Project>

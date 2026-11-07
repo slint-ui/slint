@@ -1,0 +1,357 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+using System.ComponentModel;
+using System.Windows.Input;
+
+namespace Slint;
+
+/// <summary>
+/// Generates a <c>Bind</c> method for the generated class <paramref name="component"/>, of a component or a global,
+/// and the view model with this attribute, which binds the members of the same name:
+/// <c>window.Bind(viewModel)</c>, or <c>window.Settings.Bind(viewModel)</c> for a global.
+/// </summary>
+/// <remarks>
+/// A property of the view model binds to the component's property of the same C# name;
+/// both ways when the view model's property has a setter.
+/// A collection binds to an array property with the same item type.
+/// A command <c>SaveCommand</c>, also one from <c>[RelayCommand]</c> of CommunityToolkit.Mvvm, binds to the callback <c>save</c>,
+/// its <c>CanExecute</c> to the boolean property <c>save-enabled</c>, and for an asynchronous command
+/// its <c>IsRunning</c> to the boolean property <c>save-running</c>, if the component has them.
+/// For a view model with <see cref="INotifyDataErrorInfo"/>, the errors of a property <c>Name</c>
+/// bind to the string property <c>name-error</c>, see <see cref="ViewModelBinding{TViewModel}.Errors"/>.
+/// The result binds more members with the methods of <see cref="ViewModelBinding{TViewModel}"/>.
+/// </remarks>
+[AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
+public sealed class SlintViewModelAttribute(Type component) : Attribute
+{
+    /// <summary>The generated class of the component or the global.</summary>
+    public Type Component { get; } = component;
+}
+
+/// <summary>Binds a view model to the properties and callbacks of a component.</summary>
+public static class ViewModelBindingExtensions
+{
+    /// <summary>
+    /// Starts binding <paramref name="viewModel"/> to <paramref name="instance"/>; add the bindings with the methods of the result.
+    /// Call it on the Slint thread, and dispose the result to remove the bindings.
+    /// </summary>
+    public static ViewModelBinding<TViewModel> Bind<TViewModel>(this ComponentInstance instance, TViewModel viewModel)
+        where TViewModel : class => new(instance, null, viewModel);
+
+    /// <summary>Like <see cref="Bind"/>, for the properties and callbacks of the global <paramref name="global"/>.</summary>
+    public static ViewModelBinding<TViewModel> BindGlobal<TViewModel>(this ComponentInstance instance, string global, TViewModel viewModel)
+        where TViewModel : class
+    {
+        ArgumentNullException.ThrowIfNull(global);
+        return new(instance, global, viewModel);
+    }
+}
+
+/// <summary>
+/// The bindings between a view model and a component, from <see cref="ViewModelBindingExtensions.Bind"/>.
+/// When the view model raises <see cref="INotifyPropertyChanged.PropertyChanged"/> or <see cref="INotifyDataErrorInfo.ErrorsChanged"/>,
+/// or a bound command raises <see cref="INotifyPropertyChanged.PropertyChanged"/>, from any thread,
+/// the bindings read the view model again on the Slint thread, and set the properties whose values changed.
+/// </summary>
+public sealed class ViewModelBinding<TViewModel> : IDisposable
+    where TViewModel : class
+{
+    private readonly ComponentInstance _instance;
+    private readonly string? _global;
+    private readonly TViewModel _viewModel;
+    private readonly int _slintThread = Environment.CurrentManagedThreadId;
+    private readonly List<Action> _refreshers = [];
+    private readonly List<IDisposable> _disposables = [];
+    private int _refreshQueued;
+    private bool _disposed;
+
+    internal ViewModelBinding(ComponentInstance instance, string? global, TViewModel viewModel)
+    {
+        ArgumentNullException.ThrowIfNull(instance);
+        ArgumentNullException.ThrowIfNull(viewModel);
+        _instance = instance;
+        _global = global;
+        _viewModel = viewModel;
+        if (viewModel is INotifyPropertyChanged notifying)
+        {
+            notifying.PropertyChanged += OnViewModelChanged;
+        }
+        if (viewModel is INotifyDataErrorInfo validating)
+        {
+            validating.ErrorsChanged += OnErrorsChanged;
+        }
+    }
+
+    /// <summary>
+    /// Sets the property <paramref name="name"/> to what <paramref name="get"/> returns, now and after the view model changes.
+    /// With <paramref name="set"/>, a change of the property in the UI, such as the user's input, also reaches the view model.
+    /// </summary>
+    public ViewModelBinding<TViewModel> Property<T>(string name, Func<TViewModel, T> get, Action<TViewModel, T>? set = null)
+    {
+        ArgumentNullException.ThrowIfNull(get);
+        var current = get(_viewModel);
+        SetValue(name, current);
+        _refreshers.Add(() =>
+        {
+            var value = get(_viewModel);
+            if (!EqualityComparer<T>.Default.Equals(value, current))
+            {
+                current = value;
+                SetValue(name, value);
+            }
+        });
+        if (set != null)
+        {
+            _disposables.Add(Watch(name, () =>
+            {
+                var value = ValueConverter.ConvertTo<T>(GetValue(name));
+                if (!EqualityComparer<T>.Default.Equals(value, current))
+                {
+                    current = value;
+                    set(_viewModel, value);
+                }
+            }));
+        }
+        return this;
+    }
+
+    /// <summary>
+    /// Calls <paramref name="set"/> after the property <paramref name="name"/> changes in the UI, such as an <c>out</c> property,
+    /// without setting the property from the view model.
+    /// </summary>
+    public ViewModelBinding<TViewModel> ToViewModel<T>(string name, Action<TViewModel, T> set)
+    {
+        ArgumentNullException.ThrowIfNull(set);
+        set(_viewModel, ValueConverter.ConvertTo<T>(GetValue(name)));
+        _disposables.Add(Watch(name, () => set(_viewModel, ValueConverter.ConvertTo<T>(GetValue(name)))));
+        return this;
+    }
+
+    /// <summary>
+    /// Sets the array property <paramref name="name"/> to a model of the collection that <paramref name="get"/> returns,
+    /// which follows the collection's changes, see <see cref="ObservableCollectionModel{T}"/>.
+    /// A collection without change notifications shows as it is.
+    /// </summary>
+    public ViewModelBinding<TViewModel> Collection<T>(string name, Func<TViewModel, IList<T>?> get) =>
+        Collection(name, get, item => item);
+
+    /// <summary>
+    /// Like <see cref="Collection{T}(string, Func{TViewModel, IList{T}})"/>,
+    /// with <paramref name="map"/> turning each item into a row of the array, such as a struct of the <c>.slint</c> file.
+    /// </summary>
+    public ViewModelBinding<TViewModel> Collection<T, TRow>(string name, Func<TViewModel, IList<T>?> get, Func<T, TRow> map)
+    {
+        ArgumentNullException.ThrowIfNull(get);
+        ArgumentNullException.ThrowIfNull(map);
+        IList<T>? current = null;
+        IDisposable? model = null;
+        void Apply(IList<T>? collection)
+        {
+            model?.Dispose();
+            model = null;
+            current = collection;
+            if (collection is System.Collections.Specialized.INotifyCollectionChanged)
+            {
+                var followed = new ObservableCollectionModel<T>(collection);
+                model = followed;
+                SetValue(name, followed.Map(map));
+            }
+            else
+            {
+                SetValue(name, new ListModel<TRow>((collection ?? []).Select(map)));
+            }
+        }
+        Apply(get(_viewModel));
+        _refreshers.Add(() =>
+        {
+            var collection = get(_viewModel);
+            if (!ReferenceEquals(collection, current))
+            {
+                Apply(collection);
+            }
+        });
+        _disposables.Add(new Disposer(() => model?.Dispose()));
+        return this;
+    }
+
+    /// <summary>
+    /// Makes the callback <paramref name="callback"/> execute the command that <paramref name="get"/> returns,
+    /// with the callback's first argument as the parameter, if it has one.
+    /// With <paramref name="enabledProperty"/>, that boolean property follows <see cref="ICommand.CanExecute"/>.
+    /// </summary>
+    public ViewModelBinding<TViewModel> Command(string callback, Func<TViewModel, ICommand?> get, string? enabledProperty = null)
+    {
+        ArgumentNullException.ThrowIfNull(get);
+        ICommand? command = null;
+        void UpdateEnabled()
+        {
+            if (enabledProperty != null)
+            {
+                SetValue(enabledProperty, command?.CanExecute(null) ?? false);
+            }
+        }
+        void OnCanExecuteChanged(object? sender, EventArgs e) => Post(UpdateEnabled);
+        void Apply(ICommand? next)
+        {
+            if (command != null)
+            {
+                command.CanExecuteChanged -= OnCanExecuteChanged;
+                if (command is INotifyPropertyChanged notifying)
+                {
+                    notifying.PropertyChanged -= OnViewModelChanged;
+                }
+            }
+            command = next;
+            if (command != null)
+            {
+                command.CanExecuteChanged += OnCanExecuteChanged;
+                if (command is INotifyPropertyChanged notifying)
+                {
+                    notifying.PropertyChanged += OnViewModelChanged;
+                }
+            }
+            UpdateEnabled();
+        }
+        SetHandler(callback, args =>
+        {
+            var parameter = args.Length > 0 ? args[0] : null;
+            if (command?.CanExecute(parameter) == true)
+            {
+                command.Execute(parameter);
+            }
+        });
+        Apply(get(_viewModel));
+        _refreshers.Add(() =>
+        {
+            var next = get(_viewModel);
+            if (!ReferenceEquals(next, command))
+            {
+                Apply(next);
+            }
+        });
+        _disposables.Add(new Disposer(() => Apply(null)));
+        return this;
+    }
+
+    /// <summary>
+    /// Sets the string property <paramref name="name"/> to the errors of the view model's property <paramref name="member"/>,
+    /// one per line, or to an empty string without errors.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The view model doesn't implement <see cref="INotifyDataErrorInfo"/>.</exception>
+    public ViewModelBinding<TViewModel> Errors(string name, string member)
+    {
+        if (_viewModel is not INotifyDataErrorInfo validating)
+        {
+            throw new InvalidOperationException($"{typeof(TViewModel).Name} doesn't implement INotifyDataErrorInfo, as ObservableValidator does.");
+        }
+        return Property(name, _ => string.Join("\n", validating.GetErrors(member).Cast<object?>().Select(error => error?.ToString())));
+    }
+
+    /// <summary>Removes the bindings; the component keeps the values it has.</summary>
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+        _disposed = true;
+        if (_viewModel is INotifyPropertyChanged notifying)
+        {
+            notifying.PropertyChanged -= OnViewModelChanged;
+        }
+        if (_viewModel is INotifyDataErrorInfo validating)
+        {
+            validating.ErrorsChanged -= OnErrorsChanged;
+        }
+        foreach (var disposable in _disposables)
+        {
+            disposable.Dispose();
+        }
+        _disposables.Clear();
+        _refreshers.Clear();
+    }
+
+    private void OnErrorsChanged(object? sender, DataErrorsChangedEventArgs e) => OnViewModelChanged(sender, null);
+
+    private void OnViewModelChanged(object? sender, PropertyChangedEventArgs? e)
+    {
+        if (Environment.CurrentManagedThreadId == _slintThread)
+        {
+            Refresh();
+        }
+        else if (Interlocked.Exchange(ref _refreshQueued, 1) == 0)
+        {
+            EventLoop.InvokeFromEventLoop(() =>
+            {
+                Volatile.Write(ref _refreshQueued, 0);
+                Refresh();
+            });
+        }
+    }
+
+    private void Refresh()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+        foreach (var refresh in _refreshers)
+        {
+            refresh();
+        }
+    }
+
+    private object? GetValue(string name) =>
+        _global == null ? _instance.GetProperty(name) : _instance.GetGlobalProperty(_global, name);
+
+    private void SetValue(string name, object? value)
+    {
+        if (_global == null)
+        {
+            _instance.SetProperty(name, value);
+        }
+        else
+        {
+            _instance.SetGlobalProperty(_global, name, value);
+        }
+    }
+
+    private IDisposable Watch(string name, Action changed) =>
+        _global == null ? _instance.WatchProperty(name, changed) : _instance.WatchGlobalProperty(_global, name, changed);
+
+    private void SetHandler(string name, Action<object?[]> handler)
+    {
+        if (_global == null)
+        {
+            _instance.SetCallback(name, handler);
+        }
+        else
+        {
+            _instance.SetGlobalCallback(_global, name, handler);
+        }
+    }
+
+    private void Post(Action action)
+    {
+        if (Environment.CurrentManagedThreadId == _slintThread)
+        {
+            action();
+        }
+        else
+        {
+            EventLoop.InvokeFromEventLoop(() =>
+            {
+                if (!_disposed)
+                {
+                    action();
+                }
+            });
+        }
+    }
+
+    private sealed class Disposer(Action dispose) : IDisposable
+    {
+        public void Dispose() => dispose();
+    }
+}

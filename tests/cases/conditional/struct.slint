@@ -57,4 +57,15 @@ instance.test = False
 assert not instance.test
 assert instance.data_text == "Test false"
 ```
+
+```csharp
+using var instance = TestCase.Create();
+Assert.IsTrue(instance.Test);
+Assert.AreEqual("Test true", instance.DataText);
+
+instance.Test = false;
+Assert.IsFalse(instance.Test);
+Assert.AreEqual("Test false", instance.DataText);
+Assert.AreEqual(new Data { Text = "Test false" }, instance.Data);
+```
 */

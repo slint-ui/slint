@@ -126,4 +126,23 @@ assert(!instance.fs_has_focus);
 slintlib.private_api.send_mouse_click(instance, 50., 50.);
 assert.equal(instance.clicked, 1);
 ```
+
+```csharp
+using var instance = TestCase.Create();
+var model = new ListModel<int>([1]);
+instance.OnRemoveRow(() => model.RemoveAt(model.Count - 1));
+instance.Model = model;
+
+// The clicked row removes itself while its click is handled.
+Testing.SendMouseClick(instance.Instance, 50, 50);
+Assert.AreEqual(1, instance.Clicked);
+Assert.AreEqual(0, instance.Counter);
+Assert.IsTrue(instance.TaEnabled);
+Assert.AreEqual(0, instance.Model.RowCount);
+Assert.IsFalse(instance.FsHasFocus);
+
+// The row is gone, so a second click hits nothing.
+Testing.SendMouseClick(instance.Instance, 50, 50);
+Assert.AreEqual(1, instance.Clicked);
+```
 */

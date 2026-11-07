@@ -59,4 +59,14 @@ slintlib.private_api.send_keyboard_string_sequence(instance, "ok");
 assert.equal(instance.r1, "ok");
 assert.equal(instance.r2, "ok");
 ```
+
+```csharp
+using var instance = TestCase.Create();
+Testing.SendMouseClick(instance.Instance, 70, 70);
+Assert.IsTrue(instance.CorrectFocus);
+instance.ClickToFocusOnOuter = false;
+Testing.SendKeyboardStringSequence(instance.Instance, "ok");
+Assert.AreEqual("ok", instance.R1);
+Assert.AreEqual("ok", instance.R2);
+```
 */

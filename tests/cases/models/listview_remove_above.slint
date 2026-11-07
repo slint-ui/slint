@@ -351,4 +351,70 @@ click_all();
 assert.equal(instance.clicked_values, "[40=40][41=41][42=42][43=43][44=44][45=999][46=46][47=47][48=48][49=49]");
 assert.equal(instance.content_y, -800.);
 ```
+
+```csharp
+using var instance = TestCase.Create();
+var model = new ListModel<int>(Enumerable.Range(0, 100));
+instance.Model = model;
+void ClickAll()
+{
+    instance.ResetClickedValues();
+    for (var row = 0; row < 10; row++)
+    {
+        Testing.SendMouseClick(instance.Instance, 50, 10 + row * 20);
+    }
+}
+
+ClickAll();
+Assert.AreEqual("[0=0][1=1][2=2][3=3][4=4][5=5][6=6][7=7][8=8][9=9]", instance.ClickedValues);
+Assert.AreEqual(100f * 20, instance.ContentHeight);
+Assert.AreEqual(0f, instance.ContentY);
+
+// Removing rows above the visible ones keeps the visible ones in place.
+instance.ContentY = -1800;
+ClickAll();
+Assert.AreEqual("[90=90][91=91][92=92][93=93][94=94][95=95][96=96][97=97][98=98][99=99]", instance.ClickedValues);
+model.RemoveAt(0);
+ClickAll();
+Assert.AreEqual("[89=90][90=91][91=92][92=93][93=94][94=95][95=96][96=97][97=98][98=99]", instance.ClickedValues);
+Assert.AreEqual(99f * 20, instance.ContentHeight);
+Assert.AreEqual(-1780f, instance.ContentY);
+model.RemoveAt(0);
+model.RemoveAt(0);
+ClickAll();
+Assert.AreEqual("[87=90][88=91][89=92][90=93][91=94][92=95][93=96][94=97][95=98][96=99]", instance.ClickedValues);
+Assert.AreEqual(97f * 20, instance.ContentHeight);
+Assert.AreEqual(-1740f, instance.ContentY);
+
+// The other changes of a model, in and around the visible rows.
+model = new ListModel<int>(Enumerable.Range(0, 100));
+instance.Model = model;
+instance.ContentY = -800;
+ClickAll();
+Assert.AreEqual("[40=40][41=41][42=42][43=43][44=44][45=45][46=46][47=47][48=48][49=49]", instance.ClickedValues);
+model[45] = 999;
+ClickAll();
+Assert.AreEqual("[40=40][41=41][42=42][43=43][44=44][45=999][46=46][47=47][48=48][49=49]", instance.ClickedValues);
+model[10] = 8888;
+ClickAll();
+Assert.AreEqual("[40=40][41=41][42=42][43=43][44=44][45=999][46=46][47=47][48=48][49=49]", instance.ClickedValues);
+model.Insert(45, -1);
+ClickAll();
+Assert.AreEqual("[40=40][41=41][42=42][43=43][44=44][45=-1][46=999][47=46][48=47][49=48]", instance.ClickedValues);
+model.RemoveAt(45);
+ClickAll();
+Assert.AreEqual("[40=40][41=41][42=42][43=43][44=44][45=999][46=46][47=47][48=48][49=49]", instance.ClickedValues);
+model.RemoveAt(99);
+ClickAll();
+Assert.AreEqual("[40=40][41=41][42=42][43=43][44=44][45=999][46=46][47=47][48=48][49=49]", instance.ClickedValues);
+Assert.AreEqual(-800f, instance.ContentY);
+model.Insert(0, -10);
+ClickAll();
+Assert.AreEqual("[41=40][42=41][43=42][44=43][45=44][46=999][47=46][48=47][49=48][50=49]", instance.ClickedValues);
+Assert.AreEqual(-820f, instance.ContentY);
+model.RemoveAt(0);
+ClickAll();
+Assert.AreEqual("[40=40][41=41][42=42][43=43][44=44][45=999][46=46][47=47][48=48][49=49]", instance.ClickedValues);
+Assert.AreEqual(-800f, instance.ContentY);
+```
 */

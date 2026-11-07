@@ -1,0 +1,320 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import {
+    Button,
+    GroupBox,
+    HorizontalBox,
+    LineEdit,
+    ScrollView,
+    Spinner,
+    TabWidget,
+    VerticalBox,
+} from "std-widgets.slint";
+
+// Each page has a global whose members a view model binds by name.
+
+export global ObservableObjectPage {
+    in-out property <string> name;
+    in property <string> task-status;
+    callback reload-task();
+}
+
+export global RelayCommandPage {
+    in property <int> counter;
+    callback increment-counter();
+}
+
+export global AsyncRelayCommandPage {
+    in property <string> text;
+    in property <bool> download-text-enabled;
+    in property <bool> download-text-running;
+    callback download-text();
+}
+
+export global MessengerSender {
+    in property <string> username;
+    callback send-user-message();
+}
+
+export global MessengerReceiver {
+    in property <string> username;
+}
+
+export global MessengerPage {
+    in property <string> username;
+    callback request-current-username();
+    callback reset-current-username();
+}
+
+export global CollectionsPage {
+    in property <[string]> contacts;
+    in-out property <string> new-contact;
+    in-out property <int> selected-contact: -1;
+    in property <bool> add-contact-enabled;
+    in property <bool> remove-contact-enabled;
+    callback add-contact();
+    callback remove-contact();
+}
+
+export global ValidationPage {
+    in-out property <string> first-name;
+    in-out property <string> last-name;
+    in-out property <string> email;
+    in-out property <string> phone-number;
+    in property <string> first-name-error;
+    in property <string> last-name-error;
+    in property <string> email-error;
+    in property <string> phone-number-error;
+    in property <bool> has-errors;
+    in property <string> status;
+    callback submit();
+}
+
+component Field inherits VerticalLayout {
+    in property <string> label;
+    in property <string> error;
+    in-out property <string> text;
+    spacing: 4px;
+
+    Text {
+        text: root.label;
+    }
+
+    LineEdit {
+        text <=> root.text;
+    }
+
+    if root.error != "": Text {
+        text: root.error;
+        color: #c62828;
+        wrap: word-wrap;
+    }
+}
+
+export component MainWindow inherits Window {
+    title: "MVVM Toolkit with Slint";
+    preferred-width: 520px;
+    preferred-height: 480px;
+
+    TabWidget {
+        Tab {
+            title: "ObservableObject";
+
+            VerticalBox {
+                alignment: start;
+
+                Text {
+                    text: "Two-way property, and a task that reports its status.";
+                    wrap: word-wrap;
+                }
+
+                LineEdit {
+                    placeholder-text: "Your name";
+                    text <=> ObservableObjectPage.name;
+                }
+
+                Text {
+                    text: ObservableObjectPage.name == "" ? "Hello!" : "Hello, \{ObservableObjectPage.name}!";
+                }
+
+                HorizontalBox {
+                    padding: 0;
+
+                    Button {
+                        text: "Reload task";
+                        clicked => { ObservableObjectPage.reload-task(); }
+                    }
+
+                    Text {
+                        text: "Task: \{ObservableObjectPage.task-status}";
+                        vertical-alignment: center;
+                    }
+                }
+            }
+        }
+
+        Tab {
+            title: "RelayCommand";
+
+            VerticalBox {
+                alignment: start;
+
+                Text {
+                    text: "Counter: \{RelayCommandPage.counter}";
+                    font-size: 24px;
+                }
+
+                Button {
+                    text: "Increment";
+                    clicked => { RelayCommandPage.increment-counter(); }
+                }
+            }
+        }
+
+        Tab {
+            title: "AsyncRelayCommand";
+
+            VerticalBox {
+                alignment: start;
+
+                Button {
+                    text: "Download text";
+                    enabled: AsyncRelayCommandPage.download-text-enabled;
+                    clicked => { AsyncRelayCommandPage.download-text(); }
+                }
+
+                if AsyncRelayCommandPage.download-text-running: Spinner {
+                    indeterminate: true;
+                }
+                Text {
+                    text: AsyncRelayCommandPage.text;
+                }
+            }
+        }
+
+        Tab {
+            title: "Messenger";
+
+            VerticalBox {
+                alignment: start;
+
+                GroupBox {
+                    title: "Sender";
+
+                    HorizontalBox {
+                        Text {
+                            text: "Username: \{MessengerSender.username}";
+                            vertical-alignment: center;
+                        }
+
+                        Button {
+                            text: "Send";
+                            clicked => { MessengerSender.send-user-message(); }
+                        }
+                    }
+                }
+
+                GroupBox {
+                    title: "Receiver";
+
+                    Text {
+                        text: "Received: \{MessengerReceiver.username}";
+                    }
+                }
+
+                GroupBox {
+                    title: "Request";
+
+                    HorizontalBox {
+                        Text {
+                            text: "Current: \{MessengerPage.username}";
+                            vertical-alignment: center;
+                        }
+
+                        Button {
+                            text: "Request";
+                            clicked => { MessengerPage.request-current-username(); }
+                        }
+
+                        Button {
+                            text: "Reset";
+                            clicked => { MessengerPage.reset-current-username(); }
+                        }
+                    }
+                }
+            }
+        }
+
+        Tab {
+            title: "Collections";
+
+            VerticalBox {
+                HorizontalBox {
+                    padding: 0;
+
+                    LineEdit {
+                        placeholder-text: "New contact";
+                        text <=> CollectionsPage.new-contact;
+                        accepted => { CollectionsPage.add-contact(); }
+                    }
+
+                    Button {
+                        text: "Add";
+                        enabled: CollectionsPage.add-contact-enabled;
+                        clicked => { CollectionsPage.add-contact(); }
+                    }
+
+                    Button {
+                        text: "Remove";
+                        enabled: CollectionsPage.remove-contact-enabled;
+                        clicked => { CollectionsPage.remove-contact(); }
+                    }
+                }
+
+                ScrollView {
+                    VerticalLayout {
+                        alignment: start;
+                        for contact[index] in CollectionsPage.contacts: Rectangle {
+                            height: 32px;
+                            background: index == CollectionsPage.selected-contact ? #2196f3.with-alpha(0.25) : transparent;
+
+                            Text {
+                                x: 8px;
+                                text: contact;
+                                vertical-alignment: center;
+                            }
+
+                            TouchArea {
+                                clicked => { CollectionsPage.selected-contact = index; }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Tab {
+            title: "Validation";
+
+            ScrollView {
+                VerticalBox {
+                    alignment: start;
+
+                    Field {
+                        label: "First name";
+                        text <=> ValidationPage.first-name;
+                        error: ValidationPage.first-name-error;
+                    }
+
+                    Field {
+                        label: "Last name";
+                        text <=> ValidationPage.last-name;
+                        error: ValidationPage.last-name-error;
+                    }
+
+                    Field {
+                        label: "Email";
+                        text <=> ValidationPage.email;
+                        error: ValidationPage.email-error;
+                    }
+
+                    Field {
+                        label: "Phone number";
+                        text <=> ValidationPage.phone-number;
+                        error: ValidationPage.phone-number-error;
+                    }
+
+                    Button {
+                        text: "Submit";
+                        clicked => { ValidationPage.submit(); }
+                    }
+
+                    Text {
+                        text: ValidationPage.status;
+                    }
+                }
+            }
+        }
+    }
+}

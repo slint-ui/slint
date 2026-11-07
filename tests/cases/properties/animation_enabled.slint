@@ -303,4 +303,72 @@ assert.equal(instance.value_binding, 150);
 slintlib.private_api.mock_elapsed_time(500);
 assert.equal(instance.value_binding, 100);
 ```
+
+```csharp
+using var instance = TestCase.Create();
+
+// Values set from C# animate unless the animation is disabled.
+Assert.AreEqual(100, instance.ValueWithDefault);
+Assert.AreEqual(100, instance.ValueDisabled);
+Assert.AreEqual(100, instance.ValueEnabled);
+instance.ValueWithDefault = 200;
+instance.ValueDisabled = 200;
+instance.ValueEnabled = 200;
+Assert.AreEqual(100, instance.ValueWithDefault);
+Assert.AreEqual(200, instance.ValueDisabled);
+Assert.AreEqual(100, instance.ValueEnabled);
+Testing.MockElapsedTime(500);
+Assert.AreEqual(150, instance.ValueWithDefault);
+Assert.AreEqual(200, instance.ValueDisabled);
+Assert.AreEqual(150, instance.ValueEnabled);
+Testing.MockElapsedTime(500);
+Assert.AreEqual(200, instance.ValueWithDefault);
+Assert.AreEqual(200, instance.ValueEnabled);
+
+// An animation that a property enables and disables.
+instance.ValueDynamic = 300;
+Assert.AreEqual(100, instance.ValueDynamic);
+Testing.MockElapsedTime(500);
+Assert.AreEqual(200, instance.ValueDynamic);
+Testing.MockElapsedTime(500);
+Assert.AreEqual(300, instance.ValueDynamic);
+instance.AnimationEnabled = false;
+instance.ValueDynamic = 100;
+Assert.AreEqual(100, instance.ValueDynamic);
+instance.AnimationEnabled = true;
+instance.ValueDynamic = 500;
+Assert.AreEqual(100, instance.ValueDynamic);
+Testing.MockElapsedTime(500);
+Assert.AreEqual(300, instance.ValueDynamic);
+Testing.MockElapsedTime(500);
+Assert.AreEqual(500, instance.ValueDynamic);
+
+// A value from a binding.
+Assert.AreEqual(100, instance.ValueBinding);
+instance.BindingSource = true;
+Assert.AreEqual(100, instance.ValueBinding);
+Testing.MockElapsedTime(500);
+Assert.AreEqual(150, instance.ValueBinding);
+Testing.MockElapsedTime(500);
+Assert.AreEqual(200, instance.ValueBinding);
+instance.BindingAnimEnabled = false;
+instance.BindingSource = false;
+Assert.AreEqual(100, instance.ValueBinding);
+instance.BindingAnimEnabled = true;
+instance.BindingSource = true;
+Assert.AreEqual(100, instance.ValueBinding);
+Testing.MockElapsedTime(1000);
+Assert.AreEqual(200, instance.ValueBinding);
+
+// Disabling the animation while it runs doesn't stop it.
+instance.BindingSource = false;
+Assert.AreEqual(200, instance.ValueBinding);
+Testing.MockElapsedTime(250);
+Assert.AreEqual(175, instance.ValueBinding);
+instance.BindingAnimEnabled = false;
+Testing.MockElapsedTime(250);
+Assert.AreEqual(150, instance.ValueBinding);
+Testing.MockElapsedTime(500);
+Assert.AreEqual(100, instance.ValueBinding);
+```
 */

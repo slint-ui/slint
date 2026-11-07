@@ -32,4 +32,10 @@ var instance = new slint.TestCase();
 slintlib.private_api.send_mouse_click(instance, 5., 5.);
 assert.equal(instance.value, 1);
 ```
+
+```csharp
+using var instance = TestCase.Create();
+Testing.SendMouseClick(instance.Instance, 5, 5);
+Assert.AreEqual(1, instance.Value);
+```
 */

@@ -90,4 +90,19 @@ assert.equal(instance.focus_changed_event_counter, 3);
 instance.set_focus();
 assert.equal(instance.focus_changed_event_counter, 3);
 ```
+
+```csharp
+using var instance = TestCase.Create();
+Assert.IsFalse(instance.ScopeFocused);
+Assert.AreEqual(0, instance.FocusChangedEventCounter);
+for (var expected = 1; expected <= 3; expected++)
+{
+    Testing.SendKeyboardStringSequence(instance.Instance, "\t");
+    Assert.AreEqual(expected % 2 == 1, instance.ScopeFocused);
+    Assert.AreEqual(expected, instance.FocusChangedEventCounter);
+}
+// Focusing the item that has the focus isn't a change.
+instance.SetFocus();
+Assert.AreEqual(3, instance.FocusChangedEventCounter);
+```
 */

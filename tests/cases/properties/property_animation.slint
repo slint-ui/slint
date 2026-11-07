@@ -189,4 +189,45 @@ assert.equal(instance.binding_dep, 125);
 assert.equal(instance.direction, 200);
 assert.equal(instance.rotation, 0);
 ```
+
+```csharp
+using var instance = TestCase.Create();
+Assert.AreEqual(40, instance.Hello);
+Assert.AreEqual(100, instance.BindingDep);
+Assert.AreEqual(100, instance.Direction);
+Assert.AreEqual(10f, instance.Rotation);
+instance.Condition = false;
+instance.Hello = 60;
+instance.Direction = 200;
+instance.Rotation = 350;
+// No time has passed yet.
+Assert.AreEqual(40, instance.Hello);
+Assert.AreEqual(100, instance.BindingDep);
+Assert.AreEqual(200, instance.Direction);
+Assert.AreEqual(10f, instance.Rotation);
+Testing.MockElapsedTime(600);
+Assert.AreEqual(50, instance.Hello);
+Assert.AreEqual(125, instance.BindingDep);
+Assert.AreEqual(100, instance.Direction);
+Assert.AreEqual(0f, instance.Rotation);
+Testing.MockElapsedTime(600);
+Assert.AreEqual(60, instance.Hello);
+Assert.AreEqual(150, instance.BindingDep);
+Assert.AreEqual(200, instance.Direction);
+Assert.AreEqual(350f, instance.Rotation);
+Testing.MockElapsedTime(100);
+Assert.AreEqual(60, instance.Hello);
+Assert.AreEqual(350f, instance.Rotation);
+
+// The animations start without a read of the values in between.
+instance.Condition = true;
+instance.Hello = 30;
+instance.Direction = 100;
+instance.Rotation = 10;
+Testing.MockElapsedTime(600);
+Assert.AreEqual(45, instance.Hello);
+Assert.AreEqual(125, instance.BindingDep);
+Assert.AreEqual(200, instance.Direction);
+Assert.AreEqual(0f, instance.Rotation);
+```
 */

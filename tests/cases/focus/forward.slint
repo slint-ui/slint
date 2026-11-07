@@ -49,4 +49,11 @@ assert(!instance.input_focused);
 instance.focus_rectangle();
 assert(instance.input_focused);
 ```
+
+```csharp
+using var instance = TestCase.Create();
+Assert.IsFalse(instance.InputFocused);
+instance.InvokeFocusRectangle();
+Assert.IsTrue(instance.InputFocused);
+```
 */

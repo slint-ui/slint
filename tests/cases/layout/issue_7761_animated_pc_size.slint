@@ -75,4 +75,15 @@ assert.equal(instance.ta_width, 200);
 ```
 
 
+```csharp
+using var instance = TestCase.Create();
+Assert.AreEqual(100, instance.TaWidth);
+Assert.IsTrue(instance.Test);
+instance.Flag = true;
+Assert.AreEqual(100, instance.TaWidth);
+Testing.MockElapsedTime(100);
+Assert.AreEqual(150, instance.TaWidth);
+Testing.MockElapsedTime(200);
+Assert.AreEqual(200, instance.TaWidth);
+```
 */

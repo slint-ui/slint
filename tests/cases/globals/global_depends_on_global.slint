@@ -54,4 +54,10 @@ instance.set_a(4);
 assert.equal(instance.value1, 4 + 13);
 ```
 
+```csharp
+using var instance = TestCase.Create();
+Assert.AreEqual(3 + 13, instance.Value1);
+instance.InvokeSetA(4);
+Assert.AreEqual(4 + 13, instance.Value1);
+```
 */

@@ -84,4 +84,14 @@ slintlib.private_api.send_mouse_click(instance, 5., 55.);
 slintlib.private_api.send_mouse_click(instance, 5., 5.);
 assert.equal(instance.content_height, 200.);
 ```
+
+```csharp
+using var instance = TestCase.Create();
+// The first click lays out the list view, and the second one changes the model.
+Testing.SendMouseClick(instance.Instance, 5, 5);
+Assert.AreEqual(100f, instance.ContentHeight);
+Testing.SendMouseClick(instance.Instance, 5, 55);
+Testing.SendMouseClick(instance.Instance, 5, 5);
+Assert.AreEqual(200f, instance.ContentHeight);
+```
 */

@@ -58,6 +58,22 @@ assert_eq!(instance.get_callback_emission_count(), 88);
 assert_eq!(callback_3_emitted.get(), 1);
 ```
 
+```csharp
+using var instance = TestCase.Create();
+var callback3Emitted = 0;
+instance.OnTestCallback3(() => callback3Emitted++);
+instance.CallbackEmissionCount = 0;
+Assert.AreEqual(0, instance.CallbackEmissionCount);
+instance.InvokeTestCallback();
+Assert.AreEqual(1, instance.CallbackEmissionCount);
+instance.InvokeTestCallback();
+Assert.AreEqual(2, instance.CallbackEmissionCount);
+Assert.AreEqual(0, callback3Emitted);
+instance.InvokeTestCallback2();
+Assert.AreEqual(88, instance.CallbackEmissionCount);
+Assert.AreEqual(1, callback3Emitted);
+```
+
 ```js
 var callback_3_emitted = 0;
 var instance = new slint.TestCase({

@@ -1,0 +1,308 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> -->
+<!-- SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 -->
+<!-- cSpell: ignore Emcc mylib Resx -->
+<!--
+  Generates typed C# classes from <SlintFile> items and copies the .slint files to the output directory,
+  where the generated code loads them from at run time.
+
+    <SlintFile Include="ui/app.slint" />                   generates ui/app.slint.g.cs
+    <SlintFile Include="ui/widgets.slint" Generate="false" />   only copies an imported file
+    <SlintProject Include="ui" />                          generates the main file of ui/slint-project.json,
+                                                           and copies the project file and the .slint files under ui
+
+  A file outside the project directory is copied to the root of the output directory; set Link to place it elsewhere.
+  On iOS, the app embeds the framework of the package or of target/ios.
+  With SlintEmbedFiles=false on Android, the files go into the APK's assets under slint/ instead, and SlintActivity extracts them at startup;
+  on iOS, they go into the app bundle as bundle resources. Neither has the images that the files use.
+  With SlintEmbedFiles, on Android and iOS, and in the browser (browser-wasm), the assembly embeds them with the images and fonts they use,
+  and the bundled translations, at their paths relative to the project, and the compiler reads them from memory.
+  A path with a space doesn't work there, since the dependency file of slint-compiler separates paths with spaces.
+  In the browser, the app links the library of the package or of target/browser, which needs the wasm-tools workload.
+
+  Properties:
+    SlintCompilerPath   the slint-compiler binary; defaults to the one of the Slint.Compiler package,
+                        then to the repository build, then to slint-compiler on PATH
+    SlintNamespace      the namespace of the generated code; defaults to RootNamespace
+    SlintStyle          the widget style, such as fluent
+    SlintIncludePaths   directories that imports search, separated by semicolons; relative to the project;
+                        for SlintFile items only, since a SlintProject has the paths of its project file
+    SlintTranslationDomain              the gettext domain of the @tr() strings
+    SlintBundledTranslations            a directory with <language>/LC_MESSAGES/<domain>.po files to bundle,
+                                        relative to the project; select one with Translations.SelectBundledTranslation
+    SlintNoDefaultTranslationContext    true gives @tr() strings without a context none, instead of the component name
+
+  Library paths, for imports such as "@mylib/widgets.slint", relative to the project; for SlintFile items only:
+    <SlintLibraryPath Include="mylib" Path="../mylib/" />
+    SlintCopyToOutput   false loads the .slint files from their source directory instead, such as for
+                        a file that refers to images outside the project; not on Android and iOS, where the source isn't
+    SlintEmbedFiles     true embeds the files in the assembly instead of copying them to the output, so that
+                        a single-file publish needs no ui/ directory, and an Android or iOS app has the images they use;
+                        on by default with PublishSingleFile, and on Android and iOS
+    SlintPrecompile     false makes the generated code compile the .slint files at startup, instead of running
+                        the unit that the build compiles them to; true by default.
+                        The generated code also compiles them when SLINT_STYLE names another style.
+    SlintLivePreview    true makes the generated code load the .slint files from their source directory,
+                        and reload components when the files change; for development only.
+                        LivePreview metadata on a SlintFile overrides it for that file.
+                        Not on Android and iOS, where the source directory isn't on the device; the build warns with SLINT002.
+-->
+<Project>
+  <PropertyGroup>
+    <_SlintExe Condition="'$(OS)' == 'Windows_NT'">.exe</_SlintExe>
+    <_SlintRepositoryCompiler>$(MSBuildThisFileDirectory)../../../../target/debug/slint-compiler$(_SlintExe)</_SlintRepositoryCompiler>
+    <_SlintPackagedCompiler Condition="'$(SlintCompilerPackageDir)' != ''">$(SlintCompilerPackageDir)$(NETCoreSdkRuntimeIdentifier)/slint-compiler$(_SlintExe)</_SlintPackagedCompiler>
+    <_SlintCompilerIsPackaged Condition="'$(SlintCompilerPath)' == '' and '$(_SlintPackagedCompiler)' != '' and Exists('$(_SlintPackagedCompiler)')">true</_SlintCompilerIsPackaged>
+    <SlintCompilerPath Condition="'$(_SlintCompilerIsPackaged)' == 'true'">$([System.IO.Path]::GetFullPath('$(_SlintPackagedCompiler)'))</SlintCompilerPath>
+    <SlintCompilerPath Condition="'$(SlintCompilerPath)' == '' and Exists('$(_SlintRepositoryCompiler)')">$([System.IO.Path]::GetFullPath('$(_SlintRepositoryCompiler)'))</SlintCompilerPath>
+    <SlintCompilerPath Condition="'$(SlintCompilerPath)' == ''">slint-compiler</SlintCompilerPath>
+    <SlintNamespace Condition="'$(SlintNamespace)' == ''">$(RootNamespace)</SlintNamespace>
+    <!-- From TargetFramework, since a project that imports this file itself does so before the SDK sets TargetPlatformIdentifier. -->
+    <_SlintPlatform>$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)'))</_SlintPlatform>
+    <_SlintOnDevice Condition="'$(_SlintPlatform)' == 'android' or '$(_SlintPlatform)' == 'ios'">true</_SlintOnDevice>
+    <_SlintBrowser Condition="'$(RuntimeIdentifier)' == 'browser-wasm'">true</_SlintBrowser>
+    <SlintEmbedFiles Condition="'$(SlintEmbedFiles)' == '' and ('$(PublishSingleFile)' == 'true' or '$(_SlintOnDevice)' == 'true')">true</SlintEmbedFiles>
+    <_SlintEmbed Condition="'$(_SlintBrowser)' == 'true' or '$(SlintEmbedFiles)' == 'true'">true</_SlintEmbed>
+    <_SlintFromSource Condition="'$(SlintCopyToOutput)' == 'false' and '$(_SlintOnDevice)' != 'true'">true</_SlintFromSource>
+    <_SlintLiveAllowed Condition="'$(_SlintOnDevice)' != 'true' and '$(_SlintBrowser)' != 'true'">true</_SlintLiveAllowed>
+    <SlintPrecompile Condition="'$(SlintPrecompile)' == ''">true</SlintPrecompile>
+    <!-- From the package, outside runtimes/ so that NuGet leaves it alone, or else from scripts/build_dotnet_ios.sh in the repository. -->
+    <_SlintIOSLibrary Condition="'$(_SlintPlatform)' == 'ios'">$(MSBuildThisFileDirectory)../ios/slint_dotnet.xcframework</_SlintIOSLibrary>
+    <_SlintIOSLibrary Condition="'$(_SlintPlatform)' == 'ios' and !Exists('$(_SlintIOSLibrary)')">$(MSBuildThisFileDirectory)../../../../target/ios/slint_dotnet.xcframework</_SlintIOSLibrary>
+    <_SlintIOSLibrary Condition="'$(_SlintIOSLibrary)' != ''">$([System.IO.Path]::GetFullPath('$(_SlintIOSLibrary)'))</_SlintIOSLibrary>
+  </PropertyGroup>
+
+  <!-- From the package, or else from scripts/build_dotnet_browser.sh in the repository. -->
+  <PropertyGroup Condition="'$(_SlintBrowser)' == 'true'">
+    <_SlintBrowserDir>$(MSBuildThisFileDirectory)../browser/</_SlintBrowserDir>
+    <_SlintBrowserLibrary>$(_SlintBrowserDir)slint_dotnet.a</_SlintBrowserLibrary>
+    <_SlintEmscriptenJs>$(_SlintBrowserDir)slint_emscripten.js</_SlintEmscriptenJs>
+    <_SlintBrowserLibrary Condition="!Exists('$(_SlintBrowserLibrary)')">$(MSBuildThisFileDirectory)../../../../target/browser/slint_dotnet.a</_SlintBrowserLibrary>
+    <_SlintEmscriptenJs Condition="!Exists('$(_SlintEmscriptenJs)')">$(MSBuildThisFileDirectory)../../../../internal/backends/emscripten/slint_emscripten.js</_SlintEmscriptenJs>
+    <_SlintBrowserLibrary>$([System.IO.Path]::GetFullPath('$(_SlintBrowserLibrary)'))</_SlintBrowserLibrary>
+    <_SlintEmscriptenJs>$([System.IO.Path]::GetFullPath('$(_SlintEmscriptenJs)'))</_SlintEmscriptenJs>
+    <WasmBuildNative>true</WasmBuildNative>
+    <!-- Its DWARF pass enables fewer WebAssembly features than Rust's standard library uses. -->
+    <WasmNativeStrip>false</WasmNativeStrip>
+    <EmccExtraLDFlags>$(EmccExtraLDFlags) --js-library &quot;$(_SlintEmscriptenJs)&quot; -sMIN_WEBGL_VERSION=2 -sMAX_WEBGL_VERSION=2 -sGL_ENABLE_GET_PROC_ADDRESS=1</EmccExtraLDFlags>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(_SlintBrowser)' == 'true'">
+    <NativeFileReference Include="$(_SlintBrowserLibrary)" />
+  </ItemGroup>
+
+  <!-- The package brings the generator of [SlintViewModel] as an analyzer; a project in this repository takes the one that Slint.csproj built. -->
+  <PropertyGroup>
+    <_SlintGeneratorBin>bin/</_SlintGeneratorBin>
+    <!-- Directory.Build.props of api/dotnet gives Android builds their own output directory. -->
+    <_SlintGeneratorBin Condition="'$(SlintAndroid)' == 'true'">bin/android/</_SlintGeneratorBin>
+    <_SlintRepositoryGenerator>$(MSBuildThisFileDirectory)../../Slint.SourceGenerator/$(_SlintGeneratorBin)$(Configuration)/netstandard2.0/Slint.SourceGenerator.dll</_SlintRepositoryGenerator>
+  </PropertyGroup>
+  <!-- A target, since the generator exists only once the project references are built. -->
+  <Target Name="_SlintAddRepositoryGenerator" AfterTargets="ResolveProjectReferences" BeforeTargets="CoreCompile">
+    <ItemGroup Condition="Exists('$(_SlintRepositoryGenerator)')">
+      <Analyzer Include="$([System.IO.Path]::GetFullPath('$(_SlintRepositoryGenerator)'))" />
+    </ItemGroup>
+  </Target>
+
+  <ItemGroup Condition="'$(_SlintPlatform)' == 'ios' and Exists('$(_SlintIOSLibrary)')">
+    <NativeReference Include="$(_SlintIOSLibrary)" Kind="Framework" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="@(SlintFile)" />
+    <!-- A full path, since on Windows AssignTargetPath keeps a relative path with '../' as the target path, outside the output directory. -->
+    <None Include="@(SlintFile->'%(FullPath)')" CopyToOutputDirectory="PreserveNewest" Condition="'$(SlintCopyToOutput)' != 'false' and '$(_SlintEmbed)' != 'true'" />
+    <!-- The components reload a changed file themselves, so dotnet watch mustn't restart the application for it. -->
+    <None Update="@(SlintFile)" Watch="false" Condition="'$(SlintLivePreview)' == 'true' and '$(_SlintLiveAllowed)' == 'true'" />
+    <None Update="**/*.slint;**/slint-project.json" Watch="false" Condition="'$(SlintLivePreview)' == 'true' and '$(_SlintLiveAllowed)' == 'true' and '@(SlintProject)' != ''" />
+  </ItemGroup>
+
+  <!-- Wildcards can't expand per item outside a target. -->
+  <Target Name="_SlintProjectFiles" BeforeTargets="AssignTargetPaths" Condition="'@(SlintProject)' != ''">
+    <ItemGroup>
+      <_SlintProjectSource Include="%(SlintProject.FullPath)/**/*.slint;%(SlintProject.FullPath)/slint-project.json"
+                           Exclude="$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '$(BaseOutputPath)'))**;$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '$(BaseIntermediateOutputPath)'))**" />
+      <None Remove="@(_SlintProjectSource)" />
+      <None Include="@(_SlintProjectSource)" CopyToOutputDirectory="PreserveNewest" Condition="'$(SlintCopyToOutput)' != 'false' and '$(_SlintEmbed)' != 'true'" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="_SlintPrepare" DependsOnTargets="_SlintProjectFiles">
+    <PropertyGroup>
+      <!-- Set here, since IntermediateOutputPath isn't known yet where a project imports this file. -->
+      <_SlintGeneratedDir>$(IntermediateOutputPath)slint/</_SlintGeneratedDir>
+    </PropertyGroup>
+    <!-- The same path in the output directory that the copy of the None item gets. -->
+    <AssignTargetPath Files="@(SlintFile->'%(FullPath)')" RootFolder="$(MSBuildProjectDirectory)">
+      <Output TaskParameter="AssignedFiles" ItemName="_SlintAssigned" />
+    </AssignTargetPath>
+    <ItemGroup>
+      <_SlintGenerate Include="@(_SlintAssigned)" Condition="'%(_SlintAssigned.Generate)' != 'false'">
+        <GeneratedFile>$(_SlintGeneratedDir)%(_SlintAssigned.TargetPath).g.cs</GeneratedFile>
+        <RuntimePath>%(_SlintAssigned.TargetPath)</RuntimePath>
+        <RuntimePath Condition="'$(_SlintFromSource)' == 'true'">%(_SlintAssigned.FullPath)</RuntimePath>
+        <RuntimePath Condition="'$(_SlintEmbed)' == 'true'">$([MSBuild]::MakeRelative('$(MSBuildProjectDirectory)/', '%(_SlintAssigned.FullPath)').Replace('\', '/'))</RuntimePath>
+        <LiveOption Condition="'$(_SlintLiveAllowed)' == 'true' and ('%(_SlintAssigned.LivePreview)' == 'true' or ('%(_SlintAssigned.LivePreview)' == '' and '$(SlintLivePreview)' == 'true'))"> --csharp-live-preview</LiveOption>
+      </_SlintGenerate>
+    </ItemGroup>
+    <ItemGroup Condition="'@(SlintProject)' != ''">
+      <_SlintProjectDir Include="@(SlintProject)">
+        <TargetPath>$([MSBuild]::MakeRelative('$(MSBuildProjectDirectory)/', '%(FullPath)'))</TargetPath>
+      </_SlintProjectDir>
+      <_SlintProjectDir Condition="'%(_SlintProjectDir.TargetPath)' == ''">
+        <TargetPath>.</TargetPath>
+      </_SlintProjectDir>
+      <_SlintGenerate Include="@(_SlintProjectDir->'%(FullPath)')">
+        <IsProject>true</IsProject>
+        <GeneratedFile>$(_SlintGeneratedDir)%(_SlintProjectDir.TargetPath)/slint-project.g.cs</GeneratedFile>
+        <RuntimePath>%(_SlintProjectDir.TargetPath)</RuntimePath>
+        <RuntimePath Condition="'$(_SlintFromSource)' == 'true'">%(_SlintProjectDir.FullPath)</RuntimePath>
+        <RuntimePath Condition="'$(_SlintEmbed)' == 'true'">$([MSBuild]::MakeRelative('$(MSBuildProjectDirectory)/', '%(_SlintProjectDir.FullPath)').Replace('\', '/'))</RuntimePath>
+        <LiveOption Condition="'$(_SlintLiveAllowed)' == 'true' and ('%(_SlintProjectDir.LivePreview)' == 'true' or ('%(_SlintProjectDir.LivePreview)' == '' and '$(SlintLivePreview)' == 'true'))"> --csharp-live-preview</LiveOption>
+      </_SlintGenerate>
+    </ItemGroup>
+    <ItemGroup>
+      <_SlintCompilerInput Include="$(SlintCompilerPath)" Condition="Exists('$(SlintCompilerPath)')" />
+      <_SlintIncludePath Include="$(SlintIncludePaths)" />
+    </ItemGroup>
+    <PropertyGroup>
+      <_SlintOptions />
+      <_SlintOptions Condition="'$(SlintNamespace)' != ''">$(_SlintOptions) --csharp-namespace &quot;$(SlintNamespace)&quot;</_SlintOptions>
+      <_SlintOptions Condition="'$(SlintStyle)' != ''">$(_SlintOptions) --style &quot;$(SlintStyle)&quot;</_SlintOptions>
+      <_SlintOptions Condition="'$(SlintTranslationDomain)' != ''">$(_SlintOptions) --translation-domain &quot;$(SlintTranslationDomain)&quot;</_SlintOptions>
+      <_SlintOptions Condition="'$(SlintBundledTranslations)' != ''">$(_SlintOptions) --bundle-translations &quot;$([System.IO.Path]::GetFullPath('$(SlintBundledTranslations)', '$(MSBuildProjectDirectory)'))&quot;</_SlintOptions>
+      <_SlintOptions Condition="'$(SlintNoDefaultTranslationContext)' == 'true'">$(_SlintOptions) --no-default-translation-context</_SlintOptions>
+      <!-- A project file sets its own paths, and paths on the command line would replace them. -->
+      <_SlintPathOptions />
+      <_SlintPathOptions Condition="'@(_SlintIncludePath)' != ''">$(_SlintPathOptions) @(_SlintIncludePath->'-I &quot;%(FullPath)&quot;', ' ')</_SlintPathOptions>
+      <_SlintPathOptions Condition="'@(SlintLibraryPath)' != ''">$(_SlintPathOptions) @(SlintLibraryPath->'-L &quot;%(Identity)=%(Path)&quot;', ' ')</_SlintPathOptions>
+      <_SlintOptionsFile>$(_SlintGeneratedDir)options.txt</_SlintOptionsFile>
+    </PropertyGroup>
+    <ItemGroup Condition="'$(_SlintEmbed)' == 'true'">
+      <_SlintGenerate>
+        <DependencyFile>%(GeneratedFile).d</DependencyFile>
+        <DependencyOption> --depfile &quot;%(GeneratedFile).d&quot;</DependencyOption>
+      </_SlintGenerate>
+    </ItemGroup>
+    <ItemGroup>
+      <_SlintGenerate Condition="'%(_SlintGenerate.IsProject)' != 'true'">
+        <PathOptions>$(_SlintPathOptions)</PathOptions>
+      </_SlintGenerate>
+      <_SlintGenerate Condition="'$(SlintPrecompile)' == 'true' and '%(_SlintGenerate.LiveOption)' == ''">
+        <UnitFile>%(GeneratedFile).unit</UnitFile>
+        <UnitOption> --csharp-unit &quot;%(GeneratedFile).unit&quot;</UnitOption>
+      </_SlintGenerate>
+    </ItemGroup>
+    <Warning Code="SLINT002"
+             Text="Live preview of .slint files isn't available on Android and iOS yet: the app loads them from its package, so rebuild and redeploy to see a change."
+             Condition="'$(_SlintLiveAllowed)' != 'true' and ('$(SlintLivePreview)' == 'true' or '@(SlintFile->WithMetadataValue('LivePreview', 'true'))' != '' or '@(SlintProject->WithMetadataValue('LivePreview', 'true'))' != '')" />
+    <!-- Changing an option, such as with -p:SlintLivePreview=true, changes no other input, so this file is one. -->
+    <MakeDir Directories="$(_SlintGeneratedDir)" />
+    <WriteLinesToFile File="$(_SlintOptionsFile)" Lines="$(SlintCompilerPath)$(_SlintOptions)$(_SlintPathOptions);@(_SlintGenerate->'%(Identity)%(LiveOption)%(UnitOption)')" Overwrite="true" WriteOnlyWhenDifferent="true" />
+  </Target>
+
+  <Target Name="SlintGenerate"
+          DependsOnTargets="_SlintPrepare"
+          Inputs="@(SlintFile);@(_SlintProjectSource);@(_SlintCompilerInput);$(MSBuildAllProjects);$(_SlintOptionsFile)"
+          Outputs="@(_SlintGenerate->'%(GeneratedFile)');@(_SlintGenerate->'%(DependencyFile)');@(_SlintGenerate->'%(UnitFile)')">
+    <MakeDir Directories="@(_SlintGenerate->'%(GeneratedFile)'->DirectoryName())" />
+    <!-- NuGet doesn't keep the executable bit of files in packages. -->
+    <Exec Command="chmod +x &quot;$(SlintCompilerPath)&quot;" Condition="'$(OS)' != 'Windows_NT' and '$(_SlintCompilerIsPackaged)' == 'true'" />
+    <Exec Command="&quot;$(SlintCompilerPath)&quot; -f csharp &quot;%(_SlintGenerate.FullPath)&quot; -o &quot;%(_SlintGenerate.GeneratedFile)&quot; --csharp-runtime-path &quot;%(_SlintGenerate.RuntimePath)&quot;$(_SlintOptions)%(_SlintGenerate.PathOptions)%(_SlintGenerate.LiveOption)%(_SlintGenerate.DependencyOption)%(_SlintGenerate.UnitOption)" />
+    <!-- slint-compiler leaves an output that didn't change as it is, which would keep it older than the inputs. -->
+    <Touch Files="@(_SlintGenerate->'%(GeneratedFile)');@(_SlintGenerate->'%(UnitFile)')" />
+  </Target>
+
+  <!-- The generated code reads the unit at its runtime path. -->
+  <Target Name="_SlintUnitResources" BeforeTargets="PrepareResources" DependsOnTargets="SlintGenerate"
+          Condition="'$(SlintPrecompile)' == 'true'">
+    <ItemGroup>
+      <EmbeddedResource Include="@(_SlintGenerate->'%(UnitFile)')" Condition="'%(_SlintGenerate.UnitFile)' != ''"
+                        LogicalName="slint-unit:%(_SlintGenerate.RuntimePath)" WithCulture="false" Type="Non-Resx" />
+      <FileWrites Include="@(_SlintGenerate->'%(UnitFile)')" />
+    </ItemGroup>
+  </Target>
+
+  <!-- The output directory isn't part of an APK, so the files go into its assets, at the paths that the generated code loads. -->
+  <Target Name="_SlintAndroidAssets" BeforeTargets="_ComputeAndroidAssetsPaths" DependsOnTargets="_SlintPrepare"
+          Condition="'$(TargetPlatformIdentifier)' == 'android' and '$(_SlintEmbed)' != 'true'">
+    <ItemGroup>
+      <AndroidAsset Include="@(_SlintAssigned)" LogicalName="slint/%(_SlintAssigned.TargetPath)" />
+    </ItemGroup>
+    <ItemGroup Condition="'@(_SlintProjectSource)' != ''">
+      <_SlintProjectAsset Include="@(_SlintProjectSource)">
+        <LogicalName>slint/$([MSBuild]::MakeRelative('$(MSBuildProjectDirectory)/', '%(FullPath)'))</LogicalName>
+      </_SlintProjectAsset>
+      <AndroidAsset Include="@(_SlintProjectAsset)" />
+    </ItemGroup>
+  </Target>
+
+  <!-- An iOS app bundle has the files at the paths that the generated code loads, relative to the bundle. -->
+  <Target Name="_SlintBundleResources" BeforeTargets="_CollectBundleResources" DependsOnTargets="_SlintPrepare"
+          Condition="'$(TargetPlatformIdentifier)' == 'ios'">
+    <Warning Code="SLINT003" Text="The Slint library for iOS, $(_SlintIOSLibrary), doesn't exist; run scripts/build_dotnet_ios.sh in the Slint repository." Condition="!Exists('$(_SlintIOSLibrary)')" />
+    <ItemGroup Condition="'$(_SlintEmbed)' != 'true'">
+      <BundleResource Include="@(_SlintAssigned)" LogicalName="%(_SlintAssigned.TargetPath)" />
+    </ItemGroup>
+    <ItemGroup Condition="'@(_SlintProjectSource)' != '' and '$(_SlintEmbed)' != 'true'">
+      <_SlintProjectResource Include="@(_SlintProjectSource)">
+        <LogicalName>$([MSBuild]::MakeRelative('$(MSBuildProjectDirectory)/', '%(FullPath)'))</LogicalName>
+      </_SlintProjectResource>
+      <BundleResource Include="@(_SlintProjectResource)" />
+    </ItemGroup>
+  </Target>
+
+  <!--
+    GeneratedApi hands the resources to the compiler, below a directory that exists only for it.
+    The generated code has the include and library paths of SlintFile items, and the bundled translations, as absolute paths,
+    so then GeneratedApi also needs the project directory.
+  -->
+  <Target Name="_SlintEmbeddedResources" BeforeTargets="PrepareResources" DependsOnTargets="SlintGenerate"
+          Condition="'$(_SlintEmbed)' == 'true'">
+    <ReadLinesFromFile File="%(_SlintGenerate.DependencyFile)">
+      <Output TaskParameter="Lines" ItemName="_SlintDependencyLine" />
+    </ReadLinesFromFile>
+    <PropertyGroup>
+      <!-- Each line is "<generated file>: <dependencies>", separated by spaces. -->
+      <_SlintDependencies>@(_SlintDependencyLine, ' ')</_SlintDependencies>
+    </PropertyGroup>
+    <ItemGroup>
+      <_SlintDependency Include="$([MSBuild]::Unescape($(_SlintDependencies.Replace(' ', ';'))))" />
+      <_SlintDependency Remove="@(_SlintDependency)" Condition="$([System.String]::Copy('%(Identity)').EndsWith(':'))" />
+    </ItemGroup>
+    <ItemGroup Condition="'$(SlintBundledTranslations)' != ''">
+      <_SlintDependency Include="$([System.IO.Path]::GetFullPath('$(SlintBundledTranslations)', '$(MSBuildProjectDirectory)'))/**/*.po" />
+    </ItemGroup>
+    <PropertyGroup>
+      <_SlintEmbedProjectDirectory Condition="'@(_SlintIncludePath)' != '' or '@(SlintLibraryPath)' != '' or '$(SlintBundledTranslations)' != ''">true</_SlintEmbedProjectDirectory>
+    </PropertyGroup>
+    <RemoveDuplicates Inputs="@(_SlintDependency)">
+      <Output TaskParameter="Filtered" ItemName="_SlintEmbeddedFile" />
+    </RemoveDuplicates>
+    <ItemGroup>
+      <EmbeddedResource Include="@(_SlintEmbeddedFile)" LogicalName="slint:$([MSBuild]::MakeRelative('$(MSBuildProjectDirectory)/', '%(FullPath)').Replace('\', '/'))" WithCulture="false" Type="Non-Resx" />
+      <FileWrites Include="@(_SlintGenerate->'%(DependencyFile)')" />
+    </ItemGroup>
+    <WriteLinesToFile Condition="'$(_SlintEmbedProjectDirectory)' == 'true'"
+                      File="$(_SlintGeneratedDir)project-directory.txt" Lines="$(MSBuildProjectDirectory)" Overwrite="true" WriteOnlyWhenDifferent="true" />
+    <ItemGroup Condition="'$(_SlintEmbedProjectDirectory)' == 'true'">
+      <EmbeddedResource Include="$(_SlintGeneratedDir)project-directory.txt" LogicalName="slint-project-directory" WithCulture="false" Type="Non-Resx" />
+      <FileWrites Include="$(_SlintGeneratedDir)project-directory.txt" />
+    </ItemGroup>
+  </Target>
+
+  <!-- Slint.csproj copies the desktop library to the apps that reference it, which an iOS app can't link. -->
+  <Target Name="_SlintSkipDesktopLibrary" BeforeTargets="_ComputePublishLocation" Condition="'$(TargetPlatformIdentifier)' == 'ios'">
+    <ItemGroup>
+      <ResolvedFileToPublish Update="@(ResolvedFileToPublish)" PublishFolderType="None"
+                             Condition="'%(ResolvedFileToPublish.Filename)%(ResolvedFileToPublish.Extension)' == 'libslint_dotnet.dylib'" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="_SlintAddGenerated" BeforeTargets="CoreCompile;BeforeCompile" DependsOnTargets="SlintGenerate">
+    <ItemGroup>
+      <Compile Include="@(_SlintGenerate->'%(GeneratedFile)')" />
+      <FileWrites Include="@(_SlintGenerate->'%(GeneratedFile)');$(_SlintOptionsFile)" />
+    </ItemGroup>
+  </Target>
+</Project>

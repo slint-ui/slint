@@ -219,4 +219,51 @@ for (var i = 0; i < 20; ++i) {
 }
 assert.equal(instance.second_result, "ABAcdABAABAcdABAAcdBAABAcdBcdBBcdBcdB");
 ```
+
+```csharp
+using var instance = TestCase.Create();
+Assert.IsTrue(instance.Test);
+Assert.AreEqual("", instance.Result);
+Testing.MockElapsedTime(991);
+Assert.AreEqual("", instance.Result);
+Testing.MockElapsedTime(10);
+Assert.AreEqual("1", instance.Result);
+instance.Tm2running = true;
+Assert.AreEqual("1", instance.Result);
+// However much time passes at once, each timer and changed callback runs once.
+Testing.MockElapsedTime(500);
+Testing.MockElapsedTime(510);
+Assert.AreEqual("121", instance.Result);
+Testing.MockElapsedTime(0);
+Assert.AreEqual("1212", instance.Result);
+Testing.MockElapsedTime(0);
+Assert.AreEqual("12122", instance.Result);
+// The timer fires before the changed callback of its new interval.
+instance.Tm2duration = 50;
+Testing.MockElapsedTime(8);
+Assert.AreEqual("121222", instance.Result);
+Testing.MockElapsedTime(49);
+Assert.AreEqual("121222", instance.Result);
+Testing.MockElapsedTime(2);
+Assert.AreEqual("1212222", instance.Result);
+Testing.MockElapsedTime(47);
+Assert.AreEqual("1212222", instance.Result);
+instance.Tm2duration = 18;
+Testing.MockElapsedTime(2);
+Assert.AreEqual("1212222", instance.Result);
+Testing.MockElapsedTime(19);
+Assert.AreEqual("12122222", instance.Result);
+
+for (var i = 0; i < 20; i++)
+{
+    Testing.MockElapsedTime(500);
+}
+Assert.AreEqual("ABAcdABAABAcdABAAcdBAABAcd", instance.SecondResult);
+instance.G.TArunning = false;
+for (var i = 0; i < 20; i++)
+{
+    Testing.MockElapsedTime(500);
+}
+Assert.AreEqual("ABAcdABAABAcdABAAcdBAABAcdBcdBBcdBcdB", instance.SecondResult);
+```
 */

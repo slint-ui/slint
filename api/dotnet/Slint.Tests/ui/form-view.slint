@@ -1,0 +1,14 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Matches FormViewModel, with validation errors and an asynchronous command.
+export component FormView {
+    in-out property <string> first-name;
+    in property <string> first-name-error;
+    in property <bool> has-errors;
+    in property <bool> submit-enabled;
+    in property <bool> submit-running;
+    callback submit();
+    public function type-first-name(text: string) { first-name = text; }
+    public function click-submit() { submit(); }
+}

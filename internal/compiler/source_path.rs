@@ -50,7 +50,7 @@ impl SourcePath {
     fn from_file_url(url: &url::Url) -> Option<Self> {
         match url.scheme() {
             "builtin" => Some(Self::Builtin(url.path().trim_start_matches('/').into())),
-            #[cfg(not(target_arch = "wasm32"))]
+            #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
             "file" => Some(Self::File(clean_path(&url.to_file_path().ok()?))),
             _ => None,
         }
@@ -59,9 +59,9 @@ impl SourcePath {
     /// Returns `None` for a relative `File`.
     pub fn to_url(&self) -> Option<url::Url> {
         match self {
-            #[cfg(not(target_arch = "wasm32"))]
+            #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
             Self::File(path) => url::Url::from_file_path(path).ok(),
-            #[cfg(target_arch = "wasm32")]
+            #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
             Self::File(_) => None,
             Self::Builtin(path) => url::Url::parse(&format!("builtin:/{path}")).ok(),
             Self::Url(url) => Some(url.0.clone()),

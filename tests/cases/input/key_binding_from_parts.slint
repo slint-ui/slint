@@ -299,4 +299,65 @@ assert instance.shortcut == empty
 assert "Ctrl" in str(ctrl_p) or "⌘" in str(ctrl_p)  # platform-dependent
 ```
 
+```csharp
+using var instance = TestCase.Create();
+Assert.IsTrue(instance.HasFocus);
+Assert.AreEqual(0, instance.Matches);
+
+var ctrlP = Keys.FromParts("Control", "P");
+var ctrlPlus = Keys.FromParts("Control", "Plus");
+var ctrlShiftOptZ = Keys.FromParts("Control", "Shift?", "Z");
+var f5 = Keys.FromParts("F5");
+var empty = Keys.FromParts();
+
+Assert.ThrowsExactly<SlintException>(() => Keys.FromParts("Ctrl", "P"));
+Assert.ThrowsExactly<SlintException>(() => Keys.FromParts("Control"));
+Assert.ThrowsExactly<SlintException>(() => Keys.FromParts("Shift", "Shift?", "A"));
+
+// Parts aren't trimmed, so " " is the Space key.
+Assert.AreEqual(Keys.FromParts("Space"), Keys.FromParts(" "));
+
+Assert.AreEqual(instance.ReferenceShortcut, ctrlP);
+
+const string Control = "\u0011";
+const string Shift = "\u0010";
+const string F5 = "";
+void Send(params string[] keys) => Testing.SendKeyCombo(instance.Instance, keys);
+
+// The empty shortcut doesn't match anything.
+Send(Control, "p");
+Assert.AreEqual(0, instance.Matches);
+
+instance.Shortcut = ctrlP;
+Assert.AreEqual(ctrlP, instance.Shortcut);
+Send(Control, "p");
+Assert.AreEqual(1, instance.Matches);
+
+Send(Control, "a");
+Assert.AreEqual(1, instance.Matches);
+
+// A missing modifier doesn't match.
+Testing.SendKeyboardStringSequence(instance.Instance, "p");
+Assert.AreEqual(1, instance.Matches);
+
+instance.Shortcut = ctrlPlus;
+Send(Control, "+");
+Assert.AreEqual(2, instance.Matches);
+
+instance.Shortcut = f5;
+Send(F5);
+Assert.AreEqual(3, instance.Matches);
+
+// The optional Shift matches with and without Shift.
+instance.Shortcut = ctrlShiftOptZ;
+Send(Control, "z");
+Assert.AreEqual(4, instance.Matches);
+Send(Control, Shift, "z");
+Assert.AreEqual(5, instance.Matches);
+
+instance.Shortcut = empty;
+Assert.AreEqual(empty, instance.Shortcut);
+Send(Control, "z");
+Assert.AreEqual(5, instance.Matches);
+```
 */

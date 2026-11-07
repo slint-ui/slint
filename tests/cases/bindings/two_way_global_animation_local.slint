@@ -51,4 +51,14 @@ assert.equal(instance.observed, 58);
 slintlib.private_api.mock_elapsed_time(100);
 assert.equal(instance.observed, 108);
 ```
+
+```csharp
+using var instance = TestCase.Create();
+Assert.AreEqual(8, instance.Observed);
+instance.Bump();
+Testing.MockElapsedTime(100);
+Assert.AreEqual(58, instance.Observed);
+Testing.MockElapsedTime(100);
+Assert.AreEqual(108, instance.Observed);
+```
 */

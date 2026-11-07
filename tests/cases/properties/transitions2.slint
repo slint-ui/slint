@@ -164,4 +164,38 @@ slintlib.private_api.mock_elapsed_time(25); // 100% of the animation
 assert.equal(instance.another_prop, 100);
 ```
 
+```csharp
+using var instance = TestCase.Create();
+Assert.AreEqual(85 + 4, instance.Text1Foo);
+Assert.AreEqual(5, instance.SomeProp);
+instance.ActiveIndex = 1;
+Assert.AreEqual(3 + 2 * 4, instance.Text1Foo);
+Assert.AreEqual(5, instance.SomeProp);
+Testing.MockElapsedTime(75); // 75% of the animation
+Assert.IsTrue(instance.SomeProp is > 1500 and < 1999, $"{instance.SomeProp}");
+Testing.MockElapsedTime(30); // past the end
+Assert.AreEqual(2000, instance.SomeProp);
+instance.ActiveIndex = 2;
+Assert.AreEqual(5, instance.SomeProp);
+Assert.AreEqual(3 + 2 * 4, instance.Text1Foo);
+Testing.MockElapsedTime(290);
+Assert.IsTrue(instance.Text1Foo is > 70 and < 87, $"{instance.Text1Foo}");
+Testing.MockElapsedTime(30);
+Assert.AreEqual(85 + 4, instance.Text1Foo);
+Assert.AreEqual(100, instance.AnotherProp);
+
+// The transitions in and out of a state animate both ways.
+instance.ActiveIndex = 3;
+Assert.AreEqual(100, instance.AnotherProp);
+Testing.MockElapsedTime(75);
+Assert.IsTrue(instance.AnotherProp is > 100 and < 500, $"{instance.AnotherProp}");
+Testing.MockElapsedTime(25);
+Assert.AreEqual(500, instance.AnotherProp);
+instance.ActiveIndex = 1;
+Assert.AreEqual(500, instance.AnotherProp);
+Testing.MockElapsedTime(75);
+Assert.IsTrue(instance.AnotherProp is > 100 and < 500, $"{instance.AnotherProp}");
+Testing.MockElapsedTime(25);
+Assert.AreEqual(100, instance.AnotherProp);
+```
 */

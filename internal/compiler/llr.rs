@@ -10,6 +10,8 @@ mod expression;
 pub use expression::*;
 mod item_tree;
 pub use item_tree::*;
+#[cfg(feature = "serde")]
+pub mod bundle;
 #[cfg(feature = "std")]
 pub mod lower_expression;
 #[cfg(feature = "std")]
