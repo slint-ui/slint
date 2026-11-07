@@ -28,12 +28,14 @@ pub mod serialize;
 pub mod optim_passes {
     pub mod count_property_use;
     mod inline_expressions;
+    pub mod mark_outliving_bindings;
     mod remove_unused;
 
     pub fn run_passes(root: &mut super::CompilationUnit) {
         count_property_use::count_property_use(root);
         inline_expressions::inline_simple_expressions(root);
         remove_unused::remove_unused(root);
+        mark_outliving_bindings::mark_outliving_bindings(root);
     }
 }
 

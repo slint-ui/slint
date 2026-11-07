@@ -1,0 +1,134 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A binding that reaches a global outlives the instance that set it.
+// Once the instance is gone, the property has its default value.
+
+global Lives {
+    in-out property <int> source: 1;
+    in-out property <int> plain;
+    in-out property <int> linked;
+    in-out property <int> nested;
+    in-out property <int> in-parent;
+    in-out property <int> animated;
+    in-out property <int> in-row;
+    in-out property <int> chained;
+    in-out property <int> transition;
+    in-out property <string> label;
+}
+
+component Aliases {
+    in-out property <int> plain <=> Lives.plain;
+    in-out property <int> linked <=> Lives.linked;
+    in-out property <int> nested <=> Lives.nested;
+    in-out property <int> in-parent <=> Lives.in-parent;
+    in-out property <int> animated <=> Lives.animated;
+    in-out property <int> in-row <=> Lives.in-row;
+    in-out property <int> chained <=> Lives.chained;
+    in-out property <int> transition <=> Lives.transition;
+    in-out property <string> label <=> Lives.label;
+}
+
+component Bridge {
+    in-out property <int> a;
+    in-out property <int> b <=> a;
+}
+
+component OwnBinding {
+    in-out property <int> q: Lives.source + 3;
+}
+
+export component TestCase {
+    in-out property <bool> alive: true;
+    in-out property <int> rows: 1;
+    in-out property <int> source <=> Lives.source;
+    in-out property <int> outer;
+
+    if alive: Aliases { plain: root.source + 1; }
+    if alive: Rectangle {
+        property <int> local: root.source + 2;
+        Aliases { linked <=> local; }
+    }
+    if alive: Rectangle {
+        d := OwnBinding { }
+        Aliases { nested <=> d.q; }
+    }
+    if alive: Rectangle {
+        property <int> local: root.source + 4;
+        if true: Aliases { in-parent <=> local; }
+    }
+    if alive: Aliases {
+        animated: root.source + 5;
+        animate animated { duration: 0ms; }
+    }
+    for i in root.rows: Aliases { in-row: root.source + 6; }
+    if alive: Rectangle {
+        property <int> local: root.source + 7;
+        if true: Rectangle {
+            property <int> middle <=> local;
+            Aliases { chained <=> middle; }
+        }
+    }
+    if alive: Rectangle {
+        property <int> local;
+        states [
+            active when root.alive: {
+                local: root.source + 8;
+                in { animate local { duration: 0ms; } }
+            }
+        ]
+        Aliases { transition <=> local; }
+    }
+
+    if alive: Aliases { label: root.source > 0 ? "alive" : "negative"; }
+    Text { text: Lives.label; }
+    if alive: Rectangle {
+        property <int> m: root.source + 9;
+        property <int> n <=> root.outer;
+        Bridge { a <=> m; b <=> n; }
+    }
+
+    public function sum() -> int {
+        return Lives.plain + Lives.linked + Lives.nested + Lives.in-parent + Lives.animated
+            + Lives.in-row + Lives.chained + Lives.transition + root.outer
+            + (Lives.label == "alive" ? 1000 : 0);
+    }
+    out property <bool> test: true;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.invoke_sum(), 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 + 10 + 1000);
+instance.set_alive(false);
+instance.set_rows(0);
+slint_testing::send_mouse_click(&instance, 5., 5.);
+instance.set_source(10);
+assert_eq!(instance.invoke_sum(), 0);
+instance.set_alive(true);
+instance.set_rows(1);
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.invoke_sum(), 11 + 12 + 13 + 14 + 15 + 16 + 17 + 18 + 19 + 1000);
+instance.set_source(20);
+assert_eq!(instance.invoke_sum(), 21 + 22 + 23 + 24 + 25 + 26 + 27 + 28 + 29 + 1000);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.invoke_sum(), 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 + 10 + 1000);
+instance.set_alive(false);
+instance.set_rows(0);
+slint_testing::send_mouse_click(&instance, 5., 5.);
+instance.set_source(10);
+assert_eq(instance.invoke_sum(), 0);
+instance.set_alive(true);
+instance.set_rows(1);
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.invoke_sum(), 11 + 12 + 13 + 14 + 15 + 16 + 17 + 18 + 19 + 1000);
+instance.set_source(20);
+assert_eq(instance.invoke_sum(), 21 + 22 + 23 + 24 + 25 + 26 + 27 + 28 + 29 + 1000);
+```
+*/
