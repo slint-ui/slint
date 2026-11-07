@@ -207,6 +207,31 @@ pub unsafe extern "C" fn slint_dotnet_compiler_build_from_source(
     })
 }
 
+/// Runs a unit that `slint-compiler -f csharp --csharp-unit` wrote, instead of compiling,
+/// and fails for a unit of another Slint version.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_dotnet_compilation_result_from_unit(
+    data: *const u8,
+    len: usize,
+) -> *mut CompilationResult {
+    guard(std::ptr::null_mut(), || {
+        let bytes = unsafe { std::slice::from_raw_parts(data, len) };
+        let bundle = i_slint_compiler::llr::bundle::from_bytes(bytes)?;
+        let resources = bundle.resources.into_iter().map(|resource| {
+            slint_interpreter::LoadedResource::new(resource, i_slint_core::InternalToken)
+        });
+        Ok(into_raw(
+            slint_interpreter::CompilationResult::from_compilation_unit_with_fonts(
+                bundle.unit,
+                resources,
+                bundle.fonts,
+                i_slint_core::InternalToken,
+            )
+            .into(),
+        ))
+    })
+}
+
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_dotnet_compilation_result_free(result: *mut CompilationResult) {
     unsafe { release(result) }

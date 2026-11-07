@@ -181,6 +181,12 @@ struct Cli {
     #[cfg(feature = "csharp")]
     #[arg(long = "csharp-live-preview")]
     csharp_live_preview: bool,
+
+    /// Also write the compiled input to this file, for the generated C# code to run
+    /// from the assembly's resource `slint-unit:<runtime path>` instead of compiling the input at startup.
+    #[cfg(feature = "csharp")]
+    #[arg(long = "csharp-unit", name = "unit file")]
+    csharp_unit: Option<std::path::PathBuf>,
 }
 
 /// Parses the file to compile, the main file of a project directory given as input,
@@ -192,6 +198,7 @@ fn parse_input(
     Option<parser::SyntaxNode>,
     Option<i_slint_compiler::project_file::ProjectFile>,
     Vec<std::path::PathBuf>,
+    Option<(SourcePath, String)>,
 ) {
     // The Slint SC subset rejects the flags a project file could set, so it has none.
     #[cfg(feature = "slint-sc")]
@@ -217,11 +224,13 @@ fn parse_input(
         None,
         diag,
     ));
-    let Some(input) = input else { return (None, None, Vec::new()) };
+    let Some(input) = input else { return (None, None, Vec::new(), None) };
+    let main_file = Some((input.source.clone(), input.source_code.clone()));
     (
         Some(parser::parse(input.source_code, Some(input.source), diag)),
         input.project_file,
         input_files.into_iter().filter_map(SourcePath::into_native_path).collect(),
+        main_file,
     )
 }
 
@@ -231,7 +240,8 @@ fn main() -> std::io::Result<()> {
     let input = i_slint_compiler::project_file::project_root(&args.path);
     let input_project_directory = input.is_dir().then(|| input.to_path_buf());
     let mut diag = BuildDiagnostics::default();
-    let (syntax_node, project_file, input_files) = parse_input(&args, &mut diag);
+    #[cfg_attr(not(feature = "csharp"), allow(unused_variables))]
+    let (syntax_node, project_file, input_files, main_file) = parse_input(&args, &mut diag);
     //println!("{:#?}", syntax_node);
     if diag.has_errors() {
         diag.print_styled_if_terminal();
@@ -268,6 +278,8 @@ fn main() -> std::io::Result<()> {
         reject(args.csharp_runtime_path.is_some(), "--csharp-runtime-path");
         #[cfg(feature = "csharp")]
         reject(args.csharp_live_preview, "--csharp-live-preview");
+        #[cfg(feature = "csharp")]
+        reject(args.csharp_unit.is_some(), "--csharp-unit");
     }
 
     #[allow(unused_mut)]
@@ -329,12 +341,14 @@ fn main() -> std::io::Result<()> {
     if args.csharp_namespace.is_some()
         || args.csharp_runtime_path.is_some()
         || args.csharp_live_preview
+        || args.csharp_unit.is_some()
     {
         match &mut format {
             generator::OutputFormat::CSharp(config) => {
                 config.namespace = args.csharp_namespace.clone();
                 config.runtime_path = args.csharp_runtime_path.clone();
                 config.live_preview = args.csharp_live_preview;
+                config.unit = args.csharp_unit.is_some();
             }
             _ => {
                 eprintln!("C# options were set but the output format is not C# - ignoring");
@@ -428,6 +442,19 @@ fn main() -> std::io::Result<()> {
     if let Some(path) = args.bundle_translations {
         compiler_config.bundled_translations_path = Some(path);
     }
+    // The native style depends on the platform that the application runs on.
+    #[cfg(feature = "csharp")]
+    if let generator::OutputFormat::CSharp(config) = &mut format
+        && compiler_config.style.as_deref() == Some("native")
+    {
+        config.unit = false;
+    }
+    #[cfg(feature = "csharp")]
+    let unit_config = args
+        .csharp_unit
+        .is_some()
+        .then(|| compiler_config.clone())
+        .filter(|_| matches!(&format, generator::OutputFormat::CSharp(c) if c.unit));
     let syntax_node = syntax_node.expect("diags contained no compilation errors");
     let (doc, diag, loader) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
@@ -450,6 +477,23 @@ fn main() -> std::io::Result<()> {
         // Important: Write without unnecessary mtime modification to avoid
         // build systems to always detect the generated file as modified.
         fileaccess::write_file_if_changed(&args.output, &cursor.into_inner())?;
+    }
+
+    #[cfg(feature = "csharp")]
+    if let Some(unit_file) = &args.csharp_unit {
+        let bytes = match (unit_config, main_file) {
+            (Some(config), Some((path, source))) => {
+                let (unit_diag, bytes) =
+                    spin_on::spin_on(generator::csharp::unit::compile(&path, source, config));
+                if unit_diag.has_errors() {
+                    unit_diag.print_styled_if_terminal();
+                    std::process::exit(-1);
+                }
+                bytes.unwrap_or_default()
+            }
+            _ => Vec::new(),
+        };
+        fileaccess::write_file_if_changed(unit_file, &bytes)?;
     }
 
     if let Some(depfile) = args.depfile {

@@ -106,7 +106,12 @@ A field that a struct from the application lacks takes the same default.
 `--csharp-namespace` sets the namespace,
 and `--csharp-runtime-path` sets where the code loads the `.slint` file from, relative to the application directory.
 
-Like the Python module, the generated code loads the `.slint` file with the interpreter at run time.
+Like the Python module, the generated code runs the `.slint` file with the interpreter.
+With `--csharp-unit`, `slint-compiler` also writes the compiled file, with `i_slint_compiler::llr::bundle`:
+the unit of `llr::serialize`, the font files that it imports, and its images as `data:` URLs.
+`Slint.targets` embeds it as `slint-unit:` and the runtime path, and the generated code reads it with `GeneratedApi.LoadUnit`.
+That returns null for a unit of another Slint version, or with `SLINT_STYLE` set to another style,
+and then, or with live preview, the generated code compiles the `.slint` file at run time.
 Before creating a component, it checks that the file still has every member with the type the code was generated for,
 and throws `SlintException` listing the differences otherwise.
 The check is in C#, in `GeneratedApi`, because the generated code already lists each member.
@@ -914,16 +919,17 @@ Next:
       writes a compiled unit as bytes, and `CompilationResult::from_compilation_unit` of the interpreter runs it.
       Reading a unit takes 0.5 ms for the todo example, 1 ms for the printer demo, and 3 to 5 ms for the gallery,
       from units of 100, 243, and 818 KB.
-  - Phase 1, 3–4 days: units at build time, for the desktop.
-    `slint-compiler -f csharp` also writes the unit, which the assembly embeds,
-    and `GeneratedApi.Create` reads it instead of compiling, through a new export of `slint-dotnet`.
-    - The unit refers to images by their paths on the build machine,
-      so the build turns them into `data:` URLs, like `SlintEmbedFiles` does at run time.
-    - A unit carries no font files, so the interpreter needs a way to take them with it.
-    - `slint-dotnet` needs the interpreter's `internal-mcu-interpreter` feature, which adds owned textures to the core.
-    - The unit fixes the style, from `SlintStyle` or else `fluent`;
-      with `SLINT_STYLE` set to another style, or with live preview, the generated code compiles as today.
-    - The format isn't stable, so the unit records the Slint version, and a different one compiles instead.
+  - Phase 1, done: units at build time, for the desktop, see [Generated Code](#generated-code).
+    `SlintPrecompile`, on by default on the desktop, makes `Slint.targets` pass `--csharp-unit` and embed the unit.
+    - In a release build, `App.Create()` of the gallery takes 17 ms instead of 106 ms; the rest is creating the instance.
+    - The printer demo renders its images and fonts from the unit with its `.slint` files deleted,
+      while the same app compiling at startup fails to load them.
+    - The interpreter's `CompilationResult::from_compilation_unit_with_fonts` takes the font files,
+      which the unit registers by their paths on the build machine.
+    - `slint-dotnet` enables the interpreter's `internal-mcu-interpreter` feature, and the compiler's `serde` feature.
+    - A unit fixes the style, from `SlintStyle` or else `fluent`, and `SlintStyle=native` writes no unit.
+    - `llr::bundle` records the Slint version, so a unit of another version compiles instead,
+      but two builds of one version can't tell apart a change of the format.
   - Phase 2, 2–3 days: the browser, Android, and iOS, with the startup measured on each; the browser gains the most.
   - Phase 3, 2–3 days: the test driver runs every case from units too, and the documentation, What's New, and CI.
 

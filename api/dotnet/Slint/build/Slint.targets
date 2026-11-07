@@ -38,6 +38,9 @@
     SlintEmbedFiles     true embeds the files in the assembly instead of copying them to the output, so that
                         a single-file publish needs no ui/ directory, and an Android or iOS app has the images they use;
                         on by default with PublishSingleFile, and on Android and iOS
+    SlintPrecompile     false makes the generated code compile the .slint files at startup, instead of running
+                        the unit that the build compiles them to; true by default on the desktop.
+                        The generated code also compiles them when SLINT_STYLE names another style.
     SlintLivePreview    true makes the generated code load the .slint files from their source directory,
                         and reload components when the files change; for development only.
                         LivePreview metadata on a SlintFile overrides it for that file.
@@ -61,6 +64,7 @@
     <_SlintEmbed Condition="'$(_SlintBrowser)' == 'true' or '$(SlintEmbedFiles)' == 'true'">true</_SlintEmbed>
     <_SlintFromSource Condition="'$(SlintCopyToOutput)' == 'false' and '$(_SlintOnDevice)' != 'true'">true</_SlintFromSource>
     <_SlintLiveAllowed Condition="'$(_SlintOnDevice)' != 'true' and '$(_SlintBrowser)' != 'true'">true</_SlintLiveAllowed>
+    <SlintPrecompile Condition="'$(SlintPrecompile)' == '' and '$(_SlintOnDevice)' != 'true' and '$(_SlintBrowser)' != 'true'">true</SlintPrecompile>
     <!-- From the package, outside runtimes/ so that NuGet leaves it alone, or else from scripts/build_dotnet_ios.sh in the repository. -->
     <_SlintIOSLibrary Condition="'$(_SlintPlatform)' == 'ios'">$(MSBuildThisFileDirectory)../ios/slint_dotnet.xcframework</_SlintIOSLibrary>
     <_SlintIOSLibrary Condition="'$(_SlintPlatform)' == 'ios' and !Exists('$(_SlintIOSLibrary)')">$(MSBuildThisFileDirectory)../../../../target/ios/slint_dotnet.xcframework</_SlintIOSLibrary>
@@ -184,25 +188,39 @@
       <_SlintGenerate Condition="'%(_SlintGenerate.IsProject)' != 'true'">
         <PathOptions>$(_SlintPathOptions)</PathOptions>
       </_SlintGenerate>
+      <_SlintGenerate Condition="'$(SlintPrecompile)' == 'true' and '%(_SlintGenerate.LiveOption)' == ''">
+        <UnitFile>%(GeneratedFile).unit</UnitFile>
+        <UnitOption> --csharp-unit &quot;%(GeneratedFile).unit&quot;</UnitOption>
+      </_SlintGenerate>
     </ItemGroup>
     <Warning Code="SLINT002"
              Text="Live preview of .slint files isn't available on Android and iOS yet: the app loads them from its package, so rebuild and redeploy to see a change."
              Condition="'$(_SlintLiveAllowed)' != 'true' and ('$(SlintLivePreview)' == 'true' or '@(SlintFile->WithMetadataValue('LivePreview', 'true'))' != '' or '@(SlintProject->WithMetadataValue('LivePreview', 'true'))' != '')" />
     <!-- Changing an option, such as with -p:SlintLivePreview=true, changes no other input, so this file is one. -->
     <MakeDir Directories="$(_SlintGeneratedDir)" />
-    <WriteLinesToFile File="$(_SlintOptionsFile)" Lines="$(SlintCompilerPath)$(_SlintOptions)$(_SlintPathOptions);@(_SlintGenerate->'%(Identity)%(LiveOption)')" Overwrite="true" WriteOnlyWhenDifferent="true" />
+    <WriteLinesToFile File="$(_SlintOptionsFile)" Lines="$(SlintCompilerPath)$(_SlintOptions)$(_SlintPathOptions);@(_SlintGenerate->'%(Identity)%(LiveOption)%(UnitOption)')" Overwrite="true" WriteOnlyWhenDifferent="true" />
   </Target>
 
   <Target Name="SlintGenerate"
           DependsOnTargets="_SlintPrepare"
           Inputs="@(SlintFile);@(_SlintProjectSource);@(_SlintCompilerInput);$(MSBuildAllProjects);$(_SlintOptionsFile)"
-          Outputs="@(_SlintGenerate->'%(GeneratedFile)');@(_SlintGenerate->'%(DependencyFile)')">
+          Outputs="@(_SlintGenerate->'%(GeneratedFile)');@(_SlintGenerate->'%(DependencyFile)');@(_SlintGenerate->'%(UnitFile)')">
     <MakeDir Directories="@(_SlintGenerate->'%(GeneratedFile)'->DirectoryName())" />
     <!-- NuGet doesn't keep the executable bit of files in packages. -->
     <Exec Command="chmod +x &quot;$(SlintCompilerPath)&quot;" Condition="'$(OS)' != 'Windows_NT' and '$(_SlintCompilerIsPackaged)' == 'true'" />
-    <Exec Command="&quot;$(SlintCompilerPath)&quot; -f csharp &quot;%(_SlintGenerate.FullPath)&quot; -o &quot;%(_SlintGenerate.GeneratedFile)&quot; --csharp-runtime-path &quot;%(_SlintGenerate.RuntimePath)&quot;$(_SlintOptions)%(_SlintGenerate.PathOptions)%(_SlintGenerate.LiveOption)%(_SlintGenerate.DependencyOption)" />
+    <Exec Command="&quot;$(SlintCompilerPath)&quot; -f csharp &quot;%(_SlintGenerate.FullPath)&quot; -o &quot;%(_SlintGenerate.GeneratedFile)&quot; --csharp-runtime-path &quot;%(_SlintGenerate.RuntimePath)&quot;$(_SlintOptions)%(_SlintGenerate.PathOptions)%(_SlintGenerate.LiveOption)%(_SlintGenerate.DependencyOption)%(_SlintGenerate.UnitOption)" />
     <!-- slint-compiler leaves an output that didn't change as it is, which would keep it older than the inputs. -->
-    <Touch Files="@(_SlintGenerate->'%(GeneratedFile)')" />
+    <Touch Files="@(_SlintGenerate->'%(GeneratedFile)');@(_SlintGenerate->'%(UnitFile)')" />
+  </Target>
+
+  <!-- The generated code reads the unit at its runtime path. -->
+  <Target Name="_SlintUnitResources" BeforeTargets="PrepareResources" DependsOnTargets="SlintGenerate"
+          Condition="'$(SlintPrecompile)' == 'true'">
+    <ItemGroup>
+      <EmbeddedResource Include="@(_SlintGenerate->'%(UnitFile)')" Condition="'%(_SlintGenerate.UnitFile)' != ''"
+                        LogicalName="slint-unit:%(_SlintGenerate.RuntimePath)" WithCulture="false" Type="Non-Resx" />
+      <FileWrites Include="@(_SlintGenerate->'%(UnitFile)')" />
+    </ItemGroup>
   </Target>
 
   <!-- The output directory isn't part of an APK, so the files go into its assets, at the paths that the generated code loads. -->

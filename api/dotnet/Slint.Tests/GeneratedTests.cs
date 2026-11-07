@@ -54,6 +54,32 @@ public sealed class GeneratedTests
     });
 
     [TestMethod]
+    public void RunsTheUnitOfTheBuild() => SlintThread.Run(() =>
+    {
+        using var result = global::Slint.Generated.GeneratedApi.LoadUnit(typeof(Generated).Assembly, "slint-unit:ui/generated.slint", "fluent");
+        Assert.IsNotNull(result);
+        CollectionAssert.Contains(result.ComponentNames.ToArray(), "Generated");
+        using var instance = result.Component("Generated")!.Create();
+        Assert.AreEqual(42.0, instance.GetProperty("count"));
+
+        Assert.IsNull(global::Slint.Generated.GeneratedApi.LoadUnit(typeof(Generated).Assembly, "slint-unit:missing.slint", "fluent"));
+    });
+
+    [TestMethod]
+    public void CompilesWhenSlintStyleNamesAnotherStyle() => SlintThread.Run(() =>
+    {
+        Environment.SetEnvironmentVariable("SLINT_STYLE", "material");
+        try
+        {
+            Assert.IsNull(global::Slint.Generated.GeneratedApi.LoadUnit(typeof(Generated).Assembly, "slint-unit:ui/generated.slint", "fluent"));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("SLINT_STYLE", null);
+        }
+    });
+
+    [TestMethod]
     public void ModelsOfStructs() => SlintThread.Run(() =>
     {
         using var app = Generated.Create();

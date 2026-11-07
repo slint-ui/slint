@@ -1356,6 +1356,20 @@ impl CompilationResult {
     pub fn from_compilation_unit(
         unit: i_slint_compiler::llr::CompilationUnit,
         resources: impl IntoIterator<Item = LoadedResource>,
+        token: i_slint_core::InternalToken,
+    ) -> Self {
+        Self::from_compilation_unit_with_fonts(unit, resources, [], token)
+    }
+
+    /// This is an internal function without API stability guarantees.
+    /// Like [`Self::from_compilation_unit()`], with the data of the font files that the unit registers,
+    /// by the path that it registers them with, such as those of `i_slint_compiler::llr::bundle`.
+    #[doc(hidden)]
+    #[cfg(all(feature = "internal", feature = "internal-mcu-interpreter"))]
+    pub fn from_compilation_unit_with_fonts(
+        unit: i_slint_compiler::llr::CompilationUnit,
+        resources: impl IntoIterator<Item = LoadedResource>,
+        fonts: impl IntoIterator<Item = (String, Vec<u8>)>,
         _: i_slint_core::InternalToken,
     ) -> Self {
         let components = unit
@@ -1366,7 +1380,10 @@ impl CompilationResult {
         let sent = SendableCompilationResult {
             compilation_unit: Some(unit),
             components,
-            font_files: HashMap::new(),
+            font_files: fonts
+                .into_iter()
+                .map(|(path, data)| (path, alloc::sync::Arc::new(data)))
+                .collect(),
             pre_rendered: Vec::new(),
             #[cfg(feature = "std")]
             diagnostics: Vec::new(),

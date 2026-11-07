@@ -52,7 +52,7 @@ cpp = ["std"]
 rust = ["std", "quote", "proc-macro2", "dep:syn"]
 python = ["std", "dep:pathdiff", "smol_str/serde", "dep:flate2", "dep:base64"]
 typescript = ["std"]
-csharp = ["std"]
+csharp = ["std", "serde", "dep:base64"]
 
 # Keep the documentation of the builtin elements in the binary, for hover documentation
 # and doc generation.

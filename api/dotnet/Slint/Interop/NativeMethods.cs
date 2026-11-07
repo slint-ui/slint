@@ -244,6 +244,9 @@ internal static unsafe partial class NativeMethods
         Utf8Str path);
 
     [LibraryImport(Library)]
+    public static partial CompilationResultHandle slint_dotnet_compilation_result_from_unit(byte* data, nuint len);
+
+    [LibraryImport(Library)]
     public static partial CompilationResultHandle slint_dotnet_compiler_build_from_source(
         CompilerHandle compiler,
         Utf8Str source,

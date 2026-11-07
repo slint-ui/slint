@@ -30,7 +30,13 @@ pub struct Config {
     pub runtime_path: Option<String>,
     /// Load the input from its absolute source path instead, and reload components when it changes.
     pub live_preview: bool,
+    /// Run the unit that the assembly embeds as `slint-unit:` and the runtime path, from [`unit::compile()`],
+    /// instead of compiling the input at startup, unless the unit doesn't apply.
+    pub unit: bool,
 }
+
+#[cfg(feature = "serde")]
+pub mod unit;
 
 const CONVERSION: &str = "global::Slint.Generated.Conversion";
 
@@ -784,6 +790,15 @@ pub fn generate(
         )
     };
     let _ = writeln!(out, "        var path = {path};");
+    if config.unit && !config.live_preview {
+        let unit_style = compiler_config.style.as_deref().unwrap_or("fluent");
+        let _ = writeln!(
+            out,
+            "        s_result ??= global::Slint.Generated.GeneratedApi.LoadUnit(typeof(SlintFile).Assembly, {}, {});",
+            string_literal(&format!("slint-unit:{runtime_path}")),
+            string_literal(unit_style)
+        );
+    }
     let _ = writeln!(
         out,
         "        s_result ??= global::Slint.Generated.GeneratedApi.Load(path, {style}, s_includePaths, s_libraryPaths{translation_args});"

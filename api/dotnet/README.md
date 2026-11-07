@@ -200,6 +200,10 @@ Set these properties to change the generated code:
 - `SlintCopyToOutput`: `false` to load the `.slint` files from the project directory instead of copying them.
 - `SlintEmbedFiles`: `true` to embed the `.slint` files in the assembly instead of copying them, see [Publishing](#publishing).
   It's on by default on Android and iOS.
+- `SlintPrecompile`: `false` to compile the `.slint` files when the app starts.
+  By default on the desktop, the build compiles them, and the app starts without compiling them again,
+  such as about 90 ms sooner for the gallery example.
+  With `SLINT_STYLE` set to a style other than the build's, the app compiles them at startup.
 - `SlintIncludePaths`: directories that imports search, separated by semicolons.
 
 To use a [project file](https://snapshots.slint.dev/master/docs/slint/guide/tooling/project-file/), add its directory instead of a file:

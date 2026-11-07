@@ -4,6 +4,7 @@
 using System.Collections.Concurrent;
 using System.ComponentModel;
 using System.Reflection;
+using Slint.Interop;
 
 namespace Slint.Generated;
 
@@ -190,6 +191,37 @@ public static class GeneratedApi
             File.WriteAllBytes(file, data);
         }
         return target;
+    }
+
+    /// <summary>
+    /// Reads the unit that <paramref name="assembly"/> embeds as <paramref name="resource"/>, compiled with <paramref name="style"/>,
+    /// or returns null when there's none, when <c>SLINT_STYLE</c> names another style, or when it's from another Slint version.
+    /// </summary>
+    public static unsafe CompilationResult? LoadUnit(Assembly assembly, string resource, string style)
+    {
+        var environmentStyle = Environment.GetEnvironmentVariable("SLINT_STYLE");
+        if (!string.IsNullOrEmpty(environmentStyle) && environmentStyle != style)
+        {
+            return null;
+        }
+        using var stream = assembly.GetManifestResourceStream(resource);
+        if (stream == null || stream.Length == 0)
+        {
+            return null;
+        }
+        var data = new byte[stream.Length];
+        stream.ReadExactly(data);
+        fixed (byte* bytes = data)
+        {
+            var result = NativeMethods.slint_dotnet_compilation_result_from_unit(bytes, (nuint)data.Length);
+            if (result.IsInvalid)
+            {
+                result.Dispose();
+                NativeError.TakeMessage();
+                return null;
+            }
+            return new CompilationResult(result);
+        }
     }
 
     /// <summary>Compiles <paramref name="path"/>, throwing with the diagnostics if it has errors.</summary>
