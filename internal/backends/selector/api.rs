@@ -50,6 +50,8 @@ pub struct BackendSelector {
         Option<Box<dyn i_slint_backend_winit::CustomApplicationHandler>>,
     #[cfg(all(target_os = "linux", feature = "unstable-libinput-09"))]
     libinput_event_hook: Option<Box<dyn Fn(&input::Event) -> bool>>,
+    #[cfg(feature = "i-slint-backend-winit")]
+    winit_wheel_line_pixels: Option<f32>,
 }
 
 impl BackendSelector {
@@ -218,6 +220,21 @@ impl BackendSelector {
         custom_application_handler: impl i_slint_backend_winit::CustomApplicationHandler + 'static,
     ) -> Self {
         self.winit_custom_application_handler = Some(Box::new(custom_application_handler));
+        self
+    }
+
+    /// Configures how far one line of a mouse wheel scroll moves, in logical pixels, when the winit backend is selected.
+    ///
+    /// Most platforms report a mouse wheel's notches as lines; a touchpad reports pixels instead.
+    /// The default is 60 pixels per line.
+    /// Browsers use platform-specific values, such as 120 pixels per notch on Linux.
+    ///
+    /// The pixels are the windowing system's logical pixels.
+    /// A line scrolls the same distance on screen when `SLINT_SCALE_FACTOR` overrides the scale factor.
+    #[must_use]
+    #[cfg(feature = "i-slint-backend-winit")]
+    pub fn with_winit_wheel_line_pixels(mut self, pixels: f32) -> Self {
+        self.winit_wheel_line_pixels = Some(pixels);
         self
     }
 
@@ -399,6 +416,11 @@ impl BackendSelector {
                     Some(custom_application_handler) => {
                         builder.with_custom_application_handler(custom_application_handler)
                     }
+                    None => builder,
+                };
+
+                let builder = match self.winit_wheel_line_pixels {
+                    Some(pixels) => builder.with_wheel_line_pixels(pixels),
                     None => builder,
                 };
 
