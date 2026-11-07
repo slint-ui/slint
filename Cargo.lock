@@ -3672,6 +3672,8 @@ dependencies = [
  "spin_on",
  "unicode-segmentation",
  "vtable",
+ "wasm-bindgen",
+ "web-sys",
  "wgpu 29.0.4",
  "wgpu 30.0.1",
  "wgpu-hal 29.0.4",
@@ -7245,8 +7247,7 @@ checksum = "33f4fe9184a62d842c9ef383018f3306d8ba224fd9d836f56d7288308847c256"
 
 [[package]]
 name = "skia-bindings"
-version = "0.157.0"
-source = "git+https://github.com/rust-skia/rust-skia?rev=6a89d0f01c38c4b73bd1a303c547774c10da2e51#6a89d0f01c38c4b73bd1a303c547774c10da2e51"
+version = "0.158.0"
 dependencies = [
  "bindgen 0.73.2",
  "cc",
@@ -7257,12 +7258,12 @@ dependencies = [
  "serde_json",
  "tar",
  "toml 1.1.8+spec-1.1.0",
+ "web-sys",
 ]
 
 [[package]]
 name = "skia-safe"
-version = "0.157.0"
-source = "git+https://github.com/rust-skia/rust-skia?rev=6a89d0f01c38c4b73bd1a303c547774c10da2e51#6a89d0f01c38c4b73bd1a303c547774c10da2e51"
+version = "0.158.0"
 dependencies = [
  "bitflags 2.13.2",
  "skia-bindings",
@@ -7272,10 +7273,11 @@ dependencies = [
 
 [[package]]
 name = "skia-wgpu"
-version = "0.157.0"
-source = "git+https://github.com/rust-skia/rust-skia?rev=6a89d0f01c38c4b73bd1a303c547774c10da2e51#6a89d0f01c38c4b73bd1a303c547774c10da2e51"
+version = "0.158.0"
 dependencies = [
  "skia-bindings",
+ "wasm-bindgen-futures",
+ "web-sys",
  "wgpu 30.0.1",
 ]
 
