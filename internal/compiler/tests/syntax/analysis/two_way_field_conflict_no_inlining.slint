@@ -1,0 +1,70 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The base component declarations stay apart from their instances.
+// config:no_inlining
+
+struct Pair { a: int, b: int }
+
+global Shared {
+    in-out property <int> value;
+    in-out property <int> other;
+}
+
+component Alias {
+    in-out property <int> value <=> Shared.value;
+    in-out property <int> other <=> Shared.other;
+}
+
+component TwoFields {
+    in-out property <Pair> s;
+    Alias { value <=> root.s.a; }
+//          >                 <note{'s.a' is two-way bound here}
+    Alias { value <=> root.s.b; }
+//          >                 <error{This property is already two-way bound to 's.a'. It can't also be two-way bound to 's.b'. Bind it to one field only}
+}
+
+component Inner {
+    in-out property <Pair> s;
+    in-out property <int> v <=> s.a;
+//                          >      <note{'s.a' is two-way bound here}
+}
+
+component ThroughDeclaration {
+    in-out property <Pair> s;
+    Inner { s <=> root.s; v <=> root.s.a; }
+    Inner { s <=> root.s; v <=> root.s.b; }
+//                        >             <error{This property is already two-way bound to 's.a'. It can't also be two-way bound to 's.b'. Bind it to one field only}
+}
+
+component WithChangedHandler {
+    in-out property <Pair> s;
+    in-out property <int> c <=> s.b;
+//                          >      <note{'s.b' is two-way bound here}
+    changed c => { }
+    Alias { value <=> root.c; }
+    Alias { value <=> root.s.a; }
+//          >                 <error{This property is already two-way bound to 's.b'. It can't also be two-way bound to 's.a'. Bind it to one field only}
+}
+
+component Link {
+    in-out property <int> a <=> b;
+    in-out property <int> b;
+}
+
+component LocalTwoFields {
+    in-out property <Pair> s;
+    Link {
+        a <=> root.s.a;
+//      >             <note{'s.a' is two-way bound here}
+        b <=> root.s.b;
+//      >             <error{This property is already two-way bound to 's.a'. It can't also be two-way bound to 's.b'. Bind it to one field only}
+    }
+}
+
+export component TestCase inherits Window {
+    TwoFields { }
+    ThroughDeclaration { }
+    WithChangedHandler { }
+    LocalTwoFields { }
+}
