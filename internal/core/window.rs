@@ -712,6 +712,7 @@ pub struct WindowInner {
     /// for the ComponentContainer
     pub(crate) prevent_focus_change: Cell<bool>,
     cursor_blinker: RefCell<pin_weak::rc::PinWeak<crate::input::TextCursorBlinker>>,
+    cursor_blink_suspended: Cell<bool>,
 
     pinned_fields: Pin<Box<WindowPinnedFields>>,
 
@@ -797,6 +798,7 @@ impl WindowInner {
             focus_item_position_tracker: Default::default(),
             last_ime_text: Default::default(),
             cursor_blinker: Default::default(),
+            cursor_blink_suspended: Default::default(),
             active_popups: Default::default(),
             next_popup_id: Cell::new(NonZeroU32::MIN),
             overlays: Default::default(),
@@ -1558,8 +1560,24 @@ impl WindowInner {
             new_blinker
         });
 
-        let ctx = self.context();
-        TextCursorBlinker::set_binding(blinker, prop, ctx, ctx.platform().cursor_flash_cycle());
+        TextCursorBlinker::set_binding(blinker, prop, self.context(), self.cursor_flash_cycle());
+    }
+
+    /// Keeps the text cursor visible without blinking while `suspended`, as touch platforms
+    /// do while a text selection handle is held.
+    pub fn set_cursor_blink_suspended(&self, suspended: bool) {
+        self.cursor_blink_suspended.set(suspended);
+        if let Some(blinker) = self.cursor_blinker.borrow().upgrade() {
+            blinker.show(self.context(), self.cursor_flash_cycle());
+        }
+    }
+
+    fn cursor_flash_cycle(&self) -> core::time::Duration {
+        if self.cursor_blink_suspended.get() {
+            Default::default()
+        } else {
+            self.context().platform().cursor_flash_cycle()
+        }
     }
 
     /// Sets the focus to the item pointed to by item_ptr. This will remove the focus from any

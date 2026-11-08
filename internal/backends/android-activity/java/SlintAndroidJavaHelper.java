@@ -177,6 +177,7 @@ class SlintInputView extends View {
     private int mCursorHeight;
     private int mNumHandles;
     private final Runnable mShowSelectionMenu = this::showSelectionMenu;
+    private final Runnable mRefreshMagnifier = this::refreshMagnifier;
     private ActionMode mCurrentActionMode;
     private boolean mActionMenuDeferred = false;
 
@@ -582,6 +583,10 @@ class SlintInputView extends View {
     // As in Android's own text fields, the menu hides while a handle is held
     // and comes back a moment after it is released.
     public void dragHandle(InputHandle handle, int x) {
+        if (mDraggedHandle == null) {
+            // Android's cursor doesn't blink while a handle is held.
+            SlintAndroidJavaHelper.setCursorBlinkSuspended(true);
+        }
         mDraggedHandle = handle;
         mDragX = x;
         removeCallbacks(mShowSelectionMenu);
@@ -596,6 +601,7 @@ class SlintInputView extends View {
             return;
         }
         mDraggedHandle = null;
+        SlintAndroidJavaHelper.setCursorBlinkSuspended(false);
         if (mMagnifier != null) {
             mMagnifier.dismiss();
             // Built again for the next drag, so it picks up a changed screen density.
@@ -626,6 +632,8 @@ class SlintInputView extends View {
                     .setSourceBounds(Magnifier.SOURCE_BOUND_MAX_VISIBLE, Magnifier.SOURCE_BOUND_MAX_IN_SURFACE,
                             Magnifier.SOURCE_BOUND_MAX_VISIBLE, Magnifier.SOURCE_BOUND_MAX_IN_SURFACE)
                     .build();
+            removeCallbacks(mRefreshMagnifier);
+            postOnAnimation(mRefreshMagnifier);
         }
         float halfLine = mCursorHeight / 2f;
         float cursorX = mDraggedHandle.getCursorX();
@@ -633,6 +641,15 @@ class SlintInputView extends View {
         float x = Math.max(cursorX - halfLine, Math.min(mDragX, cursorX + halfLine));
         getLocationInWindow(mMagnifierOrigin);
         mMagnifier.show(x - mMagnifierOrigin[0], mDraggedHandle.getCursorY() - halfLine - mMagnifierOrigin[1]);
+    }
+
+    // The magnifier copies the screen only when asked, and Slint draws after the cursor moved,
+    // so copy every frame while it shows.
+    private void refreshMagnifier() {
+        if (mMagnifier != null) {
+            mMagnifier.update();
+            postOnAnimation(mRefreshMagnifier);
+        }
     }
 
     private InputHandle updateHandle(InputHandle handle, int id, int x, int y) {
@@ -951,6 +968,8 @@ public class SlintAndroidJavaHelper {
     public static native void onBackInvoked();
 
     public static native void moveCursorHandle(int id, int posX, int posY);
+
+    public static native void setCursorBlinkSuspended(boolean suspended);
 
     public static native void popupMenuAction(int id);
 

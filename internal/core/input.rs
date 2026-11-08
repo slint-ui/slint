@@ -2207,18 +2207,20 @@ impl TextCursorBlinker {
         ctx: &crate::SlintContext,
         cycle_duration: Duration,
     ) {
-        instance.as_ref().cursor_visible.set(true);
-        // Re-start timer, in case.
-        Self::start(&instance, ctx, cycle_duration);
+        instance.show(ctx, cycle_duration);
         prop.set_binding(move || {
             TextCursorBlinker::FIELD_OFFSETS.cursor_visible().apply_pin(instance.as_ref()).get()
         });
     }
 
-    /// Starts the blinking cursor timer that will toggle the cursor and update all bindings that
-    /// were installed on properties with set_binding call.
-    pub fn start(self: &Pin<Rc<Self>>, ctx: &crate::SlintContext, cycle_duration: Duration) {
-        if self.cursor_blink_timer.running() {
+    /// Shows the cursor and starts the blinking cursor timer over, which toggles the cursor and
+    /// updates all bindings that were installed with set_binding. A zero `cycle_duration` keeps
+    /// the cursor steady.
+    pub fn show(self: &Pin<Rc<Self>>, ctx: &crate::SlintContext, cycle_duration: Duration) {
+        self.cursor_visible.set(true);
+        if cycle_duration.is_zero() {
+            self.stop();
+        } else if self.cursor_blink_timer.running() {
             self.cursor_blink_timer.restart();
         } else {
             let toggle_cursor = {
@@ -2233,14 +2235,12 @@ impl TextCursorBlinker {
                     }
                 }
             };
-            if !cycle_duration.is_zero() {
-                self.cursor_blink_timer.start_on(
-                    ctx,
-                    crate::timers::TimerMode::Repeated,
-                    cycle_duration / 2,
-                    toggle_cursor,
-                );
-            }
+            self.cursor_blink_timer.start_on(
+                ctx,
+                crate::timers::TimerMode::Repeated,
+                cycle_duration / 2,
+                toggle_cursor,
+            );
         }
     }
 
