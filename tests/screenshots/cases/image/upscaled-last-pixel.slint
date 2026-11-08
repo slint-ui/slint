@@ -1,21 +1,20 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// SIZE=66x66
+// SIZE=132x132
 
-// Upscaling must reach the last source pixel (5 → 330). Negative placement shows only the
-// trailing edge so a bad step shows up as missing red/green instead of black wrap.
+// 5 → 330 px pixelated upscale. Negative placement leaves only source columns 3–4 and rows 3–4
+// visible: a ~66 px boundary between black (3) and red/green (4); wrong stepping shifts it.
 
 export component TestCase inherits Window {
-    width: 66phx;
-    height: 66phx;
+    width: 132phx;
+    height: 132phx;
     background: black;
 
-    // 5 → 330 px: the last source column is 66 px wide starting at x = 264.
     Image {
         source: @image-url("upscaled-last-pixel-5x5.png");
-        x: -264phx;
-        y: -264phx;
+        x: -198phx;
+        y: -198phx;
         width: 330phx;
         height: 330phx;
         image-fit: ImageFit.fill;
