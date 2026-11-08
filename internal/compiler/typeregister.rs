@@ -840,7 +840,7 @@ pub mod builtin_structs {
     macro_rules! map_type {
         // A builtin struct declared earlier: `$pub_type` names the local of `BuiltinStructs::new`
         ($pub_type:ident, KeyboardModifiers) => { Type::Struct($pub_type.clone()) };
-        ($pub_type:ident, ConstraintAdjustment) => { Type::Struct($pub_type.clone()) };
+        ($pub_type:ident, PopupConstraintAdjustment) => { Type::Struct($pub_type.clone()) };
         ($pub_type:ident, $ty:ident) => { builtin_type!($ty) };
     }
 

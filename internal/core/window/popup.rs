@@ -6,7 +6,7 @@
 //! Popup window handling helpers
 
 use crate::Coord;
-use crate::items::{ConstraintAdjustment, PopupAnchor, PopupAnchorLocation, PopupGravity};
+use crate::items::{PopupAnchor, PopupAnchorLocation, PopupConstraintAdjustment, PopupGravity};
 use crate::lengths::{LogicalPoint, LogicalRect, LogicalSize};
 
 /// Returns, as fractions of the anchor rectangle's width/height, the point within that
@@ -58,7 +58,7 @@ fn constrain_axis(
     clip_min: Coord,
     clip_max: Coord,
     flipped_origin: Coord,
-    adj: &ConstraintAdjustment,
+    adj: &PopupConstraintAdjustment,
 ) -> (Coord, Coord) {
     let fits = |o: Coord| o >= clip_min && o + extent <= clip_max;
 
@@ -164,7 +164,7 @@ fn fixed_placement(input: LogicalRect, expected: LogicalRect, clip: Option<Logic
     // all constraint-adjustment flags unset so the position/size pass through unconstrained,
     // regardless of the (unused) clip region passed to `place_popup`.
     let adjustment =
-        ConstraintAdjustment { slide: clip.is_some(), flip: false, resize: clip.is_some() };
+        PopupConstraintAdjustment { slide: clip.is_some(), flip: false, resize: clip.is_some() };
     let anchor = PopupAnchor {
         location: PopupAnchorLocation::TopLeft,
         x: input.origin.x,
@@ -434,7 +434,7 @@ fn test_place_popup_gravity() {
     let anchor_width = 20.;
     let anchor_height = 10.;
     let size = LogicalSize::new(40., 30.);
-    let no_adjustment = ConstraintAdjustment { slide: false, flip: false, resize: false };
+    let no_adjustment = PopupConstraintAdjustment { slide: false, flip: false, resize: false };
     let clip = LogicalRect::new(LogicalPoint::zero(), LogicalSize::zero());
 
     let place = |location: PopupAnchorLocation, gravity: PopupGravity| {
@@ -485,7 +485,7 @@ fn test_place_popup_flip() {
     let anchor_size = LogicalSize::new(10., 10.);
     let size = LogicalSize::new(50., 50.);
 
-    let flip_only = ConstraintAdjustment { slide: false, flip: true, resize: false };
+    let flip_only = PopupConstraintAdjustment { slide: false, flip: true, resize: false };
     let anchor = PopupAnchor {
         location: PopupAnchorLocation::TopRight,
         x: anchor_position.x,
@@ -517,7 +517,7 @@ fn test_place_popup_slide() {
     let anchor_position = LogicalPoint::new(280., 280.);
     let size = LogicalSize::new(50., 50.);
 
-    let slide_only = ConstraintAdjustment { slide: true, flip: false, resize: false };
+    let slide_only = PopupConstraintAdjustment { slide: true, flip: false, resize: false };
     let anchor = PopupAnchor {
         location: PopupAnchorLocation::BottomRight,
         x: anchor_position.x,
@@ -542,7 +542,7 @@ fn test_place_popup_resize() {
     let anchor_position = LogicalPoint::new(0., 0.);
     let size = LogicalSize::new(500., 500.);
 
-    let resize_only = ConstraintAdjustment { slide: false, flip: false, resize: true };
+    let resize_only = PopupConstraintAdjustment { slide: false, flip: false, resize: true };
     let anchor = PopupAnchor {
         location: PopupAnchorLocation::TopLeft,
         x: anchor_position.x,
@@ -566,7 +566,7 @@ fn test_place_popup_resize_leading_edge_only() {
     let anchor_position = LogicalPoint::new(-20., 0.);
     let size = LogicalSize::new(50., 50.);
 
-    let resize_only = ConstraintAdjustment { slide: false, flip: false, resize: true };
+    let resize_only = PopupConstraintAdjustment { slide: false, flip: false, resize: true };
     let anchor = PopupAnchor {
         location: PopupAnchorLocation::TopLeft,
         x: 0.,
@@ -590,7 +590,7 @@ fn test_place_popup_no_adjustment() {
     let anchor_position = LogicalPoint::new(90., 90.);
     let size = LogicalSize::new(50., 50.);
 
-    let no_adjustment = ConstraintAdjustment { slide: false, flip: false, resize: false };
+    let no_adjustment = PopupConstraintAdjustment { slide: false, flip: false, resize: false };
     let anchor = PopupAnchor {
         location: PopupAnchorLocation::TopLeft,
         x: anchor_position.x,

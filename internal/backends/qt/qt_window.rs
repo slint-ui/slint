@@ -3014,8 +3014,8 @@ fn gravity_to_qt_edges(gravity: items::PopupGravity) -> i32 {
 
 /// Returns the `xdg_positioner.constraint_adjustment` bit mask.
 fn constraint_adjustment_to_xdg(
-    x: &items::ConstraintAdjustment,
-    y: &items::ConstraintAdjustment,
+    x: &items::PopupConstraintAdjustment,
+    y: &items::PopupConstraintAdjustment,
 ) -> u32 {
     (x.slide as u32)
         | (y.slide as u32) << 1

@@ -217,7 +217,7 @@ macro_rules! for_each_builtin_structs {
             /// Represents the possible adjustments made to a popup if the popup
             /// does not fit into the window
             #[non_exhaustive]
-            pub struct ConstraintAdjustment {
+            pub struct PopupConstraintAdjustment {
                 /// The popup can be slid along the respective axis to fit
                 /// fully on screen
                 slide: bool = true,
@@ -245,9 +245,9 @@ macro_rules! for_each_builtin_structs {
                 /// The gravity of the anchor rect
                 gravity: PopupGravity,
                 /// The constraint adjustment in x direction
-                constraint_adjustment_x: ConstraintAdjustment,
+                constraint_adjustment_x: PopupConstraintAdjustment,
                 /// The constraint adjustment in y direction
-                constraint_adjustment_y: ConstraintAdjustment,
+                constraint_adjustment_y: PopupConstraintAdjustment,
             }
         }
     };

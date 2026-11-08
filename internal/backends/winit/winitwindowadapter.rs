@@ -17,7 +17,7 @@ use euclid::approxeq::ApproxEq;
 #[cfg(muda)]
 use i_slint_core::api::LogicalPosition;
 use i_slint_core::cursor::{MouseCursorHandling, MouseCursorInner, scaled_hotspot};
-use i_slint_core::items::{ConstraintAdjustment, PopupAnchorLocation, PopupGravity};
+use i_slint_core::items::{PopupAnchorLocation, PopupConstraintAdjustment, PopupGravity};
 use i_slint_core::lengths::{PhysicalPx, ScaleFactor};
 #[cfg(muda)]
 use i_slint_core::menus::MenuVTable;
@@ -3066,8 +3066,8 @@ fn gravity_to_winit(value: PopupGravity) -> winit::window::WindowGravity {
 }
 
 fn constraint_adjustment_to_winit(
-    x: &ConstraintAdjustment,
-    y: &ConstraintAdjustment,
+    x: &PopupConstraintAdjustment,
+    y: &PopupConstraintAdjustment,
 ) -> winit::window::WindowConstraintAdjustment {
     let mut c = winit::window::WindowConstraintAdjustment::empty();
 
