@@ -7,6 +7,7 @@ package dev.slint.android;
 
 import android.animation.ValueAnimator;
 import android.app.Activity;
+import android.app.NativeActivity;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
@@ -15,6 +16,7 @@ import android.content.res.TypedArray;
 import android.graphics.Insets;
 import android.graphics.PorterDuff;
 import android.graphics.Rect;
+import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.provider.Settings;
@@ -23,11 +25,13 @@ import android.text.Selection;
 import android.text.SpannableStringBuilder;
 import android.util.Log;
 import android.view.ActionMode;
+import android.view.ContextThemeWrapper;
 import android.view.Gravity;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewConfiguration;
 import android.view.WindowInsets;
 import android.view.WindowInsetsAnimation;
 import android.view.WindowInsetsController;
@@ -41,6 +45,7 @@ import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.widget.Magnifier;
 import android.widget.PopupWindow;
 import android.window.OnBackInvokedDispatcher;
 import java.util.List;
@@ -103,11 +108,16 @@ class InputHandle extends ImageView {
             case MotionEvent.ACTION_DOWN:
                 mPressedX = ev.getRawX() - mCursorX;
                 mPressedY = ev.getRawY() - mCursorY;
+                mRootView.dragHandle(this, mCursorX);
                 break;
             case MotionEvent.ACTION_MOVE:
-                mRootView.finishActionMenu();
-                SlintAndroidJavaHelper.moveCursorHandle(mId, Math.round(ev.getRawX() - mPressedX),
-                        Math.round(ev.getRawY() - mPressedY));
+                int x = Math.round(ev.getRawX() - mPressedX);
+                mRootView.dragHandle(this, x);
+                SlintAndroidJavaHelper.moveCursorHandle(mId, x, Math.round(ev.getRawY() - mPressedY));
+                break;
+            case MotionEvent.ACTION_UP:
+            case MotionEvent.ACTION_CANCEL:
+                mRootView.endHandleDrag(this);
                 break;
         }
         return true;
@@ -123,6 +133,14 @@ class InputHandle extends ImageView {
         } else {
             mPopupWindow.showAtLocation(mRootView, Gravity.NO_GRAVITY, x, y);
         }
+    }
+
+    public int getCursorX() {
+        return mCursorX;
+    }
+
+    public int getCursorY() {
+        return mCursorY;
     }
 
     public void hide() {
@@ -150,6 +168,15 @@ class SlintInputView extends View {
     private InputHandle mRightHandle;
     private Integer mHandleColor;
     private final Rect mSelectionRect = new Rect();
+    // GameActivity draws into a SurfaceView, which a magnifier of this view doesn't show.
+    private final boolean mMagnifierSupported;
+    private Magnifier mMagnifier;
+    private final int[] mMagnifierOrigin = new int[2];
+    private InputHandle mDraggedHandle;
+    private int mDragX;
+    private int mCursorHeight;
+    private int mNumHandles;
+    private final Runnable mShowSelectionMenu = this::showSelectionMenu;
     private ActionMode mCurrentActionMode;
     private boolean mActionMenuDeferred = false;
 
@@ -461,6 +488,7 @@ class SlintInputView extends View {
         setFocusable(true);
         setFocusableInTouchMode(true);
         mEditable = new SlintEditable();
+        mMagnifierSupported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && context instanceof NativeActivity;
     }
 
     @Override
@@ -551,6 +579,62 @@ class SlintInputView extends View {
         SlintAndroidJavaHelper.setFontScale(newConfig.fontScale);
     }
 
+    // As in Android's own text fields, the menu hides while a handle is held
+    // and comes back a moment after it is released.
+    public void dragHandle(InputHandle handle, int x) {
+        mDraggedHandle = handle;
+        mDragX = x;
+        removeCallbacks(mShowSelectionMenu);
+        if (mCurrentActionMode != null) {
+            mCurrentActionMode.hide(ActionMode.DEFAULT_HIDE_DURATION);
+        }
+        updateMagnifier();
+    }
+
+    public void endHandleDrag(InputHandle handle) {
+        if (handle != mDraggedHandle) {
+            return;
+        }
+        mDraggedHandle = null;
+        if (mMagnifier != null) {
+            mMagnifier.dismiss();
+            // Built again for the next drag, so it picks up a changed screen density.
+            mMagnifier = null;
+        }
+        postDelayed(mShowSelectionMenu, ViewConfiguration.getDoubleTapTimeout());
+    }
+
+    private void showSelectionMenu() {
+        if ((mNumHandles == 2 || mCurrentActionMode != null) && !mActionMenuDeferred) {
+            showActionMenu();
+        }
+    }
+
+    private void updateMagnifier() {
+        if (mDraggedHandle == null || !mMagnifierSupported) {
+            return;
+        }
+        if (mMagnifier == null) {
+            // TextView's magnifier differs from Magnifier.Builder's defaults in these values.
+            TypedArray a = new ContextThemeWrapper(getContext(), android.R.style.Theme_DeviceDefault)
+                    .obtainStyledAttributes(new int[] { android.R.attr.dialogCornerRadius });
+            float cornerRadius = a.getDimension(0, 0);
+            a.recycle();
+            mMagnifier = new Magnifier.Builder(this)
+                    .setCornerRadius(cornerRadius)
+                    .setOverlay(new ColorDrawable(0x0EFFFFFF))
+                    .setSourceBounds(Magnifier.SOURCE_BOUND_MAX_VISIBLE, Magnifier.SOURCE_BOUND_MAX_IN_SURFACE,
+                            Magnifier.SOURCE_BOUND_MAX_VISIBLE, Magnifier.SOURCE_BOUND_MAX_IN_SURFACE)
+                    .build();
+        }
+        float halfLine = mCursorHeight / 2f;
+        float cursorX = mDraggedHandle.getCursorX();
+        // Within half a line height of the cursor, so the magnifier stops at the ends of the text.
+        float x = Math.max(cursorX - halfLine, Math.min(mDragX, cursorX + halfLine));
+        getLocationInWindow(mMagnifierOrigin);
+        mMagnifier.show(x - mMagnifierOrigin[0], mDraggedHandle.getCursorY() - halfLine - mMagnifierOrigin[1]);
+    }
+
     private InputHandle updateHandle(InputHandle handle, int id, int x, int y) {
         if (x == -1) {
             hideHandle(handle);
@@ -566,8 +650,9 @@ class SlintInputView extends View {
         return handle;
     }
 
-    private static void hideHandle(InputHandle handle) {
+    private void hideHandle(InputHandle handle) {
         if (handle != null) {
+            endHandleDrag(handle);
             handle.hide();
         }
     }
@@ -579,6 +664,8 @@ class SlintInputView extends View {
     // numHandles: 0=hidden, 1=cursor handle, 2=selection handles
     public void setCursorPos(int leftX, int leftY, int rightX, int rightY, int cursorHeight, int numHandles) {
         int handleHeight = 0;
+        mCursorHeight = cursorHeight;
+        mNumHandles = numHandles;
         if (numHandles == 1) {
             hideHandle(mLeftHandle);
             hideHandle(mRightHandle);
@@ -609,6 +696,8 @@ class SlintInputView extends View {
             finishActionMenu();
         }
 
+        updateMagnifier();
+
         mSelectionRect.set(Math.min(leftX, rightX), Math.min(leftY, rightY) - cursorHeight,
                 Math.max(leftX, rightX), Math.max(leftY, rightY) + handleHeight);
         if (mCurrentActionMode != null) {
@@ -626,6 +715,9 @@ class SlintInputView extends View {
     }
 
     public void showActionMenu() {
+        if (mDraggedHandle != null) {
+            return;
+        }
         if (mCurrentActionMode != null) {
             mCurrentActionMode.invalidate();
             mCurrentActionMode.hide(0);
@@ -718,6 +810,7 @@ class SlintInputView extends View {
     }
 
     void finishActionMenu() {
+        removeCallbacks(mShowSelectionMenu);
         if (mCurrentActionMode != null) {
             mCurrentActionMode.finish();
             mCurrentActionMode = null;
