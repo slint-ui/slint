@@ -16,6 +16,10 @@ struct Root {
     a-float: float,
     a_point: Point,
 }
+struct WithDefaults {
+    label: string = @from-json("from_json.json").a_string,
+    point: Point = @from-json("from_json.json").a_point,
+}
 
 export component TestCase {
     // The whole file: a JSON object converts to a struct, a JSON array to an array
@@ -55,6 +59,9 @@ export component TestCase {
     property <Nested> a_nested: @from-json("from_json.json").a_nested;
     property <[Point]> an_array_of_points: @from-json("from_json.json").an_array_of_points;
     property <Complex> a_complex_nested: @from-json("from_json.json").element.sub_element.complex_nested;
+
+    // Field default values of a struct
+    property <WithDefaults> with_defaults;
 
     out property <bool> test:
         root_object.int_property == 5
@@ -97,7 +104,9 @@ export component TestCase {
         && a_complex_nested.nested[0].label == "first"
         && a_complex_nested.nested[1].point.x == 9 && a_complex_nested.nested[1].point.y == 10
         && a_complex_nested.nested[1].label == "second"
-        && color_to_brush == #ff0000;
+        && color_to_brush == #ff0000
+        && with_defaults.label == "hello"
+        && with_defaults.point.x == 1 && with_defaults.point.y == 2;
 }
 
 /*

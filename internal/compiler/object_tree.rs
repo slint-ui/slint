@@ -85,8 +85,7 @@ impl Document {
         reexports: Exports,
         diag: &mut BuildDiagnostics,
         parent_registry: &Rc<RefCell<TypeRegister>>,
-        ignore_missing_font_files: bool,
-        symbol_counters: &Rc<crate::symbol_counters::SymbolCounters>,
+        type_loader: &crate::typeloader::TypeLoader,
     ) -> Self {
         debug_assert_eq!(node.kind(), SyntaxKind::Document);
 
@@ -129,7 +128,7 @@ impl Document {
                 diag,
                 local_registry,
                 parser::identifier_text(&n.DeclaredIdentifier()),
-                Some(symbol_counters),
+                Some(type_loader),
             );
             assert!(matches!(ty, Type::Struct(_)));
             if !local_registry.insert_type(ty.clone()) {
@@ -244,7 +243,7 @@ impl Document {
                     // local paths we should try to verify the existence and let the developer know ASAP.
                     // When the resource URL mapper is set (e.g. remote viewer), fonts are
                     // delivered out-of-band; skip the local existence check.
-                    if ignore_missing_font_files
+                    if type_loader.compiler_config.resource_url_mapper.is_some()
                         || matches!(import_file_path, SourcePath::Url(_))
                         || crate::fileaccess::find_file(&import_file_path).is_some()
                     {
@@ -3138,14 +3137,14 @@ pub fn type_from_node(
 
 /// Create a [`Type::Struct`] from a [`syntax_nodes::ObjectType`]
 ///
-/// `symbol_counters` is only available for named struct declarations,
+/// `type_loader` is only available for named struct declarations,
 /// where field default values (`struct Foo { bar: int = 42 }`) are supported.
 pub fn type_struct_from_node(
     object_node: syntax_nodes::ObjectType,
     diag: &mut BuildDiagnostics,
     tr: &TypeRegister,
     name: Option<SmolStr>,
-    symbol_counters: Option<&Rc<crate::symbol_counters::SymbolCounters>>,
+    type_loader: Option<&crate::typeloader::TypeLoader>,
 ) -> Type {
     let mut field_defaults = BTreeMap::default();
     let mut field_order = Vec::new();
@@ -3167,7 +3166,7 @@ pub fn type_struct_from_node(
                     &field_ty,
                     diag,
                     tr,
-                    symbol_counters.expect("named struct declarations have symbol counters"),
+                    type_loader.expect("named struct declarations have a type loader"),
                 ) {
                     field_defaults.insert(field_name.clone(), expr);
                 }
@@ -3200,12 +3199,17 @@ fn resolve_struct_field_default_value(
     field_ty: &Type,
     diag: &mut BuildDiagnostics,
     tr: &TypeRegister,
-    symbol_counters: &Rc<crate::symbol_counters::SymbolCounters>,
+    type_loader: &crate::typeloader::TypeLoader,
 ) -> Option<crate::langtype::ConstantExpression> {
     #[cfg(feature = "slint-sc")]
     diag.slint_sc_error("Struct field default values are", &node);
     let mut expr = {
-        let mut ctx = crate::lookup::LookupCtx::empty_context(tr, diag, symbol_counters.clone());
+        let mut ctx = crate::lookup::LookupCtx::empty_context(
+            tr,
+            diag,
+            type_loader.symbol_counters.clone(),
+        );
+        ctx.type_loader = Some(type_loader);
         ctx.property_type = field_ty.clone();
         Expression::from_expression_node(node.clone(), &mut ctx).maybe_convert_to(
             field_ty.clone(),
