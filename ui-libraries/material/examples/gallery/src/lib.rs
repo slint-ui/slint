@@ -346,14 +346,14 @@ mod theme {
 
             move |index| {
                 let ui = ui_weak.unwrap();
-                // "System" falls back to the Slint theme where the platform has no scheme.
-                MaterialPalette::get(&ui).set_use_system_colors(index == 4);
                 load_theme(index as usize, &ui);
             }
         })
     }
 
     fn load_theme(index: usize, ui: &MainWindow) {
+        // 4 is "System", which falls back to the Slint theme where the platform has no scheme.
+        MaterialPalette::get(ui).set_use_system_colors(index == 4);
         let theme: MaterialTheme = serde_json::from_str(match index {
             1 => PURPLE_THEME,
             2 => RED_THEME,
