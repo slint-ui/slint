@@ -24,7 +24,7 @@ use objc2::{
 };
 use objc2_app_kit::{
     NSAppearance, NSAppearanceCustomization, NSAppearanceNameAqua, NSAppearanceNameDarkAqua,
-    NSControlStateValueOn, NSImage, NSMenu, NSMenuItem, NSStatusBar, NSStatusItem,
+    NSApplication, NSControlStateValueOn, NSImage, NSMenu, NSMenuItem, NSStatusBar, NSStatusItem,
     NSVariableStatusItemLength,
 };
 use objc2_foundation::{
@@ -208,6 +208,9 @@ impl PlatformTray {
 
         let image = image_to_nsimage(params.icon)?;
 
+        // The status bar needs the window server connection that the shared application opens,
+        // which a backend without windows, such as the testing backend, never creates.
+        NSApplication::sharedApplication(mtm);
         let status_bar = NSStatusBar::systemStatusBar();
         let status_item = status_bar.statusItemWithLength(NSVariableStatusItemLength);
 
