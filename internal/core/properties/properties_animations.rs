@@ -628,7 +628,7 @@ impl<T: InterpolatedPropertyValue + Clone + 'static> BindingCallable<T>
     }
 }
 
-impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
+impl<T: Clone + InterpolatedPropertyValue + PartialEq + 'static> Property<T> {
     /// Evaluate the property and remove the (animation) binding of this property.
     ///
     /// Note that a binding can intercept this via intercept_set_binding and still remain on the property.
@@ -638,17 +638,21 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
         // which will call intercept_set_binding, which will check if the binding should be removed or not.
         // In the case of two-way bindings, we want to keep the binding, but reset the value to the current one,
         // so that any animation binding is removed, but the two-way-binding is kept.
-        self.set_animated_value(self.get(), PropertyAnimation::default());
+        self.set_animated_value_impl(self.get(), PropertyAnimation::default(), None);
     }
 
     /// Change the value of this property, by animating (interpolating) from the current property's value
     /// to the specified parameter value. The animation is done according to the parameters described by
     /// the PropertyAnimation object.
     ///
+    /// If the property already holds `value`, any running animation stops and no new one starts.
+    ///
     /// If other properties have binding depending of this property, these properties will
     /// be marked as dirty.
     pub fn set_animated_value(self: Pin<&Self>, value: T, animation_data: PropertyAnimation) {
-        self.set_animated_value_impl(value, animation_data, None)
+        if !self.stop_if_already_at(&value) {
+            self.set_animated_value_impl(value, animation_data, None)
+        }
     }
 
     /// Like [`Self::set_animated_value`], but passes every interpolated value through `map`
@@ -660,7 +664,18 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
         animation_data: PropertyAnimation,
         map: fn(T) -> T,
     ) {
-        self.set_animated_value_impl(value, animation_data, Some(map))
+        if !self.stop_if_already_at(&value) {
+            self.set_animated_value_impl(value, animation_data, Some(map))
+        }
+    }
+
+    fn stop_if_already_at(&self, value: &T) -> bool {
+        // FIXME if the current value is a dirty binding, we must run it, but we do not have the context
+        let equal = unsafe { *self.value.get() == *value };
+        if equal {
+            self.handle.remove_binding();
+        }
+        equal
     }
 
     fn set_animated_value_impl(
@@ -844,12 +859,45 @@ mod animation_tests {
     }
 
     // Helper just for testing: the property lives in a pinned `Rc<Component>`.
-    fn set_animated_value<T: Clone + InterpolatedPropertyValue + 'static>(
+    fn set_animated_value<T: Clone + InterpolatedPropertyValue + PartialEq + 'static>(
         prop: &Property<T>,
         value: T,
         animation_data: PropertyAnimation,
     ) {
         unsafe { Pin::new_unchecked(prop) }.set_animated_value(value, animation_data);
+    }
+
+    #[test]
+    fn properties_test_animation_end_value_equal_actual_value() {
+        let compo = Component::new_test_component();
+
+        let animation_details = PropertyAnimation {
+            delay: -25,
+            duration: DURATION.as_millis() as _,
+            iteration_count: 1.,
+            ..PropertyAnimation::default()
+        };
+
+        compo.width.set(100);
+        assert_eq!(get_prop_value(&compo.width), 100);
+
+        let has_binding = || PropertyHandle::is_pointer_to_binding(compo.width.handle.handle.get());
+        assert!(!has_binding());
+        let start_time = crate::animations::current_tick();
+        set_animated_value(&compo.width, 200, animation_details.clone());
+        assert!(has_binding());
+
+        crate::animations::CURRENT_ANIMATION_DRIVER
+            .with(|driver| driver.update_animations(start_time + DURATION / 2));
+        assert_eq!(get_prop_value(&compo.width), 150);
+
+        set_animated_value(&compo.width, 150, animation_details);
+        assert!(!has_binding());
+
+        crate::animations::CURRENT_ANIMATION_DRIVER
+            .with(|driver| driver.update_animations(start_time + DURATION));
+        // A leftover animation binding would have moved the value to 200.
+        assert_eq!(get_prop_value(&compo.width), 150);
     }
 
     #[test]
