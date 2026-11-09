@@ -162,12 +162,6 @@ impl ProjectFileState {
     }
 }
 
-enum DiscoveredProjectFile {
-    None,
-    // Box the state to prevent clippy::large_enum_variant
-    File { path: PathBuf, state: Box<ProjectFileState> },
-}
-
 /// The documents currently being edited, together with the state the preview
 /// needs to follow along.
 pub struct EditorSession {
@@ -366,21 +360,28 @@ impl EditorSession {
         &self,
         path: &std::path::Path,
     ) -> std::io::Result<Option<PathBuf>> {
-        if cfg!(target_arch = "wasm32") {
-            return Ok(None);
-        }
-        let Some(directory) = path.parent() else { return Ok(None) };
-        let boundary = self.discovery_boundary(directory);
-        for directory in directory.ancestors() {
-            let candidate = directory.join(i_slint_compiler::project_file::FILE_NAME);
-            if self.open_project_file_state(&candidate).is_some() || candidate.try_exists()? {
-                return Ok(Some(candidate));
-            }
-            if directory == boundary {
-                break;
-            }
-        }
-        Ok(None)
+        self.project_file_paths_for(path).next().transpose()
+    }
+
+    fn project_file_paths_for<'a>(
+        &'a self,
+        path: &'a std::path::Path,
+    ) -> impl Iterator<Item = std::io::Result<PathBuf>> + 'a {
+        path.parent()
+            .filter(|_| !cfg!(target_arch = "wasm32"))
+            .into_iter()
+            .flat_map(|directory| {
+                let boundary = self.discovery_boundary(directory);
+                directory.ancestors().take_while(move |directory| directory.starts_with(boundary))
+            })
+            .filter_map(|directory| {
+                let candidate = directory.join(i_slint_compiler::project_file::FILE_NAME);
+                if self.open_project_file_state(&candidate).is_some() {
+                    Some(Ok(candidate))
+                } else {
+                    candidate.try_exists().map(|exists| exists.then_some(candidate)).transpose()
+                }
+            })
     }
 
     pub async fn set_workspace_config_overrides(
@@ -602,31 +603,6 @@ impl EditorSession {
         Ok(diagnostics)
     }
 
-    async fn discover_project_file_for_document_url(
-        &self,
-        url: &Url,
-    ) -> crate::Result<DiscoveredProjectFile> {
-        let Some(document_path) = SourcePath::from_url(url).into_native_path() else {
-            return Ok(DiscoveredProjectFile::None);
-        };
-        if cfg!(target_arch = "wasm32") {
-            return Ok(DiscoveredProjectFile::None);
-        }
-        let path = if Self::project_file_source(url).is_some() {
-            Some(document_path)
-        } else {
-            self.find_project_file_path_for(&document_path)?
-        };
-        let Some(path) = path else {
-            return Ok(DiscoveredProjectFile::None);
-        };
-        if let Some(state) = self.open_project_file_state(&path) {
-            return Ok(DiscoveredProjectFile::File { path, state: Box::new(state.clone()) });
-        }
-        let state = ProjectFileState::load(&path, self.document_cache.format).await;
-        Ok(DiscoveredProjectFile::File { path, state: Box::new(state) })
-    }
-
     fn open_project_file_state(&self, path: &std::path::Path) -> Option<&ProjectFileState> {
         let url = SourcePath::File(path.to_path_buf()).to_url()?;
         if self.document_is_open(&url) { self.active_projects.get(path) } else { None }
@@ -651,15 +627,32 @@ impl EditorSession {
         &mut self,
         url: &Url,
     ) -> crate::Result<VersionedDiagnostics> {
-        let (path, state) = match self.discover_project_file_for_document_url(url).await? {
-            DiscoveredProjectFile::None => return Ok(Default::default()),
-            DiscoveredProjectFile::File { path, state } => (path, Some(state)),
+        let Some(document_path) = SourcePath::from_url(url).into_native_path() else {
+            return Ok(Default::default());
         };
-        let contents_changed = self.active_projects.get(&path) != state.as_deref();
-        let project_url = SourcePath::new(&path).to_url();
-        let settings_changed = self.store_project_file(path, state.map(|state| *state));
-        if contents_changed && let Some(url) = project_url {
-            self.send_to_previews(&self.project_file_contents_message(url));
+        if cfg!(target_arch = "wasm32") {
+            return Ok(Default::default());
+        }
+        let paths = if Self::project_file_source(url).is_some() {
+            vec![document_path]
+        } else {
+            self.project_file_paths_for(&document_path).collect::<std::io::Result<Vec<_>>>()?
+        };
+        let mut settings_changed = false;
+        let mut contents_changed = false;
+        for path in paths {
+            let state = if let Some(state) = self.open_project_file_state(&path) {
+                state.clone()
+            } else {
+                ProjectFileState::load(&path, self.document_cache.format).await
+            };
+            let changed = self.active_projects.get(&path) != Some(&state);
+            let project_url = SourcePath::new(&path).to_url();
+            settings_changed |= self.store_project_file(path, Some(state));
+            contents_changed |= changed;
+            if changed && let Some(url) = project_url {
+                self.send_to_previews(&self.project_file_contents_message(url));
+            }
         }
         if settings_changed {
             self.reapply_effective_configuration().await
@@ -2658,7 +2651,7 @@ mod tests {
     }
 
     #[test]
-    fn discovers_nearest_project_file() {
+    fn discovers_all_project_files_up_to_the_workspace_root() {
         let temp = TempDir::new().unwrap();
         let top_project_path = temp.path().join(FILE_NAME);
         let nested_directory = temp.path().join("a/b");
@@ -2680,11 +2673,11 @@ mod tests {
 
         assert_eq!(
             session.active_project_file_paths().collect::<Vec<_>>(),
-            [nested_project_path.as_path()]
+            [top_project_path.as_path(), nested_project_path.as_path()]
         );
         assert_eq!(
             session.document_cache.compiler_configuration().compiler_config.include_paths,
-            vec![nested_directory.join("nested")]
+            vec![temp.path().join("top"), nested_directory.join("nested")]
         );
     }
 
