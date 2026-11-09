@@ -1,0 +1,5 @@
+[
+    { "name": "Alice", "online": true },
+    { "name": "Bob", "online": false },
+    { "name": "Carol", "online": true }
+]
