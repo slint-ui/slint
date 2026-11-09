@@ -213,6 +213,7 @@ You can only set `corner-shape` values in Slint code.
 The generated Rust and C++ code exposes them through an internal type.
 Python reads them as strings, such as `bevel` or `superellipse(3)`, and JavaScript can't access them.
 On the GPU, the Vello renderer draws the shadows of shaped corners without blur.
+With the Qt backend, the shadows of shaped corners ignore the spread, and an inset shadow fills the whole shape.
 :::
 
 </SlintProperty>
