@@ -578,7 +578,7 @@ impl SoftwareRenderer {
             "buffer of size {} with {pixels_per_line} pixels per line is too small to handle a window of size {size:?}",
             buffer_pixel_count
         );
-        let buffer_renderer = SceneBuilder::new(
+        let buffer_renderer = SoftwareItemRenderer::new(
             size,
             factor,
             window_inner,
@@ -1323,7 +1323,7 @@ fn render_window_frame_by_line(
     mut line_buffer: impl LineBufferProvider,
 ) -> PhysicalRegion {
     let gradient_background = gradient_background(&background);
-    let mut scene = prepare_scene(window, size, gradient_background, renderer);
+    let mut scene = record_scanline_scene(window, size, gradient_background, renderer);
 
     let to_draw_tr = scene.dirty_region.bounding_rect();
 
@@ -1375,7 +1375,7 @@ fn render_window_frame_by_line(
                         let range_buffer =
                             &mut line_buffer[(begin - offset) as usize..(end - offset) as usize];
 
-                        if let SceneCommand::Rectangle { color } = span.command
+                        if let ScanlineCommand::Rectangle { color } = span.command
                             && span.clip_len == 0
                         {
                             TargetPixel::blend_slice(range_buffer, color);
@@ -1398,33 +1398,33 @@ fn render_window_frame_by_line(
                             };
                         }
                         match span.command {
-                            SceneCommand::Rectangle { color } => {
+                            ScanlineCommand::Rectangle { color } => {
                                 draw!(&draw_functions::SolidColor(color))
                             }
-                            SceneCommand::Texture { texture_index } => {
+                            ScanlineCommand::Texture { texture_index } => {
                                 draw!(&scene.vectors.textures[texture_index as usize])
                             }
-                            SceneCommand::SharedBuffer { shared_buffer_index } => draw!(
+                            ScanlineCommand::SharedBuffer { shared_buffer_index } => draw!(
                                 &scene.vectors.shared_buffers[shared_buffer_index as usize]
                                     .as_texture()
                             ),
-                            SceneCommand::RoundedRectangle { rectangle_index } => {
+                            ScanlineCommand::RoundedRectangle { rectangle_index } => {
                                 draw!(&scene.vectors.rounded_rectangles[rectangle_index as usize])
                             }
-                            SceneCommand::LinearGradient { linear_gradient_index } => {
+                            ScanlineCommand::LinearGradient { linear_gradient_index } => {
                                 draw!(
                                     &scene.vectors.linear_gradients[linear_gradient_index as usize]
                                 )
                             }
-                            SceneCommand::RadialGradient { radial_gradient_index } => {
+                            ScanlineCommand::RadialGradient { radial_gradient_index } => {
                                 draw!(
                                     &scene.vectors.radial_gradients[radial_gradient_index as usize]
                                 )
                             }
-                            SceneCommand::ConicGradient { conic_gradient_index } => {
+                            ScanlineCommand::ConicGradient { conic_gradient_index } => {
                                 draw!(&scene.vectors.conic_gradients[conic_gradient_index as usize])
                             }
-                            SceneCommand::BoxShadow { box_shadow_index } => {
+                            ScanlineCommand::BoxShadow { box_shadow_index } => {
                                 draw!(&scene.vectors.box_shadows[box_shadow_index as usize])
                             }
                         }
@@ -1444,14 +1444,14 @@ fn gradient_background(background: &Brush) -> Option<&Brush> {
     (!matches!(background, Brush::SolidColor(_))).then_some(background)
 }
 
-fn prepare_scene(
+fn record_scanline_scene(
     window: &WindowInner,
     size: PhysicalSize,
     gradient_background: Option<&Brush>,
     software_renderer: &SoftwareRenderer,
-) -> Scene {
+) -> ScanlineScene {
     let factor = ScaleFactor::new(window.scale_factor());
-    let prepare_scene = SceneBuilder::new(
+    let recorder = SoftwareItemRenderer::new(
         size,
         factor,
         window,
@@ -1460,8 +1460,7 @@ fn prepare_scene(
         #[cfg(feature = "systemfonts")]
         &software_renderer.text_layout_cache,
     );
-    let mut renderer =
-        software_renderer.partial_rendering_state.create_partial_renderer(prepare_scene);
+    let mut renderer = software_renderer.partial_rendering_state.create_partial_renderer(recorder);
     let window_adapter = renderer.window_adapter.clone();
 
     let mut dirty_region = PhysicalRegion::default();
@@ -1501,12 +1500,12 @@ fn prepare_scene(
 
     software_renderer.measure_frame_rendered(&mut renderer);
 
-    let prepare_scene = renderer.into_inner();
+    let recorder = renderer.into_inner();
 
     /* // visualize dirty regions
-    let mut prepare_scene = prepare_scene;
+    let mut recorder = recorder;
     for rect in dirty_region.iter() {
-        prepare_scene.raster_commands.push(
+        recorder.raster_commands.push(
             RasterCommand::RoundedRectangle {
                 geometry: euclid::rect(rect.0.x as _, rect.0.y as _, rect.1.width as _, rect.1.height as _),
                 rectangle: RoundedRectangle {
@@ -1520,9 +1519,9 @@ fn prepare_scene(
         )
     } // */
 
-    Scene::new(
-        prepare_scene.raster_commands.items,
-        prepare_scene.raster_commands.vectors,
+    ScanlineScene::new(
+        recorder.raster_commands.items,
+        recorder.raster_commands.vectors,
         dirty_region,
     )
 }
@@ -1532,7 +1531,7 @@ enum RasterCommand {
     /// Pixels that live as long as the program, such as embedded images and glyphs.
     Texture {
         geometry: PhysicalRect,
-        texture: SceneTexture<'static>,
+        texture: Texture<'static>,
     },
     /// Pixels shared with the window, such as images and glyphs loaded at run time.
     SharedBuffer {
@@ -1715,14 +1714,16 @@ fn process_rectangle_impl(
     }
 
     if !radius.is_zero() {
-        let rectangle = RoundedRectangle {
-            shape: rounded_shape,
-            width: border,
-            border_color,
-            inner_color: color,
-        };
         raster_commands.push(
-            RasterCommand::RoundedRectangle { geometry: clipped.round().cast(), rectangle },
+            RasterCommand::RoundedRectangle {
+                geometry: clipped.round().cast(),
+                rectangle: RoundedRectangle {
+                    shape: rounded_shape,
+                    width: border,
+                    border_color,
+                    inner_color: color,
+                },
+            },
             rounded_clips,
         );
         return;
@@ -1962,29 +1963,28 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> BufferRasterizer<'_, B> {
 
 impl<B: target_pixel_buffer::TargetPixelBuffer> BufferRasterizer<'_, B> {
     fn rasterize(&mut self, command: &RasterCommand, rounded_clips: &[RoundedClip]) {
+        use RasterCommand::*;
         match command {
-            RasterCommand::Texture { geometry, texture } => {
+            Texture { geometry, texture } => {
                 self.draw_clipped(*geometry, rounded_clips, None, texture)
             }
-            RasterCommand::SharedBuffer { geometry, buffer } => {
+            SharedBuffer { geometry, buffer } => {
                 self.draw_clipped(*geometry, rounded_clips, None, &buffer.as_texture())
             }
-            RasterCommand::TargetTexture { texture, clip } => {
+            TargetTexture { texture, clip } => {
                 self.rasterize_target_texture(texture, *clip, rounded_clips)
             }
-            RasterCommand::Rectangle { args, clip } => {
-                self.rasterize_rectangle(args, *clip, rounded_clips)
-            }
-            RasterCommand::SolidRectangle { geometry, color } => self.draw_clipped(
+            Rectangle { args, clip } => self.rasterize_rectangle(args, *clip, rounded_clips),
+            SolidRectangle { geometry, color } => self.draw_clipped(
                 *geometry,
                 rounded_clips,
                 None,
                 &draw_functions::SolidColor(*color),
             ),
-            RasterCommand::RoundedRectangle { geometry, rectangle } => {
+            RoundedRectangle { geometry, rectangle } => {
                 self.draw_clipped(*geometry, rounded_clips, None, rectangle)
             }
-            RasterCommand::Gradient { geometry, gradient, clip } => match gradient {
+            Gradient { geometry, gradient, clip } => match gradient {
                 AnyGradientCommand::Linear(g) => {
                     self.draw_clipped(*geometry, rounded_clips, *clip, g)
                 }
@@ -1995,17 +1995,11 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> BufferRasterizer<'_, B> {
                     self.draw_clipped(*geometry, rounded_clips, *clip, g)
                 }
             },
-            RasterCommand::BoxShadow { geometry, shadow } => {
+            BoxShadow { geometry, shadow } => {
                 self.draw_clipped(*geometry, rounded_clips, None, shadow)
             }
             #[cfg(feature = "path")]
-            RasterCommand::FilledPath {
-                path_geometry,
-                clip_geometry,
-                commands,
-                paint,
-                fill_rule,
-            } => {
+            FilledPath { path_geometry, clip_geometry, commands, paint, fill_rule } => {
                 path::render_filled_path(
                     commands,
                     path_geometry,
@@ -2018,7 +2012,7 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> BufferRasterizer<'_, B> {
                 );
             }
             #[cfg(feature = "path")]
-            RasterCommand::StrokedPath { path_geometry, clip_geometry, commands, paint, style } => {
+            StrokedPath { path_geometry, clip_geometry, commands, paint, style } => {
                 path::render_stroked_path(
                     commands,
                     path_geometry,
@@ -2052,7 +2046,7 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> BufferRasterizer<'_, B> {
             return;
         }
 
-        let Some((texture, geometry)) = SceneTexture::from_target_texture(texture, &clip) else {
+        let Some((texture, geometry)) = Texture::from_target_texture(texture, &clip) else {
             return;
         };
 
@@ -2085,8 +2079,8 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> RasterCommandSink for BufferRast
 
 #[derive(Default)]
 struct ScanlineRasterCommands {
-    items: Vec<SceneItem>,
-    vectors: SceneVectors,
+    items: Vec<ScanlineItem>,
+    vectors: ScanlineVectors,
     scale_factor: ScaleFactor,
 }
 
@@ -2094,14 +2088,14 @@ impl ScanlineRasterCommands {
     fn push_item(
         &mut self,
         geometry: PhysicalRect,
-        command: SceneCommand,
+        command: ScanlineCommand,
         rounded_clips: &[RoundedClip],
         own_clip: Option<ShapeClip>,
     ) {
         let clip_start = self.vectors.clips.len();
         self.vectors.clips.extend(shape_clips(rounded_clips, &geometry).chain(own_clip));
         debug_assert!(self.vectors.clips.len() <= u16::MAX as usize, "too many clips in the scene");
-        self.items.push(SceneItem {
+        self.items.push(ScanlineItem {
             pos: geometry.origin,
             size: geometry.size,
             z: self.items.len() as u16,
@@ -2114,32 +2108,32 @@ impl ScanlineRasterCommands {
 
 impl RasterCommandSink for ScanlineRasterCommands {
     fn push(&mut self, command: RasterCommand, rounded_clips: &[RoundedClip]) {
-        let (geometry, scene_command, own_clip) = match command {
-            RasterCommand::Texture { geometry, texture } => {
+        use RasterCommand::*;
+        let (geometry, scanline_command, own_clip) = match command {
+            Texture { geometry, texture } => {
                 let texture_index = self.vectors.textures.len() as u16;
                 self.vectors.textures.push(texture);
                 self.push_item(
                     geometry,
-                    SceneCommand::Texture { texture_index },
+                    ScanlineCommand::Texture { texture_index },
                     rounded_clips,
                     None,
                 );
                 return;
             }
-            RasterCommand::SharedBuffer { geometry, buffer } => {
+            SharedBuffer { geometry, buffer } => {
                 let shared_buffer_index = self.vectors.shared_buffers.len() as u16;
                 self.vectors.shared_buffers.push(buffer);
                 self.push_item(
                     geometry,
-                    SceneCommand::SharedBuffer { shared_buffer_index },
+                    ScanlineCommand::SharedBuffer { shared_buffer_index },
                     rounded_clips,
                     None,
                 );
                 return;
             }
-            RasterCommand::TargetTexture { texture, clip } => {
-                let Some((extra, geometry)) =
-                    SceneTextureExtra::from_target_texture(&texture, &clip)
+            TargetTexture { texture, clip } => {
+                let Some((extra, geometry)) = TextureExtra::from_target_texture(&texture, &clip)
                 else {
                     return;
                 };
@@ -2147,9 +2141,9 @@ impl RasterCommandSink for ScanlineRasterCommands {
                     target_pixel_buffer::TextureDataContainer::Static(texture_data) => {
                         let pixel_stride =
                             (texture_data.byte_stride / texture_data.pixel_format.bpp()) as u16;
-                        RasterCommand::Texture {
+                        Texture {
                             geometry,
-                            texture: SceneTexture {
+                            texture: scene::Texture {
                                 data: texture_data.data,
                                 format: texture_data.pixel_format,
                                 pixel_stride,
@@ -2158,7 +2152,7 @@ impl RasterCommandSink for ScanlineRasterCommands {
                         }
                     }
                     target_pixel_buffer::TextureDataContainer::Shared { buffer, source_rect } => {
-                        RasterCommand::SharedBuffer {
+                        SharedBuffer {
                             geometry,
                             buffer: SharedBufferCommand { buffer, source_rect, extra },
                         }
@@ -2167,23 +2161,23 @@ impl RasterCommandSink for ScanlineRasterCommands {
                 self.push(command, rounded_clips);
                 return;
             }
-            RasterCommand::Rectangle { args, clip } => {
+            Rectangle { args, clip } => {
                 let scale_factor = self.scale_factor;
                 process_rectangle_impl(self, &args, &clip, scale_factor, rounded_clips);
                 return;
             }
-            RasterCommand::SolidRectangle { geometry, color } => {
-                (geometry, SceneCommand::Rectangle { color }, None)
+            SolidRectangle { geometry, color } => {
+                (geometry, ScanlineCommand::Rectangle { color }, None)
             }
-            RasterCommand::RoundedRectangle { geometry, rectangle } => {
+            RoundedRectangle { geometry, rectangle } => {
                 if geometry.is_empty() {
                     return;
                 }
                 let rectangle_index = self.vectors.rounded_rectangles.len() as u16;
                 self.vectors.rounded_rectangles.push(rectangle);
-                (geometry, SceneCommand::RoundedRectangle { rectangle_index }, None)
+                (geometry, ScanlineCommand::RoundedRectangle { rectangle_index }, None)
             }
-            RasterCommand::Gradient { geometry, gradient, clip } => {
+            Gradient { geometry, gradient, clip } => {
                 if geometry.is_empty() {
                     return;
                 }
@@ -2191,40 +2185,40 @@ impl RasterCommandSink for ScanlineRasterCommands {
                     AnyGradientCommand::Linear(g) => {
                         let linear_gradient_index = self.vectors.linear_gradients.len() as u16;
                         self.vectors.linear_gradients.push(g);
-                        SceneCommand::LinearGradient { linear_gradient_index }
+                        ScanlineCommand::LinearGradient { linear_gradient_index }
                     }
                     AnyGradientCommand::Radial(g) => {
                         let radial_gradient_index = self.vectors.radial_gradients.len() as u16;
                         self.vectors.radial_gradients.push(g);
-                        SceneCommand::RadialGradient { radial_gradient_index }
+                        ScanlineCommand::RadialGradient { radial_gradient_index }
                     }
                     AnyGradientCommand::Conic(g) => {
                         let conic_gradient_index = self.vectors.conic_gradients.len() as u16;
                         self.vectors.conic_gradients.push(g);
-                        SceneCommand::ConicGradient { conic_gradient_index }
+                        ScanlineCommand::ConicGradient { conic_gradient_index }
                     }
                 };
                 (geometry, command, clip)
             }
-            RasterCommand::BoxShadow { geometry, shadow } => {
+            BoxShadow { geometry, shadow } => {
                 if geometry.is_empty() {
                     return;
                 }
                 let box_shadow_index = self.vectors.box_shadows.len() as u16;
                 self.vectors.box_shadows.push(shadow);
-                (geometry, SceneCommand::BoxShadow { box_shadow_index }, None)
+                (geometry, ScanlineCommand::BoxShadow { box_shadow_index }, None)
             }
             // The scanline rasterizer can't draw paths.
             #[cfg(feature = "path")]
-            RasterCommand::FilledPath { .. } | RasterCommand::StrokedPath { .. } => return,
+            FilledPath { .. } | StrokedPath { .. } => return,
         };
         if !geometry.is_empty() {
-            self.push_item(geometry, scene_command, rounded_clips, own_clip);
+            self.push_item(geometry, scanline_command, rounded_clips, own_clip);
         }
     }
 }
 
-struct SceneBuilder<'a, T> {
+struct SoftwareItemRenderer<'a, T> {
     raster_commands: T,
     state_stack: Vec<RenderState>,
     current_state: RenderState,
@@ -2236,7 +2230,7 @@ struct SceneBuilder<'a, T> {
     text_layout_cache: &'a sharedparley::TextLayoutCache,
 }
 
-impl<'a, T: RasterCommandSink> SceneBuilder<'a, T> {
+impl<'a, T: RasterCommandSink> SoftwareItemRenderer<'a, T> {
     fn new(
         screen_size: PhysicalSize,
         scale_factor: ScaleFactor,
@@ -2673,7 +2667,7 @@ impl<'a, T: RasterCommandSink> SceneBuilder<'a, T> {
                         let off_x = delta32 * off_x as i32 + fract_x;
                         let fract_y = normalize(glyph.y - Fixed::from_integer(gl_y.get() as _));
                         let off_y = delta32 * off_y as i32 + fract_y;
-                        let extra = SceneTextureExtra {
+                        let extra = TextureExtra {
                             colorize: color,
                             // color already is mixed with global alpha
                             alpha: color.alpha(),
@@ -2688,7 +2682,7 @@ impl<'a, T: RasterCommandSink> SceneBuilder<'a, T> {
                             fonts::GlyphAlphaMap::Static(data) => self.raster_commands.push(
                                 RasterCommand::Texture {
                                     geometry,
-                                    texture: SceneTexture {
+                                    texture: Texture {
                                         data,
                                         pixel_stride,
                                         format: TexturePixelFormat::SignedDistanceField,
@@ -2837,7 +2831,9 @@ struct RenderState {
     rounded_clip_count: u16,
 }
 
-impl<T: RasterCommandSink> i_slint_core::item_rendering::ItemRenderer for SceneBuilder<'_, T> {
+impl<T: RasterCommandSink> i_slint_core::item_rendering::ItemRenderer
+    for SoftwareItemRenderer<'_, T>
+{
     fn global_alpha_transparent(&self) -> bool {
         self.current_state.alpha == 0.0
     }
@@ -3547,7 +3543,7 @@ impl<T: RasterCommandSink> i_slint_core::item_rendering::ItemRenderer for SceneB
 }
 
 impl<T: RasterCommandSink> i_slint_core::item_rendering::ItemRendererFeatures
-    for SceneBuilder<'_, T>
+    for SoftwareItemRenderer<'_, T>
 {
     const SUPPORTS_TRANSFORMATIONS: bool = false;
 }
@@ -3564,7 +3560,7 @@ struct GlyphBrush {
 }
 
 #[cfg(feature = "systemfonts")]
-impl<T: RasterCommandSink> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
+impl<T: RasterCommandSink> sharedparley::GlyphRenderer for SoftwareItemRenderer<'_, T> {
     type PlatformBrush = GlyphBrush;
 
     fn snap_y(&self, y: f32) -> f32 {
