@@ -399,10 +399,9 @@ impl<T: InterpolatedPropertyValue + Clone, A: Fn() -> AnimationDetail> BindingCa
             AnimatedBindingState::ShouldStart => {
                 let mut animation_data = self.animation_data.borrow_mut();
 
-                // Since `mark_dirty` fires when dependencies of `original_binding` changes
-                // if the change doesn't actually affect the computed value, it shouldn't restart
-                // the animation; nor start one, without a previous target, from the current value
-                // to itself, which would only keep the window redrawing.
+                // `mark_dirty` fires when dependencies of `original_binding` change.
+                // If the computed value is unchanged, don't restart the animation,
+                // and don't start one from the current value to itself.
                 let previous_to_value = animation_data.to_value.clone();
                 let mut new_to_value = T::default();
                 // Safety: `new_to_value` is a valid mutable reference matching the
