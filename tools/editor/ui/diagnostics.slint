@@ -57,7 +57,7 @@ export global Diagnostics {
     }
 }
 
-export enum DiagnosticMockScenario { Current, Warnings, Stale, Unavailable, NoComponent, ManyErrors, Imports }
+export enum DiagnosticMockScenario { Current, Warnings, Stale, Unavailable, NoComponent, ManyErrors, Imports, ManyWarnings }
 
 export global DiagnosticsMock {
     in-out property <DiagnosticMockScenario> scenario: DiagnosticMockScenario.Current;
@@ -78,8 +78,9 @@ export global DiagnosticsMock {
     out property <[Diagnostic]> errors: scenario == DiagnosticMockScenario.Imports ? [imported-error]
         : scenario == DiagnosticMockScenario.ManyErrors ? [root-error, root-error, root-error, root-error, root-error]
         : scenario == DiagnosticMockScenario.Stale || scenario == DiagnosticMockScenario.Unavailable ? [root-error] : [];
-    out property <[Diagnostic]> warnings: scenario == DiagnosticMockScenario.Warnings ? [warning] : [];
-    out property <[Diagnostic]> entries: scenario == DiagnosticMockScenario.Warnings ? warnings : errors;
+    out property <[Diagnostic]> warnings: scenario == DiagnosticMockScenario.ManyWarnings ? [warning, warning, warning, warning, warning]
+        : scenario == DiagnosticMockScenario.Warnings ? [warning] : [];
+    out property <[Diagnostic]> entries: warnings.length > 0 ? warnings : errors;
     out property <PreviewAvailability> availability: scenario == DiagnosticMockScenario.NoComponent ? PreviewAvailability.NoComponent
         : scenario == DiagnosticMockScenario.Unavailable ? PreviewAvailability.Unavailable
         : errors.length > 0 ? PreviewAvailability.Stale : PreviewAvailability.Current;

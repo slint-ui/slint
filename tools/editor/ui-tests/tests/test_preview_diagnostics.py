@@ -56,6 +56,11 @@ def test_broken_preview_reports_locations_blocks_edits_and_recovers(
             window, "Stale preview", role=slint_testing.AccessibleRole.Region
         )
         element(card, relative_path, role=slint_testing.AccessibleRole.Text)
+        element(
+            card,
+            "An error in this file is preventing the preview from updating. Showing the last working preview.",
+            role=slint_testing.AccessibleRole.Text,
+        )
         element(window, "Fixture text", role=slint_testing.AccessibleRole.Text)
         assert editor.process.poll() is None
         assert window.handle == handle
