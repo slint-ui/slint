@@ -381,7 +381,7 @@ jobs:
         runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v7
-            - uses: pnpm/action-setup@v6.1.0
+            - uses: pnpm/action-setup@v6.1.1
             - uses: Swatinem/rust-cache@v2
               with:
                 key: "vsce_1" # increment this to bust the cache if needed
@@ -805,7 +805,7 @@ jobs:
               with:
                   node-version: 24
                   package-manager-cache: false
-            - uses: pnpm/action-setup@v6.1.0
+            - uses: pnpm/action-setup@v6.1.1
             - uses: ./.github/actions/setup-rust
               with:
                   target: wasm32-unknown-unknown
@@ -833,7 +833,7 @@ jobs:
               with:
                   node-version: 24
                   package-manager-cache: false
-            - uses: pnpm/action-setup@v6.1.0
+            - uses: pnpm/action-setup@v6.1.1
             - uses: ./.github/actions/setup-rust
               with:
                   target: wasm32-unknown-unknown
