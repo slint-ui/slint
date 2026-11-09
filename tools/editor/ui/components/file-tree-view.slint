@@ -3,6 +3,7 @@
 
 import { Style, Colors, Metrics, TreeStyle } from "../style.slint";
 import { EditorInput } from "editor-input.slint";
+import { ErrorNotice } from "error-notice.slint";
 import { FileTreeIcons } from "file-tree-icons.slint";
 import { Icons } from "icons.slint";
 
@@ -30,7 +31,11 @@ component FileTreeRow inherits Rectangle {
     property <int> selected-guide-index: node.show-selected-guide ? root.level-safe - 2 : -1;
     property <color> selected-guide-color: root.style.selected-guide;
     property <color> guide-color: root.style.file-guide;
-    property <color> error-color: Colors.danger;
+    private property <length> rename-inset: root.style.row.padding-inline
+        + root.gutter-segments * root.style.row.toggle-width
+        + root.style.row.hit-size
+        + root.style.row.icon-size
+        + root.style.row.gap;
     private property <FileDiagnosticSummary> diagnostic-summary: Diagnostics.file-diagnostics(node.path);
     private property <string> diagnostic-description: diagnostic-summary.error-count == 0 && diagnostic-summary.warning-count == 0 ? "" : "\{diagnostic-summary.error-count} errors, \{diagnostic-summary.warning-count} warnings in the active preview";
 
@@ -54,7 +59,7 @@ component FileTreeRow inherits Rectangle {
         focus-if-current();
     }
 
-    height: root.style.row.height + (rename-error == "" ? 0px : root.style.row.height);
+    height: root.style.row.height + (rename-error == "" ? 0px : rename-notice.height + 2 * Metrics.space-compact);
     horizontal-stretch: 1;
     border-radius: root.style.row.radius;
     background: node.is-selected || row-focus.has-focus || root.keyboard-current ? root.style.row.selected-background : touch.has-hover ? root.style.row.hover-background : transparent;
@@ -109,6 +114,8 @@ component FileTreeRow inherits Rectangle {
     }
 
     row-focus := FocusScope {
+        y: 0px;
+        height: root.style.row.height;
         focus-on-click: false;
 
         key-pressed(event) => {
@@ -218,18 +225,13 @@ component FileTreeRow inherits Rectangle {
         }
 
         if root.editing: input := EditorInput {
-            x: root.style.row.padding-inline
-                + root.gutter-segments * root.style.row.toggle-width
-                + root.style.row.hit-size
-                + root.style.row.icon-size
-                + root.style.row.gap;
+            x: root.rename-inset;
             y: (root.style.row.height - Style.field.height) / 2;
             width: root.width + root.rename-right-extension - self.x;
             value: root.rename-name;
             live-edit: true;
             select-all-on-focus: false;
             accessible-name: @tr("Rename {}", root.node.label);
-            border-color: root.rename-error == "" ? self.paint.border : root.error-color;
             init => {
                 self.focus-input();
                 self.select-range(0, root.node.rename-selection-end);
@@ -251,15 +253,12 @@ component FileTreeRow inherits Rectangle {
         }
     }
 
-    if root.rename-error != "": Text {
-        x: root.style.row.hit-size + root.style.row.icon-size;
-        y: root.style.row.height;
-        width: parent.width - self.x;
-        height: root.style.row.height;
+    rename-notice := ErrorNotice {
+        visible: root.rename-error != "";
+        x: root.rename-inset;
+        y: root.style.row.height + Metrics.space-compact;
+        width: max(0px, root.width + root.rename-right-extension - self.x);
         text: root.rename-error;
-        color: root.error-color;
-        font-size: root.style.row.font-size;
-        overflow: elide;
     }
 
     context-menu := ContextMenuArea {

@@ -9,6 +9,7 @@ import { EditorScrollView } from "editor-scroll-view.slint";
 import { ViewerStyle, ViewerPopup, ViewerButton, ViewerIcon, Chevron, Checkmark } from "viewer-style.slint";
 import { FloatingSurface } from "floating-surface.slint";
 import { DeviceManager } from "device-manager.slint";
+import { ErrorNotice } from "error-notice.slint";
 
 export component ViewerControls inherits Rectangle {
     private property <bool> manager-open: manager.is-open;
@@ -63,10 +64,13 @@ export component ViewerControls inherits Rectangle {
                     overflow: elide;
                 }
                 Text {
-                    text: Preview.status;
-                    color: ViewerStyle.muted;
+                    text: Springboard.connection.state == ConnectionState.Failed ? @tr("Connection failed") : Preview.status;
+                    color: Springboard.connection.state == ConnectionState.Failed ? ViewerStyle.ink : ViewerStyle.muted;
                     font-size: Typography.caption.size;
                     overflow: elide;
+                    if Springboard.connection.state == ConnectionState.Failed: Tooltip {
+                        text: @markdown("\{Springboard.connection.error}");
+                    }
                 }
             }
         }
@@ -142,7 +146,7 @@ export component ViewerControls inherits Rectangle {
                     close-policy: close-on-click-outside;
                     y: selector.height + Metrics.space-tight;
                     width: selector.width;
-                    height: min(Style.combo-menu.max-height, Springboard.saved-endpoints.length * Style.combo-menu.row-height + 2 * Metrics.space-small);
+                    height: min(Style.combo-menu.max-height, viewer-options.preferred-height + 2 * Metrics.space-small);
                     FloatingSurface {
                         background: Style.combo-menu.background;
                         border-color: Style.combo-menu.border;
@@ -154,13 +158,14 @@ export component ViewerControls inherits Rectangle {
                         width: parent.width - 2 * Metrics.space-small;
                         height: parent.height - 2 * Metrics.space-small;
                         content-width: self.width;
-                        content-height: Springboard.saved-endpoints.length * Style.combo-menu.row-height;
+                        content-height: viewer-options.preferred-height;
                         horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
-                        VerticalLayout {
+                        viewer-options := VerticalLayout {
                             width: parent.width;
                             for endpoint[index] in Springboard.saved-endpoints: option := ButtonBase {
                                 width: parent.width;
-                                height: Style.combo-menu.row-height;
+                                height: endpoint.unavailable-reason == "" ? Style.combo-menu.row-height
+                                    : max(Style.combo-menu.row-height, option-text.preferred-height + 2 * Metrics.space-small);
                                 text: index == 0 ? Preview.local-name : endpoint.name;
                                 // A serial path's reason is its last error, so it stays selectable to retry
                                 enabled: endpoint.unavailable-reason == "" || endpoint.kind == PreviewEndpointKind.SerialPath;
@@ -182,20 +187,21 @@ export component ViewerControls inherits Rectangle {
                                     spacing: Metrics.space-medium;
                                     cross-axis-alignment: center;
                                     ViewerIcon { remote: index > 0; ink: option.enabled ? ViewerStyle.strong-icon : ViewerStyle.unavailable; }
-                                    Text {
+                                    option-text := VerticalLayout {
                                         horizontal-stretch: 1;
-                                        text: option.text;
-                                        color: option.enabled ? ViewerStyle.ink : ViewerStyle.unavailable;
-                                        font-size: Typography.control.size;
-                                        overflow: elide;
-                                    }
-                                    if endpoint.unavailable-reason != "": Text {
-                                        max-width: parent.width / 2;
-                                        text: endpoint.unavailable-reason;
-                                        color: ViewerStyle.unavailable;
-                                        font-size: Typography.caption.size;
-                                        overflow: elide;
-                                        Tooltip { text: @markdown("\{endpoint.unavailable-reason}"); }
+                                        spacing: Metrics.space-small;
+                                        Text {
+                                            text: option.text;
+                                            color: option.enabled ? ViewerStyle.ink : ViewerStyle.unavailable;
+                                            font-size: Typography.control.size;
+                                            overflow: elide;
+                                        }
+                                        if endpoint.unavailable-reason != "": Text {
+                                            text: endpoint.unavailable-reason;
+                                            color: ViewerStyle.muted;
+                                            font-size: Typography.caption.size;
+                                            wrap: word-wrap;
+                                        }
                                     }
                                     if option.enabled && Springboard.selected-endpoint-index == index: Checkmark { }
                                 }
@@ -220,11 +226,8 @@ export component ViewerControls inherits Rectangle {
                     }
                 }
             }
-            if root.error != "": Text {
+            if root.error != "": ErrorNotice {
                 text: root.error;
-                color: ViewerStyle.muted;
-                font-size: Typography.caption.size;
-                overflow: elide;
             }
         }
     }
