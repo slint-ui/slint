@@ -550,7 +550,6 @@ fn build(l: &mut Loader) {
         ///     background: rainbow-gradient;
         /// }
         /// ```
-        /// \default transparent
         @sc in property <brush> background;
         @deprecated in property <brush> color <=> background;
     } }
@@ -568,7 +567,6 @@ fn build(l: &mut Loader) {
         /// :::caution[Caution]
         /// The default `border-width` is `0px`, so the border is invisible. After setting a color also ensure that the `border-width` is set to a non-zero value.
         /// :::
-        /// \default transparent
         in property <brush> border-color;
         /// ```slint imageAlt="rectangle border-width" width="200" height="200"
         /// Rectangle {
@@ -579,7 +577,6 @@ fn build(l: &mut Loader) {
         /// }
         /// ```
         /// The width of the border.
-        /// \default 0
         in property <length> border-width;
         //! ### clip
         //! <SlintProperty propName="clip" typeName="bool" defaultValue="false">
@@ -632,7 +629,6 @@ fn build(l: &mut Loader) {
         //!
         //! ## Border Radius Properties
         /// The size of the radius. This single value is applied to all four corners.
-        /// \default 0
         in property <length> border-radius;
     } }
 
@@ -1114,10 +1110,8 @@ fn build(l: &mut Loader) {
         /// The maximum number of lines to display. Wrapped lines count towards the limit, and
         /// with `overflow` set to `elide`, the ellipsis is placed on the last visible line.
         /// Values less than or equal to zero don't limit the number of lines.
-        /// \default 0
         @since("1.18") in property <int> max-lines;
         /// The text rendered.
-        /// \default ""
         in property <string> text;
         /// The vertical alignment of the text.
         in property <TextVerticalAlignment> vertical-alignment;
@@ -1153,7 +1147,6 @@ fn build(l: &mut Loader) {
         ///     font-size: 40pt;
         /// }
         /// ```
-        /// \default false
         @since("1.1") in property <bool> font-italic;
         /// How the text should behave when it exceeds the available space.
         in property <TextOverflow> overflow;
@@ -1191,7 +1184,6 @@ fn build(l: &mut Loader) {
         ///     line-height-factor: 1.5;
         /// }
         /// ```
-        /// \default 1
         @since("1.18") in property <float> line-height-factor: 1;
         /// The brush used for the text outline.
         /// ```slint "stroke: darkblue;" imageAlt="text stroke" width="300" height="200" needsBackground
@@ -1281,10 +1273,8 @@ fn build(l: &mut Loader) {
         in property <color> link-color: #00f;
         /// The maximum number of lines to display. Wrapped lines count towards the limit.
         /// Values less than or equal to zero don't limit the number of lines.
-        /// \default 0
         @since("1.18") in property <int> max-lines;
         /// The styled text rendered, using CommonMark markup with additional HTML tags for styling.
-        /// \default ""
         in property <styled-text> text;
         /// The vertical alignment of the text.
         in property <TextVerticalAlignment> vertical-alignment;
@@ -1978,21 +1968,18 @@ fn build(l: &mut Loader) {
 
     item! { MenuItem {
         /// The title shown for this menu item.
-        /// \default ""
         in property <string> title;
         /// Invoked when the menu entry is activated.
         callback activated;
         /// When disabled, the `MenuItem` can be selected but not activated.
         @since("1.11") in property <bool> enabled: true;
         /// When true, the `MenuItem` can be checked. The value of the `checked` property is toggled when the user activates the menu item.
-        /// \default false
         @since("1.13") in property <bool> checkable: false;
         /// The keyboard shortcut for this `MenuItem`.
         ///
         /// This property can only be set in a `MenuItem` that is part of a <Link type="MenuBar"/>.
         @since("1.16") in property <keys> shortcut;
         /// When true, a checkmark will be shown next to the title of the `MenuItem`.
-        /// \default false
         @since("1.13") in-out property <bool> checked: false;
         /// The icon shown next to the title.
         @since("1.13") in property <image> icon;
@@ -2024,7 +2011,6 @@ fn build(l: &mut Loader) {
         @since("1.10") @is_non_item_type @disallow_global_types_as_child_elements
         Menu {
             /// This is the label of the menu as written in the menu bar or in the parent menu.
-            /// \default ""
             in property <string> title;
             /// When disabled, the `Menu` can be selected but not activated.
             @since("1.11") in property <bool> enabled: true;
@@ -2150,7 +2136,6 @@ fn build(l: &mut Loader) {
         @since("1.10") @is_non_item_type @disallow_global_types_as_child_elements
         MenuBar {
             /// Whether this menu bar should be visible.  If the menu bar is not visible, the menu bar will not take up any space but shortcuts will still function.
-            /// \default true
             @since("1.17") in property <bool> visible: true;
 
 
@@ -2264,7 +2249,6 @@ fn build(l: &mut Loader) {
         /// </OnlyInSC>
         @sc in-out property <length> height: computed;
         /// Whether the window should be placed above all other windows on window managers supporting it.
-        /// \default false
         @since("1.1") in property <bool> always-on-top;
         /// Whether to display the Window in full-screen mode. In full-screen mode the Window will occupy the entire screen, it will not be resizable, and it will not display the title bar.
         /// \default true if 'SLINT_FULLSCREEN' environment variable is set, otherwise false
@@ -2286,20 +2270,17 @@ fn build(l: &mut Loader) {
         /// The font family to use as default in text elements inside this window, that don't have their `font-family` property set.
         in property <string> default-font-family: computed;
         /// The font size to use as default in text elements inside this window, that don't have their `font-size` property set. The value of this property also forms the basis for relative font sizes.
-        /// \default 0
         in property <length> default-font-size;
         /// The font weight to use as default in text elements inside this window, that don't have their `font-weight` property set. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight. Use the <Link type="FontWeight" /> namespace for predefined constants.
         in property <int> default-font-weight;
         /// The window icon shown in the title bar or the task bar on window managers supporting it.
         in property <image> icon;
         /// Whether the window should be borderless/frameless or not.
-        /// \default false
         in property <bool> no-frame;
         ///     :::caution[Caution]
         ///     This property is `winit` only for now.
         ///     :::
         ///     Size of the resize border in borderless/frameless windows.
-        /// \default 0
         @since("1.7") in property <length> resize-border-width;
         /// The window title that is shown in the title bar.
         /// \default the name of the running program
@@ -2426,14 +2407,12 @@ fn build(l: &mut Loader) {
 
     item! { TextInput {
         /// The text rendered and editable by the user.
-        /// \default ""
         in-out property <string> text;
         /// The name of the font family selected for rendering the text.
         in property <string> font-family;
         /// The font size of the text.
         in property <length> font-size;
         /// Whether or not the font face should be drawn italicized or not.
-        /// \default false
         @since("1.1") in property <bool> font-italic;
         /// The weight of the font. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
         in property <int> font-weight;
@@ -2451,7 +2430,6 @@ fn build(l: &mut Loader) {
         /// The way the text input wraps. Only makes sense when `single-line` is false.
         in property <TextWrap> wrap;
         /// The letter spacing allows changing the spacing between the glyphs. A positive value increases the spacing and a negative value decreases the distance.
-        /// \default 0
         in property <length> letter-spacing;
         /// The line height as a unitless factor (or a percentage: `150%` equals `1.5`) applied to
         /// the font's natural line height (ascent + descent + line gap). The default of `1` keeps
@@ -2459,7 +2437,6 @@ fn build(l: &mut Loader) {
         /// together, and `0` collapses them onto each other. Negative or non-numeric values behave
         /// like `1`. Unlike CSS `line-height`, the factor is relative to the natural line height,
         /// not the font size, and keyword or length values aren't supported.
-        /// \default 1
         @since("1.18") in property <float> line-height-factor: 1;
         in property <length> width: computed;
         in property <length> height: computed;
@@ -3318,17 +3295,14 @@ fn build(l: &mut Loader) {
         @fake in property <string> commands;
         /// Defines how the path's view box is scaled to fit the element's width and height.
         /// If no view box is defined, the implicit bounding rectangle is used.
-        /// \default contain
         @since("1.16") in property <ImageFit> fit: ImageFit.contain;
         /// By default, when a path has a view box defined and the elements render
         /// outside of it, they are still rendered. When this property is set to `true`, then rendering will be
         /// clipped at the boundaries of the view box.
-        /// \default false
         in property <bool> clip;
         ///  By default, the fill and stroke of a path is rendered with anti-aliasing, for best quality. Some GPUs
         ///  have performance issues when rendering with anti-aliasing and animation. Setting the value to `false`
         ///  might improve the frame-rate at the expense of a smoother looking path.
-        /// \default true
         @since("1.10") in property <bool> anti-alias: true;
         //! ## Viewbox Properties
         //!
