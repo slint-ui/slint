@@ -18,16 +18,13 @@ use std::path::Path;
 use std::rc::Rc;
 
 use i_slint_core::SharedString;
-use i_slint_core::animations::Instant;
 use i_slint_core::api::LogicalPosition;
 use i_slint_core::lengths::logical_point_from_api;
 use i_slint_core::platform::{InternalEvent, PlatformError, PointerEventButton, WindowEvent};
-use i_slint_core::window::{WindowAdapter, WindowInner};
+use i_slint_core::window::WindowAdapter;
 use input::LibinputInterface;
 use input::event::keyboard::{KeyState, KeyboardEventTrait};
 use input::event::touch::{TouchEventPosition, TouchEventSlot, TouchEventTrait};
-use nix::sys::time::TimeValLike;
-use nix::time::{ClockId, clock_gettime};
 use xkbcommon::*;
 
 use crate::fullscreenwindowadapter::FullscreenWindowAdapter;
@@ -130,7 +127,6 @@ pub struct LibInputHandler<'a> {
     window: &'a RefCell<Option<Rc<FullscreenWindowAdapter>>>,
     keystate: Option<xkb::State>,
     libinput_event_hook: &'a Option<Box<dyn Fn(&::input::Event) -> bool>>,
-    input_timestamp_offset: Option<i64>,
 }
 
 impl<'a> LibInputHandler<'a> {
@@ -153,7 +149,6 @@ impl<'a> LibInputHandler<'a> {
             window,
             keystate: Default::default(),
             libinput_event_hook,
-            input_timestamp_offset: None,
         };
 
         event_loop_handle
@@ -252,21 +247,9 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
         };
         let window = adapter.window();
         let screen_size = window.size().to_logical(window.scale_factor());
-        let input_timestamp_offset = match self.input_timestamp_offset {
-            Some(offset) => offset,
-            None => {
-                // libinput timestamps use CLOCK_MONOTONIC.
-                let now_nanos = clock_gettime(ClockId::CLOCK_MONOTONIC)?.num_nanoseconds();
-                let ctx = WindowInner::from_pub(window).context();
-                let offset = Instant::now(ctx).as_nanos() as i64 - now_nanos;
-                self.input_timestamp_offset = Some(offset);
-                offset
-            }
-        };
-        let input_timestamp = |event_micros: u64| {
-            i_slint_core::input::EventTime::from(core::time::Duration::from_nanos(
-                event_micros.saturating_mul(1_000).saturating_add_signed(input_timestamp_offset),
-            ))
+        // libinput timestamps are microseconds on CLOCK_MONOTONIC.
+        let input_timestamp = |event_micros: u64| -> i_slint_core::input::EventTime {
+            core::time::Duration::from_micros(event_micros).into()
         };
 
         for event in &mut self.libinput {
