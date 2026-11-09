@@ -112,11 +112,11 @@ const fn widget(type_name: &'static str) -> Entry {
     Entry { kind: ElementKind::Widget, type_name, group: Group::Widgets }
 }
 
-pub fn entries() -> impl Iterator<Item = &'static Entry> {
-    PRIMITIVES.iter().chain(WIDGETS.iter())
+pub fn entries() -> impl Iterator<Item = Entry> {
+    PRIMITIVES.into_iter().chain(WIDGETS)
 }
 
-pub fn entry(type_name: &str) -> Option<&'static Entry> {
+pub fn entry(type_name: &str) -> Option<Entry> {
     entries().find(|entry| entry.type_name == type_name.trim())
 }
 
