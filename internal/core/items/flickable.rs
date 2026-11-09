@@ -1747,6 +1747,30 @@ mod velocity_history_tests {
     }
 
     #[test]
+    fn momentum_retention_uses_animation_clock() {
+        let retained = Velocity::new(0., 1000.);
+        for (elapsed, platform_time, expect_retained) in
+            [(50, ms(3_600_000), true), (150, ms(10), false)]
+        {
+            let start = crate::animations::current_tick();
+            crate::animations::update_animations(start + Duration::from_millis(elapsed));
+            let mut inner = FlickableDataInner {
+                pressed_mouse_state: Some((start, LogicalPoint::new(50., 100.))),
+                retained_velocity: retained,
+                ..Default::default()
+            };
+            inner.track_press(Some(ms(0)));
+            inner.track_move(
+                Some(platform_time),
+                LogicalPoint::new(50., 220.),
+                &TouchHistory::default(),
+            );
+            let expected = if expect_retained { retained } else { Velocity::default() };
+            assert_eq!(inner.retained_velocity, expected, "after {elapsed} ms");
+        }
+    }
+
+    #[test]
     fn untimed_gesture_ignores_platform_times() {
         let start = crate::animations::current_tick();
         let mut inner = FlickableDataInner {
