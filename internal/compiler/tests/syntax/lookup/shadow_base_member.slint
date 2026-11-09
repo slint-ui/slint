@@ -122,6 +122,7 @@ component NoLeak inherits Base {
 //                           >  <warning{'name' shadows the inherited property of the same name}
     out property <string> leak: root.name-1;
 //                                   >    <error{Element 'Base' does not have a property 'name-1'. Use space before the '-' if you meant a subtraction}
+//                                   >    <suggestion{name - 1}
 }
 
 export component Test inherits Window {

@@ -37,7 +37,7 @@ pub fn diagnostics_by_url(
 pub fn to_lsp_diagnostic(d: &Diagnostic, format: ByteFormat) -> lsp_types::Diagnostic {
     let start = diagnostics::diagnostic_line_column_with_format(d, format);
     let end = diagnostics::diagnostic_end_line_column_with_format(d, format);
-    lsp_types::Diagnostic::new(
+    let mut result = lsp_types::Diagnostic::new(
         to_range(start, end),
         Some(to_severity(d.level())),
         None,
@@ -45,7 +45,34 @@ pub fn to_lsp_diagnostic(d: &Diagnostic, format: ByteFormat) -> lsp_types::Diagn
         d.message().to_owned(),
         None,
         None,
-    )
+    );
+    let suggestions = d.suggestions(i_slint_common::InternalToken);
+    if let Some(sf) = Spanned::source_file(d)
+        && !suggestions.is_empty()
+    {
+        let edits = suggestions
+            .iter()
+            .map(|s| {
+                let start = sf.line_column(s.span.offset, format);
+                let end = sf.line_column(s.span.offset + s.span.length, format);
+                lsp_types::TextEdit::new(to_range(start, end), s.replacement.clone())
+            })
+            .collect::<Vec<_>>();
+        result.data = Some(serde_json::json!({ SUGGESTIONS_KEY: edits }));
+    }
+    result
+}
+
+const SUGGESTIONS_KEY: &str = "suggestions";
+
+/// The suggestions that [`to_lsp_diagnostic()`] stored in `d`:
+/// each one a [`lsp_types::TextEdit`] that resolves it.
+pub fn lsp_diagnostic_suggestions(d: &lsp_types::Diagnostic) -> Vec<lsp_types::TextEdit> {
+    d.data
+        .as_ref()
+        .and_then(|data| data.get(SUGGESTIONS_KEY))
+        .and_then(|edits| serde::Deserialize::deserialize(edits).ok())
+        .unwrap_or_default()
 }
 
 fn to_range(start: (usize, usize), end: (usize, usize)) -> lsp_types::Range {

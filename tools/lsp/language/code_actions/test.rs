@@ -75,8 +75,18 @@ impl CodeActionRequest {
             (self.cursor as u32).into(),
         )
         .unwrap();
-        let actions =
-            super::get_code_actions(&document_cache, token, &capabilities).unwrap_or_default();
+        // Clients send the diagnostics at the cursor.
+        let diagnostics = diagnostics
+            .iter()
+            .filter(|d| {
+                let span = i_slint_compiler::diagnostics::Spanned::span(*d);
+                i_slint_live_preview::protocol::diagnostic_url(d).as_ref() == Some(&url)
+                    && (span.offset..=span.offset + span.length).contains(&self.cursor)
+            })
+            .map(|d| i_slint_live_preview::protocol::to_lsp_diagnostic(d, document_cache.format))
+            .collect::<Vec<_>>();
+        let actions = super::get_code_actions(&document_cache, token, &capabilities, &diagnostics)
+            .unwrap_or_default();
         CodeActions { document_cache, url, cursor: self.cursor, actions }
     }
 }

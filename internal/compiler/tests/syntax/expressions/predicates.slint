@@ -32,6 +32,7 @@ export component Test inherits Window {
 //                             ^error{Closure body must be of type bool, but is int}
         debug(x);
 //            ^error{Unknown unqualified identifier 'x'. Did you mean 'self.x'?}
+//            ^suggestion{self.x}
 
         takes-int((x) => true);
 //                >         <error{Cannot convert closure to int}

@@ -9,15 +9,18 @@ export component X inherits Rectangle {
     property<brush> g3: @linear-gradient(0deg, blue, red);
     property<brush> g4: @linear-gradient(45deg, blue 45%, red red);
 //                                                            > <error{Unknown unqualified identifier 'red'. Did you mean 'Colors.red'?}
+//                                                            > <suggestion{Colors.red}
     property<brush> g5: @linear-gradient(128deg, blue 45%, red);
     property<brush> g6: @linear-gradient(90deg, blue 45%, red 88%);
     property<brush> g6b: @linear-gradient(red, blue 45%, red 88%);
 //                                        > <error{Unknown unqualified identifier 'red'. Did you mean 'Colors.red'?}
+//                                        > <suggestion{Colors.red}
     property<brush> g7: @linear-gradient(90deg, 42 45%, red 0.3);
 //                                              > <error{Cannot convert float to color}
     property<brush> g8: @linear-gradient(90deg, blue red green);
 //                                                   >  <error{Unknown unqualified identifier 'red'. Did you mean 'Colors.red'?}
-//                                                       >   <^error{Expected comma}
+//                                                   > <suggestion{Colors.red}
+//                                                       >   <^^error{Expected comma}
     property<brush> g9: @linear-gradient(0deg blue, blue, red);
 //                      >                                    <error{Angle expression must be an angle followed by a comma}
     property<brush> g10: @linear-gradient(90deg, blue 10% red 20%, yellow);
@@ -25,6 +28,7 @@ export component X inherits Rectangle {
     property<brush> g11: @linear-gradient(20deg,);
     property<brush> g12: @linear-gradient(2, blue 45%, red 88%);
 //                                        ^error{Cannot convert float to angle. Use an unit, or multiply by 1deg to convert explicitly}
+//                                        ^suggestion{2deg}
     property<brush> g13: @linear-gradient(90deg + 0.5turn, true ? blue : red 45%, red 88% + 0.1);
 
     property<brush> g14: @linear-gradient(-128deg, white, blue r);

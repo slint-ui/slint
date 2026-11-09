@@ -25,7 +25,9 @@ export component SuperSimple inherits Rectangle {
 
     property <int> g: min(42, 42, 42cm);
 //                        ><error{Cannot convert float to length. Use an unit, or multiply by 1px to convert explicitly}
-//                            ><^error{Cannot convert float to length. Use an unit, or multiply by 1px to convert explicitly}
+//                        ><suggestion{42px}
+//                            ><^^error{Cannot convert float to length. Use an unit, or multiply by 1px to convert explicitly}
+//                            ><suggestion{42px}
     property <int> h: min(42, 42 + 1) + max(1px , 2phx);
 //                    >              <error{Cannot convert float to length. Use an unit, or multiply by 1px to convert explicitly}
 

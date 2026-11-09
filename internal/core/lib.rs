@@ -115,10 +115,7 @@ pub type Coord = f32;
 #[cfg(slint_int_coord)]
 pub type Coord = i32;
 
-/// This type is not exported from the public API crate, so function having this
-/// parameter cannot be called from the public API without naming it
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct InternalToken;
+pub use i_slint_common::InternalToken;
 
 #[cfg(feature = "std")]
 thread_local!(

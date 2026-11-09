@@ -10,8 +10,10 @@ export component Test {
             cde := Rectangle {
                 y: cde * 1px
 //                 >  <error{Cannot take reference of an element. Use 'abc.cde' to access the property with the same name}
+//                 >  <suggestion{abc.cde}
                     + abc * 1px;
 //                    >  <error{Cannot take reference of an element. Use 'parent.abc' to access the property with the same name}
+//                    >  <suggestion{parent.abc}
                 Rectangle {
                     width: abc * 1px; // this would try to access the abc property of the un-named element, so no hint
 //                         >  <error{Cannot take reference of an element}
@@ -20,16 +22,21 @@ export component Test {
 
             x: cde * 1px
 //             >  <error{Cannot take reference of an element. Use 'abc.cde' to access the property with the same name}
+//             >  <suggestion{abc.cde}
                 + abc * 1px;
 //                >  <error{Cannot take reference of an element. Use 'self.abc' to access the property with the same name}
+//                >  <suggestion{self.abc}
         }
         password := TextInput {
             x: cde * 1px
 //             >  <error{Cannot take reference of an element. Use 'abc.cde' to access the property with the same name}
+//             >  <suggestion{abc.cde}
                 + abc * 1px;
 //                >  <error{Cannot take reference of an element. Use 'root.abc' to access the property with the same name}
+//                >  <suggestion{root.abc}
             input-type: password;
 //                      >      <error{Cannot take reference of an element. Did you mean 'InputType.password'?}
+//                      >      <suggestion{InputType.password}
         }
     }
 }

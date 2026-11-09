@@ -7,8 +7,10 @@ export SuperSimple := Rectangle {
     property<duration> p1: 3s + 1ms;
     property<int> p2: 3s + 1;
 //                         ^error{Cannot convert float to duration. Use an unit, or multiply by 1ms to convert explicitly}
+//                         ^suggestion{1ms}
     property<int> p3: 3s - 1;
 //                         ^error{Cannot convert float to duration. Use an unit, or multiply by 1ms to convert explicitly}
+//                         ^suggestion{1ms}
     property<int> p4: 3 / 1ms;
 //                    >      <error{Cannot convert (ms⁻¹) to int}
 

@@ -200,6 +200,7 @@ pub fn load_from_path(path: &Path) -> Result<String, Diagnostic> {
             span: Default::default(),
         },
         level: DiagnosticLevel::Error,
+        suggestions: Vec::new(),
     })?;
 
     if path.extension().is_some_and(|e| e == "rs") {
@@ -210,6 +211,7 @@ pub fn load_from_path(path: &Path) -> Result<String, Diagnostic> {
                 span: Default::default(),
             },
             level: DiagnosticLevel::Error,
+            suggestions: Vec::new(),
         });
     }
 
@@ -257,6 +259,20 @@ pub enum DiagnosticLevel {
     Note,
 }
 
+/// A fix for a diagnostic, which an editor can apply:
+/// replace `span`, in the diagnostic's source file, with `replacement`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Suggestion {
+    pub span: Span,
+    pub replacement: String,
+}
+
+impl Suggestion {
+    pub fn replace(source: &dyn Spanned, replacement: impl Into<String>) -> Self {
+        Self { span: source.span(), replacement: replacement.into() }
+    }
+}
+
 /// This structure represent a diagnostic emitted while compiling .slint code.
 ///
 /// It is basically a message, a level (warning or error), attached to a
@@ -266,12 +282,13 @@ pub struct Diagnostic {
     message: String,
     span: SourceLocation,
     level: DiagnosticLevel,
+    suggestions: Vec<Suggestion>,
 }
 
 //NOTE! Diagnostic is re-exported in the public API of the interpreter
 impl Diagnostic {
     pub(crate) fn error(message: String, span: SourceLocation) -> Self {
-        Self { message, span, level: DiagnosticLevel::Error }
+        Self { message, span, level: DiagnosticLevel::Error, suggestions: Vec::new() }
     }
 
     /// Return the level for this diagnostic
@@ -297,6 +314,11 @@ impl Diagnostic {
             None => (0, 0),
             Some(sl) => sl.line_column(offset, ByteFormat::Utf8),
         }
+    }
+
+    #[doc(hidden)]
+    pub fn suggestions(&self, _: i_slint_common::InternalToken) -> &[Suggestion] {
+        &self.suggestions
     }
 
     /// Return the length of this diagnostic in UTF-8 encoded bytes.
@@ -424,11 +446,20 @@ impl BuildDiagnostics {
         span: SourceLocation,
         level: DiagnosticLevel,
     ) {
+        self.push_diagnostic_with_suggestions(message, span, level, Vec::new());
+    }
+    fn push_diagnostic_with_suggestions(
+        &mut self,
+        message: String,
+        span: SourceLocation,
+        level: DiagnosticLevel,
+        suggestions: Vec<Suggestion>,
+    ) {
         debug_assert!(
             !message.as_str().ends_with('.'),
             "Error message should not end with a period: ({message:?})"
         );
-        self.inner.push(Diagnostic { message, span, level });
+        self.inner.push(Diagnostic { message, span, level, suggestions });
     }
     pub fn push_error_with_span(&mut self, message: String, span: SourceLocation) {
         self.push_diagnostic_with_span(message, span, DiagnosticLevel::Error)
@@ -453,6 +484,19 @@ impl BuildDiagnostics {
     }
     pub fn push_note(&mut self, message: String, source: &dyn Spanned) {
         self.push_note_with_span(message, source.to_source_location());
+    }
+    pub fn push_error_with_suggestions(
+        &mut self,
+        message: String,
+        source: &dyn Spanned,
+        suggestions: impl IntoIterator<Item = Suggestion>,
+    ) {
+        self.push_diagnostic_with_suggestions(
+            message,
+            source.to_source_location(),
+            DiagnosticLevel::Error,
+            suggestions.into_iter().collect(),
+        );
     }
     pub fn push_compiler_error(&mut self, error: Diagnostic) {
         self.inner.push(error);
@@ -575,8 +619,9 @@ impl BuildDiagnostics {
                 } else {
                     annotate_snippets::Group::with_title(message)
                 };
-                Some(group)
+                Some(std::iter::once(group).chain(Self::suggestions_group(d)))
             })
+            .flatten()
             .collect();
 
         let renderer = if styled {
@@ -585,6 +630,26 @@ impl BuildDiagnostics {
             annotate_snippets::Renderer::plain()
         };
         renderer.render(&report)
+    }
+
+    #[cfg(feature = "display-diagnostics")]
+    fn suggestions_group(d: &Diagnostic) -> Option<annotate_snippets::Group<'_>> {
+        let sf = d.span.source_file.as_ref()?;
+        let source = sf.source.as_deref()?;
+        if d.suggestions.is_empty() {
+            return None;
+        }
+        let snippets = d.suggestions.iter().map(|s| {
+            annotate_snippets::Snippet::source(source).path(sf.path.to_string()).patch(
+                annotate_snippets::Patch::new(
+                    s.span.offset..s.span.offset + s.span.length,
+                    s.replacement.as_str(),
+                ),
+            )
+        });
+        Some(
+            annotate_snippets::Group::with_level(annotate_snippets::Level::HELP).elements(snippets),
+        )
     }
 
     /// Follows https://no-color.org
