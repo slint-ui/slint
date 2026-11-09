@@ -49,6 +49,8 @@ Slint renders with wgpu, and the demo renders the globe on Slint's own device:
 - `globe.wgsl` ray traces the globe, its atmosphere, and the stars in a single pass over the screen, so the globe needs no mesh.
   The ground is NASA's Blue Marble for July, and the lights on the night side are its Black Marble, both 4096 pixels wide.
   `compress.rs` compresses it at startup to BC1 or ETC2, whichever the GPU supports, to an eighth of its size in GPU memory.
+- `clouds.rs` generates the clouds from noise at startup, shaped like the earth's weather, so that they add nothing to the download.
+  They fade out as the camera comes close, and the settings turn them off.
 - `map.rs` computes a map with mip levels from the outlines in `data/` at startup.
   It holds the distances to the coasts, so that the shader draws them sharp at any zoom.
 - The land borders are lines of constant width on the screen, so that they stay sharp at any angle.

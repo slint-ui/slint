@@ -837,6 +837,7 @@ export component AppWindow inherits Window {
     in-out property <AirportItem> planned-destination;
     in-out property <bool> sunlight: true;
     in-out property <bool> borders: true;
+    in-out property <bool> clouds: true;
     in-out property <Quality> quality: Quality.high;
     /// Whether the quality drops while frames take too long.
     in-out property <bool> auto-quality: true;
@@ -901,6 +902,9 @@ export component AppWindow inherits Window {
     background: black;
 
     changed sunlight => {
+        root.settings-changed();
+    }
+    changed clouds => {
         root.settings-changed();
     }
     changed borders => {
@@ -1378,6 +1382,14 @@ export component AppWindow inherits Window {
             Toggle {
                 text: "Random flights";
                 checked <=> root.kiosk;
+                toggled => {
+                    root.interacted();
+                }
+            }
+
+            Toggle {
+                text: "Clouds";
+                checked <=> root.clouds;
                 toggled => {
                     root.interacted();
                 }
