@@ -72,6 +72,7 @@ pub fn get_semantic_tokens(
                         SyntaxKind::RepeatedElement => {
                             Some((self::PROPERTY, 1 << self::DEFINITION))
                         }
+                        SyntaxKind::ChildBindings => Some((self::VARIABLE, 1 << self::DEFINITION)),
                         SyntaxKind::CallbackDeclaration => {
                             Some((self::FUNCTION, 1 << self::DEFINITION))
                         }
@@ -93,6 +94,7 @@ pub fn get_semantic_tokens(
                     }
                 }
                 SyntaxKind::ChildrenPlaceholder => Some((self::MACRO, 0)),
+                SyntaxKind::ChildBindings => Some((self::KEYWORD, 0)),
                 SyntaxKind::Binding | SyntaxKind::TwoWayBinding => Some((self::PROPERTY, 0)),
                 SyntaxKind::ReturnStatement => Some((self::KEYWORD, 0)),
                 SyntaxKind::LetStatement => Some((self::KEYWORD, 0)),

@@ -532,6 +532,13 @@ impl LookupObject for ElementRc {
         ctx: &LookupCtx,
         f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
+        if self.borrow().child_bindings_interface.is_some()
+            && !ctx.component_scope.iter().any(|element| Rc::ptr_eq(element, self))
+        {
+            return self
+                .lookup(ctx, &SmolStr::new_static("count"))
+                .and_then(|result| f(&SmolStr::new_static("count"), result));
+        }
         for (internal_name, prop) in &self.borrow().property_declarations {
             let name = prop.declared_name(internal_name);
             let r = expression_from_reference(
@@ -584,6 +591,12 @@ impl LookupObject for ElementRc {
     }
 
     fn lookup(&self, ctx: &LookupCtx, name: &SmolStr) -> Option<LookupResult> {
+        if self.borrow().child_bindings_interface.is_some()
+            && name != "count"
+            && !ctx.component_scope.iter().any(|element| Rc::ptr_eq(element, self))
+        {
+            return None;
+        }
         let lookup_result = self.borrow().lookup_property(name, PropertyLookupMode::ComponentLocal);
         if lookup_result.property_type != Type::Invalid
             && (lookup_result.is_local_to_component

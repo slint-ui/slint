@@ -230,7 +230,10 @@ pub(super) fn lower(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
 }
 
 #[allow(clippy::mutable_key_type)]
-fn has_callback_handler(reference: &NamedReference, visited: &mut HashSet<NamedReference>) -> bool {
+pub(crate) fn has_callback_handler(
+    reference: &NamedReference,
+    visited: &mut HashSet<NamedReference>,
+) -> bool {
     if !visited.insert(reference.clone()) {
         return false;
     }

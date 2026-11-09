@@ -1,0 +1,58 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+interface Entry {
+    in property <int> value;
+}
+
+component WrongType {
+    child-bindings <Rectangle> items { }
+//                  >       <error{Child type 'Rectangle' must be an interface}
+
+    @children
+}
+
+component Nested {
+    Rectangle {
+        child-bindings <Entry> items { }
+//      >                              <error{Declare child-bindings on a component root}
+
+    }
+}
+
+component Duplicate {
+    child-bindings <Entry> first { }
+    child-bindings <Entry> second { }
+//  >                               <error{Declare child-bindings only once per component}
+
+    @children
+}
+
+component InvalidBody {
+    child-bindings <Entry> items {
+        Rectangle { }
+//      >           <error{Child bindings only accept property bindings and callback connections}
+
+    }
+    @children
+}
+
+interface Reserved {
+
+    in property <int> index;
+}
+
+component ReservedMetadata {
+    child-bindings <Reserved> items { }
+//                  >      <error{Child bindings reserve 'index' for collection metadata}
+
+    @children
+}
+
+export component Test inherits Window {
+    WrongType { }
+    Nested { }
+    Duplicate { }
+    InvalidBody { }
+    ReservedMetadata { }
+}

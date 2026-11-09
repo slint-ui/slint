@@ -481,7 +481,7 @@ struct MemberViolation {
     anchor: DeclarationAnchor,
 }
 
-pub(super) fn validate_interface_implementation(
+pub(crate) fn validate_interface_implementation(
     element: &Element,
     interface: &ElementRc,
     interface_name: &SmolStr,

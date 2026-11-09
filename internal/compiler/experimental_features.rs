@@ -33,6 +33,8 @@ pub enum ExperimentalFeature {
     Closures,
     /// Named slots and slot forwarding
     NamedSlots,
+    /// Declarative connections to default-slot children
+    ChildBindings,
     /// `match` elements
     Match,
     /// `MouseCursor.custom`

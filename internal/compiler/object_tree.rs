@@ -32,6 +32,7 @@ use std::fmt::Display;
 use std::rc::{Rc, Weak};
 use std::sync::Arc;
 
+pub(crate) mod child_bindings;
 pub(crate) mod forward_inherited_expression;
 pub(crate) mod interfaces;
 mod match_element;
@@ -1015,6 +1016,7 @@ fn disallow_non_member_content(
     });
     node.MatchElement().for_each(|n| error_on(&n, "match elements"));
     node.SlotDeclaration().for_each(|n| error_on(&n, "slots"));
+    node.ChildBindings().for_each(|n| error_on(&n, "child bindings"));
 
     if matches!(declaration, ElementType::Interface(_)) {
         node.Binding().for_each(|n| error_on(&n, "bindings"));
@@ -1390,6 +1392,7 @@ pub struct Element {
     pub empty_slot_assignments: Vec<SmolStr>,
 
     pub typed_slot_interface: Option<Rc<Component>>,
+    pub child_bindings_interface: Option<Rc<Component>>,
 
     /// Slot forwarding mappings declared on this element: `target: source;`
     pub forwarded_slots: Vec<SlotForwarding>,
@@ -1787,6 +1790,8 @@ impl Element {
                 r.match_elements.push(match_element);
             } else if se.kind() == SyntaxKind::ChildrenPlaceholder {
                 Self::add_children_placeholder(se, &r, component_child_insertion_points, diag);
+            } else if se.kind() == SyntaxKind::ChildBindings {
+                child_bindings::create(se.into(), &r, is_legacy_syntax, diag, tr);
             } else if se.kind() == SyntaxKind::SlotAssignment {
                 Self::add_slot_assignment(
                     se,

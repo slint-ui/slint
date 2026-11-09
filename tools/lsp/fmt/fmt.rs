@@ -152,6 +152,9 @@ fn format_node(
         SyntaxKind::SlotDeclaration => {
             return format_slot_declaration(node, writer, state);
         }
+        SyntaxKind::ChildBindings => {
+            return format_child_bindings(node, writer, state);
+        }
         SyntaxKind::SlotAssignment => {
             return format_slot_assignment(node, writer, state);
         }
@@ -1247,6 +1250,22 @@ fn format_children_placeholder(
         fold(n, writer, state)?;
     }
     state.new_line();
+    Ok(())
+}
+
+fn format_child_bindings(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    let mut sub = node.children_with_tokens();
+    whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?;
+    whitespace_to(&mut sub, SyntaxKind::LAngle, writer, state, " ")?;
+    whitespace_to(&mut sub, SyntaxKind::QualifiedName, writer, state, "")?;
+    whitespace_to(&mut sub, SyntaxKind::RAngle, writer, state, "")?;
+    whitespace_to(&mut sub, SyntaxKind::DeclaredIdentifier, writer, state, " ")?;
+    whitespace_to(&mut sub, SyntaxKind::Element, writer, state, " ")?;
+    finish_node(sub, writer, state)?;
     Ok(())
 }
 
@@ -4185,6 +4204,14 @@ export component MainWindow2 inherits Rectangle {
     function foo() { groups.any((group) => group.any((person) => person.age > 20) && group.length == 2); }
 }
 "#,
+        );
+    }
+
+    #[test]
+    fn child_bindings() {
+        assert_formatting(
+            "component Group { child-bindings < Entry > items{value:root.value;clicked=>{root.choose(items.index);}} @children }",
+            "component Group {\n    child-bindings <Entry> items {\n        value: root.value;\n        clicked => { root.choose(items.index); }\n    }\n    @children\n}\n",
         );
     }
 }

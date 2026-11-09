@@ -1,0 +1,18 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+interface Entry {
+    in property <int> value;
+}
+
+export component Test inherits Window {
+    child-bindings <Entry> items { value: items.index; }
+    out property <int> count: items.count;
+    out property <int> invalid-index: items.index;
+//                                          >   <error{Read child members and indexes inside the child-bindings block}
+
+    out property <int> invalid-member: items.value;
+//                                           >   <error{Read child members and indexes inside the child-bindings block}
+
+    @children
+}

@@ -1,0 +1,63 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+interface Entry {
+    in property <int> value;
+    callback clicked();
+}
+
+component Item {
+    in property <int> value;
+    callback clicked();
+}
+
+component Group {
+    child-bindings <Entry> items {
+        value: items.index;
+        clicked => { }
+    }
+    @children
+}
+
+component FixedGroup inherits Group {
+    Item { }
+}
+
+component Override inherits Group {
+    child-bindings <Entry> items { value: 0; }
+//                                        ><info{Property 'value' is set to its default value, its binding can be removed}
+//                               >           <^error{A component cannot replace inherited child-bindings}
+
+}
+
+component MissingPlaceholder {
+    child-bindings <Entry> items { }
+//                               > <error{Add an @children placeholder for child-bindings}
+
+}
+
+export component Test inherits Window {
+    Group { Rectangle { } }
+//          >           <error{Cannot implement 'Entry'.↵- missing 'callback clicked();'↵- missing 'in property <int> value;'}
+
+    Group { Item { value: 42; } }
+//          >   <error{Property 'value' is managed by child-bindings}
+
+    Group { Item { clicked => { } } }
+//          >   <error{Callback 'clicked' has handlers in both child-bindings and its supplied child}
+
+    Group { if true: Item { } }
+//                   >   <error{Conditional children are not supported by child-bindings}
+
+    Group {
+        Item { }
+        for i in 2: Item { }
+//                  >   <error{A 'for' loop must be the only managed child in child-bindings}
+
+    }
+    FixedGroup { Item { } }
+//  >         <error{Declare managed children on the component subclass, not on its instance}
+
+    Override { }
+    MissingPlaceholder { }
+}

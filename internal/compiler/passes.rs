@@ -35,6 +35,7 @@ mod key_bindings;
 mod listview;
 mod lower_absolute_coordinates;
 mod lower_accessibility;
+mod lower_child_bindings;
 mod lower_component_container;
 pub(crate) mod lower_layout;
 mod lower_menus;
@@ -135,6 +136,7 @@ pub async fn run_passes(
     lower_tooltips::lower_tooltips(doc, type_loader, diag).await;
     lower_tabwidget::lower_tabwidget(doc, type_loader, diag).await;
     lower_radiogroup::lower_radiogroup(doc, type_loader, diag).await;
+    lower_child_bindings::lower_child_bindings(doc, &symbol_counters, diag);
     lower_menus::lower_menus(doc, type_loader, diag).await;
     lower_component_container::lower_component_container(doc, type_loader, diag);
     collect_subcomponents::collect_subcomponents(doc);

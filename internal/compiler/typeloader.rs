@@ -512,6 +512,10 @@ impl Snapshotter {
         target_element.forwarded_slots = elem.forwarded_slots.clone();
         target_element.typed_slot_interface =
             elem.typed_slot_interface.as_ref().map(|c| self.use_component(c).upgrade().unwrap());
+        target_element.child_bindings_interface = elem
+            .child_bindings_interface
+            .as_ref()
+            .map(|c| self.use_component(c).upgrade().unwrap());
         target_element.implement_statements =
             elem.implement_statements.iter().map(|statement| statement.snapshot(self)).collect();
 
@@ -2736,6 +2740,77 @@ fn test_import_widget_interfaces() {
         assert_eq!(interface.is_some(), enable_experimental);
         assert_eq!(build_diagnostics.has_errors(), !enable_experimental);
     }
+}
+
+#[test]
+fn child_bindings_requires_its_feature() {
+    let source = r#"
+        interface Entry { in property <int> value; }
+        component Group {
+            child-bindings <Entry> items { value: items.index; }
+            @children
+        }
+        component Item { in property <int> value; }
+        export component Test inherits Window { Group { Item { } } }
+    "#;
+    for enabled in [false, true] {
+        let mut config = CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+        config.experimental_features = if enabled {
+            [crate::ExperimentalFeature::Interfaces, crate::ExperimentalFeature::ChildBindings]
+                .into_iter()
+                .collect()
+        } else {
+            crate::ExperimentalFeature::Interfaces.into()
+        };
+        let mut diag = BuildDiagnostics::default();
+        let node = crate::parser::parse(source.into(), None, &mut diag);
+        let (_, diag, _) = spin_on::spin_on(crate::compile_syntax_node(node, diag, config));
+        assert_eq!(diag.has_errors(), !enabled, "{:?}", diag.to_string_vec());
+    }
+}
+
+#[test]
+fn snapshotting_child_bindings() {
+    let mut config = CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    config.experimental_features = crate::ExperimentalFeatures::all();
+    let mut diag = BuildDiagnostics::default();
+    let mut loader = TypeLoader::new(config, &mut diag);
+    let path = SourcePath::new("/tmp/child-bindings-library.slint");
+    spin_on::spin_on(
+        loader.load_file(
+            &path,
+            r#"
+        interface Entry { in property <int> value; }
+        export component Group {
+            out property <int> count: items.count;
+            child-bindings <Entry> items { value: items.index; }
+            @children
+        }
+        "#
+            .into(),
+            false,
+            &mut diag,
+        ),
+    );
+    assert!(!diag.has_errors(), "{:?}", diag.to_string_vec());
+    let mut copy = snapshot(&loader).unwrap();
+    drop(loader);
+    let source = r#"
+        import { Group } from "child-bindings-library.slint";
+        component Item { in property <int> value; }
+        export component Test inherits Window {
+            Group { Item { } }
+            Group { for value in [1, 2, 3]: Item { } }
+        }
+    "#;
+    let raw = spin_on::spin_on(copy.load_root_file(
+        &SourcePath::new("/tmp/child-bindings-app.slint"),
+        source.into(),
+        true,
+        &mut diag,
+    ));
+    assert!(raw.is_some());
+    assert!(!diag.has_errors(), "{:?}", diag.to_string_vec());
 }
 
 #[test]

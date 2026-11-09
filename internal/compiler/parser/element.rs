@@ -72,6 +72,9 @@ pub fn parse_element_content(p: &mut impl Parser) {
             SyntaxKind::RBrace => return,
             SyntaxKind::Eof => return,
             SyntaxKind::Identifier => match p.nth(1).kind() {
+                SyntaxKind::LAngle if p.peek().as_str() == "child-bindings" => {
+                    parse_child_bindings(&mut *p);
+                }
                 SyntaxKind::Identifier | SyntaxKind::Semicolon | SyntaxKind::LAngle
                     if p.peek().as_str() == "slot" =>
                 {
@@ -244,6 +247,27 @@ fn parse_sub_element(p: &mut impl Parser) -> bool {
         p.expect(SyntaxKind::ColonEqual);
     }
     parse_element(&mut *p)
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,ChildBindings
+/// child-bindings <Item> items { value: root.value; }
+/// ```
+fn parse_child_bindings(p: &mut impl Parser) {
+    let mut p = p.start_node(SyntaxKind::ChildBindings);
+    p.expect(SyntaxKind::Identifier);
+    p.expect(SyntaxKind::LAngle);
+    parse_qualified_name(&mut *p);
+    p.expect(SyntaxKind::RAngle);
+    {
+        let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
+        p.expect(SyntaxKind::Identifier);
+    }
+    let mut p = p.start_node(SyntaxKind::Element);
+    if p.expect(SyntaxKind::LBrace) {
+        parse_element_content(&mut *p);
+        p.expect(SyntaxKind::RBrace);
+    }
 }
 
 #[cfg_attr(test, parser_test)]

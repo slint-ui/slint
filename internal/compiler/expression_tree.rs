@@ -1484,6 +1484,12 @@ impl Expression {
     ) -> bool {
         match self {
             Expression::PropertyReference(nr) => {
+                if nr.element().borrow().child_bindings_interface.is_some()
+                    && matches!(nr.name().as_str(), "index" | "count")
+                {
+                    ctx.diag.push_error("Collection metadata is read-only".into(), node);
+                    return false;
+                }
                 nr.mark_as_set();
                 let mut lookup = nr
                     .element()

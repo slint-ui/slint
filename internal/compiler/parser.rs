@@ -363,7 +363,7 @@ declare_syntax! {
                      *CallbackDeclaration, *ConditionalElement, *MatchElement, *Function, *SubElement,
                      *RepeatedElement, *PropertyAnimation, *PropertyChangedCallback,
                      *TwoWayBinding, *States, *Transitions, *ImplementStatement, ?ChildrenPlaceholder,
-                     *SlotDeclaration, *SlotAssignment, *SlotForwarding ],
+                     *SlotDeclaration, *SlotAssignment, *SlotForwarding, *ChildBindings ],
         RepeatedElement -> [ ?DeclaredIdentifier, ?RepeatedIndex, Expression , SubElement],
         RepeatedIndex -> [],
         ConditionalElement -> [ Expression , SubElement],
@@ -431,6 +431,7 @@ declare_syntax! {
         AtMarkdown -> [*Expression],
         /// `slot header;` or `slot header << Default {}`
         SlotDeclaration -> [ ?QualifiedName, DeclaredIdentifier, ?SubElement ],
+        ChildBindings -> [ QualifiedName, DeclaredIdentifier, Element ],
         /// `"foo" =>`  in a `AtTr` node
         TrContext -> [],
         /// `| "foo" % n`  in a `AtTr` node
