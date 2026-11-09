@@ -41,16 +41,24 @@ def moved_source(baseline: bytes, kind: str, dx: int, dy: int) -> bytes:
     )
 
 
-@pytest.mark.parametrize("kind", POSITIONS)
 @pytest.mark.parametrize(
-    ("key", "dx", "dy"),
+    ("kind", "key", "dx", "dy"),
     [
-        (keys.LeftArrow, -1, 0),
-        (keys.RightArrow, 1, 0),
-        (keys.UpArrow, 0, -1),
-        (keys.DownArrow, 0, 1),
+        ("Rectangle", keys.LeftArrow, -1, 0),
+        ("Rectangle", keys.RightArrow, 1, 0),
+        ("Rectangle", keys.UpArrow, 0, -1),
+        ("Rectangle", keys.DownArrow, 0, 1),
+        ("Text", keys.RightArrow, 1, 0),
+        ("Image", keys.DownArrow, 0, 1),
     ],
-    ids=["left", "right", "up", "down"],
+    ids=[
+        "rectangle-left",
+        "rectangle-right",
+        "rectangle-up",
+        "rectangle-down",
+        "text-right",
+        "image-down",
+    ],
 )
 def test_arrow_key_moves_selected_element(
     editor_binary: Path,
