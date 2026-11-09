@@ -38,6 +38,7 @@ included for Linux (x86-64 and ARM64, glibc), macOS (ARM64), and Windows (x86-64
 
 On platforms without pre-built binaries, build Slint-node from a checkout of this repository by running
 `pnpm install && pnpm build` in `api/node`. You need to install the following components:
+
 - **[pnpm](https://www.pnpm.io/)**
 - **[Rust compiler](https://www.rust-lang.org/tools/install)**
 
@@ -251,6 +252,7 @@ component.model = component.model.concat(4);
 ```
 
 Another option is to set a model object. A model object has the following function:
+
 - `rowCount()`: returns the number of element in the model.
 - `rowData(index)`: return the row at the given index
 - `setRowData(index, data)`: called when the model need to be changed. `this.notify.rowDataChanged` must be called if successful.
