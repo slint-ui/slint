@@ -2819,13 +2819,8 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                             if x < Fixed::from_integer(0) { x + Fixed::from_integer(1) } else { x }
                         };
                         let map_len = glyph.alpha_map.as_slice().len() - 1;
-                        let map_stride = pixel_stride as usize;
-                        let map_width = if map_len % map_stride == 0 {
-                            map_stride
-                        } else {
-                            map_len % map_stride
-                        } as i32;
-                        let map_height = map_len.div_ceil(map_stride) as i32;
+                        let (map_width, map_height) =
+                            crate::scene::alpha_map_dimensions(map_len, pixel_stride);
                         let fract_x = TextureStep::from_fixed(normalize(
                             (-glyph.x) - Fixed::from_integer(gl_x.get() as _),
                         ));
@@ -2841,9 +2836,8 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                             rotation: self.rotation.orientation,
                             dx: delta.max(Fixed(1)),
                             dy: delta.max(Fixed(1)),
-                            off_x: Fixed::<u16, 4>::try_from_fixed(off_x).unwrap(),
-                            off_y: Fixed::<u16, 4>::try_from_fixed(off_y).unwrap(),
-                            upscaled_origin: None,
+                            off_x,
+                            off_y,
                         };
                         let geometry = geometry.transformed(self.rotation);
                         match &glyph.alpha_map {

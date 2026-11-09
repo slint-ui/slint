@@ -438,44 +438,11 @@ pub(super) fn texture_offset(
     Fixed(((offset.0 as i64 + step.0 as i64 * index as i64).rem_euclid(modulus)) as i32)
 }
 
-pub(super) fn texture_step_less_than_one(step: TextureStep) -> bool {
-    step.0.unsigned_abs() < TextureStep::from_integer(1).0.unsigned_abs()
-}
-
-pub(super) fn texture_sample_index(pos: TextureStep, delta: TextureStep) -> i32 {
-    if texture_step_less_than_one(delta) { (pos + delta / 2).truncate() } else { pos.truncate() }
-}
-
-pub(super) fn texture_source_index(
-    pos: TextureStep,
-    delta: TextureStep,
-    source_size: i32,
-) -> usize {
-    if texture_step_less_than_one(delta) {
-        texture_sample_index(pos, delta).rem_euclid(source_size) as usize
-    } else {
-        (texture_sample_index(pos, delta) % source_size) as usize
-    }
-}
-
-/// Non-tiled draws with `|step| < 1` need Q16 clipped origins when Q4 `step * clip_offset` or Q4
-/// storage of `texture_offset` would not match the precise value used while stepping.
-pub(super) fn clipped_origin_needs_q16(
-    step: TextureStep,
-    clip_offset: i32,
-    source_size: i32,
-) -> bool {
-    if !texture_step_less_than_one(step) {
-        return false;
-    }
-    let precise = texture_offset(Fixed::default(), step, clip_offset, source_size);
-    let lossy = TextureStep::from_fixed(
-        Fixed::<u16, 4>::try_from_fixed(step * clip_offset).unwrap_or_default(),
-    );
-    if lossy != precise {
-        return true;
-    }
-    TextureStep::from_fixed(Fixed::<u16, 4>::try_from_fixed(precise).unwrap_or_default()) != precise
+pub(super) fn alpha_map_dimensions(map_len: usize, pixel_stride: u16) -> (i32, i32) {
+    let stride = pixel_stride as usize;
+    let width = if map_len.is_multiple_of(stride) { stride } else { map_len % stride } as i32;
+    let height = map_len.div_ceil(stride) as i32;
+    (width, height)
 }
 
 pub(super) fn texture_step(source_size: i32, destination_size: i32) -> TextureStep {
@@ -494,11 +461,9 @@ pub struct SceneTextureExtra {
     /// Delta x: the amount of "image pixel" that we need to skip for each physical pixel in the target buffer
     pub dx: TextureStep,
     pub dy: TextureStep,
-    /// Offset in source pixels of the image pixel drawn at `SceneItem::pos`.
-    pub off_x: Fixed<u16, 4>,
-    pub off_y: Fixed<u16, 4>,
-    /// Q16 clipped origin for upscaled non-tiled draws (`|step| < 1`). Q4 `off_x`/`off_y` alone cannot hold it.
-    pub upscaled_origin: Option<(TextureStep, TextureStep)>,
+    /// Q16 offset in source pixels for the destination pixel at `SceneItem::pos`.
+    pub off_x: TextureStep,
+    pub off_y: TextureStep,
     /// Color to colorize. When not transparent, consider that the image is an alpha map and always use that color.
     /// The alpha of this color is ignored. (it is supposed to be mixed in `Self::alpha`)
     pub colorize: Color,
@@ -560,31 +525,8 @@ impl SceneTextureExtra {
         Fixed::<u16, 8>::try_from_fixed(dx).ok()?;
         Fixed::<u16, 8>::try_from_fixed(dy).ok()?;
 
-        let needs_q16_x = clipped_origin_needs_q16(dx, offset.x, source_size.width);
-        let needs_q16_y = clipped_origin_needs_q16(dy, offset.y, source_size.height);
-        let (off_x, off_y, upscaled_origin) = if texture.tiling.is_some() {
-            let off_x = texture_offset(Fixed::default(), dx, offset.x, source_size.width);
-            let off_y = texture_offset(Fixed::default(), dy, offset.y, source_size.height);
-            (
-                Fixed::<u16, 4>::try_from_fixed(off_x).ok()?,
-                Fixed::<u16, 4>::try_from_fixed(off_y).ok()?,
-                None,
-            )
-        } else if needs_q16_x || needs_q16_y {
-            let origin_x = texture_offset(Fixed::default(), dx, offset.x, source_size.width);
-            let origin_y = texture_offset(Fixed::default(), dy, offset.y, source_size.height);
-            (
-                Fixed::<u16, 4>::try_from_fixed(origin_x).unwrap_or_default(),
-                Fixed::<u16, 4>::try_from_fixed(origin_y).unwrap_or_default(),
-                Some((origin_x, origin_y)),
-            )
-        } else {
-            (
-                Fixed::<u16, 4>::try_from_fixed(dx * offset.x).ok()?,
-                Fixed::<u16, 4>::try_from_fixed(dy * offset.y).ok()?,
-                None,
-            )
-        };
+        let off_x = texture_offset(Fixed::default(), dx, offset.x, source_size.width);
+        let off_y = texture_offset(Fixed::default(), dy, offset.y, source_size.height);
 
         Some((
             Self {
@@ -595,7 +537,6 @@ impl SceneTextureExtra {
                 dy,
                 off_x,
                 off_y,
-                upscaled_origin,
             },
             clipped_geometry.to_rect().cast(),
         ))
@@ -1080,7 +1021,7 @@ fn touches_corner() {
 #[test]
 fn texture_positions_cover_upscaled_source_edges() {
     assert_eq!(core::mem::align_of::<SceneTextureExtra>(), 4);
-    assert!(core::mem::size_of::<SceneTextureExtra>() <= 32);
+    assert_eq!(core::mem::size_of::<SceneTextureExtra>(), 24);
 
     for source_size in 1..=64 {
         for destination_size in source_size..=4096 {
@@ -1121,21 +1062,31 @@ fn texture_positions_cover_upscaled_source_edges() {
 }
 
 #[test]
-fn clipped_upscale_origin_diverges_from_q4_step_times_offset() {
-    let source = 3_i32;
-    let destination = 29_i32;
-    let dx = texture_step(source, destination);
-    assert!(texture_step_less_than_one(dx));
-
-    // Negative placement: clip offset in destination pixels after clipping.
-    let clip_offset = 12_i32;
-    let precise_origin = texture_offset(Fixed::default(), dx, clip_offset, source);
-    let lossy_off_x = TextureStep::from_fixed(
-        Fixed::<u16, 4>::try_from_fixed(dx * clip_offset).unwrap_or_default(),
-    );
-
-    let sample_index = 7_i32;
-    let on_precise = texture_offset(precise_origin, dx, sample_index, source);
-    let on_lossy = texture_offset(lossy_off_x, dx, sample_index, source);
-    assert_ne!(on_precise, on_lossy);
+fn upscaled_clipped_matches_unclipped_sample_columns() {
+    let sample_column = |step: TextureStep,
+                           clip_offset: i32,
+                           dest_pixel: i32,
+                           source_size: i32| {
+        let off = texture_offset(Fixed::default(), step, clip_offset, source_size);
+        texture_offset(off, step, dest_pixel, source_size)
+            .truncate()
+            .rem_euclid(source_size)
+    };
+    const PAIRS: &[(i32, i32)] = &[(3, 29), (5, 40), (5, 330), (50, 4000)];
+    for &(source, destination) in PAIRS {
+        let dx = texture_step(source, destination);
+        for clip in 0..destination {
+            let unclipped = sample_column(dx, 0, clip, source);
+            let clipped = sample_column(dx, clip, 0, source);
+            assert_eq!(
+                unclipped, clipped,
+                "{source}→{destination}: dest pixel {clip} should match unclipped"
+            );
+            for dest_pixel in 0..(destination - clip) {
+                let u = sample_column(dx, 0, clip + dest_pixel, source);
+                let c = sample_column(dx, clip, dest_pixel, source);
+                assert_eq!(u, c, "{source}→{destination} clip {clip} dest {dest_pixel}");
+            }
+        }
+    }
 }

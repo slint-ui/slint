@@ -45,8 +45,8 @@ slint::slint! {
         Image {
             x: 0px;
             y: 0px;
-            width: 40px;
-            height: 40px;
+            width: 29px;
+            height: 29px;
             source: root.source;
             image-fit: fill;
             image-rendering: ImageRendering.pixelated;
@@ -62,8 +62,8 @@ slint::slint! {
             Image {
                 x: -4px;
                 y: -4px;
-                width: 40px;
-                height: 40px;
+                width: 29px;
+                height: 29px;
                 source: root.source;
                 image-fit: fill;
                 image-rendering: ImageRendering.pixelated;
@@ -167,20 +167,23 @@ fn optional_pixel_formats_render() {
     let ui = ClippedUpscaledImageCase::new().unwrap();
     ui.show().unwrap();
 
-    let mut pixels = SharedPixelBuffer::<Rgb8Pixel>::new(50, 50);
+    let mut pixels = SharedPixelBuffer::<Rgb8Pixel>::new(3, 3);
     for (index, pixel) in pixels.make_mut_slice().iter_mut().enumerate() {
-        *pixel = Rgb8Pixel::new(((index % 50) * 5) as u8, ((index / 50) * 5) as u8, 0);
+        *pixel =
+            Rgb8Pixel::new((index as u8).saturating_mul(120), (index as u8).saturating_mul(40), 0);
     }
     ui.set_source(slint::Image::from_rgb8(pixels));
     ui.set_clipped(false);
     let reference = render_clipped(&window);
     ui.set_clipped(true);
     let rendered = render_clipped(&window);
-    for y in 0..36 {
-        for x in 0..36 {
+    const CLIP_OFFSET: usize = 4;
+    const VISIBLE: usize = 29 - CLIP_OFFSET;
+    for y in 0..VISIBLE {
+        for x in 0..VISIBLE {
             assert_eq!(
                 rendered[(44 + y) * 84 + 44 + x],
-                reference[(4 + y) * 84 + 4 + x],
+                reference[(CLIP_OFFSET + y) * 84 + CLIP_OFFSET + x],
                 "clipped image differs from its unclipped pixels at ({x}, {y})"
             );
         }

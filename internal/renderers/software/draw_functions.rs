@@ -7,7 +7,7 @@
 //! This is the module for the functions that are drawing the pixels
 //! on the line buffer
 
-use super::scene::{texture_offset, texture_source_index, texture_step_less_than_one};
+use super::scene::texture_offset;
 use super::{Fixed, PhysicalLength, PhysicalRect};
 use crate::scene::{
     GradientFactor, GradientPosition, LinearGradientPosition, PremultipliedGradientStop,
@@ -33,23 +33,8 @@ pub(super) fn draw_texture_line(
         data,
         format,
         pixel_stride,
-        extra:
-            super::SceneTextureExtra {
-                colorize,
-                alpha,
-                rotation,
-                dx,
-                dy,
-                off_x,
-                off_y,
-                upscaled_origin,
-            },
+        extra: super::SceneTextureExtra { colorize, alpha, rotation, dx, dy, off_x, off_y },
     } = *texture;
-    let sample_upscaled = upscaled_origin.is_some();
-    let (off_x, off_y) = upscaled_origin.unwrap_or((
-        super::scene::TextureStep::from_fixed(off_x),
-        super::scene::TextureStep::from_fixed(off_y),
-    ));
 
     let source_size = texture.source_size().cast::<i32>();
     let source_width = source_size.width;
@@ -67,11 +52,8 @@ pub(super) fn draw_texture_line(
         let mut delta = dx;
         let row = texture_offset(off_y, dy, y, source_height);
         // The position where to start in the image array for a this row
-        let row_offset = (if sample_upscaled && texture_step_less_than_one(dy) {
-            texture_source_index(row, dy, source_height)
-        } else {
-            (row.truncate() % source_height) as usize
-        }) * pixel_stride as usize;
+        let row_offset =
+            (row.truncate().rem_euclid(source_height) as usize) * pixel_stride as usize;
         let mut tile_start = 0;
 
         // the size of the tile in physical pixels in the target
@@ -114,13 +96,7 @@ pub(super) fn draw_texture_line(
                 draw_contiguous_pixels(
                     &mut line_buffer[begin..end],
                     format,
-                    &data[(row_offset
-                        + if sample_upscaled && texture_step_less_than_one(delta) {
-                            texture_source_index(pos, delta, source_width)
-                        } else {
-                            pos.truncate() as usize
-                        })
-                        * bpp..][..(end - begin) * bpp],
+                    &data[(row_offset + pos.truncate() as usize) * bpp..][..(end - begin) * bpp],
                 );
             } else {
                 fetch_blend_pixel(
@@ -132,17 +108,8 @@ pub(super) fn draw_texture_line(
                     (pixel_stride as usize, sdf_delta),
                     #[inline(always)]
                     |bpp| {
-                        let p = (
-                            (row_offset
-                                + if sample_upscaled && texture_step_less_than_one(delta) {
-                                    texture_source_index(pos, delta, source_width)
-                                } else {
-                                    pos.truncate() as usize
-                                })
-                                * bpp,
-                            pos.fract(),
-                            row_fract,
-                        );
+                        let p =
+                            ((row_offset + pos.truncate() as usize) * bpp, pos.fract(), row_fract);
                         pos += delta;
                         p
                     },
@@ -168,11 +135,7 @@ pub(super) fn draw_texture_line(
     } else {
         let col = texture_offset(off_x, dx, y, source_width);
         let col_fract = col.fract();
-        let col = (if sample_upscaled && texture_step_less_than_one(dx) {
-            texture_source_index(col, dx, source_width)
-        } else {
-            (col.truncate() % source_width) as usize
-        }) * bpp;
+        let col = (col.truncate().rem_euclid(source_width) as usize) * bpp;
         let stride = pixel_stride as usize * bpp;
         let mut row_delta = dy;
         let tile_len = (Fixed::from_integer(source_height) / row_delta) as usize;
@@ -214,12 +177,7 @@ pub(super) fn draw_texture_line(
                 (stride, sdf_delta),
                 #[inline(always)]
                 |_| {
-                    let row_ix = if sample_upscaled && texture_step_less_than_one(row_delta) {
-                        texture_source_index(row, row_delta, source_height)
-                    } else {
-                        row.truncate() as usize
-                    };
-                    let pos = (row_ix * stride + col, col_fract, row.fract());
+                    let pos = (row.truncate() as usize * stride + col, col_fract, row.fract());
                     row += row_delta;
                     pos
                 },
@@ -2153,9 +2111,8 @@ fn unscaled_texture_line_wraps_into_next_tile() {
             extra: SceneTextureExtra {
                 dx: Fixed::from_integer(1),
                 dy: Fixed::from_integer(1),
-                off_x: Fixed(24),
-                off_y: Fixed(0),
-                upscaled_origin: None,
+                off_x: super::scene::TextureStep::from_fixed(Fixed::<u16, 4>(24)),
+                off_y: super::scene::TextureStep::default(),
                 colorize: Color::default(),
                 alpha: 0xff,
                 rotation: Default::default(),
