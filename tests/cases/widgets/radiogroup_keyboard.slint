@@ -1,0 +1,60 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { RadioGroup, RadioButton } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 180px;
+
+    out property <string> current-value: group.current-value;
+    out property <int> selected-count;
+    out property <bool> has-focus: group.has-focus;
+    out property <bool> test: root.current-value == "" && root.selected-count == 0;
+
+    group := RadioGroup {
+        title: "Keyboard";
+        selected(value) => { root.selected-count += 1; }
+        RadioButton { text: "First"; }
+        RadioButton { text: "Second"; }
+    }
+}
+
+/*
+```rust
+use slint::platform::Key;
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+slint_testing::send_keyboard_string_sequence(&instance, &slint::SharedString::from(Key::Tab));
+assert!(instance.get_has_focus());
+slint_testing::send_keyboard_char(&instance, Key::Space.into(), true);
+assert_eq!(instance.get_current_value(), "First");
+assert_eq!(instance.get_selected_count(), 1);
+slint_testing::send_keyboard_char(&instance, Key::Space.into(), false);
+assert_eq!(instance.get_selected_count(), 1);
+slint_testing::send_keyboard_string_sequence(&instance, &slint::SharedString::from(Key::Tab));
+slint_testing::send_keyboard_char(&instance, Key::Return.into(), true);
+assert_eq!(instance.get_current_value(), "Second");
+assert_eq!(instance.get_selected_count(), 2);
+slint_testing::send_keyboard_char(&instance, Key::Return.into(), false);
+assert_eq!(instance.get_selected_count(), 2);
+```
+
+```cpp
+auto instance = TestCase::create();
+assert(instance->get_test());
+slint_testing::send_keyboard_string_sequence(&*instance, slint::SharedString(slint::platform::key_codes::Tab));
+assert(instance->get_has_focus());
+slint_testing::send_keyboard_char(&*instance, " ", true);
+assert(instance->get_current_value() == "First");
+assert(instance->get_selected_count() == 1);
+slint_testing::send_keyboard_char(&*instance, " ", false);
+assert(instance->get_selected_count() == 1);
+slint_testing::send_keyboard_string_sequence(&*instance, slint::SharedString(slint::platform::key_codes::Tab));
+slint_testing::send_keyboard_char(&*instance, slint::SharedString(slint::platform::key_codes::Return), true);
+assert(instance->get_current_value() == "Second");
+assert(instance->get_selected_count() == 2);
+slint_testing::send_keyboard_char(&*instance, slint::SharedString(slint::platform::key_codes::Return), false);
+assert(instance->get_selected_count() == 2);
+```
+*/

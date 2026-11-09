@@ -3,7 +3,7 @@
 
 import { RadioButtonImplBase, RadioGroupImplBase } from "../common/radiogroup-base.slint";
 
-export component RadioButtonImpl inherits RadioButtonImplBase {
+export component RadioButton inherits RadioButtonImplBase {
     private property <brush> dot-color: root.checked ? NativePalette.accent-background : transparent;
 
     min-height: max(28px, layout.min-height);
@@ -61,8 +61,6 @@ export component RadioButtonImpl inherits RadioButtonImplBase {
     }
 }
 
-export component RadioGroupImpl inherits RadioGroupImplBase {
+export component RadioGroup inherits RadioGroupImplBase {
     title-color: root.enabled ? NativePalette.foreground : NativePalette.foreground.transparentize(0.5);
 }
-
-export component RadioGroup inherits RadioGroup { }

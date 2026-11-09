@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { RadioGroup } from "std-widgets.slint";
+import { RadioGroup, RadioButton } from "std-widgets.slint";
 
 component Colors inherits RadioGroup {
     RadioButton { text: "Red"; }
@@ -9,7 +9,7 @@ component Colors inherits RadioGroup {
 
 export component Test inherits Window {
     Colors {
-//  >     <error{Cannot add 'RadioButton' elements when instantiating a 'RadioGroup' subclass that already declares its own; declare them on the subclass instead}
+//  >     <error{Declare managed children on the component subclass, not on its instance}
         RadioButton { text: "Blue"; }
     }
 }

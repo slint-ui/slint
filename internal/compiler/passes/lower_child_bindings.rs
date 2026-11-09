@@ -101,11 +101,9 @@ pub(super) fn lower_child_bindings(
             if !Rc::ptr_eq(&insertion_point.parent, &component.root_element)
                 && inherited_contract(&insertion_point.parent, &contracts).is_some()
             {
+                let target = insertion_point.parent.borrow().base_type.to_string();
                 diag.push_error(
-                    format!(
-                        "{} cannot forward children into child-bindings",
-                        slot_error_subject(name)
-                    ),
+                    format!("{} is not allowed as a child of '{target}'", slot_error_subject(name)),
                     &insertion_point.node,
                 );
             }

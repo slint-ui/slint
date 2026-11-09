@@ -42,7 +42,6 @@ mod lower_menus;
 mod lower_platform;
 mod lower_popups;
 mod lower_property_to_element;
-mod lower_radiogroup;
 mod lower_repeated_rows;
 mod lower_shadows;
 mod lower_states;
@@ -135,11 +134,10 @@ pub async fn run_passes(
     });
     lower_tooltips::lower_tooltips(doc, type_loader, diag).await;
     lower_tabwidget::lower_tabwidget(doc, type_loader, diag).await;
-    lower_radiogroup::lower_radiogroup(doc, type_loader, diag).await;
-    lower_child_bindings::lower_child_bindings(doc, &symbol_counters, diag);
     lower_menus::lower_menus(doc, type_loader, diag).await;
     lower_component_container::lower_component_container(doc, type_loader, diag);
     collect_subcomponents::collect_subcomponents(doc);
+    lower_child_bindings::lower_child_bindings(doc, &symbol_counters, diag);
 
     doc.visit_all_used_components(|component| {
         apply_default_properties_from_style::apply_default_properties_from_style(

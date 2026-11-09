@@ -36,6 +36,13 @@ component MissingPlaceholder {
 
 }
 
+component ForwardingWrapper {
+    Group {
+        @children
+//      >       <error{The @children placeholder is not allowed as a child of 'Group'}
+    }
+}
+
 export component Test inherits Window {
     Group { Rectangle { } }
 //          >           <error{Cannot implement 'Entry'.↵- missing 'callback clicked();'↵- missing 'in property <int> value;'}
@@ -60,4 +67,5 @@ export component Test inherits Window {
 
     Override { }
     MissingPlaceholder { }
+    ForwardingWrapper { Item { } }
 }

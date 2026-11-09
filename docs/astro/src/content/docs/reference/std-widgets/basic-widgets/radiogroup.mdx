@@ -8,7 +8,7 @@ import CodeSnippetMD from '@slint/common-files/src/components/CodeSnippetMD.astr
 
 <CodeSnippetMD needsBackground imagePath="/src/assets/generated/std-widget-radiogroup-example.png" imageWidth="200" imageHeight="150" imageAlt='radiogroup example'>
 ```slint
-import { RadioGroup } from "std-widgets.slint";
+import { RadioGroup, RadioButton } from "std-widgets.slint";
 export component Example inherits Window {
     width: 200px;
     height: 150px;
@@ -23,6 +23,8 @@ export component Example inherits Window {
 </CodeSnippetMD>
 
 A group of radio buttons where the user picks exactly one option.
+
+Import both `RadioGroup` and `RadioButton` from `std-widgets.slint`.
 
 `RadioGroup` only accepts `RadioButton` children, either listed statically
 or produced by a single `for` loop.
@@ -75,7 +77,7 @@ RadioGroup {
 
 ## RadioButton
 
-`RadioButton` is a pseudo-element that only appears inside `RadioGroup`.
+`RadioButton` is a component used inside `RadioGroup`.
 
 ### Properties
 

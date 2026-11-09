@@ -2814,6 +2814,34 @@ fn snapshotting_child_bindings() {
 }
 
 #[test]
+fn radio_widgets_without_experimental_features() {
+    let source = r#"
+        import { RadioGroup, RadioButton } from "std-widgets.slint";
+        component Colors inherits RadioGroup {
+            RadioButton { text: "Red"; checked: true; }
+            RadioButton { text: "Green"; }
+        }
+        export component Test inherits Window {
+            in property <Orientation> orientation;
+            Colors { }
+            RadioGroup {
+                orientation: root.orientation;
+                for label in ["Desktop", "Mobile"]: RadioButton { text: label; }
+            }
+        }
+    "#;
+    for style in ["fluent", "material", "cupertino", "cosmic", "qt"] {
+        let mut config = CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+        config.style = Some(style.into());
+        config.experimental_features = crate::ExperimentalFeatures::default();
+        let mut diag = BuildDiagnostics::default();
+        let node = crate::parser::parse(source.into(), None, &mut diag);
+        let (_, diag, _) = spin_on::spin_on(crate::compile_syntax_node(node, diag, config));
+        assert!(!diag.has_errors(), "{style}: {:?}", diag.to_string_vec());
+    }
+}
+
+#[test]
 fn test_builtin_style() {
     let test_source_path: PathBuf =
         [env!("CARGO_MANIFEST_DIR"), "tests", "typeloader"].iter().collect();

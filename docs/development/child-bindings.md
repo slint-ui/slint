@@ -71,3 +71,13 @@ It reuses interface validation and inherited-expression forwarding.
 The resulting properties and callbacks use the existing runtime and code generators.
 No control-specific registration or runtime primitive is required.
 
+## Radio Group Migration
+
+`RadioGroupImplBase` declares the radio child contract in `widgets/common/radiogroup-base.slint`.
+Its block supplies indexes, selection state, grid coordinates, and callbacks.
+Selection synchronization, keyboard input, accessibility, layouts, and style visuals retain their existing implementations.
+
+`RadioGroup` and `RadioButton` are ordinary components exported by each style.
+Import both names from `std-widgets.slint`.
+Their built-in pseudo-elements and the dedicated `lower_radiogroup` pass are removed.
+Public headless components and further radio API changes are separate work.

@@ -3,6 +3,15 @@
 
 import { RadioButtonBase } from "radiobutton-base.slint";
 
+interface RadioGroupMember {
+    in property <string> text;
+    in property <int> item-index;
+    in property <bool> group-enabled;
+    in property <int> group-current-index;
+    callback group-select();
+    callback focus-change(bool);
+}
+
 export component RadioGroupBase {
     in property <bool> enabled: true;
     in-out property <int> current-index: -1;
@@ -20,7 +29,7 @@ export component RadioGroupBase {
 }
 
 // Shared wiring between a `RadioGroup`'s `RadioButton` child and its parent
-// group. Each style's `RadioButtonImpl` inherits this and adds only the visual
+// group. Each style's `RadioButton` inherits this and adds only the visual
 // layer.
 export component RadioButtonImplBase {
     in property <string> text;
@@ -28,7 +37,7 @@ export component RadioButtonImplBase {
     in property <bool> group-enabled: true;
     in property <int> item-index;
     // Mirror of the parent `RadioGroup`'s `current-index`, set by the
-    // lowering pass. Only ever read here.
+    // child-bindings declaration. Only ever read here.
     in property <int> group-current-index: -1;
     // Default binding keeps `checked` synchronously reactive to the group
     // selection. The user can override this with `checked: cond` or
@@ -106,18 +115,24 @@ export component RadioButtonImplBase {
     @children
 }
 
-// Shared container for a styled `RadioGroup`. Each style's `RadioGroupImpl`
+// Shared container for a styled `RadioGroup`. Each style's `RadioGroup`
 // inherits this and only sets the title-text appearance via `title-color`,
-// `title-font-size`, and `title-font-weight`. The buttons themselves flow
-// through the `@children` slot into an internal GridLayout; the lowering
-// pass sets each button's `row` and `col` from its `item-index` and the
-// group's `orientation`, so vertical and horizontal layouts come out of
-// the same GridLayout.
+// `title-font-size`, and `title-font-weight`.
 export component RadioGroupImplBase {
     in property <string> title;
     in property <bool> enabled: true;
     in property <Orientation> orientation: Orientation.vertical;
-    in property <int> item-count;
+    in property <int> item-count: members.count;
+
+    child-bindings <RadioGroupMember> members {
+        item-index: members.index;
+        group-enabled: root.enabled;
+        group-current-index: root.current-index;
+        row: root.orientation == Orientation.vertical ? members.index : 0;
+        col: root.orientation == Orientation.vertical ? 0 : members.index;
+        group-select => { root.select(members.index, self.text); }
+        focus-change(gained) => { root.on-focus-change(gained); }
+    }
 
     in property <brush> title-color;
     // Sensible defaults for styles that don't customize the title typography

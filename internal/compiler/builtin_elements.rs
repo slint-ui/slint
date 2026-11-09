@@ -3468,31 +3468,6 @@ fn build(l: &mut Loader) {
     }
 
     element! {
-        RadioButton {
-            in property <string> text;
-            in property <bool> enabled: true;
-            in-out property <bool> checked;
-            callback toggled;
-        }
-    }
-
-    element! {
-        // Note: not a native class, handled in the lower_radiogroup pass
-        @is_internal @disallow_global_types_as_child_elements
-        RadioGroup {
-            in property <string> title;
-            in property <bool> enabled: true;
-            in property <Orientation> orientation: computed;
-            out property <string> current-value;
-            out property <bool> has-focus;
-            callback selected(value: string);
-
-
-            children: RadioButton;
-        }
-    }
-
-    element! {
         /// ```slint playground
         /// export component Example inherits Window {
         ///     width: 100px;
