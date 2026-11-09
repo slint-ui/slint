@@ -12,18 +12,18 @@ use i_slint_core::graphics::ResolvedBrush;
 use i_slint_core::graphics::boxshadowcache::BoxShadowCache;
 use i_slint_core::graphics::euclid::{self};
 use i_slint_core::graphics::rendering_metrics_collector::RenderingMetrics;
-use i_slint_core::graphics::{IntRect, Point, Size};
+use i_slint_core::graphics::{IntRect, PathSink, Point, ShapedRect, Size};
 use i_slint_core::item_rendering::{
     BorderRectLayout, CachedRenderingData, ItemCache, ItemRenderer, LayerRenderer,
-    RenderBorderRectangle, RenderImage, RenderRectangle, RenderText,
+    RenderBorderRectangle, RenderImage, RenderRectangle, RenderText, ShapedBorderRect,
 };
 use i_slint_core::item_tree::ParentItemTraversalMode;
 use i_slint_core::items::{
     self, Clip, FillRule, ImageRendering, ImageTiling, ItemRc, Layer, Opacity, RenderingResult,
 };
 use i_slint_core::lengths::{
-    LogicalBorderRadius, LogicalPoint, LogicalRect, LogicalSize, LogicalVector, ScaleFactor,
-    logical_size_from_api,
+    LogicalBorderRadius, LogicalPoint, LogicalPx, LogicalRect, LogicalSize, LogicalVector,
+    PhysicalPx, ScaleFactor, logical_size_from_api,
 };
 use i_slint_core::textlayout::sharedparley::{self, GlyphRenderer, fontique, parley};
 use i_slint_core::{Brush, Color, ImageInner, SharedString};
@@ -143,12 +143,66 @@ fn rect_with_radius_to_path(
 
 /// Whether the walk from an `Opacity` down to the `BackdropBlur` it wraps passes through `item`,
 /// see `GLItemRenderer::draw_wrapped_backdrop_blur`.
-fn passes_to_wrapped_backdrop_blur(item: Pin<items::ItemRef>) -> bool {
+fn passes_to_wrapped_backdrop_blur(item_rc: &ItemRc) -> bool {
+    let item = item_rc.borrow();
     items::ItemRef::downcast_pin::<items::Transform>(item).is_some()
         || items::ItemRef::downcast_pin::<Layer>(item).is_some()
-        // A rounded clip renders its children into a layer, see `visit_clip`.
-        || items::ItemRef::downcast_pin::<Clip>(item)
-            .is_some_and(|clip| clip.logical_border_radius().is_zero())
+        || items::ItemRef::downcast_pin::<Clip>(item).is_some_and(|clip| {
+            !clip.clip() || !ClipContent::new(clip, item_rc.geometry().size).uses_layer()
+        })
+}
+
+/// The region `visit_clip` clips the children of a `Clip` to, in logical coordinates.
+enum ClipContent {
+    /// A rectangle with rounded corners, or sharp ones when `radius` is zero.
+    Rounded { rect: LogicalRect, radius: LogicalBorderRadius },
+    /// A region whose corners don't all draw as a rounded rectangle, with `rect` as its bounds.
+    Shaped { rect: LogicalRect, shape: ShapedRect<LogicalPx> },
+}
+
+impl ClipContent {
+    fn new(clip: Pin<&Clip>, size: LogicalSize) -> Self {
+        let radius = clip.logical_border_radius();
+        let shape = clip.logical_corner_shape();
+        match shape.rounded_rect_radius(radius) {
+            Some(radius) => {
+                let (rect, radius) = i_slint_core::item_rendering::clip_content_box(
+                    size,
+                    radius,
+                    clip.border_width(),
+                );
+                Self::Rounded { rect, radius }
+            }
+            None => Self::Shaped {
+                rect: i_slint_core::item_rendering::clip_content_box(
+                    size,
+                    radius,
+                    clip.border_width(),
+                )
+                .0,
+                shape: ShapedRect::new(
+                    LogicalRect::from_size(size).cast(),
+                    radius.cast(),
+                    shape,
+                    -clip.border_width().get().max(0.),
+                ),
+            },
+        }
+    }
+
+    fn rect(&self) -> LogicalRect {
+        match self {
+            Self::Rounded { rect, .. } | Self::Shaped { rect, .. } => *rect,
+        }
+    }
+
+    /// Whether the children render into a layer, rather than being clipped with the scissor.
+    fn uses_layer(&self) -> bool {
+        match self {
+            Self::Rounded { radius, .. } => !radius.is_zero(),
+            Self::Shaped { .. } => true,
+        }
+    }
 }
 
 /// Whether `visit_opacity` draws this blur instead of the layer it sits in,
@@ -164,7 +218,7 @@ fn is_drawn_by_wrapping_opacity(blur_rc: &ItemRc) -> bool {
             return opacity.wraps_backdrop_blur()
                 && Opacity::need_layer(&parent, opacity.opacity());
         }
-        if !passes_to_wrapped_backdrop_blur(item) {
+        if !passes_to_wrapped_backdrop_blur(&parent) {
             return false;
         }
         child = parent;
@@ -265,6 +319,129 @@ fn rect_to_path(r: PhysicalRect) -> femtovg::Path {
     rect_with_radius_to_path(r, PhysicalBorderRadius::default())
 }
 
+/// Builds a femtovg path from a [`ShapedRect`]'s outline.
+#[derive(Default)]
+struct FemtovgPathSink(femtovg::Path);
+
+impl PathSink for FemtovgPathSink {
+    fn move_to(&mut self, to: Point) {
+        self.0.move_to(to.x, to.y);
+    }
+    fn line_to(&mut self, to: Point) {
+        self.0.line_to(to.x, to.y);
+    }
+    fn cubic_to(&mut self, ctrl1: Point, ctrl2: Point, to: Point) {
+        self.0.bezier_to(ctrl1.x, ctrl1.y, ctrl2.x, ctrl2.y, to.x, to.y);
+    }
+    fn close(&mut self) {
+        self.0.close();
+    }
+}
+
+/// The path of `shape`'s outline, before its offset.
+fn outline_path(shape: &ShapedRect<PhysicalPx>) -> femtovg::Path {
+    if shape.is_rounded() {
+        let (rect, radius) = ShapedRect { offset: 0., ..*shape }.rounded_rect();
+        return rect_with_radius_to_path(rect, radius);
+    }
+    let mut sink = FemtovgPathSink::default();
+    shape.add_outline(&mut sink);
+    sink.0
+}
+
+/// Fills `shape` with `paint`, leaving out the outline offset by `inner_offset` if given.
+///
+/// femtovg has no path operations, so an offset outline is drawn in a layer at `alpha`:
+/// the outline with a miter stroke added to grow it, or cut out to shrink it.
+fn fill_shaped<R: femtovg::Renderer>(
+    canvas: &mut Canvas<R>,
+    shape: &ShapedRect<PhysicalPx>,
+    inner_offset: Option<f32>,
+    paint: &femtovg::Paint,
+    alpha: f32,
+) {
+    let offset = shape.offset;
+    if inner_offset.is_none() && (shape.is_rounded() || offset == 0.) {
+        let path = if shape.is_rounded() {
+            let (rect, radius) = shape.rounded_rect();
+            rect_with_radius_to_path(rect, radius)
+        } else {
+            outline_path(shape)
+        };
+        canvas.fill_path(&path, paint);
+        return;
+    }
+    if inner_offset.is_some_and(|inner| inner >= offset) {
+        return;
+    }
+    let outline = outline_path(shape);
+    // A miter at a right angle reaches `sqrt(2)` times the offset from the outline.
+    let reach = 2. * offset.max(0.) + 1.;
+    let bounds = shape.rect.inflate(reach, reach);
+    canvas.save();
+    canvas.intersect_scissor(bounds.min_x(), bounds.min_y(), bounds.width(), bounds.height());
+    if !canvas.begin_layer(&femtovg::LayerEffects::new().with_opacity(alpha)) {
+        canvas.end_layer();
+        canvas.fill_path(&outline, paint);
+        canvas.restore();
+        return;
+    }
+    let mask = femtovg::Paint::color(femtovg::Color::rgb(255, 255, 255));
+    let stroke = |offset: f32| {
+        let mut stroke = mask.clone();
+        stroke.set_line_width(2. * offset.abs());
+        stroke.set_line_join(femtovg::LineJoin::Miter);
+        stroke
+    };
+    match inner_offset {
+        None => {
+            canvas.fill_path(&outline, &mask);
+            if offset < 0. {
+                canvas.global_composite_operation(femtovg::CompositeOperation::DestinationOut);
+            }
+            canvas.stroke_path(&outline, &stroke(offset));
+        }
+        Some(inner) if offset > 0. => {
+            // Cutting the inner area out whole keeps the outline's edge from showing as a seam.
+            canvas.fill_path(&outline, &mask);
+            canvas.stroke_path(&outline, &stroke(offset));
+            canvas.global_composite_operation(femtovg::CompositeOperation::DestinationOut);
+            fill_shaped(canvas, &ShapedRect { offset: inner, ..*shape }, None, &mask, 1.);
+        }
+        Some(inner) => {
+            canvas.save();
+            canvas.clip_path(&outline, femtovg::FillRule::NonZero);
+            canvas.stroke_path(&outline, &stroke(inner));
+            canvas.restore();
+            if offset < 0. {
+                canvas.global_composite_operation(femtovg::CompositeOperation::DestinationOut);
+                canvas.stroke_path(&outline, &stroke(offset));
+            }
+        }
+    }
+    canvas.global_composite_operation(femtovg::CompositeOperation::SourceIn);
+    let mut bounds_path = femtovg::Path::new();
+    bounds_path.rect(bounds.min_x(), bounds.min_y(), bounds.width(), bounds.height());
+    canvas.fill_path(&bounds_path, paint);
+    canvas.end_layer();
+    canvas.restore();
+}
+
+/// Fills the background and border of `shaped` with `paints`, in that order.
+fn fill_shaped_border<R: femtovg::Renderer>(
+    canvas: &mut Canvas<R>,
+    shaped: &ShapedBorderRect,
+    [background_paint, border_paint]: [Option<femtovg::Paint>; 2],
+    alpha: f32,
+) {
+    if let Some(paint) = background_paint {
+        fill_shaped(canvas, &shaped.background, None, &paint, alpha);
+    }
+    if let (Some([outer, inner]), Some(paint)) = (shaped.border, border_paint) {
+        fill_shaped(canvas, &outer, Some(inner.offset), &paint, alpha);
+    }
+}
+
 impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
     pub fn metrics(&self) -> RenderingMetrics {
         self.metrics.clone()
@@ -311,6 +488,20 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         };
 
         let fill_paint = self.brush_to_paint(rect.background(), layout.brush_size);
+
+        if let Some(shaped) = layout.shaped {
+            let border_paint = shaped
+                .border
+                .and_then(|_| self.brush_to_paint(layout.border_color, layout.brush_size));
+            let alpha = self.state.last().unwrap().global_alpha;
+            fill_shaped_border(
+                &mut self.canvas.borrow_mut(),
+                &shaped,
+                [fill_paint, border_paint],
+                alpha,
+            );
+            return;
+        }
 
         let border_paint = if layout.border_width.get() > 0.0 {
             self.brush_to_paint(layout.border_color, layout.brush_size).map(|mut paint| {
@@ -725,12 +916,8 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
             return RenderingResult::ContinueRenderingChildren;
         }
 
-        // Note: This is correct, combine_clip and get_current_clip operate on logical coordinates.
-        let (clip_rect, clip_radius) = i_slint_core::item_rendering::clip_content_box(
-            size,
-            clip_item.logical_border_radius(),
-            clip_item.border_width(),
-        );
+        let clip = ClipContent::new(clip_item, size);
+        let clip_rect = clip.rect();
 
         // If clipping is enabled but the clip element is outside the visible range, then we don't
         // need to bother doing anything, not even rendering the children.
@@ -738,7 +925,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
             return RenderingResult::ContinueRenderingWithoutChildren;
         }
 
-        if !clip_radius.is_zero() {
+        if clip.uses_layer() {
             if let Some((layer_origin, layer_image)) =
                 i_slint_core::item_rendering::render_layer(self, item_rc)
                 && let Some(layer_image_size) = layer_image.size()
@@ -755,10 +942,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
                     1.0,
                 );
 
-                let layer_path = rect_with_radius_to_path(
-                    clip_rect * self.scale_factor,
-                    clip_radius * self.scale_factor,
-                );
+                let alpha = self.state.last().unwrap().global_alpha;
 
                 self.canvas.borrow_mut().save_with(|canvas| {
                     // Blit the layer on whole device pixels, or the texture is resampled and its
@@ -774,7 +958,19 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
                         layer_image_width,
                         layer_image_height,
                     );
-                    canvas.fill_path(&layer_path, &layer_image_paint);
+                    match &clip {
+                        ClipContent::Rounded { rect, radius } => {
+                            let layer_path = rect_with_radius_to_path(
+                                *rect * self.scale_factor,
+                                *radius * self.scale_factor,
+                            );
+                            canvas.fill_path(&layer_path, &layer_image_paint);
+                        }
+                        ClipContent::Shaped { shape, .. } => {
+                            let shape = shape.scale(self.scale_factor);
+                            fill_shaped(canvas, &shape, None, &layer_image_paint, alpha);
+                        }
+                    }
                     if aligned {
                         canvas.restore();
                     }
@@ -784,7 +980,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
             RenderingResult::ContinueRenderingWithoutChildren
         } else {
             self.layer_cache.release(item_rc);
-            self.combine_clip(clip_rect, clip_radius);
+            self.combine_clip(clip_rect, LogicalBorderRadius::default());
             RenderingResult::ContinueRenderingChildren
         }
     }
@@ -1339,7 +1535,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                 self.blur_backdrop(blur, geometry.size);
                 return;
             }
-            if !passes_to_wrapped_backdrop_blur(item) {
+            if !passes_to_wrapped_backdrop_blur(&item_rc) {
                 return;
             }
             if items::ItemRef::downcast_pin::<Layer>(item).is_none() {
@@ -1365,10 +1561,12 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
         if sigma <= 0. {
             return;
         }
-        let path = rect_with_radius_to_path(
+        let path = outline_path(&ShapedRect::new(
             PhysicalRect::from_size(size * self.scale_factor),
             backdrop_blur.logical_border_radius() * self.scale_factor,
-        );
+            backdrop_blur.logical_corner_shape(),
+            0.,
+        ));
         // Errors leave the target untouched, so the backdrop just stays sharp.
         let _ = self.canvas.borrow_mut().blur_path(&path, femtovg::FillRule::NonZero, sigma);
     }
