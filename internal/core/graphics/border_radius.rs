@@ -643,6 +643,28 @@ impl CornerShapes {
     pub const fn new_uniform(shape: CornerShape) -> Self {
         Self::new(shape, shape, shape, shape)
     }
+
+    /// Returns the radii that draw corners of these shapes with `radius` as a rounded
+    /// rectangle, or `None` when a corner needs a path.
+    /// A [`CornerShape::Square`] corner, or one without a radius, is sharp whatever its shape.
+    pub fn rounded_rect_radius<T: Copy + PartialOrd + Zero, U>(
+        &self,
+        radius: BorderRadius<T, U>,
+    ) -> Option<BorderRadius<T, U>> {
+        let corner = |shape: CornerShape, r: T| {
+            if r <= T::zero() || shape == CornerShape::Square {
+                Some(T::zero())
+            } else {
+                (shape == CornerShape::Round).then_some(r)
+            }
+        };
+        Some(BorderRadius::new(
+            corner(self.top_left, radius.top_left)?,
+            corner(self.top_right, radius.top_right)?,
+            corner(self.bottom_right, radius.bottom_right)?,
+            corner(self.bottom_left, radius.bottom_left)?,
+        ))
+    }
 }
 
 #[cfg(test)]
@@ -706,6 +728,38 @@ mod tests {
         assert!(!BorderRadius::new_uniform(1.0e-3).is_zero());
         assert!(IntBorderRadius::new_uniform(0).is_zero());
         assert!(!IntBorderRadius::new_uniform(1).is_zero());
+    }
+
+    #[test]
+    fn test_rounded_rect_radius() {
+        use super::{CornerShape, CornerShapes};
+        let radius = BorderRadius::new(4., 8., 12., 16.);
+        let round = CornerShapes::new(
+            CornerShape::Round,
+            CornerShape::Superellipse(1.),
+            CornerShape::Superellipse(f32::NAN),
+            CornerShape::Round,
+        );
+        assert_eq!(round.rounded_rect_radius(radius), Some(radius));
+        let sharp = CornerShapes::new(
+            CornerShape::Square,
+            CornerShape::Bevel,
+            CornerShape::Round,
+            CornerShape::Notch,
+        );
+        assert_eq!(
+            sharp.rounded_rect_radius(BorderRadius::new(4., 0., 12., -1.)),
+            Some(BorderRadius::new(0., 0., 12., 0.))
+        );
+        assert_eq!(sharp.rounded_rect_radius(radius), None);
+        assert_eq!(
+            CornerShapes::new_uniform(CornerShape::Superellipse(1.5)).rounded_rect_radius(radius),
+            None
+        );
+        assert_eq!(
+            CornerShapes::new_uniform(CornerShape::Squircle).rounded_rect_radius(radius),
+            None
+        );
     }
 
     #[test]
