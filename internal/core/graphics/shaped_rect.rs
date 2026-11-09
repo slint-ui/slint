@@ -306,9 +306,11 @@ fn corners_in_path_order<U>(
 }
 
 /// `radius` for `rect` with corners of `shapes`: a [`CornerShape::Square`] corner has no
-/// radius, and where adjacent corners would overlap along a side, all radii are scaled down
-/// by one shared factor, as for a rounded rectangle.
-/// See <https://drafts.csswg.org/css-backgrounds-3/#corner-overlap>.
+/// radius, and where corners would overlap, all radii are scaled down by one shared factor.
+/// Adjacent corners are fitted along each side, as for a rounded rectangle, and opposite
+/// corners so that their inner corner hulls don't intersect.
+/// See <https://drafts.csswg.org/css-backgrounds-3/#corner-overlap> and
+/// <https://drafts.csswg.org/css-borders-4/#corner-shape-constrain-radii>.
 fn fit_radius<U>(
     rect: euclid::default::Rect<f32>,
     radius: BorderRadius<f32, U>,
@@ -334,7 +336,84 @@ fn fit_radius<U>(
     .into_iter()
     .filter(|&(_, sum)| sum > 0.)
     .fold(1f32, |scale, (side, sum)| scale.min(side / sum));
-    r * adjacent
+    r * adjacent.min(opposite_corner_scale(rect, corners_in_path_order(r, shapes)))
+}
+
+/// The CSS normalized inner corner hull of `shape`: a convex polygon in the corner frame, in
+/// units of the radius, that holds the corner's curve, starting at the tip.
+/// A convex corner's hull is the triangle of the tip and the corner's ends.
+/// A concave one also reaches toward the corner's center, up to the tangent at the middle of
+/// its curve.
+/// Repeating the last point pads the triangle to the pentagon's length.
+fn corner_hull(shape: CornerShape) -> [Vector; 5] {
+    let k = shape.superellipse_k();
+    let (tip, ends) = (Vector::zero(), [Vector::new(0., 1.), Vector::new(1., 0.)]);
+    if k >= 0. {
+        return [tip, ends[0], ends[1], ends[1], ends[1]];
+    }
+    // `1 - h` is where the curve crosses the frame's diagonal.
+    let h = if k == f32::NEG_INFINITY { 0. } else { 1. - 0.5f32.powf(1. / superellipse_n(k)) };
+    [tip, ends[0], Vector::new(1. - 2. * h, 1.), Vector::new(1., 1. - 2. * h), ends[1]]
+}
+
+/// The largest factor by which opposite corners of `corners`, in the order of
+/// [`corner_frames`], can scale their radii before their [`corner_hull`]s intersect,
+/// or infinity when no factor makes them.
+fn opposite_corner_scale(
+    rect: euclid::default::Rect<f32>,
+    corners: [(f32, CornerShape); 4],
+) -> f32 {
+    // Convex hulls are triangles, which stay apart within the adjacent corner scale.
+    if corners.iter().all(|&(_, shape)| shape.superellipse_k() >= 0.) {
+        return f32::INFINITY;
+    }
+    let frames = corner_frames(rect);
+    // Each hull relative to its tip, so scaling the radius scales the offsets.
+    let hull = |i: usize| {
+        let ((tip, e_in, e_out), (r, shape)) = (frames[i], corners[i]);
+        (tip, corner_hull(shape).map(|p| e_in * (p.x * r) + e_out * (p.y * r)))
+    };
+    let normals = |offsets: [Vector; 5]| {
+        (0..5).filter_map(move |i| {
+            let edge = offsets[(i + 1) % 5] - offsets[i];
+            (edge.square_length() > 0.).then(|| Vector::new(edge.y, -edge.x))
+        })
+    };
+    let extent = |offsets: &[Vector; 5], axis: Vector| {
+        offsets
+            .iter()
+            .map(|p| p.dot(axis))
+            .fold((f32::INFINITY, f32::NEG_INFINITY), |(lo, hi), d| (lo.min(d), hi.max(d)))
+    };
+    [(0, 2), (1, 3)]
+        .into_iter()
+        .map(|(a, b)| {
+            let ((tip_a, hull_a), (tip_b, hull_b)) = (hull(a), hull(b));
+            // Separating axes: the hulls are convex, and every hull contains its tip, so along
+            // each axis an interval reaching past the tip grows with the scale, and the
+            // largest scale that keeps one axis separating is the answer.
+            normals(hull_a)
+                .chain(normals(hull_b))
+                .flat_map(|axis| {
+                    let gap = (tip_b - tip_a).dot(axis);
+                    let ((min_a, max_a), (min_b, max_b)) =
+                        (extent(&hull_a, axis), extent(&hull_b, axis));
+                    [(max_a - min_b, gap), (max_b - min_a, -gap)]
+                })
+                .map(|(reach, gap)| {
+                    if reach > 0. {
+                        gap / reach
+                    } else if gap >= 0. {
+                        f32::INFINITY
+                    } else {
+                        0.
+                    }
+                })
+                .fold(f32::NEG_INFINITY, f32::max)
+        })
+        // A hull without edges is a point, and no scale makes it intersect.
+        .map(|scale| if scale == f32::NEG_INFINITY { f32::INFINITY } else { scale })
+        .fold(f32::INFINITY, f32::min)
 }
 
 #[cfg(test)]
@@ -508,6 +587,28 @@ mod tests {
         assert_eq!(fit_radius(rect, radius, square), BorderRadius::new(40., 0., 0., 0.));
         let fits = BorderRadius::<f32, ()>::new(20., 20., 20., 20.);
         assert_eq!(fit_radius(rect, fits, round), fits);
+    }
+
+    #[test]
+    fn fit_radius_separates_opposite_corners() {
+        let rect = euclid::default::Rect::new(Point::zero(), euclid::size2(100., 100.));
+        let radius = BorderRadius::<f32, ()>::new(80., 0., 80., 0.);
+        // The scoop's hull reaches to `x + y == 80 * sqrt(2)` from its tip, so the hulls
+        // touch when both radii are `100 / sqrt(2)`.
+        let scoops = CornerShapes::new_uniform(CornerShape::Scoop);
+        let fitted = fit_radius(rect, radius, scoops);
+        let expected = 100. / core::f32::consts::SQRT_2;
+        assert!((fitted.top_left - expected).abs() < 1e-3, "{fitted:?}");
+        assert!((fitted.bottom_right - expected).abs() < 1e-3, "{fitted:?}");
+        // A notch's hull is the corner's whole square, so notches meet sooner.
+        let notches = CornerShapes::new_uniform(CornerShape::Notch);
+        assert_eq!(fit_radius(rect, radius, notches), BorderRadius::new(50., 0., 50., 0.));
+        for shape in [CornerShape::Round, CornerShape::Bevel, CornerShape::Squircle] {
+            let shapes = CornerShapes::new_uniform(shape);
+            assert_eq!(fit_radius(rect, radius, shapes), radius, "{shape:?}");
+            let full = BorderRadius::<f32, ()>::new_uniform(50.);
+            assert_eq!(fit_radius(rect, full, shapes), full, "{shape:?}");
+        }
     }
 
     #[test]
