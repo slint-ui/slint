@@ -401,15 +401,14 @@ impl<T: InterpolatedPropertyValue + Clone, A: Fn() -> AnimationDetail> BindingCa
 
                 // Since `mark_dirty` fires when dependencies of `original_binding` changes
                 // if the change doesn't actually affect the computed value, it shouldn't restart
-                // the animation
+                // the animation; nor start one, without a previous target, from the current value
+                // to itself, which would only keep the window redrawing.
                 let previous_to_value = animation_data.to_value.clone();
                 let mut new_to_value = T::default();
                 // Safety: `new_to_value` is a valid mutable reference matching the
                 // original binding's value type
                 unsafe { self.original_binding.update(&mut new_to_value as *mut T) };
 
-                // Without a previous target, nothing has been animated yet. Animating from
-                // the current value to itself would only keep the window redrawing.
                 if previous_to_value.is_none() && new_to_value == *value {
                     self.state.set(AnimatedBindingState::NotAnimating);
                     return BindingResult::KeepBinding;
@@ -1438,9 +1437,7 @@ mod animation_tests {
 
     #[test]
     fn properties_test_animation_triggered_by_binding_without_value_change() {
-        // The dependencies of an animated binding that never animated change without changing
-        // its value, like a model row rewritten after its item was created. That must neither
-        // animate nor keep the animation driver busy.
+        // https://github.com/slint-ui/slint/pull/14823
         #[derive(Default)]
         struct Component {
             width: Property<i32>,
