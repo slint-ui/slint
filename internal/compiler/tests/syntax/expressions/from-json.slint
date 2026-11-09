@@ -75,4 +75,7 @@ export component SuperSimple {
 
     // extra JSON keys not declared on the struct are silently ignored
     property <Point> a_struct_with_extra_keys: @from-json("from-json/data.json").a_struct_with_extra_keys;
+
+    // part of a larger expression, whose type differs from the property's type
+    property <bool> a_comparison: @from-json("from-json/data.json").int_property > 0;
 }
