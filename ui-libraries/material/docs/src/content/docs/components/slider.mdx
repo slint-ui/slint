@@ -61,6 +61,7 @@ The current value of the slider.
 
 ### released(value: float)
 Invoked when the slider is released.
+When something else takes over the touch, such as a page that starts to scroll, the value goes back to where it was before the press and `released` isn't invoked.
 
 ### value_changed(value: float)
 Invoked when the slider value changes.

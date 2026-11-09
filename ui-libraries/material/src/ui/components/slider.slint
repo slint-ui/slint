@@ -6,7 +6,7 @@ import { MaterialPalette } from "../styling/material_palette.slint";
 import { StateLayer } from "./state_layer.slint";
 
 export component Slider {
-    in property <bool> enabled;
+    in property <bool> enabled: true;
     in_out property <float> value;
     in property <float> minimum;
     in property <int> stop_count: 0;
@@ -15,15 +15,17 @@ export component Slider {
     callback released(value: float);
     callback value_changed(value: float);
 
-    property <int> steps: root.stop_count > 0 ? (root.maximum - root.minimum) / root.stop_count : 1;
+    property <float> steps: root.stop_count > 0 ? (root.maximum - root.minimum) / root.stop_count : 1;
+    property <float> pressed_value;
 
-    min_height: 20px;
+    // The touch target, as on Android.
+    min_height: MaterialStyleMetrics.size_48;
     accessible-role: slider;
     accessible-enabled: root.enabled;
     accessible-value: root.value;
     accessible-value-minimum: root.minimum;
     accessible-value-maximum: root.maximum;
-    accessible-value-step: min(steps, (root.maximum - root.minimum) / 100);
+    accessible-value-step: root.stop_count > 0 ? root.steps : min(root.steps, (root.maximum - root.minimum) / 100);
     accessible-action-set-value(v) => {
         if v.is-float() {
             root.set_value(v.to-float());
@@ -34,7 +36,11 @@ export component Slider {
     forward-focus: focus_scope;
 
     focus_scope := FocusScope {
+        enabled: root.enabled;
+
         touch_area := TouchArea {
+            enabled: root.enabled;
+
             track := Rectangle {
                 x: 0;
                 height: MaterialStyleMetrics.size_16;
@@ -52,8 +58,8 @@ export component Slider {
                 }
 
                 if root.stop_count > 1: Rectangle {
-                    for i in (root.maximum - root.minimum) / root.steps - 1: Rectangle {
-                        x: root.value_to_length(track.width, (i + 1) * root.steps) - self.width / 2;
+                    for i in root.stop_count - 1: tick := Rectangle {
+                        x: root.value_to_length(track.width, root.minimum + (i + 1) * root.steps) - self.width / 2;
                         height: MaterialStyleMetrics.size_4;
                         width: self.height;
                         border_radius: self.height / 2;
@@ -68,43 +74,46 @@ export component Slider {
                 height: track.height + (MaterialStyleMetrics.size_14 * 2);
                 StateLayer {
                     height: track.height + (MaterialStyleMetrics.size_16 * 2);
-                    width: thumb.width + (MaterialStyleMetrics.size_2 * 2);
+                    width: MaterialStyleMetrics.size_4 + (MaterialStyleMetrics.size_2 * 2);
                     border_radius: self.width / 2;
                     pressed: touch_area.pressed;
                     has_hover: touch_area.has_hover;
                     has_focus: focus_scope.has_focus;
                     enabled: root.enabled;
                     background: thumb.background;
-                    display_background: thumb_area.pressed || thumb_area.has_hover || focus_scope.has_focus;
+                    display_background: touch_area.pressed || touch_area.has_hover || focus_scope.has_focus;
 
-                    thumb_area := TouchArea {
+                    thumb := Rectangle {
+                        // Narrower while held, as in Material 3.
+                        width: touch_area.pressed ? MaterialStyleMetrics.size_2 : MaterialStyleMetrics.size_4;
                         height: track.height + (MaterialStyleMetrics.size_14 * 2);
-                        width: self.height;
-                        thumb := Rectangle {
-                            width: MaterialStyleMetrics.size_4;
-                            border_radius: self.width / 2;
-                            background: MaterialPalette.primary;
-                        }
-
-                        moved => {
-                            root.set_value(root.length_to_value(state_layer.x + (self.mouse_x - self.pressed_x), track.width));
-                        }
-
-                        pointer_event(event) => {
-                            if event.kind == PointerEventKind.up {
-                                root.released(root.value);
-                            }
-                        }
+                        border_radius: self.width / 2;
+                        background: MaterialPalette.primary;
                     }
                 }
             }
 
-            pointer_event(event) => {
-                if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+            moved => {
+                if self.pressed {
                     root.set_value(root.length_to_value(self.mouse_x, track.width));
                 }
-                if event.kind == PointerEventKind.up {
+            }
+
+            pointer_event(event) => {
+                if event.kind == PointerEventKind.down {
+                    if event.button == PointerEventButton.left {
+                        root.pressed_value = root.value;
+                        root.set_value(root.length_to_value(self.mouse_x, track.width));
+                    } else if !self.pressed {
+                        // Another button during a drag keeps the value from before the drag.
+                        root.pressed_value = root.value;
+                    }
+                }
+                if event.kind == PointerEventKind.up && event.button == PointerEventButton.left {
                     root.released(root.value);
+                }
+                if event.kind == PointerEventKind.cancel {
+                    root.value = root.pressed_value;
                 }
             }
         }
@@ -131,12 +140,17 @@ export component Slider {
     }
 
     pure function length_to_value(x: length, width: length) -> float {
-        x * (root.maximum - root.minimum) / width
+        root.minimum + x * (root.maximum - root.minimum) / width
     }
 
     function set_value(value: float) {
-        if root.steps > 1 {
-            root.value = clamp(round(value / root.steps) * root.steps, root.minimum, root.maximum)
+        if !root.enabled {
+            return;
+        }
+        if root.stop_count > 0 {
+            // Weighting both ends makes the first and last stops exactly `minimum` and `maximum`.
+            let fraction = round((value - root.minimum) / root.steps) / root.stop_count;
+            root.value = clamp(root.minimum * (1 - fraction) + root.maximum * fraction, root.minimum, root.maximum)
         } else {
             root.value = clamp(value, root.minimum, root.maximum)
         }
