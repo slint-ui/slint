@@ -1,4 +1,4 @@
 {
   "edition": 119
-//             |error{invalid type: integer `119`, expected a Slint edition string, such as "1.19"}
+//             |error{invalid type: integer `119`, expected a Slint edition string, such as "1.20"}
 }
