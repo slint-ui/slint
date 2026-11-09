@@ -6,7 +6,7 @@
 use super::PhysicalRect;
 use super::draw_functions::{LineClip, PremultipliedRgbaColor, TargetPixel, interpolate_color};
 use super::{
-    AnyGradientCommand, PhysicalLength, PhysicalRegion, RoundedClip, ShapeClip, shape_clips,
+    AnyGradientCommand, CornerClip, PhysicalLength, PhysicalRegion, ShapeClip, shape_clips,
 };
 use alloc::vec;
 use alloc::vec::Vec;
@@ -76,7 +76,7 @@ fn render_path_with_style<T: TargetPixel>(
     commands: &[Command],
     path_geometry: &PhysicalRect,
     region: &PhysicalRegion,
-    rounded_clips: &[RoundedClip],
+    rounded_clips: &[CornerClip],
     clips: &mut Vec<ShapeClip>,
     paint: &Paint,
     style: zeno::Style,
@@ -259,7 +259,7 @@ pub fn render_filled_path<T: TargetPixel>(
     commands: &[Command],
     path_geometry: &PhysicalRect,
     region: &PhysicalRegion,
-    rounded_clips: &[RoundedClip],
+    rounded_clips: &[CornerClip],
     clips: &mut Vec<ShapeClip>,
     paint: &Paint,
     fill_rule: i_slint_core::items::FillRule,
@@ -305,7 +305,7 @@ pub fn render_stroked_path<T: TargetPixel>(
     commands: &[Command],
     path_geometry: &PhysicalRect,
     region: &PhysicalRegion,
-    rounded_clips: &[RoundedClip],
+    rounded_clips: &[CornerClip],
     clips: &mut Vec<ShapeClip>,
     paint: &Paint,
     stroke_style: StrokeStyle<'_>,

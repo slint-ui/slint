@@ -1,0 +1,44 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company , info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// SIZE=48x48
+// ROTATION_THRESHOLD=4  - the software renderer anti-aliases differently in each rotation
+//ignore: anyrender, vello_cpu
+// FemtoVG renders a clip with a corner radius into a layer, which can't be that wide.
+//ignore: femtovg
+
+// A shaped rectangle and a shaped clip wider than 32767 pixels, with only their right corners
+// on screen, still draw.
+
+export component TestCase inherits Window {
+    width: 48px;
+    height: 48px;
+    background: white;
+
+    Rectangle {
+        x: 40px - self.width;
+        y: 4px;
+        width: 40000px;
+        height: 18px;
+        background: #4f8cff;
+        border-width: 2px;
+        border-color: #203060;
+        border-radius: 12px;
+        corner-shape: bevel;
+    }
+
+    Rectangle {
+        x: 40px - self.width;
+        y: 26px;
+        width: 40000px;
+        height: 18px;
+        clip: true;
+        border-radius: 12px;
+        corner-shape: scoop;
+        Rectangle {
+            x: parent.width - 30px;
+            width: 30px;
+            background: #ff4400;
+        }
+    }
+}

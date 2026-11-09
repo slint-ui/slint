@@ -5,7 +5,7 @@
 
 use super::draw_functions::{PremultipliedRgbaColor, TargetPixel};
 use super::{
-    Fixed, PhysicalLength, PhysicalRect, PhysicalSize, ProcessScene, RotationInfo, RoundedClip,
+    CornerClip, Fixed, PhysicalLength, PhysicalRect, PhysicalSize, ProcessScene, RotationInfo,
     Transform, target_pixel_buffer,
 };
 use alloc::vec::Vec;
@@ -34,7 +34,7 @@ pub(super) fn process_drop_shadow(
     origin: euclid::Point2D<f32, PhysicalPx>,
     color: Color,
     clip: &PhysicalRect,
-    rounded_clips: &[RoundedClip],
+    rounded_clips: &[CornerClip],
     rotation: RotationInfo,
 ) {
     let Some((background, layout)) = &options.source else { return };
