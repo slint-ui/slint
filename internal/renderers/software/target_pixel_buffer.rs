@@ -170,7 +170,7 @@ impl DrawTextureArgs {
 ///
 /// All the coordinate are in physical pixels
 #[non_exhaustive]
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct DrawRectangleArgs {
     /// The x position in the destination buffer
     pub x: f32,
