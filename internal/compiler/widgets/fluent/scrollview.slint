@@ -74,8 +74,6 @@ component ScrollBar inherits Rectangle {
         y: root.horizontal ? parent.height - 4px - self.height : root.offset + (root.track-size - thumb.height) * (-root.value / root.maximum);
         border-radius: (root.horizontal ? self.height : self.width) / 2;
         background: FluentPalette.border;
-
-        animate width, height { duration: 150ms; easing: ease-out; }
     }
 
     touch-area := TouchArea {
