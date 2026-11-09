@@ -532,7 +532,7 @@ jobs:
         runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v7
-            - uses: pnpm/action-setup@v6.1.0
+            - uses: pnpm/action-setup@v6.1.1
             - uses: Swatinem/rust-cache@v2
               with:
                 key: "vsce_1" # increment this to bust the cache if needed
@@ -819,7 +819,8 @@ jobs:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_rs') || contains(fromJSON(inputs.changes), 'examples') || contains(fromJSON(inputs.changes), 'android_backend') }}
         runs-on: ubuntu-latest
         env:
-            RUSTFLAGS: -D warnings
+            # Without -z defs, an undefined symbol only fails when the app loads the library.
+            RUSTFLAGS: -D warnings -C link-arg=-Wl,-z,defs
             # cargo-apk2 does not honor the repository's relative `build.target-dir`
             # (.cargo/config.toml), so point it at an absolute path that matches
             # where cargo actually writes the artifacts.
@@ -845,6 +846,10 @@ jobs:
             - uses: ./.github/actions/setup-rust
               with:
                   target: aarch64-linux-android
+
+            # The prebuilt Skia binaries need the libc++ of NDK r30 or newer.
+            - name: Select the latest NDK
+              run: echo "ANDROID_NDK_ROOT=$ANDROID_NDK_LATEST_HOME" >> "$GITHUB_ENV"
 
             - name: Build todo demo
               run: cargo apk2 build --manifest-path examples/Cargo.toml -p todo --target aarch64-linux-android --lib
@@ -883,7 +888,8 @@ jobs:
             # itself, without retrying a failed download.
             - name: Install the Android NDK and CMake
               run: |
-                  install_android_sdk_parts() { ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "ndk;27.0.12077973" "cmake;3.22.1"; }
+                  ndk=$(sed -n 's/^ *ndkVersion = "\(.*\)"$/\1/p' demos/usecases/cpp/android/build.gradle.kts)
+                  install_android_sdk_parts() { ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "ndk;$ndk" "cmake;3.22.1"; }
                   install_android_sdk_parts || { sleep 10 && install_android_sdk_parts; }
             - name: Build usecases demo APK (Gradle end-to-end)
               working-directory: demos/usecases/cpp/android
@@ -950,7 +956,7 @@ jobs:
               with:
                   node-version: 24
                   package-manager-cache: false
-            - uses: pnpm/action-setup@v6.1.0
+            - uses: pnpm/action-setup@v6.1.1
             - uses: ./.github/actions/setup-rust
               with:
                   target: wasm32-unknown-unknown
@@ -978,7 +984,7 @@ jobs:
               with:
                   node-version: 24
                   package-manager-cache: false
-            - uses: pnpm/action-setup@v6.1.0
+            - uses: pnpm/action-setup@v6.1.1
             - uses: ./.github/actions/setup-rust
               with:
                   target: wasm32-unknown-unknown
