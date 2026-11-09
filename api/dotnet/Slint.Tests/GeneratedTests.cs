@@ -53,10 +53,13 @@ public sealed class GeneratedTests
         Assert.AreEqual(new RecordMembers { EqualityContract_ = 1, PrintMembers_ = 2, ToString_ = "text", Equals_ = true, GetHashCode_ = 4, GetType_ = 5, MemberwiseClone_ = 6, Finalize = 3 }, app.RecordMembers);
     });
 
+    /// <summary>The resource of the unit of <c>ui/generated.slint</c>, at the path that MSBuild gives it, with the platform's separator.</summary>
+    private static readonly string GeneratedUnit = "slint-unit:" + Path.Combine("ui", "generated.slint");
+
     [TestMethod]
     public void RunsTheUnitOfTheBuild() => SlintThread.Run(() =>
     {
-        using var result = global::Slint.Generated.GeneratedApi.LoadUnit(typeof(Generated).Assembly, "slint-unit:ui/generated.slint", "fluent");
+        using var result = global::Slint.Generated.GeneratedApi.LoadUnit(typeof(Generated).Assembly, GeneratedUnit, "fluent");
         Assert.IsNotNull(result);
         CollectionAssert.Contains(result.ComponentNames.ToArray(), "Generated");
         using var instance = result.Component("Generated")!.Create();
@@ -71,7 +74,7 @@ public sealed class GeneratedTests
         Environment.SetEnvironmentVariable("SLINT_STYLE", "material");
         try
         {
-            Assert.IsNull(global::Slint.Generated.GeneratedApi.LoadUnit(typeof(Generated).Assembly, "slint-unit:ui/generated.slint", "fluent"));
+            Assert.IsNull(global::Slint.Generated.GeneratedApi.LoadUnit(typeof(Generated).Assembly, GeneratedUnit, "fluent"));
             using var app = CompiledAtStartup.Create();
             Assert.AreEqual(7, app.Count);
         }
