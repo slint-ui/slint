@@ -1063,14 +1063,9 @@ fn texture_positions_cover_upscaled_source_edges() {
 
 #[test]
 fn upscaled_clipped_matches_unclipped_sample_columns() {
-    let sample_column = |step: TextureStep,
-                           clip_offset: i32,
-                           dest_pixel: i32,
-                           source_size: i32| {
+    let sample_column = |step: TextureStep, clip_offset: i32, dest_pixel: i32, source_size: i32| {
         let off = texture_offset(Fixed::default(), step, clip_offset, source_size);
-        texture_offset(off, step, dest_pixel, source_size)
-            .truncate()
-            .rem_euclid(source_size)
+        texture_offset(off, step, dest_pixel, source_size).truncate().rem_euclid(source_size)
     };
     const PAIRS: &[(i32, i32)] = &[(3, 29), (5, 40), (5, 330), (50, 4000)];
     for &(source, destination) in PAIRS {
