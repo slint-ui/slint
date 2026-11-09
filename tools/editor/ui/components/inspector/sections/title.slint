@@ -23,6 +23,7 @@ export component InspectorTitleSection inherits InspectorSection {
 
         InspectorStringField {
             accessible-name: @tr("Title");
+            property-name: "title";
             clear-label: @tr("Clear title");
             source-value: Properties.source-property-value-data("title", {});
             default-value: Properties.editor-property-value-data("title").value-string;

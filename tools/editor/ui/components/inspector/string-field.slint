@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Button, TextEdit } from "std-widgets.slint";
-import { Properties, PropertyValue, PropertyValueKind } from "../../properties.slint";
+import { Properties, PropertyEditKind, PropertyValue, PropertyValueKind } from "../../properties.slint";
 import { Style, Metrics, Typography, Colors } from "../../style.slint";
 import { FloatingSurface } from "../floating-surface.slint";
 import { InspectorTextFieldBase } from "text-field-base.slint";
@@ -10,6 +10,7 @@ import { InspectorIconButton } from "icon-button.slint";
 
 export component InspectorStringField inherits Rectangle {
     in property <string> accessible-name;
+    in property <string> property-name;
     in property <PropertyValue> source-value;
     in property <string> default-value;
     in property <string> commit-key;
@@ -21,9 +22,10 @@ export component InspectorStringField inherits Rectangle {
     callback history-key(KeyEvent) -> EventResult;
     history-key(event) => { return reject; }
     private property <bool> plain-text: root.source-value.kind == PropertyValueKind.string || root.source-value.code == "";
+    private property <PropertyValue> editor-value: Properties.editor-property-value-data(root.property-name);
     private property <string> value: root.plain-text
-        ? (root.source-value.code == "" ? root.default-value : root.source-value.value-string)
-        : root.source-value.code;
+        ? (root.editor-value.code == "" ? root.default-value : root.editor-value.value-string)
+        : root.editor-value.code;
     private property <string> draft;
     private property <string> editing-key;
     private property <bool> previewing;
@@ -47,9 +49,16 @@ export component InspectorStringField inherits Rectangle {
     }
 
     function accept-value(value: string) -> bool {
-        let accepted = root.accepted(root.plain-text
+        let expression = root.plain-text
             ? Properties.string-to-code(value, root.source-value.is-translatable, root.source-value.tr-context, root.source-value.tr-plural, root.source-value.tr-plural-expression)
-            : value);
+            : value;
+        if Properties.inspector-preview(root.property-name, { kind: PropertyEditKind.code, text: expression }) {
+            let accepted = Properties.inspector-commit();
+            if !accepted { root.cancel-preview(); }
+            root.previewing = false;
+            return accepted;
+        }
+        let accepted = root.accepted(expression);
         if !accepted { root.cancel-preview(); }
         root.previewing = false;
         return accepted;

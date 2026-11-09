@@ -1538,7 +1538,7 @@ def test_text_content_writes_exact_source(
                 )
             )
             press_shortcut(window, keys.Control, "a")
-            press_keys(window, '"Live"')
+            press_keys(window, "Live")
             element(window, "Live", role=slint_testing.AccessibleRole.Text)
             snapshot.assert_unchanged()
         edit_field(
