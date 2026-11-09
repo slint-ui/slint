@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Properties, PropertyEditKind } from "../../../properties.slint";
+import { Properties } from "../../../properties.slint";
 
 import { Style, InspectorStyle } from "../../../style.slint";
 
@@ -30,9 +30,6 @@ export component InspectorTextContentSection inherits InspectorSection {
             default-value: Properties.editor-property-value-data("text").value-string;
             commit-key: InspectorContext.field-key("text");
             expandable: true;
-            accepted(text) => { return InspectorContext.commit-code("text", text); }
-            preview(text) => { return Properties.inspector-preview("text", { kind: PropertyEditKind.string, text: text }); }
-            canceled => { Properties.inspector-cancel(); }
             history-key(event) => { return root.history-key(event); }
         }
 

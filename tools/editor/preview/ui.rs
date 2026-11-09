@@ -253,6 +253,7 @@ pub fn initialize_editor(
     api.on_persist_selected_element_border_radius(super::persist_selected_element_border_radius);
 
     properties_api.on_inspector_preview(super::inspector::preview_property);
+    properties_api.on_inspector_preview_code(super::inspector::preview_code_property);
     properties_api.on_inspector_commit(super::inspector::commit_properties);
     properties_api.on_inspector_cancel(super::inspector::cancel);
     let editor_weak = editor_ui.as_weak();

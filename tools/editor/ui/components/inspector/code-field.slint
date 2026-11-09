@@ -28,13 +28,13 @@ export component InspectorCodeField inherits Rectangle {
         value: root.value;
         commit-key: root.commit-key;
         edit-input(text) => {
-            if root.property-name != "" && !Properties.inspector-preview(root.property-name, { kind: PropertyEditKind.code, text: text }) {
+            if root.property-name != "" && !Properties.inspector-preview-code(root.property-name, PropertyEditKind.string, text) {
                 Properties.inspector-cancel();
             }
         }
         accepted(text) => {
             if root.property-name != "" {
-                if Properties.inspector-preview(root.property-name, { kind: PropertyEditKind.code, text: text }) {
+                if Properties.inspector-preview-code(root.property-name, PropertyEditKind.string, text) {
                     if Properties.inspector-commit() { return true; }
                     Properties.inspector-cancel();
                     return false;

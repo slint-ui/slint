@@ -3,6 +3,7 @@
 
 import { Button, TextEdit } from "std-widgets.slint";
 import { Properties, PropertyEditKind, PropertyValue, PropertyValueKind } from "../../properties.slint";
+import { Api } from "../../api.slint";
 import { Style, Metrics, Typography, Colors } from "../../style.slint";
 import { FloatingSurface } from "../floating-surface.slint";
 import { InspectorTextFieldBase } from "text-field-base.slint";
@@ -16,9 +17,6 @@ export component InspectorStringField inherits Rectangle {
     in property <string> commit-key;
     in property <bool> expandable: false;
     in property <string> clear-label: @tr("Clear text");
-    callback accepted(string) -> bool;
-    callback preview(string) -> bool;
-    callback canceled();
     callback history-key(KeyEvent) -> EventResult;
     history-key(event) => { return reject; }
     private property <bool> plain-text: root.source-value.code == ""
@@ -40,29 +38,32 @@ export component InspectorStringField inherits Rectangle {
     changed commit-key => { expanded.close(); root.cancel-preview(); }
     changed expanded-open => { if !root.expanded-open { root.cancel-preview(); } }
 
-    function preview-value(value: string) {
-        if root.plain-text { root.previewing = root.preview(value); }
+    function preview-value(value: string) -> bool {
+        let previewed = root.plain-text
+            ? Properties.inspector-preview(root.property-name, {
+                kind: PropertyEditKind.string,
+                text: value,
+                code: Properties.string-to-code(value, root.source-value.is-translatable, root.source-value.tr-context, root.source-value.tr-plural, root.source-value.tr-plural-expression),
+            })
+            : Properties.inspector-preview-code(root.property-name, PropertyEditKind.string, value);
+        if !previewed { root.cancel-preview(); }
+        root.previewing = previewed;
+        return previewed;
     }
 
     function cancel-preview() {
-        if root.previewing { root.canceled(); }
+        if root.previewing { Properties.inspector-cancel(); }
         root.previewing = false;
     }
 
     function accept-value(value: string) -> bool {
-        let expression = root.plain-text
-            ? Properties.string-to-code(value, root.source-value.is-translatable, root.source-value.tr-context, root.source-value.tr-plural, root.source-value.tr-plural-expression)
-            : value;
-        if Properties.inspector-preview(root.property-name, { kind: PropertyEditKind.code, text: expression }) {
+        if root.preview-value(value) {
             let accepted = Properties.inspector-commit();
             if !accepted { root.cancel-preview(); }
             root.previewing = false;
             return accepted;
         }
-        let accepted = root.accepted(expression);
-        if !accepted { root.cancel-preview(); }
-        root.previewing = false;
-        return accepted;
+        return !root.plain-text && Properties.commit-code-binding(Api.current-element, root.property-name, value);
     }
 
     row := HorizontalLayout {

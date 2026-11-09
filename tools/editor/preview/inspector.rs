@@ -195,16 +195,6 @@ fn edit_value(
         ui::PropertyEditKind::String if property_type == Type::String => {
             (string_expression(&value.text), Value::String(value.text.clone()))
         }
-        ui::PropertyEditKind::Code if property_type == Type::String => {
-            let tokens = i_slint_compiler::lexer::lex(&value.text);
-            if tokens.len() != 1
-                || tokens[0].kind != i_slint_compiler::parser::SyntaxKind::StringLiteral
-            {
-                return None;
-            }
-            let text = i_slint_compiler::literals::unescape_string(&value.text)?;
-            (value.text.to_string(), Value::String(text.as_str().into()))
-        }
         ui::PropertyEditKind::Enumeration if property_type == Type::MouseCursor => {
             let cursor = value.text.parse::<i_slint_core::items::BuiltInMouseCursor>().ok()?;
             (
@@ -228,7 +218,26 @@ fn edit_value(
         ),
         _ => return None,
     };
-    Some((expression, runtime))
+    Some((if value.code.is_empty() { expression } else { value.code.to_string() }, runtime))
+}
+
+pub(super) fn preview_code_property(
+    name: SharedString,
+    kind: ui::PropertyEditKind,
+    code: SharedString,
+) -> bool {
+    if kind != ui::PropertyEditKind::String {
+        return false;
+    }
+    let tokens = i_slint_compiler::lexer::lex(&code);
+    if tokens.len() != 1 || tokens[0].kind != i_slint_compiler::parser::SyntaxKind::StringLiteral {
+        return false;
+    }
+    let Some(text) = i_slint_compiler::literals::unescape_string(&code) else { return false };
+    preview_property(
+        name,
+        ui::PropertyEditValue { kind, text: text.as_str().into(), code, ..Default::default() },
+    )
 }
 
 pub(super) fn preview_property(name: SharedString, value: ui::PropertyEditValue) -> bool {
