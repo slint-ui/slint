@@ -62,10 +62,14 @@ class InputHandle extends ImageView {
     private final PopupWindow mPopupWindow;
     private final int mId;
     private final int mOffsetX;
+    private final int mTouchSlop;
     private int mCursorX;
     private int mCursorY;
     private float mPressedX;
     private float mPressedY;
+    private float mDownRawX;
+    private float mDownRawY;
+    private boolean mDragging;
 
     public InputHandle(SlintInputView rootView, int id) {
         super(rootView.getContext());
@@ -96,6 +100,7 @@ class InputHandle extends ImageView {
         a.recycle();
         int width = drawable.getIntrinsicWidth();
         mOffsetX = offsetQuarters * width / 4;
+        mTouchSlop = ViewConfiguration.get(ctx).getScaledTouchSlop();
         mPopupWindow.setWidth(width);
         mPopupWindow.setHeight(drawable.getIntrinsicHeight());
         setImageDrawable(drawable);
@@ -108,9 +113,20 @@ class InputHandle extends ImageView {
             case MotionEvent.ACTION_DOWN:
                 mPressedX = ev.getRawX() - mCursorX;
                 mPressedY = ev.getRawY() - mCursorY;
+                mDownRawX = ev.getRawX();
+                mDownRawY = ev.getRawY();
+                mDragging = mId != CURSOR;
                 mRootView.dragHandle(this, mCursorX);
                 break;
             case MotionEvent.ACTION_MOVE:
+                if (!mDragging) {
+                    mDragging = Math.hypot(ev.getRawX() - mDownRawX, ev.getRawY() - mDownRawY) >= mTouchSlop;
+                    if (!mDragging) {
+                        // Keeps the menu hidden, which comes back on its own after a while.
+                        mRootView.dragHandle(this, mCursorX);
+                        break;
+                    }
+                }
                 int x = Math.round(ev.getRawX() - mPressedX);
                 mRootView.dragHandle(this, x);
                 SlintAndroidJavaHelper.moveCursorHandle(mId, x, Math.round(ev.getRawY() - mPressedY));
@@ -118,6 +134,10 @@ class InputHandle extends ImageView {
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:
                 mRootView.endHandleDrag(this);
+                // As in Android's own text fields, a tap on the cursor handle toggles the menu.
+                if (ev.getActionMasked() == MotionEvent.ACTION_UP && !mDragging && mPopupWindow.isShowing()) {
+                    mRootView.toggleActionMenu();
+                }
                 break;
         }
         return true;
@@ -610,6 +630,14 @@ class SlintInputView extends View {
         postDelayed(mShowSelectionMenu, ViewConfiguration.getDoubleTapTimeout());
     }
 
+    public void toggleActionMenu() {
+        if (mCurrentActionMode != null) {
+            finishActionMenu();
+        } else {
+            showActionMenu();
+        }
+    }
+
     private void showSelectionMenu() {
         if ((mNumHandles == 2 || mCurrentActionMode != null) && !mActionMenuDeferred) {
             showActionMenu();
@@ -737,7 +765,11 @@ class SlintInputView extends View {
         }
         if (mCurrentActionMode != null) {
             mCurrentActionMode.invalidate();
-            mCurrentActionMode.hide(0);
+            if (mCurrentActionMode.getMenu().hasVisibleItems()) {
+                mCurrentActionMode.hide(0);
+            } else {
+                finishActionMenu();
+            }
             return;
         }
         ActionMode.Callback2 action = new ActionMode.Callback2() {
@@ -772,24 +804,15 @@ class SlintInputView extends View {
 
                 a.recycle();
 
-                return true;
+                // As in Android's own text fields, a menu without items doesn't start, so it
+                // can't take the next tap that would show it.
+                updateMenuItems(menu);
+                return menu.hasVisibleItems();
             }
 
             @Override
             public boolean onPrepareActionMode(ActionMode mode, Menu menu) {
-                int selectionStart = Selection.getSelectionStart(mEditable);
-                int selectionEnd = Selection.getSelectionEnd(mEditable);
-                int start = Math.min(selectionStart, selectionEnd);
-                int end = Math.max(selectionStart, selectionEnd);
-                boolean hasSelection = start >= 0 && start != end;
-                boolean editable = (mInputType & EditorInfo.TYPE_MASK_CLASS) != EditorInfo.TYPE_NULL;
-                boolean password = (mInputType & EditorInfo.TYPE_MASK_VARIATION)
-                        == EditorInfo.TYPE_TEXT_VARIATION_PASSWORD;
-                ClipboardManager clipboard = getContext().getSystemService(ClipboardManager.class);
-                menu.findItem(MENU_CUT).setVisible(hasSelection && editable && !password);
-                menu.findItem(MENU_COPY).setVisible(hasSelection && !password);
-                menu.findItem(MENU_PASTE).setVisible(editable && clipboard.hasPrimaryClip());
-                menu.findItem(MENU_SELECT_ALL).setVisible(start > 0 || end < mEditable.length());
+                updateMenuItems(menu);
                 return true;
             }
 
@@ -817,6 +840,22 @@ class SlintInputView extends View {
             }
         };
         mCurrentActionMode = startActionMode(action, ActionMode.TYPE_FLOATING);
+    }
+
+    private void updateMenuItems(Menu menu) {
+        int selectionStart = Selection.getSelectionStart(mEditable);
+        int selectionEnd = Selection.getSelectionEnd(mEditable);
+        int start = Math.min(selectionStart, selectionEnd);
+        int end = Math.max(selectionStart, selectionEnd);
+        boolean hasSelection = start >= 0 && start != end;
+        boolean editable = (mInputType & EditorInfo.TYPE_MASK_CLASS) != EditorInfo.TYPE_NULL;
+        boolean password = (mInputType & EditorInfo.TYPE_MASK_VARIATION)
+                == EditorInfo.TYPE_TEXT_VARIATION_PASSWORD;
+        ClipboardManager clipboard = getContext().getSystemService(ClipboardManager.class);
+        menu.findItem(MENU_CUT).setVisible(hasSelection && editable && !password);
+        menu.findItem(MENU_COPY).setVisible(hasSelection && !password);
+        menu.findItem(MENU_PASTE).setVisible(editable && clipboard.hasPrimaryClip());
+        menu.findItem(MENU_SELECT_ALL).setVisible(start > 0 || end < mEditable.length());
     }
 
     void deferActionMenu(boolean deferred) {
