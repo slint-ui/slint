@@ -14,6 +14,7 @@ use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
 //re-export for the generated code:
+pub use i_slint_core::InternalToken;
 pub use slint_interpreter::{Compiler, ComponentInstance, DefaultTranslationContext, Value};
 
 /// Builds the [`Compiler`] the worker thread compiles with. A `Compiler` is not
@@ -494,6 +495,7 @@ mod ffi {
         no_default_translation_context: bool,
         bundled_translations_path: Slice<u8>,
         edition: Slice<u8>,
+        debug_info: bool,
     ) -> *const LiveReloadingComponentInner {
         // Owned, so that the worker thread can build a Compiler of its own from them
         let include_paths: Vec<PathBuf> =
@@ -533,6 +535,7 @@ mod ffi {
             if let Some(bundled_translations_path) = &bundled_translations_path {
                 compiler.set_bundled_translations_path(bundled_translations_path.clone());
             }
+            compiler.set_keep_debug_info(debug_info, InternalToken);
             compiler
         };
         Rc::into_raw(

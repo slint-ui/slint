@@ -60,7 +60,7 @@ i-slint-backend-selector = { workspace = true }
 i-slint-backend-testing = { workspace = true, optional = true, features = ["internal"] }
 i-slint-common = { workspace = true, features = ["color-parsing"] }
 i-slint-core = { workspace = true, features = ["tr"] }
-slint-interpreter = { workspace = true, default-features = false, features = ["backend-default", "renderer-femtovg", "renderer-software", "accessibility", "compat-1-18", "system-tray", "display-diagnostics", "internal", "internal-highlight"] }
+slint-interpreter = { workspace = true, default-features = false, features = ["backend-default", "renderer-femtovg", "renderer-software", "accessibility", "compat-1-18", "system-tray", "display-diagnostics", "internal"] }
 i-slint-compiler = { workspace = true, features = ["python"] }
 # Pinned: with a newer pyo3, maturin 1.14.0 writes a cross-compile PYO3_CONFIG_FILE
 # that has no "version" key, which the pyo3 build script rejects.

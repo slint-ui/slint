@@ -170,7 +170,11 @@ fn selected_geometry() -> Option<slint_interpreter::highlight::HighlightedRect> 
 
 fn selected_targets() -> Option<SnapTargets> {
     let selection = super::selected_element()?;
-    collect_targets(&selection.path, selection.offset.into(), selection.instance_index)
+    collect_targets(
+        &selection.location.path,
+        selection.location.offset.into(),
+        selection.instance_index,
+    )
 }
 
 fn logical_rect(geometry: &ui::Geometry) -> LogicalRect {
@@ -605,13 +609,15 @@ export component Main inherits Window {
     }
 
     fn install_selection(id: &str, instance_index: usize) -> slint_interpreter::ComponentInstance {
+        PREVIEW_STATE.with_borrow_mut(|state| *state = Default::default());
         let instance = crate::preview::test::interpret_test("fluent", SOURCE);
         PREVIEW_STATE.with_borrow_mut(|state| {
-            *state = Default::default();
             state.handle.replace(Some(instance.clone_strong()));
             state.selected = Some(ElementSelection {
-                path: i_slint_editor_preview::test::main_test_file_name(),
-                offset: offset(id).into(),
+                location: i_slint_compiler::object_tree::ElementLocation {
+                    path: i_slint_editor_preview::test::main_test_file_name(),
+                    offset: offset(id).into(),
+                },
                 instance_index,
                 editing_text: false,
             });

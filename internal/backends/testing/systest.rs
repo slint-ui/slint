@@ -14,6 +14,13 @@ use std::rc::Rc;
 use crate::introspection::{self, IntrospectionState, dispatch, proto};
 use introspection::handle_to_index;
 
+const SERVER_VAR: &str = "SLINT_TEST_SERVER";
+
+/// Returns true if [`init`] connects to a system-testing server.
+pub fn requested() -> bool {
+    std::env::var_os(SERVER_VAR).is_some()
+}
+
 struct TestingClient {
     state: Rc<IntrospectionState>,
     message_loop_future: std::cell::OnceCell<i_slint_core::future::JoinHandle<()>>,
@@ -22,7 +29,7 @@ struct TestingClient {
 
 impl TestingClient {
     fn new(state: Rc<IntrospectionState>) -> Option<Rc<Self>> {
-        let Ok(server_addr) = std::env::var("SLINT_TEST_SERVER") else {
+        let Ok(server_addr) = std::env::var(SERVER_VAR) else {
             return None;
         };
 

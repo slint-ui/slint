@@ -19,14 +19,14 @@ pub(super) struct Edit {
 #[derive(Clone)]
 struct PropertyEdit {
     name: String,
-    override_id: SmolStr,
+    override_id: ElementProperty,
     previous_override: Option<slint_interpreter::Value>,
     expression: String,
     value: ui::PropertyEditValue,
 }
 
 pub(super) fn property_value(
-    override_id: &SmolStr,
+    override_id: &ElementProperty,
     mut property: ui::PropertyValue,
 ) -> ui::PropertyValue {
     PREVIEW_STATE.with_borrow(|state| {
@@ -73,8 +73,10 @@ fn current_target() -> Option<(ElementRcNode, Url, SourceFileVersion, String)> {
         let no_selected_instance = -1;
         (
             ElementSelection {
-                path: i_slint_compiler::source_path::SourcePath::from(url),
-                offset: (element.offset as u32).into(),
+                location: ElementLocation {
+                    path: i_slint_compiler::source_path::SourcePath::from(url),
+                    offset: (element.offset as u32).into(),
+                },
                 instance_index: 0,
                 editing_text: false,
             },
@@ -82,7 +84,7 @@ fn current_target() -> Option<(ElementRcNode, Url, SourceFileVersion, String)> {
         )
     };
     let node = selected.as_element_node()?;
-    let (path, offset) = node.path_and_offset();
+    let ElementLocation { path, offset } = node.location();
     let url = path.to_url()?;
     let version = document_cache()?.document_version(&url);
     let generation = PREVIEW_STATE.with_borrow(|state| {
@@ -153,11 +155,6 @@ fn number_value(
     })
 }
 
-fn source_node(node: &ElementRcNode) -> Option<ElementRcNode> {
-    let (path, offset) = node.path_and_offset();
-    document_cache()?.element_at_offset(&path.to_url()?, offset)
-}
-
 fn string_expression(value: &str) -> String {
     let mut expression = String::from("\"");
     for character in value.chars() {
@@ -181,7 +178,6 @@ fn edit_value(
     use i_slint_compiler::element_type::PropertyLookupMode;
     use i_slint_compiler::langtype::Type;
     use slint_interpreter::Value;
-    let node = source_node(node)?;
     let property_type = node
         .as_element()
         .borrow()
@@ -234,7 +230,7 @@ fn edit_value(
         }
         ui::PropertyEditKind::Fill => (
             ui::fill_expression(value.fill.clone()).to_string(),
-            fill_value(&node, name, &value.fill)?,
+            fill_value(node, name, &value.fill)?,
         ),
         _ => return None,
     };
@@ -256,8 +252,7 @@ pub(super) fn preview_property(name: SharedString, value: ui::PropertyEditValue)
     if file_edit_pending() {
         return false;
     }
-    let hash = node.with_element_debug(|debug| debug.element_hash);
-    let override_id = i_slint_compiler::passes::property_id(hash, &SmolStr::from(name.as_str()));
+    let override_id = node.property(&name);
     let overrides = PREVIEW_STATE.with_borrow(|state| state.debug_hook_overrides.clone());
     let mut overrides = (*overrides).borrow_mut();
     let property = overrides
@@ -294,9 +289,7 @@ fn changed_properties(
     node: &ElementRcNode,
     edits: &[PropertyEdit],
 ) -> Vec<i_slint_editor_preview::editing::PropertyChange> {
-    let properties = source_node(node)
-        .map(|node| properties::get_properties(&node, properties::LayoutKind::None))
-        .unwrap_or_default();
+    let properties = properties::get_properties(node, properties::LayoutKind::None);
     edits
         .iter()
         .filter(|edit| {
@@ -385,7 +378,7 @@ fn property_edit(
     changes: Vec<i_slint_editor_preview::editing::PropertyChange>,
 ) -> Option<lsp_types::WorkspaceEdit> {
     let cache = document_cache()?;
-    let (_, offset) = node.path_and_offset();
+    let offset = node.location().offset;
     properties::update_element_properties(
         &cache,
         i_slint_editor_preview::editing::VersionedPosition::new(

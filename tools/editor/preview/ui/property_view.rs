@@ -61,23 +61,13 @@ pub fn setup(editor: &ui::EditorUi, api: &ui::Api<'_>) {
             let properties_api = hooked_properties_api_weak.upgrade()?;
             properties_api.get_inspector_generation();
             let element = api.get_current_element();
-            let selection = crate::preview::element_selection::ElementSelection {
+            let id = i_slint_compiler::object_tree::ElementLocation {
                 path: i_slint_compiler::source_path::SourcePath::from_url(
                     &Url::parse(element.source_uri.as_str()).ok()?,
                 ),
                 offset: u32::try_from(element.offset).ok()?.into(),
-                instance_index: usize::try_from(api.get_selection().highlight_index)
-                    .unwrap_or_default(),
-                editing_text: false,
-            };
-            let instance = crate::preview::component_instance()?;
-            let node = selection.as_element_node_in(&instance)?;
-            let hash = node.with_element_debug(|debug| debug.element_hash);
-            if hash == 0 {
-                return None;
             }
-            let id =
-                i_slint_compiler::passes::property_id(hash, &SmolStr::from(property_name.as_str()));
+            .property(&property_name);
             let overrides = crate::preview::PREVIEW_STATE
                 .with_borrow(|state| state.debug_hook_overrides.clone());
             let mut overrides = (*overrides).borrow_mut();
@@ -670,8 +660,10 @@ mod tests {
         let select = |offset: usize| {
             preview::element_selection::restore_selection(
                 ElementSelection {
-                    path: path.clone(),
-                    offset: (offset as u32).into(),
+                    location: i_slint_compiler::object_tree::ElementLocation {
+                        path: path.clone(),
+                        offset: (offset as u32).into(),
+                    },
                     instance_index: 0,
                     editing_text: false,
                 },
@@ -684,10 +676,7 @@ mod tests {
                 .unwrap()
                 .as_element_node()
                 .unwrap();
-            i_slint_compiler::passes::property_id(
-                node.with_element_debug(|debug| debug.element_hash),
-                &smol_str::SmolStr::from(name),
-            )
+            node.property(name)
         };
         select(offsets[0]);
         let source_width =
@@ -752,20 +741,6 @@ mod tests {
         api.set_selection(ui::Selection { highlight_index: -1, ..api.get_selection() });
         preview::set_override(&hook_id("width"), Some(Value::Number(350.0)));
         assert_eq!(displayed.as_ref().get().value_float, 350.0);
-        let root = preview::PREVIEW_STATE
-            .with_borrow(|state| state.selected.clone())
-            .unwrap()
-            .as_element_node()
-            .unwrap();
-        root.element.borrow_mut().debug[root.debug_index].element_hash = 0;
-        preview::set_override(
-            &i_slint_compiler::passes::property_id(0, &smol_str::SmolStr::from("width")),
-            Some(Value::Number(123.0)),
-        );
-        assert_eq!(
-            properties_api.invoke_hooked_property_value_data("width".into(), source_width.clone()),
-            source_width
-        );
         preview::PREVIEW_STATE.with_borrow_mut(|state| state.clear_preview());
         assert!(!displayed.as_ref().get().value_resolved);
         assert!(displayed.as_ref().get().code.is_empty());
@@ -836,8 +811,8 @@ export component Win inherits Window {
 }"#;
         let path = i_slint_compiler::source_path::SourcePath::new("/tmp/property-query.slint");
         let mut compiler = slint_interpreter::Compiler::default();
-        compiler.compiler_configuration(i_slint_core::InternalToken).debug_hooks =
-            Some(std::hash::RandomState::new());
+        compiler.set_keep_debug_info(true, i_slint_core::InternalToken);
+        compiler.compiler_configuration(i_slint_core::InternalToken).debug_hooks = true;
         let compiled = spin_on::spin_on(compiler.build_from_source_path(
             Some(code.into()),
             path.clone(),
