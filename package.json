@@ -4,9 +4,9 @@
   "description": "",
   "devDependencies": {
     "@cspell/dict-fr-fr": "2.3.2",
-    "cookie": "2.0.1",
+    "cookie": "2.0.2",
     "cspell": "catalog:",
-    "knip": "6.44.0"
+    "knip": "6.44.1"
   },
   "scripts": {
     "knip": "knip",
