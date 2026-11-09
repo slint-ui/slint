@@ -2036,6 +2036,10 @@ impl Element {
                             &base_node,
                         );
                     }
+                    if let ElementType::Builtin(b) = &ty {
+                        let builtin = || Some((b.since?, format!("The element '{}'", b.name)));
+                        diag.check_since(builtin, &base_node);
+                    }
                     ty
                 }
                 Err(err) => {
@@ -2457,6 +2461,7 @@ impl Element {
             is_shadowable: p.shadowable,
             builtin_function: None,
             is_slint_sc: true,
+            since: None,
             deprecated: p.deprecated.clone(),
             internal_name: None,
         }
@@ -2546,6 +2551,7 @@ impl Element {
                     &name_token,
                 );
             }
+            lookup_result.check_since(&unresolved_name, &name_token, diag);
 
             match self.bindings.0.entry(lookup_result.internal_or_resolved_name()) {
                 Entry::Occupied(_) => {
@@ -3119,6 +3125,16 @@ pub fn type_from_node(
 
         let prop_type = tr.lookup_qualified(&qualified_type.members);
 
+        let builtin = || {
+            let since = match &prop_type {
+                Type::Enumeration(e) => e.builtin_since(None),
+                Type::Struct(s) => s.builtin_since(None),
+                _ => None,
+            };
+            Some((since?, format!("The type '{qualified_type}'")))
+        };
+        diag.check_since(builtin, &qualified_type_node);
+
         #[cfg(feature = "slint-sc")]
         if !prop_type.is_slint_sc() {
             diag.slint_sc_error(&format!("The type '{qualified_type}' is"), &qualified_type_node);
@@ -3295,7 +3311,7 @@ fn constant_from_expression(expression: &Expression) -> Option<ConstantExpressio
     })
 }
 
-fn member_kind(ty: &Type) -> &'static str {
+pub(crate) fn member_kind(ty: &Type) -> &'static str {
     match ty {
         Type::Callback { .. } | Type::InferredCallback => DeclarationKind::Callback,
         Type::Function { .. } => DeclarationKind::Function,

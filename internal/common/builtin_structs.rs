@@ -82,14 +82,17 @@ macro_rules! for_each_builtin_structs {
                 /// The kind of the event
                 kind: PointerEventKind,
                 /// The keyboard modifiers pressed during the event
+                #[since("1.2")]
                 modifiers: KeyboardModifiers,
                 /// The unique ID of the touch point, indicating the finger ID. 0 means it's not a touch event (e.g., mouse).
+                #[since("1.17")]
                 touch_finger_id: i32,
             }
 
             /// Represents a Pointer scroll (or wheel) event sent by the windowing system.
             /// This structure is passed to the `scroll-event` callback of the `TouchArea` element.
             #[non_exhaustive]
+            #[since("1.3")]
             pub struct PointerScrollEvent {
                 /// The amount of pixel in the horizontal direction
                 delta_x: Coord,
@@ -108,11 +111,13 @@ macro_rules! for_each_builtin_structs {
                 modifiers: KeyboardModifiers,
                 /// This field is set to true for key press events that are repeated,
                 /// i.e. the key is held down. It's always false for key release events.
+                #[since("1.4")]
                 repeat: bool,
             }
 
             /// This structure is passed to the callbacks of the `DropArea` element
             #[non_exhaustive]
+            #[since("1.17")]
             pub struct DropEvent {
                 /// The payload set on the source `DragArea`.
                 data: DataTransfer,
@@ -150,6 +155,7 @@ macro_rules! for_each_builtin_structs {
             }
 
             /// A structure to hold metrics of a font for a specified pixel size.
+            #[since("1.9")]
             struct FontMetrics {
                 /// The distance between the baseline and the top of the tallest glyph in the font.
                 ascent: Coord,
@@ -168,6 +174,7 @@ macro_rules! for_each_builtin_structs {
             /// (e.g. a soft keyboard) about the expected input.
             /// The input method may take these hints into account, but might also ignore them.
             #[non_exhaustive]
+            #[since("1.18")]
             pub struct InputMethodHints {
                 /// The auto-capitalization behavior that the input method should apply.
                 capitalization: CapitalizationMode = (CapitalizationMode::Sentences),
@@ -203,6 +210,7 @@ macro_rules! for_each_builtin_structs {
             }
 
             /// A structure representing the four edges of an axis-aligned rectangle
+            #[since("1.15")]
             struct Edges {
                 /// The left edge value
                 left: Coord,

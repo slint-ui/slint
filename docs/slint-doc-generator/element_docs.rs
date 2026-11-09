@@ -11,6 +11,7 @@ use i_slint_compiler::langtype::Type;
 use i_slint_compiler::native_class::{
     BuiltinPropertyDefault, BuiltinPropertyInfo, PropertyVisibility,
 };
+use i_slint_compiler::project_file::SlintEdition;
 
 use std::collections::HashSet;
 use std::fmt::Write as FmtWrite;
@@ -369,6 +370,11 @@ fn visibility_to_direction(v: PropertyVisibility) -> &'static str {
 
 // -- Writing helpers --
 
+/// The release that added `info` to `element`, unless the element came with it.
+fn member_since(element: &BuiltinElement, info: &BuiltinPropertyInfo) -> Option<SlintEdition> {
+    info.since.filter(|since| Some(*since) > element.since)
+}
+
 /// Whether a builtin element has any documentation worth showing.
 fn has_documentation(builtin: &BuiltinElement) -> bool {
     match builtin.docs.first() {
@@ -458,6 +464,7 @@ fn write_slint_property(
     file: &mut impl Write,
     name: &str,
     info: &BuiltinPropertyInfo,
+    since: Option<SlintEdition>,
     heading: &str,
     types: &TypeContext,
     sc: &mut ScreenshotCounter,
@@ -505,6 +512,9 @@ fn write_slint_property(
     if !default_value.is_empty() {
         write!(file, " defaultValue=\"{}\"", default_value.replace('"', "&quot;"))?;
     }
+    if let Some(since) = since {
+        write!(file, " since=\"{since}\"")?;
+    }
     if description.is_empty() {
         writeln!(file, "/>")?;
     } else {
@@ -522,6 +532,7 @@ fn write_member(
     file: &mut impl Write,
     name: &str,
     info: &BuiltinPropertyInfo,
+    since: Option<SlintEdition>,
     in_properties: &mut bool,
     in_callbacks: &mut bool,
     in_functions: &mut bool,
@@ -535,7 +546,7 @@ fn write_member(
                 writeln!(file)?;
                 *in_properties = true;
             }
-            write_slint_property(file, name, info, "###", types, sc)?;
+            write_slint_property(file, name, info, since, "###", types, sc)?;
         }
         Type::Callback(func) => {
             if !*in_callbacks {
@@ -544,6 +555,7 @@ fn write_member(
                 *in_callbacks = true;
             }
             write_mdx_signature_heading(file, "###", name, func, types.links)?;
+            mdx::write_since(file, since)?;
             if let Some(doc) = &info.docs
                 && !doc.is_empty()
             {
@@ -558,6 +570,7 @@ fn write_member(
                 *in_functions = true;
             }
             write_mdx_signature_heading(file, "###", name, func, types.links)?;
+            mdx::write_since(file, since)?;
             if let Some(doc) = &info.docs {
                 writeln!(file, "{}", transform_code_fences(doc, sc).trim_end())?;
             }
@@ -660,6 +673,7 @@ fn write_members(
                     file,
                     name,
                     info,
+                    member_since(builtin, info),
                     &mut in_properties,
                     &mut in_callbacks,
                     &mut in_functions,
@@ -698,6 +712,7 @@ fn write_sub_element(
 
     writeln!(file, "## `{child_name}`")?;
     writeln!(file)?;
+    mdx::write_since(file, child.since)?;
     if !description.is_empty() {
         writeln!(file, "{}", transform_code_fences(&description, sc).trim_end())?;
         writeln!(file)?;
@@ -737,7 +752,7 @@ fn write_sub_element(
             writeln!(file)?;
         }
         for (name, info) in &props {
-            write_slint_property(file, name, info, h, types, sc)?;
+            write_slint_property(file, name, info, member_since(child, info), h, types, sc)?;
         }
     }
     if !cbs.is_empty() {
@@ -746,6 +761,7 @@ fn write_sub_element(
         for (name, info) in &cbs {
             let Type::Callback(func) = &info.ty else { continue };
             write_mdx_signature_heading(file, h, name, func, types.links)?;
+            mdx::write_since(file, member_since(child, info))?;
             if let Some(doc) = &info.docs
                 && !doc.is_empty()
             {
@@ -760,6 +776,7 @@ fn write_sub_element(
         for (name, info) in &fns {
             let Type::Function(func) = &info.ty else { continue };
             write_mdx_signature_heading(file, h, name, func, types.links)?;
+            mdx::write_since(file, member_since(child, info))?;
             if let Some(doc) = &info.docs {
                 writeln!(file, "{}", transform_code_fences(doc, sc).trim_end())?;
             }
@@ -921,6 +938,8 @@ pub fn generate(cfg: &Config, links: &mdx::TypeLinks) -> Result<(), Box<dyn std:
         writeln!(file)?;
 
         let mut sc = ScreenshotCounter::new(name, cfg.skip_screenshots, cfg.sc_only);
+
+        mdx::write_since(&mut file, builtin.since)?;
 
         // Description.
         if !description.is_empty() {

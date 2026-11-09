@@ -439,6 +439,7 @@ impl Element {
             let unresolved_name = unwrap_or_continue!(parser::identifier_text(&con_node); diag);
             let lookup_result =
                 r.lookup_property(&unresolved_name, PropertyLookupMode::ComponentLocal);
+            let name_token = con_node.child_token(SyntaxKind::Identifier).unwrap();
             #[cfg(feature = "slint-sc")]
             {
                 // A callback declared in the file is in the subset by construction;
@@ -447,7 +448,7 @@ impl Element {
                 if !r.is_user_declared_member(&unresolved_name) && !lookup_result.is_slint_sc {
                     diag.slint_sc_error(
                         &format!("The callback '{unresolved_name}' is"),
-                        &con_node.child_token(SyntaxKind::Identifier).unwrap(),
+                        &name_token,
                     );
                 }
                 // The application implements the callbacks of the root element,
@@ -459,7 +460,7 @@ impl Element {
                 {
                     diag.slint_sc_error(
                         "A handler for a callback declared on the root element is",
-                        &con_node.child_token(SyntaxKind::Identifier).unwrap(),
+                        &name_token,
                     );
                 }
                 if let Some(param) = con_node.DeclaredIdentifier().next() {
@@ -470,6 +471,7 @@ impl Element {
             // like assigning a deprecated property does.
             let deprecation =
                 lookup_result.deprecated.clone().filter(|_| !lookup_result.is_local_to_component);
+            lookup_result.check_since(&unresolved_name, &name_token, diag);
             let resolved_name = lookup_result.internal_or_resolved_name();
             let property_type = lookup_result.property_type;
             if let Type::Callback(callback) = &property_type {
@@ -482,7 +484,7 @@ impl Element {
                             callback.args.len(),
                             num_arg
                         ),
-                        &con_node.child_token(SyntaxKind::Identifier).unwrap(),
+                        &name_token,
                     );
                 }
             } else if property_type == Type::InferredCallback {
@@ -491,7 +493,7 @@ impl Element {
                 if r.base_type != ElementType::Error {
                     diag.push_error(
                         format!("'{}' is not a callback in {}", unresolved_name, r.base_type),
-                        &con_node.child_token(SyntaxKind::Identifier).unwrap(),
+                        &name_token,
                     );
                 }
                 continue;
@@ -501,7 +503,7 @@ impl Element {
                     "callback",
                     &unresolved_name,
                     message,
-                    &con_node.child_token(SyntaxKind::Identifier).unwrap(),
+                    &name_token,
                 );
             }
             match r.bindings.0.entry(resolved_name) {
@@ -525,15 +527,10 @@ impl Element {
                         // the declaration node, so dropping it from the binding is fine.
                         let mut handler =
                             BindingExpression::new_uncompiled(con_node.clone().into());
-                        if let Some(name) = con_node.child_token(SyntaxKind::Identifier) {
-                            handler.span = Some(name.to_source_location());
-                        }
+                        handler.span = Some(name_token.to_source_location());
                         e.insert(handler.into());
                     } else {
-                        diag.push_error(
-                            "Duplicated callback".into(),
-                            &con_node.child_token(SyntaxKind::Identifier).unwrap(),
-                        );
+                        diag.push_error("Duplicated callback".into(), &name_token);
                     }
                 }
             }
@@ -602,6 +599,11 @@ impl Element {
                                     &prop_name_token,
                                 );
                             }
+                            lookup_result.check_since(
+                                &unresolved_prop_name,
+                                &prop_name_token,
+                                diag,
+                            );
 
                             let expr_binding =
                                 r.bindings.0.entry(binding_name).or_insert_with(|| {
@@ -673,6 +675,7 @@ impl Element {
                     &ch.DeclaredIdentifier(),
                 );
             }
+            lookup_result.check_since(&prop, &ch.DeclaredIdentifier(), diag);
             let handler = Expression::Uncompiled(ch.clone().into());
             match r.change_callbacks.entry(lookup_result.internal_or_resolved_name()) {
                 Entry::Vacant(e) => {

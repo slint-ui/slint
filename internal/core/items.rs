@@ -2090,7 +2090,7 @@ declare_item_vtable! {
 macro_rules! declare_enums {
     ($( $(#[$enum_doc:meta])* $vis:vis enum $Name:ident { $( $(#[$value_doc:meta])* $Value:ident,)* })*) => {
         $(
-            #[derive(Copy, Clone, Debug, PartialEq, Eq, strum::EnumString, strum::Display, Hash)]
+            #[derive(Copy, Clone, Debug, PartialEq, Eq, strum::EnumString, strum::Display, Hash, i_slint_core_macros::BuiltinSince)]
             #[repr(u32)]
             #[strum(serialize_all = "kebab-case")]
             $(#[$enum_doc])*
@@ -2337,7 +2337,7 @@ macro_rules! declare_builtin_structs {
         }
     )*) => {
         $(
-            #[derive(Clone, Debug, PartialEq)]
+            #[derive(Clone, Debug, PartialEq, i_slint_core_macros::BuiltinSince)]
             #[repr(C)]
             $(#[$struct_attr])*
             pub struct $Name {

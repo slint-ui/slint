@@ -28,11 +28,13 @@
     text-decoration: none;
 }
 
-.default-value code {
+.default-value code,
+.since code {
     margin-left: -0.3rem;
 }
 
-.default-value {
+.default-value,
+.since {
     margin-left: 0.1rem;
     font-size: 0.8em;
 }

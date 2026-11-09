@@ -88,6 +88,10 @@ pub struct BuiltinPropertyInfo {
     /// the `pure` qualifier of the builtin element declaration, or from [`BuiltinFunction::is_pure`] when the
     /// declaration names one.
     pub pure: bool,
+    /// The release that added the member to an element that already existed
+    /// (`@since` in the builtin element declaration).
+    #[cfg(feature = "std")]
+    pub since: Option<crate::project_file::SlintEdition>,
 }
 
 impl BuiltinPropertyInfo {
@@ -100,6 +104,8 @@ impl BuiltinPropertyInfo {
             shadowable: false,
             pure: false,
             slint_sc: false,
+            #[cfg(feature = "std")]
+            since: None,
         }
     }
 
@@ -123,6 +129,8 @@ impl From<BuiltinFunction> for BuiltinPropertyInfo {
             pure: function.is_pure(),
             default_value: BuiltinPropertyDefault::BuiltinFunction(function),
             slint_sc: false,
+            #[cfg(feature = "std")]
+            since: None,
         }
     }
 }

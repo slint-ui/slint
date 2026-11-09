@@ -31,7 +31,7 @@ fn enums(path: &Path) -> anyhow::Result<()> {
     let mut slint_compat: Vec<u8> = Vec::new();
 
     macro_rules! print_enums {
-         ($( $(#[doc = $enum_doc:literal])* $(#[non_exhaustive])? $vis:vis enum $Name:ident { $( $(#[doc = $value_doc:literal])* $Value:ident,)* })*) => {
+         ($( $(#[doc = $enum_doc:literal])* $(#[non_exhaustive])? $(#[since($since:literal)])? $vis:vis enum $Name:ident { $( $(#[doc = $value_doc:literal])* $(#[since($value_since:literal)])? $Value:ident,)* })*) => {
              $({
                 let target: &mut dyn Write = match stringify!($vis) {
                     "pub" => {
@@ -130,8 +130,8 @@ fn builtin_structs(path: &Path) -> anyhow::Result<()> {
             $(#[doc = $struct_doc:literal])*
             $(#[non_exhaustive])?
             $(#[derive(Copy, Eq)])?
-            $vis:vis struct $Name:ident {
-                $( $(#[doc = $field_doc:literal])* $field:ident : $field_type:ty $(= $field_default:expr)?, )*
+            $(#[since($since:literal)])? $vis:vis struct $Name:ident {
+                $( $(#[doc = $field_doc:literal])* $(#[since($field_since:literal)])? $field:ident : $field_type:ty $(= $field_default:expr)?, )*
             }
         )*) => {
             $(
@@ -206,7 +206,7 @@ fn live_preview_enums(path: &Path) -> anyhow::Result<()> {
     #[allow(clippy::type_complexity)]
     let mut enums: Vec<(&str, String, String, Vec<(String, String)>)> = Vec::new();
     macro_rules! collect_enums {
-        ($( $(#[doc = $enum_doc:literal])* $(#[non_exhaustive])? $vis:vis enum $Name:ident { $( $(#[doc = $value_doc:literal])* $Value:ident,)* })*) => {
+        ($( $(#[doc = $enum_doc:literal])* $(#[non_exhaustive])? $(#[since($since:literal)])? $vis:vis enum $Name:ident { $( $(#[doc = $value_doc:literal])* $(#[since($value_since:literal)])? $Value:ident,)* })*) => {
             $({
                 let namespace = if stringify!($vis) == "pub" {
                     "slint::language"
