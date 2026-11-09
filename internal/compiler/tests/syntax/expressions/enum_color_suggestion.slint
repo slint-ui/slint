@@ -31,26 +31,42 @@ export component TestCase {
     // A named color where a string is expected: suggest `Colors.red`.
     property <string> s: red;
 //                       > <error{Unknown unqualified identifier 'red'. Did you mean 'Colors.red'?}
+//                       > <suggestion{Colors.red}
 
     // An enum value where an int is expected: suggest `Foo.bar`.
     property <int> i: bar;
 //                    > <error{Unknown unqualified identifier 'bar'. Did you mean 'Foo.bar'?}
+//                    > <suggestion{Foo.bar}
 
     // Two matching enums.
     property <int> p2: pair-value;
 //                     >        <error{Unknown unqualified identifier 'pair-value'. Did you mean 'Ma.pair-value' or 'Mb.pair-value'?}
+//                     >        <suggestion{Ma.pair-value}
+//                     >        <suggestion{Mb.pair-value}
 
     // Three matching enums.
     property <int> p3: trio_value;
 //                     >        <error{Unknown unqualified identifier 'trio_value'. Did you mean 'Na.trio-value', 'Nb.trio-value' or 'Nc.trio-value'?}
+//                     >        <suggestion{Na.trio-value}
+//                     >        <suggestion{Nb.trio-value}
+//                     >        <suggestion{Nc.trio-value}
 
     // Four matching enums.
     property <int> p4: quad-value;
 //                     >        <error{Unknown unqualified identifier 'quad-value'. Did you mean 'Oa.quad-value', 'Ob.quad-value', 'Oc.quad-value' or 'Od.quad-value'?}
+//                     >        <suggestion{Oa.quad-value}
+//                     >        <suggestion{Ob.quad-value}
+//                     >        <suggestion{Oc.quad-value}
+//                     >        <suggestion{Od.quad-value}
 
     // Five matching enums.
     property <int> p5: many_value;
 //                     >        <error{Unknown unqualified identifier 'many_value'. Did you mean 'Pa.many-value', 'Pb.many-value', 'Pc.many-value', 'Pd.many-value' or 'Pe.many-value'?}
+//                     >        <suggestion{Pa.many-value}
+//                     >        <suggestion{Pb.many-value}
+//                     >        <suggestion{Pc.many-value}
+//                     >        <suggestion{Pd.many-value}
+//                     >        <suggestion{Pe.many-value}
 
     // An identifier that is neither an enum value nor a color: no suggestion.
     property <int> j: doesnotexist;

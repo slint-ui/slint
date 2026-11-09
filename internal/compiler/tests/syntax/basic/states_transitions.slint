@@ -23,11 +23,13 @@ export component NewSyntax {
             colour: yellow;
 //          >    <error{'colour' is not a valid property}
 //                  >    <^error{Unknown unqualified identifier 'yellow'. Did you mean 'Colors.yellow'?}
+//                  >    <suggestion{Colors.yellow}
             fox.color: yellow;
 //          >       <error{'fox' is not a valid element id}
             text.fox: yellow;
 //          >      <error{'fox' not found in 'text'}
 //                    >    <^error{Unknown unqualified identifier 'yellow'. Did you mean 'Colors.yellow'?}
+//                    >    <suggestion{Colors.yellow}
 
             in  {
                 animate * { duration: 88ms; }
@@ -69,11 +71,13 @@ export component OldInNewSyntax {
             colour: yellow;
 //          >    <error{'colour' is not a valid property}
 //                  >    <^error{Unknown unqualified identifier 'yellow'. Did you mean 'Colors.yellow'?}
+//                  >    <suggestion{Colors.yellow}
             fox.color: yellow;
 //          >       <error{'fox' is not a valid element id}
             text.fox: yellow;
 //          >      <error{'fox' not found in 'text'}
 //                    >    <^error{Unknown unqualified identifier 'yellow'. Did you mean 'Colors.yellow'?}
+//                    >    <suggestion{Colors.yellow}
         }
     ]
 

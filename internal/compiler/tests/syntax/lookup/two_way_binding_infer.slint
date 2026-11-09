@@ -11,7 +11,8 @@ export X := Rectangle {
 //  >                                   <error{Could not infer type of property 'infer-loop2'}
     property infer_loop3 <=> infer_loop;
 //                           >        <error{Unknown unqualified identifier 'infer_loop'. Did you mean 'infer-loop2'?}
-//  >                                  <^error{Could not infer type of property 'infer-loop3'}
+//                           >        <suggestion{infer-loop2}
+//  >                                  <^^error{Could not infer type of property 'infer-loop3'}
 
     property infer_error <=> r.infer_error;
 //  >                                     <error{Could not infer type of property 'infer-error'}

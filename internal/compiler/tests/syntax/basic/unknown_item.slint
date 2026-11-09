@@ -22,6 +22,7 @@ export component SuperSimple inherits Rectangle {
             foo_bar: blue;
 //          >     <error{Unknown property foo-bar in Rectangle}
 //                   >  <^error{Unknown unqualified identifier 'blue'. Did you mean 'Colors.blue'?}
+//                   >  <suggestion{Colors.blue}
         }
     }
 
@@ -46,6 +47,7 @@ export component SuperSimple inherits Rectangle {
         foo_bar: blue;
 //      >     <error{Unknown property foo-bar in Rectangle}
 //               >  <^error{Unknown unqualified identifier 'blue'. Did you mean 'Colors.blue'?}
+//               >  <suggestion{Colors.blue}
     }
 
     NativeLineEdit { }

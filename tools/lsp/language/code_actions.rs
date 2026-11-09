@@ -5,9 +5,9 @@ mod element;
 mod implement;
 mod import;
 mod match_element;
-mod qualify;
 #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
 mod show_preview;
+mod suggestion;
 #[cfg(test)]
 pub mod test;
 mod translate;
@@ -44,7 +44,16 @@ impl<'a> Context<'a> {
         kind: Option<CodeActionKind>,
         edits: Vec<TextEdit>,
     ) {
-        result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
+        result.push(CodeActionOrCommand::CodeAction(self.edit_action(title, kind, edits)));
+    }
+
+    fn edit_action(
+        &self,
+        title: impl Into<String>,
+        kind: Option<CodeActionKind>,
+        edits: Vec<TextEdit>,
+    ) -> lsp_types::CodeAction {
+        lsp_types::CodeAction {
             title: title.into(),
             kind,
             edit: editor_preview::editing::create_workspace_edit_from_path(
@@ -53,7 +62,7 @@ impl<'a> Context<'a> {
                 edits,
             ),
             ..Default::default()
-        }));
+        }
     }
 }
 
@@ -73,6 +82,7 @@ pub fn get_code_actions(
     document_cache: &DocumentCache,
     token: SyntaxToken,
     client_capabilities: &ClientCapabilities,
+    diagnostics: &[lsp_types::Diagnostic],
 ) -> Option<Vec<CodeActionOrCommand>> {
     let ctx = Context::new(document_cache, token, client_capabilities)?;
     let mut result = Vec::new();
@@ -80,10 +90,10 @@ pub fn get_code_actions(
     #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
     show_preview::add(&ctx, &mut result);
 
+    suggestion::add(&ctx, diagnostics, &mut result);
     translate::add(&ctx, &mut result);
     import::add(&ctx, &mut result);
     element::add(&ctx, &mut result);
-    qualify::add(&ctx, &mut result);
     implement::add(&ctx, &mut result);
     match_element::add(&ctx, &mut result);
 

@@ -23,6 +23,11 @@ pub mod sharedfontique;
 pub mod styled_text;
 pub mod unicode_utils;
 
+/// This type is not exported from the public API crate, so function having this
+/// parameter cannot be called from the public API without naming it
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct InternalToken;
+
 pub const DEFAULT_DECIMAL_SEPARATOR: char = '.';
 
 /// Formats a float the way Slint converts it to a string, before the locale's
