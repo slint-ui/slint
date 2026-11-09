@@ -20,7 +20,7 @@ use crate::{Coord, Property, SharedString};
 use alloc::rc::Rc;
 use alloc::vec::Vec;
 use const_field_offset::FieldOffsets;
-use core::cell::Cell;
+use core::cell::{Cell, RefCell};
 use core::fmt::Display;
 use core::pin::Pin;
 use core::time::Duration;
@@ -1374,6 +1374,10 @@ pub struct ClickState {
     click_count: Cell<u8>,
     click_position: Cell<LogicalPoint>,
     click_button: Cell<PointerEventButton>,
+    /// Unlike `click_position`, also moves on a repeated press.
+    last_press_position: Cell<LogicalPoint>,
+    /// The item that holds the last press.
+    target: RefCell<ItemWeak>,
 }
 
 impl ClickState {
@@ -1390,10 +1394,18 @@ impl ClickState {
         self.click_button.set(button);
     }
 
-    /// Reset to an invalid state
-    pub fn reset(&self) {
-        self.click_count.set(0);
-        self.click_count_time_stamp.replace(None);
+    /// The item that holds the last press. Only its next press may count as a repeat.
+    pub(crate) fn target(&self) -> Option<ItemRc> {
+        self.target.borrow().upgrade()
+    }
+
+    /// Records the item that holds the last press. Another item than before starts a new count.
+    pub(crate) fn press_delivered(&self, item: Option<ItemRc>) {
+        let item = item.map(|i| i.downgrade()).unwrap_or_default();
+        if self.target.replace(item.clone()) != item {
+            self.click_count.set(0);
+            self.click_position.set(self.last_press_position.get());
+        }
     }
 
     /// Check if the click is repeated.
@@ -1402,6 +1414,7 @@ impl ClickState {
     pub fn check_repeat(&self, mouse_event: MouseEvent, ctx: &crate::SlintContext) -> MouseEvent {
         match mouse_event {
             MouseEvent::Pressed { position, button, touch_finger_id, event_time, .. } => {
+                self.last_press_position.set(position);
                 let instant_now = crate::animations::Instant::now(ctx);
                 let click_interval = ctx.platform().click_interval();
 
@@ -1493,15 +1506,12 @@ pub struct MouseInputState {
     delayed: Option<DelayedPress>,
     /// Items that still need an Exit after a delayed or discarded dispatch.
     delayed_exit_items: Vec<ItemWeak>,
-    /// The previous target displaced by a delayed press, used for click counting.
-    /// Retained after replay until a committed dispatch replaces the input state.
-    delayed_previous_target: Option<ItemWeak>,
     pub(crate) cursor: MouseCursorInner,
 }
 
 impl MouseInputState {
     /// Return the item in the top of the stack
-    fn top_item(&self) -> Option<ItemRc> {
+    pub(crate) fn top_item(&self) -> Option<ItemRc> {
         self.item_stack.last().and_then(|x| x.0.upgrade())
     }
 
@@ -1520,11 +1530,6 @@ impl MouseInputState {
         drag_area.dragging.set(true);
     }
 
-    /// Return the target displaced by a delayed press, or the current top item.
-    pub fn top_item_including_delayed(&self) -> Option<ItemRc> {
-        self.delayed_previous_target.as_ref().and_then(|x| x.upgrade()).or_else(|| self.top_item())
-    }
-
     /// Send queued exits to items absent from the resolved dispatch.
     fn send_delayed_exit_events(&mut self, window_adapter: &Rc<dyn WindowAdapter>) {
         let cursor = &mut MouseCursorInner::BuiltIn(BuiltInMouseCursor::Default);
@@ -1540,6 +1545,11 @@ impl MouseInputState {
     /// Returns true if there is a pending delayed event (e.g. from a Flickable)
     pub fn has_delayed_event(&self) -> bool {
         self.delayed.is_some()
+    }
+
+    /// Whether the top item of the stack has the mouse grab.
+    pub(crate) fn is_grabbed(&self) -> bool {
+        self.grabbed
     }
 
     /// The action negotiated with the `DropArea` that accepted the most recent
@@ -1747,7 +1757,6 @@ pub(crate) fn send_exit_events(
             // The item is still under the mouse, but no longer in the item stack. We should also sent the exit event, unless we delay it
             if new_input_state.delayed.is_some() {
                 new_input_state.delayed_exit_items.push(it.0.clone());
-                new_input_state.delayed_previous_target = Some(it.0.clone());
             } else {
                 item.borrow().as_ref().input_event(
                     &MouseEvent::Exit,
@@ -1795,6 +1804,7 @@ pub fn process_mouse_input(
     mouse_event: &MouseEvent,
     window_adapter: &Rc<dyn WindowAdapter>,
     mut mouse_input_state: MouseInputState,
+    last_top_item: Option<&ItemRc>,
 ) -> MouseInputResult {
     let mut result = MouseInputState {
         drag_data: mouse_input_state.drag_data.clone(),
@@ -1808,7 +1818,7 @@ pub fn process_mouse_input(
         root.clone(),
         window_adapter,
         &mut result,
-        mouse_input_state.top_item().as_ref(),
+        last_top_item,
         None,
         mouse_event,
         menu_owner_path,
@@ -1868,6 +1878,7 @@ pub fn process_mouse_input(
             },
             window_adapter,
             result,
+            None,
         );
         return MouseInputResult { state: moved.state, accepted: true };
     }
@@ -1878,6 +1889,7 @@ pub fn process_mouse_input(
 pub(crate) fn process_delayed_event(
     window_adapter: &Rc<dyn WindowAdapter>,
     mut mouse_input_state: MouseInputState,
+    click_target: Option<&ItemRc>,
 ) -> MouseInputState {
     // the take bellow will also destroy the Timer
     let Some(DelayedPress { event_for_children: event, original_event, .. }) =
@@ -1894,10 +1906,6 @@ pub(crate) fn process_delayed_event(
         }
     };
 
-    // Recover the real previous click target so click_count is preserved across delayed events
-    let prev_target = mouse_input_state.delayed_previous_target.as_ref().and_then(|x| x.upgrade());
-    let last_top_item = prev_target.as_ref().unwrap_or(&top_item);
-
     let mut actual_visitor =
         |component: &ItemTreeRc, index: u32, _: Pin<ItemRef>| -> VisitChildrenResult {
             send_mouse_event_to_item(
@@ -1905,7 +1913,7 @@ pub(crate) fn process_delayed_event(
                 ItemRc::new(component.clone(), index),
                 window_adapter,
                 &mut mouse_input_state,
-                Some(last_top_item),
+                click_target,
                 Some(false),
                 &original_event,
                 &[],
@@ -1930,6 +1938,7 @@ pub(crate) fn resolve_delayed_event_on_release(
     window_adapter: &Rc<dyn WindowAdapter>,
     mut mouse_input_state: MouseInputState,
     current_event: &MouseEvent,
+    click_target: Option<&ItemRc>,
 ) -> MouseInputState {
     let same_pointer = match &mouse_input_state.delayed {
         Some(DelayedPress { original_event, .. }) => {
@@ -1959,8 +1968,6 @@ pub(crate) fn resolve_delayed_event_on_release(
         return mouse_input_state;
     };
 
-    let last_top_item = mouse_input_state.top_item_including_delayed();
-
     let mut result = MouseInputState {
         drag_data: mouse_input_state.drag_data.clone(),
         drag_source: mouse_input_state.drag_source.clone(),
@@ -1975,7 +1982,7 @@ pub(crate) fn resolve_delayed_event_on_release(
         root,
         window_adapter,
         &mut result,
-        last_top_item.as_ref(),
+        click_target,
         Some(true),
         &original_event,
         &replay_path,

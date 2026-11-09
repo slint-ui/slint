@@ -1039,13 +1039,23 @@ impl WindowInner {
         let released_event = matches!(event, MouseEvent::Released { .. });
         let had_delay = mouse_input_state.has_delayed_event();
 
-        let last_top_item = mouse_input_state.top_item_including_delayed();
+        let click_target = if pressed_event || (released_event && had_delay) {
+            self.click_state.target()
+        } else {
+            None
+        };
         if released_event {
             mouse_input_state = crate::input::resolve_delayed_event_on_release(
                 &window_adapter,
                 mouse_input_state,
                 &event,
+                click_target.as_ref(),
             );
+            if had_delay && !mouse_input_state.has_delayed_event() {
+                self.click_state.press_delivered(mouse_input_state.top_item());
+                // The release carries the count of the press it ends.
+                event = self.click_state.check_repeat(event, self.context());
+            }
         }
 
         let parent_adapter = self.parent_window_adapter().unwrap_or_else(|| window_adapter.clone());
@@ -1171,6 +1181,8 @@ impl WindowInner {
 
             if let Some(root) = root {
                 event.translate(-offset.to_vector());
+                let last_top_item =
+                    if pressed_event { click_target.clone() } else { mouse_input_state.top_item() };
                 let crate::input::MouseInputResult { mut state, accepted } =
                     crate::input::process_mouse_input(
                         root,
@@ -1178,6 +1190,7 @@ impl WindowInner {
                         &event,
                         &window_adapter,
                         mouse_input_state,
+                        last_top_item.as_ref(),
                     );
                 state.offset = offset;
                 dispatch_accepted = accepted;
@@ -1201,9 +1214,12 @@ impl WindowInner {
             matches!(event, MouseEvent::Drop { .. }).then(|| event.position()).flatten();
         let accepted = dispatch_accepted | grab_accepted;
 
-        if last_top_item != mouse_input_state.top_item_including_delayed() {
-            self.click_state.reset();
-            self.click_state.check_repeat(event, self.context());
+        // The item that holds the press. Checked on every event while grabbed: a Flickable takes
+        // over a held press on a move, and the grab stays set while its holder changes.
+        if (pressed_event || mouse_input_state.is_grabbed())
+            && !mouse_input_state.has_delayed_event()
+        {
+            self.click_state.press_delivered(mouse_input_state.top_item());
         }
 
         if !had_delay && mouse_input_state.has_delayed_event() {
@@ -1357,10 +1373,15 @@ impl WindowInner {
 
     /// Called by the input code's internal timer to send an event that was delayed
     pub(crate) fn process_delayed_event(&self) {
-        self.mouse_input_state.set(crate::input::process_delayed_event(
+        let state = crate::input::process_delayed_event(
             &self.window_adapter(),
             self.mouse_input_state.take(),
-        ));
+            self.click_state.target().as_ref(),
+        );
+        if !state.has_delayed_event() {
+            self.click_state.press_delivered(state.top_item());
+        }
+        self.mouse_input_state.set(state);
     }
 
     /// Receive a key event and pass it to the items of the component to
