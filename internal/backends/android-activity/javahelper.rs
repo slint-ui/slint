@@ -139,6 +139,10 @@ bind_java_type! {
             sig = (id: jint, pos_x: jint, pos_y: jint) -> (),
             fn = callback_move_cursor_handle,
         },
+        pub static fn set_cursor_blink_suspended {
+            sig = (suspended: jboolean) -> (),
+            fn = callback_set_cursor_blink_suspended,
+        },
         pub static fn on_back_invoked {
             sig = () -> (),
             fn = callback_on_back_invoked,
@@ -1001,6 +1005,21 @@ fn callback_popup_menu_action<'local>(
                     }
                 }
             }
+        }
+    })
+    .unwrap();
+    Ok(())
+}
+
+fn callback_set_cursor_blink_suspended<'local>(
+    _env: &mut Env<'local>,
+    _class: JClass<'local>,
+    suspended: bool,
+) -> Result<(), jni::errors::Error> {
+    i_slint_core::api::invoke_from_event_loop(move || {
+        if let Some(adaptor) = CURRENT_WINDOW.with_borrow(|x| x.upgrade()) {
+            i_slint_core::window::WindowInner::from_pub(&adaptor.window)
+                .set_cursor_blink_suspended(suspended);
         }
     })
     .unwrap();

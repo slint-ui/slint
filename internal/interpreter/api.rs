@@ -1611,8 +1611,9 @@ impl ComponentDefinition {
             .into_iter()
     }
 
-    /// Returns an iterator over all publicly declared properties. Each iterator item is a tuple of property name
-    /// and property type for each of them.
+    /// Returns an iterator over the public properties declared at the root of the component,
+    /// excluding inherited ones.
+    /// Each iterator item is a tuple of property name and property type.
     pub fn properties(&self) -> impl Iterator<Item = (String, ValueType)> + '_ {
         self.inner
             .properties()
@@ -1621,12 +1622,12 @@ impl ComponentDefinition {
             .into_iter()
     }
 
-    /// Returns the names of all publicly declared callbacks.
+    /// Returns the names of the callbacks declared at the root of the component, excluding inherited ones.
     pub fn callbacks(&self) -> impl Iterator<Item = String> + '_ {
         self.inner.callbacks().map(|s| s.to_string()).collect::<Vec<_>>().into_iter()
     }
 
-    /// Returns the names of all publicly declared functions.
+    /// Returns the names of the public functions declared at the root of the component, excluding inherited ones.
     pub fn functions(&self) -> impl Iterator<Item = String> + '_ {
         self.inner.functions().map(|s| s.to_string()).collect::<Vec<_>>().into_iter()
     }
