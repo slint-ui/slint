@@ -2,10 +2,11 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Style, PaintStyle, Metrics, Colors, Typography, ButtonStyle, PaletteCardStyle } from "../style.slint";
-import { BodyLabel, EdgeDivider, HorizontalResizeDivider, MutedLabel, SectionTitle, SidebarToggleButton } from "index.slint";
+import { BodyLabel, EdgeDivider, HorizontalResizeDivider, MutedLabel, PrimerTextInput, SidebarToggleButton } from "index.slint";
 import { Api, EditorSurfaceMode } from "../api.slint";
 import { Project } from "../project.slint";
 import { FileTreeView } from "file-tree-view.slint";
+import { ElementPaletteTabs } from "element-palette-tabs.slint";
 import { ElementPalette } from "element-palette.slint";
 
 component NewSlintFileButton inherits Rectangle {
@@ -176,28 +177,36 @@ export component LeftPane inherits Rectangle {
                     text: @tr("Files and elements");
                 }
             }
+
+            NewSlintFileButton {
+                enabled: Project.file-tree.length > 0;
+                clicked => { root.create-new-slint-file(); }
+            }
         }
 
         VerticalLayout {
+            spacing: Metrics.space-regular;
             padding: Style.sidebar-spacing.padding;
             padding-bottom: 0px;
-            SectionTitle {
-                label: @tr("FILES");
+            tabs := ElementPaletteTabs {
+                labels: [@tr("Slint files"), @tr("Assets")];
+                accessible-name: @tr("Project files");
+            }
 
-                NewSlintFileButton {
-                    x: parent.width - self.width;
-                    y: -Metrics.space-medium;
-                    enabled: Project.file-tree.length > 0;
-                    clicked => { root.create-new-slint-file(); }
-                }
+            search := PrimerTextInput {
+                placeholder: tabs.selected == 0 ? @tr("Search Slint files…") : @tr("Search assets…");
+                accessible-name: @tr("Search project files");
             }
 
             if Project.file-tree.length == 0: FilesUnavailableNotice { }
+            if Project.file-tree.length == 0: Rectangle { vertical-stretch: 1; }
 
             if Project.file-tree.length > 0: Rectangle {
                 vertical-stretch: 1;
 
                 FileTreeView {
+                    assets: tabs.selected == 1;
+                    query: Api.element-library-normalize-query(search.text);
                     x: Style.sidebar-spacing.list-inset - Style.sidebar-spacing.padding;
                     width: parent.width - 2 * self.x + Style.sidebar-spacing.list-inset;
                     height: parent.height;

@@ -35,6 +35,8 @@ Each SVG changes `stroke-width` from `2` to `1.6` to match the editor's icon wei
 The two filled transport icons also change `fill` from `none` to `currentColor`.
 Preserve these changes when updating the files.
 
+`file-slint.svg` combines the file outline from `file-plus.svg` with the existing Slint mark from `../slint-mark.svg`.
+
 The [pinned upstream license](https://github.com/lucide-icons/lucide/blob/22e6094bb533ac2b0ae3b592d2184da461ec1f4b/LICENSE)
 uses ISC for Lucide and additionally MIT for Feather-derived icons.
 It lists `check`, `chevron-down`, `monitor`, `move`, `plus`, `smartphone`, `square`, `trash`, `type`, `x` as Feather-derived,
