@@ -62,7 +62,7 @@ resources = "android-res"
 build_targets = ["aarch64-linux-android"]
 
 [package.metadata.android.sdk]
-min_sdk_version = 23
+min_sdk_version = 26
 target_sdk_version = 36
 
 [package.metadata.android.application]
