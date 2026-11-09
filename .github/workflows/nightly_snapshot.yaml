@@ -262,7 +262,7 @@ jobs:
             PUBLISH: ${{ github.event.inputs.mode == 'full-nightly' || github.event.inputs.mode == 'release' }}
         steps:
             - uses: actions/checkout@v7
-            - uses: pnpm/action-setup@v6.1.0
+            - uses: pnpm/action-setup@v6.1.1
             - name: Install GNU Sed
               run: brew install gnu-sed
             - uses: actions/setup-node@v7
@@ -353,7 +353,7 @@ jobs:
               with:
                   node-version: 24
                   package-manager-cache: false
-            - uses: pnpm/action-setup@v6.1.0
+            - uses: pnpm/action-setup@v6.1.1
             - uses: ./.github/actions/setup-rust
               with:
                   cache: false

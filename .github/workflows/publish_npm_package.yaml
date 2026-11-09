@@ -37,7 +37,7 @@ jobs:
             PKG_VERSION: ${{ steps.mkversion.outputs.PKG_VERSION }}
         steps:
             - uses: actions/checkout@v7
-            - uses: pnpm/action-setup@v6.1.0
+            - uses: pnpm/action-setup@v6.1.1
             - uses: actions/setup-node@v7
               with:
                 package-manager-cache: false
@@ -116,7 +116,7 @@ jobs:
                   node-version: "24"
                   registry-url: "https://registry.npmjs.org"
                   package-manager-cache: false
-            - uses: pnpm/action-setup@v6.1.0
+            - uses: pnpm/action-setup@v6.1.1
             - name: Set version
               working-directory: api/node
               shell: bash
@@ -180,7 +180,7 @@ jobs:
             - uses: ./.github/actions/setup-rust
               with:
                   cache: false
-            - uses: pnpm/action-setup@v6.1.0
+            - uses: pnpm/action-setup@v6.1.1
             # Setup .npmrc file to publish to npm
             - uses: actions/setup-node@v7
               with:
