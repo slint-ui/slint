@@ -1428,13 +1428,8 @@ def test_artboard_allows_resized_element_outside(
 
 @pytest.mark.parametrize(
     "corner,resizable,outside",
-    [
-        (corner, resizable, outside)
-        for corner in CORNERS
-        for resizable in (True, False)
-        for outside in (False, True)
-        if corner == "top-left" or outside
-    ],
+    [(corner, resizable, True) for corner in CORNERS for resizable in (True, False)]
+    + [("top-left", resizable, False) for resizable in (True, False)],
 )
 def test_rotation_starts_only_outside_resize_handle(
     editor_binary, editor_environment, fixture_project, corner, resizable, outside

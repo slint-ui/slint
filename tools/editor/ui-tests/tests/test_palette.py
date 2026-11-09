@@ -212,7 +212,7 @@ def test_palette_drop_outside_canvas_does_not_edit_source(
         snapshot.assert_unchanged()
 
 
-@pytest.mark.parametrize("kind", PALETTE_KINDS)
+@pytest.mark.parametrize("kind", (*PALETTE_KINDS, "GridLayout", "Flickable"))
 def test_escape_cancels_palette_drag_without_source_edit(
     editor_binary: Path,
     editor_environment: dict[str, str],
