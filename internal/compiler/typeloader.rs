@@ -1017,7 +1017,6 @@ impl LibraryProject {
 
 /// The settings for the files of the application, or of a library with a project file.
 struct ProjectSettings<'a> {
-    edition: Option<crate::project_file::SlintEdition>,
     include_paths: &'a [PathBuf],
     library_paths: &'a HashMap<String, PathBuf>,
 }
@@ -1826,28 +1825,30 @@ impl TypeLoader {
     fn project_settings(&self, file: Option<&SourcePath>) -> ProjectSettings<'_> {
         match file.and_then(|file| self.library_project_of(file)) {
             Some(project) => ProjectSettings {
-                edition: Some(project.edition),
                 include_paths: &project.include_paths,
                 library_paths: &project.library_paths,
             },
             None => ProjectSettings {
-                edition: self.compiler_config.edition,
                 include_paths: &self.compiler_config.include_paths,
                 library_paths: &self.compiler_config.library_paths,
             },
         }
     }
 
-    /// Sets the edition of the file of `node` from the project that the file belongs to.
+    /// Sets the edition of the file of `node` to the `project_edition` of its path.
     pub(crate) fn set_edition(&self, node: &syntax_nodes::Document) {
         if let Some(edition) = self.project_edition(node.source_file.path()) {
             node.source_file.set_edition(edition);
         }
     }
 
-    /// The edition of the project that the file at `path` belongs to.
+    /// The edition of the project that the file at `path` belongs to,
+    /// or the current edition for a file that ships with the compiler.
     pub fn project_edition(&self, path: &SourcePath) -> Option<crate::project_file::SlintEdition> {
-        self.project_settings(Some(path)).edition
+        if path.is_builtin() {
+            return Some(crate::project_file::SlintEdition::current());
+        }
+        self.library_project_of(path).map_or(self.compiler_config.edition, |p| Some(p.edition))
     }
 
     /// Waits until no other task loads `path`, and then claims it unless it's loaded.
@@ -3280,6 +3281,7 @@ fn test_library_project_files() {
     let main_source = r#"
 import { Button } from "@lib";
 import { Rel } from "@rel";
+import { VerticalBox } from "std-widgets.slint";
 export component Main { Button { } Rel { } }
 "#;
     let mut test_diags = crate::diagnostics::BuildDiagnostics::default();
@@ -3303,14 +3305,15 @@ export component Main { Button { } Rel { } }
     // The library's own project is open, so its files aren't private
     assert!(!loader.is_private_library_file(&SourcePath::new("/lib/button.slint")));
 
-    assert_eq!(
-        loader.project_settings(Some(&main)).edition,
-        Some(crate::project_file::SlintEdition::V1_19)
-    );
-    assert_eq!(
-        loader.project_settings(Some(&SourcePath::new("/lib/button.slint"))).edition,
-        Some((1, 18).into())
-    );
+    assert_eq!(loader.project_edition(&main), Some(crate::project_file::SlintEdition::V1_19));
+    assert_eq!(loader.project_edition(&SourcePath::new("/lib/button.slint")), Some((1, 18).into()));
+    let builtin_editions = loader
+        .all_file_documents()
+        .filter(|(path, _)| path.is_builtin())
+        .map(|(_, node)| node.source_file.edition())
+        .unique()
+        .collect::<Vec<_>>();
+    assert_eq!(builtin_editions, [Some(crate::project_file::SlintEdition::current())]);
 
     let relative_project_file = SourcePath::new(cwd.join("rel/slint-project.json"));
     assert!(!loader.drop_document(&relative_project_file).unwrap().is_empty());

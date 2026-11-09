@@ -25,10 +25,27 @@ export component TestCase inherits Window {
 }
 "#;
 
-fn compile(edition: Option<SlintEdition>) -> BuildDiagnostics {
+/// Some bindings of the inner loop are in the widgets.
+const WIDGET_SOURCE: &str = r#"
+import { TabWidget, TextEdit, VerticalBox } from "std-widgets.slint";
+export component TestCase inherits Window {
+    VerticalLayout {
+        TabWidget {
+            Tab {
+                VerticalBox {
+                    TextEdit { width: parent.width * 0.9; }
+                }
+            }
+        }
+    }
+}
+"#;
+
+fn compile(source: &str, edition: Option<SlintEdition>) -> BuildDiagnostics {
     let mut diag = BuildDiagnostics::default();
-    let syntax_node = parse(SOURCE.into(), None, &mut diag);
+    let syntax_node = parse(source.into(), None, &mut diag);
     let mut config = CompilerConfiguration::new(OutputFormat::Llr);
+    config.style = Some("fluent".into());
     config.edition = edition;
     let (_doc, diag, _loader) = spin_on::spin_on(compile_syntax_node(syntax_node, diag, config));
     diag
@@ -40,7 +57,7 @@ fn binding_loops(diag: &BuildDiagnostics) -> Vec<String> {
 
 #[test]
 fn hidden_loop_is_an_error_from_1_19() {
-    let diag = compile(Some(SlintEdition::V1_19));
+    let diag = compile(SOURCE, Some(SlintEdition::V1_19));
     let loops = binding_loops(&diag);
     assert_eq!(loops.len(), 2, "{loops:?}");
     let errors = diag
@@ -54,9 +71,16 @@ fn hidden_loop_is_an_error_from_1_19() {
 
 #[test]
 fn hidden_loop_is_not_reported_before_1_19() {
-    for edition in [None, Some("1.18".parse().unwrap())] {
-        let diag = compile(edition);
-        assert!(!diag.has_errors(), "{edition:?}: {:?}", binding_loops(&diag));
-        assert_eq!(binding_loops(&diag).len(), 1, "{edition:?}: {:?}", binding_loops(&diag));
+    for source in [SOURCE, WIDGET_SOURCE] {
+        for edition in [None, Some("1.18".parse().unwrap())] {
+            let diag = compile(source, edition);
+            assert!(!diag.has_errors(), "{edition:?}: {:?}", binding_loops(&diag));
+            assert_eq!(binding_loops(&diag).len(), 1, "{edition:?}: {:?}", binding_loops(&diag));
+        }
     }
+}
+
+#[test]
+fn hidden_loop_through_a_widget_is_an_error_from_1_19() {
+    assert!(compile(WIDGET_SOURCE, Some(SlintEdition::V1_19)).has_errors());
 }
