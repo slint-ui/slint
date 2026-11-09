@@ -458,6 +458,87 @@ pub fn slint(stream: TokenStream) -> TokenStream {
     result
 }
 
+/// Compile a Slint project and use its exported components in the surrounding Rust module.
+/// Set `main` in the project file to the Slint file to compile.
+/// The macro uses the project's compiler settings, including its edition.
+///
+/// Without an argument, the macro loads `slint-project.json` from `CARGO_MANIFEST_DIR`:
+///
+/// ```rust,ignore
+/// slint::compile_project!();
+/// ```
+///
+/// Pass a string literal to select a project directory or its `slint-project.json` file:
+///
+/// ```rust,ignore
+/// slint::compile_project!("../ui");
+/// // Or: slint::compile_project!("../ui/slint-project.json");
+/// ```
+///
+/// The macro resolves relative paths from the directory containing the Rust source file.
+/// If the source file's path isn't available, it resolves them from `CARGO_MANIFEST_DIR`.
+/// Pass a project directory or project file, rather than a `.slint` file.
+///
+/// For details about project files, see
+#[doc = concat!("[Project Files](https://slint.dev/releases/", env!("CARGO_PKG_VERSION"), "/docs/slint/guide/tooling/project-file/)")]
+#[proc_macro]
+pub fn compile_project(stream: TokenStream) -> TokenStream {
+    let mut tokens = stream.into_iter();
+    let path = match (tokens.next(), tokens.next()) {
+        (None, None) => {
+            std::env::var_os("CARGO_MANIFEST_DIR").map(PathBuf::from).unwrap_or_default()
+        }
+        (Some(TokenTree::Literal(literal)), None) => {
+            let path = extract_path(literal.clone());
+            if path.extension().is_some_and(|extension| extension == "slint") {
+                let message = "Pass a project directory or slint-project.json, not a .slint file";
+                let span = proc_macro2::Span::from(literal.span());
+                return quote::quote_spanned!(span => compile_error!(#message)).into();
+            }
+            if path.is_absolute() {
+                path
+            } else {
+                literal
+                    .span()
+                    .local_file()
+                    .and_then(|source| source.parent().map(std::path::Path::to_path_buf))
+                    .or_else(|| std::env::var_os("CARGO_MANIFEST_DIR").map(PathBuf::from))
+                    .unwrap_or_default()
+                    .join(path)
+            }
+        }
+        _ => {
+            return quote!(compile_error!(
+                "Expected a project directory or slint-project.json path"
+            ))
+            .into();
+        }
+    };
+
+    let mut diag = BuildDiagnostics::default();
+    let (input, input_files) = spin_on::spin_on(project_file::load_input(
+        &source_path::SourcePath::new(path),
+        None,
+        None,
+        None,
+        &mut diag,
+    ));
+    let Some(input) = input else {
+        return diag.report_macro_diagnostic(&[]);
+    };
+    let mut compiler_config = CompilerConfiguration::new(generator::OutputFormat::Rust);
+    if let Some(project_file) = &input.project_file {
+        project_file.apply_to(&mut compiler_config);
+    }
+    compiler_config.translation_domain = std::env::var("CARGO_PKG_NAME").ok();
+    let syntax_node = parser::parse(input.source_code, Some(input.source), &mut diag);
+    if diag.has_errors() {
+        return diag.report_macro_diagnostic(&[]);
+    }
+    let input_files = input_files.into_iter().filter_map(|path| path.into_native_path()).collect();
+    compile_and_generate(syntax_node, diag, compiler_config, &[], None, input_files)
+}
+
 fn expand(
     token_iter: impl Iterator<Item = TokenTree>,
     mut compiler_config: CompilerConfiguration,
@@ -511,13 +592,24 @@ fn expand(
         return stream;
     }
 
+    compile_and_generate(syntax_node, diag, compiler_config, &tokens, cache_key, Vec::new())
+}
+
+fn compile_and_generate(
+    syntax_node: parser::SyntaxNode,
+    diag: BuildDiagnostics,
+    compiler_config: CompilerConfiguration,
+    tokens: &[parser::Token],
+    cache_key: Option<String>,
+    input_files: Vec<PathBuf>,
+) -> TokenStream {
     //println!("{syntax_node:#?}");
     let (root_component, mut diag, loader) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
     diag.remove_infos();
     //println!("{tree:#?}");
     if diag.has_errors() {
-        return diag.report_macro_diagnostic(&tokens);
+        return diag.report_macro_diagnostic(tokens);
     }
 
     if expansion_cache::is_rust_analyzer() {
@@ -546,7 +638,8 @@ fn expand(
         });
 
     // Make sure to recompile if any of the external files changes
-    let loaded = loaded_files(&diag);
+    let mut loaded = loaded_files(&diag);
+    loaded.extend(input_files);
     let reload = loaded
         .iter()
         .filter_map(|p| p.to_str())
@@ -559,7 +652,7 @@ fn expand(
     if !diag.is_empty() {
         // Output carries span-bearing diagnostic tokens tied to this call site, so
         // it must not be cached.
-        result.extend(diag.report_macro_diagnostic(&tokens));
+        result.extend(diag.report_macro_diagnostic(tokens));
     } else if let Some(key) = cache_key {
         // Clean expansion: cache the full output (including the reload markers) so
         // the next identical expansion is a cheap re-parse.
