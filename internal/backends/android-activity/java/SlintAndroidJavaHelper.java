@@ -115,21 +115,18 @@ class InputHandle extends ImageView {
                 mPressedY = ev.getRawY() - mCursorY;
                 mDownRawX = ev.getRawX();
                 mDownRawY = ev.getRawY();
+                // Only the cursor handle has a tap action, so only it waits for the touch slop.
                 mDragging = mId != CURSOR;
                 mRootView.dragHandle(this, mCursorX);
                 break;
             case MotionEvent.ACTION_MOVE:
-                if (!mDragging) {
-                    mDragging = Math.hypot(ev.getRawX() - mDownRawX, ev.getRawY() - mDownRawY) >= mTouchSlop;
-                    if (!mDragging) {
-                        // Keeps the menu hidden, which comes back on its own after a while.
-                        mRootView.dragHandle(this, mCursorX);
-                        break;
-                    }
-                }
-                int x = Math.round(ev.getRawX() - mPressedX);
+                mDragging = mDragging || Math.hypot(ev.getRawX() - mDownRawX, ev.getRawY() - mDownRawY) >= mTouchSlop;
+                int x = mDragging ? Math.round(ev.getRawX() - mPressedX) : mCursorX;
+                // Also before the slop, so the menu stays hidden while a tap is undecided.
                 mRootView.dragHandle(this, x);
-                SlintAndroidJavaHelper.moveCursorHandle(mId, x, Math.round(ev.getRawY() - mPressedY));
+                if (mDragging) {
+                    SlintAndroidJavaHelper.moveCursorHandle(mId, x, Math.round(ev.getRawY() - mPressedY));
+                }
                 break;
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:
@@ -804,8 +801,7 @@ class SlintInputView extends View {
 
                 a.recycle();
 
-                // As in Android's own text fields, a menu without items doesn't start, so it
-                // can't take the next tap that would show it.
+                // Like Android's Editor, an empty menu doesn't start, or it would swallow the next tap.
                 updateMenuItems(menu);
                 return menu.hasVisibleItems();
             }
