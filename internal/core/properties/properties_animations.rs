@@ -669,9 +669,8 @@ impl<T: Clone + InterpolatedPropertyValue + PartialEq + 'static> Property<T> {
         }
     }
 
-    fn stop_if_already_at(&self, value: &T) -> bool {
-        // FIXME if the current value is a dirty binding, we must run it, but we do not have the context
-        let equal = unsafe { *self.value.get() == *value };
+    fn stop_if_already_at(self: Pin<&Self>, value: &T) -> bool {
+        let equal = self.get_untracked() == *value;
         if equal {
             self.handle.remove_binding();
         }
