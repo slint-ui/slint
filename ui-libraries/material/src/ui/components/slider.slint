@@ -105,7 +105,8 @@ export component Slider {
                         root.pressed_value = root.value;
                         root.set_value(root.length_to_value(self.mouse_x, track.width));
                     } else if !self.pressed {
-                        // Another button during a drag keeps the value from before the drag.
+                        // A cancel goes back to the value at this press; during a drag it
+                        // goes back to the value from before the drag, so leave that alone.
                         root.pressed_value = root.value;
                     }
                 }

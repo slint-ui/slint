@@ -24,6 +24,8 @@ export component Example inherits Window {
 
 Use a `Slider` to allow the user to select a value from a range by moving a thumb along a track. This is useful for adjusting settings such as volume, brightness, or any other scalar value within a specified range.
 
+The slider is at least 48px high, so that it's easy to touch.
+
 
 ## Properties
 
@@ -61,7 +63,7 @@ The current value of the slider.
 
 ### released(value: float)
 Invoked when the slider is released.
-When something else takes over the touch, such as a page that starts to scroll, the value goes back to where it was before the press and `released` isn't invoked.
+When something else takes over the touch, such as a page that starts to scroll, the value goes back to where it was before the press. `released` isn't invoked then.
 
 ### value_changed(value: float)
 Invoked when the slider value changes.
