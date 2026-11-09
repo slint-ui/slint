@@ -1697,7 +1697,8 @@ pub struct BindingExpression {
     pub span: Option<SourceLocation>,
     /// How deep is this binding declared in the hierarchy. When two bindings are conflicting
     /// for the same priority (because of a two way binding), the lower priority wins.
-    /// The priority starts at 1, and each level of inlining adds one to the priority.
+    /// The priority starts at 1, and grows by one for each level of components that inlining
+    /// nests the binding in.
     /// 0 means the expression was added by some passes and it is not explicit in the source code
     pub priority: i32,
 
