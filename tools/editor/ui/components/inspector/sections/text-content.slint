@@ -25,6 +25,7 @@ export component InspectorTextContentSection inherits InspectorSection {
 
         if !InspectorContext.has-styled-text-property(): InspectorStringField {
             accessible-name: @tr("Text content");
+            property-name: "text";
             source-value: Properties.source-property-value-data("text", {});
             default-value: Properties.editor-property-value-data("text").value-string;
             commit-key: InspectorContext.field-key("text");
