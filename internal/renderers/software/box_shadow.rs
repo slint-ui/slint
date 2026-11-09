@@ -5,8 +5,8 @@
 
 use super::draw_functions::{PremultipliedRgbaColor, TargetPixel};
 use super::{
-    Fixed, PhysicalLength, PhysicalRect, PhysicalSize, ProcessScene, RotationInfo, RoundedClip,
-    Transform, target_pixel_buffer,
+    Fixed, PhysicalLength, PhysicalRect, PhysicalSize, RasterCommand, RasterCommandSink,
+    RotationInfo, RoundedClip, Transform, target_pixel_buffer,
 };
 use alloc::vec::Vec;
 use i_slint_core::graphics::BorderRadius;
@@ -29,7 +29,7 @@ use i_slint_core::lengths::{LogicalBorderRadius, LogicalLength, LogicalRect, Sca
 ///
 /// `color` is the shadow color with the opacity applied, and `clip` is in rotated coordinates.
 pub(super) fn process_drop_shadow(
-    processor: &mut dyn ProcessScene,
+    raster_commands: &mut dyn RasterCommandSink,
     options: &BoxShadowOptions,
     origin: euclid::Point2D<f32, PhysicalPx>,
     color: Color,
@@ -119,7 +119,7 @@ pub(super) fn process_drop_shadow(
             alpha: (weight * 255.).round() as u8,
             rotation: rotation.orientation,
         };
-        processor.process_rectangle(&args, *clip, rounded_clips);
+        raster_commands.push(RasterCommand::Rectangle { args, clip: *clip }, rounded_clips);
         return;
     }
 
@@ -141,11 +141,8 @@ pub(super) fn process_drop_shadow(
     for (rect, ..) in shapes.iter_mut() {
         *rect = rect.translate(-geometry.origin.cast::<f32>().to_vector());
     }
-    processor.process_box_shadow(
-        geometry,
-        BoxShadowCommand::new(geometry.size, shapes, sigma, color.into()),
-        rounded_clips,
-    );
+    let shadow = BoxShadowCommand::new(geometry.size, shapes, sigma, color.into());
+    raster_commands.push(RasterCommand::BoxShadow { geometry, shadow }, rounded_clips);
 }
 
 const GAUSSIAN_TAIL_STEPS: usize = 64;
@@ -994,9 +991,9 @@ fn drop_shadow_stays_within_bounding_rect() {
 
             let rotated_size = screen_size.transformed(rotation);
             let screen = PhysicalRect::from_size(rotated_size);
-            let data = render_region(rotated_size, &[screen], scale_factor, |processor| {
+            let data = render_region(rotated_size, &[screen], scale_factor, |raster_commands| {
                 process_drop_shadow(
-                    processor,
+                    raster_commands,
                     &options,
                     (geometry.origin + offset) * scale_factor,
                     options.color,
@@ -1076,9 +1073,9 @@ fn drop_shadow_partial_render_is_identical() {
     ];
     for (screen_size, options, origin, clip, region) in cases {
         let clip = clip.unwrap_or(PhysicalRect::from_size(screen_size));
-        assert_partial_render_is_identical(screen_size, clip, &region, |processor, clip| {
+        assert_partial_render_is_identical(screen_size, clip, &region, |raster_commands, clip| {
             process_drop_shadow(
-                processor,
+                raster_commands,
                 &options,
                 origin,
                 options.color,
@@ -1098,9 +1095,9 @@ fn render_drop_shadow(
     origin: euclid::Point2D<f32, PhysicalPx>,
 ) -> Vec<PremultipliedRgbaColor> {
     let screen = PhysicalRect::from_size(screen_size);
-    render_region(screen_size, &[screen], ScaleFactor::new(1.), |processor| {
+    render_region(screen_size, &[screen], ScaleFactor::new(1.), |raster_commands| {
         process_drop_shadow(
-            processor,
+            raster_commands,
             options,
             origin,
             options.color,
