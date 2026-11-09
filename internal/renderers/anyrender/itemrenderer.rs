@@ -574,13 +574,7 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
         let blur = (box_shadow.blur() * sf).get().max(0.) as f64;
         let phys_size = size * sf;
 
-        // anyrender's box shadow takes one uniform corner radius,
-        // so approximate per-corner radii with their average
-        // until vello grows support for non-uniform ones (linebender/vello#1245).
         let radius = box_shadow.logical_border_radius() * sf;
-        let base_radius =
-            (radius.top_left + radius.top_right + radius.bottom_right + radius.bottom_left) as f64
-                / 4.;
 
         if box_shadow.inset() {
             self.draw_inset_shadow(
@@ -588,7 +582,8 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
                 kurbo::Vec2::new(offset.x as f64, offset.y as f64),
                 spread,
                 blur,
-                base_radius,
+                radius,
+                radius.spread(-spread as f32),
                 to_kurbo_size(phys_size),
             );
             return;
@@ -603,11 +598,7 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
             return;
         }
         if let Some(radius) = options.opaque_source_radius() {
-            let radius =
-                (radius.top_left + radius.top_right + radius.bottom_right + radius.bottom_left)
-                    as f64
-                    / 4.
-                    + spread;
+            let radius = radius.spread(spread as f32);
             let rect = kurbo::Rect::new(
                 offset.x as f64 - spread,
                 offset.y as f64 - spread,
@@ -620,14 +611,14 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
                     self.current_state.transform,
                     peniko::BrushRef::Solid(to_peniko_color(color)),
                     None,
-                    &RectShape::uniform(rect, radius),
+                    &RectShape::new(rect, radius),
                 );
             } else {
                 self.scene.draw_box_shadow(
                     self.current_state.transform,
                     rect,
                     to_peniko_color(color),
-                    radius,
+                    blurred_shadow_radius(radius),
                     blur / 2.,
                 );
             }
@@ -960,14 +951,15 @@ impl<'a, S: PaintScene> AnyrenderItemRenderer<'a, S> {
         offset: kurbo::Vec2,
         spread: f64,
         blur: f64,
-        base_radius: f64,
+        radius: PhysicalBorderRadius,
+        interior_radius: PhysicalBorderRadius,
         size: kurbo::Size,
     ) {
         let border_rect = kurbo::Rect::new(0., 0., size.width, size.height);
         if border_rect.is_zero_area() {
             return;
         }
-        let border_shape = RectShape::uniform(border_rect, base_radius);
+        let border_shape = RectShape::new(border_rect, radius);
 
         // The shadow must not paint outside the item.
         self.scene.push_clip_layer(
@@ -990,7 +982,6 @@ impl<'a, S: PaintScene> AnyrenderItemRenderer<'a, S> {
             offset.y + size.height - spread,
         );
         if interior.width() > 0. && interior.height() > 0. {
-            let interior_radius = (base_radius - spread).max(0.);
             // Bounded to the border box, which the outer clip enforces anyway:
             // destructive compose modes mustn't use an unbounded layer,
             // see the `UNCLIPPED` constant at the top of this file.
@@ -1012,14 +1003,14 @@ impl<'a, S: PaintScene> AnyrenderItemRenderer<'a, S> {
                     self.current_state.transform,
                     peniko::BrushRef::Solid(opaque),
                     None,
-                    &RectShape::uniform(interior, interior_radius),
+                    &RectShape::new(interior, interior_radius),
                 );
             } else {
                 self.scene.draw_box_shadow(
                     self.current_state.transform,
                     interior,
                     opaque,
-                    interior_radius,
+                    blurred_shadow_radius(interior_radius),
                     blur / 2.,
                 );
             }
@@ -1205,19 +1196,13 @@ fn to_kurbo_size(size: PhysicalSize) -> kurbo::Size {
 }
 
 fn phys_rect_shape(rect: PhysicalRect, radius: PhysicalBorderRadius) -> RectShape {
-    let rect = to_kurbo_rect(rect);
-    if radius.is_zero() {
-        return RectShape::Sharp(rect);
-    }
-    RectShape::Rounded(kurbo::RoundedRect::from_rect(
-        rect,
-        kurbo::RoundedRectRadii::new(
-            radius.top_left as f64,
-            radius.top_right as f64,
-            radius.bottom_right as f64,
-            radius.bottom_left as f64,
-        ),
-    ))
+    RectShape::new(to_kurbo_rect(rect), radius)
+}
+
+/// The average of `radius`, since anyrender's blurred box shadow takes a single radius
+/// (linebender/vello#1245).
+fn blurred_shadow_radius(radius: PhysicalBorderRadius) -> f64 {
+    (radius.top_left + radius.top_right + radius.bottom_right + radius.bottom_left) as f64 / 4.
 }
 
 /// A rectangle that may have rounded corners, staying a plain
@@ -1236,7 +1221,22 @@ enum RectShape {
 }
 
 impl RectShape {
-    /// Like [`phys_rect_shape`] but for a single radius shared by all four
+    fn new(rect: kurbo::Rect, radius: PhysicalBorderRadius) -> Self {
+        if radius.is_zero() {
+            return Self::Sharp(rect);
+        }
+        Self::Rounded(kurbo::RoundedRect::from_rect(
+            rect,
+            kurbo::RoundedRectRadii::new(
+                radius.top_left as f64,
+                radius.top_right as f64,
+                radius.bottom_right as f64,
+                radius.bottom_left as f64,
+            ),
+        ))
+    }
+
+    /// Like [`Self::new`] but for a single radius shared by all four
     /// corners, already in device pixels.
     fn uniform(rect: kurbo::Rect, radius: f64) -> Self {
         if radius > 0. {

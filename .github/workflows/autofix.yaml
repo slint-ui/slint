@@ -40,9 +40,9 @@ jobs:
               with:
                   filters: .github/ci_path_filters.yaml
                   predicate-quantifier: some-with-excludes
-            - uses: jdx/mise-action@v5.2.4
+            - uses: jdx/mise-action@v5.2.6
               with:
-                version: 2025.9.18
+                version: 2026.11.1
                 log_level: debug
             - name: Install rust dependencies
               run: rustup toolchain install stable-x86_64-unknown-linux-gnu --profile default
@@ -58,9 +58,9 @@ jobs:
         timeout-minutes: 5
         steps:
             - uses: actions/checkout@v7
-            - uses: jdx/mise-action@v5.2.4
+            - uses: jdx/mise-action@v5.2.6
               with:
-                version: 2025.9.18
+                version: 2026.11.1
                 log_level: debug
             - name: Install rust dependencies
               run: rustup toolchain install stable-x86_64-unknown-linux-gnu --profile default

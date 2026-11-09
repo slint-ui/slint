@@ -1,6 +1,20 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+component Recorder inherits TouchArea {
+    in-out property <string> events;
+    pointer-event(e) => {
+        if e.kind == PointerEventKind.move {
+            events += "move(" + self.mouse-x / 1px + "," + self.mouse-y / 1px + ")";
+        } else if e.kind == PointerEventKind.down {
+            events += "down(" + self.mouse-x / 1px + "," + self.mouse-y / 1px + ")";
+        }
+    }
+    clicked => {
+        events += "clicked";
+    }
+}
+
 export component TestCase inherits Window {
     in-out property <string> result;
     width: 700px;
@@ -15,6 +29,29 @@ export component TestCase inherits Window {
             MenuItem {
                 title: "Entry1";
                 activated => { result += "Entry1"; }
+            }
+        }
+    }
+
+    // #14368: the items outside an open context menu get no pointer events,
+    // also when the area has an offset parent.
+    out property <string> nested-events: nested.events;
+    out property <bool> nested-has-hover: nested.has-hover;
+    Rectangle {
+        x: 400px;
+        y: 350px;
+        width: 250px;
+        height: 200px;
+        Rectangle {
+            x: 30px;
+            y: 20px;
+            width: 200px;
+            height: 160px;
+            nested := Recorder { }
+            ContextMenuArea {
+                Menu {
+                    MenuItem { title: "Item"; }
+                }
             }
         }
     }
@@ -43,6 +80,38 @@ click(15.0, 15.0, PointerEventButton::Right);
 instance.invoke_close_menu();
 click(25.0, 25.0, PointerEventButton::Left);
 assert_eq!(instance.get_result(), "Entry1Background");
+
+// a click outside the menu closes it without reaching the items under it
+click(15.0, 15.0, PointerEventButton::Right);
+click(300.0, 300.0, PointerEventButton::Left);
+assert_eq!(instance.get_result(), "Entry1Background");
+click(300.0, 300.0, PointerEventButton::Left);
+assert_eq!(instance.get_result(), "Entry1BackgroundBackground");
+
+let move_to = |x, y| {
+    instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(x, y) });
+};
+move_to(440.0, 380.0);
+click(440.0, 380.0, PointerEventButton::Right);
+// outside the menu, but over the nested TouchArea
+move_to(600.0, 500.0);
+assert_eq!(instance.get_nested_events(), "move(10,10)");
+assert!(!instance.get_nested_has_hover());
+click(600.0, 500.0, PointerEventButton::Left);
+assert_eq!(instance.get_nested_events(), "move(10,10)");
+assert!(!instance.get_nested_has_hover());
+move_to(601.0, 501.0);
+assert!(instance.get_nested_has_hover());
+assert_eq!(instance.get_nested_events(), "move(10,10)move(171,131)");
+
+// Escape closes the menu without a press
+click(440.0, 380.0, PointerEventButton::Right);
+move_to(600.0, 500.0);
+assert!(!instance.get_nested_has_hover());
+slint_testing::send_keyboard_string_sequence(&instance, &slint::SharedString::from(slint::platform::Key::Escape));
+move_to(601.0, 501.0);
+assert!(instance.get_nested_has_hover());
+assert_eq!(instance.get_nested_events(), "move(10,10)move(171,131)move(171,131)");
 ```
 
 ```cpp
@@ -64,5 +133,12 @@ click(15, 15, slint::PointerEventButton::Right);
 instance.invoke_close_menu();
 click(25, 25, slint::PointerEventButton::Left);
 assert_eq(instance.get_result(), "Entry1Background");
+
+// a click outside the menu closes it without reaching the items under it
+click(15, 15, slint::PointerEventButton::Right);
+click(300, 300, slint::PointerEventButton::Left);
+assert_eq(instance.get_result(), "Entry1Background");
+click(300, 300, slint::PointerEventButton::Left);
+assert_eq(instance.get_result(), "Entry1BackgroundBackground");
 ```
 */

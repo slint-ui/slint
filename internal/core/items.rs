@@ -549,7 +549,7 @@ impl RenderBorderRectangle for BasicBorderRectangle {
         self.border_width()
     }
     fn border_radius(self: Pin<&Self>) -> LogicalBorderRadius {
-        LogicalBorderRadius::from_length(self.border_radius())
+        LogicalBorderRadius::from_length(self.border_radius()).max(Default::default())
     }
     fn border_color(self: Pin<&Self>) -> Brush {
         self.border_color()
@@ -683,6 +683,7 @@ impl RenderBorderRectangle for BorderRectangle {
             self.border_bottom_right_radius(),
             self.border_bottom_left_radius(),
         )
+        .max(Default::default())
     }
     fn border_color(self: Pin<&Self>) -> Brush {
         self.border_color()
@@ -839,6 +840,7 @@ impl Clip {
             self.border_bottom_right_radius(),
             self.border_bottom_left_radius(),
         )
+        .max(Default::default())
     }
 }
 
@@ -1560,6 +1562,8 @@ pub struct ContextMenu {
     pub cached_rendering_data: CachedRenderingData,
     pub popup_id: Cell<Option<NonZeroU32>>,
     pub enabled: Property<bool>,
+    /// Set for the menus of a `MenuBar`, so that pointer events outside them still reach the menu bar.
+    pub is_menu_bar: Property<bool>,
     #[cfg(target_os = "android")]
     long_press_timer: crate::timers::Timer,
 }
@@ -1796,6 +1800,7 @@ impl BoxShadow {
             self.border_bottom_right_radius(),
             self.border_bottom_left_radius(),
         )
+        .max(Default::default())
     }
 }
 
@@ -1940,6 +1945,7 @@ impl BackdropBlur {
             self.border_bottom_right_radius(),
             self.border_bottom_left_radius(),
         )
+        .max(Default::default())
     }
 }
 

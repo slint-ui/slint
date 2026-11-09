@@ -38,7 +38,7 @@ private:
 int main()
 {
     slint::interpreter::ComponentCompiler compiler;
-    auto definition = compiler.build_from_path(SOURCE_DIR "/../ui/printerdemo.slint");
+    auto definition = compiler.build_from_path(SOURCE_DIR "/../slint-project.json");
 
     for (auto diagnostic : compiler.diagnostics()) {
         slint::SharedString level;

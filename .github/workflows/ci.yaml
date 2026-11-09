@@ -392,7 +392,7 @@ jobs:
                   node-version: 24
                   package-manager-cache: false
             - name: Install wasm-pack
-              run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+              run: curl https://wasm-bindgen.github.io/wasm-pack/installer/init.sh -sSf | sh
             - name: Fake slint-lsp build
               run: |
                   mkdir -p target/debug
@@ -683,13 +683,13 @@ jobs:
               uses: actions/cache@v6
               with:
                   path: ~/.cargo/bin/cargo-apk2
-                  key: cargo-apk2-1.4.2
+                  key: cargo-apk2-1.5.0
             # Only build cargo-apk2 if not cached
             - uses: dtolnay/rust-toolchain@stable
               if: steps.cargo-apk2-cache.outputs.cache-hit != 'true'
             - name: Install cargo-apk2
               if: steps.cargo-apk2-cache.outputs.cache-hit != 'true'
-              run: cargo install --locked cargo-apk2@1.4.2
+              run: cargo install --locked cargo-apk2@1.5.0
 
             - uses: ./.github/actions/setup-rust
               with:
@@ -751,7 +751,7 @@ jobs:
                   target: wasm32-unknown-emscripten
             - uses: mymindstorm/setup-emsdk@v16
               with:
-                  version: 6.0.10
+                  version: 6.0.13
             - run: sudo apt-get install -y ninja-build
             - name: Configure (default renderers)
               run: emcmake cmake -S . -B build -GNinja -DCMAKE_BUILD_TYPE=Debug -DSLINT_BUILD_EXAMPLES=ON
@@ -805,7 +805,7 @@ jobs:
                   target: wasm32-unknown-unknown
                   key: slint-preview
             - name: Install wasm-pack
-              run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+              run: curl https://wasm-bindgen.github.io/wasm-pack/installer/init.sh -sSf | sh
             - name: Build the Wasm interpreter
               run: wasm-pack build --dev --target web -- --features console_error_panic_hook
               working-directory: api/wasm-interpreter
@@ -833,7 +833,7 @@ jobs:
                   target: wasm32-unknown-unknown
                   key: figma
             - name: Install wasm-pack
-              run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+              run: curl https://wasm-bindgen.github.io/wasm-pack/installer/init.sh -sSf | sh
             - run: pnpm install --frozen-lockfile
             - run: pnpm exec playwright install --with-deps chromium
               working-directory: tools/figma-inspector
@@ -1257,7 +1257,7 @@ jobs:
               run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-36"
             - uses: dtolnay/rust-toolchain@stable
             - name: Install cargo-apk2
-              run: cargo install --locked cargo-apk2@1.4.2
+              run: cargo install --locked cargo-apk2@1.5.0
             - uses: ./.github/actions/setup-rust
               with:
                   target: aarch64-linux-android

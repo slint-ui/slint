@@ -1,0 +1,309 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Range, ElementInformation } from "editor-types.slint";
+import { InspectorComboOption } from "components/inspector/control-data.slint";
+
+export struct CodeBinding {
+    name: string,
+    value: string,
+}
+
+export enum PropertyValueKind {
+    boolean,
+    brush,
+    code,
+    color,
+    enum,
+    float,
+    integer,
+    string,
+}
+
+export enum BrushKind {
+    solid,
+    linear,
+    radial,
+    conic,
+}
+
+export struct GradientStop {
+    position: float, // between 0 and 1!
+    color: color,
+}
+
+export struct LinearGradientAxis {
+    start: Point,
+    end: Point,
+}
+
+export struct GradientStopOrder {
+    indices: [int],
+    selected: int,
+}
+
+export struct FillData {
+    kind: BrushKind,
+    color: color,
+    stops: [GradientStop],
+    angle: float,
+    custom-center: bool,
+    center-x: float,
+    center-y: float,
+    custom-radius: bool,
+    radius: float,
+    radial-ellipse: bool,
+    radius-y: float,
+}
+
+export enum PropertyEditKind {
+    number,
+    integer,
+    boolean,
+    string,
+    enumeration,
+    fill,
+}
+
+export struct PropertyEditValue {
+    kind: PropertyEditKind,
+    number: float,
+    unit: string,
+    integer: int,
+    boolean: bool,
+    text: string,
+    fill: FillData,
+}
+
+export enum ColorFieldMode {
+    source,
+    solid,
+    gradient,
+}
+
+export struct ColorFieldData {
+    mode: ColorFieldMode,
+    fill: FillData,
+    label: string,
+    unsupported: bool,
+    allow-gradient: bool,
+}
+
+export struct ColorFieldEdit {
+    valid: bool,
+    color: color,
+    display: string,
+}
+
+export struct ColorValueData {
+    color-text: string,
+    opacity: int,
+}
+
+/// Data about the property value for use in "simple" mode
+// cSpell: ignore dataonly
+export struct PropertyValue {
+    is-number-literal: bool,
+    display-string: string, // ALWAYS, its a string description of what is there
+    fill: FillData,
+    value-resolved: bool, // Whether value-brush/value-* came from a successful evaluation
+    value-bool: bool, // boolean
+    is-translatable: bool, // string
+    kind: PropertyValueKind, // Defines what to display this as
+    value-kind: PropertyValueKind, // If kind == code, then this is the real kind of data
+    brush-kind: BrushKind, // brush
+    gradient-stops: [GradientStop], // brush
+    value-brush: brush, // brush, color
+    value-float: float, // float, brush (angle)
+    value-int: int, // integer, enum/float (current index into visual_items)
+    default-selection: int, // enum/float (default index into visual_items)
+    value-string: string, // enum (name), string, brush (palette name or empty)
+    visual-items: [string], // enum (enum members), float (units)
+    tr-context: string, // string
+    tr-plural: string, // string
+    tr-plural-expression: string, // string
+    code: string, // ALWAYS, empty if property is not explicitly defined
+    accessor-path: string, // set for struct members and such
+    was-edited: bool, // Used by preview dataonly!
+    edited-value: string, // Used in preview dataonly!
+}
+
+/// Important Ranges in the property definition
+///
+/// The URL and version is the same as in the Element it belongs to
+export struct PropertyDefinition {
+    definition-range: Range,
+    selection-range: Range,
+    expression-range: Range,
+    expression-value: string,
+}
+
+/// The Property Declaration
+export struct PropertyDeclaration {
+    defined-at: PropertyDefinition,
+
+    source-path: string,
+    source-version: int,
+    range: Range,
+}
+
+/// Information on one Property
+export struct PropertyInformation {
+    name: string,
+    type-name: string,
+    value: PropertyValue,
+    display-priority: int,
+}
+
+/// Grouping for properties
+export struct PropertyGroup {
+    group-name: string,
+    properties: [PropertyInformation],
+}
+
+export struct PaletteEntry {
+    name: string,
+    value: PropertyValue,
+}
+
+export global Properties {
+    // Property Data
+    in-out property <[PropertyGroup]> properties;
+    callback properties-search(string);
+    callback property-declaration-ranges(property-name: string) -> PropertyDeclaration;
+    pure callback has-property(property-name: string) -> bool;
+
+    // Property Values
+    pure callback source-property-value-data(property-name: string, fallback: PropertyValue) -> PropertyValue;
+    pure callback source-property-value(property-name: string, fallback: string) -> string;
+    pure callback hooked-property-value-data(property-name: string, fallback: PropertyValue) -> PropertyValue;
+    hooked-property-value-data(property-name, fallback) => { return fallback; }
+    public pure function editor-property-value-data(property-name: string) -> PropertyValue {
+        return Properties.hooked-property-value-data(property-name, Properties.source-property-value-data(property-name, {}));
+    }
+    pure callback runtime-property-value-data(property-name: string, fallback: PropertyValue) -> PropertyValue;
+    public pure function number-property(name: string, fallback: float) -> float {
+        let property = Properties.source-property-value-data(name, {});
+        return property.code != "" && (property.kind == PropertyValueKind.float || property.value-kind == PropertyValueKind.float)
+            ? property.value-float : fallback;
+    }
+    public pure function editor-number-property(name: string, fallback: float) -> float {
+        return Properties.hooked-property-value-data(name, { value-float: Properties.number-property(name, fallback) }).value-float;
+    }
+    pure callback combo-option-index(value: string, options: [InspectorComboOption]) -> int;
+    pure callback combo-option-values(options: [InspectorComboOption]) -> [string];
+
+    // Inspector Edits
+    in property <int> inspector-generation;
+    in property <int> inspector-fill-generation;
+    callback inspector-preview(name: string, value: PropertyEditValue) -> bool;
+    callback inspector-commit() -> bool;
+    callback inspector-cancel();
+
+    // Source Bindings
+    pure callback test-code-binding(element-url: string, element-version: int, element-offset: int, property-name: string, property-value: string) -> bool;
+    pure callback set-code-binding(element-url: string, element-version: int, element-offset: int, property-name: string, property-value: string) -> bool;
+    pure callback set-code-bindings(element-url: string, element-version: int, element-offset: int, bindings: [CodeBinding]) -> bool;
+    public function commit-code-binding(element: ElementInformation, name: string, value: string) -> bool {
+        return value != "" && element.source-uri != ""
+            && Properties.test-code-binding(element.source-uri, element.source-version, element.offset, name, value)
+            && Properties.set-code-binding(element.source-uri, element.source-version, element.offset, name, value);
+    }
+
+    // Text
+    pure callback string-is-single-line(value: string) -> bool;
+    pure callback string-to-code(value: string, is_translatable: bool, tr_context: string, tr_plural: string, tr_plural_expression: string) -> string;
+
+    // Images
+    pure callback image-source-file-name(source: string) -> string;
+    callback choose-image-file(source-uri: string) -> string;
+
+    // Colors
+    pure callback color-field-data(value: PropertyValue) -> ColorFieldData;
+    pure callback color-value-data(color) -> ColorValueData;
+    pure callback color-value-color-edit(color: color, text: string) -> ColorFieldEdit;
+    pure callback color-value-opacity-edit(color: color, text: string) -> ColorFieldEdit;
+    pure callback color-value-with-opacity(color: color, opacity: float) -> color;
+    pure callback is-css-color(code: string) -> bool;
+
+    // Fills
+    pure callback fill-with-color(fill: FillData, color: color) -> FillData;
+    pure callback fill-brush(value: FillData) -> brush;
+    pure callback brush-fill(value: brush) -> FillData;
+    pure callback fill-expression(value: FillData) -> string;
+    pure callback create-brush(kind: BrushKind, angle: float, color: color, stops: [GradientStop]) -> brush;
+    callback dismiss-fill-picker(position: Point, button: PointerEventButton);
+
+    // Gradient Geometry
+    pure callback linear-gradient-axis(value: FillData, size: Size) -> LinearGradientAxis;
+    pure callback linear-gradient-point(angle: float, size: Size, position: float) -> Point;
+    pure callback linear-gradient-position(angle: float, size: Size, point: Point) -> float;
+    pure callback remap-linear-gradient(value: FillData, size: Size, previous: LinearGradientAxis, next: LinearGradientAxis) -> FillData;
+    pure callback radial-gradient-axis(value: FillData, size: Size) -> LinearGradientAxis;
+    pure callback radial-gradient-y-axis(value: FillData, size: Size) -> LinearGradientAxis;
+    pure callback remap-radial-gradient(value: FillData, previous: LinearGradientAxis, next: LinearGradientAxis) -> FillData;
+    pure callback resize-radial-gradient-x(value: FillData, size: Size, previous: LinearGradientAxis, next: LinearGradientAxis, match-radius: bool) -> FillData;
+    pure callback remap-radial-gradient-y(value: FillData, size: Size, previous: LinearGradientAxis, next: LinearGradientAxis, match-radius: bool) -> FillData;
+    pure callback conic-gradient-axis(value: FillData, size: Size) -> LinearGradientAxis;
+    pure callback remap-conic-gradient(value: FillData, previous: LinearGradientAxis, next: LinearGradientAxis) -> FillData;
+    pure callback conic-gradient-point(axis: LinearGradientAxis, position: float) -> Point;
+    pure callback conic-gradient-position(axis: LinearGradientAxis, point: Point) -> float;
+    pure callback gradient-angular-delta(center: Point, previous: Point, next: Point) -> float;
+    pure callback gradient-axis-point(axis: LinearGradientAxis, position: float) -> Point;
+    pure callback gradient-axis-position(axis: LinearGradientAxis, point: Point) -> float;
+
+    // Gradient Stops
+    pure callback sample-fill-stop(fill: FillData, position: float) -> GradientStop;
+    pure callback nearest-gradient-stop(stops: [GradientStop], position: float) -> int;
+    pure callback nearest-conic-gradient-stop(stops: [GradientStop], position: float) -> int;
+    pure callback gradient-stop-gap(stops: [GradientStop]) -> float;
+    pure callback add-gradient-stop(stops: [GradientStop], value: GradientStop) -> int;
+    pure callback remove-gradient-stop(stops: [GradientStop], row: int);
+    pure callback gradient-stop-order(stops: [GradientStop], selected: int) -> GradientStopOrder;
+    pure callback clone-gradient-stops(stops: [GradientStop]) -> [GradientStop];
+
+    // Shadows
+    public pure function shadow-prefix(inner: bool) -> string {
+        return inner ? "inner-shadow-" : "drop-shadow-";
+    }
+    public pure function has-shadow(prefix: string) -> bool {
+        return Properties.source-property-value-data(prefix + "color", {}).code != ""
+            || Properties.source-property-value-data(prefix + "blur", {}).code != ""
+            || Properties.source-property-value-data(prefix + "spread", {}).code != ""
+            || Properties.source-property-value-data(prefix + "offset-x", {}).code != ""
+            || Properties.source-property-value-data(prefix + "offset-y", {}).code != "";
+    }
+    public function toggle-shadow(element: ElementInformation, inner: bool) {
+        Properties.inspector-cancel();
+        let prefix = Properties.shadow-prefix(inner);
+        let enabled = !Properties.has-shadow(prefix);
+        if enabled {
+            let fill = { kind: BrushKind.solid, color: inner ? #00000030 : #00000040 };
+            if !Properties.inspector-preview(prefix + "color", { kind: PropertyEditKind.fill, fill: fill })
+                || !Properties.inspector-preview(prefix + "blur", { kind: PropertyEditKind.number, number: 16, unit: "px" })
+                || !Properties.inspector-preview(prefix + "spread", { kind: PropertyEditKind.number, number: 0, unit: "px" })
+                || !Properties.inspector-preview(prefix + "offset-x", { kind: PropertyEditKind.number, number: 0, unit: "px" })
+                || !Properties.inspector-preview(prefix + "offset-y", { kind: PropertyEditKind.number, number: 8, unit: "px" })
+                || !Properties.inspector-commit() {
+                Properties.inspector-cancel();
+            } else {
+                Properties.add-recent-fill(fill);
+            }
+            return;
+        }
+        Properties.set-code-bindings(element.source-uri, element.source-version, element.offset, [
+            { name: prefix + "color", value: "" },
+            { name: prefix + "blur", value: "" },
+            { name: prefix + "spread", value: "" },
+            { name: prefix + "offset-x", value: "" },
+            { name: prefix + "offset-y", value: "" },
+        ]);
+    }
+
+    // Palettes and Recent Fills
+    in-out property <[PaletteEntry]> palettes;
+    pure callback filter-palettes(palettes: [PaletteEntry], pattern: string) -> [PaletteEntry];
+    in-out property <[FillData]> recent-fills;
+    callback add-recent-fill(FillData);
+    pure callback filter-recent-fills(fills: [FillData], allow-gradient: bool) -> [FillData];
+}

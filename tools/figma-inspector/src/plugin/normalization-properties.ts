@@ -82,6 +82,9 @@ export function normalizeAppearanceProperties(
                 finite(effect.offset?.x) &&
                 finite(effect.offset?.y) &&
                 finite(effect.spread ?? 0) &&
+                (effect.type !== "DROP_SHADOW" ||
+                    typeof (effect.showShadowBehindNode ?? false) ===
+                        "boolean") &&
                 [
                     effect.color?.r,
                     effect.color?.g,

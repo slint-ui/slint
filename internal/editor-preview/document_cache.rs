@@ -188,6 +188,14 @@ impl DocumentCache {
         self.source_file_versions.borrow().get(path).and_then(|v| *v)
     }
 
+    pub fn library_import_for(&self, file: &SourcePath) -> Option<String> {
+        self.type_loader.library_import_for(file)
+    }
+
+    pub fn is_private_library_file(&self, file: &SourcePath) -> bool {
+        self.type_loader.is_private_library_file(file)
+    }
+
     pub fn get_document<'a>(&'a self, url: &'_ Url) -> Option<&'a Document> {
         self.type_loader.get_document(&SourcePath::from_url(url))
     }
@@ -268,14 +276,6 @@ impl DocumentCache {
         self.type_loader.revision()
     }
 
-    fn invalidate_everything(&mut self) {
-        let all_files = self.type_loader.all_files().cloned().collect::<Vec<_>>();
-
-        for path in all_files {
-            self.type_loader.invalidate_document(&path);
-        }
-    }
-
     /// Re-apply a complete configuration to the document cache
     ///
     /// Returns the new compiler configuration and the set of paths that were reloaded.
@@ -301,11 +301,25 @@ impl DocumentCache {
         self.open_import_callback = open_import_callback;
         self.source_file_versions = source_file_versions;
         self.format = config.format;
-        self.type_loader.compiler_config = compiler_config;
-
-        self.invalidate_everything();
+        self.type_loader.set_compiler_config(compiler_config);
 
         self.preload_builtins().await;
+
+        let outdated_edition = self
+            .type_loader
+            .all_file_documents()
+            .filter(|(path, node)| {
+                !path.is_builtin()
+                    && node.source_file.edition() != self.type_loader.project_edition(path)
+            })
+            .map(|(path, node)| (path.clone(), node.text().to_string()))
+            .collect::<Vec<_>>();
+        for (path, content) in outdated_edition {
+            self.type_loader
+                .load_file(&path, content, false, &mut BuildDiagnostics::default())
+                .await;
+            self.type_loader.invalidate_document(&path);
+        }
 
         let all_urls = self.all_urls().filter(|url| roots.contains(url)).collect::<HashSet<_>>();
         for url in &all_urls {
@@ -590,6 +604,26 @@ mod tests {
             assert!(spin_on::spin_on(import_callback(path.clone())).unwrap().is_err());
             assert_eq!(cache.document_version_by_path(&path), None);
         }
+    }
+
+    #[test]
+    fn reconfigure_applies_a_changed_edition() {
+        let mut config = CompilerConfiguration::default();
+        config.compiler_config.edition = Some((1, 18).into());
+        let mut cache = DocumentCache::new(config.clone());
+        let url = crate::test::test_file_name("edition.slint").to_url().unwrap();
+        let mut diag = BuildDiagnostics::default();
+        spin_on::spin_on(cache.load_url(&url, None, "export component Main {}".into(), &mut diag))
+            .unwrap();
+        let edition = |cache: &DocumentCache| {
+            cache.get_document(&url).unwrap().node.as_ref().unwrap().source_file.edition()
+        };
+        assert_eq!(edition(&cache), Some((1, 18).into()));
+
+        config.compiler_config.edition = Some((1, 19).into());
+        spin_on::spin_on(cache.reconfigure(config, &HashSet::from([url.clone()]), &mut diag));
+        assert!(!diag.has_errors(), "{:?}", diag.to_string_vec());
+        assert_eq!(edition(&cache), Some((1, 19).into()));
     }
 
     #[test]
