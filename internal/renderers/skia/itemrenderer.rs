@@ -139,12 +139,7 @@ impl<'a> SkiaItemRenderer<'a> {
             skia_safe::AlphaType::Premul,
         );
 
-        if let Some(radius) = shadow_options.opaque_source_radius() {
-            let radius = radius.spread(shadow_options.spread.get());
-            let rounded_rect = to_skia_rrect(
-                &PhysicalRect::new(shadow_options.shape_origin(), shape_size),
-                &radius,
-            );
+        if let Some(shape) = shadow_options.opaque_drop_shadow_shape() {
             let mut paint = crate::solid_paint(&shadow_options.color);
             paint.set_anti_alias(true);
             if shadow_options.blur.get() > 0. {
@@ -156,7 +151,7 @@ impl<'a> SkiaItemRenderer<'a> {
             }
             let mut surface = canvas.new_surface(&image_info, None)?;
             surface.canvas().clear(skia_safe::Color::TRANSPARENT);
-            surface.canvas().draw_rrect(rounded_rect, &paint);
+            surface.canvas().draw_path(&shaped_path(&shape), &paint);
             return Some(surface.image_snapshot());
         }
 
@@ -178,21 +173,30 @@ impl<'a> SkiaItemRenderer<'a> {
             paint.set_anti_alias(true);
             Some(paint)
         };
-        if !layout.background_rect.is_empty()
-            && let Some(paint) = paint_for(background.clone())
-        {
-            source_canvas.draw_rrect(
-                to_skia_rrect(&layout.background_rect, &layout.background_radius),
-                &paint,
+        if let Some(shaped) = &layout.shaped {
+            draw_shaped(
+                source_canvas,
+                &shaped_paths(shaped),
+                [background.clone(), layout.border_color.clone()],
+                paint_for,
             );
-        }
-        if layout.border_width.get() > 0.
-            && let Some(mut paint) = paint_for(layout.border_color.clone())
-        {
-            paint.set_style(skia_safe::PaintStyle::Stroke);
-            paint.set_stroke_width(layout.border_width.get());
-            source_canvas
-                .draw_rrect(to_skia_rrect(&layout.border_rect, &layout.border_radius), &paint);
+        } else {
+            if !layout.background_rect.is_empty()
+                && let Some(paint) = paint_for(background.clone())
+            {
+                source_canvas.draw_rrect(
+                    to_skia_rrect(&layout.background_rect, &layout.background_radius),
+                    &paint,
+                );
+            }
+            if layout.border_width.get() > 0.
+                && let Some(mut paint) = paint_for(layout.border_color.clone())
+            {
+                paint.set_style(skia_safe::PaintStyle::Stroke);
+                paint.set_stroke_width(layout.border_width.get());
+                source_canvas
+                    .draw_rrect(to_skia_rrect(&layout.border_rect, &layout.border_radius), &paint);
+            }
         }
         let source = surface.image_snapshot();
         let mut output = canvas.new_surface(&image_info, None)?;
@@ -224,13 +228,9 @@ impl<'a> SkiaItemRenderer<'a> {
             return None;
         }
         let blur = shadow_options.blur.get();
-        let spread = shadow_options.spread.get();
-        let radius = shadow_options.radius;
-        let offset_x = shadow_options.offset_x_inset;
-        let offset_y = shadow_options.offset_y_inset;
 
-        // Image is sized to the rectangle's geometry; the geometry rrect serves as the clip so the
-        // outer blurred edge stays hidden.
+        // Image is sized to the rectangle's geometry; the geometry's outline serves as the clip so
+        // the outer blurred edge stays hidden.
         let canvas_size = skia_safe::ISize::new(width.ceil() as i32, height.ceil() as i32);
         let image_info = crate::image_info(
             canvas_size,
@@ -238,37 +238,19 @@ impl<'a> SkiaItemRenderer<'a> {
             skia_safe::AlphaType::Premul,
         );
 
-        let geometry_rrect = to_skia_rrect(
-            &PhysicalRect::new(PhysicalPoint::zero(), PhysicalSize::new(width, height)),
-            &radius,
-        );
-
-        // Inner "hole" rrect: geometry inset by spread on each side, translated by offset.
-        let inner_rect = skia_safe::Rect::new(
-            spread + offset_x,
-            spread + offset_y,
-            width - spread + offset_x,
-            height - spread + offset_y,
-        );
-        let inner_radius = shadow_options.inner_radius();
-        let inner_rrect = to_skia_rrect(
-            &PhysicalRect::new(
-                PhysicalPoint::new(inner_rect.left, inner_rect.top),
-                PhysicalSize::new(inner_rect.width(), inner_rect.height()),
-            ),
-            &inner_radius,
-        );
-
-        // Outer rect inflated well beyond the geometry so its blurred edge falls outside the clip.
-        let inflate = blur + spread.abs() + offset_x.abs() + offset_y.abs() + 16.;
-        let outer_rect =
-            skia_safe::Rect::new(-inflate, -inflate, width + inflate, height + inflate);
-
-        let mut path_builder = skia_safe::PathBuilder::new();
-        path_builder.set_fill_type(skia_safe::PathFillType::EvenOdd);
-        path_builder.add_rect(outer_rect, None, None);
-        path_builder.add_rrect(inner_rrect, None, None);
-        let path = path_builder.detach();
+        let geometry = shaped_path(&ShapedRect::new(
+            PhysicalRect::from_size(PhysicalSize::new(width, height)),
+            shadow_options.radius,
+            shadow_options.corner_shape,
+            0.,
+        ));
+        let path =
+            skia_safe::Path::rect(to_skia_rect(&shadow_options.inset_shadow_outer_rect()), None)
+                .op(
+                    &shaped_path(&shadow_options.inset_shadow_hole()),
+                    skia_safe::PathOp::Difference,
+                )
+                .unwrap_or_default();
 
         let mut paint = crate::solid_paint(&shadow_options.color);
         paint.set_anti_alias(true);
@@ -283,7 +265,7 @@ impl<'a> SkiaItemRenderer<'a> {
         let mut surface = canvas.new_surface(&image_info, None)?;
         let surface_canvas = surface.canvas();
         surface_canvas.clear(skia_safe::Color::TRANSPARENT);
-        surface_canvas.clip_rrect(geometry_rrect, None, true);
+        surface_canvas.clip_path(&geometry, None, true);
         surface_canvas.draw_path(&path, &paint);
         Some(surface.image_snapshot())
     }
