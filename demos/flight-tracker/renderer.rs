@@ -26,6 +26,8 @@ pub struct Frame {
     pub time: f32,
     /// 1 shows the stars and the black of space around the globe, 0 makes it transparent.
     pub space: f32,
+    /// How strongly the clouds show, from 0 to 1.
+    pub clouds: f32,
 }
 
 /// Satellite imagery of the earth, equirectangular like the map, with its mip levels in sRGB
@@ -109,6 +111,7 @@ impl Renderer {
         map: &Map,
         imagery: &Imagery,
         night: &Imagery,
+        clouds: &[Vec<u8>],
         format: wgpu::TextureFormat,
     ) -> Self {
         let texture = device.create_texture_with_data(
@@ -168,6 +171,25 @@ impl Renderer {
             },
             wgpu::util::TextureDataOrder::LayerMajor,
             &night.levels.concat(),
+        );
+        let cloud_texture = device.create_texture_with_data(
+            queue,
+            &wgpu::TextureDescriptor {
+                label: Some("globe clouds"),
+                size: wgpu::Extent3d {
+                    width: crate::clouds::WIDTH,
+                    height: crate::clouds::HEIGHT,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: clouds.len() as u32,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::R8Unorm,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                view_formats: &[],
+            },
+            wgpu::util::TextureDataOrder::LayerMajor,
+            &clouds.concat(),
         );
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::Repeat,
@@ -233,11 +255,22 @@ impl Renderer {
                     },
                     count: None,
                 },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 5,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
             ],
         });
         let view = texture.create_view(&Default::default());
         let day_view = day_texture.create_view(&Default::default());
         let night_view = night_texture.create_view(&Default::default());
+        let cloud_view = cloud_texture.create_view(&Default::default());
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("globe"),
             layout: &layout,
@@ -258,6 +291,10 @@ impl Renderer {
                 wgpu::BindGroupEntry {
                     binding: 4,
                     resource: wgpu::BindingResource::TextureView(&night_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 5,
+                    resource: wgpu::BindingResource::TextureView(&cloud_view),
                 },
             ],
         });
@@ -363,6 +400,7 @@ impl Renderer {
         globals[40..44].copy_from_slice(&options.to_array());
         globals[44..46].copy_from_slice(&frame.viewport.to_array());
         globals[46] = self.encode_srgb as u8 as f32;
+        globals[47] = frame.clouds;
         self.queue.write_buffer(&self.globals, 0, bytemuck::cast_slice(&globals));
 
         let mut encoder = self.device.create_command_encoder(&Default::default());

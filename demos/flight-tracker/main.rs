@@ -20,6 +20,7 @@ use renderer::{Frame, Renderer};
 mod adaptive;
 mod atlas;
 mod camera;
+mod clouds;
 mod compress;
 mod flight;
 mod map;
@@ -725,6 +726,13 @@ fn border_strength(eye: Vec3, height: f32) -> f32 {
     t * t * (3.0 - 2.0 * t)
 }
 
+/// How strongly the clouds show on a globe seen from `eye`: they fade out as the camera comes
+/// close, where they would hide the route and the cities.
+fn cloud_strength(eye: Vec3) -> f32 {
+    let t = ((eye.length() - 1.0 - 0.3) / 1.0).clamp(0.0, 1.0);
+    t * t * (3.0 - 2.0 * t)
+}
+
 /// Renders into one of two textures, so Slint can show the previous one meanwhile.
 /// They're as large as the largest frame, so that a change in the render scale or in the globe's
 /// place doesn't create new ones.
@@ -1042,7 +1050,15 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 format!("{} ({:?}, {:?})", info.name, info.backend, imagery.format).into(),
             );
             graphics = Some((
-                Renderer::new(device, queue, &map, &imagery, &night, frames.view_format),
+                Renderer::new(
+                    device,
+                    queue,
+                    &map,
+                    &imagery,
+                    &night,
+                    &clouds::generate(),
+                    frames.view_format,
+                ),
                 device.clone(),
             ));
             return;
@@ -1164,6 +1180,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 viewport: pixels,
                 time: demo.time,
                 space: progress,
+                clouds: if app.get_clouds() { cloud_strength(eye) } else { 0.0 },
             },
             &view,
         );
