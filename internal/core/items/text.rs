@@ -1280,6 +1280,7 @@ impl Item for TextInput {
                     2 => self.select_paragraph(window_adapter, self_rc),
                     _ => unreachable!(),
                 };
+                self.remember_pointer_selection(window_adapter, *position);
 
                 return InputEventResult::GrabMouse;
             }
@@ -1316,6 +1317,21 @@ impl Item for TextInput {
             MouseEvent::Moved { position, .. } => {
                 let pressed = self.as_ref().pressed.get();
                 if pressed > 0 {
+                    let pointer = WindowInner::from_pub(window_adapter.window())
+                        .text_input_pointer_selection
+                        .get();
+                    if self.anchor_position_byte_offset() != pointer.anchor
+                        || self.cursor_position_byte_offset() != pointer.cursor
+                    {
+                        // Keep a selection the application set through a click's jitter (#13739)
+                        if !super::drag_n_drop::exceeds_drag_threshold(
+                            pointer.press_position,
+                            *position,
+                        ) {
+                            return InputEventResult::GrabMouse;
+                        }
+                        self.as_ref().anchor_position_byte_offset.set(pointer.anchor);
+                    }
                     let (clicked_offset, clicked_affinity) =
                         self.byte_offset_for_position(*position, window_adapter, self_rc);
                     // Like Android's native text fields, dragging a finger after a single tap moves
@@ -1342,6 +1358,7 @@ impl Item for TextInput {
                         2 => self.select_paragraph(window_adapter, self_rc),
                         _ => unreachable!(),
                     }
+                    self.remember_pointer_selection(window_adapter, pointer.press_position);
                     return InputEventResult::GrabMouse;
                 }
             }
@@ -1898,7 +1915,29 @@ fn cursor_uses_selection_color() -> bool {
     )
 }
 
+/// The selection that the pointer set last in the pressed `TextInput`, and where the press was.
+#[derive(Clone, Copy, Default)]
+pub(crate) struct PointerSelection {
+    anchor: i32,
+    cursor: i32,
+    press_position: LogicalPoint,
+}
+
 impl TextInput {
+    fn remember_pointer_selection(
+        self: Pin<&Self>,
+        window_adapter: &Rc<dyn WindowAdapter>,
+        press_position: LogicalPoint,
+    ) {
+        WindowInner::from_pub(window_adapter.window()).text_input_pointer_selection.set(
+            PointerSelection {
+                anchor: self.anchor_position_byte_offset(),
+                cursor: self.cursor_position_byte_offset(),
+                press_position,
+            },
+        );
+    }
+
     fn show_cursor(&self, window_adapter: &Rc<dyn WindowAdapter>) {
         WindowInner::from_pub(window_adapter.window())
             .set_cursor_blink_binding(&self.cursor_visible);
