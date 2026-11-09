@@ -21,7 +21,8 @@ export component InspectorStringField inherits Rectangle {
     callback canceled();
     callback history-key(KeyEvent) -> EventResult;
     history-key(event) => { return reject; }
-    private property <bool> plain-text: root.source-value.kind == PropertyValueKind.string || root.source-value.code == "";
+    private property <bool> plain-text: root.source-value.code == ""
+        || (root.source-value.kind == PropertyValueKind.string && root.source-value.accessor-path == "");
     private property <PropertyValue> editor-value: Properties.editor-property-value-data(root.property-name);
     private property <string> value: root.plain-text
         ? (root.editor-value.code == "" ? root.default-value : root.editor-value.value-string)
