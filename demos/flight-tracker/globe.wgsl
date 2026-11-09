@@ -17,7 +17,7 @@ struct Globals {
     // stars, w: how strongly the borders show.
     options: vec4<f32>,
     // xy: the size of the frame in pixels, z: 1 where the shader encodes the output as sRGB,
-    // because the target can't.
+    // because the target can't, w: how strongly the clouds show.
     viewport: vec4<f32>,
 }
 
@@ -26,6 +26,7 @@ struct Globals {
 @group(0) @binding(2) var map_sampler: sampler;
 @group(0) @binding(3) var day_imagery: texture_2d<f32>;
 @group(0) @binding(4) var night_imagery: texture_2d<f32>;
+@group(0) @binding(5) var cloud_cover: texture_2d<f32>;
 
 const PI: f32 = 3.14159265;
 const TAU: f32 = 6.2831853;
@@ -110,6 +111,30 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         vec2<f32>(du_smooth.x, dv.x),
         vec2<f32>(du_smooth.y, dv.y)
     ).r;
+    // The clouds drift slowly eastwards. Their shadow on a point comes from the clouds a
+    // little towards the sun.
+    let cloud_strength = globals.viewport.w;
+    let cloud_uv = uv + vec2<f32>(globals.options.z * 0.0004, 0.0);
+    let cloud = textureSampleGrad(
+        cloud_cover,
+        map_sampler,
+        cloud_uv,
+        vec2<f32>(du_smooth.x, dv.x),
+        vec2<f32>(du_smooth.y, dv.y)
+    ).r * cloud_strength;
+    let east = vec3<f32>(cos(lon), 0.0, -sin(lon));
+    let north = vec3<f32>(-sin(lat) * sin(lon), cos(lat), -sin(lat) * cos(lon));
+    let sun_on_map = vec2<f32>(
+        dot(globals.sun.xyz, east) / max(cos(lat), 0.05) / TAU,
+        -dot(globals.sun.xyz, north) / PI
+    );
+    let cloud_shadow = textureSampleGrad(
+        cloud_cover,
+        map_sampler,
+        cloud_uv + sun_on_map * 0.004,
+        vec2<f32>(du_smooth.x, dv.x),
+        vec2<f32>(du_smooth.y, dv.y)
+    ).r * cloud_strength;
     // The land, a pixel wide at its edge however far the map is magnified.
     let coast_distance = map_texel.r - 0.5;
     let coast_change = max(fwidth(coast_distance), 1e-4);
@@ -145,10 +170,13 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let moonlight = vec3<f32>(0.03, 0.04, 0.075) * darkness;
     let lights = vec3<f32>(1.0, 0.62, 0.3) * city_light * 2.4 * darkness;
 
-    var ground = imagery * (sun_light + moonlight) + lights;
+    var ground = imagery * (sun_light + moonlight) * (1.0 - cloud_shadow * 0.45 * lambert);
+    ground += lights * (1.0 - cloud * 0.8);
     let half_way = normalize(sun + view);
     let glint = pow(max(dot(normal, half_way), 0.0), 500.0) * (1.0 - land) * 0.15 * lambert;
-    ground += vec3<f32>(1.0, 0.92, 0.8) * glint;
+    ground += vec3<f32>(1.0, 0.92, 0.8) * glint * (1.0 - cloud);
+    // The clouds, white in sunlight, reddened at dusk, and faintly blue under the moon.
+    ground = mix(ground, sun_light * 1.05 + moonlight * 0.7, cloud * 0.92);
     // Towards the edge of the disk, the day side fades into the atmosphere's blue haze.
     let haze = pow(1.0 - facing, 3.0) * 0.35 * mix(1.0, smoothstep(-0.1, 0.4, sunlight), sun_strength);
     ground = mix(ground, vec3<f32>(0.4, 0.62, 1.0) * mix(1.0, lambert + 0.15, sun_strength), haze);
