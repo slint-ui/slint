@@ -11,16 +11,12 @@
 //! land, so that the shader draws sharp coasts however far it magnifies the map.
 
 use crate::camera::surface;
+use crate::renderer::Imagery;
 
 pub const WIDTH: u32 = 4096;
 pub const HEIGHT: u32 = WIDTH / 2;
 /// How many texels the distances in the map reach.
 const SPREAD: f32 = 6.0;
-
-/// The map and its mip levels, with one byte per texel.
-pub struct Map {
-    pub levels: Vec<Vec<u8>>,
-}
 
 /// Longitude and latitude in degrees.
 type Point = (f32, f32);
@@ -123,43 +119,20 @@ pub fn border_segments() -> Vec<[[f32; 3]; 2]> {
         .collect()
 }
 
-impl Map {
-    pub fn new() -> Self {
-        let land = rings(include_str!("data/land.txt"));
-        let lakes = rings(include_str!("data/lakes.txt"));
-        let land_inside = inside(rings(include_str!("data/land.txt")));
-        let lake_inside = inside(rings(include_str!("data/lakes.txt")));
-        let coast = distances(land.chain(lakes));
-        let base: Vec<u8> = (0..(WIDTH * HEIGHT) as usize)
-            .map(|i| {
-                let sign = if land_inside[i] && !lake_inside[i] { 1.0 } else { -1.0 };
-                let land = 0.5 + 0.5 * sign * coast[i] / SPREAD;
-                (land.clamp(0.0, 1.0) * 255.0 + 0.5) as u8
-            })
-            .collect();
-
-        let mut levels = vec![base];
-        let (mut width, mut height) = (WIDTH as usize, HEIGHT as usize);
-        while width > 1 || height > 1 {
-            let (next_width, next_height) = ((width / 2).max(1), (height / 2).max(1));
-            let previous = levels.last().unwrap();
-            let mut level = vec![0u8; next_width * next_height];
-            for y in 0..next_height {
-                for x in 0..next_width {
-                    let texel = |sx: usize, sy: usize| {
-                        let (sx, sy) = (sx.min(width - 1), sy.min(height - 1));
-                        previous[sy * width + sx] as u32
-                    };
-                    let sum = texel(2 * x, 2 * y)
-                        + texel(2 * x + 1, 2 * y)
-                        + texel(2 * x, 2 * y + 1)
-                        + texel(2 * x + 1, 2 * y + 1);
-                    level[y * next_width + x] = ((sum + 2) / 4) as u8;
-                }
-            }
-            levels.push(level);
-            (width, height) = (next_width, next_height);
-        }
-        Self { levels }
-    }
+/// The map, with the signed distance to the coast in one byte per texel.
+pub fn coasts() -> Imagery {
+    let outlines = |text| rings(text).collect::<Vec<_>>();
+    let (land, lakes) =
+        (outlines(include_str!("data/land.txt")), outlines(include_str!("data/lakes.txt")));
+    let land_inside = inside(land.iter().cloned());
+    let lake_inside = inside(lakes.iter().cloned());
+    let coast = distances(land.into_iter().chain(lakes));
+    let base: Vec<u8> = (0..(WIDTH * HEIGHT) as usize)
+        .map(|i| {
+            let sign = if land_inside[i] && !lake_inside[i] { 1.0 } else { -1.0 };
+            let land = 0.5 + 0.5 * sign * coast[i] / SPREAD;
+            (land.clamp(0.0, 1.0) * 255.0 + 0.5) as u8
+        })
+        .collect();
+    Imagery::gray(WIDTH, HEIGHT, base)
 }

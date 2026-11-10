@@ -20,6 +20,23 @@ pub fn surface(lon: f32, lat: f32) -> Vec3 {
     Vec3::new(lat.cos() * lon.sin(), lat.sin(), lat.cos() * lon.cos())
 }
 
+/// The longitude and latitude of `point` on the unit sphere, in radians.
+pub fn coordinates(point: Vec3) -> (f32, f32) {
+    (point.x.atan2(point.z), point.y.clamp(-1.0, 1.0).asin())
+}
+
+/// The compass bearing of `direction` at `point`, in radians clockwise from north.
+pub fn bearing(point: Vec3, direction: Vec3) -> f32 {
+    let (north, east) = north_east(point);
+    direction.dot(east).atan2(direction.dot(north))
+}
+
+/// Rises smoothly from 0 at `from` to 1 at `to`, like the shader's function of that name.
+pub fn smoothstep(from: f32, to: f32, x: f32) -> f32 {
+    let t = ((x - from) / (to - from)).clamp(0.0, 1.0);
+    t * t * (3.0 - 2.0 * t)
+}
+
 /// The directions north and east along the ground at `point`.
 pub fn north_east(point: Vec3) -> (Vec3, Vec3) {
     let north = (Vec3::Y - point * point.y).try_normalize().unwrap_or(Vec3::NEG_Z);
@@ -157,9 +174,7 @@ impl Camera {
         let Some(axis) = self.pose.target.cross(step).try_normalize() else { return };
         let turn = Quat::from_axis_angle(axis, step.length() * self.pose.range / focal);
         self.pose.target = (turn * self.pose.target).normalize();
-        let forward = turn * forward;
-        let (north, east) = north_east(self.pose.target);
-        self.pose.heading = forward.dot(east).atan2(forward.dot(north));
+        self.pose.heading = bearing(self.pose.target, turn * forward);
     }
 
     /// Follows a drag by `delta` logical pixels, `dt` seconds after the previous one.

@@ -24,8 +24,7 @@ fn distance(a: [f32; 3], b: [f32; 3]) -> f32 {
     (a[0] - b[0]).powi(2) + (a[1] - b[1]).powi(2) + (a[2] - b[2]).powi(2)
 }
 
-/// Encodes each 4 by 4 block of an RGBA image with `encode`, in rows of blocks, on all CPU
-/// cores where there are threads.
+/// Encodes each 4 by 4 block of an RGBA image with `encode`, in rows of blocks.
 fn encode_blocks(
     rgba: &[u8],
     width: usize,
@@ -40,22 +39,7 @@ fn encode_blocks(
             block_out.copy_from_slice(&encode(&block(rgba, width, height, bx, by)));
         }
     };
-    let threads = if cfg!(target_arch = "wasm32") {
-        1
-    } else {
-        std::thread::available_parallelism().map_or(1, |n| n.get())
-    };
-    let rows_per_thread = rows.div_ceil(threads).max(1);
-    std::thread::scope(|scope| {
-        for (index, chunk) in out.chunks_mut(rows_per_thread * columns * 8).enumerate() {
-            let encode_rows = &encode_rows;
-            if threads == 1 {
-                encode_rows(index * rows_per_thread, chunk);
-            } else {
-                scope.spawn(move || encode_rows(index * rows_per_thread, chunk));
-            }
-        }
-    });
+    crate::background::fill_rows(&mut out, columns * 8, encode_rows);
     out
 }
 
@@ -209,50 +193,44 @@ fn etc2_block(texels: &[[f32; 3]; 16]) -> [u8; 8] {
         // Beyond that range, the bits mean one of ETC2's other modes, so it can't be used.
         let five = means.map(|m| m.map(|c| (c * 31.0 / 255.0).round().clamp(0.0, 31.0) as i32));
         let delta: [i32; 3] = std::array::from_fn(|c| five[1][c] - five[0][c]);
-        let mut candidates = Vec::with_capacity(2);
-        if delta.iter().all(|d| (-4..=3).contains(d)) {
-            let bases = five.map(|color| color.map(expand5));
+        let (bases, mut header) = if delta.iter().all(|d| (-4..=3).contains(d)) {
             let mut header = [0u8; 4];
             for c in 0..3 {
                 header[c] = ((five[0][c] << 3) | (delta[c] & 7)) as u8;
             }
             header[3] = 2 | flip as u8;
-            candidates.push((bases, header));
-        }
-        // Individual mode: two 4-bit base colors, less precise, so only when the base colors
-        // differ too much for the differential mode.
-        if candidates.is_empty() {
+            (five.map(|color| color.map(expand5)), header)
+        } else {
+            // Individual mode: two 4-bit base colors, less precise, so only when the base
+            // colors differ too much for the differential mode.
             let four = means.map(|m| m.map(|c| (c * 15.0 / 255.0).round().clamp(0.0, 15.0) as i32));
             let mut header = [0u8; 4];
             for c in 0..3 {
                 header[c] = ((four[0][c] << 4) | four[1][c]) as u8;
             }
             header[3] = flip as u8;
-            candidates.push((four.map(|color| color.map(expand4)), header));
+            (four.map(|color| color.map(expand4)), header)
+        };
+        let fits = [0, 1].map(|h| etc_fit(texels, &halves[h], bases[h]));
+        let error = fits[0].1 + fits[1].1;
+        if best.as_ref().is_some_and(|(best_error, _)| *best_error <= error) {
+            continue;
         }
-
-        for (bases, mut header) in candidates {
-            let fits = [0, 1].map(|h| etc_fit(texels, &halves[h], bases[h]));
-            let error = fits[0].1 + fits[1].1;
-            if best.as_ref().is_some_and(|(best_error, _)| *best_error <= error) {
-                continue;
+        header[3] |= ((fits[0].0 << 5) | (fits[1].0 << 2)) as u8;
+        // The texel values, high bits first, bit `x * 4 + y` for the texel at `x`, `y`.
+        let (mut high, mut low) = (0u16, 0u16);
+        for (h, fit) in fits.iter().enumerate() {
+            for (k, &i) in halves[h].iter().enumerate() {
+                let bit = (i % 4) * 4 + i / 4;
+                high |= ((fit.2[k] as u16 >> 1) & 1) << bit;
+                low |= (fit.2[k] as u16 & 1) << bit;
             }
-            header[3] |= ((fits[0].0 << 5) | (fits[1].0 << 2)) as u8;
-            // The texel values, high bits first, bit `x * 4 + y` for the texel at `x`, `y`.
-            let (mut high, mut low) = (0u16, 0u16);
-            for (h, fit) in fits.iter().enumerate() {
-                for (k, &i) in halves[h].iter().enumerate() {
-                    let bit = (i % 4) * 4 + i / 4;
-                    high |= ((fit.2[k] as u16 >> 1) & 1) << bit;
-                    low |= (fit.2[k] as u16 & 1) << bit;
-                }
-            }
-            let mut out = [0u8; 8];
-            out[0..4].copy_from_slice(&header);
-            out[4..6].copy_from_slice(&high.to_be_bytes());
-            out[6..8].copy_from_slice(&low.to_be_bytes());
-            best = Some((error, out));
         }
+        let mut out = [0u8; 8];
+        out[0..4].copy_from_slice(&header);
+        out[4..6].copy_from_slice(&high.to_be_bytes());
+        out[6..8].copy_from_slice(&low.to_be_bytes());
+        best = Some((error, out));
     }
     best.map_or([0; 8], |(_, out)| out)
 }

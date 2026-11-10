@@ -13,7 +13,6 @@ pub struct Background<T> {
     /// The frames to wait on the web before running the work.
     #[cfg(target_arch = "wasm32")]
     frames: u32,
-    done: bool,
 }
 
 impl<T: Send + 'static> Background<T> {
@@ -25,34 +24,51 @@ impl<T: Send + 'static> Background<T> {
             let _ = frame;
             let (sender, receiver) = std::sync::mpsc::channel();
             std::thread::spawn(move || sender.send(work()));
-            Self { receiver, done: false }
+            Self { receiver }
         }
         #[cfg(target_arch = "wasm32")]
-        Self { work: Some(Box::new(work)), frames: frame, done: false }
+        Self { work: Some(Box::new(work)), frames: frame }
     }
 
     /// Whether `poll()` has handed out the result.
     #[cfg(target_arch = "wasm32")]
     pub fn is_done(&self) -> bool {
-        self.done
+        self.work.is_none()
     }
 
     /// The result once it's ready, and only that once.
     pub fn poll(&mut self) -> Option<T> {
-        if self.done {
-            return None;
-        }
         #[cfg(not(target_arch = "wasm32"))]
-        let result = self.receiver.try_recv().ok()?;
+        return self.receiver.try_recv().ok();
         #[cfg(target_arch = "wasm32")]
-        let result = {
+        {
             if self.frames > 0 {
                 self.frames -= 1;
                 return None;
             }
-            (self.work.take()?)()
-        };
-        self.done = true;
-        Some(result)
+            Some((self.work.take()?)())
+        }
     }
+}
+
+/// Fills `out`, which holds rows of `row_length` bytes, with `fill`, which gets the index of
+/// a row and the rows from there on. Where there are threads, and enough rows to be worth
+/// them, the rows are shared out among all CPU cores.
+pub fn fill_rows(out: &mut [u8], row_length: usize, fill: impl Fn(usize, &mut [u8]) + Sync) {
+    let rows = out.len() / row_length.max(1);
+    let threads = if cfg!(target_arch = "wasm32") || rows < 64 {
+        1
+    } else {
+        std::thread::available_parallelism().map_or(1, |n| n.get())
+    };
+    if threads == 1 {
+        return fill(0, out);
+    }
+    let rows_per_thread = rows.div_ceil(threads);
+    std::thread::scope(|scope| {
+        for (index, chunk) in out.chunks_mut(rows_per_thread * row_length).enumerate() {
+            let fill = &fill;
+            scope.spawn(move || fill(index * rows_per_thread, chunk));
+        }
+    });
 }

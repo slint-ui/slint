@@ -24,7 +24,7 @@ use std::time::Duration;
 use glam::{Vec2, Vec3};
 use slint::wgpu_30::wgpu;
 
-use crate::gibs::{FIRST_ZOOM, Kind, LEVELS};
+use crate::gibs::{self, FIRST_ZOOM, Kind, LEVELS};
 use crate::renderer::{Imagery, Renderer};
 
 /// The windows of the day's imagery, then those of the night's lights.
@@ -36,6 +36,8 @@ pub const WINDOW_TILES: u32 = 4;
 pub const MIPS: u32 = 8;
 /// What the shader gets for each window, see `Detail::update()`.
 pub const WINDOW_FLOATS: usize = 4 + (WINDOW_TILES * WINDOW_TILES) as usize;
+// `globe.wgsl` spells out these numbers, in its `DetailWindow` and its `detail()`.
+const _: () = assert!(LEVELS == 3 && WINDOW_TILES == 4);
 /// The degrees per pixel of the globe's own imagery.
 const BASE_RESOLUTION: f32 = 360.0 / 4096.0;
 /// How many tiles load at once.
@@ -57,8 +59,7 @@ mod embedded {
 pub enum Source {
     /// NASA's GIBS. Natively, the tiles stay in the directory `cache` once fetched, as in
     /// `Directory`; on the web, the browser caches them.
-    #[cfg(any(target_arch = "wasm32", feature = "online-imagery"))]
-    #[cfg_attr(embedded_tiles, allow(dead_code))]
+    #[cfg(online_tiles)]
     Online {
         #[cfg(not(target_arch = "wasm32"))]
         cache: Option<std::path::PathBuf>,
@@ -71,13 +72,38 @@ pub enum Source {
     Embedded,
 }
 
+impl Source {
+    /// The tiles in the binary, if `build.rs` embedded them, or else NASA's GIBS, if the demo
+    /// was built to fetch from it. Natively, `FLIGHT_TRACKER_TILES` names a directory of tiles
+    /// to use instead, or is `off`.
+    pub fn detect() -> Option<Self> {
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Some(directory) = std::env::var_os("FLIGHT_TRACKER_TILES") {
+            return (directory != "off").then(|| Source::Directory(directory.into()));
+        }
+        #[cfg(embedded_tiles)]
+        return Some(Source::Embedded);
+        #[cfg(online_tiles)]
+        return Some(Source::Online {
+            #[cfg(not(target_arch = "wasm32"))]
+            cache: {
+                let [qualifier, organization, application] = gibs::CACHE;
+                directories::ProjectDirs::from(qualifier, organization, application)
+                    .map(|directories| directories.cache_dir().join("tiles"))
+            },
+        });
+        #[cfg(not(any(embedded_tiles, online_tiles)))]
+        None
+    }
+}
+
 /// What became of a tile that was asked for.
 enum Fetched<T> {
     Tile(T),
     /// The source has no such tile.
     Missing,
     /// The source couldn't be reached.
-    #[cfg_attr(not(any(target_arch = "wasm32", feature = "online-imagery")), allow(dead_code))]
+    #[cfg_attr(not(online_tiles), allow(dead_code))]
     Failed,
 }
 
@@ -103,7 +129,7 @@ impl Source {
                 Ok(file) => Fetched::Tile(file),
                 Err(_) => Fetched::Missing,
             },
-            #[cfg(feature = "online-imagery")]
+            #[cfg(online_tiles)]
             Source::Online { cache } => {
                 let cached = cache.as_ref().map(|cache| cache.join(path));
                 if let Some(file) = cached.as_ref().and_then(|path| std::fs::read(path).ok()) {
@@ -124,13 +150,13 @@ impl Source {
     }
 }
 
-#[cfg(all(not(target_arch = "wasm32"), feature = "online-imagery"))]
+#[cfg(all(not(target_arch = "wasm32"), online_tiles))]
 fn download(url: &str) -> Fetched<Vec<u8>> {
     use std::sync::OnceLock;
     static CLIENT: OnceLock<Option<reqwest::blocking::Client>> = OnceLock::new();
     let client = CLIENT.get_or_init(|| {
         reqwest::blocking::Client::builder()
-            .user_agent("slint-flight-tracker-demo")
+            .user_agent(gibs::USER_AGENT)
             .timeout(Duration::from_secs(20))
             .build()
             .ok()
@@ -201,20 +227,19 @@ struct Window {
 
 impl Window {
     fn new(kind: Kind, zoom: u32) -> Self {
-        let columns = crate::gibs::columns(zoom);
         let empty = Slot { tile: (u32::MAX, u32::MAX), state: State::Wanted, shown: 0.0 };
         Self {
             kind,
             zoom,
-            columns,
-            rows: columns / 2,
+            columns: gibs::columns(zoom),
+            rows: gibs::rows(zoom),
             center: Vec2::ZERO,
             slots: [empty; (WINDOW_TILES * WINDOW_TILES) as usize],
         }
     }
 
     fn resolution(&self) -> f32 {
-        0.5625 / (1 << self.zoom) as f32
+        360.0 / (self.columns * TILE) as f32
     }
 
     fn slot(column: u32, row: u32) -> usize {
@@ -368,16 +393,10 @@ impl Detail {
                     self.arrived(renderer, arrived.window, arrived.tile, payload)
                 }
                 Fetched::Missing => {
-                    self.loading -= 1;
-                    if let Some(slot) = self.loading_slot(arrived.window, arrived.tile) {
-                        slot.state = State::Missing;
-                    }
+                    self.settle(arrived.window, arrived.tile, State::Missing);
                 }
                 Fetched::Failed => {
-                    self.loading -= 1;
-                    if let Some(slot) = self.loading_slot(arrived.window, arrived.tile) {
-                        slot.state = State::Wanted;
-                    }
+                    self.settle(arrived.window, arrived.tile, State::Wanted);
                     self.failures += 1;
                     self.paused_until = Some(web_time::Instant::now() + RETRY_AFTER);
                 }
@@ -388,13 +407,11 @@ impl Detail {
         if !self.reached && self.failures >= GIVE_UP_AFTER {
             self.source = None;
         }
-        let Some(source) = self.source.clone() else { return floats };
-        if !enabled {
+        if self.source.is_none() || !enabled {
             return floats;
         }
 
-        let longitude = target.x.atan2(target.z);
-        let latitude = target.y.clamp(-1.0, 1.0).asin();
+        let (longitude, latitude) = crate::camera::coordinates(target);
         let position = Vec2::new(longitude / (2.0 * PI) + 0.5, 0.5 - latitude / PI);
         // The tiles to ask for, nearest to where the camera looks first.
         let mut wanted: Vec<(f32, usize, (u32, u32))> = Vec::new();
@@ -408,7 +425,7 @@ impl Detail {
             for slot in &mut window.slots {
                 if slot.state == State::Loaded {
                     slot.shown = (slot.shown + dt / FADE_SECONDS).min(1.0);
-                } else if slot.state == State::Wanted && needed && slot.tile.0 != u32::MAX {
+                } else if slot.state == State::Wanted && needed {
                     let tile = Vec2::new(slot.tile.0 as f32, slot.tile.1 as f32) + 0.5;
                     let mut offset = tile - window.center;
                     offset.x -= window.columns as f32 * (offset.x / window.columns as f32).round();
@@ -438,24 +455,33 @@ impl Detail {
             window.slots[Window::slot(tile.0, tile.1)].state = State::Loading;
             let (kind, zoom) = (window.kind, window.zoom);
             self.loading += 1;
-            self.load(source.clone(), index, kind, zoom, tile);
+            self.load(index, kind, zoom, tile);
         }
         floats
     }
 
-    /// The slot of `tile`, if it's still waiting for that tile: the window may have moved on.
-    fn loading_slot(&mut self, window: usize, tile: (u32, u32)) -> Option<&mut Slot> {
-        let slot = &mut self.windows[window].slots[Window::slot(tile.0, tile.1)];
-        (slot.tile == tile && slot.state == State::Loading).then_some(slot)
+    /// Whether the slot of `tile` still waits for that tile: the window may have moved on.
+    fn is_waiting(&self, window: usize, tile: (u32, u32)) -> bool {
+        let slot = &self.windows[window].slots[Window::slot(tile.0, tile.1)];
+        slot.tile == tile && slot.state == State::Loading
+    }
+
+    /// Ends the loading of `tile`, whose slot gets `state` if it still waits for it. Returns
+    /// whether it did.
+    fn settle(&mut self, window: usize, tile: (u32, u32), state: State) -> bool {
+        self.loading -= 1;
+        let waiting = self.is_waiting(window, tile);
+        if waiting {
+            self.windows[window].slots[Window::slot(tile.0, tile.1)].state = state;
+        }
+        waiting
     }
 
     /// Puts a tile's mip levels onto the GPU.
     fn show(&mut self, renderer: &Renderer, window: usize, tile: (u32, u32), mips: &[Vec<u8>]) {
-        self.loading -= 1;
         self.reached = true;
         self.failures = 0;
-        if let Some(slot) = self.loading_slot(window, tile) {
-            slot.state = State::Loaded;
+        if self.settle(window, tile, State::Loaded) {
             renderer.set_tile(window as u32, (tile.0 % WINDOW_TILES, tile.1 % WINDOW_TILES), mips);
         }
     }
@@ -467,7 +493,8 @@ impl Detail {
 
     /// Fetches, decodes, and compresses a tile on a thread of its own.
     #[cfg(not(target_arch = "wasm32"))]
-    fn load(&self, source: Source, window: usize, kind: Kind, zoom: u32, tile: (u32, u32)) {
+    fn load(&self, window: usize, kind: Kind, zoom: u32, tile: (u32, u32)) {
+        let Some(source) = self.source.clone() else { return };
         let (sender, features) = (self.sender.clone(), self.features);
         std::thread::spawn(move || {
             let tile_data = match source.fetch(kind, zoom, tile.1, tile.0) {
@@ -498,7 +525,7 @@ impl Detail {
 
     /// Fetches a tile. Its file arrives in a later frame.
     #[cfg(target_arch = "wasm32")]
-    fn load(&self, _: Source, window: usize, kind: Kind, zoom: u32, tile: (u32, u32)) {
+    fn load(&self, window: usize, kind: Kind, zoom: u32, tile: (u32, u32)) {
         let sender = self.sender.clone();
         let url = kind.url(zoom, tile.1, tile.0);
         wasm_bindgen_futures::spawn_local(async move {
@@ -514,15 +541,12 @@ impl Detail {
         while start.elapsed() < Duration::from_millis(4) {
             let Some(job) = &mut self.job else {
                 let Some((window, tile, file)) = self.files.pop_front() else { break };
-                match rgba_mips(&file) {
-                    Some(levels) if self.loading_slot(window, tile).is_some() => {
+                match self.is_waiting(window, tile).then(|| rgba_mips(&file)).flatten() {
+                    Some(levels) => {
                         self.job = Some(Job { window, tile, levels, done: Vec::new(), row: 0 });
                     }
-                    levels => {
-                        self.loading -= 1;
-                        if let (None, Some(slot)) = (levels, self.loading_slot(window, tile)) {
-                            slot.state = State::Missing;
-                        }
+                    None => {
+                        self.settle(window, tile, State::Missing);
                     }
                 }
                 continue;
@@ -535,27 +559,12 @@ impl Detail {
     }
 }
 
-/// Decodes a tile and computes its `MIPS` mip levels, as RGBA pixels.
+/// Decodes a tile to its `MIPS` mip levels, as RGBA pixels.
 fn rgba_mips(file: &[u8]) -> Option<Vec<Vec<u8>>> {
-    let image = image::load_from_memory(file).ok()?.to_rgba8();
-    if image.dimensions() != (TILE, TILE) {
+    let mut tile = Imagery::decode(file).ok()?;
+    if (tile.width, tile.height) != (TILE, TILE) {
         return None;
     }
-    let mut levels = vec![image.into_raw()];
-    let mut size = TILE as usize;
-    while levels.len() < MIPS as usize {
-        let (last, half) = (levels.last().unwrap(), size / 2);
-        let next = (0..half * half * 4)
-            .map(|k| {
-                let (pixel, channel) = (k / 4, k % 4);
-                let (x, y) = (pixel % half * 2, pixel / half * 2);
-                let at =
-                    |dx: usize, dy: usize| last[((y + dy) * size + x + dx) * 4 + channel] as u32;
-                ((at(0, 0) + at(1, 0) + at(0, 1) + at(1, 1) + 2) / 4) as u8
-            })
-            .collect();
-        levels.push(next);
-        size = half;
-    }
-    Some(levels)
+    tile.levels.truncate(MIPS as usize);
+    Some(tile.levels)
 }

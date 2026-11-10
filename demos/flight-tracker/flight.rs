@@ -7,7 +7,7 @@
 
 use glam::Vec3;
 
-use crate::camera::{north_east, slerp};
+use crate::camera::{bearing, north_east, slerp, smoothstep};
 
 pub const EARTH_RADIUS_KM: f32 = 6371.0;
 const CRUISE_KMH: f32 = 880.0;
@@ -19,7 +19,6 @@ const DESCENT_KM: f32 = 280.0;
 /// before landing.
 const RAMP: f32 = 0.08;
 
-#[derive(Clone)]
 pub struct Flight {
     pub origin: usize,
     pub destination: usize,
@@ -80,11 +79,8 @@ impl Flight {
     /// How far into the climb and how far from the descent the aircraft is, from 0 on the
     /// ground to 1 at cruise.
     fn cruising(&self) -> f32 {
-        let smooth = |x: f32| {
-            let x = x.clamp(0.0, 1.0);
-            x * x * (3.0 - 2.0 * x)
-        };
-        smooth(self.flown_km() / CLIMB_KM) * smooth(self.remaining_km() / DESCENT_KM)
+        smoothstep(0.0, CLIMB_KM, self.flown_km())
+            * smoothstep(0.0, DESCENT_KM, self.remaining_km())
     }
 
     pub fn altitude_m(&self) -> f32 {
@@ -121,8 +117,6 @@ impl Flight {
 
     /// The compass heading, in degrees clockwise from north.
     pub fn heading_degrees(&self) -> f32 {
-        let (north, east) = north_east(self.position());
-        let track = self.track();
-        track.dot(east).atan2(track.dot(north)).to_degrees().rem_euclid(360.0)
+        bearing(self.position(), self.track()).to_degrees().rem_euclid(360.0)
     }
 }
