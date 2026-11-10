@@ -1154,7 +1154,7 @@ export component AppWindow inherits Window {
         VerticalLayout {
             padding: root.narrow ? 14px : 20px;
             spacing: 12px;
-            // The button wraps below the heading where the panel is too narrow for both.
+            // The badge wraps below the heading where the panel is too narrow for both.
             FlexboxLayout {
                 spacing: 10px;
                 alignment: space-between;
@@ -1164,14 +1164,8 @@ export component AppWindow inherits Window {
                     size: root.narrow ? 17px : 21px;
                 }
 
-                PillButton {
-                    text: "Take off";
-                    icon: @image-url("icons/aircraft.svg");
-                    primary: true;
-                    enabled: root.planned-origin.index >= 0 && root.planned-destination.index >= 0 && root.planned-origin.index != root.planned-destination.index;
-                    clicked => {
-                        root.take-off();
-                    }
+                if !root.narrow: MadeWithSlint {
+                    height: 30px;
                 }
             }
 
@@ -1228,10 +1222,15 @@ export component AppWindow inherits Window {
                 }
             }
 
-            if !root.narrow: HorizontalLayout {
-                alignment: end;
-                MadeWithSlint {
-                    height: 36px;
+            // Below the list, where the airports were just picked.
+            PillButton {
+                height: 44px;
+                text: "Take off";
+                icon: @image-url("icons/aircraft.svg");
+                primary: true;
+                enabled: root.planned-origin.index >= 0 && root.planned-destination.index >= 0 && root.planned-origin.index != root.planned-destination.index;
+                clicked => {
+                    root.take-off();
                 }
             }
         }
