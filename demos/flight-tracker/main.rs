@@ -817,6 +817,14 @@ fn cloud_strength(eye: Vec3) -> f32 {
     t * t * (3.0 - 2.0 * t)
 }
 
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen::prelude::wasm_bindgen]
+extern "C" {
+    /// The page's `flightTrackerReady()`, see `index.html`. It's an error where the page has none.
+    #[wasm_bindgen(catch, js_name = flightTrackerReady)]
+    fn flight_tracker_ready() -> Result<(), wasm_bindgen::JsValue>;
+}
+
 /// Renders into one of two textures, so Slint can show the previous one meanwhile.
 /// They're as large as the largest frame, so that a change in the render scale or in the globe's
 /// place doesn't create new ones.
@@ -1098,6 +1106,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut night_loading: Option<background::Background<renderer::Imagery>> = None;
     let mut day_loading: Option<background::Background<renderer::Imagery>> = None;
     let mut cloud_generation: Option<background::Background<Vec<Vec<u8>>>> = None;
+    #[cfg(target_arch = "wasm32")]
+    let mut page_told = false;
     // When the clouds arrived, to fade them in.
     let mut clouds_since: Option<web_time::Instant> = None;
     let mut frame_count = 0u32;
@@ -1188,6 +1198,19 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         // After an idle period the first frame would otherwise jump.
         let dt = (now - last_frame).as_secs_f32().min(1.0 / 20.0);
         last_frame = now;
+        // On the web, the work above holds up the first frames. The intro waits for it behind
+        // the page's loading indicator, which the page hides once it's told.
+        #[cfg(target_arch = "wasm32")]
+        let dt = {
+            let loaded = night_loading.as_ref().is_some_and(|work| work.is_done())
+                && day_loading.as_ref().is_some_and(|work| work.is_done())
+                && cloud_generation.as_ref().is_some_and(|work| work.is_done());
+            if loaded && !page_told {
+                page_told = true;
+                let _ = flight_tracker_ready();
+            }
+            if loaded { dt } else { 0.0 }
+        };
 
         let mut demo = demo.borrow_mut();
         let demo = &mut *demo;
