@@ -4,6 +4,8 @@
 //! The public API of the software renderer, which `slint::platform::software_renderer`
 //! re-exports. The other public items of this crate are for the crates of this repository.
 
+#[cfg(feature = "experimental")]
+pub use crate::RecordedRasterCommands;
 pub use crate::draw_functions::{
     PremultipliedRgbaColor, Rgb565BigEndianPixel, Rgb565Pixel, TargetPixel,
 };
@@ -334,6 +336,15 @@ impl SoftwareRenderer {
     #[cfg(feature = "experimental")]
     pub fn render_into_buffer(&self, buffer: &mut impl TargetPixelBuffer) -> PhysicalRegion {
         self.render_buffer_impl(buffer)
+    }
+
+    /// Records the window's next frame, like [`Self::render`] renders it,
+    /// to rasterize later with [`RecordedRasterCommands::rasterize`],
+    /// into a buffer of `num_lines` lines of `pixels_per_line` pixels.
+    #[cfg(feature = "experimental")]
+    pub fn record_frame(&self, pixels_per_line: usize, num_lines: usize) -> RecordedRasterCommands {
+        let recorder = |scale_factor| RecordedRasterCommands { scale_factor, ..Default::default() };
+        self.render_frame(pixels_per_line, num_lines, recorder).map(|(_, r)| r).unwrap_or_default()
     }
 
     /// Render the window, line by line, into the line buffer provided by the [`LineBufferProvider`].
