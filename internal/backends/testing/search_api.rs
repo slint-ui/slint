@@ -359,10 +359,7 @@ pub fn set_flickable_physics(
 pub fn inspectable_properties(
     element: &ElementHandle,
 ) -> Option<i_slint_core::SharedVector<i_slint_core::item_tree::InspectableProperty>> {
-    if element.element_index != 0 {
-        return None;
-    }
-    element.item.upgrade().and_then(|item| item.element_inspectable_properties())
+    element.inspectable_properties()
 }
 
 impl ElementHandle {
@@ -717,6 +714,20 @@ impl ElementHandle {
             }
             result
         })
+    }
+
+    /// Returns every property of this element that exists at runtime, with its current value.
+    ///
+    /// Returns `None` like [`Self::testable_properties`],
+    /// or when the application doesn't support inspection.
+    #[cfg(any(feature = "internal", feature = "system-testing"))]
+    pub(crate) fn inspectable_properties(
+        &self,
+    ) -> Option<i_slint_core::SharedVector<i_slint_core::item_tree::InspectableProperty>> {
+        if self.element_index != 0 {
+            return None;
+        }
+        self.item.upgrade().and_then(|item| item.element_inspectable_properties())
     }
 
     /// Returns the current value of the testable property `name` on this element,
