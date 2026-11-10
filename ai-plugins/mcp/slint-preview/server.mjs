@@ -69,6 +69,7 @@ const tools = [
         icons,
         description:
             "Preview saved Slint source using the matching Wasm interpreter. " +
+            "Each call opens a new preview card; don't repeat it to recover from startup or capture failures. " +
             "Pass `path` to preview a file on disk, with its imports and images, or `source` for a snippet that imports only from std-widgets.slint. " +
             "This acknowledges the request, not a successful render. " +
             "Always call get_preview_screenshot and check for errors before confirming the preview works.",
@@ -378,10 +379,14 @@ const toolCalls = {
     },
 };
 
-function readView() {
-    // The .in suffix prevents Codex from offering this MCP App template as a standalone website.
-    return readFileSync(new URL("view.html.in", import.meta.url), "utf8");
-}
+// The .in suffix prevents Codex from offering this MCP App template as a standalone website.
+const viewHtml = readFileSync(new URL("view.html.in", import.meta.url), "utf8")
+    .replace("__CURSOR_PNG__", readFileSync(new URL("assets/canvas-cursor.png", import.meta.url)).toString("base64"))
+    .replace(/__ICON_([a-z-]+)__/g, (_, name) =>
+        readFileSync(new URL(`assets/${name}.svg`, import.meta.url), "utf8"),
+    )
+    .replace("__INTERPRETER_URL__", interpreter.url)
+    .replace("__CHANNEL__", channel);
 
 const handlers = {
     initialize: (params) => ({
@@ -416,9 +421,7 @@ const handlers = {
                 {
                     uri: VIEW_URI,
                     mimeType: VIEW_MIME_TYPE,
-                    text: readView()
-                        .replace("__INTERPRETER_URL__", interpreter.url)
-                        .replace("__CHANNEL__", channel),
+                    text: viewHtml,
                     _meta: {
                         ui: {
                             csp: {
