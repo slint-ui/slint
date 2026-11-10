@@ -213,9 +213,9 @@ The JSON value is converted to match the declared type of the property:
 | an array `[T]`                                                         | an array, each element converted per `T`'s row                                                      |
 | a struct                                                               | an object; each field is looked up by name and converted per its own type, recursively              |
 
-A JSON object being converted to a struct only uses the keys that match a declared field; any
-other keys in that object are ignored. A struct field that's absent from the JSON object takes the
-field's declared default value.
+A JSON object converted to a struct only uses the keys that match a declared field.
+Other keys in that object are ignored.
+A struct field that's absent from the JSON object takes the field's declared default value.
 
 Inside a larger expression, such as an operand of `+` or `>`, the type comes from the JSON value instead.
 A number is a `float`, an object is an anonymous struct, and an array takes the common type of its elements:
