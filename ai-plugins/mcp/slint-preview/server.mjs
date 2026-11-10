@@ -70,6 +70,7 @@ const tools = [
         description:
             "Preview saved Slint source using the matching Wasm interpreter. " +
             "Each call opens a new preview card; don't repeat it to recover from startup or capture failures. " +
+            "Use update_slint_preview for subsequent edits in the latest card. " +
             "Pass `path` to preview a file on disk, with its imports and images, or `source` for a snippet that imports only from std-widgets.slint. " +
             "This acknowledges the request, not a successful render. " +
             "Always call get_preview_screenshot and check for errors before confirming the preview works.",
@@ -167,7 +168,33 @@ const tools = [
     },
 ];
 
-// The latest preview_slint call, whether its view has started, its capture once the view
+tools.push(
+    {
+        ...tools[0],
+        name: "update_slint_preview",
+        title: "Update Slint Preview",
+        description:
+            "Update the latest Slint preview card without opening another card. " +
+            "Pass the complete source or path, projectRoot and style as for preview_slint. " +
+            "If the view is no longer active, open one with preview_slint. " +
+            "Always call get_preview_screenshot to verify rendering.",
+        _meta: undefined,
+    },
+    {
+        name: "wait_preview_update",
+        title: "Wait for Preview Update",
+        description: "Wait for an update addressed to this preview card.",
+        inputSchema: {
+            type: "object",
+            properties: { cardId: { type: "string" }, after: { type: "string" } },
+            required: ["cardId", "after"],
+        },
+        annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+        _meta: { ui: { visibility: ["app"] } },
+    },
+);
+
+// The latest preview request, whether its view has started, its capture once the view
 // publishes it, and the get_preview_screenshot calls waiting for any of these to change.
 let latestPreview = null;
 function notify(preview) {
@@ -204,7 +231,7 @@ function textResult(text, isError = false) {
 }
 
 const toolCalls = {
-    preview_slint: (args) => {
+    preview_slint: (args, cardId) => {
         if (
             (typeof args.path === "string") ===
             (typeof args.source === "string")
@@ -234,7 +261,11 @@ const toolCalls = {
             timings: {},
             capture: null,
             listeners: [],
+            args,
+            cardId,
+            viewSeenAt: cardId ? previous?.viewSeenAt : 0,
         };
+        latestPreview.cardId ??= latestPreview.id;
         if (previous) notify(previous);
         // The view reads the ID from _meta, or from the text if a client drops _meta.
         return {
@@ -248,7 +279,30 @@ const toolCalls = {
                     text: "Preview requested; rendering is unverified. Call get_preview_screenshot before confirming success.",
                 },
             ],
-            _meta: { "slint/previewId": latestPreview.id },
+            _meta: { "slint/previewId": latestPreview.id, "slint/previewCardId": latestPreview.cardId },
+        };
+    },
+    update_slint_preview: (args) => {
+        if (!latestPreview?.viewSeenAt || Date.now() - latestPreview.viewSeenAt > 30000) {
+            return textResult("No active preview card. Call preview_slint first.", true);
+        }
+        return toolCalls.preview_slint(args, latestPreview.cardId);
+    },
+    wait_preview_update: async ({ cardId, after }) => {
+        const deadline = Date.now() + 15000;
+        while (latestPreview?.cardId === cardId && latestPreview.id === after) {
+            latestPreview.viewSeenAt = Date.now();
+            const remaining = deadline - Date.now();
+            if (remaining <= 0) break;
+            await nextChange(latestPreview, remaining);
+        }
+        if (!latestPreview || latestPreview.cardId !== cardId) {
+            return { ...textResult("This card has no further updates."), structuredContent: { closed: true } };
+        }
+        latestPreview.viewSeenAt = Date.now();
+        return {
+            ...textResult("Preview update."),
+            structuredContent: latestPreview.id === after ? {} : { previewId: latestPreview.id, arguments: latestPreview.args },
         };
     },
     get_preview_screenshot: async () => {
@@ -327,6 +381,7 @@ const toolCalls = {
             return textResult("This preview has already failed.");
         }
         preview.viewStarted = true;
+        preview.viewSeenAt = Date.now();
         preview.stage = args.stage ?? "started";
         if (!args.started && !args.stage) {
             const runtime =

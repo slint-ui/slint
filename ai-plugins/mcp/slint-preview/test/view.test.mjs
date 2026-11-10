@@ -109,7 +109,9 @@ function startView({
                                     : {
                                           result:
                                               message.method === "tools/call"
-                                                  ? callTool(message.params)
+                                                  ? message.params.name === "wait_preview_update"
+                                                      ? new Promise(() => {})
+                                                      : callTool(message.params)
                                                   : {},
                                       }),
                             },

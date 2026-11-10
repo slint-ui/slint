@@ -88,6 +88,8 @@ test("lists preview_slint with its view, and the view's own tools for the view o
         (t) => t.name === "get_preview_screenshot",
     );
     assert.equal(screenshot._meta, undefined);
+    assert.equal(result.tools.find((t) => t.name === "update_slint_preview")._meta, undefined);
+    assert.deepEqual(result.tools.find((t) => t.name === "wait_preview_update")._meta.ui.visibility, ["app"]);
 });
 
 test("all tools declare their annotations", async () => {
@@ -177,6 +179,39 @@ test("answers a call with text only", async () => {
     });
     assert.equal(result.content[0].type, "text");
     assert.equal(result.structuredContent, undefined);
+});
+
+test("updates only the latest active card and rejects captures from the previous render", async () => {
+    const opened = await callTool("preview_slint", { source: "first" });
+    const firstId = opened._meta["slint/previewId"];
+    const cardId = opened._meta["slint/previewCardId"];
+    assert.equal((await callTool("update_slint_preview", { source: "second" })).isError, true);
+    await callTool("publish_preview_capture", { previewId: firstId, started: true });
+    const waiting = callTool("wait_preview_update", { cardId, after: firstId });
+    const updated = await callTool("update_slint_preview", { source: "second" });
+    const secondId = updated._meta["slint/previewId"];
+    assert.notEqual(firstId, secondId);
+    assert.equal(updated._meta["slint/previewCardId"], cardId);
+    assert.deepEqual((await waiting).structuredContent, { previewId: secondId, arguments: { source: "second" } });
+    await callTool("publish_preview_capture", { previewId: firstId, png: "old", width: 1, height: 1 });
+    await callTool("publish_preview_capture", { previewId: secondId, png: "new", width: 2, height: 2 });
+    assert.equal((await callTool("get_preview_screenshot")).content[0].data, "new");
+    const superseded = callTool("wait_preview_update", { cardId, after: secondId });
+    const separate = await callTool("preview_slint", { source: "separate" });
+    assert.notEqual(separate._meta["slint/previewCardId"], cardId);
+    assert.deepEqual((await superseded).structuredContent, { closed: true });
+});
+
+test("coalesces pending card updates to the latest source", async () => {
+    const opened = await callTool("preview_slint", { source: "first" });
+    const id = opened._meta["slint/previewId"];
+    const cardId = opened._meta["slint/previewCardId"];
+    await callTool("publish_preview_capture", { previewId: id, started: true });
+    await callTool("update_slint_preview", { source: "intermediate" });
+    const last = await callTool("update_slint_preview", { source: "last" });
+    assert.deepEqual((await callTool("wait_preview_update", { cardId, after: id })).structuredContent, {
+        previewId: last._meta["slint/previewId"], arguments: { source: "last" },
+    });
 });
 
 test("takes either an absolute path or source, and a project root only with a path", async () => {

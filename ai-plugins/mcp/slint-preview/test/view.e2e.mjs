@@ -81,6 +81,7 @@ let browser;
 let page;
 let projects;
 const toolCalls = [];
+const interpreterRequests = [];
 
 function writeFiles(files) {
     for (const [path, contents] of Object.entries(files)) {
@@ -146,7 +147,10 @@ before(async () => {
     // Headless Chromium renders WebGL only in software.
     // cspell:ignore swiftshader
     browser = await chromium.launch({ args: ["--enable-unsafe-swiftshader"] });
-    page = await browser.newPage();
+    page = await browser.newPage({ deviceScaleFactor: Number(process.env.SLINT_PREVIEW_E2E_DPR ?? 1) });
+    page.on("request", (request) => {
+        if (/slint_wasm_interpreter(?:_bg)?\.(js|wasm)/.test(request.url())) interpreterRequests.push(request.url());
+    });
     await page.exposeFunction("callServer", async (params) => {
         toolCalls.push(params);
         const { result, error } = await request("tools/call", params);
@@ -274,6 +278,29 @@ test("reads relative imports together and refreshes them on the next render", as
     assertRendered(second);
     assert.deepEqual(await centerPixel(second), [255, 0, 0, 255]);
     assert.equal(toolCalls.filter(({ name }) => name === "read_slint_file").length, 2);
+});
+
+test("updates the existing card and interpreter, including errors, without another view notification", async () => {
+    const source = (color) => `export component Main inherits Window { width: 160px; height: 100px; background: ${color}; }`;
+    assertRendered(await preview({ source: source("blue") }));
+    const frame = page.frames().find((item) => item.url() === "about:srcdoc");
+    const loads = interpreterRequests.length;
+    const update = async (args) => {
+        const response = await callTool("update_slint_preview", args);
+        assert.ok(response._meta?.["slint/previewId"], JSON.stringify(response));
+        return callTool("get_preview_screenshot", {});
+    };
+    const red = await update({ source: source("red") });
+    assertRendered(red);
+    assert.deepEqual(await centerPixel(red), [255, 0, 0, 255]);
+    assert.equal(page.frames().find((item) => item.url() === "about:srcdoc"), frame);
+    assert.equal(interpreterRequests.length, loads);
+    const broken = await update({ source: "export component Main inherits Window { invalid: ; }" });
+    assert.equal(broken.isError, true);
+    const repaired = await update({ source: source("blue") });
+    assertRendered(repaired);
+    assert.deepEqual(await centerPixel(repaired), [0, 0, 255, 255]);
+    assert.equal(interpreterRequests.length, loads);
 });
 
 const BLUE_SVG =
