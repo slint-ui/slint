@@ -43,7 +43,7 @@ const ZOOM_IN_SECONDS: f32 = 0.9;
 const ZOOM_OUT_SECONDS: f32 = 1.3;
 /// How long the intro takes, from low above the night side until the sun has come up over the
 /// horizon.
-const INTRO_SECONDS: f32 = 9.0;
+const INTRO_SECONDS: f32 = 8.0;
 /// How long the intro takes to fade in from black.
 const INTRO_FADE_SECONDS: f32 = 1.2;
 /// How long the planner's slide trails the globe's zoom, so that the globe leads.
@@ -416,9 +416,9 @@ impl Demo {
         let s = (self.stage_time / INTRO_SECONDS).clamp(0.0, 1.0);
         // The point looked at, on the great circle through the point under the sun, moves from
         // the night side towards the line between day and night, which brings the sun up over
-        // the horizon at about half time. The camera keeps looking at the horizon for a while,
-        // then pulls back and looks down at the globe.
-        let angle = (112.0 - 15.0 * camera::ease(s / 0.55)).to_radians();
+        // the horizon after about three seconds. The camera keeps looking at the horizon for a
+        // while, then pulls back and looks down at the globe.
+        let angle = (107.0 - 11.0 * camera::ease(s / 0.45)).to_radians();
         let target = sun * angle.cos() + side * angle.sin();
         let towards_sun = sun * angle.sin() - side * angle.cos();
         let (north, east) = camera::north_east(target);
@@ -428,7 +428,7 @@ impl Demo {
         } else {
             log_lerp(0.18, 2.4, ((s - 0.62) / 0.38).powf(1.5))
         };
-        let tilt = 80.0 - 60.0 * camera::ease((s - 0.76) / 0.24);
+        let tilt = 80.0 - 60.0 * camera::ease((s - 0.74) / 0.26);
         Pose {
             target,
             heading: towards_sun.dot(east).atan2(towards_sun.dot(north)),
