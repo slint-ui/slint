@@ -1223,14 +1223,16 @@ export component AppWindow inherits Window {
             }
 
             // Below the list, where the airports were just picked.
-            PillButton {
-                height: 44px;
-                text: "Take off";
-                icon: @image-url("icons/aircraft.svg");
-                primary: true;
-                enabled: root.planned-origin.index >= 0 && root.planned-destination.index >= 0 && root.planned-origin.index != root.planned-destination.index;
-                clicked => {
-                    root.take-off();
+            HorizontalLayout {
+                alignment: end;
+                PillButton {
+                    text: "Take off";
+                    icon: @image-url("icons/aircraft.svg");
+                    primary: true;
+                    enabled: root.planned-origin.index >= 0 && root.planned-destination.index >= 0 && root.planned-origin.index != root.planned-destination.index;
+                    clicked => {
+                        root.take-off();
+                    }
                 }
             }
         }
