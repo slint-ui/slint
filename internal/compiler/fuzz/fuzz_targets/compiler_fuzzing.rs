@@ -11,6 +11,7 @@ pub fn process_file_source(path: &std::path::Path, source: String) {
     let syntax_node = i_slint_compiler::parser::parse(
         source.clone(),
         Some(i_slint_compiler::source_path::SourcePath::new(path)),
+        None,
         &mut parse_diagnostics,
     );
     // Fuzz the native lowering pipeline. The interpreter is not usable here: it has
