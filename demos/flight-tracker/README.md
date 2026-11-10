@@ -6,7 +6,9 @@ Follow a flight across a globe of the earth, like on the moving map of an airpla
 wgpu renders the globe, and Slint draws the route, the aircraft, the airports, the city names, and the panels with the flight's details on top.
 The globe shows the day and night sides as they are right now, with the lights of the cities on the night side.
 
-The demo starts with the planner beside the globe, which floats over a pattern that Slint draws.
+The demo opens with the camera rising from the night side until the sun comes up over the horizon.
+A click or tap skips that.
+Then the globe shrinks to its place beside the planner, where it floats over a pattern that Slint draws.
 The globe turns slowly, and shows the route of the flight you pick as it comes around.
 Take off, and the globe grows to fill the window as the flight boards.
 After landing, the globe shrinks back beside the planner, and the next flight starts where this one landed.

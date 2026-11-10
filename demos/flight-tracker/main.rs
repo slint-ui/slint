@@ -41,6 +41,11 @@ const ZOOM_IN_SECONDS: f32 = 0.9;
 /// How long the globe takes to shrink back into its place, while the camera turns to the entry
 /// screen's view.
 const ZOOM_OUT_SECONDS: f32 = 1.3;
+/// How long the intro takes, from low above the night side until the sun has come up over the
+/// horizon.
+const INTRO_SECONDS: f32 = 9.0;
+/// How long the intro takes to fade in from black.
+const INTRO_FADE_SECONDS: f32 = 1.2;
 /// How long the planner's slide trails the globe's zoom, so that the globe leads.
 const PLANNER_LAG: f32 = 0.2;
 /// How fast the globe on the entry screen turns, in radians per second.
@@ -212,6 +217,9 @@ fn route_range(flight: &Flight, aspect: f32) -> f32 {
 /// window, or a flight.
 #[derive(Clone, Copy, PartialEq)]
 enum Stage {
+    /// The camera rises from the dark above the night side until the sun comes up over the
+    /// horizon, then the globe shrinks into its place on the entry screen.
+    Intro,
     Entry,
     ZoomingIn,
     Flight,
@@ -259,6 +267,8 @@ struct Demo {
     proposal: Option<(usize, Option<usize>)>,
     /// Whether the kiosk proposed a flight since the entry screen showed.
     proposed: bool,
+    /// Whether the zoom out to the entry screen comes from the intro, rather than a flight.
+    from_intro: bool,
     /// How much of the window's height, and of its width, the globe's place on the entry
     /// screen shows of a frame rendered for the whole window.
     entry_view: Vec2,
@@ -308,11 +318,12 @@ impl Demo {
             cities,
             phase: Phase::Boarding,
             phase_time: 0.0,
-            stage: Stage::Entry,
+            stage: Stage::Intro,
             stage_time: 0.0,
             planned: (None, None),
             proposal: None,
             proposed: false,
+            from_intro: false,
             entry_view: Vec2::ONE,
             entry_target: surface(0.0, ENTRY_LATITUDE),
             entry_heading: 0.0,
@@ -397,6 +408,54 @@ impl Demo {
         }
     }
 
+    /// Where the camera is during the intro: it rises from low above the night side, looking
+    /// towards the sun, which comes up over the horizon on the way.
+    fn intro_pose(&self) -> Pose {
+        let sun = sun_direction(0.0);
+        let side = sun.cross(Vec3::Y).try_normalize().unwrap_or(Vec3::X);
+        let s = (self.stage_time / INTRO_SECONDS).clamp(0.0, 1.0);
+        // The point looked at, on the great circle through the point under the sun, moves from
+        // the night side towards the line between day and night, which brings the sun up over
+        // the horizon at about half time. The camera keeps looking at the horizon for a while,
+        // then pulls back and looks down at the globe.
+        let angle = (112.0 - 15.0 * camera::ease(s / 0.55)).to_radians();
+        let target = sun * angle.cos() + side * angle.sin();
+        let towards_sun = sun * angle.sin() - side * angle.cos();
+        let (north, east) = camera::north_east(target);
+        let log_lerp = |from: f32, to: f32, t: f32| (from.ln() + (to.ln() - from.ln()) * t).exp();
+        let range = if s < 0.62 {
+            log_lerp(0.05, 0.18, s / 0.62)
+        } else {
+            log_lerp(0.18, 2.4, ((s - 0.62) / 0.38).powf(1.5))
+        };
+        let tilt = 80.0 - 60.0 * camera::ease((s - 0.76) / 0.24);
+        Pose {
+            target,
+            heading: towards_sun.dot(east).atan2(towards_sun.dot(north)),
+            tilt: tilt.to_radians(),
+            range,
+        }
+    }
+
+    /// Ends the intro, zooming out to the entry screen from where the camera is.
+    fn finish_intro(&mut self) {
+        if self.stage == Stage::Intro {
+            let target = self.camera.pose.target;
+            self.reset_entry(target.x.atan2(target.z));
+            self.camera.transition(ZOOM_OUT_SECONDS);
+            self.from_intro = true;
+            self.set_stage(Stage::ZoomingOut);
+        }
+    }
+
+    /// How dark the intro still is as it fades in, from 1 to 0.
+    fn curtain(&self) -> f32 {
+        match self.stage {
+            Stage::Intro => 1.0 - camera::ease(self.stage_time / INTRO_FADE_SECONDS),
+            _ => 0.0,
+        }
+    }
+
     fn set_stage(&mut self, stage: Stage) {
         self.stage = stage;
         self.stage_time = 0.0;
@@ -408,7 +467,7 @@ impl Demo {
         match self.stage {
             Stage::Entry => 0.0,
             Stage::ZoomingIn => camera::ease(self.stage_time / ZOOM_IN_SECONDS),
-            Stage::Flight => 1.0,
+            Stage::Intro | Stage::Flight => 1.0,
             Stage::ZoomingOut => 1.0 - camera::ease(self.stage_time / ZOOM_OUT_SECONDS),
         }
     }
@@ -419,7 +478,7 @@ impl Demo {
         match self.stage {
             Stage::Entry => 0.0,
             Stage::ZoomingIn => camera::ease(self.stage_time / (ZOOM_IN_SECONDS - PLANNER_LAG)),
-            Stage::Flight => 1.0,
+            Stage::Intro | Stage::Flight => 1.0,
             Stage::ZoomingOut => {
                 let t = (self.stage_time - PLANNER_LAG) / (ZOOM_OUT_SECONDS - PLANNER_LAG);
                 1.0 - camera::ease(t)
@@ -511,6 +570,12 @@ impl Demo {
         self.time += dt;
         self.stage_time += dt;
         match self.stage {
+            Stage::Intro => {
+                if self.stage_time >= INTRO_SECONDS {
+                    self.finish_intro();
+                }
+                return;
+            }
             Stage::Entry => {
                 self.entry_held += dt;
                 let resume = camera::ease((self.entry_held - ENTRY_SPIN_PAUSE) / 2.0);
@@ -532,6 +597,11 @@ impl Demo {
                 return;
             }
             Stage::ZoomingIn if self.stage_time >= ZOOM_IN_SECONDS => self.set_stage(Stage::Flight),
+            Stage::ZoomingOut if self.stage_time >= ZOOM_OUT_SECONDS && self.from_intro => {
+                self.from_intro = false;
+                self.set_stage(Stage::Entry);
+                return;
+            }
             Stage::ZoomingOut if self.stage_time >= ZOOM_OUT_SECONDS => {
                 self.set_stage(Stage::Entry);
                 // The next flight starts where this one landed.
@@ -579,7 +649,9 @@ impl Demo {
     }
 
     fn update_camera(&mut self, aspect: f32, height: f32, dt: f32) {
-        if self.stage == Stage::Entry && (self.dragging || self.camera.is_coasting()) {
+        if self.stage == Stage::Intro {
+            self.camera.pose = self.intro_pose();
+        } else if self.stage == Stage::Entry && (self.dragging || self.camera.is_coasting()) {
             if !self.dragging {
                 self.camera.coast(height, dt);
             }
@@ -973,6 +1045,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             })
         }
     });
+    app.on_skip_intro({
+        let demo = demo.clone();
+        move || demo.borrow_mut().finish_intro()
+    });
     app.on_take_off({
         let interact = interact.clone();
         move || {
@@ -1143,16 +1219,25 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             .chain(aircraft.map(|(at, _)| at))
             .collect();
         update_rows(&labels, demo.labels(view_projection, eye, size, &taken, dt));
-        app.set_origin_marker(origin);
-        app.set_destination_marker(destination);
+        // The intro shows the globe alone, without the placeholder flight it starts with.
+        let alone = demo.stage == Stage::Intro || demo.from_intro;
+        app.set_origin_marker(if alone { Marker::default() } else { origin });
+        app.set_destination_marker(if alone { Marker::default() } else { destination });
+        if alone {
+            app.set_flown_path("".into());
+            app.set_remaining_path("".into());
+            app.set_aircraft(Aircraft::default());
+        }
         app.set_flight(demo.flight_info());
         app.set_view(demo.view);
         app.set_screen(match demo.stage {
             Stage::Entry => Screen::Entry,
-            Stage::ZoomingIn | Stage::ZoomingOut => Screen::Zoom,
+            Stage::Intro | Stage::ZoomingIn | Stage::ZoomingOut => Screen::Zoom,
             Stage::Flight => Screen::Flight,
         });
         app.set_zoom_progress(demo.zoom_progress());
+        app.set_intro(demo.stage == Stage::Intro);
+        app.set_curtain(demo.curtain());
         app.set_planner_away(demo.planner_away());
         if let Some((origin, destination)) = demo.proposal.take() {
             let item = |index: Option<usize>| {

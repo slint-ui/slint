@@ -822,6 +822,11 @@ export component AppWindow inherits Window {
     in property <float> zoom-progress;
     /// How far the planner has slid away for a flight, from 0 to 1.
     in property <float> planner-away;
+    /// Whether the intro plays, which a click or tap skips.
+    in property <bool> intro;
+    /// How dark the intro still is as it fades in, from 1 to 0.
+    in property <float> curtain;
+    callback skip-intro();
     // The globe's place on the entry screen: beside the planner, or above it on a phone held
     // upright.
     property <length> panel-width: min(400px, root.content-width * 0.42);
@@ -1130,6 +1135,17 @@ export component AppWindow inherits Window {
             }
 
             }
+    }
+
+    if root.curtain > 0: Rectangle {
+        background: black;
+        opacity: root.curtain;
+    }
+
+    if root.intro: TouchArea {
+        clicked => {
+            root.skip-intro();
+        }
     }
 
     // A change in `init` wouldn't animate, as the panel hasn't been laid out yet.
