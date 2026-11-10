@@ -448,7 +448,7 @@ fn json_to_expression(
             None => mismatch(value, target, path, file, node, ctx),
         },
         Type::Image => match value {
-            serde_json::Value::String(s) => image_expression(s, file, node),
+            serde_json::Value::String(s) => image_expression(s, file, node, ctx),
             _ => mismatch(value, target, path, file, node, ctx),
         },
         Type::Struct(st) => match value.as_object() {
@@ -483,17 +483,26 @@ fn json_to_expression(
     }
 }
 
-/// An image for `reference`, which is a `data:` URI, a URL, or a path relative to the JSON `file`.
+/// An image for `reference`, which is a `data:` URI, a URL, an `@library` path,
+/// or a path relative to the JSON `file`.
 /// An empty `reference` is no image.
-fn image_expression(reference: &str, file: &SourcePath, node: &SyntaxNode) -> Expression {
+fn image_expression(
+    reference: &str,
+    file: &SourcePath,
+    node: &SyntaxNode,
+    ctx: &LookupCtx,
+) -> Expression {
     let resource_ref = if reference.is_empty() {
         ImageReference::None
     } else if reference.starts_with("data:") {
         ImageReference::DataUri(reference.into())
     } else {
-        ImageReference::Source(
-            file.parent().join(reference).unwrap_or_else(|| SourcePath::new(reference)),
-        )
+        let library_path = Some(reference)
+            .filter(|reference| reference.starts_with('@'))
+            .and_then(|reference| ctx.type_loader?.resolve_import_path(None, reference));
+        ImageReference::Source(library_path.unwrap_or_else(|| {
+            file.parent().join(reference).unwrap_or_else(|| SourcePath::new(reference))
+        }))
     };
     Expression::ImageReference {
         resource_ref,
