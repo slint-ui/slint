@@ -537,6 +537,25 @@ impl SoftwareRenderer {
     ) -> PhysicalRegion {
         let pixels_per_line = buffer.line_slice(0).len();
         let num_lines = buffer.num_lines();
+        self.render_frame(pixels_per_line, num_lines, |scale_factor| BufferRasterizer {
+            buffer,
+            dirty_range_cache: Vec::new(),
+            dirty_region: Default::default(),
+            scale_factor,
+            clips: Vec::new(),
+        })
+        .map(|(r, _)| r)
+        .unwrap_or_default()
+    }
+
+    /// Walks the window's items into the sink that `sink` creates for the scale factor.
+    /// Returns the dirty region and the sink, or `None` when there's nothing to draw.
+    fn render_frame<S: RasterCommandSink>(
+        &self,
+        pixels_per_line: usize,
+        num_lines: usize,
+        sink: impl FnOnce(ScaleFactor) -> S,
+    ) -> Option<(PhysicalRegion, S)> {
         let buffer_pixel_count = num_lines * pixels_per_line;
 
         let Some(window) = self.maybe_window_adapter.borrow().as_ref().and_then(|w| w.upgrade())
@@ -582,13 +601,7 @@ impl SoftwareRenderer {
             size,
             factor,
             window_inner,
-            BufferRasterizer {
-                buffer,
-                dirty_range_cache: Vec::new(),
-                dirty_region: Default::default(),
-                scale_factor: factor,
-                clips: Vec::new(),
-            },
+            sink(factor),
             rotation,
             #[cfg(feature = "systemfonts")]
             &self.text_layout_cache,
@@ -596,7 +609,7 @@ impl SoftwareRenderer {
         let mut renderer = self.partial_rendering_state.create_partial_renderer(buffer_renderer);
         let window_adapter = renderer.window_adapter.clone();
 
-        window_inner
+        let dirty_region = window_inner
             .draw_contents(|components, post_render| {
                 let logical_size = (size.cast() / factor).cast();
 
@@ -608,29 +621,13 @@ impl SoftwareRenderer {
                     size,
                 );
 
-                renderer.actual_renderer.raster_commands.dirty_region = dirty_region.clone();
                 if !renderer
                     .actual_renderer
                     .raster_commands
-                    .buffer
                     .fill_background(&background, &dirty_region)
+                    && let Some(gradient) = gradient_background(&background)
                 {
-                    let gradient_background = gradient_background(&background);
-                    if !gradient_background.is_some_and(Brush::is_opaque) {
-                        let mut bg = TargetPixel::background();
-                        if gradient_background.is_none() {
-                            TargetPixel::blend(&mut bg, background.color().into());
-                        }
-                        renderer.actual_renderer.raster_commands.foreach_ranges(
-                            &dirty_region.bounding_rect(),
-                            |_, buffer, _, _| {
-                                buffer.fill(bg);
-                            },
-                        );
-                    }
-                    if let Some(gradient) = gradient_background {
-                        renderer.actual_renderer.draw_window_background_gradient(gradient);
-                    }
+                    renderer.actual_renderer.draw_window_background_gradient(gradient);
                 }
 
                 let partial = self.repaint_buffer_type.get() != RepaintBufferType::NewBuffer;
@@ -655,7 +652,8 @@ impl SoftwareRenderer {
 
                 dirty_region
             })
-            .unwrap_or_default()
+            .unwrap_or_default();
+        Some((dirty_region, renderer.into_inner().raster_commands))
     }
     /// Computes the dirty region for this frame according to the repaint buffer type, converts
     /// it to the physical region to return to the caller, applying the configured
@@ -1588,6 +1586,12 @@ enum RasterCommand {
 trait RasterCommandSink {
     /// Each command is clipped to `rounded_clips`, and its rect lies inside theirs.
     fn push(&mut self, command: RasterCommand, rounded_clips: &[RoundedClip]);
+
+    /// Fills the frame's `dirty_region` with `background` before any command.
+    /// Returns false when a gradient background still needs to be pushed.
+    fn fill_background(&mut self, _background: &Brush, _dirty_region: &PhysicalRegion) -> bool {
+        false
+    }
 }
 
 /// A rounded clip in physical screen coordinates, after [`RenderingRotation`].
@@ -2074,6 +2078,86 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> BufferRasterizer<'_, B> {
 impl<B: target_pixel_buffer::TargetPixelBuffer> RasterCommandSink for BufferRasterizer<'_, B> {
     fn push(&mut self, command: RasterCommand, rounded_clips: &[RoundedClip]) {
         self.rasterize(&command, rounded_clips);
+    }
+
+    fn fill_background(&mut self, background: &Brush, dirty_region: &PhysicalRegion) -> bool {
+        self.dirty_region = dirty_region.clone();
+        if self.buffer.fill_background(background, dirty_region) {
+            return true;
+        }
+        let gradient_background = gradient_background(background);
+        if !gradient_background.is_some_and(Brush::is_opaque) {
+            let mut bg = TargetPixel::background();
+            if gradient_background.is_none() {
+                TargetPixel::blend(&mut bg, background.color().into());
+            }
+            self.foreach_ranges(&dirty_region.bounding_rect(), |_, buffer, _, _| {
+                buffer.fill(bg);
+            });
+        }
+        false
+    }
+}
+
+/// The raster commands of a frame that [`SoftwareRenderer::record_frame`] recorded.
+///
+/// It shares images and glyphs with the window through reference counts that aren't atomic,
+/// so it isn't `Send`.
+/// Another thread may still call [`Self::rasterize`] while the recording thread keeps it alive:
+/// rasterizing only reads the shared data.
+/// Only the recording thread drops it.
+#[cfg(feature = "experimental")]
+#[derive(Default)]
+pub struct RecordedRasterCommands {
+    commands: Vec<(RasterCommand, core::ops::Range<usize>)>,
+    rounded_clips: Vec<RoundedClip>,
+    background: Brush,
+    dirty_region: PhysicalRegion,
+    scale_factor: ScaleFactor,
+}
+
+#[cfg(feature = "experimental")]
+impl RecordedRasterCommands {
+    /// Rasterizes the frame into `buffer`, like [`SoftwareRenderer::render`] renders it.
+    pub fn rasterize(
+        &self,
+        buffer: &mut [impl TargetPixel],
+        pixel_stride: usize,
+    ) -> PhysicalRegion {
+        let mut buffer = TargetPixelSlice { data: buffer, pixel_stride };
+        let mut rasterizer = BufferRasterizer {
+            buffer: &mut buffer,
+            dirty_range_cache: Vec::new(),
+            dirty_region: Default::default(),
+            scale_factor: self.scale_factor,
+            clips: Vec::new(),
+        };
+        let mut commands = self.commands.as_slice();
+        if rasterizer.fill_background(&self.background, &self.dirty_region)
+            && gradient_background(&self.background).is_some()
+        {
+            // The buffer filled the gradient, which is the first command.
+            commands = &commands[1..];
+        }
+        for (command, rounded_clips) in commands {
+            rasterizer.rasterize(command, &self.rounded_clips[rounded_clips.clone()]);
+        }
+        self.dirty_region.clone()
+    }
+}
+
+#[cfg(feature = "experimental")]
+impl RasterCommandSink for RecordedRasterCommands {
+    fn push(&mut self, command: RasterCommand, rounded_clips: &[RoundedClip]) {
+        let start = self.rounded_clips.len();
+        self.rounded_clips.extend_from_slice(rounded_clips);
+        self.commands.push((command, start..self.rounded_clips.len()));
+    }
+
+    fn fill_background(&mut self, background: &Brush, dirty_region: &PhysicalRegion) -> bool {
+        self.background = background.clone();
+        self.dirty_region = dirty_region.clone();
+        false
     }
 }
 
