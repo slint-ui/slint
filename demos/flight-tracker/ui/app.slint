@@ -19,17 +19,17 @@ global Theme {
     /// Silver, for text, lines, and markers.
     out property <color> accent: #c3cad6;
     out property <color> accent-light: #dfe4ec;
-    /// Metal surfaces, such as the primary button: satin graphite, like dark trim on a car,
-    /// with a fine light edge.
-    out property <brush> metal: @linear-gradient(180deg, #3c4557 0%, #2b3343 100%);
-    out property <color> metal-edge: #ffffff33;
-    /// Text and icons on metal.
-    out property <color> on-metal: #eef1f5;
+    /// The one color of the UI, for what's selected, the primary action, and the route flown.
+    out property <color> highlight: #6cb4ff;
+    /// Surfaces in the highlight color, such as the primary button, lit softly from above.
+    out property <brush> highlight-fill: @linear-gradient(180deg, #8ac4ff 0%, #559ff2 100%);
+    /// Text and icons on the highlight color.
+    out property <color> on-highlight: #06142b;
     /// The upper and lower halves of a flap, and of a lit one.
     out property <color> flap-upper: #1d2a44;
     out property <color> flap-lower: #121c30;
-    out property <brush> lit-upper: @linear-gradient(180deg, #48526a 0%, #3b4457 100%);
-    out property <brush> lit-lower: @linear-gradient(180deg, #2f3748 0%, #283040 100%);
+    out property <brush> lit-upper: @linear-gradient(180deg, #8ac4ff 0%, #74b6fb 100%);
+    out property <brush> lit-lower: @linear-gradient(180deg, #62a9f5 0%, #559ff2 100%);
     /// Behind the globe on the entry screen.
     out property <color> background: #040915;
     out property <color> surface: #0b1528;
@@ -70,13 +70,17 @@ export struct FlightInfo {
     /// The flown part of the distance, from 0 to 1.
     progress: float,
     remaining-time: string,
+    /// The remaining time as hours and minutes, such as "9:05".
+    remaining-clock: string,
     remaining-distance: string,
     flown-distance: string,
     total-distance: string,
     speed: string,
     altitude: string,
     temperature: string,
+    /// The heading in degrees, such as "252°", and as a compass point, such as "WSW".
     heading: string,
+    heading-compass: string,
     arrival-light: string,
 }
 
@@ -131,7 +135,7 @@ component Glass inherits Rectangle {
 /// The characters of a string, which Slint can't slice.
 export global Characters {
     /// The character at `index` of `text`, counted like `character-count`, or an empty string
-    /// past its end.
+    /// before its start or past its end.
     pure callback at(text: string, index: int) -> string;
 }
 
@@ -244,7 +248,8 @@ component Flap {
     Rectangle {
         y: (root.height - self.height) / 2;
         height: 1px;
-        background: #000000c0;
+        // Fainter through small characters, which it would otherwise cut in half.
+        background: root.size < 16px ? #00000070 : #000000c0;
     }
 }
 
@@ -256,14 +261,20 @@ component Flaps {
     in property <color> color: Theme.text;
     /// Shows all of the text on one flap.
     in property <bool> whole;
-    /// On a metal flap, like a sign.
+    /// On a flap in the highlight color, like a sign.
     in property <bool> lit;
     /// How long the flaps show a text before they flip to a newer one.
     in property <duration> hold: 50ms;
-    property <int> count: self.whole ? 1 : max(1, self.text.character-count);
-    // When all of the flaps flip, each one starts a little after the one on its left, and the
-    // last one finishes 520 ms after the first one started.
-    property <duration> flip-duration: 520ms / (1 + (self.count - 1) * 0.15);
+    /// How long all of the flaps take to flip, from the first one starting to the last one
+    /// finishing.
+    in property <duration> flip: 520ms;
+    /// The least number of flaps. Shorter text is aligned to the right, after blank flaps, so
+    /// that a number's digits keep their flaps as it grows or shrinks.
+    in property <int> places;
+    property <int> length: self.text.character-count;
+    property <int> count: self.whole ? 1 : max(1, max(self.places, self.length));
+    // When all of the flaps flip, each one starts a little after the one on its left.
+    property <duration> flip-duration: self.flip / (1 + (self.count - 1) * 0.15);
     property <length> gap: max(3px, self.size * 0.2);
     // The font is monospaced, so every character advances by the same width.
     property <length> flap-width: self.whole ? measure.preferred-width + 2 * self.gap : measure.preferred-width + self.gap;
@@ -282,11 +293,11 @@ component Flaps {
         x: index * (root.flap-width + 2px);
         width: root.flap-width;
         height: root.height;
-        text: root.whole ? root.text : Characters.at(root.text, index);
+        text: root.whole ? root.text : Characters.at(root.text, index - (root.count - root.length));
         hold: root.hold + index * root.flip-duration * 0.15;
         flip-duration: root.flip-duration;
         size: root.size;
-        ink: root.lit ? Theme.on-metal : root.color;
+        ink: root.lit ? Theme.on-highlight : root.color;
         upper: root.lit ? Theme.lit-upper : Theme.flap-upper;
         lower: root.lit ? Theme.lit-lower : Theme.flap-lower;
     }
@@ -299,15 +310,13 @@ component PillButton inherits Rectangle {
     in property <bool> primary;
     in property <bool> enabled: true;
     callback clicked;
-    property <color> ink: root.primary ? Theme.on-metal : Theme.text;
+    property <color> ink: root.primary ? Theme.on-highlight : Theme.text;
     height: 36px;
     min-width: content.preferred-width + 28px;
     border-radius: 3px;
-    border-width: root.primary ? 1px : 0px;
-    border-color: Theme.metal-edge;
     opacity: root.enabled ? 1 : 0.4;
     background: root.primary
-        ? (touch.pressed ? Theme.metal.darker(0.2) : touch.has-hover ? Theme.metal.brighter(0.1) : Theme.metal)
+        ? (touch.pressed ? Theme.highlight-fill.darker(0.2) : touch.has-hover ? Theme.highlight-fill.brighter(0.1) : Theme.highlight-fill)
         : (touch.pressed ? Theme.fill-pressed : touch.has-hover ? Theme.fill-hover : Theme.fill);
     content := HorizontalLayout {
         alignment: center;
@@ -348,8 +357,7 @@ component RoundButton inherits Glass {
     width: 40px;
     height: 40px;
     border-radius: 3px;
-    background: root.checked ? Theme.metal : Theme.glass;
-    border-color: root.checked ? Theme.metal-edge : Theme.line;
+    background: root.checked ? Theme.highlight-fill : Theme.glass;
     Rectangle {
         border-radius: root.border-radius;
         background: touch.pressed ? Theme.fill-pressed : touch.has-hover ? Theme.fill-hover : transparent;
@@ -366,7 +374,7 @@ component RoundButton inherits Glass {
         width: 18px;
         height: 18px;
         source: root.icon;
-        colorize: root.checked ? Theme.on-metal : Theme.text;
+        colorize: root.checked ? Theme.on-highlight : Theme.text;
     }
 
     touch := TouchArea {
@@ -395,7 +403,7 @@ component Toggle {
         text: root.checked ? "ON" : "OFF";
         size: 13px;
         whole: true;
-        color: root.checked ? Theme.accent : Theme.muted;
+        color: root.checked ? Theme.highlight : Theme.muted;
     }
 
     TouchArea {
@@ -442,6 +450,10 @@ component Caption inherits Text {
 component Stat {
     in property <string> label;
     in property <string> value;
+    /// After the value, smaller.
+    in property <string> unit;
+    /// The number of flaps, see `Flaps.places`.
+    in property <int> places;
     in property <length> value-size: 18px;
     // Columns of equal width, so that a changing value doesn't move the next column.
     min-width: 0;
@@ -455,11 +467,29 @@ component Stat {
 
         HorizontalLayout {
             alignment: start;
+            spacing: 4px;
             Flaps {
                 text: root.value;
                 size: root.value-size * 0.8;
-                // The readings change all the time, so the flaps rest a moment between flips.
-                hold: 200ms;
+                places: root.places;
+                // The readings change all the time. A quick flip and a rest between flips keep
+                // their digits readable.
+                flip: 400ms;
+                hold: 350ms;
+            }
+
+            // On the baseline of the digits, which are centered on their flaps: a smaller font
+            // centered there sits a little high.
+            if root.unit != "": Rectangle {
+                width: unit.preferred-width;
+                unit := Text {
+                    y: root.value-size * 0.04;
+                    height: parent.height;
+                    vertical-alignment: center;
+                    text: root.unit;
+                    color: Theme.muted;
+                    font-size: root.value-size * 0.68;
+                }
             }
         }
     }
@@ -510,7 +540,7 @@ component FlightCard inherits Glass {
                     width: (parent.width + 2px) / parent.tiles - 2px;
                     height: 10px;
                     border-radius: 1px;
-                    background: tile < root.flight.progress * parent.tiles ? Theme.accent : Theme.track;
+                    background: tile < root.flight.progress * parent.tiles ? Theme.highlight : Theme.track;
                 }
 
                 AircraftIcon {
@@ -550,12 +580,16 @@ component FlightCard inherits Glass {
             spacing: 16px;
             Stat {
                 label: "Time to go";
-                value: root.flight.remaining-time;
+                places: 5;
+                unit: "h";
+                value: root.flight.remaining-clock;
                 value-size: root.small ? 16px : 18px;
             }
 
             Stat {
                 label: "Distance to go";
+                places: 6;
+                unit: "km";
                 value: root.flight.remaining-distance;
                 value-size: root.small ? 16px : 18px;
             }
@@ -595,18 +629,24 @@ component StatusCard inherits Glass {
             Row {
                 Stat {
                     label: "Ground speed";
+                    places: 3;
+                    unit: "km/h";
                     value: root.flight.speed;
                     value-size: root.small ? 16px : 18px;
                 }
 
                 Stat {
                     label: "Altitude";
+                    places: 6;
+                    unit: "m";
                     value: root.flight.altitude;
                     value-size: root.small ? 16px : 18px;
                 }
 
                 Stat {
                     label: "Outside air";
+                    places: 3;
+                    unit: "°C";
                     value: root.flight.temperature;
                     value-size: root.small ? 16px : 18px;
                 }
@@ -615,16 +655,22 @@ component StatusCard inherits Glass {
             if !root.small: Row {
                 Stat {
                     label: "Heading";
+                    places: 4;
+                    unit: root.flight.heading-compass;
                     value: root.flight.heading;
                 }
 
                 Stat {
                     label: "Flown";
+                    places: 6;
+                    unit: "km";
                     value: root.flight.flown-distance;
                 }
 
                 Stat {
                     label: "Total";
+                    places: 6;
+                    unit: "km";
                     value: root.flight.total-distance;
                 }
             }
@@ -644,7 +690,7 @@ component StatusCard inherits Glass {
             }
 
             Text {
-                text: "\{root.flight.total-distance}  ·  \{root.flight.remaining-time}";
+                text: "\{root.flight.total-distance} km  ·  \{root.flight.remaining-time}";
                 color: Theme.muted;
                 font-size: 14px;
             }
@@ -684,7 +730,7 @@ component AirportMarker {
         y: -self.height / 2;
         width: 10px;
         height: 10px;
-        background: root.destination ? Theme.accent : white;
+        background: root.destination ? Theme.highlight : white;
         border-width: 2px;
         border-color: #111111;
         drop-shadow-blur: 6px;
@@ -696,7 +742,7 @@ component AirportMarker {
         y: -self.height / 2;
         text: root.marker.code;
         size: 12px;
-        color: root.destination ? Theme.accent : white;
+        color: root.destination ? Theme.highlight : white;
     }
 }
 
@@ -755,7 +801,7 @@ component AirportField inherits Rectangle {
     border-radius: 3px;
     background: Theme.fill;
     border-width: 1px;
-    border-color: root.active ? Theme.accent : Theme.line;
+    border-color: root.active ? Theme.highlight : Theme.line;
     forward-focus: input;
 
     TouchArea {
@@ -1060,7 +1106,7 @@ export component AppWindow inherits Window {
                 viewbox-width: self.width / 1px;
                 viewbox-height: self.height / 1px;
                 commands: root.flown-path;
-                stroke: Theme.accent-light.with-alpha(0.3);
+                stroke: Theme.highlight.with-alpha(0.55);
                 stroke-width: 7px;
                 visible: root.flown-path != "" && root.route-shown;
             }
