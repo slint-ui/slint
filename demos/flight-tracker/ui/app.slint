@@ -924,6 +924,9 @@ export component AppWindow inherits Window {
     init => {
         Theme.quality = root.quality;
     }
+    changed screen => {
+        root.settings-open = false;
+    }
     changed kiosk => {
         root.settings-changed();
     }
@@ -1161,7 +1164,8 @@ export component AppWindow inherits Window {
 
     // The planner, beside the globe, or below it on a phone held upright. It stays instantiated,
     // so its fields keep their text during a flight.
-    Glass {
+    planner := Glass {
+        property <length> inset: root.narrow ? 14px : 20px;
         property <length> rest-y: root.narrow ? root.entry-globe-y + root.entry-globe-height + 8px : root.top-edge;
         visible: root.planner-away < 1;
         property <float> away: 1 - root.planner-in + root.planner-away;
@@ -1170,7 +1174,7 @@ export component AppWindow inherits Window {
         width: root.narrow ? root.content-width : root.panel-width;
         height: root.height - self.rest-y - root.bottom-edge;
         VerticalLayout {
-            padding: root.narrow ? 14px : 20px;
+            padding: planner.inset;
             spacing: 12px;
             // The badge wraps below the heading where the panel is too narrow for both.
             FlexboxLayout {
@@ -1242,7 +1246,18 @@ export component AppWindow inherits Window {
 
             // Below the list, where the airports were just picked.
             HorizontalLayout {
-                alignment: end;
+                alignment: space-between;
+                RoundButton {
+                    width: 36px;
+                    height: 36px;
+                    icon: @image-url("icons/settings.svg");
+                    checked: root.settings-open;
+                    clicked => {
+                        root.settings-open = !root.settings-open;
+                        root.interacted();
+                    }
+                }
+
                 PillButton {
                     text: "Take off";
                     icon: @image-url("icons/aircraft.svg");
@@ -1361,9 +1376,11 @@ export component AppWindow inherits Window {
         }
     }
 
-    if root.settings-open && root.screen == Screen.flight: Glass {
-        x: root.width - self.width - root.right-edge;
-        y: controls.y - self.height - 10px;
+    // Above the settings button: during a flight at the right, and on the entry screen at the
+    // bottom of the planner.
+    if root.settings-open && root.screen != Screen.zoom: Glass {
+        x: root.screen == Screen.flight ? root.width - self.width - root.right-edge : planner.x + planner.inset;
+        y: (root.screen == Screen.flight ? controls.y : planner.y + planner.height - planner.inset - 36px) - self.height - 10px;
         width: min(260px, root.content-width);
         height: settings.preferred-height;
         settings := VerticalLayout {
