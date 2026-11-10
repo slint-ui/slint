@@ -1,5 +1,5 @@
 {
-//|<<error{'edition' is 9999.0, newer than Slint 1.19: upgrade Slint, or set "edition": "1.19"}
+//|<<error{'edition' is 9999.0, newer than Slint 1.20: upgrade Slint, or set "edition": "1.20"}
   "edition": "9999.0",
   "new-setting": 1
 }

@@ -81,7 +81,7 @@ pub(super) fn reseed_mask(instance: &ComponentInstance) {
                     overrides.insert(
                         override_id,
                         Box::pin(i_slint_core::Property::new(Some(
-                            slint_interpreter::Value::Brush(slint::Brush::default()),
+                            slint_interpreter::Value::Brush(slint::Brush::default()).into(),
                         ))),
                     );
                 }
@@ -597,7 +597,7 @@ export component Win inherits Window {
             .with_borrow(|state| state.text_edit_session.as_ref().unwrap().color_override.clone());
         assert_eq!(
             (*overrides).borrow().get(&color_override).unwrap().as_ref().get(),
-            Some(slint_interpreter::Value::Brush(slint::Brush::default()))
+            Some(slint_interpreter::Value::Brush(slint::Brush::default()).into())
         );
         PREVIEW_STATE.with_borrow(|state| {
             state.handle.replace(Some(reloaded.clone_strong()));

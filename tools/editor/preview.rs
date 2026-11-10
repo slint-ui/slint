@@ -244,9 +244,21 @@ struct SourceCodeCacheEntry {
 type SourceCodeCache = HashMap<Url, SourceCodeCacheEntry>;
 
 /// Property overrides the editor pushes into the previewed instance, keyed by debug hook id.
-type DebugHookOverrides = Rc<
-    RefCell<HashMap<SmolStr, Pin<Box<i_slint_core::Property<Option<slint_interpreter::Value>>>>>>,
->;
+type DebugHookOverrides =
+    Rc<RefCell<HashMap<SmolStr, Pin<Box<i_slint_core::Property<Option<DebugHookOverride>>>>>>>;
+
+#[derive(Clone, PartialEq, Debug)]
+struct DebugHookOverride {
+    value: slint_interpreter::Value,
+    expression: Option<String>,
+    fill: Option<ui::FillData>,
+}
+
+impl From<slint_interpreter::Value> for DebugHookOverride {
+    fn from(value: slint_interpreter::Value) -> Self {
+        Self { value, expression: None, fill: None }
+    }
+}
 
 /// Routes `instance`'s debug hooks through `overrides`, so that the editor can override a
 /// property of the previewed element without going through the source.
@@ -257,11 +269,13 @@ fn install_debug_hook_callback(instance: &ComponentInstance, overrides: DebugHoo
             tracing::trace!("Inserting Property override: {id}");
             Box::pin(i_slint_core::Property::new(None))
         });
-        property.as_ref().get()
+        property.as_ref().get().map(|override_value| override_value.value)
     })));
 }
 
 fn set_override(id: &SmolStr, value: Option<slint_interpreter::Value>) {
+    let value = value.map(DebugHookOverride::from);
+
     PREVIEW_STATE.with_borrow(|state| {
         let mut overrides = (*state.debug_hook_overrides).borrow_mut();
         if value.is_some() {
@@ -1656,7 +1670,7 @@ fn override_selected_element_rotation_impl(
             );
             return None;
         };
-        (**rotation_override).set(Some(slint_interpreter::Value::Number(new_rotation)));
+        (**rotation_override).set(Some(slint_interpreter::Value::Number(new_rotation).into()));
         Some(())
     })?;
 
@@ -1819,7 +1833,7 @@ fn override_selected_element_geometry_impl(
             })
             .collect::<Option<Vec<_>>>()?;
         for (property_override, value) in property_overrides {
-            (**property_override).set(Some(slint_interpreter::Value::Number(value)));
+            (**property_override).set(Some(slint_interpreter::Value::Number(value).into()));
         }
         Some(())
     })?;
@@ -1886,7 +1900,7 @@ fn set_selected_element_border_radius_override(
             );
             return;
         };
-        (**property_override).set(value);
+        (**property_override).set(value.map(DebugHookOverride::from));
     });
 
     component_instance.window().request_redraw();
@@ -1934,7 +1948,7 @@ fn persist_selected_element_border_radius() {
                     .get(&id)
                     .and_then(|property_override| property_override.as_ref().get())
                     .and_then(|value| {
-                        if let slint_interpreter::Value::Number(value) = value && value.is_finite() {
+                        if let slint_interpreter::Value::Number(value) = value.value && value.is_finite() {
                             Some((property, value))
                         } else {
                             tracing::debug!(
@@ -2025,7 +2039,7 @@ fn persist_selected_element_geometry_impl(
                     .get(&id)
                     .and_then(|property_override| property_override.as_ref().get())
                     .and_then(|value| {
-                        if let slint_interpreter::Value::Number(value) = value && value.is_finite() {
+                        if let slint_interpreter::Value::Number(value) = value.value && value.is_finite() {
                             Some((property, value))
                         } else {
                             tracing::debug!(
@@ -3399,7 +3413,7 @@ mod tests {
         let manifest_path = directory.path().join("slint-project.json");
         std::fs::write(
             &manifest_path,
-            r#"{"edition":"1.19","library-paths":{"widgets":"shared.slint"}}"#,
+            r#"{"edition":"1.20","library-paths":{"widgets":"shared.slint"}}"#,
         )
         .unwrap();
         let manifest = Url::from_file_path(&manifest_path).unwrap();
@@ -3413,7 +3427,7 @@ mod tests {
                 nested_manifest.to_url().unwrap(),
                 SourceCodeCacheEntry {
                     version: Some(1),
-                    code: r#"{"edition":"1.19","library-paths":{"widgets":"missing.slint"}}"#
+                    code: r#"{"edition":"1.20","library-paths":{"widgets":"missing.slint"}}"#
                         .into(),
                 },
             );
@@ -3429,11 +3443,11 @@ mod tests {
             (None, true),
             (
                 Some(
-                    r#"{"edition":"1.19","main":"other.slint","library-paths":{"widgets":"shared.slint"}}"#,
+                    r#"{"edition":"1.20","main":"other.slint","library-paths":{"widgets":"shared.slint"}}"#,
                 ),
                 false,
             ),
-            (Some(r#"{"edition":"1.19"}"#), true),
+            (Some(r#"{"edition":"1.20"}"#), true),
             (Some("{"), true),
         ] {
             PREVIEW_STATE.with_borrow_mut(|state| {
@@ -3484,7 +3498,7 @@ mod tests {
             });
             state.document_cache.replace(Some(Rc::new(cache)));
             for (url, source) in [
-                (manifest.clone(), r#"{"edition":"1.19"}"#),
+                (manifest.clone(), r#"{"edition":"1.20"}"#),
                 (extra.clone(), "export component Extra {}"),
             ] {
                 state
@@ -3554,8 +3568,8 @@ mod tests {
         });
         assert_eq!(get_url_from_cache(&manifest).unwrap_err().kind(), std::io::ErrorKind::NotFound);
         for (contents, reload) in [
-            (Some(r#"{"edition":"1.19"}"#), true),
-            (Some(r#"{"edition":"1.19"}"#), false),
+            (Some(r#"{"edition":"1.20"}"#), true),
+            (Some(r#"{"edition":"1.20"}"#), false),
             (Some("{broken"), true),
             (None, true),
             (None, true),
@@ -3944,7 +3958,7 @@ mod tests {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("slint-project.json");
         let url = Url::from_file_path(&path).unwrap();
-        let original = r#"{"edition":"1.19","main":"main.slint",/* keep */"metadata":{"visual-editor":{"old":"🦊"}}}"#;
+        let original = r#"{"edition":"1.20","main":"main.slint",/* keep */"metadata":{"visual-editor":{"old":"🦊"}}}"#;
         std::fs::write(&path, original).unwrap();
         set_contents(&VersionedUrl::new(url.clone(), Some(1)), original.into());
         let messages = Rc::new(RefCell::new(Vec::new()));
@@ -4888,7 +4902,10 @@ export component Main {
     #[test]
     fn inspector_typed_edits_reject_invalid_values_without_changing_the_draft() {
         let editor = availability_test_editor();
-        inspector_test_target(&editor, ROTATED_SOURCE);
+        let source = ROTATED_SOURCE
+            .replace("height: 60px;", "height: 60px; in-out property <length> font-size: 12px;");
+        inspector_test_target(&editor, &source);
+        assert!(inspector::preview_property("font-size".into(), inspector_number(20., "px")));
         let instance = component_instance().unwrap();
         assert!(inspector::preview_property(
             "transform-rotation".into(),
@@ -4898,6 +4915,9 @@ export component Main {
             ("transform-rotation", inspector_number(f32::NAN, "deg")),
             ("transform-rotation", inspector_number(1., "px")),
             ("border-width", inspector_number(-1., "px")),
+            ("font-size", inspector_number(0., "px")),
+            ("font-size", inspector_number(-1., "px")),
+            ("font-size", inspector_number(f32::NAN, "px")),
             ("drop-shadow-blur", inspector_number(-1., "px")),
             ("inner-shadow-blur", inspector_number(-1., "px")),
             ("missing-property", inspector_number(1., "px")),

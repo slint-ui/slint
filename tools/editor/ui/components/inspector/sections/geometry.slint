@@ -14,7 +14,7 @@ export component InspectorGeometrySection inherits InspectorSection {
     private property <bool> resizable: InspectorContext.is-resizable-selection();
 
     title: @tr("Geometry");
-    InspectorPropertyRow {
+    if !InspectorContext.is-root-selection(): InspectorPropertyRow {
         label: @tr("Position");
         InspectorValueField {
             width: (parent.width - root.style.label-width - 2 * root.style.padding - 2 * root.style.row-gap) / 2;

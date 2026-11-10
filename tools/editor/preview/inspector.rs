@@ -20,7 +20,7 @@ pub(super) struct Edit {
 struct PropertyEdit {
     name: String,
     override_id: SmolStr,
-    previous_override: Option<slint_interpreter::Value>,
+    previous_override: Option<DebugHookOverride>,
     expression: String,
 }
 
@@ -181,7 +181,7 @@ fn edit_value(
                         | "drop-shadow-blur"
                         | "inner-shadow-blur"
                 );
-            if nonnegative && value.number < 0. {
+            if (nonnegative && value.number < 0.) || (name == "font-size" && value.number <= 0.) {
                 return None;
             }
             (format!("{}{}", value.number, value.unit), Value::Number(runtime))
@@ -218,7 +218,26 @@ fn edit_value(
         ),
         _ => return None,
     };
-    Some((expression, runtime))
+    Some((if value.code.is_empty() { expression } else { value.code.to_string() }, runtime))
+}
+
+pub(super) fn preview_code_property(
+    name: SharedString,
+    kind: ui::PropertyEditKind,
+    code: SharedString,
+) -> bool {
+    if kind != ui::PropertyEditKind::String {
+        return false;
+    }
+    let tokens = i_slint_compiler::lexer::lex(&code);
+    if tokens.len() != 1 || tokens[0].kind != i_slint_compiler::parser::SyntaxKind::StringLiteral {
+        return false;
+    }
+    let Some(text) = i_slint_compiler::literals::unescape_string(&code) else { return false };
+    preview_property(
+        name,
+        ui::PropertyEditValue { kind, text: text.as_str().into(), code, ..Default::default() },
+    )
 }
 
 pub(super) fn preview_property(name: SharedString, value: ui::PropertyEditValue) -> bool {
@@ -249,17 +268,22 @@ pub(super) fn preview_property(name: SharedString, value: ui::PropertyEditValue)
         if let Some(property_edit) =
             edit.properties.iter_mut().find(|property_edit| property_edit.name == name.as_str())
         {
-            property_edit.expression = expression;
+            property_edit.expression = expression.clone();
         } else {
             edit.properties.push(PropertyEdit {
                 name: name.to_string(),
                 override_id,
                 previous_override,
-                expression,
+                expression: expression.clone(),
             });
         }
     });
-    property.as_ref().set(Some(runtime));
+    property.as_ref().set(Some(DebugHookOverride {
+        value: runtime,
+        expression: Some(expression),
+        fill: (value.kind == ui::PropertyEditKind::Fill).then_some(value.fill),
+    }));
+    property.as_ref().mark_dirty();
     drop(overrides);
     if let Some(instance) = component_instance() {
         instance.window().request_redraw();

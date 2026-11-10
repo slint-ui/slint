@@ -54,7 +54,7 @@ slint-build = { workspace = true, features = ["experimental-module-builds"], opt
 slint = { workspace = true, features = ["compat-1-2"], optional = true }
 i-slint-common = { workspace = true, optional = true }
 i-slint-compiler = { workspace = true, features = ["display-diagnostics"] }
-i-slint-live-preview = { version = "=1.19.0", path = "../live-preview", features = ["protocol", "file-watcher"] }
+i-slint-live-preview = { version = "=1.20.0", path = "../live-preview", features = ["protocol", "file-watcher"] }
 
 itertools = { workspace = true }
 lsp-types = { workspace = true }

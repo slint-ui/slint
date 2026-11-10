@@ -13,13 +13,14 @@ To apply these settings, pass the project file or its directory to the compiler.
 
 Name the file `slint-project.json` and place it in your project directory.
 Passing either `/projects/app` or `/projects/app/slint-project.json` loads `/projects/app/slint-project.json`.
-Compiling `/projects/app/ui/main.slint` directly doesn't load a project file.
+Importing a `.slint` file in Node.js or generating TypeScript declarations for it loads `slint-project.json` from the source file's directory.
+For example, importing `/projects/app/ui/main.slint` looks for `/projects/app/ui/slint-project.json`.
 
 ## Example
 
 ```json
 {
-    "edition": "1.19",
+    "edition": "1.20",
     "main": "ui/main.slint",
     "include-paths": ["ui/shared"],
     "library-paths": {
@@ -37,7 +38,7 @@ All other settings are optional.
 
 | Setting | Type | Description |
 |---------|------|-------------|
-| `edition` | string | Required. The Slint release whose language behavior your project uses, such as `"1.19"`. See [Editions](../../language/concepts/editions/). |
+| `edition` | string | Required. The Slint release whose language behavior your project uses, such as `"1.20"`. See [Editions](../../language/concepts/editions/). |
 | `main` | string | The `.slint` file to compile when you pass the project file or its directory. See [Compiling a Project](#compiling-a-project). |
 | `include-paths` | array of strings | Directories to search for imported `.slint` files. |
 | `library-paths` | object | Maps a library name to a file, a directory, or the library's project file, for `@library` imports. See [Libraries](#libraries). |
@@ -66,7 +67,7 @@ To use its settings, map the library name to that project file:
 
 ```json
 {
-    "edition": "1.19",
+    "edition": "1.20",
     "main": "ui/main.slint",
     "library-paths": {
         "widgets": "../widgets/slint-project.json"
@@ -88,7 +89,7 @@ To compile your project, first set `main` to the main `.slint` file of your appl
 
 ```json
 {
-    "edition": "1.19",
+    "edition": "1.20",
     "main": "ui/main.slint"
 }
 ```
@@ -140,10 +141,11 @@ The arguments you pass to `slint.load_file` win over the project file.
 </TabItem>
 </Tabs>
 
-The `slint-compiler` command line tool accepts the project file or its directory, too:
+The `slint-compiler` and [`slint-tr-extractor`](../../development/translations/#extracting-translatable-strings) command line tools accept the project file or its directory, too:
 
 ```bash
 slint-compiler slint-project.json -o main.h
+slint-tr-extractor slint-project.json -o messages.pot
 ```
 
 ## Editor Support

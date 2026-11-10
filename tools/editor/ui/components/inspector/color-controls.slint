@@ -88,7 +88,6 @@ export component InspectorColorControls inherits Rectangle {
     in property <bool> editable;
     in property <string> session-key;
     callback preview(color) -> bool;
-    private property <color> working-color: root.value;
     private property <float> hue;
     private property <float> saturation;
     private property <float> brightness;
@@ -109,7 +108,6 @@ export component InspectorColorControls inherits Rectangle {
             root.saturation = c.to-hsv().saturation;
             root.brightness = c.to-hsv().value;
         }
-        root.working-color = c;
         root.alpha = c.alpha;
     }
 
@@ -136,7 +134,7 @@ export component InspectorColorControls inherits Rectangle {
     function begin-gesture() {
         if root.editable {
             root.dragging = true;
-            root.gesture-color = root.working-color;
+            root.gesture-color = root.value;
         }
     }
 
@@ -264,12 +262,12 @@ export component InspectorColorControls inherits Rectangle {
             y: root.field-height + root.style.value-offset;
             height: root.style.row-height;
             accessible-name: @tr("Hex color");
-            value: root.working-color;
+            value: root.value;
             enabled: root.editable;
-            live-edit: true;
             swatch-enabled: false;
             commit-key: root.session-key;
             preview(color) => { return root.preview-color(color); }
+            edit-input(color) => { root.preview-color(color); }
         }
 
     }

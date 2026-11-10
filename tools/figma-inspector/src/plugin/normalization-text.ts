@@ -580,10 +580,61 @@ export async function normalizeText(
             strike: segment.textDecoration === "STRIKETHROUGH",
         };
     });
+    let outline: SnapshotTextNode["outline"];
+    const rawStrokes = Array.isArray(textNode.strokes)
+        ? textNode.strokes.filter((stroke) => stroke.visible !== false)
+        : [];
+    if (rawStrokes.length > 0) {
+        const strokes = await visiblePaints(
+            rawStrokes.filter((stroke) => stroke.type !== "IMAGE"),
+            node,
+            mixedValue,
+            "strokes",
+            imageResolver,
+        );
+        captureWarnings.push(...strokes.warnings);
+        const stroke = strokes.paints[0];
+        if (
+            stroke &&
+            stroke.kind !== "image" &&
+            number(textNode.strokeWeight) &&
+            textNode.strokeWeight > 0 &&
+            (textNode.strokeAlign === "CENTER" ||
+                textNode.strokeAlign === "OUTSIDE") &&
+            (textNode.dashPattern?.length ?? 0) === 0
+        ) {
+            outline = {
+                paint: stroke,
+                width: textNode.strokeWeight,
+                align: textNode.strokeAlign === "CENTER" ? "center" : "outside",
+            };
+        } else if (textNode.strokeWeight !== 0) {
+            captureWarnings.push({
+                ...problem(
+                    "TEXT_OUTLINE_APPROXIMATED",
+                    node,
+                    "Inside, dashed, image, or invalid text outline was omitted",
+                    "strokes",
+                ),
+                severity: "warning",
+            });
+        }
+        if (rawStrokes.length > 1)
+            captureWarnings.push({
+                ...problem(
+                    "MULTIPLE_VISIBLE_PAINTS_APPROXIMATED",
+                    node,
+                    "Only the first supported text outline paint is rendered",
+                    "strokes",
+                ),
+                severity: "warning",
+            });
+    }
     return {
         node: {
             ...base,
             kind: "text",
+            ...(outline === undefined ? {} : { outline }),
             characters: displayedCharacters,
             fills: fills.paints,
             fontFamily: fontName.family,

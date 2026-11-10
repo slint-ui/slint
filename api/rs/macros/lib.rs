@@ -413,7 +413,7 @@ fn loaded_files(diag: &BuildDiagnostics) -> Vec<PathBuf> {
 ///
 /// ```rust,ignore
 /// slint::slint! {
-///     #[edition = "1.19"]
+///     #[edition = "1.20"]
 ///     export component App inherits Window { }
 /// }
 /// ```
