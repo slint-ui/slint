@@ -556,8 +556,8 @@ impl LookupObject for ElementRc {
     ) -> Option<R> {
         if self.borrow().slot_collection {
             return self
-                .lookup(ctx, &SmolStr::new_static("count"))
-                .and_then(|result| f(&SmolStr::new_static("count"), result));
+                .lookup(ctx, &SmolStr::new_static("length"))
+                .and_then(|result| f(&SmolStr::new_static("length"), result));
         }
         for (internal_name, prop) in &self.borrow().property_declarations {
             let name = prop.declared_name(internal_name);
@@ -611,7 +611,7 @@ impl LookupObject for ElementRc {
     }
 
     fn lookup(&self, ctx: &LookupCtx, name: &SmolStr) -> Option<LookupResult> {
-        if self.borrow().slot_collection && name != "count" {
+        if self.borrow().slot_collection && name != "length" {
             return None;
         }
         let lookup_result = self.borrow().lookup_property(name, PropertyLookupMode::ComponentLocal);

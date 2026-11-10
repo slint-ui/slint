@@ -44,7 +44,7 @@ Passes are organized into three phases in `internal/compiler/passes.rs`:
 
 ### 2. Transformation Passes (main `run_passes`)
 - `lower_*` passes - Transform high-level constructs (states, layouts, popups, etc.)
-- `lower_slot_collections` - Validate collection children, apply expansion bindings and callbacks, and resolve counts and indexes before inlining.
+- `lower_slot_collections` - Validate collection children, apply expansion bindings and callbacks, and resolve lengths and indexes before inlining.
 - `inlining` - Inline components as needed
 - `collect_*` passes - Gather globals, structs, subcomponents
 - `focus_handling` - Set up focus navigation

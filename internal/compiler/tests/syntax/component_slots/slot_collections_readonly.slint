@@ -11,8 +11,8 @@ component Group {
         clicked => {
             index = 2;
 //          >       <error{Collection metadata is read-only}
-            entries.count = 3;
-//          >               <error{Collection metadata is read-only}
+            entries.length = 3;
+//          >                <error{Collection metadata is read-only}
         }
     }
     forward-focus: entries;

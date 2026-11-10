@@ -278,7 +278,7 @@ interface Entry {
 
 component EntryGroup {
     in-out property <int> current-index: -1;
-    out property <int> count: entries.count;
+    out property <int> count: entries.length;
     default slot <[Entry]> entries;
 
     HorizontalLayout {
@@ -293,8 +293,8 @@ component EntryGroup {
 
 The expansion places existing supplied components without replacing their type or visuals.
 The child and optional index variables are available only inside the expansion.
-`entries.count` tracks the number of supplied components, including changes to a supplied repeater's model.
-Counts and indexes are read-only.
+`entries.length` tracks the number of supplied components, including changes to a supplied repeater's model.
+Collection lengths and indexes are read-only.
 
 Callers can't assign properties or callback handlers managed by the expansion.
 Bindings in the supplied component's implementation remain available as defaults; property change handlers from both sides are combined.

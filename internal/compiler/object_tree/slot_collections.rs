@@ -17,13 +17,13 @@ pub(super) fn declare(slot: &DeclaredSlot, root: &ElementRc, tr: &TypeRegister) 
         ..Default::default()
     }
     .make_rc();
-    let count = crate::layout::create_new_prop(root, "slot-count".into(), Type::Int32);
+    let length = crate::layout::create_new_prop(root, "slot-length".into(), Type::Int32);
     metadata.borrow_mut().property_declarations.insert(
-        "count".into(),
+        "length".into(),
         PropertyDeclaration {
             property_type: Type::Int32,
             visibility: PropertyVisibility::Output,
-            is_alias: Some(count),
+            is_alias: Some(length),
             ..Default::default()
         },
     );

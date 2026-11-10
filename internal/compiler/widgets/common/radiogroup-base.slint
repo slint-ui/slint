@@ -15,7 +15,7 @@ export component RadioGroupBase {
     in property <Orientation> orientation: Orientation.vertical;
     in property <length> spacing: 8px;
     in property <length> content-padding: 0px;
-    in property <int> item-count: members.count;
+    in property <int> item-count: members.length;
 
     default slot <[RadioGroupMember]> members;
 

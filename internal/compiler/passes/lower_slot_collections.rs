@@ -21,7 +21,7 @@ struct Contract {
     template: ElementRc,
     metadata: ElementRc,
     slot: DeclaredSlot,
-    count: NamedReference,
+    length: NamedReference,
 }
 
 fn is_member(element: &ElementRc, slot: &DeclaredSlot) -> bool {
@@ -77,13 +77,14 @@ pub(super) fn lower_slot_collections(
                 .find(|e| e.borrow().slot_collection && e.borrow().id == slot.name)
                 .unwrap()
                 .clone();
-            let count = metadata.borrow().property_declarations["count"].is_alias.clone().unwrap();
+            let length =
+                metadata.borrow().property_declarations["length"].is_alias.clone().unwrap();
             contracts.push(Contract {
                 owner: component.clone(),
                 template: element.clone(),
                 metadata,
                 slot,
-                count,
+                length,
             });
         });
     });
@@ -133,9 +134,9 @@ pub(super) fn lower_slot_collections(
         });
         visit_all_named_references(component, &mut |reference| {
             if let Some(contract) = contracts.iter().find(|c| {
-                Rc::ptr_eq(&reference.element(), &c.metadata) && reference.name() == "count"
+                Rc::ptr_eq(&reference.element(), &c.metadata) && reference.name() == "length"
             }) {
-                *reference = contract.count.clone();
+                *reference = contract.length.clone();
             }
         });
     });
@@ -210,7 +211,7 @@ pub(super) fn lower_slot_collections(
                 );
                 continue;
             }
-            let count = match children.first().and_then(|e| e.borrow().repeated.clone()) {
+            let length = match children.first().and_then(|e| e.borrow().repeated.clone()) {
                 Some(repeated) => Expression::FunctionCall {
                     function: Callable::Builtin(
                         crate::builtin_functions::BuiltinFunction::ArrayLength,
@@ -220,7 +221,7 @@ pub(super) fn lower_slot_collections(
                 },
                 None => Expression::NumberLiteral(children.len() as f64, Unit::None),
             };
-            group.borrow_mut().set_binding(contract.count.name().clone(), count.into());
+            group.borrow_mut().set_binding(contract.length.name().clone(), length.into());
             for (index, child) in children.iter().enumerate() {
                 let index = if child.borrow().repeated.is_some() {
                     Expression::RepeaterIndexReference { element: Rc::downgrade(child) }

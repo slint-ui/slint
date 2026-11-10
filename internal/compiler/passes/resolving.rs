@@ -2888,9 +2888,9 @@ fn continue_lookup_within_element(
         return None;
     };
     let prop_name = crate::parser::normalize_identifier(second.text());
-    if elem.borrow().slot_collection && prop_name != "count" {
+    if elem.borrow().slot_collection && prop_name != "length" {
         ctx.diag.push_error(
-            "A slot collection only exposes its 'count'; access each child inside its expansion"
+            "A slot collection only exposes its 'length'; access each child inside its expansion"
                 .into(),
             &second,
         );

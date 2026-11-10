@@ -27,7 +27,7 @@ component DecoratedEntry inherits EntryView {
 component EntryGroup {
     in property <int> factor: 2;
     in-out property <int> shared;
-    out property <int> count: entries.count;
+    out property <int> count: entries.length;
     out property <int> last-value: -1;
     out property <int> last-index: -1;
     out property <int> observed-factor;
@@ -57,30 +57,30 @@ component FixedGroup inherits EntryGroup {
 
 interface Positioned {
     in property <int> index;
-    in property <int> count;
+    in property <int> length;
 }
 
 component PositionedView {
     in property <int> index;
-    in property <int> count;
+    in property <int> length;
 }
 
 component SeveralSlots {
     slot <[Positioned]> leading;
     default slot <[Positioned]> trailing;
     slot <Entry> action;
-    out property <int> leading-count: leading.count;
-    out property <int> trailing-count: trailing.count;
+    out property <int> leading-count: leading.length;
+    out property <int> trailing-count: trailing.length;
     HorizontalLayout {
         Rectangle { width: 3px; }
         for child[index] in leading: child {
             index: index;
-            count: leading.count;
+            length: leading.length;
         }
         action { position: 12; }
         for child[index] in trailing: child {
             index: index;
-            count: trailing.count;
+            length: trailing.length;
         }
         Rectangle { width: 4px; }
     }
@@ -88,7 +88,7 @@ component SeveralSlots {
 
 component AnyChildren {
     default slot <[component]> children;
-    out property <int> count: children.count;
+    out property <int> count: children.length;
     VerticalLayout { for child in children: child { } }
 }
 
@@ -102,8 +102,8 @@ export component TestCase inherits Window {
         && inherited.count == 2 && empty.count == 0
         && multiple.leading-count == 2 && multiple.trailing-count == 1
         && leading-first.index == 0 && leading-second.index == 1
-        && leading-second.count == 2 && trailing-first.index == 0
-        && trailing-first.count == 1 && action.position == 12 && any.count == 2;
+        && leading-second.length == 2 && trailing-first.index == 0
+        && trailing-first.length == 1 && action.position == 12 && any.count == 2;
     out property <int> static-count: static-group.count;
     out property <int> repeated-count: repeated.count;
     out property <int> second-factor: second.factor;

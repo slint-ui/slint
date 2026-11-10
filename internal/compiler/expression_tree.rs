@@ -1484,7 +1484,7 @@ impl Expression {
     ) -> bool {
         match self {
             Expression::PropertyReference(nr) => {
-                if (nr.element().borrow().slot_collection && nr.name() == "count")
+                if (nr.element().borrow().slot_collection && nr.name() == "length")
                     || nr
                         .element()
                         .borrow()
