@@ -173,8 +173,23 @@ pub trait WindowAdapter {
         Err(raw_window_handle_06::HandleError::NotSupported)
     }
 
-    /// Re-implement this to apply the popup's anchor/gravity/constraint-adjustment
-    /// positioner data to the native window
+    /// Re-implement this to place a popup window relative to an anchor rectangle
+    ///
+    /// Slint calls this only on a window adapter that shows a `PopupWindow` to position the Popup
+    /// constraint by additional properties. So when a popup is not implemented as own `WindowAdapter` because
+    /// `create_child_window_adapter` returned None this function is never called and the positioning is done internally
+    /// automatically
+    ///
+    /// For a popup, the position passed to [`Self::set_position()`] is the corner of the anchor rectangle,
+    /// in the coordinates of the parent window (See `PopupAnchorLocation` which corner is used).
+    ///  - `width` and `height` are the size of the anchor rectangle.
+    ///  - `location` is the anchor point on that rectangle.
+    ///  - `x` and `y` offset the popup from the anchor point.
+    ///  - `gravity` is the direction in which the popup extends from the anchor point.
+    ///  - `constraint_adjustment_x` and `constraint_adjustment_y` select how to slide, flip, or resize the popup
+    ///    when it doesn't fit on the screen.
+    ///
+    /// The default implementation does nothing, so the popup stays at the position passed to [`Self::set_position()`].
     fn set_position_anchor(&self, _anchor: &crate::items::PopupAnchor) {}
 }
 
