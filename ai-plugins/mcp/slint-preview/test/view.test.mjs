@@ -30,6 +30,14 @@ function startView({
     callTool = () => ({}),
 } = {}) {
     const captures = [];
+    let requestedPreviewId;
+    const handleToolCall = (params) => {
+        if (params.name !== "poll_preview_capture") return callTool(params);
+        const { previewId } = params.arguments;
+        if (requestedPreviewId === previewId) return {};
+        requestedPreviewId = previewId;
+        return { structuredContent: { active: true, captureId: "test-capture" } };
+    };
     let onMessage;
     let resolveCapture;
     const captured = new Promise((resolve) => {
@@ -108,7 +116,7 @@ function startView({
                                     : {
                                           result:
                                               message.method === "tools/call"
-                                                  ? callTool(message.params)
+                                                  ? handleToolCall(message.params)
                                                   : {},
                                       }),
                             },
@@ -227,6 +235,7 @@ test("renders without waiting for version metadata", {
     const view = startView({ fetch: () => new Promise(() => {}) });
     await view.preview();
     const capture = await view.captured;
+    assert.equal(capture.captureId, "test-capture");
     assert.equal(capture.png, "cGl4ZWxz");
     assert.ok(capture.runtime.startsWith("Slint ("));
 });
@@ -348,13 +357,14 @@ test("a failed retry leaves the crash panel available", {
     assert.equal(view.element("retry").disabled, false);
 });
 
-test("publishes a terminal error when canvas capture fails", {
+test("reports an error for the requested capture when canvas capture fails", {
     timeout: 3000,
 }, async () => {
     const view = startView({ captureError: "canvas unavailable" });
     await view.preview();
     const capture = await view.captured;
     assert.equal(capture.previewId, "test-preview");
+    assert.equal(capture.captureId, "test-capture");
     assert.ok(
         capture.error.includes(
             "Couldn't capture the preview: canvas unavailable",

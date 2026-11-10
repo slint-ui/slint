@@ -252,6 +252,25 @@ function centerPixel(screenshot) {
     }, screenshot.content[0].data);
 }
 
+test("captures the current state after interacting with the preview", async () => {
+    const initial = await preview({ source: `
+        export component Main inherits Window {
+            width: 40px;
+            height: 40px;
+            property <bool> clicked: false;
+            background: clicked ? blue : red;
+            TouchArea { clicked => { root.clicked = true; } }
+        }
+    ` });
+    assertRendered(initial);
+    assert.deepEqual(await centerPixel(initial), [255, 0, 0, 255]);
+
+    await page.frameLocator("iframe").locator("#preview").click();
+    const refreshed = await callTool("get_preview_screenshot", {});
+    assertRendered(refreshed);
+    assert.deepEqual(await centerPixel(refreshed), [0, 0, 255, 255]);
+});
+
 const BLUE_SVG =
     '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><rect width="20" height="20" fill="#00f"/></svg>';
 const ICON =
