@@ -14,7 +14,7 @@ fn far_away_cursor_does_not_panic() {
     let window = common::setup(WIDTH as u32, HEIGHT as u32);
 
     slint::slint! {
-        #[edition = "1.19"]
+        #[edition = "1.20"]
         export component TestCase inherits Window {
             width: 100px;
             height: 100px;

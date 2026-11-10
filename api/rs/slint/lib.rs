@@ -44,7 +44,7 @@ This method combines your Rust code with the `.slint` design markup in one file,
 
 ```rust,no_run
 slint::slint!{
-    #[edition = "1.19"]
+    #[edition = "1.20"]
     export component HelloWorld inherits Window {
         Text {
             text: "hello world";
@@ -142,13 +142,16 @@ convenience functions are available through the [`ComponentHandle`] implementati
     followed by spinning the event loop, and `hide()` when returning from the event loop.
   - [`fn global<T: Global<Self>>(&self) -> T`](docs::generated_code::SampleComponent::global): an accessor to the global singletons,
 
-For each top-level property
+For each property declared at the root of the component, excluding inherited ones:
   - A setter [`fn set_<property_name>(&self, value: <PropertyType>)`](docs::generated_code::SampleComponent::set_counter)
   - A getter [`fn get_<property_name>(&self) -> <PropertyType>`](docs::generated_code::SampleComponent::get_counter)
 
-For each top-level callback
+For each callback declared at the root of the component, excluding inherited ones:
   - [`fn invoke_<callback_name>(&self)`](docs::generated_code::SampleComponent::invoke_hello): to invoke the callback
   - [`fn on_<callback_name>(&self, callback: impl Fn(<CallbackArgs>) + 'static)`](docs::generated_code::SampleComponent::on_hello): to set the callback handler.
+
+For each public function declared at the root of the component, excluding inherited ones:
+  - [`fn invoke_<function_name>(&self, <FunctionArgs>) -> <ReturnType>`](docs::generated_code::SampleComponent::invoke_do_something): to call the function.
 
 In the names of types, struct fields, and functions, use underscores (`_`) in place of dashes (`-`).
 If a name is a Rust keyword, such as a struct field `type`,
@@ -542,7 +545,7 @@ pub mod android;
 /// Helper type that helps checking that the generated code is generated for the right version
 #[doc(hidden)]
 #[allow(non_camel_case_types)]
-pub struct VersionCheck_1_19_0;
+pub struct VersionCheck_1_20_0;
 
 #[cfg(doctest)]
 mod compile_fail_tests;
@@ -594,7 +597,7 @@ pub mod wgpu_30 {
     //!
     //! `Cargo.toml`:
     //! ```toml
-    //! slint = { version = "~1.19", features = ["unstable-wgpu-30"] }
+    //! slint = { version = "~1.20", features = ["unstable-wgpu-30"] }
     //! ```
     //!
     //! `main.rs`:
@@ -604,7 +607,7 @@ pub mod wgpu_30 {
     //! use wgpu::util::DeviceExt;
     //!
     //!slint::slint!{
-    //!    #[edition = "1.19"]
+    //!    #[edition = "1.20"]
     //!    export component HelloWorld inherits Window {
     //!        preferred-width: 320px;
     //!        preferred-height: 300px;
@@ -684,7 +687,7 @@ pub mod winit_030 {
     //!
     //! `Cargo.toml`:
     //! ```toml
-    //! slint = { version = "~1.19", features = ["unstable-winit-030"] }
+    //! slint = { version = "~1.20", features = ["unstable-winit-030"] }
     //! ```
     //!
     //! `main.rs`:
@@ -693,7 +696,7 @@ pub mod winit_030 {
     //! use slint::winit_030::{WinitWindowAccessor, winit};
     //!
     //! slint::slint!{
-    //!     #[edition = "1.19"]
+    //!     #[edition = "1.20"]
     //!     import { VerticalBox, Button } from "std-widgets.slint";
     //!     export component HelloWorld inherits Window {
     //!         callback clicked;
@@ -765,7 +768,7 @@ pub mod fontique_012 {
     ///
     /// `Cargo.toml`:
     /// ```toml
-    /// slint = { version = "~1.19", features = ["unstable-fontique-012"] }
+    /// slint = { version = "~1.20", features = ["unstable-fontique-012"] }
     /// ```
     ///
     /// `main.rs`:
