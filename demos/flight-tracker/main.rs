@@ -729,7 +729,7 @@ fn border_strength(eye: Vec3, height: f32) -> f32 {
 /// How strongly the clouds show on a globe seen from `eye`: they fade out as the camera comes
 /// close, where they would hide the route and the cities.
 fn cloud_strength(eye: Vec3) -> f32 {
-    let t = ((eye.length() - 1.0 - 0.3) / 1.0).clamp(0.0, 1.0);
+    let t = ((eye.length() - 1.0 - 0.9) / 1.1).clamp(0.0, 1.0);
     t * t * (3.0 - 2.0 * t)
 }
 
