@@ -86,4 +86,7 @@ export component SuperSimple {
         let value = @from-json("from-json/data.json").a_nested_struct;
         return value.point.x;
     }
+
+    // a file starting with a byte order mark
+    property <string> with_bom: @from-json("from-json/bom.json").a_string;
 }
