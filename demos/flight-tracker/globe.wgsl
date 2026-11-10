@@ -19,7 +19,8 @@ struct Globals {
     // xy: the size of the frame in pixels, z: 1 where the shader encodes the output as sRGB,
     // because the target can't, w: how strongly the clouds show.
     viewport: vec4<f32>,
-    windows: array<DetailWindow, 3>,
+    // Three windows of the day's imagery, from coarse to fine, then three of the night's lights.
+    windows: array<DetailWindow, 6>,
 }
 
 // A window of sharper imagery around where the camera looks, see `tiles.rs`.
@@ -76,6 +77,35 @@ fn stars(direction: vec3<f32>) -> vec3<f32> {
     return tint * brightness * smoothstep(0.1 + 0.14 * random.z, 0.0, distance);
 }
 
+// What the three detail windows from `first` on show at `uv`, whose derivatives along the
+// screen are `ddx` and `ddy`. The finest window that has its tile there counts, and fades into
+// the next coarser one towards its edge, and while its tile fades in.
+// rgb: the windows' imagery, a: how much of the globe's own imagery still shows.
+fn detail(first: i32, uv: vec2<f32>, ddx: vec2<f32>, ddy: vec2<f32>) -> vec4<f32> {
+    var imagery = vec3<f32>(0.0);
+    var uncovered = 1.0;
+    for (var index = first + 2; index >= first; index--) {
+        let grid = globals.windows[index].grid;
+        if grid.z == 0.0 || uncovered < 0.002 {
+            continue;
+        }
+        let tile = uv * grid.zw;
+        var offset = tile - grid.xy;
+        offset.x -= grid.z * round(offset.x / grid.z);
+        // The window reaches at least 1.5 tiles from where the camera looks.
+        let inside = 1.0 - smoothstep(1.15, 1.45, max(abs(offset.x), abs(offset.y)));
+        let slot = vec2<i32>(floor(tile)) & vec2<i32>(3);
+        let weight = inside * globals.windows[index].shown[slot.y][slot.x] * uncovered;
+        if weight > 0.002 {
+            let scale = grid.zw / 4.0;
+            imagery += weight
+                * textureSampleGrad(tiles, tile_sampler, tile / 4.0, index, ddx * scale, ddy * scale).rgb;
+            uncovered -= weight;
+        }
+    }
+    return vec4<f32>(imagery, uncovered);
+}
+
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let near = globals.inverse_view_projection * vec4<f32>(in.ndc, 0.0, 1.0);
@@ -102,84 +132,34 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let du_shifted = vec2<f32>(dpdx(shifted), dpdy(shifted));
     let du_smooth = select(du, du_shifted, length(du_shifted) < length(du));
     let dv = vec2<f32>(dpdx(uv.y), dpdy(uv.y));
-    let map_texel = textureSampleGrad(
-        map,
-        map_sampler,
-        uv,
-        vec2<f32>(du_smooth.x, dv.x),
-        vec2<f32>(du_smooth.y, dv.y)
-    );
-    // The finest detail window that has its tile here replaces the imagery, and fades into
-    // the next coarser one towards its edge, and while its tile fades in.
-    var detail = vec3<f32>(0.0);
-    var uncovered = 1.0;
-    for (var index = 2; index >= 0; index--) {
-        let grid = globals.windows[index].grid;
-        if grid.z == 0.0 || uncovered < 0.002 {
-            continue;
-        }
-        let tile = uv * grid.zw;
-        var offset = tile - grid.xy;
-        offset.x -= grid.z * round(offset.x / grid.z);
-        // The window reaches at least 1.5 tiles from where the camera looks.
-        let inside = 1.0 - smoothstep(1.15, 1.45, max(abs(offset.x), abs(offset.y)));
-        let slot = vec2<i32>(floor(tile)) & vec2<i32>(3);
-        let weight = inside * globals.windows[index].shown[slot.y][slot.x] * uncovered;
-        if weight > 0.002 {
-            let scale = grid.zw / 4.0;
-            detail += weight * textureSampleGrad(
-                tiles,
-                tile_sampler,
-                tile / 4.0,
-                index,
-                vec2<f32>(du_smooth.x, dv.x) * scale,
-                vec2<f32>(du_smooth.y, dv.y) * scale
-            ).rgb;
-            uncovered -= weight;
-        }
-    }
+    let ddx = vec2<f32>(du_smooth.x, dv.x);
+    let ddy = vec2<f32>(du_smooth.y, dv.y);
+    let map_texel = textureSampleGrad(map, map_sampler, uv, ddx, ddy);
     // The globe's own imagery shows where no window does.
-    var imagery = detail;
-    if uncovered > 0.002 {
-        imagery += uncovered * textureSampleGrad(
-            day_imagery,
-            map_sampler,
-            uv,
-            vec2<f32>(du_smooth.x, dv.x),
-            vec2<f32>(du_smooth.y, dv.y)
-        ).rgb;
+    let day_detail = detail(0, uv, ddx, ddy);
+    var imagery = day_detail.rgb;
+    if day_detail.a > 0.002 {
+        imagery += day_detail.a * textureSampleGrad(day_imagery, map_sampler, uv, ddx, ddy).rgb;
     }
-    let city_light = textureSampleGrad(
-        night_imagery,
-        map_sampler,
-        uv,
-        vec2<f32>(du_smooth.x, dv.x),
-        vec2<f32>(du_smooth.y, dv.y)
-    ).r;
+    let night_detail = detail(3, uv, ddx, ddy);
+    var city_light = night_detail.r;
+    if night_detail.a > 0.002 {
+        city_light += night_detail.a * textureSampleGrad(night_imagery, map_sampler, uv, ddx, ddy).r;
+    }
     // The clouds drift slowly eastwards. Their shadow on a point comes from the clouds a
     // little towards the sun.
     let cloud_strength = globals.viewport.w;
     let cloud_uv = uv + vec2<f32>(globals.options.z * 0.0004, 0.0);
-    let cloud = textureSampleGrad(
-        cloud_cover,
-        map_sampler,
-        cloud_uv,
-        vec2<f32>(du_smooth.x, dv.x),
-        vec2<f32>(du_smooth.y, dv.y)
-    ).r * cloud_strength;
+    let cloud = textureSampleGrad(cloud_cover, map_sampler, cloud_uv, ddx, ddy).r * cloud_strength;
     let east = vec3<f32>(cos(lon), 0.0, -sin(lon));
     let north = vec3<f32>(-sin(lat) * sin(lon), cos(lat), -sin(lat) * cos(lon));
     let sun_on_map = vec2<f32>(
         dot(globals.sun.xyz, east) / max(cos(lat), 0.05) / TAU,
         -dot(globals.sun.xyz, north) / PI
     );
-    let cloud_shadow = textureSampleGrad(
-        cloud_cover,
-        map_sampler,
-        cloud_uv + sun_on_map * 0.004,
-        vec2<f32>(du_smooth.x, dv.x),
-        vec2<f32>(du_smooth.y, dv.y)
-    ).r * cloud_strength;
+    let cloud_shadow =
+        textureSampleGrad(cloud_cover, map_sampler, cloud_uv + sun_on_map * 0.004, ddx, ddy).r
+        * cloud_strength;
     // The land, a pixel wide at its edge however far the map is magnified.
     let coast_distance = map_texel.r - 0.5;
     let coast_change = max(fwidth(coast_distance), 1e-4);

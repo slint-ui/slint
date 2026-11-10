@@ -30,7 +30,7 @@ pub struct Frame {
     /// How strongly the clouds show, from 0 to 1.
     pub clouds: f32,
     /// The detail windows, see `tiles::Detail::update()`.
-    pub windows: [[f32; tiles::WINDOW_FLOATS]; tiles::LEVELS],
+    pub windows: [[f32; tiles::WINDOW_FLOATS]; tiles::WINDOWS],
 }
 
 /// Satellite imagery of the earth, equirectangular like the map, with its mip levels in sRGB
@@ -210,7 +210,7 @@ pub struct Renderer {
     tile_format: wgpu::TextureFormat,
 }
 
-const GLOBAL_FLOATS: usize = 48 + tiles::LEVELS * tiles::WINDOW_FLOATS;
+const GLOBAL_FLOATS: usize = 48 + tiles::WINDOWS * tiles::WINDOW_FLOATS;
 
 impl Renderer {
     pub fn new(
@@ -360,7 +360,7 @@ impl Renderer {
             size: wgpu::Extent3d {
                 width: window,
                 height: window,
-                depth_or_array_layers: tiles::LEVELS as u32,
+                depth_or_array_layers: tiles::WINDOWS as u32,
             },
             mip_level_count: mips,
             sample_count: 1,

@@ -50,7 +50,7 @@ To run it without the network:
 - Turn off Online imagery in the settings.
 - Build with `--no-default-features`, which leaves out the `online-imagery` feature and its HTTP client.
 - Set `FLIGHT_TRACKER_TILES=off`, or to a directory of tiles to show those alone.
-  The directory holds the tiles as `<zoom>/<row>/<column>.jpg`, like the cache does.
+  The directory holds the tiles as `<zoom>/<row>/<column>.jpg`, and those of the night's lights as `night/<zoom>/<row>/<column>.png`, like the cache does.
 
 ## How It Works
 
@@ -63,7 +63,8 @@ Slint renders with wgpu, and the demo renders the globe on Slint's own device:
   `compress.rs` compresses it to BC1 or ETC2, whichever the GPU supports, to an eighth of its size in GPU memory.
 - `tiles.rs` shows sharper imagery where the camera looks, once it comes close.
   It fetches the same Blue Marble as tiles from NASA's GIBS, up to ten times as fine, and replaces the globe's own imagery around that point.
-  The tiles are small JPEG files, and natively they stay in the user's cache directory.
+  On the night side, it fetches the lights of the Black Marble the same way.
+  The tiles are small JPEG and PNG files, and natively they stay in the user's cache directory.
   Without a network, the globe keeps its own imagery.
 - `clouds.rs` generates the clouds from noise, shaped like the earth's weather, so that they add nothing to the download.
   They fade out as the camera comes close, and the settings turn them off.
