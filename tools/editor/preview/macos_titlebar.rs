@@ -40,7 +40,8 @@ pub fn setup<C: slint::ComponentHandle + 'static>(component: &C) -> impl Fn() ->
         let Ok(winit_window) = component.window().winit_window().await else {
             return None;
         };
-        let ns_window = ns_window(&winit_window)?;
+        let mtm = MainThreadMarker::new()?;
+        let ns_window = ns_window(&winit_window, mtm)?;
 
         let mask =
             NSWindowStyleMask(ns_window.styleMask().0 | NSWindowStyleMask::FullSizeContentView.0);
@@ -51,7 +52,6 @@ pub fn setup<C: slint::ComponentHandle + 'static>(component: &C) -> impl Fn() ->
 
         // Give the window an empty unified toolbar. macOS draws "has toolbar"
         // chrome for such windows, which includes the larger rounded corners.
-        let mtm = MainThreadMarker::new()?;
         let identifier = NSString::from_str("SlintEditorToolbar");
         let toolbar = NSToolbar::initWithIdentifier(NSToolbar::alloc(mtm), &identifier);
         ns_window.setToolbarStyle(NSWindowToolbarStyle::Unified);
@@ -67,7 +67,10 @@ pub fn setup<C: slint::ComponentHandle + 'static>(component: &C) -> impl Fn() ->
             .upgrade()
             .and_then(|component| {
                 component.window().with_winit_window(|winit_window| {
-                    let Some(ns_window) = ns_window(winit_window) else {
+                    let Some(mtm) = MainThreadMarker::new() else {
+                        return false;
+                    };
+                    let Some(ns_window) = ns_window(winit_window, mtm) else {
                         return false;
                     };
                     // SAFETY: `performZoom:` is an `NSWindow` selector and accepts a nullable
@@ -88,6 +91,7 @@ pub fn setup<C: slint::ComponentHandle + 'static>(component: &C) -> impl Fn() ->
 
 fn ns_window(
     winit_window: &winit::window::Window,
+    _mtm: objc2::MainThreadMarker,
 ) -> Option<objc2::rc::Retained<objc2_app_kit::NSWindow>> {
     use objc2_app_kit::NSView;
     use raw_window_handle::{HasWindowHandle, RawWindowHandle};
@@ -95,8 +99,8 @@ fn ns_window(
     let RawWindowHandle::AppKit(handle) = winit_window.window_handle().ok()?.as_raw() else {
         return None;
     };
-    // SAFETY: `ns_view` is valid for the lifetime of the winit window, and this
-    // is only ever called on the main (UI) thread.
+    // SAFETY: `ns_view` is valid for the lifetime of the winit window, and
+    // `_mtm` proves this runs on the main thread.
     let ns_view: &NSView = unsafe { handle.ns_view.cast().as_ref() };
     ns_view.window()
 }
