@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { MaterialFontSettings, MaterialPalette } from "styling.slint";
-import { RadioButtonImplBase, RadioGroupImplBase } from "../common/radiogroup-base.slint";
+import { RadioGroupBase } from "../common/radiogroup-base.slint";
+import { RadioButtonBase } from "../common/radiobutton-base.slint";
 
-export component RadioButtonImpl inherits RadioButtonImplBase {
+export component RadioButton inherits RadioButtonBase {
     private property <color> text-color: MaterialPalette.foreground;
 
     min-height: max(32px, layout.min-height);
@@ -67,10 +68,24 @@ export component RadioButtonImpl inherits RadioButtonImplBase {
     }
 }
 
-export component RadioGroupImpl inherits RadioGroupImplBase {
-    title-color: !root.enabled ? MaterialPalette.control-foreground-variant : MaterialPalette.foreground;
-    title-font-size: MaterialFontSettings.title-small.font-size;
-    title-font-weight: MaterialFontSettings.title-small.font-weight;
-}
+export component RadioGroup inherits RadioGroupBase {
+    in property <string> title;
+    in property <brush> title-color: !root.enabled ? MaterialPalette.control-foreground-variant : MaterialPalette.foreground;
+    in property <length> title-font-size: MaterialFontSettings.title-small.font-size;
+    in property <int> title-font-weight: MaterialFontSettings.title-small.font-weight;
 
-export component RadioGroup inherits RadioGroup { }
+    accessible-label: root.title;
+
+    header << VerticalLayout {
+        padding: 0px;
+        padding-bottom: root.title != "" ? root.spacing : 0px;
+        vertical-stretch: 0;
+        if root.title != "": Text {
+            text: root.title;
+            color: root.title-color;
+            font-size: root.title-font-size;
+            font-weight: root.title-font-weight;
+            accessible-role: none;
+        }
+    }
+}

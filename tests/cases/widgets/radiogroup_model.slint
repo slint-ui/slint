@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { RadioGroup } from "std-widgets.slint";
+import { RadioGroup, RadioButton } from "std-widgets.slint";
 
 struct Item {
     name: string,
@@ -36,8 +36,6 @@ export component TestCase inherits Window {
         return root.model[idx].checked;
     }
 
-    // The init pass on RadioButtonImplBase picks up the declarative
-    // `checked: true` on item B and pushes it through to the group.
     out property <bool> test: current-value == "B" && !root.model[0].checked
         && root.model[1].checked && !root.model[2].checked;
 }

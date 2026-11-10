@@ -8,7 +8,7 @@ import CodeSnippetMD from '@slint/common-files/src/components/CodeSnippetMD.astr
 
 <CodeSnippetMD needsBackground imagePath="/src/assets/generated/std-widget-radiogroup-example.png" imageWidth="200" imageHeight="150" imageAlt='radiogroup example'>
 ```slint
-import { RadioGroup } from "std-widgets.slint";
+import { RadioGroup, RadioButton } from "std-widgets.slint";
 export component Example inherits Window {
     width: 200px;
     height: 150px;
@@ -24,18 +24,33 @@ export component Example inherits Window {
 
 A group of radio buttons where the user picks exactly one option.
 
-`RadioGroup` only accepts `RadioButton` children, either listed statically
+Import both `RadioGroup` and `RadioButton` from `std-widgets.slint`.
+
+Use `RadioButton` or custom components derived from `RadioButtonBase` as children, either listed statically
 or produced by a single `for` loop.
 `if` inside a `RadioGroup` is not supported, and a `for` must be the only
 child of the group.
 
+## Custom Styling
+
+Import `RadioGroupBase` and `RadioButtonBase` from `std-widgets.slint` to build custom radio styles.
+The bases handle selection, input, and accessibility; add child elements to `RadioButtonBase` for its visuals.
+Replace the header with `header << YourHeader { }`, or remove it with `header << { }`.
+Set `accessible-label` when using a custom header.
+
 ## Properties
+
+### current-index
+<SlintProperty propName="current-index" typeName="int" defaultValue="-1" propertyVisibility="in-out">
+The zero-based index of the selected button, or `-1` for no selection.
+</SlintProperty>
 
 ### current-value
 <SlintProperty propName="current-value" typeName="string" propertyVisibility="out">
 The `text` of the currently selected `RadioButton`. To change the selection from
 host code, set the target `RadioButton`'s `checked` to `true` — typically through
 a two-way binding (`checked <=> model.field`).
+Currently, changing `current-index` directly or changing the selected button's text doesn't update `current-value`.
 </SlintProperty>
 
 ### enabled
@@ -58,6 +73,16 @@ An optional label rendered above the group. When empty, no title is shown.
 Use `Orientation.vertical` (default) to stack options, or `Orientation.horizontal` for a single row.
 </SlintProperty>
 
+### spacing
+<SlintProperty propName="spacing" typeName="length" defaultValue="8px">
+The gap between buttons in either orientation.
+</SlintProperty>
+
+### content-padding
+<SlintProperty propName="content-padding" typeName="length" defaultValue="0px">
+The space around the header and buttons inside the group.
+</SlintProperty>
+
 ## Callbacks
 
 ### selected(value: string)
@@ -75,7 +100,7 @@ RadioGroup {
 
 ## RadioButton
 
-`RadioButton` is a pseudo-element that only appears inside `RadioGroup`.
+`RadioButton` is a component used inside `RadioGroup`.
 
 ### Properties
 
@@ -98,6 +123,7 @@ event loop iteration; the previously-checked button goes unchecked.
 Setting `checked = false` on the currently-selected button is reverted —
 the group always has at most one selection.
 Programmatic selection on a disabled button is refused.
+An initially checked disabled button can still become selected; this inconsistency remains unresolved.
 
 Use a two-way binding (`checked <=> model.field`) to keep the
 button in sync with an external property, including with a `for`
