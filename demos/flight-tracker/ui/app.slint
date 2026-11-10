@@ -823,9 +823,9 @@ export component AppWindow inherits Window {
     /// How far the planner has slid away for a flight, from 0 to 1.
     in property <float> planner-away;
     /// Whether the intro plays, which a click or tap skips.
-    in property <bool> intro;
+    in property <bool> intro: true;
     /// How dark the intro still is as it fades in, from 1 to 0.
-    in property <float> curtain;
+    in property <float> curtain: 1;
     callback skip-intro();
     /// Plays the intro again, and hands over to the random flights.
     callback restart();
