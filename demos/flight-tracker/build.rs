@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+// cSpell: ignore CACHEDIR
+
 use std::collections::HashMap;
 use std::hash::{BuildHasher, RandomState};
 use std::path::{Path, PathBuf};
@@ -35,15 +37,11 @@ fn embed_tiles() -> bool {
         "0" | "off" => return false,
         "" if std::env::var("TARGET") == std::env::var("HOST") => return false,
         "" | "1" | "on" => {
-            // The cache of the demo itself, which a native build fills while it runs.
-            let [qualifier, organization, application] = gibs::CACHE;
-            let Some(directories) =
-                directories::ProjectDirs::from(qualifier, organization, application)
-            else {
-                println!("cargo::warning=No cache directory to fetch the map tiles into");
-                return false;
-            };
-            (directories.cache_dir().join("tiles"), true)
+            // Cargo marks its target directory with this file. The tiles stay there for all
+            // targets and profiles, and in a container that keeps nothing else.
+            let out = PathBuf::from(std::env::var_os("OUT_DIR").unwrap());
+            let target = out.ancestors().find(|directory| directory.join("CACHEDIR.TAG").exists());
+            (target.unwrap_or(&out).join("flight-tracker-tiles"), true)
         }
         directory => (PathBuf::from(directory), false),
     };
@@ -163,7 +161,9 @@ fn fetch_missing(directory: &Path, tiles: &[(Kind, u32, u32, u32)]) {
     std::fs::write(&config_path, config).unwrap();
     let status = Command::new("curl")
         .args(["--parallel", "--parallel-max", "8", "--fail", "--silent", "--show-error"])
-        .args(["--retry", "2", "--create-dirs", "--user-agent", gibs::USER_AGENT])
+        // Without a network, the first tile that fails ends it, rather than each in turn.
+        .args(["--fail-early", "--connect-timeout", "15", "--max-time", "60", "--retry", "2"])
+        .args(["--create-dirs", "--user-agent", gibs::USER_AGENT])
         .arg("--config")
         .arg(&config_path)
         .status();

@@ -269,15 +269,16 @@ struct Demo {
     stage_time: f32,
     /// The origin and the destination picked on the entry screen.
     planned: (Option<usize>, Option<usize>),
-    /// The flight proposed on the entry screen, which the UI has yet to show.
-    proposal: Option<(usize, Option<usize>)>,
+    /// The origin and the destination that the planner has yet to show.
+    proposal: Option<(Option<usize>, Option<usize>)>,
     /// Whether the kiosk proposed a flight since the entry screen showed.
     proposed: bool,
+    /// Whether the kiosk was on in the last step.
+    kiosk: bool,
     /// Whether the zoom out to the entry screen comes from the intro, rather than a flight.
     from_intro: bool,
-    /// How much of the window's height, and of its width,
-    /// the globe's place on the entry screen shows of a frame rendered for the whole window.
-    entry_view: Vec2,
+    /// The globe's diameter on the entry screen, as a part of the frame's height.
+    entry_size: f32,
     /// The point at the center of the globe on the entry screen.
     entry_target: Vec3,
     /// The compass direction that points up on the globe on the entry screen.
@@ -329,8 +330,9 @@ impl Demo {
             planned: (None, None),
             proposal: None,
             proposed: false,
+            kiosk: true,
             from_intro: false,
-            entry_view: Vec2::ONE,
+            entry_size: ENTRY_FILL,
             entry_target: surface(0.0, ENTRY_LATITUDE),
             entry_heading: 0.0,
             entry_zoom: 1.0,
@@ -365,9 +367,7 @@ impl Demo {
 
     /// The camera's range at which the globe fills its place on the entry screen.
     fn entry_fit_range(&self) -> f32 {
-        // The globe's radius on the screen, as a part of half the frame's height.
-        let fit = ENTRY_FILL * self.entry_view.y.min(self.entry_view.x);
-        1.0 / (fit * (FOV_Y / 2.0).tan()).atan().sin() - 1.0
+        1.0 / (self.entry_size * (FOV_Y / 2.0).tan()).atan().sin() - 1.0
     }
 
     /// Where the camera looks at the turning globe on the entry screen.
@@ -455,8 +455,15 @@ impl Demo {
         }
     }
 
-    /// Plays the intro again, from wherever the demo is.
+    /// Plays the intro again, from wherever the demo is, without a flight or a plan,
+    /// like at the start.
     fn restart(&mut self) {
+        let position = self.airports[0].position;
+        self.flight = Flight::new(0, position, 0, position);
+        self.phase = Phase::Boarding;
+        self.phase_time = 0.0;
+        self.planned = (None, None);
+        self.proposal = Some(self.planned);
         self.from_intro = false;
         self.set_stage(Stage::Intro);
     }
@@ -580,6 +587,11 @@ impl Demo {
     }
 
     fn step(&mut self, kiosk: bool, dt: f32) {
+        if kiosk && !self.kiosk && self.stage == Stage::Entry {
+            // The kiosk waits to propose a flight from when it takes over.
+            self.set_stage(Stage::Entry);
+        }
+        self.kiosk = kiosk;
         self.time += dt;
         self.stage_time += dt;
         match self.stage {
@@ -601,7 +613,7 @@ impl Demo {
                         _ => self.random_hub(),
                     };
                     let destination = self.random_destination(origin);
-                    self.proposal = Some((origin, Some(destination)));
+                    self.proposal = Some((Some(origin), Some(destination)));
                     self.plan(Some(origin), Some(destination));
                 }
                 if kiosk && self.stage_time >= PROPOSE_SECONDS + TAKE_OFF_SECONDS {
@@ -615,7 +627,7 @@ impl Demo {
                 if !std::mem::take(&mut self.from_intro) {
                     // The next flight starts where this one landed.
                     let origin = self.flight.destination;
-                    self.proposal = Some((origin, None));
+                    self.proposal = Some((Some(origin), None));
                     self.plan(Some(origin), None);
                 }
                 return;
@@ -938,8 +950,6 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 let mut demo = demo.borrow_mut();
                 demo.view_chosen = false;
                 if demo.stage == Stage::Entry {
-                    // Starts the kiosk's wait for proposing a flight over.
-                    demo.set_stage(Stage::Entry);
                     let target = demo.entry_target;
                     demo.reset_entry(target);
                     demo.camera.transition(VIEW_TRANSITION);
@@ -1202,7 +1212,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         let size = logical_size(window);
         let aspect = aspect(size);
         let entry = Vec2::new(app.get_entry_globe_width(), app.get_entry_globe_height());
-        demo.entry_view = entry / (size * (entry / size).max_element());
+        demo.entry_size = ENTRY_FILL * entry.min_element() / size.y.max(1.0);
         demo.step(app.get_kiosk(), dt);
         demo.update_camera(aspect, size.y, dt);
 
@@ -1293,7 +1303,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             let item = |index: Option<usize>| {
                 index.map_or(AirportItem::default(), |index| airport_item(&demo.airports, index))
             };
-            app.invoke_propose(item(Some(origin)), item(destination));
+            app.invoke_propose(item(origin), item(destination));
         }
         // The frame covers the whole window, at the resolution the globe's place needs.
         let shown = entry.lerp(size, zoom_progress);

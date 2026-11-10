@@ -45,10 +45,8 @@ const BASE_RESOLUTION: f32 = 360.0 / 4096.0;
 const LOADING_AT_ONCE: usize = 6;
 const FADE_SECONDS: f32 = 0.4;
 /// How long no tiles are asked for after one failed to load, such as without a network.
+/// Each time they fail again, it's twice as long, up to 16 times.
 const RETRY_AFTER: Duration = Duration::from_secs(20);
-/// After this many failures without a single tile, the source counts as unreachable for good,
-/// as on a web page that may not fetch from other sites.
-const GIVE_UP_AFTER: u32 = 6;
 /// The tiles that `build.rs` put into the binary.
 #[cfg(embedded_tiles)]
 mod embedded {
@@ -88,11 +86,8 @@ impl Source {
         #[cfg(online_tiles)]
         return Some(Source::Online {
             #[cfg(not(target_arch = "wasm32"))]
-            cache: {
-                let [qualifier, organization, application] = gibs::CACHE;
-                directories::ProjectDirs::from(qualifier, organization, application)
-                    .map(|directories| directories.cache_dir().join("tiles"))
-            },
+            cache: directories::ProjectDirs::from("dev", "slint", "flight-tracker")
+                .map(|directories| directories.cache_dir().join("tiles")),
         });
         #[cfg(not(any(embedded_tiles, online_tiles)))]
         None
@@ -111,10 +106,41 @@ enum Fetched<T> {
 
 #[cfg(not(target_arch = "wasm32"))]
 impl Source {
+    /// Where the cache keeps a tile, for a source with a cache.
+    #[cfg_attr(not(online_tiles), allow(unused_variables))]
+    fn cached(&self, kind: Kind, zoom: u32, row: u32, column: u32) -> Option<std::path::PathBuf> {
+        match self {
+            #[cfg(online_tiles)]
+            Source::Online { cache } => {
+                cache.as_ref().map(|cache| cache.join(kind.path(zoom, row, column)))
+            }
+            _ => None,
+        }
+    }
+
+    /// Puts a tile that was fetched into the cache, once it's known to decode.
+    fn keep(&self, kind: Kind, zoom: u32, row: u32, column: u32, file: &[u8]) {
+        let Some(path) = self.cached(kind, zoom, row, column).filter(|path| !path.exists()) else {
+            return;
+        };
+        // Renamed into place, so that a tile cut short isn't taken for a whole one.
+        let part = path.with_extension("part");
+        let _ = path.parent().map(std::fs::create_dir_all);
+        if std::fs::write(&part, file).is_ok() {
+            let _ = std::fs::rename(&part, &path);
+        }
+    }
+
+    /// Removes a tile that doesn't decode from the cache, to fetch it again another time.
+    fn discard(&self, kind: Kind, zoom: u32, row: u32, column: u32) {
+        if let Some(path) = self.cached(kind, zoom, row, column) {
+            let _ = std::fs::remove_file(path);
+        }
+    }
+
     /// The file of a tile.
     /// This may take a while.
     fn fetch(&self, kind: Kind, zoom: u32, row: u32, column: u32) -> Fetched<Vec<u8>> {
-        let path = kind.path(zoom, row, column);
         match self {
             #[cfg(embedded_tiles)]
             Source::Embedded => {
@@ -128,26 +154,19 @@ impl Source {
                     Err(_) => Fetched::Missing,
                 }
             }
-            Source::Directory(directory) => match std::fs::read(directory.join(path)) {
-                Ok(file) => Fetched::Tile(file),
-                Err(_) => Fetched::Missing,
-            },
+            Source::Directory(directory) => {
+                match std::fs::read(directory.join(kind.path(zoom, row, column))) {
+                    Ok(file) => Fetched::Tile(file),
+                    Err(_) => Fetched::Missing,
+                }
+            }
             #[cfg(online_tiles)]
-            Source::Online { cache } => {
-                let cached = cache.as_ref().map(|cache| cache.join(path));
-                if let Some(file) = cached.as_ref().and_then(|path| std::fs::read(path).ok()) {
-                    return Fetched::Tile(file);
+            Source::Online { .. } => {
+                let cached = self.cached(kind, zoom, row, column);
+                match cached.and_then(|path| std::fs::read(path).ok()) {
+                    Some(file) => Fetched::Tile(file),
+                    None => download(&kind.url(zoom, row, column)),
                 }
-                let fetched = download(&kind.url(zoom, row, column));
-                if let (Fetched::Tile(file), Some(path)) = (&fetched, cached) {
-                    // Renamed into place, so that a tile cut short isn't taken for a whole one.
-                    let part = path.with_extension("part");
-                    let _ = path.parent().map(std::fs::create_dir_all);
-                    if std::fs::write(&part, file).is_ok() {
-                        let _ = std::fs::rename(&part, &path);
-                    }
-                }
-                fetched
             }
         }
     }
@@ -326,10 +345,8 @@ pub struct Detail {
     sender: Sender<Arrived>,
     receiver: Receiver<Arrived>,
     loading: usize,
-    /// Tiles that failed to load in a row.
+    /// How many times in a row the tiles failed to load.
     failures: u32,
-    /// Whether any tile ever loaded.
-    reached: bool,
     /// Until when no tiles are asked for, after one failed to load.
     paused_until: Option<web_time::Instant>,
     /// The tiles that arrived, and the one being compressed.
@@ -354,7 +371,6 @@ impl Detail {
             receiver,
             loading: 0,
             failures: 0,
-            reached: false,
             paused_until: None,
             #[cfg(target_arch = "wasm32")]
             files: Default::default(),
@@ -403,15 +419,21 @@ impl Detail {
                 }
                 Fetched::Failed => {
                     self.settle(arrived.window, arrived.tile, State::Wanted);
-                    self.failures += 1;
-                    self.paused_until = Some(web_time::Instant::now() + RETRY_AFTER);
+                    // The tiles that were on their way together fail together, and count once.
+                    if self.paused_until.is_none() {
+                        let pause = RETRY_AFTER * 2u32.pow(self.failures.min(4));
+                        self.paused_until = Some(web_time::Instant::now() + pause);
+                        self.failures += 1;
+                    }
                 }
             }
         }
         #[cfg(target_arch = "wasm32")]
         self.compress(renderer);
-        if !self.reached && self.failures >= GIVE_UP_AFTER {
-            self.source = None;
+        for slot in self.windows.iter_mut().flat_map(|window| &mut window.slots) {
+            if slot.state == State::Loaded {
+                slot.shown = (slot.shown + dt / FADE_SECONDS).min(1.0);
+            }
         }
         if self.source.is_none() || !enabled {
             return floats;
@@ -429,9 +451,7 @@ impl Detail {
             let fetching = if window.kind == Kind::Day { day } else { night };
             let needed = fetching && footprint < coarser * 1.15;
             for slot in &mut window.slots {
-                if slot.state == State::Loaded {
-                    slot.shown = (slot.shown + dt / FADE_SECONDS).min(1.0);
-                } else if slot.state == State::Wanted && needed {
+                if slot.state == State::Wanted && needed {
                     let tile = Vec2::new(slot.tile.0 as f32, slot.tile.1 as f32) + 0.5;
                     let mut offset = tile - window.center;
                     offset.x -= window.columns as f32 * (offset.x / window.columns as f32).round();
@@ -485,7 +505,6 @@ impl Detail {
 
     /// Puts a tile's mip levels onto the GPU.
     fn show(&mut self, renderer: &Renderer, window: usize, tile: (u32, u32), mips: &[Vec<u8>]) {
-        self.reached = true;
         self.failures = 0;
         if self.settle(window, tile, State::Loaded) {
             renderer.set_tile(window as u32, (tile.0 % WINDOW_TILES, tile.1 % WINDOW_TILES), mips);
@@ -505,17 +524,23 @@ impl Detail {
         std::thread::spawn(move || {
             let tile_data = match source.fetch(kind, zoom, tile.1, tile.0) {
                 Fetched::Tile(file) => match rgba_mips(&file) {
-                    Some(levels) => Fetched::Tile(
-                        levels
-                            .iter()
-                            .enumerate()
-                            .map(|(level, pixels)| {
-                                let size = TILE as usize >> level;
-                                Imagery::compress_level(features, pixels, size, size)
-                            })
-                            .collect(),
-                    ),
-                    None => Fetched::Missing,
+                    Some(levels) => {
+                        source.keep(kind, zoom, tile.1, tile.0, &file);
+                        Fetched::Tile(
+                            levels
+                                .iter()
+                                .enumerate()
+                                .map(|(level, pixels)| {
+                                    let size = TILE as usize >> level;
+                                    Imagery::compress_level(features, pixels, size, size)
+                                })
+                                .collect(),
+                        )
+                    }
+                    None => {
+                        source.discard(kind, zoom, tile.1, tile.0);
+                        Fetched::Missing
+                    }
                 },
                 Fetched::Missing => Fetched::Missing,
                 Fetched::Failed => Fetched::Failed,
