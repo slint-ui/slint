@@ -1,12 +1,12 @@
-{
-    "greeting": "Hello, world!",
-    "stats": {
-        "visitors": {
-            "count": 42
-        }
+[
+    {
+        "greeting": "Hello, world!",
+        "stats": { "visitors": { "count": 42 } },
+        "tags": ["news", "weather"]
     },
-    "tags": [
-        "news",
-        "weather"
-    ]
-}
+    {
+        "greeting": "Bonjour le monde !",
+        "stats": { "visitors": { "count": 7 } },
+        "tags": ["sports"]
+    }
+]

@@ -169,10 +169,11 @@ export struct Stats {
 export struct Data {
     greeting: string,
     stats: Stats,
+    tags: [string],
 }
 
 export component Example {
-    property <Data> data: @from-json("snippet-data/data.json");
+    property <[Data]> data: @from-json("snippet-data/data.json");
 }
 ```
 
@@ -180,8 +181,8 @@ Select a value inside the file with member access, and an element of a JSON arra
 
 ```slint
 export component Example {
-    property <int> count: @from-json("snippet-data/data.json").stats.visitors.count;
-    property <string> first-tag: @from-json("snippet-data/data.json").tags[0];
+    property <int> count: @from-json("snippet-data/data.json")[0].stats.visitors.count;
+    property <string> first-tag: @from-json("snippet-data/data.json")[0].tags[0];
 }
 ```
 
