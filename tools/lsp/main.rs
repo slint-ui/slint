@@ -479,13 +479,7 @@ async fn run_main_loop(
 
     let mut session = crate::editor_preview::EditorSession::new(compiler_config);
     session.attach_preview(to_preview, None, None);
-    session.set_workspace_roots(
-        host_language_search::resolve_workspace_folders(&init_param)
-            .into_iter()
-            .map(|folder| SourcePath::from_url(&folder.uri))
-            .filter(|root| root.as_native_path().is_some())
-            .collect(),
-    );
+    session.set_workspace_roots(language::workspace_roots(&init_param));
     session.set_startup_config_overrides(editor_preview::SessionConfigOverrides {
         compiler: i_slint_compiler::project_file::Overrides {
             project: i_slint_compiler::project_file::ProjectFileData {

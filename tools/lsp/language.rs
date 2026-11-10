@@ -21,7 +21,6 @@ use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{
     SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize, syntax_nodes,
 };
-#[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
 use i_slint_compiler::source_path::SourcePath;
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 use i_slint_live_preview::protocol::PreviewComponent;
@@ -681,6 +680,38 @@ fn extract_param<T: serde::de::DeserializeOwned>(
     })
 }
 
+/// The workspace folders that the client sent when it initialized the server.
+/// Without any, it falls back to the deprecated `root_uri`, then to `root_path`,
+/// which editors in single-folder mode still send.
+/// Returns an empty `Vec` if the client sent none of them.
+#[allow(deprecated)] // root_uri / root_path are deprecated but widely used
+pub fn resolve_workspace_folders(
+    init_param: &lsp_types::InitializeParams,
+) -> Vec<lsp_types::WorkspaceFolder> {
+    if let Some(folders) = init_param.workspace_folders.as_ref()
+        && !folders.is_empty()
+    {
+        return folders.clone();
+    }
+    if let Some(uri) = init_param.root_uri.as_ref() {
+        return vec![lsp_types::WorkspaceFolder { uri: uri.clone(), name: String::new() }];
+    }
+    if let Some(path) = init_param.root_path.as_ref()
+        && let Some(uri) = SourcePath::new(path).to_url()
+    {
+        return vec![lsp_types::WorkspaceFolder { uri, name: String::new() }];
+    }
+    Vec::new()
+}
+
+/// The directories of the workspace folders that the client sent.
+pub fn workspace_roots(init_param: &lsp_types::InitializeParams) -> Vec<SourcePath> {
+    resolve_workspace_folders(init_param)
+        .iter()
+        .map(|folder| SourcePath::from_url(&folder.uri))
+        .collect()
+}
+
 #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
 pub fn show_preview_command(
     params: &[serde_json::Value],
@@ -708,10 +739,7 @@ pub fn show_preview_command(
     Ok(())
 }
 
-#[cfg(all(
-    not(target_arch = "wasm32"),
-    any(feature = "preview-builtin", feature = "preview-external")
-))]
+#[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
 pub fn sync_preview_project_root(
     session: &mut editor_preview::EditorSession,
 ) -> std::io::Result<()> {
@@ -2356,6 +2384,29 @@ enum {}
                 None
             );
         }
+    }
+
+    #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
+    #[test]
+    fn preview_root_of_a_url_is_its_open_project_file() {
+        let project_url = Url::parse("slintpad:/project/slint-project.json").unwrap();
+        let source_url = Url::parse("slintpad:/project/ui/main.slint").unwrap();
+        let (mut context, messages) = mock_context_with_preview_capture();
+        context.session.set_workspace_roots(vec![SourcePath::new("slintpad:/")]);
+        spin_on::spin_on(context.session.open_document(
+            r#"{"edition":"1.19"}"#.into(),
+            project_url,
+            None,
+        ))
+        .unwrap();
+        messages.borrow_mut().clear();
+
+        show_preview_command(&[serde_json::to_value(&source_url).unwrap()], &mut context).unwrap();
+        let root_url = Url::parse("slintpad:/project/").unwrap();
+        assert!(matches!(
+            messages.borrow().first(),
+            Some(LspToPreviewMessage::OpenProject { root: Some(root) }) if root == &root_url
+        ));
     }
 
     #[cfg(all(unix, any(feature = "preview-builtin", feature = "preview-external")))]

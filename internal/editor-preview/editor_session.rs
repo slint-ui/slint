@@ -623,11 +623,12 @@ impl EditorSession {
         &mut self,
         url: &Url,
     ) -> crate::Result<VersionedDiagnostics> {
-        let document = SourcePath::from_url(url);
-        let paths = if Self::project_file_source(url).is_some() {
-            vec![document]
-        } else {
-            self.project_files_for(&document).collect::<std::io::Result<Vec<_>>>()?
+        let paths = match Self::project_file_source(url) {
+            Some(project) if self.project_file_exists(&project)? => vec![project],
+            Some(_) => Vec::new(),
+            None => self
+                .project_files_for(&SourcePath::from_url(url))
+                .collect::<std::io::Result<Vec<_>>>()?,
         };
         let mut settings_changed = false;
         let mut contents_changed = false;
@@ -1083,9 +1084,6 @@ impl EditorSession {
         version: Option<i32>,
     ) -> crate::Result<crate::VersionedDiagnostics> {
         tracing::debug!("Opening document: {url}");
-        if Self::project_file_source(&url).is_some_and(|path| path.as_native_path().is_none()) {
-            return Ok(Default::default());
-        }
         self.open_urls.insert(url.clone());
 
         self.load_document(content, url, version).await
@@ -1098,10 +1096,7 @@ impl EditorSession {
         tracing::debug!("Closing document: {url}");
         self.open_urls.remove(&url);
         if let Some(source) = Self::project_file_source(&url) {
-            let Some(path) = source.as_native_path() else {
-                return Ok(Default::default());
-            };
-            let change = match path.try_exists() {
+            let change = match source.try_exists() {
                 Ok(false) => FileChangeKind::Deleted,
                 _ => FileChangeKind::Changed,
             };
@@ -1128,9 +1123,6 @@ impl EditorSession {
         version: Option<i32>,
     ) -> crate::Result<crate::VersionedDiagnostics> {
         if let Some(source) = Self::project_file_source(&url) {
-            if source.as_native_path().is_none() {
-                return Ok(Default::default());
-            }
             return self.update_project_file_contents(source, content.into_bytes(), version).await;
         }
         let mut configuration_diagnostics = self.maybe_update_active_project(&url).await?;
@@ -1155,9 +1147,6 @@ impl EditorSession {
         url: lsp_types::Url,
     ) -> crate::Result<crate::VersionedDiagnostics> {
         tracing::debug!("Reloading document: {url}");
-        if Self::project_file_source(&url).is_some_and(|path| path.as_native_path().is_none()) {
-            return Ok(Default::default());
-        }
         let url = SourcePath::from_url(&url).to_url().unwrap_or(url);
         let mut configuration_diagnostics = if self.project_main_urls().any(|entry| entry == url) {
             Vec::new()
@@ -1652,34 +1641,53 @@ mod preview_tests {
     }
 
     #[test]
-    fn unsupported_project_file_urls_never_enter_the_slint_document_cache() {
+    fn project_files_at_urls_apply_while_open() {
         let (mut session, messages) = session_with_recording_previews();
+        let default_edition = SlintEdition { major: 1, minor: 18 };
+        session.set_startup_config_overrides(SessionConfigOverrides {
+            default_edition: Some(default_edition),
+            ..Default::default()
+        });
+        spin_on::spin_on(session.reapply_effective_configuration()).unwrap();
+        let include_paths = |session: &EditorSession| {
+            session.document_cache.compiler_configuration().compiler_config.include_paths
+        };
+        let edition = |session: &EditorSession| {
+            session.document_cache.compiler_configuration().compiler_config.edition
+        };
+        let default_include_paths = include_paths(&session);
+        assert_eq!(edition(&session), Some(default_edition));
         for target in
             ["https://example.com/ui/slint-project.json", "vscode-vfs://host/ui/slint-project.json"]
         {
             let url = Url::parse(target).unwrap();
-            assert!(
-                spin_on::spin_on(session.open_document(
-                    r#"{"edition":"1.20"}"#.into(),
-                    url.clone(),
-                    Some(1)
-                ))
-                .unwrap()
-                .is_empty()
-            );
-            assert!(session.open_urls.is_empty());
-            assert!(
-                spin_on::spin_on(session.load_document("{invalid".into(), url.clone(), Some(2)))
-                    .unwrap()
-                    .is_empty()
-            );
-            assert!(spin_on::spin_on(session.reload_document(url.clone())).unwrap().is_empty());
-            spin_on::spin_on(session.close_document(url.clone())).unwrap();
-            assert!(session.document_roots().is_empty());
+            let project = SourcePath::from_url(&url);
+            let document = SourcePath::from_url(&url.join("nested/main.slint").unwrap());
+            session.set_workspace_roots(vec![SourcePath::from_url(&url.join("/").unwrap())]);
+            spin_on::spin_on(session.open_document(
+                r#"{"edition":"1.19","include-paths":["lib"]}"#.into(),
+                url.clone(),
+                Some(1),
+            ))
+            .unwrap();
             assert!(session.document_cache.get_document(&url).is_none());
+            assert_eq!(session.find_project_file_for(&document).unwrap(), Some(project.clone()));
+            assert_ne!(include_paths(&session), default_include_paths);
+            assert_eq!(edition(&session), Some(SlintEdition::V1_19));
+            assert_eq!(session.active_project_file_paths().collect::<Vec<_>>(), [&project]);
+            for messages in &messages {
+                assert!(messages.borrow().iter().any(|message| matches!(message, LspToPreviewMessage::SetContents { url: sent, .. } if sent.url() == &url)));
+            }
+
+            spin_on::spin_on(session.close_document(url.clone())).unwrap();
+            assert!(spin_on::spin_on(session.reload_document(url.clone())).unwrap().is_empty());
+            assert_eq!(session.find_project_file_for(&document).unwrap(), None);
+            assert_eq!(include_paths(&session), default_include_paths);
+            assert_eq!(edition(&session), Some(default_edition));
             assert!(session.active_projects.is_empty());
-            assert!(session.active_project_file_paths().next().is_none());
-            assert!(messages.iter().all(|messages| messages.borrow().is_empty()));
+            for messages in &messages {
+                assert!(messages.borrow().iter().any(|message| matches!(message, LspToPreviewMessage::ForgetFile { url: sent } if sent == &url)));
+            }
         }
     }
 
