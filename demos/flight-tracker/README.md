@@ -52,6 +52,15 @@ To run it without the network:
 - Set `FLIGHT_TRACKER_TILES=off`, or to a directory of tiles to show those alone.
   The directory holds the tiles as `<zoom>/<row>/<column>.jpg`, and those of the night's lights as `night/<zoom>/<row>/<column>.png`, like the cache does.
 
+A cross-compiled build, such as for an embedded board, brings the tiles along instead.
+`build.rs` fetches the whole world's tiles with `curl` into the cache directory of the machine that builds, and embeds them in the binary.
+That's 8400 tiles, which add about 150 MB to the binary.
+Set `FLIGHT_TRACKER_EMBED_TILES` to change that when building:
+
+- `0` builds without the tiles, and the demo fetches them as it runs.
+- `1` embeds them in a native build too.
+- A directory of tiles embeds those, without fetching any.
+
 ## How It Works
 
 Slint renders with wgpu, and the demo renders the globe on Slint's own device:
@@ -66,6 +75,7 @@ Slint renders with wgpu, and the demo renders the globe on Slint's own device:
   On the night side, it fetches the lights of the Black Marble the same way.
   The tiles are small JPEG and PNG files, and natively they stay in the user's cache directory.
   Without a network, the globe keeps its own imagery.
+  `build.rs` can put the tiles into the binary instead, and `gibs.rs` names them for both.
 - `clouds.rs` generates the clouds from noise, shaped like the earth's weather, so that they add nothing to the download.
   They fade out as the camera comes close, and the settings turn them off.
 - `background.rs` decodes and compresses the imagery and generates the clouds while the intro plays, so that it starts without waiting for them.

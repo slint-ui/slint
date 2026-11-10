@@ -24,6 +24,7 @@ mod camera;
 mod clouds;
 mod compress;
 mod flight;
+mod gibs;
 mod map;
 mod renderer;
 mod tiles;
@@ -826,8 +827,8 @@ extern "C" {
     fn flight_tracker_ready() -> Result<(), wasm_bindgen::JsValue>;
 }
 
-/// Where the tiles for the detail come from: NASA's GIBS, unless `FLIGHT_TRACKER_TILES` names a
-/// directory of tiles to use without a network, or is `off`.
+/// Where the tiles for the detail come from: the binary, if `build.rs` embedded them, or else
+/// NASA's GIBS. `FLIGHT_TRACKER_TILES` names a directory of tiles to use instead, or is `off`.
 fn tile_source() -> Option<tiles::Source> {
     #[cfg(not(target_arch = "wasm32"))]
     if let Some(directory) = std::env::var_os("FLIGHT_TRACKER_TILES") {
@@ -835,12 +836,14 @@ fn tile_source() -> Option<tiles::Source> {
     }
     #[cfg(target_arch = "wasm32")]
     return Some(tiles::Source::Online {});
-    #[cfg(all(not(target_arch = "wasm32"), feature = "online-imagery"))]
+    #[cfg(embedded_tiles)]
+    return Some(tiles::Source::Embedded);
+    #[cfg(all(not(target_arch = "wasm32"), not(embedded_tiles), feature = "online-imagery"))]
     return Some(tiles::Source::Online {
         cache: directories::ProjectDirs::from("dev", "slint", "flight-tracker")
             .map(|directories| directories.cache_dir().join("tiles")),
     });
-    #[cfg(all(not(target_arch = "wasm32"), not(feature = "online-imagery")))]
+    #[cfg(all(not(target_arch = "wasm32"), not(embedded_tiles), not(feature = "online-imagery")))]
     None
 }
 
