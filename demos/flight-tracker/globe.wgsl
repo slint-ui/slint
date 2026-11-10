@@ -19,6 +19,16 @@ struct Globals {
     // xy: the size of the frame in pixels, z: 1 where the shader encodes the output as sRGB,
     // because the target can't, w: how strongly the clouds show.
     viewport: vec4<f32>,
+    windows: array<DetailWindow, 3>,
+}
+
+// A window of sharper imagery around where the camera looks, see `tiles.rs`.
+struct DetailWindow {
+    // xy: where the camera looks, in tiles from the map's top left, zw: the map's columns and
+    // rows of tiles, 0 without tiles.
+    grid: vec4<f32>,
+    // How far the tile in each of the window's 4 by 4 slots has faded in, by row and column.
+    shown: array<vec4<f32>, 4>,
 }
 
 @group(0) @binding(0) var<uniform> globals: Globals;
@@ -27,6 +37,8 @@ struct Globals {
 @group(0) @binding(3) var day_imagery: texture_2d<f32>;
 @group(0) @binding(4) var night_imagery: texture_2d<f32>;
 @group(0) @binding(5) var cloud_cover: texture_2d<f32>;
+@group(0) @binding(6) var tiles: texture_2d_array<f32>;
+@group(0) @binding(7) var tile_sampler: sampler;
 
 const PI: f32 = 3.14159265;
 const TAU: f32 = 6.2831853;
@@ -97,13 +109,46 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         vec2<f32>(du_smooth.x, dv.x),
         vec2<f32>(du_smooth.y, dv.y)
     );
-    let imagery = textureSampleGrad(
-        day_imagery,
-        map_sampler,
-        uv,
-        vec2<f32>(du_smooth.x, dv.x),
-        vec2<f32>(du_smooth.y, dv.y)
-    ).rgb;
+    // The finest detail window that has its tile here replaces the imagery, and fades into
+    // the next coarser one towards its edge, and while its tile fades in.
+    var detail = vec3<f32>(0.0);
+    var uncovered = 1.0;
+    for (var index = 2; index >= 0; index--) {
+        let grid = globals.windows[index].grid;
+        if grid.z == 0.0 || uncovered < 0.002 {
+            continue;
+        }
+        let tile = uv * grid.zw;
+        var offset = tile - grid.xy;
+        offset.x -= grid.z * round(offset.x / grid.z);
+        // The window reaches at least 1.5 tiles from where the camera looks.
+        let inside = 1.0 - smoothstep(1.15, 1.45, max(abs(offset.x), abs(offset.y)));
+        let slot = vec2<i32>(floor(tile)) & vec2<i32>(3);
+        let weight = inside * globals.windows[index].shown[slot.y][slot.x] * uncovered;
+        if weight > 0.002 {
+            let scale = grid.zw / 4.0;
+            detail += weight * textureSampleGrad(
+                tiles,
+                tile_sampler,
+                tile / 4.0,
+                index,
+                vec2<f32>(du_smooth.x, dv.x) * scale,
+                vec2<f32>(du_smooth.y, dv.y) * scale
+            ).rgb;
+            uncovered -= weight;
+        }
+    }
+    // The globe's own imagery shows where no window does.
+    var imagery = detail;
+    if uncovered > 0.002 {
+        imagery += uncovered * textureSampleGrad(
+            day_imagery,
+            map_sampler,
+            uv,
+            vec2<f32>(du_smooth.x, dv.x),
+            vec2<f32>(du_smooth.y, dv.y)
+        ).rgb;
+    }
     let city_light = textureSampleGrad(
         night_imagery,
         map_sampler,

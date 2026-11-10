@@ -9,6 +9,7 @@ use wgpu::util::DeviceExt;
 
 use crate::compress;
 use crate::map::{self, Map};
+use crate::tiles;
 
 /// What one frame of the globe shows, see `Globals` in `globe.wgsl`.
 pub struct Frame {
@@ -28,6 +29,8 @@ pub struct Frame {
     pub space: f32,
     /// How strongly the clouds show, from 0 to 1.
     pub clouds: f32,
+    /// The detail windows, see `tiles::Detail::update()`.
+    pub windows: [[f32; tiles::WINDOW_FLOATS]; tiles::LEVELS],
 }
 
 /// Satellite imagery of the earth, equirectangular like the map, with its mip levels in sRGB
@@ -91,6 +94,14 @@ impl Imagery {
         }
     }
 
+    /// One level of RGBA pixels in the format that `compressed_format()` gives for `features`.
+    pub fn compress_level(features: wgpu::Features, rgba: Vec<u8>, size: usize) -> Vec<u8> {
+        match Self::encoder(features) {
+            Some((encode, _)) => encode(&rgba, size, size),
+            None => rgba,
+        }
+    }
+
     /// Compresses the imagery to a format that `features` support, see `compressed_format()`,
     /// and otherwise leaves it as it is.
     pub fn compress(self, features: wgpu::Features) -> Self {
@@ -143,6 +154,7 @@ fn bind_group(
     globals: &wgpu::Buffer,
     sampler: &wgpu::Sampler,
     [map, day, night, clouds]: [&wgpu::TextureView; 4],
+    (tiles, tile_sampler): (&wgpu::TextureView, &wgpu::Sampler),
 ) -> wgpu::BindGroup {
     let view = |binding, view| wgpu::BindGroupEntry {
         binding,
@@ -158,6 +170,11 @@ fn bind_group(
             view(3, day),
             view(4, night),
             view(5, clouds),
+            view(6, tiles),
+            wgpu::BindGroupEntry {
+                binding: 7,
+                resource: wgpu::BindingResource::Sampler(tile_sampler),
+            },
         ],
     })
 }
@@ -180,9 +197,14 @@ pub struct Renderer {
     day_view: wgpu::TextureView,
     night_view: wgpu::TextureView,
     cloud_view: wgpu::TextureView,
+    /// The detail windows of `tiles.rs`, one per layer.
+    tile_texture: wgpu::Texture,
+    tile_view: wgpu::TextureView,
+    tile_sampler: wgpu::Sampler,
+    tile_format: wgpu::TextureFormat,
 }
 
-const GLOBAL_FLOATS: usize = 48;
+const GLOBAL_FLOATS: usize = 48 + tiles::LEVELS * tiles::WINDOW_FLOATS;
 
 impl Renderer {
     pub fn new(
@@ -190,6 +212,7 @@ impl Renderer {
         queue: &wgpu::Queue,
         map: &Map,
         format: wgpu::TextureFormat,
+        with_tiles: bool,
     ) -> Self {
         let texture = device.create_texture_with_data(
             queue,
@@ -302,12 +325,62 @@ impl Renderer {
                     },
                     count: None,
                 },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 6,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        view_dimension: wgpu::TextureViewDimension::D2Array,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 7,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    count: None,
+                },
             ],
         });
         let map_view = texture.create_view(&Default::default());
         let cloud_view = cloud_texture.create_view(&Default::default());
+        let tile_format = Imagery::compressed_format(device.features());
+        // Without tiles, the shader never samples it, so one block per layer will do.
+        let (window, mips) =
+            if with_tiles { (tiles::WINDOW_TILES * tiles::TILE, tiles::MIPS) } else { (4, 1) };
+        let tile_texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("globe detail"),
+            size: wgpu::Extent3d {
+                width: window,
+                height: window,
+                depth_or_array_layers: tiles::LEVELS as u32,
+            },
+            mip_level_count: mips,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: tile_format,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            view_formats: &[],
+        });
+        let tile_view = tile_texture.create_view(&wgpu::TextureViewDescriptor {
+            dimension: Some(wgpu::TextureViewDimension::D2Array),
+            ..Default::default()
+        });
+        // A tile's place in its window comes from its column and row modulo the window's size,
+        // so the texture repeats in both directions.
+        let tile_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            address_mode_u: wgpu::AddressMode::Repeat,
+            address_mode_v: wgpu::AddressMode::Repeat,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::MipmapFilterMode::Linear,
+            anisotropy_clamp: 8,
+            ..Default::default()
+        });
         let views = [&map_view, &day_view, &night_view, &cloud_view];
-        let bind_group = bind_group(device, &layout, &globals, &sampler, views);
+        let bind_group =
+            bind_group(device, &layout, &globals, &sampler, views, (&tile_view, &tile_sampler));
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("globe"),
             bind_group_layouts: &[Some(&layout)],
@@ -403,6 +476,10 @@ impl Renderer {
             day_view,
             night_view,
             cloud_view,
+            tile_texture,
+            tile_view,
+            tile_sampler,
+            tile_format,
         }
     }
 
@@ -420,8 +497,41 @@ impl Renderer {
 
     fn rebind(&mut self) {
         let views = [&self.map_view, &self.day_view, &self.night_view, &self.cloud_view];
-        self.bind_group =
-            bind_group(&self.device, &self.layout, &self.globals, &self.sampler, views);
+        self.bind_group = bind_group(
+            &self.device,
+            &self.layout,
+            &self.globals,
+            &self.sampler,
+            views,
+            (&self.tile_view, &self.tile_sampler),
+        );
+    }
+
+    /// Puts a tile into the detail window `layer`, at the slot `slot` of its columns and rows.
+    /// `mips` are the tile's `tiles::MIPS` levels, as `Imagery::compress_level()` gives them.
+    pub fn set_tile(&self, layer: u32, slot: (u32, u32), mips: &[Vec<u8>]) {
+        let compressed = self.tile_format != wgpu::TextureFormat::Rgba8UnormSrgb;
+        for (level, data) in mips.iter().enumerate() {
+            let size = tiles::TILE >> level;
+            // BC1 and ETC2 store blocks of 4 by 4 pixels in 8 bytes.
+            let (bytes_per_row, rows) =
+                if compressed { (size / 4 * 8, size / 4) } else { (size * 4, size) };
+            self.queue.write_texture(
+                wgpu::TexelCopyTextureInfo {
+                    texture: &self.tile_texture,
+                    mip_level: level as u32,
+                    origin: wgpu::Origin3d { x: slot.0 * size, y: slot.1 * size, z: layer },
+                    aspect: wgpu::TextureAspect::All,
+                },
+                data,
+                wgpu::TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(bytes_per_row),
+                    rows_per_image: Some(rows),
+                },
+                wgpu::Extent3d { width: size, height: size, depth_or_array_layers: 1 },
+            );
+        }
     }
 
     /// Fills the cloud texture with the mip levels from `clouds::generate()`.
@@ -459,6 +569,10 @@ impl Renderer {
         globals[44..46].copy_from_slice(&frame.viewport.to_array());
         globals[46] = self.encode_srgb as u8 as f32;
         globals[47] = frame.clouds;
+        for (window, floats) in frame.windows.iter().enumerate() {
+            let start = 48 + window * tiles::WINDOW_FLOATS;
+            globals[start..start + tiles::WINDOW_FLOATS].copy_from_slice(floats);
+        }
         self.queue.write_buffer(&self.globals, 0, bytemuck::cast_slice(&globals));
 
         let mut encoder = self.device.create_command_encoder(&Default::default());
