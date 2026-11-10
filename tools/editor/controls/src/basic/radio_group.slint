@@ -1,0 +1,78 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { RadioGroupBase, RadioButtonBase } from "../headless.slint";
+import { BasicTheme } from "theme.slint";
+
+export component RadioGroup inherits RadioGroupBase {
+    in property <string> title;
+    in property <brush> title-color: root.enabled ? BasicTheme.foreground : BasicTheme.disabled-foreground;
+    in property <length> title-font-size: 14px;
+    in property <int> title-font-weight: 600;
+
+    accessible-label: root.title;
+
+    header << VerticalLayout {
+        padding: 0px;
+        padding-bottom: root.title != "" ? root.spacing : 0px;
+        vertical-stretch: 0;
+        if root.title != "": Text {
+            text: root.title;
+            color: root.title-color;
+            font-size: root.title-font-size;
+            font-weight: root.title-font-weight;
+            accessible-role: none;
+        }
+    }
+}
+
+export component RadioButton inherits RadioButtonBase {
+    in property <brush> checked-color: BasicTheme.accent;
+    private property <bool> interactive: root.enabled && root.group-enabled;
+
+    min-height: 56px;
+    preferred-height: 56px;
+    vertical-stretch: 0;
+
+    Rectangle {
+        border-radius: 10px;
+        border-width: root.has-focus ? 2px : 1px;
+        border-color: !root.interactive ? BasicTheme.border.with-alpha(0.5)
+            : root.has-focus || root.checked ? root.checked-color : BasicTheme.border;
+        background: !root.interactive ? BasicTheme.disabled-background
+            : root.pressed ? BasicTheme.pressed-background
+            : root.checked ? root.checked-color.with-alpha(0.08)
+            : root.has-hover ? BasicTheme.hover-background : BasicTheme.background;
+
+        HorizontalLayout {
+            padding: 16px;
+            spacing: 12px;
+
+            Rectangle {
+                width: 20px;
+                height: 20px;
+                border-radius: 10px;
+                border-width: 1.5px;
+                border-color: !root.interactive ? BasicTheme.disabled-foreground
+                    : root.checked ? root.checked-color : BasicTheme.disabled-foreground;
+                cross-axis-self-alignment: center;
+
+                if root.checked: Rectangle {
+                    width: 10px;
+                    height: 10px;
+                    border-radius: 5px;
+                    background: root.interactive ? root.checked-color : BasicTheme.disabled-foreground;
+                }
+            }
+
+            Text {
+                text: root.text;
+                color: root.interactive ? BasicTheme.foreground : BasicTheme.disabled-foreground;
+                font-size: 14px;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+                accessible-role: none;
+            }
+        }
+    }
+}

@@ -2,7 +2,7 @@
 
 Import styled controls and theme types from [`src/basic.slint`](src/basic.slint).
 Import headless controls and surface interfaces from [`src/headless.slint`](src/headless.slint).
-The controls implement the existing standard widget interfaces from [`std-widget-interfaces.slint`](../../../internal/compiler/widgets/common/std-widget-interfaces.slint).
+Button, CheckBox, Switch, Slider, ComboBox, and LineEdit implement the existing standard widget interfaces from [`std-widget-interfaces.slint`](../../../internal/compiler/widgets/common/std-widget-interfaces.slint).
 These interfaces define the common compatibility API; headless bases can expose additional properties, callbacks, and functions for interaction and styling.
 The additional members don't become requirements for other implementations of the standard interfaces.
 Import those interfaces directly; neither entry point re-exports them.
@@ -336,6 +336,31 @@ LineEdit exposes `leading` and `trailing` slots; its background and placeholder 
 Derived components inherit these slots automatically.
 Selection color overrides apply while enabled; disabled fields use style selection colors.
 Read-only fields retain enabled style colors.
+
+## RadioGroup and RadioButton
+
+Sources: [styled](src/basic/radio_group.slint), [shared group base](../../../internal/compiler/widgets/common/radiogroup-base.slint), [shared button base](../../../internal/compiler/widgets/common/radiobutton-base.slint).
+
+These controls inherit the same bases as the built-in radio styles.
+See the [standard radio API](../../../docs/astro/src/content/docs/reference/std-widgets/basic-widgets/radiogroup.mdx) for selection, writable `checked`, input, and accessibility behavior.
+
+| Component | Input | Type | Default or Meaning |
+| --- | --- | --- | --- |
+| RadioGroup | `title` | `string` | Empty; default header text and accessibility label |
+| RadioGroup | `title-color` | `brush` | Theme foreground, or disabled foreground |
+| RadioGroup | `title-font-size` | `length` | `14px` |
+| RadioGroup | `title-font-weight` | `int` | `600` |
+| RadioGroupBase | `orientation` | `Orientation` | Vertical |
+| RadioGroupBase | `spacing` | `length` | `8px`; gap between buttons |
+| RadioGroupBase | `content-padding` | `length` | `0px`; inset around header and buttons |
+| RadioButton | `checked-color` | `brush` | Theme accent |
+
+The optional `header` slot is declared by RadioGroupBase.
+The Basic style supplies a title header; callers can replace it with `header << Component { }` or remove it with `header << { }`.
+RadioGroupBase doesn't declare title or typography properties.
+Set `accessible-label` when replacing the title with custom content.
+The base still provides a layout; it doesn't yet support replacing that entire layout.
+See [Radio Prototype Status](README.md#radio-prototype-status) for current limitations and unresolved issues.
 
 ## Style Struct Fields
 

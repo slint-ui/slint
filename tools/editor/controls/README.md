@@ -186,12 +186,39 @@ Each `src/basic/<control>.slint` file defines the component, its style structs, 
 Run the gallery with the checkout's viewer:
 
 ```powershell
-$env:SLINT_ENABLE_EXPERIMENTAL_FEATURES = "interfaces,shadowable,closures,named-slots"
-.\target\debug\slint-viewer.exe --auto-reload tools/editor/controls/examples/controls.slint
+cargo run -p slint-viewer --bin slint-viewer -- --auto-reload --project-root tools/editor tools/editor/controls/examples/controls.slint
 ```
 
-Each page provides size and disabled settings for previews, and the gallery supports light and dark palettes.
+`--project-root` loads the experimental features and library paths from the editor's `slint-project.json`.
+
+Built-in widget sources are embedded in the viewer executable.
+Use `cargo run` to rebuild them after changing a shared base; auto-reload updates application sources only.
+
+The gallery supports light and dark palettes.
+Button, ComboBox, Slider, CheckBox, Switch, and LineEdit pages provide size and disabled settings for previews.
 Preview sizes are defined by gallery components in `examples/preview_controls.slint`; headless examples keep their custom dimensions.
 The Button page shows defaults, direct adjustments, reusable application defaults, and custom visuals through slots.
 Its customization examples keep their own dimensions independently of the preview size selector.
-Every control page demonstrates custom visuals through slots.
+The RadioGroup page demonstrates vertical and horizontal layouts, model-driven buttons, a custom header slot, spacing, and padding.
+`RadioGroupBase` and `RadioButtonBase` are shared with the built-in widget styles and re-exported through `src/headless.slint`.
+The Basic radio style declares its own title and typography, supplying them through the base's `header` slot.
+Replace the header with `header << YourHeader { }`, or remove it with `header << { }`.
+Set `accessible-label` for a custom header.
+Use `spacing` for the gap between buttons and `content-padding` for the inset around the header and buttons.
+The name `content-padding` follows GroupBox because Slint reserves `padding` for layout elements.
+
+### Radio Prototype Status
+
+The radio controls demonstrate [collection slots](../../../docs/astro/src/content/docs/guide/experimental/named-slots.mdx#collection-slots).
+Selection and input logic live in the shared Slint bases; the compiler handles generic interface validation and collection wiring.
+The example runs in this gallery without a separate Cargo project.
+
+The bases still own the orientation-aware layout; replacing the entire layout isn't supported.
+The remaining radio issues are:
+
+- `current-value` can become stale after direct `current-index` changes or changes to the selected button's text.
+- `item-count` is an input, and public helpers such as `select()` don't validate indexes.
+- Initial and later programmatic selection of disabled buttons follow different rules.
+
+Collection forwarding, mixed static and repeated children, and inherited collection replacement remain unsupported.
+Clearing an inherited named collection can currently be silently ignored.

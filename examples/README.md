@@ -41,6 +41,7 @@ These examples demonstrate specialized features or integrations:
 | [orbit-animation](./orbit-animation/) | Orbital animation effects |
 | [sprite-sheet](./sprite-sheet/) | Sprite sheet animation |
 | [repeater](./repeater/) | Demonstrates the `for` repeater element |
+| [radio groups](../tools/editor/controls/examples/radio_groups.slint) | Custom radio styles using collection slots in the editor controls gallery |
 | [gstreamer-player](./gstreamer-player/) | Video playback using GStreamer |
 | [wgpu_texture](./wgpu_texture/) | Custom rendering with wgpu into a Slint texture |
 

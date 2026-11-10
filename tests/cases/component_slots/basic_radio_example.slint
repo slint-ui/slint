@@ -1,0 +1,38 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { RadioGroup as BasicRadioGroup, RadioButton as BasicRadioButton } from "../../../tools/editor/controls/src/basic.slint";
+
+export component TestCase inherits Window {
+    width: 360px;
+    height: 220px;
+    out property <int> current-index: group.current-index;
+    out property <string> current-value: group.current-value;
+    out property <bool> test: group.item-count == 2
+        && first.item-index == 0 && second.item-index == 1
+        && first.checked == (group.current-index == 0)
+        && second.checked == (group.current-index == 1);
+
+    group := BasicRadioGroup {
+        current-index: 0;
+        accessible-label: "Billing cycle";
+        first := BasicRadioButton { text: "Monthly"; }
+        second := BasicRadioButton { text: "Yearly"; }
+    }
+}
+
+/*
+```rust
+use slint::platform::PointerEventButton;
+use slint_testing::ElementHandle;
+
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+assert_eq!(instance.get_current_index(), 0);
+let yearly = ElementHandle::find_by_accessible_label(&instance, "Yearly").next().unwrap();
+yearly.mock_single_click(PointerEventButton::Left);
+assert_eq!(instance.get_current_index(), 1);
+assert_eq!(instance.get_current_value(), "Yearly");
+assert!(instance.get_test());
+```
+*/
