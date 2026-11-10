@@ -891,6 +891,9 @@ export component AppWindow inherits Window {
     in-out property <bool> sunlight: true;
     in-out property <bool> borders: true;
     in-out property <bool> clouds: true;
+    /// Whether the globe shows sharper imagery from the network while zoomed in.
+    in-out property <bool> online-imagery: true;
+    in property <bool> online-imagery-available: true;
     in-out property <Quality> quality: Quality.high;
     /// Whether the quality drops while frames take too long.
     in-out property <bool> auto-quality: true;
@@ -955,6 +958,9 @@ export component AppWindow inherits Window {
     background: black;
 
     changed sunlight => {
+        root.settings-changed();
+    }
+    changed online-imagery => {
         root.settings-changed();
     }
     changed clouds => {
@@ -1449,6 +1455,14 @@ export component AppWindow inherits Window {
             Toggle {
                 text: "Random flights";
                 checked <=> root.kiosk;
+                toggled => {
+                    root.interacted();
+                }
+            }
+
+            if root.online-imagery-available: Toggle {
+                text: "Online imagery";
+                checked <=> root.online-imagery;
                 toggled => {
                     root.interacted();
                 }

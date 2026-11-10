@@ -94,11 +94,17 @@ impl Imagery {
         }
     }
 
-    /// One level of RGBA pixels in the format that `compressed_format()` gives for `features`.
-    pub fn compress_level(features: wgpu::Features, rgba: Vec<u8>, size: usize) -> Vec<u8> {
+    /// RGBA pixels, whose width and height are multiples of 4, in the format that
+    /// `compressed_format()` gives for `features`.
+    pub fn compress_level(
+        features: wgpu::Features,
+        rgba: &[u8],
+        width: usize,
+        height: usize,
+    ) -> Vec<u8> {
         match Self::encoder(features) {
-            Some((encode, _)) => encode(&rgba, size, size),
-            None => rgba,
+            Some((encode, _)) => encode(rgba, width, height),
+            None => rgba.to_vec(),
         }
     }
 

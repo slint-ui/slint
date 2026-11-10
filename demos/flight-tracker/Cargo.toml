@@ -19,6 +19,11 @@ path = "main.rs"
 #wasm# path = "main.rs"
 #wasm# crate-type = ["cdylib"]
 
+[features]
+default = ["online-imagery"]
+# Fetches sharper imagery from NASA's GIBS while zoomed in, and keeps it in a cache directory.
+online-imagery = ["dep:reqwest", "dep:directories"]
+
 [dependencies]
 bytemuck = "1.13.1"
 glam = "0.32"
@@ -28,10 +33,15 @@ web-time = "1"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 slint = { path = "../../api/rs/slint", features = ["renderer-skia", "unstable-wgpu-30"] }
+reqwest = { version = "0.13", default-features = false, features = ["blocking", "rustls"], optional = true }
+directories = { version = "6.0", optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 slint = { path = "../../api/rs/slint", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-femtovg-wgpu", "unstable-wgpu-30"] }
 wasm-bindgen = { version = "0.2" }
+wasm-bindgen-futures = "0.4"
+js-sys = "0.3"
+web-sys = { version = "0.3", features = ["Window", "Response"] }
 console_error_panic_hook = "0.1.5"
 
 [build-dependencies]

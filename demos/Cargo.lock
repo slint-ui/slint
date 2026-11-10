@@ -1656,12 +1656,17 @@ version = "1.19.0"
 dependencies = [
  "bytemuck",
  "console_error_panic_hook",
+ "directories",
  "glam",
  "image",
+ "js-sys",
+ "reqwest",
  "slint",
  "slint-build",
  "unicode-segmentation",
  "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
  "web-time",
 ]
 
@@ -4622,7 +4627,9 @@ checksum = "16a1cfa75cc186dd73d5818e510e042e40927bccc9c236b061cea97e1eb08029"
 dependencies = [
  "base64",
  "bytes",
+ "futures-channel",
  "futures-core",
+ "futures-util",
  "http",
  "http-body",
  "http-body-util",
