@@ -944,13 +944,7 @@ fn test_fold_layout_info_merge() {
     assert!(matches!(expr, Expression::BinaryExpression { .. }), "{expr:?}");
 }
 
-/// Regression test for the pass ordering `lower_platform` (see its module doc comment) relies
-/// on: a `states [...]` block lowers its `when` condition into a synthesized `Condition`
-/// expression around the affected property's binding, and `Platform.uses-mock-data` (folded to
-/// a literal by `lower_platform`, which must run before `binding_analysis`) must still fold that
-/// whole `Condition` away, not just the direct `Platform.uses-mock-data` reference. If
-/// `lower_platform` ever moved to run after `binding_analysis`, the condition would keep a stale
-/// non-constant `is_constant` result and this test would fail.
+/// `lower_platform` must run before `binding_analysis` for a state condition to fold away.
 #[test]
 fn test_platform_uses_mock_data_in_state_condition_folds_away() {
     let check = |config: crate::CompilerConfiguration, expected: &str| {

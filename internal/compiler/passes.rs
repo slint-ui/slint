@@ -285,7 +285,6 @@ pub async fn run_passes(
     }
     default_geometry::adjust_image_clip_rects(doc);
 
-    // Must run before `binding_analysis`
     doc.visit_all_used_components(|component| {
         lower_platform::lower_platform(component, type_loader);
     });
