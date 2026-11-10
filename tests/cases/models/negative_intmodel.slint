@@ -13,6 +13,14 @@ export component TestCase inherits Rectangle {
 
     in-out property <int> repeater-count: -10;
 
+    in-out property <length> stripes-width: -20px;
+    in-out property <int> stripe-count: 0;
+    for _ in stripes-width / 10px: Rectangle {
+        init => {
+            stripe-count += 1;
+        }
+    }
+
     VerticalLayout {
         for _ in repeater-count: Rectangle {
             preferred-height: 10px;
@@ -37,6 +45,11 @@ instance.set_repeater_count(2);
 slint_testing::mock_elapsed_time(16);
 assert_eq(instance.get_test_height(), 20.);
 assert_eq(instance.get_creation_count(), 2);
+
+assert_eq(instance.get_stripe_count(), 0);
+instance.set_stripes_width(25.);
+slint_testing::mock_elapsed_time(16);
+assert_eq(instance.get_stripe_count(), 2);
 ```
 
 
@@ -50,6 +63,11 @@ instance.set_repeater_count(2);
 slint_testing::mock_elapsed_time(16);
 assert_eq!(instance.get_test_height(), 20.);
 assert_eq!(instance.get_creation_count(), 2);
+
+assert_eq!(instance.get_stripe_count(), 0);
+instance.set_stripes_width(25.);
+slint_testing::mock_elapsed_time(16);
+assert_eq!(instance.get_stripe_count(), 2);
 ```
 
 ```js
@@ -62,5 +80,10 @@ instance.repeater_count = 2;
 slintlib.private_api.mock_elapsed_time(16);
 assert.equal(instance.test_height, 20.);
 assert.equal(instance.creation_count, 2);
+
+assert.equal(instance.stripe_count, 0);
+instance.stripes_width = 25;
+slintlib.private_api.mock_elapsed_time(16);
+assert.equal(instance.stripe_count, 2);
 ```
 */
