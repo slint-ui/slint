@@ -1,0 +1,97 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component GridCell inherits Rectangle {
+    x: 3px;
+//     >  <note{'x' is set here}
+    y: 7px;
+//     >  <note{'y' is set here}
+}
+
+component PaddedItem inherits Rectangle {
+    x: 3px;
+//     >  <note{'x' is set here}
+    y: 7px;
+//     >  <note{'y' is set here}
+}
+
+component ItemWithoutPadding inherits Rectangle {
+    x: 3px;
+//     >  <note{'x' is set here}
+    y: 7px;
+//     >  <note{'y' is set here}
+}
+
+component Base inherits Rectangle {
+    y: 7px;
+//     >  <note{'y' is set here}
+}
+
+component Derived inherits Base { }
+
+component InlinedBase inherits Rectangle {
+    y: 7px;
+//     >  <note{'y' is set here}
+}
+
+component InlinedDerived inherits InlinedBase { }
+
+component Aliased inherits Rectangle {
+    in-out property <length> pos-y: 7px;
+    y <=> pos-y;
+}
+
+component InState inherits Rectangle {
+    states [
+        moved when true: { y: 7px; }
+//                         ^note{'y' is set here}
+//                         ^^note{'y' is set here}
+    ]
+}
+
+component AliasedInState inherits Rectangle {
+    in-out property <length> pos-y: 7px;
+    y <=> pos-y;
+    states [
+        moved when true: { y: 3px; }
+//                         ^note{'y' is set here}
+    ]
+}
+
+component RepeatedItem inherits Rectangle {
+    y: 7px;
+//     >  <note{'y' is set here}
+}
+
+export component Test inherits Window {
+    GridLayout {
+        GridCell { Rectangle { } }
+//      >       <warning{The layout overrides the 'x' set in the root of 'GridCell', remove it from that root or wrap the element in a 'Rectangle'}
+//      >       <^warning{The layout overrides the 'y' set in the root of 'GridCell', remove it from that root or wrap the element in a 'Rectangle'}
+    }
+    VerticalLayout {
+        padding: 4px;
+        PaddedItem { }
+//      >         <warning{The layout overrides the 'y' set in the root of 'PaddedItem', remove it from that root or wrap the element in a 'Rectangle'}
+//      >         <^warning{The layout overrides the 'x' set in the root of 'PaddedItem', remove it from that root or wrap the element in a 'Rectangle'}
+    }
+    VerticalLayout {
+        ItemWithoutPadding { }
+//      >                 <warning{The layout overrides the 'y' set in the root of 'ItemWithoutPadding', remove it from that root or wrap the element in a 'Rectangle'}
+//      >                 <^warning{The layout stretches the 'width' of this element, so 'x' can move it past the edge, consider setting its 'width' too, or using the layout's 'padding' or 'cross-axis-alignment'}
+        Derived { }
+//      >      <warning{The layout overrides the 'y' set in the root of 'Derived', remove it from that root or wrap the element in a 'Rectangle'}
+        InlinedDerived { Rectangle { } }
+//      >             <warning{The layout overrides the 'y' set in the root of 'InlinedDerived', remove it from that root or wrap the element in a 'Rectangle'}
+        Aliased { }
+        Aliased { Rectangle { } }
+        InState { }
+//      >      <warning{The layout overrides the 'y' set in the root of 'InState', remove it from that root or wrap the element in a 'Rectangle'}
+        InState { Rectangle { } }
+//      >      <warning{The layout overrides the 'y' set in the root of 'InState', remove it from that root or wrap the element in a 'Rectangle'}
+        AliasedInState { }
+//      >             <warning{The layout overrides the 'y' set in the root of 'AliasedInState', remove it from that root or wrap the element in a 'Rectangle'}
+        for i in 2: RepeatedItem { }
+//                  >           <warning{The layout overrides the 'y' set in the root of 'RepeatedItem', remove it from that root or wrap the element in a 'Rectangle'}
+    }
+}

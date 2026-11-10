@@ -7,7 +7,7 @@ use lyon_path::geom::euclid::approxeq::ApproxEq;
 use std::sync::Arc;
 
 use crate::builtin_functions::BuiltinFunction;
-use crate::diagnostics::{BuildDiagnostics, DiagnosticLevel, Spanned};
+use crate::diagnostics::{BuildDiagnostics, DiagnosticLevel, SourceLocation, Spanned};
 use crate::element_type::{ElementType, PropertyLookupMode};
 use crate::expression_tree::*;
 use crate::expression_types::{MinMaxOp, Orientation, Unit};
@@ -1676,13 +1676,13 @@ fn lower_box_layout(
                 binding.has_binding() && !is_from_inlined_base(&actual_elem.borrow(), binding)
             }) {
                 if !fixed_ortho {
-                    diag.push_warning(
-                        format!("The layout stretches the '{ortho}' of this element, so '{pad}' can move it past the edge, consider setting its '{ortho}' too, or using the layout's 'padding' or 'cross-axis-alignment'"),
-                        &*binding,
-                    );
+                    diag.push_warning(stretch_warning(pad, ortho), &*binding);
                 }
             } else if let Some(pad_expr) = pad_expr {
-                set_layout_binding(actual_elem, pad, pad_expr.clone().into());
+                set_layout_binding(actual_elem, pad, pad_expr.clone().into(), diag);
+            } else if !fixed_ortho && let Some((_, location)) = root_position(actual_elem, pad) {
+                diag.push_warning(stretch_warning(pad, ortho), &*actual_elem.borrow());
+                push_set_here_note(pad, location, diag);
             }
             if !fixed_ortho {
                 let clamped = clamp_cross_stretch_size(
@@ -2303,12 +2303,18 @@ fn insert_cache_prop_binding(
         expr,
         layout_cache_prop.element().borrow().to_source_location(),
     );
-    if let Some(old) = set_layout_binding(elem, prop, new_binding) {
+    if let Some(old) = set_layout_binding(elem, prop, new_binding, diag) {
         diag.push_error(
             format!("The property '{prop}' cannot be set for elements placed in this layout, because the layout is already setting it"),
             &old,
         );
     }
+}
+
+fn stretch_warning(pad: &str, ortho: &str) -> String {
+    format!(
+        "The layout stretches the '{ortho}' of this element, so '{pad}' can move it past the edge, consider setting its '{ortho}' too, or using the layout's 'padding' or 'cross-axis-alignment'"
+    )
 }
 
 /// Whether inlining copied `binding` from the root of `elem`'s base component,
@@ -2321,21 +2327,68 @@ fn is_from_inlined_base(elem: &Element, binding: &BindingExpression) -> bool {
 
 /// Sets `prop` on `elem` to the layout's `binding`, overriding one from an inlined base
 /// component's root while keeping its two-way bindings (#7701).
+/// Warns when that overrides a position that the base component's root sets.
 /// Returns the replaced binding if `elem` set it itself.
 fn set_layout_binding(
     elem: &ElementRc,
     prop: &str,
     binding: BindingExpression,
+    diag: &mut BuildDiagnostics,
 ) -> Option<BindingExpression> {
-    let mut elem = elem.borrow_mut();
-    let old = elem.set_binding(prop.into(), binding)?;
-    if !is_from_inlined_base(&elem, &old) {
-        return Some(old);
+    let root_position = matches!(prop, "x" | "y").then(|| root_position(elem, prop)).flatten();
+    let mut elem_mut = elem.borrow_mut();
+    if let Some(old) = elem_mut.set_binding(prop.into(), binding) {
+        if !is_from_inlined_base(&elem_mut, &old) {
+            return Some(old);
+        }
+        if let Some(mut new) = elem_mut.binding_mut(prop) {
+            new.two_way_bindings.extend(old.two_way_bindings);
+        }
     }
-    if let Some(mut new) = elem.binding_mut(prop) {
-        new.two_way_bindings.extend(old.two_way_bindings);
+    drop(elem_mut);
+    if let Some((base_name, location)) = root_position {
+        diag.push_warning(
+            format!("The layout overrides the '{prop}' set in the root of '{base_name}', remove it from that root or wrap the element in a 'Rectangle'"),
+            &*elem.borrow(),
+        );
+        push_set_here_note(prop, location, diag);
     }
     None
+}
+
+/// The name of the component whose root sets `prop` on `elem`, and where it sets it,
+/// unless `elem` sets `prop` itself.
+fn root_position(elem: &ElementRc, prop: &str) -> Option<(SmolStr, SourceLocation)> {
+    let elem = elem.borrow();
+    match elem.binding(prop) {
+        Some(binding) if is_from_inlined_base(&elem, &binding) => {
+            let base_name = elem.debug.first().map(|debug| debug.type_name.clone());
+            Some((base_name.unwrap_or_default().into(), binding_location(&binding)?))
+        }
+        Some(_) => None,
+        None => {
+            let ElementType::Component(base) = &elem.base_type else { return None };
+            Some((base.id.clone(), binding_location(&*base.root_element.borrow().binding(prop)?)?))
+        }
+    }
+}
+
+/// Where `binding` sets a value, or `None` if it only has two-way bindings.
+fn binding_location(binding: &BindingExpression) -> Option<SourceLocation> {
+    match binding.value_expression() {
+        Expression::Invalid => None,
+        Expression::Condition {
+            source_location: Some(ConditionLocation::StateChange(state_location)),
+            ..
+        } => Some(state_location.clone()),
+        _ => Some(binding.to_source_location()),
+    }
+}
+
+fn push_set_here_note(prop: &str, location: SourceLocation, diag: &mut BuildDiagnostics) {
+    if location.span.is_valid() {
+        diag.push_note_with_span(format!("'{prop}' is set here"), location);
+    }
 }
 
 /// Common cache-access parameters for repeater indirection in layout caches.

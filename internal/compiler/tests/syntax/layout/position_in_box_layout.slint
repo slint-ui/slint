@@ -3,7 +3,12 @@
 
 component RootPositioned inherits Rectangle {
     x: 3px;
+//     >  <note{'x' is set here}
+//     >  <^note{'x' is set here}
+//     >  <^^note{'x' is set here}
     y: 3px;
+//     >  <note{'y' is set here}
+//     >  <^note{'y' is set here}
 }
 
 component OwnPositionInLayout {
@@ -48,12 +53,17 @@ export component Test inherits Window {
     VerticalLayout {
         padding: 2px;
         RootPositioned { Rectangle {} }
+//      >             <warning{The layout overrides the 'y' set in the root of 'RootPositioned', remove it from that root or wrap the element in a 'Rectangle'}
+//      >             <^warning{The layout overrides the 'x' set in the root of 'RootPositioned', remove it from that root or wrap the element in a 'Rectangle'}
         RootPositioned { y: 1px; Rectangle {} }
 //                          >  <error{The property 'y' cannot be set for elements placed in this layout, because the layout is already setting it}
+//      >             <^warning{The layout overrides the 'x' set in the root of 'RootPositioned', remove it from that root or wrap the element in a 'Rectangle'}
         RootPositioned { animate y { duration: 100ms; } }
 //                               ><error{The property 'y' cannot be set for elements placed in this layout, because the layout is already setting it}
+//      >             <^warning{The layout overrides the 'x' set in the root of 'RootPositioned', remove it from that root or wrap the element in a 'Rectangle'}
         RootPositioned { x: 1px; Rectangle {} }
-//                          >  <warning{The layout stretches the 'width' of this element, so 'x' can move it past the edge, consider setting its 'width' too, or using the layout's 'padding' or 'cross-axis-alignment'}
+//      >             <warning{The layout overrides the 'y' set in the root of 'RootPositioned', remove it from that root or wrap the element in a 'Rectangle'}
+//                          >  <^warning{The layout stretches the 'width' of this element, so 'x' can move it past the edge, consider setting its 'width' too, or using the layout's 'padding' or 'cross-axis-alignment'}
     }
     VerticalLayout {
         cross-axis-alignment: start;
