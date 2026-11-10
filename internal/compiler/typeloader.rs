@@ -1631,11 +1631,7 @@ impl TypeLoader {
                     Some(doc_node)
                 }
                 Claim::Claimed => match Self::read_import(state, &path).await {
-                    Ok(source) => syntax_nodes::Document::new(crate::parser::parse(
-                        source,
-                        Some(path.clone()),
-                        state.borrow_mut().diag,
-                    )),
+                    Ok(source) => Some(Self::parse_with_project_edition(state, &path, source)),
                     Err(err) if !resolved && is_not_found(&err) => {
                         if candidates.peek().is_some() {
                             import_stack.remove(&path);
@@ -1835,13 +1831,6 @@ impl TypeLoader {
         }
     }
 
-    /// Sets the edition of the file of `node` to the `project_edition` of its path.
-    pub(crate) fn set_edition(&self, node: &syntax_nodes::Document) {
-        if let Some(edition) = self.project_edition(node.source_file.path()) {
-            node.source_file.set_edition(edition);
-        }
-    }
-
     /// The edition of the project that the file at `path` belongs to,
     /// or the current edition for a file that ships with the compiler.
     pub fn project_edition(&self, path: &SourcePath) -> Option<crate::project_file::SlintEdition> {
@@ -1923,11 +1912,34 @@ impl TypeLoader {
         is_builtin: bool,
         diag: &mut BuildDiagnostics,
     ) {
-        let doc_node: syntax_nodes::Document =
-            crate::parser::parse(source_code, Some(path.clone()), diag).into();
         let state = RefCell::new(BorrowedTypeLoader { tl: self, diag });
         Self::load_library_projects(&state).await;
+        let doc_node = Self::parse_with_project_edition(&state, path, source_code);
         Self::load_file_impl(&state, path, doc_node, is_builtin, &Default::default()).await;
+    }
+
+    /// Parses `source_code`, the content of the file at `path`, with the edition of its project.
+    pub(crate) async fn parse_file(
+        &mut self,
+        path: &SourcePath,
+        source_code: String,
+        diag: &mut BuildDiagnostics,
+    ) -> syntax_nodes::Document {
+        let state = RefCell::new(BorrowedTypeLoader { tl: self, diag });
+        Self::load_library_projects(&state).await;
+        Self::parse_with_project_edition(&state, path, source_code)
+    }
+
+    /// Parses `source_code` with the edition of the project that `path` belongs to.
+    /// The library projects must be loaded.
+    fn parse_with_project_edition(
+        state: &RefCell<BorrowedTypeLoader<'_>>,
+        path: &SourcePath,
+        source_code: String,
+    ) -> syntax_nodes::Document {
+        let mut state = state.borrow_mut();
+        let edition = state.tl.project_edition(path);
+        crate::parser::parse(source_code, Some(path.clone()), edition, state.diag).into()
     }
 
     /// Reload a cached file
@@ -1959,11 +1971,10 @@ impl TypeLoader {
         keep_raw: bool,
         diag: &mut BuildDiagnostics,
     ) -> Option<TypeLoader> {
-        let doc_node: syntax_nodes::Document =
-            crate::parser::parse(source_code, Some(path.clone()), diag).into();
-        let parse_errors = diag.iter().cloned().collect();
         let state = RefCell::new(BorrowedTypeLoader { tl: self, diag });
         Self::load_library_projects(&state).await;
+        let doc_node = Self::parse_with_project_edition(&state, path, source_code);
+        let parse_errors = state.borrow().diag.iter().cloned().collect();
         let (path, mut doc) =
             Self::load_doc_no_pass(&state, path, doc_node, false, &Default::default()).await;
 
@@ -2047,7 +2058,6 @@ impl TypeLoader {
         )
         .await;
 
-        state.borrow().tl.set_edition(&dependency_doc);
         let ignore_missing_font_files =
             state.borrow().tl.compiler_config.resource_url_mapper.is_some();
         let symbol_counters = state.borrow().tl.symbol_counters.clone();
@@ -2567,6 +2577,7 @@ export component X { A {} B {} C {} D {} }
 "#
         .into(),
         Some(SourcePath::new("HELLO")),
+        None,
         &mut test_diags,
     );
 
@@ -2617,6 +2628,7 @@ component X inherits XX {}
 "#
         .into(),
         Some(SourcePath::new("HELLO")),
+        None,
         &mut test_diags,
     );
 
@@ -2659,6 +2671,7 @@ fn test_load_from_callback_with_url_base() {
     let doc_node = crate::parser::parse(
         "import { XX } from \"widgets/a b.slint\"; export component X { XX {} }".into(),
         Some(SourcePath::new("https://slint.dev/ui/main.slint")),
+        None,
         &mut test_diags,
     );
 
@@ -2720,6 +2733,7 @@ fn load_url_imports_with_include_paths(
     let doc_node: syntax_nodes::Document = crate::parser::parse(
         source.into(),
         Some(SourcePath::new("https://slint.dev/project/ui/main.slint")),
+        None,
         &mut build_diagnostics,
     )
     .into();
@@ -2825,6 +2839,7 @@ component Foo { XX {} }
 "#
         .into(),
         Some(SourcePath::new("HELLO")),
+        None,
         &mut test_diags,
     );
 
@@ -3034,7 +3049,7 @@ fn component_container_requires_its_feature() {
     compiler_config.style = Some("fluent".into());
     compiler_config.experimental_features = crate::ExperimentalFeatures::default();
     let mut diag = BuildDiagnostics::default();
-    let node = crate::parser::parse(source.into(), None, &mut diag);
+    let node = crate::parser::parse(source.into(), None, None, &mut diag);
     let (_, diag, _) = spin_on::spin_on(crate::compile_syntax_node(node, diag, compiler_config));
     let errors = diag.iter().filter(|d| d.level() == crate::diagnostics::DiagnosticLevel::Error);
     let messages = errors.map(|d| d.message().to_string()).collect::<Vec<_>>();
@@ -3151,6 +3166,7 @@ import { LibraryHelperType } from "@libdir/library_helper_type.slint";
 "#
         .into(),
         Some(SourcePath::new("HELLO")),
+        None,
         &mut test_diags,
     );
 
@@ -3188,6 +3204,7 @@ fn test_library_import_of_resources() {
         let doc_node = crate::parser::parse(
             source.into(),
             Some(SourcePath::new(manifest_dir.join("test.slint"))),
+            None,
             &mut test_diags,
         );
         assert!(!test_diags.has_errors());
@@ -3285,7 +3302,12 @@ import { VerticalBox } from "std-widgets.slint";
 export component Main { Button { } Rel { } }
 "#;
     let mut test_diags = crate::diagnostics::BuildDiagnostics::default();
-    let doc_node = crate::parser::parse(main_source.into(), Some(main.clone()), &mut test_diags);
+    let doc_node = crate::parser::parse(
+        main_source.into(),
+        Some(main.clone()),
+        compiler_config.edition,
+        &mut test_diags,
+    );
     let doc_node: syntax_nodes::Document = doc_node.into();
     let mut build_diagnostics = BuildDiagnostics::default();
     let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
@@ -3333,7 +3355,12 @@ export component Main { Button { } Rel { } }
     assert!(!loader.is_private_library_file(&main));
 
     let mut build_diagnostics = BuildDiagnostics::default();
-    let doc_node = crate::parser::parse(main_source.into(), Some(main), &mut build_diagnostics);
+    let doc_node = crate::parser::parse(
+        main_source.into(),
+        Some(main),
+        without_project_file.edition,
+        &mut build_diagnostics,
+    );
     let (_, build_diagnostics, _) = spin_on::spin_on(crate::compile_syntax_node(
         doc_node,
         build_diagnostics,
@@ -3360,6 +3387,7 @@ fn test_library_project_file_without_main() {
     let doc_node = crate::parser::parse(
         r#"import { A } from "@lib";"#.into(),
         Some(SourcePath::new("/app/main.slint")),
+        None,
         &mut test_diags,
     );
     let doc_node: syntax_nodes::Document = doc_node.into();
@@ -3408,6 +3436,7 @@ import { E } from "@unknown/lib.slint";
 "#
         .into(),
         Some(SourcePath::new("HELLO")),
+        None,
         &mut test_diags,
     );
 

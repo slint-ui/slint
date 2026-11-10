@@ -2979,7 +2979,7 @@ export component App inherits Window {
     let path = SourcePath::new("/virtual/inlined-repeaters.slint");
     let mut diagnostics = BuildDiagnostics::default();
     let syntax_node =
-        i_slint_compiler::parser::parse(code.into(), Some(path.clone()), &mut diagnostics);
+        i_slint_compiler::parser::parse(code.into(), Some(path.clone()), None, &mut diagnostics);
     let mut compiler_configuration =
         i_slint_compiler::CompilerConfiguration::new(OutputFormat::Interpreter);
     compiler_configuration.debug_info = true;
