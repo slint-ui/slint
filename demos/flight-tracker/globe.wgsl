@@ -151,9 +151,25 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let limb_sun = dot(normalize(closest), sun);
     let limb_light = mix(1.0, smoothstep(-0.2, 0.4, limb_sun), sun_strength);
     let limb_dusk = exp(-pow(limb_sun / 0.1, 2.0)) * sun_strength;
-    let halo = exp(-max(miss_distance - 1.0, 0.0) * 55.0) * select(0.0, 1.0, along > 0.0);
+    // Close to the ground, the camera is inside the soft glow that rims the globe from afar, so
+    // the glow thins to a line along the horizon there.
+    let thinness = mix(55.0, 450.0, smoothstep(0.4, 0.03, length(origin) - 1.0));
+    let halo = exp(-max(miss_distance - 1.0, 0.0) * thinness) * select(0.0, 1.0, along > 0.0);
     let halo_color = vec3<f32>(0.4, 0.65, 1.0);
-    let glow = (halo_color * limb_light + vec3<f32>(1.0, 0.5, 0.2) * limb_dusk * 0.4) * halo * 0.8;
+    // Looking towards the sun, the thin air at the edge lights up with the light it scatters
+    // forward.
+    let sun_angle = dot(direction, sun);
+    let forward_scattering = vec3<f32>(1.0, 0.85, 0.62) * pow(max(sun_angle, 0.0), 24.0) * 2.0 * sun_strength;
+    let glow = (halo_color * limb_light + vec3<f32>(1.0, 0.5, 0.2) * limb_dusk * 0.4 + forward_scattering) * halo * 0.8;
+    // The sun, and its glare while it's in view, which spills over everything in front of it.
+    // It's in view where the line from the camera towards it passes the globe.
+    let sun_along = -dot(origin, sun);
+    let sun_miss = length(origin + sun * max(sun_along, 0.0));
+    let sun_in_view = select(1.0, smoothstep(0.995, 1.02, sun_miss), sun_along > 0.0) * sun_strength * globals.options.x;
+    let sun_disc = smoothstep(0.99993, 0.99997, sun_angle);
+    let towards_sun = max(sun_angle, 0.0);
+    let glare = pow(towards_sun, 3000.0) * 2.5 + pow(towards_sun, 250.0) * 0.4 + pow(towards_sun, 40.0) * 0.05;
+    let sunshine = vec3<f32>(1.0, 0.95, 0.86) * sun_in_view;
 
     // The ground.
     let view = -direction;
@@ -187,10 +203,14 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     // Where there's no space, the frame is transparent but for the atmosphere's glow.
     let space = globals.options.x;
     let glow_alpha = clamp(max(glow.r, max(glow.g, glow.b)), 0.0, 1.0);
-    let premultiplied = mix(glow, ground, coverage) + starlight * (1.0 - coverage) * space;
+    let premultiplied = mix(glow, ground, coverage) + starlight * (1.0 - coverage) * space
+        + sunshine * (sun_disc * 8.0 * (1.0 - coverage) + glare);
     let alpha = mix(coverage + (1.0 - coverage) * glow_alpha, 1.0, space);
+    // Noise below one step of the 8-bit output keeps smooth gradients, like the sun's glare,
+    // from showing bands.
+    let dither = (hash3(vec3<f32>(in.position.xy, 0.0)).x - 0.5) / 255.0;
     // Slint shows the frame with straight alpha.
-    return vec4<f32>(output(premultiplied / max(alpha, 1e-4)), alpha);
+    return vec4<f32>(output(premultiplied / max(alpha, 1e-4)) + dither, alpha);
 }
 
 fn output(color: vec3<f32>) -> vec3<f32> {
