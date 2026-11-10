@@ -52,15 +52,18 @@ To run it without the network:
 - Set `FLIGHT_TRACKER_TILES=off`, or to a directory of tiles to show those alone.
   The directory holds the tiles as `<zoom>/<row>/<column>.jpg`, and those of the night's lights as `night/<zoom>/<row>/<column>.png`, like the cache does.
 
-A cross-compiled build, such as for an embedded board, brings the tiles along instead.
-`build.rs` fetches the whole world's tiles with `curl` into `flight-tracker-tiles` in Cargo's target directory, and embeds them in the binary.
-That's 8400 tiles, which add about 150 MB to the binary.
-Any build for another target fetches them once, also `cargo check`.
-Set `FLIGHT_TRACKER_EMBED_TILES` to change that when building:
+For a device without a network, such as an embedded board, embed the tiles in the binary.
+Set `FLIGHT_TRACKER_EMBED_TILES` when building:
 
-- `0` builds without the tiles, and the demo fetches them as it runs.
-- `1` embeds them in a native build too.
+- `1` fetches the whole world's tiles with `curl` into `flight-tracker-tiles` in Cargo's target directory, once, and embeds them.
+  That's 8400 tiles, which add about 150 MB to the binary.
 - A directory of tiles embeds those, without fetching any.
+
+```sh
+FLIGHT_TRACKER_EMBED_TILES=1 cargo build --release -p flight-tracker --manifest-path demos/Cargo.toml --target aarch64-unknown-linux-gnu
+```
+
+`cross` passes the variable on to its container.
 
 ## How It Works
 
