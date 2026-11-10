@@ -12,7 +12,7 @@ use std::rc::{Rc, Weak};
 use crate::diagnostics::{BuildDiagnostics, Diagnostic, Spanned};
 use crate::expression_tree::Callable;
 use crate::object_tree::{self, Document, ExportedName, Exports};
-use crate::parser::{NodeOrToken, SyntaxKind, SyntaxToken, syntax_nodes};
+use crate::parser::{NodeOrToken, SyntaxKind, SyntaxNode, SyntaxToken, syntax_nodes};
 use crate::source_path::SourcePath;
 use crate::typeregister::TypeRegister;
 use crate::{CompilerConfiguration, expression_tree};
@@ -244,6 +244,7 @@ impl Snapshotter {
             revision: type_loader.revision,
             // Share the counters so names generated after the snapshot stay unique.
             symbol_counters: type_loader.symbol_counters.clone(),
+            json_files: type_loader.json_files.clone(),
         })
     }
 
@@ -1008,6 +1009,8 @@ pub struct TypeLoader {
     /// passes. Shared across all documents of the compilation so the names stay
     /// unique even after inlining merges components from different documents.
     pub symbol_counters: Rc<crate::symbol_counters::SymbolCounters>,
+    /// The files read by `@from-json(...)` calls, by resolved path.
+    json_files: HashMap<SourcePath, Rc<std::io::Result<String>>>,
 }
 
 struct BorrowedTypeLoader<'a> {
@@ -1035,6 +1038,7 @@ impl TypeLoader {
             revision: 0,
             all_documents: Default::default(),
             symbol_counters,
+            json_files: Default::default(),
         };
 
         let mut known_styles = fileaccess::styles();
@@ -1148,6 +1152,8 @@ impl TypeLoader {
         registry_to_populate: &'b Rc<RefCell<TypeRegister>>,
         import_stack: &'b HashSet<SourcePath>,
     ) -> (Vec<ImportedTypes>, Exports) {
+        Self::load_json_files(state, doc).await;
+
         let mut imports = Vec::new();
         let mut dependencies_futures = Vec::new();
         for mut import in Self::collect_dependencies(state, doc) {
@@ -1439,6 +1445,49 @@ impl TypeLoader {
                         .filter(SourcePath::exists)
                 },
             )
+        }
+    }
+
+    /// The file that `@from-json(path)` reads, where `node` is the `@from-json(...)` call.
+    pub fn resolve_from_json_path(&self, node: &SyntaxNode, path: &str) -> SourcePath {
+        Some(path)
+            .filter(|path| !crate::source_path::is_absolute(path))
+            .and_then(|path| self.resolve_import_path(Some(&node.clone().into()), path))
+            .unwrap_or_else(|| {
+                node.source_file.path().parent().join(path).unwrap_or_else(|| SourcePath::new(path))
+            })
+    }
+
+    /// The content of a file read for `@from-json(...)`, as resolved by [`Self::resolve_from_json_path`].
+    /// `None` if the file wasn't read while loading the document.
+    pub fn from_json_file(&self, path: &SourcePath) -> Option<Rc<std::io::Result<String>>> {
+        self.json_files.get(path).cloned()
+    }
+
+    /// Reads the files of the `@from-json(...)` calls in `doc` with the `open_import_callback`,
+    /// so that the editors and the online playground can provide them.
+    async fn load_json_files<'a>(
+        state: &'a RefCell<BorrowedTypeLoader<'a>>,
+        doc: &syntax_nodes::Document,
+    ) {
+        let mut read = HashSet::new();
+        for node in doc.descendants().filter(|n| n.kind() == SyntaxKind::AtFromJson) {
+            let Some(path) = node
+                .child_token(SyntaxKind::StringLiteral)
+                .and_then(|token| crate::literals::unescape_string(token.text()))
+            else {
+                continue;
+            };
+            let path = state.borrow().tl.resolve_from_json_path(&node, &path);
+            if !read.insert(path.clone()) {
+                continue;
+            }
+            let content = Self::read_import(state, &path).await;
+            let mut state = state.borrow_mut();
+            if content.is_ok() {
+                state.diag.all_loaded_files.insert(path.clone());
+            }
+            state.tl.json_files.insert(path, Rc::new(content));
         }
     }
 
@@ -3104,4 +3153,40 @@ fn test_watch_paths_revision_bumps_on_mutations() {
     type_loader.drop_document(&path).unwrap();
     let after_drop = type_loader.revision();
     assert_ne!(after_drop, after_invalidate);
+}
+
+#[test]
+fn test_from_json_uses_open_import_callback() {
+    let mut compiler_config =
+        CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    compiler_config.style = Some("fluent".into());
+    compiler_config.open_import_callback = Some(Rc::new(move |path: SourcePath| {
+        Box::pin(async move {
+            (path.to_string() == "https://example.com/project/data.json")
+                .then(|| Ok(r#"{ "greeting": "from the callback" }"#.to_owned()))
+        })
+    }));
+
+    let mut diagnostics = BuildDiagnostics::default();
+    let doc_node = crate::parser::parse(
+        r#"export component X { out property <string> greeting: @from-json("data.json").greeting; }"#
+            .into(),
+        Some(SourcePath::new("https://example.com/project/main.slint")),
+        &mut diagnostics,
+    );
+    let (doc, diagnostics, _loader) =
+        spin_on::spin_on(crate::compile_syntax_node(doc_node, diagnostics, compiler_config));
+    assert!(!diagnostics.has_errors(), "{:?}", diagnostics.to_string_vec());
+
+    let component = doc.inner_components.last().unwrap();
+    let root_element = component.root_element.borrow();
+    let binding = root_element.binding("greeting").unwrap();
+    assert!(
+        matches!(
+            binding.expression.ignore_debug_hooks(),
+            expression_tree::Expression::StringLiteral(s) if s.as_str() == "from the callback"
+        ),
+        "{:?}",
+        binding.expression
+    );
 }

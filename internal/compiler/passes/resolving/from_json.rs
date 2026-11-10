@@ -75,28 +75,37 @@ pub fn lower(
         return Expression::Invalid;
     }
 
-    let resolved = resolve_path(&path_str, node, ctx);
-
-    let Some(file) = crate::fileaccess::find_file(&resolved) else {
-        ctx.diag.push_error(format!("Cannot find JSON file {resolved}"), &path_token);
-        return Expression::Invalid;
+    let resolved = match ctx.type_loader {
+        Some(loader) => loader.resolve_from_json_path(node, &path_str),
+        None => node
+            .source_file
+            .path()
+            .parent()
+            .join(&path_str)
+            .unwrap_or_else(|| SourcePath::new(&path_str)),
     };
-    ctx.diag.all_loaded_files.insert(file.clone());
-
-    let bytes = match file.read() {
-        Ok(bytes) => bytes,
+    let content = ctx
+        .type_loader
+        .and_then(|loader| loader.from_json_file(&resolved))
+        .unwrap_or_else(|| std::rc::Rc::new(resolved.read_to_string()));
+    let content = match &*content {
+        Ok(content) => content,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+            ctx.diag.push_error(format!("Cannot find JSON file {resolved}"), &path_token);
+            return Expression::Invalid;
+        }
         Err(err) => {
-            ctx.diag.push_error(format!("Cannot read JSON file {file}: {err}"), &path_token);
+            ctx.diag.push_error(format!("Cannot read JSON file {resolved}: {err}"), &path_token);
             return Expression::Invalid;
         }
     };
     // serde_json rejects the UTF-8 BOM that some editors write.
-    let bytes = bytes.strip_prefix(&[0xEFu8, 0xBB, 0xBF]).unwrap_or(&bytes);
+    let content = content.strip_prefix('\u{feff}').unwrap_or(content);
 
-    let json: serde_json::Value = match serde_json::from_slice(bytes) {
+    let json: serde_json::Value = match serde_json::from_str(content) {
         Ok(v) => v,
         Err(err) => {
-            ctx.diag.push_error(format!("Cannot parse JSON file {file}: {err}"), &path_token);
+            ctx.diag.push_error(format!("Cannot parse JSON file {resolved}: {err}"), &path_token);
             return Expression::Invalid;
         }
     };
@@ -229,18 +238,6 @@ impl JsonPath {
             format!("'{self}' in the JSON file {} is not {what}", file)
         }
     }
-}
-
-/// Resolves the file path argument the same way `@image-url(...)` resolves its path:
-/// through the include and library paths of `import` statements,
-/// falling back to a path relative to the current `.slint` file.
-fn resolve_path(s: &str, node: &syntax_nodes::AtFromJson, ctx: &LookupCtx) -> SourcePath {
-    ctx.type_loader
-        .filter(|_| !crate::source_path::is_absolute(s))
-        .and_then(|loader| loader.resolve_import_path(Some(&(**node).clone().into()), s))
-        .unwrap_or_else(|| {
-            node.source_file.path().parent().join(s).unwrap_or_else(|| SourcePath::new(s))
-        })
 }
 
 /// Look up `key` in `map`: try an exact match first, then fall back to comparing
