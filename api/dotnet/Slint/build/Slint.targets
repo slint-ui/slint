@@ -178,7 +178,7 @@
       <_SlintPathOptions Condition="'@(SlintLibraryPath)' != ''">$(_SlintPathOptions) @(SlintLibraryPath->'-L &quot;%(Identity)=%(Path)&quot;', ' ')</_SlintPathOptions>
       <_SlintOptionsFile>$(_SlintGeneratedDir)options.txt</_SlintOptionsFile>
     </PropertyGroup>
-    <ItemGroup Condition="'$(_SlintEmbed)' == 'true'">
+    <ItemGroup>
       <_SlintGenerate>
         <DependencyFile>%(GeneratedFile).d</DependencyFile>
         <DependencyOption> --depfile &quot;%(GeneratedFile).d&quot;</DependencyOption>
@@ -201,9 +201,24 @@
     <WriteLinesToFile File="$(_SlintOptionsFile)" Lines="$(SlintCompilerPath)$(_SlintOptions)$(_SlintPathOptions);@(_SlintGenerate->'%(Identity)%(LiveOption)%(UnitOption)')" Overwrite="true" WriteOnlyWhenDifferent="true" />
   </Target>
 
+  <!-- The files that the last build imported, such as from a library path, are inputs too. -->
+  <Target Name="_SlintPreviousDependencies" DependsOnTargets="_SlintPrepare">
+    <ReadLinesFromFile File="%(_SlintGenerate.DependencyFile)" Condition="Exists('%(_SlintGenerate.DependencyFile)')">
+      <Output TaskParameter="Lines" ItemName="_SlintPreviousDependencyLine" />
+    </ReadLinesFromFile>
+    <PropertyGroup>
+      <_SlintPreviousDependencies>@(_SlintPreviousDependencyLine, ' ')</_SlintPreviousDependencies>
+    </PropertyGroup>
+    <ItemGroup>
+      <_SlintPreviousDependency Include="$([MSBuild]::Unescape($(_SlintPreviousDependencies.Replace(' ', ';'))))" />
+      <!-- The dependency file doesn't escape spaces, so a path with spaces falls apart, into pieces that don't exist. -->
+      <_SlintPreviousDependency Remove="@(_SlintPreviousDependency)" Condition="$([System.String]::Copy('%(Identity)').EndsWith(':')) or !Exists('%(Identity)')" />
+    </ItemGroup>
+  </Target>
+
   <Target Name="SlintGenerate"
-          DependsOnTargets="_SlintPrepare"
-          Inputs="@(SlintFile);@(_SlintProjectSource);@(_SlintCompilerInput);$(MSBuildAllProjects);$(_SlintOptionsFile)"
+          DependsOnTargets="_SlintPrepare;_SlintPreviousDependencies"
+          Inputs="@(SlintFile);@(_SlintProjectSource);@(_SlintPreviousDependency);@(_SlintCompilerInput);$(MSBuildAllProjects);$(_SlintOptionsFile)"
           Outputs="@(_SlintGenerate->'%(GeneratedFile)');@(_SlintGenerate->'%(DependencyFile)');@(_SlintGenerate->'%(UnitFile)')">
     <MakeDir Directories="@(_SlintGenerate->'%(GeneratedFile)'->DirectoryName())" />
     <!-- NuGet doesn't keep the executable bit of files in packages. -->
