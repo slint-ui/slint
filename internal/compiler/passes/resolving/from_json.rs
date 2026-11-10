@@ -63,7 +63,7 @@ pub fn lower(
         return Expression::Invalid;
     };
 
-    let target_ty = target_type(ctx);
+    let target_ty = ctx.expected_type.clone();
     if matches!(
         target_ty,
         Type::Invalid | Type::Void | Type::InferredProperty | Type::InferredCallback
@@ -228,18 +228,6 @@ impl JsonPath {
         } else {
             format!("'{self}' in the JSON file {} is not {what}", file)
         }
-    }
-}
-
-/// The type this `@from-json(...)` call must produce: the contextual expected type, falling
-/// back to the whole binding's return type when the former hasn't been set (e.g. when
-/// resolving a struct field's default value, which never sets `expected_type`).
-fn target_type(ctx: &LookupCtx) -> Type {
-    match &ctx.expected_type {
-        Type::Invalid | Type::Void | Type::InferredProperty | Type::InferredCallback => {
-            ctx.return_type().clone()
-        }
-        ty => ty.clone(),
     }
 }
 

@@ -3204,13 +3204,11 @@ fn resolve_struct_field_default_value(
     #[cfg(feature = "slint-sc")]
     diag.slint_sc_error("Struct field default values are", &node);
     let mut expr = {
-        let mut ctx = crate::lookup::LookupCtx::empty_context(
-            tr,
-            diag,
-            type_loader.symbol_counters.clone(),
-        );
+        let mut ctx =
+            crate::lookup::LookupCtx::empty_context(tr, diag, type_loader.symbol_counters.clone());
         ctx.type_loader = Some(type_loader);
         ctx.property_type = field_ty.clone();
+        ctx.expected_type = field_ty.clone();
         Expression::from_expression_node(node.clone(), &mut ctx).maybe_convert_to(
             field_ty.clone(),
             Some(&node.clone().into()),
