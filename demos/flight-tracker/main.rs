@@ -26,6 +26,7 @@ mod compress;
 mod flight;
 mod map;
 mod renderer;
+mod tiles;
 
 slint::include_modules!();
 
@@ -825,6 +826,16 @@ extern "C" {
     fn flight_tracker_ready() -> Result<(), wasm_bindgen::JsValue>;
 }
 
+/// Where the tiles for the detail come from: for now, a directory that `FLIGHT_TRACKER_TILES`
+/// names, see `tiles::Directory`.
+fn tile_source() -> Option<std::sync::Arc<dyn tiles::Source>> {
+    #[cfg(not(target_arch = "wasm32"))]
+    if let Some(directory) = std::env::var_os("FLIGHT_TRACKER_TILES") {
+        return Some(std::sync::Arc::new(tiles::Directory(directory.into())));
+    }
+    None
+}
+
 /// Renders into one of two textures, so Slint can show the previous one meanwhile.
 /// They're as large as the largest frame, so that a change in the render scale or in the globe's
 /// place doesn't create new ones.
@@ -1106,6 +1117,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut night_loading: Option<background::Background<renderer::Imagery>> = None;
     let mut day_loading: Option<background::Background<renderer::Imagery>> = None;
     let mut cloud_generation: Option<background::Background<Vec<Vec<u8>>>> = None;
+    let mut detail: Option<tiles::Detail> = None;
     #[cfg(target_arch = "wasm32")]
     let mut page_told = false;
     // When the clouds arrived, to fade them in.
@@ -1162,6 +1174,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     .compress(features)
             }));
             cloud_generation = Some(background::Background::start(3, clouds::generate));
+            let tiles = tile_source();
+            let with_tiles = tiles.is_some();
+            detail = Some(tiles::Detail::new(tiles, features));
             let info = device.adapter_info();
             // OpenGL, and WebGL in a browser without WebGPU, can't view a texture as sRGB.
             if info.backend != wgpu::Backend::Gl {
@@ -1176,8 +1191,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 )
                 .into(),
             );
-            graphics =
-                Some((Renderer::new(device, queue, &map, frames.view_format), device.clone()));
+            graphics = Some((
+                Renderer::new(device, queue, &map, frames.view_format, with_tiles),
+                device.clone(),
+            ));
             return;
         }
         if !matches!(rendering_state, slint::RenderingState::BeforeRendering) {
@@ -1319,6 +1336,13 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             format: Some(frames.view_format),
             ..Default::default()
         });
+        // The degrees of the globe that a pixel covers where the camera looks.
+        let footprint =
+            (demo.camera.pose.range * 2.0 * (FOV_Y / 2.0).tan() / pixels.y).to_degrees();
+        let windows = match &mut detail {
+            Some(detail) => detail.update(renderer, demo.camera.pose.target, footprint, dt),
+            None => Default::default(),
+        };
         renderer.render(
             &Frame {
                 view_projection,
@@ -1334,6 +1358,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 viewport: pixels,
                 time: demo.time,
                 space: progress,
+                windows,
                 clouds: match clouds_since {
                     Some(since) if app.get_clouds() => {
                         cloud_strength(eye) * since.elapsed().as_secs_f32().min(1.0)
@@ -1350,6 +1375,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         request_redraw(&app, demo, scale);
+        // Tiles that arrive or fade in show in the next frame, also while nothing else moves.
+        if detail.as_ref().is_some_and(tiles::Detail::is_busy) {
+            app.window().request_redraw();
+        }
     })?;
 
     app.run()?;
