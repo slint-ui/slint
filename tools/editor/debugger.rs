@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use std::cell::OnceCell;
+use std::rc::Rc;
 
 use i_slint_editor_preview as editor_preview;
 use slint::ComponentHandle;
@@ -14,7 +15,8 @@ pub fn connect(
     session: crossbeam_channel::Sender<EditorToSessionMessage>,
     open: bool,
 ) {
-    let debugger = DebuggerWindow::new(session);
+    let debugger = Rc::new(DebuggerWindow::new(session));
+    close_with_editor(editor_ui, debugger.clone());
     editor_ui.on_show_debugger(move || {
         if let Err(err) = debugger.show() {
             tracing::warn!("Failed to show the Slint Debugger window: {err}");
@@ -50,6 +52,19 @@ impl DebuggerWindow {
         ui.window().with_winit_window(|window| window.focus_window());
         Ok(ui)
     }
+
+    fn hide(&self) {
+        if let Some(Err(err)) = self.ui.get().map(ComponentHandle::hide) {
+            tracing::warn!("Failed to hide the Slint Debugger window: {err}");
+        }
+    }
+}
+
+fn close_with_editor(editor_ui: &EditorUi, debugger: Rc<DebuggerWindow>) {
+    editor_ui.window().on_close_requested(move || {
+        debugger.hide();
+        slint::CloseRequestResponse::HideWindow
+    });
 }
 
 fn create(
@@ -112,5 +127,19 @@ mod tests {
 
         editor_ui.invoke_show_debugger();
         assert!(attached_uis(&receiver).is_empty());
+    }
+
+    #[test]
+    fn closing_the_editor_hides_the_debugger() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor_ui = crate::preview::ui::create_ui().unwrap();
+        let (sender, _receiver) = crossbeam_channel::unbounded();
+        let debugger = Rc::new(DebuggerWindow::new(sender));
+        let debugger_ui = debugger.show().unwrap().as_weak();
+        close_with_editor(&editor_ui, debugger);
+        assert!(debugger_ui.upgrade().unwrap().window().is_visible());
+
+        editor_ui.window().dispatch_event(slint::platform::WindowEvent::CloseRequested);
+        assert!(!debugger_ui.upgrade().unwrap().window().is_visible());
     }
 }
