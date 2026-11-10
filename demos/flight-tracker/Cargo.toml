@@ -5,7 +5,7 @@
 name = "flight-tracker"
 version = "1.19.0"
 authors = ["Slint Developers <info@slint.dev>"]
-edition = "2024"
+edition.workspace = true
 publish = false
 license = "MIT"
 description = "Slint Flight Tracker Demo, rendered with wgpu"
@@ -50,4 +50,3 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(embedded_tiles)', 'cfg(onl
 
 [build-dependencies]
 slint-build = { path = "../../api/rs/build" }
-directories = "6.0"

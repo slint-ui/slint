@@ -1044,7 +1044,7 @@ export component AppWindow inherits Window {
                     self.last-y = self.mouse-y;
                     root.settings-open = false;
                     root.drag-started();
-                } else if event.button == PointerEventButton.left && event.kind == PointerEventKind.up {
+                } else if (event.button == PointerEventButton.left && event.kind == PointerEventKind.up) || event.kind == PointerEventKind.cancel {
                     root.drag-ended();
                 }
             }
