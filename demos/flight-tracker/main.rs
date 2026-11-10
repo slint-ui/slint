@@ -19,6 +19,7 @@ use renderer::{Frame, Renderer};
 
 mod adaptive;
 mod atlas;
+mod background;
 mod camera;
 mod clouds;
 mod compress;
@@ -435,6 +436,12 @@ impl Demo {
             tilt: tilt.to_radians(),
             range,
         }
+    }
+
+    /// Plays the intro again, from wherever the demo is.
+    fn restart(&mut self) {
+        self.from_intro = false;
+        self.set_stage(Stage::Intro);
     }
 
     /// Ends the intro, zooming out to the entry screen from where the camera is.
@@ -1045,6 +1052,15 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             })
         }
     });
+    app.on_restart({
+        let interact = interact.clone();
+        move || {
+            interact(&|demo, app| {
+                app.set_kiosk(true);
+                demo.restart();
+            })
+        }
+    });
     app.on_skip_intro({
         let demo = demo.clone();
         move || demo.borrow_mut().finish_intro()
@@ -1073,8 +1089,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut frames =
         Frames { textures: Vec::new(), next: 0, view_format: wgpu::TextureFormat::Rgba8Unorm };
     let mut last_frame = web_time::Instant::now();
-    // Started once the renderer is set up, so that it doesn't compete with that for the CPU.
-    let mut cloud_generation: Option<clouds::Generation> = None;
+    // Started once the renderer is set up.
+    let mut night_loading: Option<background::Background<renderer::Imagery>> = None;
+    let mut day_loading: Option<background::Background<renderer::Imagery>> = None;
+    let mut cloud_generation: Option<background::Background<Vec<Vec<u8>>>> = None;
     // When the clouds arrived, to fade them in.
     let mut clouds_since: Option<web_time::Instant> = None;
     let mut frame_count = 0u32;
@@ -1111,36 +1129,53 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             let slint::GraphicsAPI::WGPU30 { device, queue, .. } = graphics_api else {
                 return;
             };
-            // The map and the imagery are only needed until they're on the GPU.
+            // The map is only needed until it's on the GPU.
             let map = map::Map::new();
-            // NASA's Blue Marble for July, see `data/convert.py`.
-            let imagery = renderer::Imagery::decode(include_bytes!("data/earth.jpg"))
-                .expect("the imagery is a valid JPEG")
-                .compress(device.features());
-            // NASA's Black Marble.
-            let night = renderer::Imagery::decode(include_bytes!("data/night.jpg"))
-                .expect("the night imagery is a valid JPEG")
-                .compress(device.features());
+            // The imagery and the clouds follow while the intro plays. The intro starts on the
+            // night side, so its lights come first.
+            let features = device.features();
+            night_loading = Some(background::Background::start(1, move || {
+                // NASA's Black Marble, see `data/convert.py`.
+                renderer::Imagery::decode(include_bytes!("data/night.jpg"))
+                    .expect("the night imagery is a valid JPEG")
+                    .compress(features)
+            }));
+            day_loading = Some(background::Background::start(2, move || {
+                // NASA's Blue Marble for July.
+                renderer::Imagery::decode(include_bytes!("data/earth.jpg"))
+                    .expect("the imagery is a valid JPEG")
+                    .compress(features)
+            }));
+            cloud_generation = Some(background::Background::start(3, clouds::generate));
             let info = device.adapter_info();
             // OpenGL, and WebGL in a browser without WebGPU, can't view a texture as sRGB.
             if info.backend != wgpu::Backend::Gl {
                 frames.view_format = wgpu::TextureFormat::Rgba8UnormSrgb;
             }
             app.set_gpu_text(
-                format!("{} ({:?}, {:?})", info.name, info.backend, imagery.format).into(),
+                format!(
+                    "{} ({:?}, {:?})",
+                    info.name,
+                    info.backend,
+                    renderer::Imagery::compressed_format(features)
+                )
+                .into(),
             );
-            graphics = Some((
-                Renderer::new(device, queue, &map, &imagery, &night, frames.view_format),
-                device.clone(),
-            ));
-            cloud_generation = Some(clouds::Generation::start());
+            graphics =
+                Some((Renderer::new(device, queue, &map, frames.view_format), device.clone()));
             return;
         }
         if !matches!(rendering_state, slint::RenderingState::BeforeRendering) {
             return;
         }
-        let Some((renderer, device)) = &graphics else { return };
-        if let Some(levels) = cloud_generation.as_mut().and_then(clouds::Generation::poll) {
+        let Some((renderer, device)) = &mut graphics else { return };
+        if let Some(night) = night_loading.as_mut().and_then(background::Background::poll) {
+            renderer.set_night(&night);
+        }
+        if let Some(day) = day_loading.as_mut().and_then(background::Background::poll) {
+            renderer.set_day(&day);
+        }
+        if let Some(levels) = cloud_generation.as_mut().and_then(background::Background::poll) {
             renderer.set_clouds(&levels);
             clouds_since = Some(web_time::Instant::now());
         }
