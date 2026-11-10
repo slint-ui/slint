@@ -9,13 +9,16 @@
 //! GIBS, in the same projection as the globe's textures: at zoom level `z`, a pixel is
 //! `0.5625 / 2^z` degrees.
 //!
+//! The tiles come from GIBS over the network, and natively stay in a cache directory, or from
+//! a directory of tiles alone, see `Source`.
+//!
 //! All windows share one array texture. A tile's place in its layer is its column and row
 //! modulo `WINDOW_TILES`, and the texture repeats, so tiles stay where they are while the
 //! window moves over the globe, and only the tiles that come into it are loaded.
 
 use std::f32::consts::PI;
-use std::sync::Arc;
 use std::sync::mpsc::{Receiver, Sender, channel};
+use std::time::Duration;
 
 use glam::{Vec2, Vec3};
 use slint::wgpu_30::wgpu;
@@ -38,23 +41,113 @@ const BASE_RESOLUTION: f32 = 360.0 / 4096.0;
 /// How many tiles load at once.
 const LOADING_AT_ONCE: usize = 6;
 const FADE_SECONDS: f32 = 0.4;
+/// How long no tiles are asked for after one failed to load, such as without a network.
+const RETRY_AFTER: Duration = Duration::from_secs(20);
+/// After this many failures without a single tile, the source counts as unreachable for good,
+/// as on a web page that may not fetch from other sites.
+const GIVE_UP_AFTER: u32 = 6;
+/// NASA's Blue Marble with relief and bathymetry, the imagery of the globe itself, as tiles.
+#[cfg(any(target_arch = "wasm32", feature = "online-imagery"))]
+const GIBS: &str = "https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/BlueMarble_ShadedRelief_Bathymetry/default/2004-08-01/500m";
 
 /// Where the tiles come from.
-pub trait Source: Send + Sync + 'static {
-    /// The JPEG or PNG file of the tile, or `None` if there isn't one. Called on a thread of
-    /// its own, so it may take a while.
-    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
-    fn fetch(&self, zoom: u32, row: u32, column: u32) -> Option<Vec<u8>>;
+#[derive(Clone)]
+pub enum Source {
+    /// NASA's GIBS. Natively, the tiles stay in the directory `cache` once fetched, as in
+    /// `Directory`; on the web, the browser caches them.
+    #[cfg(any(target_arch = "wasm32", feature = "online-imagery"))]
+    Online {
+        #[cfg(not(target_arch = "wasm32"))]
+        cache: Option<std::path::PathBuf>,
+    },
+    /// A directory of tiles, as `<zoom>/<row>/<column>.jpg`, for use without a network.
+    #[cfg(not(target_arch = "wasm32"))]
+    Directory(std::path::PathBuf),
 }
 
-/// Tiles in a directory, as `<zoom>/<row>/<column>.jpg`.
-#[cfg(not(target_arch = "wasm32"))]
-pub struct Directory(pub std::path::PathBuf);
+/// What became of a tile that was asked for.
+enum Fetched<T> {
+    Tile(T),
+    /// The source has no such tile.
+    Missing,
+    /// The source couldn't be reached.
+    #[cfg_attr(not(any(target_arch = "wasm32", feature = "online-imagery")), allow(dead_code))]
+    Failed,
+}
 
 #[cfg(not(target_arch = "wasm32"))]
-impl Source for Directory {
-    fn fetch(&self, zoom: u32, row: u32, column: u32) -> Option<Vec<u8>> {
-        std::fs::read(self.0.join(format!("{zoom}/{row}/{column}.jpg"))).ok()
+impl Source {
+    /// The file of a tile. This may take a while.
+    fn fetch(&self, zoom: u32, row: u32, column: u32) -> Fetched<Vec<u8>> {
+        let path = format!("{zoom}/{row}/{column}.jpg");
+        match self {
+            Source::Directory(directory) => match std::fs::read(directory.join(path)) {
+                Ok(file) => Fetched::Tile(file),
+                Err(_) => Fetched::Missing,
+            },
+            #[cfg(feature = "online-imagery")]
+            Source::Online { cache } => {
+                let cached = cache.as_ref().map(|cache| cache.join(path));
+                if let Some(file) = cached.as_ref().and_then(|path| std::fs::read(path).ok()) {
+                    return Fetched::Tile(file);
+                }
+                let fetched = download(&format!("{GIBS}/{zoom}/{row}/{column}.jpeg"));
+                if let (Fetched::Tile(file), Some(path)) = (&fetched, cached) {
+                    // Renamed into place, so that a tile cut short isn't taken for a whole one.
+                    let part = path.with_extension("part");
+                    let _ = path.parent().map(std::fs::create_dir_all);
+                    if std::fs::write(&part, file).is_ok() {
+                        let _ = std::fs::rename(&part, &path);
+                    }
+                }
+                fetched
+            }
+        }
+    }
+}
+
+#[cfg(all(not(target_arch = "wasm32"), feature = "online-imagery"))]
+fn download(url: &str) -> Fetched<Vec<u8>> {
+    use std::sync::OnceLock;
+    static CLIENT: OnceLock<Option<reqwest::blocking::Client>> = OnceLock::new();
+    let client = CLIENT.get_or_init(|| {
+        reqwest::blocking::Client::builder()
+            .user_agent("slint-flight-tracker-demo")
+            .timeout(Duration::from_secs(20))
+            .build()
+            .ok()
+    });
+    let Some(Ok(response)) = client.as_ref().map(|client| client.get(url).send()) else {
+        return Fetched::Failed;
+    };
+    if response.status() == reqwest::StatusCode::NOT_FOUND {
+        return Fetched::Missing;
+    }
+    match response.error_for_status().and_then(|response| response.bytes()) {
+        Ok(file) => Fetched::Tile(file.to_vec()),
+        Err(_) => Fetched::Failed,
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+async fn download(url: String) -> Fetched<Vec<u8>> {
+    use wasm_bindgen::JsCast;
+    use wasm_bindgen_futures::JsFuture;
+    let Some(window) = web_sys::window() else { return Fetched::Failed };
+    let Ok(response) = JsFuture::from(window.fetch_with_str(&url)).await else {
+        return Fetched::Failed;
+    };
+    let Ok(response) = response.dyn_into::<web_sys::Response>() else { return Fetched::Failed };
+    if response.status() == 404 {
+        return Fetched::Missing;
+    }
+    if !response.ok() {
+        return Fetched::Failed;
+    }
+    let Ok(buffer) = response.array_buffer() else { return Fetched::Failed };
+    match JsFuture::from(buffer).await {
+        Ok(buffer) => Fetched::Tile(js_sys::Uint8Array::new(&buffer).to_vec()),
+        Err(_) => Fetched::Failed,
     }
 }
 
@@ -133,24 +226,74 @@ impl Window {
 struct Arrived {
     window: usize,
     tile: (u32, u32),
-    /// The tile's mip levels, or `None` if the source has no such tile.
-    mips: Option<Vec<Vec<u8>>>,
+    /// Natively, the tile's mip levels, ready for the GPU. On the web, its file.
+    tile_data: Fetched<Payload>,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+type Payload = Vec<Vec<u8>>;
+#[cfg(target_arch = "wasm32")]
+type Payload = Vec<u8>;
+
+/// A tile on the web, which has no threads: its mip levels are compressed a strip at a time,
+/// over several frames.
+#[cfg(target_arch = "wasm32")]
+struct Job {
+    window: usize,
+    tile: (u32, u32),
+    /// The mip levels as RGBA pixels.
+    levels: Vec<Vec<u8>>,
+    /// The compressed levels, the last of which may be unfinished up to `row`.
+    done: Vec<Vec<u8>>,
+    row: usize,
+}
+
+#[cfg(target_arch = "wasm32")]
+impl Job {
+    /// The rows of pixels compressed in one step.
+    const STRIP: usize = 64;
+
+    /// Compresses the next strip. Returns whether the tile is finished.
+    fn step(&mut self, features: wgpu::Features) -> bool {
+        let level = if self.row == 0 { self.done.len() } else { self.done.len() - 1 };
+        let size = TILE as usize >> level;
+        let rows = Self::STRIP.min(size - self.row);
+        let pixels = &self.levels[level][self.row * size * 4..(self.row + rows) * size * 4];
+        let strip = Imagery::compress_level(features, pixels, size, rows);
+        if self.row == 0 {
+            self.done.push(strip);
+        } else {
+            self.done[level].extend(strip);
+        }
+        self.row = (self.row + rows) % size;
+        self.row == 0 && self.done.len() == MIPS as usize
+    }
 }
 
 /// The detail windows and the tiles on their way into them.
 pub struct Detail {
     windows: [Window; LEVELS],
-    source: Option<Arc<dyn Source>>,
-    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
+    source: Option<Source>,
     features: wgpu::Features,
     sender: Sender<Arrived>,
     receiver: Receiver<Arrived>,
     loading: usize,
+    /// Tiles that failed to load in a row.
+    failures: u32,
+    /// Whether any tile ever loaded.
+    reached: bool,
+    /// Until when no tiles are asked for, after one failed to load.
+    paused_until: Option<web_time::Instant>,
+    /// The tiles that arrived, and the one being compressed.
+    #[cfg(target_arch = "wasm32")]
+    files: std::collections::VecDeque<(usize, (u32, u32), Vec<u8>)>,
+    #[cfg(target_arch = "wasm32")]
+    job: Option<Job>,
 }
 
 impl Detail {
     /// Without a `source`, the globe shows its own imagery only.
-    pub fn new(source: Option<Arc<dyn Source>>, features: wgpu::Features) -> Self {
+    pub fn new(source: Option<Source>, features: wgpu::Features) -> Self {
         let (sender, receiver) = channel();
         Self {
             windows: std::array::from_fn(|index| Window::new(FIRST_ZOOM + index as u32)),
@@ -159,6 +302,13 @@ impl Detail {
             sender,
             receiver,
             loading: 0,
+            failures: 0,
+            reached: false,
+            paused_until: None,
+            #[cfg(target_arch = "wasm32")]
+            files: Default::default(),
+            #[cfg(target_arch = "wasm32")]
+            job: None,
         }
     }
 
@@ -173,8 +323,8 @@ impl Detail {
     }
 
     /// Follows the camera, which looks at `target` on the globe, where a pixel of the frame
-    /// covers `footprint` degrees. Puts the tiles that arrived onto the GPU, and asks for the
-    /// ones that are missing.
+    /// covers `footprint` degrees. Puts the tiles that arrived onto the GPU. While `enabled`,
+    /// the windows show, and while `fetching` too, the tiles that are missing are asked for.
     ///
     /// Returns what the shader needs for each window: where the camera looks, in tiles, the
     /// number of the map's columns and rows, which is 0 without tiles, and how far the tile of
@@ -184,27 +334,41 @@ impl Detail {
         renderer: &Renderer,
         target: Vec3,
         footprint: f32,
+        enabled: bool,
+        fetching: bool,
         dt: f32,
     ) -> [[f32; WINDOW_FLOATS]; LEVELS] {
         let mut floats = [[0.0; WINDOW_FLOATS]; LEVELS];
-        let Some(source) = self.source.clone() else { return floats };
 
         while let Ok(arrived) = self.receiver.try_recv() {
-            self.loading -= 1;
-            let (column, row) = arrived.tile;
-            let slot = &mut self.windows[arrived.window].slots[Window::slot(column, row)];
-            // The window may have moved on meanwhile.
-            if slot.tile != arrived.tile || slot.state != State::Loading {
-                continue;
-            }
-            match arrived.mips {
-                Some(mips) => {
-                    let place = (column % WINDOW_TILES, row % WINDOW_TILES);
-                    renderer.set_tile(arrived.window as u32, place, &mips);
-                    slot.state = State::Loaded;
+            match arrived.tile_data {
+                Fetched::Tile(payload) => {
+                    self.arrived(renderer, arrived.window, arrived.tile, payload)
                 }
-                None => slot.state = State::Missing,
+                Fetched::Missing => {
+                    self.loading -= 1;
+                    if let Some(slot) = self.loading_slot(arrived.window, arrived.tile) {
+                        slot.state = State::Missing;
+                    }
+                }
+                Fetched::Failed => {
+                    self.loading -= 1;
+                    if let Some(slot) = self.loading_slot(arrived.window, arrived.tile) {
+                        slot.state = State::Wanted;
+                    }
+                    self.failures += 1;
+                    self.paused_until = Some(web_time::Instant::now() + RETRY_AFTER);
+                }
             }
+        }
+        #[cfg(target_arch = "wasm32")]
+        self.compress(renderer);
+        if !self.reached && self.failures >= GIVE_UP_AFTER {
+            self.source = None;
+        }
+        let Some(source) = self.source.clone() else { return floats };
+        if !enabled {
+            return floats;
         }
 
         let longitude = target.x.atan2(target.z);
@@ -237,6 +401,10 @@ impl Detail {
             }
         }
 
+        if !fetching || self.paused_until.is_some_and(|until| web_time::Instant::now() < until) {
+            return floats;
+        }
+        self.paused_until = None;
         wanted.sort_by(|a, b| a.0.total_cmp(&b.0));
         for (_, index, tile) in wanted {
             if self.loading >= LOADING_AT_ONCE {
@@ -251,46 +419,119 @@ impl Detail {
         floats
     }
 
-    /// Fetches and decodes a tile on a thread of its own.
+    /// The slot of `tile`, if it's still waiting for that tile: the window may have moved on.
+    fn loading_slot(&mut self, window: usize, tile: (u32, u32)) -> Option<&mut Slot> {
+        let slot = &mut self.windows[window].slots[Window::slot(tile.0, tile.1)];
+        (slot.tile == tile && slot.state == State::Loading).then_some(slot)
+    }
+
+    /// Puts a tile's mip levels onto the GPU.
+    fn show(&mut self, renderer: &Renderer, window: usize, tile: (u32, u32), mips: &[Vec<u8>]) {
+        self.loading -= 1;
+        self.reached = true;
+        self.failures = 0;
+        if let Some(slot) = self.loading_slot(window, tile) {
+            slot.state = State::Loaded;
+            renderer.set_tile(window as u32, (tile.0 % WINDOW_TILES, tile.1 % WINDOW_TILES), mips);
+        }
+    }
+
     #[cfg(not(target_arch = "wasm32"))]
-    fn load(&self, source: Arc<dyn Source>, window: usize, zoom: u32, tile: (u32, u32)) {
+    fn arrived(&mut self, renderer: &Renderer, window: usize, tile: (u32, u32), mips: Payload) {
+        self.show(renderer, window, tile, &mips);
+    }
+
+    /// Fetches, decodes, and compresses a tile on a thread of its own.
+    #[cfg(not(target_arch = "wasm32"))]
+    fn load(&self, source: Source, window: usize, zoom: u32, tile: (u32, u32)) {
         let (sender, features) = (self.sender.clone(), self.features);
         std::thread::spawn(move || {
-            let mips = source.fetch(zoom, tile.1, tile.0).and_then(|file| mips(&file, features));
-            let _ = sender.send(Arrived { window, tile, mips });
+            let tile_data = match source.fetch(zoom, tile.1, tile.0) {
+                Fetched::Tile(file) => match rgba_mips(&file) {
+                    Some(levels) => Fetched::Tile(
+                        levels
+                            .iter()
+                            .enumerate()
+                            .map(|(level, pixels)| {
+                                let size = TILE as usize >> level;
+                                Imagery::compress_level(features, pixels, size, size)
+                            })
+                            .collect(),
+                    ),
+                    None => Fetched::Missing,
+                },
+                Fetched::Missing => Fetched::Missing,
+                Fetched::Failed => Fetched::Failed,
+            };
+            let _ = sender.send(Arrived { window, tile, tile_data });
         });
     }
 
-    /// The web has no threads. Its tiles aren't supported yet.
     #[cfg(target_arch = "wasm32")]
-    fn load(&self, _: Arc<dyn Source>, window: usize, _: u32, tile: (u32, u32)) {
-        let _ = self.sender.send(Arrived { window, tile, mips: None });
+    fn arrived(&mut self, _: &Renderer, window: usize, tile: (u32, u32), file: Payload) {
+        self.files.push_back((window, tile, file));
+    }
+
+    /// Fetches a tile. Its file arrives in a later frame.
+    #[cfg(target_arch = "wasm32")]
+    fn load(&self, _: Source, window: usize, zoom: u32, tile: (u32, u32)) {
+        let sender = self.sender.clone();
+        let url = format!("{GIBS}/{zoom}/{}/{}.jpeg", tile.1, tile.0);
+        wasm_bindgen_futures::spawn_local(async move {
+            let tile_data = download(url).await;
+            let _ = sender.send(Arrived { window, tile, tile_data });
+        });
+    }
+
+    /// Decodes and compresses the tiles that arrived, for a few milliseconds of each frame.
+    #[cfg(target_arch = "wasm32")]
+    fn compress(&mut self, renderer: &Renderer) {
+        let start = web_time::Instant::now();
+        while start.elapsed() < Duration::from_millis(4) {
+            let Some(job) = &mut self.job else {
+                let Some((window, tile, file)) = self.files.pop_front() else { break };
+                match rgba_mips(&file) {
+                    Some(levels) if self.loading_slot(window, tile).is_some() => {
+                        self.job = Some(Job { window, tile, levels, done: Vec::new(), row: 0 });
+                    }
+                    levels => {
+                        self.loading -= 1;
+                        if let (None, Some(slot)) = (levels, self.loading_slot(window, tile)) {
+                            slot.state = State::Missing;
+                        }
+                    }
+                }
+                continue;
+            };
+            if job.step(self.features) {
+                let job = self.job.take().unwrap();
+                self.show(renderer, job.window, job.tile, &job.done);
+            }
+        }
     }
 }
 
-/// Decodes a tile and computes its `MIPS` mip levels, each in the format of the tile texture.
-#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
-fn mips(file: &[u8], features: wgpu::Features) -> Option<Vec<Vec<u8>>> {
+/// Decodes a tile and computes its `MIPS` mip levels, as RGBA pixels.
+fn rgba_mips(file: &[u8]) -> Option<Vec<Vec<u8>>> {
     let image = image::load_from_memory(file).ok()?.to_rgba8();
     if image.dimensions() != (TILE, TILE) {
         return None;
     }
-    let mut level = image.into_raw();
+    let mut levels = vec![image.into_raw()];
     let mut size = TILE as usize;
-    let mut levels = Vec::with_capacity(MIPS as usize);
-    for _ in 0..MIPS {
-        let half = size / 2;
-        let next: Vec<u8> = (0..half * half * 4)
+    while levels.len() < MIPS as usize {
+        let (last, half) = (levels.last().unwrap(), size / 2);
+        let next = (0..half * half * 4)
             .map(|k| {
                 let (pixel, channel) = (k / 4, k % 4);
                 let (x, y) = (pixel % half * 2, pixel / half * 2);
                 let at =
-                    |dx: usize, dy: usize| level[((y + dy) * size + x + dx) * 4 + channel] as u32;
+                    |dx: usize, dy: usize| last[((y + dy) * size + x + dx) * 4 + channel] as u32;
                 ((at(0, 0) + at(1, 0) + at(0, 1) + at(1, 1) + 2) / 4) as u8
             })
             .collect();
-        levels.push(Imagery::compress_level(features, level, size));
-        (level, size) = (next, half);
+        levels.push(next);
+        size = half;
     }
     Some(levels)
 }

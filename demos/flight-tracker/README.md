@@ -1,4 +1,4 @@
-<!-- cSpell: ignore lavapipe -->
+<!-- cSpell: ignore earthdata ESDIS GIBS lavapipe -->
 
 # Slint Flight Tracker
 
@@ -42,6 +42,16 @@ python3 -m http.server
 
 Open <http://localhost:8000> in a browser with WebGPU or WebGL 2.
 
+## Imagery From the Network
+
+Zoomed in, the demo fetches map tiles from `gibs.earthdata.nasa.gov`.
+To run it without the network:
+
+- Turn off Online imagery in the settings.
+- Build with `--no-default-features`, which leaves out the `online-imagery` feature and its HTTP client.
+- Set `FLIGHT_TRACKER_TILES=off`, or to a directory of tiles to show those alone.
+  The directory holds the tiles as `<zoom>/<row>/<column>.jpg`, like the cache does.
+
 ## How It Works
 
 Slint renders with wgpu, and the demo renders the globe on Slint's own device:
@@ -51,6 +61,10 @@ Slint renders with wgpu, and the demo renders the globe on Slint's own device:
 - `globe.wgsl` ray traces the globe, its atmosphere, and the stars in a single pass over the screen, so the globe needs no mesh.
   The ground is NASA's Blue Marble for July, and the lights on the night side are its Black Marble, both 4096 pixels wide.
   `compress.rs` compresses it to BC1 or ETC2, whichever the GPU supports, to an eighth of its size in GPU memory.
+- `tiles.rs` shows sharper imagery where the camera looks, once it comes close.
+  It fetches the same Blue Marble as tiles from NASA's GIBS, up to ten times as fine, and replaces the globe's own imagery around that point.
+  The tiles are small JPEG files, and natively they stay in the user's cache directory.
+  Without a network, the globe keeps its own imagery.
 - `clouds.rs` generates the clouds from noise, shaped like the earth's weather, so that they add nothing to the download.
   They fade out as the camera comes close, and the settings turn them off.
 - `background.rs` decodes and compresses the imagery and generates the clouds while the intro plays, so that it starts without waiting for them.
@@ -66,6 +80,7 @@ Slint renders with wgpu, and the demo renders the globe on Slint's own device:
   Each frame, `main.rs` projects them to the screen with the camera's matrices, and passes their positions to Slint.
 
 The map data comes from [Natural Earth](https://www.naturalearthdata.com/), the airports from [OurAirports](https://ourairports.com/), and the imagery from [NASA's Visible Earth](https://visibleearth.nasa.gov/), all in the public domain.
+We acknowledge the use of imagery provided by services from NASA's [Global Imagery Browse Services (GIBS)](https://nasa-gibs.github.io/gibs-api-docs/), part of NASA's Earth Science Data and Information System (ESDIS).
 The flaps use [JetBrains Mono](https://www.jetbrains.com/lp/mono/), under the SIL Open Font License.
 `ui/fonts/subset.py` reduces it to the characters that the demo shows in it.
 `data/convert.py` converts them into the files in `data/`.
