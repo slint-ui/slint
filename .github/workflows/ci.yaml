@@ -39,7 +39,8 @@ jobs:
         strategy:
             matrix:
                 include:
-                    - os: blacksmith-4vcpu-windows-2025
+                    # The longest job of a pull request, and bound by compiling the workspace.
+                    - os: blacksmith-8vcpu-windows-2025
                       name: "Windows 2025 1.95"
                       rust_version: "1.95"
                       # Blacksmith's Windows VMs have no WGPU adapter, not even WARP.
