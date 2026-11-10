@@ -7,6 +7,7 @@ import {
     cpSync,
     existsSync,
     mkdtempSync,
+    mkdirSync,
     readFileSync,
     rmSync,
     writeFileSync,
@@ -251,6 +252,27 @@ test("reports a file it can't read as a tool error", async () => {
         assert.equal(result.isError, true, name);
         // The view tells a missing import by this prefix.
         assert.match(result.content[0].text, /^ENOENT:/, name);
+    }
+});
+
+test("prefetches bounded relative imports without caching edits or resolving project settings", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "slint-preview-imports-"));
+    try {
+        mkdirSync(join(dir, "parts"));
+        const path = join(dir, "main.slint");
+        const part = join(dir, "parts/part.slint");
+        writeFileSync(path, 'import { Part } from "parts/part.slint"; import { Other } from "missing.slint"; import { Library } from "@widgets/library.slint";');
+        writeFileSync(part, 'import { Main } from "../main.slint"; export component Part {}');
+        const first = await callTool("read_slint_file", { path, prefetchImports: true });
+        assert.deepEqual(first.structuredContent.imports, { [part]: readFileSync(part, "utf8") });
+        writeFileSync(part, "export component Changed {}");
+        const second = await callTool("read_slint_file", { path, prefetchImports: true });
+        assert.equal(second.structuredContent.imports[part], "export component Changed {}");
+        writeFileSync(part, " ".repeat(1024 * 1024 + 1));
+        const large = await callTool("read_slint_file", { path, prefetchImports: true });
+        assert.deepEqual(large.structuredContent.imports, {});
+    } finally {
+        rmSync(dir, { recursive: true, force: true });
     }
 });
 

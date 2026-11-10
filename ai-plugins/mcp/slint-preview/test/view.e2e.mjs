@@ -80,6 +80,7 @@ let httpServer;
 let browser;
 let page;
 let projects;
+const toolCalls = [];
 
 function writeFiles(files) {
     for (const [path, contents] of Object.entries(files)) {
@@ -147,6 +148,7 @@ before(async () => {
     browser = await chromium.launch({ args: ["--enable-unsafe-swiftshader"] });
     page = await browser.newPage();
     await page.exposeFunction("callServer", async (params) => {
+        toolCalls.push(params);
         const { result, error } = await request("tools/call", params);
         return error ? { error } : { result };
     });
@@ -251,6 +253,28 @@ function centerPixel(screenshot) {
         return [...context.getImageData(x, y, 1, 1).data];
     }, screenshot.content[0].data);
 }
+
+test("reads relative imports together and refreshes them on the next render", async () => {
+    const files = {};
+    for (let i = 0; i < 12; i++) {
+        files[`prefetch/part${i}.slint`] = `export component Part${i} inherits Rectangle { background: blue; }`;
+    }
+    files["prefetch/main.slint"] = Array.from({ length: 12 }, (_, i) =>
+        `import { Part${i} } from "part${i}.slint";`).join("\n") +
+        "\nexport component Main inherits Window { width: 160px; height: 100px; Part11 {} }";
+    writeFiles(files);
+    const path = join(projects, "prefetch/main.slint");
+    toolCalls.length = 0;
+    const first = await preview({ path });
+    assertRendered(first);
+    assert.deepEqual(await centerPixel(first), [0, 0, 255, 255]);
+    assert.equal(toolCalls.filter(({ name }) => name === "read_slint_file").length, 1);
+    writeFiles({ "prefetch/part11.slint": "export component Part11 inherits Rectangle { background: red; }" });
+    const second = await preview({ path });
+    assertRendered(second);
+    assert.deepEqual(await centerPixel(second), [255, 0, 0, 255]);
+    assert.equal(toolCalls.filter(({ name }) => name === "read_slint_file").length, 2);
+});
 
 const BLUE_SVG =
     '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><rect width="20" height="20" fill="#00f"/></svg>';

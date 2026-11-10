@@ -6,8 +6,8 @@
 // See https://github.com/modelcontextprotocol/ext-apps for the UI extension.
 
 import { randomUUID } from "node:crypto";
-import { readFileSync } from "node:fs";
-import { extname, isAbsolute } from "node:path";
+import { readFileSync, statSync } from "node:fs";
+import { dirname, extname, isAbsolute, resolve } from "node:path";
 import { createInterface } from "node:readline";
 import { pathToFileURL } from "node:url";
 
@@ -108,7 +108,10 @@ const tools = [
         annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
         inputSchema: {
             type: "object",
-            properties: { path: { type: "string" } },
+            properties: {
+                path: { type: "string" },
+                prefetchImports: { type: "boolean" },
+            },
             required: ["path"],
         },
         _meta: { ui: { visibility: ["app"] } },
@@ -348,7 +351,31 @@ const toolCalls = {
             throw rpcError(-32602, "'path' must be an absolute path");
         }
         try {
-            return textResult(readFileSync(args.path, "utf8"));
+            const source = readFileSync(args.path, "utf8");
+            if (!args.prefetchImports) return textResult(source);
+            const imports = {}, seen = new Set([args.path]);
+            const pending = [[args.path, source]];
+            let bytes = 0;
+            while (pending.length && seen.size < 64) {
+                const [file, text] = pending.shift();
+                // Prefetch is optional; the compiler still resolves aliases, include paths and missing files.
+                const pattern = /\bimport\s+(?:\{[^}]*\}\s+from\s+)?["']([^"']+)["']/g;
+                for (const [, name] of text.matchAll(pattern)) {
+                    if (!name.endsWith(".slint") || name === "std-widgets.slint" || name.startsWith("@") || /^[a-z]+:\/\//i.test(name)) continue;
+                    const path = resolve(dirname(file), name);
+                    if (seen.has(path) || seen.size >= 64) continue;
+                    seen.add(path);
+                    try {
+                        if (statSync(path).size > 1024 * 1024 - bytes) continue;
+                        const data = readFileSync(path);
+                        if (bytes + data.length > 1024 * 1024) continue;
+                        bytes += data.length;
+                        imports[path] = data.toString("utf8");
+                        pending.push([path, imports[path]]);
+                    } catch {}
+                }
+            }
+            return { ...textResult(source), structuredContent: { imports } };
         } catch (e) {
             return textResult(e.message, true);
         }

@@ -598,10 +598,14 @@
     reportToModel(`The Slint preview couldn't load image ${path}: ${message}`);
   }
 
-  async function readSlintFile(path) {
-    const result = await request("tools/call", { name: "read_slint_file", arguments: { path } });
+  const sourceFiles = new Map();
+  async function readSlintFile(path, prefetchImports = false) {
+    if (sourceFiles.has(path)) return sourceFiles.get(path);
+    const result = await request("tools/call", { name: "read_slint_file", arguments: { path, prefetchImports } });
     const text = result?.content?.[0]?.text ?? "";
     if (result?.isError) throw new Error(text);
+    for (const [path, source] of Object.entries(result?.structuredContent?.imports ?? {})) sourceFiles.set(path, source);
+    sourceFiles.set(path, text);
     return text;
   }
 
@@ -610,6 +614,7 @@
     setAnnotationMode(false);
     tools.hidden = true;
     renderedInput = null;
+    sourceFiles.clear();
     const current = loadInterpreter();
     current.previewId = previewId;
     current.slint.catch(() => {});
@@ -622,7 +627,7 @@
       showStatus(`Reading ${path}…`);
       publish({ previewId, stage: "reading" }).catch(() => {});
       try {
-        source = await readSlintFile(path);
+        source = await readSlintFile(path, true);
       } catch (e) {
         showStatus(`Couldn't read ${path}: ${e.message ?? e}`, "error");
         reportToModel(`The Slint preview couldn't read ${path}: ${e.message ?? e}`);
