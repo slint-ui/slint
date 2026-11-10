@@ -31,6 +31,12 @@ impl<T: Send + 'static> Background<T> {
         Self { work: Some(Box::new(work)), frames: frame, done: false }
     }
 
+    /// Whether `poll()` has handed out the result.
+    #[cfg(target_arch = "wasm32")]
+    pub fn is_done(&self) -> bool {
+        self.done
+    }
+
     /// The result once it's ready, and only that once.
     pub fn poll(&mut self) -> Option<T> {
         if self.done {

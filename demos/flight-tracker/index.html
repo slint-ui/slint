@@ -145,13 +145,15 @@
                 // Starting blocks the page for a moment, so the message has to show first.
                 await nextFrame();
                 await nextFrame();
+                // The demo calls this once its imagery is ready and its intro starts. Until then,
+                // the first frames are held up, and the canvas stays black.
+                window.flightTrackerReady = () => loading.classList.add("hidden");
                 // Slint ends its start-up with an exception that only hands control to the browser.
                 await init({ module_or_path: bytes }).catch((error) => {
                     if (!String(error).includes("Using exceptions for control flow")) {
                         throw error;
                     }
                 });
-                loading.classList.add("hidden");
             } catch (error) {
                 fail("The demo couldn't start: " + error);
             }
