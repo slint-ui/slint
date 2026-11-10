@@ -312,6 +312,32 @@ void EspPlatform<PixelType>::run_event_loop()
         return waited_for_refresh;
     };
 
+#if CONFIG_SLINT_RENDER_PIPELINE
+    // A task on the second core rasterizes and presents each recorded frame, while the event loop
+    // records the next one. A recording shares reference counts with the window that aren't
+    // atomic, so only the event loop destroys it.
+    std::optional<SoftwareRenderer::RecordedRasterCommands> recorded;
+    const auto num_lines = buffer1 ? buffer1->size() / stride : 0;
+    SemaphoreHandle_t frame_recorded = xSemaphoreCreateBinary();
+    SemaphoreHandle_t frame_presented = xSemaphoreCreateBinary();
+    xSemaphoreGive(frame_presented);
+    auto raster_task = [&] {
+        while (true) {
+            xSemaphoreTake(frame_recorded, portMAX_DELAY);
+            render_and_present([&](std::span<PixelType> buffer) {
+                return recorded->rasterize(buffer, stride);
+            });
+            xSemaphoreGive(frame_presented);
+        }
+    };
+    const bool pipeline = buffer1
+            && xTaskCreatePinnedToCore(
+                       [](void *task) { (*static_cast<decltype(raster_task) *>(task))(); },
+                       "slint_raster", CONFIG_SLINT_RASTER_TASK_STACK_SIZE, &raster_task,
+                       uxTaskPriorityGet(nullptr), nullptr, 1)
+                    == pdPASS;
+#endif
+
     float last_touch_x = 0;
     float last_touch_y = 0;
     bool touch_down = false;
@@ -375,6 +401,16 @@ void EspPlatform<PixelType>::run_event_loop()
             }
 
             [[maybe_unused]] bool waited_for_refresh = false;
+#if CONFIG_SLINT_RENDER_PIPELINE
+            if (pipeline && std::exchange(m_window->needs_redraw, false)) {
+                auto frame = m_window->m_renderer.record_frame(stride, num_lines);
+                xSemaphoreTake(frame_presented, portMAX_DELAY);
+                recorded.emplace(std::move(frame));
+                xSemaphoreGive(frame_recorded);
+                // Presenting the previous frame waited for the refresh.
+                waited_for_refresh = true;
+            }
+#endif
             if (std::exchange(m_window->needs_redraw, false)) {
                 if (buffer1) {
                     waited_for_refresh = render_and_present([&](std::span<PixelType> buffer) {
@@ -430,6 +466,11 @@ void EspPlatform<PixelType>::run_event_loop()
                 // (letting the idle task run) between frames instead of saturating the CPU and
                 // tripping the task watchdog.
                 if (sem_dpi_refresh && !waited_for_refresh) {
+#    if CONFIG_SLINT_RENDER_PIPELINE
+                    // Don't take the refresh from the raster task.
+                    xSemaphoreTake(frame_presented, portMAX_DELAY);
+                    xSemaphoreGive(frame_presented);
+#    endif
                     wait_for_dpi_refresh();
                 }
 #endif
