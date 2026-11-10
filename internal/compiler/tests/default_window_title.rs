@@ -15,7 +15,7 @@ use i_slint_compiler::{CompilerConfiguration, compile_syntax_node};
 /// Whether the root element's `title` is still the `builtins.slint` fallback.
 fn title_falls_back_to_default(source: &str) -> bool {
     let mut diagnostics = BuildDiagnostics::default();
-    let syntax_node = parse(source.into(), None, &mut diagnostics);
+    let syntax_node = parse(source.into(), None, None, &mut diagnostics);
     let compiler_config = CompilerConfiguration::new(OutputFormat::Interpreter);
     let (doc, diagnostics, _) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diagnostics, compiler_config));
@@ -92,7 +92,7 @@ fn a_dialog_root_falls_back() {
 /// The whole `title` binding, as a debug string.
 fn title_binding(source: &str) -> String {
     let mut diagnostics = BuildDiagnostics::default();
-    let syntax_node = parse(source.into(), None, &mut diagnostics);
+    let syntax_node = parse(source.into(), None, None, &mut diagnostics);
     let compiler_config = CompilerConfiguration::new(OutputFormat::Interpreter);
     let (doc, diagnostics, _) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diagnostics, compiler_config));

@@ -18,7 +18,7 @@ use smol_str::SmolStr;
 
 fn compile(source: &str) -> CompilationUnit {
     let mut diagnostics = BuildDiagnostics::default();
-    let syntax_node = parse(source.into(), None, &mut diagnostics);
+    let syntax_node = parse(source.into(), None, None, &mut diagnostics);
     let compiler_config = CompilerConfiguration::new(OutputFormat::Interpreter);
     let (doc, diagnostics, _) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diagnostics, compiler_config.clone()));

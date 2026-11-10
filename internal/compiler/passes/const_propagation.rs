@@ -589,6 +589,7 @@ export component Foo {
 "#
         .into(),
         Some(SourcePath::new("HELLO")),
+        None,
         &mut test_diags,
     );
     let (doc, diag, _) =
@@ -650,6 +651,7 @@ export component Foo {
 "#
         .into(),
         Some(SourcePath::new("HELLO")),
+        None,
         &mut test_diags,
     );
     let (doc, diag, _) =
@@ -781,8 +783,12 @@ export component Foo inherits Window {{
 
         let mut test_diags = crate::diagnostics::BuildDiagnostics::default();
 
-        let doc_node =
-            crate::parser::parse(source.clone(), Some(SourcePath::new("HELLO")), &mut test_diags);
+        let doc_node = crate::parser::parse(
+            source.clone(),
+            Some(SourcePath::new("HELLO")),
+            None,
+            &mut test_diags,
+        );
         let mut compiler_config =
             crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
         compiler_config.style = Some("fluent".into());
@@ -804,8 +810,12 @@ export component Foo inherits Window {
 }"#;
 
     let mut test_diags = crate::diagnostics::BuildDiagnostics::default();
-    let doc_node =
-        crate::parser::parse(source.to_string(), Some(SourcePath::new("HELLO")), &mut test_diags);
+    let doc_node = crate::parser::parse(
+        source.to_string(),
+        Some(SourcePath::new("HELLO")),
+        None,
+        &mut test_diags,
+    );
     let mut compiler_config =
         crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
     compiler_config.style = Some("fluent".into());
@@ -836,6 +846,7 @@ fn test_unit_normalization() {
         let doc_node = crate::parser::parse(
             format!("export component Foo {{ out property <{ty}> a: {expr}; }}").into(),
             Some(SourcePath::new("HELLO")),
+            None,
             &mut diags,
         );
         let (doc, diag, _) = spin_on::spin_on(crate::compile_syntax_node(doc_node, diags, config));

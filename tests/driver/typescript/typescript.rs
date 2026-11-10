@@ -18,14 +18,12 @@ fn generate_dts(path: &Path) -> Result<Vec<u8>, String> {
     compiler_config.debug_info = true;
     compiler_config.edition = Some(test_driver_lib::edition_or_current(&source).parse()?);
 
-    let mut diag = BuildDiagnostics::default();
-    let syntax_node = parser::parse(
+    let (root_component, diag, loader) = spin_on::spin_on(compile_source(
+        &i_slint_compiler::source_path::SourcePath::new(path),
         source,
-        Some(i_slint_compiler::source_path::SourcePath::new(path)),
-        &mut diag,
-    );
-    let (root_component, diag, loader) =
-        spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
+        BuildDiagnostics::default(),
+        compiler_config,
+    ));
 
     if diag.has_errors() {
         return Err(diag.to_string_vec().join("\n"));

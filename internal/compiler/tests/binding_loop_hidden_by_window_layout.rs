@@ -43,7 +43,7 @@ export component TestCase inherits Window {
 
 fn compile(source: &str, edition: Option<SlintEdition>) -> BuildDiagnostics {
     let mut diag = BuildDiagnostics::default();
-    let syntax_node = parse(source.into(), None, &mut diag);
+    let syntax_node = parse(source.into(), None, edition, &mut diag);
     let mut config = CompilerConfiguration::new(OutputFormat::Llr);
     config.style = Some("fluent".into());
     config.edition = edition;

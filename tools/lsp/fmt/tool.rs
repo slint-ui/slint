@@ -43,6 +43,7 @@ fn process_slint_code(
     let syntax_node = i_slint_compiler::parser::parse(
         code.to_owned(),
         path.map(i_slint_compiler::source_path::SourcePath::new),
+        None,
         &mut diag,
     );
     let len = syntax_node.text_range().end().into();
