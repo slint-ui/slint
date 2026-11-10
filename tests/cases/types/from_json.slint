@@ -30,6 +30,8 @@ export component TestCase {
     property <int> flat_value: @from-json("from_json.json").flat_value;
     property <int> nested_value_underscore: @from-json("from_json.json").element.sub_element.nested_value;
     property <int> nested_value_dash: @from-json("from_json.json").element.sub-element.nested-value;
+    property <int> dashed_key_underscore: @from-json("from_json.json").dashed_key;
+    property <int> dashed_key_dash: @from-json("from_json.json").dashed-key;
 
     // Part of a larger expression: the type comes from the JSON value
     property <int> a_sum: @from-json("from_json.json").a_point.x + @from-json("from_json.json").a_nested.point.y;
@@ -109,6 +111,7 @@ export component TestCase {
         && a_complex_nested.nested[1].point.x == 9 && a_complex_nested.nested[1].point.y == 10
         && a_complex_nested.nested[1].label == "second"
         && color_to_brush == #ff0000
+        && dashed_key_underscore == 11 && dashed_key_dash == 11
         && a_sum == 5 && a_comparison
         && with_defaults.label == "hello"
         && with_defaults.point.x == 1 && with_defaults.point.y == 2;

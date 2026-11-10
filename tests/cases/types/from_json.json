@@ -1,6 +1,7 @@
 {
   "int_property": 5,
   "flat_value": 10,
+  "dashed-key": 11,
   "a_float": 3.5,
   "a_string": "hello",
   "a_bool": true,
