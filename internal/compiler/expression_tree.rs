@@ -1484,6 +1484,17 @@ impl Expression {
     ) -> bool {
         match self {
             Expression::PropertyReference(nr) => {
+                if (nr.element().borrow().slot_collection && nr.name() == "count")
+                    || nr
+                        .element()
+                        .borrow()
+                        .slot_expansion
+                        .as_ref()
+                        .is_some_and(|s| &s.index_property == nr.name())
+                {
+                    ctx.diag.push_error("Collection metadata is read-only".into(), node);
+                    return false;
+                }
                 nr.mark_as_set();
                 let mut lookup = nr
                     .element()

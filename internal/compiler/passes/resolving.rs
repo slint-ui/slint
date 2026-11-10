@@ -2849,6 +2849,10 @@ fn continue_lookup_within_element(
     let second = if let Some(second) = it.next() {
         second
     } else if matches!(ctx.property_type, Type::ElementReference) {
+        if elem.borrow().slot_collection {
+            ctx.diag.push_error("A child collection is not an element".into(), &node);
+            return None;
+        }
         return Some(Expression::ElementReference(Rc::downgrade(elem)).into());
     } else {
         // Try to recover in case we wanted to access a property
@@ -2884,6 +2888,14 @@ fn continue_lookup_within_element(
         return None;
     };
     let prop_name = crate::parser::normalize_identifier(second.text());
+    if elem.borrow().slot_collection && prop_name != "count" {
+        ctx.diag.push_error(
+            "A slot collection only exposes its 'count'; access each child inside its expansion"
+                .into(),
+            &second,
+        );
+        return None;
+    }
 
     let is_local_element = ctx.is_local_element(elem);
     let mode = if is_local_element {

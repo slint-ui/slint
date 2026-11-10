@@ -1,0 +1,191 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+interface Entry {
+    in property <int> position;
+    in property <int> factor;
+    in-out property <int> shared;
+    callback triggered(value: int);
+}
+
+component EntryView {
+    in property <int> position;
+    in property <int> factor;
+    in-out property <int> shared;
+    out property <int> observed-factor;
+    callback triggered(value: int);
+    changed factor => { root.observed-factor = root.factor; }
+    public function trigger() { root.triggered(root.position * root.factor); }
+    Rectangle { width: 8px; height: 8px; background: green; }
+    @children
+}
+
+component DecoratedEntry inherits EntryView {
+    Rectangle { width: 4px; height: 4px; accessible-role: image; accessible-label: "Preserved decoration"; }
+}
+
+component EntryGroup {
+    in property <int> factor: 2;
+    in-out property <int> shared;
+    out property <int> count: entries.count;
+    out property <int> last-value: -1;
+    out property <int> last-index: -1;
+    out property <int> observed-factor;
+    default slot <[Entry]> entries;
+    helper := Rectangle { property <int> factor: root.factor; }
+    HorizontalLayout {
+        for entry[index] in entries: entry {
+            position: index;
+            factor: helper.factor;
+            shared <=> root.shared;
+            changed factor => {
+            if index == 1 { root.observed-factor = entry.factor; }
+            }
+            triggered(value) => {
+                root.last-index = index;
+                root.last-value = value;
+            }
+        }
+    }
+}
+
+component FixedGroup inherits EntryGroup {
+    EntryView { }
+    fixed-second := DecoratedEntry { }
+    public function trigger-second() { fixed-second.trigger(); }
+}
+
+interface Positioned {
+    in property <int> index;
+    in property <int> count;
+}
+
+component PositionedView {
+    in property <int> index;
+    in property <int> count;
+}
+
+component SeveralSlots {
+    slot <[Positioned]> leading;
+    default slot <[Positioned]> trailing;
+    slot <Entry> action;
+    out property <int> leading-count: leading.count;
+    out property <int> trailing-count: trailing.count;
+    HorizontalLayout {
+        Rectangle { width: 3px; }
+        for child[index] in leading: child {
+            index: index;
+            count: leading.count;
+        }
+        action { position: 12; }
+        for child[index] in trailing: child {
+            index: index;
+            count: trailing.count;
+        }
+        Rectangle { width: 4px; }
+    }
+}
+
+component AnyChildren {
+    default slot <[component]> children;
+    out property <int> count: children.count;
+    VerticalLayout { for child in children: child { } }
+}
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 200px;
+    in-out property <int> factor <=> static-group.factor;
+    in-out property <[string]> model: ["A", "B", "C"];
+    out property <bool> test: static-group.count == 2 && repeated.count == 3
+        && first.position == 0 && second.position == 1
+        && inherited.count == 2 && empty.count == 0
+        && multiple.leading-count == 2 && multiple.trailing-count == 1
+        && leading-first.index == 0 && leading-second.index == 1
+        && leading-second.count == 2 && trailing-first.index == 0
+        && trailing-first.count == 1 && action.position == 12 && any.count == 2;
+    out property <int> static-count: static-group.count;
+    out property <int> repeated-count: repeated.count;
+    out property <int> second-factor: second.factor;
+    out property <int> observed-factor: static-group.observed-factor;
+    out property <int> child-observed-factor: second.observed-factor;
+    out property <int> first-shared: first.shared;
+    out property <int> second-shared: second.shared;
+    out property <int> inherited-shared: inherited.shared;
+    out property <int> last-value: static-group.last-value;
+    out property <int> last-index: static-group.last-index;
+    out property <int> inherited-value: inherited.last-value;
+    public function trigger-second() { second.trigger(); }
+    public function trigger-inherited() { inherited.trigger-second(); }
+    public function set-shared(value: int) { second.shared = value; }
+    public function clear-model() { root.model = []; }
+    VerticalLayout {
+        static-group := EntryGroup {
+            first := EntryView { }
+            second := DecoratedEntry { }
+        }
+        repeated := EntryGroup {
+            factor: 7;
+            for label in root.model: EntryView { }
+        }
+        inherited := FixedGroup { factor: 9; }
+        empty := EntryGroup { }
+        multiple := SeveralSlots {
+            leading << leading-first := PositionedView { }
+            leading << leading-second := PositionedView { }
+            action << action := EntryView { }
+            trailing << trailing-first := PositionedView { }
+        }
+        any := AnyChildren {
+            Rectangle { }
+            Text { text: "User content"; }
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+instance.invoke_trigger_second();
+assert_eq!(instance.get_last_index(), 1);
+assert_eq!(instance.get_last_value(), 2);
+instance.set_factor(5);
+assert_eq!(instance.get_second_factor(), 5);
+slint_testing::mock_elapsed_time(0);
+assert_eq!(instance.get_observed_factor(), 5);
+assert_eq!(instance.get_child_observed_factor(), 5);
+instance.invoke_set_shared(13);
+assert_eq!(instance.get_first_shared(), 13);
+assert_eq!(instance.get_second_shared(), 13);
+assert_eq!(instance.get_inherited_shared(), 0);
+instance.invoke_trigger_second();
+assert_eq!(instance.get_last_value(), 5);
+instance.invoke_trigger_inherited();
+assert_eq!(instance.get_inherited_value(), 9);
+assert_eq!(slint_testing::ElementHandle::find_by_accessible_label(&instance, "Preserved decoration").count(), 2);
+instance.invoke_clear_model();
+slint_testing::mock_elapsed_time(0);
+assert_eq!(instance.get_repeated_count(), 0);
+assert_eq!(instance.get_static_count(), 2);
+```
+
+```cpp
+auto instance = TestCase::create();
+assert(instance->get_test());
+instance->invoke_trigger_second();
+assert(instance->get_last_index() == 1);
+assert(instance->get_last_value() == 2);
+instance->set_factor(5);
+assert(instance->get_second_factor() == 5);
+slint_testing::mock_elapsed_time(0);
+assert(instance->get_observed_factor() == 5);
+assert(instance->get_child_observed_factor() == 5);
+instance->invoke_set_shared(13);
+assert(instance->get_first_shared() == 13);
+assert(instance->get_second_shared() == 13);
+assert(instance->get_inherited_shared() == 0);
+instance->invoke_trigger_second();
+assert(instance->get_last_value() == 5);
+```
+*/

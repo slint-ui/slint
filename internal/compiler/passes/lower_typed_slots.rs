@@ -62,6 +62,9 @@ pub(super) fn check_content(
         let mut base = base.clone();
         loop {
             for slot in base.declared_slots.borrow().iter() {
+                if slot.is_collection {
+                    continue;
+                }
                 let Some(interface) = &slot.interface else { continue };
                 if assigned.contains(&slot.name)
                     || !base.child_insertion_points.borrow().contains_key(slot.name.as_str())
@@ -230,7 +233,10 @@ pub(super) fn lower(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
 }
 
 #[allow(clippy::mutable_key_type)]
-fn has_callback_handler(reference: &NamedReference, visited: &mut HashSet<NamedReference>) -> bool {
+pub(crate) fn has_callback_handler(
+    reference: &NamedReference,
+    visited: &mut HashSet<NamedReference>,
+) -> bool {
     if !visited.insert(reference.clone()) {
         return false;
     }

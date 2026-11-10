@@ -1257,9 +1257,19 @@ fn format_slot_declaration(
 ) -> Result<(), std::io::Error> {
     let mut sub = node.children_with_tokens();
     whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?;
+    if node.children_with_tokens().filter_map(|n| n.into_token()).any(|t| t.text() == "default") {
+        whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, " ")?;
+    }
     if node.child_node(SyntaxKind::QualifiedName).is_some() {
         whitespace_to(&mut sub, SyntaxKind::LAngle, writer, state, " ")?;
+        let collection = node.child_token(SyntaxKind::LBracket).is_some();
+        if collection {
+            whitespace_to(&mut sub, SyntaxKind::LBracket, writer, state, "")?;
+        }
         whitespace_to(&mut sub, SyntaxKind::QualifiedName, writer, state, "")?;
+        if collection {
+            whitespace_to(&mut sub, SyntaxKind::RBracket, writer, state, "")?;
+        }
         whitespace_to(&mut sub, SyntaxKind::RAngle, writer, state, "")?;
     }
     whitespace_to(&mut sub, SyntaxKind::DeclaredIdentifier, writer, state, " ")?;
@@ -4185,6 +4195,14 @@ export component MainWindow2 inherits Rectangle {
     function foo() { groups.any((group) => group.any((person) => person.age > 20) && group.length == 2); }
 }
 "#,
+        );
+    }
+
+    #[test]
+    fn slot_collections() {
+        assert_formatting(
+            "component Group { default slot < [ Entry ] > items; HorizontalLayout {for item[index] in items: item{value:index;}} }",
+            "component Group {\n    default slot <[Entry]> items;\n    HorizontalLayout {\n        for item[index] in items: item {\n            value: index;\n        }\n    }\n}\n",
         );
     }
 }

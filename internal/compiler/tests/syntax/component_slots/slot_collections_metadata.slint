@@ -1,0 +1,17 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+interface Entry { in property <int> value; }
+export component Test inherits Window {
+    default slot <[Entry]> items;
+    for item[index] in items: item { value: index; }
+    out property <int> count: items.count;
+    out property <int> invalid-index: items.index;
+//                                          >   <error{A slot collection only exposes its 'count'; access each child inside its expansion}
+    out property <int> invalid-member: items.value;
+//                                           >   <error{A slot collection only exposes its 'count'; access each child inside its expansion}
+    out property <int> escaped-index: index;
+//                                    >   <error{Unknown unqualified identifier 'index'}
+    out property <int> escaped-entry: item.value;
+//                                    >        <error{Cannot access id 'item'}
+}

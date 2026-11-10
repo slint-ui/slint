@@ -1,0 +1,25 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+interface Entry {
+    in property <int> value;
+    callback clicked();
+}
+component Group {
+    default slot <[Entry]> entries;
+    for entry[index] in entries: entry {
+        clicked => {
+            index = 2;
+//          >       <error{Collection metadata is read-only}
+            entries.count = 3;
+//          >               <error{Collection metadata is read-only}
+        }
+    }
+    forward-focus: entries;
+//                 >     <error{A child collection is not an element}
+}
+component Item {
+    in property <int> value;
+    callback clicked();
+}
+export component Test inherits Window { Group { Item { } } }

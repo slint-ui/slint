@@ -44,6 +44,7 @@ mod lower_property_to_element;
 mod lower_radiogroup;
 mod lower_repeated_rows;
 mod lower_shadows;
+mod lower_slot_collections;
 mod lower_states;
 mod lower_tabwidget;
 mod lower_text_input_interface;
@@ -138,6 +139,16 @@ pub async fn run_passes(
     lower_menus::lower_menus(doc, type_loader, diag).await;
     lower_component_container::lower_component_container(doc, type_loader, diag);
     collect_subcomponents::collect_subcomponents(doc);
+    let has_new_errors = |diag: &crate::diagnostics::BuildDiagnostics, before: usize| {
+        diag.iter()
+            .skip(before)
+            .any(|diagnostic| diagnostic.level() == crate::diagnostics::DiagnosticLevel::Error)
+    };
+    let diagnostics_before_slot_collections = diag.iter().count();
+    lower_slot_collections::lower_slot_collections(doc, &symbol_counters, diag);
+    if has_new_errors(diag, diagnostics_before_slot_collections) {
+        return raw_type_loader;
+    }
 
     doc.visit_all_used_components(|component| {
         apply_default_properties_from_style::apply_default_properties_from_style(
@@ -163,11 +174,6 @@ pub async fn run_passes(
         lower_menus::remove_root_menus(component);
     });
 
-    let has_new_errors = |diag: &crate::diagnostics::BuildDiagnostics, before: usize| {
-        diag.iter()
-            .skip(before)
-            .any(|diagnostic| diagnostic.level() == crate::diagnostics::DiagnosticLevel::Error)
-    };
     let diagnostics_before_typed_slots = diag.iter().count();
     doc.visit_all_used_components(|component| {
         let is_exported_root =

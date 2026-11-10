@@ -47,7 +47,7 @@ export component App inherits Rectangle {
 
 Assigning an untyped slot is optional.
 An unassigned untyped slot renders its [default content](#default-content), or nothing if it has none.
-[Typed slots](#typed-slots) require a supplied component.
+[Scalar typed slots](#typed-slots) require a supplied component.
 
 ## Default Content
 
@@ -141,7 +141,7 @@ The slot keeps the position its base component gives it.
 
 ## Referencing a slot
 
-The name bound to a slot is a regular element reference, so its properties can be read like any other element.
+The name bound to a scalar slot is a regular element reference, so its properties can be read like any other element.
 
 ```slint no-test
 export component App inherits Rectangle {
@@ -258,14 +258,69 @@ Typed placeholders accept property bindings, callback connections, and property 
 Defining handlers for the same callback in both the placeholder and supplied component is an error.
 Property bindings follow the existing priorities; more local bindings take precedence.
 
+## Collection Slots
+
+Declare `slot <[Entry]> entries;` to accept multiple components that implement an interface.
+Enable the `interfaces` experimental feature when using an interface type.
+Use `[component]` to accept components without an interface requirement.
+The `default` qualifier routes ordinary children into the collection instead of `@children`.
+Fill named collections with repeated assignments such as `entries << EntryView { }`.
+A component can declare multiple collection slots, including one default collection, alongside scalar slots.
+
+Expand the supplied components with `for`, applying bindings and callback handlers to each component:
+
+```slint
+interface Entry {
+    in property <int> position;
+    in property <bool> selected;
+    callback activated();
+}
+
+component EntryGroup {
+    in-out property <int> current-index: -1;
+    out property <int> count: entries.count;
+    default slot <[Entry]> entries;
+
+    HorizontalLayout {
+        for entry[index] in entries: entry {
+            position: index;
+            selected: index == root.current-index;
+            activated => { root.current-index = index; }
+        }
+    }
+}
+```
+
+The expansion places existing supplied components without replacing their type or visuals.
+The child and optional index variables are available only inside the expansion.
+`entries.count` tracks the number of supplied components, including changes to a supplied repeater's model.
+Counts and indexes are read-only.
+
+Callers can't assign properties or callback handlers managed by the expansion.
+Bindings in the supplied component's implementation remain available as defaults; property change handlers from both sides are combined.
+
+### Collection Limits
+
+- Each collection requires exactly one expansion in its declaring component.
+- Expansions accept bindings, two-way bindings, callback connections, and property change handlers, but no child elements or member declarations.
+- Supply static components or a single `for` loop; conditional children and mixtures of static children and repeaters aren't supported.
+- Forwarding collection slots or `@children` into collections isn't supported.
+- A derived component can supply collection children, but its callers can't append additional children to that collection.
+
+`@children` remains supported separately; collection slots don't yet replace its forwarding behavior.
+
+### Known Issue
+
+An empty assignment such as `entries << { }` can be accepted without removing entries supplied by a derived component.
+
 ## Current limitations
 
 The named slot feature is in its early stages. The following restrictions apply:
 
-- The name `children` is reserved for the default slot. Use `@children` to render it.
+- The name `children` is reserved for the default slot. Use `@children`, or declare a default collection slot.
 
 - A declared slot must be rendered exactly once, and it may not be placed inside a `for`, `if`, or `match` element.
 
 - A slot cannot be placed inside a `PopupWindow` or a `ComponentContainer`.
 
-- Slot assignment and forwarding are only valid on components, and each slot may be assigned at most once.
+- Slot assignment and forwarding are only valid on components, and each scalar slot may be assigned at most once.

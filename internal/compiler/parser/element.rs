@@ -72,6 +72,11 @@ pub fn parse_element_content(p: &mut impl Parser) {
             SyntaxKind::RBrace => return,
             SyntaxKind::Eof => return,
             SyntaxKind::Identifier => match p.nth(1).kind() {
+                SyntaxKind::Identifier
+                    if p.peek().as_str() == "default" && p.nth(1).as_str() == "slot" =>
+                {
+                    parse_slot_declaration(&mut *p);
+                }
                 SyntaxKind::Identifier | SyntaxKind::Semicolon | SyntaxKind::LAngle
                     if p.peek().as_str() == "slot" =>
                 {
@@ -250,16 +255,25 @@ fn parse_sub_element(p: &mut impl Parser) -> bool {
 /// ```test,SlotDeclaration
 /// slot header;
 /// slot <ContentInterface> content;
+/// default slot <[Entry]> entries;
+/// slot <[component]> children;
 /// slot header << Text { text: "Default"; }
 /// slot header << label := Text {}
 /// ```
 fn parse_slot_declaration(p: &mut impl Parser) {
-    debug_assert_eq!(p.peek().as_str(), "slot");
     {
         let mut p = p.start_node(SyntaxKind::SlotDeclaration);
+        if p.peek().as_str() == "default" {
+            p.consume();
+        }
+        debug_assert_eq!(p.peek().as_str(), "slot");
         p.expect(SyntaxKind::Identifier); // "slot"
         if p.test(SyntaxKind::LAngle) {
+            let collection = p.test(SyntaxKind::LBracket);
             parse_qualified_name(&mut *p);
+            if collection {
+                p.expect(SyntaxKind::RBracket);
+            }
             p.expect(SyntaxKind::RAngle);
         }
         let name = p.peek().as_str().to_owned();

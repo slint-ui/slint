@@ -1,0 +1,49 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+interface Entry {
+    in property <int> value;
+    callback clicked();
+}
+component Item {
+    in property <int> value;
+    callback clicked();
+}
+component Group {
+    default slot <[Entry]> items;
+    for item[index] in items: item {
+        value: index;
+        clicked => { }
+    }
+}
+component FixedGroup inherits Group { Item { } }
+component ForwardingWrapper {
+    Group { @children }
+//          >       <error{The @children placeholder is not allowed as a child of 'Group'}
+}
+component NestedCollection {
+    slot <[Entry]> entries;
+    Group {
+        for entry[index] in entries: entry { value: index; }
+//      >                                                  <error{Expanding a collection into another collection slot is not supported yet}
+    }
+}
+export component Test inherits Window {
+    Group { Rectangle { } }
+//          >           <error{Cannot implement 'Entry'.↵- missing 'callback clicked();'↵- missing 'in property <int> value;'}
+    Group { Item { value: 42; } }
+//          >   <error{Property 'value' is managed by the slot expansion}
+    Group { Item { clicked => { } } }
+//          >   <error{Callback 'clicked' has handlers in both the slot expansion and its supplied child}
+    Group { if true: Item { } }
+//                   >   <error{Conditional children are not supported in collection slots yet}
+    Group {
+        Item { }
+        for i in 2: Item { }
+//                  >   <error{A 'for' loop must be the only child in a collection slot}
+    }
+    FixedGroup { Item { } }
+//  >         <error{Declare collection children on the component subclass, not on its instance}
+    ForwardingWrapper { Item { } }
+    NestedCollection { entries << Item { } }
+}
