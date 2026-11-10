@@ -7,7 +7,7 @@
 # and fails if it doesn't keep running, or logs a crash or an error of SlintActivity.
 # Usage: dotnet_android_smoke_test.sh <apk> <application id> [seconds]
 
-set -eu
+set -euo pipefail
 
 apk=$1
 app=$2
@@ -23,6 +23,20 @@ reconnect() {
     exit 1
 }
 
+# Runs adb, and again after reconnecting when adb itself fails, such as with "device offline",
+# so that a lost connection doesn't look like an app that ended.
+query() {
+    for _ in 1 2 3; do
+        if output=$(adb "$@"); then
+            printf '%s\n' "$output"
+            return
+        fi
+        reconnect
+    done
+    echo "adb keeps losing the device" >&2
+    exit 1
+}
+
 adb install -r "$apk"
 adb logcat -c
 activity=$(adb shell cmd package resolve-activity --brief "$app" | tail -n 1 | tr -d '\r')
@@ -32,13 +46,15 @@ reconnect
 
 # SlintActivity logs an exception of SlintMain under the tag Slint, and the app then ends.
 # Logcat names a crashed process by the last 15 characters of its name, and other processes crash on emulators too.
-errors=$(adb logcat -d | grep -E " E Slint +:|RustStdoutStderr: .*panicked|Fatal signal.*\\(${app: -15}\\)" || true)
-pid=$(adb shell pidof "$app" | tr -d '\r' || true)
+log=$(query logcat -d)
+errors=$(grep -E " E Slint +:|RustStdoutStderr: .*panicked|Fatal signal.*\\(${app: -15}\\)" <<< "$log" || true)
+# pidof fails when there's no such process, which mustn't count as a failure of adb.
+pid=$(query shell "pidof $app || true" | tr -d '\r')
 if [ -z "$pid" ] || [ -n "$errors" ]; then
     [ -z "$pid" ] && echo "$app isn't running after $seconds seconds"
     [ -n "$errors" ] && printf '%s logged errors:\n%s\n' "$app" "$errors"
     echo "Log lines about $app, such as why its process ended:"
-    adb logcat -d | grep -E "AndroidRuntime|monodroid|DOTNET|$app|${app: -15}" | tail -n 60
+    grep -E "AndroidRuntime|monodroid|DOTNET|$app|${app: -15}" <<< "$log" | tail -n 60 || true
     exit 1
 fi
 echo "$app is running as process $pid"
