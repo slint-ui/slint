@@ -997,6 +997,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut frames =
         Frames { textures: Vec::new(), next: 0, view_format: wgpu::TextureFormat::Rgba8Unorm };
     let mut last_frame = web_time::Instant::now();
+    // Started once the renderer is set up, so that it doesn't compete with that for the CPU.
+    let mut cloud_generation: Option<clouds::Generation> = None;
+    // When the clouds arrived, to fade them in.
+    let mut clouds_since: Option<web_time::Instant> = None;
     let mut frame_count = 0u32;
     let mut fps_window_start = web_time::Instant::now();
     let mut adaptive = adaptive::Adaptive::new(app.get_quality(), true);
@@ -1050,23 +1054,20 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 format!("{} ({:?}, {:?})", info.name, info.backend, imagery.format).into(),
             );
             graphics = Some((
-                Renderer::new(
-                    device,
-                    queue,
-                    &map,
-                    &imagery,
-                    &night,
-                    &clouds::generate(),
-                    frames.view_format,
-                ),
+                Renderer::new(device, queue, &map, &imagery, &night, frames.view_format),
                 device.clone(),
             ));
+            cloud_generation = Some(clouds::Generation::start());
             return;
         }
         if !matches!(rendering_state, slint::RenderingState::BeforeRendering) {
             return;
         }
         let Some((renderer, device)) = &graphics else { return };
+        if let Some(levels) = cloud_generation.as_mut().and_then(clouds::Generation::poll) {
+            renderer.set_clouds(&levels);
+            clouds_since = Some(web_time::Instant::now());
+        }
         let now = web_time::Instant::now();
         // After an idle period the first frame would otherwise jump.
         let dt = (now - last_frame).as_secs_f32().min(1.0 / 20.0);
@@ -1180,7 +1181,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 viewport: pixels,
                 time: demo.time,
                 space: progress,
-                clouds: if app.get_clouds() { cloud_strength(eye) } else { 0.0 },
+                clouds: match clouds_since {
+                    Some(since) if app.get_clouds() => {
+                        cloud_strength(eye) * since.elapsed().as_secs_f32().min(1.0)
+                    }
+                    _ => 0.0,
+                },
             },
             &view,
         );

@@ -100,6 +100,7 @@ pub struct Renderer {
     border_segment_count: u32,
     /// Whether the shader encodes sRGB, because the target's format doesn't.
     encode_srgb: bool,
+    cloud_texture: wgpu::Texture,
 }
 
 const GLOBAL_FLOATS: usize = 48;
@@ -111,7 +112,6 @@ impl Renderer {
         map: &Map,
         imagery: &Imagery,
         night: &Imagery,
-        clouds: &[Vec<u8>],
         format: wgpu::TextureFormat,
     ) -> Self {
         let texture = device.create_texture_with_data(
@@ -172,25 +172,21 @@ impl Renderer {
             wgpu::util::TextureDataOrder::LayerMajor,
             &night.levels.concat(),
         );
-        let cloud_texture = device.create_texture_with_data(
-            queue,
-            &wgpu::TextureDescriptor {
-                label: Some("globe clouds"),
-                size: wgpu::Extent3d {
-                    width: crate::clouds::WIDTH,
-                    height: crate::clouds::HEIGHT,
-                    depth_or_array_layers: 1,
-                },
-                mip_level_count: clouds.len() as u32,
-                sample_count: 1,
-                dimension: wgpu::TextureDimension::D2,
-                format: wgpu::TextureFormat::R8Unorm,
-                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-                view_formats: &[],
+        // Clear until `set_clouds()` fills it.
+        let cloud_texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("globe clouds"),
+            size: wgpu::Extent3d {
+                width: crate::clouds::WIDTH,
+                height: crate::clouds::HEIGHT,
+                depth_or_array_layers: 1,
             },
-            wgpu::util::TextureDataOrder::LayerMajor,
-            &clouds.concat(),
-        );
+            mip_level_count: crate::clouds::LEVELS,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::R8Unorm,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            view_formats: &[],
+        });
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::Repeat,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
@@ -386,6 +382,30 @@ impl Renderer {
             border_segments,
             border_segment_count: segments.len() as u32,
             encode_srgb: !format.is_srgb(),
+            cloud_texture,
+        }
+    }
+
+    /// Fills the cloud texture with the mip levels from `clouds::generate()`.
+    pub fn set_clouds(&self, levels: &[Vec<u8>]) {
+        for (level, data) in levels.iter().enumerate() {
+            let width = (crate::clouds::WIDTH >> level).max(1);
+            let height = (crate::clouds::HEIGHT >> level).max(1);
+            self.queue.write_texture(
+                wgpu::TexelCopyTextureInfo {
+                    texture: &self.cloud_texture,
+                    mip_level: level as u32,
+                    origin: wgpu::Origin3d::ZERO,
+                    aspect: wgpu::TextureAspect::All,
+                },
+                data,
+                wgpu::TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(width),
+                    rows_per_image: Some(height),
+                },
+                wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
+            );
         }
     }
 
