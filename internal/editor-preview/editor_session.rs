@@ -23,14 +23,14 @@ pub type VersionedDiagnostics = Vec<(Url, SourceFileVersion, Vec<lsp_types::Diag
 
 pub struct PreviewConnection {
     to_preview: Rc<crate::LspToPreviews>,
-    project_root: Option<Url>,
+    project_root: Option<SourcePath>,
     /// The last component for which the user clicked "show preview"
     #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
     to_show: Option<PreviewComponent>,
 }
 
 impl PreviewConnection {
-    pub fn project_root(&self) -> Option<&Url> {
+    pub fn project_root(&self) -> Option<&SourcePath> {
         self.project_root.as_ref()
     }
 
@@ -292,7 +292,7 @@ impl EditorSession {
         &mut self,
         to_preview: Rc<crate::LspToPreviews>,
         component: Option<PreviewComponent>,
-        project_root: Option<Url>,
+        project_root: Option<SourcePath>,
     ) -> usize {
         let preview_index = self.previews.len();
         self.preview_destinations.borrow_mut().push(to_preview.clone());
@@ -342,11 +342,13 @@ impl EditorSession {
     }
 
     /// The nearest `slint-project.json` that applies to `source`, or `None`.
-    pub fn find_project_file_for(
-        &self,
-        source: &SourcePath,
-    ) -> std::io::Result<Option<SourcePath>> {
+    fn find_project_file_for(&self, source: &SourcePath) -> std::io::Result<Option<SourcePath>> {
         self.project_files_for(source).next().transpose()
+    }
+
+    /// The directory of the nearest `slint-project.json` that applies to `source`.
+    pub fn project_root_for(&self, source: &SourcePath) -> std::io::Result<Option<SourcePath>> {
+        Ok(self.find_project_file_for(source)?.map(|project| project.parent()))
     }
 
     /// The project files that apply to `source`, nearest first:
@@ -808,7 +810,7 @@ impl EditorSession {
     #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
     pub fn send_state_to_preview(&self, preview_index: usize) {
         let Some(preview) = self.preview(preview_index) else { return };
-        let root = preview.project_root.clone();
+        let root = preview.project_root.as_ref().and_then(SourcePath::to_directory_url);
         preview.to_preview.send(&LspToPreviewMessage::OpenProject { root });
         let mut doc_count = 0;
         #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
@@ -964,7 +966,7 @@ impl EditorSession {
         &mut self,
         preview_index: usize,
         component: PreviewComponent,
-        project_root: Option<Url>,
+        project_root: Option<SourcePath>,
     ) {
         let component_url =
             SourcePath::from_url(&component.url).to_url().unwrap_or_else(|| component.url.clone());
@@ -1939,11 +1941,15 @@ mod preview_tests {
 
         assert!(session.previews().is_empty());
         assert_eq!(
-            session.attach_preview(to_preview, Some(component.clone()), Some(root.clone())),
+            session.attach_preview(
+                to_preview,
+                Some(component.clone()),
+                Some(SourcePath::from_url(&root))
+            ),
             0
         );
         assert_eq!(session.primary_preview().component(), Some(&component));
-        assert_eq!(session.primary_preview().project_root(), Some(&root));
+        assert_eq!(session.primary_preview().project_root(), Some(&SourcePath::from_url(&root)));
         assert!(session.pending_recompile.is_empty());
         assert!(messages.borrow().is_empty());
 
@@ -2153,7 +2159,7 @@ mod preview_tests {
             session.active_project_file_paths().collect::<Vec<_>>(),
             [&SourcePath::new(&root_manifest), &SourcePath::new(&nested_manifest)]
         );
-        session.show_preview(0, component.clone(), Some(root.clone()));
+        session.show_preview(0, component.clone(), Some(SourcePath::from_url(&root)));
         messages[0].borrow_mut().clear();
 
         session.send_state_to_preview(0);
@@ -2184,7 +2190,7 @@ mod preview_tests {
         let next_component =
             PreviewComponent { url: component.url.clone(), component: Some("Other".into()) };
         messages[0].borrow_mut().clear();
-        session.show_preview(0, next_component.clone(), Some(root.clone()));
+        session.show_preview(0, next_component.clone(), Some(SourcePath::from_url(&root)));
         assert!(matches!(
             messages[0].borrow().as_slice(),
             [LspToPreviewMessage::ShowPreview(sent)] if sent == &next_component
@@ -2211,14 +2217,14 @@ mod preview_tests {
         let initial_component =
             PreviewComponent { url: component_url.clone(), component: Some("Initial".into()) };
         let initial_root = Url::parse("file:///initial/").unwrap();
-        session.show_preview(0, initial_component, Some(initial_root));
+        session.show_preview(0, initial_component, Some(SourcePath::from_url(&initial_root)));
 
         let next_root = Url::parse("file:///next/").unwrap();
         for (root, name) in [(Some(next_root), "Next"), (None, "Cleared")] {
             messages[0].borrow_mut().clear();
             let component =
                 PreviewComponent { url: component_url.clone(), component: Some(name.into()) };
-            session.show_preview(0, component.clone(), root.clone());
+            session.show_preview(0, component.clone(), root.as_ref().map(SourcePath::from_url));
 
             let captured = messages[0].borrow();
             assert_eq!(

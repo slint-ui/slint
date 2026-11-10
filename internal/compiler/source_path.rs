@@ -68,6 +68,16 @@ impl SourcePath {
         }
     }
 
+    /// The URL of `self` taken as a directory, which ends with `/`.
+    /// Returns `None` for a relative `File`.
+    pub fn to_directory_url(&self) -> Option<url::Url> {
+        match self {
+            #[cfg(not(target_arch = "wasm32"))]
+            Self::File(path) => url::Url::from_directory_path(path).ok(),
+            _ => self.join(".")?.to_url(),
+        }
+    }
+
     /// The inverse of [`Self::new`], with a URL stored as its string.
     #[deprecated(note = "A URL isn't a path: only for public APIs that take a `Path`")]
     pub fn to_legacy_path(&self) -> PathBuf {
@@ -355,6 +365,20 @@ mod tests {
         assert!(!SourcePath::new("/does/not/exist").try_exists().unwrap());
         assert!(!SourcePath::new("https://slint.dev/").try_exists().unwrap());
         assert!(!SourcePath::new("builtin:/fluent/button.slint").try_exists().unwrap());
+    }
+
+    #[test]
+    fn directory_urls() {
+        let (dir, dir_url) =
+            if cfg!(windows) { ("C:/ui", "file:///C:/ui/") } else { ("/ui", "file:///ui/") };
+        for (path, url) in [
+            (dir.to_string(), dir_url),
+            (format!("{dir}/"), dir_url),
+            ("https://slint.dev/ui".into(), "https://slint.dev/ui/"),
+            ("https://slint.dev/ui/".into(), "https://slint.dev/ui/"),
+        ] {
+            assert_eq!(SourcePath::new(&path).to_directory_url().unwrap().as_str(), url, "{path}");
+        }
     }
 
     #[test]

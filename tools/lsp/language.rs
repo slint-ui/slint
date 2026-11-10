@@ -699,14 +699,10 @@ pub fn show_preview_command(
 
     tracing::debug!("Show preview: url={}, component={:?}", url, component);
     let source = SourcePath::from_url(&url);
-    let root = ctx
-        .session
-        .find_project_file_for(&source)
-        .map_err(|error| LspError {
-            code: LspErrorCode::RequestFailed,
-            message: format!("Cannot find project file for {source}: {error}"),
-        })?
-        .and_then(|project| project.to_url()?.join(".").ok());
+    let root = ctx.session.project_root_for(&source).map_err(|error| LspError {
+        code: LspErrorCode::RequestFailed,
+        message: format!("Cannot find project file for {source}: {error}"),
+    })?;
     ctx.session.show_preview(0, PreviewComponent { url, component }, root);
 
     Ok(())
@@ -720,9 +716,7 @@ pub fn sync_preview_project_root(
     session: &mut editor_preview::EditorSession,
 ) -> std::io::Result<()> {
     let Some(component) = session.primary_preview().component().cloned() else { return Ok(()) };
-    let root = session
-        .find_project_file_for(&SourcePath::from_url(&component.url))?
-        .and_then(|project| project.to_url()?.join(".").ok());
+    let root = session.project_root_for(&SourcePath::from_url(&component.url))?;
     if session.primary_preview().project_root() != root.as_ref() {
         session.show_preview(0, component, root);
     }
@@ -2351,11 +2345,11 @@ enum {}
                     .unwrap();
             }
             assert_eq!(
-                context.session.find_project_file_for(&SourcePath::new(&outer_source)).unwrap(),
-                Some(SourcePath::new(outer.join("slint-project.json")))
+                context.session.project_root_for(&SourcePath::new(&outer_source)).unwrap(),
+                Some(SourcePath::new(&outer))
             );
             assert_eq!(
-                context.session.find_project_file_for(&SourcePath::new(&inner_source)).unwrap(),
+                context.session.project_root_for(&SourcePath::new(&inner_source)).unwrap(),
                 None
             );
         }
@@ -2376,7 +2370,7 @@ enum {}
         assert!(error.message.contains(&source_url.to_file_path().unwrap().display().to_string()));
         assert!(messages.borrow().is_empty());
 
-        let previous_root = Url::from_directory_path(directory.path()).unwrap();
+        let previous_root = SourcePath::new(directory.path());
         context.session.show_preview(
             0,
             PreviewComponent { url: source_url, component: None },
