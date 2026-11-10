@@ -8,8 +8,8 @@ import "fonts/JetBrainsMonoNL-Bold.ttf";
 export enum Quality { low, medium, high }
 
 global Theme {
-    /// The panels blur the globe behind them in high quality, and are flat and more opaque
-    /// otherwise.
+    /// The panels blur the globe behind them in high quality,
+    /// and are flat and more opaque otherwise.
     in-out property <Quality> quality: Quality.high;
     out property <bool> blur: self.quality == Quality.high;
     out property <color> text: #f4efe3;
@@ -48,8 +48,8 @@ export enum View { follow, route, globe, free }
 
 export enum Phase { boarding, flying, arrived }
 
-/// What the window shows: the entry screen, the globe growing from its place there to the window
-/// or shrinking back, or a flight.
+/// What the window shows: the entry screen,
+/// the globe growing from its place there to the window or shrinking back, or a flight.
 export enum Screen { entry, zoom, flight }
 
 export struct AirportItem {
@@ -134,8 +134,8 @@ component Glass inherits Rectangle {
 
 /// The characters of a string, which Slint can't slice.
 export global Characters {
-    /// The character at `index` of `text`, counted like `character-count`, or an empty string
-    /// before its start or past its end.
+    /// The character at `index` of `text`, counted like `character-count`,
+    /// or an empty string before its start or past its end.
     pure callback at(text: string, index: int) -> string;
 }
 
@@ -269,11 +269,12 @@ component Flaps {
     in property <bool> lit;
     /// How long the flaps show a text before they flip to a newer one.
     in property <duration> hold: 50ms;
-    /// How long all of the flaps take to flip, from the first one starting to the last one
-    /// finishing.
+    /// How long all of the flaps take to flip,
+    /// from the first one starting to the last one finishing.
     in property <duration> flip: 520ms;
-    /// The least number of flaps. Shorter text is aligned to the right, after blank flaps, so
-    /// that a number's digits keep their flaps as it grows or shrinks.
+    /// The least number of flaps.
+    /// Shorter text is aligned to the right, after blank flaps,
+    /// so that a number's digits keep their flaps as it grows or shrinks.
     in property <int> places;
     property <int> length: self.text.character-count;
     property <int> count: self.whole ? 1 : max(1, max(self.places, self.length));
@@ -932,8 +933,8 @@ export component AppWindow inherits Window {
     property <length> controls-y: root.height - controls.height - root.bottom-edge - (root.narrow ? 0 : 14px);
     /// Whether the globe shows a route: during a flight, or once the planner has one.
     property <bool> route-shown: root.screen != Screen.entry || (root.planned-origin.index >= 0 && root.planned-destination.index >= 0);
-    /// Which of the planner's fields the search results are for: 0 for the origin, 1 for
-    /// the destination.
+    /// Which of the planner's fields the search results are for: 0 for the origin,
+    /// 1 for the destination.
     property <int> active-field: 1;
     /// A phone held upright.
     property <bool> narrow: root.width < 600px;

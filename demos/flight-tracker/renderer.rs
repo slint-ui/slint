@@ -113,8 +113,8 @@ impl Imagery {
         }
     }
 
-    /// RGBA pixels, whose width and height are multiples of 4, in the format that
-    /// `compressed_format()` gives for `features`.
+    /// RGBA pixels, whose width and height are multiples of 4,
+    /// in the format that `compressed_format()` gives for `features`.
     pub fn compress_level(
         features: wgpu::Features,
         rgba: &[u8],
@@ -205,7 +205,8 @@ fn bind_group(
 }
 
 /// The pixels of the frame that the globe and the glow of its atmosphere reach, as their left,
-/// top, width, and height. `None` where the camera is inside the glow.
+/// top, width, and height.
+/// `None` where the camera is inside the glow.
 fn globe_rectangle(frame: &Frame) -> Option<[u32; 4]> {
     // The glow that `globe.wgsl` draws around the globe is below what 8 bits hold from here on.
     const REACH: f32 = 1.16;
@@ -555,8 +556,8 @@ mod tests {
     use super::*;
     use crate::camera::{Pose, surface};
 
-    /// The rays through the pixels around the globe's rectangle pass the globe beyond the reach
-    /// of its glow, with the globe anywhere in the frame, near or far, and tilted.
+    /// The rays through the pixels around the globe's rectangle pass the globe beyond the reach of
+    /// its glow, with the globe anywhere in the frame, near or far, and tilted.
     #[test]
     fn globe_rectangle_holds_the_glow() {
         let viewport = Vec2::new(640.0, 400.0);

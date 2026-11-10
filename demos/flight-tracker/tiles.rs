@@ -3,19 +3,20 @@
 
 //! Sharper imagery where the camera looks, from map tiles.
 //!
-//! The globe's imagery is 4096 pixels wide, which is blurry from close up. Around the point
-//! the camera looks at, `LEVELS` detail windows replace it, each at twice the resolution of
-//! the one before, and each `WINDOW_TILES` tiles wide and high. The lights of the night side
-//! have such windows of their own. The tiles are those of NASA's
-//! GIBS, in the same projection as the globe's textures: at zoom level `z`, a pixel is
-//! `0.5625 / 2^z` degrees.
+//! The globe's imagery is 4096 pixels wide, which is blurry from close up.
+//! Around the point the camera looks at, `LEVELS` detail windows replace it,
+//! each at twice the resolution of the one before, and each `WINDOW_TILES` tiles wide and high.
+//! The lights of the night side have such windows of their own.
+//! The tiles are those of NASA's GIBS, in the same projection as the globe's textures:
+//! at zoom level `z`, a pixel is `0.5625 / 2^z` degrees.
 //!
-//! The tiles come from GIBS over the network, and natively stay in a cache directory, or from
-//! a directory of tiles alone, or from the binary, see `Source`.
+//! The tiles come from GIBS over the network, and natively stay in a cache directory,
+//! or from a directory of tiles alone, or from the binary, see `Source`.
 //!
-//! All windows share one array texture. A tile's place in its layer is its column and row
-//! modulo `WINDOW_TILES`, and the texture repeats, so tiles stay where they are while the
-//! window moves over the globe, and only the tiles that come into it are loaded.
+//! All windows share one array texture.
+//! A tile's place in its layer is its column and row modulo `WINDOW_TILES`,
+//! and the texture repeats, so tiles stay where they are while the window moves over the globe,
+//! and only the tiles that come into it are loaded.
 
 use std::f32::consts::PI;
 use std::sync::mpsc::{Receiver, Sender, channel};
@@ -57,8 +58,9 @@ mod embedded {
 /// Where the tiles come from.
 #[derive(Clone)]
 pub enum Source {
-    /// NASA's GIBS. Natively, the tiles stay in the directory `cache` once fetched, as in
-    /// `Directory`; on the web, the browser caches them.
+    /// NASA's GIBS.
+    /// Natively, the tiles stay in the directory `cache` once fetched, as in `Directory`;
+    /// on the web, the browser caches them.
     #[cfg(online_tiles)]
     Online {
         #[cfg(not(target_arch = "wasm32"))]
@@ -73,9 +75,9 @@ pub enum Source {
 }
 
 impl Source {
-    /// The tiles in the binary, if `build.rs` embedded them, or else NASA's GIBS, if the demo
-    /// was built to fetch from it. Natively, `FLIGHT_TRACKER_TILES` names a directory of tiles
-    /// to use instead, or is `off`.
+    /// The tiles in the binary, if `build.rs` embedded them, or else NASA's GIBS,
+    /// if the demo was built to fetch from it.
+    /// Natively, `FLIGHT_TRACKER_TILES` names a directory of tiles to use instead, or is `off`.
     pub fn detect() -> Option<Self> {
         #[cfg(not(target_arch = "wasm32"))]
         if let Some(directory) = std::env::var_os("FLIGHT_TRACKER_TILES") {
@@ -109,7 +111,8 @@ enum Fetched<T> {
 
 #[cfg(not(target_arch = "wasm32"))]
 impl Source {
-    /// The file of a tile. This may take a while.
+    /// The file of a tile.
+    /// This may take a while.
     fn fetch(&self, kind: Kind, zoom: u32, row: u32, column: u32) -> Fetched<Vec<u8>> {
         let path = kind.path(zoom, row, column);
         match self {
@@ -269,7 +272,8 @@ impl Window {
 struct Arrived {
     window: usize,
     tile: (u32, u32),
-    /// Natively, the tile's mip levels, ready for the GPU. On the web, its file.
+    /// Natively, the tile's mip levels, ready for the GPU.
+    /// On the web, its file.
     tile_data: Fetched<Payload>,
 }
 
@@ -296,7 +300,8 @@ impl Job {
     /// The rows of pixels compressed in one step.
     const STRIP: usize = 64;
 
-    /// Compresses the next strip. Returns whether the tile is finished.
+    /// Compresses the next strip.
+    /// Returns whether the tile is finished.
     fn step(&mut self, features: wgpu::Features) -> bool {
         let level = if self.row == 0 { self.done.len() } else { self.done.len() - 1 };
         let size = TILE as usize >> level;
@@ -368,14 +373,15 @@ impl Detail {
                 .any(|slot| slot.state == State::Loaded && slot.shown < 1.0)
     }
 
-    /// Follows the camera, which looks at `target` on the globe, where a pixel of the frame
-    /// covers `footprint` degrees. Puts the tiles that arrived onto the GPU. While `enabled`,
-    /// the windows show, and the tiles that are missing are asked for, those of the day's
-    /// imagery while `day` and those of the night's lights while `night`.
+    /// Follows the camera, which looks at `target` on the globe,
+    /// where a pixel of the frame covers `footprint` degrees.
+    /// Puts the tiles that arrived onto the GPU.
+    /// While `enabled`, the windows show, and the tiles that are missing are asked for,
+    /// those of the day's imagery while `day` and those of the night's lights while `night`.
     ///
-    /// Returns what the shader needs for each window: where the camera looks, in tiles, the
-    /// number of the map's columns and rows, which is 0 without tiles, and how far the tile of
-    /// each slot has faded in.
+    /// Returns what the shader needs for each window: where the camera looks, in tiles,
+    /// the number of the map's columns and rows, which is 0 without tiles,
+    /// and how far the tile of each slot has faded in.
     pub fn update(
         &mut self,
         renderer: &Renderer,
@@ -466,8 +472,8 @@ impl Detail {
         slot.tile == tile && slot.state == State::Loading
     }
 
-    /// Ends the loading of `tile`, whose slot gets `state` if it still waits for it. Returns
-    /// whether it did.
+    /// Ends the loading of `tile`, whose slot gets `state` if it still waits for it.
+    /// Returns whether it did.
     fn settle(&mut self, window: usize, tile: (u32, u32), state: State) -> bool {
         self.loading -= 1;
         let waiting = self.is_waiting(window, tile);
@@ -523,7 +529,8 @@ impl Detail {
         self.files.push_back((window, tile, file));
     }
 
-    /// Fetches a tile. Its file arrives in a later frame.
+    /// Fetches a tile.
+    /// Its file arrives in a later frame.
     #[cfg(target_arch = "wasm32")]
     fn load(&self, window: usize, kind: Kind, zoom: u32, tile: (u32, u32)) {
         let sender = self.sender.clone();
