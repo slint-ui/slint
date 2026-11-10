@@ -4,7 +4,7 @@
 # cSpell: ignore ringbuf
 [package]
 name = "ffmpeg"
-version = "1.19.0"
+version = "1.20.0"
 authors = ["Slint Developers <info@slint.dev>"]
 edition.workspace = true
 build = "build.rs"
@@ -44,7 +44,7 @@ name = "android.permission.INTERNET"
 uses_cleartext_traffic = true
 
 [package.metadata.android.sdk]
-min_sdk_version = 23
+min_sdk_version = 26
 target_sdk_version = 36
 
 [[package.metadata.android.application.activity]]

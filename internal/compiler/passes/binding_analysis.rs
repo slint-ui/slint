@@ -616,16 +616,14 @@ fn report_binding_loop(
     }
     // Skip a cycle whose bindings were all reported already: most often it's one reported cycle
     // entered from another of its properties. One that shares only some is another loop.
-    // From edition 1.19, an error one is still reported: it may be a shorter loop inside an
-    // earlier one, such as a warning through the window layout.
     let is_error = context.error_on_binding_loop_with_window_layout || !has_window_layout;
-    let has_binding_of_edition_1_19 = || {
+    let all_bindings_of_edition_1_19 = || {
         reportable
             .iter()
             .filter_map(|(_, span, _)| span.source_file.as_ref())
-            .any(|file| file.edition() >= Some(SlintEdition::V1_19))
+            .all(|file| file.edition() >= Some(SlintEdition::V1_19))
     };
-    if all_reported && !(is_error && has_binding_of_edition_1_19()) {
+    if all_reported && !(is_error && all_bindings_of_edition_1_19()) {
         return;
     }
     // Of equal blame, one in the user's own file over one in a widget, then the one written

@@ -15,13 +15,13 @@ export component InspectorColorValueField inherits Rectangle {
     in property <string> accessible-name: "";
     in property <color> value;
     in property <bool> enabled: true;
-    in property <bool> live-edit: false;
     in property <bool> swatch-enabled: true;
     in property <bool> swatch-visible: true;
     in property <string> swatch-accessible-name: @tr("{} color picker", root.accessible-name);
     in property <string> commit-key: "";
     out property <bool> input-focused: color-input.input-focused || opacity-input.input-focused;
     callback accepted(color) -> bool;
+    callback edit-input(color);
     callback preview(color) -> bool;
     callback scrub-accepted(color) -> bool;
     callback scrub-canceled(color);
@@ -69,12 +69,15 @@ export component InspectorColorValueField inherits Rectangle {
                 accessible-name: root.accessible-name;
                 width: parent.width - root.style.opacity-width;
                 enabled: root.enabled;
-                live-edit: root.live-edit;
                 value: root.data.color-text;
                 commit-key: root.commit-key;
                 normalize-accepted: true;
                 edit-started => { root.color-edit-original = root.value; }
                 accepted(text) => { return root.accept-color(text); }
+                edit-input(text) => {
+                    root.color-edit = Properties.color-value-color-edit(root.color-edit-original, text);
+                    if root.color-edit.valid { root.edit-input(root.color-edit.color); }
+                }
                 normalized(text) => { return root.color-edit.display; }
 
                 Rectangle { width: root.style.swatch-slot-width; }
@@ -88,7 +91,6 @@ export component InspectorColorValueField inherits Rectangle {
                 accessible-name: @tr("{} opacity", root.accessible-name);
                 width: root.style.opacity-width;
                 enabled: root.enabled;
-                live-edit: root.live-edit;
                 horizontal-alignment: right;
                 suffix: "%";
                 suffix-width: root.style.opacity-field.text.size;
@@ -101,6 +103,10 @@ export component InspectorColorValueField inherits Rectangle {
                 scrub-has-maximum: true;
                 scrub-maximum: 100;
                 accepted(text) => { return root.accept-opacity(text); }
+                edit-input(text) => {
+                    root.opacity-edit = Properties.color-value-opacity-edit(root.value, text);
+                    if root.opacity-edit.valid { root.edit-input(root.opacity-edit.color); }
+                }
                 normalized(text) => { return root.opacity-edit.display; }
                 scrub-started => { root.scrub-original = root.value; }
                 scrub-preview(value) => {

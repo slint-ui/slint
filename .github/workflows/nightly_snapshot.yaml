@@ -262,7 +262,7 @@ jobs:
             PUBLISH: ${{ github.event.inputs.mode == 'full-nightly' || github.event.inputs.mode == 'release' }}
         steps:
             - uses: actions/checkout@v7
-            - uses: pnpm/action-setup@v6.1.0
+            - uses: pnpm/action-setup@v6.1.1
             - name: Install GNU Sed
               run: brew install gnu-sed
             - uses: actions/setup-node@v7
@@ -353,7 +353,7 @@ jobs:
               with:
                   node-version: 24
                   package-manager-cache: false
-            - uses: pnpm/action-setup@v6.1.0
+            - uses: pnpm/action-setup@v6.1.1
             - uses: ./.github/actions/setup-rust
               with:
                   cache: false
@@ -846,16 +846,19 @@ jobs:
                   keytool -genkeypair -keystore $CARGO_APK_RELEASE_KEYSTORE -storepass throwaway -keypass throwaway \
                       -alias throwaway -keyalg RSA -keysize 2048 -validity 1 -dname CN=throwaway
 
-            - name: Build energy-monitor example
-              run: cargo apk2 build --manifest-path demos/Cargo.toml -p energy-monitor --target aarch64-linux-android --lib --release
-            - name: Build todo demo
-              run: cargo apk2 build --manifest-path examples/Cargo.toml -p todo --target aarch64-linux-android --lib --release
-            - name: Build weather-demo example
-              run: cargo apk2 build --manifest-path demos/Cargo.toml -p weather-demo --target aarch64-linux-android --lib --release
-            - name: Build usecases demo
-              run: cargo apk2 build --manifest-path demos/Cargo.toml -p usecases --target aarch64-linux-android --lib --release
-            - name: Build home automation demo
-              run: cargo apk2 build --manifest-path demos/Cargo.toml -p home-automation --target aarch64-linux-android --lib --release
+            # The prebuilt Skia binaries need the libc++ of NDK r30 or newer,
+            # while the viewer stays on the NDK that F-Droid rebuilds it with.
+            # Without -z defs, an undefined symbol only fails when the app loads the library.
+            - name: Build the demos
+              env:
+                  RUSTFLAGS: -C link-arg=-Wl,-z,defs
+              run: |
+                  export ANDROID_NDK_ROOT=$ANDROID_NDK_LATEST_HOME
+                  cargo apk2 build --manifest-path demos/Cargo.toml -p energy-monitor --target aarch64-linux-android --lib --release
+                  cargo apk2 build --manifest-path examples/Cargo.toml -p todo --target aarch64-linux-android --lib --release
+                  cargo apk2 build --manifest-path demos/Cargo.toml -p weather-demo --target aarch64-linux-android --lib --release
+                  cargo apk2 build --manifest-path demos/Cargo.toml -p usecases --target aarch64-linux-android --lib --release
+                  cargo apk2 build --manifest-path demos/Cargo.toml -p home-automation --target aarch64-linux-android --lib --release
 
             # Play Store accepts only AABs for new submissions; the per-ABI
             # APKs are for GitHub releases and F-Droid.

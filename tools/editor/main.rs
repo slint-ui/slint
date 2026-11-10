@@ -43,6 +43,7 @@ const RUN_PREVIEW_INDEX: usize = 1;
 
 enum EditorToSessionMessage {
     RunPreview,
+    AttachSpringboardUi(slint::Weak<editor_preview::springboard_ui::Springboard<'static>>),
     SwitchProject(Project),
     CloseProject,
 }
@@ -130,9 +131,7 @@ fn main() -> Result<()> {
 /// auto-updater driving the update section of the editor UI.
 #[cfg(target_os = "macos")]
 fn setup_macos_chrome(editor_ui: &preview::ui::EditorUi) -> Option<Rc<crate::sparkle::Sparkle>> {
-    use slint::ComponentHandle;
-
-    preview::macos_titlebar::setup(editor_ui.as_weak());
+    editor_ui.on_perform_native_window_zoom(preview::macos_titlebar::setup(editor_ui));
     crate::sparkle::connect(editor_ui)
 }
 
@@ -224,6 +223,7 @@ fn start_editor_session(
         '_,
         preview::ui::EditorUi,
     >>::as_weak(&springboard_global);
+    to_editor_session.send(EditorToSessionMessage::AttachSpringboardUi(springboard_global)).ok();
     let to_lsp = Rc::new(EmbeddedPreviewToLsp { sender: to_lsp })
         as Rc<dyn editor_preview::PreviewToLsp + 'static>;
     preview::ui::initialize_editor(editor_ui, &to_lsp, "");
@@ -232,7 +232,6 @@ fn start_editor_session(
         vec![from_preview],
         from_editor_preview,
         project,
-        springboard_global,
         preview_window::arguments_provider(editor_ui.as_weak()),
     );
     to_editor_session
@@ -242,7 +241,6 @@ fn start_lsp_thread(
     from_previews: Vec<crossbeam_channel::Receiver<PreviewToLspMessage>>,
     from_editor_preview: crossbeam_channel::Receiver<EditorToSessionMessage>,
     project: Project,
-    springboard_global: slint::Weak<editor_preview::springboard_ui::Springboard<'static>>,
     prepare_arguments: editor_preview::springboard::LocalPreviewArguments,
 ) {
     std::thread::spawn(move || {
@@ -252,16 +250,9 @@ fn start_lsp_thread(
             .build()
             .unwrap();
         let local_set = tokio::task::LocalSet::new();
-        if let Err(err) = local_set.block_on(
-            &rt,
-            lsp_main(
-                from_previews,
-                from_editor_preview,
-                project,
-                springboard_global,
-                prepare_arguments,
-            ),
-        ) {
+        if let Err(err) = local_set
+            .block_on(&rt, lsp_main(from_previews, from_editor_preview, project, prepare_arguments))
+        {
             tracing::error!("{err}");
             std::process::exit(1);
         }
@@ -300,7 +291,6 @@ async fn lsp_main(
     from_previews: Vec<crossbeam_channel::Receiver<PreviewToLspMessage>>,
     from_editor: crossbeam_channel::Receiver<EditorToSessionMessage>,
     project: Project,
-    springboard_global: slint::Weak<editor_preview::springboard_ui::Springboard<'static>>,
     prepare_arguments: editor_preview::springboard::LocalPreviewArguments,
 ) -> Result<()> {
     let mut from_previews = bridge_crossbeam_to_tokio(from_previews);
@@ -327,11 +317,8 @@ async fn lsp_main(
         #[cfg(not(target_os = "macos"))]
         on_started: None,
     };
-    let springboard = editor_preview::springboard::Springboard::new(
-        local_preview,
-        from_run_preview_sender,
-        springboard_global,
-    );
+    let springboard =
+        editor_preview::springboard::Springboard::new(local_preview, from_run_preview_sender);
     let to_previews = vec![
         LspToPreviews::with_one(EditorLspToPreview),
         LspToPreviews::with_one(springboard.clone()),
@@ -389,6 +376,9 @@ async fn lsp_main(
                         if run_preview(&mut session) {
                             springboard.start();
                         }
+                    }
+                    Some(EditorToSessionMessage::AttachSpringboardUi(global)) => {
+                        springboard.attach_ui(global);
                     }
                     Some(EditorToSessionMessage::SwitchProject(project)) => {
                         watch_paths_revision = None;
@@ -835,7 +825,7 @@ mod tests {
         )
         .unwrap();
         std::fs::write(&import_path, "export component Child inherits Rectangle {}").unwrap();
-        std::fs::write(&manifest_path, r#"{"main":"main.slint", "edition": "1.19"}"#).unwrap();
+        std::fs::write(&manifest_path, r#"{"main":"main.slint", "edition": "1.20"}"#).unwrap();
         let project = Project::from_input(&project_directory, None, None).unwrap();
         let (to_previews, messages) = recording_previews();
         let mut watcher = FileWatcher::start(|_| {}, |_| {}).unwrap();
@@ -903,7 +893,7 @@ mod tests {
         let source = project_directory.join("main.slint");
         std::fs::write(&source, "export component Main {}").unwrap();
         let manifest = project_directory.join("slint-project.json");
-        std::fs::write(&manifest, r#"{"edition":"1.19","main":"main.slint"}"#).unwrap();
+        std::fs::write(&manifest, r#"{"edition":"1.20","main":"main.slint"}"#).unwrap();
         let project = Project::from_input(&project_directory, None, None).unwrap();
         let component = project.preview.clone();
         let (to_previews, messages) = recording_previews();
@@ -1065,7 +1055,7 @@ mod tests {
             std::fs::write(&main, "export component Main {}").unwrap();
             let path = root.join("slint-project.json");
             let url = Url::from_file_path(&path).unwrap();
-            let contents = r#"{"edition":"1.19","main":"main.slint"}"#;
+            let contents = r#"{"edition":"1.20","main":"main.slint"}"#;
             let (mut session, messages) = session_with_recording_previews();
             spin_on::spin_on(session.reload_document(Url::from_file_path(main).unwrap())).unwrap();
             std::fs::write(&path, contents).unwrap();
@@ -1105,10 +1095,10 @@ mod tests {
         .unwrap();
         sync_file_watcher_if_needed(&mut watcher, &session, &root, &mut None).unwrap();
         for contents in [
-            Some(r#"{"edition":"1.19","metadata":{"visual-editor":{"canvas-presets":[]}}}"#),
+            Some(r#"{"edition":"1.20","metadata":{"visual-editor":{"canvas-presets":[]}}}"#),
             None,
             Some("{"),
-            Some(r#"{"edition":"1.19","main":"main.slint"}"#),
+            Some(r#"{"edition":"1.20","main":"main.slint"}"#),
         ] {
             clear_messages(&messages);
             while receiver.try_recv().is_ok() {}
@@ -1151,7 +1141,7 @@ mod tests {
     fn project_workspace_edits_apply_without_a_syntax_tree_and_ignore_versions() {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("slint-project.json");
-        let original = r#"{"edition":"1.19","main":"main.slint",/* keep */"metadata":{"visual-editor":{"canvas-presets":[{"width":100,"height":1080}]}}}"#;
+        let original = r#"{"edition":"1.20","main":"main.slint",/* keep */"metadata":{"visual-editor":{"canvas-presets":[{"width":100,"height":1080}]}}}"#;
         std::fs::write(&path, original).unwrap();
         let url = Url::from_file_path(&path).unwrap();
         let (mut session, _) = session_with_recording_previews();

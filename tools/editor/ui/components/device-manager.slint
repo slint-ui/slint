@@ -1,9 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style, Metrics, Typography, ButtonStyle } from "../style.slint";
+import { Style, Metrics, Typography } from "../style.slint";
 import { EditorInput } from "editor-input.slint";
-import { ButtonBase } from "../../controls/src/headless.slint";
+import { DeviceAction, SoftButton } from "device-action.slint";
 import {
     Springboard,
     ConnectionState,
@@ -20,52 +20,6 @@ enum DeviceManagerPage {
     ManualAddress,
     PseudoTerminal,
     Pairing,
-}
-
-component DeviceAction inherits Rectangle {
-    in property <string> label <=> button.text;
-    in property <bool> enabled <=> button.enabled;
-    out property <bool> hovered <=> button.hovered;
-    callback activated <=> button.clicked;
-
-    button := ButtonBase {
-        width: parent.width;
-        height: parent.height;
-        background << Rectangle {
-            border-radius: Metrics.radius-medium;
-            border-width: button.has-focus ? Metrics.border-width : 0px;
-            border-color: ViewerStyle.accent;
-        }
-        content << Rectangle {
-            @children
-        }
-    }
-}
-
-component SoftButton inherits DeviceAction {
-    in property <bool> primary;
-    private property <ButtonStyle> style: root.primary ? Style.primary-button : Style.compact-button;
-    height: root.style.height;
-    Rectangle {
-        border-radius: root.style.radius;
-        border-width: root.style.border-width;
-        border-color: ViewerStyle.field-border;
-        background: root.hovered ? ViewerStyle.field-hover : ViewerStyle.field;
-        opacity: root.enabled ? 1 : root.style.disabled-opacity;
-    }
-    HorizontalLayout {
-        padding-left: root.style.padding-inline;
-        padding-right: root.style.padding-inline;
-        Text {
-            text: root.label;
-            color: !root.enabled ? ViewerStyle.unavailable : root.primary ? ViewerStyle.accent : ViewerStyle.ink;
-            font-size: root.style.text.size;
-            font-weight: root.style.text.weight;
-            horizontal-alignment: center;
-            vertical-alignment: center;
-            overflow: elide;
-        }
-    }
 }
 
 component FallbackAction inherits DeviceAction {
@@ -91,8 +45,8 @@ component FallbackAction inherits DeviceAction {
 
 component DeviceField inherits EditorInput {
     accessible-name: root.placeholder;
-    live-edit: true;
-    accepted(value) => { root.value = value; return true; }
+    edit-input(value) => { root.value = value; }
+    accepted(value) => { root.edit-input(value); return true; }
 }
 
 component DeviceList inherits Rectangle {

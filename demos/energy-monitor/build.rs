@@ -10,7 +10,7 @@ fn main() {
 fn main() {
     let config = slint_build::CompilerConfiguration::new()
         .embed_resources(slint_build::EmbedResourcesKind::EmbedForSoftwareRenderer)
-        .with_edition((1, 19));
+        .with_edition((1, 20));
     slint_build::compile_with_config("ui/mcu_window.slint", config).unwrap();
     slint_build::print_rustc_flags().unwrap();
 }

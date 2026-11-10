@@ -72,6 +72,7 @@ export struct PropertyEditValue {
     integer: int,
     boolean: bool,
     text: string,
+    code: string,
     fill: FillData,
 }
 
@@ -197,6 +198,7 @@ export global Properties {
     in property <int> inspector-generation;
     in property <int> inspector-fill-generation;
     callback inspector-preview(name: string, value: PropertyEditValue) -> bool;
+    callback inspector-preview-code(name: string, kind: PropertyEditKind, code: string) -> bool;
     callback inspector-commit() -> bool;
     callback inspector-cancel();
 

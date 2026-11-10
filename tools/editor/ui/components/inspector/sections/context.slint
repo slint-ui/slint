@@ -39,10 +39,6 @@ export global InspectorContext {
         return InspectorContext.commit-value(name, { kind: PropertyEditKind.enumeration, text: value });
     }
 
-    public function commit-string(name: string, value: string) -> bool {
-        return InspectorContext.commit-value(name, { kind: PropertyEditKind.string, text: value });
-    }
-
     public pure function has-backend-rect() -> bool {
         return Api.selection.highlight-index >= 0 && InspectorContext.selection-rects.length > Api.selection.highlight-index;
     }
@@ -314,14 +310,6 @@ export global InspectorContext {
         return InspectorContext.selection-key + ":" + Properties.inspector-fill-generation + ":" + property-name;
     }
 
-    public pure function property-string(property-name: string, fallback: string) -> string {
-        let property = Properties.source-property-value-data(property-name, {});
-        let value = property.code == "" ? fallback
-            : property.value-kind == PropertyValueKind.string && property.value-string != "" ? property.value-string
-            : property.display-string != "" ? property.display-string : property.code;
-        return Properties.hooked-property-value-data(property-name, { value-string: value, value-kind: PropertyValueKind.string }).value-string;
-    }
-
     public pure function property-number-label(property-name: string, fallback: string) -> string {
         let property = Properties.hooked-property-value-data(property-name, { value-string: Properties.source-property-value(property-name, fallback) });
         return property.value-kind == PropertyValueKind.float ? "\{property.value-float}" : property.value-string;
@@ -350,10 +338,6 @@ export global InspectorContext {
         if expression != "" {
             InspectorContext.commit-code("source", expression);
         }
-    }
-
-    public pure function text-font-family-value() -> string {
-        return InspectorContext.property-string("font-family", @tr("Default font"));
     }
 
     public pure function text-font-size-value() -> string {

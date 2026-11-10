@@ -111,7 +111,7 @@ struct SpringboardTask {
     local_preview: LocalPreviewConfig,
     pending_local_launch: Option<oneshot::Receiver<Vec<OsString>>>,
     to_editor: mpsc::UnboundedSender<PreviewToLspMessage>,
-    global: slint::Weak<ui::Springboard<'static>>,
+    globals: Vec<slint::Weak<ui::Springboard<'static>>>,
     displayed_endpoints: Arc<RwLock<DisplayedEndpoints>>,
     /// Without Local, in the order the user saved them.
     saved_endpoints: Vec<EndpointIdentity>,
@@ -130,21 +130,21 @@ impl Springboard {
     pub fn new(
         local_preview: LocalPreviewConfig,
         to_editor: mpsc::UnboundedSender<PreviewToLspMessage>,
-        global: slint::Weak<ui::Springboard<'static>>,
     ) -> Self {
-        Self::spawn(
-            local_preview,
-            to_editor,
-            global,
-            DiscoveredViewers::start(),
-            UsbDiscovery::start(),
-        )
+        Self::spawn(local_preview, to_editor, DiscoveredViewers::start(), UsbDiscovery::start())
+    }
+
+    #[cfg(feature = "testing")]
+    pub fn without_discovery(
+        local_preview: LocalPreviewConfig,
+        to_editor: mpsc::UnboundedSender<PreviewToLspMessage>,
+    ) -> Self {
+        Self::spawn(local_preview, to_editor, DiscoveredViewers::default(), UsbDiscovery::default())
     }
 
     fn spawn(
         local_preview: LocalPreviewConfig,
         to_editor: mpsc::UnboundedSender<PreviewToLspMessage>,
-        global: slint::Weak<ui::Springboard<'static>>,
         discovery: DiscoveredViewers,
         usb_discovery: UsbDiscovery,
     ) -> Self {
@@ -154,9 +154,31 @@ impl Springboard {
             discovered: Vec::new(),
         }));
         let handle = Self { task_sender, displayed_endpoints: displayed_endpoints.clone() };
-        let callback_handle = handle.clone();
+        let task = SpringboardTask {
+            local_preview,
+            pending_local_launch: None,
+            to_editor,
+            globals: Vec::new(),
+            displayed_endpoints,
+            saved_endpoints: Vec::new(),
+            selected_endpoint: EndpointIdentity::Local,
+            state: ui::SpringboardState::Idle,
+            connection: Connection::default(),
+            highlight: None,
+            discovery,
+            manual_probe: None,
+            credentials: HashMap::new(),
+            usb_discovery,
+            usb_ports: Vec::new(),
+        };
+        task.request_settings();
+        crate::spawn_local(task.run(task_receiver));
+        handle
+    }
+
+    pub fn attach_ui(&self, global: slint::Weak<ui::Springboard<'static>>) {
+        let handle = self.clone();
         let _ = global.upgrade_in_event_loop(move |global| {
-            let handle = callback_handle;
             let bind = |action: fn(&mut SpringboardTask)| {
                 let handle = handle.clone();
                 move || {
@@ -219,27 +241,10 @@ impl Springboard {
                 }));
             });
         });
-        let task = SpringboardTask {
-            local_preview,
-            pending_local_launch: None,
-            to_editor,
-            global,
-            displayed_endpoints,
-            saved_endpoints: Vec::new(),
-            selected_endpoint: EndpointIdentity::Local,
-            state: ui::SpringboardState::Idle,
-            connection: Connection::default(),
-            highlight: None,
-            discovery,
-            manual_probe: None,
-            credentials: HashMap::new(),
-            usb_discovery,
-            usb_ports: Vec::new(),
-        };
-        task.request_settings();
-        task.update_ui();
-        crate::spawn_local(task.run(task_receiver));
-        handle
+        let _ = self.task_sender.send(Box::new(move |task| {
+            task.globals.push(global);
+            task.update_ui();
+        }));
     }
 
     fn displayed(&self) -> RwLockReadGuard<'_, DisplayedEndpoints> {
@@ -729,17 +734,23 @@ impl SpringboardTask {
             }
             None => ui::ManualEndpoint::default(),
         };
-        let _ = self.global.upgrade_in_event_loop(move |global| {
+        let globals = self.globals.clone();
+        let _ = slint::invoke_from_event_loop(move || {
             *displayed.write().expect("displayed endpoints lock is poisoned") =
                 DisplayedEndpoints { saved, discovered };
-            global.set_saved_endpoints(ModelRc::new(slint::VecModel::from(saved_rows)));
-            global.set_discovered_endpoints(ModelRc::new(slint::VecModel::from(discovered_rows)));
-            global.set_discovery_error(discovery_error.into());
-            global.set_selected_endpoint_index(selected);
-            global.set_selected_endpoint(selected_row);
-            global.set_state(state);
-            global.set_connection(connection);
-            global.set_manual_endpoint(manual_endpoint);
+            let saved_rows = ModelRc::new(slint::VecModel::from(saved_rows));
+            let discovered_rows = ModelRc::new(slint::VecModel::from(discovered_rows));
+            let discovery_error = slint::SharedString::from(discovery_error);
+            for global in globals.iter().filter_map(slint::Weak::upgrade) {
+                global.set_saved_endpoints(saved_rows.clone());
+                global.set_discovered_endpoints(discovered_rows.clone());
+                global.set_discovery_error(discovery_error.clone());
+                global.set_selected_endpoint_index(selected);
+                global.set_selected_endpoint(selected_row.clone());
+                global.set_state(state);
+                global.set_connection(connection.clone());
+                global.set_manual_endpoint(manual_endpoint.clone());
+            }
         });
     }
 }
@@ -767,7 +778,6 @@ mod tests {
         let controller = Springboard::spawn(
             LocalPreviewConfig { executable, arguments, prepare_arguments: None, on_started: None },
             sender,
-            Default::default(),
             DiscoveredViewers::from_receiver(discovery_receiver),
             UsbDiscovery::from_receiver(usb_receiver),
         );
@@ -1346,11 +1356,11 @@ mod tests {
             controller.send(&LspToPreviewMessage::OpenProject { root: Some(manifest.join(".").unwrap()) });
             let target = i_slint_live_preview::protocol::PreviewComponent { url: source.clone(), component: None };
             controller.send(&LspToPreviewMessage::SetContents { url: i_slint_live_preview::protocol::VersionedUrl::new(source, None), contents: "export component Main inherits Window { ComponentContainer {} }".into() });
-            controller.send(&LspToPreviewMessage::SetContents { url: i_slint_live_preview::protocol::VersionedUrl::new(manifest.clone(), None), contents: r#"{"edition":"1.19","experimental-features":["component-container"]}"#.into() });
+            controller.send(&LspToPreviewMessage::SetContents { url: i_slint_live_preview::protocol::VersionedUrl::new(manifest.clone(), None), contents: r#"{"edition":"1.20","experimental-features":["component-container"]}"#.into() });
             controller.send(&LspToPreviewMessage::ShowPreview(target.clone()));
             viewer.preview_event(|event| matches!(event, PreviewSessionEvent::ShowPreview { .. })).await;
             assert!(matches!(viewer.session.compile_component(&target).await, PreviewCompilation::Ready(_)));
-            controller.send(&LspToPreviewMessage::SetContents { url: i_slint_live_preview::protocol::VersionedUrl::new(manifest.clone(), None), contents: r#"{"edition":"1.19","experimental-features":[]}"#.into() });
+            controller.send(&LspToPreviewMessage::SetContents { url: i_slint_live_preview::protocol::VersionedUrl::new(manifest.clone(), None), contents: r#"{"edition":"1.20","experimental-features":[]}"#.into() });
             viewer.preview_event(|event| matches!(event, PreviewSessionEvent::ContentsChanged)).await;
             assert!(matches!(viewer.session.compile_component(&target).await, PreviewCompilation::CompilationError { .. }));
             let component_container = i_slint_compiler::ExperimentalFeature::ComponentContainer.into();

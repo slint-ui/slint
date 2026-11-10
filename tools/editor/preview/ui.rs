@@ -253,6 +253,7 @@ pub fn initialize_editor(
     api.on_persist_selected_element_border_radius(super::persist_selected_element_border_radius);
 
     properties_api.on_inspector_preview(super::inspector::preview_property);
+    properties_api.on_inspector_preview_code(super::inspector::preview_code_property);
     properties_api.on_inspector_commit(super::inspector::commit_properties);
     properties_api.on_inspector_cancel(super::inspector::cancel);
     let editor_weak = editor_ui.as_weak();
@@ -297,6 +298,12 @@ pub fn initialize_editor(
     properties_api.on_choose_image_file(move |source_uri| {
         let window = editor_weak.upgrade().map(|editor| editor.window().window_handle());
         file_tree::choose_image_file(source_uri.as_str(), window)
+    });
+    let editor_weak = editor_ui.as_weak();
+    api.on_open_file_manager(move |path| {
+        if let Some(editor) = editor_weak.upgrade() {
+            file_tree::open_file_manager(std::path::Path::new(path.as_str()), editor.window());
+        }
     });
 
     api.on_get_property_value(get_property_value);
@@ -2747,7 +2754,7 @@ mod tests {
     }
 
     #[test]
-    fn title_field_commits_code_binding() {
+    fn title_field_commits_inspector_edit() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
         let api = editor.global::<super::Api>();
@@ -2762,12 +2769,17 @@ mod tests {
         let mut selection = api.get_selection();
         selection.highlight_index = 0;
         api.set_selection(selection);
-        properties_api.on_test_code_binding(|_, _, _, _, _| true);
         properties_api.on_string_to_code(super::string_to_code);
-        let commits = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
-        let recorded = commits.clone();
-        properties_api.on_set_code_binding(move |_, _, _, name, value| {
-            recorded.borrow_mut().push((name.to_string(), value.to_string()));
+        let previews = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let recorded = previews.clone();
+        properties_api.on_inspector_preview(move |name, value| {
+            recorded.borrow_mut().push((name.to_string(), value.code.to_string()));
+            true
+        });
+        let committed = std::rc::Rc::new(std::cell::Cell::new(false));
+        let recorded = committed.clone();
+        properties_api.on_inspector_commit(move || {
+            recorded.set(true);
             true
         });
         connect_has_property(&properties_api);
@@ -2783,7 +2795,8 @@ mod tests {
                 })
                 .unwrap();
         field.set_accessible_value("Settings");
-        assert_eq!(*commits.borrow(), [("title".to_string(), "\"Settings\"".to_string())]);
+        assert_eq!(*previews.borrow(), [("title".to_string(), "\"Settings\"".to_string())]);
+        assert!(committed.get());
     }
 
     #[test]
@@ -4136,10 +4149,10 @@ mod tests {
 
         let title_move_area = i_slint_backend_testing::ElementHandle::find_by_element_id(
             &editor,
-            "EditorUi::title-move-area",
+            "EditorUi::title-bar",
         )
         .next()
-        .expect("the title move area must be inside EditorUi's FocusScope");
+        .expect("the title bar must be inside EditorUi's FocusScope");
         let position = title_move_area.absolute_position();
         let size = title_move_area.size();
         let start =
@@ -4168,10 +4181,10 @@ mod tests {
 
         let title_touch_area = i_slint_backend_testing::ElementHandle::find_by_element_id(
             &editor,
-            "EditorUi::title-touch-area",
+            "ShellTitleBar::touch-area",
         )
         .next()
-        .expect("the title touch area must be inside the window move area");
+        .expect("the title bar must have a touch area");
 
         title_touch_area.mock_single_click(PointerEventButton::Left);
         title_touch_area.mock_single_click(PointerEventButton::Left);
@@ -4191,6 +4204,32 @@ mod tests {
         title_touch_area.mock_single_click(PointerEventButton::Left);
         assert_eq!(native_zoom_count.get(), 1);
         assert!(!editor.window().is_maximized());
+    }
+
+    #[test]
+    fn viewer_controls_sit_at_the_right_of_the_title_bar() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        editor.show().unwrap();
+
+        let find = |id| {
+            i_slint_backend_testing::ElementHandle::find_by_element_id(&editor, id)
+                .next()
+                .unwrap_or_else(|| panic!("{id} must exist"))
+        };
+        let title_bar = find("EditorUi::title-bar");
+        let viewer = find("EditorTopBar::viewer");
+
+        let title_bar_right = title_bar.absolute_position().x + title_bar.size().width;
+        let viewer_right = viewer.absolute_position().x + viewer.size().width;
+        assert_eq!(
+            title_bar_right - viewer_right,
+            editor.global::<super::Metrics>().get_space_large()
+        );
+        let title_bar_middle = title_bar.absolute_position().y + title_bar.size().height / 2.;
+        let viewer_middle = viewer.absolute_position().y + viewer.size().height / 2.;
+        assert!((title_bar_middle - viewer_middle).abs() < 1.);
     }
 
     const LEFT_PANE: usize = 0;
