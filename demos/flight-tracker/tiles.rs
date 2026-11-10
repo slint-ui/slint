@@ -1,8 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-// cSpell: ignore VIIRS
-
 //! Sharper imagery where the camera looks, from map tiles.
 //!
 //! The globe's imagery is 4096 pixels wide, which is blurry from close up. Around the point
@@ -13,7 +11,7 @@
 //! `0.5625 / 2^z` degrees.
 //!
 //! The tiles come from GIBS over the network, and natively stay in a cache directory, or from
-//! a directory of tiles alone, see `Source`.
+//! a directory of tiles alone, or from the binary, see `Source`.
 //!
 //! All windows share one array texture. A tile's place in its layer is its column and row
 //! modulo `WINDOW_TILES`, and the texture repeats, so tiles stay where they are while the
@@ -26,14 +24,11 @@ use std::time::Duration;
 use glam::{Vec2, Vec3};
 use slint::wgpu_30::wgpu;
 
+use crate::gibs::{FIRST_ZOOM, Kind, LEVELS};
 use crate::renderer::{Imagery, Renderer};
 
-pub const LEVELS: usize = 3;
 /// The windows of the day's imagery, then those of the night's lights.
 pub const WINDOWS: usize = LEVELS * 2;
-/// The zoom level of the first, coarsest window. Its 0.035 degrees per pixel are 2.5 times as
-/// fine as the globe's own imagery.
-const FIRST_ZOOM: u32 = 4;
 /// The width and height of a tile in pixels.
 pub const TILE: u32 = 512;
 pub const WINDOW_TILES: u32 = 4;
@@ -51,41 +46,10 @@ const RETRY_AFTER: Duration = Duration::from_secs(20);
 /// After this many failures without a single tile, the source counts as unreachable for good,
 /// as on a web page that may not fetch from other sites.
 const GIVE_UP_AFTER: u32 = 6;
-#[cfg(any(target_arch = "wasm32", feature = "online-imagery"))]
-const GIBS: &str = "https://gibs.earthdata.nasa.gov/wmts/epsg4326/best";
-
-/// The imagery that a window shows.
-#[derive(Clone, Copy, PartialEq)]
-pub enum Kind {
-    Day,
-    Night,
-}
-
-impl Kind {
-    /// The address of a tile at GIBS, which has the globe's own imagery as tiles: the Blue
-    /// Marble with relief and bathymetry, and the lights of the Black Marble.
-    #[cfg(any(target_arch = "wasm32", feature = "online-imagery"))]
-    fn url(self, zoom: u32, row: u32, column: u32) -> String {
-        match self {
-            Kind::Day => format!(
-                "{GIBS}/BlueMarble_ShadedRelief_Bathymetry/default/2004-08-01/500m/{zoom}/{row}/{column}.jpeg"
-            ),
-            Kind::Night => {
-                format!(
-                    "{GIBS}/VIIRS_Night_Lights/default/2016-01-01/500m/{zoom}/{row}/{column}.png"
-                )
-            }
-        }
-    }
-
-    /// The path of a tile in a directory of tiles.
-    #[cfg(not(target_arch = "wasm32"))]
-    fn path(self, zoom: u32, row: u32, column: u32) -> String {
-        match self {
-            Kind::Day => format!("{zoom}/{row}/{column}.jpg"),
-            Kind::Night => format!("night/{zoom}/{row}/{column}.png"),
-        }
-    }
+/// The tiles that `build.rs` put into the binary.
+#[cfg(embedded_tiles)]
+mod embedded {
+    include!(concat!(env!("OUT_DIR"), "/embedded_tiles.rs"));
 }
 
 /// Where the tiles come from.
@@ -94,6 +58,7 @@ pub enum Source {
     /// NASA's GIBS. Natively, the tiles stay in the directory `cache` once fetched, as in
     /// `Directory`; on the web, the browser caches them.
     #[cfg(any(target_arch = "wasm32", feature = "online-imagery"))]
+    #[cfg_attr(embedded_tiles, allow(dead_code))]
     Online {
         #[cfg(not(target_arch = "wasm32"))]
         cache: Option<std::path::PathBuf>,
@@ -101,6 +66,9 @@ pub enum Source {
     /// A directory of tiles, as `Kind::path()` names them, for use without a network.
     #[cfg(not(target_arch = "wasm32"))]
     Directory(std::path::PathBuf),
+    /// The tiles in the binary, for use without a network or a disk.
+    #[cfg(embedded_tiles)]
+    Embedded,
 }
 
 /// What became of a tile that was asked for.
@@ -119,6 +87,18 @@ impl Source {
     fn fetch(&self, kind: Kind, zoom: u32, row: u32, column: u32) -> Fetched<Vec<u8>> {
         let path = kind.path(zoom, row, column);
         match self {
+            #[cfg(embedded_tiles)]
+            Source::Embedded => {
+                let tile = (kind as u8, zoom as u8, row as u8, column as u8);
+                let found =
+                    embedded::INDEX.binary_search_by_key(&tile, |&(k, z, r, c, ..)| (k, z, r, c));
+                match found.map(|index| embedded::INDEX[index]) {
+                    Ok((.., offset, length)) => {
+                        Fetched::Tile(embedded::DATA[offset as usize..][..length as usize].to_vec())
+                    }
+                    Err(_) => Fetched::Missing,
+                }
+            }
             Source::Directory(directory) => match std::fs::read(directory.join(path)) {
                 Ok(file) => Fetched::Tile(file),
                 Err(_) => Fetched::Missing,
@@ -221,9 +201,7 @@ struct Window {
 
 impl Window {
     fn new(kind: Kind, zoom: u32) -> Self {
-        // GIBS covers the world with 2.5 by 1.25 tiles at zoom 0, rounded up, and at zoom 3
-        // and beyond with a whole number of them.
-        let columns = 10 << (zoom - 3);
+        let columns = crate::gibs::columns(zoom);
         let empty = Slot { tile: (u32::MAX, u32::MAX), state: State::Wanted, shown: 0.0 };
         Self {
             kind,
