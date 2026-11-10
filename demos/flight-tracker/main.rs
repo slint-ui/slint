@@ -826,13 +826,21 @@ extern "C" {
     fn flight_tracker_ready() -> Result<(), wasm_bindgen::JsValue>;
 }
 
-/// Where the tiles for the detail come from: for now, a directory that `FLIGHT_TRACKER_TILES`
-/// names, see `tiles::Directory`.
-fn tile_source() -> Option<std::sync::Arc<dyn tiles::Source>> {
+/// Where the tiles for the detail come from: NASA's GIBS, unless `FLIGHT_TRACKER_TILES` names a
+/// directory of tiles to use without a network, or is `off`.
+fn tile_source() -> Option<tiles::Source> {
     #[cfg(not(target_arch = "wasm32"))]
     if let Some(directory) = std::env::var_os("FLIGHT_TRACKER_TILES") {
-        return Some(std::sync::Arc::new(tiles::Directory(directory.into())));
+        return (directory != "off").then(|| tiles::Source::Directory(directory.into()));
     }
+    #[cfg(target_arch = "wasm32")]
+    return Some(tiles::Source::Online {});
+    #[cfg(all(not(target_arch = "wasm32"), feature = "online-imagery"))]
+    return Some(tiles::Source::Online {
+        cache: directories::ProjectDirs::from("dev", "slint", "flight-tracker")
+            .map(|directories| directories.cache_dir().join("tiles")),
+    });
+    #[cfg(all(not(target_arch = "wasm32"), not(feature = "online-imagery")))]
     None
 }
 
@@ -915,6 +923,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         .select()?;
 
     let app = AppWindow::new()?;
+    app.set_online_imagery_available(tile_source().is_some());
     app.global::<Characters>().on_at(|text, index| {
         let character = usize::try_from(index).ok().and_then(|i| text.graphemes(true).nth(i));
         character.unwrap_or_default().into()
@@ -1340,7 +1349,13 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         let footprint =
             (demo.camera.pose.range * 2.0 * (FOV_Y / 2.0).tan() / pixels.y).to_degrees();
         let windows = match &mut detail {
-            Some(detail) => detail.update(renderer, demo.camera.pose.target, footprint, dt),
+            Some(detail) => {
+                let target = demo.camera.pose.target;
+                // The intro and the night side show next to nothing of the imagery.
+                let lit = !app.get_sunlight() || target.dot(sun) > -0.1;
+                let fetching = demo.stage != Stage::Intro && lit;
+                detail.update(renderer, target, footprint, app.get_online_imagery(), fetching, dt)
+            }
             None => Default::default(),
         };
         renderer.render(
