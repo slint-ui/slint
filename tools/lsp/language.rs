@@ -1488,7 +1488,8 @@ fn parse_configuration(
                     ));
                 }
             }
-            // SlintPad sets it. Elsewhere, the project file decides, as it does for the build.
+            // SlintPad sets it for files without a project file.
+            // Elsewhere, the project file decides, as it does for the build.
             if cfg!(any(target_arch = "wasm32", test))
                 && let Some(value) = config_object.get("edition")
             {
@@ -1506,12 +1507,12 @@ fn parse_configuration(
     }
     let overrides = SessionConfigOverrides {
         hide_ui,
+        default_edition: edition,
         compiler: i_slint_compiler::project_file::Overrides {
             project: i_slint_compiler::project_file::ProjectFileData {
                 include_paths,
                 library_paths,
                 experimental_features: experimental,
-                edition,
                 ..Default::default()
             },
             style,
@@ -1678,7 +1679,7 @@ pub mod tests {
             SlintEdition { minor: SlintEdition::current().minor + 1, ..SlintEdition::current() };
         let (overrides, warnings) = parse_configuration(vec![serde_json::json!({})]);
         assert!(warnings.is_empty(), "{warnings:?}");
-        assert_eq!(overrides.compiler.project.edition, None);
+        assert_eq!(overrides.default_edition, None);
         for (value, expected) in [
             (serde_json::json!("1.18"), Some(SlintEdition { major: 1, minor: 18 })),
             (serde_json::json!("1.18.1"), Some(SlintEdition::current())),
@@ -1688,7 +1689,8 @@ pub mod tests {
             let (overrides, warnings) =
                 parse_configuration(vec![serde_json::json!({ "edition": value })]);
             assert!(warnings.is_empty(), "{warnings:?}");
-            assert_eq!(overrides.compiler.project.edition, expected, "{value}");
+            assert_eq!(overrides.default_edition, expected, "{value}");
+            assert_eq!(overrides.compiler.project.edition, None);
         }
     }
 
@@ -2186,6 +2188,7 @@ enum {}
         let (mut ctx, messages) = mock_context_with_preview_capture();
         ctx.session.preview_config = i_slint_live_preview::protocol::PreviewConfig {
             hide_ui: Some(true),
+            default_edition: Some(i_slint_compiler::project_file::SlintEdition::V1_19),
             overrides: i_slint_compiler::project_file::Overrides {
                 style: Some("custom-style".into()),
                 project: i_slint_compiler::project_file::ProjectFileData {

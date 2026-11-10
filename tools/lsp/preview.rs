@@ -1579,6 +1579,7 @@ async fn parse_source(
     editor_preview::document_cache::configure_preview(cc, component);
     cc.resource_url_mapper = resource_url_mapper();
     cc.embed_resources = EmbedResourcesKind::ListAllResources;
+    cc.edition = config.default_edition.or(cc.edition);
 
     let (open_file_fallback, source_file_versions) =
         editor_preview::document_cache::document_cache_parts_setup(

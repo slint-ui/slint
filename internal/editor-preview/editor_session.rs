@@ -47,6 +47,8 @@ impl PreviewConnection {
 #[derive(Clone, Debug, Default)]
 pub struct SessionConfigOverrides {
     pub hide_ui: Option<bool>,
+    /// The edition of a file without a project file or `slint!` macro that sets one.
+    pub default_edition: Option<SlintEdition>,
     pub compiler: Overrides,
 }
 
@@ -54,6 +56,9 @@ impl SessionConfigOverrides {
     fn merge(&mut self, other: Self) {
         if other.hide_ui.is_some() {
             self.hide_ui = other.hide_ui;
+        }
+        if other.default_edition.is_some() {
+            self.default_edition = other.default_edition;
         }
         self.compiler.merge(other.compiler);
     }
@@ -538,7 +543,9 @@ impl EditorSession {
         &self,
     ) -> (crate::document_cache::CompilerConfiguration, VersionedDiagnostics) {
         let mut config = self.compiler_config_defaults.clone();
-        let mut overrides = self.effective_config_overrides().compiler;
+        let SessionConfigOverrides { default_edition, compiler: mut overrides, .. } =
+            self.effective_config_overrides();
+        config.compiler_config.edition = default_edition.or(config.compiler_config.edition);
         let (project_data, diagnostics) =
             self.merged_project_data(std::mem::take(&mut overrides.project));
         project_data.apply_to(&mut config.compiler_config);
@@ -581,6 +588,7 @@ impl EditorSession {
         self.preview_config = PreviewConfig {
             hide_ui: overrides.hide_ui,
             overrides: overrides.compiler,
+            default_edition: overrides.default_edition,
             rust_macro_editions: self.rust_macro_editions.clone(),
             format_utf8: compiler_config.format == crate::ByteFormat::Utf8,
         };
@@ -1376,6 +1384,7 @@ mod preview_tests {
                 Some(&PreviewConfig {
                     hide_ui: None,
                     overrides: Overrides::default(),
+                    default_edition: None,
                     rust_macro_editions: Default::default(),
                     format_utf8: false,
                 })
@@ -1492,6 +1501,7 @@ mod preview_tests {
         session.set_startup_config_overrides(SessionConfigOverrides {
             compiler: Overrides { debug_info: Some(false), ..Default::default() },
             hide_ui: Some(true),
+            ..Default::default()
         });
         spin_on::spin_on(session.set_workspace_config_overrides(SessionConfigOverrides {
             compiler: Overrides {
@@ -2931,6 +2941,30 @@ mod tests {
             Some(edition)
         );
         assert_eq!(session.preview_config.overrides.project.edition, Some(edition));
+    }
+
+    #[test]
+    fn the_default_edition_applies_only_without_a_project_file() {
+        let default_edition = SlintEdition { major: 1, minor: 18 };
+        let edition = |session: &EditorSession| {
+            session.document_cache.compiler_configuration().compiler_config.edition
+        };
+        let temp = TempDir::new().unwrap();
+        let mut session = session();
+        session.set_workspace_roots(vec![SourcePath::new(temp.path())]);
+        spin_on::spin_on(session.set_workspace_config_overrides(SessionConfigOverrides {
+            default_edition: Some(default_edition),
+            ..Default::default()
+        }))
+        .unwrap();
+        assert_eq!(edition(&session), Some(default_edition));
+        assert_eq!(session.preview_config.default_edition, Some(default_edition));
+
+        std::fs::write(temp.path().join(FILE_NAME), r#"{"edition":"1.19"}"#).unwrap();
+        let path = temp.path().join("main.slint");
+        write_document(&path);
+        load_document(&mut session, &path).unwrap();
+        assert_eq!(edition(&session), Some(SlintEdition::V1_19));
     }
 
     #[test]
