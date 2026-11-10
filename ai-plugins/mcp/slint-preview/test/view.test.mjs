@@ -27,6 +27,7 @@ function startView({
     compile,
     toolCallError,
     missingImage,
+    initialize = async () => {},
     callTool = () => ({}),
 } = {}) {
     const captures = [];
@@ -108,7 +109,9 @@ function startView({
                                     : {
                                           result:
                                               message.method === "tools/call"
-                                                  ? callTool(message.params)
+                                                  ? message.params.name === "wait_preview_update"
+                                                      ? new Promise(() => {})
+                                                      : callTool(message.params)
                                                   : {},
                                       }),
                             },
@@ -145,7 +148,7 @@ function startView({
         },
     };
     const interpreter = {
-        default: async () => {},
+        default: initialize,
         run_event_loop() {},
         compile_from_string:
             compile ??
@@ -197,7 +200,7 @@ function startView({
                 "panicked at test.rs:1:1:\ntest panic\nhttps://example.com/interpreter.js#instance-1:1:1",
             );
         },
-        async preview() {
+        async preview(args = { source: "export component Preview {}" }) {
             await ready;
             onMessage({
                 source: window.parent,
@@ -205,7 +208,7 @@ function startView({
                     jsonrpc: "2.0",
                     method: "ui/notifications/tool-input",
                     params: {
-                        arguments: { source: "export component Preview {}" },
+                        arguments: args,
                     },
                 },
             });
@@ -220,6 +223,23 @@ function startView({
         },
     };
 }
+
+test("initializes the interpreter while the source file is still loading", {
+    timeout: 3000,
+}, async () => {
+    let finishRead, initialized;
+    const source = new Promise((resolve) => { finishRead = resolve; });
+    const initialization = new Promise((resolve) => { initialized = resolve; });
+    const view = startView({
+        initialize: async () => initialized(),
+        callTool: ({ name }) => name === "read_slint_file" ? source : {},
+    });
+    await view.preview({ path: "/project/main.slint" });
+    await initialization;
+    assert.equal(view.captures.length, 0);
+    finishRead({ content: [{ type: "text", text: "export component Preview {}" }] });
+    assert.equal((await view.captured).png, "cGl4ZWxz");
+});
 
 test("renders without waiting for version metadata", {
     timeout: 3000,

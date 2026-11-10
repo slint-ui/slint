@@ -7,6 +7,7 @@ import {
     cpSync,
     existsSync,
     mkdtempSync,
+    mkdirSync,
     readFileSync,
     rmSync,
     writeFileSync,
@@ -87,6 +88,8 @@ test("lists preview_slint with its view, and the view's own tools for the view o
         (t) => t.name === "get_preview_screenshot",
     );
     assert.equal(screenshot._meta, undefined);
+    assert.equal(result.tools.find((t) => t.name === "update_slint_preview")._meta, undefined);
+    assert.deepEqual(result.tools.find((t) => t.name === "wait_preview_update")._meta.ui.visibility, ["app"]);
 });
 
 test("all tools declare their annotations", async () => {
@@ -178,6 +181,39 @@ test("answers a call with text only", async () => {
     assert.equal(result.structuredContent, undefined);
 });
 
+test("updates only the latest active card and rejects captures from the previous render", async () => {
+    const opened = await callTool("preview_slint", { source: "first" });
+    const firstId = opened._meta["slint/previewId"];
+    const cardId = opened._meta["slint/previewCardId"];
+    assert.equal((await callTool("update_slint_preview", { source: "second" })).isError, true);
+    await callTool("publish_preview_capture", { previewId: firstId, started: true });
+    const waiting = callTool("wait_preview_update", { cardId, after: firstId });
+    const updated = await callTool("update_slint_preview", { source: "second" });
+    const secondId = updated._meta["slint/previewId"];
+    assert.notEqual(firstId, secondId);
+    assert.equal(updated._meta["slint/previewCardId"], cardId);
+    assert.deepEqual((await waiting).structuredContent, { previewId: secondId, arguments: { source: "second" } });
+    await callTool("publish_preview_capture", { previewId: firstId, png: "old", width: 1, height: 1 });
+    await callTool("publish_preview_capture", { previewId: secondId, png: "new", width: 2, height: 2 });
+    assert.equal((await callTool("get_preview_screenshot")).content[0].data, "new");
+    const superseded = callTool("wait_preview_update", { cardId, after: secondId });
+    const separate = await callTool("preview_slint", { source: "separate" });
+    assert.notEqual(separate._meta["slint/previewCardId"], cardId);
+    assert.deepEqual((await superseded).structuredContent, { closed: true });
+});
+
+test("coalesces pending card updates to the latest source", async () => {
+    const opened = await callTool("preview_slint", { source: "first" });
+    const id = opened._meta["slint/previewId"];
+    const cardId = opened._meta["slint/previewCardId"];
+    await callTool("publish_preview_capture", { previewId: id, started: true });
+    await callTool("update_slint_preview", { source: "intermediate" });
+    const last = await callTool("update_slint_preview", { source: "last" });
+    assert.deepEqual((await callTool("wait_preview_update", { cardId, after: id })).structuredContent, {
+        previewId: last._meta["slint/previewId"], arguments: { source: "last" },
+    });
+});
+
 test("takes either an absolute path or source, and a project root only with a path", async () => {
     const call = (args) =>
         request("tools/call", { name: "preview_slint", arguments: args });
@@ -251,6 +287,27 @@ test("reports a file it can't read as a tool error", async () => {
         assert.equal(result.isError, true, name);
         // The view tells a missing import by this prefix.
         assert.match(result.content[0].text, /^ENOENT:/, name);
+    }
+});
+
+test("prefetches bounded relative imports without caching edits or resolving project settings", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "slint-preview-imports-"));
+    try {
+        mkdirSync(join(dir, "parts"));
+        const path = join(dir, "main.slint");
+        const part = join(dir, "parts/part.slint");
+        writeFileSync(path, 'import { Part } from "parts/part.slint"; import { Other } from "missing.slint"; import { Library } from "@widgets/library.slint";');
+        writeFileSync(part, 'import { Main } from "../main.slint"; export component Part {}');
+        const first = await callTool("read_slint_file", { path, prefetchImports: true });
+        assert.deepEqual(first.structuredContent.imports, { [part]: readFileSync(part, "utf8") });
+        writeFileSync(part, "export component Changed {}");
+        const second = await callTool("read_slint_file", { path, prefetchImports: true });
+        assert.equal(second.structuredContent.imports[part], "export component Changed {}");
+        writeFileSync(part, " ".repeat(1024 * 1024 + 1));
+        const large = await callTool("read_slint_file", { path, prefetchImports: true });
+        assert.deepEqual(large.structuredContent.imports, {});
+    } finally {
+        rmSync(dir, { recursive: true, force: true });
     }
 });
 

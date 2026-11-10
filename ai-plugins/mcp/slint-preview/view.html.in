@@ -598,10 +598,14 @@
     reportToModel(`The Slint preview couldn't load image ${path}: ${message}`);
   }
 
-  async function readSlintFile(path) {
-    const result = await request("tools/call", { name: "read_slint_file", arguments: { path } });
+  const sourceFiles = new Map();
+  async function readSlintFile(path, prefetchImports = false) {
+    if (sourceFiles.has(path)) return sourceFiles.get(path);
+    const result = await request("tools/call", { name: "read_slint_file", arguments: { path, prefetchImports } });
     const text = result?.content?.[0]?.text ?? "";
     if (result?.isError) throw new Error(text);
+    for (const [path, source] of Object.entries(result?.structuredContent?.imports ?? {})) sourceFiles.set(path, source);
+    sourceFiles.set(path, text);
     return text;
   }
 
@@ -610,6 +614,10 @@
     setAnnotationMode(false);
     tools.hidden = true;
     renderedInput = null;
+    sourceFiles.clear();
+    const current = loadInterpreter();
+    current.previewId = previewId;
+    current.slint.catch(() => {});
     let url = "main.slint";
     let loadImport = null;
     let loadResource = null;
@@ -619,7 +627,7 @@
       showStatus(`Reading ${path}…`);
       publish({ previewId, stage: "reading" }).catch(() => {});
       try {
-        source = await readSlintFile(path);
+        source = await readSlintFile(path, true);
       } catch (e) {
         showStatus(`Couldn't read ${path}: ${e.message ?? e}`, "error");
         reportToModel(`The Slint preview couldn't read ${path}: ${e.message ?? e}`);
@@ -648,8 +656,6 @@
 
     showStatus("Loading the Slint interpreter…");
     publish({ previewId, stage: "loading" }).catch(() => {});
-    const current = loadInterpreter();
-    current.previewId = previewId;
     let slint;
     try {
       slint = await untilPanic(current, current.slint);
@@ -712,8 +718,9 @@
   function receivePreviewId(result) {
     const id = resultPreviewId(result);
     if (!id) return;
+    const preview = { id, cardId: result?._meta?.["slint/previewCardId"] ?? id };
     const waiter = previewIdWaiters.shift();
-    waiter ? waiter(id) : previewIds.push(id);
+    waiter ? waiter(preview) : previewIds.push(preview);
   }
   function nextPreviewId() {
     return previewIds.length ? Promise.resolve(previewIds.shift()) : new Promise((resolve) => previewIdWaiters.push(resolve));
@@ -766,6 +773,65 @@
     request("ui/update-model-context", { content: [{ type: "text", text, annotations: { audience: ["assistant"] } }] }).catch(() => {});
   }
 
+  let renderQueue = Promise.resolve(), lastQueuedId, followToken = 0;
+  function runPreview(args, id) {
+    if (id === lastQueuedId) return renderQueue;
+    lastQueuedId = id;
+    renderQueue = renderQueue.catch(() => {}).then(async () => {
+      retryButton.onclick = async () => {
+        retryButton.disabled = true;
+        showStatus("Restarting preview…");
+        try {
+          const result = await request("tools/call", { name: "preview_slint", arguments: args });
+          const id = resultPreviewId(result);
+          if (!id || result.isError) throw new Error(result.content?.[0]?.text ?? "No preview ID returned");
+          followUpdates(args, { id, cardId: result._meta?.["slint/previewCardId"] ?? id });
+          await renderQueue;
+        } catch (e) {
+          showStatus(`Couldn't restart the preview: ${e}`, "error");
+        } finally {
+          retryButton.disabled = false;
+        }
+      };
+      crashEl.hidden = true;
+      await publish({ previewId: id, started: true });
+      await render(args, id);
+    }).catch((e) => {
+      if (e instanceof Panic) return;
+      if (e instanceof WebAssembly.RuntimeError) {
+        handlePanic(String(e));
+        return;
+      }
+      showStatus(`The preview failed: ${e.message ?? e}. Reload to try again.`, "error");
+    }).then(() => publishCapture(Promise.resolve(id))).catch(async (e) => {
+      const error = `Couldn't capture the preview: ${e.message ?? e}`;
+      showStatus(error, "error");
+      await publish({ previewId: id, error }).catch(() => {});
+    });
+    return renderQueue;
+  }
+
+  async function followUpdates(args, { id, cardId }) {
+    const token = ++followToken;
+    await runPreview(args, id);
+    let after = id;
+    try {
+      while (token === followToken) {
+        const result = await request("tools/call", { name: "wait_preview_update", arguments: { cardId, after } });
+        if (token !== followToken) return;
+        if (result?.isError) throw new Error(result.content?.[0]?.text ?? "Update request failed");
+        const update = result?.structuredContent;
+        if (update?.closed) return;
+        if (update?.previewId && update.previewId !== after) {
+          after = update.previewId;
+          await runPreview(update.arguments, after);
+        }
+      }
+    } catch (error) {
+      reportToModel(`Preview updates stopped: ${error.message ?? error}. Use preview_slint to open a new card.`);
+    }
+  }
+
   window.addEventListener("message", (event) => {
     if (event.source !== window.parent) return;
     const message = event.data;
@@ -779,40 +845,7 @@
     switch (message.method) {
       case "ui/notifications/tool-input": {
         const args = message.params?.arguments ?? {};
-        const startPreview = (previewId) => previewId.then(async (id) => {
-          crashEl.hidden = true;
-          await publish({ previewId: id, started: true });
-          await render(args, id);
-        })
-          .catch((e) => {
-            if (e instanceof Panic) return;
-            if (e instanceof WebAssembly.RuntimeError) {
-              handlePanic(String(e));
-              return;
-            }
-            showStatus(`The preview failed: ${e.message ?? e}. Reload to try again.`, "error");
-          })
-          .then(() => publishCapture(previewId))
-          .catch(async (e) => {
-            const error = `Couldn't capture the preview: ${e.message ?? e}`;
-            showStatus(error, "error");
-            await publish({ previewId: await previewId, error }).catch(() => {});
-          });
-        startPreview(nextPreviewId());
-        retryButton.onclick = async () => {
-          retryButton.disabled = true;
-          showStatus("Restarting preview…");
-          try {
-            const result = await request("tools/call", { name: "preview_slint", arguments: args });
-            const id = resultPreviewId(result);
-            if (!id || result.isError) throw new Error(result.content?.[0]?.text ?? "No preview ID returned");
-            await startPreview(Promise.resolve(id));
-          } catch (e) {
-            showStatus(`Couldn't restart the preview: ${e}`, "error");
-          } finally {
-            retryButton.disabled = false;
-          }
-        };
+        nextPreviewId().then((preview) => followUpdates(args, preview));
         break;
       }
       case "ui/notifications/tool-result":
@@ -822,6 +855,7 @@
         applyTheme(message.params);
         break;
       case "ui/resource-teardown":
+        followToken++;
         post({ id: message.id, result: {} });
         break;
       default:
