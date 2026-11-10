@@ -366,7 +366,9 @@ mod software_renderer {
     };
 
     #[cfg(feature = "experimental")]
-    use i_slint_renderer_software::{TargetPixelBuffer, TexturePixelFormat};
+    use i_slint_renderer_software::{
+        RecordedRasterCommands, TargetPixelBuffer, TexturePixelFormat,
+    };
 
     #[cfg(feature = "experimental")]
     type CppTargetPixelBufferUserData = *mut c_void;
@@ -608,6 +610,51 @@ mod software_renderer {
             let renderer = &*(r as *const SoftwareRenderer);
             renderer.render(buffer, pixel_stride)
         }
+    }
+
+    #[cfg(feature = "experimental")]
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_software_renderer_record_frame(
+        r: SoftwareRendererOpaque,
+        pixels_per_line: usize,
+        num_lines: usize,
+    ) -> *mut c_void {
+        let renderer = unsafe { &*(r as *const SoftwareRenderer) };
+        Box::into_raw(Box::new(renderer.record_frame(pixels_per_line, num_lines))) as _
+    }
+
+    #[cfg(feature = "experimental")]
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_recorded_raster_commands_rasterize_rgb8(
+        recorded: *const c_void,
+        buffer: *mut Rgb8Pixel,
+        buffer_len: usize,
+        pixel_stride: usize,
+    ) -> PhysicalRegion {
+        unsafe {
+            let buffer = core::slice::from_raw_parts_mut(buffer, buffer_len);
+            (*(recorded as *const RecordedRasterCommands)).rasterize(buffer, pixel_stride)
+        }
+    }
+
+    #[cfg(feature = "experimental")]
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_recorded_raster_commands_rasterize_rgb565(
+        recorded: *const c_void,
+        buffer: *mut u16,
+        buffer_len: usize,
+        pixel_stride: usize,
+    ) -> PhysicalRegion {
+        unsafe {
+            let buffer = core::slice::from_raw_parts_mut(buffer as *mut Rgb565Pixel, buffer_len);
+            (*(recorded as *const RecordedRasterCommands)).rasterize(buffer, pixel_stride)
+        }
+    }
+
+    #[cfg(feature = "experimental")]
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_recorded_raster_commands_drop(recorded: *mut c_void) {
+        drop(unsafe { Box::from_raw(recorded as *mut RecordedRasterCommands) });
     }
 
     struct LineByLineProcessor<TargetPixel> {
