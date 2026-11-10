@@ -3,7 +3,7 @@
 
 // cSpell: ignore equirectangular multisampled
 
-use glam::{Mat4, Vec2, Vec3, Vec4};
+use glam::{Mat4, Vec2, Vec3, Vec4, Vec4Swizzles};
 use slint::wgpu_30::wgpu;
 use wgpu::util::DeviceExt;
 
@@ -202,6 +202,40 @@ fn bind_group(
             },
         ],
     })
+}
+
+/// The pixels of the frame that the globe and the glow of its atmosphere reach, as their left,
+/// top, width, and height. `None` where the camera is inside the glow.
+fn globe_rectangle(frame: &Frame) -> Option<[u32; 4]> {
+    // The glow that `globe.wgsl` draws around the globe is below what 8 bits hold from here on.
+    const REACH: f32 = 1.16;
+    let distance = frame.eye.length();
+    if distance <= REACH {
+        return None;
+    }
+    // The rays that pass the center at `REACH` form a cone around the direction to it.
+    let axis = -frame.eye / distance;
+    let (side, up) = axis.any_orthonormal_pair();
+    let sine = REACH / distance;
+    let cosine = (1.0 - sine * sine).sqrt();
+    let (mut low, mut high) = (Vec2::MAX, Vec2::MIN);
+    const RAYS: usize = 32;
+    for ray in 0..RAYS {
+        let (s, c) = (ray as f32 / RAYS as f32 * std::f32::consts::TAU).sin_cos();
+        let direction = axis * cosine + (side * c + up * s) * sine;
+        let point = frame.view_projection * (frame.eye + direction).extend(1.0);
+        if point.w <= 0.0 {
+            return None;
+        }
+        let pixel = (point.xy() / point.w * Vec2::new(0.5, -0.5) + 0.5) * frame.viewport;
+        (low, high) = (low.min(pixel), high.max(pixel));
+    }
+    // The cone's outline bulges out between the rays, by less than a hundredth of its size.
+    let margin = (high - low) * 0.01 + 2.0;
+    let low = (low - margin).floor().clamp(Vec2::ZERO, frame.viewport);
+    let high = (high + margin).ceil().clamp(Vec2::ZERO, frame.viewport);
+    let size = (high - low).max(Vec2::ONE);
+    Some([low.x as u32, low.y as u32, size.x as u32, size.y as u32])
 }
 
 pub struct Renderer {
@@ -496,6 +530,13 @@ impl Renderer {
                 ..Default::default()
             });
             pass.set_viewport(0.0, 0.0, frame.viewport.x, frame.viewport.y, 0.0, 1.0);
+            // Without space around it, the globe leaves the rest of the frame transparent, as
+            // the pass cleared it.
+            if frame.space == 0.0
+                && let Some([x, y, width, height]) = globe_rectangle(frame)
+            {
+                pass.set_scissor_rect(x, y, width, height);
+            }
             pass.set_pipeline(&self.pipeline);
             pass.set_bind_group(0, &self.bind_group, &[]);
             pass.draw(0..3, 0..1);
@@ -506,5 +547,67 @@ impl Renderer {
             }
         }
         self.queue.submit([encoder.finish()]);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::camera::{Pose, surface};
+
+    /// The rays through the pixels around the globe's rectangle pass the globe beyond the reach
+    /// of its glow, with the globe anywhere in the frame, near or far, and tilted.
+    #[test]
+    fn globe_rectangle_holds_the_glow() {
+        let viewport = Vec2::new(640.0, 400.0);
+        let aspect = viewport.x / viewport.y;
+        for (range, tilt, shift) in [
+            (2.6, 0.0, Vec2::ZERO),
+            (4.0, 0.0, Vec2::new(0.5, -0.2)),
+            (1.5, 0.0, Vec2::new(-0.6, 0.3)),
+            (0.6, 50.0, Vec2::new(0.2, 0.4)),
+            (6.0, 20.0, Vec2::new(-0.3, -0.5)),
+        ] {
+            let pose = Pose {
+                target: surface(0.4, 0.3),
+                heading: 0.7,
+                tilt: f32::to_radians(tilt),
+                range,
+            };
+            let view_projection =
+                Mat4::from_translation(shift.extend(0.0)) * pose.view_projection(aspect);
+            let frame = Frame {
+                view_projection,
+                eye: pose.eye(),
+                sun: Vec3::X,
+                night: 1.0,
+                borders: 0.0,
+                border_width: 1.0,
+                viewport,
+                time: 0.0,
+                space: 0.0,
+                clouds: 0.0,
+                windows: Default::default(),
+            };
+            let [left, top, width, height] = globe_rectangle(&frame).unwrap();
+            let (right, bottom) = (left + width, top + height);
+            let inverse = view_projection.inverse();
+            for y in 0..viewport.y as u32 {
+                for x in 0..viewport.x as u32 {
+                    if (left..right).contains(&x) && (top..bottom).contains(&y) {
+                        continue;
+                    }
+                    let ndc = (Vec2::new(x as f32, y as f32) + 0.5) / viewport
+                        * Vec2::new(2.0, -2.0)
+                        + Vec2::new(-1.0, 1.0);
+                    let near = inverse.project_point3(ndc.extend(0.0));
+                    let far = inverse.project_point3(ndc.extend(1.0));
+                    let direction = (far - near).normalize();
+                    let along = -frame.eye.dot(direction);
+                    let miss = (frame.eye + direction * along).length();
+                    assert!(along <= 0.0 || miss > 1.14, "{miss} at {x}, {y} for range {range}");
+                }
+            }
+        }
     }
 }
