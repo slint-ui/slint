@@ -25,7 +25,7 @@ Then write the UI and run it in your `main.rs`:
 
 ```rust,no_run
 slint::slint!{
-    #[edition = "1.19"]
+    #[edition = "1.20"]
     export component HelloWorld {
         Text {
             text: "hello world";

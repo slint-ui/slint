@@ -309,8 +309,7 @@ impl DocumentCache {
             .type_loader
             .all_file_documents()
             .filter(|(path, node)| {
-                !path.is_builtin()
-                    && node.source_file.edition() != self.type_loader.project_edition(path)
+                node.source_file.edition() != self.type_loader.project_edition(path)
             })
             .map(|(path, node)| (path.clone(), node.text().to_string()))
             .collect::<Vec<_>>();

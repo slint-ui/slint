@@ -207,6 +207,7 @@ export default defineSlintDocsConfig({
                                 collapsed: true,
                                 items: [
                                     "guide/development/debugging_techniques",
+                                    "guide/development/ui-testing",
                                     "guide/development/focus",
                                     "guide/development/translations",
                                     "guide/development/fonts",

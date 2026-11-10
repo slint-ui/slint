@@ -253,6 +253,7 @@ pub fn initialize_editor(
     api.on_persist_selected_element_border_radius(super::persist_selected_element_border_radius);
 
     properties_api.on_inspector_preview(super::inspector::preview_property);
+    properties_api.on_inspector_preview_code(super::inspector::preview_code_property);
     properties_api.on_inspector_commit(super::inspector::commit_properties);
     properties_api.on_inspector_cancel(super::inspector::cancel);
     let editor_weak = editor_ui.as_weak();
@@ -297,6 +298,12 @@ pub fn initialize_editor(
     properties_api.on_choose_image_file(move |source_uri| {
         let window = editor_weak.upgrade().map(|editor| editor.window().window_handle());
         file_tree::choose_image_file(source_uri.as_str(), window)
+    });
+    let editor_weak = editor_ui.as_weak();
+    api.on_open_file_manager(move |path| {
+        if let Some(editor) = editor_weak.upgrade() {
+            file_tree::open_file_manager(std::path::Path::new(path.as_str()), editor.window());
+        }
     });
 
     api.on_get_property_value(get_property_value);
@@ -2747,7 +2754,7 @@ mod tests {
     }
 
     #[test]
-    fn title_field_commits_code_binding() {
+    fn title_field_commits_inspector_edit() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
         let api = editor.global::<super::Api>();
@@ -2762,12 +2769,17 @@ mod tests {
         let mut selection = api.get_selection();
         selection.highlight_index = 0;
         api.set_selection(selection);
-        properties_api.on_test_code_binding(|_, _, _, _, _| true);
         properties_api.on_string_to_code(super::string_to_code);
-        let commits = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
-        let recorded = commits.clone();
-        properties_api.on_set_code_binding(move |_, _, _, name, value| {
-            recorded.borrow_mut().push((name.to_string(), value.to_string()));
+        let previews = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let recorded = previews.clone();
+        properties_api.on_inspector_preview(move |name, value| {
+            recorded.borrow_mut().push((name.to_string(), value.code.to_string()));
+            true
+        });
+        let committed = std::rc::Rc::new(std::cell::Cell::new(false));
+        let recorded = committed.clone();
+        properties_api.on_inspector_commit(move || {
+            recorded.set(true);
             true
         });
         connect_has_property(&properties_api);
@@ -2783,7 +2795,8 @@ mod tests {
                 })
                 .unwrap();
         field.set_accessible_value("Settings");
-        assert_eq!(*commits.borrow(), [("title".to_string(), "\"Settings\"".to_string())]);
+        assert_eq!(*previews.borrow(), [("title".to_string(), "\"Settings\"".to_string())]);
+        assert!(committed.get());
     }
 
     #[test]

@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Button, TextEdit } from "std-widgets.slint";
-import { Properties, PropertyValue, PropertyValueKind } from "../../properties.slint";
+import { Properties, PropertyEditKind, PropertyValue, PropertyValueKind } from "../../properties.slint";
+import { Api } from "../../api.slint";
 import { Style, Metrics, Typography, Colors } from "../../style.slint";
 import { FloatingSurface } from "../floating-surface.slint";
 import { InspectorTextFieldBase } from "text-field-base.slint";
@@ -10,20 +11,20 @@ import { InspectorIconButton } from "icon-button.slint";
 
 export component InspectorStringField inherits Rectangle {
     in property <string> accessible-name;
+    in property <string> property-name;
     in property <PropertyValue> source-value;
     in property <string> default-value;
     in property <string> commit-key;
     in property <bool> expandable: false;
     in property <string> clear-label: @tr("Clear text");
-    callback accepted(string) -> bool;
-    callback preview(string) -> bool;
-    callback canceled();
     callback history-key(KeyEvent) -> EventResult;
     history-key(event) => { return reject; }
-    private property <bool> plain-text: root.source-value.kind == PropertyValueKind.string || root.source-value.code == "";
+    private property <bool> plain-text: root.source-value.code == ""
+        || (root.source-value.kind == PropertyValueKind.string && root.source-value.accessor-path == "");
+    private property <PropertyValue> editor-value: Properties.editor-property-value-data(root.property-name);
     private property <string> value: root.plain-text
-        ? (root.source-value.code == "" ? root.default-value : root.source-value.value-string)
-        : root.source-value.code;
+        ? (root.editor-value.code == "" ? root.default-value : root.editor-value.value-string)
+        : root.editor-value.code;
     private property <string> draft;
     private property <string> editing-key;
     private property <bool> previewing;
@@ -37,22 +38,32 @@ export component InspectorStringField inherits Rectangle {
     changed commit-key => { expanded.close(); root.cancel-preview(); }
     changed expanded-open => { if !root.expanded-open { root.cancel-preview(); } }
 
-    function preview-value(value: string) {
-        if root.plain-text { root.previewing = root.preview(value); }
+    function preview-value(value: string) -> bool {
+        let previewed = root.plain-text
+            ? Properties.inspector-preview(root.property-name, {
+                kind: PropertyEditKind.string,
+                text: value,
+                code: Properties.string-to-code(value, root.source-value.is-translatable, root.source-value.tr-context, root.source-value.tr-plural, root.source-value.tr-plural-expression),
+            })
+            : Properties.inspector-preview-code(root.property-name, PropertyEditKind.string, value);
+        if !previewed { root.cancel-preview(); }
+        root.previewing = previewed;
+        return previewed;
     }
 
     function cancel-preview() {
-        if root.previewing { root.canceled(); }
+        if root.previewing { Properties.inspector-cancel(); }
         root.previewing = false;
     }
 
     function accept-value(value: string) -> bool {
-        let accepted = root.accepted(root.plain-text
-            ? Properties.string-to-code(value, root.source-value.is-translatable, root.source-value.tr-context, root.source-value.tr-plural, root.source-value.tr-plural-expression)
-            : value);
-        if !accepted { root.cancel-preview(); }
-        root.previewing = false;
-        return accepted;
+        if root.preview-value(value) {
+            let accepted = Properties.inspector-commit();
+            if !accepted { root.cancel-preview(); }
+            root.previewing = false;
+            return accepted;
+        }
+        return !root.plain-text && Properties.commit-code-binding(Api.current-element, root.property-name, value);
     }
 
     row := HorizontalLayout {
@@ -73,7 +84,7 @@ export component InspectorStringField inherits Rectangle {
             clear-label: root.clear-label;
             commit-key: root.commit-key;
             accepted(text) => { return root.accept-value(text); }
-            text-edited(text) => { root.preview-value(text); }
+            edit-input(text) => { root.preview-value(text); }
             focus-lost => { if !root.expanded-open { root.cancel-preview(); } }
             keyboard(event) => {
                 if event.text == Key.Escape {
