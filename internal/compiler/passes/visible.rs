@@ -11,7 +11,7 @@ use crate::diagnostics::BuildDiagnostics;
 use crate::element_type::{ElementType, PropertyLookupMode};
 use crate::expression_tree::{Expression, NamedReference};
 use crate::langtype::Type;
-use crate::object_tree::{self, Component, Element, ElementRc};
+use crate::object_tree::{self, Component, Element, ElementRc, InjectedFor, InjectedProperty};
 use crate::typeregister::TypeRegister;
 
 pub fn handle_visible(
@@ -129,6 +129,13 @@ fn create_visibility_element(child: &ElementRc, clip_type: &ElementType) -> Elem
         ]
         .into_iter()
         .collect(),
+        injected_for: Some(InjectedFor {
+            element: Rc::downgrade(child),
+            properties: vec![InjectedProperty {
+                negated: true,
+                ..InjectedProperty::renamed("clip", "visible")
+            }],
+        }),
         ..Default::default()
     };
     Element::make_rc(element)

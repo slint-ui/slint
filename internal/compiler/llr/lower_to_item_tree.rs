@@ -662,15 +662,31 @@ fn lower_sub_component(
     // Collect after the walk above: resolving a property reference (e.g. an alias
     // target) can reach elements the walk has not mapped yet.
     if compiler_config.debug_info {
+        #[allow(clippy::mutable_key_type, reason = "ByAddress<ElementRc> keys hash by pointer")]
+        let mut injected = InjectedElements::new();
+        crate::object_tree::recurse_elem(&component.root_element, &(), &mut |element, _| {
+            if let Some(injected_for) = &element.borrow().injected_for
+                && let Some(source) = injected_for.element.upgrade()
+                && state.native_classes.contains_key(&ByAddress(element.clone()))
+            {
+                injected.entry(ByAddress(source)).or_default().push(element.clone());
+            }
+        });
+
         let s: Option<ElementRc> = None;
         crate::object_tree::recurse_elem(&component.root_element, &s, &mut |element, _| {
             let elem = element.borrow();
             if elem.repeated.is_some() {
                 return None;
             }
-            let props = collect_testable_properties(element, component, &mapping, state);
-            if !props.is_empty() {
-                sub_component.testable_properties.insert(*elem.item_index.get().unwrap(), props);
+            let item_index = *elem.item_index.get().unwrap();
+            let (testable, inspectable) =
+                collect_element_properties(element, component, &mapping, state, &injected);
+            if !testable.is_empty() {
+                sub_component.testable_properties.insert(item_index, testable);
+            }
+            if elem.injected_for.is_none() {
+                sub_component.inspectable_properties.insert(item_index, inspectable);
             }
             Some(element.clone())
         });
@@ -872,6 +888,7 @@ fn new_sub_component(
         accessible_prop: Default::default(),
         element_infos: Default::default(),
         testable_properties: Default::default(),
+        inspectable_properties: Default::default(),
         prop_analysis: Default::default(),
         debug_info: compiler_config.debug_info.then(|| super::debug_info::SubComponentDebugInfo {
             source_location: crate::diagnostics::Spanned::to_source_location(
@@ -1158,16 +1175,23 @@ fn lower_sub_component_tail(
     });
 }
 
-/// Collect the `@testable` properties an element carries, for debug-info introspection:
+/// The elements injected for each element.
+type InjectedElements = HashMap<ByAddress<ElementRc>, Vec<ElementRc>>;
+
+/// Collect the properties an element carries, for debug-info introspection:
 /// its own declarations, the declarations the move_declarations pass hoisted off it,
 /// and the declarations of its base component chain.
 /// A name declared closer to the element shadows the same name further up the chain.
-fn collect_testable_properties(
+/// Returns the entries of [`SubComponent::testable_properties`]
+/// and [`SubComponent::inspectable_properties`].
+#[allow(clippy::mutable_key_type, reason = "ByAddress<ElementRc> keys hash by pointer")]
+fn collect_element_properties(
     element: &ElementRc,
     component: &Rc<Component>,
     mapping: &LoweredSubComponentMapping,
     state: &LoweringState,
-) -> Vec<TestableProperty> {
+    injected: &InjectedElements,
+) -> (Vec<ElementProperty>, Vec<InspectableProperty>) {
     use crate::object_tree::PropertyDeclaration;
 
     /// The declarations an element declares itself, shadowing declarations first.
@@ -1181,39 +1205,83 @@ fn collect_testable_properties(
         })
     }
 
+    struct Listed {
+        ty: Type,
+        nr: NamedReference,
+        testable: bool,
+        inspectable: bool,
+        negated: bool,
+    }
+
     let mut seen = HashSet::new();
-    let mut result = Vec::new();
-    // Every declaration claims its name, so an unmarked one still hides a `@testable` one
+    let mut testable = Vec::new();
+    let mut inspectable = Vec::new();
+    // Every member claims its name, so an unlisted one still hides a listed one
     // further up the chain.
-    let mut claim = |name: &SmolStr, decl: Option<(&PropertyDeclaration, &ElementRc, &SmolStr)>| {
+    let mut claim = |name: &SmolStr, listed: Option<Listed>| {
         if !seen.insert(name.clone()) {
             return;
         }
-        let Some((decl, owner, key)) = decl else { return };
-        if decl.testable && decl.property_type.is_property_type() {
-            result.push(TestableProperty {
-                name: name.clone(),
-                ty: decl.property_type.clone(),
-                prop: mapping
-                    .map_property_reference(&NamedReference::new(owner, key.clone()), state),
-            });
+        let Some(listed) = listed else { return };
+        let property = ElementProperty {
+            name: name.clone(),
+            ty: listed.ty,
+            prop: mapping.map_property_reference(&listed.nr, state),
+        };
+        if listed.testable {
+            testable.push(property.clone());
         }
+        if listed.inspectable {
+            inspectable.push(InspectableProperty { property, negated: listed.negated });
+        }
+    };
+    let listed = |decl: &PropertyDeclaration, owner: &ElementRc, key: &SmolStr| {
+        let testable = decl.testable;
+        let inspectable = !decl.synthesized;
+        (decl.property_type.is_property_type() && (testable || inspectable)).then(|| Listed {
+            ty: decl.property_type.clone(),
+            nr: NamedReference::new(owner, key.clone()),
+            testable,
+            inspectable,
+            negated: false,
+        })
     };
 
     let elem = element.borrow();
     for (key, decl) in shadowing_first(&elem.property_declarations) {
-        claim(decl.declared_name(key), Some((decl, element, key)));
+        claim(decl.declared_name(key), listed(decl, element, key));
     }
     // A shadowing declaration remove_unused_properties dropped still hides the base one.
     for name in elem.shadowing_members.keys() {
         claim(name, None);
     }
 
+    // Before the moved declarations: a pass materializes `opacity` and the like as one,
+    // which the optimizer can remove while the injected element still holds the value.
+    for injected_element in injected.get(&ByAddress(element.clone())).into_iter().flatten() {
+        let class = &state.native_classes[&ByAddress(injected_element.clone())];
+        let injected_element_ref = injected_element.borrow();
+        let injected_for = injected_element_ref.injected_for.as_ref().unwrap();
+        for property in &injected_for.properties {
+            let listed = Listed {
+                ty: class.lookup_property(&property.property).unwrap().clone(),
+                nr: NamedReference::new(injected_element, property.property.clone()),
+                testable: false,
+                inspectable: true,
+                negated: property.negated,
+            };
+            claim(&property.source_name, Some(listed));
+        }
+    }
+
     if !Rc::ptr_eq(element, &component.root_element) {
         let root = component.root_element.borrow();
         for (source_name, root_key) in &elem.moved_property_declarations {
             let decl = root.property_declarations.get(root_key);
-            claim(source_name, decl.map(|decl| (decl, &component.root_element, root_key)));
+            claim(
+                source_name,
+                decl.and_then(|decl| listed(decl, &component.root_element, root_key)),
+            );
         }
     }
 
@@ -1221,17 +1289,15 @@ fn collect_testable_properties(
     while let ElementType::Component(b) = base {
         let base_root = b.root_element.borrow();
         for (key, decl) in shadowing_first(&base_root.property_declarations) {
-            claim(decl.declared_name(key), Some((decl, element, key)));
+            claim(decl.declared_name(key), listed(decl, element, key));
         }
         for name in base_root.shadowing_members.keys() {
             claim(name, None);
         }
-        let next = base_root.base_type.clone();
-        drop(base_root);
-        base = next;
+        base = base_root.base_type.clone();
     }
 
-    result
+    (testable, inspectable)
 }
 
 fn lower_geometry(
@@ -2125,6 +2191,14 @@ export component TestCase inherits Window {
         source: &str,
         debug_info: bool,
     ) -> (crate::object_tree::Document, crate::CompilerConfiguration) {
+        compile_for_test_with(source, debug_info, |_| {})
+    }
+
+    fn compile_for_test_with(
+        source: &str,
+        debug_info: bool,
+        configure: impl FnOnce(&mut crate::CompilerConfiguration),
+    ) -> (crate::object_tree::Document, crate::CompilerConfiguration) {
         let mut config =
             crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
         config.style = Some("fluent".into());
@@ -2133,6 +2207,7 @@ export component TestCase inherits Window {
             [crate::ExperimentalFeature::Testable, crate::ExperimentalFeature::Shadowable]
                 .into_iter()
                 .collect();
+        configure(&mut config);
         let mut diags = crate::diagnostics::BuildDiagnostics::default();
         let doc_node = crate::parser::parse(
             source.into(),
@@ -2255,5 +2330,192 @@ export component TestCase inherits Window {
 }
 "#;
         assert_eq!(testable_types(source, "name"), []);
+    }
+
+    /// The names listed in `inspectable_properties` for the item at `item_index`
+    /// of the sub-component called `sub_component`.
+    fn inspectable_names(
+        source: &str,
+        inline_all_elements: bool,
+        sub_component: &str,
+        item_index: u32,
+    ) -> Vec<SmolStr> {
+        let (doc, config) = compile_for_test_with(source, true, |config| {
+            config.inline_all_elements = inline_all_elements;
+        });
+        let unit = crate::llr::lower_to_item_tree::lower_to_item_tree(&doc, &config);
+        let sc = unit
+            .sub_components
+            .iter()
+            .find(|sc| sc.name == sub_component)
+            .unwrap_or_else(|| panic!("no sub-component '{sub_component}'"));
+        sc.inspectable_properties
+            .get(&item_index)
+            .into_iter()
+            .flatten()
+            .map(|p| p.property.name.clone())
+            .collect()
+    }
+
+    #[test]
+    fn inspectable_properties_list_surviving_declarations() {
+        let source = r#"
+export component TestCase inherits Window {
+    in-out property <int> public: 2;
+    property <int> unused: 1;
+    t := Text { text: root.public; }
+}
+"#;
+        let names = inspectable_names(source, true, "TestCase", 0);
+        assert!(names.iter().any(|n| n == "public"), "'public' not listed: {names:?}");
+        assert!(!names.iter().any(|n| n == "unused"), "'unused' listed: {names:?}");
+        assert!(
+            !names.iter().any(|n| n.starts_with("layoutinfo")),
+            "synthesized declarations listed: {names:?}"
+        );
+    }
+
+    #[test]
+    fn inspectable_properties_drop_properties_inlined_in_the_llr() {
+        let source = r#"
+export component TestCase inherits Window {
+    in-out property <int> n;
+    property <int> doubled: root.n * 2;
+    t := Text { text: root.doubled; }
+}
+"#;
+        let (doc, config) = compile_for_test(source, true);
+        let test_case = doc
+            .inner_components
+            .iter()
+            .find(|c| c.id == "TestCase")
+            .expect("no TestCase component");
+        assert!(
+            test_case.root_element.borrow().property_declarations.contains_key("doubled"),
+            "'doubled' must reach the LLR for this test to exercise the LLR pruning"
+        );
+        let unit = crate::llr::lower_to_item_tree::lower_to_item_tree(&doc, &config);
+        let names: Vec<_> = unit
+            .sub_components
+            .iter()
+            .flat_map(|sc| sc.inspectable_properties.values().flatten())
+            .map(|p| p.property.name.clone())
+            .collect();
+        assert!(names.iter().any(|n| n == "n"), "'n' not listed: {names:?}");
+        assert!(
+            !names.iter().any(|n| n == "doubled"),
+            "the inlined 'doubled' is listed: {names:?}"
+        );
+    }
+
+    #[test]
+    fn inspectable_properties_of_a_sub_component_instance() {
+        let source = r#"
+component Bar inherits Rectangle {
+    in-out property <int> count: 3;
+    Text { text: root.count; }
+}
+export component TestCase inherits Window {
+    in-out property <int> n;
+    b := Bar { count: root.n; background: blue; }
+}
+"#;
+        let names = inspectable_names(source, false, "TestCase", 1);
+        assert!(names.iter().any(|n| n == "count"), "'count' not listed: {names:?}");
+    }
+
+    #[test]
+    fn inspectable_properties_attribute_injected_elements_to_their_source() {
+        // `Card` gets inlined with `inline_all_elements`, which duplicates `r` and the
+        // elements injected for it.
+        let source = r#"
+component Card inherits Rectangle {
+    in-out property <bool> v: true;
+    in-out property <float> o: 0.5;
+    in-out property <angle> a: 10deg;
+    in-out property <bool> c: true;
+    r := Rectangle {
+        background: blue;
+        opacity: root.o;
+        visible: root.v;
+        drop-shadow-blur: 3px;
+        inner-shadow-blur: 2px;
+        transform-rotation: root.a;
+        clip: root.c;
+        cache-rendering-hint: true;
+        backdrop-blur: 4px;
+    }
+}
+export component TestCase inherits Window {
+    Card { }
+}
+"#;
+        for inline_all_elements in [false, true] {
+            let (doc, config) = compile_for_test_with(source, true, |config| {
+                config.inline_all_elements = inline_all_elements;
+            });
+            let unit = crate::llr::lower_to_item_tree::lower_to_item_tree(&doc, &config);
+            let lists: Vec<Vec<SmolStr>> = unit
+                .sub_components
+                .iter()
+                .flat_map(|sc| sc.inspectable_properties.values())
+                .map(|props| props.iter().map(|p| p.property.name.clone()).collect())
+                .collect();
+            let r = lists
+                .iter()
+                .find(|names| names.iter().any(|n| n == "opacity"))
+                .unwrap_or_else(|| panic!("no element lists 'opacity': {lists:?}"));
+            for name in [
+                "visible",
+                "drop-shadow-blur",
+                "inner-shadow-blur",
+                "transform-rotation",
+                "clip",
+                "cache-rendering-hint",
+                "backdrop-blur",
+            ] {
+                assert!(r.iter().any(|n| n == name), "'{name}' not listed on 'r': {r:?}");
+            }
+            let negated: Vec<_> = unit
+                .sub_components
+                .iter()
+                .flat_map(|sc| sc.inspectable_properties.values().flatten())
+                .filter(|p| p.negated)
+                .map(|p| p.property.name.clone())
+                .collect();
+            assert_eq!(negated, ["visible"]);
+        }
+    }
+
+    #[test]
+    fn inspectable_properties_list_declarations_moved_off_an_element() {
+        let source = r#"
+export component TestCase inherits Window {
+    t := Text { property <int> extra: 1; text: self.extra; }
+    TouchArea { clicked => { t.extra += 1; } }
+}
+"#;
+        let (doc, _) = compile_for_test(source, true);
+        let test_case = doc.inner_components.iter().find(|c| c.id == "TestCase").unwrap();
+        let text = test_case.root_element.borrow().children[0].clone();
+        assert!(
+            !text.borrow().moved_property_declarations.is_empty(),
+            "'extra' must be moved off 't' for this test to exercise moved declarations"
+        );
+        let text_index = *text.borrow().item_index.get().unwrap();
+        let names = inspectable_names(source, true, "TestCase", text_index);
+        assert!(names.iter().any(|n| n == "extra"), "'extra' not listed on 't': {names:?}");
+    }
+
+    #[test]
+    fn inspectable_properties_need_debug_info() {
+        let source = r#"
+export component TestCase inherits Window {
+    t := Text { text: "hi"; }
+}
+"#;
+        let (doc, config) = compile_for_test(source, false);
+        let unit = crate::llr::lower_to_item_tree::lower_to_item_tree(&doc, &config);
+        assert!(unit.sub_components.iter().all(|sc| sc.inspectable_properties.is_empty()));
     }
 }

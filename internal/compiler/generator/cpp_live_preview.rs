@@ -138,7 +138,7 @@ fn generate_public_component(
             "{{ nullptr, nullptr, nullptr, nullptr, \
                 nullptr, nullptr, nullptr, nullptr, nullptr, \
                 nullptr, nullptr, nullptr, nullptr, \
-                nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, \
+                nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, \
                 ::slint::private_api::drop_in_place<{component_id}>, ::slint::private_api::dealloc }}"
         )),
         ..Default::default()
