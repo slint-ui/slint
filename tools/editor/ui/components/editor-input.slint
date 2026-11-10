@@ -8,7 +8,6 @@ import { Metrics } from "../style.slint";
 export component EditorInput inherits InputSurface {
     in property <string> accessible-name: "";
     in property <string> value;
-    in property <bool> live-edit: false;
     in property <bool> select-all-on-focus: true;
     in property <bool> muted-value: false;
     in property <TextHorizontalAlignment> horizontal-alignment: TextHorizontalAlignment.left;
@@ -25,11 +24,10 @@ export component EditorInput inherits InputSurface {
     in property <MouseCursor> unfocused-cursor: MouseCursor.text;
     callback keyboard(KeyEvent) -> EventResult;
     callback focus-lost();
-    callback text-edited(string);
     keyboard(event) => { return reject; }
     public function focus-input() { input.focus(); }
     public function select-range(start: int, end: int) { input.set-selection-offsets(start, end); }
-    public function commit-value(value: string) -> bool { return root.accept-input(value, true); }
+    public function commit-value(value: string) -> bool { return root.accept-input(value); }
     public function take-draft() -> string {
         let draft = input.text;
         input.text = root.value;
@@ -50,6 +48,7 @@ export component EditorInput inherits InputSurface {
     out property <bool> has-uncommitted-edits: root.edited;
     callback edit-started();
     callback accepted(string) -> bool;
+    callback edit-input(string);
     callback normalized(string) -> string;
 
     accessible-role: AccessibleRole.text-input;
@@ -58,7 +57,7 @@ export component EditorInput inherits InputSurface {
     accessible-enabled: root.enabled;
     accessible-action-set-value(value) => {
         if root.enabled {
-            root.accept-input(value, true);
+            root.accept-input(value);
         }
     }
     accessible-action-default => {
@@ -87,7 +86,7 @@ export component EditorInput inherits InputSurface {
         }
     }
 
-    function accept-input(text: string, normalize: bool) -> bool {
+    function accept-input(text: string) -> bool {
         if root.active-commit-key != root.commit-key {
             input.text = root.value;
             root.active-commit-key = root.commit-key;
@@ -95,7 +94,7 @@ export component EditorInput inherits InputSurface {
         }
         root.begin-edit();
         let accepted = root.accepted(text);
-        if accepted && normalize {
+        if accepted {
             input.text = root.normalize-accepted ? root.normalized(text) : text;
             root.edited = false;
         }
@@ -170,12 +169,11 @@ export component EditorInput inherits InputSurface {
 
                     edited => {
                         root.begin-edit();
-                        root.text-edited(self.text);
-                        if root.live-edit { root.accept-input(self.text, false); }
+                        root.edit-input(self.text);
                     }
 
                     accepted => {
-                        if !root.accept-input(self.text, true) {
+                        if !root.accept-input(self.text) {
                             self.text = root.value;
                         }
                     }
@@ -196,8 +194,8 @@ export component EditorInput inherits InputSurface {
                             root.active-commit-key = root.commit-key;
                             if root.select-all-on-focus { self.select-all(); }
                         }
-                        if !self.has-focus && root.edited && self.text != root.value {
-                            if !root.accept-input(self.text, true) {
+                        if !self.has-focus && root.edited {
+                            if !root.accept-input(self.text) {
                                 self.text = root.value;
                             }
                         }
@@ -221,7 +219,7 @@ export component EditorInput inherits InputSurface {
                     colorize: root.paint.foreground;
                 }
                 clicked => {
-                    if root.accept-input("", true) {
+                    if root.accept-input("") {
                         input.text = "";
                     } else {
                         input.text = root.value;

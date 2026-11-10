@@ -26,7 +26,7 @@ export component DiagnosticsGalleryWindow inherits Window {
         DiagnosticMockScenario.Current, DiagnosticMockScenario.Warnings,
         DiagnosticMockScenario.Stale, DiagnosticMockScenario.Unavailable,
         DiagnosticMockScenario.NoComponent, DiagnosticMockScenario.ManyErrors,
-        DiagnosticMockScenario.Imports,
+        DiagnosticMockScenario.Imports, DiagnosticMockScenario.ManyWarnings,
     ];
     changed scenario => { DiagnosticsMock.scenario = root.scenario; }
     changed dark-theme => { Palette.color-scheme = root.dark-theme ? ColorScheme.dark : ColorScheme.light; }
@@ -48,13 +48,14 @@ export component DiagnosticsGalleryWindow inherits Window {
             spacing: Metrics.space-medium;
             ComboBox {
                 width: 128px;
-                model: ["Current", "Warnings", "Stale", "Unavailable", "No component", "Many errors", "Imported error"];
+                model: ["Current", "Warnings", "Stale", "Unavailable", "No component", "Many errors", "Imported error", "Many warnings"];
                 current-index: root.scenario == DiagnosticMockScenario.Current ? 0
                     : root.scenario == DiagnosticMockScenario.Warnings ? 1
                     : root.scenario == DiagnosticMockScenario.Stale ? 2
                     : root.scenario == DiagnosticMockScenario.Unavailable ? 3
                     : root.scenario == DiagnosticMockScenario.NoComponent ? 4
-                    : root.scenario == DiagnosticMockScenario.ManyErrors ? 5 : 6;
+                    : root.scenario == DiagnosticMockScenario.ManyErrors ? 5
+                    : root.scenario == DiagnosticMockScenario.Imports ? 6 : 7;
                 selected(value) => { root.scenario = root.scenarios[self.current-index]; }
             }
             Button { text: root.dark-theme ? "Light theme" : "Dark theme"; clicked => { root.dark-theme = !root.dark-theme; } }

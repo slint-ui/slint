@@ -244,9 +244,21 @@ struct SourceCodeCacheEntry {
 type SourceCodeCache = HashMap<Url, SourceCodeCacheEntry>;
 
 /// Property overrides the editor pushes into the previewed instance, keyed by debug hook id.
-type DebugHookOverrides = Rc<
-    RefCell<HashMap<SmolStr, Pin<Box<i_slint_core::Property<Option<slint_interpreter::Value>>>>>>,
->;
+type DebugHookOverrides =
+    Rc<RefCell<HashMap<SmolStr, Pin<Box<i_slint_core::Property<Option<DebugHookOverride>>>>>>>;
+
+#[derive(Clone, PartialEq, Debug)]
+struct DebugHookOverride {
+    value: slint_interpreter::Value,
+    expression: Option<String>,
+    fill: Option<ui::FillData>,
+}
+
+impl From<slint_interpreter::Value> for DebugHookOverride {
+    fn from(value: slint_interpreter::Value) -> Self {
+        Self { value, expression: None, fill: None }
+    }
+}
 
 /// Routes `instance`'s debug hooks through `overrides`, so that the editor can override a
 /// property of the previewed element without going through the source.
@@ -257,11 +269,13 @@ fn install_debug_hook_callback(instance: &ComponentInstance, overrides: DebugHoo
             tracing::trace!("Inserting Property override: {id}");
             Box::pin(i_slint_core::Property::new(None))
         });
-        property.as_ref().get()
+        property.as_ref().get().map(|override_value| override_value.value)
     })));
 }
 
 fn set_override(id: &SmolStr, value: Option<slint_interpreter::Value>) {
+    let value = value.map(DebugHookOverride::from);
+
     PREVIEW_STATE.with_borrow(|state| {
         let mut overrides = (*state.debug_hook_overrides).borrow_mut();
         if value.is_some() {
@@ -1642,7 +1656,7 @@ fn override_selected_element_rotation_impl(
             );
             return None;
         };
-        (**rotation_override).set(Some(slint_interpreter::Value::Number(new_rotation)));
+        (**rotation_override).set(Some(slint_interpreter::Value::Number(new_rotation).into()));
         Some(())
     })?;
 
@@ -1805,7 +1819,7 @@ fn override_selected_element_geometry_impl(
             })
             .collect::<Option<Vec<_>>>()?;
         for (property_override, value) in property_overrides {
-            (**property_override).set(Some(slint_interpreter::Value::Number(value)));
+            (**property_override).set(Some(slint_interpreter::Value::Number(value).into()));
         }
         Some(())
     })?;
@@ -1872,7 +1886,7 @@ fn set_selected_element_border_radius_override(
             );
             return;
         };
-        (**property_override).set(value);
+        (**property_override).set(value.map(DebugHookOverride::from));
     });
 
     component_instance.window().request_redraw();
@@ -1920,7 +1934,7 @@ fn persist_selected_element_border_radius() {
                     .get(&id)
                     .and_then(|property_override| property_override.as_ref().get())
                     .and_then(|value| {
-                        if let slint_interpreter::Value::Number(value) = value && value.is_finite() {
+                        if let slint_interpreter::Value::Number(value) = value.value && value.is_finite() {
                             Some((property, value))
                         } else {
                             tracing::debug!(
@@ -2011,7 +2025,7 @@ fn persist_selected_element_geometry_impl(
                     .get(&id)
                     .and_then(|property_override| property_override.as_ref().get())
                     .and_then(|value| {
-                        if let slint_interpreter::Value::Number(value) = value && value.is_finite() {
+                        if let slint_interpreter::Value::Number(value) = value.value && value.is_finite() {
                             Some((property, value))
                         } else {
                             tracing::debug!(
