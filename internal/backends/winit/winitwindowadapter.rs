@@ -402,7 +402,18 @@ impl WinitWindowOrNone {
         }
     }
 
+    fn window_type(&self) -> WindowType {
+        match self {
+            Self::HasWindow { window, .. } => window.window_type(),
+            Self::None(attributes) => attributes.borrow().window_type(),
+        }
+    }
+
     fn set_decorations(&self, decorations: bool) {
+        // winit-appkit applies a titled style mask even to popups.
+        if self.window_type() != WindowType::Window {
+            return;
+        }
         match self {
             Self::HasWindow { window, .. } => window.set_decorations(decorations),
             Self::None(attributes) => attributes.borrow_mut().decorations = decorations,
@@ -1332,6 +1343,9 @@ impl WinitWindowAdapter {
 
     pub fn window_state_event(&self) {
         let Some(winit_window) = self.winit_window_or_none.borrow().as_window() else { return };
+        if winit_window.window_type() != WindowType::Window {
+            return;
+        }
 
         if let Some(minimized) = winit_window.is_minimized() {
             self.minimized.set(minimized);
