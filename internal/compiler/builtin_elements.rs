@@ -2220,7 +2220,6 @@ fn build(l: &mut Loader) {
         /// There can be at most one `Menu` child, all other children must be of a different type and will be shown as regular visual children.
         /// Define the structure of the menu by placing `MenuItem` or `Menu` elements inside that `Menu`.
         ///
-        /// \footer
         /// ## Example
         ///
         /// ```slint

@@ -28,7 +28,7 @@ jobs:
         with:
           path: |
             target/x/release/android/material-gallery.apk
-          key: apk-build-${{ hashFiles('ui-libraries/material/examples/gallery/**', 'ui-libraries/material/src/**', 'ui-libraries/material/Cargo.toml') }}
+          key: apk-build-${{ hashFiles('ui-libraries/material/examples/gallery/**', 'ui-libraries/material/src/**', 'ui-libraries/material/Cargo.toml', 'internal/renderers/skia/Cargo.toml', '.github/workflows/material_gallery.yaml') }}
 
       - name: Cache aab build
         id: cache-aab
@@ -36,7 +36,7 @@ jobs:
         with:
           path: |
             target/x/release/android/material-gallery.aab
-          key: aab-build-${{ hashFiles('ui-libraries/material/examples/gallery/**', 'ui-libraries/material/src/**', 'ui-libraries/material/Cargo.toml') }}
+          key: aab-build-${{ hashFiles('ui-libraries/material/examples/gallery/**', 'ui-libraries/material/src/**', 'ui-libraries/material/Cargo.toml', 'internal/renderers/skia/Cargo.toml', '.github/workflows/material_gallery.yaml') }}
 
       # 2. Install Dependencies (Run only if artifacts are missing)
       - uses: ./.github/actions/install-linux-dependencies
@@ -53,9 +53,21 @@ jobs:
         run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
 
       # 3. Setup Environment (Run only if artifacts are missing)
-      - name: Add NDK LLVM to PATH
+      # xbuild otherwise downloads its own NDK sysroot from 2022, whose libc++
+      # lacks symbols that the prebuilt Skia binaries need.
+      # Without -z defs, an undefined symbol only fails when the app loads the library.
+      # xbuild replaces CARGO_TARGET_<triple>_RUSTFLAGS, and cargo joins a cfg target's flags with it.
+      - name: Set up the NDK for xbuild
         if: steps.cache-apk.outputs.cache-hit != 'true' || steps.cache-aab.outputs.cache-hit != 'true'
-        run: echo "${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_PATH
+        run: |
+          toolchain=${ANDROID_NDK_LATEST_HOME}/toolchains/llvm/prebuilt/linux-x86_64
+          echo "$toolchain/bin" >> $GITHUB_PATH
+          mkdir -p ~/.cache/x ~/.cargo
+          ln -sfn "$toolchain/sysroot" ~/.cache/x/Android.ndk
+          cat >> ~/.cargo/config.toml <<'EOF'
+          [target.'cfg(target_os = "android")']
+          rustflags = ["-C", "link-arg=-Wl,-z,defs"]
+          EOF
 
       # 4. Tool Caching & Installation
       - name: Cache xbuild

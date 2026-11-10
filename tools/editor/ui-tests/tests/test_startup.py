@@ -198,6 +198,7 @@ def test_explicit_project_root_keeps_the_selected_source(
     (include / "shared.slint").write_text("export component Shared { }")
     source_directory = fixture_project / "ui"
     source_directory.mkdir()
+    (source_directory / "slint-project.json").write_text("{")
     main = source_directory / "Main.slint"
     main.write_text(
         'import { Shared } from "shared.slint";\n'
@@ -263,6 +264,11 @@ def test_broken_project_recovers_when_repaired_on_disk(
         diagnostics = element(
             window, "Preview unavailable", role=slint_testing.AccessibleRole.Region
         )
+        element(
+            diagnostics,
+            "Toggle advanced error details",
+            role=slint_testing.AccessibleRole.Button,
+        ).invoke_accessible_default_action()
         wait_until(
             lambda: (
                 any(

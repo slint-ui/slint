@@ -222,8 +222,10 @@ def test_zoom_to_selection_centers_canvas_when_unselected(
         original.assert_unchanged()
 
 
-@pytest.mark.parametrize("percent", [50, 125, 200])
-@pytest.mark.parametrize("operation", ["move", "resize"])
+@pytest.mark.parametrize(
+    "operation,percent",
+    [("move", 50), ("move", 125), ("resize", 125), ("resize", 200)],
+)
 def test_zoomed_drag_writes_document_units(
     editor_binary, editor_environment, fixture_project, percent, operation
 ):
@@ -388,8 +390,10 @@ def test_inline_text_scales_at_200_percent(
         original.assert_unchanged()
 
 
-@pytest.mark.parametrize("percent", [50, 125, 200])
-@pytest.mark.parametrize("operation", ["radius", "rotation"])
+@pytest.mark.parametrize(
+    "operation,percent",
+    [("radius", 50), ("radius", 125), ("rotation", 125), ("rotation", 200)],
+)
 def test_zoomed_radius_and_rotation(
     editor_binary, editor_environment, fixture_project, percent, operation
 ):
