@@ -130,12 +130,24 @@ const tools = [
         title: "Get Slint Preview Screenshot",
         icons,
         description:
-            "Get a PNG screenshot of the latest preview_slint preview at its full size, with the Slint version it ran on. " +
-            "Waits until the preview has rendered, or returns pending with its current stage. " +
+            "Capture the current state of the latest preview_slint preview as a PNG, with the Slint version it ran on. " +
+            "Waits for the first render if the preview is still starting, or returns pending with its current stage. " +
             "If pending, call again to keep waiting for the same preview. Stop retrying on timeout. " +
             "Check it before you judge how the UI looks.",
         inputSchema: { type: "object", properties: {} },
         annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+    },
+    {
+        name: "poll_preview_capture",
+        title: "Check for a Slint Preview Capture Request",
+        description: "Check whether this open preview should capture a fresh screenshot.",
+        annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+        inputSchema: {
+            type: "object",
+            properties: { previewId: { type: "string" } },
+            required: ["previewId"],
+        },
+        _meta: { ui: { visibility: ["app"] } },
     },
     {
         name: "publish_preview_capture",
@@ -147,10 +159,10 @@ const tools = [
             type: "object",
             properties: {
                 previewId: { type: "string" },
-                started: { type: "boolean" },
+                captureId: { type: "string" },
                 stage: {
                     type: "string",
-                    enum: ["reading", "loading", "compiling", "rendering", "capturing"],
+                    enum: ["started", "reading", "loading", "compiling", "rendering", "ready"],
                 },
                 png: { type: "string" },
                 width: { type: "integer" },
@@ -164,8 +176,6 @@ const tools = [
     },
 ];
 
-// The latest preview_slint call, whether its view has started, its capture once the view
-// publishes it, and the get_preview_screenshot calls waiting for any of these to change.
 let latestPreview = null;
 function notify(preview) {
     for (const listener of preview.listeners.splice(0)) listener();
@@ -226,10 +236,10 @@ const toolCalls = {
         latestPreview = {
             id: randomUUID(),
             requestedAt: Date.now(),
-            viewStarted: false,
             stage: "waiting",
             timings: {},
-            capture: null,
+            failure: null,
+            captureRequest: null,
             listeners: [],
         };
         if (previous) notify(previous);
@@ -254,33 +264,42 @@ const toolCalls = {
             return textResult("Call preview_slint first.", true);
         }
         const viewDeadline = preview.requestedAt + VIEW_START_TIMEOUT_MS;
-        const captureDeadline = Date.now() + SCREENSHOT_TIMEOUT_MS;
         const overallDeadline = preview.requestedAt + PREVIEW_TIMEOUT_MS;
-        while (!preview.capture && preview === latestPreview) {
+        if (!preview.captureRequest || Date.now() >= preview.captureRequest.deadline) {
+            preview.captureRequest = {
+                id: randomUUID(),
+                deadline: Date.now() + SCREENSHOT_TIMEOUT_MS,
+            };
+        }
+        const request = preview.captureRequest;
+        while (!request.capture && !preview.failure && preview === latestPreview) {
             const deadline = Math.min(
-                overallDeadline,
-                captureDeadline,
-                preview.viewStarted ? Infinity : viewDeadline,
+                request.deadline,
+                preview.stage === "ready" ? Infinity : overallDeadline,
+                preview.stage === "waiting" ? viewDeadline : Infinity,
             );
             const remaining = deadline - Date.now();
             if (remaining <= 0) break;
             await nextChange(preview, remaining);
         }
-        const { id, capture } = preview;
+        if (preview.captureRequest === request) preview.captureRequest = null;
+        const capture = preview.failure ?? request.capture;
+        const { id } = preview;
         if (preview !== latestPreview) {
             return textResult(
                 `A newer preview_slint call replaced preview ${id}. Call get_preview_screenshot again.`,
             );
         }
-        if (!capture && !preview.viewStarted) {
+        if (preview.stage === "waiting") {
             return textResult("The preview view did not start. Use slint-viewer --screenshot instead.", true);
         }
+        const ready = preview.stage === "ready";
         const structuredContent = {
             status: capture
                 ? (capture.error ? "error" : "ready")
-                : (Date.now() >= overallDeadline ? "timeout" : "pending"),
+                : (ready || Date.now() >= overallDeadline ? "timeout" : "pending"),
             previewId: id,
-            stage: preview.stage,
+            stage: ready && !capture ? "capturing" : capture?.error ? "error" : preview.stage,
             elapsedMs: Date.now() - preview.requestedAt,
             timings: preview.timings,
         };
@@ -288,8 +307,9 @@ const toolCalls = {
             return {
                 ...textResult(
                     structuredContent.status === "timeout"
-                        ? `Preview ${id} reached the overall ${PREVIEW_TIMEOUT_MS / 1000}-second limit (${preview.stage}). Stop retrying automatically.`
+                        ? `Preview ${id} timed out (${structuredContent.stage}). Stop retrying automatically.`
                         : `Preview ${id} is pending (${preview.stage}). Call get_preview_screenshot again to keep waiting for this preview.`,
+                    ready,
                 ),
                 structuredContent,
             };
@@ -312,6 +332,21 @@ const toolCalls = {
             ],
         };
     },
+    // The card polls for requests because the server cannot call an open card directly.
+    // https://apps.extensions.modelcontextprotocol.io/api/documents/patterns.html#polling-for-live-data
+    poll_preview_capture: (args) => {
+        const preview = latestPreview;
+        const active =
+            preview !== null && args.previewId === preview.id && !preview.failure;
+        const request = active ? preview.captureRequest : null;
+        return {
+            content: [],
+            structuredContent: {
+                active,
+                ...(request && Date.now() < request.deadline && { captureId: request.id }),
+            },
+        };
+    },
     publish_preview_capture: (args) => {
         if (typeof args.previewId !== "string") {
             throw rpcError(-32602, "'previewId' must be a string");
@@ -320,26 +355,25 @@ const toolCalls = {
         if (args.previewId !== preview?.id) {
             return textResult("This belongs to an older preview.");
         }
-        if (preview.capture?.error) {
+        if (preview.failure) {
             return textResult("This preview has already failed.");
         }
-        preview.viewStarted = true;
-        preview.stage = args.stage ?? "started";
-        if (!args.started && !args.stage) {
-            const runtime =
-                typeof args.runtime === "string" ? args.runtime : undefined;
-            preview.capture =
-                typeof args.png === "string"
-                    ? {
-                          png: args.png,
-                          width: args.width,
-                          height: args.height,
-                          runtime,
-                      }
-                    : { error: String(args.error ?? "unknown error"), runtime };
-            preview.stage = preview.capture.error ? "error" : "ready";
+        const { captureId, stage, png, width, height, error } = args;
+        const runtime = typeof args.runtime === "string" ? args.runtime : undefined;
+        if (captureId !== undefined) {
+            const request = preview.captureRequest;
+            if (!request || captureId !== request.id || Date.now() >= request.deadline) {
+                return textResult("This capture request is no longer active.");
+            }
+            request.capture = typeof png === "string" && error === undefined
+                ? { png, width, height, runtime }
+                : { error: String(error ?? "unknown error"), runtime };
+            preview.captureRequest = null;
+        } else {
+            if (error !== undefined) preview.failure = { error: String(error), runtime };
+            preview.stage = preview.failure ? "error" : stage ?? preview.stage;
+            preview.timings[preview.stage] ??= Date.now() - preview.requestedAt;
         }
-        preview.timings[preview.stage] ??= Date.now() - preview.requestedAt;
         notify(preview);
         return textResult("Received.");
     },

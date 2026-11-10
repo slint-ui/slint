@@ -522,6 +522,7 @@
   function handlePanic(message) {
     if (!interpreter) return;
     const { previewId, runtime } = interpreter;
+    activePreviewId = null;
     setAnnotationMode(false);
     tools.hidden = true;
     interpreter.panic(new Panic(message));
@@ -736,10 +737,11 @@
 
   const MAX_CAPTURE_SIZE = 1500;
   const SETTLE_MS = 500;
+  const CAPTURE_POLL_INTERVAL_MS = 500;
   const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  let activePreviewId = null;
 
   function failureText() {
-    if (!crashEl.hidden) return `The Slint interpreter crashed.\n${crashDetailsEl.textContent}`;
     if (statusEl.className === "error") return statusEl.textContent;
     if (!canvas.hidden) return null;
     return [...diagnosticsEl.children].map((li) => li.textContent).join("\n") || "Nothing was rendered.";
@@ -757,20 +759,41 @@
     return { png: image.toDataURL("image/png").split(",")[1], width: image.width, height: image.height };
   }
 
-  async function publishCapture(previewId) {
-    publish({ previewId: await previewId, stage: "capturing" }).catch(() => {});
+  async function startCapturePolling(previewId) {
+    if (activePreviewId !== previewId) return;
     const error = failureText();
-    if (!error) {
-      await Promise.race([new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))), delay(1000)]);
-      await delay(SETTLE_MS);
-      // Slint requests images when it draws, and draws them again once they load.
-      while (pendingImages.size) {
-        await Promise.allSettled([...pendingImages]);
-        await delay(SETTLE_MS);
-      }
+    if (error) {
+      await publish({ previewId, runtime: interpreter?.runtime, error });
+      return;
     }
-    const capture = error ? { error } : captureCanvas();
-    return publish({ previewId: await previewId, runtime: interpreter?.runtime, ...capture });
+    await Promise.race([new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))), delay(1000)]);
+    await delay(SETTLE_MS);
+    // Slint requests images when it draws, and draws them again once they load.
+    while (activePreviewId === previewId && pendingImages.size) {
+      await Promise.allSettled([...pendingImages]);
+      await delay(SETTLE_MS);
+    }
+    if (activePreviewId !== previewId) return;
+    await publish({ previewId, stage: "ready" });
+    pollCaptureRequests(previewId).catch(() => {});
+  }
+
+  async function pollCaptureRequests(previewId) {
+    while (activePreviewId === previewId) {
+      const result = await request("tools/call", { name: "poll_preview_capture", arguments: { previewId } });
+      if (activePreviewId !== previewId || !result?.structuredContent?.active) return;
+      const { captureId } = result.structuredContent;
+      if (captureId) {
+        let capture;
+        try {
+          capture = captureCanvas();
+        } catch (error) {
+          capture = { error: `Couldn't capture the preview: ${error.message ?? error}` };
+        }
+        await publish({ previewId, captureId, runtime: interpreter?.runtime, ...capture });
+      }
+      await delay(CAPTURE_POLL_INTERVAL_MS);
+    }
   }
 
   function reportToModel(text) {
@@ -791,8 +814,9 @@
       case "ui/notifications/tool-input": {
         const args = message.params?.arguments ?? {};
         const startPreview = (previewId) => previewId.then(async (id) => {
+          activePreviewId = id;
           crashEl.hidden = true;
-          await publish({ previewId: id, started: true });
+          await publish({ previewId: id, stage: "started" });
           await render(args, id);
         })
           .catch((e) => {
@@ -803,7 +827,7 @@
             }
             showStatus(`The preview failed: ${e.message ?? e}. Reload to try again.`, "error");
           })
-          .then(() => publishCapture(previewId))
+          .then(async () => startCapturePolling(await previewId))
           .catch(async (e) => {
             const error = `Couldn't capture the preview: ${e.message ?? e}`;
             showStatus(error, "error");
@@ -833,6 +857,7 @@
         applyTheme(message.params);
         break;
       case "ui/resource-teardown":
+        activePreviewId = null;
         post({ id: message.id, result: {} });
         break;
       default:
