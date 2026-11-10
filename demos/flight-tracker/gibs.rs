@@ -3,20 +3,20 @@
 
 // cSpell: ignore VIIRS
 
-//! The map tiles of NASA's GIBS that the demo shows, for `tiles.rs`, and for `build.rs`, which
-//! can embed them.
+//! The map tiles of NASA's GIBS that the demo shows, for `tiles.rs`, and for `build.rs`,
+//! which can embed them.
 
 /// The zoom levels that the demo shows.
 pub const LEVELS: usize = 3;
-/// The first, coarsest of them. Its 0.035 degrees per pixel are 2.5 times as fine as the
-/// globe's own imagery.
+/// The first, coarsest of them.
+/// Its 0.035 degrees per pixel are 2.5 times as fine as the globe's own imagery.
 pub const FIRST_ZOOM: u32 = 4;
 
 const GIBS: &str = "https://gibs.earthdata.nasa.gov/wmts/epsg4326/best";
 /// What the demo calls itself when it fetches tiles.
 pub const USER_AGENT: &str = "slint-flight-tracker-demo";
-/// The qualifier, organization, and application that name the demo's cache directory, whose
-/// folder `tiles` keeps the tiles that were fetched.
+/// The qualifier, organization, and application that name the demo's cache directory,
+/// whose folder `tiles` keeps the tiles that were fetched.
 pub const CACHE: [&str; 3] = ["dev", "slint", "flight-tracker"];
 
 /// The columns of tiles that cover the world at `zoom`.
@@ -38,8 +38,8 @@ pub enum Kind {
 }
 
 impl Kind {
-    /// The address of a tile at GIBS, which has the globe's own imagery as tiles: the Blue
-    /// Marble with relief and bathymetry, and the lights of the Black Marble.
+    /// The address of a tile at GIBS, which has the globe's own imagery as tiles:
+    /// the Blue Marble with relief and bathymetry, and the lights of the Black Marble.
     pub fn url(self, zoom: u32, row: u32, column: u32) -> String {
         match self {
             Kind::Day => format!(

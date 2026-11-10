@@ -3,11 +3,12 @@
 
 // cSpell: ignore texel texels
 
-//! Encoders for the GPU's block-compressed texture formats, BC1 for desktop GPUs and ETC2 for
-//! mobile and embedded ones. Both store a block of 4 by 4 texels in 8 bytes.
+//! Encoders for the GPU's block-compressed texture formats,
+//! BC1 for desktop GPUs and ETC2 for mobile and embedded ones.
+//! Both store a block of 4 by 4 texels in 8 bytes.
 
-/// The 16 texels of the block at `bx`, `by` of an RGBA image, repeating the last row or column
-/// where the image ends inside the block.
+/// The 16 texels of the block at `bx`, `by` of an RGBA image,
+/// repeating the last row or column where the image ends inside the block.
 fn block(rgba: &[u8], width: usize, height: usize, bx: usize, by: usize) -> [[f32; 3]; 16] {
     let mut texels = [[0.0; 3]; 16];
     for y in 0..4 {
@@ -43,8 +44,9 @@ fn encode_blocks(
     out
 }
 
-/// BC1: two RGB565 end colors per block, and 2 bits per texel that pick one of them or one of
-/// the two colors a third and two thirds of the way between.
+/// BC1: two RGB565 end colors per block,
+/// and 2 bits per texel that pick one of them or one of the two colors a third and two thirds of
+/// the way between.
 pub fn bc1(rgba: &[u8], width: usize, height: usize) -> Vec<u8> {
     encode_blocks(rgba, width, height, bc1_block)
 }
@@ -122,8 +124,8 @@ fn bc1_block(texels: &[[f32; 3]; 16]) -> [u8; 8] {
     out
 }
 
-/// ETC2 RGB, using its ETC1 modes: each half of a block has a base color, and each texel adds
-/// one of four brightness steps from one of eight tables to it.
+/// ETC2 RGB, using its ETC1 modes: each half of a block has a base color,
+/// and each texel adds one of four brightness steps from one of eight tables to it.
 pub fn etc2(rgba: &[u8], width: usize, height: usize) -> Vec<u8> {
     encode_blocks(rgba, width, height, etc2_block)
 }
@@ -137,8 +139,8 @@ fn etc_steps(table: usize) -> [i32; 4] {
     [small, large, -small, -large]
 }
 
-/// The texels of each half of a block: the left and right halves, or with `flip`, the top and
-/// bottom ones.
+/// The texels of each half of a block: the left and right halves, or with `flip`,
+/// the top and bottom ones.
 fn etc_halves(flip: bool) -> [[usize; 8]; 2] {
     std::array::from_fn(|half| {
         std::array::from_fn(|k| {
@@ -149,8 +151,8 @@ fn etc_halves(flip: bool) -> [[usize; 8]; 2] {
 }
 
 /// The best table for the texels of one half around `base`, its error, and each texel's step.
-/// Each texel takes the step closest to how much brighter it is than the base, which is the
-/// best one unless the step clamps a channel.
+/// Each texel takes the step closest to how much brighter it is than the base,
+/// which is the best one unless the step clamps a channel.
 fn etc_fit(texels: &[[f32; 3]; 16], half: &[usize; 8], base: [i32; 3]) -> (usize, f32, [u8; 8]) {
     let base_f = base.map(|c| c as f32);
     let offsets: [f32; 8] =

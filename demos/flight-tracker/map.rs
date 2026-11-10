@@ -3,12 +3,13 @@
 
 // cSpell: ignore equirectangular texel
 
-//! The map of the earth that the globe shader samples, rasterized at startup from the
-//! Natural Earth outlines in `data/`.
+//! The map of the earth that the globe shader samples,
+//! rasterized at startup from the Natural Earth outlines in `data/`.
 //!
-//! The map is equirectangular: x runs from 180° west to 180° east, and y from the north pole to
-//! the south pole. It holds the signed distance to the coast, 0.5 on the coast and more on
-//! land, so that the shader draws sharp coasts however far it magnifies the map.
+//! The map is equirectangular: x runs from 180° west to 180° east,
+//! and y from the north pole to the south pole.
+//! It holds the signed distance to the coast, 0.5 on the coast and more on land,
+//! so that the shader draws sharp coasts however far it magnifies the map.
 
 use crate::camera::surface;
 use crate::renderer::Imagery;
@@ -75,9 +76,10 @@ fn inside(polygons: impl Iterator<Item = Vec<Point>>) -> Vec<bool> {
     inside
 }
 
-/// The distance in texels from the center of each texel to the nearest of the `lines`, up to
-/// `SPREAD`. Natural Earth cuts polygons along the date line and the south pole; those edges
-/// aren't coasts, so they don't count.
+/// The distance in texels from the center of each texel to the nearest of the `lines`,
+/// up to `SPREAD`.
+/// Natural Earth cuts polygons along the date line and the south pole; those edges aren't coasts,
+/// so they don't count.
 fn distances(lines: impl Iterator<Item = Vec<Point>>) -> Vec<f32> {
     let mut distance = vec![SPREAD; (WIDTH * HEIGHT) as usize];
     let reach = SPREAD + 1.0;

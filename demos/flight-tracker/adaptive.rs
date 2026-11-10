@@ -1,15 +1,16 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-//! Keeps the frame rate near `TARGET_FPS` by changing the scene's render scale, and the
-//! quality while the player hasn't picked one.
+//! Keeps the frame rate near `TARGET_FPS` by changing the scene's render scale,
+//! and the quality while the player hasn't picked one.
 //!
-//! Without GPU timers the frame rate is the only measure, and vsync caps it, so it shows
-//! when frames take too long but not how much time is left. The scale drops once frames are
-//! missed for `SLOW_WINDOWS` windows in a row, and rises one step at a time after the frame
-//! rate held the target for `SETTLE`. A step that was too slow isn't tried again for `RETRY`.
-//! The quality only drops, after the scale reached `MIN_LEVEL` or while the player picked
-//! one, since a change in quality changes the look and stalls a frame.
+//! Without GPU timers the frame rate is the only measure, and vsync caps it,
+//! so it shows when frames take too long but not how much time is left.
+//! The scale drops once frames are missed for `SLOW_WINDOWS` windows in a row,
+//! and rises one step at a time after the frame rate held the target for `SETTLE`.
+//! A step that was too slow isn't tried again for `RETRY`.
+//! The quality only drops, after the scale reached `MIN_LEVEL` or while the player picked one,
+//! since a change in quality changes the look and stalls a frame.
 
 use std::time::Duration;
 use web_time::Instant;
@@ -25,11 +26,11 @@ const WINDOW: Duration = Duration::from_millis(500);
 const SLOW_WINDOWS: u32 = 2;
 const SETTLE: Duration = Duration::from_secs(2);
 const RETRY: Duration = Duration::from_secs(20);
-/// Frames that take longer are hitches, such as building a new track, and don't count
-/// unless most frames take as long.
+/// Frames that take longer are hitches, such as building a new track,
+/// and don't count unless most frames take as long.
 const HITCH: Duration = Duration::from_millis(100);
-/// How long after a start or a change in quality windows of hitches don't count, while the
-/// GPU sets up the shaders and textures.
+/// How long after a start or a change in quality windows of hitches don't count,
+/// while the GPU sets up the shaders and textures.
 const WARM_UP: Duration = Duration::from_secs(5);
 /// The scale is `level / MAX_LEVEL`.
 const MAX_LEVEL: u32 = 20;
@@ -93,7 +94,8 @@ impl Adaptive {
         self.level as f32 / MAX_LEVEL as f32
     }
 
-    /// Counts a frame. Returns a lower quality to switch to, when `auto_quality` allows one.
+    /// Counts a frame.
+    /// Returns a lower quality to switch to, when `auto_quality` allows one.
     pub fn frame(
         &mut self,
         quality: Quality,

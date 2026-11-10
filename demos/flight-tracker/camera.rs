@@ -10,8 +10,8 @@ use std::f32::consts::PI;
 use glam::{Mat4, Quat, Vec2, Vec3};
 
 pub const FOV_Y: f32 = 30.0 * PI / 180.0;
-/// The closest the camera gets to the ground, where the imagery, 4096 texels wide, still looks
-/// sharp.
+/// The closest the camera gets to the ground, where the imagery, 4096 texels wide,
+/// still looks sharp.
 pub const MIN_RANGE: f32 = 0.27;
 const MAX_RANGE: f32 = 6.0;
 
@@ -162,11 +162,12 @@ impl Camera {
         };
     }
 
-    /// Moves the ground under the camera by `delta` logical pixels, for a view `height`
-    /// logical pixels high.
+    /// Moves the ground under the camera by `delta` logical pixels,
+    /// for a view `height` logical pixels high.
     ///
-    /// The camera turns around the globe's center as a whole, so the screen's up direction stays
-    /// where it was even across a pole, where north flips around.
+    /// The camera turns around the globe's center as a whole,
+    /// so the screen's up direction stays where it was even across a pole,
+    /// where north flips around.
     fn pan(&mut self, delta: Vec2, height: f32) {
         let focal = height / 2.0 / (FOV_Y / 2.0).tan();
         let (forward, right) = self.pose.ground_axes();

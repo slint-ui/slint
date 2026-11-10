@@ -4,8 +4,8 @@
 // cSpell: ignore equirectangular Perlin xorshift
 
 //! Clouds for the globe, generated from noise at startup and shaped like the earth's weather:
-//! a belt along the equator, clear subtropics, and storm tracks in the mid-latitudes, stretched
-//! from west to east like the jet streams pull them.
+//! a belt along the equator, clear subtropics, and storm tracks in the mid-latitudes,
+//! stretched from west to east like the jet streams pull them.
 
 use std::f32::consts::PI;
 
@@ -59,8 +59,8 @@ fn cover(noise: &Noise, lon: f32, lat: f32) -> f32 {
     cover * texture
 }
 
-/// Ken Perlin's improved gradient noise, in three dimensions so that it wraps around the globe
-/// without a seam.
+/// Ken Perlin's improved gradient noise,
+/// in three dimensions so that it wraps around the globe without a seam.
 struct Noise {
     permutation: [u8; 512],
 }
