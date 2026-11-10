@@ -1351,10 +1351,11 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         let windows = match &mut detail {
             Some(detail) => {
                 let target = demo.camera.pose.target;
-                // The intro and the night side show next to nothing of the imagery.
-                let lit = !app.get_sunlight() || target.dot(sun) > -0.1;
-                let fetching = demo.stage != Stage::Intro && lit;
-                detail.update(renderer, target, footprint, app.get_online_imagery(), fetching, dt)
+                // The intro shows next to nothing of the imagery, and the day side no lights.
+                let fetching = demo.stage != Stage::Intro;
+                let dark = app.get_sunlight() && target.dot(sun) < 0.15;
+                let kinds = (fetching, fetching && dark);
+                detail.update(renderer, target, footprint, app.get_online_imagery(), kinds, dt)
             }
             None => Default::default(),
         };

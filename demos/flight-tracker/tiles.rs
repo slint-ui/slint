@@ -1,11 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+// cSpell: ignore VIIRS
+
 //! Sharper imagery where the camera looks, from map tiles.
 //!
 //! The globe's imagery is 4096 pixels wide, which is blurry from close up. Around the point
 //! the camera looks at, `LEVELS` detail windows replace it, each at twice the resolution of
-//! the one before, and each `WINDOW_TILES` tiles wide and high. The tiles are those of NASA's
+//! the one before, and each `WINDOW_TILES` tiles wide and high. The lights of the night side
+//! have such windows of their own. The tiles are those of NASA's
 //! GIBS, in the same projection as the globe's textures: at zoom level `z`, a pixel is
 //! `0.5625 / 2^z` degrees.
 //!
@@ -26,6 +29,8 @@ use slint::wgpu_30::wgpu;
 use crate::renderer::{Imagery, Renderer};
 
 pub const LEVELS: usize = 3;
+/// The windows of the day's imagery, then those of the night's lights.
+pub const WINDOWS: usize = LEVELS * 2;
 /// The zoom level of the first, coarsest window. Its 0.035 degrees per pixel are 2.5 times as
 /// fine as the globe's own imagery.
 const FIRST_ZOOM: u32 = 4;
@@ -46,9 +51,42 @@ const RETRY_AFTER: Duration = Duration::from_secs(20);
 /// After this many failures without a single tile, the source counts as unreachable for good,
 /// as on a web page that may not fetch from other sites.
 const GIVE_UP_AFTER: u32 = 6;
-/// NASA's Blue Marble with relief and bathymetry, the imagery of the globe itself, as tiles.
 #[cfg(any(target_arch = "wasm32", feature = "online-imagery"))]
-const GIBS: &str = "https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/BlueMarble_ShadedRelief_Bathymetry/default/2004-08-01/500m";
+const GIBS: &str = "https://gibs.earthdata.nasa.gov/wmts/epsg4326/best";
+
+/// The imagery that a window shows.
+#[derive(Clone, Copy, PartialEq)]
+pub enum Kind {
+    Day,
+    Night,
+}
+
+impl Kind {
+    /// The address of a tile at GIBS, which has the globe's own imagery as tiles: the Blue
+    /// Marble with relief and bathymetry, and the lights of the Black Marble.
+    #[cfg(any(target_arch = "wasm32", feature = "online-imagery"))]
+    fn url(self, zoom: u32, row: u32, column: u32) -> String {
+        match self {
+            Kind::Day => format!(
+                "{GIBS}/BlueMarble_ShadedRelief_Bathymetry/default/2004-08-01/500m/{zoom}/{row}/{column}.jpeg"
+            ),
+            Kind::Night => {
+                format!(
+                    "{GIBS}/VIIRS_Night_Lights/default/2016-01-01/500m/{zoom}/{row}/{column}.png"
+                )
+            }
+        }
+    }
+
+    /// The path of a tile in a directory of tiles.
+    #[cfg(not(target_arch = "wasm32"))]
+    fn path(self, zoom: u32, row: u32, column: u32) -> String {
+        match self {
+            Kind::Day => format!("{zoom}/{row}/{column}.jpg"),
+            Kind::Night => format!("night/{zoom}/{row}/{column}.png"),
+        }
+    }
+}
 
 /// Where the tiles come from.
 #[derive(Clone)]
@@ -60,7 +98,7 @@ pub enum Source {
         #[cfg(not(target_arch = "wasm32"))]
         cache: Option<std::path::PathBuf>,
     },
-    /// A directory of tiles, as `<zoom>/<row>/<column>.jpg`, for use without a network.
+    /// A directory of tiles, as `Kind::path()` names them, for use without a network.
     #[cfg(not(target_arch = "wasm32"))]
     Directory(std::path::PathBuf),
 }
@@ -78,8 +116,8 @@ enum Fetched<T> {
 #[cfg(not(target_arch = "wasm32"))]
 impl Source {
     /// The file of a tile. This may take a while.
-    fn fetch(&self, zoom: u32, row: u32, column: u32) -> Fetched<Vec<u8>> {
-        let path = format!("{zoom}/{row}/{column}.jpg");
+    fn fetch(&self, kind: Kind, zoom: u32, row: u32, column: u32) -> Fetched<Vec<u8>> {
+        let path = kind.path(zoom, row, column);
         match self {
             Source::Directory(directory) => match std::fs::read(directory.join(path)) {
                 Ok(file) => Fetched::Tile(file),
@@ -91,7 +129,7 @@ impl Source {
                 if let Some(file) = cached.as_ref().and_then(|path| std::fs::read(path).ok()) {
                     return Fetched::Tile(file);
                 }
-                let fetched = download(&format!("{GIBS}/{zoom}/{row}/{column}.jpeg"));
+                let fetched = download(&kind.url(zoom, row, column));
                 if let (Fetched::Tile(file), Some(path)) = (&fetched, cached) {
                     // Renamed into place, so that a tile cut short isn't taken for a whole one.
                     let part = path.with_extension("part");
@@ -172,6 +210,7 @@ struct Slot {
 }
 
 struct Window {
+    kind: Kind,
     zoom: u32,
     columns: u32,
     rows: u32,
@@ -181,12 +220,13 @@ struct Window {
 }
 
 impl Window {
-    fn new(zoom: u32) -> Self {
+    fn new(kind: Kind, zoom: u32) -> Self {
         // GIBS covers the world with 2.5 by 1.25 tiles at zoom 0, rounded up, and at zoom 3
         // and beyond with a whole number of them.
         let columns = 10 << (zoom - 3);
         let empty = Slot { tile: (u32::MAX, u32::MAX), state: State::Wanted, shown: 0.0 };
         Self {
+            kind,
             zoom,
             columns,
             rows: columns / 2,
@@ -272,7 +312,7 @@ impl Job {
 
 /// The detail windows and the tiles on their way into them.
 pub struct Detail {
-    windows: [Window; LEVELS],
+    windows: [Window; WINDOWS],
     source: Option<Source>,
     features: wgpu::Features,
     sender: Sender<Arrived>,
@@ -296,7 +336,10 @@ impl Detail {
     pub fn new(source: Option<Source>, features: wgpu::Features) -> Self {
         let (sender, receiver) = channel();
         Self {
-            windows: std::array::from_fn(|index| Window::new(FIRST_ZOOM + index as u32)),
+            windows: std::array::from_fn(|index| {
+                let kind = if index < LEVELS { Kind::Day } else { Kind::Night };
+                Window::new(kind, FIRST_ZOOM + (index % LEVELS) as u32)
+            }),
             source,
             features,
             sender,
@@ -324,7 +367,8 @@ impl Detail {
 
     /// Follows the camera, which looks at `target` on the globe, where a pixel of the frame
     /// covers `footprint` degrees. Puts the tiles that arrived onto the GPU. While `enabled`,
-    /// the windows show, and while `fetching` too, the tiles that are missing are asked for.
+    /// the windows show, and the tiles that are missing are asked for, those of the day's
+    /// imagery while `day` and those of the night's lights while `night`.
     ///
     /// Returns what the shader needs for each window: where the camera looks, in tiles, the
     /// number of the map's columns and rows, which is 0 without tiles, and how far the tile of
@@ -335,10 +379,10 @@ impl Detail {
         target: Vec3,
         footprint: f32,
         enabled: bool,
-        fetching: bool,
+        (day, night): (bool, bool),
         dt: f32,
-    ) -> [[f32; WINDOW_FLOATS]; LEVELS] {
-        let mut floats = [[0.0; WINDOW_FLOATS]; LEVELS];
+    ) -> [[f32; WINDOW_FLOATS]; WINDOWS] {
+        let mut floats = [[0.0; WINDOW_FLOATS]; WINDOWS];
 
         while let Ok(arrived) = self.receiver.try_recv() {
             match arrived.tile_data {
@@ -379,8 +423,10 @@ impl Detail {
         for (index, window) in self.windows.iter_mut().enumerate() {
             window.move_to(position * Vec2::new(window.columns as f32, window.rows as f32));
             // A window is needed once the next coarser imagery is blurry at this zoom.
-            let coarser = if index == 0 { BASE_RESOLUTION } else { window.resolution() * 2.0 };
-            let needed = footprint < coarser * 1.15;
+            let coarser =
+                if window.zoom == FIRST_ZOOM { BASE_RESOLUTION } else { window.resolution() * 2.0 };
+            let fetching = if window.kind == Kind::Day { day } else { night };
+            let needed = fetching && footprint < coarser * 1.15;
             for slot in &mut window.slots {
                 if slot.state == State::Loaded {
                     slot.shown = (slot.shown + dt / FADE_SECONDS).min(1.0);
@@ -401,7 +447,7 @@ impl Detail {
             }
         }
 
-        if !fetching || self.paused_until.is_some_and(|until| web_time::Instant::now() < until) {
+        if self.paused_until.is_some_and(|until| web_time::Instant::now() < until) {
             return floats;
         }
         self.paused_until = None;
@@ -412,9 +458,9 @@ impl Detail {
             }
             let window = &mut self.windows[index];
             window.slots[Window::slot(tile.0, tile.1)].state = State::Loading;
-            let zoom = window.zoom;
+            let (kind, zoom) = (window.kind, window.zoom);
             self.loading += 1;
-            self.load(source.clone(), index, zoom, tile);
+            self.load(source.clone(), index, kind, zoom, tile);
         }
         floats
     }
@@ -443,10 +489,10 @@ impl Detail {
 
     /// Fetches, decodes, and compresses a tile on a thread of its own.
     #[cfg(not(target_arch = "wasm32"))]
-    fn load(&self, source: Source, window: usize, zoom: u32, tile: (u32, u32)) {
+    fn load(&self, source: Source, window: usize, kind: Kind, zoom: u32, tile: (u32, u32)) {
         let (sender, features) = (self.sender.clone(), self.features);
         std::thread::spawn(move || {
-            let tile_data = match source.fetch(zoom, tile.1, tile.0) {
+            let tile_data = match source.fetch(kind, zoom, tile.1, tile.0) {
                 Fetched::Tile(file) => match rgba_mips(&file) {
                     Some(levels) => Fetched::Tile(
                         levels
@@ -474,9 +520,9 @@ impl Detail {
 
     /// Fetches a tile. Its file arrives in a later frame.
     #[cfg(target_arch = "wasm32")]
-    fn load(&self, _: Source, window: usize, zoom: u32, tile: (u32, u32)) {
+    fn load(&self, _: Source, window: usize, kind: Kind, zoom: u32, tile: (u32, u32)) {
         let sender = self.sender.clone();
-        let url = format!("{GIBS}/{zoom}/{}/{}.jpeg", tile.1, tile.0);
+        let url = kind.url(zoom, tile.1, tile.0);
         wasm_bindgen_futures::spawn_local(async move {
             let tile_data = download(url).await;
             let _ = sender.send(Arrived { window, tile, tile_data });
