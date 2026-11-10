@@ -81,6 +81,15 @@ impl SourcePath {
         self.as_native_path().is_some_and(Path::exists)
     }
 
+    /// Whether `self` is a file on the disk, or the error that prevents checking it.
+    /// A `Url` or a `Builtin` isn't on the disk, and neither is anything on wasm.
+    pub fn try_exists(&self) -> std::io::Result<bool> {
+        match self.as_native_path() {
+            Some(path) if !cfg!(target_arch = "wasm32") => path.try_exists(),
+            _ => Ok(false),
+        }
+    }
+
     pub fn is_builtin(&self) -> bool {
         matches!(self, Self::Builtin(_))
     }
@@ -116,10 +125,15 @@ impl SourcePath {
         }
     }
 
+    /// The directory that contains `self`, or `self` at the root.
+    /// A URL that ends with `/` names a directory, whose parent is the directory above.
     pub fn parent(&self) -> Self {
         match self {
             Self::File(path) => Self::File(path.parent().unwrap_or(path).to_owned()),
-            _ => self.to_url().and_then(|url| url.join(".").ok()).map_or(self.clone(), Self::from),
+            _ => self
+                .to_url()
+                .and_then(|url| url.join(if url.path().ends_with('/') { ".." } else { "." }).ok())
+                .map_or(self.clone(), Self::from),
         }
     }
 
@@ -157,6 +171,21 @@ impl SourcePath {
             Self::Url(url) => url.path(),
         };
         name.rsplit('/').next().filter(|name| !name.is_empty())
+    }
+
+    /// The number of named directories and files in the path, so a file is one deeper than its directory.
+    /// The root, a drive, a host, and a trailing `/` don't count.
+    pub fn depth(&self) -> usize {
+        match self {
+            Self::File(path) => path
+                .components()
+                .filter(|component| matches!(component, Component::Normal(_)))
+                .count(),
+            Self::Builtin(path) => path.split('/').filter(|segment| !segment.is_empty()).count(),
+            Self::Url(url) => url
+                .path_segments()
+                .map_or(0, |segments| segments.filter(|segment| !segment.is_empty()).count()),
+        }
     }
 
     pub fn extension(&self) -> Option<&str> {
@@ -302,6 +331,43 @@ mod tests {
         }
         assert_eq!(SourcePath::new("ui/./w/../main.slint").extension(), Some("slint"));
         assert_eq!(SourcePath::new("/a/.hidden").extension(), None);
+    }
+
+    #[test]
+    fn depths() {
+        for (path, depth) in [
+            ("/", 0),
+            ("/ui/main.slint", 2),
+            ("ui/main.slint", 2),
+            ("builtin:/fluent/button.slint", 2),
+            ("https://slint.dev/", 0),
+            ("https://slint.dev/ui/", 1),
+            ("https://slint.dev/ui/main.slint", 2),
+        ] {
+            assert_eq!(SourcePath::new(path).depth(), depth, "{path}");
+        }
+        assert_eq!(SourcePath::new("https://slint.dev/ui/").parent().depth(), 0);
+    }
+
+    #[test]
+    fn exists_only_on_the_disk() {
+        assert!(SourcePath::new(env!("CARGO_MANIFEST_DIR")).try_exists().unwrap());
+        assert!(!SourcePath::new("/does/not/exist").try_exists().unwrap());
+        assert!(!SourcePath::new("https://slint.dev/").try_exists().unwrap());
+        assert!(!SourcePath::new("builtin:/fluent/button.slint").try_exists().unwrap());
+    }
+
+    #[test]
+    fn parents() {
+        for (path, parent) in [
+            ("/ui/main.slint", "/ui"),
+            ("/", "/"),
+            ("https://slint.dev/ui/main.slint", "https://slint.dev/ui/"),
+            ("https://slint.dev/ui/", "https://slint.dev/"),
+            ("https://slint.dev/", "https://slint.dev/"),
+        ] {
+            assert_eq!(SourcePath::new(path).parent(), SourcePath::new(parent), "{path}");
+        }
     }
 
     #[test]

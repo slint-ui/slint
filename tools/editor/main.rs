@@ -484,7 +484,12 @@ fn sync_file_watcher_if_needed(
                     .component()
                     .and_then(|component| SourcePath::from_url(&component.url).into_native_path())
             }))
-            .chain(session.active_project_file_paths().map(Path::to_path_buf))
+            .chain(
+                session
+                    .active_project_file_paths()
+                    .filter_map(SourcePath::as_native_path)
+                    .map(Path::to_path_buf),
+            )
             // Missing and deleted project files aren't active, but their creation must be observed.
             .chain(std::iter::once(project_root.join(i_slint_compiler::project_file::FILE_NAME))),
     )?;
@@ -624,7 +629,7 @@ async fn activate_project(
     let mut session = new_editor_session();
 
     *project_root = project.root;
-    session.set_workspace_roots(vec![project_root.clone()]);
+    session.set_workspace_roots(vec![SourcePath::new(&*project_root)]);
     let component = project.preview;
     if let Err(error) =
         watcher.update_watched_paths(SourcePath::from_url(&component.url).into_native_path())

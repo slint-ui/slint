@@ -699,17 +699,14 @@ pub fn show_preview_command(
 
     tracing::debug!("Show preview: url={}, component={:?}", url, component);
     let source = SourcePath::from_url(&url);
-    let root = match source.as_native_path() {
-        Some(path) => ctx
-            .session
-            .find_project_file_path_for(path)
-            .map_err(|error| LspError {
-                code: LspErrorCode::RequestFailed,
-                message: format!("Cannot find project file for {}: {error}", path.display()),
-            })?
-            .and_then(|manifest| SourcePath::File(manifest).to_url()?.join(".").ok()),
-        None => None,
-    };
+    let root = ctx
+        .session
+        .find_project_file_for(&source)
+        .map_err(|error| LspError {
+            code: LspErrorCode::RequestFailed,
+            message: format!("Cannot find project file for {source}: {error}"),
+        })?
+        .and_then(|project| project.to_url()?.join(".").ok());
     ctx.session.show_preview(0, PreviewComponent { url, component }, root);
 
     Ok(())
@@ -723,13 +720,9 @@ pub fn sync_preview_project_root(
     session: &mut editor_preview::EditorSession,
 ) -> std::io::Result<()> {
     let Some(component) = session.primary_preview().component().cloned() else { return Ok(()) };
-    let source = SourcePath::from_url(&component.url);
-    let root = match source.as_native_path() {
-        Some(path) => session
-            .find_project_file_path_for(path)?
-            .and_then(|manifest| SourcePath::File(manifest).to_url()?.join(".").ok()),
-        None => None,
-    };
+    let root = session
+        .find_project_file_for(&SourcePath::from_url(&component.url))?
+        .and_then(|project| project.to_url()?.join(".").ok());
     if session.primary_preview().project_root() != root.as_ref() {
         session.show_preview(0, component, root);
     }
@@ -2252,7 +2245,7 @@ enum {}
         let outer_manifest_url = Url::from_file_path(&outer_manifest).unwrap();
         let nested_manifest_url = Url::from_file_path(&nested_manifest).unwrap();
         let (mut context, messages) = mock_context_with_preview_capture();
-        context.session.set_workspace_roots(vec![outer_root.to_path_buf()]);
+        context.session.set_workspace_roots(vec![SourcePath::new(outer_root)]);
         spin_on::spin_on(context.session.load_document(source.into(), outer_source_url, None))
             .unwrap();
         spin_on::spin_on(context.session.load_document(source.into(), source_url.clone(), None))
@@ -2350,16 +2343,21 @@ enum {}
         let inner_url = Url::from_file_path(&inner_source).unwrap();
         for workspace_roots in [vec![outer.clone(), inner.clone()], Vec::new()] {
             let (mut context, _) = mock_context_with_preview_capture();
-            context.session.set_workspace_roots(workspace_roots);
+            context
+                .session
+                .set_workspace_roots(workspace_roots.into_iter().map(SourcePath::new).collect());
             for url in [&outer_url, &inner_url] {
                 spin_on::spin_on(context.session.load_document(code.into(), url.clone(), None))
                     .unwrap();
             }
             assert_eq!(
-                context.session.find_project_file_path_for(&outer_source).unwrap(),
-                Some(outer.join("slint-project.json"))
+                context.session.find_project_file_for(&SourcePath::new(&outer_source)).unwrap(),
+                Some(SourcePath::new(outer.join("slint-project.json")))
             );
-            assert_eq!(context.session.find_project_file_path_for(&inner_source).unwrap(), None);
+            assert_eq!(
+                context.session.find_project_file_for(&SourcePath::new(&inner_source)).unwrap(),
+                None
+            );
         }
     }
 

@@ -61,12 +61,10 @@ impl SessionConfigOverrides {
 
 /// Inserts `project` so that the shallowest project file comes first.
 /// It likely covers the most open documents, so it wins a conflict.
-fn insert_broadest_first(projects: &mut Vec<PathBuf>, project: PathBuf) {
-    let depth = |path: &std::path::Path| path.components().count();
-    let position = projects
-        .iter()
-        .position(|existing| depth(existing) > depth(&project))
-        .unwrap_or(projects.len());
+fn insert_broadest_first(projects: &mut Vec<SourcePath>, project: SourcePath) {
+    let depth = project.depth();
+    let position =
+        projects.iter().position(|existing| existing.depth() > depth).unwrap_or(projects.len());
     projects.insert(position, project);
 }
 
@@ -118,7 +116,7 @@ struct ProjectFileState {
 
 impl ProjectFileState {
     async fn from_contents(
-        path: &std::path::Path,
+        path: &SourcePath,
         contents: Vec<u8>,
         version: SourceFileVersion,
         format: i_slint_compiler::diagnostics::ByteFormat,
@@ -129,21 +127,18 @@ impl ProjectFileState {
                 .map_err(|error| std::io::Error::new(std::io::ErrorKind::InvalidData, error));
             Box::pin(async move { Some(source) })
         });
-        let parsed = ProjectFile::load_with_file_loader_diagnostic(
-            SourcePath::File(i_slint_compiler::source_path::clean_path(path)),
-            Some(&loader),
-        )
-        .await
-        .map_err(|error| i_slint_live_preview::protocol::to_lsp_diagnostic(&error, format));
+        let parsed = ProjectFile::load_with_file_loader_diagnostic(path.clone(), Some(&loader))
+            .await
+            .map_err(|error| i_slint_live_preview::protocol::to_lsp_diagnostic(&error, format));
         Self { contents: Some(contents), version, parsed }
     }
 
     fn read_error(
-        path: &std::path::Path,
+        path: &SourcePath,
         error: std::io::Error,
         format: i_slint_compiler::diagnostics::ByteFormat,
     ) -> Self {
-        let error = project_file::project_load_error(&SourcePath::new(path), error.into(), None);
+        let error = project_file::project_load_error(path, error.into(), None);
         Self {
             contents: None,
             version: None,
@@ -151,12 +146,9 @@ impl ProjectFileState {
         }
     }
 
-    async fn load(
-        path: &std::path::Path,
-        format: i_slint_compiler::diagnostics::ByteFormat,
-    ) -> Self {
-        match std::fs::read(path) {
-            Ok(contents) => Self::from_contents(path, contents, None, format).await,
+    async fn load(path: &SourcePath, format: i_slint_compiler::diagnostics::ByteFormat) -> Self {
+        match path.read() {
+            Ok(contents) => Self::from_contents(path, contents.into_owned(), None, format).await,
             Err(error) => Self::read_error(path, error, format),
         }
     }
@@ -177,11 +169,11 @@ pub struct EditorSession {
     compiler_config_defaults: crate::document_cache::CompilerConfiguration,
     startup_config_overrides: SessionConfigOverrides,
     workspace_config_overrides: SessionConfigOverrides,
-    workspace_roots: Vec<PathBuf>,
-    active_projects: HashMap<PathBuf, ProjectFileState>,
+    workspace_roots: Vec<SourcePath>,
+    active_projects: HashMap<SourcePath, ProjectFileState>,
     /// The project files of the open documents, broadest first.
     /// A shared document cache has one configuration, so their settings are merged.
-    project_file_paths: Vec<PathBuf>,
+    project_file_paths: Vec<SourcePath>,
     /// The `#[edition]` of the `slint!` macro of each loaded `.rs` file.
     /// They win over the project files, as they do for the build.
     rust_macro_editions: BTreeMap<Url, SlintEdition>,
@@ -343,45 +335,45 @@ impl EditorSession {
         self.startup_config_overrides = overrides;
     }
 
-    pub fn set_workspace_roots(&mut self, roots: Vec<PathBuf>) {
-        self.workspace_roots = roots;
+    /// Sets the directories of the workspace, which bound the search for project files.
+    /// A URL without a trailing `/` is taken as a directory.
+    pub fn set_workspace_roots(&mut self, roots: Vec<SourcePath>) {
+        self.workspace_roots = roots.into_iter().filter_map(|root| root.join(".")).collect();
     }
 
-    fn discovery_boundary<'a>(&'a self, directory: &'a std::path::Path) -> &'a std::path::Path {
-        self.workspace_roots
-            .iter()
-            .filter(|root| directory.starts_with(root))
-            .max_by_key(|root| root.components().count())
-            .map(PathBuf::as_path)
-            .unwrap_or(directory)
-    }
-
-    pub fn find_project_file_path_for(
+    /// The nearest `slint-project.json` that applies to `source`, or `None`.
+    pub fn find_project_file_for(
         &self,
-        path: &std::path::Path,
-    ) -> std::io::Result<Option<PathBuf>> {
-        self.project_file_paths_for(path).next().transpose()
+        source: &SourcePath,
+    ) -> std::io::Result<Option<SourcePath>> {
+        self.project_files_for(source).next().transpose()
     }
 
-    fn project_file_paths_for<'a>(
+    /// The project files that apply to `source`, nearest first:
+    /// the `slint-project.json` files in its directory and above, up to its workspace root.
+    /// Outside of every workspace root, only its own directory counts.
+    fn project_files_for<'a>(
         &'a self,
-        path: &'a std::path::Path,
-    ) -> impl Iterator<Item = std::io::Result<PathBuf>> + 'a {
-        path.parent()
-            .filter(|_| !cfg!(target_arch = "wasm32"))
-            .into_iter()
-            .flat_map(|directory| {
-                let boundary = self.discovery_boundary(directory);
-                directory.ancestors().take_while(move |directory| directory.starts_with(boundary))
+        source: &SourcePath,
+    ) -> impl Iterator<Item = std::io::Result<SourcePath>> + 'a {
+        let mut directories =
+            std::iter::successors(Some(source.parent()), |directory: &SourcePath| {
+                Some(directory.parent()).filter(|parent| parent != directory)
             })
-            .filter_map(|directory| {
-                let candidate = directory.join(i_slint_compiler::project_file::FILE_NAME);
-                if self.open_project_file_state(&candidate).is_some() {
-                    Some(Ok(candidate))
-                } else {
-                    candidate.try_exists().map(|exists| exists.then_some(candidate)).transpose()
-                }
-            })
+            .collect::<Vec<_>>();
+        let nearest_root = directories.iter().position(|d| self.workspace_roots.contains(d));
+        directories.truncate(nearest_root.map_or(1, |root| root + 1));
+        directories.into_iter().filter_map(|directory| {
+            let candidate = directory.join(i_slint_compiler::project_file::FILE_NAME)?;
+            self.project_file_exists(&candidate)
+                .map(|exists| exists.then_some(candidate))
+                .transpose()
+        })
+    }
+
+    /// Whether the project file at `path` is open in the editor, or on the disk.
+    fn project_file_exists(&self, path: &SourcePath) -> std::io::Result<bool> {
+        Ok(self.open_project_file_state(path).is_some() || path.try_exists()?)
     }
 
     pub async fn set_workspace_config_overrides(
@@ -392,8 +384,9 @@ impl EditorSession {
         self.reapply_effective_configuration().await
     }
 
-    pub fn active_project_file_paths(&self) -> impl Iterator<Item = &std::path::Path> {
-        self.project_file_paths.iter().map(PathBuf::as_path)
+    /// The project files that apply to the open documents.
+    pub fn active_project_file_paths(&self) -> impl Iterator<Item = &SourcePath> {
+        self.project_file_paths.iter()
     }
 
     fn effective_config_overrides(&self) -> SessionConfigOverrides {
@@ -454,7 +447,7 @@ impl EditorSession {
         }
 
         for path in &self.project_file_paths {
-            let Some(url) = SourcePath::new(path).to_url() else { continue };
+            let Some(url) = path.to_url() else { continue };
             let mut diagnostics = Vec::new();
             if let Some(error) =
                 self.active_projects.get(path).and_then(|state| state.parsed.as_ref().err())
@@ -548,19 +541,12 @@ impl EditorSession {
             self.merged_project_data(std::mem::take(&mut overrides.project));
         project_data.apply_to(&mut config.compiler_config);
         config.compiler_config.project_roots = self
-            .active_project_file_paths()
-            .map(|path| {
-                i_slint_compiler::project_file::normalize_project_root(
-                    i_slint_compiler::source_path::SourcePath::new(path),
-                )
-            })
+            .project_file_paths
+            .iter()
+            .map(|path| i_slint_compiler::project_file::normalize_project_root(path.clone()))
             .collect();
         if config.compiler_config.project_roots.is_empty() {
-            config.compiler_config.project_roots = self
-                .workspace_roots
-                .iter()
-                .map(i_slint_compiler::source_path::SourcePath::new)
-                .collect();
+            config.compiler_config.project_roots = self.workspace_roots.clone();
         }
         overrides.apply(None, &mut config.compiler_config);
         (config, diagnostics)
@@ -603,12 +589,12 @@ impl EditorSession {
         Ok(diagnostics)
     }
 
-    fn open_project_file_state(&self, path: &std::path::Path) -> Option<&ProjectFileState> {
-        let url = SourcePath::File(path.to_path_buf()).to_url()?;
-        if self.document_is_open(&url) { self.active_projects.get(path) } else { None }
+    fn open_project_file_state(&self, path: &SourcePath) -> Option<&ProjectFileState> {
+        let state = self.active_projects.get(path)?;
+        self.document_is_open(&path.to_url()?).then_some(state)
     }
 
-    fn store_project_file(&mut self, path: PathBuf, state: Option<ProjectFileState>) -> bool {
+    fn store_project_file(&mut self, path: SourcePath, state: Option<ProjectFileState>) -> bool {
         let settings_changed =
             self.active_projects.get(&path).and_then(|state| state.parsed.as_ref().ok())
                 != state.as_ref().and_then(|state| state.parsed.as_ref().ok());
@@ -627,16 +613,11 @@ impl EditorSession {
         &mut self,
         url: &Url,
     ) -> crate::Result<VersionedDiagnostics> {
-        let Some(document_path) = SourcePath::from_url(url).into_native_path() else {
-            return Ok(Default::default());
-        };
-        if cfg!(target_arch = "wasm32") {
-            return Ok(Default::default());
-        }
+        let document = SourcePath::from_url(url);
         let paths = if Self::project_file_source(url).is_some() {
-            vec![document_path]
+            vec![document]
         } else {
-            self.project_file_paths_for(&document_path).collect::<std::io::Result<Vec<_>>>()?
+            self.project_files_for(&document).collect::<std::io::Result<Vec<_>>>()?
         };
         let mut settings_changed = false;
         let mut contents_changed = false;
@@ -647,7 +628,7 @@ impl EditorSession {
                 ProjectFileState::load(&path, self.document_cache.format).await
             };
             let changed = self.active_projects.get(&path) != Some(&state);
-            let project_url = SourcePath::new(&path).to_url();
+            let project_url = path.to_url();
             settings_changed |= self.store_project_file(path, Some(state));
             contents_changed |= changed;
             if changed && let Some(url) = project_url {
@@ -728,8 +709,7 @@ impl EditorSession {
     }
 
     fn active_project_file_contents(&self, url: &Url) -> Option<(SourceFileVersion, &[u8])> {
-        let path = SourcePath::from_url(url).into_native_path()?;
-        let state = self.active_projects.get(&path)?;
+        let state = self.active_projects.get(&SourcePath::from_url(url))?;
         Some((state.version, state.contents.as_deref()?))
     }
 
@@ -745,7 +725,7 @@ impl EditorSession {
 
     async fn update_project_file_contents(
         &mut self,
-        path: PathBuf,
+        path: SourcePath,
         contents: Vec<u8>,
         version: SourceFileVersion,
     ) -> crate::Result<VersionedDiagnostics> {
@@ -757,15 +737,15 @@ impl EditorSession {
 
     async fn update_project_file_state(
         &mut self,
-        path: PathBuf,
+        path: SourcePath,
         state: ProjectFileState,
     ) -> crate::Result<VersionedDiagnostics> {
         if let Err(error) = &state.parsed {
-            tracing::warn!("Failed to parse project file {}: {}", path.display(), error.message);
+            tracing::warn!("Failed to parse project file {path}: {}", error.message);
         }
         let diagnostic = state.parsed.as_ref().err().cloned();
         let version = state.version;
-        let url = SourcePath::new(&path).to_url();
+        let url = path.to_url();
         let settings_changed = self.store_project_file(path, Some(state));
         if let Some(url) = &url {
             self.send_to_previews(&self.project_file_contents_message(url.clone()));
@@ -783,34 +763,33 @@ impl EditorSession {
 
     async fn reload_active_project_file(
         &mut self,
-        path: &std::path::Path,
+        path: SourcePath,
         change: FileChangeKind,
     ) -> crate::Result<VersionedDiagnostics> {
-        if !self.active_project_file_paths().any(|known| known == path) {
+        if !self.project_file_paths.contains(&path) {
             return Ok(Default::default());
         }
         if !matches!(change, FileChangeKind::Deleted) {
-            match std::fs::read(path) {
+            match path.read() {
                 Ok(contents) => {
-                    return self
-                        .update_project_file_contents(path.to_path_buf(), contents, None)
-                        .await;
+                    let contents = contents.into_owned();
+                    return self.update_project_file_contents(path, contents, None).await;
                 }
                 Err(error) if error.kind() != std::io::ErrorKind::NotFound => {
                     let state =
-                        ProjectFileState::read_error(path, error, self.document_cache.format);
-                    return self.update_project_file_state(path.to_path_buf(), state).await;
+                        ProjectFileState::read_error(&path, error, self.document_cache.format);
+                    return self.update_project_file_state(path, state).await;
                 }
                 Err(error) => {
-                    tracing::warn!("Failed to read project file {}: {error}", path.display());
+                    tracing::warn!("Failed to read project file {path}: {error}");
                 }
             }
         }
-        let settings_changed = self.store_project_file(path.to_path_buf(), None);
+        let url = path.to_url();
+        let settings_changed = self.store_project_file(path.clone(), None);
         if matches!(change, FileChangeKind::Deleted) {
-            self.project_file_paths.retain(|known| known != path);
+            self.project_file_paths.retain(|known| *known != path);
         }
-        let url = SourcePath::new(path).to_url();
         if let Some(url) = &url {
             self.send_to_previews(&LspToPreviewMessage::ForgetFile { url: url.clone() });
         }
@@ -849,8 +828,8 @@ impl EditorSession {
             doc_count += 1;
         }
 
-        for path in self.active_project_file_paths() {
-            if let Some(url) = SourcePath::new(path).to_url() {
+        for path in &self.project_file_paths {
+            if let Some(url) = path.to_url() {
                 preview.to_preview.send(&self.project_file_contents_message(url));
             }
         }
@@ -1109,14 +1088,14 @@ impl EditorSession {
         tracing::debug!("Closing document: {url}");
         self.open_urls.remove(&url);
         if let Some(source) = Self::project_file_source(&url) {
-            if let Some(path) = source.into_native_path() {
-                let change = match path.try_exists() {
-                    Ok(false) => FileChangeKind::Deleted,
-                    _ => FileChangeKind::Changed,
-                };
-                return self.reload_active_project_file(&path, change).await;
-            }
-            return Ok(Default::default());
+            let Some(path) = source.as_native_path() else {
+                return Ok(Default::default());
+            };
+            let change = match path.try_exists() {
+                Ok(false) => FileChangeKind::Deleted,
+                _ => FileChangeKind::Changed,
+            };
+            return self.reload_active_project_file(source, change).await;
         }
         self.drop_document(url.clone()).await?;
         if self
@@ -1139,12 +1118,10 @@ impl EditorSession {
         version: Option<i32>,
     ) -> crate::Result<crate::VersionedDiagnostics> {
         if let Some(source) = Self::project_file_source(&url) {
-            return match source.into_native_path() {
-                Some(path) => {
-                    self.update_project_file_contents(path, content.into_bytes(), version).await
-                }
-                None => Ok(Default::default()),
-            };
+            if source.as_native_path().is_none() {
+                return Ok(Default::default());
+            }
+            return self.update_project_file_contents(source, content.into_bytes(), version).await;
         }
         let mut configuration_diagnostics = self.maybe_update_active_project(&url).await?;
         if self.update_rust_macro_edition(&url, &content) {
@@ -1178,12 +1155,10 @@ impl EditorSession {
             self.maybe_update_active_project(&url).await?
         };
 
-        let url = if SourcePath::from_url(&url).file_name()
-            == Some(i_slint_compiler::project_file::FILE_NAME)
-        {
-            let Some(entry) = SourcePath::from_url(&url)
-                .into_native_path()
-                .and_then(|path| self.active_projects.get(&path))
+        let url = if let Some(project) = Self::project_file_source(&url) {
+            let Some(entry) = self
+                .active_projects
+                .get(&project)
                 .and_then(|state| state.parsed.as_ref().ok()?.main()?.to_url())
             else {
                 return Ok(configuration_diagnostics);
@@ -1298,17 +1273,16 @@ impl EditorSession {
             tracing::trace!("Ignoring file watcher event for open document: {url}");
             return Ok(Default::default());
         }
-        if let Some(path) = SourcePath::from_url(&url).into_native_path() {
-            if self.active_project_file_paths().any(|active_path| active_path == path) {
-                tracing::debug!("Active project file changed: {url} (type: {typ:?})");
-                return self.reload_active_project_file(&path, typ).await;
-            }
-            if i_slint_compiler::project_file::is_project_file(&path)
-                && typ != FileChangeKind::Deleted
-            {
-                let contents = std::fs::read(&path)?;
-                return self.update_project_file_contents(path, contents, None).await;
-            }
+        let source = SourcePath::from_url(&url);
+        let on_disk = source.as_native_path().is_some();
+        if on_disk && self.project_file_paths.contains(&source) {
+            tracing::debug!("Active project file changed: {url} (type: {typ:?})");
+            return self.reload_active_project_file(source, typ).await;
+        }
+        let is_project_file = source.file_name() == Some(i_slint_compiler::project_file::FILE_NAME);
+        if on_disk && is_project_file && typ != FileChangeKind::Deleted {
+            let contents = source.read()?.into_owned();
+            return self.update_project_file_contents(source, contents, None).await;
         }
 
         tracing::debug!("File watcher triggered for {url} (type: {:?})", typ);
@@ -1441,8 +1415,10 @@ mod preview_tests {
                 messages.borrow_mut().clear();
             }
             std::fs::write(&path, source).unwrap();
-            spin_on::spin_on(session.reload_active_project_file(&path, FileChangeKind::Changed))
-                .unwrap();
+            spin_on::spin_on(
+                session.reload_active_project_file(SourcePath::new(&path), FileChangeKind::Changed),
+            )
+            .unwrap();
             for messages in &messages {
                 assert!(messages.borrow().iter().any(|message| matches!(message,
                     LspToPreviewMessage::SetContents { url: sent, contents } if sent.url() == &url && contents == source.as_bytes()
@@ -1460,8 +1436,10 @@ mod preview_tests {
         for messages in &messages {
             messages.borrow_mut().clear();
         }
-        spin_on::spin_on(session.reload_active_project_file(&path, FileChangeKind::Deleted))
-            .unwrap();
+        spin_on::spin_on(
+            session.reload_active_project_file(SourcePath::new(&path), FileChangeKind::Deleted),
+        )
+        .unwrap();
         for messages in &messages {
             assert!(messages.borrow().iter().any(|message| matches!(message,
                 LspToPreviewMessage::ForgetFile { url: sent } if sent == &url
@@ -1593,7 +1571,7 @@ mod preview_tests {
                 assert!(!invalid);
             }
             assert!(session.document_cache.get_document(&url).is_none());
-            assert_eq!(session.active_projects[&path].parsed.is_err(), invalid);
+            assert_eq!(session.active_projects[&SourcePath::new(&path)].parsed.is_err(), invalid);
             for messages in &messages {
                 assert_project_contents(messages, &url, source, version);
             }
@@ -1623,7 +1601,7 @@ mod preview_tests {
         spin_on::spin_on(session.load_document("export component Main {}".into(), source, Some(1)))
             .unwrap();
         assert!(!path.exists());
-        assert_eq!(session.active_projects[&path].version, Some(9));
+        assert_eq!(session.active_projects[&SourcePath::new(&path)].version, Some(9));
         assert_eq!(
             session.document_cache.compiler_configuration().compiler_config.experimental_features,
             ExperimentalFeatures::from(ExperimentalFeature::Match)
@@ -1724,12 +1702,15 @@ mod preview_tests {
             Some(2),
         ))
         .unwrap();
-        assert!(session.active_projects[&path].parsed.is_err());
+        assert!(session.active_projects[&SourcePath::new(&path)].parsed.is_err());
         assert_eq!(
             session.document_cache.compiler_configuration().compiler_config.experimental_features,
             default_experimental
         );
-        assert_eq!(session.active_project_file_paths().collect::<Vec<_>>(), [path.as_path()]);
+        assert_eq!(
+            session.active_project_file_paths().collect::<Vec<_>>(),
+            [&SourcePath::new(&path)]
+        );
         for messages in &messages {
             assert_project_contents(messages, &url, invalid, None);
         }
@@ -1762,8 +1743,11 @@ mod preview_tests {
                 Some(1),
             ))
             .unwrap();
-            assert_eq!(session.active_projects[&path].contents.as_deref(), Some(buffer.as_bytes()));
-            assert_eq!(session.active_projects[&path].version, Some(4));
+            assert_eq!(
+                session.active_projects[&SourcePath::new(&path)].contents.as_deref(),
+                Some(buffer.as_bytes())
+            );
+            assert_eq!(session.active_projects[&SourcePath::new(&path)].version, Some(4));
             assert_eq!(
                 session
                     .document_cache
@@ -1780,7 +1764,7 @@ mod preview_tests {
         }
         spin_on::spin_on(session.close_document(url.clone())).unwrap();
         assert!(!session.document_is_open(&url));
-        assert_eq!(session.active_projects[&path].version, None);
+        assert_eq!(session.active_projects[&SourcePath::new(&path)].version, None);
         assert_eq!(
             session.document_cache.compiler_configuration().compiler_config.experimental_features,
             ExperimentalFeatures::default()
@@ -1812,12 +1796,15 @@ mod preview_tests {
                 .unwrap()
                 .is_empty()
         );
-        assert!(session.active_projects.contains_key(&path));
-        assert_eq!(session.active_project_file_paths().collect::<Vec<_>>(), [path.as_path()]);
+        assert!(session.active_projects.contains_key(&SourcePath::new(&path)));
+        assert_eq!(
+            session.active_project_file_paths().collect::<Vec<_>>(),
+            [&SourcePath::new(&path)]
+        );
         assert!(messages.iter().all(|messages| messages.borrow().is_empty()));
         let diagnostics = spin_on::spin_on(session.close_document(url.clone())).unwrap();
         assert!(!session.document_is_open(&url));
-        assert!(!session.active_projects.contains_key(&path));
+        assert!(!session.active_projects.contains_key(&SourcePath::new(&path)));
         assert!(session.active_project_file_paths().next().is_none());
         assert!(
             diagnostics.iter().any(|(diagnostic_url, version, diagnostics)| diagnostic_url == &url
@@ -1901,8 +1888,11 @@ mod preview_tests {
         std::fs::remove_file(&path).unwrap();
         spin_on::spin_on(session.trigger_file_watcher(url.clone(), FileChangeKind::Changed))
             .unwrap();
-        assert!(!session.active_projects.contains_key(&path));
-        assert_eq!(session.active_project_file_paths().collect::<Vec<_>>(), [path.as_path()]);
+        assert!(!session.active_projects.contains_key(&SourcePath::new(&path)));
+        assert_eq!(
+            session.active_project_file_paths().collect::<Vec<_>>(),
+            [&SourcePath::new(&path)]
+        );
         std::fs::write(&path, r#"{"edition":"1.20","experimental-features":["match"]}"#).unwrap();
         for (preview_index, messages) in messages.iter().enumerate() {
             messages.borrow_mut().clear();
@@ -1916,9 +1906,9 @@ mod preview_tests {
         }
         spin_on::spin_on(session.trigger_file_watcher(url.clone(), FileChangeKind::Created))
             .unwrap();
-        assert!(session.active_projects.contains_key(&path));
+        assert!(session.active_projects.contains_key(&SourcePath::new(&path)));
         spin_on::spin_on(session.trigger_file_watcher(url, FileChangeKind::Deleted)).unwrap();
-        assert!(!session.active_projects.contains_key(&path));
+        assert!(!session.active_projects.contains_key(&SourcePath::new(&path)));
         assert!(session.active_project_file_paths().next().is_none());
     }
 
@@ -2161,7 +2151,7 @@ mod preview_tests {
         .unwrap();
         assert_eq!(
             session.active_project_file_paths().collect::<Vec<_>>(),
-            [root_manifest.as_path(), nested_manifest.as_path()]
+            [&SourcePath::new(&root_manifest), &SourcePath::new(&nested_manifest)]
         );
         session.show_preview(0, component.clone(), Some(root.clone()));
         messages[0].borrow_mut().clear();
@@ -2289,7 +2279,7 @@ mod tests {
             std::fs::write(manifest, "{}").unwrap();
         }
         let mut editor_session = session();
-        editor_session.set_workspace_roots(vec![workspace]);
+        editor_session.set_workspace_roots(vec![SourcePath::new(workspace)]);
         for (removed, expected) in [
             (None, Some(nested_manifest.as_path())),
             (Some(nested_manifest.as_path()), Some(workspace_manifest.as_path())),
@@ -2299,8 +2289,8 @@ mod tests {
                 std::fs::remove_file(removed).unwrap();
             }
             assert_eq!(
-                editor_session.find_project_file_path_for(&source).unwrap().as_deref(),
-                expected
+                editor_session.find_project_file_for(&SourcePath::new(&source)).unwrap(),
+                expected.map(SourcePath::new)
             );
         }
     }
@@ -2309,14 +2299,17 @@ mod tests {
     fn project_file_lookup_finds_an_open_buffer_without_a_disk_file() {
         let directory = TempDir::new().unwrap();
         let manifest = directory.path().join(FILE_NAME);
-        let source = directory.path().join("main.slint");
+        let source = SourcePath::new(directory.path().join("main.slint"));
         let url = Url::from_file_path(&manifest).unwrap();
         let mut editor_session = session();
-        assert_eq!(editor_session.find_project_file_path_for(&source).unwrap(), None);
+        assert_eq!(editor_session.find_project_file_for(&source).unwrap(), None);
         spin_on::spin_on(editor_session.open_document("{}".into(), url.clone(), Some(1))).unwrap();
-        assert_eq!(editor_session.find_project_file_path_for(&source).unwrap(), Some(manifest));
+        assert_eq!(
+            editor_session.find_project_file_for(&source).unwrap(),
+            Some(SourcePath::new(&manifest))
+        );
         spin_on::spin_on(editor_session.close_document(url)).unwrap();
-        assert_eq!(editor_session.find_project_file_path_for(&source).unwrap(), None);
+        assert_eq!(editor_session.find_project_file_for(&source).unwrap(), None);
     }
 
     #[cfg(unix)]
@@ -2325,8 +2318,17 @@ mod tests {
         let directory = TempDir::new().unwrap();
         let manifest = directory.path().join(FILE_NAME);
         std::os::unix::fs::symlink(&manifest, &manifest).unwrap();
-        let source = directory.path().join("main.slint");
-        assert!(session().find_project_file_path_for(&source).is_err());
+        let source = SourcePath::new(directory.path().join("main.slint"));
+        assert!(session().find_project_file_for(&source).is_err());
+    }
+
+    /// Makes the project file at `path` active, as if a document under it had been loaded.
+    fn add_project_file(session: &mut EditorSession, path: &std::path::Path) {
+        let source = SourcePath::new(path);
+        let state =
+            spin_on::spin_on(ProjectFileState::load(&source, session.document_cache.format));
+        session.project_file_paths.push(source.clone());
+        session.active_projects.insert(source, state);
     }
 
     fn session() -> EditorSession {
@@ -2469,7 +2471,10 @@ mod tests {
             assert!(cached_text(&session, path).is_some());
             assert!(!session.open_urls.contains(&Url::from_file_path(path).unwrap()));
         }
-        assert_eq!(session.active_project_file_paths().collect::<Vec<_>>(), [project.as_path()]);
+        assert_eq!(
+            session.active_project_file_paths().collect::<Vec<_>>(),
+            [&SourcePath::new(&project)]
+        );
 
         std::fs::write(&dependency, "export component Changed {}").unwrap();
         spin_on::spin_on(session.trigger_file_watcher(
@@ -2486,7 +2491,10 @@ mod tests {
             diagnostics.iter().any(|diagnostic| diagnostic.message.contains("Dependency"))
         }));
         assert!(cached_text(&session, &dependency).unwrap().contains("Changed"));
-        assert_eq!(session.active_project_file_paths().collect::<Vec<_>>(), [project.as_path()]);
+        assert_eq!(
+            session.active_project_file_paths().collect::<Vec<_>>(),
+            [&SourcePath::new(&project)]
+        );
     }
 
     #[test]
@@ -2552,10 +2560,10 @@ mod tests {
             r#"{ "edition": "1.20", "main": "main.slint" }"#,
         )
         .unwrap();
-        spin_on::spin_on(
-            session
-                .reload_active_project_file(&temp.path().join(FILE_NAME), FileChangeKind::Changed),
-        )
+        spin_on::spin_on(session.reload_active_project_file(
+            SourcePath::new(temp.path().join(FILE_NAME)),
+            FileChangeKind::Changed,
+        ))
         .unwrap();
         let diagnostics = spin_on::spin_on(session.reload_document(entry_url.clone())).unwrap();
         assert!(diagnostics.iter().any(|(url, _, diagnostics)| url == &entry_url
@@ -2588,14 +2596,17 @@ mod tests {
         std::fs::write(&first_project, r#"{ "edition": "1.20", "main": "../replacement.slint" }"#)
             .unwrap();
         spin_on::spin_on(
-            session.reload_active_project_file(&first_project, FileChangeKind::Changed),
+            session.reload_active_project_file(
+                SourcePath::new(&first_project),
+                FileChangeKind::Changed,
+            ),
         )
         .unwrap();
         for path in entries.iter().chain(core::iter::once(&dependency)) {
             assert!(cached_text(&session, path).is_some());
         }
         spin_on::spin_on(session.reload_active_project_file(
-            &project_directories[1].join(FILE_NAME),
+            SourcePath::new(project_directories[1].join(FILE_NAME)),
             FileChangeKind::Deleted,
         ))
         .unwrap();
@@ -2608,10 +2619,12 @@ mod tests {
             Some(3),
         ))
         .unwrap();
-        let diagnostics = spin_on::spin_on(
-            session.reload_active_project_file(&first_project, FileChangeKind::Deleted),
-        )
-        .unwrap();
+        let diagnostics =
+            spin_on::spin_on(session.reload_active_project_file(
+                SourcePath::new(&first_project),
+                FileChangeKind::Deleted,
+            ))
+            .unwrap();
         assert!(cached_text(&session, &entries[1]).unwrap().contains("Unsaved"));
         assert!(cached_text(&session, &dependency).is_none());
         assert!(
@@ -2642,8 +2655,10 @@ mod tests {
             Url::parse(&entry_url.as_str().replace("main.slint", "main.%73lint")).unwrap();
         session.show_preview(0, PreviewComponent { url: encoded_url, component: None }, None);
         assert!(session.pending_recompile.contains(&entry_url));
-        spin_on::spin_on(session.reload_active_project_file(&project, FileChangeKind::Deleted))
-            .unwrap();
+        spin_on::spin_on(
+            session.reload_active_project_file(SourcePath::new(&project), FileChangeKind::Deleted),
+        )
+        .unwrap();
         assert!(cached_text(&session, &entry).is_some());
         assert!(session.pending_recompile.contains(&entry_url));
         spin_on::spin_on(session.drop_document(entry_url.clone())).unwrap();
@@ -2668,12 +2683,12 @@ mod tests {
         write_document(&document_path);
 
         let mut session = session();
-        session.set_workspace_roots(vec![temp.path().to_path_buf()]);
+        session.set_workspace_roots(vec![SourcePath::new(temp.path())]);
         load_document(&mut session, &document_path).unwrap();
 
         assert_eq!(
             session.active_project_file_paths().collect::<Vec<_>>(),
-            [top_project_path.as_path(), nested_project_path.as_path()]
+            [&SourcePath::new(&top_project_path), &SourcePath::new(&nested_project_path)]
         );
         assert_eq!(
             session.document_cache.compiler_configuration().compiler_config.include_paths,
@@ -2696,16 +2711,16 @@ mod tests {
         write_document(&source);
 
         let mut bounded = session();
-        bounded.set_workspace_roots(vec![workspace.clone()]);
+        bounded.set_workspace_roots(vec![SourcePath::new(workspace.clone())]);
         load_document(&mut bounded, &source).unwrap();
         assert_eq!(
             bounded.active_project_file_paths().collect::<Vec<_>>(),
-            [workspace_project.as_path()]
+            [&SourcePath::new(&workspace_project)]
         );
 
         std::fs::remove_file(&workspace_project).unwrap();
         let mut without_project = session();
-        without_project.set_workspace_roots(vec![workspace]);
+        without_project.set_workspace_roots(vec![SourcePath::new(workspace)]);
         load_document(&mut without_project, &source).unwrap();
         assert!(without_project.active_project_file_paths().next().is_none());
     }
@@ -2721,7 +2736,7 @@ mod tests {
 
         for roots in [Vec::new(), vec![directory.path().join("other")]] {
             let mut editor_session = session();
-            editor_session.set_workspace_roots(roots);
+            editor_session.set_workspace_roots(roots.into_iter().map(SourcePath::new).collect());
             load_document(&mut editor_session, &source).unwrap();
             assert!(editor_session.active_project_file_paths().next().is_none());
         }
@@ -2732,7 +2747,7 @@ mod tests {
         load_document(&mut editor_session, &source).unwrap();
         assert_eq!(
             editor_session.active_project_file_paths().collect::<Vec<_>>(),
-            [sibling_project.as_path()]
+            [&SourcePath::new(&sibling_project)]
         );
     }
 
@@ -2753,7 +2768,7 @@ mod tests {
         let roots = vec![outer, inner.clone(), other.clone()];
 
         let mut editor_session = session();
-        editor_session.set_workspace_roots(roots.clone());
+        editor_session.set_workspace_roots(roots.iter().map(SourcePath::new).collect());
         load_document(&mut editor_session, &inner_source).unwrap();
         assert!(editor_session.active_project_file_paths().next().is_none());
 
@@ -2764,12 +2779,12 @@ mod tests {
         std::fs::write(&other_project, r#"{"edition":"1.20","include-paths":["other-include"]}"#)
             .unwrap();
         let mut editor_session = session();
-        editor_session.set_workspace_roots(roots);
+        editor_session.set_workspace_roots(roots.into_iter().map(SourcePath::new).collect());
         load_document(&mut editor_session, &inner_source).unwrap();
         load_document(&mut editor_session, &other_source).unwrap();
         assert_eq!(
             editor_session.active_project_file_paths().collect::<HashSet<_>>(),
-            HashSet::from([inner_project.as_path(), other_project.as_path()])
+            HashSet::from([&SourcePath::new(&inner_project), &SourcePath::new(&other_project)])
         );
         assert_eq!(
             editor_session
@@ -2821,11 +2836,7 @@ mod tests {
             std::fs::create_dir_all(&directory).unwrap();
             let path = directory.join(FILE_NAME);
             std::fs::write(&path, r#"{"edition":"1.20","experimental-features":[],"include-paths":["include"],"library-paths":{"shared":"../shared"}}"#).unwrap();
-            session.project_file_paths.push(path.clone());
-            session.active_projects.insert(
-                path.clone(),
-                spin_on::spin_on(ProjectFileState::load(&path, session.document_cache.format)),
-            );
+            add_project_file(&mut session, &path);
         }
         let diagnostics = spin_on::spin_on(session.reapply_effective_configuration()).unwrap();
         assert_eq!(diagnostics.len(), 2);
@@ -2854,11 +2865,7 @@ mod tests {
                 serde_json::json!({"edition": "1.20", "library-paths": libraries}).to_string(),
             )
             .unwrap();
-            session.project_file_paths.push(path.clone());
-            session.active_projects.insert(
-                path.clone(),
-                spin_on::spin_on(ProjectFileState::load(&path, session.document_cache.format)),
-            );
+            add_project_file(&mut session, &path);
             project_paths.push(path);
         }
         let diagnostics = spin_on::spin_on(session.reapply_effective_configuration()).unwrap();
@@ -2965,11 +2972,7 @@ mod tests {
         std::fs::write(&inner, r#"{ "edition": "1.18" }"#).unwrap();
         let mut session = session();
         for path in [&outer, &inner] {
-            session.project_file_paths.push(path.clone());
-            session.active_projects.insert(
-                path.clone(),
-                spin_on::spin_on(ProjectFileState::load(path, session.document_cache.format)),
-            );
+            add_project_file(&mut session, path);
         }
 
         let diagnostics = spin_on::spin_on(session.reapply_effective_configuration()).unwrap();
@@ -3005,11 +3008,7 @@ mod tests {
         std::fs::write(&inner, r#"{"edition":"1.20","experimental-features":[],"include-paths":["include"],"library-paths":{"widgets":"inner","other":"other"}}"#).unwrap();
         let mut session = session();
         for path in [&outer, &inner] {
-            session.project_file_paths.push(path.clone());
-            session.active_projects.insert(
-                path.clone(),
-                spin_on::spin_on(ProjectFileState::load(path, session.document_cache.format)),
-            );
+            add_project_file(&mut session, path);
         }
         let recompute = |session: &mut EditorSession| {
             spin_on::spin_on(session.reapply_effective_configuration()).unwrap()
@@ -3028,7 +3027,7 @@ mod tests {
         assert_eq!(warnings.len(), 2);
         assert!(warnings.iter().all(|warning| warning.message.contains("project file")));
         let diagnostics = spin_on::spin_on(session.update_project_file_contents(
-            inner.clone(),
+            SourcePath::new(&inner),
             std::fs::read(&inner).unwrap(),
             None,
         ))
@@ -3090,9 +3089,10 @@ mod tests {
             [&outer, &inner].iter().any(|path| url == &Url::from_file_path(path).unwrap())
         }));
         std::fs::write(&inner, "invalid").unwrap();
-        let diagnostics =
-            spin_on::spin_on(session.reload_active_project_file(&inner, FileChangeKind::Changed))
-                .unwrap();
+        let diagnostics = spin_on::spin_on(
+            session.reload_active_project_file(SourcePath::new(&inner), FileChangeKind::Changed),
+        )
+        .unwrap();
         assert_eq!(
             warnings_for(&diagnostics, &inner)[0].severity,
             Some(lsp_types::DiagnosticSeverity::ERROR)
@@ -3282,7 +3282,10 @@ mod tests {
         write_document(&document_b);
 
         let mut session = session();
-        session.set_workspace_roots(vec![project_a.clone(), project_b.clone()]);
+        session.set_workspace_roots(vec![
+            SourcePath::new(project_a.clone()),
+            SourcePath::new(project_b.clone()),
+        ]);
         load_document(&mut session, &document_a).unwrap();
         load_document(&mut session, &document_b).unwrap();
 
@@ -3300,7 +3303,11 @@ mod tests {
         assert_eq!(merged.main, None);
         assert_eq!(merged.experimental_features, None);
         assert_eq!(
-            session.active_projects[&project_a.join(FILE_NAME)].parsed.as_ref().unwrap().main(),
+            session.active_projects[&SourcePath::new(project_a.join(FILE_NAME))]
+                .parsed
+                .as_ref()
+                .unwrap()
+                .main(),
             Some(SourcePath::new(document_a))
         );
     }
@@ -3309,7 +3316,7 @@ mod tests {
     fn invalid_project_recovery_preserves_equal_depth_precedence() {
         let temp = TempDir::new().unwrap();
         let mut session = session();
-        session.set_workspace_roots(vec![temp.path().to_path_buf()]);
+        session.set_workspace_roots(vec![SourcePath::new(temp.path())]);
         let mut project_paths = Vec::new();
         for (directory, include_path) in [("first", "first-include"), ("second", "second-include")]
         {
@@ -3329,13 +3336,15 @@ mod tests {
 
         for path in &project_paths {
             std::fs::write(path, "{").unwrap();
-            spin_on::spin_on(session.reload_active_project_file(path, FileChangeKind::Changed))
-                .unwrap();
+            spin_on::spin_on(
+                session.reload_active_project_file(SourcePath::new(path), FileChangeKind::Changed),
+            )
+            .unwrap();
         }
         assert!(session.active_projects.values().all(|state| state.parsed.is_err()));
         assert_eq!(
-            session.active_project_file_paths().collect::<Vec<_>>(),
-            project_paths.iter().map(PathBuf::as_path).collect::<Vec<_>>()
+            session.active_project_file_paths().cloned().collect::<Vec<_>>(),
+            project_paths.iter().map(SourcePath::new).collect::<Vec<_>>()
         );
 
         for path in project_paths.iter().rev() {
@@ -3346,8 +3355,10 @@ mod tests {
                 format!(r#"{{ "edition": "1.20", "include-paths": ["{include_path}"] }}"#),
             )
             .unwrap();
-            spin_on::spin_on(session.reload_active_project_file(path, FileChangeKind::Changed))
-                .unwrap();
+            spin_on::spin_on(
+                session.reload_active_project_file(SourcePath::new(path), FileChangeKind::Changed),
+            )
+            .unwrap();
         }
         assert_eq!(
             session.document_cache.compiler_configuration().compiler_config.include_paths,
@@ -3378,7 +3389,7 @@ mod tests {
         write_document(&inner.join("main.slint"));
 
         let mut session = session();
-        session.set_workspace_roots(vec![outer.clone()]);
+        session.set_workspace_roots(vec![SourcePath::new(outer.clone())]);
         load_document(&mut session, &inner.join("main.slint")).unwrap();
         load_document(&mut session, &outer.join("main.slint")).unwrap();
 
@@ -3421,7 +3432,10 @@ mod tests {
                             && diagnostic.source.is_none()
                     })
             }));
-            assert_eq!(session.active_project_file_paths().next(), Some(project_path.as_path()));
+            assert_eq!(
+                session.active_project_file_paths().next(),
+                Some(&SourcePath::new(&project_path))
+            );
         }
     }
 
@@ -3455,7 +3469,7 @@ mod tests {
         );
         assert_eq!(
             session.active_project_file_paths().collect::<Vec<_>>(),
-            [project_path.as_path()]
+            [&SourcePath::new(&project_path)]
         );
         assert!(session.pending_recompile.contains(&document_url));
 
@@ -3486,7 +3500,10 @@ mod tests {
                 session.trigger_file_watcher(Url::from_file_path(&path).unwrap(), change),
             )
             .unwrap();
-            assert_eq!(session.active_project_file_paths().collect::<Vec<_>>(), [path.as_path()]);
+            assert_eq!(
+                session.active_project_file_paths().collect::<Vec<_>>(),
+                [&SourcePath::new(&path)]
+            );
             assert_eq!(
                 session.document_cache.compiler_configuration().compiler_config.include_paths,
                 [directory.path().join("created")]
@@ -3535,7 +3552,7 @@ mod tests {
 
         assert_eq!(
             session.active_project_file_paths().collect::<Vec<_>>(),
-            [project_path.as_path()]
+            [&SourcePath::new(&project_path)]
         );
         assert_eq!(
             session.document_cache.compiler_configuration().compiler_config.include_paths,
