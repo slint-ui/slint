@@ -275,6 +275,7 @@ path = [
 
   "docs/astro/src/content/docs/reference/elements/animation.gif",
   "docs/astro/src/content/docs/reference/language/images/logo.png",
+  "docs/astro/src/content/docs/**/snippet-data/*.json",
 
   "tests/screenshots/**/**.png",
   "tests/screenshots/references/anyrender/**.json",

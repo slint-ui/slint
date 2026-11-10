@@ -64,7 +64,7 @@ export struct Contact {
 }
 
 export component Example {
-    property <[Contact]> contacts: @from-json("contacts.json");
+    property <[Contact]> contacts: @from-json("snippet-data/contacts.json");
 }
 ```
 
@@ -72,9 +72,9 @@ Select a value inside the file with member access, and an element of a JSON arra
 
 ```slint
 export component Example {
-    property <string> greeting: @from-json("data.json").greeting;
-    property <int> count: @from-json("data.json").stats.visitors.count;
-    property <string> first-tag: @from-json("data.json").tags[0];
+    property <string> greeting: @from-json("snippet-data/data.json").greeting;
+    property <int> count: @from-json("snippet-data/data.json").stats.visitors.count;
+    property <string> first-tag: @from-json("snippet-data/data.json").tags[0];
 }
 ```
 
@@ -99,7 +99,7 @@ export struct Contact {
 }
 
 export component Example {
-    in property <[Contact]> contacts: Platform.uses-mock-data ? @from-json("contacts.json") : [];
+    in property <[Contact]> contacts: Platform.uses-mock-data ? @from-json("snippet-data/contacts.json") : [];
 }
 ```
 
@@ -128,7 +128,7 @@ export component Example inherits Window {
     states [
         mock-data when Platform.uses-mock-data: {
             heading: "My App (preview)";
-            contacts: @from-json("contacts.json");
+            contacts: @from-json("snippet-data/contacts.json");
         }
     ]
 }
