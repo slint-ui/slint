@@ -19,49 +19,6 @@ pub const HEIGHT: u32 = WIDTH / 2;
 /// The number of mip levels of the cloud cover, down to one pixel.
 pub const LEVELS: u32 = WIDTH.ilog2() + 1;
 
-/// The clouds while they're generated, which takes a moment, so that the globe shows without
-/// waiting for them.
-pub struct Generation {
-    #[cfg(not(target_arch = "wasm32"))]
-    receiver: std::sync::mpsc::Receiver<Vec<Vec<u8>>>,
-    /// The web has no threads, so the clouds are generated in a frame after the first ones.
-    #[cfg(target_arch = "wasm32")]
-    frames: u32,
-    done: bool,
-}
-
-impl Generation {
-    pub fn start() -> Self {
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            let (sender, receiver) = std::sync::mpsc::channel();
-            std::thread::spawn(move || sender.send(generate()));
-            Self { receiver, done: false }
-        }
-        #[cfg(target_arch = "wasm32")]
-        Self { frames: 0, done: false }
-    }
-
-    /// The clouds once they're ready, and only that once.
-    pub fn poll(&mut self) -> Option<Vec<Vec<u8>>> {
-        if self.done {
-            return None;
-        }
-        #[cfg(not(target_arch = "wasm32"))]
-        let levels = self.receiver.try_recv().ok()?;
-        #[cfg(target_arch = "wasm32")]
-        let levels = {
-            self.frames += 1;
-            if self.frames < 3 {
-                return None;
-            }
-            generate()
-        };
-        self.done = true;
-        Some(levels)
-    }
-}
-
 /// The cloud cover, equirectangular like the map, from 0 to 255, with its `LEVELS` mip levels.
 pub fn generate() -> Vec<Vec<u8>> {
     let noise = Noise::new(0x5eed_c10d);

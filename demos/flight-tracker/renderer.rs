@@ -40,6 +40,16 @@ pub struct Imagery {
 }
 
 impl Imagery {
+    /// A single pixel of `rgba`, in sRGB.
+    pub fn solid(rgba: [u8; 4]) -> Self {
+        Self {
+            width: 1,
+            height: 1,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            levels: vec![rgba.to_vec()],
+        }
+    }
+
     /// Decodes a JPEG or PNG image, and computes its mip levels.
     pub fn decode(bytes: &[u8]) -> Result<Self, image::ImageError> {
         let base = image::load_from_memory(bytes)?.to_rgba8();
@@ -63,18 +73,28 @@ impl Imagery {
         })
     }
 
-    /// Compresses the imagery to a format that `features` support: BC1 on most desktop GPUs,
-    /// ETC2 on most mobile and embedded ones, and otherwise leaves it as it is.
-    pub fn compress(self, features: wgpu::Features) -> Self {
-        let encode: fn(&[u8], usize, usize) -> Vec<u8>;
-        let format;
+    /// The format that `compress()` gives for `features`.
+    pub fn compressed_format(features: wgpu::Features) -> wgpu::TextureFormat {
+        Self::encoder(features).map_or(wgpu::TextureFormat::Rgba8UnormSrgb, |(_, format)| format)
+    }
+
+    /// BC1 on most desktop GPUs, ETC2 on most mobile and embedded ones.
+    fn encoder(
+        features: wgpu::Features,
+    ) -> Option<(fn(&[u8], usize, usize) -> Vec<u8>, wgpu::TextureFormat)> {
         if features.contains(wgpu::Features::TEXTURE_COMPRESSION_BC) {
-            (encode, format) = (compress::bc1, wgpu::TextureFormat::Bc1RgbaUnormSrgb);
+            Some((compress::bc1, wgpu::TextureFormat::Bc1RgbaUnormSrgb))
         } else if features.contains(wgpu::Features::TEXTURE_COMPRESSION_ETC2) {
-            (encode, format) = (compress::etc2, wgpu::TextureFormat::Etc2Rgb8UnormSrgb);
+            Some((compress::etc2, wgpu::TextureFormat::Etc2Rgb8UnormSrgb))
         } else {
-            return self;
+            None
         }
+    }
+
+    /// Compresses the imagery to a format that `features` support, see `compressed_format()`,
+    /// and otherwise leaves it as it is.
+    pub fn compress(self, features: wgpu::Features) -> Self {
+        let Some((encode, format)) = Self::encoder(features) else { return self };
         let mut size = (self.width as usize, self.height as usize);
         let levels = self
             .levels
@@ -89,6 +109,59 @@ impl Imagery {
     }
 }
 
+fn imagery_view(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    imagery: &Imagery,
+) -> wgpu::TextureView {
+    let texture = device.create_texture_with_data(
+        queue,
+        &wgpu::TextureDescriptor {
+            label: Some("globe imagery"),
+            size: wgpu::Extent3d {
+                width: imagery.width,
+                height: imagery.height,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: imagery.levels.len() as u32,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: imagery.format,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            view_formats: &[],
+        },
+        wgpu::util::TextureDataOrder::LayerMajor,
+        &imagery.levels.concat(),
+    );
+    texture.create_view(&Default::default())
+}
+
+/// The bindings of `globe.wgsl`, with the map, the day and night imagery, and the clouds.
+fn bind_group(
+    device: &wgpu::Device,
+    layout: &wgpu::BindGroupLayout,
+    globals: &wgpu::Buffer,
+    sampler: &wgpu::Sampler,
+    [map, day, night, clouds]: [&wgpu::TextureView; 4],
+) -> wgpu::BindGroup {
+    let view = |binding, view| wgpu::BindGroupEntry {
+        binding,
+        resource: wgpu::BindingResource::TextureView(view),
+    };
+    device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some("globe"),
+        layout,
+        entries: &[
+            wgpu::BindGroupEntry { binding: 0, resource: globals.as_entire_binding() },
+            view(1, map),
+            wgpu::BindGroupEntry { binding: 2, resource: wgpu::BindingResource::Sampler(sampler) },
+            view(3, day),
+            view(4, night),
+            view(5, clouds),
+        ],
+    })
+}
+
 pub struct Renderer {
     device: wgpu::Device,
     queue: wgpu::Queue,
@@ -101,6 +174,12 @@ pub struct Renderer {
     /// Whether the shader encodes sRGB, because the target's format doesn't.
     encode_srgb: bool,
     cloud_texture: wgpu::Texture,
+    layout: wgpu::BindGroupLayout,
+    sampler: wgpu::Sampler,
+    map_view: wgpu::TextureView,
+    day_view: wgpu::TextureView,
+    night_view: wgpu::TextureView,
+    cloud_view: wgpu::TextureView,
 }
 
 const GLOBAL_FLOATS: usize = 48;
@@ -110,8 +189,6 @@ impl Renderer {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         map: &Map,
-        imagery: &Imagery,
-        night: &Imagery,
         format: wgpu::TextureFormat,
     ) -> Self {
         let texture = device.create_texture_with_data(
@@ -133,45 +210,9 @@ impl Renderer {
             wgpu::util::TextureDataOrder::LayerMajor,
             &map.levels.concat(),
         );
-        let day = imagery;
-        let day_texture = device.create_texture_with_data(
-            queue,
-            &wgpu::TextureDescriptor {
-                label: Some("globe imagery"),
-                size: wgpu::Extent3d {
-                    width: day.width,
-                    height: day.height,
-                    depth_or_array_layers: 1,
-                },
-                mip_level_count: day.levels.len() as u32,
-                sample_count: 1,
-                dimension: wgpu::TextureDimension::D2,
-                format: day.format,
-                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-                view_formats: &[],
-            },
-            wgpu::util::TextureDataOrder::LayerMajor,
-            &day.levels.concat(),
-        );
-        let night_texture = device.create_texture_with_data(
-            queue,
-            &wgpu::TextureDescriptor {
-                label: Some("globe night imagery"),
-                size: wgpu::Extent3d {
-                    width: night.width,
-                    height: night.height,
-                    depth_or_array_layers: 1,
-                },
-                mip_level_count: night.levels.len() as u32,
-                sample_count: 1,
-                dimension: wgpu::TextureDimension::D2,
-                format: night.format,
-                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-                view_formats: &[],
-            },
-            wgpu::util::TextureDataOrder::LayerMajor,
-            &night.levels.concat(),
-        );
+        // A dark ocean and no city lights, until `set_day()` and `set_night()` bring the imagery.
+        let day_view = imagery_view(device, queue, &Imagery::solid([6, 14, 32, 255]));
+        let night_view = imagery_view(device, queue, &Imagery::solid([0, 0, 0, 255]));
         // Clear until `set_clouds()` fills it.
         let cloud_texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("globe clouds"),
@@ -263,37 +304,10 @@ impl Renderer {
                 },
             ],
         });
-        let view = texture.create_view(&Default::default());
-        let day_view = day_texture.create_view(&Default::default());
-        let night_view = night_texture.create_view(&Default::default());
+        let map_view = texture.create_view(&Default::default());
         let cloud_view = cloud_texture.create_view(&Default::default());
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("globe"),
-            layout: &layout,
-            entries: &[
-                wgpu::BindGroupEntry { binding: 0, resource: globals.as_entire_binding() },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::TextureView(&view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: wgpu::BindingResource::Sampler(&sampler),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 3,
-                    resource: wgpu::BindingResource::TextureView(&day_view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 4,
-                    resource: wgpu::BindingResource::TextureView(&night_view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 5,
-                    resource: wgpu::BindingResource::TextureView(&cloud_view),
-                },
-            ],
-        });
+        let views = [&map_view, &day_view, &night_view, &cloud_view];
+        let bind_group = bind_group(device, &layout, &globals, &sampler, views);
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("globe"),
             bind_group_layouts: &[Some(&layout)],
@@ -383,7 +397,31 @@ impl Renderer {
             border_segment_count: segments.len() as u32,
             encode_srgb: !format.is_srgb(),
             cloud_texture,
+            layout,
+            sampler,
+            map_view,
+            day_view,
+            night_view,
+            cloud_view,
         }
+    }
+
+    /// Replaces the placeholder for the imagery of the day side.
+    pub fn set_day(&mut self, imagery: &Imagery) {
+        self.day_view = imagery_view(&self.device, &self.queue, imagery);
+        self.rebind();
+    }
+
+    /// Replaces the placeholder for the lights of the night side.
+    pub fn set_night(&mut self, imagery: &Imagery) {
+        self.night_view = imagery_view(&self.device, &self.queue, imagery);
+        self.rebind();
+    }
+
+    fn rebind(&mut self) {
+        let views = [&self.map_view, &self.day_view, &self.night_view, &self.cloud_view];
+        self.bind_group =
+            bind_group(&self.device, &self.layout, &self.globals, &self.sampler, views);
     }
 
     /// Fills the cloud texture with the mip levels from `clouds::generate()`.
