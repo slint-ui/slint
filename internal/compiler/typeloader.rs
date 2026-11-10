@@ -1102,6 +1102,9 @@ impl TypeLoader {
                 for import in doc.imports.iter().filter_map(|import| import.resolved.as_ref()) {
                     self.all_documents.dependencies.entry(import.clone()).or_default().remove(path);
                 }
+                for dependents in self.all_documents.dependencies.values_mut() {
+                    dependents.remove(path);
+                }
                 match doc.node.take() {
                     None => {
                         self.all_documents.docs.remove(path);
@@ -1484,9 +1487,18 @@ impl TypeLoader {
             }
             let content = Self::read_import(state, &path).await;
             let mut state = state.borrow_mut();
+            // The build systems only track absolute paths.
+            let absolute_path = crate::fileaccess::find_file(&path).unwrap_or_else(|| path.clone());
             if content.is_ok() {
-                state.diag.all_loaded_files.insert(path.clone());
+                state.diag.all_loaded_files.insert(absolute_path.clone());
             }
+            state
+                .tl
+                .all_documents
+                .dependencies
+                .entry(absolute_path)
+                .or_default()
+                .insert(doc.source_file.path().clone());
             state.tl.json_files.insert(path, Rc::new(content));
         }
     }
@@ -2045,8 +2057,9 @@ impl TypeLoader {
 
     /// Returns all file paths whose on-disk changes can affect the current document graph.
     ///
-    /// This includes loaded documents and unresolved import targets that are kept in the
-    /// dependency graph so newly created files can invalidate their dependents.
+    /// This includes loaded documents, the files read by `@from-json(...)`, and unresolved
+    /// import targets that are kept in the dependency graph so newly created files can
+    /// invalidate their dependents.
     pub fn all_files_to_watch(&self) -> HashSet<SourcePath> {
         // Note: This only works if the full set of passes have run (e.g. in load_root_file, but not
         // in load_file).
@@ -3189,4 +3202,38 @@ fn test_from_json_uses_open_import_callback() {
         "{:?}",
         binding.expression
     );
+}
+
+#[test]
+fn test_from_json_files_are_dependencies() {
+    let dir = std::env::temp_dir().join(format!("slint-from-json-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let main_path = SourcePath::new(dir.join("main.slint"));
+    let json_path = SourcePath::new(dir.join("data.json"));
+    let missing_path = SourcePath::new(dir.join("missing.json"));
+    std::fs::write(json_path.as_native_path().unwrap(), r#"{ "greeting": "hello" }"#).unwrap();
+
+    let mut compiler_config =
+        CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    compiler_config.style = Some("fluent".into());
+    let (diagnostics, mut loader) = spin_on::spin_on(crate::load_root_file(
+        &main_path,
+        r#"
+export component Main {
+    property <string> greeting: @from-json("data.json").greeting;
+    property <string> missing: @from-json("missing.json").greeting;
+}
+"#
+        .into(),
+        BuildDiagnostics::default(),
+        compiler_config,
+    ));
+    std::fs::remove_dir_all(&dir).unwrap();
+
+    assert!(diagnostics.all_loaded_files.contains(&json_path));
+    assert!(!diagnostics.all_loaded_files.contains(&missing_path));
+    let watch_files = loader.all_files_to_watch();
+    assert!(watch_files.contains(&json_path), "{watch_files:?}");
+    assert!(watch_files.contains(&missing_path), "{watch_files:?}");
+    assert!(loader.drop_document(&json_path).unwrap().contains(&main_path));
 }

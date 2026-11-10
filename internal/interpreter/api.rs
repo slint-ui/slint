@@ -3209,6 +3209,29 @@ mod project_file_tests {
 
     #[cfg(feature = "internal")]
     #[test]
+    fn from_json_files_are_watched() {
+        let directory = tempfile::TempDir::new().unwrap();
+        let entry = directory.path().join("main.slint");
+        let json = directory.path().join("data.json");
+        std::fs::write(
+            &entry,
+            r#"export component Main inherits Window {
+                in property <string> greeting: @from-json("data.json").greeting;
+            }"#,
+        )
+        .unwrap();
+        std::fs::write(&json, r#"{ "greeting": "hello" }"#).unwrap();
+        let result = spin_on::spin_on(Compiler::default().build_from_path(&entry));
+        assert!(!result.has_errors(), "{result:?}");
+        assert!(
+            result.watch_paths.contains(&super::SourcePath::new(&json)),
+            "{:?}",
+            result.watch_paths
+        );
+    }
+
+    #[cfg(feature = "internal")]
+    #[test]
     fn source_compilers_read_current_loader_settings_and_replace_overrides() {
         let source = "export component Main inherits Window { ComponentContainer {} }";
         use i_slint_compiler::{project_file::Overrides, source_path::SourcePath};

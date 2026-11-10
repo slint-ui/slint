@@ -349,3 +349,62 @@ mod missing_imports {
         );
     }
 }
+
+/// A JSON file read by `@from-json(...)` triggers a recompile of the `.slint` file that reads it.
+mod from_json_files {
+    use super::*;
+
+    #[test]
+    fn changed_json_file_reloads_the_document() {
+        let mut ctx = mock_context();
+        let dir = tempfile::tempdir().unwrap();
+        let dir = dir.path().canonicalize().unwrap();
+        let json_path = dir.join("data.json");
+        std::fs::write(&json_path, r#"{ "greeting": "hello" }"#).unwrap();
+
+        let (main_url, diag) = load(
+            &mut ctx.session,
+            &dir.join("main.slint"),
+            r#"export component Main { property <string> greeting: @from-json("data.json").greeting; }"#,
+        );
+        assert!(diag[&main_url].is_empty(), "{diag:?}");
+        assert!(ctx.session.document_cache.all_paths_to_watch().contains(&json_path));
+
+        ctx.session.open_urls.insert(main_url.clone());
+        std::fs::write(&json_path, r#"{ "greeting": 42 }"#).unwrap();
+        let json_url = Url::from_file_path(&json_path).unwrap();
+        spin_on::spin_on(ctx.session.trigger_file_watcher(json_url, FileChangeKind::Changed))
+            .unwrap();
+        assert!(ctx.session.pending_recompile.contains(&main_url));
+
+        let diag = spin_on::spin_on(ctx.session.reload_document(main_url.clone())).unwrap();
+        let (_, _, main_diag) = diag.iter().find(|(url, _, _)| *url == main_url).unwrap();
+        assert!(
+            main_diag.iter().any(|d| d.message.contains("Cannot use the JSON number")),
+            "{main_diag:?}"
+        );
+    }
+
+    #[test]
+    fn created_json_file_reloads_the_document() {
+        let mut ctx = mock_context();
+        let dir = tempfile::tempdir().unwrap();
+        let dir = dir.path().canonicalize().unwrap();
+        let json_path = dir.join("data.json");
+
+        let (main_url, diag) = load(
+            &mut ctx.session,
+            &dir.join("main.slint"),
+            r#"export component Main { property <string> greeting: @from-json("data.json").greeting; }"#,
+        );
+        assert!(!diag[&main_url].is_empty(), "the JSON file doesn't exist yet");
+        assert!(ctx.session.document_cache.all_paths_to_watch().contains(&json_path));
+
+        ctx.session.open_urls.insert(main_url.clone());
+        std::fs::write(&json_path, r#"{ "greeting": "hello" }"#).unwrap();
+        let json_url = Url::from_file_path(&json_path).unwrap();
+        spin_on::spin_on(ctx.session.trigger_file_watcher(json_url, FileChangeKind::Created))
+            .unwrap();
+        assert!(ctx.session.pending_recompile.contains(&main_url));
+    }
+}
