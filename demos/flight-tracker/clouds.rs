@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+// cSpell: ignore equirectangular Perlin xorshift
+
 //! Clouds for the globe, generated from noise at startup and shaped like the earth's weather:
 //! a belt along the equator, clear subtropics, and storm tracks in the mid-latitudes, stretched
 //! from west to east like the jet streams pull them.
@@ -9,6 +11,10 @@ use std::f32::consts::PI;
 
 use glam::Vec3;
 
+use crate::background::fill_rows;
+use crate::camera::{smoothstep, surface};
+use crate::renderer::Imagery;
+
 // The web build generates them on one thread, so at half the resolution.
 #[cfg(not(target_arch = "wasm32"))]
 pub const WIDTH: u32 = 2048;
@@ -16,63 +22,26 @@ pub const WIDTH: u32 = 2048;
 pub const WIDTH: u32 = 1024;
 pub const HEIGHT: u32 = WIDTH / 2;
 
-/// The number of mip levels of the cloud cover, down to one pixel.
-pub const LEVELS: u32 = WIDTH.ilog2() + 1;
-
-/// The cloud cover, equirectangular like the map, from 0 to 255, with its `LEVELS` mip levels.
-pub fn generate() -> Vec<Vec<u8>> {
+/// The cloud cover, equirectangular like the map, from 0 for a clear sky.
+pub fn generate() -> Imagery {
     let noise = Noise::new(0x5eed_c10d);
     let (width, height) = (WIDTH as usize, HEIGHT as usize);
-    let mut base = vec![0u8; width * height];
-    let threads = if cfg!(target_arch = "wasm32") {
-        1
-    } else {
-        std::thread::available_parallelism().map_or(1, |n| n.get())
-    };
-    let rows_per_thread = height.div_ceil(threads);
-    std::thread::scope(|scope| {
-        for (index, chunk) in base.chunks_mut(rows_per_thread * width).enumerate() {
-            let noise = &noise;
-            let mut fill = move || {
-                for (k, value) in chunk.iter_mut().enumerate() {
-                    let (x, y) = (k % width, index * rows_per_thread + k / width);
-                    let lon = (x as f32 + 0.5) / width as f32 * 2.0 * PI - PI;
-                    let lat = PI / 2.0 - (y as f32 + 0.5) / height as f32 * PI;
-                    *value = (cover(noise, lon, lat) * 255.0).round() as u8;
-                }
-            };
-            if threads == 1 {
-                fill();
-            } else {
-                scope.spawn(fill);
-            }
+    let mut pixels = vec![0u8; width * height];
+    fill_rows(&mut pixels, width, |first_row, rows| {
+        for (k, value) in rows.iter_mut().enumerate() {
+            let (x, y) = (k % width, first_row + k / width);
+            let lon = (x as f32 + 0.5) / width as f32 * 2.0 * PI - PI;
+            let lat = PI / 2.0 - (y as f32 + 0.5) / height as f32 * PI;
+            *value = (cover(&noise, lon, lat) * 255.0).round() as u8;
         }
     });
-
-    let mut levels = vec![base];
-    let (mut w, mut h) = (width, height);
-    while w > 1 || h > 1 {
-        let last = levels.last().unwrap();
-        let (nw, nh) = ((w / 2).max(1), (h / 2).max(1));
-        let level = (0..nw * nh)
-            .map(|i| {
-                let (x, y) = ((i % nw) * 2, (i / nw) * 2);
-                let at = |dx: usize, dy: usize| last[(y + dy).min(h - 1) * w + (x + dx).min(w - 1)];
-                ((at(0, 0) as u32 + at(1, 0) as u32 + at(0, 1) as u32 + at(1, 1) as u32 + 2) / 4)
-                    as u8
-            })
-            .collect();
-        levels.push(level);
-        (w, h) = (nw, nh);
-    }
-    levels
+    Imagery::gray(WIDTH, HEIGHT, pixels)
 }
 
 /// How cloudy it is at `lon` and `lat`, in radians, from 0 to 1.
 fn cover(noise: &Noise, lon: f32, lat: f32) -> f32 {
-    let point = Vec3::new(lat.cos() * lon.sin(), lat.sin(), lat.cos() * lon.cos());
     // Squeezed from north to south, so that the clouds stretch from west to east.
-    let p = point * Vec3::new(3.2, 5.6, 3.2);
+    let p = surface(lon, lat) * Vec3::new(3.2, 5.6, 3.2);
     // Warping the noise by more noise curls the clouds into swirls.
     let warp = Vec3::new(
         noise.fbm(p + Vec3::new(1.7, 9.2, 3.1), 2),
@@ -84,10 +53,10 @@ fn cover(noise: &Noise, lon: f32, lat: f32) -> f32 {
     let band = |center: f32, width: f32| (-((degrees.abs() - center) / width).powi(2)).exp();
     let tropics = (-((degrees - 6.0) / 7.0).powi(2)).exp();
     let weather = 0.16 * tropics - 0.17 * band(24.0, 9.0) + 0.12 * band(55.0, 14.0) + 0.03;
-    let t = ((shape + weather - 0.05) / 0.28).clamp(0.0, 1.0);
+    let cover = smoothstep(0.0, 1.0, (shape + weather - 0.05) / 0.28);
     // Finer noise inside the clouds, so that they aren't flat.
     let texture = 0.72 + 0.28 * (noise.fbm(p * 4.0 + Vec3::splat(11.0), 2) * 2.0).clamp(-1.0, 1.0);
-    t * t * (3.0 - 2.0 * t) * texture
+    cover * texture
 }
 
 /// Ken Perlin's improved gradient noise, in three dimensions so that it wraps around the globe
@@ -173,9 +142,9 @@ mod tests {
     fn write_png() {
         let Ok(path) = std::env::var("FLIGHT_TRACKER_CLOUDS_PNG") else { return };
         let start = std::time::Instant::now();
-        let levels = super::generate();
+        let clouds = super::generate();
         eprintln!("generated in {:?}", start.elapsed());
-        image::GrayImage::from_raw(super::WIDTH, super::HEIGHT, levels[0].clone())
+        image::GrayImage::from_raw(super::WIDTH, super::HEIGHT, clouds.levels[0].clone())
             .unwrap()
             .save(path)
             .unwrap();

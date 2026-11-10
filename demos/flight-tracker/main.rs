@@ -5,6 +5,7 @@
 
 use std::cell::RefCell;
 use std::f32::consts::PI;
+use std::fmt::Write;
 use std::rc::Rc;
 use std::time::Duration;
 
@@ -24,6 +25,7 @@ mod camera;
 mod clouds;
 mod compress;
 mod flight;
+#[allow(dead_code)]
 mod gibs;
 mod map;
 mod renderer;
@@ -190,9 +192,7 @@ fn daylight(point: Vec3, hours: f32) -> &'static str {
     }
 }
 
-/// Path commands through the projected `points`, leaving gaps where a point is hidden, and
-/// with `dashed`, between every other pair of points.
-/// The SVG commands for a line through `points`. Each point comes with the index of its sample
+/// The SVG commands for a line through `points`, with gaps where a point is hidden. Each point comes with the index of its sample
 /// along the route, and a dashed line draws the segments that end at an odd sample.
 fn path(points: impl Iterator<Item = (usize, Option<Vec2>)>, dashed: bool) -> String {
     let mut commands = String::new();
@@ -201,7 +201,7 @@ fn path(points: impl Iterator<Item = (usize, Option<Vec2>)>, dashed: bool) -> St
         if let (Some(from), Some(to)) = (previous, point)
             && (!dashed || sample % 2 == 1)
         {
-            commands += &format!("M {:.1} {:.1} L {:.1} {:.1} ", from.x, from.y, to.x, to.y);
+            let _ = write!(commands, "M {:.1} {:.1} L {:.1} {:.1} ", from.x, from.y, to.x, to.y);
         }
         previous = point;
     }
@@ -373,9 +373,10 @@ impl Demo {
         Pose { target: self.entry_target, heading: self.entry_heading, tilt: 0.0, range }
     }
 
-    /// Turns the globe on the entry screen upright, zoomed out, with `longitude` at the center.
-    fn reset_entry(&mut self, longitude: f32) {
-        self.entry_target = surface(longitude, ENTRY_LATITUDE);
+    /// Turns the globe on the entry screen upright, zoomed out, with the longitude of `point`
+    /// at the center.
+    fn reset_entry(&mut self, point: Vec3) {
+        self.entry_target = surface(camera::coordinates(point).0, ENTRY_LATITUDE);
         self.entry_heading = 0.0;
         self.entry_zoom = 1.0;
         self.entry_held = ENTRY_SPIN_PAUSE;
@@ -388,13 +389,26 @@ impl Demo {
         app.set_kiosk(false);
     }
 
+    /// Hands the camera to the user, who starts to move the globe.
+    fn grab(&mut self, app: &AppWindow) {
+        if self.stage == Stage::Entry {
+            self.hold_entry(app);
+        } else {
+            self.view = View::Free;
+            self.view_chosen = true;
+        }
+    }
+
     /// Starts the planned flight, growing the globe to the window.
     fn take_off(&mut self) {
         let (Some(origin), Some(destination)) = self.planned else { return };
         if origin == destination || self.stage != Stage::Entry {
             return;
         }
-        self.start_flight(origin, destination);
+        let (from, to) = (self.airports[origin].position, self.airports[destination].position);
+        self.flight = Flight::new(origin, from, destination, to);
+        self.phase = Phase::Boarding;
+        self.phase_time = 0.0;
         self.view_chosen = false;
         self.set_view(View::Route);
         self.set_stage(Stage::ZoomingIn);
@@ -404,8 +418,7 @@ impl Demo {
     fn leave(&mut self) {
         if self.stage == Stage::Flight {
             // The globe turns on from over the aircraft.
-            let position = self.flight.position();
-            self.reset_entry(position.x.atan2(position.z));
+            self.reset_entry(self.flight.position());
             self.camera.transition(ZOOM_OUT_SECONDS);
             self.set_stage(Stage::ZoomingOut);
         }
@@ -424,7 +437,6 @@ impl Demo {
         let angle = (107.0 - 11.0 * camera::ease(s / 0.45)).to_radians();
         let target = sun * angle.cos() + side * angle.sin();
         let towards_sun = sun * angle.sin() - side * angle.cos();
-        let (north, east) = camera::north_east(target);
         let log_lerp = |from: f32, to: f32, t: f32| (from.ln() + (to.ln() - from.ln()) * t).exp();
         let range = if s < 0.62 {
             log_lerp(0.05, 0.18, s / 0.62)
@@ -434,7 +446,7 @@ impl Demo {
         let tilt = 80.0 - 60.0 * camera::ease((s - 0.74) / 0.26);
         Pose {
             target,
-            heading: towards_sun.dot(east).atan2(towards_sun.dot(north)),
+            heading: camera::bearing(target, towards_sun),
             tilt: tilt.to_radians(),
             range,
         }
@@ -449,8 +461,7 @@ impl Demo {
     /// Ends the intro, zooming out to the entry screen from where the camera is.
     fn finish_intro(&mut self) {
         if self.stage == Stage::Intro {
-            let target = self.camera.pose.target;
-            self.reset_entry(target.x.atan2(target.z));
+            self.reset_entry(self.camera.pose.target);
             self.camera.transition(ZOOM_OUT_SECONDS);
             self.from_intro = true;
             self.set_stage(Stage::ZoomingOut);
@@ -517,17 +528,6 @@ impl Demo {
         candidate
     }
 
-    fn start_flight(&mut self, origin: usize, destination: usize) {
-        let (from, to) = (self.airports[origin].position, self.airports[destination].position);
-        self.flight = Flight::new(origin, from, destination, to);
-        self.phase = Phase::Boarding;
-        self.phase_time = 0.0;
-        if !self.view_chosen || self.view == View::Free {
-            self.view_chosen = false;
-            self.set_view(View::Route);
-        }
-    }
-
     fn set_view(&mut self, view: View) {
         self.camera.transition(VIEW_TRANSITION);
         self.view = view;
@@ -535,9 +535,9 @@ impl Demo {
         self.zoom = 1.0;
     }
 
-    /// How far from the ground `view` puts the camera before the user zooms.
-    fn base_range(&self, view: View, aspect: f32) -> f32 {
-        match view {
+    /// How far from the ground the view puts the camera before the user zooms.
+    fn base_range(&self, aspect: f32) -> f32 {
+        match self.view {
             View::Follow => 0.6,
             View::Route => route_range(&self.flight, aspect),
             View::Globe => 2.6,
@@ -545,11 +545,11 @@ impl Demo {
         }
     }
 
-    /// Where `view` puts the camera.
-    fn goal(&self, view: View, aspect: f32) -> Pose {
+    /// Where the view puts the camera.
+    fn goal(&self, aspect: f32) -> Pose {
         let flight = &self.flight;
-        let range = self.base_range(view, aspect) * self.zoom;
-        match view {
+        let range = self.base_range(aspect) * self.zoom;
+        match self.view {
             View::Follow => Pose {
                 target: flight.position(),
                 heading: flight.heading_degrees().to_radians(),
@@ -570,7 +570,7 @@ impl Demo {
         } else if self.view == View::Free {
             self.camera.pose.range = Camera::zoomed(self.camera.pose.range, factor);
         } else {
-            let base = self.base_range(self.view, aspect);
+            let base = self.base_range(aspect);
             self.zoom = (self.zoom / factor).clamp(MIN_RANGE / base, 3.0);
         }
     }
@@ -606,17 +606,14 @@ impl Demo {
                 return;
             }
             Stage::ZoomingIn if self.stage_time >= ZOOM_IN_SECONDS => self.set_stage(Stage::Flight),
-            Stage::ZoomingOut if self.stage_time >= ZOOM_OUT_SECONDS && self.from_intro => {
-                self.from_intro = false;
-                self.set_stage(Stage::Entry);
-                return;
-            }
             Stage::ZoomingOut if self.stage_time >= ZOOM_OUT_SECONDS => {
                 self.set_stage(Stage::Entry);
-                // The next flight starts where this one landed.
-                let origin = self.flight.destination;
-                self.proposal = Some((origin, None));
-                self.plan(Some(origin), None);
+                if !std::mem::take(&mut self.from_intro) {
+                    // The next flight starts where this one landed.
+                    let origin = self.flight.destination;
+                    self.proposal = Some((origin, None));
+                    self.plan(Some(origin), None);
+                }
                 return;
             }
             _ => {}
@@ -676,7 +673,7 @@ impl Demo {
                 self.camera.coast(height, dt);
             }
         } else {
-            let goal = self.goal(self.view, aspect);
+            let goal = self.goal(aspect);
             self.camera.follow(goal, dt);
         }
     }
@@ -740,19 +737,15 @@ impl Demo {
             .map(|point| (*point - Vec2::new(24.0, 24.0), *point + Vec2::new(60.0, 24.0)))
             .collect();
         let mut count = 0;
-        let mut was_shown = vec![false; self.cities.len()];
+        let was_shown: Vec<bool> =
+            self.label_states.iter_mut().map(|state| std::mem::take(&mut state.shown)).collect();
         for (slack, keep_shown) in [(LABEL_SLACK, true), (0.0, false)] {
             for (index, city) in self.cities.iter().enumerate() {
-                let state = &mut self.label_states[index];
-                if keep_shown {
-                    was_shown[index] = state.shown;
-                    state.shown = false;
-                }
-                if was_shown[index] != keep_shown || state.shown {
-                    continue;
-                }
-                let facing = facing(eye, city.position);
-                if city.population < min_population || facing < 0.15 || count == MAX_LABELS {
+                if was_shown[index] != keep_shown
+                    || city.population < min_population
+                    || count == MAX_LABELS
+                    || facing(eye, city.position) < 0.15
+                {
                     continue;
                 }
                 let Some(point) = project(view_projection, city.position, size) else { continue };
@@ -769,7 +762,7 @@ impl Demo {
                     continue;
                 }
                 placed.push((low, high));
-                state.shown = true;
+                self.label_states[index].shown = true;
                 count += 1;
             }
         }
@@ -808,15 +801,13 @@ fn marker(view_projection: Mat4, eye: Vec3, airport: &Airport, size: Vec2) -> Ma
 fn border_strength(eye: Vec3, height: f32) -> f32 {
     let distance = eye.length().max(1.0 + 1e-4);
     let radius = height / 2.0 / ((distance * distance - 1.0).sqrt() * (FOV_Y / 2.0).tan());
-    let t = ((radius - 250.0) / 200.0).clamp(0.0, 1.0);
-    t * t * (3.0 - 2.0 * t)
+    camera::smoothstep(250.0, 450.0, radius)
 }
 
 /// How strongly the clouds show on a globe seen from `eye`: they fade out as the camera comes
 /// close, where they would hide the route and the cities.
 fn cloud_strength(eye: Vec3) -> f32 {
-    let t = ((eye.length() - 1.0 - 0.9) / 1.1).clamp(0.0, 1.0);
-    t * t * (3.0 - 2.0 * t)
+    camera::smoothstep(0.9, 2.0, eye.length() - 1.0)
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -825,26 +816,6 @@ extern "C" {
     /// The page's `flightTrackerReady()`, see `index.html`. It's an error where the page has none.
     #[wasm_bindgen(catch, js_name = flightTrackerReady)]
     fn flight_tracker_ready() -> Result<(), wasm_bindgen::JsValue>;
-}
-
-/// Where the tiles for the detail come from: the binary, if `build.rs` embedded them, or else
-/// NASA's GIBS. `FLIGHT_TRACKER_TILES` names a directory of tiles to use instead, or is `off`.
-fn tile_source() -> Option<tiles::Source> {
-    #[cfg(not(target_arch = "wasm32"))]
-    if let Some(directory) = std::env::var_os("FLIGHT_TRACKER_TILES") {
-        return (directory != "off").then(|| tiles::Source::Directory(directory.into()));
-    }
-    #[cfg(target_arch = "wasm32")]
-    return Some(tiles::Source::Online {});
-    #[cfg(embedded_tiles)]
-    return Some(tiles::Source::Embedded);
-    #[cfg(all(not(target_arch = "wasm32"), not(embedded_tiles), feature = "online-imagery"))]
-    return Some(tiles::Source::Online {
-        cache: directories::ProjectDirs::from("dev", "slint", "flight-tracker")
-            .map(|directories| directories.cache_dir().join("tiles")),
-    });
-    #[cfg(all(not(target_arch = "wasm32"), not(embedded_tiles), not(feature = "online-imagery")))]
-    None
 }
 
 /// Renders into one of two textures, so Slint can show the previous one meanwhile.
@@ -902,14 +873,13 @@ fn update_rows<T: Clone + PartialEq + 'static>(model: &slint::VecModel<T>, rows:
     }
 }
 
-fn window_aspect(app: &AppWindow) -> f32 {
-    let size = logical_size(app.window());
+fn aspect(size: Vec2) -> f32 {
     size.x / size.y.max(1.0)
 }
 
 fn logical_size(window: &slint::Window) -> Vec2 {
-    let physical = window.size();
-    Vec2::new(physical.width as f32, physical.height as f32) / window.scale_factor()
+    let size = window.size().to_logical(window.scale_factor());
+    Vec2::new(size.width, size.height)
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen::prelude::wasm_bindgen(start))]
@@ -926,7 +896,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         .select()?;
 
     let app = AppWindow::new()?;
-    app.set_online_imagery_available(tile_source().is_some());
+    app.set_online_imagery_available(tiles::Source::detect().is_some());
+    app.set_entry_fill(ENTRY_FILL);
     app.global::<Characters>().on_at(|text, index| {
         let character = usize::try_from(index).ok().and_then(|i| text.graphemes(true).nth(i));
         character.unwrap_or_default().into()
@@ -936,7 +907,6 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     app.set_labels(labels.clone().into());
     let results = Rc::new(slint::VecModel::<AirportItem>::default());
     app.set_results(results.clone().into());
-    // The planner starts out listing all airports.
     results.set_vec(
         atlas::search(&demo.borrow().airports, "")
             .into_iter()
@@ -944,7 +914,6 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             .collect::<Vec<_>>(),
     );
 
-    // Input restarts the timer that hands control back to the kiosk.
     let interact = {
         let demo = demo.clone();
         let app_weak = app.as_weak();
@@ -965,7 +934,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     // Starts the kiosk's wait for proposing a flight over.
                     demo.set_stage(Stage::Entry);
                     let target = demo.entry_target;
-                    demo.reset_entry(target.x.atan2(target.z));
+                    demo.reset_entry(target);
                     demo.camera.transition(VIEW_TRANSITION);
                 }
                 if demo.view == View::Free {
@@ -984,12 +953,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         let interact = interact.clone();
         move || {
             interact(&|demo, app| {
-                if demo.stage == Stage::Entry {
-                    demo.hold_entry(app);
-                } else {
-                    demo.view = View::Free;
-                    demo.view_chosen = true;
-                }
+                demo.grab(app);
                 demo.dragging = true;
                 demo.last_drag = web_time::Instant::now();
                 demo.camera.hold();
@@ -1000,12 +964,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         let interact = interact.clone();
         move |degrees| {
             interact(&|demo, app| {
+                demo.grab(app);
                 if demo.stage == Stage::Entry {
-                    demo.hold_entry(app);
                     demo.entry_heading -= degrees.to_radians();
-                } else {
-                    demo.view = View::Free;
-                    demo.view_chosen = true;
                 }
                 demo.camera.twist(degrees.to_radians());
             })
@@ -1042,7 +1003,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 if demo.stage == Stage::Entry {
                     demo.hold_entry(app);
                 }
-                demo.zoom_by(factor, window_aspect(app));
+                demo.zoom_by(factor, aspect(logical_size(app.window())));
             })
         }
     });
@@ -1072,7 +1033,6 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         let interact = interact.clone();
         move || {
             interact(&|demo, app| {
-                // The next flight starts where this one lands.
                 app.set_kiosk(false);
                 demo.leave();
             })
@@ -1111,28 +1071,17 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
     let app_weak = app.as_weak();
-    app.on_settings_changed({
-        let app_weak = app_weak.clone();
-        move || {
-            if let Some(app) = app_weak.upgrade() {
-                app.window().request_redraw();
-            }
-        }
-    });
 
-    // The renderer and Slint's device, once Slint set up rendering.
     let mut graphics: Option<(Renderer, wgpu::Device)> = None;
     let mut frames =
         Frames { textures: Vec::new(), next: 0, view_format: wgpu::TextureFormat::Rgba8Unorm };
     let mut last_frame = web_time::Instant::now();
-    // Started once the renderer is set up.
     let mut night_loading: Option<background::Background<renderer::Imagery>> = None;
     let mut day_loading: Option<background::Background<renderer::Imagery>> = None;
-    let mut cloud_generation: Option<background::Background<Vec<Vec<u8>>>> = None;
+    let mut cloud_generation: Option<background::Background<renderer::Imagery>> = None;
     let mut detail: Option<tiles::Detail> = None;
     #[cfg(target_arch = "wasm32")]
     let mut page_told = false;
-    // When the clouds arrived, to fade them in.
     let mut clouds_since: Option<web_time::Instant> = None;
     let mut frame_count = 0u32;
     let mut fps_window_start = web_time::Instant::now();
@@ -1145,7 +1094,6 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             && !app.get_kiosk();
         !waiting || demo.camera.is_moving()
     };
-    // Counts the frames for the frame rate, and asks for the next frame unless nothing moves.
     let mut request_redraw = move |app: &AppWindow, demo: &Demo, scale: f32| {
         frame_count += 1;
         let elapsed = fps_window_start.elapsed().as_secs_f32();
@@ -1169,7 +1117,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 return;
             };
             // The map is only needed until it's on the GPU.
-            let map = map::Map::new();
+            let map = map::coasts();
             // The imagery and the clouds follow while the intro plays. The intro starts on the
             // night side, so its lights come first.
             let features = device.features();
@@ -1186,7 +1134,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     .compress(features)
             }));
             cloud_generation = Some(background::Background::start(3, clouds::generate));
-            let tiles = tile_source();
+            let tiles = tiles::Source::detect();
             let with_tiles = tiles.is_some();
             detail = Some(tiles::Detail::new(tiles, features));
             let info = device.adapter_info();
@@ -1219,8 +1167,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         if let Some(day) = day_loading.as_mut().and_then(background::Background::poll) {
             renderer.set_day(&day);
         }
-        if let Some(levels) = cloud_generation.as_mut().and_then(background::Background::poll) {
-            renderer.set_clouds(&levels);
+        if let Some(clouds) = cloud_generation.as_mut().and_then(background::Background::poll) {
+            renderer.set_clouds(&clouds);
             clouds_since = Some(web_time::Instant::now());
         }
         let now = web_time::Instant::now();
@@ -1245,7 +1193,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         let demo = &mut *demo;
         let window = app.window();
         let size = logical_size(window);
-        let aspect = size.x / size.y.max(1.0);
+        let aspect = aspect(size);
         let entry = Vec2::new(app.get_entry_globe_width(), app.get_entry_globe_height());
         demo.entry_view = entry / (size * (entry / size).max_element());
         demo.step(app.get_kiosk(), dt);
@@ -1258,12 +1206,14 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             app.set_quality(lower);
         }
         let scale = adaptive.scale();
-        let density = globe_density(window, app.get_quality()) * scale;
+        let full_density = globe_density(window, app.get_quality());
+        let density = full_density * scale;
+        let zoom_progress = demo.zoom_progress();
 
         // The globe's place, which grows from the entry screen's to the window, centers the globe.
         let entry_center =
             Vec2::new(app.get_entry_globe_x(), app.get_entry_globe_y()) + entry / 2.0;
-        let center = entry_center.lerp(size / 2.0, demo.zoom_progress());
+        let center = entry_center.lerp(size / 2.0, zoom_progress);
         let shift = (center - size / 2.0) / size * Vec2::new(2.0, -2.0);
         let view_projection =
             Mat4::from_translation(shift.extend(0.0)) * demo.camera.pose.view_projection(aspect);
@@ -1277,23 +1227,41 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         };
 
         let flight = &demo.flight;
-        let origin = marker(view_projection, eye, &demo.airports[flight.origin], size);
-        let destination = marker(view_projection, eye, &demo.airports[flight.destination], size);
+        let mut markers = [Marker::default(), Marker::default()];
+        let mut paths = [String::new(), String::new()];
+        let mut aircraft = None;
+        // The intro shows the globe alone, without the placeholder flight it starts with.
+        if demo.stage != Stage::Intro && !demo.from_intro {
+            markers = [flight.origin, flight.destination]
+                .map(|airport| marker(view_projection, eye, &demo.airports[airport], size));
 
-        // The route on the ground, solid where the aircraft flew, and dashed ahead of it.
-        let samples = (flight.distance_km / 60.0).clamp(24.0, 400.0) as usize;
-        let progress = flight.progress();
-        let screen = |t: f32| screen_point(view_projection, eye, flight.point(t), size);
-        let steps = (0..=samples).map(|i| (i, i as f32 / samples as f32));
-        let flown = steps.clone().take_while(|(_, t)| *t < progress).chain([(0, progress)]);
-        let ahead = [(0, progress)].into_iter().chain(steps.skip_while(|(_, t)| *t <= progress));
-        let on_screen = |(sample, t): (usize, f32)| (sample, screen(t));
-        app.set_flown_path(path(flown.map(on_screen), false).into());
-        app.set_remaining_path(path(ahead.map(on_screen), true).into());
+            // The route on the ground, solid where the aircraft flew, and dashed ahead of it.
+            let samples = (flight.distance_km / 60.0).clamp(24.0, 400.0) as usize;
+            let progress = flight.progress();
+            let screen = |t: f32| screen_point(view_projection, eye, flight.point(t), size);
+            let steps = (0..=samples).map(|i| (i, i as f32 / samples as f32));
+            let flown = steps.clone().take_while(|(_, t)| *t < progress).chain([(0, progress)]);
+            let ahead =
+                [(0, progress)].into_iter().chain(steps.skip_while(|(_, t)| *t <= progress));
+            let on_screen = |(sample, t): (usize, f32)| (sample, screen(t));
+            paths = [path(flown.map(on_screen), false), path(ahead.map(on_screen), true)];
 
-        let position = flight.position();
-        let nose = (position + flight.track() * 0.005).normalize();
-        let aircraft = screen(progress).zip(project(view_projection, nose * 1.0005, size));
+            let nose = (flight.position() + flight.track() * 0.005).normalize();
+            aircraft = screen(progress).zip(project(view_projection, nose * 1.0005, size));
+        }
+        let taken: Vec<Vec2> = markers
+            .iter()
+            .filter(|marker| marker.shown)
+            .map(|marker| Vec2::new(marker.x, marker.y))
+            .chain(aircraft.map(|(at, _)| at))
+            .collect();
+        update_rows(&labels, demo.labels(view_projection, eye, size, &taken, dt));
+        let [origin, destination] = markers;
+        app.set_origin_marker(origin);
+        app.set_destination_marker(destination);
+        let [flown, remaining] = paths;
+        app.set_flown_path(flown.into());
+        app.set_remaining_path(remaining.into());
         app.set_aircraft(match aircraft {
             Some((at, ahead)) => Aircraft {
                 shown: true,
@@ -1303,23 +1271,6 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             },
             None => Aircraft::default(),
         });
-
-        let taken: Vec<Vec2> = [&origin, &destination]
-            .iter()
-            .filter(|marker| marker.shown)
-            .map(|marker| Vec2::new(marker.x, marker.y))
-            .chain(aircraft.map(|(at, _)| at))
-            .collect();
-        update_rows(&labels, demo.labels(view_projection, eye, size, &taken, dt));
-        // The intro shows the globe alone, without the placeholder flight it starts with.
-        let alone = demo.stage == Stage::Intro || demo.from_intro;
-        app.set_origin_marker(if alone { Marker::default() } else { origin });
-        app.set_destination_marker(if alone { Marker::default() } else { destination });
-        if alone {
-            app.set_flown_path("".into());
-            app.set_remaining_path("".into());
-            app.set_aircraft(Aircraft::default());
-        }
         app.set_flight(demo.flight_info());
         app.set_view(demo.view);
         app.set_screen(match demo.stage {
@@ -1327,7 +1278,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             Stage::Intro | Stage::ZoomingIn | Stage::ZoomingOut => Screen::Zoom,
             Stage::Flight => Screen::Flight,
         });
-        app.set_zoom_progress(demo.zoom_progress());
+        app.set_zoom_progress(zoom_progress);
         app.set_intro(demo.stage == Stage::Intro);
         app.set_curtain(demo.curtain());
         app.set_planner_away(demo.planner_away());
@@ -1338,9 +1289,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             app.invoke_propose(item(Some(origin)), item(destination));
         }
         // The frame covers the whole window, at the resolution the globe's place needs.
-        let progress = demo.zoom_progress();
-        let shown = entry.lerp(size, progress);
-        let largest = (size * globe_density(window, app.get_quality())).ceil().max(Vec2::ONE);
+        let shown = entry.lerp(size, zoom_progress);
+        let largest = (size * full_density).ceil().max(Vec2::ONE);
         let texture = frames.texture(device, largest.x as u32, largest.y as u32);
         let pixels =
             (size * (shown / size).max_element() * density).floor().clamp(Vec2::ONE, largest);
@@ -1348,7 +1298,6 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             format: Some(frames.view_format),
             ..Default::default()
         });
-        // The degrees of the globe that a pixel covers where the camera looks.
         let footprint =
             (demo.camera.pose.range * 2.0 * (FOV_Y / 2.0).tan() / pixels.y).to_degrees();
         let windows = match &mut detail {
@@ -1376,7 +1325,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 border_width: density,
                 viewport: pixels,
                 time: demo.time,
-                space: progress,
+                space: zoom_progress,
                 windows,
                 clouds: match clouds_since {
                     Some(since) if app.get_clouds() => {

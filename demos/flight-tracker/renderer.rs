@@ -8,7 +8,7 @@ use slint::wgpu_30::wgpu;
 use wgpu::util::DeviceExt;
 
 use crate::compress;
-use crate::map::{self, Map};
+use crate::map;
 use crate::tiles;
 
 /// What one frame of the globe shows, see `Globals` in `globe.wgsl`.
@@ -33,13 +33,41 @@ pub struct Frame {
     pub windows: [[f32; tiles::WINDOW_FLOATS]; tiles::WINDOWS],
 }
 
-/// Satellite imagery of the earth, equirectangular like the map, with its mip levels in sRGB
-/// RGBA.
+/// An image of the earth, equirectangular like the map, with its mip levels.
 pub struct Imagery {
     pub width: u32,
     pub height: u32,
     pub format: wgpu::TextureFormat,
     pub levels: Vec<Vec<u8>>,
+}
+
+/// The mip levels of an image with `channels` bytes per pixel, from `base` down to one pixel,
+/// each the average of the 2 by 2 pixels of the one before.
+fn mip_levels(base: Vec<u8>, width: u32, height: u32, channels: usize) -> Vec<Vec<u8>> {
+    let (mut width, mut height) = (width as usize, height as usize);
+    let mut levels = vec![base];
+    while width > 1 || height > 1 {
+        let last = levels.last().unwrap();
+        let (half_width, half_height) = ((width / 2).max(1), (height / 2).max(1));
+        let mut level = Vec::with_capacity(half_width * half_height * channels);
+        for y in 0..half_height {
+            let row = |y: usize| &last[y.min(height - 1) * width * channels..][..width * channels];
+            let (top, bottom) = (row(2 * y), row(2 * y + 1));
+            for x in 0..half_width {
+                let (left, right) = (2 * x * channels, (2 * x + 1).min(width - 1) * channels);
+                level.extend((0..channels).map(|c| {
+                    let sum = top[left + c] as u32
+                        + top[right + c] as u32
+                        + bottom[left + c] as u32
+                        + bottom[right + c] as u32;
+                    ((sum + 2) / 4) as u8
+                }));
+            }
+        }
+        levels.push(level);
+        (width, height) = (half_width, half_height);
+    }
+    levels
 }
 
 impl Imagery {
@@ -53,27 +81,18 @@ impl Imagery {
         }
     }
 
-    /// Decodes a JPEG or PNG image, and computes its mip levels.
+    /// An image of one byte per pixel, with its mip levels.
+    pub fn gray(width: u32, height: u32, pixels: Vec<u8>) -> Self {
+        let levels = mip_levels(pixels, width, height, 1);
+        Self { width, height, format: wgpu::TextureFormat::R8Unorm, levels }
+    }
+
+    /// Decodes a JPEG or PNG image to sRGB RGBA, and computes its mip levels.
     pub fn decode(bytes: &[u8]) -> Result<Self, image::ImageError> {
         let base = image::load_from_memory(bytes)?.to_rgba8();
         let (width, height) = base.dimensions();
-        let mut levels = vec![base];
-        while levels.last().is_some_and(|level| level.width() > 1 || level.height() > 1) {
-            let last = levels.last().unwrap();
-            let size = ((last.width() / 2).max(1), (last.height() / 2).max(1));
-            levels.push(image::imageops::resize(
-                last,
-                size.0,
-                size.1,
-                image::imageops::FilterType::Triangle,
-            ));
-        }
-        Ok(Self {
-            width,
-            height,
-            format: wgpu::TextureFormat::Rgba8UnormSrgb,
-            levels: levels.into_iter().map(|level| level.into_raw()).collect(),
-        })
+        let levels = mip_levels(base.into_raw(), width, height, 4);
+        Ok(Self { width, height, format: wgpu::TextureFormat::Rgba8UnormSrgb, levels })
     }
 
     /// The format that `compress()` gives for `features`.
@@ -159,7 +178,7 @@ fn bind_group(
     layout: &wgpu::BindGroupLayout,
     globals: &wgpu::Buffer,
     sampler: &wgpu::Sampler,
-    [map, day, night, clouds]: [&wgpu::TextureView; 4],
+    [map, day, night, clouds]: &[wgpu::TextureView; 4],
     (tiles, tile_sampler): (&wgpu::TextureView, &wgpu::Sampler),
 ) -> wgpu::BindGroup {
     let view = |binding, view| wgpu::BindGroupEntry {
@@ -196,13 +215,10 @@ pub struct Renderer {
     border_segment_count: u32,
     /// Whether the shader encodes sRGB, because the target's format doesn't.
     encode_srgb: bool,
-    cloud_texture: wgpu::Texture,
     layout: wgpu::BindGroupLayout,
     sampler: wgpu::Sampler,
-    map_view: wgpu::TextureView,
-    day_view: wgpu::TextureView,
-    night_view: wgpu::TextureView,
-    cloud_view: wgpu::TextureView,
+    /// The map, the imagery of the day and of the night side, and the clouds.
+    views: [wgpu::TextureView; 4],
     /// The detail windows of `tiles.rs`, one per layer.
     tile_texture: wgpu::Texture,
     tile_view: wgpu::TextureView,
@@ -216,48 +232,20 @@ impl Renderer {
     pub fn new(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        map: &Map,
+        map: &Imagery,
         format: wgpu::TextureFormat,
         with_tiles: bool,
     ) -> Self {
-        let texture = device.create_texture_with_data(
-            queue,
-            &wgpu::TextureDescriptor {
-                label: Some("globe map"),
-                size: wgpu::Extent3d {
-                    width: map::WIDTH,
-                    height: map::HEIGHT,
-                    depth_or_array_layers: 1,
-                },
-                mip_level_count: map.levels.len() as u32,
-                sample_count: 1,
-                dimension: wgpu::TextureDimension::D2,
-                format: wgpu::TextureFormat::R8Unorm,
-                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-                view_formats: &[],
-            },
-            wgpu::util::TextureDataOrder::LayerMajor,
-            &map.levels.concat(),
-        );
-        // A dark ocean and no city lights, until `set_day()` and `set_night()` bring the imagery.
-        let day_view = imagery_view(device, queue, &Imagery::solid([6, 14, 32, 255]));
-        let night_view = imagery_view(device, queue, &Imagery::solid([0, 0, 0, 255]));
-        // Clear until `set_clouds()` fills it.
-        let cloud_texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("globe clouds"),
-            size: wgpu::Extent3d {
-                width: crate::clouds::WIDTH,
-                height: crate::clouds::HEIGHT,
-                depth_or_array_layers: 1,
-            },
-            mip_level_count: crate::clouds::LEVELS,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::R8Unorm,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-            view_formats: &[],
-        });
-        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+        // A dark ocean, no city lights, and a clear sky, until `set_day()`, `set_night()`, and
+        // `set_clouds()` bring them.
+        let placeholder = |rgba| imagery_view(device, queue, &Imagery::solid(rgba));
+        let views = [
+            imagery_view(device, queue, map),
+            placeholder([6, 14, 32, 255]),
+            placeholder([0, 0, 0, 255]),
+            placeholder([0, 0, 0, 255]),
+        ];
+        let smooth = wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::Repeat,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
             mag_filter: wgpu::FilterMode::Linear,
@@ -265,13 +253,30 @@ impl Renderer {
             mipmap_filter: wgpu::MipmapFilterMode::Linear,
             anisotropy_clamp: 8,
             ..Default::default()
-        });
+        };
+        let sampler = device.create_sampler(&smooth);
         let globals = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("globe globals"),
             size: std::mem::size_of::<[f32; GLOBAL_FLOATS]>() as u64,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
+        let texture = |binding, view_dimension| wgpu::BindGroupLayoutEntry {
+            binding,
+            visibility: wgpu::ShaderStages::FRAGMENT,
+            ty: wgpu::BindingType::Texture {
+                sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                view_dimension,
+                multisampled: false,
+            },
+            count: None,
+        };
+        let filtering = |binding| wgpu::BindGroupLayoutEntry {
+            binding,
+            visibility: wgpu::ShaderStages::FRAGMENT,
+            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+            count: None,
+        };
         let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("globe"),
             entries: &[
@@ -285,72 +290,15 @@ impl Renderer {
                     },
                     count: None,
                 },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        multisampled: false,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 2,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 3,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        multisampled: false,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 4,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        multisampled: false,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 5,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        multisampled: false,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 6,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        view_dimension: wgpu::TextureViewDimension::D2Array,
-                        multisampled: false,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 7,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                    count: None,
-                },
+                texture(1, wgpu::TextureViewDimension::D2),
+                filtering(2),
+                texture(3, wgpu::TextureViewDimension::D2),
+                texture(4, wgpu::TextureViewDimension::D2),
+                texture(5, wgpu::TextureViewDimension::D2),
+                texture(6, wgpu::TextureViewDimension::D2Array),
+                filtering(7),
             ],
         });
-        let map_view = texture.create_view(&Default::default());
-        let cloud_view = cloud_texture.create_view(&Default::default());
         let tile_format = Imagery::compressed_format(device.features());
         // Without tiles, the shader never samples it, so one block per layer will do.
         let (window, mips) =
@@ -373,115 +321,87 @@ impl Renderer {
             dimension: Some(wgpu::TextureViewDimension::D2Array),
             ..Default::default()
         });
-        // A tile's place in its window comes from its column and row modulo the window's size,
-        // so the texture repeats in both directions.
         let tile_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            address_mode_u: wgpu::AddressMode::Repeat,
             address_mode_v: wgpu::AddressMode::Repeat,
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::MipmapFilterMode::Linear,
-            anisotropy_clamp: 8,
-            ..Default::default()
+            ..smooth
         });
-        let views = [&map_view, &day_view, &night_view, &cloud_view];
         let bind_group =
-            bind_group(device, &layout, &globals, &sampler, views, (&tile_view, &tile_sampler));
+            bind_group(device, &layout, &globals, &sampler, &views, (&tile_view, &tile_sampler));
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("globe"),
             bind_group_layouts: &[Some(&layout)],
             immediate_size: 0,
         });
         let module = device.create_shader_module(wgpu::include_wgsl!("globe.wgsl"));
-        let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("globe"),
-            layout: Some(&pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &module,
-                entry_point: Some("vs_main"),
-                compilation_options: Default::default(),
-                buffers: &[],
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &module,
-                entry_point: Some("fs_main"),
-                compilation_options: Default::default(),
-                targets: &[Some(wgpu::ColorTargetState {
-                    format,
-                    blend: None,
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-            }),
-            primitive: Default::default(),
-            depth_stencil: None,
-            multisample: Default::default(),
-            multiview_mask: None,
-            cache: None,
-        });
+        let pipeline = |label, [vertex, fragment]: [&str; 2], buffers: &[_], blend| {
+            device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: Some(label),
+                layout: Some(&pipeline_layout),
+                vertex: wgpu::VertexState {
+                    module: &module,
+                    entry_point: Some(vertex),
+                    compilation_options: Default::default(),
+                    buffers,
+                },
+                fragment: Some(wgpu::FragmentState {
+                    module: &module,
+                    entry_point: Some(fragment),
+                    compilation_options: Default::default(),
+                    targets: &[Some(wgpu::ColorTargetState {
+                        format,
+                        blend,
+                        write_mask: wgpu::ColorWrites::ALL,
+                    })],
+                }),
+                primitive: Default::default(),
+                depth_stencil: None,
+                multisample: Default::default(),
+                multiview_mask: None,
+                cache: None,
+            })
+        };
         let segments = map::border_segments();
         let border_segments = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("globe borders"),
             contents: bytemuck::cast_slice(&segments),
             usage: wgpu::BufferUsages::VERTEX,
         });
-        let border_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("globe borders"),
-            layout: Some(&pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &module,
-                entry_point: Some("vs_border"),
-                compilation_options: Default::default(),
-                buffers: &[Some(wgpu::VertexBufferLayout {
-                    array_stride: std::mem::size_of::<[[f32; 3]; 2]>() as u64,
-                    step_mode: wgpu::VertexStepMode::Instance,
-                    attributes: &wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3],
-                })],
+        let segment = wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<[[f32; 3]; 2]>() as u64,
+            step_mode: wgpu::VertexStepMode::Instance,
+            attributes: &wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3],
+        };
+        // The frame has straight alpha, which the borders leave as it is.
+        let over = wgpu::BlendState {
+            color: wgpu::BlendComponent {
+                src_factor: wgpu::BlendFactor::SrcAlpha,
+                dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                operation: wgpu::BlendOperation::Add,
             },
-            fragment: Some(wgpu::FragmentState {
-                module: &module,
-                entry_point: Some("fs_border"),
-                compilation_options: Default::default(),
-                targets: &[Some(wgpu::ColorTargetState {
-                    format,
-                    // The frame has straight alpha, which the borders leave as it is.
-                    blend: Some(wgpu::BlendState {
-                        color: wgpu::BlendComponent {
-                            src_factor: wgpu::BlendFactor::SrcAlpha,
-                            dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-                            operation: wgpu::BlendOperation::Add,
-                        },
-                        alpha: wgpu::BlendComponent {
-                            src_factor: wgpu::BlendFactor::Zero,
-                            dst_factor: wgpu::BlendFactor::One,
-                            operation: wgpu::BlendOperation::Add,
-                        },
-                    }),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-            }),
-            primitive: Default::default(),
-            depth_stencil: None,
-            multisample: Default::default(),
-            multiview_mask: None,
-            cache: None,
-        });
+            alpha: wgpu::BlendComponent {
+                src_factor: wgpu::BlendFactor::Zero,
+                dst_factor: wgpu::BlendFactor::One,
+                operation: wgpu::BlendOperation::Add,
+            },
+        };
         Self {
             device: device.clone(),
             queue: queue.clone(),
             globals,
             bind_group,
-            pipeline,
-            border_pipeline,
+            pipeline: pipeline("globe", ["vs_main", "fs_main"], &[], None),
+            border_pipeline: pipeline(
+                "globe borders",
+                ["vs_border", "fs_border"],
+                &[Some(segment)],
+                Some(over),
+            ),
             border_segments,
             border_segment_count: segments.len() as u32,
             encode_srgb: !format.is_srgb(),
-            cloud_texture,
             layout,
             sampler,
-            map_view,
-            day_view,
-            night_view,
-            cloud_view,
+            views,
             tile_texture,
             tile_view,
             tile_sampler,
@@ -491,24 +411,27 @@ impl Renderer {
 
     /// Replaces the placeholder for the imagery of the day side.
     pub fn set_day(&mut self, imagery: &Imagery) {
-        self.day_view = imagery_view(&self.device, &self.queue, imagery);
-        self.rebind();
+        self.set_view(1, imagery);
     }
 
     /// Replaces the placeholder for the lights of the night side.
     pub fn set_night(&mut self, imagery: &Imagery) {
-        self.night_view = imagery_view(&self.device, &self.queue, imagery);
-        self.rebind();
+        self.set_view(2, imagery);
     }
 
-    fn rebind(&mut self) {
-        let views = [&self.map_view, &self.day_view, &self.night_view, &self.cloud_view];
+    /// Replaces the clear sky with the cloud cover from `clouds::generate()`.
+    pub fn set_clouds(&mut self, clouds: &Imagery) {
+        self.set_view(3, clouds);
+    }
+
+    fn set_view(&mut self, index: usize, imagery: &Imagery) {
+        self.views[index] = imagery_view(&self.device, &self.queue, imagery);
         self.bind_group = bind_group(
             &self.device,
             &self.layout,
             &self.globals,
             &self.sampler,
-            views,
+            &self.views,
             (&self.tile_view, &self.tile_sampler),
         );
     }
@@ -516,12 +439,11 @@ impl Renderer {
     /// Puts a tile into the detail window `layer`, at the slot `slot` of its columns and rows.
     /// `mips` are the tile's `tiles::MIPS` levels, as `Imagery::compress_level()` gives them.
     pub fn set_tile(&self, layer: u32, slot: (u32, u32), mips: &[Vec<u8>]) {
-        let compressed = self.tile_format != wgpu::TextureFormat::Rgba8UnormSrgb;
+        let block = self.tile_format.block_dimensions().0;
+        let block_bytes = self.tile_format.block_copy_size(None).unwrap_or_default();
         for (level, data) in mips.iter().enumerate() {
             let size = tiles::TILE >> level;
-            // BC1 and ETC2 store blocks of 4 by 4 pixels in 8 bytes.
-            let (bytes_per_row, rows) =
-                if compressed { (size / 4 * 8, size / 4) } else { (size * 4, size) };
+            let (bytes_per_row, rows) = (size / block * block_bytes, size / block);
             self.queue.write_texture(
                 wgpu::TexelCopyTextureInfo {
                     texture: &self.tile_texture,
@@ -536,29 +458,6 @@ impl Renderer {
                     rows_per_image: Some(rows),
                 },
                 wgpu::Extent3d { width: size, height: size, depth_or_array_layers: 1 },
-            );
-        }
-    }
-
-    /// Fills the cloud texture with the mip levels from `clouds::generate()`.
-    pub fn set_clouds(&self, levels: &[Vec<u8>]) {
-        for (level, data) in levels.iter().enumerate() {
-            let width = (crate::clouds::WIDTH >> level).max(1);
-            let height = (crate::clouds::HEIGHT >> level).max(1);
-            self.queue.write_texture(
-                wgpu::TexelCopyTextureInfo {
-                    texture: &self.cloud_texture,
-                    mip_level: level as u32,
-                    origin: wgpu::Origin3d::ZERO,
-                    aspect: wgpu::TextureAspect::All,
-                },
-                data,
-                wgpu::TexelCopyBufferLayout {
-                    offset: 0,
-                    bytes_per_row: Some(width),
-                    rows_per_image: Some(height),
-                },
-                wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
             );
         }
     }

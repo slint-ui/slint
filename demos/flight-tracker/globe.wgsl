@@ -135,31 +135,6 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let ddx = vec2<f32>(du_smooth.x, dv.x);
     let ddy = vec2<f32>(du_smooth.y, dv.y);
     let map_texel = textureSampleGrad(map, map_sampler, uv, ddx, ddy);
-    // The globe's own imagery shows where no window does.
-    let day_detail = detail(0, uv, ddx, ddy);
-    var imagery = day_detail.rgb;
-    if day_detail.a > 0.002 {
-        imagery += day_detail.a * textureSampleGrad(day_imagery, map_sampler, uv, ddx, ddy).rgb;
-    }
-    let night_detail = detail(3, uv, ddx, ddy);
-    var city_light = night_detail.r;
-    if night_detail.a > 0.002 {
-        city_light += night_detail.a * textureSampleGrad(night_imagery, map_sampler, uv, ddx, ddy).r;
-    }
-    // The clouds drift slowly eastwards. Their shadow on a point comes from the clouds a
-    // little towards the sun.
-    let cloud_strength = globals.viewport.w;
-    let cloud_uv = uv + vec2<f32>(globals.options.z * 0.0004, 0.0);
-    let cloud = textureSampleGrad(cloud_cover, map_sampler, cloud_uv, ddx, ddy).r * cloud_strength;
-    let east = vec3<f32>(cos(lon), 0.0, -sin(lon));
-    let north = vec3<f32>(-sin(lat) * sin(lon), cos(lat), -sin(lat) * cos(lon));
-    let sun_on_map = vec2<f32>(
-        dot(globals.sun.xyz, east) / max(cos(lat), 0.05) / TAU,
-        -dot(globals.sun.xyz, north) / PI
-    );
-    let cloud_shadow =
-        textureSampleGrad(cloud_cover, map_sampler, cloud_uv + sun_on_map * 0.004, ddx, ddy).r
-        * cloud_strength;
     // The land, a pixel wide at its edge however far the map is magnified.
     let coast_distance = map_texel.r - 0.5;
     let coast_change = max(fwidth(coast_distance), 1e-4);
@@ -167,15 +142,61 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let edge = clamp((1.0 - miss_distance) / max(fwidth(miss_distance), 1e-5) + 0.5, 0.0, 1.0);
     let coverage = select(0.0, edge, along > 0.0);
 
-    // 0 lights the whole globe evenly, 1 darkens the side away from the sun.
     let sun_strength = globals.sun.w;
+    let sunlight = dot(normal, sun);
+    // The sunlight fades with its angle to the ground, slightly wrapped so that the edge to the
+    // night is soft.
+    let lambert = clamp((sunlight + 0.06) / 1.06, 0.0, 1.0);
+    let darkness = smoothstep(0.08, -0.12, sunlight) * sun_strength;
+
+    // The textures are sampled only where they show: on the globe, the lights in the dark,
+    // and the clouds while there are any.
+    var imagery = vec3<f32>(0.0);
+    var city_light = 0.0;
+    var cloud = 0.0;
+    var cloud_shadow = 0.0;
+    let cloud_strength = globals.viewport.w;
+    if coverage > 0.0 {
+        // The globe's own imagery shows where no window does.
+        let day_detail = detail(0, uv, ddx, ddy);
+        imagery = day_detail.rgb;
+        if day_detail.a > 0.002 {
+            imagery += day_detail.a * textureSampleGrad(day_imagery, map_sampler, uv, ddx, ddy).rgb;
+        }
+        if darkness > 0.0 {
+            let night_detail = detail(3, uv, ddx, ddy);
+            city_light = night_detail.r;
+            if night_detail.a > 0.002 {
+                city_light += night_detail.a
+                    * textureSampleGrad(night_imagery, map_sampler, uv, ddx, ddy).r;
+            }
+        }
+        if cloud_strength > 0.0 {
+            // The clouds drift slowly eastwards.
+            let cloud_uv = uv + vec2<f32>(globals.options.z * 0.0004, 0.0);
+            cloud = textureSampleGrad(cloud_cover, map_sampler, cloud_uv, ddx, ddy).r * cloud_strength;
+            if lambert > 0.0 {
+                // Their shadow on a point comes from the clouds a little towards the sun.
+                let east = vec3<f32>(cos(lon), 0.0, -sin(lon));
+                let north = vec3<f32>(-sin(lat) * sin(lon), cos(lat), -sin(lat) * cos(lon));
+                let sun_on_map = vec2<f32>(
+                    dot(sun, east) / max(cos(lat), 0.05) / TAU,
+                    -dot(sun, north) / PI
+                );
+                cloud_shadow =
+                    textureSampleGrad(cloud_cover, map_sampler, cloud_uv + sun_on_map * 0.004, ddx, ddy).r
+                    * cloud_strength;
+            }
+        }
+    }
+
 
     // The space around the globe, and the atmosphere where the sun lights it, reddish where
     // the sun rises or sets.
     let starlight = stars(direction) * smoothstep(1.02, 1.12, miss_distance);
     let limb_sun = dot(normalize(closest), sun);
     let limb_light = mix(1.0, smoothstep(-0.2, 0.4, limb_sun), sun_strength);
-    let limb_dusk = exp(-pow(limb_sun / 0.1, 2.0)) * sun_strength;
+    let limb_dusk = exp(-100.0 * limb_sun * limb_sun) * sun_strength;
     // Close to the ground, the camera is inside the soft glow that rims the globe from afar, so
     // the glow thins to a line along the horizon there.
     let thinness = mix(55.0, 450.0, smoothstep(0.4, 0.03, length(origin) - 1.0));
@@ -200,14 +221,10 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let view = -direction;
     let facing = max(dot(normal, view), 0.0);
     let fresnel = pow(1.0 - facing, 5.0);
-    let sunlight = dot(normal, sun);
-    // The sunlight fades with its angle to the ground, slightly wrapped so that the edge to the
-    // night is soft, and reddens where it crosses the most air, low over the horizon.
-    let lambert = clamp((sunlight + 0.06) / 1.06, 0.0, 1.0);
+    // The sunlight reddens where it crosses the most air, low over the horizon.
     let reddening = mix(vec3<f32>(1.0, 0.58, 0.36), vec3<f32>(1.0), smoothstep(0.0, 0.3, sunlight));
     let sun_light = mix(vec3<f32>(1.0), reddening * lambert * 1.2, sun_strength);
     // The night side under faint, bluish moonlight, and the cities' lights coming on at dusk.
-    let darkness = smoothstep(0.08, -0.12, sunlight) * sun_strength;
     let moonlight = vec3<f32>(0.03, 0.04, 0.075) * darkness;
     let lights = vec3<f32>(1.0, 0.62, 0.3) * city_light * 2.4 * darkness;
 
