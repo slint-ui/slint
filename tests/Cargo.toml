@@ -56,6 +56,7 @@ i-slint-core = { version = "=1.20.0", path = "../internal/core", default-feature
 i-slint-renderer-anyrender = { version = "=1.20.0", path = "../internal/renderers/anyrender", default-features = false }
 i-slint-renderer-femtovg = { version = "=1.20.0", path = "../internal/renderers/femtovg", default-features = false }
 i-slint-renderer-skia = { version = "=1.20.0", path = "../internal/renderers/skia", default-features = false }
+i-slint-renderer-software = { version = "=1.20.0", path = "../internal/renderers/software", default-features = false }
 
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 itertools = { version = "0.15" }
