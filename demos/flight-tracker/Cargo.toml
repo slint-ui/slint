@@ -44,6 +44,10 @@ js-sys = "0.3"
 web-sys = { version = "0.3", features = ["Window", "Response"] }
 console_error_panic_hook = "0.1.5"
 
+[lints.rust]
+# `build.rs` sets them: the map tiles are in the binary, or they come from NASA's GIBS.
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(embedded_tiles)', 'cfg(online_tiles)'] }
+
 [build-dependencies]
 slint-build = { path = "../../api/rs/build" }
 directories = "6.0"

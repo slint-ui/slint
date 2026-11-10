@@ -147,22 +147,26 @@ component FlapHalf inherits Rectangle {
     in property <length> flap-height;
     in property <length> size;
     in property <color> ink;
-    clip: true;
     border-top-left-radius: root.lower ? 0 : 2px;
     border-top-right-radius: root.lower ? 0 : 2px;
     border-bottom-left-radius: root.lower ? 2px : 0;
     border-bottom-right-radius: root.lower ? 2px : 0;
-    Text {
-        y: root.lower ? -root.flap-height / 2 : 0;
-        width: 100%;
-        height: root.flap-height;
-        text: root.text;
-        color: root.ink;
-        font-family: "JetBrains Mono NL";
-        font-size: root.size;
-        font-weight: 700;
-        horizontal-alignment: center;
-        vertical-alignment: center;
+    // FemtoVG renders a clip with rounded corners through a layer, so the half of the character
+    // is clipped by a rectangle without.
+    Rectangle {
+        clip: true;
+        Text {
+            y: root.lower ? -root.flap-height / 2 : 0;
+            width: 100%;
+            height: root.flap-height;
+            text: root.text;
+            color: root.ink;
+            font-family: "JetBrains Mono NL";
+            font-size: root.size;
+            font-weight: 700;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
     }
 }
 
@@ -867,7 +871,9 @@ export component AppWindow inherits Window {
     /// How far the globe has grown from its place on the entry screen to the window, from 0 to 1.
     in property <float> zoom-progress;
     /// How far the planner has slid away for a flight, from 0 to 1.
-    in property <float> planner-away;
+    in property <float> planner-away: 1;
+    /// How much of its place the globe fills on the entry screen.
+    in property <float> entry-fill;
     /// Whether the intro plays, which a click or tap skips.
     in property <bool> intro: true;
     /// How dark the intro still is as it fades in, from 1 to 0.
@@ -894,7 +900,7 @@ export component AppWindow inherits Window {
     /// Whether the globe shows sharper imagery from the network while zoomed in.
     in-out property <bool> online-imagery: true;
     in property <bool> online-imagery-available: true;
-    in-out property <Quality> quality: Quality.high;
+    in-out property <Quality> quality <=> Theme.quality;
     /// Whether the quality drops while frames take too long.
     in-out property <bool> auto-quality: true;
 
@@ -914,19 +920,11 @@ export component AppWindow inherits Window {
     /// Shrinks the globe of the flight back into its place on the entry screen.
     callback show-planner();
     callback planned-changed();
-    callback settings-changed();
 
     property <bool> settings-open;
     /// How far the flight's panels have slid in, from 0 to 1.
     property <float> flight-in: root.screen == Screen.flight ? 1 : 0;
     animate flight-in {
-        duration: 350ms;
-        easing: spring;
-    }
-    property <bool> started;
-    /// How far the planner has slid in on startup, from 0 to 1.
-    property <float> planner-in: root.started ? 1 : 0;
-    animate planner-in {
         duration: 350ms;
         easing: spring;
     }
@@ -957,48 +955,29 @@ export component AppWindow inherits Window {
     min-height: 320px;
     background: black;
 
-    changed sunlight => {
-        root.settings-changed();
-    }
-    changed online-imagery => {
-        root.settings-changed();
-    }
-    changed clouds => {
-        root.settings-changed();
-    }
-    changed borders => {
-        root.settings-changed();
-    }
-    changed quality => {
-        Theme.quality = root.quality;
-        root.settings-changed();
-    }
-    init => {
-        Theme.quality = root.quality;
-    }
     changed screen => {
         root.settings-open = false;
     }
-    changed kiosk => {
-        root.settings-changed();
+    pure function field-text(airport: AirportItem) -> string {
+        "\{airport.code}  ·  \{airport.city}"
     }
     /// Shows a flight that the kiosk proposes in the planner.
     public function propose(origin: AirportItem, destination: AirportItem) {
         root.planned-origin = origin;
         root.planned-destination = destination;
-        from-field.text = origin.index >= 0 ? "\{origin.code}  ·  \{origin.city}" : "";
-        to-field.text = destination.index >= 0 ? "\{destination.code}  ·  \{destination.city}" : "";
+        from-field.text = origin.index >= 0 ? root.field-text(origin) : "";
+        to-field.text = destination.index >= 0 ? root.field-text(destination) : "";
         root.active-field = 1;
     }
 
     function choose(airport: AirportItem) {
         if root.active-field == 0 {
             root.planned-origin = airport;
-            from-field.text = "\{airport.code}  ·  \{airport.city}";
+            from-field.text = root.field-text(airport);
             to-field.focus();
         } else {
             root.planned-destination = airport;
-            to-field.text = "\{airport.code}  ·  \{airport.city}";
+            to-field.text = root.field-text(airport);
         }
         root.planned-changed();
     }
@@ -1025,7 +1004,7 @@ export component AppWindow inherits Window {
 
         // The globe's shadow on the pattern, so that the globe floats above it.
         Rectangle {
-            property <length> globe-size: min(root.entry-globe-width, root.entry-globe-height) * 0.84;
+            property <length> globe-size: min(root.entry-globe-width, root.entry-globe-height) * root.entry-fill;
             width: self.globe-size * 1.15;
             height: self.width;
             x: root.entry-globe-x + (root.entry-globe-width - self.width) / 2;
@@ -1069,7 +1048,6 @@ export component AppWindow inherits Window {
                 }
             }
             moved => {
-                // In the frame's pixels, which the entry screen shows smaller.
                 root.dragged((self.mouse-x - self.last-x) / 1px, (self.mouse-y - self.last-y) / 1px);
                 self.last-x = self.mouse-x;
                 self.last-y = self.mouse-y;
@@ -1087,111 +1065,106 @@ export component AppWindow inherits Window {
     // The globe and what's drawn on it, rendered for the whole window. On the entry screen, the
     // projection moves the globe into its place, but it isn't clipped there, so that it can reach
     // under the planner.
+    Image {
+        source: root.texture;
+        source-clip-width: root.texture-used-width;
+        source-clip-height: root.texture-used-height;
+        width: 100%;
+        height: 100%;
+        image-fit: fill;
+    }
+
+    Path {
+        viewbox-width: self.width / 1px;
+        viewbox-height: self.height / 1px;
+        commands: root.remaining-path;
+        stroke: #ffffffa0;
+        stroke-width: 2px;
+        visible: root.remaining-path != "" && root.route-shown;
+    }
+
+    Path {
+        viewbox-width: self.width / 1px;
+        viewbox-height: self.height / 1px;
+        commands: root.flown-path;
+        stroke: Theme.highlight.with-alpha(0.55);
+        stroke-width: 7px;
+        visible: root.flown-path != "" && root.route-shown;
+    }
+
+    Path {
+        viewbox-width: self.width / 1px;
+        viewbox-height: self.height / 1px;
+        commands: root.flown-path;
+        stroke: Theme.accent-light;
+        stroke-width: 2.5px;
+        visible: root.flown-path != "" && root.route-shown;
+    }
+
+    if root.screen != Screen.entry || root.planned-origin.index >= 0: AirportMarker {
+        x: root.origin-marker.x * 1px;
+        y: root.origin-marker.y * 1px;
+        marker: root.origin-marker;
+    }
+
+    if root.route-shown: AirportMarker {
+        x: root.destination-marker.x * 1px;
+        y: root.destination-marker.y * 1px;
+        marker: root.destination-marker;
+        destination: true;
+    }
+
     Rectangle {
-            Image {
-                source: root.texture;
-                source-clip-x: 0;
-                source-clip-y: 0;
-                source-clip-width: root.texture-used-width;
-                source-clip-height: root.texture-used-height;
-                width: 100%;
-                height: 100%;
-                image-fit: fill;
-            }
+        opacity: root.screen == Screen.flight ? 1 : 0;
+        visible: self.opacity > 0;
+        animate opacity { duration: 200ms; }
+    for label in root.labels: Rectangle {
+        x: label.x * 1px;
+        y: label.y * 1px;
+        width: 0;
+        height: 0;
+        opacity: label.opacity;
+        Rectangle {
+            x: -2px;
+            y: -2px;
+            width: 4px;
+            height: 4px;
+            border-radius: 2px;
+            background: #ffffffb0;
+        }
 
-            Path {
-                viewbox-width: self.width / 1px;
-                viewbox-height: self.height / 1px;
-                commands: root.remaining-path;
-                stroke: #ffffffa0;
-                stroke-width: 2px;
-                visible: root.remaining-path != "" && root.route-shown;
-            }
+        Text {
+            x: 6px;
+            y: -self.height / 2;
+            text: label.name;
+            color: Theme.text.with-alpha(0.8);
+            font-size: 11px;
+            stroke: #00000080;
+            stroke-width: 2px;
+        }
+    }
 
-            Path {
-                viewbox-width: self.width / 1px;
-                viewbox-height: self.height / 1px;
-                commands: root.flown-path;
-                stroke: Theme.highlight.with-alpha(0.55);
-                stroke-width: 7px;
-                visible: root.flown-path != "" && root.route-shown;
-            }
+    if root.aircraft.shown: Rectangle {
+        x: root.aircraft.x * 1px - self.width / 2;
+        y: root.aircraft.y * 1px - self.height / 2;
+        width: 34px;
+        height: 34px;
+        transform-rotation: root.aircraft.angle * 1deg;
+        // The shadow on the ground.
+        AircraftIcon {
+            x: 3px;
+            y: 4px;
+            width: 100%;
+            height: 100%;
+            colorize: #00000070;
+        }
 
-            Path {
-                viewbox-width: self.width / 1px;
-                viewbox-height: self.height / 1px;
-                commands: root.flown-path;
-                stroke: Theme.accent-light;
-                stroke-width: 2.5px;
-                visible: root.flown-path != "" && root.route-shown;
-            }
+        AircraftIcon {
+            width: 100%;
+            height: 100%;
+        }
+    }
 
-            if root.screen != Screen.entry || root.planned-origin.index >= 0: AirportMarker {
-                x: root.origin-marker.x * 1px;
-                y: root.origin-marker.y * 1px;
-                marker: root.origin-marker;
-                transform-scale: 1;
-            }
-
-            if root.route-shown: AirportMarker {
-                x: root.destination-marker.x * 1px;
-                y: root.destination-marker.y * 1px;
-                marker: root.destination-marker;
-                destination: true;
-                transform-scale: 1;
-            }
-
-            Rectangle {
-                opacity: root.screen == Screen.flight ? 1 : 0;
-                animate opacity { duration: 200ms; }
-            for label in root.labels: Rectangle {
-                x: label.x * 1px;
-                y: label.y * 1px;
-                width: 0;
-                height: 0;
-                opacity: label.opacity;
-                Rectangle {
-                    x: -2px;
-                    y: -2px;
-                    width: 4px;
-                    height: 4px;
-                    border-radius: 2px;
-                    background: #ffffffb0;
-                }
-
-                Text {
-                    x: 6px;
-                    y: -self.height / 2;
-                    text: label.name;
-                    color: Theme.text.with-alpha(0.8);
-                    font-size: 11px;
-                    stroke: #00000080;
-                    stroke-width: 2px;
-                }
-            }
-
-            if root.aircraft.shown: Rectangle {
-                x: root.aircraft.x * 1px - self.width / 2;
-                y: root.aircraft.y * 1px - self.height / 2;
-                width: 34px;
-                height: 34px;
-                transform-rotation: root.aircraft.angle * 1deg;
-                // The shadow on the ground.
-                AircraftIcon {
-                    x: 3px;
-                    y: 4px;
-                    width: 100%;
-                    height: 100%;
-                    colorize: #00000070;
-                }
-
-                AircraftIcon {
-                    width: 100%;
-                    height: 100%;
-                }
-            }
-
-            }
     }
 
     if root.curtain > 0: Rectangle {
@@ -1205,24 +1178,14 @@ export component AppWindow inherits Window {
         }
     }
 
-    // A change in `init` wouldn't animate, as the panel hasn't been laid out yet.
-    Timer {
-        interval: 500ms;
-        running: !root.started;
-        triggered => {
-            root.started = true;
-        }
-    }
-
     // The planner, beside the globe, or below it on a phone held upright. It stays instantiated,
     // so its fields keep their text during a flight.
     planner := Glass {
         property <length> inset: root.narrow ? 14px : 20px;
         property <length> rest-y: root.narrow ? root.entry-globe-y + root.entry-globe-height + 8px : root.top-edge;
         visible: root.planner-away < 1;
-        property <float> away: 1 - root.planner-in + root.planner-away;
-        x: root.narrow ? root.left-edge : root.left-edge - self.away * (self.width + root.left-edge + 30px);
-        y: root.narrow ? self.rest-y + self.away * (root.height - self.rest-y + 30px) : self.rest-y;
+        x: root.narrow ? root.left-edge : root.left-edge - root.planner-away * (self.width + root.left-edge + 30px);
+        y: root.narrow ? self.rest-y + root.planner-away * (root.height - self.rest-y + 30px) : self.rest-y;
         width: root.narrow ? root.content-width : root.panel-width;
         height: root.height - self.rest-y - root.bottom-edge;
         VerticalLayout {
@@ -1248,7 +1211,7 @@ export component AppWindow inherits Window {
                 active: root.active-field == 0;
                 activated => {
                     root.active-field = 0;
-                    root.search(self.text == "\{root.planned-origin.code}  ·  \{root.planned-origin.city}" ? "" : self.text);
+                    root.search(self.text == root.field-text(root.planned-origin) ? "" : self.text);
                 }
                 edited(text) => {
                     root.planned-origin.index = -1;
@@ -1267,7 +1230,7 @@ export component AppWindow inherits Window {
                 active: root.active-field == 1;
                 activated => {
                     root.active-field = 1;
-                    root.search(self.text == "\{root.planned-destination.code}  ·  \{root.planned-destination.city}" ? "" : self.text);
+                    root.search(self.text == root.field-text(root.planned-destination) ? "" : self.text);
                 }
                 edited(text) => {
                     root.planned-destination.index = -1;

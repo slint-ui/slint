@@ -98,8 +98,8 @@ def write(name, rings, header):
 
 def main():
     source, airports, imagery, night, target = sys.argv[1:6]
-    write_imagery(imagery, target)
-    write_night_imagery(night, target)
+    write_imagery(imagery, "RGB", os.path.join(target, "earth.jpg"))
+    write_imagery(night, "L", os.path.join(target, "night.jpg"))
     header = (
         "# Natural Earth {layer}, simplified by convert.py.\n"
         "# One ring per line: the first point, then the steps to each next one,\n"
@@ -131,22 +131,11 @@ def main():
     write_airports(airports, target)
 
 
-def write_imagery(path, target):
+def write_imagery(path, mode, target):
     from PIL import Image
 
-    image = Image.open(path).convert("RGB").resize((4096, 2048), Image.LANCZOS)
-    image.save(
-        os.path.join(target, "earth.jpg"), quality=80, optimize=True, progressive=True
-    )
-
-
-def write_night_imagery(path, target):
-    from PIL import Image
-
-    image = Image.open(path).convert("L").resize((4096, 2048), Image.LANCZOS)
-    image.save(
-        os.path.join(target, "night.jpg"), quality=80, optimize=True, progressive=True
-    )
+    image = Image.open(path).convert(mode).resize((4096, 2048), Image.LANCZOS)
+    image.save(target, quality=80, optimize=True, progressive=True)
 
 
 def read_csv(path):
