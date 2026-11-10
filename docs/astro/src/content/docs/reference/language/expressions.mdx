@@ -217,6 +217,15 @@ A JSON object being converted to a struct only uses the keys that match a declar
 other keys in that object are ignored. A struct field that's absent from the JSON object takes the
 field's declared default value.
 
+Inside a larger expression, such as an operand of `+` or `>`, the type comes from the JSON value instead.
+A number is a `float`, an object is an anonymous struct, and an array takes the common type of its elements:
+
+```slint
+export component Example {
+    property <bool> popular: @from-json("snippet-data/data.json")[0].stats.visitors.count > 10;
+}
+```
+
 It's an error if the file can't be found, a member doesn't name a key of the JSON object,
 an index is out of range for the JSON array,
 or the JSON value's shape doesn't match the property's type.

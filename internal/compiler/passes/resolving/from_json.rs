@@ -7,7 +7,7 @@
 use crate::diagnostics::Spanned;
 use crate::expression_tree::Expression;
 use crate::expression_types::{ImageReference, Unit};
-use crate::langtype::Type;
+use crate::langtype::{Struct, StructName, Type};
 use crate::lookup::LookupCtx;
 use crate::parser::{SyntaxKind, SyntaxNode, SyntaxToken, syntax_nodes};
 use crate::source_path::SourcePath;
@@ -63,18 +63,6 @@ pub fn lower(
         return Expression::Invalid;
     };
 
-    let target_ty = ctx.expected_type.clone();
-    if matches!(
-        target_ty,
-        Type::Invalid | Type::Void | Type::InferredProperty | Type::InferredCallback
-    ) {
-        ctx.diag.push_error(
-            "Cannot use @from-json() here: the type of the value is not known".into(),
-            whole,
-        );
-        return Expression::Invalid;
-    }
-
     let resolved = match ctx.type_loader {
         Some(loader) => loader.resolve_from_json_path(node, &path_str),
         None => node
@@ -124,7 +112,57 @@ pub fn lower(
         current = value;
     }
 
+    let target_ty = match &ctx.expected_type {
+        Type::Invalid | Type::Void | Type::InferredProperty | Type::InferredCallback => None,
+        _ if !is_converted_to_expected_type(whole) => None,
+        ty => Some(ty.clone()),
+    };
+    let target_ty = target_ty.unwrap_or_else(|| infer_type(current));
     json_to_expression(current, &target_ty, &mut path, &resolved, whole, ctx)
+}
+
+/// Whether `node` is converted to the `expected_type` of the lookup context.
+/// The operands of these parents aren't, but the context still holds the type of the enclosing binding.
+fn is_converted_to_expected_type(node: &SyntaxNode) -> bool {
+    let mut node = node.node.clone();
+    while let Some(parent) = node.parent() {
+        match parent.kind() {
+            SyntaxKind::Expression => node = parent,
+            SyntaxKind::BinaryExpression
+            | SyntaxKind::UnaryOpExpression
+            | SyntaxKind::StringTemplate
+            | SyntaxKind::MemberAccess
+            | SyntaxKind::IndexExpression => return false,
+            _ => return true,
+        }
+    }
+    true
+}
+
+/// The Slint type for a JSON value: a number is a `float` and an object an anonymous struct.
+fn infer_type(value: &serde_json::Value) -> Type {
+    match value {
+        serde_json::Value::Null => Type::Invalid,
+        serde_json::Value::Bool(_) => Type::Bool,
+        serde_json::Value::Number(_) => Type::Float32,
+        serde_json::Value::String(_) => Type::String,
+        serde_json::Value::Array(array) if array.is_empty() => Type::Array(Type::Void.into()),
+        serde_json::Value::Array(array) => Type::Array(
+            Expression::common_target_type_for_type_list(array.iter().map(infer_type)).into(),
+        ),
+        serde_json::Value::Object(object) => Type::Struct(
+            Struct::new(
+                object
+                    .iter()
+                    .map(|(key, value)| {
+                        (crate::parser::normalize_identifier(key), infer_type(value))
+                    })
+                    .collect(),
+                StructName::None,
+            )
+            .into(),
+        ),
+    }
 }
 
 /// Looks up the key named by `token` in `value`.
@@ -275,7 +313,15 @@ fn mismatch(
     node: &SyntaxNode,
     ctx: &mut LookupCtx,
 ) -> Expression {
-    if matches!(value, serde_json::Value::Null) {
+    if matches!(value, serde_json::Value::Null) && *target == Type::Invalid {
+        ctx.diag.push_error(
+            format!(
+                "The JSON value {} is null, which has no Slint equivalent. Replace it with a value",
+                path.location(file)
+            ),
+            node,
+        );
+    } else if matches!(value, serde_json::Value::Null) {
         ctx.diag.push_error(
             format!(
                 "The JSON value {} is null, which cannot be used for a value of type {target}",

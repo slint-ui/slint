@@ -31,6 +31,10 @@ export component TestCase {
     property <int> nested_value_underscore: @from-json("from_json.json").element.sub_element.nested_value;
     property <int> nested_value_dash: @from-json("from_json.json").element.sub-element.nested-value;
 
+    // Part of a larger expression: the type comes from the JSON value
+    property <int> a_sum: @from-json("from_json.json").a_point.x + @from-json("from_json.json").a_nested.point.y;
+    property <bool> a_comparison: @from-json("from_json.json").int_property > 4;
+
     // Indexing with a constant integer, on its own and combined with member access
     property <Point> root_array_element: @from-json("from_json_array.json")[1];
     property <int> root_array_element_field: @from-json("from_json_array.json")[0].y;
@@ -105,6 +109,7 @@ export component TestCase {
         && a_complex_nested.nested[1].point.x == 9 && a_complex_nested.nested[1].point.y == 10
         && a_complex_nested.nested[1].label == "second"
         && color_to_brush == #ff0000
+        && a_sum == 5 && a_comparison
         && with_defaults.label == "hello"
         && with_defaults.point.x == 1 && with_defaults.point.y == 2;
 }

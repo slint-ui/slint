@@ -78,4 +78,12 @@ export component SuperSimple {
 
     // part of a larger expression, whose type differs from the property's type
     property <bool> a_comparison: @from-json("from-json/data.json").int_property > 0;
+    property <int> a_sum: @from-json("from-json/data.json").a_struct.x + @from-json("from-json/data.json").a_nested_struct.point.y;
+    property <bool> a_negation: !@from-json("from-json/data.json").a_bool;
+    property <string> a_template: "\{@from-json("from-json/data.json").a_string} world";
+    property <bool> a_struct_comparison: @from-json("from-json/data.json").a_struct == { x: 1, y: 2 };
+    function a_local_variable() -> int {
+        let value = @from-json("from-json/data.json").a_nested_struct;
+        return value.point.x;
+    }
 }
