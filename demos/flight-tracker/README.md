@@ -53,8 +53,9 @@ To run it without the network:
   The directory holds the tiles as `<zoom>/<row>/<column>.jpg`, and those of the night's lights as `night/<zoom>/<row>/<column>.png`, like the cache does.
 
 A cross-compiled build, such as for an embedded board, brings the tiles along instead.
-`build.rs` fetches the whole world's tiles with `curl` into the cache directory of the machine that builds, and embeds them in the binary.
+`build.rs` fetches the whole world's tiles with `curl` into `flight-tracker-tiles` in Cargo's target directory, and embeds them in the binary.
 That's 8400 tiles, which add about 150 MB to the binary.
+Any build for another target fetches them once, also `cargo check`.
 Set `FLIGHT_TRACKER_EMBED_TILES` to change that when building:
 
 - `0` builds without the tiles, and the demo fetches them as it runs.
@@ -84,7 +85,7 @@ Slint renders with wgpu, and the demo renders the globe on Slint's own device:
 - The land borders are lines of constant width on the screen, so that they stay sharp at any angle.
 - Beside the planner, the frame is transparent but for the globe and its atmosphere, so Slint's background shows through.
   The globe's place there shows the middle of a frame rendered for the whole window, so it grows to the window seamlessly, as space and the stars fade in.
-- `adaptive.rs`, from the racer demo, keeps the frame rate near 60 fps: it lowers the globe's render scale first, then the quality.
+- `adaptive.rs` keeps the frame rate near 60 fps, or near what the display reaches: it lowers the globe's render scale first, then the quality.
   High quality blurs the globe behind the panels, medium and low show flat panels, and low also renders the globe at one pixel per logical pixel.
   The settings pick a quality, or Auto.
 - The route, the aircraft, the airports, and the city names are ordinary Slint elements.

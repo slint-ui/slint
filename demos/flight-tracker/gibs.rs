@@ -15,9 +15,6 @@ pub const FIRST_ZOOM: u32 = 4;
 const GIBS: &str = "https://gibs.earthdata.nasa.gov/wmts/epsg4326/best";
 /// What the demo calls itself when it fetches tiles.
 pub const USER_AGENT: &str = "slint-flight-tracker-demo";
-/// The qualifier, organization, and application that name the demo's cache directory,
-/// whose folder `tiles` keeps the tiles that were fetched.
-pub const CACHE: [&str; 3] = ["dev", "slint", "flight-tracker"];
 
 /// The columns of tiles that cover the world at `zoom`.
 pub fn columns(zoom: u32) -> u32 {
