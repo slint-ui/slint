@@ -827,6 +827,8 @@ export component AppWindow inherits Window {
     /// How dark the intro still is as it fades in, from 1 to 0.
     in property <float> curtain;
     callback skip-intro();
+    /// Plays the intro again, and hands over to the random flights.
+    callback restart();
     // The globe's place on the entry screen: beside the planner, or above it on a phone held
     // upright.
     property <length> panel-width: min(400px, root.content-width * 0.42);
@@ -1410,6 +1412,17 @@ export component AppWindow inherits Window {
                 checked <=> root.sunlight;
                 toggled => {
                     root.interacted();
+                }
+            }
+
+            HorizontalLayout {
+                alignment: start;
+                PillButton {
+                    text: "Restart";
+                    clicked => {
+                        root.settings-open = false;
+                        root.restart();
+                    }
                 }
             }
         }
