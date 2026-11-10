@@ -973,10 +973,11 @@ export component AppWindow inherits Window {
     }
 
     ScaleRotateGestureHandler {
-        x: globe-view.x;
-        y: globe-view.y;
-        width: globe-view.width;
-        height: globe-view.height;
+        // The globe's place, which grows from the entry screen's to the window.
+        x: root.entry-globe-x * (1 - root.zoom-progress);
+        y: root.entry-globe-y * (1 - root.zoom-progress);
+        width: root.entry-globe-width + (root.width - root.entry-globe-width) * root.zoom-progress;
+        height: root.entry-globe-height + (root.height - root.entry-globe-height) * root.zoom-progress;
         enabled: root.screen != Screen.zoom;
         property <float> last-scale: 1;
         property <angle> last-rotation;
@@ -1007,7 +1008,7 @@ export component AppWindow inherits Window {
             }
             moved => {
                 // In the frame's pixels, which the entry screen shows smaller.
-                root.dragged((self.mouse-x - self.last-x) / frame.scale / 1px, (self.mouse-y - self.last-y) / frame.scale / 1px);
+                root.dragged((self.mouse-x - self.last-x) / 1px, (self.mouse-y - self.last-y) / 1px);
                 self.last-x = self.mouse-x;
                 self.last-y = self.mouse-y;
             }
@@ -1021,23 +1022,10 @@ export component AppWindow inherits Window {
         }
     }
 
-    // The globe, in its place on the entry screen, or growing from there to the window. It shows
-    // the middle of a frame rendered for the whole window, so it looks the same at any size.
-    globe-view := Rectangle {
-        property <float> grown: root.zoom-progress;
-        x: root.entry-globe-x * (1 - self.grown);
-        y: root.entry-globe-y * (1 - self.grown);
-        width: root.entry-globe-width + (root.width - root.entry-globe-width) * self.grown;
-        height: root.entry-globe-height + (root.height - root.entry-globe-height) * self.grown;
-        clip: true;
-        frame := Rectangle {
-            property <float> scale: max(parent.width / root.width, parent.height / root.height);
-            x: (parent.width - root.width * self.scale) / 2;
-            y: (parent.height - root.height * self.scale) / 2;
-            width: root.width;
-            height: root.height;
-            transform-scale: self.scale;
-            transform-origin: { x: 0, y: 0 };
+    // The globe and what's drawn on it, rendered for the whole window. On the entry screen, the
+    // projection moves the globe into its place, but it isn't clipped there, so that it can reach
+    // under the planner.
+    Rectangle {
             Image {
                 source: root.texture;
                 source-clip-x: 0;
@@ -1054,7 +1042,7 @@ export component AppWindow inherits Window {
                 viewbox-height: self.height / 1px;
                 commands: root.remaining-path;
                 stroke: #ffffffa0;
-                stroke-width: 2px / frame.scale;
+                stroke-width: 2px;
                 visible: root.remaining-path != "" && root.route-shown;
             }
 
@@ -1063,7 +1051,7 @@ export component AppWindow inherits Window {
                 viewbox-height: self.height / 1px;
                 commands: root.flown-path;
                 stroke: Theme.accent-light.with-alpha(0.3);
-                stroke-width: 7px / frame.scale;
+                stroke-width: 7px;
                 visible: root.flown-path != "" && root.route-shown;
             }
 
@@ -1072,7 +1060,7 @@ export component AppWindow inherits Window {
                 viewbox-height: self.height / 1px;
                 commands: root.flown-path;
                 stroke: Theme.accent-light;
-                stroke-width: 2.5px / frame.scale;
+                stroke-width: 2.5px;
                 visible: root.flown-path != "" && root.route-shown;
             }
 
@@ -1080,7 +1068,7 @@ export component AppWindow inherits Window {
                 x: root.origin-marker.x * 1px;
                 y: root.origin-marker.y * 1px;
                 marker: root.origin-marker;
-                transform-scale: 1 / frame.scale;
+                transform-scale: 1;
             }
 
             if root.route-shown: AirportMarker {
@@ -1088,7 +1076,7 @@ export component AppWindow inherits Window {
                 y: root.destination-marker.y * 1px;
                 marker: root.destination-marker;
                 destination: true;
-                transform-scale: 1 / frame.scale;
+                transform-scale: 1;
             }
 
             Rectangle {
@@ -1142,7 +1130,6 @@ export component AppWindow inherits Window {
             }
 
             }
-        }
     }
 
     // A change in `init` wouldn't animate, as the panel hasn't been laid out yet.

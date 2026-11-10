@@ -1092,7 +1092,13 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         let scale = adaptive.scale();
         let density = globe_density(window, app.get_quality()) * scale;
 
-        let view_projection = demo.camera.pose.view_projection(aspect);
+        // The globe's place, which grows from the entry screen's to the window, centers the globe.
+        let entry_center =
+            Vec2::new(app.get_entry_globe_x(), app.get_entry_globe_y()) + entry / 2.0;
+        let center = entry_center.lerp(size / 2.0, demo.zoom_progress());
+        let shift = (center - size / 2.0) / size * Vec2::new(2.0, -2.0);
+        let view_projection =
+            Mat4::from_translation(shift.extend(0.0)) * demo.camera.pose.view_projection(aspect);
         let eye = demo.camera.pose.eye();
         let sun = if app.get_sunlight() {
             sun_direction(0.0)
@@ -1154,8 +1160,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             };
             app.invoke_propose(item(Some(origin)), item(destination));
         }
-        // The globe's place, which grows from the entry screen's to the window, shows the middle
-        // of a frame rendered for the whole window, at the resolution it needs.
+        // The frame covers the whole window, at the resolution the globe's place needs.
         let progress = demo.zoom_progress();
         let shown = entry.lerp(size, progress);
         let largest = (size * globe_density(window, app.get_quality())).ceil().max(Vec2::ONE);
