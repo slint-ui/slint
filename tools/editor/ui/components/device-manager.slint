@@ -43,7 +43,7 @@ component FallbackAction inherits DeviceAction {
     }
 }
 
-component DeviceField inherits EditorInput {
+export component DeviceField inherits EditorInput {
     accessible-name: root.placeholder;
     edit-input(value) => { root.value = value; }
     accepted(value) => { root.edit-input(value); return true; }

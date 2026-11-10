@@ -1,0 +1,238 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ViewerStyle, Colors } from "../style.slint";
+import { PreviewDisplays } from "../preview-displays.slint";
+import { FloatingSurface } from "floating-surface.slint";
+import { DeviceField } from "device-manager.slint";
+import { ButtonBase } from "../../controls/src/headless.slint";
+import { EditorScrollView } from "editor-scroll-view.slint";
+import { InspectorSwitch } from "inspector/switch.slint";
+
+component DisplayAction inherits Rectangle {
+    in property <string> label <=> button.text;
+    in property <bool> enabled <=> button.enabled;
+    out property <bool> hovered <=> button.hovered;
+    callback activated <=> button.clicked;
+    button := ButtonBase {
+        width: parent.width; height: parent.height;
+        focus-on-click: true;
+        content << Rectangle { @children }
+    }
+    if button.focus-visible: focus-ring := Rectangle {
+        border-radius: 6px;
+        border-width: 1px;
+        border-color: ViewerStyle.accent;
+    }
+}
+
+component AddDisplayButton inherits DisplayAction {
+    Rectangle {
+        border-radius: 10px;
+        border-width: 1px;
+        border-color: ViewerStyle.field-border;
+        background: root.hovered ? ViewerStyle.field-hover : ViewerStyle.field;
+        opacity: root.enabled ? 1 : 0.45;
+    }
+    Text {
+        text: root.label;
+        color: root.enabled ? ViewerStyle.accent : ViewerStyle.unavailable;
+        font-size: 13px; font-weight: 500;
+    }
+}
+
+component Row inherits DisplayAction {
+    in property <string> kind;
+    in property <Size> display-size: { width: 600px, height: 300px };
+    in property <bool> selected;
+    height: 40px;
+    Rectangle {
+        border-radius: 6px;
+        background: root.selected ? ViewerStyle.selected : root.hovered ? ViewerStyle.pill-hover : transparent;
+    }
+    if root.kind != "custom": Image {
+        x: 12px; width: 18px; height: 18px;
+        source: root.kind == "desktop" ? @image-url("../assets/lucide/monitor.svg")
+            : root.kind == "project" ? @image-url("../assets/lucide/panels-top-left.svg")
+            : @image-url("../assets/lucide/smartphone.svg");
+        colorize: root.selected ? ViewerStyle.accent : ViewerStyle.icon;
+    }
+    if root.kind == "custom": Rectangle {
+        x: 13px;
+        width: root.display-size.width > root.display-size.height ? 16px : root.display-size.width < root.display-size.height ? 10px : 14px;
+        height: root.display-size.width > root.display-size.height ? 10px : root.display-size.width < root.display-size.height ? 16px : 14px;
+        border-width: 1.2px;
+        border-radius: 2px;
+        border-color: root.selected ? ViewerStyle.accent : ViewerStyle.icon;
+    }
+    Text {
+        x: 42px; width: parent.width - 76px;
+        text: root.label;
+        color: ViewerStyle.ink;
+        font-size: 13px;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+    if root.selected: Image {
+        x: parent.width - 30px; width: 16px; height: 16px;
+        source: @image-url("../assets/lucide/check.svg");
+        colorize: ViewerStyle.accent;
+    }
+}
+
+component AddDisplayPicker inherits FloatingSurface {
+    private property <string> custom-width: "600";
+    private property <string> custom-height: "300";
+    private property <bool> custom-rotatable;
+    private property <bool> valid-size: PreviewDisplays.valid-dimension(root.custom-width)
+        && PreviewDisplays.valid-dimension(root.custom-height);
+    callback closed();
+    height: 224px;
+
+    Text {
+        x: 16px; y: 15px;
+        text: @tr("Add display");
+        color: ViewerStyle.ink; font-size: 14px; font-weight: 600;
+    }
+    close := DisplayAction {
+        x: parent.width - 38px; y: 8px; width: 28px; height: 28px;
+        label: @tr("Close add display");
+        activated => { root.closed(); }
+        Rectangle { border-radius: 6px; background: close.hovered ? ViewerStyle.pill-hover : transparent; }
+        Image {
+            width: 16px; height: 16px;
+            source: @image-url("../assets/lucide/x.svg");
+            colorize: ViewerStyle.icon;
+        }
+    }
+    HorizontalLayout {
+        x: 16px; y: 58px; width: parent.width - 32px; height: 52px;
+        spacing: 12px;
+        VerticalLayout {
+            spacing: 6px; alignment: start;
+            Text { text: @tr("Width"); color: ViewerStyle.muted; font-size: 11px; }
+            DeviceField { value <=> root.custom-width; placeholder: @tr("Width"); input-type: InputType.number; }
+        }
+        VerticalLayout {
+            spacing: 6px; alignment: start;
+            Text { text: @tr("Height"); color: ViewerStyle.muted; font-size: 11px; }
+            DeviceField { value <=> root.custom-height; placeholder: @tr("Height"); input-type: InputType.number; }
+        }
+    }
+    Rectangle {
+        x: 16px; y: 126px; width: parent.width - 32px; height: 20px;
+        Text {
+            x: 0px; width: parent.width - 48px;
+            text: @tr("Portrait / landscape");
+            color: ViewerStyle.ink; font-size: 12px;
+            vertical-alignment: center;
+        }
+        InspectorSwitch {
+            x: parent.width - self.width;
+            checked <=> root.custom-rotatable;
+            accessible-label: @tr("Allow portrait and landscape");
+            toggled => { self.focus(); }
+        }
+    }
+    AddDisplayButton {
+        x: 16px; y: 180px; width: parent.width - 32px; height: 32px;
+        label: @tr("Add display"); enabled: root.valid-size;
+        activated => {
+            if PreviewDisplays.add-custom-display(root.custom-width, root.custom-height, root.custom-rotatable) { root.closed(); }
+        }
+    }
+}
+
+
+export component DisplayManager inherits FloatingSurface {
+    callback closed();
+    private property <int> display-count: PreviewDisplays.displays.length;
+    private property <int> selected-index: PreviewDisplays.selected-index;
+    init => { root.reveal-selected(); }
+    changed display-count => {
+        saved-list.content-y = saved-list.content-y.clamp(-max(0px, saved-list.content-height - saved-list.height), 0px);
+    }
+    changed selected-index => { root.reveal-selected(); }
+    function reveal-selected() {
+        if root.selected-index >= 0 {
+            let top = root.selected-index * 44px;
+            if top < -saved-list.content-y {
+                saved-list.content-y = -top;
+            } else if top + 44px > -saved-list.content-y + saved-list.height {
+                saved-list.content-y = saved-list.height - top - 44px;
+            }
+        }
+    }
+    width: 320px;
+    height: 124px + min(PreviewDisplays.displays.length, 5) * 44px;
+    add-popup := PopupWindow {
+        x: 8px; y: 8px;
+        width: 304px; height: picker.height;
+        close-policy: close-on-click-outside;
+        picker := AddDisplayPicker {
+            closed => { add-popup.close(); }
+        }
+    }
+    Text {
+        x: 20px; y: 18px; text: @tr("Displays");
+        color: ViewerStyle.ink; font-size: 16px; font-weight: 600;
+    }
+    plus := DisplayAction {
+        x: parent.width - 48px; y: 12px; width: 32px; height: 32px;
+        label: @tr("Add display");
+        activated => { add-popup.show(); }
+        Rectangle { border-radius: 6px; background: plus.hovered ? ViewerStyle.pill-hover : transparent; }
+        Image {
+            width: 18px; height: 18px;
+            source: @image-url("../assets/lucide/plus.svg");
+            colorize: ViewerStyle.icon;
+        }
+    }
+    Row {
+        x: 12px; y: 56px; width: parent.width - 24px; height: 44px;
+        label: @tr("Project size"); kind: "project";
+        selected: PreviewDisplays.selected-index == -1;
+        activated => { PreviewDisplays.select-project-size(); root.closed(); }
+    }
+    Rectangle {
+        x: 20px; y: 105px; width: parent.width - 40px; height: 1px;
+        background: ViewerStyle.border;
+    }
+    saved-list := EditorScrollView {
+        x: 12px; y: 112px; width: parent.width - 24px;
+        height: min(PreviewDisplays.displays.length, 5) * 44px;
+        content-width: self.width;
+        content-height: PreviewDisplays.displays.length * 44px;
+        horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
+        VerticalLayout {
+            width: parent.width;
+            for display[index] in PreviewDisplays.displays: Rectangle {
+                height: 44px;
+                Row {
+                    x: 0px; y: 0px;
+                    width: parent.width - 36px; height: parent.height;
+                    label: display.name; kind: display.kind;
+                    display-size: { width: display.width, height: display.height };
+                    selected: PreviewDisplays.selected-index == index;
+                    activated => { PreviewDisplays.select-display(index); root.closed(); }
+                }
+                trash := DisplayAction {
+                    x: parent.width - 32px; y: 8px;
+                    width: 28px; height: 28px;
+                    label: @tr("Delete {}", display.name);
+                    activated => { PreviewDisplays.delete-display(index); }
+                    Rectangle {
+                        border-radius: 6px;
+                        background: trash.hovered ? ViewerStyle.pill-hover : transparent;
+                    }
+                    Image {
+                        width: 16px; height: 16px;
+                        source: @image-url("../assets/lucide/trash.svg");
+                        colorize: trash.hovered ? Colors.danger : ViewerStyle.muted;
+                    }
+                    Tooltip { text: @markdown("Delete \{display.name}"); }
+                }
+            }
+        }
+    }
+}

@@ -5,6 +5,7 @@ import { Style, PaintStyle, Metrics, Colors, Typography, Motion, FieldStyle, Sid
 import { EditorInput } from "editor-input.slint";
 import { ElementVisuals } from "element-presentation.slint";
 import { Project } from "../project.slint";
+import { PreviewDisplays } from "../preview-displays.slint";
 import { Api, CanvasCorner, ElementKind } from "../api.slint";
 
 export global EditorCursors {
@@ -35,8 +36,8 @@ export global EditorAngles {
 }
 
 export global PreviewMetrics {
-    out property <length> canvas-width: Project.canvas-size.width + 2 * Style.artboard.padding;
-    out property <length> canvas-height: Project.canvas-size.height + 2 * Style.artboard.padding;
+    out property <length> canvas-width: PreviewDisplays.size.width + 2 * Style.artboard.padding;
+    out property <length> canvas-height: PreviewDisplays.size.height + 2 * Style.artboard.padding;
 }
 
 export global EditorWindow {

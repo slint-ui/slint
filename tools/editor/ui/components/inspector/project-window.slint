@@ -1,0 +1,37 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Project } from "../../project.slint";
+import { PreviewDisplays } from "../../preview-displays.slint";
+import { Style, Metrics, Typography, Colors } from "../../style.slint";
+import { InspectorSection, InspectorValueField } from "index.slint";
+
+export component ProjectWindowSection inherits InspectorSection {
+    title: @tr("Project window size");
+    VerticalLayout {
+        padding-left: Style.inspector-layout.padding;
+        padding-right: Style.inspector-layout.padding;
+        spacing: Metrics.space-compact;
+        HorizontalLayout {
+            spacing: Metrics.space-tight;
+            InspectorValueField {
+                horizontal-stretch: 1; min-width: 0px;
+                accessible-name: @tr("Project window width");
+                prefix: "W"; value: "\{PreviewDisplays.project-size.width / 1px}";
+                accepted(text) => { return Project.update-canvas-preset(0, text, "\{PreviewDisplays.project-size.height / 1px}"); }
+            }
+            InspectorValueField {
+                horizontal-stretch: 1; min-width: 0px;
+                accessible-name: @tr("Project window height");
+                prefix: "H"; value: "\{PreviewDisplays.project-size.height / 1px}";
+                accepted(text) => { return Project.update-canvas-preset(0, "\{PreviewDisplays.project-size.width / 1px}", text); }
+            }
+        }
+        if Project.canvas-presets-error != "": Text {
+            text: Project.canvas-presets-error; color: Colors.danger;
+            font-size: Typography.caption.size; wrap: word-wrap;
+            accessible-role: text; accessible-label: @tr("Project window size error");
+            accessible-value: self.text;
+        }
+    }
+}

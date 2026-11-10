@@ -8,6 +8,7 @@ import "./assets/Inter-VariableFont.ttf";
 
 import { Api, CoordinateSpace, EditorSurfaceMode, ElementKind, Hover, InlineTextEdit, InlineTextEditStart } from "api.slint";
 import { Project } from "project.slint";
+import { PreviewDisplays } from "preview-displays.slint";
 import { Snapping } from "snapping.slint";
 import { Diagnostics } from "diagnostics.slint";
 export { Diagnostics, Diagnostic, DiagnosticLevel, FileDiagnosticSummary, PreviewAvailability } from "diagnostics.slint";
@@ -37,6 +38,8 @@ export {
 }
 
 export component EditorUi inherits Window {
+    private property <string> project-root: Project.file-tree[0].path;
+    changed project-root => { PreviewDisplays.select-project-size(); }
     private property <bool> preview-editable: Diagnostics.preview-editable;
     changed preview-editable => {
         if !root.preview-editable {
