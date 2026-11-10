@@ -158,6 +158,16 @@ mod json_encoded {
 pub trait PreviewToLsp {
     fn send(&self, message: &PreviewToLspMessage) -> Result<()>;
 
+    /// Sends `message` to the debugger, through the Springboard.
+    /// Only a transport that carries [`super::FromPreview`] reaches the debugger,
+    /// the others drop the message.
+    fn send_to_debugger(&self, message: &super::PreviewToDebuggerMessage) -> Result<()> {
+        tracing::debug!(
+            "Dropping a debugger message on a transport without a debugger: {message:?}"
+        );
+        Ok(())
+    }
+
     /// Tell the editor about diagnostics
     fn notify_diagnostics(
         &self,

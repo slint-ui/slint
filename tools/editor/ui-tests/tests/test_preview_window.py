@@ -83,7 +83,7 @@ def test_local_preview_presents_a_wayland_buffer(
             },
             {"ShowPreview": {"url": source_url, "component": None}},
         ]:
-            preview.stdin.write(json.dumps(message) + "\n")
+            preview.stdin.write(json.dumps({"Lsp": message}) + "\n")
         preview.stdin.flush()
 
         def preview_presented():

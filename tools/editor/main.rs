@@ -327,9 +327,12 @@ async fn lsp_main(
         #[cfg(not(target_os = "macos"))]
         on_started: None,
     };
+    // TODO: connect the debugger once it exists.
+    let (to_debugger, _) = tokio::sync::mpsc::unbounded_channel();
     let springboard = editor_preview::springboard::Springboard::new(
         local_preview,
         from_run_preview_sender,
+        to_debugger,
         springboard_global,
     );
     let to_previews = vec![

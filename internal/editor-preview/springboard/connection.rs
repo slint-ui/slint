@@ -1,9 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::{ffi::OsString, pin::Pin};
+use std::{collections::HashSet, ffi::OsString, pin::Pin};
 
-use i_slint_live_preview::protocol::{LspToPreviewMessage, PreviewToLspMessage, pairing};
+use i_slint_live_preview::protocol::{
+    DebuggerToPreviewMessage, FromPreview, LspToPreviewMessage, PreviewToDebuggerMessage, pairing,
+};
 use tokio::sync::{mpsc, oneshot};
 
 use super::LocalPreviewConfig;
@@ -19,7 +21,7 @@ use crate::{
 enum ActivePreview {
     Local {
         preview: ChildProcessLspToPreview,
-        receiver: mpsc::UnboundedReceiver<PreviewToLspMessage>,
+        receiver: mpsc::UnboundedReceiver<FromPreview>,
     },
     Remote {
         connection: RemoteConnection,
@@ -39,17 +41,53 @@ pub(super) struct Connection {
     pub(super) pairing_code_length: Option<u8>,
     pub(super) error: String,
     preview: Option<ActivePreview>,
+    pending_requests: Option<PendingRequests>,
+}
+
+/// The IDs of the system-test requests forwarded to the preview that it hasn't answered.
+/// Dropping it answers them with an error, so the debugger doesn't wait for a preview that's gone.
+struct PendingRequests {
+    ids: HashSet<u64>,
+    to_debugger: mpsc::UnboundedSender<PreviewToDebuggerMessage>,
+}
+
+impl PendingRequests {
+    fn new(to_debugger: mpsc::UnboundedSender<PreviewToDebuggerMessage>) -> Self {
+        Self { ids: HashSet::new(), to_debugger }
+    }
+}
+
+impl Drop for PendingRequests {
+    fn drop(&mut self) {
+        let mut ids: Vec<u64> = self.ids.drain().collect();
+        ids.sort_unstable();
+        for id in ids {
+            let _ = self.to_debugger.send(PreviewToDebuggerMessage::SystemTestResponse {
+                id,
+                response: Err("The preview ended before answering".into()),
+            });
+        }
+    }
 }
 
 impl Connection {
-    pub(super) fn local(config: &LocalPreviewConfig, arguments: Vec<OsString>) -> Self {
+    pub(super) fn local(
+        config: &LocalPreviewConfig,
+        arguments: Vec<OsString>,
+        to_debugger: mpsc::UnboundedSender<PreviewToDebuggerMessage>,
+    ) -> Self {
         let (sender, receiver) = mpsc::unbounded_channel();
-        let preview = ChildProcessLspToPreview::new(config.executable.clone(), arguments, sender)
-            .with_started_callback(config.on_started.clone());
+        let preview = ChildProcessLspToPreview::new_with_debugger(
+            config.executable.clone(),
+            arguments,
+            sender,
+        )
+        .with_started_callback(config.on_started.clone());
         match preview.start_preview() {
             Ok(()) => Self {
                 state: ui::ConnectionState::Connected,
                 preview: Some(ActivePreview::Local { preview, receiver }),
+                pending_requests: Some(PendingRequests::new(to_debugger)),
                 ..Default::default()
             },
             Err(error) => Self {
@@ -60,13 +98,18 @@ impl Connection {
         }
     }
 
-    pub(super) fn remote(viewer: RemoteViewer, credentials: Option<PairingCredentials>) -> Self {
+    pub(super) fn remote(
+        viewer: RemoteViewer,
+        credentials: Option<PairingCredentials>,
+        to_debugger: mpsc::UnboundedSender<PreviewToDebuggerMessage>,
+    ) -> Self {
         Self {
             state: ui::ConnectionState::Connecting,
             preview: Some(ActivePreview::Remote {
                 connection: RemoteConnection::connect(viewer, credentials),
                 pairing_answer: None,
             }),
+            pending_requests: Some(PendingRequests::new(to_debugger)),
             ..Default::default()
         }
     }
@@ -94,10 +137,13 @@ impl Connection {
 
     /// Pending while nothing is started. `None` when the preview went away.
     pub(super) async fn next_event(&mut self) -> Option<ConnectionEvent> {
-        match &mut self.preview {
+        let event = match &mut self.preview {
             Some(ActivePreview::Remote { connection, .. }) => connection.next_event().await,
             Some(ActivePreview::Local { receiver, .. }) => {
-                receiver.recv().await.map(ConnectionEvent::Message)
+                receiver.recv().await.map(|message| match message {
+                    FromPreview::Lsp(message) => ConnectionEvent::Message(message),
+                    FromPreview::Debug(message) => ConnectionEvent::DebuggerMessage(message),
+                })
             }
             Some(ActivePreview::Serial { events, board, .. }) => {
                 Some(match events.recv().await? {
@@ -110,11 +156,20 @@ impl Connection {
                 })
             }
             None => std::future::pending().await,
+        };
+        if let Some(ConnectionEvent::DebuggerMessage(
+            PreviewToDebuggerMessage::SystemTestResponse { id, .. },
+        )) = &event
+            && let Some(pending) = &mut self.pending_requests
+        {
+            pending.ids.remove(id);
         }
+        event
     }
 
     pub(super) fn fail(&mut self, error: String) {
         self.preview = None;
+        self.pending_requests = None;
         self.pairing_code_length = None;
         self.state = ui::ConnectionState::Failed;
         self.error = error;
@@ -184,7 +239,7 @@ impl Connection {
     #[cfg(test)]
     pub(super) fn replace_local_receiver(
         &mut self,
-        receiver: mpsc::UnboundedReceiver<PreviewToLspMessage>,
+        receiver: mpsc::UnboundedReceiver<FromPreview>,
     ) {
         let Some(ActivePreview::Local { receiver: current, .. }) = &mut self.preview else {
             panic!("Expected Local preview");
@@ -204,6 +259,31 @@ impl Connection {
             Some(ActivePreview::Serial { connection, .. }) => connection.send(&message),
             _ => {}
         }
+    }
+
+    /// Forward the debugger's `message` to the preview, once connected.
+    /// Returns why it wasn't forwarded.
+    pub(super) fn send_debugger_message(
+        &mut self,
+        message: DebuggerToPreviewMessage,
+    ) -> Result<(), String> {
+        let &DebuggerToPreviewMessage::SystemTestRequest { id, .. } = &message;
+        if self.pending_requests.as_ref().is_some_and(|pending| pending.ids.contains(&id)) {
+            return Err(format!("The request with ID {id} is still unanswered"));
+        }
+        match &self.preview {
+            Some(ActivePreview::Local { preview, .. }) => preview.send_debugger_message(&message),
+            Some(ActivePreview::Remote { connection, .. })
+                if self.state == ui::ConnectionState::Connected =>
+            {
+                connection.send_debugger_message(message)
+            }
+            _ => return Err("No preview is running".into()),
+        }
+        if let Some(pending) = &mut self.pending_requests {
+            pending.ids.insert(id);
+        }
+        Ok(())
     }
 }
 
