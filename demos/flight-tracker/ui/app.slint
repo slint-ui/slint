@@ -1154,19 +1154,17 @@ export component AppWindow inherits Window {
         VerticalLayout {
             padding: root.narrow ? 14px : 20px;
             spacing: 12px;
-            HorizontalLayout {
+            // The button wraps below the heading where the panel is too narrow for both.
+            FlexboxLayout {
                 spacing: 10px;
-                VerticalLayout {
-                    horizontal-stretch: 1;
-                    alignment: center;
-                    Flaps {
-                        text: "WHERE TO?";
-                        size: root.narrow ? 17px : 21px;
-                    }
+                alignment: space-between;
+                cross-axis-alignment: center;
+                Flaps {
+                    text: "WHERE TO?";
+                    size: root.narrow ? 17px : 21px;
                 }
 
                 PillButton {
-                    y: (parent.height - self.height) / 2;
                     text: "Take off";
                     icon: @image-url("icons/aircraft.svg");
                     primary: true;
