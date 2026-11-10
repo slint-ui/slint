@@ -12,9 +12,8 @@ use std::process::Command;
 mod gibs;
 use gibs::Kind;
 
-/// Says whether to embed the map tiles: `0` or `off` for never, `1` or `on` for always,
-/// or the directory of tiles to embed, without fetching any.
-/// Unset, cross-compiled builds embed them.
+/// Set to embed the map tiles: to `1` or `on` to fetch them first,
+/// or to the directory of tiles to embed, without fetching any.
 const EMBED: &str = "FLIGHT_TRACKER_EMBED_TILES";
 
 fn main() {
@@ -28,19 +27,20 @@ fn main() {
     }
 }
 
-/// Puts the map tiles into the binary, which the demo then shows instead of fetching them.
-/// A cross-compiled build is likely for a device without a network.
+/// Puts the map tiles into the binary, which the demo then shows instead of fetching them,
+/// such as on a device without a network.
 /// Returns whether there are tiles in the binary.
 fn embed_tiles() -> bool {
     let setting = std::env::var(EMBED).unwrap_or_default();
     let (directory, fetch) = match setting.as_str() {
-        "0" | "off" => return false,
-        "" if std::env::var("TARGET") == std::env::var("HOST") => return false,
-        "" | "1" | "on" => {
-            // Cargo marks its target directory with this file. The tiles stay there for all
-            // targets and profiles, and in a container that keeps nothing else.
+        "" | "0" | "off" => return false,
+        "1" | "on" => {
+            // Cargo marks its target directory with this file, and each target's directory in
+            // it. In the outermost, the tiles stay for all targets and profiles, and in a
+            // container that keeps nothing else.
             let out = PathBuf::from(std::env::var_os("OUT_DIR").unwrap());
-            let target = out.ancestors().find(|directory| directory.join("CACHEDIR.TAG").exists());
+            let marked = |directory: &&Path| directory.join("CACHEDIR.TAG").exists();
+            let target = out.ancestors().filter(marked).last();
             (target.unwrap_or(&out).join("flight-tracker-tiles"), true)
         }
         directory => (PathBuf::from(directory), false),
@@ -143,8 +143,7 @@ fn fetch_missing(directory: &Path, tiles: &[(Kind, u32, u32, u32)]) {
         return;
     }
     println!(
-        "cargo::warning=Fetching {} map tiles from NASA's GIBS into {} to embed them. \
-         Set {EMBED}=0 to build without.",
+        "cargo::warning=Fetching {} map tiles from NASA's GIBS into {} to embed them",
         missing.len(),
         directory.display()
     );
