@@ -81,7 +81,7 @@ fn cover(noise: &Noise, lon: f32, lat: f32) -> f32 {
     let band = |center: f32, width: f32| (-((degrees.abs() - center) / width).powi(2)).exp();
     let tropics = (-((degrees - 6.0) / 7.0).powi(2)).exp();
     let weather = 0.16 * tropics - 0.17 * band(24.0, 9.0) + 0.12 * band(55.0, 14.0) + 0.03;
-    let t = ((shape + weather + 0.01) / 0.28).clamp(0.0, 1.0);
+    let t = ((shape + weather - 0.05) / 0.28).clamp(0.0, 1.0);
     // Finer noise inside the clouds, so that they aren't flat.
     let texture = 0.72 + 0.28 * (noise.fbm(p * 4.0 + Vec3::splat(11.0), 2) * 2.0).clamp(-1.0, 1.0);
     t * t * (3.0 - 2.0 * t) * texture
