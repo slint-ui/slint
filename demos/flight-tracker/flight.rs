@@ -15,8 +15,8 @@ const CRUISE_KMH: f32 = 880.0;
 const SLOW_KMH: f32 = 300.0;
 const CLIMB_KM: f32 = 220.0;
 const DESCENT_KM: f32 = 280.0;
-/// The part of a flight's demo time spent speeding up after takeoff, and slowing down
-/// before landing.
+/// The part of a flight's demo time spent speeding up after takeoff,
+/// and slowing down before landing.
 const RAMP: f32 = 0.08;
 
 pub struct Flight {
@@ -45,8 +45,8 @@ impl Flight {
         self.time >= self.duration
     }
 
-    /// The flown part of the distance, from 0 to 1. The aircraft speeds up from the start and
-    /// slows down at the end, at a constant rate.
+    /// The flown part of the distance, from 0 to 1.
+    /// The aircraft speeds up from the start and slows down at the end, at a constant rate.
     pub fn progress(&self) -> f32 {
         let s = self.time / self.duration;
         let top = 1.0 / (1.0 - RAMP);
@@ -76,8 +76,8 @@ impl Flight {
         self.distance_km - self.flown_km()
     }
 
-    /// How far into the climb and how far from the descent the aircraft is, from 0 on the
-    /// ground to 1 at cruise.
+    /// How far into the climb and how far from the descent the aircraft is,
+    /// from 0 on the ground to 1 at cruise.
     fn cruising(&self) -> f32 {
         smoothstep(0.0, CLIMB_KM, self.flown_km())
             * smoothstep(0.0, DESCENT_KM, self.remaining_km())

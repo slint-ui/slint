@@ -37,14 +37,14 @@ slint::include_modules!();
 const VIEW_CYCLE: [(View, f32); 3] = [(View::Follow, 14.0), (View::Route, 8.0), (View::Globe, 8.0)];
 const BOARDING_SECONDS: f32 = 4.0;
 const ARRIVED_SECONDS: f32 = 7.0;
-/// How long the kiosk waits on the entry screen before it proposes a flight, and then before
-/// it takes off.
+/// How long the kiosk waits on the entry screen before it proposes a flight,
+/// and then before it takes off.
 const PROPOSE_SECONDS: f32 = 2.5;
 const TAKE_OFF_SECONDS: f32 = 4.0;
 /// How long the globe takes to grow from its place on the entry screen to the window.
 const ZOOM_IN_SECONDS: f32 = 0.9;
-/// How long the globe takes to shrink back into its place, while the camera turns to the entry
-/// screen's view.
+/// How long the globe takes to shrink back into its place,
+/// while the camera turns to the entry screen's view.
 const ZOOM_OUT_SECONDS: f32 = 1.3;
 /// How long the intro takes, from low above the night side until the sun has come up over the
 /// horizon.
@@ -55,8 +55,8 @@ const INTRO_FADE_SECONDS: f32 = 1.2;
 const PLANNER_LAG: f32 = 0.2;
 /// How fast the globe on the entry screen turns, in radians per second.
 const ENTRY_SPIN: f32 = 0.08;
-/// How long the globe on the entry screen waits after the user turned it, before it turns on
-/// its own again.
+/// How long the globe on the entry screen waits after the user turned it,
+/// before it turns on its own again.
 const ENTRY_SPIN_PAUSE: f32 = 4.0;
 /// The latitude that the globe on the entry screen shows at the center.
 const ENTRY_LATITUDE: f32 = 20.0 * PI / 180.0;
@@ -71,18 +71,19 @@ const MAX_LABELS: usize = 24;
 const LABEL_FADE_SECONDS: f32 = 0.2;
 /// How many logical pixels a label on the screen can overlap others or leave it before it goes.
 const LABEL_SLACK: f32 = 4.0;
-/// The most physical pixels per logical pixel the globe renders at, so that phones with a
-/// scale factor of 3 render fewer than half the pixels of their full resolution.
+/// The most physical pixels per logical pixel the globe renders at,
+/// so that phones with a scale factor of 3 render fewer than half the pixels of their full
+/// resolution.
 const MAX_GLOBE_SCALE: f32 = 2.0;
 
-/// The most physical pixels per logical pixel the globe renders at in `quality`, before the
-/// adaptive render scale.
+/// The most physical pixels per logical pixel the globe renders at in `quality`,
+/// before the adaptive render scale.
 fn globe_density(window: &slint::Window, quality: Quality) -> f32 {
     let limit = if quality == Quality::Low { 1.0 } else { MAX_GLOBE_SCALE };
     window.scale_factor().min(limit)
 }
-/// The kiosk flies between airports within `HUB_KM` of a city with at least
-/// `HUB_POPULATION` thousand people.
+/// The kiosk flies between airports within `HUB_KM` of a city with at least `HUB_POPULATION`
+/// thousand people.
 const HUB_KM: f32 = 60.0;
 const HUB_POPULATION: f32 = 1500.0;
 
@@ -178,7 +179,8 @@ fn sun_elevation(point: Vec3, hours: f32) -> f32 {
     point.dot(sun_direction(hours)).clamp(-1.0, 1.0).asin().to_degrees()
 }
 
-/// When the sun is at `point`, `hours` from now: "in daylight", "at night", "at dawn", or "at dusk".
+/// When the sun is at `point`, `hours` from now: "in daylight", "at night", "at dawn",
+/// or "at dusk".
 fn daylight(point: Vec3, hours: f32) -> &'static str {
     let elevation = sun_elevation(point, hours);
     if elevation > 0.0 {
@@ -192,8 +194,9 @@ fn daylight(point: Vec3, hours: f32) -> &'static str {
     }
 }
 
-/// The SVG commands for a line through `points`, with gaps where a point is hidden. Each point comes with the index of its sample
-/// along the route, and a dashed line draws the segments that end at an odd sample.
+/// The SVG commands for a line through `points`, with gaps where a point is hidden.
+/// Each point comes with the index of its sample along the route,
+/// and a dashed line draws the segments that end at an odd sample.
 fn path(points: impl Iterator<Item = (usize, Option<Vec2>)>, dashed: bool) -> String {
     let mut commands = String::new();
     let mut previous: Option<Vec2> = None;
@@ -216,12 +219,12 @@ fn route_range(flight: &Flight, aspect: f32) -> f32 {
     (half.sin() / fit.tan() - (1.0 - half.cos())).clamp(MIN_RANGE, 4.5)
 }
 
-/// What the demo shows: the entry screen, the zoom between the globe's place there and the
-/// window, or a flight.
+/// What the demo shows: the entry screen, the zoom between the globe's place there and the window,
+/// or a flight.
 #[derive(Clone, Copy, PartialEq)]
 enum Stage {
-    /// The camera rises from the dark above the night side until the sun comes up over the
-    /// horizon, then the globe shrinks into its place on the entry screen.
+    /// The camera rises from the dark above the night side until the sun comes up over the horizon,
+    /// then the globe shrinks into its place on the entry screen.
     Intro,
     Entry,
     ZoomingIn,
@@ -272,15 +275,15 @@ struct Demo {
     proposed: bool,
     /// Whether the zoom out to the entry screen comes from the intro, rather than a flight.
     from_intro: bool,
-    /// How much of the window's height, and of its width, the globe's place on the entry
-    /// screen shows of a frame rendered for the whole window.
+    /// How much of the window's height, and of its width,
+    /// the globe's place on the entry screen shows of a frame rendered for the whole window.
     entry_view: Vec2,
     /// The point at the center of the globe on the entry screen.
     entry_target: Vec3,
     /// The compass direction that points up on the globe on the entry screen.
     entry_heading: f32,
-    /// How much the user zoomed into the globe on the entry screen, as a part of the range at
-    /// which it fills its place.
+    /// How much the user zoomed into the globe on the entry screen,
+    /// as a part of the range at which it fills its place.
     entry_zoom: f32,
     /// Seconds since the user last moved the globe on the entry screen.
     entry_held: f32,
@@ -346,8 +349,8 @@ impl Demo {
         }
     }
 
-    /// Shows `origin` and `destination` on the entry screen's globe, where they come around as it
-    /// turns.
+    /// Shows `origin` and `destination` on the entry screen's globe,
+    /// where they come around as it turns.
     fn plan(&mut self, origin: Option<usize>, destination: Option<usize>) {
         if self.planned == (origin, destination) {
             return;
@@ -373,8 +376,8 @@ impl Demo {
         Pose { target: self.entry_target, heading: self.entry_heading, tilt: 0.0, range }
     }
 
-    /// Turns the globe on the entry screen upright, zoomed out, with the longitude of `point`
-    /// at the center.
+    /// Turns the globe on the entry screen upright, zoomed out,
+    /// with the longitude of `point` at the center.
     fn reset_entry(&mut self, point: Vec3) {
         self.entry_target = surface(camera::coordinates(point).0, ENTRY_LATITUDE);
         self.entry_heading = 0.0;
@@ -382,8 +385,8 @@ impl Demo {
         self.entry_held = ENTRY_SPIN_PAUSE;
     }
 
-    /// Stops the globe on the entry screen from turning on its own for a while, and stops the
-    /// kiosk from taking off under the user's hands.
+    /// Stops the globe on the entry screen from turning on its own for a while,
+    /// and stops the kiosk from taking off under the user's hands.
     fn hold_entry(&mut self, app: &AppWindow) {
         self.entry_held = 0.0;
         app.set_kiosk(false);
@@ -424,8 +427,8 @@ impl Demo {
         }
     }
 
-    /// Where the camera is during the intro: it rises from low above the night side, looking
-    /// towards the sun, which comes up over the horizon on the way.
+    /// Where the camera is during the intro: it rises from low above the night side,
+    /// looking towards the sun, which comes up over the horizon on the way.
     fn intro_pose(&self) -> Pose {
         let sun = sun_direction(0.0);
         let side = sun.cross(Vec3::Y).try_normalize().unwrap_or(Vec3::X);
@@ -492,8 +495,9 @@ impl Demo {
         }
     }
 
-    /// How far the planner has slid away, from 0 to 1. It leaves ahead of the globe's zoom, and
-    /// comes back behind it, landing together with the globe.
+    /// How far the planner has slid away, from 0 to 1.
+    /// It leaves ahead of the globe's zoom, and comes back behind it,
+    /// landing together with the globe.
     fn planner_away(&self) -> f32 {
         match self.stage {
             Stage::Entry => 0.0,
@@ -713,9 +717,10 @@ impl Demo {
         }
     }
 
-    /// The names of the largest cities on the screen, at most `MAX_LABELS`, that don't overlap
-    /// each other or `taken`. They fade in and out, and those on the screen keep their place
-    /// over new ones, so that a moving camera doesn't make them flicker.
+    /// The names of the largest cities on the screen, at most `MAX_LABELS`,
+    /// that don't overlap each other or `taken`.
+    /// They fade in and out, and those on the screen keep their place over new ones,
+    /// so that a moving camera doesn't make them flicker.
     fn labels(
         &mut self,
         view_projection: Mat4,
@@ -804,8 +809,8 @@ fn border_strength(eye: Vec3, height: f32) -> f32 {
     camera::smoothstep(250.0, 450.0, radius)
 }
 
-/// How strongly the clouds show on a globe seen from `eye`: they fade out as the camera comes
-/// close, where they would hide the route and the cities.
+/// How strongly the clouds show on a globe seen from `eye`:
+/// they fade out as the camera comes close, where they would hide the route and the cities.
 fn cloud_strength(eye: Vec3) -> f32 {
     camera::smoothstep(0.9, 2.0, eye.length() - 1.0)
 }
@@ -813,19 +818,21 @@ fn cloud_strength(eye: Vec3) -> f32 {
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen::prelude::wasm_bindgen]
 extern "C" {
-    /// The page's `flightTrackerReady()`, see `index.html`. It's an error where the page has none.
+    /// The page's `flightTrackerReady()`, see `index.html`.
+    /// It's an error where the page has none.
     #[wasm_bindgen(catch, js_name = flightTrackerReady)]
     fn flight_tracker_ready() -> Result<(), wasm_bindgen::JsValue>;
 }
 
 /// Renders into one of two textures, so Slint can show the previous one meanwhile.
-/// They're as large as the largest frame, so that a change in the render scale or in the globe's
-/// place doesn't create new ones.
+/// They're as large as the largest frame,
+/// so that a change in the render scale or in the globe's place doesn't create new ones.
 struct Frames {
     textures: Vec<wgpu::Texture>,
     next: usize,
-    /// The format the globe renders through: an sRGB view of the textures where the device
-    /// supports one, so Slint shows the bytes as they are.
+    /// The format the globe renders through:
+    /// an sRGB view of the textures where the device supports one,
+    /// so Slint shows the bytes as they are.
     view_format: wgpu::TextureFormat,
 }
 

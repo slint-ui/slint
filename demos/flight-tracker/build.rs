@@ -10,8 +10,9 @@ use std::process::Command;
 mod gibs;
 use gibs::Kind;
 
-/// Says whether to embed the map tiles: `0` or `off` for never, `1` or `on` for always, or the
-/// directory of tiles to embed, without fetching any. Unset, cross-compiled builds embed them.
+/// Says whether to embed the map tiles: `0` or `off` for never, `1` or `on` for always,
+/// or the directory of tiles to embed, without fetching any.
+/// Unset, cross-compiled builds embed them.
 const EMBED: &str = "FLIGHT_TRACKER_EMBED_TILES";
 
 fn main() {
@@ -26,8 +27,8 @@ fn main() {
 }
 
 /// Puts the map tiles into the binary, which the demo then shows instead of fetching them.
-/// A cross-compiled build is likely for a device without a network. Returns whether there
-/// are tiles in the binary.
+/// A cross-compiled build is likely for a device without a network.
+/// Returns whether there are tiles in the binary.
 fn embed_tiles() -> bool {
     let setting = std::env::var(EMBED).unwrap_or_default();
     let (directory, fetch) = match setting.as_str() {
