@@ -610,6 +610,9 @@
     setAnnotationMode(false);
     tools.hidden = true;
     renderedInput = null;
+    const current = loadInterpreter();
+    current.previewId = previewId;
+    current.slint.catch(() => {});
     let url = "main.slint";
     let loadImport = null;
     let loadResource = null;
@@ -648,8 +651,6 @@
 
     showStatus("Loading the Slint interpreter…");
     publish({ previewId, stage: "loading" }).catch(() => {});
-    const current = loadInterpreter();
-    current.previewId = previewId;
     let slint;
     try {
       slint = await untilPanic(current, current.slint);
