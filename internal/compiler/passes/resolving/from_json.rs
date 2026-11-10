@@ -360,10 +360,22 @@ fn json_to_expression(
             _ => mismatch(value, target, path, file, node, ctx),
         },
         Type::Int32 => match value.as_f64() {
-            Some(n) if n.fract() == 0.0 => Expression::Cast {
-                from: Box::new(Expression::NumberLiteral(n, Unit::None)),
-                to: Type::Int32,
-            },
+            Some(n) if n.fract() == 0.0 && n >= i32::MIN as f64 && n <= i32::MAX as f64 => {
+                Expression::Cast {
+                    from: Box::new(Expression::NumberLiteral(n, Unit::None)),
+                    to: Type::Int32,
+                }
+            }
+            Some(n) if n.fract() == 0.0 => {
+                ctx.diag.push_error(
+                    format!(
+                        "The JSON number {n} {} is out of range for an int",
+                        path.location(file)
+                    ),
+                    node,
+                );
+                Expression::Invalid
+            }
             Some(n) => {
                 ctx.diag.push_error(
                     format!("The JSON number {n} {} is not an integer", path.location(file)),

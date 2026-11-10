@@ -34,6 +34,8 @@ export component SuperSimple {
 //                                >                                        <error{Cannot use the JSON string at 'a_string' in 📂/tests/syntax/expressions/from-json/data.json for a value of type int}
     property <int> not_integral: @from-json("from-json/data.json").a_float;
 //                               >                                       <error{The JSON number 3.5 at 'a_float' in 📂/tests/syntax/expressions/from-json/data.json is not an integer}
+    property <int> out_of_range: @from-json("from-json/data.json").a_big_number;
+//                               >                                            <error{The JSON number 100000000000000000000 at 'a_big_number' in 📂/tests/syntax/expressions/from-json/data.json is out of range for an int}
     property <bool> null_in_expression: @from-json("from-json/data.json").a_null == 0;
 //                                      >                                      <error{The JSON value at 'a_null' in 📂/tests/syntax/expressions/from-json/data.json is null, which has no Slint equivalent. Replace it with a value}
     property <MyEnum> bad_enum: @from-json("from-json/data.json").a_string;

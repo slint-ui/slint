@@ -2,6 +2,7 @@
   "int_property": 5,
   "different_name": 10,
   "a_float": 3.5,
+  "a_big_number": 1e20,
   "a_string": "hello",
   "a_bool": true,
   "a_null": null,
