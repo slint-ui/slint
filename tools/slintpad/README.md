@@ -32,6 +32,8 @@ The `preview.html` page contains only the preview and the code must be given via
     If the slint code contains relative path for imports or images, they are loaded relative to
     that slint file. That way it is possible to load code from github (via raw.githubusercontent)
     or gists.
+    The URL may also point to a `slint-project.json` project file.
+    Then the page opens its `main` file and applies its settings, such as `edition` and `include-paths`.
 
     Example: this loads the printerdemo.slint file from the github URL
     -   https://slint.dev/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/demos/printerdemo/ui/printerdemo.slint

@@ -27,6 +27,7 @@ import slint_lsp_wasm_url from "@lsp/slint_lsp_wasm_bg.wasm?url";
 
 import { report_panic_dialog } from "./dialogs";
 import { edition_from_url } from "./edition";
+import { PROJECT_FILE_NAME } from "./project";
 
 import {
     type ResourceUrlMapperFunction,
@@ -75,7 +76,10 @@ function createLanguageClient(
         name: "Slint Language Client",
         clientOptions: {
             // use a language id as a document selector
-            documentSelector: [{ language: "slint" }],
+            documentSelector: [
+                { language: "slint" },
+                { pattern: `**/${PROJECT_FILE_NAME}` },
+            ],
             // disable the default error handler
             errorHandler: {
                 error: () => ({ action: ErrorAction.Continue }),
@@ -102,7 +106,8 @@ function createLanguageClient(
     return client;
 }
 
-export type FileReader = (_url: string) => Promise<string>;
+/** Resolves to `null` for a file that doesn't exist. */
+export type FileReader = (_url: string) => Promise<string | null>;
 
 export type LoadPhase =
     | { kind: "downloading"; received: number; total: number }
@@ -303,7 +308,7 @@ export class Lsp {
         this.#file_reader = fr;
     }
 
-    private read_url(url: string): Promise<string> {
+    private read_url(url: string): Promise<string | null> {
         try {
             return this.#file_reader?.(url) ?? Promise.reject();
         } catch (e) {
