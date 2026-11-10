@@ -25,12 +25,15 @@ pub fn lower_popups(
     diag: &mut BuildDiagnostics,
 ) {
     let window_type = type_register.lookup_builtin_element("Window").unwrap();
+    #[allow(clippy::mutable_key_type)]
+    let mut lowered = HashSet::new();
 
     recurse_elem_including_sub_components_no_borrow(
         component,
         &None,
         &mut |elem, parent_element: &Option<ElementRc>| {
-            if is_popup_window(elem) {
+            // #14856
+            if is_popup_window(elem) && lowered.insert(ByAddress(elem.clone())) {
                 lower_popup_window(elem, parent_element.as_ref(), &window_type, diag);
             }
             Some(elem.clone())
