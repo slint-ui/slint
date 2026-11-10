@@ -107,7 +107,7 @@ Each section lists what a release changed, and how to update your code if the ch
 
 Before 1.19, wrapping an element in `if true:` could change the layout around it, which was a bug:
 
-- A non-layout parent, such as a `Rectangle`, computes its minimum and preferred size from its children.
+- A non-layout parent, such as a `Rectangle` or a `Flickable`, computes its minimum and preferred size from its children.
   It ignored any child created with `if` or `for`
   ([#407](https://github.com/slint-ui/slint/issues/407)).
 - A word-wrapped `Text` with its own `width` in an `if` or `for` element was measured at the layout's width.
