@@ -1521,6 +1521,26 @@ def test_text_content_writes_exact_source(
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         select_element(window, "Text")
+        if case == "literal":
+            field = inspector_field(
+                window, "Text content", slint_testing.AccessibleRole.TextInput
+            )
+            position = element_center(field)
+            window.dispatch_event(slint_testing.PointerMoveEvent(position))
+            window.dispatch_event(
+                slint_testing.PointerPressEvent(
+                    position, slint_testing.PointerEventButton.Left
+                )
+            )
+            window.dispatch_event(
+                slint_testing.PointerReleaseEvent(
+                    position, slint_testing.PointerEventButton.Left
+                )
+            )
+            press_shortcut(window, keys.Control, "a")
+            press_keys(window, "Live")
+            element(window, "Live", role=slint_testing.AccessibleRole.Text)
+            snapshot.assert_unchanged()
         edit_field(
             window, "Text content", value, slint_testing.AccessibleRole.TextInput
         )

@@ -264,6 +264,11 @@ def test_broken_project_recovers_when_repaired_on_disk(
         diagnostics = element(
             window, "Preview unavailable", role=slint_testing.AccessibleRole.Region
         )
+        element(
+            diagnostics,
+            "Toggle advanced error details",
+            role=slint_testing.AccessibleRole.Button,
+        ).invoke_accessible_default_action()
         wait_until(
             lambda: (
                 any(
