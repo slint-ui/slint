@@ -690,16 +690,21 @@ impl Demo {
             destination: airport_item(&self.airports, flight.destination),
             progress: flight.progress(),
             remaining_time: format_hours(flight.remaining_hours()).into(),
-            remaining_distance: format!("{} km", thousands(flight.remaining_km())).into(),
-            flown_distance: format!("{} km", thousands(flight.flown_km())).into(),
-            total_distance: format!("{} km", thousands(flight.distance_km)).into(),
-            speed: format!("{} km/h", thousands(flight.ground_speed_kmh())).into(),
-            altitude: format!("{} m", thousands(flight.altitude_m())).into(),
+            remaining_clock: {
+                let minutes = (flight.remaining_hours() * 60.0).round() as u32;
+                format!("{}:{:02}", minutes / 60, minutes % 60).into()
+            },
+            remaining_distance: thousands(flight.remaining_km()).into(),
+            flown_distance: thousands(flight.flown_km()).into(),
+            total_distance: thousands(flight.distance_km).into(),
+            speed: thousands(flight.ground_speed_kmh()).into(),
+            altitude: thousands(flight.altitude_m()).into(),
             // Adding 0 turns a rounded -0 into 0.
-            temperature: format!("{} °C", flight.outside_celsius().round() + 0.0)
+            temperature: format!("{}", flight.outside_celsius().round() + 0.0)
                 .replace('-', "\u{2212}")
                 .into(),
-            heading: format!("{heading:.0}° {}", compass(heading)).into(),
+            heading: format!("{heading:.0}°").into(),
+            heading_compass: compass(heading).into(),
             arrival_light: if flight.landed() {
                 format!("Landed {}", daylight(destination.position, 0.0))
             } else {
