@@ -94,6 +94,10 @@ test("lists preview_slint with its view, and the view's own tools for the view o
         (t) => t.name === "get_preview_screenshot",
     );
     assert.equal(screenshot._meta, undefined);
+    assert.deepEqual(screenshot.inputSchema, {
+        type: "object",
+        properties: { previewId: { type: "string" } },
+    });
 });
 
 test("all tools declare their annotations", async () => {
@@ -404,16 +408,79 @@ test("reports a crash while a screenshot is pending and ignores a late capture",
     }
 });
 
-test("replacing a preview wakes its waiting caller and rejects its late capture", async () => {
+test("captures multiple previews independently while defaulting to the latest opened preview", async () => {
     const args = { path: "/project/main.slint" };
-    const previewId = await startPreview(args);
-    await callTool("publish_preview_capture", { previewId, stage: "ready" });
-    const screenshot = callTool("get_preview_screenshot", {});
-    const captureId = await captureRequestId(previewId);
-    await startPreview(args);
-    assert.ok((await screenshot).content[0].text.includes(`replaced preview ${previewId}`));
-    const late = await callTool("publish_preview_capture", { previewId, captureId, png: "iVBORw0K" });
-    assert.match(late.content[0].text, /older preview/);
+    const firstPreviewId = await startPreview(args);
+    const firstScreenshot = callTool("get_preview_screenshot", {});
+    const latestPreviewId = await startPreview(args);
+    const screenshots = [
+        [firstPreviewId, "Zmlyc3Q=", firstScreenshot],
+        [latestPreviewId, "bGF0ZXN0", callTool("get_preview_screenshot", {})],
+    ];
+    for (const [previewId, png, screenshot] of screenshots) {
+        await callTool("publish_preview_capture", { previewId, stage: "ready" });
+        await callTool("publish_preview_capture", {
+            previewId, captureId: await captureRequestId(previewId), png,
+        });
+        const result = await screenshot;
+        assert.equal(result.structuredContent.previewId, previewId);
+        assert.equal(result.content[0].data, png);
+    }
+    const screenshot = callTool("get_preview_screenshot", { previewId: firstPreviewId });
+    await callTool("publish_preview_capture", {
+        previewId: firstPreviewId,
+        captureId: await captureRequestId(firstPreviewId),
+        png: "cmVmcmVzaA==",
+    });
+    assert.equal((await screenshot).content[0].data, "cmVmcmVzaA==");
+});
+
+test("rejects invalid preview IDs and reports unknown screenshot targets", async () => {
+    for (const name of ["get_preview_screenshot", "poll_preview_capture"]) {
+        for (const previewId of [null, 42, {}]) {
+            const result = await request("tools/call", { name, arguments: { previewId } });
+            assert.equal(result.error?.code, -32602);
+        }
+    }
+    const result = await callTool("get_preview_screenshot", { previewId: "unknown" });
+    assert.equal(result.isError, true);
+    assert.match(result.content[0].text, /unknown or inactive/);
+});
+
+test("evicts previews that stop polling and reactivates them without changing the default target", async () => {
+    const previewId = await startPreview({ source: "export component A {}" });
+    await callTool("poll_preview_capture", { previewId });
+    const latestPreviewId = await startPreview({ source: "export component B {}" });
+    await callTool("publish_preview_capture", { previewId: latestPreviewId, stage: "ready" });
+    const keepPolling = setInterval(() => {
+        callTool("poll_preview_capture", { previewId: latestPreviewId });
+    }, 500);
+    try {
+        await new Promise((resolve) => setTimeout(resolve, 6100));
+        const expired = await callTool("get_preview_screenshot", { previewId });
+        assert.equal(expired.isError, true);
+        assert.match(expired.content[0].text, /unknown or inactive/);
+        const late = await callTool("publish_preview_capture", { previewId, stage: "ready" });
+        assert.match(late.content[0].text, /unknown or inactive/);
+
+        assert.deepEqual(
+            (await callTool("poll_preview_capture", { previewId })).structuredContent,
+            { active: true },
+        );
+        for (const [args, expectedId] of [[{ previewId }, previewId], [{}, latestPreviewId]]) {
+            const screenshot = callTool("get_preview_screenshot", args);
+            await callTool("publish_preview_capture", {
+                previewId: expectedId,
+                captureId: await captureRequestId(expectedId),
+                png: "cmVzdW1lZA==",
+            });
+            const result = await screenshot;
+            assert.equal(result.structuredContent.previewId, expectedId);
+            assert.equal(result.content[0].data, "cmVzdW1lZA==");
+        }
+    } finally {
+        clearInterval(keepPolling);
+    }
 });
 
 test("asks the user to open the chat when startup is unconfirmed, then accepts a late view", async () => {
