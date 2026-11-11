@@ -69,6 +69,8 @@ const KIOSK_KM: (f32, f32) = (1500.0, 13000.0);
 const VIEW_TRANSITION: f32 = 1.5;
 const MAX_LABELS: usize = 24;
 const LABEL_FADE_SECONDS: f32 = 0.2;
+/// How much an intro needs to show, as `intro_scenery()` counts it.
+const INTRO_SCENERY: f32 = 550.0;
 /// How many logical pixels a label on the screen can overlap others or leave it before it goes.
 const LABEL_SLACK: f32 = 4.0;
 /// How long a label needs to have room before it shows,
@@ -105,6 +107,34 @@ fn sun_direction(hours: f32) -> Vec3 {
     let utc_hours = (seconds / 3600.0).rem_euclid(24.0) as f32;
     let lon = -(utc_hours - 12.0) * 15.0f32.to_radians();
     surface(lon, declination)
+}
+
+/// The direction at a right angle to the `sun`, `turn` radians from west towards north.
+/// Around the globe, these are the places where the sun rises or sets.
+fn beside_sun(sun: Vec3, turn: f32) -> Vec3 {
+    let west = sun.cross(Vec3::Y).try_normalize().unwrap_or(Vec3::X);
+    west * turn.cos() + west.cross(sun) * turn.sin()
+}
+
+/// How much there is to see in an intro that plays `turn` radians from west of the `sun`:
+/// the cities whose lights are in front of the camera while it's low, the larger and the
+/// nearer the better.
+fn intro_scenery(cities: &[City], sun: Vec3, turn: f32) -> f32 {
+    let side = beside_sun(sun, turn);
+    let across = sun.cross(side);
+    let seen = |city: &City| {
+        // How far the city is from the point under the sun, along the camera's way,
+        // and how far to the side of it.
+        let along = city.position.dot(side).atan2(city.position.dot(sun)).to_degrees();
+        let aside = city.position.dot(across).clamp(-1.0, 1.0).asin().to_degrees();
+        // The camera starts 110 degrees from that point, and sees wider the further it looks.
+        // The lights come on 91 degrees from it, and are small at first, near the horizon.
+        let width = 0.35 * (110.0 - along);
+        let lit = camera::smoothstep(89.0, 91.0, along) - camera::smoothstep(105.0, 108.0, along);
+        let size = 0.2 + 0.8 * camera::smoothstep(91.0, 102.0, along);
+        lit * size * (1.0 - camera::smoothstep(width, width + 3.0, aside.abs()))
+    };
+    cities.iter().map(|city| city.population.sqrt() * seen(city)).sum()
 }
 
 fn random_seed() -> u64 {
@@ -309,6 +339,10 @@ struct Demo {
     /// Seconds since the start, for the stars' twinkle.
     time: f32,
     random: u64,
+    /// Where the intro plays, see `beside_sun()`.
+    intro_turn: f32,
+    /// How many hours the demo's sun is ahead of the real one, see `place_intro()`.
+    sun_shift: f32,
     /// Hands control back to the kiosk after a while without input.
     idle: slint::Timer,
 }
@@ -327,7 +361,7 @@ impl Demo {
             })
             .collect();
         let position = airports[0].position;
-        Self {
+        let mut demo = Self {
             flight: Flight::new(0, position, 0, position),
             hubs,
             label_states: vec![LabelState::default(); cities.len()],
@@ -355,9 +389,34 @@ impl Demo {
             last_drag: web_time::Instant::now(),
             time: 0.0,
             random: random_seed(),
+            intro_turn: 0.0,
+            sun_shift: 0.0,
             idle: slint::Timer::default(),
             airports,
-        }
+        };
+        demo.place_intro(sun_direction);
+        demo
+    }
+
+    /// Picks where the intro plays, among the places on the line between day and night
+    /// with the most to see.
+    /// At some hours, the sun rises and sets over little but the oceans,
+    /// so then the demo's sun moves by the fewest hours to where there's more.
+    /// `sun_at` gives the sun's direction a number of hours from now.
+    fn place_intro(&mut self, sun_at: impl Fn(f32) -> Vec3) {
+        let turns: Vec<f32> = (0..36).map(|step| (step as f32 * 10.0).to_radians()).collect();
+        let scenery = |shift: f32, turn: f32| intro_scenery(&self.cities, sun_at(shift), turn);
+        let best = |shift: f32| turns.iter().map(|&turn| scenery(shift, turn)).fold(0.0, f32::max);
+        let shifts = [0.0, 1.0, -1.0, 2.0, -2.0, 3.0, -3.0];
+        let shift =
+            shifts.into_iter().find(|&shift| best(shift) >= INTRO_SCENERY).unwrap_or_else(|| {
+                shifts.into_iter().max_by(|a, b| best(*a).total_cmp(&best(*b))).unwrap()
+            });
+        let enough = 0.7 * best(shift);
+        let good: Vec<f32> =
+            turns.iter().copied().filter(|&turn| scenery(shift, turn) >= enough).collect();
+        let index = (self.random() % good.len() as u64) as usize;
+        (self.sun_shift, self.intro_turn) = (shift, good[index]);
     }
 
     /// Shows `origin` and `destination` on the entry screen's globe,
@@ -439,8 +498,8 @@ impl Demo {
     /// Where the camera is during the intro: it rises from low above the night side,
     /// looking towards the sun, which comes up over the horizon on the way.
     fn intro_pose(&self) -> Pose {
-        let sun = sun_direction(0.0);
-        let side = sun.cross(Vec3::Y).try_normalize().unwrap_or(Vec3::X);
+        let sun = sun_direction(self.sun_shift);
+        let side = beside_sun(sun, self.intro_turn);
         let s = (self.stage_time / INTRO_SECONDS).clamp(0.0, 1.0);
         // The point looked at, on the great circle through the point under the sun, moves from
         // the night side towards the line between day and night, which brings the sun up over
@@ -474,6 +533,7 @@ impl Demo {
         self.planned = (None, None);
         self.proposal = Some(self.planned);
         self.from_intro = false;
+        self.place_intro(sun_direction);
         self.set_stage(Stage::Intro);
     }
 
@@ -526,12 +586,17 @@ impl Demo {
         }
     }
 
-    fn random_hub(&mut self) -> usize {
+    fn random(&mut self) -> u64 {
         // xorshift64
         self.random ^= self.random << 13;
         self.random ^= self.random >> 7;
         self.random ^= self.random << 17;
-        self.hubs[(self.random % self.hubs.len() as u64) as usize]
+        self.random
+    }
+
+    fn random_hub(&mut self) -> usize {
+        let index = (self.random() % self.hubs.len() as u64) as usize;
+        self.hubs[index]
     }
 
     /// A random hub a long-haul flight away from `origin`.
@@ -730,9 +795,10 @@ impl Demo {
             heading: format!("{heading:.0}°").into(),
             heading_compass: compass(heading).into(),
             arrival_light: if flight.landed() {
-                format!("Landed {}", daylight(destination.position, 0.0))
+                format!("Landed {}", daylight(destination.position, self.sun_shift))
             } else {
-                format!("Arriving {}", daylight(destination.position, flight.remaining_hours()))
+                let hours = self.sun_shift + flight.remaining_hours();
+                format!("Arriving {}", daylight(destination.position, hours))
             }
             .into(),
         }
@@ -1293,7 +1359,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             Mat4::from_translation(shift.extend(0.0)) * demo.camera.pose.view_projection(aspect);
         let eye = demo.camera.pose.eye();
         let sun = if app.get_sunlight() {
-            sun_direction(0.0)
+            sun_direction(demo.sun_shift)
         } else {
             // Lit from over the viewer's left shoulder.
             let view = Mat4::look_at_rh(eye, Vec3::ZERO, Vec3::Y).inverse();
@@ -1377,10 +1443,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         let windows = match &mut detail {
             Some(detail) => {
                 let target = demo.camera.pose.target;
-                // The intro shows next to nothing of the imagery, and the day side no lights.
-                let fetching = demo.stage != Stage::Intro;
+                // The day side shows no lights.
                 let dark = app.get_sunlight() && target.dot(sun) < 0.15;
-                let kinds = (fetching, fetching && dark);
+                let kinds = (true, dark);
                 detail.update(renderer, target, footprint, app.get_online_imagery(), kinds, dt)
             }
             None => Default::default(),
@@ -1430,6 +1495,33 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// At every hour and in every season, the intro plays where there are cities to see,
+    /// with the demo's sun at most two hours from the real one.
+    #[test]
+    fn intro_has_scenery() {
+        let mut demo = Demo::new();
+        for declination in [-23.44f32, 0.0, 23.44] {
+            for hour in 0..24 {
+                let sun_at = |shift: f32| {
+                    surface(
+                        ((12.0 - hour as f32 - shift) * 15.0).to_radians(),
+                        declination.to_radians(),
+                    )
+                };
+                for _ in 0..8 {
+                    demo.place_intro(sun_at);
+                    let scenery =
+                        intro_scenery(&demo.cities, sun_at(demo.sun_shift), demo.intro_turn);
+                    assert!(
+                        scenery >= 0.7 * INTRO_SCENERY && demo.sun_shift.abs() <= 2.0,
+                        "{scenery} at {hour} h, declination {declination}, shifted {}",
+                        demo.sun_shift
+                    );
+                }
+            }
+        }
+    }
 
     /// A label that shows stays for a while: over five minutes of the kiosk's flights,
     /// few labels go again within a second, and many show at a time.
