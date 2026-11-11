@@ -317,9 +317,20 @@
           {
             type: "text",
             text: [comment, text].filter(Boolean).join("\n\n"),
-            _meta: { "openai/title": comment.split("\n", 1)[0] || "Slint annotation" },
+            _meta: {
+              "openai/title": comment.split("\n", 1)[0] || "Slint annotation",
+              "openai/group": { title: "Preview Annotations" },
+            },
           },
-          { type: "image", data: capture.png, mimeType: "image/png", _meta: { "openai/title": "Slint preview" } },
+          {
+            type: "image",
+            data: capture.png,
+            mimeType: "image/png",
+            _meta: {
+              "openai/title": "Preview Screenshot",
+              "openai/group": { title: "Preview Annotations" },
+            },
+          },
         ],
         _meta: { "openai/message": { target: "active", send: false } },
       });
