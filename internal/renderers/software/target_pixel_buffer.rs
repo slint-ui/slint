@@ -86,6 +86,9 @@ pub struct DrawTextureArgs {
 
     /// If the texture is to be tiled, this contains the information about the tiling
     pub tiling: Option<TilingInfo>,
+
+    /// When true, scale the texture with bilinear filtering; otherwise use nearest neighbor.
+    pub smooth: bool,
 }
 
 impl DrawTextureArgs {

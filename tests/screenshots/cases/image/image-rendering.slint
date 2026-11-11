@@ -1,0 +1,41 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    width: 64px;
+    height: 64px;
+    background: white;
+
+    // The transparent border is magenta, which must not bleed into the opaque texels.
+    Image {
+        x: 0; y: 0;
+        width: 32px; height: 32px;
+        source: @image-url("image-transparent-edge.png");
+        image-rendering: smooth;
+    }
+    Image {
+        x: 32px; y: 0;
+        width: 32px; height: 32px;
+        source: @image-url("image-transparent-edge.png");
+        image-rendering: pixelated;
+    }
+
+    // Rounding scales the tiles, which then blend into each other without a seam.
+    Image {
+        x: 0; y: 32px;
+        width: 30px; height: 32px;
+        source: @image-url("image-repeat.png");
+        horizontal-tiling: round;
+        vertical-tiling: round;
+        image-rendering: smooth;
+    }
+    Image {
+        x: 32px; y: 32px;
+        width: 30px; height: 32px;
+        source: @image-url("image-repeat.png");
+        // A 4px tile rounded to any width puts some texel edge on a pixel center, where GPUs round nearest-neighbor ties differently.
+        horizontal-tiling: repeat;
+        vertical-tiling: round;
+        image-rendering: pixelated;
+    }
+}
