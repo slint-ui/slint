@@ -1,0 +1,151 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { TabWidget } from "std-widgets.slint";
+import {
+    TabHeader, TabBar, CheckBox, LineEdit,
+    BasicTheme, BasicThemeProvider, BasicPalettes,
+} from "../src/basic.slint";
+import { ExampleSection } from "section.slint";
+
+component BadgeTabHeader inherits TabHeader {
+    in property <string> badge;
+
+    background << Rectangle {
+        background: !root.enabled ? transparent
+            : root.selected ? BasicTheme.accent.with-alpha(0.12)
+            : root.pressed ? BasicTheme.pressed-background
+            : root.hovered ? BasicTheme.hover-background : transparent;
+        border-radius: 6px;
+    }
+    content << HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        padding-top: 8px;
+        padding-bottom: 8px;
+        spacing: 8px;
+        cross-axis-alignment: center;
+        Text {
+            text: root.title;
+            color: root.enabled ? BasicTheme.foreground : BasicTheme.disabled-foreground;
+            font-weight: root.selected ? 600 : 400;
+            accessible-role: none;
+        }
+        if root.badge != "": Rectangle {
+            width: 22px;
+            height: 22px;
+            border-radius: 11px;
+            background: BasicTheme.accent;
+            Text { text: root.badge; color: BasicTheme.accent-foreground; accessible-role: none; }
+        }
+    }
+    focus-outline << Rectangle {
+        visible: root.enabled && root.focused;
+        border-width: 2px;
+        border-color: BasicTheme.focus;
+        border-radius: 6px;
+    }
+}
+
+export component TabExamples inherits Rectangle {
+    in-out property <int> current-index <=> pages.current-index;
+    vertical-stretch: 0;
+
+    VerticalLayout {
+        spacing: 24px;
+        ExampleSection {
+            title: "Basic tabs";
+            description: "TabWidget connects nested tab pages to Basic headers and a Basic bar. Page state survives switching tabs.";
+            pages := TabWidget {
+                height: 260px;
+                orientation: horizontal;
+                bar << TabBar { }
+                Tab {
+                    title: "General";
+                    header << TabHeader { }
+                    VerticalLayout {
+                        padding: 16px;
+                        spacing: 12px;
+                        Text { text: "General settings"; color: BasicTheme.foreground; font-weight: 600; }
+                        LineEdit { accessible-label: "Project name"; placeholder-text: "Project name"; }
+                        Text { text: "Edit this field, switch pages, and return."; color: BasicTheme.disabled-foreground; }
+                        Rectangle { }
+                    }
+                }
+                Tab {
+                    title: "Downloads";
+                    header << TabHeader { }
+                    VerticalLayout {
+                        padding: 16px;
+                        spacing: 12px;
+                        Text { text: "Downloads"; color: BasicTheme.foreground; font-weight: 600; }
+                        CheckBox { text: "Download updates automatically"; }
+                        Rectangle { }
+                    }
+                }
+                Tab {
+                    title: "Preview";
+                    header << TabHeader { }
+                    VerticalLayout {
+                        padding: 16px;
+                        Text { text: "Preview is available"; color: BasicTheme.foreground; }
+                        Rectangle { }
+                    }
+                }
+            }
+        }
+        ExampleSection {
+            title: "Vertical tabs with custom headers";
+            description: "BadgeTabHeader replaces background, content, and focus-outline. This widget uses a constant vertical orientation.";
+            TabWidget {
+                height: 210px;
+                orientation: vertical;
+                bar << TabBar { }
+                Tab {
+                    title: "Profile";
+                    header << BadgeTabHeader { }
+                    VerticalLayout {
+                        padding: 16px;
+                        spacing: 12px;
+                        Text { text: "Profile"; color: BasicTheme.foreground; font-weight: 600; }
+                        LineEdit { accessible-label: "Display name"; placeholder-text: "Display name"; }
+                        Rectangle { }
+                    }
+                }
+                Tab {
+                    title: "Notifications";
+                    header << BadgeTabHeader { badge: "2"; }
+                    VerticalLayout {
+                        padding: 16px;
+                        spacing: 12px;
+                        CheckBox { text: "Show notifications"; checked: true; }
+                        CheckBox { text: "Play a sound"; }
+                        Rectangle { }
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component BasicTabsExample inherits Window {
+    title: "Basic tabs";
+    width: 900px;
+    height: 920px;
+    background: BasicTheme.background;
+    in-out property <bool> dark-mode;
+    in-out property <int> current-index <=> examples.current-index;
+    BasicThemeProvider { palette: root.dark-mode ? BasicPalettes.dark : BasicPalettes.light; }
+
+    VerticalLayout {
+        padding: 24px;
+        spacing: 20px;
+        HorizontalLayout {
+            Text { text: "Basic tabs"; font-size: 26px; font-weight: 600; color: BasicTheme.foreground; }
+            Rectangle { }
+            CheckBox { text: "Dark mode"; checked <=> root.dark-mode; }
+        }
+        examples := TabExamples { }
+        Rectangle { }
+    }
+}

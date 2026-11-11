@@ -1,0 +1,80 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { TabWidget } from "std-widgets.slint";
+import { TabHeader, TabBar, BasicTheme, BasicThemeProvider, BasicPalettes } from "../src/basic.slint";
+
+export component TestCase inherits Window {
+    width: 500px;
+    height: 260px;
+    in-out property <bool> dark;
+    out property <int> current-index: tabs.current-index;
+    out property <string> text: field.text;
+    out property <int> page-inits;
+    out property <bool> test: root.page-inits == 3;
+    public function edit() { field.text = "Retained Basic page"; }
+    BasicThemeProvider { palette: root.dark ? BasicPalettes.dark : BasicPalettes.light; }
+
+    tabs := TabWidget {
+        orientation: horizontal;
+        bar << TabBar { }
+        Tab {
+            title: "First";
+            header << TabHeader {
+                background << Rectangle { background: #123456; }
+                content << Rectangle {
+                    preferred-width: 80px;
+                    preferred-height: 30px;
+                    Text { text: "Custom"; }
+                }
+            }
+            field := TextInput {
+                text: "Original";
+                init => { root.page-inits += 1; }
+            }
+        }
+        Tab {
+            title: "Second";
+            header << TabHeader { }
+            Rectangle { init => { root.page-inits += 1; } }
+        }
+        Tab {
+            title: "Third";
+            header << TabHeader { }
+            Rectangle { init => { root.page-inits += 1; } }
+        }
+    }
+}
+
+/*
+```rust
+use slint::platform::{Key, PointerEventButton};
+use slint_testing::{AccessibleRole, ElementQuery};
+let instance = TestCase::new().unwrap();
+instance.show().unwrap();
+assert!(instance.get_test());
+let headers = ElementQuery::from_root(&instance).match_accessible_role(AccessibleRole::Tab).find_all();
+assert_eq!(headers.len(), 3);
+assert_eq!(headers[0].size().width, 80.);
+assert_eq!(headers[0].size().height, headers[1].size().height);
+assert_eq!(headers[0].query_descendants().match_type_name("Text").find_all().len(), 1);
+instance.invoke_edit();
+headers[1].mock_single_click(PointerEventButton::Left);
+assert_eq!(instance.get_current_index(), 1);
+headers[2].invoke_accessible_default_action();
+assert_eq!(instance.get_current_index(), 2);
+instance.set_dark(true);
+headers[0].invoke_accessible_default_action();
+assert_eq!(instance.get_current_index(), 0);
+assert_eq!(instance.get_text(), "Retained Basic page");
+assert_eq!(headers[0].query_descendants().match_inherits("FocusOutline").find_all().len(), 1);
+slint_testing::send_keyboard_char(&instance, Key::RightArrow.into(), true);
+slint_testing::send_keyboard_char(&instance, Key::RightArrow.into(), false);
+assert_eq!(instance.get_current_index(), 0);
+assert!(headers[0].query_descendants().match_inherits("FocusOutline").find_all().is_empty());
+slint_testing::send_keyboard_char(&instance, Key::Return.into(), true);
+slint_testing::send_keyboard_char(&instance, Key::Return.into(), false);
+assert_eq!(instance.get_current_index(), 1);
+assert!(instance.get_test());
+```
+*/
