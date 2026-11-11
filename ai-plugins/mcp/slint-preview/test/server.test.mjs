@@ -409,6 +409,7 @@ test("reports a crash while a screenshot is pending and ignores a late capture",
 });
 
 test("captures multiple previews independently while defaulting to the latest opened preview", async () => {
+    // cspell:ignore Zmlyc Vmcm
     const args = { path: "/project/main.slint" };
     const firstPreviewId = await startPreview(args);
     const firstScreenshot = callTool("get_preview_screenshot", {});
