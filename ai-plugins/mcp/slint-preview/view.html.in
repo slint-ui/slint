@@ -168,7 +168,7 @@
 </div>
 <form id="annotation-editor" popover="manual" aria-label="Annotate Slint preview">
   <textarea id="annotation-comment" rows="1" aria-label="Annotation comment" placeholder="Add an optional comment…"></textarea>
-  <button id="annotation-send" type="submit" aria-label="Add to chat" aria-keyshortcuts="Control+Enter Meta+Enter" disabled>__ICON_arrow-up__</button>
+  <button id="annotation-send" type="submit" aria-label="Add to chat" aria-keyshortcuts="Control+Enter Meta+Enter" disabled>__ICON_check__</button>
   <div id="annotation-error" role="alert"></div>
 </form>
 <script type="module">
