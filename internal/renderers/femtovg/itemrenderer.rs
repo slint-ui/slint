@@ -1705,36 +1705,49 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
     /// `size` of the shape's geometry.
     fn brush_to_paint(&self, brush: Brush, size: PhysicalSize) -> Option<femtovg::Paint> {
         let resolved = i_slint_core::graphics::resolve_brush(&brush, size, self.scale_factor)?;
-        let paint = match resolved {
-            ResolvedBrush::SolidColor(color) => femtovg::Paint::color(to_femtovg_color(&color)),
-            ResolvedBrush::LinearGradient(gradient) => femtovg::Paint::linear_gradient_stops(
-                gradient.start.x,
-                gradient.start.y,
-                gradient.end.x,
-                gradient.end.y,
-                to_femtovg_stops(&gradient.stops),
+        let (paint, color_space) = match resolved {
+            ResolvedBrush::SolidColor(color) => {
+                return Some(femtovg::Paint::color(to_femtovg_color(&color)));
+            }
+            ResolvedBrush::LinearGradient(gradient) => (
+                femtovg::Paint::linear_gradient_stops(
+                    gradient.start.x,
+                    gradient.start.y,
+                    gradient.end.x,
+                    gradient.end.y,
+                    to_femtovg_stops(&gradient.stops),
+                ),
+                gradient.color_space,
             ),
-            ResolvedBrush::RadialGradient(gradient) => femtovg::Paint::elliptical_gradient_stops(
-                gradient.center.x,
-                gradient.center.y,
-                0.,
-                0.,
-                gradient.radius_x.get(),
-                gradient.radius_y.get(),
-                to_femtovg_stops(&gradient.stops),
+            ResolvedBrush::RadialGradient(gradient) => (
+                femtovg::Paint::elliptical_gradient_stops(
+                    gradient.center.x,
+                    gradient.center.y,
+                    0.,
+                    0.,
+                    gradient.radius_x.get(),
+                    gradient.radius_y.get(),
+                    to_femtovg_stops(&gradient.stops),
+                ),
+                gradient.color_space,
             ),
-            ResolvedBrush::ConicGradient(gradient) => {
+            ResolvedBrush::ConicGradient(gradient) => (
                 femtovg::Paint::conic_gradient_stops_with_angle(
                     gradient.center.x,
                     gradient.center.y,
                     -core::f32::consts::FRAC_PI_2,
                     to_femtovg_stops(&gradient.stops),
-                )
-            }
+                ),
+                gradient.color_space,
+            ),
         };
         // Slint gradients follow CSS, which interpolates stops premultiplied: a transparent stop
         // fades the other color out instead of mixing in its own (black).
-        Some(paint.with_premultiplied_interpolation(true))
+        Some(
+            paint
+                .with_premultiplied_interpolation(true)
+                .with_interpolation_space(to_femtovg_color_space(color_space)),
+        )
     }
 
     fn current_render_target(&self) -> femtovg::RenderTarget {
@@ -1751,6 +1764,18 @@ fn to_femtovg_stops(
         .filter(|last| last.position != 1.0)
         .map(|last| (1.0, to_femtovg_color(&last.color)));
     stops.iter().map(|stop| (stop.position, to_femtovg_color(&stop.color))).chain(extra)
+}
+
+fn to_femtovg_color_space(
+    color_space: i_slint_core::graphics::GradientColorSpace,
+) -> femtovg::ColorSpace {
+    use i_slint_core::graphics::GradientColorSpace;
+    match color_space {
+        GradientColorSpace::Srgb => femtovg::ColorSpace::Srgb,
+        GradientColorSpace::Oklch => femtovg::ColorSpace::Oklch,
+        GradientColorSpace::Oklab => femtovg::ColorSpace::Oklab,
+        GradientColorSpace::Hsl => femtovg::ColorSpace::Hsl,
+    }
 }
 
 pub fn to_femtovg_color(col: &Color) -> femtovg::Color {

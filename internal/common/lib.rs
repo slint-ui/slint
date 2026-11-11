@@ -14,6 +14,7 @@ pub mod builtin_structs;
 #[cfg(feature = "color-parsing")]
 pub mod color_parsing;
 pub mod enums;
+pub mod gradient_color_space;
 pub mod key_codes;
 pub mod pre_rendered;
 
