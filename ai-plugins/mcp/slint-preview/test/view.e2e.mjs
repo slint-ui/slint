@@ -166,8 +166,9 @@ after(async () => {
 });
 
 // Renders a preview and returns the get_preview_screenshot result.
-async function preview(args) {
+async function preview(args, openingDelayMs = 0) {
     const result = await callTool("preview_slint", args);
+    if (openingDelayMs) await new Promise((resolve) => setTimeout(resolve, openingDelayMs));
     await page.evaluate(
         ([args, result]) => {
             window.notifyView("ui/notifications/tool-input", {
@@ -190,6 +191,10 @@ function assertRendered(screenshot) {
 
 const COMPONENT = (name) =>
     `export component ${name} inherits Rectangle { width: 20px; height: 20px; background: blue; }`;
+
+test("keeps previews registered while waiting for the card's first poll", async () => {
+    assertRendered(await preview({ source: COMPONENT("Main") }, 6100));
+});
 
 test("resolves imports through the project's include and library paths, and by absolute path", async () => {
     writeFiles({
@@ -251,6 +256,25 @@ function centerPixel(screenshot) {
         return [...context.getImageData(x, y, 1, 1).data];
     }, screenshot.content[0].data);
 }
+
+test("captures the current state after interacting with the preview", async () => {
+    const initial = await preview({ source: `
+        export component Main inherits Window {
+            width: 40px;
+            height: 40px;
+            property <bool> clicked: false;
+            background: clicked ? blue : red;
+            TouchArea { clicked => { root.clicked = true; } }
+        }
+    ` });
+    assertRendered(initial);
+    assert.deepEqual(await centerPixel(initial), [255, 0, 0, 255]);
+
+    await page.frameLocator("iframe").locator("#preview").click();
+    const refreshed = await callTool("get_preview_screenshot", {});
+    assertRendered(refreshed);
+    assert.deepEqual(await centerPixel(refreshed), [0, 0, 255, 255]);
+});
 
 const BLUE_SVG =
     '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><rect width="20" height="20" fill="#00f"/></svg>';
@@ -334,6 +358,9 @@ test("stacks annotations in the existing chat draft with matching screenshots an
     assert.equal(message.role, "user");
     assert.deepEqual(message._meta, { "openai/message": { target: "active", send: false } });
     assert.equal(message.content[0]._meta["openai/title"], "Make this part green");
+    for (const block of message.content) {
+        assert.deepEqual(block._meta["openai/group"], { title: "Preview Annotations" });
+    }
     assert.ok(message.content[0].text.startsWith("Make this part green\n\n"));
     assert.match(message.content[0].text, /Slint position: x=250, y=200 in a 1000×400 UI/);
     assert.ok(message.content.every((block) => !block.annotations?.audience));
