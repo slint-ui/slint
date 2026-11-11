@@ -1,0 +1,139 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    width: 400phx;
+    height: 200phx;
+
+    // Left half: default behavior — the press that delivers focus is consumed
+    // by the FocusScope and never reaches the TouchArea behind it.
+    Rectangle {
+        x: 0;
+        y: 0;
+        width: 200phx;
+        height: 200phx;
+        ta1 := TouchArea {
+            pointer-event(event) => {
+                if event.kind == PointerEventKind.down {
+                    presses1 += 1;
+                }
+            }
+            clicked => { clicks1 += 1; }
+        }
+        fs1 := FocusScope { }
+    }
+
+    // Right half: with consume-focus-click false, the same press both
+    // transfers the focus and propagates to the TouchArea.
+    Rectangle {
+        x: 200phx;
+        y: 0;
+        width: 200phx;
+        height: 200phx;
+        ta2 := TouchArea {
+            pointer-event(event) => {
+                if event.kind == PointerEventKind.down {
+                    presses2 += 1;
+                }
+            }
+            clicked => { clicks2 += 1; }
+        }
+        fs2 := FocusScope {
+            consume-focus-click: false;
+        }
+    }
+
+    out property <bool> fs1-has-focus: fs1.has-focus;
+    out property <bool> fs2-has-focus: fs2.has-focus;
+    in-out property <int> presses1;
+    in-out property <int> clicks1;
+    in-out property <int> presses2;
+    in-out property <int> clicks2;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+
+// Default: the first click focuses fs1 but is consumed, so ta1 sees nothing.
+slint_testing::send_mouse_click(&instance, 100., 100.);
+assert!(instance.get_fs1_has_focus());
+assert_eq!(instance.get_presses1(), 0);
+assert_eq!(instance.get_clicks1(), 0);
+
+// Once fs1 has focus, clicks reach the TouchArea.
+slint_testing::send_mouse_click(&instance, 100., 100.);
+assert!(instance.get_fs1_has_focus());
+assert_eq!(instance.get_presses1(), 1);
+assert_eq!(instance.get_clicks1(), 1);
+
+// consume-focus-click: false — the first click focuses fs2 AND reaches ta2.
+slint_testing::send_mouse_click(&instance, 300., 100.);
+assert!(instance.get_fs2_has_focus());
+assert!(!instance.get_fs1_has_focus());
+assert_eq!(instance.get_presses2(), 1);
+assert_eq!(instance.get_clicks2(), 1);
+
+// Subsequent clicks behave the same.
+slint_testing::send_mouse_click(&instance, 300., 100.);
+assert_eq!(instance.get_presses2(), 2);
+assert_eq!(instance.get_clicks2(), 2);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+// Default: the first click focuses fs1 but is consumed, so ta1 sees nothing.
+slint_testing::send_mouse_click(&instance, 100., 100.);
+assert(instance.get_fs1_has_focus());
+assert_eq(instance.get_presses1(), 0);
+assert_eq(instance.get_clicks1(), 0);
+
+// Once fs1 has focus, clicks reach the TouchArea.
+slint_testing::send_mouse_click(&instance, 100., 100.);
+assert(instance.get_fs1_has_focus());
+assert_eq(instance.get_presses1(), 1);
+assert_eq(instance.get_clicks1(), 1);
+
+// consume-focus-click: false — the first click focuses fs2 AND reaches ta2.
+slint_testing::send_mouse_click(&instance, 300., 100.);
+assert(instance.get_fs2_has_focus());
+assert(!instance.get_fs1_has_focus());
+assert_eq(instance.get_presses2(), 1);
+assert_eq(instance.get_clicks2(), 1);
+
+// Subsequent clicks behave the same.
+slint_testing::send_mouse_click(&instance, 300., 100.);
+assert_eq(instance.get_presses2(), 2);
+assert_eq(instance.get_clicks2(), 2);
+```
+
+```js
+let instance = new slint.TestCase({});
+
+// Default: the first click focuses fs1 but is consumed, so ta1 sees nothing.
+slintlib.private_api.send_mouse_click(instance, 100., 100.);
+assert(instance.fs1_has_focus);
+assert.equal(instance.presses1, 0);
+assert.equal(instance.clicks1, 0);
+
+// Once fs1 has focus, clicks reach the TouchArea.
+slintlib.private_api.send_mouse_click(instance, 100., 100.);
+assert(instance.fs1_has_focus);
+assert.equal(instance.presses1, 1);
+assert.equal(instance.clicks1, 1);
+
+// consume-focus-click: false — the first click focuses fs2 AND reaches ta2.
+slintlib.private_api.send_mouse_click(instance, 300., 100.);
+assert(instance.fs2_has_focus);
+assert(!instance.fs1_has_focus);
+assert.equal(instance.presses2, 1);
+assert.equal(instance.clicks2, 1);
+
+// Subsequent clicks behave the same.
+slintlib.private_api.send_mouse_click(instance, 300., 100.);
+assert.equal(instance.presses2, 2);
+assert.equal(instance.clicks2, 2);
+```
+*/
