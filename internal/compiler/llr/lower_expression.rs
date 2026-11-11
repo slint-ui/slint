@@ -226,12 +226,22 @@ fn lower_binary_expression(
         node = lhs;
     }
     let mut result = lower_expression(node, ctx);
+    let mut result_ty = node.ty();
+    let mut tree_ty = result_ty.clone();
     for (rhs, op) in spine.into_iter().rev() {
         result = llr_Expression::BinaryExpression {
             lhs: Box::new(result),
             rhs: Box::new(lower_expression(rhs, ctx)),
             op,
         };
+        // The LLR types an arithmetic expression by its left operand:
+        // `length / length` would be a length instead of a float.
+        result_ty = crate::llr::binary_expression_ty(op, || result_ty);
+        tree_ty = crate::expression_tree::binary_expression_ty(op, || tree_ty, || rhs.ty());
+        if tree_ty != result_ty && !matches!(tree_ty, Type::UnitProduct(_) | Type::Invalid) {
+            result = llr_Expression::Cast { from: Box::new(result), to: tree_ty.clone() };
+            result_ty = tree_ty.clone();
+        }
     }
     result
 }
