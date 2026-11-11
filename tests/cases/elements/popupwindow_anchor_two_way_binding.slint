@@ -54,7 +54,7 @@ slint_testing::mock_elapsed_time(100);
 assert_eq!(instance.get_popup_open(), true);
 
 let location = || {
-    let popups = inner.active_popups.borrow();
+    let popups = inner.active_popups();
     assert_eq!(popups.len(), 1, "We have one open popup");
     match &popups.first().unwrap().location {
         slint_testing::PopupWindowLocation::ChildWindow(loc) => (loc.x, loc.y),

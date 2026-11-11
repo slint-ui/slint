@@ -8,6 +8,7 @@ plugins {
 android {
     namespace = "dev.slint.demos.usecases"
     compileSdk = 35
+    ndkVersion = "30.0.16248370"
 
     defaultConfig {
         applicationId = "dev.slint.demos.usecases"

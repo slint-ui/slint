@@ -91,6 +91,64 @@ export component TestCase inherits Window {
             }
         }
     }
+    // Issue #14705: the section reports the height its content draws at,
+    // so the element that follows it doesn't overlap it.
+    Rectangle {
+        width: 200px;
+        height: 500px;
+        VerticalLayout {
+            alignment: start;
+            if true: VerticalLayout {
+                HorizontalLayout {
+                    padding-left: 50px;
+                    VerticalLayout {
+                        Text { wrap: word-wrap; text: lorem; }
+                    }
+                }
+            }
+            after-padded := Rectangle { height: 10px; }
+            if true: VerticalLayout {
+                Text { width: 150px; wrap: word-wrap; text: lorem; }
+            }
+            after-text-width := Rectangle { height: 10px; }
+            if true: HorizontalLayout {
+                padding-left: 50px;
+                VerticalLayout {
+                    Text { wrap: word-wrap; text: lorem; }
+                }
+            }
+            after-padded-root := Rectangle { height: 10px; }
+            if true: VerticalLayout {
+                VerticalLayout {
+                    padding-left: 50px;
+                    VerticalLayout {
+                        Text { wrap: word-wrap; text: lorem; }
+                    }
+                }
+            }
+            after-padded-vertical := Rectangle { height: 10px; }
+            if true: GridLayout {
+                Text { width: 150px; wrap: word-wrap; text: lorem; }
+            }
+            after-grid-text-width := Rectangle { height: 10px; }
+        }
+    }
+    // Not repeated: a flexbox measures its cells at the width it gives them.
+    Rectangle {
+        width: 200px;
+        height: 500px;
+        FlexboxLayout {
+            flex-direction: column;
+            alignment: start;
+            HorizontalLayout {
+                padding-left: 50px;
+                VerticalLayout {
+                    Text { wrap: word-wrap; text: lorem; }
+                }
+            }
+            after-flex-padded := Rectangle { height: 10px; }
+        }
+    }
     t-for-row := Probe {
         VerticalLayout {
             for i in 2: HorizontalLayout {
@@ -204,6 +262,12 @@ export component TestCase inherits Window {
         && t-for-text.height == 3 * ref-200.preferred-height
         && t-for-component.height == 3 * ref-200.preferred-height
         && t-for-padded.height == 2 * ref-150.preferred-height
+        && after-padded.y == ref-150.preferred-height
+        && after-text-width.y == 2 * ref-150.preferred-height + 10px
+        && after-padded-root.y == after-text-width.y + 10px + ref-150.preferred-height
+        && after-padded-vertical.y == after-padded-root.y + 10px + ref-150.preferred-height
+        && after-grid-text-width.y == after-padded-vertical.y + 10px + ref-150.preferred-height
+        && after-flex-padded.y == ref-150.preferred-height
         && t-for-row.height == 2 * ref-100.preferred-height
         && t-hlayout.height == ref-100.preferred-height
         && t-hlayout-if.height == ref-100.preferred-height

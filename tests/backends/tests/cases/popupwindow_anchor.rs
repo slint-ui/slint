@@ -80,7 +80,7 @@ fn popupwindow_anchor() {
         let app = app.as_weak();
         move || {
             let app = app.upgrade().unwrap();
-            let popups = WindowInner::from_pub(app.window()).active_popups.borrow();
+            let popups = WindowInner::from_pub(app.window()).active_popups();
             assert_eq!(popups.len(), 2, "Both popups are open");
             let position = |location: &PopupWindowLocation| match location {
                 PopupWindowLocation::ChildWindow(location) => (location.x, location.y),

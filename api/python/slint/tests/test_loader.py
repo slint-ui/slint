@@ -31,7 +31,7 @@ def write_project(directory: pathlib.Path) -> None:
     (directory / "slint-project.json").write_text(
         json.dumps(
             {
-                "edition": "1.19",
+                "edition": "1.20",
                 "main": "main.slint",
                 "include-paths": ["include"],
             }

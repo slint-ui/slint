@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { dirname } from "node:path";
 import * as napi from "../binding.cjs";
 export {
     Diagnostic,
@@ -21,15 +22,10 @@ export { Model };
  * A `brush` or `color` property takes an object with a `color`, or a brush read from another property.
  * It also takes a color string as a `.slint` file writes it, such as `"#ff000080"` or `"blue"`.
  *
- * Reading a `brush` or `color` property returns a brush that also has the optional members of this interface.
- * Its `toString()` returns a color as `#rrggbb`, or `#rrggbbaa` if it isn't opaque.
+ * Reading a `brush` or `color` property returns a brush whose `toString()` returns a color as `#rrggbb`,
+ * or `#rrggbbaa` if it isn't opaque.
  * It returns a linear or radial gradient in the syntax of CSS, with alpha channels from 0 to 255,
  * such as `linear-gradient(90deg, rgba(255, 0, 0, 255) 0%, rgba(0, 0, 255, 255) 100%)`.
- *
- * ```js
- * component.background = component.background.darker(0.2);
- * console.log(component.background.toString());
- * ```
  */
 export interface Brush {
     /**
@@ -37,41 +33,6 @@ export interface Brush {
      * For a gradient, the color of its first stop.
      */
     color?: napi.RgbaColor;
-
-    /**
-     * `true` if the brush is fully transparent.
-     */
-    readonly isTransparent?: boolean;
-
-    /**
-     * `true` if the brush is fully opaque.
-     */
-    readonly isOpaque?: boolean;
-
-    /**
-     * Returns the brush with the brightness of its colors increased by `factor`.
-     * The brightness in the HSV color space is multiplied by `1 + factor`,
-     * so `brighter(0.2)` makes the colors 20% brighter.
-     */
-    brighter?(factor: number): Required<Brush>;
-
-    /**
-     * Returns the brush with the brightness of its colors decreased by `factor`.
-     * The brightness in the HSV color space is divided by `1 + factor`,
-     * so `darker(0.3)` makes the colors 30% darker.
-     */
-    darker?(factor: number): Required<Brush>;
-
-    /**
-     * Returns the brush with the opacity of its colors decreased by `amount`:
-     * their alpha channel is multiplied by `1 - amount`.
-     */
-    transparentize?(amount: number): Required<Brush>;
-
-    /**
-     * Returns the brush with the opacity of its colors set to `alpha`, between `0` and `1`.
-     */
-    withAlpha?(alpha: number): Required<Brush>;
 }
 
 export {
@@ -551,6 +512,9 @@ export interface LoadFileOptions {
      * @hidden
      */
     fileLoader?: (path: string) => string;
+
+    /** @hidden */
+    loadProjectFile?: boolean;
 }
 
 type LoadData =
@@ -578,6 +542,12 @@ function loadSlint(loadData: LoadData): Object {
     const { filePath, options } = loadData.fileData;
 
     const compiler = new napi.ComponentCompiler();
+    const projectRoot = options?.loadProjectFile
+        ? dirname(filePath)
+        : undefined;
+    if (projectRoot !== undefined) {
+        compiler.projectRoot = projectRoot;
+    }
 
     if (typeof options !== "undefined") {
         if (typeof options.style !== "undefined") {
@@ -695,11 +665,10 @@ function loadSlint(loadData: LoadData): Object {
                 let instance: napi.ComponentInstance | null = null;
                 if (live) {
                     try {
-                        instance = napi.createLiveInstance(
-                            filePath,
-                            key,
-                            options ?? {},
-                        );
+                        instance = napi.createLiveInstance(filePath, key, {
+                            ...options,
+                            projectRoot,
+                        });
                     } catch (error) {
                         liveUnavailable((error as Error).message);
                     }
@@ -797,8 +766,8 @@ function loadSlint(loadData: LoadData): Object {
  * main.greeting = "Hello friends";
  * ```
  *
- * If the path is a directory, Slint loads the project file (`slint-project.json`) inside that directory.
- * The project file provides the settings that `options` does not specify.
+ * If `path` is a project file (`slint-project.json`) or a directory that contains one, Slint loads that project file.
+ * The project file provides the settings that `options` doesn't specify.
  * It must contain a `main` entry, which specifies the `.slint` file the compiler loads.
  * A `.slint` file path does not load a project file.
  *

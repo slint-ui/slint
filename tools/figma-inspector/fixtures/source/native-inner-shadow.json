@@ -1,0 +1,83 @@
+{
+  "sourceVersion": 1,
+  "root": {
+    "id": "14:2",
+    "name": "Native inner shadow 8px",
+    "type": "RECTANGLE",
+    "errors": [],
+    "properties": {
+      "x": 0,
+      "y": 0,
+      "width": 8,
+      "height": 8,
+      "visible": true,
+      "cornerRadius": 2,
+      "fills": [
+        {
+          "type": "GRADIENT_LINEAR",
+          "visible": true,
+          "opacity": 1,
+          "blendMode": "NORMAL",
+          "gradientStops": [
+            {
+              "color": {
+                "r": 0.501960813999176,
+                "g": 0.7529411911964417,
+                "b": 1,
+                "a": 1
+              },
+              "position": 0
+            },
+            {
+              "color": {
+                "r": 0.250980406999588,
+                "g": 0.501960813999176,
+                "b": 0.7529411911964417,
+                "a": 1
+              },
+              "position": 1
+            }
+          ],
+          "gradientTransform": [
+            [
+              1,
+              0,
+              0
+            ],
+            [
+              0,
+              1,
+              0
+            ]
+          ]
+        }
+      ],
+      "strokes": [],
+      "effects": [
+        {
+          "type": "INNER_SHADOW",
+          "visible": true,
+          "radius": 2,
+          "color": {
+            "r": 0,
+            "g": 0,
+            "b": 0,
+            "a": 0.6000000238418579
+          },
+          "offset": {
+            "x": 1,
+            "y": 1
+          },
+          "spread": 1,
+          "blendMode": "NORMAL"
+        }
+      ],
+      "rotation": 0,
+      "opacity": 1
+    }
+  },
+  "images": {},
+  "exportScale": 1,
+  "pngEnabled": false,
+  "options": {}
+}

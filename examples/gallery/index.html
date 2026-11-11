@@ -126,8 +126,11 @@
 
           document.getElementById("canvas").hidden = false;
           document.getElementById("spinner").hidden = true;
-        }).catch(error => {
-          console.error('Failed to initialize gallery:', error);
+        }).catch((error) => {
+          // winit throws this exception from main() to hand control to the browser event loop.
+          if (!String(error).includes("Using exceptions for control flow, don't mind me")) {
+            alert("Error loading WASM: " + error);
+          }
           document.getElementById("spinner").hidden = true;
         });
       }

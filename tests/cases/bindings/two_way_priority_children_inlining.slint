@@ -1,0 +1,63 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// In a two-way binding, the value set closest to the user wins over a default set deeper inside.
+// Passing children through '@children' inlines `HeaderScreen` into a copy made by an earlier
+// inlining, and the result must not depend on that.
+
+component Inner {
+    in-out property <int> val <=> inner-el.p;
+    inner-el := Rectangle {
+        in-out property <int> p: 10;
+    }
+    @children
+}
+
+component HeaderScreen {
+    in-out property <int> hv: 20;
+    x := Inner {
+        val <=> root.hv;
+        @children
+    }
+    out property <int> x-val: x.val;
+}
+
+component Intermediate {
+    hs := HeaderScreen {
+        @children
+    }
+    out property <int> hv: hs.hv;
+    out property <int> x-val: hs.x-val;
+}
+
+export component TestCase inherits Window {
+    through-children := Intermediate {
+        Rectangle { }
+    }
+    direct := HeaderScreen {
+        Rectangle { }
+    }
+    no-children := Intermediate { }
+
+    out property <bool> test: through-children.hv == 20 && through-children.x-val == 20
+        && direct.hv == 20 && direct.x-val == 20
+        && no-children.hv == 20 && no-children.x-val == 20;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+```
+*/

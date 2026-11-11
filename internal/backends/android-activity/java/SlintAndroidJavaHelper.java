@@ -7,6 +7,7 @@ package dev.slint.android;
 
 import android.animation.ValueAnimator;
 import android.app.Activity;
+import android.app.NativeActivity;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
@@ -15,6 +16,7 @@ import android.content.res.TypedArray;
 import android.graphics.Insets;
 import android.graphics.PorterDuff;
 import android.graphics.Rect;
+import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.provider.Settings;
@@ -23,21 +25,27 @@ import android.text.Selection;
 import android.text.SpannableStringBuilder;
 import android.util.Log;
 import android.view.ActionMode;
+import android.view.ContextThemeWrapper;
 import android.view.Gravity;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewConfiguration;
 import android.view.WindowInsets;
 import android.view.WindowInsetsAnimation;
 import android.view.WindowInsetsController;
 import android.view.WindowMetrics;
 import android.view.inputmethod.BaseInputConnection;
+import android.view.inputmethod.CursorAnchorInfo;
+import android.view.inputmethod.ExtractedText;
+import android.view.inputmethod.ExtractedTextRequest;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.widget.Magnifier;
 import android.widget.PopupWindow;
 import android.window.OnBackInvokedDispatcher;
 import java.util.List;
@@ -54,10 +62,14 @@ class InputHandle extends ImageView {
     private final PopupWindow mPopupWindow;
     private final int mId;
     private final int mOffsetX;
+    private final int mTouchSlop;
     private int mCursorX;
     private int mCursorY;
     private float mPressedX;
     private float mPressedY;
+    private float mDownRawX;
+    private float mDownRawY;
+    private boolean mDragging;
 
     public InputHandle(SlintInputView rootView, int id) {
         super(rootView.getContext());
@@ -88,6 +100,7 @@ class InputHandle extends ImageView {
         a.recycle();
         int width = drawable.getIntrinsicWidth();
         mOffsetX = offsetQuarters * width / 4;
+        mTouchSlop = ViewConfiguration.get(ctx).getScaledTouchSlop();
         mPopupWindow.setWidth(width);
         mPopupWindow.setHeight(drawable.getIntrinsicHeight());
         setImageDrawable(drawable);
@@ -100,11 +113,28 @@ class InputHandle extends ImageView {
             case MotionEvent.ACTION_DOWN:
                 mPressedX = ev.getRawX() - mCursorX;
                 mPressedY = ev.getRawY() - mCursorY;
+                mDownRawX = ev.getRawX();
+                mDownRawY = ev.getRawY();
+                // Only the cursor handle has a tap action, so only it waits for the touch slop.
+                mDragging = mId != CURSOR;
+                mRootView.dragHandle(this, mCursorX);
                 break;
             case MotionEvent.ACTION_MOVE:
-                mRootView.finishActionMenu();
-                SlintAndroidJavaHelper.moveCursorHandle(mId, Math.round(ev.getRawX() - mPressedX),
-                        Math.round(ev.getRawY() - mPressedY));
+                mDragging = mDragging || Math.hypot(ev.getRawX() - mDownRawX, ev.getRawY() - mDownRawY) >= mTouchSlop;
+                int x = mDragging ? Math.round(ev.getRawX() - mPressedX) : mCursorX;
+                // Also before the slop, so the menu stays hidden while a tap is undecided.
+                mRootView.dragHandle(this, x);
+                if (mDragging) {
+                    SlintAndroidJavaHelper.moveCursorHandle(mId, x, Math.round(ev.getRawY() - mPressedY));
+                }
+                break;
+            case MotionEvent.ACTION_UP:
+            case MotionEvent.ACTION_CANCEL:
+                mRootView.endHandleDrag(this);
+                // As in Android's own text fields, a tap on the cursor handle toggles the menu.
+                if (ev.getActionMasked() == MotionEvent.ACTION_UP && !mDragging && mPopupWindow.isShowing()) {
+                    mRootView.toggleActionMenu();
+                }
                 break;
         }
         return true;
@@ -122,6 +152,14 @@ class InputHandle extends ImageView {
         }
     }
 
+    public int getCursorX() {
+        return mCursorX;
+    }
+
+    public int getCursorY() {
+        return mCursorY;
+    }
+
     public void hide() {
         mPopupWindow.dismiss();
     }
@@ -134,20 +172,29 @@ class InputHandle extends ImageView {
 }
 
 class SlintInputView extends View {
-    private String mText = "";
-    private int mCursorPosition = 0;
-    private int mAnchorPosition = 0;
     private int mInputType = EditorInfo.TYPE_CLASS_TEXT;
-    private int mInBatch = 0;
-    private boolean mPending = false;
-    private boolean mHasPreedit = false;
     private SlintEditable mEditable;
+    private SlintInputConnection mInputConnection;
+    private EditState mLastKnownSlintState;
+    private boolean mRestartInputPending = false;
+    // Whether a Slint text input is connected to the input method.
+    private boolean mHasClient = false;
 
     private InputHandle mCursorHandle;
     private InputHandle mLeftHandle;
     private InputHandle mRightHandle;
     private Integer mHandleColor;
     private final Rect mSelectionRect = new Rect();
+    // GameActivity draws into a SurfaceView, which a magnifier of this view doesn't show.
+    private final boolean mMagnifierSupported;
+    private Magnifier mMagnifier;
+    private final int[] mMagnifierOrigin = new int[2];
+    private InputHandle mDraggedHandle;
+    private int mDragX;
+    private int mCursorHeight;
+    private int mNumHandles;
+    private final Runnable mShowSelectionMenu = this::showSelectionMenu;
+    private final Runnable mRefreshMagnifier = this::refreshMagnifier;
     private ActionMode mCurrentActionMode;
     private boolean mActionMenuDeferred = false;
 
@@ -157,55 +204,300 @@ class SlintInputView extends View {
     private static final int MENU_PASTE = 2;
     private static final int MENU_SELECT_ALL = 3;
 
+    static final class EditState {
+        final String text;
+        final int selectionStart;
+        final int selectionEnd;
+        final int composingStart;
+        final int composingEnd;
+
+        EditState(String text, int selectionStart, int selectionEnd, int composingStart, int composingEnd) {
+            this.text = text;
+            this.selectionStart = selectionStart;
+            this.selectionEnd = selectionEnd;
+            boolean hasComposing = composingStart >= 0 && composingStart < composingEnd;
+            this.composingStart = hasComposing ? composingStart : -1;
+            this.composingEnd = hasComposing ? composingEnd : -1;
+        }
+
+        boolean hasComposing() {
+            return composingStart >= 0;
+        }
+
+        boolean matches(SlintEditable e) {
+            return e.toString().equals(text) && e.getSelectionStart() == selectionStart
+                    && e.getSelectionEnd() == selectionEnd && e.getComposingStart() == composingStart
+                    && e.getComposingEnd() == composingEnd;
+        }
+    }
+
     private class SlintEditable extends SpannableStringBuilder {
-        public SlintEditable() {
-            super(mText);
+        private int mBatchEditNestDepth = 0;
+        private String mTextWhenBeginBatchEdit;
+        private int mSelectionStartWhenBeginBatchEdit;
+        private int mSelectionEndWhenBeginBatchEdit;
+        private int mComposingStartWhenBeginBatchEdit;
+        private int mComposingEndWhenBeginBatchEdit;
+        // Only used for setComposingRegion, which sets the span BaseInputConnection looks for.
+        private final BaseInputConnection mDummyConnection;
+
+        SlintEditable() {
+            super();
+            Editable self = this;
+            mDummyConnection = new BaseInputConnection(SlintInputView.this, true) {
+                @Override
+                public Editable getEditable() {
+                    return self;
+                }
+            };
+        }
+
+        void beginBatchEdit() {
+            mBatchEditNestDepth++;
+            if (mBatchEditNestDepth == 1) {
+                mTextWhenBeginBatchEdit = toString();
+                mSelectionStartWhenBeginBatchEdit = getSelectionStart();
+                mSelectionEndWhenBeginBatchEdit = getSelectionEnd();
+                mComposingStartWhenBeginBatchEdit = getComposingStart();
+                mComposingEndWhenBeginBatchEdit = getComposingEnd();
+            }
+        }
+
+        void endBatchEdit() {
+            if (mBatchEditNestDepth == 0) {
+                Log.e("slint", "endBatchEdit called without a matching beginBatchEdit");
+                return;
+            }
+            if (mBatchEditNestDepth == 1) {
+                boolean textChanged = !toString().equals(mTextWhenBeginBatchEdit);
+                boolean selectionChanged = mSelectionStartWhenBeginBatchEdit != getSelectionStart()
+                        || mSelectionEndWhenBeginBatchEdit != getSelectionEnd();
+                boolean composingChanged = mComposingStartWhenBeginBatchEdit != getComposingStart()
+                        || mComposingEndWhenBeginBatchEdit != getComposingEnd();
+                notifyIfNeeded(textChanged, selectionChanged, composingChanged);
+            }
+            mBatchEditNestDepth--;
+        }
+
+        void setComposingRange(int start, int end) {
+            if (start < 0 || start >= end) {
+                BaseInputConnection.removeComposingSpans(this);
+            } else {
+                mDummyConnection.setComposingRegion(start, end);
+            }
+        }
+
+        void setEditingState(EditState state) {
+            beginBatchEdit();
+            replace(0, length(), state.text);
+            Selection.setSelection(this, state.selectionStart, state.selectionEnd);
+            setComposingRange(state.composingStart, state.composingEnd);
+            endBatchEdit();
         }
 
         @Override
         public SpannableStringBuilder replace(int start, int end, CharSequence tb, int tbstart, int tbend) {
-            super.replace(start, end, tb, tbstart, tbend);
-            hideCursor();
-            if (mInBatch == 0) {
-                update();
-            } else {
-                mPending = true;
+            boolean textChanged = end - start != tbend - tbstart;
+            for (int i = 0; i < end - start && !textChanged; i++) {
+                textChanged |= charAt(start + i) != tb.charAt(tbstart + i);
             }
+            int selectionStart = getSelectionStart();
+            int selectionEnd = getSelectionEnd();
+            int composingStart = getComposingStart();
+            int composingEnd = getComposingEnd();
+
+            super.replace(start, end, tb, tbstart, tbend);
+            if (textChanged) {
+                hideCursor();
+            }
+
+            if (mBatchEditNestDepth > 0) {
+                return this;
+            }
+            boolean selectionChanged = getSelectionStart() != selectionStart || getSelectionEnd() != selectionEnd;
+            boolean composingChanged = getComposingStart() != composingStart || getComposingEnd() != composingEnd;
+            notifyIfNeeded(textChanged, selectionChanged, composingChanged);
             return this;
         }
 
-        public void update() {
-            mPending = false;
-            mText = toString();
-            mCursorPosition = Selection.getSelectionStart(this);
-            mAnchorPosition = Selection.getSelectionEnd(this);
-            int composingStart = BaseInputConnection.getComposingSpanStart(this);
-            int composingEnd = BaseInputConnection.getComposingSpanEnd(this);
-            mHasPreedit = composingStart != composingEnd;
-            SlintAndroidJavaHelper.updateText(mText, mCursorPosition, mAnchorPosition, composingStart, composingEnd);
+        private void notifyIfNeeded(boolean textChanged, boolean selectionChanged, boolean composingChanged) {
+            if (textChanged || selectionChanged || composingChanged) {
+                didChangeEditingState(this);
+            }
         }
 
-        public void updateSelection() {
-            int cursorPosition = Selection.getSelectionStart(this);
-            int anchorPosition = Selection.getSelectionEnd(this);
-            int composingStart = BaseInputConnection.getComposingSpanStart(this);
-            int composingEnd = BaseInputConnection.getComposingSpanEnd(this);
-            boolean hasPreedit = composingStart != composingEnd;
-            if (cursorPosition == mCursorPosition && anchorPosition == mAnchorPosition
-                    && hasPreedit == mHasPreedit) {
-                return;
-            }
-            // finishComposingText() drops the composing span without a replace(), so the preedit
-            // that Slint still shows is only cleared by a full update.
-            if (mHasPreedit || hasPreedit) {
-                update();
+        int getSelectionStart() {
+            return Selection.getSelectionStart(this);
+        }
+
+        int getSelectionEnd() {
+            return Selection.getSelectionEnd(this);
+        }
+
+        int getComposingStart() {
+            return BaseInputConnection.getComposingSpanStart(this);
+        }
+
+        int getComposingEnd() {
+            return BaseInputConnection.getComposingSpanEnd(this);
+        }
+    }
+
+    private class SlintInputConnection extends BaseInputConnection {
+        private final SlintEditable mConnectionEditable;
+        private final InputMethodManager mImm;
+        private ExtractedTextRequest mExtractRequest;
+        private boolean mMonitorCursorUpdate = false;
+        private CursorAnchorInfo.Builder mCursorAnchorInfoBuilder;
+        private final ExtractedText mExtractedText = new ExtractedText();
+        private int mBatchEditNestDepth = 0;
+
+        SlintInputConnection() {
+            super(SlintInputView.this, true);
+            mConnectionEditable = mEditable;
+            mImm = getContext().getSystemService(InputMethodManager.class);
+        }
+
+        private ExtractedText getExtractedText(ExtractedTextRequest request) {
+            mExtractedText.startOffset = 0;
+            mExtractedText.partialStartOffset = -1;
+            mExtractedText.partialEndOffset = -1;
+            mExtractedText.selectionStart = mConnectionEditable.getSelectionStart();
+            mExtractedText.selectionEnd = mConnectionEditable.getSelectionEnd();
+            mExtractedText.text = request == null || (request.flags & GET_TEXT_WITH_STYLES) == 0
+                    ? mConnectionEditable.toString()
+                    : mConnectionEditable;
+            return mExtractedText;
+        }
+
+        private CursorAnchorInfo getCursorAnchorInfo() {
+            if (mCursorAnchorInfoBuilder == null) {
+                mCursorAnchorInfoBuilder = new CursorAnchorInfo.Builder();
             } else {
-                mCursorPosition = cursorPosition;
-                mAnchorPosition = anchorPosition;
-                SlintAndroidJavaHelper.updateSelection(cursorPosition, anchorPosition);
+                mCursorAnchorInfoBuilder.reset();
             }
-            getContext().getSystemService(InputMethodManager.class).updateSelection(SlintInputView.this,
-                    cursorPosition, anchorPosition, composingStart, composingEnd);
+            mCursorAnchorInfoBuilder.setSelectionRange(mConnectionEditable.getSelectionStart(),
+                    mConnectionEditable.getSelectionEnd());
+            int composingStart = mConnectionEditable.getComposingStart();
+            int composingEnd = mConnectionEditable.getComposingEnd();
+            if (composingStart >= 0 && composingEnd > composingStart) {
+                mCursorAnchorInfoBuilder.setComposingText(composingStart,
+                        mConnectionEditable.toString().subSequence(composingStart, composingEnd));
+            } else {
+                mCursorAnchorInfoBuilder.setComposingText(-1, "");
+            }
+            return mCursorAnchorInfoBuilder.build();
+        }
+
+        @Override
+        public Editable getEditable() {
+            return mConnectionEditable;
+        }
+
+        @Override
+        public boolean beginBatchEdit() {
+            mConnectionEditable.beginBatchEdit();
+            mBatchEditNestDepth += 1;
+            return super.beginBatchEdit();
+        }
+
+        @Override
+        public boolean endBatchEdit() {
+            boolean result = super.endBatchEdit();
+            mBatchEditNestDepth -= 1;
+            mConnectionEditable.endBatchEdit();
+            return result;
+        }
+
+        @Override
+        public boolean deleteSurroundingText(int beforeLength, int afterLength) {
+            if (mConnectionEditable.getSelectionStart() == -1) {
+                return true;
+            }
+            return super.deleteSurroundingText(beforeLength, afterLength);
+        }
+
+        @Override
+        public boolean setComposingText(CharSequence text, int newCursorPosition) {
+            boolean result;
+            beginBatchEdit();
+            if (text.length() == 0) {
+                result = super.commitText(text, newCursorPosition);
+            } else {
+                result = super.setComposingText(text, newCursorPosition);
+            }
+            endBatchEdit();
+            return result;
+        }
+
+        // Returning null, as BaseInputConnection does, tells the input method that the editor can't
+        // provide its text, and some then turn off suggestions and gesture typing.
+        @Override
+        public ExtractedText getExtractedText(ExtractedTextRequest request, int flags) {
+            boolean textMonitor = (flags & GET_EXTRACTED_TEXT_MONITOR) != 0;
+            mExtractRequest = textMonitor ? request : null;
+            return getExtractedText(request);
+        }
+
+        @Override
+        public boolean requestCursorUpdates(int cursorUpdateMode) {
+            if ((cursorUpdateMode & CURSOR_UPDATE_IMMEDIATE) != 0) {
+                mImm.updateCursorAnchorInfo(SlintInputView.this, getCursorAnchorInfo());
+            }
+            mMonitorCursorUpdate = (cursorUpdateMode & CURSOR_UPDATE_MONITOR) != 0;
+            return true;
+        }
+
+        @Override
+        public void closeConnection() {
+            super.closeConnection();
+            for (; mBatchEditNestDepth > 0; mBatchEditNestDepth--) {
+                mConnectionEditable.endBatchEdit();
+            }
+            if (mInputConnection == this) {
+                mInputConnection = null;
+            }
+        }
+
+        @Override
+        public boolean setSelection(int start, int end) {
+            beginBatchEdit();
+            boolean result = super.setSelection(start, end);
+            endBatchEdit();
+            return result;
+        }
+
+        // Through TextInput, like the floating menu, so that it applies its rules, such as not
+        // copying passwords.
+        @Override
+        public boolean performContextMenuAction(int id) {
+            int action;
+            if (id == android.R.id.cut) {
+                action = MENU_CUT;
+            } else if (id == android.R.id.copy) {
+                action = MENU_COPY;
+            } else if (id == android.R.id.paste) {
+                action = MENU_PASTE;
+            } else if (id == android.R.id.selectAll) {
+                action = MENU_SELECT_ALL;
+            } else {
+                return false;
+            }
+            SlintAndroidJavaHelper.popupMenuAction(action);
+            return true;
+        }
+
+        // InputMethodManager.updateSelection skips the update if nothing changed since the last call.
+        void didChangeEditingState() {
+            mImm.updateSelection(SlintInputView.this, mConnectionEditable.getSelectionStart(),
+                    mConnectionEditable.getSelectionEnd(), mConnectionEditable.getComposingStart(),
+                    mConnectionEditable.getComposingEnd());
+            if (mExtractRequest != null) {
+                mImm.updateExtractedText(SlintInputView.this, mExtractRequest.token, getExtractedText(mExtractRequest));
+            }
+            if (mMonitorCursorUpdate) {
+                mImm.updateCursorAnchorInfo(SlintInputView.this, getCursorAnchorInfo());
+            }
         }
     }
 
@@ -214,6 +506,7 @@ class SlintInputView extends View {
         setFocusable(true);
         setFocusableInTouchMode(true);
         mEditable = new SlintEditable();
+        mMagnifierSupported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && context instanceof NativeActivity;
     }
 
     @Override
@@ -223,79 +516,78 @@ class SlintInputView extends View {
 
     @Override
     public InputConnection onCreateInputConnection(EditorInfo outAttrs) {
+        if (!mHasClient) {
+            mInputConnection = null;
+            return null;
+        }
         outAttrs.inputType = mInputType;
         outAttrs.imeOptions = EditorInfo.IME_FLAG_NO_EXTRACT_UI;
-        outAttrs.initialSelStart = mCursorPosition;
-        outAttrs.initialSelEnd = mAnchorPosition;
-        return new BaseInputConnection(this, true) {
-            @Override
-            public Editable getEditable() {
-                return mEditable;
-            }
-
-            @Override
-            public boolean beginBatchEdit() {
-                mInBatch += 1;
-                return super.beginBatchEdit();
-            }
-
-            @Override
-            public boolean endBatchEdit() {
-                mInBatch -= 1;
-                if (mInBatch == 0) {
-                    if (mPending) {
-                        mEditable.update();
-                    } else {
-                        mEditable.updateSelection();
-                    }
-                }
-                return super.endBatchEdit();
-            }
-
-            @Override
-            public boolean setSelection(int start, int end) {
-                boolean result = super.setSelection(start, end);
-                if (mInBatch == 0) {
-                    mEditable.updateSelection();
-                }
-                return result;
-            }
-        };
+        mInputConnection = new SlintInputConnection();
+        outAttrs.initialSelStart = mEditable.getSelectionStart();
+        outAttrs.initialSelEnd = mEditable.getSelectionEnd();
+        return mInputConnection;
     }
 
-    public void setText(String text, int cursorPosition, int anchorPosition, int preeditStart, int preeditEnd,
-            int inputType) {
-        boolean typeChanged = mInputType != inputType;
-        boolean textChanged = !mText.equals(text);
-        boolean selectionChanged = mCursorPosition != cursorPosition || mAnchorPosition != anchorPosition;
-
-        mText = text;
-        mCursorPosition = cursorPosition;
-        mAnchorPosition = anchorPosition;
-        mHasPreedit = preeditStart != preeditEnd;
-        mInputType = inputType;
-
-        if (typeChanged) {
-            mEditable = new SlintEditable();
-            Selection.setSelection(mEditable, cursorPosition, anchorPosition);
-            getContext().getSystemService(InputMethodManager.class).restartInput(this);
-        } else if (textChanged || selectionChanged) {
-            mInBatch += 1;
-            try {
-                if (textChanged) {
-                    mEditable.replace(0, mEditable.length(), text);
-                }
-                if (Selection.getSelectionStart(mEditable) != cursorPosition
-                        || Selection.getSelectionEnd(mEditable) != anchorPosition) {
-                    Selection.setSelection(mEditable, cursorPosition, anchorPosition);
-                }
-            } finally {
-                mInBatch -= 1;
-                mPending = false;
-            }
-            getContext().getSystemService(InputMethodManager.class)
-                    .updateSelection(this, cursorPosition, anchorPosition, preeditStart, preeditEnd);
+    private void didChangeEditingState(SlintEditable editable) {
+        if (editable != mEditable || !mHasClient) {
+            return;
         }
+        if (mLastKnownSlintState != null && !mLastKnownSlintState.matches(editable)) {
+            mLastKnownSlintState = new EditState(editable.toString(), editable.getSelectionStart(),
+                    editable.getSelectionEnd(), editable.getComposingStart(), editable.getComposingEnd());
+            SlintAndroidJavaHelper.updateText(mLastKnownSlintState.text, mLastKnownSlintState.selectionEnd,
+                    mLastKnownSlintState.selectionStart, mLastKnownSlintState.composingStart,
+                    mLastKnownSlintState.composingEnd);
+        }
+        if (mInputConnection != null && mInputConnection.mConnectionEditable == editable) {
+            mInputConnection.didChangeEditingState();
+        }
+    }
+
+    public void clearTextInputClient() {
+        mHasClient = false;
+        mLastKnownSlintState = null;
+        // Some keyboards cache the old state, so restart unless the keyboard is still showing.
+        WindowInsets insets = getRootWindowInsets();
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R || insets == null
+                || !insets.isVisible(WindowInsets.Type.ime())) {
+            getContext().getSystemService(InputMethodManager.class).restartInput(this);
+        }
+    }
+
+    public void setTextInputClient(int inputType) {
+        mInputType = inputType;
+        mHasClient = true;
+        mEditable = new SlintEditable();
+        mLastKnownSlintState = null;
+        mRestartInputPending = true;
+    }
+
+    public void setTextInputEditingState(EditState state) {
+        if (!mRestartInputPending && mLastKnownSlintState != null && mLastKnownSlintState.hasComposing()) {
+            // Input methods don't expect the editor to change the composition, and only reset their
+            // state on a restart.
+            mRestartInputPending = composingChanged(mLastKnownSlintState, state);
+        }
+        mLastKnownSlintState = state;
+        mEditable.setEditingState(state);
+        if (mRestartInputPending) {
+            getContext().getSystemService(InputMethodManager.class).restartInput(this);
+            mRestartInputPending = false;
+        }
+    }
+
+    private static boolean composingChanged(EditState before, EditState after) {
+        int composingLength = before.composingEnd - before.composingStart;
+        if (composingLength != after.composingEnd - after.composingStart) {
+            return true;
+        }
+        for (int i = 0; i < composingLength; i++) {
+            if (before.text.charAt(i + before.composingStart) != after.text.charAt(i + after.composingStart)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override
@@ -303,6 +595,86 @@ class SlintInputView extends View {
         super.onConfigurationChanged(newConfig);
         SlintAndroidJavaHelper.setNightMode(newConfig.uiMode & Configuration.UI_MODE_NIGHT_MASK);
         SlintAndroidJavaHelper.setFontScale(newConfig.fontScale);
+    }
+
+    // As in Android's own text fields, the menu hides while a handle is held
+    // and comes back a moment after it is released.
+    public void dragHandle(InputHandle handle, int x) {
+        if (mDraggedHandle == null) {
+            // Android's cursor doesn't blink while a handle is held.
+            SlintAndroidJavaHelper.setCursorBlinkSuspended(true);
+        }
+        mDraggedHandle = handle;
+        mDragX = x;
+        removeCallbacks(mShowSelectionMenu);
+        if (mCurrentActionMode != null) {
+            mCurrentActionMode.hide(ActionMode.DEFAULT_HIDE_DURATION);
+        }
+        updateMagnifier();
+    }
+
+    public void endHandleDrag(InputHandle handle) {
+        if (handle != mDraggedHandle) {
+            return;
+        }
+        mDraggedHandle = null;
+        SlintAndroidJavaHelper.setCursorBlinkSuspended(false);
+        if (mMagnifier != null) {
+            mMagnifier.dismiss();
+            // Built again for the next drag, so it picks up a changed screen density.
+            mMagnifier = null;
+        }
+        postDelayed(mShowSelectionMenu, ViewConfiguration.getDoubleTapTimeout());
+    }
+
+    public void toggleActionMenu() {
+        if (mCurrentActionMode != null) {
+            finishActionMenu();
+        } else {
+            showActionMenu();
+        }
+    }
+
+    private void showSelectionMenu() {
+        if ((mNumHandles == 2 || mCurrentActionMode != null) && !mActionMenuDeferred) {
+            showActionMenu();
+        }
+    }
+
+    private void updateMagnifier() {
+        if (mDraggedHandle == null || !mMagnifierSupported) {
+            return;
+        }
+        if (mMagnifier == null) {
+            // TextView's magnifier differs from Magnifier.Builder's defaults in these values.
+            TypedArray a = new ContextThemeWrapper(getContext(), android.R.style.Theme_DeviceDefault)
+                    .obtainStyledAttributes(new int[] { android.R.attr.dialogCornerRadius });
+            float cornerRadius = a.getDimension(0, 0);
+            a.recycle();
+            mMagnifier = new Magnifier.Builder(this)
+                    .setCornerRadius(cornerRadius)
+                    .setOverlay(new ColorDrawable(0x0EFFFFFF))
+                    .setSourceBounds(Magnifier.SOURCE_BOUND_MAX_VISIBLE, Magnifier.SOURCE_BOUND_MAX_IN_SURFACE,
+                            Magnifier.SOURCE_BOUND_MAX_VISIBLE, Magnifier.SOURCE_BOUND_MAX_IN_SURFACE)
+                    .build();
+            removeCallbacks(mRefreshMagnifier);
+            postOnAnimation(mRefreshMagnifier);
+        }
+        float halfLine = mCursorHeight / 2f;
+        float cursorX = mDraggedHandle.getCursorX();
+        // Within half a line height of the cursor, so the magnifier stops at the ends of the text.
+        float x = Math.max(cursorX - halfLine, Math.min(mDragX, cursorX + halfLine));
+        getLocationInWindow(mMagnifierOrigin);
+        mMagnifier.show(x - mMagnifierOrigin[0], mDraggedHandle.getCursorY() - halfLine - mMagnifierOrigin[1]);
+    }
+
+    // The magnifier copies the screen only when asked, and Slint draws after the cursor moved,
+    // so copy every frame while it shows.
+    private void refreshMagnifier() {
+        if (mMagnifier != null) {
+            mMagnifier.update();
+            postOnAnimation(mRefreshMagnifier);
+        }
     }
 
     private InputHandle updateHandle(InputHandle handle, int id, int x, int y) {
@@ -320,8 +692,9 @@ class SlintInputView extends View {
         return handle;
     }
 
-    private static void hideHandle(InputHandle handle) {
+    private void hideHandle(InputHandle handle) {
         if (handle != null) {
+            endHandleDrag(handle);
             handle.hide();
         }
     }
@@ -333,6 +706,8 @@ class SlintInputView extends View {
     // numHandles: 0=hidden, 1=cursor handle, 2=selection handles
     public void setCursorPos(int leftX, int leftY, int rightX, int rightY, int cursorHeight, int numHandles) {
         int handleHeight = 0;
+        mCursorHeight = cursorHeight;
+        mNumHandles = numHandles;
         if (numHandles == 1) {
             hideHandle(mLeftHandle);
             hideHandle(mRightHandle);
@@ -363,6 +738,8 @@ class SlintInputView extends View {
             finishActionMenu();
         }
 
+        updateMagnifier();
+
         mSelectionRect.set(Math.min(leftX, rightX), Math.min(leftY, rightY) - cursorHeight,
                 Math.max(leftX, rightX), Math.max(leftY, rightY) + handleHeight);
         if (mCurrentActionMode != null) {
@@ -380,9 +757,16 @@ class SlintInputView extends View {
     }
 
     public void showActionMenu() {
+        if (mDraggedHandle != null) {
+            return;
+        }
         if (mCurrentActionMode != null) {
             mCurrentActionMode.invalidate();
-            mCurrentActionMode.hide(0);
+            if (mCurrentActionMode.getMenu().hasVisibleItems()) {
+                mCurrentActionMode.hide(0);
+            } else {
+                finishActionMenu();
+            }
             return;
         }
         ActionMode.Callback2 action = new ActionMode.Callback2() {
@@ -417,24 +801,14 @@ class SlintInputView extends View {
 
                 a.recycle();
 
-                return true;
+                // Like Android's Editor, an empty menu doesn't start, or it would swallow the next tap.
+                updateMenuItems(menu);
+                return menu.hasVisibleItems();
             }
 
             @Override
             public boolean onPrepareActionMode(ActionMode mode, Menu menu) {
-                int selectionStart = Selection.getSelectionStart(mEditable);
-                int selectionEnd = Selection.getSelectionEnd(mEditable);
-                int start = Math.min(selectionStart, selectionEnd);
-                int end = Math.max(selectionStart, selectionEnd);
-                boolean hasSelection = start >= 0 && start != end;
-                boolean editable = (mInputType & EditorInfo.TYPE_MASK_CLASS) != EditorInfo.TYPE_NULL;
-                boolean password = (mInputType & EditorInfo.TYPE_MASK_VARIATION)
-                        == EditorInfo.TYPE_TEXT_VARIATION_PASSWORD;
-                ClipboardManager clipboard = getContext().getSystemService(ClipboardManager.class);
-                menu.findItem(MENU_CUT).setVisible(hasSelection && editable && !password);
-                menu.findItem(MENU_COPY).setVisible(hasSelection && !password);
-                menu.findItem(MENU_PASTE).setVisible(editable && clipboard.hasPrimaryClip());
-                menu.findItem(MENU_SELECT_ALL).setVisible(start > 0 || end < mEditable.length());
+                updateMenuItems(menu);
                 return true;
             }
 
@@ -464,6 +838,22 @@ class SlintInputView extends View {
         mCurrentActionMode = startActionMode(action, ActionMode.TYPE_FLOATING);
     }
 
+    private void updateMenuItems(Menu menu) {
+        int selectionStart = Selection.getSelectionStart(mEditable);
+        int selectionEnd = Selection.getSelectionEnd(mEditable);
+        int start = Math.min(selectionStart, selectionEnd);
+        int end = Math.max(selectionStart, selectionEnd);
+        boolean hasSelection = start >= 0 && start != end;
+        boolean editable = (mInputType & EditorInfo.TYPE_MASK_CLASS) != EditorInfo.TYPE_NULL;
+        boolean password = (mInputType & EditorInfo.TYPE_MASK_VARIATION)
+                == EditorInfo.TYPE_TEXT_VARIATION_PASSWORD;
+        ClipboardManager clipboard = getContext().getSystemService(ClipboardManager.class);
+        menu.findItem(MENU_CUT).setVisible(hasSelection && editable && !password);
+        menu.findItem(MENU_COPY).setVisible(hasSelection && !password);
+        menu.findItem(MENU_PASTE).setVisible(editable && clipboard.hasPrimaryClip());
+        menu.findItem(MENU_SELECT_ALL).setVisible(start > 0 || end < mEditable.length());
+    }
+
     void deferActionMenu(boolean deferred) {
         mActionMenuDeferred = deferred;
         if (deferred) {
@@ -472,6 +862,7 @@ class SlintInputView extends View {
     }
 
     void finishActionMenu() {
+        removeCallbacks(mShowSelectionMenu);
         if (mCurrentActionMode != null) {
             mCurrentActionMode.finish();
             mCurrentActionMode = null;
@@ -605,8 +996,6 @@ public class SlintAndroidJavaHelper {
     public static native void updateText(String text, int cursorPosition, int anchorPosition, int preeditStart,
             int preeditEnd);
 
-    public static native void updateSelection(int cursorPosition, int anchorPosition);
-
     public static native void setNightMode(int nightMode);
 
     public static native void setFontScale(float fontScale);
@@ -614,6 +1003,8 @@ public class SlintAndroidJavaHelper {
     public static native void onBackInvoked();
 
     public static native void moveCursorHandle(int id, int posX, int posY);
+
+    public static native void setCursorBlinkSuspended(boolean suspended);
 
     public static native void popupMenuAction(int id);
 
@@ -623,11 +1014,16 @@ public class SlintAndroidJavaHelper {
 
     public void set_imm_data(String text, int cursorPosition, int anchorPosition, int preeditStart, int preeditEnd,
             int curX, int curY, int anchorX, int anchorY, int cursorHeight, int inputType,
-            boolean showCursorHandles) {
+            boolean showCursorHandles, boolean newClient, boolean updateEditingState) {
         mActivity.runOnUiThread(() -> {
-            int selStart = Math.min(cursorPosition, anchorPosition);
-            int selEnd = Math.max(cursorPosition, anchorPosition);
-            mInputView.setText(text, selStart, selEnd, preeditStart, preeditEnd, inputType);
+            if (newClient) {
+                mInputView.setTextInputClient(inputType);
+            }
+            if (updateEditingState) {
+                // Android's selection start is the anchor, and its end is the cursor.
+                mInputView.setTextInputEditingState(
+                        new SlintInputView.EditState(text, anchorPosition, cursorPosition, preeditStart, preeditEnd));
+            }
             int numHandles = 0;
             if (showCursorHandles) {
                 numHandles = cursorPosition == anchorPosition ? 1 : 2;
@@ -723,6 +1119,10 @@ public class SlintAndroidJavaHelper {
 
     public void hide_action_menu() {
         mActivity.runOnUiThread(mInputView::finishActionMenu);
+    }
+
+    public void clear_text_input_client() {
+        mActivity.runOnUiThread(mInputView::clearTextInputClient);
     }
 
     public String get_clipboard() {

@@ -223,7 +223,7 @@ This enables grids to handle both single-item repeaters (step=1) and multi-child
 
 ```
 slint! {
-    #[edition = "1.19"]
+    #[edition = "1.20"]
     GridLayout {
         for _ in 3: Row {
             Rectangle {}

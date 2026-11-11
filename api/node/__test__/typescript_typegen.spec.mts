@@ -357,3 +357,37 @@ if (app.mood !== Mood.happy) throw new Error("a plain string is not accepted");
         rmSync(dir, { recursive: true });
     }
 }, 120_000);
+
+test("Slint imports and declarations use the project file beside the source", () => {
+    const directory = mkdtempSync(join(tmpdir(), "slint-ts-project-"));
+    try {
+        writeFileSync(
+            join(directory, "slint-project.json"),
+            JSON.stringify({
+                edition: "1.19",
+                "library-paths": { widgets: "widgets.slint" },
+            }),
+        );
+        writeFileSync(
+            join(directory, "widgets.slint"),
+            "export component Widget inherits Rectangle {}",
+        );
+        writeFileSync(
+            join(directory, "app.slint"),
+            `
+            import { Widget } from "@widgets";
+            export component App inherits Window { Widget {} }
+        `,
+        );
+        execSync(`"${COMPILER}" -f typescript app.slint -o app.slint.d.ts`, {
+            cwd: directory,
+        });
+        writeFileSync(
+            join(directory, "check.mjs"),
+            'import { App } from "./app.slint";',
+        );
+        runWithRegister(directory);
+    } finally {
+        rmSync(directory, { recursive: true });
+    }
+}, 120_000);

@@ -162,7 +162,7 @@ mod configuration_tests {
     fn future_overrides() -> serde_json::Value {
         serde_json::json!({
             "style": "fluent",
-            "project": { "include-paths": [], "edition": "1.19" },
+            "project": { "include-paths": [], "edition": "1.20" },
             "embed_resources": "FutureEmbedding",
             "default_translation_context": "FutureContext",
             "debug_info": false,
@@ -183,7 +183,7 @@ mod configuration_tests {
         assert_eq!(config.overrides.project.include_paths, Some(Vec::new()));
         assert_eq!(
             config.overrides.project.edition,
-            Some(i_slint_compiler::project_file::SlintEdition::V1_19)
+            Some(i_slint_compiler::project_file::SlintEdition::current())
         );
         assert_eq!(config.overrides.debug_info, Some(false));
         assert_eq!(config.overrides.const_scale_factor, Some(2.));

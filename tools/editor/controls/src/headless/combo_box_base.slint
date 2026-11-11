@@ -52,9 +52,11 @@ export component ComboBoxBase {
     out property <int> highlighted-index: root.highlight-index;
     out property <bool> expanded: popup.opened;
     out property <bool> has-focus: root.enabled && (keys.has-focus || popup.focused);
+    out property <bool> focus-visible: keys.has-focus && root.keyboard-focus;
     out property <bool> hovered: root.enabled && pointer.has-hover;
     out property <bool> pressed: root.enabled && pointer.pressed;
 
+    private property <bool> keyboard-focus;
     private property <int> highlight-index: -1;
     private property <string> indexed-value: root.current-index >= 0 && root.current-index < root.count
         ? root.model[root.current-index] : "";
@@ -64,6 +66,9 @@ export component ComboBoxBase {
     slot indicator;
     slot <ComboBoxPopupSurface> popup;
 
+    callback opening();
+    callback accept-selection(index: int) -> bool;
+    accept-selection(index) => { return true; }
     callback selected(current-value: string);
     callback highlighted(index: int);
 
@@ -73,6 +78,7 @@ export component ComboBoxBase {
         keys.focus();
         // close() restores focus explicitly. Don't let the popup restore it after an external focus change.
         keys.clear-focus();
+        root.opening();
         popup.open();
     }
 
@@ -91,7 +97,7 @@ export component ComboBoxBase {
     }
 
     public function select(index: int) {
-        if !root.enabled || index < 0 || index >= root.count { return; }
+        if !root.enabled || index < 0 || index >= root.count || !root.accept-selection(index) { return; }
         root.current-index = index;
         root.update-current-value();
         root.close();
@@ -213,6 +219,7 @@ export component ComboBoxBase {
         width: 0px;
         height: 0px;
         enabled: root.enabled;
+        focus-changed-event(reason) => { root.keyboard-focus = reason == FocusReason.tab-navigation; }
         key-pressed(event) => { return root.handle-key(event); }
     }
 

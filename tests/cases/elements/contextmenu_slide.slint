@@ -31,7 +31,7 @@ slint_testing::mock_elapsed_time(100);
 instance.invoke_show_menu();
 slint_testing::mock_elapsed_time(100);
 
-let popups = inner.active_popups.borrow();
+let popups = inner.active_popups();
 assert_eq!(popups.len(), 1, "We have one open menu");
 let popup = popups.first().unwrap();
 let size = i_slint_core::item_tree::ItemTreeRc::borrow_pin(&popup.component)

@@ -73,6 +73,7 @@ pub type PropertyDeclarations = HashMap<SmolStr, PropertyDeclaration>;
 
 pub fn create_ui() -> Result<EditorUi, PlatformError> {
     let ui = EditorUi::new()?;
+    brushes::setup(&ui.global::<Properties>());
     let weak = ui.as_weak();
     ui.global::<Api>().on_window_active(move || {
         weak.upgrade()
@@ -126,7 +127,9 @@ pub fn initialize_editor(
     style: &str,
 ) {
     let api = editor_ui.global::<Api>();
+    let properties_api = editor_ui.global::<Properties>();
     let api_weak = <Api as slint::Global<'_, EditorUi>>::as_weak(&api);
+    let properties_api_weak = <Properties as slint::Global<'_, EditorUi>>::as_weak(&properties_api);
     let hover = editor_ui.global::<Hover>();
     let project = editor_ui.global::<Project>();
     let project_weak = <Project as slint::Global<'_, EditorUi>>::as_weak(&project);
@@ -238,22 +241,23 @@ pub fn initialize_editor(
     api.on_selected_element_delete(super::delete_selected_element);
     api.on_selected_element_wrap_in_layout(super::wrap_selected_element_in_layout);
     api.on_root_geometry_to_parent_geometry(super::root_geometry_to_parent_geometry);
+    api.on_selected_element_copy(|| {
+        super::copy_selected_element();
+    });
+    api.on_selected_element_cut(super::cut_selected_element);
+    api.on_paste_element(super::paste_element);
     api.on_override_selected_element_geometry(super::override_selected_element_geometry);
     api.on_override_selected_element_rotation(super::override_selected_element_rotation);
     api.on_override_selected_element_border_radius(super::override_selected_element_border_radius);
     api.on_reset_selected_element_border_radius(super::reset_selected_element_border_radius);
     api.on_persist_selected_element_border_radius(super::persist_selected_element_border_radius);
 
-    api.on_inspector_values(super::inspector::values);
-    api.on_inspector_preview(super::inspector::preview);
-    api.on_inspector_commit(super::inspector::commit);
-    api.on_inspector_cancel(super::inspector::cancel);
-    api.on_inspector_preview_shadow(super::inspector::preview_shadow);
-    api.on_inspector_commit_shadow(super::inspector::commit_shadow);
-    api.on_inspector_fill_preview(super::inspector::preview_fill);
-    api.on_inspector_fill_commit(super::inspector::commit_fill);
+    properties_api.on_inspector_preview(super::inspector::preview_property);
+    properties_api.on_inspector_preview_code(super::inspector::preview_code_property);
+    properties_api.on_inspector_commit(super::inspector::commit_properties);
+    properties_api.on_inspector_cancel(super::inspector::cancel);
     let editor_weak = editor_ui.as_weak();
-    api.on_dismiss_fill_picker(move |position, button| {
+    properties_api.on_dismiss_fill_picker(move |position, button| {
         let Some(editor) = editor_weak.upgrade() else { return };
         editor.global::<FillSession>().invoke_close_picker(true, false);
         let editor_weak = editor.as_weak();
@@ -267,41 +271,39 @@ pub fn initialize_editor(
             }
         });
     });
-    api.on_test_code_binding(super::test_code_binding);
-    api.on_set_code_binding(super::set_code_binding);
-    api.on_set_code_bindings(|url, version, offset, bindings| {
+    properties_api.on_test_code_binding(super::test_code_binding);
+    properties_api.on_set_code_binding(super::set_code_binding);
+    properties_api.on_set_code_bindings(|url, version, offset, bindings| {
         super::set_code_bindings(url, version, offset, bindings.iter())
     });
-    api.on_set_color_binding(super::set_color_binding);
     api.on_set_element_id(super::set_element_id);
-    api.on_string_is_single_line(|value| !value.contains('\n') && !value.contains('\r'));
-    api.on_property_declaration_ranges(super::property_declaration_ranges);
+    properties_api.on_string_is_single_line(|value| !value.contains('\n') && !value.contains('\r'));
+    properties_api.on_property_declaration_ranges(super::property_declaration_ranges);
     property_view::setup(editor_ui, &api);
     super::inline_text_edit::setup(editor_ui);
-    let color_field_api_weak = api_weak.clone();
-    api.on_source_color_field_data(move |property_name| {
-        let Some(api) = color_field_api_weak.upgrade() else {
-            return ColorFieldData::default();
-        };
-
-        source_property_value_data(&api, property_name)
-            .map(brushes::color_field_data)
-            .unwrap_or_default()
-    });
-    let property_value_api_weak = api_weak.clone();
-    api.on_source_property_value(move |property_name, fallback| {
-        let Some(api) = property_value_api_weak.upgrade() else {
+    let property_value_api_weak = properties_api_weak.clone();
+    properties_api.on_source_property_value(move |property_name, fallback| {
+        let Some(properties_api) = property_value_api_weak.upgrade() else {
             return fallback;
         };
 
-        source_property_value(&api, property_name, fallback)
+        source_property_value(&properties_api, property_name, fallback)
     });
-    api.on_combo_option_index(combo_option_index);
-    api.on_image_source_file_name(file_tree::image_source_file_name);
+    properties_api.on_combo_option_index(combo_option_index);
+    properties_api.on_combo_option_values(|options| {
+        Rc::new(slint::MapModel::new(options, |option| option.value)).into()
+    });
+    properties_api.on_image_source_file_name(file_tree::image_source_file_name);
     let editor_weak = editor_ui.as_weak();
-    api.on_choose_image_file(move |source_uri| {
+    properties_api.on_choose_image_file(move |source_uri| {
         let window = editor_weak.upgrade().map(|editor| editor.window().window_handle());
         file_tree::choose_image_file(source_uri.as_str(), window)
+    });
+    let editor_weak = editor_ui.as_weak();
+    api.on_open_file_manager(move |path| {
+        if let Some(editor) = editor_weak.upgrade() {
+            file_tree::open_file_manager(std::path::Path::new(path.as_str()), editor.window());
+        }
     });
 
     api.on_get_property_value(get_property_value);
@@ -322,14 +324,13 @@ pub fn initialize_editor(
         set_json_preview_data(container, property_name, json_string)
     });
 
-    api.on_string_to_code(string_to_code);
+    properties_api.on_string_to_code(string_to_code);
 
-    brushes::setup(&api);
     diagnostics::setup(&editor_ui.global::<Diagnostics>());
-    palette::setup(&api);
+    palette::setup(&properties_api);
     let file_tree_controller = file_tree::setup(&api, api_weak.clone(), &project, project_weak);
     preview::set_file_tree_controller(file_tree_controller);
-    recent_fills::setup(&api, api_weak.clone());
+    recent_fills::setup(&properties_api, properties_api_weak.clone());
     super::outline::setup(&api, api_weak.clone());
     super::undo_redo::setup(&api);
 
@@ -1124,8 +1125,11 @@ fn get_property_value(container: SharedString, property_name: SharedString) -> P
         .unwrap_or_default()
 }
 
-fn source_property_value_data(api: &Api<'_>, property_name: SharedString) -> Option<PropertyValue> {
-    let groups = api.get_properties();
+fn source_property_value_data(
+    properties_api: &Properties<'_>,
+    property_name: SharedString,
+) -> Option<PropertyValue> {
+    let groups = properties_api.get_properties();
     groups.model_tracker().track_row_count_changes();
     for (group_index, group) in groups.iter().enumerate() {
         groups.model_tracker().track_row_data_changes(group_index);
@@ -1156,11 +1160,11 @@ fn combo_option_index(value: SharedString, options: ModelRc<InspectorComboOption
 }
 
 fn source_property_value(
-    api: &Api<'_>,
+    properties_api: &Properties<'_>,
     property_name: SharedString,
     fallback: SharedString,
 ) -> SharedString {
-    let Some(property) = source_property_value_data(api, property_name) else {
+    let Some(property) = source_property_value_data(properties_api, property_name) else {
         return fallback;
     };
 
@@ -1519,6 +1523,7 @@ fn update_properties(
 
 pub fn ui_set_properties(
     api: &Api<'_>,
+    properties_api: &Properties<'_>,
     window: &slint::Window,
     document_cache: &i_slint_editor_preview::DocumentCache,
     properties: Option<properties::QueryPropertyResponse>,
@@ -1527,12 +1532,12 @@ pub fn ui_set_properties(
     let Some((next_element, declarations, next_model)) =
         property_view::map_properties_to_ui(document_cache, properties, &win)
     else {
-        api.set_properties(ModelRc::default());
+        properties_api.set_properties(ModelRc::default());
         api.set_current_element(ElementInformation::default());
         return Default::default();
     };
 
-    let current_model = api.get_properties();
+    let current_model = properties_api.get_properties();
 
     let element = api.get_current_element();
     if !is_equal_element(&element, &next_element) {
@@ -1545,8 +1550,8 @@ pub fn ui_set_properties(
             next_model.set_search_text(search_text.clone());
         }
 
-        api.set_properties(next_model.clone().into());
-        api.on_properties_search(move |search_text| {
+        properties_api.set_properties(next_model.clone().into());
+        properties_api.on_properties_search(move |search_text| {
             next_model.set_search_text(search_text);
         });
     } else {
@@ -1594,27 +1599,60 @@ mod tests {
     fn numeric_property_defaults_and_resolved_bindings() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::create_ui().unwrap();
-        let api = editor.global::<super::Api>();
+        let properties_api = editor.global::<super::Properties>();
         for (code, kind, value_kind, expected) in [
             ("", PropertyValueKind::Float, PropertyValueKind::Float, 16.),
             ("28px", PropertyValueKind::Float, PropertyValueKind::Float, 28.),
             ("root.drop-shadow-blur", PropertyValueKind::Code, PropertyValueKind::Float, 28.),
             ("root.drop-shadow-blur", PropertyValueKind::Code, PropertyValueKind::Code, 16.),
         ] {
-            api.on_source_property_value_data(move |_, _| PropertyValue {
+            properties_api.on_source_property_value_data(move |_, _| PropertyValue {
                 code: code.into(),
                 kind,
                 value_kind,
                 value_float: 28.,
                 ..Default::default()
             });
-            assert_eq!(api.invoke_number_property("drop-shadow-blur".into(), 16.), expected);
+            properties_api.on_hooked_property_value_data(|_, fallback| fallback);
+            assert_eq!(
+                properties_api.invoke_number_property("drop-shadow-blur".into(), 16.),
+                expected
+            );
+            assert_eq!(
+                properties_api.invoke_editor_number_property("drop-shadow-blur".into(), 16.),
+                expected
+            );
+            properties_api.on_hooked_property_value_data(|name, fallback| {
+                if name == "drop-shadow-blur" {
+                    PropertyValue {
+                        value_float: 42.,
+                        value_kind: PropertyValueKind::Float,
+                        value_resolved: true,
+                        ..Default::default()
+                    }
+                } else {
+                    fallback
+                }
+            });
+            assert_eq!(
+                properties_api.invoke_number_property("drop-shadow-blur".into(), 16.),
+                expected
+            );
+            assert_eq!(
+                properties_api.invoke_editor_number_property("drop-shadow-blur".into(), 16.),
+                42.
+            );
+            assert_eq!(
+                properties_api.invoke_editor_number_property("inner-shadow-blur".into(), 16.),
+                expected
+            );
         }
     }
 
     fn shadow_test_editor(inner: bool) -> super::EditorUi {
         let editor = super::create_ui().unwrap();
         let api = editor.global::<super::Api>();
+        let properties_api = editor.global::<super::Properties>();
         editor
             .global::<super::Diagnostics>()
             .set_preview_availability(super::PreviewAvailability::Current);
@@ -1624,21 +1662,18 @@ mod tests {
             ..Default::default()
         });
         api.set_selection(super::Selection { highlight_index: 0, ..Default::default() });
-        let weak = editor.as_weak();
-        api.on_source_property_value_data(move |name, _| {
+        properties_api.on_source_property_value_data(move |name, _| {
             if !name.starts_with(if inner { "inner-shadow-" } else { "drop-shadow-" }) {
                 return PropertyValue::default();
             }
-            let editor = weak.unwrap();
-            let refreshed = editor.global::<super::Api>().get_inspector_generation() > 0;
             PropertyValue {
                 code: "24px".into(),
                 kind: PropertyValueKind::Float,
-                value_float: if name.ends_with("shadow-offset-x") && refreshed { 44. } else { 24. },
+                value_float: 24.,
                 ..Default::default()
             }
         });
-        api.on_inspector_preview_shadow(|_, _| true);
+        properties_api.on_inspector_preview(|_, _| true);
         editor.global::<super::ShadowSession>().invoke_begin(
             Default::default(),
             Default::default(),
@@ -1658,8 +1693,9 @@ mod tests {
                         .into()
                 });
                 let api = editor.global::<super::Api>();
+                let properties_api = editor.global::<super::Properties>();
                 let weak = editor.as_weak();
-                api.on_source_property_value_data(move |name, _| {
+                properties_api.on_source_property_value_data(move |name, _| {
                     let element = weak.unwrap().global::<super::Api>().get_current_element();
                     if name
                         == format!("{}color", if inner { "inner-shadow-" } else { "drop-shadow-" })
@@ -1672,7 +1708,13 @@ mod tests {
                 });
                 let requests = std::rc::Rc::new(std::cell::Cell::new(0));
                 let count = requests.clone();
-                api.on_set_code_bindings(move |_, _, _, _| {
+                properties_api.on_inspector_preview(|_, _| true);
+                properties_api.on_inspector_commit(move || {
+                    count.set(count.get() + 1);
+                    queued
+                });
+                let count = requests.clone();
+                properties_api.on_set_code_bindings(move |_, _, _, _| {
                     count.set(count.get() + 1);
                     queued
                 });
@@ -1718,7 +1760,7 @@ mod tests {
             assert!(session.get_canvas_focus());
             assert!(editor.global::<super::CanvasView>().get_manipulating());
             let weak = editor.as_weak();
-            editor.global::<super::Api>().on_set_code_bindings(move |_, _, _, _| {
+            editor.global::<super::Properties>().on_set_code_bindings(move |_, _, _, _| {
                 let editor = weak.unwrap();
                 let session = editor.global::<super::ShadowSession>();
                 assert!(!session.get_open());
@@ -1764,148 +1806,36 @@ mod tests {
     }
 
     #[test]
-    fn shadow_commit_waits_for_a_complete_source_snapshot() {
-        i_slint_backend_testing::init_no_event_loop();
-        for (inner, version_first) in [(false, false), (false, true), (true, false), (true, true)] {
-            let editor = shadow_test_editor(inner);
-            let api = editor.global::<super::Api>();
-            let session = editor.global::<super::ShadowSession>();
-            api.on_inspector_commit_shadow(|_, _| super::InspectorCommitResult::Pending);
-            let mut draft = session.get_values();
-            draft.offset_x = 44.;
-            assert!(session.invoke_commit(super::ShadowGesture::Offset, draft));
-            assert!(session.get_pending());
-            session.invoke_source_refreshed();
-            assert_eq!(session.get_values().offset_x, 44.);
-            assert!(session.get_pending());
-            let version = || {
-                let mut element = api.get_current_element();
-                element.source_version += 1;
-                api.set_current_element(element);
-            };
-            if version_first {
-                version();
-            }
-            assert_eq!(session.get_values().offset_x, 44.);
-            api.set_inspector_generation(1);
-            if !version_first {
-                version();
-            }
-            assert_eq!(session.get_values().offset_x, 44.);
-            assert!(session.get_pending());
-            session.invoke_source_refreshed();
-            assert_eq!(session.get_values().offset_x, 44.);
-            assert!(session.get_canvas_active());
-            assert!(!session.get_pending());
-        }
-    }
-
-    #[test]
-    fn shadow_noop_and_rejected_commits_do_not_wait_for_source_changes() {
+    fn shadow_commits_finish_the_gesture() {
         i_slint_backend_testing::init_no_event_loop();
         for inner in [false, true] {
-            for result in
-                [super::InspectorCommitResult::Unchanged, super::InspectorCommitResult::Rejected]
-            {
+            for accepted in [false, true] {
                 let editor = shadow_test_editor(inner);
-                let api = editor.global::<super::Api>();
+                let properties_api = editor.global::<super::Properties>();
                 let session = editor.global::<super::ShadowSession>();
-                api.on_inspector_commit_shadow(move |_, _| result);
+                properties_api.on_hooked_property_value_data(|name, fallback| {
+                    if name.ends_with("offset-x") {
+                        PropertyValue {
+                            value_float: 44.,
+                            value_kind: PropertyValueKind::Float,
+                            value_resolved: true,
+                            ..Default::default()
+                        }
+                    } else {
+                        fallback
+                    }
+                });
+                assert_eq!(session.get_values().offset_x, 44.);
+                properties_api.on_inspector_commit(move || accepted);
+                session.invoke_start(super::ShadowGesture::Offset, false);
                 let mut draft = session.get_values();
                 draft.offset_x = 44.;
-                assert_eq!(
-                    session.invoke_commit(super::ShadowGesture::Offset, draft),
-                    result == super::InspectorCommitResult::Unchanged
-                );
-                assert_eq!(session.get_values().offset_x, 24.);
+                assert!(session.invoke_preview(draft.clone()));
+                assert_eq!(session.invoke_commit(super::ShadowGesture::Offset, draft), accepted);
+                assert!(!session.get_dragging());
+                assert!(!editor.global::<super::CanvasView>().get_manipulating());
                 assert!(session.get_canvas_active());
-                assert!(!session.get_pending());
             }
-        }
-    }
-
-    #[test]
-    fn shadow_rejected_workspace_application_releases_the_pending_draft() {
-        i_slint_backend_testing::init_no_event_loop();
-        for inner in [false, true] {
-            let editor = shadow_test_editor(inner);
-            let api = editor.global::<super::Api>();
-            let session = editor.global::<super::ShadowSession>();
-            api.on_inspector_commit_shadow(|_, _| super::InspectorCommitResult::Pending);
-            let mut draft = session.get_values();
-            draft.offset_x = 44.;
-            assert!(session.invoke_commit(super::ShadowGesture::Offset, draft));
-            crate::preview::PREVIEW_STATE.with_borrow_mut(|state| {
-                state.editor_ui = Some(editor.clone_strong());
-                state.workspace_edit_sent = true;
-            });
-            super::super::inspector::workspace_edit_finished(Default::default(), false);
-            assert_eq!(session.get_values().offset_x, 24.);
-            assert!(session.get_canvas_active());
-            assert!(!session.get_pending());
-            crate::preview::PREVIEW_STATE.with_borrow_mut(|state| *state = Default::default());
-        }
-    }
-
-    #[test]
-    fn shadow_click_while_a_commit_is_pending_does_not_resubmit() {
-        i_slint_backend_testing::init_no_event_loop();
-        for inner in [false, true] {
-            let editor = shadow_test_editor(inner);
-            let api = editor.global::<super::Api>();
-            let session = editor.global::<super::ShadowSession>();
-            let commits = std::rc::Rc::new(std::cell::Cell::new(0));
-            let count = commits.clone();
-            api.on_inspector_commit_shadow(move |_, _| {
-                count.set(count.get() + 1);
-                super::InspectorCommitResult::Pending
-            });
-            editor.show().unwrap();
-            editor.window().set_size(slint::LogicalSize::new(1360., 860.));
-            let mut draft = session.get_values();
-            draft.offset_x = 44.;
-            assert!(session.invoke_commit(super::ShadowGesture::Offset, draft));
-            slint::platform::update_timers_and_animations();
-            let handle = find_element(&editor, "Shadow offset handle");
-            let position = LogicalPosition::new(
-                handle.absolute_position().x + handle.size().width / 2.,
-                handle.absolute_position().y + handle.size().height / 2.,
-            );
-            editor.window().dispatch_event(WindowEvent::PointerPressed {
-                position,
-                button: PointerEventButton::Left,
-            });
-            editor.window().dispatch_event(WindowEvent::PointerReleased {
-                position,
-                button: PointerEventButton::Left,
-            });
-            assert_eq!(commits.get(), 1);
-            assert_eq!(session.get_values().offset_x, 44.);
-            assert!(session.get_open());
-            session.invoke_start(super::ShadowGesture::Blur, false);
-            assert!(!session.get_dragging());
-            assert!(!session.invoke_preview(session.get_values()));
-            assert!(session.get_open());
-            assert_eq!(session.get_values().offset_x, 44.);
-            api.set_inspector_generation(1);
-            session.invoke_source_refreshed();
-            assert!(session.get_canvas_active());
-            assert!(!session.get_pending());
-            slint::platform::update_timers_and_animations();
-            let handle = find_element(&editor, "Shadow offset handle");
-            let position = LogicalPosition::new(
-                handle.absolute_position().x + handle.size().width / 2.,
-                handle.absolute_position().y + handle.size().height / 2.,
-            );
-            editor.window().dispatch_event(WindowEvent::PointerPressed {
-                position,
-                button: PointerEventButton::Left,
-            });
-            editor.window().dispatch_event(WindowEvent::PointerReleased {
-                position,
-                button: PointerEventButton::Left,
-            });
-            assert_eq!(commits.get(), 1);
         }
     }
 
@@ -1967,6 +1897,7 @@ mod tests {
             .global::<super::Diagnostics>()
             .set_preview_availability(super::PreviewAvailability::Current);
         let api = editor.global::<super::Api>();
+        let properties_api = editor.global::<super::Properties>();
         api.set_current_element(super::ElementInformation {
             source_uri: "file:///inspector.slint".into(),
             type_name: "Rectangle".into(),
@@ -1986,10 +1917,19 @@ mod tests {
             }]))
             .into()
         });
-        api.on_inspector_values(|_| {
-            std::rc::Rc::new(VecModel::from(vec![0., 12., 12., 12., 12.])).into()
+        properties_api.on_source_property_value_data(|name, fallback| {
+            if name.starts_with("border-") && name.ends_with("radius") {
+                PropertyValue {
+                    code: "12px".into(),
+                    value_float: 12.,
+                    value_kind: PropertyValueKind::Float,
+                    ..Default::default()
+                }
+            } else {
+                fallback
+            }
         });
-        api.on_inspector_preview(|_, _, _| true);
+        properties_api.on_inspector_preview(|_, _| true);
         editor.show().unwrap();
         editor.window().set_size(slint::LogicalSize::new(1360., 1000.));
         slint::platform::update_timers_and_animations();
@@ -2240,6 +2180,7 @@ mod tests {
             .global::<super::Diagnostics>()
             .set_preview_availability(super::PreviewAvailability::Current);
         let api = editor.global::<super::Api>();
+        let properties_api = editor.global::<super::Properties>();
         api.set_current_element(super::ElementInformation {
             type_name: "Rectangle".into(),
             ..Default::default()
@@ -2256,7 +2197,7 @@ mod tests {
             }]))
             .into()
         });
-        api.on_source_property_value_data(move |name, _| {
+        properties_api.on_source_property_value_data(move |name, _| {
             let Some(&(_, radius)) =
                 radius_properties.iter().find(|(property, _)| *property == name.as_str())
             else {
@@ -2394,18 +2335,43 @@ mod tests {
         assert_eq!(steps, [vec![(TopLeft, Some(50.))], vec![(TopLeft, Some(60.))]]);
     }
 
+    fn connect_fill_editor(
+        editor: &super::EditorUi,
+        fill: super::FillData,
+    ) -> std::pin::Pin<std::rc::Rc<i_slint_core::Property<Option<super::FillData>>>> {
+        let properties_api = editor.global::<super::Properties>();
+        properties_api.on_source_property_value_data(move |_, _| PropertyValue {
+            fill: fill.clone(),
+            kind: PropertyValueKind::Brush,
+            value_resolved: true,
+            ..Default::default()
+        });
+        let pending = std::rc::Rc::pin(i_slint_core::Property::new(None::<super::FillData>));
+        let value = pending.clone();
+        properties_api.on_hooked_property_value_data(move |_, fallback| {
+            value.as_ref().get().map_or(fallback.clone(), |fill| PropertyValue { fill, ..fallback })
+        });
+        let value = pending.clone();
+        properties_api.on_inspector_preview(move |_, edit| {
+            value.as_ref().set(Some(edit.fill));
+            true
+        });
+        let value = pending.clone();
+        properties_api.on_inspector_cancel(move || value.as_ref().set(None));
+        pending
+    }
+
     #[test]
     fn begin_fill_session_accepts_previous_target_before_replacing_it() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
-        let api = editor.global::<super::Api>();
-        super::brushes::setup(&api);
-        api.on_inspector_fill_preview(|_, _, _, _, _| true);
+        let properties_api = editor.global::<super::Properties>();
+        super::brushes::setup(&properties_api);
+        let pending = connect_fill_editor(&editor, Default::default());
         let commits = std::rc::Rc::new(std::cell::Cell::new(0));
         let count = commits.clone();
-        api.on_inspector_fill_commit(move |key, property, _, _, _, _| {
-            assert_eq!(key, "first");
-            assert_eq!(property, "background");
+        properties_api.on_inspector_commit(move || {
+            pending.as_ref().set(None);
             count.set(count.get() + 1);
             true
         });
@@ -2426,8 +2392,8 @@ mod tests {
         assert_eq!(commits.get(), 1);
         assert_eq!(session.get_request().target.key, "second");
         assert_eq!(
-            api.invoke_fill_brush(session.get_working_fill()),
-            api.invoke_fill_brush(request.fill.clone())
+            properties_api.invoke_fill_brush(session.get_working_fill()),
+            slint::Brush::default()
         );
         session.invoke_close_picker(true, false);
         session.invoke_begin(request);
@@ -2440,13 +2406,14 @@ mod tests {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
         let api = editor.global::<super::Api>();
+        let properties_api = editor.global::<super::Properties>();
         editor
             .global::<super::Diagnostics>()
             .set_preview_availability(super::PreviewAvailability::Current);
         let mut selection = api.get_selection();
         selection.highlight_index = 0;
         api.set_selection(selection);
-        connect_has_property(&api);
+        connect_has_property(&properties_api);
         editor.show().unwrap();
         editor.window().set_size(slint::LogicalSize::new(1360., 860.));
         for (type_name, property, expected) in [
@@ -2464,7 +2431,7 @@ mod tests {
             let mut element = api.get_current_element();
             element.type_name = type_name.into();
             api.set_current_element(element);
-            set_test_properties(&api, &[property]);
+            set_test_properties(&properties_api, &[property]);
             slint::platform::update_timers_and_animations();
             assert_eq!(
                 i_slint_backend_testing::ElementHandle::find_by_accessible_label(
@@ -2479,59 +2446,273 @@ mod tests {
     }
 
     #[test]
-    fn enabled_switch_reads_source_when_runtime_value_is_unresolved() {
-        i_slint_backend_testing::init_no_event_loop();
-        let editor = super::EditorUi::new().unwrap();
-        let api = editor.global::<super::Api>();
-        editor
-            .global::<super::Diagnostics>()
-            .set_preview_availability(super::PreviewAvailability::Current);
-        let mut element = api.get_current_element();
-        element.type_name = "Button".into();
-        api.set_current_element(element);
-        let mut selection = api.get_selection();
-        selection.highlight_index = 0;
-        api.set_selection(selection);
-        connect_has_property(&api);
-        set_test_properties(&api, &["enabled"]);
-        editor.show().unwrap();
-        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
-        for (source, runtime, expected) in [
-            (None, None, true),
-            (Some(false), None, false),
-            (Some(true), None, true),
-            (Some(false), Some(true), true),
-            (None, Some(false), false),
+    fn brush_editors_prefer_hooks_then_source_then_runtime() {
+        use i_slint_backend_testing::{TestingBackend, TestingBackendOptions};
+
+        slint::platform::set_platform(Box::new(TestingBackend::new(TestingBackendOptions {
+            renderer_name: Some("software".into()),
+            mock_time: true,
+            ..Default::default()
+        })))
+        .unwrap();
+        for (type_name, property_name, label) in [
+            ("Window", "background", "Root background"),
+            ("Text", "color", "Text color"),
+            ("Rectangle", "background", "Rectangle background"),
+            ("Rectangle", "border-color", "Border color"),
         ] {
-            api.on_source_property_value_data(move |name, _| match source {
-                Some(value) if name == "enabled" => PropertyValue {
-                    code: value.to_shared_string(),
-                    kind: PropertyValueKind::Boolean,
-                    value_kind: PropertyValueKind::Boolean,
-                    value_bool: value,
-                    ..Default::default()
-                },
-                _ => PropertyValue::default(),
+            let editor = super::create_ui().unwrap();
+            let api = editor.global::<super::Api>();
+            let properties_api = editor.global::<super::Properties>();
+            if type_name == "Text" {
+                connect_has_property(&properties_api);
+                set_test_properties(&properties_api, &["text", "color"]);
+            }
+            api.on_highlight_positions(|_, _| {
+                std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle::default()])).into()
             });
-            api.on_runtime_property_value_data(move |name, fallback| match runtime {
-                Some(value) if name == "enabled" => {
-                    PropertyValue { value_resolved: true, value_bool: value, ..Default::default() }
-                }
-                _ => fallback,
+            api.set_current_element(super::ElementInformation {
+                id: if type_name == "Window" { "root" } else { "selected" }.into(),
+                type_name: type_name.into(),
+                ..Default::default()
             });
-            api.set_inspector_generation(api.get_inspector_generation() + 1);
-            let mut element = api.get_current_element();
-            element.offset += 1;
-            api.set_current_element(element);
-            slint::platform::update_timers_and_animations();
-            assert_eq!(
-                i_slint_backend_testing::ElementHandle::find_by_accessible_label(
-                    &editor, "Enabled"
+            api.set_selection(super::Selection { highlight_index: 0, ..Default::default() });
+            editor.show().unwrap();
+            editor.window().set_size(slint::LogicalSize::new(1360., 1200.));
+            let green = slint::Brush::SolidColor(slint::Color::from_rgb_u8(0, 255, 0));
+            let gradient =
+                slint::Brush::LinearGradient(i_slint_core::graphics::LinearGradientBrush::new(
+                    90.,
+                    [
+                        i_slint_core::graphics::GradientStop {
+                            position: 0.,
+                            color: slint::Color::from_rgb_u8(255, 0, 0),
+                        },
+                        i_slint_core::graphics::GradientStop {
+                            position: 1.,
+                            color: slint::Color::from_rgb_u8(0, 0, 255),
+                        },
+                    ],
+                ));
+            let mut transparent_pixel = None;
+            for (code, resolved, runtime, hooked, expected) in [
+                ("", false, false, None, None),
+                ("", false, true, None, Some([0, 0, 255])),
+                ("root.paint", true, true, None, Some([255, 0, 0])),
+                ("root.unknown", false, true, None, Some([0, 0, 255])),
+                ("", true, true, None, Some([255, 0, 0])),
+                ("", false, true, Some(green.clone()), Some([0, 255, 0])),
+                ("root.paint", true, true, Some(green.clone()), Some([0, 255, 0])),
+                ("#ff0000", true, true, Some(green.clone()), Some([0, 255, 0])),
+                ("@linear-gradient(90deg, red, red)", true, true, None, Some([255, 0, 0])),
+                (
+                    "@linear-gradient(90deg, red, red)",
+                    true,
+                    true,
+                    Some(green.clone()),
+                    Some([0, 255, 0]),
+                ),
+                ("#ff0000", true, true, Some(gradient.clone()), None),
+            ] {
+                properties_api.on_source_property_value_data(move |name, fallback| {
+                    if name == property_name {
+                        let brush: slint::Brush = if code.starts_with('@') {
+                            slint::Brush::LinearGradient(
+                                i_slint_core::graphics::LinearGradientBrush::new(
+                                    90.,
+                                    [
+                                        i_slint_core::graphics::GradientStop {
+                                            position: 0.,
+                                            color: slint::Color::from_rgb_u8(255, 0, 0),
+                                        },
+                                        i_slint_core::graphics::GradientStop {
+                                            position: 1.,
+                                            color: slint::Color::from_rgb_u8(255, 0, 0),
+                                        },
+                                    ],
+                                ),
+                            )
+                        } else if resolved {
+                            slint::Color::from_rgb_u8(255, 0, 0).into()
+                        } else {
+                            slint::Brush::default()
+                        };
+                        PropertyValue {
+                            code: code.into(),
+                            kind: if code.is_empty()
+                                || code.starts_with('#')
+                                || code.starts_with('@')
+                            {
+                                PropertyValueKind::Brush
+                            } else {
+                                PropertyValueKind::Code
+                            },
+                            value_kind: PropertyValueKind::Brush,
+                            fill: super::brushes::fill_from_brush(brush.clone()).unwrap(),
+                            value_brush: brush,
+                            value_resolved: resolved,
+                            ..Default::default()
+                        }
+                    } else {
+                        fallback
+                    }
+                });
+                properties_api.on_runtime_property_value_data(move |name, fallback| {
+                    if runtime && name == property_name {
+                        PropertyValue {
+                            value_brush: slint::Color::from_rgb_u8(0, 0, 255).into(),
+                            value_resolved: true,
+                            ..Default::default()
+                        }
+                    } else {
+                        fallback
+                    }
+                });
+                let hook_value = hooked.clone();
+                properties_api.on_hooked_property_value_data(move |name, fallback| {
+                    if let Some(brush) = &hook_value
+                        && name == property_name
+                    {
+                        PropertyValue {
+                            value_brush: brush.clone(),
+                            value_resolved: true,
+                            ..Default::default()
+                        }
+                    } else {
+                        fallback
+                    }
+                });
+                api.set_current_element(super::ElementInformation {
+                    offset: api.get_current_element().offset + 1,
+                    ..api.get_current_element()
+                });
+                slint::platform::update_timers_and_animations();
+                let field = find_element(&editor, &format!("{label} color picker"));
+                let field_center = field.absolute_position().y + field.size().height / 2.;
+                let swatch = i_slint_backend_testing::ElementHandle::find_by_element_id(
+                    &editor,
+                    "InspectorColorField::swatch-circle",
                 )
-                .find_map(|element| element.accessible_checked()),
-                Some(expected),
-                "source: {source:?}, runtime: {runtime:?}"
-            );
+                .find(|swatch| {
+                    (swatch.absolute_position().y + swatch.size().height / 2. - field_center).abs()
+                        < 1.
+                })
+                .expect("field swatch");
+                let position = swatch.absolute_position();
+                let snapshot = editor.window().take_snapshot().unwrap();
+                let pixel = snapshot.as_slice()[(position.y + swatch.size().height / 2.) as usize
+                    * snapshot.width() as usize
+                    + (position.x + swatch.size().width * 0.75) as usize];
+                let actual = [pixel.r, pixel.g, pixel.b];
+                let background = *transparent_pixel.get_or_insert(actual);
+                if matches!(hooked, Some(slint::Brush::LinearGradient(_))) {
+                    let left = snapshot.as_slice()[(position.y + swatch.size().height / 2.)
+                        as usize
+                        * snapshot.width() as usize
+                        + (position.x + swatch.size().width * 0.25) as usize];
+                    assert!(left.r > pixel.r && left.b < pixel.b, "{label}: gradient swatch");
+                } else {
+                    assert_eq!(
+                        actual,
+                        expected.unwrap_or(background),
+                        "{label}: code={code}, resolved={resolved}, runtime={runtime}, hooked={hooked:?}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn boolean_property_editors_prefer_hooks_then_source_over_runtime() {
+        i_slint_backend_testing::init_no_event_loop();
+        for (property_name, type_name, label, default) in [
+            ("enabled", "Button", "Enabled", true),
+            ("read-only", "LineEdit", "Read-only", false),
+            ("checked", "CheckBox", "Checked", false),
+            ("indeterminate", "ProgressIndicator", "Indeterminate", false),
+            ("font-italic", "Text", "Italic", false),
+            ("primary", "Button", "Primary", false),
+            ("checkable", "Button", "Checked", false),
+        ] {
+            let editor = super::create_ui().unwrap();
+            let api = editor.global::<super::Api>();
+            let properties_api = editor.global::<super::Properties>();
+            api.on_highlight_positions(|_, _| {
+                std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle::default()])).into()
+            });
+            editor
+                .global::<super::Diagnostics>()
+                .set_preview_availability(super::PreviewAvailability::Current);
+            api.set_current_element(super::ElementInformation {
+                type_name: type_name.into(),
+                ..Default::default()
+            });
+            api.set_selection(super::Selection { highlight_index: 0, ..Default::default() });
+            connect_has_property(&properties_api);
+            set_test_properties(&properties_api, &["enabled", property_name]);
+            editor.show().unwrap();
+            editor.window().set_size(slint::LogicalSize::new(1360., 1200.));
+            for (source, runtime, hooked, expected) in [
+                (None, None, None, default),
+                (None, Some(!default), None, default),
+                (Some(false), Some(true), None, false),
+                (Some(true), Some(false), None, true),
+                (Some(false), Some(false), Some(true), true),
+                (Some(true), Some(true), Some(false), false),
+            ] {
+                properties_api.on_source_property_value_data(move |name, fallback| {
+                    if name == property_name {
+                        PropertyValue {
+                            code: source.map(|value| value.to_shared_string()).unwrap_or_default(),
+                            kind: PropertyValueKind::Boolean,
+                            value_kind: PropertyValueKind::Boolean,
+                            value_bool: source.unwrap_or(default),
+                            value_resolved: true,
+                            ..Default::default()
+                        }
+                    } else {
+                        fallback
+                    }
+                });
+                properties_api.on_runtime_property_value_data(
+                    move |name, fallback| match runtime {
+                        Some(value) if name == property_name => PropertyValue {
+                            value_resolved: true,
+                            value_bool: value,
+                            ..Default::default()
+                        },
+                        _ => fallback,
+                    },
+                );
+                properties_api.on_hooked_property_value_data(move |name, fallback| match hooked {
+                    Some(value) if name == property_name => PropertyValue {
+                        value_resolved: true,
+                        value_bool: value,
+                        ..Default::default()
+                    },
+                    _ => fallback,
+                });
+                properties_api
+                    .set_inspector_generation(properties_api.get_inspector_generation() + 1);
+                api.set_current_element(super::ElementInformation {
+                    offset: api.get_current_element().offset + 1,
+                    ..api.get_current_element()
+                });
+                slint::platform::update_timers_and_animations();
+                let mut controls = i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                    &editor, label,
+                );
+                let actual = if property_name == "checkable" {
+                    Some(controls.next().is_some())
+                } else {
+                    controls.find_map(|element| element.accessible_checked())
+                };
+                assert_eq!(
+                    actual,
+                    Some(expected),
+                    "{property_name}: source={source:?}, runtime={runtime:?}, hooked={hooked:?}"
+                );
+            }
         }
     }
 
@@ -2540,13 +2721,14 @@ mod tests {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
         let api = editor.global::<super::Api>();
+        let properties_api = editor.global::<super::Properties>();
         editor
             .global::<super::Diagnostics>()
             .set_preview_availability(super::PreviewAvailability::Current);
         let mut selection = api.get_selection();
         selection.highlight_index = 0;
         api.set_selection(selection);
-        connect_has_property(&api);
+        connect_has_property(&properties_api);
         editor.show().unwrap();
         editor.window().set_size(slint::LogicalSize::new(1360., 860.));
         for (type_name, property, expected) in [
@@ -2559,7 +2741,7 @@ mod tests {
             let mut element = api.get_current_element();
             element.type_name = type_name.into();
             api.set_current_element(element);
-            set_test_properties(&api, &[property]);
+            set_test_properties(&properties_api, &[property]);
             slint::platform::update_timers_and_animations();
             assert_eq!(
                 i_slint_backend_testing::ElementHandle::find_by_accessible_label(&editor, "Title")
@@ -2572,10 +2754,11 @@ mod tests {
     }
 
     #[test]
-    fn title_field_commits_code_binding() {
+    fn title_field_commits_inspector_edit() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
         let api = editor.global::<super::Api>();
+        let properties_api = editor.global::<super::Properties>();
         editor
             .global::<super::Diagnostics>()
             .set_preview_availability(super::PreviewAvailability::Current);
@@ -2586,15 +2769,21 @@ mod tests {
         let mut selection = api.get_selection();
         selection.highlight_index = 0;
         api.set_selection(selection);
-        api.on_test_code_binding(|_, _, _, _, _| true);
-        let commits = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
-        let recorded = commits.clone();
-        api.on_set_code_binding(move |_, _, _, name, value| {
-            recorded.borrow_mut().push((name.to_string(), value.to_string()));
+        properties_api.on_string_to_code(super::string_to_code);
+        let previews = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let recorded = previews.clone();
+        properties_api.on_inspector_preview(move |name, value| {
+            recorded.borrow_mut().push((name.to_string(), value.code.to_string()));
             true
         });
-        connect_has_property(&api);
-        set_test_properties(&api, &["title"]);
+        let committed = std::rc::Rc::new(std::cell::Cell::new(false));
+        let recorded = committed.clone();
+        properties_api.on_inspector_commit(move || {
+            recorded.set(true);
+            true
+        });
+        connect_has_property(&properties_api);
+        set_test_properties(&properties_api, &["title"]);
         editor.show().unwrap();
         editor.window().set_size(slint::LogicalSize::new(1360., 860.));
         slint::platform::update_timers_and_animations();
@@ -2605,8 +2794,133 @@ mod tests {
                         == Some(i_slint_backend_testing::AccessibleRole::TextInput)
                 })
                 .unwrap();
-        field.set_accessible_value("\"Settings\"");
-        assert_eq!(*commits.borrow(), [("title".to_string(), "\"Settings\"".to_string())]);
+        field.set_accessible_value("Settings");
+        assert_eq!(*previews.borrow(), [("title".to_string(), "\"Settings\"".to_string())]);
+        assert!(committed.get());
+    }
+
+    #[test]
+    fn unchanged_text_draft_cancels_preview_on_blur() {
+        use slint::platform::Key;
+
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        let properties_api = editor.global::<super::Properties>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        api.set_current_element(super::ElementInformation {
+            type_name: "GroupBox".into(),
+            source_uri: "file:///test.slint".into(),
+            ..Default::default()
+        });
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        connect_has_property(&properties_api);
+        set_test_properties(&properties_api, &["title"]);
+        properties_api.on_source_property_value_data(|name, fallback| {
+            if name == "title" {
+                PropertyValue {
+                    kind: PropertyValueKind::String,
+                    code: "\"Original\"".into(),
+                    value_string: "Original".into(),
+                    ..Default::default()
+                }
+            } else {
+                fallback
+            }
+        });
+        let previews = std::rc::Rc::new(std::cell::Cell::new(0));
+        let calls = previews.clone();
+        properties_api.on_inspector_preview(move |_, _| {
+            calls.set(calls.get() + 1);
+            true
+        });
+        let cancellations = std::rc::Rc::new(std::cell::Cell::new(0));
+        let calls = cancellations.clone();
+        properties_api.on_inspector_cancel(move || calls.set(calls.get() + 1));
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 2000.));
+        slint::platform::update_timers_and_animations();
+        let field =
+            i_slint_backend_testing::ElementHandle::find_by_accessible_label(&editor, "Title")
+                .find(|element| {
+                    element.accessible_role()
+                        == Some(i_slint_backend_testing::AccessibleRole::TextInput)
+                })
+                .unwrap();
+        field.invoke_accessible_default_action();
+        test_press_key(&editor, "Draft".into());
+        assert_eq!(field.accessible_value().as_deref(), Some("Draft"));
+        editor.window().dispatch_event(WindowEvent::KeyPressed { text: Key::Control.into() });
+        test_press_key(&editor, "a".into());
+        editor.window().dispatch_event(WindowEvent::KeyReleased { text: Key::Control.into() });
+        test_press_key(&editor, "Original".into());
+        assert_eq!(field.accessible_value().as_deref(), Some("Original"));
+        assert!(previews.get() >= 2);
+        assert_eq!(cancellations.get(), 0);
+        test_press_key(&editor, Key::Tab.into());
+        assert_eq!(cancellations.get(), 1);
+    }
+
+    #[test]
+    fn clean_text_field_history_uses_editor_guards() {
+        use slint::platform::Key;
+
+        i_slint_backend_testing::init_no_event_loop();
+        for editable in [true, false] {
+            let editor = super::EditorUi::new().unwrap();
+            let api = editor.global::<super::Api>();
+            let properties_api = editor.global::<super::Properties>();
+            editor
+                .global::<super::Diagnostics>()
+                .set_preview_availability(super::PreviewAvailability::Current);
+            api.set_current_element(super::ElementInformation {
+                type_name: "GroupBox".into(),
+                ..Default::default()
+            });
+            let mut selection = api.get_selection();
+            selection.highlight_index = 0;
+            api.set_selection(selection);
+            connect_has_property(&properties_api);
+            set_test_properties(&properties_api, &["title"]);
+            api.set_undo_enabled(true);
+            let undo_count = std::rc::Rc::new(std::cell::Cell::new(0));
+            let calls = undo_count.clone();
+            api.on_undo(move || calls.set(calls.get() + 1));
+            editor.show().unwrap();
+            editor.window().set_size(slint::LogicalSize::new(1360., 2000.));
+            slint::platform::update_timers_and_animations();
+            let field =
+                i_slint_backend_testing::ElementHandle::find_by_accessible_label(&editor, "Title")
+                    .find(|element| {
+                        element.accessible_role()
+                            == Some(i_slint_backend_testing::AccessibleRole::TextInput)
+                    })
+                    .unwrap();
+            field.invoke_accessible_default_action();
+            editor.global::<super::CanvasView>().set_nudging(true);
+            if !editable {
+                editor
+                    .global::<super::Diagnostics>()
+                    .set_preview_availability(super::PreviewAvailability::Stale);
+            }
+            editor.window().dispatch_event(WindowEvent::KeyPressed { text: Key::Control.into() });
+            test_press_key(&editor, "z".into());
+            editor.window().dispatch_event(WindowEvent::KeyReleased { text: Key::Control.into() });
+            assert_eq!(undo_count.get(), i32::from(editable));
+            if editable {
+                assert!(!editor.global::<super::CanvasView>().get_nudging());
+            }
+        }
+    }
+
+    fn test_press_key(editor: &super::EditorUi, text: SharedString) {
+        editor.window().dispatch_event(WindowEvent::KeyPressed { text: text.clone() });
+        editor.window().dispatch_event(WindowEvent::KeyReleased { text });
+        slint::platform::update_timers_and_animations();
     }
 
     #[test]
@@ -2614,13 +2928,14 @@ mod tests {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
         let api = editor.global::<super::Api>();
+        let properties_api = editor.global::<super::Properties>();
         editor
             .global::<super::Diagnostics>()
             .set_preview_availability(super::PreviewAvailability::Current);
         let mut selection = api.get_selection();
         selection.highlight_index = 0;
         api.set_selection(selection);
-        connect_has_property(&api);
+        connect_has_property(&properties_api);
         editor.show().unwrap();
         editor.window().set_size(slint::LogicalSize::new(1360., 860.));
         for (type_name, property, expected) in [
@@ -2633,7 +2948,7 @@ mod tests {
             let mut element = api.get_current_element();
             element.type_name = type_name.into();
             api.set_current_element(element);
-            set_test_properties(&api, &[property]);
+            set_test_properties(&properties_api, &[property]);
             slint::platform::update_timers_and_animations();
             assert_eq!(
                 i_slint_backend_testing::ElementHandle::find_by_accessible_label(
@@ -2653,6 +2968,7 @@ mod tests {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
         let api = editor.global::<super::Api>();
+        let properties_api = editor.global::<super::Properties>();
         editor
             .global::<super::Diagnostics>()
             .set_preview_availability(super::PreviewAvailability::Current);
@@ -2663,15 +2979,15 @@ mod tests {
         let mut selection = api.get_selection();
         selection.highlight_index = 0;
         api.set_selection(selection);
-        api.on_test_code_binding(|_, _, _, _, _| true);
+        properties_api.on_test_code_binding(|_, _, _, _, _| true);
         let commits = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
         let recorded = commits.clone();
-        api.on_set_code_binding(move |_, _, _, name, value| {
+        properties_api.on_set_code_binding(move |_, _, _, name, value| {
             recorded.borrow_mut().push((name.to_string(), value.to_string()));
             true
         });
-        connect_has_property(&api);
-        set_test_properties(&api, &["placeholder-text"]);
+        connect_has_property(&properties_api);
+        set_test_properties(&properties_api, &["placeholder-text"]);
         editor.show().unwrap();
         editor.window().set_size(slint::LogicalSize::new(1360., 860.));
         slint::platform::update_timers_and_animations();
@@ -2695,13 +3011,14 @@ mod tests {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
         let api = editor.global::<super::Api>();
+        let properties_api = editor.global::<super::Properties>();
         editor
             .global::<super::Diagnostics>()
             .set_preview_availability(super::PreviewAvailability::Current);
         let mut selection = api.get_selection();
         selection.highlight_index = 0;
         api.set_selection(selection);
-        connect_has_property(&api);
+        connect_has_property(&properties_api);
         editor.show().unwrap();
         editor.window().set_size(slint::LogicalSize::new(1360., 860.));
         for (type_name, property, expected) in [
@@ -2717,7 +3034,7 @@ mod tests {
             let mut element = api.get_current_element();
             element.type_name = type_name.into();
             api.set_current_element(element);
-            set_test_properties(&api, &["enabled", property]);
+            set_test_properties(&properties_api, &["enabled", property]);
             slint::platform::update_timers_and_animations();
             assert_eq!(
                 i_slint_backend_testing::ElementHandle::find_by_accessible_label(
@@ -2733,68 +3050,11 @@ mod tests {
     }
 
     #[test]
-    fn read_only_switch_reads_source_when_runtime_value_is_unresolved() {
+    fn read_only_switch_commits_typed_property() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
         let api = editor.global::<super::Api>();
-        editor
-            .global::<super::Diagnostics>()
-            .set_preview_availability(super::PreviewAvailability::Current);
-        let mut element = api.get_current_element();
-        element.type_name = "LineEdit".into();
-        api.set_current_element(element);
-        let mut selection = api.get_selection();
-        selection.highlight_index = 0;
-        api.set_selection(selection);
-        connect_has_property(&api);
-        set_test_properties(&api, &["enabled", "read-only"]);
-        editor.show().unwrap();
-        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
-        for (source, runtime, expected) in [
-            (None, None, false),
-            (Some(true), None, true),
-            (Some(false), None, false),
-            (Some(true), Some(false), false),
-            (None, Some(true), true),
-        ] {
-            api.on_source_property_value_data(move |name, _| match source {
-                Some(value) if name == "read-only" => PropertyValue {
-                    code: value.to_shared_string(),
-                    kind: PropertyValueKind::Boolean,
-                    value_kind: PropertyValueKind::Boolean,
-                    value_bool: value,
-                    ..Default::default()
-                },
-                _ => PropertyValue::default(),
-            });
-            api.on_runtime_property_value_data(move |name, fallback| match runtime {
-                Some(value) if name == "read-only" => {
-                    PropertyValue { value_resolved: true, value_bool: value, ..Default::default() }
-                }
-                _ => fallback,
-            });
-            api.set_inspector_generation(api.get_inspector_generation() + 1);
-            let mut element = api.get_current_element();
-            element.offset += 1;
-            api.set_current_element(element);
-            slint::platform::update_timers_and_animations();
-            assert_eq!(
-                i_slint_backend_testing::ElementHandle::find_by_accessible_label(
-                    &editor,
-                    "Read-only"
-                )
-                .find_map(|element| element.accessible_checked()),
-                Some(expected),
-                "source: {source:?}, runtime: {runtime:?}"
-            );
-        }
-    }
-
-    #[test]
-    fn read_only_switch_commits_code_binding() {
-        i_slint_backend_testing::init_no_event_loop();
-        let editor = super::EditorUi::new().unwrap();
-        let api = editor.global::<super::Api>();
+        let properties_api = editor.global::<super::Properties>();
         editor
             .global::<super::Diagnostics>()
             .set_preview_availability(super::PreviewAvailability::Current);
@@ -2805,15 +3065,16 @@ mod tests {
         let mut selection = api.get_selection();
         selection.highlight_index = 0;
         api.set_selection(selection);
-        api.on_test_code_binding(|_, _, _, _, _| true);
+        properties_api.on_inspector_commit(|| true);
         let commits = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
         let recorded = commits.clone();
-        api.on_set_code_binding(move |_, _, _, name, value| {
-            recorded.borrow_mut().push((name.to_string(), value.to_string()));
+        properties_api.on_inspector_preview(move |name, value| {
+            assert_eq!(value.kind, super::PropertyEditKind::Boolean);
+            recorded.borrow_mut().push((name.to_string(), value.boolean));
             true
         });
-        connect_has_property(&api);
-        set_test_properties(&api, &["enabled", "read-only"]);
+        connect_has_property(&properties_api);
+        set_test_properties(&properties_api, &["enabled", "read-only"]);
         editor.show().unwrap();
         editor.window().set_size(slint::LogicalSize::new(1360., 860.));
         slint::platform::update_timers_and_animations();
@@ -2822,7 +3083,7 @@ mod tests {
                 .find(|element| element.accessible_checked().is_some())
                 .unwrap();
         switch.invoke_accessible_default_action();
-        assert_eq!(*commits.borrow(), [("read-only".to_string(), "true".to_string())]);
+        assert_eq!(*commits.borrow(), [("read-only".to_string(), true)]);
         assert_eq!(switch.accessible_checked(), Some(false));
     }
 
@@ -2898,10 +3159,11 @@ mod tests {
     }
 
     #[test]
-    fn primary_switch_commits_code_binding() {
+    fn primary_switch_commits_typed_property() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
         let api = editor.global::<super::Api>();
+        let properties_api = editor.global::<super::Properties>();
         editor
             .global::<super::Diagnostics>()
             .set_preview_availability(super::PreviewAvailability::Current);
@@ -2921,11 +3183,12 @@ mod tests {
             }]))
             .into()
         });
-        api.on_test_code_binding(|_, _, _, _, _| true);
+        properties_api.on_inspector_commit(|| true);
         let commits = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
         let recorded = commits.clone();
-        api.on_set_code_binding(move |_, _, _, name, value| {
-            recorded.borrow_mut().push((name.to_string(), value.to_string()));
+        properties_api.on_inspector_preview(move |name, value| {
+            assert_eq!(value.kind, super::PropertyEditKind::Boolean);
+            recorded.borrow_mut().push((name.to_string(), value.boolean));
             true
         });
         editor.show().unwrap();
@@ -2936,7 +3199,95 @@ mod tests {
                 .find(|element| element.accessible_checked().is_some())
                 .unwrap();
         switch.invoke_accessible_default_action();
-        assert_eq!(*commits.borrow(), [("primary".to_string(), "true".to_string())]);
+        assert_eq!(*commits.borrow(), [("primary".to_string(), true)]);
+        assert_eq!(switch.accessible_checked(), Some(false));
+    }
+
+    #[test]
+    fn colorize_icon_section_follows_selected_element_type() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        api.on_highlight_positions(|_, _| {
+            std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle {
+                width: 100.,
+                height: 20.,
+                describes_element: true,
+                ..Default::default()
+            }]))
+            .into()
+        });
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        for (type_name, expected) in
+            [("Button", true), ("StandardButton", false), ("CheckBox", false), ("Rectangle", false)]
+        {
+            let mut element = api.get_current_element();
+            element.type_name = type_name.into();
+            api.set_current_element(element);
+            slint::platform::update_timers_and_animations();
+            assert_eq!(
+                i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                    &editor,
+                    "Colorize Icon"
+                )
+                .next()
+                .is_some(),
+                expected,
+                "{type_name}"
+            );
+        }
+    }
+
+    #[test]
+    fn colorize_icon_switch_commits_code_binding() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut element = api.get_current_element();
+        element.type_name = "Button".into();
+        element.source_uri = "file:///test.slint".into();
+        api.set_current_element(element);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        api.on_highlight_positions(|_, _| {
+            std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle {
+                width: 100.,
+                height: 20.,
+                describes_element: true,
+                ..Default::default()
+            }]))
+            .into()
+        });
+        let properties = editor.global::<super::Properties>();
+        properties.on_test_code_binding(|_, _, _, _, _| true);
+        let commits = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let recorded = commits.clone();
+        properties.on_set_code_binding(move |_, _, _, name, value| {
+            recorded.borrow_mut().push((name.to_string(), value.to_string()));
+            true
+        });
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        slint::platform::update_timers_and_animations();
+        let switch = i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+            &editor,
+            "Colorize Icon",
+        )
+        .find(|element| element.accessible_checked().is_some())
+        .unwrap();
+        switch.invoke_accessible_default_action();
+        assert_eq!(*commits.borrow(), [("colorize-icon".to_string(), "true".to_string())]);
         assert_eq!(switch.accessible_checked(), Some(false));
     }
 
@@ -3028,61 +3379,6 @@ mod tests {
                 .is_some(),
                 expected,
                 "{type_name}"
-            );
-        }
-    }
-
-    #[test]
-    fn checked_switch_reads_source_when_runtime_value_is_unresolved() {
-        i_slint_backend_testing::init_no_event_loop();
-        let editor = super::EditorUi::new().unwrap();
-        let api = editor.global::<super::Api>();
-        editor
-            .global::<super::Diagnostics>()
-            .set_preview_availability(super::PreviewAvailability::Current);
-        let mut element = api.get_current_element();
-        element.type_name = "CheckBox".into();
-        api.set_current_element(element);
-        let mut selection = api.get_selection();
-        selection.highlight_index = 0;
-        api.set_selection(selection);
-        editor.show().unwrap();
-        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
-        for (source, runtime, expected) in [
-            (None, None, false),
-            (Some(false), None, false),
-            (Some(true), None, true),
-            (Some(false), Some(true), true),
-            (Some(true), Some(false), false),
-        ] {
-            api.on_source_property_value_data(move |name, _| match source {
-                Some(value) if name == "checked" => PropertyValue {
-                    code: value.to_shared_string(),
-                    kind: PropertyValueKind::Boolean,
-                    value_kind: PropertyValueKind::Boolean,
-                    value_bool: value,
-                    ..Default::default()
-                },
-                _ => PropertyValue::default(),
-            });
-            api.on_runtime_property_value_data(move |name, fallback| match runtime {
-                Some(value) if name == "checked" => {
-                    PropertyValue { value_resolved: true, value_bool: value, ..Default::default() }
-                }
-                _ => fallback,
-            });
-            api.set_inspector_generation(api.get_inspector_generation() + 1);
-            let mut element = api.get_current_element();
-            element.offset += 1;
-            api.set_current_element(element);
-            slint::platform::update_timers_and_animations();
-            assert_eq!(
-                i_slint_backend_testing::ElementHandle::find_by_accessible_label(
-                    &editor, "Checked"
-                )
-                .find_map(|element| element.accessible_checked()),
-                Some(expected),
-                "source: {source:?}, runtime: {runtime:?}"
             );
         }
     }
@@ -3312,6 +3608,80 @@ mod tests {
     }
 
     #[test]
+    fn alignment_buttons_follow_source_and_temporary_overrides() {
+        fn alignment(name: &str, value: &str) -> PropertyValue {
+            let enum_name = if name == "horizontal-alignment" {
+                "TextHorizontalAlignment"
+            } else {
+                "TextVerticalAlignment"
+            };
+            let ty =
+                i_slint_compiler::typeregister::TypeRegister::builtin().borrow().lookup(enum_name);
+            super::map_value_and_type_to_property_value(
+                &ty,
+                &Some(slint_interpreter::Value::EnumerationValue(enum_name.into(), value.into())),
+                "",
+            )
+        }
+
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        let properties_api = editor.global::<super::Properties>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        api.on_highlight_positions(|_, _| {
+            std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle {
+                width: 200.,
+                height: 30.,
+                ..Default::default()
+            }]))
+            .into()
+        });
+        properties_api.on_combo_option_index(super::combo_option_index);
+        properties_api.on_source_property_value_data(|name, fallback| match name.as_str() {
+            "horizontal-alignment" => alignment(&name, "start"),
+            "vertical-alignment" => alignment(&name, "top"),
+            _ => fallback,
+        });
+        let overrides = std::rc::Rc::pin(i_slint_core::Property::new(None::<(&str, &str)>));
+        let hooked = overrides.clone();
+        properties_api.on_hooked_property_value_data(move |name, fallback| {
+            match (name.as_str(), hooked.as_ref().get()) {
+                ("horizontal-alignment", Some((value, _)))
+                | ("vertical-alignment", Some((_, value))) => alignment(&name, value),
+                _ => fallback,
+            }
+        });
+        api.set_current_element(super::ElementInformation {
+            type_name: "Text".into(),
+            ..Default::default()
+        });
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 1600.));
+        for (value, horizontal, vertical) in [
+            (None, "Align left", "Align top"),
+            (Some(("end", "bottom")), "Align right", "Align bottom"),
+            (Some(("center", "center")), "Align center", "Align middle"),
+            (None, "Align left", "Align top"),
+        ] {
+            overrides.as_ref().set(value);
+            slint::platform::update_timers_and_animations();
+            for label in [horizontal, vertical] {
+                assert_eq!(
+                    find_element(&editor, label).accessible_checked(),
+                    Some(true),
+                    "{label}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn layout_alignment_rows_follow_selected_element_type() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
@@ -3364,6 +3734,7 @@ mod tests {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
         let api = editor.global::<super::Api>();
+        let properties_api = editor.global::<super::Properties>();
         editor
             .global::<super::Diagnostics>()
             .set_preview_availability(super::PreviewAvailability::Current);
@@ -3378,7 +3749,7 @@ mod tests {
             }]))
             .into()
         });
-        connect_has_property(&api);
+        connect_has_property(&properties_api);
         editor.show().unwrap();
         editor.window().set_size(slint::LogicalSize::new(1360., 860.));
         for (type_name, property, expected) in [
@@ -3390,7 +3761,7 @@ mod tests {
             let mut element = api.get_current_element();
             element.type_name = type_name.into();
             api.set_current_element(element);
-            set_test_properties(&api, &[property]);
+            set_test_properties(&properties_api, &[property]);
             slint::platform::update_timers_and_animations();
             for label in ["Horizontal Scroll Bar Policy", "Vertical Scroll Bar Policy"] {
                 assert_eq!(
@@ -3413,7 +3784,8 @@ mod tests {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
         let api = editor.global::<super::Api>();
-        super::brushes::setup(&api);
+        let properties_api = editor.global::<super::Properties>();
+        super::brushes::setup(&properties_api);
         editor
             .global::<super::Diagnostics>()
             .set_preview_availability(super::PreviewAvailability::Current);
@@ -3431,8 +3803,9 @@ mod tests {
         editor.window().set_size(slint::LogicalSize::new(1360., 860.));
         slint::platform::update_timers_and_animations();
         let session = editor.global::<super::FillSession>();
-        session.invoke_begin(super::FillSessionRequest {
-            fill: super::FillData {
+        connect_fill_editor(
+            &editor,
+            super::FillData {
                 kind: super::BrushKind::Linear,
                 angle: 90.,
                 stops: std::rc::Rc::new(VecModel::from(vec![
@@ -3448,6 +3821,8 @@ mod tests {
                 .into(),
                 ..Default::default()
             },
+        );
+        session.invoke_begin(super::FillSessionRequest {
             target: super::FillSessionTarget {
                 canvas: true,
                 key: "replaced-inspector-field".into(),
@@ -3478,8 +3853,9 @@ mod tests {
         for kind in [super::BrushKind::Linear, super::BrushKind::Radial, super::BrushKind::Conic] {
             let editor = super::EditorUi::new().unwrap();
             let api = editor.global::<super::Api>();
-            super::brushes::setup(&api);
-            api.on_inspector_fill_preview(|_, _, _, _, _| true);
+            let properties_api = editor.global::<super::Properties>();
+            super::brushes::setup(&properties_api);
+            connect_fill_editor(&editor, super::FillData { kind, ..Default::default() });
             let session = editor.global::<super::FillSession>();
             let mut element = api.get_current_element();
             element.type_name = "Rectangle".into();
@@ -3488,7 +3864,6 @@ mod tests {
             selection.highlight_index = 0;
             api.set_selection(selection);
             let mut request = super::FillSessionRequest {
-                fill: super::FillData { kind, ..Default::default() },
                 target: super::FillSessionTarget { canvas: true, ..Default::default() },
                 ..Default::default()
             };
@@ -3497,19 +3872,12 @@ mod tests {
             assert!(session.get_canvas_active());
             assert_eq!(session.get_radial_active(), kind == super::BrushKind::Radial);
             assert_eq!(session.get_conic_active(), kind == super::BrushKind::Conic);
-            api.set_inspector_fill_refresh_pending(true);
-            assert!(!session.get_canvas_active());
-            api.set_inspector_fill_refresh_pending(false);
             element.type_name = "Text".into();
             api.set_current_element(element.clone());
             assert!(!session.get_canvas_active());
             element.type_name = "Rectangle".into();
             api.set_current_element(element);
             assert!(session.get_canvas_active());
-            request.unsupported = true;
-            session.invoke_begin(request.clone());
-            assert!(!session.get_canvas_active());
-            request.unsupported = false;
             request.target.canvas = false;
             session.invoke_begin(request.clone());
             assert!(!session.get_canvas_active());
@@ -3526,7 +3894,7 @@ mod tests {
     fn fill_picker_placement_and_resize_keep_both_panels_visible() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
-        super::brushes::setup(&editor.global::<super::Api>());
+        super::brushes::setup(&editor.global::<super::Properties>());
         let session = editor.global::<super::FillSession>();
         let bounds = editor.global::<super::EditorWindow>();
         editor.show().unwrap();
@@ -3574,14 +3942,16 @@ mod tests {
         for change in 0..4 {
             let editor = super::EditorUi::new().unwrap();
             let api = editor.global::<super::Api>();
-            super::brushes::setup(&api);
-            api.on_inspector_fill_preview(|_, _, _, _, _| true);
-            api.on_inspector_fill_commit(|_, _, _, _, _, _| {
-                panic!("stale sessions must not commit")
-            });
+            let properties_api = editor.global::<super::Properties>();
+            super::brushes::setup(&properties_api);
+            let pending = connect_fill_editor(&editor, Default::default());
+            properties_api.on_inspector_commit(|| panic!("stale sessions must not commit"));
             let canceled = std::rc::Rc::new(std::cell::Cell::new(0));
             let count = canceled.clone();
-            api.on_inspector_cancel(move || count.set(count.get() + 1));
+            properties_api.on_inspector_cancel(move || {
+                pending.as_ref().set(None);
+                count.set(count.get() + 1);
+            });
             let session = editor.global::<super::FillSession>();
             let mut element = api.get_current_element();
             element.source_uri = "file:///scene.slint".into();
@@ -3594,7 +3964,7 @@ mod tests {
                         element.source_uri,
                         element.offset,
                         api.get_selection().highlight_index,
-                        api.get_inspector_fill_generation()
+                        properties_api.get_inspector_fill_generation()
                     )
                     .into(),
                     ..Default::default()
@@ -3604,6 +3974,7 @@ mod tests {
             slint::platform::update_timers_and_animations();
             assert!(session.get_open());
             assert!(session.invoke_preview_color(slint::Color::from_rgb_u8(255, 0, 0)));
+            let previous_cancellations = canceled.get();
             match change {
                 0 => {
                     element.source_uri = "file:///replacement.slint".into();
@@ -3613,15 +3984,17 @@ mod tests {
                     element.offset += 1;
                     api.set_current_element(element);
                 }
-                2 => api.set_inspector_fill_generation(api.get_inspector_fill_generation() + 1),
+                2 => properties_api.set_inspector_fill_generation(
+                    properties_api.get_inspector_fill_generation() + 1,
+                ),
                 _ => api.set_current_element(Default::default()),
             }
             slint::platform::update_timers_and_animations();
             assert!(!session.get_open());
-            assert_eq!(canceled.get(), 1);
+            assert_eq!(canceled.get() - previous_cancellations, 1);
             assert_eq!(
-                api.invoke_fill_brush(session.get_working_fill()),
-                api.invoke_fill_brush(session.get_request().fill)
+                properties_api.invoke_fill_brush(session.get_working_fill()),
+                slint::Brush::default()
             );
         }
     }
@@ -3630,9 +4003,9 @@ mod tests {
     fn gradient_switching_restores_geometry_and_carries_current_stops() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
-        let api = editor.global::<super::Api>();
-        super::brushes::setup(&api);
-        api.on_inspector_fill_preview(|_, _, _, _, _| true);
+        let properties_api = editor.global::<super::Properties>();
+        super::brushes::setup(&properties_api);
+        connect_fill_editor(&editor, Default::default());
         let session = editor.global::<super::FillSession>();
         session.invoke_begin(Default::default());
         let kinds = [super::BrushKind::Linear, super::BrushKind::Radial, super::BrushKind::Conic];
@@ -3678,41 +4051,15 @@ mod tests {
     }
 
     #[test]
-    fn fill_session_owns_its_initial_stop_snapshot() {
-        i_slint_backend_testing::init_no_event_loop();
-        let editor = super::EditorUi::new().unwrap();
-        let api = editor.global::<super::Api>();
-        super::brushes::setup(&api);
-        let stops = std::rc::Rc::new(VecModel::from(vec![
-            super::GradientStop { position: 0., color: slint::Color::from_rgb_u8(255, 0, 0) },
-            super::GradientStop { position: 1., color: slint::Color::from_rgb_u8(0, 0, 255) },
-        ]));
-        let original = stops.iter().collect::<Vec<_>>();
-        let session = editor.global::<super::FillSession>();
-        session.invoke_begin(super::FillSessionRequest {
-            fill: super::FillData {
-                kind: super::BrushKind::Linear,
-                stops: stops.clone().into(),
-                ..Default::default()
-            },
-            ..Default::default()
-        });
-        stops.set_row_data(0, super::GradientStop { position: 0.25, ..original[1] });
-        assert_eq!(session.get_request().fill.stops.iter().collect::<Vec<_>>(), original);
-        session.invoke_close_picker(false, false);
-        assert_eq!(session.get_working_fill().stops.iter().collect::<Vec<_>>(), original);
-    }
-
-    #[test]
     fn stop_mutations_preserve_shared_gesture_snapshots() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
-        let api = editor.global::<super::Api>();
-        super::brushes::setup(&api);
-        api.on_inspector_fill_preview(|_, _, _, _, _| true);
+        let properties_api = editor.global::<super::Properties>();
+        super::brushes::setup(&properties_api);
         let session = editor.global::<super::FillSession>();
-        session.invoke_begin(super::FillSessionRequest {
-            fill: super::FillData {
+        connect_fill_editor(
+            &editor,
+            super::FillData {
                 kind: super::BrushKind::Linear,
                 stops: std::rc::Rc::new(VecModel::from(vec![
                     super::GradientStop {
@@ -3731,8 +4078,8 @@ mod tests {
                 .into(),
                 ..Default::default()
             },
-            ..Default::default()
-        });
+        );
+        session.invoke_begin(super::FillSessionRequest { ..Default::default() });
         let snapshot = session.get_working_fill();
         let stops = snapshot.stops.iter().collect::<Vec<_>>();
         session.set_selected_stop(1);
@@ -3741,10 +4088,9 @@ mod tests {
         session.invoke_add_stop_position(0.25);
         session.invoke_remove_stop(0);
         assert_eq!(snapshot.stops.iter().collect::<Vec<_>>(), stops);
-        assert_eq!(session.get_request().fill.stops.iter().collect::<Vec<_>>(), stops);
         assert!(session.invoke_preview_fill(snapshot));
         assert_eq!(session.get_working_fill().stops.iter().collect::<Vec<_>>(), stops);
-        api.on_inspector_fill_preview(|_, _, _, _, _| false);
+        properties_api.on_inspector_preview(|_, _| false);
         assert!(!session.invoke_move_stop_position(0.75));
         assert!(!session.get_open());
         assert_eq!(session.get_working_fill().stops.iter().collect::<Vec<_>>(), stops);
@@ -3755,8 +4101,8 @@ mod tests {
         i_slint_backend_testing::init_no_event_loop();
         for reject_preview in [false, true] {
             let editor = super::EditorUi::new().unwrap();
-            let api = editor.global::<super::Api>();
-            super::brushes::setup(&api);
+            let properties_api = editor.global::<super::Properties>();
+            super::brushes::setup(&properties_api);
             let session = editor.global::<super::FillSession>();
             let target = slint::SharedString::from("rectangle:background");
             let original = super::FillData {
@@ -3765,7 +4111,6 @@ mod tests {
                 ..Default::default()
             };
             session.invoke_begin(super::FillSessionRequest {
-                fill: original.clone(),
                 target: super::FillSessionTarget {
                     key: target.clone(),
                     property_name: "background".into(),
@@ -3773,30 +4118,23 @@ mod tests {
                 },
                 ..Default::default()
             });
-            let expected = target.clone();
-            api.on_inspector_fill_preview(move |key, property, _, _, _| {
-                assert_eq!(key, expected);
-                assert_eq!(property, "background");
-                true
-            });
+            let pending = connect_fill_editor(&editor, original.clone());
             let canceled = std::rc::Rc::new(std::cell::Cell::new(0));
             let count = canceled.clone();
-            api.on_inspector_cancel(move || count.set(count.get() + 1));
+            properties_api.on_inspector_cancel(move || {
+                pending.as_ref().set(None);
+                count.set(count.get() + 1);
+            });
             assert!(session.invoke_preview_color(slint::Color::from_rgb_u8(0, 0, 255)));
             if reject_preview {
-                api.on_inspector_fill_preview(|_, _, _, _, _| false);
+                properties_api.on_inspector_preview(|_, _| false);
                 assert!(!session.invoke_preview_color(slint::Color::from_rgb_u8(0, 255, 0)));
             } else {
-                let expected = target.clone();
-                api.on_inspector_fill_commit(move |key, property, _, _, _, _| {
-                    assert_eq!(key, expected);
-                    assert_eq!(property, "background");
-                    false
-                });
+                properties_api.on_inspector_commit(move || false);
                 session.invoke_close_picker(true, true);
                 assert_eq!(session.get_focus_generation(), 1);
             }
-            assert_eq!(canceled.get(), 1);
+            assert_eq!(canceled.get(), if reject_preview { 3 } else { 2 });
             assert!(!session.get_open());
             assert_eq!(session.get_request().target.key, target);
             assert_eq!(session.get_working_fill().color, original.color);
@@ -3811,10 +4149,10 @@ mod tests {
 
         let title_move_area = i_slint_backend_testing::ElementHandle::find_by_element_id(
             &editor,
-            "EditorUi::title-move-area",
+            "EditorUi::title-bar",
         )
         .next()
-        .expect("the title move area must be inside EditorUi's FocusScope");
+        .expect("the title bar must be inside EditorUi's FocusScope");
         let position = title_move_area.absolute_position();
         let size = title_move_area.size();
         let start =
@@ -3843,10 +4181,10 @@ mod tests {
 
         let title_touch_area = i_slint_backend_testing::ElementHandle::find_by_element_id(
             &editor,
-            "EditorUi::title-touch-area",
+            "ShellTitleBar::touch-area",
         )
         .next()
-        .expect("the title touch area must be inside the window move area");
+        .expect("the title bar must have a touch area");
 
         title_touch_area.mock_single_click(PointerEventButton::Left);
         title_touch_area.mock_single_click(PointerEventButton::Left);
@@ -3866,6 +4204,32 @@ mod tests {
         title_touch_area.mock_single_click(PointerEventButton::Left);
         assert_eq!(native_zoom_count.get(), 1);
         assert!(!editor.window().is_maximized());
+    }
+
+    #[test]
+    fn viewer_controls_sit_at_the_right_of_the_title_bar() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        editor.show().unwrap();
+
+        let find = |id| {
+            i_slint_backend_testing::ElementHandle::find_by_element_id(&editor, id)
+                .next()
+                .unwrap_or_else(|| panic!("{id} must exist"))
+        };
+        let title_bar = find("EditorUi::title-bar");
+        let viewer = find("EditorTopBar::viewer");
+
+        let title_bar_right = title_bar.absolute_position().x + title_bar.size().width;
+        let viewer_right = viewer.absolute_position().x + viewer.size().width;
+        assert_eq!(
+            title_bar_right - viewer_right,
+            editor.global::<super::Metrics>().get_space_large()
+        );
+        let title_bar_middle = title_bar.absolute_position().y + title_bar.size().height / 2.;
+        let viewer_middle = viewer.absolute_position().y + viewer.size().height / 2.;
+        assert!((title_bar_middle - viewer_middle).abs() < 1.);
     }
 
     const LEFT_PANE: usize = 0;
@@ -4118,17 +4482,18 @@ mod tests {
         }
     }
 
-    fn connect_has_property(api: &super::Api<'_>) {
-        let api_weak = <super::Api as slint::Global<'_, super::EditorUi>>::as_weak(api);
-        api.on_has_property(move |name| {
-            api_weak
-                .upgrade()
-                .is_some_and(|api| super::source_property_value_data(&api, name).is_some())
+    fn connect_has_property(properties_api: &super::Properties<'_>) {
+        let properties_api_weak =
+            <super::Properties as slint::Global<'_, super::EditorUi>>::as_weak(properties_api);
+        properties_api.on_has_property(move |name| {
+            properties_api_weak.upgrade().is_some_and(|properties_api| {
+                super::source_property_value_data(&properties_api, name).is_some()
+            })
         });
     }
 
-    fn set_test_properties(api: &super::Api<'_>, names: &[&str]) {
-        api.set_properties(
+    fn set_test_properties(properties_api: &super::Properties<'_>, names: &[&str]) {
+        properties_api.set_properties(
             std::rc::Rc::new(VecModel::from(vec![super::PropertyGroup {
                 group_name: "".into(),
                 properties: std::rc::Rc::new(VecModel::from(

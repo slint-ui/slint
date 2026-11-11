@@ -4,7 +4,7 @@
 # cSpell:ignore openweather urlencoding
 [package]
 name = "weather-demo"
-version = "1.19.0"
+version = "1.20.0"
 authors = ["FELGO GmbH <contact@felgo.com>"]
 edition.workspace = true
 build = "build.rs"
@@ -62,7 +62,7 @@ resources = "android-res"
 build_targets = ["aarch64-linux-android"]
 
 [package.metadata.android.sdk]
-min_sdk_version = 23
+min_sdk_version = 26
 target_sdk_version = 36
 
 [package.metadata.android.application]

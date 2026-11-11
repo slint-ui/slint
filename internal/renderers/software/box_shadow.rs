@@ -54,7 +54,7 @@ pub(super) fn process_drop_shadow(
     if let Some(radius) = options.opaque_source_radius() {
         push(
             euclid::Rect::new(euclid::point2(-spread, -spread), options.shape_size()),
-            (radius + Radius::new_uniform(spread)).max(Default::default()),
+            radius.spread(spread),
             1.,
         );
     } else {

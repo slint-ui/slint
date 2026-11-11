@@ -1,9 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { BrushKind } from "../ui/properties.slint";
+
 import { Button, ComboBox, ScrollView } from "std-widgets.slint";
 import { Gallery, GalleryPage } from "state.slint";
-import { BrushKind } from "../ui/api.slint";
+
 import { Colors, Typography } from "../ui/style.slint";
 import { PrimerTextInput, MutedLabel, SectionTitle } from "../ui/components/index.slint";
 import { InspectorColorValueField, InspectorValueField } from "../ui/components/inspector/index.slint";
@@ -78,7 +80,7 @@ export component GalleryProperties inherits Rectangle {
                     InspectorColorValueField {
                         accessible-name: "Property fill color";
                         value: Gallery.fill.color;
-                        live-edit: true;
+                        edit-input(color) => { Gallery.fill.color = color; }
                         preview(color) => { Gallery.fill.color = color; return true; }
                         swatch-activated => { Gallery.open-picker(self.absolute-position, { width: self.width, height: self.height }); }
                     }

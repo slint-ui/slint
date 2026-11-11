@@ -1,0 +1,98 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+//edition: 1.18
+
+// An application of edition 1.18 that uses a library of edition 1.19:
+// each component keeps the language behavior of its own edition.
+
+//library_path(new_lib): ../../helper_components/edition_1_19_library/slint-project.json
+import { RepeatedText, Slot, StatesOnly, WrappedText } from "@new_lib";
+
+component AppRepeatedText inherits Rectangle {
+    if true: Text { text: "foo"; }
+}
+
+component AppStatesOnly inherits Rectangle {
+    width: 100px;
+    height: 100px;
+    in property <bool> moved;
+    out property <length> inner-x: inner.x;
+    inner := Rectangle {
+        width: 40px;
+        height: 20px;
+        states [
+            moved when moved: { x: 5px; }
+        ]
+    }
+}
+
+component AppWrappedText inherits VerticalLayout {
+    in property <string> text;
+    Text { width: 150px; wrap: word-wrap; text: root.text; }
+}
+
+export component TestCase inherits Window {
+    width: 200px;
+    height: 500px;
+
+    // From edition 1.19, an `if` child counts toward its parent's size (#407).
+    lib-text := RepeatedText { }
+    app-text := AppRepeatedText { }
+    slot := Slot {
+        if true: Text { text: "foo"; }
+    }
+    out property <bool> lib-text-counts: lib-text.min-height > 0px;
+    out property <bool> app-text-ignored: app-text.min-height == 0px;
+    out property <bool> slot-text-ignored: slot.min-height == 0px;
+
+    // From edition 1.19, an `x` that only states set keeps centering the element (#8852).
+    lib-states := StatesOnly { }
+    app-states := AppStatesOnly { }
+    out property <length> lib-states-x: lib-states.inner-x;
+    out property <length> app-states-x: app-states.inner-x;
+
+    // From edition 1.19, a conditional section measures a Text with a fixed width
+    // at that width (#14705).
+    property <string> lorem: "Lorem ipsum dolor sit amet, consectetur adipiscing elit.";
+    ref-200 := Text { width: 200px; wrap: word-wrap; text: lorem; visible: false; }
+    ref-150 := Text { width: 150px; wrap: word-wrap; text: lorem; visible: false; }
+    VerticalLayout {
+        alignment: start;
+        if true: WrappedText { text: lorem; }
+        after-lib-wrapped := Rectangle { height: 10px; }
+        if true: AppWrappedText { text: lorem; }
+        after-app-wrapped := Rectangle { height: 10px; }
+    }
+    out property <bool> lib-wrapped-at-own-width: after-lib-wrapped.y == ref-150.preferred-height;
+    out property <bool> app-wrapped-at-layout-width:
+        after-app-wrapped.y == after-lib-wrapped.y + 10px + ref-200.preferred-height;
+
+    out property <bool> test: lib-text-counts && app-text-ignored && slot-text-ignored
+        && lib-states-x == 30px && app-states-x == 0px
+        && ref-150.preferred-height > ref-200.preferred-height
+        && lib-wrapped-at-own-width && app-wrapped-at-layout-width;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+```
+
+```python
+instance = TestCase()
+assert instance.test
+```
+*/

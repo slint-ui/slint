@@ -49,7 +49,7 @@ instance.invoke_show_popup();
 slint_testing::mock_elapsed_time(100);
 
 assert_eq!(instance.get_popup_open(), true);
-let popups = inner.active_popups.borrow();
+let popups = inner.active_popups();
 assert_eq!(popups.len(), 1, "We have one open popup");
 
 let popup = popups.first().unwrap();

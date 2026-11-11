@@ -314,7 +314,7 @@ pub fn generate(
         .iter()
         .map(|sub_compo| {
             let module = format_ident!("sc_{}", ident(&llr.sub_components[*sub_compo].name));
-            let code = generate_sub_component(*sub_compo, &llr, None, None, false);
+            let code = generate_sub_component(*sub_compo, &llr, None, None, None);
             quote!(mod #module { use super::*; #code } use #module::*;)
         })
         .collect::<Vec<_>>();
@@ -390,7 +390,7 @@ pub(super) fn generate_module_header() -> TokenStream {
         #![allow(unknown_lints, if_let_rescope, tail_expr_drop_order)] // We don't have fancy Drop
 
         use slint::private_unstable_api::re_exports as sp;
-        use sp::{RepeatedItemTree as _, ModelExt as _, Model as _};
+        use sp::{RepeatedItemTree as _, ModelExt as _, Model as _, ItemTree as _};
     }
 }
 
@@ -437,7 +437,7 @@ pub(super) fn type_exports(
             // A `#[deprecated] pub use` does not warn on use, but a deprecated type alias does.
             deprecated_type_exports.push(quote! {
                 #[deprecated(note = #note)]
-                #[allow(dead_code)]
+                #[allow(dead_code, non_camel_case_types)]
                 pub type #exported = #generated_mod::#internal;
             });
         } else if e.is_alias() {
@@ -516,6 +516,8 @@ fn generate_public_component(
     let new_with_existing_window_enabled = compiler_config
         .experimental_features
         .contains(crate::ExperimentalFeature::NewWithExistingWindow);
+
+    let new_with_context_vis = new_with_existing_window_enabled.then(|| quote!(pub));
 
     let new_with_existing_window_impl: Option<TokenStream> = match llr.top_level_type {
         llr::TopLevelComponentType::Window => Some(quote!(
@@ -619,17 +621,10 @@ fn generate_public_component(
 
         impl #public_component_id {
             pub fn new() -> ::core::result::Result<Self, slint::PlatformError> {
-                let context = slint::private_unstable_api::ensure_context()?;
-                let inner = #inner_component_id::new(context)?;
-                #eager_create_window
-                #init_bundle_translations
-                #inner_component_id::user_init(sp::VRc::map(inner.clone(), |x| x));
-                #ensure_tree_instantiated
-                ::core::result::Result::Ok(Self(inner))
+                Self::new_with_context(slint::private_unstable_api::ensure_context()?)
             }
 
-            #[cfg(#new_with_existing_window_enabled)]
-            pub fn new_with_context(ctx: sp::SlintContext) -> ::core::result::Result<Self, slint::PlatformError> {
+            #new_with_context_vis fn new_with_context(ctx: sp::SlintContext) -> ::core::result::Result<Self, slint::PlatformError> {
                 let inner = #inner_component_id::new(ctx)?;
                 #eager_create_window
                 #init_bundle_translations
@@ -798,6 +793,10 @@ fn generate_shared_globals(
 
             #pub_token fn context(&self) -> &sp::SlintContext {
                 &self.context
+            }
+
+            fn scale_factor(&self) -> f32 {
+                self.window_adapter_ref().unwrap().window().scale_factor()
             }
 
             fn window_adapter_ref(&self) -> sp::Result<&sp::Rc<dyn sp::WindowAdapter>, slint::PlatformError>
@@ -1385,7 +1384,7 @@ fn generate_sub_component(
     root: &llr::CompilationUnit,
     parent_ctx: Option<&ParentScope>,
     index_property: Option<llr::PropertyIdx>,
-    pinned_drop: bool,
+    item_tree_impl: Option<TokenStream>,
 ) -> TokenStream {
     let extra_components = generate_child_item_trees(component_idx, root, parent_ctx);
     generate_sub_component_body(
@@ -1393,7 +1392,7 @@ fn generate_sub_component(
         root,
         parent_ctx,
         index_property,
-        pinned_drop,
+        item_tree_impl,
         extra_components,
     )
 }
@@ -1428,10 +1427,11 @@ fn generate_sub_component_body(
     root: &llr::CompilationUnit,
     parent_ctx: Option<&ParentScope>,
     index_property: Option<llr::PropertyIdx>,
-    pinned_drop: bool,
+    item_tree_impl: Option<TokenStream>,
     extra_components: Vec<TokenStream>,
 ) -> TokenStream {
     let component = &root.sub_components[component_idx];
+    let is_item_tree_root = item_tree_impl.is_some();
     let inner_component_id = inner_component_id(component);
 
     let ctx = EvaluationContext::new_sub_component(
@@ -1650,8 +1650,9 @@ fn generate_sub_component_body(
             supported_accessibility_actions.entry(*index).or_default().insert(what);
         } else {
             let what = ident(what);
-            accessible_string_property_branch
-                .push(quote!((#index, sp::AccessibleStringProperty::#what) => sp::Some(#e),));
+            accessible_string_property_branch.push(
+                quote!((#index, sp::AccessibleStringProperty::#what) => { *result = #e; true }),
+            );
         }
     }
     let mut supported_accessibility_actions_branch = supported_accessibility_actions
@@ -1733,9 +1734,11 @@ fn generate_sub_component_body(
             sp::VRcMapped::map(self_rc.clone(), |x| #sub_compo_field.apply_pin(x)),
             #global_access.clone(), #global_index, #global_children
         )?;));
-        user_init_code.push(quote!(#sub_component_id::user_init(
-            sp::VRcMapped::map(self_rc.clone(), |x| #sub_compo_field.apply_pin(x)),
-        );));
+        if sc.needs_user_init(root) {
+            user_init_code.push(quote!(#sub_component_id::user_init(
+                sp::VRcMapped::map(self_rc.clone(), |x| #sub_compo_field.apply_pin(x)),
+            );));
+        }
 
         let sub_component_repeater_count = sc.repeater_count(root);
         if sub_component_repeater_count > 0 {
@@ -1748,12 +1751,12 @@ fn generate_sub_component_body(
             ));
             repeated_subtree_ranges.push(quote!(
                 #repeater_offset..=#last_repeater => {
-                    #sub_compo_field.apply_pin(_self).subtree_range(dyn_index - #repeater_offset)
+                    #sub_compo_field.apply_pin(_self).get_subtree_range(dyn_index - #repeater_offset)
                 }
             ));
             repeated_subtree_components.push(quote!(
                 #repeater_offset..=#last_repeater => {
-                    #sub_compo_field.apply_pin(_self).subtree_component(dyn_index - #repeater_offset, subtree_index, result)
+                    #sub_compo_field.apply_pin(_self).get_subtree(dyn_index - #repeater_offset, subtree_index, result)
                 }
             ));
             ensure_instantiated_stmts.push(quote!(
@@ -1762,45 +1765,54 @@ fn generate_sub_component_body(
         }
 
         let sub_items_count = sc.child_item_count(root);
-        accessible_role_branch.push(quote!(
-            #local_tree_index => #sub_compo_field.apply_pin(_self).accessible_role(0),
-        ));
-        accessible_string_property_branch.push(quote!(
-            (#local_tree_index, _) => #sub_compo_field.apply_pin(_self).accessible_string_property(0, what),
-        ));
-        accessibility_action_branch.push(quote!(
-            (#local_tree_index, _) => #sub_compo_field.apply_pin(_self).accessibility_action(0, action),
-        ));
-        supported_accessibility_actions_branch.push(quote!(
-            #local_tree_index => #sub_compo_field.apply_pin(_self).supported_accessibility_actions(0),
-        ));
+        let sub_has_accessibility = sc.has_accessibility(root);
+        if sub_has_accessibility {
+            accessible_role_branch.push(quote!(
+                #local_tree_index => #sub_compo_field.apply_pin(_self).accessible_role(0),
+            ));
+            accessible_string_property_branch.push(quote!(
+                (#local_tree_index, _) => #sub_compo_field.apply_pin(_self).accessible_string_property(0, what, result),
+            ));
+            accessibility_action_branch.push(quote!(
+                (#local_tree_index, _) => #sub_compo_field.apply_pin(_self).accessibility_action(0, action),
+            ));
+            supported_accessibility_actions_branch.push(quote!(
+                #local_tree_index => #sub_compo_field.apply_pin(_self).supported_accessibility_actions(0),
+            ));
+        }
         if sub_items_count > 1 {
             let range_begin = local_index_of_first_child;
             let range_end = range_begin + sub_items_count - 2 + sc.repeater_count(root);
-            accessible_role_branch.push(quote!(
-                #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).accessible_role(index - #range_begin + 1),
-            ));
-            accessible_string_property_branch.push(quote!(
-                (#range_begin..=#range_end, _) => #sub_compo_field.apply_pin(_self).accessible_string_property(index - #range_begin + 1, what),
-            ));
             item_geometry_branch.push(quote!(
                 #range_begin..=#range_end => return #sub_compo_field.apply_pin(_self).item_geometry(index - #range_begin + 1),
             ));
-            accessibility_action_branch.push(quote!(
-                (#range_begin..=#range_end, _) => #sub_compo_field.apply_pin(_self).accessibility_action(index - #range_begin + 1, action),
-            ));
-            supported_accessibility_actions_branch.push(quote!(
-                #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).supported_accessibility_actions(index - #range_begin + 1),
-            ));
-            item_element_infos_branch.push(quote!(
-                #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).item_element_infos(index - #range_begin + 1),
-            ));
-            element_testable_properties_branch.push(quote!(
-                #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).element_testable_properties(index - #range_begin + 1),
-            ));
-            element_testable_property_value_branch.push(quote!(
-                #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).element_testable_property_value(index - #range_begin + 1, property_name),
-            ));
+            if sub_has_accessibility {
+                accessible_role_branch.push(quote!(
+                    #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).accessible_role(index - #range_begin + 1),
+                ));
+                accessible_string_property_branch.push(quote!(
+                    (#range_begin..=#range_end, _) => #sub_compo_field.apply_pin(_self).accessible_string_property(index - #range_begin + 1, what, result),
+                ));
+                accessibility_action_branch.push(quote!(
+                    (#range_begin..=#range_end, _) => #sub_compo_field.apply_pin(_self).accessibility_action(index - #range_begin + 1, action),
+                ));
+                supported_accessibility_actions_branch.push(quote!(
+                    #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).supported_accessibility_actions(index - #range_begin + 1),
+                ));
+            }
+            if sc.has_element_infos(root) {
+                item_element_infos_branch.push(quote!(
+                    #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).item_element_infos(index - #range_begin + 1),
+                ));
+            }
+            if sc.has_testable_properties(root) {
+                element_testable_properties_branch.push(quote!(
+                    #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).element_testable_properties(index - #range_begin + 1),
+                ));
+                element_testable_property_value_branch.push(quote!(
+                    #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).element_testable_property_value(index - #range_begin + 1, property_name),
+                ));
+            }
         }
 
         sub_component_names.push(field_name);
@@ -1960,12 +1972,21 @@ fn generate_sub_component_body(
             }
         });
 
-    let subtree_index_function = if let Some(property_index) = index_property {
-        let prop = access_local_member(&property_index.into(), &ctx);
-        quote!(#prop.get() as usize)
-    } else {
-        quote!(usize::MAX)
-    };
+    let subtree_index_fn = is_item_tree_root.then(|| {
+        let index = match index_property {
+            Some(property_index) => {
+                let prop = access_local_member(&property_index.into(), &ctx);
+                quote!(#prop.get() as usize)
+            }
+            None => quote!(usize::MAX),
+        };
+        quote!(
+            fn subtree_index(self: ::core::pin::Pin<&Self>) -> usize {
+                let _self = self;
+                #index
+            }
+        )
+    });
 
     let timer_names =
         component.timers.iter().enumerate().map(|(idx, _)| format_ident!("timer{idx}"));
@@ -2003,6 +2024,7 @@ fn generate_sub_component_body(
         )
     });
 
+    debug_assert_eq!(component.needs_user_init(root), !user_init_code.is_empty());
     let mut chunk_fns = Vec::new();
     let init = emit_in_chunks(
         "init",
@@ -2023,7 +2045,166 @@ fn generate_sub_component_body(
         &mut chunk_fns,
     );
 
+    let pinned_drop = is_item_tree_root && root.needs_window_adapter();
     let pin_macro = if pinned_drop { quote!(#[pin_drop]) } else { quote!(#[pin]) };
+
+    let vis = if is_item_tree_root { quote!() } else { quote!(pub(super)) };
+    let user_init_fn = (is_item_tree_root || component.needs_user_init(root)).then(|| {
+        quote!(
+            pub(super) fn user_init(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>) {
+                let _self = self_rc.as_pin_ref();
+                #(#user_init_code)*
+            }
+        )
+    });
+    let accessibility_fns = (is_item_tree_root || component.has_accessibility(root)).then(|| {
+        quote!(
+            #vis fn accessible_role(self: ::core::pin::Pin<&Self>, index: u32) -> sp::AccessibleRole {
+                let _self = self;
+                match index {
+                    #(#accessible_role_branch)*
+                    _ => sp::AccessibleRole::default(),
+                }
+            }
+
+            #vis fn accessible_string_property(
+                self: ::core::pin::Pin<&Self>,
+                index: u32,
+                what: sp::AccessibleStringProperty,
+                result: &mut sp::SharedString,
+            ) -> bool {
+                let _self = self;
+                match (index, what) {
+                    #(#accessible_string_property_branch)*
+                    _ => false,
+                }
+            }
+
+            #vis fn accessibility_action(self: ::core::pin::Pin<&Self>, index: u32, action: &sp::AccessibilityAction) {
+                let _self = self;
+                match (index, action) {
+                    #(#accessibility_action_branch)*
+                    _ => (),
+                }
+            }
+
+            #vis fn supported_accessibility_actions(self: ::core::pin::Pin<&Self>, index: u32) -> sp::SupportedAccessibilityAction {
+                let _self = self;
+                match index {
+                    #(#supported_accessibility_actions_branch)*
+                    _ => ::core::default::Default::default(),
+                }
+            }
+        )
+    });
+    let has_repeaters = component.has_repeaters(root);
+    let visit_dynamic_children_fn = has_repeaters.then(|| {
+        quote!(
+            pub(super) fn visit_dynamic_children(
+                self: ::core::pin::Pin<&Self>,
+                dyn_index: u32,
+                order: sp::TraversalOrder,
+                visitor: sp::ItemVisitorRefMut<'_>
+            ) -> sp::VisitChildrenResult {
+                let _self = self;
+                match dyn_index {
+                    #(#repeated_visit_branch)*
+                    _ => panic!("invalid dyn_index {}", dyn_index),
+                }
+            }
+        )
+    });
+    let repeater_fns = (is_item_tree_root || has_repeaters).then(|| {
+        quote!(
+            #vis fn ensure_instantiated(self: ::core::pin::Pin<&Self>) -> bool {
+                let _self = self;
+                let mut _changed = false;
+                #(#ensure_instantiated_stmts)*
+                _changed
+            }
+
+            #vis fn get_subtree_range(self: ::core::pin::Pin<&Self>, dyn_index: u32) -> sp::IndexRange {
+                let _self = self;
+                match dyn_index {
+                    #(#repeated_subtree_ranges)*
+                    _ => panic!("invalid dyn_index {}", dyn_index),
+                }
+            }
+
+            #vis fn get_subtree(self: ::core::pin::Pin<&Self>, dyn_index: u32, subtree_index: usize, result: &mut sp::ItemTreeWeak) {
+                let _self = self;
+                match dyn_index {
+                    #(#repeated_subtree_components)*
+                    _ => panic!("invalid dyn_index {}", dyn_index),
+                };
+            }
+        )
+    });
+    let tree_fns = quote!(
+        #repeater_fns
+
+        #vis fn layout_info(self: ::core::pin::Pin<&Self>, orientation: sp::Orientation) -> sp::LayoutInfo {
+            let _self = self;
+            match orientation {
+                sp::Orientation::Horizontal => #layout_info_h,
+                sp::Orientation::Vertical => #layout_info_v,
+            }
+        }
+
+        #subtree_index_fn
+
+        #vis fn item_geometry(self: ::core::pin::Pin<&Self>, index: u32) -> sp::LogicalRect {
+            let _self = self;
+            // The result of the expression is an anonymous struct, `{height: length, width: length, x: length, y: length}`
+            // fields are in alphabetical order
+            let (h, w, x, y) = match index {
+                #(#item_geometry_branch)*
+                _ => return ::core::default::Default::default()
+            };
+            sp::euclid::rect(x, y, w, h)
+        }
+
+        #accessibility_fns
+    );
+    let (inherent_tree_fns, item_tree_impl) = match item_tree_impl {
+        Some(item_tree_impl) => (
+            None,
+            Some(quote!(impl sp::ItemTree for #inner_component_id { #tree_fns #item_tree_impl })),
+        ),
+        None => (Some(tree_fns), None),
+    };
+    let element_infos_fn = component.has_element_infos(root).then(|| {
+        quote!(
+            pub(super) fn item_element_infos(self: ::core::pin::Pin<&Self>, index: u32) -> sp::Option<sp::SharedString> {
+                let _self = self;
+                match index {
+                    #(#item_element_infos_branch)*
+                    _ => { ::core::default::Default::default() }
+                }
+            }
+        )
+    });
+    let testable_properties_fns = component.has_testable_properties(root).then(|| {
+        quote!(
+            pub(super) fn element_testable_properties(self: ::core::pin::Pin<&Self>, index: u32) -> sp::Option<sp::SharedString> {
+                #![allow(unused)]
+                let _self = self;
+                match index {
+                    #(#element_testable_properties_branch)*
+                    _ => { ::core::default::Default::default() }
+                }
+            }
+
+            pub(super) fn element_testable_property_value(self: ::core::pin::Pin<&Self>, index: u32, property_name: &str) -> sp::Option<sp::SharedString> {
+                #![allow(unused, unreachable_patterns)]
+                let _self = self;
+                match index {
+                    #(#element_testable_property_value_branch)*
+                    _ => { ::core::default::Default::default() }
+                }
+            }
+        )
+    });
 
     quote!(
         #[derive(sp::FieldOffsets, Default)]
@@ -2072,40 +2253,11 @@ fn generate_sub_component_body(
                 ::core::result::Result::Ok(())
             }
 
-            pub(super) fn user_init(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>) {
-                let _self = self_rc.as_pin_ref();
-                #(#user_init_code)*
-            }
+            #user_init_fn
 
             #(#chunk_fns)*
 
-            pub(super) fn visit_dynamic_children(
-                self: ::core::pin::Pin<&Self>,
-                dyn_index: u32,
-                order: sp::TraversalOrder,
-                visitor: sp::ItemVisitorRefMut<'_>
-            ) -> sp::VisitChildrenResult {
-                let _self = self;
-                match dyn_index {
-                    #(#repeated_visit_branch)*
-                    _ => panic!("invalid dyn_index {}", dyn_index),
-                }
-            }
-
-            pub(super) fn ensure_instantiated(self: ::core::pin::Pin<&Self>) -> bool {
-                let _self = self;
-                let mut _changed = false;
-                #(#ensure_instantiated_stmts)*
-                _changed
-            }
-
-            pub(super) fn layout_info(self: ::core::pin::Pin<&Self>, orientation: sp::Orientation) -> sp::LayoutInfo {
-                let _self = self;
-                match orientation {
-                    sp::Orientation::Horizontal => #layout_info_h,
-                    sp::Orientation::Vertical => #layout_info_v,
-                }
-            }
+            #visit_dynamic_children_fn
 
             #grid_layout_input_for_repeated_fn
 
@@ -2115,105 +2267,18 @@ fn generate_sub_component_body(
 
             #layout_order_for_repeated_fn
 
-            pub(super) fn subtree_range(self: ::core::pin::Pin<&Self>, dyn_index: u32) -> sp::IndexRange {
-                let _self = self;
-                match dyn_index {
-                    #(#repeated_subtree_ranges)*
-                    _ => panic!("invalid dyn_index {}", dyn_index),
-                }
-            }
+            #inherent_tree_fns
 
-            pub(super) fn subtree_component(self: ::core::pin::Pin<&Self>, dyn_index: u32, subtree_index: usize, result: &mut sp::ItemTreeWeak) {
-                let _self = self;
-                match dyn_index {
-                    #(#repeated_subtree_components)*
-                    _ => panic!("invalid dyn_index {}", dyn_index),
-                };
-            }
+            #element_infos_fn
 
-            pub(super) fn index_property(self: ::core::pin::Pin<&Self>) -> usize {
-                let _self = self;
-                #subtree_index_function
-            }
-
-            pub(super) fn item_geometry(self: ::core::pin::Pin<&Self>, index: u32) -> sp::LogicalRect {
-                let _self = self;
-                // The result of the expression is an anonymous struct, `{height: length, width: length, x: length, y: length}`
-                // fields are in alphabetical order
-                let (h, w, x, y) = match index {
-                    #(#item_geometry_branch)*
-                    _ => return ::core::default::Default::default()
-                };
-                sp::euclid::rect(x, y, w, h)
-            }
-
-            pub(super) fn accessible_role(self: ::core::pin::Pin<&Self>, index: u32) -> sp::AccessibleRole {
-                let _self = self;
-                match index {
-                    #(#accessible_role_branch)*
-                    //#(#forward_sub_ranges => #forward_sub_field.apply_pin(_self).accessible_role())*
-                    _ => sp::AccessibleRole::default(),
-                }
-            }
-
-            pub(super) fn accessible_string_property(
-                self: ::core::pin::Pin<&Self>,
-                index: u32,
-                what: sp::AccessibleStringProperty,
-            ) -> sp::Option<sp::SharedString> {
-                let _self = self;
-                match (index, what) {
-                    #(#accessible_string_property_branch)*
-                    _ => sp::None,
-                }
-            }
-
-            pub(super) fn accessibility_action(self: ::core::pin::Pin<&Self>, index: u32, action: &sp::AccessibilityAction) {
-                let _self = self;
-                match (index, action) {
-                    #(#accessibility_action_branch)*
-                    _ => (),
-                }
-            }
-
-            pub(super) fn supported_accessibility_actions(self: ::core::pin::Pin<&Self>, index: u32) -> sp::SupportedAccessibilityAction {
-                let _self = self;
-                match index {
-                    #(#supported_accessibility_actions_branch)*
-                    _ => ::core::default::Default::default(),
-                }
-            }
-
-            pub(super) fn item_element_infos(self: ::core::pin::Pin<&Self>, index: u32) -> sp::Option<sp::SharedString> {
-                let _self = self;
-                match index {
-                    #(#item_element_infos_branch)*
-                    _ => { ::core::default::Default::default() }
-                }
-            }
-
-            pub(super) fn element_testable_properties(self: ::core::pin::Pin<&Self>, index: u32) -> sp::Option<sp::SharedString> {
-                #![allow(unused)]
-                let _self = self;
-                match index {
-                    #(#element_testable_properties_branch)*
-                    _ => { ::core::default::Default::default() }
-                }
-            }
-
-            pub(super) fn element_testable_property_value(self: ::core::pin::Pin<&Self>, index: u32, property_name: &str) -> sp::Option<sp::SharedString> {
-                #![allow(unused, unreachable_patterns)]
-                let _self = self;
-                match index {
-                    #(#element_testable_property_value_branch)*
-                    _ => { ::core::default::Default::default() }
-                }
-            }
+            #testable_properties_fns
 
             #update_timers
 
             #(#declared_functions)*
         }
+
+        #item_tree_impl
 
         #(#extra_components)*
     )
@@ -2475,14 +2540,16 @@ fn generate_item_tree(
     is_popup: bool,
 ) -> TokenStream {
     let needs_window_adapter = root.needs_window_adapter();
+    let (item_tree_impl, item_tree_body) =
+        generate_item_tree_body(sub_tree, root, parent_ctx, is_popup, needs_window_adapter);
     let sub_comp = generate_sub_component(
         sub_tree.root,
         root,
         parent_ctx,
         index_property,
-        needs_window_adapter,
+        Some(item_tree_impl),
     );
-    generate_item_tree_body(sub_tree, root, parent_ctx, is_popup, needs_window_adapter, sub_comp)
+    quote!(#sub_comp #item_tree_body)
 }
 
 fn generate_item_tree_body(
@@ -2491,8 +2558,7 @@ fn generate_item_tree_body(
     parent_ctx: Option<&ParentScope>,
     is_popup: bool,
     needs_window_adapter: bool,
-    sub_comp: TokenStream,
-) -> TokenStream {
+) -> (TokenStream, TokenStream) {
     let inner_component_id = self::inner_component_id(&root.sub_components[sub_tree.root]);
     let parent_component_type = parent_ctx
         .iter()
@@ -2611,25 +2677,22 @@ fn generate_item_tree_body(
     let item_tree_array_len = item_tree_array.len();
     let item_array_len = item_array.len();
 
-    let element_info_body = if root.has_debug_info {
-        quote!(
-            *_result = self.item_element_infos(_index).unwrap_or_default();
-            true
-        )
-    } else {
-        quote!(false)
+    let root_component = &root.sub_components[sub_tree.root];
+    let debug_info_query = |has: bool, query: TokenStream| {
+        let value = if has {
+            quote!(self.#query(_index).unwrap_or_default())
+        } else {
+            quote!(::core::default::Default::default())
+        };
+        if root.has_debug_info { quote!(*_result = #value; true) } else { quote!(false) }
     };
+    let element_info_body =
+        debug_info_query(root_component.has_element_infos(root), quote!(item_element_infos));
+    let has_testable_properties = root_component.has_testable_properties(root);
+    let element_testable_properties_body =
+        debug_info_query(has_testable_properties, quote!(element_testable_properties));
 
-    let element_testable_properties_body = if root.has_debug_info {
-        quote!(
-            *_result = self.element_testable_properties(_index).unwrap_or_default();
-            true
-        )
-    } else {
-        quote!(false)
-    };
-
-    let element_testable_property_value_body = if root.has_debug_info {
+    let element_testable_property_value_body = if has_testable_properties {
         quote!(
             let sp::Ok(name) = ::core::str::from_utf8(_property_name.as_slice()) else {
                 return false;
@@ -2687,13 +2750,20 @@ fn generate_item_tree_body(
         )
     };
 
+    let visit_dynamic = if root_component.has_repeaters(root) {
+        quote!(
+            &mut |order, visitor, dyn_index| self.visit_dynamic_children(dyn_index, order, visitor)
+        )
+    } else {
+        quote!(&mut slint::private_unstable_api::no_dynamic_children)
+    };
     let default_call = quote!(sp::visit_item_tree(
         &sp::VRcMapped::origin(&self.as_ref().self_weak.get().unwrap().upgrade().unwrap()),
         self.get_item_tree().as_slice(),
         index,
         order,
         visitor,
-        &mut |order, visitor, dyn_index| self.visit_dynamic_children(dyn_index, order, visitor),
+        #visit_dynamic,
     ));
     let z_sorted_visit_body = if z_sorted_nodes.is_empty() {
         quote!(return #default_call;)
@@ -2739,7 +2809,7 @@ fn generate_item_tree_body(
                         index,
                         order,
                         visitor,
-                        &mut |order, visitor, dyn_index| self.visit_dynamic_children(dyn_index, order, visitor),
+                        #visit_dynamic,
                         &mut |push| { #(#pushes)* },
                     );
                 }
@@ -2754,21 +2824,97 @@ fn generate_item_tree_body(
         }
     };
 
-    quote!(
-        #sub_comp
+    let new_body = if is_root_component {
+        quote!(
+            let self_rc = sp::VRc::new(Self::default());
+            let self_dyn_rc = sp::VRc::into_dyn(self_rc.clone());
+            let globals = #globals;
+            let _ = sp::VRc::map(self_rc.clone(), |x| x).as_pin_ref().globals.set(globals.clone());
+            #init_globals
+            sp::register_item_tree(&self_dyn_rc, #register_window_adapter_arg);
+            Self::init(sp::VRc::map(self_rc.clone(), |x| x), globals, 0, 1)?;
+            ::core::result::Result::Ok(self_rc)
+        )
+    } else {
+        quote!(
+            let globals = #globals;
+            let mut _self = Self::default();
+            #(_self.parent = parent as #parent_component_type;)*
+            let _ = _self.globals.set(globals.clone());
+            slint::private_unstable_api::new_item_tree(_self, #register_window_adapter_arg, globals, Self::init)
+        )
+    };
 
+    let item_tree_impl = quote!(
+        fn visit_children_item(self: ::core::pin::Pin<&Self>, index: isize, order: sp::TraversalOrder, visitor: sp::ItemVisitorRefMut<'_>)
+            -> sp::VisitChildrenResult
+        {
+            #z_sorted_visit_body
+        }
+
+        fn get_item_ref(self: ::core::pin::Pin<&Self>, index: u32) -> ::core::pin::Pin<sp::ItemRef<'_>> {
+            slint::private_unstable_api::get_item_ref(self, Self::item_tree(), Self::item_array(), index)
+        }
+
+        fn get_item_tree(
+            self: ::core::pin::Pin<&Self>) -> sp::Slice<'_, sp::ItemTreeNode>
+        {
+            Self::item_tree().into()
+        }
+
+        fn parent_node(self: ::core::pin::Pin<&Self>, _result: &mut sp::ItemWeak) {
+            #parent_item_expression
+        }
+
+        fn embed_component(self: ::core::pin::Pin<&Self>, _parent_component: &sp::ItemTreeWeak, _item_tree_index: u32) -> bool {
+            #embedding_function
+        }
+
+        fn item_element_infos(
+            self: ::core::pin::Pin<&Self>,
+            _index: u32,
+            _result: &mut sp::SharedString,
+        ) -> bool {
+            #element_info_body
+        }
+
+        fn element_testable_properties(
+            self: ::core::pin::Pin<&Self>,
+            _index: u32,
+            _result: &mut sp::SharedString,
+        ) -> bool {
+            #element_testable_properties_body
+        }
+
+        fn element_testable_property_value(
+            self: ::core::pin::Pin<&Self>,
+            _index: u32,
+            _property_name: sp::Slice<'_, u8>,
+            _result: &mut sp::SharedString,
+        ) -> bool {
+            #element_testable_property_value_body
+        }
+
+        fn window_adapter(
+            self: ::core::pin::Pin<&Self>,
+            do_create: bool,
+            result: &mut sp::Option<sp::Rc<dyn sp::WindowAdapter>>,
+        ) {
+            #window_adapter_vtable_body
+        }
+
+        fn slint_context(
+            self: ::core::pin::Pin<&Self>,
+            result: &mut sp::Option<sp::SlintContext>,
+        ) {
+            *result = sp::Some(self.globals.get().unwrap().context().clone());
+        }
+    );
+
+    let item_tree_body = quote!(
         impl #inner_component_id {
             pub(super) fn new(#(parent: #parent_component_type,)* #globals_arg #context_arg) -> ::core::result::Result<sp::VRc<sp::ItemTreeVTable, Self>, slint::PlatformError> {
-                let mut _self = Self::default();
-                #(_self.parent = parent.clone() as #parent_component_type;)*
-                let self_rc = sp::VRc::new(_self);
-                let self_dyn_rc = sp::VRc::into_dyn(self_rc.clone());
-                let globals = #globals;
-                let _ = sp::VRc::map(self_rc.clone(), |x| x).as_pin_ref().globals.set(globals.clone());
-                #init_globals
-                sp::register_item_tree(&self_dyn_rc, #register_window_adapter_arg);
-                Self::init(sp::VRc::map(self_rc.clone(), |x| x), globals, 0, 1)?;
-                ::core::result::Result::Ok(self_rc)
+                #new_body
             }
 
             pub(super) fn item_tree() -> &'static [sp::ItemTreeNode] {
@@ -2789,137 +2935,8 @@ fn generate_item_tree_body(
         };
 
         #pinned_drop_impl
-
-        impl sp::ItemTree for #inner_component_id {
-            fn visit_children_item(self: ::core::pin::Pin<&Self>, index: isize, order: sp::TraversalOrder, visitor: sp::ItemVisitorRefMut<'_>)
-                -> sp::VisitChildrenResult
-            {
-                #z_sorted_visit_body
-            }
-
-            fn get_item_ref(self: ::core::pin::Pin<&Self>, index: u32) -> ::core::pin::Pin<sp::ItemRef<'_>> {
-                match &self.get_item_tree().as_slice()[index as usize] {
-                    sp::ItemTreeNode::Item { item_array_index, .. } => {
-                        Self::item_array()[*item_array_index as usize].apply_pin(self)
-                    }
-                    sp::ItemTreeNode::DynamicTree { .. } => panic!("get_item_ref called on dynamic tree"),
-
-                }
-            }
-
-            fn get_item_tree(
-                self: ::core::pin::Pin<&Self>) -> sp::Slice<'_, sp::ItemTreeNode>
-            {
-                Self::item_tree().into()
-            }
-
-            fn get_subtree_range(
-                self: ::core::pin::Pin<&Self>, index: u32) -> sp::IndexRange
-            {
-                self.subtree_range(index)
-            }
-
-            fn get_subtree(
-                self: ::core::pin::Pin<&Self>, index: u32, subtree_index: usize, result: &mut sp::ItemTreeWeak)
-            {
-                self.subtree_component(index, subtree_index, result);
-            }
-
-            fn subtree_index(
-                self: ::core::pin::Pin<&Self>) -> usize
-            {
-                self.index_property()
-            }
-
-            fn parent_node(self: ::core::pin::Pin<&Self>, _result: &mut sp::ItemWeak) {
-                #parent_item_expression
-            }
-
-            fn embed_component(self: ::core::pin::Pin<&Self>, _parent_component: &sp::ItemTreeWeak, _item_tree_index: u32) -> bool {
-                #embedding_function
-            }
-
-            fn layout_info(self: ::core::pin::Pin<&Self>, orientation: sp::Orientation) -> sp::LayoutInfo {
-                self.layout_info(orientation)
-            }
-
-            fn ensure_instantiated(self: ::core::pin::Pin<&Self>) -> bool {
-                self.ensure_instantiated()
-            }
-
-            fn item_geometry(self: ::core::pin::Pin<&Self>, index: u32) -> sp::LogicalRect {
-                self.item_geometry(index)
-            }
-
-            fn accessible_role(self: ::core::pin::Pin<&Self>, index: u32) -> sp::AccessibleRole {
-                self.accessible_role(index)
-            }
-
-            fn accessible_string_property(
-                self: ::core::pin::Pin<&Self>,
-                index: u32,
-                what: sp::AccessibleStringProperty,
-                result: &mut sp::SharedString,
-            ) -> bool {
-                if let Some(r) = self.accessible_string_property(index, what) {
-                    *result = r;
-                    true
-                } else {
-                    false
-                }
-            }
-
-            fn accessibility_action(self: ::core::pin::Pin<&Self>, index: u32, action: &sp::AccessibilityAction) {
-                self.accessibility_action(index, action);
-            }
-
-            fn supported_accessibility_actions(self: ::core::pin::Pin<&Self>, index: u32) -> sp::SupportedAccessibilityAction {
-                self.supported_accessibility_actions(index)
-            }
-
-            fn item_element_infos(
-                self: ::core::pin::Pin<&Self>,
-                _index: u32,
-                _result: &mut sp::SharedString,
-            ) -> bool {
-                #element_info_body
-            }
-
-            fn element_testable_properties(
-                self: ::core::pin::Pin<&Self>,
-                _index: u32,
-                _result: &mut sp::SharedString,
-            ) -> bool {
-                #element_testable_properties_body
-            }
-
-            fn element_testable_property_value(
-                self: ::core::pin::Pin<&Self>,
-                _index: u32,
-                _property_name: sp::Slice<'_, u8>,
-                _result: &mut sp::SharedString,
-            ) -> bool {
-                #element_testable_property_value_body
-            }
-
-            fn window_adapter(
-                self: ::core::pin::Pin<&Self>,
-                do_create: bool,
-                result: &mut sp::Option<sp::Rc<dyn sp::WindowAdapter>>,
-            ) {
-                #window_adapter_vtable_body
-            }
-
-            fn slint_context(
-                self: ::core::pin::Pin<&Self>,
-                result: &mut sp::Option<sp::SlintContext>,
-            ) {
-                *result = sp::Some(self.globals.get().unwrap().context().clone());
-            }
-        }
-
-
-    )
+    );
+    (item_tree_impl, item_tree_body)
 }
 
 fn generate_repeated_component(
@@ -4402,23 +4419,30 @@ fn compile_image_reference(expr: &Expression) -> TokenStream {
 }
 
 fn compile_condition(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
-    let Expression::Condition { condition, true_expr, false_expr } = expr else { unreachable!() };
-    let condition_code = compile_expression_no_parenthesis(condition, ctx);
+    // Every link of an `else if` chain has the type of the chain's last false branch
     let (compile, semi): (fn(&Expression, &EvaluationContext) -> TokenStream, _) =
-        if false_expr.ty(ctx) == Type::Void {
+        if expr.ty(ctx) == Type::Void {
             (compile_expression, quote!(;))
         } else {
             (compile_expression_to_value, quote!(as _))
         };
-    let true_code = compile(true_expr, ctx);
-    let false_code = remove_parenthesis(false_expr, ctx, compile);
-    quote!(
-        if #condition_code {
-            (#true_code) #semi
-        } else {
-            #false_code
-        }
-    )
+    // An `else if` chain nests in the false branch: iterate it, so the stack depth stays bounded.
+    let mut links = Vec::new();
+    let mut expr = expr;
+    while let Expression::Condition { condition, true_expr, false_expr } = expr {
+        links.push((compile_expression_no_parenthesis(condition, ctx), compile(true_expr, ctx)));
+        expr = false_expr;
+    }
+    let false_code = remove_parenthesis(expr, ctx, compile);
+    links.into_iter().rev().fold(false_code, |false_code, (condition_code, true_code)| {
+        quote!(
+            if #condition_code {
+                (#true_code) #semi
+            } else {
+                #false_code
+            }
+        )
+    })
 }
 
 /// Maximum number of elements an array literal constructs in one function.
@@ -4717,6 +4741,18 @@ fn struct_field_access(s: &Struct, name: &str) -> proc_macro2::TokenTree {
     }
 }
 
+/// The globals for a popup, in `shared_global`'s scope: with its own window adapter when
+/// `window`'s backend creates one.
+fn popup_globals(window: &TokenStream, window_kind: &TokenStream) -> TokenStream {
+    quote! {
+        if let Some(popup_window_adapter) = #window.create_child_window_adapter(#window_kind) {
+            shared_global.clone_with_window_adapter(popup_window_adapter)
+        } else {
+            shared_global.clone()
+        }
+    }
+}
+
 #[allow(
     clippy::redundant_closure_call,
     reason = "in debug builds, the closures keep the locals of the arms out of this recursive frame"
@@ -4825,13 +4861,7 @@ fn compile_builtin_function_call(
                 } else {
                     quote!(sp::WindowKind::Popup)
                 };
-                let globals_init = quote! {
-                    if let Some(popup_window_adapter) = window.create_child_window_adapter(#window_kind) {
-                        shared_global.clone_with_window_adapter(popup_window_adapter)
-                    } else {
-                        shared_global.clone()
-                    }
-                };
+                let globals_init = popup_globals(&quote!(window), &window_kind);
                 // The optional 4th argument is a property reference to the synthesized `is-open`,
                 // mapped in this show call's own frame (see lower_show_popup_window), so it resolves
                 // directly against `ctx`/`_self`, exactly like `parent_ref`.
@@ -5002,12 +5032,18 @@ fn compile_builtin_function_call(
                     #popup_id::user_init(popup_instance_vrc);
                 };
 
+                let menu_globals = popup_globals(
+                    &quote!(sp::WindowInner::from_pub(window_adapter.window())),
+                    &quote!(sp::WindowKind::Menu),
+                );
                 let common_init = quote! {
                     let position = #position;
-                    let popup_instance = #popup_id::new(_self.globals.get().unwrap().clone()).unwrap();
+                    let window_adapter = #window_adapter_tokens;
+                    let shared_global = _self.globals.get().unwrap();
+                    let globals = #menu_globals;
+                    let popup_instance = #popup_id::new(globals).unwrap();
                     let popup_instance_vrc = sp::VRc::map(popup_instance.clone(), |x| x);
                     let parent_weak = _self.self_weak.get().unwrap().clone();
-                    let window_adapter = #window_adapter_tokens;
                 };
 
                 if let Expression::NumberLiteral(tree_index) = entries {
@@ -5157,10 +5193,10 @@ fn compile_builtin_function_call(
                 panic!("internal error: invalid args to RegisterBitmapFont must be a number")
             }
         })(),
-        BuiltinFunction::GetWindowScaleFactor => (|| {
-            let window_adapter_tokens = access_window_adapter_field(ctx);
-            quote!(sp::WindowInner::from_pub(#window_adapter_tokens.window()).scale_factor())
-        })(),
+        BuiltinFunction::GetWindowScaleFactor => {
+            let global_access = &ctx.generator_state.global_access;
+            quote!(#global_access.scale_factor())
+        }
         BuiltinFunction::GetWindowDefaultFontSize => {
             quote!(
                 sp::WindowItem::resolved_default_font_size(sp::VRcMapped::origin(
@@ -6124,7 +6160,8 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
                     quote!(static #symbol: &'static [u8] = #data;)
                 }
                 crate::embedded_resources::EmbeddedResourcesKind::DataUriPayload(bytes, _) => {
-                    quote!(static #symbol: &'static [u8] = &[#(#bytes),*];)
+                    let bytes = proc_macro2::Literal::byte_string(bytes);
+                    quote!(static #symbol: &'static [u8] = #bytes;)
                 }
                 #[cfg(feature = "renderer-software")]
                 crate::embedded_resources::EmbeddedResourcesKind::TextureData(crate::embedded_resources::Texture {
@@ -6144,10 +6181,11 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
                     });
                     let symbol_data = format_ident!("SLINT_EMBEDDED_RESOURCE_{}_DATA", resource_id);
                     let data_size = data.len();
+                    let data = proc_macro2::Literal::byte_string(data);
                     quote!(
                         #link_section
                         // (the second array is to ensure alignment)
-                        static #symbol_data : ([u8; #data_size], [u32;0])= ([#(#data),*], []);
+                        static #symbol_data : ([u8; #data_size], [u32;0])= (*#data, []);
                         #link_section
                         static #symbol: sp::StaticTextures = sp::StaticTextures{
                             size: sp::IntSize::new(#width as _, #height as _),
@@ -6169,6 +6207,7 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
                         let glyph_data_size = glyph_data.len();
                         let glyph_data = glyph_data.iter().map(|crate::embedded_resources::BitmapGlyph{x, y, width, height, x_advance, data}|{
                             let data_size = data.len();
+                            let data = proc_macro2::Literal::byte_string(data);
                             quote!(
                                 sp::BitmapGlyph {
                                     x: #x,
@@ -6178,7 +6217,7 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
                                     x_advance: #x_advance,
                                     data: sp::Slice::from_slice({
                                         #link_section
-                                        static DATA : [u8; #data_size] = [#(#data),*];
+                                        static DATA : [u8; #data_size] = *#data;
                                         &DATA
                                     }),
                                 }

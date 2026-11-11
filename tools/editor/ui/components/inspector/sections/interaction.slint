@@ -1,22 +1,15 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Api, PropertyValue } from "../../../api.slint";
+import { Properties } from "../../../properties.slint";
+
 import { InspectorPropertyRow, InspectorSection, InspectorSwitch } from "../index.slint";
 import { InspectorContext } from "context.slint";
 
 export component InspectorInteractionSection inherits InspectorSection {
-    private property <PropertyValue> runtime-value: Api.runtime-property-value-data("enabled", {});
-    private property <PropertyValue> source-value: Api.source-property-value-data("enabled", {});
-    private property <bool> value: root.runtime-value.value-resolved
-        ? root.runtime-value.value-bool
-        : root.source-value.code == "" || root.source-value.value-bool;
+    private property <bool> value: Properties.editor-property-value-data("enabled").value-bool;
     changed value => { toggle.checked = root.value; }
-    private property <PropertyValue> runtime-read-only: Api.runtime-property-value-data("read-only", {});
-    private property <PropertyValue> source-read-only: Api.source-property-value-data("read-only", {});
-    private property <bool> read-only: root.runtime-read-only.value-resolved
-        ? root.runtime-read-only.value-bool
-        : root.source-read-only.value-bool;
+    private property <bool> read-only: Properties.editor-property-value-data("read-only").value-bool;
 
     private property <bool> checkable: InspectorContext.is-checkable();
 
@@ -32,7 +25,7 @@ export component InspectorInteractionSection inherits InspectorSection {
                 self.focus();
                 let requested = self.checked;
                 self.checked = root.value;
-                InspectorContext.commit-code("enabled", requested ? "true" : "false");
+                InspectorContext.commit-boolean("enabled", requested);
             }
         }
     }
@@ -50,7 +43,7 @@ export component InspectorInteractionSection inherits InspectorSection {
                 self.focus();
                 let requested = self.checked;
                 self.checked = root.read-only;
-                InspectorContext.commit-code("read-only", requested ? "true" : "false");
+                InspectorContext.commit-boolean("read-only", requested);
             }
         }
     }
@@ -68,7 +61,7 @@ export component InspectorInteractionSection inherits InspectorSection {
                 self.focus();
                 let requested = self.checked;
                 self.checked = root.checkable;
-                InspectorContext.commit-code("checkable", requested ? "true" : "false");
+                InspectorContext.commit-boolean("checkable", requested);
             }
         }
     }
