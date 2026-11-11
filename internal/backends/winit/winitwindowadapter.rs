@@ -49,7 +49,9 @@ use crate::drag_and_drop::{self, PendingNativeDrag};
 use crate::{EventResult, SharedBackendData};
 use corelib::api::PhysicalSize;
 use corelib::layout::Orientation;
-use corelib::lengths::{LogicalLength, LogicalPoint, LogicalRect, logical_size_from_api};
+use corelib::lengths::{
+    LogicalLength, LogicalPoint, LogicalRect, LogicalVector, logical_size_from_api,
+};
 use corelib::platform::{PlatformError, WindowEvent};
 use corelib::window::{DragRequest, WindowAdapter, WindowAdapterInternal, WindowInner};
 use corelib::{Coord, graphics::*};
@@ -1483,6 +1485,63 @@ impl WinitWindowAdapter {
         self.window().dispatch_event(WindowEvent::internal(event));
     }
 
+    /// Returns the origin of this popup in the logical coordinates of its parent window,
+    /// or `None` if this isn't a popup or the platform doesn't report the position.
+    fn origin_in_parent(&self) -> Option<LogicalVector> {
+        let parent = self.parent.upgrade()?;
+        let window = self.winit_window()?;
+        let scale_factor = self.window().scale_factor() as f64;
+        // On Wayland, a popup's outer position is relative to its parent,
+        // and a toplevel's position is unknown.
+        let origin = if self.shared_backend_data.is_wayland {
+            window.outer_position().ok()?.to_logical::<f64>(scale_factor)
+        } else {
+            let parent_window = parent.winit_window()?;
+            let screen_origin = |w: &dyn winit::window::Window| {
+                let outer = w.outer_position().ok()?;
+                let surface = w.surface_position();
+                Some((outer.x + surface.x, outer.y + surface.y))
+            };
+            let (x, y) = screen_origin(&*window)?;
+            let (px, py) = screen_origin(&*parent_window)?;
+            winit::dpi::PhysicalPosition::new(x - px, y - py).to_logical::<f64>(scale_factor)
+        };
+        Some(LogicalVector::new(origin.x as Coord, origin.y as Coord))
+    }
+
+    /// Returns the window that should receive a mouse event at `position`, and the position
+    /// in that window.
+    /// While a popup grabs the pointer, the platform delivers the events over the parent windows
+    /// to the popup.
+    /// Forward those to the parent window under the pointer, so that, for example, hovering
+    /// another menu bar entry switches the open menu.
+    fn adjust_mouse_event_to_popup_parent(
+        &self,
+        position: LogicalPoint,
+    ) -> (Rc<Self>, LogicalPoint) {
+        let this = self.self_weak.upgrade().expect("adapter is alive while handling its events");
+        let contains = |adapter: &Self, position: LogicalPoint| {
+            let window = adapter.window();
+            let size = window.size().to_logical(window.scale_factor());
+            LogicalRect::new(LogicalPoint::default(), euclid::size2(size.width, size.height))
+                .contains(position)
+        };
+        if contains(&this, position) {
+            return (this, position);
+        }
+        let mut target = this;
+        let mut target_position = position;
+        while let Some(parent) = target.parent.upgrade() {
+            let Some(origin) = target.origin_in_parent() else { break };
+            target = parent;
+            target_position += origin;
+            if contains(&target, target_position) {
+                break;
+            }
+        }
+        (target, target_position)
+    }
+
     /// Handles a winit window event for this window: applies the window event filter, feeds
     /// accesskit, updates the cursor and dispatches the corresponding Slint event.
     /// The event loop is needed to create the custom cursor.
@@ -1734,8 +1793,9 @@ impl WinitWindowAdapter {
                 if let winit::event::PointerSource::Touch { finger_id, .. } = source {
                     self.dispatch_touch_event((*device_id, *finger_id), logical, TouchPhase::Moved);
                 } else {
+                    let (target, position) = self.adjust_mouse_event_to_popup_parent(logical);
                     // winit sends this event at a very high frequency, so coalesce the moves.
-                    self.shared_backend_data.buffer_mouse_move(&self.self_weak, logical);
+                    self.shared_backend_data.buffer_mouse_move(&Rc::downgrade(&target), position);
                     if self.pressed.get() {
                         // A held-button move may cross a DragArea's threshold and start a
                         // native drag. That must happen while the platform's pointer grab is
@@ -1803,6 +1863,7 @@ impl WinitWindowAdapter {
                 // For the events that carry no position of their own.
                 self.cursor_pos.set(logical);
 
+                let (target, position) = self.adjust_mouse_event_to_popup_parent(logical);
                 let ev = match state {
                     winit::event::ElementState::Pressed => {
                         if button == PointerEventButton::Left
@@ -1814,7 +1875,7 @@ impl WinitWindowAdapter {
 
                         self.pressed.set(true);
                         BackendMouseEvent::Pressed {
-                            position: logical,
+                            position,
                             button,
                             click_count: 0,
                             touch_finger_id: 0,
@@ -1823,14 +1884,14 @@ impl WinitWindowAdapter {
                     winit::event::ElementState::Released => {
                         self.pressed.set(false);
                         BackendMouseEvent::Released {
-                            position: logical,
+                            position,
                             button,
                             click_count: 0,
                             touch_finger_id: 0,
                         }
                     }
                 };
-                self.dispatch_internal_event(ev);
+                target.dispatch_internal_event(ev);
             }
             WinitWindowEvent::ScaleFactorChanged { scale_factor, surface_size_writer } => {
                 if std::env::var("SLINT_SCALE_FACTOR").is_err() {
