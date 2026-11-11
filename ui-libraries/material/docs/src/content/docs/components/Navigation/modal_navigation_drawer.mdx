@@ -37,7 +37,7 @@ export component Example inherits Window {
 ```
 </CodeSnippetMD>
 
-A `NavigationDrawer` is a side panel that contains navigation items organized in groups, typically used for app navigation.
+A `ModalNavigationDrawer` is a side panel that contains navigation items organized in groups, typically used for app navigation.
 
 ## Properties
 
@@ -56,10 +56,33 @@ The index of the currently selected navigation item within the current group.
 An array of navigation groups, each containing a title and navigation items.
 </SlintProperty>
 
+### is-open
+<SlintProperty propName="is-open" typeName="bool" propertyVisibility="out">
+Whether the drawer is open.
+</SlintProperty>
+
+### position-right
+<SlintProperty propName="position-right" typeName="bool">
+Whether the drawer opens from the right edge instead of the left edge.
+Defaults to `false`.
+</SlintProperty>
+
+### title
+<SlintProperty propName="title" typeName="string">
+The title displayed above the navigation groups.
+</SlintProperty>
+
 ## Functions
 
+### show()
+Opens the drawer, preserving the current selection.
+
+### close()
+Closes the drawer without changing the current selection.
+
 ### select(group-index: int, item-index: int)
-Selects the navigation item at the specified group and item indices.
+Selects the navigation item at the specified group and item indices, invokes `selected`, and closes the drawer.
+Invalid indices are ignored.
 
 ## Callbacks
 

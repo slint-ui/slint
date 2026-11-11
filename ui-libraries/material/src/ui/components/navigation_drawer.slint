@@ -178,27 +178,17 @@ export component NavigationDrawer inherits Drawer {
     }
 }
 
-export component ModalNavigationDrawer inherits ModalDrawer {
-    callback selected(group-index: int, item-index: int);
+component ModalNavigationDrawerPopup inherits ModalDrawer {
+    callback select(group-index: int, item-index: int);
     callback item_pointer_event(group_index: int, item_index: int, event: PointerEvent, position: Point);
     in property <[NavigationGroup]> groups;
-    in_out property <int> current_group;
-    in_out property <int> current_index;
+    in property <int> current_group;
+    in property <int> current_index;
 
     accessible-role: tab-list;
     // accessible-delegate-focus: root.current-focused >= 0 ? root.current-focused : root.current-index;
     // accessible-label: root.title;
     accessible-item-count: root.groups.length;
-
-    // Workaround for issue #9766
-    close_timer := Timer {
-        interval: 0ms;
-        running: false;
-        triggered => {
-            root.close();
-            self.stop();
-        }
-    }
 
     for group[group_index] in root.groups : NavigationGroupTemplate {
         title: group.title;
@@ -213,6 +203,35 @@ export component ModalNavigationDrawer inherits ModalDrawer {
             root.item_pointer_event(group_index, index, event, { x: self.x + position.x, y: self.y + position.y });
         }
     }
+}
+
+export component ModalNavigationDrawer {
+    callback selected(group-index: int, item-index: int);
+    callback item_pointer_event(group_index: int, item_index: int, event: PointerEvent, position: Point);
+    out property <bool> is-open: popup.is-open;
+    in property <bool> position_right;
+    in property <string> title;
+    in property <[NavigationGroup]> groups;
+    in_out property <int> current_group;
+    in_out property <int> current_index;
+
+    // Workaround for issue #9766
+    close_timer := Timer {
+        interval: 0ms;
+        running: false;
+        triggered => {
+            popup.close();
+            self.stop();
+        }
+    }
+
+    public function show() {
+        popup.show();
+    }
+
+    public function close() {
+        popup.close();
+    }
 
     public function select(group_index: int, item_index: int) {
         if group_index < 0 || group_index >= root.groups.length || item_index < 0 || item_index >= root.groups[group_index].items.length {
@@ -223,5 +242,24 @@ export component ModalNavigationDrawer inherits ModalDrawer {
         root.current_index = item_index;
         root.selected(group_index, item_index);
         close_timer.start();
+    }
+
+    popup := ModalNavigationDrawerPopup {
+        x: 0px;
+        y: 0px;
+        width: root.width;
+        height: root.height;
+        position_right: root.position_right;
+        title: root.title;
+        groups: root.groups;
+        current_group: root.current_group;
+        current_index: root.current_index;
+
+        select(group_index, item_index) => {
+            root.select(group_index, item_index);
+        }
+        item_pointer_event(group_index, item_index, event, position) => {
+            root.item_pointer_event(group_index, item_index, event, position);
+        }
     }
 }
