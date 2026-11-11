@@ -1,0 +1,25 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Button, ListView, VerticalBox } from "std-widgets.slint";
+export component App inherits Window {
+    @testable in-out property <int> selected-row: -1;
+    VerticalBox {
+        open-popup := Button { text: "Open popup"; clicked => menu.show(); }
+        list := ListView {
+            for index in 1000 : Button {
+                text: "Row \{index}";
+                height: 32px;
+                clicked => { root.selected-row = index; }
+            }
+        }
+    }
+    menu := PopupWindow {
+        width: 200px;
+        height: 80px;
+        VerticalBox {
+            Text { text: "Popup content"; }
+            Button { text: "Close popup"; clicked => menu.close(); }
+        }
+    }
+}

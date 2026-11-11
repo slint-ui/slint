@@ -152,7 +152,8 @@ curl -s -X POST http://127.0.0.1:9315/mcp \
 
 ### Tools (typical)
 
-`list_windows`, `get_window_properties`, `get_element_tree`,
+`list_windows`, `get_window_properties`, `get_element_snapshot` (compact,
+one line per element worth acting on; without arguments, every window), `get_element_tree`,
 `get_element_properties`, `find_elements_by_id` (qualified id like
 `MyComponent::my-button`), `query_element_descendants`, `take_screenshot`,
 `click_element`, `drag_element`, `invoke_accessibility_action`,
@@ -165,6 +166,7 @@ Most take element/window handles returned by `list_windows`/the tree calls.
   `find_elements_by_id` (`ComponentName::id`).
 - Drive a flow (`click_element`, `dispatch_key_event`), then `take_screenshot`
   to verify the result.
+  Pass `"snapshot": true` to an action to also get a `get_element_snapshot` listing of every window after it.
 - Claude Code reads a project-level `.mcp.json`; declaring the server there
   lets it attach automatically while the app runs:
   `{"mcpServers": {"my-app": {"type": "http", "url": "http://localhost:9315/mcp"}}}`.
