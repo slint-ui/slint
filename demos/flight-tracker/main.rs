@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-// cSpell: ignore xorshift
+// cSpell: ignore cmpge cmple xorshift
 
 use std::cell::RefCell;
 use std::f32::consts::PI;
