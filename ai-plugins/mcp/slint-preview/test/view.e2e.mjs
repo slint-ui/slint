@@ -334,6 +334,9 @@ test("stacks annotations in the existing chat draft with matching screenshots an
     assert.equal(message.role, "user");
     assert.deepEqual(message._meta, { "openai/message": { target: "active", send: false } });
     assert.equal(message.content[0]._meta["openai/title"], "Make this part green");
+    for (const block of message.content) {
+        assert.deepEqual(block._meta["openai/group"], { title: "Preview Annotations" });
+    }
     assert.ok(message.content[0].text.startsWith("Make this part green\n\n"));
     assert.match(message.content[0].text, /Slint position: x=250, y=200 in a 1000×400 UI/);
     assert.ok(message.content.every((block) => !block.annotations?.audience));
