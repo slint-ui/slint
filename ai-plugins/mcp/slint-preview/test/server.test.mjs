@@ -416,12 +416,16 @@ test("replacing a preview wakes its waiting caller and rejects its late capture"
     assert.match(late.content[0].text, /older preview/);
 });
 
-test("returns a fallback when no view starts, then accepts a late view", async () => {
+test("asks the user to open the chat when startup is unconfirmed, then accepts a late view", async () => {
     const previewId = await startPreview({ source: "export component B {}" });
     const result = await callTool("get_preview_screenshot", {});
     assert.equal(result.isError, true);
-    assert.ok(result.content[0].text.includes("slint-viewer --screenshot"));
-    assert.ok(!result.content[0].text.includes("again"));
+    assert.equal(
+        result.content[0].text,
+        "The preview has not confirmed startup yet. " +
+        "It may be waiting for the user to open this chat. " +
+        "Ask the user to open the chat, then call `get_preview_screenshot` again for the existing preview.",
+    );
     const again = await callTool("get_preview_screenshot", {});
     assert.equal(again.isError, true);
 

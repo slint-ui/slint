@@ -291,7 +291,12 @@ const toolCalls = {
             );
         }
         if (preview.stage === "waiting") {
-            return textResult("The preview view did not start. Use slint-viewer --screenshot instead.", true);
+            return textResult(
+                "The preview has not confirmed startup yet. " +
+                "It may be waiting for the user to open this chat. " +
+                "Ask the user to open the chat, then call `get_preview_screenshot` again for the existing preview.",
+                true,
+            );
         }
         const ready = preview.stage === "ready";
         const structuredContent = {
