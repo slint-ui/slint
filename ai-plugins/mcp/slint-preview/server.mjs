@@ -23,6 +23,7 @@ const SCREENSHOT_TIMEOUT_MS = Number(
 const PREVIEW_TIMEOUT_MS = Number(
     process.env.SLINT_PREVIEW_TIMEOUT_MS ?? 60000,
 );
+const PREVIEW_POLL_TIMEOUT_MS = 5000;
 
 const pluginVersion = JSON.parse(
     readFileSync(
@@ -130,11 +131,15 @@ const tools = [
         title: "Get Slint Preview Screenshot",
         icons,
         description:
-            "Capture the current state of the latest preview_slint preview as a PNG, with the Slint version it ran on. " +
+            "Capture the current state of a preview_slint preview as a PNG, with the Slint version it ran on. " +
+            "Pass its previewId to select a preview, or omit it for the latest opened preview. " +
             "Waits for the first render if the preview is still starting, or returns pending with its current stage. " +
-            "If pending, call again to keep waiting for the same preview. Stop retrying on timeout. " +
+            "If pending, call again with the same previewId to keep waiting. Stop retrying on timeout. " +
             "Check it before you judge how the UI looks.",
-        inputSchema: { type: "object", properties: {} },
+        inputSchema: {
+            type: "object",
+            properties: { previewId: { type: "string" } },
+        },
         annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
     {
@@ -176,7 +181,40 @@ const tools = [
     },
 ];
 
-let latestPreview = null;
+const previews = new Map();
+let latestPreviewId = null;
+
+function registerPreview(id, stage = "waiting") {
+    const preview = {
+        id,
+        requestedAt: Date.now(),
+        lastPolledAt: null,
+        stage,
+        timings: {},
+        failure: null,
+        captureRequest: null,
+        listeners: [],
+    };
+    previews.set(id, preview);
+    return preview;
+}
+
+setInterval(() => {
+    const now = Date.now();
+    for (const [id, preview] of previews) {
+        const deadline = preview.lastPolledAt === null
+            ? preview.requestedAt + Math.max(PREVIEW_TIMEOUT_MS, PREVIEW_POLL_TIMEOUT_MS)
+            : preview.lastPolledAt + PREVIEW_POLL_TIMEOUT_MS;
+        if (now <= deadline) continue;
+        previews.delete(id);
+        preview.failure = {
+            error: "The preview stopped polling. It may be suspended or closed. " +
+                "Ask the user to open its chat, then retry with the same previewId.",
+        };
+        notify(preview);
+    }
+}, 1000).unref();
+
 function notify(preview) {
     for (const listener of preview.listeners.splice(0)) listener();
 }
@@ -232,36 +270,37 @@ const toolCalls = {
                 throw rpcError(-32602, "'projectRoot' must be absolute");
             }
         }
-        const previous = latestPreview;
-        latestPreview = {
-            id: randomUUID(),
-            requestedAt: Date.now(),
-            stage: "waiting",
-            timings: {},
-            failure: null,
-            captureRequest: null,
-            listeners: [],
-        };
-        if (previous) notify(previous);
+        const preview = registerPreview(randomUUID());
+        latestPreviewId = preview.id;
         // The view reads the ID from _meta, or from the text if a client drops _meta.
         return {
             content: [
                 {
                     type: "text",
-                    text: `Rendering Slint preview ${latestPreview.id}.`,
+                    text: `Rendering Slint preview ${preview.id}.`,
                 },
                 {
                     type: "text",
                     text: "Preview requested; rendering is unverified. Call get_preview_screenshot before confirming success.",
                 },
             ],
-            _meta: { "slint/previewId": latestPreview.id },
+            _meta: { "slint/previewId": preview.id },
         };
     },
-    get_preview_screenshot: async () => {
-        const preview = latestPreview;
-        if (!preview) {
+    get_preview_screenshot: async (args) => {
+        if (args.previewId !== undefined && typeof args.previewId !== "string") {
+            throw rpcError(-32602, "'previewId' must be a string");
+        }
+        const id = args.previewId ?? latestPreviewId;
+        if (id === null) {
             return textResult("Call preview_slint first.", true);
+        }
+        const preview = previews.get(id);
+        if (!preview) {
+            return textResult(
+                `Preview ${id} is unknown or inactive. Ask the user to open its chat, then retry with the same previewId.`,
+                true,
+            );
         }
         const viewDeadline = preview.requestedAt + VIEW_START_TIMEOUT_MS;
         const overallDeadline = preview.requestedAt + PREVIEW_TIMEOUT_MS;
@@ -272,7 +311,7 @@ const toolCalls = {
             };
         }
         const request = preview.captureRequest;
-        while (!request.capture && !preview.failure && preview === latestPreview) {
+        while (!request.capture && !preview.failure) {
             const deadline = Math.min(
                 request.deadline,
                 preview.stage === "ready" ? Infinity : overallDeadline,
@@ -284,12 +323,6 @@ const toolCalls = {
         }
         if (preview.captureRequest === request) preview.captureRequest = null;
         const capture = preview.failure ?? request.capture;
-        const { id } = preview;
-        if (preview !== latestPreview) {
-            return textResult(
-                `A newer preview_slint call replaced preview ${id}. Call get_preview_screenshot again.`,
-            );
-        }
         if (preview.stage === "waiting") {
             return textResult(
                 "The preview has not confirmed startup yet. " +
@@ -340,9 +373,12 @@ const toolCalls = {
     // The card polls for requests because the server cannot call an open card directly.
     // https://apps.extensions.modelcontextprotocol.io/api/documents/patterns.html#polling-for-live-data
     poll_preview_capture: (args) => {
-        const preview = latestPreview;
-        const active =
-            preview !== null && args.previewId === preview.id && !preview.failure;
+        if (typeof args.previewId !== "string") {
+            throw rpcError(-32602, "'previewId' must be a string");
+        }
+        const preview = previews.get(args.previewId) ?? registerPreview(args.previewId, "ready");
+        preview.lastPolledAt = Date.now();
+        const active = !preview.failure;
         const request = active ? preview.captureRequest : null;
         return {
             content: [],
@@ -356,9 +392,9 @@ const toolCalls = {
         if (typeof args.previewId !== "string") {
             throw rpcError(-32602, "'previewId' must be a string");
         }
-        const preview = latestPreview;
-        if (args.previewId !== preview?.id) {
-            return textResult("This belongs to an older preview.");
+        const preview = previews.get(args.previewId);
+        if (!preview) {
+            return textResult("This preview is unknown or inactive.");
         }
         if (preview.failure) {
             return textResult("This preview has already failed.");
