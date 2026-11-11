@@ -365,9 +365,13 @@ cpp! {{
     };
 
     void *root_item_for_window(void *rustWindow) {
-        return rust!(root_item_for_window_ [rustWindow: &crate::qt_window::QtWindow as "void*"]
+        return rust!(root_item_for_window_ [rustWindow: *const QtWindow as "void*"]
                 -> *mut c_void as "void*" {
-            let root_item = Box::new(ItemRc::new_root(WindowInner::from_pub(&rustWindow.window).component()).downgrade());
+            // The accessible interface outlives the window until Qt deletes the widget.
+            let rustWindow = core::mem::ManuallyDrop::new(unsafe { alloc::rc::Weak::from_raw(rustWindow) });
+            let root_item = Box::new(rustWindow.upgrade().map_or_else(ItemWeak::default, |w| {
+                ItemRc::new_root(WindowInner::from_pub(&w.window).component()).downgrade()
+            }));
             Box::into_raw(root_item) as _
         });
     }
