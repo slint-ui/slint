@@ -503,6 +503,8 @@ macro_rules! for_each_enums {
                 /// Set `accessible-role: none` on the `TextInput` inside an element that takes this role,
                 /// whose text the role describes.
                 TextInput,
+                /// The element is similar to the scroll bar in a `ScrollView`.
+                ScrollBar,
                 /// The element is a `Switch` or behaves like one.
                 Switch,
                 /// The element is an item in a `ListView`.
