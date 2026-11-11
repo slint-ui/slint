@@ -32,7 +32,6 @@ pub fn lower_popups(
         component,
         &None,
         &mut |elem, parent_element: &Option<ElementRc>| {
-            // #14856
             if is_popup_window(elem) && lowered.insert(ByAddress(elem.clone())) {
                 lower_popup_window(elem, parent_element.as_ref(), &window_type, diag);
             }
