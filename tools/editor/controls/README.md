@@ -222,3 +222,15 @@ The remaining radio issues are:
 
 Collection forwarding, mixed static and repeated children, and inherited collection replacement remain unsupported.
 Clearing an inherited named collection can currently be silently ignored.
+
+### Collection Tab Prototype
+
+The Collection tabs page demonstrates `CollectionTabWidget { CollectionTab { title: "Settings"; SettingsPage { } } }`.
+The widget reads titles in a collection loop to generate headers and places the supplied pages in a separate expansion.
+Titles remain reactive, and switching pages preserves their state.
+Click a header to select it; arrow keys, Home, and End move focus, and Enter or Space activates the focused tab.
+The gallery also includes the unchanged standard `TabWidget`.
+
+This prototype accepts static children satisfying its title interface.
+Repeated tabs, per-tab custom headers, vertical orientation, automatic scrolling to the focused header, and automatic page minimum-size aggregation remain unsupported.
+It doesn't replace the standard widget or reproduce the built-in `Tab` placement restriction.

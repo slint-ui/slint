@@ -1,0 +1,74 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { TabWidget, Palette } from "std-widgets.slint";
+import { Button, LineEdit, CollectionTabWidget, CollectionTab, BasicTheme } from "../src/basic.slint";
+import { ExampleSection } from "section.slint";
+
+component ActivityPage {
+    out property <int> count;
+    VerticalLayout {
+        spacing: 12px;
+        Text { text: "This counter survives switching tabs."; color: BasicTheme.foreground; }
+        Button {
+            text: "Count: \{root.count}";
+            clicked => { root.count += 1; }
+        }
+        Rectangle { vertical-stretch: 1; }
+    }
+}
+
+export component CollectionTabExamples inherits Rectangle {
+    vertical-stretch: 0;
+    VerticalLayout {
+        spacing: 20px;
+        ExampleSection {
+            title: "Tabs from a collection";
+            description: "Each tab supplies its title and page together. Arrow keys move focus; Enter or Space selects.";
+            CollectionTabWidget {
+                min-height: 230px;
+                CollectionTab {
+                    title: "Settings";
+                    VerticalLayout {
+                        spacing: 12px;
+                        Text { text: "Project settings"; color: BasicTheme.foreground; }
+                        name := LineEdit { placeholder-text: "Project name"; }
+                        Text { text: "Editing: \{name.text}"; color: BasicTheme.disabled-foreground; }
+                        Rectangle { vertical-stretch: 1; }
+                    }
+                }
+                CollectionTab {
+                    title: "Preview";
+                    Rectangle {
+                        background: BasicTheme.accent.with-alpha(0.08);
+                        border-radius: 6px;
+                        Text { text: "A different page component"; color: BasicTheme.foreground; }
+                    }
+                }
+                CollectionTab {
+                    title: "Activity (\{activity.count})";
+                    activity := ActivityPage { }
+                }
+            }
+        }
+        ExampleSection {
+            title: "Existing standard widget";
+            description: "The standard TabWidget keeps its existing syntax and implementation.";
+            Rectangle {
+                min-height: 140px;
+                background: Palette.background;
+                TabWidget {
+                    Tab {
+                        title: "Standard tab";
+                        Text { text: "Existing applications continue to work."; color: Palette.foreground; }
+                    }
+                    Tab {
+                        title: "Another tab";
+                        Text { text: "Standard tabs keep their style."; color: Palette.foreground; }
+                    }
+                }
+            }
+        }
+    }
+}
+
