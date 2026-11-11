@@ -125,12 +125,27 @@ figma_inspector:
 
 ai_plugins:
  - 'ai-plugins/**'
+ - 'api/wasm-interpreter/**'
+ - 'internal/core/**'
+ - 'internal/renderers/software/**'
+ - 'internal/interpreter/**'
+ - 'internal/compiler/**'
+ - 'internal/common/**'
+ - 'Cargo.toml'
+ - 'Cargo.lock'
  - *ci_config
 
 # The preview view renders with the Wasm interpreter
 slint_preview_view:
  - 'ai-plugins/mcp/slint-preview/**'
  - 'api/wasm-interpreter/**'
+ - 'internal/core/**'
+ - 'internal/renderers/software/**'
+ - 'internal/interpreter/**'
+ - 'internal/compiler/**'
+ - 'internal/common/**'
+ - 'Cargo.toml'
+ - 'Cargo.lock'
  - *js_config
  - *ci_config
 

@@ -793,8 +793,16 @@ jobs:
               with:
                   node-version: 24
                   package-manager-cache: false
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: wasm32-unknown-unknown
+                  key: slint-preview-checker
+            - name: Install wasm-pack
+              run: curl https://wasm-bindgen.github.io/wasm-pack/installer/init.sh -sSf | sh
+            - name: Build the MCP Wasm checker
+              run: node ai-plugins/mcp/slint-preview/build-checker.mjs --dev
             - name: Test the Slint preview MCP server
-              run: node --test 'ai-plugins/mcp/slint-preview/test/*.test.mjs'
+              run: node --test api/wasm-interpreter/test/headless.test.mjs 'ai-plugins/mcp/slint-preview/test/*.test.mjs'
 
     test-slint-preview-view:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'slint_preview_view') }}
@@ -815,6 +823,8 @@ jobs:
             - name: Build the Wasm interpreter
               run: wasm-pack build --dev --target web -- --features console_error_panic_hook
               working-directory: api/wasm-interpreter
+            - name: Build the MCP Wasm checker
+              run: node ai-plugins/mcp/slint-preview/build-checker.mjs --dev
             - run: pnpm install --frozen-lockfile --filter slint-preview-mcp
             - run: pnpm exec playwright install --with-deps chromium
               working-directory: ai-plugins/mcp/slint-preview

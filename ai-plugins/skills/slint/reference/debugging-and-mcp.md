@@ -62,6 +62,26 @@ When the assistant host can display local images inline, include the rendered
 screenshot in the chat. In CLI-only hosts, print the absolute image path and
 summarize what was visually checked.
 
+## In-Chat Preview Checks
+
+Use `check_slint` for the plugin's compiler diagnostics and initial-frame PNG.
+The MCP software checker supports PNG, JPEG, SVG, and SVGZ images.
+Other raster formats need conversion before checking.
+The hosted browser interpreter keeps its existing image-format support.
+Pass exactly one of `path` or `source`, with optional `style`.
+Saved files also support `projectRoot`.
+Use `prepare_preview: true` when you want a live card after inspecting the check.
+Only successful compilation and rendering produce a `previewId`; warnings do not block preparation.
+
+Call `publish_preview` with only that ID.
+Preparations expire after 15 minutes, are bounded to 16 entries, and are consumed when published.
+A missing or expired preparation needs another check.
+The card uses the original source or file path, including when restored.
+File previews reload their source, imports, fonts, and images from disk.
+Its hosted browser renderer can differ visually from the software check.
+Use `get_preview_screenshot` with the published ID to capture its current state after interaction.
+Card errors remain visible in the preview and through explicit screenshot requests.
+
 ## MCP Server for AI-Assisted Debugging
 
 Slint ships an embedded MCP server `(1.17+)`: walk the UI tree, read

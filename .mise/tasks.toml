@@ -152,8 +152,13 @@ depends = ["prepare:pnpm-install"]
 ### Tests
 
 ["test:ai-plugins"]
-description = "Run the Slint preview unit tests"
-run = "node --test 'ai-plugins/mcp/slint-preview/test/*.test.mjs'"
+description = "Run the Slint preview unit tests and Node rendering test"
+depends = ["build:ai-plugins:checker"]
+run = "node --test api/wasm-interpreter/test/headless.test.mjs 'ai-plugins/mcp/slint-preview/test/*.test.mjs'"
+
+["build:ai-plugins:checker"]
+description = "Build and bundle the MCP Wasm checker"
+run = "node ai-plugins/mcp/slint-preview/build-checker.mjs --dev"
 
 ### Build
 
