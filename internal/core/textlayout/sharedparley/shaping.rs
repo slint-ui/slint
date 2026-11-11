@@ -17,6 +17,12 @@ use super::*;
 /// that visually marks them as code.
 const INLINE_CODE_FONT_SCALE: f32 = 0.85;
 
+/// Room between an inline `code` run's capsule edges and its first and last glyph, as a
+/// fraction of the run's font size. The left room is an inline box before the code and the right
+/// room is spacing after its last character, so the capsule never covers its neighbors;
+/// `draw_inline_code_backgrounds` paints the capsule over it.
+pub(super) const INLINE_CODE_PADDING: f32 = 0.35;
+
 std::thread_local! {
     static LAYOUT_CONTEXT: RefCell<parley::LayoutContext<Brush>> = Default::default();
 }
@@ -177,6 +183,7 @@ impl LayoutWithoutLineBreaksBuilder {
 
         LAYOUT_CONTEXT.with_borrow_mut(|layout_ctx| {
             let mut builder = self.ranged_builder(layout_ctx, font_context, text);
+            let mut code_ranges = alloc::vec::Vec::new();
 
             // filter empty ranges otherwise parley will panic on assert
             for span in formatting.into_iter().filter(|s| !s.range.is_empty()) {
@@ -197,6 +204,7 @@ impl LayoutWithoutLineBreaksBuilder {
                         );
                     }
                     Style::Code => {
+                        code_ranges.push(span.range.clone());
                         builder.push(
                             parley::StyleProperty::FontFamily(parley::style::FontFamily::Single(
                                 parley::style::FontFamilyName::Generic(
@@ -239,6 +247,36 @@ impl LayoutWithoutLineBreaksBuilder {
                             span.range,
                         );
                     }
+                }
+            }
+
+            // The padding inside inline code's capsule. The left one is an inline box before the
+            // code, which takes room without being part of the text. The right one is spacing
+            // after the code's last character, so the capsule never ends on its neighbor.
+            let padding = self.pixel_size.get() * INLINE_CODE_FONT_SCALE * INLINE_CODE_PADDING;
+            for (id, code) in code_ranges.iter().enumerate() {
+                builder.push_inline_box(parley::InlineBox {
+                    id: id as u64,
+                    kind: parley::InlineBoxKind::InFlow,
+                    index: code.start,
+                    width: padding,
+                    height: 0.,
+                    baseline: None,
+                    vertical_align: parley::VerticalAlign::BASELINE,
+                });
+            }
+            let letter_spacing = self
+                .font_request
+                .as_ref()
+                .and_then(|font_request| font_request.letter_spacing)
+                .map_or(0., |letter_spacing| letter_spacing.get());
+            for code in &code_ranges {
+                if let Some(last) = text[code.clone()].char_indices().next_back() {
+                    let start = code.start + last.0;
+                    builder.push(
+                        parley::StyleProperty::LetterSpacing(letter_spacing + padding),
+                        start..start + last.1.len_utf8(),
+                    );
                 }
             }
 
