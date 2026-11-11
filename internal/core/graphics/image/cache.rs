@@ -155,7 +155,11 @@ impl ImageCache {
         })
     }
 
-    #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
+    #[cfg(all(
+        target_arch = "wasm32",
+        not(target_os = "emscripten"),
+        not(feature = "image-decoders")
+    ))]
     pub(crate) fn load_image_from_data_uri(
         &mut self,
         uri: &str,

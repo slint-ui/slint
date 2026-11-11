@@ -4,13 +4,23 @@
 //! This wasm library can be loaded from JS to load and display the content of .slint files
 #![cfg(target_arch = "wasm32")]
 
+#[cfg(all(feature = "browser", feature = "headless"))]
+compile_error!(
+    "Select either browser or headless; use --no-default-features --features headless for Node"
+);
+
+#[cfg(feature = "browser")]
 use std::cell::RefCell;
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 
 use i_slint_compiler::project_file::SlintEdition;
 use i_slint_compiler::source_path::SourcePath;
+#[cfg(feature = "browser")]
 use slint_interpreter::ComponentHandle;
+
+#[cfg(feature = "headless")]
+mod headless;
 
 #[wasm_bindgen]
 #[allow(dead_code)]
@@ -64,7 +74,8 @@ extern "C" {
 /// `optional_import_callback` returns the source of an imported `.slint` file,
 /// or `null` if the file doesn't exist, so that the search continues in the next include path.
 /// `optional_resource_loader` returns the bytes of an imported font file.
-/// Without it, the interpreter fetches the font from its URL.
+/// The headless build also uses it to load image files.
+/// Without it, the browser interpreter fetches the font from its URL.
 /// `optional_project_root` is the URL of a project file (`slint-project.json`) or a directory that contains one.
 /// The interpreter loads the project file through `optional_import_callback`.
 ///
@@ -169,6 +180,10 @@ pub async fn compile_from_string_with_style(
         compiler.set_project_file_loader(open_import_callback, i_slint_core::InternalToken);
     }
 
+    #[cfg(feature = "headless")]
+    let resource_errors =
+        headless::set_image_loader(&mut compiler, optional_resource_loader.as_ref());
+
     if let Some(load_resource) = optional_resource_loader {
         let load_resource = js_sys::Function::from(JsValue::from(load_resource));
         compiler.set_resource_loader(
@@ -217,8 +232,24 @@ pub async fn compile_from_string_with_style(
         array.push(&diagnostic_object(&d.message(), (line, column), &filename, d.level())?.into());
     }
 
+    #[cfg(feature = "headless")]
+    for (path, message) in resource_errors.borrow().iter() {
+        array.push(
+            &diagnostic_object(message, (0, 0), path, slint_interpreter::DiagnosticLevel::Error)?
+                .into(),
+        );
+        if !error_as_string.is_empty() {
+            error_as_string.push('\n');
+        }
+        error_as_string.push_str(message);
+    }
+
     Ok(CompilationResult {
-        component: result.components().next().map(WrappedCompiledComp),
+        component: if error_as_string.is_empty() {
+            result.components().next().map(WrappedCompiledComp)
+        } else {
+            None
+        },
         diagnostics: array,
         error_string: error_as_string,
     })
@@ -243,6 +274,7 @@ fn diagnostic_object(
 #[derive(Clone)]
 pub struct WrappedCompiledComp(slint_interpreter::ComponentDefinition);
 
+#[cfg(feature = "browser")]
 #[wasm_bindgen]
 impl WrappedCompiledComp {
     /// Run this compiled component in a canvas.
@@ -326,15 +358,18 @@ impl WrappedCompiledComp {
     }
 }
 
+#[cfg(feature = "browser")]
 #[wasm_bindgen]
 pub struct WrappedInstance(slint_interpreter::ComponentInstance);
 
+#[cfg(feature = "browser")]
 impl Clone for WrappedInstance {
     fn clone(&self) -> Self {
         Self(self.0.clone_strong())
     }
 }
 
+#[cfg(feature = "browser")]
 #[wasm_bindgen]
 impl WrappedInstance {
     /// Marks this instance for rendering and input handling.
@@ -453,6 +488,7 @@ pub fn register_font_from_memory(data: Vec<u8>) -> Result<(), JsValue> {
 /// Register DOM event handlers on all instance and set up the event loop for that.
 /// You can call this function only once. It will throw an exception but that is safe
 /// to ignore.
+#[cfg(feature = "browser")]
 #[wasm_bindgen]
 pub fn run_event_loop() -> Result<(), JsValue> {
     // Merely spawns the event loop, but does not block.
@@ -460,10 +496,12 @@ pub fn run_event_loop() -> Result<(), JsValue> {
     Ok(())
 }
 
+#[cfg(feature = "browser")]
 thread_local!(
     static NEXT_CANVAS_ID: Rc<RefCell<Option<String>>> = Default::default();
 );
 
+#[cfg(feature = "browser")]
 #[wasm_bindgen(start)]
 pub fn init() -> Result<(), JsValue> {
     #[cfg(feature = "console_error_panic_hook")]

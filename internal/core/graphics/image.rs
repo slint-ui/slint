@@ -742,7 +742,11 @@ impl ImageInner {
         format: Slice<'_, u8>,
     ) -> Option<Self> {
         // On the web, let the browser decode the image instead of shipping decoders in the binary.
-        #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
+        #[cfg(all(
+            target_arch = "wasm32",
+            not(target_os = "emscripten"),
+            not(feature = "image-decoders")
+        ))]
         {
             let _ = cache_key;
             let mime_type = core::str::from_utf8(format.as_slice())
@@ -764,7 +768,11 @@ impl ImageInner {
                 .map(|html_image| ImageInner::HTMLImage(vtable::VRc::new(html_image)))
         }
 
-        #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
+        #[cfg(any(
+            not(target_arch = "wasm32"),
+            target_os = "emscripten",
+            feature = "image-decoders"
+        ))]
         {
             #[cfg(feature = "svg")]
             if format.as_slice() == b"svg"
@@ -791,10 +799,7 @@ impl ImageInner {
         }
     }
 
-    #[cfg(all(
-        feature = "image-decoders",
-        any(not(target_arch = "wasm32"), target_os = "emscripten")
-    ))]
+    #[cfg(feature = "image-decoders")]
     pub(crate) fn decode_with_cache_key(
         cache_key: ImageCacheKey,
         data: ImageData<'_>,
@@ -802,6 +807,7 @@ impl ImageInner {
     ) -> image::ImageResult<Self> {
         let format = format.or_else(|| image::guess_format(&data).ok());
         // Files that the animation decoders reject may still decode as a still image.
+        #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
         if let Some(image) = format.and_then(|format| {
             animated::load(cache_key.clone(), data, format)
                 .map_err(|err| {
@@ -824,7 +830,7 @@ impl ImageInner {
 }
 
 /// Convert `image::DynamicImage` to `SharedImageBuffer`
-#[cfg(all(feature = "image-decoders", any(not(target_arch = "wasm32"), target_os = "emscripten")))]
+#[cfg(feature = "image-decoders")]
 fn dynamic_image_to_shared_image_buffer(dynamic_image: image::DynamicImage) -> SharedImageBuffer {
     if dynamic_image.color().has_alpha() {
         // Prefer pre-multiplied alpha so that smooth-scaling won't bleed the alpha when blending
@@ -842,7 +848,7 @@ fn dynamic_image_to_shared_image_buffer(dynamic_image: image::DynamicImage) -> S
     }
 }
 
-#[cfg(all(feature = "image-decoders", any(not(target_arch = "wasm32"), target_os = "emscripten")))]
+#[cfg(feature = "image-decoders")]
 fn rgba_image_to_premultiplied(image: image::RgbaImage) -> SharedPixelBuffer<Rgba8Pixel> {
     use rgb::AsPixels;
     SharedPixelBuffer {
@@ -1245,16 +1251,31 @@ impl Image {
     /// Creates a new Image from the specified buffer, which contains SVG raw data.
     ///
     /// On the web, the browser renders the SVG, and compressed SVG data (svgz) is not supported.
-    #[cfg(any(feature = "svg", all(target_arch = "wasm32", not(target_os = "emscripten"))))]
+    #[cfg(any(
+        feature = "svg",
+        all(
+            target_arch = "wasm32",
+            not(target_os = "emscripten"),
+            not(feature = "image-decoders")
+        )
+    ))]
     pub fn load_from_svg_data(buffer: &[u8]) -> Result<Self, LoadImageError> {
         // On the web, the browser decodes the SVG.
-        #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
+        #[cfg(all(
+            target_arch = "wasm32",
+            not(target_os = "emscripten"),
+            not(feature = "image-decoders")
+        ))]
         {
             htmlimage::HTMLImage::new_from_data(buffer, "image/svg+xml")
                 .map(|html_image| Image(ImageInner::HTMLImage(vtable::VRc::new(html_image))))
                 .ok_or(LoadImageError(()))
         }
-        #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
+        #[cfg(any(
+            not(target_arch = "wasm32"),
+            target_os = "emscripten",
+            feature = "image-decoders"
+        ))]
         {
             let cache_key = ImageCacheKey::Invalid;
             Ok(Image(ImageInner::Svg(vtable::VRc::new(
@@ -1351,7 +1372,11 @@ pub fn load_image_from_data_uri(
 ) -> Result<Image, LoadImageError> {
     // The browser loads images asynchronously, so every evaluation of the same data URI
     // must share one image and its loading state: cache under the URI.
-    #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
+    #[cfg(all(
+        target_arch = "wasm32",
+        not(target_os = "emscripten"),
+        not(feature = "image-decoders")
+    ))]
     {
         self::cache::IMAGE_CACHE.with(|global_cache| {
             global_cache
@@ -1361,7 +1386,7 @@ pub fn load_image_from_data_uri(
         })
     }
     // Native decoding is synchronous; don't fill the cache with one-shot images.
-    #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
+    #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten", feature = "image-decoders"))]
     {
         let _ = uri;
         ImageInner::load_from_data_with_cache_key(

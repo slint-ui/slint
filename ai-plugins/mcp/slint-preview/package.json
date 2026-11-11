@@ -3,7 +3,9 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "test:e2e": "node --test test/view.e2e.mjs"
+        "test:e2e": "node --test test/view.e2e.mjs",
+        "build:checker": "wasm-pack build ../../../api/wasm-interpreter --dev --target nodejs --out-dir ../../ai-plugins/mcp/slint-preview/checker -- --no-default-features --features headless,console_error_panic_hook",
+        "test:checker": "node --test ../../../api/wasm-interpreter/test/headless.test.mjs"
     },
     "devDependencies": {
         "playwright": "catalog:"
