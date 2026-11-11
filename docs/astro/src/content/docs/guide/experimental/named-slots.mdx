@@ -311,9 +311,37 @@ Collection lengths and indexes are read-only.
 Callers can't assign properties or callback handlers managed by the expansion.
 Bindings in the supplied component's implementation remain available as defaults; property change handlers from both sides are combined.
 
+### Generating Views
+
+Use a component type after the colon to create a separate view for each supplied component.
+The loop variable refers to the supplied component through its interface.
+The supplied component still requires one placement expansion.
+
+```slint
+interface Page { in property <string> title; }
+
+component Pages {
+    in-out property <int> current-index;
+    default slot <[implements Page]> pages;
+    VerticalLayout {
+        HorizontalLayout {
+            for page in pages: Text { text: page.title; }
+        }
+        Rectangle {
+            for page[index] in pages: page {
+                visible: root.current-index == index;
+            }
+        }
+    }
+}
+```
+
+Views read the actual component's properties, so changes to a title update its view.
+Generating views currently requires static collection children; a supplied `for` loop produces an error.
+
 ### Collection Limits
 
-- Each collection requires exactly one expansion in its declaring component.
+- Each collection requires exactly one placement expansion in its declaring component; additional loops can generate views.
 - Expansions accept bindings, two-way bindings, callback connections, and property change handlers, but no child elements or member declarations.
 - Supply static components or a single `for` loop; conditional children and mixtures of static children and repeaters aren't supported.
 - Forwarding collection slots or `@children` into collections isn't supported.

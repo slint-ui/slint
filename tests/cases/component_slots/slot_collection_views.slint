@@ -1,0 +1,104 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+interface Entry {
+    in property <string> title;
+    in-out property <int> value;
+}
+
+component Page {
+    in property <string> title;
+    in-out property <int> value;
+    callback constructed();
+    init => { root.constructed(); }
+    @children
+}
+
+component DecoratedPage inherits Page {
+    Rectangle { background: Colors.orange; }
+}
+
+component Group {
+    in property <string> suffix;
+    out property <int> length: entries.length;
+    out property <int> last-index: -1;
+    default slot <[implements Entry]> entries;
+    helper := Rectangle { property <int> delta: 3; }
+    VerticalLayout {
+        HorizontalLayout {
+            for entry[index] in entries: Rectangle {
+                min-width: 80px;
+                min-height: 30px;
+                caption := Text { text: entry.title + root.suffix; accessible-role: none; }
+                TouchArea {
+                    accessible-role: button;
+                    accessible-label: caption.text;
+                    clicked => {
+                        entry.value += helper.delta;
+                        root.last-index = index;
+                    }
+                }
+            }
+        }
+        HorizontalLayout {
+            for entry in entries: Text {
+                text: "\{entry.title}: \{entry.value}";
+                accessible-label: self.text;
+            }
+        }
+        Rectangle {
+            for entry in entries: entry { }
+        }
+    }
+}
+
+component DerivedGroup inherits Group { }
+
+export component TestCase inherits Window {
+    width: 400px;
+    height: 300px;
+    out property <int> constructions;
+    out property <int> first-value: first.value;
+    out property <int> second-value: second.value;
+    out property <int> other-value: other.value;
+    out property <int> last-index: primary.last-index;
+    out property <bool> test: primary.length == 2 && secondary.length == 1;
+    public function rename() { first.title = "Renamed"; }
+    VerticalLayout {
+        primary := DerivedGroup {
+            suffix: " A";
+            first := Page { title: "First"; constructed => { root.constructions += 1; } }
+            second := DecoratedPage { title: "Second"; constructed => { root.constructions += 1; } }
+        }
+        secondary := Group {
+            suffix: " B";
+            other := Page { title: "First"; constructed => { root.constructions += 1; } }
+        }
+        Group { }
+    }
+}
+
+/*
+```rust
+use slint::platform::PointerEventButton;
+use slint_testing::ElementHandle;
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+assert_eq!(instance.get_constructions(), 3);
+let first = ElementHandle::find_by_accessible_label(&instance, "First A").next().unwrap();
+first.mock_single_click(PointerEventButton::Left);
+assert_eq!(instance.get_first_value(), 3);
+assert_eq!(instance.get_second_value(), 0);
+assert_eq!(instance.get_other_value(), 0);
+assert_eq!(instance.get_last_index(), 0);
+assert_eq!(ElementHandle::find_by_accessible_label(&instance, "First: 3").count(), 1);
+instance.invoke_rename();
+assert_eq!(ElementHandle::find_by_accessible_label(&instance, "Renamed A").count(), 1);
+assert_eq!(ElementHandle::find_by_accessible_label(&instance, "First B").count(), 1);
+let second = ElementHandle::find_by_accessible_label(&instance, "Second A").next().unwrap();
+second.mock_single_click(PointerEventButton::Left);
+assert_eq!(instance.get_second_value(), 3);
+assert_eq!(instance.get_last_index(), 1);
+assert_eq!(instance.get_constructions(), 3);
+```
+*/

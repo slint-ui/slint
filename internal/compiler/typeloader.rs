@@ -2822,6 +2822,13 @@ fn snapshotting_slot_collections() {
             default slot <[NominalEntry]> items;
             for item[index] in items: item { value: index; }
         }
+        export component ViewGroup {
+            default slot <[implements Entry]> items;
+            HorizontalLayout {
+                for item in items: Text { text: "\{item.value}"; }
+            }
+            for item in items: item { }
+        }
         "#
             .into(),
             false,
@@ -2832,13 +2839,14 @@ fn snapshotting_slot_collections() {
     let mut copy = snapshot(&loader).unwrap();
     drop(loader);
     let source = r#"
-        import { Group, NominalEntry as ImportedEntry, NominalGroup } from "slot-collections-library.slint";
+        import { Group, ViewGroup, NominalEntry as ImportedEntry, NominalGroup } from "slot-collections-library.slint";
         component Item { in property <int> value; }
         component DerivedEntry inherits ImportedEntry { }
         export component Test inherits Window {
             Group { Item { } }
             Group { for value in [1, 2, 3]: Item { } }
             NominalGroup { ImportedEntry { } DerivedEntry { } }
+            ViewGroup { Item { value: 7; } }
         }
     "#;
     let raw = spin_on::spin_on(copy.load_root_file(

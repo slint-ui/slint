@@ -45,7 +45,6 @@ export component WrongExpansion {
     default slot <[implements Entry]> items;
 //                                    >   <error{Expand collection slot 'items' with a 'for' loop}
     for item in items: Rectangle { }
-//  >                              <error{Expand slot 'items' with 'for child[index] in items: child { ... }'}
 }
 export component ScalarDefault {
     default slot <Entry> item;

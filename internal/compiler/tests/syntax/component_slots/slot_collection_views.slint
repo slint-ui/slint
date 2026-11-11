@@ -1,0 +1,22 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+interface Entry { in property <string> title; }
+component Page { in property <string> title; }
+
+component Views {
+    default slot <[implements Entry]> entries;
+    HorizontalLayout {
+        for entry[index] in entries: Text { text: entry.title; }
+    }
+    Rectangle {
+        for entry in entries: entry { }
+    }
+}
+
+export component Test inherits Window {
+    Views {
+        for title in ["One", "Two"]: Page { title: title; }
+//                                   >   <error{Generating collection views requires static children; remove the 'for' loop}
+    }
+}

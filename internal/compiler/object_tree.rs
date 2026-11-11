@@ -516,6 +516,16 @@ pub struct SlotExpansion {
     pub entry_id: SmolStr,
     pub index_id: SmolStr,
     pub index_property: SmolStr,
+    pub projection_slot: Option<SmolStr>,
+}
+
+impl SlotExpansion {
+    pub(crate) fn entry_element(&self, template: &ElementRc) -> ElementRc {
+        let Some(slot) = &self.projection_slot else {
+            return template.clone();
+        };
+        template.borrow().children.iter().find(|child| &child.borrow().id == slot).unwrap().clone()
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -817,7 +827,7 @@ impl Component {
                     .borrow()
                     .slot_expansion
                     .as_ref()
-                    .is_some_and(|e| e.slot_name == slot.name);
+                    .is_some_and(|e| e.slot_name == slot.name && e.projection_slot.is_none());
             });
             if !expanded && !slot.has_rejected_placeholder {
                 diagnostics.push_error(

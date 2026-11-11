@@ -85,6 +85,20 @@ fn element_key(e: ElementRc) -> ByAddress<ElementRc> {
 
 type Mapping = HashMap<ByAddress<ElementRc>, ElementRc>;
 
+pub(super) fn duplicate_element(element: &ElementRc, component: &Rc<Component>) -> ElementRc {
+    let mut mapping = Mapping::new();
+    let duplicate = duplicate_element_with_mapping(element, &mut mapping, component, 0);
+    for element in mapping.values() {
+        visit_element_expressions(element, |expression, _, _| {
+            fixup_element_references(expression, &mapping);
+        });
+        visit_all_named_references_in_element(element, |reference| {
+            fixup_reference(reference, &mapping);
+        });
+    }
+    duplicate
+}
+
 fn inline_element(
     elem: &ElementRc,
     inlined_component: &Rc<Component>,
