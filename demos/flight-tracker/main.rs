@@ -502,10 +502,10 @@ impl Demo {
         let side = beside_sun(sun, self.intro_turn);
         let s = (self.stage_time / INTRO_SECONDS).clamp(0.0, 1.0);
         // The point looked at, on the great circle through the point under the sun, moves from
-        // the night side towards the line between day and night, which brings the sun up over
-        // the horizon after about three seconds. The camera keeps looking at the horizon for a
-        // while, then pulls back and looks down at the globe.
-        let angle = (107.0 - 11.0 * camera::ease(s / 0.45)).to_radians();
+        // the night side to the line between day and night, all through the intro and ever
+        // slower, which brings the sun up over the horizon after about three seconds.
+        // The camera stays low for a while, then pulls back and looks down at the globe.
+        let angle = (107.0 - 17.4 * (1.0 - (1.0 - s).powi(2))).to_radians();
         let target = sun * angle.cos() + side * angle.sin();
         let towards_sun = sun * angle.sin() - side * angle.cos();
         let log_lerp = |from: f32, to: f32, t: f32| (from.ln() + (to.ln() - from.ln()) * t).exp();
