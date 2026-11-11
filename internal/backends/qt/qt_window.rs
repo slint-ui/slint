@@ -11,15 +11,15 @@ use i_slint_core::graphics::rendering_metrics_collector::{
     RenderingMetrics, RenderingMetricsCollector,
 };
 use i_slint_core::graphics::{
-    Brush, Color, ImageCacheKey, IntSize, Point, Rgba8Pixel, SharedImageBuffer, SharedPixelBuffer,
-    euclid,
+    Brush, Color, ImageCacheKey, IntSize, PathSink, Rgba8Pixel, ShapedRect, SharedImageBuffer,
+    SharedPixelBuffer, euclid,
 };
 use i_slint_core::input::{
     BackendDragEvent, BackendMouseEvent, InternalKeyEvent, KeyEvent, KeyEventType, TouchPhase,
 };
 use i_slint_core::item_rendering::{
-    CachedRenderingData, ItemCache, ItemRenderer, RenderBorderRectangle, RenderImage,
-    RenderRectangle, RenderText,
+    BorderRectLayout, CachedRenderingData, ItemCache, ItemRenderer, RenderBorderRectangle,
+    RenderImage, RenderRectangle, RenderText, ShapedBorderRect,
 };
 use i_slint_core::item_tree::{
     ItemTreeRc, ItemTreeRef, ItemTreeRefPin, ItemTreeWeak, ParentItemTraversalMode,
@@ -30,8 +30,8 @@ use i_slint_core::items::{
 };
 use i_slint_core::layout::Orientation;
 use i_slint_core::lengths::{
-    LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
-    PhysicalPx, ScaleFactor, logical_size_from_api,
+    LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalPx, LogicalRect, LogicalSize,
+    LogicalVector, PhysicalPx, ScaleFactor, logical_size_from_api,
 };
 use i_slint_core::platform::{PlatformError, WindowEvent};
 use i_slint_core::string::ToSharedString;
@@ -689,6 +689,77 @@ impl QPainterPath {
     }
 }
 
+fn to_qpointf(p: euclid::default::Point2D<f32>) -> qttypes::QPointF {
+    qttypes::QPointF { x: p.x as _, y: p.y as _ }
+}
+
+/// Builds a `QPainterPath` with the nonzero fill rule, as Qt defaults to even-odd.
+struct WindingPathSink(QPainterPath);
+
+impl Default for WindingPathSink {
+    fn default() -> Self {
+        let mut path = QPainterPath::default();
+        path.set_fill_rule(key_generated::Qt_FillRule_WindingFill);
+        Self(path)
+    }
+}
+
+impl PathSink for WindingPathSink {
+    fn move_to(&mut self, to: euclid::default::Point2D<f32>) {
+        self.0.move_to(to_qpointf(to));
+    }
+    fn line_to(&mut self, to: euclid::default::Point2D<f32>) {
+        self.0.line_to(to_qpointf(to));
+    }
+    fn cubic_to(
+        &mut self,
+        ctrl1: euclid::default::Point2D<f32>,
+        ctrl2: euclid::default::Point2D<f32>,
+        to: euclid::default::Point2D<f32>,
+    ) {
+        self.0.cubic_to(to_qpointf(ctrl1), to_qpointf(ctrl2), to_qpointf(to));
+    }
+    fn close(&mut self) {
+        self.0.close();
+    }
+}
+
+/// The area of `shape`: its outline, united with a miter stroke of twice its offset to grow it,
+/// or with the stroke subtracted to shrink it.
+fn shaped_path<U>(shape: &ShapedRect<U>) -> QPainterPath {
+    let mut sink = WindingPathSink::default();
+    shape.add_outline(&mut sink);
+    let outline = sink.0;
+    if shape.offset == 0. {
+        return outline;
+    }
+    let width = 2. * shape.offset.abs() as qttypes::qreal;
+    let grow = shape.offset > 0.;
+    cpp! { unsafe [outline as "QPainterPath", width as "qreal", grow as "bool"] -> QPainterPath as "QPainterPath" {
+        QPainterPathStroker stroker;
+        stroker.setWidth(width);
+        stroker.setJoinStyle(Qt::MiterJoin);
+        // Qt measures the miter from the join in stroke widths, so this is Skia's default
+        // limit of 4, which measures the whole miter.
+        stroker.setMiterLimit(2);
+        QPainterPath stroke = stroker.createStroke(outline);
+        return grow ? outline.united(stroke) : outline.subtracted(stroke);
+    }}
+}
+
+/// The background and border areas of a [`ShapedBorderRect`].
+type ShapedPaths = (QPainterPath, Option<QPainterPath>);
+
+fn shaped_paths(shaped: &ShapedBorderRect) -> ShapedPaths {
+    let border = shaped.border.map(|[outer, inner]| {
+        let (outer, inner) = (shaped_path(&outer), shaped_path(&inner));
+        cpp! { unsafe [outer as "QPainterPath", inner as "QPainterPath"] -> QPainterPath as "QPainterPath" {
+            return outer.subtracted(inner);
+        }}
+    });
+    (shaped_path(&shaped.background), border)
+}
+
 fn into_qbrush(
     brush: i_slint_core::Brush,
     width: qttypes::qreal,
@@ -845,9 +916,17 @@ macro_rules! check_geometry {
     }};
 }
 
+/// The paths of each item's [`ShapedBorderRect`], with the rect they're built for.
+type ShapedBorderCache = ItemCache<(ShapedBorderRect, ShapedPaths)>;
+
+/// The path of each item's shaped clip, with the clip it's built for.
+type ShapedClipCache = ItemCache<(ShapedRect<LogicalPx>, QPainterPath)>;
+
 struct QtItemRenderer<'a> {
     painter: QPainterPtr,
     cache: &'a ItemCache<qttypes::QPixmap>,
+    shaped_border_cache: &'a ShapedBorderCache,
+    shaped_clip_cache: &'a ShapedClipCache,
     text_layout_cache: &'a sharedparley::TextLayoutCache,
     window: &'a i_slint_core::api::Window,
     metrics: RenderingMetrics,
@@ -872,17 +951,26 @@ impl ItemRenderer for QtItemRenderer<'_> {
     fn draw_border_rectangle(
         &mut self,
         rect: Pin<&dyn RenderBorderRectangle>,
-        _: &ItemRc,
+        item_rc: &ItemRc,
         size: LogicalSize,
         _: &CachedRenderingData,
     ) {
-        Self::draw_rectangle_impl(
+        let cache = self.shaped_border_cache;
+        Self::draw_border_rectangle_impl(
             &mut self.painter,
-            check_geometry!(size),
+            rect,
+            size,
             rect.background(),
-            rect.border_color(),
-            rect.border_width().get(),
-            rect.border_radius(),
+            true,
+            |shaped| {
+                cache
+                    .get_or_update_cache_entry_unless(
+                        item_rc,
+                        || (shaped, shaped_paths(&shaped)),
+                        |(cached, _)| *cached != shaped,
+                    )
+                    .1
+            },
         );
     }
 
@@ -971,9 +1059,6 @@ impl ItemRenderer for QtItemRenderer<'_> {
         });
 
         for x in path_events.iter() {
-            fn to_qpointf(p: Point) -> qttypes::QPointF {
-                qttypes::QPointF { x: p.x as _, y: p.y as _ }
-            }
             match x {
                 lyon_path::Event::Begin { at } => {
                     painter_path.move_to(to_qpointf(at));
@@ -1046,7 +1131,8 @@ impl ItemRenderer for QtItemRenderer<'_> {
         _size: LogicalSize,
     ) {
         let pixmap : qttypes::QPixmap = self.cache.get_or_update_cache_entry( item_rc, || {
-                let shadow_rect = check_geometry!(item_rc.geometry().size);
+                let shadow_size = item_rc.geometry().size;
+                let shadow_rect = check_geometry!(shadow_size);
 
                 let source_size = qttypes::QSize {
                     width: shadow_rect.width.ceil() as _,
@@ -1059,21 +1145,23 @@ impl ItemRenderer for QtItemRenderer<'_> {
 
                 let img = &mut source_image;
                 let mut painter_ = cpp!(unsafe [img as "QImage*"] -> QPainterPtr as "QPainterPtr" {
-                    return std::make_unique<QPainter>(img);
+                    auto painter = std::make_unique<QPainter>(img);
+                    painter->setRenderHint(QPainter::Antialiasing);
+                    return painter;
                 });
 
-                let (background, border_color, border_width) = if box_shadow.inset() {
-                    (Brush::SolidColor(Color::from_rgb_u8(0, 0, 0)), Brush::default(), 0.)
+                let (background, with_border) = if box_shadow.inset() {
+                    (Brush::SolidColor(Color::from_rgb_u8(0, 0, 0)), false)
                 } else {
-                    (box_shadow.background(), box_shadow.border_color(), box_shadow.border_width().get())
+                    (box_shadow.background(), true)
                 };
-                Self::draw_rectangle_impl(
+                Self::draw_border_rectangle_impl(
                     &mut painter_,
-                    qttypes::QRectF { x: 0., y: 0., width: shadow_rect.width, height: shadow_rect.height },
+                    box_shadow,
+                    shadow_size,
                     background,
-                    border_color,
-                    border_width,
-                    box_shadow.logical_border_radius(),
+                    with_border,
+                    |shaped| shaped_paths(&shaped),
                 );
                 let color = box_shadow.color().as_argb_encoded();
                 let painter = &mut painter_;
@@ -1189,6 +1277,19 @@ impl ItemRenderer for QtItemRenderer<'_> {
                 QPainterPath path = to_painter_path(clip_rect, top_left_radius, top_right_radius, bottom_right_radius, bottom_left_radius);
                 (*painter)->setClipPath(path, Qt::IntersectClip);
             }
+            return !(*painter)->clipBoundingRect().isEmpty();
+        }}
+    }
+
+    fn combine_shaped_clip(&mut self, item_rc: &ItemRc, clip: ShapedRect<LogicalPx>) -> bool {
+        let (_, path) = self.shaped_clip_cache.get_or_update_cache_entry_unless(
+            item_rc,
+            || (clip, shaped_path(&clip)),
+            |(cached, _)| *cached != clip,
+        );
+        let painter: &mut QPainterPtr = &mut self.painter;
+        cpp! { unsafe [painter as "QPainterPtr*", path as "QPainterPath"] -> bool as "bool" {
+            (*painter)->setClipPath(path, Qt::IntersectClip);
             return !(*painter)->clipBoundingRect().isEmpty();
         }}
     }
@@ -2093,6 +2194,59 @@ impl QtItemRenderer<'_> {
         }
     }
 
+    /// Draws `rect` at `size`, filled with `background`, and with its border if `with_border`.
+    /// `paths` builds the paths of corners that don't draw as a rounded rectangle.
+    fn draw_border_rectangle_impl(
+        painter: &mut QPainterPtr,
+        rect: Pin<&dyn RenderBorderRectangle>,
+        size: LogicalSize,
+        background: Brush,
+        with_border: bool,
+        paths: impl FnOnce(ShapedBorderRect) -> ShapedPaths,
+    ) {
+        let geometry = check_geometry!(size);
+        let corner_shape = rect.corner_shape();
+        if let Some(radius) = corner_shape.rounded_rect_radius(rect.border_radius()) {
+            let (border_color, border_width) = if with_border {
+                (rect.border_color(), rect.border_width().get())
+            } else {
+                (Brush::default(), 0.)
+            };
+            Self::draw_rectangle_impl(
+                painter,
+                geometry,
+                background,
+                border_color,
+                border_width,
+                radius,
+            );
+            return;
+        }
+        // The painter works in logical pixels.
+        let Some(layout) = BorderRectLayout::new(rect, size, ScaleFactor::new(1.)) else {
+            return;
+        };
+        let Some(mut shaped) = layout.shaped else { return };
+        if !with_border {
+            let outline = shaped.border.map_or(shaped.background, |[outer, _]| outer);
+            shaped = ShapedBorderRect { background: outline, border: None };
+        }
+        let (background_path, border_path) = paths(shaped);
+        let fill = |path: QPainterPath, brush: Brush| {
+            let brush: qttypes::QBrush = into_qbrush(brush, geometry.width, geometry.height);
+            cpp! { unsafe [painter as "QPainterPtr*", brush as "QBrush", path as "QPainterPath"] {
+                (*painter)->save();
+                (*painter)->setRenderHint(QPainter::Antialiasing, true);
+                (*painter)->fillPath(path, brush);
+                (*painter)->restore();
+            }}
+        };
+        fill(background_path, background);
+        if let Some(border_path) = border_path {
+            fill(border_path, layout.border_color);
+        }
+    }
+
     fn draw_rectangle_impl(
         painter: &mut QPainterPtr,
         mut rect: qttypes::QRectF,
@@ -2302,6 +2456,8 @@ pub struct QtWindow {
     rendering_metrics_collector: RefCell<Option<Rc<RenderingMetricsCollector>>>,
 
     cache: ItemCache<qttypes::QPixmap>,
+    shaped_border_cache: ShapedBorderCache,
+    shaped_clip_cache: ShapedClipCache,
     text_layout_cache: sharedparley::TextLayoutCache,
 
     tree_structure_changed: RefCell<bool>,
@@ -2342,6 +2498,8 @@ impl QtWindow {
                 self_weak: self_weak.clone(),
                 rendering_metrics_collector: Default::default(),
                 cache: Default::default(),
+                shaped_border_cache: Default::default(),
+                shaped_clip_cache: Default::default(),
                 text_layout_cache: Default::default(),
                 tree_structure_changed: RefCell::new(false),
                 window_icon_cache_key: Default::default(),
@@ -2384,6 +2542,8 @@ impl QtWindow {
             let mut renderer = QtItemRenderer {
                 painter,
                 cache: &self.cache,
+                shaped_border_cache: &self.shaped_border_cache,
+                shaped_clip_cache: &self.shaped_clip_cache,
                 text_layout_cache: &self.text_layout_cache,
                 window: &self.window,
                 metrics: RenderingMetrics { layers_created: Some(0), ..Default::default() },
@@ -3093,6 +3253,8 @@ impl i_slint_core::renderer::RendererSealed for QtWindow {
     ) -> Result<(), i_slint_core::platform::PlatformError> {
         // Invalidate caches:
         self.cache.component_destroyed(component);
+        self.shaped_border_cache.component_destroyed(component);
+        self.shaped_clip_cache.component_destroyed(component);
         self.text_layout_cache.component_destroyed(component);
         Ok(())
     }
