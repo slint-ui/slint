@@ -62,7 +62,7 @@ export component CollectionTabWidget inherits Rectangle {
     in-out property <int> current-index: 0;
     out property <int> item-count: tabs.length;
     private property <int> focused-index: 0;
-    default slot <[TabEntry]> tabs;
+    default slot <[implements TabEntry]> tabs;
 
     forward-focus: bar-focus;
 

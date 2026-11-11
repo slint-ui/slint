@@ -54,6 +54,17 @@ component Group {
 
 component DerivedGroup inherits Group { }
 
+component NominalGroup {
+    default slot <[Page]> entries;
+    HorizontalLayout {
+        for entry in entries: Text {
+            text: entry.title;
+            accessible-label: "Nominal " + entry.title;
+        }
+    }
+    Rectangle { for entry in entries: entry { } }
+}
+
 export component TestCase inherits Window {
     width: 400px;
     height: 300px;
@@ -63,7 +74,10 @@ export component TestCase inherits Window {
     out property <int> other-value: other.value;
     out property <int> last-index: primary.last-index;
     out property <bool> test: primary.length == 2 && secondary.length == 1;
-    public function rename() { first.title = "Renamed"; }
+    public function rename() {
+        first.title = "Renamed";
+        nominal-page.title = "Updated";
+    }
     VerticalLayout {
         primary := DerivedGroup {
             suffix: " A";
@@ -75,6 +89,12 @@ export component TestCase inherits Window {
             other := Page { title: "First"; constructed => { root.constructions += 1; } }
         }
         Group { }
+        NominalGroup {
+            nominal-page := DecoratedPage {
+                title: "Page";
+                constructed => { root.constructions += 1; }
+            }
+        }
     }
 }
 
@@ -84,7 +104,7 @@ use slint::platform::PointerEventButton;
 use slint_testing::ElementHandle;
 let instance = TestCase::new().unwrap();
 assert!(instance.get_test());
-assert_eq!(instance.get_constructions(), 3);
+assert_eq!(instance.get_constructions(), 4);
 let first = ElementHandle::find_by_accessible_label(&instance, "First A").next().unwrap();
 first.mock_single_click(PointerEventButton::Left);
 assert_eq!(instance.get_first_value(), 3);
@@ -95,10 +115,11 @@ assert_eq!(ElementHandle::find_by_accessible_label(&instance, "First: 3").count(
 instance.invoke_rename();
 assert_eq!(ElementHandle::find_by_accessible_label(&instance, "Renamed A").count(), 1);
 assert_eq!(ElementHandle::find_by_accessible_label(&instance, "First B").count(), 1);
+assert_eq!(ElementHandle::find_by_accessible_label(&instance, "Nominal Updated").count(), 1);
 let second = ElementHandle::find_by_accessible_label(&instance, "Second A").next().unwrap();
 second.mock_single_click(PointerEventButton::Left);
 assert_eq!(instance.get_second_value(), 3);
 assert_eq!(instance.get_last_index(), 1);
-assert_eq!(instance.get_constructions(), 3);
+assert_eq!(instance.get_constructions(), 4);
 ```
 */
