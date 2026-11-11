@@ -9,21 +9,34 @@ This document covers how to implement a custom renderer for Slint. This is inten
 
 ## Overview
 
-Slint includes three built-in renderers:
-- **Software Renderer** (`internal/renderers/software/`) - Pure Rust CPU-based rendering
-- **FemtoVG Renderer** (`internal/renderers/femtovg/`) - OpenGL ES 2.0 via FemtoVG library
-- **Skia Renderer** (`internal/renderers/skia/`) - GPU-accelerated via Skia library
+Slint includes these renderer implementations:
+
+| Renderer | Location | Graphics Path |
+|----------|----------|---------------|
+| **Software** | `internal/renderers/software/` | Pure Rust CPU rendering |
+| **FemtoVG** | `internal/renderers/femtovg/` | OpenGL or WGPU through FemtoVG |
+| **Skia** | `internal/renderers/skia/` | GPU or software rendering through Skia |
+| **Anyrender** | `internal/renderers/anyrender/` | Anyrender drawing interface, with Vello over WGPU for window rendering |
+| **Qt** | `internal/backends/qt/qt_window.rs` | QPainter drawing integrated into the Qt backend |
 
 ## Core Traits
 
 ### RendererSealed (`internal/core/renderer.rs`)
 
-The fundamental trait all renderers must implement. Uses the sealed trait pattern—`RendererSealed` is internal, while `Renderer` is the public re-export that external code uses.
+All renderers implement the internal `RendererSealed` trait.
+The public `Renderer` trait extends it and has a blanket implementation for types implementing `RendererSealed`.
+Custom renderer implementations therefore use internal APIs.
+
+With `shared-parley` enabled, `RendererSealed` provides shared implementations for text measurement, font metrics, cursor geometry, and hit-testing.
+Return a `TextLayoutCache` from `text_layout_cache()` to reuse shaped paragraphs across these operations and drawing.
+Implement `sharedparley::GlyphRenderer` for glyph drawing through the same layout path.
+See [Text Layout System](text-layout.md) for the shared pipeline and the software bitmap-font fallback.
 
 **Key methods:**
 
 | Method | Purpose |
 |--------|---------|
+| `text_layout_cache()` | Provide the cache for shared text layout |
 | `text_size()` | Measure text dimensions with optional wrapping |
 | `font_metrics()` | Query font ascent, descent, line height |
 | `text_input_byte_offset_for_position()` | Hit-testing for text input cursor placement |
@@ -88,6 +101,17 @@ into a whole pixel buffer, while `render_by_line()` drives a `LineBufferProvider
 time for memory-constrained devices. Both return the `PhysicalRegion` that was painted.
 See `internal/renderers/software/lib.rs`.
 
+### Anyrender Pattern: Window Renderer Abstraction
+
+`AnyrenderSlintRenderer<W>` delegates surface handling and presentation to `SlintWindowRenderer`.
+`AnyrenderItemRenderer` translates Slint drawing operations to the Anyrender interface.
+The Vello implementation lives in `internal/renderers/anyrender/vello.rs`.
+
+### Qt Pattern: Backend-Owned Renderer
+
+`QtWindow` implements `RendererSealed`, and `QtItemRenderer` draws through QPainter.
+Both live in `internal/backends/qt/qt_window.rs` and share the Qt window and event-loop integration.
+
 ## Backend Integration
 
 ### WinitCompatibleRenderer (`internal/backends/winit/`)
@@ -126,13 +150,17 @@ To implement a custom renderer:
 
 ### Feature Flags
 
-Renderers are enabled via Cargo features in `api/rs/slint/Cargo.toml`:
+Renderer selection starts with Cargo features in `api/rs/slint/Cargo.toml`:
 
-```toml
-renderer-femtovg = ["i-slint-backend-selector/renderer-femtovg"]
-renderer-skia = ["i-slint-backend-selector/renderer-skia"]
-renderer-software = ["i-slint-backend-selector/renderer-software"]
-```
+| Feature | Selection |
+|---------|-----------|
+| `renderer-software` | Software renderer |
+| `renderer-femtovg` | FemtoVG with OpenGL |
+| `renderer-femtovg-wgpu` | FemtoVG with WGPU |
+| `renderer-skia` | Skia with its default surface selection |
+| `renderer-skia-opengl`, `renderer-skia-vulkan`, `renderer-skia-software` | Skia surface variants |
+| `renderer-vello` | Anyrender with Vello |
+| `backend-qt` | Qt backend, including its renderer |
 
 ### Backend Selector
 
@@ -165,6 +193,8 @@ To add a new renderer:
 ```sh
 SLINT_BACKEND=winit-software cargo run    # Force software renderer
 SLINT_BACKEND=winit-skia cargo run        # Force Skia renderer
+SLINT_BACKEND=winit-vello cargo run       # Anyrender with Vello (requires renderer-vello)
+SLINT_BACKEND=qt cargo run                # Qt backend and renderer (requires backend-qt)
 ```
 
 ## Window & Event Loop Integration
