@@ -1,5 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+//edition: 1.18
 
 Compo1 := Rectangle {
 //     ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
@@ -24,11 +25,11 @@ export App := Rectangle {
 //         ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     cc := Compo1 {
         aa() => { return self.a; }
-//      >note{'aa' is part of the binding loop reported for 'a' at line 7}
+//      >note{'aa' is part of the binding loop reported for 'a' at line 8}
 
         b: self.bb();
-//     <note{'aa' is part of the binding loop reported for 'a' at line 7}
-//         >        <^note{'b' is part of the binding loop reported for 'bb' at line 19}
+//     <note{'aa' is part of the binding loop reported for 'a' at line 8}
+//         >        <^note{'b' is part of the binding loop reported for 'bb' at line 20}
     }
 
 

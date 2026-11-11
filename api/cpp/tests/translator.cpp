@@ -35,7 +35,7 @@ TEST_CASE("Translate Properties")
 
     ComponentCompiler compiler;
     auto comp_def = compiler.build_from_source(R"(
-        export App := Window {
+        export component App inherits Window {
             out property <string> singular: @tr("singular");
             out property <string> plural: @tr("singular" | "plural-{n}" % 42);
         }

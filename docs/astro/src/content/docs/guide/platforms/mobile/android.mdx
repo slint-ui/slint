@@ -33,7 +33,7 @@ Select the version of android-activity you want to use:
 
 ```toml
 [dependencies]
-slint = { version = "1.19.0", features = ["backend-android-activity-06"] }
+slint = { version = "1.20.0", features = ["backend-android-activity-06"] }
 ```
 
 It is safe to enable this feature unconditionally.
@@ -100,6 +100,7 @@ plugins {
 android {
     namespace = "com.myproject.app"
     compileSdk = 35
+    ndkVersion = "30.0.16248370"
 
     defaultConfig {
         applicationId = "com.myproject.app"
@@ -173,7 +174,7 @@ Also note the SDK location on top, this path might have to be used for the `ANDR
 variable if the build tools can't detect it automatically.
 
 In the SDK Manager, also install:
-- The Android NDK (under the "SDK Tools" tab)
+- The Android NDK r30 or newer (under the "SDK Tools" tab)
 - CMake (under the "SDK Tools" tab)
 
 Set up these environment variables so the build can find the NDK:
@@ -182,6 +183,12 @@ Set up these environment variables so the build can find the NDK:
 export ANDROID_HOME=$HOME/Android/Sdk
 export ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/<version>
 ```
+
+The build downloads prebuilt binaries of the Skia renderer,
+and these binaries need the C++ standard library of NDK r30 or newer.
+With an older NDK, the app builds, but crashes at startup.
+To use an older NDK, set `FORCE_SKIA_BUILD=1` in the environment.
+The build then compiles Skia from source with your NDK, which takes much longer.
 
 ### Rust Toolchain
 
@@ -435,7 +442,7 @@ packages it into an APK,
 and installs it on the connected device.
 
 :::note[Note]
-The first build takes longer because it compiles Slint and the Skia renderer from source.
+The first build takes longer because it compiles Slint from source.
 Subsequent builds are faster thanks to Cargo's incremental compilation.
 :::
 
@@ -486,6 +493,8 @@ Install it with your system package manager.
 
 Check `adb logcat` for errors.
 Common causes:
+- `dlopen failed: cannot locate symbol` with a `__ndk1` name: the NDK is older than r30.
+  Set `ndkVersion` in `build.gradle.kts` to NDK r30 or newer, or set `FORCE_SKIA_BUILD=1`.
 - The library name in `AndroidManifest.xml` doesn't match the CMake target name.
 - The `slint_main` function is missing (it must be `extern "C"`).
 - The API level is below 26.

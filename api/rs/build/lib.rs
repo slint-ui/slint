@@ -11,7 +11,7 @@ The generated code must be included in your crate by using the `slint::include_m
 
 ## Project File
 
-If the path is a directory, Slint loads the project file (`slint-project.json`) inside that directory.
+If the path is a project file (`slint-project.json`) or a directory that contains one, Slint loads that project file.
 The project file provides settings not specified through [`CompilerConfiguration`].
 It must contain a `main` entry, which specifies the `.slint` file the compiler loads.
 Passing a `.slint` file compiles it without loading a project file.
@@ -350,7 +350,10 @@ impl CompilerConfiguration {
     fn resolve_project_file(
         self,
         project_directory: &Path,
-    ) -> Result<(i_slint_compiler::CompilerConfiguration, Option<ProjectFile>), String> {
+    ) -> Result<
+        (i_slint_compiler::CompilerConfiguration, Option<ProjectFile>),
+        i_slint_compiler::diagnostics::Diagnostic,
+    > {
         let (_, project_file) = project_file::resolve_input(project_directory)?;
         Ok((self.resolve(project_file.as_ref()), project_file))
     }
@@ -401,7 +404,7 @@ fn project_file_path_in(manifest_dir: impl AsRef<Path>) -> PathBuf {
 ///
 /// This function can only be called within a build script run by cargo.
 ///
-/// If the path is a directory, Slint loads the project file (`slint-project.json`) inside that directory.
+/// If the path is a project file (`slint-project.json`) or a directory that contains one, Slint loads that project file.
 /// It must contain a `main` entry, which specifies the `.slint` file the compiler loads.
 /// A `.slint` file path compiles without loading a project file.
 ///
@@ -502,8 +505,8 @@ pub fn compile_with_config(
 ///
 /// Doesn't print any cargo messages.
 ///
-/// If the input path is a directory, Slint loads the project file (`slint-project.json`) inside that directory.
-/// The project file provides the settings that `config` does not specify.
+/// If the input path is a project file (`slint-project.json`) or a directory that contains one, Slint loads that project file.
+/// The project file provides the settings that `config` doesn't specify.
 /// It must contain a `main` entry, which specifies the `.slint` file the compiler loads.
 ///
 /// Returns a list of all input files that were used to generate the output file. (dependencies)
@@ -771,7 +774,7 @@ fn explicit_settings_add_to_the_project_file_paths() {
         fs::write(
             &project_file,
             r#"{
-                "edition": "1.19",
+                "edition": "1.20",
                 "main": "main.slint",
                 "include-paths": ["project-include"],
                 "library-paths": {"widgets": "project-lib.slint", "icons": "icons.slint"}
@@ -787,7 +790,7 @@ fn explicit_settings_add_to_the_project_file_paths() {
                 PathBuf::from("build-lib.slint"),
             )]))
             .with_style("build-style".into())
-            .with_edition((1, 19))
+            .with_edition((1, 18))
             .with_absolute_paths(&test_root)
             .resolve_project_file(&test_root)
             .unwrap();
@@ -804,7 +807,7 @@ fn explicit_settings_add_to_the_project_file_paths() {
             ])
         );
         assert_eq!(config.style.as_deref(), Some("build-style"));
-        assert_eq!(config.edition, Some(project_file::SlintEdition::V1_19));
+        assert_eq!(config.edition, Some((1, 18).into()));
     });
 }
 
@@ -814,7 +817,7 @@ fn explicit_build_settings_preserve_empty_values_and_false() {
         let project_path = project_file_path_in(test_root);
         std::fs::write(
             &project_path,
-            r#"{"edition":"1.19","include-paths":["include"],"library-paths":{"widgets":"lib"}}"#,
+            r#"{"edition":"1.20","include-paths":["include"],"library-paths":{"widgets":"lib"}}"#,
         )
         .unwrap();
         let project = ProjectFile::load(project_path).unwrap();
@@ -927,7 +930,7 @@ fn compiler_configuration_defaults_without_project_file() {
         let project_file = project_file_path_in(test_root);
         fs::write(
             &project_file,
-            r#"{"edition": "1.19", "main":"main.slint","include-paths":["include"]}"#,
+            r#"{"edition": "1.20", "main":"main.slint","include-paths":["include"]}"#,
         )
         .unwrap();
 
@@ -981,7 +984,7 @@ fn missing_main_is_a_compilation_error() {
 
     with_temp_test_dir("project-file-error", |test_root| {
         let project_file = project_file_path_in(test_root);
-        fs::write(&project_file, r#"{ "edition": "1.19" }"#).unwrap();
+        fs::write(&project_file, r#"{ "edition": "1.20" }"#).unwrap();
 
         let error = compile_with_output_path(
             test_root,
@@ -993,7 +996,7 @@ fn missing_main_is_a_compilation_error() {
         let CompileError::CompileError(messages) = error else {
             panic!("Expected a compilation error, got {error:?}");
         };
-        assert_eq!(messages, vec![format!("{} has no 'main' to compile", project_file.display())]);
+        assert_eq!(messages, ["Project file has no 'main' to compile"]);
     });
 }
 
@@ -1008,7 +1011,7 @@ fn output_path_compilation_tracks_project_file_dependency() {
 
         fs::write(
             &project_file,
-            r#"{"edition": "1.19", "main":"main.slint","include-paths":["include"]}"#,
+            r#"{"edition": "1.20", "main":"main.slint","include-paths":["include"]}"#,
         )
         .unwrap();
         fs::write(&input_file, "export component Test inherits Rectangle {}").unwrap();
@@ -1064,12 +1067,12 @@ fn a_project_directory_compiles_its_main_file() {
         let project_file = project_file_path_in(&test_root);
         fs::write(
             &project_file,
-            r#"{ "edition": "1.19", "main": "ui/main.slint", "include-paths": ["shared"] }"#,
+            r#"{ "edition": "1.20", "main": "ui/main.slint", "include-paths": ["shared"] }"#,
         )
         .unwrap();
         fs::write(
             project_file_path_in(&ui_dir),
-            r#"{ "edition": "1.19", "include-paths": ["nowhere"] }"#,
+            r#"{ "edition": "1.20", "include-paths": ["nowhere"] }"#,
         )
         .unwrap();
         fs::write(shared_dir.join("shared.slint"), "export component Shared {}").unwrap();
@@ -1102,30 +1105,27 @@ fn directory_without_project_file_is_a_compilation_error() {
             CompilerConfiguration::new(),
         )
         .unwrap_err();
-        assert!(error.to_string().contains("slint-project.json"), "{error}");
+        let CompileError::CompileError(messages) = error else {
+            panic!("Expected a compilation error, got {error:?}");
+        };
+        let expected = std::fs::read(project_file_path_in(test_root)).unwrap_err().to_string();
+        assert_eq!(messages, [expected]);
     });
 }
 
 #[test]
-fn project_file_cannot_be_compiled_directly() {
+fn project_file_can_be_compiled_directly() {
     with_temp_test_dir("direct-project-file", |test_root| {
         let project_file = project_file_path_in(test_root);
-        std::fs::write(&project_file, r#"{"edition":"1.19","main":"main.slint"}"#).unwrap();
-        let error = compile_with_output_path(
+        std::fs::write(&project_file, r#"{"edition":"1.20","main":"main.slint"}"#).unwrap();
+        std::fs::write(test_root.join("main.slint"), "export component Main inherits Window { }")
+            .unwrap();
+        let dependencies = compile_with_output_path(
             &project_file,
             test_root.join("main.rs"),
             CompilerConfiguration::new(),
         )
-        .unwrap_err();
-        let CompileError::CompileError(messages) = error else {
-            panic!("Expected a compilation error, got {error:?}");
-        };
-        assert_eq!(
-            messages,
-            vec![format!(
-                "A `{PROJECT_FILE_NAME}` cannot be compiled directly; pass its directory instead ({})",
-                test_root.display()
-            )]
-        );
+        .unwrap();
+        assert!(dependencies.contains(&i_slint_compiler::source_path::clean_path(&project_file)));
     });
 }

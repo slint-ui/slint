@@ -311,9 +311,9 @@ pub fn setup(api: &ui::Api<'_>, api_weak: slint::Weak<ui::Api<'static>>) {
     api.on_outline_can_drop(|data, target_uri, target_offset, location| {
         can_drop(data, target_uri, target_offset, location)
     });
-    api.on_outline_add_tab(|target_uri, target_offset| {
-        if let Some((edit, drop_data)) = add_tab_edit(target_uri, target_offset)
-            && preview::send_workspace_edit("Add tab".to_string(), edit, true)
+    api.on_outline_add_child(|target_uri, target_offset| {
+        if let Some((edit, drop_data)) = add_child_edit(target_uri, target_offset)
+            && preview::send_workspace_edit("Add child".to_string(), edit, true)
         {
             super::element_selection::select_element_at_source_code_position(
                 drop_data.path,
@@ -325,33 +325,54 @@ pub fn setup(api: &ui::Api<'_>, api_weak: slint::Weak<ui::Api<'static>>) {
     });
 }
 
-fn add_tab_edit(
+struct ChildTemplate {
+    element: &'static str,
+    label_property: &'static str,
+    label_prefix: &'static str,
+}
+
+fn child_template(container_type: &str) -> Option<ChildTemplate> {
+    match container_type {
+        "TabWidget" => {
+            Some(ChildTemplate { element: "Tab", label_property: "title", label_prefix: "Tab" })
+        }
+        "RadioGroup" => Some(ChildTemplate {
+            element: "RadioButton",
+            label_property: "text",
+            label_prefix: "Option",
+        }),
+        _ => None,
+    }
+}
+
+fn add_child_edit(
     target_uri: SharedString,
     target_offset: i32,
 ) -> Option<(lsp_types::WorkspaceEdit, preview::drop_location::DropData)> {
     let document_cache = super::document_cache()?;
     let url = Url::parse(target_uri.as_str()).ok()?;
-    let tab_widget = document_cache.element_at_offset(&url, TextSize::new(target_offset as u32))?;
-    let tab_count = tab_widget.with_element_node(|node| {
+    let container = document_cache.element_at_offset(&url, TextSize::new(target_offset as u32))?;
+    let (template, child_count) = container.with_element_node(|node| {
         let type_name = |element: &syntax_nodes::Element| {
             element.QualifiedName().map(|name| name.text().to_string().trim().to_string())
         };
-        (type_name(node).as_deref() == Some("TabWidget")).then(|| {
-            node.SubElement()
-                .filter(|sub| type_name(&sub.Element()).as_deref() == Some("Tab"))
-                .count()
-        })
+        let template = child_template(type_name(node)?.as_str())?;
+        let child_count = node
+            .SubElement()
+            .filter(|sub| type_name(&sub.Element()).as_deref() == Some(template.element))
+            .count();
+        Some((template, child_count))
     })?;
 
     let drop_info = preview::drop_location::DropInformation {
-        insert_info: preview::drop_location::insert_position_at_end(&tab_widget)?,
-        target_element_node: tab_widget,
+        insert_info: preview::drop_location::insert_position_at_end(&container)?,
+        target_element_node: container,
         drop_mark: None,
-        child_index: tab_count,
+        child_index: child_count,
     };
-    // `Tab` only exists inside a `TabWidget`, so it isn't in the component catalog.
-    let tab = i_slint_editor_preview::component_catalog::ComponentInformation {
-        name: "Tab".to_string(),
+    // `Tab` and `RadioButton` only exist inside their container, so they aren't in the component catalog.
+    let child = i_slint_editor_preview::component_catalog::ComponentInformation {
+        name: template.element.to_string(),
         category: String::new(),
         is_global: false,
         is_builtin: true,
@@ -363,11 +384,11 @@ fn add_tab_edit(
         is_layout: false,
         defined_at: None,
         default_properties: vec![i_slint_editor_preview::editing::PropertyChange::new(
-            "title",
-            format!("\"Tab {}\"", tab_count + 1),
+            template.label_property,
+            format!("\"{} {}\"", template.label_prefix, child_count + 1),
         )],
     };
-    preview::drop_location::create_drop_element_workspace_edit(&document_cache, &tab, &drop_info)
+    preview::drop_location::create_drop_element_workspace_edit(&document_cache, &child, &drop_info)
 }
 
 fn drop_edit(

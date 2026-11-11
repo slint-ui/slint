@@ -1,0 +1,4 @@
+{
+  "edition": ""
+//            |error{'' is not a Slint edition: write the major and minor version, such as "1.20"}
+}

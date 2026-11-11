@@ -1,0 +1,53 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Diagnostics, Diagnostic } from "../diagnostics.slint";
+import { Style, Metrics, Typography, PreviewDiagnosticsStyle } from "../style.slint";
+import { EditorScrollView } from "editor-scroll-view.slint";
+
+export component DiagnosticList inherits Rectangle {
+    in property <[Diagnostic]> entries;
+    in property <bool> warnings;
+    in property <PreviewDiagnosticsStyle> style: Style.preview-diagnostics;
+    in property <length> details-height-limit: root.style.max-details-height;
+    height: content.preferred-height;
+    content := VerticalLayout {
+        width: root.width;
+        spacing: Metrics.space-medium;
+        details := EditorScrollView {
+            height: min(rows.preferred-height, root.details-height-limit);
+            content-width: self.width;
+            content-height: rows.preferred-height;
+            horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
+            vertical-scrollbar-policy: ScrollBarPolicy.as-needed;
+            rows := VerticalLayout {
+                width: details.width;
+                spacing: Metrics.space-medium;
+                for index in min(3, root.entries.length): VerticalLayout {
+                    private property <Diagnostic> diagnostic: root.entries[index];
+                    spacing: Metrics.space-small;
+                    Text {
+                        text: Diagnostics.format-location(diagnostic);
+                        color: root.style.muted;
+                        font-size: Typography.caption.size;
+                        wrap: char-wrap;
+                    }
+                    Text {
+                        text: diagnostic.message;
+                        color: root.style.foreground;
+                        font-size: Typography.control.size;
+                        wrap: word-wrap;
+                    }
+                }
+            }
+        }
+        if root.entries.length > 3: Text {
+            text: root.warnings
+                ? @tr("{n} more warning. Copy diagnostics to see all messages." | "{n} more warnings. Copy diagnostics to see all messages." % (root.entries.length - 3))
+                : @tr("{n} more error. Copy diagnostics to see all messages." | "{n} more errors. Copy diagnostics to see all messages." % (root.entries.length - 3));
+            color: root.style.muted;
+            font-size: Typography.control.size;
+            wrap: word-wrap;
+        }
+    }
+}

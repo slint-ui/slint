@@ -2160,6 +2160,7 @@ fn build(l: &mut Loader) {
         function close() { BuiltinFunction.ContextMenuClose }
         @pure function is-open() -> bool { BuiltinFunction.ContextMenuIsOpen }
         in property <bool> enabled: true;
+        in property <bool> is-menu-bar;
     } }
 
     element! {
@@ -2183,7 +2184,6 @@ fn build(l: &mut Loader) {
         /// There can be at most one `Menu` child, all other children must be of a different type and will be shown as regular visual children.
         /// Define the structure of the menu by placing `MenuItem` or `Menu` elements inside that `Menu`.
         ///
-        /// \footer
         /// ## Example
         ///
         /// ```slint
@@ -3533,6 +3533,27 @@ fn build(l: &mut Loader) {
             /// to rotate a ComboBox's arrow while the dropdown is open.
             /// `true` while the popup is shown on the screen, and `false` once it is closed, for example
             /// when dismissed by a click, by a selection, or by a programmatic `close()`.
+            ///
+            /// The popup only exists while it's open, so a `changed is-open` handler inside it never runs.
+            /// To react when the popup opens or closes, bind `is-open` to a property outside the popup,
+            /// and handle changes of that property:
+            ///
+            /// ```slint
+            /// export component Example inherits Window {
+            ///     property <bool> popup-open: popup.is-open;
+            ///     changed popup-open => {
+            ///         debug("popup open:", self.popup-open);
+            ///     }
+            ///
+            ///     popup := PopupWindow {
+            ///         Rectangle { background: yellow; }
+            ///     }
+            ///
+            ///     TouchArea {
+            ///         clicked => { popup.show(); }
+            ///     }
+            /// }
+            /// ```
             out property <bool> is-open;
             /// Show the popup on the screen.
             function show() { BuiltinFunction.ShowPopupWindow }

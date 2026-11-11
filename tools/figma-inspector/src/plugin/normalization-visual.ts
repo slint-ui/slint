@@ -22,6 +22,7 @@ import {
     type NodeResult,
 } from "./normalization-context";
 import type { ImageResolver } from "./normalize";
+import { radialGeometry, isCircularGradient } from "../gradient-geometry";
 import type {
     Diagnostic,
     SnapshotImage,
@@ -150,6 +151,16 @@ function transform(
     ];
 }
 
+function gradientStops(value: GradientPaint, node: MaterializedNode) {
+    return value.gradientStops.map((stop) => {
+        if (!number(stop.position) || stop.position < 0 || stop.position > 1)
+            throw new CompatibilityError(
+                "gradient stop position must be between 0 and 1",
+            );
+        return { position: stop.position, color: color(stop.color, node) };
+    });
+}
+
 async function paint(
     value: Paint,
     node: MaterializedNode,
@@ -164,33 +175,39 @@ async function paint(
     if (value.type === "SOLID") {
         return { kind: "solid", color: color(value.color, node), opacity };
     }
-    if (value.type === "GRADIENT_LINEAR") {
+    if (value.type === "GRADIENT_LINEAR" || value.type === "GRADIENT_ANGULAR") {
         if (value.gradientStops.length < 2)
             throw new CompatibilityError(
                 "linear gradients require at least two stops",
             );
+        const matrix = transform(value.gradientTransform, node);
+        if (
+            value.type === "GRADIENT_ANGULAR" &&
+            !isCircularGradient(matrix, node.width, node.height)
+        )
+            throw new CompatibilityError(
+                "angular gradient requires a circular, unreflected transform",
+            );
+        if (
+            value.type === "GRADIENT_LINEAR" &&
+            Math.abs(matrix[0][0]) + Math.abs(matrix[0][1]) < 1e-12
+        )
+            throw new CompatibilityError(
+                "linear gradient transform must have a direction",
+            );
         return {
-            kind: "linear-gradient",
-            transform: transform(value.gradientTransform, node),
-            stops: value.gradientStops.map((stop) => {
-                if (
-                    !number(stop.position) ||
-                    stop.position < 0 ||
-                    stop.position > 1
-                )
-                    throw new CompatibilityError(
-                        "gradient stop position must be between 0 and 1",
-                    );
-                return {
-                    position: stop.position,
-                    color: color(stop.color, node),
-                };
-            }),
+            kind:
+                value.type === "GRADIENT_LINEAR"
+                    ? "linear-gradient"
+                    : "conic-gradient",
+            transform: matrix,
+            stops: gradientStops(value, node),
             opacity,
         };
     }
     if (value.type === "GRADIENT_RADIAL") {
-        const [[a, c, e], [b, d, f]] = transform(value.gradientTransform, node);
+        const gradientTransform = transform(value.gradientTransform, node);
+        const [[a, c, e], [b, d, f]] = gradientTransform;
         const determinant = a * d - b * c;
         if (Math.abs(determinant) < 1e-12)
             throw new CompatibilityError(
@@ -200,6 +217,14 @@ async function paint(
             throw new CompatibilityError(
                 "radial gradients require at least two stops",
             );
+        const stopsData = gradientStops(value, node);
+        if (radialGeometry(gradientTransform).axisAligned)
+            return {
+                kind: "radial-gradient",
+                transform: gradientTransform,
+                stops: stopsData,
+                opacity,
+            };
         const matrix = [
             d / 2,
             -b / 2,
@@ -210,17 +235,9 @@ async function paint(
         ]
             .map((entry) => entry / determinant)
             .join(" ");
-        const stops = value.gradientStops
+        const stops = stopsData
             .map((stop) => {
-                if (
-                    !number(stop.position) ||
-                    stop.position < 0 ||
-                    stop.position > 1
-                )
-                    throw new CompatibilityError(
-                        "gradient stop position must be between 0 and 1",
-                    );
-                const rgba = color(stop.color, node);
+                const rgba = stop.color;
                 const rgb = [rgba.r, rgba.g, rgba.b]
                     .map((channel) => Math.round(channel * 255))
                     .join(",");
@@ -366,7 +383,30 @@ export async function visiblePaints(
     const warnings: Diagnostic[] = [];
     for (const item of visible) {
         try {
-            paints.push(await paint(item, node, imageResolver));
+            const converted = await paint(item, node, imageResolver);
+            if (property === "strokes" && converted.kind === "image") {
+                warnings.push({
+                    ...problem(
+                        "UNSUPPORTED_STROKE_PAINT",
+                        node,
+                        "Stroke paint requires an image and was omitted",
+                        property,
+                    ),
+                    severity: "warning",
+                });
+                continue;
+            }
+            paints.push(converted);
+            if (item.blendMode !== undefined && item.blendMode !== "NORMAL")
+                warnings.push({
+                    ...problem(
+                        "PAINT_BLEND_MODE_IGNORED",
+                        node,
+                        "Paint blend mode uses normal compositing",
+                        property,
+                    ),
+                    severity: "warning",
+                });
             if (item.type === "IMAGE" && item.imageHash) {
                 const image = await imageResolver(item.imageHash);
                 if (

@@ -11,6 +11,91 @@ import {
 import type { SourceCapture } from "../src/plugin/source";
 import { normalizeSource } from "../src/plugin/normalize";
 import { convertSnapshot } from "../src/preview/converter";
+import { repeatedPreview } from "./repeated-preview";
+
+test.each([false, true])(
+    "repeated native effects preserve shared preview values (border: %s)",
+    async (border) => {
+        const capture = repeatedPreview(
+            JSON.parse(
+                await readFixture("fixtures/source/conditional-root.json"),
+            ),
+            8,
+        );
+        for (const [index, node] of (capture.root.children ?? []).entries()) {
+            node.properties.effects = [
+                {
+                    type: "INNER_SHADOW",
+                    visible: true,
+                    radius: 4 + index,
+                    spread: index - 2,
+                    offset: { x: index, y: -index },
+                    color: { r: index / 7, g: 0, b: 1, a: 0.8 },
+                    blendMode: "NORMAL",
+                },
+                { type: "BACKGROUND_BLUR", radius: 2 * index, visible: true },
+            ];
+            if (border) {
+                Object.assign(node.properties, {
+                    strokes: [
+                        {
+                            type: "SOLID",
+                            opacity: 0.5,
+                            color: { r: 1, g: 0, b: 0 },
+                        },
+                    ],
+                    strokeWeight: 3,
+                    strokeTopWeight: 3,
+                    strokeRightWeight: 3,
+                    strokeBottomWeight: 3,
+                    strokeLeftWeight: 3,
+                    strokeAlign: "INSIDE",
+                    opacity: 0.7 + index * 0.04,
+                    clipsContent: index % 2 === 0,
+                });
+                node.properties.effects.push({
+                    type: "DROP_SHADOW",
+                    visible: true,
+                    radius: 4 + index,
+                    spread: index - 2,
+                    offset: { x: index, y: -index },
+                    color: { r: index / 7, g: 0, b: 1, a: 0.8 },
+                    blendMode: "NORMAL",
+                    showShadowBehindNode: false,
+                });
+            }
+        }
+        const normalized = await normalizeSource(capture, "export");
+        if (!normalized.ok || normalized.empty)
+            throw Error(JSON.stringify(normalized));
+        const p = await mountCanvasPreview();
+        let reference: CanvasPixels | undefined;
+        for (const specialize of [false, true]) {
+            const converted = convertSnapshot(normalized.snapshot, {
+                specialize,
+            });
+            if (!converted.ok) throw Error(JSON.stringify(converted));
+            const revision = specialize ? 2 : 1;
+            p.send({
+                type: "preview-source",
+                revision,
+                source: converted.source,
+                exportPackage: { source: converted.source, files: [] },
+            });
+            await p.ready(revision);
+            const pixels = await expectCanvasPixels(p, (actual) => {
+                if (reference) expect(actual.data).toEqual(reference.data);
+                else
+                    expect(
+                        actual.data.some(
+                            (value, index) => index % 4 !== 3 && value < 200,
+                        ),
+                    ).toBe(true);
+            });
+            reference ??= pixels;
+        }
+    },
+);
 
 for (const file of [
     "conditional-root",

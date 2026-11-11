@@ -94,9 +94,8 @@ struct Cli {
     #[arg(short = 'L', name = "library path", number_of_values = 1)]
     library_paths: Vec<String>,
 
-    /// Specify a .slint file or a project directory to compile.
-    /// If the path is a directory, Slint loads slint-project.json inside that directory.
-    /// It must contain a main entry specifying the .slint file to compile.
+    /// Specify a .slint file, project directory, or slint-project.json file to compile.
+    /// The project file must contain a main entry specifying the .slint file to compile.
     /// Use '-' to read from stdin.
     #[arg(name = "file")]
     path: std::path::PathBuf,
@@ -105,7 +104,7 @@ struct Cli {
     #[arg(long, name = "style name")]
     style: Option<String>,
 
-    /// Set the edition whose language behavior to use, such as '1.19'.
+    /// Set the edition whose language behavior to use, such as '1.20'.
     /// This wins over the edition of the project file.
     #[arg(long, name = "edition", value_parser = SlintEdition::parse_supported)]
     edition: Option<SlintEdition>,
@@ -174,15 +173,25 @@ fn parse_input(
 ) {
     // The Slint SC subset rejects the flags a project file could set, so it has none.
     #[cfg(feature = "slint-sc")]
-    if args.slint_sc && args.path.is_dir() {
-        eprintln!("--slint-sc can't compile a project directory, pass its main file instead");
+    if args.slint_sc && i_slint_compiler::project_file::project_root(&args.path).is_dir() {
+        eprintln!(
+            "--slint-sc can't compile a project file or directory, pass its main file instead"
+        );
         std::process::exit(1);
     }
 
+    let input_path = SourcePath::File(args.path.clone());
+    #[cfg(feature = "typescript")]
+    let project_root = (matches!(args.format, Some(generator::OutputFormat::TypeScript))
+        && input_path.extension() == Some("slint")
+        && !args.path.is_dir())
+    .then(|| input_path.parent());
+    #[cfg(not(feature = "typescript"))]
+    let project_root = None;
     let (input, input_files) = spin_on::spin_on(i_slint_compiler::project_file::load_input(
-        &SourcePath::File(args.path.clone()),
+        &input_path,
         None,
-        None,
+        project_root,
         None,
         diag,
     ));
@@ -197,7 +206,8 @@ fn parse_input(
 fn main() -> std::io::Result<()> {
     proc_macro2::fallback::force(); // avoid a abort if panic=abort is set
     let args = Cli::parse();
-    let input_project_directory = args.path.is_dir().then(|| args.path.clone());
+    let input = i_slint_compiler::project_file::project_root(&args.path);
+    let input_project_directory = input.is_dir().then(|| input.to_path_buf());
     let mut diag = BuildDiagnostics::default();
     let (syntax_node, project_file, input_files) = parse_input(&args, &mut diag);
     //println!("{:#?}", syntax_node);

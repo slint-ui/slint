@@ -1,8 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
- TestCase := Rectangle {
-    property <bool> verify:
+component TestCase inherits Rectangle {
+    out property <bool> verify:
         sin(0) == 0 &&
         cos(0) == 1 &&
         round(1000* cos(360deg)) == 1000 && round(1000*sin(360deg)) == 0 &&
@@ -21,7 +21,7 @@
         atan2(-10, 0) == -90deg &&
         atan2(-10, 10) == -45deg &&
         true;
-    property <bool> test: verify;
+    out property <bool> test: verify;
 }
 /*
 ```cpp

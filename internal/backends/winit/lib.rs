@@ -188,7 +188,11 @@ fn try_create_window_with_fallback_renderer(
         fn(&Rc<SharedBackendData>) -> Result<Box<dyn WinitCompatibleRenderer>, PlatformError>;
     let renderer_factories: &[RendererFactory] = &[
         #[cfg(enable_skia_renderer)]
-        renderer::skia::WinitSkiaRenderer::new_suspended,
+        |shared_backend_data: &Rc<SharedBackendData>| {
+            renderer::skia::WinitSkiaRenderer::factory_for_graphics_api(
+                shared_backend_data.requested_graphics_api.as_ref(),
+            )?(shared_backend_data)
+        },
         #[cfg(all(enable_femtovg_renderer, feature = "renderer-femtovg-wgpu"))]
         renderer::femtovg::WGPUFemtoVGRenderer::new_suspended,
         #[cfg(all(
@@ -197,7 +201,8 @@ fn try_create_window_with_fallback_renderer(
             not(feature = "renderer-femtovg-wgpu")
         ))]
         renderer::femtovg::GlutinFemtoVGRenderer::new_suspended,
-        #[cfg(feature = "renderer-software")]
+        // The software renderer can't draw images that the browser loads.
+        #[cfg(all(feature = "renderer-software", not(target_arch = "wasm32")))]
         renderer::sw::WinitSoftwareRenderer::new_suspended,
         #[cfg(feature = "renderer-vello")]
         renderer::vello::WinitVelloRenderer::new_suspended,
@@ -1219,7 +1224,7 @@ pub trait WinitWindowAccessor: private::WinitWindowAccessorSealed {
     /// use slint::winit_031::{WinitWindowAccessor, winit};
     ///
     /// slint::slint!{
-    ///     #[edition = "1.19"]
+    ///     #[edition = "1.20"]
     ///     import { VerticalBox, Button } from "std-widgets.slint";
     ///     export component HelloWorld inherits Window {
     ///         callback clicked;
@@ -1360,11 +1365,7 @@ fn create_renderer(
 ) -> Result<Box<dyn WinitCompatibleRenderer>, PlatformError> {
     match (shared_data.renderer_name.as_deref(), shared_data.requested_graphics_api.as_ref()) {
         #[cfg(all(enable_femtovg_renderer, supports_opengl))]
-        (Some("gl"), maybe_graphics_api) | (Some("femtovg"), maybe_graphics_api) => {
-            // If a graphics API was requested, double check that it's GL. FemtoVG doesn't support Metal, etc.
-            if let Some(api) = maybe_graphics_api {
-                i_slint_core::graphics::RequestedOpenGLVersion::try_from(api)?;
-            }
+        (Some("gl" | "femtovg"), _) => {
             renderer::femtovg::GlutinFemtoVGRenderer::new_suspended(shared_data)
         }
         #[cfg(all(enable_femtovg_renderer, feature = "renderer-femtovg-wgpu"))]
@@ -1391,11 +1392,7 @@ fn create_renderer(
             )
         }
         #[cfg(all(enable_skia_renderer, supports_opengl))]
-        (Some("skia-opengl"), maybe_graphics_api) => {
-            // If a graphics API was requested, double check that it's GL.
-            if let Some(api) = maybe_graphics_api {
-                i_slint_core::graphics::RequestedOpenGLVersion::try_from(api)?;
-            }
+        (Some("skia-opengl"), _) => {
             renderer::skia::WinitSkiaRenderer::new_opengl_suspended(shared_data)
         }
         #[cfg(enable_skia_wgpu)]
@@ -1421,11 +1418,11 @@ fn create_renderer(
             }
         },
         #[cfg(all(enable_skia_renderer, not(target_os = "android")))]
-        (Some("skia-software"), None) => {
+        (Some("skia-software"), _) => {
             renderer::skia::WinitSkiaRenderer::new_software_suspended(shared_data)
         }
         #[cfg(feature = "renderer-software")]
-        (Some("sw"), None) | (Some("software"), None) => {
+        (Some("sw" | "software"), _) => {
             renderer::sw::WinitSoftwareRenderer::new_suspended(shared_data)
         }
         #[cfg(feature = "renderer-vello")]
@@ -1486,8 +1483,6 @@ fn create_renderer(
                     renderer::skia::WinitSkiaRenderer::factory_for_graphics_api(Some(_requested_graphics_api))?(shared_data)
                 }
                 all(enable_femtovg_renderer, supports_opengl) => {
-                    // If a graphics API was requested, double check that it's GL. FemtoVG doesn't support Metal, etc.
-                    i_slint_core::graphics::RequestedOpenGLVersion::try_from(_requested_graphics_api)?;
                     renderer::femtovg::GlutinFemtoVGRenderer::new_suspended(shared_data)
                 }
                 _ => {
@@ -1503,7 +1498,7 @@ impl private::WinitWindowAccessorSealed for i_slint_core::api::Window {}
 #[cfg(test)]
 mod testui {
     slint::slint! {
-        #[edition = "1.19"]
+        #[edition = "1.20"]
         export component App inherits Window {
             Text { text: "Ok"; }
         }

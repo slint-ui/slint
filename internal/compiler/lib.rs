@@ -231,6 +231,12 @@ pub struct CompilerConfiguration {
     /// there, and there is no such warning without it.
     pub edition_location: Option<diagnostics::SourceLocation>,
 
+    /// The directories of the application's project files. A file in one of them belongs to the
+    /// application rather than to a library whose directory contains it,
+    /// such as a library's example.
+    /// When it's empty, compiling a root file uses the directory of that file.
+    pub project_roots: Vec<source_path::SourcePath>,
+
     /// The domain used as one of the parameter to the translate function
     pub translation_domain: Option<String>,
     /// When Some, this is the path where the translations are looked at to bundle the translations
@@ -392,6 +398,7 @@ impl CompilerConfiguration {
             unknown_experimental_features,
             edition: None,
             edition_location: None,
+            project_roots: Vec::new(),
             translation_domain: None,
             default_translation_context: DefaultTranslationContext::ComponentName,
             no_native_menu: false,
@@ -420,11 +427,16 @@ impl CompilerConfiguration {
 /// Prepare for compilation of the source file
 /// - storing parser configuration
 /// - setting up the parser
+/// - making the directory of `root_file` the application's without a project file
 #[cfg(feature = "std")]
 fn prepare_for_compile(
     diagnostics: &mut diagnostics::BuildDiagnostics,
     #[allow(unused_mut)] mut compiler_config: CompilerConfiguration,
+    root_file: &SourcePath,
 ) -> typeloader::TypeLoader {
+    if compiler_config.project_roots.is_empty() {
+        compiler_config.project_roots.push(root_file.parent());
+    }
     #[cfg(feature = "renderer-software")]
     if compiler_config.embed_resources == EmbedResourcesKind::EmbedTextures {
         // HACK: disable accessibility when compiling for the software renderer
@@ -479,7 +491,8 @@ pub async fn compile_syntax_node(
     mut diagnostics: diagnostics::BuildDiagnostics,
     #[allow(unused_mut)] mut compiler_config: CompilerConfiguration,
 ) -> (object_tree::Document, diagnostics::BuildDiagnostics, typeloader::TypeLoader) {
-    let mut loader = prepare_for_compile(&mut diagnostics, compiler_config);
+    let mut loader =
+        prepare_for_compile(&mut diagnostics, compiler_config, doc_node.source_file.path());
 
     let doc_node: parser::syntax_nodes::Document = doc_node.into();
 
@@ -488,6 +501,7 @@ pub async fn compile_syntax_node(
     let (foreign_imports, reexports) =
         loader.load_dependencies_recursively(&doc_node, &mut diagnostics, &type_registry).await;
 
+    loader.set_edition(&doc_node);
     let ignore_missing_font_files = loader.compiler_config.resource_url_mapper.is_some();
     let mut doc = crate::object_tree::Document::from_node(
         doc_node,
@@ -520,7 +534,7 @@ pub async fn load_root_file(
     mut diagnostics: diagnostics::BuildDiagnostics,
     #[allow(unused_mut)] mut compiler_config: CompilerConfiguration,
 ) -> (diagnostics::BuildDiagnostics, typeloader::TypeLoader) {
-    let mut loader = prepare_for_compile(&mut diagnostics, compiler_config);
+    let mut loader = prepare_for_compile(&mut diagnostics, compiler_config, path);
     loader.load_root_file(path, source_code, false, &mut diagnostics).await;
     (diagnostics, loader)
 }
@@ -538,7 +552,7 @@ pub async fn load_root_file_with_raw_type_loader(
     mut diagnostics: diagnostics::BuildDiagnostics,
     #[allow(unused_mut)] mut compiler_config: CompilerConfiguration,
 ) -> (diagnostics::BuildDiagnostics, typeloader::TypeLoader, Option<typeloader::TypeLoader>) {
-    let mut loader = prepare_for_compile(&mut diagnostics, compiler_config);
+    let mut loader = prepare_for_compile(&mut diagnostics, compiler_config, path);
     let raw_type_loader = loader.load_root_file(path, source_code, true, &mut diagnostics).await;
     (diagnostics, loader, raw_type_loader)
 }
