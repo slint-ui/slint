@@ -3171,17 +3171,10 @@ thread_local! {
 
 /// Called by C++'s TimerHandler::timerEvent, or every time a timer might have been started
 pub(crate) fn timer_event() {
-    if let Some(ctx) = crate::context() {
-        ctx.update_timers_and_animations();
-    }
-    restart_timer();
-}
-
-pub(crate) fn restart_timer() {
-    let timeout = crate::context()
-        .and_then(|ctx| ctx.duration_until_next_timer_update())
-        .map(|d| d.as_millis() as i32);
-    if let Some(timeout) = timeout {
+    let Some(ctx) = crate::context() else { return };
+    ctx.update_timers_and_animations();
+    if let Some(timeout) = ctx.duration_until_next_timer_update() {
+        let timeout = timeout.as_millis() as i32;
         cpp! { unsafe [timeout as "int"] {
             ensure_initialized(true);
             TimerHandler::instance().timer.start(timeout, &TimerHandler::instance());
