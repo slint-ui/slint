@@ -2203,7 +2203,14 @@ fn send_mouse_event_to_item(
 pub(crate) struct TextCursorBlinker {
     cursor_visible: Property<bool>,
     cursor_blink_timer: crate::timers::Timer,
+    /// How many more times the cursor toggles before it settles, visible, until the next
+    /// call of `show`: a blinking cursor that nobody is using keeps the window redrawing.
+    toggles_left: core::cell::Cell<u32>,
 }
+
+/// How long the cursor blinks without being moved or typed with, as in GTK's
+/// `gtk-cursor-blink-timeout`, after which it stays visible.
+const BLINK_TIMEOUT: Duration = Duration::from_secs(10);
 
 impl TextCursorBlinker {
     /// Creates a new instance, wrapped in a Pin<Rc<_>> because the boolean property
@@ -2212,6 +2219,7 @@ impl TextCursorBlinker {
         Rc::pin(Self {
             cursor_visible: Property::new(true),
             cursor_blink_timer: Default::default(),
+            toggles_left: Default::default(),
         })
     }
 
@@ -2236,7 +2244,11 @@ impl TextCursorBlinker {
         self.cursor_visible.set(true);
         if cycle_duration.is_zero() {
             self.stop();
-        } else if self.cursor_blink_timer.running() {
+            return;
+        }
+        let half_cycle = (cycle_duration / 2).max(Duration::from_millis(1));
+        self.toggles_left.set((BLINK_TIMEOUT.as_millis() / half_cycle.as_millis()).max(1) as u32);
+        if self.cursor_blink_timer.running() {
             self.cursor_blink_timer.restart();
         } else {
             let toggle_cursor = {
@@ -2247,7 +2259,16 @@ impl TextCursorBlinker {
                             .cursor_visible()
                             .apply_pin(blinker.as_ref())
                             .get();
-                        blinker.cursor_visible.set(!visible);
+                        let left = blinker.toggles_left.get().saturating_sub(1);
+                        blinker.toggles_left.set(left);
+                        if left == 0 {
+                            // Left visible, and the timer's wakeups and the redraws they ask
+                            // for stop until the cursor is used again.
+                            blinker.cursor_visible.set(true);
+                            blinker.cursor_blink_timer.stop();
+                        } else {
+                            blinker.cursor_visible.set(!visible);
+                        }
                     }
                 }
             };
