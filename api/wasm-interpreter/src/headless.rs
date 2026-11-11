@@ -66,12 +66,24 @@ impl WindowAdapter for SoftwareWindow {
     }
 }
 
+#[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(js_namespace = console, js_name = error)]
+    fn log_error(message: &str);
+}
+
 #[wasm_bindgen(start)]
 pub fn init() -> Result<(), JsValue> {
     #[cfg(feature = "console_error_panic_hook")]
     console_error_panic_hook::set_once();
     i_slint_core::platform::set_platform(Box::new(SoftwarePlatform))
-        .map_err(|error| JsValue::from_str(&error.to_string()))
+        .map_err(|error| JsValue::from_str(&error.to_string()))?;
+    i_slint_core::with_existing_context(|context| {
+        context.set_log_message_handler(Some(Box::new(|message| {
+            log_error(&message.message_arguments().to_string());
+        })));
+    })?;
+    Ok(())
 }
 
 #[wasm_bindgen]

@@ -7,7 +7,7 @@ import { createRequire } from "node:module";
 import { test } from "node:test";
 
 const interpreter = createRequire(import.meta.url)(
-    "../pkg-mcp/slint_wasm_interpreter.js",
+    "../../../ai-plugins/mcp/slint-preview/checker/slint_wasm_interpreter.js",
 );
 const repository = new URL("../../../", import.meta.url);
 
