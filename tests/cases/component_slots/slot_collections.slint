@@ -31,7 +31,7 @@ component EntryGroup {
     out property <int> last-value: -1;
     out property <int> last-index: -1;
     out property <int> observed-factor;
-    default slot <[Entry]> entries;
+    default slot <[implements Entry]> entries;
     helper := Rectangle { property <int> factor: root.factor; }
     HorizontalLayout {
         for entry[index] in entries: entry {
@@ -66,8 +66,8 @@ component PositionedView {
 }
 
 component SeveralSlots {
-    slot <[Positioned]> leading;
-    default slot <[Positioned]> trailing;
+    slot <[implements Positioned]> leading;
+    default slot <[implements Positioned]> trailing;
     slot <Entry> action;
     out property <int> leading-count: leading.length;
     out property <int> trailing-count: trailing.length;
@@ -87,9 +87,36 @@ component SeveralSlots {
 }
 
 component AnyChildren {
-    default slot <[component]> children;
+    default slot <[*]> children;
     out property <int> count: children.length;
     VerticalLayout { for child in children: child { } }
+}
+
+component DerivedPositionedView inherits PositionedView { }
+
+component ComponentChildren {
+    default slot <[PositionedView]> entries;
+    out property <int> count: entries.length;
+    HorizontalLayout {
+        for entry[index] in entries: entry {
+            index: index;
+            length: entries.length;
+        }
+    }
+}
+
+component RectangleView inherits Rectangle { }
+component RectangleChildren {
+    default slot <[Rectangle]> entries;
+    out property <int> count: entries.length;
+    HorizontalLayout { for entry in entries: entry { width: 2px; height: 2px; } }
+}
+
+component component { }
+component ComponentNamedComponent {
+    default slot <[component]> entries;
+    out property <int> count: entries.length;
+    for entry in entries: entry { }
 }
 
 export component TestCase inherits Window {
@@ -103,9 +130,13 @@ export component TestCase inherits Window {
         && multiple.leading-count == 2 && multiple.trailing-count == 1
         && leading-first.index == 0 && leading-second.index == 1
         && leading-second.length == 2 && trailing-first.index == 0
-        && trailing-first.length == 1 && action.position == 12 && any.count == 2;
+        && trailing-first.length == 1 && action.position == 12 && any.count == 2
+        && nominal.count == 2 && nominal-first.index == 0 && nominal-second.index == 1
+        && nominal-second.length == 2 && nominal-repeated.count == 3
+        && rectangles.count == 2 && literal-name.count == 1;
     out property <int> static-count: static-group.count;
     out property <int> repeated-count: repeated.count;
+    out property <int> nominal-repeated-count: nominal-repeated.count;
     out property <int> second-factor: second.factor;
     out property <int> observed-factor: static-group.observed-factor;
     out property <int> child-observed-factor: second.observed-factor;
@@ -140,6 +171,15 @@ export component TestCase inherits Window {
             Rectangle { }
             Text { text: "User content"; }
         }
+        nominal := ComponentChildren {
+            entries << nominal-first := PositionedView { }
+            entries << nominal-second := DerivedPositionedView { }
+        }
+        nominal-repeated := ComponentChildren {
+            for label in root.model: DerivedPositionedView { }
+        }
+        rectangles := RectangleChildren { Rectangle { } RectangleView { } }
+        literal-name := ComponentNamedComponent { component { } }
     }
 }
 
@@ -167,6 +207,7 @@ assert_eq!(slint_testing::ElementHandle::find_by_accessible_label(&instance, "Pr
 instance.invoke_clear_model();
 slint_testing::mock_elapsed_time(0);
 assert_eq!(instance.get_repeated_count(), 0);
+assert_eq!(instance.get_nominal_repeated_count(), 0);
 assert_eq!(instance.get_static_count(), 2);
 ```
 

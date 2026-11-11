@@ -2,50 +2,60 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 interface Entry { in property <int> value; }
+export component MissingImplements {
+    default slot <[Entry]> entries;
+//                 >   <error{'Entry' is an interface; use '[implements Entry]' for an interface collection}
+    for entry in entries: entry { }
+}
+export component WildcardDefault {
+    slot <[*]> entries << Rectangle { }
+//                        >           <error{Collection slots don't support default content yet}
+    for entry in entries: entry { }
+}
 export component WrongType {
-    default slot <[Rectangle]> items;
-//                 >       <error{Slot type 'Rectangle' must be an interface}
+    default slot <[implements Rectangle]> items;
+//                            >       <error{Slot type 'Rectangle' must be an interface}
     for item in items: item { }
 }
 export component Nested {
-    Rectangle { slot <[Entry]> items; }
-//                             >   <error{Declare collection slots on a component root}
+    Rectangle { slot <[implements Entry]> items; }
+//                                        >   <error{Declare collection slots on a component root}
 }
 export component Duplicate {
-    default slot <[Entry]> first;
-    default slot <[Entry]> second;
-//                         >    <error{A component can only declare one default slot}
+    default slot <[implements Entry]> first;
+    default slot <[implements Entry]> second;
+//                                    >    <error{A component can only declare one default slot}
     for item in first: item { }
 }
 export component InvalidBody {
-    default slot <[Entry]> items;
+    default slot <[implements Entry]> items;
     for item in items: item { Rectangle { } }
 //                            >           <error{Slot expansions only accept property bindings and callback connections}
 }
-export component MissingExpansion { default slot <[Entry]> items; }
-//                                                         >   <error{Expand collection slot 'items' with a 'for' loop}
+export component MissingExpansion { default slot <[implements Entry]> items; }
+//                                                                    >   <error{Expand collection slot 'items' with a 'for' loop}
 export component DuplicateExpansion {
-    default slot <[Entry]> items;
+    default slot <[implements Entry]> items;
     for item in items: item { }
 //                     >      <note{The slot 'items' is already used here}
     for item in items: item { }
 //  >                         <error{The slot 'items' can only appear once in an element}
 }
 export component WrongExpansion {
-    default slot <[Entry]> items;
-//                         >   <error{Expand collection slot 'items' with a 'for' loop}
+    default slot <[implements Entry]> items;
+//                                    >   <error{Expand collection slot 'items' with a 'for' loop}
     for item in items: Rectangle { }
 //  >                              <error{Expand slot 'items' with 'for child[index] in items: child { ... }'}
 }
 export component ScalarDefault {
     default slot <Entry> item;
-//  >                        <error{A default slot must have a collection type, such as <[Entry]>}
+//  >                        <error{A default slot must have a collection type, such as <[*]>}
     item { }
 }
 export component Base {
-    default slot <[Entry]> items;
+    default slot <[implements Entry]> items;
     for item in items: item { }
 }
-export component Redeclared inherits Base { default slot <[Entry]> items; }
-//                                                                 >   <error{A component can only declare one default slot}
+export component Redeclared inherits Base { default slot <[implements Entry]> items; }
+//                                                                            >   <error{A component can only declare one default slot}
 export component Test inherits Window { }

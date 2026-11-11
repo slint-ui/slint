@@ -260,9 +260,21 @@ Property bindings follow the existing priorities; more local bindings take prece
 
 ## Collection Slots
 
-Declare `slot <[Entry]> entries;` to accept multiple components that implement an interface.
+Declare `slot <[implements Entry]> entries;` to accept multiple components that implement an interface.
 Enable the `interfaces` experimental feature when using an interface type.
-Use `[component]` to accept components without an interface requirement.
+Collection slots support three constraints:
+
+| Declaration | Accepted Children |
+| --- | --- |
+| `slot <[*]> entries;` | Any component, without an interface requirement. |
+| `slot <[implements Entry]> entries;` | Any component satisfying the `Entry` interface. |
+| `slot <[Entry]> entries;` | The component or built-in element type `Entry`, including components inheriting it. |
+
+An unrelated component with matching properties doesn't satisfy a component type constraint.
+An interface constraint doesn't require explicit `implement` declarations.
+Wildcard entries expose the standard element properties; typed entries also expose their constraint's public members.
+Scalar typed slots keep the syntax `slot <Entry> entry;`, where `Entry` is an interface.
+
 The `default` qualifier routes ordinary children into the collection instead of `@children`.
 Fill named collections with repeated assignments such as `entries << EntryView { }`.
 A component can declare multiple collection slots, including one default collection, alongside scalar slots.
@@ -279,7 +291,7 @@ interface Entry {
 component EntryGroup {
     in-out property <int> current-index: -1;
     out property <int> count: entries.length;
-    default slot <[Entry]> entries;
+    default slot <[implements Entry]> entries;
 
     HorizontalLayout {
         for entry[index] in entries: entry {

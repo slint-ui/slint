@@ -80,8 +80,12 @@ pub(super) fn create_expansion(
             );
         }
     }
-    let base =
-        slot.interface.clone().map(ElementType::Component).unwrap_or_else(|| tr.empty_type());
+    let base = slot
+        .interface
+        .clone()
+        .map(ElementType::Component)
+        .or_else(|| slot.component_type.clone())
+        .unwrap_or_else(|| tr.empty_type());
     let Some((template, _, _)) = Element::element_without_children(
         &body,
         SmolStr::default(),

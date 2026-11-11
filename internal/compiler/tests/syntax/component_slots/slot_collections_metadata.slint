@@ -3,7 +3,7 @@
 
 interface Entry { in property <int> value; }
 export component Test inherits Window {
-    default slot <[Entry]> items;
+    default slot <[implements Entry]> items;
     for item[index] in items: item { value: index; }
     out property <int> count: items.length;
     out property <int> invalid-count: items.count;

@@ -10,25 +10,33 @@ component Item {
     callback clicked();
 }
 component Group {
-    default slot <[Entry]> items;
+    default slot <[implements Entry]> items;
     for item[index] in items: item {
         value: index;
         clicked => { }
     }
 }
 component FixedGroup inherits Group { Item { } }
+component NominalEntry { in property <int> value; }
+component StructuralEntry { in property <int> value; }
+component NominalGroup {
+    default slot <[NominalEntry]> entries;
+    for entry in entries: entry { value: 1; }
+}
 component ForwardingWrapper {
     Group { @children }
 //          >       <error{The @children placeholder is not allowed as a child of 'Group'}
 }
 component NestedCollection {
-    slot <[Entry]> entries;
+    slot <[implements Entry]> entries;
     Group {
         for entry[index] in entries: entry { value: index; }
 //      >                                                  <error{Expanding a collection into another collection slot is not supported yet}
     }
 }
 export component Test inherits Window {
+    NominalGroup { StructuralEntry { } }
+//                 >              <error{Collection slot 'entries' requires 'NominalEntry' or a component inheriting it, but got 'StructuralEntry'}
     Group { Rectangle { } }
 //          >           <error{Cannot implement 'Entry'.↵- missing 'callback clicked();'↵- missing 'in property <int> value;'}
     Group { Item { value: 42; } }

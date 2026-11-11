@@ -255,8 +255,9 @@ fn parse_sub_element(p: &mut impl Parser) -> bool {
 /// ```test,SlotDeclaration
 /// slot header;
 /// slot <ContentInterface> content;
-/// default slot <[Entry]> entries;
-/// slot <[component]> children;
+/// default slot <[implements Entry]> entries;
+/// slot <[Entry]> components;
+/// slot <[*]> children;
 /// slot header << Text { text: "Default"; }
 /// slot header << label := Text {}
 /// ```
@@ -270,7 +271,12 @@ fn parse_slot_declaration(p: &mut impl Parser) {
         p.expect(SyntaxKind::Identifier); // "slot"
         if p.test(SyntaxKind::LAngle) {
             let collection = p.test(SyntaxKind::LBracket);
-            parse_qualified_name(&mut *p);
+            if collection && p.peek().as_str() == "implements" {
+                p.consume();
+                parse_qualified_name(&mut *p);
+            } else if !(collection && p.test(SyntaxKind::Star)) {
+                parse_qualified_name(&mut *p);
+            }
             if collection {
                 p.expect(SyntaxKind::RBracket);
             }

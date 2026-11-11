@@ -17,7 +17,7 @@ export component RadioGroupBase {
     in property <length> content-padding: 0px;
     in property <int> item-count: members.length;
 
-    default slot <[RadioGroupMember]> members;
+    default slot <[implements RadioGroupMember]> members;
 
     slot header;
 

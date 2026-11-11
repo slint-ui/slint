@@ -6,7 +6,7 @@ interface Entry {
     callback clicked();
 }
 component Group {
-    default slot <[Entry]> entries;
+    default slot <[implements Entry]> entries;
     for entry[index] in entries: entry {
         clicked => {
             index = 2;

@@ -12,20 +12,34 @@ pub(super) fn declaration(
     let is_default =
         node.children_with_tokens().filter_map(|n| n.into_token()).any(|t| t.text() == "default");
     if is_default && !is_collection {
-        diag.push_error(
-            "A default slot must have a collection type, such as <[Entry]>".into(),
-            &node,
-        );
+        diag.push_error("A default slot must have a collection type, such as <[*]>".into(), &node);
     }
+    let wants_interface = !is_collection
+        || node
+            .children_with_tokens()
+            .filter_map(|n| n.into_token())
+            .any(|t| t.text() == "implements");
+    let mut component_type = None;
     let interface = node.QualifiedName().and_then(|ty| {
         let name = QualifiedTypeName::from_node(ty.clone()).to_smolstr();
-        if is_collection && name == "component" {
-            return None;
-        }
         match tr.lookup_element(&name) {
-            Ok(ElementType::Component(c)) if c.is_interface() => Some(c),
-            Ok(_) => {
+            Ok(ElementType::Component(c)) if c.is_interface() => {
+                if !wants_interface {
+                    diag.push_error(format!("'{name}' is an interface; use '[implements {name}]' for an interface collection"), &ty);
+                }
+                Some(c)
+            }
+            Ok(_) if wants_interface => {
                 diag.push_error(format!("Slot type '{name}' must be an interface"), &ty);
+                None
+            }
+            Ok(element_type) if matches!(&element_type, ElementType::Component(c) if !c.is_global())
+                || matches!(&element_type, ElementType::Builtin(b) if !b.is_global) => {
+                component_type = Some(element_type);
+                None
+            }
+            Ok(_) => {
+                diag.push_error(format!("Slot type '{name}' must be a component or built-in element"), &ty);
                 None
             }
             Err(error) => {
@@ -35,10 +49,15 @@ pub(super) fn declaration(
         }
     });
     let mut default = node.SubElement();
-    if node.QualifiedName().is_some()
+    if (is_collection || node.QualifiedName().is_some())
         && let Some(sub_element) = default.take()
     {
-        diag.push_error("Typed slots don't support default content yet".into(), &sub_element);
+        let message = if is_collection {
+            "Collection slots don't support default content yet"
+        } else {
+            "Typed slots don't support default content yet"
+        };
+        diag.push_error(message.into(), &sub_element);
     }
     let name_node = node.DeclaredIdentifier();
     DeclaredSlot {
@@ -47,6 +66,7 @@ pub(super) fn declaration(
         name: parser::identifier_text(&name_node).unwrap_or_default(),
         name_node,
         interface,
+        component_type,
         default,
         has_rejected_placeholder: false,
     }
@@ -512,7 +532,9 @@ impl Element {
             }
             return;
         };
-        let is_typed = slot.as_ref().is_some_and(|slot| slot.interface.is_some());
+        let is_typed = slot
+            .as_ref()
+            .is_some_and(|slot| slot.interface.is_some() || slot.component_type.is_some());
         let parent_type = if is_typed { tr.empty_type() } else { parent_type };
         let element = Element::from_sub_element_node(
             sub_element_node.into(),
@@ -571,6 +593,7 @@ impl Element {
             .any(|slot| {
                 slot.name == name
                     && (slot.interface.is_some()
+                        || slot.component_type.is_some()
                         || !element.children().any(|c| c.kind() != SyntaxKind::QualifiedName))
             })
             .then_some(name)

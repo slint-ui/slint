@@ -497,6 +497,7 @@ pub struct DeclaredSlot {
     pub is_collection: bool,
     pub is_default: bool,
     pub interface: Option<Rc<Component>>,
+    pub component_type: Option<ElementType>,
     pub name: SmolStr,
     pub name_node: syntax_nodes::DeclaredIdentifier,
     pub default: Option<syntax_nodes::SubElement>,

@@ -192,6 +192,23 @@ pub(super) fn lower_slot_collections(
                     continue;
                 }
             }
+            if let Some(expected) = &contract.slot.component_type {
+                let mut valid = true;
+                for child in &children {
+                    let mut actual = child.borrow().base_type.clone();
+                    while &actual != expected {
+                        let ElementType::Component(component) = actual else { break };
+                        actual = component.root_element.borrow().base_type.clone();
+                    }
+                    if &actual != expected {
+                        diag.push_error(format!("Collection slot '{}' requires '{expected}' or a component inheriting it, but got '{}'", contract.slot.name, child.borrow().base_type), &*child.borrow());
+                        valid = false;
+                    }
+                }
+                if !valid {
+                    continue;
+                }
+            }
             if let Some(child) = children
                 .iter()
                 .find(|e| e.borrow().repeated.as_ref().is_some_and(|r| r.is_conditional_element))
