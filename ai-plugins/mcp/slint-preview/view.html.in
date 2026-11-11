@@ -814,6 +814,8 @@
       return;
     }
     switch (message.method) {
+      // The host sends arguments on initial startup and replays them when reopening this card.
+      // The result may arrive later, so rendering waits for its preview ID.
       case "ui/notifications/tool-input": {
         const args = message.params?.arguments ?? {};
         const startPreview = (previewId) => previewId.then(async (id) => {
@@ -853,6 +855,8 @@
         };
         break;
       }
+      // The host sends the result after the input, including when restoring a saved card.
+      // Its app-only _meta carries the preview ID used to report captures.
       case "ui/notifications/tool-result":
         receivePreviewId(message.params);
         break;
