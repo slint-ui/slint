@@ -166,8 +166,9 @@ after(async () => {
 });
 
 // Renders a preview and returns the get_preview_screenshot result.
-async function preview(args) {
+async function preview(args, openingDelayMs = 0) {
     const result = await callTool("preview_slint", args);
+    if (openingDelayMs) await new Promise((resolve) => setTimeout(resolve, openingDelayMs));
     await page.evaluate(
         ([args, result]) => {
             window.notifyView("ui/notifications/tool-input", {
@@ -190,6 +191,10 @@ function assertRendered(screenshot) {
 
 const COMPONENT = (name) =>
     `export component ${name} inherits Rectangle { width: 20px; height: 20px; background: blue; }`;
+
+test("keeps previews registered while waiting for the card's first poll", async () => {
+    assertRendered(await preview({ source: COMPONENT("Main") }, 6100));
+});
 
 test("resolves imports through the project's include and library paths, and by absolute path", async () => {
     writeFiles({
