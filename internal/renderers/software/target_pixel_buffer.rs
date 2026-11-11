@@ -244,6 +244,9 @@ pub trait TargetPixelBuffer {
     }
 
     /// Draw a rectangle specified by the DrawRectangleArgs. That rectangle must be clipped to the given region
+    ///
+    /// The renderer draws rectangles with a `corner-shape` other than `round` itself,
+    /// without calling this function.
     fn draw_rectangle(&mut self, _: &DrawRectangleArgs, _clip: &PhysicalRegion) -> bool {
         false
     }
