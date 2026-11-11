@@ -1,0 +1,56 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company , info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// SIZE=120x64
+// BASE_THRESHOLD=3
+// ROTATION_THRESHOLD=55  - the border radius algorithm doesn't give the same result from every rotation
+
+// Inner shadows inside a rounded clip: the clip cuts the element's corners,
+// and the element's own corners mask the shadow.
+export component TestCase inherits Window {
+    width: 120px;
+    height: 64px;
+    background: white;
+
+    Rectangle {
+        x: 4px;
+        y: 4px;
+        width: 52px;
+        height: 56px;
+        border-radius: 16px;
+        clip: true;
+
+        Rectangle {
+            x: -4px;
+            y: -4px;
+            width: 44px;
+            height: 48px;
+            background: lightyellow;
+            inner-shadow-color: #000000c0;
+            inner-shadow-blur: 6px;
+            inner-shadow-offset-x: 3px;
+            inner-shadow-offset-y: 2px;
+        }
+    }
+
+    Rectangle {
+        x: 64px;
+        y: 4px;
+        width: 52px;
+        height: 56px;
+        border-radius: 20px;
+        clip: true;
+
+        Rectangle {
+            x: 6px;
+            y: 6px;
+            width: 52px;
+            height: 56px;
+            background: lightyellow;
+            border-radius: 10px;
+            inner-shadow-color: #000000c0;
+            inner-shadow-blur: 8px;
+            inner-shadow-spread: 2px;
+        }
+    }
+}
