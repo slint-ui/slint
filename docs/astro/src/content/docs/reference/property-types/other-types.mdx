@@ -1,6 +1,6 @@
 ---
 title: Other
-description: The keys, easing, data-transfer, and mouse cursor types.
+description: The keys, easing, data-transfer, mouse cursor, and corner-shape types.
 ---
 
 import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
@@ -171,5 +171,47 @@ TouchArea {
 ```
 
 <BuiltInMouseCursor />
+
+</SlintProperty>
+
+## Geometry
+
+### corner-shape
+<SlintProperty propName="corner-shape" typeName="corner-shape" defaultValue="round">
+
+Use the `corner-shape` type to set the shape of a <Link type="Rectangle" /> corner, such as a bevel, a notch, or a squircle.
+The corner's border radius sets the size of the shape; a corner without a radius stays sharp.
+The shapes follow CSS [`corner-shape`](https://drafts.csswg.org/css-borders-4/#corner-shaping), where every shape is a superellipse with exponent `k`.
+
+To pick a shape, use one of these names, or `superellipse(k)` for any other exponent:
+
+- `square`: a sharp corner, the limit of `superellipse(k)` as `k` goes to infinity
+- `squircle`: a smooth transition between round and square, `superellipse(2)`
+- `round`: a quarter circle, `superellipse(1)`; this is the default
+- `bevel`: a straight diagonal cut, `superellipse(0)`
+- `scoop`: a quarter circle cut into the corner, `superellipse(-1)`
+- `notch`: a square cut into the corner, the limit of `superellipse(k)` as `k` goes to negative infinity
+- `superellipse(k)`: a positive `k` bulges the corner outward; a negative `k` cuts into it
+
+In expressions of type `corner-shape`, these names are available directly.
+You can also use the `CornerShape` namespace:
+
+```slint
+Rectangle {
+    border-radius: 16px;
+    corner-shape: bevel;
+}
+
+Rectangle {
+    border-radius: 16px;
+    corner-shape: CornerShape.superellipse(3);
+}
+```
+
+:::note
+You can only set `corner-shape` values in Slint code.
+The generated Rust and C++ code exposes them through an internal type.
+Python reads them as strings, such as `bevel` or `superellipse(3)`, and JavaScript can't access them.
+:::
 
 </SlintProperty>

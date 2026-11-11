@@ -165,6 +165,10 @@ inline bool operator==(const EasingCurve &a, const EasingCurve &b)
     }
     return true;
 }
+inline bool operator==(const CornerShape &a, const CornerShape &b)
+{
+    return slint_corner_shape_eq(&a, &b);
+}
 }
 
 namespace private_api {

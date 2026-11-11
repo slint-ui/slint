@@ -39,6 +39,8 @@ export component TestCase inherits Window {
     in property <angle> ang: 90deg;
     in property <Nested> nested: { label: "outer", inner: { x: 1, y: 2, dir: MyEnum.gamma, pos: { px: 3.5, py: 4.5 } }, active: true };
     in property <{a: int, b: string}> anon: { a: 99, b: "anon" };
+    in property <corner-shape> shape: squircle;
+    in property <corner-shape> shape-k: superellipse(1.5);
 
     im := Image {x:0;y:0;}
 
@@ -60,6 +62,7 @@ export component TestCase inherits Window {
         debug(anon);
         debug(root.background, im.source, Orientation.horizontal);
         debug(self.width / 5s);
+        debug(shape, shape-k);
     }
 
     out property <bool> test: { do-debug(); true; }
@@ -73,11 +76,11 @@ assert_eq!(init_logs, ["init"]);
 assert!(instance.get_test());
 // The test binding called do-debug()
 let binding_logs = slint_testing::access_testing_window(instance.window(), |w| w.take_debug_log());
-assert_eq!(binding_logs.len(), 15, "Expected 15 binding debug log entries, got: {binding_logs:?}");
+assert_eq!(binding_logs.len(), 16, "Expected 16 binding debug log entries, got: {binding_logs:?}");
 // Also call via the public function
 instance.invoke_do_debug();
 let logs = slint_testing::access_testing_window(instance.window(), |w| w.take_debug_log());
-assert_eq!(logs.len(), 15, "Expected 15 debug log entries, got: {logs:?}");
+assert_eq!(logs.len(), 16, "Expected 16 debug log entries, got: {logs:?}");
 assert_eq!(logs[0], "");
 assert_eq!(logs[1], "a string");
 assert_eq!(logs[2], "42");
@@ -93,6 +96,7 @@ assert_eq!(logs[11], "{ active: true, inner: { dir: gamma, pos: { px: 3.5, py: 4
 assert_eq!(logs[12], "{ a: 99, b: anon }");
 assert_eq!(logs[13], "<debug-of-this-type-not-yet-implemented> <debug-of-this-type-not-yet-implemented> horizontal");
 assert_eq!(logs[14], "0.1(px×ms⁻¹)");
+assert_eq!(logs[15], "squircle superellipse(1.5)");
 ```
 
 ```cpp
@@ -108,26 +112,27 @@ const log = require("node:test").mock.method(console, "log", () => {});
 var instance = new slint.TestCase({});
 assert.equal(log.mock.calls.length, 1);
 // The line number of `init => { debug("init"); }` above
-assert(log.mock.calls[0].arguments[0].endsWith("debug.slint:45:15: init"), log.mock.calls[0].arguments[0]);
+assert(log.mock.calls[0].arguments[0].endsWith("debug.slint:47:15: init"), log.mock.calls[0].arguments[0]);
 // The test binding called do-debug()
 assert(instance.test);
-assert.equal(log.mock.calls.length, 16);
+assert.equal(log.mock.calls.length, 17);
 instance.do_debug();
 log.mock.restore();
 const logs = log.mock.calls.map((call) => call.arguments[0]);
-assert.equal(logs.length, 31);
+assert.equal(logs.length, 33);
 const location = /^.*debug\.slint:\d+:\d+: /;
 const messages = logs.map((message) => {
     assert.match(message, location);
     return message.replace(location, "");
 });
-assert.equal(messages[16], "");
-assert.equal(messages[17], "a string");
-assert.equal(messages[18], "42");
-assert.equal(messages[21], "beta");
-assert.equal(messages[22], "{ flag: true, name: test, value: 7 }");
-assert.equal(messages[26], "multi 1 true");
-assert.equal(messages[27], "{ active: true, inner: { dir: gamma, pos: { px: 3.5, py: 4.5 }, x: 1, y: 2 }, label: outer }");
-assert.equal(messages[30], "0.1(px×ms⁻¹)");
+assert.equal(messages[17], "");
+assert.equal(messages[18], "a string");
+assert.equal(messages[19], "42");
+assert.equal(messages[22], "beta");
+assert.equal(messages[23], "{ flag: true, name: test, value: 7 }");
+assert.equal(messages[27], "multi 1 true");
+assert.equal(messages[28], "{ active: true, inner: { dir: gamma, pos: { px: 3.5, py: 4.5 }, x: 1, y: 2 }, label: outer }");
+assert.equal(messages[31], "0.1(px×ms⁻¹)");
+assert.equal(messages[32], "squircle superellipse(1.5)");
 ```
 */

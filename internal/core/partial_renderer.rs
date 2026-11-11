@@ -16,6 +16,7 @@
 //!
 
 use crate::Coord;
+use crate::graphics::ShapedRect;
 use crate::item_rendering::{
     ItemRenderer, ItemRendererFeatures, RenderBorderRectangle, RenderImage, RenderRectangle,
     RenderText,
@@ -860,6 +861,10 @@ impl<T: ItemRenderer + ItemRendererFeatures> ItemRenderer for PartialRenderer<'_
 
     fn combine_clip(&mut self, rect: LogicalRect, radius: LogicalBorderRadius) -> bool {
         self.actual_renderer.combine_clip(rect, radius)
+    }
+
+    fn combine_shaped_clip(&mut self, item_rc: &ItemRc, clip: ShapedRect<LogicalPx>) -> bool {
+        self.actual_renderer.combine_shaped_clip(item_rc, clip)
     }
 
     fn get_current_clip(&self) -> LogicalRect {

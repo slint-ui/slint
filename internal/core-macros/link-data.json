@@ -21,7 +21,7 @@
         "href": "reference/property-types/other-types/#mousecursor"
     },
     "BorderRadiusRectangle": {
-        "href": "reference/elements/rectangle/#border-radius-properties"
+        "href": "reference/elements/rectangle/#border-radius-and-corner-shape-properties"
     },
     "cache-rendering-hint": {
         "href": "reference/common/#cache-rendering-hint"
@@ -31,6 +31,9 @@
     },
     "color": {
         "href": "reference/property-types/colors-and-brushes/#color"
+    },
+    "corner-shape": {
+        "href": "reference/property-types/other-types/#corner-shape"
     },
     "Deprecation": {
         "href": "reference/language/deprecation/"
