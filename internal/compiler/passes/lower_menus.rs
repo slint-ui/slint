@@ -101,12 +101,14 @@ use crate::builtin_functions::BuiltinFunction;
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::element_type::{ElementType, PropertyLookupMode};
 use crate::expression_tree::{Callable, Expression, NamedReference};
-use crate::langtype::Type;
+use crate::langtype::{KeyboardModifiers, Keys, Type};
 use crate::object_tree::*;
 use core::cell::RefCell;
 use i_slint_common::MENU_SEPARATOR_PLACEHOLDER_TITLE;
 use smol_str::{SmolStr, format_smolstr};
+use std::collections::HashMap;
 use std::rc::{Rc, Weak};
+use std::sync::LazyLock;
 
 const HEIGHT: &str = "height";
 const ENTRIES: &str = "entries";
@@ -715,7 +717,18 @@ fn lower_menu_items(
                         .into(),
                     );
                 }
-                // Menu/MenuSeparator -> MenuItem
+                if element.borrow().base_type.type_name() == Some("StandardMenuItem") {
+                    if element.borrow().binding("kind").is_none() {
+                        diag.push_error(
+                            "StandardMenuItem must have a binding set for its 'kind' property"
+                                .into(),
+                            &*element.borrow(),
+                        );
+                    } else {
+                        set_standard_menu_item_bindings(element, diag);
+                    }
+                }
+                // Menu/MenuSeparator/StandardMenuItem -> MenuItem
                 element.borrow_mut().base_type = components.menu_item_element.clone();
             }
             false
@@ -740,4 +753,56 @@ fn lower_menu_items(
     enclosing.menu_item_tree.borrow_mut().push(component.clone());
 
     component
+}
+
+fn keys(modifiers: &KeyboardModifiers, key: &str) -> Keys {
+    Keys { modifiers: modifiers.clone(), key: key.into(), ..Default::default() }
+}
+
+static CONTROL: KeyboardModifiers =
+    KeyboardModifiers { alt: false, control: true, meta: false, shift: false };
+
+static CONTROL_SHIFT: KeyboardModifiers =
+    KeyboardModifiers { alt: false, control: true, meta: false, shift: true };
+
+static STANDARD_MENU_ITEMS: LazyLock<HashMap<&'static str, (&str, Keys)>> = LazyLock::new(|| {
+    HashMap::from([
+        ("copy", ("Copy", keys(&CONTROL, "c"))),
+        ("cut", ("Cut", keys(&CONTROL, "x"))),
+        ("paste", ("Paste", keys(&CONTROL, "v"))),
+        ("select-all", ("Select All", keys(&CONTROL, "a"))),
+        ("undo", ("Undo", keys(&CONTROL, "z"))),
+        #[cfg(not(target_os = "windows"))]
+        ("redo", ("Redo", keys(&CONTROL_SHIFT, "z"))),
+        #[cfg(target_os = "windows")]
+        ("redo", ("Redo", keys(&CONTROL, "y"))),
+        ("quit", ("Quit", keys(&CONTROL, "q"))),
+    ])
+});
+
+fn set_standard_menu_item_bindings(element: &Rc<RefCell<Element>>, diag: &mut BuildDiagnostics) {
+    let ex = element.borrow().binding("kind").unwrap().expression.ignore_debug_hooks().clone();
+    match ex {
+        Expression::EnumerationValue(ref enum_val) => {
+            let enum_val =
+                enum_val.enumeration.values.get(enum_val.value).expect("should be ok").as_str();
+            let (title, keys) = STANDARD_MENU_ITEMS
+                .get(enum_val)
+                .expect("Keys and title should be defined for every StandardMenuItemKind");
+
+            element.borrow_mut().set_binding(
+                SmolStr::new_static("title"),
+                Expression::StringLiteral(SmolStr::new_inline(title)).into(),
+            );
+            element.borrow_mut().set_binding(
+                SmolStr::new_static("shortcut"),
+                Expression::Keys(keys.clone()).into(),
+            );
+        }
+        _ => diag.push_error(
+            "'kind' must be a 'StandardMenuItemKind' value".into(),
+            &*element.borrow().binding("kind").unwrap(),
+        ),
+    }
+    element.borrow_mut().take_binding("kind");
 }

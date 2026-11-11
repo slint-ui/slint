@@ -58,9 +58,9 @@ export component TestCase inherits Window {
         }
         Menu {
             title: "Edit";
-            MenuItem {
-                title: "Copy";
-                activated => { debug("Copy"); }
+            StandardMenuItem {
+                kind: StandardMenuItemKind.copy;
+                activated => { debug("Copy"); result += "Copy" }
             }
             MenuItem {
                 title: "Paste";
@@ -85,6 +85,17 @@ export component TestCase inherits Window {
 use slint::{SharedString, platform::{Key, PointerEventButton}};
 let instance = TestCase::new().unwrap();
 assert!(instance.get_test());
+
+// click on the edit->copy menu item
+slint_testing::send_mouse_click(&instance, 50., 16.);
+slint_testing::send_mouse_click(&instance, 80., 49.);
+assert_eq!(instance.get_result(), "Copy");
+instance.set_result("".into());
+
+// press ctrl+c
+slint_testing::send_key_combo(&instance, [Key::Control, Key::C]);
+assert_eq!(instance.get_result(), "Copy");
+instance.set_result("".into());
 
 // click on the file menu
 slint_testing::send_mouse_click(&instance, 10., 16.);
