@@ -71,6 +71,11 @@ const MAX_LABELS: usize = 24;
 const LABEL_FADE_SECONDS: f32 = 0.2;
 /// How many logical pixels a label on the screen can overlap others or leave it before it goes.
 const LABEL_SLACK: f32 = 4.0;
+/// How long a label needs to have room before it shows,
+/// so that one that would be gone again in a moment doesn't show at all.
+const LABEL_DELAY: f32 = 0.5;
+/// How many logical pixels a new label keeps from the aircraft and from the edges, at most.
+const LABEL_CLEARANCE: f32 = 48.0;
 /// The most physical pixels per logical pixel the globe renders at,
 /// so that phones with a scale factor of 3 render fewer than half the pixels of their full
 /// resolution.
@@ -252,6 +257,10 @@ fn airport_item(airports: &[Airport], index: usize) -> AirportItem {
 struct LabelState {
     shown: bool,
     fade: f32,
+    /// Whether the aircraft covers the label, which keeps its place meanwhile.
+    covered: bool,
+    /// For how many seconds a label that isn't shown has had room.
+    room: f32,
 }
 
 /// The kiosk's flights, the user's own, and the camera that watches them.
@@ -730,57 +739,105 @@ impl Demo {
     }
 
     /// The names of the largest cities on the screen, at most `MAX_LABELS`,
-    /// that don't overlap each other or `taken`.
-    /// They fade in and out, and those on the screen keep their place over new ones,
-    /// so that a moving camera doesn't make them flicker.
+    /// that don't overlap each other, the markers at `taken`, or the `aircraft`.
+    /// They fade in and out.
+    /// So that a moving camera doesn't make them flicker,
+    /// those on the screen keep their place over new ones,
+    /// and a new one shows only where it's likely to stay.
     fn labels(
         &mut self,
         view_projection: Mat4,
         eye: Vec3,
         size: Vec2,
         taken: &[Vec2],
+        aircraft: Option<Vec2>,
         dt: f32,
     ) -> Vec<Label> {
-        let height = (eye.length() - 1.0).max(0.01);
-        let min_population = if height > 2.0 {
-            6000.0
-        } else if height > 0.8 {
-            2500.0
-        } else {
-            500.0
+        // From further away, only larger cities show.
+        let least = |height: f32| {
+            if height > 2.0 {
+                6000.0
+            } else if height > 0.8 {
+                2500.0
+            } else {
+                500.0
+            }
         };
-        let mut placed: Vec<(Vec2, Vec2)> = taken
-            .iter()
-            .map(|point| (*point - Vec2::new(24.0, 24.0), *point + Vec2::new(60.0, 24.0)))
-            .collect();
+        let height = eye.length() - 1.0;
+        // A new label also has to last where the view is taking the camera.
+        let ahead = match self.view {
+            View::Free => height,
+            _ => self.goal(aspect(size)).eye().length() - 1.0,
+        };
+        let around =
+            |point: Vec2, right: f32| (point - Vec2::splat(24.0), point + Vec2::new(right, 24.0));
+        let overlaps = |(low, high): (Vec2, Vec2), boxes: &[(Vec2, Vec2)]| {
+            boxes.iter().any(|(a, b)| low.x < b.x && a.x < high.x && low.y < b.y && a.y < high.y)
+        };
+        // An airport's code shows to the right of its marker.
+        let mut placed: Vec<(Vec2, Vec2)> =
+            taken.iter().map(|point| around(*point, 60.0)).collect();
+        let aircraft: Vec<(Vec2, Vec2)> =
+            aircraft.iter().map(|point| around(*point, 24.0)).collect();
         let mut count = 0;
-        let was_shown: Vec<bool> =
-            self.label_states.iter_mut().map(|state| std::mem::take(&mut state.shown)).collect();
-        for (slack, keep_shown) in [(LABEL_SLACK, true), (0.0, false)] {
+        let before = self.label_states.clone();
+        for state in &mut self.label_states {
+            (state.shown, state.covered) = (false, false);
+        }
+        // While the camera turns to another view, the labels move too fast for new ones.
+        let turning = self.camera.is_moving() && !self.camera.is_coasting();
+        // The labels on the screen keep their place, with some slack. Then come new ones,
+        // which need room to spare: clear of the edges and of the aircraft, which they would
+        // otherwise meet a moment after they showed.
+        for kept in [true, false] {
+            let (slack, clearance, least) = if kept {
+                (LABEL_SLACK, Vec2::ZERO, least(height))
+            } else {
+                // Less in a narrow window, where the labels move less from side to side.
+                let clearance = Vec2::splat(LABEL_CLEARANCE).min(size * 0.06);
+                (0.0, clearance, least(height.max(ahead)))
+            };
             for (index, city) in self.cities.iter().enumerate() {
-                if was_shown[index] != keep_shown
-                    || city.population < min_population
-                    || count == MAX_LABELS
-                    || facing(eye, city.position) < 0.15
-                {
+                let state = &mut self.label_states[index];
+                if (before[index].shown || before[index].covered) != kept {
                     continue;
                 }
-                let Some(point) = project(view_projection, city.position, size) else { continue };
-                let width = city.name.chars().count() as f32 * 6.5 + 14.0;
-                let (low, high) =
-                    (point - Vec2::new(6.0, 10.0) + slack, point + Vec2::new(width, 10.0) - slack);
-                if low.x < 0.0 || low.y < 0.0 || high.x > size.x || high.y > size.y {
+                let place = (city.population >= least
+                    && count < MAX_LABELS
+                    && facing(eye, city.position) >= 0.15)
+                    .then(|| project(view_projection, city.position, size))
+                    .flatten()
+                    .map(|point| {
+                        let width = city.name.chars().count() as f32 * 6.5 + 14.0;
+                        (
+                            point - Vec2::new(6.0, 10.0) + slack,
+                            point + Vec2::new(width, 10.0) - slack,
+                        )
+                    })
+                    .filter(|&(low, high)| {
+                        (low - clearance).cmpge(Vec2::ZERO).all()
+                            && (high + clearance).cmple(size).all()
+                    })
+                    .filter(|&place| !overlaps(place, &placed));
+                let Some((low, high)) = place else {
+                    state.room = 0.0;
                     continue;
+                };
+                // A label that the aircraft passed over comes back once it's clear of it.
+                let clear =
+                    if before[index].covered { Vec2::splat(LABEL_SLACK) } else { clearance };
+                if overlaps((low - clear, high + clear), &aircraft) {
+                    state.room = 0.0;
+                    state.covered = kept;
+                } else if kept || state.room >= LABEL_DELAY {
+                    state.shown = true;
+                } else if !turning {
+                    state.room += dt;
                 }
-                if placed
-                    .iter()
-                    .any(|(a, b)| low.x < b.x && a.x < high.x && low.y < b.y && a.y < high.y)
-                {
-                    continue;
+                if state.shown || state.covered {
+                    placed.push((low, high));
+                    count += 1;
                 }
-                placed.push((low, high));
-                self.label_states[index].shown = true;
-                count += 1;
             }
         }
         let mut labels = Vec::new();
@@ -1270,9 +1327,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             .iter()
             .filter(|marker| marker.shown)
             .map(|marker| Vec2::new(marker.x, marker.y))
-            .chain(aircraft.map(|(at, _)| at))
             .collect();
-        update_rows(&labels, demo.labels(view_projection, eye, size, &taken, dt));
+        let over = aircraft.map(|(at, _)| at);
+        update_rows(&labels, demo.labels(view_projection, eye, size, &taken, over, dt));
         let [origin, destination] = markers;
         app.set_origin_marker(origin);
         app.set_destination_marker(destination);
@@ -1368,4 +1425,57 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     app.run()?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A label that shows stays for a while: over five minutes of the kiosk's flights,
+    /// few labels go again within a second, and many show at a time.
+    #[test]
+    fn labels_stay() {
+        let size = Vec2::new(1280.0, 800.0);
+        let dt = 1.0 / 60.0;
+        let mut demo = Demo::new();
+        demo.random = 12345;
+        demo.stage = Stage::Entry;
+        let mut shown_since = vec![None; demo.cities.len()];
+        let (mut frames, mut shown, mut short) = (0, 0, 0);
+        for frame in 0..(300.0 / dt) as usize {
+            demo.step(true, dt);
+            demo.update_camera(aspect(size), size.y, dt);
+            let view_projection = demo.camera.pose.view_projection(aspect(size));
+            let eye = demo.camera.pose.eye();
+            let flight = &demo.flight;
+            let taken: Vec<Vec2> = [flight.origin, flight.destination]
+                .map(|airport| marker(view_projection, eye, &demo.airports[airport], size))
+                .iter()
+                .filter(|marker| marker.shown)
+                .map(|marker| Vec2::new(marker.x, marker.y))
+                .collect();
+            let aircraft =
+                screen_point(view_projection, eye, flight.point(flight.progress()), size);
+            demo.labels(view_projection, eye, size, &taken, aircraft, dt);
+            if demo.stage != Stage::Flight {
+                continue;
+            }
+            frames += 1;
+            for (index, state) in demo.label_states.iter().enumerate() {
+                shown += state.shown as usize;
+                // Near the horizon, a label is too faint for its coming and going to show.
+                let clear = facing(eye, demo.cities[index].position) > 0.3;
+                match (state.shown, shown_since[index]) {
+                    (true, None) => shown_since[index] = Some(frame),
+                    (false, Some(since)) => {
+                        short += (clear && ((frame - since) as f32) * dt < 1.0) as usize;
+                        shown_since[index] = None;
+                    }
+                    _ => {}
+                }
+            }
+        }
+        let average = shown as f32 / frames as f32;
+        assert!(short <= 20 && average >= 10.0, "{short} short, {average} labels on average");
+    }
 }
