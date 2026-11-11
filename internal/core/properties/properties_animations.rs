@@ -399,14 +399,22 @@ impl<T: InterpolatedPropertyValue + Clone, A: Fn() -> AnimationDetail> BindingCa
             AnimatedBindingState::ShouldStart => {
                 let mut animation_data = self.animation_data.borrow_mut();
 
-                // Since `mark_dirty` fires when dependencies of `original_binding` changes
-                // if the change doesn't actually affect the computed value, it shouldn't restart
-                // the animation
+                // `mark_dirty` fires when dependencies of `original_binding` change.
+                // If the computed value is unchanged, don't restart the animation,
+                // and don't start one from the current value to itself.
                 let previous_to_value = animation_data.to_value.clone();
                 let mut new_to_value = T::default();
                 // Safety: `new_to_value` is a valid mutable reference matching the
                 // original binding's value type
                 unsafe { self.original_binding.update(&mut new_to_value as *mut T) };
+
+                if new_to_value == *value {
+                    animation_data.to_value = Some(new_to_value);
+                    animation_data.state = AnimationState::Done { iteration_count: 0 };
+                    self.state.set(AnimatedBindingState::NotAnimating);
+                    return BindingResult::KeepBinding;
+                }
+
                 animation_data.to_value = Some(new_to_value);
 
                 if animation_data.to_value != previous_to_value {
@@ -1425,6 +1433,120 @@ mod animation_tests {
 
         // After more than DURATION worth of real time has elapsed, the animation should
         // have completed regardless of the unrelated per-frame writes to `row.0`.
+        assert_eq!(get_prop_value(&compo.width), 200);
+    }
+
+    #[test]
+    fn properties_test_animation_triggered_by_binding_without_value_change() {
+        // https://github.com/slint-ui/slint/pull/14823
+        #[derive(Default)]
+        struct Component {
+            width: Property<i32>,
+            row: Property<(i32, bool)>,
+        }
+
+        let compo = Rc::pin(Component::default());
+
+        let animation_details = PropertyAnimation {
+            duration: DURATION.as_millis() as _,
+            iteration_count: 1.,
+            ..PropertyAnimation::default()
+        };
+
+        let w = PinWeak::downgrade(compo.clone());
+        compo.width.set_animated_binding(
+            move || {
+                let compo = w.upgrade().unwrap();
+                if get_prop_value(&compo.row).1 { 200 } else { 40 }
+            },
+            move || (animation_details.clone(), None),
+        );
+
+        compo.row.set((0, false));
+        assert_eq!(get_prop_value(&compo.width), 40);
+
+        let start_time = crate::animations::current_tick();
+        let tick = core::time::Duration::from_millis(16);
+        for i in 1..=3u32 {
+            compo.row.set((i as i32, false));
+            crate::animations::CURRENT_ANIMATION_DRIVER
+                .with(|driver| driver.update_animations(start_time + tick * i));
+            assert_eq!(get_prop_value(&compo.width), 40);
+            assert!(
+                !crate::animations::CURRENT_ANIMATION_DRIVER
+                    .with(|driver| driver.has_active_animations()),
+                "an unchanged value must not start an animation (rewrite {i})"
+            );
+        }
+
+        // A change of the value still animates, from the value it had.
+        compo.row.set((4, true));
+        let change_time = start_time + tick * 3;
+        assert_eq!(get_prop_value(&compo.width), 40);
+        crate::animations::CURRENT_ANIMATION_DRIVER
+            .with(|driver| driver.update_animations(change_time + DURATION / 2));
+        assert_eq!(get_prop_value(&compo.width), 120);
+        assert!(
+            crate::animations::CURRENT_ANIMATION_DRIVER
+                .with(|driver| driver.has_active_animations())
+        );
+        crate::animations::CURRENT_ANIMATION_DRIVER
+            .with(|driver| driver.update_animations(change_time + DURATION));
+        assert_eq!(get_prop_value(&compo.width), 200);
+    }
+
+    #[test]
+    fn properties_test_animation_binding_retargeted_to_current_value() {
+        #[derive(Default)]
+        struct Component {
+            width: Property<i32>,
+            target: Property<i32>,
+        }
+
+        let compo = Rc::pin(Component::default());
+
+        let animation_details = PropertyAnimation {
+            duration: DURATION.as_millis() as _,
+            iteration_count: 1.,
+            ..PropertyAnimation::default()
+        };
+
+        let w = PinWeak::downgrade(compo.clone());
+        compo.width.set_animated_binding(
+            move || get_prop_value(&w.upgrade().unwrap().target),
+            move || (animation_details.clone(), None),
+        );
+
+        compo.target.set(40);
+        assert_eq!(get_prop_value(&compo.width), 40);
+
+        let start_time = crate::animations::current_tick();
+        compo.target.set(200);
+        assert_eq!(get_prop_value(&compo.width), 40);
+        crate::animations::CURRENT_ANIMATION_DRIVER
+            .with(|driver| driver.update_animations(start_time + DURATION / 2));
+        assert_eq!(get_prop_value(&compo.width), 120);
+
+        // The new target is the value shown now: the running animation stops.
+        compo.target.set(120);
+        crate::animations::CURRENT_ANIMATION_DRIVER
+            .with(|driver| driver.update_animations(start_time + DURATION / 2 + DURATION / 4));
+        assert_eq!(get_prop_value(&compo.width), 120);
+        assert!(
+            !crate::animations::CURRENT_ANIMATION_DRIVER
+                .with(|driver| driver.has_active_animations()),
+            "a target equal to the current value must not animate"
+        );
+
+        // A different target animates again, from the value it had.
+        let change_time = start_time + DURATION / 2 + DURATION / 4;
+        compo.target.set(200);
+        assert_eq!(get_prop_value(&compo.width), 120);
+        crate::animations::CURRENT_ANIMATION_DRIVER
+            .with(|driver| driver.update_animations(change_time + DURATION / 2));
+        assert_eq!(get_prop_value(&compo.width), 160);
+        crate::animations::CURRENT_ANIMATION_DRIVER
+            .with(|driver| driver.update_animations(change_time + DURATION));
         assert_eq!(get_prop_value(&compo.width), 200);
     }
 
