@@ -369,7 +369,7 @@ mod software_renderer {
 
     #[cfg(feature = "experimental")]
     use i_slint_renderer_software::{
-        RecordedRasterCommands, TargetPixelBuffer, TexturePixelFormat,
+        PreparedTextures, RecordedRasterCommands, TargetPixelBuffer, TexturePixelFormat,
     };
 
     #[cfg(feature = "experimental")]
@@ -657,6 +657,53 @@ mod software_renderer {
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_recorded_raster_commands_drop(recorded: *mut c_void) {
         drop(unsafe { Box::from_raw(recorded as *mut RecordedRasterCommands) });
+    }
+
+    #[cfg(feature = "experimental")]
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_recorded_raster_commands_rasterize_accel_rgb8(
+        recorded: *const c_void,
+        buffer: &mut CppTargetPixelBuffer<Rgb8Pixel>,
+        prepared_textures: *mut c_void,
+    ) -> PhysicalRegion {
+        unsafe {
+            (*(recorded as *const RecordedRasterCommands))
+                .rasterize_into_buffer(buffer, &mut *(prepared_textures as *mut PreparedTextures))
+        }
+    }
+
+    #[cfg(feature = "experimental")]
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_recorded_raster_commands_rasterize_accel_rgb565(
+        recorded: *const c_void,
+        buffer: &mut CppTargetPixelBuffer<Rgb565Pixel>,
+        prepared_textures: *mut c_void,
+    ) -> PhysicalRegion {
+        unsafe {
+            (*(recorded as *const RecordedRasterCommands))
+                .rasterize_into_buffer(buffer, &mut *(prepared_textures as *mut PreparedTextures))
+        }
+    }
+
+    #[cfg(feature = "experimental")]
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_prepared_textures_new() -> *mut c_void {
+        Box::into_raw(Box::new(PreparedTextures::new())) as _
+    }
+
+    #[cfg(feature = "experimental")]
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_prepared_textures_drop(prepared_textures: *mut c_void) {
+        drop(unsafe { Box::from_raw(prepared_textures as *mut PreparedTextures) });
+    }
+
+    #[cfg(feature = "experimental")]
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_prepared_textures_set_max_bytes(
+        prepared_textures: *mut c_void,
+        max_bytes: usize,
+    ) {
+        unsafe { (*(prepared_textures as *mut PreparedTextures)).set_max_bytes(max_bytes) }
     }
 
     struct LineByLineProcessor<TargetPixel> {
