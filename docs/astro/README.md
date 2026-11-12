@@ -6,7 +6,6 @@
 - Node.js
 - pnpm
 
-
 ## 🚀 Project Structure
 
 The documentation site is built with [Astro Starlight](https://starlight.astro.build/) and reuses its
@@ -66,8 +65,6 @@ pnpm start
 
 This will start the dev server at [`localhost:4321/docs/`](http://localhost:4321/docs/).
 
-
-
 ## 🧞 Commands
 
 All commands are run from the root of the project, from a terminal:
@@ -80,8 +77,6 @@ All commands are run from the root of the project, from a terminal:
 | `pnpm preview`            | Preview your build locally, before deploying     |
 | `pnpm run astro ...`      | Run CLI commands like `astro add`, `astro check` |
 | `npm run astro -- --help` | Get help using the Astro CLI                     |
-
-
 
 ## 👀 Want to learn more about Astro and Starlight?
 
