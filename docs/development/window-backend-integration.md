@@ -282,8 +282,8 @@ with ash and submits them on wgpu's queue.
 Headless testing:
 
 - A mock renderer with fixed font metrics by default; it draws nothing
-- A real rasterizer when `TestingBackendOptions::renderer_name` is set: Skia's software surface or the software renderer.
-  `Window::take_snapshot` then works
+- A real rasterizer when `TestingBackendOptions::renderer_name` is set, so `Window::take_snapshot` works:
+  Skia's software surface or the software renderer
 - `SLINT_BACKEND=headless` selects that mode and needs the `mcp` feature
 - Simulated input
 - Automated UI testing
