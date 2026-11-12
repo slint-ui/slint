@@ -1672,9 +1672,9 @@ fn lower_box_layout(
             }
         } else {
             let (pad_expr, size_expr) = stretch_bindings.as_ref().unwrap();
-            if let Some(binding) =
-                actual_elem.borrow().binding(pad).filter(|binding| binding.has_binding())
-            {
+            if let Some(binding) = actual_elem.borrow().binding(pad).filter(|binding| {
+                binding.has_binding() && !is_from_inlined_base(&actual_elem.borrow(), binding)
+            }) {
                 if !fixed_ortho {
                     diag.push_warning(
                         format!("The layout stretches the '{ortho}' of this element, so '{pad}' can move it past the edge, consider setting its '{ortho}' too, or using the layout's 'padding' or 'cross-axis-alignment'"),
@@ -1682,7 +1682,7 @@ fn lower_box_layout(
                     );
                 }
             } else if let Some(pad_expr) = pad_expr {
-                actual_elem.borrow_mut().set_binding(pad.into(), pad_expr.clone().into());
+                set_layout_binding(actual_elem, pad, pad_expr.clone().into());
             }
             if !fixed_ortho {
                 let clamped = clamp_cross_stretch_size(
@@ -2303,12 +2303,39 @@ fn insert_cache_prop_binding(
         expr,
         layout_cache_prop.element().borrow().to_source_location(),
     );
-    if let Some(old) = elem.borrow_mut().set_binding(prop.into(), new_binding) {
+    if let Some(old) = set_layout_binding(elem, prop, new_binding) {
         diag.push_error(
             format!("The property '{prop}' cannot be set for elements placed in this layout, because the layout is already setting it"),
             &old,
         );
     }
+}
+
+/// Whether inlining copied `binding` from the root of `elem`'s base component,
+/// rather than `elem` setting it itself.
+/// A binding with an animation counts as `elem`'s own, since inlining merges the animation
+/// of either side into the root's binding.
+fn is_from_inlined_base(elem: &Element, binding: &BindingExpression) -> bool {
+    binding.priority > 1 + elem.inline_depth && binding.animation.is_none()
+}
+
+/// Sets `prop` on `elem` to the layout's `binding`, overriding one from an inlined base
+/// component's root while keeping its two-way bindings (#7701).
+/// Returns the replaced binding if `elem` set it itself.
+fn set_layout_binding(
+    elem: &ElementRc,
+    prop: &str,
+    binding: BindingExpression,
+) -> Option<BindingExpression> {
+    let mut elem = elem.borrow_mut();
+    let old = elem.set_binding(prop.into(), binding)?;
+    if !is_from_inlined_base(&elem, &old) {
+        return Some(old);
+    }
+    if let Some(mut new) = elem.binding_mut(prop) {
+        new.two_way_bindings.extend(old.two_way_bindings);
+    }
+    None
 }
 
 /// Common cache-access parameters for repeater indirection in layout caches.

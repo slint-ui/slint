@@ -71,6 +71,9 @@ The Slint LSP (Language Server Protocol) server provides IDE features for `.slin
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+The Live Preview layer has its own state and, in the native server, its own process.
+See [Live Preview](#live-preview).
+
 ## Core Types
 
 ### `Context`
@@ -171,9 +174,11 @@ See `internal/editor-preview/editing/rename_component.rs` for the rename flow an
 ## Live Preview
 
 The Live Preview is architecturally separated from the LSP with its own state.
-This allows running the Live Preview either embedded, or in a separate process.
+The native server starts it as a child process, `slint-lsp live-preview --remote-controlled`.
 Running in a separate process prevents the LSP from crashing if the live preview
 crashes and is necessary on macOS, where only the main thread of a process can show UI.
+An editor can also host the WASM preview itself.
+The server then sends it the same messages as LSP notifications (`PreviewTarget::EmbeddedWasm`).
 
 ### LSP ↔ Preview Communication
 
