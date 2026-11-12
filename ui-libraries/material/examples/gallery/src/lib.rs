@@ -338,6 +338,7 @@ mod theme {
             MenuItem { text: "Purple".into(), enabled: true, ..Default::default() },
             MenuItem { text: "Red".into(), enabled: true, ..Default::default() },
             MenuItem { text: "Green".into(), enabled: true, ..Default::default() },
+            MenuItem { text: "System".into(), enabled: true, ..Default::default() },
         ]));
 
         adapter.on_load_palette({
@@ -351,6 +352,8 @@ mod theme {
     }
 
     fn load_theme(index: usize, ui: &MainWindow) {
+        // 4 is "System", which falls back to the Slint theme where the platform has no scheme.
+        MaterialPalette::get(ui).set_use_system_colors(index == 4);
         let theme: MaterialTheme = serde_json::from_str(match index {
             1 => PURPLE_THEME,
             2 => RED_THEME,

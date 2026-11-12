@@ -187,6 +187,7 @@ macro_rules! for_each_builtin_function {
             ReducedMotion: pure fn reduced_motion(&context) -> bool {
                 cfg!(feature = "std") && context.motion_preference() == crate::MotionPreference::Reduced
             }
+            SystemColorSchemes: pure fn system_color_schemes(&context) -> SystemColorSchemes { context.system_color_schemes() }
             SupportsNativeMenuBar: pure fn() -> bool
             /// Setup the menu bar
             ///
