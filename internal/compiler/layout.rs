@@ -990,8 +990,7 @@ pub fn implicit_layout_info_call(
     }
 }
 
-/// Whether `elem`'s own builtin (not one inherited through a component)
-/// computes its vertical layout info from its width.
+/// Whether `elem`'s builtin computes its vertical layout info from its width.
 ///
 /// The binding analysis records that width read, and the box layout lowering
 /// only forwards the layout's width to a repeated cell when this holds: a read
@@ -999,7 +998,7 @@ pub fn implicit_layout_info_call(
 /// `Element::is_builtin_height_for_width` is the variant for synthesis,
 /// which runs before `property_analysis` is filled.
 pub fn builtin_height_depends_on_width(elem: &Element) -> bool {
-    let ElementType::Builtin(b) = &elem.base_type else { return false };
+    let Some(b) = elem.builtin_type() else { return false };
     match b.name.as_str() {
         "Image" | "StyledText" => true,
         "Text" | "TextInput" => {
