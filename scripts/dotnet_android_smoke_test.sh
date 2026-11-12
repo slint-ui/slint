@@ -37,7 +37,8 @@ query() {
     exit 1
 }
 
-adb install -r "$apk"
+# An incremental install returns before the package is complete, and Android then kills the app that started meanwhile.
+adb install -r --no-incremental "$apk"
 adb logcat -c
 activity=$(adb shell cmd package resolve-activity --brief "$app" | tail -n 1 | tr -d '\r')
 adb shell am start -W -n "$activity" > /dev/null
