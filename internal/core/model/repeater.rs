@@ -608,7 +608,7 @@ fn update_visible_instances(
         (_, Some((alignment, beyond_edge))) => Some((request.row, alignment, beyond_edge)),
         _ => None,
     });
-    let (mut new_offset, mut new_offset_y) = if let Some((row, alignment, beyond_edge)) = seek {
+    let (mut new_row, mut new_offset_y) = if let Some((row, alignment, beyond_edge)) = seek {
         // Check if the row is around the already existing instances
         let first = state.item_index.row;
         let end = first + ops.len();
@@ -659,17 +659,17 @@ fn update_visible_instances(
     } else if content_y_value < state.previous_content_y {
         // Scrolled down: find the new offset by walking existing instances.
         let mut it_y = first_item_y + content_y_value;
-        let mut new_off = state.item_index.row;
+        let mut new_row = state.item_index.row;
         for i in 0..ops.len() {
-            changed |= ops.ensure_updated(i, new_off);
+            changed |= ops.ensure_updated(i, new_row);
             let h = ops.height(i).unwrap_or(0 as Coord);
-            if it_y + h > 0 as Coord || new_off + 1 >= row_count {
+            if it_y + h > 0 as Coord || new_row + 1 >= row_count {
                 break;
             }
             it_y += h;
-            new_off += 1;
+            new_row += 1;
         }
-        (new_off, it_y)
+        (new_row, it_y)
     } else {
         // Scrolled up: will instantiate items before offset in the loop below.
         (state.item_index.row, first_item_y + content_y_value)
@@ -680,34 +680,34 @@ fn update_visible_instances(
     let mut loop_count = 0;
     loop {
         target_span = None;
-        // Fill gap before new_offset using already-instantiated items.
-        while new_offset > state.item_index.row && new_offset_y > -extra_above {
-            new_offset -= 1;
-            new_offset_y -= ops.height(new_offset - state.item_index.row).unwrap_or(0 as Coord);
+        // Fill gap before new_row using already-instantiated items.
+        while new_row > state.item_index.row && new_offset_y > -extra_above {
+            new_row -= 1;
+            new_offset_y -= ops.height(new_row - state.item_index.row).unwrap_or(0 as Coord);
         }
         // If there is still a gap, create new instances before the current ones.
         let mut prepend_count = 0;
-        while new_offset > 0 && new_offset_y > -extra_above {
-            new_offset -= 1;
+        while new_row > 0 && new_offset_y > -extra_above {
+            new_row -= 1;
             ops.prepend(1);
-            changed |= ops.ensure_updated(0, new_offset);
+            changed |= ops.ensure_updated(0, new_row);
             new_offset_y -= ops.height(0).unwrap_or(0 as Coord);
             prepend_count += 1;
         }
         if prepend_count > 0 {
-            state.item_index.row = new_offset;
+            state.item_index.row = new_row;
         }
-        if seek.is_some() && new_offset == 0 {
+        if seek.is_some() && new_row == 0 {
             new_offset_y = new_offset_y.min(0 as Coord);
         }
         debug_assert!(
-            new_offset >= state.item_index.row && new_offset <= state.item_index.row + ops.len()
+            new_row >= state.item_index.row && new_row <= state.item_index.row + ops.len()
         );
 
         // Layout items until we fill the view, starting with already-instantiated ones.
         let mut y = new_offset_y;
-        let mut idx = new_offset;
-        let instances_begin = new_offset - state.item_index.row;
+        let mut idx = new_row;
+        let instances_begin = new_row - state.item_index.row;
         for i in instances_begin..ops.len() {
             if idx >= row_count {
                 break;
@@ -735,11 +735,15 @@ fn update_visible_instances(
                 target_span = Some((top, y));
             }
             idx += 1;
+            if new_row == idx - 1 && y <= -extra_above && idx < row_count {
+                new_row = idx;
+                new_offset_y = y;
+            }
         }
 
         if seek.is_some()
             && y < listview_height
-            && (new_offset > 0 || new_offset_y < 0 as Coord)
+            && (new_row > 0 || new_offset_y < 0 as Coord)
             && loop_count < 3
         {
             // A seek that leaves room below the last row moves all rows down to close the gap.
@@ -757,12 +761,12 @@ fn update_visible_instances(
         }
 
         // Clean up instances that are not shown.
-        if new_offset != state.item_index.row {
-            let remove_count = new_offset - state.item_index.row;
+        if new_row != state.item_index.row {
+            let remove_count = new_row - state.item_index.row;
             ops.remove_first(remove_count);
-            state.item_index.row = new_offset;
+            state.item_index.row = new_row;
         }
-        let keep = idx - new_offset;
+        let keep = idx - new_row;
         ops.truncate(keep);
 
         if ops.len() == 0 {
@@ -3393,9 +3397,8 @@ mod tests {
 
         content_y.as_ref().set(LogicalLength::new(-ITEM_HEIGHT * 5 as Coord)); // Scroll down
         update_listview();
-        // Scrolled by 5 rows
-        // 3 and 4 are kept
-        assert_eq!(state(&repeater).0, [Clean(3), Clean(4), Clean(5), Clean(6), Clean(7)]);
+        // Scrolled by 5 rows: rows 3 and 4 end above the viewport, so only 5 to 7 are kept
+        assert_eq!(state(&repeater).0, [Clean(5), Clean(6), Clean(7)]);
         assert_eq!(state(&repeater).1.row, 5, "We scrolled to row 6 (index 5)");
 
         content_y.as_ref().set(LogicalLength::new(ITEM_HEIGHT * 3 as Coord)); // Scroll up
