@@ -2489,7 +2489,8 @@ fn build(l: &mut Loader) {
         /// `reject` to let `TextInput` handle it.
         callback key-released(event: KeyEvent) -> EventResult;
         in property <bool> enabled: true;
-        /// When set to `true`, the text is always rendered as a single line, regardless of new line separators in the text.
+        /// When set to `true`, a new line character in the text renders as a space, and only `wrap` breaks lines.
+        /// Pressing Enter invokes `accepted`, and new lines in pasted text become spaces.
         in property <bool> single-line: true;
         /// When set to `true`, text editing via keyboard and mouse is disabled but selecting text is still enabled as well as editing text programmatically.
         in property <bool> read-only: false;
