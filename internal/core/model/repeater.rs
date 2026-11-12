@@ -2545,7 +2545,7 @@ mod tests {
 
     // TODO: Test swapping!
 
-    const ITEM_HEIGHT: Coord = 100 as Coord;
+    const ITEM_HEIGHT: f32 = 100.;
 
     /// Unlike `VecModel`, inserts and removes several rows with a single notification.
     struct TestModel {
@@ -3380,7 +3380,8 @@ mod tests {
         let model_rc = ModelRc::from(model.clone());
         repeater.set_model_binding(move || model_rc.clone());
         let content_y = Box::pin(Property::new(LogicalLength::default()));
-        let listview_height = Box::pin(Property::new(LogicalLength::new(ITEM_HEIGHT * 3 as Coord)));
+        let listview_height =
+            Box::pin(Property::new(LogicalLength::new((ITEM_HEIGHT * 3.) as Coord)));
         let update_listview = || {
             repeater.as_ref().ensure_updated_listview(
                 new_item,
@@ -3395,48 +3396,72 @@ mod tests {
         update_listview();
         assert_eq!(state(&repeater).0, [Clean(0), Clean(1), Clean(2)]);
 
-        content_y.as_ref().set(LogicalLength::new(-ITEM_HEIGHT * 5 as Coord)); // Scroll down
+        let scroll_down_by = |scroll: f32| {
+            let new_content_y = LogicalLength::new(content_y.as_ref().get().0 - scroll);
+            content_y.as_ref().set(new_content_y);
+        };
+        let scroll_up_by = |scroll: f32| scroll_down_by(-scroll);
+
+        scroll_down_by(5. * ITEM_HEIGHT);
         update_listview();
-        // Scrolled by 5 rows: rows 3 and 4 end above the viewport, so only 5 to 7 are kept
+        // Scrolled by 5 rows: only 5 to 7 are kept
         assert_eq!(state(&repeater).0, [Clean(5), Clean(6), Clean(7)]);
         assert_eq!(state(&repeater).1.row, 5, "We scrolled to row 6 (index 5)");
 
-        content_y.as_ref().set(LogicalLength::new(ITEM_HEIGHT * 3 as Coord)); // Scroll up
+        scroll_up_by(2. * ITEM_HEIGHT);
         update_listview();
+        assert_eq!(state(&repeater).0, [Clean(3), Clean(4), Clean(5)]);
 
-        assert_eq!(
-            state(&repeater).0,
-            [Clean(2), Clean(3), Clean(4), Clean(5), Clean(6), Clean(7)]
-        );
+        scroll_down_by(0.5 * ITEM_HEIGHT);
+        update_listview();
+        assert_eq!(state(&repeater).0, [Clean(3), Clean(4), Clean(5), Clean(6)]);
+
+        scroll_down_by(0.5 * ITEM_HEIGHT);
+        update_listview();
+        assert_eq!(state(&repeater).0, [Clean(4), Clean(5), Clean(6)]);
     }
 
-    // #[test]
-    // fn test_listview_scrolled_after_insert_at_front() {
-    //     let model = TestModel::new(10);
-    //     let repeater = Box::pin(Repeater::<SimpleItem>::default());
-    //     let model_rc = ModelRc::from(model.clone());
-    //     repeater.set_model_binding(move || model_rc.clone());
-    //     let content_y = Box::pin(Property::new(LogicalLength::default()));
-    //     let listview_height = Box::pin(Property::new(LogicalLength::new(ITEM_HEIGHT * 3 as Coord)));
-    //     let update = || {
-    //         repeater.as_ref().ensure_updated_listview(
-    //             new_item,
-    //             None,
-    //             None,
-    //             content_y.as_ref(),
-    //             LogicalLength::new(100 as Coord),
-    //             listview_height.as_ref(),
-    //         );
-    //     };
+    #[test]
+    fn test_listview_scrolled_after_insert_at_front() {
+        let model = TestModel::new(10);
+        let repeater = Box::pin(Repeater::<SimpleItem>::default());
+        let model_rc = ModelRc::from(model.clone());
+        repeater.set_model_binding(move || model_rc.clone());
+        let content_y = Box::pin(Property::new(LogicalLength::default()));
+        let listview_height =
+            Box::pin(Property::new(LogicalLength::new((ITEM_HEIGHT * 3.) as Coord)));
+        let update = || {
+            repeater.as_ref().ensure_updated_listview(
+                new_item,
+                None,
+                None,
+                content_y.as_ref(),
+                LogicalLength::new(100 as Coord),
+                listview_height.as_ref(),
+            );
+        };
 
-    //     update();
-    //     model.insert(0, &[100]);
-    //     update();
-    //     // Scrolled by 3.5 rows, so rows 3 to 6 are in view
-    //     content_y.as_ref().set(LogicalLength::new(-ITEM_HEIGHT * 7 as Coord / 2 as Coord));
-    //     update();
-    //     assert_eq!(state(&repeater).0, [Clean(2), Clean(3), Clean(4), Clean(5)]);
-    // }
+        update();
+        assert_eq!(state(&repeater).0, [Clean(0), Clean(1), Clean(2)]);
+        model.insert(0, &[100]);
+        update();
+        assert_eq!(
+            state(&repeater).0,
+            [Clean(0), Clean(1), Clean(2)],
+            "The item was prepended before the first item. So we don't wanna move the view"
+        );
+
+        let scroll_down_by = |scroll: f32| {
+            let new_content_y = LogicalLength::new(content_y.as_ref().get().0 - scroll);
+            content_y.as_ref().set(new_content_y);
+        };
+        let scroll_up_by = |scroll: f32| scroll_down_by(-scroll);
+
+        // Scrolled by 3.5 rows, so rows 3 to 6 are in view
+        scroll_down_by(ITEM_HEIGHT * 7. / 2.);
+        update();
+        assert_eq!(state(&repeater).0, [Clean(2), Clean(3), Clean(4), Clean(5)]);
+    }
 
     // Trait implementations
     // ###############################################################################
