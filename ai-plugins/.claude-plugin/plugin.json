@@ -24,12 +24,6 @@
     "slint-docs": {
       "type": "http",
       "url": "https://docs.slint.dev/mcp"
-    },
-    "slint-preview": {
-      "command": "node",
-      "args": [
-        "${CLAUDE_PLUGIN_ROOT}/mcp/slint-preview/server.mjs"
-      ]
     }
   }
 }

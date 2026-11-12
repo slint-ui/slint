@@ -278,13 +278,11 @@ test("rejects unknown tools, resources, and methods", async () => {
     assert.equal((await request("nope")).error.code, -32601);
 });
 
-test("the Claude and Codex manifests start this server", () => {
-    const claude = readManifest(".claude-plugin/plugin.json").mcpServers[
-        "slint-preview"
-    ];
-    assert.deepEqual(claude.args, [
-        "${CLAUDE_PLUGIN_ROOT}/mcp/slint-preview/server.mjs",
-    ]);
+test("only the Codex manifest starts the inline preview server", () => {
+    assert.equal(
+        readManifest(".claude-plugin/plugin.json").mcpServers["slint-preview"],
+        undefined,
+    );
 
     // Codex expands no variables in plugin MCP args and resolves `cwd` against the plugin root.
     const codex = readManifest(".codex-plugin/plugin.json").mcpServers[
