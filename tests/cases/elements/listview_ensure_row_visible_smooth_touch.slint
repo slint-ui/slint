@@ -1,0 +1,100 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A touch stops a smooth `ensure-row-visible` for good.
+// It used to restart under a held finger once a drag brought the row within braking distance.
+
+import { ListView } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 600px;
+    height: 640px;
+
+    callback ensure-row-visible(int, ScrollBehavior);
+    ensure-row-visible(row, behavior) => {
+        listview.ensure-row-visible(row, behavior);
+    }
+
+    out property <length> content-y <=> listview.content-y;
+
+    listview := ListView {
+        x: 0;
+        y: 0;
+        width: 600px;
+        height: 600px;
+
+        for i in 1000: Rectangle {
+            height: 50px;
+        }
+    }
+}
+
+/*
+```rust
+use slint::language::ScrollBehavior;
+use slint::{platform::WindowEvent, LogicalPosition};
+use slint_testing::{InternalEvent, LogicalPoint, TouchPhase};
+
+const FRAME_MS: u64 = 16;
+const HOLD_FRAMES: usize = 60;
+const OUTSIDE_LISTVIEW: LogicalPosition = LogicalPosition::new(300., 620.);
+
+let instance = TestCase::new().unwrap();
+let window = instance.window();
+
+let advance_frame_and_layout = || {
+    slint_testing::mock_elapsed_time(FRAME_MS);
+    window.dispatch_event(WindowEvent::PointerMoved { position: OUTSIDE_LISTVIEW });
+};
+
+let touch = |y: f32, phase: TouchPhase| {
+    window.dispatch_event(WindowEvent::internal(InternalEvent::Touch {
+        id: 1,
+        position: LogicalPoint::new(300., y),
+        phase,
+        event_time: None,
+        history: Default::default(),
+    }))
+};
+
+// Holds the finger still at `y` and checks that the content stays where the finger put it.
+let assert_holds_still = |y: f32| {
+    let held = instance.get_content_y();
+    for _ in 0..HOLD_FRAMES {
+        slint_testing::mock_elapsed_time(FRAME_MS);
+        touch(y, TouchPhase::Moved);
+        assert_eq!(instance.get_content_y(), held, "the content must not move under a held finger");
+    }
+};
+
+let start_smooth_scroll = |row: i32| {
+    instance.invoke_ensure_row_visible(0, ScrollBehavior::Instant);
+    advance_frame_and_layout();
+    instance.invoke_ensure_row_visible(row, ScrollBehavior::Smooth);
+    for _ in 0..5 {
+        advance_frame_and_layout();
+    }
+    assert!(instance.get_content_y() < 0., "the smooth scroll must have started");
+};
+
+// Touch down and hold.
+start_smooth_scroll(900);
+touch(300., TouchPhase::Started);
+assert_holds_still(300.);
+touch(300., TouchPhase::Ended);
+
+// Drag towards row 30 until it's within braking distance, then hold.
+// The row ends at -950, and the drag ends about 20px before.
+start_smooth_scroll(30);
+let mut y = 560.;
+touch(y, TouchPhase::Started);
+for _ in 0..46 {
+    y -= 20.;
+    slint_testing::mock_elapsed_time(FRAME_MS);
+    touch(y, TouchPhase::Moved);
+}
+assert!(instance.get_content_y() > -950., "the drag must end before the row, at {}", instance.get_content_y());
+assert_holds_still(y);
+touch(y, TouchPhase::Ended);
+```
+*/

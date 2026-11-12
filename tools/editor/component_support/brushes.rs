@@ -10,31 +10,37 @@ use crate::ui;
 use itertools::Itertools as _;
 use std::rc::Rc;
 
-pub fn setup(api: &ui::Api<'_>) {
-    api.on_fill_brush(fill_brush);
-    api.on_fill_expression(fill_expression);
-    api.on_linear_gradient_axis(super::linear_gradient::editing_axis);
-    api.on_radial_gradient_axis(super::radial_gradient::editing_axis);
-    api.on_remap_radial_gradient(super::radial_gradient::remap);
-    api.on_conic_gradient_axis(super::conic_gradient::editing_axis);
-    api.on_remap_conic_gradient(super::conic_gradient::remap);
-    api.on_conic_gradient_point(super::conic_gradient::point);
-    api.on_conic_gradient_position(super::conic_gradient::position);
-    api.on_gradient_angular_delta(super::conic_gradient::angular_delta);
-    api.on_nearest_conic_gradient_stop(super::conic_gradient::nearest_stop);
-    api.on_gradient_axis_point(|axis, position| super::linear_gradient::point(&axis, position));
-    api.on_gradient_axis_position(super::linear_gradient::position);
-    api.on_linear_gradient_point(|angle, size, position| {
+pub fn setup(properties_api: &ui::Properties<'_>) {
+    properties_api.on_color_field_data(color_field_data);
+    properties_api.on_fill_brush(fill_brush);
+    properties_api.on_brush_fill(|brush| fill_from_brush(brush).unwrap_or_default());
+    properties_api.on_fill_expression(fill_expression);
+    properties_api.on_linear_gradient_axis(super::linear_gradient::editing_axis);
+    properties_api.on_radial_gradient_axis(super::radial_gradient::editing_axis);
+    properties_api.on_radial_gradient_y_axis(super::radial_gradient::editing_y_axis);
+    properties_api.on_remap_radial_gradient(super::radial_gradient::remap);
+    properties_api.on_resize_radial_gradient_x(super::radial_gradient::resize_x);
+    properties_api.on_remap_radial_gradient_y(super::radial_gradient::remap_y);
+    properties_api.on_conic_gradient_axis(super::conic_gradient::editing_axis);
+    properties_api.on_remap_conic_gradient(super::conic_gradient::remap);
+    properties_api.on_conic_gradient_point(super::conic_gradient::point);
+    properties_api.on_conic_gradient_position(super::conic_gradient::position);
+    properties_api.on_gradient_angular_delta(super::conic_gradient::angular_delta);
+    properties_api.on_nearest_conic_gradient_stop(super::conic_gradient::nearest_stop);
+    properties_api
+        .on_gradient_axis_point(|axis, position| super::linear_gradient::point(&axis, position));
+    properties_api.on_gradient_axis_position(super::linear_gradient::position);
+    properties_api.on_linear_gradient_point(|angle, size, position| {
         super::linear_gradient::point(
             &super::linear_gradient::canonical_axis(angle, size),
             position,
         )
     });
-    api.on_linear_gradient_position(|angle, size, point| {
+    properties_api.on_linear_gradient_position(|angle, size, point| {
         super::linear_gradient::position(super::linear_gradient::canonical_axis(angle, size), point)
     });
-    api.on_remap_linear_gradient(super::linear_gradient::remap);
-    api.on_nearest_gradient_stop(|stops, position| {
+    properties_api.on_remap_linear_gradient(super::linear_gradient::remap);
+    properties_api.on_nearest_gradient_stop(|stops, position| {
         stops
             .iter()
             .enumerate()
@@ -43,7 +49,7 @@ pub fn setup(api: &ui::Api<'_>) {
             })
             .map_or(-1, |(index, _)| index as i32)
     });
-    api.on_gradient_stop_gap(|stops| {
+    properties_api.on_gradient_stop_gap(|stops| {
         let mut positions = vec![0., 1.];
         positions.extend(stops.iter().map(|s| s.position.clamp(0., 1.)));
         positions.sort_by(f32::total_cmp);
@@ -56,37 +62,33 @@ pub fn setup(api: &ui::Api<'_>) {
         }
         best.1
     });
-    api.on_add_gradient_stop(add_gradient_stop);
-    api.on_remove_gradient_stop(remove_gradient_stop);
-    api.on_gradient_stop_order(gradient_stop_order);
+    properties_api.on_add_gradient_stop(add_gradient_stop);
+    properties_api.on_remove_gradient_stop(remove_gradient_stop);
+    let stop_order_indices = std::cell::Cell::new(slint::ModelRc::<i32>::default());
+    properties_api.on_gradient_stop_order(move |model, selected| {
+        let mut order = gradient_stop_order(model, selected);
+        let indices = stop_order_indices.take();
+        if indices.iter().eq(order.indices.iter()) {
+            order.indices = indices;
+        }
+        stop_order_indices.set(order.indices.clone());
+        order
+    });
     // Skia interpolates linear/radial gradients in premultiplied alpha, but conic gradients in straight alpha.
-    api.on_sample_fill_stop(|fill, position| {
+    properties_api.on_sample_fill_stop(|fill, position| {
         gradient_stop_at_position(fill.stops, position, fill.kind != ui::BrushKind::Conic)
     });
-    api.on_clone_gradient_stops(clone_gradient_stops);
+    properties_api.on_clone_gradient_stops(clone_gradient_stops);
 
-    api.on_create_brush(create_brush);
+    properties_api.on_create_brush(create_brush);
 
-    api.on_string_to_color(|s| string_to_color(s.as_ref()).unwrap_or_default());
-    api.on_string_is_color(|s| string_to_color(s.as_ref()).is_some());
-    api.on_color_to_data(|c| ui::ColorData {
-        a: c.alpha() as i32,
-        r: c.red() as i32,
-        g: c.green() as i32,
-        b: c.blue() as i32,
-        text: color_to_string(c),
-        short_text: color_to_short_string(c).into(),
-    });
-    api.on_rgba_to_color(|r, g, b, a| {
-        if (0..256).contains(&r)
-            && (0..256).contains(&g)
-            && (0..256).contains(&b)
-            && (0..256).contains(&a)
-        {
-            slint::Color::from_argb_u8(a as u8, r as u8, g as u8, b as u8)
-        } else {
-            slint::Color::default()
-        }
+    properties_api.on_color_value_data(color_value_data);
+    properties_api.on_color_value_color_edit(color_value_color_edit);
+    properties_api.on_color_value_opacity_edit(color_value_opacity_edit);
+    properties_api.on_color_value_with_opacity(color_value_with_opacity);
+    properties_api.on_fill_with_color(|mut fill, color| {
+        fill.color = color;
+        fill
     });
 }
 
@@ -108,7 +110,90 @@ fn color_to_short_string(color: slint::Color) -> String {
     let g = color.green();
     let b = color.blue();
 
-    format!("{r:02x}{g:02x}{b:02x}")
+    format!("{r:02X}{g:02X}{b:02X}")
+}
+
+fn color_value_data(color: slint::Color) -> ui::ColorValueData {
+    ui::ColorValueData {
+        color_text: color_to_short_string(color).into(),
+        opacity: ((color.alpha() as f32 * 100. / 255.).round()) as i32,
+    }
+}
+
+pub fn color_field_data(property: ui::PropertyValue) -> ui::ColorFieldData {
+    let literal_resolved_value = property.value_resolved
+        && property.kind != ui::PropertyValueKind::Code
+        && property.value_string.is_empty();
+    let allow_gradient = property.kind == ui::PropertyValueKind::Brush
+        || property.value_kind == ui::PropertyValueKind::Brush;
+    let mode = if literal_resolved_value && property.fill.kind == ui::BrushKind::Solid {
+        ui::ColorFieldMode::Solid
+    } else if literal_resolved_value && allow_gradient {
+        ui::ColorFieldMode::Gradient
+    } else {
+        ui::ColorFieldMode::Source
+    };
+    let label = match property.fill.kind {
+        ui::BrushKind::Linear => "Linear Gradient",
+        ui::BrushKind::Radial => "Radial Gradient",
+        ui::BrushKind::Conic => "Conic Gradient",
+        ui::BrushKind::Solid => "",
+    };
+    ui::ColorFieldData {
+        mode,
+        fill: property.fill,
+        label: label.into(),
+        unsupported: !property.value_resolved,
+        allow_gradient,
+    }
+}
+
+fn color_field_expression(text: &str) -> Option<(String, slint::Color)> {
+    if let Some(color) = string_to_color(text) {
+        return Some((text.to_owned(), color));
+    }
+    let expression = format!("#{text}");
+    string_to_color(&expression).map(|color| (expression, color))
+}
+
+fn color_field_input_has_alpha(expression: &str) -> bool {
+    let expression = expression.to_ascii_lowercase();
+    expression.strip_prefix('#').is_some_and(|digits| matches!(digits.len(), 4 | 8))
+        || expression.starts_with("rgba(")
+        || expression.starts_with("hsla(")
+}
+
+fn color_field_edit(color: slint::Color) -> ui::ColorFieldEdit {
+    ui::ColorFieldEdit { valid: true, color, display: color_to_short_string(color).into() }
+}
+
+fn color_value_color_edit(color: slint::Color, text: slint::SharedString) -> ui::ColorFieldEdit {
+    let Some((expression, parsed)) = color_field_expression(text.as_str()) else {
+        return Default::default();
+    };
+    let alpha =
+        if color_field_input_has_alpha(&expression) { parsed.alpha() } else { color.alpha() };
+    color_field_edit(slint::Color::from_argb_u8(alpha, parsed.red(), parsed.green(), parsed.blue()))
+}
+
+fn color_value_with_opacity(color: slint::Color, opacity: f32) -> slint::Color {
+    if !opacity.is_finite() {
+        return color;
+    }
+    let alpha = (opacity.clamp(0., 100.) * 255. / 100.).round() as u8;
+    slint::Color::from_argb_u8(alpha, color.red(), color.green(), color.blue())
+}
+
+fn color_value_opacity_edit(color: slint::Color, text: slint::SharedString) -> ui::ColorFieldEdit {
+    let Ok(opacity) = text.parse::<f32>() else {
+        return Default::default();
+    };
+    if !opacity.is_finite() {
+        return Default::default();
+    }
+    let opacity = opacity.clamp(0., 100.);
+    let color = color_value_with_opacity(color, opacity);
+    ui::ColorFieldEdit { valid: true, color, display: format!("{opacity:.0}").into() }
 }
 
 pub fn string_to_color(text: &str) -> Option<slint::Color> {
@@ -149,7 +234,7 @@ pub fn create_brush(
     }
 }
 
-pub fn fill_from_brush(brush: slint::Brush) -> ui::FillData {
+pub fn fill_from_brush(brush: slint::Brush) -> Option<ui::FillData> {
     let mut fill = ui::FillData::default();
     let stops: Vec<_> = match brush {
         slint::Brush::SolidColor(color) => {
@@ -163,11 +248,15 @@ pub fn fill_from_brush(brush: slint::Brush) -> ui::FillData {
         }
         slint::Brush::RadialGradient(g) => {
             fill.kind = ui::BrushKind::Radial;
+            fill.radial_ellipse = !g.is_circle();
             let center = g.center_or_default(0., 0.);
             fill.custom_center = center == g.center_or_default(2., 2.);
             (fill.center_x, fill.center_y) = center;
-            fill.radius = g.radius_or_default(0., 0.);
-            fill.custom_radius = fill.radius == g.radius_or_default(2., 2.);
+            if let Some((radius_x, radius_y)) = g.explicit_radii() {
+                fill.custom_radius = true;
+                fill.radius = radius_x;
+                fill.radius_y = radius_y;
+            }
             g.stops().copied().collect()
         }
         slint::Brush::ConicGradient(g) => {
@@ -186,18 +275,25 @@ pub fn fill_from_brush(brush: slint::Brush) -> ui::FillData {
             .collect::<Vec<_>>(),
     ))
     .into();
-    fill
+    Some(fill)
 }
 
 pub fn fill_brush(fill: ui::FillData) -> slint::Brush {
     let brush = create_brush(fill.kind, fill.angle, fill.color, fill.stops);
     match brush {
         slint::Brush::RadialGradient(mut g) => {
+            if fill.radial_ellipse {
+                g = i_slint_core::graphics::RadialGradientBrush::new_ellipse(g.stops().copied());
+            }
             if fill.custom_center {
                 g = g.with_center(fill.center_x, fill.center_y);
             }
             if fill.custom_radius {
-                g = g.with_radius(fill.radius);
+                g = if fill.radial_ellipse {
+                    g.with_radii(fill.radius, fill.radius_y)
+                } else {
+                    g.with_radius(fill.radius)
+                };
             }
             slint::Brush::RadialGradient(g)
         }
@@ -251,9 +347,18 @@ pub fn fill_expression(fill: ui::FillData) -> slint::SharedString {
         String::new()
     };
     if fill.kind == ui::BrushKind::Radial {
-        let radius = if fill.custom_radius { format!(" {}px", fill.radius) } else { String::new() };
+        let radius = if fill.custom_radius {
+            if fill.radial_ellipse {
+                format!(" {}px {}px", fill.radius, fill.radius_y)
+            } else {
+                format!(" {}px", fill.radius)
+            }
+        } else {
+            String::new()
+        };
+        let shape = if fill.radial_ellipse { "ellipse" } else { "circle" };
         slint::format!(
-            "@radial-gradient(circle{radius}{center}{})",
+            "@radial-gradient({shape}{radius}{center}{})",
             stops
                 .iter()
                 .map(|s| format!(
@@ -400,8 +505,140 @@ mod tests {
 
     use std::rc::Rc;
 
+    fn color_property(color: slint::Color) -> ui::PropertyValue {
+        ui::PropertyValue {
+            code: "#1a2dac".into(),
+            value_resolved: true,
+            kind: ui::PropertyValueKind::Color,
+            value_kind: ui::PropertyValueKind::Color,
+            fill: ui::FillData { color, ..Default::default() },
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn color_field_data_describes_solid_gradients_and_source_values() {
+        let solid = super::color_field_data(color_property(slint::Color::from_argb_u8(
+            77, 0x1a, 0x2d, 0xac,
+        )));
+        assert_eq!(solid.mode, ui::ColorFieldMode::Solid);
+        assert_eq!(solid.label, "");
+        assert!(!solid.unsupported);
+        assert!(!solid.allow_gradient);
+
+        for (kind, label) in [
+            (ui::BrushKind::Linear, "Linear Gradient"),
+            (ui::BrushKind::Radial, "Radial Gradient"),
+            (ui::BrushKind::Conic, "Conic Gradient"),
+        ] {
+            let data = super::color_field_data(ui::PropertyValue {
+                code: "@gradient".into(),
+                value_resolved: true,
+                kind: ui::PropertyValueKind::Brush,
+                value_kind: ui::PropertyValueKind::Brush,
+                fill: ui::FillData { kind, ..Default::default() },
+                ..Default::default()
+            });
+            assert_eq!(data.mode, ui::ColorFieldMode::Gradient);
+            assert_eq!(data.label, label);
+            assert!(data.allow_gradient);
+        }
+
+        let default_color = super::color_field_data(ui::PropertyValue {
+            code: "".into(),
+            ..color_property(slint::Color::from_argb_u8(0, 0, 0, 0))
+        });
+        assert_eq!(default_color.mode, ui::ColorFieldMode::Solid);
+        assert_eq!(default_color.fill.color, slint::Color::default());
+
+        let source = super::color_field_data(ui::PropertyValue {
+            code: "Colors.primary".into(),
+            value_resolved: true,
+            kind: ui::PropertyValueKind::Code,
+            value_kind: ui::PropertyValueKind::Color,
+            ..Default::default()
+        });
+        assert_eq!(source.mode, ui::ColorFieldMode::Source);
+    }
+
+    #[test]
+    fn color_field_edits_preserve_or_replace_alpha_in_rust() {
+        let fill = ui::FillData {
+            color: slint::Color::from_argb_u8(77, 0xff, 0xff, 0xff),
+            ..Default::default()
+        };
+        for input in ["1a2dac", "#1a2dac"] {
+            let edit = super::color_value_color_edit(fill.color, input.into());
+            assert!(edit.valid);
+            assert_eq!(edit.color, slint::Color::from_argb_u8(77, 0x1a, 0x2d, 0xac));
+            assert_eq!(edit.display, "1A2DAC");
+        }
+
+        let edit = super::color_value_color_edit(fill.color, "#1234".into());
+        assert!(edit.valid);
+        assert_eq!(edit.color, slint::Color::from_argb_u8(0x44, 0x11, 0x22, 0x33));
+
+        let invalid = super::color_value_color_edit(Default::default(), "not a color".into());
+        assert!(!invalid.valid);
+    }
+
+    #[test]
+    fn color_field_opacity_edits_clamp_and_format_in_rust() {
+        let fill = ui::FillData {
+            color: slint::Color::from_rgb_u8(0x1a, 0x2d, 0xac),
+            ..Default::default()
+        };
+        for (input, display, alpha) in [("-1", "0", 0), ("30", "30", 77), ("101", "100", 255)] {
+            let edit = super::color_value_opacity_edit(fill.color, input.into());
+            assert!(edit.valid);
+            assert_eq!(edit.color.alpha(), alpha);
+            assert_eq!(edit.display, display);
+        }
+
+        let invalid = super::color_value_opacity_edit(fill.color, "opaque".into());
+        assert!(!invalid.valid);
+    }
+
+    #[test]
+    fn color_value_data_uses_separate_uppercase_rgb_and_opacity() {
+        let data = super::color_value_data(slint::Color::from_argb_u8(77, 0x1a, 0x2d, 0xac));
+        assert_eq!(data.color_text, "1A2DAC");
+        assert_eq!(data.opacity, 30);
+    }
+
     fn make_empty_model() -> ModelRc<ui::GradientStop> {
         Rc::new(VecModel::default()).into()
+    }
+
+    #[test]
+    fn elliptical_radial_fill_preserves_both_radii() {
+        let fill = ui::FillData {
+            kind: ui::BrushKind::Radial,
+            radial_ellipse: true,
+            custom_center: true,
+            center_x: 25.,
+            center_y: 35.,
+            custom_radius: true,
+            radius: 120.,
+            radius_y: 40.,
+            stops: Rc::new(VecModel::from(vec![
+                ui::GradientStop { color: slint::Color::from_rgb_u8(255, 0, 0), position: 0. },
+                ui::GradientStop { color: slint::Color::from_rgb_u8(0, 0, 255), position: 1. },
+            ]))
+            .into(),
+            ..Default::default()
+        };
+        assert_eq!(
+            super::fill_expression(fill.clone()).as_str(),
+            "@radial-gradient(ellipse 120px 40px at 25px 35px, #ff0000 0%, #0000ff 100%)"
+        );
+        let slint::Brush::RadialGradient(brush) = super::fill_brush(fill) else {
+            panic!("expected radial brush")
+        };
+        assert_eq!(brush.radii_or_default(200., 100.), (120., 40.));
+        let parsed = super::fill_from_brush(slint::Brush::RadialGradient(brush)).unwrap();
+        assert!(parsed.radial_ellipse);
+        assert_eq!((parsed.radius, parsed.radius_y), (120., 40.));
     }
 
     #[test]

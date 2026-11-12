@@ -11,7 +11,7 @@ endif()
 
 add_executable(gallery main.cpp)
 target_link_libraries(gallery PRIVATE Slint::Slint)
-slint_target_sources(gallery gallery.slint)
+slint_target_sources(gallery slint-project.json)
 
 find_package(Intl)
 if(Intl_FOUND)

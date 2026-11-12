@@ -2,12 +2,10 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Style, PaintStyle, Metrics, Colors, Typography, Motion, FieldStyle, SidebarToggleStyle, PaletteRowStyle } from "../style.slint";
+import { EditorInput } from "editor-input.slint";
 import { ElementVisuals } from "element-presentation.slint";
+import { Project } from "../project.slint";
 import { Api, CanvasCorner, ElementKind } from "../api.slint";
-
-export global EditorIcons {
-    out property <image> select-chevron: @image-url("../assets/octicons/select-chevron.svg");
-}
 
 export global EditorCursors {
     out property <MouseCursor> corner-radius: MouseCursor.custom(
@@ -18,6 +16,7 @@ export global EditorCursors {
     pure callback rotation-image(angle) -> image;
     pure callback resize-image(angle) -> image;
     pure callback scrub-horizontal-image() -> image;
+    scrub-horizontal-image => { return @image-url("../assets/cursors/scrub-horizontal.svg"); }
     out property <MouseCursor> canvas-default: MouseCursor.custom(
         @image-url("../assets/cursors/default-32.png"),
         14,
@@ -26,6 +25,9 @@ export global EditorCursors {
 }
 
 export global EditorAngles {
+    public pure function rounded(value: angle) -> float {
+        return EditorAngles.normalize((value / 1deg).round() * 1deg) / 1deg;
+    }
     public pure function normalize(value: angle) -> angle {
         let normalized = value.mod(360deg);
         return normalized < 0deg ? normalized + 360deg : normalized;
@@ -33,8 +35,8 @@ export global EditorAngles {
 }
 
 export global PreviewMetrics {
-    out property <length> canvas-width: 390px;
-    out property <length> canvas-height: 720px;
+    out property <length> canvas-width: Project.canvas-size.width + 2 * Style.artboard.padding;
+    out property <length> canvas-height: Project.canvas-size.height + 2 * Style.artboard.padding;
 }
 
 export global EditorWindow {
@@ -47,44 +49,53 @@ export component EdgeDivider inherits Rectangle {
     background: Colors.border;
 }
 
-export component HorizontalResizeDivider inherits FocusScope {
+component ResizeDivider inherits FocusScope {
+    in property <bool> vertical: false;
+    in property <bool> reversed: false;
+    in property <bool> resize-enabled: true;
     in property <string> resize-label;
     in property <color> line-color: Colors.border;
     in property <length> value: Style.panes.minimum;
     in property <length> value-minimum: Style.panes.minimum;
     in property <length> value-maximum: Style.panes.minimum;
     in property <length> value-step: 8px;
+    in property <length> preferred-value: root.value;
+    in property <length> preferred-maximum: root.value-maximum;
     callback drag-started();
     callback dragged(length);
     callback drag-finished(length);
     callback value-set(length);
     callback reset-requested();
 
-    height: Style.panes.splitter-size;
     accessible-role: AccessibleRole.slider;
+    accessible-orientation: root.vertical ? Orientation.horizontal : Orientation.vertical;
     accessible-label: root.resize-label;
-    accessible-description: "Lower pane height. Arrow keys adjust by 8 px; Home and End clamp; Ctrl+Home or double-click resets.";
+    accessible-description: root.vertical
+        ? @tr("Pane width. Left and right arrow keys adjust by {} px; Home and End clamp; Ctrl+Home or double-click resets.", root.value-step / 1px)
+        : @tr("Pane height. Up and down arrow keys adjust by {} px; Home and End clamp; Ctrl+Home or double-click resets.", root.value-step / 1px);
     accessible-value: "\{(root.value / 1px).round()} px";
     accessible-value-minimum: root.value-minimum / 1px;
     accessible-value-maximum: root.value-maximum / 1px;
     accessible-value-step: root.value-step / 1px;
     accessible-action-increment => {
-        root.value-set(min(root.value + root.value-step, root.value-maximum));
+        root.value-set(min(root.preferred-value + root.value-step, root.preferred-maximum));
     }
     accessible-action-decrement => {
-        root.value-set(max(root.value - root.value-step, root.value-minimum));
+        root.value-set(max(root.preferred-value - root.value-step, root.value-minimum));
     }
     key-pressed(event) => {
         if event.modifiers.control && event.text == Key.Home {
             root.reset-requested();
             return accept;
         }
-        if event.text == Key.UpArrow {
-            root.value-set(min(root.value + root.value-step, root.value-maximum));
+        if (!root.vertical && event.text == Key.UpArrow)
+            || (root.vertical && event.text == (root.reversed ? Key.LeftArrow : Key.RightArrow)) {
+            root.accessible-action-increment();
             return accept;
         }
-        if event.text == Key.DownArrow {
-            root.value-set(max(root.value - root.value-step, root.value-minimum));
+        if (!root.vertical && event.text == Key.DownArrow)
+            || (root.vertical && event.text == (root.reversed ? Key.RightArrow : Key.LeftArrow)) {
+            root.accessible-action-decrement();
             return accept;
         }
         if event.text == Key.Home {
@@ -92,7 +103,7 @@ export component HorizontalResizeDivider inherits FocusScope {
             return accept;
         }
         if event.text == Key.End {
-            root.value-set(root.value-maximum);
+            root.value-set(root.preferred-maximum);
             return accept;
         }
         return reject;
@@ -102,14 +113,15 @@ export component HorizontalResizeDivider inherits FocusScope {
         if value.is-float() {
             root.value-set(value.to-float().clamp(
                 root.value-minimum / 1px,
-                root.value-maximum / 1px,
+                root.preferred-maximum / 1px,
             ) * 1px);
         }
     }
 
     Rectangle {
-        width: parent.width;
-        height: parent.height;
+        x: root.vertical && !root.reversed ? parent.width - self.width : 0px;
+        width: root.vertical ? Style.panes.splitter-size : parent.width;
+        height: root.vertical ? parent.height : Style.panes.splitter-size;
         border-width: root.has-focus ? Metrics.border-width : 0px;
         border-color: Colors.focus;
         background: touch.has-hover || touch.pressed
@@ -118,40 +130,61 @@ export component HorizontalResizeDivider inherits FocusScope {
     }
 
     Rectangle {
-        y: (parent.height - self.height) / 2;
-        width: parent.width;
-        height: Metrics.border-width;
+        visible: !root.vertical || touch.has-hover || touch.pressed || root.has-focus;
+        x: root.vertical && !root.reversed ? parent.width - self.width : 0px;
+        y: root.vertical ? 0px : (Style.panes.splitter-size - self.height) / 2;
+        width: root.vertical ? Metrics.border-width : parent.width;
+        height: root.vertical ? parent.height : Metrics.border-width;
         background: root.line-color;
     }
 
     touch := TouchArea {
-        width: parent.width;
-        height: parent.height;
-        mouse-cursor: ns-resize;
-        private property <length> press-absolute-y;
+        x: root.vertical && root.reversed ? parent.width - self.width : 0px;
+        width: root.vertical ? Style.panes.resize-hit-size : parent.width;
+        height: root.vertical ? parent.height : Style.panes.resize-hit-size;
+        enabled: root.resize-enabled || self.pressed;
+        mouse-cursor: root.vertical ? ew-resize : ns-resize;
+        private property <length> press-position;
+        private property <length> drag-delta;
+        private property <length> pointer-position: root.vertical
+            ? self.absolute-position.x + self.mouse-x
+            : self.absolute-position.y + self.mouse-y;
 
         changed pressed => {
             if self.pressed {
                 root.focus();
-                self.press-absolute-y = self.absolute-position.y + self.mouse-y;
+                self.press-position = self.pointer-position;
+                self.drag-delta = 0px;
                 root.drag-started();
             } else {
-                root.drag-finished(self.absolute-position.y + self.mouse-y - self.press-absolute-y);
+                root.drag-finished(self.drag-delta);
                 root.clear-focus();
             }
         }
 
         moved => {
             if self.pressed {
-                root.dragged(self.absolute-position.y + self.mouse-y - self.press-absolute-y);
+                self.drag-delta = self.pointer-position - self.press-position;
+                root.dragged(self.drag-delta);
             }
         }
 
         double-clicked => {
+            self.drag-delta = 0px;
             root.reset-requested();
         }
 
     }
+}
+
+export component HorizontalResizeDivider inherits ResizeDivider {
+    height: Style.panes.resize-hit-size;
+    z: 1;
+}
+
+export component VerticalResizeDivider inherits ResizeDivider {
+    vertical: true;
+    width: Style.panes.splitter-size;
 }
 
 export component BodyLabel inherits Text {
@@ -175,64 +208,19 @@ export component SectionTitle inherits Text {
     font-weight: FontWeight.bold;
 }
 
-export component PrimerTextInput inherits Rectangle {
-    in property <FieldStyle> style: Style.field;
-    in-out property <string> text <=> editor.text;
-    in property <string> placeholder: "";
-    in property <string> leading-text: "";
-    in property <string> accessible-name: "";
-    private property <PaintStyle> paint: editor.has-focus ? root.style.appearance.focus : root.style.appearance.normal;
+export component PrimerTextInput inherits EditorInput {
+    in-out property <string> text;
+    in property <string> leading-text;
+    value: root.text;
+    input-type: InputType.search;
+    edit-input(value) => { root.text = value; }
+    accepted(value) => { root.edit-input(value); return true; }
 
-    height: root.style.height;
-    border-radius: root.style.radius;
-    border-width: root.style.border-width;
-    border-color: editor.has-focus ? root.style.appearance.focus.border : root.paint.border;
-    background: root.paint.background;
-
-    animate border-color { duration: Motion.fast; }
-
-    HorizontalLayout {
-        padding-left: root.style.padding-inline;
-        padding-right: root.style.padding-inline;
-        spacing: root.style.gap;
-
-        if root.leading-text != "": Text {
-            text: root.leading-text;
-            color: root.style.appearance.muted;
-            font-size: Typography.action.size;
-            font-weight: FontWeight.bold;
-            vertical-alignment: center;
-        }
-
-        Rectangle {
-            horizontal-stretch: 1;
-
-            editor := TextInput {
-                width: parent.width;
-                height: parent.height;
-                text: "";
-                color: root.paint.foreground;
-                font-size: root.style.text.size;
-                font-weight: root.style.text.weight;
-                accessible-label: root.accessible-name;
-                single-line: true;
-                wrap: no-wrap;
-                vertical-alignment: center;
-                selection-background-color: root.style.appearance.selection;
-            }
-
-            if editor.text == "": Text {
-                x: editor.x;
-                y: editor.y;
-                width: editor.width;
-                height: editor.height;
-                text: root.placeholder;
-                color: root.style.appearance.muted;
-                font-size: root.style.text.size;
-                font-weight: root.style.text.weight;
-                vertical-alignment: center;
-            }
-        }
+    if root.leading-text != "": Text {
+        text: root.leading-text;
+        color: root.style.appearance.muted;
+        font-size: root.style.text.size;
+        vertical-alignment: center;
     }
 }
 
@@ -261,7 +249,6 @@ export component SidebarToggleButton inherits Rectangle {
         border-radius: Metrics.radius-small;
         border-width: Metrics.focus-width;
         border-color: root.active ? root.style.selected.border : root.style.normal.foreground;
-        background: transparent;
 
         Rectangle {
             x: 7px;
@@ -272,7 +259,6 @@ export component SidebarToggleButton inherits Rectangle {
     }
 
     touch := TouchArea {
-        mouse-cursor: pointer;
         clicked => {
             root.clicked();
         }
@@ -283,6 +269,7 @@ export component ComponentPaletteRow inherits Rectangle {
     in property <PaletteRowStyle> style: Style.palette-row;
     in property <ElementKind> kind;
     in property <string> label;
+    in property <string> source-uri;
     in property <bool> enabled: true;
     in property <bool> drag-enabled: true;
     callback drag-started();
@@ -299,7 +286,6 @@ export component ComponentPaletteRow inherits Rectangle {
     accessible-role: AccessibleRole.list-item;
     accessible-label: root.label;
     accessible-enabled: root.enabled && root.drag-enabled;
-    animate background, opacity { duration: Motion.feedback; easing: ease-out-quad; }
 
     function pointer-window-position() -> Point {
         return {
@@ -334,12 +320,13 @@ export component ComponentPaletteRow inherits Rectangle {
 
     dragger := DragArea {
         enabled: root.enabled && root.drag-enabled && !AppState.palette-drag-cancelled;
-        data: Api.new-component-data-for-kind(root.kind);
+        data: Api.new-component-data(root.label, root.source-uri);
         allow-copy: true;
 
         changed dragging => {
             if self.dragging {
                 AppState.palette-drag-cancelled = false;
+                AppState.palette-drag-label = root.label;
                 AppState.update-palette-drag(root.kind, root.pointer-window-position());
                 root.drag-started();
             } else {
@@ -349,15 +336,16 @@ export component ComponentPaletteRow inherits Rectangle {
 
         touch := TouchArea {
             enabled: root.enabled && root.drag-enabled;
-            mouse-cursor: self.enabled ? pointer : default;
         }
     }
 }
 
 export global AppState {
     in-out property <ElementKind> palette-drag-kind: ElementKind.none;
-    in-out property <Point> palette-drag-preview-position: { x: 0px, y: 0px };
+    in-out property <string> palette-drag-label;
+    in-out property <Point> palette-drag-pointer-position: { x: 0px, y: 0px };
     in-out property <Size> palette-drag-size: ElementVisuals.for-kind(ElementKind.none).preview-size;
+    in-out property <Size> palette-text-drag-size;
     in-out property <bool> palette-drag-cancelled: false;
     in-out property <bool> outline-drag-active: false;
     in-out property <bool> outline-drag-cancelled: false;
@@ -372,7 +360,7 @@ export global AppState {
         x: self.outline-drag-pointer-position.x - self.outline-drag-grab-offset.x,
         y: self.outline-drag-pointer-position.y - self.outline-drag-grab-offset.y,
     };
-    in-out property <Size> outline-drag-preview-size: { width: 216px, height: 32px };
+    in-out property <Size> outline-drag-preview-size: { width: 216px, height: Metrics.outline-row-height };
 
     public pure function has-active-drag() -> bool {
         return self.palette-drag-kind != ElementKind.none || self.outline-drag-active;
@@ -380,12 +368,13 @@ export global AppState {
 
     public function update-palette-drag(kind: ElementKind, window-position: Point) {
         if !self.palette-drag-cancelled {
+            if self.palette-drag-kind != kind {
+                self.palette-drag-size = kind == ElementKind.text || kind == ElementKind.styled-text
+                    ? self.palette-text-drag-size
+                    : ElementVisuals.for-kind(kind).preview-size;
+            }
             self.palette-drag-kind = kind;
-            self.palette-drag-size = ElementVisuals.for-kind(kind).preview-size;
-            self.palette-drag-preview-position = {
-                x: window-position.x - self.palette-drag-size.width / 2,
-                y: window-position.y - self.palette-drag-size.height / 2,
-            };
+            self.palette-drag-pointer-position = window-position;
         }
     }
 
@@ -411,13 +400,6 @@ export global AppState {
     public function cancel-active-drags() {
         self.cancel-palette-drag();
         self.cancel-outline-drag();
-    }
-
-    public pure function palette-drag-pointer-position() -> Point {
-        return {
-            x: self.palette-drag-preview-position.x + self.palette-drag-size.width / 2,
-            y: self.palette-drag-preview-position.y + self.palette-drag-size.height / 2,
-        };
     }
 
     public pure function drag-cancelled() -> bool {

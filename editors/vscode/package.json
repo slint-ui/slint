@@ -7,11 +7,33 @@
     "GUI",
     "UI",
     "HMI",
-    "Qt/QML Alternative",
+    "GUI framework",
+    "GUI designer",
+    "GUI builder",
+    "visual editor",
+    "WYSIWYG",
     "live preview",
-    "drag-and-drop editor"
+    "drag-and-drop editor",
+    "declarative UI",
+    "embedded",
+    "MCU",
+    "STM32",
+    "ESP32",
+    "RP2040",
+    "desktop",
+    "Android",
+    "iOS",
+    "Rust",
+    "C++",
+    "JavaScript",
+    "TypeScript",
+    "Python",
+    "Qt/QML Alternative",
+    "LVGL Alternative",
+    "Electron Alternative",
+    "Tauri Alternative"
   ],
-  "version": "1.19.0",
+  "version": "1.20.0",
   "publisher": "Slint",
   "icon": "extension-logo.png",
   "license": "GPL-3.0",
@@ -23,8 +45,11 @@
     "vscode": "^1.82.0"
   },
   "categories": [
-    "Programming Languages"
+    "Programming Languages",
+    "Snippets",
+    "Formatters"
   ],
+  "homepage": "https://slint.dev",
   "qna": "https://github.com/slint-ui/slint/discussions/categories/q-a",
   "activationEvents": [
     "onLanguage:rust",
@@ -133,6 +158,16 @@
           },
           "description": "The command line arguments passed to the Slint LSP server"
         },
+        "slint.lsp.logLevel": {
+          "type": "string",
+          "enum": [
+            "info",
+            "debug",
+            "trace"
+          ],
+          "default": "info",
+          "description": "Set the Slint language server log level. Run 'Slint: Restart server' to apply changes."
+        },
         "slint.preview.hide_ui": {
           "type": "boolean",
           "default": false,
@@ -237,11 +272,11 @@
     "clean": "shx rm -rf out bin LICENSE.txt slint-*.vsix"
   },
   "dependencies": {
-    "fs-extra": "11.4.0",
-    "simple-git": "3.36.0",
+    "fs-extra": "11.4.1",
+    "simple-git": "4.0.2",
     "vscode-languageclient": "9.0.1",
     "vscode-languageserver": "9.0.1",
-    "vscode-languageserver-types": "3.18.3"
+    "vscode-languageserver-types": "3.18.5"
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",

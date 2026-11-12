@@ -124,6 +124,7 @@ enum SingleElementMatch {
     MatchByTypeName(String),
     MatchByTypeNameOrBase(String),
     MatchByAccessibleRole(crate::AccessibleRole),
+    MatchByAccessibleLabel(String),
     MatchByPredicate(Box<dyn Fn(&ElementHandle) -> bool>),
 }
 
@@ -154,6 +155,9 @@ impl SingleElementMatch {
             }
             SingleElementMatch::MatchByAccessibleRole(role) => {
                 element.accessible_role() == Some(*role)
+            }
+            SingleElementMatch::MatchByAccessibleLabel(label) => {
+                element.accessible_label().is_some_and(|candidate_label| candidate_label == label)
             }
             SingleElementMatch::MatchByPredicate(predicate) => (predicate)(element),
         }
@@ -280,6 +284,14 @@ impl ElementQuery {
         self
     }
 
+    /// Include only elements in the results where [`ElementHandle::accessible_label()`] is equal to the provided `label`.
+    pub fn match_accessible_label(mut self, label: impl Into<String>) -> Self {
+        self.query_stack.push(ElementQueryInstruction::MatchSingleElement(
+            SingleElementMatch::MatchByAccessibleLabel(label.into()),
+        ));
+        self
+    }
+
     pub fn match_predicate(mut self, predicate: impl Fn(&ElementHandle) -> bool + 'static) -> Self {
         self.query_stack.push(ElementQueryInstruction::MatchSingleElement(
             SingleElementMatch::MatchByPredicate(Box::new(predicate)),
@@ -324,6 +336,21 @@ impl ElementQuery {
 pub struct ElementHandle {
     item: ItemWeak,
     element_index: usize, // When multiple elements get optimized into a single ItemRc, this index separates.
+}
+
+/// Overrides scrolling behavior for Slint's internal tests.
+/// Panics if the handle has expired or does not refer to a Flickable.
+#[cfg(feature = "internal")]
+pub fn set_flickable_physics(
+    element: &ElementHandle,
+    bounce: i_slint_core::items::AutoBool,
+    carry_momentum: i_slint_core::items::AutoBool,
+) {
+    use i_slint_core::items::Flickable;
+
+    let item = element.item.upgrade().expect("Flickable element has expired");
+    let flickable = item.downcast::<Flickable>().expect("Element is not a Flickable");
+    flickable.as_pin_ref().set_physics(bounce, carry_momentum);
 }
 
 impl ElementHandle {
@@ -427,15 +454,12 @@ impl ElementHandle {
         component: &impl ElementRoot,
         label: &str,
     ) -> impl Iterator<Item = Self> {
-        let label = label.to_string();
-        let results = component
+        component
             .root_element()
             .query_descendants()
-            .match_predicate(move |elem| {
-                elem.accessible_label().is_some_and(|candidate_label| candidate_label == label)
-            })
-            .find_all();
-        results.into_iter()
+            .match_accessible_label(label)
+            .find_all()
+            .into_iter()
     }
 
     /// This function searches through the entire tree of elements of this window and looks for
@@ -485,6 +509,7 @@ impl ElementHandle {
     /// ```rust
     /// # i_slint_backend_testing::init_no_event_loop();
     /// slint::slint!{
+    /// #[edition = "1.20"]
     ///
     /// component PushButton {
     ///     /* .. */
@@ -520,6 +545,7 @@ impl ElementHandle {
     /// ```rust
     /// # i_slint_backend_testing::init_no_event_loop();
     /// slint::slint!{
+    /// #[edition = "1.20"]
     ///
     /// component PushButton {
     ///     /* .. */
@@ -554,6 +580,7 @@ impl ElementHandle {
     /// ```rust
     /// # i_slint_backend_testing::init_no_event_loop();
     /// slint::slint!{
+    /// #[edition = "1.20"]
     ///
     /// component ButtonBase {
     ///     /* .. */
@@ -606,6 +633,45 @@ impl ElementHandle {
     /// locate elements by their type/role, i.e. buttons, checkboxes, etc.
     pub fn accessible_role(&self) -> Option<crate::AccessibleRole> {
         self.item.upgrade().map(|item| item.accessible_role())
+    }
+
+    /// Returns the element's `@testable` properties, including inherited ones,
+    /// as `(name, type)` pairs.
+    /// Only properties declared `@testable` are listed, whatever their visibility;
+    /// they are kept alive for this purpose even when nothing else reads them.
+    ///
+    /// Returns `None` when the element is not valid anymore,
+    /// or when the application was built without debug info (see [`Self::id`]);
+    /// an element that declares no `@testable` property reports `Some` with an empty vector.
+    pub fn testable_properties(&self) -> Option<Vec<(SharedString, SharedString)>> {
+        if self.element_index != 0 {
+            return None;
+        }
+        self.item.upgrade().and_then(|item| {
+            let result = item.element_testable_properties();
+            if result.is_none() {
+                warn_missing_debug_info();
+            }
+            result
+        })
+    }
+
+    /// Returns the current value of the testable property `name` on this element,
+    /// encoded as a string:
+    /// booleans as `true`/`false`,
+    /// numbers in decimal (`length` in logical pixels, `duration` in milliseconds, `angle` in degrees),
+    /// colors and solid brushes as `#rrggbbaa`,
+    /// and enums as the `.slint` spelling of the value.
+    ///
+    /// Returns `None` when the element is not valid anymore,
+    /// the property does not exist (see [`Self::testable_properties`]),
+    /// its value has no string encoding,
+    /// or the application was built without debug info (see [`Self::id`]).
+    pub fn testable_property_value(&self, name: &str) -> Option<SharedString> {
+        if self.element_index != 0 {
+            return None;
+        }
+        self.item.upgrade().and_then(|item| item.element_testable_property_value(name))
     }
 
     /// Invokes the default accessible action on the element. For example a `MyButton` element might declare
@@ -893,11 +959,7 @@ impl ElementHandle {
     pub fn absolute_position(&self) -> i_slint_core::api::LogicalPosition {
         self.item
             .upgrade()
-            .map(|item| {
-                let g = item.geometry();
-                let p = item.map_to_window(g.origin);
-                i_slint_core::lengths::logical_position_to_api(p)
-            })
+            .map(i_slint_core::builtin_functions::item_absolute_position)
             .unwrap_or_default()
     }
 
@@ -1009,10 +1071,9 @@ impl ElementHandle {
 
     /// Simulates a double click (or touch tap) on the element at its center point.
     pub async fn double_click(&self, button: PointerEventButton) {
-        let Ok(click_interval) = i_slint_core::with_global_context(
-            || Err(i_slint_core::platform::PlatformError::NoPlatform),
-            |ctx| ctx.platform().click_interval(),
-        ) else {
+        let Ok(click_interval) =
+            i_slint_core::with_existing_context(|ctx| ctx.platform().click_interval())
+        else {
             return;
         };
         let Some(duration_recognized_as_double_click) =
@@ -1183,6 +1244,7 @@ fn test_optimized() {
     crate::init_no_event_loop();
 
     slint::slint! {
+        #[edition = "1.20"]
         export component App inherits Window {
             first := Rectangle {
                 second := Rectangle {
@@ -1223,6 +1285,7 @@ fn test_conditional() {
     crate::init_no_event_loop();
 
     slint::slint! {
+        #[edition = "1.20"]
         export component App inherits Window {
             in property <bool> condition: false;
             if condition: dynamic-elem := Rectangle {
@@ -1271,6 +1334,7 @@ fn test_matches() {
     crate::init_no_event_loop();
 
     slint::slint! {
+        #[edition = "1.20"]
         component Base inherits Rectangle {}
 
         export component App inherits Window {
@@ -1307,6 +1371,9 @@ fn test_matches() {
         "hello"
     );
 
+    assert_eq!(root.query_descendants().match_accessible_label("hello").find_all().len(), 1);
+    assert_eq!(root.query_descendants().match_accessible_label("hell").find_all().len(), 0);
+
     app.set_condition(true);
 
     assert!(
@@ -1335,6 +1402,7 @@ fn test_normalize_id() {
     crate::init_no_event_loop();
 
     slint::slint! {
+        #[edition = "1.20"]
         export component App inherits Window {
             the_element := Text {
                 text: "Found me";
@@ -1355,6 +1423,7 @@ fn test_opacity() {
     crate::init_no_event_loop();
 
     slint::slint! {
+        #[edition = "1.20"]
         export component App inherits Window {
             Rectangle {
                 opacity: 0.5;
@@ -1395,6 +1464,7 @@ fn test_popups() {
     crate::init_no_event_loop();
 
     slint::slint! {
+        #[edition = "1.20"]
         export component App inherits Window {
             popup := PopupWindow {
                 close-policy: close-on-click-outside;
@@ -1490,6 +1560,7 @@ fn test_drag_touch_area() {
     crate::init_no_event_loop();
 
     slint::slint! {
+        #[edition = "1.20"]
         export component App inherits Window {
             width: 200px;
             height: 200px;
@@ -1526,6 +1597,7 @@ fn test_drag_zero_distance() {
     crate::init_no_event_loop();
 
     slint::slint! {
+        #[edition = "1.20"]
         export component App inherits Window {
             width: 100px;
             height: 100px;

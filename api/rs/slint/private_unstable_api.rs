@@ -96,29 +96,64 @@ pub fn set_callback_handler<
     })
 }
 
-pub fn debug(s: SharedString) {
-    i_slint_core::debug_log::log_message(i_slint_core::debug_log::LogMessage::new(
+pub fn debug(ctx: &i_slint_core::SlintContext, s: SharedString) {
+    ctx.dispatch_log_message(i_slint_core::debug_log::LogMessage::new(
         i_slint_core::debug_log::LogMessageSource::SlintCode,
         None,
         format_args!("{s}"),
     ));
 }
 
-pub fn ensure_backend() -> Result<(), crate::PlatformError> {
-    i_slint_backend_selector::with_platform(|_b| {
-        // Nothing to do, just make sure a backend was created
-        Ok(())
-    })
+/// Create the backend if it doesn't exist yet, and return the current context.
+pub fn ensure_context() -> Result<i_slint_core::SlintContext, crate::PlatformError> {
+    i_slint_backend_selector::with_global_context(|ctx| ctx.clone())
 }
 
-/// Creates a new window to render components in.
-pub fn create_window_adapter()
--> Result<alloc::rc::Rc<dyn i_slint_core::window::WindowAdapter>, crate::PlatformError> {
-    i_slint_backend_selector::with_platform(|b| b.create_window_adapter())
+/// Create a repeated component or a popup of the generated code:
+/// register the items of `item_tree` with `window_adapter` and run `init`.
+pub fn new_item_tree<T: vtable::HasStaticVTable<ItemTreeVTable> + 'static, Globals>(
+    item_tree: T,
+    window_adapter: Option<WindowAdapterRc>,
+    globals: Globals,
+    init: fn(VRcMapped<ItemTreeVTable, T>, Globals, u32, u32) -> Result<(), crate::PlatformError>,
+) -> Result<VRc<ItemTreeVTable, T>, crate::PlatformError> {
+    let self_rc = VRc::new(item_tree);
+    register_item_tree(&VRc::into_dyn(self_rc.clone()), window_adapter);
+    init(VRc::map(self_rc.clone(), |x| x), globals, 0, 1)?;
+    Ok(self_rc)
 }
 
-/// Wrapper around i_slint_core::translations::translate for the generated code
+/// The `visit_dynamic` argument of `visit_item_tree` for an item tree without repeaters.
+pub fn no_dynamic_children(
+    _: TraversalOrder,
+    _: ItemVisitorRefMut<'_>,
+    _: u32,
+) -> VisitChildrenResult {
+    unreachable!()
+}
+
+/// Returns the item at `index` in the tree `nodes` of a generated item tree,
+/// whose items are at the offsets `item_array`.
+///
+/// Panics if `index` refers to a dynamic tree.
+pub fn get_item_ref<'a, T>(
+    item_tree: Pin<&'a T>,
+    nodes: &[ItemTreeNode],
+    item_array: &[VOffset<T, ItemVTable, AllowPin>],
+    index: u32,
+) -> Pin<ItemRef<'a>> {
+    fn item_array_index(nodes: &[ItemTreeNode], index: u32) -> usize {
+        match &nodes[index as usize] {
+            ItemTreeNode::Item { item_array_index, .. } => *item_array_index as usize,
+            ItemTreeNode::DynamicTree { .. } => panic!("get_item_ref called on dynamic tree"),
+        }
+    }
+    item_array[item_array_index(nodes, index)].apply_pin(item_tree)
+}
+
+/// Wrapper around `SlintContext::translate` for the generated code
 pub fn translate(
+    ctx: &i_slint_core::SlintContext,
     origin: SharedString,
     context: SharedString,
     domain: SharedString,
@@ -126,16 +161,12 @@ pub fn translate(
     n: i32,
     plural: SharedString,
 ) -> SharedString {
-    i_slint_core::translations::translate(&origin, &context, &domain, args.as_slice(), n, &plural)
+    ctx.translate(&origin, &context, &domain, args.as_slice(), n, &plural)
 }
 
 #[cfg(feature = "gettext")]
 pub fn init_translations(domain: &str, dirname: impl Into<std::path::PathBuf>) {
     i_slint_core::translations::gettext_bindtextdomain(domain, dirname.into()).unwrap()
-}
-
-pub fn use_24_hour_format() -> bool {
-    i_slint_core::date_time::use_24_hour_format()
 }
 
 /// Runs one chunk of a big array literal, which the generated code splits so that
@@ -156,9 +187,7 @@ pub mod re_exports {
     pub use core::iter::FromIterator;
     pub use core::option::{Option, Option::*};
     pub use core::result::{Result, Result::*};
-    pub use i_slint_core::styled_text::{
-        StyledText, color_to_styled_text, parse_markdown, string_to_styled_text,
-    };
+    pub use i_slint_core::styled_text::{StyledText, parse_markdown};
     // This one is empty when Qt is not available, which triggers a warning
     pub use euclid::approxeq::ApproxEq;
     #[allow(unused_imports)]
@@ -168,12 +197,13 @@ pub mod re_exports {
     };
     pub use i_slint_core::animations::{EasingCurve, animation_tick, current_tick};
     pub use i_slint_core::api::LogicalPosition;
+    pub use i_slint_core::builtin_functions;
     pub use i_slint_core::callbacks::Callback;
     pub use i_slint_core::context::SlintContext;
     pub use i_slint_core::cursor::MouseCursorInner;
     pub use i_slint_core::data_transfer::DataTransfer;
     pub use i_slint_core::date_time::*;
-    pub use i_slint_core::detect_operating_system;
+    pub use i_slint_core::debug_info;
     pub use i_slint_core::graphics::*;
     pub use i_slint_core::input::{
         FocusEvent, FocusReason, InputEventResult, KeyEvent, KeyEventResult, KeyboardModifiers,
@@ -195,38 +225,23 @@ pub mod re_exports {
     pub use i_slint_core::macos_bring_all_windows_to_front;
     pub use i_slint_core::menus::{Menu, MenuFromItemTree, MenuVTable};
     pub use i_slint_core::model::*;
-    pub use i_slint_core::open_url;
     pub use i_slint_core::properties::{
-        ChangeTracker, Property, PropertyTracker, StateInfo, change_tracker_init_erased,
-        set_animated_property_binding_erased, set_callback_handler_erased,
-        set_property_binding_erased, set_property_state_binding_erased, set_state_binding,
+        ChangeTracker, ErasedPropertyOffset, Property, PropertyTracker, StateInfo,
+        change_tracker_init_erased, set_animated_property_binding_erased,
+        set_callback_handler_erased, set_constant_properties, set_property_binding_erased,
+        set_property_state_binding_erased, set_state_binding,
     };
     pub use i_slint_core::slice::Slice;
-    pub use i_slint_core::string::shared_string_from_number;
-    pub use i_slint_core::string::shared_string_from_number_fixed;
-    pub use i_slint_core::string::shared_string_from_number_precision;
-    pub use i_slint_core::string::shared_string_from_number_unlocalized;
-    pub use i_slint_core::string::shared_string_replace_all;
     pub use i_slint_core::timers::{Timer, TimerMode};
-    pub use i_slint_core::translations::{
-        TranslationsBundled, set_bundled_languages, translate_from_bundle,
-        translate_from_bundle_with_plural,
-    };
+    pub use i_slint_core::translations::TranslationsBundled;
     pub use i_slint_core::window::{
-        InputMethodRequest, WindowAdapter, WindowAdapterRc, WindowInner, WindowKind, accent_color,
-        context_for_root, default_window_title,
+        InputMethodRequest, WindowAdapter, WindowAdapterRc, WindowInner, WindowKind,
     };
-    pub use i_slint_core::{
-        Color, Coord, SharedString, SharedVector, format, string::ToSharedString,
-        string::string_to_float,
-    };
+    pub use i_slint_core::{Color, Coord, SharedString, SharedVector, format};
     pub use i_slint_core::{ItemTreeVTable_static, MenuVTable_static};
-    pub use num_traits::float::Float;
-    pub use num_traits::ops::euclid::Euclid;
     pub use once_cell::race::OnceBox;
     pub use once_cell::unsync::OnceCell;
     pub use pin_weak::rc::PinWeak;
-    pub use unicode_segmentation::UnicodeSegmentation;
     pub use vtable::{self, *};
 
     #[cfg(feature = "live-preview")]

@@ -1,0 +1,29 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Properties } from "../../../properties.slint";
+
+import { InspectorPropertyRow, InspectorSection, InspectorSwitch } from "../index.slint";
+import { InspectorContext } from "context.slint";
+
+export component InspectorCheckedSection inherits InspectorSection {
+    private property <bool> value: Properties.editor-property-value-data("checked").value-bool;
+    changed value => { toggle.checked = root.value; }
+
+    title: @tr("State");
+
+    InspectorPropertyRow {
+        label: @tr("Checked");
+
+        toggle := InspectorSwitch {
+            accessible-label: @tr("Checked");
+            checked: root.value;
+            toggled => {
+                self.focus();
+                let requested = self.checked;
+                self.checked = root.value;
+                InspectorContext.commit-boolean("checked", requested);
+            }
+        }
+    }
+}

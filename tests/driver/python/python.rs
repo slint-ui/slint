@@ -8,6 +8,13 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::sync::LazyLock;
 
+/// The `ty` version that `api/python/slint` pins, so that a new `ty` release can't break the tests.
+static TY_VERSION: LazyLock<&str> = LazyLock::new(|| {
+    let pyproject = include_str!("../../../api/python/slint/pyproject.toml");
+    let (_, version) = pyproject.split_once("\"ty==").expect("pyproject.toml pins ty");
+    version.split('"').next().unwrap()
+});
+
 pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> {
     let source = std::fs::read_to_string(&testcase.absolute_path)?;
 
@@ -19,13 +26,26 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         .collect::<std::collections::HashMap<_, _>>();
 
     let mut diag = BuildDiagnostics::default();
-    let syntax_node = parser::parse(source.clone(), Some(&testcase.absolute_path), &mut diag);
+    let syntax_node = parser::parse(
+        source.clone(),
+        Some(i_slint_compiler::source_path::SourcePath::new(&testcase.absolute_path)),
+        &mut diag,
+    );
 
     let mut compiler_config = CompilerConfiguration::new(generator::OutputFormat::Python);
     compiler_config.include_paths = include_paths;
     compiler_config.library_paths = library_paths;
     compiler_config.style = testcase.requested_style.map(str::to_string);
     compiler_config.debug_info = true;
+    compiler_config.edition = Some(test_driver_lib::edition_or_current(&source).parse()?);
+    // The generated code loads the project directory at run time, for the edition.
+    let project_directory = tempfile::tempdir()?;
+    test_driver_lib::write_project_file(
+        project_directory.path(),
+        &testcase.absolute_path,
+        &source,
+    )?;
+    compiler_config.input_project_directory = Some(project_directory.path().to_path_buf());
     if source.contains("//bundle-translations") {
         compiler_config.bundled_translations_path =
             Some(testcase.absolute_path.parent().unwrap().to_path_buf());
@@ -123,13 +143,17 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         // Append the python code to the bottom of the generated file and run it
 
         let mut f = std::fs::File::options().append(true).open(&python_file).unwrap();
+        f.write_all(
+            b"if \"backend-testing\" in slint.native.build_features():\n    slint.native._configure_test_fonts()\n",
+        )
+        .unwrap();
         f.write_all(python_script.as_bytes()).unwrap();
     };
 
     let o = std::process::Command::new("uvx")
         .arg("--python")
         .arg("3.12")
-        .arg("ty")
+        .arg(format!("ty@{}", *TY_VERSION))
         .arg("check")
         .arg(&python_file)
         .env("PYTHONPATH", PYTHON_PATH.clone())

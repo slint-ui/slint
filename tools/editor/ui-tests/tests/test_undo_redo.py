@@ -22,12 +22,12 @@ from inspector_interactions import FIELDS, edit_field, wait_for_field
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_driver import (
+    element,
     first_window,
     launch_editor,
     press_shortcut,
     select_fixture_element,
     wait_until,
-    window_element_with_label,
 )
 from ui_reporting import replay_stage
 
@@ -62,14 +62,11 @@ def assert_visual(
     )
     actual: OrientedFrame | None = None
 
-    def matches() -> bool | None:
+    def matches() -> bool:
         nonlocal actual
         actual = oriented_selection_frame(window, "Rectangle")
-        return (
-            True
-            if actual is not None
-            and all(abs(a - b) < 1.5 for a, b in zip(actual, expected))
-            else None
+        return actual is not None and all(
+            abs(a - b) < 1.5 for a, b in zip(actual, expected)
         )
 
     try:
@@ -89,13 +86,13 @@ def assert_visual(
         return
     radius_handle(window, "top-left")
 
-    def radius_matches() -> bool | None:
+    def radius_matches() -> bool:
         a = rotated_handle_center(
-            window_element_with_label(window, "Rectangle resize top-left"),
+            element(window, "Rectangle resize top-left"),
             values["rotation"],
         )
         r = rotated_handle_center(
-            window_element_with_label(window, "Rectangle radius top-left"),
+            element(window, "Rectangle radius top-left"),
             values["rotation"],
         )
         angle = math.radians(values["rotation"])
@@ -105,9 +102,7 @@ def assert_visual(
             -dx * math.sin(angle) + dy * math.cos(angle),
         )
         expected_radius_offset = max(12, values["radius"])
-        return (
-            True if all(abs(v - expected_radius_offset) < 1.5 for v in local) else None
-        )
+        return all(abs(v - expected_radius_offset) < 1.5 for v in local)
 
     wait_until(radius_matches)
 
@@ -144,9 +139,9 @@ def edit(
             if case == "handle-move"
             else "Rectangle resize bottom-right"
         )
-        manual_drag(window, window_element_with_label(window, label), 24, 16, snapshot)
+        manual_drag(window, element(window, label), 24, 16, snapshot)
         return
-    handle = window_element_with_label(window, "Rectangle rotate top-left")
+    handle = element(window, "Rectangle rotate top-left")
     target_angle = changes["rotation"]
     dx, dy = rotation_delta(window, handle, target_angle, kind="Rectangle")
     manual_rotation_drag(

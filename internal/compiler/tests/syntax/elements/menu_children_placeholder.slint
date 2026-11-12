@@ -1,0 +1,67 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component InMenuBar inherits Window {
+    MenuBar {
+        @children
+//      >       <error{The @children placeholder is not allowed as a child of 'MenuBar'}
+    }
+}
+
+component InMenu inherits Window {
+    MenuBar {
+        Menu {
+            title: "File";
+            Menu {
+                title: "Sub";
+                @children
+//              >       <error{The @children placeholder is not allowed as a child of 'Menu'}
+            }
+        }
+    }
+}
+
+component InContextMenu {
+    ContextMenuArea {
+        Menu {
+            @children
+//          >       <error{The @children placeholder is not allowed as a child of 'Menu'}
+        }
+    }
+}
+
+component RootContextMenu inherits ContextMenuArea {
+    Menu {
+        @children
+//      >       <error{The @children placeholder is not allowed as a child of 'Menu'}
+    }
+}
+
+component ContextMenuContent {
+    ContextMenuArea {
+        Menu {
+            MenuItem { title: "a"; }
+        }
+        @children
+    }
+}
+
+export component Test inherits Window {
+    InMenuBar {
+//  >        <warning{Window elements as children do not create separate windows (this may change in the future)↵Consider using a PopupWindow instead↵(Note: InMenuBar inherits Window)}
+        Menu { title: "b"; }
+    }
+    InMenu {
+//  >     <warning{Window elements as children do not create separate windows (this may change in the future)↵Consider using a PopupWindow instead↵(Note: InMenu inherits Window)}
+        MenuItem { title: "c"; }
+    }
+    InContextMenu {
+        MenuItem { title: "d"; }
+    }
+    RootContextMenu {
+        MenuItem { title: "e"; }
+    }
+    ContextMenuContent {
+        Rectangle { }
+    }
+}

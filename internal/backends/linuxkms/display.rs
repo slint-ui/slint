@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore gbmdisplay swdisplay
+// cSpell: ignore gbmdisplay gbmdmabufdisplay swdisplay
 use i_slint_core::api::PhysicalSize;
 
 #[allow(unused)]
@@ -12,8 +12,54 @@ pub trait Presenter {
 
 #[cfg(any(feature = "renderer-skia-opengl", feature = "renderer-femtovg"))]
 pub mod gbmdisplay;
+#[cfg(gbm_dmabuf)]
+pub mod gbmdmabufdisplay;
+#[cfg(gbm_dmabuf)]
+pub mod scanout_barriers;
 #[cfg(any(enable_skia, feature = "renderer-software"))]
 pub mod swdisplay;
+
+/// A gbm buffer as a framebuffer without a modifier, for a display that takes none.
+#[cfg(any(feature = "renderer-skia-opengl", feature = "renderer-femtovg", gbm_dmabuf))]
+struct ImplicitLayout<'a, T: 'static>(&'a gbm::BufferObject<T>);
+
+#[cfg(any(feature = "renderer-skia-opengl", feature = "renderer-femtovg", gbm_dmabuf))]
+impl<T: 'static> drm::buffer::PlanarBuffer for ImplicitLayout<'_, T> {
+    fn size(&self) -> (u32, u32) {
+        drm::buffer::PlanarBuffer::size(self.0)
+    }
+    fn format(&self) -> drm::buffer::DrmFourcc {
+        drm::buffer::PlanarBuffer::format(self.0)
+    }
+    fn modifier(&self) -> Option<drm::buffer::DrmModifier> {
+        None
+    }
+    fn pitches(&self) -> [u32; 4] {
+        drm::buffer::PlanarBuffer::pitches(self.0)
+    }
+    fn handles(&self) -> [Option<drm::buffer::Handle>; 4] {
+        drm::buffer::PlanarBuffer::handles(self.0)
+    }
+    fn offsets(&self) -> [u32; 4] {
+        drm::buffer::PlanarBuffer::offsets(self.0)
+    }
+}
+
+/// Adds `bo` as a framebuffer, with the modifier that gbm reported for it if the display takes modifiers,
+/// see [`crate::drmoutput::DrmOutput::takes_modifiers`], and in its implicit layout otherwise.
+#[cfg(any(feature = "renderer-skia-opengl", feature = "renderer-femtovg", gbm_dmabuf))]
+fn add_framebuffer<T: 'static>(
+    device: &crate::drmoutput::SharedFd,
+    bo: &gbm::BufferObject<T>,
+    takes_modifiers: bool,
+) -> std::io::Result<drm::control::framebuffer::Handle> {
+    use drm::control::Device;
+    if takes_modifiers && bo.modifier() != gbm::Modifier::Invalid {
+        device.add_planar_framebuffer(bo, drm::control::FbCmd2Flags::MODIFIERS)
+    } else {
+        device.add_planar_framebuffer(&ImplicitLayout(bo), drm::control::FbCmd2Flags::empty())
+    }
+}
 
 /// This enum describes the way the output is supposed to be rotated to simulate
 /// a screen rotation. This is implemented entirely inside the actual renderer.

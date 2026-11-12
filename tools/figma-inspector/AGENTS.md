@@ -22,7 +22,9 @@ Offline Figma-to-Slint plugin in the Slint monorepo. Target the Slint version in
 ## Invariants
 
 - Empty selection clears the preview; it is never an error.
-- New selections immediately blank the preview and clear source/export; errors stop progress, keep output blank, and open Diagnostics.
+- New selections immediately blank the preview and clear source/export; preview errors keep output blank and open Diagnostics.
+- Export generation errors and compiler diagnostics preserve successful previews and source, disable export, and report diagnostics.
+- Unexpected interpreter failures report an error and require restarting the plugin.
 - Stale revisions never replace newer work; unchanged source skips recompilation.
 - Pin state is memory-only and resets on restart, page/file change, or root deletion.
 - Never add artificial capture or rendering delays.

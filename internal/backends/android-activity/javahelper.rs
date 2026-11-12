@@ -1,12 +1,19 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore dalvik jboolean jfloat jint
+// cSpell: ignore dalvik jboolean jfloat jint jlong
+#![allow(
+    deprecated,
+    reason = "jni's bind_java_type! calls AtomicBool::fetch_update: https://github.com/jni-rs/jni-rs/issues/846"
+)]
+
 use super::*;
 use i_slint_common::unicode_utils::{
     byte_offset_to_utf16_offset, utf16_offset_to_byte_offset_clamped,
 };
+use i_slint_core::MotionPreference;
 use i_slint_core::SharedString;
+use i_slint_core::animations::Instant;
 use i_slint_core::api::{PhysicalPosition, PhysicalSize};
 use i_slint_core::graphics::{Color, euclid};
 use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventType};
@@ -29,7 +36,7 @@ pub(crate) fn font_scale_to_logical_length(font_scale: f32) -> Option<LogicalLen
 const DEX_DATA: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/classes.dex"));
 
 bind_java_type! {
-    SlintAndroidJavaHelper => ".SlintAndroidJavaHelper",
+    SlintAndroidJavaHelper => "dev.slint.android.SlintAndroidJavaHelper",
     type_map = {
         AndroidActivity => "android.app.Activity",
         AndroidRect => "android.graphics.Rect",
@@ -41,6 +48,10 @@ bind_java_type! {
         fn accent_color {
             name = "accent_color",
             sig = () -> jint,
+        },
+        fn animators_enabled {
+            name = "animators_enabled",
+            sig = () -> jboolean,
         },
         fn color_scheme {
             name = "color_scheme",
@@ -92,12 +103,30 @@ bind_java_type! {
                 anchor_y: jint,
                 cursor_height: jint,
                 input_type: jint,
-                show_cursor_handles: jboolean
+                show_cursor_handles: jboolean,
+                new_client: jboolean,
+                update_editing_state: jboolean
             ),
+        },
+        fn set_light_system_bars {
+            name = "set_light_system_bars",
+            sig = (light: jboolean),
         },
         fn show_action_menu {
             name = "show_action_menu",
             sig = (),
+        },
+        fn clear_text_input_client {
+            name = "clear_text_input_client",
+            sig = (),
+        },
+        fn hide_action_menu {
+            name = "hide_action_menu",
+            sig = (),
+        },
+        fn defer_action_menu {
+            name = "defer_action_menu",
+            sig = (deferred: jboolean),
         },
         fn show_keyboard {
             name = "show_keyboard",
@@ -109,6 +138,10 @@ bind_java_type! {
         pub static fn move_cursor_handle {
             sig = (id: jint, pos_x: jint, pos_y: jint) -> (),
             fn = callback_move_cursor_handle,
+        },
+        pub static fn set_cursor_blink_suspended {
+            sig = (suspended: jboolean) -> (),
+            fn = callback_set_cursor_blink_suspended,
         },
         pub static fn on_back_invoked {
             sig = () -> (),
@@ -149,7 +182,7 @@ bind_java_type! {
                     cursor_position: jint,
                     anchor_position: jint,
                     preedit_start: jint,
-                    preedit_offset: jint
+                    preedit_end: jint
             ) -> (),
             fn = callback_update_text,
         },
@@ -245,9 +278,14 @@ bind_java_type! {
             get = TYPE_TEXT_FLAG_AUTO_CORRECT,
         },
         #[allow(non_snake_case)]
-        static TYPE_TEXT_FLAG_AUTO_COMPLETE {
+        static TYPE_TEXT_FLAG_MULTI_LINE {
             sig = jint,
-            get = TYPE_TEXT_FLAG_AUTO_COMPLETE,
+            get = TYPE_TEXT_FLAG_MULTI_LINE,
+        },
+        #[allow(non_snake_case)]
+        static TYPE_TEXT_FLAG_NO_SUGGESTIONS {
+            sig = jint,
+            get = TYPE_TEXT_FLAG_NO_SUGGESTIONS,
         },
     }
 }
@@ -293,7 +331,40 @@ pub fn print_jni_error(_app: &AndroidApp, e: jni::errors::Error) -> ! {
 }
 
 #[allow(dead_code)]
-pub struct JavaHelper(jni::refs::Global<SlintAndroidJavaHelper<'static>>, AndroidApp);
+pub struct JavaHelper(
+    jni::refs::Global<SlintAndroidJavaHelper<'static>>,
+    AndroidApp,
+    std::cell::OnceCell<i64>,
+    /// The editing state as last sent to or received from the Java side.
+    std::cell::RefCell<Option<ImeEditState>>,
+);
+
+/// Text, selection and composing region in UTF-16 offsets, as the Java side's editable holds them.
+#[derive(Clone, PartialEq, Debug)]
+pub(crate) struct ImeEditState {
+    text: String,
+    cursor: i32,
+    anchor: i32,
+    /// `(-1, -1)` without a composing region
+    composing: (i32, i32),
+}
+
+impl ImeEditState {
+    fn new(
+        text: String,
+        cursor: i32,
+        anchor: i32,
+        composing_start: i32,
+        composing_end: i32,
+    ) -> Self {
+        let composing = if composing_start >= 0 && composing_start < composing_end {
+            (composing_start, composing_end)
+        } else {
+            (-1, -1)
+        };
+        Self { text, cursor, anchor, composing }
+    }
+}
 
 fn get_helper_class_loader(
     env: &mut Env,
@@ -371,9 +442,26 @@ fn load_java_helper(
     })
 }
 
+bind_java_type! {
+    JavaSystem => "java.lang.System",
+    methods {
+        static fn nano_time { name = "nanoTime", sig = () -> jlong, },
+    }
+}
+
 impl JavaHelper {
+    pub fn input_timestamp(&self, event_nanos: i64, window: &i_slint_core::api::Window) -> Instant {
+        let offset = self.2.get_or_init(|| {
+            let now_nanos = self
+                .with_jni_env(|env, _| JavaSystem::nano_time(env))
+                .unwrap_or_else(|e| print_jni_error(&self.1, e));
+            let ctx = i_slint_core::window::WindowInner::from_pub(window).context();
+            i_slint_core::animations::Instant::now(ctx).as_nanos() as i64 - now_nanos
+        });
+        Duration::from_nanos(event_nanos.saturating_add(*offset).max(0) as u64).into()
+    }
     pub fn new(app: &AndroidApp) -> Result<Self, jni::errors::Error> {
-        Ok(Self(load_java_helper(app)?, app.clone()))
+        Ok(Self(load_java_helper(app)?, app.clone(), Default::default(), Default::default()))
     }
 
     fn with_jni_env<R>(
@@ -401,6 +489,7 @@ impl JavaHelper {
         data: &i_slint_core::window::InputMethodProperties,
         scale_factor: f32,
         show_cursor_handles: bool,
+        new_client: bool,
     ) -> Result<(), jni::errors::Error> {
         self.with_jni_env(|env, helper| {
             let mut text = data.text.to_string();
@@ -417,7 +506,33 @@ impl JavaHelper {
                 }
             }
 
-            let to_utf16 = |x| byte_offset_to_utf16_offset(&text, x as usize);
+            let to_utf16 = |x| byte_offset_to_utf16_offset(&text, x as usize) as i32;
+            let mut last_known = self.3.borrow_mut();
+            // Slint doesn't track the composition, which input methods keep in the text, so their
+            // composing region is kept until the text changes.
+            let composing = if !data.preedit_text.is_empty() {
+                (
+                    to_utf16(data.preedit_offset),
+                    to_utf16(data.preedit_offset + data.preedit_text.len()),
+                )
+            } else {
+                last_known
+                    .as_ref()
+                    .filter(|known| !new_client && known.text == text)
+                    .map_or((-1, -1), |known| known.composing)
+            };
+            let state = ImeEditState::new(
+                text.clone(),
+                to_utf16(cursor_position),
+                to_utf16(anchor_position),
+                composing.0,
+                composing.1,
+            );
+            let update_editing_state = new_client || last_known.as_ref() != Some(&state);
+            if update_editing_state {
+                *last_known = Some(state.clone());
+            }
+            drop(last_known);
             let text = JString::new(env, text.as_str())?;
 
             let input_type = match data.input_type {
@@ -441,18 +556,27 @@ impl JavaHelper {
                     } else {
                         0 as jint
                     };
-                    let auto_complete_flag = if hints.auto_complete {
-                        AndroidInputType::TYPE_TEXT_FLAG_AUTO_COMPLETE(env)?
-                    } else {
+                    // Not TYPE_TEXT_FLAG_AUTO_COMPLETE: it asks the input method not to show its own
+                    // candidates and to expect completions from the app, which Slint doesn't provide.
+                    let no_suggestions_flag = if hints.auto_complete {
                         0 as jint
+                    } else {
+                        AndroidInputType::TYPE_TEXT_FLAG_NO_SUGGESTIONS(env)?
+                    };
+                    let multi_line_flag = if data.single_line {
+                        0 as jint
+                    } else {
+                        AndroidInputType::TYPE_TEXT_FLAG_MULTI_LINE(env)?
                     };
                     AndroidInputType::TYPE_CLASS_TEXT(env)?
                         | capitalization_flag
                         | auto_correct_flag
-                        | auto_complete_flag
+                        | no_suggestions_flag
+                        | multi_line_flag
                 }
                 InputType::Password => {
                     AndroidInputType::TYPE_TEXT_VARIATION_PASSWORD(env)?
+                        | AndroidInputType::TYPE_TEXT_FLAG_NO_SUGGESTIONS(env)?
                         | AndroidInputType::TYPE_CLASS_TEXT(env)?
                 }
                 InputType::Number => AndroidInputType::TYPE_CLASS_NUMBER(env)?,
@@ -496,10 +620,10 @@ impl JavaHelper {
             helper.set_imm_data(
                 env,
                 &text,
-                to_utf16(cursor_position) as i32,
-                to_utf16(anchor_position) as i32,
-                to_utf16(data.preedit_offset) as i32,
-                to_utf16(data.preedit_offset + data.preedit_text.len()) as i32,
+                state.cursor,
+                state.anchor,
+                state.composing.0,
+                state.composing.1,
                 cur_x,
                 cur_y,
                 anchor_x,
@@ -507,6 +631,8 @@ impl JavaHelper {
                 cursor_height,
                 input_type,
                 show_cursor_handles,
+                new_client,
+                update_editing_state,
             )?;
 
             Ok(())
@@ -521,10 +647,38 @@ impl JavaHelper {
         self.with_jni_env(|env, helper| helper.font_scale(env))
     }
 
-    pub fn accent_color(&self) -> Result<Color, jni::errors::Error> {
+    /// Sets the motion preference of `ctx` to reduced when Android doesn't run animators,
+    /// which "Remove animations" under Settings > Accessibility turns off. Android sends no
+    /// configuration change for this setting, so call it at startup and again whenever the
+    /// window gains focus.
+    pub fn set_motion_preference(&self, ctx: &i_slint_core::SlintContext) {
+        if let Ok(enabled) = self.with_jni_env(|env, helper| helper.animators_enabled(env)) {
+            ctx.set_motion_preference(if enabled {
+                MotionPreference::NoPreference
+            } else {
+                MotionPreference::Reduced
+            });
+        }
+    }
+
+    /// Returns the theme's `android:colorAccent`, or `None` if the theme doesn't set it.
+    fn accent_color(&self) -> Result<Option<Color>, jni::errors::Error> {
         self.with_jni_env(|env, helper| {
-            Ok(Color::from_argb_encoded(helper.accent_color(env)? as u32))
+            let argb = helper.accent_color(env)? as u32;
+            Ok((argb != 0).then(|| Color::from_argb_encoded(argb)))
         })
+    }
+
+    /// `night_mode` is a `Configuration.UI_MODE_NIGHT_*` value.
+    pub fn set_system_colors(&self, ctx: &i_slint_core::SlintContext, night_mode: i32) {
+        ctx.set_color_scheme(match night_mode {
+            0x10 => ColorScheme::Light, // UI_MODE_NIGHT_NO
+            0x20 => ColorScheme::Dark,  // UI_MODE_NIGHT_YES
+            _ => ColorScheme::Unknown,
+        });
+        if let Ok(Some(accent)) = self.accent_color() {
+            ctx.set_accent_color(accent);
+        }
     }
 
     pub fn get_safe_area(&self) -> Result<PhysicalEdges, jni::errors::Error> {
@@ -544,6 +698,10 @@ impl JavaHelper {
         })
     }
 
+    pub fn set_light_system_bars(&self, light: bool) -> Result<(), jni::errors::Error> {
+        self.with_jni_env(|env, helper| helper.set_light_system_bars(env, light))
+    }
+
     pub fn long_press_timeout(&self) -> Result<Duration, jni::errors::Error> {
         self.with_jni_env(|env, _helper| {
             let long_press_timeout = AndroidViewConfiguration::get_long_press_timeout(env)?;
@@ -555,6 +713,21 @@ impl JavaHelper {
         self.with_jni_env(|env, helper| helper.show_action_menu(env))
     }
 
+    pub fn hide_action_menu(&self) -> Result<(), jni::errors::Error> {
+        self.with_jni_env(|env, helper| helper.hide_action_menu(env))
+    }
+
+    /// Keeps the text selection menu from showing for a new selection while `deferred` is set.
+    pub fn defer_action_menu(&self, deferred: bool) -> Result<(), jni::errors::Error> {
+        self.with_jni_env(|env, helper| helper.defer_action_menu(env, deferred))
+    }
+
+    /// Disconnects the input method from the text input that lost focus.
+    pub fn clear_text_input_client(&self) -> Result<(), jni::errors::Error> {
+        self.3.take();
+        self.with_jni_env(|env, helper| helper.clear_text_input_client(env))
+    }
+
     pub fn set_clipboard(&self, text: &str) -> Result<(), jni::errors::Error> {
         self.with_jni_env(|env, helper| {
             let text = JString::new(env, text)?;
@@ -562,8 +735,11 @@ impl JavaHelper {
         })
     }
 
-    pub fn get_clipboard(&self) -> Result<String, jni::errors::Error> {
-        self.with_jni_env(|env, helper| Ok(helper.get_clipboard(env)?.to_string()))
+    pub fn get_clipboard(&self) -> Result<Option<String>, jni::errors::Error> {
+        self.with_jni_env(|env, helper| {
+            let text = helper.get_clipboard(env)?;
+            Ok((!text.is_null()).then(|| text.to_string()))
+        })
     }
 
     /// Ask the Activity to finish. Used from `callback_on_back_invoked` when
@@ -587,59 +763,117 @@ fn callback_update_text<'local>(
     let java_str = text.to_string();
     let decoded: std::borrow::Cow<str> = (&java_str).into();
     let text = SharedString::from(decoded.as_ref());
+    let remote_state = ImeEditState::new(
+        text.to_string(),
+        cursor_position,
+        anchor_position,
+        preedit_start,
+        preedit_end,
+    );
 
     let cursor_position = utf16_offset_to_byte_offset_clamped(&text, cursor_position as usize);
     let anchor_position = utf16_offset_to_byte_offset_clamped(&text, anchor_position as usize);
-    let preedit_start = utf16_offset_to_byte_offset_clamped(&text, preedit_start as usize);
-    let preedit_end = utf16_offset_to_byte_offset_clamped(&text, preedit_end as usize);
 
     i_slint_core::api::invoke_from_event_loop(move || {
         if let Some(adaptor) = CURRENT_WINDOW.with_borrow(|x| x.upgrade()) {
-            adaptor.show_cursor_handles.set(false);
-            let event = if preedit_start != preedit_end {
-                let adjust = |pos| {
-                    if pos <= preedit_start {
-                        pos
-                    } else if pos >= preedit_end {
-                        preedit_start + (pos - preedit_end)
-                    } else {
-                        preedit_start
-                    }
-                } as i32;
-                let mut key_event = KeyEvent::default();
-                key_event.text =
-                    i_slint_core::format!("{}{}", &text[..preedit_start], &text[preedit_end..]);
+            // Input methods also move the composing region when the user taps or selects, which
+            // mustn't hide the handles.
+            let previous = adaptor.java_helper.3.replace(Some(remote_state.clone()));
+            if previous.is_none_or(|previous| {
+                (&previous.text, previous.cursor, previous.anchor)
+                    != (&remote_state.text, remote_state.cursor, remote_state.anchor)
+            }) {
+                adaptor.show_cursor_handles.set(false);
+            }
 
-                InternalKeyEvent {
-                    event_type: KeyEventType::UpdateComposition,
-                    preedit_text: text[preedit_start..preedit_end].into(),
-                    preedit_selection: Some(0..(preedit_end - preedit_start) as i32),
-                    replacement_range: Some(i32::MIN..i32::MAX),
-                    cursor_position: Some(adjust(cursor_position)),
-                    anchor_position: Some(adjust(anchor_position)),
-                    key_event,
-                    ..Default::default()
-                }
-            } else {
+            // Only the changed part of the text is replaced, so that a selection or composition
+            // change doesn't edit the text.
+            let focus_item = i_slint_core::window::WindowInner::from_pub(&adaptor.window)
+                .focus_item
+                .borrow()
+                .upgrade();
+            let focused_text = focus_item.as_ref().and_then(|item| {
+                let text_input = item.downcast::<i_slint_core::items::TextInput>()?;
+                let text_input = text_input.as_pin_ref();
+                let current = text_input.text();
+                let cursor = text_input.cursor_position(&current);
+                Some((current, cursor))
+            });
+            let edit = |text: SharedString,
+                        replacement_range,
+                        selection: Option<(usize, usize)>| {
                 let mut key_event = KeyEvent::default();
                 key_event.text = text;
-
-                InternalKeyEvent {
+                let event = InternalKeyEvent {
                     event_type: KeyEventType::CommitComposition,
-                    replacement_range: Some(i32::MIN..i32::MAX),
-                    cursor_position: Some(cursor_position as _),
-                    anchor_position: Some(anchor_position as _),
+                    replacement_range,
+                    cursor_position: selection.map(|(cursor, _)| cursor as i32),
+                    anchor_position: selection.map(|(_, anchor)| anchor as i32),
                     key_event,
                     ..Default::default()
-                }
+                };
+                adaptor.window.dispatch_event(i_slint_core::platform::WindowEvent::internal(event));
             };
-            adaptor.window.dispatch_event(i_slint_core::platform::WindowEvent::internal(event));
+            let selection = Some((cursor_position, anchor_position));
+            match focused_text {
+                Some((current, cursor)) => {
+                    let (start, current_end, new_end) = changed_range(&current, &text);
+                    let relative = |pos: usize| (pos as i64 - cursor as i64) as i32;
+                    if start == current_end && start == new_end {
+                        if let Some(focus_item) = focus_item.as_ref()
+                            && let Some(text_input) =
+                                focus_item.downcast::<i_slint_core::items::TextInput>()
+                        {
+                            text_input.as_pin_ref().set_selection_offsets(
+                                &(adaptor.clone() as Rc<dyn WindowAdapter>),
+                                focus_item,
+                                anchor_position as i32,
+                                cursor_position as i32,
+                            );
+                        }
+                    } else if start == new_end {
+                        // A deletion only reports `edited` when it places the cursor itself.
+                        edit(
+                            SharedString::default(),
+                            Some(relative(start)..relative(current_end)),
+                            None,
+                        );
+                        if (cursor_position, anchor_position) != (start, start) {
+                            edit(SharedString::default(), None, selection);
+                        }
+                    } else {
+                        edit(
+                            text[start..new_end].into(),
+                            Some(relative(start)..relative(current_end)),
+                            selection,
+                        );
+                    }
+                }
+                None => edit(text, Some(i32::MIN..i32::MAX), selection),
+            }
         }
     })
     .unwrap();
     Ok(())
 }
 
+fn changed_range(old: &str, new: &str) -> (usize, usize, usize) {
+    let mut start = old.bytes().zip(new.bytes()).take_while(|(a, b)| a == b).count();
+    while !old.is_char_boundary(start) || !new.is_char_boundary(start) {
+        start -= 1;
+    }
+    let mut suffix = old
+        .bytes()
+        .rev()
+        .zip(new.bytes().rev())
+        .take(old.len().min(new.len()) - start)
+        .take_while(|(a, b)| a == b)
+        .count();
+    while !old.is_char_boundary(old.len() - suffix) || !new.is_char_boundary(new.len() - suffix) {
+        suffix -= 1;
+    }
+    (start, old.len() - suffix, new.len() - suffix)
+}
 fn callback_set_night_mode<'local>(
     _env: &mut Env<'local>,
     _class: JClass<'local>,
@@ -647,17 +881,8 @@ fn callback_set_night_mode<'local>(
 ) -> Result<(), jni::errors::Error> {
     i_slint_core::api::invoke_from_event_loop(move || {
         if let Some(w) = CURRENT_WINDOW.with_borrow(|x| x.upgrade()) {
-            let scheme = match night_mode {
-                0x10 => ColorScheme::Light,  // UI_MODE_NIGHT_NO(0x10)
-                0x20 => ColorScheme::Dark,   // UI_MODE_NIGHT_YES(0x20)
-                0x0 => ColorScheme::Unknown, // UI_MODE_NIGHT_UNDEFINED
-                _ => ColorScheme::Unknown,
-            };
             let ctx = i_slint_core::window::WindowInner::from_pub(&w.window).context();
-            ctx.set_color_scheme(scheme);
-            if let Ok(accent) = w.java_helper.accent_color() {
-                ctx.set_accent_color(accent);
-            }
+            w.java_helper.set_system_colors(ctx, night_mode);
         }
     })
     .unwrap();
@@ -698,6 +923,7 @@ fn callback_move_cursor_handle<'local>(
                 .upgrade()
             {
                 if let Some(text_input) = focus_item.downcast::<i_slint_core::items::TextInput>() {
+                    adaptor.show_cursor_handles.set(true);
                     let scale_factor = adaptor.window.scale_factor();
                     let adaptor = adaptor.clone() as Rc<dyn WindowAdapter>;
                     let size = text_input
@@ -772,13 +998,28 @@ fn callback_popup_menu_action<'local>(
                     let adaptor = adaptor.clone() as Rc<dyn WindowAdapter>;
                     match id {
                         0 => text_input.cut(&adaptor, &focus_item),
-                        1 => text_input.copy(&adaptor, &focus_item),
+                        1 => text_input.copy(&adaptor),
                         2 => text_input.paste(&adaptor, &focus_item),
                         3 => text_input.select_all(&adaptor, &focus_item),
                         _ => (),
                     }
                 }
             }
+        }
+    })
+    .unwrap();
+    Ok(())
+}
+
+fn callback_set_cursor_blink_suspended<'local>(
+    _env: &mut Env<'local>,
+    _class: JClass<'local>,
+    suspended: bool,
+) -> Result<(), jni::errors::Error> {
+    i_slint_core::api::invoke_from_event_loop(move || {
+        if let Some(adaptor) = CURRENT_WINDOW.with_borrow(|x| x.upgrade()) {
+            i_slint_core::window::WindowInner::from_pub(&adaptor.window)
+                .set_cursor_blink_suspended(suspended);
         }
     })
     .unwrap();

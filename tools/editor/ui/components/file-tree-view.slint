@@ -2,10 +2,13 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Style, Colors, Metrics, TreeStyle } from "../style.slint";
+import { EditorInput } from "editor-input.slint";
 import { FileTreeIcons } from "file-tree-icons.slint";
+import { Icons, DiagnosticBadge } from "icons.slint";
 
 import { Api, FileTreeNode, FileTreeNodeKind } from "../api.slint";
 import { Project } from "../project.slint";
+import { Diagnostics, FileDiagnosticSummary } from "../diagnostics.slint";
 import { ListView } from "std-widgets.slint";
 import { EditorScrollIndicators } from "editor-scroll-view.slint";
 
@@ -28,6 +31,8 @@ component FileTreeRow inherits Rectangle {
     property <color> selected-guide-color: root.style.selected-guide;
     property <color> guide-color: root.style.file-guide;
     property <color> error-color: Colors.danger;
+    private property <FileDiagnosticSummary> diagnostic-summary: Diagnostics.file-diagnostics(node.path);
+    private property <string> diagnostic-description: diagnostic-summary.error-count == 0 && diagnostic-summary.warning-count == 0 ? "" : "\{diagnostic-summary.error-count} errors, \{diagnostic-summary.warning-count} warnings in the active preview";
 
     callback row-hover-changed(string, bool);
     callback row-focus-requested(string);
@@ -35,24 +40,27 @@ component FileTreeRow inherits Rectangle {
     callback rename-finished();
     callback rename-submitted();
 
-    init => {
+    function focus-if-current() {
         if root.keyboard-current && !root.editing {
             row-focus.focus();
         }
     }
 
+    init => {
+        focus-if-current();
+    }
+
     changed keyboard-current => {
-        if root.keyboard-current && !root.editing {
-            row-focus.focus();
-        }
+        focus-if-current();
     }
 
     height: root.style.row.height + (rename-error == "" ? 0px : root.style.row.height);
     horizontal-stretch: 1;
     border-radius: root.style.row.radius;
-    background: node.is-selected || row-focus.has-focus ? root.style.row.selected-background : touch.has-hover ? root.style.row.hover-background : transparent;
+    background: node.is-selected || row-focus.has-focus || root.keyboard-current ? root.style.row.selected-background : touch.has-hover ? root.style.row.hover-background : transparent;
     accessible-role: AccessibleRole.list-item;
     accessible-label: root.node.path;
+    accessible-description: root.diagnostic-description;
     accessible-item-selectable: !root.folder;
     accessible-item-selected: root.node.is-selected;
     accessible-expanded: root.folder && root.node.is-expanded;
@@ -90,6 +98,16 @@ component FileTreeRow inherits Rectangle {
         }
     }
 
+    function open-in-file-manager-name() -> string {
+        if (Platform.os == OperatingSystemType.macos) {
+            return @tr("Reveal in Finder");
+        }
+        if (Platform.os == OperatingSystemType.windows) {
+            return @tr("Reveal in File Explorer");
+        }
+        return @tr("Open Containing Folder");
+    }
+
     row-focus := FocusScope {
         focus-on-click: false;
 
@@ -107,11 +125,9 @@ component FileTreeRow inherits Rectangle {
         }
 
         HorizontalLayout {
-            alignment: stretch;
             cross-axis-alignment: center;
             padding-left: root.style.row.padding-inline;
             padding-right: root.style.row.padding-inline;
-            spacing: 0px;
 
             if root.gutter-segments > 0: HorizontalLayout {
                 horizontal-stretch: 0;
@@ -142,7 +158,7 @@ component FileTreeRow inherits Rectangle {
                     height: Metrics.icon-small;
                     x: 0px;
                     y: (parent.height - self.height) / 2;
-                    source: root.node.is-expanded ? FileTreeIcons.chevron-down : FileTreeIcons.chevron-right;
+                    source: root.node.is-expanded ? Icons.chevron-down : Icons.chevron-right;
                     colorize: root.style.row.muted;
                 }
             }
@@ -150,21 +166,31 @@ component FileTreeRow inherits Rectangle {
             HorizontalLayout {
                 horizontal-stretch: 1;
                 spacing: root.style.row.gap;
-                alignment: stretch;
                 cross-axis-alignment: center;
                 padding-right: root.style.row.padding-inline;
                 min-height: root.style.row.height;
 
-                Image {
+                Rectangle {
                     horizontal-stretch: 0;
                     width: root.style.row.icon-size;
                     height: root.style.row.icon-size;
-                    vertical-alignment: center;
-                    source: root.folder
-                        ? root.node.is-expanded ? FileTreeIcons.directory-open : FileTreeIcons.directory
-                        : root.node.kind == FileTreeNodeKind.image ? FileTreeIcons.image
-                        : FileTreeIcons.file-code;
-                    colorize: root.folder ? root.style.row.directory-icon : root.style.row.muted;
+                    Image {
+                        width: parent.width;
+                        height: parent.height;
+                        source: root.folder
+                            ? root.node.is-expanded ? FileTreeIcons.directory-open : FileTreeIcons.directory
+                            : root.node.kind == FileTreeNodeKind.image ? Icons.image
+                            : FileTreeIcons.file-code;
+                        colorize: root.folder ? root.style.row.directory-icon : root.style.row.muted;
+                    }
+                    if root.diagnostic-summary.error-count > 0 || root.diagnostic-summary.warning-count > 0: DiagnosticBadge {
+                        x: parent.width - self.width + 2px;
+                        y: parent.height - self.height + 2px;
+                        width: 11px;
+                        height: 11px;
+                        background: root.style.row.selected-background;
+                        foreground: root.diagnostic-summary.error-count > 0 ? Colors.danger : Colors.warning;
+                    }
                 }
 
                 Rectangle {
@@ -180,54 +206,41 @@ component FileTreeRow inherits Rectangle {
                         color: root.style.row.foreground;
                         font-size: root.style.row.font-size;
                         overflow: elide;
-                        wrap: no-wrap;
                     }
                 }
             }
         }
 
-        if root.editing: Rectangle {
+        if root.editing: input := EditorInput {
             x: root.style.row.padding-inline
                 + root.gutter-segments * root.style.row.toggle-width
                 + root.style.row.hit-size
                 + root.style.row.icon-size
                 + root.style.row.gap;
-            y: Metrics.space-tight;
+            y: (root.style.row.height - Style.field.height) / 2;
             width: root.width + root.rename-right-extension - self.x;
-            height: root.style.row.height - 2 * Metrics.space-tight;
-            border-width: Metrics.border-width;
-            border-color: root.rename-error == "" ? root.style.rename.border : root.error-color;
-            background: root.style.rename.background;
-
-            input := TextInput {
-                x: Metrics.border-width;
-                width: parent.width - 2 * Metrics.border-width;
-                height: parent.height;
-                text <=> root.rename-name;
-                color: root.style.row.foreground;
-                font-size: root.style.row.font-size;
-                vertical-alignment: center;
-                single-line: true;
-                wrap: no-wrap;
-                accessible-label: "Rename " + root.node.label;
-                init => {
-                    self.focus();
-                    self.set-selection-offsets(0, root.node.rename-selection-end);
+            value: root.rename-name;
+            select-all-on-focus: false;
+            accessible-name: @tr("Rename {}", root.node.label);
+            border-color: root.rename-error == "" ? self.paint.border : root.error-color;
+            init => {
+                self.focus-input();
+                self.select-range(0, root.node.rename-selection-end);
+            }
+            edit-input(value) => { root.rename-name = value; }
+            accepted(value) => { self.edit-input(value); return true; }
+            focus-lost => { if root.editing { root.rename-submitted(); } }
+            keyboard(event) => {
+                if event.text == Key.Return {
+                    root.rename-submitted();
+                    return accept;
                 }
-                accepted => { root.rename-submitted(); }
-                changed has-focus => {
-                    if root.editing && !self.has-focus {
-                        root.rename-submitted();
-                    }
+                if event.text == Key.Escape {
+                    root.rename-finished();
+                    row-focus.focus();
+                    return accept;
                 }
-                key-pressed(event) => {
-                    if event.text == Key.Escape {
-                        root.rename-finished();
-                        row-focus.focus();
-                        return accept;
-                    }
-                    return reject;
-                }
+                return reject;
             }
         }
     }
@@ -241,16 +254,55 @@ component FileTreeRow inherits Rectangle {
         color: root.error-color;
         font-size: root.style.row.font-size;
         overflow: elide;
-        wrap: no-wrap;
     }
 
-    touch := TouchArea {
-        enabled: !root.editing;
-        mouse-cursor: pointer;
-        clicked => {
-            root.focus-row();
-            root.activate();
+    context-menu := ContextMenuArea {
+        enabled: false;
+
+        Menu {
+            MenuItem {
+                title: @tr("Rename");
+                activated => {
+                    root.focus-row();
+                    root.begin-rename();
+                }
+            }
+            MenuSeparator {}
+            MenuItem {
+                title: @tr("Copy Path");
+                activated => { Api.copy-file-path(root.node.path); }
+            }
+            MenuSeparator {}
+            MenuItem {
+                title: @tr("Open Slint File");
+                enabled: root.node.is-slint-file;
+                activated => { Api.open-file(root.node.path); }
+            }
+            MenuSeparator {}
+            MenuItem {
+                title: open-in-file-manager-name();
+                activated => { Api.open-file-manager(root.node.path); }
+            }
         }
+
+        touch := TouchArea {
+            enabled: !root.editing;
+            clicked => {
+                root.focus-row();
+                root.activate();
+            }
+            pointer-event(event) => {
+                if !root.folder && event.button == PointerEventButton.right && event.kind == PointerEventKind.down {
+                    root.focus-row();
+                    context-menu.show({ x: self.mouse-x, y: self.mouse-y });
+                }
+            }
+        }
+    }
+    Tooltip {
+        text: root.diagnostic-description != ""
+            ? @markdown("\{root.diagnostic-description}")
+            : @markdown("\{root.node.path}");
     }
 }
 
@@ -266,7 +318,7 @@ export component FileTreeView inherits Rectangle {
 
     horizontal-stretch: 1;
     accessible-role: AccessibleRole.tree;
-    accessible-label: "Files";
+    accessible-label: @tr("Files");
 
     tree := ListView {
         width: parent.width;

@@ -40,7 +40,11 @@ export component Main inherits Window {
 
 fn compile(source: &str) -> Vec<String> {
     let mut diag = BuildDiagnostics::default();
-    let syntax_node = parse(source.into(), Some(std::path::Path::new("main.slint")), &mut diag);
+    let syntax_node = parse(
+        source.into(),
+        Some(i_slint_compiler::source_path::SourcePath::new("main.slint")),
+        &mut diag,
+    );
     let mut config = CompilerConfiguration::new(OutputFormat::Llr);
     config.style = Some("fluent".into());
     let (_doc, diag, _loader) = spin_on::spin_on(compile_syntax_node(syntax_node, diag, config));
@@ -91,4 +95,36 @@ fn of_equal_blame_reported_in_the_user_file() {
     assert_eq!(reports.len(), 1, "{diagnostics:?}");
     assert!(reports[0].starts_with("main.slint:"), "{reports:?}");
     assert!(reports[0].contains("property 'height'"), "{reports:?}");
+}
+
+/// A GroupBox holds its content in a layout of its own, so the child measured inside the cycle
+/// is an element of the widget's source. The escape names `outer` instead, since a `builtin:`
+/// file is not one the user can put an `x` in.
+const GROUP_BOX_SOURCE: &str = r#"
+import { GroupBox } from "std-widgets.slint";
+
+export component Main inherits Window {
+    outer := VerticalLayout {
+        GroupBox {
+            VerticalLayout { Text { text: "a"; font-size: root.width / 10; } }
+        }
+    }
+}
+"#;
+
+#[test]
+fn escape_never_names_an_element_of_a_widget() {
+    let diagnostics = compile(GROUP_BOX_SOURCE);
+
+    let advice: Vec<_> =
+        diagnostics.iter().filter(|d| d.contains("set an 'x' or a 'y' on")).collect();
+    assert_eq!(advice.len(), 1, "{diagnostics:?}");
+    assert!(advice[0].contains("set an 'x' or a 'y' on 'outer'"), "{advice:?}");
+
+    let notes: Vec<_> = diagnostics
+        .iter()
+        .filter(|d| d.contains("takes 'outer' out of its parent's size"))
+        .collect();
+    assert_eq!(notes.len(), 1, "{diagnostics:?}");
+    assert!(notes[0].starts_with("main.slint:"), "{notes:?}");
 }

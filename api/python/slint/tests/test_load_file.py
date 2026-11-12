@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from slint import CompileError, load_file
+from slint import slint as native
 
 
 def base_dir() -> Path:
@@ -60,7 +61,9 @@ def test_compile_error() -> None:
     with pytest.raises(CompileError) as excinfo:
         load_file(base_dir() / "test-file-error.slint")
     err = excinfo.value
-    diagnostics = err.diagnostics
+    diagnostics = [
+        diag for diag in err.diagnostics if diag.level == native.DiagnosticLevel.Error
+    ]
     assert len(diagnostics) == 2
     assert diagnostics[0].message == "Unknown type 'garbage'"
     assert diagnostics[0].line_number == 6
@@ -70,9 +73,9 @@ def test_compile_error() -> None:
     assert diagnostics[1].column_number == 5
     path = base_dir() / "test-file-error.slint"
     assert str(err) == f"Could not compile {path}"
-    assert len(err.__notes__) == 2
-    assert err.__notes__[0] == f"{path}:6: Unknown type 'garbage'"
-    assert err.__notes__[1] == f"{path}:7: Unknown element 'NewType'"
+    # The notes also hold the info about the missing edition.
+    assert f"{path}:6: Unknown type 'garbage'" in err.__notes__
+    assert f"{path}:7: Unknown element 'NewType'" in err.__notes__
 
 
 def test_load_file_wrapper() -> None:

@@ -40,13 +40,18 @@ let embedded_instance: Rc<RefCell<Option<ComponentInstance>>> = Default::default
 let ei = embedded_instance.clone();
 
 let dyn_factory = slint::ComponentFactory::new(move |ctx| {
-    let compiler = slint_interpreter::Compiler::new();
+    let mut compiler = slint_interpreter::Compiler::new();
+    compiler.compiler_configuration(i_slint_core::InternalToken).debug_hooks = Some(std::hash::RandomState::new());
     let e = spin_on::spin_on(compiler.build_from_source(
         r#"export component E1 inherits Rectangle {
     out property <length> embedded-width <=> self.width;
     out property <length> embedded-height <=> self.height;
     out property <length> embedded-x <=> self.x;
     out property <length> embedded-y <=> self.y;
+
+    width: 50%;
+    in property <percent> height-percentage: 25%;
+    height: height-percentage;
 
     min-width: 10px;
     preferred-width: 50px;

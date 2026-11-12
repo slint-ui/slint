@@ -1,0 +1,104 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The same two Flickables with an interactive element in the inner one
+export component TestCaseTouchArea inherits Window {
+    width: 500px;
+    height: 500px;
+
+    // Scrolling only vertical
+    outer := Flickable {
+        x: 10px;
+        y: 10px;
+        width: parent.width - 20px;
+        height: parent.height - 20px;
+        content-width: self.width;
+        content-height: 980px;
+
+        // Scrolling only horizontal
+        inner := Flickable {
+            content-width: 1500px;
+            content-height: parent.height;
+
+            touch-area := TouchArea {
+                x: 100px;
+                y: 100px;
+                width: 200px;
+                height: 50px;
+                clicked => {
+                    root.clicked += 1;
+                }
+            }
+        }
+    }
+
+    in-out property<int> clicked;
+    out property<bool> touch_area_has_hover: touch-area.has-hover;
+    out property<length> inner_x: - inner.content-x;
+}
+
+/*
+```rust
+// Dragging the inner Flickable and releasing it must leave its children reachable
+use slint::{platform::{WindowEvent, PointerEventButton}, LogicalPosition};
+// Empty content of the inner Flickable
+const EMPTY: LogicalPosition = LogicalPosition::new(400., 300.);
+// Inside the TouchArea, before and after the inner Flickable is scrolled by 50px
+const TOUCH_AREA: LogicalPosition = LogicalPosition::new(150., 135.);
+let instance = TestCaseTouchArea::new().unwrap();
+let window = instance.window();
+
+window.dispatch_event(WindowEvent::PointerMoved { position: EMPTY });
+window.dispatch_event(WindowEvent::PointerPressed { position: EMPTY, button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(120); // The outer Flickable delays the press for 100ms
+for step in 1..=5 {
+    window.dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(EMPTY.x - 10. * step as f32, EMPTY.y) });
+    slint_testing::mock_elapsed_time(16);
+}
+assert!(instance.get_inner_x() > 0., "The drag scrolls the inner Flickable: {}", instance.get_inner_x());
+slint_testing::mock_elapsed_time(1000); // No fling after the release
+window.dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(EMPTY.x - 50., EMPTY.y), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(300);
+
+window.dispatch_event(WindowEvent::PointerMoved { position: TOUCH_AREA });
+assert!(instance.get_touch_area_has_hover(), "The TouchArea gets hover events after the drag");
+window.dispatch_event(WindowEvent::PointerPressed { position: TOUCH_AREA, button: PointerEventButton::Left });
+window.dispatch_event(WindowEvent::PointerReleased { position: TOUCH_AREA, button: PointerEventButton::Left });
+assert_eq!(instance.get_clicked(), 1, "The TouchArea is clickable after the drag");
+```
+
+```rust
+// A tap (press and release without a move) on empty content of the inner Flickable
+// must not leave it swallowing the events of its children
+use slint::{platform::{WindowEvent, PointerEventButton}, LogicalPosition};
+// Empty content of the inner Flickable
+const EMPTY: LogicalPosition = LogicalPosition::new(400., 300.);
+// Inside the TouchArea
+const TOUCH_AREA: LogicalPosition = LogicalPosition::new(150., 135.);
+
+// The outer Flickable forwards the press to the inner one on the release or after 100ms,
+// whichever comes first
+for hold in [20, 150] {
+    let instance = TestCaseTouchArea::new().unwrap();
+    let window = instance.window();
+    let tap = |position: LogicalPosition| {
+        window.dispatch_event(WindowEvent::PointerMoved { position });
+        window.dispatch_event(WindowEvent::PointerPressed { position, button: PointerEventButton::Left });
+        slint_testing::mock_elapsed_time(hold);
+        window.dispatch_event(WindowEvent::PointerReleased { position, button: PointerEventButton::Left });
+        slint_testing::mock_elapsed_time(300);
+    };
+
+    tap(TOUCH_AREA);
+    assert_eq!(instance.get_clicked(), 1, "The TouchArea is clickable (press held for {hold}ms)");
+
+    tap(EMPTY);
+    assert_eq!(instance.get_clicked(), 1);
+
+    window.dispatch_event(WindowEvent::PointerMoved { position: TOUCH_AREA });
+    assert!(instance.get_touch_area_has_hover(), "The TouchArea gets hover events after a tap on empty content (press held for {hold}ms)");
+    tap(TOUCH_AREA);
+    assert_eq!(instance.get_clicked(), 2, "The TouchArea is clickable after a tap on empty content (press held for {hold}ms)");
+}
+```
+*/

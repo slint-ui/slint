@@ -1,4 +1,5 @@
 ---
+
 title: Troubleshooting
 description: Common compile and run-time issues when using Slint with ESP-IDF, and how to resolve them.
 ---

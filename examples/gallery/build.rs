@@ -7,5 +7,5 @@ fn main() {
     if target.contains("android") || target.contains("wasm32") {
         config = config.with_bundled_translations(concat!(env!("CARGO_MANIFEST_DIR"), "/lang/"));
     }
-    slint_build::compile_with_config("gallery.slint", config).unwrap();
+    slint_build::compile_with_config("slint-project.json", config).unwrap();
 }

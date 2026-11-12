@@ -32,15 +32,13 @@ use i_slint_core::layout::{LayoutInfo, Orientation};
 use i_slint_core::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize};
 #[cfg(feature = "rtti")]
 use i_slint_core::rtti::*;
-use i_slint_core::window::{WindowAdapter, WindowAdapterRc, WindowInner};
+use i_slint_core::window::{WindowAdapter, WindowInner};
 use i_slint_core::{
     Callback, Coord, ItemVTable_static, Property, SharedString, SharedVector, declare_item_vtable,
 };
 use i_slint_core_macros::*;
 use std::ptr::NonNull;
 use std::rc::Rc;
-
-type ItemRendererRef<'a> = &'a mut dyn ItemRenderer;
 
 /// Helper macro to get the size from the width and height property,
 /// and return Default::default in case the size is too small
@@ -227,8 +225,10 @@ cpp! {{
         ensure_initialized();
         auto ptr = std::make_unique<SlintAnimatedWidget<Base>>();
         // For our hacks to work, we need to have some invisible parent widget.
-        static QWidget globalParent;
-        ptr->setParent(&globalParent);
+        // Leak it like the QApplication: destroying it at exit deletes the widgets still
+        // parented to it, after Qt's animation timers are gone, which crashes in some styles.
+        static QWidget *globalParent = new QWidget;
+        ptr->setParent(globalParent);
         // Let Qt thinks the widget is visible even if it isn't so update() from animation is forwarded
         ptr->setAttribute(Qt::WA_WState_Visible, true);
         // Hack so update() send a UpdateLater event

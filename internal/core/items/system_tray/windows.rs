@@ -32,11 +32,11 @@ use windows::Win32::UI::Shell::{
 use windows::Win32::UI::WindowsAndMessaging::{
     AppendMenuW, CreateIconIndirect, CreatePopupMenu, CreateWindowExW, DefWindowProcW, DestroyIcon,
     DestroyMenu, DestroyWindow, GWLP_USERDATA, GetCursorPos, GetWindowLongPtrW, HICON, HMENU,
-    HWND_MESSAGE, ICONINFO, MF_DISABLED, MF_GRAYED, MF_POPUP, MF_SEPARATOR, MF_STRING,
-    PostMessageW, RegisterClassW, RegisterWindowMessageW, SetForegroundWindow, SetWindowLongPtrW,
-    TPM_BOTTOMALIGN, TPM_LEFTALIGN, TPM_RETURNCMD, TPM_RIGHTBUTTON, TrackPopupMenu,
-    WINDOW_EX_STYLE, WINDOW_STYLE, WM_APP, WM_CONTEXTMENU, WM_LBUTTONUP, WM_NULL, WM_RBUTTONUP,
-    WNDCLASSW,
+    HWND_MESSAGE, ICONINFO, MF_CHECKED, MF_DISABLED, MF_GRAYED, MF_POPUP, MF_SEPARATOR, MF_STRING,
+    MF_UNCHECKED, PostMessageW, RegisterClassW, RegisterWindowMessageW, SetForegroundWindow,
+    SetWindowLongPtrW, TPM_BOTTOMALIGN, TPM_LEFTALIGN, TPM_RETURNCMD, TPM_RIGHTBUTTON,
+    TrackPopupMenu, WINDOW_EX_STYLE, WINDOW_STYLE, WM_APP, WM_CONTEXTMENU, WM_LBUTTONUP, WM_NULL,
+    WM_RBUTTONUP, WNDCLASSW,
 };
 use windows::core::{HSTRING, PCWSTR, w};
 
@@ -167,7 +167,11 @@ impl PlatformTray {
         });
         unsafe { SetWindowLongPtrW(inner.hwnd, GWLP_USERDATA, &*inner as *const Inner as _) };
 
-        Ok(Self { inner })
+        let tray = Self { inner };
+        if let Some((menu, entries_out)) = params.menu {
+            tray.rebuild_menu(menu, entries_out);
+        }
+        Ok(tray)
     }
 
     pub fn rebuild_menu(
@@ -175,7 +179,6 @@ impl PlatformTray {
         menu: vtable::VRef<'_, MenuVTable>,
         entries_out: &mut std::vec::Vec<MenuEntry>,
     ) {
-        entries_out.clear();
         let Ok(new_menu) = (unsafe { CreatePopupMenu() }) else { return };
 
         let mut top = SharedVector::<MenuEntry>::default();
@@ -501,6 +504,13 @@ fn append_menu_entry(
         let mut flags = MF_STRING;
         if !entry.enabled {
             flags |= MF_GRAYED | MF_DISABLED;
+        }
+        if entry.checkable {
+            if entry.checked {
+                flags |= MF_CHECKED;
+            } else {
+                flags |= MF_UNCHECKED;
+            }
         }
         let _ = unsafe { AppendMenuW(parent, flags, cmd as usize, &title) };
     }

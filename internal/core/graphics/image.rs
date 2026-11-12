@@ -6,17 +6,32 @@
 This module contains image decoding and caching related types for the run-time library.
 */
 
-use crate::lengths::{PhysicalPx, ScaleFactor};
+use crate::lengths::{LogicalSize, PhysicalPx, ScaleFactor};
+#[allow(unused)]
 use crate::slice::Slice;
 #[allow(unused)]
 use crate::{SharedString, SharedVector};
 
-use super::{IntRect, IntSize};
+#[cfg(feature = "owned-pre-rendered-resources")]
+use super::OwnedStorage;
+use super::{IntRect, IntSize, StaticStorage};
 use crate::items::{ImageFit, ImageHorizontalAlignment, ImageTiling, ImageVerticalAlignment};
+#[cfg(not(feature = "std"))]
+use num_traits::Float;
 
-#[cfg(any(feature = "image-decoders", all(target_arch = "wasm32", feature = "std")))]
+mod animated;
+#[cfg(any(
+    feature = "image-decoders",
+    all(target_arch = "wasm32", not(target_os = "emscripten"), feature = "std")
+))]
 pub mod cache;
-#[cfg(target_arch = "wasm32")]
+pub use animated::AnimatedImage;
+#[cfg(all(
+    feature = "image-decoders",
+    any(not(target_arch = "wasm32"), target_os = "emscripten")
+))]
+pub(crate) use animated::{Frame, FrameDecoder};
+#[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
 mod htmlimage;
 #[cfg(feature = "svg")]
 mod svg;
@@ -40,7 +55,7 @@ OpaqueImageVTable_static! {
     pub static PARSED_SVG_VT for svg::ParsedSVG
 }
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
 OpaqueImageVTable_static! {
     /// VTable for RC wrapped HtmlImage helper struct.
     pub static HTML_IMAGE_VT for htmlimage::HTMLImage
@@ -49,6 +64,17 @@ OpaqueImageVTable_static! {
 OpaqueImageVTable_static! {
     /// VTable for RC wrapped SVG helper struct.
     pub static NINE_SLICE_VT for NineSliceImage
+}
+
+OpaqueImageVTable_static! {
+    /// VTable for RC wrapped animated images.
+    pub static ANIMATED_IMAGE_VT for AnimatedImage
+}
+
+#[cfg(any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30"))]
+OpaqueImageVTable_static! {
+    /// VTable for RC wrapped WGPU textures.
+    pub static WGPU_TEXTURE_VT for WGPUTexture
 }
 
 /// SharedPixelBuffer is a container for storing image data as pixels. It is
@@ -130,7 +156,8 @@ impl<Pixel: Clone> SharedPixelBuffer<Pixel> {
     /// and you would like to convert it for use in Slint.
     ///
     /// The slice must hold exactly `width * height * bytes_per_pixel` bytes,
-    /// where `bytes_per_pixel` is the size of the target pixel type: 4 for [`Rgba8Pixel`], 3 for [`Rgb8Pixel`].
+    /// where `bytes_per_pixel` is the size of the target pixel type:
+    /// 4 for [`Rgba8Pixel`], 3 for [`Rgb8Pixel`], and 1 for [`Gray8Pixel`].
     /// This panics otherwise.
     #[track_caller]
     pub fn clone_from_slice<SourcePixelType>(
@@ -158,8 +185,33 @@ pub type Rgb8Pixel = rgb::RGB8;
 /// Convenience alias for a pixel with four color channels (red, green, blue and alpha), each
 /// encoded as u8.
 pub type Rgba8Pixel = rgb::RGBA8;
-/// Convenience alias for a single-channel grayscale pixel encoded as u8.
-pub type Gray8Pixel = rgb::Gray<u8>;
+/// A grayscale pixel: a single luminance channel encoded as u8,
+/// between 0 (black) and 255 (white).
+#[repr(transparent)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Default, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct Gray8Pixel(pub u8);
+
+impl From<Gray8Pixel> for Rgb8Pixel {
+    fn from(pixel: Gray8Pixel) -> Self {
+        Self { r: pixel.0, g: pixel.0, b: pixel.0 }
+    }
+}
+
+impl From<Gray8Pixel> for Rgba8Pixel {
+    fn from(pixel: Gray8Pixel) -> Self {
+        Self { r: pixel.0, g: pixel.0, b: pixel.0, a: 255 }
+    }
+}
+
+impl rgb::AsPixels<Gray8Pixel> for [u8] {
+    fn as_pixels(&self) -> &[Gray8Pixel] {
+        bytemuck::cast_slice(self)
+    }
+
+    fn as_pixels_mut(&mut self) -> &mut [Gray8Pixel] {
+        bytemuck::cast_slice_mut(self)
+    }
+}
 
 impl From<crate::Color> for Rgb8Pixel {
     fn from(value: crate::Color) -> Self {
@@ -185,6 +237,7 @@ impl Rgb565Pixel {
 
     /// Create a pixel from 8-bit red, green, and blue components.
     /// The low bits are truncated.
+    #[inline]
     pub const fn from_rgb(r: u8, g: u8, b: u8) -> Self {
         Self(((r as u16 & 0b11111000) << 8) | ((g as u16 & 0b11111100) << 3) | (b as u16 >> 3))
     }
@@ -192,6 +245,7 @@ impl Rgb565Pixel {
     /// Return the red component as a u8.
     ///
     /// The value is scaled so that a full 5-bit component yields 255.
+    #[inline]
     pub const fn red(self) -> u8 {
         let r = (self.0 & Self::R_MASK) >> 11;
         ((r << 3) | (r >> 2)) as u8
@@ -199,6 +253,7 @@ impl Rgb565Pixel {
     /// Return the green component as a u8.
     ///
     /// The value is scaled so that a full 6-bit component yields 255.
+    #[inline]
     pub const fn green(self) -> u8 {
         let g = (self.0 & Self::G_MASK) >> 5;
         ((g << 2) | (g >> 4)) as u8
@@ -206,6 +261,7 @@ impl Rgb565Pixel {
     /// Return the blue component as a u8.
     ///
     /// The value is scaled so that a full 5-bit component yields 255.
+    #[inline]
     pub const fn blue(self) -> u8 {
         let b = self.0 & Self::B_MASK;
         ((b << 3) | (b >> 2)) as u8
@@ -247,7 +303,7 @@ fn map_pixels<Source: Clone, Dest: Clone + From<Source>>(
 /// images in pixels.
 #[derive(Clone, Debug)]
 #[repr(C)]
-/// TODO: Make this non_exhaustive before making the type public!
+#[non_exhaustive]
 pub enum SharedImageBuffer {
     /// This variant holds the data for an image where each pixel has three color channels (red, green,
     /// and blue) and each channel is encoded as unsigned byte.
@@ -328,79 +384,64 @@ impl PartialEq for SharedImageBuffer {
     }
 }
 
-#[repr(u8)]
-#[derive(Clone, PartialEq, Debug, Copy)]
-/// The pixel format used for textures.
-pub enum TexturePixelFormat {
-    /// red, green, blue. 24bits.
-    Rgb,
-    /// Red, green, blue, alpha. 32bits.
-    Rgba,
-    /// Red, green, blue, alpha. 32bits. The color are premultiplied by alpha
-    RgbaPremultiplied,
-    /// Alpha map. 8bits. Each pixel is an alpha value. The color is specified separately.
-    AlphaMap,
-    /// Distance field. 8bit interpreted as i8.
-    /// The range is such that i8::MIN corresponds to 3 pixels outside of the shape,
-    /// and i8::MAX corresponds to 3 pixels inside the shape.
-    /// The array must be width * height +1 bytes long. (the extra bit is read but never used)
-    SignedDistanceField,
-    /// Grayscale. 8bits. Each pixel is a luminance value rendered as (v, v, v, 255).
-    ///
-    /// This variant is only available with the `image-pixel-format-gray8` feature.
-    #[cfg(feature = "image-pixel-format-gray8")]
-    Gray8,
-    /// 16 bits per pixel: 5 red bits, 6 green bits, and 5 blue bits, in native byte order.
-    ///
-    /// This variant is only available with the `image-pixel-format-rgb565` feature.
-    #[cfg(feature = "image-pixel-format-rgb565")]
-    Rgb565,
-}
+pub use i_slint_common::pre_rendered::{StaticTexture, TexturePixelFormat};
 
-impl TexturePixelFormat {
-    /// The number of bytes in a pixel
-    pub fn bpp(self) -> usize {
-        match self {
-            TexturePixelFormat::Rgb => 3,
-            TexturePixelFormat::Rgba => 4,
-            TexturePixelFormat::RgbaPremultiplied => 4,
-            TexturePixelFormat::AlphaMap => 1,
-            TexturePixelFormat::SignedDistanceField => 1,
-            #[cfg(feature = "image-pixel-format-gray8")]
-            TexturePixelFormat::Gray8 => 1,
-            #[cfg(feature = "image-pixel-format-rgb565")]
-            TexturePixelFormat::Rgb565 => 2,
+/// cbindgen:ignore
+pub type StaticTextures<S = StaticStorage> = i_slint_common::pre_rendered::StaticTextures<S>;
+
+/// The pixels of the image that `textures` cover, in a buffer of `size`.
+fn textures_to_buffer(size: IntSize, data: &[u8], textures: &[StaticTexture]) -> SharedImageBuffer {
+    fn fill<const N: usize>(
+        target: &mut [Rgba8Pixel],
+        source: &[u8],
+        pixel: impl Fn(&[u8; N]) -> Rgba8Pixel,
+    ) {
+        for (target, p) in target.iter_mut().zip(source.as_chunks::<N>().0) {
+            *target = pixel(p);
         }
     }
-}
-
-#[repr(C)]
-#[derive(Clone, PartialEq, Debug)]
-/// Some raw pixel data which is typically stored in the binary
-pub struct StaticTexture {
-    /// The position and size of the texture within the image
-    pub rect: IntRect,
-    /// The pixel format of this texture
-    pub format: TexturePixelFormat,
-    /// The color, for the alpha map ones
-    pub color: crate::Color,
-    /// index in the data array
-    pub index: usize,
-}
-
-/// A texture is stored in read-only memory and may be composed of sub-textures.
-#[repr(C)]
-#[derive(Clone, PartialEq, Debug)]
-pub struct StaticTextures {
-    /// The total size of the image (this might not be the size of the full image
-    /// as some transparent part are not part of any texture)
-    pub size: IntSize,
-    /// The size of the image before the compiler applied any scaling
-    pub original_size: IntSize,
-    /// The pixel data referenced by the textures
-    pub data: Slice<'static, u8>,
-    /// The list of textures
-    pub textures: Slice<'static, StaticTexture>,
+    let mut buffer = SharedPixelBuffer::<Rgba8Pixel>::new(size.width, size.height);
+    let stride = buffer.width() as usize;
+    let slice = buffer.make_mut_slice();
+    for t in textures {
+        let rect = t.rect.to_usize();
+        for y in 0..rect.height() {
+            let slice = &mut slice[(rect.min_y() + y) * stride..][rect.x_range()];
+            let source = &data[t.index + y * rect.width() * t.format.bpp()..];
+            match t.format {
+                TexturePixelFormat::Rgb => {
+                    fill(slice, source, |p: &[u8; 3]| Rgba8Pixel::new(p[0], p[1], p[2], 255))
+                }
+                TexturePixelFormat::RgbaPremultiplied => {
+                    fill(slice, source, |p: &[u8; 4]| Rgba8Pixel::new(p[0], p[1], p[2], p[3]))
+                }
+                TexturePixelFormat::Rgba => fill(slice, source, |p: &[u8; 4]| {
+                    let pm = |c: u8| (c as u16 * p[3] as u16 / 255) as u8;
+                    Rgba8Pixel::new(pm(p[0]), pm(p[1]), pm(p[2]), p[3])
+                }),
+                TexturePixelFormat::AlphaMap => {
+                    let [a, r, g, b] = t.color.to_be_bytes().map(u32::from);
+                    fill(slice, source, |p: &[u8; 1]| {
+                        let a = p[0] as u32 * a;
+                        let pm = |c: u32| (c * a / (255 * 255)) as u8;
+                        Rgba8Pixel::new(pm(r), pm(g), pm(b), (a / 255) as u8)
+                    })
+                }
+                #[cfg(feature = "image-pixel-format-gray8")]
+                TexturePixelFormat::Gray8 => {
+                    fill(slice, source, |p: &[u8; 1]| Gray8Pixel(p[0]).into())
+                }
+                TexturePixelFormat::SignedDistanceField => {
+                    todo!("converting from a signed distance field to an image")
+                }
+                #[cfg(feature = "image-pixel-format-rgb565")]
+                TexturePixelFormat::Rgb565 => {
+                    fill(slice, source, |p: &[u8; 2]| Rgb565Pixel(u16::from_ne_bytes(*p)).into())
+                }
+            }
+        }
+    }
+    SharedImageBuffer::RGBA8Premultiplied(buffer)
 }
 
 /// A struct that provides a path as a string as well as the last modification
@@ -414,7 +455,7 @@ pub struct CachedPath {
     last_modified: u32,
 }
 
-#[cfg(all(feature = "image-decoders", not(target_arch = "wasm32")))]
+#[cfg(all(feature = "image-decoders", any(not(target_arch = "wasm32"), target_os = "emscripten")))]
 impl CachedPath {
     fn new<P: AsRef<std::path::Path>>(path: P) -> Self {
         let path_str = path.as_ref().to_string_lossy().as_ref().into();
@@ -440,7 +481,7 @@ pub enum ImageCacheKey {
     /// The image is identified by its path on the file system and the last modification time stamp.
     Path(CachedPath) = 1,
     /// The image is identified by a URL.
-    #[cfg(target_arch = "wasm32")]
+    #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
     URL(SharedString) = 2,
     /// The image is identified by the static address of its encoded data.
     EmbeddedData(usize) = 3,
@@ -457,15 +498,17 @@ impl ImageCacheKey {
                 Self::from_embedded_image_data(textures.data.as_slice())
             }
             #[cfg(feature = "svg")]
-            ImageInner::Svg(parsed_svg) => parsed_svg.cache_key(),
-            #[cfg(target_arch = "wasm32")]
+            ImageInner::Svg(parsed_svg) => parsed_svg.cache_key().clone(),
+            #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
             ImageInner::HTMLImage(htmlimage) => Self::URL(htmlimage.source().into()),
             ImageInner::BackendStorage(x) => vtable::VRc::borrow(x).cache_key(),
-            #[cfg(not(target_arch = "wasm32"))]
             ImageInner::BorrowedOpenGLTexture(..) => return None,
             ImageInner::NineSlice(nine) => vtable::VRc::borrow(nine).cache_key(),
             #[cfg(any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30"))]
             ImageInner::WGPUTexture(..) => return None,
+            ImageInner::AnimatedImage(animated) => vtable::VRc::borrow(animated).cache_key(),
+            #[cfg(feature = "owned-pre-rendered-resources")]
+            ImageInner::OwnedTextures(..) => return None,
         };
         if matches!(key, ImageCacheKey::Invalid) { None } else { Some(key) }
     }
@@ -545,18 +588,77 @@ pub enum ImageInner {
     } = 1,
     #[cfg(feature = "svg")]
     Svg(vtable::VRc<OpaqueImageVTable, svg::ParsedSVG>) = 2,
-    StaticTextures(&'static StaticTextures) = 3,
-    #[cfg(target_arch = "wasm32")]
+    #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
     HTMLImage(vtable::VRc<OpaqueImageVTable, htmlimage::HTMLImage>) = 4,
     BackendStorage(vtable::VRc<OpaqueImageVTable>) = 5,
-    #[cfg(not(target_arch = "wasm32"))]
     BorrowedOpenGLTexture(BorrowedOpenGLTexture) = 6,
     NineSlice(vtable::VRc<OpaqueImageVTable, NineSliceImage>) = 7,
     #[cfg(any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30"))]
-    WGPUTexture(WGPUTexture) = 8,
+    WGPUTexture(vtable::VRc<OpaqueImageVTable, WGPUTexture>) = 8,
+    AnimatedImage(vtable::VRc<OpaqueImageVTable, AnimatedImage>) = 9,
+    #[cfg(feature = "owned-pre-rendered-resources")]
+    OwnedTextures(alloc::rc::Rc<StaticTextures<OwnedStorage>>) = 10,
+    StaticTextures(&'static StaticTextures<StaticStorage>) = 11,
+}
+
+#[cfg(any(
+    feature = "image-decoders",
+    all(target_arch = "wasm32", not(target_os = "emscripten"), feature = "std")
+))]
+#[derive(Clone, Copy)]
+pub(crate) enum ImageData<'a> {
+    Static(&'static [u8]),
+    Borrowed(&'a [u8]),
+    /// Data that an animation can keep without a copy.
+    #[cfg(all(
+        feature = "image-decoders",
+        any(not(target_arch = "wasm32"), target_os = "emscripten")
+    ))]
+    Shared(&'a SharedVector<u8>),
+}
+
+#[cfg(any(
+    feature = "image-decoders",
+    all(target_arch = "wasm32", not(target_os = "emscripten"), feature = "std")
+))]
+impl core::ops::Deref for ImageData<'_> {
+    type Target = [u8];
+    fn deref(&self) -> &[u8] {
+        match self {
+            Self::Static(data) => data,
+            Self::Borrowed(data) => data,
+            #[cfg(all(
+                feature = "image-decoders",
+                any(not(target_arch = "wasm32"), target_os = "emscripten")
+            ))]
+            Self::Shared(data) => data,
+        }
+    }
+}
+
+impl ImageCacheKey {
+    #[cfg(feature = "std")]
+    fn path(&self) -> Option<&SharedString> {
+        match self {
+            ImageCacheKey::Path(CachedPath { path, .. }) => Some(path),
+            _ => None,
+        }
+    }
 }
 
 impl ImageInner {
+    #[cfg(feature = "std")]
+    fn path(&self) -> Option<&SharedString> {
+        match self {
+            ImageInner::EmbeddedImage { cache_key, .. } => cache_key.path(),
+            ImageInner::AnimatedImage(animated) => animated.source_cache_key().path(),
+            ImageInner::NineSlice(nine) => nine.0.path(),
+            #[cfg(feature = "svg")]
+            ImageInner::Svg(svg) => svg.cache_key().path(),
+            _ => None,
+        }
+    }
+
     /// Return or render the image into a buffer
     ///
     /// `target_size_for_scalable_source` is the size to use if the image is scalable.
@@ -580,84 +682,14 @@ impl ImageInner {
                 }
             },
             ImageInner::StaticTextures(ts) => {
-                let mut buffer =
-                    SharedPixelBuffer::<Rgba8Pixel>::new(ts.size.width, ts.size.height);
-                let stride = buffer.width() as usize;
-                let slice = buffer.make_mut_slice();
-                for t in ts.textures.iter() {
-                    let rect = t.rect.to_usize();
-                    for y in 0..rect.height() {
-                        let slice = &mut slice[(rect.min_y() + y) * stride..][rect.x_range()];
-                        let source = &ts.data[t.index + y * rect.width() * t.format.bpp()..];
-                        match t.format {
-                            TexturePixelFormat::Rgb => {
-                                let mut iter = source
-                                    .as_chunks::<3>()
-                                    .0
-                                    .iter()
-                                    .map(|p| Rgba8Pixel { r: p[0], g: p[1], b: p[2], a: 255 });
-                                slice.fill_with(|| iter.next().unwrap());
-                            }
-                            TexturePixelFormat::RgbaPremultiplied => {
-                                let mut iter = source
-                                    .as_chunks::<4>()
-                                    .0
-                                    .iter()
-                                    .map(|p| Rgba8Pixel { r: p[0], g: p[1], b: p[2], a: p[3] });
-                                slice.fill_with(|| iter.next().unwrap());
-                            }
-                            TexturePixelFormat::Rgba => {
-                                let mut iter = source.as_chunks::<4>().0.iter().map(|p| {
-                                    let a = p[3];
-                                    Rgba8Pixel {
-                                        r: (p[0] as u16 * a as u16 / 255) as u8,
-                                        g: (p[1] as u16 * a as u16 / 255) as u8,
-                                        b: (p[2] as u16 * a as u16 / 255) as u8,
-                                        a,
-                                    }
-                                });
-                                slice.fill_with(|| iter.next().unwrap());
-                            }
-                            TexturePixelFormat::AlphaMap => {
-                                let col = t.color.to_argb_u8();
-                                let mut iter = source.iter().map(|p| {
-                                    let a = *p as u32 * col.alpha as u32;
-                                    Rgba8Pixel {
-                                        r: (col.red as u32 * a / (255 * 255)) as u8,
-                                        g: (col.green as u32 * a / (255 * 255)) as u8,
-                                        b: (col.blue as u32 * a / (255 * 255)) as u8,
-                                        a: (a / 255) as u8,
-                                    }
-                                });
-                                slice.fill_with(|| iter.next().unwrap());
-                            }
-                            #[cfg(feature = "image-pixel-format-gray8")]
-                            TexturePixelFormat::Gray8 => {
-                                let mut iter = source.iter().map(|v| Rgba8Pixel {
-                                    r: *v,
-                                    g: *v,
-                                    b: *v,
-                                    a: 255,
-                                });
-                                slice.fill_with(|| iter.next().unwrap());
-                            }
-                            TexturePixelFormat::SignedDistanceField => {
-                                todo!("converting from a signed distance field to an image")
-                            }
-                            #[cfg(feature = "image-pixel-format-rgb565")]
-                            TexturePixelFormat::Rgb565 => {
-                                let mut iter = source.as_chunks::<2>().0.iter().map(|chunk| {
-                                    let p = Rgb565Pixel(u16::from_ne_bytes(*chunk));
-                                    Rgba8Pixel { r: p.red(), g: p.green(), b: p.blue(), a: 255 }
-                                });
-                                slice.fill_with(|| iter.next().unwrap());
-                            }
-                        };
-                    }
-                }
-                Some(SharedImageBuffer::RGBA8Premultiplied(buffer))
+                Some(textures_to_buffer(ts.size, &ts.data, &ts.textures))
+            }
+            #[cfg(feature = "owned-pre-rendered-resources")]
+            ImageInner::OwnedTextures(textures) => {
+                Some(textures_to_buffer(textures.size, &textures.data, &textures.textures))
             }
             ImageInner::NineSlice(nine) => nine.0.render_to_buffer(None),
+            ImageInner::AnimatedImage(animated) => Some(animated.first_frame_buffer().clone()),
             _ => None,
         }
     }
@@ -667,7 +699,7 @@ impl ImageInner {
         match self {
             #[cfg(feature = "svg")]
             Self::Svg(_) => true,
-            #[cfg(target_arch = "wasm32")]
+            #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
             Self::HTMLImage(html_image) => html_image.is_svg(),
             _ => false,
         }
@@ -679,16 +711,18 @@ impl ImageInner {
             ImageInner::None => Default::default(),
             ImageInner::EmbeddedImage { buffer, .. } => buffer.size(),
             ImageInner::StaticTextures(StaticTextures { original_size, .. }) => *original_size,
+            #[cfg(feature = "owned-pre-rendered-resources")]
+            ImageInner::OwnedTextures(textures) => textures.original_size,
             #[cfg(feature = "svg")]
             ImageInner::Svg(svg) => svg.size(),
-            #[cfg(target_arch = "wasm32")]
+            #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
             ImageInner::HTMLImage(htmlimage) => htmlimage.size().unwrap_or_default(),
             ImageInner::BackendStorage(x) => vtable::VRc::borrow(x).size(),
-            #[cfg(not(target_arch = "wasm32"))]
             ImageInner::BorrowedOpenGLTexture(BorrowedOpenGLTexture { size, .. }) => *size,
             ImageInner::NineSlice(nine) => nine.0.size(),
             #[cfg(any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30"))]
             ImageInner::WGPUTexture(texture) => texture.size(),
+            ImageInner::AnimatedImage(animated) => animated.size(),
         }
     }
 
@@ -698,14 +732,17 @@ impl ImageInner {
     /// which could lead to bad behavior. This constructor should be called from within
     /// `ImageCache::lookup_image_in_cache_or_create`, or `ImageCacheKey::Invalid` should be
     /// supplied.
-    #[cfg(any(feature = "image-decoders", all(target_arch = "wasm32", feature = "std")))]
+    #[cfg(any(
+        feature = "image-decoders",
+        all(target_arch = "wasm32", not(target_os = "emscripten"), feature = "std")
+    ))]
     pub(crate) fn load_from_data_with_cache_key(
         cache_key: ImageCacheKey,
-        data: Slice<'_, u8>,
+        data: ImageData<'_>,
         format: Slice<'_, u8>,
     ) -> Option<Self> {
         // On the web, let the browser decode the image instead of shipping decoders in the binary.
-        #[cfg(target_arch = "wasm32")]
+        #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
         {
             let _ = cache_key;
             let mime_type = core::str::from_utf8(format.as_slice())
@@ -723,11 +760,11 @@ impl ImageInner {
                 crate::debug_log!("Compressed SVG (.svgz) is not supported on the web");
                 return None;
             }
-            htmlimage::HTMLImage::new_from_data(data.as_slice(), mime_type)
+            htmlimage::HTMLImage::new_from_data(&data, mime_type)
                 .map(|html_image| ImageInner::HTMLImage(vtable::VRc::new(html_image)))
         }
 
-        #[cfg(not(target_arch = "wasm32"))]
+        #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
         {
             #[cfg(feature = "svg")]
             if format.as_slice() == b"svg"
@@ -735,7 +772,7 @@ impl ImageInner {
                 || (format.is_empty() && (data.starts_with(b"<?xml") || data.starts_with(b"<svg")))
             {
                 return Some(ImageInner::Svg(vtable::VRc::new(
-                    svg::load_from_data(data.as_slice(), cache_key).map_or_else(
+                    svg::load_from_data(&data, cache_key).map_or_else(
                         |svg_err| {
                             crate::debug_log!("Error loading SVG: {}", svg_err);
                             None
@@ -748,46 +785,55 @@ impl ImageInner {
             let format = std::str::from_utf8(format.as_slice())
                 .ok()
                 .and_then(image::ImageFormat::from_extension);
-            let maybe_image = if let Some(format) = format {
-                image::load_from_memory_with_format(data.as_slice(), format)
-            } else {
-                image::load_from_memory(data.as_slice())
-            };
-
-            match maybe_image {
-                Ok(image) => Some(ImageInner::EmbeddedImage {
-                    cache_key,
-                    buffer: dynamic_image_to_shared_image_buffer(image),
-                }),
-                Err(decode_err) => {
-                    crate::debug_log!("Error decoding embedded image: {}", decode_err);
-                    None
-                }
-            }
+            Self::decode_with_cache_key(cache_key, data, format)
+                .map_err(|err| crate::debug_log!("Error decoding embedded image: {err}"))
+                .ok()
         }
+    }
+
+    #[cfg(all(
+        feature = "image-decoders",
+        any(not(target_arch = "wasm32"), target_os = "emscripten")
+    ))]
+    pub(crate) fn decode_with_cache_key(
+        cache_key: ImageCacheKey,
+        data: ImageData<'_>,
+        format: Option<image::ImageFormat>,
+    ) -> image::ImageResult<Self> {
+        let format = format.or_else(|| image::guess_format(&data).ok());
+        // Files that the animation decoders reject may still decode as a still image.
+        if let Some(image) = format.and_then(|format| {
+            animated::load(cache_key.clone(), data, format)
+                .map_err(|err| {
+                    crate::debug_log!("Error decoding animation, showing a still image: {err}")
+                })
+                .ok()
+                .flatten()
+        }) {
+            return Ok(image);
+        }
+        let image = match format {
+            Some(format) => image::load_from_memory_with_format(&data, format),
+            None => image::load_from_memory(&data),
+        }?;
+        Ok(ImageInner::EmbeddedImage {
+            cache_key,
+            buffer: dynamic_image_to_shared_image_buffer(image),
+        })
     }
 }
 
 /// Convert `image::DynamicImage` to `SharedImageBuffer`
-#[cfg(all(feature = "image-decoders", not(target_arch = "wasm32")))]
+#[cfg(all(feature = "image-decoders", any(not(target_arch = "wasm32"), target_os = "emscripten")))]
 fn dynamic_image_to_shared_image_buffer(dynamic_image: image::DynamicImage) -> SharedImageBuffer {
-    use rgb::AsPixels;
-
     if dynamic_image.color().has_alpha() {
-        let rgba8image = dynamic_image.to_rgba8();
         // Prefer pre-multiplied alpha so that smooth-scaling won't bleed the alpha when blending
         // in the renderers.
-        SharedImageBuffer::RGBA8Premultiplied(SharedPixelBuffer {
-            width: rgba8image.width(),
-            height: rgba8image.height(),
-            data: rgba8image
-                .as_pixels()
-                .iter()
-                .map(|pixel| Image::rgba_to_premultiplied_rgba(*pixel))
-                .collect(),
-        })
+        SharedImageBuffer::RGBA8Premultiplied(rgba_image_to_premultiplied(
+            dynamic_image.into_rgba8(),
+        ))
     } else {
-        let rgb8image = dynamic_image.to_rgb8();
+        let rgb8image = dynamic_image.into_rgb8();
         SharedImageBuffer::RGB8(SharedPixelBuffer::clone_from_slice(
             rgb8image.as_raw(),
             rgb8image.width(),
@@ -796,22 +842,39 @@ fn dynamic_image_to_shared_image_buffer(dynamic_image: image::DynamicImage) -> S
     }
 }
 
+#[cfg(all(feature = "image-decoders", any(not(target_arch = "wasm32"), target_os = "emscripten")))]
+fn rgba_image_to_premultiplied(image: image::RgbaImage) -> SharedPixelBuffer<Rgba8Pixel> {
+    use rgb::AsPixels;
+    SharedPixelBuffer {
+        width: image.width(),
+        height: image.height(),
+        data: image
+            .as_pixels()
+            .iter()
+            .map(|pixel| Image::rgba_to_premultiplied_rgba(*pixel))
+            .collect(),
+    }
+}
+
 impl PartialEq for ImageInner {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
+            (Self::None, Self::None) => true,
             (
                 Self::EmbeddedImage { cache_key: l_cache_key, buffer: l_buffer },
                 Self::EmbeddedImage { cache_key: r_cache_key, buffer: r_buffer },
             ) => l_cache_key == r_cache_key && l_buffer == r_buffer,
             #[cfg(feature = "svg")]
             (Self::Svg(l0), Self::Svg(r0)) => vtable::VRc::ptr_eq(l0, r0),
-            (Self::StaticTextures(l0), Self::StaticTextures(r0)) => l0 == r0,
-            #[cfg(target_arch = "wasm32")]
+            (Self::StaticTextures(l0), Self::StaticTextures(r0)) => core::ptr::eq(*l0, *r0),
+            #[cfg(feature = "owned-pre-rendered-resources")]
+            (Self::OwnedTextures(l0), Self::OwnedTextures(r0)) => alloc::rc::Rc::ptr_eq(l0, r0),
+            #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
             (Self::HTMLImage(l0), Self::HTMLImage(r0)) => vtable::VRc::ptr_eq(l0, r0),
             (Self::BackendStorage(l0), Self::BackendStorage(r0)) => vtable::VRc::ptr_eq(l0, r0),
-            #[cfg(not(target_arch = "wasm32"))]
             (Self::BorrowedOpenGLTexture(l0), Self::BorrowedOpenGLTexture(r0)) => l0 == r0,
             (Self::NineSlice(l), Self::NineSlice(r)) => l.0 == r.0 && l.1 == r.1,
+            (Self::AnimatedImage(l), Self::AnimatedImage(r)) => **l == **r,
             _ => false,
         }
     }
@@ -838,6 +901,8 @@ impl std::error::Error for LoadImageError {}
 
 /// An image type that can be displayed by the Image element. You can construct
 /// Image objects from a path to an image file on disk, using [`Self::load_from_path`].
+///
+/// Clones of an Image share the same underlying data, so cloning is cheap.
 ///
 /// Another typical use-case is to render the image content with Rust code.
 /// For this it's most efficient to create a new SharedPixelBuffer with the known dimensions
@@ -937,7 +1002,10 @@ impl std::error::Error for LoadImageError {}
 pub struct Image(pub(crate) ImageInner);
 
 impl Image {
-    #[cfg(any(feature = "image-decoders", all(target_arch = "wasm32", feature = "std")))]
+    #[cfg(any(
+        feature = "image-decoders",
+        all(target_arch = "wasm32", not(target_os = "emscripten"), feature = "std")
+    ))]
     /// Load an Image from a path to a file containing an image.
     ///
     /// Supported formats are SVG, PNG and JPEG.
@@ -1012,6 +1080,7 @@ impl Image {
 
     /// Returns the pixel buffer for the Image if available in RGB format without alpha.
     /// Returns None if the pixels cannot be obtained, for example when the image was created from borrowed OpenGL textures.
+    /// For an animated image, returns its first frame.
     pub fn to_rgb8(&self) -> Option<SharedPixelBuffer<Rgb8Pixel>> {
         self.0.render_to_buffer(None).and_then(|image| match image {
             SharedImageBuffer::RGB8(buffer) => Some(buffer),
@@ -1027,6 +1096,7 @@ impl Image {
 
     /// Returns the pixel buffer for the Image if available in RGBA format.
     /// Returns None if the pixels cannot be obtained, for example when the image was created from borrowed OpenGL textures.
+    /// For an animated image, returns its first frame.
     pub fn to_rgba8(&self) -> Option<SharedPixelBuffer<Rgba8Pixel>> {
         self.render_to_rgba8(None)
     }
@@ -1057,6 +1127,7 @@ impl Image {
     /// Returns the pixel buffer for the Image if available in RGBA format, with the alpha channel pre-multiplied
     /// to the red, green, and blue channels.
     /// Returns None if the pixels cannot be obtained, for example when the image was created from borrowed OpenGL textures.
+    /// For an animated image, returns its first frame.
     pub fn to_rgba8_premultiplied(&self) -> Option<SharedPixelBuffer<Rgba8Pixel>> {
         self.0.render_to_buffer(None).map(|image| match image {
             SharedImageBuffer::RGB8(buffer) => SharedPixelBuffer::<Rgba8Pixel> {
@@ -1116,7 +1187,11 @@ impl Image {
     #[cfg(feature = "unstable-wgpu-29")]
     pub fn to_wgpu_29_texture(&self) -> Option<wgpu_29::Texture> {
         match &self.0 {
-            ImageInner::WGPUTexture(WGPUTexture::WGPU29Texture(texture)) => Some(texture.clone()),
+            ImageInner::WGPUTexture(texture) => match &**texture {
+                WGPUTexture::WGPU29Texture(texture) => Some(texture.clone()),
+                #[allow(unreachable_patterns)]
+                _ => None,
+            },
             _ => None,
         }
     }
@@ -1129,7 +1204,11 @@ impl Image {
     #[cfg(feature = "unstable-wgpu-30")]
     pub fn to_wgpu_30_texture(&self) -> Option<wgpu_30::Texture> {
         match &self.0 {
-            ImageInner::WGPUTexture(WGPUTexture::WGPU30Texture(texture)) => Some(texture.clone()),
+            ImageInner::WGPUTexture(texture) => match &**texture {
+                WGPUTexture::WGPU30Texture(texture) => Some(texture.clone()),
+                #[allow(unreachable_patterns)]
+                _ => None,
+            },
             _ => None,
         }
     }
@@ -1154,7 +1233,7 @@ impl Image {
     /// [`slint::Image`](Self) objects created from borrowed OpenGL textures cannot be shared between
     /// different windows.
     #[allow(unsafe_code)]
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
     #[deprecated(since = "1.2.0", note = "Use BorrowedOpenGLTextureBuilder")]
     pub unsafe fn from_borrowed_gl_2d_rgba_texture(
         texture_id: core::num::NonZeroU32,
@@ -1166,16 +1245,16 @@ impl Image {
     /// Creates a new Image from the specified buffer, which contains SVG raw data.
     ///
     /// On the web, the browser renders the SVG, and compressed SVG data (svgz) is not supported.
-    #[cfg(any(feature = "svg", target_arch = "wasm32"))]
+    #[cfg(any(feature = "svg", all(target_arch = "wasm32", not(target_os = "emscripten"))))]
     pub fn load_from_svg_data(buffer: &[u8]) -> Result<Self, LoadImageError> {
         // On the web, the browser decodes the SVG.
-        #[cfg(target_arch = "wasm32")]
+        #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
         {
             htmlimage::HTMLImage::new_from_data(buffer, "image/svg+xml")
                 .map(|html_image| Image(ImageInner::HTMLImage(vtable::VRc::new(html_image))))
                 .ok_or(LoadImageError(()))
         }
-        #[cfg(not(target_arch = "wasm32"))]
+        #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
         {
             let cache_key = ImageCacheKey::Invalid;
             Ok(Image(ImageInner::Svg(vtable::VRc::new(
@@ -1192,11 +1271,14 @@ impl Image {
     /// guess when the data begins with an `<?xml` or `<svg` tag, otherwise pass `Some("svg")`.
     ///
     /// The supported formats are the same as for [`Self::load_from_path`].
-    #[cfg(any(feature = "image-decoders", all(target_arch = "wasm32", feature = "std")))]
+    #[cfg(any(
+        feature = "image-decoders",
+        all(target_arch = "wasm32", not(target_os = "emscripten"), feature = "std")
+    ))]
     pub fn load_from_data(data: &[u8], format: Option<&str>) -> Result<Self, LoadImageError> {
         ImageInner::load_from_data_with_cache_key(
             ImageCacheKey::Invalid,
-            Slice::from_slice(data),
+            ImageData::Borrowed(data),
             Slice::from_slice(format.unwrap_or_default().as_bytes()),
         )
         .map(Image)
@@ -1242,20 +1324,7 @@ impl Image {
     /// assert_eq!(image.path(), Some(path_buf.as_path()));
     /// ```
     pub fn path(&self) -> Option<&std::path::Path> {
-        match &self.0 {
-            ImageInner::EmbeddedImage {
-                cache_key: ImageCacheKey::Path(CachedPath { path, .. }),
-                ..
-            } => Some(std::path::Path::new(path.as_str())),
-            ImageInner::NineSlice(nine) => match &nine.0 {
-                ImageInner::EmbeddedImage {
-                    cache_key: ImageCacheKey::Path(CachedPath { path, .. }),
-                    ..
-                } => Some(std::path::Path::new(path.as_str())),
-                _ => None,
-            },
-            _ => None,
-        }
+        self.0.path().map(|path| std::path::Path::new(path.as_str()))
     }
 }
 
@@ -1269,7 +1338,10 @@ pub fn image_to_rgba8_with_target_size(
     image.render_to_rgba8(Some(target_size.cast_unit()))
 }
 
-#[cfg(any(feature = "image-decoders", all(target_arch = "wasm32", feature = "std")))]
+#[cfg(any(
+    feature = "image-decoders",
+    all(target_arch = "wasm32", not(target_os = "emscripten"), feature = "std")
+))]
 /// Load an image from the decoded payload of a data URI.
 /// This is called by the interpreter.
 pub fn load_image_from_data_uri(
@@ -1279,7 +1351,7 @@ pub fn load_image_from_data_uri(
 ) -> Result<Image, LoadImageError> {
     // The browser loads images asynchronously, so every evaluation of the same data URI
     // must share one image and its loading state: cache under the URI.
-    #[cfg(target_arch = "wasm32")]
+    #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
     {
         self::cache::IMAGE_CACHE.with(|global_cache| {
             global_cache
@@ -1289,12 +1361,12 @@ pub fn load_image_from_data_uri(
         })
     }
     // Native decoding is synchronous; don't fill the cache with one-shot images.
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
     {
         let _ = uri;
         ImageInner::load_from_data_with_cache_key(
             ImageCacheKey::Invalid,
-            bytes.into(),
+            ImageData::Borrowed(bytes),
             format.as_bytes().into(),
         )
         .map(Image)
@@ -1355,10 +1427,8 @@ pub enum BorrowedOpenGLTextureOrigin {
 ///
 /// let image: slint::Image = builder.build();
 /// ```
-#[cfg(not(target_arch = "wasm32"))]
 pub struct BorrowedOpenGLTextureBuilder(BorrowedOpenGLTexture);
 
-#[cfg(not(target_arch = "wasm32"))]
 impl BorrowedOpenGLTextureBuilder {
     /// Generates the base configuration for a borrowed OpenGL texture.
     ///
@@ -1378,8 +1448,24 @@ impl BorrowedOpenGLTextureBuilder {
     /// [`slint::Image`](Image) objects created from borrowed OpenGL textures cannot be shared between
     /// different windows.
     #[allow(unsafe_code)]
+    #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
     pub unsafe fn new_gl_2d_rgba_texture(texture_id: core::num::NonZeroU32, size: IntSize) -> Self {
         Self(BorrowedOpenGLTexture { texture_id, size, origin: Default::default() })
+    }
+
+    /// Generates the base configuration for a borrowed WebGL texture.
+    ///
+    /// The texture must be bindable against the `TEXTURE_2D` target and have `RGBA` as format
+    /// for the pixel data.
+    /// It must belong to the WebGL context passed to the callback set on
+    /// [`Window::set_rendering_notifier()`](crate::api::Window::set_rendering_notifier),
+    /// so [`slint::Image`](Image) objects created from it cannot be shared between different windows.
+    ///
+    /// By default, Slint assumes that the origin of the texture is at the top-left.
+    /// Use [`Self::origin()`] to change this.
+    #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
+    pub fn new_webgl_2d_rgba_texture(texture: web_sys::WebGlTexture, size: IntSize) -> Self {
+        Self(BorrowedOpenGLTexture { texture, size, origin: Default::default() })
     }
 
     /// Configures the texture to be rendered vertically mirrored.
@@ -1399,7 +1485,7 @@ impl BorrowedOpenGLTextureBuilder {
 /// references that are URLs rather than file-system paths; it is not general
 /// network image loading.
 /// This is called by the interpreter and the generated code.
-#[cfg(all(target_arch = "wasm32", feature = "std"))]
+#[cfg(all(target_arch = "wasm32", not(target_os = "emscripten"), feature = "std"))]
 pub fn load_as_html_image(url: &str) -> Result<Image, LoadImageError> {
     self::cache::IMAGE_CACHE.with(|global_cache| {
         global_cache.borrow_mut().load_as_html_image(url).ok_or(LoadImageError(()))
@@ -1408,11 +1494,22 @@ pub fn load_as_html_image(url: &str) -> Result<Image, LoadImageError> {
 
 /// Load an image from an image embedded in the binary.
 /// This is called by the generated code.
-#[cfg(any(feature = "image-decoders", all(target_arch = "wasm32", feature = "std")))]
+#[cfg(any(
+    feature = "image-decoders",
+    all(target_arch = "wasm32", not(target_os = "emscripten"), feature = "std")
+))]
 pub fn load_image_from_embedded_data(data: Slice<'static, u8>, format: Slice<'_, u8>) -> Image {
     self::cache::IMAGE_CACHE.with(|global_cache| {
         global_cache.borrow_mut().load_image_from_embedded_data(data, format).unwrap_or_default()
     })
+}
+
+#[test]
+fn test_empty_images_are_equal() {
+    // An empty image compared unequal to itself, so a model row holding one never compared equal.
+    assert_eq!(Image::default(), Image::default());
+    let buffer = SharedPixelBuffer::<Rgb8Pixel>::new(1, 1);
+    assert_ne!(Image::default(), Image::from_rgb8(buffer));
 }
 
 #[test]
@@ -1440,6 +1537,16 @@ fn test_image_size_from_svg() {
     let image = Image::load_from_svg_data(simple_svg.as_bytes()).unwrap();
     assert_eq!(image.size(), [320, 200].into());
     assert_eq!(image.to_rgba8().unwrap().size(), image.size());
+}
+
+#[cfg(all(feature = "svg", feature = "image-decoders"))]
+#[test]
+#[cfg_attr(miri, ignore)]
+fn test_image_path_of_svg() {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../demos/printerdemo/ui/images/back.svg");
+    let image = Image::load_from_path(&path).unwrap();
+    assert_eq!(image.path(), Some(path.as_path()));
 }
 
 #[cfg(feature = "svg")]
@@ -1721,6 +1828,87 @@ pub fn scalable_render_size(
     (!size.is_empty()).then_some(size)
 }
 
+/// The pixel size to rasterize a scalable image (an SVG) at when a transform, such as `transform-scale`, magnifies it by `transform_scale`.
+/// The other arguments are those of [`scalable_render_size`], which gives the size without that transform,
+/// except that `target_size` is the element's logical size.
+/// Scaling up the image rasterized at that size would make it look blocky.
+///
+/// The magnification is rounded up to a power of two,
+/// so that animating the scale rarely requires rasterizing the image again.
+/// The result stays within 2048 pixels on its longest side, a texture size that GPUs commonly support.
+/// Use [`svg_needs_rasterizing_again`] to tell whether a cached rasterization is too small for it.
+pub fn transformed_scalable_render_size(
+    source_size: IntSize,
+    image_fit: ImageFit,
+    target_size: LogicalSize,
+    scale_factor: ScaleFactor,
+    tiling: (ImageTiling, ImageTiling),
+    transform_scale: f32,
+) -> Option<euclid::Size2D<u32, PhysicalPx>> {
+    let render_size = scalable_render_size(
+        source_size,
+        image_fit,
+        target_size.cast::<f32>() * scale_factor,
+        scale_factor,
+        tiling,
+    )?;
+    Some(magnified_render_size(render_size, transform_scale))
+}
+
+/// The factor by which a transform magnifies in the direction where it magnifies the most:
+/// the largest singular value of its linear part `[a b; c d]`.
+pub fn transform_max_scale(a: f32, b: f32, c: f32, d: f32) -> f32 {
+    let sum_of_squares = a * a + b * b + c * c + d * d;
+    let determinant = a * d - b * c;
+    let discriminant = sum_of_squares * sum_of_squares - 4. * determinant * determinant;
+    ((sum_of_squares + discriminant.max(0.).sqrt()) / 2.).sqrt()
+}
+
+/// Whether `image`, an SVG rasterized at `cached` pixels, is too small for a transform that
+/// magnifies it by `transform_scale`; the other arguments are those of
+/// [`transformed_scalable_render_size`]. Always `false` for an image that isn't scalable.
+///
+/// Rasterizing keeps the image's aspect ratio, so for the same magnification the rasterized image
+/// can be smaller than the wanted size in one direction;
+/// only one rasterized for a smaller magnification is smaller in both.
+pub fn svg_needs_rasterizing_again(
+    cached: IntSize,
+    image: &Image,
+    image_fit: ImageFit,
+    target_size: LogicalSize,
+    scale_factor: ScaleFactor,
+    tiling: (ImageTiling, ImageTiling),
+    transform_scale: f32,
+) -> bool {
+    if transform_scale <= 1. || !<&ImageInner>::from(image).is_svg() {
+        return false;
+    }
+    transformed_scalable_render_size(
+        image.size(),
+        image_fit,
+        target_size,
+        scale_factor,
+        tiling,
+        transform_scale,
+    )
+    .is_some_and(|wanted| cached.width < wanted.width && cached.height < wanted.height)
+}
+
+fn magnified_render_size(
+    render_size: euclid::Size2D<u32, PhysicalPx>,
+    transform_scale: f32,
+) -> euclid::Size2D<u32, PhysicalPx> {
+    const MAX_MAGNIFIED_SIZE: f32 = 2048.;
+    if transform_scale.is_nan() || transform_scale <= 1. {
+        return render_size;
+    }
+    // Tolerate rounding errors in the transform, so that a scale of 2 doesn't become 4.
+    let power_of_two = (transform_scale.log2() - 0.001).ceil().exp2();
+    let longest_side = render_size.width.max(render_size.height) as f32;
+    let scale = power_of_two.min(MAX_MAGNIFIED_SIZE / longest_side);
+    if scale > 1. { (render_size.cast::<f32>() * scale).round().cast() } else { render_size }
+}
+
 /// Generate an iterator of  [`FitResult`] for each slice of a nine-slice border image
 pub fn fit9slice(
     source_rect: IntSize,
@@ -1817,15 +2005,6 @@ pub(crate) mod ffi {
         a: u8,
     }
 
-    // Expand Gray8Pixel so that cbindgen can see it. (is in fact rgb::Gray<u8>)
-    /// Represents a grayscale pixel.
-    #[cfg(all(cbindgen, feature = "image-pixel-format-gray8"))]
-    #[repr(C)]
-    struct Gray8Pixel {
-        /// luminance value (between 0 and 255)
-        v: u8,
-    }
-
     // Keep the cfg free of target_arch: cbindgen maps target_arch = wasm32 to a C macro and
     // would guard the declaration, but the C++ API is native only and relies on it being there.
     #[cfg(all(feature = "std", feature = "image-decoders"))]
@@ -1870,27 +2049,18 @@ pub(crate) mod ffi {
 
     #[unsafe(no_mangle)]
     pub extern "C" fn slint_image_path(image: &Image) -> Option<&SharedString> {
-        match &image.0 {
-            #[cfg(feature = "std")]
-            ImageInner::EmbeddedImage {
-                cache_key: ImageCacheKey::Path(CachedPath { path, .. }),
-                ..
-            } => Some(path),
-            ImageInner::NineSlice(nine) => match &nine.0 {
-                #[cfg(feature = "std")]
-                ImageInner::EmbeddedImage {
-                    cache_key: ImageCacheKey::Path(CachedPath { path, .. }),
-                    ..
-                } => Some(path),
-                _ => None,
-            },
-            _ => None,
+        #[cfg(feature = "std")]
+        return image.0.path();
+        #[cfg(not(feature = "std"))]
+        {
+            let _ = image;
+            None
         }
     }
 
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_image_from_embedded_textures(
-        textures: &'static StaticTextures,
+        textures: &'static StaticTextures<StaticStorage>,
         image: *mut Image,
     ) {
         unsafe { core::ptr::write(image, Image::from(ImageInner::StaticTextures(textures))) };
@@ -1968,11 +2138,28 @@ pub(crate) mod ffi {
 /// Note that only 2D RGBA textures are supported.
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
-#[cfg(not(target_arch = "wasm32"))]
 #[repr(C)]
+#[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
 pub struct BorrowedOpenGLTexture {
     /// The id or name of the texture, as created by [`glGenTextures`](https://registry.khronos.org/OpenGL-Refpages/gl4/html/glGenTextures.xhtml).
     pub texture_id: core::num::NonZeroU32,
+    /// The size of the texture in pixels.
+    pub size: IntSize,
+    /// Origin of the texture when rendering.
+    pub origin: BorrowedOpenGLTextureOrigin,
+}
+
+/// This structure contains fields to identify and render a WebGL texture that Slint borrows from the application code.
+///
+/// The ownership of the texture remains with the application.
+///
+/// Note that only 2D RGBA textures are supported.
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+#[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
+pub struct BorrowedOpenGLTexture {
+    /// The WebGL texture object.
+    pub texture: web_sys::WebGlTexture,
     /// The size of the texture in pixels.
     pub size: IntSize,
     /// Origin of the texture when rendering.
@@ -2000,6 +2187,24 @@ mod tests {
         // Four bytes per pixel read as three, the same mistake the other way around.
         let rgba = [0u8; 8 * 8 * 4];
         SharedPixelBuffer::<crate::graphics::Rgb8Pixel>::clone_from_slice(&rgba, 8, 8);
+    }
+
+    #[test]
+    fn test_magnified_render_size() {
+        use super::magnified_render_size;
+        let size = |width, height| euclid::size2::<u32, crate::lengths::PhysicalPx>(width, height);
+        // Without magnification, the image is rasterized at its usual size.
+        assert_eq!(magnified_render_size(size(100, 50), 1.), size(100, 50));
+        assert_eq!(magnified_render_size(size(100, 50), 0.5), size(100, 50));
+        assert_eq!(magnified_render_size(size(100, 50), f32::NAN), size(100, 50));
+        // The magnification is rounded up to a power of two, ignoring rounding errors.
+        assert_eq!(magnified_render_size(size(100, 50), 2.), size(200, 100));
+        assert_eq!(magnified_render_size(size(100, 50), 2.000_001), size(200, 100));
+        assert_eq!(magnified_render_size(size(100, 50), 3.), size(400, 200));
+        // It stops at 2048 pixels on the longest side...
+        assert_eq!(magnified_render_size(size(1000, 500), 4.), size(2048, 1024));
+        // ...but never shrinks an image that's already larger.
+        assert_eq!(magnified_render_size(size(3000, 100), 4.), size(3000, 100));
     }
 
     #[test]
@@ -2072,8 +2277,8 @@ mod tests {
     #[test]
     fn test_image_from_gray8() {
         let mut buffer = SharedPixelBuffer::<super::Gray8Pixel>::new(2, 1);
-        buffer.make_mut_slice()[0] = super::Gray8Pixel::new(0x00);
-        buffer.make_mut_slice()[1] = super::Gray8Pixel::new(0xff);
+        buffer.make_mut_slice()[0] = super::Gray8Pixel(0x00);
+        buffer.make_mut_slice()[1] = super::Gray8Pixel(0xff);
         let image = Image::from_gray8(buffer);
         assert_eq!(image.size(), crate::graphics::IntSize::new(2, 1));
 
@@ -2089,6 +2294,14 @@ mod tests {
         // Gray8 has no alpha, so the premultiplied form is the same.
         let premultiplied = image.to_rgba8_premultiplied().unwrap();
         assert_eq!(premultiplied.as_slice(), rgba.as_slice());
+    }
+
+    #[cfg(feature = "image-pixel-format-gray8")]
+    #[test]
+    fn test_gray8_from_luminance_bytes() {
+        let buffer =
+            SharedPixelBuffer::<super::Gray8Pixel>::clone_from_slice(&[0x10u8, 0x80], 2, 1);
+        assert_eq!(buffer.as_slice(), &[super::Gray8Pixel(0x10), super::Gray8Pixel(0x80)]);
     }
 
     #[test]

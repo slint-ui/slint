@@ -26,13 +26,14 @@ If you have feedback or questions, feel free to reach out to the Slint community
 
 ## License
 
-You can use Slint under ***any*** of the following licenses, at your choice:
+Slint is open source.
+On ESP32 devices, use it under either of these licenses, at your choice:
 
-1. [Royalty-free license](https://github.com/slint-ui/slint/blob/master/LICENSES/LicenseRef-Slint-Royalty-free-2.0.md),
-2. [GNU GPLv3](https://github.com/slint-ui/slint/blob/master/LICENSES/GPL-3.0-only.txt),
-3. [Commercial license](https://github.com/slint-ui/slint/blob/master/LICENSES/LicenseRef-Slint-Software-3.0.md).
+- [GNU GPLv3](https://github.com/slint-ui/slint/blob/master/LICENSES/GPL-3.0-only.txt): free of charge for open-source firmware.
+- [Commercial license](https://github.com/slint-ui/slint/blob/master/LICENSES/LicenseRef-Slint-Software-3.0.md): for closed-source firmware.
+  See the [pricing](https://slint.dev/pricing).
 
-See also the [Licensing FAQ](https://github.com/slint-ui/slint/blob/master/FAQ.md#licensing).
+The [Licensing FAQ](https://github.com/slint-ui/slint/blob/master/FAQ.md#licensing) covers the details.
 
 ## Links
 

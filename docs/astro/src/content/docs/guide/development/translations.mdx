@@ -13,7 +13,7 @@ Slint's translation infrastructure makes your application available in different
 :::tip[Prerequisite]
 Install the [`slint-tr-extractor`](https://crates.io/crates/slint-tr-extractor) tool to extract translatable strings from `.slint` files:
 ```sh
-cargo install slint-tr-extractor
+cargo install --locked slint-tr-extractor
 ```
 :::
 
@@ -108,7 +108,14 @@ Set the <LangRefLink lang="cpp" relpath="cmake-reference/disable-default-transla
 
 ## Extracting Translatable Strings
 
-Use [`slint-tr-extractor`](https://crates.io/crates/slint-tr-extractor) to generate a `.pot` file with all strings marked for translation:
+Use [`slint-tr-extractor`](https://crates.io/crates/slint-tr-extractor) to generate a `.pot` file with all strings marked for translation.
+If your project has a [project file](../../tooling/project-file/), pass the project file or its directory.
+The tool then extracts the strings of the main file and of every file it imports, following the project's include and library paths:
+```sh
+slint-tr-extractor -o MY_PROJECT.pot .
+```
+
+Otherwise, pass every `.slint` file:
 ```sh
 find -name \*.slint | xargs slint-tr-extractor -o MY_PROJECT.pot
 ```

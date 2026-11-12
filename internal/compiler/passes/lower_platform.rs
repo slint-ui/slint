@@ -3,7 +3,8 @@
 
 //! This pass lowers the access to the global Platform to constants and builtin function calls.
 
-use crate::expression_tree::{BuiltinFunction, Callable, Expression, NamedReference};
+use crate::builtin_functions::BuiltinFunction;
+use crate::expression_tree::{Callable, Expression, NamedReference};
 use crate::object_tree::{Component, visit_all_expressions};
 use std::rc::Rc;
 

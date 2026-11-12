@@ -6,7 +6,7 @@ use i_slint_core::item_tree::ItemTreeRc;
 use i_slint_core::slice::Slice;
 use i_slint_core::window::WindowAdapterRc;
 use i_slint_core::window::WindowInner;
-use i_slint_core::{SharedString, SharedVector};
+use i_slint_core::{MotionPreference, SharedString, SharedVector};
 use std::os::raw::c_void;
 
 struct RootWrapper<'a>(&'a ItemTreeRc);
@@ -170,6 +170,36 @@ pub extern "C" fn slint_testing_element_bases(
     }
 }
 
+/// Fills `out` with the element's testable properties as flattened (name, type) pairs:
+/// `out[2 * i]` is a name, `out[2 * i + 1]` its type.
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_testing_element_testable_properties(
+    element: &ElementHandle,
+    out: &mut SharedVector<SharedString>,
+) -> bool {
+    if let Some(props) = element.testable_properties() {
+        out.extend(props.into_iter().flat_map(|(name, ty)| [name, ty]));
+        true
+    } else {
+        false
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_testing_element_testable_property_value(
+    element: &ElementHandle,
+    name: &Slice<u8>,
+    out: &mut SharedString,
+) -> bool {
+    let Ok(name) = core::str::from_utf8(name.as_slice()) else { return false };
+    if let Some(value) = element.testable_property_value(name) {
+        *out = value;
+        true
+    } else {
+        false
+    }
+}
+
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_testing_element_layout_kind(
     element: &ElementHandle,
@@ -186,4 +216,13 @@ pub extern "C" fn slint_testing_element_layout_kind(
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_testing_set_system_accent_color(argb_encoded: u32) {
     crate::set_system_accent_color(i_slint_core::Color::from_argb_encoded(argb_encoded));
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_testing_set_reduced_motion(reduced: bool) {
+    crate::set_motion_preference(if reduced {
+        MotionPreference::Reduced
+    } else {
+        MotionPreference::NoPreference
+    });
 }

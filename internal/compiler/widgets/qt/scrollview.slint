@@ -3,7 +3,11 @@
 
 import { InternalScrollView } from "internal-scrollview.slint";
 
+import { ScrollViewInterface } from "../common/std-widget-interfaces.slint";
+
 export component ScrollView {
+    implement ScrollViewInterface <=> self;
+
     in property <bool> enabled <=> internal.enabled;
     out property <length> visible-width <=> internal.visible-width;
     out property <length> visible-height <=> internal.visible-height;

@@ -1,0 +1,147 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Slider } from "../../../tools/editor/controls/src/basic.slint";
+
+component PrecisionSlider inherits Slider {
+    minimum: -0.5;
+    maximum: 0.5;
+    step: 0.125;
+    handle-width: 40px;
+    handle-height: 48px;
+    min-thickness: 24px;
+}
+
+export component TestCase inherits Window {
+    width: 520px;
+    height: 300px;
+    in-out property <float> value: 0;
+    in-out property <bool> vertical;
+    in-out property <bool> inverted;
+    in-out property <length> slider-length: 240px;
+    out property <bool> pressed: slider.pressed;
+    out property <int> releases;
+    out property <int> changes;
+    out property <float> position: slider.position;
+    out property <length> horizontal-height: horizontal.height;
+    out property <length> vertical-width: vertical-sizing.width;
+    out property <bool> preferred-fits: short.width >= short.handle-width && short.height >= short.handle-height
+        && short-vertical.width >= short-vertical.handle-width && short-vertical.height >= short-vertical.handle-height;
+    out property <bool> test: horizontal.height >= 48px && vertical-sizing.width >= 40px;
+    public function request(value: float) { slider.set-value(value); }
+    public function focus-slider() { slider.focus(); }
+
+    slider := PrecisionSlider {
+        accessible-label: "Precision slider";
+        x: 20px;
+        y: 20px;
+        width: root.vertical ? 60px : root.slider-length;
+        height: root.vertical ? root.slider-length : 60px;
+        orientation: root.vertical ? Orientation.vertical : Orientation.horizontal;
+        inverted: root.inverted;
+        value <=> root.value;
+        changed(value) => { root.changes += 1; }
+        released(value) => { root.releases += 1; }
+    }
+
+    VerticalLayout {
+        x: 300px;
+        width: 200px;
+        height: 140px;
+        alignment: start;
+        horizontal := PrecisionSlider {
+            accessible-label: "Large horizontal thumb";
+        }
+        HorizontalLayout {
+            alignment: start;
+            vertical-sizing := PrecisionSlider {
+                accessible-label: "Large vertical thumb";
+                orientation: Orientation.vertical;
+                preferred-length: 80px;
+            }
+        }
+    }
+    short := PrecisionSlider {
+        x: 300px;
+        y: 210px;
+        preferred-length: 8px;
+        width: self.preferred-width;
+        height: self.preferred-height;
+    }
+    short-vertical := PrecisionSlider {
+        x: 450px;
+        y: 210px;
+        orientation: Orientation.vertical;
+        preferred-length: 8px;
+        width: self.preferred-width;
+        height: self.preferred-height;
+    }
+}
+
+/*
+```rust
+use slint::platform::{Key, PointerEventButton, WindowEvent};
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test(), "A layout clipped the configured slider thumb: {}px high, {}px wide",
+    instance.get_horizontal_height(), instance.get_vertical_width());
+assert!(instance.get_preferred_fits(), "Preferred-size sliders clip their configured thumbs");
+let slider = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Precision slider").next().unwrap();
+let point = |x, y| slint::LogicalPosition::new(x, y);
+let button = PointerEventButton::Left;
+let press = |position| instance.window().dispatch_event(WindowEvent::PointerPressed { position, button });
+let move_to = |position| instance.window().dispatch_event(WindowEvent::PointerMoved { position });
+let release = |position| instance.window().dispatch_event(WindowEvent::PointerReleased { position, button });
+for (requested, expected) in [(-0.9, -0.5), (-0.4, -0.375), (0.19, 0.25), (0.9, 0.5)] {
+    instance.invoke_request(requested);
+    assert_eq!(instance.get_value(), expected);
+}
+let changes = instance.get_changes();
+instance.invoke_request(0.9);
+assert_eq!(instance.get_changes(), changes);
+for vertical in [false, true] {
+    instance.set_vertical(vertical);
+    for inverted in [false, true] {
+        instance.set_inverted(inverted);
+        instance.set_slider_length(240.);
+        instance.set_value(0.);
+        let center = if vertical { point(50., 140.) } else { point(140., 50.) };
+        press(center);
+        assert!(instance.get_pressed());
+        instance.set_slider_length(280.);
+        slint::platform::update_timers_and_animations();
+        let releases = instance.get_releases();
+        let end = if vertical { point(50., 400.) } else { point(500., 50.) };
+        move_to(end);
+        let reversed = vertical != inverted;
+        assert_eq!(instance.get_value(), if reversed { -0.5 } else { 0.5 });
+        release(end);
+        assert!(!instance.get_pressed());
+        assert_eq!(instance.get_releases(), releases + 1);
+        assert_eq!(instance.get_position(), if reversed { 0. } else { 1. });
+        instance.set_value(0.);
+        let center = if vertical { point(50., 160.) } else { point(160., 50.) };
+        press(center);
+        assert!(instance.get_pressed());
+        slint_testing::send_keyboard_char(&instance, Key::Escape.into(), true);
+        slint_testing::send_keyboard_char(&instance, Key::Escape.into(), false);
+        move_to(end);
+        release(end);
+        assert!(!instance.get_pressed());
+        assert_eq!(instance.get_value(), 0.);
+        assert_eq!(instance.get_releases(), releases + 1);
+    }
+}
+assert_eq!(slider.accessible_value_step(), Some(0.125));
+instance.invoke_focus_slider();
+let value = instance.get_value();
+let releases = instance.get_releases();
+for modifier in [Key::Control, Key::Alt, Key::Meta] {
+    slint_testing::send_keyboard_char(&instance, modifier.into(), true);
+    slint_testing::send_keyboard_char(&instance, Key::RightArrow.into(), true);
+    slint_testing::send_keyboard_char(&instance, Key::RightArrow.into(), false);
+    slint_testing::send_keyboard_char(&instance, modifier.into(), false);
+    assert_eq!(instance.get_value(), value, "A modified arrow changed the slider");
+    assert_eq!(instance.get_releases(), releases);
+}
+```
+*/

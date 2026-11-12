@@ -80,11 +80,10 @@ export component MenuBarBase inherits Rectangle {
 
 export component MenuFrameBase inherits Rectangle {
     in property <length> spacing <=> layout.spacing;
-    in property <length> layout-min-width;
     in property <length> margin;
 
     clip: true;
-    min-width: max(root.layout-min-width, layout.min-width);
+    min-width: layout.min-width;
 
     layout := VerticalLayout {
         padding: root.margin;
@@ -136,7 +135,6 @@ export component MenuItemBase {
 
                 Rectangle {
                     width: root.icon-size;
-                    y: (parent.height - self.height) / 2;
 
                     if entry.checked: Text {
                         text: "✓";
@@ -166,7 +164,6 @@ export component MenuItemBase {
 
                 if entry.has-sub-menu : Image {
                     width: root.icon-size;
-                    y: (parent.height - self.height) / 2;
                     source: root.sub-menu-icon;
                     colorize: label.color;
                     accessible-role: none;

@@ -1,0 +1,399 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The root Menu of a ContextMenuArea isn't part of the menu tree, but its properties stay accessible
+
+component Sub inherits Rectangle {
+    in property <string> name;
+    out property <string> menu-title: sm.title;
+    callback report(string);
+    ContextMenuArea {
+        sm := Menu {
+            title: "Sub " + root.name;
+            MenuItem {
+                title: sm.title;
+                activated => root.report(self.title);
+            }
+        }
+    }
+}
+
+component MyArea inherits ContextMenuArea {
+    out property <string> area-title: am.title;
+    callback report(string);
+    am := Menu {
+        property <int> count: 3;
+        title: "Area";
+        MenuItem {
+            title: am.title + am.count;
+            activated => {
+                root.report(self.title);
+                am.count += 1;
+            }
+        }
+    }
+}
+
+export component TestCase inherits Window {
+    width: 400px;
+    height: 400px;
+
+    in-out property <string> result;
+    in-out property <string> shared: "shared";
+    in-out property <int> changes;
+    in-out property <string> collected;
+    in property <[string]> names: ["a", "b"];
+
+    area := ContextMenuArea {
+        x: 0;
+        y: 0;
+        width: 100px;
+        height: 100px;
+        // Same name as the one `m.title` would get when moved here
+        property <string> m-title: "clash";
+        m := Menu {
+            property <string> label: "hi";
+            property <int> counter;
+            callback notify(string);
+            notify(s) => {
+                root.result = s;
+            }
+            title: label + "!";
+            changed label => {
+                root.changes += 1;
+            }
+            MenuItem {
+                title: m.label;
+                activated => m.notify(self.title);
+            }
+            MenuItem {
+                title: parent.title;
+                enabled: parent.enabled;
+                activated => {
+                    m.counter += 1;
+                    m.notify(self.title + m.counter);
+                }
+            }
+            Menu {
+                title: "Sub";
+                MenuItem {
+                    title: m.icon.width == 0 ? "no icon" : "icon";
+                    activated => m.notify(self.title);
+                }
+            }
+        }
+    }
+
+    ContextMenuArea {
+        x: 100px;
+        y: 0;
+        width: 100px;
+        height: 100px;
+        d := Menu {
+            enabled: false;
+            MenuItem {
+                title: "disabled";
+                enabled: d.enabled;
+                activated => {
+                    root.result = "should not happen";
+                }
+            }
+        }
+    }
+
+    ContextMenuArea {
+        x: 200px;
+        y: 0;
+        width: 100px;
+        height: 100px;
+        t := Menu {
+            title <=> root.shared;
+            MenuItem {
+                title: t.title;
+                activated => {
+                    t.title = "changed";
+                    root.result = root.shared;
+                }
+            }
+        }
+    }
+
+    ContextMenuArea {
+        x: 300px;
+        y: 0;
+        width: 100px;
+        height: 100px;
+        Menu {
+            title: "anon";
+            MenuItem {
+                title: parent.title;
+                activated => {
+                    root.result = self.title;
+                }
+            }
+        }
+    }
+
+    ContextMenuArea {
+        x: 300px;
+        y: 100px;
+        width: 100px;
+        height: 100px;
+        // `sub.menu` would become `sub-menu`, a callback of the lowered ContextMenuArea
+        sub := Menu {
+            property <string> menu: "sub menu";
+            MenuItem {
+                title: sub.menu;
+                activated => {
+                    root.result = self.title;
+                }
+            }
+        }
+    }
+
+    for name[idx] in names: Rectangle {
+        x: idx * 100px;
+        y: 100px;
+        width: 100px;
+        height: 100px;
+        init => {
+            root.collected += rm.title;
+        }
+        ContextMenuArea {
+            rm := Menu {
+                title: name + idx;
+                MenuItem {
+                    title: rm.title;
+                    activated => {
+                        root.result = self.title;
+                    }
+                }
+            }
+        }
+    }
+
+    if true: ContextMenuArea {
+        x: 0;
+        y: 200px;
+        width: 100px;
+        height: 100px;
+        cm := Menu {
+            title: "cond";
+            MenuItem {
+                title: cm.title;
+                activated => {
+                    root.result = self.title;
+                }
+            }
+        }
+    }
+
+    sub-comp := Sub {
+        x: 100px;
+        y: 200px;
+        width: 100px;
+        height: 100px;
+        name: "S";
+        report(s) => {
+            root.result = s;
+        }
+    }
+
+    my := MyArea {
+        x: 200px;
+        y: 200px;
+        width: 100px;
+        height: 100px;
+        report(s) => {
+            root.result = s;
+        }
+    }
+
+    out property <string> menu-title: m.title;
+    out property <bool> menu-enabled: m.enabled;
+    out property <bool> disabled-enabled: d.enabled;
+    out property <int> counter: m.counter;
+    out property <string> clash: area.m-title;
+    in-out property <string> label <=> m.label;
+    public function rename() {
+        m.title = "renamed";
+    }
+
+    out property <bool> test: menu-title == "hi!" && menu-enabled && !disabled-enabled && counter == 0
+        && clash == "clash" && collected == "a0b1" && sub-comp.menu-title == "Sub S" && my.area-title == "Area";
+}
+
+/*
+```rust
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition, SharedString, platform::Key};
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+
+let open = |x: f32, y: f32| {
+    let position = LogicalPosition::new(x, y);
+    instance.window().dispatch_event(WindowEvent::PointerPressed { position, button: PointerEventButton::Right });
+    instance.window().dispatch_event(WindowEvent::PointerReleased { position, button: PointerEventButton::Right });
+};
+let keys = |keys: &[Key]| {
+    for k in keys {
+        slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(*k));
+    }
+};
+
+open(50., 50.);
+keys(&[Key::DownArrow, Key::Return]);
+assert_eq!(instance.get_result(), "hi");
+
+instance.set_label("x".into());
+assert_eq!(instance.get_menu_title(), "x!");
+slint_testing::mock_elapsed_time(1);
+assert_eq!(instance.get_changes(), 1);
+
+open(50., 50.);
+keys(&[Key::DownArrow, Key::DownArrow, Key::Return]);
+assert_eq!(instance.get_result(), "x!1");
+assert_eq!(instance.get_counter(), 1);
+
+open(50., 50.);
+keys(&[Key::UpArrow, Key::RightArrow, Key::DownArrow, Key::Return]);
+assert_eq!(instance.get_result(), "no icon");
+
+instance.invoke_rename();
+assert_eq!(instance.get_menu_title(), "renamed");
+open(50., 50.);
+keys(&[Key::DownArrow, Key::DownArrow, Key::Return]);
+assert_eq!(instance.get_result(), "renamed2");
+
+open(250., 50.);
+keys(&[Key::DownArrow, Key::Return]);
+assert_eq!(instance.get_result(), "changed");
+assert_eq!(instance.get_shared(), "changed");
+
+open(350., 50.);
+keys(&[Key::DownArrow, Key::Return]);
+assert_eq!(instance.get_result(), "anon");
+
+open(350., 150.);
+keys(&[Key::DownArrow, Key::Return]);
+assert_eq!(instance.get_result(), "sub menu");
+
+open(150., 150.);
+keys(&[Key::DownArrow, Key::Return]);
+assert_eq!(instance.get_result(), "b1");
+open(50., 150.);
+keys(&[Key::DownArrow, Key::Return]);
+assert_eq!(instance.get_result(), "a0");
+
+open(50., 250.);
+keys(&[Key::DownArrow, Key::Return]);
+assert_eq!(instance.get_result(), "cond");
+
+open(150., 250.);
+keys(&[Key::DownArrow, Key::Return]);
+assert_eq!(instance.get_result(), "Sub S");
+
+open(250., 250.);
+keys(&[Key::DownArrow, Key::Return]);
+assert_eq!(instance.get_result(), "Area3");
+open(250., 250.);
+keys(&[Key::DownArrow, Key::Return]);
+assert_eq!(instance.get_result(), "Area4");
+
+// Last, since the menu may stay open
+instance.set_result("".into());
+open(150., 50.);
+keys(&[Key::DownArrow, Key::Return]);
+assert_eq!(instance.get_result(), "");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+
+auto open = [&](float x, float y) {
+    instance.window().dispatch_pointer_press_event(slint::LogicalPosition({x, y}), slint::PointerEventButton::Right);
+    instance.window().dispatch_pointer_release_event(slint::LogicalPosition({x, y}), slint::PointerEventButton::Right);
+};
+auto keys = [&](std::initializer_list<slint::SharedString> keys) {
+    for (const auto &k : keys) {
+        slint_testing::send_keyboard_string_sequence(&instance, k);
+    }
+};
+using namespace slint::platform::key_codes;
+
+open(50., 50.);
+keys({DownArrow, Return});
+assert_eq(instance.get_result(), "hi");
+
+handle->set_label("x");
+assert_eq(instance.get_menu_title(), "x!");
+slint_testing::mock_elapsed_time(1);
+assert_eq(instance.get_changes(), 1);
+
+open(50., 50.);
+keys({DownArrow, DownArrow, Return});
+assert_eq(instance.get_result(), "x!1");
+assert_eq(instance.get_counter(), 1);
+
+open(50., 50.);
+keys({UpArrow, RightArrow, DownArrow, Return});
+assert_eq(instance.get_result(), "no icon");
+
+handle->invoke_rename();
+assert_eq(instance.get_menu_title(), "renamed");
+open(50., 50.);
+keys({DownArrow, DownArrow, Return});
+assert_eq(instance.get_result(), "renamed2");
+
+open(250., 50.);
+keys({DownArrow, Return});
+assert_eq(instance.get_result(), "changed");
+assert_eq(instance.get_shared(), "changed");
+
+open(350., 50.);
+keys({DownArrow, Return});
+assert_eq(instance.get_result(), "anon");
+
+open(350., 150.);
+keys({DownArrow, Return});
+assert_eq(instance.get_result(), "sub menu");
+
+open(150., 150.);
+keys({DownArrow, Return});
+assert_eq(instance.get_result(), "b1");
+open(50., 150.);
+keys({DownArrow, Return});
+assert_eq(instance.get_result(), "a0");
+
+open(50., 250.);
+keys({DownArrow, Return});
+assert_eq(instance.get_result(), "cond");
+
+open(150., 250.);
+keys({DownArrow, Return});
+assert_eq(instance.get_result(), "Sub S");
+
+open(250., 250.);
+keys({DownArrow, Return});
+assert_eq(instance.get_result(), "Area3");
+open(250., 250.);
+keys({DownArrow, Return});
+assert_eq(instance.get_result(), "Area4");
+
+// Last, since the menu may stay open
+handle->set_result("");
+open(150., 50.);
+keys({DownArrow, Return});
+assert_eq(instance.get_result(), "");
+```
+
+```js
+let instance = new slint.TestCase({});
+assert(instance.test);
+instance.label = "x";
+assert.equal(instance.menu_title, "x!");
+instance.rename();
+assert.equal(instance.menu_title, "renamed");
+```
+*/

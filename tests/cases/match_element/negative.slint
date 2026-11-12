@@ -1,0 +1,125 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    width: 200px;
+    height: 100px;
+
+    in-out property <int> int-subject: -1;
+    in-out property <length> length-subject: -10px;
+    in-out property <int> hit;
+
+    match int-subject {
+        -1: TouchArea {
+            x: 0px;
+            width: 100px;
+            clicked => {
+                hit = 1;
+            }
+        }
+        1: TouchArea {
+            x: 0px;
+            width: 100px;
+            clicked => {
+                hit = 2;
+            }
+        }
+        *: TouchArea {
+            x: 0px;
+            width: 100px;
+            clicked => {
+                hit = 3;
+            }
+        }
+    }
+
+    match length-subject {
+        -10px: TouchArea {
+            x: 100px;
+            width: 100px;
+            clicked => {
+                hit = 11;
+            }
+        }
+        -1.5px: TouchArea {
+            x: 100px;
+            width: 100px;
+            clicked => {
+                hit = 12;
+            }
+        }
+        *: { }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert_eq!(instance.get_hit(), 1);
+instance.set_int_subject(1);
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert_eq!(instance.get_hit(), 2);
+instance.set_int_subject(0);
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert_eq!(instance.get_hit(), 3);
+
+slint_testing::send_mouse_click(&instance, 150., 50.);
+assert_eq!(instance.get_hit(), 11);
+instance.set_length_subject(-1.5);
+slint_testing::send_mouse_click(&instance, 150., 50.);
+assert_eq!(instance.get_hit(), 12);
+instance.set_length_subject(0.);
+instance.set_hit(0);
+slint_testing::send_mouse_click(&instance, 150., 50.);
+assert_eq!(instance.get_hit(), 0);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert_eq(instance.get_hit(), 1);
+instance.set_int_subject(1);
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert_eq(instance.get_hit(), 2);
+instance.set_int_subject(0);
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert_eq(instance.get_hit(), 3);
+
+slint_testing::send_mouse_click(&instance, 150., 50.);
+assert_eq(instance.get_hit(), 11);
+instance.set_length_subject(-1.5);
+slint_testing::send_mouse_click(&instance, 150., 50.);
+assert_eq(instance.get_hit(), 12);
+instance.set_length_subject(0.);
+instance.set_hit(0);
+slint_testing::send_mouse_click(&instance, 150., 50.);
+assert_eq(instance.get_hit(), 0);
+```
+
+```js
+var instance = new slint.TestCase();
+
+slintlib.private_api.send_mouse_click(instance, 50., 50.);
+assert.equal(instance.hit, 1);
+instance.int_subject = 1;
+slintlib.private_api.send_mouse_click(instance, 50., 50.);
+assert.equal(instance.hit, 2);
+instance.int_subject = 0;
+slintlib.private_api.send_mouse_click(instance, 50., 50.);
+assert.equal(instance.hit, 3);
+
+slintlib.private_api.send_mouse_click(instance, 150., 50.);
+assert.equal(instance.hit, 11);
+instance.length_subject = -1.5;
+slintlib.private_api.send_mouse_click(instance, 150., 50.);
+assert.equal(instance.hit, 12);
+instance.length_subject = 0;
+instance.hit = 0;
+slintlib.private_api.send_mouse_click(instance, 150., 50.);
+assert.equal(instance.hit, 0);
+```
+*/

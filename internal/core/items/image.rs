@@ -19,6 +19,7 @@ use crate::item_rendering::ItemRenderer;
 use crate::item_rendering::{CachedRenderingData, RenderImage};
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{LogicalLength, LogicalRect, LogicalSize};
+use crate::once_box::OnceBox;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::WindowAdapter;
@@ -27,6 +28,9 @@ use alloc::rc::Rc;
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use i_slint_core_macros::*;
+
+#[cfg(all(feature = "image-decoders", any(not(target_arch = "wasm32"), target_os = "emscripten")))]
+mod animation;
 
 #[repr(C)]
 #[derive(FieldOffsets, Default, SlintElement)]
@@ -40,12 +44,15 @@ pub struct ImageItem {
     pub image_rendering: Property<ImageRendering>,
     pub colorize: Property<Brush>,
     pub cached_rendering_data: CachedRenderingData,
+    animation: OnceBox<ImageAnimationSlot>,
 }
 
 impl Item for ImageItem {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
-    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {
+        stop(&self.animation);
+    }
 
     fn layout_info(
         self: Pin<&Self>,
@@ -151,7 +158,7 @@ impl RenderImage for ImageItem {
     }
 
     fn source(self: Pin<&Self>) -> crate::graphics::Image {
-        self.source()
+        current_frame(&self.animation, self.source())
     }
 
     fn source_clip(self: Pin<&Self>) -> Option<crate::graphics::IntRect> {
@@ -208,12 +215,15 @@ pub struct ClippedImage {
     pub vertical_tiling: Property<ImageTiling>,
 
     pub cached_rendering_data: CachedRenderingData,
+    animation: OnceBox<ImageAnimationSlot>,
 }
 
 impl Item for ClippedImage {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
-    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {
+        stop(&self.animation);
+    }
 
     fn layout_info(
         self: Pin<&Self>,
@@ -320,7 +330,7 @@ impl RenderImage for ClippedImage {
     }
 
     fn source(self: Pin<&Self>) -> crate::graphics::Image {
-        self.source()
+        current_frame(&self.animation, self.source())
     }
 
     fn source_clip(self: Pin<&Self>) -> Option<crate::graphics::IntRect> {
@@ -358,4 +368,57 @@ impl ItemConsts for ClippedImage {
         ClippedImage,
         CachedRenderingData,
     > = ClippedImage::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
+}
+
+#[derive(Default)]
+struct ImageAnimationSlot(
+    #[cfg(all(
+        feature = "image-decoders",
+        any(not(target_arch = "wasm32"), target_os = "emscripten")
+    ))]
+    core::cell::RefCell<Option<Pin<Rc<animation::ImageAnimation>>>>,
+);
+
+fn current_frame(
+    animation: &OnceBox<ImageAnimationSlot>,
+    source: crate::graphics::Image,
+) -> crate::graphics::Image {
+    #[cfg(all(
+        feature = "image-decoders",
+        any(not(target_arch = "wasm32"), target_os = "emscripten")
+    ))]
+    {
+        use crate::graphics::{ImageInner, NineSliceImage};
+        let (inner, nine_slice_edges) = match &source.0 {
+            ImageInner::NineSlice(nine) => (&nine.0, Some(nine.1)),
+            inner => (inner, None),
+        };
+        if let ImageInner::AnimatedImage(animated) = inner {
+            let mut slot = animation.get_or_default().0.borrow_mut();
+            let player = match &*slot {
+                Some(player) if player.shows(animated) => player.clone(),
+                _ => slot.insert(animation::ImageAnimation::new(animated.clone())).clone(),
+            };
+            drop(slot);
+            let frame = player.frame();
+            return match nine_slice_edges {
+                Some(edges) => crate::graphics::Image(ImageInner::NineSlice(vtable::VRc::new(
+                    NineSliceImage(frame.0, edges),
+                ))),
+                None => frame,
+            };
+        }
+    }
+    stop(animation);
+    source
+}
+
+fn stop(animation: &OnceBox<ImageAnimationSlot>) {
+    if let Some(_slot) = animation.get() {
+        #[cfg(all(
+            feature = "image-decoders",
+            any(not(target_arch = "wasm32"), target_os = "emscripten")
+        ))]
+        _slot.0.borrow_mut().take();
+    }
 }

@@ -4,6 +4,7 @@
 /** biome-ignore-all lint/nursery/noFloatingPromises: top-level async IIFE drives preview lifecycle */
 
 import slint_init, * as slint from "@interpreter/slint_wasm_interpreter.js";
+import { edition_from_url } from "./edition";
 
 (async function () {
     await slint_init();
@@ -15,7 +16,7 @@ import slint_init, * as slint from "@interpreter/slint_wasm_interpreter.js";
 
     let main_source = `
 import { SpinBox, Button, CheckBox, Slider, GroupBox } from "std-widgets.slint";
-export Demo := Window {
+export component Demo inherits Window {
     width:  300px;   // Width in logical pixels. All 'px' units are automatically scaled with screen resolution.
     height: 300px;
     t:= Text {
@@ -64,6 +65,8 @@ export Demo := Window {
                     }
                     return file_source;
                 },
+                undefined,
+                edition,
             );
 
         if (error_string !== "") {
@@ -90,6 +93,7 @@ export Demo := Window {
     const code = params.get("snippet");
     const load_url = params.get("load_url");
     const style = params.get("style") || "";
+    const edition = edition_from_url(params);
 
     if (code) {
         main_source = code;

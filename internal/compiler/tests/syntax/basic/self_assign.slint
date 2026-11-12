@@ -1,5 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+//edition: 1.18
 
 export SuperSimple := Rectangle {
 //                 ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
@@ -56,6 +57,11 @@ export SuperSimple := Rectangle {
         property <brush> color;
         clicked => { color *= 3; }
 //                   >    <error{the *= operation cannot be done on a brush}
+    }
+
+    FocusScope {
+        key-pressed(event) => { accept += 1; EventResult.accept }
+//                              >     <error{Unknown unqualified identifier 'accept'. Did you mean 'DialogButtonRole.accept' or 'EventResult.accept'?}
     }
 
     TouchArea {

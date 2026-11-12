@@ -1,0 +1,24 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { RadioGroup } from "std-widgets.slint";
+
+export component RadioGroupCases inherits Window {
+    width: 640px;
+    height: 480px;
+
+    empty-group := RadioGroup {
+        x: 32px;
+        y: 32px;
+        width: 280px;
+    }
+
+    group := RadioGroup {
+        x: 32px;
+        y: 256px;
+        width: 280px;
+        first-option := RadioButton {
+            text: "Option 1";
+        }
+    }
+}

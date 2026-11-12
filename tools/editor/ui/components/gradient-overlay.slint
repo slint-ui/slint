@@ -1,9 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Properties, FillData, LinearGradientAxis } from "../properties.slint";
+
+import { CanvasValueTooltip } from "canvas-value-tooltip.slint";
+import { EditorAngles } from "index.slint";
 import { CanvasView } from "canvas-view.slint";
 import { Style, Metrics, Colors, GradientOverlayStyle } from "../style.slint";
-import { Api, FillData, LinearGradientAxis, SelectionRectangle } from "../api.slint";
+import { SelectionRectangle } from "../api.slint";
 import { FillSession } from "inspector/index.slint";
 
 import { EditorGradientStopMarker } from "gradient-stop-marker.slint";
@@ -11,6 +15,7 @@ import { EditorGradientStopMarker } from "gradient-stop-marker.slint";
 enum GradientGestureKind {
     start-handle,
     end-handle,
+    y-radius,
     axis,
     stop,
 }
@@ -24,6 +29,7 @@ component GradientHandle inherits FocusScope {
     in property <int> focus-generation;
     callback window-point(Point) -> Point;
     changed focus-generation => { if root.selected { root.focus(); } }
+    callback modifiers-changed(bool, bool);
     callback started(Point);
     callback dragged(Point);
     callback finished();
@@ -31,7 +37,7 @@ component GradientHandle inherits FocusScope {
     callback activated();
     callback keyboard(KeyEvent) -> EventResult;
     width: root.endpoint ? root.style.hit-size : max(root.style.hit-size, root.style.marker.size);
-    height: root.endpoint ? root.style.hit-size : max(root.style.hit-size, root.style.marker.size);
+    height: root.endpoint ? root.style.hit-size : max(root.style.hit-size, root.style.marker.height);
     z: touch.pressed ? 3 : root.selected || root.has-focus ? 2 : 1;
     key-pressed(event) => { return root.keyboard(event); }
     changed has-focus => { if root.has-focus { root.selection-requested(); } }
@@ -40,6 +46,7 @@ component GradientHandle inherits FocusScope {
         x: (parent.width - self.width) / 2;
         y: 0px;
         active: root.selected || root.has-focus;
+        pointer-up: true;
         stop-color: root.color;
     }
     if root.endpoint: Rectangle {
@@ -62,6 +69,7 @@ component GradientHandle inherits FocusScope {
             root.focus();
             if !root.endpoint { root.activated(); }
         }
+        pointer-event(event) => { root.modifiers-changed(event.modifiers.shift, event.modifiers.control); }
         changed pressed => {
             if self.pressed {
                 self.dragged = false;
@@ -94,18 +102,66 @@ export component GradientOverlay inherits FocusScope {
     in property <SelectionRectangle> selection;
     private property <LinearGradientAxis> axis: FillSession.axis;
     private property <bool> radial: FillSession.radial-active;
+    private property <bool> ellipse: root.radial && FillSession.working-fill.radial-ellipse;
     private property <bool> conic: FillSession.conic-active;
+    private property <LinearGradientAxis> y-axis: FillSession.y-axis;
+    private property <angle> canvas-angle: FillSession.canvas-rotation;
     private property <Point> start: root.to-canvas(root.axis.start);
     private property <Point> end: root.to-canvas(root.axis.end);
     private property <length> dx: root.end.x - root.start.x;
     private property <length> dy: root.end.y - root.start.y;
     private property <length> axis-length: max(1px, sqrt((root.dx * root.dx + root.dy * root.dy) / (1px * 1px)) * 1px);
     private property <angle> direction: atan2(root.dy / 1px, root.dx / 1px);
+    private property <Point> y-end: root.to-canvas(root.y-axis.end);
+    private property <length> y-dx: root.y-end.x - root.start.x;
+    private property <length> y-dy: root.y-end.y - root.start.y;
+    private property <length> y-axis-length: max(1px, sqrt((root.y-dx * root.y-dx + root.y-dy * root.y-dy) / (1px * 1px)) * 1px);
+    private property <angle> y-direction: atan2(root.y-dy / 1px, root.y-dx / 1px);
     private property <bool> dragging;
     changed dragging => { CanvasView.manipulating = root.dragging; }
     private property <GradientGestureKind> drag-kind;
     private property <Point> press;
+    private property <Point> pointer;
+    private property <bool> shift-pressed;
+    private property <bool> control-pressed;
+    private property <float> accumulated-angle;
+    private property <bool> editing-angle: (!root.radial && root.drag-kind == GradientGestureKind.end-handle)
+        || (!root.radial && !root.conic && root.drag-kind == GradientGestureKind.start-handle)
+        || (root.conic && root.drag-kind == GradientGestureKind.axis);
+
+    pure function snap(value: float, coarse: float, fine: float) -> float {
+        let step = root.shift-pressed ? coarse : root.control-pressed ? fine : 0;
+        return step > 0 ? (value / step).round() * step : value;
+    }
+    function modifiers(shift: bool, control: bool) {
+        let changed = root.shift-pressed != shift || root.control-pressed != control;
+        root.shift-pressed = shift;
+        root.control-pressed = control;
+        if changed && root.dragging { root.drag(root.pointer); }
+    }
+    capture-key-pressed(event) => {
+        if event.text == Key.Shift || event.text == Key.ShiftR {
+            root.modifiers(true, root.control-pressed);
+        } else if event.text == Key.Control || event.text == Key.ControlR {
+            root.modifiers(root.shift-pressed, true);
+        }
+        return reject;
+    }
+    capture-key-released(event) => {
+        if event.text == Key.Shift || event.text == Key.ShiftR {
+            root.modifiers(false, root.control-pressed);
+        } else if event.text == Key.Control || event.text == Key.ControlR {
+            root.modifiers(root.shift-pressed, false);
+        }
+        return reject;
+    }
+    private property <Point> press-window;
+    private property <Point> original-end-window;
+    private property <float> original-rotation;
+    private property <angle> previous-drag-angle;
+    private property <angle> accumulated-rotation;
     private property <LinearGradientAxis> original-axis;
+    private property <LinearGradientAxis> original-y-axis;
     private property <FillData> original-fill;
     private property <Point> original-stop;
     private property <int> original-selected;
@@ -119,6 +175,7 @@ export component GradientOverlay inherits FocusScope {
     changed focus-request => { focus-timer.start(); }
     focus-timer := Timer {
         interval: 0ms;
+        running: false;
         triggered => {
             self.stop();
             root.focus-epoch += 1;
@@ -129,8 +186,8 @@ export component GradientOverlay inherits FocusScope {
         let cx = root.selection.width / 2;
         let cy = root.selection.height / 2;
         return {
-            x: (root.selection.x + cx + (p.x - cx) * cos(root.selection.angle) - (p.y - cy) * sin(root.selection.angle)) * CanvasView.zoom,
-            y: (root.selection.y + cy + (p.x - cx) * sin(root.selection.angle) + (p.y - cy) * cos(root.selection.angle)) * CanvasView.zoom,
+            x: (root.selection.x + cx + (p.x - cx) * cos(root.canvas-angle) - (p.y - cy) * sin(root.canvas-angle)) * CanvasView.zoom,
+            y: (root.selection.y + cy + (p.x - cx) * sin(root.canvas-angle) + (p.y - cy) * cos(root.canvas-angle)) * CanvasView.zoom,
         };
     }
     pure function to-local(p: Point) -> Point {
@@ -138,45 +195,108 @@ export component GradientOverlay inherits FocusScope {
         let x = preview.x - root.selection.x - root.selection.width / 2;
         let y = preview.y - root.selection.y - root.selection.height / 2;
         return {
-            x: root.selection.width / 2 + x * cos(root.selection.angle) + y * sin(root.selection.angle),
-            y: root.selection.height / 2 - x * sin(root.selection.angle) + y * cos(root.selection.angle),
+            x: root.selection.width / 2 + x * cos(root.canvas-angle) + y * sin(root.canvas-angle),
+            y: root.selection.height / 2 - x * sin(root.canvas-angle) + y * cos(root.canvas-angle),
         };
     }
     function begin(kind: GradientGestureKind, p: Point) {
         root.drag-kind = kind;
+        root.pointer = p;
         root.original-selected = FillSession.selected-stop;
         root.press = root.to-local(p);
+        root.press-window = p;
+        root.original-end-window = { x: root.absolute-position.x + root.end.x, y: root.absolute-position.y + root.end.y };
+        root.original-rotation = FillSession.element-rotation;
+        root.previous-drag-angle = root.canvas-angle;
+        root.accumulated-rotation = 0deg;
         root.original-axis = root.axis;
+        root.original-y-axis = root.y-axis;
         root.original-fill = FillSession.working-fill;
-        root.original-stop = FillSession.stop-point(FillSession.working-fill.stops[FillSession.selected-stop].position);
+        root.original-stop = FillSession.stop-point(FillSession.working-fill.stops[FillSession.selected-stop].position.clamp(0, 1));
+        root.accumulated-angle = kind == GradientGestureKind.stop
+            ? FillSession.working-fill.stops[FillSession.selected-stop].position * 360
+            : FillSession.working-fill.angle;
         root.dragging = true;
     }
     function drag(p: Point) {
         if !root.dragging { return; }
+        root.pointer = p;
+        if root.radial && root.drag-kind == GradientGestureKind.end-handle {
+            let target = CanvasView.to-preview({
+                x: root.original-end-window.x + p.x - root.press-window.x - root.absolute-position.x,
+                y: root.original-end-window.y + p.y - root.press-window.y - root.absolute-position.y,
+            });
+            let pivot = { x: root.selection.x + root.selection.width / 2, y: root.selection.y + root.selection.height / 2 };
+            let vx = (target.x - pivot.x) / 1px;
+            let vy = (target.y - pivot.y) / 1px;
+            let qx = (root.original-axis.start.x - root.selection.width / 2) / 1px;
+            let qy = (root.original-axis.start.y - root.selection.height / 2) / 1px;
+            let squared = vx * vx + vy * vy - qy * qy;
+            if squared <= 0 { return; }
+            let projection = sqrt(squared);
+            let local-x = vx * cos(root.canvas-angle) + vy * sin(root.canvas-angle);
+            let projected = local-x < 0 && -projection - qx >= 1 ? -projection : projection;
+            let radius = projected - qx;
+            if radius < 1 { return; }
+            let angle = atan2(vy, vx) - atan2(qy, projected);
+            let raw-step = angle - root.previous-drag-angle;
+            let step = raw-step > 180deg ? raw-step - 360deg : raw-step < -180deg ? raw-step + 360deg : raw-step;
+            root.accumulated-rotation += step;
+            root.previous-drag-angle = angle;
+            FillSession.move-rotated-axis(root.original-fill, root.original-axis, {
+                start: root.original-axis.start,
+                end: { x: root.original-axis.start.x + radius * 1px, y: root.original-axis.start.y },
+            }, root.original-rotation + root.accumulated-rotation / 1deg, root.shift-pressed);
+            return;
+        }
         let local = root.to-local(p);
         let delta = { x: local.x - root.press.x, y: local.y - root.press.y };
+        if root.drag-kind == GradientGestureKind.y-radius {
+            FillSession.move-y-axis(root.original-fill, root.original-y-axis, {
+                start: root.original-y-axis.start,
+                end: { x: root.original-y-axis.end.x, y: root.original-y-axis.end.y + delta.y },
+            }, root.shift-pressed);
+            return;
+        }
         if root.conic && root.drag-kind != GradientGestureKind.start-handle {
-            let degrees = Api.gradient-angular-delta(root.axis.start, root.press, local);
+            let degrees = Properties.gradient-angular-delta(root.axis.start, root.press, local);
             root.press = local;
+            root.accumulated-angle += degrees;
             if root.drag-kind == GradientGestureKind.stop {
-                FillSession.move-stop-position((FillSession.working-fill.stops[FillSession.selected-stop].position + degrees / 360).clamp(0, 1));
+                root.accumulated-angle = root.accumulated-angle.clamp(0, 360);
+                FillSession.move-stop-position(root.snap(root.accumulated-angle, 15, 1) / 360);
             } else {
                 FillSession.move-axis(FillSession.working-fill, root.axis, {
                     start: root.axis.start,
-                    end: Api.conic-gradient-point(root.axis, degrees / 360),
+                    end: Properties.conic-gradient-point(root.axis, (root.snap(root.accumulated-angle, 15, 1) - FillSession.working-fill.angle) / 360),
                 });
             }
             return;
         }
         if root.drag-kind == GradientGestureKind.stop {
-            FillSession.move-stop({ x: root.original-stop.x + delta.x, y: root.original-stop.y + delta.y });
+            let point = { x: root.original-stop.x + delta.x, y: root.original-stop.y + delta.y };
+            FillSession.move-stop-position(root.snap(FillSession.stop-position(point), 0.05, 0.01).clamp(0, 1));
             return;
         }
         let next = {
             start: root.drag-kind == GradientGestureKind.end-handle ? root.original-axis.start : { x: root.original-axis.start.x + delta.x, y: root.original-axis.start.y + delta.y },
             end: root.drag-kind == GradientGestureKind.start-handle && !root.radial && !root.conic ? root.original-axis.end : { x: root.original-axis.end.x + delta.x, y: root.original-axis.end.y + delta.y },
         };
-        FillSession.move-axis(root.original-fill, root.original-axis, next);
+        if root.editing-angle && (root.shift-pressed || root.control-pressed) {
+            let dx = (next.end.x - next.start.x) / 1px;
+            let dy = (next.end.y - next.start.y) / 1px;
+            let radius = sqrt(dx * dx + dy * dy) * 1px;
+            let angle = root.snap(atan2(dx, -dy) / 1deg, 15, 1) * 1deg;
+            let vector = { x: radius * sin(angle), y: -radius * cos(angle) };
+            FillSession.move-axis(root.original-fill, root.original-axis, {
+                start: root.drag-kind == GradientGestureKind.start-handle
+                    ? { x: next.end.x - vector.x, y: next.end.y - vector.y } : next.start,
+                end: root.drag-kind == GradientGestureKind.start-handle
+                    ? next.end : { x: next.start.x + vector.x, y: next.start.y + vector.y },
+            });
+        } else {
+            FillSession.move-axis(root.original-fill, root.original-axis, next);
+        }
     }
     function handle-key(kind: GradientGestureKind, event: KeyEvent) -> EventResult {
         if kind == GradientGestureKind.stop && (event.text == Key.Delete || event.text == Key.Backspace) {
@@ -188,6 +308,24 @@ export component GradientOverlay inherits FocusScope {
             return reject;
         }
         let step = event.modifiers.shift ? 10 : 1;
+        if kind == GradientGestureKind.y-radius {
+            if event.text != Key.UpArrow && event.text != Key.DownArrow { return reject; }
+            let amount = (event.text == Key.UpArrow ? -step : step) * 1px;
+            FillSession.move-y-axis(FillSession.working-fill, root.y-axis, {
+                start: root.y-axis.start,
+                end: { x: root.y-axis.end.x, y: root.y-axis.end.y + amount },
+            }, event.modifiers.shift);
+            return accept;
+        }
+        if root.radial && kind == GradientGestureKind.end-handle {
+            if event.text != Key.LeftArrow && event.text != Key.RightArrow { return reject; }
+            let amount = (event.text == Key.LeftArrow ? -step : step) * 1px;
+            FillSession.move-rotated-axis(FillSession.working-fill, root.axis, {
+                start: root.axis.start,
+                end: { x: max(root.axis.start.x + 1px, root.axis.end.x + amount), y: root.axis.end.y },
+            }, FillSession.element-rotation, event.modifiers.shift);
+            return accept;
+        }
         if root.conic && kind != GradientGestureKind.start-handle {
             let amount = (event.text == Key.LeftArrow || event.text == Key.DownArrow ? -step : step) / 360;
             if kind == GradientGestureKind.stop {
@@ -196,18 +334,15 @@ export component GradientOverlay inherits FocusScope {
             } else {
                 FillSession.move-axis(FillSession.working-fill, root.axis, {
                     start: root.axis.start,
-                    end: Api.conic-gradient-point(root.axis, amount),
+                    end: Properties.conic-gradient-point(root.axis, amount),
                 });
             }
             return accept;
         }
         if kind == GradientGestureKind.stop {
             let amount = (event.text == Key.LeftArrow || event.text == Key.DownArrow ? -step : step) / 100;
-            let p = FillSession.stop-point(FillSession.working-fill.stops[FillSession.selected-stop].position);
-            FillSession.move-stop({
-                x: p.x + amount * (root.axis.end.x - root.axis.start.x),
-                y: p.y + amount * (root.axis.end.y - root.axis.start.y),
-            });
+            let position = FillSession.working-fill.stops[FillSession.selected-stop].position.clamp(0, 1);
+            FillSession.move-stop-position((position + amount).clamp(0, 1));
             FillSession.focus-stop-generation += 1;
         } else {
             let delta = {
@@ -230,9 +365,7 @@ export component GradientOverlay inherits FocusScope {
         if event.text == Key.Escape {
             if root.dragging {
                 root.dragging = false;
-                FillSession.preview-fill(root.original-fill);
-                FillSession.axis = root.original-axis;
-                if root.radial { FillSession.radial-direction = atan2((root.axis.end.y - root.axis.start.y) / 1px, (root.axis.end.x - root.axis.start.x) / 1px); }
+                FillSession.restore-gesture(root.original-fill, root.original-rotation, root.original-axis);
                 FillSession.selected-stop = root.original-selected;
             } else {
                 FillSession.close-picker(false, true);
@@ -243,7 +376,7 @@ export component GradientOverlay inherits FocusScope {
         return reject;
     }
 
-    if root.radial || root.conic: Rectangle {
+    if (root.radial && !root.ellipse) || root.conic: Rectangle {
         x: root.start.x - root.axis-length;
         y: root.start.y - root.axis-length;
         width: root.axis-length * 2;
@@ -251,6 +384,21 @@ export component GradientOverlay inherits FocusScope {
         border-radius: self.width / 2;
         border-width: Metrics.border-width;
         border-color: root.style.halo;
+    }
+    if root.ellipse: Path {
+        x: root.start.x - root.axis-length;
+        y: root.start.y - root.y-axis-length;
+        width: root.axis-length * 2;
+        height: root.y-axis-length * 2;
+        viewbox-width: self.width / 1px;
+        viewbox-height: self.height / 1px;
+        transform-origin: { x: self.width / 2, y: self.height / 2 };
+        transform-rotation: root.canvas-angle;
+        stroke: root.style.halo;
+        stroke-width: Metrics.border-width;
+        MoveTo { x: parent.viewbox-width; y: parent.viewbox-height / 2; }
+        ArcTo { radius-x: parent.viewbox-width / 2; radius-y: parent.viewbox-height / 2; sweep: true; x: 0; y: parent.viewbox-height / 2; }
+        ArcTo { radius-x: parent.viewbox-width / 2; radius-y: parent.viewbox-height / 2; sweep: true; x: parent.viewbox-width; y: parent.viewbox-height / 2; }
     }
     group := Rectangle {
         x: root.start.x;
@@ -296,10 +444,11 @@ export component GradientOverlay inherits FocusScope {
             touch := TouchArea {
                 mouse-cursor: grab;
                 accessible-role: AccessibleRole.button;
-                accessible-label: "Gradient axis";
+                accessible-label: @tr("Gradient axis");
                 pure function pointer() -> Point {
                     return group.window-point({ x: self.mouse-x, y: self.mouse-y - root.style.axis-hit-size / 2 });
                 }
+                pointer-event(event) => { root.modifiers(event.modifiers.shift, event.modifiers.control); }
                 changed pressed => {
                     if self.pressed { root.focus(); root.begin(GradientGestureKind.axis, self.pointer()); }
                     else { root.dragging = false; }
@@ -314,9 +463,10 @@ export component GradientOverlay inherits FocusScope {
             x: (endpoint == 0 ? 0px : root.axis-length) - self.width / 2;
             endpoint: true;
             color: Colors.on-accent;
-            label: root.conic ? (endpoint == 0 ? "Gradient center handle" : "Gradient rotation handle") : root.radial ? (endpoint == 0 ? "Gradient center handle" : "Gradient radius handle") : (endpoint == 0 ? "Gradient start" : "Gradient end");
+            label: root.conic ? (endpoint == 0 ? @tr("Gradient center handle") : @tr("Gradient rotation handle")) : root.radial ? (endpoint == 0 ? @tr("Gradient center handle") : @tr("Gradient radius X and rectangle rotation handle")) : (endpoint == 0 ? @tr("Gradient start") : @tr("Gradient end"));
             window-point(p) => { return group.window-point({ x: self.x + p.x, y: self.y + p.y }); }
             keyboard(event) => { return root.handle-key(self.gesture-kind, event); }
+            modifiers-changed(shift, control) => { root.modifiers(shift, control); }
             started(p) => { root.begin(self.gesture-kind, p); }
             dragged(p) => { root.drag(p); }
             finished => { root.dragging = false; }
@@ -326,7 +476,7 @@ export component GradientOverlay inherits FocusScope {
             private property <float> position: FillSession.working-fill.stops[index].position;
             private property <angle> stop-angle: self.position * 360deg;
             private property <angle> marker-angle: root.conic ? self.stop-angle + (self.position >= 1 ? 90deg : -90deg) : 0deg;
-            private property <Point> canonical: FillSession.stop-point(FillSession.working-fill.stops[index].position);
+            private property <Point> canonical: FillSession.stop-point(self.position.clamp(0, 1));
             private property <float> relative: ((self.canonical.x - root.axis.start.x) * (root.axis.end.x - root.axis.start.x)
                 + (self.canonical.y - root.axis.start.y) * (root.axis.end.y - root.axis.start.y))
                 / max(1px * 1px, (root.axis.end.x - root.axis.start.x) * (root.axis.end.x - root.axis.start.x)
@@ -337,7 +487,7 @@ export component GradientOverlay inherits FocusScope {
             transform-rotation: self.marker-angle;
             color: FillSession.working-fill.stops[index].color;
             selected: index == FillSession.selected-stop;
-            label: "Gradient stop " + (index + 1);
+            label: @tr("Gradient stop {}", index + 1);
             focus-generation: root.focus-epoch;
             window-point(p) => {
                 let dx = p.x - self.width / 2;
@@ -350,7 +500,51 @@ export component GradientOverlay inherits FocusScope {
             keyboard(event) => { return root.handle-key(GradientGestureKind.stop, event); }
             selection-requested => { FillSession.selected-stop = index; }
             activated => { FillSession.edit-stop-color(index); }
+            modifiers-changed(shift, control) => { root.modifiers(shift, control); }
             started(p) => { root.begin(GradientGestureKind.stop, p); }
+            dragged(p) => { root.drag(p); }
+            finished => { root.dragging = false; }
+        }
+    }
+    if root.dragging && (root.editing-angle || root.drag-kind == GradientGestureKind.stop): CanvasValueTooltip {
+        private property <bool> stop: root.drag-kind == GradientGestureKind.stop;
+        private property <angle> angle: atan2((root.axis.end.x - root.axis.start.x) / 1px, (root.axis.start.y - root.axis.end.y) / 1px);
+        label: self.stop ? @tr("Position") : @tr("Angle");
+        value: (self.stop ? FillSession.working-fill.stops[FillSession.selected-stop].position * (root.conic ? 360 : 100)
+            : EditorAngles.rounded(self.angle)).to-fixed(0);
+        suffix: self.stop && !root.conic ? "%" : "°";
+        value-label: self.stop ? @tr("Gradient stop position") : @tr("Gradient angle");
+        pointer-position: { x: root.pointer.x - root.absolute-position.x, y: root.pointer.y - root.absolute-position.y };
+    }
+
+    if root.radial: Rectangle {
+        x: root.start.x;
+        y: root.start.y;
+        width: root.y-axis-length;
+        height: 0px;
+        transform-origin: { x: 0px, y: 0px };
+        transform-rotation: root.y-direction;
+        Rectangle {
+            height: root.style.axis-width;
+            background: Style.selection-frame.handle-background;
+            drop-shadow-blur: root.style.axis-shadow.blur;
+            drop-shadow-color: root.style.axis-shadow.color;
+        }
+        GradientHandle {
+            style: root.style;
+            x: root.y-axis-length - self.width / 2;
+            endpoint: true;
+            color: Colors.on-accent;
+            label: @tr("Gradient radius Y handle");
+            window-point(p) => {
+                return {
+                    x: root.absolute-position.x + root.start.x + (self.x + p.x) * cos(root.y-direction) - (self.y + p.y) * sin(root.y-direction),
+                    y: root.absolute-position.y + root.start.y + (self.x + p.x) * sin(root.y-direction) + (self.y + p.y) * cos(root.y-direction),
+                };
+            }
+            keyboard(event) => { return root.handle-key(GradientGestureKind.y-radius, event); }
+            modifiers-changed(shift, control) => { root.modifiers(shift, control); }
+            started(p) => { root.begin(GradientGestureKind.y-radius, p); }
             dragged(p) => { root.drag(p); }
             finished => { root.dragging = false; }
         }

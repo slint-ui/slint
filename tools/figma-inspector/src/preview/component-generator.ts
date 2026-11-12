@@ -60,6 +60,12 @@ const defaults: Record<string, string> = {
     "drop-shadow-offset-x": "0px",
     "drop-shadow-offset-y": "0px",
     "drop-shadow-spread": "0px",
+    "inner-shadow-color": "transparent",
+    "inner-shadow-blur": "0px",
+    "inner-shadow-offset-x": "0px",
+    "inner-shadow-offset-y": "0px",
+    "inner-shadow-spread": "0px",
+    "backdrop-blur": "0px",
 };
 function elementKey(element: Element): string {
     return `${element.type}:${element.role ?? element.origin?.name ?? "helper"}`;
@@ -89,10 +95,20 @@ function applyContract(
     contract: ComponentContract | undefined,
     names: ReturnType<typeof contractNames>,
     model?: Element,
+    inheritedConditions: readonly string[] = [],
 ): Element {
     const refs = contract?.bindings[model?.origin?.id ?? tree.origin?.id ?? ""];
-    const result: Element = {
+    const visibility =
+        refs?.visible && !tree.role ? names.get(refs.visible) : undefined;
+    let condition = visibility ? `root.${visibility.name}` : tree.condition;
+    if (condition && inheritedConditions.includes(condition))
+        condition = undefined;
+    const childConditions = condition
+        ? [...inheritedConditions, condition]
+        : inheritedConditions;
+    return {
         ...tree,
+        condition,
         bindings: tree.bindings.map((b) => {
             const property =
                 b.name === "text" && refs?.characters
@@ -114,14 +130,10 @@ function applyContract(
                     elementKey(model.children[i]) === elementKey(child)
                     ? model.children[i]
                     : undefined,
+                childConditions,
             ),
         ),
     };
-    if (refs?.visible && !tree.role) {
-        const property = names.get(refs.visible);
-        if (property) result.condition = `root.${property.name}`;
-    }
-    return result;
 }
 function normalizeBindingOrder(tree: Element): Element {
     return {
@@ -249,7 +261,46 @@ export function generateComponents(
             assets.apply(tokens.apply(elementTree(render(node)))),
         );
     if (options.specialize) {
-        const specialized = new Map<string, string>();
+        const parameterizable = (value: Binding["value"]) =>
+            [
+                "length",
+                "angle",
+                "int",
+                "float",
+                "bool",
+                "string",
+                "brush",
+                "image",
+            ].includes(value.type) &&
+            (value.kind === "literal" ||
+                (value.kind === "reference" && value.type === "image"));
+        const values = (tree: Element): Binding["value"][] => [
+            ...tree.bindings
+                .filter((b) => parameterizable(b.value))
+                .map((b) => b.value),
+            ...tree.children.flatMap(values),
+        ];
+        const shape = (tree: Element): unknown => [
+            tree.type,
+            tree.condition,
+            tree.role,
+            tree.bindings.map((b) => [
+                b.name,
+                parameterizable(b.value) ? b.value.type : b.value,
+            ]),
+            tree.children.map(shape),
+        ];
+        const groups = new Map<
+            string,
+            {
+                id: string;
+                samples: {
+                    node: SnapshotNode;
+                    tree: Element;
+                    values: Binding["value"][];
+                }[];
+            }
+        >();
         for (const [id, nodes] of occurrences) {
             for (const node of nodes) {
                 const tree = rendered(node);
@@ -272,32 +323,81 @@ export function generateComponents(
                               ];
                     },
                 );
-                const signature = JSON.stringify([
-                    structuralSignature(tree),
-                    preferred,
-                ]);
-                let name = specialized.get(signature);
-                if (!name) {
-                    name = allocateType(
-                        `${requireValue(names.get(id))}Preview`,
-                    );
-                    specialized.set(signature, name);
-                    const output = uniqueIds(tree);
-                    source.push(
-                        `component ${name} inherits ${tree.type} {`,
-                        ...preferred.map(printLine),
-                        ...output.bindings.map((b) =>
-                            printLine({ ...b, depth: 1 }),
-                        ),
-                        ...output.children.flatMap((child) =>
-                            treeLines(child, 1).map(printLine),
-                        ),
-                        "}",
-                        "",
-                    );
+                const output = {
+                    ...tree,
+                    bindings: [...preferred, ...tree.bindings],
+                };
+                const signature = JSON.stringify([id, shape(output)]);
+                let group = groups.get(signature);
+                if (!group) {
+                    group = { id, samples: [] };
+                    groups.set(signature, group);
                 }
-                uses.set(node, { name, bindings: [] });
+                group.samples.push({
+                    node,
+                    tree: output,
+                    values: values(output),
+                });
             }
+        }
+        for (const group of groups.values()) {
+            const first = group.samples[0];
+            const name = allocateType(
+                `${requireValue(names.get(group.id))}Preview`,
+            );
+            const parameters = new Map<
+                number,
+                { name: string; type: string }
+            >();
+            first.values.forEach((value, index) => {
+                if (
+                    group.samples.some(
+                        (sample) => sample.values[index].code !== value.code,
+                    )
+                )
+                    parameters.set(index, {
+                        name: `figma-value-${index + 1}`,
+                        type: value.type,
+                    });
+            });
+            let index = 0;
+            const substitute = (tree: Element): Element => ({
+                ...tree,
+                bindings: tree.bindings.map((b) => {
+                    if (!parameterizable(b.value)) return b;
+                    const parameter = parameters.get(index++);
+                    return parameter
+                        ? {
+                              ...b,
+                              value: reference(
+                                  parameter.type,
+                                  `root.${parameter.name}`,
+                              ),
+                          }
+                        : b;
+                }),
+                children: tree.children.map(substitute),
+            });
+            const output = uniqueIds(substitute(first.tree));
+            source.push(
+                `component ${name} inherits ${output.type} {`,
+                ...[...parameters.values()].map(
+                    (p) => `    in property <${p.type}> ${p.name};`,
+                ),
+                ...output.bindings.map((b) => printLine({ ...b, depth: 1 })),
+                ...output.children.flatMap((child) =>
+                    treeLines(child, 1).map(printLine),
+                ),
+                "}",
+                "",
+            );
+            for (const sample of group.samples)
+                uses.set(sample.node, {
+                    name,
+                    bindings: [...parameters].map(([index, p]) =>
+                        binding(p.name, sample.values[index], 0),
+                    ),
+                });
         }
         return {
             source: [...assets.source(), ...tokens.source, ...source],

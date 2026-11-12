@@ -1,0 +1,97 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// `overflow: elide` on right-to-left text cuts it off on the left, its logical end (#14434).
+// The left column holds right-to-left paragraphs, the right column left-to-right ones.
+//
+// The test fonts have no right-to-left script, so uppercase words stand in for it: right-to-left
+// marks around them lay them out from right to left, one glyph run per word. In the right column,
+// an isolate (RLI ... PDI) holds them. Lowercase words are left-to-right text.
+//
+// The overflowing line of several runs has a width where one of its runs ends closer to the box
+// edge than the ellipsis is wide.
+//
+// Each Text holds a child Rectangle that fills it with a 1px red border, so the Text geometry is
+// visible.
+//
+// The embed-assets pipeline lays out all text left to right, and draws the directional marks
+// with glyphs from a platform fallback font.
+//ignore: software-embed-assets
+//ignore: skia
+//SIZE=260x126
+
+component TextGeometry inherits Rectangle {
+    border-width: 1px;
+    border-color: red;
+}
+
+component ElidedText inherits HorizontalLayout {
+    in property <string> text;
+    in property <TextWrap> wrap: no-wrap;
+    padding: 3px;
+    Text {
+        overflow: elide;
+        wrap: root.wrap;
+        color: black;
+        text: root.text;
+        TextGeometry {}
+    }
+}
+
+component Column inherits VerticalLayout {
+    // Overflows as a single glyph run.
+    in property <string> single-run;
+    // Fits, apart from the trailing space that hangs past the end edge: no ellipsis.
+    in property <string> fitting;
+    in property <string> overflowing;
+    in property <length> overflowing-width;
+    // Wraps, and the lines below the box are dropped, so the last visible line gets an ellipsis.
+    in property <string> wrapped;
+    spacing: 2px;
+    ElidedText {
+        width: 120px;
+        height: 24px;
+        text: root.single-run;
+    }
+    ElidedText {
+        width: 120px;
+        height: 24px;
+        text: root.fitting;
+    }
+    ElidedText {
+        width: root.overflowing-width;
+        height: 24px;
+        text: root.overflowing;
+    }
+    ElidedText {
+        width: 120px;
+        height: 45px;
+        wrap: word-wrap;
+        text: root.wrapped;
+    }
+}
+
+export component TestCase inherits Window {
+    default-font-family: "Noto Sans";
+    background: white;
+    width: 260px;
+    height: 126px;
+
+    Column {
+        x: 0; y: 0;
+        single-run: "\u{200f}quarterly report.docx";
+        fitting: "\u{200f}HELLO\u{200f} WORLD ";
+        overflowing-width: 81px;
+        overflowing: "\u{200f}ALPHA\u{200f} BETA\u{200f} gamma delta\u{200f} EPSILON\u{200f} ZETA";
+        wrapped: "\u{200f}ONE\u{200f} TWO\u{200f} THREE\u{200f} four five\u{200f} SIX\u{200f} SEVEN\u{200f} EIGHT\u{200f} NINE";
+    }
+
+    Column {
+        x: 130px; y: 0;
+        single-run: "quarterly report final.docx";
+        fitting: "hello world ";
+        overflowing-width: 110px;
+        overflowing: "alpha beta \u{2067}GAMMA\u{200f} DELTA\u{2069} epsilon zeta";
+        wrapped: "one two \u{2067}THREE\u{200f} FOUR\u{2069} five six \u{2067}SEVEN\u{200f} EIGHT\u{2069} nine";
+    }
+}

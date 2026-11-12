@@ -4,6 +4,8 @@
 use std::collections::HashMap;
 
 use i_slint_compiler::parser::{TextRange, TextSize};
+#[cfg(test)]
+use i_slint_compiler::source_path::SourcePath;
 
 #[derive(Clone, Debug)]
 pub struct TextOffsetAdjustment {
@@ -204,9 +206,10 @@ impl TextEditor {
         let current_range =
             crate::util::lsp_range_to_text_range(&self.source_file, text_edit.range, format);
         let adjusted_range = self.adjustments.adjust_range(current_range);
+        let r: std::ops::Range<usize> = adjusted_range.start().into()..adjusted_range.end().into();
 
-        if self.contents.len() < adjusted_range.end().into() {
-            return Err("Text edit range is out of bounds".into());
+        if self.contents.get(r.clone()).is_none() {
+            return Err("Text edit range is out of bounds or splits a character".into());
         }
 
         // Book keeping:
@@ -214,7 +217,6 @@ impl TextEditor {
             self.original_offset_range.0.min(current_range.start().into());
         self.original_offset_range.1 = self.original_offset_range.1.max(current_range.end().into());
 
-        let r: std::ops::Range<usize> = adjusted_range.start().into()..adjusted_range.end().into();
         self.contents.replace_range(r, &text_edit.new_text);
 
         self.adjustments.add_adjustment(TextOffsetAdjustment::new(
@@ -249,25 +251,34 @@ pub fn apply_workspace_edit(
     document_cache: &crate::DocumentCache,
     workspace_edit: &lsp_types::WorkspaceEdit,
 ) -> crate::Result<Vec<EditedText>> {
+    apply_workspace_edit_with_source(workspace_edit, document_cache.format, |url| {
+        cached_source_file(document_cache, url)
+    })
+}
+
+fn cached_source_file(
+    document_cache: &crate::DocumentCache,
+    url: &lsp_types::Url,
+) -> Option<i_slint_compiler::diagnostics::SourceFile> {
+    Some(document_cache.get_document(url)?.node.as_ref()?.source_file.clone())
+}
+
+pub fn apply_workspace_edit_with_source(
+    workspace_edit: &lsp_types::WorkspaceEdit,
+    format: crate::ByteFormat,
+    source_file: impl Fn(&lsp_types::Url) -> Option<i_slint_compiler::diagnostics::SourceFile>,
+) -> crate::Result<Vec<EditedText>> {
     let mut processing = HashMap::new();
 
     for (doc, edit) in EditIterator::new(workspace_edit) {
         // This is ugly but necessary since the constructor might error out:-/
         if !processing.contains_key(&doc.uri) {
-            let Some(document) = document_cache.get_document(&doc.uri) else {
-                continue;
-            };
-            let Some(document_node) = &document.node else {
-                continue;
-            };
-            let editor = TextEditor::new(document_node.source_file.clone())?;
+            let Some(source_file) = source_file(&doc.uri) else { continue };
+            let editor = TextEditor::new(source_file)?;
             processing.insert(doc.uri.clone(), editor);
         }
 
-        processing
-            .get_mut(&doc.uri)
-            .expect("just added if missing")
-            .apply(edit, document_cache.format)?;
+        processing.get_mut(&doc.uri).expect("just added if missing").apply(edit, format)?;
     }
 
     Ok(processing
@@ -285,6 +296,16 @@ pub fn reversed_edit(
     document_cache: &crate::DocumentCache,
     edit: &lsp_types::WorkspaceEdit,
 ) -> Option<lsp_types::WorkspaceEdit> {
+    reversed_edit_with_source(edit, document_cache.format, |url| {
+        cached_source_file(document_cache, url)
+    })
+}
+
+pub fn reversed_edit_with_source(
+    edit: &lsp_types::WorkspaceEdit,
+    format: crate::ByteFormat,
+    source_file: impl Fn(&lsp_types::Url) -> Option<i_slint_compiler::diagnostics::SourceFile>,
+) -> Option<lsp_types::WorkspaceEdit> {
     struct UndoHelper {
         source_file: i_slint_compiler::diagnostics::SourceFile,
         /// (Range in the original, original string, new length)
@@ -295,12 +316,7 @@ pub fn reversed_edit(
 
     for (doc, edit) in EditIterator::new(edit) {
         if !processing.contains_key(&doc.uri) {
-            let document = document_cache.get_document(&doc.uri)?;
-            let Some(document_node) = &document.node else {
-                return None;
-            };
-            let helper =
-                UndoHelper { source_file: document_node.source_file.clone(), edits: Vec::new() };
+            let helper = UndoHelper { source_file: source_file(&doc.uri)?, edits: Vec::new() };
             processing.insert(doc.uri.clone(), helper);
         }
 
@@ -319,11 +335,8 @@ pub fn reversed_edit(
             .edits
             .into_iter()
             .map(|e| {
-                let orig_range = crate::util::lsp_range_to_text_range(
-                    &helper.source_file,
-                    e.range,
-                    document_cache.format,
-                );
+                let orig_range =
+                    crate::util::lsp_range_to_text_range(&helper.source_file, e.range, format);
                 let orig_string = source[orig_range].to_string();
 
                 // Count the number of \n in the original string and the replaced string
@@ -344,15 +357,16 @@ pub fn reversed_edit(
 
                 let adjusted_start = adjust_pos(e.range.start);
 
+                let last_line = e.new_text.rsplit('\n').next().unwrap();
+                let new_column = match format {
+                    crate::ByteFormat::Utf8 => last_line.len() as u32,
+                    crate::ByteFormat::Utf16 => last_line.encode_utf16().count() as u32,
+                };
                 let new_range = lsp_types::Range::new(
                     adjusted_start,
                     lsp_types::Position::new(
                         adjusted_start.line.saturating_add_signed(new_lines),
-                        if new_lines == 0 {
-                            adjusted_start.character + e.new_text.len() as u32
-                        } else {
-                            e.new_text.bytes().rev().take_while(|b| *b != b'\n').count() as u32
-                        },
+                        new_column + if new_lines == 0 { adjusted_start.character } else { 0 },
                     ),
                 );
 
@@ -928,7 +942,7 @@ fn test_edit_iterator_document_mixed() {
 fn test_texteditor_no_content_in_source_file() {
     use i_slint_compiler::diagnostics::SourceFileInner;
 
-    let source_file = SourceFileInner::from_path_only(std::path::PathBuf::from("/tmp/foo.slint"));
+    let source_file = SourceFileInner::from_path_only(SourcePath::new("/tmp/foo.slint"));
 
     assert!(TextEditor::new(source_file).is_err());
 }
@@ -938,7 +952,7 @@ fn test_texteditor_edit_out_of_range() {
     use i_slint_compiler::diagnostics::SourceFileInner;
 
     let source_file = std::sync::Arc::new(SourceFileInner::new(
-        std::path::PathBuf::from("/tmp/foo.slint"),
+        SourcePath::new("/tmp/foo.slint"),
         r#""#.to_string(),
     ));
 
@@ -955,11 +969,42 @@ fn test_texteditor_edit_out_of_range() {
 }
 
 #[test]
+fn test_texteditor_edit_splitting_a_character() {
+    use i_slint_compiler::diagnostics::SourceFileInner;
+
+    let source_file = std::sync::Arc::new(SourceFileInner::new(
+        SourcePath::new("/tmp/foo.slint"),
+        "abc".to_string(),
+    ));
+
+    let mut editor = TextEditor::new(source_file.clone()).unwrap();
+
+    let edit = lsp_types::TextEdit {
+        range: lsp_types::Range::new(
+            lsp_types::Position::new(0, 0),
+            lsp_types::Position::new(0, 3),
+        ),
+        new_text: "ééé".to_string(),
+    };
+    assert!(editor.apply(&edit, crate::ByteFormat::Utf8).is_ok());
+
+    // Used to panic: the adjusted offset of 'c' lands in the middle of the second 'é'.
+    let edit = lsp_types::TextEdit {
+        range: lsp_types::Range::new(
+            lsp_types::Position::new(0, 2),
+            lsp_types::Position::new(0, 2),
+        ),
+        new_text: "x".to_string(),
+    };
+    assert!(editor.apply(&edit, crate::ByteFormat::Utf8).is_err());
+}
+
+#[test]
 fn test_texteditor_delete_everything() {
     use i_slint_compiler::diagnostics::SourceFileInner;
 
     let source_file = std::sync::Arc::new(SourceFileInner::new(
-        std::path::PathBuf::from("/tmp/foo.slint"),
+        SourcePath::new("/tmp/foo.slint"),
         r#"abc
 def
 geh"#
@@ -989,7 +1034,7 @@ fn test_texteditor_replace() {
     use i_slint_compiler::diagnostics::SourceFileInner;
 
     let source_file = std::sync::Arc::new(SourceFileInner::new(
-        std::path::PathBuf::from("/tmp/foo.slint"),
+        SourcePath::new("/tmp/foo.slint"),
         r#"abc
 def
 geh"#
@@ -1024,7 +1069,7 @@ fn test_texteditor_2step_replace_all() {
     use i_slint_compiler::diagnostics::SourceFileInner;
 
     let source_file = std::sync::Arc::new(SourceFileInner::new(
-        std::path::PathBuf::from("/tmp/foo.slint"),
+        SourcePath::new("/tmp/foo.slint"),
         r#"abc
 def
 geh"#
@@ -1091,7 +1136,7 @@ mod test_apply_reversed_edit {
 
     #[test]
     fn test_multi_line_edit() {
-        let url = lsp_types::Url::from_file_path(crate::test::main_test_file_name()).unwrap();
+        let url = crate::test::main_test_file_name().to_url().unwrap();
         let code = HashMap::from([(url.clone(), "component Foo { /*..*/ }\n".to_string())]);
         let mut document_cache = crate::test::compile_test_with_sources("fluent", code, true);
 
@@ -1137,5 +1182,61 @@ mod test_apply_reversed_edit {
                 .unwrap(),
             "import { AboutSlint } from \"std-widgets.slint\";\ncomponent Foo {\n    AboutSlint {}\n}\n//comment\n\n"
         );
+    }
+}
+
+#[test]
+fn raw_source_edits_can_be_applied_reversed_and_redone() {
+    let path = crate::test::test_file_name("slint-project.json");
+    let url = path.to_url().unwrap();
+    for original in [
+        "{\r\n  \"main\": \"🦊.slint\", /* keep */ \"metadata\": {\"visual-editor\":{\"old\":\"🦊\"}}\r\n}",
+        "{\"metadata\": {\"visual-editor\":{\n\"old\":\"🦊\"\n}}}",
+    ] {
+        let offset = original.find("{\"visual-editor\"").unwrap();
+        let end = original.rfind('}').unwrap();
+        for format in [crate::ByteFormat::Utf8, crate::ByteFormat::Utf16] {
+            let source = std::sync::Arc::new(i_slint_compiler::diagnostics::SourceFileInner::new(
+                path.clone(),
+                original.into(),
+            ));
+            let edit = crate::editing::create_workspace_edit(
+                url.clone(),
+                Some(1),
+                vec![lsp_types::TextEdit {
+                    range: crate::util::text_range_to_lsp_range(
+                        &source,
+                        TextRange::new((offset as u32).into(), (end as u32).into()),
+                        format,
+                    ),
+                    new_text: "{\"visual-editor\":{\"canvas-presets\":[]}}".into(),
+                }],
+            );
+            let result =
+                apply_workspace_edit_with_source(&edit, format, |_| Some(source.clone())).unwrap();
+            assert_eq!(result.len(), 1);
+            let expected = format!(
+                "{}{}{}",
+                &original[..offset],
+                "{\"visual-editor\":{\"canvas-presets\":[]}}",
+                &original[end..]
+            );
+            assert_eq!(result[0].contents, expected);
+            let reverse =
+                reversed_edit_with_source(&edit, format, |_| Some(source.clone())).unwrap();
+            let updated = std::sync::Arc::new(i_slint_compiler::diagnostics::SourceFileInner::new(
+                path.clone(),
+                result[0].contents.clone(),
+            ));
+            let restored =
+                apply_workspace_edit_with_source(&reverse, format, |_| Some(updated.clone()))
+                    .unwrap();
+            assert_eq!(restored[0].contents, original);
+            let redo =
+                reversed_edit_with_source(&reverse, format, |_| Some(updated.clone())).unwrap();
+            let redone =
+                apply_workspace_edit_with_source(&redo, format, |_| Some(source.clone())).unwrap();
+            assert_eq!(redone[0].contents, expected);
+        }
     }
 }

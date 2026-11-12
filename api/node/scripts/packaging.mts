@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// Shared helpers for assembling the slint-ui npm packages, used both by the
+// Shared helpers for assembling the slint-ui and slint-compiler npm packages, used by the
 // publish workflow (as a CLI, e.g. `node packaging.mts pack-binary …`) and by
 // the registry e2e test (which imports the functions directly). This is the
 // single source of truth for the set of platform binary packages.
@@ -9,7 +9,16 @@
 // Run with Node's TypeScript type stripping (Node >= 23, or --experimental-strip-types).
 
 import { execFile } from "node:child_process";
-import { cpSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import {
+    chmodSync,
+    cpSync,
+    mkdtempSync,
+    readFileSync,
+    readdirSync,
+    rmSync,
+    writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
@@ -34,6 +43,9 @@ export const NAPI_TARGETS = [
 /** Base npm package names for the release and dev platform binaries. */
 export const BASE_BINARY_PACKAGE = "@slint-ui/slint-ui-binary";
 export const DEV_BINARY_PACKAGE = "@slint-ui/slint-ui-dev-binary";
+
+/** Base npm package name for the platform slint-compiler binaries. */
+export const COMPILER_BINARY_PACKAGE = "@slint-ui/slint-compiler";
 
 /** Full npm package names for a binary base name, e.g. `@slint-ui/slint-ui-binary`. */
 export function binaryPackageNames(
@@ -186,6 +198,76 @@ export async function packDevMeta(opts: {
 }
 
 /**
+ * Pack one platform's slint-compiler executable (from `cargo build -p slint-compiler`)
+ * into `@slint-ui/slint-compiler-<target>`.
+ */
+export async function packCompilerBinary(opts: {
+    target: string; // napi-rs platform suffix, e.g. linux-x64-gnu
+    releaseDir: string; // cargo's release output directory holding the executable
+    version: string;
+    dest: string;
+}): Promise<void> {
+    const { target, releaseDir, version, dest } = opts;
+    const [os, cpu, libc] = target.split("-");
+    const exe = os === "win32" ? "slint-compiler.exe" : "slint-compiler";
+    const pkgDir = mkdtempSync(join(tmpdir(), "slint-compiler-"));
+    cpSync(join(releaseDir, exe), join(pkgDir, exe));
+    chmodSync(join(pkgDir, exe), 0o755);
+    cpSync(join(repoRoot, "LICENSE.md"), join(pkgDir, "LICENSE.md"));
+    const manifest = {
+        name: `${COMPILER_BINARY_PACKAGE}-${target}`,
+        version,
+        description: `The slint-compiler binary for ${target}`,
+        os: [os],
+        cpu: [cpu],
+        ...(os === "linux" ? { libc: [libc === "gnu" ? "glibc" : libc] } : {}),
+        files: [exe, "LICENSE.md"],
+        homepage: "https://slint.dev",
+        license: "SEE LICENSE IN LICENSE.md",
+        repository: {
+            type: "git",
+            url: "https://github.com/slint-ui/slint",
+        },
+    };
+    writeFileSync(
+        join(pkgDir, "package.json"),
+        `${JSON.stringify(manifest, null, 2)}\n`,
+    );
+    // pnpm pack drops the executable bit of files that aren't `bin` entries.
+    await run("npm", ["pack", "--pack-destination", dest], { cwd: pkgDir });
+    rmSync(pkgDir, { recursive: true, force: true });
+}
+
+/**
+ * Pack the slint-compiler package (tools/compiler/npm): the launcher script, with
+ * each `@slint-ui/slint-compiler-<target>` as an optional dependency.
+ */
+export async function packCompilerMeta(opts: {
+    version: string;
+    dest: string;
+    targets?: readonly string[];
+}): Promise<void> {
+    const { version, dest, targets } = opts;
+    const pkgDir = mkdtempSync(join(tmpdir(), "slint-compiler-"));
+    cpSync(join(repoRoot, "tools", "compiler", "npm"), pkgDir, {
+        recursive: true,
+    });
+    cpSync(join(repoRoot, "LICENSE.md"), join(pkgDir, "LICENSE.md"));
+    editManifest(join(pkgDir, "package.json"), (manifest) => {
+        manifest.version = version;
+        manifest.optionalDependencies ??= {};
+        for (const pkg of binaryPackageNames(
+            COMPILER_BINARY_PACKAGE,
+            targets,
+        )) {
+            manifest.optionalDependencies[pkg] = version;
+        }
+    });
+    await run("pnpm", ["pack", "--pack-destination", dest], { cwd: pkgDir });
+    rmSync(pkgDir, { recursive: true, force: true });
+}
+
+/**
  * Publish every *.tgz in `dir` to a registry. Used identically against the
  * throwaway Verdaccio registry (the e2e gate) and the real npm registry; only
  * the registry URL (and the ambient auth in env) differ.
@@ -238,6 +320,20 @@ async function main(argv: string[]): Promise<void> {
         case "pack-dev-meta": {
             const [version, dest, ...targets] = args;
             await packDevMeta({
+                version,
+                dest,
+                targets: targets.length ? targets : undefined,
+            });
+            break;
+        }
+        case "pack-compiler-binary": {
+            const [target, releaseDir, version, dest] = args;
+            await packCompilerBinary({ target, releaseDir, version, dest });
+            break;
+        }
+        case "pack-compiler-meta": {
+            const [version, dest, ...targets] = args;
+            await packCompilerMeta({
                 version,
                 dest,
                 targets: targets.length ? targets : undefined,

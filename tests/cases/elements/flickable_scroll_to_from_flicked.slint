@@ -1,0 +1,93 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    width: 500phx;
+    height: 500phx;
+
+    in property <ScrollBehavior> snap-behavior: ScrollBehavior.instant;
+    out property <int> flicked-count;
+
+    f := Flickable {
+        content_width: 500phx;
+        content_height: 2000phx;
+        flicked => {
+            flicked-count += 1;
+            self.scroll-to({ x: 0, y: 300px }, snap-behavior);
+        }
+    }
+
+    out property <length> offset_x: -f.content_x;
+    out property <length> offset_y: -f.content_y;
+}
+
+/*
+
+```rust
+// Wheel
+use slint::{platform::WindowEvent, LogicalPosition};
+let instance = TestCase::new().unwrap();
+instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(250.0, 250.0), delta_x: 0.0, delta_y: -50.0 });
+assert_eq!(instance.get_flicked_count(), 1);
+assert_eq!(instance.get_offset_y(), 300.);
+slint_testing::mock_elapsed_time(5000);
+assert_eq!(instance.get_offset_x(), 0.);
+assert_eq!(instance.get_offset_y(), 300.);
+assert_eq!(instance.get_flicked_count(), 1);
+```
+
+```rust
+// Mouse wheel, which animates
+use slint::platform::WindowEvent;
+use slint_testing::{LogicalPoint, BackendMouseEvent, TouchPhase};
+let instance = TestCase::new().unwrap();
+instance.window().dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel {
+    position: LogicalPoint::new(250., 250.),
+    delta_x: 0.,
+    delta_y: -50.,
+    phase: TouchPhase::Moved,
+}));
+assert_eq!(instance.get_flicked_count(), 1);
+assert_eq!(instance.get_offset_y(), 300.);
+slint_testing::mock_elapsed_time(5000);
+assert_eq!(instance.get_offset_x(), 0.);
+assert_eq!(instance.get_offset_y(), 300.);
+```
+
+```rust
+// Wheel with a smooth snap
+use slint::{platform::WindowEvent, LogicalPosition};
+use slint::language::ScrollBehavior;
+let instance = TestCase::new().unwrap();
+instance.set_snap_behavior(ScrollBehavior::Smooth);
+instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(250.0, 250.0), delta_x: 0.0, delta_y: -50.0 });
+assert_eq!(instance.get_flicked_count(), 1);
+slint_testing::mock_elapsed_time(5000);
+assert_eq!(instance.get_offset_x(), 0.);
+assert_eq!(instance.get_offset_y(), 300.);
+```
+
+```rust
+// Drag and fling
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+let instance = TestCase::new().unwrap();
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(250.0, 400.0) });
+slint_testing::mock_elapsed_time(5000);
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(250.0, 400.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(250.0, 350.0) });
+assert_eq!(instance.get_flicked_count(), 1);
+assert_eq!(instance.get_offset_y(), 300.);
+slint_testing::mock_elapsed_time(10);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(250.0, 300.0) });
+assert_eq!(instance.get_flicked_count(), 2);
+assert_eq!(instance.get_offset_y(), 300.);
+slint_testing::mock_elapsed_time(10);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(250.0, 250.0) });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(250.0, 250.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_flicked_count(), 4, "the release flings");
+slint_testing::mock_elapsed_time(5000);
+assert_eq!(instance.get_offset_x(), 0.);
+assert_eq!(instance.get_offset_y(), 300.);
+```
+
+*/

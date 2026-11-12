@@ -4,6 +4,7 @@
 #[satchel::test]
 fn platform_uses_mock_data() {
     slint::slint! {
+        #[edition = "1.20"]
         export component MainWindow inherits Window {
             out property <bool> uses_mock_data: Platform.uses-mock-data;
         }

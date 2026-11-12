@@ -13,6 +13,7 @@ use std::thread::Thread;
 use platform::{DesktopPlatform, HEIGHT, Input, WIDTH};
 
 slint::slint! {
+    #[edition = "1.20"]
     export component SimWindow inherits Window {
         in property <image> image <=> screen.source;
         preferred-width: 320px;
@@ -24,8 +25,6 @@ slint::slint! {
         }
 
         touch := TouchArea {
-            width: 100%;
-            height: 100%;
             pointer-event(event) => {
                 if (event.kind == PointerEventKind.down) {
                     root.pressed(touch.mouse-x / 1px, touch.mouse-y / 1px);

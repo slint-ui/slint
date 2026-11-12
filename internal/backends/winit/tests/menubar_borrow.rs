@@ -3,6 +3,7 @@
 
 fn main() {
     slint::slint! {
+        #[edition = "1.20"]
         import { Palette } from "std-widgets.slint";
         export component App inherits Window {
             property <bool> dark-mode: Palette.color-scheme == ColorScheme.dark;

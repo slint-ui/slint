@@ -1,0 +1,37 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export interface ReservedNames {
+    in-out property <length> width;
+//                           >   <error{Cannot override property 'width'}
+    in property <bool> visible;
+//                     >     <error{Cannot override property 'visible'}
+    out property <Point> absolute-position;
+//                       >               <error{Cannot override property 'absolute-position'}
+    in property <length> rotation-origin-x;
+//                       >               <error{Cannot override property 'rotation-origin-x'}
+    in property <length> maximum-width;
+//                       >           <error{Cannot override property 'maximum-width'}
+    callback accessible-action-default;
+//           >                       <error{Cannot override callback 'accessible-action-default'}
+    in property <int> init;
+//                    >  <error{Cannot declare property 'init' when a callback with the same name exists}
+    public function focus();
+//                  >   <error{Cannot override 'focus'}
+    public function clear-focus();
+//                  >         <error{Cannot override 'clear-focus'}
+}
+
+export interface ReservedInit {
+    public function init();
+//                  >  <error{Cannot override 'init'}
+}
+
+export interface Base {
+    in property <int> value;
+}
+
+export interface Derived inherits Base {
+    in property <length> height;
+//                       >    <error{Cannot override property 'height'}
+}

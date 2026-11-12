@@ -5,23 +5,27 @@
 
 //! Compute binding analysis and attempt to find binding loops
 
+use crate::source_path::SourcePath;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::path::PathBuf;
 use std::rc::Rc;
 
 use by_address::ByAddress;
 
+use crate::builtin_functions::BuiltinFunction;
 use crate::diagnostics::{BuildDiagnostics, ByteFormat, SourceLocation, Spanned};
-use crate::expression_tree::{BindingExpression, BuiltinFunction, Expression};
-use crate::langtype::ElementType;
-use crate::layout::{LayoutItem, Orientation};
+use crate::element_type::{BuiltinElement, ElementType};
+use crate::expression_tree::{BindingExpression, Expression};
+use crate::expression_types::{Orientation, Unit};
+use crate::langtype::Type;
+use crate::layout::LayoutItem;
 use crate::namedreference::NamedReference;
 use crate::object_tree::{Document, Element, ElementRc, PropertyAnimation, find_parent_element};
 use derive_more as dm;
 
 use crate::CompilerConfiguration;
 use crate::expression_tree::Callable;
+use crate::project_file::SlintEdition;
 use smol_str::{SmolStr, ToSmolStr};
 
 /// Represent the kind of property for the DefaultFontSize based on the `default-font-size`` property of every `Window``
@@ -187,7 +191,7 @@ struct AnalysisContext<'a> {
     depth_limit_reported: bool,
     /// For each place a binding loop diagnostic or note points at, whether one of those loops
     /// was an error.
-    loop_reported_at: HashMap<(Option<PathBuf>, usize, usize), bool>,
+    loop_reported_at: HashMap<(Option<SourcePath>, usize, usize), bool>,
     global_analysis: &'a mut GlobalAnalysis,
 }
 
@@ -460,7 +464,7 @@ fn analyze_binding(
     // so the expression of a property aliased to this one is a dependency of this binding too.
     // The other direction is covered by the `two_way_bindings` loop above.
     let mut aliased_deps = Vec::new();
-    for alias in reverse_aliases.get(&current.prop).into_iter().flatten() {
+    for alias in transitive_reverse_aliases(&current.prop, reverse_aliases) {
         let element = alias.element();
         let element_borrow = element.borrow();
         if let Some(alias_binding) = element_borrow.binding(alias.name()) {
@@ -512,14 +516,57 @@ fn analyze_binding(
     depends_on_external
 }
 
-/// Where a diagnostic would point, as a value two of them can be compared by.
-fn place(span: &SourceLocation) -> (Option<PathBuf>, usize, usize) {
-    (span.source_file.as_ref().map(|f| f.path().to_path_buf()), span.span.offset, span.span.length)
+/// Whether a compiler pass invented this property, such as `layoutinfo-h` or `layout-cache-v`:
+/// the source can't name it, so a message that does is no help.
+/// One that took over a binding the source wrote, such as a popup's `fixed-width`, still counts
+/// as the user's.
+fn is_synthesized_property(prop: &PropertyPath) -> bool {
+    let elem = prop.prop.element();
+    let elem = elem.borrow();
+    let name = prop.prop.name();
+    elem.property_declarations.get(name).is_some_and(|decl| decl.synthesized)
+        && !elem.binding_cell_including_synthetic(name).is_some_and(|b| b.borrow().from_source)
 }
 
-/// Whether `path` is one of the files the compiler ships, such as a style's widgets.
-fn is_builtin(path: &std::path::Path) -> bool {
-    path.to_string_lossy().starts_with("builtin:")
+/// Whether the type is the `LayoutInfo` a layout solve reads, directly or from a call.
+fn is_layout_info(ty: &Type) -> bool {
+    match ty {
+        Type::Struct(_) => *ty == Type::Struct(crate::typeregister::layout_info_type()),
+        Type::Function(f) => is_layout_info(&f.return_type),
+        _ => false,
+    }
+}
+
+/// The ancestor of `elem` that `parent` holds as a child, if `parent` contains `elem` at all.
+fn child_holding(elem: &ElementRc, parent: &ElementRc) -> Option<ElementRc> {
+    let mut child = elem.clone();
+    loop {
+        let above = find_parent_element(&child)?;
+        if Rc::ptr_eq(&above, parent) {
+            return Some(child);
+        }
+        child = above;
+    }
+}
+
+/// The name of `elem`, if setting its `x` or `y` takes it out of its parent's size.
+/// `default_geometry` drops a child from a plain parent's layout info once either is set.
+/// A layout places its cells itself and refuses the binding, so a cell of one never qualifies.
+/// An element the compiler ships is one the user can't edit, so it doesn't qualify either.
+fn escapes_parent_size(elem: &ElementRc) -> Option<SmolStr> {
+    if elem.borrow().child_of_layout {
+        return None;
+    }
+    let file = elem.borrow().to_source_location().source_file?;
+    if file.path().is_builtin() {
+        return None;
+    }
+    element_name(&elem.borrow())
+}
+
+/// Where a diagnostic would point, as a value two of them can be compared by.
+fn place(span: &SourceLocation) -> (Option<SourcePath>, usize, usize) {
+    (span.source_file.as_ref().map(|f| f.path().clone()), span.span.offset, span.span.length)
 }
 
 /// Report the cycle `current` closes: one diagnostic on the binding the user is most likely to
@@ -546,8 +593,6 @@ fn report_binding_loop(
     // The bindings of the cycle that have a place in the source. A synthetic element (eg. the
     // Flickable's content element) has none; the rest of the cycle is still reported.
     let mut reportable = Vec::new();
-    // Skip a cycle whose bindings were all reported already: most often it's one reported cycle
-    // entered from another of its properties. One that shares only some is another loop.
     let mut all_reported = true;
     for it in &cycle {
         let elem = it.prop.element();
@@ -561,7 +606,7 @@ fn report_binding_loop(
         // How much a diagnostic here helps, best first: a binding of their own that the user can
         // change, one in a widget they only use, and the rest, which still points inside the
         // component that produced it.
-        let builtin = is_builtin(file.path());
+        let builtin = file.path().is_builtin();
         let rank = match (binding.from_source, builtin) {
             (true, false) => 0,
             (true, true) => 1,
@@ -569,7 +614,16 @@ fn report_binding_loop(
         };
         reportable.push((*it, span, rank));
     }
-    if all_reported {
+    // Skip a cycle whose bindings were all reported already: most often it's one reported cycle
+    // entered from another of its properties. One that shares only some is another loop.
+    let is_error = context.error_on_binding_loop_with_window_layout || !has_window_layout;
+    let all_bindings_of_edition_1_19 = || {
+        reportable
+            .iter()
+            .filter_map(|(_, span, _)| span.source_file.as_ref())
+            .all(|file| file.edition() >= Some(SlintEdition::V1_19))
+    };
+    if all_reported && !(is_error && all_bindings_of_edition_1_19()) {
         return;
     }
     // Of equal blame, one in the user's own file over one in a widget, then the one written
@@ -580,7 +634,7 @@ fn report_binding_loop(
         .enumerate()
         .min_by_key(|(i, (_, span, rank))| {
             let file = span.source_file.as_ref().map(|f| f.path());
-            (*rank, file.is_some_and(is_builtin), file, span.span.offset, *i)
+            (*rank, file.is_some_and(SourcePath::is_builtin), file, span.span.offset, *i)
         })
         .map(|(i, _)| i)
     else {
@@ -588,7 +642,6 @@ fn report_binding_loop(
     };
     // Skip, too, a cycle that would only point where earlier loops already did, such as one
     // through another instance of the same component. A warning there doesn't hide an error.
-    let is_error = context.error_on_binding_loop_with_window_layout || !has_window_layout;
     let covered = |span: &SourceLocation| {
         context.loop_reported_at.get(&place(span)).is_some_and(|was_error| *was_error || !is_error)
     };
@@ -603,6 +656,48 @@ fn report_binding_loop(
     let mut message = format!(
         "The binding for the property '{name}' is part of a binding loop ({loop_description})"
     );
+    // The properties a layout solve runs on. A cell's constraints reach it as a `LayoutInfo`,
+    // plain or behind a call; the sizes it decided leave as a layout cache.
+    let solves_layout =
+        |it: &&PropertyPath| it.prop.ty() == Type::ArrayOfCoord || is_layout_info(&it.prop.ty());
+    let through_layout = cycle.iter().any(solves_layout);
+    // A child's measurement enters the cycle where a hop reaches its parent's layout info.
+    // Setting an 'x' or a 'y' on that child cuts the hop, and naming any other element of the
+    // cycle would be advice that changes nothing. A layout cache is no such hop: a cell stays
+    // a cell whatever its 'x' says.
+    // Cutting the hop opens the cycle we report. Other cycles can run through the same
+    // elements, so the advice is a way out of this one, not a promise that none is left.
+    // `cycle` closes on itself, so the hop out of its last property leads back to its first.
+    let escapable = cycle
+        .iter()
+        .zip(cycle.iter().cycle().skip(1))
+        .take(cycle.len())
+        .filter(|(_, to)| is_layout_info(&to.prop.ty()))
+        .find_map(|(from, to)| {
+            let parent = to.prop.element();
+            let elem = child_holding(&from.prop.element(), &parent)?;
+            Some((escapes_parent_size(&elem)?, elem))
+        });
+    if through_layout {
+        let mut advice = Vec::new();
+        // Advising a change to the blamed binding only helps if the user wrote it.
+        if reportable[primary].2 == 0 {
+            advice.push(format!(
+                "compute '{name}' without depending on a size or a position the layout produces"
+            ));
+        }
+        if let Some((elem_name, ..)) = &escapable {
+            advice.push(format!(
+                "set an 'x' or a 'y' on '{elem_name}', so its parent stops sizing itself from it"
+            ));
+        }
+        if !advice.is_empty() {
+            let mut sentence = advice.join(", or ");
+            sentence[..1].make_ascii_uppercase();
+            message.push('\n');
+            message.push_str(&sentence);
+        }
+    }
     let span = &reportable[primary].1;
     if !is_error {
         message.push_str("\nThis was allowed in previous version of Slint, but is deprecated and may cause panic at runtime");
@@ -613,9 +708,33 @@ fn report_binding_loop(
 
     // An editor lists each diagnostic on its own, away from the rest, so a note has to say which
     // loop it belongs to and where that one is.
-    let reported_at = span.source_file.as_ref().map(|file| {
-        (file.path().to_path_buf(), file.line_column(span.span.offset, ByteFormat::Utf8).0)
-    });
+    let reported_at = span
+        .source_file
+        .as_ref()
+        .map(|file| (file.path().clone(), file.line_column(span.span.offset, ByteFormat::Utf8).0));
+    let at = |note_span: &SourceLocation| match &reported_at {
+        Some((path, line)) if note_span.source_file.as_ref().is_some_and(|f| f.path() == path) => {
+            format!(" at line {line}")
+        }
+        Some((path, line)) => format!(" at {}:{line}", path),
+        None => String::new(),
+    };
+    // The element the advice names may be one the source never named, in another component:
+    // point at it, or the reader has no way to find it.
+    if let Some((elem_name, elem)) = &escapable {
+        let elem_span = elem.borrow().to_source_location();
+        if place(&elem_span) != place(span) {
+            diag.push_note(
+                format!(
+                    "setting an 'x' or a 'y' here takes '{elem_name}' out of its parent's \
+                     size, one way out of the binding loop reported for '{name}'{}",
+                    at(&elem_span)
+                ),
+                &elem_span,
+            );
+        }
+    }
+
     // A component instantiated twice puts two elements of the cycle at the one place its source
     // is written, so the same note can come up more than once. The diagnostic itself already
     // speaks for its own place.
@@ -627,19 +746,11 @@ fn report_binding_loop(
         .map(|(_, x)| x)
     {
         if noted.insert(place(span)) {
-            let at = match &reported_at {
-                Some((path, line))
-                    if span.source_file.as_ref().is_some_and(|f| f.path() == path.as_path()) =>
-                {
-                    format!(" at line {line}")
-                }
-                Some((path, line)) => format!(" at {}:{line}", path.display()),
-                None => String::new(),
-            };
             diag.push_note(
                 format!(
-                    "'{}' is part of the binding loop reported for '{name}'{at}",
-                    it.prop.declared_name()
+                    "'{}' is part of the binding loop reported for '{name}'{}",
+                    it.prop.declared_name(),
+                    at(span)
                 ),
                 span,
             );
@@ -650,20 +761,74 @@ fn report_binding_loop(
     }
 }
 
-/// The cycle as a chain of property names, starting and ending at `current`.
+/// Whether `SLINT_FULL_BINDING_LOOP_CHAIN` asks for the properties a pass invented to stay in
+/// the chain.
+/// They name the layout properties a cycle really runs through, which is what someone debugging
+/// the compiler needs and what a user can do nothing with.
+fn keep_invented_properties() -> bool {
+    static KEEP: std::sync::LazyLock<bool> =
+        std::sync::LazyLock::new(|| std::env::var_os("SLINT_FULL_BINDING_LOOP_CHAIN").is_some());
+    *KEEP
+}
+
+/// The cycle as a chain of property names, ending where it starts.
+/// A property a pass invented shows as only its element, since the source can't name it, and a
+/// run of them on one element shows it once.
+/// The chain starts at a property the source can name, so both its ends are one and the loop
+/// reads as one.
+/// A cycle made only of invented properties keeps their names, as does any cycle under
+/// [`keep_invented_properties`].
 fn describe_loop(current: &PropertyPath, cycle: &[&PropertyPath]) -> String {
+    // `cycle` ends at `current`, so these are the hops of the cycle, each triggering the next
+    // and the last triggering the first.
+    let hops: Vec<&PropertyPath> = std::iter::once(current).chain(cycle.iter().copied()).collect();
+    let hops = &hops[..hops.len() - 1];
+    let named = hops.iter().position(|prop| !is_synthesized_property(prop));
+    let collapse = named.is_some() && !keep_invented_properties();
+    let start = if collapse { named.unwrap_or(0) } else { 0 };
+
     let mut out = String::new();
-    for prop in std::iter::once(current).chain(cycle.iter().copied()) {
+    let mut hidden_on: Option<ElementRc> = None;
+    for prop in hops[start..].iter().chain(&hops[..start]).copied().chain([hops[start]]) {
+        let element = prop.prop.element();
+        let hidden = collapse && is_synthesized_property(prop);
+        if hidden && hidden_on.as_ref().is_some_and(|e| Rc::ptr_eq(e, &element)) {
+            continue;
+        }
         if !out.is_empty() {
             out.push_str(" -> ");
         }
-        if let Some(owner) = element_name(&prop.prop.element().borrow()) {
+        let owner = element_name(&element.borrow());
+        if hidden {
+            out.push_str(owner.as_deref().unwrap_or("..."));
+            hidden_on = Some(element);
+            continue;
+        }
+        hidden_on = None;
+        if let Some(owner) = owner {
             out.push_str(&owner);
             out.push('.');
         }
         out.push_str(&prop.prop.declared_name());
     }
     out
+}
+
+fn transitive_reverse_aliases(
+    prop: &NamedReference,
+    reverse_aliases: &ReverseAliases,
+) -> Vec<NamedReference> {
+    let mut result = Vec::new();
+    let mut pending = vec![prop];
+    while let Some(p) = pending.pop() {
+        for alias in reverse_aliases.get(p).into_iter().flatten() {
+            if alias != prop && !result.contains(alias) {
+                result.push(alias.clone());
+                pending.push(alias);
+            }
+        }
+    }
+    result
 }
 
 /// Find properties two-way-bound (via `<=>`) to `prop`, ascending through base components
@@ -795,8 +960,16 @@ fn recurse_expression(
     expr: &Expression,
     vis: &mut impl FnMut(&PropertyPath, ReadType),
 ) {
-    const P: ReadType = ReadType::PropertyRead;
     expr.visit(|sub| recurse_expression(elem, sub, vis));
+    visit_expression_reads(elem, expr, vis);
+}
+
+fn visit_expression_reads(
+    elem: &ElementRc,
+    expr: &Expression,
+    vis: &mut impl FnMut(&PropertyPath, ReadType),
+) {
+    const P: ReadType = ReadType::PropertyRead;
     match expr {
         Expression::PropertyReference(r) => vis(&r.clone().into(), P),
         Expression::LayoutCacheAccess { layout_cache_prop, .. } => {
@@ -1066,6 +1239,14 @@ fn recurse_expression(
                     }
                 }
             }
+            BuiltinFunction::EnsureVisible => {
+                if let Some(Expression::ElementReference(item)) = arguments.first() {
+                    vis(
+                        &NamedReference::new(&item.upgrade().unwrap(), SmolStr::default()).into(),
+                        P,
+                    );
+                }
+            }
             BuiltinFunction::ItemFontMetrics => {
                 if let Some(Expression::ElementReference(item)) = arguments.first() {
                     let item = item.upgrade().unwrap();
@@ -1085,6 +1266,19 @@ fn recurse_expression(
                         &NamedReference::new(&item, SmolStr::new_static("font-italic")).into(),
                         ReadType::NativeRead,
                     );
+                }
+            }
+            BuiltinFunction::HasSelection => {
+                if let Some(Expression::ElementReference(item)) = arguments.first() {
+                    let item = item.upgrade().unwrap();
+                    for name in
+                        ["text", "cursor-position-byte-offset", "anchor-position-byte-offset"]
+                    {
+                        vis(
+                            &NamedReference::new(&item, SmolStr::new_static(name)).into(),
+                            ReadType::NativeRead,
+                        );
+                    }
                 }
             }
             BuiltinFunction::GetWindowDefaultFontSize => {
@@ -1319,7 +1513,7 @@ fn visit_cell_cross_axis_implicit_dependency(
 /// With `GivenByLayout`, the caller passes the item its width, so a
 /// height-for-width item's vertical info doesn't read it.
 fn visit_implicit_layout_info_dependencies(
-    orientation: crate::layout::Orientation,
+    orientation: crate::expression_types::Orientation,
     cross_size: CrossAxisSize,
     item: &ElementRc,
     vis: &mut impl FnMut(&PropertyPath, ReadType),
@@ -1380,7 +1574,7 @@ fn visit_implicit_layout_info_dependencies(
 }
 
 fn visit_builtin_property(
-    builtin: &crate::langtype::BuiltinElement,
+    builtin: &BuiltinElement,
     prop: &PropertyPath,
     context: &mut AnalysisContext,
     reverse_aliases: &ReverseAliases,
@@ -1443,9 +1637,7 @@ fn check_window_properties(doc: &Document, global_analysis: &mut GlobalAnalysis)
                         let value = elem.borrow().binding(DEFAULT_FONT_SIZE).and_then(|e| match e
                             .expression
                         {
-                            Expression::NumberLiteral(v, crate::expression_tree::Unit::Px) => {
-                                Some(v as f32)
-                            }
+                            Expression::NumberLiteral(v, Unit::Px) => Some(v as f32),
                             _ => None,
                         });
                         let is_const = value.is_some()

@@ -60,7 +60,7 @@ fn main() {
         scope.spawn(move || sdl2_render_loop(rx_render, tx_event).unwrap());
         let executor = EXECUTOR.init(Executor::new());
         executor.run(|spawner| {
-            spawner.spawn(main_task(spawner, tx_render, rx_event, pool)).unwrap();
+            spawner.spawn(main_task(spawner, tx_render, rx_event, pool).unwrap());
         });
     });
 }
@@ -200,7 +200,7 @@ async fn main_task(
     slint::platform::set_platform(backend).expect("backend already initialized");
     info!("slint gui setup complete");
 
-    spawner.spawn(embassy_render_loop(window, tx_render, rx_event, pool)).unwrap();
+    spawner.spawn(embassy_render_loop(window, tx_render, rx_event, pool).unwrap());
 
     // give the render loop time to come up (otherwise it will draw a blank screen)
     Timer::after(Duration::from_millis(200)).await;

@@ -1,0 +1,160 @@
+---
+title: Project File
+description: Configure the edition, main file, include paths, and library paths of a project in one place.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+import LangRefLink from '@slint/common-files/src/components/LangRefLink.astro';
+
+Use a `slint-project.json` file to configure your project's main file and compiler settings, such as include paths.
+To apply these settings, pass the project file or its directory to the compiler.
+
+## Location
+
+Name the file `slint-project.json` and place it in your project directory.
+Passing either `/projects/app` or `/projects/app/slint-project.json` loads `/projects/app/slint-project.json`.
+Importing a `.slint` file in Node.js or generating TypeScript declarations for it loads `slint-project.json` from the source file's directory.
+For example, importing `/projects/app/ui/main.slint` looks for `/projects/app/ui/slint-project.json`.
+
+## Example
+
+```json
+{
+    "edition": "1.20",
+    "main": "ui/main.slint",
+    "include-paths": ["ui/shared"],
+    "library-paths": {
+        "widgets": "ui/widgets"
+    }
+}
+```
+
+The file uses JSON syntax and accepts `//` and `/* */` comments.
+`edition` is required.
+When you pass the project file or its directory to the compiler, `main` is required, too.
+All other settings are optional.
+
+## Settings
+
+| Setting | Type | Description |
+|---------|------|-------------|
+| `edition` | string | Required. The Slint release whose language behavior your project uses, such as `"1.20"`. See [Editions](../../language/concepts/editions/). |
+| `main` | string | The `.slint` file to compile when you pass the project file or its directory. See [Compiling a Project](#compiling-a-project). |
+| `include-paths` | array of strings | Directories to search for imported `.slint` files. |
+| `library-paths` | object | Maps a library name to a file, a directory, or the library's project file, for `@library` imports. See [Libraries](#libraries). |
+| `experimental-features` | array of strings | The [experimental features](https://snapshots.slint.dev/master/docs/slint/guide/experimental/overview/) to turn on, such as `["interfaces", "match"]`. |
+| `metadata` | object | This value is ignored by the compiler. It may be used by other tooling to store per-project configuration. |
+
+Slint resolves relative paths against the directory that contains the project file.
+
+## Which Setting Wins
+
+A setting can come from three places, listed from highest to lowest priority:
+
+1. An option passed to the API or the command line, such as a style.
+2. The project file.
+3. A compiler default.
+
+Include paths and library paths combine instead:
+Slint searches the include paths passed to the API or the command line first, then those of the project file.
+A library path passed to the API or the command line replaces the project file's library of the same name,
+and the project file's other libraries stay available.
+
+## Libraries
+
+A library can have a project file of its own.
+To use its settings, map the library name to that project file:
+
+```json
+{
+    "edition": "1.20",
+    "main": "ui/main.slint",
+    "library-paths": {
+        "widgets": "../widgets/slint-project.json"
+    }
+}
+```
+
+`@widgets` imports the `main` file of the library.
+Only what that file exports is available through `@widgets`: a path such as `@widgets/button.slint` is an error.
+The files in the library's directory use the edition, include paths, and library paths of the library's project file.
+So a library keeps its [edition](../../language/concepts/editions/) in an application that uses another one.
+Give an application inside a library's directory, such as an example, a project file of its own,
+so that its files use its own settings in your build and your editor.
+Experimental features apply to the whole application, so enable them in the application's project file.
+
+## Compiling a Project
+
+To compile your project, first set `main` to the main `.slint` file of your application:
+
+```json
+{
+    "edition": "1.20",
+    "main": "ui/main.slint"
+}
+```
+
+Then, pass the project file or its directory to your build or loading API:
+
+<Tabs syncKey="dev-language">
+<TabItem label="Rust" icon="seti:rust">
+```rust
+// build.rs
+fn main() {
+    slint_build::compile(".").unwrap();
+}
+```
+
+Settings on <LangRefLink lang="rust-slint-build" relpath="struct.CompilerConfiguration">`CompilerConfiguration`</LangRefLink> win over the project file.
+Cargo rebuilds your crate when the project file changes.
+The `slint!` macro doesn't load a project file.
+</TabItem>
+<TabItem label="C++" icon="seti:cpp">
+```cmake
+slint_target_sources(my_application .)
+```
+
+The generated header is named after the main file, so you still `#include "main.h"`.
+CMake rebuilds your target when the project file changes.
+CMake passes the `SLINT_STYLE` variable to the compiler as `--style`.
+For more details, see <LangRefLink lang="cpp" relpath="cmake-reference/slint-target-sources/">`slint_target_sources`</LangRefLink>.
+
+The interpreter also reads the project file when you load the project file or its directory at run time.
+</TabItem>
+<TabItem label="NodeJS" icon="node">
+```javascript
+import * as slint from "slint-ui";
+
+let ui = slint.loadFile(".");
+```
+
+The options you pass to <LangRefLink lang="nodejs" relpath="api/functions/loadFile/">`loadFile`</LangRefLink> win over the project file.
+</TabItem>
+<TabItem label="Python" icon="seti:python">
+```python
+import slint
+
+ui = slint.load_file(".")
+```
+
+The arguments you pass to `slint.load_file` win over the project file.
+</TabItem>
+</Tabs>
+
+The `slint-compiler` and [`slint-tr-extractor`](../../development/translations/#extracting-translatable-strings) command line tools accept the project file or its directory, too:
+
+```bash
+slint-compiler slint-project.json -o main.h
+slint-tr-extractor slint-project.json -o messages.pot
+```
+
+## Editor Support
+
+The Slint language server discovers the project files for your open documents.
+When you edit multiple projects, it combines their settings.
+The live preview uses the project root that the language server selects for the previewed file.
+
+When you open a `.slint` file in the Visual Editor without `--project-root`, the file's parent directory becomes the project root.
+To select another root, pass `--project-root <path>` to the Visual Editor or the [viewer](../slint-viewer/).
+The path can be the project file or its directory.
+The `.slint` file you specify stays the entry point.

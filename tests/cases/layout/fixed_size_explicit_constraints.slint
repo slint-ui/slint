@@ -1,0 +1,123 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// An element with a fixed width/height still reports its explicit preferred size
+// to a non-layout parent, whether its own children are static or repeated,
+// but not the min/max that its size implies.
+
+component Panel inherits Rectangle {
+    in property <string> caption;
+    width: 60px;
+    height: 40px;
+    preferred-width: 120px;
+    preferred-height: 80px;
+    background: #dbe7f3;
+    border-color: #4a78a8;
+    border-width: 1px;
+    Text { x: 2px; y: 2px; text: root.caption; color: #1f3b5a; }
+}
+
+export component TestCase inherits Window {
+    width: 600px;
+    height: 200px;
+    in property <bool> cond: true;
+    background: #f5f5f5;
+
+    static-outer := Rectangle {
+        x: 0;
+        width: 200px;
+        Panel {
+            caption: "static";
+            Rectangle { min-width: 10px; min-height: 10px; }
+        }
+    }
+    repeated-outer := Rectangle {
+        x: 200px;
+        width: 200px;
+        Panel {
+            caption: "if";
+            if cond: Rectangle { min-width: 10px; min-height: 10px; }
+        }
+    }
+    // A constraint that reads the element's own layout info must not loop.
+    self-outer := Rectangle {
+        x: 400px;
+        width: 200px;
+        Rectangle {
+            width: 60px;
+            preferred-width: max(self.min-width, 50px);
+            background: #dbe7f3;
+            Rectangle { min-width: 30px; }
+        }
+    }
+
+    out property <length> static-min-width: static-outer.min-width;
+    out property <length> static-preferred-width: static-outer.preferred-width;
+    out property <length> static-preferred-height: static-outer.preferred-height;
+    out property <length> repeated-min-width: repeated-outer.min-width;
+    out property <length> repeated-preferred-width: repeated-outer.preferred-width;
+    out property <length> repeated-preferred-height: repeated-outer.preferred-height;
+    out property <length> self-preferred-width: self-outer.preferred-width;
+
+    out property <bool> test: static-min-width == 10px && static-preferred-width == 120px
+        && static-preferred-height == 80px && repeated-min-width == 10px
+        && repeated-preferred-width == 120px && repeated-preferred-height == 80px
+        && self-preferred-width == 50px;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_static_min_width(), 10.);
+assert_eq!(instance.get_static_preferred_width(), 120.);
+assert_eq!(instance.get_static_preferred_height(), 80.);
+assert_eq!(instance.get_repeated_min_width(), 10.);
+assert_eq!(instance.get_repeated_preferred_width(), 120.);
+assert_eq!(instance.get_repeated_preferred_height(), 80.);
+assert_eq!(instance.get_self_preferred_width(), 50.);
+assert!(instance.get_test());
+
+instance.set_cond(false);
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.get_repeated_min_width(), 0.);
+assert_eq!(instance.get_repeated_preferred_width(), 120.);
+assert_eq!(instance.get_repeated_preferred_height(), 80.);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_static_min_width(), 10.);
+assert_eq(instance.get_static_preferred_width(), 120.);
+assert_eq(instance.get_static_preferred_height(), 80.);
+assert_eq(instance.get_repeated_min_width(), 10.);
+assert_eq(instance.get_repeated_preferred_width(), 120.);
+assert_eq(instance.get_repeated_preferred_height(), 80.);
+assert_eq(instance.get_self_preferred_width(), 50.);
+assert(instance.get_test());
+
+instance.set_cond(false);
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.get_repeated_min_width(), 0.);
+assert_eq(instance.get_repeated_preferred_width(), 120.);
+assert_eq(instance.get_repeated_preferred_height(), 80.);
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.static_min_width, 10);
+assert.equal(instance.static_preferred_width, 120);
+assert.equal(instance.static_preferred_height, 80);
+assert.equal(instance.repeated_min_width, 10);
+assert.equal(instance.repeated_preferred_width, 120);
+assert.equal(instance.repeated_preferred_height, 80);
+assert.equal(instance.self_preferred_width, 50);
+assert(instance.test);
+
+instance.cond = false;
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
+assert.equal(instance.repeated_min_width, 0);
+assert.equal(instance.repeated_preferred_width, 120);
+assert.equal(instance.repeated_preferred_height, 80);
+```
+*/

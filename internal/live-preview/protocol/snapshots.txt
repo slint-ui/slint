@@ -1,0 +1,81 @@
+DebugMessage { location: Some(("app.slint", 300, 1000)), message: "hello" }
+0801096170702e736c696e74ac02e8070568656c6c6f
+
+Diagnostics { uri: Url { scheme: "file", cannot_be_a_base: false, username: "", password: None, host: None, port: None, path: "/project/app.slint", query: None, fragment: None }, version: Some(300), diagnostics: [Diagnostic { range: Range { start: Position { line: 0, character: 0 }, end: Position { line: 0, character: 0 } }, severity: Some(Warning), code: None, code_description: None, source: None, message: "unused property", related_information: None, tags: None, data: None }] }
+001966696c653a2f2f2f70726f6a6563742f6170702e736c696e7401d804765b7b2272616e6765223a7b227374617274223a7b226c696e65223a302c22636861726163746572223a307d2c22656e64223a7b226c696e65223a302c22636861726163746572223a307d7d2c227365766572697479223a322c226d657373616765223a22756e757365642070726f7065727479227d5d
+
+ForgetFile { url: Url { scheme: "file", cannot_be_a_base: false, username: "", password: None, host: None, port: None, path: "/project/app.slint", query: None, fragment: None } }
+011966696c653a2f2f2f70726f6a6563742f6170702e736c696e74
+
+HighlightFromEditor { url: Some(Url { scheme: "file", cannot_be_a_base: false, username: "", password: None, host: None, port: None, path: "/project/app.slint", query: None, fragment: None }), offset: 1000 }
+06011966696c653a2f2f2f70726f6a6563742f6170702e736c696e74e807
+
+InvalidateContents { url: Url { scheme: "file", cannot_be_a_base: false, username: "", password: None, host: None, port: None, path: "/project/app.slint", query: None, fragment: None } }
+001966696c653a2f2f2f70726f6a6563742f6170702e736c696e74
+
+OpenProject { root: Some(Url { scheme: "file", cannot_be_a_base: false, username: "", password: None, host: None, port: None, path: "/project/", query: None, fragment: None }) }
+0a011066696c653a2f2f2f70726f6a6563742f
+
+PairingAccepted
+14
+
+PairingConfirm { confirmation: Confirmation([7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7]) }
+130707070707070707070707070707070707070707070707070707070707070707
+
+PairingHello { token: Some(TokenId([8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8])) }
+0b0108080808080808080808080808080808
+
+PairingReady
+10
+
+PairingRejected { reason: BadCode }
+1500
+
+PairingRejected { reason: BadToken }
+1501
+
+PairingRejected { reason: Busy }
+1504
+
+PairingRejected { reason: Expired }
+1502
+
+PairingRejected { reason: TooManyAttempts }
+1503
+
+PairingRejected { reason: TooSoon { retry_after_seconds: 900 } }
+15058407
+
+PairingRequired { attempts_left: 130, expires_in_seconds: 300, code_digits: 140, element: Element([1, 2, 3]) }
+1182ac028c03010203
+
+PairingResponse { element: Element([1, 2, 3]), confirmation: Confirmation([7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7]) }
+0c030102030707070707070707070707070707070707070707070707070707070707070707
+
+PairingTokenChallenge { element: Element([4, 5, 6]) }
+1203040506
+
+Ping
+09
+
+Pong
+0e
+
+RequestState { files: [Url { scheme: "file", cannot_be_a_base: false, username: "", password: None, host: None, port: None, path: "/project/app.slint", query: None, fragment: None }], settings: ["settings.json"] }
+03011966696c653a2f2f2f70726f6a6563742f6170702e736c696e74010d73657474696e67732e6a736f6e
+
+SHA-256 of a code and a token exchange
+1316a0aa9b6d12a8e384085f0397123d04806af64778927d0256608ce625ca09
+
+SetContents { url: file:///project/app.slint@v300, contents: Vec<u8> { len: 23 } }
+021966696c653a2f2f2f70726f6a6563742f6170702e736c696e7401d804176578706f727420636f6d706f6e656e7420417070207b7d
+
+SetUserSettings { name: "settings.json", contents: "{}" }
+040d73657474696e67732e6a736f6e027b7d
+
+ShowPreview(PreviewComponent { url: Url { scheme: "file", cannot_be_a_base: false, username: "", password: None, host: None, port: None, path: "/project/app.slint", query: None, fragment: None }, component: Some("App") })
+051966696c653a2f2f2f70726f6a6563742f6170702e736c696e740103417070
+
+Two sealed frames
+5649c300a8ec100dffd39df0dbf5fe16688b24c76e8bdc5db95d2b2cffc04ffb7814
+

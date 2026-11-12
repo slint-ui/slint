@@ -8,17 +8,13 @@
 //! `MemberReference`; dispatch forwards to the evaluator helpers in
 //! [`crate::eval`].
 
-use crate::Value;
 use crate::api::SetPropertyError;
 use crate::eval::{EvalContext, invoke_callback, invoke_function, load_property, store_property};
-use crate::instance::{Instance, SubComponentInstance};
+use crate::instance::SubComponentInstance;
+use crate::prelude::*;
 use i_slint_compiler::langtype::Type;
 use i_slint_compiler::llr::{MemberReference, PublicComponent, PublicProperty};
-use i_slint_core::item_tree::ItemTreeVTable;
 use i_slint_core::model::Model;
-use std::pin::Pin;
-use std::rc::Rc;
-use vtable::VRc;
 
 /// Look up a public property by name on the given public component.
 /// Normalizes `name` through `normalize_identifier` so
@@ -27,7 +23,7 @@ pub fn find_public_property<'a>(
     public: &'a PublicComponent,
     name: &str,
 ) -> Option<&'a PublicProperty> {
-    let normalized = i_slint_compiler::parser::normalize_identifier(name);
+    let normalized = i_slint_compiler::names::normalize_identifier(name);
     public.public_properties.get(normalized.as_str())
 }
 
@@ -131,7 +127,7 @@ pub(crate) fn check_and_coerce(value: &mut Value, ty: &Type) -> bool {
             matches!(value, Value::EnumerationValue(name, _) if name == en.name.as_str())
         }
         Type::Keys => matches!(value, Value::Keys(_)),
-        Type::LayoutCache => matches!(value, Value::LayoutCache(_)),
+        Type::ArrayOfCoord => matches!(value, Value::ArrayOfCoord(_)),
         Type::ArrayOfU16 => matches!(value, Value::ArrayOfU16(_)),
         Type::ComponentFactory => matches!(value, Value::ComponentFactory(_)),
         Type::StyledText => matches!(value, Value::StyledText(_)),
@@ -229,7 +225,7 @@ fn resolve_global<'a>(
     let cu = &instance.root_sub_component.compilation_unit;
     let (_global, global_instance) = instance.globals.find_by_name(cu, global_name)?;
     let global_instance = global_instance.clone();
-    let needle = i_slint_compiler::parser::normalize_identifier(prop_name);
+    let needle = i_slint_compiler::names::normalize_identifier(prop_name);
     let global = &cu.globals[global_instance.global_idx];
     let prop = global.public_properties.get(needle.as_str())?;
     Some((prop, global_instance))
@@ -352,10 +348,8 @@ pub fn invoke_global(
             let global = &cu.globals[target_inst.global_idx];
             let function = &global.functions[fn_idx];
             let expr = function.code.borrow().clone();
-            let mut ctx = crate::eval::EvalContext::for_global(
-                std::rc::Rc::downgrade(&instance.globals),
-                cu.clone(),
-            );
+            let mut ctx =
+                crate::eval::EvalContext::for_global(Rc::downgrade(&instance.globals), cu.clone());
             ctx.function_arg_types = function.args.clone();
             ctx.function_arguments = args.to_vec();
             Some(crate::eval::eval_expression(&mut ctx, &expr))

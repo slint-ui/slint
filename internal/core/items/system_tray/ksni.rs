@@ -20,6 +20,7 @@ enum MenuNode {
     Separator,
     SubMenu { label: std::string::String, enabled: bool, children: std::vec::Vec<MenuNode> },
     Standard { label: std::string::String, enabled: bool, entry_index: usize },
+    Checkmark { label: std::string::String, enabled: bool, entry_index: usize, checked: bool },
 }
 
 enum Event {
@@ -95,6 +96,22 @@ fn node_to_ksni(
             }
             .into()
         }
+        MenuNode::Checkmark { label, enabled, entry_index, checked } => {
+            let tx = event_tx.clone();
+            let entry_index = *entry_index;
+            ::ksni::menu::CheckmarkItem {
+                label: label.clone(),
+                enabled: *enabled,
+                activate: std::boxed::Box::new(move |_tray: &mut KsniTray| {
+                    // ksni runs the callback on its own thread; the channel hands the
+                    // click off to the dispatcher task living on the Slint event loop.
+                    let _ = tx.try_send(Event::Menu(entry_index));
+                }),
+                checked: *checked,
+                ..Default::default()
+            }
+            .into()
+        }
     }
 }
 
@@ -124,14 +141,13 @@ impl PlatformTray {
         let (event_tx, event_rx) = async_channel::unbounded();
         let tooltip: std::string::String = params.tooltip.into();
         let title: std::string::String = params.title.into();
+        let menu = params
+            .menu
+            .map(|(menu, entries_out)| build_ksni_menu(menu, entries_out))
+            .unwrap_or_default();
 
-        let handle = spawn_tray(
-            icon.clone(),
-            tooltip.clone(),
-            title.clone(),
-            std::vec::Vec::new(),
-            &event_tx,
-        )?;
+        let handle =
+            spawn_tray(icon.clone(), tooltip.clone(), title.clone(), menu.clone(), &event_tx)?;
 
         let dispatcher = context
             .spawn_local(dispatch_loop(event_rx, self_weak))
@@ -142,7 +158,7 @@ impl PlatformTray {
             tooltip: core::cell::RefCell::new(tooltip),
             title: core::cell::RefCell::new(title),
             event_tx,
-            menu: core::cell::RefCell::new(std::vec::Vec::new()),
+            menu: core::cell::RefCell::new(menu),
             handle: core::cell::RefCell::new(Some(handle)),
             _dispatcher: dispatcher,
         })
@@ -153,7 +169,6 @@ impl PlatformTray {
         menu: vtable::VRef<'_, MenuVTable>,
         entries_out: &mut std::vec::Vec<MenuEntry>,
     ) {
-        entries_out.clear();
         let new_menu = build_ksni_menu(menu, entries_out);
         // Update the cache unconditionally so the next respawn picks up the
         // current menu even if we're hidden right now.
@@ -257,15 +272,32 @@ fn spawn_tray(
 ) -> Result<::ksni::blocking::Handle<KsniTray>, Error> {
     let tray = KsniTray { icon, tooltip, title, menu, event_tx: event_tx.clone() };
     // Blocks briefly on D-Bus name claim / service setup, then spawns the
-    // service loop on its own background thread. Returning the handle
-    // synchronously eliminates the pending-menu race an async spawn would
-    // otherwise create.
-    tray.spawn().map_err(|e| {
+    // service loop on its own background thread.
+    tray.disable_dbus_name(*IN_SANDBOX).spawn().map_err(|e| {
         Error::PlatformError(crate::platform::PlatformError::Other(std::format!(
             "Failed to spawn ksni tray: {e}"
         )))
     })
 }
+
+/// Whether the application runs in a Flatpak or Snap sandbox, where owning the D-Bus name
+/// the StatusNotifierItem specification asks for needs an extra permission.
+/// Matches `ashpd::is_sandboxed()` as of ashpd 0.13.13, without depending on a full portal client.
+static IN_SANDBOX: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| {
+    std::path::Path::new("/.flatpak-info").exists()
+        // A snap runs in a cgroup unit named `snap.*`: the last segment of the cgroup v2 path,
+        // or of the v1 `freezer` or `name=systemd` path.
+        || std::fs::read_to_string("/proc/self/cgroup").is_ok_and(|cgroups| {
+            cgroups.lines().any(|line| {
+                let Some((id, rest)) = line.split_once(':') else { return false };
+                let Some((controllers, path)) = rest.split_once(':') else { return false };
+                let snap_hierarchy = matches!(controllers, "" | "freezer" | "name=systemd");
+                let snap_unit =
+                    path.rsplit('/').next().is_some_and(|unit| unit.starts_with("snap."));
+                id.parse::<u32>().is_ok() && snap_hierarchy && snap_unit
+            })
+        })
+});
 
 async fn dispatch_loop(rx: async_channel::Receiver<Event>, self_weak: crate::item_tree::ItemWeak) {
     while let Ok(event) = rx.recv().await {
@@ -324,10 +356,19 @@ fn entry_to_node(
     } else {
         let entry_index = entries_out.len();
         entries_out.push(entry.clone());
-        MenuNode::Standard {
-            label: entry.title.as_str().into(),
-            enabled: entry.enabled,
-            entry_index,
+        if entry.checkable {
+            MenuNode::Checkmark {
+                label: entry.title.as_str().into(),
+                enabled: entry.enabled,
+                entry_index,
+                checked: entry.checked,
+            }
+        } else {
+            MenuNode::Standard {
+                label: entry.title.as_str().into(),
+                enabled: entry.enabled,
+                entry_index,
+            }
         }
     }
 }

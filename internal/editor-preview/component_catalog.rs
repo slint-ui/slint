@@ -3,12 +3,9 @@
 
 // cSpell: ignore descr rfind unindented libraryize
 
-#[cfg(target_arch = "wasm32")]
-use i_slint_live_preview::protocol::wasm_prelude::*;
-
 use crate::{DocumentCache, editing::PropertyChange};
 #[cfg(feature = "preview-engine")]
-use i_slint_compiler::langtype::ElementType;
+use i_slint_compiler::element_type::ElementType;
 use i_slint_compiler::parser::TextSize;
 use lsp_types::CompletionItemKind;
 
@@ -49,6 +46,9 @@ pub struct ComponentInformation {
     pub is_builtin: bool,
     /// Whether this type is a standard widget.
     pub is_std_widget: bool,
+    /// Whether this type is one of the standard widget interfaces.
+    #[serde(default)]
+    pub is_std_widget_interface: bool,
     /// Whether this type was exported.
     pub is_exported: bool,
     /// Whether this type is an interface.
@@ -61,10 +61,16 @@ pub struct ComponentInformation {
     pub defined_at: Option<Position>,
     /// Default property values.
     pub default_properties: Vec<PropertyChange>,
+    /// Default size, for when the parent isn't a layout.
+    #[serde(default)]
+    pub default_size: Vec<PropertyChange>,
 }
 
 impl ComponentInformation {
     pub fn import_file_name(&self, current_uri: &Option<lsp_types::Url>) -> Option<String> {
+        if self.is_std_widget_interface {
+            return Some("std-widget-interfaces.slint".to_string());
+        }
         import_file_name_for_url(
             self.defined_at.as_ref().map(|position| &position.url),
             self.is_std_widget,
@@ -87,7 +93,7 @@ fn import_file_name_for_url(
         } else if let Some(current_uri) = current_uri {
             lsp_types::Url::make_relative(current_uri, url)
         } else {
-            url.to_file_path().ok().map(|path| path.to_string_lossy().to_string())
+            Some(i_slint_compiler::source_path::SourcePath::from_url(url).to_string())
         }
     }
 }
@@ -113,12 +119,24 @@ impl TypeInformation {
 
 #[cfg(feature = "preview-engine")]
 fn builtin_component_info(name: &str) -> ComponentInformation {
-    let is_layout = matches!(name, "GridLayout" | "HorizontalLayout" | "VerticalLayout");
-    let is_interactive =
-        matches!(name, "Flickable" | "FocusScope" | "SwipeGestureHandler" | "TouchArea");
+    let is_layout =
+        matches!(name, "GridLayout" | "HorizontalLayout" | "VerticalLayout" | "FlexboxLayout");
+    let is_interactive = matches!(
+        name,
+        "Flickable"
+            | "FocusScope"
+            | "SwipeGestureHandler"
+            | "TouchArea"
+            | "DragArea"
+            | "DropArea"
+            | "ScaleRotateGestureHandler"
+            | "WindowMoveArea"
+            | "TextInput"
+    );
 
     let default_properties = match name {
         "Text" | "TextInput" => vec![PropertyChange::new("text", format!("\"{name}\""))],
+        "StyledText" => vec![PropertyChange::new("text", "@markdown(\"Text\")".to_string())],
         "Image" => vec![PropertyChange::new("source", "@image-url(\"EDIT_ME.png\")".to_string())],
         _ => Vec::new(),
     };
@@ -143,16 +161,19 @@ fn builtin_component_info(name: &str) -> ComponentInformation {
         is_global: false,
         is_builtin: true,
         is_std_widget: false,
+        is_std_widget_interface: false,
         is_layout,
         is_interactive,
         is_exported: true,
         is_interface: false,
         defined_at: None,
         default_properties,
+        default_size: Vec::new(),
     }
 }
 
-fn std_widgets_info(name: &str, is_global: bool) -> ComponentInformation {
+/// Describe a standard widget or global without loading its implementation.
+pub fn std_widgets_info(name: &str, is_global: bool) -> ComponentInformation {
     let is_layout = matches!(name, "GridBox" | "HorizontalBox" | "VerticalBox");
 
     let default_properties = match name {
@@ -171,18 +192,47 @@ fn std_widgets_info(name: &str, is_global: bool) -> ComponentInformation {
         _ => Vec::new(),
     };
 
+    let default_size = match name {
+        "GroupBox" | "TextEdit" => vec![
+            PropertyChange::new("width", "200px".to_string()),
+            PropertyChange::new("height", "100px".to_string()),
+        ],
+        "ProgressIndicator" | "Slider" => vec![PropertyChange::new("width", "160px".to_string())],
+        _ => Vec::new(),
+    };
+
     ComponentInformation {
         name: name.to_string(),
         category: "Std-Widgets".to_string(),
         is_global,
         is_builtin: false,
         is_std_widget: true,
+        is_std_widget_interface: false,
         is_layout,
         is_interactive: false,
         is_exported: true,
         is_interface: false,
         defined_at: None,
         default_properties,
+        default_size,
+    }
+}
+
+fn std_widget_interfaces_info(name: &str) -> ComponentInformation {
+    ComponentInformation {
+        name: name.to_string(),
+        category: "Std-Widget-Interfaces".to_string(),
+        is_global: false,
+        is_builtin: false,
+        is_std_widget: false,
+        is_std_widget_interface: true,
+        is_layout: false,
+        is_interactive: false,
+        is_exported: true,
+        is_interface: true,
+        defined_at: None,
+        default_properties: Vec::new(),
+        default_size: Vec::new(),
     }
 }
 
@@ -198,12 +248,14 @@ fn exported_project_component_info(
         is_global,
         is_builtin: false,
         is_std_widget: false,
+        is_std_widget_interface: false,
         is_layout: false,
         is_interactive: false,
         is_exported: true,
         is_interface,
         defined_at: Some(position),
         default_properties: Vec::new(),
+        default_size: Vec::new(),
     }
 }
 
@@ -220,12 +272,14 @@ fn file_local_component_info(
         is_global,
         is_builtin: false,
         is_std_widget: false,
+        is_std_widget_interface: false,
         is_layout: false,
         is_interactive: false,
         is_exported: false,
         is_interface,
         defined_at: Some(position),
         default_properties: Vec::new(),
+        default_size: Vec::new(),
     }
 }
 
@@ -241,30 +295,19 @@ pub fn builtin_components(document_cache: &DocumentCache, result: &mut Vec<Compo
     }));
 }
 
-fn libraryize_url(document_cache: &DocumentCache, url: lsp_types::Url) -> lsp_types::Url {
-    let url_path = i_slint_compiler::pathutils::clean_path(&url.to_file_path().unwrap_or_default());
-    if let Some((library_name, library_path)) = document_cache
-        .compiler_configuration()
-        .library_paths
-        .iter()
-        .map(|(n, p)| (n, i_slint_compiler::pathutils::clean_path(p)))
-        .find(|(_, path)| url_path.starts_with(path) || url_path == **path)
-    {
-        if url_path == library_path {
-            let mut url = url.clone();
-            url.set_path(&format!("/@{library_name}"));
-            url
-        } else if let Ok(short_path) = url_path.strip_prefix(library_path) {
-            let short_path = short_path.to_string_lossy();
-            let mut url = url.clone();
-            url.set_path(&format!("/@{library_name}/{short_path}"));
-            url
-        } else {
-            url
-        }
-    } else {
-        url
+/// `url` with the library import that reaches it as its path, or `None` for a file that
+/// only its own library can import.
+fn libraryize_url(
+    document_cache: &DocumentCache,
+    mut url: lsp_types::Url,
+) -> Option<lsp_types::Url> {
+    let file = i_slint_compiler::source_path::SourcePath::from_url(&url);
+    if let Some(import) = document_cache.library_import_for(&file) {
+        url.set_path(&format!("/{import}"));
+    } else if document_cache.is_private_library_file(&file) {
+        return None;
     }
+    Some(url)
 }
 
 /// Fill the result with all exported components that matches the given filter.
@@ -276,12 +319,19 @@ pub fn all_exported_components(
     filter: &mut dyn FnMut(&ComponentInformation) -> bool,
     result: &mut Vec<ComponentInformation>,
 ) {
+    let interfaces_enabled = document_cache
+        .compiler_configuration()
+        .compiler_config
+        .experimental_features
+        .contains(i_slint_compiler::ExperimentalFeature::Interfaces);
+
     for url in document_cache.all_urls() {
         let Some(doc) = document_cache.get_document(&url) else { continue };
         let is_builtin = url.scheme() == "builtin";
         let is_std_widget = is_builtin && url.path().ends_with("/std-widgets.slint");
-
-        let url = libraryize_url(document_cache, url);
+        let is_std_widget_interfaces =
+            is_builtin && url.path().ends_with("/std-widget-interfaces.slint");
+        let Some(url) = libraryize_url(document_cache, url) else { continue };
 
         for (exported_name, ty) in &*doc.exports {
             let Some(c) = ty.as_ref().left() else {
@@ -294,6 +344,8 @@ pub fn all_exported_components(
                 && exported_name.as_str() != "PopupWindow"
             {
                 Some(std_widgets_info(exported_name.as_str(), c.is_global()))
+            } else if is_std_widget_interfaces && interfaces_enabled {
+                Some(std_widget_interfaces_info(exported_name.as_str()))
             } else if !is_builtin {
                 let offset =
                     c.node.as_ref().map(|n| n.text_range().start().into()).unwrap_or_default();
@@ -351,7 +403,7 @@ pub fn all_exported_types(
             continue;
         }
 
-        let url = libraryize_url(document_cache, url);
+        let Some(url) = libraryize_url(document_cache, url) else { continue };
 
         for (exported_name, ty) in &*doc.exports {
             // Only process struct/enum exports (Either::Right); components are Either::Left
@@ -382,8 +434,9 @@ pub fn file_local_components(
     url: &lsp_types::Url,
     result: &mut Vec<ComponentInformation>,
 ) {
-    let library_url = libraryize_url(document_cache, url.clone());
-    if library_url.path() != url.path() {
+    if libraryize_url(document_cache, url.clone())
+        .is_none_or(|library_url| library_url.path() != url.path())
+    {
         return;
     }
     let Some(doc) = document_cache.get_document(url) else {
@@ -422,9 +475,22 @@ mod tests {
         assert!(result.iter().all(|ci| ci.is_exported));
         assert!(result.iter().all(|ci| ci.is_builtin));
         assert!(result.iter().all(|ci| !ci.is_global));
-        assert!(
-            result.iter().any(|ci| &ci.name == "TouchArea" && ci.is_interactive && !ci.is_layout)
-        );
+        for name in [
+            "TouchArea",
+            "Flickable",
+            "FocusScope",
+            "SwipeGestureHandler",
+            "DragArea",
+            "DropArea",
+            "ScaleRotateGestureHandler",
+            "WindowMoveArea",
+            "TextInput",
+        ] {
+            assert!(
+                result.iter().any(|ci| ci.name == name && ci.is_interactive && !ci.is_layout),
+                "{name} must be interactive"
+            );
+        }
         assert!(
             result
                 .iter()
@@ -433,6 +499,27 @@ mod tests {
         assert!(!result.iter().any(|ci| &ci.name == "AboutSlint"));
         assert!(!result.iter().any(|ci| &ci.name == "ProgressIndicator"));
         assert!(!result.iter().any(|ci| &ci.name == "Timer"));
+    }
+
+    #[test]
+    fn exported_component_catalog_std_widget_interfaces() {
+        let (dc, _, _) = crate::test::loaded_document_cache_with_experimental(r#""#.to_string());
+
+        let mut result = Default::default();
+        all_exported_components(&dc, &mut |_| true, &mut result);
+
+        let button = result.iter().find(|ci| &ci.name == "ButtonInterface").unwrap();
+        assert!(button.is_interface);
+        assert!(button.is_exported);
+        assert!(!button.is_builtin);
+        assert!(!button.is_std_widget);
+        assert!(button.is_std_widget_interface);
+        assert_eq!(button.import_file_name(&None), Some("std-widget-interfaces.slint".to_string()));
+
+        let (dc, _, _) = crate::test::loaded_document_cache(r#""#.to_string());
+        let mut result = Default::default();
+        all_exported_components(&dc, &mut |_| true, &mut result);
+        assert!(!result.iter().any(|ci| &ci.name == "ButtonInterface"));
     }
 
     #[test]
@@ -445,6 +532,7 @@ mod tests {
         assert!(result.iter().all(|ci| ci.is_std_widget));
         assert!(result.iter().all(|ci| ci.is_exported));
         assert!(result.iter().all(|ci| !ci.is_builtin));
+        assert!(result.iter().all(|ci| !ci.is_std_widget_interface));
         // assert!(result.iter().all(|ci| ci.is_global)); // mixed!
         assert!(!result.iter().any(|ci| &ci.name == "TouchArea"));
         assert!(result.iter().any(|ci| &ci.name == "AboutSlint"));

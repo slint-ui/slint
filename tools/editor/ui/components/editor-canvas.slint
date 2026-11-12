@@ -4,14 +4,15 @@
 import { CanvasView } from "canvas-view.slint";
 import { EditorGrid } from "editor-grid.slint";
 import { Style, Metrics, ArtboardStyle, CanvasSurfaceStyle } from "../style.slint";
-import { Api, DropMark, ElementKind } from "../api.slint";
+import { Api, DropMark, ElementKind, Hover } from "../api.slint";
+import { Diagnostics, PreviewAvailability } from "../diagnostics.slint";
 import { AppState, EditorCursors, PreviewMetrics } from "index.slint";
 import { CanvasInteractionLayer } from "canvas-interaction-layer.slint";
+import { PreviewDiagnostics } from "preview-diagnostics.slint";
 
 component CanvasChrome inherits Rectangle {
     in property <ArtboardStyle> style: Style.artboard;
     background: root.style.background;
-    clip: true;
 
     Rectangle {
         x: root.style.padding;
@@ -19,7 +20,7 @@ component CanvasChrome inherits Rectangle {
         width: parent.width - (2 * root.style.padding);
         height: parent.height - (2 * root.style.padding);
         accessible-role: AccessibleRole.region;
-        accessible-label: "Artboard";
+        accessible-label: @tr("Artboard");
 
         @children
     }
@@ -35,17 +36,25 @@ export component EditorCanvas inherits TouchArea {
         x: root.canvas-origin.x + root.artboard-style.padding * CanvasView.zoom,
         y: root.canvas-origin.y + root.artboard-style.padding * CanvasView.zoom,
     };
+    private property <Size> preview-size: {
+        width: (PreviewMetrics.canvas-width - 2 * root.artboard-style.padding) * CanvasView.zoom,
+        height: (PreviewMetrics.canvas-height - 2 * root.artboard-style.padding) * CanvasView.zoom,
+    };
     init => { CanvasView.viewport-size = root.viewport-size; }
     changed viewport-size => { CanvasView.viewport-size = root.viewport-size; }
+    private property <bool> preview-editable: Diagnostics.preview-editable;
+    changed preview-editable => {
+        if !self.preview-editable { Hover.element = {}; }
+    }
 
     accessible-role: AccessibleRole.main;
-    accessible-label: "Editor canvas";
+    accessible-label: @tr("Editor canvas");
     accessible-value: "\{(CanvasView.zoom * 100).round()}%";
 
     callback real-element-selected();
 
     scroll-event(event) => {
-        return CanvasView.scroll({ x: event.delta-x, y: event.delta-y });
+        return CanvasView.scroll(event, { x: self.mouse-x, y: self.mouse-y });
     }
     Rectangle { background: root.style.background; }
 
@@ -60,6 +69,7 @@ export component EditorCanvas inherits TouchArea {
     }
 
     canvas-chrome := Rectangle {
+        visible: Diagnostics.preview-editable || Diagnostics.preview-availability == PreviewAvailability.Stale;
         transform-origin: { x: 0px, y: 0px };
         transform-scale: CanvasView.zoom;
         x: root.canvas-origin.x;
@@ -91,11 +101,11 @@ export component EditorCanvas inherits TouchArea {
     Rectangle {
         x: root.preview-origin.x;
         y: root.preview-origin.y;
-        width: (PreviewMetrics.canvas-width - 2 * root.artboard-style.padding) * CanvasView.zoom;
-        height: (PreviewMetrics.canvas-height - 2 * root.artboard-style.padding) * CanvasView.zoom;
+        width: root.preview-size.width;
+        height: root.preview-size.height;
         DropArea {
             can-drop(event) => {
-                if AppState.palette-drag-cancelled {
+                if !Diagnostics.preview-editable || AppState.palette-drag-cancelled {
                     return DragAction.none;
                 }
                 if AppState.palette-drag-kind != ElementKind.none {
@@ -113,6 +123,7 @@ export component EditorCanvas inherits TouchArea {
                     ? DragAction.copy : DragAction.none;
             }
             dropped(event) => {
+                if !Diagnostics.preview-editable { return DragAction.none; }
                 let preview = CanvasView.to-preview(event.position);
                 if AppState.palette-drag-kind != ElementKind.none {
                     let size = AppState.palette-drag-size;
@@ -141,12 +152,16 @@ export component EditorCanvas inherits TouchArea {
             border-color: root.style.drop-indicator.foreground;
             background: root.style.drop-indicator.background;
             accessible-role: AccessibleRole.region;
-            accessible-label: "Canvas drop marker";
-        }
-
-        CanvasInteractionLayer {
-            shift-pressed: root.shift-pressed;
-            real-element-selected => { root.real-element-selected(); }
+            accessible-label: @tr("Canvas drop marker");
         }
     }
+
+    if !Diagnostics.preview-status-visible: CanvasInteractionLayer {
+        enabled: Diagnostics.preview-editable;
+        shift-pressed: root.shift-pressed;
+        content-origin: root.preview-origin;
+        content-size: root.preview-size;
+        real-element-selected => { root.real-element-selected(); }
+    }
+    PreviewDiagnostics { }
 }

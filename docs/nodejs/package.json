@@ -1,7 +1,7 @@
 {
     "name": "slint-nodejs-docs",
     "type": "module",
-    "version": "1.19.0",
+    "version": "1.20.0",
     "engines": {
         "node": ">=24"
     },
@@ -28,7 +28,7 @@
         "sharp": "catalog:",
         "starlight-typedoc": "0.23.1",
         "typedoc": "0.28.20",
-        "typedoc-plugin-markdown": "4.13.1",
+        "typedoc-plugin-markdown": "4.14.1",
         "typescript": "catalog:"
     }
 }

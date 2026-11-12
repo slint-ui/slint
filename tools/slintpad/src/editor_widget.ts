@@ -7,6 +7,7 @@ import * as monaco from "monaco-editor";
 
 import { slint_language } from "./highlighting";
 import type { Lsp } from "./lsp";
+import { edition_from_url } from "./edition";
 import * as github from "./github";
 
 import { BoxLayout, TabPanel, Widget } from "@lumino/widgets";
@@ -745,6 +746,8 @@ export class EditorWidget extends Widget {
         params.delete("load_url");
         params.delete("load_demo");
         params.delete("snippet");
+        // Without it, the link would get the behavior of a later release.
+        params.set("edition", edition_from_url(params));
         params.set("gz", await compress(this.current_editor_content));
 
         const url = new URL(window.location.href);

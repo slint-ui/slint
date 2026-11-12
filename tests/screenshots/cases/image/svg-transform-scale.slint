@@ -1,0 +1,43 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// An SVG magnified by the transforms of its element and of its ancestors is rasterized at the
+// magnified size, so its edges stay smooth instead of turning blocky (#10903).
+// The horizontal and vertical scales differ. The top image is magnified by its own uniform
+// scale on top of the rectangle's; the bottom one is stretched to a non-proportional size
+// and colorized, which the renderers cache together with the rasterized image.
+export component TestCase inherits Window {
+    width: 60px;
+    height: 120px;
+    background: white;
+
+    Rectangle {
+        x: 0px;
+        y: 0px;
+        width: 12px;
+        height: 12px;
+        transform-scale-x: 5;
+        transform-scale-y: 10;
+        transform-origin: { x: 0px, y: 0px };
+
+        Image {
+            x: 0px;
+            y: 0px;
+            width: 3px;
+            height: 3px;
+            source: @image-url("../../../../logo/slint-logo-small-light.svg");
+            transform-scale: 2;
+            transform-origin: { x: 0px, y: 0px };
+        }
+
+        Image {
+            x: 0px;
+            y: 6px;
+            width: 12px;
+            height: 6px;
+            image-fit: fill;
+            colorize: red;
+            source: @image-url("../../../../logo/slint-logo-simple-light.svg");
+        }
+    }
+}

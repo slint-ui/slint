@@ -57,8 +57,6 @@ export component TabImpl inherits Rectangle {
     accessible-action-default => { i-touch-area.clicked(); }
 
     if (root.is-current || i-touch-area.pressed): Rectangle {
-        width: 100%;
-        height: 100%;
         background: i-touch-area.pressed ? CupertinoPalette.secondary-control-background : CupertinoPalette.control-background;
         border-radius: 5px;
         drop-shadow-blur: 0.25px;

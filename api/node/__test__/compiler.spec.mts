@@ -259,7 +259,10 @@ test("compiler diagnostics", () => {
         ),
     ).toStrictEqual({});
 
-    const diags = compiler.diagnostics;
+    // Without a project file, there is also an info about the edition.
+    const diags = compiler.diagnostics.filter(
+        (d) => d.level !== napi.DiagnosticLevel.Info,
+    );
     expect(diags.length).toBe(1);
     expect(diags[0]).toStrictEqual({
         level: 0,

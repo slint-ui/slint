@@ -1,0 +1,79 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// #13723: a repeated `Row` whose cell size follows the row data, with a `changed` handler on
+// the cell's grid-assigned geometry. Changing a row in place and growing the model in the
+// same batch panics in the grid solver with "index out of bounds" when the handlers run.
+
+export struct RowData { v: int }
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+
+    in property <[RowData]> rows;
+    out property <int> width-changes;
+    out property <length> grid-preferred-width: grid.preferred-width;
+    out property <length> grid-preferred-height: grid.preferred-height;
+
+    // Sized to its content, so the original row's cell width really changes.
+    grid := GridLayout {
+        width: self.preferred-width;
+        for r[i] in root.rows: Row {
+            Rectangle {
+                min-width: 20px + r.v * 1px;
+                min-height: 20px;
+                // Counts the original row only, so the pushed row can't satisfy the test.
+                changed width => { if i == 0 { root.width-changes += 1; } }
+            }
+        }
+    }
+
+    out property <bool> test: true;
+}
+
+/*
+```rust
+use slint::{Model, VecModel};
+use std::rc::Rc;
+
+let instance = TestCase::new().unwrap();
+let rows = Rc::new(VecModel::from(vec![RowData { v: 0 }]));
+instance.set_rows(rows.clone().into());
+slint_testing::mock_elapsed_time(16);
+assert_eq!(instance.get_grid_preferred_width(), 20.);
+assert_eq!(instance.get_grid_preferred_height(), 20.);
+let changes = instance.get_width_changes();
+
+// Change row 0 in place and grow the model before the next frame.
+rows.set_row_data(0, RowData { v: 5 });
+rows.push(RowData { v: 0 });
+slint_testing::mock_elapsed_time(16);
+
+assert_eq!(rows.row_count(), 2);
+assert!(instance.get_width_changes() > changes);
+assert_eq!(instance.get_grid_preferred_width(), 25.);
+assert_eq!(instance.get_grid_preferred_height(), 40.);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+auto rows = std::make_shared<slint::VectorModel<RowData>>(std::vector<RowData>{ RowData { .v = 0 } });
+instance.set_rows(rows);
+slint_testing::mock_elapsed_time(16);
+assert_eq(instance.get_grid_preferred_width(), 20.);
+assert_eq(instance.get_grid_preferred_height(), 20.);
+auto changes = instance.get_width_changes();
+
+// Change row 0 in place and grow the model before the next frame.
+rows->set_row_data(0, RowData { .v = 5 });
+rows->push_back(RowData { .v = 0 });
+slint_testing::mock_elapsed_time(16);
+
+assert_eq(rows->row_count(), 2);
+assert(instance.get_width_changes() > changes);
+assert_eq(instance.get_grid_preferred_width(), 25.);
+assert_eq(instance.get_grid_preferred_height(), 40.);
+```
+*/

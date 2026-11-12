@@ -7,8 +7,12 @@ use std::rc::Rc;
 use std::rc::Weak;
 use std::sync::Arc;
 
+#[cfg(feature = "renderer-femtovg-wgpu")]
+use i_slint_core::graphics::RequestedGraphicsAPI;
+#[cfg(supports_opengl)]
+use i_slint_core::graphics::RequestedOpenGLVersion;
+use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::{DrawOutcome, Renderer};
-use i_slint_core::{graphics::RequestedGraphicsAPI, platform::PlatformError};
 #[cfg(supports_opengl)]
 use i_slint_renderer_femtovg::{FemtoVGOpenGLRendererExt, opengl};
 use i_slint_renderer_femtovg::{FemtoVGRenderer, FemtoVGRendererExt};
@@ -24,10 +28,13 @@ mod glcontext;
 #[cfg(all(supports_opengl, target_os = "windows"))]
 mod glprobe;
 
+#[cfg(all(supports_opengl, target_os = "windows"))]
+const OPENGL_2_REQUIRED: &str = "The FemtoVG renderer requires an OpenGL 2.0 driver";
+
 #[cfg(supports_opengl)]
 pub struct GlutinFemtoVGRenderer {
     renderer: FemtoVGRenderer<opengl::OpenGLBackend>,
-    _requested_graphics_api: Option<RequestedGraphicsAPI>,
+    _requested_opengl_version: Option<RequestedOpenGLVersion>,
     _shared_backend_data_weak: Weak<crate::SharedBackendData>,
 }
 
@@ -37,15 +44,29 @@ impl GlutinFemtoVGRenderer {
         shared_backend_data: &Rc<crate::SharedBackendData>,
     ) -> Result<Box<dyn WinitCompatibleRenderer>, PlatformError> {
         // Bail out before a window is created, so that the backend can still fall back to
-        // another renderer.
+        // another renderer (#13762).
+        let requested_opengl_version = shared_backend_data
+            .requested_graphics_api
+            .as_ref()
+            .map(RequestedOpenGLVersion::try_from)
+            .transpose()?;
         #[cfg(target_os = "windows")]
-        if !glprobe::opengl_2_available() {
-            return Err("The FemtoVG renderer requires an OpenGL 2.0 driver".into());
+        {
+            let desktop_opengl_required =
+                matches!(requested_opengl_version, Some(RequestedOpenGLVersion::OpenGL(_)));
+            if !desktop_opengl_required && !glprobe::opengl_2_available() {
+                return Err(OPENGL_2_REQUIRED.into());
+            }
+        }
+
+        #[cfg(target_arch = "wasm32")]
+        if !opengl::webgl2_available() {
+            return Err(opengl::WEBGL2_REQUIRED.into());
         }
 
         Ok(Box::new(Self {
             renderer: FemtoVGRenderer::new_suspended(),
-            _requested_graphics_api: shared_backend_data.requested_graphics_api.clone(),
+            _requested_opengl_version: requested_opengl_version,
             _shared_backend_data_weak: Rc::downgrade(shared_backend_data),
         }))
     }
@@ -71,7 +92,7 @@ impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
         let (winit_window, opengl_context) = glcontext::OpenGLContext::new_context(
             window_attributes,
             active_event_loop,
-            self._requested_graphics_api.as_ref().map(TryInto::try_into).transpose()?,
+            self._requested_opengl_version.clone(),
         )?;
 
         #[cfg(target_arch = "wasm32")]
@@ -226,7 +247,7 @@ impl WinitCompatibleRenderer for WGPUFemtoVGRenderer {
     fn render(&self, window: &i_slint_core::api::Window) -> Result<DrawOutcome, PlatformError> {
         // Use the Ext entry point so we get the `DrawOutcome` back without changing
         // `FemtoVGRenderer::render`'s public `Result<(), _>` signature.
-        self.renderer.render_transformed_with_post_callback(0., (0., 0.), window.size(), None)
+        self.renderer.render_transformed(0., (0., 0.), window.size())
     }
 
     fn as_core_renderer(&self) -> &dyn Renderer {
@@ -234,7 +255,14 @@ impl WinitCompatibleRenderer for WGPUFemtoVGRenderer {
     }
 
     fn suspend(&self) -> Result<(), PlatformError> {
+        // Also releases the winit window the callback holds on to.
+        self.renderer.set_pre_present_callback(None);
         self.renderer.clear_graphics_context()
+    }
+
+    #[cfg(target_os = "windows")]
+    fn presentation_may_use_transparency(&self) -> bool {
+        self.renderer.presentation_may_use_transparency()
     }
 
     fn resume(
@@ -287,6 +315,11 @@ impl WinitCompatibleRenderer for WGPUFemtoVGRenderer {
                 Ok(())
             },
         )?;
+
+        self.renderer.set_pre_present_callback(Some(Box::new({
+            let winit_window = winit_window.clone();
+            move || winit_window.pre_present_notify()
+        })));
 
         Ok(winit_window)
     }

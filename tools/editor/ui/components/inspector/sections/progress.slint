@@ -1,0 +1,42 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Properties } from "../../../properties.slint";
+
+import { InspectorEditableField, InspectorPropertyRow, InspectorSection, InspectorSwitch } from "../index.slint";
+import { InspectorContext } from "context.slint";
+
+export component InspectorProgressSection inherits InspectorSection {
+    private property <bool> indeterminate: Properties.editor-property-value-data("indeterminate").value-bool;
+    changed indeterminate => { toggle.checked = root.indeterminate; }
+
+    title: @tr("Progress");
+
+    InspectorPropertyRow {
+        label: @tr("Indeterminate");
+
+        toggle := InspectorSwitch {
+            accessible-label: @tr("Indeterminate");
+            checked: root.indeterminate;
+            toggled => {
+                self.focus();
+                let requested = self.checked;
+                self.checked = root.indeterminate;
+                InspectorContext.commit-boolean("indeterminate", requested);
+            }
+        }
+    }
+
+    InspectorPropertyRow {
+        label: @tr("Progress");
+
+        InspectorEditableField {
+            accessible-name: @tr("Progress value");
+            value: InspectorContext.property-number-label("progress", "0");
+            commit-key: InspectorContext.field-key("progress");
+            accepted(text) => {
+                return text.is-float() ? InspectorContext.commit-number("progress", text.to-float(), "") : InspectorContext.commit-code("progress", text);
+            }
+        }
+    }
+}

@@ -1,0 +1,236 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import {
+    ComboBoxStyle,
+    ComboBoxStyles,
+    BasicTheme,
+} from "../src/basic.slint";
+import {
+    ComboBoxBase,
+    ComboBoxPopupBase,
+    ButtonBase,
+} from "../src/headless.slint";
+import { PreviewComboBox } from "preview_controls.slint";
+import { ExampleSection } from "section.slint";
+import { PreviewSettings } from "preview_settings.slint";
+
+export component ComboBoxExamples inherits Rectangle {
+    vertical-stretch: 0;
+    in property <ComboBoxStyle> preview-style: ComboBoxStyles.standard;
+    in-out property <int> size-index: 1;
+    in-out property <bool> preview-disabled;
+
+    in-out property <int> selections;
+    in-out property <int> custom-selections;
+    in-out property <string> selected-value: "None yet";
+    in-out property <string> custom-value: "None yet";
+
+    VerticalLayout {
+        spacing: 20px;
+        PreviewSettings {
+            control-name: "ComboBox";
+            size-index <=> root.size-index;
+            disabled <=> root.preview-disabled;
+        }
+
+        ExampleSection {
+            title: "Base theme";
+            description: "Default, disabled, placeholder, and scrollable combo boxes using BasicTheme.";
+            HorizontalLayout {
+                spacing: 16px;
+                PreviewComboBox {
+                    style: root.preview-style;
+                    size-index: root.size-index;
+                    enabled: !root.preview-disabled;
+                    accessible-label: "Image fit";
+                    model: ["Contain", "Cover", "Fill", "None"];
+                    selected(value) => { root.selections += 1; root.selected-value = value; }
+                }
+
+                PreviewComboBox {
+                    style: root.preview-style;
+                    size-index: root.size-index;
+                    enabled: false;
+                    accessible-label: "Disabled combo box";
+                    model: ["Disabled"];
+                }
+            }
+
+            HorizontalLayout {
+                spacing: 16px;
+                PreviewComboBox {
+                    style: root.preview-style;
+                    size-index: root.size-index;
+                    enabled: !root.preview-disabled;
+                    accessible-label: "Choose a size";
+                    model: ["Small", "Medium", "Large", "Extra large"];
+                    current-index: -1;
+                    placeholder-text: "Choose a size";
+                    selected(value) => { root.selections += 1; root.selected-value = value; }
+                }
+
+                PreviewComboBox {
+                    style: root.preview-style;
+                    size-index: root.size-index;
+                    enabled: !root.preview-disabled;
+                    accessible-label: "Scrollable options";
+                    model: [
+                        "Zero",
+                        "One",
+                        "Two",
+                        "Three",
+                        "Four",
+                        "Five",
+                        "Six",
+                        "Seven",
+                        "Eight",
+                        "Nine"
+                    ];
+                    maximum-visible-items: 4;
+                    selected(value) => { root.selections += 1; root.selected-value = value; }
+                }
+            }
+
+            Rectangle {
+                height: 40px;
+                background: BasicTheme.background;
+                border-radius: 4px;
+                Text {
+                    x: 12px;
+                    width: parent.width - 24px;
+                    text: "Selected: " + root.selected-value + "  ·  Selections: " + root.selections;
+                    color: BasicTheme.foreground;
+                    vertical-alignment: center;
+                    font-size: 12px;
+                }
+            }
+        }
+
+        ExampleSection {
+            title: "Custom combo boxes";
+            description: "Set field colors or supply your own field, indicator, and popup visuals.";
+            HorizontalLayout {
+                spacing: 20px;
+                VerticalLayout {
+                    spacing: 10px;
+                    Text {
+                        text: "Custom field colors";
+                        color: BasicTheme.disabled-foreground;
+                        font-size: 12px;
+                    }
+
+                    PreviewComboBox {
+                        style: root.preview-style;
+                        background-color: #f0fdfa;
+                        foreground-color: #115e59;
+                        size-index: root.size-index;
+                        enabled: !root.preview-disabled;
+                        accessible-label: "Tinted combo box";
+                        model: ["Small", "Medium", "Large"];
+                        current-index: 1;
+                        selected(value) => { root.custom-selections += 1; root.custom-value = value; }
+                    }
+                }
+
+                VerticalLayout {
+                    spacing: 10px;
+                    Text {
+                        text: "Headless visuals";
+                        color: BasicTheme.disabled-foreground;
+                        font-size: 12px;
+                    }
+
+                    custom := ComboBoxBase {
+                        spacing: 8px;
+                        item-height: 32px;
+                        popup-padding: 4px;
+                        enabled: !root.preview-disabled;
+                        accessible-label: "Custom combo box";
+                        model: ["First", "Second", "Third"];
+                        min-height: 40px;
+                        horizontal-padding: 6px;
+                        vertical-padding: 6px;
+                        left-padding: 16px;
+                        right-padding: 16px;
+                        background << Rectangle {
+                            background: #fef3c7;
+                            border-radius: 20px;
+                            border-width: custom.has-focus ? 2px : 0px;
+                            border-color: #d97706;
+                        }
+                        content << Text {
+                            text: custom.current-value;
+                            color: #92400e;
+                            vertical-alignment: center;
+                            overflow: elide;
+                        }
+                        indicator << Text {
+                            width: 16px;
+                            height: 100%;
+                            text: custom.expanded ? "−" : "+";
+                            color: #92400e;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                        popup << custom-popup := ComboBoxPopupBase {
+                            popup-offset: 2px;
+                            Rectangle {
+                                background: #fffbeb;
+                                border-width: 1px;
+                                border-color: #d97706;
+                                border-radius: 4px;
+                            }
+
+                            VerticalLayout {
+                                padding: custom-popup.popup-padding;
+                                for value[index] in custom-popup.model: item := ButtonBase {
+                                    text: value;
+                                    height: custom-popup.item-height;
+                                    accessible-role: list-item;
+                                    accessible-checked: index == custom-popup.current-index;
+                                    changed hovered => { if self.hovered { custom-popup.highlight(index); } }
+                                    clicked => { custom-popup.selected(index); }
+                                    background << Rectangle {
+                                        background: index == custom-popup.highlighted-index ? #fcd34d : transparent;
+                                    }
+                                    content << HorizontalLayout {
+                                        padding-left: 12px;
+                                        padding-right: 12px;
+                                        Text {
+                                            text: value;
+                                            color: #92400e;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        selected(value) => { root.custom-selections += 1; root.custom-value = value; }
+                    }
+                }
+            }
+
+            Rectangle {
+                height: 40px;
+                background: BasicTheme.background;
+                border-radius: 4px;
+                Text {
+                    x: 12px;
+                    width: parent.width - 24px;
+                    text: "Selected: " + root.custom-value + "  ·  Selections: " + root.custom-selections;
+                    color: BasicTheme.foreground;
+                    vertical-alignment: center;
+                    font-size: 12px;
+                }
+            }
+        }
+
+        Text {
+            text: "Space or Enter opens the list. Arrows highlight; Enter selects; Escape cancels.";
+            color: BasicTheme.disabled-foreground;
+            font-size: 12px;
+            wrap: word-wrap;
+        }
+    }
+}

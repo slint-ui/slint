@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+#pragma once
+
 #include "slint.h"
 #include "private/slint_testing_internal.h"
 #include <cstdint>
@@ -201,6 +203,48 @@ public:
         SharedVector<SharedString> bases;
         if (cbindgen_private::slint_testing_element_bases(&inner, &bases)) {
             return bases;
+        } else {
+            return std::nullopt;
+        }
+    }
+
+    /// Returns the element's `@testable` properties, including inherited ones,
+    /// as flattened (name, type) pairs:
+    /// element `2 * i` is a name, element `2 * i + 1` its type.
+    /// Only properties declared `@testable` are listed, whatever their visibility;
+    /// they are kept alive for this purpose even when nothing else reads them.
+    ///
+    /// Returns std::nullopt when the element is not valid anymore,
+    /// or when the application was built without debug info;
+    /// an element that declares no `@testable` property reports an empty vector.
+    std::optional<SharedVector<SharedString>> testable_properties() const
+    {
+        SharedVector<SharedString> properties;
+        if (cbindgen_private::slint_testing_element_testable_properties(&inner, &properties)) {
+            return properties;
+        } else {
+            return std::nullopt;
+        }
+    }
+
+    /// Returns the current value of the testable property \a name on this element,
+    /// encoded as a string:
+    /// booleans as `true`/`false`,
+    /// numbers in decimal (`length` in logical pixels, `duration` in milliseconds, `angle` in
+    /// degrees), colors and solid brushes as `#rrggbbaa`, and enums as the `.slint` spelling of the
+    /// value.
+    ///
+    /// Returns std::nullopt when the element is not valid anymore,
+    /// the property does not exist (see testable_properties()),
+    /// its value has no string encoding,
+    /// or the application was built without debug info.
+    std::optional<SharedString> testable_property_value(std::string_view name) const
+    {
+        cbindgen_private::Slice<uint8_t> name_view = private_api::string_to_slice(name);
+        SharedString value;
+        if (cbindgen_private::slint_testing_element_testable_property_value(&inner, &name_view,
+                                                                            &value)) {
+            return value;
         } else {
             return std::nullopt;
         }
@@ -556,12 +600,8 @@ public:
     LogicalPosition absolute_position() const
     {
         if (auto item = private_api::upgrade_item_weak(inner.item)) {
-            // `slint_item_absolute_position` already returns the element's own absolute
-            // position (it maps the element's geometry origin through the ancestor transforms).
-            cbindgen_private::LogicalPoint abs =
-                    slint::cbindgen_private::slint_item_absolute_position(&item->item_tree,
-                                                                          item->index);
-            return LogicalPosition({ abs.x, abs.y });
+            return private_api::call_builtin(cbindgen_private::slint_builtin_item_absolute_position,
+                                             *item);
         }
         return LogicalPosition({ 0, 0 });
     }

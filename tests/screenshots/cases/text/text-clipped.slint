@@ -6,6 +6,7 @@
 //ignore:skia
 
 // SLINT_SCALE_FACTOR=1.5
+// SKIP_LLVMPIPE  - llvmpipe, Mesa's Vulkan software adapter on Linux CI, anti-aliases a few glyph pixels up to 175 off
 
 export global ZeroHelper {
     in property<float> zero: 0;

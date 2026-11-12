@@ -8,11 +8,7 @@
 // exported async SlintServer methods took `&mut self` and tripped wasm-bindgen's
 // borrow check when file-watcher and open-document notifications interleaved.
 import { test, expect } from "@playwright/test";
-import { readFile } from "node:fs/promises";
-import path from "node:path";
-
-// Playwright runs from tools/slintpad; the repository root is two levels up.
-const REPO_ROOT = path.resolve(process.cwd(), "..", "..");
+import { serve_checkout } from "./serve_checkout";
 
 // Any Rust panic or wasm trap, not just the specific error we regressed.
 const PANIC =
@@ -39,28 +35,10 @@ test("loading the gallery demo does not panic the LSP", async ({
         }
     });
 
-    // Serve the demo and its imports from this checkout so the test is hermetic
-    // and pinned to the current sources. The latency is deliberate: the panic is
-    // a race between a file-watcher future suspending on an import load and the
-    // next LSP message being dispatched, which instant local reads never expose.
-    await page.route(
-        /raw\.githubusercontent\.com\/slint-ui\/slint\/[^/]+\/(.*)/,
-        async (route) => {
-            const rel = new URL(route.request().url()).pathname.replace(
-                /^\/slint-ui\/slint\/[^/]+\//,
-                "",
-            );
-            await new Promise((resolve) => setTimeout(resolve, 150));
-            try {
-                await route.fulfill({
-                    status: 200,
-                    body: await readFile(path.join(REPO_ROOT, rel)),
-                });
-            } catch {
-                await route.fulfill({ status: 404, body: "" });
-            }
-        },
-    );
+    // The import latency is deliberate: the panic is a race between a file-watcher
+    // future suspending on an import load and the next LSP message being dispatched,
+    // which instant local reads never expose.
+    await serve_checkout(page, 150);
 
     await page.goto(
         "http://localhost:3000/?load_demo=examples/gallery/gallery.slint",

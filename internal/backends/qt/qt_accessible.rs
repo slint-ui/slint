@@ -160,6 +160,11 @@ impl PropertyDirtyHandler for FocusDelegationPropertyTracker {
     }
 }
 
+struct SlintAccessibleWindowData {
+    window: alloc::rc::Weak<QtWindow>,
+    root_item: ItemWeak,
+}
+
 #[pin_project]
 pub struct SlintAccessibleItemData {
     #[pin]
@@ -267,6 +272,7 @@ cpp! {{
     // Note: Do not include <QtWidgets> to avoid inclusion of gl.h (see #10989).
     #include <QtGui/QAccessible>
     #include <QtWidgets/QWidget>
+    #include <QtCore/QPointer>
 
     #include <memory>
 
@@ -304,11 +310,8 @@ cpp! {{
         void* itemAt(size_t index) {
             return rust!(Descendents_itemAt [rustDescendents: SharedVector<ItemRc> as "void*",
                                              index: usize as "size_t"]
-                    -> *mut ItemWeak as "void*" {
-                let item_rc = rustDescendents[index].clone();
-                let mut item_weak = Box::new(item_rc.downgrade());
-
-                Box::into_raw(item_weak)
+                    -> *const ItemRc as "void*" {
+                &rustDescendents[index]
             });
         }
 
@@ -362,14 +365,6 @@ cpp! {{
     private:
         void *rustDescendents;
     };
-
-    void *root_item_for_window(void *rustWindow) {
-        return rust!(root_item_for_window_ [rustWindow: &crate::qt_window::QtWindow as "void*"]
-                -> *mut c_void as "void*" {
-            let root_item = Box::new(ItemRc::new_root(WindowInner::from_pub(&rustWindow.window).component()).downgrade());
-            Box::into_raw(root_item) as _
-        });
-    }
 
     // Returns the orientation of the item as a Qt::Orientation value
     // (Qt::Horizontal=1, Qt::Vertical=2), or 0 if the property is not set.
@@ -447,6 +442,7 @@ cpp! {{
         void clearFocus() {
             has_focus = false;
             has_focus_delegation = false;
+            m_last_focus_target = nullptr;
 
             for (int i = 0; i < rawChildCount(); ++i) {
                 static_cast<Slint_accessible *>(child(i))->clearFocus();
@@ -579,6 +575,7 @@ cpp! {{
     protected:
         mutable bool has_focus;
         mutable bool has_focus_delegation;
+        mutable QPointer<QObject> m_last_focus_target;
 
     private:
         QAccessible::Role m_role = QAccessible::NoRole;
@@ -600,9 +597,9 @@ cpp! {{
             Slint_accessible(role, parent), m_object(obj)
         {
             m_data = rust!(Slint_accessible_item_ctor [obj: *mut c_void as "QObject*",
-                    item: &ItemWeak as "void*"] ->
+                    item: &ItemRc as "void*"] ->
                     *mut SlintAccessibleItemData as "void*" {
-                        let data = SlintAccessibleItemData::new_pin_box(obj, item);
+                        let data = SlintAccessibleItemData::new_pin_box(obj, &item.downgrade());
                         unsafe { Box::into_raw(Pin::into_inner_unchecked(data)) }
             });
         }
@@ -642,17 +639,30 @@ cpp! {{
         void delegateFocus() const override {
             if (!has_focus) { return; }
 
+            // The timer can run before the render pass updates the cached children.
+            updateAccessibilityTree();
+
             auto index = rust!(Slint_accessible_item_delegate_focus [m_data: Pin<&SlintAccessibleItemData> as "void*"] -> i32 as "int" {
                 m_data.item.upgrade()
-                    .and_then(|i| { i.accessible_string_property(AccessibleStringProperty::DelegateFocus) })
-                    .and_then(|s| s.as_str().parse::<i32>().ok()).unwrap_or(-1)
+                    .and_then(|item| {
+                        i_slint_core::accessibility::accessible_focus_delegate_position(&item)
+                    })
+                    .and_then(|position| i32::try_from(position).ok())
+                    .unwrap_or(-1)
             });
 
-            if (index >= 0 && index < rawChildCount()) {
-                static_cast<Slint_accessible_item*>(rawChild(index))->sendFocusChangeEvent();
-            } else {
-                sendFocusChangeEvent();
+            auto target = index >= 0 && index < rawChildCount()
+                ? static_cast<Slint_accessible*>(rawChild(index))
+                : static_cast<Slint_accessible*>(const_cast<Slint_accessible_item*>(this));
+            if (m_last_focus_target == target->object()) { return; }
+
+            if (m_last_focus_target) {
+                auto previous = dynamic_cast<Slint_accessible*>(QAccessible::queryAccessibleInterface(m_last_focus_target));
+                if (previous && previous != this) { previous->clearFocus(); }
             }
+            has_focus_delegation = false;
+            m_last_focus_target = target->object();
+            target->sendFocusChangeEvent();
         }
 
         // properties and state
@@ -799,15 +809,17 @@ cpp! {{
         Slint_accessible_window(QWidget *widget, void *rust_window) :
             Slint_accessible(QAccessible::Window, QAccessible::queryAccessibleInterface(qApp)),
             m_widget(widget),
-            m_rustWindow(rust_window)
+            m_data(rust!(Slint_accessible_window_ctor [rust_window: *const QtWindow as "void*"]
+                    -> *mut SlintAccessibleWindowData as "void*" {
+                let window = unsafe { alloc::rc::Weak::from_raw(rust_window) };
+                Box::into_raw(Box::new(SlintAccessibleWindowData { window, root_item: Default::default() }))
+            }))
         { }
 
         ~Slint_accessible_window()
         {
-            rust!(Slint_accessible_window_dtor [m_rustWindow: *mut c_void as "void*"] {
-                unsafe {
-                    alloc::rc::Weak::from_raw(m_rustWindow as *const QtWindow); // Consume the Weak<QtWindow> we hold in our void*!
-                }
+            rust!(Slint_accessible_window_dtor [m_data: *mut SlintAccessibleWindowData as "void*"] {
+                drop(unsafe { Box::from_raw(m_data) });
             });
         }
 
@@ -816,7 +828,13 @@ cpp! {{
         }
 
         void *rustItem() const override {
-            return root_item_for_window(m_rustWindow);
+            return rust!(Slint_accessible_window_rustItem [m_data: &mut SlintAccessibleWindowData as "void*"]
+                    -> *const ItemWeak as "void*" {
+                m_data.root_item = m_data.window.upgrade().map_or_else(ItemWeak::default, |w| {
+                    ItemRc::new_root(WindowInner::from_pub(&w.window).component()).downgrade()
+                });
+                &raw const m_data.root_item
+            });
         }
 
         QObject *object() const override {
@@ -854,7 +872,7 @@ cpp! {{
 
     private:
         QWidget *m_widget;
-        void *m_rustWindow; // *const QtWindow
+        void *m_data; // *mut SlintAccessibleWindowData
         mutable bool is_used = false;
     };
 
@@ -881,9 +899,9 @@ cpp! {{
 
     int indexOfItem(const QList<QObject *> &existing, void *item) {
         for (int i = 0; i < existing.count(); ++i) {
-            auto data = dynamic_cast<Slint_accessible_item *>(QAccessible::queryAccessibleInterface(existing[i]));
-            if (rust!(Slint_indexOfItems [data: Pin<&SlintAccessibleItemData> as "void*", item: &ItemWeak as "void*"] -> bool as "bool" {
-                data.item == *item
+            auto data = static_cast<Slint_accessible_item *>(QAccessible::queryAccessibleInterface(existing[i]))->data();
+            if (rust!(Slint_indexOfItems [data: Pin<&SlintAccessibleItemData> as "void*", item: &ItemRc as "void*"] -> bool as "bool" {
+                data.item == item.downgrade()
             })) {
                 return i;
             }

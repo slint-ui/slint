@@ -4,6 +4,8 @@
 [package]
 name = "i-slint-renderer-femtovg"
 description = "FemtoVG based renderer for Slint"
+categories = ["gui", "rendering", "wasm"]
+keywords = ["femtovg", "opengl", "wgpu", "gui", "ui"]
 authors.workspace = true
 edition = "2024"
 homepage.workspace = true
@@ -35,7 +37,7 @@ const-field-offset = { version = "0.2.1", path = "../../../helper_crates/const-f
 
 lyon_path = { workspace = true }
 pin-weak = "1"
-femtovg = { version = "0.27", default-features = false, features = ["swash"] }
+femtovg = { version = "0.28", default-features = false, features = ["swash"] }
 imgref = { version = "1.6.1" }
 rgb = { version = "0.8.27" }
 
@@ -43,8 +45,8 @@ glow = { workspace = true }
 
 wgpu-30 = { workspace = true, optional = true, default-features = true }
 
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-web-sys = { workspace = true, features = ["console", "WebGlContextAttributes", "CanvasRenderingContext2d", "HtmlInputElement", "HtmlCanvasElement", "Window", "Document"] }
+[target.'cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))'.dependencies]
+web-sys = { workspace = true, features = ["console", "WebGlContextAttributes", "WebGlTexture", "CanvasRenderingContext2d", "HtmlInputElement", "HtmlCanvasElement", "Window", "Document", "Element", "WebGl2RenderingContext", "WebglLoseContext"] }
 wasm-bindgen = { version = "0.2" }
 # Enable wgpu-core's WebGL2 backend so the wgpu init helper can fall back to
 # it transparently when no BROWSER_WEBGPU adapter is available (e.g. in
@@ -52,8 +54,11 @@ wasm-bindgen = { version = "0.2" }
 wgpu-30 = { workspace = true, optional = true, features = ["webgl"] }
 
 # The browser decodes images on the web; decode with the image and resvg crates elsewhere.
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+[target.'cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))'.dependencies]
 i-slint-core = { workspace = true, features = ["image-decoders", "svg"] }
+
+[dev-dependencies]
+slint = { path = "../../../api/rs/slint", default-features = false, features = ["std", "compat-1-2"] }
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ["cfg(slint_nightly_test)"] }

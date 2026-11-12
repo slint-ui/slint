@@ -22,6 +22,18 @@ AnimationDriver
 └── update_animations(new_tick)                  // Called per frame by the backend
 ```
 
+## Reduced Motion
+
+A backend reports the operating system's reduced-motion setting through `SlintContext::set_motion_preference`.
+It stores a `MotionPreference` property on the context's `PlatformContext`.
+The compiler folds `BuiltinFunction::ReducedMotion` into every animation's `enabled` field in `lower_animation` (`internal/compiler/llr/lower_expression.rs`).
+The Rust and C++ generated code, and the interpreter, all evaluate `enabled && !reduced_motion()` against the component's own context,
+like every builtin that takes `&context`.
+Animation details are computed when an animation starts, so a change of the setting applies to animations that start afterwards.
+`Flickable` reads the same property through its item's context for its scroll animations.
+
+Without the `std` feature, `i_slint_core::builtin_functions::reduced_motion` is `false`, so optimized microcontroller builds drop the check.
+
 **Key components:**
 
 | Function/Type | Location | Purpose |

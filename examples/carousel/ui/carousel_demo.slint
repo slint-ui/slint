@@ -35,7 +35,7 @@ export component MainWindow inherits Window {
             is-selected: index == root.selected-index;
             title: item.title;
             image-source: item.image;
-            y: (parent.height - self.height) / 2;
+            cross-axis-self-alignment: center;
         }
     }
 }

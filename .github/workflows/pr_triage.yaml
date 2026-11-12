@@ -1,0 +1,120 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+name: PR Triage
+
+# Runs every hour from master. It picks the open pull requests that still need
+# triage, without spending any tokens, and hands each one to
+# pr_triage_reusable.yaml. That workflow never checks out or runs the PR's
+# code: the diff is read over the API and handed to Claude as data.
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "Pull request number to triage. Empty picks the PRs like the hourly run."
+        required: false
+        type: number
+
+# One run at a time, so that two runs never triage the same PR.
+concurrency:
+  group: pr-triage
+  cancel-in-progress: false
+
+permissions: {}
+
+env:
+  # Caps the token spend of one run. The rest wait for the next hour.
+  MAX_PRS_PER_RUN: 5
+
+jobs:
+  select:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: read
+      issues: read
+      checks: read
+    outputs:
+      numbers: ${{ steps.select.outputs.numbers }}
+      areas: ${{ steps.select.outputs.areas }}
+    steps:
+      - name: Pick the PRs that need triage
+        id: select
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const manual = context.payload.inputs?.pr_number ? Number(context.payload.inputs.pr_number) : null;
+            const prs = manual
+              ? [(await github.rest.pulls.get({ ...context.repo, pull_number: manual })).data]
+              : await github.paginate(github.rest.pulls.list, {
+                  ...context.repo, state: 'open', sort: 'created', direction: 'asc', per_page: 100,
+                });
+
+            // Whether someone is on the team: they can push to the repository,
+            // or have triage access. `permission` reports triage access as
+            // `read`; only `role_name` tells it apart.
+            const members = new Map();
+            async function isTeamMember(login) {
+              if (!members.has(login)) {
+                const { data } = await github.rest.repos.getCollaboratorPermissionLevel({ ...context.repo, username: login });
+                members.set(login, data.permission === 'admin' || data.permission === 'write' || data.role_name === 'triage');
+              }
+              return members.get(login);
+            }
+
+            // The contribution_agreement job in pr_checks.yaml passes once the
+            // author accepted the contribution terms. It skips team members.
+            async function acceptedAgreement(pr) {
+              const { data } = await github.rest.checks.listForRef({
+                ...context.repo, ref: pr.head.sha, check_name: 'contribution_agreement',
+              });
+              return data.check_runs.some(run => run.conclusion === 'success');
+            }
+
+            const numbers = [];
+            for (const pr of prs) {
+              if (numbers.length >= Number(process.env.MAX_PRS_PER_RUN)) break;
+              // A PR that already has a complexity label was triaged by a
+              // human, or by an earlier run. A manual run retries a PR that an
+              // earlier run failed on.
+              const triaged = pr.labels.some(l =>
+                l.name.startsWith('complexity:') || (!manual && l.name === 'triage:attempted'));
+              if (pr.draft || pr.state !== 'open' || pr.user.type === 'Bot' || triaged) {
+                if (manual) core.notice(`Skipping #${pr.number}: draft=${pr.draft} state=${pr.state} bot=${pr.user.type === 'Bot'} triaged=${triaged}`);
+                continue;
+              }
+              // A manual run triages the PR it was asked for, whoever wrote it.
+              if (!manual && !await isTeamMember(pr.user.login) && !await acceptedAgreement(pr)) continue;
+              numbers.push(pr.number);
+            }
+            core.notice(numbers.length ? `Triaging ${numbers.map(n => `#${n}`).join(', ')}` : 'Nothing to triage');
+            core.setOutput('numbers', JSON.stringify(numbers));
+
+            const labels = await github.paginate(github.rest.issues.listLabelsForRepo, { ...context.repo, per_page: 100 });
+            const areas = labels
+              .filter(l => l.name.startsWith('a:'))
+              .map(l => `- \`${l.name}\`: ${l.description ?? ''}`)
+              .join('\n');
+            core.setOutput('areas', areas);
+
+  triage:
+    needs: select
+    if: needs.select.outputs.numbers != '[]'
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        pr_number: ${{ fromJson(needs.select.outputs.numbers) }}
+    # The most any job in the called workflow needs. Its jobs narrow it down.
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    uses: ./.github/workflows/pr_triage_reusable.yaml
+    with:
+      pr_number: ${{ matrix.pr_number }}
+      areas: ${{ needs.select.outputs.areas }}
+    secrets:
+      CLAUDE_TOKEN_TRIAGE: ${{ secrets.CLAUDE_TOKEN_TRIAGE }}

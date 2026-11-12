@@ -250,9 +250,7 @@ fn create_node(
         icon_kind,
         element_type,
         element_id,
-        uri: i_slint_editor_preview::file_to_uri(element.source_file.path())
-            .unwrap()
-            .to_shared_string(),
+        uri: element.source_file.path().to_url().unwrap().to_shared_string(),
         offset: usize::from(element.text_range().start()) as i32,
         is_last_child: true,
     }
@@ -268,7 +266,7 @@ pub fn reset_outline(api: &ui::Api<'_>, root_component: Option<Rc<object_tree::C
 pub fn setup(api: &ui::Api<'_>, api_weak: slint::Weak<ui::Api<'static>>) {
     api.on_outline_select_element(|uri, offset, notify_editor| {
         super::element_selection::select_element_at_source_code_position(
-            i_slint_editor_preview::uri_to_file(&Url::parse(uri.as_str()).unwrap()).unwrap(),
+            i_slint_compiler::source_path::SourcePath::from(Url::parse(uri.as_str()).unwrap()),
             TextSize::new(offset as u32),
             None,
             if notify_editor {
@@ -313,6 +311,85 @@ pub fn setup(api: &ui::Api<'_>, api_weak: slint::Weak<ui::Api<'static>>) {
     api.on_outline_can_drop(|data, target_uri, target_offset, location| {
         can_drop(data, target_uri, target_offset, location)
     });
+    api.on_outline_add_child(|target_uri, target_offset| {
+        if let Some((edit, drop_data)) = add_child_edit(target_uri, target_offset)
+            && preview::send_workspace_edit("Add child".to_string(), edit, true)
+        {
+            super::element_selection::select_element_at_source_code_position(
+                drop_data.path,
+                drop_data.selection_offset,
+                None,
+                preview::SelectionNotification::AfterUpdate,
+            );
+        }
+    });
+}
+
+struct ChildTemplate {
+    element: &'static str,
+    label_property: &'static str,
+    label_prefix: &'static str,
+}
+
+fn child_template(container_type: &str) -> Option<ChildTemplate> {
+    match container_type {
+        "TabWidget" => {
+            Some(ChildTemplate { element: "Tab", label_property: "title", label_prefix: "Tab" })
+        }
+        "RadioGroup" => Some(ChildTemplate {
+            element: "RadioButton",
+            label_property: "text",
+            label_prefix: "Option",
+        }),
+        _ => None,
+    }
+}
+
+fn add_child_edit(
+    target_uri: SharedString,
+    target_offset: i32,
+) -> Option<(lsp_types::WorkspaceEdit, preview::drop_location::DropData)> {
+    let document_cache = super::document_cache()?;
+    let url = Url::parse(target_uri.as_str()).ok()?;
+    let container = document_cache.element_at_offset(&url, TextSize::new(target_offset as u32))?;
+    let (template, child_count) = container.with_element_node(|node| {
+        let type_name = |element: &syntax_nodes::Element| {
+            element.QualifiedName().map(|name| name.text().to_string().trim().to_string())
+        };
+        let template = child_template(type_name(node)?.as_str())?;
+        let child_count = node
+            .SubElement()
+            .filter(|sub| type_name(&sub.Element()).as_deref() == Some(template.element))
+            .count();
+        Some((template, child_count))
+    })?;
+
+    let drop_info = preview::drop_location::DropInformation {
+        insert_info: preview::drop_location::insert_position_at_end(&container)?,
+        target_element_node: container,
+        drop_mark: None,
+        child_index: child_count,
+    };
+    // `Tab` and `RadioButton` only exist inside their container, so they aren't in the component catalog.
+    let child = i_slint_editor_preview::component_catalog::ComponentInformation {
+        name: template.element.to_string(),
+        category: String::new(),
+        is_global: false,
+        is_builtin: true,
+        is_std_widget: false,
+        is_std_widget_interface: false,
+        is_exported: false,
+        is_interface: false,
+        is_interactive: false,
+        is_layout: false,
+        defined_at: None,
+        default_properties: vec![i_slint_editor_preview::editing::PropertyChange::new(
+            template.label_property,
+            format!("\"{} {}\"", template.label_prefix, child_count + 1),
+        )],
+        default_size: Vec::new(),
+    };
+    preview::drop_location::create_drop_element_workspace_edit(&document_cache, &child, &drop_info)
 }
 
 fn drop_edit(
@@ -386,8 +463,8 @@ fn drop_edit(
                 document_cache.format,
             )?
         }
-        DragItem::NewComponent { kind } => {
-            let component = super::palette_component(kind)?;
+        DragItem::NewComponent { kind, type_name, source_uri } => {
+            let component = super::palette_component(&type_name, &source_uri)?;
             let size = super::PREVIEW_STATE.with_borrow(|state| {
                 state
                     .editor_ui
@@ -395,7 +472,13 @@ fn drop_edit(
                     .map(|ui| ui.global::<ui::ElementVisuals>().invoke_for_kind(kind).preview_size)
             })?;
             let mut properties = Vec::new();
-            if !i_slint_compiler::layout::is_layout(
+            if !matches!(
+                kind,
+                ui::ElementKind::Text
+                    | ui::ElementKind::StyledText
+                    | ui::ElementKind::Widget
+                    | ui::ElementKind::Component
+            ) && !i_slint_compiler::layout::is_layout(
                 &drop_info.target_element_node.as_element().borrow().base_type,
             ) {
                 properties.extend([

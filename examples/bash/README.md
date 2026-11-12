@@ -7,7 +7,7 @@ This assume that the `slint-viewer` tool is in path. This can be achieved with c
 (use the `--path tools/viewer` option to install it from the current repository.)
 
 ```bash
-cargo install slint-viewer
+cargo install --locked slint-viewer
 ```
 
 The examples also assume that [`jq`](https://stedolan.github.io/jq/) is in the path

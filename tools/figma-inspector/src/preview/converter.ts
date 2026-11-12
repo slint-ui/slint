@@ -40,6 +40,7 @@ import {
     fillLayersSource,
     shadowLayersSource,
     innerShadowSource,
+    shadowWarnings,
     imageFillSource,
     visualSource,
 } from "./converter-visual";
@@ -103,18 +104,15 @@ function geometry(
         !(node.kind === "svg" && node.raster !== undefined)
     )
         lines.push(property("opacity", node.opacity, depth));
+    // Figma rotates counterclockwise around the captured local origin.
     if (node.rotation !== 0)
         lines.push(
             property(
                 "transform-rotation",
-                `${number(node.rotation)}deg`,
+                `${number(-node.rotation)}deg`,
                 depth,
             ),
-            property(
-                "transform-origin",
-                "{ x: self.width / 2, y: self.height / 2 }",
-                depth,
-            ),
+            property("transform-origin", "{ x: 0px, y: 0px }", depth),
         );
     return lines;
 }
@@ -413,7 +411,7 @@ function nodeSource(
         definitionRoot = false,
     }: NodePlacement = {},
 ): SlintLine[] {
-    if (!node.visible) return [];
+    if (!node.visible && !definitionRoot) return [];
     const use = context.componentUses?.get(node);
     if (use && !definitionRoot) {
         const full =
@@ -473,7 +471,10 @@ function nodeSource(
     }
     const styledText = node.kind === "text" && textRunNeedsStyled(node);
     const overflowText = node.kind === "text" && textNeedsOverflowWrapper(node);
-    const paintBounds = node.kind === "svg" ? node.raster?.bounds : undefined;
+    const paintBounds =
+        node.kind === "svg"
+            ? (node.raster?.bounds ?? node.svgBounds)
+            : undefined;
     const element =
         node.kind === "text"
             ? overflowText
@@ -521,31 +522,13 @@ function nodeSource(
             }))
                 lines.push(line);
     } else if (isContainerNode(node) || node.kind === "rectangle") {
+        shadowWarnings(node, context);
         const externalStroke =
             node.strokes[0]?.align === "center" ||
             node.strokes[0]?.align === "outside";
         const container = isContainerNode(node);
         const clipExternalContent =
             externalStroke && node.clipsContent && container;
-        const spreadShadows = node.shadows.filter(
-            (shadow) => shadow.kind !== "inner" && shadow.spread !== 0,
-        );
-        if (spreadShadows.length > 0)
-            context.warnings.push({
-                severity: "warning",
-                code: "FEMTOVG_SHADOW_SPREAD_UNSUPPORTED",
-                nodeId: node.id,
-                nodeName: node.name,
-                propertyPath: "effects",
-                originalValue: spreadShadows
-                    .map((shadow) => `${number(shadow.spread)}px`)
-                    .join(", "),
-                fallbackAction:
-                    "The generated Slint preserves the spread for renderers that support it",
-                category: "approximation",
-                message:
-                    "Shadow spread is preserved in the generated Slint, but this FemtoVG preview currently ignores it; render with Skia for Figma-equivalent spread",
-            });
         lines.push(...appearanceSource(node, depth + 1, externalStroke));
         // Shadow helpers need an opaque shape to cast from. Emit them first so
         // they cannot hide layered fills or asymmetric border strips.
@@ -861,7 +844,9 @@ export function convertSnapshot(
           }
         : { top: 0, right: 0, bottom: 0, left: 0 };
     const rootPaint =
-        snapshot.root.kind === "svg" ? snapshot.root.raster?.bounds : undefined;
+        snapshot.root.kind === "svg"
+            ? (snapshot.root.raster?.bounds ?? snapshot.root.svgBounds)
+            : undefined;
     if (rootPaint) {
         rootOutsets.left = Math.max(0, -rootPaint.x);
         rootOutsets.top = Math.max(0, -rootPaint.y);

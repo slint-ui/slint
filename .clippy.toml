@@ -14,5 +14,5 @@ too-many-arguments-threshold = 10
 # per-crate clippy.toml) avoids shadowing the workspace-wide thresholds above —
 # clippy reads exactly one clippy.toml per crate, with no merging.
 disallowed-methods = [
-  { path = "tokio::task::spawn_local", reason = "Use `i_slint_editor_preview::common::spawn_local` — it routes to `wasm_bindgen_futures::spawn_local` on wasm." },
+  { path = "tokio::task::spawn_local", reason = "Use `i_slint_editor_preview::spawn_local` — it routes to `wasm_bindgen_futures::spawn_local` on wasm." },
 ]

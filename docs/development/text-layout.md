@@ -8,400 +8,234 @@
 
 ## Overview
 
-Slint's text layout system handles the complex process of converting text strings into positioned glyphs for rendering. It supports:
+Slint shares Parley-based text layout across FemtoVG, Skia, Anyrender, Qt, and the software renderer's vector-font path.
+The `shared-parley` feature enables this implementation and is part of `i-slint-core`'s default features.
+It handles plain and styled text, font fallback, shaping, line breaking, alignment, elision, selection, and cursor geometry.
 
-- **Text shaping**: Converting characters to glyphs with proper metrics
-- **Script-aware boundaries**: Splitting text by Unicode script for font selection
-- **Line breaking**: Unicode-compliant line break algorithm
-- **Text wrapping**: Word wrap, character wrap, and no wrap modes
-- **Line height**: Natural font metrics or an explicit line height
-- **Text overflow**: Clipping and elision (ellipsis)
-- **Styled text**: Markdown parsing with formatting spans
+The software renderer also uses a separate layout implementation for bitmap fonts, including embedded `no_std` configurations.
+With system fonts enabled, `SLINT_SOFTWARE_RENDERER_PARLEY_DISABLED` selects that implementation for vector fonts too.
+The switch is read once, when the software renderer first checks whether to use Parley.
+See [Legacy Software Text Layout](#legacy-software-text-layout) below.
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
-| `internal/core/textlayout.rs` | Main layout algorithms, TextParagraphLayout |
-| `internal/core/textlayout/shaping.rs` | TextShaper trait, Glyph, ShapeBuffer |
-| `internal/core/textlayout/linebreaker.rs` | TextLineBreaker, TextLine |
-| `internal/core/textlayout/fragments.rs` | TextFragment, fragment iteration |
-| `internal/core/textlayout/glyphclusters.rs` | Glyph cluster grouping |
-| `internal/core/textlayout/linebreak_simple.rs` | ASCII line break fallback |
-| `internal/core/textlayout/sharedparley.rs` | Parley-based layout (`shared-parley` feature) |
-| `internal/core/textlayout/linebreak_unicode.rs` | Unicode line break algorithm |
-| `internal/core/styled_text.rs` | Public `StyledText` API, FFI |
-| `internal/common/styled_text.rs` | Markdown/HTML parsing, `Style`/`FormattedSpan`/`StyledTextParagraph` |
+| `internal/core/item_rendering.rs` | `RenderString`, `RenderText`, and `TextForWidth` adapters |
+| `internal/core/items/text.rs` | Text items, layout constraints, and input editing |
+| `internal/core/renderer.rs` | Shared text-query implementations in `RendererSealed` |
+| `internal/core/textlayout/sharedparley.rs` | Font context, measurement, drawing, hit-testing, and cursor entry points |
+| `internal/core/textlayout/sharedparley/shaping.rs` | Paragraph creation and Parley style/shaping setup |
+| `internal/core/textlayout/sharedparley/cache.rs` | Per-item shaping and content-width caches |
+| `internal/core/textlayout/sharedparley/layout.rs` | Line breaking, alignment, elision, line limits, and geometry queries |
+| `internal/core/textlayout/sharedparley/draw.rs` | `GlyphRenderer`, glyph runs, decorations, and clipping |
+| `internal/core/textlayout/sharedparley/selection.rs` | Selection geometry and drawing spans |
+| `internal/core/textlayout/sharedparley/accessibility.rs` | AccessKit text runs from the rendered input layout |
+| `internal/core/font_collection.rs` | Per-context Fontique collection initialization |
+| `internal/core/styled_text.rs` | Public `StyledText` API and FFI |
+| `internal/common/styled_text.rs` | Markdown/HTML parsing and styled paragraph data |
+| `internal/core/textlayout.rs` | Legacy `TextLayout` and `TextParagraphLayout` |
 
-## Text Layout Pipeline
+## Shared Parley Pipeline
 
-```
-Input Text
-    │
-    ▼
-┌─────────────────────────────┐
-│ 1. Script Boundary Detection│  ShapeBoundaries
-│    Split by Unicode script  │  (e.g., Latin vs Arabic)
-└─────────────┬───────────────┘
-              │
-              ▼
-┌─────────────────────────────┐
-│ 2. Text Shaping             │  TextShaper::shape_text()
-│    Characters → Glyphs      │  (rustybuzz, platform shaper)
-│    Apply letter spacing     │
-└─────────────┬───────────────┘
-              │
-              ▼
-┌─────────────────────────────┐
-│ 3. Glyph Clustering         │  GlyphClusterIterator
-│    Group glyphs by source   │  (combining chars, ligatures)
-└─────────────┬───────────────┘
-              │
-              ▼
-┌─────────────────────────────┐
-│ 4. Fragment Creation        │  TextFragmentIterator
-│    Group clusters between   │  LineBreakIterator
-│    break opportunities      │
-└─────────────┬───────────────┘
-              │
-              ▼
-┌─────────────────────────────┐
-│ 5. Line Breaking            │  TextLineBreaker
-│    Fit fragments to width   │  WordWrap/CharWrap/NoWrap
-│    Handle elision           │
-└─────────────┬───────────────┘
-              │
-              ▼
-┌─────────────────────────────┐
-│ 6. Paragraph Layout         │  TextParagraphLayout
-│    Vertical/horizontal      │  layout_lines()
-│    alignment, selection     │
-└─────────────────────────────┘
+```mermaid
+flowchart TD
+    A["RenderString / RenderText"] --> B["Plain or Styled Paragraphs"]
+    B --> C["Parley Shaping + Fontique Font Selection"]
+    C --> D["TextLayoutCache"]
+    D --> E["Line Breaking, Alignment, Elision"]
+    E --> F["GlyphRenderer"]
+    E --> G["Measurement, Selection, Cursor, Accessibility"]
 ```
 
-## Core Types
+### Text and Font Inputs
 
-### Glyph
+`RenderString` supplies text, a font request, a line limit, and a line-height factor.
+`RenderText` adds drawing properties such as alignment, overflow, brushes, and selection.
+Text items implement these traits in `internal/core/items/text.rs`.
 
-A single shaped glyph: its advance, its x/y offsets, the font-specific glyph id, and the byte
-offset it came from in the source string. Generic over the font's `Length`.
-See `Glyph` in `internal/core/textlayout/shaping.rs`.
+Each `SlintContext` owns a shared `FontContext`, which wraps Parley's font context and its Fontique collection.
+`FontRequest::query_fontique` resolves font requests.
+`FontContext::query_font` memoizes the resolved font and its natural line-height ratio until the next frame.
 
-### TextShaper Trait
+### Paragraph Shaping
 
-What a font backend implements: shape a string into glyphs, and produce the glyph for a single
-character (used for the ellipsis). The associated `Length` and `LengthPrimitive` types let the
-same code serve plain `f32` and euclid-typed lengths.
-See `TextShaper` in `internal/core/textlayout/shaping.rs`.
+`shape_paragraphs` reads the item's shaping inputs through `shaping_builder` and calls `create_text_paragraphs`.
+Plain text is split at newline boundaries; styled text already carries paragraphs and formatting spans.
+The builder applies font families, size, weight, italic style, letter spacing, line height, and wrap policy.
+Styled spans add properties such as emphasis, code formatting, link styling, and color.
 
-### FontMetrics Trait
+Parley produces a `parley::Layout<Brush>` for each paragraph.
+Slint's `TextParagraph` retains the source byte range, links, and decoration ranges alongside it.
+The legacy `ShapeBuffer` and `TextShaper` types aren't part of this path.
 
-Font measurements: ascent, descent, x-height and cap-height, with `height()` defaulting to
-`ascent - descent`. Descent is negative.
-See `FontMetrics` in `internal/core/textlayout/shaping.rs`.
+### Line Breaking and Placement
 
-### AbstractFont
+`layout` in `sharedparley/layout.rs` applies the available width to the shaped paragraphs.
+It calls Parley's line-breaking and alignment APIs, then computes paragraph positions, line limits, and elision.
 
-`TextShaper` and `FontMetrics` over the same `Length`. This is the bound the layout code takes.
-See `AbstractFont` in `internal/core/textlayout/shaping.rs`.
+| Input | Behavior |
+|-------|----------|
+| `TextWrap::NoWrap` | Disables soft wrapping; explicit paragraph breaks remain |
+| `TextWrap::WordWrap` | Wraps at word boundaries, with an anywhere fallback for overlong words |
+| `TextWrap::CharWrap` | Uses Parley's break-all policy |
+| `max-lines` | Limits visible lines across paragraphs |
+| `TextOverflow::Clip` | Clips drawing to the item's bounds |
+| `TextOverflow::Elide` | Adds an ellipsis when text is truncated |
+| Horizontal/vertical alignment | Positions lines and the paragraph block within the available size |
 
-### TextLayout
+Layout uses physical pixels internally.
+Entry points convert logical sizes and positions with the window's scale factor.
 
-A font plus the paragraph-wide spacing options: an optional letter spacing and an optional line
-height. See `TextLayout` in `internal/core/textlayout.rs`.
+The line-height factor scales the requested font's natural line-height ratio.
+The builder passes this to Parley as a font-size-relative line height, so styled font sizes scale with it.
+Fallback fonts don't independently enlarge the requested line box.
+Glyph bounds can still affect measured height when line spacing is compressed.
 
-Both spacing values use the font's `Length` unit.
-`None` leaves letter spacing unchanged and uses `FontMetrics::height()` for line height.
-The `.slint` `line-height-factor` value is converted to an absolute value before this stage.
+### Drawing and Geometry Queries
 
-An explicit line height only stretches (or shrinks) the line boxes; the glyphs are centered
-within each box by distributing the leading half above and half below them
-(`TextLayout::half_leading()`), following the CSS model like the parley-based layout.
-Cursor and selection rectangles cover the full line box, clamped so they never get smaller
-than the glyph box when the leading is negative (`TextLayout::cursor_band()`).
+Renderers implement `sharedparley::GlyphRenderer` to draw positioned glyph runs, brushes, and decoration rectangles.
+`draw_text` and `draw_text_input` use this interface for text, selection backgrounds, and the input cursor.
 
-## Script Boundary Detection
+With `shared-parley` enabled, `RendererSealed` provides default implementations for measurement, font metrics, hit-testing, and cursor rectangles.
+Renderers expose their cache through `text_layout_cache()`.
+The software renderer overrides these methods to choose between Parley and its bitmap-font layout.
 
-The `ShapeBoundaries` iterator splits text by Unicode script so each run can use a font that
-covers it. See `ShapeBoundaries` in `internal/core/textlayout/shaping.rs`.
+Input hit-testing and cursor rectangles use Parley's cursor APIs, including affinity at soft line breaks.
+The entry points translate between the input's visual text and its actual byte offsets, including password and preedit text.
+`with_text_input_layout` lends the rendered layout to accessibility code when the renderer reports a Parley layout.
+The `accessibility-text` feature enables AccessKit text runs based on that geometry.
 
-For example, `"Hello தோசை"` splits into `"Hello "` (Latin/Common) and `"தோசை"` (Tamil).
+### Cache and Property Dependencies
 
-**Why it matters:**
-- Different scripts may need different fonts
-- Shaping rules differ by script (e.g., Arabic ligatures)
-- Allows fallback font selection per script
+`TextLayoutCache` stores shaped paragraphs per `ItemRc`.
+Property tracking invalidates entries when shaping inputs change.
+The wrap mode and line-height factor distinguish compatible entries; a scale-factor change invalidates the cache.
+Width is applied after shaping, so resizing can reuse shaped paragraphs.
 
-## Shape Buffer
+The cache also retains line breaking for matching width, alignment, line limit, and overflow inputs.
+Height and vertical alignment are applied per call.
+Intrinsic content widths have a separate cache because measuring the longest word needs different overflow-wrapping behavior.
 
-Holds the shaped glyphs plus the `TextRun`s that map each source byte range to its slice of those
-glyphs. See `ShapeBuffer` and `TextRun` in `internal/core/textlayout/shaping.rs`.
+`with_text_layout` checks paragraphs out of the cache, lays them out, runs a callback, and restores them.
+The font-context borrow ends before the callback, allowing glyph drawing to access fonts.
+The cache stays borrowed during the callback: don't read properties or re-enter text layout there.
 
-Letter spacing is applied during shaping:
-- Added to advance of last glyph in each grapheme cluster
-- Preserves proper spacing between characters
+Width-only measurement uses `TextForWidth`, whose line-height factor is `None`.
+This avoids evaluating a line-height binding that can depend on the width being measured.
+Preserve that distinction when changing measurement or cache dependencies.
 
-## Line Breaking
+## Font Collection Initialization
 
-### Line Break Opportunities
+Each `SlintContext` owns its Fontique collection.
+When Slint creates the backend itself, `font_collection::prefetch()` starts system font discovery on a worker thread,
+and a `SlintContext` created on that thread while the returned guard lives takes the result.
+Dropping the guard discards the result if no context used it.
+Otherwise, a context discovers system fonts synchronously.
+Before a thread has a context, applications can supply a collection with `slint::fontique_012::set_shared_collection()`.
+`prefetch()` then doesn't start, and the next context on that thread takes the collection as is,
+without the fonts from `SLINT_DEFAULT_FONT` and `SLINT_FONT_PATH`.
+It still registers embedded fonts.
+See `internal/core/font_collection.rs`.
 
-Uses the Unicode Line Break Algorithm (UAX #14) behind the `unicode-linebreak` feature, or a
-simple ASCII fallback. Either way a break opportunity is `Allowed` or `Mandatory`.
-See `internal/core/textlayout/linebreak_unicode.rs` and `linebreak_simple.rs`.
-
-### Text Fragments
-
-The units between break opportunities: a byte range, its glyph range, its width, and the trailing
-whitespace kept separate from that width.
-See `TextFragment` in `internal/core/textlayout/fragments.rs`.
-
-**Whitespace handling:**
-- Trailing whitespace width tracked separately
-- Allows line to exceed width by trailing whitespace
-- Whitespace at line end not counted for alignment
-
-### TextLine
-
-One laid-out line: the source byte range excluding trailing whitespace, the glyph range, and the
-measured text width. The trailing whitespace width is tracked alongside, so alignment can ignore
-it and `width_including_trailing_whitespace()` can add it back.
-See `TextLine` in `internal/core/textlayout/linebreaker.rs`.
-
-### TextLineBreaker
-
-The iterator that turns fragments into lines, applying the wrap mode, the available width and any
-line limit. See `TextLineBreaker` in `internal/core/textlayout/linebreaker.rs`.
-
-**Wrap modes:**
-- `TextWrap::NoWrap`: Single line, no wrapping
-- `TextWrap::WordWrap`: Break at word boundaries, fallback to anywhere
-- `TextWrap::CharWrap`: Break anywhere (character boundaries)
-
-**Break anywhere fallback:**
-When a word doesn't fit even on its own line, WordWrap falls back to breaking anywhere.
-
-## Paragraph Layout
-
-### TextParagraphLayout
-
-The whole paragraph: the string and its `TextLayout`, the max width and height, the horizontal and
-vertical alignment, the wrap and overflow modes, and the single-line and max-lines limits.
-See `TextParagraphLayout` in `internal/core/textlayout.rs`.
-
-### layout_lines()
-
-The main entry point. It calls a callback once per line with the positioned glyphs, the line's x
-and y, the `TextLine` itself, and the selected sub-range if there is one. The callback returns a
-`ControlFlow`, so rendering can stop early. The return value is the baseline y.
-See `TextParagraphLayout::layout_lines` in `internal/core/textlayout.rs`.
-
-### PositionedGlyph
-
-A glyph with its position resolved: x relative to the line, y, advance, glyph id, and source byte
-offset. See `PositionedGlyph` in `internal/core/textlayout.rs`.
-
-### Alignment
-
-Horizontal alignment is `TextHorizontalAlignment`. `Start` and `End` resolve by text direction,
-while `Left`, `Center` and `Right` are absolute. `Start` and `Left` put the line at x = 0, `End`
-and `Right` at `max_width - text_width`, and `Center` halfway between.
-
-Vertical alignment is `TextVerticalAlignment` — `Top`, `Center`, `Bottom` — applied to the
-baseline against `max_height`. Both enums are in `internal/common/enums.rs`; the arithmetic is in
-`TextParagraphLayout::layout_lines`.
-
-### Text Overflow
-
-**Clip:** Text is simply clipped at boundaries
-
-**Elide:** an ellipsis (…) replaces the truncated text. The ellipsis glyph is measured first, and
-a line is cut once the next glyph would pass `max_width` minus that width. The last visible line
-is also elided when further lines exist.
-
-## Cursor Positioning
-
-### cursor_pos_for_byte_offset()
-
-Takes a byte offset and returns the cursor's x and y, in
-`TextParagraphLayout::cursor_pos_for_byte_offset` (`internal/core/textlayout.rs`).
-
-### byte_offset_for_position()
-
-Takes a position and returns the byte offset for it, in
-`TextParagraphLayout::byte_offset_for_position` (`internal/core/textlayout.rs`).
-
-**Click position logic:**
-- Find line by y position
-- Iterate glyphs to find x position
-- If click is in left half of glyph → return glyph offset
-- If click is in right half → return next glyph offset
+Configure Fontconfig before Slint creates the backend.
 
 ## Styled Text
 
-`Style`, `FormattedSpan` and `StyledTextParagraph` live in `internal/common/styled_text.rs`
-(crate `i-slint-common`) and are always available. The markdown and HTML parsing in that same file
-is behind the `markdown` feature. `internal/core/styled_text.rs` adds the public `StyledText` API
-and its FFI on top.
+`Style`, `FormattedSpan`, and `StyledTextParagraph` live in `internal/common/styled_text.rs` and are available without parsing support.
+A paragraph contains text, styles applied to byte ranges, and link destinations.
+`internal/core/styled_text.rs` provides the public `StyledText` API and FFI.
 
-### Style Types
+`StyledText::from_plain_text()` creates a paragraph without parsing.
+`StyledText::from_markdown()` parses formatting and reports failures as `StyledTextFromMarkdownError`.
+The parser supports emphasis, strong text, strikethrough, inline code, links, lists, and line breaks.
+It also supports HTML underline and span colors.
 
-`Style` is the formatting applied to one span: emphasis, strong, strikethrough, code, link,
-underline, and a color carrying an ARGB value. See `Style` in `internal/common/styled_text.rs`;
-the markdown and HTML that produce each one are listed below.
+The common crate's `markdown` feature enables Markdown/HTML parsing; `i-slint-core/std` enables that feature.
+In the Parley path, `sharedparley/shaping.rs` maps spans to Parley styles, and `draw.rs` renders decorations and selections.
 
-### StyledTextParagraph
+## Legacy Software Text Layout
 
-A paragraph is its raw text, the `FormattedSpan`s applying a `Style` to a byte range, and the link
-destinations for those ranges.
-See `StyledTextParagraph` and `FormattedSpan` in `internal/common/styled_text.rs`.
+This implementation remains active for software bitmap fonts and for vector fonts when Parley is explicitly disabled.
+It works with the font abstractions in `internal/renderers/software/fonts/`.
+It doesn't use Parley's shaping cache or line layout.
 
-### StyledText
-
-The public API: a shared vector of paragraphs, built either with `from_plain_text()`, which does
-no parsing, or `from_markdown()`, which reports failures as a `StyledTextFromMarkdownError`.
-See `StyledText` in `internal/core/styled_text.rs`.
-
-**Supported Markdown:**
-- `*emphasis*` / `_emphasis_`
-- `**strong**` / `__strong__`
-- `~~strikethrough~~`
-- `[link](url)`
-- Lists (ordered and unordered)
-- Soft/hard breaks
-
-**Supported HTML:**
-- `<u>underline</u>`
-- `<span style="color:...">colored</span>`
-
-## Common Patterns
-
-### Measuring Text
-
-```rust
-let layout = TextLayout { font: &font, letter_spacing: None, line_height: None };
-let (width, height) = layout.text_size(
-    "Hello World",
-    Some(max_width),  // None for unconstrained
-    TextWrap::WordWrap,
-    None,             // No line limit
-);
+```text
+ShapeBoundaries
+    → TextShaper / ShapeBuffer
+    → GlyphClusterIterator
+    → TextFragmentIterator
+    → TextLineBreaker
+    → TextParagraphLayout::layout_lines()
 ```
 
-### Rendering Text
+| File | Purpose |
+|------|---------|
+| `internal/core/textlayout/shaping.rs` | `TextShaper`, `FontMetrics`, `Glyph`, `ShapeBuffer`, and script boundaries |
+| `internal/core/textlayout/glyphclusters.rs` | Groups shaped glyphs by source cluster |
+| `internal/core/textlayout/fragments.rs` | Groups clusters between line-break opportunities |
+| `internal/core/textlayout/linebreaker.rs` | Fits fragments to lines and tracks trailing whitespace |
+| `internal/core/textlayout/linebreak_unicode.rs` | Unicode line-break opportunities |
+| `internal/core/textlayout/linebreak_simple.rs` | Simple fallback without `unicode-linebreak` |
+| `internal/core/textlayout.rs` | Measurement, paragraph placement, elision, and cursor queries |
 
-```rust
-let paragraph = TextParagraphLayout {
-    string: text,
-    layout: TextLayout { font: &font, letter_spacing: None, line_height: None },
-    max_width: 200.0,
-    max_height: 100.0,
-    horizontal_alignment: TextHorizontalAlignment::Left,
-    vertical_alignment: TextVerticalAlignment::Top,
-    wrap: TextWrap::WordWrap,
-    overflow: TextOverflow::Elide,
-    single_line: false,
-    max_lines: None,
-};
+### Fonts and Shaping
 
-paragraph.layout_lines::<()>(
-    |glyphs, line_x, line_y, line, selection| {
-        for glyph in glyphs {
-            draw_glyph(
-                glyph.glyph_id,
-                line_x + glyph.x,
-                line_y,
-            );
-        }
-        ControlFlow::Continue(())
-    },
-    None,  // selection
-).ok();
-```
+`AbstractFont` combines `TextShaper` and `FontMetrics` over the same length type.
+`TextShaper::shape_text` produces glyph advances, offsets, font-specific IDs, and source byte offsets.
+`ShapeBuffer` retains those glyphs and their source runs.
+`ShapeBoundaries` splits text by script when `unicode-script` is enabled.
+Letter spacing is added to the last glyph's advance in each grapheme cluster.
 
-### Implementing TextShaper
+### Lines and Paragraphs
 
-```rust
-impl TextShaper for MyFont {
-    type LengthPrimitive = f32;
-    type Length = f32;
+`TextLayout` combines a font with optional letter spacing and an absolute line height.
+A missing line height uses `FontMetrics::height()`.
+The software renderer converts `line-height-factor` to an absolute height before this stage.
+`half_leading()` centers glyphs within the line box, while `cursor_band()` keeps cursor and selection rectangles at least as tall as the glyph box.
 
-    fn shape_text<G: Extend<Glyph<f32>>>(&self, text: &str, glyphs: &mut G) {
-        // Use rustybuzz or platform shaper
-        let buffer = rustybuzz::UnicodeBuffer::new();
-        buffer.push_str(text);
-        let output = rustybuzz::shape(&self.face, &[], buffer);
+`TextLineBreaker` fits fragments to the available width using the wrap mode and line limit.
+It tracks trailing whitespace separately so alignment can exclude it.
 
-        for (info, pos) in output.glyph_infos().iter()
-            .zip(output.glyph_positions())
-        {
-            glyphs.extend(std::iter::once(Glyph {
-                glyph_id: NonZeroU16::new(info.glyph_id as u16),
-                advance: pos.x_advance as f32,
-                offset_x: pos.x_offset as f32,
-                offset_y: pos.y_offset as f32,
-                text_byte_offset: info.cluster as usize,
-            }));
-        }
-    }
-
-    fn glyph_for_char(&self, ch: char) -> Option<Glyph<f32>> {
-        let glyph_id = self.face.glyph_index(ch)?;
-        // ... build glyph
-    }
-}
-```
+`TextParagraphLayout` adds the string, bounds, alignment, wrapping, overflow, and line limits.
+Its `layout_lines()` callback receives positioned glyphs and selection ranges for each line.
+`cursor_pos_for_byte_offset()` and `byte_offset_for_position()` provide cursor geometry for this path.
 
 ## Feature Flags
 
 | Feature | Effect |
 |---------|--------|
-| `unicode-linebreak` | Full Unicode line break algorithm |
-| `unicode-script` | Script boundary detection for font selection |
-| `shared-parley` | Parley text shaping integration |
-| `std` | Markdown parsing (pulldown-cmark) |
+| `i-slint-core/shared-parley` | Shared Parley layout and default renderer text queries |
+| `i-slint-core/shared-fontique` | Shared font collection and font matching |
+| `i-slint-core/accessibility-text` | AccessKit text runs from Parley input layout |
+| `i-slint-core/unicode-linebreak` | Unicode line-break opportunities in the legacy pipeline |
+| `i-slint-core/unicode-script` | Script boundaries in the legacy shaping pipeline |
+| `i-slint-common/markdown` | Markdown/HTML parsing, also enabled by `i-slint-core/std` |
+| `i-slint-renderer-software/systemfonts` | Software vector fonts and Parley integration, also enabled by its `std` feature |
 
-## Debugging Tips
+## Debugging and Testing
 
-### Common Issues
+First identify the renderer, font type, and active layout path.
+For software rendering, `uses_parley` in `internal/renderers/software/lib.rs` controls the choice.
+Check measurement, drawing, cursor geometry, and accessibility together when changing layout behavior.
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| Missing glyphs | Font doesn't cover script | Check script boundaries, font fallback |
-| Wrong line breaks | Unicode linebreak rules | Check BreakOpportunity detection |
-| Alignment off | Trailing whitespace counted | Check width_including_trailing_whitespace |
-| Elision wrong | Ellipsis width not subtracted | Check max_width_without_elision |
-| Cursor position wrong | Byte vs glyph offset mismatch | Check text_byte_offset mapping |
-
-### Inspecting Layout
-
-```rust
-// Debug line breaking
-for line in TextLineBreaker::new(text, &shape_buffer, Some(width), None, wrap) {
-    println!("Line: {:?} width={:?}", line.line_text(text), line.text_width);
-}
-
-// Debug fragments
-for fragment in TextFragmentIterator::new(text, &shape_buffer) {
-    println!("Fragment: {:?}", fragment);
-}
-
-// Debug glyphs
-for glyph in &shape_buffer.glyphs {
-    println!("Glyph: id={:?} advance={:?} offset={}",
-             glyph.glyph_id, glyph.advance, glyph.text_byte_offset);
-}
-```
-
-## Testing
+For Parley issues, inspect `shape_paragraphs`, `LayoutOptions`, the retained line-breaking inputs, and the resulting paragraph layouts.
+For legacy issues, inspect `ShapeBuffer`, `TextFragmentIterator`, and `TextLineBreaker`.
 
 ```sh
-# Run text layout tests
+# Shared Parley layout tests
+cargo test -p i-slint-core textlayout::sharedparley
+
+# Both Parley and legacy text layout tests
 cargo test -p i-slint-core textlayout
 
-# Run with specific test
-cargo test -p i-slint-core test_elision
-cargo test -p i-slint-core test_basic_line_break
+# Cache invalidation and reuse through the software renderer
+cargo test -p slint --test text_layout_cache
 
-# Run styled text tests
-cargo test -p i-slint-core styled_text
+# Markdown and styled paragraph parsing
+cargo test -p i-slint-common --features markdown styled_text
 ```
+
+Parley unit tests live in `internal/core/textlayout/sharedparley/tests.rs`.
+Cache integration tests live in `api/rs/slint/tests/text_layout_cache.rs`.
+For behavior shared by generated code and the interpreter, extend the relevant cases under `tests/cases/elements/`.

@@ -78,6 +78,8 @@ and consumer here when adding one.
 | `nested-container.json` | `recovery.unit.spec.ts` |
 | `png-first.json` | `source.unit.spec.ts`, `asset-transport.unit.spec.ts` |
 | `rectangular-mask.json` | `image-normalization.unit.spec.ts`, `source.unit.spec.ts` |
+| `radial-panel.json` | `radial-panel.unit.spec.ts` and `raster.browser.spec.ts` preserve elliptical radial fills and child rows |
+| `svg-paint-bounds.json` | `raster.browser.spec.ts` preserves SVG overflow at 1, 1.25, and 2 scale |
 | `reverse-paint-order.json` | `layout-normalization.unit.spec.ts` |
 | `scaled-instance.json` | `layout-normalization.unit.spec.ts` |
 | `stroke-alignment.json` | `appearance-normalization.unit.spec.ts` |

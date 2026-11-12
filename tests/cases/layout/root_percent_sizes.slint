@@ -1,0 +1,54 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component PreferredFillCase inherits Window {
+    preferred-width: 100%;
+    preferred-height: 100%;
+
+    out property <length> actual-width: self.width;
+    out property <length> actual-height: self.height;
+}
+
+export component TestCase inherits Rectangle {
+    width: 50%;
+    height: 25%;
+    preferred-width: 100%;
+    preferred-height: 100%;
+
+    out property <length> actual-width: self.width;
+    out property <length> actual-height: self.height;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+let preferred_instance = PreferredFillCase::new().unwrap();
+for size in [slint::LogicalSize::new(300., 200.), slint::LogicalSize::new(180., 120.)] {
+    instance.window().set_size(size);
+    preferred_instance.window().set_size(size);
+    for (width, height) in [
+        (instance.get_actual_width(), instance.get_actual_height()),
+        (preferred_instance.get_actual_width(), preferred_instance.get_actual_height()),
+    ] {
+        assert_eq!(width, size.width);
+        assert_eq!(height, size.height);
+    }
+}
+```
+
+```cpp
+auto instance = TestCase::create();
+auto preferred_instance = PreferredFillCase::create();
+for (auto size : {slint::LogicalSize({300., 200.}), slint::LogicalSize({180., 120.})}) {
+    instance->window().set_size(size);
+    preferred_instance->window().set_size(size);
+    for (auto actual_size : {
+        slint::LogicalSize({instance->get_actual_width(), instance->get_actual_height()}),
+        slint::LogicalSize({preferred_instance->get_actual_width(), preferred_instance->get_actual_height()}),
+    }) {
+        assert_eq(actual_size.width, size.width);
+        assert_eq(actual_size.height, size.height);
+    }
+}
+```
+*/

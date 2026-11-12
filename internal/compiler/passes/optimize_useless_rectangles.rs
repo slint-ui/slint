@@ -6,7 +6,7 @@
 //! Rectangles which do not draw anything and have no x or y don't need to be in
 //! the item tree, we can just remove them.
 
-use crate::langtype::ElementType;
+use crate::element_type::ElementType;
 use crate::object_tree::*;
 use std::rc::Rc;
 
@@ -36,7 +36,10 @@ pub fn optimize_useless_rectangles(root_component: &Rc<Component>) {
                 }
             }
 
-            enclosing.optimized_elements.borrow_mut().push(elem);
+            enclosing
+                .optimized_elements
+                .borrow_mut()
+                .push(OptimizedElement { element: elem, former_parent: Rc::downgrade(parent_) });
         }
     });
 }
@@ -76,6 +79,10 @@ fn can_optimize(elem: &ElementRc) -> bool {
     if analysis.get("absolute-position").is_some_and(|a| a.is_read) {
         return false;
     }
+    // Read by `ensure-visible()`, which needs the element as an item
+    if analysis.get("").is_some_and(|a| a.is_read) {
+        return false;
+    }
 
     // Check that no Rectangle property are set
     !element
@@ -87,4 +94,43 @@ fn can_optimize(elem: &ElementRc) -> bool {
                 && base_type.properties.contains_key(property_name.as_str())
         })
         && element.accessibility_props.0.is_empty()
+}
+
+/// We cannot optimize out a rectangle if there is a ensure-visible function on it
+#[test]
+fn keeps_elements_that_ensure_visible_refers_to() {
+    let mut compiler_config =
+        crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    // `SLINT_EMIT_DEBUG_INFO`, which CI sets, would skip the pass under test.
+    compiler_config.debug_info = false;
+    let mut test_diags = crate::diagnostics::BuildDiagnostics::default();
+    let doc_node = crate::parser::parse(
+        r#"
+export component Foo {
+    public function reveal() {
+        plain.ensure-visible(ScrollBehavior.smooth);
+    }
+    Flickable {
+        plain := Rectangle { Text { text: "y"; } }
+        removed := Rectangle { Text { text: "y"; } }
+    }
+}
+"#
+        .into(),
+        Some(crate::source_path::SourcePath::new("test.slint")),
+        &mut test_diags,
+    );
+    let (doc, diag, _) =
+        spin_on::spin_on(crate::compile_syntax_node(doc_node, test_diags, compiler_config.clone()));
+    assert!(!diag.has_errors(), "slint compile error {:#?}", diag.to_string_vec());
+    crate::llr::lower_to_item_tree::lower_to_item_tree(&doc, &compiler_config);
+
+    let foo = doc.inner_components.iter().find(|c| c.id == "Foo").unwrap();
+    let mut ids = Vec::new();
+    recurse_elem_including_sub_components(foo, &(), &mut |elem, _| {
+        // `assign_unique_id` appends a suffix such as `-5`.
+        ids.push(elem.borrow().id.split('-').next().unwrap().to_string());
+    });
+    assert!(ids.iter().any(|id| id == "plain"), "{ids:?}");
+    assert!(!ids.iter().any(|id| id == "removed"), "{ids:?}");
 }

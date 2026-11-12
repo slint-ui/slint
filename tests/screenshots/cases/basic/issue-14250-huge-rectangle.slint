@@ -1,0 +1,46 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// ROTATION_THRESHOLD=100  - the border radius algorithm and gradients don't give the same result from every rotation
+
+// The software renderer stores coordinates as `i16`, so a rectangle whose geometry extends
+// past 32767 physical pixels used to panic (#14250). Only the visible part has to be drawn.
+
+export component TestCase inherits Window {
+    width: 64px;
+    height: 64px;
+    background: black;
+
+    // Square corners, extending far above the window.
+    Rectangle {
+        x: 4px;
+        y: -40000px;
+        width: 24px;
+        height: 40030px;
+        background: green;
+        border-width: 2px;
+        border-color: white;
+    }
+
+    // Rounded corners, extending far below the window.
+    Rectangle {
+        x: 36px;
+        y: 4px;
+        width: 24px;
+        height: 33000px;
+        background: blue;
+        border-width: 2px;
+        border-color: red;
+        border-radius: 8px;
+    }
+
+    // Gradients in a rounded rectangle extending far to the right.
+    Rectangle {
+        x: 4px;
+        y: 36px;
+        width: 33000px;
+        height: 24px;
+        background: @linear-gradient(90deg, yellow, cyan);
+        border-radius: 6px;
+    }
+}

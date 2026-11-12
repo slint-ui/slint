@@ -1,0 +1,89 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+interface Base {
+    @shadowable in-out property <int> value;
+    callback changed(value: int);
+    public function update(value: int);
+    public pure function doubled() -> int;
+}
+
+interface Middle inherits Base {
+    in-out property <int> value;
+}
+
+interface Derived inherits Middle {
+    in property <bool> enabled;
+}
+
+component Impl {
+    in-out property <int> value;
+    in property <bool> enabled;
+    callback changed(value: int);
+    public function update(value: int) {
+        root.value = value;
+        root.changed(value);
+    }
+    public pure function doubled() -> int { root.value * 2 }
+}
+
+component Host {
+    slot <Derived> control;
+    out property <int> observed: control.value;
+    out property <int> doubled: control.doubled();
+    out property <bool> enabled: control.enabled;
+    out property <int> last;
+    out property <int> changes;
+    public function update(value: int) { control.update(value); }
+    control {
+        value: 4;
+        enabled: true;
+        changed(value) => { root.last = value; root.changes += 1; }
+    }
+}
+
+component ForwardingHost {
+    slot <Derived> input;
+    out property <int> observed: input.value;
+    out property <int> doubled: input.doubled();
+    out property <int> last: host.last;
+    out property <int> changes: host.changes;
+    public function update(value: int) { input.update(value); }
+    host := Host {
+        control << input;
+    }
+}
+
+export component TestCase inherits Window {
+    direct := Host {
+        control << Impl { }
+    }
+
+    forwarded := ForwardingHost {
+        input << Impl { }
+    }
+
+    out property <bool> test;
+    init => {
+        root.test = direct.observed == 4 && direct.doubled == 8 && direct.enabled
+            && forwarded.observed == 4 && forwarded.doubled == 8;
+        direct.update(9);
+        forwarded.update(11);
+        root.test = root.test && direct.observed == 9 && direct.doubled == 18
+            && direct.last == 9 && direct.changes == 1
+            && forwarded.observed == 11 && forwarded.doubled == 22
+            && forwarded.last == 11 && forwarded.changes == 1;
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```cpp
+auto instance = TestCase::create();
+assert(instance->get_test());
+```
+*/

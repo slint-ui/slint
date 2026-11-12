@@ -64,7 +64,10 @@ export default defineConfig({
                     include:
                         density === 1
                             ? ["tests/**/*.browser.spec.ts"]
-                            : ["tests/raster.browser.spec.ts"],
+                            : [
+                                  "tests/raster.browser.spec.ts",
+                                  "tests/browser-harness.browser.spec.ts",
+                              ],
                     fileParallelism: false,
                     testTimeout: 30000,
                     expect: { poll: { timeout: 10000 } },

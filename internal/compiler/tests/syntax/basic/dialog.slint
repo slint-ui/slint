@@ -3,17 +3,15 @@
 
 import { StandardButton } from "std-widgets.slint";
 
-MyDiag1 := Dialog {
-//      ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+component MyDiag1 inherits Dialog {
     Rectangle {}
     StandardButton { kind: cancel; }
     Rectangle {}
 //  >        <error{A Dialog can have only one child element that is not a StandardButton}
 }
 
-MyDiag2 := Dialog {
-//      ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
-//         >     <^error{A Dialog must have a single child element that is not StandardButton}
+component MyDiag2 inherits Dialog {
+//                         >     <error{A Dialog must have a single child element that is not StandardButton}
     StandardButton { kind: reset; }
     StandardButton {
         kind: cancel;
@@ -24,8 +22,7 @@ MyDiag2 := Dialog {
     }
 }
 
-MyDiag3 := Dialog {
-//      ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+component MyDiag3 inherits Dialog {
     Rectangle { }
     StandardButton { kind: ok; }
     StandardButton { }
@@ -37,8 +34,7 @@ MyDiag3 := Dialog {
 
 }
 
-MyDialog4 := Dialog {
-//        ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+component MyDialog4 inherits Dialog {
     StandardButton { kind: ok; }
     r := Rectangle { dialog-button-role: accept; }
     Rectangle { dialog-button-role: none; }
@@ -50,14 +46,16 @@ MyDialog4 := Dialog {
 //                                      >     <error{dialog-button-role used outside of a Dialog's direct child}
     }
 
+    StandardButton { kind: cancel; dialog-button-role: accept; }
+//                                                     >     <warning{'dialog-button-role' overrides the role that a 'StandardButton' gets from its 'kind': remove it, or use a 'Button' for a custom role}
+
     init => {
         r.dialog-button-role = DialogButtonRole.action;
 //      >                                            <error{The property must be known at compile time and cannot be changed at runtime}
     }
 }
 
-export Test := Rectangle {
-//          ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+export component Test inherits Rectangle {
     MyDiag1 {}
     MyDiag2 {}
     MyDiag3 {}

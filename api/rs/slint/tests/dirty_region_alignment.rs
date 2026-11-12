@@ -5,8 +5,7 @@ use std::rc::Rc;
 
 use slint::Rgb8Pixel;
 use slint::platform::software_renderer::{
-    DirtyRegionAlignment, LineBufferProvider, MinimalSoftwareWindow, PhysicalRegion,
-    RepaintBufferType,
+    LineBufferProvider, MinimalSoftwareWindow, PhysicalRegion, RepaintBufferType,
 };
 use slint::platform::{PlatformError, WindowAdapter};
 
@@ -32,7 +31,7 @@ fn assert_aligned(region: &PhysicalRegion) {
 
 fn render_frame(window: &MinimalSoftwareWindow, buffer: &mut [Rgb8Pixel]) {
     assert!(window.draw_if_needed(|renderer| {
-        renderer.set_dirty_region_alignment(DirtyRegionAlignment::new(2, 2));
+        renderer.set_dirty_region_alignment(2, 2);
         let region = renderer.render(buffer, WIDTH);
         assert_aligned(&region);
     }));
@@ -89,6 +88,7 @@ fn assert_frame(buffer: &[Rgb8Pixel], white_x: usize) {
 #[test]
 fn alignment_preserves_content_in_partial_rendering_modes() {
     slint::slint! {
+        #[edition = "1.20"]
         export component App inherits Window {
             in property <int> rect-x: 3;
             background: black;

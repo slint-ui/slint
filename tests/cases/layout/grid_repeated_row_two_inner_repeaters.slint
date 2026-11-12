@@ -1,0 +1,47 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A repeated Row with two inner repeaters: the cell of the second one goes after the cell of the first one.
+
+export component TestCase inherits Window {
+    out property <int> a-col: -1;
+    out property <int> b-col: -1;
+
+    GridLayout {
+        for _ in 1: Row {
+            for _ in 1: a := Rectangle {
+                init => {
+                    root.a-col = a.col;
+                }
+            }
+            for _ in 1: b := Rectangle {
+                init => {
+                    root.b-col = b.col;
+                }
+            }
+        }
+    }
+
+    out property <bool> test: root.a-col == 0 && root.b-col == 1;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_a_col(), 0);
+assert_eq!(instance.get_b_col(), 1);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_a_col(), 0);
+assert_eq(instance.get_b_col(), 1);
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.a_col, 0);
+assert.equal(instance.b_col, 1);
+```
+*/

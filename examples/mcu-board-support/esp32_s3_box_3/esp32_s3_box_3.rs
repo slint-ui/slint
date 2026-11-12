@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+// cSpell: ignore jtag
+
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use core::cell::RefCell;
@@ -28,12 +30,6 @@ use mipidsi::options::{ColorOrder, Orientation, Rotation};
 use slint::platform::PointerEventButton;
 use slint::platform::WindowEvent;
 use static_cell::StaticCell;
-
-#[panic_handler]
-fn panic(info: &core::panic::PanicInfo) -> ! {
-    esp_println::println!("Panic: {:?}", info);
-    loop {}
-}
 
 esp_bootloader_esp_idf::esp_app_desc!();
 
@@ -70,6 +66,8 @@ impl slint::platform::Platform for EspBackend {
         let window = slint::platform::software_renderer::MinimalSoftwareWindow::new(
             slint::platform::software_renderer::RepaintBufferType::ReusedBuffer,
         );
+        // Sized here, not when the event loop starts, so a window created later is too
+        window.set_size(DISPLAY_SIZE);
         self.window.replace(Some(window.clone()));
         Ok(window)
     }
@@ -89,8 +87,20 @@ impl Default for EspBackend {
     }
 }
 
+const DISPLAY_SIZE: slint::PhysicalSize = slint::PhysicalSize::new(320, 240);
+
 /// Initializes the heap, the board peripherals and sets the Slint platform.
 pub fn init() {
+    init_board();
+}
+
+/// Like [`init`], and returns the USB-Serial-JTAG port that the USB-C connector is wired to.
+pub fn init_with_host_link() -> impl crate::HostLink {
+    crate::esp32_s3_usb_serial::host_link(init_board(), "ESP32-S3-BOX-3")
+}
+
+/// Initializes the board and returns the USB device peripheral, which it doesn't use.
+fn init_board() -> esp_hal::peripherals::USB_DEVICE<'static> {
     let peripherals = esp_hal::init(esp_hal::Config::default().with_cpu_clock(CpuClock::_240MHz));
     init_logger_from_env();
     info!("Peripherals initialized");
@@ -238,16 +248,14 @@ pub fn init() {
         })),
     }))
     .expect("backend already initialized");
+
+    peripherals.USB_DEVICE
 }
 
 impl EspBackend {
     fn run_event_loop(&self) -> Result<(), slint::PlatformError> {
         let BoardState { mut buffer_provider, touch, mut i2c, _backlight, _int_pin } =
             self.state.borrow_mut().take().expect("event loop already running");
-
-        // Update the Slint window size from the display.
-        let size = slint::PhysicalSize::new(320, 240);
-        self.window.borrow().as_ref().unwrap().set_size(size);
 
         // Variable to track the last touch position.
         let mut last_touch = None;
@@ -266,23 +274,23 @@ impl EspBackend {
                             .to_logical(window.scale_factor());
 
                         let event = if let Some(previous_pos) = last_touch.replace(pos) {
-                            // If the position changed, send a PointerMoved event.
-                            if previous_pos != pos {
-                                WindowEvent::PointerMoved { position: pos }
-                            } else {
-                                // If the position is unchanged, skip event generation.
-                                continue;
-                            }
+                            // Only a change of position is an event. A still finger is
+                            // not, but the frame must still be drawn below: timers and
+                            // animations keep changing the UI while it is held down.
+                            (previous_pos != pos)
+                                .then_some(WindowEvent::PointerMoved { position: pos })
                         } else {
                             // No previous touch recorded, generate a PointerPressed event.
-                            WindowEvent::PointerPressed {
+                            Some(WindowEvent::PointerPressed {
                                 position: pos,
                                 button: PointerEventButton::Left,
-                            }
+                            })
                         };
 
                         // Dispatch the event to Slint.
-                        window.dispatch_event_with_result(event)?;
+                        if let Some(event) = event {
+                            window.dispatch_event_with_result(event)?;
+                        }
                     }
                     // No active touch: if a previous touch existed, dispatch pointer release.
                     Ok(None) => {

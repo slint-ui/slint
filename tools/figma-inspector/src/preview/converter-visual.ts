@@ -12,17 +12,108 @@ import {
     number,
     lengthProperties,
     paint,
+    paintInBounds,
     type RenderContext,
     type NodePlacement,
 } from "./converter-context";
 import { normalizeSvg, utf8ToBase64 } from "../images";
+import { dashedRectangleSource } from "./dashed-rectangle";
 import type {
     SnapshotShadow,
     SnapshotAppearance,
     SnapshotFrameLikeNode,
     SnapshotRectangleNode,
     SnapshotNode,
+    SnapshotPaintWithImage,
+    SnapshotStroke,
 } from "../plugin/snapshot";
+
+function opaquePaint(paint: SnapshotPaintWithImage): boolean {
+    return (
+        paint.kind !== "image" &&
+        paint.opacity === 1 &&
+        (paint.kind === "solid"
+            ? paint.color.a === 1
+            : paint.stops.every((stop) => stop.color.a === 1))
+    );
+}
+
+function uniformStroke(stroke: SnapshotStroke): boolean {
+    return [
+        stroke.strokeRightWeight,
+        stroke.strokeBottomWeight,
+        stroke.strokeLeftWeight,
+    ].every((width) => width === stroke.strokeTopWeight);
+}
+
+function separateInnerBorder(appearance: SnapshotAppearance): boolean {
+    const stroke = appearance.strokes[0];
+    return (
+        !!stroke &&
+        appearance.shadows.some((shadow) => shadow.kind === "inner") &&
+        (stroke.align === undefined || stroke.align === "INSIDE") &&
+        stroke.dashPattern.length === 0 &&
+        stroke.strokeTopWeight > 0 &&
+        uniformStroke(stroke)
+    );
+}
+
+function separateShadowCaster(appearance: SnapshotAppearance): boolean {
+    return (
+        separateInnerBorder(appearance) &&
+        !(appearance.fills.length === 1 && opaquePaint(appearance.fills[0]))
+    );
+}
+
+export function shadowWarnings(
+    node: SnapshotFrameLikeNode | SnapshotRectangleNode,
+    context: RenderContext,
+) {
+    const outer = node.shadows.filter((shadow) => shadow.kind !== "inner");
+    if (outer.length === 0) return;
+    const opaque = node.fills.some(opaquePaint);
+    if (!opaque && outer.some((shadow) => shadow.showBehind === false))
+        context.warnings.push({
+            severity: "warning",
+            code: "SHADOW_TRANSPARENCY_APPROXIMATED",
+            nodeId: node.id,
+            nodeName: node.name,
+            propertyPath: "effects",
+            message:
+                "Native drop shadows can show through transparent paint; Figma's shadow knockout is approximated",
+        });
+    const stroke = node.strokes[0];
+    if (
+        node.fills.some((fill) => fill.kind === "image") ||
+        node.fills.length > 1 ||
+        (stroke &&
+            (stroke.align === "outside" ||
+                stroke.align === "center" ||
+                stroke.dashPattern.length > 0 ||
+                !uniformStroke(stroke)))
+    )
+        context.warnings.push({
+            severity: "warning",
+            code: "SHADOW_SHAPE_APPROXIMATED",
+            nodeId: node.id,
+            nodeName: node.name,
+            propertyPath: "effects",
+            message:
+                "Native drop shadows follow the rectangle's fill and uniform inside border; image, layered, and generated stroke shapes are approximated",
+        });
+    if (!opaque && (outer.length > 1 || separateInnerBorder(node)))
+        context.warnings.push({
+            severity: "warning",
+            code:
+                outer.length > 1
+                    ? "MULTIPLE_SHADOW_PAINT_APPROXIMATED"
+                    : "SHADOW_PAINT_APPROXIMATED",
+            nodeId: node.id,
+            nodeName: node.name,
+            propertyPath: "effects",
+            message: "Separate native shadow casters repeat translucent paint",
+        });
+}
 
 export function cornerRadiusSource(
     radii: SnapshotAppearance["cornerRadii"],
@@ -41,15 +132,19 @@ export function cornerRadiusSource(
     );
 }
 
-function shadowProperties(shadow: SnapshotShadow, depth: number): SlintLine[] {
+function shadowProperties(
+    shadow: SnapshotShadow,
+    depth: number,
+    prefix = "drop-shadow",
+): SlintLine[] {
     return [
-        property("drop-shadow-color", color(shadow.color), depth),
+        property(`${prefix}-color`, color(shadow.color), depth),
         ...lengthProperties(
             [
-                ["drop-shadow-blur", shadow.blur],
-                ["drop-shadow-offset-x", shadow.offsetX],
-                ["drop-shadow-offset-y", shadow.offsetY],
-                ["drop-shadow-spread", shadow.spread],
+                [`${prefix}-blur`, shadow.blur],
+                [`${prefix}-offset-x`, shadow.offsetX],
+                [`${prefix}-offset-y`, shadow.offsetY],
+                [`${prefix}-spread`, shadow.spread],
             ],
             depth,
         ),
@@ -70,26 +165,31 @@ export function appearanceSource(
     )
         lines.push(property("background", paint(fill), depth));
     const stroke = appearance.strokes[0];
-    if (stroke !== undefined) {
-        const uniform =
-            stroke.strokeTopWeight === stroke.strokeRightWeight &&
-            stroke.strokeRightWeight === stroke.strokeBottomWeight &&
-            stroke.strokeBottomWeight === stroke.strokeLeftWeight;
-        if (
-            uniform &&
-            (stroke.align === undefined || stroke.align === "INSIDE") &&
-            stroke.strokeTopWeight !== 0
-        ) {
-            lines.push(
-                property(
-                    "border-width",
-                    `${number(stroke.strokeTopWeight)}px`,
-                    depth,
-                ),
-                property("border-color", paint(stroke.paint), depth),
-            );
-        }
+    if (
+        stroke !== undefined &&
+        uniformStroke(stroke) &&
+        !separateInnerBorder(appearance) &&
+        stroke.dashPattern.length === 0 &&
+        (stroke.align === undefined || stroke.align === "INSIDE") &&
+        stroke.strokeTopWeight !== 0
+    ) {
+        lines.push(
+            property(
+                "border-width",
+                `${number(stroke.strokeTopWeight)}px`,
+                depth,
+            ),
+            property("border-color", paint(stroke.paint), depth),
+        );
     }
+    if (appearance.backdropBlur !== undefined)
+        lines.push(
+            property(
+                "backdrop-blur",
+                `${number(appearance.backdropBlur)}px`,
+                depth,
+            ),
+        );
     lines.push(...cornerRadiusSource(appearance.cornerRadii, depth));
     if (appearance.clipsContent && !suppressClip)
         lines.push(property("clip", "true", depth));
@@ -97,7 +197,11 @@ export function appearanceSource(
         (shadow) => shadow.kind !== "inner",
     );
     const shadow = outerShadows[0];
-    if (shadow !== undefined && outerShadows.length === 1)
+    if (
+        shadow !== undefined &&
+        outerShadows.length === 1 &&
+        !separateShadowCaster(appearance)
+    )
         lines.push(...shadowProperties(shadow, depth));
     return lines;
 }
@@ -114,11 +218,25 @@ export function strokeLayersSource(
         stroke.strokeBottomWeight,
         stroke.strokeLeftWeight,
     ];
-    if (
-        (stroke.align === undefined || stroke.align === "INSIDE") &&
-        weights.every((weight) => weight === weights[0])
-    )
-        return [];
+    const uniform = uniformStroke(stroke);
+    if (uniform && stroke.dashPattern.length > 0)
+        return dashedRectangleSource(node, stroke, depth);
+
+    if ((stroke.align === undefined || stroke.align === "INSIDE") && uniform)
+        return separateInnerBorder(node)
+            ? [
+                  openElement("Rectangle", depth),
+                  property("x", "0px", depth + 1),
+                  ...cornerRadiusSource(node.cornerRadii, depth + 1),
+                  property(
+                      "border-width",
+                      `${number(weights[0])}px`,
+                      depth + 1,
+                  ),
+                  property("border-color", paint(stroke.paint), depth + 1),
+                  closeElement(depth),
+              ]
+            : [];
     const [top, right, bottom, left] = weights;
     const expansion =
         stroke.align === "center" ? 0.5 : stroke.align === "outside" ? 1 : 0;
@@ -234,7 +352,16 @@ export function strokeLayersSource(
             `"${outer}${inner ? ` ${inner}` : ""}"`,
             depth + 1,
         ),
-        property("fill", paint(stroke.paint), depth + 1),
+        property(
+            "fill",
+            paintInBounds(stroke.paint, node, {
+                x: -expandLeft,
+                y: -expandTop,
+                width: outerWidth,
+                height: outerHeight,
+            }),
+            depth + 1,
+        ),
         closeElement(depth),
     ];
 }
@@ -243,7 +370,14 @@ export function fillLayersSource(
     appearance: SnapshotAppearance,
     depth: number,
 ): SlintLine[] {
-    if (appearance.fills.length <= 1) return [];
+    if (
+        appearance.fills.length <= 1 &&
+        !(
+            separateShadowCaster(appearance) &&
+            appearance.shadows.some((shadow) => shadow.kind !== "inner")
+        )
+    )
+        return [];
     return appearance.fills.flatMap((fill) => {
         if (fill.kind === "image") {
             return imageFillSource({ ...appearance, fills: [fill] }, depth);
@@ -262,32 +396,41 @@ export function shadowLayersSource(
     context: RenderContext,
     depth: number,
 ): SlintLine[] {
-    const appearance = node;
-    const outerShadows = appearance.shadows.filter(
+    const outerShadows = node.shadows.filter(
         (shadow) => shadow.kind !== "inner",
     );
-    if (outerShadows.length <= 1) return [];
-    if (appearance.clipsContent)
+    if (
+        outerShadows.length === 0 ||
+        (outerShadows.length === 1 && !separateShadowCaster(node))
+    )
+        return [];
+    if (node.clipsContent)
         context.warnings.push({
             severity: "warning",
-            code: "MULTIPLE_SHADOW_CLIPPING_APPROXIMATED",
+            code:
+                outerShadows.length > 1
+                    ? "MULTIPLE_SHADOW_CLIPPING_APPROXIMATED"
+                    : "SHADOW_CLIPPING_APPROXIMATED",
             nodeId: node.id,
             nodeName: node.name,
             propertyPath: "effects",
             message:
-                "Multiple shadow layers are subject to the node's content clip in Slint",
+                "Separate shadow casters are subject to the node's content clip in Slint",
         });
-    const fill = appearance.fills.find(
-        (candidate) => candidate.kind !== "image",
-    );
+    const fill = node.fills.find((candidate) => candidate.kind !== "image");
     return outerShadows.flatMap((shadow) => [
         openElement("Rectangle", depth),
-        ...(fill === undefined
-            ? []
-            : [property("background", paint(fill), depth + 1)]),
-        ...(fill === undefined
-            ? []
-            : cornerRadiusSource(appearance.cornerRadii, depth + 1)),
+        property("x", "0px", depth + 1),
+        ...appearanceSource(
+            {
+                ...node,
+                fills: fill === undefined ? [] : [fill],
+                shadows: [],
+                clipsContent: false,
+                backdropBlur: undefined,
+            },
+            depth + 1,
+        ),
         ...shadowProperties(shadow, depth + 1),
         closeElement(depth),
     ]);
@@ -297,104 +440,15 @@ export function innerShadowSource(
     appearance: SnapshotAppearance,
     depth: number,
 ): SlintLine[] {
-    const shadows = appearance.shadows.filter(
-        (shadow) => shadow.kind === "inner",
-    );
-    if (!shadows.length) return [];
-    const lines = [
-        openElement("Rectangle", depth),
-        property("clip", true, depth + 1),
-        ...cornerRadiusSource(appearance.cornerRadii, depth + 1),
-    ];
-    // Separable Gaussian edge profiles approximate a rectangular inset shadow.
-    // The positioned edge strips do not contribute intrinsic layout size, so
-    // this wrapper can use Rectangle's default fill geometry.
-    const tail = (z: number): number => {
-        const x = Math.abs(z) / Math.SQRT2;
-        const t = 1 / (1 + 0.3275911 * x);
-        const erf =
-            1 -
-            ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t -
-                0.284496736) *
-                t +
-                0.254829592) *
-                t *
-                Math.exp(-x * x);
-        return (1 - (z < 0 ? -erf : erf)) / 2;
-    };
-    for (const shadow of shadows) {
-        const sigma = shadow.blur / 2;
-        const sides = [
-            {
-                shift: shadow.offsetX,
-                angle: 90,
-                axis: "width",
-                anchor: "x",
-                far: false,
-            },
-            {
-                shift: -shadow.offsetX,
-                angle: 270,
-                axis: "width",
-                anchor: "x",
-                far: true,
-            },
-            {
-                shift: shadow.offsetY,
-                angle: 180,
-                axis: "height",
-                anchor: "y",
-                far: false,
-            },
-            {
-                shift: -shadow.offsetY,
-                angle: 0,
-                axis: "height",
-                anchor: "y",
-                far: true,
-            },
-        ];
-        for (const side of sides) {
-            const boundary = shadow.spread + side.shift;
-            const span = Math.max(0, boundary + 3 * sigma);
-            if (!span) continue;
-            const stops = Array.from(
-                { length: 13 },
-                (_, i) =>
-                    `${color(shadow.color, sigma ? tail(((span * i) / 12 - boundary) / sigma) : 1)} ${number((i * 100) / 12)}%`,
-            ).join(", ");
-            lines.push(
-                openElement("Rectangle", depth + 1),
-                property(
-                    "x",
-                    side.far && side.anchor === "x"
-                        ? `parent.width - ${number(span)}px`
-                        : "0px",
-                    depth + 2,
-                ),
-                property(
-                    "y",
-                    side.far && side.anchor === "y"
-                        ? `parent.height - ${number(span)}px`
-                        : "0px",
-                    depth + 2,
-                ),
-            );
-            lines.push(
-                property(side.axis, `${number(span)}px`, depth + 2),
-                property(
-                    "background",
-                    sigma
-                        ? `@linear-gradient(${side.angle}deg, ${stops})`
-                        : color(shadow.color),
-                    depth + 2,
-                ),
-                closeElement(depth + 1),
-            );
-        }
-    }
-    lines.push(closeElement(depth));
-    return lines;
+    return appearance.shadows
+        .filter((shadow) => shadow.kind === "inner")
+        .flatMap((shadow) => [
+            openElement("Rectangle", depth),
+            property("x", "0px", depth + 1),
+            ...cornerRadiusSource(appearance.cornerRadii, depth + 1),
+            ...shadowProperties(shadow, depth + 1, "inner-shadow"),
+            closeElement(depth),
+        ]);
 }
 
 export function imageFillSource(
@@ -414,11 +468,13 @@ export function imageFillSource(
     const imagePropertiesDepth = imageDepth + 1;
     const tileScale = fill.scaleMode === "TILE" ? (fill.tileScale ?? 1) : 1;
     const fit =
-        fill.scaleMode === "FIT"
-            ? "contain"
-            : fill.scaleMode === "CROP" && fill.crop !== undefined
-              ? "fill"
-              : "cover";
+        fill.scaleMode === "STRETCH"
+            ? "fill"
+            : fill.scaleMode === "FIT"
+              ? "contain"
+              : fill.scaleMode === "CROP" && fill.crop !== undefined
+                ? "fill"
+                : "cover";
     const lines = [
         ...(rounded
             ? [
@@ -450,9 +506,11 @@ export function imageFillSource(
             imagePropertiesDepth,
         ),
         property("source", paint(fill), imagePropertiesDepth),
-        ...(fit === "fill" || fill.scaleMode === "TILE"
-            ? []
-            : [property("image-fit", fit, imagePropertiesDepth)]),
+        ...(fill.scaleMode === "STRETCH"
+            ? [property("image-fit", "fill", imagePropertiesDepth)]
+            : fit === "fill" || fill.scaleMode === "TILE"
+              ? []
+              : [property("image-fit", fit, imagePropertiesDepth)]),
     ];
     if (fill.scaleMode === "TILE") {
         lines.push(
@@ -513,7 +571,7 @@ export function visualSource(
     { flexItem, parent }: NodePlacement,
 ): SlintLine[] | undefined {
     const lines: SlintLine[] = [];
-    const paintBounds = node.raster?.bounds;
+    const paintBounds = node.raster?.bounds ?? node.svgBounds;
     const imageData =
         node.raster !== undefined
             ? `data:image/png;base64,${node.raster.data}`

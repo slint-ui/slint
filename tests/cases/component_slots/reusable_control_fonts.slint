@@ -1,0 +1,152 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Button, CheckBox, Switch, ComboBox, LineEdit } from "../../../tools/editor/controls/src/basic.slint";
+
+export component TestCase inherits Window {
+    width: 400px;
+    height: 300px;
+    default-font-family: "sans-serif";
+    in-out property <string> family;
+    in-out property <length> point-size: 17px;
+    in-out property <int> weight: 400;
+    in-out property <bool> italic;
+    in-out property <bool> controls-enabled: true;
+    in-out property <length> field-padding <=> combo.vertical-padding;
+    in-out property <length> row-padding <=> combo.item-vertical-padding;
+    out property <int> selected-weight: combo.selected-item-font-weight;
+    out property <length> row-height: combo.item-height;
+    out property <bool> test: combo.current-index == 0 && field.text == "";
+    public function open-popup() { combo.open(); }
+    public function highlight-second() { combo.highlight(1); }
+    public function close-popup() { combo.close(); }
+
+    VerticalLayout {
+        padding: 20px;
+        spacing: 12px;
+        Button {
+            text: "Button";
+            font-family: root.family;
+            font-size: root.point-size;
+            font-weight: root.weight;
+            font-italic: root.italic;
+            enabled: root.controls-enabled;
+        }
+        CheckBox {
+            text: "CheckBox";
+            font-family: root.family;
+            font-size: root.point-size;
+            font-weight: root.weight;
+            font-italic: root.italic;
+            enabled: root.controls-enabled;
+        }
+        Switch {
+            text: "Switch";
+            font-family: root.family;
+            font-size: root.point-size;
+            font-weight: root.weight;
+            font-italic: root.italic;
+            enabled: root.controls-enabled;
+        }
+        combo := ComboBox {
+            model: ["Combo one", "Combo two"];
+            font-family: root.family;
+            font-size: root.point-size;
+            font-weight: root.weight;
+            font-italic: root.italic;
+            enabled: root.controls-enabled;
+        }
+        field := LineEdit {
+            placeholder-text: "Placeholder";
+            font-family: root.family;
+            font-size: root.point-size;
+            font-weight: root.weight;
+            font-italic: root.italic;
+            enabled: root.controls-enabled;
+        }
+    }
+}
+
+/*
+```rust
+use i_slint_core::item_rendering::HasFont;
+use i_slint_core::item_tree::ItemRc;
+use i_slint_core::items::{ComplexText, SimpleText, TextInput};
+use i_slint_core::window::WindowInner;
+use std::ops::ControlFlow;
+let instance = TestCase::new().unwrap();
+instance.show().unwrap();
+assert!(instance.get_test());
+let root = ItemRc::new_root(WindowInner::from_pub(instance.window()).component());
+let collect_fonts = |root: &ItemRc| {
+    let mut fonts = Vec::new();
+    root.visit_descendants(|item| {
+        let text = item.downcast::<SimpleText>().map(|text| {
+            let text = text.as_pin_ref();
+            (text.text(), text.font_request(item))
+        }).or_else(|| item.downcast::<ComplexText>().map(|text| {
+            let text = text.as_pin_ref();
+            (text.text(), text.font_request(item))
+        })).or_else(|| item.downcast::<TextInput>().map(|text| {
+            ("Input".into(), text.as_pin_ref().font_request(item))
+        }));
+        if let Some(text) = text.filter(|(text, _)| !text.is_empty()) { fonts.push(text); }
+        ControlFlow::<()>::Continue(())
+    });
+    fonts
+};
+let assert_font = |font: &i_slint_core::graphics::FontRequest, family: &str, size: f32, weight, italic| {
+    assert_eq!(font.family.as_deref(), Some(family));
+    assert_eq!(font.pixel_size.unwrap().get(), size);
+    assert_eq!(font.weight, Some(weight));
+    assert_eq!(font.italic, italic);
+};
+
+for (family, size, weight, italic) in [("", 17., 400, false), ("serif", 21., 700, true), ("monospace", 15., 500, false)] {
+    instance.set_family(family.into());
+    instance.set_point_size(size);
+    instance.set_weight(weight);
+    instance.set_italic(italic);
+    let resolved_family = if family.is_empty() { "sans-serif" } else { family };
+    for enabled in [true, false] {
+        instance.set_controls_enabled(enabled);
+        let fonts = collect_fonts(&root);
+        assert_eq!(fonts.len(), 6);
+        for (_, font) in fonts { assert_font(&font, resolved_family, size, weight, italic); }
+    }
+    instance.set_controls_enabled(true);
+}
+
+instance.invoke_open_popup();
+instance.invoke_highlight_second();
+let popup = WindowInner::from_pub(instance.window()).active_popups()[0].component.clone();
+let popup_root = ItemRc::new_root(popup);
+for (family, size, weight, italic) in [("serif", 20., 700, true), ("monospace", 40., 500, false)] {
+    instance.set_family(family.into());
+    instance.set_point_size(size);
+    instance.set_weight(weight);
+    instance.set_italic(italic);
+    let fonts = collect_fonts(&popup_root);
+    assert_eq!(fonts.len(), 2);
+    for (text, font) in fonts {
+        let expected_weight = if text == "Combo one" { instance.get_selected_weight() } else { weight };
+        assert_font(&font, family, size, expected_weight, italic);
+        let row = slint_testing::ElementHandle::find_by_accessible_label(&instance, text.as_str())
+            .find(|item| item.accessible_role() == Some(slint_testing::AccessibleRole::ListItem)).unwrap();
+        assert_eq!(row.size().height, instance.get_row_height());
+        assert!(row.size().height >= size);
+    }
+}
+let row_height = instance.get_row_height();
+instance.set_field_padding(12.);
+assert_eq!(instance.get_row_height(), row_height);
+instance.set_row_padding(10.);
+assert_eq!(instance.get_row_height(), row_height + 8.);
+for label in ["Combo one", "Combo two"] {
+    let row = slint_testing::ElementHandle::find_by_accessible_label(&instance, label)
+        .find(|item| item.accessible_role() == Some(slint_testing::AccessibleRole::ListItem)).unwrap();
+    assert_eq!(row.size().height, row_height + 8.);
+}
+instance.invoke_close_popup();
+```
+*/

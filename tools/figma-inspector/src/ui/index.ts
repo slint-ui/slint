@@ -4,11 +4,12 @@
 declare const DEVELOPMENT: boolean;
 import type { ExportPackage } from "../protocol";
 import { downloadExport } from "./export-download";
-import { exportValidationSource } from "../export/generate";
+import { prepareExportValidation } from "../preview/export-validation";
 import { CaptureAssetReceiver } from "../asset-transport";
 import {
     TIMING_PHASES,
     type TimingTrace,
+    type ExportValidationTiming,
     TimingTraceBuilder,
     cloneTimingBreakdowns,
     defaultClock,
@@ -20,11 +21,10 @@ import {
     type PreviewTrigger,
     isPluginToUiMessage,
 } from "../protocol";
-import {
-    materializePreviewAssets,
-    packPreviewAssets,
-} from "../asset-transport";
+import { createPreviewAssetPool } from "../asset-transport";
 import { PreviewController } from "../preview/controller";
+import { exportFailure } from "../preview/export-diagnostic";
+import type { AssetPreview } from "../asset-transport";
 import { mountWorkspace, mountDialogFrame } from "./workspace";
 import { SourcePanelController } from "./source-panel";
 import { ConversionClient } from "./conversion-client";
@@ -67,6 +67,7 @@ if (
     throw new Error("Preview UI is missing required elements");
 }
 
+const materializeSharedPreviewAssets = createPreviewAssetPool();
 const selectionElement = selection;
 const sourceViewElement = sourceView;
 const timingTotalElement = timingTotal;
@@ -120,25 +121,16 @@ keepaliveCanvas.setAttribute("aria-hidden", "true");
 keepaliveCanvas.style.cssText =
     "position: fixed; width: 1px; height: 1px; opacity: 0; pointer-events: none;";
 document.body.append(keepaliveCanvas);
-let successfulOutput:
-    | {
-          source: string;
-          json: string;
-          revision: number;
-          name: string;
-          exportPackage: ExportPackage;
-      }
-    | undefined;
-const pendingOutputs = new Map<
-    number,
-    {
-        source: string;
-        json: string;
-        revision: number;
-        name: string;
-        exportPackage: ExportPackage;
-    }
->();
+type PreviewOutput = {
+    source: string | AssetPreview;
+    json: string;
+    revision: number;
+    name: string;
+    exportPackage?: ExportPackage;
+    exportResult?: Extract<PluginToUiMessage, { type: "preview-export" }>;
+};
+let successfulOutput: PreviewOutput | undefined;
+const pendingOutputs = new Map<number, PreviewOutput>();
 const previewAssetDisposers = new Map<number, () => void>();
 function disposePreviewAssets(revision: number): void {
     previewAssetDisposers.get(revision)?.();
@@ -146,16 +138,6 @@ function disposePreviewAssets(revision: number): void {
 }
 let latestInputRevision = 0;
 const previewBusy = document.querySelector<HTMLElement>("#preview-busy");
-const simplifiedDialog =
-    document.querySelector<HTMLDialogElement>("#simplified-dialog");
-const simplifiedDialogMessage = document.querySelector<HTMLElement>(
-    "#simplified-dialog-message",
-);
-function showSimplifiedDialog(message: string): void {
-    if (!simplifiedDialog || !simplifiedDialogMessage) return;
-    simplifiedDialogMessage.textContent = message;
-    if (!simplifiedDialog.open) simplifiedDialog.showModal();
-}
 function setPreviewBusy(busy: boolean): void {
     if (previewBusy) {
         previewBusy.hidden = !busy;
@@ -167,7 +149,9 @@ function setPreviewBusy(busy: boolean): void {
 }
 
 function updateOutputProvenance(trace: TimingTrace): void {
-    disposePreviewAssets(trace.revision);
+    const rendered =
+        trace.outcome === "rendered" || trace.outcome === "unchanged";
+    if (!rendered) disposePreviewAssets(trace.revision);
     const completedOutput = pendingOutputs.get(trace.revision);
     // Retire payloads even when a newer revision owns the visible preview.
     for (const revision of pendingOutputs.keys())
@@ -177,16 +161,31 @@ function updateOutputProvenance(trace: TimingTrace): void {
         Math.max(controller.currentRevision, latestInputRevision)
     )
         return;
-    if (trace.outcome === "rendered" || trace.outcome === "unchanged") {
+    for (const revision of previewAssetDisposers.keys())
+        if (revision < trace.revision) disposePreviewAssets(revision);
+    if (rendered) {
         renderingSource = false;
         setPreviewBusy(false);
         successfulOutput = completedOutput ?? successfulOutput;
         conversionClient.present(trace.revision);
+        if (successfulOutput?.exportResult)
+            void prepareExportOutput(successfulOutput);
         if (
             successfulOutput &&
             latestSourceRevision !== successfulOutput.revision
         ) {
-            latestSource = successfulOutput.source;
+            const previewSource = successfulOutput.source;
+            latestSource =
+                successfulOutput.exportPackage?.source ??
+                (typeof previewSource === "string"
+                    ? previewSource
+                    : previewSource.source
+                          .map((part) =>
+                              typeof part === "string"
+                                  ? part
+                                  : previewSource.assets[part],
+                          )
+                          .join(""));
             if (!latestSource) sourcePanel.clear();
             latestSnapshotJson = successfulOutput.json;
             latestSourceRevision = successfulOutput.revision;
@@ -224,7 +223,8 @@ let pinState: {
 } = { pinned: false, canPin: false };
 
 function renderCopyState(): void {
-    exportButtonElement.disabled = exporting || !successfulOutput;
+    exportButtonElement.disabled =
+        exporting || !successfulOutput?.exportPackage;
     copyButtonElement.disabled = !successfulOutput;
     if (copySourceElement) copySourceElement.disabled = !successfulOutput;
     if (copySnapshot) copySnapshot.disabled = !successfulOutput;
@@ -284,9 +284,16 @@ function renderPinState(): void {
     }
 }
 
+const exportValidationTimings = new Map<number, ExportValidationTiming>();
+
 function showTrace(trace: TimingTrace, acknowledge = true): void {
     updateOutputProvenance(trace);
-    const readonlyTrace = freezeTrace(trace);
+    const readonlyTrace = freezeTrace({
+        ...trace,
+        exportValidation:
+            exportValidationTimings.get(trace.revision) ??
+            trace.exportValidation,
+    });
     if (acknowledge && isFigmaUi) {
         window.parent.postMessage(
             {
@@ -359,7 +366,7 @@ function showTrace(trace: TimingTrace, acknowledge = true): void {
         if (phase === "slintConversion") {
             const sourceTerm = document.createElement("dt");
             sourceTerm.className = "timing-breakdown";
-            sourceTerm.textContent = "Generated source";
+            sourceTerm.textContent = "Preview source";
             const sourceValue = document.createElement("dd");
             sourceValue.className = "timing-breakdown";
             sourceValue.dataset.generatedSourceLines = "";
@@ -370,6 +377,24 @@ function showTrace(trace: TimingTrace, acknowledge = true): void {
             sourceValue.textContent =
                 lineCount === undefined ? "—" : countLabel(lineCount, "line");
             return [...rows, sourceTerm, sourceValue];
+        }
+        if (phase === "presentation" && readonlyTrace.breakdowns.presentation) {
+            const frames = readonlyTrace.breakdowns.presentation;
+            return [
+                ...rows,
+                ...(["firstFrameMs", "secondFrameMs"] as const).flatMap(
+                    (key, index) => {
+                        const term = document.createElement("dt");
+                        term.className = "timing-breakdown";
+                        term.textContent = `Browser frame ${index + 1}`;
+                        const value = document.createElement("dd");
+                        value.className = "timing-breakdown";
+                        value.dataset.presentationTiming = key;
+                        value.textContent = `${frames[key].toFixed(1)} ms`;
+                        return [term, value];
+                    },
+                ),
+            ];
         }
         if (phase !== "figmaCapture") return rows;
         const breakdownTerm = document.createElement("dt");
@@ -411,6 +436,40 @@ function showTrace(trace: TimingTrace, acknowledge = true): void {
             captureValue,
         ];
     });
+    const captureTimings = readonlyTrace.captureMetrics?.timings;
+    if (captureTimings) {
+        for (const [category, operation] of Object.entries(
+            captureTimings.operations,
+        )) {
+            const term = document.createElement("dt");
+            term.textContent = `Capture: ${category}`;
+            const value = document.createElement("dd");
+            value.dataset.captureTiming = category;
+            value.textContent = `${operation.busyMs.toFixed(1)} ms active · ${operation.totalMs.toFixed(1)} ms summed · ${operation.count} operations · ${operation.synchronousOverlapMs.toFixed(1)} ms synchronous overlap`;
+            timingRows.push(term, value);
+        }
+        const term = document.createElement("dt");
+        term.textContent = "Capture: tracked time (union)";
+        const value = document.createElement("dd");
+        value.textContent = `${captureTimings.trackedMs.toFixed(1)} ms / ${captureTimings.durationMs.toFixed(1)} ms; active categories overlap`;
+        timingRows.push(term, value);
+    }
+    if (readonlyTrace.exportValidation) {
+        const exportTiming = readonlyTrace.exportValidation;
+        for (const key of [
+            "sourcePreparationMs",
+            "queueMs",
+            "compilationMs",
+            "totalMs",
+        ] as const) {
+            const term = document.createElement("dt");
+            term.textContent = `Export validation: ${key}`;
+            const value = document.createElement("dd");
+            value.dataset.exportTiming = key;
+            value.textContent = `${exportTiming[key].toFixed(1)} ms · ${exportTiming.outcome}${exportTiming.cacheHit ? " · reused" : ""}`;
+            timingRows.push(term, value);
+        }
+    }
     timingPhasesElement.replaceChildren(...timingRows);
     document.documentElement.dataset.traceRevision = String(
         readonlyTrace.revision,
@@ -434,6 +493,9 @@ function freezeTrace(trace: TimingTrace): TimingTrace {
         ...trace,
         phases: Object.freeze({ ...trace.phases }),
         breakdowns: freezeTimingBreakdowns(trace.breakdowns),
+        exportValidation:
+            trace.exportValidation &&
+            Object.freeze({ ...trace.exportValidation }),
         captureMetrics:
             trace.captureMetrics === undefined
                 ? undefined
@@ -468,7 +530,6 @@ const isPreviewTrigger = (value: string): value is PreviewTrigger =>
     value === "pin-change" ||
     value === "density-change";
 let interpreterInitialization: Promise<void> | undefined;
-const MAX_LIVE_EXPORT_VALIDATION_LENGTH = 1024 * 1024;
 
 function receivedTrace(
     trace: TimingTrace | undefined,
@@ -500,9 +561,10 @@ function receivedTrace(
 function acceptSource(
     source: string,
     revision: number,
-    exportPackage: ExportPackage,
+    exportPackage: ExportPackage | undefined,
     trace?: TimingTrace,
     warnings: readonly import("../plugin/snapshot").Diagnostic[] = [],
+    previewSource: string | AssetPreview = source,
 ): void {
     if (
         !Number.isSafeInteger(revision) ||
@@ -513,15 +575,17 @@ function acceptSource(
     }
     beginPreview(revision);
     pendingOutputs.set(revision, {
-        source: exportPackage.source,
-        exportPackage,
+        source: previewSource,
+        exportResult: exportPackage
+            ? { type: "preview-export", revision, exportPackage, warnings }
+            : undefined,
         json: "",
         revision,
         name: selectionElement.textContent ?? "Preview",
     });
     generatedSourceMetrics = {
         revision,
-        lineCount: sourceLineCount(exportPackage.source),
+        lineCount: sourceLineCount(source),
     };
     renderingSource = true;
     setPreviewBusy(true);
@@ -531,36 +595,16 @@ function acceptSource(
         revision,
         traceId: String(revision),
     };
-    const expandedValidation = exportValidationSource(exportPackage);
-    const validation =
-        expandedValidation.length <= MAX_LIVE_EXPORT_VALIDATION_LENGTH
-            ? materializePreviewAssets(packPreviewAssets(expandedValidation))
-            : undefined;
-    const disposeSource = previewAssetDisposers.get(revision);
-    previewAssetDisposers.set(revision, () => {
-        disposeSource?.();
-        validation?.dispose();
-    });
-    const renderWarnings =
-        validation === undefined
-            ? [
-                  ...warnings,
-                  {
-                      severity: "warning" as const,
-                      code: "EXPORT_VALIDATION_SKIPPED",
-                      category: "omission" as const,
-                      message:
-                          "Live export validation was skipped because the expanded export exceeds the browser compiler safety limit",
-                  },
-              ]
-            : warnings;
     if (interpreterInitialization === undefined) {
         interpreterInitialization = controller.initialize(
             source,
             revision,
             withRevision,
-            renderWarnings,
-            validation?.source,
+            warnings,
+            () =>
+                typeof previewSource === "string"
+                    ? () => {}
+                    : materializeSharedPreviewAssets(previewSource).dispose,
         );
         void interpreterInitialization.catch(() => {
             interpreterInitialization = undefined;
@@ -570,10 +614,93 @@ function acceptSource(
             source,
             revision,
             withRevision,
-            renderWarnings,
-            validation?.source,
+            warnings,
+            () =>
+                typeof previewSource === "string"
+                    ? () => {}
+                    : materializeSharedPreviewAssets(previewSource).dispose,
         );
     }
+}
+
+async function prepareExportOutput(output: PreviewOutput): Promise<void> {
+    const result = output.exportResult;
+    if (!result) return;
+    output.exportResult = undefined;
+    const preparationStarted = defaultClock.monotonicNow();
+    const warnings = [...result.warnings];
+    let validation:
+        | ReturnType<typeof materializeSharedPreviewAssets>
+        | undefined;
+    try {
+        if (
+            result.exportPackage &&
+            !controller.hasValidatedExport(result.exportPackage)
+        ) {
+            validation = prepareExportValidation(
+                result.exportPackage,
+                materializeSharedPreviewAssets,
+            );
+        }
+        const preparationCompleted = defaultClock.monotonicNow();
+        const valid = await controller.validateExport(
+            validation?.source,
+            output.revision,
+            warnings,
+            (timing) => {
+                const sourcePreparationMs =
+                    preparationCompleted - preparationStarted;
+                const measured = Object.freeze({
+                    ...timing,
+                    sourcePreparationMs,
+                    totalMs: timing.totalMs + sourcePreparationMs,
+                });
+                exportValidationTimings.set(output.revision, measured);
+                if (exportValidationTimings.size > 50)
+                    exportValidationTimings.delete(
+                        exportValidationTimings.keys().next().value!,
+                    );
+                const previous = traceHistory.find(
+                    (trace) => trace.revision === output.revision,
+                );
+                if (previous)
+                    showTrace(
+                        { ...previous, exportValidation: measured },
+                        false,
+                    );
+            },
+            result.exportPackage,
+        );
+        if (successfulOutput !== output || !valid) return;
+        output.exportPackage = result.exportPackage;
+        if (result.exportPackage) {
+            latestSource = result.exportPackage.source;
+            sourcePanel.setSource(latestSource);
+        }
+    } catch (error) {
+        if (successfulOutput === output)
+            await controller.validateExport(undefined, output.revision, [
+                ...warnings,
+                exportFailure(error),
+            ]);
+    } finally {
+        validation?.dispose();
+        renderCopyState();
+    }
+}
+
+function acceptExport(
+    message: Extract<PluginToUiMessage, { type: "preview-export" }>,
+): void {
+    if (message.revision !== latestInputRevision) return;
+    const output =
+        pendingOutputs.get(message.revision) ??
+        (successfulOutput?.revision === message.revision
+            ? successfulOutput
+            : undefined);
+    if (!output) return;
+    output.exportResult = message;
+    if (successfulOutput === output) void prepareExportOutput(output);
 }
 
 function acceptSelection(
@@ -636,7 +763,7 @@ function beginPreview(revision: number): void {
     latestInputRevision = revision;
     controller.reserveRevision(revision);
     clearOutput();
-    conversionClient.clear();
+    conversionClient.reserve();
     renderingSource = true;
     setPreviewBusy(true);
 }
@@ -725,6 +852,7 @@ function convertInWorker(
                 );
             },
             fail,
+            acceptExport,
         );
     } catch (error) {
         window.parent.postMessage(
@@ -734,7 +862,10 @@ function convertInWorker(
         fail(error instanceof Error ? error : new Error(String(error)));
     }
 }
-window.addEventListener("pagehide", () => conversionClient.clear());
+window.addEventListener("pagehide", () => {
+    conversionClient.dispose();
+    controller.releaseCompiledPreviews();
+});
 
 window.addEventListener("message", (event: MessageEvent<unknown>) => {
     const message =
@@ -748,7 +879,6 @@ window.addEventListener("message", (event: MessageEvent<unknown>) => {
             if (message.revision < latestInputRevision) return;
             if (message.revision > latestInputRevision)
                 beginPreview(message.revision);
-            if (message.message) showSimplifiedDialog(message.message);
             setPreviewBusy(true);
             return;
         }
@@ -762,6 +892,10 @@ window.addEventListener("message", (event: MessageEvent<unknown>) => {
             return;
         }
         console.info(`[slint-preview] received revision ${message.revision}`);
+        if (message.type === "preview-export") {
+            acceptExport(message);
+            return;
+        }
         if (message.type === "preview-finalized") {
             showTrace(message.trace, false);
             return;
@@ -771,6 +905,61 @@ window.addEventListener("message", (event: MessageEvent<unknown>) => {
             message.revision <= controller.currentRevision ||
             message.revision < latestInputRevision
         ) {
+            return;
+        }
+        if (message.type === "preview-reuse") {
+            beginPreview(message.revision);
+            acceptSelection(message.selection);
+            const trace = receivedTrace(message.trace, message.trigger);
+            for (const phase of [
+                "captureParse",
+                "bulkHydration",
+                "normalization",
+                "slintConversion",
+                "assetPacking",
+                "workerQueueAndTransport",
+            ] as const)
+                trace.phases[phase] = 0;
+            const reused = conversionClient.reuse(
+                message.captureId,
+                message.revision,
+                trace,
+                (result) =>
+                    window.dispatchEvent(
+                        new MessageEvent("message", {
+                            data: {
+                                pluginMessage: {
+                                    ...result,
+                                    selection: message.selection,
+                                    trigger: message.trigger,
+                                },
+                            },
+                        }),
+                    ),
+                (error) =>
+                    acceptDiagnostics(
+                        [
+                            {
+                                code: "CONVERSION_WORKER_ERROR",
+                                message: error.message,
+                            },
+                        ],
+                        message.revision,
+                        trace,
+                    ),
+                acceptExport,
+            );
+            if (!reused)
+                window.parent.postMessage(
+                    {
+                        pluginMessage: {
+                            type: "capture-reuse-miss",
+                            revision: message.revision,
+                            captureId: message.captureId,
+                        },
+                    },
+                    "*",
+                );
             return;
         }
         if (message.type === "preview-capture") {
@@ -788,7 +977,7 @@ window.addEventListener("message", (event: MessageEvent<unknown>) => {
                 const decoded =
                     typeof message.source === "string"
                         ? { source: message.source, dispose: undefined }
-                        : materializePreviewAssets(message.source);
+                        : materializeSharedPreviewAssets(message.source);
                 if (decoded.dispose)
                     previewAssetDisposers.set(
                         message.revision,
@@ -804,6 +993,7 @@ window.addEventListener("message", (event: MessageEvent<unknown>) => {
                     message.exportPackage,
                     trace,
                     message.warnings ?? [],
+                    message.source,
                 );
             } catch (error) {
                 disposePreviewAssets(message.revision);
@@ -875,8 +1065,10 @@ if (isFigmaUi) {
     }
 }
 
+void controller.warmup().catch(() => undefined);
+
 const copySlint = () => {
-    if (successfulOutput) sourcePanel.copy(successfulOutput.source);
+    if (successfulOutput) sourcePanel.copy(latestSource);
 };
 copyButtonElement.addEventListener("click", copySlint);
 if (DEVELOPMENT) {
@@ -914,7 +1106,7 @@ if (DEVELOPMENT) {
 }
 exportButtonElement.addEventListener("click", async () => {
     const output = successfulOutput;
-    if (!output || exporting) return;
+    if (!output?.exportPackage || exporting) return;
     exporting = true;
     exportButtonElement.textContent = "Preparing ZIP…";
     renderCopyState();

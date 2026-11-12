@@ -4,27 +4,47 @@
 import { DemoPalette, SubPage, PrinterState } from "../common.slint";
 import { Page } from "../components/components.slint";
 import { NarrowPrinterQueueList } from "./printer_queue.slint";
+import { ButtonFace } from "../components/ButtonFace.slint";
+import { PressArea } from "../components/PressArea.slint";
 
-component ActionButton inherits Image {
+component ActionButton inherits Rectangle {
     in property <string> text <=> label.text;
+    in property <image> icon;
+    in property <brush> fill <=> face.fill;
 
     callback clicked <=> ta.clicked;
     width: 104px;
+    height: 96px;
 
-    label := Text {
-        y: 50px;
-        font-size: DemoPalette.base-font-size * 1.2;
-        horizontal-alignment: center;
-        color: white;
+    face := ButtonFace {
+        x: 6px;
+        y: 1px;
+        width: parent.width - 10px;
+        height: parent.height - 10px;
+        press-progress: ta.press-progress;
     }
 
-    ta := TouchArea {
-        // pointer-event(event) => {
-        //     if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
-        //         root.clicked();
-        //     }
-        // }
+    VerticalLayout {
+        y: face.content-offset;
+        padding-top: 21px;
+        spacing: 7px;
+        alignment: start;
+
+        Image {
+            x: 42px;
+            width: 22px;
+            height: 22px;
+            source: root.icon;
+        }
+
+        label := Text {
+            font-size: DemoPalette.base-font-size * 1.2;
+            horizontal-alignment: center;
+            color: white;
+        }
     }
+
+    ta := PressArea { }
 }
 
 export component HomePage inherits Page {
@@ -39,12 +59,23 @@ export component HomePage inherits Page {
             width: self.preferred-width;
             alignment: space-around;
             for action[index] in [
-                { name: "Copy", enum: SubPage.copy, icon: @image-url("../images/mcu/copy-button.jpg") },
-                { name: "Scan", enum: SubPage.scan, icon: @image-url("../images/mcu/scan-button.jpg") },
+                {
+                    name: "Copy",
+                    enum: SubPage.copy,
+                    icon: @image-url("../images/mcu/copy.svg"),
+                    fill: @linear-gradient(135deg, #ffba00, #ff6700),
+                },
+                {
+                    name: "Scan",
+                    enum: SubPage.scan,
+                    icon: @image-url("../images/mcu/scan.svg"),
+                    fill: @linear-gradient(135deg, #2880ff, #5037f7),
+                },
             ]: ActionButton {
                 clicked => { PrinterState.active-subpage = action.enum; }
-                source: action.icon;
                 text: action.name;
+                icon: action.icon;
+                fill: action.fill;
             }
         }
         queue-view :=  NarrowPrinterQueueList { }

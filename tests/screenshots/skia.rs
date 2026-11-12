@@ -8,7 +8,9 @@ use i_slint_core::window::WindowAdapter;
 use i_slint_renderer_skia::{SkiaRenderer, SkiaSharedContext};
 use slint_interpreter::ComponentHandle;
 
-use std::cell::Cell;
+use crate::testing::poll_once;
+
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 #[derive(Default)]
@@ -24,7 +26,7 @@ impl Platform for SkiaScreenshotBackend {
     }
 
     fn duration_since_start(&self) -> core::time::Duration {
-        core::time::Duration::from_millis(i_slint_core::animations::current_tick().0)
+        i_slint_core::animations::current_tick().into()
     }
 }
 
@@ -81,6 +83,7 @@ pub fn run_test(testcase: TestCase) -> Result<(), Box<dyn std::error::Error>> {
     let source = std::fs::read_to_string(&testcase.absolute_path)?;
     let mut compiler = slint_interpreter::Compiler::default();
     compiler.set_style("fluent".into());
+    compiler.set_edition(test_driver_lib::edition_version_or_current(&source));
     let compiled =
         poll_once(compiler.build_from_source(source, testcase.absolute_path.clone())).unwrap();
 
@@ -115,15 +118,6 @@ pub fn run_test(testcase: TestCase) -> Result<(), Box<dyn std::error::Error>> {
     )?;
 
     Ok(())
-}
-
-fn poll_once<F: std::future::Future>(future: F) -> Option<F::Output> {
-    let mut ctx = std::task::Context::from_waker(std::task::Waker::noop());
-    let future = std::pin::pin!(future);
-    match future.poll(&mut ctx) {
-        std::task::Poll::Ready(result) => Some(result),
-        std::task::Poll::Pending => None,
-    }
 }
 
 // Compare renders within one run so font rasterization differences between platforms don't need golden images.
@@ -207,4 +201,301 @@ fn text_alignment_anchor_stays_fixed() {
             }
         }
     }
+}
+
+#[test]
+fn shadow_tracks_source_paint() {
+    init_skia();
+    crate::shadow::assert_shadow_tracks_source_paint();
+}
+
+#[test]
+fn shadow_spread_preserves_adjusted_corner_radii() {
+    init_skia();
+    crate::shadow::assert_shadow_spread_preserves_adjusted_corner_radii();
+}
+
+/// A target that still holds an earlier frame, as a swapchain image or a scanout buffer may.
+struct DirtySurface(Rc<RefCell<i_slint_renderer_skia::skia_safe::Surface>>);
+
+impl i_slint_renderer_skia::Surface for DirtySurface {
+    fn new(
+        _shared_context: &SkiaSharedContext,
+        _window_handle: std::sync::Arc<dyn raw_window_handle::HasWindowHandle + Sync + Send>,
+        _display_handle: std::sync::Arc<dyn raw_window_handle::HasDisplayHandle + Sync + Send>,
+        _size: i_slint_core::api::PhysicalSize,
+        _requested_graphics_api: Option<i_slint_core::graphics::RequestedGraphicsAPI>,
+        _transparent: bool,
+    ) -> Result<Self, PlatformError> {
+        Err("DirtySurface is only created directly".into())
+    }
+
+    fn name(&self) -> &'static str {
+        "dirty"
+    }
+
+    fn render(
+        &self,
+        _window: &i_slint_core::api::Window,
+        _size: i_slint_core::api::PhysicalSize,
+        render_callback: &dyn Fn(
+            &i_slint_renderer_skia::skia_safe::Canvas,
+            Option<&mut i_slint_renderer_skia::skia_safe::gpu::DirectContext>,
+            u8,
+        ) -> Result<
+            Option<i_slint_core::partial_renderer::DirtyRegion>,
+            PlatformError,
+        >,
+        _pre_present_callback: &RefCell<Option<Box<dyn FnMut()>>>,
+    ) -> Result<i_slint_core::renderer::DrawOutcome, PlatformError> {
+        render_callback(self.0.borrow_mut().canvas(), None, 0)?;
+        Ok(i_slint_core::renderer::DrawOutcome::Success)
+    }
+
+    fn resize_event(&self, _size: i_slint_core::api::PhysicalSize) -> Result<(), PlatformError> {
+        Ok(())
+    }
+
+    fn bits_per_pixel(&self) -> Result<u8, PlatformError> {
+        Ok(32)
+    }
+
+    fn with_graphics_api(&self, callback: &mut dyn FnMut(i_slint_core::api::GraphicsAPI<'_>)) {
+        callback(i_slint_core::api::GraphicsAPI::NativeOpenGL {
+            get_proc_address: &|_| core::ptr::null(),
+        })
+    }
+}
+
+const DIRTY_SIZE: i32 = 8;
+
+thread_local! {
+    static DIRTY_WINDOW: RefCell<Option<Rc<DirtyWindow>>> = const { RefCell::new(None) };
+}
+
+struct DirtyWindow {
+    window: i_slint_core::api::Window,
+    renderer: SkiaRenderer,
+    target: Rc<RefCell<i_slint_renderer_skia::skia_safe::Surface>>,
+}
+
+impl WindowAdapter for DirtyWindow {
+    fn window(&self) -> &i_slint_core::api::Window {
+        &self.window
+    }
+
+    fn size(&self) -> PhysicalSize {
+        PhysicalSize::new(DIRTY_SIZE as u32, DIRTY_SIZE as u32)
+    }
+
+    fn renderer(&self) -> &dyn Renderer {
+        &self.renderer
+    }
+}
+
+struct DirtyTargetBackend;
+
+impl Platform for DirtyTargetBackend {
+    fn create_window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
+        use i_slint_renderer_skia::skia_safe;
+        let mut surface = skia_safe::surfaces::raster_n32_premul((DIRTY_SIZE, DIRTY_SIZE))
+            .ok_or("Error creating a raster surface")?;
+        surface.canvas().clear(skia_safe::Color::RED);
+        let target = Rc::new(RefCell::new(surface));
+        let window = Rc::new_cyclic(|self_weak| DirtyWindow {
+            window: i_slint_core::api::Window::new(self_weak.clone() as _),
+            renderer: SkiaRenderer::new_with_surface(
+                &SkiaSharedContext::default(),
+                Box::new(DirtySurface(target.clone())),
+            ),
+            target,
+        });
+        DIRTY_WINDOW.with(|dirty_window| *dirty_window.borrow_mut() = Some(window.clone()));
+        Ok(window)
+    }
+}
+
+#[test]
+fn transparent_gradient_background_replaces_the_previous_frame() {
+    i_slint_core::platform::set_platform(Box::new(DirtyTargetBackend))
+        .expect("platform already initialized");
+
+    let source = r#"
+        export component TestCase inherits Window {
+            background: @linear-gradient(90deg, transparent 0%, #0000ff80 100%);
+        }
+    "#;
+    let result = poll_once(
+        slint_interpreter::Compiler::default().build_from_source(source.into(), Default::default()),
+    )
+    .unwrap();
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let component = result.components().last().unwrap().create().unwrap();
+    component.show().unwrap();
+
+    let window = DIRTY_WINDOW.with(|dirty_window| dirty_window.borrow().clone()).unwrap();
+    assert!(matches!(window.renderer.render(), Ok(i_slint_core::renderer::DrawOutcome::Success)));
+
+    let image = window.target.borrow_mut().image_snapshot();
+    let pixels = image.peek_pixels().unwrap();
+    let red = (0..DIRTY_SIZE)
+        .flat_map(|y| (0..DIRTY_SIZE).map(move |x| (x, y)))
+        .filter(|&(x, y)| pixels.get_color((x, y)).r() > 0)
+        .count();
+    assert_eq!(red, 0, "pixels showing the previous frame");
+}
+
+// An SVG magnified after it was drawn is rasterized again, like one magnified from the start (#10903).
+#[test]
+fn svg_rasterized_again_when_magnified() {
+    init_skia();
+    let mut compiler = slint_interpreter::Compiler::default();
+    compiler.set_style("fluent".into());
+    let source = r#"
+        export component TestCase inherits Window {
+            width: 64px;
+            height: 64px;
+            background: white;
+            in property <image> svg;
+            in property <float> scale: 1;
+            Image {
+                x: 0px;
+                y: 0px;
+                width: 16px;
+                height: 8px;
+                source: root.svg;
+                transform-scale-x: root.scale;
+                transform-scale-y: 2 * root.scale;
+                transform-origin: { x: 0px, y: 0px };
+            }
+        }
+    "#;
+    let result = poll_once(compiler.build_from_source(source.into(), Default::default())).unwrap();
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let definition = result.components().last().unwrap();
+    let svg = slint_interpreter::Image::load_from_path(
+        &std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../logo/slint-logo-small-light.svg"),
+    )
+    .unwrap();
+
+    let magnified_from_start = definition.create().unwrap();
+    magnified_from_start.set_property("svg", slint_interpreter::Value::Image(svg.clone())).unwrap();
+    magnified_from_start.set_property("scale", 4.0.into()).unwrap();
+    magnified_from_start.show().unwrap();
+    let expected = magnified_from_start.window().take_snapshot().unwrap();
+
+    let magnified_later = definition.create().unwrap();
+    magnified_later.set_property("svg", slint_interpreter::Value::Image(svg)).unwrap();
+    magnified_later.show().unwrap();
+    magnified_later.window().take_snapshot().unwrap();
+    magnified_later.set_property("scale", 4.0.into()).unwrap();
+    let actual = magnified_later.window().take_snapshot().unwrap();
+
+    assert!(actual.as_bytes() == expected.as_bytes(), "the magnified SVG wasn't rasterized again");
+}
+
+#[test]
+fn snapshot_has_straight_alpha() {
+    init_skia();
+
+    let compiler = slint_interpreter::Compiler::default();
+    let source = r#"
+        export component App inherits Window {
+            width: 4px;
+            height: 4px;
+            background: transparent;
+            Rectangle {
+                background: #ff000080;
+            }
+        }
+    "#;
+    let result = poll_once(compiler.build_from_source(source.into(), Default::default())).unwrap();
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let component = result.components().last().unwrap().create().unwrap();
+    component.show().unwrap();
+
+    let snapshot = component.window().take_snapshot().unwrap();
+    let pixel = snapshot.as_slice()[0];
+    assert_eq!([pixel.r, pixel.g, pixel.b, pixel.a], [255, 0, 0, 0x80]);
+}
+
+#[test]
+fn rendering_notifier_removes_elements() {
+    use i_slint_core::api::SetRenderingNotifierError;
+    use i_slint_core::model::VecModel;
+    use slint_interpreter::{ComponentHandle, Value};
+
+    i_slint_core::platform::set_platform(Box::new(DirtyTargetBackend))
+        .expect("platform already initialized");
+
+    let source = r#"
+        export component TestCase inherits Window {
+            background: white;
+            in property <[int]> model;
+            in property <bool> condition: true;
+            for value[index] in root.model: Rectangle {
+                x: index * 2px;
+                width: 2px;
+                background: red;
+            }
+            if root.condition: Rectangle {
+                x: 6px;
+                width: 1px;
+                background: red;
+            }
+        }
+    "#;
+    let result = poll_once(
+        slint_interpreter::Compiler::default().build_from_source(source.into(), Default::default()),
+    )
+    .unwrap();
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let component = result.components().last().unwrap().create().unwrap();
+    let model = Rc::new(VecModel::from(vec![Value::from(1.), Value::from(2.), Value::from(3.)]));
+    component.set_property("model", Value::Model(model.clone().into())).unwrap();
+
+    let frame = Rc::new(Cell::new(0));
+    component
+        .window()
+        .set_rendering_notifier({
+            let model = model.clone();
+            let frame = frame.clone();
+            let component = component.as_weak();
+            move |state, _| {
+                if !matches!(state, slint_interpreter::RenderingState::BeforeRendering) {
+                    return;
+                }
+                frame.set(frame.get() + 1);
+                if frame.get() != 2 {
+                    return;
+                }
+                let component = component.upgrade().unwrap();
+                model.set_vec(vec![Value::from(1.)]);
+                component.set_property("condition", false.into()).unwrap();
+                // Runs every notifier call site again, while the notifier is running.
+                component.window().take_snapshot().unwrap();
+                assert!(matches!(
+                    component.window().set_rendering_notifier(|_, _| {}),
+                    Err(SetRenderingNotifierError::AlreadySet)
+                ));
+            }
+        })
+        .unwrap();
+    component.show().unwrap();
+
+    let window = DIRTY_WINDOW.with(|dirty_window| dirty_window.borrow().clone()).unwrap();
+    let red_columns = || {
+        let image = window.target.borrow_mut().image_snapshot();
+        let pixels = image.peek_pixels().unwrap();
+        (0..DIRTY_SIZE).filter(|&x| pixels.get_color((x, 0)).g() == 0).count()
+    };
+    for expected_red_columns in [7, 2, 2] {
+        assert!(matches!(
+            window.renderer.render(),
+            Ok(i_slint_core::renderer::DrawOutcome::Success)
+        ));
+        assert_eq!(red_columns(), expected_red_columns);
+    }
+    assert_eq!(frame.get(), 3);
 }

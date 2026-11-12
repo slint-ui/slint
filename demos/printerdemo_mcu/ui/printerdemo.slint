@@ -27,13 +27,14 @@ export component MainWindow inherits Window {
         sidebar := SideBar { }
 
         main-view := Rectangle {
-            background: DemoPalette.page-background;
-
             if PrinterState.active-subpage == SubPage.none: Rectangle {
 
                 if PrinterState.active-page == Pages.home: HomePage { }
 
-                if PrinterState.active-page == Pages.ink: InkPage { }
+                // Positioned by hand, so the page doesn't contribute to the view's
+                // size -- it must not, since it sizes its own content from the
+                // width the view gives it.
+                if PrinterState.active-page == Pages.ink: InkPage { x: 0; y: 0; }
 
                 if PrinterState.active-page == Pages.settings: SettingsPage { }
             }
@@ -62,13 +63,5 @@ export component MainWindow inherits Window {
                 }
             }
         }
-    }
-
-    screen-corners := Rectangle {
-        width: parent.width + self.border-width * 2;
-        height: parent.height + self.border-width * 2;
-        border-radius: 30px;
-        border-width: 10px;
-        border-color: #212e4a;
     }
 }

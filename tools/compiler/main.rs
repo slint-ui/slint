@@ -6,6 +6,9 @@
 
 use clap::{Parser, ValueEnum};
 use i_slint_compiler::diagnostics::BuildDiagnostics;
+use i_slint_compiler::generator::OutputFormat;
+use i_slint_compiler::project_file::SlintEdition;
+use i_slint_compiler::source_path::SourcePath;
 use i_slint_compiler::*;
 use itertools::Itertools;
 use std::io::Cursor;
@@ -58,6 +61,10 @@ struct Cli {
     #[cfg_attr(feature = "cpp", doc = "'cpp' generates a C++ header.")]
     #[cfg_attr(feature = "rust", doc = "'rust' generates Rust code.")]
     #[cfg_attr(feature = "python", doc = "'python' generates a typed Python module.")]
+    #[cfg_attr(
+        feature = "typescript",
+        doc = "'typescript' generates TypeScript type declarations, to be written to a `.d.ts` file."
+    )]
     #[cfg_attr(feature = "slint-sc", doc = "'slint-sc' generates the safety-critical subset.")]
     /// 'llr' prints the compiler's low-level representation, to look at what it produces.
     #[arg(short = 'f', long = "format")]
@@ -77,15 +84,18 @@ struct Cli {
 
     /// Specify include paths for imported .slint files or image resources.
     /// This is used for including external .slint files or image resources referenced by '@image-url'.
+    /// Comes before the include paths of the project file.
     #[arg(short = 'I', name = "include path", number_of_values = 1)]
     include_paths: Vec<std::path::PathBuf>,
 
     /// Define library paths in the format `<library>=<path>`.
     /// This can point to either a library directory or a .slint entry-point file.
+    /// Replaces the project file's library of the same name.
     #[arg(short = 'L', name = "library path", number_of_values = 1)]
     library_paths: Vec<String>,
 
-    /// Specify the path to the main .slint file to compile.
+    /// Specify a .slint file, project directory, or slint-project.json file to compile.
+    /// The project file must contain a main entry specifying the .slint file to compile.
     /// Use '-' to read from stdin.
     #[arg(name = "file")]
     path: std::path::PathBuf,
@@ -93,6 +103,11 @@ struct Cli {
     /// Set the style for the UI (e.g., 'native' or 'fluent').
     #[arg(long, name = "style name")]
     style: Option<String>,
+
+    /// Set the edition whose language behavior to use, such as '1.20'.
+    /// This wins over the edition of the project file.
+    #[arg(long, name = "edition", value_parser = SlintEdition::parse_supported)]
+    edition: Option<SlintEdition>,
 
     /// Apply a constant scale factor to embedded assets, typically for high-DPI displays.
     /// This scale factor is also applied to the window by default.
@@ -146,14 +161,58 @@ struct Cli {
     cpp_files: Vec<std::path::PathBuf>,
 }
 
+/// Parses the file to compile, the main file of a project directory given as input,
+/// and returns the project file that applies to it and the files it was found and read from.
+fn parse_input(
+    args: &Cli,
+    diag: &mut BuildDiagnostics,
+) -> (
+    Option<parser::SyntaxNode>,
+    Option<i_slint_compiler::project_file::ProjectFile>,
+    Vec<std::path::PathBuf>,
+) {
+    // The Slint SC subset rejects the flags a project file could set, so it has none.
+    #[cfg(feature = "slint-sc")]
+    if args.slint_sc && i_slint_compiler::project_file::project_root(&args.path).is_dir() {
+        eprintln!(
+            "--slint-sc can't compile a project file or directory, pass its main file instead"
+        );
+        std::process::exit(1);
+    }
+
+    let input_path = SourcePath::File(args.path.clone());
+    #[cfg(feature = "typescript")]
+    let project_root = (matches!(args.format, Some(generator::OutputFormat::TypeScript))
+        && input_path.extension() == Some("slint")
+        && !args.path.is_dir())
+    .then(|| input_path.parent());
+    #[cfg(not(feature = "typescript"))]
+    let project_root = None;
+    let (input, input_files) = spin_on::spin_on(i_slint_compiler::project_file::load_input(
+        &input_path,
+        None,
+        project_root,
+        None,
+        diag,
+    ));
+    let Some(input) = input else { return (None, None, Vec::new()) };
+    (
+        Some(parser::parse(input.source_code, Some(input.source), diag)),
+        input.project_file,
+        input_files.into_iter().filter_map(SourcePath::into_native_path).collect(),
+    )
+}
+
 fn main() -> std::io::Result<()> {
     proc_macro2::fallback::force(); // avoid a abort if panic=abort is set
     let args = Cli::parse();
+    let input = i_slint_compiler::project_file::project_root(&args.path);
+    let input_project_directory = input.is_dir().then(|| input.to_path_buf());
     let mut diag = BuildDiagnostics::default();
-    let syntax_node = parser::parse_file(&args.path, &mut diag);
+    let (syntax_node, project_file, input_files) = parse_input(&args, &mut diag);
     //println!("{:#?}", syntax_node);
     if diag.has_errors() {
-        diag.print();
+        diag.print_styled_if_terminal();
         std::process::exit(-1);
     }
 
@@ -236,6 +295,18 @@ fn main() -> std::io::Result<()> {
         }
     }
 
+    #[cfg(feature = "typescript")]
+    if format == generator::OutputFormat::TypeScript
+        && let Some(name) = args.output.file_name().and_then(|n| n.to_str())
+        && name != "-"
+        && !name.ends_with(".d.ts")
+        // What TypeScript looks for with `allowArbitraryExtensions`, such as for `nodenext` modules
+        && !name.ends_with(".d.slint.ts")
+    {
+        eprintln!("The TypeScript output is a declaration file: name it '{name}.d.ts'");
+        std::process::exit(1);
+    }
+
     let mut compiler_config = CompilerConfiguration::new(format.clone());
     #[cfg(feature = "slint-sc")]
     {
@@ -245,6 +316,30 @@ fn main() -> std::io::Result<()> {
         }
         compiler_config.coverage = args.coverage;
     }
+
+    let command_line_overrides = i_slint_compiler::project_file::Overrides {
+        project: i_slint_compiler::project_file::ProjectFileData {
+            include_paths: (!args.include_paths.is_empty()).then(|| args.include_paths.clone()),
+            library_paths: (!args.library_paths.is_empty()).then(|| {
+                args.library_paths
+                    .iter()
+                    .filter_map(|entry| {
+                        entry.split('=').collect_tuple().map(|(k, v)| (k.into(), v.into()))
+                    })
+                    .collect()
+            }),
+            edition: args.edition,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    command_line_overrides.apply(project_file.as_ref(), &mut compiler_config);
+    if project_file.is_some()
+        && let Some(project_directory) = input_project_directory
+    {
+        compiler_config.input_project_directory = Some(project_directory);
+    }
+
     compiler_config.translation_domain = args.translation_domain;
     #[cfg(feature = "bundle-translations")]
     if args.no_default_translation_context {
@@ -267,12 +362,7 @@ fn main() -> std::io::Result<()> {
         };
     }
 
-    compiler_config.include_paths = args.include_paths;
-    compiler_config.library_paths = args
-        .library_paths
-        .iter()
-        .filter_map(|entry| entry.split('=').collect_tuple().map(|(k, v)| (k.into(), v.into())))
-        .collect();
+    compiler_config.debug_info |= format == OutputFormat::Llr;
     if let Some(style) = args.style {
         compiler_config.style = Some(style);
     }
@@ -290,7 +380,9 @@ fn main() -> std::io::Result<()> {
     let diag = diag.check_and_exit_on_error();
 
     if args.output == std::path::Path::new("-") {
-        generator::generate(format, &mut std::io::stdout(), None, &doc, &loader.compiler_config)?;
+        let mut stdout = std::io::BufWriter::new(std::io::stdout());
+        generator::generate(format, &mut stdout, None, &doc, &loader.compiler_config)?;
+        std::io::Write::flush(&mut stdout)?;
     } else {
         let mut cursor = Cursor::new(Vec::new());
         generator::generate(
@@ -307,21 +399,21 @@ fn main() -> std::io::Result<()> {
 
     if let Some(depfile) = args.depfile {
         let mut cursor = Cursor::new(Vec::new());
-        write!(cursor, "{}: {}", args.output.display(), args.path.display())?;
-        for x in &diag.all_loaded_files {
+        write!(cursor, "{}:", args.output.display())?;
+        for x in &input_files {
+            write!(cursor, " {}", x.display())?;
+        }
+        for x in diag.all_loaded_files.iter().filter_map(|p| p.as_native_path()) {
             if x.is_absolute() {
                 write!(cursor, " {}", x.display())?;
             }
         }
         // A variable font is stored once per weight, so dedupe here.
         let embedded = doc.embedded_file_resources.borrow();
-        let resources: std::collections::BTreeSet<&str> = embedded
-            .iter()
-            .filter_map(|er| er.path.as_deref())
-            .filter(|resource| !resource.starts_with("builtin:/"))
-            .collect();
+        let resources: std::collections::BTreeSet<&std::path::Path> =
+            embedded.iter().filter_map(|er| er.path.as_ref()?.as_native_path()).collect();
         for resource in resources {
-            write!(cursor, " {resource}")?;
+            write!(cursor, " {}", resource.display())?;
         }
         writeln!(cursor)?;
         fileaccess::write_file_if_changed(&depfile, &cursor.into_inner())?;

@@ -1,0 +1,72 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Row 15 is above the viewport, so ensure-row-visible aligns it to the top.
+// The rows after it are removed before the next layout pass.
+// The seek used to place row 15 at the top and leave a gap below it,
+// which the Flickable then sprang back from when bounce is on.
+
+import { ListView } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+
+    in property <[int]> model;
+    out property <length> content-y <=> listview.content-y;
+    in-out property <int> clicked-index: -1;
+
+    callback ensure-row-visible(int);
+    ensure-row-visible(row) => {
+        listview.ensure-row-visible(row, ScrollBehavior.instant);
+    }
+
+    listview := ListView {
+        width: 300px;
+        height: 300px;
+        for i in model: Rectangle {
+            height: 100px;
+            TouchArea {
+                clicked => {
+                    root.clicked-index = i;
+                }
+            }
+        }
+    }
+}
+
+/*
+```rust
+use slint::platform::{PointerEventButton, WindowEvent};
+use slint::{LogicalPosition, VecModel};
+use slint_testing::AutoBool;
+use std::rc::Rc;
+
+let instance = TestCase::new().unwrap();
+let window = instance.window();
+let model = Rc::new(VecModel::from((0..20).collect::<Vec<i32>>()));
+instance.set_model(model.clone().into());
+
+// Bounce makes the Flickable spring back from a gap instead of clamping it away at once.
+let flickable = slint_testing::ElementHandle::find_by_element_type_name(&instance, "Flickable").next().unwrap();
+slint_testing::set_flickable_physics(&flickable, AutoBool::On, AutoBool::Off);
+
+let row_at = |y: f32| {
+    instance.set_clicked_index(-1);
+    let position = LogicalPosition::new(150., y);
+    window.dispatch_event(WindowEvent::PointerPressed { position, button: PointerEventButton::Left });
+    window.dispatch_event(WindowEvent::PointerReleased { position, button: PointerEventButton::Left });
+    instance.get_clicked_index()
+};
+
+instance.invoke_ensure_row_visible(19);
+assert_eq!([row_at(5.), row_at(295.)], [17, 19]);
+
+instance.invoke_ensure_row_visible(15);
+for _ in 16..20 {
+    model.remove(16);
+}
+assert_eq!([row_at(5.), row_at(150.), row_at(295.)], [13, 14, 15], "row 15 must end at the bottom edge");
+assert_eq!(instance.get_content_y(), -(16. * 100. - 300.));
+```
+*/

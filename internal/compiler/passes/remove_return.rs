@@ -78,9 +78,22 @@ fn process_condition(
     ty: &Type,
     symbol_counters: &SymbolCounters,
 ) -> ExpressionResult {
-    let te = process_expression(true_expr, false, ctx, ty, symbol_counters);
-    let fe = process_expression(false_expr, false, ctx, ty, symbol_counters);
-    merge_condition_branches(condition, te, fe, ctx, ty, symbol_counters)
+    // An `else if` chain nests in the false branch: iterate it, so the stack depth stays bounded.
+    let mut links = Vec::new();
+    let mut link = (condition, true_expr, false_expr);
+    let fe = loop {
+        let (condition, true_expr, false_expr) = link;
+        links.push((condition, process_expression(true_expr, false, ctx, ty, symbol_counters)));
+        match false_expr {
+            Expression::Condition { condition, true_expr, false_expr, .. } => {
+                link = (condition, *true_expr, *false_expr)
+            }
+            e => break process_expression(e, false, ctx, ty, symbol_counters),
+        }
+    };
+    links.into_iter().rev().fold(fe, |fe, (condition, te)| {
+        merge_condition_branches(condition, te, fe, ctx, ty, symbol_counters)
+    })
 }
 
 fn merge_condition_branches(
@@ -633,7 +646,7 @@ fn convert_struct(from: Expression, to: Type, symbol_counters: &SymbolCounters) 
         for key in to.fields.keys() {
             let (key, expression) = values
                 .remove_entry(key)
-                .unwrap_or_else(|| (key.clone(), to.default_value_for_field(key)));
+                .unwrap_or_else(|| (key.clone(), Expression::default_value_for_field(&to, key)));
             new_values.insert(key, expression);
         }
         return Expression::Struct { values: new_values, ty: to };
@@ -655,7 +668,7 @@ fn convert_struct(from: Expression, to: Type, symbol_counters: &SymbolCounters) 
                 name: key.clone(),
             }
         } else {
-            to.default_value_for_field(key)
+            Expression::default_value_for_field(&to, key)
         };
         new_values.insert(key.clone(), expression);
     }

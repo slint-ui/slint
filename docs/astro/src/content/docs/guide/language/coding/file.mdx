@@ -216,18 +216,34 @@ import { MySwitch } from "@mylibrary/switch.slint";
 import { MyButton } from "@otherlibrary";
 ```
 
-In the above example, the `MySwitch` component will be imported from a component
-library called `mylibrary`, in which Slint looks for the `switch.slint` file. Therefore `mylibrary` must be
-declared to refer to a directory, so that the subsequent search for `switch.slint`
-succeeds. `MyButton` will be imported from `otherlibrary`. Therefore `otherlibrary`
-must be declared to refer to a `.slint` file that exports `MyButton`.
-A library provides images and fonts as well as components.
-Reference them with the same prefix, as in `@image-url("@mylibrary/logo.png")`
-or `import "@mylibrary/MyFont.ttf";`.
+In the above example, Slint looks for `switch.slint` in the library called `mylibrary`.
+`MyButton` comes from the main file of the library called `otherlibrary`.
+For a library without a project file, the same prefix also references its images and fonts,
+as in `@image-url("@mylibrary/logo.png")` or `import "@mylibrary/MyFont.ttf";`.
+A library with a project file uses its images and fonts from its own files.
 
-The path to each library, as file or directory, must be defined separately at compilation time.
-Use one of the following methods to help the Slint compiler resolve libraries to the correct
-path on disk:
+Map each library name to its path with `library-paths` in your [project file](../../../tooling/project-file/),
+so that your build and your editor find the library:
+
+```json
+{
+    "edition": "1.20",
+    "main": "ui/main.slint",
+    "library-paths": {
+        "mylibrary": "third_party/mylibrary",
+        "otherlibrary": "third_party/otherlibrary/slint-project.json"
+    }
+}
+```
+
+Point to the library's own project file when it has one, as for `otherlibrary`.
+The library then keeps its settings, such as its [edition](../../concepts/editions/) and include paths.
+`@otherlibrary` imports its `main` file, and only what that file exports is available through `@otherlibrary`.
+Otherwise, point to a directory, as for `mylibrary`, or to the `.slint` file that a bare `@library` imports.
+To share a library of your own, give it a project file with its `edition` and `main`.
+For details, see [Libraries](../../../tooling/project-file/#libraries).
+
+Without a project file, define the library paths where you compile your `.slint` files:
 
 <Tabs syncKey="dev-language">
 <TabItem label="Rust" icon="seti:rust">

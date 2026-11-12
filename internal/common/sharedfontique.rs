@@ -17,8 +17,26 @@ use std::sync::Arc;
 /// When `shared` is true, the collection uses `Arc`-based internal sharing,
 /// so that clones share the underlying data and mutations are visible across clones.
 pub fn create_collection(shared: bool) -> Collection {
-    let mut collection =
-        fontique::Collection::new(fontique::CollectionOptions { shared, system_fonts: true });
+    init_collection(system_collection(shared), shared)
+}
+
+/// Discovers the system fonts, without the fonts from `SLINT_DEFAULT_FONT` and `SLINT_FONT_PATH`.
+/// Pass the result to [`init_collection`].
+pub fn system_collection(shared: bool) -> fontique::Collection {
+    let create = || {
+        fontique::Collection::new(fontique::CollectionOptions { shared, system_fonts: !cfg!(miri) })
+    };
+    // Fontique's Foundation calls autorelease their results,
+    // and the calling thread may have no autorelease pool in place.
+    #[cfg(target_vendor = "apple")]
+    return objc2::rc::autoreleasepool(|_| create());
+    #[cfg(not(target_vendor = "apple"))]
+    create()
+}
+
+/// Adds the fonts from `SLINT_DEFAULT_FONT` and `SLINT_FONT_PATH` to a collection from [`system_collection`].
+/// They become the default font and the generic families.
+pub fn init_collection(mut collection: fontique::Collection, shared: bool) -> Collection {
     let mut source_cache =
         if shared { fontique::SourceCache::new_shared() } else { fontique::SourceCache::default() };
 
@@ -139,6 +157,21 @@ pub struct Collection {
 impl Collection {
     pub fn query<'a>(&'a mut self) -> fontique::Query<'a> {
         self.inner.query(&mut self.source_cache)
+    }
+
+    /// The first font any of `families` provides, in order, or `None` when none of them do.
+    pub fn first_match<'a>(
+        &mut self,
+        families: impl IntoIterator<Item = fontique::QueryFamily<'a>>,
+    ) -> Option<fontique::QueryFont> {
+        let mut query = self.query();
+        query.set_families(families);
+        let mut font = None;
+        query.matches_with(|queried_font| {
+            font = Some(queried_font.clone());
+            fontique::QueryStatus::Stop
+        });
+        font
     }
 
     pub fn get_font_for_info(

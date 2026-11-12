@@ -75,8 +75,8 @@ fi
 # - interpreter: `inject-debug-hooks` runs every test a second time with debug hooks
 #   injected, and that second run catches failures the plain run does not.
 # - rust: `build-time` (generate code rather than expand the macro; shows warnings and
-#   lets you read the generated code) and `deterministic-output` (compile each testcase
-#   twice and compare).
+#   lets you read the generated code). SLINT_TEST_DETERMINISTIC_OUTPUT also makes it
+#   compile each testcase twice and compare, like CI does for compiler changes.
 # Note that --all-features therefore never exercises the `slint!` macro path; for that,
 # run the rust driver by hand without --all-features.
 features_flag="--all-features"
@@ -85,4 +85,4 @@ features_flag="--all-features"
 # script works regardless of the current directory.
 manifest="$(cd "$(dirname "$0")" && pwd)/Cargo.toml"
 
-SLINT_TEST_FILTER="$filter" cargo test --manifest-path "$manifest" -p "test-driver-$driver" $features_flag $test_bin_flag "$@"
+SLINT_TEST_DETERMINISTIC_OUTPUT="${SLINT_TEST_DETERMINISTIC_OUTPUT-1}" SLINT_TEST_FILTER="$filter" cargo test --manifest-path "$manifest" -p "test-driver-$driver" $features_flag $test_bin_flag "$@"

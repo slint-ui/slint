@@ -1,0 +1,239 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Style, Theme, Colors, Metrics, Typography, InspectorStyle } from "../../../style.slint";
+import { Properties } from "../../../properties.slint";
+import { InspectorComboBox, InspectorEnumOptions, InspectorFieldLabel, InspectorImageAlignment, InspectorImageSourceField, InspectorInfoIcon, InspectorSection } from "../index.slint";
+import { InspectorContext } from "context.slint";
+import { InspectorPreviewToggle } from "../preview-toggle.slint";
+
+export component InspectorImageSection inherits InspectorSection {
+    in property <InspectorStyle> style: Style.inspector-layout;
+    in property <length> field-width;
+
+    private property <string> selection-key: InspectorContext.selection-key;
+    private property <bool> preview-visible;
+    private property <string> fit: InspectorEnumOptions.option-value("image-fit", "fill", InspectorEnumOptions.image-fit-options);
+    private property <string> pending-fit;
+    private property <string> displayed-fit: fit-combo.preview-value != "" ? fit-combo.preview-value : root.pending-fit != "" ? root.pending-fit : root.fit;
+    private property <image> preview-picture: @image-url("../../../assets/image-fit-preview.svg");
+
+    changed selection-key => {
+        root.preview-visible = false;
+        root.pending-fit = "";
+    }
+    changed fit => { root.pending-fit = ""; }
+
+    title: @tr("Image");
+
+    VerticalLayout {
+        padding-left: root.style.padding;
+        padding-right: root.style.padding;
+        spacing: Metrics.space-compact;
+
+        VerticalLayout {
+            spacing: Metrics.space-compact;
+
+            InspectorFieldLabel {
+                text: @tr("Source");
+            }
+
+            InspectorImageSourceField {
+                value: Properties.image-source-file-name(Properties.source-property-value("source", ""));
+                browse => { InspectorContext.choose-image-source(); }
+            }
+        }
+
+        VerticalLayout {
+            spacing: Metrics.space-compact;
+
+            HorizontalLayout {
+                spacing: Metrics.space-compact;
+                cross-axis-alignment: center;
+
+                InspectorFieldLabel {
+                    text: @tr("Image fit");
+                    vertical-alignment: center;
+                }
+
+                InspectorInfoIcon {
+                    activated => {
+                        Platform.open-url("https://docs.slint.dev/latest/docs/slint/reference/elements/image/#image-fit");
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                spacing: Metrics.space-compact;
+                fit-combo := InspectorComboBox {
+                    commit-key: InspectorContext.inspector-key;
+                    accessible-name: @tr("Image fit");
+                    value: root.fit;
+                    selected-index: InspectorEnumOptions.option-index("image-fit", "fill", InspectorEnumOptions.image-fit-options);
+                    options: InspectorEnumOptions.image-fit-options;
+                    wide: true;
+                    popup-upwards: root.preview-visible;
+                    popup-opening => { root.preview-visible = true; }
+                    width: root.field-width - preview-toggle.width - Metrics.space-compact;
+                    accepted(text) => {
+                        if InspectorContext.commit-code("image-fit", text) {
+                            root.pending-fit = text;
+                            return true;
+                        }
+                        return false;
+                    }
+                }
+                preview-toggle := InspectorPreviewToggle {
+                    text: @tr("Image fit preview");
+                    picture: root.preview-picture;
+                    checked <=> root.preview-visible;
+                }
+            }
+            if root.preview-visible: Rectangle {
+                height: 128px;
+                background: Theme.surfaces.recessed;
+                border-width: Metrics.border-width;
+                border-color: Colors.border;
+                border-radius: Metrics.radius-small;
+                clip: true;
+                accessible-role: image;
+                accessible-label: @tr("Image fit example");
+                accessible-value: root.displayed-fit;
+                Image {
+                    x: 1px; y: 1px;
+                    width: parent.width - 2px;
+                    height: parent.height - 2px;
+                    source: root.preview-picture;
+                    image-fit: root.displayed-fit == "contain" ? contain
+                        : root.displayed-fit == "cover" ? cover
+                        : root.displayed-fit == "preserve" ? preserve : fill;
+                }
+            }
+        }
+
+        VerticalLayout {
+            spacing: Metrics.space-compact;
+
+            HorizontalLayout {
+                spacing: Metrics.space-compact;
+                cross-axis-alignment: center;
+
+                InspectorFieldLabel {
+                    text: @tr("Image rendering");
+                    vertical-alignment: center;
+                }
+
+                InspectorInfoIcon {
+                    activated => {
+                        Platform.open-url("https://docs.slint.dev/latest/docs/slint/reference/elements/image/#image-rendering");
+                    }
+                }
+            }
+
+            InspectorComboBox {
+                commit-key: InspectorContext.inspector-key;
+                accessible-name: @tr("Image rendering");
+                value: InspectorEnumOptions.option-value("image-rendering", "smooth", InspectorEnumOptions.image-rendering-options);
+                selected-index: InspectorEnumOptions.option-index("image-rendering", "smooth", InspectorEnumOptions.image-rendering-options);
+                options: InspectorEnumOptions.image-rendering-options;
+                wide: true;
+                width: root.field-width;
+                accepted(text) => {
+                    return text != "" && InspectorContext.commit-enum("image-rendering", text);
+                }
+            }
+        }
+
+        VerticalLayout {
+            spacing: Metrics.space-compact;
+
+            HorizontalLayout {
+                spacing: Metrics.space-compact;
+
+                InspectorFieldLabel {
+                    text: @tr("Alignment");
+                    horizontal-stretch: 1;
+                }
+
+                Text {
+                    text: alignment.selected-label == "" ? @tr("Custom") : alignment.selected-label;
+                    color: Colors.muted;
+                    font-size: Typography.caption.size;
+                    horizontal-alignment: right;
+                }
+            }
+
+            alignment := InspectorImageAlignment {
+                selected-column: InspectorEnumOptions.option-index("horizontal-alignment", "center", InspectorEnumOptions.image-horizontal-alignment-options);
+                selected-row: InspectorEnumOptions.option-index("vertical-alignment", "center", InspectorEnumOptions.image-vertical-alignment-options);
+                chosen(column, row) => { InspectorContext.set-image-alignment(column, row); }
+            }
+        }
+
+        VerticalLayout {
+            spacing: Metrics.space-compact;
+
+            HorizontalLayout {
+                spacing: Metrics.space-compact;
+                cross-axis-alignment: center;
+
+                InspectorFieldLabel {
+                    text: @tr("Horizontal tiling");
+                    vertical-alignment: center;
+                }
+
+                InspectorInfoIcon {
+                    activated => {
+                        Platform.open-url("https://docs.slint.dev/latest/docs/slint/reference/elements/image/#horizontal-tiling");
+                    }
+                }
+            }
+
+            InspectorComboBox {
+                commit-key: InspectorContext.inspector-key;
+                accessible-name: @tr("Horizontal tiling");
+                value: InspectorEnumOptions.option-value("horizontal-tiling", "none", InspectorEnumOptions.image-tiling-options);
+                selected-index: InspectorEnumOptions.option-index("horizontal-tiling", "none", InspectorEnumOptions.image-tiling-options);
+                options: InspectorEnumOptions.image-tiling-options;
+                wide: true;
+                width: root.field-width;
+                accepted(text) => {
+                    return text != "" && InspectorContext.commit-enum("horizontal-tiling", text);
+                }
+            }
+        }
+
+        VerticalLayout {
+            spacing: Metrics.space-compact;
+
+            HorizontalLayout {
+                spacing: Metrics.space-compact;
+                cross-axis-alignment: center;
+
+                InspectorFieldLabel {
+                    text: @tr("Vertical tiling");
+                    vertical-alignment: center;
+                }
+
+                InspectorInfoIcon {
+                    activated => {
+                        Platform.open-url("https://docs.slint.dev/latest/docs/slint/reference/elements/image/#vertical-tiling");
+                    }
+                }
+            }
+
+            InspectorComboBox {
+                commit-key: InspectorContext.inspector-key;
+                accessible-name: @tr("Vertical tiling");
+                value: InspectorEnumOptions.option-value("vertical-tiling", "none", InspectorEnumOptions.image-tiling-options);
+                selected-index: InspectorEnumOptions.option-index("vertical-tiling", "none", InspectorEnumOptions.image-tiling-options);
+                options: InspectorEnumOptions.image-tiling-options;
+                wide: true;
+                width: root.field-width;
+                accepted(text) => {
+                    return text != "" && InspectorContext.commit-enum("vertical-tiling", text);
+                }
+            }
+        }
+    }
+}

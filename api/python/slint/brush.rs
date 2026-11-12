@@ -4,8 +4,6 @@
 // cSpell: ignore pycol
 use pyo3::prelude::*;
 
-use crate::errors::PyColorParseError;
-
 #[pyclass]
 #[derive(FromPyObject)]
 struct RgbaColor {
@@ -55,10 +53,14 @@ enum PyColorInput {
     },
 }
 
-/// A Color object represents a color in the RGB color space with an alpha. Each color channel and the alpha is represented
-/// as an 8-bit integer. The alpha channel is 0 for fully transparent and 255 for fully opaque.
+/// A Color object represents a color in the RGB color space with an alpha. Each color channel and the alpha are
+/// represented as an 8-bit integer. The alpha channel is:
 ///
-/// Construct colors from a CSS color string, or by specifying the red, green, blue, and (optional) alpha channels in a dict.
+/// - `0`: fully transparent
+/// - `255`: fully opaque
+///
+/// You can construct colors from a dict with the red, green, blue, and optional alpha channels.
+/// You can also construct them from a color string as a `.slint` file writes it, such as `"#ff000080"` or `"blue"`.
 #[pyclass(name = "Color", from_py_object)]
 #[derive(Clone)]
 pub struct PyColor {
@@ -75,17 +77,13 @@ impl PyColor {
         };
 
         match value {
-            PyColorInput::ColorStr(color_str) => color_str
-                .parse::<css_color_parser2::Color>()
-                .map(|c| Self {
-                    color: slint_interpreter::Color::from_argb_u8(
-                        (c.a * 255.) as u8,
-                        c.r,
-                        c.g,
-                        c.b,
-                    ),
+            PyColorInput::ColorStr(color_str) => {
+                parse_color(&color_str).map(|color| Self { color }).ok_or_else(|| {
+                    pyo3::exceptions::PyRuntimeError::new_err(format!(
+                        "Could not convert {color_str} to Color."
+                    ))
                 })
-                .map_err(|color_err| PyColorParseError(color_err).into()),
+            }
             PyColorInput::RgbaColor { red, green, blue, alpha } => {
                 Ok(Self { color: slint_interpreter::Color::from_argb_u8(alpha, red, green, blue) })
             }
@@ -157,6 +155,15 @@ impl PyColor {
     }
 }
 
+/// Parses a color as a `.slint` file writes it, such as `#rrggbbaa` or a named color.
+fn parse_color(string: &str) -> Option<slint_interpreter::Color> {
+    use i_slint_common::color_parsing::{named_colors, parse_color_literal};
+    let string = string.trim();
+    let argb = parse_color_literal(string)
+        .or_else(|| named_colors().get(string.to_ascii_lowercase().as_str()).copied())?;
+    Some(slint_interpreter::Color::from_argb_encoded(argb))
+}
+
 impl From<slint_interpreter::Color> for PyColor {
     fn from(color: slint_interpreter::Color) -> Self {
         Self { color }
@@ -169,12 +176,12 @@ enum PyBrushInput {
     SolidColor(PyColor),
 }
 
-/// A brush is a data structure that is used to describe how a shape, such as a rectangle, path or even text,
-/// shall be filled. A brush can also be applied to the outline of a shape, that means the fill of the outline itself.
+/// A brush describes how a shape, such as a rectangle, path, or even text, is filled. You can also apply a brush
+/// to the outline of a shape, which fills the outline itself.
 ///
-/// Brushes can only be constructed from solid colors.
+/// You can only construct brushes from solid colors.
 ///
-/// **Note:** In future, we plan to reduce this constraint and allow for declaring gradient brushes programmatically.
+/// **Note:** In the future, we plan to lift this constraint and let you declare gradient brushes programmatically.
 #[pyclass(name = "Brush")]
 pub struct PyBrush {
     pub brush: slint_interpreter::Brush,
@@ -200,12 +207,12 @@ impl PyBrush {
         self.brush.color().into()
     }
 
-    /// Returns true if this brush contains a fully transparent color (alpha value is zero).
+    /// Returns `True` if this brush contains a fully transparent color (alpha value is `0`).
     fn is_transparent(&self) -> bool {
         self.brush.is_transparent()
     }
 
-    /// Returns true if this brush is fully opaque.
+    /// Returns `True` if this brush is fully opaque.
     fn is_opaque(&self) -> bool {
         self.brush.is_opaque()
     }
@@ -219,14 +226,14 @@ impl PyBrush {
 
     /// Returns a new version of this brush that has the brightness decreased
     /// by the specified factor. This is done by calling `Color.darker` on
-    /// all the color of this brush.
+    /// all the colors of this brush.
     fn darker(&self, factor: f32) -> Self {
         Self { brush: self.brush.darker(factor) }
     }
 
-    /// Returns a new version of this brush with the opacity decreased by `factor`.
+    /// Returns a new version of this brush with the opacity decreased by `amount`.
     ///
-    /// The transparency is obtained by multiplying the alpha channel by `(1 - factor)`.
+    /// The transparency is obtained by multiplying the alpha channel by `(1 - amount)`.
     ///
     /// See also `Color.transparentize`.
     fn transparentize(&self, amount: f32) -> Self {

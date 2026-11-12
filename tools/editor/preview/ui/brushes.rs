@@ -13,6 +13,7 @@ pub fn fill_from_expression(
 ) -> Option<ui::FillData> {
     use crate::preview::eval::fully_eval_expression_tree_expression as eval;
     use i_slint_compiler::expression_tree::Expression;
+    use i_slint_compiler::expression_types::RadialGradientShape;
     if let Expression::Cast { from, .. } = expression {
         return fill_from_expression(from, fill, window);
     }
@@ -20,10 +21,22 @@ pub fn fill_from_expression(
         let value: f32 = eval(e, window)?.try_into().ok()?;
         value.is_finite().then_some(value)
     };
-    let (stops, angle, center, radius) = match expression {
+    let (stops, angle, center, radii) = match expression {
         Expression::LinearGradient { angle, stops } => (stops, Some(&**angle), None, None),
-        Expression::RadialGradient { stops, center, radius } => {
-            (stops, None, center.as_ref(), radius.as_deref())
+        Expression::RadialGradient { stops, center, shape } => {
+            let radii = match shape {
+                RadialGradientShape::Circle(None) => None,
+                RadialGradientShape::Circle(Some(r)) => Some((number(r)?, None)),
+                RadialGradientShape::Ellipse(None) => {
+                    fill.radial_ellipse = true;
+                    None
+                }
+                RadialGradientShape::Ellipse(Some((rx, ry))) => {
+                    fill.radial_ellipse = true;
+                    Some((number(rx)?, Some(number(ry)?)))
+                }
+            };
+            (stops, None, center.as_ref(), radii)
         }
         Expression::ConicGradient { from_angle, stops, center } => {
             (stops, Some(&**from_angle), center.as_ref(), None)
@@ -38,9 +51,10 @@ pub fn fill_from_expression(
         fill.center_x = number(x)?;
         fill.center_y = number(y)?;
     }
-    if let Some(radius) = radius {
+    if let Some((radius, radius_y)) = radii {
         fill.custom_radius = true;
-        fill.radius = number(radius)?;
+        fill.radius = radius;
+        fill.radius_y = radius_y.unwrap_or(radius);
     }
     let stops = stops
         .iter()

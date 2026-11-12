@@ -1,0 +1,47 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { TabWidget } from "std-widgets.slint";
+
+component TabWidgetDefault inherits TabWidget {
+    slot content << Tab { }
+//                  >  <error{Declare the 'Tab' directly in the 'TabWidget'; it can't be the default content of slot 'content'}
+    content { }
+}
+
+component ContextMenuAreaDefault inherits Rectangle {
+    slot menu << Menu {
+//               >   <error{Declare the 'Menu' directly in the 'ContextMenuArea'; it can't be the default content of slot 'menu'}
+        MenuItem { title: "Default"; }
+    }
+    ContextMenuArea {
+        menu { }
+    }
+}
+
+component ContextMenuAreaRootDefault inherits ContextMenuArea {
+    slot menu << Menu {
+//               >   <error{Declare the 'Menu' directly in the 'ContextMenuArea'; it can't be the default content of slot 'menu'}
+        MenuItem { title: "Default"; }
+    }
+    menu { }
+}
+
+component ContextMenuAreaOtherDefault inherits Rectangle {
+    slot content << Rectangle { }
+    ContextMenuArea {
+        Menu {
+            MenuItem { title: "Item"; }
+        }
+        content { }
+    }
+}
+
+export component TestCase inherits Window {
+    VerticalLayout {
+        TabWidgetDefault { }
+        ContextMenuAreaDefault { }
+        ContextMenuAreaRootDefault { }
+        ContextMenuAreaOtherDefault { }
+    }
+}

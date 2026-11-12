@@ -53,6 +53,9 @@ The rust, C++ and Node drivers run the `rust`, `cpp` or `js` block in that comme
 A case without the block still compiles on those drivers, asserts nothing, and the suite reports success.
 Copy the block from a neighboring case.
 
+A `//edition: 1.18` line compiles the case with that edition instead of the current one.
+The syntax tests read this line too.
+
 `tests/run_tests.sh <rust|cpp|interpreter|python|nodejs> [<filter>]` is the convenient entry
 point for all five drivers below and passes `--manifest-path tests/Cargo.toml` for you; the
 `cargo test -p test-driver-*` commands shown per driver are the equivalent direct invocations.
@@ -101,6 +104,16 @@ or
 tests/run_tests.sh rust layout
 ```
 
+The test cases in `tests/cases/widgets` run once per widget style.
+Set `SLINT_TEST_STYLES` to a comma-separated list of styles to only run them with these styles.
+The build fails for an unknown style name. `qt` is skipped where Qt isn't available.
+This works for every driver.
+Example: to run the widget tests with the Fluent style only:
+
+```
+SLINT_TEST_FILTER=widgets SLINT_TEST_STYLES=fluent cargo test --manifest-path tests/Cargo.toml -p test-driver-rust
+```
+
 Instead of putting everything in a slint! macro, it's possible to tell the driver to do the
 compilation in the build.rs, with the build-time feature:
 
@@ -112,6 +125,8 @@ or
 tests/run_tests.sh rust layout --features build-time
 ```
 
+With the build-time feature, set `SLINT_TEST_DETERMINISTIC_OUTPUT=1` to also check that compiling each test case twice generates the same code.
+
 ### C++ driver
 
 The C++ test driver will take each .slint and generate a .h for it. It will also generate a .cpp that
@@ -120,11 +135,9 @@ Each program is compiled separately. And then run.
 
 Some macro like `assert_eq` are defined to look similar to the rust equivalent.
 
-It requires the Slint C++ library to be built first (see
-[building.md](./building.md#c-tests)):
+It builds the Slint C++ library itself (see [building.md](./building.md#c-tests)):
 
 ```
-cargo build --lib -p slint-cpp
 cargo test --manifest-path tests/Cargo.toml -p test-driver-cpp --
 ```
 
@@ -138,6 +151,18 @@ Each test is run in a different node process.
 
 ```
 cargo test --manifest-path tests/Cargo.toml -p test-driver-nodejs
+```
+
+### TypeScript driver
+
+This tests the TypeScript declarations that the compiler generates for the NodeJS API.
+It compares them with the ```` ```d.ts ```` block in comment, if there's one,
+and type checks the declarations of every test with `tsc`.
+A ```` ```ts ```` block is type checked against the declarations of its file, without running it:
+`slint` is the `.slint` file and `slintlib` is `slint-ui`, like in the ```` ```js ```` blocks.
+
+```
+cargo test --manifest-path tests/Cargo.toml -p test-driver-typescript
 ```
 
 ### Python driver

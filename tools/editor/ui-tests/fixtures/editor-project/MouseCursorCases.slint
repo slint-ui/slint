@@ -1,0 +1,29 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component MouseCursorCases inherits Window {
+    width: 640px;
+    height: 480px;
+
+    default-touch-area := TouchArea {
+        x: 32px;
+        y: 32px;
+        width: 200px;
+        height: 100px;
+    }
+
+    pointer-touch-area := TouchArea {
+        x: 32px;
+        y: 160px;
+        width: 200px;
+        height: 100px;
+        mouse-cursor: pointer;
+        TouchArea {
+            x: 43px;
+            y: -28px;
+            width: 160px;
+            height: 96px;
+            mouse-cursor: text;
+        }
+    }
+}

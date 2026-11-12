@@ -1,80 +1,71 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::borrow::Cow;
+use crate::source_path::{SourcePath, clean_path};
 use std::fs;
 
-#[derive(Clone)]
-pub struct VirtualFile {
-    pub canon_path: std::path::PathBuf,
-    pub builtin_contents: Option<&'static [u8]>,
-}
-
-impl VirtualFile {
-    pub fn read(&self) -> Cow<'static, [u8]> {
-        match self.builtin_contents {
-            Some(static_data) => Cow::Borrowed(static_data),
-            None => Cow::Owned(std::fs::read(&self.canon_path).unwrap()),
-        }
-    }
-
-    pub fn is_builtin(&self) -> bool {
-        self.builtin_contents.is_some()
-    }
+/// Return `true` if `path` has a font file extension supported by Slint
+/// (`.ttf`, `.ttc`, or `.otf`).
+pub fn is_font_file(path: &str) -> bool {
+    path.ends_with(".ttf") || path.ends_with(".ttc") || path.ends_with(".otf")
 }
 
 pub fn styles() -> Vec<&'static str> {
     builtin_library::styles()
 }
 
-pub fn load_file(path: &std::path::Path) -> Option<VirtualFile> {
-    match path.strip_prefix("builtin:/") {
-        Ok(builtin_path) => builtin_library::load_builtin_file(builtin_path),
-        Err(_) => path.exists().then(|| {
-            let path =
-                crate::pathutils::join(&std::env::current_dir().ok().unwrap_or_default(), path)
-                    .unwrap_or_else(|| path.to_path_buf());
-            VirtualFile { canon_path: crate::pathutils::clean_path(&path), builtin_contents: None }
+/// Returns the canonical path of the file `path` names, if it exists:
+/// the absolute path of a native file, or the builtin file of the style an alias names.
+pub fn find_file(path: &SourcePath) -> Option<SourcePath> {
+    match path {
+        SourcePath::Builtin(builtin_path) => {
+            builtin_library::find(builtin_path).map(|(canon_path, _)| canon_path)
+        }
+        SourcePath::File(path) => path.exists().then(|| {
+            SourcePath::File(clean_path(
+                &std::path::absolute(path).unwrap_or_else(|_| path.clone()),
+            ))
         }),
+        SourcePath::Url(_) => None,
     }
 }
 
+/// Returns the contents of a builtin file, such as `fluent/button.slint`.
+pub fn builtin_contents(builtin_path: &str) -> Option<&'static [u8]> {
+    builtin_library::find(builtin_path).map(|(_, contents)| contents)
+}
+
 #[test]
-fn test_load_file() {
-    let builtin = load_file(&std::path::PathBuf::from(
-        "builtin:/foo/../common/./MadeWithSlint-logo-dark.svg",
-    ))
-    .unwrap();
-    assert!(builtin.is_builtin());
-    assert_eq!(
-        builtin.canon_path,
-        std::path::PathBuf::from("builtin:/common/MadeWithSlint-logo-dark.svg")
-    );
+fn test_find_file() {
+    let builtin =
+        find_file(&SourcePath::new("builtin:/foo/../common/./MadeWithSlint-logo-dark.svg"))
+            .unwrap();
+    assert_eq!(builtin.to_string(), "builtin:/common/MadeWithSlint-logo-dark.svg");
+    assert!(builtin.read().is_ok());
+    assert!(find_file(&SourcePath::new("https://slint.dev/Cargo.toml")).is_none());
 
     let dir = std::env::var_os("CARGO_MANIFEST_DIR").unwrap().to_string_lossy().to_string();
     let dir_path = std::path::PathBuf::from(dir);
 
     let non_existing = dir_path.join("XXXCargo.tomlXXX");
-    assert!(load_file(&non_existing).is_none());
+    assert!(find_file(&SourcePath::new(non_existing)).is_none());
 
     assert!(dir_path.exists()); // We need some existing path for all the rest
 
     let cargo_toml = dir_path.join("Cargo.toml");
-    let abs_cargo_toml = load_file(&cargo_toml).unwrap();
-    assert!(!abs_cargo_toml.is_builtin());
-    assert!(crate::pathutils::is_absolute(&abs_cargo_toml.canon_path));
-    assert!(abs_cargo_toml.canon_path.exists());
+    let abs_cargo_toml = find_file(&SourcePath::new(&cargo_toml)).unwrap();
+    assert!(abs_cargo_toml.to_url().is_some());
+    assert!(abs_cargo_toml.exists());
 
     let current = std::env::current_dir().unwrap();
     assert!(current.ends_with("compiler")); // This test is run in .../internal/compiler
 
     let cargo_toml = std::path::PathBuf::from("./tests/../Cargo.toml");
-    let rel_cargo_toml = load_file(&cargo_toml).unwrap();
-    assert!(!rel_cargo_toml.is_builtin());
-    assert!(crate::pathutils::is_absolute(&rel_cargo_toml.canon_path));
-    assert!(rel_cargo_toml.canon_path.exists());
+    let rel_cargo_toml = find_file(&SourcePath::new(&cargo_toml)).unwrap();
+    assert!(rel_cargo_toml.to_url().is_some());
+    assert!(rel_cargo_toml.exists());
 
-    assert_eq!(abs_cargo_toml.canon_path, rel_cargo_toml.canon_path);
+    assert_eq!(abs_cargo_toml, rel_cargo_toml);
 }
 
 /// Writes a buffer into a file, but only if the content differs from the file content
@@ -101,7 +92,7 @@ mod builtin_library {
         pub contents: &'static [u8],
     }
 
-    use super::VirtualFile;
+    use super::SourcePath;
 
     const ALIASES: &[(&str, &str)] = &[
         ("cosmic-light", "cosmic"),
@@ -128,9 +119,9 @@ mod builtin_library {
             .collect()
     }
 
-    pub(crate) fn load_builtin_file(builtin_path: &std::path::Path) -> Option<VirtualFile> {
+    pub(crate) fn find(builtin_path: &str) -> Option<(SourcePath, &'static [u8])> {
         let mut components = Vec::new();
-        for part in builtin_path.iter() {
+        for part in builtin_path.split('/').filter(|part| !part.is_empty()) {
             if part == ".." {
                 components.pop();
             } else if part != "." {
@@ -140,26 +131,11 @@ mod builtin_library {
         if let Some(f) = components.first_mut()
             && let Some((_, x)) = ALIASES.iter().find(|x| x.0 == *f)
         {
-            *f = std::ffi::OsStr::new(x);
+            *f = x;
         }
-        if let &[folder, file] = components.as_slice() {
-            let library = widget_library().iter().find(|x| x.0 == folder)?.1;
-            library.iter().find_map(|builtin_file| {
-                if builtin_file.path == file {
-                    Some(VirtualFile {
-                        canon_path: std::path::PathBuf::from(format!(
-                            "builtin:/{}/{}",
-                            folder.to_str().unwrap(),
-                            builtin_file.path
-                        )),
-                        builtin_contents: Some(builtin_file.contents),
-                    })
-                } else {
-                    None
-                }
-            })
-        } else {
-            None
-        }
+        let &[folder, file] = components.as_slice() else { return None };
+        let library = widget_library().iter().find(|x| x.0 == folder)?.1;
+        let builtin_file = library.iter().find(|builtin_file| builtin_file.path == file)?;
+        Some((SourcePath::Builtin(format!("{folder}/{file}").into()), builtin_file.contents))
     }
 }

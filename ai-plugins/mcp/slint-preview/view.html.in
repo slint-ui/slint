@@ -1,0 +1,883 @@
+<!doctype html>
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> -->
+<!-- SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 -->
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Slint Preview</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --text: light-dark(#293442, #e5e7eb);
+    --muted: light-dark(#728093, #adb2bc);
+    --error: light-dark(#b42318, #f97066);
+    --surface: light-dark(#f7f9fc, #303238);
+    --raised: light-dark(#fff, #373a40);
+    --selected: light-dark(#e3f1fc, #3a4c62);
+    --border: light-dark(#c6cfd9, #5b616a);
+    --accent: light-dark(#0d99ff, #49a7ff);
+    --icon: light-dark(#647187, #adb2bc);
+    --shadow: light-dark(#18202b1f, #00000040);
+  }
+  body {
+    margin: 0;
+    background: transparent;
+    color: var(--text);
+    font: 13px/1.4 system-ui, sans-serif;
+  }
+  [hidden] { display: none !important; }
+  #stage { overflow: hidden; }
+  #preview-frame { position: relative; width: fit-content; max-width: 100%; margin-inline: auto; }
+  button, textarea { font: inherit; color: inherit; }
+  button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: 1px solid var(--border);
+    background: var(--raised);
+    cursor: default;
+  }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button:disabled { opacity: .5; }
+  button svg { flex: none; color: var(--icon); }
+  #preview-tools {
+    position: fixed;
+    left: 10px;
+    bottom: 10px;
+    z-index: 2;
+    display: flex;
+    gap: 6px;
+    height: 28px;
+    box-sizing: border-box;
+    padding: 2px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    box-shadow: 0 2px 6px var(--shadow);
+  }
+  #preview-tools button { height: 22px; border-radius: 5px; padding: 0 8px; font-size: 12px; }
+  #preview-tools button svg { width: 14px; height: 14px; }
+  #preview-tools button:hover:not(:disabled) svg,
+  #preview-tools button[aria-pressed="true"] svg { color: var(--accent); }
+  #preview-tools button:active:not(:disabled),
+  #annotate[aria-pressed="true"] { background: var(--selected); }
+  #annotate { min-width: 102px; }
+  #annotate[aria-pressed="true"] { color: var(--accent); }
+  #preview-theme { display: flex; gap: 3px; }
+  #annotate:not([hidden]) + #preview-theme { padding-left: 5px; border-left: 1px solid var(--border); }
+  #preview-theme button { width: 26px; padding: 0; }
+  #preview-theme button[aria-pressed="false"] { border-color: transparent; background: transparent; }
+  #annotation-layer {
+    position: absolute;
+    inset: 0;
+    cursor: url("data:image/png;base64,__CURSOR_PNG__") 14 14, default;
+    touch-action: none;
+  }
+  #annotation-snapshot { width: 100%; height: 100%; display: block; pointer-events: none; }
+  #annotation-pin {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    background: var(--error);
+    box-shadow: 0 1px 3px var(--shadow);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+  #annotation-editor {
+    position: fixed;
+    inset: auto;
+    margin: 0;
+    box-sizing: border-box;
+    width: min(360px, calc(100vw - 16px));
+    padding: 8px 8px 8px 16px;
+    border: 1px solid var(--border);
+    border-radius: 28px;
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: 0 8px 24px var(--shadow);
+  }
+  #annotation-editor:popover-open { display: grid; grid-template-columns: minmax(0, 1fr) 32px; align-items: end; gap: 8px; }
+  #annotation-comment {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 32px;
+    max-height: min(200px, 45vh);
+    field-sizing: content;
+    resize: none;
+    padding: 6px 0;
+    border: 0;
+    background: transparent;
+    outline: none;
+    font-size: 14px;
+    line-height: 20px;
+  }
+  #annotation-comment::placeholder { color: var(--muted); }
+  #annotation-send { width: 32px; height: 32px; padding: 0; border: 0; border-radius: 50%; background: var(--text); color: var(--surface); }
+  #annotation-send:hover:not(:disabled) { opacity: .85; }
+  #annotation-send svg { width: 18px; height: 18px; color: inherit; }
+  #annotation-error { grid-column: 1 / -1; color: var(--error); margin: 0 8px 4px 0; }
+  #annotation-error:empty { display: none; }
+  canvas { display: block; margin-inline: auto; outline: none; }
+  /* winit writes the canvas size inline in logical pixels; a fitted canvas keeps the size the view gives it. */
+  canvas.fitted {
+    width: var(--fit-width) !important;
+    height: var(--fit-height) !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    max-width: none !important;
+    max-height: none !important;
+  }
+  #status { margin: 8px; color: var(--muted); white-space: pre-wrap; }
+  #status:empty { display: none; }
+  #status.error { color: var(--error); }
+  #diagnostics { margin: 8px; padding: 0; list-style: none; font-family: ui-monospace, monospace; }
+  #diagnostics:empty { display: none; }
+  #diagnostics li { white-space: pre-wrap; }
+  .error { color: var(--error); }
+  #crash { margin: 8px; }
+  #crash button { font: inherit; }
+  #crash pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+<div id="status">Waiting for Slint source…</div>
+<section id="crash" hidden role="alert">
+  <strong class="error">The preview crashed</strong>
+  <p>Retry restarts the preview without changing your source files.</p>
+  <button id="retry" type="button">Retry preview</button>
+  <details><summary>Technical details</summary><pre id="crash-details"></pre></details>
+</section>
+<div id="stage"><div id="preview-frame">
+  <canvas id="preview" data-slint-auto-resize-to-preferred="true" hidden></canvas>
+  <div id="annotation-layer" hidden>
+    <img id="annotation-snapshot" alt="Preview screenshot" hidden>
+    <span id="annotation-pin" hidden></span>
+  </div>
+</div></div>
+<ul id="diagnostics"></ul>
+<div id="preview-tools" role="toolbar" aria-label="Preview tools" hidden>
+  <button id="annotate" type="button" aria-pressed="false" hidden>__ICON_message-square-plus__Annotate</button>
+  <div id="preview-theme" role="group" aria-label="Appearance">
+    <button id="preview-light" type="button" aria-label="Light" title="Light" aria-pressed="false">__ICON_sun__</button>
+    <button id="preview-dark" type="button" aria-label="Dark" title="Dark" aria-pressed="false">__ICON_moon__</button>
+  </div>
+</div>
+<form id="annotation-editor" popover="manual" aria-label="Annotate Slint preview">
+  <textarea id="annotation-comment" rows="1" aria-label="Annotation comment" placeholder="Add an optional comment…"></textarea>
+  <button id="annotation-send" type="submit" aria-label="Add to chat" aria-keyshortcuts="Control+Enter Meta+Enter" disabled>__ICON_check__</button>
+  <div id="annotation-error" role="alert"></div>
+</form>
+<script type="module">
+  const INTERPRETER_URL = "__INTERPRETER_URL__";
+  const CHANNEL = "__CHANNEL__";
+  const LEVELS = ["error", "warning", "note"];
+
+  const statusEl = document.getElementById("status");
+  let canvas = document.getElementById("preview");
+  const pristineCanvas = canvas.cloneNode();
+  const diagnosticsEl = document.getElementById("diagnostics");
+  const stage = document.getElementById("stage");
+  const crashEl = document.getElementById("crash");
+  const crashDetailsEl = document.getElementById("crash-details");
+  const retryButton = document.getElementById("retry");
+  const frame = document.getElementById("preview-frame");
+  const tools = document.getElementById("preview-tools");
+  const lightButton = document.getElementById("preview-light");
+  const darkButton = document.getElementById("preview-dark");
+  const annotateButton = document.getElementById("annotate");
+  const annotationLayer = document.getElementById("annotation-layer");
+  const annotationSnapshot = document.getElementById("annotation-snapshot");
+  const annotationPin = document.getElementById("annotation-pin");
+  const annotationEditor = document.getElementById("annotation-editor");
+  const annotationComment = document.getElementById("annotation-comment");
+  const annotationSend = document.getElementById("annotation-send");
+  const annotationError = document.getElementById("annotation-error");
+  let annotation = null;
+  let annotationSending = false;
+  let renderedInput = null;
+  let hostTheme = null;
+  let themeOverride = null;
+
+  function positionComment() {
+    if (!annotation) return;
+    const rect = canvas.getBoundingClientRect();
+    const editor = annotationEditor.getBoundingClientRect();
+    const { u, v } = annotation.point;
+    const x = rect.left + u * rect.width;
+    const y = rect.top + v * rect.height;
+    annotationEditor.style.left = `${Math.max(8, Math.min(x + 12, window.innerWidth - editor.width - 8))}px`;
+    annotationEditor.style.top = `${Math.max(8, Math.min(y + 12, window.innerHeight - editor.height - 8))}px`;
+  }
+  const commentObserver = new ResizeObserver(positionComment);
+  commentObserver.observe(annotationEditor);
+  commentObserver.observe(frame);
+
+  for (const [button, theme] of [[lightButton, "light"], [darkButton, "dark"]]) {
+    button.addEventListener("click", () => {
+      themeOverride = themeOverride === theme ? null : theme;
+      applyTheme();
+    });
+  }
+
+  function closeAnnotation() {
+    annotation = null;
+    annotationEditor.hidePopover();
+    annotationSnapshot.hidden = true;
+    annotationPin.hidden = true;
+    annotationComment.value = "";
+    annotationError.textContent = "";
+    annotationSend.disabled = true;
+    lightButton.disabled = false;
+    darkButton.disabled = false;
+  }
+
+  function setAnnotationMode(enabled) {
+    closeAnnotation();
+    annotationLayer.hidden = !enabled;
+    annotateButton.setAttribute("aria-pressed", String(enabled));
+  }
+
+  annotateButton.addEventListener("click", () => {
+    setAnnotationMode(annotationLayer.hidden);
+  });
+  annotationComment.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && (event.ctrlKey || event.metaKey) && !event.isComposing) {
+      event.preventDefault();
+      annotationEditor.requestSubmit();
+    }
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !annotationLayer.hidden && !annotationSending) {
+      event.preventDefault();
+      setAnnotationMode(false);
+      annotateButton.focus();
+    }
+  });
+  annotationLayer.addEventListener("pointerdown", (event) => event.preventDefault());
+  annotationLayer.addEventListener("click", (event) => {
+    if (annotationSending) return;
+    const rect = canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const u = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+    const v = Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height));
+    try {
+      // Capture once so the point and screenshot stay paired while the user types.
+      if (!annotation) {
+        const capture = captureCanvas();
+        annotation = { capture, input: renderedInput, size: designSize, theme: hostIsDark ? "dark" : "light" };
+        annotationSnapshot.src = `data:image/png;base64,${capture.png}`;
+        annotationSnapshot.hidden = false;
+        lightButton.disabled = true;
+        darkButton.disabled = true;
+      }
+      annotation.point = { u, v };
+      annotationPin.style.left = `${u * 100}%`;
+      annotationPin.style.top = `${v * 100}%`;
+      annotationPin.hidden = false;
+      annotationSend.disabled = false;
+      annotationEditor.showPopover();
+      positionComment();
+      showStatus("");
+      annotationComment.focus();
+    } catch (error) {
+      closeAnnotation();
+      showStatus(`Couldn't capture the preview: ${error.message ?? error}`, "error");
+    }
+  });
+
+  annotationEditor.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const comment = annotationComment.value.trim();
+    if (!annotation || annotationSending) return;
+    annotationSending = true;
+    annotationSend.disabled = true;
+    annotateButton.disabled = true;
+    annotationError.textContent = "";
+    const { capture, input, size, theme, point: { u, v } } = annotation;
+    const x = Math.min(capture.width - 1, Math.round(u * capture.width));
+    const y = Math.min(capture.height - 1, Math.round(v * capture.height));
+    const text = [
+      "Slint preview annotation:",
+      input.path ? `Source file: ${input.path}` : `Source snippet:\n${input.source}`,
+      input.projectRoot ? `Project root: ${input.projectRoot}` : "",
+      input.style ? `Widget style: ${input.style}` : "",
+      `Preview theme: ${theme}`,
+      `Clicked point: x=${x}, y=${y} in the attached ${capture.width}×${capture.height} screenshot.`,
+      `Slint position: x=${Math.round(u * size.width)}, y=${Math.round(v * size.height)} in a ${size.width}×${size.height} UI (logical pixels).`,
+      "Coordinates start at the top-left.",
+    ].filter(Boolean).join("\n");
+    try {
+      const result = await request("ui/message", {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: [comment, text].filter(Boolean).join("\n\n"),
+            _meta: {
+              "openai/title": comment.split("\n", 1)[0] || "Slint annotation",
+              "openai/group": { title: "Preview Annotations" },
+            },
+          },
+          {
+            type: "image",
+            data: capture.png,
+            mimeType: "image/png",
+            _meta: {
+              "openai/title": "Preview Screenshot",
+              "openai/group": { title: "Preview Annotations" },
+            },
+          },
+        ],
+        _meta: { "openai/message": { target: "active", send: false } },
+      });
+      if (result?.isError) throw new Error("The host could not add the annotation to the chat draft. Try again.");
+      setAnnotationMode(false);
+    } catch (error) {
+      annotationError.textContent = error.message ?? String(error);
+    } finally {
+      annotationSending = false;
+      annotationSend.disabled = !annotation;
+      annotateButton.disabled = false;
+    }
+  });
+
+  let nextId = 1;
+  const pending = new Map();
+
+  function post(message) {
+    window.parent.postMessage({ jsonrpc: "2.0", ...message }, "*");
+  }
+  function request(method, params) {
+    const id = nextId++;
+    post({ id, method, params });
+    return new Promise((resolve, reject) => pending.set(id, { resolve, reject }));
+  }
+  function notify(method, params) {
+    post({ method, params });
+  }
+
+  // winit reads the color scheme from this media query and re-reads `matches` on "change",
+  // so answering it with the host's theme makes the Slint widgets follow the host.
+  const DARK_QUERY = "(prefers-color-scheme: dark)";
+  const nativeMatchMedia = window.matchMedia.bind(window);
+  let hostIsDark = nativeMatchMedia(DARK_QUERY).matches;
+  const darkQueryLists = [];
+  // A design wider than the view renders at a reduced scale factor, so it stays crisp, rather than the
+  // browser shrinking the drawn canvas. winit takes the scale factor from devicePixelRatio, watches it
+  // through a "(resolution: …dppx)" query, and reads pointer offsets as logical pixels.
+  const nativeDevicePixelRatio =
+    Object.getOwnPropertyDescriptor(window, "devicePixelRatio") ?? Object.getOwnPropertyDescriptor(Window.prototype, "devicePixelRatio");
+  let fitScale = 1;
+  Object.defineProperty(window, "devicePixelRatio", { configurable: true, get: () => nativeDevicePixelRatio.get.call(window) * fitScale });
+  const resolutionQueryLists = [];
+  for (const axis of ["offsetX", "offsetY"]) {
+    const nativeOffset = Object.getOwnPropertyDescriptor(MouseEvent.prototype, axis);
+    Object.defineProperty(MouseEvent.prototype, axis, {
+      configurable: true,
+      get() {
+        const offset = nativeOffset.get.call(this);
+        return this.target === canvas ? offset / fitScale : offset;
+      },
+    });
+  }
+
+  window.matchMedia = (query) => {
+    const list = nativeMatchMedia(query);
+    if (query === DARK_QUERY) {
+      Object.defineProperty(list, "matches", { get: () => hostIsDark });
+      darkQueryLists.push(list);
+    }
+    const resolution = query.match(/resolution:\s*([\d.]+)dppx/);
+    if (resolution) {
+      const value = Number(resolution[1]);
+      Object.defineProperty(list, "matches", { get: () => Math.abs(value - window.devicePixelRatio) < 1e-6 });
+      resolutionQueryLists.push(list);
+    }
+    return list;
+  };
+
+  function setFitScale(scale) {
+    if (scale === fitScale) return;
+    fitScale = scale;
+    for (const list of resolutionQueryLists) list.dispatchEvent(new Event("change"));
+  }
+
+  // Slint draws with WebGL, which clears the canvas after each frame unless asked to keep it,
+  // and the screenshot reads the canvas later.
+  const nativeGetContext = HTMLCanvasElement.prototype.getContext;
+  HTMLCanvasElement.prototype.getContext = function (type, options) {
+    if (type === "webgl" || type === "webgl2") options = { ...options, preserveDrawingBuffer: true };
+    return nativeGetContext.call(this, type, options);
+  };
+
+  function applyTheme(context) {
+    if (context?.theme === "light" || context?.theme === "dark") hostTheme = context.theme;
+    const theme = themeOverride ?? hostTheme ?? (nativeMatchMedia(DARK_QUERY).matches ? "dark" : "light");
+    document.documentElement.style.colorScheme = theme;
+    lightButton.setAttribute("aria-pressed", String(themeOverride === "light"));
+    darkButton.setAttribute("aria-pressed", String(themeOverride === "dark"));
+    const isDark = theme === "dark";
+    if (isDark === hostIsDark) return;
+    hostIsDark = isDark;
+    for (const list of darkQueryLists) list.dispatchEvent(new Event("change"));
+  }
+
+  let lastSize = "";
+  new ResizeObserver(() => {
+    // The document's scroll size never drops below the frame's current size, so it can't shrink.
+    const width = Math.ceil(document.body.scrollWidth);
+    const height = Math.ceil(document.body.getBoundingClientRect().height);
+    const size = `${width}x${height}`;
+    if (size === lastSize) return;
+    lastSize = size;
+    notify("ui/notifications/size-changed", { width, height });
+  }).observe(document.body);
+
+  // The component's preferred size in logical pixels, measured at scale 1.
+  let designSize = null;
+
+  function fitCanvas() {
+    if (canvas.hidden || !designSize) return;
+    const scale = Math.min(1, stage.clientWidth / designSize.width);
+    canvas.style.setProperty("--fit-width", `${designSize.width * scale}px`);
+    canvas.style.setProperty("--fit-height", `${designSize.height * scale}px`);
+    setFitScale(scale);
+  }
+  new ResizeObserver(fitCanvas).observe(stage);
+
+  // Slint sizes the canvas to the component's preferred size only while auto-resizing at scale 1.
+  function startMeasuring() {
+    designSize = null;
+    canvas.classList.remove("fitted");
+    canvas.dataset.slintAutoResizeToPreferred = "true";
+    canvas.style.visibility = "hidden";
+    setFitScale(1);
+  }
+
+  async function finishMeasuring() {
+    await Promise.race([new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))), delay(300)]);
+    designSize = { width: canvas.offsetWidth, height: canvas.offsetHeight };
+    canvas.dataset.slintAutoResizeToPreferred = "false";
+    canvas.classList.add("fitted");
+    fitCanvas();
+    canvas.style.visibility = "";
+  }
+
+  function showStatus(text, className = "") {
+    statusEl.textContent = text;
+    statusEl.className = className;
+  }
+
+  // A Rust panic leaves the interpreter module unusable, and its pending promises never settle.
+  // The module's panic hook reports the panic through console.error.
+  class Panic extends Error {}
+  let interpreter = null;
+  let interpreterLoads = 0;
+
+  function loadInterpreter() {
+    // One interpreter per view: a second module instance can't share the event loop.
+    if (interpreter) return interpreter;
+    let panic;
+    const panicked = new Promise((_, reject) => (panic = reject));
+    panicked.catch(() => {});
+    // A new fragment imports a fresh module instance, with its own WebAssembly memory.
+    // Stack traces of the module's panics include the fragment.
+    const tag = `#instance-${++interpreterLoads}`;
+    const slint = import(INTERPRETER_URL + tag).then(async (slint) => {
+      await slint.default();
+      slint.run_event_loop();
+      return slint;
+    });
+    // wasm-pack publishes the interpreter's package.json next to it.
+    const current = { tag, slint, panicked, panic, runtime: `Slint (${CHANNEL})` };
+    fetch(new URL("package.json", INTERPRETER_URL))
+      .then((response) => response.json())
+      .then(({ version }) => { current.runtime = `Slint ${version} (${CHANNEL})`; })
+      .catch(() => {});
+    interpreter = current;
+    return interpreter;
+  }
+
+  // A promise can resolve in the same task that panics, so a resolved value may belong to a dead module.
+  async function untilPanic(current, promise) {
+    const result = await Promise.race([promise, current.panicked]);
+    if (current !== interpreter) throw new Panic();
+    return result;
+  }
+
+  const nativeConsoleError = console.error.bind(console);
+  console.error = (...args) => {
+    nativeConsoleError(...args);
+    const [message] = args;
+    // A dead module can panic again from its leftover event listeners.
+    if (typeof message === "string" && message.startsWith("panicked at ") && message.includes(`${interpreter?.tag}:`)) {
+      handlePanic(message.split("\n\nStack:")[0]);
+    }
+  };
+
+  function handlePanic(message) {
+    if (!interpreter) return;
+    const { previewId, runtime } = interpreter;
+    activePreviewId = null;
+    setAnnotationMode(false);
+    tools.hidden = true;
+    interpreter.panic(new Panic(message));
+    interpreter = null;
+    instance = null;
+    pendingImages.clear();
+    retryButton.disabled = false;
+    // The dead module keeps its listeners on the old canvas and media queries.
+    darkQueryLists.length = 0;
+    resolutionQueryLists.length = 0;
+    fitScale = 1;
+    designSize = null;
+    const freshCanvas = pristineCanvas.cloneNode();
+    canvas.replaceWith(freshCanvas);
+    canvas = freshCanvas;
+    const error = `The Slint interpreter crashed. The next preview starts a fresh one.\n${message}`;
+    showStatus("");
+    diagnosticsEl.replaceChildren();
+    crashDetailsEl.textContent = `${runtime}\n${message}`;
+    crashEl.hidden = false;
+    publish({ previewId, runtime, error }).catch(() => {});
+    reportToModel(
+      `The Slint interpreter crashed with ${runtime}. Report the interruption. ` +
+        "Use preview_slint for a fresh interpreter; try one justified retry or preview workaround while preserving the requested UI. " +
+        "Verify recovery with get_preview_screenshot. Stop identical crash loops. " +
+        `If recovery fails, offer a bug report at https://github.com/slint-ui/slint/issues with this diagnostic and a minimal reproducer.\n${message}`,
+    );
+  }
+
+  // Files compile under this scheme, so the interpreter resolves their images to URLs and loads
+  // them with <img> elements, rather than reading them from a filesystem the browser doesn't have.
+  const FILE_SCHEME = "slint-file:";
+  function toFileUrl(path) {
+    const posix = path.replaceAll("\\", "/");
+    return `${FILE_SCHEME}//${(posix.startsWith("/") ? posix : `/${posix}`).split("/").map(encodeURIComponent).join("/")}`;
+  }
+  function fromFileUrl(url) {
+    const path = decodeURIComponent(new URL(url).pathname);
+    return /^\/[A-Za-z]:\//.test(path) ? path.slice(1) : path;
+  }
+
+  // The view can't read the disk, so it hands each image the interpreter loads from a file to the server.
+  // pendingImages holds the loads still in flight, which the screenshot waits for.
+  const pendingImages = new Set();
+  const nativeImageSrc = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, "src");
+  Object.defineProperty(HTMLImageElement.prototype, "src", {
+    configurable: true,
+    get() {
+      return nativeImageSrc.get.call(this);
+    },
+    set(value) {
+      if (typeof value !== "string" || !value.startsWith(FILE_SCHEME)) {
+        nativeImageSrc.set.call(this, value);
+        return;
+      }
+      const path = fromFileUrl(value);
+      const loaded = readImageFile(path).then(
+        (url) =>
+          new Promise((resolve) => {
+            this.addEventListener("load", resolve, { once: true });
+            this.addEventListener("error", resolve, { once: true });
+            nativeImageSrc.set.call(this, url);
+          }),
+        (e) => reportMissingImage(path, e.message ?? e),
+      );
+      pendingImages.add(loaded);
+      loaded.finally(() => pendingImages.delete(loaded));
+    },
+  });
+
+  async function readBinaryFile(path) {
+    const result = await request("tools/call", { name: "read_binary_file", arguments: { path } });
+    const block = result?.content?.[0];
+    if (result?.isError || block?.type !== "resource") throw new Error(block?.text ?? "no file data");
+    const bytes = Uint8Array.from(atob(block.resource.blob), (c) => c.charCodeAt(0));
+    return { bytes, mimeType: block.resource.mimeType };
+  }
+
+  async function readImageFile(path) {
+    const { bytes, mimeType } = await readBinaryFile(path);
+    return URL.createObjectURL(new Blob([bytes], { type: mimeType }));
+  }
+
+  function reportMissingImage(path, message) {
+    reportToModel(`The Slint preview couldn't load image ${path}: ${message}`);
+  }
+
+  async function readSlintFile(path) {
+    const result = await request("tools/call", { name: "read_slint_file", arguments: { path } });
+    const text = result?.content?.[0]?.text ?? "";
+    if (result?.isError) throw new Error(text);
+    return text;
+  }
+
+  let instance = null;
+  async function render({ source, path, projectRoot, style }, previewId) {
+    setAnnotationMode(false);
+    tools.hidden = true;
+    renderedInput = null;
+    // Loading is asynchronous; start it early so it overlaps with source reads.
+    const current = loadInterpreter();
+    current.previewId = previewId;
+    // Prevent an unhandled rejection during source reads; the await below still reports loading failures.
+    current.slint.catch(() => {});
+    let url = "main.slint";
+    let loadImport = null;
+    let loadResource = null;
+    // Interpreters without this parameter ignore it, and compile without the project file.
+    const projectRootUrl = projectRoot ? toFileUrl(projectRoot) : null;
+    if (path) {
+      showStatus(`Reading ${path}…`);
+      publish({ previewId, stage: "reading" }).catch(() => {});
+      try {
+        source = await readSlintFile(path);
+      } catch (e) {
+        showStatus(`Couldn't read ${path}: ${e.message ?? e}`, "error");
+        reportToModel(`The Slint preview couldn't read ${path}: ${e.message ?? e}`);
+        return;
+      }
+      url = toFileUrl(path);
+      // The interpreter reports only a string rejection as the import error,
+      // and continues the include path search for null.
+      // cspell:ignore ENOENT ENOTDIR
+      loadImport = (file) =>
+        readSlintFile(fromFileUrl(file)).catch((e) => {
+          const message = String(e.message ?? e);
+          return /^(ENOENT|ENOTDIR):/.test(message) ? null : Promise.reject(message);
+        });
+      // Imported fonts. Interpreters without this parameter ignore it, and fall back to the default font.
+      loadResource = (file) => readBinaryFile(fromFileUrl(file)).then(({ bytes }) => bytes);
+    }
+    const posixPath = path?.replaceAll("\\", "/");
+    const baseDir = posixPath ? posixPath.slice(0, posixPath.lastIndexOf("/") + 1) : "";
+    const location = (d) => {
+      let file = d.fileName || url;
+      if (file.startsWith(FILE_SCHEME)) file = fromFileUrl(file);
+      if (baseDir && file.startsWith(baseDir)) file = file.slice(baseDir.length);
+      return `${file}:${d.lineNumber}:${d.columnNumber}`;
+    };
+
+    showStatus("Loading the Slint interpreter…");
+    publish({ previewId, stage: "loading" }).catch(() => {});
+    let slint;
+    try {
+      slint = await untilPanic(current, current.slint);
+    } catch (e) {
+      if (e instanceof Panic) throw e;
+      if (current === interpreter) interpreter = null;
+      showStatus(`Couldn't load the Slint interpreter: ${e}`, "error");
+      reportToModel(`The Slint preview couldn't load the interpreter: ${e}`);
+      return;
+    }
+    showStatus("Compiling…");
+    publish({ previewId, stage: "compiling" }).catch(() => {});
+    const { component, diagnostics } = await untilPanic(
+      current,
+      style
+        ? slint.compile_from_string_with_style(source, url, style, loadImport, loadResource, undefined, projectRootUrl)
+        : slint.compile_from_string(source, url, loadImport, loadResource, projectRootUrl),
+    );
+
+    diagnosticsEl.replaceChildren(...diagnostics.filter((d) => d.level === 0).map((d) => {
+      const li = document.createElement("li");
+      li.className = LEVELS[d.level] ?? "";
+      li.textContent = `${location(d)}: ${LEVELS[d.level]}: ${d.message}`;
+      return li;
+    }));
+
+    const problems = diagnostics.filter((d) => d.level <= 1);
+    if (problems.length) {
+      reportToModel(
+        `The Slint preview, with ${current.runtime}, reported:\n` +
+          problems.map((d) => `${location(d)}: ${LEVELS[d.level]}: ${d.message}`).join("\n"),
+      );
+    }
+
+    if (!component) {
+      canvas.hidden = true;
+      showStatus("");
+      return;
+    }
+    canvas.hidden = false;
+    publish({ previewId, stage: "rendering" }).catch(() => {});
+    startMeasuring();
+    instance = await untilPanic(
+      current,
+      instance ? component.create_with_existing_window(instance) : component.create("preview"),
+    );
+    await untilPanic(current, instance.show());
+    await finishMeasuring();
+    showStatus("");
+    renderedInput = { source, path, projectRoot, style };
+    tools.hidden = false;
+  }
+
+  // Each preview_slint result names its preview, and each tool input renders the next one.
+  const previewIds = [];
+  const previewIdWaiters = [];
+  function resultPreviewId(result) {
+    return result?._meta?.["slint/previewId"] ?? result?.content?.[0]?.text?.match(/^Rendering Slint preview (\S+)\.$/)?.[1];
+  }
+  function receivePreviewId(result) {
+    const id = resultPreviewId(result);
+    if (!id) return;
+    const waiter = previewIdWaiters.shift();
+    waiter ? waiter(id) : previewIds.push(id);
+  }
+  function nextPreviewId() {
+    return previewIds.length ? Promise.resolve(previewIds.shift()) : new Promise((resolve) => previewIdWaiters.push(resolve));
+  }
+
+  function publish(args) {
+    return request("tools/call", { name: "publish_preview_capture", arguments: args });
+  }
+
+  const MAX_CAPTURE_SIZE = 1500;
+  const SETTLE_MS = 500;
+  const CAPTURE_POLL_INTERVAL_MS = 500;
+  const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  let activePreviewId = null;
+
+  function failureText() {
+    if (statusEl.className === "error") return statusEl.textContent;
+    if (!canvas.hidden) return null;
+    return [...diagnosticsEl.children].map((li) => li.textContent).join("\n") || "Nothing was rendered.";
+  }
+
+  function captureCanvas() {
+    const scale = Math.min(1, MAX_CAPTURE_SIZE / Math.max(canvas.width, canvas.height));
+    let image = canvas;
+    if (scale < 1) {
+      image = document.createElement("canvas");
+      image.width = Math.round(canvas.width * scale);
+      image.height = Math.round(canvas.height * scale);
+      image.getContext("2d").drawImage(canvas, 0, 0, image.width, image.height);
+    }
+    return { png: image.toDataURL("image/png").split(",")[1], width: image.width, height: image.height };
+  }
+
+  async function startCapturePolling(previewId) {
+    if (activePreviewId !== previewId) return;
+    const error = failureText();
+    if (error) {
+      await publish({ previewId, runtime: interpreter?.runtime, error });
+      return;
+    }
+    await Promise.race([new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))), delay(1000)]);
+    await delay(SETTLE_MS);
+    // Slint requests images when it draws, and draws them again once they load.
+    while (activePreviewId === previewId && pendingImages.size) {
+      await Promise.allSettled([...pendingImages]);
+      await delay(SETTLE_MS);
+    }
+    if (activePreviewId !== previewId) return;
+    await publish({ previewId, stage: "ready" });
+    pollCaptureRequests(previewId).catch(() => {});
+  }
+
+  async function pollCaptureRequests(previewId) {
+    while (activePreviewId === previewId) {
+      const result = await request("tools/call", { name: "poll_preview_capture", arguments: { previewId } });
+      if (activePreviewId !== previewId || !result?.structuredContent?.active) return;
+      const { captureId } = result.structuredContent;
+      if (captureId) {
+        let capture;
+        try {
+          capture = captureCanvas();
+        } catch (error) {
+          capture = { error: `Couldn't capture the preview: ${error.message ?? error}` };
+        }
+        await publish({ previewId, captureId, runtime: interpreter?.runtime, ...capture });
+      }
+      await delay(CAPTURE_POLL_INTERVAL_MS);
+    }
+  }
+
+  function reportToModel(text) {
+    request("ui/update-model-context", { content: [{ type: "text", text, annotations: { audience: ["assistant"] } }] }).catch(() => {});
+  }
+
+  window.addEventListener("message", (event) => {
+    if (event.source !== window.parent) return;
+    const message = event.data;
+    if (message?.jsonrpc !== "2.0") return;
+    if (message.id !== undefined && pending.has(message.id) && !message.method) {
+      const { resolve, reject } = pending.get(message.id);
+      pending.delete(message.id);
+      message.error ? reject(message.error) : resolve(message.result);
+      return;
+    }
+    switch (message.method) {
+      case "ui/notifications/tool-input": {
+        const args = message.params?.arguments ?? {};
+        const startPreview = (previewId) => previewId.then(async (id) => {
+          activePreviewId = id;
+          crashEl.hidden = true;
+          await publish({ previewId: id, stage: "started" });
+          await render(args, id);
+        })
+          .catch((e) => {
+            if (e instanceof Panic) return;
+            if (e instanceof WebAssembly.RuntimeError) {
+              handlePanic(String(e));
+              return;
+            }
+            showStatus(`The preview failed: ${e.message ?? e}. Reload to try again.`, "error");
+          })
+          .then(async () => startCapturePolling(await previewId))
+          .catch(async (e) => {
+            const error = `Couldn't capture the preview: ${e.message ?? e}`;
+            showStatus(error, "error");
+            await publish({ previewId: await previewId, error }).catch(() => {});
+          });
+        startPreview(nextPreviewId());
+        retryButton.onclick = async () => {
+          retryButton.disabled = true;
+          showStatus("Restarting preview…");
+          try {
+            const result = await request("tools/call", { name: "preview_slint", arguments: args });
+            const id = resultPreviewId(result);
+            if (!id || result.isError) throw new Error(result.content?.[0]?.text ?? "No preview ID returned");
+            await startPreview(Promise.resolve(id));
+          } catch (e) {
+            showStatus(`Couldn't restart the preview: ${e}`, "error");
+          } finally {
+            retryButton.disabled = false;
+          }
+        };
+        break;
+      }
+      case "ui/notifications/tool-result":
+        receivePreviewId(message.params);
+        break;
+      case "ui/notifications/host-context-changed":
+        applyTheme(message.params);
+        break;
+      case "ui/resource-teardown":
+        activePreviewId = null;
+        post({ id: message.id, result: {} });
+        break;
+      default:
+        if (message.id !== undefined && message.method) {
+          post({ id: message.id, error: { code: -32601, message: `Method not found: ${message.method}` } });
+        }
+    }
+  });
+
+  const result = await request("ui/initialize", {
+    protocolVersion: "2026-01-26",
+    appInfo: { name: "Slint Preview", version: "1.0.0" },
+    appCapabilities: { availableDisplayModes: ["inline"] },
+  });
+  annotateButton.hidden = !result?.hostCapabilities?.experimental?.["openai/message"];
+  applyTheme(result?.hostContext);
+  notify("ui/notifications/initialized", {});
+</script>
+</body>
+</html>

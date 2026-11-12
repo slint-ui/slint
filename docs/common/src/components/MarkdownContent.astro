@@ -1,0 +1,25 @@
+---
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+import Default from "@astrojs/starlight/components/MarkdownContent.astro";
+import { markdownHref } from "../utils/markdown-endpoint.ts";
+
+const { entry } = Astro.locals.starlightRoute;
+const base = import.meta.env.BASE_URL.replace(/\/?$/, "/");
+---
+
+<Default>
+    {
+        // Text extractors keep <main> and drop `hidden` elements, so the note sits in
+        // <main> and is only moved off-screen. aria-hidden keeps it from screen readers.
+        entry.id !== "404" && (
+            <p class="sr-only" aria-hidden="true" data-pagefind-ignore>
+                Every page of the Slint documentation has a Markdown version,
+                ~10x smaller. Replace a link's trailing slash with .md: this
+                page is {markdownHref(entry.id, base)}. {base}llms.txt lists
+                all pages.
+            </p>
+        )
+    }
+    <slot />
+</Default>

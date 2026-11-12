@@ -73,6 +73,9 @@ function propertyType(name: string): string {
             "overflow",
             "image-fit",
             "image-rendering",
+            "stroke-style",
+            "stroke-line-cap",
+            "stroke-line-join",
         ].includes(name)
     )
         return "enum";
@@ -86,6 +89,7 @@ function propertyType(name: string): string {
             "fill",
             "stroke",
             "drop-shadow-color",
+            "inner-shadow-color",
         ].includes(name)
     )
         return "brush";
@@ -125,7 +129,9 @@ function propertyType(name: string): string {
         name.includes("radius") ||
         name === "border-width" ||
         name === "stroke-width" ||
-        name.startsWith("drop-shadow-")
+        name.startsWith("drop-shadow-") ||
+        name.startsWith("inner-shadow-") ||
+        name === "backdrop-blur"
     )
         return "length";
     return "opaque";
@@ -144,11 +150,14 @@ export function binding(
     const type = propertyType(name);
     const constant =
         type !== "opaque" &&
+        !(type === "brush" && /\b(?:self|parent|root)\./u.test(code)) &&
         (typeof value !== "string" ||
             code.startsWith('"') ||
             code.startsWith("#") ||
             code.startsWith("@image-url(") ||
             code.startsWith("@linear-gradient(") ||
+            code.startsWith("@radial-gradient(") ||
+            code.startsWith("@conic-gradient(") ||
             code === "true" ||
             code === "false" ||
             code === "transparent" ||

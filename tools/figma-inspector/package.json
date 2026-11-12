@@ -1,7 +1,7 @@
 {
   "name": "slint.figma.plugin",
   "private": true,
-  "version": "1.19.0",
+  "version": "1.20.0",
   "type": "module",
   "scripts": {
     "check": "pnpm format && pnpm lint && pnpm type-check && pnpm knip && pnpm spellcheck && pnpm check:fonts",
@@ -30,19 +30,19 @@
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",
-    "@figma/plugin-typings": "1.138.0",
+    "@figma/plugin-typings": "1.142.0",
     "@noble/hashes": "2.4.0",
-    "@shikijs/types": "4.4.3",
+    "@shikijs/types": "4.5.0",
     "@types/node": "catalog:",
     "@vitest/browser-playwright": "catalog:",
     "jszip": "3.10.2",
     "playwright": "catalog:",
-    "shiki": "4.4.3",
+    "shiki": "4.5.0",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:",
     "cspell": "catalog:",
-    "vite-plugin-singlefile": "2.3.3",
-    "concurrently": "10.0.5"
+    "vite-plugin-singlefile": "2.3.4",
+    "concurrently": "10.0.6"
   }
 }

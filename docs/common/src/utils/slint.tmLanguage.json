@@ -326,6 +326,9 @@
                     "include": "#conditional-element"
                 },
                 {
+                    "include": "#match-element"
+                },
+                {
                     "include": "#repeated-element"
                 },
                 {
@@ -374,6 +377,67 @@
                 }
             },
             "patterns": [
+                {
+                    "include": "#expression"
+                }
+            ]
+        },
+        "match-element": {
+            "begin": "(?<!-)\\b(match)\\s+(?=[^\\s:=])",
+            "end": "(?<=\\})",
+            "beginCaptures": {
+                "1": {
+                    "name": "keyword.control.match-element.slint"
+                }
+            },
+            "patterns": [
+                {
+                    "include": "#comment"
+                },
+                {
+                    "begin": "\\{",
+                    "end": "\\}",
+                    "beginCaptures": {
+                        "0": {
+                            "name": "punctuation.brackets.curly.slint"
+                        }
+                    },
+                    "endCaptures": {
+                        "0": {
+                            "name": "punctuation.brackets.curly.slint"
+                        }
+                    },
+                    "patterns": [
+                        {
+                            "include": "#comment"
+                        },
+                        {
+                            "match": "\\*(?=\\s*:)",
+                            "name": "keyword.other.wildcard.slint"
+                        },
+                        {
+                            "match": "(\\{)\\s*(\\})",
+                            "captures": {
+                                "1": {
+                                    "name": "punctuation.brackets.curly.slint"
+                                },
+                                "2": {
+                                    "name": "punctuation.brackets.curly.slint"
+                                }
+                            }
+                        },
+                        {
+                            "include": "#element"
+                        },
+                        {
+                            "include": "#expression"
+                        },
+                        {
+                            "match": ":",
+                            "name": "punctuation.separator.match-case.slint"
+                        }
+                    ]
+                },
                 {
                     "include": "#expression"
                 }
@@ -681,7 +745,7 @@
                     },
                     "patterns": [
                         {
-                            "match": "(?<!-)\\b(delay|duration|iteration-count|easing|direction)\\s*:",
+                            "match": "(?<!-)\\b(delay|duration|iteration-count|easing|direction|angle-interpolation)\\s*:",
                             "captures": {
                                 "1": {
                                     "name": "keyword.other.animate.setting.slint"

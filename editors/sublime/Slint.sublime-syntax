@@ -54,7 +54,7 @@ contexts:
       scope: keyword.slint
     - match: '\b(property|callback|animate|states|transitions|function|in|out|in-out|private|public)\b'
       scope: keyword.other.slint
-    - match: '\b(if|for|return)\b'
+    - match: '\b(if|for|match|return)\b'
       scope: keyword.control.slint
 
   numbers:

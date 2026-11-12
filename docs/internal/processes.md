@@ -66,6 +66,13 @@ Reviewers leave comments on the PR.
 Some are nitpicks, others must be addressed before merging.
 Reviewers should clearly indicate which is which.
 
+A reviewer can approve a PR that still has open nits or comments.
+The author is trusted to address them and can merge without another round of approval,
+unless the reviewer explicitly asks to see the changes again.
+
+A reviewer who wants to make changes to the PR themselves assigns it to themselves.
+The assignee of a PR is responsible for merging it.
+
 Once approved, the author merges the PR.
 GitHub's auto-merge feature can be used to merge automatically once CI passes and approvals are in.
 For external contributions, the reviewer can also merge it.

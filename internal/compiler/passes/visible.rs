@@ -8,8 +8,9 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::diagnostics::BuildDiagnostics;
+use crate::element_type::{ElementType, PropertyLookupMode};
 use crate::expression_tree::{Expression, NamedReference};
-use crate::langtype::{ElementType, PropertyLookupMode, Type};
+use crate::langtype::Type;
 use crate::object_tree::{self, Component, Element, ElementRc};
 use crate::typeregister::TypeRegister;
 
@@ -128,7 +129,6 @@ fn create_visibility_element(child: &ElementRc, clip_type: &ElementType) -> Elem
         ]
         .into_iter()
         .collect(),
-        is_injected_wrapper_element: true,
         ..Default::default()
     };
     Element::make_rc(element)

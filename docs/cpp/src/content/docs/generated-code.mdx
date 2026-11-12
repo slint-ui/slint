@@ -22,15 +22,16 @@ These classes have the same name as the component will have the following public
   to allow for further customization towards the windowing system.
 * A `run` convenience function, which will show the component and starts the
   event loop.
-* For each property:
+* For each property declared at the root of the component, excluding inherited ones:
   * A getter `get_<property_name>` returning the property type.
   * A setter `set_<property_name>` taking the new value of the property by
     const reference
-* For each callback:
+* For each callback declared at the root of the component, excluding inherited ones:
   * `invoke_<callback_name>` function which takes the callback argument as parameter and call the callback.
   * `on_<callback_name>` function which takes a functor as an argument and sets the callback handler
      for this callback. the functor must accept the type parameter of the callback
-* For each public function declared in the root component, an `invoke_<function_name>` function to call the function.
+* For each public function declared at the root of the component, excluding inherited ones,
+  an `invoke_<function_name>` function to call the function.
 * A `global` function to access exported global singletons.
 
 The `create` function creates a new instance of the component, which is wrapped
@@ -54,7 +55,7 @@ Let's assume we've this code in our `.slint` file:
 export component SampleComponent inherits Window {
     in-out property<int> counter;
     // note that dashes will be replaced by underscores in the generated code
-    in-out property<string> user_name;
+    in-out property<string> user-name;
     callback hello;
     public function do-something(x: int) -> bool { return x > 0; }
     // ... maybe more elements here

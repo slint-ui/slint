@@ -333,7 +333,8 @@ unsafe fn c_set_animated_binding<T: InterpolatedPropertyValue + Clone>(
                 let start_instant = if start_instant_ref.is_null() {
                     None
                 } else {
-                    Some(crate::animations::Instant(start_instant))
+                    // This must be aligned with the section for llr::Animation::Transition in cpp.rs
+                    Some(crate::animations::Instant::from_nanos(start_instant))
                 };
                 (anim, start_instant)
             },

@@ -1,0 +1,31 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A Timer belongs to the context of the component that declares it, not to the thread's.
+
+export component TestCase inherits Window {
+    out property <int> count;
+
+    Timer {
+        interval: 100ms;
+        triggered => {
+            root.count += 1;
+        }
+    }
+}
+
+/*
+```rust
+let ctx = i_slint_core::SlintContext::new(Box::new(i_slint_backend_testing::TestingBackend::new(
+    i_slint_backend_testing::TestingBackendOptions { mock_time: true, ..Default::default() },
+)));
+let instance = TestCase::new_with_context(ctx.clone()).unwrap();
+
+// Drives the thread's context only.
+slint_testing::mock_elapsed_time(150);
+assert_eq!(instance.get_count(), 0);
+
+ctx.update_timers_and_animations();
+assert_eq!(instance.get_count(), 1);
+```
+*/

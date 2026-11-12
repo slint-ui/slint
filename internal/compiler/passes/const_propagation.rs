@@ -6,10 +6,15 @@
 use std::collections::HashMap;
 
 use super::GlobalAnalysis;
+use crate::builtin_functions::BuiltinFunction;
+use crate::element_type::ElementType;
 use crate::expression_tree::*;
-use crate::langtype::{BuiltinStruct, ElementType, StructName, Type};
+use crate::expression_types::{MinMaxOp, Unit};
+use crate::langtype::{BuiltinStruct, StructName, Type};
 use crate::namedreference::NamedReference;
 use crate::object_tree::*;
+#[cfg(test)]
+use crate::source_path::SourcePath;
 use smol_str::format_smolstr;
 
 type ConstPropCache = HashMap<NamedReference, Option<Expression>>;
@@ -357,11 +362,11 @@ fn simplify_condition(
     let mut can_inline = simplify_expression(condition, ga, cache);
     can_inline &= match &**condition {
         Expression::BoolLiteral(true) => {
-            *expr = *true_expr.clone();
+            *expr = std::mem::take(&mut **true_expr);
             simplify_expression(expr, ga, cache)
         }
         Expression::BoolLiteral(false) => {
-            *expr = *false_expr.clone();
+            *expr = std::mem::take(&mut **false_expr);
             simplify_expression(expr, ga, cache)
         }
         _ => simplify_expression(true_expr, ga, cache) & simplify_expression(false_expr, ga, cache),
@@ -376,7 +381,7 @@ fn simplify_single_statement_code_block(
     cache: &mut ConstPropCache,
 ) -> bool {
     let Expression::CodeBlock(stmts) = expr else { unreachable!() };
-    *expr = stmts[0].clone();
+    *expr = std::mem::take(&mut stmts[0]);
     simplify_expression(expr, ga, cache)
 }
 
@@ -459,10 +464,11 @@ fn extract_constant_property_reference_impl(
             continue;
         }
 
-        // There is no binding for this property, return the default value
+        // There is no binding for this property, return the default value.
+        // A function without a binding, such as one of a native item, has no body to inline.
         let ty = nr.ty();
         debug_assert!(!matches!(ty, Type::Invalid));
-        return Some(Expression::default_value_for_type(&ty));
+        return (!matches!(ty, Type::Function(_))).then(|| Expression::default_value_for_type(&ty));
     };
     if !(simplify_expression(&mut expression, ga, cache)) {
         return None;
@@ -568,15 +574,21 @@ global G {
 
     in-out property <Enum> e: Enum.bb;
 }
+export global Style {
+    out property <float> out-value: 24;
+    in property <float> in-value: 48;
+}
 export component Foo {
     in property <int> input;
     out property<float> out1: G.w;
     out property<float> out2: G.out.v;
     out property<bool> out3: false ? input == 12 : input > 0 ? input == 11 : G.e == Enum.bb;
+    out property<float> out4: Style.out-value;
+    out property<float> out5: Style.in-value;
 }
 "#
         .into(),
-        Some(std::path::Path::new("HELLO")),
+        Some(SourcePath::new("HELLO")),
         &mut test_diags,
     );
     let (doc, diag, _) =
@@ -610,6 +622,13 @@ export component Foo {
         },
         _ => panic!("not code block: {out3_binding:?}"),
     };
+    let out4_binding = root_element.borrow().binding("out4").unwrap().expression.clone();
+    match &out4_binding {
+        Expression::NumberLiteral(n, _) => assert_eq!(*n, 24.),
+        _ => panic!("not number {out4_binding:?}"),
+    }
+    let out5_binding = root_element.borrow().binding("out5").unwrap().expression.clone();
+    assert!(!matches!(out5_binding, Expression::NumberLiteral(..)), "{out5_binding:?}");
 }
 
 #[test]
@@ -630,7 +649,7 @@ export component Foo {
 }
 "#
         .into(),
-        Some(std::path::Path::new("HELLO")),
+        Some(SourcePath::new("HELLO")),
         &mut test_diags,
     );
     let (doc, diag, _) =
@@ -762,11 +781,8 @@ export component Foo inherits Window {{
 
         let mut test_diags = crate::diagnostics::BuildDiagnostics::default();
 
-        let doc_node = crate::parser::parse(
-            source.clone(),
-            Some(std::path::Path::new("HELLO")),
-            &mut test_diags,
-        );
+        let doc_node =
+            crate::parser::parse(source.clone(), Some(SourcePath::new("HELLO")), &mut test_diags);
         let mut compiler_config =
             crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
         compiler_config.style = Some("fluent".into());
@@ -788,11 +804,8 @@ export component Foo inherits Window {
 }"#;
 
     let mut test_diags = crate::diagnostics::BuildDiagnostics::default();
-    let doc_node = crate::parser::parse(
-        source.to_string(),
-        Some(std::path::Path::new("HELLO")),
-        &mut test_diags,
-    );
+    let doc_node =
+        crate::parser::parse(source.to_string(), Some(SourcePath::new("HELLO")), &mut test_diags);
     let mut compiler_config =
         crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
     compiler_config.style = Some("fluent".into());
@@ -822,7 +835,7 @@ fn test_unit_normalization() {
         let mut diags = crate::diagnostics::BuildDiagnostics::default();
         let doc_node = crate::parser::parse(
             format!("export component Foo {{ out property <{ty}> a: {expr}; }}").into(),
-            Some(std::path::Path::new("HELLO")),
+            Some(SourcePath::new("HELLO")),
             &mut diags,
         );
         let (doc, diag, _) = spin_on::spin_on(crate::compile_syntax_node(doc_node, diags, config));

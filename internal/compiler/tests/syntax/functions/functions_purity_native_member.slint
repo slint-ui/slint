@@ -7,9 +7,9 @@ export component Foo inherits Window {
 
     pure function f1() {
         ti.select-all();
-//         >        <error{Call of impure function 'select-all'}
+//         >        <error{Call of impure function}
     }
 
     property <int> p1: { ti.cut(); 1 }
-//                          > <error{Call of impure function 'cut'}
+//                          > <error{Call of impure function}
 }

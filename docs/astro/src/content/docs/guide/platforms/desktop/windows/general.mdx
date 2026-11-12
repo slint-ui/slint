@@ -3,6 +3,8 @@ title: Windows
 description: Windows Platform Guide
 ---
 
+{/* cSpell: ignore editbin nodew */}
+
 import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 We test Slint on these Windows versions and architectures:
@@ -47,6 +49,38 @@ add_executable(my_program ...)
 set_property(TARGET my_program APPEND PROPERTY WIN32_EXECUTABLE TRUE)
 ```
 
+</TabItem>
+
+<TabItem label="NodeJS" icon="node">
+
+`node.exe` uses the console subsystem.
+To start your application without a console window, make a copy of `node.exe` with the `WINDOWS` subsystem,
+using [`create-nodew-exe`](https://www.npmjs.com/package/create-nodew-exe):
+
+```powershell
+npx create-nodew-exe (Get-Command node).Source my-app.exe
+```
+
+With the Visual Studio C++ tools, `editbin` does the same.
+It comes with the "Desktop development with C++" workload of Visual Studio,
+or of the free [Build Tools for Visual Studio](https://visualstudio.microsoft.com/visual-cpp-build-tools/).
+Run it from a Developer PowerShell for Visual Studio:
+
+```powershell
+Copy-Item (Get-Command node).Source my-app.exe
+editbin /SUBSYSTEM:WINDOWS my-app.exe
+```
+
+Start your application with `.\my-app.exe main.js`.
+
+An executable built as described in [Packaging](/guide/platforms/desktop/packaging/general/) starts your application without arguments.
+Run the same command on it:
+
+```powershell
+npx create-nodew-exe myapp.exe myapp.exe
+```
+
+The output of `console.log()` is then lost, so skip this step while you debug.
 </TabItem>
 
 <TabItem label="Python" icon="seti:python">

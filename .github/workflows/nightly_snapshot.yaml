@@ -29,9 +29,10 @@ env:
     CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "1"
 
 jobs:
-    # Rebuild and push the `cross` container images first, so every `cross` build
-    # below (the ARM tool binaries and the cross LSP) runs against images built
-    # from this commit rather than stale ones.
+    # Rebuild and push the `cross` container images first, so every job below
+    # that runs in them (the ARM tool binaries, the cross LSP, the C++ packages,
+    # and the Python wheels) uses images built from this commit rather than
+    # stale ones.
     cross_containers:
         uses: ./.github/workflows/cross_containers.yaml
         secrets: inherit
@@ -58,10 +59,8 @@ jobs:
             developer_id: ${{ secrets.APPLE_DEV_ID }}
     docs:
         uses: ./.github/workflows/build_docs.yaml
-        secrets: inherit
         with:
           release: ${{ github.event.inputs.mode == 'release' }}
-          app-id: ${{ vars.READ_WRITE_APP_ID }}
           slint-sc-coverage: true
 
     wasm_demo:
@@ -71,6 +70,7 @@ jobs:
     wasm:
         uses: ./.github/workflows/wasm_editor_and_interpreter.yaml
     cpp_package:
+        needs: [cross_containers]
         uses: ./.github/workflows/cpp_package.yaml
         with:
             extra_cmake_flags: ${{ github.event.inputs.mode != 'release' && '-DCPACK_PACKAGE_VERSION=nightly' || '' }}
@@ -79,6 +79,7 @@ jobs:
     # wheel build shows up here instead of during a release. In release mode
     # `trigger_package_publishing` dispatches these workflows to publish.
     python_wheels:
+        needs: [cross_containers]
         if: github.event.inputs.mode != 'release'
         uses: ./.github/workflows/upload_pypi.yaml
 
@@ -255,13 +256,13 @@ jobs:
                 build_vscode_cross_linux_lsp,
                 check-for-secrets,
             ]
-        runs-on: macos-14
+        runs-on: macos-15
         if: ${{ needs.check-for-secrets.outputs.has-openvsx-pat == 'yes' && needs.check-for-secrets.outputs.has-vscode-marketplace-pat == 'yes' }}
         env:
             PUBLISH: ${{ github.event.inputs.mode == 'full-nightly' || github.event.inputs.mode == 'release' }}
         steps:
             - uses: actions/checkout@v7
-            - uses: pnpm/action-setup@v6.0.10
+            - uses: pnpm/action-setup@v6.1.1
             - name: Install GNU Sed
               run: brew install gnu-sed
             - uses: actions/setup-node@v7
@@ -313,7 +314,7 @@ jobs:
               working-directory: editors/vscode
               run: pnpm install --frozen-lockfile
             - name: Install wasm-pack
-              run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+              run: curl https://wasm-bindgen.github.io/wasm-pack/installer/init.sh -sSf | sh
             - name: Package the extension
               id: package
               working-directory: editors/vscode
@@ -352,7 +353,7 @@ jobs:
               with:
                   node-version: 24
                   package-manager-cache: false
-            - uses: pnpm/action-setup@v6.0.10
+            - uses: pnpm/action-setup@v6.1.1
             - uses: ./.github/actions/setup-rust
               with:
                   cache: false
@@ -487,7 +488,7 @@ jobs:
                 rm -rf $output_path/demos
                 mkdir -p $output_path/demos
 
-                for demo_subdir in examples,gallery, demos,printerdemo,rust examples,todo,rust examples,todo-mvc,rust examples,slide_puzzle, examples,speedometer,rust examples,memory, examples,dnd-kanban, examples,imagefilter,rust examples,plotter, examples,opengl_underlay, examples,carousel,rust demos,energy-monitor, demos,weather-demo, demos,home-automation,rust demos,usecases,rust; do
+                for demo_subdir in examples,gallery, demos,printerdemo,rust examples,todo,rust examples,todo-mvc,rust examples,slide_puzzle, examples,speedometer,rust examples,memory, examples,dnd-kanban, examples,imagefilter,rust examples,plotter, examples,opengl_underlay, examples,opengl_texture, examples,carousel,rust demos,energy-monitor, demos,weather-demo, demos,home-automation,rust demos,food-processor,rust demos,usecases,rust; do
                   IFS=',' read example_or_demo demo subdir <<< "${demo_subdir}"
 
                   mkdir -p $output_path/demos/$demo
@@ -746,15 +747,12 @@ jobs:
                 https://api.github.com/repos/slint-ui/slint-cpp-templates-stm32/actions/workflows/ci.yaml/dispatches \
                 -d '{"ref":"main"}'
 
-    publish_crates_io:
+    verify_crates_io:
         runs-on: ubuntu-22.04
-        permissions:
-            id-token: write # required for crates.io trusted publishing
-            contents: read
         env:
             CARGO_PROFILE_DEV_DEBUG: 0
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
             - name: Install Qt
               uses: jurplel/install-qt-action@v4
@@ -764,9 +762,22 @@ jobs:
             - uses: ./.github/actions/setup-rust
             - name: Package and verify all crates (dry run)
               run: ./scripts/publish.sh --dry-run
-            # The trusted-publishing token only lives 30 minutes, less than the
-            # verification above takes. Mint it afterwards and upload the
-            # already-verified packages with --no-verify.
+
+    # Uploads the packages that verify_crates_io checked, with --no-verify, as
+    # the trusted-publishing token only lives 30 minutes. The jobs that hold
+    # publishing credentials restore no cache: what they restore runs next to
+    # the credentials.
+    publish_crates_io:
+        needs: [verify_crates_io]
+        runs-on: ubuntu-22.04
+        permissions:
+            id-token: write # required for crates.io trusted publishing
+            contents: read
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/setup-rust
+              with:
+                  cache: false
             - name: Authenticate with crates.io
               id: auth
               uses: rust-lang/crates-io-auth-action@v1
@@ -798,11 +809,13 @@ jobs:
                   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               run: gh workflow run publish_npm_package.yaml --ref ${{ github.ref_name }} --repo ${{ github.repository }} -f private=false -f release=true
 
-    android:
+    # Builds with a throwaway key, as cargo-apk2 signs every release APK. The
+    # android job signs again with the real key.
+    android_build:
         env:
-            CARGO_APK_RELEASE_KEYSTORE: /home/runner/.android/release.keystore
-            CARGO_APK_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-            # cargo-apk does not honor the repository's relative `build.target-dir`.
+            CARGO_APK_RELEASE_KEYSTORE: ${{ github.workspace }}/throwaway.keystore
+            CARGO_APK_RELEASE_KEYSTORE_PASSWORD: throwaway
+            # cargo-apk2 does not honor the repository's relative `build.target-dir`.
             CARGO_TARGET_DIR: ${{ github.workspace }}/target
         runs-on: ubuntu-latest
         steps:
@@ -810,48 +823,90 @@ jobs:
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/setup-android-viewer-build
             - name: Install the Android API platform of the demos
-              run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
-            - name: Cache cargo-apk
-              id: cargo-apk-cache
+              run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-36"
+            - name: Cache cargo-apk2
+              id: cargo-apk2-cache
               uses: actions/cache@v6
               with:
-                  path: ~/.cargo/bin/cargo-apk
-                  key: cargo-apk-cache
+                  path: ~/.cargo/bin/cargo-apk2
+                  key: cargo-apk2-1.5.0
             - uses: dtolnay/rust-toolchain@stable
-              if: steps.cargo-apk-cache.outputs.cache-hit != 'true'
-            - name: Install cargo-apk
-              if: steps.cargo-apk-cache.outputs.cache-hit != 'true'
-              run: cargo install --locked cargo-apk
+              if: steps.cargo-apk2-cache.outputs.cache-hit != 'true'
+            - name: Install cargo-apk2
+              if: steps.cargo-apk2-cache.outputs.cache-hit != 'true'
+              run: cargo install --locked cargo-apk2@1.5.0
 
-            # Stable with arm64-v8a for the cargo-apk demos.
+            # Stable with arm64-v8a for the cargo-apk2 demos.
             - uses: ./.github/actions/setup-rust
               with:
                   target: aarch64-linux-android
 
-            - name: dump keystore
+            - name: Create the throwaway keystore
               run: |
-                  mkdir -p /home/runner/.android
-                  echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > $CARGO_APK_RELEASE_KEYSTORE
+                  keytool -genkeypair -keystore $CARGO_APK_RELEASE_KEYSTORE -storepass throwaway -keypass throwaway \
+                      -alias throwaway -keyalg RSA -keysize 2048 -validity 1 -dname CN=throwaway
 
-            - name: Build energy-monitor example
-              run: cargo apk build --manifest-path demos/Cargo.toml -p energy-monitor --target aarch64-linux-android --lib --release
-            - name: Build todo demo
-              run: cargo apk build --manifest-path examples/Cargo.toml -p todo --target aarch64-linux-android --lib --release
-            - name: Build weather-demo example
-              run: cargo apk build --manifest-path demos/Cargo.toml -p weather-demo --target aarch64-linux-android --lib --release
-            - name: Build usecases demo
-              run: cargo apk build --manifest-path demos/Cargo.toml -p usecases --target aarch64-linux-android --lib --release
-            - name: Build home automation demo
-              run: cargo apk build --manifest-path demos/Cargo.toml -p home-automation --target aarch64-linux-android --lib --release
+            # The prebuilt Skia binaries need the libc++ of NDK r30 or newer,
+            # while the viewer stays on the NDK that F-Droid rebuilds it with.
+            # Without -z defs, an undefined symbol only fails when the app loads the library.
+            - name: Build the demos
+              env:
+                  RUSTFLAGS: -C link-arg=-Wl,-z,defs
+              run: |
+                  export ANDROID_NDK_ROOT=$ANDROID_NDK_LATEST_HOME
+                  cargo apk2 build --manifest-path demos/Cargo.toml -p energy-monitor --target aarch64-linux-android --lib --release
+                  cargo apk2 build --manifest-path examples/Cargo.toml -p todo --target aarch64-linux-android --lib --release
+                  cargo apk2 build --manifest-path demos/Cargo.toml -p weather-demo --target aarch64-linux-android --lib --release
+                  cargo apk2 build --manifest-path demos/Cargo.toml -p usecases --target aarch64-linux-android --lib --release
+                  cargo apk2 build --manifest-path demos/Cargo.toml -p home-automation --target aarch64-linux-android --lib --release
 
             # Play Store accepts only AABs for new submissions; the per-ABI
             # APKs are for GitHub releases and F-Droid.
             - name: Build slint-viewer AAB and per-ABI APKs
-              env:
-                  ANDROID_KEYSTORE_PATH: ${{ env.CARGO_APK_RELEASE_KEYSTORE }}
-                  ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-                  ANDROID_KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
               run: tools/viewer/android/build-aab.sh
+
+            # Flatten into one directory so the artifact holds bare files.
+            - name: Collect Android artifacts
+              if: always()
+              run: |
+                  mkdir -p android-unsigned
+                  cp -a target/release/apk/*.apk android-unsigned/ || true
+                  cp -a tools/viewer/android/app/build/outputs/apk/release/slint-viewer-* android-unsigned/ || true
+                  cp -a tools/viewer/android/app/build/outputs/bundle/release/slint-viewer.aab android-unsigned/ || true
+            - uses: actions/upload-artifact@v7
+              if: always()
+              with:
+                  name: android-unsigned
+                  path: android-unsigned/
+
+    # No checkout or cache, as anything they put on the runner would run next
+    # to the signing key.
+    android:
+        needs: [android_build]
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/download-artifact@v8
+              with:
+                  name: android-unsigned
+                  path: android-demos
+            # --alignment-preserved keeps the APK bytes F-Droid rebuilds and
+            # compares against.
+            - name: Sign
+              env:
+                  KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+                  KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+                  KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
+              run: |
+                  keystore=$RUNNER_TEMP/release.keystore
+                  echo "$KEYSTORE_BASE64" | base64 --decode > $keystore
+                  apksigner=$ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools | sort -V | tail -1)/apksigner
+                  for apk in android-demos/*.apk; do
+                      $apksigner sign --alignment-preserved --ks $keystore --ks-pass env:KEYSTORE_PASSWORD \
+                          --ks-key-alias "$KEYSTORE_ALIAS" $apk
+                  done
+                  "$JAVA_HOME/bin/jarsigner" -keystore $keystore -storepass:env KEYSTORE_PASSWORD \
+                      android-demos/slint-viewer.aab "$KEYSTORE_ALIAS"
+                  rm $keystore
             # A full-nightly goes to internal testing; a release goes to
             # production as a draft that a human publishes, so an accidental
             # `release` run never reaches users.
@@ -861,24 +916,20 @@ jobs:
               with:
                   serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
                   packageName: dev.slint.viewer
-                  releaseFiles: tools/viewer/android/app/build/outputs/bundle/release/slint-viewer.aab
+                  releaseFiles: android-demos/slint-viewer.aab
                   track: ${{ github.event.inputs.mode == 'release' && 'production' || 'internal' }}
                   status: ${{ github.event.inputs.mode == 'release' && 'draft' || 'completed' }}
-
-            # Flatten into one directory so the artifact holds bare files.
-            - name: Collect Android artifacts
-              if: always()
-              run: |
-                  mkdir -p android-demos
-                  cp -a target/release/apk/*.apk android-demos/ || true
-                  cp -a tools/viewer/android/app/build/outputs/apk/release/slint-viewer-* android-demos/ || true
-                  cp -a tools/viewer/android/app/build/outputs/bundle/release/slint-viewer.aab android-demos/ || true
-            - name: "upload APK artifact"
-              if: always()
-              uses: actions/upload-artifact@v7
+            - uses: actions/upload-artifact@v7
               with:
                   name: android-demos
                   path: android-demos/
+
+    android_reproducible:
+        if: github.event.inputs.mode != 'release'
+        needs: [android]
+        uses: ./.github/workflows/android_reproducible.yaml
+        with:
+            signed-apks: android-demos
 
     # QA the freshly published nightly release: build an ESP-IDF demo against
     # the prebuilt Slint C++ packages and slint-compiler downloaded from the
@@ -902,7 +953,7 @@ jobs:
                   cd $IDF_PYTHON_ENV_PATH
                   bin/pip install pydantic==2.11.10
             - uses: actions/checkout@v7
-            - run: timeout 600 apt-get update && timeout 600 apt-get install -y libfontconfig1-dev
+            - run: bash "$GITHUB_WORKSPACE/.github/actions/apt-get-retry.sh" update && bash "$GITHUB_WORKSPACE/.github/actions/apt-get-retry.sh" install -y libfontconfig1-dev
             - name: Build Printer demo against the nightly package
               shell: bash
               working-directory: demos/printerdemo_mcu/esp-idf

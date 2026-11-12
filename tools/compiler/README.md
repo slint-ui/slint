@@ -27,16 +27,23 @@ From crates.io, which builds it from source and needs
 [Rust](https://www.rust-lang.org/learn/get-started):
 
 ```bash
-cargo install slint-compiler
+cargo install --locked slint-compiler
 ```
 
-Or from PyPI, which ships a pre-built binary and needs no Rust toolchain:
+Or as a pre-built binary that needs no Rust toolchain, from PyPI:
 
 ```bash
 pip install slint-compiler
 ```
 
-Both install the same `slint-compiler` program.
+Or from npm:
+
+```bash
+npm install --save-dev slint-compiler
+```
+
+All of them install the same `slint-compiler` program.
+Run it without installing through `uvx slint-compiler` or `npx slint-compiler`.
 
 ## Usage
 
@@ -64,6 +71,7 @@ Options:
   -I <include path>                  Include path for imported .slint files and image resources
   -L <library path>                  Library path as `<library>=<path>`, a directory or an entry-point file
       --style <style name>           Set the style for the UI (e.g., 'native' or 'fluent')
+      --edition <edition>            Set the edition whose language behavior to use (e.g., '1.19')
       --scale-factor <scale factor>  Scale factor applied to embedded assets, for high-DPI displays
       --depfile <dependency file>    Write a dependency file for build systems like CMake or Ninja
       --embed-resources <value>      Declare which resources to embed into the final output

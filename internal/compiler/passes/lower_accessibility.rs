@@ -3,8 +3,9 @@
 
 //! Pass that lowers synthetic `accessible-*` properties
 
+use crate::builtin_functions::BuiltinFunction;
 use crate::diagnostics::BuildDiagnostics;
-use crate::expression_tree::{BuiltinFunction, Callable, Expression, NamedReference};
+use crate::expression_tree::{Callable, Expression, NamedReference};
 use crate::langtype::{EnumerationValue, Type};
 use crate::object_tree::{Component, ElementRc};
 

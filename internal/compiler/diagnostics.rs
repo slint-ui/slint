@@ -1,8 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use crate::source_path::SourcePath;
 use std::io::Read;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
 
 use crate::parser::TextSize;
@@ -44,13 +45,15 @@ pub trait Spanned {
 
 #[derive(Default)]
 pub struct SourceFileInner {
-    path: PathBuf,
+    path: SourcePath,
 
     /// Complete source code of the path, used to map from offset to line number
     source: Option<String>,
 
     /// The offset of each linebreak
     line_offsets: std::sync::OnceLock<Vec<usize>>,
+
+    edition: std::sync::OnceLock<crate::project_file::SlintEdition>,
 }
 
 impl std::fmt::Debug for SourceFileInner {
@@ -60,21 +63,35 @@ impl std::fmt::Debug for SourceFileInner {
 }
 
 impl SourceFileInner {
-    pub fn new(path: PathBuf, source: String) -> Self {
-        Self { path, source: Some(source), line_offsets: Default::default() }
+    pub fn new(path: SourcePath, source: String) -> Self {
+        Self { path, source: Some(source), ..Default::default() }
     }
 
-    pub fn path(&self) -> &Path {
+    pub fn path(&self) -> &SourcePath {
         &self.path
     }
 
+    /// The edition that the file is compiled with.
+    pub fn edition(&self) -> Option<crate::project_file::SlintEdition> {
+        self.edition.get().copied()
+    }
+
+    /// Sets the edition of the file, unless it's already set.
+    pub(crate) fn set_edition(&self, edition: crate::project_file::SlintEdition) {
+        let _ = self.edition.set(edition);
+    }
+
     /// Create a SourceFile that has just a path, but no contents
-    pub fn from_path_only(path: PathBuf) -> Arc<Self> {
+    pub fn from_path_only(path: SourcePath) -> Arc<Self> {
         Arc::new(Self { path, ..Default::default() })
     }
 
-    /// Returns a tuple with the line (starting at 1) and column number (starting at 1)
+    /// Returns a tuple with the line (starting at 1) and column number (starting at 1),
+    /// or (0, 0) for the offset of an invalid `Span`.
     pub fn line_column(&self, offset: usize, format: ByteFormat) -> (usize, usize) {
+        if !Span::new(offset, 0).is_valid() {
+            return (0, 0);
+        }
         let adjust_utf16 = |line_begin, col| {
             if format == ByteFormat::Utf16
                 && let Some(source) = &self.source
@@ -105,10 +122,9 @@ impl SourceFileInner {
         &self,
         size: TextSize,
         format: ByteFormat,
-    ) -> (String, usize, usize, usize, usize) {
-        let file_name = self.path().to_string_lossy().to_string();
+    ) -> (SourcePath, usize, usize, usize, usize) {
         let (start_line, start_column) = self.line_column(size.into(), format);
-        (file_name, start_line, start_column, start_line, start_column)
+        (self.path().clone(), start_line, start_column, start_line, start_column)
     }
 
     /// Returns the offset that corresponds to the line/column
@@ -180,7 +196,7 @@ pub fn load_from_path(path: &Path) -> Result<String, Diagnostic> {
     .map_err(|err| Diagnostic {
         message: format!("Could not load {}: {}", path.display(), err),
         span: SourceLocation {
-            source_file: Some(SourceFileInner::from_path_only(path.to_owned())),
+            source_file: Some(SourceFileInner::from_path_only(SourcePath::new(path))),
             span: Default::default(),
         },
         level: DiagnosticLevel::Error,
@@ -190,7 +206,7 @@ pub fn load_from_path(path: &Path) -> Result<String, Diagnostic> {
         return crate::lexer::extract_rust_macro(string).ok_or_else(|| Diagnostic {
             message: "No `slint!` macro".into(),
             span: SourceLocation {
-                source_file: Some(SourceFileInner::from_path_only(path.to_owned())),
+                source_file: Some(SourceFileInner::from_path_only(SourcePath::new(path))),
                 span: Default::default(),
             },
             level: DiagnosticLevel::Error,
@@ -235,6 +251,8 @@ pub enum DiagnosticLevel {
     Error,
     /// The diagnostic found is a warning.
     Warning,
+    /// The diagnostic is a suggestion that doesn't affect the compilation.
+    Info,
     /// The diagnostic is an note to further help with the error or warning
     Note,
 }
@@ -252,6 +270,10 @@ pub struct Diagnostic {
 
 //NOTE! Diagnostic is re-exported in the public API of the interpreter
 impl Diagnostic {
+    pub(crate) fn error(message: String, span: SourceLocation) -> Self {
+        Self { message, span, level: DiagnosticLevel::Error }
+    }
+
     /// Return the level for this diagnostic
     pub fn level(&self) -> DiagnosticLevel {
         self.level
@@ -285,9 +307,32 @@ impl Diagnostic {
     // NOTE: The return-type differs from the Spanned trait.
     // Because this is public API (Diagnostic is re-exported by the Interpreter), we cannot change
     // this.
-    /// return the path of the source file where this error is attached
+    /// Returns the path of the source file where this diagnostic is attached,
+    /// or `None` if the source isn't a local file, such as one loaded from a URL.
+    /// [`Self::source_url()`] also names the other sources.
     pub fn source_file(&self) -> Option<&Path> {
-        self.span.source_file().map(|sf| sf.path())
+        self.span.source_file()?.path().as_native_path()
+    }
+
+    /// Returns the URL of the source where this diagnostic is attached,
+    /// such as a `file:` URL for a local file.
+    pub fn source_url(&self) -> Option<String> {
+        let path = self.span.source_file()?.path();
+        let url = match path.as_native_path() {
+            Some(native) => SourcePath::new(std::path::absolute(native).ok()?).to_url(),
+            None => path.to_url(),
+        }?;
+        Some(url.into())
+    }
+}
+
+impl Spanned for Diagnostic {
+    fn span(&self) -> Span {
+        self.span.span()
+    }
+
+    fn source_file(&self) -> Option<&SourceFile> {
+        self.span.source_file()
     }
 }
 
@@ -295,7 +340,7 @@ impl std::fmt::Display for Diagnostic {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if let Some(sf) = self.span.source_file() {
             let (line, _) = self.line_column();
-            write!(f, "{}:{}: {}", sf.path.display(), line, self.message)
+            write!(f, "{}:{}: {}", sf.path, line, self.message)
         } else {
             write!(f, "{}", self.message)
         }
@@ -306,7 +351,7 @@ impl std::fmt::Display for SourceLocation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if let Some(sf) = &self.source_file {
             let (line, col) = sf.line_column(self.span.offset, ByteFormat::Utf8);
-            write!(f, "{}:{line}:{col}", sf.path.display())
+            write!(f, "{}:{line}:{col}", sf.path)
         } else {
             write!(f, "<unknown>")
         }
@@ -338,9 +383,6 @@ pub fn diagnostic_end_line_column_with_format(
 pub struct BuildDiagnostics {
     inner: Vec<Diagnostic>,
 
-    /// When false, throw error for experimental features
-    pub enable_experimental: bool,
-
     /// When true, reject features not supported by the safety-critical subset
     #[cfg(feature = "slint-sc")]
     pub slint_sc: bool,
@@ -349,7 +391,7 @@ pub struct BuildDiagnostics {
     /// does not include the main file.
     /// FIXME: this doesn't really belong in the diagnostics, it should be somehow returned in another way
     /// (maybe in a compilation state that include the diagnostics?)
-    pub all_loaded_files: BTreeSet<PathBuf>,
+    pub all_loaded_files: BTreeSet<SourcePath>,
 }
 
 impl IntoIterator for BuildDiagnostics {
@@ -400,6 +442,12 @@ impl BuildDiagnostics {
     pub fn push_warning(&mut self, message: String, source: &dyn Spanned) {
         self.push_warning_with_span(message, source.to_source_location());
     }
+    pub fn push_info_with_span(&mut self, message: String, span: SourceLocation) {
+        self.push_diagnostic_with_span(message, span, DiagnosticLevel::Info)
+    }
+    pub fn push_info(&mut self, message: String, source: &dyn Spanned) {
+        self.push_info_with_span(message, source.to_source_location());
+    }
     pub fn push_note_with_span(&mut self, message: String, span: SourceLocation) {
         self.push_diagnostic_with_span(message, span, DiagnosticLevel::Note)
     }
@@ -427,11 +475,7 @@ impl BuildDiagnostics {
     /// since those are loaded automatically by the compiler and are not user code.
     #[cfg(feature = "slint-sc")]
     pub fn slint_sc_error(&mut self, feature: &str, source: &dyn Spanned) {
-        if self.slint_sc
-            && !source
-                .source_file()
-                .is_some_and(|sf| sf.path().to_string_lossy().starts_with("builtin:"))
-        {
+        if self.slint_sc && !source.source_file().is_some_and(|sf| sf.path().is_builtin()) {
             self.push_error(format!("{feature} not supported in Slint SC"), source);
         }
     }
@@ -479,9 +523,15 @@ impl BuildDiagnostics {
         self.inner.is_empty()
     }
 
+    /// Drop the info diagnostics, for outputs that can only show them as warnings.
+    pub fn remove_infos(&mut self) {
+        self.inner.retain(|d| d.level != DiagnosticLevel::Info);
+    }
+
     #[cfg(feature = "display-diagnostics")]
     fn call_diagnostics(
         &self,
+        styled: bool,
         mut handle_no_source: Option<&mut dyn FnMut(&Diagnostic)>,
     ) -> String {
         if self.inner.is_empty() {
@@ -495,6 +545,7 @@ impl BuildDiagnostics {
                 let annotate_snippets_level = match d.level {
                     DiagnosticLevel::Error => annotate_snippets::Level::ERROR,
                     DiagnosticLevel::Warning => annotate_snippets::Level::WARNING,
+                    DiagnosticLevel::Info => annotate_snippets::Level::INFO,
                     DiagnosticLevel::Note => annotate_snippets::Level::NOTE,
                 };
                 let message = annotate_snippets_level.primary_title(d.message());
@@ -507,7 +558,7 @@ impl BuildDiagnostics {
                         let end_offset = d.span.span.offset + d.length();
                         message.element(
                             annotate_snippets::Snippet::source(source)
-                                .path(sf.path.to_string_lossy())
+                                .path(sf.path.to_string())
                                 .annotation(
                                     annotate_snippets::AnnotationKind::Primary
                                         .span(start_offset..end_offset),
@@ -519,7 +570,7 @@ impl BuildDiagnostics {
                             handle_no_source(d);
                             return None;
                         }
-                        message.element(annotate_snippets::Origin::path(sf.path.to_string_lossy()))
+                        message.element(annotate_snippets::Origin::path(sf.path.to_string()))
                     }
                 } else {
                     annotate_snippets::Group::with_title(message)
@@ -528,23 +579,52 @@ impl BuildDiagnostics {
             })
             .collect();
 
-        annotate_snippets::Renderer::styled().render(&report)
+        let renderer = if styled {
+            annotate_snippets::Renderer::styled()
+        } else {
+            annotate_snippets::Renderer::plain()
+        };
+        renderer.render(&report)
+    }
+
+    /// Follows https://no-color.org
+    #[cfg(feature = "display-diagnostics")]
+    fn no_color_requested() -> bool {
+        std::env::var_os("NO_COLOR").is_some_and(|v| !v.is_empty())
     }
 
     #[cfg(feature = "display-diagnostics")]
-    /// Print the diagnostics on the console
-    pub fn print(self) {
+    fn stderr_is_styled() -> bool {
+        use std::io::IsTerminal;
+        std::io::stderr().is_terminal() && !Self::no_color_requested()
+    }
+
+    #[cfg(feature = "display-diagnostics")]
+    fn print_to_stderr(self, styled: bool) {
         use std::io::Write;
-        let to_print = self.call_diagnostics(None);
+        let to_print = self.call_diagnostics(styled, None);
         if !to_print.is_empty() {
             let _ = writeln!(std::io::stderr(), "{to_print}");
         }
     }
 
     #[cfg(feature = "display-diagnostics")]
-    /// Print into a string
+    /// Print the diagnostics on stderr, with ANSI colors unless `NO_COLOR` is set
+    pub fn print(self) {
+        self.print_to_stderr(!Self::no_color_requested())
+    }
+
+    #[cfg(feature = "display-diagnostics")]
+    /// Print the diagnostics on stderr, with ANSI colors only if stderr is a terminal
+    /// and `NO_COLOR` is unset
+    pub fn print_styled_if_terminal(self) {
+        self.print_to_stderr(Self::stderr_is_styled())
+    }
+
+    #[cfg(feature = "display-diagnostics")]
+    /// Print into a string, without ANSI colors
     pub fn diagnostics_as_string(self) -> String {
-        self.call_diagnostics(None)
+        self.call_diagnostics(false, None)
     }
 
     #[cfg(all(feature = "proc_macro_span", feature = "display-diagnostics"))]
@@ -558,6 +638,7 @@ impl BuildDiagnostics {
         let mut result = proc_macro::TokenStream::default();
         let mut needs_error = self.has_errors();
         let output = self.call_diagnostics(
+            Self::stderr_is_styled(),
             Some(&mut |diag| {
                 // A diagnostic only carries an offset into the document, which is the
                 // concatenation of the token texts: find the token that offset lands in.
@@ -584,9 +665,7 @@ impl BuildDiagnostics {
                         ));
                     }
                     DiagnosticLevel::Warning => {
-                        result.extend(proc_macro::TokenStream::from(
-                            quote::quote_spanned!(span => const _ : () = { #[deprecated(note = #message)] const WARNING: () = (); WARNING };)
-                        ));
+                        result.extend(macro_warning(span, message));
                     },
                     DiagnosticLevel::Note => {
                         // TODO: Notes are not (yet) supported in proc-macros, we'll just print them as warnings for now.
@@ -596,6 +675,7 @@ impl BuildDiagnostics {
                             quote::quote_spanned!(span => const _ : () = { #[deprecated(note = #message)] const NOTE: () = (); NOTE };)
                         ));
                     },
+                    DiagnosticLevel::Info => {}
                 }
             }),
         );
@@ -652,6 +732,12 @@ impl BuildDiagnostics {
     }
 }
 
+/// Tokens that make rustc report `message` as a warning at `span`.
+#[cfg(feature = "proc_macro_span")]
+pub fn macro_warning(span: proc_macro2::Span, message: &str) -> proc_macro::TokenStream {
+    quote::quote_spanned!(span => const _ : () = { #[deprecated(note = #message)] const WARNING: () = (); WARNING };).into()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -682,7 +768,7 @@ component MainWindow inherits Window {
 
 
     "#.to_string();
-        let sf = SourceFileInner::new(PathBuf::from("foo.slint"), content.clone());
+        let sf = SourceFileInner::new(SourcePath::new("foo.slint"), content.clone());
 
         let mut line = 1;
         let mut column = 1;
@@ -699,5 +785,40 @@ component MainWindow inherits Window {
                 column += 1;
             }
         }
+    }
+
+    #[test]
+    fn a_diagnostic_without_a_position_has_no_line_or_column() {
+        let mut diag = BuildDiagnostics::default();
+        diag.push_error_with_span(
+            "missing".into(),
+            SourceLocation {
+                source_file: Some(SourceFileInner::from_path_only(SourcePath::new("foo.slint"))),
+                span: Span::default(),
+            },
+        );
+        let diagnostic = diag.iter().next().unwrap();
+        for format in [ByteFormat::Utf8, ByteFormat::Utf16] {
+            assert_eq!(diagnostic_line_column_with_format(diagnostic, format), (0, 0));
+            assert_eq!(diagnostic_end_line_column_with_format(diagnostic, format), (0, 0));
+        }
+        assert_eq!(diagnostic.span.to_string(), "foo.slint:0:0");
+    }
+
+    #[cfg(feature = "display-diagnostics")]
+    #[test]
+    fn test_diagnostics_as_string_is_plain() {
+        let sf = Arc::new(SourceFileInner::new(
+            SourcePath::new("foo.slint"),
+            "component Foo {}\n".into(),
+        ));
+        let mut diag = BuildDiagnostics::default();
+        diag.push_warning_with_span(
+            "unused".into(),
+            SourceLocation { source_file: Some(sf), span: Span::new(10, 3) },
+        );
+        let output = diag.diagnostics_as_string();
+        assert!(output.starts_with("warning: unused"), "{output:?}");
+        assert!(!output.contains('\x1b'), "{output:?}");
     }
 }

@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore binfmt dlsym GETNONCLIENTMETRICS NONCLIENTMETRICSW RTLD testui
+// cSpell: ignore binfmt dlsym GETNONCLIENTMETRICS LOGPIXELSY NONCLIENTMETRICSW RTLD testui
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 #![warn(missing_docs)]
@@ -41,6 +41,8 @@ mod ios;
 #[cfg(target_os = "macos")]
 mod macos;
 mod touch_finger_id;
+#[cfg(target_os = "windows")]
+mod windows_settings;
 
 /// Re-export of the winit crate.
 pub use winit;
@@ -83,6 +85,11 @@ mod renderer {
         fn as_core_renderer(&self) -> &dyn i_slint_core::renderer::Renderer;
         // Got WindowEvent::Occluded
         fn occluded(&self, _: bool) {}
+
+        #[cfg(target_os = "windows")]
+        fn presentation_may_use_transparency(&self) -> bool {
+            false
+        }
 
         fn suspend(&self) -> Result<(), PlatformError>;
 
@@ -174,9 +181,15 @@ fn try_create_window_with_fallback_renderer(
     _proxy: &winit::event_loop::EventLoopProxy<SlintEvent>,
     #[cfg(all(muda, target_os = "macos"))] muda_enable_default_menu_bar: bool,
 ) -> Option<Rc<WinitWindowAdapter>> {
-    [
+    let renderer_factories: [fn(
+        &Rc<SharedBackendData>,
+    ) -> Result<Box<dyn WinitCompatibleRenderer>, PlatformError>; _] = [
         #[cfg(enable_skia_renderer)]
-        renderer::skia::WinitSkiaRenderer::new_suspended,
+        |shared_backend_data: &Rc<SharedBackendData>| {
+            renderer::skia::WinitSkiaRenderer::factory_for_graphics_api(
+                shared_backend_data.requested_graphics_api.as_ref(),
+            )?(shared_backend_data)
+        },
         #[cfg(feature = "renderer-femtovg-wgpu")]
         renderer::femtovg::WGPUFemtoVGRenderer::new_suspended,
         #[cfg(all(
@@ -185,13 +198,13 @@ fn try_create_window_with_fallback_renderer(
             not(feature = "renderer-femtovg-wgpu")
         ))]
         renderer::femtovg::GlutinFemtoVGRenderer::new_suspended,
-        #[cfg(feature = "renderer-software")]
+        // The software renderer can't draw images that the browser loads.
+        #[cfg(all(feature = "renderer-software", not(target_arch = "wasm32")))]
         renderer::sw::WinitSoftwareRenderer::new_suspended,
         #[cfg(feature = "renderer-vello")]
         renderer::vello::WinitVelloRenderer::new_suspended,
-    ]
-    .into_iter()
-    .find_map(|renderer_factory| {
+    ];
+    renderer_factories.into_iter().find_map(|renderer_factory| {
         Some(WinitWindowAdapter::new(
             shared_backend_data.clone(),
             renderer_factory(shared_backend_data).ok()?,
@@ -299,6 +312,9 @@ pub struct BackendBuilder {
 
 impl BackendBuilder {
     /// Configures this builder to require a renderer that supports the specified graphics API.
+    ///
+    /// Requesting desktop OpenGL affects the FemtoVG renderer on Windows,
+    /// see `BackendSelector::require_opengl()`.
     #[must_use]
     pub fn request_graphics_api(mut self, graphics_api: RequestedGraphicsAPI) -> Self {
         self.requested_graphics_api = Some(graphics_api);
@@ -650,8 +666,13 @@ impl SharedBackendData {
         let mut inactive_windows = self.inactive_windows.take();
         let mut result = Ok(());
         while let Some(window_weak) = inactive_windows.pop() {
-            if let Some(err) = window_weak.upgrade().and_then(|w| w.ensure_window(event_loop).err())
-            {
+            let Some(window) = window_weak.upgrade() else { continue };
+            // A Wayland window is mapped as soon as it exists, and task bars list one that never gets
+            // content, so a hidden one waits: showing it registers it here again.
+            if self.is_wayland && matches!(window.visibility(), WindowVisibility::Hidden) {
+                continue;
+            }
+            if let Err(err) = window.ensure_window(event_loop) {
                 result = Err(err);
                 break;
             }
@@ -869,32 +890,44 @@ impl i_slint_core::platform::Platform for Backend {
         }
         #[cfg(target_os = "windows")]
         if let Some(ctx) = _ctx.upgrade() {
-            use windows::Win32::UI::HiDpi::SystemParametersInfoForDpi;
+            use windows::Win32::Graphics::Gdi::{GetDC, GetDeviceCaps, LOGPIXELSY, ReleaseDC};
             use windows::Win32::UI::WindowsAndMessaging::{
-                NONCLIENTMETRICSW, SPI_GETNONCLIENTMETRICS,
+                NONCLIENTMETRICSW, SPI_GETNONCLIENTMETRICS, SystemParametersInfoW,
             };
             let mut metrics = NONCLIENTMETRICSW {
                 cbSize: core::mem::size_of::<NONCLIENTMETRICSW>() as u32,
                 ..NONCLIENTMETRICSW::default()
             };
+            // SystemParametersInfoW returns metrics at the system DPI, which LOGPIXELSY reports.
+            // Once we drop Windows 10 before 1607 (Anniversary Update, August 2016),
+            // use `windows::Win32::UI::HiDpi::SystemParametersInfoForDpi` with 96 DPI instead,
+            // without LOGPIXELSY (#14273).
             let ok = unsafe {
-                SystemParametersInfoForDpi(
-                    SPI_GETNONCLIENTMETRICS.0,
+                SystemParametersInfoW(
+                    SPI_GETNONCLIENTMETRICS,
                     metrics.cbSize,
                     Some(&mut metrics as *mut _ as *mut core::ffi::c_void),
-                    0,
-                    96,
+                    Default::default(),
                 )
             }
             .is_ok();
-            // `lfMessageFont.lfHeight` is in pixels at 96 DPI = Slint logical pixels;
-            // negative means em height, positive means cell height — magnitude is fine here.
+            let system_dpi = unsafe {
+                let screen = GetDC(None);
+                let dpi = GetDeviceCaps(Some(screen), LOGPIXELSY);
+                ReleaseDC(None, screen);
+                dpi
+            };
+            // `lfMessageFont.lfHeight` is negative for an em height, positive for a cell height.
             let height = metrics.lfMessageFont.lfHeight.unsigned_abs();
-            if ok && height > 0 {
+            if ok && height > 0 && system_dpi > 0 {
                 ctx.set_platform_default_font_size(Some(
-                    i_slint_core::lengths::LogicalLength::new(height as f32),
+                    i_slint_core::lengths::LogicalLength::new(
+                        height as f32 * 96. / system_dpi as f32,
+                    ),
                 ));
             }
+
+            ctx.set_motion_preference(windows_settings::motion_preference());
         }
     }
 
@@ -977,6 +1010,10 @@ impl i_slint_core::platform::Platform for Backend {
         struct Proxy(winit::event_loop::EventLoopProxy<SlintEvent>, Arc<AtomicUsize>);
         impl EventLoopProxy for Proxy {
             fn quit_event_loop(&self) -> Result<(), EventLoopError> {
+                if cfg!(target_family = "wasm") {
+                    // winit destroys its event loop when it exits, and can't run another one.
+                    return Ok(());
+                }
                 let generation = self.1.load(std::sync::atomic::Ordering::Relaxed);
                 self.0
                     .send_event(SlintEvent(CustomEvent::Exit(generation)))
@@ -1035,6 +1072,26 @@ impl i_slint_core::platform::Platform for Backend {
     fn clipboard_text(&self, clipboard: i_slint_core::platform::Clipboard) -> Option<String> {
         let mut pair = self.shared_data.clipboard.borrow_mut();
         clipboard::select_clipboard(&mut pair, clipboard).and_then(|c| c.get_contents().ok())
+    }
+
+    #[cfg(target_os = "windows")]
+    fn click_interval(&self) -> core::time::Duration {
+        let ms = unsafe { windows::Win32::UI::Input::KeyboardAndMouse::GetDoubleClickTime() };
+        core::time::Duration::from_millis(ms as u64)
+    }
+
+    #[cfg(target_os = "macos")]
+    fn click_interval(&self) -> core::time::Duration {
+        let seconds = objc2_app_kit::NSEvent::doubleClickInterval();
+        core::time::Duration::try_from_secs_f64(seconds)
+            .ok()
+            .filter(|interval| !interval.is_zero())
+            .unwrap_or(i_slint_core::input::DEFAULT_CLICK_INTERVAL)
+    }
+
+    #[cfg(xdg_desktop_settings)]
+    fn click_interval(&self) -> core::time::Duration {
+        self.shared_data.desktop_settings.click_interval.get()
     }
 
     #[cfg(target_os = "windows")]
@@ -1107,7 +1164,8 @@ mod private {
 ///   created when certain conditions of the event loop are met. For example, on Android the application can't be suspended. Therefore,
 ///   functions like [`Self::has_winit_window()`] or [`Self::with_winit_window()`] will only succeed when the event loop is active.
 ///   This is typically the case when callbacks are invoked from the event loop, such as through timers, user input events, or when window
-///   receives events (see also [`Self::on_winit_window_event()`]).
+///   receives events (see also [`Self::on_winit_window_event()`]). On Wayland, where creating a window maps it, the winit window
+///   is created only once the Slint window is shown.
 pub trait WinitWindowAccessor: private::WinitWindowAccessorSealed {
     /// Returns true if a [`winit::window::Window`] exists for this window. This is the case if the window is
     /// backed by this winit backend.
@@ -1141,6 +1199,7 @@ pub trait WinitWindowAccessor: private::WinitWindowAccessorSealed {
     /// use slint::winit_030::{WinitWindowAccessor, winit};
     ///
     /// slint::slint!{
+    ///     #[edition = "1.20"]
     ///     import { VerticalBox, Button } from "std-widgets.slint";
     ///     export component HelloWorld inherits Window {
     ///         callback clicked;
@@ -1178,7 +1237,20 @@ pub trait WinitWindowAccessor: private::WinitWindowAccessorSealed {
         &self,
     ) -> impl std::future::Future<Output = Result<Arc<winit::window::Window>, PlatformError>>;
 
-    /// Dispatches a Winit WindowEvent directly to this window
+    /// Dispatches `event` as if winit had delivered it to this window.
+    ///
+    /// Slint's winit event loop calls this for every [`WindowEvent`] of the window.
+    /// Call it yourself to hand Slint an event it wouldn't receive otherwise,
+    /// such as one that a [`CustomApplicationHandler`] held back with
+    /// [`EventResult::PreventDefault`] and forwards later, or a synthesized event.
+    ///
+    /// The event goes through the same steps as one from the event loop:
+    /// the [window event filter](Self::on_winit_window_event) runs first,
+    /// then Slint updates the window and dispatches input to its elements.
+    /// Pass the [`ActiveEventLoop`] of the callback you're called from.
+    ///
+    /// Returns an error if this window [isn't backed by winit](Self::has_winit_window),
+    /// or has no winit window yet because it was never shown.
     fn dispatch_winit_window_event(
         &self,
         event_loop: &ActiveEventLoop,
@@ -1267,22 +1339,22 @@ fn create_renderer(
 ) -> Result<Box<dyn WinitCompatibleRenderer>, PlatformError> {
     match (shared_data.renderer_name.as_deref(), shared_data.requested_graphics_api.as_ref()) {
         #[cfg(all(feature = "renderer-femtovg", supports_opengl))]
-        (Some("gl"), maybe_graphics_api) | (Some("femtovg"), maybe_graphics_api) => {
-            // If a graphics API was requested, double check that it's GL. FemtoVG doesn't support Metal, etc.
-            if let Some(api) = maybe_graphics_api {
-                i_slint_core::graphics::RequestedOpenGLVersion::try_from(api)?;
-            }
+        (Some("gl" | "femtovg"), _) => {
             renderer::femtovg::GlutinFemtoVGRenderer::new_suspended(shared_data)
         }
         #[cfg(feature = "renderer-femtovg-wgpu")]
         (Some("femtovg-wgpu"), maybe_graphics_api) => {
-            if let Some(_api) = maybe_graphics_api {
+            match maybe_graphics_api {
+                None
+                | Some(
+                    RequestedGraphicsAPI::Metal
+                    | RequestedGraphicsAPI::Vulkan
+                    | RequestedGraphicsAPI::Direct3D,
+                ) => {}
                 #[cfg(feature = "unstable-wgpu-30")]
-                if !matches!(_api, RequestedGraphicsAPI::WGPU30(..)) {
-                    return Err(
-                        "The FemtoVG WGPU renderer only supports the WGPU30 graphics API selection"
-                            .into(),
-                    );
+                Some(RequestedGraphicsAPI::WGPU30(..)) => {}
+                Some(_) => {
+                    return Err("The FemtoVG WGPU renderer supports only the Metal, Vulkan, Direct3D, or WGPU30 graphics API selection".into());
                 }
             }
             renderer::femtovg::WGPUFemtoVGRenderer::new_suspended(shared_data)
@@ -1294,11 +1366,7 @@ fn create_renderer(
             )
         }
         #[cfg(all(enable_skia_renderer, supports_opengl))]
-        (Some("skia-opengl"), maybe_graphics_api) => {
-            // If a graphics API was requested, double check that it's GL.
-            if let Some(api) = maybe_graphics_api {
-                i_slint_core::graphics::RequestedOpenGLVersion::try_from(api)?;
-            }
+        (Some("skia-opengl"), _) => {
             renderer::skia::WinitSkiaRenderer::new_opengl_suspended(shared_data)
         }
         #[cfg(enable_skia_wgpu)]
@@ -1324,22 +1392,22 @@ fn create_renderer(
             }
         },
         #[cfg(all(enable_skia_renderer, not(target_os = "android")))]
-        (Some("skia-software"), None) => {
+        (Some("skia-software"), _) => {
             renderer::skia::WinitSkiaRenderer::new_software_suspended(shared_data)
         }
         #[cfg(feature = "renderer-software")]
-        (Some("sw"), None) | (Some("software"), None) => {
+        (Some("sw" | "software"), _) => {
             renderer::sw::WinitSoftwareRenderer::new_suspended(shared_data)
         }
         #[cfg(feature = "renderer-vello")]
         (Some("vello"), maybe_graphics_api) => {
-            // vello renders through WGPU 29; anything else was not created by
+            // vello renders through WGPU 30; anything else was not created by
             // this renderer and cannot be adopted.
             if let Some(api) = maybe_graphics_api
-                && !matches!(api, RequestedGraphicsAPI::WGPU29(..))
+                && !matches!(api, RequestedGraphicsAPI::WGPU30(..))
             {
                 return Err(
-                    "The vello renderer only supports the WGPU29 graphics API selection".into()
+                    "The vello renderer only supports the WGPU30 graphics API selection".into()
                 );
             }
             renderer::vello::WinitVelloRenderer::new_suspended(shared_data)
@@ -1361,11 +1429,8 @@ fn create_renderer(
                 enable_skia_wgpu => {
                     renderer::skia::WinitSkiaRenderer::new_wgpu_29_suspended(shared_data)
                 }
-                feature = "renderer-vello" => {
-                    renderer::vello::WinitVelloRenderer::new_suspended(shared_data)
-                }
                 _ => {
-                    Err("unstable-wgpu-29 was enabled but no renderer was selected. Please select renderer-skia* or renderer-vello".into())
+                    Err("unstable-wgpu-29 was enabled but no renderer was selected. Please select renderer-skia*".into())
                 }
             }
         }
@@ -1378,8 +1443,11 @@ fn create_renderer(
                 feature = "renderer-femtovg-wgpu" => {
                     renderer::femtovg::WGPUFemtoVGRenderer::new_suspended(shared_data)
                 }
+                feature = "renderer-vello" => {
+                    renderer::vello::WinitVelloRenderer::new_suspended(shared_data)
+                }
                 _ => {
-                    Err("unstable-wgpu-30 was enabled but no renderer was selected. Please select either renderer-skia* or renderer-femtovg-wgpu".into())
+                    Err("unstable-wgpu-30 was enabled but no renderer was selected. Please select renderer-skia*, renderer-femtovg-wgpu, or renderer-vello".into())
                 }
             }
         }
@@ -1389,8 +1457,6 @@ fn create_renderer(
                     renderer::skia::WinitSkiaRenderer::factory_for_graphics_api(Some(_requested_graphics_api))?(shared_data)
                 }
                 all(feature = "renderer-femtovg", supports_opengl) => {
-                    // If a graphics API was requested, double check that it's GL. FemtoVG doesn't support Metal, etc.
-                    i_slint_core::graphics::RequestedOpenGLVersion::try_from(_requested_graphics_api)?;
                     renderer::femtovg::GlutinFemtoVGRenderer::new_suspended(shared_data)
                 }
                 _ => {
@@ -1406,6 +1472,7 @@ impl private::WinitWindowAccessorSealed for i_slint_core::api::Window {}
 #[cfg(test)]
 mod testui {
     slint::slint! {
+        #[edition = "1.20"]
         export component App inherits Window {
             Text { text: "Ok"; }
         }

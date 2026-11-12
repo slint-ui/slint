@@ -55,7 +55,7 @@ impl Platform for ReplayBackend {
     }
 
     fn duration_since_start(&self) -> core::time::Duration {
-        core::time::Duration::from_millis(i_slint_core::animations::current_tick().0)
+        i_slint_core::animations::current_tick().into()
     }
 }
 
@@ -134,6 +134,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let source = std::fs::read_to_string(&case_path)?;
     let mut compiler = slint_interpreter::Compiler::default();
     compiler.set_style("fluent".into());
+    compiler.set_edition(test_driver_lib::edition_version_or_current(&source));
     let compiled =
         poll_once(compiler.build_from_source(source, case_path.clone())).expect("compile");
     if compiled.has_errors() {

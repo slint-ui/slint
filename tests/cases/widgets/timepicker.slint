@@ -45,6 +45,19 @@ button.invoke_accessible_default_action();
 assert_eq!(instance.get_timepicker_created(), true);
 ```
 
+```rust
+let instance = TestCase::new().unwrap();
+instance.set_time(Time{ hour: 8, minute: 5, ..Default::default()});
+
+let button = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::b").next().unwrap();
+button.invoke_accessible_default_action();
+
+// Minutes have two digits
+let minute = slint_testing::ElementHandle::find_by_accessible_label(&instance, "minute").collect::<Vec<_>>();
+assert_eq!(minute.len(), 1);
+assert_eq!(minute[0].accessible_value().unwrap(), "05");
+```
+
 ```cpp
 using slint_testing::mock_elapsed_time;
 

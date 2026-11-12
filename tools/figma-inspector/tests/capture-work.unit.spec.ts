@@ -3,12 +3,16 @@
 
 import { describe, expect, test } from "vitest";
 
-import { CaptureCache, CaptureCancelled } from "../src/plugin/capture-work";
+import {
+    CaptureCache,
+    CaptureCancelled,
+    sourceRasterFonts,
+    reusableCapture,
+} from "../src/plugin/capture-work";
 import {
     captureBusyTime,
     captureScheduler,
     mapCaptureChildren,
-    withCaptureTimeoutFallback,
 } from "../src/plugin/capture-work";
 
 describe("capture-cache", () => {
@@ -188,40 +192,6 @@ describe("capture-cache", () => {
 });
 
 describe("capture-scheduler", () => {
-    test("timeout cancels primary work and ignores its late completion", async () => {
-        let finishPrimary: (value: string) => void = () => {};
-        let primaryCancelled = () => false;
-        const result = await withCaptureTimeoutFallback(
-            0,
-            (cancelled) => {
-                primaryCancelled = cancelled;
-                return new Promise<string>((resolve) => {
-                    finishPrimary = resolve;
-                });
-            },
-            async () => "flattened",
-        );
-        expect(result).toEqual({ value: "flattened", fellBack: true });
-        expect(primaryCancelled()).toBe(true);
-        finishPrimary("too late");
-        await Promise.resolve();
-        expect(result.value).toBe("flattened");
-    });
-
-    test("capture finishing before the deadline does not run fallback", async () => {
-        let fallbackRuns = 0;
-        const result = await withCaptureTimeoutFallback(
-            100,
-            async () => "complete",
-            async () => {
-                fallbackRuns++;
-                return "flattened";
-            },
-        );
-        expect(result).toEqual({ value: "complete", fellBack: false });
-        expect(fallbackRuns).toBe(0);
-    });
-
     test("capture scheduler bounds overlapping exports and releases failures", async () => {
         const schedule = captureScheduler(2);
         const releases: (() => void)[] = [];
@@ -425,4 +395,170 @@ test("a new selection retries an export cancelled by the previous selection", as
     expect(await current).toBe(42);
     expect(loads).toBe(1);
     expect(cache.peek("asset")).toBe(42);
+});
+
+test("repeated labels and icons share exports while retaining every captured node", async () => {
+    const { captureSource } = await import("../src/plugin/capture");
+    const { readFile } = await import("node:fs/promises");
+    const png = new Uint8Array(
+        await readFile("fixtures/authored/odd-size.png"),
+    );
+    const children = Array.from({ length: 200 }, (_, index) => ({
+        id: `button-${index}`,
+        name: "Button",
+        type: "FRAME",
+        visible: true,
+        width: 100,
+        height: 32,
+        effects: [],
+        opacity: 1,
+        absoluteTransform: [
+            [1, 0, index * 120],
+            [0, 1, 0],
+        ],
+        children: [
+            {
+                id: `label-${index}`,
+                name: "Label",
+                type: "TEXT",
+                visible: true,
+                characters: "Label",
+                hasMissingFont: false,
+                fontName: { family: "Example Font", style: "Regular" },
+                fontWeight: 400,
+                fills: [],
+                width: 40,
+                height: 20,
+                effects: [],
+                x: index * 120,
+                absoluteTransform: [
+                    [1, 0, index * 120],
+                    [0, 1, 0],
+                ],
+            },
+            {
+                id: `icon-${index}`,
+                name: "Icon",
+                type: "VECTOR",
+                visible: true,
+                fills: [],
+                strokes: [],
+                width: 24,
+                height: 24,
+                effects: [],
+                vectorPaths: [
+                    { windingRule: "NONZERO", data: "M 0 0 L 24 24" },
+                ],
+                vectorNetwork: { vertices: [], segments: [] },
+                absoluteTransform: [
+                    [1, 0, index * 120],
+                    [0, 1, 0],
+                ],
+            },
+        ],
+    }));
+    const root = {
+        id: "root",
+        name: "Buttons",
+        type: "FRAME",
+        visible: true,
+        children,
+    };
+    const cache = new CaptureCache();
+    let pngExports = 0,
+        svgExports = 0;
+    const capture = () =>
+        captureSource(
+            root as unknown as SceneNode,
+            Symbol("mixed"),
+            async () => {
+                svgExports++;
+                return '<svg width="24" height="24"/>';
+            },
+            undefined,
+            async () => {
+                pngExports++;
+                return png;
+            },
+            2,
+            false,
+            undefined,
+            undefined,
+            4,
+            cache,
+        );
+    const first = await capture();
+    expect(first.work).toMatchObject({
+        capturedNodes: 601,
+        pngExports: 1,
+        svgExports: 1,
+        textCacheHits: 199,
+    });
+    expect(first.source.root.children?.map((node) => node.id)).toEqual(
+        children.map((node) => node.id),
+    );
+    expect(first.fontMetrics).toEqual({
+        requests: 200,
+        exports: 1,
+        cacheHits: 199,
+    });
+    const repeated = await capture();
+    expect(repeated.source).toEqual(first.source);
+    expect(repeated.work).toMatchObject({
+        pngExports: 0,
+        svgExports: 0,
+        textCacheHits: 200,
+    });
+    expect(pngExports).toBe(1);
+    expect(svgExports).toBe(1);
+    children[0].children[0].characters = "Changed";
+    await capture();
+    expect(pngExports).toBe(2);
+    children[1].opacity = 0.5;
+    await capture();
+    expect(pngExports).toBe(3);
+    expect(svgExports).toBe(2);
+    children[2].children[0].absoluteTransform[0][2] += 0.25;
+    await capture();
+    expect(pngExports).toBe(4);
+});
+
+test("cached raster text tracks mixed-run fonts and retries incomplete captures", () => {
+    const source = {
+        sourceVersion: 1 as const,
+        images: {},
+        exportScale: 1,
+        pngEnabled: true,
+        root: {
+            id: "label",
+            name: "Label",
+            type: "TEXT",
+            properties: { fontName: { $source: "mixed" } },
+            errors: [] as { property: string; message: string }[],
+            segments: {
+                value: [
+                    { fontName: { family: "Roboto", style: "Regular" } },
+                    { fontName: { family: "Example", style: "Bold" } },
+                    { fontName: { family: "Roboto", style: "Regular" } },
+                ],
+            },
+            exports: {
+                svg: {} as { error?: string },
+                png: { value: new Uint8Array([1]) },
+            },
+        },
+    };
+    expect(reusableCapture(source)).toBe(true);
+    expect(sourceRasterFonts(source)).toEqual([
+        '["Example","Bold"]',
+        '["Roboto","Regular"]',
+    ]);
+    source.root.exports.svg.error = "Temporary host failure";
+    expect(reusableCapture(source)).toBe(false);
+    delete source.root.exports.svg.error;
+    source.root.errors.push({ property: "fills", message: "Unavailable" });
+    expect(reusableCapture(source)).toBe(false);
+    source.root.errors = [];
+    source.root.segments.value = [];
+    expect(sourceRasterFonts(source)).toBeUndefined();
 });

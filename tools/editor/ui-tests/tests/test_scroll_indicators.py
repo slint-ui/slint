@@ -1,13 +1,65 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+from pathlib import Path
+
 import pytest
 import slint_testing
-from canvas_interactions import center
+from canvas_interactions import center, element_frame
 from editor_sync import wait_for_source
 from gradient_interactions import gesture
 from source_snapshot import SourceSnapshot
-from ui_driver import first_window, launch_editor, wait_until, window_element_with_label
+from ui_assertions import expect
+from ui_driver import element, elements, first_window, launch_editor, wait_until
+
+
+@pytest.mark.parametrize("suffix", ["slint", "svg"])
+def test_file_selection_preserves_scrolled_row_positions(
+    editor_binary, editor_environment, tmp_path, suffix
+):
+    source = tmp_path / "Main.slint"
+    source.write_text("export component Main inherits Window {}")
+    contents = (
+        "export component Example inherits Window {}"
+        if suffix == "slint"
+        else '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"/>'
+    )
+    for index in range(40):
+        (tmp_path / f"File{index:03}.{suffix}").write_text(contents)
+    with launch_editor(editor_binary, editor_environment, source) as editor:
+        wait_for_source(source, source.read_bytes())
+        window = first_window(editor)
+        tree = element(window, "Files", role=slint_testing.AccessibleRole.Tree)
+
+        def row_frames():
+            return {
+                row.accessible_label: element_frame(row)
+                for row in elements(tree, role=slint_testing.AccessibleRole.ListItem)
+            }
+
+        for delta in [-301, -107]:
+            before_scroll = row_frames()
+            window.dispatch_event(
+                slint_testing.PointerScrolledEvent(
+                    center(tree), delta_x=0, delta_y=delta
+                )
+            )
+            expect.poll(row_frames).not_to_equal(before_scroll)
+            before_selection = row_frames()
+            paths = [path for path in before_selection if path.endswith(f".{suffix}")]
+            path = paths[len(paths) // 2]
+            row = element(tree, path, role=slint_testing.AccessibleRole.ListItem)
+            position = center(row)
+            gesture(window, position, position)
+            if suffix == "slint":
+                selected = Path(path)
+                wait_for_source(selected, selected.read_bytes())
+            expect(row).to_be_selected()
+            after_selection = row_frames()
+            shared = before_selection.keys() & after_selection.keys()
+            assert shared
+            for shared_path in shared:
+                assert after_selection[shared_path] == before_selection[shared_path]
 
 
 @pytest.mark.parametrize("panel", ["files", "outline"])
@@ -33,10 +85,10 @@ def test_tree_indicators_scroll_without_losing_virtualization(
     with launch_editor(editor_binary, editor_environment, file) as editor:
         wait_for_source(file, file.read_bytes())
         window = first_window(editor)
-        tree = window_element_with_label(
+        tree = element(
             window,
             "Files" if panel == "files" else "Current file outline",
-            slint_testing.AccessibleRole.Tree
+            role=slint_testing.AccessibleRole.Tree
             if panel == "files"
             else slint_testing.AccessibleRole.List,
         )
@@ -57,25 +109,40 @@ def test_tree_indicators_scroll_without_losing_virtualization(
                 .find_all()
             ]
 
-        before = wait_until(lambda: row_labels() or None)
+        before = wait_until(row_labels)
         assert 0 < len(before) < 150
         assert vertical.computed_opacity == 0
         tree_size = tree.size
         window.dispatch_event(
             slint_testing.PointerScrolledEvent(center(tree), delta_x=0, delta_y=-300)
         )
-        wait_until(lambda: True if vertical.computed_opacity > 0.99 else None)
-        wait_until(lambda: True if row_labels() != before else None)
-        assert tree.size == tree_size
-
-        wait_until(lambda: True if 0 < vertical.computed_opacity < 1 else None)
-        before_drag = row_labels()
+        expect.poll(
+            lambda: vertical.computed_opacity > 0.99,
+            message="vertical scroll indicator is opaque",
+        ).to_equal(True)
+        # Hover the thumb right away: it only reacts to hover while shown, and it starts to fade
+        # 700ms after scrolling stops. Hovering keeps it shown while the rows are read.
         start = center(vertical)
+        window.dispatch_event(slint_testing.PointerMoveEvent(start))
+        expect.poll(
+            row_labels, message="visible tree rows after scrolling"
+        ).not_to_equal(before)
+        assert tree.size == tree_size
+        expect.poll(
+            lambda: vertical.computed_opacity,
+            message="hover keeps the vertical scroll indicator opaque",
+        ).to_equal(1)
+        before_drag = row_labels()
         end = slint_testing.LogicalPosition(x=start.x, y=start.y + 30)
         gesture(window, start, end)
-        wait_until(lambda: True if row_labels() != before_drag else None)
+        expect.poll(
+            row_labels, message="visible tree rows after dragging"
+        ).not_to_equal(before_drag)
         window.dispatch_event(slint_testing.PointerExitedEvent())
         assert 0 < len(row_labels()) < 150
-        wait_until(lambda: True if vertical.computed_opacity == 0 else None)
+        expect.poll(
+            lambda: vertical.computed_opacity,
+            message="vertical scroll indicator opacity",
+        ).to_equal(0)
         assert tree.size == tree_size
         original.assert_unchanged()

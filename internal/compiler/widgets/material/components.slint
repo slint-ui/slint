@@ -21,6 +21,7 @@ export component Ripple inherits Rectangle {
     ]
 
     i-circle := Rectangle {
+        width: 0px;
         x: root.ripple-x  - self.width / 2;
         y: root.ripple-y  - self.width / 2;
         height: self.width;

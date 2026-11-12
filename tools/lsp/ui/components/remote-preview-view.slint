@@ -138,11 +138,14 @@ export component RemotePreviewView inherits Rectangle {
             && !root.prompt-active
             && index >= 0
             && index < Api.remote-discovered-viewers.length
-            && Api.remote-discovered-viewers[index].compatible
-            && Api.remote-discovered-viewers[index].addresses.length > 0 {
-            Api.remote-connect(
-                Api.remote-discovered-viewers[index].addresses,
-                Api.remote-discovered-viewers[index].port);
+            && Api.remote-discovered-viewers[index].compatible {
+            if Api.remote-discovered-viewers[index].serial-port != "" {
+                Api.remote-connect-serial(Api.remote-discovered-viewers[index].serial-port);
+            } else if Api.remote-discovered-viewers[index].addresses.length > 0 {
+                Api.remote-connect(
+                    Api.remote-discovered-viewers[index].addresses,
+                    Api.remote-discovered-viewers[index].port);
+            }
         }
     }
     property <bool> dark-color-scheme: Palette.color-scheme == ColorScheme.dark;
@@ -264,7 +267,7 @@ export component RemotePreviewView inherits Rectangle {
                             VerticalLayout {
                                 padding: EditorSpaceSettings.default-padding * 2;
                                 Text {
-                                    text: @tr("Start Slint Viewer on your device using the same Wi-Fi.");
+                                    text: @tr("Start Slint Viewer on your device using the same Wi-Fi, or connect a microcontroller running the Slint viewer firmware over USB.");
                                     wrap: word-wrap;
                                     color: Palette.foreground;
                                     opacity: 0.80;
@@ -335,7 +338,7 @@ export component RemotePreviewView inherits Rectangle {
                         min-width: manual-le.preferred-width;
                         manual-le := LineEdit {
                             width: 100%;
-                            placeholder-text: @tr("Manual host:port, for example 192.168.1.42:9000");
+                            placeholder-text: @tr("Manual host:port or serial port, for example 192.168.1.42:9000 or /dev/ttyACM0");
                             text <=> root.manual-entry;
                             edited => {
                                 root.selected-index = -1;
@@ -344,7 +347,7 @@ export component RemotePreviewView inherits Rectangle {
                     }
 
                     Text {
-                        text: @tr("Connecting sends this project's .slint files, images and fonts to the device over the local network. Pairing encrypts them.");
+                        text: @tr("Connecting sends this project's .slint files, images and fonts to the device over the local network. Pairing encrypts them. A microcontroller on USB receives the compiled design instead.");
                         color: Palette.foreground;
                         opacity: 0.7;
                         font-size: 11px;

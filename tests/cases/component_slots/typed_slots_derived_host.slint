@@ -1,0 +1,59 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+interface I {
+    in-out property <int> value;
+}
+
+component Impl {
+    in-out property <int> value;
+}
+
+component Host {
+    out property <int> seen: control.value;
+    public function set-value(v: int) { control.value = v; }
+    slot <I> control;
+    Rectangle {
+        control {
+            value: 6;
+        }
+    }
+}
+
+component Filled inherits Host {
+    control << Impl { }
+}
+
+export component TestCase inherits Window {
+    b := Filled { }
+
+    c := Filled { }
+
+    public function set-b() { b.set-value(9); }
+    out property <bool> test: b.seen == 6 && c.seen == 6;
+    out property <bool> updated: b.seen == 9 && c.seen == 6;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+instance.invoke_set_b();
+assert!(instance.get_updated());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+instance.invoke_set_b();
+assert(instance.get_updated());
+```
+
+```js
+let instance = new slint.TestCase({});
+assert(instance.test);
+instance.set_b();
+assert(instance.updated);
+```
+*/

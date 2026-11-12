@@ -3,7 +3,7 @@
 
 [package]
 name = "slint-safeui-ffi"
-version = "1.19.0"
+version = "1.20.0"
 edition = "2024"
 publish = false
 build = "build.rs"
@@ -32,4 +32,4 @@ slint-sc = { path = "../../../api/slint-sc" }
 slint-safeui-app = { path = "../app" }
 
 [build-dependencies]
-bindgen = "0.72.1"
+bindgen = "0.73.2"

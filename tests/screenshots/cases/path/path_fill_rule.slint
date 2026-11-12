@@ -1,0 +1,38 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// ROTATION_THRESHOLD=30  - Zeno anti-aliasing is slightly different in different rotation
+// SKIP_LINE_BY_LINE  - Path not implemented in line-by-line mode
+
+// #14645: the shapes in the right column (evenodd) have holes, the ones in the left column (nonzero) don't.
+
+export component TestCase inherits Window {
+    width: 64px;
+    height: 64px;
+    background: Colors.white;
+
+    for rule[index] in [FillRule.nonzero, FillRule.evenodd]: Path {
+        x: index * 32px;
+        y: 0px;
+        width: 32px;
+        height: 32px;
+        viewbox-width: 100;
+        viewbox-height: 100;
+        commands: "M 50 5 L 76.45 86.41 L 7.2 36.09 L 92.8 36.09 L 23.55 86.41 Z";
+        fill: Colors.blue;
+        fill-rule: rule;
+    }
+
+    // Two nested squares with the same winding direction.
+    for rule[index] in [FillRule.nonzero, FillRule.evenodd]: Path {
+        x: index * 32px;
+        y: 32px;
+        width: 32px;
+        height: 32px;
+        viewbox-width: 100;
+        viewbox-height: 100;
+        commands: "M 10 10 L 90 10 L 90 90 L 10 90 Z M 30 30 L 70 30 L 70 70 L 30 70 Z";
+        fill: Colors.darkorange;
+        fill-rule: rule;
+    }
+}

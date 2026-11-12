@@ -362,7 +362,7 @@ mod software_renderer {
     use i_slint_core::SharedVector;
     use i_slint_core::graphics::{IntRect, Rgb8Pixel};
     use i_slint_renderer_software::{
-        DirtyRegionAlignment, PhysicalRegion, RepaintBufferType, Rgb565Pixel, SoftwareRenderer,
+        PhysicalRegion, RepaintBufferType, Rgb565Pixel, SoftwareRenderer,
     };
 
     #[cfg(feature = "experimental")]
@@ -729,7 +729,7 @@ mod software_renderer {
         vertical: u16,
     ) {
         let renderer = unsafe { &*(r as *const SoftwareRenderer) };
-        renderer.set_dirty_region_alignment(DirtyRegionAlignment::new(horizontal, vertical));
+        renderer.set_dirty_region_alignment(horizontal, vertical);
     }
 
     #[unsafe(no_mangle)]

@@ -3,14 +3,8 @@
 
 use std::vec;
 
-use i_slint_core::{
-    ImageInner,
-    graphics::{Image, SharedImageBuffer, SharedPixelBuffer},
-};
-use napi::{
-    Env,
-    bindgen_prelude::{Buffer, External, ToNapiValue, Unknown},
-};
+use i_slint_core::graphics::{Image, SharedPixelBuffer};
+use napi::bindgen_prelude::{Buffer, Either, External, Uint8Array, Undefined};
 
 // This is needed for typedoc check JsImageData::image
 pub type ImageData = Image;
@@ -36,6 +30,26 @@ impl SlintImageData {
         Self { inner: Image::from_rgba8(SharedPixelBuffer::new(width, height)) }
     }
 
+    /// Loads the image from the file at `path`.
+    ///
+    /// @throws {Error} if the file can't be read or decoded.
+    #[napi(factory)]
+    pub fn load_from_path(path: String) -> napi::Result<Self> {
+        Image::load_from_path(std::path::Path::new(&path))
+            .map(Self::from)
+            .map_err(|e| napi::Error::from_reason(format!("{path}: {e}")))
+    }
+
+    /// Decodes the image from `data`, the content of an image file.
+    ///
+    /// @throws {Error} if the data can't be decoded.
+    #[napi(factory)]
+    pub fn load_from_data(data: Uint8Array, format: Option<String>) -> napi::Result<Self> {
+        Image::load_from_data(&data, format.as_deref())
+            .map(Self::from)
+            .map_err(|e| napi::Error::from_reason(e.to_string()))
+    }
+
     /// Returns the width of the image in pixels.
     #[napi(getter)]
     pub fn width(&self) -> u32 {
@@ -52,33 +66,17 @@ impl SlintImageData {
     /// A Buffer is a subclass of Uint8Array.
     #[napi(getter)]
     pub fn data(&self) -> Buffer {
-        let image_inner: &ImageInner = (&self.inner).into();
-        if let Some(buffer) = image_inner.render_to_buffer(None) {
-            match buffer {
-                SharedImageBuffer::RGB8(buffer) => {
-                    return Buffer::from(rgb_to_rgba(
-                        buffer.as_bytes(),
-                        (self.width() * self.height()) as usize,
-                    ));
-                }
-                SharedImageBuffer::RGBA8(buffer) => return Buffer::from(buffer.as_bytes()),
-                SharedImageBuffer::RGBA8Premultiplied(buffer) => {
-                    return Buffer::from(rgb_to_rgba(
-                        buffer.as_bytes(),
-                        (self.width() * self.height()) as usize,
-                    ));
-                }
-            }
+        match self.inner.to_rgba8() {
+            Some(buffer) => Buffer::from(buffer.as_bytes()),
+            None => Buffer::from(vec![0; (self.width() * self.height() * 4) as usize]),
         }
-
-        Buffer::from(vec![0; (self.width() * self.height() * 4) as usize])
     }
 
     #[napi(getter)]
-    pub fn path<'a>(&self, env: &'a Env) -> napi::Result<Unknown<'a>> {
+    pub fn path(&self) -> Either<String, Undefined> {
         match self.inner.path() {
-            None => ().into_unknown(env),
-            Some(p) => env.create_string(p.to_string_lossy().as_ref())?.into_unknown(env),
+            None => Either::B(()),
+            Some(p) => Either::A(p.to_string_lossy().into_owned()),
         }
     }
 
@@ -87,21 +85,4 @@ impl SlintImageData {
     pub fn image(&self) -> External<ImageData> {
         External::new(self.inner.clone())
     }
-}
-
-fn rgb_to_rgba(bytes: &[u8], size: usize) -> Vec<u8> {
-    let mut rgba_bytes = Vec::new();
-
-    for i in 0..size {
-        if (i * 3) + 2 >= bytes.len() {
-            continue;
-        }
-
-        rgba_bytes.push(bytes[i * 3]);
-        rgba_bytes.push(bytes[(i * 3) + 1]);
-        rgba_bytes.push(bytes[(i * 3) + 2]);
-        rgba_bytes.push(255);
-    }
-
-    rgba_bytes
 }

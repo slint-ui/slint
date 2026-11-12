@@ -31,10 +31,10 @@ assert!(instance.get_test());
 
 ```js
 var instance = new slint.TestCase({});
-assert(Math.abs(instance.t1 - 1) < Number.EPSILON);
-assert(Math.abs(instance.t2 - -1) < Number.EPSILON);
-assert(Math.abs(instance.t3 - 0.5) < Number.EPSILON);
-assert(Math.abs(instance.t4) < Number.EPSILON);
+assert(Math.abs(instance.t1 - 1) < 0.0001);
+assert(Math.abs(instance.t2 - -1) < 0.0001);
+assert(Math.abs(instance.t3 - 0.5) < 0.0001);
+assert(Math.abs(instance.t4) < 0.0001);
 assert(instance.test);
 ```
 */

@@ -9,6 +9,31 @@ use crate::{
     BeginRendering, FemtoVGRenderer, GraphicsBackend, WindowSurface, itemrenderer::CanvasRc,
 };
 
+#[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
+pub const WEBGL2_REQUIRED: &str = "Slint requires WebGL 2 to be enabled in your browser";
+
+/// Returns whether the browser can create a WebGL 2 context.
+#[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
+pub fn webgl2_available() -> bool {
+    use wasm_bindgen::JsCast;
+
+    // A canvas keeps the first context type requested from it, so probe a throwaway one.
+    let Some(context) = web_sys::window()
+        .and_then(|window| window.document())
+        .and_then(|document| document.create_element("canvas").ok())
+        .and_then(|element| element.dyn_into::<web_sys::HtmlCanvasElement>().ok())
+        .and_then(|canvas| canvas.get_context("webgl2").ok().flatten())
+        .and_then(|context| context.dyn_into::<web_sys::WebGl2RenderingContext>().ok())
+    else {
+        return false;
+    };
+    // Browsers limit the number of live WebGL contexts per page.
+    if let Ok(Some(extension)) = context.get_extension("WEBGL_lose_context") {
+        extension.unchecked_into::<web_sys::WebglLoseContext>().lose_context();
+    }
+    true
+}
+
 /// This trait describes the interface GPU accelerated renderers in Slint require to render with OpenGL.
 ///
 /// It serves the purpose to ensure that the OpenGL context is current before running any OpenGL
@@ -40,9 +65,9 @@ pub unsafe trait OpenGLInterface {
     fn get_proc_address(&self, name: &std::ffi::CStr) -> *const std::ffi::c_void;
 }
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
 struct WebGLNeedsNoCurrentContext;
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
 unsafe impl OpenGLInterface for WebGLNeedsNoCurrentContext {
     fn ensure_current(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Ok(())
@@ -102,7 +127,7 @@ impl Drop for SnapshotTargetGuard<'_> {
 pub struct OpenGLBackend {
     opengl_context: RefCell<Box<dyn OpenGLInterface>>,
     snapshot_target: RefCell<Option<femtovg::ImageId>>,
-    #[cfg(target_family = "wasm")]
+    #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
     html_canvas: RefCell<Option<web_sys::HtmlCanvasElement>>,
 }
 
@@ -110,14 +135,16 @@ impl OpenGLBackend {
     pub fn set_opengl_context(
         &self,
         renderer: &FemtoVGRenderer<Self>,
-        #[cfg(not(target_arch = "wasm32"))] opengl_context: impl OpenGLInterface + 'static,
-        #[cfg(target_arch = "wasm32")] html_canvas: web_sys::HtmlCanvasElement,
+        #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
+        opengl_context: impl OpenGLInterface + 'static,
+        #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
+        html_canvas: web_sys::HtmlCanvasElement,
     ) -> Result<(), i_slint_core::platform::PlatformError> {
-        #[cfg(target_arch = "wasm32")]
+        #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
         let opengl_context = WebGLNeedsNoCurrentContext {};
 
         let opengl_context = Box::new(opengl_context);
-        #[cfg(not(target_arch = "wasm32"))]
+        #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
         let gl_renderer = unsafe {
             femtovg::renderer::OpenGl::new_from_function_cstr(|name| {
                 opengl_context.get_proc_address(name)
@@ -125,7 +152,7 @@ impl OpenGLBackend {
             .unwrap()
         };
 
-        #[cfg(target_arch = "wasm32")]
+        #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
         let gl_renderer = match femtovg::renderer::OpenGl::new_from_html_canvas(&html_canvas) {
             Ok(gl_renderer) => gl_renderer,
             Err(_) => {
@@ -141,9 +168,7 @@ impl OpenGLBackend {
                 context_2d.set_font("20px serif");
                 // We don't know if we're rendering on dark or white background, so choose a "color" in the middle for the text.
                 context_2d.set_fill_style_str("red");
-                context_2d
-                    .fill_text("Slint requires WebGL to be enabled in your browser", 0., 30.)
-                    .unwrap();
+                context_2d.fill_text(WEBGL2_REQUIRED, 0., 30.).unwrap();
                 panic!("Cannot proceed without WebGL - aborting")
             }
         };
@@ -155,7 +180,7 @@ impl OpenGLBackend {
         .unwrap();
 
         *self.opengl_context.borrow_mut() = opengl_context;
-        #[cfg(target_family = "wasm")]
+        #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
         {
             *self.html_canvas.borrow_mut() = Some(html_canvas);
         }
@@ -242,7 +267,7 @@ impl GraphicsBackend for OpenGLBackend {
         Self {
             opengl_context: RefCell::new(Box::new(SuspendedRenderer {})),
             snapshot_target: RefCell::new(None),
-            #[cfg(target_family = "wasm")]
+            #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
             html_canvas: RefCell::new(None),
         }
     }
@@ -279,7 +304,7 @@ impl GraphicsBackend for OpenGLBackend {
         }
     }
 
-    #[cfg(not(target_family = "wasm"))]
+    #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
     fn with_graphics_api<R>(
         &self,
         callback: impl FnOnce(Option<i_slint_core::api::GraphicsAPI<'_>>) -> R,
@@ -293,7 +318,7 @@ impl GraphicsBackend for OpenGLBackend {
         Ok(callback(Some(api)))
     }
 
-    #[cfg(target_family = "wasm")]
+    #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
     fn with_graphics_api<R>(
         &self,
         callback: impl FnOnce(Option<i_slint_core::api::GraphicsAPI<'_>>) -> R,
@@ -369,16 +394,18 @@ impl FemtoVGRenderer<OpenGLBackend> {
     /// Creates a new renderer that renders using OpenGL. An implementation of the OpenGLInterface
     /// trait needs to supplied.
     pub fn new(
-        #[cfg(not(target_arch = "wasm32"))] opengl_context: impl OpenGLInterface + 'static,
-        #[cfg(target_arch = "wasm32")] html_canvas: web_sys::HtmlCanvasElement,
+        #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
+        opengl_context: impl OpenGLInterface + 'static,
+        #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
+        html_canvas: web_sys::HtmlCanvasElement,
     ) -> Result<Self, PlatformError> {
         use super::FemtoVGRendererExt;
         let this = Self::new_suspended();
         this.graphics_backend.set_opengl_context(
             &this,
-            #[cfg(not(target_arch = "wasm32"))]
+            #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
             opengl_context,
-            #[cfg(target_arch = "wasm32")]
+            #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
             html_canvas,
         )?;
         Ok(this)

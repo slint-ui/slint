@@ -25,7 +25,7 @@ impl i_slint_core::platform::Platform for SwrTestingBackend {
     }
 
     fn duration_since_start(&self) -> core::time::Duration {
-        core::time::Duration::from_millis(i_slint_core::animations::current_tick().0)
+        i_slint_core::animations::current_tick().into()
     }
 }
 
@@ -114,6 +114,45 @@ pub fn assert_with_render(
         if let Err(reason) = compare_images(path, &argb8, rotation, options) {
             panic!("Image comparison failure for {path} ({rotation:?}): {reason}");
         }
+    }
+
+    if !options.skip_clipping {
+        assert_partial_render_is_identical(path, window, options);
+    }
+}
+
+/// Re-renders only the center of the window over garbage and expects the full reference.
+/// Unlike `assert_with_render_by_line`, this also covers items that line-by-line rendering
+/// doesn't support, such as paths.
+fn assert_partial_render_is_identical(
+    path: &str,
+    window: Rc<MinimalSoftwareWindow>,
+    options: &TestCaseOptions,
+) {
+    let s = window.size();
+    let mut rendering = screenshot(window.clone(), RenderingRotation::NoRotation);
+
+    let region = euclid::rect(s.width / 4, s.height / 4, s.width / 2, s.height / 2).cast::<usize>();
+    let stride = rendering.width() as usize;
+    for y in region.y_range() {
+        rendering.make_mut_slice()[y * stride..][region.x_range()].fill(Rgb8Pixel::new(
+            ((y << 3) & 0xff) as u8,
+            0,
+            255,
+        ));
+    }
+
+    window.request_redraw();
+    window.draw_if_needed(|renderer| {
+        renderer.mark_dirty_region(
+            (euclid::Rect::from_untyped(&region.cast()) / window.scale_factor()).into(),
+        );
+        renderer.render(rendering.make_mut_slice(), stride);
+    });
+
+    let argb8 = i_slint_core::graphics::Image::from_rgb8(rendering).to_rgba8().unwrap();
+    if let Err(reason) = compare_images(path, &argb8, RenderingRotation::NoRotation, options) {
+        panic!("Partial rendering image comparison failure for {path}: {reason}");
     }
 }
 

@@ -1,29 +1,29 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { DemoPalette, ButtonColors } from "../common.slint";
+import { DemoPalette } from "../common.slint";
+import { ButtonFace } from "ButtonFace.slint";
+import { PressArea } from "PressArea.slint";
 
 export component PushButton inherits Rectangle {
 
     in property <string> label <=> label.text;
     in property <image> icon;
-    in property <bool> primary: true;
-    out property <bool> pressed: touch-area.pressed;
-    out property <ButtonColors> colors: root.primary ? DemoPalette.primary-push-button-colors : DemoPalette.secondary-push-button-colors;
 
     callback clicked <=> touch-area.clicked;
 
     height: 66px;
 
-    Image {
-        x: -3px;
-        y: 0px;
-        width: root.width + 8px;
-        height: root.height;
-        source: @image-url("../images/mcu/sub-action-button.jpg");
+    face := ButtonFace {
+        x: 2px;
+        y: 1px;
+        width: root.width - 2px;
+        height: root.height - 9px;
+        press-progress: touch-area.press-progress;
     }
 
     HorizontalLayout {
+        y: face.content-offset;
         spacing: 10px;
         label := Text {
             font-size: 18px;
@@ -40,11 +40,5 @@ export component PushButton inherits Rectangle {
     }
 
 
-    touch-area := TouchArea {
-        // pointer-event(ev) => {
-        //     if (ev.kind == PointerEventKind.down) {
-        //         root.clicked()
-        //     }
-        // }
-    }
+    touch-area := PressArea { }
 }

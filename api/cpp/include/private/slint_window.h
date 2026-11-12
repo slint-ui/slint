@@ -147,28 +147,44 @@ public:
         slint_windowrc_set_component(&inner, &item_tree_rc);
     }
 
+    /// Returns the globals for a popup, with its own window adapter if the backend creates one.
+    /// `globals` is a raw or smart pointer to the parent's globals.
+    template<typename Globals>
+    auto popup_globals(const Globals &globals, cbindgen_private::WindowKind window_kind) const
+            -> std::shared_ptr<const std::remove_cvref_t<decltype(*globals)>>
+    {
+        if (auto popup_adapter = create_child_window_adapter(window_kind)) {
+            return std::make_shared<std::remove_cvref_t<decltype(*globals)>>(*globals,
+                                                                             *popup_adapter);
+        }
+        return std::to_address(globals)->shared_from_this();
+    }
+
     template<typename Component, typename Parent, typename PosGetter, typename IsOpenSetter>
     uint32_t show_popup(const Parent *parent_component, PosGetter pos,
                         cbindgen_private::PopupClosePolicy close_policy,
                         cbindgen_private::ItemRc parent_item,
                         cbindgen_private::WindowKind window_kind, IsOpenSetter is_open_setter) const
     {
-        using SharedGlobals = decltype(parent_component->globals);
-        SharedGlobals _own_globals = nullptr;
-        if (auto _popup_adapter = create_child_window_adapter(window_kind)) {
-            _own_globals = parent_component->globals->clone_with_window_adapter(*_popup_adapter);
-        }
-        if (!_own_globals) {
-            _own_globals = parent_component->globals;
-        }
+        auto popup = Component::create(parent_component,
+                                       popup_globals(parent_component->globals, window_kind));
+        return show_popup_instance(std::move(popup), std::move(pos), close_policy, parent_item,
+                                   window_kind, std::move(is_open_setter));
+    }
 
-        auto popup = Component::create(parent_component, _own_globals);
+    /// Shows a created popup. `pos` takes the popup and returns its position.
+    template<typename Popup, typename PosGetter, typename IsOpenSetter>
+    uint32_t
+    show_popup_instance(Popup popup, PosGetter pos, cbindgen_private::PopupClosePolicy close_policy,
+                        cbindgen_private::ItemRc parent_item,
+                        cbindgen_private::WindowKind window_kind, IsOpenSetter is_open_setter) const
+    {
         auto popup_dyn = popup.into_dyn();
 
         struct PopupPositionData
         {
             PosGetter pos;
-            decltype(popup) popup_component;
+            Popup popup_component;
         };
 
         auto position_data = new PopupPositionData { std::move(pos), popup };
@@ -215,9 +231,9 @@ public:
         return std::nullopt;
     }
 
-    template<typename Component, typename SharedGlobals, typename InitFn>
+    template<typename Component, typename Globals, typename InitFn>
     uint32_t show_popup_menu(
-            SharedGlobals *globals, LogicalPosition pos, cbindgen_private::ItemRc context_menu_rc,
+            const Globals &globals, LogicalPosition pos, cbindgen_private::ItemRc context_menu_rc,
             InitFn init,
             std::optional<vtable::VRc<cbindgen_private::MenuVTable>> menu = std::nullopt) const
     {
@@ -228,22 +244,13 @@ public:
             }
         }
 
-        auto popup = Component::create(globals);
+        auto popup = Component::create(popup_globals(globals, cbindgen_private::WindowKind::Menu));
         init(&*popup);
-        auto popup_dyn = popup.into_dyn();
-        auto position_data = new LogicalPosition(pos);
-        auto id = cbindgen_private::slint_windowrc_show_popup(
-                &inner, &popup_dyn,
-                [](void *user_data, LogicalPosition *pos) {
-                    *pos = *reinterpret_cast<LogicalPosition *>(user_data);
-                },
-                [](void *user_data) { delete reinterpret_cast<LogicalPosition *>(user_data); },
-                position_data, cbindgen_private::PopupClosePolicy::CloseOnClickOutside,
-                &context_menu_rc, cbindgen_private::WindowKind::Menu,
-                // Menus do not expose `is-open`, so the setter is a no-op.
-                [](void *, bool) {}, [](void *) {}, nullptr);
-        popup->user_init();
-        return id;
+        // Menus don't expose `is-open`.
+        return show_popup_instance(
+                std::move(popup), [pos](const auto &) { return pos; },
+                cbindgen_private::PopupClosePolicy::CloseOnClickOutside, context_menu_rc,
+                cbindgen_private::WindowKind::Menu, [](bool) {});
     }
 
     template<std::invocable<RenderingState, GraphicsAPI> F>
@@ -344,7 +351,8 @@ public:
     }
 
     /// Registers a bitmap font for use with the software renderer.
-    inline void register_bitmap_font(const cbindgen_private::BitmapFont &font)
+    inline void
+    register_bitmap_font(const cbindgen_private::BitmapFont<cbindgen_private::StaticStorage> &font)
     {
         cbindgen_private::slint_register_bitmap_font(&inner, &font);
     }
@@ -411,6 +419,8 @@ public:
     ///
     /// The provided callback must be callable with a slint::RenderingState and the
     /// slint::GraphicsAPI argument.
+    /// The renderer passes GraphicsAPI::OpenGL for both OpenGL and OpenGL ES,
+    /// and GraphicsAPI::Inaccessible for graphics APIs without a C++ interface.
     ///
     /// On success, the function returns a std::optional without value. On error, the function
     /// returns the error code as value in the std::optional.
@@ -650,9 +660,8 @@ public:
     {
         private_api::assert_main_thread();
         using slint::cbindgen_private::WindowEvent;
-        WindowEvent event { .resized =
-                                    WindowEvent::Resized_Body { .tag = WindowEvent::Tag::Resized,
-                                                                .size = { s.width, s.height } } };
+        WindowEvent event { .resized = WindowEvent::Resized_Body { .tag = WindowEvent::Tag::Resized,
+                                                                   .size = s } };
         cbindgen_private::slint_windowrc_dispatch_event(&inner.handle(), &event);
     }
 
@@ -699,7 +708,7 @@ public:
         cbindgen_private::slint_windowrc_dispatch_event(&inner.handle(), &event);
     }
 
-    /// Returns true if there is an animation currently active on any property in the Window.
+    /// Returns true if an active animation may change what this window renders.
     bool has_active_animations() const
     {
         private_api::assert_main_thread();

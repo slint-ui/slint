@@ -5,8 +5,8 @@
 Make sure that the Repeated expression are just components without any children
  */
 
+use crate::element_type::ElementType;
 use crate::expression_tree::{Expression, NamedReference};
-use crate::langtype::ElementType;
 use crate::object_tree::*;
 use smol_str::SmolStr;
 use std::cell::RefCell;
@@ -43,13 +43,16 @@ fn create_repeater_components(component: &Rc<Component>) {
                 bindings: std::mem::take(&mut original_elem.bindings),
                 change_callbacks: std::mem::take(&mut original_elem.change_callbacks),
                 property_analysis: std::mem::take(&mut original_elem.property_analysis),
+                moved_property_declarations: std::mem::take(
+                    &mut original_elem.moved_property_declarations,
+                ),
                 children: std::mem::take(&mut original_elem.children),
                 property_declarations: std::mem::take(&mut original_elem.property_declarations),
                 shadowing_members: std::mem::take(&mut original_elem.shadowing_members),
+                implement_statements: Default::default(),
                 named_references: Default::default(),
                 repeated: None,
                 is_component_placeholder: false,
-                is_injected_wrapper_element: original_elem.is_injected_wrapper_element,
                 debug: original_elem.debug.clone(),
                 enclosing_component: Default::default(),
                 states: std::mem::take(&mut original_elem.states),
@@ -61,6 +64,9 @@ fn create_repeater_components(component: &Rc<Component>) {
                 layout_info_prop: original_elem.layout_info_prop.take(),
                 layout_info_v_with_constraint: original_elem.layout_info_v_with_constraint.take(),
                 layout_info_h_at_own_height: original_elem.layout_info_h_at_own_height.take(),
+                implicit_layout_info_prop: std::mem::take(
+                    &mut original_elem.implicit_layout_info_prop,
+                ),
                 height_is_literal: original_elem.height_is_literal,
                 default_fill_parent: original_elem.default_fill_parent,
                 accessibility_props: std::mem::take(&mut original_elem.accessibility_props),
@@ -74,6 +80,9 @@ fn create_repeater_components(component: &Rc<Component>) {
                 is_legacy_syntax: original_elem.is_legacy_syntax,
                 inline_depth: 0,
                 slot_target: original_elem.slot_target.clone(),
+                slot_default: original_elem.slot_default.clone(),
+                empty_slot_assignments: original_elem.empty_slot_assignments.clone(),
+                typed_slot_interface: original_elem.typed_slot_interface.clone(),
                 forwarded_slots: original_elem.forwarded_slots.clone(),
                 grid_layout_cell: original_elem.grid_layout_cell.clone(),
             })),
@@ -82,6 +91,13 @@ fn create_repeater_components(component: &Rc<Component>) {
         });
 
         if let Some(listview) = is_listview {
+            // `adjust_references` doesn't redirect a reference from the repeated element to itself
+            if let Some(lv) = original_elem.repeated.as_mut().and_then(|r| r.is_listview.as_mut()) {
+                lv.row_height = NamedReference::new(
+                    &repeated_component.root_element,
+                    lv.row_height.name().clone(),
+                );
+            }
             if !repeated_component.root_element.borrow().is_binding_set("height", false) {
                 let preferred = Expression::PropertyReference(NamedReference::new(
                     &repeated_component.root_element,

@@ -3,7 +3,6 @@
 
 export component A  {
     cb := ContextMenuArea {
-//        >              <error{Cannot access property or callback 'inner-menu.title' inside of a ContextMenuArea from enclosing component}
         Menu {
             inner-menu := Menu { }
         }
@@ -12,6 +11,7 @@ export component A  {
     if true : TouchArea {
         clicked => {
             inner-menu.title = "Hi";
+//          >               <error{Cannot access property or callback 'inner-menu.title' inside of a ContextMenuArea from enclosing component}
         }
     }
 }

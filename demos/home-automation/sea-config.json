@@ -1,0 +1,6 @@
+{
+    "main": "main.bundle.mjs",
+    "mainFormat": "module",
+    "output": "home-automation",
+    "disableExperimentalSEAWarning": true
+}

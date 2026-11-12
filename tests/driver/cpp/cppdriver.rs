@@ -20,7 +20,11 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     let cpp_namespace = test_driver_lib::extract_cpp_namespace(&source);
 
     let mut diag = BuildDiagnostics::default();
-    let syntax_node = parser::parse(source.clone(), Some(&testcase.absolute_path), &mut diag);
+    let syntax_node = parser::parse(
+        source.clone(),
+        Some(i_slint_compiler::source_path::SourcePath::new(&testcase.absolute_path)),
+        &mut diag,
+    );
     let output_format = generator::OutputFormat::Cpp(generator::cpp::Config {
         namespace: cpp_namespace,
         ..Default::default()
@@ -31,11 +35,15 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     compiler_config.library_paths = library_paths;
     compiler_config.style = testcase.requested_style.map(str::to_string);
     compiler_config.debug_info = true;
+    compiler_config.edition = Some(test_driver_lib::edition_or_current(&source).parse()?);
     if source.contains("//bundle-translations") {
         compiler_config.bundled_translations_path =
             Some(testcase.absolute_path.parent().unwrap().to_path_buf());
         compiler_config.translation_domain =
             Some(testcase.absolute_path.file_stem().unwrap().to_str().unwrap().to_string());
+    }
+    if source.contains("//embed-textures") {
+        compiler_config.embed_resources = EmbedResourcesKind::EmbedTextures;
     }
     if source.contains("//no-default-translation-context") {
         compiler_config.default_translation_context =
@@ -102,14 +110,15 @@ namespace slint_testing = slint::private_api::testing;
 
     let cpp_file = cpp_file.into_temp_path();
 
+    let slint_cpp = slint_cpp();
     let compiler = cc::Build::new()
         .cargo_metadata(false)
         .cpp(true)
         .opt_level_str(env!("OPT_LEVEL"))
         .target(env!("TARGET"))
         .host(env!("HOST"))
-        .include(env!("GENERATED_CPP_HEADERS_PATH"))
-        .include(env!("CPP_API_HEADERS_PATH"))
+        .include(&slint_cpp.include_dir)
+        .include(concat!(env!("SLINT_CPP_DIR"), "/include"))
         .try_get_compiler()?;
 
     let mut compiler_command = compiler.to_command();
@@ -137,8 +146,7 @@ namespace slint_testing = slint::private_api::testing;
     }
 
     if compiler.is_like_clang() || compiler.is_like_gnu() {
-        compiler_command.arg("-std=c++20");
-        compiler_command.arg("-g");
+        compiler_command.args(GNU_COMMON_ARGS);
         compiler_command.arg("-Werror").arg("-Wall").arg("-Wextra");
         if let Some(prelude) = precompiled_header(&compiler) {
             compiler_command.arg("-include").arg(prelude);
@@ -147,7 +155,7 @@ namespace slint_testing = slint::private_api::testing;
             // header.
             compiler_command.arg("-Wno-invalid-offsetof");
         }
-        compiler_command.arg(concat!("-L", env!("CPP_LIB_PATH")));
+        compiler_command.arg("-L").arg(&slint_cpp.lib_dir);
         compiler_command.arg("-lslint_cpp");
         compiler_command.arg("-o").arg(&*binary_path);
 
@@ -171,7 +179,7 @@ namespace slint_testing = slint::private_api::testing;
             // definitions and must be linked into every user.
             compiler_command.arg(dir.join("prelude.obj"));
         }
-        compiler_command.arg("/link").arg(concat!(env!("CPP_LIB_PATH"), "\\slint_cpp.dll.lib"));
+        compiler_command.arg("/link").arg(slint_cpp.lib_dir.join("slint_cpp.dll.lib"));
         let mut out_arg = std::ffi::OsString::from("/OUT:");
         out_arg.push(&*binary_path);
         compiler_command.arg(out_arg);
@@ -204,7 +212,7 @@ namespace slint_testing = slint::private_api::testing;
     }
 
     let output = cmd
-        .envs(library_search_path_env_with(env!("CPP_LIB_PATH")))
+        .envs(library_search_path_env_with(&slint_cpp.lib_dir))
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .spawn()
@@ -249,16 +257,18 @@ fn precompiled_header(compiler: &cc::Tool) -> Option<&'static std::path::Path> {
         if !compiler.is_like_gnu() && !compiler.is_like_clang() && !compiler.is_like_msvc() {
             return None;
         }
-        Some(build_precompiled_header(compiler).unwrap_or_else(|message| {
-            // Write to the real stderr: the test harness's output capture
-            // would swallow the message when the process exits.
-            let _ = std::io::stderr().write_all(message.as_bytes());
-            let _ = std::io::stderr().write_all(b"\nCould not build the precompiled header\n");
-            std::process::exit(1);
-        }))
+        Some(or_exit(build_precompiled_header(compiler), "Could not build the precompiled header"))
     })
     .as_deref()
 }
+
+/// The flags of the tests and of their precompiled header, which must match.
+/// ESP-IDF builds without RTTI by default.
+const GNU_COMMON_ARGS: &[&str] = if cfg!(feature = "live-preview") {
+    &["-std=c++20", "-g"]
+} else {
+    &["-std=c++20", "-g", "-fno-rtti"]
+};
 
 fn build_precompiled_header(compiler: &cc::Tool) -> Result<std::path::PathBuf, String> {
     // OUT_DIR is per-configuration, so eg the normal and live-preview builds
@@ -283,7 +293,12 @@ fn build_precompiled_header(compiler: &cc::Tool) -> Result<std::path::PathBuf, S
         // With `-include prelude.h`, gcc loads prelude.h.gch and clang loads
         // prelude.h.pch when the file exists.
         let output = prelude.with_extension(if compiler.is_like_gnu() { "h.gch" } else { "h.pch" });
-        command.args(["-std=c++20", "-g", "-x", "c++-header"]).arg(&prelude).arg("-o").arg(&output);
+        command
+            .args(GNU_COMMON_ARGS)
+            .args(["-x", "c++-header"])
+            .arg(&prelude)
+            .arg("-o")
+            .arg(&output);
     }
     let output = command.output().map_err(|e| e.to_string())?;
     if !output.status.success() {
@@ -296,8 +311,94 @@ fn build_precompiled_header(compiler: &cc::Tool) -> Result<std::path::PathBuf, S
     Ok(prelude)
 }
 
+struct SlintCpp {
+    lib_dir: std::path::PathBuf,
+    include_dir: std::path::PathBuf,
+}
+
+fn slint_cpp() -> &'static SlintCpp {
+    static SLINT_CPP: std::sync::OnceLock<SlintCpp> = std::sync::OnceLock::new();
+    SLINT_CPP.get_or_init(|| or_exit(build_slint_cpp(), "Could not build slint-cpp"))
+}
+
+fn build_slint_cpp() -> Result<SlintCpp, String> {
+    let mut features = vec!["testing", "std", "experimental"];
+    if cfg!(feature = "backend-qt") {
+        features.push("backend-qt");
+    }
+    if cfg!(feature = "live-preview") {
+        features.push("live-preview");
+    }
+    let cargo = std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
+    let mut command = std::process::Command::new(cargo);
+    command
+        .args(["rustc", "--lib", "--crate-type=cdylib", "--message-format=json-render-diagnostics"])
+        .args(["--manifest-path", concat!(env!("SLINT_CPP_DIR"), "/Cargo.toml")])
+        .args(["--locked", "--no-default-features"])
+        .arg(format!("--features={}", features.join(",")))
+        // Keep the headers in the build script's OUT_DIR, see api/cpp/build.rs.
+        .env_remove("SLINT_GENERATED_INCLUDE_DIR")
+        .stderr(std::process::Stdio::inherit());
+    if env!("PROFILE") == "release" {
+        command.arg("--release");
+    }
+    if env!("TARGET") != env!("HOST") {
+        command.arg(concat!("--target=", env!("TARGET")));
+    }
+    let output = command.output().map_err(|e| format!("Error running cargo: {e}"))?;
+    if !output.status.success() {
+        return Err("cargo failed to build slint-cpp".into());
+    }
+
+    let mut out_dirs = std::collections::HashMap::new();
+    for line in String::from_utf8_lossy(&output.stdout).lines() {
+        let Ok(message) = serde_json::from_str::<serde_json::Value>(line) else { continue };
+        let package_id = message["package_id"].as_str().unwrap_or_default().to_string();
+        match message["reason"].as_str() {
+            Some("build-script-executed") => {
+                out_dirs
+                    .insert(package_id, message["out_dir"].as_str().map(std::path::PathBuf::from));
+            }
+            Some("compiler-artifact") if message["target"]["name"] == "slint_cpp" => {
+                let lib_name = format!(
+                    "{}slint_cpp{}",
+                    std::env::consts::DLL_PREFIX,
+                    std::env::consts::DLL_SUFFIX
+                );
+                let lib_dir = message["filenames"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|file| file.as_str().map(std::path::Path::new))
+                    .find(|file| file.ends_with(&lib_name))
+                    .and_then(std::path::Path::parent)
+                    .ok_or_else(|| format!("cargo didn't report {lib_name}"))?;
+                let out_dir = out_dirs
+                    .remove(&package_id)
+                    .flatten()
+                    .ok_or("cargo didn't report the slint-cpp build script")?;
+                return Ok(SlintCpp {
+                    lib_dir: lib_dir.to_path_buf(),
+                    include_dir: out_dir.join("generated_include"),
+                });
+            }
+            _ => {}
+        }
+    }
+    Err("cargo didn't report the slint-cpp library".into())
+}
+
+fn or_exit<T>(result: Result<T, String>, context: &str) -> T {
+    result.unwrap_or_else(|message| {
+        // Write to the real stderr: the test harness's output capture
+        // would swallow the message when the process exits.
+        let _ = writeln!(std::io::stderr(), "{message}\n{context}");
+        std::process::exit(1);
+    })
+}
+
 fn library_search_path_env_with(
-    value_to_prepend: &str,
+    value_to_prepend: &std::path::Path,
 ) -> impl IntoIterator<Item = (&'static str, String)> {
     let (var, separator) = if cfg!(target_os = "windows") {
         ("PATH", ';')
@@ -309,6 +410,10 @@ fn library_search_path_env_with(
 
     std::iter::once((
         var,
-        format!("{}{}{}", value_to_prepend, separator, std::env::var(var).unwrap_or_default()),
+        format!(
+            "{}{separator}{}",
+            value_to_prepend.display(),
+            std::env::var(var).unwrap_or_default()
+        ),
     ))
 }

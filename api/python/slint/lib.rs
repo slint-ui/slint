@@ -18,6 +18,7 @@ mod async_adapter;
 mod brush;
 mod errors;
 mod keys;
+mod model_adapters;
 mod models;
 mod styled_text;
 mod timer;
@@ -91,6 +92,13 @@ fn init_translations(_py: Python<'_>, translations: Bound<PyAny>) -> PyResult<()
     })
     .map_err(|e| errors::PyPlatformError(e))?;
     Ok(())
+}
+
+/// Replaces the system fonts with embedded fonts, for text layout that is the same on every host.
+#[cfg(feature = "backend-testing")]
+#[pyfunction]
+fn _configure_test_fonts() {
+    i_slint_backend_testing::configure_test_fonts();
 }
 
 /// Returns the list of optional capabilities that were compiled into the loaded
@@ -220,6 +228,7 @@ fn register_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<data_transfer::PyDataTransfer>()?;
     m.add_class::<styled_text::PyStyledText>()?;
     m.add_class::<models::PyModelBase>()?;
+    m.add_class::<model_adapters::PyModelAdapter>()?;
     m.add_class::<value::PyStruct>()?;
     m.add_class::<async_adapter::AsyncAdapter>()?;
     m.add_class::<api_match::PyGeneratedAPI>()?;
@@ -229,6 +238,8 @@ fn register_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(invoke_from_event_loop, m)?)?;
     m.add_function(wrap_pyfunction!(init_translations, m)?)?;
     m.add_function(wrap_pyfunction!(build_features, m)?)?;
+    #[cfg(feature = "backend-testing")]
+    m.add_function(wrap_pyfunction!(_configure_test_fonts, m)?)?;
 
     language::register_all(m.py(), m)?;
 

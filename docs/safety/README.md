@@ -1,7 +1,7 @@
 # Slint SC Safety Manual
 
 Astro Starlight site for the Slint SC Safety Manual: the User Manual, the
-Qualification Plan, and the other documents of the qualification package.
+Safety Plan, and the other documents of the qualification package.
 
 Hand-written content lives in `src/content/docs/`. Everything under
 `src/content/docs/generated/` is produced by `slint-doc-generator` and
@@ -43,4 +43,12 @@ cargo run -p slint-doc-generator -- --slint-sc generate-mdx
 pnpm dev       # start dev server
 pnpm build     # type-check and build for production
 pnpm preview   # preview the production build
+pnpm package   # build and zip a copy that opens from disk
 ```
+
+## Offline Package
+
+`pnpm package` writes `dist-offline/slint-sc-safety-manual.zip`,
+a copy of the site to hand out for review.
+Unzip it and open `slint-sc-safety-manual/index.html` in a browser; no web server is needed.
+Search isn't available in this copy.

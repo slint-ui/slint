@@ -7,6 +7,8 @@ import {
     isPngByteArray,
     pngDimensions,
     imageDimensions,
+    utf8ToBase64,
+    validSvgDocument,
 } from "../images";
 import {
     color,
@@ -20,6 +22,7 @@ import {
     type NodeResult,
 } from "./normalization-context";
 import type { ImageResolver } from "./normalize";
+import { radialGeometry, isCircularGradient } from "../gradient-geometry";
 import type {
     Diagnostic,
     SnapshotImage,
@@ -44,7 +47,7 @@ export async function exportVisual(
     encode: (bytes: Uint8Array) => string = bytesToBase64,
 ): Promise<VisualExport> {
     const bounds = node.sourceRasterBounds;
-    const pngExporter = exportPngNode;
+    const pngExporter = node.sourcePngOmitted ? undefined : exportPngNode;
     const pngRequested = pngExporter !== undefined;
     const [svgResult, pngResult] = await Promise.allSettled([
         Promise.resolve().then(() => exportSvgNode(node)),
@@ -91,14 +94,6 @@ export async function exportVisual(
             : {}),
         ...(pngError === undefined ? {} : { pngError }),
     };
-}
-
-function validSvgDocument(value: string | undefined): value is string {
-    return (
-        value !== undefined &&
-        (/^<svg(?:\s[^>]*)?>[\s\S]*<\/svg\s*>$/iu.test(value) ||
-            /^<svg(?:\s[^>]*)?\/>$/iu.test(value))
-    );
 }
 
 function exportFailureMessage(error: unknown, fallback: string): string {
@@ -156,6 +151,16 @@ function transform(
     ];
 }
 
+function gradientStops(value: GradientPaint, node: MaterializedNode) {
+    return value.gradientStops.map((stop) => {
+        if (!number(stop.position) || stop.position < 0 || stop.position > 1)
+            throw new CompatibilityError(
+                "gradient stop position must be between 0 and 1",
+            );
+        return { position: stop.position, color: color(stop.color, node) };
+    });
+}
+
 async function paint(
     value: Paint,
     node: MaterializedNode,
@@ -170,28 +175,85 @@ async function paint(
     if (value.type === "SOLID") {
         return { kind: "solid", color: color(value.color, node), opacity };
     }
-    if (value.type === "GRADIENT_LINEAR") {
+    if (value.type === "GRADIENT_LINEAR" || value.type === "GRADIENT_ANGULAR") {
         if (value.gradientStops.length < 2)
             throw new CompatibilityError(
                 "linear gradients require at least two stops",
             );
+        const matrix = transform(value.gradientTransform, node);
+        if (
+            value.type === "GRADIENT_ANGULAR" &&
+            !isCircularGradient(matrix, node.width, node.height)
+        )
+            throw new CompatibilityError(
+                "angular gradient requires a circular, unreflected transform",
+            );
+        if (
+            value.type === "GRADIENT_LINEAR" &&
+            Math.abs(matrix[0][0]) + Math.abs(matrix[0][1]) < 1e-12
+        )
+            throw new CompatibilityError(
+                "linear gradient transform must have a direction",
+            );
         return {
-            kind: "linear-gradient",
-            transform: transform(value.gradientTransform, node),
-            stops: value.gradientStops.map((stop) => {
-                if (
-                    !number(stop.position) ||
-                    stop.position < 0 ||
-                    stop.position > 1
-                )
-                    throw new CompatibilityError(
-                        "gradient stop position must be between 0 and 1",
-                    );
-                return {
-                    position: stop.position,
-                    color: color(stop.color, node),
-                };
-            }),
+            kind:
+                value.type === "GRADIENT_LINEAR"
+                    ? "linear-gradient"
+                    : "conic-gradient",
+            transform: matrix,
+            stops: gradientStops(value, node),
+            opacity,
+        };
+    }
+    if (value.type === "GRADIENT_RADIAL") {
+        const gradientTransform = transform(value.gradientTransform, node);
+        const [[a, c, e], [b, d, f]] = gradientTransform;
+        const determinant = a * d - b * c;
+        if (Math.abs(determinant) < 1e-12)
+            throw new CompatibilityError(
+                "radial gradient transform must be invertible",
+            );
+        if (value.gradientStops.length < 2)
+            throw new CompatibilityError(
+                "radial gradients require at least two stops",
+            );
+        const stopsData = gradientStops(value, node);
+        if (radialGeometry(gradientTransform).axisAligned)
+            return {
+                kind: "radial-gradient",
+                transform: gradientTransform,
+                stops: stopsData,
+                opacity,
+            };
+        const matrix = [
+            d / 2,
+            -b / 2,
+            -c / 2,
+            a / 2,
+            (d - c) / 2 + c * f - d * e,
+            (a - b) / 2 + b * e - a * f,
+        ]
+            .map((entry) => entry / determinant)
+            .join(" ");
+        const stops = stopsData
+            .map((stop) => {
+                const rgba = stop.color;
+                const rgb = [rgba.r, rgba.g, rgba.b]
+                    .map((channel) => Math.round(channel * 255))
+                    .join(",");
+                return `<stop offset="${stop.position}" stop-color="rgb(${rgb})" stop-opacity="${rgba.a}"/>`;
+            })
+            .join("");
+        // Figma maps normalized layer coordinates into a circle centered at
+        // (0.5, 0.5), with radius 0.5. SVG preserves the inverse affine map.
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${node.width}" height="${node.height}" viewBox="0 0 1 1" preserveAspectRatio="none"><defs><radialGradient id="radial" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="matrix(${matrix})">${stops}</radialGradient></defs><rect width="1" height="1" fill="url(#radial)"/></svg>`;
+        return {
+            kind: "image",
+            mimeType: "image/svg+xml",
+            data: utf8ToBase64(svg),
+            intrinsicWidth: node.width,
+            intrinsicHeight: node.height,
+            scaleMode: "STRETCH",
             opacity,
         };
     }
@@ -321,7 +383,30 @@ export async function visiblePaints(
     const warnings: Diagnostic[] = [];
     for (const item of visible) {
         try {
-            paints.push(await paint(item, node, imageResolver));
+            const converted = await paint(item, node, imageResolver);
+            if (property === "strokes" && converted.kind === "image") {
+                warnings.push({
+                    ...problem(
+                        "UNSUPPORTED_STROKE_PAINT",
+                        node,
+                        "Stroke paint requires an image and was omitted",
+                        property,
+                    ),
+                    severity: "warning",
+                });
+                continue;
+            }
+            paints.push(converted);
+            if (item.blendMode !== undefined && item.blendMode !== "NORMAL")
+                warnings.push({
+                    ...problem(
+                        "PAINT_BLEND_MODE_IGNORED",
+                        node,
+                        "Paint blend mode uses normal compositing",
+                        property,
+                    ),
+                    severity: "warning",
+                });
             if (item.type === "IMAGE" && item.imageHash) {
                 const image = await imageResolver(item.imageHash);
                 if (
@@ -348,6 +433,7 @@ export async function visiblePaints(
             const code =
                 paintType === "SOLID" ||
                 paintType === "GRADIENT_LINEAR" ||
+                paintType === "GRADIENT_RADIAL" ||
                 paintType === "IMAGE"
                     ? "UNSUPPORTED_PAINT"
                     : "UNSUPPORTED_PAINT_IGNORED";
@@ -408,8 +494,8 @@ export async function normalizeVisual(
             typeof exported.svg === "string"
                 ? normalizeSvgToNodeBounds(
                       exported.svg,
-                      base.width,
-                      base.height,
+                      node.sourceSvgBounds?.width ?? base.width,
+                      node.sourceSvgBounds?.height ?? base.height,
                   )
                 : "";
         const validSvg =
@@ -459,6 +545,9 @@ export async function normalizeVisual(
                 kind: "svg",
                 sourceType: policy === "text" ? "TEXT" : node.type,
                 ...(validSvg ? { svg } : {}),
+                ...(validSvg && node.sourceSvgBounds
+                    ? { svgBounds: node.sourceSvgBounds }
+                    : {}),
                 ...(exported.raster === undefined
                     ? {}
                     : { raster: exported.raster }),

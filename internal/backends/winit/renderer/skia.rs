@@ -37,9 +37,14 @@ impl WinitSkiaRenderer {
     pub fn new_software_suspended(
         shared_backend_data: &Rc<crate::SharedBackendData>,
     ) -> Result<Box<dyn super::WinitCompatibleRenderer>, PlatformError> {
+        if shared_backend_data.requested_graphics_api.is_some() {
+            return Err(
+                "The Skia software renderer doesn't support a graphics API selection".into()
+            );
+        }
         Ok(Box::new(Self {
             renderer: SkiaRenderer::default_software(&shared_backend_data.skia_context),
-            requested_graphics_api: shared_backend_data.requested_graphics_api.clone(),
+            requested_graphics_api: None,
         }))
     }
 
@@ -47,6 +52,9 @@ impl WinitSkiaRenderer {
     pub fn new_opengl_suspended(
         shared_backend_data: &Rc<crate::SharedBackendData>,
     ) -> Result<Box<dyn super::WinitCompatibleRenderer>, PlatformError> {
+        if let Some(api) = &shared_backend_data.requested_graphics_api {
+            i_slint_core::graphics::RequestedOpenGLVersion::try_from(api)?;
+        }
         Ok(Box::new(Self {
             renderer: SkiaRenderer::default_opengl(&shared_backend_data.skia_context),
             requested_graphics_api: shared_backend_data.requested_graphics_api.clone(),
@@ -163,6 +171,12 @@ impl WinitSkiaRenderer {
                     RequestedGraphicsAPI::WGPU29(..) => Ok(Self::new_wgpu_29_suspended),
                     #[cfg(feature = "unstable-wgpu-30")]
                     RequestedGraphicsAPI::WGPU30(..) => Ok(Self::new_wgpu_30_suspended),
+                    // The enum's variants follow i-slint-core's `unstable-wgpu-*` features, which
+                    // another crate can enable without this one's.
+                    #[allow(unreachable_patterns)]
+                    _ => Err("The requested WGPU version is not enabled in the winit backend"
+                        .to_string()
+                        .into()),
                 }
             }
             None => Ok(Self::new_suspended),
@@ -182,6 +196,19 @@ impl super::WinitCompatibleRenderer for WinitSkiaRenderer {
     fn suspend(&self) -> Result<(), PlatformError> {
         self.renderer.set_pre_present_callback(None);
         self.renderer.suspend()
+    }
+
+    // GPU work that iOS rejected while the app was in the background leaves stale atlas entries.
+    #[cfg(target_os = "ios")]
+    fn occluded(&self, occluded: bool) {
+        if !occluded {
+            self.renderer.free_gpu_resources();
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    fn presentation_may_use_transparency(&self) -> bool {
+        self.renderer.presentation_may_use_transparency()
     }
 
     #[cfg(target_os = "macos")]

@@ -1,4 +1,5 @@
 ---
+
 title: Slint for Node.js (Beta)
 description: Use Slint from Node.js, Deno, or Bun — install slint-ui, load .slint files, and run native UI windows.
 ---
@@ -6,7 +7,7 @@ description: Use Slint from Node.js, Deno, or Bun — install slint-ui, load .sl
 [![npm](https://img.shields.io/npm/v/slint-ui)](https://www.npmjs.com/package/slint-ui)
 
 [Slint](https://slint.dev/) is a UI toolkit that supports different programming languages.
-Slint-node is the integration with [Node.js](https://nodejs.org/en) and [Deno](https://deno.com).
+Slint-node is the integration with [Node.js](https://nodejs.org/en), [Deno](https://deno.com), and [Bun](https://bun.sh).
 
 To get started you use the [walk-through tutorial](https://slint.dev/docs/slint/tutorial/quickstart).
 We also have a [Getting Started Template](https://github.com/slint-ui/slint-nodejs-template) repository with
@@ -32,22 +33,21 @@ pnpm -C api/node run build
 ## Prerequisites
 
 To use Slint with Node.js, ensure the following programs are installed:
-
-  * **[Node.js](https://nodejs.org/download/release/)** (v20 or newer)
-  * **[npm](https://www.npmjs.com/)**
+- **[Node.js](https://nodejs.org/download/release/)** (v22.18 or newer)
+- **[npm](https://www.npmjs.com/)**
 
 To use Slint with Deno, ensure the following programs are installed:
+- **[Deno](https://docs.deno.com/runtime/manual)**
 
-  * **[Deno](https://docs.deno.com/runtime/manual)**
+To use Slint with Bun, ensure the following programs are installed:
+- **[Bun](https://bun.sh/docs/installation)**
 
 ### Building from Source
 
-Slint-node comes with pre-built binaries for macOS, Linux, and Windows. If you'd like to use Slint-node on a system
-without pre-built binaries, you need to install additional software:
-
-  * **[Rust compiler](https://www.rust-lang.org/tools/install)**
-  * Depending on your operating system, you may need additional components. For a list of required system libraries,
-    see <https://github.com/slint-ui/slint/blob/master/docs/building.md#prerequisites>.
+Slint-node comes with pre-built binaries for Linux (x86-64 and ARM64, glibc), macOS (ARM64), and Windows (x86-64 and ARM64).
+On other systems, `npm install slint-ui` succeeds, but it doesn't build Slint-node from source, so loading it fails.
+To build it yourself and make your application use that build,
+see [Node.js API Build](https://github.com/slint-ui/slint/blob/master/docs/building.md#nodejs-api-build).
 
 ## Getting Started (Node.js)
 
@@ -75,7 +75,6 @@ export component Demo inherits Window {
 ```
 
 This file declares the user interface.
-
 4. Create a new file called `index.mjs` with the following contents:
 
 ```js
@@ -87,12 +86,11 @@ await demo.run();
 ```
 
 This is your main JavaScript entry point:
-
-* Import the Slint API as an [ECMAScript module](https://nodejs.org/api/esm.html#modules-ecmascript-modules) module. If you prefer you can
+- Import the Slint API as an [ECMAScript module](https://nodejs.org/api/esm.html#modules-ecmascript-modules) module. If you prefer you can
   also import it as [CommonJS](https://nodejs.org/api/modules.html#modules-commonjs-modules) module.
-* Invoke `loadFile()` to compile and load the `.slint` file.
-* Instantiate the `Demo` component declared in `main.slint`.
-* Run it by showing it on the screen and reacting to user input.
+- Invoke `loadFile()` to compile and load the `.slint` file.
+- Instantiate the `Demo` component declared in `main.slint`.
+- Run it by showing it on the screen and reacting to user input.
 
 5. Run the example with `node index.mjs`
 
@@ -122,15 +120,14 @@ export component Demo inherits Window {
 ```
 
 This file declares the user interface.
-
 2. Create a new file called `deno.json` (a [Deno Import Map](https://docs.deno.com/runtime/manual/basics/import_maps))
-   with the following contents:
+with the following contents:
 
 ```json
 {
-  "imports": {
-    "slint-ui": "npm:slint-ui"
-  }
+    "imports": {
+        "slint-ui": "npm:slint-ui"
+    }
 }
 ```
 
@@ -145,12 +142,11 @@ await demo.run();
 ```
 
 This is your main JavaScript entry point:
-
-* Import the Slint API as an [ECMAScript module](https://nodejs.org/api/esm.html#modules-ecmascript-modules) module through Deno's
+- Import the Slint API as an [ECMAScript module](https://nodejs.org/api/esm.html#modules-ecmascript-modules) module through Deno's
   NPM compatibility layer.
-* Invoke `loadFile()` to compile and load the `.slint` file.
-* Instantiate the `Demo` component declared in `main.slint`.
-* Run it by showing it on the screen and reacting to user input.
+- Invoke `loadFile()` to compile and load the `.slint` file.
+- Instantiate the `Demo` component declared in `main.slint`.
+- Run it by showing it on the screen and reacting to user input.
 
 1. Run the example with `deno run --allow-read --allow-ffi --allow-sys index.ts`
 
@@ -181,7 +177,6 @@ export component Demo inherits Window {
 ```
 
 This file declares the user interface.
-
 4. Clear the content of `index.ts` and add the following code:
 
 ```ts
@@ -193,24 +188,105 @@ await demo.run();
 ```
 
 This is your main TypeScript entry point:
-
-* Import the Slint API as an [ECMAScript module](https://nodejs.org/api/esm.html#modules-ecmascript-modules) module.
-* Invoke `loadFile()` to compile and load the `.slint` file.
-* Instantiate the `Demo` component declared in `main.slint`.
-* Run it by showing it on the screen and reacting to user input.
+- Import the Slint API as an [ECMAScript module](https://nodejs.org/api/esm.html#modules-ecmascript-modules) module.
+- Invoke `loadFile()` to compile and load the `.slint` file.
+- Instantiate the `Demo` component declared in `main.slint`.
+- Run it by showing it on the screen and reacting to user input.
 
 5. Run the example with `bun run index.ts`
 
 
 ## API Overview
 
-### Instantiating a Component
+### Loading `.slint` Files
 
-Use the `loadFile` function to load a `.slint` file. Instantiate the [exported component](http://slint.dev/docs/slint/guide/language/coding/file/)
-with the new operator. Access exported callbacks and properties as JavaScript properties on the instantiated component. In addition,
-the returned object implements the `ComponentHandle` interface, to show/hide the instance or access the window.
+There are two ways to load a `.slint` file.
+Both compile the `.slint` markup and return constructor functions
+for each exported component.
 
-The following example shows how to instantiate a Slint component from JavaScript.
+#### Option 1: `import` the `.slint` File (Recommended)
+
+Import `.slint` files directly as ES modules:
+
+```js
+import * as slint from "slint-ui";
+import { MainWindow } from "./ui/main.slint";
+
+let component = new MainWindow({
+    counter: 42,
+    clicked: function () {
+        console.log("hello");
+    },
+});
+```
+
+Place `slint-project.json` beside the imported `.slint` file to apply project settings such as library paths.
+The import selects the source file.
+
+Load `slint-ui/register` before your own code, so the runtime knows what a `.slint` file is:
+
+```sh
+node --import slint-ui/register app.mjs
+deno run --preload npm:slint-ui/register app.ts
+bun --preload slint-ui/register app.ts
+```
+
+Bun also reads `preload` from `bunfig.toml`,
+so there the flag can live in the project configuration instead of the command line.
+
+This is the recommended approach because:
+- Imports are declarative and statically analyzable
+- Works with TypeScript type checking (see [TypeScript Support](#typescript-support) below)
+- Components, structs, and enums are available as named exports
+
+You still import `slint-ui` for runtime helpers like `ArrayModel` and `runEventLoop`.
+
+The flag is needed even though your code already imports `slint-ui`.
+A static `import` is resolved before any module body runs,
+so a hook installed while `slint-ui` loads always comes too late
+for the `.slint` file imported next to it.
+
+Where a flag isn't possible, these work without one:
+
+```js
+import "slint-ui/register";
+const { MainWindow } = await import("./ui/main.slint");
+```
+
+```js
+require("slint-ui/register");
+const { MainWindow } = require("./ui/main.slint");
+```
+
+#### Option 2: `loadFile()`
+
+Call `loadFile()` to compile and load a `.slint` file at runtime:
+
+```js
+import * as slint from "slint-ui";
+
+let ui = slint.loadFile(new URL("ui/main.slint", import.meta.url));
+let component = new ui.MainWindow({
+    counter: 42,
+    clicked: function () {
+        console.log("hello");
+    },
+});
+```
+
+Use this when you need to:
+- Load `.slint` files dynamically (e.g. based on user input or configuration)
+- Pass compiler options like `style`, `includePaths`, or `libraryPaths`
+
+#### Instantiating a Component
+
+With both approaches,
+the exported component is available as a constructor function.
+The constructor takes an optional object to set initial property values and callbacks.
+The returned instance implements the `ComponentHandle` interface:
+`show()`, `hide()`, `run()`, and `window`.
+
+Given this `.slint` file:
 
 **`ui/main.slint`**
 
@@ -227,21 +303,20 @@ export component MainWindow inherits Window {
 }
 ```
 
-The exported component is exposed as a type constructor. The type constructor takes as parameter
-an object which allow to initialize the value of public properties or callbacks.
-
-**`main.mjs`**
+Instantiate it:
 
 ```js
-import * as slint from "slint-ui";
-// In this example, the main.slint file exports a module which
-// has a counter property and a clicked callback
-let ui = slint.loadFile(new URL("ui/main.slint", import.meta.url));
-let component = new ui.MainWindow({
+let component = new MainWindow({
     counter: 42,
-    clicked: function() { console.log("hello"); }
+    clicked: function () {
+        console.log("hello");
+    },
 });
 ```
+
+If a property, callback, or function of the component is called `window`, `show`, `hide`, or `run`, it takes that name.
+Use `component[slint.windowSymbol]` to access the window then.
+Loading such a component emits a `SLINT_SHADOWED_BUILTIN` warning, unless the `quiet` option of `loadFile()` is set.
 
 ### Accessing Properties
 
@@ -290,7 +365,9 @@ let ui = slint.loadFile(new URL("ui/my-component.slint", import.meta.url));
 let component = new ui.MyComponent();
 
 // connect to a callback
-component.clicked = function() { console.log("hello"); };
+component.clicked = function () {
+    console.log("hello");
+};
 // emit a callback
 component.clicked();
 ```
@@ -299,26 +376,26 @@ component.clicked();
 
 The types used for properties in .slint design markup each translate to specific types in JavaScript. The following table summarizes the entire mapping:
 
-| `.slint` Type | JavaScript Type | Notes |
-| --- | --- | --- |
-| `int` | `Number` | |
-| `bool` | `Boolean` | |
-| `float` | `Number` | |
-| `string` | `String` | |
-| `color` | `RgbaColor` | |
-| `brush` | `Brush` | |
-| `keys` | `Keys` | |
-| `image` | `ImageData` | |
-| `styled-text` | `StyledText` | Styled text parsed from markdown or plain text. Use `StyledText.fromMarkdown()` or `StyledText.fromPlainText()` to create instances. |
-| `data-transfer` | `DataTransfer` | Data associated with a drag-drop transfer. |
-| `length` | `Number` | |
-| `physical_length` | `Number` | |
-| `duration` | `Number` | The number of milliseconds |
-| `angle` | `Number` | The angle in degrees |
-| `relative-font-size` | `Number` | Relative font size factor that is multiplied with the `Window.default-font-size` and can be converted to a `length`. |
-| structure | `Object` | Structures are mapped to JavaScript objects where each structure field is a property. |
-| array | `Model` | |
-| `Point` | `{ x: number; y: number }` | A two-dimensional point with `x` and `y` coordinates. |
+| `.slint` Type        | JavaScript Type            | Notes                                                                                                                                              |
+| -------------------- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `int`                | `Number`                   |                                                                                                                                                    |
+| `bool`               | `Boolean`                  |                                                                                                                                                    |
+| `float`              | `Number`                   |                                                                                                                                                    |
+| `string`             | `String`                   |                                                                                                                                                    |
+| `color`              | `Brush`                    | Reading returns a `Brush`, whose `color` is an `RgbaColor`. Assign a `Brush`, an `RgbaColor`, or a color string such as `"#ff000080"` or `"blue"`. |
+| `brush`              | `Brush`                    | Assign a `Brush`, an `RgbaColor`, or a color string such as `"#ff000080"` or `"blue"`.                                                             |
+| `keys`               | `Keys`                     |                                                                                                                                                    |
+| `image`              | `ImageData`                |                                                                                                                                                    |
+| `styled-text`        | `StyledText`               | Styled text parsed from markdown or plain text. Use `StyledText.fromMarkdown()` or `StyledText.fromPlainText()` to create instances.               |
+| `data-transfer`      | `DataTransfer`             | Data associated with a drag-drop transfer.                                                                                                         |
+| `length`             | `Number`                   |                                                                                                                                                    |
+| `physical_length`    | `Number`                   |                                                                                                                                                    |
+| `duration`           | `Number`                   | The number of milliseconds                                                                                                                         |
+| `angle`              | `Number`                   | The angle in degrees                                                                                                                               |
+| `relative-font-size` | `Number`                   | Relative font size factor that is multiplied with the `Window.default-font-size` and can be converted to a `length`.                               |
+| structure            | `Object`                   | Structures are mapped to JavaScript objects where each structure field is a property.                                                              |
+| array                | `Model`                    |                                                                                                                                                    |
+| `Point`              | `{ x: number; y: number }` | A two-dimensional point with `x` and `y` coordinates.                                                                                              |
 
 ### Arrays and Models
 
@@ -358,7 +435,6 @@ export component MyComponent inherits Window {
 **`main.js`**
 
 ```js
-
 import * as slint from "slint-ui";
 
 let ui = slint.loadFile(new URL("my-component.slint", import.meta.url));
@@ -394,7 +470,6 @@ export component MyComponent inherits Window {
 **`main.js`**
 
 ```js
-
 import * as slint from "slint-ui";
 
 let ui = slint.loadFile(new URL("my-component.slint", import.meta.url));
@@ -436,5 +511,75 @@ component.Logic.to_uppercase = (str) => {
 };
 ```
 
-**Note**: Global singletons are instantiated once per component. When declaring multiple components for `export` to JavaScript,
+Alternatively, use `slint.globalsSymbol` to access the global,
+even when a property of the component has the same name as the global:
+
+```js
+component[slint.globalsSymbol].Logic.to_uppercase = (str) => str.toUpperCase();
+```
+
+**Note**: Global singletons are instantiated once per component.
+When declaring multiple components for `export` to JavaScript,
 each instance will have their own instance of associated global singletons.
+
+### TypeScript Support
+
+Node.js, Deno, and Bun run a TypeScript file that imports a `.slint` file without extra setup,
+because they strip the types without checking them.
+The TypeScript compiler and editors don't know `.slint` files, though:
+`tsc` reports "Cannot find module './main.slint'" until you add type declarations.
+
+#### Generating Type Declarations
+
+Use `slint-compiler` to generate a `.d.ts` file next to the `.slint` file.
+With `-f typescript`, the compiler uses the project settings from `slint-project.json` beside the source, just like the runtime import.
+
+```sh
+npx slint-compiler -f typescript ui/main.slint -o ui/main.slint.d.ts
+```
+
+This gives you full IDE autocomplete and type checking for all properties,
+callbacks, structs, and enums exported from the `.slint` file.
+
+To keep the types in sync, add `slint-compiler` as a development dependency in `package.json`,
+and call it from a script:
+
+```json
+{
+    "devDependencies": {
+        "slint-compiler": "^1.19.0"
+    },
+    "scripts": {
+        "generate": "slint-compiler -f typescript ui/main.slint -o ui/main.slint.d.ts",
+        "start": "npm run generate && node --import slint-ui/register app.mjs"
+    }
+}
+```
+
+Add `*.slint.d.ts` to `.gitignore` — the generated file is a build artifact.
+The app runs without it; you just lose type checking.
+
+#### tsconfig Setup
+
+Use `moduleResolution: "bundler"` so TypeScript resolves `import "./main.slint"`
+to the generated `main.slint.d.ts`.
+That file imports `slint-ui`: if your `.slint` files are outside the folder that has `node_modules`,
+also map `slint-ui` with `paths`, or TypeScript silently types every component as `any`:
+
+```json
+{
+    "compilerOptions": {
+        "module": "esnext",
+        "moduleResolution": "bundler",
+        "paths": {
+            "slint-ui": ["./node_modules/slint-ui"]
+        }
+    }
+}
+```
+
+With `moduleResolution: "nodenext"`, TypeScript doesn't find `main.slint.d.ts`.
+Name the generated file `main.d.slint.ts` instead, and enable `allowArbitraryExtensions` in `tsconfig.json`.
+
+For a complete example,
+see [/examples/todo/node-typescript](https://github.com/slint-ui/slint/tree/master/examples/todo/node-typescript).

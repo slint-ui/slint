@@ -17,11 +17,8 @@ pub use i_slint_editor_preview as editor_preview;
 pub use i_slint_editor_preview::util;
 
 use editor_preview::LspToPreviews;
-use editor_preview::{DocumentCache, Result};
-use i_slint_live_preview::{
-    file_watcher::FileChangeKind,
-    protocol::{LspToPreviewMessage, PreviewToLspMessage, VersionedUrl},
-};
+use editor_preview::Result;
+use i_slint_live_preview::{file_watcher::FileChangeKind, protocol::PreviewToLspMessage};
 use js_sys::Function;
 pub use language::{Context, RequestHandler};
 use lsp_types::Url;
@@ -31,9 +28,6 @@ use std::cell::RefCell;
 use std::io::ErrorKind;
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
-
-#[cfg(target_arch = "wasm32")]
-use crate::editor_preview::wasm_prelude::*;
 
 type JsResult<T> = std::result::Result<T, JsError>;
 
@@ -132,7 +126,7 @@ impl<T> Drop for ReentryGuardLock<'_, T> {
 
 #[wasm_bindgen(typescript_custom_section)]
 const IMPORT_CALLBACK_FUNCTION_SECTION: &'static str = r#"
-type ImportCallbackFunction = (url: string) => Promise<string>;
+type ImportCallbackFunction = (url: string) => Promise<string | null>;
 type SendRequestFunction = (method: string, r: any) => Promise<any>;
 type HighlightInPreviewFunction = (file: string, offset: number) => void;
 "#;
@@ -193,7 +187,7 @@ pub struct SlintServer {
     ///
     /// Every exported `async` method must therefore take `&self`, not `&mut self`:
     /// wasm-bindgen holds a `&mut self` borrow across the future's `.await` points,
-    /// which re-entrant messages would trip (see tests/wasm_export_reentrancy.rs).
+    /// which re-entrant messages would trip.
     ctx: ReentryGuard<Context>,
     rh: Rc<RequestHandler>,
 }
@@ -220,41 +214,22 @@ pub fn create(
     let to_preview =
         LspToPreviews::with_one(connector::WasmLspToPreview::new(server_notifier.clone()));
 
-    let to_preview_clone = to_preview.clone();
     compiler_config.open_import_callback = Some(Rc::new(move |path| {
         let load_file = Function::from(load_file.clone());
-        let to_preview = to_preview_clone.clone();
         Box::pin(async move {
-            let contents = self::load_file(path.clone(), &load_file).await;
-            let Ok(url) = Url::from_file_path(&path) else {
-                return Some(contents.map(|c| (None, c)));
-            };
-            if let Ok(contents) = &contents {
-                to_preview.send(&LspToPreviewMessage::SetContents {
-                    url: VersionedUrl::new(url, None),
-                    contents: contents.clone().into(),
-                });
-            }
+            let contents = self::load_file(path.to_string(), &load_file).await;
             Some(contents.map(|c| (None, c)))
         })
     }));
-    let document_cache = DocumentCache::new(compiler_config);
+    let mut session = crate::editor_preview::EditorSession::new(compiler_config);
+    session.attach_preview(to_preview, None, None);
 
     let mut rh = RequestHandler::default();
     language::register_request_handlers(&mut rh);
 
     Ok(SlintServer {
         ctx: ReentryGuard::new(Context {
-            session: crate::editor_preview::EditorSession {
-                document_cache,
-                preview_config: Default::default(),
-                open_urls: Default::default(),
-                previews: vec![crate::editor_preview::PreviewConnection {
-                    to_preview,
-                    to_show: Default::default(),
-                }],
-                pending_recompile: Default::default(),
-            },
+            session,
             init_param,
             server_notifier,
             host_language_rename_dont_ask_again: Default::default(),
@@ -323,10 +298,13 @@ impl SlintServer {
                         .await
                 });
             }
+            M::ClearHighlight | M::HighlightInRunPreview { .. } => {
+                tracing::debug!("Ignoring run preview highlight from the preview");
+            }
             M::PreviewTypeChanged { target } => {
                 ctx.session
                     .primary_preview()
-                    .to_preview
+                    .to_preview()
                     .set_local_target(target)
                     .map_err(|err| js_sys::Error::new(&format!("{err}")))?;
             }
@@ -355,6 +333,7 @@ impl SlintServer {
                 log(&editor_preview::preview_log_message_to_string(&location, &message));
             }
             M::ConnectRemote { .. }
+            | M::ConnectSerial { .. }
             | M::DisconnectRemote
             | M::SubmitPairingCode { .. }
             | M::CancelPairing
@@ -416,7 +395,7 @@ impl SlintServer {
         let uri: Url = serde_wasm_bindgen::from_value(uri)?;
         let diagnostics = ctx
             .session
-            .open_document(content, uri.clone(), Some(version))
+            .open_document(content, uri, Some(version))
             .await
             .map_err(|e| JsError::new(&e.to_string()))?;
         crate::lsp_to_editor::publish_diagnostics(&ctx.server_notifier, diagnostics);
@@ -434,7 +413,7 @@ impl SlintServer {
         let uri: Url = serde_wasm_bindgen::from_value(uri)?;
         let diagnostics = ctx
             .session
-            .load_document(content, uri.clone(), Some(version))
+            .load_document(content, uri, Some(version))
             .await
             .map_err(|e| JsError::new(&e.to_string()))?;
         crate::lsp_to_editor::publish_diagnostics(&ctx.server_notifier, diagnostics);
@@ -445,7 +424,12 @@ impl SlintServer {
     pub async fn close_document(&self, uri: JsValue) -> JsResult<JsValue> {
         let mut ctx = self.ctx.lock().await;
         let uri: Url = serde_wasm_bindgen::from_value(uri)?;
-        ctx.session.close_document(uri).await.map_err(|e| JsError::new(&e.to_string()))?;
+        let diagnostics = ctx
+            .session
+            .close_document(uri)
+            .await
+            .map_err(|error| JsError::new(&error.to_string()))?;
+        crate::lsp_to_editor::publish_diagnostics(&ctx.server_notifier, diagnostics);
         Ok(JsValue::UNDEFINED)
     }
 
@@ -478,6 +462,9 @@ async fn load_file(path: String, load_file: &Function) -> std::io::Result<String
     let string_future = wasm_bindgen_futures::JsFuture::from(js_sys::Promise::from(string_promise));
     let js_value =
         string_future.await.map_err(|e| std::io::Error::new(ErrorKind::Other, format!("{e:?}")))?;
+    if js_value.is_null() {
+        return Err(std::io::Error::new(ErrorKind::NotFound, "File not found"));
+    }
     return Ok(js_value.as_string().unwrap_or_default());
 }
 

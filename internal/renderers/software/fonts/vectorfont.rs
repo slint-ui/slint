@@ -1,19 +1,21 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cspell:ignore COLR CBDT sbix
+
 use core::num::NonZeroU16;
 
-use alloc::rc::Rc;
 use alloc::vec::Vec;
 use skrifa::MetadataProvider;
 
 use crate::PhysicalLength;
 use crate::fixed::Fixed;
 use i_slint_common::sharedfontique::fontique;
+use i_slint_core::graphics::{Rgba8Pixel, SharedPixelBuffer};
 use i_slint_core::lengths::PhysicalPx;
 use i_slint_core::textlayout::{Glyph, TextShaper};
 
-use super::RenderableVectorGlyph;
+use super::{RenderableVectorGlyph, VectorGlyphPixels};
 
 // A length in font design space.
 struct FontUnit;
@@ -28,12 +30,27 @@ type FontScaleFactor = euclid::Scale<f32, FontUnit, PhysicalPx>;
 /// UI text sizes while keeping the glyph cache small.
 pub(crate) const SUBPIXEL_BIN_COUNT: i32 = 4;
 
-/// Cache key includes blob id, font index, pixel size, glyph id, a hash of normalized
-/// variation coordinates (so different variable font instances produce distinct cache
-/// entries), the horizontal sub-pixel bin, and the faux-italic synthesis applied at render
-/// time. Without `skew_bits`, an upright and a synthetically-italicized glyph from the same
-/// font, size, and id would collide on the same cache entry and one of the two runs would
-/// silently render with the other's bitmap.
+/// Steps per physical pixel that a glyph stroke width is quantized to.
+/// Quantizing keeps an animated `stroke-width` from filling the glyph cache with
+/// one entry per frame.
+const STROKE_WIDTH_STEPS_PER_PIXEL: f32 = 8.;
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct StrokeWidth(NonZeroU16);
+
+impl StrokeWidth {
+    /// Rounds `physical_width` to the nearest step. Zero, negative, and `NaN` widths become
+    /// the smallest step.
+    pub fn from_physical(physical_width: f32) -> Self {
+        let steps = (physical_width * STROKE_WIDTH_STEPS_PER_PIXEL).round() as u16;
+        Self(NonZeroU16::new(steps).unwrap_or(NonZeroU16::MIN))
+    }
+
+    fn to_physical(self) -> f32 {
+        self.0.get() as f32 / STROKE_WIDTH_STEPS_PER_PIXEL
+    }
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 struct GlyphCacheKey {
     /// Font blob id.
@@ -51,13 +68,18 @@ struct GlyphCacheKey {
     /// Faux-italic skew angle in degrees, bit-cast for `Eq`/`Hash`; `None` when the font has
     /// (or doesn't need) a real italic/oblique face.
     skew_bits: Option<u32>,
+    /// Outline stroke width; `None` for a filled glyph.
+    stroke_width: Option<StrokeWidth>,
+    /// Whether a color glyph was asked for, where the font has one, and for a font with color
+    /// layers the text's color, which layers drawn in the text's color use (`[0; 3]` otherwise).
+    color: Option<[u8; 3]>,
 }
 
 struct RenderableGlyphWeightScale;
 
 impl clru::WeightScale<GlyphCacheKey, RenderableVectorGlyph> for RenderableGlyphWeightScale {
     fn weight(&self, _: &GlyphCacheKey, value: &RenderableVectorGlyph) -> usize {
-        value.alpha_map.len()
+        value.byte_size()
     }
 }
 
@@ -192,16 +214,30 @@ impl VectorFont {
         self
     }
 
+    /// Renders a glyph. With `color` (the text's red, green and blue), a glyph the font draws in
+    /// color (an emoji's layers or bitmap) comes back as [`VectorGlyphPixels::Color`], its layers
+    /// that use the text's color drawn in `color`; otherwise, and for a stroke, it's the
+    /// outline's coverage.
     pub fn render_vector_glyph(
         &self,
         glyph_id: core::num::NonZeroU16,
         subpixel_bin: u8,
+        stroke_width: Option<StrokeWidth>,
+        color: Option<[u8; 3]>,
         slint_context: &i_slint_core::SlintContext,
     ) -> Option<RenderableVectorGlyph> {
         GLYPH_CACHE.with(|cache| {
             let mut cache = cache.borrow_mut();
 
             let skew_degrees = self.synthesis.skew();
+            // A stroke is drawn from the outline, so color makes no difference to it. Only color
+            // layers (a `COLR` table) can use the text's color: other glyphs keep one cache entry
+            // whatever the text's color is.
+            let color = color.filter(|_| stroke_width.is_none()).map(|rgb| {
+                let has_layers =
+                    self.swash_font_ref().table(swash::tag_from_bytes(b"COLR")).is_some();
+                if has_layers { rgb } else { [0; 3] }
+            });
 
             let cache_key = GlyphCacheKey {
                 font_blob_id: self.font_blob.id(),
@@ -211,6 +247,8 @@ impl VectorFont {
                 coords_hash: self.coords_hash,
                 subpixel_bin,
                 skew_bits: skew_degrees.map(f32::to_bits),
+                stroke_width,
+                color,
             };
 
             if let Some(entry) = cache.get(&cache_key) {
@@ -240,21 +278,68 @@ impl VectorFont {
                         swash::zeno::Angle::ZERO,
                     )
                 });
-                let image = swash::scale::Render::new(&[swash::scale::Source::Outline])
+                // Color first: the layers of a `COLR` font (version 0), then the bitmaps of a
+                // `CBDT` or `sbix` font, scaled to the pixel size. A font without either, and a
+                // stroke, gives the outline.
+                use swash::scale::{Source, StrikeWith};
+                let sources: &[Source] = if color.is_some() {
+                    &[
+                        Source::ColorOutline(0),
+                        Source::ColorBitmap(StrikeWith::BestFit),
+                        Source::Outline,
+                    ]
+                } else {
+                    &[Source::Outline]
+                };
+                let mut render = swash::scale::Render::new(sources);
+                render
                     .format(swash::zeno::Format::Alpha)
                     .offset(swash::zeno::Vector::new(subpixel_offset_x, 0.0))
-                    .transform(transform)
-                    .render(&mut scaler, glyph_id.get())?;
+                    .transform(transform);
+                if let Some([r, g, b]) = color {
+                    // Opaque: the text's alpha applies when the glyph is drawn.
+                    render.default_color([r, g, b, 255]);
+                }
+                if let Some(stroke_width) = stroke_width {
+                    let mut stroke = swash::zeno::Stroke::new(stroke_width.to_physical());
+                    // Matches the Skia and FemtoVG text stroke.
+                    stroke
+                        .join(swash::zeno::Join::Miter)
+                        .miter_limit(10.)
+                        .cap(swash::zeno::Cap::Butt);
+                    render.style(stroke);
+                }
+                let image = render.render(&mut scaler, glyph_id.get())?;
 
                 let placement = image.placement;
-                let alpha_map: Rc<[u8]> = image.data.into();
+                let pixels = match image.content {
+                    swash::scale::image::Content::Color => {
+                        let mut buffer = SharedPixelBuffer::<Rgba8Pixel>::clone_from_slice(
+                            &image.data,
+                            placement.width,
+                            placement.height,
+                        );
+                        // Layers come composited over transparent, so premultiplied; bitmaps
+                        // are decoded from PNG with straight alpha.
+                        if matches!(image.source, Source::ColorBitmap(_)) {
+                            for pixel in buffer.make_mut_slice() {
+                                let alpha = pixel.a as u16;
+                                pixel.r = ((pixel.r as u16 * alpha + 127) / 255) as u8;
+                                pixel.g = ((pixel.g as u16 * alpha + 127) / 255) as u8;
+                                pixel.b = ((pixel.b as u16 * alpha + 127) / 255) as u8;
+                            }
+                        }
+                        VectorGlyphPixels::Color(buffer)
+                    }
+                    _ => VectorGlyphPixels::AlphaMap(image.data.into()),
+                };
 
                 Some(RenderableVectorGlyph {
                     x: Fixed::from_integer(placement.left),
                     y: Fixed::from_integer(placement.top - placement.height as i32),
                     width: PhysicalLength::new(placement.width.try_into().unwrap()),
                     height: PhysicalLength::new(placement.height.try_into().unwrap()),
-                    alpha_map,
+                    pixels,
                     pixel_stride: placement.width.try_into().unwrap(),
                     glyph_origin_x: placement.left as f32,
                 })
@@ -341,14 +426,18 @@ impl super::GlyphRenderer for VectorFont {
         glyph_id: core::num::NonZeroU16,
         slint_context: &i_slint_core::SlintContext,
     ) -> Option<super::RenderableGlyph> {
-        self.render_vector_glyph(glyph_id, 0, slint_context).map(|glyph| super::RenderableGlyph {
-            x: glyph.x,
-            y: glyph.y,
-            width: glyph.width,
-            height: glyph.height,
-            alpha_map: glyph.alpha_map.into(),
-            pixel_stride: glyph.pixel_stride,
-            sdf: false,
+        // A coverage map, like the bitmap fonts' glyphs this path also draws.
+        self.render_vector_glyph(glyph_id, 0, None, None, slint_context).and_then(|glyph| {
+            let VectorGlyphPixels::AlphaMap(alpha_map) = glyph.pixels else { return None };
+            Some(super::RenderableGlyph {
+                x: glyph.x,
+                y: glyph.y,
+                width: glyph.width,
+                height: glyph.height,
+                alpha_map: alpha_map.into(),
+                pixel_stride: glyph.pixel_stride,
+                sdf: false,
+            })
         })
     }
 

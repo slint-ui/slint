@@ -1,0 +1,65 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Properties } from "../../../properties.slint";
+
+import { InspectorEditableField, InspectorPropertyRow, InspectorSection } from "../index.slint";
+import { InspectorContext } from "context.slint";
+
+export component InspectorRangeSection inherits InspectorSection {
+    title: @tr("Range");
+
+    private property <string> step-property: InspectorContext.is-spinbox-selection() ? "step-size" : "step";
+
+    InspectorPropertyRow {
+        label: @tr("Value");
+
+        InspectorEditableField {
+            accessible-name: @tr("Range value");
+            value: InspectorContext.property-number-label("value", Properties.source-property-value("minimum", "0"));
+            commit-key: InspectorContext.field-key("value");
+            accepted(text) => {
+                return text.is-float() ? InspectorContext.commit-number("value", text.to-float(), "") : InspectorContext.commit-code("value", text);
+            }
+        }
+    }
+
+    InspectorPropertyRow {
+        label: @tr("Minimum");
+
+        InspectorEditableField {
+            accessible-name: @tr("Range minimum");
+            value: InspectorContext.property-number-label("minimum", "0");
+            commit-key: InspectorContext.field-key("minimum");
+            accepted(text) => {
+                return text.is-float() ? InspectorContext.commit-number("minimum", text.to-float(), "") : InspectorContext.commit-code("minimum", text);
+            }
+        }
+    }
+
+    InspectorPropertyRow {
+        label: @tr("Maximum");
+
+        InspectorEditableField {
+            accessible-name: @tr("Range maximum");
+            value: InspectorContext.property-number-label("maximum", "100");
+            commit-key: InspectorContext.field-key("maximum");
+            accepted(text) => {
+                return text.is-float() ? InspectorContext.commit-number("maximum", text.to-float(), "") : InspectorContext.commit-code("maximum", text);
+            }
+        }
+    }
+
+    InspectorPropertyRow {
+        label: @tr("Step");
+
+        InspectorEditableField {
+            accessible-name: @tr("Range step");
+            value: InspectorContext.property-number-label(root.step-property, "1");
+            commit-key: InspectorContext.field-key(root.step-property);
+            accepted(text) => {
+                return text.is-float() ? InspectorContext.commit-number(root.step-property, text.to-float(), "") : InspectorContext.commit-code(root.step-property, text);
+            }
+        }
+    }
+}

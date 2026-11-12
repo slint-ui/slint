@@ -41,6 +41,9 @@ export type MaterializedNode = {
     readonly strokeLeftWeight?: unknown;
     readonly strokeAlign?: string;
     readonly dashPattern?: readonly number[];
+    readonly strokeCap?: string;
+    readonly strokeJoin?: string;
+    readonly strokeMiterLimit?: number;
     readonly clipsContent: boolean;
     readonly blendMode?: string;
     readonly isMask?: boolean;
@@ -84,6 +87,8 @@ export type MaterializedNode = {
     readonly text?: unknown;
     readonly sourceCells?: readonly unknown[];
     readonly sourceSvgOmitted?: boolean;
+    readonly sourcePngOmitted?: boolean;
+    readonly sourceSvgBounds?: VisualBounds;
     readonly sourceRasterBounds?: VisualBounds;
     readonly textPaintBounds?: unknown;
     readonly sourceMaskRaster?: boolean;
@@ -92,7 +97,6 @@ export type MaterializedNode = {
 export type NormalizationContext = {
     readonly assets: NormalizationAssets;
     readonly target: GenerationTarget;
-    readonly nativeTextOnly?: boolean;
     readonly metrics: {
         durationMs: number;
         requests: number;
