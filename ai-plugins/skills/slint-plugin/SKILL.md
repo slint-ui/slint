@@ -20,7 +20,7 @@ The presence of preview tools alone doesn't establish that the host supports the
    Pass `projectRoot` when applying a `slint-project.json`; use `source` for self-contained snippets importing only `std-widgets.slint`.
 2. Keep the returned preview ID and call `get_preview_screenshot` with that `previewId`.
    A preview request acknowledges the call; inspect the screenshot and diagnostics before confirming a successful render.
-   Heed Wasm preview warnings: remove code reported as unnecessary before using the code further.
+   If the Wasm preview warns that code is unnecessary, remove that code and preview again before continuing.
 3. On `pending`, request another screenshot for the same ID.
    If startup is unconfirmed, ask the user to open its chat and retry that ID after they return.
    Stop automatic retries on timeout; don't create replacement cards just because startup is delayed.
