@@ -1713,13 +1713,15 @@ export component Test { in property <Foobar> test1; }"#,
     #[test]
     fn inspector_boolean_source_defaults() {
         let source = r#"
-import { Button, CheckBox, LineEdit, ProgressIndicator } from "std-widgets.slint";
+import { Button, CheckBox, LineEdit, ProgressIndicator, ScrollView } from "std-widgets.slint";
 export component Main inherits Window {
     Button { /*button*/ }
     CheckBox { /*checked*/ }
     LineEdit { /*read-only*/ }
     ProgressIndicator { /*indeterminate*/ }
     Text { /*font-italic*/ }
+    ScrollView { /*mouse-drag-pan*/ }
+    Flickable { /*flickable-drag-pan*/ }
 }"#;
         let (document_cache, url, _) = loaded_document_cache(source.into());
         for (marker, property_name, expected) in [
@@ -1729,6 +1731,8 @@ export component Main inherits Window {
             ("read-only", "read-only", false),
             ("indeterminate", "indeterminate", false),
             ("font-italic", "font-italic", false),
+            ("mouse-drag-pan", "mouse-drag-pan-enabled", false),
+            ("flickable-drag-pan", "mouse-drag-pan-enabled", true),
         ] {
             let element = document_cache
                 .element_at_offset(
