@@ -22,7 +22,9 @@ runs:
               echo "ANDROID_NDK_HOME=${ANDROID_HOME}/ndk/$ndk" >> $GITHUB_ENV
         - name: Install the Skia build dependencies
           shell: bash
-          run: sudo apt-get install -y ninja-build
+          run: |
+              bash "$GITHUB_ACTION_PATH/../apt-get-retry.sh" update
+              bash "$GITHUB_ACTION_PATH/../apt-get-retry.sh" install -y ninja-build
         - uses: actions/setup-java@v5
           with:
               distribution: temurin

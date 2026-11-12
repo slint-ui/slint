@@ -27,6 +27,10 @@ on:
           default: true
           required: false
           description: "Build the Node.js and Python API documentation"
+        os:
+          type: string
+          default: ubuntu-26.04
+          description: The runner for the jobs
 
 env:
     CARGO_PROFILE_DEV_DEBUG: 0
@@ -34,12 +38,12 @@ env:
 jobs:
     # Job 1: Build Rust and C++ documentation
     rust-cpp-docs:
-        runs-on: ubuntu-26.04
+        runs-on: ${{ inputs.os }}
         env:
             # Allow deprecated warning because we are using nightly and some things might be deprecated in nightly
             # for which the stable alternative is not yet available.
             RUSTFLAGS: -D warnings -W deprecated --cfg slint_nightly_test
-            RUSTDOCFLAGS: --html-in-header=/home/runner/work/slint/slint/docs/astro/src/utils/slint-docs-highlight.html -D warnings -W deprecated --cfg docsrs -Zunstable-options --generate-link-to-definition
+            RUSTDOCFLAGS: --html-in-header=${{ github.workspace }}/docs/astro/src/utils/slint-docs-highlight.html -D warnings -W deprecated --cfg docsrs -Zunstable-options --generate-link-to-definition
             SLINT_NO_QT: 1
             CARGO_INCREMENTAL: false
             RELEASE_INPUT: ${{ inputs.release }}
@@ -130,7 +134,7 @@ jobs:
 
     # Job 2: Build Astro docs and run tests
     astro-docs-tests:
-        runs-on: ubuntu-26.04
+        runs-on: ${{ inputs.os }}
         outputs:
             version: ${{ steps.version.outputs.VERSION }}
         env:
@@ -297,7 +301,7 @@ jobs:
     # Job 3: Build Node and Python documentation
     node-python-docs:
         if: ${{ inputs['node-python-docs'] }}
-        runs-on: ubuntu-26.04
+        runs-on: ${{ inputs.os }}
         env:
             RELEASE_INPUT: ${{ inputs.release }}
         steps:
