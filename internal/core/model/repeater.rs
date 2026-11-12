@@ -3457,10 +3457,10 @@ mod tests {
         };
         let scroll_up_by = |scroll: f32| scroll_down_by(-scroll);
 
-        // Scrolled by 3.5 rows, so rows 3 to 6 are in view
+        // Scrolled by 3.5 rows, so row 3 and 6 are partially visible
         scroll_down_by(ITEM_HEIGHT * 7. / 2.);
         update();
-        assert_eq!(state(&repeater).0, [Clean(2), Clean(3), Clean(4), Clean(5)]);
+        assert_eq!(state(&repeater).0, [Clean(3), Clean(4), Clean(5), Clean(6)]);
     }
 
     // Trait implementations
