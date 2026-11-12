@@ -3105,15 +3105,16 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
             );
 
             let phys_size = geom.size_length().cast() * self.scale_factor;
-            let fit = i_slint_core::graphics::fit(
+            if let Some(fit) = i_slint_core::graphics::fit(
                 image.image_fit(),
                 phys_size,
                 source_clip,
                 self.scale_factor,
                 image.alignment(),
                 image.tiling(),
-            );
-            self.draw_image_impl(image_inner, fit, image.colorize().color());
+            ) {
+                self.draw_image_impl(image_inner, fit, image.colorize().color());
+            }
         }
     }
 
@@ -3662,20 +3663,19 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
     fn draw_image_direct(&mut self, image: i_slint_core::graphics::Image) {
         let image_inner: &ImageInner = (&image).into();
         let source_size = image.size();
-        if source_size.is_empty() {
-            return;
-        }
         let target_size = euclid::Size2D::<f32, i_slint_core::lengths::LogicalPx>::from_untyped(
             source_size.cast(),
         ) * self.scale_factor;
-        let fit = i_slint_core::graphics::fit(
+        let Some(fit) = i_slint_core::graphics::fit(
             i_slint_core::items::ImageFit::Fill,
             target_size,
             i_slint_core::graphics::IntRect::from_size(source_size.cast()),
             self.scale_factor,
             Default::default(),
             Default::default(),
-        );
+        ) else {
+            return;
+        };
         self.draw_image_impl(image_inner, fit, i_slint_core::Color::default());
     }
 
