@@ -74,6 +74,141 @@ impl ItemIndexRelationShip {
             |res| self.instance_index.checked_add(res),
         )
     }
+
+    /// Makes the first instance the current item.
+    fn select_first_instance(&mut self) {
+        *self = Self { row: self.first_row(), instance_index: 0 };
+    }
+
+    /// The row of the first instance when updating all `instance_count` instances.
+    /// Outside a ListView the instances start at row 0.
+    fn start_update_all(&mut self, instance_count: usize) -> usize {
+        if instance_count == 0 {
+            *self = Self::default();
+        }
+        self.first_row()
+    }
+
+    /// Updates the indexes after removing all instances.
+    fn instances_cleared(&mut self) {
+        self.instance_index = 0;
+    }
+
+    /// Updates the indexes before inserting `count` slots in front of `instance_count` instances.
+    fn instances_prepended(&mut self, instance_count: usize, count: usize) {
+        if instance_count > 0 {
+            self.instance_index += count;
+        }
+    }
+
+    /// Updates the indexes before removing the first `count` of `instance_count` instances.
+    fn first_instances_removed(&mut self, instance_count: usize, count: usize) {
+        if count >= instance_count {
+            self.instances_cleared();
+        } else if count > self.instance_index {
+            // During a ListView update `row` lags behind the ListView's own copy of the layout
+            // state, hence the saturating_sub
+            self.row = self.row.saturating_sub(self.instance_index) + count;
+            self.instance_index = 0;
+        } else {
+            self.instance_index -= count;
+        }
+    }
+
+    /// Updates the indexes before keeping only the first `len` of `instance_count` instances.
+    fn instances_truncated(&mut self, instance_count: usize, len: usize) {
+        if len == 0 {
+            self.instances_cleared();
+        } else if len < instance_count && self.instance_index >= len {
+            self.row = self.row.saturating_sub(self.instance_index) + len - 1;
+            self.instance_index = len - 1;
+        }
+    }
+
+    /// Updates the indexes for `count` rows inserted into the model at `index`,
+    /// with `instance_count` instances.
+    /// Returns where to insert empty slots, or `None` if the instances don't change.
+    fn rows_added(
+        &mut self,
+        instance_count: usize,
+        index: usize,
+        count: usize,
+    ) -> Option<InstanceSlots> {
+        if count == 0 {
+            return None;
+        }
+        let first_row = self.first_row();
+        if index > first_row + instance_count {
+            // A slot for these rows would split the window
+            return None;
+        }
+        if index < first_row {
+            self.row += count;
+            return Some(InstanceSlots { position: 0, count: 0 });
+        }
+        if index <= self.row && instance_count > 0 {
+            self.row += count;
+            self.instance_index += count;
+        }
+        Some(InstanceSlots { position: index - first_row, count })
+    }
+
+    /// Updates the indexes for `count` rows removed from the model at `index`,
+    /// with `instance_count` instances and `row_count` rows left.
+    /// Returns the instances to remove, or `None` if the instances don't change.
+    fn rows_removed(
+        &mut self,
+        instance_count: usize,
+        index: usize,
+        count: usize,
+        row_count: usize,
+    ) -> Option<core::ops::Range<usize>> {
+        if count == 0 {
+            return None;
+        }
+        let first_row = self.first_row();
+        let end_row = first_row + instance_count;
+        let removed_end = index + count;
+        if instance_count == 0 {
+            if removed_end <= self.row {
+                self.row -= count;
+            } else if index <= self.row {
+                self.row = index.min(row_count.saturating_sub(1));
+            }
+            return None;
+        }
+        if index >= end_row {
+            return None;
+        }
+        let start = index.clamp(first_row, end_row) - first_row;
+        let end = removed_end.clamp(first_row, end_row) - first_row;
+        let remaining = instance_count - (end - start);
+        if removed_end <= self.row {
+            self.row -= count;
+            self.instance_index -= end - start;
+        } else if index <= self.row {
+            // The current item moves to the next remaining instance, or else to the previous one
+            *self = if start < remaining {
+                Self { row: index, instance_index: start }
+            } else if start > 0 {
+                Self { row: first_row + start - 1, instance_index: start - 1 }
+            } else {
+                Self { row: index.min(row_count.saturating_sub(1)), instance_index: 0 }
+            };
+        }
+        Some(start..end)
+    }
+}
+
+/// Empty slots to insert for rows added to the model.
+/// The instances from `position` on are dirty.
+#[derive(Default, Clone, Copy, Debug, PartialEq)]
+#[repr(C)]
+pub struct InstanceSlots {
+    /// The index of the first new slot.
+    pub position: usize,
+    /// The number of new slots.
+    pub count: usize,
 }
 
 /// ItemTree that can be instantiated by a repeater.
@@ -180,6 +315,7 @@ struct RepeaterInner {
     scroll_to_row: Option<scroll::ScrollToRowRequest>,
 }
 
+#[cfg(test)]
 impl RepeaterInner {
     fn current_row(&self) -> usize {
         self.layout_state.item_index.row
@@ -731,7 +867,7 @@ impl RepeaterInstanceOps for RustRepeaterOps<'_> {
     fn clear(&mut self) {
         let mut inner = self.inner.borrow_mut();
         inner.instances.clear();
-        inner.layout_state.item_index.instance_index = 0;
+        inner.layout_state.item_index.instances_cleared();
     }
 
     fn push(&mut self, count: usize) {
@@ -740,45 +876,23 @@ impl RepeaterInstanceOps for RustRepeaterOps<'_> {
 
     fn prepend(&mut self, count: usize) {
         let mut inner = self.inner.borrow_mut();
-        if !inner.instances.is_empty() {
-            inner.layout_state.item_index.instance_index += count;
-        }
+        let instance_count = inner.instances.len();
+        inner.layout_state.item_index.instances_prepended(instance_count, count);
         inner.instances.splice(0..0, empty_slots(count));
     }
 
     fn remove_first(&mut self, count: usize) {
-        if count >= self.len() {
-            return self.clear();
-        }
         let mut inner = self.inner.borrow_mut();
-        let inner = &mut *inner;
-        inner.instances.drain(..count);
-        let current = &mut inner.layout_state.item_index;
-        if count > current.instance_index {
-            // During a ListView update `row` lags behind the ListView's own copy of the layout
-            // state, hence the saturating_sub
-            current.row = current.row.saturating_sub(current.instance_index) + count;
-            current.instance_index = 0;
-        } else {
-            current.instance_index -= count;
-        }
+        let instance_count = inner.instances.len();
+        inner.layout_state.item_index.first_instances_removed(instance_count, count);
+        inner.instances.drain(..count.min(instance_count));
     }
 
     fn truncate(&mut self, len: usize) {
-        if len == 0 {
-            return self.clear();
-        }
         let mut inner = self.inner.borrow_mut();
-        let inner = &mut *inner;
-        if len >= inner.instances.len() {
-            return;
-        }
+        let instance_count = inner.instances.len();
+        inner.layout_state.item_index.instances_truncated(instance_count, len);
         inner.instances.truncate(len);
-        let current = &mut inner.layout_state.item_index;
-        if current.instance_index >= len {
-            current.row = current.row.saturating_sub(current.instance_index) + len - 1;
-            current.instance_index = len - 1;
-        }
     }
 
     fn ensure_updated(&mut self, instance_idx: usize, row: usize) -> bool {
@@ -822,29 +936,13 @@ impl RepeaterInner {
     /// Implements [`ModelChangeListener::row_added`].
     /// Returns whether the instances changed.
     fn row_added(&mut self, index: usize, count: usize) -> bool {
-        if count == 0 {
+        let Some(slots) =
+            self.layout_state.item_index.rows_added(self.instances.len(), index, count)
+        else {
             return false;
-        }
-        let current = &mut self.layout_state.item_index;
-        let first_row = current.first_row();
-        if index > first_row + self.instances.len() {
-            // A slot for these rows would split the window
-            return false;
-        }
-        if index < first_row {
-            current.row += count;
-            for c in self.instances.iter_mut() {
-                c.0 = RepeatedInstanceState::Dirty;
-            }
-            return true;
-        }
-        if index <= current.row && !self.instances.is_empty() {
-            current.row += count;
-            current.instance_index += count;
-        }
-        let position = index - first_row;
-        self.instances.splice(position..position, empty_slots(count));
-        for c in self.instances[position + count..].iter_mut() {
+        };
+        self.instances.splice(slots.position..slots.position, empty_slots(slots.count));
+        for c in self.instances[slots.position..].iter_mut() {
             // Because all the indexes are dirty
             c.0 = RepeatedInstanceState::Dirty;
         }
@@ -855,46 +953,19 @@ impl RepeaterInner {
     /// `row_count` is the number of rows after the removal.
     /// Returns whether the instances changed.
     fn row_removed(&mut self, index: usize, count: usize, row_count: usize) -> bool {
-        if count == 0 {
+        let Some(removed) = self.layout_state.item_index.rows_removed(
+            self.instances.len(),
+            index,
+            count,
+            row_count,
+        ) else {
             return false;
-        }
-        let current = &mut self.layout_state.item_index;
-        let first_row = current.first_row();
-        let end_row = first_row + self.instances.len();
-        let removed_end = index + count;
-        if self.instances.is_empty() {
-            if removed_end <= current.row {
-                current.row -= count;
-            } else if index <= current.row {
-                current.row = index.min(row_count.saturating_sub(1));
-            }
-            return false;
-        }
-        if index >= end_row {
-            return false;
-        }
-        let start = index.clamp(first_row, end_row) - first_row;
-        let end = removed_end.clamp(first_row, end_row) - first_row;
-        self.instances.drain(start..end);
+        };
+        let start = removed.start;
+        self.instances.drain(removed);
         for c in self.instances[start..].iter_mut() {
             // Because all the indexes are dirty
             c.0 = RepeatedInstanceState::Dirty;
-        }
-        if removed_end <= current.row {
-            current.row -= count;
-            current.instance_index -= end - start;
-        } else if index <= current.row {
-            // The current item moves to the next remaining instance, or else to the previous one
-            *current = if start < self.instances.len() {
-                ItemIndexRelationShip { row: index, instance_index: start }
-            } else if start > 0 {
-                ItemIndexRelationShip { row: first_row + start - 1, instance_index: start - 1 }
-            } else {
-                ItemIndexRelationShip {
-                    row: index.min(row_count.saturating_sub(1)),
-                    instance_index: 0,
-                }
-            };
         }
         true
     }
@@ -964,8 +1035,7 @@ impl<T: RepeatedItemTree> ModelChangeListener for RepeaterTracker<T> {
         self.instances_changed();
         let mut inner = self.inner.borrow_mut();
         inner.instances.clear();
-        let current = &mut inner.layout_state.item_index;
-        *current = ItemIndexRelationShip { row: current.first_row(), instance_index: 0 };
+        inner.layout_state.item_index.select_first_instance();
     }
 }
 
@@ -1157,11 +1227,8 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
             let count = model.row_count();
             let offset = {
                 let mut inner = self.0.inner.borrow_mut();
-                if inner.instances.is_empty() {
-                    // Outside a ListView the instances start at row 0
-                    inner.layout_state.item_index = Default::default();
-                }
-                inner.layout_state.item_index.first_row()
+                let instance_count = inner.instances.len();
+                inner.layout_state.item_index.start_update_all(instance_count)
             };
             let mut ops = RustRepeaterOps {
                 inner: &self.0.inner,
@@ -1245,9 +1312,8 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         let data = self.data();
         let mut layout_state = {
             let mut inner = data.inner.borrow_mut();
-            let current = &mut inner.layout_state.item_index;
             // `update_visible_instances` keeps the current item on the first instance
-            *current = ItemIndexRelationShip { row: current.first_row(), instance_index: 0 };
+            inner.layout_state.item_index.select_first_instance();
             inner.layout_state.clone()
         };
         let mut scroll_to_row = data.inner.borrow_mut().scroll_to_row.take();
@@ -1651,6 +1717,8 @@ mod ffi {
     #[repr(C)]
     pub struct RepeaterInstanceOpsVTable {
         pub user_data: *mut core::ffi::c_void,
+        /// The `item_index` of the repeater's layout state, updated along with the instances.
+        pub item_index: *mut ItemIndexRelationShip,
         pub len: unsafe extern "C" fn(user_data: *mut core::ffi::c_void) -> usize,
         pub clear: unsafe extern "C" fn(user_data: *mut core::ffi::c_void),
         pub push: unsafe extern "C" fn(user_data: *mut core::ffi::c_void, count: usize),
@@ -1680,19 +1748,34 @@ mod ffi {
             unsafe { (self.len)(self.user_data) }
         }
         fn clear(&mut self) {
-            unsafe { (self.clear)(self.user_data) }
+            unsafe {
+                (*self.item_index).instances_cleared();
+                (self.clear)(self.user_data)
+            }
         }
         fn push(&mut self, count: usize) {
             unsafe { (self.push)(self.user_data, count) }
         }
         fn prepend(&mut self, count: usize) {
-            unsafe { (self.prepend)(self.user_data, count) }
+            let instance_count = self.len();
+            unsafe {
+                (*self.item_index).instances_prepended(instance_count, count);
+                (self.prepend)(self.user_data, count)
+            }
         }
         fn remove_first(&mut self, count: usize) {
-            unsafe { (self.remove_first)(self.user_data, count) }
+            let instance_count = self.len();
+            unsafe {
+                (*self.item_index).first_instances_removed(instance_count, count);
+                (self.remove_first)(self.user_data, count)
+            }
         }
         fn truncate(&mut self, len: usize) {
-            unsafe { (self.truncate)(self.user_data, len) }
+            let instance_count = self.len();
+            unsafe {
+                (*self.item_index).instances_truncated(instance_count, len);
+                (self.truncate)(self.user_data, len)
+            }
         }
         fn ensure_updated(&mut self, instance_idx: usize, row: usize) -> bool {
             let created = unsafe { (self.ensure_updated)(self.user_data, instance_idx, row) };
@@ -1711,13 +1794,46 @@ mod ffi {
         }
     }
 
+    /// See [`Repeater::ensure_updated`].
     #[unsafe(no_mangle)]
     pub extern "C" fn slint_repeater_ensure_updated(
         ops: &mut RepeaterInstanceOpsVTable,
-        offset: usize,
         count: usize,
     ) {
+        let instance_count = ops.len();
+        let offset = unsafe { (*ops.item_index).start_update_all(instance_count) };
         update_all_instances(ops, offset, count);
+    }
+
+    /// See [`ModelChangeListener::row_added`].
+    /// Returns whether the instances change, and if so, sets `slots`.
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_repeater_rows_added(
+        item_index: &mut ItemIndexRelationShip,
+        instance_count: usize,
+        index: usize,
+        count: usize,
+        slots: &mut InstanceSlots,
+    ) -> bool {
+        item_index.rows_added(instance_count, index, count).map(|s| *slots = s).is_some()
+    }
+
+    /// See [`ModelChangeListener::row_removed`].
+    /// `row_count` is the number of rows after the removal.
+    /// Returns whether the instances change, and if so, sets `removed` to the instances to remove.
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_repeater_rows_removed(
+        item_index: &mut ItemIndexRelationShip,
+        instance_count: usize,
+        index: usize,
+        count: usize,
+        row_count: usize,
+        removed: &mut crate::item_tree::IndexRange,
+    ) -> bool {
+        item_index
+            .rows_removed(instance_count, index, count, row_count)
+            .map(|range| *removed = range.into())
+            .is_some()
     }
 
     /// `state` and `scroll_to_row` are pointers, not references, because a row's init code,
@@ -1735,7 +1851,11 @@ mod ffi {
         listview_height: LogicalLength,
     ) -> bool {
         let props = TypedListViewProps { content_width, content_height, content_y };
-        let mut layout_state = unsafe { (*state).clone() };
+        // See `Repeater::ensure_updated_listview_callback`.
+        let mut layout_state = unsafe {
+            (*state).item_index.select_first_instance();
+            (*state).clone()
+        };
         // When a new item gets created in update_visible_instances and in its init
         // we call ensure-row-visible() we modify scroll_to_row
         // here we make a copy and reset `scroll_to_row`. If below `scroll_to_row`
@@ -2531,10 +2651,7 @@ mod tests {
         repeater
     }
 
-    fn with_ops(
-        repeater: Pin<&Repeater<SimpleItem>>,
-        f: impl FnOnce(&mut RustRepeaterOps<'_>),
-    ) {
+    fn with_ops(repeater: Pin<&Repeater<SimpleItem>>, f: impl FnOnce(&mut RustRepeaterOps<'_>)) {
         let model = ModelRc::default();
         f(&mut RustRepeaterOps {
             inner: &repeater.0.inner,
