@@ -1613,6 +1613,8 @@ fn build(l: &mut Loader) {
         @deprecated in property <length> viewport-height <=> content-height;
         @deprecated in-out property <length> viewport-x <=> content-x;
         @deprecated in-out property <length> viewport-y <=> content-y;
+        /// The snapping mode used to snap items to specific positions of the Flickable
+        in property <SnapMode> snap-mode: SnapMode.none;
 
         /// Scrolls so that the point `pos` of the content is at the top-left corner of the `Flickable`.
         /// `pos` is in content coordinates, so it's positive where `content-x` and `content-y` are usually negative.
