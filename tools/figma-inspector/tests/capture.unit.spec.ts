@@ -473,7 +473,7 @@ test("captures a styled Frame through the shared appearance subset", async () =>
     );
     expect(result.ok).toBe(true);
     if (!result.ok || result.empty) return;
-    expect(result.snapshot.schemaVersion).toBe(8);
+    expect(result.snapshot.schemaVersion).toBe(9);
     expect(result.snapshot.root).toMatchObject({
         kind: "frame",
         fills: [
@@ -2705,7 +2705,7 @@ test("captures fixed horizontal auto-layout metadata and direct-child sizing", a
     );
     expect(result.ok).toBe(true);
     if (!result.ok || result.empty) return;
-    expect(result.snapshot.schemaVersion).toBe(8);
+    expect(result.snapshot.schemaVersion).toBe(9);
     expect(result.snapshot.root.kind).toBe("frame");
     if (result.snapshot.root.kind !== "frame") return;
     expect(result.snapshot.root.autoLayout).toEqual({
@@ -3590,7 +3590,6 @@ describe("milestone7", () => {
             expect.arrayContaining([
                 "MULTIPLE_VISIBLE_PAINTS_APPROXIMATED",
                 "DASHED_STROKE_APPROXIMATED",
-                "INNER_SHADOW_APPROXIMATED",
             ]),
         );
         expect(

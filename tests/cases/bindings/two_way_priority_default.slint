@@ -4,9 +4,9 @@
 // The visible and enabled property are set by default by Slint to true.
 // But when overridden by an alias, the overridden value should take precedence.
 
-export Button := Rectangle {
-    property<bool> the_enabled <=> touch.enabled;
-    property<bool> the_visible <=> touch.visible;
+export component Button inherits Rectangle {
+    in-out property<bool> the_enabled <=> touch.enabled;
+    in-out property<bool> the_visible <=> touch.visible;
     background: !the_enabled ? blue : red;
     border-color: !the_visible ? green : yellow;
     border-width: 15px;
@@ -15,10 +15,10 @@ export Button := Rectangle {
         enabled <=> root.the_enabled;
         visible <=> root.the_visible;
     }
-    property <bool> check: !fs.enabled && !touch.enabled && !fs.visible && !touch.visible;
+    out property <bool> check: !fs.enabled && !touch.enabled && !fs.visible && !touch.visible;
 }
 
-export TestCase := Rectangle {
+export component TestCase inherits Rectangle {
     VerticalLayout {
         spacing: 10px;
         b1 := Button { the_enabled: false; the_visible: false; }
@@ -30,7 +30,7 @@ export TestCase := Rectangle {
         b7 := Button { the_enabled: false; the_visible: false; }
     }
 
-    property <bool> test: b1.check && b2.check && b3.check && b4.check && b5.check && b6.check && b7.check;
+    out property <bool> test: b1.check && b2.check && b3.check && b4.check && b5.check && b6.check && b7.check;
 }
 
 

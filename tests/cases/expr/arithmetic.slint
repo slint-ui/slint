@@ -1,15 +1,20 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
- TestCase := Rectangle {
-    property<int> a;
-    property<int> t1: 4 + 3 * 2 + 2 - 50 - 2;
-    property<int> t2: 500 / 2 * 30 - 1;
-    property<int> t3: a - (3 + ++2 * (a + 2));
-    property<int> t4: 3 + - +5 - 8 - -9 * --- 120;
-    property<int> t5: (a + 1.3) * 10;
+component TestCase inherits Rectangle {
+    in-out property<int> a;
+    out property<int> t1: 4 + 3 * 2 + 2 - 50 - 2;
+    out property<int> t2: 500 / 2 * 30 - 1;
+    out property<int> t3: a - (3 + ++2 * (a + 2));
+    out property<int> t4: 3 + - +5 - 8 - -9 * --- 120;
+    out property<int> t5: (a + 1.3) * 10;
 
-    property <length> len: 50px / 2;
+    out property <length> len: 50px / 2;
+
+    in-out property <length> w: 40px;
+    out property <int> ratio: (w + 2 * 10px) / 10px + 1;
+    in-out property <length> wide: 100000000000px;
+    out property <int> wide-as-int: wide / 10px;
 
     callback foo;
     foo => {
@@ -24,7 +29,8 @@
         len *= 3;
     }
 
-    out property <bool> test:  t1 == -40 && t2 == 7499 && t3 == -(3+2 * 2) && -1090 == t4 && t5 == 13;
+    out property <bool> test:  t1 == -40 && t2 == 7499 && t3 == -(3+2 * 2) && -1090 == t4 && t5 == 13
+        && ratio == 7 && wide-as-int == 2147483647;
 }
 /*
 ```cpp
@@ -41,6 +47,11 @@ instance.invoke_foo();
 assert_eq(instance.get_a(), (((42 + 8) * 10) / 2) - 3);
 
 assert_eq(instance.get_len(), ((25.+1.)/2. - 3.) * 3.);
+
+assert_eq(instance.get_ratio(), 7);
+instance.set_w(55.);
+assert_eq(instance.get_ratio(), 8);
+assert_eq(instance.get_wide_as_int(), 2147483647);
 ```
 
 
@@ -57,6 +68,11 @@ instance.invoke_foo();
 assert_eq!(instance.get_a(), (((42 + 8) * 10) / 2) - 3);
 
 assert_eq!(instance.get_len(), ((25.+1.)/2. - 3.) * 3.);
+
+assert_eq!(instance.get_ratio(), 7);
+instance.set_w(55.);
+assert_eq!(instance.get_ratio(), 8);
+assert_eq!(instance.get_wide_as_int(), i32::MAX);
 ```
 
 ```js
@@ -72,5 +88,10 @@ instance.foo();
 assert.equal(instance.a, (((42 + 8) * 10) / 2) - 3);
 
 assert.equal(instance.len, ((25.+1.)/2. - 3.) * 3.);
+
+assert.equal(instance.ratio, 7);
+instance.w = 55;
+assert.equal(instance.ratio, 8);
+assert.equal(instance.wide_as_int, 2147483647);
 ```
 */

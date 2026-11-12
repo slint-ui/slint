@@ -6,7 +6,7 @@ description: Choose the Slint release whose language behavior your project uses,
 import { Tabs, TabItem } from '@astrojs/starlight/components';
 import LangRefLink from '@slint/common-files/src/components/LangRefLink.astro';
 
-An edition is the Slint release whose language behavior your project uses, such as `1.19`.
+An edition is the Slint release whose language behavior your project uses, such as `1.20`.
 A project is an application or a library.
 
 When a Slint release changes the behavior of the language,
@@ -20,7 +20,7 @@ You can use new features with any edition.
 
 ## Choosing the Edition
 
-Choose the major and minor version of the Slint release you write your project for, such as `1.19`.
+Choose the major and minor version of the Slint release you write your project for, such as `1.20`.
 It can be the version of Slint you build with, or an older one.
 If your edition is newer than your version of Slint, Slint refuses to compile your project.
 
@@ -28,11 +28,11 @@ If your edition is newer than your version of Slint, Slint refuses to compile yo
 
 Set `edition` in the [project file](../../../tooling/project-file/).
 Slint tools read it when you pass the project file or its directory.
-Write it as a string, such as `"1.19"`, not as the number `1.19`:
+Write it as a string, such as `"1.20"`, not as the number `1.20`:
 
 ```json
 {
-    "edition": "1.19"
+    "edition": "1.20"
 }
 ```
 
@@ -49,7 +49,7 @@ To set its edition, add an attribute at the start of the macro body; otherwise, 
 
 ```rust
 slint::slint! {
-    #[edition = "1.19"]
+    #[edition = "1.20"]
     export component App inherits Window { }
 }
 ```
@@ -61,7 +61,7 @@ In `build.rs`, pass the edition to <LangRefLink lang="rust-slint-build" relpath=
 ```rust
 // build.rs
 fn main() {
-    let config = slint_build::CompilerConfiguration::new().with_edition((1, 19));
+    let config = slint_build::CompilerConfiguration::new().with_edition((1, 20));
     slint_build::compile_with_config("ui/main.slint", config).unwrap();
 }
 ```
@@ -72,7 +72,7 @@ With `slint-interpreter`, call <LangRefLink lang="rust-slint-interpreter" relpat
 Pass `EDITION` to <LangRefLink lang="cpp" relpath="cmake-reference/slint-target-sources/">`slint_target_sources`</LangRefLink>:
 
 ```cmake
-slint_target_sources(my_application ui/main.slint EDITION 1.19)
+slint_target_sources(my_application ui/main.slint EDITION 1.20)
 ```
 </TabItem>
 </Tabs>
@@ -82,7 +82,7 @@ slint_target_sources(my_application ui/main.slint EDITION 1.19)
 To set the edition on the command line, pass `--edition` to `slint-compiler` or `slint-viewer`:
 
 ```bash
-slint-viewer --edition 1.19 ui/main.slint
+slint-viewer --edition 1.20 ui/main.slint
 ```
 
 ### Without an Edition
@@ -107,7 +107,7 @@ Each section lists what a release changed, and how to update your code if the ch
 
 Before 1.19, wrapping an element in `if true:` could change the layout around it, which was a bug:
 
-- A non-layout parent, such as a `Rectangle`, computes its minimum and preferred size from its children.
+- A non-layout parent, such as a `Rectangle` or a `Flickable`, computes its minimum and preferred size from its children.
   It ignored any child created with `if` or `for`
   ([#407](https://github.com/slint-ui/slint/issues/407)).
 - A word-wrapped `Text` with its own `width` in an `if` or `for` element was measured at the layout's width.

@@ -24,6 +24,7 @@ const lengths = new Set([
     "offsetY",
     "blur",
     "spread",
+    "backdropBlur",
 ]);
 
 /** Scale logical preview geometry without changing source snapshots or asset pixels. */
@@ -64,6 +65,14 @@ export function scalePreview(
                               (value) => value * scale,
                           ),
                       })),
+                  }
+                : {}),
+            ...("outline" in original && original.outline
+                ? {
+                      outline: {
+                          ...original.outline,
+                          width: original.outline.width * scale,
+                      },
                   }
                 : {}),
             ...("shadows" in original

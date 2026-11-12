@@ -2160,6 +2160,7 @@ fn build(l: &mut Loader) {
         function close() { BuiltinFunction.ContextMenuClose }
         @pure function is-open() -> bool { BuiltinFunction.ContextMenuIsOpen }
         in property <bool> enabled: true;
+        in property <bool> is-menu-bar;
     } }
 
     element! {
@@ -2183,7 +2184,6 @@ fn build(l: &mut Loader) {
         /// There can be at most one `Menu` child, all other children must be of a different type and will be shown as regular visual children.
         /// Define the structure of the menu by placing `MenuItem` or `Menu` elements inside that `Menu`.
         ///
-        /// \footer
         /// ## Example
         ///
         /// ```slint

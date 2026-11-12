@@ -5,7 +5,7 @@ use slint::ComponentHandle;
 
 mod ui {
     slint::slint! {
-        #[edition = "1.19"]
+        #[edition = "1.20"]
         export { GalleryWindow, Gallery, GalleryPage } from "gallery.slint";
         export { Api, ElementKind, ElementLibraryEntry, ElementLibraryGroup, ElementLibrarySection } from "../ui/api.slint";
         export { Properties, BrushKind, ColorFieldData, ColorFieldEdit, ColorFieldMode, ColorValueData, FillData, GradientStop, GradientStopOrder, LinearGradientAxis, PropertyValue, PropertyValueKind } from "../ui/properties.slint";
@@ -24,6 +24,12 @@ fn main() -> Result<(), slint::PlatformError> {
     let api = window.global::<Api>();
     let properties_api = window.global::<Properties>();
     brushes::setup(&properties_api);
+    let gallery =
+        <Gallery as slint::Global<'_, GalleryWindow>>::as_weak(&window.global::<Gallery>());
+    properties_api.on_hooked_property_value_data(move |_, fallback| {
+        let value = gallery.unwrap().get_preview_value();
+        if value.value_resolved { value } else { fallback }
+    });
     element_library::setup(&api);
     recent_fills::setup(
         &properties_api,

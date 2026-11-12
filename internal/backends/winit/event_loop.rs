@@ -169,7 +169,11 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
 
     fn user_event(&mut self, event_loop: &ActiveEventLoop, event: SlintEvent) {
         match event.0 {
-            CustomEvent::UserEvent(user_callback) => user_callback(),
+            CustomEvent::UserEvent(user_callback) => {
+                user_callback();
+                // winit can run several user events, then sleep, without calling `new_events`.
+                self.shared_backend_data.context().update_timers_and_animations();
+            }
             CustomEvent::UserEventWithEventLoop(user_callback) => user_callback(event_loop),
             CustomEvent::Exit(generation) => {
                 if self
@@ -259,7 +263,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                 .values()
                 .filter_map(|w| w.upgrade())
             {
-                if w.window().has_active_animations() {
+                if w.window().has_active_animations() && !w.is_minimized_on_screen() {
                     w.request_redraw();
                 }
             }

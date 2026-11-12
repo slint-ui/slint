@@ -7,7 +7,6 @@ import { InspectorContext } from "context.slint";
 
 export component InspectorStandardButtonKindSection inherits InspectorSection {
     in property <InspectorStyle> style: Style.inspector-layout;
-    in property <length> popup-bottom;
 
     title: @tr("Kind");
 
@@ -16,12 +15,12 @@ export component InspectorStandardButtonKindSection inherits InspectorSection {
         spacing: Metrics.space-compact;
 
         InspectorComboBox {
+            commit-key: InspectorContext.inspector-key;
             accessible-name: @tr("Button Kind");
             value: InspectorEnumOptions.option-label("kind", "ok", InspectorEnumOptions.standard-button-kind-options);
             selected-index: InspectorEnumOptions.option-index("kind", "ok", InspectorEnumOptions.standard-button-kind-options);
             options: InspectorEnumOptions.standard-button-kind-options;
             wide: true;
-            popup-available-height: max(Style.inspector-field.height, root.popup-bottom - self.absolute-position.y - Metrics.space-medium);
             accepted(text) => {
                 return text != "" && InspectorContext.commit-enum("kind", text);
             }

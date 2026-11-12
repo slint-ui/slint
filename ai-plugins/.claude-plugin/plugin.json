@@ -1,6 +1,6 @@
 {
   "name": "slint",
-  "version": "1.19.0",
+  "version": "1.20.0",
   "description": "Write, debug, and live-preview Slint GUIs for desktop, embedded, and mobile apps",
   "author": {
     "name": "Slint",
@@ -19,19 +19,6 @@
         ".slint": "slint"
       }
     }
-  },
-  "hooks": {
-    "SessionStart": [
-      {
-        "matcher": "startup|clear|compact",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/check-slint-tool.mjs\" slint-lsp"
-          }
-        ]
-      }
-    ]
   },
   "mcpServers": {
     "slint-docs": {

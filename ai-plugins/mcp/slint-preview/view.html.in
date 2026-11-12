@@ -9,9 +9,16 @@
 <style>
   :root {
     color-scheme: light dark;
-    --text: light-dark(#171717, #fafafa);
-    --muted: light-dark(#6b6b6b, #a3a3a3);
+    --text: light-dark(#293442, #e5e7eb);
+    --muted: light-dark(#728093, #adb2bc);
     --error: light-dark(#b42318, #f97066);
+    --surface: light-dark(#f7f9fc, #303238);
+    --raised: light-dark(#fff, #373a40);
+    --selected: light-dark(#e3f1fc, #3a4c62);
+    --border: light-dark(#c6cfd9, #5b616a);
+    --accent: light-dark(#0d99ff, #49a7ff);
+    --icon: light-dark(#647187, #adb2bc);
+    --shadow: light-dark(#18202b1f, #00000040);
   }
   body {
     margin: 0;
@@ -19,9 +26,102 @@
     color: var(--text);
     font: 13px/1.4 system-ui, sans-serif;
   }
+  [hidden] { display: none !important; }
   #stage { overflow: hidden; }
+  #preview-frame { position: relative; width: fit-content; max-width: 100%; margin-inline: auto; }
+  button, textarea { font: inherit; color: inherit; }
+  button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: 1px solid var(--border);
+    background: var(--raised);
+    cursor: default;
+  }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button:disabled { opacity: .5; }
+  button svg { flex: none; color: var(--icon); }
+  #preview-tools {
+    position: fixed;
+    left: 10px;
+    bottom: 10px;
+    z-index: 2;
+    display: flex;
+    gap: 6px;
+    height: 28px;
+    box-sizing: border-box;
+    padding: 2px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    box-shadow: 0 2px 6px var(--shadow);
+  }
+  #preview-tools button { height: 22px; border-radius: 5px; padding: 0 8px; font-size: 12px; }
+  #preview-tools button svg { width: 14px; height: 14px; }
+  #preview-tools button:hover:not(:disabled) svg,
+  #preview-tools button[aria-pressed="true"] svg { color: var(--accent); }
+  #preview-tools button:active:not(:disabled),
+  #annotate[aria-pressed="true"] { background: var(--selected); }
+  #annotate { min-width: 102px; }
+  #annotate[aria-pressed="true"] { color: var(--accent); }
+  #preview-theme { display: flex; gap: 3px; }
+  #annotate:not([hidden]) + #preview-theme { padding-left: 5px; border-left: 1px solid var(--border); }
+  #preview-theme button { width: 26px; padding: 0; }
+  #preview-theme button[aria-pressed="false"] { border-color: transparent; background: transparent; }
+  #annotation-layer {
+    position: absolute;
+    inset: 0;
+    cursor: url("data:image/png;base64,__CURSOR_PNG__") 14 14, default;
+    touch-action: none;
+  }
+  #annotation-snapshot { width: 100%; height: 100%; display: block; pointer-events: none; }
+  #annotation-pin {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    background: var(--error);
+    box-shadow: 0 1px 3px var(--shadow);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+  #annotation-editor {
+    position: fixed;
+    inset: auto;
+    margin: 0;
+    box-sizing: border-box;
+    width: min(360px, calc(100vw - 16px));
+    padding: 8px 8px 8px 16px;
+    border: 1px solid var(--border);
+    border-radius: 28px;
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: 0 8px 24px var(--shadow);
+  }
+  #annotation-editor:popover-open { display: grid; grid-template-columns: minmax(0, 1fr) 32px; align-items: end; gap: 8px; }
+  #annotation-comment {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 32px;
+    max-height: min(200px, 45vh);
+    field-sizing: content;
+    resize: none;
+    padding: 6px 0;
+    border: 0;
+    background: transparent;
+    outline: none;
+    font-size: 14px;
+    line-height: 20px;
+  }
+  #annotation-comment::placeholder { color: var(--muted); }
+  #annotation-send { width: 32px; height: 32px; padding: 0; border: 0; border-radius: 50%; background: var(--text); color: var(--surface); }
+  #annotation-send:hover:not(:disabled) { opacity: .85; }
+  #annotation-send svg { width: 18px; height: 18px; color: inherit; }
+  #annotation-error { grid-column: 1 / -1; color: var(--error); margin: 0 8px 4px 0; }
+  #annotation-error:empty { display: none; }
   canvas { display: block; margin-inline: auto; outline: none; }
-  canvas[hidden] { display: none; }
   /* winit writes the canvas size inline in logical pixels; a fitted canvas keeps the size the view gives it. */
   canvas.fitted {
     width: var(--fit-width) !important;
@@ -38,12 +138,39 @@
   #diagnostics:empty { display: none; }
   #diagnostics li { white-space: pre-wrap; }
   .error { color: var(--error); }
+  #crash { margin: 8px; }
+  #crash button { font: inherit; }
+  #crash pre { white-space: pre-wrap; overflow-wrap: anywhere; }
 </style>
 </head>
 <body>
 <div id="status">Waiting for Slint source…</div>
-<div id="stage"><canvas id="preview" data-slint-auto-resize-to-preferred="true" hidden></canvas></div>
+<section id="crash" hidden role="alert">
+  <strong class="error">The preview crashed</strong>
+  <p>Retry restarts the preview without changing your source files.</p>
+  <button id="retry" type="button">Retry preview</button>
+  <details><summary>Technical details</summary><pre id="crash-details"></pre></details>
+</section>
+<div id="stage"><div id="preview-frame">
+  <canvas id="preview" data-slint-auto-resize-to-preferred="true" hidden></canvas>
+  <div id="annotation-layer" hidden>
+    <img id="annotation-snapshot" alt="Preview screenshot" hidden>
+    <span id="annotation-pin" hidden></span>
+  </div>
+</div></div>
 <ul id="diagnostics"></ul>
+<div id="preview-tools" role="toolbar" aria-label="Preview tools" hidden>
+  <button id="annotate" type="button" aria-pressed="false" hidden>__ICON_message-square-plus__Annotate</button>
+  <div id="preview-theme" role="group" aria-label="Appearance">
+    <button id="preview-light" type="button" aria-label="Light" title="Light" aria-pressed="false">__ICON_sun__</button>
+    <button id="preview-dark" type="button" aria-label="Dark" title="Dark" aria-pressed="false">__ICON_moon__</button>
+  </div>
+</div>
+<form id="annotation-editor" popover="manual" aria-label="Annotate Slint preview">
+  <textarea id="annotation-comment" rows="1" aria-label="Annotation comment" placeholder="Add an optional comment…"></textarea>
+  <button id="annotation-send" type="submit" aria-label="Add to chat" aria-keyshortcuts="Control+Enter Meta+Enter" disabled>__ICON_arrow-up__</button>
+  <div id="annotation-error" role="alert"></div>
+</form>
 <script type="module">
   const INTERPRETER_URL = "__INTERPRETER_URL__";
   const CHANNEL = "__CHANNEL__";
@@ -54,6 +181,169 @@
   const pristineCanvas = canvas.cloneNode();
   const diagnosticsEl = document.getElementById("diagnostics");
   const stage = document.getElementById("stage");
+  const crashEl = document.getElementById("crash");
+  const crashDetailsEl = document.getElementById("crash-details");
+  const retryButton = document.getElementById("retry");
+  const frame = document.getElementById("preview-frame");
+  const tools = document.getElementById("preview-tools");
+  const lightButton = document.getElementById("preview-light");
+  const darkButton = document.getElementById("preview-dark");
+  const annotateButton = document.getElementById("annotate");
+  const annotationLayer = document.getElementById("annotation-layer");
+  const annotationSnapshot = document.getElementById("annotation-snapshot");
+  const annotationPin = document.getElementById("annotation-pin");
+  const annotationEditor = document.getElementById("annotation-editor");
+  const annotationComment = document.getElementById("annotation-comment");
+  const annotationSend = document.getElementById("annotation-send");
+  const annotationError = document.getElementById("annotation-error");
+  let annotation = null;
+  let annotationSending = false;
+  let renderedInput = null;
+  let hostTheme = null;
+  let themeOverride = null;
+
+  function positionComment() {
+    if (!annotation) return;
+    const rect = canvas.getBoundingClientRect();
+    const editor = annotationEditor.getBoundingClientRect();
+    const { u, v } = annotation.point;
+    const x = rect.left + u * rect.width;
+    const y = rect.top + v * rect.height;
+    annotationEditor.style.left = `${Math.max(8, Math.min(x + 12, window.innerWidth - editor.width - 8))}px`;
+    annotationEditor.style.top = `${Math.max(8, Math.min(y + 12, window.innerHeight - editor.height - 8))}px`;
+  }
+  const commentObserver = new ResizeObserver(positionComment);
+  commentObserver.observe(annotationEditor);
+  commentObserver.observe(frame);
+
+  for (const [button, theme] of [[lightButton, "light"], [darkButton, "dark"]]) {
+    button.addEventListener("click", () => {
+      themeOverride = themeOverride === theme ? null : theme;
+      applyTheme();
+    });
+  }
+
+  function closeAnnotation() {
+    annotation = null;
+    annotationEditor.hidePopover();
+    annotationSnapshot.hidden = true;
+    annotationPin.hidden = true;
+    annotationComment.value = "";
+    annotationError.textContent = "";
+    annotationSend.disabled = true;
+    lightButton.disabled = false;
+    darkButton.disabled = false;
+  }
+
+  function setAnnotationMode(enabled) {
+    closeAnnotation();
+    annotationLayer.hidden = !enabled;
+    annotateButton.setAttribute("aria-pressed", String(enabled));
+  }
+
+  annotateButton.addEventListener("click", () => {
+    setAnnotationMode(annotationLayer.hidden);
+  });
+  annotationComment.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && (event.ctrlKey || event.metaKey) && !event.isComposing) {
+      event.preventDefault();
+      annotationEditor.requestSubmit();
+    }
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !annotationLayer.hidden && !annotationSending) {
+      event.preventDefault();
+      setAnnotationMode(false);
+      annotateButton.focus();
+    }
+  });
+  annotationLayer.addEventListener("pointerdown", (event) => event.preventDefault());
+  annotationLayer.addEventListener("click", (event) => {
+    if (annotationSending) return;
+    const rect = canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const u = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+    const v = Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height));
+    try {
+      // Capture once so the point and screenshot stay paired while the user types.
+      if (!annotation) {
+        const capture = captureCanvas();
+        annotation = { capture, input: renderedInput, size: designSize, theme: hostIsDark ? "dark" : "light" };
+        annotationSnapshot.src = `data:image/png;base64,${capture.png}`;
+        annotationSnapshot.hidden = false;
+        lightButton.disabled = true;
+        darkButton.disabled = true;
+      }
+      annotation.point = { u, v };
+      annotationPin.style.left = `${u * 100}%`;
+      annotationPin.style.top = `${v * 100}%`;
+      annotationPin.hidden = false;
+      annotationSend.disabled = false;
+      annotationEditor.showPopover();
+      positionComment();
+      showStatus("");
+      annotationComment.focus();
+    } catch (error) {
+      closeAnnotation();
+      showStatus(`Couldn't capture the preview: ${error.message ?? error}`, "error");
+    }
+  });
+
+  annotationEditor.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const comment = annotationComment.value.trim();
+    if (!annotation || annotationSending) return;
+    annotationSending = true;
+    annotationSend.disabled = true;
+    annotateButton.disabled = true;
+    annotationError.textContent = "";
+    const { capture, input, size, theme, point: { u, v } } = annotation;
+    const x = Math.min(capture.width - 1, Math.round(u * capture.width));
+    const y = Math.min(capture.height - 1, Math.round(v * capture.height));
+    const text = [
+      "Slint preview annotation:",
+      input.path ? `Source file: ${input.path}` : `Source snippet:\n${input.source}`,
+      input.projectRoot ? `Project root: ${input.projectRoot}` : "",
+      input.style ? `Widget style: ${input.style}` : "",
+      `Preview theme: ${theme}`,
+      `Clicked point: x=${x}, y=${y} in the attached ${capture.width}×${capture.height} screenshot.`,
+      `Slint position: x=${Math.round(u * size.width)}, y=${Math.round(v * size.height)} in a ${size.width}×${size.height} UI (logical pixels).`,
+      "Coordinates start at the top-left.",
+    ].filter(Boolean).join("\n");
+    try {
+      const result = await request("ui/message", {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: [comment, text].filter(Boolean).join("\n\n"),
+            _meta: {
+              "openai/title": comment.split("\n", 1)[0] || "Slint annotation",
+              "openai/group": { title: "Preview Annotations" },
+            },
+          },
+          {
+            type: "image",
+            data: capture.png,
+            mimeType: "image/png",
+            _meta: {
+              "openai/title": "Preview Screenshot",
+              "openai/group": { title: "Preview Annotations" },
+            },
+          },
+        ],
+        _meta: { "openai/message": { target: "active", send: false } },
+      });
+      if (result?.isError) throw new Error("The host could not add the annotation to the chat draft. Try again.");
+      setAnnotationMode(false);
+    } catch (error) {
+      annotationError.textContent = error.message ?? String(error);
+    } finally {
+      annotationSending = false;
+      annotationSend.disabled = !annotation;
+      annotateButton.disabled = false;
+    }
+  });
 
   let nextId = 1;
   const pending = new Map();
@@ -125,9 +415,12 @@
   };
 
   function applyTheme(context) {
-    if (context?.theme !== "light" && context?.theme !== "dark") return;
-    document.documentElement.style.colorScheme = context.theme;
-    const isDark = context.theme === "dark";
+    if (context?.theme === "light" || context?.theme === "dark") hostTheme = context.theme;
+    const theme = themeOverride ?? hostTheme ?? (nativeMatchMedia(DARK_QUERY).matches ? "dark" : "light");
+    document.documentElement.style.colorScheme = theme;
+    lightButton.setAttribute("aria-pressed", String(themeOverride === "light"));
+    darkButton.setAttribute("aria-pressed", String(themeOverride === "dark"));
+    const isDark = theme === "dark";
     if (isDark === hostIsDark) return;
     hostIsDark = isDark;
     for (const list of darkQueryLists) list.dispatchEvent(new Event("change"));
@@ -228,9 +521,15 @@
 
   function handlePanic(message) {
     if (!interpreter) return;
+    const { previewId, runtime } = interpreter;
+    activePreviewId = null;
+    setAnnotationMode(false);
+    tools.hidden = true;
     interpreter.panic(new Panic(message));
     interpreter = null;
     instance = null;
+    pendingImages.clear();
+    retryButton.disabled = false;
     // The dead module keeps its listeners on the old canvas and media queries.
     darkQueryLists.length = 0;
     resolutionQueryLists.length = 0;
@@ -239,12 +538,17 @@
     const freshCanvas = pristineCanvas.cloneNode();
     canvas.replaceWith(freshCanvas);
     canvas = freshCanvas;
-    showStatus(`The Slint interpreter crashed. The next preview starts a fresh one.\n${message}`, "error");
+    const error = `The Slint interpreter crashed. The next preview starts a fresh one.\n${message}`;
+    showStatus("");
+    diagnosticsEl.replaceChildren();
+    crashDetailsEl.textContent = `${runtime}\n${message}`;
+    crashEl.hidden = false;
+    publish({ previewId, runtime, error }).catch(() => {});
     reportToModel(
-      "The Slint interpreter crashed, which is a bug in Slint. Change the source to work around it. " +
-        "The next preview_slint call starts a fresh interpreter. " +
-        "Offer the user to report it at https://github.com/slint-ui/slint/issues with this message, " +
-        `the Slint version, and the smallest .slint source that reproduces it.\n${message}`,
+      `The Slint interpreter crashed with ${runtime}. Report the interruption. ` +
+        "Use preview_slint for a fresh interpreter; try one justified retry or preview workaround while preserving the requested UI. " +
+        "Verify recovery with get_preview_screenshot. Stop identical crash loops. " +
+        `If recovery fails, offer a bug report at https://github.com/slint-ui/slint/issues with this diagnostic and a minimal reproducer.\n${message}`,
     );
   }
 
@@ -315,6 +619,9 @@
 
   let instance = null;
   async function render({ source, path, projectRoot, style }, previewId) {
+    setAnnotationMode(false);
+    tools.hidden = true;
+    renderedInput = null;
     let url = "main.slint";
     let loadImport = null;
     let loadResource = null;
@@ -354,6 +661,7 @@
     showStatus("Loading the Slint interpreter…");
     publish({ previewId, stage: "loading" }).catch(() => {});
     const current = loadInterpreter();
+    current.previewId = previewId;
     let slint;
     try {
       slint = await untilPanic(current, current.slint);
@@ -403,13 +711,18 @@
     await untilPanic(current, instance.show());
     await finishMeasuring();
     showStatus("");
+    renderedInput = { source, path, projectRoot, style };
+    tools.hidden = false;
   }
 
   // Each preview_slint result names its preview, and each tool input renders the next one.
   const previewIds = [];
   const previewIdWaiters = [];
+  function resultPreviewId(result) {
+    return result?._meta?.["slint/previewId"] ?? result?.content?.[0]?.text?.match(/^Rendering Slint preview (\S+)\.$/)?.[1];
+  }
   function receivePreviewId(result) {
-    const id = result?._meta?.["slint/previewId"] ?? result?.content?.[0]?.text?.match(/^Rendering Slint preview (\S+)\.$/)?.[1];
+    const id = resultPreviewId(result);
     if (!id) return;
     const waiter = previewIdWaiters.shift();
     waiter ? waiter(id) : previewIds.push(id);
@@ -424,7 +737,9 @@
 
   const MAX_CAPTURE_SIZE = 1500;
   const SETTLE_MS = 500;
+  const CAPTURE_POLL_INTERVAL_MS = 500;
   const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  let activePreviewId = null;
 
   function failureText() {
     if (statusEl.className === "error") return statusEl.textContent;
@@ -444,20 +759,41 @@
     return { png: image.toDataURL("image/png").split(",")[1], width: image.width, height: image.height };
   }
 
-  async function publishCapture(previewId) {
-    publish({ previewId: await previewId, stage: "capturing" }).catch(() => {});
+  async function startCapturePolling(previewId) {
+    if (activePreviewId !== previewId) return;
     const error = failureText();
-    if (!error) {
-      await Promise.race([new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))), delay(1000)]);
-      await delay(SETTLE_MS);
-      // Slint requests images when it draws, and draws them again once they load.
-      while (pendingImages.size) {
-        await Promise.allSettled([...pendingImages]);
-        await delay(SETTLE_MS);
-      }
+    if (error) {
+      await publish({ previewId, runtime: interpreter?.runtime, error });
+      return;
     }
-    const capture = error ? { error } : captureCanvas();
-    return publish({ previewId: await previewId, runtime: interpreter?.runtime, ...capture });
+    await Promise.race([new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))), delay(1000)]);
+    await delay(SETTLE_MS);
+    // Slint requests images when it draws, and draws them again once they load.
+    while (activePreviewId === previewId && pendingImages.size) {
+      await Promise.allSettled([...pendingImages]);
+      await delay(SETTLE_MS);
+    }
+    if (activePreviewId !== previewId) return;
+    await publish({ previewId, stage: "ready" });
+    pollCaptureRequests(previewId).catch(() => {});
+  }
+
+  async function pollCaptureRequests(previewId) {
+    while (activePreviewId === previewId) {
+      const result = await request("tools/call", { name: "poll_preview_capture", arguments: { previewId } });
+      if (activePreviewId !== previewId || !result?.structuredContent?.active) return;
+      const { captureId } = result.structuredContent;
+      if (captureId) {
+        let capture;
+        try {
+          capture = captureCanvas();
+        } catch (error) {
+          capture = { error: `Couldn't capture the preview: ${error.message ?? error}` };
+        }
+        await publish({ previewId, captureId, runtime: interpreter?.runtime, ...capture });
+      }
+      await delay(CAPTURE_POLL_INTERVAL_MS);
+    }
   }
 
   function reportToModel(text) {
@@ -477,9 +813,10 @@
     switch (message.method) {
       case "ui/notifications/tool-input": {
         const args = message.params?.arguments ?? {};
-        const previewId = nextPreviewId();
-        previewId.then(async (id) => {
-          await publish({ previewId: id, started: true });
+        const startPreview = (previewId) => previewId.then(async (id) => {
+          activePreviewId = id;
+          crashEl.hidden = true;
+          await publish({ previewId: id, stage: "started" });
           await render(args, id);
         })
           .catch((e) => {
@@ -490,12 +827,27 @@
             }
             showStatus(`The preview failed: ${e.message ?? e}. Reload to try again.`, "error");
           })
-          .then(() => publishCapture(previewId))
+          .then(async () => startCapturePolling(await previewId))
           .catch(async (e) => {
             const error = `Couldn't capture the preview: ${e.message ?? e}`;
             showStatus(error, "error");
             await publish({ previewId: await previewId, error }).catch(() => {});
           });
+        startPreview(nextPreviewId());
+        retryButton.onclick = async () => {
+          retryButton.disabled = true;
+          showStatus("Restarting preview…");
+          try {
+            const result = await request("tools/call", { name: "preview_slint", arguments: args });
+            const id = resultPreviewId(result);
+            if (!id || result.isError) throw new Error(result.content?.[0]?.text ?? "No preview ID returned");
+            await startPreview(Promise.resolve(id));
+          } catch (e) {
+            showStatus(`Couldn't restart the preview: ${e}`, "error");
+          } finally {
+            retryButton.disabled = false;
+          }
+        };
         break;
       }
       case "ui/notifications/tool-result":
@@ -505,6 +857,7 @@
         applyTheme(message.params);
         break;
       case "ui/resource-teardown":
+        activePreviewId = null;
         post({ id: message.id, result: {} });
         break;
       default:
@@ -519,6 +872,7 @@
     appInfo: { name: "Slint Preview", version: "1.0.0" },
     appCapabilities: { availableDisplayModes: ["inline"] },
   });
+  annotateButton.hidden = !result?.hostCapabilities?.experimental?.["openai/message"];
   applyTheme(result?.hostContext);
   notify("ui/notifications/initialized", {});
 </script>

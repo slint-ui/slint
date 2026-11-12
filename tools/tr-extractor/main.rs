@@ -5,7 +5,11 @@
 
 use clap::Parser;
 use i_slint_compiler::diagnostics::{BuildDiagnostics, Spanned};
+use i_slint_compiler::generator::OutputFormat;
 use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, syntax_nodes};
+use i_slint_compiler::project_file;
+use i_slint_compiler::source_path::SourcePath;
+use i_slint_compiler::typeloader::TypeLoader;
 use rspolib::Save;
 use smol_str::SmolStr;
 
@@ -14,7 +18,9 @@ type Messages = rspolib::POFile;
 #[derive(clap::Parser, Default)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
-    #[arg(name = "path to .slint file(s)", action, required = true)]
+    /// Specify .slint files, project directories, or slint-project.json files to extract from.
+    /// A project directory or slint-project.json file extracts strings from every file in the project.
+    #[arg(name = "path to .slint file(s) or project", action, required = true)]
     paths: Vec<std::path::PathBuf>,
 
     #[arg(long = "default-domain", short = 'd')]
@@ -87,31 +93,83 @@ fn main() -> std::io::Result<()> {
         file
     };
 
+    let mut has_errors = false;
     for path in &args.paths {
-        process_file(path, &mut messages, &args)?
+        let diag = if project_file::project_root(path).is_dir() {
+            process_project(path, &mut messages, &args)
+        } else {
+            process_file(path, &mut messages, &args)
+        };
+        has_errors |= diag.has_errors();
+        diag.print();
+    }
+    if has_errors {
+        std::process::exit(-1);
     }
 
     messages.save(&output.to_string_lossy());
     Ok(())
 }
 
-fn process_file(
+fn process_file(path: &std::path::Path, messages: &mut Messages, args: &Cli) -> BuildDiagnostics {
+    let mut diag = BuildDiagnostics::default();
+    if let Some(syntax_node) = i_slint_compiler::parser::parse_file(path, &mut diag) {
+        let file = syntax_node.source_file.path().to_string();
+        visit_node(syntax_node, messages, None, &file, args);
+    }
+    diag
+}
+
+/// Extracts the messages of the main file of the project at `path`,
+/// a directory or a project file, and of every file that it imports.
+fn process_project(
     path: &std::path::Path,
     messages: &mut Messages,
     args: &Cli,
-) -> std::io::Result<()> {
+) -> BuildDiagnostics {
     let mut diag = BuildDiagnostics::default();
-    let syntax_node = i_slint_compiler::parser::parse_file(path, &mut diag)
-        .ok_or_else(|| std::io::Error::other(diag.to_string_vec().join(", ")))?;
-    visit_node(syntax_node, messages, None, args);
+    let (input, _) = poll_ready(project_file::load_input(
+        &SourcePath::File(path.into()),
+        None,
+        None,
+        None,
+        &mut diag,
+    ));
+    let Some(input) = input else { return diag };
+    let config = input
+        .project_file
+        .expect("load_input returns the project file of a project directory")
+        .into_compiler_configuration(OutputFormat::Llr);
+    let mut loader = TypeLoader::new(config, &mut diag);
+    poll_ready(loader.load_file(&input.source, input.source_code, false, &mut diag));
 
-    Ok(())
+    let mut documents =
+        loader.all_file_documents().filter(|(path, _)| !path.is_builtin()).collect::<Vec<_>>();
+    documents.sort_by_key(|(path, _)| *path);
+    let current_dir = std::env::current_dir().ok().map(SourcePath::File);
+    for (path, document) in documents {
+        let relative = current_dir.as_ref().and_then(|base| path.relative_to(base));
+        let file =
+            relative.as_ref().unwrap_or(path).to_string().replace(std::path::MAIN_SEPARATOR, "/");
+        visit_node(document.clone().into(), messages, None, &file, args);
+    }
+    diag
+}
+
+/// Runs a compiler future that has no file loader, so it completes on the first poll.
+fn poll_ready<F: std::future::Future>(future: F) -> F::Output {
+    let mut context = std::task::Context::from_waker(std::task::Waker::noop());
+    let std::task::Poll::Ready(result) = std::pin::pin!(future).poll(&mut context) else {
+        unreachable!("the compiler returned Pending without a file loader")
+    };
+    result
 }
 
 fn visit_node(
     node: SyntaxNode,
     results: &mut Messages,
     current_context: Option<SmolStr>,
+    file: &str,
     args: &Cli,
 ) {
     for n in node.children() {
@@ -138,7 +196,7 @@ fn visit_node(
                         .source_file
                         .line_column(span.offset, i_slint_compiler::diagnostics::ByteFormat::Utf8);
                     if line > 0 {
-                        let path = node.source_file.path().to_string();
+                        let path = file.to_string();
                         let lineno = line.to_string();
                         if !msg.occurrences.iter().any(|(p, l)| p == &path && l == &lineno) {
                             msg.occurrences.push((path, lineno));
@@ -205,7 +263,7 @@ fn visit_node(
         } else {
             None
         };
-        visit_node(n, results, current_context, args);
+        visit_node(n, results, current_context, file, args);
     }
 }
 
@@ -323,7 +381,7 @@ fn extract_messages() {
     );
 
     let mut messages = rspolib::POFile::new(Default::default());
-    visit_node(syntax_node, &mut messages, None, &Cli::default());
+    visit_node(syntax_node, &mut messages, None, "test.slint", &Cli::default());
 
     for (a, b) in r.iter().zip(messages.entries.iter()) {
         let locations = b.occurrences.iter().map(|(p, l)| format!("{p}:{l}")).join(" ");

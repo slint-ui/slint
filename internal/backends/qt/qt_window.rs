@@ -144,7 +144,8 @@ cpp! {{
             painter->setClipRect(rect());
             painter->setRenderHints(QPainter::Antialiasing | QPainter::SmoothPixmapTransform);
             QPainterPtr *painter_ptr = &painter;
-            rust!(Slint_paintEvent [rust_window: &QtWindow as "void*", painter_ptr: &mut QPainterPtr as "QPainterPtr*"] {
+            rust!(Slint_paintEvent [rust_window: *const QtWindow as "void*", painter_ptr: &mut QPainterPtr as "QPainterPtr*"] {
+                let rust_window = unsafe { QtWindow::from_widget(rust_window) };
                 rust_window.paint_event(std::mem::take(painter_ptr))
             });
         }
@@ -160,7 +161,8 @@ cpp! {{
 #ifdef WIN32
             // we already handle right-click events for the context menu
             if (event->reason() != QContextMenuEvent::Reason::Mouse) {
-                rust!(Slint_contextMenuEvent [rust_window: &QtWindow as "void*"] {
+                rust!(Slint_contextMenuEvent [rust_window: *const QtWindow as "void*"] {
+                    let rust_window = unsafe { QtWindow::from_widget(rust_window) };
                     rust_window.context_menu_event();
                 });
             }
@@ -176,7 +178,8 @@ cpp! {{
             // fullscreen changes. Querying the widget itself seems to work
             // better, see: https://stackoverflow.com/questions/52157587/why-qresizeevent-qwidgetsize-gives-different-when-fullscreen
             QSize size = this->size();
-            rust!(Slint_resizeEvent [rust_window: &QtWindow as "void*", size: qttypes::QSize as "QSize"] {
+            rust!(Slint_resizeEvent [rust_window: *const QtWindow as "void*", size: qttypes::QSize as "QSize"] {
+                let rust_window = unsafe { QtWindow::from_widget(rust_window) };
                 rust_window.resize_event(size)
             });
         }
@@ -208,7 +211,8 @@ cpp! {{
             if (!rust_window)
                 return;
             int button = event->button();
-            rust!(Slint_mousePressEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint", button: u32 as "int" ] {
+            rust!(Slint_mousePressEvent [rust_window: *const QtWindow as "void*", pos: qttypes::QPoint as "QPoint", button: u32 as "int" ] {
+                let rust_window = unsafe { QtWindow::from_widget(rust_window) };
                 let position = LogicalPoint::new(pos.x as _, pos.y as _);
                 let button = from_qt_button(button);
                 rust_window.mouse_event(BackendMouseEvent::Pressed{ position, button, click_count: 0, touch_finger_id: 0 })
@@ -238,7 +242,8 @@ cpp! {{
             isMouseButtonDown = event->button() != Qt::NoButton;
 
             int button = event->button();
-            rust!(Slint_mouseReleaseEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint", button: u32 as "int" ] {
+            rust!(Slint_mouseReleaseEvent [rust_window: *const QtWindow as "void*", pos: qttypes::QPoint as "QPoint", button: u32 as "int" ] {
+                let rust_window = unsafe { QtWindow::from_widget(rust_window) };
                 let position = LogicalPoint::new(pos.x as _, pos.y as _);
                 let button = from_qt_button(button);
                 rust_window.mouse_event(BackendMouseEvent::Released{ position, button, click_count: 0, touch_finger_id: 0 })
@@ -248,7 +253,8 @@ cpp! {{
             auto [pos, rust_window] = adjust_mouse_event_to_popup_parent(event);
             if (!rust_window)
                 return;
-            rust!(Slint_mouseMoveEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint"] {
+            rust!(Slint_mouseMoveEvent [rust_window: *const QtWindow as "void*", pos: qttypes::QPoint as "QPoint"] {
+                let rust_window = unsafe { QtWindow::from_widget(rust_window) };
                 let position = LogicalPoint::new(pos.x as _, pos.y as _);
                 rust_window.mouse_event(BackendMouseEvent::Moved{position, touch_finger_id: 0})
             });
@@ -262,7 +268,8 @@ cpp! {{
             if (delta.isNull()) {
                 delta = event->angleDelta();
             }
-            rust!(Slint_mouseWheelEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPointF as "QPointF", delta: qttypes::QPoint as "QPoint", phase: usize as "int"] {
+            rust!(Slint_mouseWheelEvent [rust_window: *const QtWindow as "void*", pos: qttypes::QPointF as "QPointF", delta: qttypes::QPoint as "QPoint", phase: usize as "int"] {
+                let rust_window = unsafe { QtWindow::from_widget(rust_window) };
                 let position = LogicalPoint::new(pos.x as _, pos.y as _);
                 let phase = match phase as _ {
                     // If we don't know the scroll phase, this is likely a mouse wheel scroll, which
@@ -283,7 +290,8 @@ cpp! {{
         void leaveEvent(QEvent *) override {
             if (!rust_window)
                 return;
-            rust!(Slint_mouseLeaveEvent [rust_window: &QtWindow as "void*"] {
+            rust!(Slint_mouseLeaveEvent [rust_window: *const QtWindow as "void*"] {
+                let rust_window = unsafe { QtWindow::from_widget(rust_window) };
                 rust_window.mouse_event(BackendMouseEvent::Exit)
             });
         }
@@ -317,7 +325,7 @@ cpp! {{
             int allowed = int(event->possibleActions());
             int proposed = int(event->proposedAction());
             int chosen = rust!(Slint_dragEvent [
-                rust_window: &QtWindow as "void*",
+                rust_window: *const QtWindow as "void*",
                 pos: qttypes::QPoint as "QPoint",
                 text: qttypes::QString as "QString",
                 image: qttypes::QImage as "QImage",
@@ -326,6 +334,7 @@ cpp! {{
                 proposed: u32 as "int",
                 is_drop: bool as "bool"
             ] -> u32 as "int" {
+                let rust_window = unsafe { QtWindow::from_widget(rust_window) };
                 rust_window.drag_event(pos, text.clone(), image.clone(), files.clone(), allowed, proposed, is_drop)
             });
             return Qt::DropAction(chosen);
@@ -347,7 +356,8 @@ cpp! {{
         void dragLeaveEvent(QDragLeaveEvent *) override {
             if (!rust_window)
                 return;
-            rust!(Slint_dragLeaveEvent [rust_window: &QtWindow as "void*"] {
+            rust!(Slint_dragLeaveEvent [rust_window: *const QtWindow as "void*"] {
+                let rust_window = unsafe { QtWindow::from_widget(rust_window) };
                 rust_window.drag_leave_event()
             });
         }
@@ -368,7 +378,8 @@ cpp! {{
             QString text =  event->text();
             int key = event->key();
             bool repeat = event->isAutoRepeat();
-            rust!(Slint_keyPress [rust_window: &QtWindow as "void*", key: i32 as "int", text: qttypes::QString as "QString", repeat: bool as "bool"] {
+            rust!(Slint_keyPress [rust_window: *const QtWindow as "void*", key: i32 as "int", text: qttypes::QString as "QString", repeat: bool as "bool"] {
+                let rust_window = unsafe { QtWindow::from_widget(rust_window) };
                 rust_window.key_event(key, text.clone(), false, repeat);
             });
         }
@@ -382,7 +393,8 @@ cpp! {{
 
             QString text =  event->text();
             int key = event->key();
-            rust!(Slint_keyRelease [rust_window: &QtWindow as "void*", key: i32 as "int", text: qttypes::QString as "QString"] {
+            rust!(Slint_keyRelease [rust_window: *const QtWindow as "void*", key: i32 as "int", text: qttypes::QString as "QString"] {
+                let rust_window = unsafe { QtWindow::from_widget(rust_window) };
                 rust_window.key_event(key, text.clone(), true, false);
             });
         }
@@ -393,7 +405,8 @@ cpp! {{
 
             if (event->type() == QEvent::ActivationChange) {
                 bool active = isActiveWindow();
-                rust!(Slint_updateWindowActivation [rust_window: &QtWindow as "void*", active: bool as "bool"] {
+                rust!(Slint_updateWindowActivation [rust_window: *const QtWindow as "void*", active: bool as "bool"] {
+                    let rust_window = unsafe { QtWindow::from_widget(rust_window) };
                     rust_window.window.dispatch_event(WindowEvent::WindowActiveChanged(active));
                 });
             }
@@ -403,7 +416,8 @@ cpp! {{
             // state to match the actual window state.
             if (event->type() == QEvent::WindowStateChange)
             {
-                rust!(Slint_syncWindowState [rust_window: &QtWindow as "void*"]{
+                rust!(Slint_syncWindowState [rust_window: *const QtWindow as "void*"]{
+                    let rust_window = unsafe { QtWindow::from_widget(rust_window) };
                     rust_window.window_state_event();
                 });
             }
@@ -415,7 +429,8 @@ cpp! {{
         void closeEvent(QCloseEvent *event) override {
             if (!rust_window)
                 return;
-            rust!(Slint_requestClose [rust_window: &QtWindow as "void*"] {
+            rust!(Slint_requestClose [rust_window: *const QtWindow as "void*"] {
+                let rust_window = unsafe { QtWindow::from_widget(rust_window) };
                 rust_window.window.dispatch_event(WindowEvent::CloseRequested);
             });
             event->ignore();
@@ -424,7 +439,8 @@ cpp! {{
         QSize sizeHint() const override {
             if (!rust_window)
                 return {};
-            auto preferred_size = rust!(Slint_sizeHint [rust_window: &QtWindow as "void*"] -> qttypes::QSize as "QSize" {
+            auto preferred_size = rust!(Slint_sizeHint [rust_window: *const QtWindow as "void*"] -> qttypes::QSize as "QSize" {
+                let rust_window = unsafe { QtWindow::from_widget(rust_window) };
                 let window_inner = WindowInner::from_pub(&rust_window.window);
                 let component_rc = window_inner.component();
                 let component = ItemTreeRc::borrow_pin(&component_rc);
@@ -489,9 +505,10 @@ cpp! {{
                 }
             }
             event->accept();
-            rust!(Slint_inputMethodEvent [rust_window: &QtWindow as "void*", commit_string: qttypes::QString as "QString",
+            rust!(Slint_inputMethodEvent [rust_window: *const QtWindow as "void*", commit_string: qttypes::QString as "QString",
                 preedit_string: qttypes::QString as "QString", replacement_start: i32 as "int", replacement_length: i32 as "int",
                 preedit_cursor: i32 as "int"] {
+                    let rust_window = unsafe { QtWindow::from_widget(rust_window) };
                     let mut key_event = KeyEvent::default();
                     key_event.text = i_slint_core::format!("{}", commit_string);
                     let event = InternalKeyEvent {
@@ -538,10 +555,11 @@ cpp! {{
                     // docs might suggest).
                     QPointF center = pinch->centerPoint();
 
-                    rust!(Slint_pinchGesture [rust_window: &QtWindow as "void*",
+                    rust!(Slint_pinchGesture [rust_window: *const QtWindow as "void*",
                             scale_delta: f32 as "float", rotation_delta: f32 as "float",
                             center: qttypes::QPointF as "QPointF",
                             phase: i32 as "int"] {
+                        let rust_window = unsafe { QtWindow::from_widget(rust_window) };
                         let position = LogicalPoint::new(center.x as _, center.y as _);
                         let phase = match phase {
                             0 => i_slint_core::input::TouchPhase::Started,
@@ -2362,6 +2380,20 @@ impl QtWindow {
         unsafe { std::mem::transmute_copy::<QWidgetPtr, NonNull<_>>(&self.widget_ptr) }
     }
 
+    /// Returns a strong reference to the window from a non-null `SlintWidget::rust_window`.
+    ///
+    /// Hold it while handling an event: closing a popup can drop the last other reference
+    /// to the popup's window.
+    ///
+    /// # Safety
+    /// `ptr` must be the non-null `rust_window` of a `SlintWidget`.
+    unsafe fn from_widget(ptr: *const QtWindow) -> Rc<QtWindow> {
+        unsafe {
+            Rc::increment_strong_count(ptr);
+            Rc::from_raw(ptr)
+        }
+    }
+
     // A context menu event was delivered by Qt that was not caused by a mouse input.
     // The closest equivalent we have in Slint is a KeyEvent with the `Menu` key.
     //
@@ -2848,12 +2880,10 @@ impl WindowAdapterInternal for QtWindow {
             allowed,
         ));
 
-        let rust_window: &QtWindow = self;
-
         // QDrag::exec runs a nested event loop, so defer it to a queued event (as win32 does)
         // rather than running it inside this input-handling call; report the action when it ends.
         cpp! {unsafe [
-            widget_ptr as "QWidget*",
+            widget_ptr as "SlintWidget*",
             has_text as "bool",
             text as "QString",
             has_image as "bool",
@@ -2865,8 +2895,7 @@ impl WindowAdapterInternal for QtWindow {
             allow_copy as "bool",
             allow_move as "bool",
             allow_link as "bool",
-            default_action as "uint32_t",
-            rust_window as "void*"
+            default_action as "uint32_t"
         ] {
             QMetaObject::invokeMethod(widget_ptr, [=]() {
                 QMimeData *mime = new QMimeData();
@@ -2893,12 +2922,17 @@ impl WindowAdapterInternal for QtWindow {
                 if (allow_copy) actions |= Qt::CopyAction;
                 if (allow_move) actions |= Qt::MoveAction;
                 if (allow_link) actions |= Qt::LinkAction;
+                QPointer<SlintWidget> widget = widget_ptr;
                 uint32_t performed = static_cast<uint32_t>(
                     qdrag->exec(actions, static_cast<Qt::DropAction>(default_action)));
+                if (!widget || !widget->rust_window)
+                    return;
+                void *rust_window = widget->rust_window;
                 rust!(Slint_reportDragFinished [
-                    rust_window: &QtWindow as "void*",
+                    rust_window: *const QtWindow as "void*",
                     performed: u32 as "uint32_t"
                 ] {
+                    let rust_window = unsafe { QtWindow::from_widget(rust_window) };
                     WindowInner::from_pub(&rust_window.window)
                         .report_drag_finished(qt_drop_action_to_slint(performed));
                 });
@@ -3137,17 +3171,10 @@ thread_local! {
 
 /// Called by C++'s TimerHandler::timerEvent, or every time a timer might have been started
 pub(crate) fn timer_event() {
-    if let Some(ctx) = crate::context() {
-        ctx.update_timers_and_animations();
-    }
-    restart_timer();
-}
-
-pub(crate) fn restart_timer() {
-    let timeout = crate::context()
-        .and_then(|ctx| ctx.duration_until_next_timer_update())
-        .map(|d| d.as_millis() as i32);
-    if let Some(timeout) = timeout {
+    let Some(ctx) = crate::context() else { return };
+    ctx.update_timers_and_animations();
+    if let Some(timeout) = ctx.duration_until_next_timer_update() {
+        let timeout = timeout.as_millis() as i32;
         cpp! { unsafe [timeout as "int"] {
             ensure_initialized(true);
             TimerHandler::instance().timer.start(timeout, &TimerHandler::instance());

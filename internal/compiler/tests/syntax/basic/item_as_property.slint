@@ -1,9 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-struct Str := { foo: Rectangle }
-//         ><warning{':=' to declare a struct is deprecated. Remove the ':='}
-//                   >        <^error{'Rectangle' is not a valid type}
+struct Str { foo: Rectangle }
+//                >        <error{'Rectangle' is not a valid type}
 
 component Comp inherits Rectangle {
     property <Rectangle> r;

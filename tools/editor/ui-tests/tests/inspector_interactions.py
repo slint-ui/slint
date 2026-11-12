@@ -117,3 +117,18 @@ def wait_for_field(
     timeout: float = 5,
 ) -> None:
     expect(inspector_field(window, label, role)).to_have_value(value, timeout=timeout)
+
+
+def upward_combo_popup_position(
+    window: slint_testing.Window,
+    combo: slint_testing.Element,
+    option: slint_testing.Element,
+) -> slint_testing.LogicalPosition:
+    # The testing API reports popup descendants in popup coordinates.
+    popup = element(window, id="InspectorComboBox::popup-surface")
+    anchor = combo.absolute_rect
+    row = option.absolute_rect
+    return slint_testing.LogicalPosition(
+        x=anchor.x + row.x + row.width / 2,
+        y=anchor.y + anchor.height - popup.size.height + row.y + row.height / 2,
+    )

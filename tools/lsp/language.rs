@@ -2240,8 +2240,8 @@ enum {}
         std::fs::create_dir(&nested_root).unwrap();
         let outer_manifest = outer_root.join("slint-project.json");
         let nested_manifest = nested_root.join("slint-project.json");
-        std::fs::write(&outer_manifest, r#"{"edition":"1.19"}"#).unwrap();
-        std::fs::write(&nested_manifest, r#"{"edition":"1.19"}"#).unwrap();
+        std::fs::write(&outer_manifest, r#"{"edition":"1.20"}"#).unwrap();
+        std::fs::write(&nested_manifest, r#"{"edition":"1.20"}"#).unwrap();
         let source_path = nested_root.join("main.slint");
         let outer_source_path = outer_root.join("root.slint");
         let source = "export component Main inherits Window {}";
@@ -2321,7 +2321,7 @@ enum {}
             Some(LspToPreviewMessage::OpenProject { root: None })
         ));
 
-        std::fs::write(&outer_manifest, r#"{"edition":"1.19"}"#).unwrap();
+        std::fs::write(&outer_manifest, r#"{"edition":"1.20"}"#).unwrap();
         spin_on::spin_on(context.session.reload_document(source_url)).unwrap();
         messages.borrow_mut().clear();
         sync_preview_project_root(&mut context.session).unwrap();
@@ -2339,7 +2339,7 @@ enum {}
         let inner = outer.join("inner");
         let inner_source_directory = inner.join("ui");
         std::fs::create_dir_all(&inner_source_directory).unwrap();
-        std::fs::write(outer.join("slint-project.json"), r#"{"edition":"1.19"}"#).unwrap();
+        std::fs::write(outer.join("slint-project.json"), r#"{"edition":"1.20"}"#).unwrap();
         let outer_source = outer.join("a.slint");
         let inner_source = inner_source_directory.join("b.slint");
         let code = "export component Main inherits Window {}";

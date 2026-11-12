@@ -23,6 +23,7 @@ const SCREENSHOT_TIMEOUT_MS = Number(
 const PREVIEW_TIMEOUT_MS = Number(
     process.env.SLINT_PREVIEW_TIMEOUT_MS ?? 60000,
 );
+const PREVIEW_POLL_TIMEOUT_MS = 5000;
 
 const pluginVersion = JSON.parse(
     readFileSync(
@@ -69,9 +70,10 @@ const tools = [
         icons,
         description:
             "Preview saved Slint source using the matching Wasm interpreter. " +
+            "Each call opens a new preview card; don't repeat it to recover from startup or capture failures. " +
             "Pass `path` to preview a file on disk, with its imports and images, or `source` for a snippet that imports only from std-widgets.slint. " +
-            "Compile errors are reported back to you once the preview has loaded. " +
-            "Then call get_preview_screenshot to see the preview as the user sees it.",
+            "This acknowledges the request, not a successful render. " +
+            "Always call get_preview_screenshot and check for errors before confirming the preview works.",
         inputSchema: {
             type: "object",
             properties: {
@@ -129,12 +131,28 @@ const tools = [
         title: "Get Slint Preview Screenshot",
         icons,
         description:
-            "Get a PNG screenshot of the latest preview_slint preview at its full size, with the Slint version it ran on. " +
-            "Waits until the preview has rendered, or returns pending with its current stage. " +
-            "If pending, call again to keep waiting for the same preview. Stop retrying on timeout. " +
+            "Capture the current state of a preview_slint preview as a PNG, with the Slint version it ran on. " +
+            "Pass its previewId to select a preview, or omit it for the latest opened preview. " +
+            "Waits for the first render if the preview is still starting, or returns pending with its current stage. " +
+            "If pending, call again with the same previewId to keep waiting. Stop retrying on timeout. " +
             "Check it before you judge how the UI looks.",
-        inputSchema: { type: "object", properties: {} },
+        inputSchema: {
+            type: "object",
+            properties: { previewId: { type: "string" } },
+        },
         annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+    },
+    {
+        name: "poll_preview_capture",
+        title: "Check for a Slint Preview Capture Request",
+        description: "Check whether this open preview should capture a fresh screenshot.",
+        annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+        inputSchema: {
+            type: "object",
+            properties: { previewId: { type: "string" } },
+            required: ["previewId"],
+        },
+        _meta: { ui: { visibility: ["app"] } },
     },
     {
         name: "publish_preview_capture",
@@ -146,10 +164,10 @@ const tools = [
             type: "object",
             properties: {
                 previewId: { type: "string" },
-                started: { type: "boolean" },
+                captureId: { type: "string" },
                 stage: {
                     type: "string",
-                    enum: ["reading", "loading", "compiling", "rendering", "capturing"],
+                    enum: ["started", "reading", "loading", "compiling", "rendering", "ready"],
                 },
                 png: { type: "string" },
                 width: { type: "integer" },
@@ -163,9 +181,40 @@ const tools = [
     },
 ];
 
-// The latest preview_slint call, whether its view has started, its capture once the view
-// publishes it, and the get_preview_screenshot calls waiting for any of these to change.
-let latestPreview = null;
+const previews = new Map();
+let latestPreviewId = null;
+
+function registerPreview(id, stage = "waiting") {
+    const preview = {
+        id,
+        requestedAt: Date.now(),
+        lastPolledAt: null,
+        stage,
+        timings: {},
+        failure: null,
+        captureRequest: null,
+        listeners: [],
+    };
+    previews.set(id, preview);
+    return preview;
+}
+
+setInterval(() => {
+    const now = Date.now();
+    for (const [id, preview] of previews) {
+        const deadline = preview.lastPolledAt === null
+            ? preview.requestedAt + Math.max(PREVIEW_TIMEOUT_MS, PREVIEW_POLL_TIMEOUT_MS)
+            : preview.lastPolledAt + PREVIEW_POLL_TIMEOUT_MS;
+        if (now <= deadline) continue;
+        previews.delete(id);
+        preview.failure = {
+            error: "The preview stopped polling. It may be suspended or closed. " +
+                "Ask the user to open its chat, then retry with the same previewId.",
+        };
+        notify(preview);
+    }
+}, 1000).unref();
+
 function notify(preview) {
     for (const listener of preview.listeners.splice(0)) listener();
 }
@@ -221,61 +270,74 @@ const toolCalls = {
                 throw rpcError(-32602, "'projectRoot' must be absolute");
             }
         }
-        const previous = latestPreview;
-        latestPreview = {
-            id: randomUUID(),
-            requestedAt: Date.now(),
-            viewStarted: false,
-            stage: "waiting",
-            timings: {},
-            capture: null,
-            listeners: [],
-        };
-        if (previous) notify(previous);
+        const preview = registerPreview(randomUUID());
+        latestPreviewId = preview.id;
         // The view reads the ID from _meta, or from the text if a client drops _meta.
         return {
             content: [
                 {
                     type: "text",
-                    text: `Rendering Slint preview ${latestPreview.id}.`,
+                    text: `Rendering Slint preview ${preview.id}.`,
+                },
+                {
+                    type: "text",
+                    text: "Preview requested; rendering is unverified. Call get_preview_screenshot before confirming success.",
                 },
             ],
-            _meta: { "slint/previewId": latestPreview.id },
+            _meta: { "slint/previewId": preview.id },
         };
     },
-    get_preview_screenshot: async () => {
-        const preview = latestPreview;
-        if (!preview) {
+    get_preview_screenshot: async (args) => {
+        if (args.previewId !== undefined && typeof args.previewId !== "string") {
+            throw rpcError(-32602, "'previewId' must be a string");
+        }
+        const id = args.previewId ?? latestPreviewId;
+        if (id === null) {
             return textResult("Call preview_slint first.", true);
         }
+        const preview = previews.get(id);
+        if (!preview) {
+            return textResult(
+                `Preview ${id} is unknown or inactive. Ask the user to open its chat, then retry with the same previewId.`,
+                true,
+            );
+        }
         const viewDeadline = preview.requestedAt + VIEW_START_TIMEOUT_MS;
-        const captureDeadline = Date.now() + SCREENSHOT_TIMEOUT_MS;
         const overallDeadline = preview.requestedAt + PREVIEW_TIMEOUT_MS;
-        while (!preview.capture && preview === latestPreview) {
+        if (!preview.captureRequest || Date.now() >= preview.captureRequest.deadline) {
+            preview.captureRequest = {
+                id: randomUUID(),
+                deadline: Date.now() + SCREENSHOT_TIMEOUT_MS,
+            };
+        }
+        const request = preview.captureRequest;
+        while (!request.capture && !preview.failure) {
             const deadline = Math.min(
-                overallDeadline,
-                captureDeadline,
-                preview.viewStarted ? Infinity : viewDeadline,
+                request.deadline,
+                preview.stage === "ready" ? Infinity : overallDeadline,
+                preview.stage === "waiting" ? viewDeadline : Infinity,
             );
             const remaining = deadline - Date.now();
             if (remaining <= 0) break;
             await nextChange(preview, remaining);
         }
-        const { id, capture } = preview;
-        if (preview !== latestPreview) {
+        if (preview.captureRequest === request) preview.captureRequest = null;
+        const capture = preview.failure ?? request.capture;
+        if (preview.stage === "waiting") {
             return textResult(
-                `A newer preview_slint call replaced preview ${id}. Call get_preview_screenshot again.`,
+                "The preview has not confirmed startup yet. " +
+                "It may be waiting for the user to open this chat. " +
+                "Ask the user to open the chat, then call `get_preview_screenshot` again for the existing preview.",
+                true,
             );
         }
-        if (!capture && !preview.viewStarted) {
-            return textResult("The preview view did not start. Use slint-viewer --screenshot instead.", true);
-        }
+        const ready = preview.stage === "ready";
         const structuredContent = {
             status: capture
                 ? (capture.error ? "error" : "ready")
-                : (Date.now() >= overallDeadline ? "timeout" : "pending"),
+                : (ready || Date.now() >= overallDeadline ? "timeout" : "pending"),
             previewId: id,
-            stage: preview.stage,
+            stage: ready && !capture ? "capturing" : capture?.error ? "error" : preview.stage,
             elapsedMs: Date.now() - preview.requestedAt,
             timings: preview.timings,
         };
@@ -283,8 +345,9 @@ const toolCalls = {
             return {
                 ...textResult(
                     structuredContent.status === "timeout"
-                        ? `Preview ${id} reached the overall ${PREVIEW_TIMEOUT_MS / 1000}-second limit (${preview.stage}). Stop retrying automatically.`
+                        ? `Preview ${id} timed out (${structuredContent.stage}). Stop retrying automatically.`
                         : `Preview ${id} is pending (${preview.stage}). Call get_preview_screenshot again to keep waiting for this preview.`,
+                    ready,
                 ),
                 structuredContent,
             };
@@ -292,7 +355,7 @@ const toolCalls = {
         const runtime = capture.runtime ? ` with ${capture.runtime}` : "";
         if (capture.error) {
             return {
-                ...textResult(`Preview ${id}${runtime} has no screenshot: ${capture.error}`),
+                ...textResult(`Preview ${id}${runtime} has no screenshot: ${capture.error}`, true),
                 structuredContent,
             };
         }
@@ -307,31 +370,51 @@ const toolCalls = {
             ],
         };
     },
+    // The card polls for requests because the server cannot call an open card directly.
+    // https://apps.extensions.modelcontextprotocol.io/api/documents/patterns.html#polling-for-live-data
+    poll_preview_capture: (args) => {
+        if (typeof args.previewId !== "string") {
+            throw rpcError(-32602, "'previewId' must be a string");
+        }
+        const preview = previews.get(args.previewId) ?? registerPreview(args.previewId, "ready");
+        preview.lastPolledAt = Date.now();
+        const active = !preview.failure;
+        const request = active ? preview.captureRequest : null;
+        return {
+            content: [],
+            structuredContent: {
+                active,
+                ...(request && Date.now() < request.deadline && { captureId: request.id }),
+            },
+        };
+    },
     publish_preview_capture: (args) => {
         if (typeof args.previewId !== "string") {
             throw rpcError(-32602, "'previewId' must be a string");
         }
-        const preview = latestPreview;
-        if (args.previewId !== preview?.id) {
-            return textResult("This belongs to an older preview.");
+        const preview = previews.get(args.previewId);
+        if (!preview) {
+            return textResult("This preview is unknown or inactive.");
         }
-        preview.viewStarted = true;
-        preview.stage = args.stage ?? "started";
-        if (!args.started && !args.stage) {
-            const runtime =
-                typeof args.runtime === "string" ? args.runtime : undefined;
-            preview.capture =
-                typeof args.png === "string"
-                    ? {
-                          png: args.png,
-                          width: args.width,
-                          height: args.height,
-                          runtime,
-                      }
-                    : { error: String(args.error ?? "unknown error"), runtime };
-            preview.stage = preview.capture.error ? "error" : "ready";
+        if (preview.failure) {
+            return textResult("This preview has already failed.");
         }
-        preview.timings[preview.stage] ??= Date.now() - preview.requestedAt;
+        const { captureId, stage, png, width, height, error } = args;
+        const runtime = typeof args.runtime === "string" ? args.runtime : undefined;
+        if (captureId !== undefined) {
+            const request = preview.captureRequest;
+            if (!request || captureId !== request.id || Date.now() >= request.deadline) {
+                return textResult("This capture request is no longer active.");
+            }
+            request.capture = typeof png === "string" && error === undefined
+                ? { png, width, height, runtime }
+                : { error: String(error ?? "unknown error"), runtime };
+            preview.captureRequest = null;
+        } else {
+            if (error !== undefined) preview.failure = { error: String(error), runtime };
+            preview.stage = preview.failure ? "error" : stage ?? preview.stage;
+            preview.timings[preview.stage] ??= Date.now() - preview.requestedAt;
+        }
         notify(preview);
         return textResult("Received.");
     },
@@ -371,10 +454,14 @@ const toolCalls = {
     },
 };
 
-function readView() {
-    // The .in suffix prevents Codex from offering this MCP App template as a standalone website.
-    return readFileSync(new URL("view.html.in", import.meta.url), "utf8");
-}
+// The .in suffix prevents Codex from offering this MCP App template as a standalone website.
+const viewHtml = readFileSync(new URL("view.html.in", import.meta.url), "utf8")
+    .replace("__CURSOR_PNG__", readFileSync(new URL("assets/canvas-cursor.png", import.meta.url)).toString("base64"))
+    .replace(/__ICON_([a-z-]+)__/g, (_, name) =>
+        readFileSync(new URL(`assets/${name}.svg`, import.meta.url), "utf8"),
+    )
+    .replace("__INTERPRETER_URL__", interpreter.url)
+    .replace("__CHANNEL__", channel);
 
 const handlers = {
     initialize: (params) => ({
@@ -409,9 +496,7 @@ const handlers = {
                 {
                     uri: VIEW_URI,
                     mimeType: VIEW_MIME_TYPE,
-                    text: readView()
-                        .replace("__INTERPRETER_URL__", interpreter.url)
-                        .replace("__CHANNEL__", channel),
+                    text: viewHtml,
                     _meta: {
                         ui: {
                             csp: {
