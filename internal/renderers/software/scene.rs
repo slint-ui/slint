@@ -62,6 +62,7 @@ pub struct ScanlineScene {
 }
 
 impl ScanlineScene {
+    #[cfg_attr(feature = "tracing", tracing::instrument(name = "sort_scene", skip_all))]
     pub fn new(
         mut items: Vec<ScanlineItem>,
         vectors: ScanlineVectors,
@@ -91,6 +92,7 @@ impl ScanlineScene {
     }
 
     /// Updates `current_items_index` and `future_items_index` to match the invariant
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn next_line(&mut self) {
         self.current_line += PhysicalLength::new(1);
 

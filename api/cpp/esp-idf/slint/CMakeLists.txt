@@ -4,7 +4,9 @@
 idf_component_register(
     SRCS "src/slint-esp.cpp"
     INCLUDE_DIRS "include"
-    REQUIRES "esp_lcd" "esp_lcd_touch")
+    REQUIRES "esp_lcd" "esp_lcd_touch" "esp_timer"
+    # The tracing capture is sent through this driver, see api/cpp/trace.rs.
+    PRIV_REQUIRES "esp_driver_usb_serial_jtag")
 
 list(PREPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
@@ -27,6 +29,9 @@ set(SLINT_FEATURE_RENDERER_SOFTWARE ON)
 if (CONFIG_SLINT_RENDER_PIPELINE)
     # SoftwareRenderer::record_frame() is still experimental.
     set(SLINT_FEATURE_EXPERIMENTAL ON)
+endif()
+if (CONFIG_SLINT_TRACING)
+    set(SLINT_FEATURE_TRACING ON)
 endif()
 set(SLINT_LIBRARY_CARGO_FLAGS "-Zbuild-std=core,alloc")
 set(DEFAULT_SLINT_EMBED_RESOURCES "embed-for-software-renderer" CACHE STRING "")

@@ -284,6 +284,7 @@ pub fn set_platform(platform: Box<dyn Platform + 'static>) -> Result<(), SetPlat
 ///
 /// This function should be called before rendering or processing input event, at the
 /// beginning of each event loop iteration.
+#[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 pub fn update_timers_and_animations() {
     match crate::context::GLOBAL_CONTEXT.with(|ctx| ctx.get().cloned()) {
         Some(ctx) => ctx.update_timers_and_animations(),

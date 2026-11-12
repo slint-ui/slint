@@ -972,6 +972,10 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
     /// The init function is the function to create a ItemTree.
     /// Returns `true` if instances were actually created or removed.
     /// Also recurses into child instances to ensure they are instantiated.
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(name = "repeater_ensure_updated", skip_all)
+    )]
     pub fn ensure_updated(self: Pin<&Self>, init: impl Fn() -> ItemTreeRc<C>) -> bool {
         let model = self.model();
         let changed = if self.data().project_ref().is_dirty.get() {
@@ -1026,6 +1030,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
 
     /// Same as `Self::ensure_updated` but for a ListView.
     /// Returns `true` if any instances were created or any child changed.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn ensure_updated_listview(
         self: Pin<&Self>,
         init: impl Fn() -> ItemTreeRc<C>,
@@ -1347,6 +1352,10 @@ impl<C: RepeatedItemTree + 'static> Conditional<C> {
     /// Call this function to make sure that the model is updated.
     /// The init function is the function to create a ItemTree.
     /// Returns `true` if the instance was created or removed, or any child changed.
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(name = "conditional_ensure_updated", skip_all)
+    )]
     pub fn ensure_updated(self: Pin<&Self>, init: impl Fn() -> ItemTreeRc<C>) -> bool {
         self.inner().ensure_updated(&|| vtable::VRc::into_dyn(init()), &|instance| {
             as_typed::<C>(instance).init()

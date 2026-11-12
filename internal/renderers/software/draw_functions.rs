@@ -20,6 +20,13 @@ use num_traits::Float;
 
 /// Draw one line of the texture in the line buffer
 ///
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(
+        skip_all,
+        fields(px = line_buffer.len(), fmt = texture.format as u8, alpha = texture.extra.alpha)
+    )
+)]
 pub(super) fn draw_texture_line(
     span: &PhysicalRect,
     line: PhysicalLength,
@@ -273,6 +280,7 @@ pub(super) fn draw_texture_line(
         }
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(px = line_buffer.len())))]
     fn fetch_blend_pixel(
         line_buffer: &mut [impl TargetPixel],
         format: TexturePixelFormat,
@@ -589,6 +597,7 @@ impl ArcEdge {
 
 /// draw one line of the rounded rectangle in the line buffer
 #[allow(clippy::unnecessary_cast)] // Coord
+#[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 pub(super) fn draw_rounded_rectangle_line(
     span: &PhysicalRect,
     line: PhysicalLength,

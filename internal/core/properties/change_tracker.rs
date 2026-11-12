@@ -245,6 +245,7 @@ impl ChangeTracker {
 
     /// Run one round of pending change handlers.
     /// Returns `true` if any handler was executed.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn run_change_handlers_once() -> bool {
         CHANGED_NODES.with(|list| {
             if list.is_empty() {

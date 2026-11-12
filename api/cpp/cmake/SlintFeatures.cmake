@@ -117,5 +117,6 @@ define_cargo_dependent_feature(accessibility "Enable integration with operating 
 define_cargo_dependent_feature(system-tray "Enable support for the SystemTrayIcon element" ON "NOT SLINT_FEATURE_FREESTANDING")
 define_cargo_dependent_feature(testing "Enable support for testing API (experimental)" ON "NOT SLINT_FEATURE_FREESTANDING")
 define_cargo_feature(experimental "Enable experimental features. (No backward compatibility guarantees)" OFF)
+define_cargo_feature(tracing "Enable tracing spans in the Slint runtime, reported through slint_tracing_set_callback" OFF)
 define_cargo_dependent_feature(system-testing "Enable support for controlling the application from a system testing tool" OFF "NOT SLINT_FEATURE_FREESTANDING")
 define_cargo_dependent_feature(mcp "Enable the embedded MCP server for AI-assisted debugging" OFF "NOT SLINT_FEATURE_FREESTANDING")
