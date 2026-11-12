@@ -3577,6 +3577,7 @@ dependencies = [
  "hostname",
  "i-slint-backend-selector",
  "i-slint-backend-testing",
+ "i-slint-common",
  "i-slint-compiler",
  "i-slint-core",
  "if-addrs",

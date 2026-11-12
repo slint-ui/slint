@@ -18,18 +18,21 @@ export component Foo {
 
     property <length> m5: mod(45px, 4);
 //                                  ^error{Cannot convert float to length. Use an unit, or multiply by 1px to convert explicitly}
+//                                  ^suggestion{4px}
 
     property <length> m6: mod(45px, 4ms);
 //                                  > <error{Cannot convert duration to length}
 
     property <duration> m7: mod(5, 4ms);
 //                              ^error{Cannot convert float to duration. Use an unit, or multiply by 1ms to convert explicitly}
+//                              ^suggestion{5ms}
 
     property <duration> m8: (5).mod(4ms);
 //                              > <error{Cannot convert float to duration. Use an unit, or multiply by 1ms to convert explicitly}
 
     property <duration> m9: 5ms.mod(4);
 //                                  ^error{Cannot convert float to duration. Use an unit, or multiply by 1ms to convert explicitly}
+//                                  ^suggestion{4ms}
 
     property <float> a1: abs();
 //                       > <error{Needs 1 argument}

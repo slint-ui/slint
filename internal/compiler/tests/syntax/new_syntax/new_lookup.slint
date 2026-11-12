@@ -5,6 +5,7 @@ export component Compo inherits Text {
 
     property <string> background: text;
 //                                >  <error{Unknown unqualified identifier 'text'. Did you mean 'self.text'?}
+//                                >  <suggestion{self.text}
 
     Rectangle {
         background: background;
@@ -30,6 +31,7 @@ export component Compo inherits Text {
     Rectangle {
         width: text;
 //             >  <error{Unknown unqualified identifier 'text'. Did you mean 'root.text'?}
+//             >  <suggestion{root.text}
     }
 
 }
