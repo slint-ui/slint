@@ -18,6 +18,11 @@
 #endif
 #include "esp_log.h"
 #include "esp_timer.h"
+#if CONFIG_SLINT_CPU_TEXTURES && defined(SLINT_FEATURE_EXPERIMENTAL)
+#    define SLINT_ESP_CPU_TEXTURES 1
+#    include <type_traits>
+#    include "slint-esp-cpu-texture-buffer.h"
+#endif
 #if CONFIG_SLINT_LOG_FRAME_STATS
 #    include <atomic>
 #endif
@@ -365,6 +370,15 @@ void EspPlatform<PixelType>::run_event_loop()
 {
     esp_lcd_panel_disp_on_off(panel_handle, true);
 
+#ifdef SLINT_ESP_CPU_TEXTURES
+    CpuTextureFrameBuffer cpu_textures;
+#    if CONFIG_SLINT_RENDER_IN_SEPARATE_TASK
+    // Used only by the thread that rasterizes.
+    slint::platform::SoftwareRenderer::PreparedTextures prepared_textures;
+    prepared_textures.set_max_bytes(std::size_t(CONFIG_SLINT_PREPARED_TEXTURES_SIZE) * 1024);
+#    endif
+#endif
+
     TickType_t max_ticks_to_wait = portMAX_DELAY;
 
     if (touch_handle) {
@@ -460,6 +474,10 @@ void EspPlatform<PixelType>::run_event_loop()
                         ,
                         &count_frame
 #    endif
+#    ifdef SLINT_ESP_CPU_TEXTURES
+                        ,
+                        &cpu_textures, &prepared_textures
+#    endif
     ] {
 #    if CONFIG_SLINT_TRACING
         slint::cbindgen_private::slint_trace_register_core();
@@ -471,7 +489,18 @@ void EspPlatform<PixelType>::run_event_loop()
 #    if CONFIG_SLINT_LOG_FRAME_STATS
                 const int64_t frame_start_us = esp_timer_get_time();
 #    endif
-                render_and_present([&recorded, stride](std::span<PixelType> buffer) {
+                render_and_present([&recorded, stride
+#    ifdef SLINT_ESP_CPU_TEXTURES
+                                    ,
+                                    &cpu_textures, &prepared_textures
+#    endif
+                ](std::span<PixelType> buffer) {
+#    ifdef SLINT_ESP_CPU_TEXTURES
+                    if constexpr (std::is_same_v<PixelType, slint::platform::Rgb565Pixel>) {
+                        cpu_textures.set_target(buffer, stride);
+                        return recorded->rasterize_into_buffer(&cpu_textures, prepared_textures);
+                    }
+#    endif
                     return recorded->rasterize(buffer, stride);
                 });
 #    if CONFIG_SLINT_LOG_FRAME_STATS
@@ -583,6 +612,12 @@ void EspPlatform<PixelType>::run_event_loop()
                     const int64_t frame_start_us = esp_timer_get_time();
 #endif
                     waited_for_refresh = render_and_present([&](std::span<PixelType> buffer) {
+#ifdef SLINT_ESP_CPU_TEXTURES
+                        if constexpr (std::is_same_v<PixelType, slint::platform::Rgb565Pixel>) {
+                            cpu_textures.set_target(buffer, stride);
+                            return m_window->m_renderer.render(&cpu_textures);
+                        }
+#endif
                         return m_window->m_renderer.render(buffer, stride);
                     });
 #if CONFIG_SLINT_LOG_FRAME_STATS

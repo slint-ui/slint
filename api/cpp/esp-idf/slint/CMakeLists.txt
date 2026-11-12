@@ -28,8 +28,8 @@ endif()
 
 set(SLINT_FEATURE_FREESTANDING ON)
 set(SLINT_FEATURE_RENDERER_SOFTWARE ON)
-if (CONFIG_SLINT_RENDER_IN_SEPARATE_TASK)
-    # SoftwareRenderer::record_frame() is still experimental.
+if (CONFIG_SLINT_RENDER_IN_SEPARATE_TASK OR CONFIG_SLINT_CPU_TEXTURES)
+    # SoftwareRenderer::record_frame() and TargetPixelBuffer are still experimental.
     set(SLINT_FEATURE_EXPERIMENTAL ON)
 endif()
 if (CONFIG_SLINT_TRACING)
