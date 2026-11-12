@@ -8,6 +8,7 @@ import {
     existsSync,
     mkdtempSync,
     readFileSync,
+    readdirSync,
     rmSync,
     writeFileSync,
 } from "node:fs";
@@ -292,6 +293,17 @@ test("the Claude and Codex manifests start this server", () => {
     ];
     assert.equal(codex.cwd, ".");
     assert.ok(existsSync(new URL(codex.args[0], pluginRoot)));
+});
+
+test("the plugin bundles only its use skill and keeps the general skill separate", () => {
+    assert.equal(readManifest(".codex-plugin/plugin.json").skills, "./skills/");
+    const skills = readdirSync(new URL("skills/", pluginRoot), { withFileTypes: true })
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => entry.name);
+    assert.deepEqual(skills, ["slint-plugin"]);
+    assert.ok(existsSync(new URL("skills/slint-plugin/SKILL.md", pluginRoot)));
+    assert.ok(existsSync(new URL("standalone/skills/slint/SKILL.md", pluginRoot)));
+    assert.deepEqual(readManifest("skills.sh.json").paths, ["./standalone/skills/"]);
 });
 
 // Starts a preview and returns its ID, which the view reads from the result.

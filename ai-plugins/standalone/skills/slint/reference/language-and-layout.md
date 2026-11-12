@@ -1,7 +1,7 @@
 # The `.slint` Language & Layout
 
-Syntax primer: the example in SKILL.md. Full guide: the docs' language section.
-Below are the rules agents most often get wrong.
+Use the documentation's language section for the full guide.
+These notes cover common binding and sizing problems.
 
 ## Language
 
