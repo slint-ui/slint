@@ -120,7 +120,7 @@ const tools = [
         description:
             "Open a successful prepared Slint check as a live browser preview. " +
             "Call check_slint with prepare_preview first and inspect its diagnostics and image. " +
-            "Pass only its previewId. This acknowledges publication; use get_preview_screenshot to verify browser rendering. " +
+            "Pass only its previewId. Use the PNG returned by check_slint for the initial visual review; no additional screenshot is needed after publication. " +
             "Preparations are consumed on publication; expired or used IDs require a new check.",
         inputSchema: {
             type: "object",
@@ -144,7 +144,7 @@ const tools = [
             "Pass its previewId to select a preview, or omit it for the latest opened preview. " +
             "Waits for the first render if the preview is still starting, or returns pending with its current stage. " +
             "If pending, call again with the same previewId to keep waiting. Stop retrying on timeout. " +
-            "Check it before you judge how the UI looks.",
+            "Use this for changes after interaction, browser rendering problems, or an explicit screenshot request. Use check_slint's PNG for the initial visual review.",
         inputSchema: {
             type: "object",
             properties: { previewId: { type: "string" } },
@@ -428,7 +428,7 @@ const toolCalls = {
             content: [
                 {
                     type: "text",
-                    text: `Requested Slint preview ${args.previewId}; browser rendering is unverified. Call get_preview_screenshot before confirming success.`,
+                    text: `Requested Slint preview ${args.previewId}. Use the screenshot returned by check_slint for the visual review.`,
                 },
             ],
             _meta: {

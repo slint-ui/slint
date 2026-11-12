@@ -79,7 +79,8 @@ A missing or expired preparation needs another check.
 The card uses the original source or file path, including when restored.
 File previews reload their source, imports, fonts, and images from disk.
 Its hosted browser renderer can differ visually from the software check.
-Use `get_preview_screenshot` with the published ID to capture its current state after interaction.
+Use the PNG returned by `check_slint` for the initial visual review and any screenshot shared in chat.
+Call `get_preview_screenshot` only for changes after interaction, browser rendering problems, or an explicit screenshot request.
 Card errors remain visible in the preview and through explicit screenshot requests.
 
 ## MCP Server for AI-Assisted Debugging
