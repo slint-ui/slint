@@ -37,6 +37,7 @@ impl<'a> TextureData<'a> {
 pub(super) enum TextureDataContainer {
     Static(TextureData<'static>),
     Shared { buffer: super::scene::SharedBufferData, source_rect: PhysicalRect },
+    Prepared(alloc::rc::Rc<super::prepared_textures::PreparedTexture>),
 }
 
 #[derive(Debug, Clone)]
@@ -93,6 +94,7 @@ impl DrawTextureArgs {
     pub fn source(&self) -> TextureData<'_> {
         match &self.data {
             TextureDataContainer::Static(data) => data.clone(),
+            TextureDataContainer::Prepared(prepared) => prepared.source(),
             TextureDataContainer::Shared { buffer, source_rect } => {
                 let stride = buffer.width();
                 let core::ops::Range { start, end } = compute_range_in_buffer(source_rect, stride);
@@ -162,6 +164,10 @@ impl DrawTextureArgs {
                 PhysicalSize::new(data.width as _, data.height as _)
             }
             TextureDataContainer::Shared { source_rect, .. } => source_rect.size,
+            TextureDataContainer::Prepared(prepared) => {
+                let source = prepared.source();
+                PhysicalSize::new(source.width as _, source.height as _)
+            }
         }
     }
 }
@@ -251,7 +257,10 @@ pub trait TargetPixelBuffer {
     /// Draw a texture into the buffer.
     /// The texture must be clipped to the given region.
     /// Returns true if the operation was successful; false if it could not be
-    /// implemented and instead the software renderer needs to draw the texture
+    /// implemented and instead the software renderer needs to draw the texture.
+    /// The renderer offers only textures inside an element with `cache-rendering-hint: true`.
+    /// It offers embedded images as a copy at their destination size, unrotated, in RAM,
+    /// in RGBA or as an alpha map when colorized, and keeps that copy for later frames.
     fn draw_texture(&mut self, _: &DrawTextureArgs, _clip: &PhysicalRegion) -> bool {
         false
     }
