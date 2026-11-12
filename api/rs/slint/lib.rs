@@ -220,7 +220,7 @@ compile_error!(
     forward compatibility with future version of this crate"
 );
 
-pub use slint_macros::slint;
+pub use slint_macros::{compile_project, slint};
 
 pub use i_slint_backend_selector::api::*;
 pub use i_slint_core::api::*;
