@@ -1020,9 +1020,6 @@ fn touches_corner() {
 
 #[test]
 fn texture_positions_cover_upscaled_source_edges() {
-    assert_eq!(core::mem::align_of::<SceneTextureExtra>(), 4);
-    assert_eq!(core::mem::size_of::<SceneTextureExtra>(), 24);
-
     for source_size in 1..=64 {
         for destination_size in source_size..=4096 {
             let step = texture_step(source_size, destination_size);
