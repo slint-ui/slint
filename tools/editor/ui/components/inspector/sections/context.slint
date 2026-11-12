@@ -58,6 +58,10 @@ export global InspectorContext {
         return InspectorContext.has-backend-rect() && InspectorContext.element-information.type-name == "Rectangle";
     }
 
+    public pure function has-opacity-selection() -> bool {
+        return InspectorContext.has-backend-rect() && Properties.has-property("opacity");
+    }
+
     public pure function is-touch-area-selection() -> bool {
         return InspectorContext.has-backend-rect() && InspectorContext.element-information.type-name == "TouchArea";
     }
