@@ -2545,6 +2545,7 @@ fn generate_sub_component_body(
     }
 
     let mut user_init = vec!["[[maybe_unused]] auto self = this;".into()];
+    let mut init_change_trackers = vec!["[[maybe_unused]] auto self = this;".into()];
 
     let mut children_visitor_cases = Vec::new();
     let mut subtrees_ranges_cases = Vec::new();
@@ -2580,6 +2581,9 @@ fn generate_sub_component_body(
         init.push(format!(
             "this->{sub_field}.init(globals, self_weak.into_dyn(), {global_index}, {global_children});"
         ));
+        if sub_sc.needs_change_trackers_init(root) {
+            init_change_trackers.push(format!("this->{sub_field}.init_change_trackers();"));
+        }
         if sub_sc.needs_user_init(root) {
             user_init.push(format!("this->{sub_field}.user_init();"));
         }
@@ -2765,16 +2769,16 @@ fn generate_sub_component_body(
 
     init.extend(properties_init_code);
 
+    init_change_trackers.extend(component.change_callbacks.iter().enumerate().map(|(idx, (p, e))| {
+        let code = compile_expression(&e.borrow(), &ctx);
+        let prop = compile_expression(&llr::Expression::PropertyReference(p.clone()), &ctx);
+        format!("self->change_tracker{idx}.init(self, [](auto self) {{ return {prop}; }}, []([[maybe_unused]] auto self, auto) {{ {code}; }});")
+    }));
+
     user_init.extend(component.init_code.iter().map(|e| {
         let mut expr_str = compile_expression(&e.borrow(), &ctx);
         expr_str.push(';');
         expr_str
-    }));
-
-    user_init.extend(component.change_callbacks.iter().enumerate().map(|(idx, (p, e))| {
-        let code = compile_expression(&e.borrow(), &ctx);
-        let prop = compile_expression(&llr::Expression::PropertyReference(p.clone()), &ctx);
-        format!("self->change_tracker{idx}.init(self, [](auto self) {{ return {prop}; }}, []([[maybe_unused]] auto self, auto) {{ {code}; }});")
     }));
 
     if !component.timers.is_empty() {
@@ -2825,8 +2829,24 @@ fn generate_sub_component_body(
         }),
     ));
 
+    debug_assert_eq!(component.needs_change_trackers_init(root), init_change_trackers.len() > 1);
+    let has_change_trackers = init_change_trackers.len() > 1;
+    if has_change_trackers {
+        target_struct.members.push((
+            field_access,
+            Declaration::Function(Function {
+                name: "init_change_trackers".into(),
+                signature: "() -> void".into(),
+                statements: Some(init_change_trackers),
+                ..Default::default()
+            }),
+        ));
+    }
     debug_assert_eq!(component.needs_user_init(root), user_init.len() > 1);
     if is_item_tree_root || component.needs_user_init(root) {
+        if is_item_tree_root && has_change_trackers {
+            user_init.insert(1, "this->init_change_trackers();".into());
+        }
         target_struct.members.push((
             field_access,
             Declaration::Function(Function {

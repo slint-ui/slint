@@ -59,6 +59,20 @@ component SubCompoInline {
     @children
 }
 
+component InitChanges {
+    in-out property <int> value;
+    out property <int> value-count;
+    changed value => { value-count += 1; }
+    property <int> own;
+    out property <int> own-count;
+    changed own => { own-count += 1; }
+    in-out property <int> to-parent;
+    init => {
+        own = 5;
+        to-parent = 5;
+    }
+}
+
 component WithAliasToNative {
     out property has-focus <=> ti.has_focus;
     out property text <=> ti.text;
@@ -82,6 +96,21 @@ export component TestCase inherits Window {
     out property<int> count;
     changed result => {
         count += 1;
+    }
+
+    // Changes made in `init` are reported, whichever component's `init` makes them
+    property <int> init-value;
+    out property <int> init-value-count;
+    changed init-value => { init-value-count += 1; }
+    out property <int> init-to-parent-count;
+    init-changes := InitChanges {
+        changed to-parent => { root.init-to-parent-count += 1; }
+    }
+    out property init-changes-value-count <=> init-changes.value-count;
+    out property init-changes-own-count <=> init-changes.own-count;
+    init => {
+        init-value = 5;
+        init-changes.value = 5;
     }
 
     WithAliasToNative {
@@ -130,6 +159,10 @@ export component TestCase inherits Window {
 let instance = TestCase::new().unwrap();
 slint_testing::mock_elapsed_time(1000);
 assert_eq!(instance.get_result(), "");
+assert_eq!(instance.get_init_value_count(), 1);
+assert_eq!(instance.get_init_changes_value_count(), 1);
+assert_eq!(instance.get_init_changes_own_count(), 1);
+assert_eq!(instance.get_init_to_parent_count(), 1);
 instance.set_value(56);
 slint_testing::mock_elapsed_time(1000);
 assert_eq!(instance.get_result(), ""); // so far, nothing have changed
@@ -176,6 +209,10 @@ auto handle = TestCase::create();
 const TestCase &instance = *handle;
 slint_testing::mock_elapsed_time(1000);
 assert_eq(instance.get_result(), "");
+assert_eq(instance.get_init_value_count(), 1);
+assert_eq(instance.get_init_changes_value_count(), 1);
+assert_eq(instance.get_init_changes_own_count(), 1);
+assert_eq(instance.get_init_to_parent_count(), 1);
 instance.set_value(56);
 slint_testing::mock_elapsed_time(1000);
 assert_eq(instance.get_result(), ""); // so far, nothing have changed
@@ -221,6 +258,10 @@ assert_eq(instance.global<Glob>().get_r(), "=88|88");
 var instance = new slint.TestCase({});
 slintlib.private_api.mock_elapsed_time(1000);
 assert.equal(instance.result, "");
+assert.equal(instance.init_value_count, 1);
+assert.equal(instance.init_changes_value_count, 1);
+assert.equal(instance.init_changes_own_count, 1);
+assert.equal(instance.init_to_parent_count, 1);
 instance.value = 56;
 slintlib.private_api.mock_elapsed_time(1000);
 assert.equal(instance.result, ""); // so far, nothing have changed
