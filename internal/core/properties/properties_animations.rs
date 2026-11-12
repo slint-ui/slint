@@ -407,6 +407,14 @@ impl<T: InterpolatedPropertyValue + Clone, A: Fn() -> AnimationDetail> BindingCa
                 // Safety: `new_to_value` is a valid mutable reference matching the
                 // original binding's value type
                 unsafe { self.original_binding.update(&mut new_to_value as *mut T) };
+
+                // Without a previous target, nothing has been animated yet. Animating from
+                // the current value to itself would only keep the window redrawing.
+                if previous_to_value.is_none() && new_to_value == *value {
+                    self.state.set(AnimatedBindingState::NotAnimating);
+                    return BindingResult::KeepBinding;
+                }
+
                 animation_data.to_value = Some(new_to_value);
 
                 if animation_data.to_value != previous_to_value {
@@ -1425,6 +1433,67 @@ mod animation_tests {
 
         // After more than DURATION worth of real time has elapsed, the animation should
         // have completed regardless of the unrelated per-frame writes to `row.0`.
+        assert_eq!(get_prop_value(&compo.width), 200);
+    }
+
+    #[test]
+    fn properties_test_animation_triggered_by_binding_without_value_change() {
+        // The dependencies of an animated binding that never animated change without changing
+        // its value, like a model row rewritten after its item was created. That must neither
+        // animate nor keep the animation driver busy.
+        #[derive(Default)]
+        struct Component {
+            width: Property<i32>,
+            row: Property<(i32, bool)>,
+        }
+
+        let compo = Rc::pin(Component::default());
+
+        let animation_details = PropertyAnimation {
+            duration: DURATION.as_millis() as _,
+            iteration_count: 1.,
+            ..PropertyAnimation::default()
+        };
+
+        let w = PinWeak::downgrade(compo.clone());
+        compo.width.set_animated_binding(
+            move || {
+                let compo = w.upgrade().unwrap();
+                if get_prop_value(&compo.row).1 { 200 } else { 40 }
+            },
+            move || (animation_details.clone(), None),
+        );
+
+        compo.row.set((0, false));
+        assert_eq!(get_prop_value(&compo.width), 40);
+
+        let start_time = crate::animations::current_tick();
+        let tick = core::time::Duration::from_millis(16);
+        for i in 1..=3u32 {
+            compo.row.set((i as i32, false));
+            crate::animations::CURRENT_ANIMATION_DRIVER
+                .with(|driver| driver.update_animations(start_time + tick * i));
+            assert_eq!(get_prop_value(&compo.width), 40);
+            assert!(
+                !crate::animations::CURRENT_ANIMATION_DRIVER
+                    .with(|driver| driver.has_active_animations()),
+                "an unchanged value must not start an animation (rewrite {i})"
+            );
+        }
+
+        // A change of the value still animates, from the value it had.
+        compo.row.set((4, true));
+        let change_time = start_time + tick * 3;
+        assert_eq!(get_prop_value(&compo.width), 40);
+        crate::animations::CURRENT_ANIMATION_DRIVER
+            .with(|driver| driver.update_animations(change_time + DURATION / 2));
+        assert_eq!(get_prop_value(&compo.width), 120);
+        assert!(
+            crate::animations::CURRENT_ANIMATION_DRIVER
+                .with(|driver| driver.has_active_animations())
+        );
+        crate::animations::CURRENT_ANIMATION_DRIVER
+            .with(|driver| driver.update_animations(change_time + DURATION));
         assert_eq!(get_prop_value(&compo.width), 200);
     }
 
