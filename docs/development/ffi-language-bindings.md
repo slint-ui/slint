@@ -10,7 +10,7 @@
 Slint provides language bindings for C++, Node.js, and Python, all built on top of the Rust core. The FFI layer uses:
 
 - **C++ bindings**: cbindgen-generated headers with manual C++ wrapper classes
-- **Node.js bindings**: Neon/NAPI framework for native Node modules
+- **Node.js bindings**: napi-rs (Node-API) for native Node modules
 - **Python bindings**: PyO3 with maturin build system
 - **.NET bindings**: a handle-based C ABI with `[LibraryImport]`, see [dotnet-bindings.md](dotnet-bindings.md)
 - **Internal FFI**: `#[no_mangle] extern "C"` functions in core crates
@@ -23,7 +23,7 @@ Slint provides language bindings for C++, Node.js, and Python, all built on top 
 | `api/cpp/cbindgen.rs` | C++ header generator (enums, structs, vtables) |
 | `api/cpp/platform.rs` | Platform abstraction for C++ |
 | `api/cpp/CMakeLists.txt` | CMake integration via Corrosion |
-| `api/node/rust/lib.rs` | Neon/NAPI module entry point |
+| `api/node/rust/lib.rs` | napi-rs module entry point |
 | `api/node/rust/interpreter/` | Interpreter bindings for Node.js |
 | `api/python/slint/lib.rs` | PyO3 module initialization |
 | `api/python/slint/interpreter.rs` | Interpreter bindings for Python |
@@ -40,7 +40,7 @@ Slint provides language bindings for C++, Node.js, and Python, all built on top 
 │                        Language APIs                                 │
 ├─────────────────┬─────────────────┬─────────────────────────────────┤
 │   C++ (api/cpp) │ Node.js (api/node)│ Python (api/python)            │
-│   cbindgen      │ Neon/NAPI        │ PyO3                           │
+│   cbindgen      │ napi-rs          │ PyO3                           │
 ├─────────────────┴─────────────────┴─────────────────────────────────┤
 │                     FFI Layer (extern "C")                           │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐   │
@@ -73,14 +73,14 @@ pub unsafe extern "C" fn slint_windowrc_init(out: *mut WindowAdapterRcOpaque) {
         core::mem::size_of::<Rc<dyn WindowAdapter>>(),
         core::mem::size_of::<WindowAdapterRcOpaque>()
     );
-    let win = with_platform(|b| b.create_window_adapter()).unwrap();
+    let win = with_global_context(|ctx| ctx.create_window_adapter()).and_then(|r| r).unwrap();
     unsafe {
         core::ptr::write(out as *mut Rc<dyn WindowAdapter>, win);
     }
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn slint_run_event_loop(quit_on_last_window_closed: bool) {
+pub extern "C-unwind" fn slint_run_event_loop(quit_on_last_window_closed: bool) {
     with_platform(|b| {
         if !quit_on_last_window_closed {
             b.set_event_loop_quit_on_last_window_closed(false);
@@ -89,6 +89,9 @@ pub extern "C" fn slint_run_event_loop(quit_on_last_window_closed: bool) {
     }).unwrap();
 }
 ```
+
+`slint_run_event_loop` is `extern "C-unwind"`: on Emscripten, the event loop leaves `main()` by unwinding with a JavaScript exception.
+The other functions in this file are plain `extern "C"`, so a panic that reaches the boundary aborts the process.
 
 ### Opaque Pointer Types
 
@@ -146,7 +149,7 @@ cmake --build .
 
 ### Structure
 
-Uses Neon/NAPI for Node.js native modules:
+Uses napi-rs for Node.js native modules:
 
 ```
 api/node/
@@ -423,15 +426,22 @@ pub mod ffi {
 }
 ```
 
-### Step 2: Update cbindgen (for C++)
+### Step 2: Check the Generated Headers (for C++)
 
-```rust
-// api/cpp/cbindgen.rs
-config.export.include = [
-    // ... existing exports
-    "slint_mymodule_new_function",
-];
-```
+cbindgen emits every `#[unsafe(no_mangle)] pub extern "C"` function it finds in the sources it parses.
+`gen_corelib` in `api/cpp/cbindgen.rs` runs it once per generated header:
+
+- The last run parses all of `i-slint-core` and writes `slint_internal.h`.
+  A new function lands there without registration.
+- Earlier runs write the dedicated headers.
+  One loop generates several of them, such as `slint_image_internal.h`, from a shared list of source files.
+  That list includes `window.rs`, `input.rs`, and `animations.rs`.
+  A new function in one of those files also lands in these headers.
+  Add it to `special_config.export.exclude` to keep it out of them.
+  To move a function into a dedicated header, add it to that header's list instead.
+- `config.export.include` names the types that no FFI function signature reaches.
+
+Build the C++ library, then check which headers under `generated_include/private/` declare the function.
 
 ### Step 3: Add C++ Wrapper
 
@@ -548,7 +558,7 @@ cargo test -p i-slint-core ffi
 | Segfault on init | Size mismatch | Check `assert_eq!` for opaque types |
 | Memory leak | Missing drop_user_data | Ensure cleanup function is called |
 | Type mismatch | cbindgen out of sync | Rebuild the project to regenerate headers |
-| Undefined symbol | FFI function not exported | Add to `config.export.include` |
+| Undefined symbol | FFI function not exported | Check for `#[unsafe(no_mangle)]`, and that its module is built with the `ffi` feature |
 | Python crash | GIL issues | Use `py.detach()` around blocking calls |
 | Node crash | Ref counting | Keep the JS function alive with `create_ref()` |
 
