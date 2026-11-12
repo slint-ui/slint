@@ -7,9 +7,9 @@ description: Create, edit, and inspect Slint UIs using this plugin's documentati
 
 ## Documentation
 
-Use `slint-docs` search, then fetch the relevant page for API details.
-Check the project's Slint version when compatibility matters; the docs server reports its indexed version.
-If the server is unavailable or targets another version, use the matching documentation at `https://releases.slint.dev/<version>/docs`.
+Use the `slint-docs` MCP server: call `search`, then `fetch` with a result's URL unchanged.
+Both tools default to the current Slint release.
+For an older project release, pass its `version` to `search`; the returned URL makes `fetch` use the same release.
 
 ## Inline Preview
 
