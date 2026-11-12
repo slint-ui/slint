@@ -1,0 +1,149 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export interface CollectionTabEntry {
+    in property <string> title;
+}
+
+export component CollectionTabBase inherits Rectangle {
+    in property <string> title;
+    accessible-role: tab-panel;
+    accessible-label: root.title;
+    @children
+}
+
+export component CollectionTabHeaderBase inherits TouchArea {
+    in property <string> title;
+    in property <bool> selected;
+    in property <bool> focused;
+    callback activated();
+
+    clicked => { if root.enabled { root.activated(); } }
+    accessible-role: tab;
+    accessible-label: root.title;
+    accessible-enabled: root.enabled;
+    accessible-item-selectable: true;
+    accessible-item-selected: root.selected;
+    accessible-action-default => { if root.enabled { root.activated(); } }
+    @children
+}
+
+export component CollectionTabBarBase inherits TouchArea {
+    in-out property <int> current-index: 0;
+    in property <int> item-count;
+    in property <Orientation> orientation: Orientation.horizontal;
+    out property <bool> has-focus: keys.has-focus;
+    out property <int> focused-index: keys.has-focus ? keys.focused-index : -1;
+    private property <bool> space-pressed;
+
+    enabled: root.item-count > 0;
+    forward-focus: keys;
+    accessible-role: tab-list;
+    accessible-enabled: root.enabled;
+    accessible-orientation: root.orientation;
+    accessible-item-count: root.item-count;
+    accessible-delegate-focus: keys.has-focus ? keys.focused-index : root.current-index;
+
+    public function activate(index: int) {
+        if root.enabled && index >= 0 && index < root.item-count {
+            root.current-index = index;
+            keys.focused-index = index;
+            keys.focus();
+        }
+    }
+
+    scroll-event(event) => {
+        if !root.enabled || root.item-count <= 0 { return reject; }
+        if event.delta-y < -2px {
+            root.current-index = Math.min(root.current-index + 1, root.item-count - 1);
+            return accept;
+        }
+        if event.delta-y > 2px {
+            root.current-index = Math.max(root.current-index - 1, 0);
+            return accept;
+        }
+        return reject;
+    }
+
+    keys := FocusScope {
+        private property <int> focused-index;
+        width: 0px;
+        height: 0px;
+        enabled: root.enabled && root.item-count > 0;
+        focus-gained => {
+            self.focused-index = Math.min(Math.max(root.current-index, 0), root.item-count - 1);
+        }
+        focus-lost => { root.space-pressed = false; }
+        key-pressed(event) => {
+            if event.modifiers.control || event.modifiers.alt || event.modifiers.meta { return reject; }
+            if event.text == (root.orientation == Orientation.horizontal ? Key.LeftArrow : Key.UpArrow) {
+                self.focused-index = Math.max(self.focused-index - 1, 0);
+                return accept;
+            }
+            if event.text == (root.orientation == Orientation.horizontal ? Key.RightArrow : Key.DownArrow) {
+                self.focused-index = Math.min(self.focused-index + 1, root.item-count - 1);
+                return accept;
+            }
+            if event.text == Key.Home {
+                self.focused-index = 0;
+                return accept;
+            }
+            if event.text == Key.End {
+                self.focused-index = root.item-count - 1;
+                return accept;
+            }
+            if event.text == Key.Return {
+                root.activate(self.focused-index);
+                return accept;
+            }
+            if event.text == Key.Space {
+                root.space-pressed = true;
+                return accept;
+            }
+            return reject;
+        }
+        key-released(event) => {
+            if event.text == Key.Space && root.space-pressed {
+                root.space-pressed = false;
+                root.activate(self.focused-index);
+                return accept;
+            }
+            return reject;
+        }
+    }
+
+    @children
+}
+
+export component CollectionTabBar inherits CollectionTabBarBase {
+    in property <length> spacing: 4px;
+    default slot <[CollectionTabHeaderBase]> headers;
+    item-count: headers.length;
+    horizontal-stretch: root.orientation == Orientation.horizontal ? 1 : 0;
+    vertical-stretch: root.orientation == Orientation.vertical ? 1 : 0;
+    min-width: root.orientation == Orientation.vertical ? header-layout.min-width : 0px;
+    min-height: root.orientation == Orientation.horizontal ? header-layout.min-height : 0px;
+    preferred-width: header-layout.preferred-width;
+    preferred-height: header-layout.preferred-height;
+
+    Flickable {
+        content-width: Math.max(self.width, header-layout.preferred-width);
+        content-height: Math.max(self.height, header-layout.preferred-height);
+
+        header-layout := GridLayout {
+            x: 0px;
+            y: 0px;
+            width: root.orientation == Orientation.horizontal ? self.preferred-width : parent.content-width;
+            height: root.orientation == Orientation.vertical ? self.preferred-height : parent.content-height;
+            spacing: root.spacing;
+            for header[index] in headers: header {
+                row: root.orientation == Orientation.vertical ? index : 0;
+                col: root.orientation == Orientation.vertical ? 0 : index;
+                selected: root.current-index == index;
+                focused: root.focused-index == index;
+                accessible-item-index: index;
+                activated => { root.activate(index); }
+            }
+        }
+    }
+}

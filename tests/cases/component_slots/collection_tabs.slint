@@ -8,6 +8,7 @@ export component TestCase inherits Window {
     width: 400px;
     height: 300px;
     out property <int> current-index: tabs.current-index;
+    in-out property <Orientation> orientation <=> tabs.orientation;
     out property <int> count: counter.value;
     out property <int> constructions;
     out property <bool> test: tabs.item-count == 2 && standard.current-index == 0;
@@ -54,5 +55,21 @@ slint_testing::send_keyboard_string_sequence(&instance, &slint::SharedString::fr
 assert_eq!(instance.get_current_index(), 1);
 assert_eq!(instance.get_count(), 1);
 assert_eq!(instance.get_constructions(), 1);
+slint_testing::send_keyboard_string_sequence(&instance, &slint::SharedString::from(Key::LeftArrow));
+slint_testing::send_keyboard_char(&instance, Key::Space.into(), true);
+assert_eq!(instance.get_current_index(), 1, "Space activates on release");
+slint_testing::send_keyboard_char(&instance, Key::Space.into(), false);
+assert_eq!(instance.get_current_index(), 0);
+instance.set_orientation(slint::language::Orientation::Vertical);
+slint_testing::send_keyboard_string_sequence(&instance, &slint::SharedString::from(Key::DownArrow));
+assert_eq!(instance.get_current_index(), 0);
+slint_testing::send_keyboard_string_sequence(&instance, &slint::SharedString::from(Key::Return));
+assert_eq!(instance.get_current_index(), 1);
+slint_testing::send_keyboard_string_sequence(&instance, &slint::SharedString::from(Key::Home));
+slint_testing::send_keyboard_string_sequence(&instance, &slint::SharedString::from(Key::Return));
+assert_eq!(instance.get_current_index(), 0);
+slint_testing::send_keyboard_string_sequence(&instance, &slint::SharedString::from(Key::End));
+slint_testing::send_keyboard_string_sequence(&instance, &slint::SharedString::from(Key::Return));
+assert_eq!(instance.get_current_index(), 1);
 ```
 */

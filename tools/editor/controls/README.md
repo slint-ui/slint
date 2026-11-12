@@ -220,17 +220,22 @@ The remaining radio issues are:
 - `item-count` is an input, and public helpers such as `select()` don't validate indexes.
 - Initial and later programmatic selection of disabled buttons follow different rules.
 
-Collection forwarding, mixed static and repeated children, and inherited collection replacement remain unsupported.
+Direct collection forwarding (`target << entries`), mixed static and repeated children, and inherited collection replacement remain unsupported.
 Clearing an inherited named collection can currently be silently ignored.
 
 ### Collection Tab Prototype
 
-The Collection tabs page demonstrates `CollectionTabWidget { CollectionTab { title: "Settings"; SettingsPage { } } }`.
-The widget reads titles in a collection loop to generate headers and places the supplied pages in a separate expansion.
-Titles remain reactive, and switching pages preserves their state.
-Click a header to select it; arrow keys, Home, and End move focus, and Enter or Space activates the focused tab.
-The gallery also includes the unchanged standard `TabWidget`.
+The [Collection tabs gallery](examples/collection_tabs.slint) demonstrates two APIs:
 
-This prototype accepts static children satisfying its title interface.
-Repeated tabs, per-tab custom headers, vertical orientation, automatic scrolling to the focused header, and automatic page minimum-size aggregation remain unsupported.
-It doesn't replace the standard widget or reproduce the built-in `Tab` placement restriction.
+- `CollectionTabWidget { CollectionTab { title: "Settings"; SettingsPage { } } }` keeps each title and page together.
+- `CollectionTabBar` and `PageStack`, linked by `current-index`, allow custom layouts and header visuals.
+  Keep their headers and pages in matching order.
+
+The combined widget uses the same bar and stack through generic collection composition.
+Titles remain reactive, and inactive pages retain their state and contribute layout constraints.
+The gallery includes horizontal and vertical tabs, a custom header, and the existing standard `TabWidget` for comparison.
+See the [API](API.md#collection-tabs) for properties, input behavior, and headless bases.
+
+The combined widget requires static pages; the separate bar and stack also accept a single model loop each.
+Custom header slots on the combined widget and automatic scrolling to the focused header remain unsupported.
+This prototype doesn't replace the standard `TabWidget` or reproduce the built-in `Tab` placement restriction.

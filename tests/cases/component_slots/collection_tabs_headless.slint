@@ -1,0 +1,78 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { CollectionTabBarBase, CollectionTabHeaderBase } from "../../../tools/editor/controls/src/headless.slint";
+
+component CustomHeader inherits CollectionTabHeaderBase {
+    min-width: 80px;
+    min-height: 32px;
+    Rectangle {
+        background: root.selected ? blue : white;
+        border-width: root.focused ? 2px : 0px;
+        border-color: black;
+        Text { text: root.title; }
+    }
+}
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 80px;
+    in-out property <bool> bar-enabled: true;
+    in-out property <int> count: 2;
+    out property <int> current-index: bar.current-index;
+    out property <bool> test: root.current-index == 0;
+    public function activate-invalid() {
+        bar.activate(-1);
+        bar.activate(root.count);
+    }
+
+    bar := CollectionTabBarBase {
+        accessible-label: "Custom bar";
+        item-count: root.count;
+        enabled: root.bar-enabled;
+        HorizontalLayout {
+            for index in root.count: CustomHeader {
+                title: index == 0 ? "One" : "Two";
+                enabled: bar.enabled;
+                selected: bar.current-index == index;
+                focused: bar.focused-index == index;
+                accessible-item-index: index;
+                activated => { bar.activate(index); }
+            }
+        }
+    }
+}
+
+/*
+```rust
+use slint::platform::PointerEventButton;
+use slint_testing::{AccessibleRole, ElementHandle};
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+let bar = ElementHandle::find_by_accessible_label(&instance, "Custom bar")
+    .find(|element| element.accessible_role() == Some(AccessibleRole::TabList)).unwrap();
+let two = ElementHandle::find_by_accessible_label(&instance, "Two")
+    .find(|element| element.accessible_role() == Some(AccessibleRole::Tab)).unwrap();
+assert_eq!(bar.accessible_item_count(), Some(2));
+two.mock_single_click(PointerEventButton::Left);
+assert_eq!(instance.get_current_index(), 1);
+assert_eq!(two.accessible_item_selected(), Some(true));
+instance.invoke_activate_invalid();
+assert_eq!(instance.get_current_index(), 1);
+bar.scroll(0.0, 20.0);
+assert_eq!(instance.get_current_index(), 0);
+bar.scroll(0.0, -20.0);
+assert_eq!(instance.get_current_index(), 1);
+instance.set_bar_enabled(false);
+assert_eq!(two.accessible_enabled(), Some(false));
+bar.scroll(0.0, 20.0);
+assert_eq!(instance.get_current_index(), 1);
+two.invoke_accessible_default_action();
+assert_eq!(instance.get_current_index(), 1);
+instance.set_count(0);
+instance.set_bar_enabled(true);
+instance.invoke_activate_invalid();
+bar.scroll(0.0, 20.0);
+assert_eq!(instance.get_current_index(), 1);
+```
+*/

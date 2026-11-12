@@ -1,37 +1,31 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import {
+    CollectionTabEntry,
+    CollectionTabBase,
+    CollectionTabHeaderBase,
+    CollectionTabBar,
+    PageStack,
+} from "../headless.slint";
 import { BasicTheme } from "theme.slint";
 
-interface TabEntry {
-    in property <string> title;
-}
+export component CollectionTab inherits CollectionTabBase { }
 
-export component CollectionTab inherits Rectangle {
-    in property <string> title;
-    accessible-role: tab-panel;
-    accessible-label: root.title;
-    @children
-}
-
-component TabHeader inherits Rectangle {
-    in property <string> title;
-    in property <bool> selected;
-    in property <bool> focused;
-    callback activated();
+export component CollectionTabHeader inherits CollectionTabHeaderBase {
+    in property <length> horizontal-padding: 16px;
     horizontal-stretch: 0;
+    vertical-stretch: 0;
     min-width: 88px;
-    background: root.selected ? BasicTheme.accent.with-alpha(0.1)
-        : pointer.has-hover ? BasicTheme.hover-background : transparent;
-    accessible-role: tab;
-    accessible-label: root.title;
-    accessible-item-selectable: true;
-    accessible-item-selected: root.selected;
-    accessible-action-default => { root.activated(); }
+    min-height: 40px;
 
+    Rectangle {
+        background: root.selected ? BasicTheme.accent.with-alpha(0.1)
+            : root.has-hover ? BasicTheme.hover-background : transparent;
+    }
     HorizontalLayout {
-        padding-left: 16px;
-        padding-right: 16px;
+        padding-left: root.horizontal-padding;
+        padding-right: root.horizontal-padding;
         Text {
             text: root.title;
             color: root.selected ? BasicTheme.accent : BasicTheme.foreground;
@@ -53,100 +47,45 @@ component TabHeader inherits Rectangle {
         border-radius: 4px;
         border-color: BasicTheme.focus;
     }
-    pointer := TouchArea {
-        clicked => { root.activated(); }
-    }
 }
 
 export component CollectionTabWidget inherits Rectangle {
     in-out property <int> current-index: 0;
+    in property <Orientation> orientation: Orientation.horizontal;
+    in property <length> content-padding: 12px;
     out property <int> item-count: tabs.length;
-    private property <int> focused-index: 0;
-    default slot <[implements TabEntry]> tabs;
+    default slot <[implements CollectionTabEntry]> tabs;
 
-    forward-focus: bar-focus;
+    forward-focus: bar;
 
-    function activate(index: int) {
-        if index >= 0 && index < root.item-count {
-            root.current-index = index;
-            root.focused-index = index;
-            bar-focus.focus();
-        }
-    }
-
-    bar-focus := FocusScope {
-        width: 0px;
-        height: 0px;
-        enabled: root.item-count > 0;
-        focus-gained => {
-            root.focused-index = Math.min(Math.max(root.current-index, 0), root.item-count - 1);
-        }
-        key-pressed(event) => {
-            if event.text == Key.LeftArrow {
-                root.focused-index = Math.max(root.focused-index - 1, 0);
-                return accept;
-            }
-            if event.text == Key.RightArrow {
-                root.focused-index = Math.min(root.focused-index + 1, root.item-count - 1);
-                return accept;
-            }
-            if event.text == Key.Home {
-                root.focused-index = 0;
-                return accept;
-            }
-            if event.text == Key.End {
-                root.focused-index = root.item-count - 1;
-                return accept;
-            }
-            if event.text == Key.Return || event.text == Key.Space {
-                root.activate(root.focused-index);
-                return accept;
-            }
-            return reject;
-        }
-    }
-
-    VerticalLayout {
-        Flickable {
-            min-height: 40px;
-            preferred-height: 40px;
-            vertical-stretch: 0;
-            content-width: Math.max(self.width, header-row.preferred-width);
-            content-height: self.height;
-            accessible-role: tab-list;
-            accessible-item-count: root.item-count;
-            accessible-delegate-focus: bar-focus.has-focus ? root.focused-index : root.current-index;
-
-            header-row := HorizontalLayout {
-                width: parent.content-width;
-                height: parent.height;
-                spacing: 4px;
-                alignment: start;
-                for tab[index] in tabs: TabHeader {
-                    title: tab.title;
-                    selected: root.current-index == index;
-                    focused: bar-focus.has-focus && root.focused-index == index;
-                    accessible-item-index: index;
-                    activated => { root.activate(index); }
-                }
+    GridLayout {
+        bar := CollectionTabBar {
+            row: 0;
+            col: 0;
+            current-index <=> root.current-index;
+            orientation: root.orientation;
+            for tab in tabs: CollectionTabHeader {
+                title: tab.title;
             }
         }
 
         Rectangle {
+            row: root.orientation == Orientation.horizontal ? 1 : 0;
+            col: root.orientation == Orientation.vertical ? 1 : 0;
+            horizontal-stretch: 1;
+            vertical-stretch: 1;
             background: BasicTheme.background;
             border-width: 1px;
             border-color: BasicTheme.border;
-            for tab[index] in tabs: tab {
-                x: 12px;
-                y: 12px;
-                width: parent.width - 24px;
-                height: parent.height - 24px;
-                visible: root.current-index == index;
-                accessible-role: tab-panel;
-                accessible-label: tab.title;
-                accessible-item-index: index;
+            PageStack {
+                current-index: root.current-index;
+                content-padding: root.content-padding;
+                for tab[index] in tabs: tab {
+                    accessible-role: tab-panel;
+                    accessible-label: tab.title;
+                    accessible-item-index: index;
+                }
             }
         }
     }
 }
-

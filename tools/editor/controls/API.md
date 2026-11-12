@@ -362,6 +362,60 @@ Set `accessible-label` when replacing the title with custom content.
 The base still provides a layout; it doesn't yet support replacing that entire layout.
 See [Radio Prototype Status](README.md#radio-prototype-status) for current limitations and unresolved issues.
 
+## Collection Tabs
+
+Sources: [styled](src/basic/collection_tabs.slint), [headless](src/headless/collection_tabs.slint).
+These prototype components are separate from the standard `TabWidget`; see the [gallery and limitations](README.md#collection-tab-prototype).
+
+| Direction | CollectionTabWidget Property | Default or Meaning |
+| --- | --- | --- |
+| `in-out` | `current-index: int` | `0`; selects the visible page. |
+| `in` | `orientation: Orientation` | `horizontal`; can change at runtime. |
+| `in` | `content-padding: length` | `12px`; inset around the pages. |
+| `out` | `item-count: int` | Number of supplied pages. |
+
+Children satisfy `CollectionTabEntry`, which requires `in property <string> title`.
+`CollectionTab` inherits `CollectionTabBase` and accepts page content through `@children`.
+
+The headless `CollectionTabBarBase` has `current-index`, `item-count`, and `orientation`, plus read-only `has-focus` and `focused-index`.
+`focused-index` is `-1` when the bar doesn't have focus.
+Its `activate(index)` function selects a valid index and focuses the bar; disabled bars ignore activation.
+Arrow keys follow the orientation; Home and End move focus to the first and last headers without changing selection.
+Enter activates on press, and Space activates on release.
+Vertical wheel deltas select the previous or next tab.
+
+`CollectionTabHeaderBase` exposes `title`, `selected`, `focused`, and the inherited `enabled` property.
+It emits `activated()` for enabled pointer and accessibility activation.
+Both bases accept visual children through `@children`.
+
+### Composable Tabs
+
+`CollectionTabBar` accepts headers inheriting `CollectionTabHeaderBase` through its default collection.
+It connects their state and activation to `CollectionTabBarBase` and provides a scrollable layout without header visuals.
+Set `spacing` (default `4px`) and `orientation` to arrange headers.
+Its `item-count` is bound to the header count; callers don't need to supply it.
+It is exported through both `headless.slint` and `basic.slint`.
+Use `CollectionTabBarBase` directly for a different header layout.
+The styled `CollectionTabHeader` adds `horizontal-padding` (default `16px`); inherit `CollectionTabHeaderBase` to supply different visuals.
+
+[`PageStack`](src/headless/page_stack.slint), exported through `headless.slint`, has these properties:
+
+| Direction | Property | Default or Meaning |
+| --- | --- | --- |
+| `in` | `current-index: int` | `0`; index of the visible page. |
+| `in` | `content-padding: length` | `0px`; inset around the pages. |
+| `out` | `item-count: int` | Number of supplied pages. |
+
+Its default collection accepts any component through `[*]`.
+The stack manages page geometry and visibility; pages fill the content area subject to their size constraints.
+Inactive pages retain their state and contribute minimum and preferred sizes.
+An index outside the collection hides all pages without changing the index.
+It doesn't assign tab-specific accessibility roles.
+
+Bind the stack's `current-index` to the bar's `current-index` and keep headers and pages in matching order.
+The bar and stack can each use static children or a single model loop.
+They don't automatically synchronize their counts or selection after model edits.
+
 ## Style Struct Fields
 
 All types below are exported from `basic.slint`.

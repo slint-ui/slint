@@ -1,0 +1,104 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { CollectionTabWidget, CollectionTab } from "../../../tools/editor/controls/src/basic.slint";
+
+component SizedTabs inherits CollectionTabWidget {
+    in property <length> page-width;
+    in property <length> page-height;
+    out property <bool> pages-aligned: first.x == second.x && first.y == second.y
+        && first.width == second.width && first.height == second.height;
+    out property <length> content-x: first.absolute-position.x - root.absolute-position.x;
+    out property <length> content-y: first.absolute-position.y - root.absolute-position.y;
+
+    first := CollectionTab {
+        title: "A";
+        Rectangle { min-width: 80px; min-height: 30px; }
+    }
+    second := CollectionTab {
+        title: "B";
+        Rectangle {
+            min-width: root.page-width;
+            min-height: root.page-height;
+            preferred-width: root.page-width + 60px;
+            preferred-height: root.page-height + 20px;
+        }
+    }
+}
+
+export component TestCase inherits Window {
+    width: 600px;
+    height: 420px;
+    in-out property <length> page-width: 280px;
+    in-out property <length> page-height: 90px;
+    in-out property <Orientation> orientation: Orientation.horizontal;
+    in-out property <int> current-index <=> tabs.current-index;
+    in-out property <length> wrapping-width: 400px;
+    out property <length> tabs-min-width: tabs.min-width;
+    out property <length> tabs-min-height: tabs.min-height;
+    out property <length> tabs-preferred-width: tabs.preferred-width;
+    out property <length> tabs-preferred-height: tabs.preferred-height;
+    out property <length> wrapping-min-height: wrapping.min-height;
+    out property <bool> pages-aligned: tabs.pages-aligned;
+    out property <length> content-x: tabs.content-x;
+    out property <length> content-y: tabs.content-y;
+    out property <bool> test: tabs.min-width == root.page-width + 24px
+        && tabs.min-height == root.page-height + 64px && empty.item-count == 0;
+
+    tabs := SizedTabs {
+        page-width: root.page-width;
+        page-height: root.page-height;
+        orientation: root.orientation;
+    }
+    empty := CollectionTabWidget { visible: false; }
+    wrapping := CollectionTabWidget {
+        visible: false;
+        width: root.wrapping-width;
+        CollectionTab { title: "A"; }
+        CollectionTab {
+            title: "B";
+            VerticalLayout {
+                Text {
+                    text: "This inactive page has a long paragraph that must wrap into more lines when less width is available to the tab widget.";
+                    wrap: word-wrap;
+                }
+            }
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test(), "the inactive page must determine the minimum size");
+assert!(instance.get_pages_aligned());
+assert_eq!(instance.get_content_x(), 12.0);
+assert_eq!(instance.get_content_y(), 52.0);
+assert_eq!(instance.get_tabs_preferred_width(), 364.0);
+assert_eq!(instance.get_tabs_preferred_height(), 174.0);
+instance.set_current_index(1);
+assert!(instance.get_test());
+instance.set_current_index(0);
+instance.set_page_width(360.0);
+instance.set_page_height(120.0);
+assert!(instance.get_test(), "inactive page size changes must propagate");
+assert_eq!(instance.get_tabs_min_width(), 384.0);
+assert_eq!(instance.get_tabs_min_height(), 184.0);
+assert_eq!(instance.get_tabs_preferred_width(), 444.0);
+assert_eq!(instance.get_tabs_preferred_height(), 204.0);
+instance.set_orientation(slint::language::Orientation::Vertical);
+assert_eq!(instance.get_tabs_min_width(), 472.0);
+assert_eq!(instance.get_tabs_min_height(), 144.0);
+assert!(instance.get_pages_aligned());
+assert_eq!(instance.get_content_x(), 100.0);
+assert_eq!(instance.get_content_y(), 12.0);
+instance.set_current_index(1);
+assert_eq!(instance.get_tabs_min_width(), 472.0);
+instance.set_orientation(slint::language::Orientation::Horizontal);
+assert!(instance.get_test());
+let wide_height = instance.get_wrapping_min_height();
+instance.set_wrapping_width(120.0);
+assert!(instance.get_wrapping_min_height() > wide_height,
+    "the inactive wrapped page must report height for the available width");
+```
+*/

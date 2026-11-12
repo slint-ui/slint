@@ -1,0 +1,133 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { PageStack, CollectionTabHeaderBase } from "../../../tools/editor/controls/src/headless.slint";
+import { CollectionTabBar, CollectionTabHeader } from "../../../tools/editor/controls/src/basic.slint";
+
+component CustomHeader inherits CollectionTabHeaderBase {
+    min-width: 100px;
+    min-height: 40px;
+    Rectangle { background: root.selected ? blue : white; }
+    Text { text: root.title; accessible-role: none; }
+}
+
+export component TestCase inherits Window {
+    width: 500px;
+    height: 300px;
+    in-out property <int> current-index <=> bar.current-index;
+    in-out property <Orientation> orientation <=> bar.orientation;
+    in-out property <length> content-padding: 18px;
+    in-out property <int> repeated-count: 2;
+    out property <int> constructions;
+    out property <int> value: first.value;
+    out property <bool> first-visible: first.visible;
+    out property <bool> second-visible: second.visible;
+    out property <length> content-x: first.absolute-position.x - stack.absolute-position.x;
+    out property <length> stack-min-width: stack.min-width;
+    out property <length> page-width: first.width;
+    out property <length> stack-width: stack.width;
+    out property <int> repeated-pages: repeated-stack.item-count;
+    out property <int> repeated-headers: repeated-bar.item-count;
+    out property <bool> test: stack.item-count == 2 && bar.item-count == 2 && empty.item-count == 0;
+
+    VerticalLayout {
+        padding: 10px;
+        spacing: 12px;
+        stack := PageStack {
+            current-index: bar.current-index;
+            content-padding: root.content-padding;
+            first := Rectangle {
+                in-out property <int> value;
+                min-width: 80px;
+                min-height: 60px;
+                init => { root.constructions += 1; }
+                Text { text: "Value: \{first.value}"; }
+                TouchArea {
+                    accessible-role: button;
+                    accessible-label: "Increment page";
+                    clicked => { first.value += 1; }
+                }
+            }
+            second := Rectangle {
+                min-width: 220px;
+                min-height: 90px;
+                init => { root.constructions += 1; }
+                Text { text: "Second page"; }
+            }
+        }
+        bar := CollectionTabBar {
+            spacing: 16px;
+            CollectionTabHeader { title: "First"; horizontal-padding: 24px; }
+            CustomHeader { title: "Second"; }
+        }
+    }
+    empty := PageStack { visible: false; }
+    repeated-stack := PageStack {
+        visible: false;
+        for index in root.repeated-count: Rectangle { min-width: 20px; min-height: 20px; }
+    }
+    repeated-bar := CollectionTabBar {
+        visible: false;
+        for index in root.repeated-count: CollectionTabHeader { title: "Repeated \{index}"; }
+    }
+}
+
+/*
+```rust
+use slint::platform::{Key, PointerEventButton};
+use slint_testing::{AccessibleRole, ElementHandle};
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+assert_eq!(instance.get_constructions(), 2);
+assert!(instance.get_first_visible());
+assert!(!instance.get_second_visible());
+assert_eq!(instance.get_content_x(), 18.0);
+assert_eq!(instance.get_stack_min_width(), 256.0);
+assert_eq!(instance.get_stack_width(), 480.0);
+assert_eq!(instance.get_page_width(), 444.0);
+let tab = |label: &str| ElementHandle::find_by_accessible_label(&instance, label)
+    .find(|element| element.accessible_role() == Some(AccessibleRole::Tab)).unwrap();
+assert_eq!(tab("First").absolute_position().y, tab("Second").absolute_position().y);
+assert_eq!(tab("Second").absolute_position().x - tab("First").absolute_position().x
+    - tab("First").size().width, 16.0);
+ElementHandle::find_by_accessible_label(&instance, "Increment page").next().unwrap()
+    .mock_single_click(PointerEventButton::Left);
+assert_eq!(instance.get_value(), 1);
+tab("Second").mock_single_click(PointerEventButton::Left);
+assert_eq!(instance.get_current_index(), 1);
+assert!(!instance.get_first_visible());
+assert!(instance.get_second_visible());
+assert_eq!(tab("Second").accessible_item_selected(), Some(true));
+assert_eq!(instance.get_constructions(), 2);
+slint_testing::send_keyboard_string_sequence(&instance, &slint::SharedString::from(Key::Home));
+slint_testing::send_keyboard_string_sequence(&instance, &slint::SharedString::from(Key::Return));
+assert_eq!(instance.get_current_index(), 0);
+assert!(instance.get_first_visible());
+assert_eq!(instance.get_value(), 1);
+instance.set_orientation(slint::language::Orientation::Vertical);
+assert_eq!(tab("First").absolute_position().x, tab("Second").absolute_position().x);
+assert_eq!(tab("Second").absolute_position().y - tab("First").absolute_position().y
+    - tab("First").size().height, 16.0);
+slint_testing::send_keyboard_string_sequence(&instance, &slint::SharedString::from(Key::DownArrow));
+slint_testing::send_keyboard_string_sequence(&instance, &slint::SharedString::from(Key::Return));
+assert_eq!(instance.get_current_index(), 1);
+instance.set_orientation(slint::language::Orientation::Horizontal);
+instance.set_content_padding(24.0);
+assert_eq!(instance.get_content_x(), 24.0);
+assert_eq!(instance.get_stack_min_width(), 268.0);
+assert_eq!(instance.get_page_width(), 432.0);
+instance.set_current_index(-1);
+assert!(!instance.get_first_visible());
+assert!(!instance.get_second_visible());
+instance.set_current_index(9);
+assert!(!instance.get_first_visible());
+assert!(!instance.get_second_visible());
+instance.set_current_index(1);
+assert!(instance.get_second_visible());
+assert_eq!(instance.get_repeated_pages(), 2);
+assert_eq!(instance.get_repeated_headers(), 2);
+instance.set_repeated_count(3);
+assert_eq!(instance.get_repeated_pages(), 3);
+assert_eq!(instance.get_repeated_headers(), 3);
+```
+*/

@@ -2,7 +2,11 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { TabWidget, Palette } from "std-widgets.slint";
-import { Button, LineEdit, CollectionTabWidget, CollectionTab, BasicTheme } from "../src/basic.slint";
+import {
+    Button, LineEdit, Switch, CollectionTabWidget, CollectionTab,
+    CollectionTabBar, CollectionTabHeader, BasicTheme,
+} from "../src/basic.slint";
+import { PageStack, CollectionTabHeaderBase } from "../src/headless.slint";
 import { ExampleSection } from "section.slint";
 
 component ActivityPage {
@@ -18,15 +22,66 @@ component ActivityPage {
     }
 }
 
+component RoundedTabHeader inherits CollectionTabHeaderBase {
+    horizontal-stretch: 0;
+    vertical-stretch: 0;
+    min-width: 100px;
+    Rectangle {
+        background: root.selected ? BasicTheme.accent : root.has-hover ? BasicTheme.hover-background : transparent;
+        border-radius: 16px;
+        border-width: root.focused ? 2px : 0px;
+        border-color: BasicTheme.focus;
+    }
+    HorizontalLayout {
+        padding-left: 20px;
+        padding-right: 20px;
+        padding-top: 10px;
+        padding-bottom: 10px;
+        Text {
+            text: root.title;
+            color: root.selected ? BasicTheme.accent-foreground : BasicTheme.foreground;
+            accessible-role: none;
+        }
+    }
+}
+
 export component CollectionTabExamples inherits Rectangle {
+    in-out property <bool> vertical;
     vertical-stretch: 0;
     VerticalLayout {
         spacing: 20px;
         ExampleSection {
+            title: "Choose your own layout";
+            description: "Pages above the headers, with custom padding, spacing, and a rounded header. The stack handles page visibility.";
+            VerticalLayout {
+                spacing: 12px;
+                Rectangle {
+                    background: BasicTheme.hover-background;
+                    border-radius: 8px;
+                    PageStack {
+                        current-index: custom-bar.current-index;
+                        content-padding: 20px;
+                        VerticalLayout {
+                            spacing: 8px;
+                            Text { text: "Headers can go below the pages."; color: BasicTheme.foreground; }
+                            LineEdit { placeholder-text: "This page keeps its contents"; }
+                        }
+                        ActivityPage { }
+                    }
+                }
+                custom-bar := CollectionTabBar {
+                    spacing: 16px;
+                    RoundedTabHeader { title: "Details"; }
+                    CollectionTabHeader { title: "Activity"; horizontal-padding: 24px; }
+                }
+            }
+        }
+        ExampleSection {
             title: "Tabs from a collection";
             description: "Each tab supplies its title and page together. Arrow keys move focus; Enter or Space selects.";
+            Switch { text: "Vertical tabs"; checked <=> root.vertical; }
             CollectionTabWidget {
-                min-height: 230px;
+                orientation: root.vertical ? Orientation.vertical : Orientation.horizontal;
                 CollectionTab {
                     title: "Settings";
                     VerticalLayout {
