@@ -706,6 +706,15 @@ mod software_renderer {
         unsafe { (*(prepared_textures as *mut PreparedTextures)).set_max_bytes(max_bytes) }
     }
 
+    #[cfg(feature = "experimental")]
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_prepared_textures_set_blue_first(
+        prepared_textures: *mut c_void,
+        blue_first: bool,
+    ) {
+        unsafe { (*(prepared_textures as *mut PreparedTextures)).set_blue_first(blue_first) }
+    }
+
     struct LineByLineProcessor<TargetPixel> {
         process_line_fn: extern "C" fn(
             *mut core::ffi::c_void,

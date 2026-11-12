@@ -646,6 +646,13 @@ public:
             cbindgen_private::slint_prepared_textures_set_max_bytes(inner, max_bytes);
         }
 
+        /// Sets whether prepared RGBA images store their color channels blue first, as BGRA,
+        /// for a buffer that reads them in that order. Their pixel format stays Rgba.
+        void set_blue_first(bool blue_first)
+        {
+            cbindgen_private::slint_prepared_textures_set_blue_first(inner, blue_first);
+        }
+
     private:
         friend class SoftwareRenderer;
         void *inner;
