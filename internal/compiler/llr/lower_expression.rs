@@ -315,23 +315,35 @@ fn lower_condition(
     expression: &tree_Expression,
     ctx: &mut ExpressionLoweringCtx<'_>,
 ) -> llr_Expression {
-    let tree_Expression::Condition { condition, true_expr, false_expr, .. } = expression else {
-        unreachable!()
-    };
-    let (true_ty, false_ty) = (true_expr.ty(), false_expr.ty());
-    llr_Expression::Condition {
-        condition: Box::new(lower_expression(condition, ctx)),
-        true_expr: Box::new(lower_expression(true_expr, ctx)),
-        false_expr: if false_ty == Type::Invalid || false_ty == Type::Void || true_ty == false_ty {
-            Box::new(lower_expression(false_expr, ctx))
-        } else {
-            // Because the type of the Condition is based on the false expression, we need to insert a cast
-            Box::new(llr_Expression::Cast {
-                from: Box::new(lower_expression(false_expr, ctx)),
-                to: Type::Void,
-            })
-        },
+    // An `else if` chain nests in the false branch: iterate it, so the stack depth stays bounded.
+    let mut links = Vec::new();
+    let mut node = expression;
+    while let tree_Expression::Condition { condition, true_expr, false_expr, .. } = node {
+        let (true_ty, false_ty) = (true_expr.ty(), false_expr.ty());
+        // Because the type of the Condition is based on the false expression, we need to insert a cast
+        let cast_false_expr =
+            false_ty != Type::Invalid && false_ty != Type::Void && true_ty != false_ty;
+        links.push((
+            lower_expression(condition, ctx),
+            lower_expression(true_expr, ctx),
+            cast_false_expr,
+        ));
+        node = false_expr;
     }
+    let mut result = lower_expression(node, ctx);
+    for (condition, true_expr, cast_false_expr) in links.into_iter().rev() {
+        let false_expr = if cast_false_expr {
+            llr_Expression::Cast { from: Box::new(result), to: Type::Void }
+        } else {
+            result
+        };
+        result = llr_Expression::Condition {
+            condition: Box::new(condition),
+            true_expr: Box::new(true_expr),
+            false_expr: Box::new(false_expr),
+        };
+    }
+    result
 }
 
 fn lower_mouse_cursor(

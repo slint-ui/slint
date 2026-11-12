@@ -9,7 +9,7 @@ This should work:
 ```
 mod x {
     use slint::*;
-    slint!{ Hello := Rectangle { } }
+    slint!{ #[edition = "1.18"] Hello := Rectangle { } }
 }
 ```
 
@@ -18,7 +18,7 @@ But his not:
 ```compile_fail
 mod x {
     use slint::*;
-    slint!{ Hello : = Rectangle { } }
+    slint!{ #[edition = "1.18"] Hello : = Rectangle { } }
 }
 ```
 
@@ -55,7 +55,7 @@ Test that an invalid `#[edition]` is a compilation error.
 
 This works:
 ```
-slint::slint!{ #[edition = "1.19"] export component Hello { } }
+slint::slint!{ #[edition = "1.20"] export component Hello { } }
 ```
 
 But not a malformed edition:
@@ -82,7 +82,7 @@ Test that an edition missing behavior changes gets a warning.
 This works:
 ```
 #![deny(deprecated)]
-slint::slint!{ #[edition = "1.19"] export component Hello inherits Window { } }
+slint::slint!{ #[edition = "1.20"] export component Hello inherits Window { } }
 ```
 
 But not an older edition:

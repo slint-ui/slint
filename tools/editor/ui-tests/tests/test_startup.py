@@ -19,7 +19,7 @@ from ui_driver import (
 
 
 def project_file(main: str | None = None) -> str:
-    contents = {"edition": "1.19"}
+    contents = {"edition": "1.20"}
     if main is not None:
         contents["main"] = main
     return json.dumps(contents)
@@ -61,7 +61,7 @@ def test_editor_loads_its_own_project(
         )
 
 
-@pytest.mark.parametrize("project_input", ["source", "directory"])
+@pytest.mark.parametrize("project_input", ["source", "directory", "manifest"])
 def test_file_menu_opens_the_same_recent_project_as_the_startup_page(
     editor_binary: Path,
     editor_environment: dict[str, str],
@@ -73,6 +73,8 @@ def test_file_menu_opens_the_same_recent_project_as_the_startup_page(
     if project_input != "source":
         target = fixture_project
         (target / "slint-project.json").write_text(project_file("Main.slint"))
+        if project_input == "manifest":
+            target = target / "slint-project.json"
 
     with launch_editor(editor_binary, editor_environment, target) as editor:
         window = first_window(editor)
@@ -143,7 +145,8 @@ def test_file_menu_opens_the_same_recent_project_as_the_startup_page(
 @pytest.mark.parametrize(
     ("project_input", "manifest_contents", "error"),
     [
-        ("manifest", "{}", "is not a Slint file"),
+        ("manifest", "{", "EOF while parsing"),
+        ("manifest", project_file(), "has no 'main'"),
         ("directory", None, "slint-project.json"),
         ("directory", "{", "EOF while parsing"),
         ("directory", project_file(), "has no 'main'"),
@@ -171,6 +174,46 @@ def test_invalid_project_input_reports_startup_error(
     )
     assert result.returncode != 0
     assert error in result.stderr
+
+
+@pytest.mark.parametrize("root_input", ["directory", "manifest"])
+def test_explicit_project_root_keeps_the_selected_source(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    root_input: str,
+) -> None:
+    manifest = fixture_project / "slint-project.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "edition": "1.20",
+                "main": "Sibling.slint",
+                "include-paths": ["include"],
+            }
+        )
+    )
+    include = fixture_project / "include"
+    include.mkdir()
+    (include / "shared.slint").write_text("export component Shared { }")
+    source_directory = fixture_project / "ui"
+    source_directory.mkdir()
+    (source_directory / "slint-project.json").write_text("{")
+    main = source_directory / "Main.slint"
+    main.write_text(
+        'import { Shared } from "shared.slint";\n'
+        'export component Main inherits Window { root-text := Text { text: "Fixture text"; } Shared {} }'
+    )
+    root = fixture_project if root_input == "directory" else manifest
+    with launch_editor(
+        editor_binary,
+        editor_environment,
+        main,
+        ["--project-root", str(root)],
+    ) as editor:
+        window = first_window(editor)
+        element(window, "Fixture text", role=slint_testing.AccessibleRole.Text)
+        element(window, "root-text", role=slint_testing.AccessibleRole.ListItem)
 
 
 def test_source_without_project_main_allows_navigation(
@@ -221,6 +264,11 @@ def test_broken_project_recovers_when_repaired_on_disk(
         diagnostics = element(
             window, "Preview unavailable", role=slint_testing.AccessibleRole.Region
         )
+        element(
+            diagnostics,
+            "Toggle advanced error details",
+            role=slint_testing.AccessibleRole.Button,
+        ).invoke_accessible_default_action()
         wait_until(
             lambda: (
                 any(

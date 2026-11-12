@@ -57,6 +57,10 @@ pub struct Document {
     pub imports: Vec<ImportedTypes>,
     pub library_exports: HashMap<String, LibraryInfo>,
 
+    /// The paths and URLs that the document's `@image-url()`s resolve to,
+    /// also the ones that aren't embedded.
+    pub referenced_file_resources: RefCell<HashSet<SourcePath>>,
+
     /// Resources to embed in the generated code.
     ///
     /// The [`crate::embedded_resources::EmbeddedResourcesIdx`] is the identifier used by code generators.
@@ -300,6 +304,7 @@ impl Document {
             imports,
             exports,
             library_exports: Default::default(),
+            referenced_file_resources: Default::default(),
             embedded_file_resources: Default::default(),
             #[cfg(feature = "bundle-translations")]
             translation_builder: None,
@@ -1377,7 +1382,8 @@ pub struct Element {
     /// True when this element is in a component was declared with the `:=` symbol instead of the `component` keyword
     pub is_legacy_syntax: bool,
 
-    /// How many times the element was inlined
+    /// How deep the element was inlined. Its own bindings have a
+    /// [`BindingExpression::priority`] of `1 + inline_depth`.
     pub inline_depth: i32,
 
     /// If this element is assigned to a specific slot in its parent component (e.g., `name << ...`)
@@ -1537,6 +1543,9 @@ pub struct ListViewInfo {
     pub listview_width: NamedReference,
     /// The ListView's `ensure-row-visible` function, if it declares one
     pub ensure_row_visible: Option<NamedReference>,
+    /// The row's `height`. Unlike the root's geometry, a wrapper such as the
+    /// zero-size Clip of the `visible` pass doesn't replace it.
+    pub row_height: NamedReference,
 }
 
 #[derive(Debug, Clone)]
@@ -1642,6 +1651,20 @@ impl Element {
         let g = GeometryProps::new(&r);
         r.borrow_mut().geometry_props = Some(g);
         r
+    }
+
+    /// The edition of the component that declares the element, which inlining doesn't change.
+    /// An element that a pass created takes the edition of its component.
+    pub fn edition(&self) -> Option<crate::project_file::SlintEdition> {
+        if let Some(file) = self.source_file() {
+            return file.edition();
+        }
+        let component = self.enclosing_component.upgrade()?;
+        if let Some(node) = &component.node {
+            return node.source_file.edition();
+        }
+        let root = component.root_element.try_borrow().ok()?;
+        root.source_file()?.edition()
     }
 
     pub fn from_node(
@@ -2140,6 +2163,7 @@ impl Element {
                 ensure_row_visible: declares_ensure_row_visible.then(|| {
                     NamedReference::new(parent, SmolStr::new_static("ensure-row-visible"))
                 }),
+                row_height: geometry_props.height.clone(),
             };
             // these properties are set by the ListView layouting code
             if let Some(content_height) = &lvi.content_height {
@@ -3902,6 +3926,7 @@ fn visit_all_named_references_in_element_dyn(
         if let Some(ensure_row_visible) = &mut lv.ensure_row_visible {
             vis(ensure_row_visible);
         }
+        vis(&mut lv.row_height);
     }
     elem.borrow_mut().repeated = repeated;
     let mut layout_info_prop = std::mem::take(&mut elem.borrow_mut().layout_info_prop);

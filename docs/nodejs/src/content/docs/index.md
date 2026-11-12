@@ -220,6 +220,9 @@ let component = new MainWindow({
 });
 ```
 
+Place `slint-project.json` beside the imported `.slint` file to apply project settings such as library paths.
+The import selects the source file.
+
 Load `slint-ui/register` before your own code, so the runtime knows what a `.slint` file is:
 
 ```sh
@@ -528,7 +531,8 @@ The TypeScript compiler and editors don't know `.slint` files, though:
 
 #### Generating Type Declarations
 
-Use `slint-compiler` to generate a `.d.ts` file next to the `.slint` file:
+Use `slint-compiler` to generate a `.d.ts` file next to the `.slint` file.
+With `-f typescript`, the compiler uses the project settings from `slint-project.json` beside the source, just like the runtime import.
 
 ```sh
 npx slint-compiler -f typescript ui/main.slint -o ui/main.slint.d.ts

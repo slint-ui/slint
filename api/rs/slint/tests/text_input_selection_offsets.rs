@@ -5,7 +5,7 @@
 //! blinked off shows up at once, as with the arrow keys.
 
 slint::slint! {
-    #[edition = "1.19"]
+    #[edition = "1.20"]
     export component TestCase inherits Window {
         width: 300phx;
         height: 100phx;

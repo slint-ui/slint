@@ -1,0 +1,16 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { A } from "@test-broken-project-lib";
+//                >                        <error{Cannot find requested import "@test-broken-project-lib" in the library search path}
+import { B } from "@test-broken-project-lib/lib.slint";
+//                >                                  <error{Use what "@test-broken-project-lib" exports instead: "@test-broken-project-lib/lib.slint" is private to a library with a project file}
+import "@test-broken-project-lib/font.ttf";
+//     >                                 <error{Use what "@test-broken-project-lib" exports instead: "@test-broken-project-lib/font.ttf" is private to a library with a project file}
+import { C } from "@test-no-main-project-lib";
+//                >                         <error{The project file of the library "@test-no-main-project-lib" has no 'main': add 'main' to 📂/tests/typeloader/no_main_project_library/slint-project.json}
+
+export component Test {
+    Image { source: @image-url("@test-broken-project-lib/logo.png"); }
+//                  >                                             <error{Use what "@test-broken-project-lib" exports instead: "@test-broken-project-lib/logo.png" is private to a library with a project file}
+}

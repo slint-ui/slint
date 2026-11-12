@@ -24,7 +24,8 @@ use objc2::{
 };
 use objc2_app_kit::{
     NSAppearance, NSAppearanceCustomization, NSAppearanceNameAqua, NSAppearanceNameDarkAqua,
-    NSImage, NSMenu, NSMenuItem, NSStatusBar, NSStatusItem, NSVariableStatusItemLength,
+    NSControlStateValueOn, NSImage, NSMenu, NSMenuItem, NSStatusBar, NSStatusItem,
+    NSVariableStatusItemLength,
 };
 use objc2_foundation::{
     NSArray, NSData, NSDictionary, NSKeyValueChangeKey, NSKeyValueObservingOptions, NSObject,
@@ -369,6 +370,9 @@ fn entry_to_nsmenuitem(
         item.setTitle(&title);
         item.setEnabled(entry.enabled);
         item.setTag(entry_index as isize);
+        if entry.checkable && entry.checked {
+            item.setState(NSControlStateValueOn);
+        }
         // Tray menu items are never targeted at a focused responder; wire the action
         // to our MenuAction object directly. `shortcut` bindings on MenuItem are
         // ignored (see the SystemTrayIcon docs) so no key equivalent is set.

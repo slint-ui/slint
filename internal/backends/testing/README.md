@@ -1,15 +1,16 @@
 
+# Preliminary Slint Testing API
+
+This crate provides a preliminary API for UI testing of Slint apps.
+Use it to write automated UI tests that run headless in CI.
+Its built-in MCP server also lets AI agents inspect and drive a running Slint app.
+
 **NOTE**: This library is an **internal** crate of the [Slint project](https://slint.dev).
 This crate should **not be used directly** by applications using Slint.
 You should use the `slint` crate instead.
 
 **WARNING**: This crate does not follow the semver convention for versioning and can
 only be used with `version = "=x.y.z"` in Cargo.toml.
-
-# Preliminary Slint Testing API
-
-This crate provides the preliminary API that we're developing to enable different
-user interface (UI) testing scenarios for Slint applications.
 
 To use this functionality, you need to be cautious when importing dependencies since
 this crate does not adhere to semver and may introduce breaking changes in any patch release.
@@ -50,7 +51,7 @@ is the ability to introspect and modify the state from within what would be a re
 A regular application might have a `main()` entry-point like so:
 
 ```rust,no_run
-# slint::slint!{ #[edition = "1.19"] export component App {} }
+# slint::slint!{ #[edition = "1.20"] export component App {} }
 fn main() -> Result<(), slint::PlatformError>
 {
     let app = App::new()?;
@@ -93,7 +94,7 @@ export component App {
 ```rust
 # use i_slint_core_macros::identity as test;
 # slint::slint!{
-#     #[edition = "1.19"]
+#     #[edition = "1.20"]
 #     import { Button } from "std-widgets.slint";
 #     component Form {
 #     callback submit();
@@ -170,7 +171,7 @@ fn test_click()
 
     slint::spawn_local(async move {
         slint::slint! {
-            #[edition = "1.19"]
+            #[edition = "1.20"]
             export component App inherits Window {
                 out property <int> click-count: 0;
                 ta := TouchArea {

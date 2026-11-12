@@ -109,6 +109,48 @@ pub fn ensure_context() -> Result<i_slint_core::SlintContext, crate::PlatformErr
     i_slint_backend_selector::with_global_context(|ctx| ctx.clone())
 }
 
+/// Create a repeated component or a popup of the generated code:
+/// register the items of `item_tree` with `window_adapter` and run `init`.
+pub fn new_item_tree<T: vtable::HasStaticVTable<ItemTreeVTable> + 'static, Globals>(
+    item_tree: T,
+    window_adapter: Option<WindowAdapterRc>,
+    globals: Globals,
+    init: fn(VRcMapped<ItemTreeVTable, T>, Globals, u32, u32) -> Result<(), crate::PlatformError>,
+) -> Result<VRc<ItemTreeVTable, T>, crate::PlatformError> {
+    let self_rc = VRc::new(item_tree);
+    register_item_tree(&VRc::into_dyn(self_rc.clone()), window_adapter);
+    init(VRc::map(self_rc.clone(), |x| x), globals, 0, 1)?;
+    Ok(self_rc)
+}
+
+/// The `visit_dynamic` argument of `visit_item_tree` for an item tree without repeaters.
+pub fn no_dynamic_children(
+    _: TraversalOrder,
+    _: ItemVisitorRefMut<'_>,
+    _: u32,
+) -> VisitChildrenResult {
+    unreachable!()
+}
+
+/// Returns the item at `index` in the tree `nodes` of a generated item tree,
+/// whose items are at the offsets `item_array`.
+///
+/// Panics if `index` refers to a dynamic tree.
+pub fn get_item_ref<'a, T>(
+    item_tree: Pin<&'a T>,
+    nodes: &[ItemTreeNode],
+    item_array: &[VOffset<T, ItemVTable, AllowPin>],
+    index: u32,
+) -> Pin<ItemRef<'a>> {
+    fn item_array_index(nodes: &[ItemTreeNode], index: u32) -> usize {
+        match &nodes[index as usize] {
+            ItemTreeNode::Item { item_array_index, .. } => *item_array_index as usize,
+            ItemTreeNode::DynamicTree { .. } => panic!("get_item_ref called on dynamic tree"),
+        }
+    }
+    item_array[item_array_index(nodes, index)].apply_pin(item_tree)
+}
+
 /// Wrapper around `SlintContext::translate` for the generated code
 pub fn translate(
     ctx: &i_slint_core::SlintContext,

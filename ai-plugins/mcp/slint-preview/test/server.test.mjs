@@ -100,7 +100,7 @@ test("all tools declare their annotations", async () => {
 
 function assertServesInterpreter(content, url, hosts) {
     assert.equal(content.mimeType, "text/html;profile=mcp-app");
-    assert.doesNotMatch(content.text, /__[A-Z_]+__/);
+    assert.doesNotMatch(content.text, /__[A-Za-z_-]+__/);
     assert.ok(content.text.includes(url), url);
     const { csp } = content._meta.ui;
     assert.deepEqual(csp.connectDomains, hosts);
@@ -126,8 +126,9 @@ test("serves the view with the interpreter of the plugin's release on the releas
             "assets/slint.svg",
             "mcp/slint-preview/server.mjs",
             "mcp/slint-preview/view.html.in",
+            "mcp/slint-preview/assets",
         ]) {
-            cpSync(new URL(file, pluginRoot), join(root, file));
+            cpSync(new URL(file, pluginRoot), join(root, file), { recursive: true, dereference: true });
         }
         writeFileSync(
             join(root, "mcp/slint-preview/channel.json"),
@@ -334,9 +335,33 @@ test("reports why a preview has no screenshot", async () => {
         previewId,
         error: "main.slint:1:23: error: Unknown property colour",
     });
-    const { content, structuredContent } = await callTool("get_preview_screenshot", {});
+    const { content, structuredContent, isError } = await callTool(
+        "get_preview_screenshot",
+        {},
+    );
     assert.match(content[0].text, /Unknown property colour/);
     assert.equal(structuredContent.status, "error");
+    assert.equal(isError, true);
+});
+
+test("a crash replaces a screenshot and cannot be overwritten by a late capture", async () => {
+    const previewId = await startPreview({ source: "export component A {}" });
+    await callTool("publish_preview_capture", { previewId, png: "iVBORw0K" });
+    await callTool("publish_preview_capture", {
+        previewId,
+        error: "The Slint interpreter crashed",
+    });
+    for (const update of [{ stage: "capturing" }, { png: "iVBORw0K" }]) {
+        await callTool("publish_preview_capture", { previewId, ...update });
+        const result = await callTool("get_preview_screenshot", {});
+        assert.equal(result.isError, true);
+        assert.equal(result.structuredContent.status, "error");
+        assert.equal(result.structuredContent.stage, "error");
+        assert.ok(
+            result.content[0].text.includes("The Slint interpreter crashed"),
+        );
+        assert.ok(result.content.every((block) => block.type !== "image"));
+    }
 });
 
 test("ignores a late capture of an earlier preview of the same file", async () => {

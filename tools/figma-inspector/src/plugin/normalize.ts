@@ -312,12 +312,15 @@ async function captureAppearance(
                     "dashPattern",
                 ),
             };
-        if (dashPattern.length > 0)
+        if (
+            dashPattern.length > 0 &&
+            !weights.every((weight) => weight === weights[0])
+        )
             warnings.push({
                 ...problem(
                     "DASHED_STROKE_APPROXIMATED",
                     node,
-                    "Dashed strokes are rendered as solid borders",
+                    "Dashed strokes with unequal side widths are rendered as solid borders",
                     "dashPattern",
                 ),
                 severity: "warning",
@@ -334,9 +337,23 @@ async function captureAppearance(
                 strokeBottomWeight: weights[2],
                 strokeLeftWeight: weights[3],
                 dashPattern,
+                ...(node.strokeCap === "ROUND"
+                    ? { lineCap: "round" as const }
+                    : node.strokeCap === "SQUARE"
+                      ? { lineCap: "square" as const }
+                      : {}),
+                ...(node.strokeJoin === "ROUND"
+                    ? { lineJoin: "round" as const }
+                    : node.strokeJoin === "BEVEL"
+                      ? { lineJoin: "bevel" as const }
+                      : {}),
+                ...(number(node.strokeMiterLimit) && node.strokeMiterLimit >= 0
+                    ? { miterLimit: node.strokeMiterLimit }
+                    : {}),
             });
     }
     const shadows: SnapshotShadow[] = [];
+    let backdropBlur: number | undefined;
     if ("effects" in node && Array.isArray(node.effects)) {
         const visibleEffects = node.effects.filter(
             (effect) => effect.visible !== false,
@@ -371,6 +388,9 @@ async function captureAppearance(
                     offsetY: shadow.offset.y,
                     blur: shadow.radius,
                     spread: shadow.spread ?? 0,
+                    ...(effect.type === "DROP_SHADOW"
+                        ? { showBehind: shadow.showShadowBehindNode ?? false }
+                        : {}),
                 });
                 if (shadow.blendMode !== "NORMAL")
                     warnings.push({
@@ -382,16 +402,14 @@ async function captureAppearance(
                         ),
                         severity: "warning",
                     });
-                if (effect.type === "INNER_SHADOW")
-                    warnings.push({
-                        ...problem(
-                            "INNER_SHADOW_APPROXIMATED",
-                            node,
-                            "Inner shadow rendered using native Gaussian edge gradients; rounded-corner shadow profiles are approximated for the WASM renderer",
-                            "effects",
-                        ),
-                        severity: "warning",
-                    });
+            } else if (
+                effect.type === "BACKGROUND_BLUR" &&
+                (!("blurType" in effect) || effect.blurType === "NORMAL") &&
+                backdropBlur === undefined &&
+                number(effect.radius) &&
+                effect.radius >= 0
+            ) {
+                backdropBlur = effect.radius / 2;
             } else if (
                 effect.type === "LAYER_BLUR" ||
                 effect.type === "BACKGROUND_BLUR"
@@ -400,7 +418,7 @@ async function captureAppearance(
                     ...problem(
                         "UNSUPPORTED_EFFECT_IGNORED",
                         node,
-                        "Layer and background blur effects were ignored",
+                        "Layer, progressive, additional, or invalid blur effect was ignored",
                         "effects",
                     ),
                     severity: "warning",
@@ -424,6 +442,7 @@ async function captureAppearance(
             cornerRadii,
             clipsContent: "clipsContent" in node ? node.clipsContent : false,
             shadows,
+            ...(backdropBlur === undefined ? {} : { backdropBlur }),
         },
         warnings,
     };
@@ -1066,7 +1085,7 @@ async function captureNodeStrict(
         }
     }
     let node = sourceNode;
-    if (runtimeNodeType === "TABLE_CELL" && !sourceNode.sourceRasterized) {
+    if (runtimeNodeType === "TABLE_CELL") {
         const cell = node;
         const cellId =
             "id" in cell && typeof cell.id === "string"
@@ -1222,11 +1241,10 @@ async function captureNodeStrict(
     let autoLayout: SnapshotAutoLayout | null = null;
     let layoutFallback: "flex" | "freeform" = "freeform";
     if (
-        !node.sourceRasterized &&
-        (node.type === "FRAME" ||
-            node.type === "COMPONENT" ||
-            node.type === "INSTANCE" ||
-            node.type === "COMPONENT_SET")
+        node.type === "FRAME" ||
+        node.type === "COMPONENT" ||
+        node.type === "INSTANCE" ||
+        node.type === "COMPONENT_SET"
     ) {
         const capturedLayout = captureAutoLayout(node, mixedValue);
         if ("error" in capturedLayout) return { error: capturedLayout.error };
@@ -1247,14 +1265,6 @@ async function captureNodeStrict(
         id: node.id,
         name: node.name,
     };
-    if (node.sourceRasterized)
-        return normalizeVisual(
-            { ...node, type: "VECTOR" },
-            base,
-            context,
-            captureWarnings,
-            "vector",
-        );
     if (node.sourceMaskRaster) {
         const exported = await exportVisual(
             node,
@@ -1300,7 +1310,7 @@ async function captureNodeStrict(
     if (node.type === "TEXT") {
         const textNode = node;
         const rasterText =
-            context.target === "export" || context.nativeTextOnly
+            context.target === "export"
                 ? false
                 : textRequiresRasterPreview(textNode, mixedValue);
         if (typeof rasterText !== "boolean") return rasterText;
@@ -1740,8 +1750,6 @@ async function normalizeValidatedSource(
             id: node.id,
             name: node.name,
             type: node.type,
-            sourceRasterized:
-                parent === undefined && source.rasterized === true,
             sourceSvgOmitted: node.exports?.svgOmitted === "png",
             sourcePngOmitted: node.exports?.pngOmitted === "svg",
             sourceSvgBounds: node.exports?.svgBounds,
@@ -1816,7 +1824,6 @@ async function normalizeValidatedSource(
     const result = await normalizeRoot(root, {
         assets,
         target,
-        nativeTextOnly: source.flattened,
         metrics: zeroCaptureMetrics(),
         mixedValue: SOURCE_MIXED,
         exportSvgNode: svg,

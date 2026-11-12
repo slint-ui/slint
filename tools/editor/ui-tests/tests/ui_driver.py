@@ -178,8 +178,9 @@ def launch_editor(
     binary: Path,
     environment: dict[str, str],
     file: Path | None = None,
+    extra_arguments: list[str] | None = None,
 ) -> Iterator[slint_testing.Application]:
-    arguments = [str(binary)]
+    arguments = [str(binary), *(extra_arguments or [])]
     if file is not None:
         arguments.append(str(file))
     with TemporaryDirectory(prefix="slint-editor-sync-") as directory:

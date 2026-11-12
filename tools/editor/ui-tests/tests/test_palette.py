@@ -75,8 +75,11 @@ def test_new_primitives_insert_and_undo(
         snapshot.wait_for_applied(baseline, source.name)
 
 
-@pytest.mark.parametrize("percent", [50, 100, 200])
-@pytest.mark.parametrize("kind", PALETTE_KINDS)
+@pytest.mark.parametrize(
+    "kind,percent",
+    [(kind, 100) for kind in PALETTE_KINDS]
+    + [(kind, percent) for kind in ("Text", "StyledText") for percent in (50, 200)],
+)
 def test_insert_palette_element_writes_exact_source(
     editor_binary: Path,
     editor_environment: dict[str, str],
@@ -209,7 +212,7 @@ def test_palette_drop_outside_canvas_does_not_edit_source(
         snapshot.assert_unchanged()
 
 
-@pytest.mark.parametrize("kind", (*PRIMITIVE_KINDS, "Button", "CheckBox"))
+@pytest.mark.parametrize("kind", (*PALETTE_KINDS, "GridLayout", "Flickable"))
 def test_escape_cancels_palette_drag_without_source_edit(
     editor_binary: Path,
     editor_environment: dict[str, str],

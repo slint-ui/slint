@@ -9,7 +9,7 @@ use core::fmt;
 use core::marker::PhantomData;
 use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use euclid::approxord::{max, min};
-use euclid::num::Zero;
+use euclid::num::{One, Zero};
 use euclid::{Length, Scale};
 use num_traits::NumCast;
 
@@ -207,6 +207,39 @@ impl<T, U> BorderRadius<T, U> {
             self.bottom_left - half_border_width.0,
         )
         .max(Self::zero())
+    }
+
+    /// Returns the radii of an outline grown by `spread`, or shrunk by a negative `spread`,
+    /// as CSS spreads a box shadow: a radius smaller than a positive `spread` grows by less,
+    /// so a corner without a radius stays sharp, and no radius drops below zero.
+    pub fn spread(&self, spread: T) -> Self
+    where
+        T: Copy
+            + PartialOrd
+            + Add<T, Output = T>
+            + Sub<T, Output = T>
+            + Mul<T, Output = T>
+            + Div<T, Output = T>
+            + Zero
+            + One,
+    {
+        let corner = |r: T| {
+            let r = max(r, T::zero());
+            // https://drafts.csswg.org/css-backgrounds/#shadow-shape
+            let spread = if spread > r {
+                let t = r / spread - T::one();
+                spread * (T::one() + t * t * t)
+            } else {
+                spread
+            };
+            max(r + spread, T::zero())
+        };
+        BorderRadius::new(
+            corner(self.top_left),
+            corner(self.top_right),
+            corner(self.bottom_right),
+            corner(self.bottom_left),
+        )
     }
 }
 
@@ -516,6 +549,13 @@ mod tests {
         assert!(!BorderRadius::new_uniform(1.0e-3).is_zero());
         assert!(IntBorderRadius::new_uniform(0).is_zero());
         assert!(!IntBorderRadius::new_uniform(1).is_zero());
+    }
+
+    #[test]
+    fn test_spread() {
+        let radius = BorderRadius::new(0., 2., 5., 10.);
+        assert_eq!(radius.spread(4.), BorderRadius::new(0., 5.5, 9., 14.));
+        assert_eq!(radius.spread(-4.), BorderRadius::new(0., 0., 1., 6.));
     }
 
     #[test]

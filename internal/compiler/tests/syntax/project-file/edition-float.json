@@ -1,0 +1,4 @@
+{
+  "edition": 1.19
+//              |error{invalid type: floating point `1.19`, expected a Slint edition string, such as "1.20"}
+}

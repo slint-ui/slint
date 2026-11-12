@@ -12,6 +12,7 @@ use super::remote_connection::{self, ConnectionEvent, DialError, RemoteConnectio
 use crate::{
     child_process::ChildProcessLspToPreview,
     remote_authentication::{PairingAnswer, PairingCredentials, PairingPrompt},
+    serial::{SerialConnection, SerialEvent},
     springboard_ui as ui,
 };
 
@@ -23,6 +24,11 @@ enum ActivePreview {
     Remote {
         connection: RemoteConnection,
         pairing_answer: Option<oneshot::Sender<PairingAnswer>>,
+    },
+    Serial {
+        connection: SerialConnection,
+        events: mpsc::UnboundedReceiver<SerialEvent>,
+        board: Option<String>,
     },
 }
 
@@ -65,8 +71,25 @@ impl Connection {
         }
     }
 
+    pub(super) fn serial(port: String) -> Self {
+        let (connection, events) = SerialConnection::connect(port, None);
+        Self {
+            state: ui::ConnectionState::Connecting,
+            preview: Some(ActivePreview::Serial { connection, events, board: None }),
+            ..Default::default()
+        }
+    }
+
     pub(super) fn is_started(&self) -> bool {
         self.preview.is_some()
+    }
+
+    /// The board a connected serial viewer's firmware reports.
+    pub(super) fn serial_board(&self) -> Option<&str> {
+        match &self.preview {
+            Some(ActivePreview::Serial { board, .. }) => board.as_deref(),
+            _ => None,
+        }
     }
 
     /// Pending while nothing is started. `None` when the preview went away.
@@ -75,6 +98,16 @@ impl Connection {
             Some(ActivePreview::Remote { connection, .. }) => connection.next_event().await,
             Some(ActivePreview::Local { receiver, .. }) => {
                 receiver.recv().await.map(ConnectionEvent::Message)
+            }
+            Some(ActivePreview::Serial { events, board, .. }) => {
+                Some(match events.recv().await? {
+                    SerialEvent::Connected { problem, board: reported } => {
+                        *board = Some(reported);
+                        ConnectionEvent::Connected { problem }
+                    }
+                    SerialEvent::Failed(error) => ConnectionEvent::Ended { error: Some(error) },
+                    SerialEvent::Message(message) => ConnectionEvent::Message(message),
+                })
             }
             None => std::future::pending().await,
         }
@@ -168,6 +201,7 @@ impl Connection {
             {
                 connection.send(message)
             }
+            Some(ActivePreview::Serial { connection, .. }) => connection.send(&message),
             _ => {}
         }
     }

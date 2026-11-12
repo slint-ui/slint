@@ -1,10 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { BrushKind } from "../../properties.slint";
+
 import { Style, Metrics, Colors, Typography, FillPickerStyle } from "../../style.slint";
 import { FillSession } from "fill-session.slint";
-
-import { BrushKind } from "../../api.slint";
 
 import { InspectorColorControls } from "color-controls.slint";
 
@@ -48,7 +48,7 @@ export component InspectorFillPicker inherits Rectangle {
             style: root.style;
             parent-origin: picker-focus.absolute-position;
             title: @tr("Fill");
-            show-fill-modes: FillSession.request.allow-gradient && FillSession.editable;
+            show-fill-modes: FillSession.field-data.allow-gradient && FillSession.editable;
             gradient: FillSession.working-fill.kind != BrushKind.solid;
             mode-selected(gradient) => {
                 picker-focus.focus();
@@ -60,10 +60,10 @@ export component InspectorFillPicker inherits Rectangle {
                 picker-focus.focus();
             }
             closed => { FillSession.close-picker(true, true); }
-            if FillSession.request.unsupported: VerticalLayout {
+            if FillSession.field-data.unsupported: VerticalLayout {
                 spacing: Metrics.space-compact;
                 Text {
-                    text: FillSession.request.expression;
+                    text: FillSession.value.code;
                     color: Colors.foreground;
                     font-size: Typography.control.size;
                     overflow: elide;
@@ -98,7 +98,7 @@ export component InspectorFillPicker inherits Rectangle {
             }
 
             if FillSession.editable && FillSession.working-fill.kind != BrushKind.solid: InspectorGradientStops { }
-            if !FillSession.request.unsupported && FillSession.working-fill.kind == BrushKind.solid: InspectorColorControls {
+            if !FillSession.field-data.unsupported && FillSession.working-fill.kind == BrushKind.solid: InspectorColorControls {
                 value: FillSession.working-color;
                 editable: FillSession.editable;
                 session-key: FillSession.request.target.session-key + ":" + FillSession.selected-stop;
@@ -107,8 +107,8 @@ export component InspectorFillPicker inherits Rectangle {
                 }
             }
 
-            if !FillSession.request.unsupported: InspectorRecentFills {
-                allow-gradient: FillSession.request.allow-gradient;
+            if !FillSession.field-data.unsupported: InspectorRecentFills {
+                allow-gradient: FillSession.field-data.allow-gradient;
                 editable: FillSession.editable;
                 chosen(fill) => {
                     picker-focus.focus();
@@ -139,7 +139,7 @@ export component InspectorFillPicker inherits Rectangle {
                     return FillSession.preview-color(c);
                 }
             }
-            if !FillSession.request.unsupported: InspectorRecentFills {
+            if !FillSession.field-data.unsupported: InspectorRecentFills {
                 editable: FillSession.editable;
                 chosen(fill) => {
                     FillSession.preview-color(fill.color);

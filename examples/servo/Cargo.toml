@@ -13,7 +13,7 @@ resolver = "3"
 
 [package]
 name = "servo-example"
-version = "1.19.0"
+version = "1.20.0"
 authors = ["Slint Developers <info@slint.dev>"]
 edition = "2024"
 publish = false
@@ -83,7 +83,7 @@ slint-build = { git = "https://github.com/slint-ui/slint", rev = "5fa335de646b0b
 name = "android.permission.INTERNET"
 
 [package.metadata.android.sdk]
-min_sdk_version = 23
+min_sdk_version = 26
 target_sdk_version = 36
 
 [[package.metadata.android.application.activity]]

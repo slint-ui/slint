@@ -274,6 +274,7 @@ impl winit::application::ApplicationHandler for EventLoopState {
 
         if let Err(err) = self.shared_backend_data.create_inactive_windows(event_loop) {
             self.loop_error = Some(err);
+            event_loop.exit();
         }
 
         if !event_loop.exiting() {
@@ -284,7 +285,7 @@ impl winit::application::ApplicationHandler for EventLoopState {
                 .values()
                 .filter_map(|w| w.upgrade())
             {
-                if w.window().has_active_animations() {
+                if w.window().has_active_animations() && !w.is_minimized_on_screen() {
                     w.request_redraw();
                 }
             }
