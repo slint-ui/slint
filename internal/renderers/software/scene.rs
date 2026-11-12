@@ -424,14 +424,46 @@ impl<'a> SceneTexture<'a> {
     }
 }
 
+// i16 texture bounds make Q16 fit in i32, including negated steps.
+const TEXTURE_STEP_SHIFT: usize = 16;
+pub(super) type TextureStep = Fixed<i32, TEXTURE_STEP_SHIFT>;
+
+pub(super) fn texture_offset(
+    offset: TextureStep,
+    step: TextureStep,
+    index: i32,
+    source_size: i32,
+) -> TextureStep {
+    let modulus = (source_size as i64) << TEXTURE_STEP_SHIFT;
+    Fixed(((offset.0 as i64 + step.0 as i64 * index as i64).rem_euclid(modulus)) as i32)
+}
+
+pub(super) fn alpha_map_dimensions(map_len: usize, pixel_stride: u16) -> (i32, i32) {
+    let stride = pixel_stride as usize;
+    let width = if map_len.is_multiple_of(stride) { stride } else { map_len % stride } as i32;
+    let height = map_len.div_ceil(stride) as i32;
+    (width, height)
+}
+
+pub(super) fn texture_step(source_size: i32, destination_size: i32) -> TextureStep {
+    let step = Fixed::<i32, TEXTURE_STEP_SHIFT>::from_fraction(source_size, destination_size);
+    let last = step.0 as i64 * (destination_size - 1) as i64;
+    let last_pixel = ((source_size - 1) as i64) << TEXTURE_STEP_SHIFT;
+    if source_size < destination_size && last < last_pixel {
+        Fixed(step.0 + 1).max(Fixed(1))
+    } else {
+        step.max(Fixed(1))
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct SceneTextureExtra {
     /// Delta x: the amount of "image pixel" that we need to skip for each physical pixel in the target buffer
-    pub dx: Fixed<u16, 8>,
-    pub dy: Fixed<u16, 8>,
-    /// Offset which is the coordinate of the "image pixel" which going to be drawn at location SceneItem::pos
-    pub off_x: Fixed<u16, 4>,
-    pub off_y: Fixed<u16, 4>,
+    pub dx: TextureStep,
+    pub dy: TextureStep,
+    /// Q16 offset in source pixels for the destination pixel at `SceneItem::pos`.
+    pub off_x: TextureStep,
+    pub off_y: TextureStep,
     /// Color to colorize. When not transparent, consider that the image is an alpha map and always use that color.
     /// The alpha of this color is ignored. (it is supposed to be mixed in `Self::alpha`)
     pub colorize: Color,
@@ -467,6 +499,11 @@ impl SceneTextureExtra {
         };
 
         let source_size = texture.source_size().cast::<i32>();
+        let (dst_width, dst_height) = if texture.rotation.is_transpose() {
+            (texture.dst_height, texture.dst_width)
+        } else {
+            (texture.dst_width, texture.dst_height)
+        };
         let (dx, dy) = if let Some(tiling) = &texture.tiling {
             offset -= euclid::vec2(tiling.offset_x, tiling.offset_y).cast();
 
@@ -474,28 +511,32 @@ impl SceneTextureExtra {
             let _ = tiling.gap_x;
             let _ = tiling.gap_y;
 
-            (Fixed::from_f32(tiling.scale_x)?, Fixed::from_f32(tiling.scale_y)?)
-        } else {
-            let (dst_w, dst_h) = if texture.rotation.is_transpose() {
-                (texture.dst_height as i32, texture.dst_width as i32)
-            } else {
-                (texture.dst_width as i32, texture.dst_height as i32)
-            };
-            // Ensure at least 1/256 to avoid division by zero in draw_texture_line
-            let dx = Fixed::<i32, 8>::from_fraction(source_size.width, dst_w).max(Fixed(1));
-            let dy = Fixed::<i32, 8>::from_fraction(source_size.height, dst_h).max(Fixed(1));
+            let dx =
+                TextureStep::from_fixed(Fixed::<i32, 8>::from_f32(tiling.scale_x)?).max(Fixed(1));
+            let dy =
+                TextureStep::from_fixed(Fixed::<i32, 8>::from_f32(tiling.scale_y)?).max(Fixed(1));
             (dx, dy)
+        } else {
+            (
+                texture_step(source_size.width, dst_width as i32),
+                texture_step(source_size.height, dst_height as i32),
+            )
         };
+        Fixed::<u16, 8>::try_from_fixed(dx).ok()?;
+        Fixed::<u16, 8>::try_from_fixed(dy).ok()?;
+
+        let off_x = texture_offset(Fixed::default(), dx, offset.x, source_size.width);
+        let off_y = texture_offset(Fixed::default(), dy, offset.y, source_size.height);
 
         Some((
             Self {
                 colorize: texture.colorize.unwrap_or_default(),
                 alpha: texture.alpha,
                 rotation: texture.rotation,
-                dx: Fixed::try_from_fixed(dx).ok()?,
-                dy: Fixed::try_from_fixed(dy).ok()?,
-                off_x: Fixed::try_from_fixed(dx * offset.x).ok()?,
-                off_y: Fixed::try_from_fixed(dy * offset.y).ok()?,
+                dx,
+                dy,
+                off_x,
+                off_y,
             },
             clipped_geometry.to_rect().cast(),
         ))
@@ -975,4 +1016,69 @@ fn touches_corner() {
     assert!(!clip(all, 4, 4, 4, 4).touches_corner(PhysicalSize::new(2, 2)));
     // Zero radii have no corner at all.
     assert!(!clip(PhysicalBorderRadius::default(), 0, 0, 0, 0).touches_corner(size));
+}
+
+#[test]
+fn texture_positions_cover_upscaled_source_edges() {
+    for source_size in 1..=64 {
+        for destination_size in source_size..=4096 {
+            let step = texture_step(source_size, destination_size);
+            let first = texture_offset(Fixed(0), step, 0, source_size);
+            let last = texture_offset(Fixed(0), step, destination_size - 1, source_size);
+
+            assert_eq!(first.truncate(), 0, "{source_size} → {destination_size}");
+            assert_eq!(last.truncate(), source_size - 1, "{source_size} → {destination_size}");
+            assert!(last < Fixed::from_integer(source_size));
+
+            for sample in 0..=16 {
+                let index = sample * (destination_size - 1) / 16;
+                let forward = texture_offset(Fixed(0), step, index, source_size);
+                let reverse =
+                    texture_offset(last, -step, destination_size - 1 - index, source_size);
+                assert!(forward >= Fixed::default());
+                assert!(forward < Fixed::from_integer(source_size));
+                assert!(reverse >= Fixed::default());
+                assert!(reverse < Fixed::from_integer(source_size));
+            }
+        }
+    }
+
+    let last = texture_offset(Fixed(0), texture_step(32_766, 32_767), 32_766, 32_766);
+    assert_eq!(last.truncate(), 32_765);
+    assert!(last < Fixed::from_integer(32_766));
+
+    let max_dimension = texture_offset(Fixed(0), texture_step(32_767, 32_767), 32_766, 32_767);
+    assert_eq!(max_dimension.truncate(), 32_766);
+    assert!(max_dimension < Fixed::from_integer(32_767));
+
+    let max_accepted_step = texture_step(32_767, 128);
+    assert!(max_accepted_step.0 < (256 << TEXTURE_STEP_SHIFT));
+    assert!((-max_accepted_step).0 > i32::MIN);
+    let downscaled_position = texture_offset(Fixed(0), max_accepted_step, 127, 32_767);
+    assert!(downscaled_position < Fixed::from_integer(32_767));
+}
+
+#[test]
+fn upscaled_clipped_matches_unclipped_sample_columns() {
+    let sample_column = |step: TextureStep, clip_offset: i32, dest_pixel: i32, source_size: i32| {
+        let off = texture_offset(Fixed::default(), step, clip_offset, source_size);
+        texture_offset(off, step, dest_pixel, source_size).truncate().rem_euclid(source_size)
+    };
+    const PAIRS: &[(i32, i32)] = &[(3, 29), (5, 40), (5, 330), (50, 4000)];
+    for &(source, destination) in PAIRS {
+        let dx = texture_step(source, destination);
+        for clip in 0..destination {
+            let unclipped = sample_column(dx, 0, clip, source);
+            let clipped = sample_column(dx, clip, 0, source);
+            assert_eq!(
+                unclipped, clipped,
+                "{source}→{destination}: dest pixel {clip} should match unclipped"
+            );
+            for dest_pixel in 0..(destination - clip) {
+                let u = sample_column(dx, 0, clip + dest_pixel, source);
+                let c = sample_column(dx, clip, dest_pixel, source);
+                assert_eq!(u, c, "{source}→{destination} clip {clip} dest {dest_pixel}");
+            }
+        }
+    }
 }

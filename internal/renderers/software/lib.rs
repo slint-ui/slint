@@ -2818,23 +2818,30 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                             continue;
                         }
 
-                        let delta32 = Fixed::<i32, 8>::from_fixed(scale_delta);
+                        let delta = TextureStep::from_fixed(scale_delta);
                         let normalize = |x: Fixed<i32, 8>| {
                             if x < Fixed::from_integer(0) { x + Fixed::from_integer(1) } else { x }
                         };
-                        let fract_x = normalize((-glyph.x) - Fixed::from_integer(gl_x.get() as _));
-                        let off_x = delta32 * off_x as i32 + fract_x;
-                        let fract_y = normalize(glyph.y - Fixed::from_integer(gl_y.get() as _));
-                        let off_y = delta32 * off_y as i32 + fract_y;
+                        let map_len = glyph.alpha_map.as_slice().len() - 1;
+                        let (map_width, map_height) =
+                            crate::scene::alpha_map_dimensions(map_len, pixel_stride);
+                        let fract_x = TextureStep::from_fixed(normalize(
+                            (-glyph.x) - Fixed::from_integer(gl_x.get() as _),
+                        ));
+                        let off_x = texture_offset(fract_x, delta, off_x as i32, map_width);
+                        let fract_y = TextureStep::from_fixed(normalize(
+                            glyph.y - Fixed::from_integer(gl_y.get() as _),
+                        ));
+                        let off_y = texture_offset(fract_y, delta, off_y as i32, map_height);
                         let extra = SceneTextureExtra {
                             colorize: color,
                             // color already is mixed with global alpha
                             alpha: color.alpha(),
                             rotation: self.rotation.orientation,
-                            dx: scale_delta,
-                            dy: scale_delta,
-                            off_x: Fixed::try_from_fixed(off_x).unwrap(),
-                            off_y: Fixed::try_from_fixed(off_y).unwrap(),
+                            dx: delta.max(Fixed(1)),
+                            dy: delta.max(Fixed(1)),
+                            off_x,
+                            off_y,
                         };
                         let geometry = geometry.transformed(self.rotation);
                         match &glyph.alpha_map {
