@@ -26,7 +26,7 @@ use derive_more as dm;
 use crate::CompilerConfiguration;
 use crate::expression_tree::Callable;
 use crate::project_file::SlintEdition;
-use smol_str::{SmolStr, ToSmolStr};
+use smol_str::SmolStr;
 
 /// Represent the kind of property for the DefaultFontSize based on the `default-font-size`` property of every `Window``
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -942,12 +942,17 @@ fn process_property(
             }
             _ => break,
         };
-        next.borrow()
-            .property_analysis
-            .borrow_mut()
-            .entry(prop.prop.name().clone())
-            .or_default()
-            .is_read_externally = true;
+        // A binding of an instance that reads the property uses it in the base,
+        // like a binding of the base itself would. A native read reads the item's
+        // current value, so it doesn't use the property.
+        if read_type == ReadType::PropertyRead {
+            next.borrow()
+                .property_analysis
+                .borrow_mut()
+                .entry(prop.prop.name().clone())
+                .or_default()
+                .is_read_externally = true;
+        }
         prop.elements.push(element.into());
         prop.prop = NamedReference::new(&next, prop.prop.name().clone());
     }
@@ -1465,19 +1470,18 @@ fn constraint_reads_own_geometry(nr: &NamedReference) -> bool {
 /// declare deps that actually exist on the cross-axis path. Image/Text and
 /// other h-for-w builtins receive the cross-axis size via the item VTable's
 /// `cross_axis_constraint`, so they don't read `self.{w,h}` here. For other
-/// items (user components, plain builtins), the native `ImplicitLayoutInfo`
-/// reads `preferred-{w,h}` — declare it when the user has bound it to read
-/// the opposite-axis dim on the same element. That catches cycles like
-/// `preferred-height: self.width` at compile time instead of panicking at
-/// runtime.
+/// items, the native `ImplicitLayoutInfo` reads `preferred-{w,h}` — declare
+/// it when the user has bound it to read the opposite-axis dim on the same
+/// element. That catches cycles like `preferred-height: self.width` at
+/// compile time instead of panicking at runtime.
 fn visit_cell_cross_axis_implicit_dependency(
     cross_axis: Orientation,
     item: &ElementRc,
     vis: &mut impl FnMut(&PropertyPath, ReadType),
 ) {
-    let base_type = item.borrow().base_type.to_smolstr();
-    if matches!(base_type.as_str(), "Image" | "ClippedImage" | "Text" | "TextInput" | "StyledText")
-    {
+    if item.borrow().builtin_type().is_some_and(|b| {
+        matches!(b.name.as_str(), "Image" | "ClippedImage" | "Text" | "TextInput" | "StyledText")
+    }) {
         return;
     }
     let (prop, opposite_dim) = match cross_axis {
@@ -1518,11 +1522,11 @@ fn visit_implicit_layout_info_dependencies(
     item: &ElementRc,
     vis: &mut impl FnMut(&PropertyPath, ReadType),
 ) {
-    let base_type = item.borrow().base_type.to_smolstr();
+    let Some(builtin) = item.borrow().builtin_type() else { return };
     const N: ReadType = ReadType::NativeRead;
     let reads_own_width =
         orientation == Orientation::Vertical && cross_size == CrossAxisSize::ReadByCell;
-    match base_type.as_str() {
+    match builtin.name.as_str() {
         "Image" => {
             vis(&NamedReference::new(item, SmolStr::new_static("source")).into(), N);
             vis(&NamedReference::new(item, SmolStr::new_static("source-clip-width")).into(), N);
@@ -1548,7 +1552,7 @@ fn visit_implicit_layout_info_dependencies(
                 );
             }
             vis(&NamedReference::new(item, SmolStr::new_static("wrap")).into(), N);
-            if base_type.as_str() == "TextInput" {
+            if builtin.name == "TextInput" {
                 vis(&NamedReference::new(item, SmolStr::new_static("single-line")).into(), N);
             } else {
                 vis(&NamedReference::new(item, SmolStr::new_static("overflow")).into(), N);
