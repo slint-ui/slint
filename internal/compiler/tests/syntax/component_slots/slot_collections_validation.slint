@@ -30,8 +30,7 @@ component ForwardingWrapper {
 component NestedCollection {
     slot <[implements Entry]> entries;
     Group {
-        for entry[index] in entries: entry { value: index; }
-//      >                                                  <error{Expanding a collection into another collection slot is not supported yet}
+        for entry in entries: entry { }
     }
 }
 export component Test inherits Window {

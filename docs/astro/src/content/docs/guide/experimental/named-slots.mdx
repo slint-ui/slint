@@ -314,7 +314,7 @@ Bindings in the supplied component's implementation remain available as defaults
 ### Generating Views
 
 Use a component type after the colon to create a separate view for each supplied component.
-The loop variable refers to the supplied component through its interface.
+The loop variable exposes the supplied component's members allowed by the collection constraint.
 The supplied component still requires one placement expansion.
 
 ```slint
@@ -339,12 +339,31 @@ component Pages {
 Views read the actual component's properties, so changes to a title update its view.
 Generating views currently requires static collection children; a supplied `for` loop produces an error.
 
+### Composing Collections
+
+An expansion can supply the default collection of another component:
+
+```slint
+InnerContainer {
+    for entry in entries: entry { }
+}
+```
+
+The inner container applies its expansion bindings and layout to the supplied components.
+Generated views can also supply another component's default collection.
+The target's interface or component constraint still applies, and conflicting managed properties or callback handlers produce errors.
+Lengths and indexes remain those of the supplied collection, including through multiple containers.
+
+The expansion must be the target collection's only child.
+The target can place children but can't generate additional views yet.
+Direct forwarding assignments such as `target << entries` remain unsupported for collections.
+
 ### Collection Limits
 
 - Each collection requires exactly one placement expansion in its declaring component; additional loops can generate views.
 - Expansions accept bindings, two-way bindings, callback connections, and property change handlers, but no child elements or member declarations.
 - Supply static components or a single `for` loop; conditional children and mixtures of static children and repeaters aren't supported.
-- Forwarding collection slots or `@children` into collections isn't supported.
+- Direct collection forwarding (`target << entries`) and forwarding `@children` into collections aren't supported.
 - A derived component can supply collection children, but its callers can't append additional children to that collection.
 
 `@children` remains supported separately; collection slots don't yet replace its forwarding behavior.

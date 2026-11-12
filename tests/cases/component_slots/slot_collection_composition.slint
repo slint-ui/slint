@@ -1,0 +1,132 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+interface WiredEntry {
+    in property <int> position;
+    callback activated();
+}
+
+interface DataEntry {
+    in-out property <string> title;
+    in-out property <int> value;
+}
+
+component Entry inherits Rectangle {
+    in property <string> title;
+    in property <int> position: -1;
+    in-out property <int> value;
+    callback activated();
+    min-width: 80px;
+    min-height: 30px;
+    Text { text: root.title; accessible-role: none; }
+    TouchArea {
+        accessible-role: button;
+        accessible-label: root.title;
+        clicked => { root.value += 1; root.activated(); }
+    }
+}
+
+component Sink {
+    out property <int> count: entries.length;
+    out property <int> last-index: -1;
+    default slot <[implements WiredEntry]> entries;
+    HorizontalLayout {
+        for entry[index] in entries: entry {
+            position: index;
+            activated => { root.last-index = index; }
+        }
+    }
+}
+
+component Middle {
+    out property <int> count: sink.count;
+    out property <int> last-index: sink.last-index;
+    default slot <[*]> entries;
+    sink := Sink { for entry in entries: entry { } }
+}
+
+component Outer {
+    out property <int> count: middle.count;
+    out property <int> last-index: middle.last-index;
+    default slot <[*]> entries;
+    middle := Middle { for entry in entries: entry { } }
+}
+
+component Named {
+    out property <int> count: middle.count;
+    slot <[Entry]> entries;
+    middle := Middle { for entry in entries: entry { } }
+}
+
+component Views {
+    out property <int> count: sink.count;
+    out property <int> last-index: sink.last-index;
+    default slot <[implements DataEntry]> entries;
+    sink := Middle {
+        for entry in entries: Entry {
+            title: entry.title;
+            value <=> entry.value;
+        }
+    }
+    Rectangle { for entry in entries: entry { } }
+}
+
+export component TestCase inherits Window {
+    width: 500px;
+    height: 500px;
+    in-out property <int> model-count: 2;
+    out property <int> static-count: outer.count;
+    out property <int> repeated-count: repeated.count;
+    out property <int> named-count: named.count;
+    out property <int> first-position: first.position;
+    out property <int> second-position: second.position;
+    out property <int> second-value: second.value;
+    out property <int> last-index: outer.last-index;
+    out property <int> view-value: data.value;
+    out property <int> view-last-index: views.last-index;
+    out property <bool> test: outer.count == 2 && named.count == 1 && empty.count == 0
+        && views.count == 1;
+    public function rename() { data.title = "Renamed view"; }
+    VerticalLayout {
+        outer := Outer {
+            first := Entry { title: "First"; }
+            second := Entry { title: "Second"; }
+        }
+        named := Named { entries << Entry { title: "Named"; } }
+        repeated := Outer {
+            for index in root.model-count: Entry { title: "Repeated \{index}"; }
+        }
+        empty := Outer { }
+        views := Views {
+            data := Rectangle {
+                in-out property <string> title: "View";
+                in-out property <int> value;
+            }
+        }
+    }
+}
+
+/*
+```rust
+use slint::platform::PointerEventButton;
+use slint_testing::ElementHandle;
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+assert_eq!(instance.get_first_position(), 0);
+assert_eq!(instance.get_second_position(), 1);
+ElementHandle::find_by_accessible_label(&instance, "Second").next().unwrap()
+    .mock_single_click(PointerEventButton::Left);
+assert_eq!(instance.get_second_value(), 1);
+assert_eq!(instance.get_last_index(), 1);
+ElementHandle::find_by_accessible_label(&instance, "View").next().unwrap()
+    .mock_single_click(PointerEventButton::Left);
+assert_eq!(instance.get_view_value(), 1);
+assert_eq!(instance.get_view_last_index(), 0);
+instance.invoke_rename();
+assert_eq!(ElementHandle::find_by_accessible_label(&instance, "Renamed view").count(), 1);
+instance.set_model_count(3);
+assert_eq!(instance.get_repeated_count(), 3);
+assert_eq!(instance.get_static_count(), 2);
+assert_eq!(instance.get_named_count(), 1);
+```
+*/

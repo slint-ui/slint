@@ -103,6 +103,7 @@ pub(super) fn create_expansion(
         declaration.component_type = None;
         slots.push(declaration);
         template.borrow_mut().slot_expansion = Some(SlotExpansion {
+            node: node.clone(),
             slot_name: name,
             entry_id,
             index_id: node
@@ -173,6 +174,7 @@ pub(super) fn create_expansion(
     template.borrow_mut().property_declarations.get_mut(&index_property).unwrap().visibility =
         PropertyVisibility::Output;
     template.borrow_mut().slot_expansion = Some(SlotExpansion {
+        node: node.clone(),
         slot_name: name,
         entry_id,
         index_id: node

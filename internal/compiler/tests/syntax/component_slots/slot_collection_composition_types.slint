@@ -1,0 +1,30 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+interface Entry { in property <int> position; }
+component NominalEntry { in property <int> position; }
+component StructuralEntry { in property <int> position; }
+component StructuralSink {
+    default slot <[implements Entry]> entries;
+    for entry[index] in entries: entry { position: index; }
+}
+component NominalSink {
+    default slot <[NominalEntry]> entries;
+    for entry[index] in entries: entry { position: index; }
+}
+component StructuralWrapper {
+    default slot <[*]> entries;
+    StructuralSink { for entry in entries: entry { } }
+}
+component NominalWrapper {
+    default slot <[*]> entries;
+    NominalSink { for entry in entries: entry { } }
+}
+export component Test inherits Window {
+    StructuralWrapper { Rectangle { } }
+//                      >           <error{Cannot implement 'Entry'.↵- missing 'in property <int> position;'}
+    NominalWrapper { StructuralEntry { } }
+//                   >              <error{Collection slot 'entries' requires 'NominalEntry' or a component inheriting it, but got 'StructuralEntry'}
+    StructuralWrapper { NominalEntry { position: 10; } }
+//                      >           <error{Property 'position' is managed by the slot expansion}
+}

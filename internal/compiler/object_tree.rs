@@ -512,6 +512,7 @@ impl DeclaredSlot {
 
 #[derive(Clone, Debug)]
 pub struct SlotExpansion {
+    pub node: syntax_nodes::RepeatedElement,
     pub slot_name: SmolStr,
     pub entry_id: SmolStr,
     pub index_id: SmolStr,

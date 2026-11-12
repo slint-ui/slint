@@ -14,7 +14,7 @@ use crate::object_tree::*;
 use crate::symbol_counters::SymbolCounters;
 use smol_str::SmolStr;
 use std::collections::HashSet;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 struct Contract {
     owner: Rc<Component>,
@@ -25,10 +25,20 @@ struct Contract {
     projections: Vec<ElementRc>,
 }
 
+struct Composition {
+    source: usize,
+    target: usize,
+    group: ElementRc,
+    template: ElementRc,
+}
+
 fn is_member(element: &ElementRc, slot: &DeclaredSlot) -> bool {
+    targets_slot(element, slot) && element.borrow().slot_expansion.is_none()
+}
+
+fn targets_slot(element: &ElementRc, slot: &DeclaredSlot) -> bool {
     let element = element.borrow();
     !element.slot_collection
-        && element.slot_expansion.is_none()
         && element.slot_default.is_none()
         && if slot.is_default {
             element.slot_target.is_none()
@@ -117,17 +127,24 @@ pub(super) fn lower_slot_collections(
                 .borrow()
                 .iter()
                 .any(|slot| slot.is_collection && slot.insertion_name() == name);
-            if is_collection
-                && contracts.iter().any(|c| c.slot.is_default && inherits(&point.parent, &c.owner))
-            {
-                diag.push_error(
-                    "Expanding a collection into another collection slot is not supported yet"
-                        .into(),
-                    &point.node.syntax_node().parent().unwrap(),
-                );
-            } else if let Some(contract) = contracts
-                .iter()
-                .find(|c| inherits(&point.parent, &c.owner) && c.slot.insertion_name() == name)
+            let is_projection = contracts.iter().any(|contract| {
+                Rc::ptr_eq(&contract.owner, component)
+                    && contract.projections.iter().any(|projection| {
+                        projection
+                            .borrow()
+                            .slot_expansion
+                            .as_ref()
+                            .unwrap()
+                            .projection_slot
+                            .as_deref()
+                            == Some(name.as_str())
+                    })
+            });
+            if !is_collection
+                && !is_projection
+                && let Some(contract) = contracts
+                    .iter()
+                    .find(|c| inherits(&point.parent, &c.owner) && c.slot.insertion_name() == name)
             {
                 let target = point.parent.borrow().base_type.to_string();
                 diag.push_error(
@@ -154,9 +171,77 @@ pub(super) fn lower_slot_collections(
             }
         });
     });
+    let diagnostics_before_compositions = diag.iter().count();
     let mut forwarded = ForwardedReferenceCache::default();
+    let mut compositions = Vec::new();
+    for group in &groups {
+        for (target, contract) in
+            contracts.iter().enumerate().filter(|(_, c)| inherits(group, &c.owner))
+        {
+            let children: Vec<_> = group
+                .borrow()
+                .children
+                .iter()
+                .filter(|child| targets_slot(child, &contract.slot))
+                .cloned()
+                .collect();
+            for child in &children {
+                if child.borrow().slot_expansion.is_none() {
+                    continue;
+                }
+                if children.len() != 1 {
+                    diag.push_error(
+                        "A collection expansion must be the only child in its target collection"
+                            .into(),
+                        &*child.borrow(),
+                    );
+                    continue;
+                }
+                let Some(source) = contracts.iter().position(|source| {
+                    Rc::ptr_eq(&source.template, child)
+                        || source.projections.iter().any(|projection| Rc::ptr_eq(projection, child))
+                }) else {
+                    continue;
+                };
+                compositions.push(Composition {
+                    source,
+                    target,
+                    group: group.clone(),
+                    template: child.clone(),
+                });
+            }
+        }
+    }
+    let mut prepared = HashSet::new();
+    let mut active = HashSet::new();
+    for source in 0..contracts.len() {
+        prepare_compositions(
+            source,
+            &contracts,
+            &compositions,
+            &mut prepared,
+            &mut active,
+            symbols,
+            &mut forwarded,
+            diag,
+        );
+    }
+    if diag
+        .iter()
+        .skip(diagnostics_before_compositions)
+        .any(|diagnostic| diagnostic.level() == crate::diagnostics::DiagnosticLevel::Error)
+    {
+        return;
+    }
     for group in groups {
-        for contract in contracts.iter().filter(|c| inherits(&group, &c.owner)) {
+        for (contract_index, contract) in
+            contracts.iter().enumerate().filter(|(_, c)| inherits(&group, &c.owner))
+        {
+            if compositions.iter().any(|composition| {
+                composition.target == contract_index && Rc::ptr_eq(&composition.group, &group)
+            }) {
+                continue;
+            }
             let children: Vec<_> = group
                 .borrow()
                 .children
@@ -189,39 +274,14 @@ pub(super) fn lower_slot_collections(
                 }
                 continue;
             }
-            if let Some(interface) = &contract.slot.interface {
-                let mut valid = true;
-                for child in &children {
-                    let node = child.borrow().debug[0].node.clone();
-                    valid &= interfaces::validate_interface_implementation(
-                        &child.borrow(),
-                        &interface.root_element,
-                        &interface.id,
-                        &node.into(),
-                        &ImplementBinding::OnSelf,
-                        diag,
-                    );
-                }
-                if !valid {
-                    continue;
-                }
-            }
-            if let Some(expected) = &contract.slot.component_type {
-                let mut valid = true;
-                for child in &children {
-                    let mut actual = child.borrow().base_type.clone();
-                    while &actual != expected {
-                        let ElementType::Component(component) = actual else { break };
-                        actual = component.root_element.borrow().base_type.clone();
-                    }
-                    if &actual != expected {
-                        diag.push_error(format!("Collection slot '{}' requires '{expected}' or a component inheriting it, but got '{}'", contract.slot.name, child.borrow().base_type), &*child.borrow());
-                        valid = false;
-                    }
-                }
-                if !valid {
-                    continue;
-                }
+            if !validate_composed_children(
+                contract_index,
+                &children,
+                &contracts,
+                &compositions,
+                diag,
+            ) {
+                continue;
             }
             if let Some(child) = children
                 .iter()
@@ -308,6 +368,138 @@ pub(super) fn lower_slot_collections(
     });
 }
 
+fn validate_children(
+    slot: &DeclaredSlot,
+    children: &[ElementRc],
+    diag: &mut BuildDiagnostics,
+) -> bool {
+    let mut valid = true;
+    for child in children {
+        if let Some(interface) = &slot.interface {
+            let node = child.borrow().debug[0].node.clone();
+            valid &= interfaces::validate_interface_implementation(
+                &child.borrow(),
+                &interface.root_element,
+                &interface.id,
+                &node.into(),
+                &ImplementBinding::OnSelf,
+                diag,
+            );
+        }
+        if let Some(expected) = &slot.component_type {
+            let mut actual = child.borrow().base_type.clone();
+            while &actual != expected {
+                let ElementType::Component(component) = actual else { break };
+                actual = component.root_element.borrow().base_type.clone();
+            }
+            if &actual != expected {
+                diag.push_error(format!("Collection slot '{}' requires '{expected}' or a component inheriting it, but got '{}'", slot.name, child.borrow().base_type), &*child.borrow());
+                valid = false;
+            }
+        }
+    }
+    valid
+}
+
+fn validate_composed_children(
+    index: usize,
+    children: &[ElementRc],
+    contracts: &[Contract],
+    compositions: &[Composition],
+    diag: &mut BuildDiagnostics,
+) -> bool {
+    let mut valid = validate_children(&contracts[index].slot, children, diag);
+    for composition in compositions.iter().filter(|composition| {
+        composition.source == index
+            && composition
+                .template
+                .borrow()
+                .slot_expansion
+                .as_ref()
+                .unwrap()
+                .projection_slot
+                .is_none()
+    }) {
+        valid &=
+            validate_composed_children(composition.target, children, contracts, compositions, diag);
+    }
+    valid
+}
+
+#[allow(clippy::too_many_arguments)]
+fn prepare_compositions(
+    source: usize,
+    contracts: &[Contract],
+    compositions: &[Composition],
+    prepared: &mut HashSet<usize>,
+    active: &mut HashSet<usize>,
+    symbols: &SymbolCounters,
+    forwarded: &mut ForwardedReferenceCache,
+    diag: &mut BuildDiagnostics,
+) {
+    if prepared.contains(&source) {
+        return;
+    }
+    if !active.insert(source) {
+        diag.push_error(
+            "Collection expansion composition cannot be recursive".into(),
+            &contracts[source].slot.name_node,
+        );
+        return;
+    }
+    for composition in compositions.iter().filter(|composition| composition.source == source) {
+        prepare_compositions(
+            composition.target,
+            contracts,
+            compositions,
+            prepared,
+            active,
+            symbols,
+            forwarded,
+            diag,
+        );
+        let target = &contracts[composition.target];
+        if !target.projections.is_empty() {
+            diag.push_error(
+                "Expanding into a collection that generates views is not supported yet".into(),
+                &*composition.template.borrow(),
+            );
+            continue;
+        }
+        let expansion = composition.template.borrow().slot_expansion.clone().unwrap();
+        if expansion.projection_slot.is_some()
+            && !validate_composed_children(
+                composition.target,
+                std::slice::from_ref(&composition.template),
+                contracts,
+                compositions,
+                diag,
+            )
+        {
+            continue;
+        }
+        let index = Expression::PropertyReference(NamedReference::new(
+            &composition.template,
+            expansion.index_property,
+        ));
+        connect(target, &composition.group, &composition.template, index, symbols, forwarded, diag);
+        composition.group.borrow_mut().set_binding(
+            target.length.name().clone(),
+            Expression::PropertyReference(contracts[source].length.clone()).into(),
+        );
+        let name: SmolStr = expansion
+            .projection_slot
+            .unwrap_or_else(|| contracts[source].slot.insertion_name().into());
+        composition.group.borrow_mut().forwarded_slots.push(SlotForwarding {
+            target: target.slot.insertion_name().into(),
+            source: name,
+            expression_node: expansion.node.Expression(),
+        });
+    }
+    active.remove(&source);
+    prepared.insert(source);
+}
+
 fn project(
     contract: &Contract,
     template: &ElementRc,
@@ -366,17 +558,13 @@ fn project(
                     .internal_or_resolved_name();
                 *reference = NamedReference::new(child, name);
             } else {
-                let mut expression = Expression::PropertyReference(reference.clone());
-                rebase_expression_to_instance(
-                    &mut expression,
+                rebase_reference(
+                    reference,
                     &contract.owner.root_element,
                     group,
                     symbols,
                     forwarded,
                 );
-                if let Expression::PropertyReference(mapped) = expression {
-                    *reference = mapped;
-                }
             }
         });
     });
@@ -431,17 +619,7 @@ fn connect(
                 .internal_or_resolved_name();
             *reference = NamedReference::new(child, name);
         } else {
-            let mut expression = Expression::PropertyReference(reference.clone());
-            rebase_expression_to_instance(
-                &mut expression,
-                &contract.owner.root_element,
-                group,
-                symbols,
-                forwarded,
-            );
-            if let Expression::PropertyReference(mapped) = expression {
-                *reference = mapped;
-            }
+            rebase_reference(reference, &contract.owner.root_element, group, symbols, forwarded);
         }
     });
     for (name, binding) in mapped.borrow().real_bindings() {
@@ -488,5 +666,31 @@ fn connect(
             .or_default()
             .borrow_mut()
             .extend(handlers.borrow().iter().cloned());
+    }
+}
+
+fn rebase_reference(
+    reference: &mut NamedReference,
+    owner: &ElementRc,
+    group: &ElementRc,
+    symbols: &SymbolCounters,
+    forwarded: &mut ForwardedReferenceCache,
+) {
+    let original = reference.clone();
+    let is_helper_property = !Rc::ptr_eq(&original.element(), owner)
+        && Weak::ptr_eq(
+            &original.element().borrow().enclosing_component,
+            &owner.borrow().enclosing_component,
+        )
+        && !matches!(original.ty(), Type::Callback(_) | Type::Function(_));
+    let mut expression = Expression::PropertyReference(original.clone());
+    rebase_expression_to_instance(&mut expression, owner, group, symbols, forwarded);
+    if let Expression::PropertyReference(mapped) = expression {
+        if is_helper_property {
+            let mut owner = owner.borrow_mut();
+            owner.property_declarations.get_mut(mapped.name()).unwrap().is_alias = Some(original);
+            owner.take_binding(mapped.name());
+        }
+        *reference = mapped;
     }
 }

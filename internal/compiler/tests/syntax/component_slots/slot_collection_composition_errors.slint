@@ -1,0 +1,39 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+interface Entry { in property <int> position; }
+component Item { in property <int> position; }
+component Sink {
+    default slot <[implements Entry]> entries;
+    for entry[index] in entries: entry { position: index; }
+}
+component Mixed {
+    default slot <[implements Entry]> entries;
+    Sink {
+        Item { }
+        for entry in entries: entry { }
+//                            >    <error{A collection expansion must be the only child in its target collection}
+    }
+}
+component Conflict {
+    default slot <[implements Entry]> entries;
+    Sink {
+        for entry in entries: entry { position: 99; }
+//                            >    <error{Property 'position' is managed by the slot expansion}
+    }
+}
+component ViewSink {
+    default slot <[implements Entry]> entries;
+    for entry in entries: Text { text: "\{entry.position}"; }
+    for entry in entries: entry { }
+}
+component Views {
+    default slot <[implements Entry]> entries;
+    ViewSink { for entry in entries: entry { } }
+//                                   >    <error{Expanding into a collection that generates views is not supported yet}
+}
+export component Test inherits Window {
+    Mixed { Item { } }
+    Conflict { Item { } }
+    Views { Item { } }
+}
