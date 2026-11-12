@@ -84,6 +84,14 @@ export component UpdateStatusPill inherits Rectangle {
     border-color: Colors.border;
     background: Colors.surface;
     clip: true;
+    accessible-role: button;
+    accessible-label: label.text;
+    accessible-enabled: touch.enabled;
+    accessible-action-default => {
+        if touch.enabled {
+            touch.clicked();
+        }
+    }
 
     Rectangle {
         x: 0px;
@@ -92,7 +100,7 @@ export component UpdateStatusPill inherits Rectangle {
         width: parent.width * Api.update-download-progress;
     }
 
-    Text {
+    label := Text {
         x: Metrics.space-regular;
         width: parent.width - 2 * Metrics.space-regular;
         text: UpdateStatus.label();
@@ -104,7 +112,7 @@ export component UpdateStatusPill inherits Rectangle {
         overflow: elide;
     }
 
-    TouchArea {
+    touch := TouchArea {
         enabled: UpdateStatus.clickable();
         clicked => {
             Api.check-for-update();
@@ -142,6 +150,15 @@ export component UpdateStatusBar inherits Rectangle {
         // "install an update" - and the portal remembers its consent, so after
         // the first yes there is no dialog left to catch a stray click.
         Rectangle {
+            accessible-role: button;
+            accessible-label: label.text;
+            accessible-enabled: touch.enabled;
+            accessible-action-default => {
+                if touch.enabled {
+                    touch.clicked();
+                }
+            }
+
             label := Text {
                 text: UpdateStatus.label();
                 color: UpdateStatus.foreground();
@@ -151,7 +168,7 @@ export component UpdateStatusBar inherits Rectangle {
                 overflow: elide;
             }
 
-            TouchArea {
+            touch := TouchArea {
                 enabled: UpdateStatus.clickable();
                 clicked => {
                     Api.check-for-update();
