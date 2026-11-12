@@ -98,19 +98,19 @@ macro_rules! for_each_builtin_function {
                 text_input.item.clear_selection()
             }
             TextInputCut: impure fn text_input_cut(text_input: ItemArg<TextInput> => ElementReference) -> () {
-                with_window_adapter(&text_input.rc, |w| text_input.item.cut(w, &text_input.rc))
+                with_window_adapter(&text_input.rc, |w| text_input.item.cut(TextEditAccess::programmatic(), w, &text_input.rc))
             }
             TextInputCopy: impure fn text_input_copy(text_input: ItemArg<TextInput> => ElementReference) -> () {
                 with_window_adapter(&text_input.rc, |w| text_input.item.copy(w))
             }
             TextInputPaste: impure fn text_input_paste(text_input: ItemArg<TextInput> => ElementReference) -> () {
-                with_window_adapter(&text_input.rc, |w| text_input.item.paste(w, &text_input.rc))
+                with_window_adapter(&text_input.rc, |w| text_input.item.paste(TextEditAccess::programmatic(), w, &text_input.rc))
             }
             TextInputUndo: impure fn text_input_undo(text_input: ItemArg<TextInput> => ElementReference) -> () {
-                with_window_adapter(&text_input.rc, |w| text_input.item.undo(w, &text_input.rc))
+                with_window_adapter(&text_input.rc, |w| text_input.item.undo(TextEditAccess::programmatic(), w, &text_input.rc))
             }
             TextInputRedo: impure fn text_input_redo(text_input: ItemArg<TextInput> => ElementReference) -> () {
-                with_window_adapter(&text_input.rc, |w| text_input.item.redo(w, &text_input.rc))
+                with_window_adapter(&text_input.rc, |w| text_input.item.redo(TextEditAccess::programmatic(), w, &text_input.rc))
             }
             HasSelection: pure fn has_selection(text_input: ItemArg<TextInput> => ElementReference) -> bool {
                 text_input.item.has_selection()
