@@ -3,7 +3,7 @@
 import { definePlugin } from "@expressive-code/core";
 import { h } from "@expressive-code/core/hast";
 import { pluginLineNumbers } from "@expressive-code/plugin-line-numbers";
-import slintGrammar from "./slint.tmLanguage.json" with { type: "json" };
+import { textMateGrammar as slintGrammar } from "../../../../editors/grammar/grammar.mjs";
 
 function sideBorder() {
     return definePlugin({

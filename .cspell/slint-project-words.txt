@@ -285,10 +285,12 @@ Hani
 hdmipi
 heapless
 hidpi
+highlightjs
 highp
 HINSTANCE
 Hira
 hkdf
+hljs
 hmac
 hlayout
 hmenu

@@ -3,6 +3,7 @@
 
 packages:
   - api/node
+  - editors/grammar
   - editors/vscode
   - tools/figma-inspector
   - tools/slintpad

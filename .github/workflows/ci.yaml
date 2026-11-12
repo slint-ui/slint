@@ -406,9 +406,6 @@ jobs:
             - name: Typescript syntax check # has to run after the build as it depends on the wasm
               working-directory: editors/vscode
               run: pnpm type-check
-            - name: Check tmGrammar
-              working-directory: editors/vscode
-              run: pnpm test_grammar
 
     # Compile checks that need cross-compilation toolchains: the mcu backend
     # for no_std targets (ARM and ESP32) and the 32-bit ARM FFI build. They
@@ -795,6 +792,23 @@ jobs:
                   package-manager-cache: false
             - name: Test the Slint preview MCP server
               run: node --test 'ai-plugins/mcp/slint-preview/test/*.test.mjs'
+
+    test-grammar:
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'grammar') }}
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v7
+            - uses: pnpm/action-setup@v6.1.1
+            - uses: actions/setup-node@v7
+              with:
+                  node-version: 24
+                  package-manager-cache: false
+            - name: Check and test the grammars
+              working-directory: editors/grammar
+              run: |
+                  pnpm install --frozen-lockfile --filter @slint-ui/highlightjs-slint
+                  pnpm check
+                  pnpm test
 
     test-slint-preview-view:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'slint_preview_view') }}

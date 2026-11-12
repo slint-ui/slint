@@ -38,7 +38,7 @@ contexts:
       scope: constant.other.color.slint
 
   types:
-    - match: '\b(int|bool|float|duration|angle|string|image|brush|color|length|physical-length|relative-font-size)\b'
+    - match: '\b(int|bool|float|duration|angle|string|image|brush|color|length|physical-length|relative-font-size|percent|easing)\b'
       scope: storage.type.slint
 
   constants:
@@ -52,9 +52,9 @@ contexts:
     # other.
     - match: '\b(import|from|export|global|struct|enum|component|inherits)\b'
       scope: keyword.slint
-    - match: '\b(property|callback|animate|states|transitions|function|in|out|in-out|private|public)\b'
+    - match: '\b(property|callback|animate|states|transitions|function|in|out|in-out|private|public|protected|pure|changed|as|when)\b'
       scope: keyword.other.slint
-    - match: '\b(if|for|match|return)\b'
+    - match: '\b(if|else|for|let|match|return)\b'
       scope: keyword.control.slint
 
   numbers:
