@@ -1,0 +1,252 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The Material TimePickerPopup's dial takes the finger anywhere and the hand follows a drag, like Android's time picker.
+
+// Python is ignored because include paths aren't forwarded in the generated stubs.
+//ignore: pyi
+
+import { TimePickerPopup, Time } from "../../../ui-libraries/material/src/ui/components/time_picker.slint";
+export { Time }
+
+export component TestCase inherits Window {
+    width: 800px;
+    height: 800px;
+
+    in property <Time> time;
+    in property <bool> use-24-hour-format: true;
+
+    public function show-portrait() {
+        portrait.show();
+    }
+    public function reopen-portrait() {
+        portrait.close();
+        portrait.show();
+    }
+    public function show-landscape() {
+        portrait.close();
+        landscape.show();
+    }
+
+    portrait := TimePickerPopup {
+        x: 0;
+        y: 0;
+        width: 400px;
+        height: 700px;
+        time: root.time;
+        use_24_hour_format: root.use-24-hour-format;
+    }
+
+    landscape := TimePickerPopup {
+        x: 0;
+        y: 0;
+        width: 700px;
+        height: 500px;
+        time: root.time;
+    }
+}
+
+/*
+
+```rust
+use slint::platform::{PointerEventButton, WindowEvent};
+let instance = TestCase::new().unwrap();
+let button = PointerEventButton::Left;
+let point = |x, y| slint::LogicalPosition::new(x, y);
+let move_to = |(x, y): (f32, f32)| instance.window().dispatch_event(WindowEvent::PointerMoved { position: point(x, y) });
+let press = |(x, y): (f32, f32)| instance.window().dispatch_event(WindowEvent::PointerPressed { position: point(x, y), button });
+let release = |(x, y): (f32, f32)| instance.window().dispatch_event(WindowEvent::PointerReleased { position: point(x, y), button });
+let tap = |(x, y): (f32, f32)| slint_testing::send_mouse_click(&instance, x, y);
+let all = |label: &str| slint_testing::ElementHandle::find_by_accessible_label(&instance, label).collect::<Vec<_>>();
+let find = |label: &str| all(label).pop().unwrap_or_else(|| panic!("no element {label}"));
+let center = |label: &str| {
+    let e = find(label);
+    (e.absolute_position().x + e.size().width / 2., e.absolute_position().y + e.size().height / 2.)
+};
+let value = |label: &str| find(label).accessible_value().unwrap().to_string();
+// A point on the dial: `top` and `bottom` are labels at 12 and 6 o'clock, `ring` a label
+// whose distance from the center is the radius, `turn` the clockwise fraction from 12.
+let on_dial = |top: &str, bottom: &str, ring: &str, turn: f32, scale: f32| {
+    let (tx, ty) = center(top);
+    let (bx, by) = center(bottom);
+    let (cx, cy) = ((tx + bx) / 2., (ty + by) / 2.);
+    let (rx, ry) = center(ring);
+    let r = ((rx - cx).powi(2) + (ry - cy).powi(2)).sqrt() * scale;
+    let a = turn * std::f32::consts::TAU;
+    (cx + r * a.sin(), cy - r * a.cos())
+};
+let settle = || {
+    slint_testing::mock_elapsed_time(600);
+    slint::platform::update_timers_and_animations();
+};
+let minute_at = |minute: f32| on_dial("0 Hours or minutes of 60", "30 Hours or minutes of 60", "0 Hours or minutes of 60", minute / 60., 1.);
+
+instance.set_time(Time { hour: 8, minute: 45, ..Default::default() });
+instance.invoke_show_portrait();
+
+// A tap between the printed minutes picks the nearest printed minute, like Android.
+tap(center("minute"));
+tap(minute_at(23.));
+assert_eq!(value("minute"), "25");
+assert_eq!(value("hour"), "8");
+// The screen reader hears the new value as checked at once, not after the hand's animation.
+assert_eq!(find("25 Hours or minutes of 60").accessible_checked(), Some(true));
+settle();
+
+// During a drag the hand glides with the finger and the time shows the nearest minute,
+// also when the finger leaves the dial; on lift the hand moves on to that minute.
+let hand = || {
+    let e = slint_testing::ElementHandle::find_by_element_id(&instance, "Clock::selector").next().unwrap();
+    (e.absolute_position().x + e.size().width / 2., e.absolute_position().y + e.size().height / 2.)
+};
+let assert_at = |(x, y): (f32, f32), (ex, ey): (f32, f32)| {
+    assert!((x - ex).abs() < 0.5 && (y - ey).abs() < 0.5, "hand at {x},{y}, expected {ex},{ey}");
+};
+press(minute_at(15.));
+// Like Android, the hand stays put until the finger moves.
+assert_at(hand(), minute_at(25.));
+move_to(minute_at(20.));
+assert_eq!(value("minute"), "20");
+// While dragging, the minute under the finger is checked. (Which label is drawn selected
+// under the hand isn't visible to the testing API.)
+move_to(minute_at(35.2));
+assert_eq!(find("35 Hours or minutes of 60").accessible_checked(), Some(true));
+move_to(on_dial("0 Hours or minutes of 60", "30 Hours or minutes of 60", "0 Hours or minutes of 60", 0.5, 1.6));
+assert_eq!(value("minute"), "30");
+move_to(minute_at(37.3));
+assert_eq!(value("minute"), "37");
+assert_at(hand(), minute_at(37.3));
+release(minute_at(37.3));
+assert_eq!(value("minute"), "37");
+assert_at(hand(), minute_at(37.3));
+settle();
+assert_at(hand(), minute_at(37.));
+
+// A drag that ends next to where it started still picks the exact minute, also when a
+// second finger touches down on the way.
+press(minute_at(15.));
+move_to(minute_at(40.));
+move_to(minute_at(15.6));
+press(minute_at(15.6));
+release(minute_at(15.6));
+assert_eq!(value("minute"), "16");
+settle();
+
+// A tap that jitters inside the touch slop neither moves the hand nor shows a minute
+// between the printed ones before it snaps.
+let before = value("minute");
+press(minute_at(23.));
+move_to(minute_at(23.2));
+assert_eq!(value("minute"), before);
+assert_at(hand(), minute_at(16.));
+release(minute_at(23.2));
+assert_eq!(value("minute"), "25");
+settle();
+
+// A release far from the press counts as a drag even without moves in between.
+press(minute_at(15.));
+release(minute_at(37.));
+assert_eq!(value("minute"), "37");
+settle();
+
+// Near 12 o'clock the minute wraps to 0, not 60.
+press(minute_at(55.));
+move_to(minute_at(59.7));
+release(minute_at(59.7));
+assert_eq!(value("minute"), "0");
+settle();
+
+// On lift the hand takes the short way to the value, also where the angle wraps (9 o'clock).
+press(minute_at(40.));
+move_to(minute_at(45.3));
+release(minute_at(45.3));
+assert_eq!(value("minute"), "45");
+slint_testing::mock_elapsed_time(100);
+slint::platform::update_timers_and_animations();
+let (_, nine_y) = minute_at(45.);
+assert!((hand().1 - nine_y).abs() < 5., "hand at {:?}", hand());
+settle();
+assert_at(hand(), minute_at(45.));
+
+// Only the left button moves the hand, also after a drag that was cancelled.
+press(minute_at(10.));
+move_to(minute_at(12.3));
+instance.window().dispatch_event(WindowEvent::PointerExited);
+settle();
+assert_at(hand(), minute_at(12.));
+let right = PointerEventButton::Right;
+let (x, y) = minute_at(40.);
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: point(x, y), button: right });
+move_to(minute_at(50.));
+let (x, y) = minute_at(50.);
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: point(x, y), button: right });
+assert_eq!(value("minute"), "12");
+// After the cancelled drag, a tap is a tap again.
+tap(minute_at(23.));
+assert_eq!(value("minute"), "25");
+settle();
+// A release on the dial without a press there picks nothing.
+release(minute_at(40.));
+assert_eq!(value("minute"), "25");
+// Nor does a tap or drag that starts in a corner outside the round dial.
+let corner = on_dial("0 Hours or minutes of 60", "30 Hours or minutes of 60", "0 Hours or minutes of 60", 0.125, 1.35);
+press(corner);
+move_to(minute_at(40.));
+release(minute_at(40.));
+assert_eq!(value("minute"), "25");
+
+// 12-hour dial: a drag picks the nearest hour and stays on the hours until the finger lifts.
+instance.set_use_24_hour_format(false);
+tap(center("hour"));
+let hour12_at = |hour: f32| on_dial("12 Hours or minutes of 12", "6 Hours or minutes of 12", "12 Hours or minutes of 12", hour / 12., 1.);
+let (two, near_five, near_twelve) = (hour12_at(2.), hour12_at(4.6), hour12_at(11.8));
+press(two);
+move_to(near_five);
+assert_eq!(value("hour"), "5");
+assert_eq!(all("5 Hours or minutes of 12").len(), 1);
+move_to(near_twelve);
+assert_eq!(value("hour"), "12");
+release(near_twelve);
+assert_eq!(all("30 Hours or minutes of 60").len(), 1);
+
+// Midnight on the 12-hour dial shows the hand at 12, an afternoon hour at its number.
+instance.set_time(Time { hour: 0, minute: 30, ..Default::default() });
+instance.invoke_reopen_portrait();
+assert_eq!(value("hour"), "0");
+assert_at(hand(), hour12_at(0.));
+assert_eq!(find("12 Hours or minutes of 12").accessible_checked(), Some(true));
+instance.set_time(Time { hour: 15, minute: 30, ..Default::default() });
+instance.invoke_reopen_portrait();
+assert_eq!(value("hour"), "15");
+assert_at(hand(), hour12_at(3.));
+assert_eq!(find("3 Hours or minutes of 12").accessible_checked(), Some(true));
+
+// A time the dial can't show gets no hand.
+instance.set_time(Time { hour: 8, minute: 75, ..Default::default() });
+instance.invoke_reopen_portrait();
+tap(center("minute"));
+assert!(slint_testing::ElementHandle::find_by_element_id(&instance, "Clock::selector").next().is_none());
+
+// 24-hour dial: the inner ring gives 0 and 13 to 23, the outer ring 12 and 1 to 11.
+// Like Android, a touch up to 12px outside the inner ring still counts as inner.
+instance.set_use_24_hour_format(true);
+tap(center("hour"));
+tap(on_dial("12 Hours or minutes of 24", "6 Hours or minutes of 24", "0 Hours or minutes of 24", 0.25, 1.15));
+assert_eq!(value("hour"), "15");
+tap(center("hour"));
+tap(on_dial("12 Hours or minutes of 24", "6 Hours or minutes of 24", "12 Hours or minutes of 24", 0.25, 0.84));
+assert_eq!(value("hour"), "3");
+
+// The screen reader's action on a printed hour picks it and moves on to the minutes.
+tap(center("hour"));
+find("5 Hours or minutes of 24").invoke_accessible_default_action();
+assert_eq!(value("hour"), "5");
+assert_eq!(all("30 Hours or minutes of 60").len(), 1);
+
+// The landscape layout's dial takes the finger the same way.
+instance.invoke_show_landscape();
+tap(center("minute"));
+tap(minute_at(23.));
+assert_eq!(value("minute"), "25");
+```
+*/

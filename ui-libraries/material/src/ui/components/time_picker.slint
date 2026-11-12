@@ -7,13 +7,12 @@ import { MaterialText } from "./material_text.slint";
 import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
 import { MaterialTypography } from "../styling/material_typography.slint";
 import { MaterialPalette } from "../styling/material_palette.slint";
+import { MaterialAnimations } from "../styling/material_animations.slint";
 import { StateLayerArea } from "state_layer.slint";
 
 component TimeSelector inherits Rectangle {
     in property <bool> selected;
     in property <int> value;
-
-    callback clicked <=> touch_area.clicked;
 
     width: max(MaterialStyleMetrics.size_48, text_label.min_width);
     height: max(MaterialStyleMetrics.size_48, text_label.min_height);
@@ -21,14 +20,12 @@ component TimeSelector inherits Rectangle {
     vertical_stretch: 0;
     horizontal_stretch: 0;
 
-    touch_area := TouchArea {
-        text_label := MaterialText {
-            text: root.value;
-            vertical_alignment: center;
-            horizontal_alignment: center;
-            style: MaterialTypography.body_large;
-            color: MaterialPalette.on_surface;
-        }
+    text_label := MaterialText {
+        text: root.value;
+        vertical_alignment: center;
+        horizontal_alignment: center;
+        style: MaterialTypography.body_large;
+        color: MaterialPalette.on_surface;
     }
 
     states [
@@ -42,10 +39,11 @@ component Clock {
     in property <[int]> model;
     in property <bool> two_columns;
     in property <int> total;
-    in_out property <int> current_index;
+    in property <int> current_index;
     in property <int> current_value;
 
-    callback current_index_changed(index: int);
+    callback current_value_changed(value: int);
+    callback released();
 
     property <length> radius: max(root.width, root.height) / 2;
     property <length> picker_diameter: MaterialStyleMetrics.size_48;
@@ -56,8 +54,33 @@ component Clock {
     property <length> radius_inner: root.center - root.inner_padding;
     property <int> half_total: root.total / 2;
     property <angle> rotation: 0.25turn;
-    property <length> current_x: get_index_x(root.current_value);
-    property <length> current_y: get_index_y(root.current_value);
+    property <bool> value_on_dial: root.current_value >= 0 && root.current_value < (root.total == 12 ? 24 : root.total);
+    property <angle> value_angle: root.value_to_angle(root.total == 12 ? mod(root.current_value, 12) : root.current_value);
+    property <length> value_ring: root.total == 24 && (root.current_value == 0 || root.current_value > 12) ? root.radius_inner : root.radius_outer;
+    // The hand follows the finger once it leaves the touch slop, so a jittery tap stays a tap.
+    // (Android follows from the first move and only looks at the release for the tap.)
+    property <bool> gliding: touch.pressed && root.dragged;
+    property <bool> dragged;
+    property <bool> armed;
+    property <angle> hand_angle: root.gliding ? atan2((touch.mouse_y - root.radius) / 1px, (touch.mouse_x - root.radius) / 1px) : root.value_angle;
+    property <length> hand_ring: root.gliding ? (root.on_inner_ring(touch.mouse_x, touch.mouse_y) ? root.radius_inner : root.radius_outer) : root.value_ring;
+    property <int> hand_index: root.index_at(mod((root.hand_angle + root.rotation) / 1turn, 1), root.hand_ring < (root.radius_outer + root.radius_inner) / 2);
+    // Like Android, the number under the hand is drawn selected; the value is what's checked.
+    property <int> selected_index: root.value_on_dial && root.distance(root.current_x, root.current_y, root.get_index_x(root.model[root.hand_index]), root.get_index_y(root.model[root.hand_index])) < root.picker_diameter / 2 ? root.hand_index : -1;
+    property <length> current_x: root.center + root.hand_ring * cos(root.hand_angle);
+    property <length> current_y: root.center + root.hand_ring * sin(root.hand_angle);
+
+    animate hand_angle {
+        duration: MaterialAnimations.emphasized_duration;
+        easing: MaterialAnimations.emphasized_easing;
+        enabled: !root.gliding;
+        angle_interpolation: shorter;
+    }
+    animate hand_ring {
+        duration: MaterialAnimations.emphasized_duration;
+        easing: MaterialAnimations.emphasized_easing;
+        enabled: !root.gliding;
+    }
 
     min_width: MaterialStyleMetrics.size_256;
     min_height: self.min_width;
@@ -68,7 +91,7 @@ component Clock {
         border_radius: max(self.width, self.height) / 2;
         background: MaterialPalette.surface_container_highest;
 
-        if root.current_index >= 0 && root.current_index < root.model.length: Path {
+        if root.value_on_dial: Path {
             stroke: MaterialPalette.primary;
             stroke_width: 2px;
             viewbox_width: self.width / 1px;
@@ -92,7 +115,7 @@ component Clock {
             border_radius: self.width / 2;
         }
 
-        if root.current_index < root.model.length: Rectangle {
+        if root.value_on_dial: selector := Rectangle {
             x: root.current_x;
             y: root.current_y;
             width: root.picker_diameter;
@@ -114,15 +137,56 @@ component Clock {
             width: root.picker_diameter;
             height: root.picker_diameter;
             value: val;
-            selected: index == root.current_index;
+            selected: index == root.selected_index;
             accessible_role: button;
+            accessible_checkable: true;
+            accessible_checked: index == root.current_index;
             accessible_label: @tr("{} Hours or minutes of {}", val, root.total);
             accessible_action_default => {
-                self.clicked();
+                root.current_value_changed(val);
+                root.released();
             }
+        }
+    }
 
-            clicked => {
-                root.set_current_index(index);
+    touch := TouchArea {
+        pointer_event(event) => {
+            if event.kind == PointerEventKind.cancel {
+                root.dragged = false;
+                root.armed = false;
+            }
+            if event.button != PointerEventButton.left {
+                return;
+            }
+            if event.kind == PointerEventKind.down {
+                root.armed = root.on_dial(self.mouse_x, self.mouse_y);
+            } else if event.kind == PointerEventKind.up && root.armed {
+                let tap = !root.dragged && !root.outside_slop(self.mouse_x, self.mouse_y);
+                root.dragged = false;
+                root.armed = false;
+                root.current_value_changed(root.value_at(self.mouse_x, self.mouse_y, tap));
+                root.released();
+            }
+        }
+
+        changed pressed => {
+            if !self.pressed {
+                root.dragged = false;
+                root.armed = false;
+            }
+        }
+
+        moved => {
+            if !self.pressed || !root.armed {
+                return;
+            }
+            root.dragged = root.dragged || root.outside_slop(self.mouse_x, self.mouse_y);
+            if !root.dragged {
+                return;
+            }
+            let value = root.value_at(self.mouse_x, self.mouse_y, false);
+            if value != root.current_value {
+                root.current_value_changed(value);
             }
         }
     }
@@ -162,8 +226,34 @@ component Clock {
         root.center + (root.radius_outer / 1px * sin(root.value_to_angle(value))) * 1px
     }
 
-    function set_current_index(index: int) {
-        root.current_index_changed(index);
+    pure function distance(x: length, y: length, cx: length, cy: length) -> length {
+        let dx = (x - cx) / 1px;
+        let dy = (y - cy) / 1px;
+        sqrt(dx * dx + dy * dy) * 1px
+    }
+
+    pure function on_dial(x: length, y: length) -> bool {
+        root.distance(x, y, root.radius, root.radius) <= root.radius
+    }
+
+    pure function outside_slop(x: length, y: length) -> bool {
+        abs(x - touch.pressed_x) > MaterialStyleMetrics.size_8 || abs(y - touch.pressed_y) > MaterialStyleMetrics.size_8
+    }
+
+    pure function on_inner_ring(x: length, y: length) -> bool {
+        root.two_columns && root.distance(x, y, root.radius, root.radius) <= root.radius_inner + 12px
+    }
+
+    pure function index_at(turn: float, inner: bool) -> int {
+        mod(round(turn * 12), 12) + (inner ? 12 : 0)
+    }
+
+    pure function value_at(x: length, y: length, tap: bool) -> int {
+        let turn = mod(atan2((x - root.radius) / 1px, (root.radius - y) / 1px) / 1turn, 1);
+        if root.total == 60 {
+            return tap ? root.index_at(turn, false) * 5 : mod(round(turn * 60), 60);
+        }
+        root.model[root.index_at(turn, root.on_inner_ring(x, y))]
     }
 }
 
@@ -527,12 +617,12 @@ export component TimePickerPopup inherits PopupWindow {
                 total: root.minutes_selected ? 60 : root.use-24_hour_format ? 24 : 12;
                 current_value: root.minutes_selected ? root.current_time.minute : root.current_time.hour;
 
-                current_index_changed(index) => {
-                    root.update_time_by_item(index);
+                current_value_changed(value) => {
+                    root.update_time_by_value(value);
+                }
 
-                    if !root.minutes_selected {
-                        root.minutes_selected = true;
-                    }
+                released => {
+                    root.minutes_selected = true;
                 }
             }
         }
@@ -550,12 +640,12 @@ export component TimePickerPopup inherits PopupWindow {
             current_value: root.minutes_selected ? root.current_time.minute : root.current_time.hour;
             height: self.width;
 
-            current_index_changed(index) => {
-                root.update_time_by_item(index);
+            current_value_changed(value) => {
+                root.update_time_by_value(value);
+            }
 
-                if !root.minutes_selected {
-                    root.minutes_selected = true;
-                }
+            released => {
+                root.minutes_selected = true;
             }
         }
 
@@ -619,10 +709,6 @@ export component TimePickerPopup inherits PopupWindow {
         root.current_time = root.time;
     }
 
-    function update_time_by_item(index: int) {
-        root.update_time_by_value(root.current_model[index]);
-    }
-
     function update_time_by_value(value: int) {
         if root.minutes_selected {
             root.update_time(root.current_time.hour, value);
@@ -652,7 +738,7 @@ export component TimePickerPopup inherits PopupWindow {
         }
 
         if hour == 0 {
-            return 12;
+            return root.use-24_hour_format ? 12 : 0;
         }
 
         if !root.use-24_hour_format && hour > 12 {
