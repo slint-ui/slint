@@ -15,7 +15,7 @@ use crate::animations::simulations::ease_in_out_sine::EaseInOutSine;
 use crate::animations::simulations::rubber_band;
 use crate::animations::simulations::spring::SpringPhysicalParameters;
 use crate::animations::simulations::spring_flick::SpringFlick;
-use crate::animations::simulations::{PositionSimulation, Simulation};
+use crate::animations::simulations::{Direction, PositionSimulation, Simulation};
 use crate::api::LogicalPosition;
 use crate::input::InputEventFilterResult::ForwardEvent;
 use crate::input::{
@@ -24,7 +24,6 @@ use crate::input::{
 use crate::input::{InternalKeyEvent, TouchHistory};
 use crate::item_rendering::CachedRenderingData;
 use crate::item_tree::ItemWeak;
-use crate::items::{ScrollBehavior, SnapMode};
 #[cfg(not(any(
     target_os = "ios",
     target_os = "linux",
@@ -37,6 +36,7 @@ use crate::items::flickable::velocity_tracker::IOsVelocityTracker;
 #[cfg(target_os = "macos")]
 use crate::items::flickable::velocity_tracker::MacOsVelocityTracker;
 use crate::items::flickable::velocity_tracker::{Velocity, VelocityTracker as _};
+use crate::items::{ScrollBehavior, SnapMode};
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
@@ -47,7 +47,6 @@ use crate::once_box::OnceBox;
 use crate::rtti::*;
 use crate::window::WindowAdapter;
 use crate::{Callback, Coord, Property};
-use alloc::boxed::Box;
 use alloc::rc::{Rc, Weak};
 use const_field_offset::FieldOffsets;
 use core::cell::RefCell;
@@ -167,6 +166,23 @@ impl Item for Flickable {
                     *y_out_of_bounds,
                     geo,
                 );
+            },
+        );
+        self.data.limit_change_handler.init_delayed(
+            self_rc.downgrade(),
+            |self_weak| {
+                let Some(flick_rc) = self_weak.upgrade() else { return (0., 0.) };
+                (
+                    FlickableDataInner::flick_limits(&flick_rc, -1., Dimension::X),
+                    FlickableDataInner::flick_limits(&flick_rc, -1., Dimension::Y),
+                )
+            },
+            |self_weak, (limit_x, limit_y)| {
+                let Some(flick_rc) = self_weak.upgrade() else { return };
+                let Some(flick) = flick_rc.downcast::<Flickable>() else { return };
+                if let Ok(inner) = flick.data.inner.try_borrow() {
+                    inner.update_lower_simulation_limits(*limit_x, *limit_y);
+                }
             },
         );
     }
@@ -354,6 +370,39 @@ impl Flickable {
         self.content(dimension).remove_binding();
     }
 
+    pub fn flicking_ongoing(self: Pin<&Self>) -> bool {
+        self.data.inner.borrow().capture_events.is_some()
+    }
+
+    /// The flickable limit if a simulation is running otherwise None
+    pub fn simulation_flick_limit_y(self: Pin<&Self>) -> Option<LogicalLength> {
+        let inner = self.data.inner.borrow();
+        let running = inner.running_animation.as_ref()?;
+        let item_rc = running.weak.upgrade()?;
+        let flick_velocity = match running.y_simulation.as_ref()?.borrow().direction()? {
+            Direction::Increasing => 1.,
+            Direction::Decreasing => -1.,
+        };
+        Some(LogicalLength::new(FlickableDataInner::flick_limits(
+            &item_rc,
+            flick_velocity,
+            Dimension::Y,
+        ) as Coord))
+    }
+
+    pub fn update_simulation_limit_y(self: Pin<&Self>, limit: LogicalLength) {
+        if let Some(simulation) = self
+            .data
+            .inner
+            .borrow()
+            .running_animation
+            .as_ref()
+            .and_then(|running| running.y_simulation.as_ref())
+        {
+            simulation.borrow_mut().update_limit(limit.get() as f32);
+        }
+    }
+
     /// Overrides the scrolling physics that depend on the platform otherwise.
     /// For Slint's internal tests.
     pub fn set_physics(self: Pin<&Self>, bounce: AutoBool, carry_momentum: AutoBool) {
@@ -511,7 +560,6 @@ enum CaptureEvents {
 }
 
 struct RunningSimulation {
-    #[expect(unused, reason = "Will be used in a future pr for the listview")]
     weak: ItemWeak,
     x_simulation: Option<Rc<RefCell<dyn PositionSimulation>>>,
     y_simulation: Option<Rc<RefCell<dyn PositionSimulation>>>,
@@ -858,45 +906,37 @@ impl FlickableDataInner {
             .unwrap_or_default();
     }
 
-    fn flick_limits(
-        flick_rc: &ItemRc,
-        flick_velocity: f32,
-        dimension: Dimension,
-    ) -> Pin<Box<Property<f32>>> {
+    /// Moves the limit of the running simulations that end at the lower limit.
+    fn update_lower_simulation_limits(&self, limit_x: f32, limit_y: f32) {
+        let Some(running) = &self.running_animation else { return };
+        for (simulation, limit) in
+            [(&running.x_simulation, limit_x), (&running.y_simulation, limit_y)]
+        {
+            if let Some(mut simulation) = simulation.as_ref().and_then(|s| s.try_borrow_mut().ok())
+                && simulation.direction() == Some(Direction::Decreasing)
+            {
+                simulation.update_limit(limit);
+            }
+        }
+    }
+
+    fn flick_limits(flick_rc: &ItemRc, flick_velocity: f32, dimension: Dimension) -> f32 {
+        if flick_velocity >= 0. {
+            return 0.0;
+        }
+        let Some(flick) = flick_rc.downcast::<Flickable>() else { return 0.0 };
+        let flick = flick.as_pin_ref();
         let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
-
-        let flick_weak = flick_rc.downgrade();
-        let calculate_limits = move || {
-            flick_weak.upgrade().and_then(|flick_rc| flick_rc.downcast::<Flickable>()).map(
-                |flick| {
-                    let flick = flick.as_pin_ref();
-                    ensure_in_bound(
-                        flick,
-                        LogicalPoint::from_lengths(-flick.content_width(), -flick.content_height()),
-                        &geo,
-                        false,
-                        false,
-                    )
-                },
-            )
-        };
-
-        if flick_velocity < 0. {
-            let property = Box::pin(Property::new(0.0));
-            property.set_binding({
-                let calculate_limits = calculate_limits.clone();
-                move || {
-                    calculate_limits()
-                        .map(|limit| match dimension {
-                            Dimension::X => limit.x_length().get() as f32,
-                            Dimension::Y => limit.y_length().get() as f32,
-                        })
-                        .unwrap_or(0.0)
-                }
-            });
-            property
-        } else {
-            Box::pin(Property::new(0.0))
+        let limit = ensure_in_bound(
+            flick,
+            LogicalPoint::from_lengths(-flick.content_width(), -flick.content_height()),
+            &geo,
+            false,
+            false,
+        );
+        match dimension {
+            Dimension::X => limit.x_length().get() as f32,
+            Dimension::Y => limit.y_length().get() as f32,
         }
     }
 
@@ -972,7 +1012,7 @@ impl FlickableDataInner {
         }
         let content = flick.content(dimension);
         let limit = Self::flick_limits(flick_rc, delta as f32, dimension);
-        let past_limit = (content.get().0 as f32 - limit.as_ref().get()) * delta as f32 > 0.;
+        let past_limit = (content.get().0 as f32 - limit) * delta as f32 > 0.;
         if past_limit {
             return Some(Self::spring_back(flick, flick_rc, dimension, geo, 0.));
         }
@@ -1008,8 +1048,7 @@ impl FlickableDataInner {
             Dimension::Y => geo.height_length().get(),
         } as f32;
         let velocity = if viewport_length > 0. {
-            let overscroll =
-                rubber_band::uncompress(curr_val - limit.as_ref().get(), viewport_length);
+            let overscroll = rubber_band::uncompress(curr_val - limit, viewport_length);
             drag_velocity * rubber_band::compress_slope(overscroll, viewport_length)
         } else {
             0.
@@ -1225,6 +1264,8 @@ pub struct FlickableData {
     inner: RefCell<FlickableDataInner>,
     /// Tracker that tracks the property to make sure that the flickable is in bounds
     in_bound_change_handler: crate::properties::ChangeTracker,
+    /// Tracker that moves the limit of the running simulations along with the content size
+    limit_change_handler: crate::properties::ChangeTracker,
 }
 
 impl FlickableData {
