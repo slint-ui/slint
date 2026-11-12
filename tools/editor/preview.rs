@@ -5148,7 +5148,8 @@ export component Main {
                     && VisualEditorSettings::deserialize(contents).is_some_and(|settings| {
                         settings.visible_recent_projects().first().is_some_and(|project| {
                             project.component == "MainWindow"
-                                && project.root_path == root.to_string_lossy().as_ref()
+                                && project.root_path
+                                    == dunce::simplified(&root).to_string_lossy().as_ref()
                         })
                     })
         ));
