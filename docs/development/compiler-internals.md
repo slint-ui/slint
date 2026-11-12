@@ -40,7 +40,7 @@ The following groups highlight common entry points rather than listing every pas
 
 ### 1. Import Passes (`run_import_passes`)
 
-- `infer_aliases_types` - Resolve type aliases
+- `infer_aliases_types` - Infer the type of two-way bindings (`<=>`) declared without one
 - `validate_interfaces` - Validate interface implementations
 - `resolving` - Resolve expressions, types, and references
 - `purity_check` - Verify function purity
@@ -118,12 +118,13 @@ The interpreter compiles `.slint` at runtime and lowers the resulting document t
 
 ### Adding a New Built-in Element
 
-1. **Declare the element** in `internal/compiler/builtin_elements.rs`
+1. **Declare the element** in `internal/compiler/builtin_elements.rs`; the type register loads it from there
 2. **Add runtime item** in `internal/core/items/` (new file or existing)
-3. **Register the item** in `internal/core/items.rs` (add to `ItemVTable`)
-4. **Update type registry** in `internal/compiler/typeregister.rs`
-5. **Add rendering support** in each renderer (`internal/renderers/*/`)
-6. **Add tests** in `tests/cases/elements/`
+3. **Register the item** in `internal/core/items.rs` (`declare_item_vtable!`)
+4. **Register the item with the interpreter** in `internal/interpreter/item_registry.rs`; a missing entry panics at instantiation
+5. **Name the item for C++** in the `items` list in `api/cpp/cbindgen.rs`
+6. **Add rendering support** in each renderer (`internal/renderers/*/` and `internal/backends/qt/qt_window.rs`)
+7. **Add tests** in `tests/cases/elements/`
 
 ### Adding a New Compiler Pass
 

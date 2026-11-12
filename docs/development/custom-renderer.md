@@ -96,10 +96,12 @@ per supported wgpu version.
 
 ### Software Renderer Pattern: Scene Building
 
-The software renderer builds a scene graph then rasterizes it. `SoftwareRenderer::render()` draws
-into a whole pixel buffer, while `render_by_line()` drives a `LineBufferProvider` one line at a
-time for memory-constrained devices. Both return the `PhysicalRegion` that was painted.
-See `internal/renderers/software/lib.rs`.
+`SceneBuilder` implements `ItemRenderer` and hands each draw call to a `ProcessScene` implementation.
+`SoftwareRenderer::render()` uses `RenderToBuffer`, which draws each item straight into a whole pixel buffer.
+`render_by_line()` uses `PrepareScene`, which collects the items into a `Scene`.
+The renderer then rasterizes that scene into a `LineBufferProvider` one line at a time, for memory-constrained devices.
+Both return the `PhysicalRegion` that was painted.
+See `internal/renderers/software/api.rs` for the entry points and `lib.rs` for the implementation.
 
 ### Anyrender Pattern: Window Renderer Abstraction
 
@@ -282,6 +284,11 @@ cargo run --bin slint-viewer -- path/to/file.slint
 
 ```
 internal/renderers/
+├── anyrender/
+│   ├── lib.rs           # AnyrenderSlintRenderer, SlintWindowRenderer trait
+│   ├── itemrenderer.rs  # AnyrenderItemRenderer (ItemRenderer impl)
+│   ├── vello.rs         # Vello window renderer on WGPU
+│   └── recording.rs     # Records draw commands for the screenshot tests
 ├── femtovg/
 │   ├── lib.rs           # FemtoVGRenderer, GraphicsBackend trait
 │   ├── itemrenderer.rs  # GLItemRenderer (ItemRenderer impl)
@@ -297,18 +304,21 @@ internal/renderers/
 │   ├── wgpu_29_surface.rs / wgpu_30_surface.rs
 │   └── wgpu_renderer.rs
 └── software/
-    ├── lib.rs           # SoftwareRenderer, scene building
-    ├── scene.rs         # Scene graph structures
+    ├── api.rs           # SoftwareRenderer, LineBufferProvider
+    ├── lib.rs           # SceneBuilder (ItemRenderer impl), rendering
+    ├── scene.rs         # Scene and scene item structures
     └── draw_functions.rs
 ```
+
+The Qt renderer isn't in this directory: it's part of `internal/backends/qt/qt_window.rs`.
 
 ## Example: Studying Existing Implementations
 
 The software renderer is the simplest to study as it has no external dependencies:
 
-- Entry point: `internal/renderers/software/lib.rs`
-- Scene builder implements `ItemRenderer`: builds a scene graph from draw calls
-- `render()` method rasterizes the scene to a pixel buffer
+- Entry points: `SoftwareRenderer::render()` and `render_by_line()` in `internal/renderers/software/api.rs`
+- `SceneBuilder` in `lib.rs` implements `ItemRenderer` and forwards draw calls to a `ProcessScene`
+- `render()` draws them straight into a pixel buffer, while `render_by_line()` collects a `Scene` first
 
 For GPU rendering patterns, study `internal/renderers/skia/itemrenderer.rs` which shows:
 - Texture caching strategies
