@@ -25,7 +25,7 @@ fn main() {
 
     #[derive(Default)]
     struct Counts {
-        wakeups: Cell<u32>,
+        wake_ups: Cell<u32>,
         frames: Cell<u32>,
         // Run once, in the event loop's turn after the next frame.
         after_next_frame: Cell<Option<Box<dyn FnOnce()>>>,
@@ -57,7 +57,7 @@ fn main() {
             cause: winit::event::StartCause,
         ) -> EventResult {
             if matches!(cause, winit::event::StartCause::ResumeTimeReached { .. }) {
-                self.0.wakeups.set(self.0.wakeups.get() + 1);
+                self.0.wake_ups.set(self.0.wake_ups.get() + 1);
             }
             EventResult::Propagate
         }
@@ -112,11 +112,11 @@ fn main() {
             sleep(Duration::from_millis(300)).await;
             assert!(!app.window().is_visible(), "the window wasn't hidden after its frame");
 
-            counts.wakeups.set(0);
+            counts.wake_ups.set(0);
             sleep(Duration::from_secs(1)).await;
             // The one wake-up that ends the sleep, and a little slack.
-            let wakeups = counts.wakeups.get();
-            assert!(wakeups <= 3, "{wakeups} timer wake-ups in a second while hidden");
+            let wake_ups = counts.wake_ups.get();
+            assert!(wake_ups <= 3, "{wake_ups} timer wake-ups in a second while hidden");
 
             counts.frames.set(0);
             app.show().unwrap();
