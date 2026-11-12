@@ -17,8 +17,96 @@
 #    include "esp_lcd_mipi_dsi.h"
 #endif
 #include "esp_log.h"
+#include "esp_timer.h"
+#if CONFIG_SLINT_LOG_FRAME_STATS
+#    include <atomic>
+#endif
 
 static const char *TAG = "slint_platform";
+
+#if CONFIG_SLINT_TRACING
+#    include <cstdio>
+#    include "esp_cpu.h"
+#    if SOC_USB_SERIAL_JTAG_SUPPORTED
+#        include "driver/usb_serial_jtag.h"
+#        include "driver/usb_serial_jtag_vfs.h"
+#    endif
+
+// The capture of api/cpp/trace.rs goes out through these.
+extern "C" uint32_t slint_esp_trace_cycles()
+{
+    return esp_cpu_get_cycle_count();
+}
+
+extern "C" uint32_t slint_esp_trace_core()
+{
+    return esp_cpu_get_core_id();
+}
+
+extern "C" void slint_esp_trace_write(const uint8_t *data, size_t len)
+{
+#    if SOC_USB_SERIAL_JTAG_SUPPORTED
+    // Without the driver, the console drops output while the host isn't reading fast enough.
+    // The console switches to the driver as well, so its output doesn't bypass the driver's buffer.
+    if (!usb_serial_jtag_is_driver_installed()) {
+        usb_serial_jtag_driver_config_t config = {};
+        config.tx_buffer_size = 8192;
+        config.rx_buffer_size = 256;
+        if (usb_serial_jtag_driver_install(&config) == ESP_OK) {
+            usb_serial_jtag_vfs_use_driver();
+        }
+    }
+    if (usb_serial_jtag_is_driver_installed()) {
+        while (len > 0) {
+            const int written = usb_serial_jtag_write_bytes(data, len, portMAX_DELAY);
+            if (written <= 0) {
+                return;
+            }
+            data += written;
+            len -= written;
+        }
+        return;
+    }
+#    endif
+    fwrite(data, 1, len, stdout);
+    fflush(stdout);
+}
+
+using SlintTraceSite = slint::cbindgen_private::TraceSite;
+
+struct SlintTraceSpan
+{
+    SlintTraceSite *site;
+    explicit SlintTraceSpan(SlintTraceSite *site) : site(site)
+    {
+        slint::cbindgen_private::slint_trace_enter(site);
+    }
+    ~SlintTraceSpan() { slint::cbindgen_private::slint_trace_exit(site); }
+};
+
+#    define SLINT_TRACE_CONCAT_(a, b) a##b
+#    define SLINT_TRACE_CONCAT(a, b) SLINT_TRACE_CONCAT_(a, b)
+// Records a span from here to the end of the scope, shown in Tracy next to the Rust spans.
+#    define SLINT_TRACE_SPAN(name)                                                                 \
+        static SlintTraceSite SLINT_TRACE_CONCAT(slint_trace_site_, __LINE__) { name, false };     \
+        SlintTraceSpan SLINT_TRACE_CONCAT(slint_trace_span_, __LINE__)(                            \
+                &SLINT_TRACE_CONCAT(slint_trace_site_, __LINE__))
+// Records a field of the next SLINT_TRACE_SPAN.
+#    define SLINT_TRACE_FIELD(name, value)                                                         \
+        do {                                                                                       \
+            static SlintTraceSite site { name, false };                                            \
+            slint::cbindgen_private::slint_trace_field(&site, int64_t(value));                     \
+        } while (0)
+#    define SLINT_TRACE_EVENT(name)                                                                \
+        do {                                                                                       \
+            static SlintTraceSite site { name, false };                                            \
+            slint::cbindgen_private::slint_trace_event(&site);                                     \
+        } while (0)
+#else
+#    define SLINT_TRACE_SPAN(name)
+#    define SLINT_TRACE_FIELD(name, value)
+#    define SLINT_TRACE_EVENT(name)
+#endif
 
 using RepaintBufferType = slint::platform::SoftwareRenderer::RepaintBufferType;
 
@@ -247,11 +335,37 @@ void EspPlatform<PixelType>::run_event_loop()
                               const void *color_data) {
 #if SOC_MIPI_DSI_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
         if (sem_dpi_draw_done) {
+            SLINT_TRACE_SPAN("wait_dpi_draw_done");
             xSemaphoreTake(sem_dpi_draw_done, portMAX_DELAY);
         }
 #endif
+        SLINT_TRACE_FIELD("px", (x_end - x_start) * (y_end - y_start));
+        SLINT_TRACE_SPAN("draw_bitmap");
         esp_lcd_panel_draw_bitmap(panel_handle, x_start, y_start, x_end, y_end, color_data);
     };
+
+#if CONFIG_SLINT_LOG_FRAME_STATS
+    int64_t stats_start_us = esp_timer_get_time();
+    int64_t stats_frame_us = 0;
+    uint32_t stats_frames = 0;
+    std::atomic<int64_t> stats_record_us = 0;
+    auto count_frame = [&](int64_t frame_start_us) {
+        stats_frame_us += esp_timer_get_time() - frame_start_us;
+        stats_frames++;
+        if (const int64_t now_us = esp_timer_get_time(); now_us - stats_start_us >= 1000000) {
+            ESP_LOGI(TAG,
+                     "%.1f frames per second, %.2f ms to render and present each, "
+                     "%.2f ms to record each, %s stack unused: %u bytes",
+                     stats_frames * 1e6 / (now_us - stats_start_us),
+                     stats_frame_us / 1000.0 / stats_frames,
+                     stats_record_us.exchange(0) / 1000.0 / stats_frames,
+                     pcTaskGetName(nullptr), unsigned(uxTaskGetStackHighWaterMark(nullptr)));
+            stats_start_us = now_us;
+            stats_frame_us = 0;
+            stats_frames = 0;
+        }
+    };
+#endif
 
     using slint::platform::SoftwareRenderer;
     auto rotated = rotation == SoftwareRenderer::RenderingRotation::Rotate90
@@ -269,12 +383,14 @@ void EspPlatform<PixelType>::run_event_loop()
         // event before rendering into the buffer the panel no longer scans out.
         if (sem_gui_ready) {
             xSemaphoreGive(sem_gui_ready);
+            SLINT_TRACE_SPAN("wait_vsync");
             xSemaphoreTake(sem_vsync_end, portMAX_DELAY);
         }
 #endif
         auto region = render(buffer1.value());
 
         if (byte_swap) {
+            SLINT_TRACE_SPAN("byte_swap");
             for (auto [o, s] : region.rectangles()) {
                 for (int y = o.y; y < o.y + s.height; y++) {
                     for (int x = o.x; x < o.x + s.width; x++) {
@@ -290,11 +406,15 @@ void EspPlatform<PixelType>::run_event_loop()
                 // Assuming that using double buffer means that the buffer comes from
                 // the driver and we need to pass the exact pointer.
                 // https://github.com/espressif/esp-idf/blob/53ff7d43dbff642d831a937b066ea0735a6aca24/components/esp_lcd/src/esp_lcd_panel_rgb.c#L681
-                draw_bitmap(0, 0, physical_width, physical_height, buffer1->data());
+                {
+                    SLINT_TRACE_SPAN("present_frame");
+                    draw_bitmap(0, 0, physical_width, physical_height, buffer1->data());
+                }
 #if SOC_MIPI_DSI_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
                 // The DPI driver switches scanout to buffer1 at the next refresh, so
                 // buffer2 stays on screen until then.
                 if (sem_dpi_refresh) {
+                    SLINT_TRACE_SPAN("wait_dpi_refresh");
                     wait_for_dpi_refresh();
                     waited_for_refresh = true;
                 }
@@ -303,6 +423,7 @@ void EspPlatform<PixelType>::run_event_loop()
                 std::swap(buffer1, buffer2);
             }
         } else {
+            SLINT_TRACE_SPAN("present_rectangles");
             for (auto [o, s] : region.rectangles()) {
                 for (int y = o.y; y < o.y + s.height; y++) {
                     draw_bitmap(o.x, y, o.x + s.width, y + 1, buffer1->data() + y * stride + o.x);
@@ -322,11 +443,23 @@ void EspPlatform<PixelType>::run_event_loop()
     SemaphoreHandle_t frame_presented = xSemaphoreCreateBinary();
     xSemaphoreGive(frame_presented);
     auto raster_task = [&] {
+#    if CONFIG_SLINT_TRACING
+        slint::cbindgen_private::slint_trace_register_core();
+#    endif
         while (true) {
             xSemaphoreTake(frame_recorded, portMAX_DELAY);
-            render_and_present([&](std::span<PixelType> buffer) {
-                return recorded->rasterize(buffer, stride);
-            });
+            {
+                SLINT_TRACE_SPAN("redraw");
+#    if CONFIG_SLINT_LOG_FRAME_STATS
+                const int64_t frame_start_us = esp_timer_get_time();
+#    endif
+                render_and_present([&](std::span<PixelType> buffer) {
+                    return recorded->rasterize(buffer, stride);
+                });
+#    if CONFIG_SLINT_LOG_FRAME_STATS
+                count_frame(frame_start_us);
+#    endif
+            }
             xSemaphoreGive(frame_presented);
         }
     };
@@ -403,8 +536,22 @@ void EspPlatform<PixelType>::run_event_loop()
             [[maybe_unused]] bool waited_for_refresh = false;
 #if CONFIG_SLINT_RENDER_PIPELINE
             if (pipeline && std::exchange(m_window->needs_redraw, false)) {
-                auto frame = m_window->m_renderer.record_frame(stride, num_lines);
-                xSemaphoreTake(frame_presented, portMAX_DELAY);
+                // Tracy's importer turns events with "frame" in their name into frame marks.
+                SLINT_TRACE_EVENT("frame");
+#    if CONFIG_SLINT_LOG_FRAME_STATS
+                const int64_t record_start_us = esp_timer_get_time();
+#    endif
+                auto frame = [&] {
+                    SLINT_TRACE_SPAN("record");
+                    return m_window->m_renderer.record_frame(stride, num_lines);
+                }();
+#    if CONFIG_SLINT_LOG_FRAME_STATS
+                stats_record_us += esp_timer_get_time() - record_start_us;
+#    endif
+                {
+                    SLINT_TRACE_SPAN("wait_render_core");
+                    xSemaphoreTake(frame_presented, portMAX_DELAY);
+                }
                 recorded.emplace(std::move(frame));
                 xSemaphoreGive(frame_recorded);
                 // Presenting the previous frame waited for the refresh.
@@ -412,11 +559,24 @@ void EspPlatform<PixelType>::run_event_loop()
             }
 #endif
             if (std::exchange(m_window->needs_redraw, false)) {
+                // Tracy's importer turns events with "frame" in their name into frame marks.
+                SLINT_TRACE_EVENT("frame");
                 if (buffer1) {
+                    SLINT_TRACE_SPAN("redraw");
+#if CONFIG_SLINT_LOG_FRAME_STATS
+                    const int64_t frame_start_us = esp_timer_get_time();
+#endif
                     waited_for_refresh = render_and_present([&](std::span<PixelType> buffer) {
                         return m_window->m_renderer.render(buffer, stride);
                     });
+#if CONFIG_SLINT_LOG_FRAME_STATS
+                    count_frame(frame_start_us);
+#endif
                 } else {
+                    SLINT_TRACE_SPAN("redraw");
+#if CONFIG_SLINT_LOG_FRAME_STATS
+                    const int64_t frame_start_us = esp_timer_get_time();
+#endif
                     // esp_lcd_panel_draw_bitmap is "async" so we have two buffers, one in which we
                     // render, and one which is being transmitted with a DMA transfer in parallel.
                     // On MIPI-DSI DPI panels draw_bitmap() above waits for the previous transfer to
@@ -457,6 +617,9 @@ void EspPlatform<PixelType>::run_event_loop()
                         xSemaphoreGive(sem_dpi_draw_done);
                     }
 #endif
+#if CONFIG_SLINT_LOG_FRAME_STATS
+                    count_frame(frame_start_us);
+#endif
                 }
             }
 
@@ -468,8 +631,11 @@ void EspPlatform<PixelType>::run_event_loop()
                 if (sem_dpi_refresh && !waited_for_refresh) {
 #    if CONFIG_SLINT_RENDER_PIPELINE
                     // Don't take the refresh from the raster task.
-                    xSemaphoreTake(frame_presented, portMAX_DELAY);
-                    xSemaphoreGive(frame_presented);
+                    {
+                        SLINT_TRACE_SPAN("wait_render_core");
+                        xSemaphoreTake(frame_presented, portMAX_DELAY);
+                        xSemaphoreGive(frame_presented);
+                    }
 #    endif
                     wait_for_dpi_refresh();
                 }

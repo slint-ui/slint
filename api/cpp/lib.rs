@@ -19,6 +19,8 @@ use i_slint_core::window::{
 };
 
 pub mod platform;
+#[cfg(all(feature = "tracing", target_os = "espidf"))]
+mod trace;
 
 #[cfg(all(target_os = "emscripten", feature = "std"))]
 mod emscripten;
