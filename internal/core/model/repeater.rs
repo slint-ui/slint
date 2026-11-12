@@ -24,6 +24,7 @@ use core::pin::Pin;
 #[allow(unused)]
 use euclid::num::Floor;
 use pin_project::pin_project;
+use std::println;
 
 mod scroll;
 
@@ -528,6 +529,9 @@ fn update_visible_instances(
     let listview_height = listview_height.get();
     let snap_mode = flickable.map_or(SnapMode::None, |f| f.snap_mode());
 
+    // content-y is the position of the items. So with snapping.center content-y 0
+    // is at the center of the viewport
+
     if row_count == 0 {
         *scroll_to_row = None;
         ops.clear();
@@ -716,6 +720,7 @@ fn update_visible_instances(
         let mut y = new_offset_y + snap_offset;
         let mut idx = new_row;
         let instances_begin = new_row - first_row;
+        // Create instances from the current element to the end
         for i in instances_begin..ops.len() {
             if idx >= row_count {
                 break;
