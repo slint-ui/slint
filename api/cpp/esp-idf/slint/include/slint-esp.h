@@ -92,6 +92,12 @@ struct SlintPlatformConfiguration
     /// The type of LCD peripheral that drives the panel. Only set this on chips that support
     /// several peripherals, such as the ESP32-P4.
     SlintDisplayPanelType panel_type = SlintDisplayPanelType::Auto;
+    /// Align the areas sent to the display to multiples of this size, in physical pixels.
+    /// Set it for panel controllers whose drawing window must start and end on aligned
+    /// coordinates, such as `{ 2, 2 }` for controllers that require even coordinates.
+    /// The screen size, after rotation, must be a multiple of the alignment.
+    /// Without `buffer1`, only the horizontal alignment is applied.
+    slint::PhysicalSize dirty_region_alignment = slint::PhysicalSize({ 1, 1 });
 };
 
 template<typename... Args>
