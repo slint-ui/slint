@@ -246,6 +246,8 @@ impl PlatformTray {
             );
         }
 
+        status_item.setVisible(params.visible);
+
         let tray = Self { status_item, action_target, appearance_observer: observer, mtm };
         if let Some((menu, entries_out)) = params.menu {
             tray.rebuild_menu(menu, entries_out);
