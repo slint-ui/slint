@@ -15,7 +15,7 @@ use core::time::Duration;
 /// and an overdamped one takes long to settle.
 #[derive(Debug)]
 pub struct SpringFlick {
-    limit_value: core::pin::Pin<alloc::boxed::Box<crate::Property<f32>>>,
+    limit_value: f32,
     start_time: Instant,
     traveled: f32,
     regime: SpringRegime,
@@ -25,17 +25,13 @@ pub struct SpringFlick {
 }
 
 impl SpringFlick {
-    pub fn new(
-        deflection: f32,
-        limit_value: core::pin::Pin<alloc::boxed::Box<crate::Property<f32>>>,
-        parameters: SpringPhysicalParameters,
-    ) -> Self {
+    pub fn new(deflection: f32, limit_value: f32, parameters: SpringPhysicalParameters) -> Self {
         Self::new_internal(deflection, limit_value, parameters, crate::animations::current_tick())
     }
 
     fn new_internal(
         deflection: f32,
-        limit_value: core::pin::Pin<alloc::boxed::Box<crate::Property<f32>>>,
+        limit_value: f32,
         parameters: SpringPhysicalParameters,
         start_time: Instant,
     ) -> Self {
@@ -79,7 +75,7 @@ impl Simulation for SpringFlick {
         *current += position - self.traveled;
         self.traveled = position;
 
-        let limit = self.limit_value.as_ref().get();
+        let limit = self.limit_value;
         let clamped = match self.direction {
             Direction::Increasing => *current >= limit,
             Direction::Decreasing => *current <= limit,
@@ -100,19 +96,27 @@ impl PositionSimulation for SpringFlick {
     fn remaining_velocity(&self, now: Instant) -> f32 {
         self.sample(now.duration_since(self.start_time)).1
     }
+
+    fn direction(&self) -> Option<Direction> {
+        Some(self.direction)
+    }
+
+    fn update_limit(&mut self, limit_value: f32) {
+        self.limit_value = limit_value;
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::animations::simulations::{assert_approx_eq, test_limit_property};
+    use crate::animations::simulations::assert_approx_eq;
 
     const STIFFNESS: f32 = 1500.;
 
     fn spring_flick(deflection: f32, limit: f32, start: Instant) -> SpringFlick {
         SpringFlick::new_internal(
             deflection,
-            test_limit_property(limit),
+            limit,
             SpringPhysicalParameters::new_critical_damped(STIFFNESS),
             start,
         )
