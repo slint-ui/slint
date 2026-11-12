@@ -1,12 +1,18 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+set(slint_priv_requires)
+if (IDF_TARGET STREQUAL "esp32p4")
+    # Only the ESP32-P4 has a PPA, and ESP-IDF has a PPA driver since 5.3.
+    list(APPEND slint_priv_requires "esp_driver_ppa" "esp_mm")
+endif()
+
 idf_component_register(
     SRCS "src/slint-esp.cpp"
     INCLUDE_DIRS "include"
     REQUIRES "esp_lcd" "esp_lcd_touch" "esp_timer"
     # The tracing capture is sent through this driver, see api/cpp/trace.rs.
-    PRIV_REQUIRES "esp_driver_usb_serial_jtag")
+    PRIV_REQUIRES ${slint_priv_requires} "esp_driver_usb_serial_jtag")
 
 list(PREPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
