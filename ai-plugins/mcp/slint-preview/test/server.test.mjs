@@ -281,7 +281,7 @@ async function startPreview(args) {
     const previewId = checked.structuredContent.previewId;
     const result = await callTool("publish_preview", { previewId });
     assert.equal(result._meta["slint/previewId"], previewId);
-    assert.match(result.content[0].text, /browser rendering is unverified/);
+    assert.match(result.content[0].text, /Use the screenshot returned by check_slint/);
     return previewId;
 }
 
