@@ -387,6 +387,7 @@ fn add_child_edit(
             template.label_property,
             format!("\"{} {}\"", template.label_prefix, child_count + 1),
         )],
+        default_size: Vec::new(),
     };
     preview::drop_location::create_drop_element_workspace_edit(&document_cache, &child, &drop_info)
 }
