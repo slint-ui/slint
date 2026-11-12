@@ -3391,13 +3391,15 @@ mod tests {
         update_listview();
         assert_eq!(state(&repeater).0, [Clean(0), Clean(1), Clean(2)]);
 
-        content_y.as_ref().set(LogicalLength::new(-ITEM_HEIGHT * 5 as Coord));
+        content_y.as_ref().set(LogicalLength::new(-ITEM_HEIGHT * 5 as Coord)); // Scroll down
         update_listview();
         // Scrolled by 5 rows
         // 3 and 4 are kept
         assert_eq!(state(&repeater).0, [Clean(3), Clean(4), Clean(5), Clean(6), Clean(7)]);
+        assert_eq!(state(&repeater).1.row, 5, "We scrolled to row 6 (index 5)");
 
-        content_y.as_ref().set(LogicalLength::new(ITEM_HEIGHT * 3 as Coord));
+        content_y.as_ref().set(LogicalLength::new(ITEM_HEIGHT * 3 as Coord)); // Scroll up
+        update_listview();
 
         assert_eq!(
             state(&repeater).0,
