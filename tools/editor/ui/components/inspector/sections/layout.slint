@@ -23,6 +23,7 @@ export component InspectorLayoutSection inherits InspectorSection {
                     && self.layout-value.value-resolved
                     && self.layout-value.visual-items[self.layout-value.value-int] == "px");
             accessible-name: name == "padding" ? @tr("Layout padding") : @tr("Layout spacing");
+            prefix: "px";
             value: self.numeric-value ? "\{self.editor-value.value-float}" : self.layout-value.code;
             commit-key: InspectorContext.inspector-key;
             scrubbable: self.numeric-value;
