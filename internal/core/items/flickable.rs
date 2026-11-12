@@ -24,7 +24,7 @@ use crate::input::{
 use crate::input::{InternalKeyEvent, TouchHistory};
 use crate::item_rendering::CachedRenderingData;
 use crate::item_tree::ItemWeak;
-use crate::items::ScrollBehavior;
+use crate::items::{ScrollBehavior, SnapMode};
 #[cfg(not(any(
     target_os = "ios",
     target_os = "linux",
@@ -116,6 +116,7 @@ pub struct Flickable {
     pub content_y: Property<LogicalLength>,
     pub content_width: Property<LogicalLength>,
     pub content_height: Property<LogicalLength>,
+    pub snap_mode: Property<SnapMode>,
 
     pub interactive: Property<bool>,
     pub mouse_drag_pan_enabled: Property<bool>,
