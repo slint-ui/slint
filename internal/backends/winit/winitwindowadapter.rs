@@ -1330,7 +1330,7 @@ impl WinitWindowAdapter {
         // (rust-windowing/winit#4071).
         // The user can't zoom a window that lacks either, so the last requested state is accurate.
         #[cfg(target_os = "macos")]
-        let maximized = if crate::macos::ns_view(&winit_window)
+        let maximized = if crate::macos::ns_view(winit_window.as_ref())
             .and_then(|view| view.window())
             .is_some_and(|ns_window| {
                 use objc2_app_kit::NSWindowStyleMask;
