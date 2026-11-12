@@ -1467,8 +1467,8 @@ fn constraint_reads_own_geometry(nr: &NamedReference) -> bool {
 }
 
 /// Cross-axis variant of [`visit_implicit_layout_info_dependencies`]: only
-/// declare deps that actually exist on the cross-axis path. Image/Text and
-/// other h-for-w builtins receive the cross-axis size via the item VTable's
+/// declare deps that actually exist on the cross-axis path. Elements based on
+/// text or image items receive the cross-axis size via the item VTable's
 /// `cross_axis_constraint`, so they don't read `self.{w,h}` here. For other
 /// items, the native `ImplicitLayoutInfo` reads `preferred-{w,h}` — declare
 /// it when the user has bound it to read the opposite-axis dim on the same
@@ -1479,9 +1479,11 @@ fn visit_cell_cross_axis_implicit_dependency(
     item: &ElementRc,
     vis: &mut impl FnMut(&PropertyPath, ReadType),
 ) {
-    if item.borrow().builtin_type().is_some_and(|b| {
-        matches!(b.name.as_str(), "Image" | "ClippedImage" | "Text" | "TextInput" | "StyledText")
-    }) {
+    if item
+        .borrow()
+        .builtin_type()
+        .is_some_and(|b| matches!(b.name.as_str(), "Image" | "Text" | "TextInput" | "StyledText"))
+    {
         return;
     }
     let (prop, opposite_dim) = match cross_axis {
