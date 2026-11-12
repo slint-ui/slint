@@ -71,10 +71,10 @@ Run `cargo xtask --help` for the full list.
 
 ### `ai-plugins`
 
-The plugin bundles [slint-plugin](../ai-plugins/skills/slint-plugin/SKILL.md), which explains its documentation, preview, and screenshot workflows.
-The general [slint](../ai-plugins/standalone/skills/slint/SKILL.md) skill works with or without the plugin and is installed separately.
-It lives outside the plugin's `skills/` directory, so plugin hosts don't load it automatically.
-`skills.sh.json` includes its directory in standalone skill discovery.
+The plugin includes two skills in `skills/`, available automatically to plugin hosts:
+[slint-plugin](../ai-plugins/skills/slint-plugin/SKILL.md) explains its documentation, preview, and screenshot workflows.
+The general [slint](../ai-plugins/skills/slint/SKILL.md) skill covers development and works with or without the plugin.
+It remains at its existing path and can also be installed independently.
 Each assistant reads its own manifest: `.claude-plugin/`, `.codex-plugin/`, `.cursor-plugin/`, and, for
 Antigravity, `plugin.json` and `mcp_config.json` at the `ai-plugins` root.
 `mcp/slint-preview` is an MCP App that shows `.slint` source as a live preview in the conversation.

@@ -5,9 +5,8 @@ description: Install the Slint skill for Claude Code, Codex, Cursor, and other A
 
 import { Tabs, TabItem } from '@astrojs/starlight/components';
 
-Use the Slint plugin for documentation and preview tools, with a bundled skill explaining how to use them.
-Install the general `slint` skill separately for language, layout, and host-integration guidance.
-The general skill works with or without the plugin.
+The Slint plugin bundles two skills: `slint-plugin` for its documentation and preview tools, and `slint` for general development guidance.
+The general `slint` skill works with or without the plugin and can also be installed independently.
 
 The plugin and skills are available from the [slint-ui/ai-plugins](https://github.com/slint-ui/ai-plugins) repository.
 
@@ -20,7 +19,7 @@ The plugin and skills are available from the [slint-ui/ai-plugins](https://githu
   /plugin install slint@slint
   ```
 
-  Claude Code can then use the bundled `slint-plugin` skill when working with Slint projects.
+  Claude Code can then use both bundled skills when working with Slint projects.
   </TabItem>
   <TabItem label="Codex">
   Install the plugin from GitHub:
@@ -69,7 +68,7 @@ The plugin and skills are available from the [slint-ui/ai-plugins](https://githu
 ## What Your Assistant Can Do
 
 The plugin-use skill guides documentation lookup, previews, and displaying screenshots in the current host.
-The separately installed general skill helps with `.slint` code and integration with Rust, C++, JavaScript, or Python.
+The general skill helps with `.slint` code and integration with Rust, C++, JavaScript, or Python.
 
 For application debugging, the general skill includes guidance for the Model Context Protocol (MCP) server embedded in your running Slint application.
 Once connected, the assistant can inspect the UI through its accessibility tree, drive it with mouse, touch, and keyboard input, and capture screenshots to check the result — built on Slint's existing accessibility and testing APIs, with no debugging hooks in your application.
