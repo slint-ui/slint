@@ -13,7 +13,7 @@ use super::model_peer::{ModelChangeListener, ModelChangeListenerContainer};
 use super::{Model, ModelExt, ModelRc};
 use crate::api::LogicalPosition;
 use crate::item_tree::{ItemTreeVTable, TraversalOrder};
-use crate::items::{Flickable, ItemRc, ScrollBehavior};
+use crate::items::{Flickable, ItemRc, ScrollBehavior, SnapMode};
 use crate::layout::Orientation;
 use crate::lengths::{LogicalLength, RectLengths};
 use crate::model::repeater::scroll::accelerate_jump_decelerate::AccelerateJumpDecelerate;
@@ -518,6 +518,7 @@ fn update_visible_instances(
     scroll_to_row: &mut Option<scroll::ScrollToRowRequest>,
     row_count: usize,
     props: &dyn ListViewProperties,
+    flickable: Option<Pin<&Flickable>>,
     listview_width: LogicalLength,
     listview_height: LogicalLength,
 ) -> bool {
@@ -593,7 +594,11 @@ fn update_visible_instances(
     // The current item is the row at `snap_line` in the viewport.
     // Its point at `snap_fraction` of its height, the top, center, or bottom,
     // is at `snap_line + anchor_y + content-y`, so `content-y` 0 snaps row 0.
-    let (snap_line, snap_fraction) = (0 as Coord, 0 as Coord);
+    let (snap_line, snap_fraction) = match flickable.map_or(SnapMode::None, |f| f.snap_mode()) {
+        SnapMode::None | SnapMode::Start => (0 as Coord, 0 as Coord),
+        SnapMode::Center => (listview_height / 2 as Coord, 0.5 as Coord),
+        SnapMode::End => (listview_height, 1 as Coord),
+    };
 
     // The row to seek to, its edge, and its distance beyond that edge of the viewport.
     let seek = scroll_to_row.as_ref().and_then(|request| match (&request.animation, jump) {
@@ -742,6 +747,18 @@ fn update_visible_instances(
         // The physics animation implements intercept_set, and is therefore not interrupted by
         // a call to set() - so it's okay to just use a normal set here.
         props.content_y_set(LogicalLength::new(new_content_y));
+    }
+
+    if let Some(flickable) = flickable
+        && !flickable.flicking_ongoing()
+    {
+        if let Some(limit) = flickable.simulation_flick_limit_y() {
+            // The content height changed, so the running fling has a new limit.
+            // TODO: adjust the deceleration to reach the limit smoothly
+            flickable.update_simulation_limit_y(limit);
+        } else {
+            // TODO: animate to the snap position
+        }
     }
 
     if let Some(request) = scroll_to_row.take() {
@@ -1251,6 +1268,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
     pub fn ensure_updated_listview(
         self: Pin<&Self>,
         init: impl Fn() -> ItemTreeRc<C>,
+        flickable: Option<Pin<&Flickable>>,
         content_width: Option<Pin<&Property<LogicalLength>>>,
         content_height: Option<Pin<&Property<LogicalLength>>>,
         content_y: Pin<&Property<LogicalLength>>,
@@ -1258,7 +1276,13 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         listview_height: Pin<&Property<LogicalLength>>,
     ) -> bool {
         let props = TypedListViewProps { content_width, content_height, content_y };
-        self.ensure_updated_listview_callback(init, &props, listview_width, listview_height.get())
+        self.ensure_updated_listview_callback(
+            init,
+            &props,
+            flickable,
+            listview_width,
+            listview_height.get(),
+        )
     }
 
     /// Trait-based variant of [`Self::ensure_updated_listview`] for runtime
@@ -1270,6 +1294,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         self: Pin<&Self>,
         init: impl Fn() -> ItemTreeRc<C>,
         props: &dyn ListViewProperties,
+        flickable: Option<Pin<&Flickable>>,
         listview_width: LogicalLength,
         listview_height: LogicalLength,
     ) -> bool {
@@ -1292,6 +1317,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
             &mut scroll_to_row,
             row_count,
             props,
+            flickable,
             listview_width,
             listview_height,
         );
@@ -1808,6 +1834,7 @@ mod ffi {
         state: *mut RepeaterLayoutState,
         scroll_to_row: *mut ScrollToRowRequestOpaque,
         row_count: usize,
+        flickable: Option<Pin<&Flickable>>,
         content_width: Option<Pin<&Property<LogicalLength>>>,
         content_height: Option<Pin<&Property<LogicalLength>>>,
         content_y: Pin<&Property<LogicalLength>>,
@@ -1831,6 +1858,7 @@ mod ffi {
             &mut request,
             row_count,
             &props,
+            flickable,
             listview_width,
             listview_height,
         );
