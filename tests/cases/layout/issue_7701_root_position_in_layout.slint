@@ -1,0 +1,88 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The layout positions a component whose root sets `x` and `y`,
+// whether or not the component gets inlined (a child forces inlining).
+// A two-way binding on the root follows the layout's value.
+
+component Positioned inherits Rectangle {
+    x: 3px;
+    y: 7px;
+}
+
+component TwoWay inherits Rectangle {
+    in-out property <length> px: 3px;
+    in-out property <length> py: 7px;
+    x <=> px;
+    y <=> py;
+}
+
+component StateY inherits Rectangle {
+    states [
+        moved when true: { y: 7px; }
+    ]
+}
+
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+
+    GridLayout {
+        padding: 10px;
+        g-plain := Positioned { }
+    }
+    GridLayout {
+        padding: 20px;
+        g-inlined := Positioned { Rectangle { } }
+    }
+    VerticalLayout {
+        padding: 30px;
+        v-plain := Positioned { }
+    }
+    VerticalLayout {
+        padding: 40px;
+        v-inlined := Positioned { Rectangle { } }
+    }
+    VerticalLayout {
+        padding: 10px;
+        t-plain := TwoWay { }
+    }
+    VerticalLayout {
+        padding: 20px;
+        t-inlined := TwoWay { Rectangle { } }
+    }
+    VerticalLayout {
+        padding: 30px;
+        s-plain := StateY { }
+    }
+    VerticalLayout {
+        padding: 40px;
+        s-inlined := StateY { Rectangle { } }
+    }
+
+    out property <bool> test: g-plain.x == 10px && g-plain.y == 10px
+        && g-inlined.x == 20px && g-inlined.y == 20px
+        && v-plain.x == 30px && v-plain.y == 30px
+        && v-inlined.x == 40px && v-inlined.y == 40px
+        && t-plain.px == 10px && t-plain.py == 10px
+        && t-inlined.px == 20px && t-inlined.py == 20px
+        && s-plain.y == 30px && s-inlined.y == 40px;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+```
+*/

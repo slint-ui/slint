@@ -134,7 +134,6 @@ path = [
   "internal/core-macros/link-data.json",
   "internal/**.md",
   "package.json",
-  "ai-plugins/hooks/package.json",
   "ai-plugins/mcp/slint-preview/package.json",
   "ai-plugins/mcp/slint-preview/channel.json",
   "pnpm-lock.yaml",
@@ -243,7 +242,6 @@ path = [
   "ai-plugins/*.json",
   "ai-plugins/.claude-plugin/*.json",
   "ai-plugins/.codex-plugin/*.json",
-  "ai-plugins/hooks/codex.json",
   "ai-plugins/.cursor-plugin/*.json",
   "ai-plugins/**/*.md",
 ]
@@ -736,6 +734,8 @@ SPDX-License-Identifier = "ISC"
 
 [[annotations]]
 path = [
+  "tools/editor/ui/assets/lucide/arrow-up.svg",
+  "tools/editor/ui/assets/lucide/moon.svg",
   "tools/editor/ui/assets/lucide/check.svg",
   "tools/editor/ui/assets/lucide/chevron-down.svg",
   "tools/editor/ui/assets/lucide/monitor.svg",

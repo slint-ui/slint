@@ -1382,7 +1382,8 @@ pub struct Element {
     /// True when this element is in a component was declared with the `:=` symbol instead of the `component` keyword
     pub is_legacy_syntax: bool,
 
-    /// How many times the element was inlined
+    /// How deep the element was inlined. Its own bindings have a
+    /// [`BindingExpression::priority`] of `1 + inline_depth`.
     pub inline_depth: i32,
 
     /// If this element is assigned to a specific slot in its parent component (e.g., `name << ...`)
