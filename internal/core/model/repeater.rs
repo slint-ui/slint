@@ -13,7 +13,7 @@ use super::model_peer::{ModelChangeListener, ModelChangeListenerContainer};
 use super::{Model, ModelExt, ModelRc};
 use crate::api::LogicalPosition;
 use crate::item_tree::{ItemTreeVTable, TraversalOrder};
-use crate::items::{Flickable, ItemRc, ScrollBehavior};
+use crate::items::{Flickable, ItemRc, ScrollBehavior, SnapMode};
 use crate::layout::Orientation;
 use crate::lengths::{LogicalLength, RectLengths};
 use crate::model::repeater::scroll::accelerate_jump_decelerate::AccelerateJumpDecelerate;
@@ -519,12 +519,14 @@ fn update_visible_instances(
     scroll_to_row: &mut Option<scroll::ScrollToRowRequest>,
     row_count: usize,
     props: &dyn ListViewProperties,
+    flickable: Option<Pin<&Flickable>>,
     listview_width: LogicalLength,
     listview_height: LogicalLength,
 ) -> bool {
     let zero = LogicalLength::default();
     let mut content_width_value = listview_width.get();
     let listview_height = listview_height.get();
+    let snap_mode = flickable.map_or(SnapMode::None, |f| f.snap_mode());
 
     if row_count == 0 {
         *scroll_to_row = None;
@@ -706,7 +708,12 @@ fn update_visible_instances(
         debug_assert!(new_row >= first_row && new_row <= first_row + ops.len());
 
         // Layout items until we fill the view, starting with already-instantiated ones.
-        let mut y = new_offset_y;
+        let snap_offset = match snap_mode {
+            SnapMode::None | SnapMode::Start => 0 as Coord,
+            SnapMode::Center => listview_height / 2 as Coord,
+            SnapMode::End => listview_height,
+        };
+        let mut y = new_offset_y + snap_offset;
         let mut idx = new_row;
         let instances_begin = new_row - first_row;
         for i in instances_begin..ops.len() {
@@ -714,6 +721,14 @@ fn update_visible_instances(
                 break;
             }
             changed |= ops.ensure_updated(i, idx);
+            if i == instances_begin {
+                let height = ops.height(i).unwrap_or(0 as Coord);
+                match snap_mode {
+                    SnapMode::Center => y -= height / 2 as Coord,
+                    SnapMode::End => y -= height,
+                    SnapMode::None | SnapMode::Start => (),
+                }
+            }
             let top = y;
             content_width_value = content_width_value.max(ops.listview_layout(i, &mut y));
             if target_row == Some(idx) {
@@ -798,6 +813,19 @@ fn update_visible_instances(
             // a call to set() - so it's okay to just use a normal set here.
             props.content_y_set(LogicalLength::new(new_content_y));
         }
+
+        if let Some(flickable) = flickable
+            && !flickable.flicking_ongoing()
+        {
+            if let Some(limit) = flickable.simulation_flick_limit_y() {
+                // The content height changed, so the running fling has a new limit.
+                // TODO: adjust the deceleration to reach the limit smoothly
+                flickable.update_simulation_limit_y(limit);
+            } else {
+                // TODO: animate to the snap position
+            }
+        }
+
         state.previous_content_y = new_content_y;
 
         if let Some(request) = scroll_to_row.take() {
@@ -1294,6 +1322,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
     pub fn ensure_updated_listview(
         self: Pin<&Self>,
         init: impl Fn() -> ItemTreeRc<C>,
+        flickable: Option<Pin<&Flickable>>,
         content_width: Option<Pin<&Property<LogicalLength>>>,
         content_height: Option<Pin<&Property<LogicalLength>>>,
         content_y: Pin<&Property<LogicalLength>>,
@@ -1301,7 +1330,13 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         listview_height: Pin<&Property<LogicalLength>>,
     ) -> bool {
         let props = TypedListViewProps { content_width, content_height, content_y };
-        self.ensure_updated_listview_callback(init, &props, listview_width, listview_height.get())
+        self.ensure_updated_listview_callback(
+            init,
+            &props,
+            flickable,
+            listview_width,
+            listview_height.get(),
+        )
     }
 
     /// Trait-based variant of [`Self::ensure_updated_listview`] for runtime
@@ -1313,6 +1348,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         self: Pin<&Self>,
         init: impl Fn() -> ItemTreeRc<C>,
         props: &dyn ListViewProperties,
+        flickable: Option<Pin<&Flickable>>,
         listview_width: LogicalLength,
         listview_height: LogicalLength,
     ) -> bool {
@@ -1335,6 +1371,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
             &mut scroll_to_row,
             row_count,
             props,
+            flickable,
             listview_width,
             listview_height,
         );
@@ -1851,6 +1888,7 @@ mod ffi {
         state: *mut RepeaterLayoutState,
         scroll_to_row: *mut ScrollToRowRequestOpaque,
         row_count: usize,
+        flickable: Option<Pin<&Flickable>>,
         content_width: Option<Pin<&Property<LogicalLength>>>,
         content_height: Option<Pin<&Property<LogicalLength>>>,
         content_y: Pin<&Property<LogicalLength>>,
@@ -1874,6 +1912,7 @@ mod ffi {
             &mut request,
             row_count,
             &props,
+            flickable,
             listview_width,
             listview_height,
         );
