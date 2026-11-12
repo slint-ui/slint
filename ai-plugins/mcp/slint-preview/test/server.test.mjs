@@ -38,6 +38,12 @@ function request(method, params) {
 const callTool = async (name, args) =>
     (await request("tools/call", { name, arguments: args })).result;
 
+async function captureRequestId(previewId) {
+    const poll = await callTool("poll_preview_capture", { previewId });
+    assert.ok(poll.structuredContent.captureId);
+    return poll.structuredContent.captureId;
+}
+
 before(async () => {
     server = spawn(process.execPath, [serverPath.pathname], {
         stdio: ["pipe", "pipe", "inherit"],
@@ -78,6 +84,7 @@ test("lists preview_slint with its view, and the view's own tools for the view o
     for (const name of [
         "read_slint_file",
         "read_binary_file",
+        "poll_preview_capture",
         "publish_preview_capture",
     ]) {
         const tool = result.tools.find((t) => t.name === name);
@@ -87,6 +94,10 @@ test("lists preview_slint with its view, and the view's own tools for the view o
         (t) => t.name === "get_preview_screenshot",
     );
     assert.equal(screenshot._meta, undefined);
+    assert.deepEqual(screenshot.inputSchema, {
+        type: "object",
+        properties: { previewId: { type: "string" } },
+    });
 });
 
 test("all tools declare their annotations", async () => {
@@ -302,9 +313,11 @@ test("gives every preview its own ID", async () => {
 test("returns the capture the view publishes for the latest preview", async () => {
     const previewId = await startPreview({ source: "export component A {}" });
     const screenshot = callTool("get_preview_screenshot", {});
-    await callTool("publish_preview_capture", { previewId, started: true });
+    await callTool("publish_preview_capture", { previewId, stage: "started" });
+    await callTool("publish_preview_capture", { previewId, stage: "ready" });
     await callTool("publish_preview_capture", {
         previewId,
+        captureId: await captureRequestId(previewId),
         png: "iVBORw0K",
         width: 320,
         height: 120,
@@ -322,9 +335,37 @@ test("returns the capture the view publishes for the latest preview", async () =
         `Screenshot of preview ${previewId}, rendered with Slint 1.19.0 (snapshot), 320×120 px.`,
     );
 
-    // A capture that already arrived is returned right away.
-    const again = await callTool("get_preview_screenshot", {});
-    assert.equal(again.content[0].type, "image");
+    const firstRefresh = callTool("get_preview_screenshot", {});
+    const secondRefresh = callTool("get_preview_screenshot", {});
+    const captureId = await captureRequestId(previewId);
+    await callTool("publish_preview_capture", { previewId, captureId, png: "ZnJlc2g=" });
+    for (const refreshed of await Promise.all([firstRefresh, secondRefresh])) {
+        assert.equal(refreshed.content[0].data, "ZnJlc2g=");
+    }
+    assert.deepEqual(
+        (await callTool("poll_preview_capture", { previewId })).structuredContent,
+        { active: true },
+    );
+});
+
+test("times out a fresh capture and ignores its late response", async () => {
+    const previewId = await startPreview({ source: "export component A {}" });
+    await callTool("publish_preview_capture", { previewId, stage: "ready" });
+    const screenshot = callTool("get_preview_screenshot", {});
+    const expiredCaptureId = await captureRequestId(previewId);
+    const timeout = await screenshot;
+    assert.equal(timeout.structuredContent.status, "timeout");
+    assert.equal(timeout.content[0].type, "text");
+
+    const retry = callTool("get_preview_screenshot", {});
+    const captureId = await captureRequestId(previewId);
+    assert.notEqual(captureId, expiredCaptureId);
+    const late = await callTool("publish_preview_capture", {
+        previewId, captureId: expiredCaptureId, png: "bGF0ZQ==",
+    });
+    assert.match(late.content[0].text, /no longer active/);
+    await callTool("publish_preview_capture", { previewId, captureId, png: "ZnJlc2g=" });
+    assert.equal((await retry).content[0].data, "ZnJlc2g=");
 });
 
 test("reports why a preview has no screenshot", async () => {
@@ -344,14 +385,17 @@ test("reports why a preview has no screenshot", async () => {
     assert.equal(isError, true);
 });
 
-test("a crash replaces a screenshot and cannot be overwritten by a late capture", async () => {
+test("reports a crash while a screenshot is pending and ignores a late capture", async () => {
     const previewId = await startPreview({ source: "export component A {}" });
-    await callTool("publish_preview_capture", { previewId, png: "iVBORw0K" });
+    await callTool("publish_preview_capture", { previewId, stage: "ready" });
+    const screenshot = callTool("get_preview_screenshot", {});
+    const captureId = await captureRequestId(previewId);
     await callTool("publish_preview_capture", {
         previewId,
         error: "The Slint interpreter crashed",
     });
-    for (const update of [{ stage: "capturing" }, { png: "iVBORw0K" }]) {
+    assert.equal((await screenshot).structuredContent.status, "error");
+    for (const update of [{ stage: "ready" }, { captureId, png: "iVBORw0K" }]) {
         await callTool("publish_preview_capture", { previewId, ...update });
         const result = await callTool("get_preview_screenshot", {});
         assert.equal(result.isError, true);
@@ -364,36 +408,106 @@ test("a crash replaces a screenshot and cannot be overwritten by a late capture"
     }
 });
 
-test("ignores a late capture of an earlier preview of the same file", async () => {
+test("captures multiple previews independently while defaulting to the latest opened preview", async () => {
+    // cspell:ignore Zmlyc Vmcm
     const args = { path: "/project/main.slint" };
-    const earlier = await startPreview(args);
-    await startPreview(args);
-    const result = await callTool("publish_preview_capture", {
-        previewId: earlier,
-        png: "iVBORw0K",
+    const firstPreviewId = await startPreview(args);
+    const firstScreenshot = callTool("get_preview_screenshot", {});
+    const latestPreviewId = await startPreview(args);
+    const screenshots = [
+        [firstPreviewId, "Zmlyc3Q=", firstScreenshot],
+        [latestPreviewId, "bGF0ZXN0", callTool("get_preview_screenshot", {})],
+    ];
+    for (const [previewId, png, screenshot] of screenshots) {
+        await callTool("publish_preview_capture", { previewId, stage: "ready" });
+        await callTool("publish_preview_capture", {
+            previewId, captureId: await captureRequestId(previewId), png,
+        });
+        const result = await screenshot;
+        assert.equal(result.structuredContent.previewId, previewId);
+        assert.equal(result.content[0].data, png);
+    }
+    const screenshot = callTool("get_preview_screenshot", { previewId: firstPreviewId });
+    await callTool("publish_preview_capture", {
+        previewId: firstPreviewId,
+        captureId: await captureRequestId(firstPreviewId),
+        png: "cmVmcmVzaA==",
     });
-    assert.match(result.content[0].text, /older preview/);
-    const { content } = await callTool("get_preview_screenshot", {});
-    assert.equal(content[0].type, "text");
+    assert.equal((await screenshot).content[0].data, "cmVmcmVzaA==");
 });
 
-test("returns a fallback when no view starts, then accepts a late view", async () => {
+test("rejects invalid preview IDs and reports unknown screenshot targets", async () => {
+    for (const name of ["get_preview_screenshot", "poll_preview_capture"]) {
+        for (const previewId of [null, 42, {}]) {
+            const result = await request("tools/call", { name, arguments: { previewId } });
+            assert.equal(result.error?.code, -32602);
+        }
+    }
+    const result = await callTool("get_preview_screenshot", { previewId: "unknown" });
+    assert.equal(result.isError, true);
+    assert.match(result.content[0].text, /unknown or inactive/);
+});
+
+test("evicts previews that stop polling and reactivates them without changing the default target", async () => {
+    const previewId = await startPreview({ source: "export component A {}" });
+    await callTool("poll_preview_capture", { previewId });
+    const latestPreviewId = await startPreview({ source: "export component B {}" });
+    await callTool("publish_preview_capture", { previewId: latestPreviewId, stage: "ready" });
+    const keepPolling = setInterval(() => {
+        callTool("poll_preview_capture", { previewId: latestPreviewId });
+    }, 500);
+    try {
+        await new Promise((resolve) => setTimeout(resolve, 6100));
+        const expired = await callTool("get_preview_screenshot", { previewId });
+        assert.equal(expired.isError, true);
+        assert.match(expired.content[0].text, /unknown or inactive/);
+        const late = await callTool("publish_preview_capture", { previewId, stage: "ready" });
+        assert.match(late.content[0].text, /unknown or inactive/);
+
+        assert.deepEqual(
+            (await callTool("poll_preview_capture", { previewId })).structuredContent,
+            { active: true },
+        );
+        for (const [args, expectedId] of [[{ previewId }, previewId], [{}, latestPreviewId]]) {
+            const screenshot = callTool("get_preview_screenshot", args);
+            await callTool("publish_preview_capture", {
+                previewId: expectedId,
+                captureId: await captureRequestId(expectedId),
+                png: "cmVzdW1lZA==",
+            });
+            const result = await screenshot;
+            assert.equal(result.structuredContent.previewId, expectedId);
+            assert.equal(result.content[0].data, "cmVzdW1lZA==");
+        }
+    } finally {
+        clearInterval(keepPolling);
+    }
+});
+
+test("asks the user to open the chat when startup is unconfirmed, then accepts a late view", async () => {
     const previewId = await startPreview({ source: "export component B {}" });
     const result = await callTool("get_preview_screenshot", {});
     assert.equal(result.isError, true);
-    assert.ok(result.content[0].text.includes("slint-viewer --screenshot"));
-    assert.ok(!result.content[0].text.includes("again"));
+    assert.equal(
+        result.content[0].text,
+        "The preview has not confirmed startup yet. " +
+        "It may be waiting for the user to open this chat. " +
+        "Ask the user to open the chat, then call `get_preview_screenshot` again for the existing preview.",
+    );
     const again = await callTool("get_preview_screenshot", {});
     assert.equal(again.isError, true);
 
-    await callTool("publish_preview_capture", { previewId, started: true });
-    await callTool("publish_preview_capture", { previewId, png: "iVBORw0K" });
-    assert.equal((await callTool("get_preview_screenshot", {})).structuredContent.status, "ready");
+    await callTool("publish_preview_capture", { previewId, stage: "started" });
+    const screenshot = callTool("get_preview_screenshot", {});
+    await callTool("publish_preview_capture", { previewId, stage: "ready" });
+    const captureId = await captureRequestId(previewId);
+    await callTool("publish_preview_capture", { previewId, captureId, png: "iVBORw0K" });
+    assert.equal((await screenshot).structuredContent.status, "ready");
 });
 
 test("reports the current stage and timings while rendering remains pending", async () => {
     const previewId = await startPreview({ source: "export component C {}" });
-    await callTool("publish_preview_capture", { previewId, started: true });
+    await callTool("publish_preview_capture", { previewId, stage: "started" });
     const screenshot = callTool("get_preview_screenshot", {});
     const stages = ["started", "reading", "loading", "compiling"];
     for (const stage of stages.slice(1)) {
@@ -412,15 +526,4 @@ test("reports the current stage and timings while rendering remains pending", as
     const timeout = await callTool("get_preview_screenshot", {});
     assert.equal(timeout.structuredContent.status, "timeout");
     assert.equal(timeout.structuredContent.stage, "compiling");
-});
-
-test("tells a waiting call that a newer preview replaced it", async () => {
-    const previewId = await startPreview({ source: "export component D {}" });
-    const screenshot = callTool("get_preview_screenshot", {});
-    await startPreview({ source: "export component E {}" });
-    const { content } = await screenshot;
-    assert.match(
-        content[0].text,
-        new RegExp(`newer preview_slint call replaced preview ${previewId}`),
-    );
 });
