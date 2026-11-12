@@ -410,6 +410,12 @@ impl Flickable {
         Self::FIELD_OFFSETS.carry_momentum().apply_pin(self).set(carry_momentum);
     }
 
+    /// Sets the snap mode, like the `snap-mode` property does from .slint.
+    /// For Slint's internal tests.
+    pub fn set_snap_mode(self: Pin<&Self>, snap_mode: SnapMode) {
+        Self::FIELD_OFFSETS.snap_mode().apply_pin(self).set(snap_mode);
+    }
+
     /// Whether the event may pan this Flickable, given that `interactive` and
     /// `mouse-drag-pan-enabled` can disable it.
     fn accepts_pan_event(self: Pin<&Self>, event: &MouseEvent) -> bool {

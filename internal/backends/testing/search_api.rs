@@ -353,6 +353,17 @@ pub fn set_flickable_physics(
     flickable.as_pin_ref().set_physics(bounce, carry_momentum);
 }
 
+/// Sets the snap mode of a Flickable for Slint's internal tests.
+/// Panics if the handle has expired or does not refer to a Flickable.
+#[cfg(feature = "internal")]
+pub fn set_flickable_snap_mode(element: &ElementHandle, snap_mode: i_slint_core::items::SnapMode) {
+    use i_slint_core::items::Flickable;
+
+    let item = element.item.upgrade().expect("Flickable element has expired");
+    let flickable = item.downcast::<Flickable>().expect("Element is not a Flickable");
+    flickable.as_pin_ref().set_snap_mode(snap_mode);
+}
+
 impl ElementHandle {
     fn collect_elements(item: ItemRc) -> impl Iterator<Item = ElementHandle> {
         (0..item.element_count().unwrap_or_else(|| {
