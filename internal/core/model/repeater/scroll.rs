@@ -181,30 +181,20 @@ pub(super) fn row_geometry(
     heights: impl IntoIterator<Item = Coord>,
     row: usize,
 ) -> (Coord, Coord) {
-    // The first instance is laid out at `anchor_y`, see `update_visible_instances`.
-    let first_row = state.item_index.first_row();
-    if row < first_row {
-        return (
-            state.anchor_y - state.cached_item_height * (first_row - row) as Coord,
-            state.cached_item_height,
-        );
-    }
-    let index = row - first_row;
-    let mut heights = heights.into_iter();
-    let mut above = 0 as Coord;
-    let mut counted = 0;
-    for height in heights.by_ref().take(index) {
-        above += height;
-        counted += 1;
-    }
-    match heights.next() {
-        Some(height) => (state.anchor_y + above, height),
-        None => {
-            let skipped = index - counted;
-            (
-                state.anchor_y + above + state.cached_item_height * skipped as Coord,
-                state.cached_item_height,
-            )
+    let heights: alloc::vec::Vec<Coord> = heights.into_iter().collect();
+    let estimate = state.cached_item_height;
+    // The top of the instance at `index` relative to the first instance.
+    let offset = |index: isize| -> Coord {
+        if index < 0 {
+            return estimate * index as Coord;
         }
-    }
+        let index = index as usize;
+        let measured = index.min(heights.len());
+        heights[..measured].iter().sum::<Coord>() + estimate * (index - measured) as Coord
+    };
+    let index = row as isize - state.item_index.first_row() as isize;
+    let height = usize::try_from(index).ok().and_then(|i| heights.get(i)).copied();
+    // `anchor_y` is the top of the instance at `instance_index`.
+    let top = state.anchor_y + offset(index) - offset(state.item_index.instance_index as isize);
+    (top, height.unwrap_or(estimate))
 }

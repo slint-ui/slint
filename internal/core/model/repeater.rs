@@ -75,11 +75,6 @@ impl ItemIndexRelationShip {
         )
     }
 
-    /// Makes the first instance the current item.
-    fn select_first_instance(&mut self) {
-        *self = Self { row: self.first_row(), instance_index: 0 };
-    }
-
     /// The row of the first instance when updating all `instance_count` instances.
     /// Outside a ListView the instances start at row 0.
     fn start_update_all(&mut self, instance_count: usize) -> usize {
@@ -534,6 +529,7 @@ fn update_visible_instances(
     if row_count == 0 {
         *scroll_to_row = None;
         ops.clear();
+        state.item_index.instances_cleared();
         props.content_height_set(zero);
         props.content_y_set(zero);
         props.content_width_set(listview_width);
@@ -543,6 +539,7 @@ fn update_visible_instances(
     // Unlike with an empty model, the content geometry stays, so that the scroll position does too.
     if listview_height <= 0 as Coord {
         ops.clear();
+        state.item_index.instances_cleared();
         return false;
     }
     if scroll_to_row
@@ -567,6 +564,15 @@ fn update_visible_instances(
 
     let mut changed = false;
 
+    if state.item_index.row >= row_count {
+        ops.clear();
+        state.item_index = ItemIndexRelationShip { row: row_count - 1, instance_index: 0 };
+    }
+    // `anchor_y` is the top of the item at `anchor_row`, the instance at `anchor_instance`.
+    let ItemIndexRelationShip { row: anchor_row, instance_index: mut anchor_instance } =
+        state.item_index;
+    let mut first_row = anchor_row - anchor_instance;
+
     // Estimate element height from cached value or by measuring existing instances.
     let element_height = if state.cached_item_height > 0 as Coord {
         state.cached_item_height
@@ -584,20 +590,17 @@ fn update_visible_instances(
             total_height / count as Coord
         } else {
             // No items exist yet. Create one to measure.
-            state.item_index.row = state.item_index.row.min(row_count - 1);
             ops.clear();
             ops.push(1);
-            changed |= ops.ensure_updated(0, state.item_index.row);
+            first_row = anchor_row;
+            anchor_instance = 0;
+            changed |= ops.ensure_updated(0, anchor_row);
             ops.height(0).unwrap_or(0 as Coord)
         }
     };
 
-    if state.item_index.row >= row_count {
-        state.item_index.row = row_count - 1;
-    }
-
     let one_and_a_half_screen = listview_height * 3 as Coord / 2 as Coord;
-    let first_item_y = state.anchor_y;
+    let first_item_y = state.anchor_y - element_height * anchor_instance as Coord;
     let last_item_bottom = first_item_y + element_height * ops.len() as Coord;
 
     // The row to seek to, its edge, and its distance beyond that edge of the viewport.
@@ -610,7 +613,7 @@ fn update_visible_instances(
     });
     let (mut new_row, mut new_offset_y) = if let Some((row, alignment, beyond_edge)) = seek {
         // Check if the row is around the already existing instances
-        let first = state.item_index.row;
+        let first = first_row;
         let end = first + ops.len();
         let added = if (first..end).contains(&row) {
             // The row exists in the instantiated instances
@@ -623,20 +626,20 @@ fn update_visible_instances(
         } else if row < first && first - row <= ops.len() {
             // The row is within the previous ops.len() (about one page) instances
             ops.prepend(first - row);
-            state.item_index.row = row;
+            first_row = row;
             0..first - row
         } else {
             // Random seek, so we clear all instances and create new ones
             ops.clear();
             ops.push(1);
-            state.item_index.row = row;
+            first_row = row;
             0..1
         };
         // The loop measures the rows between the old instances and `row` without creating them.
         for i in added {
-            changed |= ops.ensure_updated(i, state.item_index.row + i);
+            changed |= ops.ensure_updated(i, first_row + i);
         }
-        let instance = row - state.item_index.row;
+        let instance = row - first_row;
         changed |= ops.ensure_updated(instance, row);
         let row_height = ops.height(instance).unwrap_or(element_height);
         let row_top = match alignment {
@@ -653,14 +656,13 @@ fn update_visible_instances(
     {
         // Jumping more than 1.5 screens: random seek.
         ops.clear();
-        state.item_index.row =
-            ((-content_y_value / element_height).floor() as usize).min(row_count - 1);
-        (state.item_index.row, content_y_value + element_height * state.item_index.row as Coord)
+        first_row = ((-content_y_value / element_height).floor() as usize).min(row_count - 1);
+        (first_row, content_y_value + element_height * first_row as Coord)
     } else if content_y_value < state.previous_content_y {
         // Scrolled down: find the new offset by walking existing instances.
-        let mut it_y = first_item_y + content_y_value;
-        let mut new_row = state.item_index.row;
-        for i in 0..ops.len() {
+        let mut it_y = state.anchor_y + content_y_value;
+        let mut new_row = anchor_row;
+        for i in anchor_instance..ops.len() {
             changed |= ops.ensure_updated(i, new_row);
             let h = ops.height(i).unwrap_or(0 as Coord);
             if it_y + h > 0 as Coord || new_row + 1 >= row_count {
@@ -672,7 +674,7 @@ fn update_visible_instances(
         (new_row, it_y)
     } else {
         // Scrolled up: will instantiate items before offset in the loop below.
-        (state.item_index.row, first_item_y + content_y_value)
+        (anchor_row, state.anchor_y + content_y_value)
     };
 
     let target_row = scroll_to_row.as_ref().map(|request| request.row);
@@ -681,9 +683,10 @@ fn update_visible_instances(
     loop {
         target_span = None;
         // Fill gap before new_row using already-instantiated items.
-        while new_row > state.item_index.row && new_offset_y > -extra_above {
+        while new_row > first_row && new_offset_y > -extra_above {
             new_row -= 1;
-            new_offset_y -= ops.height(new_row - state.item_index.row).unwrap_or(0 as Coord);
+            changed |= ops.ensure_updated(new_row - first_row, new_row);
+            new_offset_y -= ops.height(new_row - first_row).unwrap_or(0 as Coord);
         }
         // If there is still a gap, create new instances before the current ones.
         let mut prepend_count = 0;
@@ -695,19 +698,17 @@ fn update_visible_instances(
             prepend_count += 1;
         }
         if prepend_count > 0 {
-            state.item_index.row = new_row;
+            first_row = new_row;
         }
         if seek.is_some() && new_row == 0 {
             new_offset_y = new_offset_y.min(0 as Coord);
         }
-        debug_assert!(
-            new_row >= state.item_index.row && new_row <= state.item_index.row + ops.len()
-        );
+        debug_assert!(new_row >= first_row && new_row <= first_row + ops.len());
 
         // Layout items until we fill the view, starting with already-instantiated ones.
         let mut y = new_offset_y;
         let mut idx = new_row;
-        let instances_begin = new_row - state.item_index.row;
+        let instances_begin = new_row - first_row;
         for i in instances_begin..ops.len() {
             if idx >= row_count {
                 break;
@@ -735,10 +736,17 @@ fn update_visible_instances(
                 target_span = Some((top, y));
             }
             idx += 1;
-            if new_row == idx - 1 && y <= -extra_above && idx < row_count {
-                new_row = idx;
-                new_offset_y = y;
+        }
+
+        // Skip the leading rows that end above the kept area, so cleanup drops them.
+        while new_row + 1 < idx {
+            let bottom = new_offset_y + ops.height(new_row - first_row).unwrap_or(0 as Coord);
+            // A row with zero height at the edge isn't above it.
+            if bottom > -extra_above || new_offset_y >= -extra_above {
+                break;
             }
+            new_row += 1;
+            new_offset_y = bottom;
         }
 
         if seek.is_some()
@@ -761,13 +769,13 @@ fn update_visible_instances(
         }
 
         // Clean up instances that are not shown.
-        if new_row != state.item_index.row {
-            let remove_count = new_row - state.item_index.row;
-            ops.remove_first(remove_count);
-            state.item_index.row = new_row;
+        if new_row != first_row {
+            ops.remove_first(new_row - first_row);
+            first_row = new_row;
         }
         let keep = idx - new_row;
         ops.truncate(keep);
+        state.item_index = ItemIndexRelationShip { row: first_row, instance_index: 0 };
 
         if ops.len() == 0 {
             break;
@@ -775,7 +783,7 @@ fn update_visible_instances(
 
         // Recompute coordinates for the scrollbar.
         state.cached_item_height = (y - new_offset_y) / ops.len() as Coord;
-        state.anchor_y = state.cached_item_height * state.item_index.row as Coord;
+        state.anchor_y = state.cached_item_height * first_row as Coord;
         props.content_height_set(LogicalLength::new(state.cached_item_height * row_count as Coord));
         props.content_width_set(LogicalLength::new(content_width_value));
         let new_content_y = -state.anchor_y + new_offset_y;
@@ -1039,7 +1047,7 @@ impl<T: RepeatedItemTree> ModelChangeListener for RepeaterTracker<T> {
         self.instances_changed();
         let mut inner = self.inner.borrow_mut();
         inner.instances.clear();
-        inner.layout_state.item_index.select_first_instance();
+        inner.layout_state.item_index.instances_cleared();
     }
 }
 
@@ -1314,12 +1322,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         let row_count = model.row_count();
 
         let data = self.data();
-        let mut layout_state = {
-            let mut inner = data.inner.borrow_mut();
-            // `update_visible_instances` keeps the current item on the first instance
-            inner.layout_state.item_index.select_first_instance();
-            inner.layout_state.clone()
-        };
+        let mut layout_state = data.inner.borrow().layout_state.clone();
         let mut scroll_to_row = data.inner.borrow_mut().scroll_to_row.take();
         let mut ops = RustRepeaterOps {
             inner: &data.inner,
@@ -1855,11 +1858,7 @@ mod ffi {
         listview_height: LogicalLength,
     ) -> bool {
         let props = TypedListViewProps { content_width, content_height, content_y };
-        // See `Repeater::ensure_updated_listview_callback`.
-        let mut layout_state = unsafe {
-            (*state).item_index.select_first_instance();
-            (*state).clone()
-        };
+        let mut layout_state = unsafe { (*state).clone() };
         // When a new item gets created in update_visible_instances and in its init
         // we call ensure-row-visible() we modify scroll_to_row
         // here we make a copy and reset `scroll_to_row`. If below `scroll_to_row`
@@ -3450,6 +3449,7 @@ mod tests {
             [Clean(0), Clean(1), Clean(2)],
             "The item was prepended before the first item. So we don't wanna move the view"
         );
+        assert_eq!(content_y.as_ref().get().get(), -ITEM_HEIGHT, "The new row 0 is above the view");
 
         let scroll_down_by = |scroll: f32| {
             let new_content_y = LogicalLength::new(content_y.as_ref().get().0 - scroll);
