@@ -189,6 +189,12 @@ depends = ["fix:pnpm:lock"]
 # appear while it runs, so everything that generates them waits for it.
 wait_for = ["lint:legal:reuse"]
 
+### Run
+
+["debugger"]
+description = "Run the visual editor with the Slint Debugger window open; pass the .slint file to open"
+run = "cargo run -p slint-editor --features debugger -- --debugger"
+
 
 ### CI
 
