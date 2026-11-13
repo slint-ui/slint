@@ -1,6 +1,8 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+# cSpell: ignore fromarray
+
 # Hand-maintained type stubs for the native module; keep in sync with the
 # pyo3 classes and functions when changing the Rust API surface.
 # ruff: noqa: F401
