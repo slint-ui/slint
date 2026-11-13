@@ -94,7 +94,9 @@ def decode(capture: bytes) -> list[dict[str, Any]]:
         nested = spans_entered - entered
         begin["args"]["nested_spans"] = nested
         if span_cost is not None:
-            begin["args"]["trace_cost_us"] = round((nested + 1) * span_cost / ticks_per_us, 3)
+            begin["args"]["trace_cost_us"] = round(
+                (nested + 1) * span_cost / ticks_per_us, 3
+            )
         events.append({"ph": "E", "ts": time_us, "pid": 1, "tid": tid})
 
     pos = 0
@@ -144,7 +146,9 @@ def decode(capture: bytes) -> list[dict[str, Any]]:
                 begin = {"name": name, "ph": "B", "ts": to_us(begin_cycles), "pid": 1}
                 events.append({**begin, "tid": track, "args": fields})
                 fields = {}
-                events.append({"ph": "E", "ts": to_us(end_cycles), "pid": 1, "tid": track})
+                events.append(
+                    {"ph": "E", "ts": to_us(end_cycles), "pid": 1, "tid": track}
+                )
             continue
 
         identifier, cycles = header & ~3, words[pos + 1]
@@ -156,7 +160,14 @@ def decode(capture: bytes) -> list[dict[str, Any]]:
         time_us = ((wraps << 32) + cycles) / ticks_per_us
         name = names.get(identifier, f"0x{identifier:x}")
         if kind == ENTER:
-            begin = {"name": name, "ph": "B", "ts": time_us, "pid": 1, "tid": tid, "args": fields}
+            begin = {
+                "name": name,
+                "ph": "B",
+                "ts": time_us,
+                "pid": 1,
+                "tid": tid,
+                "args": fields,
+            }
             fields = {}
             events.append(begin)
             spans_entered += 1
@@ -170,7 +181,14 @@ def decode(capture: bytes) -> list[dict[str, Any]]:
                     if open_id == identifier:
                         break
         else:
-            event = {"name": name, "ph": "i", "s": "t", "ts": time_us, "pid": 1, "tid": tid}
+            event = {
+                "name": name,
+                "ph": "i",
+                "s": "t",
+                "ts": time_us,
+                "pid": 1,
+                "tid": tid,
+            }
             if fields:
                 event["args"] = fields
                 fields = {}
@@ -185,8 +203,13 @@ def decode(capture: bytes) -> list[dict[str, Any]]:
 def chrome_trace(events: list[dict[str, Any]]) -> dict[str, Any]:
     tracks = sorted({event["tid"] for event in events} | {0})
     metadata = [
-        {"ph": "M", "name": "thread_name", "pid": 1, "tid": track,
-         "args": {"name": TRACK_NAMES.get(track, f"track {track}")}}
+        {
+            "ph": "M",
+            "name": "thread_name",
+            "pid": 1,
+            "tid": track,
+            "args": {"name": TRACK_NAMES.get(track, f"track {track}")},
+        }
         for track in tracks
     ]
     # TRACK_SPAN records arrive after the time they cover. Sorting is stable, so events with equal
@@ -197,15 +220,22 @@ def chrome_trace(events: list[dict[str, Any]]) -> dict[str, Any]:
 def open_in_tracy(json_path: str, tracy_path: str) -> None:
     importer = shutil.which("tracy-import-chrome")
     if importer is None:
-        print(f"tracy-import-chrome not found; open {json_path} in Perfetto or import it into Tracy yourself")
+        print(
+            f"tracy-import-chrome not found; open {json_path} in Perfetto or import it into Tracy yourself"
+        )
         return
-    subprocess.run([importer, json_path, tracy_path], check=True, stdout=subprocess.DEVNULL)
+    subprocess.run(
+        [importer, json_path, tracy_path], check=True, stdout=subprocess.DEVNULL
+    )
     profiler = shutil.which("tracy-profiler") or shutil.which("tracy")
     if profiler is None:
         print(f"Tracy not found; open {tracy_path} in Tracy")
         return
     subprocess.Popen(
-        [profiler, tracy_path], start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        [profiler, tracy_path],
+        start_new_session=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
     )
     print(f"Opened {tracy_path} in Tracy")
 
@@ -281,7 +311,9 @@ def receive(port: str, reset: bool) -> tuple[bytes, str | None]:
                     sys.stdout.buffer.write(text + b"\n")
                     sys.stdout.flush()
             if capture and time.monotonic() - last_status > 0.5:
-                sys.stderr.write(f"\r\033[K[slint trace] received {len(capture) // 1024} KiB")
+                sys.stderr.write(
+                    f"\r\033[K[slint trace] received {len(capture) // 1024} KiB"
+                )
                 sys.stderr.flush()
                 status_shown = True
                 last_status = time.monotonic()
@@ -311,7 +343,9 @@ def action_extensions(base_actions: dict, project_path: str) -> dict:
             )
         events = decode(capture)
         if not events:
-            print("The capture has no spans. Enable CONFIG_SLINT_TRACING, then build and flash again.")
+            print(
+                "The capture has no spans. Enable CONFIG_SLINT_TRACING, then build and flash again."
+            )
             return
 
         json_path = os.path.join(args.build_dir, "slint-trace.json")

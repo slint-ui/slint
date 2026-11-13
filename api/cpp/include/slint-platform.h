@@ -878,9 +878,11 @@ public:
         /// Rasterizes the frame into \a buffer, like SoftwareRenderer::render() renders it.
         PhysicalRegion rasterize(std::span<Rgb565Pixel> buffer, std::size_t pixel_stride) const
         {
-            return PhysicalRegion { cbindgen_private::slint_recorded_raster_commands_rasterize_rgb565(
-                    inner, reinterpret_cast<uint16_t *>(buffer.data()), buffer.size(),
-                    pixel_stride) };
+            return PhysicalRegion {
+                cbindgen_private::slint_recorded_raster_commands_rasterize_rgb565(
+                        inner, reinterpret_cast<uint16_t *>(buffer.data()), buffer.size(),
+                        pixel_stride)
+            };
         }
 
         /// Rasterizes the frame into \a buffer, like SoftwareRenderer::render() renders into a
