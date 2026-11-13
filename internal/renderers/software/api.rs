@@ -4,10 +4,10 @@
 //! The public API of the software renderer, which `slint::platform::software_renderer`
 //! re-exports. The other public items of this crate are for the crates of this repository.
 
-pub use crate::draw_functions::{
+pub use crate::minimal_software_window::MinimalSoftwareWindow;
+pub use crate::target_pixel::{
     PremultipliedRgbaColor, Rgb565BigEndianPixel, Rgb565Pixel, TargetPixel,
 };
-pub use crate::minimal_software_window::MinimalSoftwareWindow;
 #[cfg(feature = "experimental")]
 pub use crate::target_pixel_buffer::{
     DrawRectangleArgs, DrawTextureArgs, TargetPixelBuffer, TexturePixelFormat,
