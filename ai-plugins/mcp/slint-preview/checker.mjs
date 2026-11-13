@@ -41,6 +41,8 @@ function localPath(value) {
     return normalize(fileURLToPath(url)).replaceAll("\\", "/");
 }
 
+// The Wasm interpreter only compiles source strings, so resolve project inputs
+// to their main source file and project root before compiling.
 export function readPreviewInput(input) {
     if (input.path === undefined) return input;
     let { path, projectRoot } = input;
