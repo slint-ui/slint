@@ -5,7 +5,7 @@
 
 menu "Slint"
 
-    config SLINT_RENDER_PIPELINE
+    config SLINT_RENDER_ON_SECOND_CORE
         bool "Rasterize and present on the second core"
         default n
         depends on !FREERTOS_UNICORE
@@ -18,6 +18,6 @@ menu "Slint"
     config SLINT_RASTER_TASK_STACK_SIZE
         int "Stack size of the task that rasterizes, in bytes"
         default 32768
-        depends on SLINT_RENDER_PIPELINE
+        depends on SLINT_RENDER_ON_SECOND_CORE
 
 endmenu
