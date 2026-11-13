@@ -1,12 +1,12 @@
 ---
 title: AI Coding Assistants
-description: Install the Slint skill for Claude Code, Codex, Cursor, and other AI coding agents.
+description: Install the Slint plugin or skill for Claude Code, Codex, Cursor, and other AI coding agents.
 ---
 
 import { Tabs, TabItem } from '@astrojs/starlight/components';
 
-Use the Slint skill to give your AI coding agent project-specific guidance for working with Slint.
-The skill covers the `.slint` language, layouts, common gotchas, host-language interop, and the embedded MCP server.
+The Slint plugin bundles two skills: `slint-plugin` for its documentation and preview tools, and `slint` for general development guidance.
+The general `slint` skill works with or without the plugin and can also be installed independently.
 
 The plugin and skills are available from the [slint-ui/ai-plugins](https://github.com/slint-ui/ai-plugins) repository.
 
@@ -19,17 +19,17 @@ The plugin and skills are available from the [slint-ui/ai-plugins](https://githu
   /plugin install slint@slint
   ```
 
-  Claude Code can then use the bundled Slint skill when working with Slint projects.
+  Claude Code can then use both bundled skills when working with Slint projects.
   </TabItem>
   <TabItem label="Codex">
-  Enter the following in the Codex prompt to install the skill from GitHub:
+  Install the plugin from GitHub:
 
   ```sh
   codex plugin marketplace add slint-ui/ai-plugins
   codex plugin add slint@slint
   ```
 
-  Restart Codex after the install so it picks up the new skill.
+  Start a new Codex chat after installation so it picks up the plugin-use skill.
   </TabItem>
   <TabItem label="Antigravity">
   Install the plugin from GitHub with the [Antigravity CLI](https://antigravity.google/docs/cli/):
@@ -39,7 +39,7 @@ The plugin and skills are available from the [slint-ui/ai-plugins](https://githu
   ```
 
   This installs into `~/.gemini/config/plugins/`, so the plugin is available in every project.
-  Restart Antigravity afterward so it picks up the new skill.
+  Restart Antigravity afterward so it picks up the plugin-use skill.
   </TabItem>
   <TabItem label="GitHub CLI">
   If you have the [GitHub CLI](https://cli.github.com/) installed, `gh skill install` works for any supported agent — pick the one matching your tool:
@@ -67,8 +67,8 @@ The plugin and skills are available from the [slint-ui/ai-plugins](https://githu
 
 ## What Your Assistant Can Do
 
-With the skill installed, the assistant follows Slint's conventions when it writes, debugs, and reviews `.slint` code, and wires the UI to Rust, C++, JavaScript, or Python.
-Assistants also learn to verify rendering by taking screenshots of the scene before calling the work done.
+The plugin-use skill guides documentation lookup, previews, and displaying screenshots in the current host.
+The general skill helps with `.slint` code and integration with Rust, C++, JavaScript, or Python.
 
-The skill also connects the assistant to the Model Context Protocol (MCP) server embedded in your running Slint application.
+For application debugging, the general skill includes guidance for the Model Context Protocol (MCP) server embedded in your running Slint application.
 Once connected, the assistant can inspect the UI through its accessibility tree, drive it with mouse, touch, and keyboard input, and capture screenshots to check the result — built on Slint's existing accessibility and testing APIs, with no debugging hooks in your application.
