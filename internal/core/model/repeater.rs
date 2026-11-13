@@ -368,11 +368,10 @@ pub struct RepeaterLayoutState {
     pub item_index: ItemIndexRelationShip,
     /// The average visible item height (cached between frames).
     pub cached_item_height: Coord,
-    /// The content_y value from the previous layout pass.
-    /// It is used to detect if we are scrolling up or down
-    pub previous_content_y: Coord,
-    /// The y position of the item at `item_index`.
+    /// The estimated position of the current item, the one at `item_index`, in the content.
     pub anchor_y: Coord,
+    /// The current item's top is at `anchor_y + content-y + snap_offset` in the viewport.
+    pub snap_offset: Coord,
 }
 
 /// Abstraction over a repeater's instance collection so the same algorithm
@@ -568,40 +567,33 @@ fn update_visible_instances(
         ops.clear();
         state.item_index = ItemIndexRelationShip { row: row_count - 1, instance_index: 0 };
     }
-    // `anchor_y` is the top of the item at `anchor_row`, the instance at `anchor_instance`.
+    // The current item is the row at `anchor_row`, the instance at `anchor_instance`.
     let ItemIndexRelationShip { row: anchor_row, instance_index: mut anchor_instance } =
         state.item_index;
+    // The instances hold the rows from `first_row` on.
     let mut first_row = anchor_row - anchor_instance;
 
     // Estimate element height from cached value or by measuring existing instances.
     let element_height = if state.cached_item_height > 0 as Coord {
         state.cached_item_height
     } else {
-        let mut total_height: Coord = 0 as Coord;
-        let mut count = 0usize;
-        for i in 0..ops.len() {
-            if let Some(h) = ops.height(i) {
-                total_height += h;
-                count += 1;
-            }
-        }
-
+        let (total, count) = (0..ops.len())
+            .filter_map(|i| ops.height(i))
+            .fold((0 as Coord, 0usize), |(total, count), h| (total + h, count + 1));
         if count > 0 {
-            total_height / count as Coord
+            total / count as Coord
         } else {
             // No items exist yet. Create one to measure.
             ops.clear();
-            ops.push(1);
-            first_row = anchor_row;
             anchor_instance = 0;
-            changed |= ops.ensure_updated(0, anchor_row);
-            ops.height(0).unwrap_or(0 as Coord)
+            measure_row(ops, &mut first_row, anchor_row, &mut changed).unwrap_or(0 as Coord)
         }
     };
 
-    let one_and_a_half_screen = listview_height * 3 as Coord / 2 as Coord;
-    let first_item_y = state.anchor_y - element_height * anchor_instance as Coord;
-    let last_item_bottom = first_item_y + element_height * ops.len() as Coord;
+    // The current item is the row at `snap_line` in the viewport.
+    // Its point at `snap_fraction` of its height, the top, center, or bottom,
+    // is at `snap_line + anchor_y + content-y`, so `content-y` 0 snaps row 0.
+    let (snap_line, snap_fraction) = (0 as Coord, 0 as Coord);
 
     // The row to seek to, its edge, and its distance beyond that edge of the viewport.
     let seek = scroll_to_row.as_ref().and_then(|request| match (&request.animation, jump) {
@@ -611,216 +603,181 @@ fn update_visible_instances(
         (_, Some((alignment, beyond_edge))) => Some((request.row, alignment, beyond_edge)),
         _ => None,
     });
-    let (mut new_row, mut new_offset_y) = if let Some((row, alignment, beyond_edge)) = seek {
-        // Check if the row is around the already existing instances
-        let first = first_row;
-        let end = first + ops.len();
-        let added = if (first..end).contains(&row) {
-            // The row exists in the instantiated instances
-            0..0
-        } else if row >= end && row - end < ops.len() {
-            // The row is within the next ops.len() (about one page) instances
-            // so we just append
-            ops.push(row + 1 - end);
-            end - first..ops.len()
-        } else if row < first && first - row <= ops.len() {
-            // The row is within the previous ops.len() (about one page) instances
-            ops.prepend(first - row);
-            first_row = row;
-            0..first - row
-        } else {
-            // Random seek, so we clear all instances and create new ones
+
+    // Pick a row whose position in the viewport is known: the seek target,
+    // an estimate after a big jump, or the current item, which keeps its position.
+    let first_item_y = state.anchor_y - element_height * anchor_instance as Coord;
+    let last_item_bottom = first_item_y + element_height * ops.len() as Coord;
+    let (mut row, mut y) = if let Some((row, alignment, beyond_edge)) = seek {
+        // Keep the instances when the row is about one page away from them.
+        let len = ops.len();
+        if row + len < first_row || row >= first_row + 2 * len {
             ops.clear();
-            ops.push(1);
-            first_row = row;
-            0..1
-        };
-        // The loop measures the rows between the old instances and `row` without creating them.
-        for i in added {
-            changed |= ops.ensure_updated(i, first_row + i);
         }
-        let instance = row - first_row;
-        changed |= ops.ensure_updated(instance, row);
-        let row_height = ops.height(instance).unwrap_or(element_height);
+        let row_height =
+            measure_row(ops, &mut first_row, row, &mut changed).unwrap_or(element_height);
         let row_top = match alignment {
             scroll::RowAlignment::Top => -beyond_edge,
             scroll::RowAlignment::Bottom => {
-                // If the row is taller than listview_height, then we ignore the
-                // alignment and align to top
-                (listview_height - row_height).max(0. as Coord) + beyond_edge
+                // A row taller than the viewport is aligned to the top instead.
+                (listview_height - row_height).max(0 as Coord) + beyond_edge
             }
         };
         (row, row_top)
-    } else if first_item_y > -content_y_value + one_and_a_half_screen
-        || (props.computes_content_height() && last_item_bottom + element_height < -content_y_value)
-    {
-        // Jumping more than 1.5 screens: random seek.
-        ops.clear();
-        first_row = ((-content_y_value / element_height).floor() as usize).min(row_count - 1);
-        (first_row, content_y_value + element_height * first_row as Coord)
-    } else if content_y_value < state.previous_content_y {
-        // Scrolled down: find the new offset by walking existing instances.
-        let mut it_y = state.anchor_y + content_y_value;
-        let mut new_row = anchor_row;
-        for i in anchor_instance..ops.len() {
-            changed |= ops.ensure_updated(i, new_row);
-            let h = ops.height(i).unwrap_or(0 as Coord);
-            if it_y + h > 0 as Coord || new_row + 1 >= row_count {
-                break;
-            }
-            it_y += h;
-            new_row += 1;
-        }
-        (new_row, it_y)
     } else {
-        // Scrolled up: will instantiate items before offset in the loop below.
-        (anchor_row, state.anchor_y + content_y_value)
+        let (row, anchor_y) = if first_item_y
+            > -content_y_value + listview_height * 3 as Coord / 2 as Coord
+            || (props.computes_content_height()
+                && last_item_bottom + element_height < -content_y_value)
+        {
+            // Jumping more than 1.5 screens: random seek.
+            ops.clear();
+            let row = ((-content_y_value / element_height).floor() as usize).min(row_count - 1);
+            (row, element_height * row as Coord)
+        } else {
+            (anchor_row, state.anchor_y)
+        };
+        let height = measure_row(ops, &mut first_row, row, &mut changed).unwrap_or(element_height);
+        (row, snap_line + anchor_y + content_y_value - snap_fraction * height)
     };
+    let fill_top = -extra_above;
 
     let target_row = scroll_to_row.as_ref().map(|request| request.row);
-    let mut target_span: Option<(Coord, Coord)>;
-    let mut loop_count = 0;
-    loop {
-        target_span = None;
-        // Fill gap before new_row using already-instantiated items.
-        while new_row > first_row && new_offset_y > -extra_above {
-            new_row -= 1;
-            changed |= ops.ensure_updated(new_row - first_row, new_row);
-            new_offset_y -= ops.height(new_row - first_row).unwrap_or(0 as Coord);
+    let mut target_span;
+    let mut bottom;
+    let mut current;
+    let mut passes = 0;
+    let end_row = loop {
+        // Move to the first row that reaches into the fill area.
+        while row > 0 && y > fill_top {
+            row -= 1;
+            y -= measure_row(ops, &mut first_row, row, &mut changed).unwrap_or(0 as Coord);
         }
-        // If there is still a gap, create new instances before the current ones.
-        let mut prepend_count = 0;
-        while new_row > 0 && new_offset_y > -extra_above {
-            new_row -= 1;
-            ops.prepend(1);
-            changed |= ops.ensure_updated(0, new_row);
-            new_offset_y -= ops.height(0).unwrap_or(0 as Coord);
-            prepend_count += 1;
+        if seek.is_some() && row == 0 {
+            y = y.min(0 as Coord);
         }
-        if prepend_count > 0 {
-            first_row = new_row;
-        }
-        if seek.is_some() && new_row == 0 {
-            new_offset_y = new_offset_y.min(0 as Coord);
-        }
-        debug_assert!(new_row >= first_row && new_row <= first_row + ops.len());
-
-        // Layout items until we fill the view, starting with already-instantiated ones.
-        let mut y = new_offset_y;
-        let mut idx = new_row;
-        let instances_begin = new_row - first_row;
-        for i in instances_begin..ops.len() {
-            if idx >= row_count {
-                break;
-            }
-            changed |= ops.ensure_updated(i, idx);
-            let top = y;
-            content_width_value = content_width_value.max(ops.listview_layout(i, &mut y));
-            if target_row == Some(idx) {
-                target_span = Some((top, y));
-            }
-            idx += 1;
-            if y >= layout_end {
-                break;
-            }
-        }
-
-        // Create more items until there is no more room.
-        while y < layout_end && idx < row_count {
-            let i = ops.len();
-            ops.push(1);
-            changed |= ops.ensure_updated(i, idx);
-            let top = y;
-            content_width_value = content_width_value.max(ops.listview_layout(i, &mut y));
-            if target_row == Some(idx) {
-                target_span = Some((top, y));
-            }
-            idx += 1;
-        }
-
-        // Skip the leading rows that end above the kept area, so cleanup drops them.
-        while new_row + 1 < idx {
-            let bottom = new_offset_y + ops.height(new_row - first_row).unwrap_or(0 as Coord);
+        while row + 1 < row_count {
+            let h = measure_row(ops, &mut first_row, row, &mut changed).unwrap_or(0 as Coord);
             // A row with zero height at the edge isn't above it.
-            if bottom > -extra_above || new_offset_y >= -extra_above {
+            if y >= fill_top || y + h > fill_top {
                 break;
             }
-            new_row += 1;
-            new_offset_y = bottom;
+            y += h;
+            row += 1;
         }
 
-        if seek.is_some()
-            && y < listview_height
-            && (new_row > 0 || new_offset_y < 0 as Coord)
-            && loop_count < 3
-        {
-            // A seek that leaves room below the last row moves all rows down to close the gap.
-            new_offset_y += listview_height - y;
-            loop_count += 1;
+        // Lay out the rows down to the end of the fill area.
+        target_span = None;
+        current = None;
+        bottom = y;
+        let mut idx = row;
+        loop {
+            measure_row(ops, &mut first_row, idx, &mut changed);
+            let top = bottom;
+            content_width_value =
+                content_width_value.max(ops.listview_layout(idx - first_row, &mut bottom));
+            if target_row == Some(idx) {
+                target_span = Some((top, bottom));
+            }
+            // The row that contains the snap line; with `end`, the line is the row's bottom.
+            let contains_snap_line = if snap_fraction < 1 as Coord {
+                current.is_none() && bottom > snap_line
+            } else {
+                top < snap_line
+            };
+            if contains_snap_line {
+                current = Some((idx, top));
+            }
+            idx += 1;
+            if bottom >= layout_end || idx >= row_count {
+                break;
+            }
+        }
+        // Without rows at the snap line, the closest row is the current item.
+        let current_fallback = if snap_fraction < 1 as Coord { idx - 1 } else { row };
+        if current.is_none() {
+            let top = y
+                + (row..current_fallback)
+                    .map(|r| ops.height(r - first_row).unwrap_or(0 as Coord))
+                    .sum::<Coord>();
+            current = Some((current_fallback, top));
+        }
+
+        passes += 1;
+        if seek.is_some() && bottom < listview_height && (row > 0 || y < 0 as Coord) && passes < 3 {
+            // A seek that leaves room below the last row moves the rows down to close the gap,
+            // which needs another pass to fill the rows above.
+            y += listview_height - bottom;
             continue;
         }
+        break idx;
+    };
 
-        if y < listview_height && content_y_value < 0 as Coord && loop_count < 3 {
-            debug_assert!(idx >= row_count);
-            // Reached end of model with room to spare. Scroll up.
-            content_y_value += listview_height - y;
-            loop_count += 1;
-            continue;
-        }
+    // Clean up instances that are not shown.
+    ops.remove_first(row - first_row);
+    first_row = row;
+    ops.truncate(end_row - row);
+    let Some((current_row, current_top)) = current else { return changed };
+    state.item_index =
+        ItemIndexRelationShip { row: current_row, instance_index: current_row - first_row };
+    if ops.len() == 0 {
+        return changed;
+    }
 
-        // Clean up instances that are not shown.
-        if new_row != first_row {
-            ops.remove_first(new_row - first_row);
-            first_row = new_row;
-        }
-        let keep = idx - new_row;
-        ops.truncate(keep);
-        state.item_index = ItemIndexRelationShip { row: first_row, instance_index: 0 };
+    // Recompute coordinates for the scrollbar.
+    state.cached_item_height = (bottom - y) / ops.len() as Coord;
+    state.anchor_y = state.cached_item_height * current_row as Coord;
+    let current_height = ops.height(current_row - first_row).unwrap_or(state.cached_item_height);
+    state.snap_offset = snap_line - snap_fraction * current_height;
+    props.content_height_set(LogicalLength::new(state.cached_item_height * row_count as Coord));
+    props.content_width_set(LogicalLength::new(content_width_value));
+    let new_content_y = current_top - state.anchor_y - state.snap_offset;
+    // Important: Use get_internal here, the content_y may have a binding on it (especially
+    // a physical animation).
+    // We must not yet trigger a re-evaluation of that binding, as we have already updated the
+    // content_width and content_height, but the content_y is not yet consistent.
+    // So the physics animations limit value may be inconsistent.
+    if new_content_y != props.content_y_get_internal().get() {
+        // If a physics animation is ongoing (e.g. due to a flick), we should not interrupt it.
+        // The physics animation implements intercept_set, and is therefore not interrupted by
+        // a call to set() - so it's okay to just use a normal set here.
+        props.content_y_set(LogicalLength::new(new_content_y));
+    }
 
-        if ops.len() == 0 {
-            break;
-        }
-
-        // Recompute coordinates for the scrollbar.
-        state.cached_item_height = (y - new_offset_y) / ops.len() as Coord;
-        state.anchor_y = state.cached_item_height * first_row as Coord;
-        props.content_height_set(LogicalLength::new(state.cached_item_height * row_count as Coord));
-        props.content_width_set(LogicalLength::new(content_width_value));
-        let new_content_y = -state.anchor_y + new_offset_y;
-        // Important: Use get_internal here, the content_y may have a binding on it (especially
-        // a physical animation).
-        // We must not yet trigger a re-evaluation of that binding, as we have already updated the
-        // content_width and content_height, but the content_y is not yet consistent.
-        // So the physics animations limit value may be inconsistent.
-        if new_content_y != props.content_y_get_internal().get() {
-            // If a physics animation is ongoing (e.g. due to a flick), we should not interrupt it.
-            // The physics animation implements intercept_set, and is therefore not interrupted by
-            // a call to set() - so it's okay to just use a normal set here.
-            props.content_y_set(LogicalLength::new(new_content_y));
-        }
-        state.previous_content_y = new_content_y;
-
-        if let Some(request) = scroll_to_row.take() {
-            let (top, height) =
-                target_span.map(|(top, bottom)| (top, bottom - top)).unwrap_or_else(|| {
-                    let heights =
-                        (0..ops.len()).map(|i| ops.height(i).unwrap_or(state.cached_item_height));
-                    let (top, height) = scroll::row_geometry(state, heights, request.row);
-                    (top + new_content_y, height)
-                });
-            *scroll_to_row = scroll::advance_scroll_to_row(
-                request,
-                top,
-                height,
-                listview_height,
-                jump.is_some(),
-            );
-        }
-
-        break;
+    if let Some(request) = scroll_to_row.take() {
+        let (top, height) =
+            target_span.map(|(top, bottom)| (top, bottom - top)).unwrap_or_else(|| {
+                let heights =
+                    (0..ops.len()).map(|i| ops.height(i).unwrap_or(state.cached_item_height));
+                let (top, height) = scroll::row_geometry(state, heights, request.row);
+                (top + new_content_y, height)
+            });
+        *scroll_to_row =
+            scroll::advance_scroll_to_row(request, top, height, listview_height, jump.is_some());
     }
 
     changed
+}
+
+/// Makes sure an updated instance for `row` exists, adding empty slots up to it,
+/// and returns its height, or `None` if it has no instance.
+fn measure_row(
+    ops: &mut impl RepeaterInstanceOps,
+    first_row: &mut usize,
+    row: usize,
+    changed: &mut bool,
+) -> Option<Coord> {
+    if ops.len() == 0 {
+        *first_row = row;
+        ops.push(1);
+    } else if row < *first_row {
+        ops.prepend(*first_row - row);
+        *first_row = row;
+    } else if row >= *first_row + ops.len() {
+        ops.push(row + 1 - *first_row - ops.len());
+    }
+    *changed |= ops.ensure_updated(row - *first_row, row);
+    ops.height(row - *first_row)
 }
 
 fn empty_slots(count: usize) -> impl Iterator<Item = (RepeatedInstanceState, Option<ItemTreeRc>)> {

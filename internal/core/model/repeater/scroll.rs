@@ -194,7 +194,8 @@ pub(super) fn row_geometry(
     };
     let index = row as isize - state.item_index.first_row() as isize;
     let height = usize::try_from(index).ok().and_then(|i| heights.get(i)).copied();
-    // `anchor_y` is the top of the instance at `instance_index`.
-    let top = state.anchor_y + offset(index) - offset(state.item_index.instance_index as isize);
+    // The current item, the instance at `instance_index`, starts at `anchor_y + snap_offset`.
+    let top = state.anchor_y + state.snap_offset + offset(index)
+        - offset(state.item_index.instance_index as isize);
     (top, height.unwrap_or(estimate))
 }
