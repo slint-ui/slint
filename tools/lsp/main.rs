@@ -55,20 +55,50 @@ use i_slint_live_preview::{
     protocol::PreviewToLspMessage,
 };
 
-#[cfg(not(any(
-    target_os = "openbsd",
-    target_os = "windows",
-    target_arch = "wasm32",
-    all(target_arch = "aarch64", target_os = "linux")
-)))]
+#[cfg(any(
+    all(
+        target_arch = "x86_64",
+        target_env = "gnu",
+        target_os = "linux",
+        target_vendor = "unknown"
+    ),
+    all(
+        target_arch = "powerpc64",
+        target_env = "gnu",
+        target_os = "linux",
+        target_vendor = "unknown"
+    ),
+    all(
+        target_arch = "aarch64",
+        target_env = "gnu",
+        target_os = "linux",
+        target_vendor = "unknown"
+    ),
+    all(target_arch = "aarch64", target_os = "macos", target_vendor = "unknown")
+))]
 use tikv_jemallocator::Jemalloc;
 
-#[cfg(not(any(
-    target_os = "openbsd",
-    target_os = "windows",
-    target_arch = "wasm32",
-    all(target_arch = "aarch64", target_os = "linux")
-)))]
+#[cfg(any(
+    all(
+        target_arch = "x86_64",
+        target_env = "gnu",
+        target_os = "linux",
+        target_vendor = "unknown"
+    ),
+    all(
+        target_arch = "powerpc64",
+        target_env = "gnu",
+        target_os = "linux",
+        target_vendor = "unknown"
+    ),
+    all(
+        target_arch = "aarch64",
+        target_env = "gnu",
+        target_os = "linux",
+        target_vendor = "unknown"
+    ),
+    all(target_arch = "aarch64", target_os = "macos", target_vendor = "unknown")
+))]
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
 

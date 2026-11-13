@@ -127,7 +127,7 @@ block2 = { version = "0.6", optional = true }
 i-slint-backend-android-activity = { workspace = true, optional = true }
 jni = { version = "0.22", optional = true }
 
-[target.'cfg(not(any(target_os = "openbsd", target_os = "windows", target_os = "ios", all(target_arch = "aarch64", target_os = "linux"))))'.dependencies]
+[target.'cfg(any(all(target_arch="x86_64",target_env="gnu",target_os="linux",target_vendor="unknown"),all(target_arch="powerpc64",target_env="gnu",target_os="linux",target_vendor="unknown"),all(target_arch="aarch64",target_env="gnu",target_os="linux",target_vendor="unknown"),all(target_arch="aarch64",target_os="macos",target_vendor="unknown")))'.dependencies]
 tikv-jemallocator = { workspace = true }
 
 [lib]

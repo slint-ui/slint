@@ -14,24 +14,10 @@ use itertools::Itertools;
 use std::io::Cursor;
 use std::io::Write;
 
-#[cfg(all(
-    feature = "jemalloc",
-    not(any(
-        target_os = "openbsd",
-        target_os = "windows",
-        all(target_arch = "aarch64", target_os = "linux")
-    ))
-))]
+#[cfg(feature = "jemalloc")]
 use tikv_jemallocator::Jemalloc;
 
-#[cfg(all(
-    feature = "jemalloc",
-    not(any(
-        target_os = "openbsd",
-        target_os = "windows",
-        all(target_arch = "aarch64", target_os = "linux")
-    ))
-))]
+#[cfg(feature = "jemalloc")]
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
 
