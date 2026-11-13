@@ -43,6 +43,42 @@ describe("reachability", () => {
         })),
     });
 
+    test("many swap references expand a complete family only once", () => {
+        const definition = family("icons", 500, {
+            version: 1,
+            properties: {
+                icon: { type: "INSTANCE_SWAP", defaultValue: "icons-0" },
+            },
+            bindings: {},
+        });
+        const variants = definition.variants;
+        let scans = 0;
+        Object.defineProperty(definition, "variants", {
+            get: () => {
+                scans++;
+                return variants;
+            },
+        });
+        const uses = Array.from({ length: 2000 }, (_, index) =>
+            node(`use-${index}`),
+        );
+        const references = Object.fromEntries(
+            uses.map((use) => [
+                use.id,
+                { definitionId: "icons", variantId: "icons-0" },
+            ]),
+        );
+        const result = planReachableVariants(
+            library([definition], references),
+            node("root", uses),
+            { kind: "frame" },
+        );
+        expect(result.variants.get("icons")?.size).toBe(500);
+        expect(result.completeFamilies).toEqual(new Set(["icons"]));
+        expect(result.diagnostics).toEqual([]);
+        expect(scans).toBeLessThanOrEqual(3);
+    });
+
     test("retains one or two private variants and follows nested closure", () => {
         const defs = [family("icons", 132), family("nested", 2)];
         const result = planReachableVariants(

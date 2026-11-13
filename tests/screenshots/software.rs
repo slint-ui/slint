@@ -230,6 +230,45 @@ pub fn assert_with_render(
             panic!("Image comparison failure for {path} ({rotation:?}): {reason}");
         }
     }
+
+    if !options.skip_clipping {
+        assert_partial_render_is_identical(path, window, options);
+    }
+}
+
+/// Re-renders only the center of the window over garbage and expects the full reference.
+/// Unlike `assert_with_render_by_line`, this also covers items that line-by-line rendering
+/// doesn't support, such as paths.
+fn assert_partial_render_is_identical(
+    path: &str,
+    window: Rc<MinimalSoftwareWindow>,
+    options: &TestCaseOptions,
+) {
+    let s = window.size();
+    let mut rendering = screenshot(window.clone(), RenderingRotation::NoRotation);
+
+    let region = euclid::rect(s.width / 4, s.height / 4, s.width / 2, s.height / 2).cast::<usize>();
+    let stride = rendering.width() as usize;
+    for y in region.y_range() {
+        rendering.make_mut_slice()[y * stride..][region.x_range()].fill(Rgb8Pixel::new(
+            ((y << 3) & 0xff) as u8,
+            0,
+            255,
+        ));
+    }
+
+    window.request_redraw();
+    window.draw_if_needed(|renderer| {
+        renderer.mark_dirty_region(
+            (euclid::Rect::from_untyped(&region.cast()) / window.scale_factor()).into(),
+        );
+        renderer.render(rendering.make_mut_slice(), stride);
+    });
+
+    let argb8 = i_slint_core::graphics::Image::from_rgb8(rendering).to_rgba8().unwrap();
+    if let Err(reason) = compare_images(path, &argb8, RenderingRotation::NoRotation, options) {
+        panic!("Partial rendering image comparison failure for {path}: {reason}");
+    }
 }
 
 /// Compares only the upright (non-rotated) render against `path`. Used by the default software

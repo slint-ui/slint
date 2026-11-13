@@ -1,7 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// FIXME: currently the layout is broken, but at least it shouldn't panic
+// Rows that set `visible` keep their height, like elements in a layout.
+// Hidden rows don't react to clicks.
 
 import { ListView } from "std-widgets.slint";
 
@@ -14,7 +15,8 @@ export component TestCase inherits Window {
     preferred-width: 150px;
     preferred-height: 150px;
     out property<int> val;
-    ListView {
+    out property<length> content-height: lv.content-height;
+    lv := ListView {
         for box[i] in root.boxes: Rectangle {
                 height: 25px;
                 visible: box.visible;
@@ -30,17 +32,29 @@ export component TestCase inherits Window {
 ```cpp
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
-slint_testing::send_mouse_click(&instance, 5., 205.);
+for (double y : {5., 30., 55., 80.}) {
+    slint_testing::send_mouse_click(&instance, 5., y);
+}
+assert_eq(instance.get_val(), 13);
+assert_eq(instance.get_content_height(), 100.);
 ```
 
 ```rust
 let instance = TestCase::new().unwrap();
-slint_testing::send_mouse_click(&instance, 5., 205.);
+for y in [5., 30., 55., 80.] {
+    slint_testing::send_mouse_click(&instance, 5., y);
+}
+assert_eq!(instance.get_val(), 13);
+assert_eq!(instance.get_content_height(), 100.);
 ```
 
 ```js
 var instance = new slint.TestCase();
-slintlib.private_api.send_mouse_click(instance, 5., 205.);
+for (const y of [5, 30, 55, 80]) {
+    slintlib.private_api.send_mouse_click(instance, 5., y);
+}
+assert.equal(instance.val, 13);
+assert.equal(instance.content_height, 100);
 ```
 
 */

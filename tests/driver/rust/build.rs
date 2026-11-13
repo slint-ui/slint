@@ -341,12 +341,6 @@ fn compile_and_generate(
         .map(|(k, v)| (k.to_string(), std::path::PathBuf::from(v)))
         .collect::<std::collections::HashMap<_, _>>();
 
-    let mut diag = BuildDiagnostics::default();
-    let syntax_node = parser::parse(
-        source.to_owned(),
-        Some(source_path::SourcePath::new(&testcase.absolute_path)),
-        &mut diag,
-    );
     let mut compiler_config = CompilerConfiguration::new(generator::OutputFormat::Rust);
     compiler_config.experimental_features = i_slint_compiler::ExperimentalFeatures::all();
     compiler_config.edition = Some(test_driver_lib::edition_or_current(source).parse().unwrap());
@@ -367,8 +361,12 @@ fn compile_and_generate(
         compiler_config.default_translation_context =
             i_slint_compiler::DefaultTranslationContext::None;
     }
-    let (root_component, diag, loader) =
-        spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
+    let (root_component, diag, loader) = spin_on::spin_on(compile_source(
+        &source_path::SourcePath::new(&testcase.absolute_path),
+        source.to_owned(),
+        BuildDiagnostics::default(),
+        compiler_config,
+    ));
 
     if diag.has_errors() {
         diag.print_warnings_and_exit_on_error();

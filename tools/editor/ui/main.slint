@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Properties } from "properties.slint";
+
 import { Style, Metrics, Typography, Colors } from "style.slint";
 import "./assets/Inter-VariableFont.ttf";
 
@@ -27,11 +29,13 @@ import { FillSession, FillSessionRequest, FillSessionTarget, InspectorFillPicker
 import { LeftPane } from "components/left-pane.slint";
 import { NewFileErrorPopup } from "components/new-file-error-popup.slint";
 import { EditorTopBar } from "components/top-bar.slint";
+import { ShellTitleBar } from "components/title-bar.slint";
 import { UpdateStatus, UpdateStatusBar, UpdateStatusPill } from "components/update-status.slint";
 
 export {
-    Api, CanvasView, EditorCursors, EditorWindow, Style, ElementVisuals, FillSession, FillSessionRequest,
+    Api, Properties, CanvasView, EditorCursors, EditorWindow, Style, ElementVisuals, FillSession, FillSessionRequest,
     FillSessionTarget, ShadowSession, ShadowGesture, ShadowValues, Hover, InlineTextEdit, InlineTextEditStart, Preview, Project, Snapping, Springboard,
+    Metrics
 }
 
 export component EditorUi inherits Window {
@@ -318,6 +322,19 @@ export component EditorUi inherits Window {
                 self.focus();
             }
 
+            function handle-history-key(event: KeyEvent) -> EventResult {
+                let redo-y = Platform.os == OperatingSystemType.windows && (event.text == "y" || event.text == "Y");
+                if !(event.modifiers.control || event.modifiers.meta)
+                    || !(event.text == "z" || event.text == "Z" || redo-y) { return reject; }
+                if self.nudge-write-pending || self.nudge-key-held {
+                    self.nudge-key-held = false;
+                    self.cancel-nudge();
+                } else {
+                    root.apply-history(event.modifiers.shift || redo-y);
+                }
+                return accept;
+            }
+
             function is-arrow-key(text: string) -> bool {
                 text == Key.LeftArrow || text == Key.RightArrow || text == Key.UpArrow || text == Key.DownArrow
             }
@@ -386,16 +403,7 @@ export component EditorUi inherits Window {
                     CanvasView.space-pressed = true;
                     return accept;
                 }
-                let redo-y = Platform.os == OperatingSystemType.windows && (event.text == "y" || event.text == "Y");
-                if (event.modifiers.control || event.modifiers.meta) && (event.text == "z" || event.text == "Z" || redo-y) {
-                    if self.nudge-write-pending || self.nudge-key-held {
-                        self.nudge-key-held = false;
-                        self.cancel-nudge();
-                        return accept;
-                    }
-                    root.apply-history(event.modifiers.shift || redo-y);
-                    return accept;
-                }
+                if self.handle-history-key(event) == accept { return accept; }
                 if event.text == Key.Escape && AppState.has-active-drag() {
                     AppState.cancel-active-drags();
                     return accept;
@@ -477,12 +485,8 @@ export component EditorUi inherits Window {
                 }
 
                 VerticalLayout {
-                    title-move-area := WindowMoveArea {
-                        height: Style.shell.top-bar-height;
-
-                        title-touch-area := TouchArea {
-                            double-clicked => { root.toggle-maximized(); }
-                        }
+                    title-bar := ShellTitleBar {
+                        zoom-requested => { root.toggle-maximized(); }
 
                         EditorTopBar { }
                     }
@@ -530,6 +534,7 @@ export component EditorUi inherits Window {
                         }
 
                         if root.inspector-visible && !root.sidebars-collapsed: InspectorPane {
+                            history-key(event) => { return editor.handle-history-key(event); }
                             width: root.displayed-inspector-width;
                             changed palette-drag-in-outline => {
                                 root.palette-drag-in-outline = self.palette-drag-in-outline;
@@ -691,7 +696,7 @@ export component EditorUi inherits Window {
                     if event.kind == PointerEventKind.down {
                         let position = { x: self.absolute-position.x + self.mouse-x, y: self.absolute-position.y + self.mouse-y };
                         if event.button != PointerEventButton.left || !FillSession.focus-anchor(position) {
-                            Api.dismiss-fill-picker(position, event.button);
+                            Properties.dismiss-fill-picker(position, event.button);
                         }
                     }
                 }
@@ -715,7 +720,7 @@ export component EditorUi inherits Window {
                         y: FillSession.canvas-origin.y - parent.absolute-position.y;
                         width: FillSession.canvas-size.width;
                         height: FillSession.canvas-size.height;
-                        selection: FillSession.selection;
+                        selection: CanvasView.selection;
                     }
                 }
                 InspectorFillPicker { }

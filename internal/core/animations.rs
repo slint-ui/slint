@@ -284,10 +284,11 @@ impl Default for AnimationDriver {
 impl AnimationDriver {
     /// Iterates through all animations based on the new time tick and updates their state. This should be called by
     /// the windowing system driver for every frame.
+    /// A tick earlier than the current one is ignored.
     pub fn update_animations(&self, new_tick: Instant) {
         let current_tick = self.global_instant.as_ref().get_untracked();
-        assert!(current_tick <= new_tick, "The platform's clock is not monotonic!");
-        if current_tick != new_tick {
+        // The platform clock can go backwards on buggy hardware (#14847)
+        if new_tick > current_tick {
             self.active_animations.set(false);
             self.global_instant.as_ref().set(new_tick);
         }

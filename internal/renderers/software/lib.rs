@@ -2154,13 +2154,12 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> BufferRasterizer<'_, B> {
             }
             #[cfg(feature = "path")]
             FilledPath { path_geometry, clip_geometry, commands, paint, fill_rule } => {
-                self.clips.clear();
-                self.clips.extend(shape_clips(rounded_clips, clip_geometry));
                 path::render_filled_path(
                     commands,
                     path_geometry,
-                    clip_geometry,
-                    &self.clips,
+                    &self.dirty_region.intersection(clip_geometry),
+                    rounded_clips,
+                    &mut self.clips,
                     paint,
                     *fill_rule,
                     self.buffer,
@@ -2168,13 +2167,12 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> BufferRasterizer<'_, B> {
             }
             #[cfg(feature = "path")]
             StrokedPath { path_geometry, clip_geometry, commands, paint, style } => {
-                self.clips.clear();
-                self.clips.extend(shape_clips(rounded_clips, clip_geometry));
                 path::render_stroked_path(
                     commands,
                     path_geometry,
-                    clip_geometry,
-                    &self.clips,
+                    &self.dirty_region.intersection(clip_geometry),
+                    rounded_clips,
+                    &mut self.clips,
                     paint,
                     style,
                     self.buffer,
@@ -3998,16 +3996,14 @@ impl<T: RasterCommandSink> sharedparley::GlyphRenderer for SoftwareItemRenderer<
         // quantizes the glyph origin and the clip it cuts glyphs with. Truncating here puts a
         // selection highlight edge a whole pixel away from the glyph clip meant to line up with it,
         // as soon as the item's own offset lands on a fractional device pixel.
-        let geometry: PhysicalRect = physical_rect.round().cast().transformed(self.rotation);
+        let geometry = physical_rect.round().transformed(self.rotation);
         // These fills reach the raster command sink directly rather than through `draw_rectangle`,
         // so they have to bring the clip along themselves. Without it a text decoration, a selection
         // highlight or a cursor taller than the item it belongs to paints right over its
         // surroundings, while the glyphs beside it are clipped.
         let Some(clip) = self.physical_clip() else { return };
-        let mut args = target_pixel_buffer::DrawRectangleArgs::from_rect(
-            geometry.cast(),
-            Brush::SolidColor(color),
-        );
+        let mut args =
+            target_pixel_buffer::DrawRectangleArgs::from_rect(geometry, Brush::SolidColor(color));
 
         if radius.get() > 0.0 {
             let r = radius.get().min(args.width / 2.0).min(args.height / 2.0);
@@ -4235,5 +4231,72 @@ fn rounded_rectangle_partial_render_is_identical() {
         assert_partial_render_is_identical(screen_size, clip, &region, |raster_commands, clip| {
             raster_commands.push(RasterCommand::Rectangle { args: args.clone(), clip: *clip }, &[])
         });
+    }
+}
+
+#[cfg(feature = "path")]
+#[test]
+fn path_partial_render_stays_in_dirty_region() {
+    let screen_size = PhysicalSize::new(100, 80);
+    let screen = PhysicalRect::from_size(screen_size);
+    // The path covers most of the screen; the dirty region is a small part of it.
+    let commands = alloc::vec![
+        path::Command::MoveTo(zeno::Point::new(5., 5.)),
+        path::Command::LineTo(zeno::Point::new(95., 5.)),
+        path::Command::LineTo(zeno::Point::new(95., 75.)),
+        path::Command::LineTo(zeno::Point::new(5., 75.)),
+        path::Command::Close,
+    ];
+    // The second rectangle crosses the stroke on the right edge.
+    let region = [euclid::rect(30, 20, 25, 15), euclid::rect(85, 50, 14, 20)];
+    let paint =
+        || path::Paint::Solid(PremultipliedRgbaColor::from(Color::from_argb_u8(255, 200, 30, 30)));
+    let stroke = path::StrokeStyle {
+        width: 6.,
+        line_cap: i_slint_core::items::LineCap::Butt,
+        line_join: i_slint_core::items::LineJoin::Miter,
+        miter_limit: 4.,
+        dash_array: Vec::new(),
+        dash_offset: 0.,
+    };
+    let draws: [&dyn Fn(&mut dyn RasterCommandSink, &PhysicalRect); 2] = [
+        &|raster_commands, clip| {
+            raster_commands.push(
+                RasterCommand::FilledPath {
+                    path_geometry: screen,
+                    clip_geometry: *clip,
+                    commands: commands.clone(),
+                    paint: paint(),
+                    fill_rule: FillRule::default(),
+                },
+                &[],
+            )
+        },
+        &|raster_commands, clip| {
+            raster_commands.push(
+                RasterCommand::StrokedPath {
+                    path_geometry: screen,
+                    clip_geometry: *clip,
+                    commands: commands.clone(),
+                    paint: paint(),
+                    style: stroke.clone(),
+                },
+                &[],
+            )
+        },
+    ];
+    for draw in draws {
+        let partial =
+            render_region(screen_size, &region, ScaleFactor::new(1.), |p| draw(p, &screen));
+        for (i, px) in partial.iter().enumerate() {
+            let p = PhysicalPoint::new(
+                (i % screen_size.width as usize) as i16,
+                (i / screen_size.width as usize) as i16,
+            );
+            if !region.iter().any(|r| r.contains(p)) {
+                assert_eq!(px.alpha, 0, "{p:?} is outside the dirty region but was drawn");
+            }
+        }
+        assert_partial_render_is_identical(screen_size, screen, &region, draw);
     }
 }

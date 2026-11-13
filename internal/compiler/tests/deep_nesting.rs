@@ -13,7 +13,7 @@ use i_slint_compiler::{CompilerConfiguration, compile_syntax_node};
 fn deepest(make: impl Fn(usize) -> String) -> String {
     let parses = |n| {
         let mut diagnostics = BuildDiagnostics::default();
-        parse(make(n), None, &mut diagnostics);
+        parse(make(n), None, None, &mut diagnostics);
         !diagnostics.has_errors()
     };
     let mut n = 1;
@@ -42,7 +42,7 @@ fn compile_on_small_stack(source: String) {
             .stack_size(900 * 1024)
             .spawn(move || {
                 let mut diagnostics = BuildDiagnostics::default();
-                let syntax_node = parse(source, None, &mut diagnostics);
+                let syntax_node = parse(source, None, None, &mut diagnostics);
                 let config = CompilerConfiguration::new(format.clone());
                 let (doc, diagnostics, loader) =
                     spin_on::spin_on(compile_syntax_node(syntax_node, diagnostics, config));
@@ -74,6 +74,17 @@ fn conditional_expression_chain() {
     compile_deepest_on_small_stack(|n| {
         let chain: String = (0..n).map(|i| format!("v == {i} ? {i} : ")).collect();
         component(&format!("out property <int> o: {chain} -1;"))
+    });
+}
+
+#[test]
+fn else_if_chain() {
+    compile_deepest_on_small_stack(|n| {
+        let chain: String =
+            (0..n).map(|i| format!("if v == {i} {{ return {i}; }} else ")).collect();
+        component(&format!(
+            "pure function f() -> int {{ {chain} {{ return -1; }} }} out property <int> o: f();"
+        ))
     });
 }
 

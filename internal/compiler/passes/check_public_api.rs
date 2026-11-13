@@ -156,6 +156,7 @@ fn component_selected_by_either_of_its_names() {
         let doc_node = crate::parser::parse(
             "component Foo inherits Window { } export { Foo as Bob }".into(),
             Some(crate::source_path::SourcePath::new("test.slint")),
+            None,
             &mut diags,
         );
         let (doc, diag, _) = spin_on::spin_on(crate::compile_syntax_node(doc_node, diags, config));
@@ -185,6 +186,7 @@ export component Foo {
 }"#
         .into(),
         Some(crate::source_path::SourcePath::new("test.slint")),
+        None,
         &mut diags,
     );
     let (doc, diag, _) = spin_on::spin_on(crate::compile_syntax_node(doc_node, diags, config));

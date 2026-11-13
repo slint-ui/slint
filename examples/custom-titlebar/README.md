@@ -13,7 +13,7 @@ window is maximized, like native decorations do.
 Run it natively to see the real window behavior:
 
 ```sh
-cargo run -p slint-viewer -- examples/custom-titlebar/custom-titlebar.slint
+cargo run -p slint-viewer -- examples/custom-titlebar/slint-project.json
 ```
 
 Moving the window requires a backend and platform with support for it (winit on Windows, macOS, X11, and Wayland;

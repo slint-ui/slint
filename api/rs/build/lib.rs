@@ -548,21 +548,15 @@ fn compile_resolved(
     output_rust_file_path: &Path,
     mut compiler_config: i_slint_compiler::CompilerConfiguration,
 ) -> Result<Vec<std::path::PathBuf>, CompileError> {
-    let mut diag = BuildDiagnostics::default();
-    let syntax_node =
-        i_slint_compiler::parser::parse(input.source_code, Some(input.source), &mut diag);
-
-    if diag.has_errors() {
-        let vec = diag.to_string_vec();
-        diag.print();
-        return Err(CompileError::CompileError(vec));
-    }
-
     compiler_config.translation_domain = std::env::var("CARGO_PKG_NAME").ok();
 
     // 'spin_on' is ok here because the compiler in single threaded and does not block if there is no blocking future
-    let (doc, mut diag, loader) =
-        spin_on::spin_on(i_slint_compiler::compile_syntax_node(syntax_node, diag, compiler_config));
+    let (doc, mut diag, loader) = spin_on::spin_on(i_slint_compiler::compile_source(
+        &input.source,
+        input.source_code,
+        BuildDiagnostics::default(),
+        compiler_config,
+    ));
     diag.remove_infos();
 
     if diag.has_errors()
@@ -774,7 +768,7 @@ fn explicit_settings_add_to_the_project_file_paths() {
         fs::write(
             &project_file,
             r#"{
-                "edition": "1.19",
+                "edition": "1.20",
                 "main": "main.slint",
                 "include-paths": ["project-include"],
                 "library-paths": {"widgets": "project-lib.slint", "icons": "icons.slint"}
@@ -790,7 +784,7 @@ fn explicit_settings_add_to_the_project_file_paths() {
                 PathBuf::from("build-lib.slint"),
             )]))
             .with_style("build-style".into())
-            .with_edition((1, 19))
+            .with_edition((1, 18))
             .with_absolute_paths(&test_root)
             .resolve_project_file(&test_root)
             .unwrap();
@@ -807,7 +801,7 @@ fn explicit_settings_add_to_the_project_file_paths() {
             ])
         );
         assert_eq!(config.style.as_deref(), Some("build-style"));
-        assert_eq!(config.edition, Some(project_file::SlintEdition::V1_19));
+        assert_eq!(config.edition, Some((1, 18).into()));
     });
 }
 
@@ -817,7 +811,7 @@ fn explicit_build_settings_preserve_empty_values_and_false() {
         let project_path = project_file_path_in(test_root);
         std::fs::write(
             &project_path,
-            r#"{"edition":"1.19","include-paths":["include"],"library-paths":{"widgets":"lib"}}"#,
+            r#"{"edition":"1.20","include-paths":["include"],"library-paths":{"widgets":"lib"}}"#,
         )
         .unwrap();
         let project = ProjectFile::load(project_path).unwrap();
@@ -930,7 +924,7 @@ fn compiler_configuration_defaults_without_project_file() {
         let project_file = project_file_path_in(test_root);
         fs::write(
             &project_file,
-            r#"{"edition": "1.19", "main":"main.slint","include-paths":["include"]}"#,
+            r#"{"edition": "1.20", "main":"main.slint","include-paths":["include"]}"#,
         )
         .unwrap();
 
@@ -984,7 +978,7 @@ fn missing_main_is_a_compilation_error() {
 
     with_temp_test_dir("project-file-error", |test_root| {
         let project_file = project_file_path_in(test_root);
-        fs::write(&project_file, r#"{ "edition": "1.19" }"#).unwrap();
+        fs::write(&project_file, r#"{ "edition": "1.20" }"#).unwrap();
 
         let error = compile_with_output_path(
             test_root,
@@ -1011,7 +1005,7 @@ fn output_path_compilation_tracks_project_file_dependency() {
 
         fs::write(
             &project_file,
-            r#"{"edition": "1.19", "main":"main.slint","include-paths":["include"]}"#,
+            r#"{"edition": "1.20", "main":"main.slint","include-paths":["include"]}"#,
         )
         .unwrap();
         fs::write(&input_file, "export component Test inherits Rectangle {}").unwrap();
@@ -1067,12 +1061,12 @@ fn a_project_directory_compiles_its_main_file() {
         let project_file = project_file_path_in(&test_root);
         fs::write(
             &project_file,
-            r#"{ "edition": "1.19", "main": "ui/main.slint", "include-paths": ["shared"] }"#,
+            r#"{ "edition": "1.20", "main": "ui/main.slint", "include-paths": ["shared"] }"#,
         )
         .unwrap();
         fs::write(
             project_file_path_in(&ui_dir),
-            r#"{ "edition": "1.19", "include-paths": ["nowhere"] }"#,
+            r#"{ "edition": "1.20", "include-paths": ["nowhere"] }"#,
         )
         .unwrap();
         fs::write(shared_dir.join("shared.slint"), "export component Shared {}").unwrap();
@@ -1117,7 +1111,7 @@ fn directory_without_project_file_is_a_compilation_error() {
 fn project_file_can_be_compiled_directly() {
     with_temp_test_dir("direct-project-file", |test_root| {
         let project_file = project_file_path_in(test_root);
-        std::fs::write(&project_file, r#"{"edition":"1.19","main":"main.slint"}"#).unwrap();
+        std::fs::write(&project_file, r#"{"edition":"1.20","main":"main.slint"}"#).unwrap();
         std::fs::write(test_root.join("main.slint"), "export component Main inherits Window { }")
             .unwrap();
         let dependencies = compile_with_output_path(

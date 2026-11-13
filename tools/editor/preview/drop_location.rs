@@ -1161,7 +1161,27 @@ pub fn create_drop_element_workspace_edit_with_properties(
     });
     let for_loop = if is_list_view { "for _ in 3: " } else { "" };
 
-    let new_text = if component.default_properties.is_empty() && extra_properties.is_empty() {
+    let mut extra_properties = extra_properties.to_vec();
+    if drop_info.target_element_node.layout_kind() == ui::LayoutKind::None {
+        extend_with_new_properties(
+            &mut extra_properties,
+            &component.default_properties,
+            component.default_size.clone(),
+        );
+    }
+
+    // `Tab` and `RadioButton` only work inside their parent and aren't in the component catalog,
+    // so start the container with one child the user can then edit or duplicate.
+    let first_child = match component.name.as_str() {
+        "TabWidget" if component.is_std_widget => Some("Tab { title: \"Tab 1\"; }"),
+        "RadioGroup" if component.is_std_widget => Some("RadioButton { text: \"Option 1\"; }"),
+        _ => None,
+    };
+
+    let new_text = if component.default_properties.is_empty()
+        && extra_properties.is_empty()
+        && first_child.is_none()
+    {
         format!(
             "{}{for_loop}{} {{{placeholder} }}\n{}",
             drop_info.insert_info.pre_indent, component.name, drop_info.insert_info.post_indent
@@ -1174,8 +1194,11 @@ pub fn create_drop_element_workspace_edit_with_properties(
         for p in &component.default_properties {
             to_insert += &format!("{}    {}: {};\n", drop_info.insert_info.indent, p.name, p.value);
         }
-        for p in extra_properties {
+        for p in &extra_properties {
             to_insert += &format!("{}    {}: {};\n", drop_info.insert_info.indent, p.name, p.value);
+        }
+        if let Some(child) = first_child {
+            to_insert += &format!("{}    {child}\n", drop_info.insert_info.indent);
         }
         to_insert +=
             &format!("{}}}\n{}", drop_info.insert_info.indent, drop_info.insert_info.post_indent);
@@ -1373,6 +1396,7 @@ fn parse_pasted_element(text: &str) -> Option<SyntaxNode> {
     let mut diag = BuildDiagnostics::default();
     let document = i_slint_compiler::parser::parse(
         format!("{PASTE_WRAPPER_PREFIX}{}{PASTE_WRAPPER_SUFFIX}", text.trim()),
+        None,
         None,
         &mut diag,
     );

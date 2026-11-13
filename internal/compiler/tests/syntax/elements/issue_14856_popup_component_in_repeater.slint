@@ -1,0 +1,35 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { DatePickerPopup } from "std-widgets.slint";
+
+component MyPopup inherits PopupWindow {
+    Rectangle { background: red; }
+}
+
+export component Test inherits Window {
+    in property <bool> cond: true;
+
+    if cond : VerticalLayout {
+        p := MyPopup { }
+        d := DatePickerPopup { }
+        TouchArea {
+            clicked => {
+                p.show();
+                d.show();
+            }
+        }
+    }
+
+    for i in 2 : Rectangle {
+        q := MyPopup { }
+        TouchArea {
+            clicked => {
+                q.show();
+            }
+        }
+    }
+
+    if cond : MyPopup { }
+//            >      <error{PopupWindow cannot be directly repeated or conditional}
+}

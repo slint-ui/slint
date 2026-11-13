@@ -1985,6 +1985,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "edf234dd1594d6dd434a8fb8cada51ddbbc593e40e4a01556a0b31c62da2775b"
 
 [[package]]
+name = "dunce"
+version = "1.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "92773504d58c093f6de2459af4af33faa518c13451eb8f2b5698ed3d36e7c813"
+
+[[package]]
 name = "either"
 version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2273,7 +2279,7 @@ dependencies = [
 
 [[package]]
 name = "figma_import"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "clap",
  "derive_more",
@@ -3216,7 +3222,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-backend-android-activity"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "android-activity 0.5.2",
  "android-activity 0.6.1",
@@ -3232,7 +3238,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-backend-linuxkms"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "ash",
  "bytemuck",
@@ -3265,7 +3271,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-backend-qt"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "const-field-offset",
  "cpp",
@@ -3283,7 +3289,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-backend-selector"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "cfg_aliases",
  "i-slint-backend-android-activity",
@@ -3302,7 +3308,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-backend-testing"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "async-net",
  "base64 0.23.1",
@@ -3331,7 +3337,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-backend-winit"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "accesskit",
  "accesskit_winit",
@@ -3379,7 +3385,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-common"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "derive_more",
  "euclid",
@@ -3397,7 +3403,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-compiler"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "annotate-snippets",
  "base64 0.23.1",
@@ -3445,7 +3451,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-core"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "accesskit",
  "async-channel",
@@ -3515,7 +3521,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-core-macros"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "quote",
  "serde_json",
@@ -3524,7 +3530,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-editor-preview"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "async-compat",
  "directories",
@@ -3558,7 +3564,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-live-preview"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "anyhow",
  "base64 0.23.1",
@@ -3597,14 +3603,14 @@ dependencies = [
 
 [[package]]
 name = "i-slint-parser-test-macro"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "quote",
 ]
 
 [[package]]
 name = "i-slint-renderer-anyrender"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "anyrender",
  "anyrender_vello",
@@ -3619,7 +3625,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-renderer-femtovg"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "const-field-offset",
  "femtovg",
@@ -3639,7 +3645,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-renderer-skia"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "bytemuck",
  "cfg_aliases",
@@ -3678,7 +3684,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-renderer-software"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "bytemuck",
  "clru",
@@ -7286,7 +7292,7 @@ checksum = "0c790de23124f9ab44544d7ac05d60440adc586479ce501c1d6d7da3cd8c9cf5"
 
 [[package]]
 name = "slint"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "async-compat",
  "bytemuck",
@@ -7320,7 +7326,7 @@ dependencies = [
 
 [[package]]
 name = "slint-build"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "derive_more",
  "document-features",
@@ -7333,7 +7339,7 @@ dependencies = [
 
 [[package]]
 name = "slint-compiler"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "clap",
  "i-slint-common",
@@ -7347,7 +7353,7 @@ dependencies = [
 
 [[package]]
 name = "slint-cpp"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "anyhow",
  "cbindgen",
@@ -7370,7 +7376,7 @@ dependencies = [
 
 [[package]]
 name = "slint-doc-generator"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -7390,12 +7396,14 @@ dependencies = [
 
 [[package]]
 name = "slint-editor"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "by_address",
+ "cfg-if",
  "clap",
  "clru",
  "crossbeam-channel",
+ "dunce",
  "futures-util",
  "i-slint-backend-selector",
  "i-slint-backend-testing",
@@ -7439,7 +7447,7 @@ dependencies = [
 
 [[package]]
 name = "slint-interpreter"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "derive_more",
  "document-features",
@@ -7473,7 +7481,7 @@ dependencies = [
 
 [[package]]
 name = "slint-lsp"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "by_address",
  "clap",
@@ -7525,7 +7533,7 @@ dependencies = [
 
 [[package]]
 name = "slint-macros"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "i-slint-compiler",
  "proc-macro2",
@@ -7535,7 +7543,7 @@ dependencies = [
 
 [[package]]
 name = "slint-node"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "async-io",
  "i-slint-backend-linuxkms",
@@ -7560,11 +7568,12 @@ dependencies = [
 
 [[package]]
 name = "slint-python"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "chrono",
  "i-slint-backend-linuxkms",
  "i-slint-backend-selector",
+ "i-slint-backend-testing",
  "i-slint-common",
  "i-slint-compiler",
  "i-slint-core",
@@ -7577,7 +7586,7 @@ dependencies = [
 
 [[package]]
 name = "slint-sc"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "image",
  "rayon",
@@ -7589,7 +7598,7 @@ dependencies = [
 
 [[package]]
 name = "slint-sc-coverage"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "clap",
  "serde",
@@ -7598,14 +7607,14 @@ dependencies = [
 
 [[package]]
 name = "slint-sc-test-sys"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "semihosting",
 ]
 
 [[package]]
 name = "slint-tr-extractor"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "chrono",
  "clap",
@@ -7619,7 +7628,7 @@ dependencies = [
 
 [[package]]
 name = "slint-viewer"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "anyhow",
  "async-compat",
@@ -7656,7 +7665,7 @@ dependencies = [
 
 [[package]]
 name = "slint-wasm-interpreter"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "console_error_panic_hook",
  "i-slint-backend-winit",
@@ -10382,7 +10391,7 @@ checksum = "32ac00cd3f8ec9c1d33fb3e7958a82df6989c42d747bd326c822b1d625283547"
 
 [[package]]
 name = "xtask"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "anyhow",
  "cargo_metadata",
@@ -10574,7 +10583,7 @@ dependencies = [
 
 [[package]]
 name = "zed_slint"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "zed_extension_api",
 ]

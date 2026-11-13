@@ -3320,6 +3320,49 @@ mod tests {
         assert_eq!(point.y, GEOMETRY_POSITION_Y + GEOMETRY_POSITION_Y - 82.);
     }
 
+    #[test]
+    fn test_showing_and_closing_popups_bumps_popups_generation() {
+        let (window_adapter, item_tree) = create_subsubtree_items(None);
+        let window = &window_adapter.window.0;
+        let tracker = Box::pin(crate::properties::PropertyTracker::<false>::default());
+        let observe = || tracker.as_ref().evaluate(|| window.popups_generation());
+        let show = || {
+            window.show_popup(
+                &item_tree,
+                Box::new(LogicalPosition::default),
+                crate::items::PopupClosePolicy::NoAutoClose,
+                &ItemRc::new_root(item_tree.clone()),
+                crate::window::WindowKind::Popup,
+                Box::new(|_| {}),
+            )
+        };
+
+        let mut generation = observe();
+        let mut assert_bumped = |what: &str| {
+            assert!(tracker.is_dirty(), "{what} didn't dirty a dependent");
+            let next = observe();
+            assert_ne!(next, generation, "{what} didn't bump the generation");
+            generation = next;
+        };
+
+        let popup = show();
+        assert_bumped("showing a popup");
+        window.close_popup(popup);
+        assert_bumped("closing a popup");
+        show();
+        assert_bumped("showing a popup");
+        window.close_top_popup();
+        assert_bumped("closing the top popup");
+        show();
+        assert_bumped("showing a popup");
+        window.close_all_popups();
+        assert_bumped("closing all popups");
+
+        window.close_all_popups();
+        window.close_top_popup();
+        assert!(!tracker.is_dirty(), "closing no popup dirtied a dependent");
+    }
+
     // Includes also dynamic elements
     fn create_subsubtree_items_dynamic_elements(
         window_adapter: Rc<WindowAdapter>,

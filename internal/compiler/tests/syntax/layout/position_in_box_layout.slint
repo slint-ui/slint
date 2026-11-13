@@ -1,7 +1,26 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+component RootPositioned inherits Rectangle {
+    x: 3px;
+    y: 3px;
+}
+
+component OwnPositionInLayout {
+    VerticalLayout {
+        padding: 2px;
+        Rectangle { y: 1px; }
+//                     >  <error{The property 'y' cannot be set for elements placed in this layout, because the layout is already setting it}
+        @children
+    }
+}
+
+component ForwardsChildren {
+    OwnPositionInLayout { @children }
+}
+
 export component Test inherits Window {
+    ForwardsChildren { Rectangle {} }
     VerticalLayout {
         Text { x: 16px; text: "stretched"; }
 //                >   <warning{The layout stretches the 'width' of this element, so 'x' can move it past the edge, consider setting its 'width' too, or using the layout's 'padding' or 'cross-axis-alignment'}
@@ -25,6 +44,16 @@ export component Test inherits Window {
         Rectangle { cross-axis-self-alignment: center; height: 6px; }
         Rectangle { y: 1px; }
 //                     >  <error{The property 'y' cannot be set for elements placed in this layout, because the layout is already setting it}
+    }
+    VerticalLayout {
+        padding: 2px;
+        RootPositioned { Rectangle {} }
+        RootPositioned { y: 1px; Rectangle {} }
+//                          >  <error{The property 'y' cannot be set for elements placed in this layout, because the layout is already setting it}
+        RootPositioned { animate y { duration: 100ms; } }
+//                               ><error{The property 'y' cannot be set for elements placed in this layout, because the layout is already setting it}
+        RootPositioned { x: 1px; Rectangle {} }
+//                          >  <warning{The layout stretches the 'width' of this element, so 'x' can move it past the edge, consider setting its 'width' too, or using the layout's 'padding' or 'cross-axis-alignment'}
     }
     VerticalLayout {
         cross-axis-alignment: start;

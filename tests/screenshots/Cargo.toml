@@ -91,6 +91,7 @@ i-slint-backend-testing = { workspace = true, features = ["internal"], optional 
 
 image = { workspace = true }
 crossterm = "0.29"
+test_driver_lib = { path = "../driver/driverlib" }
 
 [build-dependencies]
 i-slint-compiler = { workspace = true, features = ["default", "rust", "display-diagnostics", "renderer-software"], optional = true }

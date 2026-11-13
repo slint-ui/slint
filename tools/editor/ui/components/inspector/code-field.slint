@@ -4,13 +4,18 @@
 import { Style, Typography, FieldStyle } from "../../style.slint";
 
 import { InspectorTextFieldBase } from "text-field-base.slint";
+import { Properties, PropertyEditKind, PropertyValue } from "../../properties.slint";
+import { Api } from "../../api.slint";
 
 export component InspectorCodeField inherits Rectangle {
     in property <FieldStyle> style: Style.code-field;
     in property <string> accessible-name: "";
     in property <string> prefix: "";
-    in property <string> value;
+    private property <PropertyValue> editor-value: Properties.editor-property-value-data(root.property-name);
+    in property <string> value: root.editor-value.code != "" ? root.editor-value.code : root.fallback;
     in property <string> commit-key: "";
+    in property <string> property-name: "";
+    in property <string> fallback: "";
     callback accepted(string) -> bool;
 
     horizontal-stretch: 1;
@@ -22,7 +27,21 @@ export component InspectorCodeField inherits Rectangle {
         width: parent.width;
         value: root.value;
         commit-key: root.commit-key;
+        edit-input(text) => {
+            if root.property-name != "" && !Properties.inspector-preview-code(root.property-name, PropertyEditKind.string, text) {
+                Properties.inspector-cancel();
+            }
+        }
         accepted(text) => {
+            if root.property-name != "" {
+                if Properties.inspector-preview-code(root.property-name, PropertyEditKind.string, text) {
+                    if Properties.inspector-commit() { return true; }
+                    Properties.inspector-cancel();
+                    return false;
+                }
+                Properties.inspector-cancel();
+                return Properties.commit-code-binding(Api.current-element, root.property-name, text);
+            }
             return root.accepted(text);
         }
 

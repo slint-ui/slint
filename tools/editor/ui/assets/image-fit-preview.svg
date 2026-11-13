@@ -1,0 +1,9 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> -->
+<!-- SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 -->
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="80" viewBox="0 0 120 80">
+<rect width="120" height="80" rx="2" fill="#bfe6f4"/>
+<circle cx="85" cy="24" r="13" fill="#ffc76c"/>
+<path d="M0 61 30 27 63 64 87 42 120 72V80H0Z" fill="#4d9496"/>
+<path d="M0 73 40 53 70 72 98 56 120 68V80H0Z" fill="#245d71"/>
+<path d="M4 15V4H15M105 4h11v11M116 65v11h-11M15 76H4V65" fill="none" stroke="#fff" stroke-width="2" opacity=".85"/>
+</svg>

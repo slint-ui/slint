@@ -14,7 +14,7 @@
 //
 // Qt and Skia pixel-align the origin before drawing a text input, and femtovg never quantizes
 // either edge, so only the software renderer can show this.
-TestCase := Window {
+component TestCase inherits Window {
     width: 64px;
     height: 40px;
 
@@ -30,7 +30,6 @@ TestCase := Window {
         color: black;
         selection-background-color: #c8c8c8;
         selection-foreground-color: red;
-        anchor-position-byte-offset: 1;
-        cursor-position-byte-offset: 2;
+        init => { self.set-selection-offsets(1, 2); }
     }
 }

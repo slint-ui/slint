@@ -66,6 +66,7 @@ export component ListTile {
                 }
 
                 if root.avatar_icon.width > 0 && root.avatar_icon.height > 0 : Icon {
+                    x: 0; // #14895
                     width: parent.width;
                     source: root.avatar_icon;
                     colorize: root.avatar_foreground;
