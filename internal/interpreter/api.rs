@@ -3344,10 +3344,9 @@ mod project_file_tests {
                 .diagnostics()
                 .map(|diagnostic| diagnostic.message().to_string())
                 .collect::<Vec<_>>(),
-            [format!(
-                "A `{FILE_NAME}` cannot be compiled directly; pass its directory instead ({})",
-                Path::new(r"\project\slint-project.json").parent().unwrap().display()
-            )]
+            [
+                "Cannot use a slint-project.json as both a project root and as source path. Omit the explicit project root."
+            ]
         );
         assert_eq!(result.components().count(), 0);
     }
@@ -3367,10 +3366,9 @@ mod project_file_tests {
                 .diagnostics()
                 .map(|diagnostic| diagnostic.message().to_string())
                 .collect::<Vec<_>>(),
-            [format!(
-                "A `{FILE_NAME}` cannot be compiled directly; pass its directory instead ({})",
-                manifest.strip_prefix(&current_directory).unwrap().parent().unwrap().display()
-            )]
+            [
+                "Cannot compile 'slint-project.json' as Slint source text; pass a '.slint' source path"
+            ]
         );
         assert_eq!(result.components().count(), 0);
     }
