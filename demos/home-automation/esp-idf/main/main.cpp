@@ -5,8 +5,10 @@
 
 #include <chrono>
 #include <ctime>
+#include <span>
 
 #include <esp_check.h>
+#include <esp_lcd_mipi_dsi.h>
 #include <esp_lcd_panel_ops.h>
 #include <slint-esp.h>
 
@@ -73,10 +75,19 @@ extern "C" void app_main(void)
     ESP_ERROR_CHECK(esp_lcd_new_panel_io_i2c(i2c_handle, &tp_io_config, &tp_io_handle));
     ESP_ERROR_CHECK(esp_lcd_touch_new_i2c_gt911(tp_io_handle, &tp_cfg, &touch_handle));
 
+    using Pixel = slint::platform::Rgb565Pixel;
+    void *frame_buffer1 = nullptr;
+    void *frame_buffer2 = nullptr;
+    ESP_ERROR_CHECK(esp_lcd_dpi_panel_get_frame_buffer(display_handles.panel, 2, &frame_buffer1,
+                                                       &frame_buffer2));
+    constexpr std::size_t frame_pixels = BSP_LCD_H_RES * BSP_LCD_V_RES;
+
     slint_esp_init(SlintPlatformConfiguration {
             .size = slint::PhysicalSize({ BSP_LCD_V_RES, BSP_LCD_H_RES }),
             .panel_handle = display_handles.panel,
             .touch_handle = touch_handle,
+            .buffer1 = std::span(static_cast<Pixel *>(frame_buffer1), frame_pixels),
+            .buffer2 = std::span(static_cast<Pixel *>(frame_buffer2), frame_pixels),
             .rotation = slint::platform::SoftwareRenderer::RenderingRotation::Rotate90,
             .byte_swap = false,
             .panel_type = SlintDisplayPanelType::MipiDsiDpi,
