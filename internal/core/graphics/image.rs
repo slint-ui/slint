@@ -742,11 +742,7 @@ impl ImageInner {
         format: Slice<'_, u8>,
     ) -> Option<Self> {
         // On the web, let the browser decode the image instead of shipping decoders in the binary.
-        #[cfg(all(
-            target_arch = "wasm32",
-            not(target_os = "emscripten"),
-            not(feature = "image-decoders")
-        ))]
+        #[cfg(not(feature = "image-decoders"))]
         {
             let _ = cache_key;
             let mime_type = core::str::from_utf8(format.as_slice())
@@ -768,11 +764,7 @@ impl ImageInner {
                 .map(|html_image| ImageInner::HTMLImage(vtable::VRc::new(html_image)))
         }
 
-        #[cfg(any(
-            not(target_arch = "wasm32"),
-            target_os = "emscripten",
-            feature = "image-decoders"
-        ))]
+        #[cfg(feature = "image-decoders")]
         {
             #[cfg(feature = "svg")]
             if format.as_slice() == b"svg"
