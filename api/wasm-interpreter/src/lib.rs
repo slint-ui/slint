@@ -10,6 +10,12 @@ compile_error!(
 );
 
 #[cfg(feature = "browser")]
+const _: () = assert!(
+    !i_slint_core::IMAGE_DECODERS_ENABLED,
+    "The browser interpreter requires HTML image decoding; disable i-slint-core/image-decoders"
+);
+
+#[cfg(feature = "browser")]
 use std::cell::RefCell;
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
