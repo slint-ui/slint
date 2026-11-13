@@ -445,6 +445,8 @@ pub struct ListViewInfo {
     pub listview_height: MemberReference,
     /// The ListView's inner visible width (not counting eventual scrollbar)
     pub listview_width: MemberReference,
+    /// The property the layout sets to the ListView's current row, if it declares one
+    pub current_row: Option<MemberReference>,
 
     // In the repeated component context
     pub prop_y: MemberReference,
