@@ -3528,8 +3528,9 @@ fn build(l: &mut Loader) {
             in property <length> anchor-width;*/
 
             @constexpr in property <bool> close-on-click;
-            /// By default, a PopupWindow closes when the user clicks. Set this to false to prevent that behavior and close it manually using the `close()` function.
 
+            /// Sets when the `PopupWindow` closes on its own. By default, any click closes it.
+            /// With `no-auto-close`, close it with the `close()` function.
             @constexpr in property <PopupClosePolicy> close-policy;
             /// Use this read-only property to style the element that opened the popup, for example
             /// to rotate a ComboBox's arrow while the dropdown is open.
