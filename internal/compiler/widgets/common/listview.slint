@@ -8,12 +8,25 @@ import { ListViewInterface, StandardListViewInterface } from "std-widget-interfa
 export component ListView inherits ScrollView {
     implement ListViewInterface <=> self;
 
+    callback current-row-changed(row: int);
+
+    // The ListView's layout sets it.
+    private property <int> current-row-index: -1;
+
     @children
     accessible-role: list;
     accessible-orientation: Orientation.vertical;
 
     // The body will be overwritten
     @shadowable public function ensure-row-visible(row: int, behavior: ScrollBehavior) {}
+
+    public pure function current-row() -> int {
+        return root.current-row-index;
+    }
+
+    changed current-row-index => {
+        root.current-row-changed(root.current-row-index);
+    }
 }
 
 component StandardListViewBase inherits ListView {

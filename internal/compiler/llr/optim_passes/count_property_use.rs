@@ -50,6 +50,9 @@ pub fn count_property_use(root: &CompilationUnit) {
                 }
                 visit_property(&lv.listview_width, ctx);
                 visit_property(&lv.listview_height, ctx);
+                if let Some(current_row) = &lv.current_row {
+                    visit_property(current_row, ctx);
+                }
 
                 let parent_ctx = ParentScope::new(ctx, Some(idx));
                 let rep_ctx = EvaluationContext::new_sub_component(

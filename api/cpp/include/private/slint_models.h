@@ -1282,6 +1282,7 @@ public:
     bool ensure_updated_listview(const cbindgen_private::Flickable *flickable, const Parent *parent,
                                  const private_api::Property<float> *content_width,
                                  const private_api::Property<float> *content_height,
+                                 const private_api::Property<int> *current_row,
                                  const private_api::Property<float> *content_y,
                                  float listview_width, float listview_height) const
     {
@@ -1296,7 +1297,7 @@ public:
         auto ops = make_ops(ctx);
         bool changed = cbindgen_private::slint_repeater_ensure_updated_listview(
                 &ops, &inner->scroll_to_row, row_count(), flickable, content_width, content_height,
-                content_y, listview_width, listview_height);
+                current_row, content_y, listview_width, listview_height);
         if (changed)
             instance_generation.mark_dirty();
         return recurse_ensure_instantiated() || changed;

@@ -456,6 +456,8 @@ pub trait ListViewProperties {
     /// Register the content properties as dependencies of the current
     /// binding evaluation without reading them.
     fn register_as_dependencies(&self);
+    /// Set the ListView's current row. A no-op when the ListView doesn't declare one.
+    fn current_row_set(&self, row: i32);
 }
 
 struct TypedListViewProps<'a> {
@@ -466,6 +468,7 @@ struct TypedListViewProps<'a> {
     /// from the layout heights
     content_height: Option<Pin<&'a Property<LogicalLength>>>,
     content_y: Pin<&'a Property<LogicalLength>>,
+    current_row: Option<Pin<&'a Property<i32>>>,
 }
 
 impl ListViewProperties for TypedListViewProps<'_> {
@@ -503,6 +506,11 @@ impl ListViewProperties for TypedListViewProps<'_> {
         }
         self.content_y.register_as_dependency();
     }
+    fn current_row_set(&self, row: i32) {
+        if let Some(current_row) = self.current_row {
+            current_row.set(row);
+        }
+    }
 }
 
 /// Update only the instances visible in the ListView viewport.
@@ -533,6 +541,7 @@ fn update_visible_instances(
         props.content_height_set(zero);
         props.content_y_set(zero);
         props.content_width_set(listview_width);
+        props.current_row_set(-1);
         return false;
     }
     // A height of zero or less, like before the window has a size, leaves no viewport to fill.
@@ -736,6 +745,7 @@ fn update_visible_instances(
     let Some((current_row, current_top)) = current else { return changed };
     let mut state = ops.layout_state();
     state.item_index = CurrentItem { row: current_row, instance_index: current_row - first_row };
+    props.current_row_set(current_row as i32);
     if ops.len() == 0 {
         ops.set_layout_state(state);
         return changed;
@@ -1299,7 +1309,8 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         listview_width: LogicalLength,
         listview_height: Pin<&Property<LogicalLength>>,
     ) {
-        let props = TypedListViewProps { content_width, content_height, content_y };
+        let props =
+            TypedListViewProps { content_width, content_height, content_y, current_row: None };
         self.track_changes_listview_callback(&props, listview_width);
         listview_height.register_as_dependency();
     }
@@ -1328,11 +1339,12 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         flickable: Option<Pin<&Flickable>>,
         content_width: Option<Pin<&Property<LogicalLength>>>,
         content_height: Option<Pin<&Property<LogicalLength>>>,
+        current_row: Option<Pin<&Property<i32>>>,
         content_y: Pin<&Property<LogicalLength>>,
         listview_width: LogicalLength,
         listview_height: Pin<&Property<LogicalLength>>,
     ) -> bool {
-        let props = TypedListViewProps { content_width, content_height, content_y };
+        let props = TypedListViewProps { content_width, content_height, content_y, current_row };
         self.ensure_updated_listview_callback(
             init,
             &props,
@@ -1911,11 +1923,12 @@ mod ffi {
         flickable: Option<Pin<&Flickable>>,
         content_width: Option<Pin<&Property<LogicalLength>>>,
         content_height: Option<Pin<&Property<LogicalLength>>>,
+        current_row: Option<Pin<&Property<i32>>>,
         content_y: Pin<&Property<LogicalLength>>,
         listview_width: LogicalLength,
         listview_height: LogicalLength,
     ) -> bool {
-        let props = TypedListViewProps { content_width, content_height, content_y };
+        let props = TypedListViewProps { content_width, content_height, content_y, current_row };
         // When a new item gets created in update_visible_instances and in its init
         // we call ensure-row-visible() we modify scroll_to_row
         // here we make a copy and reset `scroll_to_row`. If below `scroll_to_row`

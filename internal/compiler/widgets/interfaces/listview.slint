@@ -4,5 +4,8 @@
 import { ScrollView } from "./scrollview.slint";
 
 export interface ListView inherits ScrollView {
+    callback current-row-changed(row: int);
+
     @shadowable public function ensure-row-visible(row: int, behavior: ScrollBehavior);
+    public pure function current-row() -> int;
 }
