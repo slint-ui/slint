@@ -903,6 +903,16 @@ impl Expression {
                     node.source_file.path().parent().join(&s).unwrap_or_else(|| SourcePath::new(&s))
                 }
             };
+            #[cfg(all(not(target_arch = "wasm32"), not(feature = "slint-sc")))]
+            if let SourcePath::Url(url) = &path
+                && url.scheme() != "builtin"
+            {
+                ctx.diag.push_warning(
+                    "Loading images from HTTP/HTTPS is only supported for Web targets".into(),
+                    &node,
+                );
+            }
+
             ImageReference::Source(path)
         };
 

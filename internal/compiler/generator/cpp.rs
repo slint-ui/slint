@@ -4405,6 +4405,10 @@ impl std::fmt::Display for crate::expression_types::ImageReference {
                 r#"::slint::Image::load_from_path(::slint::SharedString(u8"{}"))"#,
                 escape_string(&path.to_string())
             ),
+            crate::expression_tree::ImageReference::Url(_) => {
+                // Loading images from URLs only work on the web, which we don't support in C++.
+                write!(f, r#"slint::Image()"#)
+            }
             crate::expression_types::ImageReference::DataUri(_) => {
                 unreachable!("data: URIs are embedded before code generation")
             }
