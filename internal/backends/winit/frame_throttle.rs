@@ -68,8 +68,7 @@ impl FrameThrottle for TimerBasedFrameThrottle {
             {
                 winit_window.request_redraw();
             } else {
-                // A hidden window never reaches draw(): a change made after hiding, while the timer was still
-                // running, would otherwise keep it going. Showing the window draws it.
+                // Showing a hidden window draws it.
                 // Windows sends no WM_PAINT to a minimized window, and repaints it on restore.
                 adapter.cancel_pending_redraw();
                 if let Some(timer) = timer.upgrade() {

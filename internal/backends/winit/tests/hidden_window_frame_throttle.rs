@@ -1,8 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! A window hidden and changed right after a frame, while the timer-based frame throttle is still running, must not
-//! keep that timer ticking; showing the window again must draw the change.
+//! A window hidden and changed right after a frame, while the timer-based frame throttle is
+//! still running, must not keep that timer ticking; showing the window again must draw the
+//! change.
 
 #[cfg(not(target_vendor = "apple"))]
 fn main() {
@@ -98,8 +99,8 @@ fn main() {
             let app = app.unwrap();
             app.show().unwrap();
             sleep(Duration::from_millis(300)).await;
-            // Hidden and changed right after a frame: the throttle's timer is still running then, until its next
-            // tick a refresh interval later.
+            // Hidden and changed right after a frame: the throttle's timer is still running then,
+            // until its next tick a refresh interval later.
             counts.after_next_frame.set(Some(Box::new({
                 let app = app.as_weak();
                 move || {
