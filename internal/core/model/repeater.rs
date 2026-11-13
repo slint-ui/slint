@@ -13,7 +13,8 @@ use super::model_peer::{ModelChangeListener, ModelChangeListenerContainer};
 use super::{Model, ModelExt, ModelRc};
 use crate::api::LogicalPosition;
 use crate::item_tree::{ItemTreeVTable, TraversalOrder};
-use crate::items::{Flickable, ItemRc, ScrollBehavior, SnapMode};
+
+use crate::items::{Flickable, ItemRc, ScrollBehavior, SnapMode, SnapPoints};
 use crate::layout::Orientation;
 use crate::lengths::{LogicalLength, RectLengths};
 use crate::model::repeater::scroll::accelerate_jump_decelerate::AccelerateJumpDecelerate;
@@ -595,7 +596,8 @@ fn update_visible_instances(
     // The current item is the row at `snap_line` in the viewport.
     // Its point at `snap_fraction` of its height, the top, center, or bottom,
     // is at `snap_line + anchor_y + content-y`, so `content-y` 0 snaps row 0.
-    let (snap_line, snap_fraction) = match flickable.map_or(SnapMode::None, |f| f.snap_mode()) {
+    let snap_mode = flickable.map_or(SnapMode::None, |f| f.snap_mode());
+    let (snap_line, snap_fraction) = match snap_mode {
         SnapMode::None | SnapMode::Start => (0 as Coord, 0 as Coord),
         SnapMode::Center => (listview_height / 2 as Coord, 0.5 as Coord),
         SnapMode::End => (listview_height, 1 as Coord),
@@ -735,7 +737,13 @@ fn update_visible_instances(
     state.anchor_y = state.cached_item_height * current_row as Coord;
     let current_height = ops.height(current_row - first_row).unwrap_or(state.cached_item_height);
     state.snap_offset = snap_line - snap_fraction * current_height;
-    props.content_height_set(LogicalLength::new(state.cached_item_height * row_count as Coord));
+    let content_height = if snap_mode == SnapMode::None {
+        state.cached_item_height * row_count as Coord
+    } else {
+        // Leaves room for the last row to reach the snap line.
+        state.cached_item_height * (row_count - 1) as Coord + listview_height
+    };
+    props.content_height_set(LogicalLength::new(content_height));
     props.content_width_set(LogicalLength::new(content_width_value));
     let new_content_y = current_top - state.anchor_y - state.snap_offset;
     // Important: Use get_internal here, the content_y may have a binding on it (especially
@@ -752,14 +760,10 @@ fn update_visible_instances(
 
     if let Some(flickable) = flickable
         && !flickable.flicking_ongoing()
+        && let Some(limit) = flickable.simulation_flick_limit_y()
     {
-        if let Some(limit) = flickable.simulation_flick_limit_y() {
-            // The content height changed, so the running fling has a new limit.
-            // TODO: adjust the deceleration to reach the limit smoothly
-            flickable.update_simulation_limit_y(limit);
-        } else {
-            // TODO: animate to the snap position
-        }
+        // The content height changed, so the running fling has a new limit.
+        flickable.update_simulation_limit_y(limit);
     }
 
     if let Some(request) = scroll_to_row.take() {
@@ -772,6 +776,30 @@ fn update_visible_instances(
             });
         *scroll_to_row =
             scroll::advance_scroll_to_row(request, top, height, listview_height, jump.is_some());
+    }
+
+    if let Some(flickable) = flickable {
+        flickable.set_snap_points((snap_mode != SnapMode::None).then(|| {
+            // The content-y that puts each row's snap point on the snap line.
+            let mut top = y;
+            let positions = (0..ops.len())
+                .map(|i| {
+                    let height = ops.height(i).unwrap_or(0 as Coord);
+                    let position = new_content_y + snap_line - (top + snap_fraction * height);
+                    top += height;
+                    position as f32
+                })
+                .collect();
+            let viewport_overflow = listview_height - flickable.content_height().get();
+            SnapPoints {
+                positions,
+                pitch: state.cached_item_height as f32,
+                min: viewport_overflow.min(0 as Coord) as f32,
+            }
+        }));
+        if scroll_to_row.is_none() {
+            flickable.snap();
+        }
     }
 
     changed

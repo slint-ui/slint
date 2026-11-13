@@ -55,6 +55,7 @@ mod component_container;
 pub use self::component_container::*;
 mod flickable;
 pub(crate) use flickable::Dimension;
+pub(crate) use flickable::SnapPoints;
 pub use flickable::{AutoBool, Flickable};
 mod text;
 pub use text::*;
