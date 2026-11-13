@@ -1,6 +1,8 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+# cSpell: ignore jtag
+
 set(slint_priv_requires)
 if (IDF_TARGET STREQUAL "esp32p4")
     # Only the ESP32-P4 has a PPA, and ESP-IDF has a PPA driver since 5.3.

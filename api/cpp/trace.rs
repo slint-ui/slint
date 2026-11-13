@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore callsite csrr mhartid nomem nostack
+
 //! Records the runtime's `tracing` spans on ESP-IDF with as little work as possible, and sends
 //! them over the console only after the capture ends, so that neither recording nor sending
 //! disturbs the measured frames. `idf.py trace` (api/cpp/esp-idf/slint/idf_ext.py) decodes them.
@@ -346,7 +348,8 @@ pub extern "C" fn slint_trace_register_core() {
         return;
     }
     // Safety: a plain function.
-    let elapsed_us = (unsafe { esp_timer_get_time() } as u32).wrapping_sub(REFERENCE_US.load(Relaxed));
+    let elapsed_us =
+        (unsafe { esp_timer_get_time() } as u32).wrapping_sub(REFERENCE_US.load(Relaxed));
     let first_core_now = REFERENCE_CYCLES
         .load(Relaxed)
         .wrapping_add(elapsed_us.wrapping_mul(TICKS_PER_US.load(Relaxed)));

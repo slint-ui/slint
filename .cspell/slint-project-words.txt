@@ -590,6 +590,7 @@ rustup
 Rustybuzz
 safeui
 Schukat
+scanline
 scanout
 sclk
 scopeguard
