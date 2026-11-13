@@ -522,6 +522,7 @@ impl Instance {
                 content_y: lv.content_y.clone(),
                 content_width: lv.content_width.clone(),
                 content_height: lv.content_height.clone(),
+                current_row: lv.current_row.clone(),
                 ctx_sub: sub.clone(),
             };
             repeater.ensure_updated_listview_callback(
@@ -580,6 +581,7 @@ impl Instance {
                 content_y: lv.content_y.clone(),
                 content_width: lv.content_width.clone(),
                 content_height: lv.content_height.clone(),
+                current_row: None,
                 ctx_sub: sub.clone(),
             };
             let listview_width = read_logical_length(&sub, &lv.listview_width);
@@ -1005,6 +1007,7 @@ struct ValueListViewProps {
     /// the ListView must not overwrite it (see #12264).
     content_width: Option<llr::MemberReference>,
     content_height: Option<llr::MemberReference>,
+    current_row: Option<llr::MemberReference>,
     ctx_sub: Pin<Rc<SubComponentInstance>>,
 }
 
@@ -1040,6 +1043,11 @@ impl i_slint_core::model::ListViewProperties for ValueListViewProps {
         let Some(content_height) = &self.content_height else { return };
         let ctx = crate::eval::EvalContext::new(self.ctx_sub.clone());
         crate::eval::store_property(&ctx, content_height, Value::Number(value.get() as f64));
+    }
+    fn current_row_set(&self, row: i32) {
+        let Some(current_row) = &self.current_row else { return };
+        let ctx = crate::eval::EvalContext::new(self.ctx_sub.clone());
+        crate::eval::store_property(&ctx, current_row, Value::Number(row as f64));
     }
     fn register_as_dependencies(&self) {
         // Reading through `load_property` registers the dependency with the
