@@ -174,36 +174,40 @@ pub(super) fn smooth_scroll_layout(
 }
 
 /// The top and height of `row` in content coordinates.
-/// `heights` are the heights of the instances from `state.offset` on.
+/// `heights` are the heights of the instances from the first instance on.
 /// Both are estimates for a row without an instance.
 pub(super) fn row_geometry(
     state: &RepeaterLayoutState,
     heights: impl IntoIterator<Item = Coord>,
     row: usize,
 ) -> (Coord, Coord) {
-    // The instance at `offset` is laid out at `anchor_y`, see `update_visible_instances`.
-    if row < state.offset {
-        return (
-            state.anchor_y - state.cached_item_height * (state.offset - row) as Coord,
-            state.cached_item_height,
-        );
-    }
-    let index = row - state.offset;
-    let mut heights = heights.into_iter();
-    let mut above = 0 as Coord;
-    let mut counted = 0;
-    for height in heights.by_ref().take(index) {
-        above += height;
-        counted += 1;
-    }
-    match heights.next() {
-        Some(height) => (state.anchor_y + above, height),
-        None => {
-            let skipped = index - counted;
-            (
-                state.anchor_y + above + state.cached_item_height * skipped as Coord,
-                state.cached_item_height,
-            )
+    let estimate = state.cached_item_height;
+    let current = state.item_index.instance_index;
+    let index = usize::try_from(row as isize - state.item_index.first_row() as isize).ok();
+    // The tops of the current item's and the row's instances, relative to the first instance.
+    let (mut current_top, mut row_top, mut row_height) = (None, None, None);
+    let (mut measured_top, mut measured) = (0 as Coord, 0);
+    for height in heights {
+        if measured == current {
+            current_top = Some(measured_top);
+        }
+        if Some(measured) == index {
+            row_top = Some(measured_top);
+            row_height = Some(height);
+        }
+        measured_top += height;
+        measured += 1;
+        if measured > current && index.is_none_or(|index| measured > index) {
+            break;
         }
     }
+    // Instances past the measured ones have the estimated height.
+    let extrapolate = |index: usize| measured_top + estimate * (index - measured) as Coord;
+    let row_top = match index {
+        Some(index) => row_top.unwrap_or_else(|| extrapolate(index)),
+        None => estimate * (row as Coord - state.item_index.first_row() as Coord),
+    };
+    let current_top = current_top.unwrap_or_else(|| extrapolate(current));
+    // The current item, the instance at `instance_index`, starts at `anchor_y + snap_offset`.
+    (state.anchor_y + state.snap_offset + row_top - current_top, row_height.unwrap_or(estimate))
 }
