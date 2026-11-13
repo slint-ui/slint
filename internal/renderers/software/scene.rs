@@ -297,6 +297,24 @@ impl Scene {
             SceneCommand::LinearGradient { linear_gradient_index } => {
                 self.vectors.linear_gradients[*linear_gradient_index as usize].covers_line()
             }
+            SceneCommand::RoundedRectangle { rectangle_index } => {
+                let rr = &self.vectors.rounded_rectangles[*rectangle_index as usize];
+                // Where the current line crosses no corner, the edges are vertical and every
+                // pixel of the span is border or fill; both have to be opaque.
+                if rr.inner_color.alpha != 255
+                    || (rr.width.get() > 0 && rr.border_color.alpha != 255)
+                {
+                    return false;
+                }
+                let span = PhysicalRect::new(item.pos, item.size);
+                let ((left_radius, _), (right_radius, _), _) =
+                    super::draw_functions::corner_radii_on_line(
+                        &span,
+                        self.current_line,
+                        &rr.shape,
+                    );
+                left_radius == 0 && right_radius == 0
+            }
             _ => false,
         }
     }
