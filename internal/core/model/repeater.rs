@@ -69,10 +69,7 @@ impl ItemIndexRelationShip {
     }
 
     fn get_instance_index_opt(&self, row: usize) -> Option<usize> {
-        row.checked_sub(self.row).map_or_else(
-            || self.instance_index.checked_add(row).and_then(|res| res.checked_sub(self.row)),
-            |res| self.instance_index.checked_add(res),
-        )
+        self.instance_index.checked_add(row)?.checked_sub(self.row)
     }
 
     /// The row of the first instance when updating all `instance_count` instances.
