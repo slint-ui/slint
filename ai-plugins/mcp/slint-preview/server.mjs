@@ -10,6 +10,7 @@ import { readFileSync } from "node:fs";
 import { extname, isAbsolute } from "node:path";
 import { pathToFileURL } from "node:url";
 import { createInterface } from "node:readline";
+import { MAX_SOURCE_BATCH_BYTES } from "./checker.mjs";
 
 const VIEW_URI = "ui://slint/preview.html";
 const VIEW_MIME_TYPE = "text/html;profile=mcp-app";
@@ -347,7 +348,7 @@ const toolCalls = {
         } catch (error) {
             return textResult(error.message, true);
         }
-        const { image, ...structuredContent } = checked;
+        const { image, sourceFiles, ...structuredContent } = checked;
         if (image)
             Object.assign(structuredContent, {
                 width: image.width,
@@ -363,6 +364,7 @@ const toolCalls = {
             const { prepare_preview, ...input } = args;
             preparations.set(previewId, {
                 input,
+                sourceFiles,
                 expiresAt: Date.now() + PREPARATION_TTL_MS,
                 timer: setTimeout(
                     () => preparations.delete(previewId),
@@ -423,6 +425,7 @@ const toolCalls = {
         }
         removePreparation(args.previewId);
         if (!previews.has(args.previewId)) registerPreview(args.previewId);
+        previews.get(args.previewId).sourceFiles = preparation.sourceFiles;
         latestPreviewId = args.previewId;
         return {
             content: [
@@ -570,7 +573,14 @@ const toolCalls = {
             preview.timings[preview.stage] ??= Date.now() - preview.requestedAt;
         }
         notify(preview);
-        return textResult("Received.");
+        const result = textResult("Received.");
+        if (stage === "started" && captureId === undefined) {
+            result.structuredContent = { sourceFiles: preview.sourceFiles ?? {} };
+            delete preview.sourceFiles;
+            if (Buffer.byteLength(JSON.stringify(result)) > MAX_SOURCE_BATCH_BYTES)
+                result.structuredContent.sourceFiles = {};
+        }
+        return result;
     },
 
 };
