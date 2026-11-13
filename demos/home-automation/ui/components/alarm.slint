@@ -12,6 +12,7 @@ export component ArmButton inherits Rectangle {
     in property <bool> enabled;
     if label != -1: Rectangle {
         Image {
+            cache-rendering-hint: true;
             source: ta.pressed ?  @image-url("../images/default-button.png", nine-slice(0 50 0 50)) : @image-url("../images/pressed-button.png", nine-slice(0 50 0 50));
             width: 100px;
             height: self.source.height * 1px;
@@ -70,6 +71,7 @@ export component Alarm inherits Control {
                     width: root.width * 0.7;
                     height: 50px;
                     Image {
+                        cache-rendering-hint: true;
                         y: 0;
                         source: ta.pressed ?  @image-url("../images/pressed-button.png", nine-slice(0 50 0 50)) : @image-url("../images/default-button.png", nine-slice(0 50 0 50));
                         width: parent.width;
@@ -201,6 +203,7 @@ export component Alarm inherits Control {
     }
 
     closeButton := Image {
+        cache-rendering-hint: true;
         opacity: root.full-screen ? 1 : 0;
         animate opacity {
             duration: Animation.full-screen-duration;

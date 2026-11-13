@@ -58,6 +58,7 @@ export component Sidebar inherits Rectangle {
                         }
 
                         Image {
+                            cache-rendering-hint: true;
                             source: @image-url("../../images/lock.svg");
                             width: 15px;
                             height: self.width;
