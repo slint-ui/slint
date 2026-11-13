@@ -102,15 +102,9 @@ struct SlintTraceSpan
             static SlintTraceSite site { name, false };                                            \
             slint::cbindgen_private::slint_trace_field(&site, int64_t(value));                     \
         } while (0)
-#    define SLINT_TRACE_EVENT(name)                                                                \
-        do {                                                                                       \
-            static SlintTraceSite site { name, false };                                            \
-            slint::cbindgen_private::slint_trace_event(&site);                                     \
-        } while (0)
 #else
 #    define SLINT_TRACE_SPAN(name)
 #    define SLINT_TRACE_FIELD(name, value)
-#    define SLINT_TRACE_EVENT(name)
 #endif
 
 #if CONFIG_SLINT_PPA && defined(SLINT_FEATURE_EXPERIMENTAL)
@@ -587,8 +581,6 @@ void EspPlatform<PixelType>::run_event_loop()
             [[maybe_unused]] bool waited_for_refresh = false;
 #if CONFIG_SLINT_RENDER_ON_SECOND_CORE
             if (pipeline && std::exchange(m_window->needs_redraw, false)) {
-                // Tracy's importer turns events with "frame" in their name into frame marks.
-                SLINT_TRACE_EVENT("frame");
 #    if CONFIG_SLINT_LOG_FRAME_STATS
                 const int64_t record_start_us = esp_timer_get_time();
 #    endif
@@ -610,8 +602,6 @@ void EspPlatform<PixelType>::run_event_loop()
             }
 #endif
             if (std::exchange(m_window->needs_redraw, false)) {
-                // Tracy's importer turns events with "frame" in their name into frame marks.
-                SLINT_TRACE_EVENT("frame");
                 if (buffer1) {
                     SLINT_TRACE_SPAN("redraw");
 #if CONFIG_SLINT_LOG_FRAME_STATS

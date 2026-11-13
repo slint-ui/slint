@@ -462,14 +462,6 @@ pub unsafe extern "C" fn slint_trace_field(site: *mut TraceSite, value: i64) {
     }
 }
 
-/// Records an event, such as the frame marks Tracy shows for events named "frame".
-///
-/// Safety: see `site_id`.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_trace_event(site: *mut TraceSite) {
-    record(unsafe { site_id(site) }, EVENT);
-}
-
 /// The cycle count the capture's times are based on.
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_trace_now() -> u32 {

@@ -5,6 +5,8 @@
 
 """Adds `idf.py trace`, which receives the capture that CONFIG_SLINT_TRACING records and opens it in Tracy."""
 
+from __future__ import annotations
+
 import json
 import os
 import queue
