@@ -52,20 +52,6 @@ fn get_instance_inner_value(inner: &core::cell::Ref<'_, RepeaterInner>, index: u
     inner.instances[index].1.as_ref().map(as_typed::<SimpleItem>).unwrap().value.get()
 }
 
-// #[test]
-// fn test_instance_lookup_after_insert_at_front() {
-//     let model = Rc::new(VecModel::from(vec![10, 20]));
-//     let repeater = repeater_for(&model);
-//     model.insert(0, 5);
-//     ensure_updated_window(repeater.as_ref());
-//     assert_eq!(repeater.range(), 0..3);
-//     assert_eq!(repeater.instance_at(0).map(|instance| instance.value.get()), Some(5));
-//     let mut rows = Vec::new();
-//     repeater.as_ref().for_each_instance_z(&mut |row, _| rows.push(row));
-//     assert_eq!(rows, [0, 1, 2]);
-// }
-//
-
 const ITEM_HEIGHT: f32 = 100.;
 
 /// Unlike `VecModel`, inserts and removes several rows with a single notification.

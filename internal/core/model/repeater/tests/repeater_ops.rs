@@ -1,3 +1,6 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
 use super::*;
 
 /// Remove elements from the model using the repeater op
@@ -267,7 +270,6 @@ fn test_adding_element() {
         );
         assert_eq!(inner.layout_state.item_index.row, 0);
         assert_eq!(inner.layout_state.item_index.instance_index, 0);
-        // assert_eq!(get_instance_inner_value(&inner, 0), 2); // Still dirty
     }
     repeater.as_ref().ensure_updated(|| SimpleItem::new(-1));
 
@@ -298,7 +300,6 @@ fn test_adding_element() {
         );
         assert_eq!(inner.layout_state.item_index.instance_index, 0);
         assert_eq!(get_instance_inner_value(&inner, 0), 2);
-        // assert_eq!(get_instance_inner_value(&inner, 1), 5); // It is still dirty!
     }
     repeater.as_ref().ensure_updated(|| SimpleItem::new(-1));
 

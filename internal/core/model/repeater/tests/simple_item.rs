@@ -1,3 +1,6 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
 // Simple Item used in the tests for mocking
 use super::*;
 
@@ -165,14 +168,6 @@ impl ItemTree for SimpleItem {
     }
 
     fn layout_info(self: core::pin::Pin<&Self>, o: Orientation) -> LayoutInfo {
-        // return LayoutInfo {
-        //     max: wi.width.get_internal().0,
-        //     max_percent: 100.,
-        //     min: wi.width.get_internal().0,
-        //     min_percent: 100.,
-        //     preferred: wi.width.get_internal().0,
-        //     stretch: 1.,
-        // };
         unimplemented!("Not needed for this test")
     }
 
