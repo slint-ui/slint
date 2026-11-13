@@ -227,7 +227,7 @@ impl CompilationResult {
     #[getter]
     fn generated_api(&self) -> PyResult<PyGeneratedAPI> {
         let Some(unit) = self.result.compilation_unit(i_slint_core::InternalToken {}) else {
-            return Err(pyo3::exceptions::PyAttributeError::new_err(
+            return Err(pyo3::exceptions::PyRuntimeError::new_err(
                 "Cannot generated API for empty slint file",
             ));
         };

@@ -226,6 +226,8 @@ impl PyImage {
         view: *mut ffi::Py_buffer,
         flags: c_int,
     ) -> PyResult<()> {
+        // Safety: the caller passes a valid `view`. The protocol requires a null `obj` on failure.
+        unsafe { (*view).obj = std::ptr::null_mut() };
         if flags & ffi::PyBUF_WRITABLE == ffi::PyBUF_WRITABLE {
             return Err(pyo3::exceptions::PyBufferError::new_err("Image pixels are read-only"));
         }
