@@ -89,3 +89,37 @@ fn test_listview_scrolled_after_insert_at_front() {
     update();
     assert_eq!(state(&repeater).0, [Clean(3), Clean(4), Clean(5), Clean(6)]);
 }
+
+#[test]
+fn test_listview_scrolled_to_end_after_remove_at_end() {
+    let model = TestModel::new(10);
+    let repeater = Box::pin(Repeater::<SimpleItem>::default());
+    let model_rc = ModelRc::from(model.clone());
+    repeater.set_model_binding(move || model_rc.clone());
+    let content_y = Box::pin(Property::new(LogicalLength::default()));
+    let listview_height = Box::pin(Property::new(LogicalLength::new((ITEM_HEIGHT * 3.) as Coord)));
+    let update = || {
+        repeater.as_ref().ensure_updated_listview(
+            new_item,
+            None,
+            None,
+            content_y.as_ref(),
+            LogicalLength::new(100 as Coord),
+            listview_height.as_ref(),
+        );
+    };
+
+    update();
+    content_y.as_ref().set(LogicalLength::new(-7. * ITEM_HEIGHT));
+    update();
+    assert_eq!(state(&repeater).0, [Clean(7), Clean(8), Clean(9)]);
+
+    model.remove(8..10);
+    update();
+    assert_eq!(
+        state(&repeater).0,
+        [Clean(5), Clean(6), Clean(7)],
+        "The last rows fill the view instead of leaving a gap below row 7"
+    );
+    assert_eq!(content_y.as_ref().get().get(), -5. * ITEM_HEIGHT);
+}

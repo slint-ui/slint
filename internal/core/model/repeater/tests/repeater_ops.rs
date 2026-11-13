@@ -1197,3 +1197,33 @@ fn test_row_data_changed_after_insert_at_front() {
     model.set_row_data(2, 30);
     assert_eq!(state(&repeater).0, [Clean(6), Clean(10), Clean(30)]);
 }
+
+#[test]
+fn test_measure_rows_after_clear_keeps_stored_index_in_sync() {
+    let model = TestModel::new(100);
+    let repeater = repeater_with_window(&model, 0..3, 0);
+    let model_rc = ModelRc::from(model.clone());
+    let mut ops = RustRepeaterOps {
+        inner: &repeater.0.inner,
+        typed: &RepeaterTypedOps::<SimpleItem> { init: &new_item, model: &model_rc },
+        instance_generation: repeater.as_ref().data().project_ref().instance_generation,
+    };
+    // A ListView seeking to a distant row: it drops all instances,
+    // creates the row, then the rows above it.
+    let mut first_row = 0;
+    let mut changed = false;
+    ops.clear();
+    measure_row(&mut ops, &mut first_row, 50, &mut changed); // Up to row 50 every row is set up
+    measure_row(&mut ops, &mut first_row, 49, &mut changed);
+    assert_eq!(first_row, 49);
+
+    // Model notifications from a row's init code read the stored index during the layout pass.
+    let (slots, item_index) = state(&repeater);
+    assert_eq!(slots, [Clean(49), Clean(50)]);
+    assert_eq!(
+        item_index.row.checked_sub(item_index.instance_index),
+        Some(49),
+        "The stored index maps the first instance to row 49, got {item_index:?}"
+    );
+    assert_eq!(repeater.range(), 49..51);
+}

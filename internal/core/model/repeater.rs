@@ -86,6 +86,11 @@ impl CurrentItem {
         self.instance_index = 0;
     }
 
+    /// Updates the indexes before adding the instance for `row` to no instances.
+    fn first_instance_added(&mut self, row: usize) {
+        *self = Self { row, instance_index: 0 };
+    }
+
     /// Updates the indexes before inserting `count` slots in front of `instance_count` instances.
     fn instances_prepended(&mut self, instance_count: usize, count: usize) {
         if instance_count > 0 {
@@ -98,9 +103,7 @@ impl CurrentItem {
         if count >= instance_count {
             self.instances_cleared();
         } else if count > self.instance_index {
-            // During a ListView update `row` lags behind the ListView's own copy of the layout
-            // state, hence the saturating_sub
-            self.row = self.row.saturating_sub(self.instance_index) + count;
+            self.row = self.first_row() + count;
             self.instance_index = 0;
         } else {
             self.instance_index -= count;
@@ -112,7 +115,7 @@ impl CurrentItem {
         if len == 0 {
             self.instances_cleared();
         } else if len < instance_count && self.instance_index >= len {
-            self.row = self.row.saturating_sub(self.instance_index) + len - 1;
+            self.row = self.first_row() + len - 1;
             self.instance_index = len - 1;
         }
     }
@@ -375,6 +378,9 @@ trait RepeaterInstanceOps {
 
     /// Remove all instances.
     fn clear(&mut self);
+
+    /// Add an empty, dirty slot for `row` to no instances.
+    fn push_first(&mut self, row: usize);
 
     /// Append `count` empty, dirty slots.
     fn push(&mut self, count: usize);
@@ -639,13 +645,14 @@ fn update_visible_instances(
     let mut bottom;
     let mut current;
     let mut passes = 0;
+    let mut closing_gap = false;
     let end_row = loop {
         // Move to the first row that reaches into the fill area.
         while row > 0 && y > fill_top {
             row -= 1;
             y -= measure_row(ops, &mut first_row, row, &mut changed).unwrap_or(0 as Coord);
         }
-        if seek.is_some() && row == 0 {
+        if (seek.is_some() || closing_gap) && row == 0 {
             y = y.min(0 as Coord);
         }
         while row + 1 < row_count {
@@ -696,10 +703,11 @@ fn update_visible_instances(
         }
 
         passes += 1;
-        if seek.is_some() && bottom < listview_height && (row > 0 || y < 0 as Coord) && passes < 3 {
-            // A seek that leaves room below the last row moves the rows down to close the gap,
+        if bottom < listview_height && (row > 0 || y < 0 as Coord) && passes < 3 {
+            // Room below the last row moves the rows down to close the gap,
             // which needs another pass to fill the rows above.
             y += listview_height - bottom;
+            closing_gap = true;
             continue;
         }
         break idx;
@@ -760,7 +768,7 @@ fn measure_row(
 ) -> Option<Coord> {
     if ops.len() == 0 {
         *first_row = row;
-        ops.push(1);
+        ops.push_first(row);
     } else if row < *first_row {
         ops.prepend(*first_row - row);
         *first_row = row;
@@ -828,6 +836,13 @@ impl RepeaterInstanceOps for RustRepeaterOps<'_> {
         let mut inner = self.inner.borrow_mut();
         inner.instances.clear();
         inner.layout_state.item_index.instances_cleared();
+    }
+
+    fn push_first(&mut self, row: usize) {
+        let mut inner = self.inner.borrow_mut();
+        debug_assert!(inner.instances.is_empty());
+        inner.layout_state.item_index.first_instance_added(row);
+        inner.instances.extend(empty_slots(1));
     }
 
     fn push(&mut self, count: usize) {
@@ -1706,6 +1721,13 @@ mod ffi {
             unsafe {
                 (*self.item_index).instances_cleared();
                 (self.clear)(self.user_data)
+            }
+        }
+        fn push_first(&mut self, row: usize) {
+            debug_assert_eq!(self.len(), 0);
+            unsafe {
+                (*self.item_index).first_instance_added(row);
+                (self.push)(self.user_data, 1)
             }
         }
         fn push(&mut self, count: usize) {
