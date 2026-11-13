@@ -47,7 +47,8 @@ pub struct SlintEdition {
 
 impl SlintEdition {
     pub const V1_19: Self = Self { major: 1, minor: 19 };
-    /// The newest edition that a compiler behavior check depends on.
+    pub const V1_20: Self = Self { major: 1, minor: 20 };
+    /// The newest edition that changes the behavior of code that compiles without warnings.
     pub const LATEST_BEHAVIOR_CHANGE: Self = Self::V1_19;
 
     /// The warning for an edition that misses a newer behavior change, where `setting` is

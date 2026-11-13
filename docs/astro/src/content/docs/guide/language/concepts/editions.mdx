@@ -267,3 +267,47 @@ export component Example inherits Window {
 ```
 
 To fix the loop, remove `width: parent.width;`: a layout already stretches its cells to its width.
+
+### 1.20
+
+#### Components, Globals, and Structs Declared With `:=` Are an Error
+
+Before 1.20, declaring a component with `Card := Rectangle { ... }` was deprecated, and only caused a warning.
+The same goes for a global declared with `global Settings := { ... }`, and a struct declared with `struct Point := { ... }`.
+With edition 1.20, it's an error.
+Declare the component with `component Card inherits Rectangle { ... }`, and remove the `:=` from the global or struct.
+
+A struct behaves the same without the `:=`.
+For a component or global, some behavior changes:
+
+- A property without `in`, `out`, or `in-out` is private, instead of `in-out`.
+  Add `in-out` where your code reads or sets it from outside the component or global.
+- A child element such as a `Text` is centered on each axis where it doesn't set `x` or `y`, instead of being placed at `0px`.
+  If it sets neither, a parent without a layout also takes its minimum and preferred size from it.
+  Set `x: 0px;` and `y: 0px;` to keep the old behavior.
+  On a layout, or an element that contains one, this also stops the parent from taking its minimum and preferred size from it.
+- A child element reads a built-in property of the component, such as `border-color`, as `root.border-color`, not as `border-color`.
+  It reads its own, such as `font-size`, as `self.font-size`.
+- Some deprecation warnings, such as for a binding that calls a function that isn't `pure`, become errors.
+- A `transitions` block isn't supported: use `in` and `out` in the state instead.
+
+```slint
+global Settings {
+    in-out property <bool> dark-mode;
+}
+
+component Card inherits Rectangle {
+    in-out property <string> title;
+    Text {
+        x: 0px;
+        y: 0px;
+        text: title;
+        color: root.border-color;
+    }
+}
+
+export component Example inherits Window {
+    background: Settings.dark-mode ? black : white;
+    Card { title: "Quarterly Report"; }
+}
+```
