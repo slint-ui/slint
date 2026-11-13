@@ -3,19 +3,14 @@
 
 use super::*;
 use crate::SharedString;
-use crate::accessibility::{
-    AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
-};
+use crate::accessibility::AccessibleStringProperty;
 use crate::cursor::MouseCursorInner;
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, InternalKeyEvent,
     KeyEventResult, MouseEvent,
 };
-use crate::item_tree::{
-    IndexRange, ItemTree, ItemTreeNode, ItemTreeWeak, ItemVisitorVTable, ItemWeak,
-    VisitChildrenResult,
-};
-use crate::items::{AccessibleRole, ItemRc, ItemVTable, RenderingResult};
+use crate::item_tree::{IndexRange, ItemTree, ItemTreeNode, ItemTreeWeak, ItemWeak};
+use crate::items::{AccessibleRole, ItemRc, RenderingResult};
 use crate::layout::LayoutInfo;
 use crate::lengths::{LogicalRect, LogicalSize};
 use crate::model::{ModelNotify, ModelTracker, VecModel};
@@ -23,8 +18,7 @@ use crate::slice::Slice;
 use crate::window::{WindowAdapter, WindowAdapterRc};
 use alloc::boxed::Box;
 use alloc::rc::Rc;
-use core::sync::atomic;
-use std::{println, vec};
+use std::vec;
 use vtable::VRc;
 mod simple_item;
 use simple_item::SimpleItem;
@@ -116,7 +110,7 @@ fn state(repeater: &Repeater<SimpleItem>) -> (Vec<Slot>, ItemIndexRelationShip) 
             (RepeatedInstanceState::Clean, Some(instance)) => {
                 Clean(as_typed::<SimpleItem>(instance).value.get())
             }
-            (RepeatedInstanceState::Dirty, Some(instance)) => Dirty,
+            (RepeatedInstanceState::Dirty, Some(_)) => Dirty,
             (RepeatedInstanceState::Dirty, None) => Empty,
             (RepeatedInstanceState::Clean, None) => panic!("clean slot without an instance"),
         })

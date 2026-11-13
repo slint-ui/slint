@@ -312,10 +312,6 @@ struct RepeaterInner {
 
 #[cfg(test)]
 impl RepeaterInner {
-    fn current_row(&self) -> usize {
-        self.layout_state.item_index.row
-    }
-
     /// Set the row to which layout state should point
     fn set_current_row(&mut self, row: usize) {
         if self.instances.is_empty() {

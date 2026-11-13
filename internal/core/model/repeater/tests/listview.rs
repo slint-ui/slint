@@ -84,8 +84,6 @@ fn test_listview_scrolled_after_insert_at_front() {
         let new_content_y = LogicalLength::new(content_y.as_ref().get().0 - scroll);
         content_y.as_ref().set(new_content_y);
     };
-    let scroll_up_by = |scroll: f32| scroll_down_by(-scroll);
-
     // Scrolled by 3.5 rows, so row 3 and 6 are partially visible
     scroll_down_by(ITEM_HEIGHT * 7. / 2.);
     update();

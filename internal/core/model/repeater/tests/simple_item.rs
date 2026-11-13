@@ -7,7 +7,6 @@ use super::*;
 #[derive(Default)]
 pub(super) struct SimpleItem {
     pub(super) value: crate::model::Cell<i32>,
-    pub(super) instantiated: bool,
 }
 
 impl SimpleItem {
@@ -45,8 +44,7 @@ impl crate::items::Item for SimpleItem {
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
-        unimplemented!("Not implemented");
-        LayoutInfo { stretch: 1., ..LayoutInfo::default() }
+        unimplemented!("Not implemented")
     }
 
     fn input_event_filter_before_children(
@@ -56,8 +54,7 @@ impl crate::items::Item for SimpleItem {
         _self_rc: &ItemRc,
         _: &mut MouseCursorInner,
     ) -> InputEventFilterResult {
-        unimplemented!("Not implemented");
-        InputEventFilterResult::ForwardAndIgnore
+        unimplemented!("Not implemented")
     }
 
     fn input_event(
@@ -67,8 +64,7 @@ impl crate::items::Item for SimpleItem {
         _self_rc: &ItemRc,
         _: &mut MouseCursorInner,
     ) -> InputEventResult {
-        unimplemented!("Not implemented");
-        InputEventResult::EventIgnored
+        unimplemented!("Not implemented")
     }
 
     fn capture_key_event(
@@ -77,8 +73,7 @@ impl crate::items::Item for SimpleItem {
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
-        unimplemented!("Not implemented");
-        KeyEventResult::EventIgnored
+        unimplemented!("Not implemented")
     }
 
     fn key_event(
@@ -87,8 +82,7 @@ impl crate::items::Item for SimpleItem {
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
-        unimplemented!("Not implemented");
-        KeyEventResult::EventIgnored
+        unimplemented!("Not implemented")
     }
 
     fn focus_event(
@@ -97,33 +91,29 @@ impl crate::items::Item for SimpleItem {
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> FocusEventResult {
-        unimplemented!("Not implemented");
-        FocusEventResult::FocusIgnored
+        unimplemented!("Not implemented")
     }
 
     fn render(
         self: Pin<&Self>,
-        backend: &mut ItemRendererRef,
-        self_rc: &ItemRc,
-        size: LogicalSize,
+        _backend: &mut ItemRendererRef,
+        _self_rc: &ItemRc,
+        _size: LogicalSize,
     ) -> RenderingResult {
-        unimplemented!("Not implemented");
-        RenderingResult::ContinueRenderingChildren
+        unimplemented!("Not implemented")
     }
 
     fn bounding_rect(
         self: core::pin::Pin<&Self>,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        geometry: LogicalRect,
+        _geometry: LogicalRect,
     ) -> LogicalRect {
-        unimplemented!("Not implemented");
-        geometry
+        unimplemented!("Not implemented")
     }
 
     fn clips_children(self: core::pin::Pin<&Self>) -> bool {
-        unimplemented!("Not implemented");
-        false
+        unimplemented!("Not implemented")
     }
 }
 
@@ -139,19 +129,17 @@ impl ItemTree for SimpleItem {
 
     fn get_item_ref(
         self: core::pin::Pin<&Self>,
-        index: u32,
+        _index: u32,
     ) -> core::pin::Pin<vtable::VRef<'_, crate::items::ItemVTable>> {
         unimplemented!("Not needed for this test")
     }
 
     fn get_item_tree(self: core::pin::Pin<&Self>) -> Slice<'_, ItemTreeNode> {
-        unimplemented!("Not implemented");
-        Slice::default()
+        unimplemented!("Not implemented")
     }
 
-    fn parent_node(self: core::pin::Pin<&Self>, result: &mut ItemWeak) {
-        unimplemented!("Not implemented");
-        *result = ItemWeak::default();
+    fn parent_node(self: core::pin::Pin<&Self>, _result: &mut ItemWeak) {
+        unimplemented!("Not implemented")
     }
 
     fn embed_component(
@@ -159,33 +147,30 @@ impl ItemTree for SimpleItem {
         _parent_component: &ItemTreeWeak,
         _item_tree_index: u32,
     ) -> bool {
-        unimplemented!("Not implemented");
+        unimplemented!("Not implemented")
+    }
+
+    fn ensure_instantiated(self: core::pin::Pin<&Self>) -> bool {
         false
     }
 
-    fn ensure_instantiated(mut self: core::pin::Pin<&Self>) -> bool {
-        false
-    }
-
-    fn layout_info(self: core::pin::Pin<&Self>, o: Orientation) -> LayoutInfo {
+    fn layout_info(self: core::pin::Pin<&Self>, _o: Orientation) -> LayoutInfo {
         unimplemented!("Not needed for this test")
     }
 
     fn subtree_index(self: core::pin::Pin<&Self>) -> usize {
-        unimplemented!("Not implemented");
-        0
+        unimplemented!("Not implemented")
     }
 
-    fn get_subtree_range(self: core::pin::Pin<&Self>, subtree_index: u32) -> IndexRange {
-        unimplemented!("Not implemented");
-        IndexRange { start: 0, end: 0 }
+    fn get_subtree_range(self: core::pin::Pin<&Self>, _subtree_index: u32) -> IndexRange {
+        unimplemented!("Not implemented")
     }
 
     fn get_subtree(
         self: core::pin::Pin<&Self>,
-        subtree_index: u32,
-        component_index: usize,
-        result: &mut ItemTreeWeak,
+        _subtree_index: u32,
+        _component_index: usize,
+        _result: &mut ItemTreeWeak,
     ) {
         unimplemented!("Not implemented");
     }
@@ -200,13 +185,11 @@ impl ItemTree for SimpleItem {
         _: AccessibleStringProperty,
         _: &mut crate::SharedString,
     ) -> bool {
-        unimplemented!("Not implemented");
-        false
+        unimplemented!("Not implemented")
     }
 
     fn item_element_infos(self: Pin<&Self>, _: u32, _: &mut SharedString) -> bool {
-        unimplemented!("Not implemented");
-        false
+        unimplemented!("Not implemented")
     }
 
     fn element_testable_properties(self: Pin<&Self>, _: u32, _: &mut SharedString) -> bool {
@@ -226,9 +209,8 @@ impl ItemTree for SimpleItem {
         unimplemented!("Not implemented");
     }
 
-    fn window_adapter(self: Pin<&Self>, _do_create: bool, result: &mut Option<WindowAdapterRc>) {
-        unimplemented!("Not implemented");
-        *result = None;
+    fn window_adapter(self: Pin<&Self>, _do_create: bool, _result: &mut Option<WindowAdapterRc>) {
+        unimplemented!("Not implemented")
     }
 
     fn item_geometry(self: Pin<&Self>, _: u32) -> crate::lengths::LogicalRect {
