@@ -44,20 +44,20 @@ fn downcast<C: RepeatedItemTree>(instance: &ItemTreeRc) -> ItemTreeRc<C> {
 /// Represents the relationship between model row and instance collection index
 /// of an element
 /// This is required for components like the listview. The listview does not instantiate all
-/// items at once but instantiates only the visible once. If the current item is in the center
+/// items at once but instantiates only the visible ones. If the current item is in the center
 /// of the screen we have in the instance list a few items before the current item and a few after
 /// `instance_index` indicates the position of the current item in this instance list
 /// while `row` is the index of the current item in the complete model
 #[derive(Default, Clone, Debug, PartialEq)]
 #[repr(C)]
-pub struct ItemIndexRelationShip {
+pub struct CurrentItem {
     /// The position of the item in the model
     row: usize,
     /// The index of the item in the instances collection
     instance_index: usize,
 }
 
-impl ItemIndexRelationShip {
+impl CurrentItem {
     /// The row of the first instance
     fn first_row(&self) -> usize {
         self.row - self.instance_index
@@ -358,7 +358,7 @@ impl RepeaterInner {
 #[repr(C)]
 pub struct RepeaterLayoutState {
     /// The relation between the model row index and the instance collection index
-    pub item_index: ItemIndexRelationShip,
+    pub item_index: CurrentItem,
     /// The average visible item height (cached between frames).
     pub cached_item_height: Coord,
     /// The estimated position of the current item, the one at `item_index`, in the content.
@@ -558,11 +558,10 @@ fn update_visible_instances(
 
     if state.item_index.row >= row_count {
         ops.clear();
-        state.item_index = ItemIndexRelationShip { row: row_count - 1, instance_index: 0 };
+        state.item_index = CurrentItem { row: row_count - 1, instance_index: 0 };
     }
     // The current item is the row at `anchor_row`, the instance at `anchor_instance`.
-    let ItemIndexRelationShip { row: anchor_row, instance_index: mut anchor_instance } =
-        state.item_index;
+    let CurrentItem { row: anchor_row, instance_index: mut anchor_instance } = state.item_index;
     // The instances hold the rows from `first_row` on.
     let mut first_row = anchor_row - anchor_instance;
 
@@ -711,8 +710,7 @@ fn update_visible_instances(
     first_row = row;
     ops.truncate(end_row - row);
     let Some((current_row, current_top)) = current else { return changed };
-    state.item_index =
-        ItemIndexRelationShip { row: current_row, instance_index: current_row - first_row };
+    state.item_index = CurrentItem { row: current_row, instance_index: current_row - first_row };
     if ops.len() == 0 {
         return changed;
     }
@@ -1675,7 +1673,7 @@ mod ffi {
     pub struct RepeaterInstanceOpsVTable {
         pub user_data: *mut core::ffi::c_void,
         /// The `item_index` of the repeater's layout state, updated along with the instances.
-        pub item_index: *mut ItemIndexRelationShip,
+        pub item_index: *mut CurrentItem,
         pub len: unsafe extern "C" fn(user_data: *mut core::ffi::c_void) -> usize,
         pub clear: unsafe extern "C" fn(user_data: *mut core::ffi::c_void),
         pub push: unsafe extern "C" fn(user_data: *mut core::ffi::c_void, count: usize),
@@ -1766,7 +1764,7 @@ mod ffi {
     /// Returns whether the instances change, and if so, sets `slots`.
     #[unsafe(no_mangle)]
     pub extern "C" fn slint_repeater_rows_added(
-        item_index: &mut ItemIndexRelationShip,
+        item_index: &mut CurrentItem,
         instance_count: usize,
         index: usize,
         count: usize,
@@ -1780,7 +1778,7 @@ mod ffi {
     /// Returns whether the instances change, and if so, sets `removed` to the instances to remove.
     #[unsafe(no_mangle)]
     pub extern "C" fn slint_repeater_rows_removed(
-        item_index: &mut ItemIndexRelationShip,
+        item_index: &mut CurrentItem,
         instance_count: usize,
         index: usize,
         count: usize,

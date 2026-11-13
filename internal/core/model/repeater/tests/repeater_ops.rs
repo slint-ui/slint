@@ -577,7 +577,7 @@ fn test_row_added_before_window() {
         (
             // They must be dirty, because the row changed
             vec![Dirty, Dirty, Dirty],
-            ItemIndexRelationShip { row: 6, instance_index: 1 }
+            CurrentItem { row: 6, instance_index: 1 }
         )
     );
 }
@@ -600,7 +600,7 @@ fn test_row_added_at_window_start() {
         (
             // The row changed for the item, so they get all dirty
             vec![Empty, Dirty, Dirty, Dirty, Dirty],
-            ItemIndexRelationShip { row: 5, instance_index: 3 }
+            CurrentItem { row: 5, instance_index: 3 }
         ),
         "We must prepend one item"
     );
@@ -652,10 +652,7 @@ fn test_row_added_after_current_row() {
     model.push(30);
     assert_eq!(
         state(&repeater),
-        (
-            vec![Clean(5), Clean(10), Clean(20), Empty],
-            ItemIndexRelationShip { row: 1, instance_index: 1 }
-        )
+        (vec![Clean(5), Clean(10), Clean(20), Empty], CurrentItem { row: 1, instance_index: 1 })
     );
 }
 
@@ -684,7 +681,7 @@ fn test_row_added_at_current_row_keeps_earlier_instances_clean() {
     model.insert(1, 7);
     assert_eq!(
         state(&repeater),
-        (vec![Clean(5), Empty, Dirty, Dirty], ItemIndexRelationShip { row: 2, instance_index: 2 })
+        (vec![Clean(5), Empty, Dirty, Dirty], CurrentItem { row: 2, instance_index: 2 })
     );
 }
 
@@ -701,12 +698,12 @@ fn test_rows_added_after_reset() {
     //          ^
     // Window: |-------|
     model.set_vec(vec![1, 2, 3]);
-    assert_eq!(state(&repeater), (vec![], ItemIndexRelationShip { row: 0, instance_index: 0 }));
+    assert_eq!(state(&repeater), (vec![], CurrentItem { row: 0, instance_index: 0 }));
 
     repeater.as_ref().ensure_updated(new_item);
     assert_eq!(
         state(&repeater),
-        (vec![Clean(1), Clean(2), Clean(3)], ItemIndexRelationShip { row: 0, instance_index: 0 })
+        (vec![Clean(1), Clean(2), Clean(3)], CurrentItem { row: 0, instance_index: 0 })
     );
     model.push(4);
     model.push(5);
@@ -714,7 +711,7 @@ fn test_rows_added_after_reset() {
         state(&repeater),
         (
             vec![Clean(1), Clean(2), Clean(3), Empty, Empty],
-            ItemIndexRelationShip { row: 0, instance_index: 0 }
+            CurrentItem { row: 0, instance_index: 0 }
         )
     );
     ensure_updated_window(repeater.as_ref());
@@ -722,7 +719,7 @@ fn test_rows_added_after_reset() {
         state(&repeater),
         (
             vec![Clean(1), Clean(2), Clean(3), Clean(4), Clean(5)],
-            ItemIndexRelationShip { row: 0, instance_index: 0 }
+            CurrentItem { row: 0, instance_index: 0 }
         )
     );
 }
@@ -813,12 +810,12 @@ fn test_rows_removed_before_current_row_but_inside_window() {
     // The second and the third must be dirty because their row changed
     assert_eq!(
         state(&repeater),
-        (vec![Clean(2), Dirty, Dirty], ItemIndexRelationShip { row: 3, instance_index: 1 })
+        (vec![Clean(2), Dirty, Dirty], CurrentItem { row: 3, instance_index: 1 })
     );
     ensure_updated_window(repeater.as_ref());
     assert_eq!(
         state(&repeater),
-        (vec![Clean(2), Clean(5), Clean(6)], ItemIndexRelationShip { row: 3, instance_index: 1 })
+        (vec![Clean(2), Clean(5), Clean(6)], CurrentItem { row: 3, instance_index: 1 })
     );
 }
 
@@ -837,12 +834,12 @@ fn test_rows_removed_across_window_start() {
     model.remove(3..5);
     assert_eq!(
         state(&repeater),
-        (vec![Dirty, Dirty, Dirty], ItemIndexRelationShip { row: 4, instance_index: 1 })
+        (vec![Dirty, Dirty, Dirty], CurrentItem { row: 4, instance_index: 1 })
     );
     ensure_updated_window(repeater.as_ref());
     assert_eq!(
         state(&repeater),
-        (vec![Clean(5), Clean(6), Clean(7)], ItemIndexRelationShip { row: 4, instance_index: 1 })
+        (vec![Clean(5), Clean(6), Clean(7)], CurrentItem { row: 4, instance_index: 1 })
     );
 }
 
@@ -861,12 +858,12 @@ fn test_row_removed_current_row() {
     model.remove(3..4);
     assert_eq!(
         state(&repeater),
-        (vec![Clean(2), Dirty, Dirty], ItemIndexRelationShip { row: 3, instance_index: 1 })
+        (vec![Clean(2), Dirty, Dirty], CurrentItem { row: 3, instance_index: 1 })
     );
     ensure_updated_window(repeater.as_ref());
     assert_eq!(
         state(&repeater),
-        (vec![Clean(2), Clean(4), Clean(5)], ItemIndexRelationShip { row: 3, instance_index: 1 })
+        (vec![Clean(2), Clean(4), Clean(5)], CurrentItem { row: 3, instance_index: 1 })
     );
 }
 
@@ -883,14 +880,11 @@ fn test_rows_removed_across_window_start_and_current_row() {
     //            ^
     // Window:   |----|
     model.remove(3..6);
-    assert_eq!(
-        state(&repeater),
-        (vec![Dirty, Dirty], ItemIndexRelationShip { row: 3, instance_index: 0 })
-    );
+    assert_eq!(state(&repeater), (vec![Dirty, Dirty], CurrentItem { row: 3, instance_index: 0 }));
     ensure_updated_window(repeater.as_ref());
     assert_eq!(
         state(&repeater),
-        (vec![Clean(6), Clean(7)], ItemIndexRelationShip { row: 3, instance_index: 0 })
+        (vec![Clean(6), Clean(7)], CurrentItem { row: 3, instance_index: 0 })
     );
 }
 
@@ -909,7 +903,7 @@ fn test_rows_removed_from_current_row_across_window_end() {
     model.remove(4..8);
     assert_eq!(
         state(&repeater),
-        (vec![Clean(2), Clean(3)], ItemIndexRelationShip { row: 3, instance_index: 1 })
+        (vec![Clean(2), Clean(3)], CurrentItem { row: 3, instance_index: 1 })
     );
 }
 
@@ -924,7 +918,7 @@ fn test_all_rows_removed() {
     let model = TestModel::new(5);
     let repeater = repeater_with_window(&model, 0..5, 2);
     model.remove(0..5);
-    assert_eq!(state(&repeater), (vec![], ItemIndexRelationShip { row: 0, instance_index: 0 }));
+    assert_eq!(state(&repeater), (vec![], CurrentItem { row: 0, instance_index: 0 }));
 }
 
 #[test]
@@ -949,7 +943,7 @@ fn test_current_row_removed_at_the_end() {
             state(&repeater),
             (
                 vec![Clean(value), Clean(value - 1), Clean(value - 2)],
-                ItemIndexRelationShip { row: 1, instance_index: 1 }
+                CurrentItem { row: 1, instance_index: 1 }
             )
         );
         // Before:
@@ -964,10 +958,7 @@ fn test_current_row_removed_at_the_end() {
         ensure_updated_window(repeater.as_ref());
         assert_eq!(
             state(&repeater),
-            (
-                vec![Clean(value), Clean(value - 1)],
-                ItemIndexRelationShip { row: 1, instance_index: 1 }
-            )
+            (vec![Clean(value), Clean(value - 1)], CurrentItem { row: 1, instance_index: 1 })
         );
     }
     {
@@ -987,7 +978,7 @@ fn test_current_row_removed_at_the_end() {
             state(&repeater),
             (
                 vec![Clean(value), Clean(value - 1), Clean(value - 2)],
-                ItemIndexRelationShip { row: 2, instance_index: 2 }
+                CurrentItem { row: 2, instance_index: 2 }
             )
         );
         // Before:
@@ -1002,10 +993,7 @@ fn test_current_row_removed_at_the_end() {
         ensure_updated_window(repeater.as_ref());
         assert_eq!(
             state(&repeater),
-            (
-                vec![Clean(value), Clean(value - 1)],
-                ItemIndexRelationShip { row: 1, instance_index: 1 }
-            )
+            (vec![Clean(value), Clean(value - 1)], CurrentItem { row: 1, instance_index: 1 })
         );
     }
 }
@@ -1026,7 +1014,7 @@ fn test_remove_first_instance() {
     with_ops(repeater.as_ref(), |ops| ops.remove_first(1));
     assert_eq!(
         state(&repeater),
-        (vec![Clean(3), Clean(4), Clean(5)], ItemIndexRelationShip { row: 4, instance_index: 1 })
+        (vec![Clean(3), Clean(4), Clean(5)], CurrentItem { row: 4, instance_index: 1 })
     );
 }
 
@@ -1047,7 +1035,7 @@ fn test_prepend_instances() {
         state(&repeater),
         (
             vec![Empty, Empty, Clean(2), Clean(3), Clean(4), Clean(5)],
-            ItemIndexRelationShip { row: 3, instance_index: 3 }
+            CurrentItem { row: 3, instance_index: 3 }
         )
     );
 }
@@ -1069,7 +1057,7 @@ fn test_push_instances() {
         state(&repeater),
         (
             vec![Clean(2), Clean(3), Clean(4), Empty, Empty],
-            ItemIndexRelationShip { row: 3, instance_index: 1 }
+            CurrentItem { row: 3, instance_index: 1 }
         )
     );
     ensure_updated_window(repeater.as_ref());
@@ -1077,7 +1065,7 @@ fn test_push_instances() {
         state(&repeater),
         (
             vec![Clean(2), Clean(3), Clean(4), Clean(5), Clean(6)],
-            ItemIndexRelationShip { row: 3, instance_index: 1 }
+            CurrentItem { row: 3, instance_index: 1 }
         )
     );
 }
@@ -1097,7 +1085,7 @@ fn test_truncate_after_current_instance() {
     with_ops(repeater.as_ref(), |ops| ops.truncate(2));
     assert_eq!(
         state(&repeater),
-        (vec![Clean(2), Clean(3)], ItemIndexRelationShip { row: 3, instance_index: 1 })
+        (vec![Clean(2), Clean(3)], CurrentItem { row: 3, instance_index: 1 })
     );
 }
 
@@ -1116,7 +1104,7 @@ fn test_truncate_removing_current_instance() {
     with_ops(repeater.as_ref(), |ops| ops.truncate(1));
     assert_eq!(
         state(&repeater),
-        (vec![Clean(2)], ItemIndexRelationShip { row: 2, instance_index: 0 }),
+        (vec![Clean(2)], CurrentItem { row: 2, instance_index: 0 }),
         "Moves to the last remaining instance"
     );
 }
@@ -1126,7 +1114,7 @@ fn test_clear_instances() {
     let model = TestModel::new(5);
     let repeater = repeater_with_window(&model, 0..5, 2);
     with_ops(repeater.as_ref(), |ops| ops.clear());
-    assert_eq!(state(&repeater), (vec![], ItemIndexRelationShip { row: 2, instance_index: 0 }));
+    assert_eq!(state(&repeater), (vec![], CurrentItem { row: 2, instance_index: 0 }));
 }
 
 #[test]
@@ -1134,12 +1122,12 @@ fn test_empty_instance() {
     let model = TestModel::new(50);
     let repeater = repeater_with_window(&model, 10..10, 10);
     with_ops(repeater.as_ref(), |ops| ops.clear());
-    assert_eq!(state(&repeater), (vec![], ItemIndexRelationShip { row: 10, instance_index: 0 }));
+    assert_eq!(state(&repeater), (vec![], CurrentItem { row: 10, instance_index: 0 }));
 
     repeater.0.inner.borrow_mut().set_current_row(25);
-    assert_eq!(state(&repeater), (vec![], ItemIndexRelationShip { row: 25, instance_index: 0 }));
+    assert_eq!(state(&repeater), (vec![], CurrentItem { row: 25, instance_index: 0 }));
     ensure_updated_window(repeater.as_ref());
-    assert_eq!(state(&repeater), (vec![], ItemIndexRelationShip { row: 25, instance_index: 0 }));
+    assert_eq!(state(&repeater), (vec![], CurrentItem { row: 25, instance_index: 0 }));
 }
 
 #[test]
@@ -1156,7 +1144,7 @@ fn test_set_current_row_within_window() {
     //            ^
     // Window:|-------------|
     repeater.0.inner.borrow_mut().set_current_row(1);
-    assert_eq!(state(&repeater), (slots, ItemIndexRelationShip { row: 1, instance_index: 1 }));
+    assert_eq!(state(&repeater), (slots, CurrentItem { row: 1, instance_index: 1 }));
     let before = state(&repeater);
     repeater.0.inner.borrow_mut().set_current_row(1);
     assert_eq!(state(&repeater), before);
@@ -1179,14 +1167,14 @@ fn test_set_current_row_append() {
         state(&repeater),
         (
             vec![Clean(0), Clean(1), Clean(2), Clean(3), Clean(4), Empty, Empty, Empty],
-            ItemIndexRelationShip { row: 7, instance_index: 7 }
+            CurrentItem { row: 7, instance_index: 7 }
         )
     );
 }
 
 #[test]
 fn test_instance_index_of_row() {
-    let current = ItemIndexRelationShip { row: 5, instance_index: 2 };
+    let current = CurrentItem { row: 5, instance_index: 2 };
     assert_eq!(current.get_instance_index_opt(7), Some(4));
     assert_eq!(current.get_instance_index_opt(5), Some(2));
     assert_eq!(current.get_instance_index_opt(3), Some(0));

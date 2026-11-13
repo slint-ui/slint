@@ -101,7 +101,7 @@ enum Slot {
 use Slot::{Clean, Dirty, Empty};
 
 /// The instance slots and the current item
-fn state(repeater: &Repeater<SimpleItem>) -> (Vec<Slot>, ItemIndexRelationShip) {
+fn state(repeater: &Repeater<SimpleItem>) -> (Vec<Slot>, CurrentItem) {
     let inner = repeater.0.inner.borrow();
     let slots = inner
         .instances
@@ -141,7 +141,7 @@ fn repeater_with_window(
         })
         .collect();
     inner.layout_state.item_index =
-        ItemIndexRelationShip { row: current_row, instance_index: current_row - window.start };
+        CurrentItem { row: current_row, instance_index: current_row - window.start };
     drop(inner);
     repeater.0.is_dirty.set(false);
     repeater
