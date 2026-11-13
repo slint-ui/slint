@@ -1129,7 +1129,6 @@ class Repeater
         {
             instances_changed();
             data.clear();
-            layout_state.item_index.row = first_row();
             layout_state.item_index.instance_index = 0;
         }
     };
