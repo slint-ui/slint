@@ -2208,6 +2208,8 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> RasterCommandSink for BufferRast
 /// so it isn't `Send`.
 /// Another thread may still call [`Self::rasterize`] while the recording thread keeps it alive:
 /// rasterizing only reads the shared data.
+/// Until [`Self::rasterize`] returns, the recording thread must not drop or change
+/// the images and glyphs that the frame uses, or the behavior is undefined.
 /// Only the recording thread drops it.
 #[cfg(feature = "experimental")]
 #[derive(Default)]
