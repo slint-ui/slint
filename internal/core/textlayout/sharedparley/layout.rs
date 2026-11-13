@@ -169,11 +169,15 @@ pub(super) fn layout(
         None
     };
 
+    // Without wrapping, parley only uses the width to align the lines,
+    // and left-aligned left-to-right lines don't move.
+    let width_aligns_only =
+        layout_builder.text_wrap == TextWrap::NoWrap && inputs.alignment == parley::Alignment::Left;
     let mut para_y = 0.0;
     for para in paragraphs.iter_mut() {
-        para.layout.break_all_lines(max_physical_width.map(|width| width.get()));
-        para.layout.align(inputs.alignment, parley::AlignmentOptions::default());
-
+        let max_width =
+            if width_aligns_only && !para.layout.is_rtl() { None } else { max_physical_width };
+        para.break_lines(max_width, inputs.alignment);
         para.y = PhysicalLength::new(para_y);
         para_y += para.layout.height();
     }
@@ -238,6 +242,48 @@ pub(super) fn layout(
         line_limit_cut,
         line_breaking_inputs: inputs,
         broke_lines: true,
+    }
+}
+
+/// The size of `paragraphs` without a maximum width or line limit, as [`layout`] measures it.
+/// Returns whether the lines of any paragraph had to be broken again.
+pub(super) fn unconstrained_size(paragraphs: &mut [TextParagraph]) -> (PhysicalSize, bool) {
+    let mut size = PhysicalSize::zero();
+    let mut broke_lines = false;
+    for paragraph in paragraphs {
+        let (paragraph_size, broke) = paragraph.unconstrained_size();
+        size.width = size.width.max(paragraph_size.width);
+        size.height += paragraph_size.height;
+        broke_lines |= broke;
+    }
+    (size, broke_lines)
+}
+
+impl TextParagraph {
+    /// Breaks and aligns the lines, unless they already are for these inputs.
+    fn break_lines(&mut self, max_width: Option<PhysicalLength>, alignment: parley::Alignment) {
+        if self.broken_for == Some((max_width, alignment)) {
+            return;
+        }
+        if self.broken_for.is_none_or(|(width, _)| width != max_width) {
+            self.layout.break_all_lines(max_width.map(|width| width.get()));
+            if max_width.is_none() {
+                self.unconstrained_size =
+                    Some(PhysicalSize::new(self.layout.full_width(), self.layout.height()));
+            }
+        }
+        self.layout.align(alignment, parley::AlignmentOptions::default());
+        self.broken_for = Some((max_width, alignment));
+    }
+
+    /// The size of the lines when broken without a maximum width, and whether they had to be
+    /// broken again.
+    fn unconstrained_size(&mut self) -> (PhysicalSize, bool) {
+        let broke = self.unconstrained_size.is_none();
+        if broke {
+            self.break_lines(None, parley::Alignment::Left);
+        }
+        (self.unconstrained_size.unwrap_or_default(), broke)
     }
 }
 
