@@ -297,8 +297,14 @@ fn install_property_init(
                 i_slint_compiler::llr::NativeMemberKind::Property => {
                     let expr = mut_expression_clone(&binding.expression);
                     let weak_sub_eval = weak_sub.clone();
+                    let sc = &instance.compilation_unit.sub_components[instance.sub_component_idx];
+                    let ty = sc.items[*item_index].ty.lookup_property(prop_name).cloned();
                     let closure: Box<dyn Fn() -> Value> = Box::new(move || {
-                        let Some(owner) = weak_sub_eval.upgrade() else { return Value::Void };
+                        let Some(owner) = weak_sub_eval.upgrade() else {
+                            return ty
+                                .as_ref()
+                                .map_or(Value::Void, crate::eval::default_value_for_type);
+                        };
                         let mut ctx = EvalContext::new(Pin::new(owner));
                         eval_expression(&mut ctx, &expr)
                     });
@@ -412,8 +418,11 @@ fn install_property_binding(
         return;
     }
 
+    let property_ty = ty.clone();
     let binding_fn: Box<dyn Fn() -> Value> = Box::new(move || {
-        let Some(owner) = weak_sub_eval.upgrade() else { return Value::Void };
+        let Some(owner) = weak_sub_eval.upgrade() else {
+            return crate::eval::default_value_for_type(&property_ty);
+        };
         let mut ctx = EvalContext::new(Pin::new(owner));
         eval_expression(&mut ctx, &expr)
     });
@@ -530,9 +539,8 @@ fn install_two_way_binding(
     twb: &i_slint_compiler::llr::TwoWayBinding,
     sub: &Pin<Rc<SubComponentInstance>>,
 ) {
-    let a: MemberReference = twb.prop1.clone().into();
     let field_path: &[SmolStr] = &twb.field_access;
-    let Some(pa) = prepare_two_way(&a, sub) else { return };
+    let Some(pa) = prepare_two_way(&twb.prop1, sub) else { return };
 
     if let Some(index_prop) = twb.is_model {
         // `prop2` names the `model_data` property of the enclosing `for`'s
@@ -609,6 +617,7 @@ fn install_two_way_binding(
     let leaf_default = member_property_ty(&twb.prop2, sub)
         .map(|ty| crate::eval::default_value_for_type(&field_leaf_ty(ty, field_path)))
         .unwrap_or(Value::Void);
+    let kept_value = twb.prop1_keeps_value.then(|| pa.as_ref().get());
     Property::link_two_way_with_map(
         pb.as_ref(),
         pa.as_ref(),
@@ -621,6 +630,9 @@ fn install_two_way_binding(
             replace_field(s, &path_set, v.clone());
         },
     );
+    if let Some(value) = kept_value {
+        pa.as_ref().set(value);
+    }
 }
 
 /// Walk `s.path[0].path[1]...` and return the leaf field.

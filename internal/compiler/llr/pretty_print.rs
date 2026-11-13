@@ -113,7 +113,7 @@ impl PrettyPrinter<'_> {
             writeln!(
                 self.writer,
                 "{} <=> {}{}{};",
-                DisplayLocalRef(&twb.prop1, &ctx),
+                DisplayPropertyRef(&twb.prop1, &ctx),
                 DisplayPropertyRef(&twb.prop2, &ctx),
                 if twb.field_access.is_empty() { "" } else { "." },
                 twb.field_access.join(".")
@@ -147,7 +147,7 @@ impl PrettyPrinter<'_> {
             writeln!(
                 self.writer,
                 "animate {} {{ {} }};",
-                DisplayLocalRef(p, &ctx),
+                DisplayPropertyRef(&p.clone().into(), &ctx),
                 DisplayExpression(a, &ctx)
             )?
         }
@@ -457,13 +457,6 @@ impl<T> Display for DisplayPropertyRef<'_, T> {
                 }
             }
         }
-    }
-}
-
-pub struct DisplayLocalRef<'a, T>(pub &'a LocalMemberReference, pub &'a EvaluationContext<'a, T>);
-impl<T> Display for DisplayLocalRef<'_, T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result {
-        print_local_ref(f, self.1, self.0, 0)
     }
 }
 

@@ -763,19 +763,34 @@ fn handle_property_init(
                 format!("::slint::private_api::set_state_binding({prop_access}, {binding_code});")
             }
             llr::BindingKind::Normal => {
+                let can_outlive = binding_expression.can_outlive_sub_component.get();
+                let capture = if can_outlive { "this, weak = self->self_weak" } else { "this" };
+                let (return_type, guard) = if can_outlive {
+                    let ty = prop_type.cpp_type().unwrap();
+                    (format!(" -> {ty}"), format!("if (!weak.lock()) {{ return {ty}{{}}; }}"))
+                } else {
+                    Default::default()
+                };
                 let binding_code = format!(
-                    "[this]() {{
-                            [[maybe_unused]] auto self = this;
-                            return {init_expr};
-                        }}"
+                    "[{capture}](){return_type} {{
+                        {guard}
+                        [[maybe_unused]] auto self = this;
+                        return {init_expr};
+                    }}"
                 );
+                let animation_guard = if can_outlive {
+                    "if (!weak.lock()) { *start_time = nullptr; return {}; }"
+                } else {
+                    ""
+                };
                 match &binding_expression.animation {
                     Some(llr::Animation::Static(anim)) => {
                         let anim = compile_expression(anim, ctx);
                         // Note: The start_time defaults to the current tick, so doesn't need to be
                         // updated here.
                         format!("{prop_access}.set_animated_binding({binding_code},
-                                [this](uint64_t **start_time) -> ::slint::cbindgen_private::PropertyAnimation {{
+                                [{capture}](uint64_t **start_time) -> ::slint::cbindgen_private::PropertyAnimation {{
+                                    {animation_guard}
                                     [[maybe_unused]] auto self = this;
                                     auto anim = {anim};
                                     *start_time = nullptr;
@@ -787,7 +802,8 @@ fn handle_property_init(
                         let animation = compile_expression(animation, ctx);
                         format!(
                             "{prop_access}.set_animated_binding({binding_code},
-                            [this](uint64_t **start_time) -> ::slint::cbindgen_private::PropertyAnimation {{
+                            [{capture}](uint64_t **start_time) -> ::slint::cbindgen_private::PropertyAnimation {{
+                                {animation_guard}
                                 [[maybe_unused]] auto self = this;
                                 auto [animation, change_time] = {animation};
                                 **start_time = change_time;
@@ -2635,24 +2651,33 @@ fn generate_sub_component_body(
     }
 
     for twb in &component.two_way_bindings {
-        let p1 = access_local_member(&twb.prop1, &ctx);
+        let p1 = access_member(&twb.prop1, &ctx);
+        let p2 = access_member(&twb.prop2, &ctx);
         if let Some(info) = twb.resolve_model(&ctx) {
-            init.push(generate_model_two_way_binding(&ctx, &info, &p1, &twb.field_access));
+            init.push(generate_model_two_way_binding(&ctx, &info, &p1.unwrap(), &twb.field_access));
         } else if twb.field_access.is_empty() {
-            let ty = ctx.relative_property_ty(&twb.prop1, 0).cpp_type().unwrap();
+            let ty = ctx.property_ty(&twb.prop1).cpp_type().unwrap();
             init.push(
-                access_member(&twb.prop2, &ctx).then(|p2| {
-                    format!("::slint::private_api::Property<{ty}>::link_two_way(&{p1}, &{p2})",)
+                p1.then_named("p1", |p1| {
+                    p2.then(|p2| {
+                        format!("::slint::private_api::Property<{ty}>::link_two_way(&{p1}, &{p2})")
+                    })
                 }) + ";",
             );
         } else {
+            let p1 = p1.unwrap();
             let prop2_ty = ctx.property_ty(&twb.prop2);
             let cpp_ty = prop2_ty.cpp_type().unwrap();
             let (access, _) = lower_field_access_chain("x".into(), prop2_ty, &twb.field_access);
             init.push(
-                access_member(&twb.prop2, &ctx).then(|p2|
-                    format!("::slint::private_api::Property<{cpp_ty}>::link_two_way_with_map(&{p2}, &{p1}, [](const auto &x){{ return {access}; }}, [](auto &x, const auto &v){{ {access} = v; }})")
-                ) + ";",
+                p2.then(|p2| {
+                    let link = format!("::slint::private_api::Property<{cpp_ty}>::link_two_way_with_map(&{p2}, &{p1}, [](const auto &x){{ return {access}; }}, [](auto &x, const auto &v){{ {access} = v; }})");
+                    if twb.prop1_keeps_value {
+                        format!("{{ auto value = {p1}.get(); {link}; {p1}.set(value); }}")
+                    } else {
+                        link
+                    }
+                }) + ";",
             );
         }
     }
@@ -2662,7 +2687,7 @@ fn generate_sub_component_body(
         handle_property_init(prop, expression, &mut properties_init_code, &ctx)
     }
     for prop in &component.const_properties {
-        let p = access_local_member(prop, &ctx);
+        let p = access_member(&prop.clone().into(), &ctx).unwrap();
         properties_init_code.push(format!("{p}.set_constant();"));
     }
 
@@ -4198,10 +4223,6 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
             }
         }
     }
-}
-
-fn access_local_member(reference: &llr::LocalMemberReference, ctx: &EvaluationContext) -> String {
-    access_member(&reference.clone().into(), ctx).unwrap()
 }
 
 /// Returns the C++ field name for the change-tracker property of a callback.

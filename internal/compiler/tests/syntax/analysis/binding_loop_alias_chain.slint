@@ -14,7 +14,17 @@ component ScrollView {
     }
 }
 
+// A declaration whose aliases loop, with a two-way binding on an instance.
+component AliasCycle {
+    in-out property <int> a <=> b;
+    in-out property <int> b <=> a;
+//                          >    <error{The binding for the property 'b' is part of a binding loop (AliasCycle.a -> AliasCycle.b -> AliasCycle.a)}
+}
+
 export component TestCase inherits Window {
+    in-out property <int> local;
+    AliasCycle { a <=> root.local; }
+//               >               <note{'a' is part of the binding loop reported for 'b' at line 20}
     ScrollView {
         viewport-width: v.width;
         v := VerticalLayout { }

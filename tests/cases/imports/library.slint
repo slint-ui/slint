@@ -8,8 +8,14 @@
 //library_path(helper_buttons): ../../helper_components/test_button.slint
 import { TestButton } from "@helper_components/test_button.slint";
 import { ColorButton } from "@helper_buttons";
+import { LibraryAlias, LibraryGlobal } from "@helper_components/alias_to_global.slint";
 
 export component TestCase {
     TestButton {}
     ColorButton {}
+
+    // A two-way binding on an instance of a component that aliases a global of a library (#14170).
+    in-out property <int> local;
+    LibraryAlias { aliased <=> root.local; }
+    out property <bool> test: root.local == 5 && LibraryGlobal.value == 5;
 }

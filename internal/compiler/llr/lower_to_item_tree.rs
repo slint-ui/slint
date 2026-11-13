@@ -454,6 +454,30 @@ fn lower_fixed_size_root_layout_info(
     }
 }
 
+/// Whether `property`, or a property that two-way bindings link it to, has a binding with a value.
+fn has_value(property: &NamedReference) -> bool {
+    let mut pending = vec![property.clone()];
+    let mut visited = HashSet::new();
+    while let Some(property) = pending.pop() {
+        if !visited.insert(property.clone()) {
+            continue;
+        }
+        let links = std::cell::RefCell::new(Vec::new());
+        let found = property.element().borrow().any_in_inheritance_chain(|e| {
+            e.binding(property.name()).is_some_and(|b| {
+                let linked = b.two_way_bindings.iter().filter_map(|twb| twb.property().cloned());
+                links.borrow_mut().extend(linked);
+                !matches!(b.expression, tree_Expression::Invalid)
+            })
+        });
+        if found {
+            return true;
+        }
+        pending.extend(links.into_inner());
+    }
+    false
+}
+
 fn lower_sub_component(
     component: &Rc<Component>,
     state: &mut LoweringState,
@@ -719,18 +743,33 @@ fn lower_sub_component(
         for tw in &binding.two_way_bindings {
             sub_component.two_way_bindings.push(match tw {
                 crate::expression_tree::TwoWayBinding::Property { property, field_access } => {
+                    let mut prop1 = prop.clone();
+                    let mut prop2 = ctx.map_property_reference(property);
+                    if prop1 == prop2 && field_access.is_empty() {
+                        continue;
+                    }
+                    let global_keeps_value =
+                        matches!(prop1, MemberReference::Global { .. }) && !has_value(property);
+                    let prop1_keeps_value = global_keeps_value && !field_access.is_empty();
+                    if global_keeps_value
+                        && field_access.is_empty()
+                        && matches!(prop2, MemberReference::Relative { .. })
+                    {
+                        std::mem::swap(&mut prop1, &mut prop2);
+                    }
                     TwoWayBinding {
-                        prop1: prop.local(),
-                        prop2: ctx.map_property_reference(property),
+                        prop1,
+                        prop2,
                         field_access: field_access.clone(),
                         is_model: None,
+                        prop1_keeps_value,
                     }
                 }
                 crate::expression_tree::TwoWayBinding::ModelData {
                     repeated_element,
                     field_access,
                 } => TwoWayBinding {
-                    prop1: prop.local(),
+                    prop1: prop.clone(),
                     prop2: super::lower_expression::repeater_special_property(
                         repeated_element,
                         component,
@@ -738,6 +777,7 @@ fn lower_sub_component(
                     ),
                     field_access: field_access.clone(),
                     is_model: Some(PropertyIdx::REPEATER_INDEX),
+                    prop1_keeps_value: false,
                 },
             });
         }
@@ -773,7 +813,13 @@ fn lower_sub_component(
 
             sub_component.property_init.push((
                 prop.clone(),
-                BindingExpression { expression, animation, kind, use_count: 0.into() },
+                BindingExpression {
+                    expression,
+                    animation,
+                    kind,
+                    use_count: 0.into(),
+                    can_outlive_sub_component: false.into(),
+                },
             ));
         }
 
@@ -783,15 +829,11 @@ fn lower_sub_component(
             .get(p)
             .is_none_or(|a| a.is_set || a.is_set_externally)
             && let Some(anim) = binding.animation.as_ref()
+            && !matches!(prop, MemberReference::Global { .. })
+            && let Animation::Static(anim) =
+                super::lower_expression::lower_animation(anim, &mut ctx)
         {
-            match super::lower_expression::lower_animation(anim, &mut ctx) {
-                Animation::Static(anim) => {
-                    sub_component.animations.insert(prop.local(), anim);
-                }
-                Animation::Transition(_) => {
-                    // Cannot set a property with a transition anyway
-                }
-            }
+            sub_component.animations.insert(prop.local(), anim);
         }
     });
 
@@ -1630,6 +1672,7 @@ fn lower_global_expressions(
                 animation: None,
                 kind: if is_constant { BindingKind::Constant } else { BindingKind::Normal },
                 use_count: 0.into(),
+                can_outlive_sub_component: false.into(),
             },
         );
     }

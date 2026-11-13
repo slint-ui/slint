@@ -117,7 +117,7 @@ pub fn count_property_use(root: &CompilationUnit) {
 
         // 7. aliases (if they were not optimized, they are probably used)
         for twb in &sc.two_way_bindings {
-            visit_property(&twb.prop1.clone().into(), ctx);
+            visit_property(&twb.prop1, ctx);
             visit_property(&twb.prop2, ctx);
             if let &Some(p) = &twb.is_model {
                 let mut idx_prop = twb.prop2.clone();

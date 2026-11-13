@@ -367,6 +367,7 @@ trait BindingCallable<T> {
 
     /// For a two-way binding, returns its common property: a `Pin<Rc<Property<T>>>`,
     /// or a `MappedCommonProperty` when the binding maps to it.
+    /// A binding from C++ returns itself, because only C++ knows its common property.
     fn common_property(self: Pin<&Self>) -> Option<&dyn Any> {
         None
     }

@@ -43,7 +43,6 @@ fn set_property_binding_impl<T: Clone + Default + 'static, VT: VTableMetaDropInP
 }
 
 /// Like [`set_property_binding_erased`], for an animated binding.
-/// The component must outlive the binding.
 #[inline]
 pub fn set_animated_property_binding_erased<
     T: Clone + super::InterpolatedPropertyValue + 'static,
@@ -80,12 +79,8 @@ fn set_animated_property_binding_impl<
     >,
 ) {
     property.set_animated_binding(
-        move || binding.upgrade_and_call(&()).expect("binding evaluated on dropped component"),
-        move || {
-            compute_animation_details
-                .upgrade_and_call(&())
-                .expect("binding evaluated on dropped component")
-        },
+        move || binding.upgrade_and_call(&()).unwrap_or_default(),
+        move || compute_animation_details.upgrade_and_call(&()).unwrap_or_default(),
     )
 }
 

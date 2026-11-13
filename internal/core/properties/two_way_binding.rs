@@ -39,18 +39,24 @@ impl<T: PartialEq + Clone + 'static> BindingCallable<T> for TwoWayBinding<T> {
 struct MappedCommonProperty<T>(Pin<Rc<Property<T>>>);
 
 impl<T: PartialEq + Clone + 'static> Property<T> {
-    /// If the property is a two way binding, return the common property
+    /// If the property is a two way binding, return the common property at the end of its chain
     pub(crate) fn check_common_property(self: Pin<&Self>) -> Option<Pin<Rc<Property<T>>>> {
-        self.with_common_property(|c: &Pin<Rc<Property<T>>>| c.clone())
+        let direct_common = |p: Pin<&Self>| p.with_common_property(|c: &Pin<Rc<Self>>| c.clone());
+        let mut common = direct_common(self)?;
+        while let Some(next) = direct_common(common.as_ref()) {
+            common = next;
+        }
+        Some(common)
     }
 
-    /// If the property is linked through a mapping to a common property of type `U`,
-    /// return that common property
-    #[cfg_attr(not(feature = "rtti"), allow(dead_code))]
+    /// If the property or its common property is linked through a mapping to a common property
+    /// of type `U`, return that common property
     pub(crate) fn check_mapped_common_property<U: 'static>(
         self: Pin<&Self>,
     ) -> Option<Pin<Rc<Property<U>>>> {
-        self.with_common_property(|c: &MappedCommonProperty<U>| c.0.clone())
+        let direct =
+            |p: Pin<&Self>| p.with_common_property(|c: &MappedCommonProperty<U>| c.0.clone());
+        direct(self).or_else(|| direct(self.check_common_property()?.as_ref()))
     }
 
     /// Calls `f` with the common property of this property's binding, if it's a `C`
@@ -69,61 +75,54 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
         let debug_name =
             alloc::format!("<{}<=>{}>", prop1.debug_name.borrow(), prop2.debug_name.borrow());
 
-        let value = prop2.get_untracked();
-
-        if let Some(common_property) = prop1.check_common_property() {
-            // Safety: TwoWayBinding is a BindingCallable for type T
-            unsafe {
-                prop2.handle.set_binding(
-                    TwoWayBinding::<T> { common_property },
-                    #[cfg(slint_debug_property)]
-                    debug_name.as_str(),
-                );
-            }
-            prop2.set(value);
-            return;
-        }
-
-        if let Some(common_property) = prop2.check_common_property() {
-            // Safety: TwoWayBinding is a BindingCallable for type T
-            unsafe {
-                prop1.handle.set_binding(
-                    TwoWayBinding::<T> { common_property },
-                    #[cfg(slint_debug_property)]
-                    debug_name.as_str(),
-                );
-            }
-            return;
-        }
-
-        let prop2_handle_val = prop2.handle.handle.get();
-        let handle = if PropertyHandle::is_pointer_to_binding(prop2_handle_val) {
-            // If prop2 is a binding, just "steal it"
-            prop2.handle.handle.set(core::ptr::null_mut());
-            PropertyHandle { handle: Cell::new(prop2_handle_val) }
-        } else {
-            PropertyHandle::default()
+        // Safety: TwoWayBinding is a BindingCallable for type T
+        let link = |property: Pin<&Self>, common_property: Pin<Rc<Self>>| unsafe {
+            property.handle.set_binding(
+                TwoWayBinding::<T> { common_property },
+                #[cfg(slint_debug_property)]
+                debug_name.as_str(),
+            );
+        };
+        // A new common property that takes the value or binding of `property`
+        let make_common = |property: Pin<&Self>| {
+            let value = property.get_untracked();
+            let handle_val = property.handle.handle.get();
+            let handle = if PropertyHandle::is_pointer_to_binding(handle_val) {
+                property.handle.handle.set(core::ptr::null_mut());
+                PropertyHandle { handle: Cell::new(handle_val) }
+            } else {
+                PropertyHandle::default()
+            };
+            let common_property = Rc::pin(Property {
+                handle,
+                value: UnsafeCell::new(value),
+                pinned: PhantomPinned,
+                #[cfg(slint_debug_property)]
+                debug_name: debug_name.clone().into(),
+            });
+            link(property, common_property.clone());
+            common_property
         };
 
-        let common_property = Rc::pin(Property {
-            handle,
-            value: UnsafeCell::new(value),
-            pinned: PhantomPinned,
-            #[cfg(slint_debug_property)]
-            debug_name: debug_name.clone().into(),
-        });
-        // Safety: TwoWayBinding's T is the same as the type for both properties
-        unsafe {
-            prop1.handle.set_binding(
-                TwoWayBinding { common_property: common_property.clone() },
-                #[cfg(slint_debug_property)]
-                debug_name.as_str(),
-            );
-            prop2.handle.set_binding(
-                TwoWayBinding { common_property },
-                #[cfg(slint_debug_property)]
-                debug_name.as_str(),
-            );
+        let common1 = prop1.check_common_property();
+        let common2 = prop2.check_common_property();
+        let already_linked = common1
+            .as_ref()
+            .zip(common2.as_ref())
+            .is_some_and(|(c1, c2)| core::ptr::eq(&**c1, &**c2));
+        if already_linked {
+            return;
+        }
+
+        let prop2_end = common2.as_ref().map_or(prop2, |c| c.as_ref());
+        let prop2_wins = PropertyHandle::is_pointer_to_binding(prop2_end.handle.handle.get());
+        if let Some(common1) = common1.as_ref().filter(|_| !prop2_wins) {
+            let value = prop2.get_untracked();
+            link(prop2, common1.clone());
+            prop2.set(value);
+        } else {
+            let prop1_end = common1.as_ref().map_or(prop1, |c| c.as_ref());
+            link(prop1_end, common2.unwrap_or_else(|| make_common(prop2)));
         }
     }
 
@@ -170,6 +169,19 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
             }
             common_property
         };
+        #[inline(never)]
+        fn is_mapped_to<T: PartialEq + Clone + 'static, T2: PartialEq + Clone + 'static>(
+            prop2: Pin<&Property<T2>>,
+            common_property: &Pin<Rc<Property<T>>>,
+        ) -> bool {
+            prop2.check_mapped_common_property::<T>().is_some_and(|mapped| {
+                let root = mapped.as_ref().check_common_property().unwrap_or(mapped);
+                core::ptr::eq(&*root, &**common_property)
+            })
+        }
+        if is_mapped_to(prop2, &common_property) {
+            return;
+        }
         Self::link_two_way_with_map_to_common_property(
             common_property,
             prop2,
@@ -643,6 +655,98 @@ fn test_two_way_with_map() {
     assert_eq!(p1.as_ref().get(), Struct { foo: 457, bar: "def".into() });
     assert_eq!(p2.as_ref().get(), 457);
     assert_eq!(p3.as_ref().get(), "def");
+}
+
+#[test]
+fn test_two_way_link_already_linked() {
+    let p1 = Rc::pin(Property::new(1));
+    let p2 = Rc::pin(Property::new(2));
+    Property::link_two_way(p1.as_ref(), p2.as_ref());
+    Property::link_two_way(p1.as_ref(), p2.as_ref());
+    Property::link_two_way(p2.as_ref(), p1.as_ref());
+    assert_eq!(p1.as_ref().get(), 2);
+    p1.as_ref().set(3);
+    assert_eq!(p2.as_ref().get(), 3);
+
+    let p3 = Rc::pin(Property::new(4));
+    Property::link_two_way(p2.as_ref(), p3.as_ref());
+    Property::link_two_way(p3.as_ref(), p1.as_ref());
+    p3.as_ref().set(5);
+    assert_eq!(p1.as_ref().get(), 5);
+    assert_eq!(p2.as_ref().get(), 5);
+}
+
+#[test]
+fn test_two_way_link_keeps_binding_of_prop2() {
+    let source = Rc::pin(Property::new(1));
+    let p1 = Rc::pin(Property::new(0));
+    let p2 = Rc::pin(Property::new(0));
+    let other = Rc::pin(Property::new(0));
+    Property::link_two_way(p1.as_ref(), other.as_ref());
+    p2.as_ref().set_binding({
+        let source = source.clone();
+        move || source.as_ref().get() + 1
+    });
+    Property::link_two_way(p1.as_ref(), p2.as_ref());
+    assert_eq!(p1.as_ref().get(), 2);
+    source.as_ref().set(5);
+    assert_eq!(p1.as_ref().get(), 6);
+    assert_eq!(other.as_ref().get(), 6);
+
+    let p3 = Rc::pin(Property::new(0));
+    let p4 = Rc::pin(Property::new(0));
+    p4.as_ref().set_binding({
+        let source = source.clone();
+        move || source.as_ref().get() * 10
+    });
+    Property::link_two_way(p3.as_ref(), p4.as_ref());
+    Property::link_two_way(p1.as_ref(), p3.as_ref());
+    assert_eq!(other.as_ref().get(), 50);
+    source.as_ref().set(7);
+    assert_eq!(other.as_ref().get(), 70);
+}
+
+#[test]
+fn test_two_way_link_chains_in_any_order() {
+    let links = [(0, 1), (2, 3), (0, 2), (1, 3)];
+    let check_order = |order: [usize; 4]| {
+        for directions in 0..16 {
+            let props: alloc::vec::Vec<_> = (0..4).map(|i| Rc::pin(Property::new(i))).collect();
+            for (n, link) in order.into_iter().enumerate() {
+                let (a, b) = links[link];
+                let (a, b) = if directions & (1 << n) != 0 { (b, a) } else { (a, b) };
+                Property::link_two_way(props[a].as_ref(), props[b].as_ref());
+            }
+            for (value, source) in props.iter().enumerate() {
+                source.as_ref().set(value as i32 + 100);
+                for p in &props {
+                    assert_eq!(p.as_ref().get(), value as i32 + 100);
+                }
+            }
+        }
+    };
+    for first in 0..4 {
+        for second in (0..4).filter(|x| *x != first) {
+            for third in (0..4).filter(|x| *x != first && *x != second) {
+                check_order([first, second, third, 6 - first - second - third]);
+            }
+        }
+    }
+}
+
+#[test]
+fn test_two_way_with_map_already_linked() {
+    let source = Rc::pin(Property::new((1, 2)));
+    let mapped = Rc::pin(Property::new(0));
+    let other = Rc::pin(Property::new(0));
+    Property::link_two_way(mapped.as_ref(), other.as_ref());
+    for _ in 0..2 {
+        Property::link_two_way_with_map(source.as_ref(), mapped.as_ref(), |s| s.0, |s, v| s.0 = *v);
+    }
+    other.as_ref().set(3);
+    assert_eq!(source.as_ref().get(), (3, 2));
+    source.as_ref().set((4, 5));
+    assert_eq!(mapped.as_ref().get(), 4);
 }
 
 /// Regression test for use-after-free in `link_two_way_with_map_to_common_property`.
