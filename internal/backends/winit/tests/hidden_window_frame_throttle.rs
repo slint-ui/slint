@@ -5,7 +5,6 @@
 //! still running, must not keep that timer ticking; showing the window again must draw the
 //! change.
 
-#[cfg(not(target_vendor = "apple"))]
 fn main() {
     use std::cell::Cell;
     use std::rc::Rc;
@@ -130,6 +129,3 @@ fn main() {
     .unwrap();
     slint::run_event_loop_until_quit().unwrap();
 }
-
-#[cfg(target_vendor = "apple")]
-fn main() {}
