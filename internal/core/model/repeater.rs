@@ -743,9 +743,6 @@ pub struct RepeaterTracker<T: RepeatedItemTree> {
     /// Marked dirty whenever `instances` changes, including when `ensure_updated` creates one.
     /// A row's data change alone doesn't mark it.
     instance_generation: Property<()>,
-    /// Only used for the list view to track if the scrollbar has changed and item needs to be laid out again.
-    #[pin]
-    listview_geometry_tracker: crate::properties::PropertyTracker,
 }
 
 impl<T: RepeatedItemTree> RepeaterTracker<T> {
@@ -802,7 +799,6 @@ impl<C: RepeatedItemTree> Default for RepeaterTracker<C> {
                 (),
                 "i_slint_core::Repeater::instance_generation",
             ),
-            listview_geometry_tracker: Default::default(),
         }
     }
 }
