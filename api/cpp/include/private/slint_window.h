@@ -198,10 +198,9 @@ public:
         };
 
         auto position_data = new PopupPositionData { std::move(pos), popup };
-        void (*anchor_fn)(void *, cbindgen_private::PopupAnchor *) = [](void *,
-                                                                       cbindgen_private::PopupAnchor *) {
-        };
-        void (*drop_anchor_data)(void *) = [](void *) {};
+        void (*anchor_fn)(void *, cbindgen_private::PopupAnchor *) =
+                [](void *, cbindgen_private::PopupAnchor *) { };
+        void (*drop_anchor_data)(void *) = [](void *) { };
         void *anchor_data = nullptr;
         if constexpr (!std::is_null_pointer_v<AnchorGetter>) {
             anchor_fn = [](void *user_data, cbindgen_private::PopupAnchor *anchor) {
@@ -223,8 +222,8 @@ public:
                     *pos = data->pos(data->popup_component);
                 },
                 [](void *user_data) { delete reinterpret_cast<PopupPositionData *>(user_data); },
-                position_data, anchor_fn, drop_anchor_data, anchor_data, close_policy,
-                &parent_item, window_kind,
+                position_data, anchor_fn, drop_anchor_data, anchor_data, close_policy, &parent_item,
+                window_kind,
                 [](void *user_data, bool is_open) {
                     (*reinterpret_cast<IsOpenSetter *>(user_data))(is_open);
                 },
