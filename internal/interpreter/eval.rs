@@ -2336,8 +2336,9 @@ fn call_builtin_function(
             Value::Void
         })(),
         BuiltinFunction::UpdateTimers => {
-            // Timers react to property changes through the change trackers
-            // installed in `bindings::install_timers`; nothing to do here.
+            if let Some(sub) = &ctx.current {
+                crate::bindings::update_timers(sub);
+            }
             Value::Void
         }
         BuiltinFunction::RestartTimer => (|| {
