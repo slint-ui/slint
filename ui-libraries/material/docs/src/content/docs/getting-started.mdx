@@ -37,68 +37,60 @@ Choose a template to create a ready-to-run project in your preferred language.
 
 <Steps>
 1. Download and extract the current release into your project.
-2. Configure `@material` as a component library using the example for your language below.
+2. Add the release to the `library-paths` of your project file, as shown below.
 3. Import Material components in your `.slint` files.
 </Steps>
 
-For more information about component-library paths, see the
-[Slint component library documentation](https://docs.slint.dev/latest/docs/slint/guide/language/coding/file/#component-libraries).
+### Configure the Component Library
 
-### Configure the component library
+In your application's [project file](https://snapshots.slint.dev/master/docs/slint/guide/tooling/project-file/#libraries),
+map `material` to the `slint-project.json` of the release:
+
+```json
+{
+    "edition": "1.20",
+    "main": "ui/main.slint",
+    "library-paths": {
+        "material": "material-1.1.0/slint-project.json"
+    }
+}
+```
+
+The Material components then keep their own edition, whatever edition your application uses.
+
+Pass the project file's directory to your build or loading API:
 
 <Tabs syncKey="dev-language">
 <TabItem label="Rust">
-In your `build.rs`, call `CompilerConfiguration::with_library_paths`
-
 ```rust
 // build.rs
 fn main() {
-    let config = slint_build::CompilerConfiguration::new().with_library_paths(
-        std::collections::HashMap::from([(
-            "material".to_string(),
-            std::path::Path::new(&std::env::var_os("CARGO_MANIFEST_DIR").unwrap())
-                .join("material-1.1.0/material.slint"),
-        )]),
-    );
-    slint_build::compile_with_config("ui/main.slint", config).unwrap();
+    slint_build::compile(".").unwrap();
 }
 ```
 </TabItem>
 <TabItem label="C++">
-In your `CMakeLists.txt` file, use `LIBRARY_PATHS` in the `slint_target_sources` function.
-
 ```cmake
-slint_target_sources(my_application
-    ui/main.slint
-    LIBRARY_PATHS
-        material=${CMAKE_CURRENT_SOURCE_DIR}/material-1.1.0/material.slint
-)
+slint_target_sources(my_application .)
 ```
 </TabItem>
 <TabItem label="NodeJS">
-Provide the `libraryPaths` map with `loadFile`:
-
 ```javascript
-let ui = slint.loadFile("ui/main.slint", {
-    libraryPaths: {
-        "material": path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "material-1.1.0", "material.slint")
-    }
-});
+let ui = slint.loadFile(".");
 ```
 </TabItem>
 <TabItem label="Python">
-Provide the `library_paths` dict with `load_file`:
-
 ```python
-ui = slint.load_file(
-    Path(__file__).parent / "ui" / "main.slint",
-    library_paths={
-        "material": Path(__file__).parent / "material-1.1.0" / "material.slint"
-    },
-)
+ui = slint.load_file(".")
 ```
 </TabItem>
 </Tabs>
+
+Then import the components from `@material`:
+
+```slint no-test
+import { FilledButton } from "@material";
+```
 
 ## Next Steps
 

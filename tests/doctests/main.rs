@@ -50,7 +50,7 @@ fn do_test(snippet: &str, path: &str) -> Result<(), Box<dyn std::error::Error>> 
         std::iter::once((
             "material".into(),
             std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("../../ui-libraries/material/src/material.slint"),
+                .join("../../ui-libraries/material/src/slint-project.json"),
         ))
         .collect(),
     );

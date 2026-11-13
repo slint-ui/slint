@@ -19,7 +19,7 @@ Run these commands from the repository root:
 
 ```sh
 pnpm install --frozen-lockfile
-cargo run -p slint-doc-generator -- screenshots --overwrite -Lmaterial=$PWD/ui-libraries/material/src/material.slint ui-libraries/material/docs/src/content/docs
+cargo run -p slint-doc-generator -- screenshots --overwrite -Lmaterial=$PWD/ui-libraries/material/src/slint-project.json ui-libraries/material/docs/src/content/docs
 cd ui-libraries/material/docs
 pnpm run build
 ```

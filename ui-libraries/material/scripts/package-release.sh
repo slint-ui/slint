@@ -30,7 +30,7 @@ esac
 script_directory=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 material_directory=$(CDPATH= cd -- "$script_directory/.." && pwd)
 
-for required_file in material.slint README.md LICENSE.md; do
+for required_file in material.slint slint-project.json README.md LICENSE.md; do
     if [ ! -f "$material_directory/src/$required_file" ]; then
         echo "Missing release file: src/$required_file" >&2
         exit 1
