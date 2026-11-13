@@ -168,31 +168,6 @@ pub fn search_replace_host_language_accessors(
     Ok(edits)
 }
 
-/// Build the set of workspace folders the scanner should consider, falling
-/// back through the LSP-deprecated-but-widely-used `root_uri` / `root_path`
-/// so editors that initialize the server in single-folder mode still get
-/// host-language scanning.
-///
-/// Returns an empty Vec if no folder could be derived; the scanner will then
-/// fail with `NoWorkspaceFolders`.
-#[allow(deprecated)] // root_uri / root_path are deprecated but widely used
-pub fn resolve_workspace_folders(init_param: &InitializeParams) -> Vec<WorkspaceFolder> {
-    if let Some(folders) = init_param.workspace_folders.as_ref()
-        && !folders.is_empty()
-    {
-        return folders.clone();
-    }
-    if let Some(uri) = init_param.root_uri.as_ref() {
-        return vec![WorkspaceFolder { uri: uri.clone(), name: String::new() }];
-    }
-    if let Some(path) = init_param.root_path.as_ref()
-        && let Ok(uri) = Url::from_file_path(path)
-    {
-        return vec![WorkspaceFolder { uri, name: String::new() }];
-    }
-    Vec::new()
-}
-
 /// Ask the client for its current workspace folders via the
 /// `workspace/workspaceFolders` request, falling back to the cached
 /// [`InitializeParams`] when the client doesn't advertise support.
@@ -221,7 +196,7 @@ pub async fn current_workspace_folders(
     {
         return folders;
     }
-    resolve_workspace_folders(init_param)
+    crate::language::resolve_workspace_folders(init_param)
 }
 
 /// Compute the `(old, new)` accessor name pairs for the rename. Rust and C++
@@ -399,6 +374,7 @@ mod rename_tests;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::language::resolve_workspace_folders;
 
     /// Build the owned accessor pairs and emit edits in one call -- the
     /// scanner takes a `HashMap<&str, &str>` borrowing into those pairs.

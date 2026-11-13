@@ -223,6 +223,7 @@ pub fn create(
     }));
     let mut session = crate::editor_preview::EditorSession::new(compiler_config);
     session.attach_preview(to_preview, None, None);
+    session.set_workspace_roots(language::workspace_roots(&init_param));
 
     let mut rh = RequestHandler::default();
     language::register_request_handlers(&mut rh);
@@ -381,7 +382,7 @@ impl SlintServer {
             .trigger_file_watcher(url, typ)
             .await
             .map_err(|e| JsError::new(&e.to_string()))?;
-        crate::lsp_to_editor::publish_diagnostics(&ctx.server_notifier, diagnostics);
+        publish_document_changes(&mut ctx, diagnostics);
         Ok(JsValue::UNDEFINED)
     }
     #[wasm_bindgen]
@@ -398,7 +399,7 @@ impl SlintServer {
             .open_document(content, uri, Some(version))
             .await
             .map_err(|e| JsError::new(&e.to_string()))?;
-        crate::lsp_to_editor::publish_diagnostics(&ctx.server_notifier, diagnostics);
+        publish_document_changes(&mut ctx, diagnostics);
         Ok(JsValue::UNDEFINED)
     }
 
@@ -416,7 +417,7 @@ impl SlintServer {
             .load_document(content, uri, Some(version))
             .await
             .map_err(|e| JsError::new(&e.to_string()))?;
-        crate::lsp_to_editor::publish_diagnostics(&ctx.server_notifier, diagnostics);
+        publish_document_changes(&mut ctx, diagnostics);
         Ok(JsValue::UNDEFINED)
     }
 
@@ -429,7 +430,7 @@ impl SlintServer {
             .close_document(uri)
             .await
             .map_err(|error| JsError::new(&error.to_string()))?;
-        crate::lsp_to_editor::publish_diagnostics(&ctx.server_notifier, diagnostics);
+        publish_document_changes(&mut ctx, diagnostics);
         Ok(JsValue::UNDEFINED)
     }
 
@@ -452,6 +453,16 @@ impl SlintServer {
     pub async fn reload_config(&self) -> JsResult<()> {
         let mut ctx = self.ctx.lock().await;
         language::load_configuration(&mut ctx).await.map_err(|e| JsError::new(&e.to_string()))
+    }
+}
+
+/// Publishes the diagnostics of a document change, and moves the preview to a project file
+/// that the change opened or closed.
+fn publish_document_changes(ctx: &mut Context, diagnostics: editor_preview::VersionedDiagnostics) {
+    crate::lsp_to_editor::publish_diagnostics(&ctx.server_notifier, diagnostics);
+    #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
+    if let Err(error) = language::sync_preview_project_root(&mut ctx.session) {
+        tracing::warn!("Failed to sync preview project root: {error}");
     }
 }
 

@@ -5,11 +5,13 @@
 
 import slint_init, * as slint from "@interpreter/slint_wasm_interpreter.js";
 import { edition_from_url } from "./edition";
+import { is_project_url, load_project } from "./project";
 
 (async function () {
     await slint_init();
 
     let base_url = "";
+    let project_url: string | undefined;
 
     /// Index by url. Inline documents will use the empty string.
     const loaded_documents: Map<string, string> = new Map();
@@ -37,6 +39,16 @@ export component Demo inherits Window {
         }, 1);
     }
 
+    function show_error(error: string, div: HTMLDivElement) {
+        const text = document.createTextNode(error);
+        const p = document.createElement("pre");
+        p.appendChild(text);
+        div.innerHTML =
+            "<pre style='color: red; background-color:#fee; margin:0'>" +
+            p.innerHTML +
+            "</pre>";
+    }
+
     async function render_or_error(
         source: string,
         base_url: string,
@@ -55,10 +67,13 @@ export component Demo inherits Window {
                 source,
                 base_url,
                 style,
-                async (url: string): Promise<string> => {
+                async (url: string): Promise<string | null> => {
                     const file_source = loaded_documents.get(url);
                     if (file_source === undefined) {
                         const response = await fetch(url);
+                        if (!response.ok) {
+                            return null;
+                        }
                         const doc = await response.text();
                         loaded_documents.set(url, doc);
                         return doc;
@@ -67,16 +82,11 @@ export component Demo inherits Window {
                 },
                 undefined,
                 edition,
+                project_url,
             );
 
         if (error_string !== "") {
-            const text = document.createTextNode(error_string);
-            const p = document.createElement("pre");
-            p.appendChild(text);
-            div.innerHTML =
-                "<pre style='color: red; background-color:#fee; margin:0'>" +
-                p.innerHTML +
-                "</pre>";
+            show_error(error_string, div);
         } else {
             const spinner = document.getElementById("spinner");
             if (spinner !== null) {
@@ -98,9 +108,24 @@ export component Demo inherits Window {
     if (code) {
         main_source = code;
     } else if (load_url) {
-        base_url = load_url;
-        const response = await fetch(load_url);
-        main_source = await response.text();
+        let url = new URL(load_url, window.location.href);
+        try {
+            if (is_project_url(url)) {
+                const project = await load_project(url);
+                project_url = url.href;
+                loaded_documents.set(project_url, project.source);
+                url = project.main;
+            }
+            base_url = url.href;
+            const response = await fetch(base_url);
+            main_source = await response.text();
+        } catch (e) {
+            show_error(
+                String(e),
+                document.getElementById("preview") as HTMLDivElement,
+            );
+            return;
+        }
     }
     update_preview();
 })();

@@ -484,7 +484,12 @@ fn sync_file_watcher_if_needed(
                     .component()
                     .and_then(|component| SourcePath::from_url(&component.url).into_native_path())
             }))
-            .chain(session.active_project_file_paths().map(Path::to_path_buf))
+            .chain(
+                session
+                    .active_project_file_paths()
+                    .filter_map(SourcePath::as_native_path)
+                    .map(Path::to_path_buf),
+            )
             // Missing and deleted project files aren't active, but their creation must be observed.
             .chain(std::iter::once(project_root.join(i_slint_compiler::project_file::FILE_NAME))),
     )?;
@@ -624,7 +629,8 @@ async fn activate_project(
     let mut session = new_editor_session();
 
     *project_root = project.root;
-    session.set_workspace_roots(vec![project_root.clone()]);
+    let root = SourcePath::new(&*project_root);
+    session.set_workspace_roots(vec![root.clone()]);
     let component = project.preview;
     if let Err(error) =
         watcher.update_watched_paths(SourcePath::from_url(&component.url).into_native_path())
@@ -632,13 +638,6 @@ async fn activate_project(
         tracing::warn!("Failed to watch project: {error}");
     }
     while watcher_events.try_recv().is_ok() {}
-    let root = match Url::from_directory_path(project_root.as_path()) {
-        Ok(root) => Some(root),
-        Err(()) => {
-            tracing::warn!("Failed to convert {} to URL", project_root.display());
-            None
-        }
-    };
     if let Err(error) = session.reload_document(component.url.clone()).await {
         tracing::warn!("Failed to load {}: {error}", component.url);
     }
@@ -652,7 +651,7 @@ async fn activate_project(
     // this function returns.
     // This happens either via the initial RequestState from the preview itself.
     // Or manually in switch_project.
-    session.attach_preview(to_previews[PRIMARY_PREVIEW_INDEX].clone(), Some(component), root);
+    session.attach_preview(to_previews[PRIMARY_PREVIEW_INDEX].clone(), Some(component), Some(root));
     session.attach_preview(to_previews[RUN_PREVIEW_INDEX].clone(), None, None);
     if let Err(error) = sync_file_watcher_if_needed(watcher, &session, project_root, &mut None) {
         tracing::warn!("Failed to watch project: {error}");
@@ -697,7 +696,7 @@ async fn open_preview(
     session: &mut editor_preview::EditorSession,
     preview_index: usize,
     component: PreviewComponent,
-    root: Option<Url>,
+    root: Option<SourcePath>,
 ) {
     if let Err(error) = session.reload_document(component.url.clone()).await {
         tracing::warn!("Failed to load {}: {error}", component.url);

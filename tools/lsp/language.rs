@@ -21,7 +21,6 @@ use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{
     SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize, syntax_nodes,
 };
-#[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
 use i_slint_compiler::source_path::SourcePath;
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 use i_slint_live_preview::protocol::PreviewComponent;
@@ -681,6 +680,38 @@ fn extract_param<T: serde::de::DeserializeOwned>(
     })
 }
 
+/// The workspace folders that the client sent when it initialized the server.
+/// Without any, it falls back to the deprecated `root_uri`, then to `root_path`,
+/// which editors in single-folder mode still send.
+/// Returns an empty `Vec` if the client sent none of them.
+#[allow(deprecated)] // root_uri / root_path are deprecated but widely used
+pub fn resolve_workspace_folders(
+    init_param: &lsp_types::InitializeParams,
+) -> Vec<lsp_types::WorkspaceFolder> {
+    if let Some(folders) = init_param.workspace_folders.as_ref()
+        && !folders.is_empty()
+    {
+        return folders.clone();
+    }
+    if let Some(uri) = init_param.root_uri.as_ref() {
+        return vec![lsp_types::WorkspaceFolder { uri: uri.clone(), name: String::new() }];
+    }
+    if let Some(path) = init_param.root_path.as_ref()
+        && let Some(uri) = SourcePath::new(path).to_url()
+    {
+        return vec![lsp_types::WorkspaceFolder { uri, name: String::new() }];
+    }
+    Vec::new()
+}
+
+/// The directories of the workspace folders that the client sent.
+pub fn workspace_roots(init_param: &lsp_types::InitializeParams) -> Vec<SourcePath> {
+    resolve_workspace_folders(init_param)
+        .iter()
+        .map(|folder| SourcePath::from_url(&folder.uri))
+        .collect()
+}
+
 #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
 pub fn show_preview_command(
     params: &[serde_json::Value],
@@ -699,37 +730,21 @@ pub fn show_preview_command(
 
     tracing::debug!("Show preview: url={}, component={:?}", url, component);
     let source = SourcePath::from_url(&url);
-    let root = match source.as_native_path() {
-        Some(path) => ctx
-            .session
-            .find_project_file_path_for(path)
-            .map_err(|error| LspError {
-                code: LspErrorCode::RequestFailed,
-                message: format!("Cannot find project file for {}: {error}", path.display()),
-            })?
-            .and_then(|manifest| SourcePath::File(manifest).to_url()?.join(".").ok()),
-        None => None,
-    };
+    let root = ctx.session.project_root_for(&source).map_err(|error| LspError {
+        code: LspErrorCode::RequestFailed,
+        message: format!("Cannot find project file for {source}: {error}"),
+    })?;
     ctx.session.show_preview(0, PreviewComponent { url, component }, root);
 
     Ok(())
 }
 
-#[cfg(all(
-    not(target_arch = "wasm32"),
-    any(feature = "preview-builtin", feature = "preview-external")
-))]
+#[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
 pub fn sync_preview_project_root(
     session: &mut editor_preview::EditorSession,
 ) -> std::io::Result<()> {
     let Some(component) = session.primary_preview().component().cloned() else { return Ok(()) };
-    let source = SourcePath::from_url(&component.url);
-    let root = match source.as_native_path() {
-        Some(path) => session
-            .find_project_file_path_for(path)?
-            .and_then(|manifest| SourcePath::File(manifest).to_url()?.join(".").ok()),
-        None => None,
-    };
+    let root = session.project_root_for(&SourcePath::from_url(&component.url))?;
     if session.primary_preview().project_root() != root.as_ref() {
         session.show_preview(0, component, root);
     }
@@ -1501,7 +1516,8 @@ fn parse_configuration(
                     ));
                 }
             }
-            // SlintPad sets it. Elsewhere, the project file decides, as it does for the build.
+            // SlintPad sets it for files without a project file.
+            // Elsewhere, the project file decides, as it does for the build.
             if cfg!(any(target_arch = "wasm32", test))
                 && let Some(value) = config_object.get("edition")
             {
@@ -1519,12 +1535,12 @@ fn parse_configuration(
     }
     let overrides = SessionConfigOverrides {
         hide_ui,
+        default_edition: edition,
         compiler: i_slint_compiler::project_file::Overrides {
             project: i_slint_compiler::project_file::ProjectFileData {
                 include_paths,
                 library_paths,
                 experimental_features: experimental,
-                edition,
                 ..Default::default()
             },
             style,
@@ -1691,7 +1707,7 @@ pub mod tests {
             SlintEdition { minor: SlintEdition::current().minor + 1, ..SlintEdition::current() };
         let (overrides, warnings) = parse_configuration(vec![serde_json::json!({})]);
         assert!(warnings.is_empty(), "{warnings:?}");
-        assert_eq!(overrides.compiler.project.edition, None);
+        assert_eq!(overrides.default_edition, None);
         for (value, expected) in [
             (serde_json::json!("1.18"), Some(SlintEdition { major: 1, minor: 18 })),
             (serde_json::json!("1.18.1"), Some(SlintEdition::current())),
@@ -1701,7 +1717,8 @@ pub mod tests {
             let (overrides, warnings) =
                 parse_configuration(vec![serde_json::json!({ "edition": value })]);
             assert!(warnings.is_empty(), "{warnings:?}");
-            assert_eq!(overrides.compiler.project.edition, expected, "{value}");
+            assert_eq!(overrides.default_edition, expected, "{value}");
+            assert_eq!(overrides.compiler.project.edition, None);
         }
     }
 
@@ -2199,6 +2216,7 @@ enum {}
         let (mut ctx, messages) = mock_context_with_preview_capture();
         ctx.session.preview_config = i_slint_live_preview::protocol::PreviewConfig {
             hide_ui: Some(true),
+            default_edition: Some(i_slint_compiler::project_file::SlintEdition::V1_19),
             overrides: i_slint_compiler::project_file::Overrides {
                 style: Some("custom-style".into()),
                 project: i_slint_compiler::project_file::ProjectFileData {
@@ -2252,7 +2270,7 @@ enum {}
         let outer_manifest_url = Url::from_file_path(&outer_manifest).unwrap();
         let nested_manifest_url = Url::from_file_path(&nested_manifest).unwrap();
         let (mut context, messages) = mock_context_with_preview_capture();
-        context.session.set_workspace_roots(vec![outer_root.to_path_buf()]);
+        context.session.set_workspace_roots(vec![SourcePath::new(outer_root)]);
         spin_on::spin_on(context.session.load_document(source.into(), outer_source_url, None))
             .unwrap();
         spin_on::spin_on(context.session.load_document(source.into(), source_url.clone(), None))
@@ -2350,17 +2368,45 @@ enum {}
         let inner_url = Url::from_file_path(&inner_source).unwrap();
         for workspace_roots in [vec![outer.clone(), inner.clone()], Vec::new()] {
             let (mut context, _) = mock_context_with_preview_capture();
-            context.session.set_workspace_roots(workspace_roots);
+            context
+                .session
+                .set_workspace_roots(workspace_roots.into_iter().map(SourcePath::new).collect());
             for url in [&outer_url, &inner_url] {
                 spin_on::spin_on(context.session.load_document(code.into(), url.clone(), None))
                     .unwrap();
             }
             assert_eq!(
-                context.session.find_project_file_path_for(&outer_source).unwrap(),
-                Some(outer.join("slint-project.json"))
+                context.session.project_root_for(&SourcePath::new(&outer_source)).unwrap(),
+                Some(SourcePath::new(&outer))
             );
-            assert_eq!(context.session.find_project_file_path_for(&inner_source).unwrap(), None);
+            assert_eq!(
+                context.session.project_root_for(&SourcePath::new(&inner_source)).unwrap(),
+                None
+            );
         }
+    }
+
+    #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
+    #[test]
+    fn preview_root_of_a_url_is_its_open_project_file() {
+        let project_url = Url::parse("slintpad:/project/slint-project.json").unwrap();
+        let source_url = Url::parse("slintpad:/project/ui/main.slint").unwrap();
+        let (mut context, messages) = mock_context_with_preview_capture();
+        context.session.set_workspace_roots(vec![SourcePath::new("slintpad:/")]);
+        spin_on::spin_on(context.session.open_document(
+            r#"{"edition":"1.19"}"#.into(),
+            project_url,
+            None,
+        ))
+        .unwrap();
+        messages.borrow_mut().clear();
+
+        show_preview_command(&[serde_json::to_value(&source_url).unwrap()], &mut context).unwrap();
+        let root_url = Url::parse("slintpad:/project/").unwrap();
+        assert!(matches!(
+            messages.borrow().first(),
+            Some(LspToPreviewMessage::OpenProject { root: Some(root) }) if root == &root_url
+        ));
     }
 
     #[cfg(all(unix, any(feature = "preview-builtin", feature = "preview-external")))]
@@ -2378,7 +2424,7 @@ enum {}
         assert!(error.message.contains(&source_url.to_file_path().unwrap().display().to_string()));
         assert!(messages.borrow().is_empty());
 
-        let previous_root = Url::from_directory_path(directory.path()).unwrap();
+        let previous_root = SourcePath::new(directory.path());
         context.session.show_preview(
             0,
             PreviewComponent { url: source_url, component: None },
