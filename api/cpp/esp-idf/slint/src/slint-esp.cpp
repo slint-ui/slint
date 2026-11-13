@@ -358,8 +358,8 @@ void EspPlatform<PixelType>::run_event_loop()
                      "%.2f ms to record each, %s stack unused: %u bytes",
                      stats_frames * 1e6 / (now_us - stats_start_us),
                      stats_frame_us / 1000.0 / stats_frames,
-                     stats_record_us.exchange(0) / 1000.0 / stats_frames,
-                     pcTaskGetName(nullptr), unsigned(uxTaskGetStackHighWaterMark(nullptr)));
+                     stats_record_us.exchange(0) / 1000.0 / stats_frames, pcTaskGetName(nullptr),
+                     unsigned(uxTaskGetStackHighWaterMark(nullptr)));
             stats_start_us = now_us;
             stats_frame_us = 0;
             stats_frames = 0;
