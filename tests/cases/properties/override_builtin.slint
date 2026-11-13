@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+//edition: 1.19
+
 // Declarations that collide with a shadowable member of a builtin element are only a
 // warning: the declaration shadows the builtin member, even with a different type.
 // This keeps code compiling when a new Slint version adds members to builtin elements.
@@ -10,6 +12,10 @@
 component Base inherits Window {
     width: 300px;
     height: 200px;
+}
+
+component TextBase inherits Text {
+    out property <float> builtin-line-height-factor: self.line-height-factor;
 }
 
 export component TestCase inherits Base {
@@ -26,7 +32,13 @@ export component TestCase inherits Base {
         public pure function ensure-visible(x: int) -> int { x * 2 }
     }
 
-    out property <bool> test: maximized == "shadowed" && minimized == 42 && close("a") == "a!" && item.ensure-visible(21) == 42;
+    // shadows `line-height-factor`, whose builtin default value stays on the builtin property
+    text := TextBase {
+        in-out property <string> line-height-factor: "shadowed";
+    }
+
+    out property <bool> test: maximized == "shadowed" && minimized == 42 && close("a") == "a!" && item.ensure-visible(21) == 42
+        && text.builtin-line-height-factor == 1 && text.line-height-factor == "shadowed";
 }
 /*
 ```rust

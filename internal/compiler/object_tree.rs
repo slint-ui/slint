@@ -17,6 +17,7 @@ use crate::layout::LayoutConstraints;
 use crate::namedreference::NamedReference;
 use crate::native_class::PropertyVisibility;
 use crate::parser::{SyntaxKind, SyntaxNode, syntax_nodes};
+use crate::project_file::SlintEdition;
 use crate::property_analysis::PropertyAnalysis;
 use crate::source_path::SourcePath;
 use crate::typeloader::{ImportKind, ImportedTypes, LibraryInfo};
@@ -1655,7 +1656,7 @@ impl Element {
 
     /// The edition of the component that declares the element, which inlining doesn't change.
     /// An element that a pass created takes the edition of its component.
-    pub fn edition(&self) -> Option<crate::project_file::SlintEdition> {
+    pub fn edition(&self) -> Option<SlintEdition> {
         if let Some(file) = self.source_file() {
             return file.edition();
         }
@@ -2388,7 +2389,13 @@ impl Element {
         // surprise anyone. Anything else has to be opted into by the base declaration.
         let private =
             declared_in.is_some() && existing.property_visibility == PropertyVisibility::Private;
-        if !private && !existing.is_shadowable {
+        // Shadowing builtin members started with the ones added in Slint 1.17.
+        let shadowable = existing.is_shadowable
+            || existing.since.is_some_and(|since| {
+                let edition = SlintEdition::effective(self.edition());
+                (since >= SlintEdition::V1_17 && edition < SlintEdition::V1_20) || edition < since
+            });
+        if !private && !shadowable {
             return MemberDeclaration::Conflict {
                 existing_type: existing.property_type,
                 declared_in,

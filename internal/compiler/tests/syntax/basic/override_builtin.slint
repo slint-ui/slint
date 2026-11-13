@@ -1,7 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+//edition: 1.19
 
-// Builtin members marked `@shadowable` in their declaration can be shadowed by a local
+// Before edition 1.20, builtin members added in Slint 1.17 or later can be shadowed by a local
 // declaration with a warning instead of an error, so that code written before the
 // builtin member was added keeps compiling.
 
@@ -22,7 +23,7 @@ export component Test inherits Window {
     function hide() -> string { "shadowed" }
 //           >  <warning{'hide' shadows the builtin function of the same name}
 
-    // builtin members that are not marked shadowable can still not be overridden
+    // older builtin members can still not be overridden
     property <string> width;
 //                    >   <error{Cannot override property 'width'}
     TouchArea {
@@ -108,4 +109,10 @@ export component Test6 inherits CallsEnsureVisible {
 export component Test7 inherits Flickable {
     callback scroll-to(int);
 //           >       <warning{'scroll-to' shadows the builtin function of the same name}
+}
+
+// Members added before Slint 1.17 can only be shadowed by an edition older than them
+export component Test8 inherits Text {
+    in property <int> stroke;
+//                    >    <error{Cannot override property 'stroke'}
 }

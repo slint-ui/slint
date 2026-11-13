@@ -525,7 +525,7 @@ impl BuildDiagnostics {
         use crate::project_file::SlintEdition;
         let Some(file) = source.source_file() else { return };
         let edition = file.edition();
-        let effective = edition.unwrap_or(SlintEdition::FIRST);
+        let effective = SlintEdition::effective(edition);
         if file.path().is_builtin() || effective >= SlintEdition::current() {
             return;
         }

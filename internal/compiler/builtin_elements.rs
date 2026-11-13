@@ -54,8 +54,8 @@
 //! Slint 1.0 and `skip_inherited` to leave the docs of the native items out of the element's.
 //! `constant_layout_info(stretch)` gives the element the default layout info with that stretch,
 //! whatever item it lowers to.
-//! Member modifiers `@shadowable`, `@deprecated` (aliases only) and `@pure` keep their Slint
-//! meaning; `@constexpr` marks a property whose value is known at compile time, `@fake` one
+//! Member modifiers `@deprecated` (aliases only) and `@pure` keep their Slint meaning;
+//! `@constexpr` marks a property whose value is known at compile time, `@fake` one
 //! that exists only at compile time and `@sc` one of the Slint SC subset.
 //! `@since("1.20")` marks a member added in a later release than its element.
 //! A default value of `computed` gives `BuiltinPropertyDefault::Computed`. Any other default value is a
@@ -262,7 +262,6 @@ impl Builder {
     }
 
     fn add(&mut self, name: &str, mut info: BuiltinPropertyInfo, mods: &[&str], docs: &[&str]) {
-        info.shadowable = mods.contains(&"shadowable");
         info.slint_sc = mods.contains(&"sc");
         info.since = mods.iter().find_map(|m| {
             Some(crate::project_file::SlintEdition::from_literal(m.strip_prefix("since=")?))
@@ -318,11 +317,6 @@ impl Builder {
             vis
         };
         if let BuiltinPropertyDefault::Expr(default) = &default {
-            assert!(
-                !mods.contains(&"shadowable"),
-                "shadowable property {}::{name} can't have a default value as it would end up on the shadowing declaration",
-                self.class.class_name
-            );
             debug_assert_eq!(
                 Expression::from_constant(default).ty(),
                 info.ty,
@@ -1286,15 +1280,15 @@ fn build(l: &mut Loader) {
         /// The press takes the focus, and the selection goes when the focus does, as in a `TextInput`,
         /// so at most one element shows a mouse selection at a time.
         /// A change of `text` keeps the selection's offsets, clamped to the new text.
-        @since("1.19") @shadowable in property <bool> selectable;
+        @since("1.19") in property <bool> selectable;
         /// The background color of the selection.
         /// \default depends on the style
-        @since("1.19") @shadowable in property <color> selection-background-color: computed; // Palette.selection-background set in apply_default_properties_from_style
+        @since("1.19") in property <color> selection-background-color: computed; // Palette.selection-background set in apply_default_properties_from_style
         /// The foreground color of the selection.
         /// \default depends on the style
-        @since("1.19") @shadowable in property <color> selection-foreground-color: computed; // Palette.selection-foreground set in apply_default_properties_from_style
+        @since("1.19") in property <color> selection-foreground-color: computed; // Palette.selection-foreground set in apply_default_properties_from_style
         /// `true` when text is selected.
-        @since("1.19") @shadowable out property <bool> has-selection { BuiltinFunction.StyledTextHasSelection }
+        @since("1.19") out property <bool> has-selection { BuiltinFunction.StyledTextHasSelection }
 
         /// Selects the text between two UTF-8 byte offsets.
         /// `anchor` is the end of the selection that stays put and `focus` the end the cursor moves to,
@@ -1597,13 +1591,13 @@ fn build(l: &mut Loader) {
         /// Panning with a touch screen is only affected by `interactive`.
         @since("1.18") in property <bool> mouse-drag-pan-enabled: true;
         /// The total width of the scrollable content.
-        @shadowable in property <length> content-width: computed;
+        @since("1.18") in property <length> content-width: computed;
         /// The total height of the scrollable content.
-        @shadowable in property <length> content-height: computed;
+        @since("1.18") in property <length> content-height: computed;
         /// The position of the scrollable content relative to the `Flickable`. This is usually a negative value.
-        @shadowable in-out property <length> content-x;
+        @since("1.18") in-out property <length> content-x;
         /// The position of the scrollable content relative to the `Flickable`. This is usually a negative value.
-        @shadowable in-out property <length> content-y;
+        @since("1.18") in-out property <length> content-y;
         @deprecated in property <length> viewport-width <=> content-width;
         @deprecated in property <length> viewport-height <=> content-height;
         @deprecated in-out property <length> viewport-x <=> content-x;
@@ -1614,7 +1608,7 @@ fn build(l: &mut Loader) {
         /// For example, `scroll-to({ x: 0px, y: 100px }, ScrollBehavior.instant)` sets `content-y` to `-100px`.
         /// A `pos` outside the scrollable range is clamped to it.
         /// Pass `ScrollBehavior.instant` to jump or `ScrollBehavior.smooth` to animate.
-        @since("1.19") @shadowable function scroll-to(pos: Point, behavior: ScrollBehavior) { BuiltinFunction.ScrollTo }
+        @since("1.19") function scroll-to(pos: Point, behavior: ScrollBehavior) { BuiltinFunction.ScrollTo }
         /// Invoked when `content-x` or `content-y` is changed by a user action (dragging, scrolling).
         @since("1.5") callback flicked;
     } }
@@ -2254,9 +2248,9 @@ fn build(l: &mut Loader) {
         /// \default true if 'SLINT_FULLSCREEN' environment variable is set, otherwise false
         @since("1.9") in-out property <bool> full-screen;
         /// Whether the window is minimized. Setting this to true minimizes the window.
-        @since("1.17") @shadowable in-out property <bool> minimized;
+        @since("1.17") in-out property <bool> minimized;
         /// Whether the window is maximized. Setting this to true maximizes the window.
-        @since("1.17") @shadowable in-out property <bool> maximized;
+        @since("1.17") in-out property <bool> maximized;
         /// The background brush of the `Window`. It is painted first, covering the whole window. \{#sls.ref.window.background}
         ///
         /// <OnlyInSC>
@@ -2296,10 +2290,10 @@ fn build(l: &mut Loader) {
         /// which can cancel the close.
         /// Returns `true` if the application accepted the close request; false otherwise.
         /// Returns `false` if called on a child `Window` element, which can't be closed independently.
-        @since("1.17") @shadowable function close() -> bool { BuiltinFunction.WindowClose }
+        @since("1.17") function close() -> bool { BuiltinFunction.WindowClose }
         /// Hide this window. This also drops the strong reference on the window, so if this was
         /// the last reference, the event loop will quit.
-        @since("1.17") @shadowable function hide() { BuiltinFunction.WindowHide }
+        @since("1.17") function hide() { BuiltinFunction.WindowHide }
     } }
 
     element! {
@@ -2480,7 +2474,7 @@ fn build(l: &mut Loader) {
         /// The design metrics of the font scaled to the font pixel size used by the element.
         @since("1.9") out property <FontMetrics> font-metrics { BuiltinFunction.ItemFontMetrics }
         /// `true` when text is selected.
-        @since("1.19") @shadowable out property <bool> has-selection { BuiltinFunction.HasSelection }
+        @since("1.19") out property <bool> has-selection { BuiltinFunction.HasSelection }
 
 
         /// Selects the text between two UTF-8 offsets.
@@ -3278,9 +3272,9 @@ fn build(l: &mut Loader) {
         /// An odd number of entries is repeated to make the list even.
         /// An empty list draws the outline solid.
         /// \default []
-        @since("1.19") @shadowable @fake in property <[length]> stroke-dash-array;
+        @since("1.19") @fake in property <[length]> stroke-dash-array;
         /// The distance into the repeated dash pattern to start the stroke dashing at the beginning of the path.
-        @since("1.19") @shadowable in property <length> stroke-dash-offset;
+        @since("1.19") in property <length> stroke-dash-offset;
         //! ### width
         //! <SlintProperty propName="width" typeName="length">
         //! If non-zero, the path will be scaled to fit into the specified width.

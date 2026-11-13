@@ -503,27 +503,34 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
             ),
         ]))
         .chain(std::iter::once(("init", noarg_callback_type(), PropertyVisibility::Private)))
-        .chain(reserved_member_functions().map(|(name, f, v)| (name, Type::Function(f.ty()), v)))
+        .chain(reserved_member_functions().map(|(name, f, v, _)| (name, Type::Function(f.ty()), v)))
 }
 
 #[cfg(feature = "std")]
 /// lookup reserved property injected in every item
 pub fn reserved_property(name: std::borrow::Cow<'_, str>) -> PropertyLookupResult<'_> {
     static RESERVED_PROPERTIES: std::sync::LazyLock<
-        HashMap<&'static str, (Type, PropertyVisibility, Option<BuiltinFunction>)>,
+        HashMap<
+            &'static str,
+            (Type, PropertyVisibility, Option<BuiltinFunction>, Option<SlintEdition>),
+        >,
     > = std::sync::LazyLock::new(|| {
         reserved_properties()
-            .map(|(name, ty, visibility)| (name, (ty, visibility, reserved_member_function(name))))
+            .map(|(name, ty, visibility)| {
+                let function = reserved_member_functions().find(|f| f.0 == name);
+                let since = function.as_ref().and_then(|f| f.3);
+                (name, (ty, visibility, function.map(|f| f.1), since))
+            })
             .collect()
     });
-    if let Some((ty, visibility, builtin_function)) =
+    if let Some((ty, visibility, builtin_function, since)) =
         RESERVED_PROPERTIES.get(name.as_ref()).cloned()
     {
         return PropertyLookupResult {
             property_type: ty,
             is_slint_sc: matches!(name.as_ref(), "x" | "y" | "width" | "height"),
-            is_shadowable: name == "ensure-visible",
-            since: None,
+            is_shadowable: false,
+            since,
             resolved_name: name,
             is_local_to_component: false,
             is_in_direct_base: false,
@@ -565,18 +572,23 @@ pub fn reserved_property(name: std::borrow::Cow<'_, str>) -> PropertyLookupResul
 
 #[cfg(feature = "std")]
 pub fn reserved_member_functions()
--> impl Iterator<Item = (&'static str, BuiltinFunction, PropertyVisibility)> {
+-> impl Iterator<Item = (&'static str, BuiltinFunction, PropertyVisibility, Option<SlintEdition>)> {
     IntoIterator::into_iter([
-        ("focus", BuiltinFunction::SetFocusItem, PropertyVisibility::Public), // match for callable "focus" property
-        ("clear-focus", BuiltinFunction::ClearFocusItem, PropertyVisibility::Public), // match for callable "clear-focus" property
-        ("ensure-visible", BuiltinFunction::EnsureVisible, PropertyVisibility::Public),
+        ("focus", BuiltinFunction::SetFocusItem, PropertyVisibility::Public, None), // match for callable "focus" property
+        ("clear-focus", BuiltinFunction::ClearFocusItem, PropertyVisibility::Public, None), // match for callable "clear-focus" property
+        (
+            "ensure-visible",
+            BuiltinFunction::EnsureVisible,
+            PropertyVisibility::Public,
+            Some(SlintEdition::V1_19),
+        ),
     ])
 }
 
 #[cfg(feature = "std")]
 /// These member functions are injected in every time
 pub fn reserved_member_function(name: &str) -> Option<BuiltinFunction> {
-    for (m, e, _) in reserved_member_functions() {
+    for (m, e, ..) in reserved_member_functions() {
         if m == name {
             return Some(e);
         }

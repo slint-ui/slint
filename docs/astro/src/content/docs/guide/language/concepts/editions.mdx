@@ -22,6 +22,11 @@ but Slint warns when a builtin element, property, enum value, or struct is newer
 Without an edition, it warns for everything added after Slint 1.18.
 The reference shows the release that added each of them.
 
+Code written before a builtin property, callback, or function existed may already declare a member with its name.
+When the builtin is newer than your edition, the declaration shadows it, with a warning.
+Before edition 1.20, this also applies to every builtin member added in Slint 1.17 or later.
+Otherwise, it's an error: rename your member.
+
 ## Choosing the Edition
 
 Choose the major and minor version of the Slint release you write your project for, such as `1.20`.

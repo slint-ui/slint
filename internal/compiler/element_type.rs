@@ -95,7 +95,7 @@ impl ElementType {
                         declared_pure: p.declared_pure(),
                         is_local_to_component: false,
                         is_in_direct_base: false,
-                        is_shadowable: p.shadowable,
+                        is_shadowable: false,
                         builtin_function: match &p.default_value {
                             BuiltinPropertyDefault::BuiltinFunction(f) => Some(f.clone()),
                             _ => None,
@@ -363,7 +363,7 @@ pub struct PropertyLookupResult<'a> {
     pub is_local_to_component: bool,
     /// True if the property in the direct base of the component (for protected visibility purposes)
     pub is_in_direct_base: bool,
-    /// True if a local declaration may shadow this member: it is marked `@shadowable`.
+    /// True if a local declaration may shadow this member declared in `.slint`: it is marked `@shadowable`.
     pub is_shadowable: bool,
 
     /// Set when the lookup went through a shadow: the member is declared under this
