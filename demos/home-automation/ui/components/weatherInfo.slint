@@ -56,6 +56,7 @@ export component Day inherits Rectangle {
         Rectangle {
             height: 38px * root.content-scale;
             Image {
+                cache-rendering-hint: true;
                 width: self.source.width * 1px * root.content-scale;
                 height: self.source.height * 1px * root.content-scale;
                 source: weather-icon-source();

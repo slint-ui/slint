@@ -28,10 +28,12 @@ export component Lamp inherits Control {
             height: 100%;
 
             Image {
+                cache-rendering-hint: true;
                 y: 0;
                 source: @image-url("../images/lamp/0000.png");
             }
             Image {
+                cache-rendering-hint: true;
                 y: 0;
                 source: @image-url("../images/lamp/0024.png");
                 opacity: slider.value / 24;

@@ -18,6 +18,7 @@ export component Appliance {
         background: Palette.appliance-background;
         border-radius: Measurements.tile-radius;
         Image {
+            cache-rendering-hint: true;
             y: tile.height - self.height;
             width: tile.width;
             source: appliance-image;

@@ -25,10 +25,12 @@ export component Dial {
     knob := Rectangle {
         base := Rectangle {
             Image {
+                cache-rendering-hint: true;
                 source: @image-url("../../images/dial-frame.png");
             }
 
             Image {
+                cache-rendering-hint: true;
                 source: @image-url("../../images/lines.png");
                 colorize: Palette.dark-color-scheme ? #fff : #000;
                 transform-rotation: root.dialAngle;
@@ -79,6 +81,7 @@ export component Dial {
             x: 55px * root.dialAngle.cos();
             y: 55px * root.dialAngle.sin();
             Image {
+                cache-rendering-hint: true;
                 source: @image-url("../../images/notch.png");
             }
         }

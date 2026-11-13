@@ -17,6 +17,7 @@ export component InnerShadowRectangle inherits Rectangle {
             easing: ease-in-out-sine;
         }
         Image {
+            cache-rendering-hint: true;
             source: @image-url("../../images/inner-shadow-box-soft.png", nine-slice(60));
             colorize: inner-shadow-color;
             opacity: 0.6;
