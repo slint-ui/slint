@@ -539,7 +539,6 @@ fn test_remove_elements() {
     }
 }
 
-
 #[test]
 fn test_row_added_without_rows() {
     let model = TestModel::new(5);
