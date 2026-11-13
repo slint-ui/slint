@@ -31,6 +31,7 @@ from .models import FilterModel, ListModel, MapModel, Model, ReverseModel, SortM
 _logger = logging.getLogger(__name__)
 
 Image = native.Image
+Window = native.Window
 Color = native.Color
 Brush = native.Brush
 Keys = native.Keys
@@ -66,6 +67,13 @@ class Component:
     window, or run the event loop."""
 
     __instance__: native.ComponentInstance
+
+    @property
+    def window(self) -> Window:
+        """The window that renders this component.
+        Raises `AttributeError` if the component has no window, for example because it inherits from `SystemTrayIcon`."""
+
+        return self.__instance__.window
 
     def show(self) -> None:
         """Shows the window on the screen."""
@@ -717,6 +725,7 @@ __all__ = [
     "StyledText",
     "Timer",
     "TimerMode",
+    "Window",
     "_load_file_checked",
     "callback",
     "init_translations",

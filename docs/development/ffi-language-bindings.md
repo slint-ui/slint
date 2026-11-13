@@ -225,6 +225,7 @@ api/python/slint/
 ├── value.rs            # Value conversions
 ├── models.rs           # Model wrappers
 ├── image.rs            # Image type
+├── window.rs           # Window type
 ├── errors.rs           # Error types
 └── Cargo.toml
 ```

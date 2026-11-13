@@ -227,7 +227,7 @@ impl CompilationResult {
     #[getter]
     fn generated_api(&self) -> PyResult<PyGeneratedAPI> {
         let Some(unit) = self.result.compilation_unit(i_slint_core::InternalToken {}) else {
-            return Err(pyo3::exceptions::PyRuntimeError::new_err(
+            return Err(pyo3::exceptions::PyAttributeError::new_err(
                 "Cannot generated API for empty slint file",
             ));
         };
@@ -578,6 +578,19 @@ impl ComponentInstance {
         i_slint_core::properties::ChangeTracker::run_change_handlers();
         i_slint_core::window::WindowInner::from_pub(self.instance.window())
             .ensure_tree_instantiated();
+    }
+
+    #[getter]
+    fn window(&self) -> PyResult<crate::window::PyWindow> {
+        if !self.instance.definition().is_window() {
+            return Err(pyo3::exceptions::PyAttributeError::new_err(
+                "this component has no window, for example because it inherits from SystemTrayIcon",
+            ));
+        }
+        Ok(crate::window::PyWindow {
+            adapter: i_slint_core::window::WindowInner::from_pub(self.instance.window())
+                .window_adapter(),
+        })
     }
 
     fn show(&self) -> Result<(), PyPlatformError> {
