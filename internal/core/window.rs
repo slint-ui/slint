@@ -1714,7 +1714,7 @@ impl WindowInner {
         &self,
         start_item: ItemRc,
         forward: impl Fn(ItemRc) -> ItemRc,
-        reason: FocusReason,
+        mut reason: FocusReason,
     ) -> Option<ItemRc> {
         let mut current_item = start_item.clone();
         // The walk normally comes back to `start_item`, but ends in a cycle that misses it
@@ -1746,6 +1746,9 @@ impl WindowInner {
                 checkpoint = current_item.clone();
                 steps = 0;
                 next_checkpoint *= 2;
+            }
+            if reason == FocusReason::Programmatic {
+                reason = FocusReason::TabNavigation;
             }
         }
     }
