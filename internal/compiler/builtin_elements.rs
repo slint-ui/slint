@@ -2488,6 +2488,8 @@ fn build(l: &mut Loader) {
         /// handle keys before `TextInput` does. Return `accept` to indicate that you've handled the event, or return
         /// `reject` to let `TextInput` handle it.
         callback key-released(event: KeyEvent) -> EventResult;
+        /// When `false`, the `TextInput` doesn't take the focus, ignores pointer and key events, and hides the text cursor.
+        /// Unlike `read-only`, it also prevents the user from selecting text.
         in property <bool> enabled: true;
         /// When set to `true`, the text is always rendered as a single line, regardless of new line separators in the text.
         in property <bool> single-line: true;
