@@ -11,7 +11,7 @@
 //! with the one shaping function every path must share.
 
 use super::layout::RetainedLineBreaking;
-use super::shaping::TextParagraph;
+use super::shaping::{ParagraphWidths, TextParagraph};
 use super::*;
 
 /// Shaped paragraphs together with the wrap mode and line-height factor they were shaped with.
@@ -42,6 +42,12 @@ struct CachedParagraphs {
 
 type InnerTextLayoutCache = crate::item_rendering::ItemCache<CachedParagraphs>;
 
+/// The content widths of a text, and of each of its paragraphs to measure it again by.
+struct CachedWidths {
+    widths: crate::renderer::ContentWidths,
+    paragraphs: Vec<ParagraphWidths>,
+}
+
 /// Entry count above which [`TextLayoutCache::sweep`] runs (~4.7KB per entry).
 const ENTRY_LIMIT: usize = 1024;
 
@@ -51,7 +57,7 @@ pub struct TextLayoutCache {
     /// Caches the result of [`super::text_content_widths`]. The widths are two scalars derived from
     /// paragraphs that no other path can reuse, because they are shaped without
     /// `OverflowWrap::Anywhere`, so the result is kept instead of the paragraphs.
-    content_widths: crate::item_rendering::ItemCache<crate::renderer::ContentWidths>,
+    content_widths: crate::item_rendering::ItemCache<CachedWidths>,
     /// Bumped once per rendered frame; entries are stamped with it when served.
     generation: std::cell::Cell<u32>,
     /// Approximate entry count; a stale-high value just triggers one extra sweep.
@@ -108,16 +114,29 @@ impl TextLayoutCache {
     /// The entry is invalidated by the properties `compute` reads, so it must read the
     /// text, the font request and the line limit itself. The scale factor is handled by
     /// [`Self::clear_if_scale_factor_changed`], which the caller runs first.
+    ///
+    /// `compute` gets the widths of each paragraph as they were, to keep those of paragraphs
+    /// that are unchanged (see [`paragraph_widths`](super::shaping::paragraph_widths)).
     pub(super) fn content_widths(
         &self,
         item_rc: &crate::item_tree::ItemRc,
-        compute: impl FnOnce() -> crate::renderer::ContentWidths,
+        compute: impl FnOnce(
+            Vec<ParagraphWidths>,
+        ) -> (crate::renderer::ContentWidths, Vec<ParagraphWidths>),
     ) -> crate::renderer::ContentWidths {
-        self.content_widths.get_or_update_cache_entry(item_rc, || {
-            #[cfg(feature = "testing")]
-            self.content_widths_miss_count.set(self.content_widths_miss_count.get() + 1);
-            compute()
-        })
+        self.content_widths
+            .get_or_update_cache_entry_ref_reusing(
+                item_rc,
+                |entry| core::mem::take(&mut entry.paragraphs),
+                |previous| {
+                    #[cfg(feature = "testing")]
+                    self.content_widths_miss_count.set(self.content_widths_miss_count.get() + 1);
+                    let (widths, paragraphs) = compute(previous.unwrap_or_default());
+                    CachedWidths { widths, paragraphs }
+                },
+                |_| false,
+            )
+            .widths
     }
 
     /// Marks the beginning of a frame; called once per rendered frame.
@@ -223,6 +242,10 @@ impl Drop for CachedParagraphsGuard<'_> {
 /// line-height factor serves, since the line height can't change the width.
 /// Without a cache or item it just shapes, so the caller doesn't need to special-case that.
 ///
+/// When the entry is shaped again, `shape` gets the paragraphs it held, to keep those that the
+/// new text has unchanged (see [`create_text_paragraphs`](super::shaping::create_text_paragraphs)):
+/// text that grows, as it streams in, costs only its new paragraphs.
+///
 /// `shape` runs inside the entry's dependency tracker, so everything it reads (the text and the
 /// font request, at least) invalidates the entry when it changes.
 pub(super) fn cached_paragraphs<'a>(
@@ -232,11 +255,11 @@ pub(super) fn cached_paragraphs<'a>(
     line_height_factor: Option<f32>,
     width_only: bool,
     window: &crate::api::Window,
-    shape: &dyn Fn() -> Vec<TextParagraph>,
+    shape: &dyn Fn(Vec<TextParagraph>) -> Vec<TextParagraph>,
 ) -> CachedParagraphsGuard<'a> {
     let Some((cache, item_rc)) = cache.zip(item_rc) else {
         return CachedParagraphsGuard {
-            paragraphs: Some(shape()),
+            paragraphs: Some(shape(Vec::new())),
             line_breaking: None,
             container: None,
         };
@@ -251,16 +274,17 @@ pub(super) fn cached_paragraphs<'a>(
 
     // Shaped geometry must never be mixed across wrap modes or line-height factors, and the
     // entry only holds one of each at a time, so a mismatching one is reshaped.
-    let mut entry = cache.inner.get_or_update_cache_entry_ref_unless(
+    let mut entry = cache.inner.get_or_update_cache_entry_ref_reusing(
         item_rc,
-        || {
+        |entry| entry.paragraphs.take().unwrap_or_default(),
+        |previous| {
             #[cfg(feature = "testing")]
             cache.cache_miss_count.set(cache.cache_miss_count.get() + 1);
             cache.entry_count_estimate.set(cache.entry_count_estimate.get() + 1);
             CachedParagraphs {
                 wrap,
                 line_height_factor,
-                paragraphs: Some(shape()),
+                paragraphs: Some(shape(previous.unwrap_or_default())),
                 line_breaking: None,
                 last_used: 0, // stamped right below, for both a hit and this miss
             }

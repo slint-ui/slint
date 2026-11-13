@@ -203,6 +203,20 @@ impl<T> ItemCache<T> {
         update_fn: impl FnOnce() -> T,
         is_stale: impl FnOnce(&T) -> bool,
     ) -> std::cell::RefMut<'_, T> {
+        self.get_or_update_cache_entry_ref_reusing(item_rc, |_| (), |_| update_fn(), is_stale)
+    }
+
+    /// Like [`Self::get_or_update_cache_entry_ref_unless`], but a value computed again gets
+    /// what `reuse` takes out of the one it replaces, if there is one: the parts of it that can
+    /// stay, so that an update recomputes only what changed. `reuse` runs only when the entry is
+    /// computed again, before `update_fn` and without the cache borrowed.
+    pub fn get_or_update_cache_entry_ref_reusing<P>(
+        &self,
+        item_rc: &ItemRc,
+        reuse: impl FnOnce(&mut T) -> P,
+        update_fn: impl FnOnce(Option<P>) -> T,
+        is_stale: impl FnOnce(&T) -> bool,
+    ) -> std::cell::RefMut<'_, T> {
         let component = &(**item_rc.item_tree()) as *const _;
         let index = item_rc.index();
 
@@ -213,13 +227,16 @@ impl<T> ItemCache<T> {
                     let entry = entry.get_mut();
                     let stale = is_stale(&entry.data);
                     let mut tracker = entry.dependency_tracker.take();
+                    let outdated =
+                        stale || tracker.as_ref().is_none_or(|tracker| tracker.is_dirty());
+                    let reused = outdated.then(|| reuse(&mut entry.data));
                     drop(borrowed);
                     let pinned_tracker =
                         tracker.get_or_insert_with(|| Box::pin(Default::default())).as_ref();
-                    let maybe_new_data = if stale {
-                        Some(pinned_tracker.evaluate(update_fn))
+                    let maybe_new_data = if outdated {
+                        Some(pinned_tracker.evaluate(|| update_fn(reused)))
                     } else {
-                        pinned_tracker.evaluate_if_dirty(update_fn)
+                        pinned_tracker.evaluate_if_dirty(|| update_fn(None))
                     };
                     let mut borrowed = self.map.borrow_mut();
                     let e = borrowed.get_mut(&component).unwrap().get_mut(&index).unwrap();
@@ -230,7 +247,7 @@ impl<T> ItemCache<T> {
                 }
                 std::collections::hash_map::Entry::Vacant(_) => {
                     drop(borrowed);
-                    let new_entry = crate::graphics::CachedGraphicsData::new(update_fn);
+                    let new_entry = crate::graphics::CachedGraphicsData::new(|| update_fn(None));
                     self.map.borrow_mut().get_mut(&component).unwrap().insert(index, new_entry);
                 }
             }
