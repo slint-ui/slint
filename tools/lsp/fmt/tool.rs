@@ -15,7 +15,7 @@
 
 use i_slint_compiler::diagnostics::BuildDiagnostics;
 use i_slint_compiler::parser::syntax_nodes;
-use std::io::{BufWriter, Write};
+use std::io::Write;
 use std::path::Path;
 
 use super::{fmt, writer};
@@ -25,8 +25,9 @@ pub fn run(files: &[std::path::PathBuf], inplace: bool) -> std::io::Result<()> {
         let source = std::fs::read_to_string(path)?;
 
         if inplace {
-            let file = BufWriter::new(std::fs::File::create(path)?);
-            process_file(source, path, file)?;
+            let mut formatted = Vec::new();
+            process_file(source, path, &mut formatted)?;
+            std::fs::write(path, formatted)?;
         } else {
             process_file(source, path, std::io::stdout())?
         }
@@ -144,5 +145,78 @@ fn process_file(
             format!("Formatting {} failed", path.display()),
         )),
         Err(e) => Err(e),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn assert_formatting_error_preserves_file(extension: &str, source: &str) {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join(format!("test.{extension}"));
+        std::fs::write(&path, source).unwrap();
+
+        let error = run(std::slice::from_ref(&path), true).unwrap_err();
+
+        assert_eq!(error.kind(), std::io::ErrorKind::InvalidData);
+        assert_eq!(std::fs::read(&path).unwrap(), source.as_bytes());
+    }
+
+    #[test]
+    fn inplace_slint_error_preserves_file() {
+        assert_formatting_error_preserves_file(
+            "slint",
+            "export component Test inherits Window{width:;}\n",
+        );
+    }
+
+    #[test]
+    fn inplace_rust_error_preserves_file() {
+        assert_formatting_error_preserves_file(
+            "rs",
+            "fn main() {}\nslint::slint! {export component Test inherits Window{width:;}}\n",
+        );
+    }
+
+    #[test]
+    fn inplace_markdown_error_preserves_file() {
+        assert_formatting_error_preserves_file(
+            "md",
+            "# Example\n\n```slint\nexport component Test inherits Window{width:;}\n```\n",
+        );
+    }
+
+    #[test]
+    fn inplace_formats_file() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("test.slint");
+        std::fs::write(&path, "component   Test{}").unwrap();
+
+        run(std::slice::from_ref(&path), true).unwrap();
+
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "component Test { }\n");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn inplace_preserves_links_and_permissions() {
+        use std::os::unix::fs::{PermissionsExt, symlink};
+
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("test.slint");
+        let hard_link = directory.path().join("hard-link.slint");
+        let symbolic_link = directory.path().join("symbolic-link.slint");
+        std::fs::write(&path, "component   Test{}").unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o640)).unwrap();
+        std::fs::hard_link(&path, &hard_link).unwrap();
+        symlink(&path, &symbolic_link).unwrap();
+
+        run(std::slice::from_ref(&symbolic_link), true).unwrap();
+
+        assert!(std::fs::symlink_metadata(&symbolic_link).unwrap().file_type().is_symlink());
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "component Test { }\n");
+        assert_eq!(std::fs::read_to_string(&hard_link).unwrap(), "component Test { }\n");
+        assert_eq!(std::fs::metadata(&path).unwrap().permissions().mode() & 0o777, 0o640);
     }
 }
