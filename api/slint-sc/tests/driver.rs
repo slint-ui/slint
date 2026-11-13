@@ -226,6 +226,8 @@ fn build_compiler(target_dir: &Path) -> PathBuf {
 /// build that the test binary links.
 fn build_slint_sc_rlib(target_dir: &Path, target: Option<&Target>) -> (PathBuf, Vec<OsString>) {
     let mut cmd = cargo_build(target_dir);
+    // Cargo writes the artifact messages to stdout as JSON, and renders the
+    // compiler diagnostics to stderr, where the user sees them.
     cmd.args(["-p", "slint-sc", "--lib", "--message-format=json-render-diagnostics"]);
     if let Some(target) = target {
         cmd.args(["--target", target.triple]);
