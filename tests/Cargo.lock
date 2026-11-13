@@ -4826,7 +4826,6 @@ dependencies = [
  "hashbrown 0.16.1",
  "i-slint-backend-linuxkms",
  "i-slint-backend-selector",
- "i-slint-backend-winit",
  "i-slint-common",
  "i-slint-compiler",
  "i-slint-core",

@@ -75,6 +75,7 @@
       "ignoreBinaries": ["biome"]
     },
     "ai-plugins/mcp/slint-preview": {
+      "ignoreBinaries": ["wasm-pack"],
       "entry": ["server.mjs", "build-checker.mjs", "test/*.test.mjs", "test/view.e2e.mjs"]
     },
     "ui-libraries/material/docs": {
