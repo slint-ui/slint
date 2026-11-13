@@ -23,6 +23,8 @@ path = "lib.rs"
 # the C++ crate's CMakeLists.txt
 [features]
 image-pixel-format-gray8 = ["i-slint-core/image-pixel-format-gray8"]
+# Render `.svg` images. Pulls the SVG parser and renderer (about 1.8 MB).
+svg = ["i-slint-core/svg"]
 image-pixel-format-rgb565 = ["i-slint-core/image-pixel-format-rgb565"]
 wayland = ["glutin/wayland", "softbuffer/wayland", "softbuffer/wayland-dlopen"]
 x11 = ["glutin/x11", "glutin/glx", "softbuffer/x11", "softbuffer/x11-dlopen"]
@@ -47,7 +49,7 @@ unstable-wgpu-30 = ["i-slint-core/unstable-wgpu-30", "wgpu-30"]
 default = ["softbuffer", "wgpu-30"]
 
 [dependencies]
-i-slint-core = { workspace = true, features = ["default", "box-shadow-cache", "shared-parley", "image-decoders", "svg"] }
+i-slint-core = { workspace = true, features = ["std", "unicode", "box-shadow-cache", "shared-parley", "image-decoders"] }
 i-slint-core-macros = { workspace = true, features = ["default"] }
 i-slint-common = { workspace = true, features = ["default"] }
 
