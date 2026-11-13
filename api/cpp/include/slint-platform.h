@@ -841,6 +841,8 @@ public:
     /// It shares images and glyphs with the window through reference counts that aren't atomic.
     /// Another thread may still call rasterize() while the recording thread keeps it alive:
     /// rasterizing only reads the shared data.
+    /// Until rasterize() returns, the recording thread must not destroy or change
+    /// the images and glyphs that the frame uses, or the behavior is undefined.
     /// Only the recording thread destroys it.
     ///
     /// **Note**: This class is still experimental - its API is subject to changes and not
