@@ -2107,6 +2107,7 @@ impl WindowInner {
         let Some(overlay) = overlay.borrow().clone() else { return };
         item_renderer.save_state();
         item_renderer.translate(overlay.rect.origin.to_vector());
+        item_renderer.scale(item_renderer.scale_factor().0, item_renderer.scale_factor().0);
         item_renderer.draw_image_direct(overlay.image);
         item_renderer.restore_state();
     }
