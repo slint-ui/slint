@@ -580,6 +580,19 @@ impl ComponentInstance {
             .ensure_tree_instantiated();
     }
 
+    #[getter]
+    fn window(&self) -> PyResult<crate::window::PyWindow> {
+        if !self.instance.definition().is_window() {
+            return Err(pyo3::exceptions::PyAttributeError::new_err(
+                "this component has no window, for example because it inherits from SystemTrayIcon",
+            ));
+        }
+        Ok(crate::window::PyWindow {
+            adapter: i_slint_core::window::WindowInner::from_pub(self.instance.window())
+                .window_adapter(),
+        })
+    }
+
     fn show(&self) -> Result<(), PyPlatformError> {
         Ok(self.instance.show()?)
     }

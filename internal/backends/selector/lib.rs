@@ -140,9 +140,15 @@ core::cfg_select! {
                     return builder.build().map(|b| Box::new(b) as Box<dyn Platform + 'static>)
                 },
                 #[cfg(feature = "backend-testing")]
-                "testing" => return Ok(Box::new(i_slint_backend_testing::TestingBackend::new(
-                    i_slint_backend_testing::TestingBackendOptions { mock_time: false, threading: true, ..Default::default() },
-                ))),
+                "testing" => {
+                    let options = i_slint_backend_testing::TestingBackendOptions { mock_time: false, threading: true, ..Default::default() };
+                    #[cfg(supports_headless)]
+                    let options = i_slint_backend_testing::TestingBackendOptions {
+                        renderer_name: (!_renderer.is_empty()).then(|| _renderer.into()),
+                        ..options
+                    };
+                    return Ok(Box::new(i_slint_backend_testing::TestingBackend::new(options)));
+                },
                 #[cfg(all(feature = "mcp", supports_headless))]
                 "headless" => return create_headless_backend(_renderer),
                 _ => {},
