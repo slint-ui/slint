@@ -1072,38 +1072,30 @@ class Repeater
             instance_generation->mark_dirty();
         }
 
+        /// The model row of the first instance in `data`.
+        size_t first_row() const
+        {
+            return layout_state.item_index.row - layout_state.item_index.instance_index;
+        }
+
         void row_added(size_t index, size_t count) override
         {
-            if (index < layout_state.offset) {
-                if (index + count <= layout_state.offset) {
-                    // Entirely before the visible range: shift the offset.
-                    layout_state.offset += count;
-                    instances_changed();
-                    for (auto &c : data) {
-                        c.state = State::Dirty;
-                    }
-                    return;
-                }
-                count -= layout_state.offset - index;
-                index = 0;
-            } else {
-                index -= layout_state.offset;
-            }
-            if (count == 0 || index > data.size()) {
+            cbindgen_private::InstanceSlots slots;
+            if (!cbindgen_private::slint_repeater_rows_added(&layout_state.item_index, data.size(),
+                                                             index, count, &slots)) {
                 return;
             }
             instances_changed();
-            data.resize(data.size() + count);
-            std::rotate(data.begin() + index, data.end() - count, data.end());
-            for (std::size_t i = index; i < data.size(); ++i) {
+            data.insert(data.begin() + slots.position, slots.count, {});
+            for (std::size_t i = slots.position; i < data.size(); ++i) {
                 data[i].state = State::Dirty;
             }
         }
         void row_changed(size_t index) override
         {
-            if (index < layout_state.offset)
+            if (index < first_row())
                 return;
-            const auto local = index - layout_state.offset;
+            const auto local = index - first_row();
             if (local >= data.size())
                 return;
             auto &c = data[local];
@@ -1117,31 +1109,19 @@ class Repeater
         }
         void row_removed(size_t index, size_t count) override
         {
-            if (index < layout_state.offset) {
-                if (index + count <= layout_state.offset) {
-                    // Entirely before the visible range: shift the offset.
-                    layout_state.offset -= count;
-                    instances_changed();
-                    for (auto &c : data) {
-                        c.state = State::Dirty;
-                    }
-                    return;
-                }
-                count -= layout_state.offset - index;
-                layout_state.offset = index;
-                index = 0;
-            } else {
-                index -= layout_state.offset;
-            }
-            if (count == 0 || index >= data.size()) {
+            remove_rows(index, count, model ? model->row_count() : 0);
+        }
+        /// `row_count` is the number of rows after the removal.
+        void remove_rows(size_t index, size_t count, size_t row_count)
+        {
+            private_api::IndexRange removed;
+            if (!cbindgen_private::slint_repeater_rows_removed(
+                        &layout_state.item_index, data.size(), index, count, row_count, &removed)) {
                 return;
             }
-            if (index + count > data.size()) {
-                count = data.size() - index;
-            }
             instances_changed();
-            data.erase(data.begin() + index, data.begin() + index + count);
-            for (std::size_t i = index; i < data.size(); ++i) {
+            data.erase(data.begin() + removed.start, data.begin() + removed.end);
+            for (std::size_t i = removed.start; i < data.size(); ++i) {
                 data[i].state = State::Dirty;
             }
         }
@@ -1149,6 +1129,8 @@ class Repeater
         {
             instances_changed();
             data.clear();
+            layout_state.item_index.row = first_row();
+            layout_state.item_index.instance_index = 0;
         }
     };
 
@@ -1168,12 +1150,31 @@ class Repeater
         using Ctx = VTableContext<Parent>;
         return cbindgen_private::RepeaterInstanceOpsVTable {
             .user_data = &ctx,
+            .item_index = &ctx.inner->layout_state.item_index,
             .len = [](void *ud) -> uintptr_t { return static_cast<Ctx *>(ud)->inner->data.size(); },
-            .splice =
-                    [](void *ud, uintptr_t position, uintptr_t remove, uintptr_t add) {
+            .clear = [](void *ud) { static_cast<Ctx *>(ud)->inner->data.clear(); },
+            .push =
+                    [](void *ud, uintptr_t count) {
                         auto &data = static_cast<Ctx *>(ud)->inner->data;
-                        data.erase(data.begin() + position, data.begin() + position + remove);
-                        data.insert(data.begin() + position, add, {});
+                        data.resize(data.size() + count);
+                    },
+            .prepend =
+                    [](void *ud, uintptr_t count) {
+                        auto &data = static_cast<Ctx *>(ud)->inner->data;
+                        data.insert(data.begin(), count, {});
+                    },
+            .remove_first =
+                    [](void *ud, uintptr_t count) {
+                        auto &data = static_cast<Ctx *>(ud)->inner->data;
+                        data.erase(data.begin(),
+                                   data.begin() + std::min<size_t>(count, data.size()));
+                    },
+            .truncate =
+                    [](void *ud, uintptr_t len) {
+                        auto &data = static_cast<Ctx *>(ud)->inner->data;
+                        if (len < data.size()) {
+                            data.erase(data.begin() + len, data.end());
+                        }
                     },
             .ensure_updated = [](void *ud, uintptr_t instance_idx, uintptr_t row) -> bool {
                 auto *ctx = static_cast<Ctx *>(ud);
@@ -1248,7 +1249,7 @@ public:
                 if (value > old_value) {
                     inner->row_added(old_value, value - old_value);
                 } else if (value < old_value) {
-                    inner->row_removed(value, old_value - value);
+                    inner->remove_rows(value, old_value - value, value);
                 }
                 return;
             }
@@ -1287,7 +1288,7 @@ public:
             inner->is_dirty.set(false);
             VTableContext<Parent> ctx { inner.get(), parent };
             auto ops = make_ops(ctx);
-            cbindgen_private::slint_repeater_ensure_updated(&ops, 0, row_count());
+            cbindgen_private::slint_repeater_ensure_updated(&ops, row_count());
             instance_generation.mark_dirty();
             changed = true;
         }
@@ -1297,9 +1298,10 @@ public:
     /// Same as ensure_updated but for a ListView.
     /// Returns true if any instance was created or any child changed.
     template<typename Parent>
-    bool ensure_updated_listview(const Parent *parent,
+    bool ensure_updated_listview(const cbindgen_private::Flickable *flickable, const Parent *parent,
                                  const private_api::Property<float> *content_width,
                                  const private_api::Property<float> *content_height,
+                                 const private_api::Property<int> *current_row,
                                  const private_api::Property<float> *content_y,
                                  float listview_width, float listview_height) const
     {
@@ -1313,8 +1315,9 @@ public:
         VTableContext<Parent> ctx { inner.get(), parent };
         auto ops = make_ops(ctx);
         bool changed = cbindgen_private::slint_repeater_ensure_updated_listview(
-                &ops, &inner->layout_state, &inner->scroll_to_row, row_count(), content_width,
-                content_height, content_y, listview_width, listview_height);
+                &ops, &inner->layout_state, &inner->scroll_to_row, row_count(), flickable,
+                content_width, content_height, current_row, content_y, listview_width,
+                listview_height);
         if (changed)
             instance_generation.mark_dirty();
         return recurse_ensure_instantiated() || changed;
@@ -1412,7 +1415,7 @@ public:
         track_model_changes();
         if (!inner)
             return;
-        const auto offset = inner->layout_state.offset;
+        const auto offset = inner->first_row();
         for (std::size_t i = 0; i < inner->data.size(); ++i) {
             cb(uint32_t(offset + i), inner->data[i].ptr ? (*inner->data[i].ptr)->z_order() : 0.f);
         }
@@ -1422,7 +1425,7 @@ public:
     {
         if (!inner)
             return {};
-        const auto offset = inner->layout_state.offset;
+        const auto offset = inner->first_row();
         if (i < offset || i - offset >= inner->data.size()) {
             return {};
         }
@@ -1436,7 +1439,7 @@ public:
     {
         if (!inner)
             return private_api::IndexRange { 0, 0 };
-        const auto offset = inner->layout_state.offset;
+        const auto offset = inner->first_row();
         return private_api::IndexRange { offset, offset + inner->data.size() };
     }
 

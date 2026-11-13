@@ -578,6 +578,7 @@ impl Snapshotter {
                     listview_height: lv.listview_height.snapshot(self),
                     listview_width: lv.listview_width.snapshot(self),
                     ensure_row_visible: lv.ensure_row_visible.as_ref().map(|e| e.snapshot(self)),
+                    current_row: lv.current_row.as_ref().map(|c| c.snapshot(self)),
                     row_height: lv.row_height.snapshot(self),
                 }),
             });

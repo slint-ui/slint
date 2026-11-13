@@ -53,7 +53,21 @@ Same as <Link type="ScrollView"/>.
 
 ## Callbacks
 
-Same as <Link type="ScrollView"/>.
+Same as <Link type="ScrollView"/>, and:
+
+### current-row-changed(row: int)
+
+Invoked after the current row changes, see `current-row()`.
+The first layout of the list reports its first current row.
+
+```slint {3-5}
+ListView {
+    for i in 100 : Text { text: "Row \{i}"; }
+    current-row-changed(row) => {
+        debug("Current row: ", row);
+    }
+}
+```
 
 ## Functions
 
@@ -65,6 +79,13 @@ Any other row ends up at the bottom edge.
 A row that's already fully visible doesn't move, but a running scroll animation stops.
 If `row` is out of range, the call does nothing.
 Pass `ScrollBehavior.instant` to jump or `ScrollBehavior.smooth` to animate, see [`ScrollBehavior`](/reference/property-types/builtin-enums/#scrollbehavior).
+
+### current-row() -> int
+
+Returns the index of the row the list is scrolled to: the topmost visible row, even if it's only partly visible.
+When the list snaps rows to its center or bottom edge with `snap-mode`, it's the row there instead.
+Returns -1 while the list has no rows.
+The list updates it when it lays out its rows.
 
 ```slint {9}
 import { Button, ListView, VerticalBox } from "std-widgets.slint";

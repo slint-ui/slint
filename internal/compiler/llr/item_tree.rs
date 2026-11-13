@@ -445,11 +445,32 @@ pub struct ListViewInfo {
     pub listview_height: MemberReference,
     /// The ListView's inner visible width (not counting eventual scrollbar)
     pub listview_width: MemberReference,
+    /// The property the layout sets to the ListView's current row, if it declares one
+    pub current_row: Option<MemberReference>,
 
     // In the repeated component context
     pub prop_y: MemberReference,
     // In the repeated component context
     pub prop_height: MemberReference,
+}
+
+impl ListViewInfo {
+    /// The Flickable that `content_y` is a property of.
+    /// `None` for a custom scroll container that duck-types as a ListView,
+    /// or when a two-way binding makes `content_y` a property elsewhere, such as in a global.
+    pub fn flickable(&self) -> Option<MemberReference> {
+        let mut flickable = self.content_y.clone();
+        let MemberReference::Relative {
+            local_reference:
+                LocalMemberReference { reference: LocalMemberIndex::Native { prop_name, .. }, .. },
+            ..
+        } = &mut flickable
+        else {
+            return None;
+        };
+        *prop_name = SmolStr::default();
+        Some(flickable)
+    }
 }
 
 #[derive(Debug, Clone)]

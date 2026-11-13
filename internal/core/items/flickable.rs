@@ -11,11 +11,12 @@ use super::{
     VoidArg,
 };
 use crate::animations::Instant;
+use crate::animations::simulations::decelerate::Decelerate;
 use crate::animations::simulations::ease_in_out_sine::EaseInOutSine;
 use crate::animations::simulations::rubber_band;
 use crate::animations::simulations::spring::SpringPhysicalParameters;
 use crate::animations::simulations::spring_flick::SpringFlick;
-use crate::animations::simulations::{PositionSimulation, Simulation};
+use crate::animations::simulations::{Direction, PositionSimulation, Simulation};
 use crate::api::LogicalPosition;
 use crate::input::InputEventFilterResult::ForwardEvent;
 use crate::input::{
@@ -24,7 +25,6 @@ use crate::input::{
 use crate::input::{InternalKeyEvent, TouchHistory};
 use crate::item_rendering::CachedRenderingData;
 use crate::item_tree::ItemWeak;
-use crate::items::ScrollBehavior;
 #[cfg(not(any(
     target_os = "ios",
     target_os = "linux",
@@ -37,6 +37,7 @@ use crate::items::flickable::velocity_tracker::IOsVelocityTracker;
 #[cfg(target_os = "macos")]
 use crate::items::flickable::velocity_tracker::MacOsVelocityTracker;
 use crate::items::flickable::velocity_tracker::{Velocity, VelocityTracker as _};
+use crate::items::{ScrollBehavior, SnapMode};
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
@@ -47,7 +48,6 @@ use crate::once_box::OnceBox;
 use crate::rtti::*;
 use crate::window::WindowAdapter;
 use crate::{Callback, Coord, Property};
-use alloc::boxed::Box;
 use alloc::rc::{Rc, Weak};
 use const_field_offset::FieldOffsets;
 use core::cell::RefCell;
@@ -116,6 +116,7 @@ pub struct Flickable {
     pub content_y: Property<LogicalLength>,
     pub content_width: Property<LogicalLength>,
     pub content_height: Property<LogicalLength>,
+    pub snap_mode: Property<SnapMode>,
 
     pub interactive: Property<bool>,
     pub mouse_drag_pan_enabled: Property<bool>,
@@ -134,6 +135,7 @@ pub struct Flickable {
 
 impl Item for Flickable {
     fn init(self: Pin<&Self>, self_rc: &ItemRc) {
+        self.data.inner.borrow_mut().item = self_rc.downgrade();
         self.data.in_bound_change_handler.init_delayed(
             self_rc.downgrade(),
             // Binding that returns if the Flickable is out of bounds:
@@ -166,6 +168,23 @@ impl Item for Flickable {
                     *y_out_of_bounds,
                     geo,
                 );
+            },
+        );
+        self.data.limit_change_handler.init_delayed(
+            self_rc.downgrade(),
+            |self_weak| {
+                let Some(flick_rc) = self_weak.upgrade() else { return (0., 0.) };
+                (
+                    FlickableDataInner::flick_limits(&flick_rc, -1., Dimension::X),
+                    FlickableDataInner::flick_limits(&flick_rc, -1., Dimension::Y),
+                )
+            },
+            |self_weak, (limit_x, limit_y)| {
+                let Some(flick_rc) = self_weak.upgrade() else { return };
+                let Some(flick) = flick_rc.downcast::<Flickable>() else { return };
+                if let Ok(inner) = flick.data.inner.try_borrow() {
+                    inner.update_lower_simulation_limits(*limit_x, *limit_y);
+                }
             },
         );
     }
@@ -353,11 +372,64 @@ impl Flickable {
         self.content(dimension).remove_binding();
     }
 
+    pub fn flicking_ongoing(self: Pin<&Self>) -> bool {
+        self.data.inner.borrow().capture_events.is_some()
+    }
+
+    /// The flickable limit if a simulation is running otherwise None
+    pub fn simulation_flick_limit_y(self: Pin<&Self>) -> Option<LogicalLength> {
+        let inner = self.data.inner.borrow();
+        let running = inner.running_animation.as_ref()?;
+        let item_rc = running.weak.upgrade()?;
+        let flick_velocity = match running.y_simulation.as_ref()?.borrow().direction()? {
+            Direction::Increasing => 1.,
+            Direction::Decreasing => -1.,
+        };
+        Some(LogicalLength::new(FlickableDataInner::flick_limits(
+            &item_rc,
+            flick_velocity,
+            Dimension::Y,
+        ) as Coord))
+    }
+
+    pub fn update_simulation_limit_y(self: Pin<&Self>, limit: LogicalLength) {
+        if let Some(simulation) = self
+            .data
+            .inner
+            .borrow()
+            .running_animation
+            .as_ref()
+            .and_then(|running| running.y_simulation.as_ref())
+        {
+            simulation.borrow_mut().update_limit(limit.get() as f32);
+        }
+    }
+
+    /// Sets the `content-y` positions the content comes to rest at, for `snap-mode`.
+    pub(crate) fn set_snap_points(self: Pin<&Self>, points: Option<SnapPoints>) {
+        if let Ok(mut inner) = self.data.inner.try_borrow_mut() {
+            inner.snap_points = points;
+        }
+    }
+
+    /// Moves the content to a snap position, unless it's at one or already moving to one.
+    pub(crate) fn snap(self: Pin<&Self>) {
+        if let Ok(mut inner) = self.data.inner.try_borrow_mut() {
+            inner.snap(self);
+        }
+    }
+
     /// Overrides the scrolling physics that depend on the platform otherwise.
     /// For Slint's internal tests.
     pub fn set_physics(self: Pin<&Self>, bounce: AutoBool, carry_momentum: AutoBool) {
         Self::FIELD_OFFSETS.bounce().apply_pin(self).set(bounce);
         Self::FIELD_OFFSETS.carry_momentum().apply_pin(self).set(carry_momentum);
+    }
+
+    /// Sets the snap mode, like the `snap-mode` property does from .slint.
+    /// For Slint's internal tests.
+    pub fn set_snap_mode(self: Pin<&Self>, snap_mode: SnapMode) {
+        Self::FIELD_OFFSETS.snap_mode().apply_pin(self).set(snap_mode);
     }
 
     /// Whether the event may pan this Flickable, given that `interactive` and
@@ -510,7 +582,6 @@ enum CaptureEvents {
 }
 
 struct RunningSimulation {
-    #[expect(unused, reason = "Will be used in a future pr for the listview")]
     weak: ItemWeak,
     x_simulation: Option<Rc<RefCell<dyn PositionSimulation>>>,
     y_simulation: Option<Rc<RefCell<dyn PositionSimulation>>>,
@@ -525,6 +596,74 @@ enum SimulationSource {
     /// A call such as `scroll-to()`; a following wheel scroll or fling replaces its motion.
     Synthetic,
 }
+
+/// The `content-y` positions a Flickable comes to rest at, for `snap-mode`.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct SnapPoints {
+    /// The measured positions, in descending order.
+    pub(crate) positions: alloc::vec::Vec<f32>,
+    /// The distance between the estimated positions before and after `positions`.
+    pub(crate) pitch: f32,
+    /// The lowest position the content can rest at; the highest is 0.
+    pub(crate) min: f32,
+}
+
+impl SnapPoints {
+    /// The position at `index`, counted from the first of `positions`.
+    fn position(&self, index: isize) -> f32 {
+        let last = self.positions.len() as isize - 1;
+        if index < 0 {
+            self.positions[0] - index as f32 * self.pitch
+        } else if index > last {
+            self.positions[last as usize] - (index - last) as f32 * self.pitch
+        } else {
+            self.positions[index as usize]
+        }
+    }
+
+    fn nearest_index(&self, y: f32) -> isize {
+        let last = self.positions.len() - 1;
+        let steps = |distance: f32| {
+            if self.pitch > 0. { (distance / self.pitch).round() as isize } else { 0 }
+        };
+        if y >= self.positions[0] {
+            -steps(y - self.positions[0])
+        } else if y <= self.positions[last] {
+            last as isize + steps(self.positions[last] - y)
+        } else {
+            (0..=last)
+                .min_by(|a, b| {
+                    (self.positions[*a] - y).abs().total_cmp(&(self.positions[*b] - y).abs())
+                })
+                .unwrap_or(0) as isize
+        }
+    }
+
+    /// The position closest to `y`.
+    pub(crate) fn nearest(&self, y: f32) -> f32 {
+        if self.positions.is_empty() {
+            return y;
+        }
+        self.position(self.nearest_index(y)).clamp(self.min, 0.)
+    }
+
+    /// The first position beyond `y` in `direction`, where positive is towards higher positions.
+    pub(crate) fn next(&self, y: f32, direction: f32) -> f32 {
+        if self.positions.is_empty() {
+            return y;
+        }
+        let mut index = self.nearest_index(y);
+        if direction > 0. && self.position(index) <= y + SNAP_EPSILON {
+            index -= 1;
+        } else if direction < 0. && self.position(index) >= y - SNAP_EPSILON {
+            index += 1;
+        }
+        self.position(index).clamp(self.min, 0.)
+    }
+}
+
+/// How close to a snap position counts as on it.
+const SNAP_EPSILON: f32 = 0.5;
 
 #[derive(Default)]
 struct FlickableDataInner {
@@ -557,6 +696,11 @@ struct FlickableDataInner {
     retained_velocity: Velocity,
 
     pending_flicked: bool,
+
+    /// This Flickable, once it's initialized.
+    item: ItemWeak,
+    /// Where the content comes to rest, if it snaps.
+    snap_points: Option<SnapPoints>,
 }
 
 impl FlickableDataInner {
@@ -811,6 +955,7 @@ impl FlickableDataInner {
                 if !moved {
                     self.move_within_limits_if_outside(flick, flick_rc);
                 }
+                self.snap(flick);
                 return if self.should_capture_scroll(SHORT_SCROLL_FILTER_DURATION, position) {
                     InputEventResult::EventAccepted
                 } else {
@@ -857,45 +1002,37 @@ impl FlickableDataInner {
             .unwrap_or_default();
     }
 
-    fn flick_limits(
-        flick_rc: &ItemRc,
-        flick_velocity: f32,
-        dimension: Dimension,
-    ) -> Pin<Box<Property<f32>>> {
+    /// Moves the limit of the running simulations that end at the lower limit.
+    fn update_lower_simulation_limits(&self, limit_x: f32, limit_y: f32) {
+        let Some(running) = &self.running_animation else { return };
+        for (simulation, limit) in
+            [(&running.x_simulation, limit_x), (&running.y_simulation, limit_y)]
+        {
+            if let Some(mut simulation) = simulation.as_ref().and_then(|s| s.try_borrow_mut().ok())
+                && simulation.direction() == Some(Direction::Decreasing)
+            {
+                simulation.update_limit(limit);
+            }
+        }
+    }
+
+    fn flick_limits(flick_rc: &ItemRc, flick_velocity: f32, dimension: Dimension) -> f32 {
+        if flick_velocity >= 0. {
+            return 0.0;
+        }
+        let Some(flick) = flick_rc.downcast::<Flickable>() else { return 0.0 };
+        let flick = flick.as_pin_ref();
         let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
-
-        let flick_weak = flick_rc.downgrade();
-        let calculate_limits = move || {
-            flick_weak.upgrade().and_then(|flick_rc| flick_rc.downcast::<Flickable>()).map(
-                |flick| {
-                    let flick = flick.as_pin_ref();
-                    ensure_in_bound(
-                        flick,
-                        LogicalPoint::from_lengths(-flick.content_width(), -flick.content_height()),
-                        &geo,
-                        false,
-                        false,
-                    )
-                },
-            )
-        };
-
-        if flick_velocity < 0. {
-            let property = Box::pin(Property::new(0.0));
-            property.set_binding({
-                let calculate_limits = calculate_limits.clone();
-                move || {
-                    calculate_limits()
-                        .map(|limit| match dimension {
-                            Dimension::X => limit.x_length().get() as f32,
-                            Dimension::Y => limit.y_length().get() as f32,
-                        })
-                        .unwrap_or(0.0)
-                }
-            });
-            property
-        } else {
-            Box::pin(Property::new(0.0))
+        let limit = ensure_in_bound(
+            flick,
+            LogicalPoint::from_lengths(-flick.content_width(), -flick.content_height()),
+            &geo,
+            false,
+            false,
+        );
+        match dimension {
+            Dimension::X => limit.x_length().get() as f32,
+            Dimension::Y => limit.y_length().get() as f32,
         }
     }
 
@@ -971,7 +1108,7 @@ impl FlickableDataInner {
         }
         let content = flick.content(dimension);
         let limit = Self::flick_limits(flick_rc, delta as f32, dimension);
-        let past_limit = (content.get().0 as f32 - limit.as_ref().get()) * delta as f32 > 0.;
+        let past_limit = (content.get().0 as f32 - limit) * delta as f32 > 0.;
         if past_limit {
             return Some(Self::spring_back(flick, flick_rc, dimension, geo, 0.));
         }
@@ -1007,8 +1144,7 @@ impl FlickableDataInner {
             Dimension::Y => geo.height_length().get(),
         } as f32;
         let velocity = if viewport_length > 0. {
-            let overscroll =
-                rubber_band::uncompress(curr_val - limit.as_ref().get(), viewport_length);
+            let overscroll = rubber_band::uncompress(curr_val - limit, viewport_length);
             drag_velocity * rubber_band::compress_slope(overscroll, viewport_length)
         } else {
             0.
@@ -1137,6 +1273,79 @@ impl FlickableDataInner {
         }
     }
 
+    /// Makes the content come to rest at a snap position.
+    /// A fling or wheel scroll stops on the snap position nearest to where it would stop,
+    /// at least one past the current position in its direction.
+    /// Content at rest springs to the nearest one.
+    /// A scroll to a position, like `scroll-to()`, ends where it was asked to.
+    fn snap(&mut self, flick: Pin<&Flickable>) {
+        let Some(points) = &self.snap_points else { return };
+        if self.capture_events.is_some() {
+            return;
+        }
+        let now = crate::animations::current_tick();
+        let content = flick.content(Dimension::Y);
+        let current = content.get().get() as f32;
+        let motion = self.running_animation.as_ref().and_then(|running| {
+            let simulation = running.y_simulation.as_ref()?.try_borrow().ok()?;
+            let velocity = simulation.remaining_velocity(now);
+            let remaining = simulation.remaining_distance(now);
+            (velocity != 0. || remaining != 0.).then_some((running.source, velocity, remaining))
+        });
+        let (target, velocity) = match motion {
+            Some((SimulationSource::Synthetic, ..)) => return,
+            Some((_, velocity, remaining)) => {
+                let rest = current + remaining;
+                let nearest = points.nearest(rest);
+                let target = if velocity == 0. || (nearest - current) * velocity > 0. {
+                    nearest
+                } else {
+                    points.next(current, velocity)
+                };
+                if (target - rest).abs() < SNAP_EPSILON {
+                    return;
+                }
+                (target, velocity)
+            }
+            None => {
+                let target = points.nearest(current);
+                if (target - current).abs() < SNAP_EPSILON {
+                    return;
+                }
+                (target, 0.)
+            }
+        };
+
+        let distance = target - current;
+        if self.item.upgrade().is_some_and(|item| Flickable::reduced_motion(&item)) {
+            self.running_animation = None;
+            content.set(LogicalLength::new(target as Coord));
+            return;
+        }
+        let simulation: Rc<RefCell<dyn PositionSimulation>> = if distance * velocity > 0.
+            && velocity.abs() >= FlickAnimation::minimum_flick_velocity_animation()
+        {
+            // Keeps the speed, so that the motion doesn't jerk.
+            Self::set_simulation(&content, Decelerate::new(distance, velocity.abs()))
+        } else {
+            Self::set_simulation(
+                &content,
+                SpringFlick::new(
+                    -distance,
+                    target,
+                    SpringPhysicalParameters::new_critical_damped(ANDROID_SCROLL_TO_STIFFNESS),
+                ),
+            )
+        };
+        let x_simulation = self.running_animation.take().and_then(|running| running.x_simulation);
+        self.running_animation = Some(RunningSimulation {
+            weak: self.item.clone(),
+            x_simulation,
+            y_simulation: Some(simulation),
+            source: SimulationSource::InputEvent,
+        });
+    }
+
     #[must_use]
     fn set_simulation<S: Simulation + PositionSimulation + 'static>(
         content: &Pin<&Property<LogicalLength>>,
@@ -1224,6 +1433,8 @@ pub struct FlickableData {
     inner: RefCell<FlickableDataInner>,
     /// Tracker that tracks the property to make sure that the flickable is in bounds
     in_bound_change_handler: crate::properties::ChangeTracker,
+    /// Tracker that moves the limit of the running simulations along with the content size
+    limit_change_handler: crate::properties::ChangeTracker,
 }
 
 impl FlickableData {
@@ -1429,10 +1640,12 @@ impl FlickableData {
                         };
                         inner.animate(flick, flick_rc, release_time);
                         inner.capture_events = None;
+                        inner.snap(flick);
                         InputEventResult::EventAccepted
                     } else if c == CaptureEvents::MouseStart {
                         inner.capture_events = None;
                         inner.move_within_limits_if_outside(flick, flick_rc);
+                        inner.snap(flick);
                         InputEventResult::EventAccepted
                     } else {
                         // an accepted wheel event is followed by an Exit, so the wheel states must survive it
@@ -1708,5 +1921,86 @@ mod velocity_history_tests {
             with_history.velocity_rb.estimate_velocity(end).unwrap().velocity,
             without_history.velocity_rb.estimate_velocity(end).unwrap().velocity,
         );
+    }
+}
+
+#[cfg(test)]
+mod snap_tests {
+    use super::*;
+    use crate::items::AutoBool;
+    use alloc::boxed::Box;
+    use alloc::vec;
+
+    fn points() -> SnapPoints {
+        SnapPoints { positions: vec![-100., -200., -300.], pitch: 100., min: -900. }
+    }
+
+    #[test]
+    fn nearest_and_next_extend_the_measured_positions() {
+        let points = points();
+        assert_eq!(points.nearest(-140.), -100.);
+        assert_eq!(points.nearest(-160.), -200.);
+        assert_eq!(points.nearest(-640.), -600., "estimated after the measured positions");
+        assert_eq!(points.nearest(-40.), 0., "estimated before the measured positions");
+        assert_eq!(points.nearest(50.), 0., "clamped to the highest position");
+        assert_eq!(points.nearest(-2000.), -900., "clamped to the lowest position");
+        assert_eq!(points.next(-200., -1.), -300.);
+        assert_eq!(points.next(-200., 1.), -100.);
+        assert_eq!(points.next(-210., 1.), -200.);
+        assert_eq!(points.next(-310., -1.), -400.);
+    }
+
+    /// Flings the content from 0 with `velocity`, snaps, and returns where the fling would have
+    /// stopped and where it stopped.
+    fn fling(velocity: f32) -> (f32, f32) {
+        let flick = Box::pin(Flickable::default());
+        let flick = flick.as_ref();
+        let content = flick.content(Dimension::Y);
+        let start = crate::animations::current_tick();
+        let natural_rest = {
+            let mut inner = flick.data.inner.borrow_mut();
+            inner.snap_points = Some(points());
+            let simulation = FlickableDataInner::set_simulation(
+                &content,
+                FlickAnimation::create_animation(
+                    FlickAnimationParameter::Velocity { velocity },
+                    AutoBool::Off,
+                    0.,
+                    -900.,
+                ),
+            );
+            let natural_rest = simulation.borrow().remaining_distance(start);
+            inner.running_animation = Some(RunningSimulation {
+                weak: ItemWeak::default(),
+                x_simulation: None,
+                y_simulation: Some(simulation),
+                source: SimulationSource::InputEvent,
+            });
+            inner.snap(flick);
+            natural_rest
+        };
+        for frame in 1..=200 {
+            crate::animations::update_animations(start + Duration::from_millis(16 * frame));
+            content.get();
+        }
+        (natural_rest, content.get().get() as f32)
+    }
+
+    #[test]
+    fn a_fling_stops_on_the_snap_position_nearest_to_its_end() {
+        let (natural_rest, end) = fling(-2000.);
+        assert!(natural_rest < -150., "the fling goes past the first position: {natural_rest}");
+        let target = points().nearest(natural_rest);
+        assert!(
+            (end - target).abs() < 0.01,
+            "{end} != {target}, would have stopped at {natural_rest}"
+        );
+    }
+
+    #[test]
+    fn a_slow_fling_moves_to_the_next_snap_position() {
+        let (natural_rest, end) = fling(-150.);
+        assert!(natural_rest > -50., "the fling stops before the middle: {natural_rest}");
+        assert!((end + 100.).abs() < 0.01, "{end} != -100");
     }
 }
