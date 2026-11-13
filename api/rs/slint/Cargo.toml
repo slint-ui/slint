@@ -28,6 +28,7 @@ default = [
   "accessibility",
   "compat-1-2",
   "system-tray",
+  "svg",
 ]
 
 ## Mandatory feature:
@@ -41,6 +42,10 @@ default = [
 
 ## Enable use of the Rust standard library.
 std = ["i-slint-core/std", "i-slint-renderer-software?/std"]
+
+## Render `.svg` images. Adds about 1.8 MB to the binary.
+## Only the Skia renderer and the Android backend leave SVG out when this is off; other backends keep it.
+svg = ["i-slint-core/svg", "i-slint-renderer-skia?/svg", "i-slint-backend-android-activity?/svg"]
 
 ## Enable the translations using [gettext](https://www.gnu.org/software/gettext/gettext)
 ##

@@ -42,6 +42,7 @@ pub(crate) fn as_skia_image(
             })?;
             Some(skia_safe::Image::clone(&image))
         }
+        #[cfg(feature = "svg")]
         ImageInner::Svg(svg) => {
             // Query target_width/height here again to ensure that changes will invalidate the item rendering cache.
             let target_size = i_slint_core::graphics::transformed_scalable_render_size(
