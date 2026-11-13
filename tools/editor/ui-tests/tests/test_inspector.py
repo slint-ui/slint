@@ -1186,6 +1186,38 @@ def test_each_text_wrap_writes_exact_source(
         element(window, "Inspector text", role=slint_testing.AccessibleRole.Text)
 
 
+@pytest.mark.parametrize("overflow", ("clip", "elide"))
+def test_each_text_overflow_writes_exact_source(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    overflow: str,
+) -> None:
+    source_file = fixture_project / INSPECTOR_SOURCE
+    baseline = source_file.read_bytes()
+    initial = "clip" if overflow == "elide" else "elide"
+    starting_source = replace_once(
+        baseline,
+        b"        font-size: 20px;",
+        f"        font-size: 20px;\n        overflow: {initial};".encode(),
+    )
+    source_file.write_bytes(starting_source)
+    snapshot = SourceSnapshot.capture(fixture_project)
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_element(window, "Text")
+        edit_field(window, "Text Overflow", overflow, slint_testing.AccessibleRole.Combobox)
+        snapshot.wait_for_exact(
+            replace_once(
+                starting_source,
+                f"        overflow: {initial};".encode(),
+                f"        overflow: {overflow};".encode(),
+            ),
+            relative_path=INSPECTOR_SOURCE,
+        )
+
+
 ORIENTATION_ROWS = {
     "Slider": "inspect-slider",
     "RadioGroup": "inspect-radio-group",

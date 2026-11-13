@@ -61,6 +61,10 @@ export global InspectorEnumOptions {
         { value: "word-wrap", label: @tr("Word wrap") },
         { value: "char-wrap", label: @tr("Character wrap") },
     ];
+    out property <[InspectorComboOption]> text-overflow-options: [
+        { value: "clip", label: @tr("Clip") },
+        { value: "elide", label: @tr("Elide") },
+    ];
     out property <[InspectorComboOption]> orientation-options: [
         { value: "horizontal", label: @tr("Horizontal") },
         { value: "vertical", label: @tr("Vertical") },
