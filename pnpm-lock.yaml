@@ -393,6 +393,18 @@ importers:
         specifier: 'catalog:'
         version: 6.0.3
 
+  editors/grammar:
+    devDependencies:
+      '@biomejs/biome':
+        specifier: 'catalog:'
+        version: 2.6.4
+      highlight.js:
+        specifier: 11.11.1
+        version: 11.11.1
+      vscode-tmgrammar-test:
+        specifier: 0.1.3
+        version: 0.1.3
+
   editors/vscode:
     dependencies:
       fs-extra:
@@ -432,9 +444,6 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
-      vscode-tmgrammar-test:
-        specifier: 0.1.3
-        version: 0.1.3
 
   examples/carousel/node:
     dependencies:
@@ -4505,6 +4514,10 @@ packages:
 
   hastscript@9.0.1:
     resolution: {integrity: sha512-g7df9rMFX/SPi34tyGCyUBREQoKkapwdY/T04Qn9TDWfHhAYt4/I0gMVirzK5wEzeUqIjEB+LXC/ypb7Aqno5w==}
+
+  highlight.js@11.11.1:
+    resolution: {integrity: sha512-Xwwo44whKBVCYoliBQwaPvtd/2tYFkRQtXDWj1nackaV2JPXx3L0+Jvd8/qCJ2p+ML0/XVkJ2q+Mr+UVdpJK5w==}
+    engines: {node: '>=12.0.0'}
 
   hpagent@1.2.0:
     resolution: {integrity: sha512-A91dYTeIB6NoXG+PxTQpCCDDnfHsW9kc06Lvpu1TEe9gnd6ZFeiBoRO9JvzEv6xK7EX97/dUE8g/vBMTqTS3CA==}
@@ -11108,6 +11121,8 @@ snapshots:
       hast-util-parse-selector: 4.0.0
       property-information: 7.2.0
       space-separated-tokens: 2.0.2
+
+  highlight.js@11.11.1: {}
 
   hpagent@1.2.0: {}
 

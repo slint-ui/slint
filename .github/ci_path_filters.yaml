@@ -127,6 +127,13 @@ ai_plugins:
  - 'ai-plugins/**'
  - *ci_config
 
+grammar:
+ - 'editors/grammar/**'
+ - 'editors/sublime/Slint.sublime-syntax'
+ - 'editors/vscode/tests/grammar/**'
+ - *js_config
+ - *ci_config
+
 # The preview view renders with the Wasm interpreter
 slint_preview_view:
  - 'ai-plugins/mcp/slint-preview/**'
@@ -224,7 +231,6 @@ vsce:
  - *js_config
  - *ci_config
  - 'editors/vscode/**'
- - 'docs/common/src/utils/slint.tmLanguage.json'
 
 slintpad:
  - *internal
@@ -237,7 +243,6 @@ slintpad:
  - 'api/wasm-interpreter/**'
  - 'tools/lsp/**'
  - 'api/rs/**'
- - 'docs/common/src/utils/slint.tmLanguage.json'
  - *js_config
 
 servo_example:

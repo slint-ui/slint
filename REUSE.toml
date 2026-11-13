@@ -244,6 +244,8 @@ path = [
   "ai-plugins/.codex-plugin/*.json",
   "ai-plugins/.cursor-plugin/*.json",
   "ai-plugins/**/*.md",
+
+  "editors/grammar/*.json",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"

@@ -31,5 +31,15 @@
         "${CLAUDE_PLUGIN_ROOT}/mcp/slint-preview/server.mjs"
       ]
     }
+  },
+  "experimental": {
+    "syntaxHighlighting": {
+      "hljsLanguages": [
+        {
+          "id": "slint",
+          "remote": "npm:@slint-ui/highlightjs-slint@1.20.0"
+        }
+      ]
+    }
   }
 }

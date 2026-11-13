@@ -255,21 +255,21 @@
     "build:lsp-release": "cargo build --release -p slint-lsp",
     "build:wasm_lsp": "shx pwd | xargs -I {} wasm-pack build --dev --target web --no-pack ../../tools/lsp --out-dir {}/out -- --no-default-features --features backend-winit,renderer-femtovg,preview",
     "build:wasm_lsp-release": "shx pwd | xargs -I {} wasm-pack build --release --target web --no-pack ../../tools/lsp --out-dir {}/out -- --no-default-features --features backend-winit,renderer-femtovg,preview",
-    "compile": "node ./esbuild.js",
-    "compile-production": "node ./esbuild.js --production",
+    "build:grammar": "node ../grammar/build.mjs && shx cp ../grammar/dist/slint.tmLanguage.json .",
+    "compile": "pnpm build:grammar && node ./esbuild.js",
+    "compile-production": "pnpm build:grammar && node ./esbuild.js --production",
     "package": "pnpm dlx @vscode/vsce package --no-dependencies",
     "local-package": "shx mkdir -p bin && shx cp ../../target/debug/slint-lsp* bin/ && pnpm run package",
-    "watch": "tsc -watch -p ./",
+    "watch": "pnpm build:grammar && tsc -watch -p ./",
     "pretest": "pnpm compile && pnpm check",
     "check": "biome check",
     "format": "biome format",
     "format:fix": "biome format --write",
     "lint": "biome lint",
     "lint:fix": "biome lint --fix",
-    "test_grammar": "vscode-tmgrammar-test \"tests/grammar/*.slint\"",
     "type-check": "tsc --noEmit -p src/tsconfig.json",
     "test": "node ./out/test/runTest.js",
-    "clean": "shx rm -rf out bin LICENSE.txt slint-*.vsix"
+    "clean": "shx rm -rf out bin LICENSE.txt slint.tmLanguage.json slint-*.vsix"
   },
   "dependencies": {
     "fs-extra": "11.4.1",
@@ -285,7 +285,6 @@
     "@types/vscode": "1.82.0",
     "esbuild": "0.28.2",
     "shx": "0.4.0",
-    "typescript": "catalog:",
-    "vscode-tmgrammar-test": "0.1.3"
+    "typescript": "catalog:"
   }
 }
