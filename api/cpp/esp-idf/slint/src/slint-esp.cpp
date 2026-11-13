@@ -288,7 +288,8 @@ void EspPlatform<PixelType>::run_event_loop()
 #ifdef SLINT_ESP_CPU_TEXTURES
     CpuTextureFrameBuffer cpu_textures;
 #endif
-#if (defined(SLINT_ESP_CPU_TEXTURES) || defined(SLINT_ESP_PPA)) && CONFIG_SLINT_RENDER_PIPELINE
+#if (defined(SLINT_ESP_CPU_TEXTURES) || defined(SLINT_ESP_PPA))                                    \
+        && CONFIG_SLINT_RENDER_ON_SECOND_CORE
     // Used only by the thread that rasterizes.
     slint::platform::SoftwareRenderer::PreparedTextures prepared_textures;
     prepared_textures.set_max_bytes(std::size_t(CONFIG_SLINT_PREPARED_TEXTURES_SIZE) * 1024);
@@ -457,7 +458,7 @@ void EspPlatform<PixelType>::run_event_loop()
         return waited_for_refresh;
     };
 
-#if CONFIG_SLINT_RENDER_PIPELINE
+#if CONFIG_SLINT_RENDER_ON_SECOND_CORE
     // A task on the second core rasterizes and presents each recorded frame, while the event loop
     // records the next one. A recording shares reference counts with the window that aren't
     // atomic, so only the event loop destroys it.
@@ -584,7 +585,7 @@ void EspPlatform<PixelType>::run_event_loop()
             }
 
             [[maybe_unused]] bool waited_for_refresh = false;
-#if CONFIG_SLINT_RENDER_PIPELINE
+#if CONFIG_SLINT_RENDER_ON_SECOND_CORE
             if (pipeline && std::exchange(m_window->needs_redraw, false)) {
                 // Tracy's importer turns events with "frame" in their name into frame marks.
                 SLINT_TRACE_EVENT("frame");
@@ -685,7 +686,7 @@ void EspPlatform<PixelType>::run_event_loop()
                 // (letting the idle task run) between frames instead of saturating the CPU and
                 // tripping the task watchdog.
                 if (sem_dpi_refresh && !waited_for_refresh) {
-#    if CONFIG_SLINT_RENDER_PIPELINE
+#    if CONFIG_SLINT_RENDER_ON_SECOND_CORE
                     // Don't take the refresh from the raster task.
                     {
                         SLINT_TRACE_SPAN("wait_render_core");
