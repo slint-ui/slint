@@ -5,6 +5,11 @@
 //! still running, must not keep that timer ticking; showing the window again must draw the
 //! change.
 
+// Apple platforms throttle with a display link that draws without a `RedrawRequested` event.
+#[cfg(target_vendor = "apple")]
+fn main() {}
+
+#[cfg(not(target_vendor = "apple"))]
 fn main() {
     use std::cell::Cell;
     use std::rc::Rc;
