@@ -163,25 +163,6 @@ const tools = [
         _meta: { ui: { visibility: ["app"] } },
     })),
     {
-        name: "read_preview_input",
-        description:
-            "Read preview source, resolving a project's main entry and root.",
-        annotations: {
-            readOnlyHint: true,
-            destructiveHint: false,
-            openWorldHint: false,
-        },
-        inputSchema: {
-            type: "object",
-            properties: {
-                path: { type: "string" },
-                projectRoot: { type: "string" },
-            },
-            required: ["path"],
-        },
-        _meta: { ui: { visibility: ["app"] } },
-    },
-    {
         name: "poll_preview_capture",
         title: "Check for a Slint Preview Capture Request",
         description: "Check whether this open preview should capture a fresh screenshot.",
@@ -360,9 +341,12 @@ const toolCalls = {
             );
         }
         let checked;
+        let input;
         try {
-            const { checkSlint } = await import("./checker.mjs");
-            checked = await checkSlint(args);
+            const { checkSlint, resolvePreviewInput } = await import("./checker.mjs");
+            const { prepare_preview, ...originalInput } = args;
+            input = resolvePreviewInput(originalInput);
+            checked = await checkSlint(input);
         } catch (error) {
             return textResult(error.message, true);
         }
@@ -379,7 +363,6 @@ const toolCalls = {
             while (preparations.size >= MAX_PREPARATIONS)
                 removePreparation(preparations.keys().next().value);
             const previewId = randomUUID();
-            const { prepare_preview, ...input } = args;
             preparations.set(previewId, {
                 input,
                 expiresAt: Date.now() + PREPARATION_TTL_MS,
@@ -422,14 +405,6 @@ const toolCalls = {
     },
     read_slint_file: (args) => readPreviewFile(args.path, "utf8"),
     read_binary_file: (args) => readPreviewFile(args.path, "base64"),
-    read_preview_input: async (args) => {
-        try {
-            const { readPreviewInput } = await import("./checker.mjs");
-            return { content: [], structuredContent: readPreviewInput(args) };
-        } catch (error) {
-            return textResult(error.message, true);
-        }
-    },
     publish_preview: (args) => {
         if (
             typeof args.previewId !== "string" ||

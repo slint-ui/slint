@@ -628,12 +628,12 @@
     let url = "main.slint";
     let loadImport = null;
     let loadResource = null;
+    // Interpreters without this parameter ignore it, and compile without the project file.
+    const projectRootUrl = projectRoot ? toFileUrl(projectRoot) : null;
     if (path) {
       showStatus(`Reading ${path}…`);
       publish({ previewId, stage: "reading" }).catch(() => {});
-      const result = await request("tools/call", { name: "read_preview_input", arguments: { path, projectRoot } });
-      if (result?.isError) throw new Error(result.content?.[0]?.text ?? "Couldn't read preview input");
-      ({ source, path, projectRoot } = result.structuredContent);
+      source = await readSlintFile(path);
       url = toFileUrl(path);
       // The interpreter reports only a string rejection as the import error,
       // and continues the include path search for null.
@@ -645,8 +645,6 @@
       // Imported fonts. Interpreters without this parameter ignore it, and fall back to the default font.
       loadResource = (file) => readBinaryFile(fromFileUrl(file)).then(({ bytes }) => bytes);
     }
-    // Interpreters without this parameter ignore it, and compile without the project file.
-    const projectRootUrl = projectRoot ? toFileUrl(projectRoot) : null;
     const posixPath = path?.replaceAll("\\", "/");
     const baseDir = posixPath ? posixPath.slice(0, posixPath.lastIndexOf("/") + 1) : "";
     const location = (d) => {

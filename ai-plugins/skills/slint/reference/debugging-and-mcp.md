@@ -78,7 +78,7 @@ Only successful compilation and rendering produce a `previewId`; warnings do not
 Call `publish_preview` with only that ID.
 Preparations expire after 15 minutes, are bounded to 16 entries, and are consumed when published.
 A missing or expired preparation needs another check.
-The card uses the original source or file path, including when restored.
+The card retains the selected source or resolved file path, including when restored.
 File previews reload their source, imports, fonts, and images from disk.
 Its hosted browser renderer can differ visually from the software check.
 Use the PNG returned by `check_slint` for the initial visual review and any screenshot shared in chat.

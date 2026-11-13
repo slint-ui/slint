@@ -43,11 +43,9 @@ function localPath(value) {
 
 // The Wasm interpreter only compiles source strings, so resolve project inputs
 // to their main source file and project root before compiling.
-export function readPreviewInput(input) {
+export function resolvePreviewInput(input) {
     if (input.path === undefined) return input;
     let { path, projectRoot } = input;
-    if (typeof path !== "string" || !isAbsolute(path))
-        throw new Error("'path' must be absolute");
     if (statSync(path).isDirectory()) path = join(path, "slint-project.json");
     if (basename(path) === "slint-project.json") {
         const source = readFileSync(path, "utf8");
@@ -58,7 +56,7 @@ export function readPreviewInput(input) {
         projectRoot ??= dirname(path);
         path = localPath(main);
     }
-    return { ...input, path, projectRoot, source: readFileSync(path, "utf8") };
+    return { ...input, path, projectRoot };
 }
 
 // cspell:ignore IHDR IDAT IEND scanlines
@@ -122,7 +120,7 @@ export async function checkSlint(previewInput) {
         diagnostics: [],
         runtime,
     };
-    let baseUrl = previewInput.path
+    const baseUrl = previewInput.path
         ? pathToFileURL(previewInput.path).href
         : "file:///main.slint";
     let compilation;
@@ -130,8 +128,9 @@ export async function checkSlint(previewInput) {
     let frame;
     let trapped = false;
     try {
-        const { source, path, projectRoot } = readPreviewInput(previewInput);
-        if (path) baseUrl = pathToFileURL(path).href;
+        const source = previewInput.path
+            ? readFileSync(previewInput.path, "utf8")
+            : previewInput.source;
         compilation = await interpreter.compile_from_string_with_style(
             source,
             baseUrl,
@@ -139,7 +138,9 @@ export async function checkSlint(previewInput) {
             previewInput.path ? readSource : async () => null,
             readResource,
             undefined,
-            projectRoot ? pathToFileURL(projectRoot).href : undefined,
+            previewInput.projectRoot
+                ? pathToFileURL(previewInput.projectRoot).href
+                : undefined,
         );
         result.diagnostics = compilation.diagnostics.map(
             ({ level, ...diagnostic }) => ({

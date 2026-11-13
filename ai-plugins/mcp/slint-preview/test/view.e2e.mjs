@@ -166,11 +166,11 @@ after(async () => {
 });
 
 // Renders a preview and returns the get_preview_screenshot result.
-async function preview(args, openingDelayMs = 0) {
+async function preview(args, openingDelayMs = 0, expectedInput = args) {
     const checked = await callTool("check_slint", { ...args, prepare_preview: true });
     if (!checked.structuredContent?.ok) return checked;
     const result = await callTool("publish_preview", { previewId: checked.structuredContent.previewId });
-    assert.deepEqual(result._meta["slint/preview"], args);
+    assert.deepEqual(result._meta["slint/preview"], expectedInput);
     if (openingDelayMs) await new Promise((resolve) => setTimeout(resolve, openingDelayMs));
     await page.evaluate(
         ([args, result]) => {
@@ -286,7 +286,11 @@ test("previews project files, directories, and source files with a project root"
         [{ path: main, projectRoot: manifest, style: "fluent" }, [0, 0, 255, 255]],
         [{ path: component, projectRoot: manifest }, [255, 0, 0, 255]],
     ]) {
-        const screenshot = await preview(input);
+        const screenshot = await preview(input, 0, {
+            ...input,
+            path: input.path === component ? component : main,
+            projectRoot: input.projectRoot ?? root,
+        });
         assertRendered(screenshot);
         assert.deepEqual(await centerPixel(screenshot), pixel);
     }
@@ -294,7 +298,11 @@ test("previews project files, directories, and source files with a project root"
         manifest,
         '{"edition":"1.20", "main":"ui/component.slint", "include-paths":["shared"]}',
     );
-    const refreshed = await preview({ path: manifest });
+    const refreshed = await preview(
+        { path: manifest },
+        0,
+        { path: component, projectRoot: root },
+    );
     assertRendered(refreshed);
     assert.deepEqual(await centerPixel(refreshed), [255, 0, 0, 255]);
 });
