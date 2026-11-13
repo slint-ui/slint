@@ -1997,6 +1997,13 @@ fn generate_sub_component_body(
             let running = compile_expression(&tmr.running.borrow(), &ctx);
             let callback = compile_expression(&tmr.triggered.borrow(), &ctx);
             let context = access_context(&ctx);
+            let repeat;
+            if let Expression::PropertyReference(reference) = &*tmr.repeat.borrow() {
+                repeat = access_member(reference, &ctx).get_property();
+            } else {
+                repeat = compile_expression(&tmr.repeat.borrow(), &ctx);
+            }
+
             quote!(
                 let millis = if #running { (#interval) as i64 } else { -1 };
                 if millis >= 0 {
@@ -2007,6 +2014,9 @@ fn generate_sub_component_body(
                             if let Some(self_rc) = self_weak.upgrade() {
                                 let _self = self_rc.as_pin_ref();
                                 #callback
+                                if !#repeat {
+                                    _self.#ident.stop();
+                                }
                             }
                         });
                     }
