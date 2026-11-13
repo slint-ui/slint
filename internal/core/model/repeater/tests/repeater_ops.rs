@@ -539,7 +539,6 @@ fn test_remove_elements() {
     }
 }
 
-// TODO: Test swapping!
 
 #[test]
 fn test_row_added_without_rows() {
