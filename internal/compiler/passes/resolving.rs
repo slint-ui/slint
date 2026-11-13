@@ -23,6 +23,7 @@ use crate::object_tree::*;
 use crate::parser::{
     NodeOrToken, SyntaxKind, SyntaxNode, TextRange, identifier_text, syntax_nodes,
 };
+use crate::project_file::SlintEdition;
 use crate::source_path::SourcePath;
 use crate::symbol_counters::SymbolCounters;
 use crate::typeregister::TypeRegister;
@@ -2025,10 +2026,14 @@ impl Expression {
         }
 
         if matches!(&function, Callable::Callback(nr) if nr.name() == "init") {
-            ctx.diag.push_warning(
-                "Calling 'init' explicitly does nothing and is deprecated".into(),
-                &node,
-            );
+            if node.source_file().and_then(|f| f.edition()) >= Some(SlintEdition::V1_20) {
+                ctx.diag.push_error("Calling 'init' explicitly isn't allowed".into(), &node);
+            } else {
+                ctx.diag.push_warning(
+                    "Calling 'init' explicitly does nothing and is deprecated".into(),
+                    &node,
+                );
+            }
         }
 
         let arguments = match function.ty() {
@@ -2990,7 +2995,9 @@ fn continue_lookup_within_element(
                 "The function '{}' is private. Annotate it with 'public' to make it accessible from other components",
                 second.text()
             );
-            if !lookup_result.is_local_to_component {
+            let is_error = !lookup_result.is_local_to_component
+                || second.source_file().and_then(|f| f.edition()) >= Some(SlintEdition::V1_20);
+            if is_error {
                 ctx.diag.push_error(message, &second);
             } else {
                 ctx.diag.push_warning(message+". Note: this used to be allowed in previous version, but this should be considered an error", &second);
@@ -3302,14 +3309,27 @@ fn resolve_two_way_bindings_for_element(
                             );
                         }
                     } else if rhs_lookup.property_visibility == PropertyVisibility::InOut {
-                        diag.push_warning(
-                            format!(
-                                "Linking '{}' properties to '{}' properties is deprecated",
-                                PropertyVisibility::Input,
-                                PropertyVisibility::InOut
-                            ),
-                            &node,
-                        );
+                        if node.source_file().and_then(|f| f.edition()) >= Some(SlintEdition::V1_20)
+                        {
+                            diag.push_error(
+                                format!(
+                                    "Cannot link an '{}' property to an '{}' property. Declare it '{}'",
+                                    PropertyVisibility::Input,
+                                    PropertyVisibility::InOut,
+                                    PropertyVisibility::InOut
+                                ),
+                                &node,
+                            );
+                        } else {
+                            diag.push_warning(
+                                format!(
+                                    "Linking '{}' properties to '{}' properties is deprecated",
+                                    PropertyVisibility::Input,
+                                    PropertyVisibility::InOut
+                                ),
+                                &node,
+                            );
+                        }
                         marked_linked_read_only(&nr.element(), nr.name());
                     } else {
                         // This is allowed, but then the rhs must also become read only.

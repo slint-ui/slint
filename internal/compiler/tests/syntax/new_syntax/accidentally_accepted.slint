@@ -1,0 +1,29 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+//edition: 1.20
+
+import { SomeRect } from "tests/typeloader/incpath/local_helper_type.slint";
+//                       >                                                <error{Cannot load "tests/typeloader/incpath/local_helper_type.slint" relative to the work directory. Import it relative to the importing file}
+import "../../../../../../demos/printerdemo/ui/fonts/Inter-24pt-Regular.ttf";
+//     >                                                                   <error{Cannot load "../../../../../../demos/printerdemo/ui/fonts/Inter-24pt-Regular.ttf" relative to the importing file rather than its directory. Import it as "../../../../../demos/printerdemo/ui/fonts/Inter-24pt-Regular.ttf"}
+
+global Glob {
+    function private-function() {}
+}
+
+component Button {
+    in-out property <bool> checked;
+}
+
+export component Test {
+    in property <bool> checked <=> button.checked;
+//                             >                 <error{Cannot link an 'in' property to an 'in-out' property. Declare it 'in-out'}
+    button := Button {}
+    SomeRect {}
+    init => {
+        self.init();
+//      >         <error{Calling 'init' explicitly isn't allowed}
+        Glob.private-function();
+//           >              <error{The function 'private-function' is private. Annotate it with 'public' to make it accessible from other components}
+    }
+}

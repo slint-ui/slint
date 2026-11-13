@@ -15,6 +15,7 @@ use crate::langtype::Type;
 use crate::layout::*;
 use crate::native_class::PropertyVisibility;
 use crate::object_tree::*;
+use crate::project_file::SlintEdition;
 use crate::typeloader::TypeLoader;
 use crate::typeregister::{TypeRegister, layout_info_type};
 use smol_str::{SmolStr, format_smolstr};
@@ -521,11 +522,18 @@ fn lower_grid_layout(
             new_row = true;
             let row_children = std::mem::take(&mut layout_child.borrow_mut().children);
             for row_child in row_children {
-                if let Some(binding) = row_child.borrow_mut().binding("row") {
-                    diag.push_warning(
-                        "The 'row' property cannot be used for elements inside a Row. This was accepted by previous versions of Slint, but may become an error in the future".to_string(),
-                        &*binding,
-                    );
+                if let Some(binding) = row_child.borrow().binding("row") {
+                    if row_child.borrow().edition() >= Some(SlintEdition::V1_20) {
+                        diag.push_error(
+                            "The 'row' property cannot be used for elements inside a Row. Remove it, or move the element out of the Row".to_string(),
+                            &*binding,
+                        );
+                    } else {
+                        diag.push_warning(
+                            "The 'row' property cannot be used for elements inside a Row. This was accepted by previous versions of Slint, but may become an error in the future".to_string(),
+                            &*binding,
+                        );
+                    }
                 }
                 grid.add_element(
                     &row_child,
@@ -771,7 +779,7 @@ impl GridLayout {
                     Some(b) => b,
                     None => &*element_ref,
                 };
-                if is_error {
+                if is_error || element_ref.edition() >= Some(SlintEdition::V1_20) {
                     diag.push_error(
                         format!("Cannot mix auto-numbering and runtime expressions for the '{prop_name}' property"),
                         span,
