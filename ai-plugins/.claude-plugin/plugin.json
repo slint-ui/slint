@@ -1,7 +1,7 @@
 {
   "name": "slint",
   "version": "1.19.0",
-  "description": "Write, debug, and live-preview Slint GUIs for desktop, embedded, and mobile apps",
+  "description": "Write and debug Slint GUIs for desktop, embedded, and mobile apps, with access to the Slint documentation",
   "author": {
     "name": "Slint",
     "email": "info@slint.dev"
@@ -24,12 +24,6 @@
     "slint-docs": {
       "type": "http",
       "url": "https://docs.slint.dev/mcp"
-    },
-    "slint-preview": {
-      "command": "node",
-      "args": [
-        "${CLAUDE_PLUGIN_ROOT}/mcp/slint-preview/server.mjs"
-      ]
     }
   }
 }
