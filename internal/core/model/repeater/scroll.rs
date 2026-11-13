@@ -181,21 +181,33 @@ pub(super) fn row_geometry(
     heights: impl IntoIterator<Item = Coord>,
     row: usize,
 ) -> (Coord, Coord) {
-    let heights: alloc::vec::Vec<Coord> = heights.into_iter().collect();
     let estimate = state.cached_item_height;
-    // The top of the instance at `index` relative to the first instance.
-    let offset = |index: isize| -> Coord {
-        if index < 0 {
-            return estimate * index as Coord;
+    let current = state.item_index.instance_index;
+    let index = usize::try_from(row as isize - state.item_index.first_row() as isize).ok();
+    // The tops of the current item's and the row's instances, relative to the first instance.
+    let (mut current_top, mut row_top, mut row_height) = (None, None, None);
+    let (mut measured_top, mut measured) = (0 as Coord, 0);
+    for height in heights {
+        if measured == current {
+            current_top = Some(measured_top);
         }
-        let index = index as usize;
-        let measured = index.min(heights.len());
-        heights[..measured].iter().sum::<Coord>() + estimate * (index - measured) as Coord
+        if Some(measured) == index {
+            row_top = Some(measured_top);
+            row_height = Some(height);
+        }
+        measured_top += height;
+        measured += 1;
+        if measured > current && index.is_none_or(|index| measured > index) {
+            break;
+        }
+    }
+    // Instances past the measured ones have the estimated height.
+    let extrapolate = |index: usize| measured_top + estimate * (index - measured) as Coord;
+    let row_top = match index {
+        Some(index) => row_top.unwrap_or_else(|| extrapolate(index)),
+        None => estimate * (row as Coord - state.item_index.first_row() as Coord),
     };
-    let index = row as isize - state.item_index.first_row() as isize;
-    let height = usize::try_from(index).ok().and_then(|i| heights.get(i)).copied();
+    let current_top = current_top.unwrap_or_else(|| extrapolate(current));
     // The current item, the instance at `instance_index`, starts at `anchor_y + snap_offset`.
-    let top = state.anchor_y + state.snap_offset + offset(index)
-        - offset(state.item_index.instance_index as isize);
-    (top, height.unwrap_or(estimate))
+    (state.anchor_y + state.snap_offset + row_top - current_top, row_height.unwrap_or(estimate))
 }
