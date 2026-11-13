@@ -14,6 +14,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
+import { pathToFileURL } from "node:url";
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 
@@ -239,6 +240,55 @@ test("takes either an absolute path or source, and a project root only with a pa
             -32602,
             JSON.stringify(args),
         );
+    }
+});
+
+test("reads Slint, image, and font files for the view", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "slint-preview-"));
+    try {
+        const slintFile = join(dir, "main.slint");
+        const source = 'Image { source: @image-url("dot.png"); }';
+        writeFileSync(slintFile, source);
+        const slint = await callTool("read_slint_file", { path: slintFile });
+        assert.deepEqual(slint.content, [{ type: "text", text: source }]);
+
+        for (const [file, mimeType, bytes] of [
+            ["dot.png", "image/png", Buffer.from([0x89, 0x50])],
+            ["icon.svg", "image/svg+xml", Buffer.from("<svg/>")],
+            ["font.ttf", "font/ttf", Buffer.from([0, 1, 0, 0])],
+        ]) {
+            const path = join(dir, file);
+            writeFileSync(path, bytes);
+            const blob = bytes.toString("base64");
+            const result = await callTool("read_binary_file", { path });
+            assert.deepEqual(
+                result.content,
+                [
+                    {
+                        type: "resource",
+                        resource: {
+                            uri: pathToFileURL(path).href,
+                            mimeType,
+                            blob,
+                        },
+                    },
+                ],
+                file,
+            );
+        }
+    } finally {
+        rmSync(dir, { recursive: true });
+    }
+});
+
+test("reports a file it can't read as a tool error", async () => {
+    for (const name of ["read_slint_file", "read_binary_file"]) {
+        const result = await callTool(name, {
+            path: "/nonexistent/main.slint",
+        });
+        assert.equal(result.isError, true, name);
+        // The view tells a missing import by this prefix.
+        assert.match(result.content[0].text, /^ENOENT:/, name);
     }
 });
 
