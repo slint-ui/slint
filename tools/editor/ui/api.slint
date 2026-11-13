@@ -469,7 +469,7 @@ export global Api {
     pure callback window-active() -> bool;
 
     // ## Property Editor
-
+    pure callback normalize-element-id(text: string) -> string;
     callback set-element-id(element-url: string, element-version: int, element-offset: int, new-id: string);
 
     // ## preview data
