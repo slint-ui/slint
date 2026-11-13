@@ -12,15 +12,16 @@ use crate::api::{
 use crate::cursor::{MouseCursorHandling, MouseCursorInner};
 use crate::input::{
     BackendDragEvent, ClickState, DragData, FocusEvent, FocusReason, InternalKeyEvent,
-    KeyEventResult, KeyEventType, Keys, MouseEvent, MouseInputState, PointerEventButton,
-    TextCursorBlinker, TouchHistory, TouchPhase, TouchState, key_codes,
+    KeyEventResult, KeyEventType, KeyboardModifiers, Keys, MouseEvent, MouseInputState,
+    PointerEventButton, TextCursorBlinker, TouchHistory, TouchPhase, TouchState, key_codes,
 };
 use crate::item_tree::{
     ItemRc, ItemTreeRc, ItemTreeRef, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak, ItemWeak,
     ParentItemTraversalMode,
 };
 use crate::items::{
-    BuiltInMouseCursor, InputMethodHints, InputType, ItemRef, MenuEntry, PopupClosePolicy,
+    BuiltInMouseCursor, InputMethodHints, InputType, ItemRef, MenuEntry, PopupAnchor,
+    PopupClosePolicy,
 };
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalVector, SizeLengths};
 use crate::menus::MenuVTable;
@@ -171,6 +172,25 @@ pub trait WindowAdapter {
     ) -> Result<raw_window_handle_06::DisplayHandle<'_>, raw_window_handle_06::HandleError> {
         Err(raw_window_handle_06::HandleError::NotSupported)
     }
+
+    /// Re-implement this to place a popup window relative to an anchor rectangle
+    ///
+    /// Slint calls this only on a window adapter that shows a `PopupWindow` to position the Popup
+    /// constraint by additional properties. So when a popup is not implemented as own `WindowAdapter` because
+    /// `create_child_window_adapter` returned None this function is never called and the positioning is done internally
+    /// automatically
+    ///
+    /// For a popup, the position passed to [`Self::set_position()`] is the corner of the anchor rectangle,
+    /// in the coordinates of the parent window (See `PopupAnchorLocation` which corner is used).
+    ///  - `width` and `height` are the size of the anchor rectangle.
+    ///  - `location` is the anchor point on that rectangle.
+    ///  - `x` and `y` offset the popup from the anchor point.
+    ///  - `gravity` is the direction in which the popup extends from the anchor point.
+    ///  - `constraint_adjustment_x` and `constraint_adjustment_y` select how to slide, flip, or resize the popup
+    ///    when it doesn't fit on the screen.
+    ///
+    /// The default implementation does nothing, so the popup stays at the position passed to [`Self::set_position()`].
+    fn set_position_anchor(&self, _anchor: &crate::items::PopupAnchor) {}
 }
 
 /// What a `DragArea` offers to start a native (OS-level) drag, passed to
@@ -554,6 +574,10 @@ pub struct PopupWindow {
     /// Called during re-evaluation of the position tracker to re-subscribe to dependencies.
     /// IMPORTANT: This position is relative to the parent
     position_access: Box<dyn Fn() -> LogicalPosition>,
+    /// Callback that returns the current anchor/gravity/constraint-adjustment positioner data,
+    /// re-evaluated alongside `position_access` so that native backends can
+    /// re-apply it when a dependency of the `anchor` property changes.
+    anchor_access: Box<dyn Fn() -> PopupAnchor>,
     /// Keeps the parent component's `PopupWindow::is-open` property in sync. Provided to
     /// [`WindowInner::show_popup`], invoked with `true` when the popup is shown and with `false` when
     /// this `PopupWindow` is dropped (see the `Drop` impl below). It is a no-op for popups whose
@@ -595,6 +619,8 @@ struct WindowPinnedFields {
     text_input_focused: Property<bool>,
     #[pin]
     menubar_shortcuts: Property<SharedVector<MenuEntry>>,
+    #[pin]
+    popups_generation: Property<u32>,
 }
 
 /// The outcome of dispatching a [`MouseEvent`] through [`WindowInner::process_mouse_input`].
@@ -711,16 +737,19 @@ pub struct WindowInner {
     /// for the ComponentContainer
     pub(crate) prevent_focus_change: Cell<bool>,
     cursor_blinker: RefCell<pin_weak::rc::PinWeak<crate::input::TextCursorBlinker>>,
+    cursor_blink_suspended: Cell<bool>,
 
     pinned_fields: Pin<Box<WindowPinnedFields>>,
 
     menubar: RefCell<Option<vtable::VWeak<MenuVTable>>>,
 
     /// Stack of currently active popups
-    pub active_popups: RefCell<Vec<PopupWindow>>,
+    active_popups: RefCell<Vec<PopupWindow>>,
     next_popup_id: Cell<NonZeroU32>,
     overlays: RefCell<Vec<ItemTreeRc>>,
     had_popup_on_press: Cell<bool>,
+    /// Bit mask of the buttons whose press an open menu blocked, indexed by `PointerEventButton as u8`.
+    buttons_blocked_by_menu: Cell<u8>,
     close_requested: Callback<(), CloseRequestResponse>,
     click_state: ClickState,
     ctx: core::cell::OnceCell<crate::SlintContext>,
@@ -784,16 +813,22 @@ impl WindowInner {
                     SharedVector::default(),
                     "i_slint_core::Window::menubar_shortcuts",
                 ),
+                popups_generation: Property::new_named(
+                    0,
+                    "i_slint_core::Window::popups_generation",
+                ),
             }),
             focus_item: Default::default(),
             focus_item_visibility_tracker: Default::default(),
             focus_item_position_tracker: Default::default(),
             last_ime_text: Default::default(),
             cursor_blinker: Default::default(),
+            cursor_blink_suspended: Default::default(),
             active_popups: Default::default(),
             next_popup_id: Cell::new(NonZeroU32::MIN),
             overlays: Default::default(),
             had_popup_on_press: Default::default(),
+            buttons_blocked_by_menu: Default::default(),
             close_requested: Default::default(),
             click_state: ClickState::default(),
             prevent_focus_change: Default::default(),
@@ -812,6 +847,7 @@ impl WindowInner {
         self.focus_item_position_tracker.clear();
         self.focus_item.replace(Default::default());
         self.mouse_input_state.replace(Default::default());
+        self.buttons_blocked_by_menu.set(0);
         self.touch_state.replace(Default::default());
         self.component.replace(ItemTreeRc::downgrade(component));
         self.pinned_fields.window_properties_tracker.set_dirty(); // component changed, layout constraints for sure must be re-calculated
@@ -871,9 +907,25 @@ impl WindowInner {
         crate::debug_log!("Slint: long callback/instantiation chain detected");
     }
 
+    /// When this window is a native popup, the window that lists it in its active popups.
+    fn parent_window_adapter(&self) -> Option<WindowAdapterRc> {
+        self.window_adapter().internal(crate::InternalToken)?.get_parent()
+    }
+
     /// Returns a slice of the active popups.
     pub fn active_popups(&self) -> core::cell::Ref<'_, [PopupWindow]> {
         core::cell::Ref::map(self.active_popups.borrow(), |v| v.as_slice())
+    }
+
+    /// Use this to make a binding re-evaluate when a popup opens or closes.
+    /// Read it before [`Self::active_popups()`]; only changes are meaningful, not the value.
+    pub fn popups_generation(&self) -> u32 {
+        self.pinned_fields.as_ref().project_ref().popups_generation.get()
+    }
+
+    fn bump_popups_generation(&self) {
+        let generation = self.pinned_fields.as_ref().project_ref().popups_generation;
+        generation.set(generation.get_untracked().wrapping_add(1));
     }
 
     /// Receive a mouse event and pass it to the items of the component to
@@ -1012,19 +1064,26 @@ impl WindowInner {
         let released_event = matches!(event, MouseEvent::Released { .. });
         let had_delay = mouse_input_state.has_delayed_event();
 
-        let last_top_item = mouse_input_state.top_item_including_delayed();
+        let click_target = if pressed_event || (released_event && had_delay) {
+            self.click_state.target()
+        } else {
+            None
+        };
         if released_event {
             mouse_input_state = crate::input::resolve_delayed_event_on_release(
                 &window_adapter,
                 mouse_input_state,
                 &event,
+                click_target.as_ref(),
             );
+            if had_delay && !mouse_input_state.has_delayed_event() {
+                self.click_state.press_delivered(mouse_input_state.top_item());
+                // The release carries the count of the press it ends.
+                event = self.click_state.check_repeat(event, self.context());
+            }
         }
 
-        let parent_adapter = window_adapter
-            .internal(crate::InternalToken)
-            .and_then(|internal| internal.get_parent())
-            .unwrap_or_else(|| window_adapter.clone());
+        let parent_adapter = self.parent_window_adapter().unwrap_or_else(|| window_adapter.clone());
         let active_popups = &WindowInner::from_pub(parent_adapter.window()).active_popups;
         let native_popup_index =
             active_popups.borrow().iter().position(|p| p.is_native_window(&window_adapter));
@@ -1077,12 +1136,14 @@ impl WindowInner {
             let mut item_tree = self.component.borrow().upgrade();
             let mut offset = LogicalPoint::default();
             let mut menubar_item = None;
+            let mut blocked_by_menu = false;
             for (idx, popup) in active_popups.borrow().iter().enumerate().rev() {
                 if matches!(popup.window_kind, WindowKind::ToolTip) {
                     continue;
                 }
                 item_tree = None;
                 menubar_item = None;
+                blocked_by_menu = false;
                 if let PopupWindowLocation::ChildWindow(coordinates) = &popup.location {
                     let geom = ItemTreeRc::borrow_pin(&popup.component).as_ref().item_geometry(0);
                     let mouse_inside_popup = event
@@ -1105,29 +1166,56 @@ impl WindowInner {
                     popup_to_close = Some(popup.popup_id);
                 }
 
-                menubar_item = popup.parent_item.upgrade();
+                menubar_item = popup.parent_item.upgrade().filter(|item| {
+                    item.downcast::<crate::items::ContextMenu>()
+                        .is_some_and(|menu| menu.as_pin_ref().is_menu_bar())
+                });
+                blocked_by_menu = menubar_item.is_none();
             }
 
-            let root = match menubar_item {
-                None => item_tree.map(|item_tree| ItemRc::new_root(item_tree.clone())),
+            let blocked_buttons = self.buttons_blocked_by_menu.get();
+            let bit = |button: &PointerEventButton| 1u8 << *button as u8;
+            match &event {
+                MouseEvent::Pressed { button, .. } if blocked_by_menu => {
+                    self.buttons_blocked_by_menu.set(blocked_buttons | bit(button));
+                }
+                MouseEvent::Released { button, .. } if blocked_buttons & bit(button) != 0 => {
+                    self.buttons_blocked_by_menu.set(blocked_buttons & !bit(button));
+                    item_tree = None;
+                    menubar_item = None;
+                }
+                _ => {}
+            }
+
+            let (root, menu_owner_path) = match menubar_item {
+                None => {
+                    (item_tree.map(|item_tree| ItemRc::new_root(item_tree.clone())), Vec::new())
+                }
                 Some(menubar_item) => {
-                    event.translate(
-                        menubar_item
-                            .map_to_item_tree(Default::default(), &self.component())
-                            .to_vector(),
-                    );
-                    menubar_item.parent_item(ParentItemTraversalMode::StopAtPopups)
+                    let mut menu_owner_path: Vec<ItemWeak> = core::iter::successors(
+                        menubar_item.parent_item(ParentItemTraversalMode::StopAtPopups),
+                        |item| item.parent_item(ParentItemTraversalMode::StopAtPopups),
+                    )
+                    .map(|item| item.downgrade())
+                    .collect();
+                    let root = menu_owner_path.pop().and_then(|root| root.upgrade());
+                    menu_owner_path.reverse();
+                    (root, menu_owner_path)
                 }
             };
 
             if let Some(root) = root {
                 event.translate(-offset.to_vector());
+                let last_top_item =
+                    if pressed_event { click_target.clone() } else { mouse_input_state.top_item() };
                 let crate::input::MouseInputResult { mut state, accepted } =
                     crate::input::process_mouse_input(
                         root,
+                        &menu_owner_path,
                         &event,
                         &window_adapter,
                         mouse_input_state,
+                        last_top_item.as_ref(),
                     );
                 state.offset = offset;
                 dispatch_accepted = accepted;
@@ -1151,9 +1239,12 @@ impl WindowInner {
             matches!(event, MouseEvent::Drop { .. }).then(|| event.position()).flatten();
         let accepted = dispatch_accepted | grab_accepted;
 
-        if last_top_item != mouse_input_state.top_item_including_delayed() {
-            self.click_state.reset();
-            self.click_state.check_repeat(event, self.context());
+        // The item that holds the press. Checked on every event while grabbed: a Flickable takes
+        // over a held press on a move, and the grab stays set while its holder changes.
+        if (pressed_event || mouse_input_state.is_grabbed())
+            && !mouse_input_state.has_delayed_event()
+        {
+            self.click_state.press_delivered(mouse_input_state.top_item());
         }
 
         if !had_delay && mouse_input_state.has_delayed_event() {
@@ -1307,10 +1398,15 @@ impl WindowInner {
 
     /// Called by the input code's internal timer to send an event that was delayed
     pub(crate) fn process_delayed_event(&self) {
-        self.mouse_input_state.set(crate::input::process_delayed_event(
+        let state = crate::input::process_delayed_event(
             &self.window_adapter(),
             self.mouse_input_state.take(),
-        ));
+            self.click_state.target().as_ref(),
+        );
+        if !state.has_delayed_event() {
+            self.click_state.press_delivered(state.top_item());
+        }
+        self.mouse_input_state.set(state);
     }
 
     /// Receive a key event and pass it to the items of the component to
@@ -1448,15 +1544,7 @@ impl WindowInner {
             && internal_key_event.key_event.text.starts_with(key_codes::Escape)
         {
             // Closes top most popup on ESC key pressed when policy is not no-auto-close
-
-            // Try to get the parent window in case `self` is the popup itself
-            let mut adapter = self.window_adapter();
-            let item_tree = self.component();
-            let mut a = None;
-            ItemTreeRc::borrow_pin(&item_tree).as_ref().window_adapter(false, &mut a);
-            if let Some(a) = a {
-                adapter = a;
-            }
+            let adapter = self.parent_window_adapter().unwrap_or_else(|| self.window_adapter());
             let window = WindowInner::from_pub(adapter.window());
 
             let close_on_escape = if let Some(popup) = window.active_popups.borrow().last() {
@@ -1518,8 +1606,24 @@ impl WindowInner {
             new_blinker
         });
 
-        let ctx = self.context();
-        TextCursorBlinker::set_binding(blinker, prop, ctx, ctx.platform().cursor_flash_cycle());
+        TextCursorBlinker::set_binding(blinker, prop, self.context(), self.cursor_flash_cycle());
+    }
+
+    /// Keeps the text cursor visible without blinking while `suspended`, as touch platforms
+    /// do while a text selection handle is held.
+    pub fn set_cursor_blink_suspended(&self, suspended: bool) {
+        self.cursor_blink_suspended.set(suspended);
+        if let Some(blinker) = self.cursor_blinker.borrow().upgrade() {
+            blinker.show(self.context(), self.cursor_flash_cycle());
+        }
+    }
+
+    fn cursor_flash_cycle(&self) -> core::time::Duration {
+        if self.cursor_blink_suspended.get() {
+            Default::default()
+        } else {
+            self.context().platform().cursor_flash_cycle()
+        }
     }
 
     /// Sets the focus to the item pointed to by item_ptr. This will remove the focus from any
@@ -1780,6 +1884,13 @@ impl WindowInner {
         }
     }
 
+    /// Releases the keyboard modifiers that the platform reports as not held.
+    /// Call it when the platform reports the modifier state.
+    pub fn release_modifiers_not_held(&self, held: KeyboardModifiers) {
+        let modifiers = self.context().modifiers();
+        modifiers.set(modifiers.get().release_not_held(held));
+    }
+
     /// Returns true of the window is the active window. That typically implies having the
     /// keyboard focus, except when a popup is shown and temporarily takes the focus.
     pub fn active(&self) -> bool {
@@ -1860,21 +1971,25 @@ impl WindowInner {
                             h
                         };
 
-                        let clip_region = Some(LogicalRect::new(
+                        let clip_region = LogicalRect::new(
                             LogicalPoint::new(0.0 as crate::Coord, 0.0 as crate::Coord),
                             self.window_adapter()
                                 .size()
                                 .to_logical(self.scale_factor())
                                 .to_euclid(),
-                        ));
+                        );
 
+                        let anchor = (popup.anchor_access)();
+                        let anchor_offset = LogicalPoint::new(anchor.x, anchor.y);
                         let new_region_clipped = popup::place_popup(
-                            popup::Placement::Fixed(LogicalRect::new(
-                                offset,
-                                crate::lengths::LogicalSize::new(width, height),
-                            )),
+                            anchor,
+                            offset,
+                            anchor_offset,
+                            crate::lengths::LogicalSize::new(width, height),
                             &clip_region,
                         );
+                        window_item.width.set(new_region_clipped.size.width_length());
+                        window_item.height.set(new_region_clipped.size.height_length());
 
                         (old_popup_region, new_region_clipped)
                     });
@@ -1898,12 +2013,17 @@ impl WindowInner {
             PopupWindowLocation::TopLevel(adapter) => {
                 // The size is already tracked in the windowadapter
                 let mut new_position: Option<LogicalPosition> = None;
+                let mut new_anchor: Option<PopupAnchor> = None;
                 popup.properties_tracker.as_ref().evaluate_as_dependency_root(|| {
                     (popup.position_access)(); // Dummy access to track position changes
                     new_position = Some(LogicalPosition::from_euclid(offset));
+                    new_anchor = Some((popup.anchor_access)());
                 });
                 if let Some(pos) = new_position {
                     adapter.window().set_position(pos);
+                }
+                if let Some(anchor) = new_anchor {
+                    adapter.set_position_anchor(&anchor);
                 }
             }
         }
@@ -2172,10 +2292,14 @@ impl WindowInner {
     /// popup: it is invoked immediately with `true`, and again with `false` when the popup is closed
     /// through any path (the `Drop` impl of [`PopupWindow`] handles the `false`). Pass a no-op closure
     /// for popups (such as menus) that do not expose `is-open`.
+    ///
+    /// `popup_access_anchor` provides the positioner data (anchor rect, gravity, constraint
+    /// adjustment) that native backends supporting it use to place the popup.
     pub fn show_popup(
         &self,
         popup_componentrc: &ItemTreeRc,
         popup_access_position: Box<dyn Fn() -> LogicalPosition>,
+        popup_access_anchor: Box<dyn Fn() -> PopupAnchor>,
         close_policy: PopupClosePolicy,
         parent_item: &ItemRc,
         window_kind: WindowKind,
@@ -2281,13 +2405,15 @@ impl WindowInner {
         // because we weren't able to create a dedicated popup adapter (for example if the backend does not support it).
         let (location, properties_tracker) =
             if Rc::ptr_eq(&parent_window_adapter, &popup_window_adapter) {
-                // Tooltips may extend past the window (e.g. above/left of the anchor); do not clamp.
-                let clip_region = Some(LogicalRect::new(
+                let clip_region = LogicalRect::new(
                     LogicalPoint::new(0.0 as crate::Coord, 0.0 as crate::Coord),
                     self.window_adapter().size().to_logical(self.scale_factor()).to_euclid(),
-                ));
+                );
                 let rect = popup::place_popup(
-                    popup::Placement::Fixed(LogicalRect::new(position, size)),
+                    popup_access_anchor(),
+                    position,
+                    LogicalPoint::zero(),
+                    size,
                     &clip_region,
                 );
                 self.window_adapter().request_redraw();
@@ -2305,7 +2431,7 @@ impl WindowInner {
                 WindowInner::from_pub(popup_window).set_component(popup_componentrc);
                 popup_window.set_position(LogicalPosition::from_euclid(position));
                 popup_window.set_size(WindowSize::Logical(LogicalSize::from_euclid(size)));
-
+                popup_window_adapter.set_position_anchor(&popup_access_anchor());
                 popup_window_adapter.set_visible(true).expect("unable to show popup window");
                 (
                     PopupWindowLocation::TopLevel(popup_window_adapter),
@@ -2341,9 +2467,11 @@ impl WindowInner {
             parent_item: parent_item.downgrade(),
             window_kind,
             position_access: popup_access_position,
+            anchor_access: popup_access_anchor,
             is_open_setter,
             properties_tracker,
         });
+        self.bump_popups_generation();
 
         self.update_popup_properties(popup_id);
 
@@ -2408,6 +2536,7 @@ impl WindowInner {
         if let Some(popup_index) = maybe_index {
             let p = active_popups.remove(popup_index);
             drop(active_popups);
+            self.bump_popups_generation();
             self.close_popup_impl(&p);
             if matches!(p.window_kind, WindowKind::Menu) {
                 // close all sub-menus
@@ -2418,6 +2547,7 @@ impl WindowInner {
                     .is_some_and(|p| matches!(p.window_kind, WindowKind::Menu))
                 {
                     let p = self.active_popups.borrow_mut().remove(popup_index);
+                    self.bump_popups_generation();
                     self.close_popup_impl(&p);
                 }
             }
@@ -2430,10 +2560,7 @@ impl WindowInner {
     /// when the user starts moving the parent window.
     pub fn close_as_popup(&self) -> bool {
         let window_adapter = self.window_adapter();
-        let Some(parent_adapter) = window_adapter
-            .internal(crate::InternalToken)
-            .and_then(|internal| internal.get_parent())
-        else {
+        let Some(parent_adapter) = self.parent_window_adapter() else {
             return false;
         };
         let parent = WindowInner::from_pub(parent_adapter.window());
@@ -2450,7 +2577,11 @@ impl WindowInner {
 
     /// Close all active popups.
     pub fn close_all_popups(&self) {
-        for popup in self.active_popups.take() {
+        let popups = self.active_popups.take();
+        if !popups.is_empty() {
+            self.bump_popups_generation();
+        }
+        for popup in popups {
             self.close_popup_impl(&popup);
         }
     }
@@ -2459,6 +2590,7 @@ impl WindowInner {
     pub fn close_top_popup(&self) {
         let popup = self.active_popups.borrow_mut().pop();
         if let Some(popup) = popup {
+            self.bump_popups_generation();
             self.close_popup_impl(&popup);
         }
     }
@@ -2812,6 +2944,14 @@ pub mod ffi {
         }
     }
 
+    impl WithUserData<extern "C" fn(user_data: *mut c_void, anchor: &mut PopupAnchor)> {
+        fn call(&self) -> PopupAnchor {
+            let mut anchor = PopupAnchor::default();
+            (self.callback)(self.user_data, &mut anchor);
+            anchor
+        }
+    }
+
     impl WithUserData<extern "C" fn(user_data: *mut c_void, pos: &mut LogicalPosition)> {
         fn call(&self) -> LogicalPosition {
             let mut logical_position = LogicalPosition::default();
@@ -2999,6 +3139,9 @@ pub mod ffi {
         position: extern "C" fn(user_data: *mut c_void, pos: &mut LogicalPosition),
         drop_user_data: extern "C" fn(user_data: *mut c_void),
         user_data: *mut c_void,
+        anchor: extern "C" fn(user_data: *mut c_void, anchor: &mut PopupAnchor),
+        anchor_drop_user_data: extern "C" fn(user_data: *mut c_void),
+        anchor_user_data: *mut c_void,
         close_policy: PopupClosePolicy,
         parent_item: &ItemRc,
         window_kind: WindowKind,
@@ -3008,6 +3151,11 @@ pub mod ffi {
     ) -> NonZeroU32 {
         unsafe {
             let with_user_data = WithUserData { callback: position, drop_user_data, user_data };
+            let anchor_with_user_data = WithUserData {
+                callback: anchor,
+                drop_user_data: anchor_drop_user_data,
+                user_data: anchor_user_data,
+            };
             let is_open_with_user_data = WithUserData {
                 callback: is_open_setter,
                 drop_user_data: is_open_setter_drop_user_data,
@@ -3017,6 +3165,7 @@ pub mod ffi {
             WindowInner::from_pub(window_adapter.window()).show_popup(
                 popup,
                 Box::new(move || with_user_data.call()),
+                Box::new(move || anchor_with_user_data.call()),
                 close_policy,
                 parent_item,
                 window_kind,

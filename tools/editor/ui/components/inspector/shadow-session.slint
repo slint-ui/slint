@@ -1,7 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Api, InspectorNumberChange, InspectorCommitResult } from "../../api.slint";
+import { Properties, PropertyEditKind } from "../../properties.slint";
+
+import { Api } from "../../api.slint";
 import { CanvasView } from "../canvas-view.slint";
 import { FillSession } from "fill-session.slint";
 import { Diagnostics } from "../../diagnostics.slint";
@@ -21,7 +23,7 @@ export struct ShadowValues {
 
 export global ShadowSession {
     out property <bool> inner;
-    out property <string> prefix: Api.shadow-prefix(inner);
+    out property <string> prefix: Properties.shadow-prefix(inner);
     out property <string> title: ShadowSession.label(inner);
     out property <float> direction: inner ? -1 : 1;
     out property <bool> open;
@@ -30,27 +32,24 @@ export global ShadowSession {
     out property <float> maximum-blur: 128;
     out property <float> minimum-spread: -64;
     out property <float> maximum-spread: 64;
-    private property <bool> shadow-exists: Api.has-shadow(prefix);
+    private property <bool> shadow-exists: Properties.has-shadow(prefix);
     out property <bool> canvas-visible: open && !Diagnostics.preview-status-visible
         && shadow-exists && selection-key == target-selection-key
         && Api.current-element.type-name == "Rectangle" && Api.selection.highlight-index >= 0;
     out property <bool> canvas-active: canvas-visible && Diagnostics.preview-editable;
     out property <string> key: Api.current-element.source-uri + ":" + Api.current-element.source-version
-        + ":" + Api.current-element.offset + ":" + Api.selection.highlight-index + ":" + Api.inspector-generation;
+        + ":" + Api.current-element.offset + ":" + Api.selection.highlight-index + ":" + Properties.inspector-generation;
     private property <string> selection-key: Api.current-element.source-uri + ":" + Api.current-element.offset + ":" + Api.selection.highlight-index;
     private property <string> target-selection-key;
     private property <string> gesture-key;
     out property <ShadowGesture> gesture;
     private property <ShadowValues> draft;
-    out property <bool> pending;
-    private property <int> pending-source-version;
-    private property <ShadowValues> source-values: {
-        offset-x: Api.number-property(prefix + "offset-x", 0),
-        offset-y: Api.number-property(prefix + "offset-y", 8),
-        blur: Api.number-property(prefix + "blur", 16),
-        spread: Api.number-property(prefix + "spread", 0),
+    out property <ShadowValues> values: dragging ? draft : {
+        offset-x: Properties.editor-number-property(prefix + "offset-x", 0),
+        offset-y: Properties.editor-number-property(prefix + "offset-y", 8),
+        blur: Properties.editor-number-property(prefix + "blur", 16),
+        spread: Properties.editor-number-property(prefix + "spread", 0),
     };
-    out property <ShadowValues> values: dragging || pending ? draft : source-values;
     out property <Point> anchor-position;
     out property <Size> anchor-size;
     out property <int> opening-generation;
@@ -118,7 +117,6 @@ export global ShadowSession {
         ShadowSession.opening-generation += 1;
     }
     public function close() {
-        ShadowSession.pending = false;
         if ShadowSession.open {
             ShadowSession.cancel();
             ShadowSession.open = false;
@@ -128,17 +126,9 @@ export global ShadowSession {
             }
         }
     }
-    public function source-refreshed() {
-        if ShadowSession.source-values == ShadowSession.draft
-            || Api.current-element.source-version != ShadowSession.pending-source-version {
-            ShadowSession.pending = false;
-        }
-    }
     public function start(gesture: ShadowGesture, canvas: bool) {
-        if ShadowSession.pending { return; }
         if !ShadowSession.canvas-active { ShadowSession.close(); return; }
         let values = ShadowSession.values;
-        ShadowSession.pending = false;
         FillSession.close-picker(true, false);
         ShadowSession.draft = values;
         ShadowSession.gesture = gesture;
@@ -147,23 +137,21 @@ export global ShadowSession {
         ShadowSession.dragging = true;
         CanvasView.manipulating = true;
     }
-    pure function changes(gesture: ShadowGesture, values: ShadowValues) -> [InspectorNumberChange] {
-        if gesture == ShadowGesture.offset {
-            return [
-                { name: ShadowSession.prefix + "offset-x", value: values.offset-x.round() },
-                { name: ShadowSession.prefix + "offset-y", value: values.offset-y.round() },
-            ];
-        }
-        return [{
-            name: ShadowSession.prefix + (gesture == ShadowGesture.blur ? "blur" : "spread"),
-            value: gesture == ShadowGesture.blur ? max(0, values.blur.round()) : values.spread.round(),
-        }];
+    function preview-values(gesture: ShadowGesture, values: ShadowValues) -> bool {
+        return gesture == ShadowGesture.offset
+            ? Properties.inspector-preview(ShadowSession.prefix + "offset-x", { kind: PropertyEditKind.number, number: values.offset-x.round(), unit: "px" })
+                && Properties.inspector-preview(ShadowSession.prefix + "offset-y", { kind: PropertyEditKind.number, number: values.offset-y.round(), unit: "px" })
+            : Properties.inspector-preview(ShadowSession.prefix + (gesture == ShadowGesture.blur ? "blur" : "spread"), {
+                kind: PropertyEditKind.number,
+                number: gesture == ShadowGesture.blur ? max(0, values.blur.round()) : values.spread.round(),
+                unit: "px",
+            });
     }
     public function preview(values: ShadowValues) -> bool {
-        if ShadowSession.pending { return false; }
         if !ShadowSession.canvas-active { ShadowSession.close(); return false; }
         if !ShadowSession.dragging { return false; }
-        if Api.inspector-preview-shadow(ShadowSession.gesture-key, ShadowSession.changes(ShadowSession.gesture, values)) {
+        if ShadowSession.gesture-key != ShadowSession.key { ShadowSession.cancel(); return false; }
+        if ShadowSession.preview-values(ShadowSession.gesture, values) {
             ShadowSession.draft = values;
             return true;
         }
@@ -171,30 +159,24 @@ export global ShadowSession {
         return false;
     }
     public function commit(gesture: ShadowGesture, values: ShadowValues) -> bool {
-        if ShadowSession.pending { return false; }
         if !ShadowSession.canvas-active { ShadowSession.close(); return false; }
-        let source = ShadowSession.source-values;
-        let unchanged = gesture == ShadowGesture.offset ? values.offset-x == source.offset-x && values.offset-y == source.offset-y
-            : gesture == ShadowGesture.blur ? values.blur == source.blur : values.spread == source.spread;
-        if unchanged { ShadowSession.cancel(); return true; }
-        let key = ShadowSession.dragging ? ShadowSession.gesture-key : ShadowSession.key;
-        ShadowSession.draft = values;
+        if ShadowSession.dragging && ShadowSession.gesture-key != ShadowSession.key {
+            ShadowSession.cancel();
+            return false;
+        }
+        let previewed = ShadowSession.preview-values(gesture, values);
         ShadowSession.dragging = false;
         CanvasView.manipulating = false;
         ShadowSession.gesture = gesture;
-        ShadowSession.pending-source-version = Api.current-element.source-version;
-        ShadowSession.pending = true;
-        let result = Api.inspector-commit-shadow(key, ShadowSession.changes(gesture, values));
-        ShadowSession.pending = result == InspectorCommitResult.pending;
-        if result == InspectorCommitResult.rejected { Api.inspector-cancel(); }
-        return result != InspectorCommitResult.rejected;
+        let accepted = previewed && Properties.inspector-commit();
+        if !accepted { Properties.inspector-cancel(); }
+        return accepted;
     }
     public function cancel() {
-        ShadowSession.pending = false;
         if ShadowSession.dragging {
             ShadowSession.dragging = false;
             CanvasView.manipulating = false;
-            Api.inspector-cancel();
+            Properties.inspector-cancel();
         }
     }
 }

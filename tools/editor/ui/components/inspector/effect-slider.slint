@@ -54,7 +54,7 @@ export component InspectorEffectSlider inherits Rectangle {
                 if !text.is-float() { return false; }
                 let rounded = text.to-float().round();
                 let value = root.clamp-maximum ? rounded.clamp(root.minimum, root.maximum) : max(root.minimum, rounded);
-                return value != root.value && root.accepted(value);
+                return root.accepted(value);
             }
         }
     }

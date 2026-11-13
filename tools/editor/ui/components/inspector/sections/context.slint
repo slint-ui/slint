@@ -1,8 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Api, CoordinateSpace, CodeBinding, ElementInformation, PropertyValueKind, SelectionRectangle } from "../../../api.slint";
-import { InspectorEnumOptions } from "../enum-options.slint";
+import { Properties, CodeBinding, PropertyValueKind, PropertyEditKind, PropertyEditValue } from "../../../properties.slint";
+
+import { Api, CoordinateSpace, ElementInformation, SelectionRectangle } from "../../../api.slint";
 
 export global InspectorContext {
     out property <ElementInformation> element-information: Api.current-element;
@@ -10,11 +11,32 @@ export global InspectorContext {
         ? Api.highlight-positions(InspectorContext.element-information.source-uri, InspectorContext.element-information.offset)
         : [];
     out property <string> selection-key: InspectorContext.element-information.source-uri + ":" + InspectorContext.element-information.offset + ":" + Api.selection.highlight-index;
-    out property <string> inspector-key: InspectorContext.element-information.source-uri + ":" + InspectorContext.element-information.source-version + ":" + InspectorContext.element-information.offset + ":" + Api.selection.highlight-index + ":" + Api.inspector-generation;
-    out property <[float]> control-values: Api.inspector-values(InspectorContext.inspector-key);
+    out property <string> inspector-key: InspectorContext.element-information.source-uri + ":" + InspectorContext.element-information.source-version + ":" + InspectorContext.element-information.offset + ":" + Api.selection.highlight-index + ":" + Properties.inspector-generation;
+    public function commit-value(name: string, value: PropertyEditValue) -> bool {
+        if !Properties.inspector-preview(name, value) || !Properties.inspector-commit() {
+            Properties.inspector-cancel();
+            return false;
+        }
+        return true;
+    }
 
-    public function commit-inspector(name: string, value: float) -> bool {
-        return Api.inspector-commit(InspectorContext.inspector-key, name, value);
+    public function preview-number(name: string, value: float, unit: string) -> bool {
+        return Properties.inspector-preview(name, { kind: PropertyEditKind.number, number: value, unit: unit });
+    }
+
+    public function commit-number(name: string, value: float, unit: string) -> bool {
+        let property = Properties.source-property-value-data(name, {});
+        return InspectorContext.commit-value(name, property.value-kind == PropertyValueKind.integer
+            ? { kind: PropertyEditKind.integer, integer: value }
+            : { kind: PropertyEditKind.number, number: value, unit: unit });
+    }
+
+    public function commit-boolean(name: string, value: bool) -> bool {
+        return InspectorContext.commit-value(name, { kind: PropertyEditKind.boolean, boolean: value });
+    }
+
+    public function commit-enum(name: string, value: string) -> bool {
+        return InspectorContext.commit-value(name, { kind: PropertyEditKind.enumeration, text: value });
     }
 
     public pure function has-backend-rect() -> bool {
@@ -65,10 +87,7 @@ export global InspectorContext {
     }
 
     public pure function is-checkable() -> bool {
-        let runtime = Api.runtime-property-value-data("checkable", {});
-        return runtime.value-resolved
-            ? runtime.value-bool
-            : Api.source-property-value-data("checkable", {}).value-bool;
+        return Properties.editor-property-value-data("checkable").value-bool;
     }
 
     public pure function is-checkbox-selection() -> bool {
@@ -95,7 +114,7 @@ export global InspectorContext {
     }
 
     public pure function has-scrollbar-policy-selection() -> bool {
-        return InspectorContext.has-backend-rect() && Api.has-property("horizontal-scrollbar-policy");
+        return InspectorContext.has-backend-rect() && Properties.has-property("horizontal-scrollbar-policy");
     }
 
     public pure function is-resizable-selection() -> bool {
@@ -104,7 +123,7 @@ export global InspectorContext {
 
     public pure function has-text-property-selection() -> bool {
         return (Api.selection.highlight-index >= 0 && InspectorContext.element-information.type-name == "Tooltip")
-            || (InspectorContext.has-backend-rect() && Api.has-property("text"));
+            || (InspectorContext.has-backend-rect() && Properties.has-property("text"));
     }
 
     public pure function has-typography-selection() -> bool {
@@ -117,7 +136,7 @@ export global InspectorContext {
 
     public pure function is-title-selection() -> bool {
         return Api.selection.highlight-index >= 0
-            && Api.has-property("title");
+            && Properties.has-property("title");
     }
 
     public pure function is-lineedit-selection() -> bool {
@@ -126,7 +145,7 @@ export global InspectorContext {
 
     public pure function has-placeholder-selection() -> bool {
         return Api.selection.highlight-index >= 0
-            && Api.has-property("placeholder-text");
+            && Properties.has-property("placeholder-text");
     }
 
     public pure function has-only-horizontal-alignment() -> bool {
@@ -146,12 +165,12 @@ export global InspectorContext {
 
     public pure function is-interaction-selection() -> bool {
         return Api.selection.highlight-index >= 0
-            && Api.has-property("enabled");
+            && Properties.has-property("enabled");
     }
 
     public pure function is-read-only-selection() -> bool {
         return Api.selection.highlight-index >= 0
-            && Api.has-property("read-only");
+            && Properties.has-property("read-only");
     }
 
     public pure function is-layout-selection() -> bool {
@@ -197,6 +216,12 @@ export global InspectorContext {
             return InspectorContext.selection-rects[Api.selection.highlight-index].height;
         }
         return 0px;
+    }
+
+    public pure function selected-transform-rotation() -> float {
+        return InspectorContext.has-backend-rect()
+            ? InspectorContext.selection-rects[Api.selection.highlight-index].transform-rotation / 1deg
+            : 0;
     }
 
     public pure function selected-x-label() -> string {
@@ -260,7 +285,7 @@ export global InspectorContext {
     }
 
     public function commit-code(property-name: string, value: string) -> bool {
-        return Api.commit-code-binding(InspectorContext.element-information, property-name, value);
+        return Properties.commit-code-binding(InspectorContext.element-information, property-name, value);
     }
 
     public function commit-px-code(property-name: string, value: string) -> bool {
@@ -282,41 +307,25 @@ export global InspectorContext {
     }
 
     public pure function fill-session-key(property-name: string) -> string {
-        return InspectorContext.selection-key + ":" + Api.inspector-fill-generation + ":" + property-name;
+        return InspectorContext.selection-key + ":" + Properties.inspector-fill-generation + ":" + property-name;
     }
 
-    public pure function property-brush(property-name: string) -> brush {
-        let property = Api.runtime-property-value-data(property-name, {});
-        return property.value-resolved ? property.value-brush : transparent;
-    }
-
-    public pure function property-string(property-name: string, fallback: string) -> string {
-        let property = Api.source-property-value-data(property-name, {});
-        if property.code == "" {
-            return fallback;
-        }
-        if property.value-kind == PropertyValueKind.string && property.value-string != "" {
-            return property.value-string;
-        }
-        if property.display-string != "" {
-            return property.display-string;
-        }
-        return property.code;
+    public pure function property-number-label(property-name: string, fallback: string) -> string {
+        let property = Properties.hooked-property-value-data(property-name, { value-string: Properties.source-property-value(property-name, fallback) });
+        return property.value-kind == PropertyValueKind.float ? "\{property.value-float}" : property.value-string;
     }
 
     public pure function property-length-label(property-name: string, fallback: string) -> string {
-        let property = Api.source-property-value-data(property-name, {});
-        if property.code == "" {
-            return fallback;
-        }
-        if property.value-kind == PropertyValueKind.float || property.kind == PropertyValueKind.float {
-            return property.value-float.to-fixed(0);
-        }
-        return property.code;
+        let property = Properties.source-property-value-data(property-name, {});
+        let value = property.code == "" ? fallback
+            : property.value-kind == PropertyValueKind.float || property.kind == PropertyValueKind.float
+                ? property.value-float.to-fixed(0) : property.code;
+        let hooked = Properties.hooked-property-value-data(property-name, { value-string: value, value-kind: PropertyValueKind.string });
+        return hooked.value-kind == PropertyValueKind.float ? hooked.value-float.to-fixed(0) : hooked.value-string;
     }
 
     public function commit-codes(bindings: [CodeBinding]) -> bool {
-        return Api.set-code-bindings(
+        return Properties.set-code-bindings(
             InspectorContext.element-information.source-uri,
             InspectorContext.element-information.source-version,
             InspectorContext.element-information.offset,
@@ -324,35 +333,34 @@ export global InspectorContext {
         );
     }
 
-    public pure function quote(value: string) -> string {
-        return "\"" + value + "\"";
-    }
-
     public function choose-image-source() {
-        let expression = Api.choose-image-file(InspectorContext.element-information.source-uri);
+        let expression = Properties.choose-image-file(InspectorContext.element-information.source-uri);
         if expression != "" {
             InspectorContext.commit-code("source", expression);
         }
     }
 
-    public pure function text-font-family-value() -> string {
-        return InspectorContext.property-string("font-family", @tr("Default font"));
-    }
-
     public pure function text-font-size-value() -> string {
-        return InspectorContext.property-length-label("font-size", @tr("Default size"));
+        let value = Properties.editor-property-value-data("font-size");
+        if value.code == "" {
+            return "\{Api.preview-default-font-size}";
+        }
+        if value.kind == PropertyValueKind.float && value.visual-items[value.value-int] == "px" {
+            return "\{value.value-float}";
+        }
+        return value.code;
     }
 
     public function set-image-alignment(column: int, row: int) -> bool {
         if column < 0 || column > 2 || row < 0 || row > 2 {
             return false;
         }
-        if column == InspectorEnumOptions.option-index("horizontal-alignment", "center", InspectorEnumOptions.image-horizontal-alignment-options) && row == InspectorEnumOptions.option-index("vertical-alignment", "center", InspectorEnumOptions.image-vertical-alignment-options) {
-            return true;
+        if !Properties.inspector-preview("horizontal-alignment", { kind: PropertyEditKind.enumeration, text: column == 0 ? "left" : column == 1 ? "center" : "right" })
+            || !Properties.inspector-preview("vertical-alignment", { kind: PropertyEditKind.enumeration, text: row == 0 ? "top" : row == 1 ? "center" : "bottom" })
+            || !Properties.inspector-commit() {
+            Properties.inspector-cancel();
+            return false;
         }
-        return InspectorContext.commit-codes([
-            { name: "horizontal-alignment", value: column == 0 ? "left" : column == 1 ? "center" : "right" },
-            { name: "vertical-alignment", value: row == 0 ? "top" : row == 1 ? "center" : "bottom" },
-        ]);
+        return true;
     }
 }

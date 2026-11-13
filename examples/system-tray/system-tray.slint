@@ -100,6 +100,7 @@ export component ExampleTray inherits SystemTrayIcon {
     // from the host language to detach the menu and exercise the
     // "no menu attached" branch (on macOS that's where `clicked` fires).
     in-out property <bool> menu-enabled: true;
+    in-out property <bool> window-visible: true;
 
     callback toggle-window;
     callback quit;
@@ -110,7 +111,9 @@ export component ExampleTray inherits SystemTrayIcon {
 
     if root.menu-enabled : Menu {
         MenuItem {
-            title: "Show / hide window";
+            title: "Show window";
+            checkable: true;
+            checked <=> root.window-visible;
             activated => { toggle-window(); }
         }
         MenuSeparator {}

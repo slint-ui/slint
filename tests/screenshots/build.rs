@@ -175,7 +175,7 @@ fn generate_source(
     compiler_config.include_paths = include_paths;
     compiler_config.embed_resources = embed_resources;
     compiler_config.experimental_features = i_slint_compiler::ExperimentalFeatures::all();
-    compiler_config.edition = Some(i_slint_compiler::project_file::SlintEdition::current());
+    compiler_config.edition = Some(test_driver_lib::edition_or_current(source).parse().unwrap());
     compiler_config.style = Some("fluent".to_string());
     compiler_config.const_scale_factor = scale_factor.into();
     let (root_component, diag, loader) =

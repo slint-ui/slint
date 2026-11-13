@@ -3,7 +3,7 @@
 
 //! This module contains the GraphicsWindow that used to be within corelib.
 
-// cspell:ignore accesskit borderless corelib nesw webgl winit winsys xlib
+// cspell:ignore accesskit borderless capslock corelib nesw webgl winit winsys xlib
 
 use core::cell::{Cell, RefCell};
 #[cfg(target_os = "macos")]
@@ -17,6 +17,7 @@ use euclid::approxeq::ApproxEq;
 #[cfg(muda)]
 use i_slint_core::api::LogicalPosition;
 use i_slint_core::cursor::{MouseCursorHandling, MouseCursorInner, scaled_hotspot};
+use i_slint_core::items::{PopupAnchorLocation, PopupConstraintAdjustment, PopupGravity};
 use i_slint_core::lengths::{PhysicalPx, ScaleFactor};
 #[cfg(muda)]
 use i_slint_core::menus::MenuVTable;
@@ -48,7 +49,9 @@ use crate::drag_and_drop::{self, PendingNativeDrag};
 use crate::{EventResult, SharedBackendData};
 use corelib::api::PhysicalSize;
 use corelib::layout::Orientation;
-use corelib::lengths::{LogicalLength, LogicalPoint, LogicalRect, logical_size_from_api};
+use corelib::lengths::{
+    LogicalLength, LogicalPoint, LogicalRect, LogicalVector, logical_size_from_api,
+};
 use corelib::platform::{PlatformError, WindowEvent};
 use corelib::window::{DragRequest, WindowAdapter, WindowAdapterInternal, WindowInner};
 use corelib::{Coord, graphics::*};
@@ -56,7 +59,7 @@ use i_slint_core::{self as corelib};
 use winit::cursor::CustomCursorSource;
 use winit::event::WindowEvent as WinitWindowEvent;
 use winit::keyboard::Key;
-use winit::window::{ResizeDirection, WindowAttributes, WindowButtons};
+use winit::window::{ResizeDirection, WindowAttributes, WindowButtons, WindowType};
 
 fn winit_touch_phase(phase: winit::event::TouchPhase) -> corelib::input::TouchPhase {
     match phase {
@@ -401,7 +404,18 @@ impl WinitWindowOrNone {
         }
     }
 
+    fn window_type(&self) -> WindowType {
+        match self {
+            Self::HasWindow { window, .. } => window.window_type(),
+            Self::None(attributes) => attributes.borrow().window_type(),
+        }
+    }
+
     fn set_decorations(&self, decorations: bool) {
+        // winit-appkit applies a titled style mask even to popups.
+        if self.window_type() != WindowType::Window {
+            return;
+        }
         match self {
             Self::HasWindow { window, .. } => window.set_decorations(decorations),
             Self::None(attributes) => attributes.borrow_mut().decorations = decorations,
@@ -1331,6 +1345,9 @@ impl WinitWindowAdapter {
 
     pub fn window_state_event(&self) {
         let Some(winit_window) = self.winit_window_or_none.borrow().as_window() else { return };
+        if winit_window.window_type() != WindowType::Window {
+            return;
+        }
 
         if let Some(minimized) = winit_window.is_minimized() {
             self.minimized.set(minimized);
@@ -1344,6 +1361,25 @@ impl WinitWindowAdapter {
         // that we only update the internal maximized state when the window is
         // not minimized. Otherwise, the window would be restored in a
         // non-maximized state even if it was maximized before being minimized.
+        //
+        // On macOS, winit's `is_maximized` temporarily makes a window titled and resizable.
+        // AppKit then moves the window below the menu bar and emits another resize
+        // (rust-windowing/winit#4071).
+        // The user can't zoom a window that lacks either, so the last requested state is accurate.
+        #[cfg(target_os = "macos")]
+        let maximized = if crate::macos::ns_view(&*winit_window)
+            .and_then(|view| view.window())
+            .is_some_and(|ns_window| {
+                use objc2_app_kit::NSWindowStyleMask;
+                ns_window
+                    .styleMask()
+                    .contains(NSWindowStyleMask::Titled | NSWindowStyleMask::Resizable)
+            }) {
+            winit_window.is_maximized()
+        } else {
+            self.maximized.get()
+        };
+        #[cfg(not(target_os = "macos"))]
         let maximized = winit_window.is_maximized();
         if !self.window().is_minimized() {
             self.maximized.set(maximized);
@@ -1447,6 +1483,63 @@ impl WinitWindowAdapter {
 
     fn dispatch_internal_event(&self, event: impl Into<corelib::platform::InternalEvent>) {
         self.window().dispatch_event(WindowEvent::internal(event));
+    }
+
+    /// Returns the origin of this popup in the logical coordinates of its parent window,
+    /// or `None` if this isn't a popup or the platform doesn't report the position.
+    fn origin_in_parent(&self) -> Option<LogicalVector> {
+        let parent = self.parent.upgrade()?;
+        let window = self.winit_window()?;
+        let scale_factor = self.window().scale_factor() as f64;
+        // On Wayland, a popup's outer position is relative to its parent,
+        // and a toplevel's position is unknown.
+        let origin = if self.shared_backend_data.is_wayland {
+            window.outer_position().ok()?.to_logical::<f64>(scale_factor)
+        } else {
+            let parent_window = parent.winit_window()?;
+            let screen_origin = |w: &dyn winit::window::Window| {
+                let outer = w.outer_position().ok()?;
+                let surface = w.surface_position();
+                Some((outer.x + surface.x, outer.y + surface.y))
+            };
+            let (x, y) = screen_origin(&*window)?;
+            let (px, py) = screen_origin(&*parent_window)?;
+            winit::dpi::PhysicalPosition::new(x - px, y - py).to_logical::<f64>(scale_factor)
+        };
+        Some(LogicalVector::new(origin.x as Coord, origin.y as Coord))
+    }
+
+    /// Returns the window that should receive a mouse event at `position`, and the position
+    /// in that window.
+    /// While a popup grabs the pointer, the platform delivers the events over the parent windows
+    /// to the popup.
+    /// Forward those to the parent window under the pointer, so that, for example, hovering
+    /// another menu bar entry switches the open menu.
+    fn adjust_mouse_event_to_popup_parent(
+        &self,
+        position: LogicalPoint,
+    ) -> (Rc<Self>, LogicalPoint) {
+        let this = self.self_weak.upgrade().expect("adapter is alive while handling its events");
+        let contains = |adapter: &Self, position: LogicalPoint| {
+            let window = adapter.window();
+            let size = window.size().to_logical(window.scale_factor());
+            LogicalRect::new(LogicalPoint::default(), euclid::size2(size.width, size.height))
+                .contains(position)
+        };
+        if contains(&this, position) {
+            return (this, position);
+        }
+        let mut target = this;
+        let mut target_position = position;
+        while let Some(parent) = target.parent.upgrade() {
+            let Some(origin) = target.origin_in_parent() else { break };
+            target = parent;
+            target_position += origin;
+            if contains(&target, target_position) {
+                break;
+            }
+        }
+        (target, target_position)
     }
 
     /// Handles a winit window event for this window: applies the window event filter, feeds
@@ -1649,6 +1742,20 @@ impl WinitWindowAdapter {
 
                 self.dispatch_internal_event(event);
             }
+            WinitWindowEvent::ModifiersChanged(modifiers) => {
+                // A modifier's release can arrive as a key that doesn't map to the modifier,
+                // such as Shift's `Caps_Lock` level with xkb's `shift:both_capslock_cancel` (#14429).
+                let state = modifiers.state();
+                let mut held = corelib::items::KeyboardModifiers::default();
+                held.alt = state.alt_key();
+                held.shift = state.shift_key();
+                (held.control, held.meta) = if i_slint_core::is_apple_platform() {
+                    (state.meta_key(), state.control_key())
+                } else {
+                    (state.control_key(), state.meta_key())
+                };
+                WindowInner::from_pub(self.window()).release_modifiers_not_held(held);
+            }
             WinitWindowEvent::Ime(winit::event::Ime::Preedit(string, preedit_selection)) => {
                 let event = InternalKeyEvent {
                     event_type: KeyEventType::UpdateComposition,
@@ -1686,8 +1793,9 @@ impl WinitWindowAdapter {
                 if let winit::event::PointerSource::Touch { finger_id, .. } = source {
                     self.dispatch_touch_event((*device_id, *finger_id), logical, TouchPhase::Moved);
                 } else {
+                    let (target, position) = self.adjust_mouse_event_to_popup_parent(logical);
                     // winit sends this event at a very high frequency, so coalesce the moves.
-                    self.shared_backend_data.buffer_mouse_move(&self.self_weak, logical);
+                    self.shared_backend_data.buffer_mouse_move(&Rc::downgrade(&target), position);
                     if self.pressed.get() {
                         // A held-button move may cross a DragArea's threshold and start a
                         // native drag. That must happen while the platform's pointer grab is
@@ -1755,6 +1863,7 @@ impl WinitWindowAdapter {
                 // For the events that carry no position of their own.
                 self.cursor_pos.set(logical);
 
+                let (target, position) = self.adjust_mouse_event_to_popup_parent(logical);
                 let ev = match state {
                     winit::event::ElementState::Pressed => {
                         if button == PointerEventButton::Left
@@ -1766,7 +1875,7 @@ impl WinitWindowAdapter {
 
                         self.pressed.set(true);
                         BackendMouseEvent::Pressed {
-                            position: logical,
+                            position,
                             button,
                             click_count: 0,
                             touch_finger_id: 0,
@@ -1775,14 +1884,14 @@ impl WinitWindowAdapter {
                     winit::event::ElementState::Released => {
                         self.pressed.set(false);
                         BackendMouseEvent::Released {
-                            position: logical,
+                            position,
                             button,
                             click_count: 0,
                             touch_finger_id: 0,
                         }
                     }
                 };
-                self.dispatch_internal_event(ev);
+                target.dispatch_internal_event(ev);
             }
             WinitWindowEvent::ScaleFactorChanged { scale_factor, surface_size_writer } => {
                 if std::env::var("SLINT_SCALE_FACTOR").is_err() {
@@ -2175,6 +2284,21 @@ impl WinitWindowAdapter {
         self.pending_redraw.get()
     }
 
+    /// Asks the windowing system and updates `Window::is_minimized()` to match,
+    /// because winit's X11 backend emits no event when the window manager minimizes a window.
+    pub(crate) fn is_minimized_on_screen(&self) -> bool {
+        let minimized =
+            self.winit_window().is_some_and(|window| window.is_minimized() == Some(true));
+        if minimized != self.window().is_minimized() {
+            self.window_state_event();
+        }
+        minimized
+    }
+
+    pub(crate) fn cancel_pending_redraw(&self) {
+        self.pending_redraw.set(false);
+    }
+
     pub async fn async_winit_window(
         self_weak: Weak<Self>,
     ) -> Result<Arc<dyn winit::window::Window>, PlatformError> {
@@ -2251,12 +2375,7 @@ impl WindowAdapter for WinitWindowAdapter {
                 window.set_outer_position(position_for_winit(winit_pos))
             }
             WinitWindowOrNone::None(attributes) => {
-                let mut attributes = attributes.borrow_mut();
-                attributes.position = Some(winit_pos);
-                // winit places a window with a positioner by its anchor rect, not by `position`.
-                if let Some(positioner) = attributes.positioner.as_mut() {
-                    positioner.anchor_rect.0 = winit_pos;
-                }
+                attributes.borrow_mut().position = Some(winit_pos);
             }
         }
     }
@@ -2273,6 +2392,7 @@ impl WindowAdapter for WinitWindowAdapter {
 
     fn request_redraw(&self) {
         if !self.pending_redraw.replace(true)
+            && self.shown.get() != WindowVisibility::Hidden
             && let WinitWindowOrNone::HasWindow { window, frame_throttle, .. } =
                 &*self.winit_window_or_none.borrow()
         {
@@ -2449,6 +2569,53 @@ impl WindowAdapter for WinitWindowAdapter {
 
     fn internal(&self, _: corelib::InternalToken) -> Option<&dyn WindowAdapterInternal> {
         Some(self)
+    }
+
+    fn set_position_anchor(&self, anchor: &i_slint_core::items::PopupAnchor) {
+        use winit::dpi::{LogicalPosition, LogicalSize};
+
+        let offset = LogicalPosition::new(anchor.x as i32, anchor.y as i32);
+        let anchor_size =
+            LogicalSize::new((anchor.width as i32).max(1), (anchor.height as i32).max(1));
+        let winit_window_or_none = self.winit_window_or_none.borrow_mut();
+        match *winit_window_or_none {
+            WinitWindowOrNone::HasWindow { ref window, .. } => {
+                if matches!(window.window_type(), WindowType::Popup) {
+                    let mut positioner = window.positioner();
+                    positioner.anchor = anchor_to_winit(anchor.location);
+                    positioner.gravity = gravity_to_winit(anchor.gravity);
+                    positioner.constraint_adjustment = constraint_adjustment_to_winit(
+                        &anchor.constraint_adjustment_x,
+                        &anchor.constraint_adjustment_y,
+                    );
+                    positioner.offset = offset.into();
+                    // The anchor position is set when changing the x/y properties of the popup
+                    positioner.anchor_rect = (positioner.anchor_rect.0, anchor_size.into());
+
+                    window.set_positioner(positioner);
+                }
+            }
+            WinitWindowOrNone::None(ref window_attributes) => {
+                use winit::dpi::{LogicalPosition, Position};
+
+                let anchor_position = window_attributes
+                    .borrow()
+                    .position
+                    .unwrap_or_else(|| Position::new(LogicalPosition::new(0., 0.)));
+
+                let wa = window_attributes.borrow().clone().with_positioner(WindowPositioner::new(
+                    anchor_to_winit(anchor.location),
+                    (anchor_position, anchor_size.into()),
+                    offset.into(),
+                    gravity_to_winit(anchor.gravity),
+                    constraint_adjustment_to_winit(
+                        &anchor.constraint_adjustment_x,
+                        &anchor.constraint_adjustment_y,
+                    ),
+                ));
+                *window_attributes.borrow_mut() = wa;
+            }
+        }
     }
 }
 
@@ -2716,19 +2883,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
                 .with_decorations(false)
                 .with_visible(true)
                 .with_active(window_kind != WindowKind::ToolTip)
-                .with_window_type(WindowType::Popup)
-                // winit's default positioner centers the popup on its position.
-                .with_positioner(WindowPositioner::new(
-                    winit::window::WindowAnchor::TopLeft,
-                    (
-                        winit::dpi::LogicalPosition::new(0., 0.).into(),
-                        winit::dpi::LogicalSize::new(1., 1.).into(),
-                    ),
-                    winit::dpi::LogicalPosition::new(0., 0.).into(),
-                    winit::window::WindowGravity::BottomRight,
-                    winit::window::WindowConstraintAdjustment::SLIDE_X
-                        | winit::window::WindowConstraintAdjustment::SLIDE_Y,
-                ));
+                .with_window_type(WindowType::Popup);
 
             if let Ok(parent) = winit_window.window_handle() {
                 window_attributes =
@@ -2996,4 +3151,56 @@ fn canvas_has_explicit_size_set(canvas: &web_sys::HtmlCanvasElement) -> bool {
 
     computed_style.get_property_value("width").ok().as_deref() != Some("auto")
         || computed_style.get_property_value("height").ok().as_deref() != Some("auto")
+}
+
+fn anchor_to_winit(value: PopupAnchorLocation) -> winit::window::WindowAnchor {
+    match value {
+        PopupAnchorLocation::Center => winit::window::WindowAnchor::Center,
+        PopupAnchorLocation::Top => winit::window::WindowAnchor::Top,
+        PopupAnchorLocation::Bottom => winit::window::WindowAnchor::Bottom,
+        PopupAnchorLocation::Left => winit::window::WindowAnchor::Left,
+        PopupAnchorLocation::Right => winit::window::WindowAnchor::Right,
+        PopupAnchorLocation::TopLeft => winit::window::WindowAnchor::TopLeft,
+        PopupAnchorLocation::BottomLeft => winit::window::WindowAnchor::BottomLeft,
+        PopupAnchorLocation::TopRight => winit::window::WindowAnchor::TopRight,
+        PopupAnchorLocation::BottomRight => winit::window::WindowAnchor::BottomRight,
+        _ => {
+            debug_assert!(false, "Not implemented: {value:?}");
+            winit::window::WindowAnchor::Center
+        }
+    }
+}
+
+fn gravity_to_winit(value: PopupGravity) -> winit::window::WindowGravity {
+    match value {
+        PopupGravity::Center => winit::window::WindowGravity::Center,
+        PopupGravity::Top => winit::window::WindowGravity::Top,
+        PopupGravity::Bottom => winit::window::WindowGravity::Bottom,
+        PopupGravity::Left => winit::window::WindowGravity::Left,
+        PopupGravity::Right => winit::window::WindowGravity::Right,
+        PopupGravity::TopLeft => winit::window::WindowGravity::TopLeft,
+        PopupGravity::BottomLeft => winit::window::WindowGravity::BottomLeft,
+        PopupGravity::TopRight => winit::window::WindowGravity::TopRight,
+        PopupGravity::BottomRight => winit::window::WindowGravity::BottomRight,
+        _ => {
+            debug_assert!(false, "Not implemented: {value:?}");
+            winit::window::WindowGravity::Center
+        }
+    }
+}
+
+fn constraint_adjustment_to_winit(
+    x: &PopupConstraintAdjustment,
+    y: &PopupConstraintAdjustment,
+) -> winit::window::WindowConstraintAdjustment {
+    let mut c = winit::window::WindowConstraintAdjustment::empty();
+
+    c.set(winit::window::WindowConstraintAdjustment::FLIP_X, x.flip);
+    c.set(winit::window::WindowConstraintAdjustment::FLIP_Y, y.flip);
+    c.set(winit::window::WindowConstraintAdjustment::SLIDE_X, x.slide);
+    c.set(winit::window::WindowConstraintAdjustment::SLIDE_Y, y.slide);
+    c.set(winit::window::WindowConstraintAdjustment::RESIZE_X, x.resize);
+    c.set(winit::window::WindowConstraintAdjustment::RESIZE_Y, y.resize);
+
+    c
 }

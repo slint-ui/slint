@@ -163,6 +163,21 @@ impl SourcePath {
         let (stem, extension) = self.file_name()?.rsplit_once('.')?;
         (!stem.is_empty()).then_some(extension)
     }
+
+    /// The path of `self` from the directory `base`, starting with `..` if `self` is outside of it.
+    /// A relative `self` is taken as relative to `base`.
+    ///
+    /// Returns `None` unless both are a `File` with a common root.
+    /// Two drives on Windows have none.
+    pub fn relative_to(&self, base: &Self) -> Option<Self> {
+        let (Self::File(path), Self::File(base)) = (self, base) else { return None };
+        let path = clean_path(&base.join(path));
+        let common = path.components().zip(base.components()).take_while(|(a, b)| a == b).count();
+        (common > 0).then(|| {
+            let parents = base.components().skip(common).map(|_| Component::ParentDir);
+            Self::File(parents.chain(path.components().skip(common)).collect())
+        })
+    }
 }
 
 #[cfg(feature = "std")]
@@ -358,6 +373,28 @@ mod tests {
         }
         assert_eq!(join("ui/main.slint", "sub\\x.slint"), SourcePath::new("ui/sub/x.slint"));
         assert_eq!(join("/ui/main.slint", "\\abs\\x.slint"), SourcePath::new("/abs/x.slint"));
+    }
+
+    #[test]
+    fn relative_paths() {
+        let relative_to =
+            |path: &str, base: &str| SourcePath::new(path).relative_to(&SourcePath::new(base));
+        for (path, base, relative) in [
+            ("/a/b/c.slint", "/a", "b/c.slint"),
+            ("/a/c.slint", "/a/b", "../c.slint"),
+            ("/x/c.slint", "/a/b", "../../x/c.slint"),
+            ("/ab/c.slint", "/a", "../ab/c.slint"),
+            ("c.slint", "/a", "c.slint"),
+            ("../c.slint", "/a/b", "../c.slint"),
+        ] {
+            assert_eq!(relative_to(path, base), Some(SourcePath::new(relative)), "{path} {base}");
+        }
+        assert_eq!(relative_to("/a", "b"), None);
+        assert_eq!(relative_to("builtin:/a.slint", "/a"), None);
+        assert_eq!(relative_to("https://slint.dev/a.slint", "/a"), None);
+        assert_eq!(relative_to("/a", "https://slint.dev/"), None);
+        #[cfg(windows)]
+        assert_eq!(relative_to("D:/a.slint", "C:/a"), None);
     }
 
     /// The remote preview asks the editor for imports by the URL it derives back (#13674).

@@ -11,18 +11,12 @@ name: Build docs
 
 on:
     workflow_call:
-      secrets:
-        READ_WRITE_PRIVATE_KEY:
-          required: true
       inputs:
         release:
           type: string
           default: "false"
           required: false
           description: "Release? Enable options for building binaries for a release (i.e. apply a nightly tag, nightly version)"
-        app-id:
-          type: string
-          required: true
         slint-sc-coverage:
           type: boolean
           default: false
@@ -61,7 +55,7 @@ jobs:
             - uses: ./.github/actions/install-linux-dependencies
               with:
                   extra-packages: doxygen
-            - uses: pnpm/action-setup@v6.1.0
+            - uses: pnpm/action-setup@v6.1.1
             - uses: actions/setup-node@v7
               with:
                 node-version: 24
@@ -148,7 +142,7 @@ jobs:
             BRANCH_NAME: ${{ github.ref_name }}
         steps:
             - uses: actions/checkout@v7
-            - uses: pnpm/action-setup@v6.1.0
+            - uses: pnpm/action-setup@v6.1.1
             - uses: actions/setup-node@v7
               with:
                 node-version: 24
@@ -308,7 +302,7 @@ jobs:
             RELEASE_INPUT: ${{ inputs.release }}
         steps:
             - uses: actions/checkout@v7
-            - uses: pnpm/action-setup@v6.1.0
+            - uses: pnpm/action-setup@v6.1.1
             - uses: actions/setup-node@v7
               with:
                 node-version: 24

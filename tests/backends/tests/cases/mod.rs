@@ -4,6 +4,7 @@
 pub mod context_menu;
 pub mod menubar;
 pub mod platform_uses_mock_data;
+pub mod popupwindow_anchor;
 pub mod popupwindow_location;
 pub mod popupwindow_size;
 pub mod popupwindow_size2;
@@ -18,7 +19,7 @@ use std::sync::{
 #[satchel::test]
 fn multiple_quit_event_loop_calls() {
     slint::slint! {
-        #[edition = "1.19"]
+        #[edition = "1.20"]
         export component App inherits Window {
             Text { text: "Hello"; }
         }

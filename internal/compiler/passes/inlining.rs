@@ -101,6 +101,14 @@ fn inline_element(
 
     let mut elem_mut = elem.borrow_mut();
     let priority_delta = 1 + elem_mut.inline_depth;
+    debug_assert!(
+        elem_mut
+            .real_bindings()
+            .map(|(_, b)| b.borrow())
+            .filter(|b| b.from_source)
+            .all(|b| b.priority == 1 + elem_mut.inline_depth),
+        "an element's own bindings must have priority 1 + inline_depth"
+    );
     elem_mut.base_type = inlined_component.root_element.borrow().base_type.clone();
     let Element { id: elem_id, property_declarations, .. } = &mut *elem_mut;
     for (name, decl) in inlined_component.root_element.borrow().property_declarations.iter() {
@@ -599,6 +607,7 @@ fn inline_element(
     for p in root_component.popup_windows.borrow_mut().iter_mut() {
         fixup_reference(&mut p.x, &mapping);
         fixup_reference(&mut p.y, &mapping);
+        fixup_reference(&mut p.anchor, &mapping);
         if let Some(is_open) = &mut p.is_open {
             fixup_reference(is_open, &mapping);
         }
@@ -689,7 +698,7 @@ fn duplicate_element_with_mapping(
         is_tooltip: elem.is_tooltip,
         z_order: elem.z_order.clone(),
         is_legacy_syntax: elem.is_legacy_syntax,
-        inline_depth: elem.inline_depth + 1,
+        inline_depth: elem.inline_depth + priority_delta,
         slot_target: elem.slot_target.clone(),
         slot_default: elem.slot_default.clone(),
         empty_slot_assignments: elem.empty_slot_assignments.clone(),
@@ -795,6 +804,7 @@ fn duplicate_sub_component(
     for p in new_component.popup_windows.borrow_mut().iter_mut() {
         fixup_reference(&mut p.x, mapping);
         fixup_reference(&mut p.y, mapping);
+        fixup_reference(&mut p.anchor, mapping);
         if let Some(is_open) = &mut p.is_open {
             fixup_reference(is_open, mapping);
         }
@@ -838,6 +848,7 @@ fn duplicate_popup(p: &PopupWindow, mapping: &mut Mapping, priority_delta: i32) 
             .get(&element_key(p.parent_element.clone()))
             .expect("Parent element must be in the mapping")
             .clone(),
+        anchor: p.anchor.clone(),
         is_tooltip: p.is_tooltip,
         is_open: p.is_open.clone(),
     }

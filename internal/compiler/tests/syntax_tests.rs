@@ -27,6 +27,8 @@
 //!
 //! The newlines are replaced by `↵` in the error message. Also the manifest dir (CARGO_MANIFEST_DIR) is replaced by `📂`.
 //!
+//! A `//edition: 1.18` line compiles the file with that edition instead of the current one.
+//!
 //! When the env variable `SLINT_SYNTAX_TEST_UPDATE` is set to `1`, the source code will be modified to add the comments
 //! The env variable `SLINT_TEST_FILTER` accepts a regexp and will filter out tests not matching that pattern
 
@@ -76,7 +78,7 @@ fn syntax_tests() -> std::io::Result<()> {
                 let test_entry = test_entry?;
                 let path = test_entry.path();
                 if let Some(ext) = path.extension()
-                    && (ext == "60" || ext == "slint")
+                    && (ext == "60" || ext == "slint" || ext == "json")
                     && pattern.as_ref().map(|p| p.is_match(&path.to_string_lossy())).unwrap_or(true)
                 {
                     test_entries.push(path);
@@ -267,13 +269,14 @@ fn extract_expected_diags(source: &str) -> Vec<ExpectedDiagnostic> {
 fn process_diagnostics(
     compile_diagnostics: &BuildDiagnostics,
     path: &Path,
+    diagnostic_path: &Path,
     source: &str,
     _silent: bool,
     update: bool,
 ) -> std::io::Result<bool> {
     let mut success = true;
 
-    let path = canonical(path);
+    let diagnostic_path = canonical(diagnostic_path);
 
     let diags = compile_diagnostics
         .iter()
@@ -284,7 +287,7 @@ fn process_diagnostics(
                 i_slint_compiler::diagnostics::Spanned::source_file(*d)
                     .and_then(|f| f.path().as_native_path())
                     .unwrap_or_else(|| panic!("{path:?}: Error without a source file {d:?}",)),
-            ) == path
+            ) == diagnostic_path
         })
         .collect::<Vec<_>>();
 
@@ -483,6 +486,28 @@ fn process_file_source(
     silent: bool,
     update: bool,
 ) -> std::io::Result<bool> {
+    // For project-file tests we add a custom import callback, because the compiler expects the
+    // project file to be called slint-project.json.
+    // Our syntax tests use descriptive file names, so the import callback "renames" them back to
+    // slint-project.json, as far as the compiler is concerned.
+    if path.extension().is_some_and(|extension| extension == "json") {
+        let root = path.with_extension("");
+        let project_path = root.join(i_slint_compiler::project_file::FILE_NAME);
+        let contents = source.clone();
+        let loader: i_slint_compiler::OpenImportCallback = std::rc::Rc::new(move |_| {
+            let contents = contents.clone();
+            Box::pin(async move { Some(Ok(contents)) })
+        });
+        let mut diagnostics = BuildDiagnostics::default();
+        spin_on::spin_on(i_slint_compiler::project_file::load_input(
+            &i_slint_compiler::source_path::SourcePath::new(path),
+            Some(String::new()),
+            Some(i_slint_compiler::source_path::SourcePath::new(&root)),
+            Some(loader),
+            &mut diagnostics,
+        ));
+        return process_diagnostics(&diagnostics, path, &project_path, &source, silent, update);
+    }
     let mut parse_diagnostics = BuildDiagnostics::default();
     let syntax_node = i_slint_compiler::parser::parse(
         source.clone(),
@@ -507,11 +532,15 @@ fn process_file_source(
     #[cfg(not(feature = "slint-sc"))]
     let is_slint_sc = false;
     let mut compiler_config = i_slint_compiler::CompilerConfiguration::new(output_format);
-    compiler_config.library_paths = [(
-        "test-lib".into(),
-        concat!(env!("CARGO_MANIFEST_DIR"), "/tests/typeloader/library").into(),
-    )]
+    let typeloader_tests = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/typeloader");
+    compiler_config.library_paths = [
+        ("test-lib", "library"),
+        ("test-project-lib", "project_library/slint-project.json"),
+        ("test-broken-project-lib", "broken_project_library/slint-project.json"),
+        ("test-no-main-project-lib", "no_main_project_library/slint-project.json"),
+    ]
     .into_iter()
+    .map(|(name, path)| (name.into(), typeloader_tests.join(path)))
     .collect();
     compiler_config.embed_resources = i_slint_compiler::EmbedResourcesKind::OnlyBuiltinResources;
     // The `renderer-software` tests diagnose the glyph embedding, which the other tests skip.
@@ -520,7 +549,11 @@ fn process_file_source(
         compiler_config.embed_resources = i_slint_compiler::EmbedResourcesKind::EmbedTextures;
     }
     compiler_config.experimental_features = i_slint_compiler::ExperimentalFeatures::all();
-    compiler_config.edition = Some(i_slint_compiler::project_file::SlintEdition::current());
+    compiler_config.edition =
+        Some(match regex::Regex::new(r"//edition:\s*(\S+)\s*\n").unwrap().captures(&source) {
+            Some(m) => m[1].parse().unwrap(),
+            None => i_slint_compiler::project_file::SlintEdition::current(),
+        });
     compiler_config.style = Some("fluent".into());
     // The interpreter inlines every component, which merges an instance into
     // its base. A diagnostic that depends on the two staying apart needs the
@@ -548,7 +581,7 @@ fn process_file_source(
     };
 
     let mut success = true;
-    success &= process_diagnostics(&compile_diagnostics, path, &source, silent, update)?;
+    success &= process_diagnostics(&compile_diagnostics, path, path, &source, silent, update)?;
 
     for p in compile_diagnostics.all_loaded_files.iter().filter_map(|p| p.as_native_path()) {
         let source = if p.is_absolute() {
@@ -557,7 +590,7 @@ fn process_file_source(
             // probably std-widgets.slint
             String::new()
         };
-        success &= process_diagnostics(&compile_diagnostics, p, &source, silent, update)?;
+        success &= process_diagnostics(&compile_diagnostics, p, p, &source, silent, update)?;
     }
 
     if has_parse_error {

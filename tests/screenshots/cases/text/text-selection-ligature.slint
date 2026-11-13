@@ -13,7 +13,7 @@
 //
 // Both rows below must show the highlight and the red selection foreground ending at exactly
 // the same vertical edge, in the middle of the ligature.
-TestCase := Window {
+component TestCase inherits Window {
     width: 64px;
     height: 64px;
 
@@ -28,8 +28,7 @@ TestCase := Window {
         color: black;
         selection-background-color: #c8c8c8;
         selection-foreground-color: red;
-        anchor-position-byte-offset: 1;
-        cursor-position-byte-offset: 2;
+        init => { self.set-selection-offsets(1, 2); }
     }
 
     // Leading half selected: the mirror image -- `f` turns red, `i` stays black.
@@ -43,7 +42,6 @@ TestCase := Window {
         color: black;
         selection-background-color: #c8c8c8;
         selection-foreground-color: red;
-        anchor-position-byte-offset: 0;
-        cursor-position-byte-offset: 1;
+        init => { self.set-selection-offsets(0, 1); }
     }
 }

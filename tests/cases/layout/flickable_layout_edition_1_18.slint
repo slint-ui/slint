@@ -1,0 +1,156 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+//edition: 1.18
+// The debug hooks bind the padding of `MyBox { }`, which forces inlining it so the layout reads
+// that padding, and an inlined layout counts toward the Flickable's size in 1.18 too.
+//ignore: interpreter-debug-hooks
+
+// Before edition 1.19, a Flickable sizes from its static layout children only, not from a child
+// created with `if` or `for`, nor from a child component that inherits a layout (#407, #13592).
+// The edition of the child decides, so the Flickable inside a ScrollView from the style behaves the same.
+
+import { ScrollView } from "std-widgets.slint";
+
+component MyBox inherits VerticalLayout {
+    Rectangle {
+        min-width: 231px;
+        min-height: 64px;
+    }
+}
+
+// Sizes itself from the Flickable, which would be a binding loop if it counted toward its size.
+component Row inherits Rectangle {
+    HorizontalLayout {
+        Text {
+            min-width: min(self.preferred-width, root.width * 0.5);
+            text: "hello";
+        }
+    }
+}
+
+// Same, for a child component that inherits a layout.
+component Md inherits VerticalLayout {
+    HorizontalLayout {
+        Text {
+            text: "hello world";
+            wrap: word-wrap;
+            width: min(self.preferred-width, root.width);
+        }
+    }
+}
+
+export component TestCase inherits Window {
+    width: 100px;
+    height: 50px;
+
+    out property <length> via-inline: b.preferred-width;
+    out property <length> via-component: a.preferred-width;
+    out property <length> via-repeated: r.preferred-width;
+    out property <length> inline-content-height: fb.content-height;
+    out property <length> component-content-height: fa.content-height;
+    out property <length> repeated-content-height: fr.content-height;
+    out property <bool> scrollview-component-unmerged: sa.content-height == sa.visible-height;
+    out property <bool> scrollview-repeated-unmerged: sr.content-height == sr.visible-height;
+
+    b := Rectangle {
+        fb := Flickable {
+            VerticalLayout {
+                Rectangle {
+                    min-width: 231px;
+                    min-height: 64px;
+                }
+            }
+        }
+    }
+
+    a := Rectangle {
+        fa := Flickable {
+            MyBox { }
+        }
+    }
+
+    r := Rectangle {
+        fr := Flickable {
+            for x in 1: VerticalLayout {
+                Rectangle {
+                    min-width: 231px;
+                    min-height: 64px;
+                }
+            }
+        }
+    }
+
+    sa := ScrollView {
+        MyBox { }
+    }
+
+    sr := ScrollView {
+        for x in 1: VerticalLayout {
+            Rectangle {
+                min-width: 231px;
+                min-height: 64px;
+            }
+        }
+    }
+
+    Flickable {
+        if true: VerticalLayout {
+            Row { }
+        }
+    }
+
+    VerticalLayout {
+        Flickable {
+            Md {
+                width: parent.width;
+            }
+        }
+    }
+
+    out property <bool> test: via-inline == 231px && via-component == 0px && via-repeated == 0px
+        && inline-content-height == 64px && component-content-height == 50px && repeated-content-height == 50px
+        && scrollview-component-unmerged && scrollview-repeated-unmerged;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_via_inline(), 231.);
+assert_eq!(instance.get_via_component(), 0.);
+assert_eq!(instance.get_via_repeated(), 0.);
+assert_eq!(instance.get_inline_content_height(), 64.);
+assert_eq!(instance.get_component_content_height(), 50.);
+assert_eq!(instance.get_repeated_content_height(), 50.);
+assert!(instance.get_scrollview_component_unmerged());
+assert!(instance.get_scrollview_repeated_unmerged());
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_via_inline(), 231.);
+assert_eq(instance.get_via_component(), 0.);
+assert_eq(instance.get_via_repeated(), 0.);
+assert_eq(instance.get_inline_content_height(), 64.);
+assert_eq(instance.get_component_content_height(), 50.);
+assert_eq(instance.get_repeated_content_height(), 50.);
+assert(instance.get_scrollview_component_unmerged());
+assert(instance.get_scrollview_repeated_unmerged());
+assert(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.via_inline, 231);
+assert.equal(instance.via_component, 0);
+assert.equal(instance.via_repeated, 0);
+assert.equal(instance.inline_content_height, 64);
+assert.equal(instance.component_content_height, 50);
+assert.equal(instance.repeated_content_height, 50);
+assert(instance.scrollview_component_unmerged);
+assert(instance.scrollview_repeated_unmerged);
+assert(instance.test);
+```
+*/

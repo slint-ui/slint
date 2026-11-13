@@ -53,6 +53,9 @@ The rust, C++ and Node drivers run the `rust`, `cpp` or `js` block in that comme
 A case without the block still compiles on those drivers, asserts nothing, and the suite reports success.
 Copy the block from a neighboring case.
 
+A `//edition: 1.18` line compiles the case with that edition instead of the current one.
+The syntax tests read this line too.
+
 `tests/run_tests.sh <rust|cpp|interpreter|python|nodejs> [<filter>]` is the convenient entry
 point for all five drivers below and passes `--manifest-path tests/Cargo.toml` for you; the
 `cargo test -p test-driver-*` commands shown per driver are the equivalent direct invocations.

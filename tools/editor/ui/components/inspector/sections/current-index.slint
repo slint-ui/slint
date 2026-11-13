@@ -1,7 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Api } from "../../../api.slint";
 import { InspectorEditableField, InspectorPropertyRow, InspectorSection } from "../index.slint";
 import { InspectorContext } from "context.slint";
 
@@ -13,10 +12,10 @@ export component InspectorCurrentIndexSection inherits InspectorSection {
 
         InspectorEditableField {
             accessible-name: @tr("Current index");
-            value: Api.source-property-value("current-index", "-1");
+            value: InspectorContext.property-number-label("current-index", "-1");
             commit-key: InspectorContext.field-key("current-index");
             accepted(text) => {
-                return text != "" && InspectorContext.commit-code("current-index", text);
+                return text.is-float() ? InspectorContext.commit-number("current-index", text.to-float(), "") : InspectorContext.commit-code("current-index", text);
             }
         }
     }

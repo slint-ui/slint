@@ -1,0 +1,165 @@
+{
+  "sourceVersion": 1,
+  "root": {
+    "id": "inline-shapes",
+    "name": "Inline shapes",
+    "type": "FRAME",
+    "errors": [],
+    "properties": {
+      "x": 0,
+      "y": 0,
+      "width": 96,
+      "height": 24,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "layoutPositioning": "AUTO",
+      "cornerRadius": 0,
+      "fills": [],
+      "strokes": [],
+      "effects": []
+    },
+    "children": [
+      {
+        "id": "BOOLEAN_OPERATION",
+        "name": "BOOLEAN_OPERATION",
+        "type": "BOOLEAN_OPERATION",
+        "errors": [],
+        "properties": {
+          "x": 0,
+          "y": 0,
+          "width": 24,
+          "height": 24,
+          "visible": true,
+          "rotation": 0,
+          "opacity": 1,
+          "fills": [
+            {
+              "type": "SOLID",
+              "color": {
+                "r": 1,
+                "g": 0,
+                "b": 0
+              },
+              "opacity": 1
+            }
+          ],
+          "strokes": [],
+          "effects": []
+        },
+        "exports": {
+          "svg": {
+            "value": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\"><path fill=\"#ff0000\" d=\"M 0 0 L 24 0 L 24 24 L 0 24 Z\"/></svg>"
+          },
+          "pngOmitted": "svg"
+        }
+      },
+      {
+        "id": "ELLIPSE",
+        "name": "ELLIPSE",
+        "type": "ELLIPSE",
+        "errors": [],
+        "properties": {
+          "x": 24,
+          "y": 0,
+          "width": 24,
+          "height": 24,
+          "visible": true,
+          "rotation": 0,
+          "opacity": 1,
+          "fills": [
+            {
+              "type": "SOLID",
+              "color": {
+                "r": 1,
+                "g": 0,
+                "b": 0
+              },
+              "opacity": 1
+            }
+          ],
+          "strokes": [],
+          "effects": []
+        },
+        "exports": {
+          "svg": {
+            "value": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\"><path fill=\"#ff0000\" d=\"M 0 0 L 24 0 L 24 24 L 0 24 Z\"/></svg>"
+          },
+          "pngOmitted": "svg"
+        }
+      },
+      {
+        "id": "POLYGON",
+        "name": "POLYGON",
+        "type": "POLYGON",
+        "errors": [],
+        "properties": {
+          "x": 48,
+          "y": 0,
+          "width": 24,
+          "height": 24,
+          "visible": true,
+          "rotation": 0,
+          "opacity": 1,
+          "fills": [
+            {
+              "type": "SOLID",
+              "color": {
+                "r": 1,
+                "g": 0,
+                "b": 0
+              },
+              "opacity": 1
+            }
+          ],
+          "strokes": [],
+          "effects": []
+        },
+        "exports": {
+          "svg": {
+            "value": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\"><path fill=\"#ff0000\" d=\"M 0 0 L 24 0 L 24 24 L 0 24 Z\"/></svg>"
+          },
+          "pngOmitted": "svg"
+        }
+      },
+      {
+        "id": "STAR",
+        "name": "STAR",
+        "type": "STAR",
+        "errors": [],
+        "properties": {
+          "x": 72,
+          "y": 0,
+          "width": 24,
+          "height": 24,
+          "visible": true,
+          "rotation": 0,
+          "opacity": 1,
+          "fills": [
+            {
+              "type": "SOLID",
+              "color": {
+                "r": 1,
+                "g": 0,
+                "b": 0
+              },
+              "opacity": 1
+            }
+          ],
+          "strokes": [],
+          "effects": []
+        },
+        "exports": {
+          "svg": {
+            "value": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\"><path fill=\"#ff0000\" d=\"M 0 0 L 24 0 L 24 24 L 0 24 Z\"/></svg>"
+          },
+          "pngOmitted": "svg"
+        }
+      }
+    ]
+  },
+  "images": {},
+  "exportScale": 1,
+  "pngEnabled": true,
+  "options": {}
+}
