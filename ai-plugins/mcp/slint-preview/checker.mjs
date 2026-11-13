@@ -41,6 +41,8 @@ function localPath(value) {
     return normalize(fileURLToPath(url)).replaceAll("\\", "/");
 }
 
+// cspell:ignore IHDR IDAT IEND scanlines
+
 function pngChunk(type, data) {
     const payload = Buffer.concat([Buffer.from(type), data]);
     const chunk = Buffer.alloc(payload.length + 8);
