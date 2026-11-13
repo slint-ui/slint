@@ -94,7 +94,7 @@ instead of drawing. See `Surface` in `internal/renderers/skia/lib.rs`.
 Available surface implementations: `OpenGLSurface`, `SoftwareSurface`, and one `WGPUSurface`
 per supported wgpu version.
 
-### Software Renderer Pattern: Scene Building
+### Software Renderer Pattern: Direct and Line-by-Line Rendering
 
 `SceneBuilder` implements `ItemRenderer` and hands each draw call to a `ProcessScene` implementation.
 `SoftwareRenderer::render()` uses `RenderToBuffer`, which draws each item straight into a whole pixel buffer.
