@@ -478,7 +478,7 @@ cpp! {{
             case Qt::ImCurrentSelection: return ime_text.mid(qMin(ime_cursor, ime_anchor), qAbs(ime_cursor - ime_anchor));
             case Qt::ImAnchorPosition: return ime_anchor;
             case Qt::ImTextBeforeCursor: return ime_text.left(ime_cursor);
-            case Qt::ImTextAfterCursor: return ime_text.right(ime_cursor);
+            case Qt::ImTextAfterCursor: return ime_text.mid(ime_cursor);
             default: break;
             }
             return QWidget::inputMethodQuery(query);
@@ -489,13 +489,13 @@ cpp! {{
                 return;
             QString commit_string = event->commitString();
             QString preedit_string = event->preeditString();
-            int replacement_start = event->replacementStart();
             QStringView ime_text(this->ime_text);
-            replacement_start = replacement_start < 0 ?
-                -ime_text.mid(ime_cursor,-replacement_start).toUtf8().size() :
-                ime_text.mid(ime_cursor,replacement_start).toUtf8().size();
-            int replacement_length = qMax(0, event->replacementLength());
-            ime_text.mid(ime_cursor + replacement_start, replacement_length).toUtf8().size();
+            int utf16_start = qBound(0, ime_cursor + event->replacementStart(), int(ime_text.size()));
+            int utf16_length = qBound(0, event->replacementLength(), int(ime_text.size()) - utf16_start);
+            int replacement_start = utf16_start < ime_cursor ?
+                -ime_text.mid(utf16_start, ime_cursor - utf16_start).toUtf8().size() :
+                ime_text.mid(ime_cursor, utf16_start - ime_cursor).toUtf8().size();
+            int replacement_length = ime_text.mid(utf16_start, utf16_length).toUtf8().size();
             int preedit_cursor = -1;
             for (const QInputMethodEvent::Attribute &attribute: event->attributes()) {
                 if (attribute.type == QInputMethodEvent::Cursor) {
