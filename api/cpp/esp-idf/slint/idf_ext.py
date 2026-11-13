@@ -1,6 +1,8 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+# cSpell: ignore varint
+
 """Adds `idf.py trace`, which receives the capture that CONFIG_SLINT_TRACING records and opens it in Tracy."""
 
 import json
