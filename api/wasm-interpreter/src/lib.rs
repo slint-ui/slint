@@ -360,4 +360,3 @@ pub fn register_font_from_memory(data: Vec<u8>) -> Result<(), JsValue> {
     }
     Ok(())
 }
-
