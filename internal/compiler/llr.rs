@@ -59,6 +59,7 @@ pub(crate) fn lower_test_source_with_config(
     let doc_node = crate::parser::parse(
         source.into(),
         Some(crate::source_path::SourcePath::new("t.slint")),
+        config.edition,
         &mut diags,
     );
     let (doc, diag, _) =

@@ -2454,6 +2454,7 @@ mod tests {
         let syntax_node = i_slint_compiler::parser::parse(
             String::from(unformatted),
             None,
+            None,
             &mut BuildDiagnostics::default(),
         );
         // Turn the syntax node into a document
@@ -2465,6 +2466,7 @@ mod tests {
 
         let syntax_node = i_slint_compiler::parser::parse(
             first_pass.clone(),
+            None,
             None,
             &mut BuildDiagnostics::default(),
         );

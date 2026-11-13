@@ -189,16 +189,15 @@ struct Cli {
     csharp_unit: Option<std::path::PathBuf>,
 }
 
-/// Parses the file to compile, the main file of a project directory given as input,
+/// Reads the file to compile, the main file of a project directory given as input,
 /// and returns the project file that applies to it and the files it was found and read from.
-fn parse_input(
+fn read_input(
     args: &Cli,
     diag: &mut BuildDiagnostics,
 ) -> (
-    Option<parser::SyntaxNode>,
+    Option<(SourcePath, String)>,
     Option<i_slint_compiler::project_file::ProjectFile>,
     Vec<std::path::PathBuf>,
-    Option<(SourcePath, String)>,
 ) {
     // The Slint SC subset rejects the flags a project file could set, so it has none.
     #[cfg(feature = "slint-sc")]
@@ -224,13 +223,11 @@ fn parse_input(
         None,
         diag,
     ));
-    let Some(input) = input else { return (None, None, Vec::new(), None) };
-    let main_file = Some((input.source.clone(), input.source_code.clone()));
+    let Some(input) = input else { return (None, None, Vec::new()) };
     (
-        Some(parser::parse(input.source_code, Some(input.source), diag)),
+        Some((input.source, input.source_code)),
         input.project_file,
         input_files.into_iter().filter_map(SourcePath::into_native_path).collect(),
-        main_file,
     )
 }
 
@@ -240,9 +237,7 @@ fn main() -> std::io::Result<()> {
     let input = i_slint_compiler::project_file::project_root(&args.path);
     let input_project_directory = input.is_dir().then(|| input.to_path_buf());
     let mut diag = BuildDiagnostics::default();
-    #[cfg_attr(not(feature = "csharp"), allow(unused_variables))]
-    let (syntax_node, project_file, input_files, main_file) = parse_input(&args, &mut diag);
-    //println!("{:#?}", syntax_node);
+    let (root_file, project_file, input_files) = read_input(&args, &mut diag);
     if diag.has_errors() {
         diag.print_styled_if_terminal();
         std::process::exit(-1);
@@ -455,9 +450,11 @@ fn main() -> std::io::Result<()> {
         .is_some()
         .then(|| compiler_config.clone())
         .filter(|_| matches!(&format, generator::OutputFormat::CSharp(c) if c.unit));
-    let syntax_node = syntax_node.expect("diags contained no compilation errors");
+    let (source, source_code) = root_file.expect("diags contained no compilation errors");
+    #[cfg(feature = "csharp")]
+    let main_file = unit_config.is_some().then(|| (source.clone(), source_code.clone()));
     let (doc, diag, loader) =
-        spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
+        spin_on::spin_on(compile_source(&source, source_code, diag, compiler_config));
 
     let diag = diag.check_and_exit_on_error();
 

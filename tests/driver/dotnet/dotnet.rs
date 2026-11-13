@@ -69,9 +69,6 @@ fn generate(
     project: &Path,
 ) -> Result<(String, Option<String>, Vec<u8>, Case), String> {
     let source = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
-    let mut diag = BuildDiagnostics::default();
-    let syntax_node =
-        parser::parse(source.clone(), Some(source_path::SourcePath::new(path)), &mut diag);
     let format = generator::OutputFormat::CSharp(csharp::Config {
         namespace: Some(format!("Case_{identifier}")),
         runtime_path: Some(project.to_string_lossy().into_owned()),
@@ -99,7 +96,12 @@ fn generate(
         config.default_translation_context = i_slint_compiler::DefaultTranslationContext::None;
     }
     let unit_config = config.clone();
-    let (doc, diag, loader) = spin_on::spin_on(compile_syntax_node(syntax_node, diag, config));
+    let (doc, diag, loader) = spin_on::spin_on(compile_source(
+        &source_path::SourcePath::new(path),
+        source.clone(),
+        BuildDiagnostics::default(),
+        config,
+    ));
     if diag.has_errors() {
         return Err(diag.to_string_vec().join("\n"));
     }
@@ -146,7 +148,12 @@ fn generate(
     });
     let has_blocks = blocks.is_some();
     let unit_resource = format!("slint-unit:{}", project.to_string_lossy());
-    Ok((String::from_utf8(code).unwrap(), blocks, unit, Case { components, has_blocks, unit_resource }))
+    Ok((
+        String::from_utf8(code).unwrap(),
+        blocks,
+        unit,
+        Case { components, has_blocks, unit_resource },
+    ))
 }
 
 fn write_program(dir: &Path, cases: &BTreeMap<String, Case>) {

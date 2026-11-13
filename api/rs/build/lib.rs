@@ -548,21 +548,15 @@ fn compile_resolved(
     output_rust_file_path: &Path,
     mut compiler_config: i_slint_compiler::CompilerConfiguration,
 ) -> Result<Vec<std::path::PathBuf>, CompileError> {
-    let mut diag = BuildDiagnostics::default();
-    let syntax_node =
-        i_slint_compiler::parser::parse(input.source_code, Some(input.source), &mut diag);
-
-    if diag.has_errors() {
-        let vec = diag.to_string_vec();
-        diag.print();
-        return Err(CompileError::CompileError(vec));
-    }
-
     compiler_config.translation_domain = std::env::var("CARGO_PKG_NAME").ok();
 
     // 'spin_on' is ok here because the compiler in single threaded and does not block if there is no blocking future
-    let (doc, mut diag, loader) =
-        spin_on::spin_on(i_slint_compiler::compile_syntax_node(syntax_node, diag, compiler_config));
+    let (doc, mut diag, loader) = spin_on::spin_on(i_slint_compiler::compile_source(
+        &input.source,
+        input.source_code,
+        BuildDiagnostics::default(),
+        compiler_config,
+    ));
     diag.remove_infos();
 
     if diag.has_errors()

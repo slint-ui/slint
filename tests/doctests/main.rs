@@ -88,18 +88,16 @@ fn do_test_sc(snippet: &str, path: &str) -> Result<(), Box<dyn std::error::Error
         snippet.into()
     };
 
-    let mut diag = i_slint_compiler::diagnostics::BuildDiagnostics::default();
-    let node = i_slint_compiler::parser::parse(
-        code,
-        Some(i_slint_compiler::source_path::SourcePath::new(path)),
-        &mut diag,
-    );
     let mut config = i_slint_compiler::CompilerConfiguration::new(
         i_slint_compiler::generator::OutputFormat::SlintSc,
     );
     config.edition = Some(i_slint_compiler::project_file::SlintEdition::current());
-    let (doc, diag, loader) =
-        spin_on::spin_on(i_slint_compiler::compile_syntax_node(node, diag, config));
+    let (doc, diag, loader) = spin_on::spin_on(i_slint_compiler::compile_source(
+        &i_slint_compiler::source_path::SourcePath::new(path),
+        code,
+        Default::default(),
+        config,
+    ));
     if diag.has_errors() {
         diag.print();
         return Err(format!("Error when compiling {snippet:?} in {path:?} in Slint SC mode").into());
