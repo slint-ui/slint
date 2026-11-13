@@ -1760,6 +1760,12 @@ mod ffi {
         update_all_instances(ops, offset, count);
     }
 
+    /// Updates `item_index` after removing all instances.
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_repeater_instances_cleared(item_index: &mut CurrentItem) {
+        item_index.instances_cleared();
+    }
+
     /// See [`ModelChangeListener::row_added`].
     /// Returns whether the instances change, and if so, sets `slots`.
     #[unsafe(no_mangle)]

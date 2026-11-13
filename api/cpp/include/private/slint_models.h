@@ -1129,7 +1129,7 @@ class Repeater
         {
             instances_changed();
             data.clear();
-            layout_state.item_index.instance_index = 0;
+            cbindgen_private::slint_repeater_instances_cleared(&layout_state.item_index);
         }
     };
 
