@@ -141,7 +141,12 @@ core::cfg_select! {
                 },
                 #[cfg(feature = "backend-testing")]
                 "testing" => return Ok(Box::new(i_slint_backend_testing::TestingBackend::new(
-                    i_slint_backend_testing::TestingBackendOptions { mock_time: false, threading: true, ..Default::default() },
+                    i_slint_backend_testing::TestingBackendOptions {
+                        mock_time: false,
+                        threading: true,
+                        #[cfg(supports_headless)]
+                        renderer_name: (!_renderer.is_empty()).then(|| _renderer.into()),
+                    },
                 ))),
                 #[cfg(all(feature = "mcp", supports_headless))]
                 "headless" => return create_headless_backend(_renderer),

@@ -1,12 +1,37 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore matplotlib
+// cSpell: ignore asarray fromarray getbuffer itemsize matplotlib ndim releasebuffer ssize suboffsets
+use pyo3::ffi;
 use pyo3::prelude::*;
-use slint_interpreter::SharedPixelBuffer;
+use slint_interpreter::{Rgba8Pixel, SharedPixelBuffer};
+use std::ffi::{c_int, c_void};
+
+/// Keeps the pixels and the shape arrays of an exported buffer alive until it's released.
+struct ExportedPixels {
+    pixels: SharedPixelBuffer<Rgba8Pixel>,
+    shape: [ffi::Py_ssize_t; 3],
+    strides: [ffi::Py_ssize_t; 3],
+}
 
 /// Image objects can be set on Slint Image elements for display. Use `Image.load_from_path` to construct Image
 /// objects from a path to an image file on disk.
+///
+/// Images implement the [Buffer Protocol](https://docs.python.org/3/c-api/buffer.html) to give read-only access
+/// to their pixels, as an array of unsigned bytes with the shape (height, width, 4).
+/// Each pixel is encoded as RGBA, without premultiplied alpha.
+/// Use this to pass an image to third-party modules such as NumPy or Pillow.
+/// A `BufferError` is raised if the pixels can't be obtained.
+///
+/// Example of saving an image with Pillow:
+/// ```python
+/// import slint
+/// from PIL import Image
+/// import numpy as np
+///
+/// img = slint.Image.load_from_path("hello.jpeg")
+/// Image.fromarray(np.asarray(img)).save("hello.png")
+/// ```
 #[pyclass(unsendable, name = "Image")]
 pub struct PyImage {
     pub image: slint_interpreter::Image,
@@ -194,6 +219,59 @@ impl PyImage {
                 }
             },
         })
+    }
+
+    unsafe fn __getbuffer__(
+        slf: Bound<'_, Self>,
+        view: *mut ffi::Py_buffer,
+        flags: c_int,
+    ) -> PyResult<()> {
+        if flags & ffi::PyBUF_WRITABLE == ffi::PyBUF_WRITABLE {
+            return Err(pyo3::exceptions::PyBufferError::new_err("Image pixels are read-only"));
+        }
+        let pixels = slf.borrow().image.to_rgba8().ok_or_else(|| {
+            pyo3::exceptions::PyBufferError::new_err("The pixels of this image aren't available")
+        })?;
+        let (width, height) = (pixels.width() as ffi::Py_ssize_t, pixels.height() as _);
+        let exported = Box::into_raw(Box::new(ExportedPixels {
+            pixels,
+            shape: [height, width, 4],
+            strides: [width * 4, 4, 1],
+        }));
+        // Safety: the caller passes a valid `view`, and `exported` was allocated above.
+        // The pointers stored in the view stay valid until `__releasebuffer__` frees `exported`.
+        unsafe {
+            let bytes = (*exported).pixels.as_bytes();
+            (*view).buf = bytes.as_ptr() as *mut c_void;
+            (*view).len = bytes.len() as _;
+            (*view).readonly = 1;
+            (*view).itemsize = 1;
+            (*view).format = if flags & ffi::PyBUF_FORMAT == ffi::PyBUF_FORMAT {
+                c"B".as_ptr() as *mut _
+            } else {
+                std::ptr::null_mut()
+            };
+            (*view).ndim = 3;
+            (*view).shape = if flags & ffi::PyBUF_ND == ffi::PyBUF_ND {
+                (*exported).shape.as_mut_ptr()
+            } else {
+                std::ptr::null_mut()
+            };
+            (*view).strides = if flags & ffi::PyBUF_STRIDES == ffi::PyBUF_STRIDES {
+                (*exported).strides.as_mut_ptr()
+            } else {
+                std::ptr::null_mut()
+            };
+            (*view).suboffsets = std::ptr::null_mut();
+            (*view).internal = exported as *mut c_void;
+            (*view).obj = slf.into_ptr();
+        }
+        Ok(())
+    }
+
+    unsafe fn __releasebuffer__(&self, view: *mut ffi::Py_buffer) {
+        // Safety: `internal` is the box that `__getbuffer__` leaked into this view.
+        drop(unsafe { Box::from_raw((*view).internal as *mut ExportedPixels) });
     }
 }
 
