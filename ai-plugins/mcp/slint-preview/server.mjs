@@ -86,7 +86,7 @@ const tools = [
                 path: {
                     type: "string",
                     description:
-                        "Absolute path of the .slint file to preview. The last exported component is shown.",
+                        "Absolute path of a .slint file, a directory containing slint-project.json, or slint-project.json itself. Project inputs use their main entry. The last exported component is shown.",
                 },
                 source: {
                     type: "string",
@@ -96,7 +96,7 @@ const tools = [
                 projectRoot: {
                     type: "string",
                     description:
-                        "Absolute path of the directory with the slint-project.json to apply to `path`, for its library and include paths.",
+                        "Absolute path of a project directory or slint-project.json whose settings apply to `path`. Pass a different .slint path to preview it instead of the project's main entry.",
                 },
                 style: {
                     type: "string",
@@ -162,6 +162,25 @@ const tools = [
         },
         _meta: { ui: { visibility: ["app"] } },
     })),
+    {
+        name: "read_preview_input",
+        description:
+            "Read preview source, resolving a project's main entry and root.",
+        annotations: {
+            readOnlyHint: true,
+            destructiveHint: false,
+            openWorldHint: false,
+        },
+        inputSchema: {
+            type: "object",
+            properties: {
+                path: { type: "string" },
+                projectRoot: { type: "string" },
+            },
+            required: ["path"],
+        },
+        _meta: { ui: { visibility: ["app"] } },
+    },
     {
         name: "poll_preview_capture",
         title: "Check for a Slint Preview Capture Request",
@@ -403,6 +422,14 @@ const toolCalls = {
     },
     read_slint_file: (args) => readPreviewFile(args.path, "utf8"),
     read_binary_file: (args) => readPreviewFile(args.path, "base64"),
+    read_preview_input: async (args) => {
+        try {
+            const { readPreviewInput } = await import("./checker.mjs");
+            return { content: [], structuredContent: readPreviewInput(args) };
+        } catch (error) {
+            return textResult(error.message, true);
+        }
+    },
     publish_preview: (args) => {
         if (
             typeof args.previewId !== "string" ||

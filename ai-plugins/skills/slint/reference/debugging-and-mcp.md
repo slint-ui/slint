@@ -68,8 +68,10 @@ Use `check_slint` for the plugin's compiler diagnostics and initial-frame PNG.
 The MCP software checker supports PNG, JPEG, SVG, and SVGZ images.
 Other raster formats need conversion before checking.
 The hosted browser interpreter keeps its existing image-format support.
-Pass exactly one of `path` or `source`, with optional `style`.
-Saved files also support `projectRoot`.
+Pass exactly one of `path` or `source`, with optional `style` and `projectRoot`.
+`path` accepts a `.slint` file, a project directory, or `slint-project.json` itself.
+Project inputs compile their `main` entry.
+To preview another file with the project's settings, pass its `.slint` path and set `projectRoot` to the project directory or project file.
 Use `prepare_preview: true` when you want a live card after inspecting the check.
 Only successful compilation and rendering produce a `previewId`; warnings do not block preparation.
 

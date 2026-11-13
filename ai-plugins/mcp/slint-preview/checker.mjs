@@ -1,9 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
-import { isAbsolute, normalize } from "node:path";
+import { basename, dirname, isAbsolute, join, normalize } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { crc32, deflateSync } from "node:zlib";
 
@@ -39,6 +39,24 @@ function localPath(value) {
     if (url.protocol !== "file:")
         throw new Error(`Unsupported resource URL: ${value}`);
     return normalize(fileURLToPath(url)).replaceAll("\\", "/");
+}
+
+export function readPreviewInput(input) {
+    if (input.path === undefined) return input;
+    let { path, projectRoot } = input;
+    if (typeof path !== "string" || !isAbsolute(path))
+        throw new Error("'path' must be absolute");
+    if (statSync(path).isDirectory()) path = join(path, "slint-project.json");
+    if (basename(path) === "slint-project.json") {
+        const source = readFileSync(path, "utf8");
+        const main = loadChecker().interpreter.project_main(
+            source,
+            pathToFileURL(path).href,
+        );
+        projectRoot ??= dirname(path);
+        path = localPath(main);
+    }
+    return { ...input, path, projectRoot, source: readFileSync(path, "utf8") };
 }
 
 // cspell:ignore IHDR IDAT IEND scanlines
@@ -102,7 +120,7 @@ export async function checkSlint(previewInput) {
         diagnostics: [],
         runtime,
     };
-    const baseUrl = previewInput.path
+    let baseUrl = previewInput.path
         ? pathToFileURL(previewInput.path).href
         : "file:///main.slint";
     let compilation;
@@ -110,9 +128,8 @@ export async function checkSlint(previewInput) {
     let frame;
     let trapped = false;
     try {
-        const source = previewInput.path
-            ? readFileSync(previewInput.path, "utf8")
-            : previewInput.source;
+        const { source, path, projectRoot } = readPreviewInput(previewInput);
+        if (path) baseUrl = pathToFileURL(path).href;
         compilation = await interpreter.compile_from_string_with_style(
             source,
             baseUrl,
@@ -120,9 +137,7 @@ export async function checkSlint(previewInput) {
             previewInput.path ? readSource : async () => null,
             readResource,
             undefined,
-            previewInput.projectRoot
-                ? pathToFileURL(previewInput.projectRoot).href
-                : undefined,
+            projectRoot ? pathToFileURL(projectRoot).href : undefined,
         );
         result.diagnostics = compilation.diagnostics.map(
             ({ level, ...diagnostic }) => ({

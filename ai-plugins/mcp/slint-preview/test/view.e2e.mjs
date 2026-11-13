@@ -263,6 +263,42 @@ function centerPixel(screenshot) {
     }, screenshot.content[0].data);
 }
 
+test("previews project files, directories, and source files with a project root", async () => {
+    const root = join(projects, "project inputs");
+    const manifest = join(root, "slint-project.json");
+    const main = join(root, "ui/main.slint");
+    const component = join(root, "ui/component.slint");
+    const source = (color) =>
+        'import { Card } from "card.slint"; ' +
+        `export component Preview inherits Card { background: ${color}; }`;
+    writeFiles({
+        "project inputs/slint-project.json":
+            '{/* project settings */ "edition":"1.20", "main":"ui/main.slint", "include-paths":["shared"]}',
+        "project inputs/ui/main.slint": source("blue"),
+        "project inputs/ui/component.slint": source("red"),
+        "project inputs/shared/card.slint": COMPONENT("Card"),
+    });
+    for (const [input, pixel] of [
+        [{ path: root }, [0, 0, 255, 255]],
+        [{ path: root + "/" }, [0, 0, 255, 255]],
+        [{ path: manifest }, [0, 0, 255, 255]],
+        [{ path: main, projectRoot: root }, [0, 0, 255, 255]],
+        [{ path: main, projectRoot: manifest, style: "fluent" }, [0, 0, 255, 255]],
+        [{ path: component, projectRoot: manifest }, [255, 0, 0, 255]],
+    ]) {
+        const screenshot = await preview(input);
+        assertRendered(screenshot);
+        assert.deepEqual(await centerPixel(screenshot), pixel);
+    }
+    writeFileSync(
+        manifest,
+        '{"edition":"1.20", "main":"ui/component.slint", "include-paths":["shared"]}',
+    );
+    const refreshed = await preview({ path: manifest });
+    assertRendered(refreshed);
+    assert.deepEqual(await centerPixel(refreshed), [255, 0, 0, 255]);
+});
+
 test("captures the current state after interacting with the preview", async () => {
     const initial = await preview({ source: `
         export component Main inherits Window {
