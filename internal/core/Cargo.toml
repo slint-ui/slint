@@ -73,6 +73,14 @@ testing = []
 
 shared-fontique = ["i-slint-common/shared-fontique"]
 
+# Find the fonts installed on the system, with the system font backend of fontique and parley.
+# On Linux this builds against fontconfig.
+system-fonts = ["i-slint-common/system-fonts", "parley?/system"]
+
+# Dictionary based line breaking for Chinese, Japanese, Thai, Lao, Khmer and Burmese.
+# This adds several MB to the binary. It has no effect on wasm, which never includes it.
+complex-scripts = ["i-slint-common/complex-scripts"]
+
 raw-window-handle-06 = ["dep:raw-window-handle-06"]
 
 # The wgpu-{29,30} feature enables the internal wgpu module (SurfaceTarget, init helpers)
@@ -91,7 +99,7 @@ log = ["dep:log"]
 tr = ["dep:tr"]
 
 32-bit-color = []
-default = ["std", "unicode", "shared-parley"]
+default = ["std", "unicode", "shared-parley", "system-fonts", "complex-scripts"]
 
 # System tray (`SystemTrayIcon`) support. On Linux/BSD this pulls `ksni`; on
 # other platforms it gates the native backend. When disabled, `SystemTrayIcon`
@@ -100,7 +108,7 @@ default = ["std", "unicode", "shared-parley"]
 # user-facing crates list it in their own `default` so it stays on out of the box.
 system-tray = ["dep:ksni", "dep:async-channel", "ksni/async-io", "ksni/blocking"]
 
-shared-parley = ["shared-fontique", "dep:parley", "dep:skrifa", "dep:icu_normalizer"]
+shared-parley = ["shared-fontique", "i-slint-common/shared-parley", "dep:parley", "dep:skrifa", "dep:icu_normalizer"]
 
 accessibility-text = ["std", "shared-parley", "dep:accesskit"]
 
@@ -182,13 +190,11 @@ windows = { workspace = true, features = ["Win32_Foundation", "Win32_Graphics_Gd
 ksni = { version = "0.3.4", optional = true, default-features = false }
 async-channel = { version = "2", optional = true }
 
-# The complex-scripts line-breaking dictionaries cost several MB, so leave them out of
-# wasm binaries.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-parley = { version = "0.12.0", optional = true, features = ["bytemuck", "complex-scripts"] }
+parley = { version = "0.12.0", optional = true, default-features = false, features = ["bytemuck", "std"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-parley = { version = "0.12.0", optional = true, features = ["bytemuck"] }
+parley = { version = "0.12.0", optional = true, default-features = false, features = ["bytemuck", "std"] }
 web-time = { version = "1.0", optional = true }
 
 [target.'cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))'.dependencies]

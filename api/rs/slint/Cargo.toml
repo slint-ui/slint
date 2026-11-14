@@ -28,19 +28,53 @@ default = [
   "accessibility",
   "compat-1-2",
   "system-tray",
+  "svg",
+  "system-fonts",
+  "complex-scripts",
 ]
 
 ## Mandatory feature:
-## This feature is required to keep the compatibility with Slint 1.18
+## This feature is required to keep the compatibility with Slint 1.20
 ## Newer patch version may put current functionality behind a new feature
 ## that would be enabled by default only if this feature was added.
 ## [More info in this blog post](https://slint.dev/blog/rust-adding-default-cargo-feature.html)
-"compat-1-18" = []
+"compat-1-20" = []
+"compat-1-18" = [
+  "compat-1-20",
+  "i-slint-renderer-skia?/svg",
+  "i-slint-backend-android-activity?/svg",
+  "i-slint-core/system-fonts",
+  "i-slint-core/complex-scripts",
+]
 "compat-1-2" = ["compat-1-18", "i-slint-backend-linuxkms?/libseat", "i-slint-backend-linuxkms?/libinput"]
 "compat-1-0" = ["compat-1-2", "renderer-software"]
 
 ## Enable use of the Rust standard library.
 std = ["i-slint-core/std", "i-slint-renderer-software?/std"]
+
+## Render `.svg` images.
+##
+## With `compat-1-18` the Skia renderer and the Android backend always render SVG. With `compat-1-20`
+## or newer this is opt-in: enable `svg` (it is part of the default features).
+## Without it, the Skia renderer and the Android backend leave out SVG support; other backends
+## still include it.
+svg = ["i-slint-core/svg", "i-slint-renderer-skia?/svg", "i-slint-backend-android-activity?/svg"]
+
+## Find the fonts installed on the system.
+##
+## With `compat-1-18` this is always on. With `compat-1-20` or newer it is opt-in: enable `system-fonts`
+## (it is part of the default features).
+## Without it, only the fonts that the application loads are available.
+## On Linux this also avoids the dependency on fontconfig.
+system-fonts = ["i-slint-core/system-fonts"]
+
+## Break lines in Chinese, Japanese, Thai, Lao, Khmer and Burmese text with dictionaries.
+##
+## With `compat-1-18` this is always on. With `compat-1-20` or newer it is opt-in: enable `complex-scripts`
+## (it is part of the default features).
+## Without it, text in these scripts breaks by simpler rules and the binary is several MB smaller.
+## It has no effect on wasm, which never includes the dictionaries.
+complex-scripts = ["i-slint-core/complex-scripts"]
 
 ## Enable the translations using [gettext](https://www.gnu.org/software/gettext/gettext)
 ##
