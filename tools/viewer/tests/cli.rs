@@ -364,7 +364,7 @@ fn an_old_project_file_edition_warns() {
             project_input(&project, manifest).to_str().unwrap(),
         ]);
         assert_ne!(code, 0, "stderr was:\n{stderr}");
-        assert!(stderr.contains("is newer than"), "stderr was:\n{stderr}");
+        assert!(stderr.contains("newer than Slint"), "stderr was:\n{stderr}");
     }
 }
 
