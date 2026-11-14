@@ -436,6 +436,10 @@ fn body_is_inline_safe(exp: &Expression, map: &ContextMap) -> bool {
                 _ => true,
             }
         }
+        Expression::ModelDataAssignment { .. } => {
+            safe &= matches!(map, ContextMap::Identity)
+                || matches!(map, ContextMap::InSubElement { path, .. } if path.is_empty());
+        }
         _ => {}
     });
     safe
@@ -639,5 +643,32 @@ export component Foo {
                 "no '{kept}' on a `live` input left: {runtime:#?}"
             );
         }
+    }
+
+    #[test]
+    fn remaps_model_data_assignment_level_when_inlining_function() {
+        let unit = crate::llr::lower_test_source(
+            r#"
+export component Foo {
+    in-out property <[int]> m: [1];
+    in property <bool> c: true;
+    for item in root.m: r := Rectangle {
+        function bump() { item += 1; }
+        if root.c: TouchArea {
+            clicked => { r.bump(); }
+        }
+    }
+}
+"#,
+        );
+        let mut levels = Vec::new();
+        unit.for_each_expression(&mut |e, _| {
+            e.borrow().visit_recursive(&mut |e| {
+                if let Expression::ModelDataAssignment { level, .. } = e {
+                    levels.push(*level);
+                }
+            });
+        });
+        assert_eq!(levels, vec![1]);
     }
 }
