@@ -99,6 +99,28 @@ pub use android_activity::AndroidApp;
 
 use crate::platform::SetPlatformError;
 
+/// How the Android backend takes part in Back handling on Android 14 (API 34) and later.
+///
+/// Slint registers an `OnBackInvokedCallback` that passes Back to the items as a key event
+/// and finishes the activity if no item accepts it.
+/// An application that registers its own `OnBackInvokedCallback` can use this to
+/// let its callback run instead.
+/// Pass it to [`init_with_back_invoked_callback()`].
+/// It has no effect before Android 14.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum BackInvokedCallback {
+    /// Register the callback with `OnBackInvokedDispatcher.PRIORITY_DEFAULT`. This is what [`init()`] does.
+    #[default]
+    Default,
+    /// Register the callback with this priority. Android calls the callback with the highest
+    /// priority first, and the most recently registered one among equals.
+    Priority(u32),
+    /// Don't register a callback. Back reaches the application's own handler,
+    /// and Slint items don't see it as a key event.
+    Disabled,
+}
+
 /// Initializes the Android backend.
 ///
 /// **Note:** This function is only available on Android with the "backend-android-activity-06" feature
@@ -115,6 +137,49 @@ pub fn init(app: android_activity::AndroidApp) -> Result<(), SetPlatformError> {
     {
         crate::platform::set_platform(alloc::boxed::Box::new(
             i_slint_backend_android_activity::AndroidPlatform::new(app),
+        ))?;
+        #[cfg(any(feature = "mcp", feature = "system-testing"))]
+        i_slint_backend_selector::init_testing_backends();
+        Ok(())
+    }
+}
+
+/// Similar to [`init()`], with control over the `OnBackInvokedCallback` that the backend
+/// registers on Android 14 (API 34) and later. See [`BackInvokedCallback`].
+///
+/// **Note:** This function is only available on Android with the "backend-android-activity-06" feature
+///
+/// # Example
+///
+/// ```rust
+/// # #[cfg(target_os = "android")]
+/// #[unsafe(no_mangle)]
+/// fn android_main(app: slint::android_activity::AndroidApp) {
+///     slint::android::init_with_back_invoked_callback(
+///         app,
+///         slint::android::BackInvokedCallback::Disabled,
+///     ).unwrap();
+///
+///     // ... register your own OnBackInvokedCallback and run your application ...
+/// }
+/// ```
+pub fn init_with_back_invoked_callback(
+    app: android_activity::AndroidApp,
+    back_invoked_callback: BackInvokedCallback,
+) -> Result<(), SetPlatformError> {
+    #[cfg(not(target_os = "android"))]
+    unreachable!();
+    #[cfg(target_os = "android")]
+    {
+        let priority = match back_invoked_callback {
+            BackInvokedCallback::Default => Some(0),
+            BackInvokedCallback::Priority(p) => Some(p),
+            BackInvokedCallback::Disabled => None,
+        };
+        crate::platform::set_platform(alloc::boxed::Box::new(
+            i_slint_backend_android_activity::AndroidPlatform::new_with_back_callback_priority(
+                app, priority,
+            ),
         ))?;
         #[cfg(any(feature = "mcp", feature = "system-testing"))]
         i_slint_backend_selector::init_testing_backends();

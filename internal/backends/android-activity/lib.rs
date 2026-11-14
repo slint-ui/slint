@@ -39,6 +39,9 @@ thread_local! {
     static CURRENT_WINDOW: RefCell<Weak<AndroidWindowAdapter>> = RefCell::new(Default::default());
 }
 
+/// The value of `OnBackInvokedDispatcher.PRIORITY_DEFAULT`.
+const DEFAULT_BACK_CALLBACK_PRIORITY: u32 = 0;
+
 pub struct AndroidPlatform {
     app: AndroidApp,
     window: Rc<AndroidWindowAdapter>,
@@ -64,7 +67,24 @@ impl AndroidPlatform {
     /// }
     /// ```
     pub fn new(app: AndroidApp) -> Self {
-        let window = AndroidWindowAdapter::new(app.clone());
+        Self::new_with_back_callback_priority(app, Some(DEFAULT_BACK_CALLBACK_PRIORITY))
+    }
+
+    /// Same as [`AndroidPlatform::new()`], with control over the `OnBackInvokedCallback`
+    /// that the backend registers on Android 14 (API 34) and later.
+    ///
+    /// The callback turns the Back gesture into a key event and finishes the activity
+    /// if no item handles it. `Some(priority)` registers it with that priority, as
+    /// `OnBackInvokedDispatcher.registerOnBackInvokedCallback()` takes it. [`AndroidPlatform::new()`] uses
+    /// `Some(0)`, which is `OnBackInvokedDispatcher.PRIORITY_DEFAULT`.
+    /// `None` registers no callback, so the application's own handling of Back runs
+    /// and Slint doesn't receive Back as a key event.
+    /// The setting has no effect before Android 14.
+    pub fn new_with_back_callback_priority(
+        app: AndroidApp,
+        back_callback_priority: Option<u32>,
+    ) -> Self {
+        let window = AndroidWindowAdapter::new(app.clone(), back_callback_priority);
         CURRENT_WINDOW.set(Rc::downgrade(&window));
         Self { app, window, event_listener: None, context: Default::default() }
     }
