@@ -12,6 +12,8 @@ export component InspectorInteractionSection inherits InspectorSection {
 
     private property <bool> checkable: InspectorContext.is-checkable();
     private property <bool> mouse-drag-pan: Properties.editor-property-value-data("mouse-drag-pan-enabled").value-bool;
+    private property <bool> focus-on-click: Properties.editor-property-value-data("focus-on-click").value-bool;
+    private property <bool> focus-on-tab-navigation: Properties.editor-property-value-data("focus-on-tab-navigation").value-bool;
 
     title: @tr("Interaction");
 
@@ -83,6 +85,42 @@ export component InspectorInteractionSection inherits InspectorSection {
                 let requested = self.checked;
                 self.checked = root.mouse-drag-pan;
                 InspectorContext.commit-boolean("mouse-drag-pan-enabled", requested);
+            }
+        }
+    }
+
+    if root.value && InspectorContext.has-focus-on-click-selection(): InspectorPropertyRow {
+        private property <bool> value: root.focus-on-click;
+        changed value => { focus-on-click-toggle.checked = self.value; }
+
+        label: @tr("Focus on Click");
+
+        focus-on-click-toggle := InspectorSwitch {
+            accessible-label: @tr("Focus on Click");
+            checked: root.focus-on-click;
+            toggled => {
+                self.focus();
+                let requested = self.checked;
+                self.checked = root.focus-on-click;
+                InspectorContext.commit-boolean("focus-on-click", requested);
+            }
+        }
+    }
+
+    if root.value && InspectorContext.has-focus-on-tab-navigation-selection(): InspectorPropertyRow {
+        private property <bool> value: root.focus-on-tab-navigation;
+        changed value => { focus-on-tab-navigation-toggle.checked = self.value; }
+
+        label: @tr("Focus on Tab Navigation");
+
+        focus-on-tab-navigation-toggle := InspectorSwitch {
+            accessible-label: @tr("Focus on Tab Navigation");
+            checked: root.focus-on-tab-navigation;
+            toggled => {
+                self.focus();
+                let requested = self.checked;
+                self.checked = root.focus-on-tab-navigation;
+                InspectorContext.commit-boolean("focus-on-tab-navigation", requested);
             }
         }
     }

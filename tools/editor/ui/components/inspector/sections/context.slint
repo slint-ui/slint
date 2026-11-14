@@ -178,6 +178,16 @@ export global InspectorContext {
             && Properties.has-property("mouse-drag-pan-enabled");
     }
 
+    public pure function has-focus-on-click-selection() -> bool {
+        return Api.selection.highlight-index >= 0
+            && Properties.has-property("focus-on-click");
+    }
+
+    public pure function has-focus-on-tab-navigation-selection() -> bool {
+        return Api.selection.highlight-index >= 0
+            && Properties.has-property("focus-on-tab-navigation");
+    }
+
     public pure function is-read-only-selection() -> bool {
         return Api.selection.highlight-index >= 0
             && Properties.has-property("read-only");

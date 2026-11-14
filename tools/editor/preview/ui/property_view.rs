@@ -1722,6 +1722,7 @@ export component Main inherits Window {
     Text { /*font-italic*/ }
     ScrollView { /*mouse-drag-pan*/ }
     Flickable { /*flickable-drag-pan*/ }
+    FocusScope { /*focus-scope*/ }
 }"#;
         let (document_cache, url, _) = loaded_document_cache(source.into());
         for (marker, property_name, expected) in [
@@ -1733,6 +1734,8 @@ export component Main inherits Window {
             ("font-italic", "font-italic", false),
             ("mouse-drag-pan", "mouse-drag-pan-enabled", false),
             ("flickable-drag-pan", "mouse-drag-pan-enabled", true),
+            ("focus-scope", "focus-on-click", true),
+            ("focus-scope", "focus-on-tab-navigation", true),
         ] {
             let element = document_cache
                 .element_at_offset(

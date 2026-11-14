@@ -2634,6 +2634,8 @@ mod tests {
             ("primary", "Button", "Primary", false),
             ("checkable", "Button", "Checked", false),
             ("mouse-drag-pan-enabled", "ScrollView", "Mouse Drag Pan", false),
+            ("focus-on-click", "FocusScope", "Focus on Click", true),
+            ("focus-on-tab-navigation", "FocusScope", "Focus on Tab Navigation", true),
         ] {
             let editor = super::create_ui().unwrap();
             let api = editor.global::<super::Api>();
@@ -2668,6 +2670,14 @@ mod tests {
                             kind: PropertyValueKind::Boolean,
                             value_kind: PropertyValueKind::Boolean,
                             value_bool: source.unwrap_or(default),
+                            value_resolved: true,
+                            ..Default::default()
+                        }
+                    } else if name == "enabled" {
+                        PropertyValue {
+                            kind: PropertyValueKind::Boolean,
+                            value_kind: PropertyValueKind::Boolean,
+                            value_bool: true,
                             value_resolved: true,
                             ..Default::default()
                         }
@@ -2712,6 +2722,63 @@ mod tests {
                     actual,
                     Some(expected),
                     "{property_name}: source={source:?}, runtime={runtime:?}, hooked={hooked:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn focus_scope_toggles_hide_when_disabled() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::create_ui().unwrap();
+        let api = editor.global::<super::Api>();
+        let properties_api = editor.global::<super::Properties>();
+        api.on_highlight_positions(|_, _| {
+            std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle::default()])).into()
+        });
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        api.set_current_element(super::ElementInformation {
+            type_name: "FocusScope".into(),
+            ..Default::default()
+        });
+        api.set_selection(super::Selection { highlight_index: 0, ..Default::default() });
+        connect_has_property(&properties_api);
+        set_test_properties(
+            &properties_api,
+            &["enabled", "focus-on-click", "focus-on-tab-navigation"],
+        );
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 1200.));
+        for enabled in [true, false] {
+            properties_api.on_source_property_value_data(move |name, fallback| {
+                match name.as_str() {
+                    "enabled" | "focus-on-click" | "focus-on-tab-navigation" => PropertyValue {
+                        kind: PropertyValueKind::Boolean,
+                        value_kind: PropertyValueKind::Boolean,
+                        value_bool: name != "enabled" || enabled,
+                        value_resolved: true,
+                        ..Default::default()
+                    },
+                    _ => fallback,
+                }
+            });
+            properties_api.set_inspector_generation(properties_api.get_inspector_generation() + 1);
+            api.set_current_element(super::ElementInformation {
+                offset: api.get_current_element().offset + 1,
+                ..api.get_current_element()
+            });
+            slint::platform::update_timers_and_animations();
+            for label in ["Focus on Click", "Focus on Tab Navigation"] {
+                assert_eq!(
+                    i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                        &editor, label
+                    )
+                    .next()
+                    .is_some(),
+                    enabled,
+                    "{label}: enabled={enabled}"
                 );
             }
         }
