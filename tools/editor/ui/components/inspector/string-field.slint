@@ -38,13 +38,17 @@ export component InspectorStringField inherits Rectangle {
     changed commit-key => { expanded.close(); root.cancel-preview(); }
     changed expanded-open => { if !root.expanded-open { root.cancel-preview(); } }
 
+    function preview-string(value: string, translatable: bool) -> bool {
+        return Properties.inspector-preview(root.property-name, {
+            kind: PropertyEditKind.string,
+            text: value,
+            code: Properties.string-to-code(value, translatable, root.source-value.tr-context, root.source-value.tr-plural, root.source-value.tr-plural-expression),
+        });
+    }
+
     function preview-value(value: string) -> bool {
         let previewed = root.plain-text
-            ? Properties.inspector-preview(root.property-name, {
-                kind: PropertyEditKind.string,
-                text: value,
-                code: Properties.string-to-code(value, root.source-value.is-translatable, root.source-value.tr-context, root.source-value.tr-plural, root.source-value.tr-plural-expression),
-            })
+            ? root.preview-string(value, root.source-value.is-translatable)
             : Properties.inspector-preview-code(root.property-name, PropertyEditKind.string, value);
         if !previewed { root.cancel-preview(); }
         root.previewing = previewed;
@@ -64,6 +68,13 @@ export component InspectorStringField inherits Rectangle {
             return accepted;
         }
         return !root.plain-text && Properties.commit-code-binding(Api.current-element, root.property-name, value);
+    }
+
+    function toggle-translatable() {
+        root.cancel-preview();
+        if root.preview-string(field.take-draft(), !root.source-value.is-translatable) && !Properties.inspector-commit() {
+            Properties.inspector-cancel();
+        }
     }
 
     row := HorizontalLayout {
@@ -94,6 +105,19 @@ export component InspectorStringField inherits Rectangle {
                 }
                 if !self.has-uncommitted-edits { return root.history-key(event); }
                 return reject;
+            }
+        }
+
+        if root.plain-text: InspectorIconButton {
+            icon: @image-url("../../assets/lucide/languages.svg");
+            label: @tr("Translatable");
+            selected: root.source-value.is-translatable;
+            focus-on-click: false;
+            clicked => { root.toggle-translatable(); }
+            Tooltip {
+                text: root.source-value.is-translatable
+                    ? @markdown("\{@tr("Stop translating with '@tr()'")}")
+                    : @markdown("\{@tr("Translate with '@tr()'")}");
             }
         }
 
