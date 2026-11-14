@@ -17,8 +17,8 @@ use i_slint_core::graphics::{SharedImageBuffer, StaticTexture, TexturePixelForma
 use i_slint_core::lengths::{PhysicalPx, PointLengths as _, SizeLengths as _};
 
 #[derive(Default)]
-pub struct SceneVectors {
-    pub textures: Vec<SceneTexture<'static>>,
+pub struct ScanlineVectors {
+    pub textures: Vec<Texture<'static>>,
     pub rounded_rectangles: Vec<RoundedRectangle>,
     pub shared_buffers: Vec<SharedBufferCommand>,
     pub linear_gradients: Vec<LinearGradientCommand>,
@@ -28,7 +28,16 @@ pub struct SceneVectors {
     pub clips: Vec<ShapeClip>,
 }
 
-pub struct Scene {
+// TODO: Unify the scanline path with `RasterCommand`.
+// - Keep the commands as `RasterCommand`s,
+//   in place of `ScanlineCommand` and the lists of `ScanlineVectors`.
+//   A `ScanlineItem` then only holds its position, z order, clips, and an index into that list.
+// - Merge `ScanlineScene` with `ScanlineRasterCommands`, the sink that fills it.
+// - Move the line loop of `render_window_frame_by_line`
+//   into a `ScanlineScene::rasterize(line_buffer)`.
+// Measure the memory on an MCU first:
+// a `RasterCommand` takes 160 bytes on 64-bit, a `ScanlineItem` 20.
+pub struct ScanlineScene {
     /// the next line to be processed
     pub(super) current_line: PhysicalLength,
 
@@ -37,9 +46,9 @@ pub struct Scene {
     ///   They must be sorted by `y` (top to bottom), then by `z` (front to back)
     /// - `items[..current_items_index]` are the items that overlap with the current_line,
     ///   sorted by z (front to back)
-    pub(super) items: Vec<SceneItem>,
+    pub(super) items: Vec<ScanlineItem>,
 
-    pub(super) vectors: SceneVectors,
+    pub(super) vectors: ScanlineVectors,
 
     pub(super) future_items_index: usize,
     pub(super) current_items_index: usize,
@@ -52,16 +61,16 @@ pub struct Scene {
     items_valid_until_line: PhysicalLength,
 }
 
-impl Scene {
+impl ScanlineScene {
     pub fn new(
-        mut items: Vec<SceneItem>,
-        vectors: SceneVectors,
+        mut items: Vec<ScanlineItem>,
+        vectors: ScanlineVectors,
         dirty_region: PhysicalRegion,
     ) -> Self {
         let current_line =
             dirty_region.iter_box().map(|x| x.min.y_length()).min().unwrap_or_default();
         items.retain(|i| i.pos.y_length() + i.size.height_length() > current_line);
-        sort_items(&mut items, scene_item_key);
+        sort_items(&mut items, scanline_item_key);
         let current_items_index = items.partition_point(|i| i.pos.y_length() <= current_line);
         sort_items(&mut items[..current_items_index], z_desc_key);
         let mut r = Self {
@@ -259,13 +268,13 @@ impl Scene {
     }
 
     /// Whether drawing `item` overwrites every pixel it spans on the current line.
-    pub fn covers_line(&self, item: &SceneItem) -> bool {
+    pub fn covers_line(&self, item: &ScanlineItem) -> bool {
         if item.clip_len != 0 {
             return false;
         }
         match &item.command {
-            SceneCommand::Rectangle { color } => color.alpha == 255,
-            SceneCommand::Texture { texture_index } => {
+            ScanlineCommand::Rectangle { color } => color.alpha == 255,
+            ScanlineCommand::Texture { texture_index } => {
                 let texture = &self.vectors.textures[*texture_index as usize];
                 // Below alpha 255 the texture blends rather than overwrites (see
                 // draw_texture_line), so it is not opaque.
@@ -279,7 +288,7 @@ impl Scene {
                 };
                 opaque_format && texture.extra.alpha == 255
             }
-            SceneCommand::SharedBuffer { shared_buffer_index } => {
+            ScanlineCommand::SharedBuffer { shared_buffer_index } => {
                 let buffer = &self.vectors.shared_buffers[*shared_buffer_index as usize];
                 let opaque_format = match buffer.buffer {
                     SharedBufferData::SharedImage(SharedImageBuffer::RGB8(_)) => true,
@@ -294,7 +303,7 @@ impl Scene {
                 };
                 opaque_format && buffer.extra.alpha == 255
             }
-            SceneCommand::LinearGradient { linear_gradient_index } => {
+            ScanlineCommand::LinearGradient { linear_gradient_index } => {
                 self.vectors.linear_gradients[*linear_gradient_index as usize].covers_line()
             }
             _ => false,
@@ -303,13 +312,13 @@ impl Scene {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct SceneItem {
+pub struct ScanlineItem {
     pub pos: PhysicalPoint,
     pub size: PhysicalSize,
     // this is the order of the item from which it is in the item tree
     pub z: u16,
-    pub command: SceneCommand,
-    /// Index in [`SceneVectors::clips`] of this item's clip run.
+    pub command: ScanlineCommand,
+    /// Index in [`ScanlineVectors::clips`] of this item's clip run.
     /// The item is drawn only inside every shape of the run:
     /// the rounded `Clip` ancestors whose corners it reaches, and a gradient's own shape.
     pub clip_start: u16,
@@ -317,78 +326,78 @@ pub struct SceneItem {
     pub clip_len: u16,
 }
 
-impl SceneItem {
-    pub fn clips<'a>(&self, vectors: &'a SceneVectors) -> &'a [ShapeClip] {
+impl ScanlineItem {
+    pub fn clips<'a>(&self, vectors: &'a ScanlineVectors) -> &'a [ShapeClip] {
         &vectors.clips[self.clip_start as usize..][..self.clip_len as usize]
     }
 }
 
 /// Orders by `y` (top to bottom), then by `z` (front to back).
-fn scene_item_key(item: &SceneItem) -> u32 {
+fn scanline_item_key(item: &ScanlineItem) -> u32 {
     // Flipping the sign bit maps i16 order onto u16 order.
     let y = (item.pos.y as u16) ^ 0x8000;
     (y as u32) << 16 | !item.z as u32
 }
 
 /// Orders by `z` (front to back).
-fn z_desc_key(item: &SceneItem) -> u32 {
+fn z_desc_key(item: &ScanlineItem) -> u32 {
     !item.z as u32
 }
 
 /// Takes the key as a function pointer, so all sorts share one `sort_unstable` instantiation,
 /// which costs several KB of code.
 #[inline(never)]
-fn sort_items(items: &mut [SceneItem], key: fn(&SceneItem) -> u32) {
+fn sort_items(items: &mut [ScanlineItem], key: fn(&ScanlineItem) -> u32) {
     items.sort_unstable_by_key(key);
 }
 
 #[derive(Clone, Copy, Debug)]
 #[repr(u8)]
-pub enum SceneCommand {
+pub enum ScanlineCommand {
     Rectangle {
         color: PremultipliedRgbaColor,
     },
-    /// texture_index is an index in the [`SceneVectors::textures`] array
+    /// texture_index is an index in the [`ScanlineVectors::textures`] array
     Texture {
         texture_index: u16,
     },
-    /// shared_buffer_index is an index in [`SceneVectors::shared_buffers`]
+    /// shared_buffer_index is an index in [`ScanlineVectors::shared_buffers`]
     SharedBuffer {
         shared_buffer_index: u16,
     },
-    /// rectangle_index is an index in the [`SceneVectors::rounded_rectangle`] array
+    /// rectangle_index is an index in the [`ScanlineVectors::rounded_rectangle`] array
     RoundedRectangle {
         rectangle_index: u16,
     },
-    /// linear_gradient_index is an index in the [`SceneVectors::linear_gradients`] array
+    /// linear_gradient_index is an index in the [`ScanlineVectors::linear_gradients`] array
     LinearGradient {
         linear_gradient_index: u16,
     },
-    /// radial_gradient_index is an index in the [`SceneVectors::radial_gradients`] array
+    /// radial_gradient_index is an index in the [`ScanlineVectors::radial_gradients`] array
     RadialGradient {
         radial_gradient_index: u16,
     },
-    /// conic_gradient_index is an index in the [`SceneVectors::conic_gradients`] array
+    /// conic_gradient_index is an index in the [`ScanlineVectors::conic_gradients`] array
     ConicGradient {
         conic_gradient_index: u16,
     },
-    /// box_shadow_index is an index in the [`SceneVectors::box_shadows`] array
+    /// box_shadow_index is an index in the [`ScanlineVectors::box_shadows`] array
     BoxShadow {
         box_shadow_index: u16,
     },
 }
 
-pub struct SceneTexture<'a> {
+pub struct Texture<'a> {
     /// This should have a size so that the entire slice is ((height - 1) * pixel_stride + width) * bpp
     pub data: &'a [u8],
     pub format: TexturePixelFormat,
     /// number of pixels between two lines in the source
     pub pixel_stride: u16,
 
-    pub extra: SceneTextureExtra,
+    pub extra: TextureExtra,
 }
 
-impl<'a> SceneTexture<'a> {
+impl<'a> Texture<'a> {
     pub fn source_size(&self) -> PhysicalSize {
         let mut len = self.data.len();
         if self.format == TexturePixelFormat::SignedDistanceField {
@@ -410,7 +419,7 @@ impl<'a> SceneTexture<'a> {
         texture: &'a super::target_pixel_buffer::DrawTextureArgs,
         clip: &PhysicalRect,
     ) -> Option<(Self, PhysicalRect)> {
-        let (extra, geometry) = SceneTextureExtra::from_target_texture(texture, clip)?;
+        let (extra, geometry) = TextureExtra::from_target_texture(texture, clip)?;
         let source = texture.source();
         Some((
             Self {
@@ -425,11 +434,12 @@ impl<'a> SceneTexture<'a> {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct SceneTextureExtra {
+pub struct TextureExtra {
     /// Delta x: the amount of "image pixel" that we need to skip for each physical pixel in the target buffer
     pub dx: Fixed<u16, 8>,
     pub dy: Fixed<u16, 8>,
-    /// Offset which is the coordinate of the "image pixel" which going to be drawn at location SceneItem::pos
+    /// Offset which is the coordinate of the "image pixel" which going to be drawn
+    /// at the origin of the command's geometry
     pub off_x: Fixed<u16, 4>,
     pub off_y: Fixed<u16, 4>,
     /// Color to colorize. When not transparent, consider that the image is an alpha map and always use that color.
@@ -439,7 +449,7 @@ pub struct SceneTextureExtra {
     pub rotation: RenderingRotation,
 }
 
-impl SceneTextureExtra {
+impl TextureExtra {
     pub fn from_target_texture(
         texture: &super::target_pixel_buffer::DrawTextureArgs,
         clip: &PhysicalRect,
@@ -552,50 +562,48 @@ pub struct SharedBufferCommand {
     pub buffer: SharedBufferData,
     /// The source rectangle that is mapped into this command span
     pub source_rect: PhysicalRect,
-    pub extra: SceneTextureExtra,
+    pub extra: TextureExtra,
 }
 
 impl SharedBufferCommand {
-    pub fn as_texture(&self) -> SceneTexture<'_> {
+    pub fn as_texture(&self) -> Texture<'_> {
         let stride = self.buffer.width();
         let core::ops::Range { start, end } = compute_range_in_buffer(&self.source_rect, stride);
 
         match &self.buffer {
-            SharedBufferData::SharedImage(SharedImageBuffer::RGB8(b)) => SceneTexture {
+            SharedBufferData::SharedImage(SharedImageBuffer::RGB8(b)) => Texture {
                 data: &b.as_bytes()[start * 3..end * 3],
                 pixel_stride: stride as u16,
                 format: TexturePixelFormat::Rgb,
                 extra: self.extra,
             },
-            SharedBufferData::SharedImage(SharedImageBuffer::RGBA8(b)) => SceneTexture {
+            SharedBufferData::SharedImage(SharedImageBuffer::RGBA8(b)) => Texture {
                 data: &b.as_bytes()[start * 4..end * 4],
                 pixel_stride: stride as u16,
                 format: TexturePixelFormat::Rgba,
                 extra: self.extra,
             },
-            SharedBufferData::SharedImage(SharedImageBuffer::RGBA8Premultiplied(b)) => {
-                SceneTexture {
-                    data: &b.as_bytes()[start * 4..end * 4],
-                    pixel_stride: stride as u16,
-                    format: TexturePixelFormat::RgbaPremultiplied,
-                    extra: self.extra,
-                }
-            }
+            SharedBufferData::SharedImage(SharedImageBuffer::RGBA8Premultiplied(b)) => Texture {
+                data: &b.as_bytes()[start * 4..end * 4],
+                pixel_stride: stride as u16,
+                format: TexturePixelFormat::RgbaPremultiplied,
+                extra: self.extra,
+            },
             #[cfg(feature = "image-pixel-format-rgb565")]
-            SharedBufferData::SharedImage(SharedImageBuffer::RGB565(b)) => SceneTexture {
+            SharedBufferData::SharedImage(SharedImageBuffer::RGB565(b)) => Texture {
                 data: &b.as_bytes()[start * 2..end * 2],
                 pixel_stride: stride as u16,
                 format: TexturePixelFormat::Rgb565,
                 extra: self.extra,
             },
             #[cfg(feature = "image-pixel-format-gray8")]
-            SharedBufferData::SharedImage(SharedImageBuffer::Gray8(b)) => SceneTexture {
+            SharedBufferData::SharedImage(SharedImageBuffer::Gray8(b)) => Texture {
                 data: &b.as_bytes()[start..end],
                 pixel_stride: stride as u16,
                 format: TexturePixelFormat::Gray8,
                 extra: self.extra,
             },
-            SharedBufferData::AlphaMap { data, width, sdf } => SceneTexture {
+            SharedBufferData::AlphaMap { data, width, sdf } => Texture {
                 data: &data.as_slice()[start..end],
                 pixel_stride: *width,
                 format: if *sdf {
@@ -606,7 +614,7 @@ impl SharedBufferCommand {
                 extra: self.extra,
             },
             #[cfg(feature = "owned-pre-rendered-resources")]
-            SharedBufferData::Texture { textures, texture } => SceneTexture {
+            SharedBufferData::Texture { textures, texture } => Texture {
                 data: texture_pixels(&textures.data, texture, start..end),
                 pixel_stride: stride as u16,
                 format: texture.format,
@@ -874,17 +882,20 @@ fn next_line_skipping_a_gap_drops_items_ending_at_the_new_line() {
     dirty_region.rectangles[0] = euclid::Box2D::new((0, 0).into(), (10, 10).into());
     dirty_region.rectangles[1] = euclid::Box2D::new((0, 20).into(), (10, 30).into());
 
-    let item = |y, height, z| SceneItem {
+    let item = |y, height, z| ScanlineItem {
         pos: PhysicalPoint::new(0, y),
         size: PhysicalSize::new(10, height),
         z,
-        command: SceneCommand::Rectangle { color: PremultipliedRgbaColor::default() },
+        command: ScanlineCommand::Rectangle { color: PremultipliedRgbaColor::default() },
         clip_start: 0,
         clip_len: 0,
     };
     // Both start inside the gap: the first covers lines 15..20, the second lines 15..21.
-    let mut scene =
-        Scene::new(alloc::vec![item(15, 5, 1), item(15, 6, 2)], Default::default(), dirty_region);
+    let mut scene = ScanlineScene::new(
+        alloc::vec![item(15, 5, 1), item(15, 6, 2)],
+        Default::default(),
+        dirty_region,
+    );
 
     while scene.current_line.get() < 10 {
         scene.next_line();
@@ -914,18 +925,18 @@ fn next_line_keeps_exactly_the_items_on_the_current_line() {
         seed ^= seed << 5;
         (seed % max) as i16
     };
-    let items: Vec<SceneItem> = (0..200)
-        .map(|z| SceneItem {
+    let items: Vec<ScanlineItem> = (0..200)
+        .map(|z| ScanlineItem {
             pos: PhysicalPoint::new(0, next(120)),
             size: PhysicalSize::new(10, 1 + if z % 5 == 0 { next(120) } else { next(12) }),
             z,
-            command: SceneCommand::Rectangle { color: PremultipliedRgbaColor::default() },
+            command: ScanlineCommand::Rectangle { color: PremultipliedRgbaColor::default() },
             clip_start: 0,
             clip_len: 0,
         })
         .collect();
 
-    let mut scene = Scene::new(items.clone(), Default::default(), dirty_region);
+    let mut scene = ScanlineScene::new(items.clone(), Default::default(), dirty_region);
     while scene.current_line.get() < 120 {
         let line = scene.current_line.get();
         let mut expected: Vec<_> = items

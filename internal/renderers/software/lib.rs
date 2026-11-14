@@ -578,11 +578,11 @@ impl SoftwareRenderer {
             "buffer of size {} with {pixels_per_line} pixels per line is too small to handle a window of size {size:?}",
             buffer_pixel_count
         );
-        let buffer_renderer = SceneBuilder::new(
+        let buffer_renderer = SoftwareItemRenderer::new(
             size,
             factor,
             window_inner,
-            RenderToBuffer {
+            BufferRasterizer {
                 buffer,
                 dirty_range_cache: Vec::new(),
                 dirty_region: Default::default(),
@@ -608,10 +608,10 @@ impl SoftwareRenderer {
                     size,
                 );
 
-                renderer.actual_renderer.processor.dirty_region = dirty_region.clone();
+                renderer.actual_renderer.raster_commands.dirty_region = dirty_region.clone();
                 if !renderer
                     .actual_renderer
-                    .processor
+                    .raster_commands
                     .buffer
                     .fill_background(&background, &dirty_region)
                 {
@@ -621,7 +621,7 @@ impl SoftwareRenderer {
                         if gradient_background.is_none() {
                             TargetPixel::blend(&mut bg, background.color().into());
                         }
-                        renderer.actual_renderer.processor.foreach_ranges(
+                        renderer.actual_renderer.raster_commands.foreach_ranges(
                             &dirty_region.bounding_rect(),
                             |_, buffer, _, _| {
                                 buffer.fill(bg);
@@ -1323,7 +1323,7 @@ fn render_window_frame_by_line(
     mut line_buffer: impl LineBufferProvider,
 ) -> PhysicalRegion {
     let gradient_background = gradient_background(&background);
-    let mut scene = prepare_scene(window, size, gradient_background, renderer);
+    let mut scene = record_scanline_scene(window, size, gradient_background, renderer);
 
     let to_draw_tr = scene.dirty_region.bounding_rect();
 
@@ -1375,7 +1375,7 @@ fn render_window_frame_by_line(
                         let range_buffer =
                             &mut line_buffer[(begin - offset) as usize..(end - offset) as usize];
 
-                        if let SceneCommand::Rectangle { color } = span.command
+                        if let ScanlineCommand::Rectangle { color } = span.command
                             && span.clip_len == 0
                         {
                             TargetPixel::blend_slice(range_buffer, color);
@@ -1398,33 +1398,33 @@ fn render_window_frame_by_line(
                             };
                         }
                         match span.command {
-                            SceneCommand::Rectangle { color } => {
+                            ScanlineCommand::Rectangle { color } => {
                                 draw!(&draw_functions::SolidColor(color))
                             }
-                            SceneCommand::Texture { texture_index } => {
+                            ScanlineCommand::Texture { texture_index } => {
                                 draw!(&scene.vectors.textures[texture_index as usize])
                             }
-                            SceneCommand::SharedBuffer { shared_buffer_index } => draw!(
+                            ScanlineCommand::SharedBuffer { shared_buffer_index } => draw!(
                                 &scene.vectors.shared_buffers[shared_buffer_index as usize]
                                     .as_texture()
                             ),
-                            SceneCommand::RoundedRectangle { rectangle_index } => {
+                            ScanlineCommand::RoundedRectangle { rectangle_index } => {
                                 draw!(&scene.vectors.rounded_rectangles[rectangle_index as usize])
                             }
-                            SceneCommand::LinearGradient { linear_gradient_index } => {
+                            ScanlineCommand::LinearGradient { linear_gradient_index } => {
                                 draw!(
                                     &scene.vectors.linear_gradients[linear_gradient_index as usize]
                                 )
                             }
-                            SceneCommand::RadialGradient { radial_gradient_index } => {
+                            ScanlineCommand::RadialGradient { radial_gradient_index } => {
                                 draw!(
                                     &scene.vectors.radial_gradients[radial_gradient_index as usize]
                                 )
                             }
-                            SceneCommand::ConicGradient { conic_gradient_index } => {
+                            ScanlineCommand::ConicGradient { conic_gradient_index } => {
                                 draw!(&scene.vectors.conic_gradients[conic_gradient_index as usize])
                             }
-                            SceneCommand::BoxShadow { box_shadow_index } => {
+                            ScanlineCommand::BoxShadow { box_shadow_index } => {
                                 draw!(&scene.vectors.box_shadows[box_shadow_index as usize])
                             }
                         }
@@ -1444,24 +1444,23 @@ fn gradient_background(background: &Brush) -> Option<&Brush> {
     (!matches!(background, Brush::SolidColor(_))).then_some(background)
 }
 
-fn prepare_scene(
+fn record_scanline_scene(
     window: &WindowInner,
     size: PhysicalSize,
     gradient_background: Option<&Brush>,
     software_renderer: &SoftwareRenderer,
-) -> Scene {
+) -> ScanlineScene {
     let factor = ScaleFactor::new(window.scale_factor());
-    let prepare_scene = SceneBuilder::new(
+    let recorder = SoftwareItemRenderer::new(
         size,
         factor,
         window,
-        PrepareScene { scale_factor: factor, ..Default::default() },
+        ScanlineRasterCommands { scale_factor: factor, ..Default::default() },
         software_renderer.rotation.get(),
         #[cfg(feature = "systemfonts")]
         &software_renderer.text_layout_cache,
     );
-    let mut renderer =
-        software_renderer.partial_rendering_state.create_partial_renderer(prepare_scene);
+    let mut renderer = software_renderer.partial_rendering_state.create_partial_renderer(recorder);
     let window_adapter = renderer.window_adapter.clone();
 
     let mut dirty_region = PhysicalRegion::default();
@@ -1501,114 +1500,94 @@ fn prepare_scene(
 
     software_renderer.measure_frame_rendered(&mut renderer);
 
-    let prepare_scene = renderer.into_inner();
+    let recorder = renderer.into_inner();
 
     /* // visualize dirty regions
-    let mut prepare_scene = prepare_scene;
+    let mut recorder = recorder;
     for rect in dirty_region.iter() {
-        prepare_scene.processor.process_rounded_rectangle(
-            euclid::rect(rect.0.x as _, rect.0.y as _, rect.1.width as _, rect.1.height as _),
-            RoundedRectangle {
-                shape: RoundedShape::default(),
-                width: Length::new(1),
-                border_color: Color::from_argb_u8(128, 255, 0, 0).into(),
-                inner_color: PremultipliedRgbaColor::default(),
+        recorder.raster_commands.push(
+            RasterCommand::RoundedRectangle {
+                geometry: euclid::rect(rect.0.x as _, rect.0.y as _, rect.1.width as _, rect.1.height as _),
+                rectangle: RoundedRectangle {
+                    shape: RoundedShape::default(),
+                    width: Length::new(1),
+                    border_color: Color::from_argb_u8(128, 255, 0, 0).into(),
+                    inner_color: PremultipliedRgbaColor::default(),
+                },
             },
             &[],
         )
     } // */
 
-    Scene::new(prepare_scene.processor.items, prepare_scene.processor.vectors, dirty_region)
+    ScanlineScene::new(
+        recorder.raster_commands.items,
+        recorder.raster_commands.vectors,
+        dirty_region,
+    )
 }
 
-/// Receives the commands of a frame.
-/// Each command is clipped to the rounded clips it's given, and its rect lies inside theirs.
-trait ProcessScene {
-    fn process_scene_texture(
-        &mut self,
+/// A drawing command of a frame, which a [`RasterCommandSink`] receives.
+enum RasterCommand {
+    /// Pixels that live as long as the program, such as embedded images and glyphs.
+    Texture {
         geometry: PhysicalRect,
-        texture: SceneTexture<'static>,
-        rounded_clips: &[RoundedClip],
-    );
-    fn process_shared_buffer(
-        &mut self,
+        texture: Texture<'static>,
+    },
+    /// Pixels shared with the window, such as images and glyphs loaded at run time.
+    SharedBuffer {
         geometry: PhysicalRect,
-        command: SharedBufferCommand,
-        rounded_clips: &[RoundedClip],
-    );
-    fn process_target_texture(
-        &mut self,
-        texture: &target_pixel_buffer::DrawTextureArgs,
+        buffer: SharedBufferCommand,
+    },
+    /// An image, which a [`target_pixel_buffer::TargetPixelBuffer`] may draw itself.
+    TargetTexture {
+        texture: target_pixel_buffer::DrawTextureArgs,
         clip: PhysicalRect,
-        rounded_clips: &[RoundedClip],
-    );
-    fn process_rectangle(
-        &mut self,
-        _: &target_pixel_buffer::DrawRectangleArgs,
+    },
+    /// A rectangle, which a [`target_pixel_buffer::TargetPixelBuffer`] may draw itself.
+    Rectangle {
+        args: target_pixel_buffer::DrawRectangleArgs,
         clip: PhysicalRect,
-        rounded_clips: &[RoundedClip],
-    );
-
-    fn process_simple_rectangle(
-        &mut self,
+    },
+    SolidRectangle {
         geometry: PhysicalRect,
         color: PremultipliedRgbaColor,
-        rounded_clips: &[RoundedClip],
-    );
-    fn process_rounded_rectangle(
-        &mut self,
+    },
+    RoundedRectangle {
         geometry: PhysicalRect,
-        data: RoundedRectangle,
-        rounded_clips: &[RoundedClip],
-    );
-    /// `clip` is the gradient's own shape, which applies after `rounded_clips`.
-    fn process_linear_gradient(
-        &mut self,
+        rectangle: RoundedRectangle,
+    },
+    /// `clip` is the gradient's own shape, which applies after the rounded clips.
+    Gradient {
         geometry: PhysicalRect,
-        gradient: LinearGradientCommand,
-        rounded_clips: &[RoundedClip],
+        gradient: AnyGradientCommand,
         clip: Option<ShapeClip>,
-    );
-    fn process_radial_gradient(
-        &mut self,
-        geometry: PhysicalRect,
-        gradient: RadialGradientCommand,
-        rounded_clips: &[RoundedClip],
-        clip: Option<ShapeClip>,
-    );
-    fn process_conic_gradient(
-        &mut self,
-        geometry: PhysicalRect,
-        gradient: ConicGradientCommand,
-        rounded_clips: &[RoundedClip],
-        clip: Option<ShapeClip>,
-    );
-    fn process_box_shadow(
-        &mut self,
+    },
+    BoxShadow {
         geometry: PhysicalRect,
         shadow: BoxShadowCommand,
-        rounded_clips: &[RoundedClip],
-    );
+    },
     #[cfg(feature = "path")]
-    fn process_filled_path(
-        &mut self,
+    FilledPath {
         path_geometry: PhysicalRect,
         clip_geometry: PhysicalRect,
-        commands: alloc::vec::Vec<path::Command>,
+        commands: Vec<path::Command>,
         paint: path::Paint,
         fill_rule: FillRule,
-        rounded_clips: &[RoundedClip],
-    );
+    },
     #[cfg(feature = "path")]
-    fn process_stroked_path(
-        &mut self,
+    StrokedPath {
         path_geometry: PhysicalRect,
         clip_geometry: PhysicalRect,
-        commands: alloc::vec::Vec<path::Command>,
+        commands: Vec<path::Command>,
         paint: path::Paint,
-        stroke_style: path::StrokeStyle<'_>,
-        rounded_clips: &[RoundedClip],
-    );
+        style: path::StrokeStyle,
+    },
+}
+
+/// Receives the commands of a frame, to rasterize them now or later.
+trait RasterCommandSink {
+    /// Each command is clipped to `rounded_clips`, and its rect lies inside theirs.
+    fn push(&mut self, command: RasterCommand, rounded_clips: &[RoundedClip]);
 }
 
 /// A rounded clip in physical screen coordinates, after [`RenderingRotation`].
@@ -1655,7 +1634,7 @@ fn hook_can_draw(rounded_clips: &[RoundedClip], geometry: impl FnOnce() -> Physi
 }
 
 fn process_rectangle_impl(
-    processor: &mut dyn ProcessScene,
+    raster_commands: &mut dyn RasterCommandSink,
     args: &target_pixel_buffer::DrawRectangleArgs,
     clip: &PhysicalRect,
     scale_factor: ScaleFactor,
@@ -1703,16 +1682,10 @@ fn process_rectangle_impl(
         geom,
         clipped,
         scale_factor,
-        &mut |rect, gradient| match gradient {
-            AnyGradientCommand::Linear(g) => {
-                processor.process_linear_gradient(rect, g, rounded_clips, gradient_clip(&rect))
-            }
-            AnyGradientCommand::Radial(g) => {
-                processor.process_radial_gradient(rect, g, rounded_clips, gradient_clip(&rect))
-            }
-            AnyGradientCommand::Conic(g) => {
-                processor.process_conic_gradient(rect, g, rounded_clips, gradient_clip(&rect))
-            }
+        &mut |geometry, gradient| {
+            let clip = gradient_clip(&geometry);
+            raster_commands
+                .push(RasterCommand::Gradient { geometry, gradient, clip }, rounded_clips)
         },
     );
 
@@ -1741,13 +1714,15 @@ fn process_rectangle_impl(
     }
 
     if !radius.is_zero() {
-        processor.process_rounded_rectangle(
-            clipped.round().cast(),
-            RoundedRectangle {
-                shape: rounded_shape,
-                width: border,
-                border_color,
-                inner_color: color,
+        raster_commands.push(
+            RasterCommand::RoundedRectangle {
+                geometry: clipped.round().cast(),
+                rectangle: RoundedRectangle {
+                    shape: rounded_shape,
+                    width: border,
+                    border_color,
+                    inner_color: color,
+                },
             },
             rounded_clips,
         );
@@ -1768,7 +1743,10 @@ fn process_rectangle_impl(
     let clip = clip.to_box2d();
     let mut fill = |r: euclid::Box2D<i16, PhysicalPx>, color| {
         if let Some(r) = r.intersection(&clip) {
-            processor.process_simple_rectangle(r.to_rect(), color, rounded_clips);
+            raster_commands.push(
+                RasterCommand::SolidRectangle { geometry: r.to_rect(), color },
+                rounded_clips,
+            );
         }
     };
     if color.alpha > 0 {
@@ -1892,7 +1870,7 @@ fn gradient_commands(
     }
 }
 
-struct RenderToBuffer<'a, TargetPixelBuffer> {
+struct BufferRasterizer<'a, TargetPixelBuffer> {
     buffer: &'a mut TargetPixelBuffer,
     dirty_range_cache: Vec<core::ops::Range<i16>>,
     dirty_region: PhysicalRegion,
@@ -1901,7 +1879,7 @@ struct RenderToBuffer<'a, TargetPixelBuffer> {
     clips: Vec<ShapeClip>,
 }
 
-impl<B: target_pixel_buffer::TargetPixelBuffer> RenderToBuffer<'_, B> {
+impl<B: target_pixel_buffer::TargetPixelBuffer> BufferRasterizer<'_, B> {
     fn foreach_ranges(
         &mut self,
         geometry: &PhysicalRect,
@@ -1983,26 +1961,73 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> RenderToBuffer<'_, B> {
     }
 }
 
-impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<'_, B> {
-    fn process_scene_texture(
-        &mut self,
-        geometry: PhysicalRect,
-        texture: SceneTexture<'static>,
-        rounded_clips: &[RoundedClip],
-    ) {
-        self.draw_clipped(geometry, rounded_clips, None, &texture);
+impl<B: target_pixel_buffer::TargetPixelBuffer> BufferRasterizer<'_, B> {
+    fn rasterize(&mut self, command: &RasterCommand, rounded_clips: &[RoundedClip]) {
+        use RasterCommand::*;
+        match command {
+            Texture { geometry, texture } => {
+                self.draw_clipped(*geometry, rounded_clips, None, texture)
+            }
+            SharedBuffer { geometry, buffer } => {
+                self.draw_clipped(*geometry, rounded_clips, None, &buffer.as_texture())
+            }
+            TargetTexture { texture, clip } => {
+                self.rasterize_target_texture(texture, *clip, rounded_clips)
+            }
+            Rectangle { args, clip } => self.rasterize_rectangle(args, *clip, rounded_clips),
+            SolidRectangle { geometry, color } => self.draw_clipped(
+                *geometry,
+                rounded_clips,
+                None,
+                &draw_functions::SolidColor(*color),
+            ),
+            RoundedRectangle { geometry, rectangle } => {
+                self.draw_clipped(*geometry, rounded_clips, None, rectangle)
+            }
+            Gradient { geometry, gradient, clip } => match gradient {
+                AnyGradientCommand::Linear(g) => {
+                    self.draw_clipped(*geometry, rounded_clips, *clip, g)
+                }
+                AnyGradientCommand::Radial(g) => {
+                    self.draw_clipped(*geometry, rounded_clips, *clip, g)
+                }
+                AnyGradientCommand::Conic(g) => {
+                    self.draw_clipped(*geometry, rounded_clips, *clip, g)
+                }
+            },
+            BoxShadow { geometry, shadow } => {
+                self.draw_clipped(*geometry, rounded_clips, None, shadow)
+            }
+            #[cfg(feature = "path")]
+            FilledPath { path_geometry, clip_geometry, commands, paint, fill_rule } => {
+                path::render_filled_path(
+                    commands,
+                    path_geometry,
+                    &self.dirty_region.intersection(clip_geometry),
+                    rounded_clips,
+                    &mut self.clips,
+                    paint,
+                    *fill_rule,
+                    self.buffer,
+                );
+            }
+            #[cfg(feature = "path")]
+            StrokedPath { path_geometry, clip_geometry, commands, paint, style } => {
+                path::render_stroked_path(
+                    commands,
+                    path_geometry,
+                    &self.dirty_region.intersection(clip_geometry),
+                    rounded_clips,
+                    &mut self.clips,
+                    paint,
+                    style,
+                    self.buffer,
+                );
+            }
+        }
     }
 
-    fn process_shared_buffer(
-        &mut self,
-        geometry: PhysicalRect,
-        command: SharedBufferCommand,
-        rounded_clips: &[RoundedClip],
-    ) {
-        self.draw_clipped(geometry, rounded_clips, None, &command.as_texture());
-    }
-
-    fn process_target_texture(
+    fn rasterize_target_texture(
         &mut self,
         texture: &target_pixel_buffer::DrawTextureArgs,
         clip: PhysicalRect,
@@ -2021,14 +2046,14 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
             return;
         }
 
-        let Some((texture, geometry)) = SceneTexture::from_target_texture(texture, &clip) else {
+        let Some((texture, geometry)) = Texture::from_target_texture(texture, &clip) else {
             return;
         };
 
         self.draw_clipped(geometry, rounded_clips, None, &texture);
     }
 
-    fn process_rectangle(
+    fn rasterize_rectangle(
         &mut self,
         args: &target_pixel_buffer::DrawRectangleArgs,
         clip: PhysicalRect,
@@ -2044,125 +2069,33 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
         let scale_factor = self.scale_factor;
         process_rectangle_impl(self, args, &clip, scale_factor, rounded_clips);
     }
+}
 
-    fn process_rounded_rectangle(
-        &mut self,
-        geometry: PhysicalRect,
-        rr: RoundedRectangle,
-        rounded_clips: &[RoundedClip],
-    ) {
-        self.draw_clipped(geometry, rounded_clips, None, &rr);
-    }
-
-    fn process_simple_rectangle(
-        &mut self,
-        geometry: PhysicalRect,
-        color: PremultipliedRgbaColor,
-        rounded_clips: &[RoundedClip],
-    ) {
-        self.draw_clipped(geometry, rounded_clips, None, &draw_functions::SolidColor(color));
-    }
-
-    fn process_linear_gradient(
-        &mut self,
-        geometry: PhysicalRect,
-        g: LinearGradientCommand,
-        rounded_clips: &[RoundedClip],
-        clip: Option<ShapeClip>,
-    ) {
-        self.draw_clipped(geometry, rounded_clips, clip, &g);
-    }
-    fn process_radial_gradient(
-        &mut self,
-        geometry: PhysicalRect,
-        g: RadialGradientCommand,
-        rounded_clips: &[RoundedClip],
-        clip: Option<ShapeClip>,
-    ) {
-        self.draw_clipped(geometry, rounded_clips, clip, &g);
-    }
-    fn process_conic_gradient(
-        &mut self,
-        geometry: PhysicalRect,
-        g: ConicGradientCommand,
-        rounded_clips: &[RoundedClip],
-        clip: Option<ShapeClip>,
-    ) {
-        self.draw_clipped(geometry, rounded_clips, clip, &g);
-    }
-    fn process_box_shadow(
-        &mut self,
-        geometry: PhysicalRect,
-        shadow: BoxShadowCommand,
-        rounded_clips: &[RoundedClip],
-    ) {
-        self.draw_clipped(geometry, rounded_clips, None, &shadow);
-    }
-
-    #[cfg(feature = "path")]
-    fn process_filled_path(
-        &mut self,
-        path_geometry: PhysicalRect,
-        clip_geometry: PhysicalRect,
-        commands: alloc::vec::Vec<path::Command>,
-        paint: path::Paint,
-        fill_rule: FillRule,
-        rounded_clips: &[RoundedClip],
-    ) {
-        path::render_filled_path(
-            &commands,
-            &path_geometry,
-            &self.dirty_region.intersection(&clip_geometry),
-            rounded_clips,
-            &mut self.clips,
-            &paint,
-            fill_rule,
-            self.buffer,
-        );
-    }
-
-    #[cfg(feature = "path")]
-    fn process_stroked_path(
-        &mut self,
-        path_geometry: PhysicalRect,
-        clip_geometry: PhysicalRect,
-        commands: alloc::vec::Vec<path::Command>,
-        paint: path::Paint,
-        stroke_style: path::StrokeStyle<'_>,
-        rounded_clips: &[RoundedClip],
-    ) {
-        path::render_stroked_path(
-            &commands,
-            &path_geometry,
-            &self.dirty_region.intersection(&clip_geometry),
-            rounded_clips,
-            &mut self.clips,
-            &paint,
-            stroke_style,
-            self.buffer,
-        );
+impl<B: target_pixel_buffer::TargetPixelBuffer> RasterCommandSink for BufferRasterizer<'_, B> {
+    fn push(&mut self, command: RasterCommand, rounded_clips: &[RoundedClip]) {
+        self.rasterize(&command, rounded_clips);
     }
 }
 
 #[derive(Default)]
-struct PrepareScene {
-    items: Vec<SceneItem>,
-    vectors: SceneVectors,
+struct ScanlineRasterCommands {
+    items: Vec<ScanlineItem>,
+    vectors: ScanlineVectors,
     scale_factor: ScaleFactor,
 }
 
-impl PrepareScene {
+impl ScanlineRasterCommands {
     fn push_item(
         &mut self,
         geometry: PhysicalRect,
-        command: SceneCommand,
+        command: ScanlineCommand,
         rounded_clips: &[RoundedClip],
         own_clip: Option<ShapeClip>,
     ) {
         let clip_start = self.vectors.clips.len();
         self.vectors.clips.extend(shape_clips(rounded_clips, &geometry).chain(own_clip));
         debug_assert!(self.vectors.clips.len() <= u16::MAX as usize, "too many clips in the scene");
-        self.items.push(SceneItem {
+        self.items.push(ScanlineItem {
             pos: geometry.origin,
             size: geometry.size,
             z: self.items.len() as u16,
@@ -2173,213 +2106,120 @@ impl PrepareScene {
     }
 }
 
-impl ProcessScene for PrepareScene {
-    fn process_scene_texture(
-        &mut self,
-        geometry: PhysicalRect,
-        texture: SceneTexture<'static>,
-        rounded_clips: &[RoundedClip],
-    ) {
-        let texture_index = self.vectors.textures.len() as u16;
-        self.vectors.textures.push(texture);
-        self.push_item(geometry, SceneCommand::Texture { texture_index }, rounded_clips, None);
-    }
-
-    fn process_shared_buffer(
-        &mut self,
-        geometry: PhysicalRect,
-        command: SharedBufferCommand,
-        rounded_clips: &[RoundedClip],
-    ) {
-        let shared_buffer_index = self.vectors.shared_buffers.len() as u16;
-        self.vectors.shared_buffers.push(command);
-        self.push_item(
-            geometry,
-            SceneCommand::SharedBuffer { shared_buffer_index },
-            rounded_clips,
-            None,
-        );
-    }
-
-    fn process_target_texture(
-        &mut self,
-        texture: &target_pixel_buffer::DrawTextureArgs,
-        clip: PhysicalRect,
-        rounded_clips: &[RoundedClip],
-    ) {
-        let Some((extra, geometry)) = SceneTextureExtra::from_target_texture(texture, &clip) else {
-            return;
-        };
-        match &texture.data {
-            target_pixel_buffer::TextureDataContainer::Static(texture_data) => {
-                let pixel_stride =
-                    (texture_data.byte_stride / texture_data.pixel_format.bpp()) as u16;
-                self.process_scene_texture(
+impl RasterCommandSink for ScanlineRasterCommands {
+    fn push(&mut self, command: RasterCommand, rounded_clips: &[RoundedClip]) {
+        use RasterCommand::*;
+        let (geometry, scanline_command, own_clip) = match command {
+            Texture { geometry, texture } => {
+                let texture_index = self.vectors.textures.len() as u16;
+                self.vectors.textures.push(texture);
+                self.push_item(
                     geometry,
-                    SceneTexture {
-                        data: texture_data.data,
-                        format: texture_data.pixel_format,
-                        pixel_stride,
-                        extra,
-                    },
+                    ScanlineCommand::Texture { texture_index },
                     rounded_clips,
+                    None,
                 );
+                return;
             }
-            target_pixel_buffer::TextureDataContainer::Shared { buffer, source_rect } => self
-                .process_shared_buffer(
+            SharedBuffer { geometry, buffer } => {
+                let shared_buffer_index = self.vectors.shared_buffers.len() as u16;
+                self.vectors.shared_buffers.push(buffer);
+                self.push_item(
                     geometry,
-                    SharedBufferCommand {
-                        buffer: buffer.clone(),
-                        source_rect: *source_rect,
-                        extra,
-                    },
+                    ScanlineCommand::SharedBuffer { shared_buffer_index },
                     rounded_clips,
-                ),
-        }
-    }
-
-    fn process_rectangle(
-        &mut self,
-        args: &target_pixel_buffer::DrawRectangleArgs,
-        clip: PhysicalRect,
-        rounded_clips: &[RoundedClip],
-    ) {
-        let scale_factor = self.scale_factor;
-        process_rectangle_impl(self, args, &clip, scale_factor, rounded_clips);
-    }
-
-    fn process_simple_rectangle(
-        &mut self,
-        geometry: PhysicalRect,
-        color: PremultipliedRgbaColor,
-        rounded_clips: &[RoundedClip],
-    ) {
+                    None,
+                );
+                return;
+            }
+            TargetTexture { texture, clip } => {
+                let Some((extra, geometry)) = TextureExtra::from_target_texture(&texture, &clip)
+                else {
+                    return;
+                };
+                let command = match texture.data {
+                    target_pixel_buffer::TextureDataContainer::Static(texture_data) => {
+                        let pixel_stride =
+                            (texture_data.byte_stride / texture_data.pixel_format.bpp()) as u16;
+                        Texture {
+                            geometry,
+                            texture: scene::Texture {
+                                data: texture_data.data,
+                                format: texture_data.pixel_format,
+                                pixel_stride,
+                                extra,
+                            },
+                        }
+                    }
+                    target_pixel_buffer::TextureDataContainer::Shared { buffer, source_rect } => {
+                        SharedBuffer {
+                            geometry,
+                            buffer: SharedBufferCommand { buffer, source_rect, extra },
+                        }
+                    }
+                };
+                self.push(command, rounded_clips);
+                return;
+            }
+            Rectangle { args, clip } => {
+                let scale_factor = self.scale_factor;
+                process_rectangle_impl(self, &args, &clip, scale_factor, rounded_clips);
+                return;
+            }
+            SolidRectangle { geometry, color } => {
+                (geometry, ScanlineCommand::Rectangle { color }, None)
+            }
+            RoundedRectangle { geometry, rectangle } => {
+                if geometry.is_empty() {
+                    return;
+                }
+                let rectangle_index = self.vectors.rounded_rectangles.len() as u16;
+                self.vectors.rounded_rectangles.push(rectangle);
+                (geometry, ScanlineCommand::RoundedRectangle { rectangle_index }, None)
+            }
+            Gradient { geometry, gradient, clip } => {
+                if geometry.is_empty() {
+                    return;
+                }
+                let command = match gradient {
+                    AnyGradientCommand::Linear(g) => {
+                        let linear_gradient_index = self.vectors.linear_gradients.len() as u16;
+                        self.vectors.linear_gradients.push(g);
+                        ScanlineCommand::LinearGradient { linear_gradient_index }
+                    }
+                    AnyGradientCommand::Radial(g) => {
+                        let radial_gradient_index = self.vectors.radial_gradients.len() as u16;
+                        self.vectors.radial_gradients.push(g);
+                        ScanlineCommand::RadialGradient { radial_gradient_index }
+                    }
+                    AnyGradientCommand::Conic(g) => {
+                        let conic_gradient_index = self.vectors.conic_gradients.len() as u16;
+                        self.vectors.conic_gradients.push(g);
+                        ScanlineCommand::ConicGradient { conic_gradient_index }
+                    }
+                };
+                (geometry, command, clip)
+            }
+            BoxShadow { geometry, shadow } => {
+                if geometry.is_empty() {
+                    return;
+                }
+                let box_shadow_index = self.vectors.box_shadows.len() as u16;
+                self.vectors.box_shadows.push(shadow);
+                (geometry, ScanlineCommand::BoxShadow { box_shadow_index }, None)
+            }
+            // The scanline rasterizer can't draw paths.
+            #[cfg(feature = "path")]
+            FilledPath { .. } | StrokedPath { .. } => return,
+        };
         if !geometry.is_empty() {
-            self.push_item(geometry, SceneCommand::Rectangle { color }, rounded_clips, None);
+            self.push_item(geometry, scanline_command, rounded_clips, own_clip);
         }
-    }
-
-    fn process_rounded_rectangle(
-        &mut self,
-        geometry: PhysicalRect,
-        data: RoundedRectangle,
-        rounded_clips: &[RoundedClip],
-    ) {
-        if !geometry.is_empty() {
-            let rectangle_index = self.vectors.rounded_rectangles.len() as u16;
-            self.vectors.rounded_rectangles.push(data);
-            self.push_item(
-                geometry,
-                SceneCommand::RoundedRectangle { rectangle_index },
-                rounded_clips,
-                None,
-            );
-        }
-    }
-
-    fn process_linear_gradient(
-        &mut self,
-        geometry: PhysicalRect,
-        gradient: LinearGradientCommand,
-        rounded_clips: &[RoundedClip],
-        clip: Option<ShapeClip>,
-    ) {
-        if !geometry.is_empty() {
-            let linear_gradient_index = self.vectors.linear_gradients.len() as u16;
-            self.vectors.linear_gradients.push(gradient);
-            self.push_item(
-                geometry,
-                SceneCommand::LinearGradient { linear_gradient_index },
-                rounded_clips,
-                clip,
-            );
-        }
-    }
-    fn process_radial_gradient(
-        &mut self,
-        geometry: PhysicalRect,
-        gradient: RadialGradientCommand,
-        rounded_clips: &[RoundedClip],
-        clip: Option<ShapeClip>,
-    ) {
-        if !geometry.is_empty() {
-            let radial_gradient_index = self.vectors.radial_gradients.len() as u16;
-            self.vectors.radial_gradients.push(gradient);
-            self.push_item(
-                geometry,
-                SceneCommand::RadialGradient { radial_gradient_index },
-                rounded_clips,
-                clip,
-            );
-        }
-    }
-    fn process_conic_gradient(
-        &mut self,
-        geometry: PhysicalRect,
-        gradient: ConicGradientCommand,
-        rounded_clips: &[RoundedClip],
-        clip: Option<ShapeClip>,
-    ) {
-        if !geometry.is_empty() {
-            let conic_gradient_index = self.vectors.conic_gradients.len() as u16;
-            self.vectors.conic_gradients.push(gradient);
-            self.push_item(
-                geometry,
-                SceneCommand::ConicGradient { conic_gradient_index },
-                rounded_clips,
-                clip,
-            );
-        }
-    }
-    fn process_box_shadow(
-        &mut self,
-        geometry: PhysicalRect,
-        shadow: BoxShadowCommand,
-        rounded_clips: &[RoundedClip],
-    ) {
-        if !geometry.is_empty() {
-            let box_shadow_index = self.vectors.box_shadows.len() as u16;
-            self.vectors.box_shadows.push(shadow);
-            self.push_item(
-                geometry,
-                SceneCommand::BoxShadow { box_shadow_index },
-                rounded_clips,
-                None,
-            );
-        }
-    }
-
-    #[cfg(feature = "path")]
-    fn process_filled_path(
-        &mut self,
-        _path_geometry: PhysicalRect,
-        _clip_geometry: PhysicalRect,
-        _commands: alloc::vec::Vec<path::Command>,
-        _paint: path::Paint,
-        _fill_rule: FillRule,
-        _rounded_clips: &[RoundedClip],
-    ) {
-        // Path rendering is not supported in line-by-line mode (PrepareScene/render_by_line)
-        // Only works with buffer-based rendering (RenderToBuffer)
-    }
-
-    #[cfg(feature = "path")]
-    fn process_stroked_path(
-        &mut self,
-        _path_geometry: PhysicalRect,
-        _clip_geometry: PhysicalRect,
-        _commands: alloc::vec::Vec<path::Command>,
-        _paint: path::Paint,
-        _stroke_style: path::StrokeStyle<'_>,
-        _rounded_clips: &[RoundedClip],
-    ) {
-        // Path rendering is not supported in line-by-line mode (PrepareScene/render_by_line)
-        // Only works with buffer-based rendering (RenderToBuffer)
     }
 }
 
-struct SceneBuilder<'a, T> {
-    processor: T,
+struct SoftwareItemRenderer<'a, T> {
+    raster_commands: T,
     state_stack: Vec<RenderState>,
     current_state: RenderState,
     rounded_clips: Vec<RoundedClip>,
@@ -2390,17 +2230,17 @@ struct SceneBuilder<'a, T> {
     text_layout_cache: &'a sharedparley::TextLayoutCache,
 }
 
-impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
+impl<'a, T: RasterCommandSink> SoftwareItemRenderer<'a, T> {
     fn new(
         screen_size: PhysicalSize,
         scale_factor: ScaleFactor,
         window: &'a WindowInner,
-        processor: T,
+        raster_commands: T,
         orientation: RenderingRotation,
         #[cfg(feature = "systemfonts")] text_layout_cache: &'a sharedparley::TextLayoutCache,
     ) -> Self {
         Self {
-            processor,
+            raster_commands,
             state_stack: Vec::new(),
             current_state: RenderState {
                 alpha: 1.,
@@ -2425,7 +2265,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
         let mut args =
             target_pixel_buffer::DrawRectangleArgs::from_rect(screen.cast(), gradient.clone());
         args.rotation = self.rotation.orientation;
-        self.processor.process_rectangle(&args, screen, &[]);
+        self.raster_commands.push(RasterCommand::Rectangle { args, clip: screen }, &[]);
     }
 
     fn should_draw(&self, rect: &LogicalRect) -> bool {
@@ -2646,9 +2486,8 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                     tiling,
                 };
 
-                self.processor.process_target_texture(
-                    &t,
-                    clipped_target.cast(),
+                self.raster_commands.push(
+                    RasterCommand::TargetTexture { texture: t, clip: clipped_target.cast() },
                     &self.rounded_clips,
                 );
             }
@@ -2723,9 +2562,8 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                         tiling,
                     };
 
-                    self.processor.process_target_texture(
-                        &t,
-                        clipped_target.cast(),
+                    self.raster_commands.push(
+                        RasterCommand::TargetTexture { texture: t, clip: clipped_target.cast() },
                         &self.rounded_clips,
                     );
                 } else {
@@ -2765,7 +2603,10 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                             geometry.cast(),
                             selection.selection_background.into(),
                         );
-                        self.processor.process_rectangle(&args, geometry, &self.rounded_clips);
+                        self.raster_commands.push(
+                            RasterCommand::Rectangle { args, clip: geometry },
+                            &self.rounded_clips,
+                        );
                     }
                 }
                 let scale_delta = paragraph.layout.font.scale_delta();
@@ -2826,7 +2667,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                         let off_x = delta32 * off_x as i32 + fract_x;
                         let fract_y = normalize(glyph.y - Fixed::from_integer(gl_y.get() as _));
                         let off_y = delta32 * off_y as i32 + fract_y;
-                        let extra = SceneTextureExtra {
+                        let extra = TextureExtra {
                             colorize: color,
                             // color already is mixed with global alpha
                             alpha: color.alpha(),
@@ -2838,18 +2679,18 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                         };
                         let geometry = geometry.transformed(self.rotation);
                         match &glyph.alpha_map {
-                            fonts::GlyphAlphaMap::Static(data) => {
-                                self.processor.process_scene_texture(
+                            fonts::GlyphAlphaMap::Static(data) => self.raster_commands.push(
+                                RasterCommand::Texture {
                                     geometry,
-                                    SceneTexture {
+                                    texture: Texture {
                                         data,
                                         pixel_stride,
                                         format: TexturePixelFormat::SignedDistanceField,
                                         extra,
                                     },
-                                    &self.rounded_clips,
-                                )
-                            }
+                                },
+                                &self.rounded_clips,
+                            ),
                             _ => {
                                 let buffer = SharedBufferData::AlphaMap {
                                     data: glyph.alpha_map.clone(),
@@ -2862,9 +2703,11 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                     buffer.width() as i16,
                                     buffer.height() as i16,
                                 );
-                                self.processor.process_shared_buffer(
-                                    geometry,
-                                    SharedBufferCommand { buffer, source_rect, extra },
+                                self.raster_commands.push(
+                                    RasterCommand::SharedBuffer {
+                                        geometry,
+                                        buffer: SharedBufferCommand { buffer, source_rect, extra },
+                                    },
                                     &self.rounded_clips,
                                 )
                             }
@@ -2911,9 +2754,8 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                         tiling: None,
                     };
 
-                    self.processor.process_target_texture(
-                        &t,
-                        clipped_target.cast(),
+                    self.raster_commands.push(
+                        RasterCommand::TargetTexture { texture: t, clip: clipped_target.cast() },
                         &self.rounded_clips,
                     );
                 }
@@ -2989,7 +2831,9 @@ struct RenderState {
     rounded_clip_count: u16,
 }
 
-impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilder<'_, T> {
+impl<T: RasterCommandSink> i_slint_core::item_rendering::ItemRenderer
+    for SoftwareItemRenderer<'_, T>
+{
     fn global_alpha_transparent(&self) -> bool {
         self.current_state.alpha == 0.0
     }
@@ -3013,7 +2857,8 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                 target_pixel_buffer::DrawRectangleArgs::from_rect(geom, rect.background());
             args.alpha = (self.current_state.alpha * 255.) as u8;
             args.rotation = self.rotation.orientation;
-            self.processor.process_rectangle(&args, clipped, &self.rounded_clips);
+            self.raster_commands
+                .push(RasterCommand::Rectangle { args, clip: clipped }, &self.rounded_clips);
         }
     }
 
@@ -3053,7 +2898,8 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                 rotation: self.rotation.orientation,
             };
 
-            self.processor.process_rectangle(&args, clipped, &self.rounded_clips);
+            self.raster_commands
+                .push(RasterCommand::Rectangle { args, clip: clipped }, &self.rounded_clips);
         }
     }
 
@@ -3307,7 +3153,8 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                     geometry.cast(),
                     self.alpha_color(text_visual_representation.cursor_color).into(),
                 );
-                self.processor.process_rectangle(&args, geometry, &self.rounded_clips);
+                self.raster_commands
+                    .push(RasterCommand::Rectangle { args, clip: geometry }, &self.rounded_clips);
             }
         }
     }
@@ -3396,12 +3243,14 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
         if !fill_brush.is_transparent()
             && let Some(paint) = resolve_paint(fill_brush)
         {
-            self.processor.process_filled_path(
-                physical_geom,
-                clipped_geom,
-                zeno_commands.clone(),
-                paint,
-                path.fill_rule(),
+            self.raster_commands.push(
+                RasterCommand::FilledPath {
+                    path_geometry: physical_geom,
+                    clip_geometry: clipped_geom,
+                    commands: zeno_commands.clone(),
+                    paint,
+                    fill_rule: path.fill_rule(),
+                },
                 &self.rounded_clips,
             );
         }
@@ -3423,20 +3272,22 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                 .map(|&x| (LogicalLength::new(x).cast() * self.scale_factor).get())
                 .collect();
             let stroke_dash_offset = (path.stroke_dash_offset().cast() * self.scale_factor).get();
-            let stroke_style = path::StrokeStyle {
+            let style = path::StrokeStyle {
                 width: physical_stroke_width,
                 line_cap: stroke_line_cap,
                 line_join: stroke_line_join,
                 miter_limit: stroke_miter_limit,
-                dash_array: &stroke_dash_array,
+                dash_array: stroke_dash_array,
                 dash_offset: stroke_dash_offset,
             };
-            self.processor.process_stroked_path(
-                physical_geom,
-                clipped_geom,
-                zeno_commands,
-                paint,
-                stroke_style,
+            self.raster_commands.push(
+                RasterCommand::StrokedPath {
+                    path_geometry: physical_geom,
+                    clip_geometry: clipped_geom,
+                    commands: zeno_commands,
+                    paint,
+                    style,
+                },
                 &self.rounded_clips,
             );
         }
@@ -3466,7 +3317,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
         let Some(clip) = self.physical_clip() else { return };
         let color = self.alpha_color(options.color);
         process_drop_shadow(
-            &mut self.processor,
+            &mut self.raster_commands,
             &options,
             (self.current_state.offset + offset).cast() * self.scale_factor,
             color,
@@ -3603,7 +3454,10 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                 if let Some(clip) =
                     self.clip_to_rounded_clips(geometry.cast().transformed(self.rotation))
                 {
-                    self.processor.process_target_texture(&t, clip, &self.rounded_clips);
+                    self.raster_commands.push(
+                        RasterCommand::TargetTexture { texture: t, clip },
+                        &self.rounded_clips,
+                    );
                 }
             }
         });
@@ -3688,7 +3542,9 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
     }
 }
 
-impl<T: ProcessScene> i_slint_core::item_rendering::ItemRendererFeatures for SceneBuilder<'_, T> {
+impl<T: RasterCommandSink> i_slint_core::item_rendering::ItemRendererFeatures
+    for SoftwareItemRenderer<'_, T>
+{
     const SUPPORTS_TRANSFORMATIONS: bool = false;
 }
 
@@ -3704,7 +3560,7 @@ struct GlyphBrush {
 }
 
 #[cfg(feature = "systemfonts")]
-impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
+impl<T: RasterCommandSink> sharedparley::GlyphRenderer for SoftwareItemRenderer<'_, T> {
     type PlatformBrush = GlyphBrush;
 
     fn snap_y(&self, y: f32) -> f32 {
@@ -3759,8 +3615,8 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
         // selection highlight edge a whole pixel away from the glyph clip meant to line up with it,
         // as soon as the item's own offset lands on a fractional device pixel.
         let geometry = physical_rect.round().transformed(self.rotation);
-        // These fills reach the processor directly rather than through `draw_rectangle`, so they
-        // have to bring the clip along themselves. Without it a text decoration, a selection
+        // These fills reach the raster command sink directly rather than through `draw_rectangle`,
+        // so they have to bring the clip along themselves. Without it a text decoration, a selection
         // highlight or a cursor taller than the item it belongs to paints right over its
         // surroundings, while the glyphs beside it are clipped.
         let Some(clip) = self.physical_clip() else { return };
@@ -3784,7 +3640,7 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
             args.border = Brush::SolidColor(border_brush.color);
         }
 
-        self.processor.process_rectangle(&args, clip, &self.rounded_clips);
+        self.raster_commands.push(RasterCommand::Rectangle { args, clip }, &self.rounded_clips);
     }
 
     fn draw_glyph_run(
@@ -3897,7 +3753,10 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
                 tiling: None,
             };
 
-            self.processor.process_target_texture(&t, clipped_target.cast(), &self.rounded_clips);
+            self.raster_commands.push(
+                RasterCommand::TargetTexture { texture: t, clip: clipped_target.cast() },
+                &self.rounded_clips,
+            );
         }
     }
 }
@@ -3908,7 +3767,7 @@ fn render_region(
     screen_size: PhysicalSize,
     region: &[PhysicalRect],
     scale_factor: ScaleFactor,
-    draw: impl FnOnce(&mut dyn ProcessScene),
+    draw: impl FnOnce(&mut dyn RasterCommandSink),
 ) -> Vec<PremultipliedRgbaColor> {
     let pixel_count = screen_size.width as usize * screen_size.height as usize;
     let mut data = alloc::vec![PremultipliedRgbaColor::default(); pixel_count];
@@ -3917,14 +3776,14 @@ fn render_region(
     for (r, dst) in region.iter().zip(rectangles.iter_mut()) {
         *dst = r.to_box2d();
     }
-    let mut processor = RenderToBuffer {
+    let mut raster_commands = BufferRasterizer {
         buffer: &mut buffer,
         dirty_range_cache: Vec::new(),
         dirty_region: PhysicalRegion { rectangles, count: region.len() },
         scale_factor,
         clips: Vec::new(),
     };
-    draw(&mut processor);
+    draw(&mut raster_commands);
     data
 }
 
@@ -3935,14 +3794,16 @@ fn assert_partial_render_is_identical(
     screen_size: PhysicalSize,
     clip: PhysicalRect,
     region: &[PhysicalRect],
-    draw: impl Fn(&mut dyn ProcessScene, &PhysicalRect),
+    draw: impl Fn(&mut dyn RasterCommandSink, &PhysicalRect),
 ) {
     let screen = PhysicalRect::from_size(screen_size);
     let scale_factor = ScaleFactor::new(1.);
-    let full =
-        render_region(screen_size, &[screen], scale_factor, |processor| draw(processor, &screen));
-    let partial =
-        render_region(screen_size, region, scale_factor, |processor| draw(processor, &clip));
+    let full = render_region(screen_size, &[screen], scale_factor, |raster_commands| {
+        draw(raster_commands, &screen)
+    });
+    let partial = render_region(screen_size, region, scale_factor, |raster_commands| {
+        draw(raster_commands, &clip)
+    });
     let mut drawn = false;
     for (i, (a, b)) in full.iter().zip(partial.iter()).enumerate() {
         let p = PhysicalPoint::new(
@@ -3979,8 +3840,8 @@ fn rounded_rectangle_partial_render_is_identical() {
             alpha: 255,
             rotation: RenderingRotation::NoRotation,
         };
-        assert_partial_render_is_identical(screen_size, clip, &region, |processor, clip| {
-            processor.process_rectangle(&args, *clip, &[])
+        assert_partial_render_is_identical(screen_size, clip, &region, |raster_commands, clip| {
+            raster_commands.push(RasterCommand::Rectangle { args: args.clone(), clip: *clip }, &[])
         });
     }
 }
@@ -4007,22 +3868,33 @@ fn path_partial_render_stays_in_dirty_region() {
         line_cap: i_slint_core::items::LineCap::Butt,
         line_join: i_slint_core::items::LineJoin::Miter,
         miter_limit: 4.,
-        dash_array: &[],
+        dash_array: Vec::new(),
         dash_offset: 0.,
     };
-    let draws: [&dyn Fn(&mut dyn ProcessScene, &PhysicalRect); 2] = [
-        &|processor, clip| {
-            processor.process_filled_path(
-                screen,
-                *clip,
-                commands.clone(),
-                paint(),
-                FillRule::default(),
+    let draws: [&dyn Fn(&mut dyn RasterCommandSink, &PhysicalRect); 2] = [
+        &|raster_commands, clip| {
+            raster_commands.push(
+                RasterCommand::FilledPath {
+                    path_geometry: screen,
+                    clip_geometry: *clip,
+                    commands: commands.clone(),
+                    paint: paint(),
+                    fill_rule: FillRule::default(),
+                },
                 &[],
             )
         },
-        &|processor, clip| {
-            processor.process_stroked_path(screen, *clip, commands.clone(), paint(), stroke, &[])
+        &|raster_commands, clip| {
+            raster_commands.push(
+                RasterCommand::StrokedPath {
+                    path_geometry: screen,
+                    clip_geometry: *clip,
+                    commands: commands.clone(),
+                    paint: paint(),
+                    style: stroke.clone(),
+                },
+                &[],
+            )
         },
     ];
     for draw in draws {
