@@ -141,7 +141,7 @@ export component InspectorPane inherits Rectangle {
                 if InspectorContext.is-text-selection() || InspectorContext.is-styled-text-selection() || InspectorContext.has-only-horizontal-alignment(): InspectorTextAlignmentSection {
                     show-vertical: !InspectorContext.has-only-horizontal-alignment();
                 }
-                if InspectorContext.is-text-selection(): InspectorTextWrapSection { }
+                if InspectorContext.is-text-selection() || InspectorContext.is-styled-text-selection(): InspectorTextWrapSection { }
             }
         }
     }
