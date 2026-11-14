@@ -1,0 +1,99 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    width: 100phx;
+    height: 100phx;
+    in-out property <string> text <=> input.text;
+    out property <int> anchor: input.anchor-position-byte-offset;
+    out property <int> cursor: input.cursor-position-byte-offset;
+    in-out property <int> edited-count;
+    in-out property <bool> number;
+    forward-focus: input;
+
+    public function select(start: int, end: int) {
+        input.set-selection-offsets(start, end);
+    }
+
+    input := TextInput {
+        input-type: root.number ? InputType.number : InputType.text;
+        edited => {
+            root.edited-count += 1;
+        }
+    }
+}
+
+/*
+```rust
+use i_slint_core::input::{InternalKeyEvent, KeyEventType};
+use i_slint_core::items::KeyEvent;
+use slint::platform::WindowEvent;
+
+let instance = TestCase::new().unwrap();
+instance.show().unwrap();
+instance.window().dispatch_event(WindowEvent::WindowActiveChanged(true));
+
+let compose = |commit: &str, preedit: &str, replacement_range: Option<core::ops::Range<i32>>| {
+    let mut key_event = KeyEvent::default();
+    key_event.text = commit.into();
+    let event_type = if replacement_range.is_none() && !commit.is_empty() {
+        KeyEventType::CommitComposition
+    } else {
+        KeyEventType::UpdateComposition
+    };
+    instance.window().dispatch_event(WindowEvent::internal(InternalKeyEvent {
+        event_type,
+        key_event,
+        preedit_text: preedit.into(),
+        preedit_selection: Some(preedit.len() as i32..preedit.len() as i32),
+        replacement_range,
+        ..Default::default()
+    }));
+};
+
+// winit: the composition removes the selection when it starts, not when it's committed.
+// It used to show next to the selected text until then.
+instance.set_text("hello".into());
+instance.invoke_select(0, 5);
+instance.set_edited_count(0);
+compose("", "ㅎ", None);
+assert_eq!(instance.get_text(), "");
+assert_eq!(instance.get_edited_count(), 1);
+compose("", "하", None);
+compose("한", "", None);
+assert_eq!(instance.get_text(), "한");
+assert_eq!(instance.get_edited_count(), 2);
+
+// A commit without a composition replaces the selection, with one `edited`.
+instance.set_text("hello".into());
+instance.invoke_select(1, 4);
+instance.set_edited_count(0);
+compose("한", "", None);
+assert_eq!(instance.get_text(), "h한o");
+assert_eq!(instance.get_edited_count(), 1);
+
+// Qt sends an empty replacement range with every event.
+// It used to drop the selection, and the commit didn't replace the selected text.
+instance.set_text("hello".into());
+instance.invoke_select(1, 4);
+compose("", "ㅎ", Some(0..0));
+assert_eq!(instance.get_text(), "ho");
+compose("한", "", Some(0..0));
+assert_eq!(instance.get_text(), "h한o");
+
+// An empty composition, such as a cancelled one, keeps the selection.
+instance.set_text("hello".into());
+instance.invoke_select(1, 4);
+compose("", "", None);
+assert_eq!(instance.get_text(), "hello");
+assert_eq!((instance.get_anchor(), instance.get_cursor()), (1, 4));
+
+// A composition the input would reject, such as letters in a number input, keeps the selection.
+instance.set_number(true);
+instance.set_text("12345".into());
+instance.invoke_select(1, 4);
+compose("", "ㅎ", None);
+assert_eq!(instance.get_text(), "12345");
+assert_eq!((instance.get_anchor(), instance.get_cursor()), (1, 4));
+```
+*/
