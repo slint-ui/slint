@@ -130,8 +130,7 @@ export global InspectorContext {
         return InspectorContext.has-backend-rect()
             && (InspectorContext.element-information.type-name == "Text"
                 || InspectorContext.element-information.type-name == "LineEdit"
-                || InspectorContext.element-information.type-name == "TextEdit"
-                || InspectorContext.element-information.type-name == "SpinBox");
+                || InspectorContext.element-information.type-name == "TextEdit");
     }
 
     public pure function is-title-selection() -> bool {
