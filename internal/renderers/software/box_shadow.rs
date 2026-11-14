@@ -3,7 +3,7 @@
 
 //! Box shadows, blurred analytically line by line, without a texture.
 
-use super::draw_functions::{PremultipliedRgbaColor, TargetPixel};
+use super::target_pixel::{PremultipliedRgbaColor, TargetPixel};
 use super::{
     Fixed, PhysicalLength, PhysicalRect, PhysicalSize, ProcessScene, RotationInfo, RoundedClip,
     Transform, target_pixel_buffer,
