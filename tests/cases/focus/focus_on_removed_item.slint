@@ -47,4 +47,11 @@ var instance = new slint.TestCase({});
 slintlib.private_api.send_mouse_click(instance, 150., 20.);
 assert.equal(instance.model.rowCount(), 1);
 ```
+
+```csharp
+using var instance = TestCase.Create();
+// The click removes the focused row of the model, which mustn't crash.
+Testing.SendMouseClick(instance.Instance, 150, 20);
+Assert.AreEqual(1, instance.Model.RowCount);
+```
 */

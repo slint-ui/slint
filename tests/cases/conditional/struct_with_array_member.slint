@@ -90,4 +90,19 @@ assert instance.switch
 assert len(list(instance.data.datas)) == 0
 assert not instance.test
 ```
+
+```csharp
+using var instance = TestCase.Create();
+Assert.IsFalse(instance.Switch);
+var datas = instance.Data.Datas;
+Assert.AreEqual(2, datas.RowCount);
+Assert.IsTrue(instance.Test);
+Assert.AreEqual("text 1", datas[0].Text);
+Assert.AreEqual("text 2", datas[1].Text);
+
+instance.Switch = true;
+Assert.IsTrue(instance.Switch);
+Assert.AreEqual(0, instance.Data.Datas.RowCount);
+Assert.IsFalse(instance.Test);
+```
 */

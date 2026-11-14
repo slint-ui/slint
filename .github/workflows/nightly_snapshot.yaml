@@ -19,7 +19,7 @@ on:
                     - test          # Build everything, publish nothing.
 
 env:
-    # Keep in sync with features in slint_tool_binary.yaml, cpp_package.yaml, api/node/Cargo.toml, and api/python/slint/Cargo.toml
+    # Keep in sync with features in slint_tool_binary.yaml, cpp_package.yaml, api/node/Cargo.toml, api/python/slint/Cargo.toml, and api/dotnet/native/Cargo.toml
     SLINT_BINARY_FEATURES: "backend-linuxkms-libinput,backend-winit,renderer-femtovg,renderer-skia,renderer-software"
     MACOSX_DEPLOYMENT_TARGET: "11.0"
     SLINT_BUILD_NUMBER: ${{ github.run_number }}

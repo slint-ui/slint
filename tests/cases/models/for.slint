@@ -136,4 +136,14 @@ instance.cond1 = false;
 slintlib.private_api.send_mouse_click(instance, 5., 15.);
 assert.equal(instance.value, 3000+13+42);
 ```
+
+```csharp
+using var instance = TestCase.Create();
+Testing.SendMouseClick(instance.Instance, 5, 5);
+Assert.AreEqual(1010, instance.Value);
+Testing.SendMouseClick(instance.Instance, 15, 15);
+Assert.AreEqual(2013, instance.Value);
+Testing.SendMouseClick(instance.Instance, 5, 15);
+Assert.AreEqual(3000 + 13 + 42, instance.Value);
+```
 */

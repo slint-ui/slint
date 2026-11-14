@@ -76,4 +76,16 @@ globals.PublicGlobal.sum = function(a, b) { return a * b };
 assert.equal(instance.PublicGlobal.sum(4, 5), 20);
 ```
 
+```csharp
+using var instance = TestCase.Create();
+Assert.IsFalse(instance.TestGlobalPropValue);
+Assert.AreEqual(42, instance.PublicGlobal.Hello);
+instance.PublicGlobal.Hello = 100;
+Assert.IsTrue(instance.TestGlobalPropValue);
+// A global keeps the name it's re-exported under.
+Assert.AreEqual(44, instance.ReexportedGlobal.Foo);
+instance.PublicGlobal.OnSum((a, b) => a + b);
+Assert.AreEqual(10, instance.TestCallCallback);
+Assert.AreEqual(9, instance.PublicGlobal.InvokeSum(4, 5));
+```
 */

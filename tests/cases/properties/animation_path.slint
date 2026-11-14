@@ -345,4 +345,45 @@ assert.equal(instance.vx, 0.0);
 assert.equal(instance.vy, 0.0);
 ```
 
+```csharp
+using var instance = TestCase.Create();
+void AssertAngle(float expected) => Assert.IsTrue(Math.Abs(instance.Angle - expected) < 0.05f, $"angle {instance.Angle}, expected {expected}");
+
+Assert.AreEqual(0f, instance.Px);
+Assert.AreEqual(0f, instance.Py);
+AssertAngle(90);
+instance.T = 1;
+// No time has passed yet.
+Assert.AreEqual(0f, instance.Px);
+Assert.AreEqual(0f, instance.Py);
+
+// Each quarter of the animation reaches the next point of the path, in element coordinates.
+(float X, float Y, float Angle)[] quarters = [(0, 50, 90), (0, 100, 90), (50, 100, 0), (100, 100, 0)];
+foreach (var (x, y, angle) in quarters)
+{
+    Testing.MockElapsedTime(500);
+    Assert.AreEqual(x, instance.Px);
+    Assert.AreEqual(y, instance.Py);
+    AssertAngle(angle);
+}
+
+// From 0 to 2, u goes along the path twice; at exactly 1 it's at the end, not back at the start.
+instance.U = 2;
+foreach (var (x, y, _) in quarters.Concat(quarters))
+{
+    Testing.MockElapsedTime(500);
+    Assert.AreEqual(x, instance.Ux);
+    Assert.AreEqual(y, instance.Uy);
+}
+
+// From 2 to 0, v goes along the path backwards twice.
+instance.V = 0;
+(float X, float Y)[] backwards = [(50, 100), (0, 100), (0, 50), (100, 100), (50, 100), (0, 100), (0, 50), (0, 0)];
+foreach (var (x, y) in backwards)
+{
+    Testing.MockElapsedTime(500);
+    Assert.AreEqual(x, instance.Vx);
+    Assert.AreEqual(y, instance.Vy);
+}
+```
 */

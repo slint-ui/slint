@@ -17,6 +17,11 @@ You can run the demo on a desktop or embedded Linux environment with the followi
 cargo run --manifest-path demos/energy-monitor/Cargo.toml
 ```
 
+Or run the C# version, in [`dotnet/Program.cs`](./dotnet/Program.cs), with the .NET 10 SDK:
+```sh
+dotnet run --project demos/energy-monitor/dotnet
+```
+
 ### Microcontrollers (MCU)
 
 Refer to the [MCU backend Readme](../../examples/mcu-board-support) for instructions on how to run the demo on smaller devices like the Raspberry Pi Pico.

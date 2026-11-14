@@ -75,4 +75,10 @@ var instance = new slint.TestCase({});
 slintlib.private_api.send_mouse_click(instance, 205., 205.);
 assert(instance.all_ok);
 ```
+
+```csharp
+using var instance = TestCase.Create();
+Testing.SendMouseClick(instance.Instance, 205, 205);
+Assert.IsTrue(instance.AllOk);
+```
 */

@@ -530,7 +530,7 @@ pub async fn build_from_source(
     // If the native style should be used, resolve it here as we know the backend.
     if config.style.as_deref() == Some("native") {
         // On wasm, look at the browser user agent
-        #[cfg(target_arch = "wasm32")]
+        #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
         let target = web_sys::window()
             .and_then(|window| window.navigator().platform().ok())
             .map_or("wasm", |platform| {
@@ -550,7 +550,7 @@ pub async fn build_from_source(
                     "wasm"
                 }
             });
-        #[cfg(not(target_arch = "wasm32"))]
+        #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
         let target = "";
         config.style = Some(
             i_slint_common::get_native_style(i_slint_backend_selector::HAS_NATIVE_STYLE, target)

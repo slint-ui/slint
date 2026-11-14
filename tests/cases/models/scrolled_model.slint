@@ -65,4 +65,9 @@ var instance = new slint.TestCase({});
 slintlib.private_api.send_keyboard_string_sequence(instance, "\t");
 ```
 
+```csharp
+using var instance = TestCase.Create();
+// Moving the focus into the scrolled list doesn't crash.
+Testing.SendKeyboardStringSequence(instance.Instance, "\t");
+```
 */

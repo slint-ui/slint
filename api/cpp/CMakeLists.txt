@@ -181,17 +181,18 @@ if (SLINT_BUILD_RUNTIME)
     add_library(Slint INTERFACE)
     add_library(Slint::Slint ALIAS Slint)
     if(EMSCRIPTEN)
+        set(SLINT_EMSCRIPTEN_JS ${CMAKE_CURRENT_SOURCE_DIR}/../../internal/backends/emscripten/slint_emscripten.js)
         # Rust unwinds with WebAssembly exceptions, so the link needs them.
         # Only the link: C++ compiled with exceptions would run the destructors in main()
         # when emscripten_set_main_loop() leaves it, destroying the window.
         target_link_options(Slint INTERFACE
             -fwasm-exceptions
             -sALLOW_MEMORY_GROWTH=1
-            "--js-library=$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/slint_emscripten.js>$<INSTALL_INTERFACE:$<INSTALL_PREFIX>/${CMAKE_INSTALL_DATADIR}/slint/slint_emscripten.js>")
+            "--js-library=$<BUILD_INTERFACE:${SLINT_EMSCRIPTEN_JS}>$<INSTALL_INTERFACE:$<INSTALL_PREFIX>/${CMAKE_INSTALL_DATADIR}/slint/slint_emscripten.js>")
         if(SLINT_FEATURE_RENDERER_FEMTOVG)
             target_link_options(Slint INTERFACE -sMIN_WEBGL_VERSION=2 -sMAX_WEBGL_VERSION=2 -sGL_ENABLE_GET_PROC_ADDRESS=1)
         endif()
-        install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/slint_emscripten.js
+        install(FILES ${SLINT_EMSCRIPTEN_JS}
             DESTINATION ${CMAKE_INSTALL_DATADIR}/slint)
     endif()
     target_link_libraries(Slint INTERFACE slint_cpp)

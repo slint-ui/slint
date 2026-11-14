@@ -137,4 +137,21 @@ assert(!instance.input1_focused);
 assert(!instance.input2_focused);
 assert(instance.input3_focused);
 ```
+
+```csharp
+using var instance = TestCase.Create();
+void AssertFocused(int input)
+{
+    Assert.AreEqual(input == 1, instance.Input1Focused);
+    Assert.AreEqual(input == 2, instance.Input2Focused);
+    Assert.AreEqual(input == 3, instance.Input3Focused);
+}
+AssertFocused(0);
+instance.InvokeFocusSubcompo1();
+AssertFocused(1);
+instance.InvokeFocusSubcompo2();
+AssertFocused(2);
+instance.InvokeFocusSubcompo3();
+AssertFocused(3);
+```
 */

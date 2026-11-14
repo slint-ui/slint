@@ -143,4 +143,39 @@ assert.equal(instance.r, "clickL(2).");
 slintlib.private_api.send_mouse_click(instance, 95., 5.);
 assert.equal(instance.r, "clickL(2).");
 ```
+
+```csharp
+using var instance = TestCase.Create();
+void ClickLeft() => Testing.SendMouseClick(instance.Instance, 5, 5);
+void ClickRight() => Testing.SendMouseClick(instance.Instance, 95, 5);
+
+ClickLeft();
+Assert.AreEqual("initL(0).initR(0).clickL(1).", instance.R);
+ClickRight();
+Assert.AreEqual("initL(0).initR(0).clickL(1).clickR(1).", instance.R);
+
+instance.R = "";
+instance.Value = -42;
+Assert.AreEqual("", instance.R);
+ClickLeft();
+Assert.AreEqual("", instance.R);
+ClickRight();
+Assert.AreEqual("clickR(2).", instance.R);
+
+instance.R = "";
+instance.Value = 48;
+Assert.AreEqual("", instance.R);
+ClickLeft();
+Assert.AreEqual("initL(0).clickL(1).", instance.R);
+ClickRight();
+Assert.AreEqual("initL(0).clickL(1).clickR(3).", instance.R);
+
+instance.R = "";
+instance.Value = 49;
+Assert.AreEqual("", instance.R);
+ClickLeft();
+Assert.AreEqual("clickL(2).", instance.R);
+ClickRight();
+Assert.AreEqual("clickL(2).", instance.R);
+```
 */

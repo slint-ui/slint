@@ -64,4 +64,12 @@ assert.equal(instance.in_leaf, 1);
 assert.equal(instance.in_path, 1);
 assert.equal(instance.in_tab_widget, 1);
 ```
+
+```csharp
+using var instance = TestCase.Create();
+Testing.MockElapsedTime(110);
+Assert.AreEqual(1, instance.InLeaf);
+Assert.AreEqual(1, instance.InPath);
+Assert.AreEqual(1, instance.InTabWidget);
+```
 */

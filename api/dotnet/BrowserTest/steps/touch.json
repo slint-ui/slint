@@ -1,0 +1,12 @@
+[
+  { "wait": "ready" },
+  { "sleep": 300 },
+  { "tap": [200, 105] },
+  { "wait": "counter: 43" },
+  { "tap": [200, 145] },
+  { "insertText": "Hopper" },
+  { "key": "Enter" },
+  { "wait": "name: Hopper$" },
+  { "tap": [200, 231] },
+  { "wait": "quit after \\d+ ticks" }
+]

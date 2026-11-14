@@ -428,6 +428,11 @@
       "words": ["imagegen"]
     },
     {
+      // JSON has no comments for a cSpell: ignore; the template engine's settings and the app's default names.
+      "filename": "api/dotnet/Templates/content/*/.template.config/template.json",
+      "words": ["companyname", "myapp", "Quoteless", "xplat"]
+    },
+    {
       "filename": "tools/figma-inspector/**",
       "words": [
         "aqid",

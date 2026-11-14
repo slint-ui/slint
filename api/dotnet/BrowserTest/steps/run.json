@@ -1,0 +1,14 @@
+[
+  { "wait": "ready" },
+  { "sleep": 300 },
+  { "click": [200, 105] },
+  { "wait": "counter: 43" },
+  { "click": [200, 105] },
+  { "wait": "counter: 44" },
+  { "click": [200, 145] },
+  { "type": "Ada" },
+  { "key": "Enter" },
+  { "wait": "name: Ada" },
+  { "click": [200, 231] },
+  { "wait": "quit after \\d+ ticks" }
+]

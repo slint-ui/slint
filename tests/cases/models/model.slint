@@ -444,4 +444,70 @@ let instance = TestCase::new().unwrap();
 let model = std::rc::Rc::new(MyModel { window_weak: instance.as_weak() });
 instance.set_model(slint::ModelRc::from(model));
 ```
+
+```csharp
+static Struct Person(string account, string name, float score) => new() { ["account"] = account, ["name"] = name, ["score"] = (double)score };
+{
+    using var instance = TestCase.Create();
+    void Click(float x) => Testing.SendMouseClick(instance.Instance, x, 5);
+    // There's nothing at 25 yet.
+    Click(25);
+    Assert.AreEqual(0, instance.ClickedScore);
+    Assert.AreEqual(0, instance.ClickedInternalState);
+    Click(15);
+    Assert.AreEqual(789000, instance.ClickedScore);
+    Assert.AreEqual(1, instance.ClickedInternalState);
+
+    var model = new ListModel<Struct>([Person("a1", "hello", 111), Person("a2", "cruel", 222), Person("a3", "world", 333)]);
+    instance.Model = model;
+    Assert.AreSame(model, instance.Model);
+    Click(25);
+    Assert.AreEqual(333000, instance.ClickedScore);
+    Assert.AreEqual(1, instance.ClickedInternalState);
+    Assert.AreEqual(2, instance.ClickedIndex);
+    Click(15);
+    Assert.AreEqual(222000, instance.ClickedScore);
+    Assert.AreEqual("cruel", instance.ClickedName);
+
+    model.Add(Person("a4", "!", 444));
+    Click(35);
+    Assert.AreEqual(444000, instance.ClickedScore);
+    Assert.AreEqual("!", instance.ClickedName);
+
+    // Changing a row keeps the state of its element.
+    model[1] = Person("a2", "idyllic", 555);
+    Click(15);
+    Assert.AreEqual(555000, instance.ClickedScore);
+    Assert.AreEqual("idyllic", instance.ClickedName);
+    Assert.AreEqual(2, instance.ClickedInternalState);
+    Assert.AreEqual(1, instance.ClickedIndex);
+
+    model.RemoveAt(1);
+    Click(15);
+    Assert.AreEqual(333000, instance.ClickedScore);
+    Assert.AreEqual("world", instance.ClickedName);
+    Assert.AreEqual(2, instance.ClickedInternalState);
+    Assert.AreEqual(1, instance.ClickedIndex);
+}
+{
+    // The array functions of .slint change the model of the array literal.
+    using var instance = TestCase.Create();
+    void Click(float x) => Testing.SendMouseClick(instance.Instance, x, 5);
+    instance.PushPerson("world", "a3", 333);
+    Click(25);
+    Assert.AreEqual(333000, instance.ClickedScore);
+    Assert.AreEqual("world", instance.ClickedName);
+    Assert.AreEqual(2, instance.ClickedIndex);
+    instance.RemovePerson(0);
+    Click(5);
+    Assert.AreEqual(789000, instance.ClickedScore);
+    Assert.AreEqual("Simon", instance.ClickedName);
+    Assert.AreEqual(0, instance.ClickedIndex);
+    instance.InsertPerson(1, "inserted", "a_new", 999);
+    Click(15);
+    Assert.AreEqual(999000, instance.ClickedScore);
+    Assert.AreEqual("inserted", instance.ClickedName);
+    Assert.AreEqual(1, instance.ClickedIndex);
+}
+```
 */

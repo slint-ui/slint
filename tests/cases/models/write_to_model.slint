@@ -167,4 +167,30 @@ assert.equal(another_model.length, 3);
 ```
 
 
+```csharp
+using var instance = TestCase.Create();
+static double Score(Model<Struct> model, int row) => (double)model[row]["score"]!;
+
+Testing.SendMouseClick(instance.Instance, 15, 5);
+Assert.AreEqual(792, instance.ClickedScore);
+Assert.AreEqual(792.0, Score(instance.Model, 1));
+instance.InvokeManualScoreUpdate(1, 100);
+Assert.AreEqual(892.0, Score(instance.Model, 1));
+
+// Writes from .slint reach a model of C#.
+var model = new ListModel<Struct>(new[] { ("a1", "hello", 111.0), ("a2", "cruel", 222.0), ("a3", "world", 333.0) }
+    .Select(p => new Struct { ["account"] = p.Item1, ["name"] = p.Item2, ["score"] = p.Item3 }));
+instance.Model = model;
+Testing.SendMouseClick(instance.Instance, 25, 5);
+Assert.AreEqual(336, instance.ClickedScore);
+Assert.AreEqual(336.0, Score(model, 2));
+instance.InvokeManualScoreUpdate(2, 100);
+Testing.SendMouseClick(instance.Instance, 25, 5);
+Assert.AreEqual(439, instance.ClickedScore);
+Assert.AreEqual(439.0, Score(model, 2));
+Assert.AreEqual("world", model[2]["name"]);
+// A row out of range changes nothing.
+instance.InvokeManualScoreUpdate(200, 100);
+Assert.AreEqual(3, model.Count);
+```
 */

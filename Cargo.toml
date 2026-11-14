@@ -19,6 +19,7 @@ members = [
   'api/slint-sc',
   'api/slint-sc/tests/driver/bare_metal',
   'api/python/slint',
+  'api/dotnet/native',
   'api/wasm-interpreter',
   'editors/zed',
   'helper_crates/const-field-offset',
@@ -26,6 +27,7 @@ members = [
   'helper_crates/vtable/macro',
   'internal/backends/winit',
   'internal/backends/android-activity',
+  'internal/backends/emscripten',
   'internal/backends/qt',
   'internal/backends/selector',
   'internal/backends/testing',
@@ -87,6 +89,7 @@ version = "1.20.0"
 
 [workspace.dependencies]
 i-slint-backend-android-activity = { version = "=1.20.0", path = "internal/backends/android-activity", default-features = false }
+i-slint-backend-emscripten = { version = "=1.20.0", path = "internal/backends/emscripten", default-features = false }
 i-slint-backend-linuxkms = { version = "=1.20.0", path = "internal/backends/linuxkms", default-features = false }
 i-slint-backend-qt = { version = "=1.20.0", path = "internal/backends/qt", default-features = false }
 i-slint-backend-selector = { version = "=1.20.0", path = "internal/backends/selector", default-features = false }

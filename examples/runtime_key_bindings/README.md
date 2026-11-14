@@ -54,3 +54,12 @@ The same API is available in C++ (`slint::Keys::from_parts` and
 `slint::Keys::to_parts`); a C++ version of this example is not kept here to avoid
 maintaining the same demo twice. See
 [PR #12212](https://github.com/slint-ui/slint/pull/12212) for a C++ variant.
+
+## C#
+
+The C# version, in [`dotnet/Program.cs`](./dotnet/Program.cs), uses `Keys.FromParts` and `Keys.ToParts` the same way.
+It saves `user_shortcut.conf` next to the application.
+
+```sh
+dotnet run --project examples/runtime_key_bindings/dotnet
+```

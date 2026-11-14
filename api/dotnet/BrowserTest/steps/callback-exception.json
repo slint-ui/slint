@@ -1,0 +1,10 @@
+[
+  { "wait": "ready" },
+  { "sleep": 300 },
+  { "click": [200, 145] },
+  { "type": "throw" },
+  { "key": "Enter" },
+  { "wait": "name: throw" },
+  { "click": [200, 231] },
+  { "wait": "stopped: thrown by a callback" }
+]

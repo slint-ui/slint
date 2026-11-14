@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore dppx HEAPF HEAPU
+// cSpell: ignore autocapitalize autocorrect compositionend compositionupdate dppx HEAPF HEAPU inputmode
 
 // Browser glue for Slint's Emscripten backend, linked with `--js-library`.
 // The functions below are called from Rust; the `slint_em_on_*` functions they
@@ -10,13 +10,16 @@
 addToLibrary({
     $SlintEm: {
         canvas: null,
+        // Has the focus while a Slint text input has it, see slint_em_show_text_input.
+        input: null,
+        // The text of a copy or cut, from slint_em_copied.
+        copied: null,
         context2d: null,
         imageData: null,
     },
 
     slint_em_attach_canvas__deps: [
         "$SlintEm",
-        "$specialHTMLTargets",
         "$stringToNewUTF8",
         "free",
         "slint_em_on_pointer",
@@ -24,6 +27,10 @@ addToLibrary({
         "slint_em_on_key",
         "slint_em_on_focus",
         "slint_em_on_resize",
+        "slint_em_on_text",
+        "slint_em_on_composition",
+        "slint_em_on_paste",
+        "slint_em_on_copy",
     ],
     slint_em_attach_canvas: () => {
         const canvas = Module["canvas"] || document.querySelector("#canvas");
@@ -33,8 +40,6 @@ addToLibrary({
         SlintEm.canvas = canvas;
         // A size in the style attribute means the page lays out the canvas; otherwise Slint sizes it.
         const pageSized = canvas.style.width !== "" || canvas.style.height !== "";
-        // Lets emscripten_webgl_create_context find the canvas, whatever its id.
-        specialHTMLTargets["!slint-canvas"] = canvas;
 
         // Receive keyboard events, and keep the browser from panning or zooming on touch.
         if (!canvas.hasAttribute("tabindex")) {
@@ -44,8 +49,26 @@ addToLibrary({
         canvas.style.outline = "none";
         canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 
+        // A hidden <input> receives the keys while a Slint text input has the focus:
+        // it shows the keyboard on phones, and gets the composition of input methods and the clipboard's events.
+        const input = (SlintEm.input = document.createElement("input"));
+        input.setAttribute("autocapitalize", "none");
+        input.setAttribute("autocomplete", "off");
+        input.setAttribute("autocorrect", "off");
+        input.spellcheck = false;
+        Object.assign(input.style, {
+            position: "fixed",
+            opacity: "0",
+            pointerEvents: "none",
+            width: "1px",
+            height: "1px",
+            padding: "0",
+            border: "0",
+        });
+        canvas.after(input);
+
         const pointer = (kind) => (e) => {
-            if (kind === 0) {
+            if (kind === 0 && document.activeElement !== input) {
                 canvas.focus();
                 canvas.setPointerCapture(e.pointerId);
             }
@@ -69,6 +92,8 @@ addToLibrary({
             { passive: false },
         );
 
+        // Whether Slint got the last key press, so that the text it typed into the input isn't sent again.
+        let keyHandled = false;
         const key = (pressed) => (e) => {
             if (e.isComposing) {
                 return;
@@ -76,17 +101,61 @@ addToLibrary({
             const keyName = stringToNewUTF8(e.key);
             const handled = _slint_em_on_key(pressed, keyName, e.shiftKey, e.repeat);
             _free(keyName);
+            keyHandled = pressed && handled;
             // Keep keys such as Tab, Backspace and the arrows from moving focus or scrolling the page,
-            // but leave shortcuts such as reloading the page to the browser.
+            // but leave shortcuts such as reloading the page, and copy and paste, to the browser.
             if (handled && !e.ctrlKey && !e.metaKey) {
                 e.preventDefault();
             }
         };
-        canvas.addEventListener("keydown", key(1));
-        canvas.addEventListener("keyup", key(0));
-
-        canvas.addEventListener("focus", () => _slint_em_on_focus(1));
-        canvas.addEventListener("blur", () => _slint_em_on_focus(0));
+        const withString = (text, f) => {
+            const ptr = stringToNewUTF8(text);
+            f(ptr);
+            _free(ptr);
+        };
+        for (const target of [canvas, input]) {
+            target.addEventListener("keydown", key(1));
+            target.addEventListener("keyup", key(0));
+            // Moving the focus between the canvas and the input keeps the window active.
+            target.addEventListener("focus", () => _slint_em_on_focus(1));
+            target.addEventListener("blur", (e) => {
+                if (e.relatedTarget !== canvas && e.relatedTarget !== input) {
+                    _slint_em_on_focus(0);
+                }
+            });
+        }
+        input.addEventListener("input", (e) => {
+            if (e.isComposing || e.inputType === "insertCompositionText") {
+                return;
+            }
+            // A phone's keyboard types without key events that Slint knows, see slint_em_on_key.
+            if (e.data && !keyHandled) {
+                withString(e.data, _slint_em_on_text);
+            }
+            keyHandled = false;
+            input.value = "";
+        });
+        input.addEventListener("compositionupdate", (e) =>
+            withString(e.data ?? "", (text) => _slint_em_on_composition(0, text)),
+        );
+        input.addEventListener("compositionend", (e) => {
+            withString(e.data ?? "", (text) => _slint_em_on_composition(1, text));
+            input.value = "";
+        });
+        input.addEventListener("paste", (e) => {
+            e.preventDefault();
+            withString(e.clipboardData?.getData("text") ?? "", _slint_em_on_paste);
+        });
+        const copy = (cut) => (e) => {
+            e.preventDefault();
+            SlintEm.copied = null;
+            _slint_em_on_copy(cut);
+            if (SlintEm.copied !== null) {
+                e.clipboardData?.setData("text/plain", SlintEm.copied);
+            }
+        };
+        input.addEventListener("copy", copy(0));
+        input.addEventListener("cut", copy(1));
 
         const reportSize = () => {
             _slint_em_on_resize(canvas.clientWidth, canvas.clientHeight, window.devicePixelRatio || 1);
@@ -107,6 +176,13 @@ addToLibrary({
         watchPixelRatio();
         return pageSized ? 2 : 1;
     },
+
+    // Creates the WebGL 2 context for FemtoVG and returns its handle, or 0.
+    // Not with emscripten_webgl_create_context, whose attributes struct has int fields up to Emscripten 3.1.56,
+    // which .NET 10 links with, and bool fields after.
+    slint_em_create_webgl_context__deps: ["$SlintEm", "$GL"],
+    slint_em_create_webgl_context: () =>
+        GL.createContext(SlintEm.canvas, { majorVersion: 2, minorVersion: 0, stencil: true, antialias: false }),
 
     slint_em_canvas_css_size__deps: ["$SlintEm"],
     slint_em_canvas_css_size: (width_ptr, height_ptr, ratio_ptr) => {
@@ -140,6 +216,38 @@ addToLibrary({
 
     slint_em_set_title: (title) => {
         document.title = UTF8ToString(title);
+    },
+
+    // Puts the hidden input over the text cursor, where input methods show their candidates, and focuses it.
+    slint_em_show_text_input__deps: ["$SlintEm"],
+    slint_em_show_text_input: (x, y, width, height, inputMode) => {
+        const { canvas, input } = SlintEm;
+        const rect = canvas.getBoundingClientRect();
+        input.style.left = `${rect.left + x}px`;
+        input.style.top = `${rect.top + y}px`;
+        input.style.height = `${Math.max(height, 1)}px`;
+        input.inputMode = UTF8ToString(inputMode);
+        if (document.activeElement !== input) {
+            input.focus({ preventScroll: true });
+        }
+    },
+
+    slint_em_hide_text_input__deps: ["$SlintEm"],
+    slint_em_hide_text_input: () => {
+        const { canvas, input } = SlintEm;
+        if (document.activeElement === input) {
+            canvas.focus({ preventScroll: true });
+        }
+    },
+
+    slint_em_copied__deps: ["$SlintEm"],
+    slint_em_copied: (text) => {
+        SlintEm.copied = UTF8ToString(text);
+    },
+
+    // Outside a copy event, the browser may refuse, such as without a user gesture.
+    slint_em_write_clipboard: (text) => {
+        navigator.clipboard?.writeText(UTF8ToString(text)).catch(() => {});
     },
 
     // Copies RGBA pixels (straight alpha) from the wasm heap into the canvas.

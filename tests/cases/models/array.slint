@@ -416,4 +416,60 @@ assert_eq!(logs.len(), 1, "unexpected logs: {logs:?}");
 assert!(logs[0].starts_with("array.insert(): the model "), "{}", logs[0]);
 assert!(logs[0].ends_with("ReadOnlyModel does not support this modification"), "{}", logs[0]);
 ```
+
+```csharp
+using var instance = TestCase.Create();
+Assert.AreEqual(5, instance.NumInts);
+Assert.AreEqual(4, instance.N);
+Assert.AreEqual(3, instance.ThirdInt);
+Assert.AreEqual(0, instance.NinthInt);
+Assert.AreEqual(0, instance.MinusInt);
+Assert.IsTrue(instance.Test);
+Assert.AreEqual(2, instance.IndexOfThree);
+Assert.AreEqual(-1, instance.IndexOfMissing);
+Assert.AreEqual(-1, instance.EmptyIndexOf);
+
+// The models of array literals can be written to.
+instance.Ints.SetRowData(2, 33);
+Assert.AreEqual(33, instance.ThirdInt);
+instance.ArrayOfArray.SetRowData(3, new ListModel<int>([7]));
+Assert.AreEqual(7, instance.ArrayOfArray[3][0]);
+instance.Ints.SetRowData(2, 3);
+
+Assert.AreEqual(2, instance.IndexOfWithSideEffect());
+Assert.AreEqual(1, instance.IndexOfValueCalls);
+
+var model = new ListModel<int>([1, 2, 3, 4, 5, 6, 7]);
+instance.Ints = model;
+Assert.AreEqual(7, instance.NumInts);
+Assert.AreEqual(3, instance.ThirdInt);
+model.Add(8);
+Assert.AreEqual(8, instance.NumInts);
+model[2] = 100;
+Assert.AreEqual(100, instance.ThirdInt);
+Assert.AreEqual(2, instance.IndexOfHundred);
+Assert.AreEqual(0, instance.NinthInt);
+model.Add(9);
+Assert.AreEqual(9, instance.NinthInt);
+Assert.AreEqual("world", instance.HelloWorld);
+
+// The array functions of .slint change the ListModel of C#.
+model = new ListModel<int>([1, 2, 3]);
+instance.Ints = model;
+instance.PushOne(10);
+CollectionAssert.AreEqual(new[] { 1, 2, 3, 10 }, model.ToList());
+instance.RemoveOne(2);
+CollectionAssert.AreEqual(new[] { 1, 2, 10 }, model.ToList());
+instance.InsertOne(1, 20);
+CollectionAssert.AreEqual(new[] { 1, 20, 2, 10 }, model.ToList());
+// Out of range indices change nothing.
+instance.RemoveOne(-1);
+instance.RemoveOne(10);
+instance.InsertOne(-1, 30);
+instance.InsertOne(10, 30);
+Assert.AreEqual(4, model.Count);
+instance.RemoveOne(0);
+instance.InsertOne(0, 30);
+CollectionAssert.AreEqual(new[] { 30, 20, 2, 10 }, model.ToList());
+```
 */

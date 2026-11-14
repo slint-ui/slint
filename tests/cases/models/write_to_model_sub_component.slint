@@ -53,4 +53,10 @@ assert.equal(instance.mod.rowData(1), 2+8);
 ```
 
 
+```csharp
+using var instance = TestCase.Create();
+instance.Mod = new ListModel<int>([1, 2, 3]);
+Testing.SendMouseClick(instance.Instance, 50, 50);
+Assert.AreEqual(2 + 8, instance.Mod[1]);
+```
 */

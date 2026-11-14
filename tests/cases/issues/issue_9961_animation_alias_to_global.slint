@@ -76,4 +76,21 @@ assert.equal(instance.observed, 8);
 assert.equal(instance.GlobalInfo.animated, 8);
 ```
 
+```csharp
+using var instance = TestCase.Create();
+Assert.AreEqual(8, instance.Observed);
+Assert.AreEqual(8, instance.GlobalInfo.Animated);
+instance.GlobalInfo.Animated = 108;
+Assert.AreEqual(108, instance.Observed);
+Assert.AreEqual(108, instance.GlobalInfo.Animated);
+instance.SetAnimated(8);
+Assert.AreEqual(108, instance.Observed);
+Assert.AreEqual(108, instance.GlobalInfo.Animated);
+Testing.MockElapsedTime(150);
+Assert.AreEqual(58, instance.Observed);
+Assert.AreEqual(58, instance.GlobalInfo.Animated);
+Testing.MockElapsedTime(150);
+Assert.AreEqual(8, instance.Observed);
+Assert.AreEqual(8, instance.GlobalInfo.Animated);
+```
 */

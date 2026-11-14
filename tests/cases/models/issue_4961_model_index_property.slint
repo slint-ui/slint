@@ -51,4 +51,11 @@ assert(instance.test);
 slintlib.private_api.send_mouse_click(instance, 5., 5.);
 assert.equal(instance.clicked_value, "index0model-data10model10value10idx0");
 ```
+
+```csharp
+using var instance = TestCase.Create();
+Assert.IsTrue(instance.Test);
+Testing.SendMouseClick(instance.Instance, 5, 5);
+Assert.AreEqual("index0model-data10model10value10idx0", instance.ClickedValue);
+```
 */

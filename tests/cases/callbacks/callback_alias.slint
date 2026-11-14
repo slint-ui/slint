@@ -67,4 +67,13 @@ assert instance.foo1_alias(100) == 122;
 assert instance.foo2_alias(100) == 188;
 assert instance.call_foo2(100) == 188;
 ```
+
+```csharp
+using var instance = TestCase.Create();
+Assert.AreEqual(122, instance.InvokeFoo1Alias(100));
+Assert.AreEqual(188, instance.InvokeFoo2Alias(100));
+Assert.AreEqual(188, instance.InvokeCallFoo2(100));
+instance.OnFoo2Alias(val => val - 20);
+Assert.AreEqual(180, instance.InvokeCallFoo2(200));
+```
 */

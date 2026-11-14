@@ -72,4 +72,13 @@ assert(instance.focused);
 slintlib.private_api.mock_elapsed_time(10);
 assert(instance.focused);
 ```
+
+```csharp
+using var instance = TestCase.Create();
+Assert.IsFalse(instance.Focused);
+instance.InvokeFocusTheLineEdit();
+Assert.IsTrue(instance.Focused);
+Testing.MockElapsedTime(10);
+Assert.IsTrue(instance.Focused);
+```
 */

@@ -56,4 +56,11 @@ assert.equal(instance.Data.counter, 1);
 ```
 
 
+```csharp
+using var instance = TestCase.Create();
+Testing.SendMouseClick(instance.Instance, 10, 16);
+Assert.AreEqual(0, instance.Data.Counter);
+Testing.MockElapsedTime(101);
+Assert.AreEqual(1, instance.Data.Counter);
+```
 */

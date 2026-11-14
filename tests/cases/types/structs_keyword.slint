@@ -64,4 +64,19 @@ assert not instance.test
 instance.player = PlayerData(name="a", self_=True, super=42, crate="c", class_=3)
 assert instance.test
 ```
+
+```csharp
+using var instance = Match.Create();
+Assert.AreEqual(new Mod { Loop = "mod" }, instance.Move);
+Assert.AreEqual(7, instance.Class);
+var player = instance.Player;
+Assert.IsTrue(player.Self);
+Assert.AreEqual(42, player.Super);
+Assert.AreEqual("c", player.Crate);
+Assert.AreEqual(3, player.Class);
+instance.Player = player with { Self = false };
+Assert.IsFalse(instance.Test);
+instance.Player = player;
+Assert.IsTrue(instance.Test);
+```
 */

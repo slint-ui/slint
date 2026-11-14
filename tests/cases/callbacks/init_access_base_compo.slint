@@ -100,4 +100,14 @@ assert.equal(instance.test2, "OK");
 ```
 
 
+```csharp
+using var instance = TestCase.Create();
+Assert.AreEqual("KO", instance.Test1);
+Assert.AreEqual("KO", instance.Test2);
+Assert.IsTrue(instance.Test);
+instance.Cond = true;
+Testing.SendMouseClick(instance.Instance, 5, 5);
+Assert.AreEqual("OK", instance.Test1);
+Assert.AreEqual("OK", instance.Test2);
+```
 */

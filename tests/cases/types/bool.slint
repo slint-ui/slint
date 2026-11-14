@@ -32,4 +32,10 @@ instance = TestCase()
 assert instance.truevar
 assert not instance.falsevar
 ```
+
+```csharp
+using var instance = TestCase.Create();
+Assert.IsTrue(instance.Truevar);
+Assert.IsFalse(instance.Falsevar);
+```
 */

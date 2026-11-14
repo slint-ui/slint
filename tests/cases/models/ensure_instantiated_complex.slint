@@ -105,4 +105,16 @@ assert.equal(instance.ping, 5);
 assert.equal(instance.pong, 4);
 ```
 
+```csharp
+using var instance = TestCase.Create();
+Testing.MockElapsedTime(100);
+Assert.IsTrue(instance.Cond2);
+Assert.IsTrue(instance.Cond3);
+Assert.AreEqual(3, instance.Val);
+Assert.AreEqual("i1,c1,i2,c2,i3,r10,r20,c3,", instance.Log);
+instance.Ping = 1;
+Testing.MockElapsedTime(100);
+Assert.AreEqual(5, instance.Ping);
+Assert.AreEqual(4, instance.Pong);
+```
 */

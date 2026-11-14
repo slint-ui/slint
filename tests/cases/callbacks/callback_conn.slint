@@ -33,4 +33,10 @@ var instance = new slint.TestCase();
 assert.equal(instance.test_prop, 6);
 assert.equal(instance.test_prop2, "hello=54");
 ```
+
+```csharp
+using var instance = TestCase.Create();
+Assert.AreEqual(6, instance.TestProp);
+Assert.AreEqual("hello=54", instance.TestProp2);
+```
 */

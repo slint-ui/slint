@@ -1885,12 +1885,12 @@ fn load_image_reference(
         Ref::Source(SourcePath::File(path)) => i_slint_core::graphics::Image::load_from_path(path),
         #[cfg(feature = "std")]
         Ref::Source(url) => {
-            #[cfg(target_arch = "wasm32")]
+            #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
             {
                 i_slint_core::graphics::load_as_html_image(&url.to_string())
             }
             // URL image references only work on the web, where the browser fetches them.
-            #[cfg(not(target_arch = "wasm32"))]
+            #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
             {
                 let _ = url;
                 Err(Default::default())

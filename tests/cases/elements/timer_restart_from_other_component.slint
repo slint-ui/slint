@@ -191,4 +191,32 @@ instance.restart_first_inner();
 slintlib.private_api.mock_elapsed_time(100);
 assert.equal(instance.inner_result, "tt/t");
 ```
+
+```csharp
+using var instance = TestCase.Create();
+Testing.MockElapsedTime(1);
+Testing.MockElapsedTime(100);
+Assert.AreEqual("t", instance.Result);
+Assert.AreEqual("t/t", instance.InnerResult);
+// Each click restarts a timer of another component, which fires 100 ms later.
+foreach (var (x, y, expected) in new (float, float, string)[] { (25, 25, "tat"), (75, 25, "tatbt") })
+{
+    Testing.SendMouseClick(instance.Instance, x, y);
+    Testing.MockElapsedTime(100);
+    Assert.AreEqual(expected, instance.Result);
+}
+Testing.SendMouseClick(instance.Instance, 25, 75);
+Assert.AreEqual("tatbtr", instance.Result);
+Testing.MockElapsedTime(100);
+Assert.AreEqual("tatbtrt", instance.Result);
+foreach (var (x, y, expected) in new (float, float, string)[] { (75, 62, "tatbtrtct"), (75, 87, "tatbtrtctdt") })
+{
+    Testing.SendMouseClick(instance.Instance, x, y);
+    Testing.MockElapsedTime(100);
+    Assert.AreEqual(expected, instance.Result);
+}
+instance.RestartFirstInner();
+Testing.MockElapsedTime(100);
+Assert.AreEqual("tt/t", instance.InnerResult);
+```
 */

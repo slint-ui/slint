@@ -81,4 +81,18 @@ instance.focus();
 assert(instance.own_focused);
 assert(!instance.inner_derived_focused);
 ```
+
+```csharp
+using var instance = TestCase.Create();
+// The forward-focus of the root sets the initial focus.
+Assert.IsTrue(instance.OwnFocused);
+Assert.IsFalse(instance.OwnBaseFocused);
+instance.FocusInner();
+Assert.IsFalse(instance.OwnFocused);
+Assert.IsTrue(instance.InnerDerivedFocused);
+Assert.IsFalse(instance.InnerBaseFocused);
+instance.Focus();
+Assert.IsTrue(instance.OwnFocused);
+Assert.IsFalse(instance.InnerDerivedFocused);
+```
 */

@@ -99,4 +99,33 @@ assert.equal(callback_3_int_value, 55); // same as before
 
 
 
+```csharp
+using var instance = TestCase.Create();
+var emitted = 0;
+var (intValue, stringValue) = (0, "");
+instance.OnTestCallback3((a, b) =>
+{
+    emitted++;
+    (intValue, stringValue) = (a, b);
+});
+instance.CallbackEmissionCount = 0;
+instance.InvokeTestCallback(42);
+Assert.AreEqual(1, instance.CallbackEmissionCount);
+instance.InvokeTestCallback2("hello");
+Assert.AreEqual(88, instance.CallbackEmissionCount);
+Assert.AreEqual(1, emitted);
+Assert.AreEqual("hello", stringValue);
+Assert.AreEqual(55, intValue);
+
+// A handler set from C# replaces the one of the .slint file.
+instance.OnTestCallback2(value =>
+{
+    emitted += 100;
+    stringValue = value;
+});
+instance.InvokeTestCallback2("salùt");
+Assert.AreEqual(101, emitted);
+Assert.AreEqual("salùt", stringValue);
+Assert.AreEqual(55, intValue);
+```
 */
