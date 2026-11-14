@@ -505,6 +505,28 @@ component AircraftIcon inherits Image {
     source: @image-url("icons/aircraft.svg");
 }
 
+/// The time and the distance that a flight has left.
+component Remaining inherits HorizontalLayout {
+    in property <FlightInfo> flight;
+    in property <length> value-size;
+    spacing: 16px;
+    Stat {
+        label: "Time to go";
+        places: 5;
+        unit: "h";
+        value: root.flight.remaining-clock;
+        value-size: root.value-size;
+    }
+
+    Stat {
+        label: "Distance to go";
+        places: 6;
+        unit: "km";
+        value: root.flight.remaining-distance;
+        value-size: root.value-size;
+    }
+}
+
 /// The route from the origin to the destination, and how far along the aircraft is.
 component FlightCard inherits Glass {
     in property <FlightInfo> flight;
@@ -512,108 +534,117 @@ component FlightCard inherits Glass {
     in property <bool> small;
     /// Leaves out the light at arrival, for short windows.
     in property <bool> brief;
+    /// A single row, with what's left of the flight beside the route, for a phone held sideways.
+    in property <bool> strip;
     property <length> code-size: root.small ? 26px : 32px;
+    property <length> value-size: root.small ? 16px : 18px;
     height: layout.preferred-height;
-    layout := VerticalLayout {
-        padding: root.small ? 14px : 18px;
-        spacing: root.small ? 8px : 10px;
-        HorizontalLayout {
-            spacing: 12px;
-            VerticalLayout {
-                origin-code := Flaps {
-                    text: root.flight.origin.code;
-                    size: root.code-size * 0.8;
-                }
-
-                Text {
-                    text: root.flight.origin.city;
-                    color: Theme.muted;
-                    font-size: 13px;
-                    overflow: elide;
-                }
-            }
-
-            // The progress along the route, as tiles that light up.
-            Rectangle {
-                property <int> tiles: 14;
-                property <length> tiles-y: origin-code.height / 2 + 6px;
-                horizontal-stretch: 1;
-                min-width: 60px;
-                for tile in self.tiles: Rectangle {
-                    x: (parent.width + 2px) * tile / parent.tiles;
-                    y: parent.tiles-y;
-                    width: (parent.width + 2px) / parent.tiles - 2px;
-                    height: 10px;
-                    border-radius: 1px;
-                    background: tile < root.flight.progress * parent.tiles ? Theme.highlight : Theme.track;
-                }
-
-                AircraftIcon {
-                    x: (parent.width - self.width) * root.flight.progress;
-                    y: parent.tiles-y - self.height - 2px;
-                    width: 22px;
-                    height: 22px;
-                    transform-rotation: 90deg;
-                }
-            }
-
-            VerticalLayout {
-                HorizontalLayout {
-                    alignment: end;
-                    Flaps {
-                        text: root.flight.destination.code;
+    layout := HorizontalLayout {
+        padding: root.strip ? 10px : root.small ? 14px : 18px;
+        padding-left: root.small ? 14px : 18px;
+        padding-right: root.small ? 14px : 18px;
+        spacing: 16px;
+        VerticalLayout {
+            horizontal-stretch: 1;
+            spacing: root.small ? 8px : 10px;
+            HorizontalLayout {
+                spacing: 12px;
+                VerticalLayout {
+                    origin-code := Flaps {
+                        text: root.flight.origin.code;
                         size: root.code-size * 0.8;
+                    }
+
+                    Text {
+                        text: root.flight.origin.city;
+                        color: Theme.muted;
+                        font-size: 13px;
+                        overflow: elide;
                     }
                 }
 
+                // The progress along the route, as tiles that light up.
+                Rectangle {
+                    property <int> tiles: 14;
+                    property <length> tiles-y: origin-code.height / 2 + 6px;
+                    horizontal-stretch: 1;
+                    min-width: 60px;
+                    for tile in self.tiles: Rectangle {
+                        x: (parent.width + 2px) * tile / parent.tiles;
+                        y: parent.tiles-y;
+                        width: (parent.width + 2px) / parent.tiles - 2px;
+                        height: 10px;
+                        border-radius: 1px;
+                        background: tile < root.flight.progress * parent.tiles ? Theme.highlight : Theme.track;
+                    }
+
+                    AircraftIcon {
+                        x: (parent.width - self.width) * root.flight.progress;
+                        y: parent.tiles-y - self.height - 2px;
+                        width: 22px;
+                        height: 22px;
+                        transform-rotation: 90deg;
+                    }
+                }
+
+                VerticalLayout {
+                    HorizontalLayout {
+                        alignment: end;
+                        Flaps {
+                            text: root.flight.destination.code;
+                            size: root.code-size * 0.8;
+                        }
+                    }
+
+                    Text {
+                        text: root.flight.destination.city;
+                        color: Theme.muted;
+                        font-size: 13px;
+                        horizontal-alignment: right;
+                        overflow: elide;
+                    }
+                }
+            }
+
+            if !root.strip: Rectangle {
+                height: 1px;
+                background: Theme.line;
+            }
+
+            if !root.strip: Remaining {
+                flight: root.flight;
+                value-size: root.value-size;
+            }
+
+            if !root.brief: HorizontalLayout {
+                spacing: 12px;
                 Text {
-                    text: root.flight.destination.city;
+                    horizontal-stretch: 1;
+                    text: root.flight.arrival-light;
                     color: Theme.muted;
                     font-size: 13px;
-                    horizontal-alignment: right;
                     overflow: elide;
+                }
+
+                Text {
+                    text: "Operated by Slint";
+                    color: Theme.muted;
+                    font-size: 13px;
                 }
             }
         }
 
-        Rectangle {
-            height: 1px;
+        if root.strip: Rectangle {
+            width: 1px;
             background: Theme.line;
         }
 
-        HorizontalLayout {
-            spacing: 16px;
-            Stat {
-                label: "Time to go";
-                places: 5;
-                unit: "h";
-                value: root.flight.remaining-clock;
-                value-size: root.small ? 16px : 18px;
-            }
-
-            Stat {
-                label: "Distance to go";
-                places: 6;
-                unit: "km";
-                value: root.flight.remaining-distance;
-                value-size: root.small ? 16px : 18px;
-            }
-        }
-
-        if !root.brief: HorizontalLayout {
-            spacing: 12px;
-            Text {
-                horizontal-stretch: 1;
-                text: root.flight.arrival-light;
-                color: Theme.muted;
-                font-size: 13px;
-                overflow: elide;
-            }
-
-            Text {
-                text: "Operated by Slint";
-                color: Theme.muted;
-                font-size: 13px;
+        if root.strip: VerticalLayout {
+            alignment: center;
+            Remaining {
+                width: 230px;
+                flight: root.flight;
+                value-size: root.value-size;
             }
         }
     }
@@ -798,11 +829,13 @@ component AirportRow inherits Rectangle {
 component AirportField inherits Rectangle {
     in property <string> label;
     in property <bool> active;
+    /// Half as wide, beside another field.
+    in property <bool> slim;
     in-out property <string> text <=> input.text;
     callback activated();
     callback edited(text: string);
     callback accepted();
-    height: 50px;
+    height: root.slim ? 44px : 50px;
     border-radius: 3px;
     background: Theme.fill;
     border-width: 1px;
@@ -817,22 +850,22 @@ component AirportField inherits Rectangle {
     }
 
     Caption {
-        x: 14px;
+        x: root.slim ? 12px : 14px;
         text: root.label;
         vertical-alignment: center;
     }
 
     if input.text == "": Text {
         x: input.x;
-        text: "City, airport, or code";
+        text: root.slim ? "City or code" : "City, airport, or code";
         color: Theme.faint;
         font-size: 16px;
         vertical-alignment: center;
     }
 
     input := TextInput {
-        x: 64px;
-        width: parent.width - 78px;
+        x: root.slim ? 56px : 64px;
+        width: parent.width - self.x - 12px;
         color: Theme.text;
         font-size: 16px;
         vertical-alignment: center;
@@ -884,7 +917,7 @@ export component AppWindow inherits Window {
     callback restart();
     // The globe's place on the entry screen: beside the planner, or above it on a phone held
     // upright.
-    property <length> panel-width: min(400px, root.content-width * 0.42);
+    property <length> panel-width: root.sideways ? min(440px, root.content-width * 0.56) : min(400px, root.content-width * 0.42);
     out property <length> entry-globe-x: root.narrow ? 0 : root.left-edge + root.panel-width + 16px;
     out property <length> entry-globe-y: root.narrow ? root.top-edge : 0;
     out property <length> entry-globe-width: root.width - self.entry-globe-x;
@@ -929,6 +962,8 @@ export component AppWindow inherits Window {
         duration: 350ms;
         easing: spring;
     }
+    /// The room to the left of the controls at the bottom.
+    property <length> beside-controls: root.content-width - controls.width - 10px;
     /// Where the controls rest at the bottom.
     property <length> controls-y: root.height - controls.height - root.bottom-edge - (root.narrow ? 0 : 14px);
     /// Whether the globe shows a route: during a flight, or once the planner has one.
@@ -938,8 +973,10 @@ export component AppWindow inherits Window {
     property <int> active-field: 1;
     /// A phone held upright.
     property <bool> narrow: root.width < 600px;
-    /// A phone held sideways.
     property <bool> short: root.height < 500px;
+    /// A phone held sideways, or a display that's as low:
+    /// the panels are rows along the top and the bottom, to leave the globe the middle.
+    property <bool> sideways: root.short && !root.narrow;
     property <bool> compact: root.width < 900px || root.height < 620px;
     property <length> margin: root.narrow || root.short ? 10px : Theme.margin;
     // The edges of the area for controls, clear of a phone's notch and home indicator.
@@ -1182,7 +1219,7 @@ export component AppWindow inherits Window {
     // The planner, beside the globe, or below it on a phone held upright. It stays instantiated,
     // so its fields keep their text during a flight.
     planner := Glass {
-        property <length> inset: root.narrow ? 14px : 20px;
+        property <length> inset: root.sideways ? 12px : root.narrow ? 14px : 20px;
         property <length> rest-y: root.narrow ? root.entry-globe-y + root.entry-globe-height + 8px : root.top-edge;
         visible: root.planner-away < 1;
         x: root.narrow ? root.left-edge : root.left-edge - root.planner-away * (self.width + root.left-edge + 30px);
@@ -1191,9 +1228,9 @@ export component AppWindow inherits Window {
         height: root.height - self.rest-y - root.bottom-edge;
         VerticalLayout {
             padding: planner.inset;
-            spacing: 12px;
+            spacing: root.sideways ? 8px : 12px;
             // The badge wraps below the heading where the panel is too narrow for both.
-            FlexboxLayout {
+            if !root.sideways: FlexboxLayout {
                 spacing: 10px;
                 alignment: space-between;
                 cross-axis-alignment: center;
@@ -1207,45 +1244,56 @@ export component AppWindow inherits Window {
                 }
             }
 
-            from-field := AirportField {
-                label: "From";
-                active: root.active-field == 0;
-                activated => {
-                    root.active-field = 0;
-                    root.search(self.text == root.field-text(root.planned-origin) ? "" : self.text);
-                }
-                edited(text) => {
-                    root.planned-origin.index = -1;
-                    root.search(text);
-                    root.planned-changed();
-                }
-                accepted => {
-                    if root.results.length > 0 {
-                        root.choose(root.results[0]);
+            // Side by side where the window is low, to leave the list some rows.
+            GridLayout {
+                spacing: root.sideways ? 8px : 12px;
+                from-field := AirportField {
+                    row: 0;
+                    col: 0;
+                    label: "From";
+                    slim: root.sideways;
+                    active: root.active-field == 0;
+                    activated => {
+                        root.active-field = 0;
+                        root.search(self.text == root.field-text(root.planned-origin) ? "" : self.text);
+                    }
+                    edited(text) => {
+                        root.planned-origin.index = -1;
+                        root.search(text);
+                        root.planned-changed();
+                    }
+                    accepted => {
+                        if root.results.length > 0 {
+                            root.choose(root.results[0]);
+                        }
                     }
                 }
-            }
 
-            to-field := AirportField {
-                label: "To";
-                active: root.active-field == 1;
-                activated => {
-                    root.active-field = 1;
-                    root.search(self.text == root.field-text(root.planned-destination) ? "" : self.text);
-                }
-                edited(text) => {
-                    root.planned-destination.index = -1;
-                    root.search(text);
-                    root.planned-changed();
-                }
-                accepted => {
-                    if root.results.length > 0 {
-                        root.choose(root.results[0]);
+                to-field := AirportField {
+                    row: root.sideways ? 0 : 1;
+                    col: root.sideways ? 1 : 0;
+                    label: "To";
+                    slim: root.sideways;
+                    active: root.active-field == 1;
+                    activated => {
+                        root.active-field = 1;
+                        root.search(self.text == root.field-text(root.planned-destination) ? "" : self.text);
+                    }
+                    edited(text) => {
+                        root.planned-destination.index = -1;
+                        root.search(text);
+                        root.planned-changed();
+                    }
+                    accepted => {
+                        if root.results.length > 0 {
+                            root.choose(root.results[0]);
+                        }
                     }
                 }
+
             }
 
-            Caption {
+            if !root.sideways: Caption {
                 text: root.results.length == 1 ? "1 airport" : "\{root.results.length} airports";
             }
 
@@ -1289,18 +1337,18 @@ export component AppWindow inherits Window {
 
     // On a phone, the badge sits in a corner of the globe's place, rather than taking rows from
     // the planner's list.
-    if root.narrow: MadeWithSlint {
+    if root.narrow || root.sideways: MadeWithSlint {
         visible: root.planner-away < 1;
         opacity: 1 - root.planner-away;
         height: 30px;
         x: root.width - self.width - root.right-edge;
-        y: root.entry-globe-y;
+        y: root.narrow ? root.entry-globe-y : root.top-edge;
     }
 
     // On a wide screen during a flight, the badge sits above the controls.
     if !root.narrow: MadeWithSlint {
         visible: root.flight-in > 0;
-        height: 40px;
+        height: root.sideways ? 30px : 40px;
         x: root.width - self.width - root.right-edge;
         y: controls.y - self.height - 12px;
     }
@@ -1309,18 +1357,21 @@ export component AppWindow inherits Window {
         visible: root.flight-in > 0;
         x: root.left-edge;
         y: root.top-edge - (1 - root.flight-in) * (self.height + root.top-edge + 30px);
-        width: root.narrow ? root.content-width : min(420px, root.content-width - 56px);
+        // Beside the buttons that zoom, except on a phone held upright.
+        width: root.narrow ? root.content-width : root.sideways ? root.content-width - 48px : min(420px, root.content-width - 56px);
         flight: root.flight;
         small: root.narrow || root.short;
         brief: root.short;
+        strip: root.sideways;
     }
 
-    if root.narrow || !root.compact || root.flight.phase != Phase.flying: StatusCard {
+    // Beside the controls, where there's room for both, and else only around the flight.
+    if root.narrow || !root.compact || root.flight.phase != Phase.flying || (root.sideways && root.beside-controls >= 330px): StatusCard {
         visible: root.flight-in > 0;
         x: root.left-edge;
         y: (root.narrow ? root.controls-y - self.height - 10px : root.height - self.height - root.bottom-edge - 14px)
             + (1 - root.flight-in) * (root.height - root.controls-y + self.height + 30px);
-        width: root.narrow ? root.content-width : min(420px, root.content-width);
+        width: root.narrow ? root.content-width : min(420px, root.compact ? root.beside-controls : root.content-width);
         flight: root.flight;
         small: root.narrow || root.short;
     }
@@ -1370,7 +1421,7 @@ export component AppWindow inherits Window {
             }
 
             PillButton {
-                text: root.narrow ? "" : "Plan a flight";
+                text: root.narrow || root.sideways ? "" : "Plan a flight";
                 icon: @image-url("icons/aircraft.svg");
                 primary: true;
                 clicked => {
@@ -1395,74 +1446,81 @@ export component AppWindow inherits Window {
     // Above the settings button: during a flight at the right, and on the entry screen at the
     // bottom of the planner.
     if root.settings-open && root.screen != Screen.zoom: Glass {
+        property <length> bottom: (root.screen == Screen.flight ? controls.y : planner.y + planner.height - planner.inset - 36px) - 10px;
         x: root.screen == Screen.flight ? root.width - self.width - root.right-edge : planner.x + planner.inset;
-        y: (root.screen == Screen.flight ? controls.y : planner.y + planner.height - planner.inset - 36px) - self.height - 10px;
+        y: self.bottom - self.height;
         width: min(260px, root.content-width);
-        height: settings.preferred-height;
-        settings := VerticalLayout {
-            padding: 16px;
-            spacing: 6px;
-            Caption {
-                text: "Quality";
-            }
-
-            Segmented {
-                options: ["Auto", "Low", "Medium", "High"];
-                current: root.auto-quality ? 0 : root.quality == Quality.low ? 1 : root.quality == Quality.medium ? 2 : 3;
-                picked(index) => {
-                    root.auto-quality = index == 0;
-                    root.quality = index == 1 ? Quality.low : index == 2 ? Quality.medium : Quality.high;
-                    root.interacted();
+        // In a low window, the settings scroll.
+        height: min(settings.preferred-height, self.bottom - root.top-edge);
+        Flickable {
+            content-height: settings.preferred-height;
+            settings := VerticalLayout {
+                width: parent.width;
+                height: self.preferred-height;
+                padding: 16px;
+                spacing: 6px;
+                Caption {
+                    text: "Quality";
                 }
-            }
 
-            Toggle {
-                text: "Random flights";
-                checked <=> root.kiosk;
-                toggled => {
-                    root.interacted();
+                Segmented {
+                    options: ["Auto", "Low", "Medium", "High"];
+                    current: root.auto-quality ? 0 : root.quality == Quality.low ? 1 : root.quality == Quality.medium ? 2 : 3;
+                    picked(index) => {
+                        root.auto-quality = index == 0;
+                        root.quality = index == 1 ? Quality.low : index == 2 ? Quality.medium : Quality.high;
+                        root.interacted();
+                    }
                 }
-            }
 
-            if root.online-imagery-available: Toggle {
-                text: "Online imagery";
-                checked <=> root.online-imagery;
-                toggled => {
-                    root.interacted();
+                Toggle {
+                    text: "Random flights";
+                    checked <=> root.kiosk;
+                    toggled => {
+                        root.interacted();
+                    }
                 }
-            }
 
-            Toggle {
-                text: "Clouds";
-                checked <=> root.clouds;
-                toggled => {
-                    root.interacted();
+                if root.online-imagery-available: Toggle {
+                    text: "Online imagery";
+                    checked <=> root.online-imagery;
+                    toggled => {
+                        root.interacted();
+                    }
                 }
-            }
 
-            Toggle {
-                text: "Borders";
-                checked <=> root.borders;
-                toggled => {
-                    root.interacted();
+                Toggle {
+                    text: "Clouds";
+                    checked <=> root.clouds;
+                    toggled => {
+                        root.interacted();
+                    }
                 }
-            }
 
-            Toggle {
-                text: "Sunlight";
-                checked <=> root.sunlight;
-                toggled => {
-                    root.interacted();
+                Toggle {
+                    text: "Borders";
+                    checked <=> root.borders;
+                    toggled => {
+                        root.interacted();
+                    }
                 }
-            }
 
-            HorizontalLayout {
-                alignment: start;
-                PillButton {
-                    text: "Restart";
-                    clicked => {
-                        root.settings-open = false;
-                        root.restart();
+                Toggle {
+                    text: "Sunlight";
+                    checked <=> root.sunlight;
+                    toggled => {
+                        root.interacted();
+                    }
+                }
+
+                HorizontalLayout {
+                    alignment: start;
+                    PillButton {
+                        text: "Restart";
+                        clicked => {
+                            root.settings-open = false;
+                            root.restart();
+                        }
                     }
                 }
             }
