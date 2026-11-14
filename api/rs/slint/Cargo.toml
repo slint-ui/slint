@@ -39,7 +39,13 @@ default = [
 ## that would be enabled by default only if this feature was added.
 ## [More info in this blog post](https://slint.dev/blog/rust-adding-default-cargo-feature.html)
 "compat-1-20" = []
-"compat-1-18" = ["compat-1-20", "i-slint-renderer-skia?/svg", "i-slint-backend-android-activity?/svg", "i-slint-core/system-fonts", "i-slint-core/complex-scripts"]
+"compat-1-18" = [
+  "compat-1-20",
+  "i-slint-renderer-skia?/svg",
+  "i-slint-backend-android-activity?/svg",
+  "i-slint-core/system-fonts",
+  "i-slint-core/complex-scripts",
+]
 "compat-1-2" = ["compat-1-18", "i-slint-backend-linuxkms?/libseat", "i-slint-backend-linuxkms?/libinput"]
 "compat-1-0" = ["compat-1-2", "renderer-software"]
 
