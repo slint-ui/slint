@@ -1292,7 +1292,7 @@ impl TypeLoader {
                     import.resolved = Some(path);
                 } else if crate::fileaccess::is_font_file(&import.file) {
                     let importing_file = import.import_uri_token.source_file.path();
-                    // Slint ≤ 1.18 resolved also font files relative to the file itself by accident. Still support it with a warning.
+                    // Slint ≤ 1.18 resolved also font files relative to the file itself by accident.
                     let too_deep = importing_file.join(&import.file).filter(SourcePath::exists);
                     let path = if let Some(too_deep) = too_deep {
                         let suggested = import
@@ -1300,14 +1300,26 @@ impl TypeLoader {
                             .strip_prefix("..")
                             .and_then(|rest| rest.strip_prefix(['/', '\\']))
                             .unwrap_or(&import.file);
-                        state.borrow_mut().diag.push_warning(
-                            format!(
-                                "Loading \"{}\" relative to the importing file rather than its directory is deprecated. \
-                                 Files should be imported relative to their import location, as \"{}\"",
-                                import.file, suggested
-                            ),
-                            &import.import_uri_token,
-                        );
+                        if import.import_uri_token.source_file.edition()
+                            >= Some(crate::project_file::SlintEdition::V1_20)
+                        {
+                            state.borrow_mut().diag.push_error(
+                                format!(
+                                    "Cannot load \"{}\" relative to the importing file rather than its directory. Import it as \"{}\"",
+                                    import.file, suggested
+                                ),
+                                &import.import_uri_token,
+                            );
+                        } else {
+                            state.borrow_mut().diag.push_warning(
+                                format!(
+                                    "Loading \"{}\" relative to the importing file rather than its directory is deprecated. \
+                                     Files should be imported relative to their import location, as \"{}\"",
+                                    import.file, suggested
+                                ),
+                                &import.import_uri_token,
+                            );
+                        }
                         too_deep
                     } else {
                         importing_file
@@ -1580,13 +1592,22 @@ impl TypeLoader {
             None => {
                 let import_path = SourcePath::new(file_to_import);
                 if import_path.exists() {
-                    if import_token.as_ref().and_then(|x| x.source_file()).is_some() {
-                        borrowed_state.diag.push_warning(
-                        format!(
-                            "Loading \"{file_to_import}\" relative to the work directory is deprecated. Files should be imported relative to their import location",
-                        ),
-                        &import_token,
-                    );
+                    if let Some(source_file) = import_token.as_ref().and_then(|x| x.source_file()) {
+                        if source_file.edition() >= Some(crate::project_file::SlintEdition::V1_20) {
+                            borrowed_state.diag.push_error(
+                                format!(
+                                    "Cannot load \"{file_to_import}\" relative to the work directory. Import it relative to the importing file",
+                                ),
+                                &import_token,
+                            );
+                        } else {
+                            borrowed_state.diag.push_warning(
+                                format!(
+                                    "Loading \"{file_to_import}\" relative to the work directory is deprecated. Files should be imported relative to their import location",
+                                ),
+                                &import_token,
+                            );
+                        }
                     }
                     import_path
                 } else {

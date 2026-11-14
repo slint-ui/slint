@@ -56,7 +56,7 @@ export component TestCase inherits Window {
     width: 200px;
     height: 200px;
 
-    in property <bool> all-disabled <=> FocusLog.all-disabled;
+    in-out property <bool> all-disabled <=> FocusLog.all-disabled;
     out property <FocusReason> reason: FocusLog.reason;
     out property <string> focused: edit.has-focus ? "edit"
         : hidden-edit.has-focus ? "hidden-edit"

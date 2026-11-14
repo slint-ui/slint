@@ -3,7 +3,7 @@
 
 global G  {
     in-out property <string> hello: "hello";
-    function meh(w: string) -> string {
+    pure public function meh(w: string) -> string {
         return root.hello + " " + w;
     }
 }

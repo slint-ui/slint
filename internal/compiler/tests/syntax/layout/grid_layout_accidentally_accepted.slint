@@ -1,0 +1,18 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+//edition: 1.20
+
+export component Test {
+    GridLayout {
+        Row {
+            Text { row: 1; }
+//                      ><error{The 'row' property cannot be used for elements inside a Row. Remove it, or move the element out of the Row}
+        }
+    }
+    GridLayout {
+        for _[idx] in 2: Text { row: idx; }
+//                       >   <error{Cannot mix auto-numbering and runtime expressions for the 'col' property}
+        Text { }
+//      >   <error{Cannot mix auto-numbering and runtime expressions for the 'row' property}
+    }
+}

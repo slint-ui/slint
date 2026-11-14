@@ -32,18 +32,16 @@ the right-hand side references the property or callback it links to.
 - The initial value of the linked pair is the value of the right-hand side.
 
 The same `<=>` syntax forms a *callback alias* that forwards one callback to another (see [Callbacks](../callbacks/#aliases)).
-A callback alias may target a [global](../globals/)'s callback, including from another global — the supported way
-for one global to implement another's callback.
+In a [global](../globals/), a callback alias may target another global's callback.
+This is the supported way for one global to implement another's callback.
 
 ```slint
 global Logic {
     in-out property <int> the-value;
-    pure callback magic-operation(int) -> int;
 }
 
 export component MainWindow inherits Window {
-    // re-expose the global's members on the component
+    // re-expose the global's property on the component
     in-out property the-value <=> Logic.the-value;
-    pure callback magic-operation <=> Logic.magic-operation;
 }
 ```

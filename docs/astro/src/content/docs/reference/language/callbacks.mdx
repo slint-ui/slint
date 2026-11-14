@@ -162,7 +162,7 @@ A handler may also be set on a callback declared in the same component.
 Its handler runs once when the element is instantiated.
 `init` handlers run from the outermost component inward, so a component's own `init` runs after
 the `init` of the elements it contains.
-Calling `init` explicitly does nothing and is deprecated.
+Calling `init` explicitly is deprecated, and a compile error from [edition](../../../guide/language/concepts/editions/) 1.20.
 
 A [global](../globals/) can neither declare nor handle an `init` callback; both are compile errors.
 
@@ -181,8 +181,10 @@ export component Example {
 - Both callbacks must have the same signature.
 - Invoking either callback invokes the other, and a handler set on either responds to both.
 
-An alias may target a [global](../globals/)'s callback, written `Global.callback`.
-A global may alias another global's callback; this is the supported way for one global to implement another's callback.
+A [global](../globals/) may alias another global's callback, written `Global.callback`.
+This is the supported way for one global to implement another's callback.
+In a component, an alias to a global's callback is deprecated.
+To handle the callback from native code, export the global instead.
 A non-global element cannot set a handler on an alias that targets a global's callback,
 because the element may be instantiated many times while the global is a singleton; this is a compile error.
 
