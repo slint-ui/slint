@@ -226,19 +226,6 @@ pub fn normalize_project_root(root: SourcePath) -> SourcePath {
     }
 }
 
-fn project_file_input_error(input: &SourcePath) -> String {
-    let project_directory = input.parent();
-    let project_directory =
-        if project_directory.as_native_path().is_some_and(|path| path.as_os_str().is_empty()) {
-            ".".to_string()
-        } else {
-            project_directory.to_string()
-        };
-    format!(
-        "A `{FILE_NAME}` cannot be compiled directly; pass its directory instead ({project_directory})"
-    )
-}
-
 /// Resolves the file a tool was asked to compile.
 ///
 /// A directory resolves to the main file specified by its `slint-project.json`.
@@ -365,7 +352,14 @@ pub async fn load_input(
     let resolved = if input.file_name() == Some(FILE_NAME)
         && (source_code.is_some() || project_root.is_some() || input.as_native_path().is_none())
     {
-        Err(project_error(project_file_input_error(input), input))
+        let message = if source_code.is_some() {
+            "Cannot compile 'slint-project.json' as Slint source text; pass a '.slint' source path"
+        } else if project_root.is_some() {
+            "Cannot use a slint-project.json as both a project root and as source path. Omit the explicit project root."
+        } else {
+            "Cannot load a project file from a URL; pass the source code and project root URL separately"
+        };
+        Err(project_error(message.into(), input))
     } else if let Some(root) = project_root {
         load_from_root_with_file_loader(root, Some(&file_loader))
             .await

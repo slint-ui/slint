@@ -15,6 +15,19 @@ use wasm_bindgen::prelude::*;
 
 use crate::{ResourceLoaderFunction, WrappedCompiledComp};
 
+#[wasm_bindgen]
+pub fn project_main(source: String, url: String) -> Result<String, JsValue> {
+    let project = i_slint_compiler::project_file::ProjectFile::parse(
+        i_slint_compiler::source_path::SourcePath::new(url),
+        source.into_bytes(),
+    )
+    .map_err(|error| js_sys::Error::new(&error.to_string()))?;
+    project
+        .main()
+        .map(|main| main.to_string())
+        .ok_or_else(|| js_sys::Error::new("Project file has no 'main' to compile").into())
+}
+
 struct SoftwarePlatform;
 
 impl Platform for SoftwarePlatform {

@@ -86,7 +86,7 @@ const tools = [
                 path: {
                     type: "string",
                     description:
-                        "Absolute path of the .slint file to preview. The last exported component is shown.",
+                        "Absolute path of a .slint file, a directory containing slint-project.json, or slint-project.json itself. Project inputs use their main entry. The last exported component is shown.",
                 },
                 source: {
                     type: "string",
@@ -96,7 +96,7 @@ const tools = [
                 projectRoot: {
                     type: "string",
                     description:
-                        "Absolute path of the directory with the slint-project.json to apply to `path`, for its library and include paths.",
+                        "Absolute path of a project directory or slint-project.json whose settings apply to `path`. Pass a different .slint path to preview it instead of the project's main entry.",
                 },
                 style: {
                     type: "string",
@@ -341,9 +341,12 @@ const toolCalls = {
             );
         }
         let checked;
+        let input;
         try {
-            const { checkSlint } = await import("./checker.mjs");
-            checked = await checkSlint(args);
+            const { checkSlint, resolvePreviewInput } = await import("./checker.mjs");
+            const { prepare_preview, ...originalInput } = args;
+            input = resolvePreviewInput(originalInput);
+            checked = await checkSlint(input);
         } catch (error) {
             return textResult(error.message, true);
         }
@@ -360,7 +363,6 @@ const toolCalls = {
             while (preparations.size >= MAX_PREPARATIONS)
                 removePreparation(preparations.keys().next().value);
             const previewId = randomUUID();
-            const { prepare_preview, ...input } = args;
             preparations.set(previewId, {
                 input,
                 expiresAt: Date.now() + PREPARATION_TTL_MS,
