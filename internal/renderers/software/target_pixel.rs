@@ -76,6 +76,7 @@ pub trait TargetPixel: Sized + Copy {
 }
 
 impl TargetPixel for Rgb8Pixel {
+    #[inline]
     fn blend(&mut self, color: PremultipliedRgbaColor) {
         let a = (u8::MAX - color.alpha) as u16;
         self.r = (self.r as u16 * a / 255) as u8 + color.red;
@@ -83,12 +84,14 @@ impl TargetPixel for Rgb8Pixel {
         self.b = (self.b as u16 * a / 255) as u8 + color.blue;
     }
 
+    #[inline]
     fn from_rgb(r: u8, g: u8, b: u8) -> Self {
         Self::new(r, g, b)
     }
 }
 
 impl TargetPixel for PremultipliedRgbaColor {
+    #[inline]
     fn blend(&mut self, color: PremultipliedRgbaColor) {
         let a = (u8::MAX - color.alpha) as u16;
         self.red = (self.red as u16 * a / 255) as u8 + color.red;
@@ -98,6 +101,7 @@ impl TargetPixel for PremultipliedRgbaColor {
             - (self.alpha as u16 * color.alpha as u16) / 255) as u8;
     }
 
+    #[inline]
     fn from_rgb(r: u8, g: u8, b: u8) -> Self {
         Self { red: r, green: g, blue: b, alpha: 255 }
     }
@@ -114,6 +118,7 @@ const G_MASK: u16 = 0b0000_0111_1110_0000;
 const B_MASK: u16 = 0b0000_0000_0001_1111;
 
 impl TargetPixel for Rgb565Pixel {
+    #[inline]
     fn blend(&mut self, color: PremultipliedRgbaColor) {
         let a = (u8::MAX - color.alpha) as u32;
         // convert to 5 bits
@@ -133,17 +138,20 @@ impl TargetPixel for Rgb565Pixel {
         self.0 = ((res >> 21) as u16 & G_MASK) | ((res >> 5) as u16 & (R_MASK | B_MASK));
     }
 
+    #[inline]
     fn from_rgb(r: u8, g: u8, b: u8) -> Self {
         // This calls the inherent from_rgb, not this trait method.
         Rgb565Pixel::from_rgb(r, g, b)
     }
 
+    #[inline]
     fn blend_dithered(&mut self, color: PremultipliedRgbaColor, noise: u8, _: InternalToken) {
         self.blend(dither_rgb565(color, noise))
     }
 }
 
 /// See [`TargetPixel::blend_dithered`].
+#[inline]
 pub(crate) fn dither_rgb565(color: PremultipliedRgbaColor, noise: u8) -> PremultipliedRgbaColor {
     let dither = |v: u8, bits: u8| v.saturating_add(noise >> bits).min(color.alpha);
     PremultipliedRgbaColor {
@@ -188,6 +196,7 @@ impl Rgb565BigEndianPixel {
 }
 
 impl TargetPixel for Rgb565BigEndianPixel {
+    #[inline]
     fn blend(&mut self, color: PremultipliedRgbaColor) {
         // Reuse the canonical native-endian Rgb565Pixel::blend by decoding
         // from BE byte order, blending, and re-encoding. On targets with a
@@ -201,10 +210,12 @@ impl TargetPixel for Rgb565BigEndianPixel {
         self.0 = native.0.to_be();
     }
 
+    #[inline]
     fn blend_dithered(&mut self, color: PremultipliedRgbaColor, noise: u8, _: InternalToken) {
         self.blend(dither_rgb565(color, noise))
     }
 
+    #[inline]
     fn from_rgb(r: u8, g: u8, b: u8) -> Self {
         Self(Rgb565Pixel::from_rgb(r, g, b).0.to_be())
     }
