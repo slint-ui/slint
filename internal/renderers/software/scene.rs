@@ -299,8 +299,7 @@ impl Scene {
             }
             SceneCommand::RoundedRectangle { rectangle_index } => {
                 let rr = &self.vectors.rounded_rectangles[*rectangle_index as usize];
-                // Where the current line crosses no corner, the edges are vertical and every
-                // pixel of the span is border or fill; both have to be opaque.
+                // Off the corners every pixel of the span is opaque fill or border.
                 if rr.inner_color.alpha != 255
                     || (rr.width.get() > 0 && rr.border_color.alpha != 255)
                 {
