@@ -1747,6 +1747,9 @@ impl WinitWindowAdapter {
                             button,
                             click_count: 0,
                             touch_finger_id: 0,
+                            // winit 0.30 has no per-event activation-click
+                            // information; wired up with the 0.31 upgrade.
+                            is_activation_click: false,
                         }
                     }
                     winit::event::ElementState::Released => {
@@ -1756,6 +1759,7 @@ impl WinitWindowAdapter {
                             button,
                             click_count: 0,
                             touch_finger_id: 0,
+                            is_activation_click: false,
                         }
                     }
                 };
