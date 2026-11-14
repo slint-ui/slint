@@ -46,6 +46,8 @@ pub struct SlintEdition {
 }
 
 impl SlintEdition {
+    /// The oldest edition, with the language behavior of Slint 1.18 and earlier.
+    pub const FIRST: Self = Self { major: 1, minor: 18 };
     pub const V1_19: Self = Self { major: 1, minor: 19 };
     /// The newest edition that a compiler behavior check depends on.
     pub const LATEST_BEHAVIOR_CHANGE: Self = Self::V1_19;
@@ -79,12 +81,31 @@ impl SlintEdition {
         )
     }
 
-    /// Returns `self` if this Slint supports it: if it isn't newer than [`Self::current()`].
+    /// Returns `self` if this Slint supports it:
+    /// if it's between [`Self::FIRST`] and [`Self::current()`].
     pub fn supported(self) -> Result<Self, String> {
+        self.check_supported("The edition", |current| format!("use edition {current}"))
+    }
+
+    /// Returns `self` if it's between [`Self::FIRST`] and [`Self::current()`].
+    /// Otherwise, the error calls the edition `setting`,
+    /// and for a newer edition, suggests `set_current`.
+    fn check_supported(
+        self,
+        setting: &str,
+        set_current: impl FnOnce(Self) -> String,
+    ) -> Result<Self, String> {
         let current = Self::current();
         if self > current {
             return Err(format!(
-                "The edition {self} is newer than Slint {current}: upgrade Slint, or use edition {current}"
+                "{setting} is {self}, newer than Slint {current}: upgrade Slint, or {}",
+                set_current(current)
+            ));
+        }
+        if self < Self::FIRST {
+            return Err(format!(
+                "{setting} is {self}, older than {}, the first edition",
+                Self::FIRST
             ));
         }
         Ok(self)
@@ -103,11 +124,7 @@ impl SlintEdition {
             .and_then(|value| value.strip_suffix('"'))
             .ok_or_else(|| format!("'edition' takes a string, such as \"{current}\""))?
             .parse()?;
-        edition.supported().map_err(|_| {
-            format!(
-                "'edition' is {edition}, newer than Slint {current}: upgrade Slint, or set '#[edition = \"{current}\"]'"
-            )
-        })
+        edition.check_supported("'edition'", |current| format!("set '#[edition = \"{current}\"]'"))
     }
 
     /// The edition of this compiler's release.
@@ -461,13 +478,10 @@ impl ProjectFile {
         struct EditionOnly {
             edition: Option<SlintEdition>,
         }
-        if let Some(version) = serde_json::from_slice::<EditionOnly>(&source)?.edition
-            && version > current
-        {
-            return Err(format!(
-                "'edition' is {version}, newer than Slint {current}: upgrade Slint, or set \"edition\": \"{current}\""
-            )
-            .into());
+        if let Some(version) = serde_json::from_slice::<EditionOnly>(&source)?.edition {
+            version.check_supported("'edition'", |current| {
+                format!("set \"edition\": \"{current}\"")
+            })?;
         }
         let data: ProjectFileData = serde_json::from_slice(&source)?;
         let Some(edition) = data.edition else { return Err(missing()) };
@@ -1188,9 +1202,15 @@ mod tests {
     }
 
     #[test]
-    fn an_older_edition_is_valid() {
-        let parsed = load_project_file(r#"{ "edition": "1.10" }"#).unwrap();
-        assert_eq!(parsed.edition(), SlintEdition { major: 1, minor: 10 });
+    fn editions_start_at_the_first() {
+        let parsed = load_project_file(r#"{ "edition": "1.18" }"#).unwrap();
+        assert_eq!(parsed.edition(), SlintEdition::FIRST);
+        assert_eq!(
+            SlintEdition::parse_supported("1.17"),
+            Err("The edition is 1.17, older than 1.18, the first edition".into())
+        );
+        let error = SlintEdition::parse_rust_macro_attribute("\"1.5\"").unwrap_err();
+        assert_eq!(error, "'edition' is 1.5, older than 1.18, the first edition");
     }
 
     #[test]
@@ -1217,7 +1237,7 @@ mod tests {
     fn the_project_file_edition_wins_over_the_configuration() {
         with_project_file_contents(r#"{ "edition": "1.19" }"#, |path| {
             let mut config = crate::CompilerConfiguration::new(OutputFormat::Llr);
-            config.edition = Some(SlintEdition { major: 1, minor: 10 });
+            config.edition = Some(SlintEdition::FIRST);
             ProjectFile::load(path).unwrap().apply_to(&mut config);
             assert_eq!(config.edition, Some(SlintEdition::V1_19));
         });
