@@ -996,11 +996,12 @@ fn callback_popup_menu_action<'local>(
                 if let Some(text_input) = focus_item.downcast::<i_slint_core::items::TextInput>() {
                     let text_input = text_input.as_pin_ref();
                     let adaptor = adaptor.clone() as Rc<dyn WindowAdapter>;
-                    match id {
-                        0 => text_input.cut(&adaptor, &focus_item),
-                        1 => text_input.copy(&adaptor),
-                        2 => text_input.paste(&adaptor, &focus_item),
-                        3 => text_input.select_all(&adaptor, &focus_item),
+                    let access = text_input.user_edit_access();
+                    match (id, access) {
+                        (0, Some(access)) => text_input.cut(access, &adaptor, &focus_item),
+                        (1, _) => text_input.copy(&adaptor),
+                        (2, Some(access)) => text_input.paste(access, &adaptor, &focus_item),
+                        (3, _) => text_input.select_all(&adaptor, &focus_item),
                         _ => (),
                     }
                 }
