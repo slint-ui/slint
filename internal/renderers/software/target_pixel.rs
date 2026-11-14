@@ -319,6 +319,76 @@ impl From<Rgb565BigEndianPixel> for Rgb8Pixel {
     }
 }
 
+/// A 32-bit pixel `0xAARRGGBB`, with premultiplied alpha: the `XRGB8888` and `ARGB8888`
+/// formats of DRM, Wayland, X11 and softbuffer, and the `BltPixel` of UEFI's Graphics Output
+/// Protocol (bytes B, G, R, A in memory on little-endian machines).
+///
+/// Formats without alpha ignore the top byte, which [`TargetPixel::from_rgb`] sets to `0xff`.
+///
+/// The software renderer draws into it with SIMD instructions where the target has them, such as
+/// SSE2 on x86-64 and NEON on AArch64.
+#[repr(transparent)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Default, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct Argb8888Pixel(pub u32);
+
+impl Argb8888Pixel {
+    /// Returns the red component.
+    pub const fn red(self) -> u8 {
+        (self.0 >> 16) as u8
+    }
+    /// Returns the green component.
+    pub const fn green(self) -> u8 {
+        (self.0 >> 8) as u8
+    }
+    /// Returns the blue component.
+    pub const fn blue(self) -> u8 {
+        self.0 as u8
+    }
+    /// Returns the alpha component.
+    pub const fn alpha(self) -> u8 {
+        (self.0 >> 24) as u8
+    }
+}
+
+impl From<PremultipliedRgbaColor> for Argb8888Pixel {
+    fn from(c: PremultipliedRgbaColor) -> Self {
+        Self(u32::from_be_bytes([c.alpha, c.red, c.green, c.blue]))
+    }
+}
+
+impl TargetPixel for Argb8888Pixel {
+    #[inline]
+    fn blend(&mut self, color: PremultipliedRgbaColor) {
+        let factor = (255 - color.alpha) as u16;
+        let channel = |shift: u32, src: u8| {
+            let dst = (self.0 >> shift) as u8;
+            (((dst as u16 * factor / 255) as u8).wrapping_add(src) as u32) << shift
+        };
+        self.0 = channel(24, color.alpha)
+            | channel(16, color.red)
+            | channel(8, color.green)
+            | channel(0, color.blue);
+    }
+
+    #[inline]
+    fn blend_slice(slice: &mut [Self], color: PremultipliedRgbaColor) {
+        crate::simd::blend_slice(slice, color, color.into())
+    }
+
+    #[inline]
+    fn from_rgb(red: u8, green: u8, blue: u8) -> Self {
+        Self(u32::from_be_bytes([0xff, red, green, blue]))
+    }
+
+    fn background() -> Self {
+        Self(0)
+    }
+
+    fn blend_rgba_slice<S: RgbaTexel>(slice: &mut [Self], src: &[S], alpha: u8, _: InternalToken) {
+        blend_rgba_slice_in_bulk(slice, src, alpha, crate::simd::blend_opaque)
+    }
+}
+
 /// A pixel of an RGBA texture, with straight or premultiplied alpha.
 #[doc(hidden)]
 pub trait RgbaTexel: bytemuck::Pod {

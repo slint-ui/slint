@@ -166,6 +166,7 @@ fn blend_rgb565(pixels: &mut [Rgb565Pixel; 8], alpha: u8, [r, g, b]: [u16x8; 3])
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Argb8888Pixel;
     use crate::target_pixel::RgbaTexel;
     use alloc::vec::Vec;
     use i_slint_core::InternalToken;
@@ -222,6 +223,11 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn argb8888() {
+        matches_per_pixel(Argb8888Pixel);
     }
 
     #[test]
