@@ -1,0 +1,52 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+//edition: 1.18
+
+component SelectableInput inherits TextInput {
+    width: root.has-selection ? 10px : 0px;
+//              >           <warning{The property 'has-selection' is new in Slint 1.19, but the edition is 1.18: raise it to 1.19}
+}
+
+export component Test {
+    property <ScrollBehavior> behavior;
+//            >            <warning{The type 'ScrollBehavior' is new in Slint 1.19, but the edition is 1.18: raise it to 1.19}
+
+    p := Path {
+        stroke-dash-offset: 1px;
+//      >                <warning{The property 'stroke-dash-offset' is new in Slint 1.19, but the edition is 1.18: raise it to 1.19}
+        animate stroke-dash-offset { duration: 1s; }
+//              >                 <warning{The property 'stroke-dash-offset' is new in Slint 1.19, but the edition is 1.18: raise it to 1.19}
+        MoveTo { }
+    }
+    r := Rectangle {
+        animate transform-rotation { angle-interpolation: AngleInterpolation.shorter; }
+//                                   >                 <warning{The property 'angle-interpolation' is new in Slint 1.19, but the edition is 1.18: raise it to 1.19}
+//                                                        >                <^warning{The enum 'AngleInterpolation' is new in Slint 1.19, but the edition is 1.18: raise it to 1.19}
+    }
+    ti := TextInput {
+        changed has-selection => { }
+//              >           <warning{The property 'has-selection' is new in Slint 1.19, but the edition is 1.18: raise it to 1.19}
+    }
+    f := Flickable { }
+    property alias <=> p.stroke-dash-offset;
+//                       >                <warning{The property 'stroke-dash-offset' is new in Slint 1.19, but the edition is 1.18: raise it to 1.19}
+    out property <bool> smooth: ScrollBehavior.smooth == ScrollBehavior.instant;
+//                              >            <warning{The enum 'ScrollBehavior' is new in Slint 1.19, but the edition is 1.18: raise it to 1.19}
+//                                                       >            <^warning{The enum 'ScrollBehavior' is new in Slint 1.19, but the edition is 1.18: raise it to 1.19}
+    SelectableInput { }
+
+    states [
+        dashed when true: {
+            p.stroke-dash-offset: 2px;
+//          >                  <warning{The property 'stroke-dash-offset' is new in Slint 1.19, but the edition is 1.18: raise it to 1.19}
+        }
+    ]
+
+    init => {
+        debug(ti.has-selection);
+//               >           <warning{The property 'has-selection' is new in Slint 1.19, but the edition is 1.18: raise it to 1.19}
+        f.scroll-to({ x: 0px, y: 0px }, ScrollBehavior.instant);
+//        >       <warning{The function 'scroll-to' is new in Slint 1.19, but the edition is 1.18: raise it to 1.19}
+//                                      >            <^warning{The enum 'ScrollBehavior' is new in Slint 1.19, but the edition is 1.18: raise it to 1.19}
+    }
+}

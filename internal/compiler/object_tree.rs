@@ -17,6 +17,7 @@ use crate::layout::LayoutConstraints;
 use crate::namedreference::NamedReference;
 use crate::native_class::PropertyVisibility;
 use crate::parser::{SyntaxKind, SyntaxNode, syntax_nodes};
+use crate::project_file::SlintEdition;
 use crate::property_analysis::PropertyAnalysis;
 use crate::source_path::SourcePath;
 use crate::typeloader::{ImportKind, ImportedTypes, LibraryInfo};
@@ -1655,7 +1656,7 @@ impl Element {
 
     /// The edition of the component that declares the element, which inlining doesn't change.
     /// An element that a pass created takes the edition of its component.
-    pub fn edition(&self) -> Option<crate::project_file::SlintEdition> {
+    pub fn edition(&self) -> Option<SlintEdition> {
         if let Some(file) = self.source_file() {
             return file.edition();
         }
@@ -2036,6 +2037,10 @@ impl Element {
                             &base_node,
                         );
                     }
+                    if let ElementType::Builtin(b) = &ty {
+                        let builtin = || Some((b.since?, format!("The element '{}'", b.name)));
+                        diag.check_since(builtin, &base_node);
+                    }
                     ty
                 }
                 Err(err) => {
@@ -2384,7 +2389,13 @@ impl Element {
         // surprise anyone. Anything else has to be opted into by the base declaration.
         let private =
             declared_in.is_some() && existing.property_visibility == PropertyVisibility::Private;
-        if !private && !existing.is_shadowable {
+        // Shadowing builtin members started with the ones added in Slint 1.17.
+        let shadowable = existing.is_shadowable
+            || existing.since.is_some_and(|since| {
+                let edition = SlintEdition::effective(self.edition());
+                (since >= SlintEdition::V1_17 && edition < SlintEdition::V1_20) || edition < since
+            });
+        if !private && !shadowable {
             return MemberDeclaration::Conflict {
                 existing_type: existing.property_type,
                 declared_in,
@@ -2457,6 +2468,7 @@ impl Element {
             is_shadowable: p.shadowable,
             builtin_function: None,
             is_slint_sc: true,
+            since: None,
             deprecated: p.deprecated.clone(),
             internal_name: None,
         }
@@ -2546,6 +2558,7 @@ impl Element {
                     &name_token,
                 );
             }
+            lookup_result.check_since(&unresolved_name, &name_token, diag);
 
             match self.bindings.0.entry(lookup_result.internal_or_resolved_name()) {
                 Entry::Occupied(_) => {
@@ -3119,6 +3132,16 @@ pub fn type_from_node(
 
         let prop_type = tr.lookup_qualified(&qualified_type.members);
 
+        let builtin = || {
+            let since = match &prop_type {
+                Type::Enumeration(e) => e.builtin_since(None),
+                Type::Struct(s) => s.builtin_since(None),
+                _ => None,
+            };
+            Some((since?, format!("The type '{qualified_type}'")))
+        };
+        diag.check_since(builtin, &qualified_type_node);
+
         #[cfg(feature = "slint-sc")]
         if !prop_type.is_slint_sc() {
             diag.slint_sc_error(&format!("The type '{qualified_type}' is"), &qualified_type_node);
@@ -3295,7 +3318,7 @@ fn constant_from_expression(expression: &Expression) -> Option<ConstantExpressio
     })
 }
 
-fn member_kind(ty: &Type) -> &'static str {
+pub(crate) fn member_kind(ty: &Type) -> &'static str {
     match ty {
         Type::Callback { .. } | Type::InferredCallback => DeclarationKind::Callback,
         Type::Function { .. } => DeclarationKind::Function,

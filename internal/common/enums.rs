@@ -29,9 +29,11 @@ macro_rules! for_each_enums {
             enum TextHorizontalAlignment {
                 /// The text will be aligned with the start edge of the containing box.
                 /// This could be left or right depending on the direction of the text.
+                #[since("1.16")]
                 Start,
                 /// The text will be aligned with the end edge of the containing box.
                 /// This could be left or right depending on the direction of the text.
+                #[since("1.16")]
                 End,
                 /// The text will be aligned with the left edge of the containing box.
                 Left,
@@ -60,6 +62,7 @@ macro_rules! for_each_enums {
                 /// The text will be wrapped at word boundaries if possible, or at any location for very long words.
                 WordWrap,
                 /// The text will be wrapped at any character. Currently only supported by the Qt and Software renderers.
+                #[since("1.7")]
                 CharWrap,
             }
 
@@ -74,6 +77,7 @@ macro_rules! for_each_enums {
 
             /// This enum describes the positioning of a text stroke relative to the border of the glyphs in a `Text` or `StyledText` element.
             #[non_exhaustive]
+            #[since("1.6")]
             enum TextStrokeStyle {
                 /// The inside edge of the stroke is at the outer edge of the text.
                 Outside,
@@ -84,6 +88,7 @@ macro_rules! for_each_enums {
             /// This enum describes the auto-capitalization behavior that the input method
             /// (e.g. a soft keyboard) should apply while text is entered in a `TextInput`.
             #[non_exhaustive]
+            #[since("1.18")]
             pub enum CapitalizationMode {
                 /// No auto-capitalization.
                 None,
@@ -166,6 +171,7 @@ macro_rules! for_each_enums {
 
             /// This enum describes the different reasons for a FocusEvent
             #[non_exhaustive]
+            #[since("1.12")]
             enum FocusReason {
                 /// A built-in function invocation caused the event (`.focus()`, `.clear-focus()`)
                 Programmatic,
@@ -189,6 +195,7 @@ macro_rules! for_each_enums {
                 /// The button was released.
                 Up,
                 /// The pointer has moved,
+                #[since("1.4")]
                 Move,
             }
 
@@ -206,8 +213,10 @@ macro_rules! for_each_enums {
                 /// The center button.
                 Middle,
                 /// The back button.
+                #[since("1.8")]
                 Back,
                 /// The forward button.
+                #[since("1.8")]
                 Forward,
             }
 
@@ -295,11 +304,13 @@ macro_rules! for_each_enums {
                 /// Preserves the size of the source in logical pixels.
                 /// The source will still be scaled by the scale factor that applies to all elements in the window.
                 /// Any extra space will be left blank.
+                #[since("1.5")]
                 Preserve,
             }
 
             /// This enum specifies the horizontal alignment of the source image.
             #[non_exhaustive]
+            #[since("1.5")]
             enum ImageHorizontalAlignment {
                 /// Aligns the source image at the center of the `Image` element.
                 Center,
@@ -311,6 +322,7 @@ macro_rules! for_each_enums {
 
             /// This enum specifies the vertical alignment of the source image.
             #[non_exhaustive]
+            #[since("1.5")]
             enum ImageVerticalAlignment {
                 /// Aligns the source image at the center of the `Image` element.
                 Center,
@@ -331,6 +343,7 @@ macro_rules! for_each_enums {
 
             /// This enum specifies how the source image will be tiled.
             #[non_exhaustive]
+            #[since("1.5")]
             enum ImageTiling {
                 /// The source image will not be tiled.
                 None,
@@ -349,13 +362,16 @@ macro_rules! for_each_enums {
                 /// The text can't be copied or cut to the clipboard.
                 Password,
                 /// This will only accept and render number characters (0-9)
+                #[since("1.3")]
                 Number,
                 /// This will accept and render characters if it's valid part of a decimal,
                 /// using the decimal separator of the current locale
+                #[since("1.3")]
                 Decimal,
                 /// This identifies the input field as a search box. Characters are rendered normally,
                 /// but assistive technologies are informed that the field is used for searching or
                 /// filtering content.
+                #[since("1.17")]
                 Search,
             }
 
@@ -389,11 +405,13 @@ macro_rules! for_each_enums {
                 SpaceAround,
                 /// Use the preferred size for all elements, distribute remaining space evenly before the
                 /// first element, after the last element and between elements.
+                #[since("1.14")]
                 SpaceEvenly,
             }
 
             /// The direction in which flex items are placed in a flex container.
             #[non_exhaustive]
+            #[since("1.18")]
             enum FlexboxLayoutDirection {
                 /// Items are placed in a row, from left to right.
                 Row,
@@ -410,10 +428,12 @@ macro_rules! for_each_enums {
             /// and `FlexboxLayout`, and as the `cross-axis-self-alignment` property of their
             /// children, which overrides the container's alignment for a single item.
             #[non_exhaustive]
+            #[since("1.17")]
             enum CrossAxisAlignment {
                 /// The default: for `cross-axis-self-alignment`, use the container's
                 /// `cross-axis-alignment` value. For an unset `cross-axis-alignment` it is
                 /// equivalent to `stretch`; it is an error to set it explicitly there.
+                #[since("1.18")]
                 Auto,
                 /// Items are stretched to fill the cross axis.
                 Stretch,
@@ -427,6 +447,7 @@ macro_rules! for_each_enums {
 
             /// Controls whether flex items wrap onto multiple lines.
             #[non_exhaustive]
+            #[since("1.18")]
             enum FlexboxLayoutWrap {
                 /// Flex items wrap onto multiple lines, from top to bottom (for row direction) or left to right (for column direction).
                 Wrap,
@@ -474,10 +495,13 @@ macro_rules! for_each_enums {
                 /// The element is a `ComboBox` or behaves like one.
                 Combobox,
                 /// The element is a `GroupBox` or behaves like one.
+                #[since("1.10")]
                 Groupbox,
                 /// The element is an `Image` or behaves like one. This is automatically applied to `Image` elements.
+                #[since("1.10")]
                 Image,
                 /// The element is a `ListView` or behaves like one.
+                #[since("1.6")]
                 List,
                 /// The element is a `Slider` or behaves like one.
                 Slider,
@@ -487,50 +511,69 @@ macro_rules! for_each_enums {
                 /// The element is a `Tab` or behaves like one.
                 Tab,
                 /// The element is similar to the tab bar in a `TabWidget`.
+                #[since("1.6")]
                 TabList,
                 /// The element is a container for tab content.
+                #[since("1.10")]
                 TabPanel,
                 /// The role for a `Text` element. This is automatically applied to `Text` elements.
                 Text,
                 /// The role for a `TableView` or behaves like one.
+                #[since("1.6")]
                 Table,
                 /// The role for a TreeView or behaves like one. (Not provided yet)
+                #[since("1.6")]
                 Tree,
                 /// The element is a `ProgressIndicator` or behaves like one.
+                #[since("1.3")]
                 ProgressIndicator,
                 /// The role for widget with editable text such as a `LineEdit` or a `TextEdit`.
                 /// This is automatically applied to `TextInput` elements.
                 /// Set `accessible-role: none` on the `TextInput` inside an element that takes this role,
                 /// whose text the role describes.
+                #[since("1.6")]
                 TextInput,
                 /// The element is a `Switch` or behaves like one.
+                #[since("1.6")]
                 Switch,
                 /// The element is an item in a `ListView`.
+                #[since("1.8")]
                 ListItem,
                 /// The element is a `RadioButton` or behaves like one.
+                #[since("1.15")]
                 RadioButton,
                 /// The element is a container grouping related `RadioButton`s.
+                #[since("1.17")]
                 RadioGroup,
                 /// The element is a window title bar, typically containing the window title and controls
                 /// such as minimize, maximize, and close.
+                #[since("1.18")]
                 WindowTitleBar,
                 // Landmark roles
                 /// Landmark: the header area of the application, typically containing a logo, title, or global navigation.
+                #[since("1.17")]
                 Banner,
                 /// Landmark: a supporting section that complements the main content, such as a sidebar.
+                #[since("1.17")]
                 Complementary,
                 /// Landmark: information about the application or its content, typically at the bottom (e.g. status bar, copyright).
+                #[since("1.17")]
                 ContentInfo,
                 /// Landmark: a region containing input fields and controls for submitting information.
+                #[since("1.17")]
                 Form,
                 /// Landmark: the primary content of the application. Each view should have exactly one `main` landmark.
+                #[since("1.17")]
                 Main,
                 /// Landmark: a group of links or controls used for navigating the application.
+                #[since("1.17")]
                 Navigation,
                 /// Landmark: a generic section significant enough to be listed in a summary.
                 /// Use a more specific landmark if one applies.
+                #[since("1.17")]
                 Region,
                 /// Landmark: a region containing controls for searching or filtering content.
+                #[since("1.17")]
                 Search,
             }
 
@@ -538,6 +581,7 @@ macro_rules! for_each_enums {
             /// It indicates that an element is a live region whose content changes should be
             /// announced by assistive technologies.
             #[non_exhaustive]
+            #[since("1.17")]
             pub enum AccessibleLiveness {
                 /// Use in regions that present information that is of low-importance to the user.
                 /// Assistive technologies are expected to not announce changes unless the user explicitly asks for it.
@@ -566,6 +610,7 @@ macro_rules! for_each_enums {
 
             /// Represents the orientation of an element or widget such as the `Slider`.
             // (on purpose not #[non_exhaustive])
+            #[since("1.2")]
             pub enum Orientation {
                 /// Element is oriented horizontally.
                 Horizontal,
@@ -576,6 +621,7 @@ macro_rules! for_each_enums {
             /// This enum indicates the color scheme used by the widget style. Use this to explicitly switch
             /// between dark and light schemes, or choose Unknown to fall back to the system default.
             #[non_exhaustive]
+            #[since("1.6")]
             pub enum ColorScheme {
                 /// The scheme is not known and a system wide setting configures this. This could mean that
                 /// the widgets are shown in a dark or light scheme, but it could also be a custom color scheme.
@@ -588,6 +634,7 @@ macro_rules! for_each_enums {
 
             /// This enum describes the direction of an animation.
             #[non_exhaustive]
+            #[since("1.9")]
             enum AnimationDirection {
                 /// The ["normal" direction as defined in CSS](https://developer.mozilla.org/en-US/docs/Web/CSS/animation-direction#normal).
                 Normal,
@@ -604,6 +651,7 @@ macro_rules! for_each_enums {
             /// With any mode other than `linear`, the animated value stays within 0° to 360°
             /// while the animation runs. Once it finishes, the property holds the target value.
             #[non_exhaustive]
+            #[since("1.19")]
             enum AngleInterpolation {
                 /// Standard linear interpolation between start and end values, treating the angle as a plain number.
                 Linear,
@@ -619,6 +667,7 @@ macro_rules! for_each_enums {
 
             /// This enum describes the scrollbar visibility
             #[non_exhaustive]
+            #[since("1.9")]
             enum ScrollBarPolicy {
                 /// Scrollbar will be visible only when needed
                 AsNeeded,
@@ -630,6 +679,7 @@ macro_rules! for_each_enums {
 
             // This enum describes the close behavior of `PopupWindow`
             #[non_exhaustive]
+            #[since("1.9")]
             enum PopupClosePolicy {
                 /// Closes the `PopupWindow` when user clicks or presses the escape key.
                 CloseOnClick,
@@ -643,6 +693,7 @@ macro_rules! for_each_enums {
 
             /// This enum describes the appearance of the ends of stroked paths.
             #[non_exhaustive]
+            #[since("1.10")]
             enum LineCap {
                 /// The stroke ends with a flat edge that is perpendicular to the path.
                 Butt,
@@ -654,6 +705,7 @@ macro_rules! for_each_enums {
 
             /// This enum describes the appearance of the joins between segments of stroked paths.
             #[non_exhaustive]
+            #[since("1.15")]
             enum LineJoin {
                 /// The stroke joins with a sharp corner or a clipped corner, depending on the miter limit.
                 Miter,
@@ -671,6 +723,7 @@ macro_rules! for_each_enums {
             /// drags that come from another application or window once native drag-and-drop is
             /// in play.
             #[non_exhaustive]
+            #[since("1.17")]
             pub enum DragAction {
                 /// No action: the drag is rejected, no drop will be delivered.
                 None,
@@ -686,6 +739,7 @@ macro_rules! for_each_enums {
 
             /// This enum describes the detected operating system types.
             #[non_exhaustive]
+            #[since("1.12")]
             enum OperatingSystemType {
                 /// This variant includes any version of Android running mobile phones, tablets, as well as embedded Android devices.
                 Android,
@@ -707,6 +761,7 @@ macro_rules! for_each_enums {
             /// On other platforms, `about`, `preferences`, and `quit` items stay where they're declared,
             /// and items with the other roles are hidden.
             #[non_exhaustive]
+            #[since("1.19")]
             enum MenuItemRole {
                 /// The item has no special role and stays where it's declared.
                 None,
@@ -734,6 +789,7 @@ macro_rules! for_each_enums {
 
             /// This enum describes how to scroll to a specific position
             #[non_exhaustive]
+            #[since("1.19")]
             pub enum ScrollBehavior {
                 /// Instant jump to the scroll position
                 Instant,

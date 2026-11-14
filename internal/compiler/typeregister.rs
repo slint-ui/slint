@@ -27,6 +27,8 @@ use crate::native_class::PropertyVisibility;
 #[cfg(feature = "std")]
 use crate::object_tree::Component;
 #[cfg(feature = "std")]
+use crate::project_file::SlintEdition;
+#[cfg(feature = "std")]
 use crate::typeloader;
 
 pub const RESERVED_GEOMETRY_PROPERTIES: &[(&str, Type)] = &[
@@ -65,8 +67,19 @@ pub const RESERVED_GRIDLAYOUT_PROPERTIES: &[(&str, Type)] = &[
 // because Type::Enumeration requires a runtime Arc allocation.
 pub const RESERVED_LAYOUT_CELL_PROPERTIES: &[(&str, Type)] = &[("layout-order", Type::Int32)];
 
+/// The `Option<SlintEdition>` of an optional `#[since("1.20")]` literal.
+#[cfg(feature = "std")]
+macro_rules! since_literal {
+    () => {
+        None
+    };
+    ($since:literal) => {
+        Some(crate::project_file::SlintEdition::from_literal($since))
+    };
+}
+
 macro_rules! declare_enums {
-    ($( $(#[$enum_doc:meta])* $vis:vis enum $Name:ident { $( $(#[$value_doc:meta])* $Value:ident,)* })*) => {
+    ($( $(#[doc = $enum_doc:literal])* $(#[non_exhaustive])? $(#[since($since:literal)])? $vis:vis enum $Name:ident { $( $(#[doc = $value_doc:literal])* $(#[since($value_since:literal)])? $Value:ident,)* })*) => {
         #[allow(non_snake_case)]
         pub struct BuiltinEnums {
             $(pub $Name : Arc<Enumeration>),*
@@ -78,6 +91,20 @@ macro_rules! declare_enums {
                     &[$(stringify!($Value)),*],
                     stringify!($vis) == "pub",
                 )),* }
+            }
+            /// The release that added the builtin enum `name`, or the release that added its
+            /// value at index `value` after the enum.
+            #[cfg(feature = "std")]
+            pub fn since(name: &str, value: Option<usize>) -> Option<SlintEdition> {
+                match (name, value) {
+                    $(
+                        (stringify!($Name), Some(value)) => {
+                            (const { [$(since_literal!($($value_since)?)),*] })[value]
+                        }
+                        (stringify!($Name), None) => const { since_literal!($($since)?) },
+                    )*
+                    _ => None,
+                }
             }
             #[cfg(any(feature = "std", feature = "serde"))]
             pub(crate) fn all(&self) -> impl Iterator<Item = &Arc<Enumeration>> {
@@ -96,6 +123,30 @@ macro_rules! declare_enums {
 }
 
 i_slint_common::for_each_enums!(declare_enums);
+
+#[cfg(feature = "std")]
+impl Enumeration {
+    /// The release that added this builtin enum, or its value at index `value` after the enum.
+    /// `None` for an enum declared in `.slint`.
+    pub(crate) fn builtin_since(&self, value: Option<usize>) -> Option<SlintEdition> {
+        if self.node.is_some() {
+            return None;
+        }
+        BuiltinEnums::since(&self.name, value)
+    }
+}
+
+#[cfg(feature = "std")]
+impl crate::langtype::Struct {
+    /// The release that added this builtin struct, or its field `field` after the struct.
+    /// `None` for a struct declared in `.slint`.
+    pub(crate) fn builtin_since(&self, field: Option<&str>) -> Option<SlintEdition> {
+        match &self.name {
+            crate::langtype::StructName::Builtin(builtin) => builtin_structs::since(builtin, field),
+            _ => None,
+        }
+    }
+}
 
 fn enumeration(name: &str, values: &[&str], public: bool) -> Arc<Enumeration> {
     Arc::new(Enumeration {
@@ -452,26 +503,34 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
             ),
         ]))
         .chain(std::iter::once(("init", noarg_callback_type(), PropertyVisibility::Private)))
-        .chain(reserved_member_functions().map(|(name, f, v)| (name, Type::Function(f.ty()), v)))
+        .chain(reserved_member_functions().map(|(name, f, v, _)| (name, Type::Function(f.ty()), v)))
 }
 
 #[cfg(feature = "std")]
 /// lookup reserved property injected in every item
 pub fn reserved_property(name: std::borrow::Cow<'_, str>) -> PropertyLookupResult<'_> {
     static RESERVED_PROPERTIES: std::sync::LazyLock<
-        HashMap<&'static str, (Type, PropertyVisibility, Option<BuiltinFunction>)>,
+        HashMap<
+            &'static str,
+            (Type, PropertyVisibility, Option<BuiltinFunction>, Option<SlintEdition>),
+        >,
     > = std::sync::LazyLock::new(|| {
         reserved_properties()
-            .map(|(name, ty, visibility)| (name, (ty, visibility, reserved_member_function(name))))
+            .map(|(name, ty, visibility)| {
+                let function = reserved_member_functions().find(|f| f.0 == name);
+                let since = function.as_ref().and_then(|f| f.3);
+                (name, (ty, visibility, function.map(|f| f.1), since))
+            })
             .collect()
     });
-    if let Some((ty, visibility, builtin_function)) =
+    if let Some((ty, visibility, builtin_function, since)) =
         RESERVED_PROPERTIES.get(name.as_ref()).cloned()
     {
         return PropertyLookupResult {
             property_type: ty,
             is_slint_sc: matches!(name.as_ref(), "x" | "y" | "width" | "height"),
-            is_shadowable: name == "ensure-visible",
+            is_shadowable: false,
+            since,
             resolved_name: name,
             is_local_to_component: false,
             is_in_direct_base: false,
@@ -500,6 +559,7 @@ pub fn reserved_property(name: std::borrow::Cow<'_, str>) -> PropertyLookupResul
                         declared_pure: None,
                         builtin_function: None,
                         is_slint_sc: false,
+                        since: None,
                         internal_name: None,
                         deprecated: None,
                     };
@@ -512,18 +572,23 @@ pub fn reserved_property(name: std::borrow::Cow<'_, str>) -> PropertyLookupResul
 
 #[cfg(feature = "std")]
 pub fn reserved_member_functions()
--> impl Iterator<Item = (&'static str, BuiltinFunction, PropertyVisibility)> {
+-> impl Iterator<Item = (&'static str, BuiltinFunction, PropertyVisibility, Option<SlintEdition>)> {
     IntoIterator::into_iter([
-        ("focus", BuiltinFunction::SetFocusItem, PropertyVisibility::Public), // match for callable "focus" property
-        ("clear-focus", BuiltinFunction::ClearFocusItem, PropertyVisibility::Public), // match for callable "clear-focus" property
-        ("ensure-visible", BuiltinFunction::EnsureVisible, PropertyVisibility::Public),
+        ("focus", BuiltinFunction::SetFocusItem, PropertyVisibility::Public, None), // match for callable "focus" property
+        ("clear-focus", BuiltinFunction::ClearFocusItem, PropertyVisibility::Public, None), // match for callable "clear-focus" property
+        (
+            "ensure-visible",
+            BuiltinFunction::EnsureVisible,
+            PropertyVisibility::Public,
+            Some(SlintEdition::V1_19),
+        ),
     ])
 }
 
 #[cfg(feature = "std")]
 /// These member functions are injected in every time
 pub fn reserved_member_function(name: &str) -> Option<BuiltinFunction> {
-    for (m, e, _) in reserved_member_functions() {
+    for (m, e, ..) in reserved_member_functions() {
         if m == name {
             return Some(e);
         }
@@ -860,9 +925,12 @@ pub mod builtin_structs {
 
     macro_rules! declare_builtin_structs {
         ($(
-            $(#[$attr:meta])*
+            $(#[doc = $struct_doc:literal])*
+            $(#[non_exhaustive])?
+            $(#[derive(Copy, Eq)])?
+            $(#[since($since:literal)])?
             $vis:vis struct $Name:ident {
-                $( $(#[$field_attr:meta])* $field:ident : $field_type:ident $(= $field_default:tt)?, )*
+                $( $(#[doc = $field_doc:literal])* $(#[since($field_since:literal)])? $field:ident : $field_type:ident $(= $field_default:tt)?, )*
             }
         )*) => {
             pub struct BuiltinStructs {
@@ -886,6 +954,25 @@ pub mod builtin_structs {
             impl Default for BuiltinStructs {
                 fn default() -> Self {
                     Self::new()
+                }
+            }
+
+            /// The release that added the builtin struct `name`, or the release that added its
+            /// field `field` after the struct.
+            #[cfg(feature = "std")]
+            pub fn since(
+                name: &BuiltinStruct,
+                field: Option<&str>,
+            ) -> Option<crate::project_file::SlintEdition> {
+                match name {
+                    $(BuiltinStruct::$Name => match field {
+                        $(Some(field) if field.bytes().map(|b| if b == b'-' { b'_' } else { b }).eq(stringify!($field).bytes()) => {
+                            const { since_literal!($($field_since)?) }
+                        })*
+                        Some(_) => None,
+                        None => const { since_literal!($($since)?) },
+                    },)*
+                    _ => None,
                 }
             }
 

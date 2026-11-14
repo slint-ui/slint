@@ -157,8 +157,8 @@ macro_rules! declare_python_public_structs {
         $(#[doc = $struct_doc:literal])*
         $(#[non_exhaustive])?
         $(#[derive(Copy, Eq)])?
-        $vis:vis struct $Name:ident {
-            $( $(#[doc = $field_doc:literal])* $field:ident : $field_type:ident $(= $field_default:expr)?, )*
+        $(#[since($since:literal)])? $vis:vis struct $Name:ident {
+            $( $(#[doc = $field_doc:literal])* $(#[since($field_since:literal)])? $field:ident : $field_type:ident $(= $field_default:expr)?, )*
         }
     )*) => {
         fn register_structs(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -195,8 +195,8 @@ macro_rules! declare_python_public_enums {
     ($(
         $(#[doc = $enum_doc:literal])*
         $(#[non_exhaustive])?
-        $vis:vis enum $Name:ident {
-            $( $(#[doc = $value_doc:literal])* $Value:ident, )*
+        $(#[since($since:literal)])? $vis:vis enum $Name:ident {
+            $( $(#[doc = $value_doc:literal])* $(#[since($value_since:literal)])? $Value:ident, )*
         }
     )*) => {
         fn register_enums(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {

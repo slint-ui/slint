@@ -78,8 +78,8 @@ macro_rules! generate_builtin_structs_pyi {
         $(#[doc = $struct_doc:literal])*
         $(#[non_exhaustive])?
         $(#[derive(Copy, Eq)])?
-        $vis:vis struct $Name:ident {
-            $( $(#[doc = $field_doc:literal])* $field:ident : $field_type:ident $(= $field_default:expr)?, )*
+        $(#[since($since:literal)])? $vis:vis struct $Name:ident {
+            $( $(#[doc = $field_doc:literal])* $(#[since($field_since:literal)])? $field:ident : $field_type:ident $(= $field_default:expr)?, )*
         }
     )*) => {
         fn generate_pyi(writer: &mut impl Write) {
@@ -164,8 +164,8 @@ macro_rules! generate_public_enums_pyi {
     ($(
         $(#[doc = $enum_doc:literal])*
         $(#[non_exhaustive])?
-        $vis:vis enum $Name:ident {
-            $( $(#[doc = $value_doc:literal])* $Value:ident, )*
+        $(#[since($since:literal)])? $vis:vis enum $Name:ident {
+            $( $(#[doc = $value_doc:literal])* $(#[since($value_since:literal)])? $Value:ident, )*
         }
     )*) => {
         fn generate_enums_pyi(writer: &mut impl Write) {

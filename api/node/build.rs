@@ -31,8 +31,8 @@ fn generate_language_module() {
         ($(
             $(#[doc = $enum_doc:literal])*
             $(#[non_exhaustive])?
-            $vis:vis enum $Name:ident {
-                $( $(#[doc = $value_doc:literal])* $Value:ident, )*
+            $(#[since($since:literal)])? $vis:vis enum $Name:ident {
+                $( $(#[doc = $value_doc:literal])* $(#[since($value_since:literal)])? $Value:ident, )*
             }
         )*) => {
             $(
@@ -54,8 +54,8 @@ fn generate_language_module() {
             $(#[doc = $struct_doc:literal])*
             $(#[non_exhaustive])?
             $(#[derive(Copy, Eq)])?
-            $vis:vis struct $Name:ident {
-                $( $(#[doc = $field_doc:literal])* $field:ident : $field_type:ty $(= $field_default:expr)?, )*
+            $(#[since($since:literal)])? $vis:vis struct $Name:ident {
+                $( $(#[doc = $field_doc:literal])* $(#[since($field_since:literal)])? $field:ident : $field_type:ty $(= $field_default:expr)?, )*
             }
         )*) => {
             $(

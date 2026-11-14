@@ -1569,7 +1569,7 @@ fn test_accessibility_enum_mapping_complete() {
     }
 
     macro_rules! test_accessibility_enum_mapping {
-        ($( $(#[doc = $enum_doc:literal])* $(#[non_exhaustive])? $vis:vis enum $Name:ident { $( $(#[doc = $value_doc:literal])* $Value:ident,)* })*) => {
+        ($( $(#[doc = $enum_doc:literal])* $(#[non_exhaustive])? $(#[since($since:literal)])? $vis:vis enum $Name:ident { $( $(#[doc = $value_doc:literal])* $(#[since($value_since:literal)])? $Value:ident,)* })*) => {
             $(
                 test_accessibility_enum_mapping_inner!($Name, $($Value,)*);
             )*

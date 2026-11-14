@@ -1,0 +1,18 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+//edition: 1.20
+
+export component Test inherits Window {
+    in-out property <string> maximized;
+//                           >       <error{Cannot override property 'maximized'}
+    function hide() {}
+//           >  <error{Cannot override 'hide'}
+    Rectangle {
+        callback ensure-visible(length);
+//               >            <error{Cannot declare callback 'ensure-visible' when a function with the same name exists}
+    }
+    Flickable {
+        in property <length> content-width;
+//                           >           <error{Cannot override property 'content-width'}
+    }
+}

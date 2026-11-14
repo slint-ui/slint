@@ -22,6 +22,7 @@ interface Props {
     enumName?: string;
     structName?: string;
     propertyVisibility?: PropertyVisibility;
+    since?: string;
 }
 const {
     propName,
@@ -30,6 +31,7 @@ const {
     enumName,
     structName,
     propertyVisibility,
+    since,
 } = Astro.props as Props;
 
 if (propName === "") {
@@ -107,7 +109,8 @@ if ((enumName || structName) && !Astro.slots.has("default")) {
       </a>
     )}
     {propertyVisibility && <code>{`(${propertyVisibility})`}</code>}
-    {defaultValue_ && <span class="default-value">default: <code class="plain-code" dir="auto">{defaultValue_}</code></span>}<br>
+    {defaultValue_ && <span class="default-value">default: <code class="plain-code" dir="auto">{defaultValue_}</code></span>}
+    {since && <span class="since">since: <code class="plain-code" dir="auto">Slint {since}</code></span>}<br>
   </p>
    <slot/>
    {enumName && <Fragment set:html={enumContent}/>}

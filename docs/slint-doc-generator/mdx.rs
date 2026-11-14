@@ -5,6 +5,9 @@
 
 use crate::Config;
 use anyhow::Context;
+use i_slint_compiler::langtype::BuiltinStruct;
+use i_slint_compiler::project_file::SlintEdition;
+use i_slint_compiler::typeregister::{BuiltinEnums, builtin_structs};
 use std::fs::create_dir_all;
 use std::io::{BufWriter, Write};
 
@@ -190,15 +193,17 @@ description: {0} content
         if k != "BuiltInMouseCursor" {
             writeln!(file, "`{k}`\n")?;
         }
+        write_since(&mut file, e.since)?;
         writeln!(file, "{}", e.description)?;
         for v in &e.values {
             // A struct field default links to the value it takes, and every enum
             // shares the Builtin Enums page, so the id carries the enum name.
             writeln!(
                 file,
-                r#"* **<span id="{}">`{}`</span>**: {}"#,
+                r#"* **<span id="{}">`{}`</span>**{}: {}"#,
                 enum_value_anchor(k, &v.key),
                 v.key,
+                since_suffix(v.since),
                 v.description
             )?;
         }
@@ -211,11 +216,26 @@ description: {0} content
 pub struct EnumValueDoc {
     key: String,
     description: String,
+    since: Option<SlintEdition>,
 }
 
 pub struct EnumDoc {
     pub description: String,
     pub values: Vec<EnumValueDoc>,
+    pub since: Option<SlintEdition>,
+}
+
+/// Writes the release that added a builtin, if it's annotated.
+pub fn write_since(file: &mut impl Write, since: Option<SlintEdition>) -> std::io::Result<()> {
+    match since {
+        Some(since) => writeln!(file, "*Since Slint {since}*\n"),
+        None => Ok(()),
+    }
+}
+
+/// The release that added an enum value or a struct field, to follow its name.
+fn since_suffix(since: Option<SlintEdition>) -> String {
+    since.map_or_else(String::new, |since| format!(" *(since Slint {since})*"))
 }
 
 pub fn extract_enum_docs(
@@ -224,7 +244,7 @@ pub fn extract_enum_docs(
     let mut enums: std::collections::BTreeMap<String, EnumDoc> = std::collections::BTreeMap::new();
 
     macro_rules! gen_enums {
-        ($( $(#[doc = $enum_doc:literal])* $(#[non_exhaustive])? $vis:vis enum $Name:ident { $( $(#[doc = $value_doc:literal])* $Value:ident,)* })*) => {
+        ($( $(#[doc = $enum_doc:literal])* $(#[non_exhaustive])? $(#[since($since:literal)])? $vis:vis enum $Name:ident { $( $(#[doc = $value_doc:literal])* $(#[since($value_since:literal)])? $Value:ident,)* })*) => {
             $(
                 let name = stringify!($Name).to_string();
                 let mut description = String::new();
@@ -237,10 +257,12 @@ pub fn extract_enum_docs(
                     $(
                         value_docs += $value_doc;
                     )*
-                    values.push(EnumValueDoc { key: to_kebab_case(stringify!($Value)), description: value_docs });
+                    let since = BuiltinEnums::since(&name, Some(values.len()));
+                    values.push(EnumValueDoc { key: to_kebab_case(stringify!($Value)), description: value_docs, since });
                 )*
 
-                enums.insert(name, EnumDoc { description, values});
+                let since = BuiltinEnums::since(&name, None);
+                enums.insert(name, EnumDoc { description, values, since });
             )*
         }
     }
@@ -260,11 +282,13 @@ pub struct StructFieldDoc {
     /// The value the field takes when it isn't set, written in `.slint` syntax,
     /// or `None` for the zero value of the field's type.
     default_value: Option<String>,
+    since: Option<SlintEdition>,
 }
 
 pub struct StructDoc {
     pub description: String,
     pub fields: Vec<StructFieldDoc>,
+    pub since: Option<SlintEdition>,
 }
 
 pub fn extract_builtin_structs(
@@ -284,14 +308,17 @@ pub fn extract_builtin_structs(
                         description: String::new(),
                         type_name: "length".to_string(),
                         default_value: None,
+                        since: None,
                     },
                     StructFieldDoc {
                         key: "y".to_string(),
                         description: String::new(),
                         type_name: "length".to_string(),
                         default_value: None,
+                        since: None,
                     },
                 ],
+                since: None,
             },
         ),
         (
@@ -304,14 +331,17 @@ pub fn extract_builtin_structs(
                         description: String::new(),
                         type_name: "length".to_string(),
                         default_value: None,
+                        since: None,
                     },
                     StructFieldDoc {
                         key: "height".to_string(),
                         description: String::new(),
                         type_name: "length".to_string(),
                         default_value: None,
+                        since: None,
                     },
                 ],
+                since: Some(SlintEdition::from_literal("1.15")),
             },
         ),
     ]);
@@ -345,8 +375,8 @@ pub fn extract_builtin_structs(
             $(#[doc = $struct_doc:literal])*
             $(#[non_exhaustive])?
             $(#[derive(Copy, Eq)])?
-            $vis:vis struct $Name:ident {
-                $( $(#[doc = $field_doc:literal])* $field:ident : $field_type:ident $(= $field_default:expr)?, )*
+            $(#[since($since:literal)])? $vis:vis struct $Name:ident {
+                $( $(#[doc = $field_doc:literal])* $(#[since($field_since:literal)])? $field:ident : $field_type:ident $(= $field_default:expr)?, )*
             }
         )*) => {
             $(
@@ -365,9 +395,11 @@ pub fn extract_builtin_structs(
                     let default_value =
                         i_slint_common::builtin_struct_field_default_tokens!($($field_default)?)
                             .map(declared_default);
-                    fields.push(StructFieldDoc { key, description: f_description, type_name, default_value });
+                    let since = builtin_structs::since(&BuiltinStruct::$Name, Some(&key));
+                    fields.push(StructFieldDoc { key, description: f_description, type_name, default_value, since });
                 )*
-                structs.insert(name, StructDoc { description, fields });
+                let since = builtin_structs::since(&BuiltinStruct::$Name, None);
+                structs.insert(name, StructDoc { description, fields, since });
             )*
         }
     }
@@ -486,7 +518,8 @@ fn struct_field_line(field: &StructFieldDoc, links: &TypeLinks) -> String {
             |href| format!(" Defaults to [`{value}`]({href})."),
         )
     });
-    format!("- **`{}`** ({}): {}{}", field.key, type_name, field.description, default_value)
+    let since = since_suffix(field.since);
+    format!("- **`{}`** ({}){since}: {}{}", field.key, type_name, field.description, default_value)
 }
 
 fn write_individual_struct_files(
@@ -516,10 +549,11 @@ description: {0} content
 
 `{0}`
 
-{1}
 "#,
-            s, v.description
+            s
         )?;
+        write_since(&mut file, v.since)?;
+        writeln!(file, "{}", v.description)?;
 
         for f in &v.fields {
             writeln!(file, "{}", struct_field_line(f, links))?;
@@ -654,6 +688,7 @@ fn test_type_links() {
         description: "The docs".to_string(),
         type_name: "CapitalizationMode".to_string(),
         default_value: None,
+        since: None,
     };
     assert_eq!(
         struct_field_line(&field, &links),
@@ -665,6 +700,7 @@ fn test_type_links() {
         description: "The docs".to_string(),
         type_name: "CapitalizationMode".to_string(),
         default_value: Some(declared_default("(CapitalizationMode::Sentences)")),
+        since: None,
     };
     assert_eq!(
         struct_field_line(&with_default, &links),

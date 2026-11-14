@@ -95,12 +95,13 @@ impl ElementType {
                         declared_pure: p.declared_pure(),
                         is_local_to_component: false,
                         is_in_direct_base: false,
-                        is_shadowable: p.shadowable,
+                        is_shadowable: false,
                         builtin_function: match &p.default_value {
                             BuiltinPropertyDefault::BuiltinFunction(f) => Some(f.clone()),
                             _ => None,
                         },
                         is_slint_sc: p.slint_sc,
+                        since: p.since,
                         internal_name: None,
                         deprecated: None,
                     },
@@ -336,6 +337,8 @@ pub struct BuiltinElement {
     pub slint_sc: bool,
     /// The experimental feature that must be enabled to use this element
     pub experimental_feature: Option<crate::ExperimentalFeature>,
+    /// The release that added this element (`@since` in its declaration).
+    pub since: Option<crate::project_file::SlintEdition>,
 }
 
 /// How [`crate::object_tree::Element::lookup_property`] resolves a name.
@@ -360,7 +363,7 @@ pub struct PropertyLookupResult<'a> {
     pub is_local_to_component: bool,
     /// True if the property in the direct base of the component (for protected visibility purposes)
     pub is_in_direct_base: bool,
-    /// True if a local declaration may shadow this member: it is marked `@shadowable`.
+    /// True if a local declaration may shadow this member declared in `.slint`: it is marked `@shadowable`.
     pub is_shadowable: bool,
 
     /// Set when the lookup went through a shadow: the member is declared under this
@@ -375,6 +378,9 @@ pub struct PropertyLookupResult<'a> {
     /// Whether the property is part of the Slint SC subset (`@sc` in the builtin element
     /// declaration).
     pub is_slint_sc: bool,
+
+    /// The release that added the builtin member, when its element existed before.
+    pub since: Option<crate::project_file::SlintEdition>,
 
     /// Some if the property was declared with `@deprecated`: the hint message shown after
     /// "The property 'xxx' has been deprecated:" in the warning.
@@ -411,6 +417,22 @@ impl<'a> PropertyLookupResult<'a> {
         }
     }
 
+    /// Warns when the builtin member is newer than the edition of the file of `source`.
+    pub fn check_since(
+        &self,
+        name: &dyn Display,
+        source: &dyn crate::diagnostics::Spanned,
+        diag: &mut crate::diagnostics::BuildDiagnostics,
+    ) {
+        diag.check_since(
+            || {
+                let kind = crate::object_tree::member_kind(&self.property_type);
+                Some((self.since?, format!("The {kind} '{name}'")))
+            },
+            source,
+        );
+    }
+
     /// The name the member is stored under in `Element::property_declarations`, `bindings`,
     /// `change_callbacks` and `property_analysis`, and the name a `NamedReference` to it carries.
     pub fn internal_or_resolved_name(&self) -> SmolStr {
@@ -428,6 +450,7 @@ impl<'a> PropertyLookupResult<'a> {
             is_shadowable: false,
             builtin_function: None,
             is_slint_sc: false,
+            since: None,
             internal_name: None,
             deprecated: None,
         }

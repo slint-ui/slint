@@ -82,6 +82,8 @@ fn lookup_property_from_qualified_name_for_state(
     let check = |lookup: &PropertyLookupResult<'_>, diag: &mut BuildDiagnostics| {
         #[cfg(feature = "slint-sc")]
         lookup.check_slint_sc(&qualname, &node, diag);
+        let member = qualname.members.last().map_or("", |m| m.as_str());
+        lookup.check_since(&member, &node, diag);
         if !lookup.property_type.is_property_type() {
             diag.push_error(format!("'{qualname}' is not a valid property"), &node);
         } else if !lookup.is_valid_for_assignment() {

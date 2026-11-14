@@ -46,10 +46,16 @@ pub struct SlintEdition {
 }
 
 impl SlintEdition {
+    pub const V1_17: Self = Self { major: 1, minor: 17 };
     /// The oldest edition, with the language behavior of Slint 1.18 and earlier.
     pub const FIRST: Self = Self { major: 1, minor: 18 };
     pub const V1_19: Self = Self { major: 1, minor: 19 };
     pub const V1_20: Self = Self { major: 1, minor: 20 };
+    /// The edition whose language a file with `edition` uses.
+    pub fn effective(edition: Option<Self>) -> Self {
+        edition.unwrap_or(Self::FIRST)
+    }
+
     /// The newest edition that changes the behavior of code that compiles without warnings.
     pub const LATEST_BEHAVIOR_CHANGE: Self = Self::V1_19;
 
@@ -128,12 +134,60 @@ impl SlintEdition {
         edition.check_supported("'edition'", |current| format!("set '#[edition = \"{current}\"]'"))
     }
 
-    /// The edition of this compiler's release.
-    pub fn current() -> Self {
-        Self {
-            major: env!("CARGO_PKG_VERSION_MAJOR").parse().unwrap(),
-            minor: env!("CARGO_PKG_VERSION_MINOR").parse().unwrap(),
+    /// Parses `major.minor`, such as `"1.20"`, where neither number has a leading zero.
+    const fn parse(text: &str) -> Option<Self> {
+        let bytes = text.as_bytes();
+        let mut numbers = [0u32; 2];
+        let mut part = 0;
+        let mut start = 0;
+        let mut i = 0;
+        while i <= bytes.len() {
+            if i == bytes.len() || bytes[i] == b'.' {
+                let len = i - start;
+                if len == 0 || (len > 1 && bytes[start] == b'0') {
+                    return None;
+                }
+                if i == bytes.len() {
+                    break;
+                }
+                if part == 1 {
+                    return None;
+                }
+                part = 1;
+                start = i + 1;
+            } else if bytes[i].is_ascii_digit() {
+                numbers[part] = match numbers[part].checked_mul(10) {
+                    Some(n) => match n.checked_add((bytes[i] - b'0') as u32) {
+                        Some(n) => n,
+                        None => return None,
+                    },
+                    None => return None,
+                };
+            } else {
+                return None;
+            }
+            i += 1;
         }
+        if part == 1 { Some(Self { major: numbers[0], minor: numbers[1] }) } else { None }
+    }
+
+    /// Parses a `major.minor` literal, such as `"1.20"`.
+    /// Panics on anything else, which fails the build when evaluated in a `const` block.
+    pub const fn from_literal(text: &str) -> Self {
+        match Self::parse(text) {
+            Some(edition) => edition,
+            None => panic!("a Slint edition is written as `major.minor`, such as \"1.20\""),
+        }
+    }
+
+    /// The edition of this compiler's release.
+    pub const fn current() -> Self {
+        const CURRENT: SlintEdition = SlintEdition::from_literal(concat!(
+            env!("CARGO_PKG_VERSION_MAJOR"),
+            ".",
+            env!("CARGO_PKG_VERSION_MINOR")
+        ));
+        CURRENT
     }
 }
 
@@ -153,20 +207,12 @@ impl std::str::FromStr for SlintEdition {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let number = |part: &str| {
-            let valid = !part.is_empty()
-                && part.bytes().all(|b| b.is_ascii_digit())
-                && (part == "0" || !part.starts_with('0'));
-            valid.then(|| part.parse().ok()).flatten()
-        };
-        s.split_once('.')
-            .and_then(|(major, minor)| Some(Self { major: number(major)?, minor: number(minor)? }))
-            .ok_or_else(|| {
-                format!(
-                    "'{s}' is not a Slint edition: write the major and minor version, such as \"{}\"",
-                    Self::current()
-                )
-            })
+        Self::parse(s).ok_or_else(|| {
+            format!(
+                "'{s}' is not a Slint edition: write the major and minor version, such as \"{}\"",
+                Self::current()
+            )
+        })
     }
 }
 

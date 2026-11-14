@@ -76,18 +76,15 @@ pub struct BuiltinPropertyInfo {
     /// Whether the property is part of the Slint SC subset
     /// (`@sc` modifier in the builtin element declaration).
     pub slint_sc: bool,
-    /// True when a component may declare a member of the same name, shadowing this one
-    /// (`@shadowable` attribute in the builtin element declaration).
-    /// Members added to a builtin element after its initial release should be marked
-    /// shadowable so that older code that already declares the name keeps compiling —
-    /// unless a compiler pass accesses the member by name, in which case shadowing
-    /// would generate wrong code and the member must not be marked.
-    pub shadowable: bool,
     /// For a function or callback: whether it is pure.
     /// A member implemented natively has no body the compiler could inspect, so this comes from
     /// the `pure` qualifier of the builtin element declaration, or from [`BuiltinFunction::is_pure`] when the
     /// declaration names one.
     pub pure: bool,
+    /// The release that added the member to an element that already existed
+    /// (`@since` in the builtin element declaration).
+    #[cfg(feature = "std")]
+    pub since: Option<crate::project_file::SlintEdition>,
 }
 
 impl BuiltinPropertyInfo {
@@ -97,9 +94,10 @@ impl BuiltinPropertyInfo {
             default_value: BuiltinPropertyDefault::None,
             property_visibility: PropertyVisibility::InOut,
             docs: None,
-            shadowable: false,
             pure: false,
             slint_sc: false,
+            #[cfg(feature = "std")]
+            since: None,
         }
     }
 
@@ -119,10 +117,11 @@ impl From<BuiltinFunction> for BuiltinPropertyInfo {
             ty: Type::Function(function.ty()),
             property_visibility: PropertyVisibility::Public,
             docs: None,
-            shadowable: false,
             pure: function.is_pure(),
             default_value: BuiltinPropertyDefault::BuiltinFunction(function),
             slint_sc: false,
+            #[cfg(feature = "std")]
+            since: None,
         }
     }
 }

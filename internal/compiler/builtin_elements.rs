@@ -50,13 +50,14 @@
 //! The `@flags` of an element are the boolean fields of `BuiltinElement` (`is_internal`,
 //! `is_global`, ...) plus `expands_to_parent_geometry` or `implicit_size` for the default size,
 //! `builtin_struct(Name)`, `experimental_feature(Feature)` for an element that needs that feature,
-//! `sc` for an element of the Slint SC subset and `skip_inherited` to
-//! leave the docs of the native items out of the element's.
+//! `sc` for an element of the Slint SC subset, `since("1.20")` for an element added after
+//! Slint 1.0 and `skip_inherited` to leave the docs of the native items out of the element's.
 //! `constant_layout_info(stretch)` gives the element the default layout info with that stretch,
 //! whatever item it lowers to.
-//! Member modifiers `@shadowable`, `@deprecated` (aliases only) and `@pure` keep their Slint
-//! meaning; `@constexpr` marks a property whose value is known at compile time, `@fake` one
+//! Member modifiers `@deprecated` (aliases only) and `@pure` keep their Slint meaning;
+//! `@constexpr` marks a property whose value is known at compile time, `@fake` one
 //! that exists only at compile time and `@sc` one of the Slint SC subset.
+//! `@since("1.20")` marks a member added in a later release than its element.
 //! A default value of `computed` gives `BuiltinPropertyDefault::Computed`. Any other default value is a
 //! literal (`true`, `4`, `8px`, `500ms`, `"text"`, `#00f`) or an enum value
 //! (`ImageFit.contain`); the compiler sets it as the property's binding.
@@ -177,6 +178,7 @@ macro_rules! flag {
     ($e:ident builtin_struct($s:ident)) => { $e.class.builtin_struct = Some(BuiltinStruct::$s) };
     ($e:ident constant_layout_info($stretch:literal)) => { $e.element.constant_layout_info_stretch = Some($stretch) };
     ($e:ident experimental_feature($f:ident)) => { $e.element.experimental_feature = Some(crate::ExperimentalFeature::$f) };
+    ($e:ident since($v:literal)) => { $e.element.since = Some(const { crate::project_file::SlintEdition::from_literal($v) }) };
     ($e:ident $flag:ident) => { $e.element.$flag = true };
 }
 
@@ -184,7 +186,7 @@ macro_rules! flag {
 macro_rules! members {
     ($l:ident $e:ident $(#![doc = $s:literal])*) => { $e.section(docs!($($s)*)); };
     // property
-    ($l:ident $e:ident $(#![doc = $s:literal])* $(#[doc = $d:literal])* $(@$mod:ident)*
+    ($l:ident $e:ident $(#![doc = $s:literal])* $(#[doc = $d:literal])* $(@$mod:ident $(($marg:literal))?)*
         $vis:ident $(- $vis2:ident)? property < $($ty:tt)-+ > $($name:tt)-+ $(: $default:tt $(. $($dv:tt)-+)? $($hex:literal)?)? $(<=> $($alias:tt)-+)? ;
         $($rest:tt)*) => {
         $e.section(docs!($($s)*));
@@ -192,38 +194,38 @@ macro_rules! members {
             let ty = $l.ty(stringify!($($ty)-+));
             let default = default(&ty, stringify!($($default $(. $($dv)-+)? $($hex)?)?));
             $e.property(stringify!($($name)-+), ty, visibility!($vis $(- $vis2)?), default,
-                None $(.or(Some(stringify!($($alias)-+))))?, &[$(stringify!($mod)),*], docs!($($d)*));
+                None $(.or(Some(stringify!($($alias)-+))))?, &[$(concat!(stringify!($mod) $(, "=", $marg)?)),*], docs!($($d)*));
         }
         members!($l $e $($rest)*);
     };
     // property computed by a BuiltinFunction, per element or per process
-    ($l:ident $e:ident $(#![doc = $s:literal])* $(#[doc = $d:literal])* $(@$mod:ident)*
+    ($l:ident $e:ident $(#![doc = $s:literal])* $(#[doc = $d:literal])* $(@$mod:ident $(($marg:literal))?)*
         $vis:ident property < $($ty:tt)-+ > $($name:tt)-+ { BuiltinFunction . $bf:ident } $($rest:tt)*) => {
         $e.section(docs!($($s)*));
         {
             let mut info = BuiltinPropertyInfo::new($l.ty(stringify!($($ty)-+)));
             info.property_visibility = visibility!($vis);
             info.default_value = computed_default(BuiltinFunction::$bf);
-            $e.add(stringify!($($name)-+), info, &[$(stringify!($mod)),*], docs!($($d)*));
+            $e.add(stringify!($($name)-+), info, &[$(concat!(stringify!($mod) $(, "=", $marg)?)),*], docs!($($d)*));
         }
         members!($l $e $($rest)*);
     };
     // callback
-    ($l:ident $e:ident $(#![doc = $s:literal])* $(#[doc = $d:literal])* $(@$mod:ident)*
+    ($l:ident $e:ident $(#![doc = $s:literal])* $(#[doc = $d:literal])* $(@$mod:ident $(($marg:literal))?)*
         callback $($name:tt)-+ $(( $($n:tt : $($t:tt)-+),* ))? $(-> $($ret:tt)-+)? ; $($rest:tt)*) => {
         $e.section(docs!($($s)*));
         $e.function(stringify!($($name)-+), Type::Callback,
             $l.function(&[$($((stringify!($n), stringify!($($t)-+))),*)?], stringify!($($($ret)-+)?)),
-            None, &[$(stringify!($mod)),*], docs!($($d)*));
+            None, &[$(concat!(stringify!($mod) $(, "=", $marg)?)),*], docs!($($d)*));
         members!($l $e $($rest)*);
     };
     // function, implemented by a compiler pass or by the BuiltinFunction named in its body
-    ($l:ident $e:ident $(#![doc = $s:literal])* $(#[doc = $d:literal])* $(@$mod:ident)*
+    ($l:ident $e:ident $(#![doc = $s:literal])* $(#[doc = $d:literal])* $(@$mod:ident $(($marg:literal))?)*
         function $($name:tt)-+ ( $($n:tt : $($t:tt)-+),* ) $(-> $($ret:tt)-+)? { $(BuiltinFunction . $bf:ident)? } $($rest:tt)*) => {
         $e.section(docs!($($s)*));
         $e.function(stringify!($($name)-+), Type::Function,
             $l.function(&[$((stringify!($n), stringify!($($t)-+))),*], stringify!($($($ret)-+)?)),
-            None $(.or(Some(BuiltinFunction::$bf)))?, &[$(stringify!($mod)),*], docs!($($d)*));
+            None $(.or(Some(BuiltinFunction::$bf)))?, &[$(concat!(stringify!($mod) $(, "=", $marg)?)),*], docs!($($d)*));
         members!($l $e $($rest)*);
     };
     // accepted child elements
@@ -260,8 +262,10 @@ impl Builder {
     }
 
     fn add(&mut self, name: &str, mut info: BuiltinPropertyInfo, mods: &[&str], docs: &[&str]) {
-        info.shadowable = mods.contains(&"shadowable");
         info.slint_sc = mods.contains(&"sc");
+        info.since = mods.iter().find_map(|m| {
+            Some(crate::project_file::SlintEdition::from_literal(m.strip_prefix("since=")?))
+        });
         info.docs = join_docs(docs);
         let name = kebab(name);
         self.member_doc(name.clone());
@@ -313,11 +317,6 @@ impl Builder {
             vis
         };
         if let BuiltinPropertyDefault::Expr(default) = &default {
-            assert!(
-                !mods.contains(&"shadowable"),
-                "shadowable property {}::{name} can't have a default value as it would end up on the shadowing declaration",
-                self.class.class_name
-            );
             debug_assert_eq!(
                 Expression::from_constant(default).ty(),
                 info.ty,
@@ -545,7 +544,6 @@ fn build(l: &mut Loader) {
         ///     background: rainbow-gradient;
         /// }
         /// ```
-        /// \default transparent
         @sc in property <brush> background;
         @deprecated in property <brush> color <=> background;
     } }
@@ -563,7 +561,6 @@ fn build(l: &mut Loader) {
         /// :::caution[Caution]
         /// The default `border-width` is `0px`, so the border is invisible. After setting a color also ensure that the `border-width` is set to a non-zero value.
         /// :::
-        /// \default transparent
         in property <brush> border-color;
         /// ```slint imageAlt="rectangle border-width" width="200" height="200"
         /// Rectangle {
@@ -574,7 +571,6 @@ fn build(l: &mut Loader) {
         /// }
         /// ```
         /// The width of the border.
-        /// \default 0
         in property <length> border-width;
         //! ### clip
         //! <SlintProperty propName="clip" typeName="bool" defaultValue="false">
@@ -627,20 +623,19 @@ fn build(l: &mut Loader) {
         //!
         //! ## Border Radius Properties
         /// The size of the radius. This single value is applied to all four corners.
-        /// \default 0
         in property <length> border-radius;
     } }
 
     item! { BorderRectangle: BasicBorderRectangle {
         //! To target specific corners with different values use the following properties:
         ///
-        in property <length> border-top-left-radius: computed;
+        @since("1.5") in property <length> border-top-left-radius: computed;
         ///
-        in property <length> border-top-right-radius: computed;
+        @since("1.5") in property <length> border-top-right-radius: computed;
         ///
-        in property <length> border-bottom-left-radius: computed;
+        @since("1.5") in property <length> border-bottom-left-radius: computed;
         ///
-        in property <length> border-bottom-right-radius: computed;
+        @since("1.5") in property <length> border-bottom-right-radius: computed;
         //! ## Drop Shadows
         //!
         //! Use the `drop-shadow-*` properties to draw a shadow of a rectangle's painted shape.
@@ -900,12 +895,12 @@ fn build(l: &mut Loader) {
 
     item! { ClippedImage: ImageItem {
         /// The horizontal alignment of the image within the element.
-        in property <ImageHorizontalAlignment> horizontal-alignment;
+        @since("1.5") in property <ImageHorizontalAlignment> horizontal-alignment;
         /// The vertical alignment of the image within the element.
-        in property <ImageVerticalAlignment> vertical-alignment;
+        @since("1.5") in property <ImageVerticalAlignment> vertical-alignment;
         //! ## Image Tiling
         /// How the image is tiled horizontally.
-        in property <ImageTiling> horizontal-tiling;
+        @since("1.5") in property <ImageTiling> horizontal-tiling;
         /// ```slint imageAlt="image horizontal tiling repeat example" width="400" height="400"
         /// Image {
         ///     width: 400px;
@@ -950,7 +945,7 @@ fn build(l: &mut Loader) {
         ///     horizontal-tiling: round;
         /// }
         /// ```
-        in property <ImageTiling> vertical-tiling;
+        @since("1.5") in property <ImageTiling> vertical-tiling;
         // TODO: sets both horizontal-tiling and vertical-tiling at the same time.
         // in property <ImageTiling> tiling;
         //! ## Source Clip
@@ -1109,10 +1104,8 @@ fn build(l: &mut Loader) {
         /// The maximum number of lines to display. Wrapped lines count towards the limit, and
         /// with `overflow` set to `elide`, the ellipsis is placed on the last visible line.
         /// Values less than or equal to zero don't limit the number of lines.
-        /// \default 0
-        in property <int> max-lines;
+        @since("1.18") in property <int> max-lines;
         /// The text rendered.
-        /// \default ""
         in property <string> text;
         /// The vertical alignment of the text.
         in property <TextVerticalAlignment> vertical-alignment;
@@ -1148,8 +1141,7 @@ fn build(l: &mut Loader) {
         ///     font-size: 40pt;
         /// }
         /// ```
-        /// \default false
-        in property <bool> font-italic;
+        @since("1.1") in property <bool> font-italic;
         /// How the text should behave when it exceeds the available space.
         in property <TextOverflow> overflow;
         /// ```slint "wrap: word-wrap;" imageAlt="wrap" width="200" height="200" needsBackground
@@ -1186,8 +1178,7 @@ fn build(l: &mut Loader) {
         ///     line-height-factor: 1.5;
         /// }
         /// ```
-        /// \default 1
-        in property <float> line-height-factor: 1;
+        @since("1.18") in property <float> line-height-factor: 1;
         /// The brush used for the text outline.
         /// ```slint "stroke: darkblue;" imageAlt="text stroke" width="300" height="200" needsBackground
         /// Text {
@@ -1199,9 +1190,9 @@ fn build(l: &mut Loader) {
         ///     color: lightblue;
         /// }
         /// ```
-        in property <brush> stroke;
+        @since("1.6") in property <brush> stroke;
         /// The width of the text outline. If the width is zero, then a hairline stroke (1 physical pixel) will be rendered.
-        in property <length> stroke-width;
+        @since("1.6") in property <length> stroke-width;
         /// ```slint "stroke-style: center;" imageAlt="stroke-style" width="200" height="200" needsBackground
         /// Text {
         ///     text: "Style";
@@ -1212,9 +1203,9 @@ fn build(l: &mut Loader) {
         ///     color: white;
         /// }
         /// ```
-        in property <TextStrokeStyle> stroke-style;
+        @since("1.6") in property <TextStrokeStyle> stroke-style;
         /// The design metrics of the font scaled to the font pixel size used by the element.
-        out property <FontMetrics> font-metrics { BuiltinFunction.ItemFontMetrics }
+        @since("1.9") out property <FontMetrics> font-metrics { BuiltinFunction.ItemFontMetrics }
     } }
 
     element! {
@@ -1276,10 +1267,8 @@ fn build(l: &mut Loader) {
         in property <color> link-color: #00f;
         /// The maximum number of lines to display. Wrapped lines count towards the limit.
         /// Values less than or equal to zero don't limit the number of lines.
-        /// \default 0
-        in property <int> max-lines;
+        @since("1.18") in property <int> max-lines;
         /// The styled text rendered, using CommonMark markup with additional HTML tags for styling.
-        /// \default ""
         in property <styled-text> text;
         /// The vertical alignment of the text.
         in property <TextVerticalAlignment> vertical-alignment;
@@ -1291,27 +1280,27 @@ fn build(l: &mut Loader) {
         /// The press takes the focus, and the selection goes when the focus does, as in a `TextInput`,
         /// so at most one element shows a mouse selection at a time.
         /// A change of `text` keeps the selection's offsets, clamped to the new text.
-        @shadowable in property <bool> selectable;
+        @since("1.19") in property <bool> selectable;
         /// The background color of the selection.
         /// \default depends on the style
-        @shadowable in property <color> selection-background-color: computed; // Palette.selection-background set in apply_default_properties_from_style
+        @since("1.19") in property <color> selection-background-color: computed; // Palette.selection-background set in apply_default_properties_from_style
         /// The foreground color of the selection.
         /// \default depends on the style
-        @shadowable in property <color> selection-foreground-color: computed; // Palette.selection-foreground set in apply_default_properties_from_style
+        @since("1.19") in property <color> selection-foreground-color: computed; // Palette.selection-foreground set in apply_default_properties_from_style
         /// `true` when text is selected.
-        @shadowable out property <bool> has-selection { BuiltinFunction.StyledTextHasSelection }
+        @since("1.19") out property <bool> has-selection { BuiltinFunction.StyledTextHasSelection }
 
         /// Selects the text between two UTF-8 byte offsets.
         /// `anchor` is the end of the selection that stays put and `focus` the end the cursor moves to,
         /// so `focus` may precede `anchor` to select backwards.
         /// Pass the same value for both to clear the selection.
-        function set-selection-offsets(anchor: int, focus: int) { BuiltinFunction.StyledTextSetSelectionOffsets }
+        @since("1.19") function set-selection-offsets(anchor: int, focus: int) { BuiltinFunction.StyledTextSetSelectionOffsets }
         /// Selects all text.
-        function select-all() { BuiltinFunction.StyledTextSelectAll }
+        @since("1.19") function select-all() { BuiltinFunction.StyledTextSelectAll }
         /// Clears the selection.
-        function clear-selection() { BuiltinFunction.StyledTextClearSelection }
+        @since("1.19") function clear-selection() { BuiltinFunction.StyledTextClearSelection }
         /// Copies the selected text to the clipboard.
-        function copy() { BuiltinFunction.StyledTextCopy }
+        @since("1.19") function copy() { BuiltinFunction.StyledTextCopy }
     } }
 
     element! {
@@ -1360,7 +1349,7 @@ fn build(l: &mut Loader) {
         /// Math expressions |
         /// Other HTML tags  |
         /// \group:elements
-        @implicit_size
+        @since("1.16") @implicit_size
         StyledText: StyledTextItem
     }
 
@@ -1418,7 +1407,7 @@ fn build(l: &mut Loader) {
         @sc callback clicked;
         /// Invoked when double-clicked. The left mouse button is pressed and released twice on this element in a short
         /// period of time, or the same is done with a finger. The `clicked()` callbacks will be triggered before the `double-clicked()` callback is triggered.
-        callback double-clicked;
+        @since("1.4") callback double-clicked;
         /// The mouse or finger has been moved. This will only be called if the mouse is also pressed or the finger continues to touch
         /// the display. See also **pointer-event(PointerEvent)**.
         callback moved;
@@ -1430,7 +1419,7 @@ fn build(l: &mut Loader) {
         /// The returned `EventResult`indicates whether to accept or ignore the event. Ignored events are
         /// forwarded to the parent element.
         /// <EventResult />
-        callback scroll-event(event: PointerScrollEvent) -> EventResult;
+        @since("1.3") callback scroll-event(event: PointerScrollEvent) -> EventResult;
     } }
 
     element! {
@@ -1486,7 +1475,7 @@ fn build(l: &mut Loader) {
         /// KeyBindings use **logical keys**, based on the character a key produces, not physical key positions.
         ///
         /// See <Link type="KeyBindingOverview" label="Key Bindings"/> for details.
-        @is_non_item_type @constant_layout_info(0.)
+        @since("1.16") @is_non_item_type @constant_layout_info(0.)
         KeyBinding: KeyBinding
     }
 
@@ -1500,11 +1489,11 @@ fn build(l: &mut Loader) {
         /// When true, the `FocusScope` will make itself the focused element when clicked.
         ///
         /// This property has no effect if the `enabled` property is set to false.
-        in property <bool> focus-on-click: true;
+        @since("1.13") in property <bool> focus-on-click: true;
         /// When true, the `FocusScope` will accept focus as part of the tab focus traversal.
         ///
         /// This property has no effect if the `enabled` property is set to false.
-        in property <bool> focus-on-tab-navigation: true;
+        @since("1.13") in property <bool> focus-on-tab-navigation: true;
         //! ## Functions
         //!
         //! ### focus()
@@ -1514,10 +1503,10 @@ fn build(l: &mut Loader) {
         //! Call this function to remove keyboard focus from this `FocusScope` if it currently has the focus. See also <Link type="FocusHandling" />.
         /// This function is called during key event handling, *before* `key-pressed` is called. Use this to intercept key press events. The returned <Link type="EventResult" />
         /// indicates whether to accept or reject the event. Rejected events are forwarded to the parent element.
-        callback capture-key-pressed(event: KeyEvent) -> EventResult;
+        @since("1.13") callback capture-key-pressed(event: KeyEvent) -> EventResult;
         /// This function is called during key event handling, *before* `key-released` is called. Use this to intercept key release events. The returned <Link type="EventResult" />
         /// indicates whether to accept or reject the event. Rejected events are forwarded to the parent element.
-        callback capture-key-released(event: KeyEvent) -> EventResult;
+        @since("1.13") callback capture-key-released(event: KeyEvent) -> EventResult;
         /// Invoked when a key is pressed, the argument is a <Link type="KeyEvent" /> struct. The returned <Link type="EventResult" />
         /// indicates whether to accept or reject the event. Rejected events are forwarded to the parent element.
         callback key-pressed(event: KeyEvent) -> EventResult;
@@ -1525,11 +1514,11 @@ fn build(l: &mut Loader) {
         /// indicates whether to accept or reject the event. Rejected events are forwarded to the parent element.
         callback key-released(event: KeyEvent) -> EventResult;
         /// Invoked when the focus on the `FocusScope` has changed. The argument is a a <Link type="FocusReason" /> enum containing the reason for focus change.
-        callback focus-changed-event(reason: FocusReason);
+        @since("1.3") callback focus-changed-event(reason: FocusReason);
         /// Invoked when the `FocusScope` gains focus. The argument is a a <Link type="FocusReason" /> enum containing the reason for focus gain.
-        callback focus-gained(reason: FocusReason);
+        @since("1.12") callback focus-gained(reason: FocusReason);
         /// Invoked when the `FocusScope` loses focus. The argument is a a <Link type="FocusReason" /> enum containing the reason for focus loss.
-        callback focus-lost(reason: FocusReason);
+        @since("1.12") callback focus-lost(reason: FocusReason);
 
 
 
@@ -1600,15 +1589,15 @@ fn build(l: &mut Loader) {
         in property <bool> interactive: true;
         /// When true, the content can be scrolled by clicking on it and dragging it with the cursor.
         /// Panning with a touch screen is only affected by `interactive`.
-        in property <bool> mouse-drag-pan-enabled: true;
+        @since("1.18") in property <bool> mouse-drag-pan-enabled: true;
         /// The total width of the scrollable content.
-        @shadowable in property <length> content-width: computed;
+        @since("1.18") in property <length> content-width: computed;
         /// The total height of the scrollable content.
-        @shadowable in property <length> content-height: computed;
+        @since("1.18") in property <length> content-height: computed;
         /// The position of the scrollable content relative to the `Flickable`. This is usually a negative value.
-        @shadowable in-out property <length> content-x;
+        @since("1.18") in-out property <length> content-x;
         /// The position of the scrollable content relative to the `Flickable`. This is usually a negative value.
-        @shadowable in-out property <length> content-y;
+        @since("1.18") in-out property <length> content-y;
         @deprecated in property <length> viewport-width <=> content-width;
         @deprecated in property <length> viewport-height <=> content-height;
         @deprecated in-out property <length> viewport-x <=> content-x;
@@ -1619,9 +1608,9 @@ fn build(l: &mut Loader) {
         /// For example, `scroll-to({ x: 0px, y: 100px }, ScrollBehavior.instant)` sets `content-y` to `-100px`.
         /// A `pos` outside the scrollable range is clamped to it.
         /// Pass `ScrollBehavior.instant` to jump or `ScrollBehavior.smooth` to animate.
-        @shadowable function scroll-to(pos: Point, behavior: ScrollBehavior) { BuiltinFunction.ScrollTo }
+        @since("1.19") function scroll-to(pos: Point, behavior: ScrollBehavior) { BuiltinFunction.ScrollTo }
         /// Invoked when `content-x` or `content-y` is changed by a user action (dragging, scrolling).
-        callback flicked;
+        @since("1.5") callback flicked;
     } }
 
     element! {
@@ -1798,7 +1787,7 @@ fn build(l: &mut Loader) {
         /// `Slider`'s `changed` and `released` callbacks.
         /// :::
         /// \group:gestures
-        @expands_to_parent_geometry @constant_layout_info(1.)
+        @since("1.8") @expands_to_parent_geometry @constant_layout_info(1.)
         SwipeGestureHandler: SwipeGestureHandler
     }
 
@@ -1879,7 +1868,7 @@ fn build(l: &mut Loader) {
         /// The `rotation` property provides a cumulative rotation angle (starting at `0deg`).
         /// Use the `started` callback to capture your initial state, then multiply by `scale` and add `rotation` in the `updated` callback to apply the gesture.
         /// \group:gestures
-        @expands_to_parent_geometry @constant_layout_info(1.)
+        @since("1.16") @expands_to_parent_geometry @constant_layout_info(1.)
         ScaleRotateGestureHandler: ScaleRotateGestureHandler
     }
 
@@ -1932,7 +1921,7 @@ fn build(l: &mut Loader) {
         ///
         /// See <Link type="DragAndDrop" /> for a usage guide and a complete example.
         /// \group:drag-and-drop
-        @expands_to_parent_geometry @constant_layout_info(1.)
+        @since("1.17") @expands_to_parent_geometry @constant_layout_info(1.)
         DragArea: DragArea
     }
 
@@ -1967,40 +1956,37 @@ fn build(l: &mut Loader) {
         ///
         /// See <Link type="DragAndDrop" /> for a usage guide and a complete example.
         /// \group:drag-and-drop
-        @expands_to_parent_geometry @constant_layout_info(1.)
+        @since("1.17") @expands_to_parent_geometry @constant_layout_info(1.)
         DropArea: DropArea
     }
 
     item! { MenuItem {
         /// The title shown for this menu item.
-        /// \default ""
         in property <string> title;
         /// Invoked when the menu entry is activated.
         callback activated;
         /// When disabled, the `MenuItem` can be selected but not activated.
-        in property <bool> enabled: true;
+        @since("1.11") in property <bool> enabled: true;
         /// When true, the `MenuItem` can be checked. The value of the `checked` property is toggled when the user activates the menu item.
-        /// \default false
-        in property <bool> checkable: false;
+        @since("1.13") in property <bool> checkable: false;
         /// The keyboard shortcut for this `MenuItem`.
         ///
         /// This property can only be set in a `MenuItem` that is part of a <Link type="MenuBar"/>.
-        in property <keys> shortcut;
+        @since("1.16") in property <keys> shortcut;
         /// When true, a checkmark will be shown next to the title of the `MenuItem`.
-        /// \default false
-        in-out property <bool> checked: false;
+        @since("1.13") in-out property <bool> checked: false;
         /// The icon shown next to the title.
-        in property <image> icon;
+        @since("1.13") in property <image> icon;
         /// The platform role of this `MenuItem`.
         /// Use it to place translated "About", "Settings", and "Quit" items in the macOS application menu.
         ///
         /// This property can only be set in a `MenuItem` that is part of a <Link type="MenuBar"/>.
-        in property <MenuItemRole> role;
+        @since("1.19") in property <MenuItemRole> role;
     } }
 
     element! {
         /// A `MenuItem` represents a single menu entry. It must be a child of a `Menu` element.
-        @is_non_item_type @disallow_global_types_as_child_elements @constant_layout_info(0.)
+        @since("1.10") @is_non_item_type @disallow_global_types_as_child_elements @constant_layout_info(0.)
         MenuItem: MenuItem
     }
 
@@ -2009,22 +1995,21 @@ fn build(l: &mut Loader) {
         /// It cannot have children, and doesn't have properties or callbacks.
         /// MenuSeparator at the beginning or end of a menu will not be visible.
         /// Consecutive `MenuSeparator`s will be merged into one.
-        @is_non_item_type @disallow_global_types_as_child_elements
+        @since("1.11") @is_non_item_type @disallow_global_types_as_child_elements
         MenuSeparator
     }
 
     element! {
         /// Place the `Menu` element in a <Link type="MenuBar" />, a `ContextMenuArea`, or within another `Menu`.
         /// Use `MenuItem` children of individual menu items, `Menu` children to create sub-menus, and `MenuSeparator` to create separators.
-        @is_non_item_type @disallow_global_types_as_child_elements
+        @since("1.10") @is_non_item_type @disallow_global_types_as_child_elements
         Menu {
             /// This is the label of the menu as written in the menu bar or in the parent menu.
-            /// \default ""
             in property <string> title;
             /// When disabled, the `Menu` can be selected but not activated.
-            in property <bool> enabled: true;
+            @since("1.11") in property <bool> enabled: true;
             /// The icon shown next to the title when in a parent menu.
-            in property <image> icon;
+            @since("1.13") in property <image> icon;
 
 
             children: MenuItem, MenuSeparator, Menu;
@@ -2142,11 +2127,10 @@ fn build(l: &mut Loader) {
         /// }
         /// ```
         /// \skip_children
-        @is_non_item_type @disallow_global_types_as_child_elements
+        @since("1.10") @is_non_item_type @disallow_global_types_as_child_elements
         MenuBar {
             /// Whether this menu bar should be visible.  If the menu bar is not visible, the menu bar will not take up any space but shortcuts will still function.
-            /// \default true
-            in property <bool> visible: true;
+            @since("1.17") in property <bool> visible: true;
 
 
             children: Menu;
@@ -2217,7 +2201,7 @@ fn build(l: &mut Loader) {
         /// }
         /// ```
         /// \group:window
-        @expands_to_parent_geometry
+        @since("1.10") @expands_to_parent_geometry
         ContextMenuArea: Empty {
             //! ## Function
             //!
@@ -2238,7 +2222,7 @@ fn build(l: &mut Loader) {
             //! <SlintProperty propName="enabled" typeName="bool" defaultValue="true">
             //! When disabled, the `Menu` is not showing.
             //! </SlintProperty>
-            in property <bool> enabled: true;
+            @since("1.12") in property <bool> enabled: true;
             children: Menu;
         }
     }
@@ -2259,15 +2243,14 @@ fn build(l: &mut Loader) {
         /// </OnlyInSC>
         @sc in-out property <length> height: computed;
         /// Whether the window should be placed above all other windows on window managers supporting it.
-        /// \default false
-        in property <bool> always-on-top;
+        @since("1.1") in property <bool> always-on-top;
         /// Whether to display the Window in full-screen mode. In full-screen mode the Window will occupy the entire screen, it will not be resizable, and it will not display the title bar.
         /// \default true if 'SLINT_FULLSCREEN' environment variable is set, otherwise false
-        in-out property <bool> full-screen;
+        @since("1.9") in-out property <bool> full-screen;
         /// Whether the window is minimized. Setting this to true minimizes the window.
-        @shadowable in-out property <bool> minimized;
+        @since("1.17") in-out property <bool> minimized;
         /// Whether the window is maximized. Setting this to true maximizes the window.
-        @shadowable in-out property <bool> maximized;
+        @since("1.17") in-out property <bool> maximized;
         /// The background brush of the `Window`. It is painted first, covering the whole window. \{#sls.ref.window.background}
         ///
         /// <OnlyInSC>
@@ -2281,39 +2264,36 @@ fn build(l: &mut Loader) {
         /// The font family to use as default in text elements inside this window, that don't have their `font-family` property set.
         in property <string> default-font-family: computed;
         /// The font size to use as default in text elements inside this window, that don't have their `font-size` property set. The value of this property also forms the basis for relative font sizes.
-        /// \default 0
         in property <length> default-font-size;
         /// The font weight to use as default in text elements inside this window, that don't have their `font-weight` property set. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight. Use the <Link type="FontWeight" /> namespace for predefined constants.
         in property <int> default-font-weight;
         /// The window icon shown in the title bar or the task bar on window managers supporting it.
         in property <image> icon;
         /// Whether the window should be borderless/frameless or not.
-        /// \default false
         in property <bool> no-frame;
         ///     :::caution[Caution]
         ///     This property is `winit` only for now.
         ///     :::
         ///     Size of the resize border in borderless/frameless windows.
-        /// \default 0
-        in property <length> resize-border-width;
+        @since("1.7") in property <length> resize-border-width;
         /// The window title that is shown in the title bar.
         /// \default the name of the running program
         in property <string> title { BuiltinFunction.DefaultWindowTitle }
         /// Some devices, such as mobile phones, allow programs to overlap the system UI. A few examples for this are the notch on iPhones, the window buttons on macOS on windows that extend their content over the titlebar and the system bar on Android. This property exposes the amount of space at the edges of the window that can be drawn to but where no interactive elements should be placed. On most devices, this is 0 for all sides.
-        out property <Edges> safe-area-insets;
+        @since("1.15") out property <Edges> safe-area-insets;
         /// On mobile devices, virtual keyboards (aka software keyboards or onscreen keyboards) are displayed on top of the application. When such a keyboard is shown, this property denotes the position of the top left boundary of the rectangle covered by it in window coordinates.
-        out property <Point> virtual-keyboard-position;
+        @since("1.15") out property <Point> virtual-keyboard-position;
         /// On mobile devices, virtual keyboards (aka software keyboards or onscreen keyboards) are displayed on top of the application. When such a keyboard is shown, this property denotes the width and height of the rectangle covered by it in window coordinates.
-        out property <Size> virtual-keyboard-size;
+        @since("1.15") out property <Size> virtual-keyboard-size;
         /// Request that the window be closed.
         /// This invokes the close request handler that the application set on the window,
         /// which can cancel the close.
         /// Returns `true` if the application accepted the close request; false otherwise.
         /// Returns `false` if called on a child `Window` element, which can't be closed independently.
-        @shadowable function close() -> bool { BuiltinFunction.WindowClose }
+        @since("1.17") function close() -> bool { BuiltinFunction.WindowClose }
         /// Hide this window. This also drops the strong reference on the window, so if this was
         /// the last reference, the event loop will quit.
-        @shadowable function hide() { BuiltinFunction.WindowHide }
+        @since("1.17") function hide() { BuiltinFunction.WindowHide }
     } }
 
     element! {
@@ -2381,7 +2361,7 @@ fn build(l: &mut Loader) {
         /// }
         /// ```
         /// \group:window
-        @expands_to_parent_geometry @constant_layout_info(1.)
+        @since("1.18") @expands_to_parent_geometry @constant_layout_info(1.)
         WindowMoveArea: WindowMoveArea
     }
 
@@ -2421,15 +2401,13 @@ fn build(l: &mut Loader) {
 
     item! { TextInput {
         /// The text rendered and editable by the user.
-        /// \default ""
         in-out property <string> text;
         /// The name of the font family selected for rendering the text.
         in property <string> font-family;
         /// The font size of the text.
         in property <length> font-size;
         /// Whether or not the font face should be drawn italicized or not.
-        /// \default false
-        in property <bool> font-italic;
+        @since("1.1") in property <bool> font-italic;
         /// The weight of the font. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
         in property <int> font-weight;
         /// The color of the text.
@@ -2446,7 +2424,6 @@ fn build(l: &mut Loader) {
         /// The way the text input wraps. Only makes sense when `single-line` is false.
         in property <TextWrap> wrap;
         /// The letter spacing allows changing the spacing between the glyphs. A positive value increases the spacing and a negative value decreases the distance.
-        /// \default 0
         in property <length> letter-spacing;
         /// The line height as a unitless factor (or a percentage: `150%` equals `1.5`) applied to
         /// the font's natural line height (ascent + descent + line gap). The default of `1` keeps
@@ -2454,12 +2431,11 @@ fn build(l: &mut Loader) {
         /// together, and `0` collapses them onto each other. Negative or non-numeric values behave
         /// like `1`. Unlike CSS `line-height`, the factor is relative to the natural line height,
         /// not the font size, and keyword or length values aren't supported.
-        /// \default 1
-        in property <float> line-height-factor: 1;
+        @since("1.18") in property <float> line-height-factor: 1;
         in property <length> width: computed;
         in property <length> height: computed;
         /// The height of the page used to compute how much to scroll when the user presses page up or page down.
-        in property <length> page-height;
+        @since("1.10") in property <length> page-height;
         /// The width of the text cursor.
         /// \default provided at run-time by the selected widget style
         in property <length> text-cursor-width: computed; // StyleMetrics.text-cursor-width  set in apply_default_properties_from_style
@@ -2467,7 +2443,7 @@ fn build(l: &mut Loader) {
         in property <InputType> input-type;
         /// Hints for the platform's input method (such as a soft keyboard), for example to configure auto-capitalization.
         /// The input method may take these hints into account, but might also ignore them.
-        in property <InputMethodHints> input-method-hints;
+        @since("1.18") in property <InputMethodHints> input-method-hints;
         // Internal, undocumented property, only exposed for tests.
         out property <int> cursor-position-byte-offset;
         // Internal, undocumented property, only exposed for tests.
@@ -2483,11 +2459,11 @@ fn build(l: &mut Loader) {
         /// Invoked when a key is pressed, the argument is a <Link type="KeyEvent" /> struct. Use this callback to
         /// handle keys before `TextInput` does. Return `accept` to indicate that you've handled the event, or return
         /// `reject` to let `TextInput` handle it.
-        callback key-pressed(event: KeyEvent) -> EventResult;
+        @since("1.9") callback key-pressed(event: KeyEvent) -> EventResult;
         /// Invoked when a key is released, the argument is a <Link type="KeyEvent" /> struct. Use this callback to
         /// handle keys before `TextInput` does. Return `accept` to indicate that you've handled the event, or return
         /// `reject` to let `TextInput` handle it.
-        callback key-released(event: KeyEvent) -> EventResult;
+        @since("1.9") callback key-released(event: KeyEvent) -> EventResult;
         in property <bool> enabled: true;
         /// When set to `true`, the text is always rendered as a single line, regardless of new line separators in the text.
         in property <bool> single-line: true;
@@ -2496,30 +2472,30 @@ fn build(l: &mut Loader) {
         // Internal, undocumented property, only exposed for IME.
         out property <string> preedit-text;
         /// The design metrics of the font scaled to the font pixel size used by the element.
-        out property <FontMetrics> font-metrics { BuiltinFunction.ItemFontMetrics }
+        @since("1.9") out property <FontMetrics> font-metrics { BuiltinFunction.ItemFontMetrics }
         /// `true` when text is selected.
-        @shadowable out property <bool> has-selection { BuiltinFunction.HasSelection }
+        @since("1.19") out property <bool> has-selection { BuiltinFunction.HasSelection }
 
 
         /// Selects the text between two UTF-8 offsets.
         /// `anchor` is the end of the selection that stays put and `focus` the end the cursor moves to,
         /// so `focus` may precede `anchor` to select backwards.
         /// Pass the same value for both to place the text cursor at that offset without selecting anything.
-        function set-selection-offsets(anchor: int, focus: int) { BuiltinFunction.SetSelectionOffsets }
+        @since("1.4") function set-selection-offsets(anchor: int, focus: int) { BuiltinFunction.SetSelectionOffsets }
         /// Selects all text.
-        function select-all() { BuiltinFunction.TextInputSelectAll }
+        @since("1.1") function select-all() { BuiltinFunction.TextInputSelectAll }
         /// Clears the selection.
-        function clear-selection() { BuiltinFunction.TextInputClearSelection }
+        @since("1.2") function clear-selection() { BuiltinFunction.TextInputClearSelection }
         /// Copies the selected text to the clipboard and removes it from the editable area.
-        function cut() { BuiltinFunction.TextInputCut }
+        @since("1.1") function cut() { BuiltinFunction.TextInputCut }
         /// Copies the selected text to the clipboard.
-        function copy() { BuiltinFunction.TextInputCopy }
+        @since("1.1") function copy() { BuiltinFunction.TextInputCopy }
         /// Pastes the text content of the clipboard at the cursor position.
-        function paste() { BuiltinFunction.TextInputPaste }
+        @since("1.1") function paste() { BuiltinFunction.TextInputPaste }
         /// Undoes the last text operation.
-        function undo() { BuiltinFunction.TextInputUndo }
+        @since("1.17") function undo() { BuiltinFunction.TextInputUndo }
         /// Redoes the last undone text operation.
-        function redo() { BuiltinFunction.TextInputRedo }
+        @since("1.17") function redo() { BuiltinFunction.TextInputRedo }
         //! ### focus()
         //! Call this function to focus the text input and make it receive future keyboard events.
         //!
@@ -2748,10 +2724,10 @@ fn build(l: &mut Loader) {
             //! To target specific axis with different values use the following properties:
             /// Defaults to the value of `spacing`.
             /// \default spacing
-            in property <length> spacing-horizontal;
+            @since("1.3") in property <length> spacing-horizontal;
             /// Defaults to the value of `spacing`.
             /// \default spacing
-            in property <length> spacing-vertical;
+            @since("1.3") in property <length> spacing-vertical;
             //! ## Padding Properties
             //!
             //! ### padding
@@ -2879,7 +2855,7 @@ fn build(l: &mut Loader) {
             ///     }
             /// }
             /// ```
-            in property <CrossAxisAlignment> cross-axis-alignment: computed;
+            @since("1.17") in property <CrossAxisAlignment> cross-axis-alignment: computed;
         }
     }
 
@@ -2978,7 +2954,7 @@ fn build(l: &mut Loader) {
             ///     }
             /// }
             /// ```
-            in property <CrossAxisAlignment> cross-axis-alignment: computed;
+            @since("1.17") in property <CrossAxisAlignment> cross-axis-alignment: computed;
         }
     }
 
@@ -3110,6 +3086,7 @@ fn build(l: &mut Loader) {
         /// - <a href="https://css-tricks.com/snippets/css/a-guide-to-flexbox/">A Complete Guide To Flexbox by CSS Tricks</a>. This is detailed guide with illustrations and comprehensive written explanation of the different Flexbox properties and how they work.
         ///
         /// \group:layouts
+        @since("1.18")
         FlexboxLayout {
             //! ## Spacing Properties
             /// The distance between the elements in the layout. CSS Flexbox usually calls this "gap", but "spacing" is used in Slint for consistency with other layout types.
@@ -3282,12 +3259,12 @@ fn build(l: &mut Loader) {
         /// The width of the outline.
         in property <length> stroke-width;
         /// The appearance of the ends of the path's outline.
-        in property <LineCap> stroke-line-cap;
+        @since("1.10") in property <LineCap> stroke-line-cap;
         /// The appearance of the joins between segments of stroked paths.
-        in property <LineJoin> stroke-line-join;
+        @since("1.15") in property <LineJoin> stroke-line-join;
         /// The limit on the ratio of the miter length to the stroke width when `stroke-line-join` is set to `miter`.
         /// When the limit is exceeded, the join is rendered as a bevel instead.
-        in property <float> stroke-miter-limit: 4; // SVG default is 4
+        @since("1.16") in property <float> stroke-miter-limit: 4; // SVG default is 4
         /// The pattern of dashes and gaps used to form the shape of a path's stroke.
         ///
         /// The value is a list of non-negative lengths: the first entry is a dash
@@ -3295,9 +3272,9 @@ fn build(l: &mut Loader) {
         /// An odd number of entries is repeated to make the list even.
         /// An empty list draws the outline solid.
         /// \default []
-        @shadowable @fake in property <[length]> stroke-dash-array;
+        @since("1.19") @fake in property <[length]> stroke-dash-array;
         /// The distance into the repeated dash pattern to start the stroke dashing at the beginning of the path.
-        @shadowable in property <length> stroke-dash-offset;
+        @since("1.19") in property <length> stroke-dash-offset;
         //! ### width
         //! <SlintProperty propName="width" typeName="length">
         //! If non-zero, the path will be scaled to fit into the specified width.
@@ -3312,18 +3289,15 @@ fn build(l: &mut Loader) {
         @fake in property <string> commands;
         /// Defines how the path's view box is scaled to fit the element's width and height.
         /// If no view box is defined, the implicit bounding rectangle is used.
-        /// \default contain
-        in property <ImageFit> fit: ImageFit.contain;
+        @since("1.16") in property <ImageFit> fit: ImageFit.contain;
         /// By default, when a path has a view box defined and the elements render
         /// outside of it, they are still rendered. When this property is set to `true`, then rendering will be
         /// clipped at the boundaries of the view box.
-        /// \default false
         in property <bool> clip;
         ///  By default, the fill and stroke of a path is rendered with anti-aliasing, for best quality. Some GPUs
         ///  have performance issues when rendering with anti-aliasing and animation. Setting the value to `false`
         ///  might improve the frame-rate at the expense of a smoother looking path.
-        /// \default true
-        in property <bool> anti-alias: true;
+        @since("1.10") in property <bool> anti-alias: true;
         //! ## Viewbox Properties
         //!
         //! These four properties allow defining the position and size of the viewport of the path in path coordinates.
@@ -3344,12 +3318,12 @@ fn build(l: &mut Loader) {
         /// If a `t` outside the bounds of 0 and 1 is passed, it will be converted to its decimal fraction.
         /// Ex: 1.5 -> 0.5 and 2.0 -> 1.0. This allows for N iterations of a loop
         /// by animating t from 0 to N. If `t` is animated from N to 0, it will loop N times backwards.
-        @pure function point-at(t: float) -> Point { BuiltinFunction.PathPointAt }
+        @since("1.18") @pure function point-at(t: float) -> Point { BuiltinFunction.PathPointAt }
         /// Returns the angle (in degrees) between the x-axis and the path's tangent vector at the given `t`.
         /// The tangent points in the direction the path was defined, so this reflects the path's shape and not
         /// the object's current direction of travel. Returns 0 if the path is empty.
         /// If a `t` outside the bounds of 0 and 1 is passed, the decimal fraction will be passed.
-        @pure function angle-at(t: float) -> angle { BuiltinFunction.PathAngleAt }
+        @since("1.18") @pure function angle-at(t: float) -> angle { BuiltinFunction.PathAngleAt }
         //!
         //! ## Path Using SVG Commands
         //!
@@ -3525,10 +3499,10 @@ fn build(l: &mut Loader) {
             in property <length> anchor-height;
             in property <length> anchor-width;*/
 
-            @constexpr in property <bool> close-on-click;
+            @since("1.1") @constexpr in property <bool> close-on-click;
             /// By default, a PopupWindow closes when the user clicks. Set this to false to prevent that behavior and close it manually using the `close()` function.
 
-            @constexpr in property <PopupClosePolicy> close-policy;
+            @since("1.9") @constexpr in property <PopupClosePolicy> close-policy;
             /// Use this read-only property to style the element that opened the popup, for example
             /// to rotate a ComboBox's arrow while the dropdown is open.
             /// `true` while the popup is shown on the screen, and `false` once it is closed, for example
@@ -3554,11 +3528,11 @@ fn build(l: &mut Loader) {
             ///     }
             /// }
             /// ```
-            out property <bool> is-open;
+            @since("1.17") out property <bool> is-open;
             /// Show the popup on the screen.
             function show() { BuiltinFunction.ShowPopupWindow }
             /// Closes the popup. Use this if you set the `close-policy` property to `no-auto-close`.
-            function close() { BuiltinFunction.ClosePopupWindow }
+            @since("1.1") function close() { BuiltinFunction.ClosePopupWindow }
         }
     }
 
@@ -3679,7 +3653,7 @@ fn build(l: &mut Loader) {
         /// }
         /// ```
         /// \group:window
-        @is_non_item_type @can_be_declared_without_children_slot
+        @since("1.17") @is_non_item_type @can_be_declared_without_children_slot
         Tooltip: Empty {
             /// The text to display in the tooltip.
             /// Don't set this property when using custom content.
@@ -3742,7 +3716,7 @@ fn build(l: &mut Loader) {
         ///     }
         /// }
         /// ```
-        @is_non_item_type @disallow_global_types_as_child_elements @can_be_declared_without_children_slot
+        @since("1.8") @is_non_item_type @disallow_global_types_as_child_elements @can_be_declared_without_children_slot
         Timer {
             /// The interval between timer ticks. This property is mandatory.
             /// ```slint "interval: 250ms;"
@@ -3780,11 +3754,11 @@ fn build(l: &mut Loader) {
             /// ```
             callback triggered;
             /// Start the timer (equivalent to setting `running` to true).
-            function start() { BuiltinFunction.StartTimer }
+            @since("1.13") function start() { BuiltinFunction.StartTimer }
             /// Stop the timer (equivalent to setting `running` to false).
-            function stop() { BuiltinFunction.StopTimer }
+            @since("1.13") function stop() { BuiltinFunction.StopTimer }
             /// Restarts the timer if it was previously started.
-            function restart() { BuiltinFunction.RestartTimer }
+            @since("1.13") function restart() { BuiltinFunction.RestartTimer }
         }
     }
 
@@ -3836,11 +3810,11 @@ fn build(l: &mut Loader) {
         PropertyAnimation {
             in property <duration> delay;
             in property <duration> duration;
-            in property <AnimationDirection> direction;
+            @since("1.9") in property <AnimationDirection> direction;
             in property <easing> easing;
             in property <float> iteration-count: 1.0;
-            in property <bool> enabled: true;
-            in property <AngleInterpolation> angle-interpolation;
+            @since("1.17") in property <bool> enabled: true;
+            @since("1.19") in property <AngleInterpolation> angle-interpolation;
         }
     }
 
@@ -3864,7 +3838,7 @@ fn build(l: &mut Loader) {
         /// ```
         ///
         /// \group:keyboard-input
-        @is_global
+        @since("1.1") @is_global
         TextInputInterface {
             //! ## Properties
             //!
@@ -3877,7 +3851,7 @@ fn build(l: &mut Loader) {
 
     element! {
         /// The **Platform** namespace contains properties that help deal with platform specific differences.
-        @is_global
+        @since("1.12") @is_global
         Platform {
             /// This property holds the type of the operating system detected at run-time.
             ///
@@ -3935,7 +3909,7 @@ fn build(l: &mut Loader) {
             //     }
             // }
             // ```
-            out property <bool> uses-mock-data;
+            @since("1.18") out property <bool> uses-mock-data;
             /// The name of the currently selected <Link type="StyleWidgets" label="widget style"/>. Some widget
             /// styles have dark and light variant suffixes, such as `fluent-light`. This property contains the
             /// style name without the suffix. Use <Link type="Palette" label="Palette"/>'s `color-scheme` to
@@ -3944,7 +3918,7 @@ fn build(l: &mut Loader) {
             /// The decimal separator used when converting between `float` and `string`.
             /// It defaults to the dot (`.`) and is determined by the locale.
             /// See the <Link type="translations" label="translations guide"/> for details.
-            out property <string> decimal-separator;
+            @since("1.17") out property <string> decimal-separator;
             /// Opens the specified URL in an external browser. This function invokes the platform's URL opening mechanism.
             /// Returns `true` on success, or `false` if the platform doesn't support opening URLs or the operation failed.
             ///
@@ -3960,14 +3934,14 @@ fn build(l: &mut Loader) {
             ///     }
             /// }
             /// ```
-            function open-url(url: string) -> bool { }
+            @since("1.16") function open-url(url: string) -> bool { }
             /// Brings all application windows to the front of the screen.
             ///
             /// On macOS this invokes `[NSApp arrangeInFront:]`, which raises every application window
             /// to the top of the window stack. On other platforms this function is a no-op.
             ///
             /// This corresponds to the standard macOS **Window › Bring All to Front** menu item.
-            function macos-bring-all-windows-to-front() { }
+            @since("1.17") function macos-bring-all-windows-to-front() { }
         }
     }
 
@@ -4425,7 +4399,7 @@ fn build(l: &mut Loader) {
         /// needs an extension such as *AppIndicator and KStatusNotifierItem Support*.
         ///
         /// \group:window
-        @is_non_item_type @disallow_global_types_as_child_elements @constant_layout_info(0.)
+        @since("1.17") @is_non_item_type @disallow_global_types_as_child_elements @constant_layout_info(0.)
         SystemTrayIcon: SystemTrayIcon {
             children: Menu;
         }

@@ -238,3 +238,10 @@ pub fn remove_extern(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
     quote!(#input).into()
 }
+
+/// Accepts `#[since("1.20")]`, the Slint release that added a builtin enum or struct,
+/// on the type, its values, and its fields. It generates nothing.
+#[proc_macro_derive(BuiltinSince, attributes(since))]
+pub fn builtin_since(_input: TokenStream) -> TokenStream {
+    TokenStream::new()
+}
