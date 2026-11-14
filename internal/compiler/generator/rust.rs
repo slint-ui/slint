@@ -1703,6 +1703,7 @@ fn generate_sub_component_body(
         .collect::<Vec<_>>();
 
     let mut user_init_code: Vec<TokenStream> = Vec::new();
+    let mut change_trackers_init_code: Vec<TokenStream> = Vec::new();
 
     let mut sub_component_names: Vec<Ident> = Vec::new();
     let mut sub_component_types: Vec<Ident> = Vec::new();
@@ -1729,15 +1730,17 @@ fn generate_sub_component_body(
         };
 
         let sub_compo_field = access_component_field_offset(&inner_component_id, &field_name);
+        let sub_rc = quote!(sp::VRcMapped::map(self_rc.clone(), |x| #sub_compo_field.apply_pin(x)));
 
         init.push(quote!(#sub_component_id::init(
-            sp::VRcMapped::map(self_rc.clone(), |x| #sub_compo_field.apply_pin(x)),
-            #global_access.clone(), #global_index, #global_children
+            #sub_rc, #global_access.clone(), #global_index, #global_children
         )?;));
+        if sc.needs_change_trackers_init(root) {
+            change_trackers_init_code
+                .push(quote!(#sub_component_id::init_change_trackers(#sub_rc);));
+        }
         if sc.needs_user_init(root) {
-            user_init_code.push(quote!(#sub_component_id::user_init(
-                sp::VRcMapped::map(self_rc.clone(), |x| #sub_compo_field.apply_pin(x)),
-            );));
+            user_init_code.push(quote!(#sub_component_id::user_init(#sub_rc);));
         }
 
         let sub_component_repeater_count = sc.repeater_count(root);
@@ -1898,24 +1901,26 @@ fn generate_sub_component_body(
         quote!(sp::VWeakMapped::<sp::ItemTreeVTable, #parent_component_id>)
     });
 
+    change_trackers_init_code.extend(component.change_callbacks.iter().enumerate().map(
+        |(idx, (p, e))| {
+            let code = compile_expression(&e.borrow(), &ctx);
+            let prop = compile_expression(&Expression::PropertyReference(p.clone()), &ctx);
+            let change_tracker = format_ident!("change_tracker{idx}");
+            quote! {
+                #[allow(dead_code, unused)]
+                sp::change_tracker_init_erased(
+                    &_self.#change_tracker,
+                    &self_rc,
+                    move |_self, _: &()| #prop,
+                    move |_self, _| { #code; }
+                );
+            }
+        },
+    ));
+
     user_init_code.extend(component.init_code.iter().map(|e| {
         let code = compile_expression(&e.borrow(), &ctx);
         quote!(#code;)
-    }));
-
-    user_init_code.extend(component.change_callbacks.iter().enumerate().map(|(idx, (p, e))| {
-        let code = compile_expression(&e.borrow(), &ctx);
-        let prop = compile_expression(&Expression::PropertyReference(p.clone()), &ctx);
-        let change_tracker = format_ident!("change_tracker{idx}");
-        quote! {
-            #[allow(dead_code, unused)]
-            sp::change_tracker_init_erased(
-                &_self.#change_tracker,
-                &self_rc,
-                move |_self, _: &()| #prop,
-                move |_self, _| { #code; }
-            );
-        }
     }));
 
     let layout_info_h = compile_expression_no_parenthesis(&component.layout_info_h.borrow(), &ctx);
@@ -2024,8 +2029,29 @@ fn generate_sub_component_body(
         )
     });
 
-    debug_assert_eq!(component.needs_user_init(root), !user_init_code.is_empty());
+    debug_assert_eq!(
+        component.needs_change_trackers_init(root),
+        !change_trackers_init_code.is_empty()
+    );
+    let has_change_trackers = !change_trackers_init_code.is_empty();
     let mut chunk_fns = Vec::new();
+    let change_trackers_init_fn = has_change_trackers.then(|| {
+        let code = emit_in_chunks(
+            "init_change_trackers",
+            change_trackers_init_code,
+            &quote!(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>),
+            &quote!(self_rc.clone()),
+            &quote!(let _self = self_rc.as_pin_ref();),
+            false,
+            &mut chunk_fns,
+        );
+        quote!(
+            pub(super) fn init_change_trackers(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>) {
+                let _self = self_rc.as_pin_ref();
+                #(#code)*
+            }
+        )
+    });
     let init = emit_in_chunks(
         "init",
         init,
@@ -2035,6 +2061,10 @@ fn generate_sub_component_body(
         true,
         &mut chunk_fns,
     );
+    debug_assert_eq!(component.needs_user_init(root), !user_init_code.is_empty());
+    if is_item_tree_root && has_change_trackers {
+        user_init_code.insert(0, quote!(Self::init_change_trackers(self_rc.clone());));
+    }
     let user_init_code = emit_in_chunks(
         "user_init",
         user_init_code,
@@ -2254,6 +2284,8 @@ fn generate_sub_component_body(
             }
 
             #user_init_fn
+
+            #change_trackers_init_fn
 
             #(#chunk_fns)*
 
