@@ -75,7 +75,7 @@ libdlmclient = []
 default = []
 
 [dependencies]
-i-slint-core = { workspace = true, features = ["default", "image-decoders", "svg"] }
+i-slint-core = { workspace = true, features = ["std", "unicode", "shared-parley", "image-decoders", "svg"] }
 i-slint-common = { workspace = true, features = ["default"] }
 i-slint-renderer-skia = { workspace = true, features = ["kms", "svg"], optional = true }
 i-slint-renderer-anyrender = { workspace = true, optional = true }

@@ -25,6 +25,13 @@ shared-fontique = ["dep:fontique", "dep:skrifa", "dep:objc2"]
 svg-text = ["dep:resvg"]
 color-parsing = []
 fontconfig-dlopen = ["fontique?/fontconfig-dlopen"]
+# Find the fonts installed on the system. On Linux this builds against fontconfig.
+# Without it, only the fonts that the application registers are available.
+system-fonts = ["fontique?/system"]
+# Used by `shared-parley` of i-slint-core, so that `complex-scripts` can switch on the dictionaries of parley.
+shared-parley = ["shared-fontique", "dep:parley"]
+# Dictionary and LSTM based line breaking. Only takes effect with `shared-parley`, and never on wasm.
+complex-scripts = ["parley?/complex-scripts"]
 markdown = ["dep:pulldown-cmark", "dep:htmlparser", "dep:derive_more", "color-parsing"]
 locale-decimal-separator = ["dep:icu_decimal", "dep:icu_locale_core", "dep:icu_provider"]
 # The `TexturePixelFormat` variants of the features of the same name in i-slint-core.
@@ -33,9 +40,12 @@ image-pixel-format-rgb565 = []
 # Serialize the pre-rendered textures and bitmap fonts.
 serde = ["dep:serde", "euclid/serde"]
 
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+parley = { version = "0.12.0", optional = true, default-features = false }
+
 [dependencies]
 euclid = { workspace = true }
-fontique = { workspace = true, optional = true }
+fontique = { workspace = true, optional = true, features = ["std"] }
 serde = { workspace = true, optional = true, features = ["alloc"] }
 skrifa = { workspace = true, optional = true }
 resvg = { workspace = true, optional = true }

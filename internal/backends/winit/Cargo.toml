@@ -89,7 +89,7 @@ unstable-wgpu-30 = [
 default = []
 
 [dependencies]
-i-slint-core = { workspace = true, features = ["default"] }
+i-slint-core = { workspace = true, features = ["std", "unicode", "shared-parley"] }
 i-slint-core-macros = { workspace = true, features = ["default"] }
 i-slint-common = { workspace = true, features = ["default"] }
 

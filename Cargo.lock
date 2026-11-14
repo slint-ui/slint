@@ -3395,6 +3395,7 @@ dependencies = [
  "icu_locale_core",
  "icu_provider",
  "objc2 0.6.5",
+ "parley",
  "pulldown-cmark",
  "resvg",
  "serde",
