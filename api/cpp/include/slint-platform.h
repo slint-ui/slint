@@ -808,6 +808,69 @@ public:
         auto r = cbindgen_private::slint_software_renderer_render_accel_rgb565(inner, &wrapper);
         return PhysicalRegion { r };
     }
+
+    /// The raster commands of a frame that record_frame() recorded.
+    ///
+    /// It shares images and glyphs with the window through reference counts that aren't atomic.
+    /// Another thread may still call rasterize() while the recording thread keeps it alive:
+    /// rasterizing only reads the shared data.
+    /// Until rasterize() returns, the recording thread must not destroy or change
+    /// the images and glyphs that the frame uses, or the behavior is undefined.
+    /// Only the recording thread destroys it.
+    ///
+    /// **Note**: This class is still experimental - its API is subject to changes and not
+    /// stabilized yet. To use the class, you must enable the `SLINT_FEATURE_EXPERIMENTAL=ON` CMake
+    /// option.
+    class RecordedRasterCommands
+    {
+    public:
+        RecordedRasterCommands(RecordedRasterCommands &&other)
+            : inner(std::exchange(other.inner, nullptr))
+        {
+        }
+        RecordedRasterCommands(const RecordedRasterCommands &) = delete;
+        ~RecordedRasterCommands()
+        {
+            if (inner) {
+                cbindgen_private::slint_recorded_raster_commands_drop(inner);
+            }
+        }
+
+        /// Rasterizes the frame into \a buffer, like SoftwareRenderer::render() renders it.
+        PhysicalRegion rasterize(std::span<slint::Rgb8Pixel> buffer, std::size_t pixel_stride) const
+        {
+            return PhysicalRegion { cbindgen_private::slint_recorded_raster_commands_rasterize_rgb8(
+                    inner, buffer.data(), buffer.size(), pixel_stride) };
+        }
+
+        /// Rasterizes the frame into \a buffer, like SoftwareRenderer::render() renders it.
+        PhysicalRegion rasterize(std::span<Rgb565Pixel> buffer, std::size_t pixel_stride) const
+        {
+            return PhysicalRegion {
+                cbindgen_private::slint_recorded_raster_commands_rasterize_rgb565(
+                        inner, reinterpret_cast<uint16_t *>(buffer.data()), buffer.size(),
+                        pixel_stride)
+            };
+        }
+
+    private:
+        friend class SoftwareRenderer;
+        explicit RecordedRasterCommands(void *inner) : inner(inner) { }
+        void *inner;
+    };
+
+    /// Records the window's next frame, like render() renders it, to rasterize later with
+    /// RecordedRasterCommands::rasterize() into a buffer of \a num_lines lines of
+    /// \a pixels_per_line pixels.
+    ///
+    /// **Note**: This function is still experimental - its API is subject to changes and not
+    /// stabilized yet. To use the function, you must enable the `SLINT_FEATURE_EXPERIMENTAL=ON`
+    /// CMake option.
+    RecordedRasterCommands record_frame(std::size_t pixels_per_line, std::size_t num_lines) const
+    {
+        return RecordedRasterCommands { cbindgen_private::slint_software_renderer_record_frame(
+                inner, pixels_per_line, num_lines) };
+    }
 #    endif
 
     /// This enum describes the rotation that is applied to the buffer when rendering.

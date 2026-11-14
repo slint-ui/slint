@@ -24,6 +24,10 @@ endif()
 
 set(SLINT_FEATURE_FREESTANDING ON)
 set(SLINT_FEATURE_RENDERER_SOFTWARE ON)
+if (CONFIG_SLINT_RENDER_ON_SECOND_CORE)
+    # SoftwareRenderer::record_frame() is still experimental.
+    set(SLINT_FEATURE_EXPERIMENTAL ON)
+endif()
 set(SLINT_LIBRARY_CARGO_FLAGS "-Zbuild-std=core,alloc")
 set(DEFAULT_SLINT_EMBED_RESOURCES "embed-for-software-renderer" CACHE STRING "")
 set(CMAKE_BUILD_TYPE Release)

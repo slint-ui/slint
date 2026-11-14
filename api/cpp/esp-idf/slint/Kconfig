@@ -1,0 +1,23 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+# cSpell: ignore endmenu UNICORE
+
+menu "Slint"
+
+    config SLINT_RENDER_ON_SECOND_CORE
+        bool "Rasterize and present on the second core"
+        default n
+        depends on !FREERTOS_UNICORE
+        help
+            With a frame buffer, the event loop only records each frame,
+            and a task on the second core rasterizes and presents it,
+            while the event loop goes on with the next frame.
+            A frame then takes as long as the slower of the two, instead of both.
+
+    config SLINT_RASTER_TASK_STACK_SIZE
+        int "Stack size of the task that rasterizes, in bytes"
+        default 8192
+        depends on SLINT_RENDER_ON_SECOND_CORE
+
+endmenu
