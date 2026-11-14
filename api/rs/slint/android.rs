@@ -99,6 +99,78 @@ pub use android_activity::AndroidApp;
 
 use crate::platform::SetPlatformError;
 
+/// How the Android backend takes part in Back handling on Android 14 (API 34) and later.
+///
+/// Slint registers an `OnBackInvokedCallback` that passes Back to the items as a key event
+/// and finishes the activity if no item accepts it.
+/// An application that registers its own `OnBackInvokedCallback` can use this to
+/// let its callback run instead.
+/// Pass it to [`InitOptions::with_back_invoked_callback()`].
+/// It has no effect before Android 14.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum BackInvokedCallback {
+    /// Slint's default, which registers the callback with `OnBackInvokedDispatcher.PRIORITY_DEFAULT`.
+    /// [`init()`] uses it.
+    #[default]
+    Default,
+    /// Register the callback with this priority.
+    /// Android calls the callback with the highest priority first.
+    /// Values above `i32::MAX` count as `i32::MAX`.
+    Priority(u32),
+    /// Don't register a callback.
+    /// Back reaches the application's own handler, and Slint items don't see it as a key event.
+    Disabled,
+}
+
+/// Options for [`init_with_options()`].
+///
+/// ```rust
+/// # #[cfg(target_os = "android")]
+/// #[unsafe(no_mangle)]
+/// fn android_main(app: slint::android_activity::AndroidApp) {
+///     let options = slint::android::InitOptions::new()
+///         .with_back_invoked_callback(slint::android::BackInvokedCallback::Disabled)
+///         .with_event_listener(|event| eprintln!("got event {event:?}"));
+///     slint::android::init_with_options(app, options).unwrap();
+///
+///     // ... rest of your application ...
+/// }
+/// ```
+#[derive(Default)]
+#[non_exhaustive]
+pub struct InitOptions {
+    back_invoked_callback: BackInvokedCallback,
+    event_listener: Option<alloc::boxed::Box<dyn Fn(&android_activity::PollEvent<'_>)>>,
+}
+
+impl InitOptions {
+    /// Creates options with the same behavior as [`init()`].
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Sets how the backend registers its `OnBackInvokedCallback`. See [`BackInvokedCallback`].
+    #[must_use]
+    pub fn with_back_invoked_callback(
+        mut self,
+        back_invoked_callback: BackInvokedCallback,
+    ) -> Self {
+        self.back_invoked_callback = back_invoked_callback;
+        self
+    }
+
+    /// Notifies `listener` of the [`android_activity::PollEvent`]s, as [`init_with_event_listener()`] does.
+    #[must_use]
+    pub fn with_event_listener(
+        mut self,
+        listener: impl Fn(&android_activity::PollEvent<'_>) + 'static,
+    ) -> Self {
+        self.event_listener = Some(alloc::boxed::Box::new(listener));
+        self
+    }
+}
+
 /// Initializes the Android backend.
 ///
 /// **Note:** This function is only available on Android with the "backend-android-activity-06" feature
@@ -107,15 +179,35 @@ use crate::platform::SetPlatformError;
 ///
 /// See the [module documentation](self) for an example on how to create Android application.
 ///
-/// See also [`init_with_event_listener`]
+/// See also [`init_with_event_listener`] and [`init_with_options`]
 pub fn init(app: android_activity::AndroidApp) -> Result<(), SetPlatformError> {
+    init_with_options(app, InitOptions::new())
+}
+
+/// Similar to [`init()`], with the settings in [`InitOptions`].
+///
+/// **Note:** This function is only available on Android with the "backend-android-activity-06" feature
+///
+/// See [`InitOptions`] for an example.
+pub fn init_with_options(
+    app: android_activity::AndroidApp,
+    options: InitOptions,
+) -> Result<(), SetPlatformError> {
     #[cfg(not(target_os = "android"))]
     unreachable!();
     #[cfg(target_os = "android")]
     {
-        crate::platform::set_platform(alloc::boxed::Box::new(
-            i_slint_backend_android_activity::AndroidPlatform::new(app),
-        ))?;
+        use i_slint_backend_android_activity::{AndroidPlatform, DEFAULT_BACK_CALLBACK_PRIORITY};
+        let priority = match options.back_invoked_callback {
+            BackInvokedCallback::Default => Some(DEFAULT_BACK_CALLBACK_PRIORITY),
+            BackInvokedCallback::Priority(p) => Some(p),
+            BackInvokedCallback::Disabled => None,
+        };
+        let mut platform = AndroidPlatform::new_with_back_callback_priority(app, priority);
+        if let Some(listener) = options.event_listener {
+            platform = platform.with_event_listener(listener);
+        }
+        crate::platform::set_platform(alloc::boxed::Box::new(platform))?;
         #[cfg(any(feature = "mcp", feature = "system-testing"))]
         i_slint_backend_selector::init_testing_backends();
         Ok(())
@@ -149,17 +241,5 @@ pub fn init_with_event_listener(
     app: android_activity::AndroidApp,
     listener: impl Fn(&android_activity::PollEvent<'_>) + 'static,
 ) -> Result<(), SetPlatformError> {
-    #[cfg(not(target_os = "android"))]
-    unreachable!();
-    #[cfg(target_os = "android")]
-    {
-        crate::platform::set_platform(alloc::boxed::Box::new(
-            i_slint_backend_android_activity::AndroidPlatform::new_with_event_listener(
-                app, listener,
-            ),
-        ))?;
-        #[cfg(any(feature = "mcp", feature = "system-testing"))]
-        i_slint_backend_selector::init_testing_backends();
-        Ok(())
-    }
+    init_with_options(app, InitOptions::new().with_event_listener(listener))
 }
