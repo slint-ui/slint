@@ -544,12 +544,6 @@
     crashDetailsEl.textContent = `${runtime}\n${message}`;
     crashEl.hidden = false;
     publish({ previewId, runtime, error }).catch(() => {});
-    reportToModel(
-      `The Slint interpreter crashed with ${runtime}. Report the interruption. ` +
-        "Use preview_slint for a fresh interpreter; try one justified retry or preview workaround while preserving the requested UI. " +
-        "Verify recovery with get_preview_screenshot. Stop identical crash loops. " +
-        `If recovery fails, offer a bug report at https://github.com/slint-ui/slint/issues with this diagnostic and a minimal reproducer.\n${message}`,
-    );
   }
 
   // Files compile under this scheme, so the interpreter resolves their images to URLs and loads
@@ -593,11 +587,12 @@
     },
   });
 
+  let imageFailure = null;
   async function readBinaryFile(path) {
     const result = await request("tools/call", { name: "read_binary_file", arguments: { path } });
     const block = result?.content?.[0];
     if (result?.isError || block?.type !== "resource") throw new Error(block?.text ?? "no file data");
-    const bytes = Uint8Array.from(atob(block.resource.blob), (c) => c.charCodeAt(0));
+    const bytes = Uint8Array.from(atob(block.resource.blob), (character) => character.charCodeAt(0));
     return { bytes, mimeType: block.resource.mimeType };
   }
 
@@ -607,7 +602,9 @@
   }
 
   function reportMissingImage(path, message) {
-    reportToModel(`The Slint preview couldn't load image ${path}: ${message}`);
+    imageFailure = `The Slint preview couldn't load image ${path}: ${message}`;
+    showStatus(imageFailure, "error");
+    publish({ previewId: activePreviewId, runtime: interpreter?.runtime, error: imageFailure }).catch(() => {});
   }
 
   async function readSlintFile(path) {
@@ -622,6 +619,7 @@
     setAnnotationMode(false);
     tools.hidden = true;
     renderedInput = null;
+    imageFailure = null;
     // Loading is asynchronous; start it early so it overlaps with source reads.
     const current = loadInterpreter();
     current.previewId = previewId;
@@ -635,22 +633,15 @@
     if (path) {
       showStatus(`Reading ${path}…`);
       publish({ previewId, stage: "reading" }).catch(() => {});
-      try {
-        source = await readSlintFile(path);
-      } catch (e) {
-        showStatus(`Couldn't read ${path}: ${e.message ?? e}`, "error");
-        reportToModel(`The Slint preview couldn't read ${path}: ${e.message ?? e}`);
-        return;
-      }
+      source = await readSlintFile(path);
       url = toFileUrl(path);
       // The interpreter reports only a string rejection as the import error,
       // and continues the include path search for null.
       // cspell:ignore ENOENT ENOTDIR
-      loadImport = (file) =>
-        readSlintFile(fromFileUrl(file)).catch((e) => {
-          const message = String(e.message ?? e);
-          return /^(ENOENT|ENOTDIR):/.test(message) ? null : Promise.reject(message);
-        });
+      loadImport = (file) => readSlintFile(fromFileUrl(file)).catch((error) => {
+        const message = String(error.message ?? error);
+        return /^(ENOENT|ENOTDIR):/.test(message) ? null : Promise.reject(message);
+      });
       // Imported fonts. Interpreters without this parameter ignore it, and fall back to the default font.
       loadResource = (file) => readBinaryFile(fromFileUrl(file)).then(({ bytes }) => bytes);
     }
@@ -672,7 +663,6 @@
       if (e instanceof Panic) throw e;
       if (current === interpreter) interpreter = null;
       showStatus(`Couldn't load the Slint interpreter: ${e}`, "error");
-      reportToModel(`The Slint preview couldn't load the interpreter: ${e}`);
       return;
     }
     showStatus("Compiling…");
@@ -691,14 +681,6 @@
       return li;
     }));
 
-    const problems = diagnostics.filter((d) => d.level <= 1);
-    if (problems.length) {
-      reportToModel(
-        `The Slint preview, with ${current.runtime}, reported:\n` +
-          problems.map((d) => `${location(d)}: ${LEVELS[d.level]}: ${d.message}`).join("\n"),
-      );
-    }
-
     if (!component) {
       canvas.hidden = true;
       showStatus("");
@@ -713,25 +695,13 @@
     );
     await untilPanic(current, instance.show());
     await finishMeasuring();
-    showStatus("");
+    showStatus(imageFailure ?? "", imageFailure ? "error" : "");
     renderedInput = { source, path, projectRoot, style };
     tools.hidden = false;
   }
 
-  // Each preview_slint result names its preview, and each tool input renders the next one.
-  const previewIds = [];
-  const previewIdWaiters = [];
   function resultPreviewId(result) {
-    return result?._meta?.["slint/previewId"] ?? result?.content?.[0]?.text?.match(/^Rendering Slint preview (\S+)\.$/)?.[1];
-  }
-  function receivePreviewId(result) {
-    const id = resultPreviewId(result);
-    if (!id) return;
-    const waiter = previewIdWaiters.shift();
-    waiter ? waiter(id) : previewIds.push(id);
-  }
-  function nextPreviewId() {
-    return previewIds.length ? Promise.resolve(previewIds.shift()) : new Promise((resolve) => previewIdWaiters.push(resolve));
+    return result?._meta?.["slint/previewId"];
   }
 
   function publish(args) {
@@ -745,6 +715,7 @@
   let activePreviewId = null;
 
   function failureText() {
+    if (imageFailure) return imageFailure;
     if (statusEl.className === "error") return statusEl.textContent;
     if (!canvas.hidden) return null;
     return [...diagnosticsEl.children].map((li) => li.textContent).join("\n") || "Nothing was rendered.";
@@ -799,10 +770,6 @@
     }
   }
 
-  function reportToModel(text) {
-    request("ui/update-model-context", { content: [{ type: "text", text, annotations: { audience: ["assistant"] } }] }).catch(() => {});
-  }
-
   window.addEventListener("message", (event) => {
     if (event.source !== window.parent) return;
     const message = event.data;
@@ -814,48 +781,54 @@
       return;
     }
     switch (message.method) {
-      case "ui/notifications/tool-input": {
-        const args = message.params?.arguments ?? {};
-        const startPreview = (previewId) => previewId.then(async (id) => {
+      // The host sends the result on first open and when restoring a saved card.
+      case "ui/notifications/tool-result": {
+        const result = message.params;
+        const previewId = resultPreviewId(result);
+        const recipe = result?._meta?.["slint/preview"];
+        if (!previewId || !recipe) break;
+        const startPreview = async (id, inputs) => {
           activePreviewId = id;
           crashEl.hidden = true;
-          await publish({ previewId: id, stage: "started" });
-          await render(args, id);
-        })
-          .catch((e) => {
-            if (e instanceof Panic) return;
-            if (e instanceof WebAssembly.RuntimeError) {
-              handlePanic(String(e));
+          try {
+            await publish({ previewId: id, stage: "started" });
+            await render(inputs, id);
+          } catch (error) {
+            if (error instanceof Panic) return;
+            if (error instanceof WebAssembly.RuntimeError) {
+              handlePanic(String(error));
               return;
             }
-            showStatus(`The preview failed: ${e.message ?? e}. Reload to try again.`, "error");
-          })
-          .then(async () => startCapturePolling(await previewId))
-          .catch(async (e) => {
-            const error = `Couldn't capture the preview: ${e.message ?? e}`;
-            showStatus(error, "error");
-            await publish({ previewId: await previewId, error }).catch(() => {});
-          });
-        startPreview(nextPreviewId());
+            showStatus(`The preview failed: ${error.message ?? error}. Retry to start again.`, "error");
+          }
+          try {
+            await startCapturePolling(id);
+          } catch (error) {
+            const message = `Couldn't capture the preview: ${error.message ?? error}`;
+            showStatus(message, "error");
+            await publish({ previewId: id, error: message }).catch(() => {});
+          }
+        };
+        startPreview(previewId, recipe);
         retryButton.onclick = async () => {
           retryButton.disabled = true;
           showStatus("Restarting preview…");
           try {
-            const result = await request("tools/call", { name: "preview_slint", arguments: args });
-            const id = resultPreviewId(result);
-            if (!id || result.isError) throw new Error(result.content?.[0]?.text ?? "No preview ID returned");
-            await startPreview(Promise.resolve(id));
-          } catch (e) {
-            showStatus(`Couldn't restart the preview: ${e}`, "error");
+            const checked = await request("tools/call", { name: "check_slint", arguments: { ...recipe, prepare_preview: true } });
+            const id = checked?.structuredContent?.previewId;
+            if (!id || checked.isError) throw new Error(checked?.content?.[0]?.text ?? "The preview check failed");
+            const published = await request("tools/call", { name: "publish_preview", arguments: { previewId: id } });
+            const inputs = published?._meta?.["slint/preview"];
+            if (published.isError || !inputs) throw new Error(published?.content?.[0]?.text ?? "No checked preview inputs returned");
+            await startPreview(id, inputs);
+          } catch (error) {
+            showStatus(`Couldn't restart the preview: ${error.message ?? error}`, "error");
           } finally {
             retryButton.disabled = false;
           }
         };
         break;
       }
-      case "ui/notifications/tool-result":
-        receivePreviewId(message.params);
-        break;
       case "ui/notifications/host-context-changed":
         applyTheme(message.params);
         break;

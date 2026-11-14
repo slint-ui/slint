@@ -216,7 +216,6 @@ typed-index-collections = { workspace = true, features = ["alloc"] }
 
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-i-slint-backend-winit = { workspace = true }
 js-sys = { version = "0.3.57", default-features = false, features = ["std"] }
 wasm-bindgen = "0.2.80"
 wasm-bindgen-futures = "0.4.30"

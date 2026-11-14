@@ -167,7 +167,10 @@ after(async () => {
 
 // Renders a preview and returns the get_preview_screenshot result.
 async function preview(args, openingDelayMs = 0) {
-    const result = await callTool("preview_slint", args);
+    const checked = await callTool("check_slint", { ...args, prepare_preview: true });
+    if (!checked.structuredContent?.ok) return checked;
+    const result = await callTool("publish_preview", { previewId: checked.structuredContent.previewId });
+    assert.deepEqual(result._meta["slint/preview"], args);
     if (openingDelayMs) await new Promise((resolve) => setTimeout(resolve, openingDelayMs));
     await page.evaluate(
         ([args, result]) => {
@@ -228,13 +231,16 @@ test("resolves imports through the project's include and library paths, and by a
     const withoutRoot = await preview({ path });
     assert.equal(withoutRoot.content[0].type, "text");
     assert.match(
-        withoutRoot.content[0].text,
+        withoutRoot.structuredContent.diagnostics.map((diagnostic) => diagnostic.message).join("\n"),
         /Cannot find requested import "card\.slint" in the include search path/,
     );
 });
 
 test("previews a file whose project root has no project file", async () => {
-    writeFiles({ "plain/main.slint": COMPONENT("Main") });
+    writeFiles({
+        "plain/main.slint": 'import "NotoSans.ttf"; export component Main inherits Window { width: 100px; height: 40px; Text { text: "Hello"; font-family: "Noto Sans"; } }',
+        "plain/NotoSans.ttf": readFileSync(new URL("../../../../tests/screenshots/fonts/NotoSans-Regular.ttf", import.meta.url)),
+    });
     assertRendered(
         await preview({
             path: join(projects, "plain/main.slint"),

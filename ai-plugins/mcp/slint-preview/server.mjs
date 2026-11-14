@@ -8,8 +8,8 @@
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { extname, isAbsolute } from "node:path";
-import { createInterface } from "node:readline";
 import { pathToFileURL } from "node:url";
+import { createInterface } from "node:readline";
 
 const VIEW_URI = "ui://slint/preview.html";
 const VIEW_MIME_TYPE = "text/html;profile=mcp-app";
@@ -65,18 +65,24 @@ const icons = [
 
 const tools = [
     {
-        name: "preview_slint",
-        title: "Preview Slint",
+        name: "check_slint",
+        title: "Check Slint",
         icons,
         description:
-            "Preview saved Slint source using the matching Wasm interpreter. " +
-            "Each call opens a new preview card; don't repeat it to recover from startup or capture failures. " +
-            "Pass `path` to preview a file on disk, with its imports and images, or `source` for a snippet that imports only from std-widgets.slint. " +
-            "This acknowledges the request, not a successful render. " +
-            "Always call get_preview_screenshot and check for errors before confirming the preview works.",
+            "Compile Slint source and render its initial frame with the MCP Wasm software interpreter. " +
+            "Inspect all diagnostics and the returned PNG before publishing. " +
+            "Pass path for a saved file with imports, images, and optional projectRoot, or source for a snippet. " +
+            "Set prepare_preview to retain a successful check for 15 minutes; publish_preview accepts its previewId. " +
+            "The MCP checker supports PNG, JPEG, SVG, and SVGZ images.",
         inputSchema: {
             type: "object",
             properties: {
+                prepare_preview: {
+                    type: "boolean",
+                    default: false,
+                    description:
+                        "Retain successful checked inputs for publish_preview.",
+                },
                 path: {
                     type: "string",
                     description:
@@ -98,50 +104,64 @@ const tools = [
                     description: "Widget style for std-widgets.slint.",
                 },
             },
+            oneOf: [{ required: ["path"] }, { required: ["source"] }],
+            additionalProperties: false,
         },
-        annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
+        annotations: {
+            readOnlyHint: true,
+            destructiveHint: false,
+            openWorldHint: false,
+        },
+    },
+    {
+        name: "publish_preview",
+        title: "Publish Slint Preview",
+        icons,
+        description:
+            "Open a successful prepared Slint check as a live browser preview. " +
+            "Call check_slint with prepare_preview first and inspect its diagnostics and image. " +
+            "Pass only its previewId. Use the PNG returned by check_slint for the initial visual review; no additional screenshot is needed after publication. " +
+            "Preparations are consumed on publication; expired or used IDs require a new check.",
+        inputSchema: {
+            type: "object",
+            properties: { previewId: { type: "string" } },
+            required: ["previewId"],
+            additionalProperties: false,
+        },
+        annotations: {
+            readOnlyHint: true,
+            destructiveHint: false,
+            openWorldHint: true,
+        },
         _meta: { ui: { resourceUri: VIEW_URI } },
-    },
-    {
-        name: "read_slint_file",
-        title: "Read Slint File",
-        description: "Read a .slint file for the preview.",
-        annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
-        inputSchema: {
-            type: "object",
-            properties: { path: { type: "string" } },
-            required: ["path"],
-        },
-        _meta: { ui: { visibility: ["app"] } },
-    },
-    {
-        name: "read_binary_file",
-        title: "Read Binary File",
-        description: "Read an image or font file that the preview uses.",
-        annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
-        inputSchema: {
-            type: "object",
-            properties: { path: { type: "string" } },
-            required: ["path"],
-        },
-        _meta: { ui: { visibility: ["app"] } },
     },
     {
         name: "get_preview_screenshot",
         title: "Get Slint Preview Screenshot",
         icons,
         description:
-            "Capture the current state of a preview_slint preview as a PNG, with the Slint version it ran on. " +
+            "Capture the current state of a publish_preview preview as a PNG, with the Slint version it ran on. " +
             "Pass its previewId to select a preview, or omit it for the latest opened preview. " +
             "Waits for the first render if the preview is still starting, or returns pending with its current stage. " +
             "If pending, call again with the same previewId to keep waiting. Stop retrying on timeout. " +
-            "Check it before you judge how the UI looks.",
+            "Use this for changes after interaction, browser rendering problems, or an explicit screenshot request. Use check_slint's PNG for the initial visual review.",
         inputSchema: {
             type: "object",
             properties: { previewId: { type: "string" } },
         },
         annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
+    ...["read_slint_file", "read_binary_file"].map((name) => ({
+        name,
+        description: "Read a local source, image, or font file for the preview.",
+        annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+        inputSchema: {
+            type: "object",
+            properties: { path: { type: "string" } },
+            required: ["path"],
+        },
+        _meta: { ui: { visibility: ["app"] } },
+    })),
     {
         name: "poll_preview_capture",
         title: "Check for a Slint Preview Capture Request",
@@ -181,8 +201,16 @@ const tools = [
     },
 ];
 
+const preparations = new Map();
+const PREPARATION_TTL_MS = 15 * 60 * 1000;
+const MAX_PREPARATIONS = 16;
 const previews = new Map();
 let latestPreviewId = null;
+
+function removePreparation(id) {
+    clearTimeout(preparations.get(id)?.timer);
+    preparations.delete(id);
+}
 
 function registerPreview(id, stage = "waiting") {
     const preview = {
@@ -244,15 +272,42 @@ const BINARY_MIME_TYPES = {
     ".ttc": "font/collection",
 };
 
+function readPreviewFile(path, encoding) {
+    if (typeof path !== "string" || !isAbsolute(path))
+        throw rpcError(-32602, "'path' must be an absolute path");
+    try {
+        const data = readFileSync(path).toString(encoding);
+        if (encoding === "utf8") return textResult(data);
+        return {
+            content: [
+                {
+                    type: "resource",
+                    resource: {
+                        uri: pathToFileURL(path).href,
+                        mimeType:
+                            BINARY_MIME_TYPES[extname(path).toLowerCase()] ??
+                            "application/octet-stream",
+                        blob: data,
+                    },
+                },
+            ],
+        };
+    } catch (error) {
+        return textResult(error.message, true);
+    }
+}
+
 function textResult(text, isError = false) {
     return { content: [{ type: "text", text }], ...(isError && { isError }) };
 }
 
 const toolCalls = {
-    preview_slint: (args) => {
+    check_slint: async (args) => {
         if (
             (typeof args.path === "string") ===
-            (typeof args.source === "string")
+                (typeof args.source === "string") ||
+            (Object.hasOwn(args, "path") && typeof args.path !== "string") ||
+            (Object.hasOwn(args, "source") && typeof args.source !== "string")
         ) {
             throw rpcError(-32602, "Pass either 'path' or 'source'");
         }
@@ -270,21 +325,116 @@ const toolCalls = {
                 throw rpcError(-32602, "'projectRoot' must be absolute");
             }
         }
-        const preview = registerPreview(randomUUID());
-        latestPreviewId = preview.id;
-        // The view reads the ID from _meta, or from the text if a client drops _meta.
+        if (
+            args.prepare_preview !== undefined &&
+            typeof args.prepare_preview !== "boolean"
+        ) {
+            throw rpcError(-32602, "'prepare_preview' must be a boolean");
+        }
+        if (
+            args.style !== undefined &&
+            !["fluent", "material", "cupertino", "cosmic"].includes(args.style)
+        ) {
+            throw rpcError(
+                -32602,
+                "'style' must be fluent, material, cupertino, or cosmic",
+            );
+        }
+        let checked;
+        try {
+            const { checkSlint } = await import("./checker.mjs");
+            checked = await checkSlint(args);
+        } catch (error) {
+            return textResult(error.message, true);
+        }
+        const { image, ...structuredContent } = checked;
+        if (image)
+            Object.assign(structuredContent, {
+                width: image.width,
+                height: image.height,
+            });
+        if (checked.ok && args.prepare_preview) {
+            for (const [id, preparation] of preparations) {
+                if (preparation.expiresAt <= Date.now()) removePreparation(id);
+            }
+            while (preparations.size >= MAX_PREPARATIONS)
+                removePreparation(preparations.keys().next().value);
+            const previewId = randomUUID();
+            const { prepare_preview, ...input } = args;
+            preparations.set(previewId, {
+                input,
+                expiresAt: Date.now() + PREPARATION_TTL_MS,
+                timer: setTimeout(
+                    () => preparations.delete(previewId),
+                    PREPARATION_TTL_MS,
+                ).unref(),
+            });
+            structuredContent.previewId = previewId;
+        }
+        const summary = [
+            `${checked.ok ? "Check passed" : "Check failed"} with ${checked.runtime}.`,
+            ...checked.diagnostics.map(
+                (diagnostic) =>
+                    `${diagnostic.fileName}:${diagnostic.lineNumber}:${diagnostic.columnNumber}: ${diagnostic.severity}: ${diagnostic.message}`,
+            ),
+            ...(checked.renderError
+                ? [`Rendering failed: ${checked.renderError}`]
+                : []),
+            ...(structuredContent.previewId
+                ? [`Prepared preview ${structuredContent.previewId}.`]
+                : []),
+        ].join("\n");
+        return {
+            content: [
+                { type: "text", text: summary },
+                ...(image
+                    ? [
+                          {
+                              type: "image",
+                              data: image.png,
+                              mimeType: "image/png",
+                          },
+                      ]
+                    : []),
+            ],
+            structuredContent,
+            ...(!checked.ok && { isError: true }),
+        };
+    },
+    read_slint_file: (args) => readPreviewFile(args.path, "utf8"),
+    read_binary_file: (args) => readPreviewFile(args.path, "base64"),
+    publish_preview: (args) => {
+        if (
+            typeof args.previewId !== "string" ||
+            Object.keys(args).length !== 1
+        ) {
+            throw rpcError(
+                -32602,
+                "Pass only 'previewId' from a successful prepared check",
+            );
+        }
+        const preparation = preparations.get(args.previewId);
+        if (!preparation || preparation.expiresAt <= Date.now()) {
+            removePreparation(args.previewId);
+            return textResult(
+                "This preparation is unknown or expired. Run check_slint with prepare_preview: true, inspect its diagnostics and image, then publish the returned previewId.",
+                true,
+            );
+        }
+        removePreparation(args.previewId);
+        if (!previews.has(args.previewId)) registerPreview(args.previewId);
+        latestPreviewId = args.previewId;
         return {
             content: [
                 {
                     type: "text",
-                    text: `Rendering Slint preview ${preview.id}.`,
-                },
-                {
-                    type: "text",
-                    text: "Preview requested; rendering is unverified. Call get_preview_screenshot before confirming success.",
+                    text: `Requested Slint preview ${args.previewId}. Use the screenshot returned by check_slint for the visual review.`,
                 },
             ],
-            _meta: { "slint/previewId": preview.id },
+            _meta: {
+                "slint/previewId": args.previewId,
+                "slint/preview": preparation.input,
+            },
         };
     },
     get_preview_screenshot: async (args) => {
@@ -293,7 +443,7 @@ const toolCalls = {
         }
         const id = args.previewId ?? latestPreviewId;
         if (id === null) {
-            return textResult("Call preview_slint first.", true);
+            return textResult("Call check_slint with prepare_preview, then publish_preview first.", true);
         }
         const preview = previews.get(id);
         if (!preview) {
@@ -392,7 +542,11 @@ const toolCalls = {
         if (typeof args.previewId !== "string") {
             throw rpcError(-32602, "'previewId' must be a string");
         }
-        const preview = previews.get(args.previewId);
+        const preview = previews.get(args.previewId) ?? (
+            args.stage === "started" && args.captureId === undefined
+                ? registerPreview(args.previewId)
+                : undefined
+        );
         if (!preview) {
             return textResult("This preview is unknown or inactive.");
         }
@@ -418,40 +572,7 @@ const toolCalls = {
         notify(preview);
         return textResult("Received.");
     },
-    read_slint_file: (args) => {
-        if (typeof args.path !== "string" || !isAbsolute(args.path)) {
-            throw rpcError(-32602, "'path' must be an absolute path");
-        }
-        try {
-            return textResult(readFileSync(args.path, "utf8"));
-        } catch (e) {
-            return textResult(e.message, true);
-        }
-    },
-    read_binary_file: (args) => {
-        if (typeof args.path !== "string" || !isAbsolute(args.path)) {
-            throw rpcError(-32602, "'path' must be an absolute path");
-        }
-        try {
-            return {
-                content: [
-                    {
-                        type: "resource",
-                        resource: {
-                            uri: pathToFileURL(args.path).href,
-                            mimeType:
-                                BINARY_MIME_TYPES[
-                                    extname(args.path).toLowerCase()
-                                ] ?? "application/octet-stream",
-                            blob: readFileSync(args.path).toString("base64"),
-                        },
-                    },
-                ],
-            };
-        } catch (e) {
-            return textResult(e.message, true);
-        }
-    },
+
 };
 
 // The .in suffix prevents Codex from offering this MCP App template as a standalone website.

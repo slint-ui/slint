@@ -7454,7 +7454,6 @@ dependencies = [
  "i-slint-backend-qt",
  "i-slint-backend-selector",
  "i-slint-backend-testing",
- "i-slint-backend-winit",
  "i-slint-common",
  "i-slint-compiler",
  "i-slint-core",
@@ -7664,10 +7663,12 @@ dependencies = [
 name = "slint-wasm-interpreter"
 version = "1.20.0"
 dependencies = [
+ "base64 0.23.1",
  "console_error_panic_hook",
  "i-slint-backend-winit",
  "i-slint-compiler",
  "i-slint-core",
+ "i-slint-renderer-software",
  "js-sys",
  "send_wrapper",
  "slint-interpreter",

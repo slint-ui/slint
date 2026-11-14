@@ -16,9 +16,16 @@ publish = false
 [lib]
 crate-type = ["cdylib"]
 
+[features]
+default = ["browser"]
+browser = ["slint-interpreter/backend-winit", "slint-interpreter/renderer-femtovg", "dep:i-slint-backend-winit"]
+headless = ["dep:i-slint-renderer-software", "i-slint-core/image-decoders", "i-slint-core/svg", "dep:base64"]
+
 [dependencies]
-slint-interpreter = { workspace = true, features = ["std", "backend-winit", "renderer-femtovg", "compat-1-2", "internal"] }
-i-slint-backend-winit = { workspace = true }
+slint-interpreter = { workspace = true, features = ["std", "compat-1-2", "internal"] }
+i-slint-backend-winit = { workspace = true, optional = true }
+i-slint-renderer-software = { workspace = true, optional = true, features = ["std"] }
+base64 = { version = "0.23", optional = true }
 i-slint-compiler = { workspace = true }
 i-slint-core = { workspace = true }
 send_wrapper = { workspace = true }
