@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Properties } from "../../../properties.slint";
+import { Properties, PropertyEditKind } from "../../../properties.slint";
 
 import { Style, Metrics, InspectorStyle } from "../../../style.slint";
 
@@ -13,7 +13,6 @@ export component InspectorEffectsSection inherits InspectorSection {
     in property <InspectorStyle> style: Style.inspector-layout;
     in property <length> field-width;
     private property <bool> blur-enabled: Properties.source-property-value-data("backdrop-blur", {}).code != "";
-    changed blur-enabled => { blur-toggle.checked = root.blur-enabled; }
 
     title: @tr("Effects");
 
@@ -22,14 +21,29 @@ export component InspectorEffectsSection inherits InspectorSection {
         padding-right: root.style.padding;
         spacing: Metrics.space-compact;
 
-        InspectorShadowControl {
+        InspectorEffectSlider {
+            width: root.field-width;
+            accessible-name: @tr("Opacity");
+            label: @tr("Opacity");
+            value: (Properties.editor-number-property("opacity", 1) * 100).round();
+            commit-key: InspectorContext.field-key("opacity");
+            preview(value) => { return InspectorContext.preview-number("opacity", value / 100, ""); }
+            accepted(value) => {
+                return InspectorContext.commit-value("opacity", { kind: PropertyEditKind.number, number: value / 100 });
+            }
+            canceled => { Properties.inspector-cancel(); }
+        }
+        if InspectorContext.is-rectangle-selection(): InspectorShadowControl {
             width: root.field-width;
         }
-        InspectorShadowControl {
+        if InspectorContext.is-rectangle-selection(): InspectorShadowControl {
             inner: true;
             width: root.field-width;
         }
-        HorizontalLayout {
+        if InspectorContext.is-rectangle-selection(): HorizontalLayout {
+            private property <bool> blur-enabled: root.blur-enabled;
+            changed blur-enabled => { blur-toggle.checked = self.blur-enabled; }
+
             height: Style.inspector-field.height;
             spacing: Metrics.space-small;
             cross-axis-alignment: center;
@@ -53,7 +67,7 @@ export component InspectorEffectsSection inherits InspectorSection {
                 }
             }
         }
-        if root.blur-enabled: InspectorEffectSlider {
+        if InspectorContext.is-rectangle-selection() && root.blur-enabled: InspectorEffectSlider {
             width: root.field-width;
             accessible-name: @tr("Backdrop blur amount");
             label: @tr("Blur");
