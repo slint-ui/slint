@@ -153,12 +153,17 @@ impl TargetPixel for Rgb8Pixel {
     }
 
     #[inline]
+    fn blend_slice(slice: &mut [Self], color: PremultipliedRgbaColor) {
+        crate::simd::blend_slice(slice, color, Self::new(color.red, color.green, color.blue))
+    }
+
+    #[inline]
     fn from_rgb(r: u8, g: u8, b: u8) -> Self {
         Self::new(r, g, b)
     }
 
     fn blend_rgba_slice<S: RgbaTexel>(slice: &mut [Self], src: &[S], alpha: u8, _: InternalToken) {
-        blend_rgba_slice_in_bulk(slice, src, alpha, blend_opaque_per_pixel)
+        blend_rgba_slice_in_bulk(slice, src, alpha, crate::simd::blend_opaque)
     }
 }
 
@@ -211,6 +216,11 @@ impl TargetPixel for Rgb565Pixel {
     }
 
     #[inline]
+    fn blend_slice(slice: &mut [Self], color: PremultipliedRgbaColor) {
+        crate::simd::rgb565_blend_slice(slice, color)
+    }
+
+    #[inline]
     fn from_rgb(r: u8, g: u8, b: u8) -> Self {
         // This calls the inherent from_rgb, not this trait method.
         Rgb565Pixel::from_rgb(r, g, b)
@@ -222,7 +232,7 @@ impl TargetPixel for Rgb565Pixel {
     }
 
     fn blend_rgba_slice<S: RgbaTexel>(slice: &mut [Self], src: &[S], alpha: u8, _: InternalToken) {
-        blend_rgba_slice_in_bulk(slice, src, alpha, blend_opaque_per_pixel)
+        blend_rgba_slice_in_bulk(slice, src, alpha, crate::simd::rgb565_blend_opaque)
     }
 }
 
