@@ -28,7 +28,7 @@ pub struct PreparedTexture {
 impl PreparedTexture {
     /// Prepares the image of `texture`.
     /// Returns `None` for textures that aren't embedded images, or that are tiled.
-    fn new(texture: &DrawTextureArgs) -> Option<Self> {
+    fn new(texture: &DrawTextureArgs, blue_first: bool) -> Option<Self> {
         let TextureDataContainer::Static(source) = &texture.data else { return None };
         if texture.tiling.is_some() {
             return None;
@@ -76,10 +76,11 @@ impl PreparedTexture {
                         _ => ((channel as u16 * 255 + alpha as u16 / 2) / alpha as u16).min(255)
                             as u8,
                     };
+                    let (first, third) = if blue_first { (blue, red) } else { (red, blue) };
                     pixel.copy_from_slice(&[
-                        unmultiply(red),
+                        unmultiply(first),
                         unmultiply(green),
-                        unmultiply(blue),
+                        unmultiply(third),
                         alpha,
                     ]);
                 }
@@ -127,13 +128,14 @@ struct Key {
 /// kept from frame to frame by the thread that rasterizes.
 pub struct PreparedTextures {
     textures: BTreeMap<Key, Rc<PreparedTexture>>,
+    blue_first: bool,
     bytes: usize,
     max_bytes: usize,
 }
 
 impl Default for PreparedTextures {
     fn default() -> Self {
-        Self { textures: BTreeMap::new(), bytes: 0, max_bytes: 8 << 20 }
+        Self { textures: BTreeMap::new(), blue_first: false, bytes: 0, max_bytes: 8 << 20 }
     }
 }
 
@@ -150,6 +152,16 @@ impl PreparedTextures {
     pub fn set_max_bytes(&mut self, max_bytes: usize) {
         self.max_bytes = max_bytes;
         if self.bytes > max_bytes {
+            self.textures.clear();
+            self.bytes = 0;
+        }
+    }
+
+    /// Sets whether prepared RGBA images store their color channels blue first, as BGRA,
+    /// for a buffer that reads them in that order. Their pixel format stays `Rgba`.
+    pub fn set_blue_first(&mut self, blue_first: bool) {
+        if self.blue_first != blue_first {
+            self.blue_first = blue_first;
             self.textures.clear();
             self.bytes = 0;
         }
@@ -176,7 +188,7 @@ impl PreparedTextures {
         let _span =
             tracing::info_span!("prepare_texture", w = texture.dst_width, h = texture.dst_height)
                 .entered();
-        let prepared = Rc::new(PreparedTexture::new(texture)?);
+        let prepared = Rc::new(PreparedTexture::new(texture, self.blue_first)?);
         if self.bytes + bytes > self.max_bytes {
             self.textures.clear();
             self.bytes = 0;

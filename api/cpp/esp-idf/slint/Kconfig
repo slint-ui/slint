@@ -5,6 +5,16 @@
 
 menu "Slint"
 
+    config SLINT_PPA
+        bool "Draw with the PPA"
+        default y
+        depends on SOC_PPA_SUPPORTED && SLINT_RENDER_ON_SECOND_CORE
+        help
+            The task that rasterizes hands opaque solid fills, and images inside an element
+            with `cache-rendering-hint: true`, to the Pixel-Processing Accelerator.
+            The renderer first prepares each such image at its drawn size, and keeps it.
+            The CPU still draws everything else.
+
     config SLINT_RENDER_ON_SECOND_CORE
         bool "Rasterize and present on the second core"
         default n
@@ -32,7 +42,7 @@ menu "Slint"
     config SLINT_PREPARED_TEXTURES_SIZE
         int "Memory for prepared images, in KiB"
         default 8192
-        depends on SLINT_CPU_TEXTURES && SLINT_RENDER_ON_SECOND_CORE
+        depends on (SLINT_CPU_TEXTURES || SLINT_PPA) && SLINT_RENDER_ON_SECOND_CORE
         help
             When the next image doesn't fit, all prepared images are dropped.
             Larger images aren't prepared, so 0 turns preparing off.

@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore powf
+// cSpell: ignore borderless powf
 
 use crate::testing::{TestCaseOptions, compare_images};
 use i_slint_core::graphics::{IntRect, Rgb8Pixel, SharedPixelBuffer, euclid};
@@ -9,7 +9,8 @@ use i_slint_core::lengths::LogicalRect;
 use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::RendererSealed;
 use slint::platform::software_renderer::{
-    LineBufferProvider, MinimalSoftwareWindow, RenderingRotation,
+    DrawRectangleArgs, LineBufferProvider, MinimalSoftwareWindow, PhysicalRegion,
+    RenderingRotation, TargetPixelBuffer,
 };
 use std::rc::Rc;
 
@@ -86,6 +87,97 @@ fn draw_screenshot(
     buffer
 }
 
+/// Renders like [`screenshot`], but into a buffer that fills solid rectangles itself, as 2D
+/// accelerators do.
+fn screenshot_filling(
+    window: Rc<MinimalSoftwareWindow>,
+    rotated: RenderingRotation,
+) -> SharedPixelBuffer<Rgb8Pixel> {
+    let size = window.size();
+    let sf = window.scale_factor();
+    let (width, height) = (size.width, size.height);
+    let mut buffer = match rotated {
+        RenderingRotation::Rotate90 | RenderingRotation::Rotate270 => {
+            SharedPixelBuffer::<Rgb8Pixel>::new(height, width)
+        }
+        _ => SharedPixelBuffer::<Rgb8Pixel>::new(width, height),
+    };
+
+    window.request_redraw();
+    window.draw_if_needed(|renderer| {
+        renderer.mark_dirty_region(
+            LogicalRect::from_size(euclid::size2(width as f32 / sf, height as f32 / sf)).into(),
+        );
+        renderer.set_rendering_rotation(rotated);
+        let stride = buffer.width() as usize;
+        renderer.render_into_buffer(&mut FillingBuffer { pixels: buffer.make_mut_slice(), stride });
+        renderer.set_rendering_rotation(RenderingRotation::NoRotation);
+    });
+
+    buffer
+}
+
+/// Fills opaque, square, borderless rectangles at whole pixels itself, and declines the rest.
+struct FillingBuffer<'a> {
+    pixels: &'a mut [Rgb8Pixel],
+    stride: usize,
+}
+
+impl TargetPixelBuffer for FillingBuffer<'_> {
+    type TargetPixel = Rgb8Pixel;
+
+    fn line_slice(&mut self, line_number: usize) -> &mut [Rgb8Pixel] {
+        &mut self.pixels[line_number * self.stride..][..self.stride]
+    }
+
+    fn num_lines(&self) -> usize {
+        self.pixels.len() / self.stride
+    }
+
+    fn draw_rectangle(&mut self, args: &DrawRectangleArgs, clip: &PhysicalRegion) -> bool {
+        let color = args.background.color();
+        let square = [
+            args.top_left_radius,
+            args.top_right_radius,
+            args.bottom_right_radius,
+            args.bottom_left_radius,
+            args.border_width,
+        ]
+        .iter()
+        .all(|&r| r == 0.);
+        let whole_pixels =
+            [args.x, args.y, args.width, args.height].iter().all(|v| v.fract() == 0.);
+        if !square
+            || !whole_pixels
+            || args.alpha != 255
+            || args.background != color.into()
+            || color.alpha() != 255
+        {
+            return false;
+        }
+        let rect = euclid::Box2D::<i16, euclid::UnknownUnit>::new(
+            euclid::point2(args.x as i16, args.y as i16),
+            euclid::point2((args.x + args.width) as i16, (args.y + args.height) as i16),
+        );
+        let pixel = Rgb8Pixel::new(color.red(), color.green(), color.blue());
+        for (origin, size) in clip.iter() {
+            let clip = euclid::Box2D::new(
+                euclid::point2(origin.x as i16, origin.y as i16),
+                euclid::point2(
+                    (origin.x + size.width as i32) as i16,
+                    (origin.y + size.height as i32) as i16,
+                ),
+            );
+            if let Some(r) = rect.intersection(&clip) {
+                for y in r.y_range() {
+                    self.line_slice(y as usize)[r.min.x as usize..r.max.x as usize].fill(pixel);
+                }
+            }
+        }
+        true
+    }
+}
+
 struct TestingLineBuffer<'a> {
     buffer: &'a mut [Rgb8Pixel],
     stride: usize,
@@ -123,6 +215,11 @@ pub fn assert_with_render(
         RenderingRotation::Rotate270,
     ] {
         let rendering = screenshot(window.clone(), rotation);
+        let filling = screenshot_filling(window.clone(), rotation);
+        assert!(
+            filling.as_slice() == rendering.as_slice(),
+            "Rendering with rectangles filled by the buffer differs for {path} ({rotation:?})"
+        );
         let recorded = draw_screenshot(window.clone(), rotation, true);
         assert!(
             recorded.as_slice() == rendering.as_slice(),

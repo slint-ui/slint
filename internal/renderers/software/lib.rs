@@ -1975,14 +1975,29 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> BufferRasterizer<'_, B> {
         own_clip: Option<ShapeClip>,
         cmd: &impl draw_functions::LineCommand<B::TargetPixel>,
     ) {
+        self.draw_clipped_part(geometry, geometry, rounded_clips, own_clip, cmd);
+    }
+
+    /// Draws the `part` of the command that covers `geometry`.
+    fn draw_clipped_part(
+        &mut self,
+        geometry: PhysicalRect,
+        part: PhysicalRect,
+        rounded_clips: &[RoundedClip],
+        own_clip: Option<ShapeClip>,
+        cmd: &impl draw_functions::LineCommand<B::TargetPixel>,
+    ) {
+        // `foreach_ranges` passes extra clips relative to `part`, the lines are relative to `geometry`.
+        let left = part.min_x() - geometry.min_x();
+        let right = geometry.max_x() - part.max_x();
         if rounded_clips.is_empty() && own_clip.is_none() {
-            self.foreach_ranges(&geometry, |line, buffer, extra_left_clip, extra_right_clip| {
+            self.foreach_ranges(&part, |line, buffer, extra_left_clip, extra_right_clip| {
                 cmd.draw_line(
                     &geometry,
                     PhysicalLength::new(line),
                     buffer,
-                    extra_left_clip,
-                    extra_right_clip,
+                    left + extra_left_clip,
+                    right + extra_right_clip,
                 );
             });
             return;
@@ -1990,18 +2005,62 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> BufferRasterizer<'_, B> {
         let mut clips = core::mem::take(&mut self.clips);
         clips.clear();
         clips.extend(shape_clips(rounded_clips, &geometry).chain(own_clip));
-        self.foreach_ranges(&geometry, |line, buffer, extra_left_clip, extra_right_clip| {
+        self.foreach_ranges(&part, |line, buffer, extra_left_clip, extra_right_clip| {
             draw_functions::draw_clipped_line(
                 &geometry,
                 PhysicalLength::new(line),
                 &clips,
                 cmd,
                 buffer,
-                extra_left_clip,
-                extra_right_clip,
+                left + extra_left_clip,
+                right + extra_right_clip,
             );
         });
         self.clips = clips;
+    }
+
+    /// Hands the opaque middle of a rounded rectangle, which has no corners or border in it, to
+    /// the buffer's `draw_rectangle` as a plain rectangle.
+    /// Returns the middle if the buffer drew it, so that only the frame around it is left to draw.
+    fn offer_rounded_rectangle_middle(
+        &mut self,
+        geometry: &PhysicalRect,
+        rr: &RoundedRectangle,
+        rounded_clips: &[RoundedClip],
+    ) -> Option<PhysicalRect> {
+        if rr.inner_color.alpha != u8::MAX {
+            return None;
+        }
+        let shape = &rr.shape;
+        let radius = &shape.radius;
+        let border = rr.width.get().max(0);
+        let left = radius.top_left.max(radius.bottom_left).max(border);
+        let right = radius.top_right.max(radius.bottom_right).max(border);
+        let top = radius.top_left.max(radius.top_right).max(border);
+        let bottom = radius.bottom_left.max(radius.bottom_right).max(border);
+        // The shape's own box, before the clip.
+        let min_x = geometry.min_x() as i32 - shape.left_clip.get() as i32;
+        let min_y = geometry.min_y() as i32 - shape.top_clip.get() as i32;
+        let max_x = geometry.max_x() as i32 + shape.right_clip.get() as i32;
+        let max_y = geometry.max_y() as i32 + shape.bottom_clip.get() as i32;
+        let middle = euclid::Box2D::<i32, PhysicalPx>::new(
+            euclid::point2(min_x + left as i32, min_y + top as i32),
+            euclid::point2(max_x - right as i32, max_y - bottom as i32),
+        )
+        .intersection(&geometry.to_box2d().cast())?
+        .to_rect()
+        .cast::<i16>();
+        if middle.is_empty() || !hook_can_draw(rounded_clips, || middle) {
+            return None;
+        }
+        let color = rr.inner_color;
+        let args = target_pixel_buffer::DrawRectangleArgs::from_rect(
+            middle.cast(),
+            Color::from_argb_u8(u8::MAX, color.red, color.green, color.blue).into(),
+        );
+        self.buffer
+            .draw_rectangle(&args, &self.dirty_region.intersection(&middle))
+            .then_some(middle)
     }
 }
 
@@ -2077,7 +2136,7 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> BufferRasterizer<'_, B> {
                 &draw_functions::SolidColor(*color),
             ),
             RoundedRectangle { geometry, rectangle } => {
-                self.draw_clipped(*geometry, rounded_clips, None, rectangle)
+                self.rasterize_rounded_rectangle(*geometry, rectangle, rounded_clips)
             }
             Gradient { geometry, gradient, clip } => match gradient {
                 AnyGradientCommand::Linear(g) => {
@@ -2179,6 +2238,35 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> BufferRasterizer<'_, B> {
 
         let scale_factor = self.scale_factor;
         process_rectangle_impl(self, args, &clip, scale_factor, rounded_clips);
+    }
+
+    fn rasterize_rounded_rectangle(
+        &mut self,
+        geometry: PhysicalRect,
+        rr: &RoundedRectangle,
+        rounded_clips: &[RoundedClip],
+    ) {
+        let Some(middle) = self.offer_rounded_rectangle_middle(&geometry, rr, rounded_clips) else {
+            self.draw_clipped(geometry, rounded_clips, None, rr);
+            return;
+        };
+        // The frame around the middle: full rows above and below it, the sides next to it.
+        let (x0, x1) = (geometry.min_x(), geometry.max_x());
+        let (y0, y1) = (geometry.min_y(), geometry.max_y());
+        for (left, top, right, bottom) in [
+            (x0, y0, x1, middle.min_y()),
+            (x0, middle.max_y(), x1, y1),
+            (x0, middle.min_y(), middle.min_x(), middle.max_y()),
+            (middle.max_x(), middle.min_y(), x1, middle.max_y()),
+        ] {
+            if left < right && top < bottom {
+                let part = PhysicalRect::new(
+                    PhysicalPoint::new(left, top),
+                    PhysicalSize::new(right - left, bottom - top),
+                );
+                self.draw_clipped_part(geometry, part, rounded_clips, None, rr);
+            }
+        }
     }
 }
 
