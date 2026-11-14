@@ -30,7 +30,7 @@ fontconfig-dlopen = ["fontique?/fontconfig-dlopen"]
 system-fonts = ["fontique?/system"]
 # Used by `shared-parley` of i-slint-core, so that `complex-scripts` can switch on the dictionaries of parley.
 shared-parley = ["shared-fontique", "dep:parley"]
-# Dictionary and LSTM based line breaking. Only takes effect with `shared-parley`, and never on wasm.
+# Dictionary based line breaking. Only takes effect with `shared-parley`, and never on wasm.
 complex-scripts = ["parley?/complex-scripts"]
 markdown = ["dep:pulldown-cmark", "dep:htmlparser", "dep:derive_more", "color-parsing"]
 locale-decimal-separator = ["dep:icu_decimal", "dep:icu_locale_core", "dep:icu_provider"]
