@@ -39,8 +39,9 @@ thread_local! {
     static CURRENT_WINDOW: RefCell<Weak<AndroidWindowAdapter>> = RefCell::new(Default::default());
 }
 
-/// The value of `OnBackInvokedDispatcher.PRIORITY_DEFAULT`.
-const DEFAULT_BACK_CALLBACK_PRIORITY: u32 = 0;
+/// The value of `OnBackInvokedDispatcher.PRIORITY_DEFAULT`, the priority of the Back callback
+/// that [`AndroidPlatform::new()`] registers.
+pub const DEFAULT_BACK_CALLBACK_PRIORITY: u32 = 0;
 
 pub struct AndroidPlatform {
     app: AndroidApp,
@@ -76,7 +77,7 @@ impl AndroidPlatform {
     /// The callback turns the Back gesture into a key event and finishes the activity
     /// if no item handles it. `Some(priority)` registers it with that priority, as
     /// `OnBackInvokedDispatcher.registerOnBackInvokedCallback()` takes it. [`AndroidPlatform::new()`] uses
-    /// `Some(0)`, which is `OnBackInvokedDispatcher.PRIORITY_DEFAULT`.
+    /// [`DEFAULT_BACK_CALLBACK_PRIORITY`]. Priorities above `i32::MAX` count as `i32::MAX`.
     /// `None` registers no callback, so the application's own handling of Back runs
     /// and Slint doesn't receive Back as a key event.
     /// The setting has no effect before Android 14.
@@ -116,9 +117,14 @@ impl AndroidPlatform {
         app: AndroidApp,
         listener: impl Fn(&PollEvent<'_>) + 'static,
     ) -> Self {
-        let mut this = Self::new(app);
-        this.event_listener = Some(Box::new(listener));
-        this
+        Self::new(app).with_event_listener(listener)
+    }
+
+    /// Notify `listener` of the events that the platform processes, as
+    /// [`AndroidPlatform::new_with_event_listener()`] does.
+    pub fn with_event_listener(mut self, listener: impl Fn(&PollEvent<'_>) + 'static) -> Self {
+        self.event_listener = Some(Box::new(listener));
+        self
     }
 }
 

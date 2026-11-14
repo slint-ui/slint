@@ -872,7 +872,6 @@ class SlintInputView extends View {
 
 public class SlintAndroidJavaHelper {
     private final Activity mActivity;
-    // Priority of the OnBackInvokedCallback on API 34+, or negative to not register one.
     private final int mBackCallbackPriority;
     private final SlintInputView mInputView;
 
