@@ -128,3 +128,75 @@ def test_add_child_is_hidden_for_other_elements(
         expect(
             query(window, button, role=slint_testing.AccessibleRole.Button)
         ).to_be_hidden()
+
+
+@pytest.mark.parametrize(
+    ("source", "row", "button", "removed"),
+    [
+        (
+            TAB_SOURCE,
+            "first-tab",
+            "Remove Tab",
+            b'first-tab := Tab {\n            title: "Tab 1";\n        }',
+        ),
+        (
+            RADIO_GROUP_SOURCE,
+            "first-option",
+            "Remove Radio Button",
+            b'first-option := RadioButton {\n            text: "Option 1";\n        }',
+        ),
+    ],
+    ids=("tab", "radio-button"),
+)
+def test_remove_child_deletes_child(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    source: str,
+    row: str,
+    button: str,
+    removed: bytes,
+) -> None:
+    source_file = fixture_project / source
+    baseline = source_file.read_bytes()
+    expected = replace_once(baseline, removed, b"")
+    snapshot = SourceSnapshot.capture(fixture_project)
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        wait_for_source(source_file, baseline)
+        window = first_window(editor)
+        select_outline_row(window, row)
+        element(
+            window, button, role=slint_testing.AccessibleRole.Button
+        ).invoke_accessible_default_action()
+        snapshot.wait_for_applied(expected, relative_path=source)
+
+        press_shortcut(window, keys.Control, "z")
+        snapshot.wait_for_applied(baseline, relative_path=source)
+
+
+@pytest.mark.parametrize(
+    ("source", "row", "button"),
+    [
+        (TAB_SOURCE, "tabs", "Remove Tab"),
+        (RADIO_GROUP_SOURCE, "group", "Remove Radio Button"),
+    ],
+    ids=("tab-widget", "radio-group"),
+)
+def test_remove_child_is_hidden_for_other_elements(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    source: str,
+    row: str,
+    button: str,
+) -> None:
+    source_file = fixture_project / source
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        wait_for_source(source_file, source_file.read_bytes())
+        window = first_window(editor)
+        select_outline_row(window, row)
+        expect(
+            query(window, button, role=slint_testing.AccessibleRole.Button)
+        ).to_be_hidden()
