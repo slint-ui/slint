@@ -71,6 +71,7 @@ pub struct EventLoopState {
     /// Set while `pump_events` runs.
     pump: Option<PumpState>,
     /// Set from the first `pump_events` of a run until it returns `PumpStatus::Exit`.
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     pump_run_active: bool,
 
     custom_application_handler: Option<Box<dyn crate::CustomApplicationHandler>>,
