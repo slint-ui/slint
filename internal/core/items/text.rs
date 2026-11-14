@@ -1534,6 +1534,25 @@ impl Item for TextInput {
                     return KeyEventResult::EventIgnored;
                 }
 
+                // Like QLineEdit, any input replaces the selection right away,
+                // including a composition that isn't committed yet.
+                let replaces_range =
+                    event.replacement_range.as_ref().is_some_and(|r| !r.is_empty());
+                let commits = !event.key_event.text.is_empty();
+                let composes = !event.preedit_text.is_empty()
+                    && self.accept_text_input(&event.preedit_text, window_adapter);
+                if !replaces_range && (commits || composes) {
+                    self.delete_selection(
+                        window_adapter,
+                        self_rc,
+                        if commits {
+                            TextChangeNotify::SkipCallbacks
+                        } else {
+                            TextChangeNotify::TriggerCallbacks
+                        },
+                    );
+                }
+
                 let cursor = self.cursor_position(&self.text()) as i32;
                 self.preedit_text.set(event.preedit_text.clone());
                 self.preedit_selection.set(event.preedit_selection.clone().into());
