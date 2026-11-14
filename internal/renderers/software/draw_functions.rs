@@ -13,13 +13,13 @@ use crate::scene::{
 };
 #[cfg(any(test, feature = "image-pixel-format-rgb565"))]
 use crate::target_pixel::Rgb565Pixel;
-use crate::target_pixel::{PremultipliedRgbaColor, TargetPixel};
+use crate::target_pixel::{PremultipliedRgbaColor, RGBA_CHUNK, RgbaTexel, TargetPixel};
 #[cfg(test)]
 use crate::target_pixel::{Rgb565BigEndianPixel, dither_rgb565};
 use derive_more::{Add, Mul, Sub};
 #[cfg(test)]
 use i_slint_core::graphics::Rgb8Pixel;
-use i_slint_core::graphics::TexturePixelFormat;
+use i_slint_core::graphics::{Rgba8Pixel, TexturePixelFormat};
 use i_slint_core::lengths::{PointLengths, SizeLengths};
 use i_slint_core::{Color, InternalToken};
 #[allow(unused_imports)]
@@ -93,11 +93,22 @@ pub(super) fn draw_texture_line(
         end = end.min(len);
         let mut begin = 0;
         let row_fract = row.fract();
-        let contiguous = delta == Fixed::from_integer(1)
-            && alpha == 0xff
-            && has_contiguous_path(format, colorize);
+        let contiguous =
+            delta == Fixed::from_integer(1) && alpha == 0xff && has_contiguous_path(format);
+        let rgba = colorize.alpha() == 0
+            && matches!(format, TexturePixelFormat::Rgba | TexturePixelFormat::RgbaPremultiplied);
         while begin < len {
-            if contiguous {
+            if rgba && delta == Fixed::from_integer(1) {
+                let row = &data.as_chunks::<4>().0[row_offset + pos.truncate() as usize..];
+                let (pixels, row) = (&mut line_buffer[begin..end], &row[..end - begin]);
+                if format == TexturePixelFormat::Rgba {
+                    let row: &[Rgba8Pixel] = bytemuck::cast_slice(row);
+                    TargetPixel::blend_rgba_slice(pixels, row, alpha, InternalToken);
+                } else {
+                    let row: &[PremultipliedRgbaColor] = bytemuck::cast_slice(row);
+                    TargetPixel::blend_rgba_slice(pixels, row, alpha, InternalToken);
+                }
+            } else if contiguous {
                 draw_contiguous_pixels(
                     &mut line_buffer[begin..end],
                     format,
@@ -204,17 +215,32 @@ pub(super) fn draw_texture_line(
         }
     };
 
-    fn has_contiguous_path(format: TexturePixelFormat, colorize: Color) -> bool {
+    /// Blends the texture pixels that `texel` returns one after the other.
+    fn fetch_blend_rgba<S: RgbaTexel>(
+        line_buffer: &mut [impl TargetPixel],
+        alpha: u8,
+        mut texel: impl FnMut() -> S,
+    ) {
+        let mut src = [S::zeroed(); RGBA_CHUNK];
+        for pixels in line_buffer.chunks_mut(RGBA_CHUNK) {
+            for p in &mut src[..pixels.len()] {
+                *p = texel();
+            }
+            TargetPixel::blend_rgba_slice(pixels, &src[..pixels.len()], alpha, InternalToken);
+        }
+    }
+
+    fn has_contiguous_path(format: TexturePixelFormat) -> bool {
         match format {
             TexturePixelFormat::Rgb => true,
             #[cfg(feature = "image-pixel-format-rgb565")]
             TexturePixelFormat::Rgb565 => true,
             #[cfg(feature = "image-pixel-format-gray8")]
             TexturePixelFormat::Gray8 => true,
-            TexturePixelFormat::Rgba | TexturePixelFormat::RgbaPremultiplied => {
-                colorize.alpha() == 0
-            }
-            TexturePixelFormat::AlphaMap | TexturePixelFormat::SignedDistanceField => false,
+            TexturePixelFormat::Rgba
+            | TexturePixelFormat::RgbaPremultiplied
+            | TexturePixelFormat::AlphaMap
+            | TexturePixelFormat::SignedDistanceField => false,
         }
     }
 
@@ -242,40 +268,11 @@ pub(super) fn draw_texture_line(
                     *pix = TargetPixel::from_rgb(v, v, v);
                 }
             }
-            TexturePixelFormat::Rgba => {
-                for (pix, p) in line_buffer.iter_mut().zip(src.as_chunks::<4>().0) {
-                    blend_rgba(pix, p[3], p);
-                }
-            }
-            TexturePixelFormat::RgbaPremultiplied => {
-                for (pix, p) in line_buffer.iter_mut().zip(src.as_chunks::<4>().0) {
-                    blend_premultiplied(pix, p);
-                }
-            }
-            TexturePixelFormat::AlphaMap | TexturePixelFormat::SignedDistanceField => {
+            TexturePixelFormat::Rgba
+            | TexturePixelFormat::RgbaPremultiplied
+            | TexturePixelFormat::AlphaMap
+            | TexturePixelFormat::SignedDistanceField => {
                 unreachable!("rejected by has_contiguous_path")
-            }
-        }
-    }
-
-    #[inline(always)]
-    fn blend_rgba(pix: &mut impl TargetPixel, alpha: u8, p: &[u8]) {
-        match alpha {
-            0 => {}
-            0xff => *pix = TargetPixel::from_rgb(p[0], p[1], p[2]),
-            a => pix.blend(PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
-                a, p[0], p[1], p[2],
-            ))),
-        }
-    }
-
-    #[inline(always)]
-    fn blend_premultiplied(pix: &mut impl TargetPixel, p: &[u8]) {
-        match p[3] {
-            0 => {}
-            0xff => *pix = TargetPixel::from_rgb(p[0], p[1], p[2]),
-            alpha => {
-                pix.blend(PremultipliedRgbaColor { alpha, red: p[0], green: p[1], blue: p[2] })
             }
         }
     }
@@ -291,17 +288,11 @@ pub(super) fn draw_texture_line(
     ) {
         match format {
             TexturePixelFormat::Rgb => {
-                for pix in line_buffer {
-                    let pos = pos(3).0;
-                    let p: &[u8] = &data[pos..pos + 3];
-                    if alpha == 0xff {
-                        *pix = TargetPixel::from_rgb(p[0], p[1], p[2]);
-                    } else {
-                        pix.blend(PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
-                            alpha, p[0], p[1], p[2],
-                        )))
-                    }
-                }
+                let texels = data.as_chunks::<3>().0;
+                fetch_blend_rgba(line_buffer, alpha, || {
+                    let [r, g, b] = texels[pos(3).0 / 3];
+                    Rgba8Pixel::new(r, g, b, 0xff)
+                })
             }
             #[cfg(feature = "image-pixel-format-rgb565")]
             TexturePixelFormat::Rgb565 => {
@@ -324,49 +315,21 @@ pub(super) fn draw_texture_line(
                     }
                 }
             }
-            TexturePixelFormat::Rgba => {
-                if color.alpha() == 0 {
-                    for pix in line_buffer {
-                        let pos = pos(4).0;
-                        let p: &[u8] = &data[pos..pos + 4];
-                        blend_rgba(pix, ((p[3] as u16 * alpha as u16) / 255) as u8, p);
-                    }
-                } else {
-                    let opaque = TargetPixel::from_rgb(color.red(), color.green(), color.blue());
-                    for pix in line_buffer {
-                        let pos = pos(4).0;
-                        let coverage = ((data[pos + 3] as u16 * alpha as u16) / 255) as u8;
-                        blend_coverage(pix, opaque, color, coverage);
-                    }
-                }
+            TexturePixelFormat::Rgba if color.alpha() == 0 => {
+                let texels: &[Rgba8Pixel] = bytemuck::cast_slice(data.as_chunks::<4>().0);
+                fetch_blend_rgba(line_buffer, alpha, || texels[pos(4).0 / 4])
             }
-            TexturePixelFormat::RgbaPremultiplied => {
-                if color.alpha() > 0 {
-                    let opaque = TargetPixel::from_rgb(color.red(), color.green(), color.blue());
-                    for pix in line_buffer {
-                        let pos = pos(4).0;
-                        let coverage = ((data[pos + 3] as u16 * alpha as u16) / 255) as u8;
-                        blend_coverage(pix, opaque, color, coverage);
-                    }
-                } else if alpha == 0xff {
-                    for pix in line_buffer {
-                        let pos = pos(4).0;
-                        blend_premultiplied(pix, &data[pos..pos + 4]);
-                    }
-                } else {
-                    for pix in line_buffer {
-                        let pos = pos(4).0;
-                        if data[pos + 3] == 0 {
-                            continue;
-                        }
-                        let c = PremultipliedRgbaColor {
-                            alpha: (data[pos + 3] as u16 * alpha as u16 / 255) as u8,
-                            red: (data[pos + 0] as u16 * alpha as u16 / 255) as u8,
-                            green: (data[pos + 1] as u16 * alpha as u16 / 255) as u8,
-                            blue: (data[pos + 2] as u16 * alpha as u16 / 255) as u8,
-                        };
-                        pix.blend(c);
-                    }
+            TexturePixelFormat::RgbaPremultiplied if color.alpha() == 0 => {
+                let texels: &[PremultipliedRgbaColor] =
+                    bytemuck::cast_slice(data.as_chunks::<4>().0);
+                fetch_blend_rgba(line_buffer, alpha, || texels[pos(4).0 / 4])
+            }
+            TexturePixelFormat::Rgba | TexturePixelFormat::RgbaPremultiplied => {
+                let opaque = TargetPixel::from_rgb(color.red(), color.green(), color.blue());
+                for pix in line_buffer {
+                    let pos = pos(4).0;
+                    let coverage = ((data[pos + 3] as u16 * alpha as u16) / 255) as u8;
+                    blend_coverage(pix, opaque, color, coverage);
                 }
             }
             TexturePixelFormat::AlphaMap => {

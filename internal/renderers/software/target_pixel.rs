@@ -3,7 +3,7 @@
 
 //! The pixels the software renderer draws into.
 
-use i_slint_core::graphics::Rgb8Pixel;
+use i_slint_core::graphics::{Rgb8Pixel, Rgba8Pixel};
 use i_slint_core::{Color, InternalToken};
 
 /// A color whose component have been pre-multiplied by alpha
@@ -73,6 +73,74 @@ pub trait TargetPixel: Sized + Copy {
     fn blend_dithered(&mut self, color: PremultipliedRgbaColor, _noise: u8, _: InternalToken) {
         self.blend(color)
     }
+
+    /// Blends `src`, pixels of an RGBA texture, at opacity `alpha`.
+    #[doc(hidden)]
+    #[inline]
+    fn blend_rgba_slice<S: RgbaTexel>(slice: &mut [Self], src: &[S], alpha: u8, _: InternalToken) {
+        for (pix, p) in slice.iter_mut().zip(src) {
+            p.blend_into(pix, alpha);
+        }
+    }
+}
+
+/// The number of pixels [`blend_rgba_slice_in_bulk`] classifies at a time.
+pub(crate) const RGBA_CHUNK: usize = 128;
+
+/// [`TargetPixel::blend_rgba_slice`] for the pixel types that blend opaque pixels faster in bulk,
+/// with `blend_opaque`: chunks that are all transparent are skipped, and those that are all opaque
+/// blended in one call.
+#[inline(always)]
+pub(crate) fn blend_rgba_slice_in_bulk<T: TargetPixel, S: RgbaTexel>(
+    slice: &mut [T],
+    src: &[S],
+    alpha: u8,
+    blend_opaque: impl Fn(&mut [T], &[Rgba8Pixel], u8),
+) {
+    if alpha == 0 {
+        return;
+    }
+    // The alpha is the last byte of both texel types: the top byte of a little-endian u32.
+    let to_u32 = |p: &S| u32::from_le_bytes(bytemuck::cast(*p));
+    for (slice, src) in slice.chunks_mut(RGBA_CHUNK).zip(src.chunks(RGBA_CHUNK)) {
+        // A chunk is all opaque or all transparent only if its first pixel is.
+        if src.first().is_some_and(|p| matches!(to_u32(p) >> 24, 0 | 0xff)) {
+            let (all, any) =
+                src.iter().map(to_u32).fold((!0, 0), |(all, any), p| (all & p, any | p));
+            if any >> 24 == 0 {
+                continue;
+            }
+            if all >> 24 == 0xff {
+                // Opaque pixels are the same with straight or premultiplied alpha.
+                blend_opaque(slice, bytemuck::cast_slice(src), alpha);
+                continue;
+            }
+        }
+        for (pix, p) in slice.iter_mut().zip(src) {
+            p.blend_into(pix, alpha);
+        }
+    }
+}
+
+#[inline]
+pub(crate) fn blend_opaque_per_pixel(
+    slice: &mut [impl TargetPixel],
+    src: &[Rgba8Pixel],
+    alpha: u8,
+) {
+    for (pix, p) in slice.iter_mut().zip(src) {
+        blend_rgba(pix, alpha, *p);
+    }
+}
+
+/// Blends `p`, ignoring its alpha, at opacity `alpha`.
+#[inline(always)]
+fn blend_rgba(pix: &mut impl TargetPixel, alpha: u8, p: Rgba8Pixel) {
+    match alpha {
+        0 => {}
+        0xff => *pix = TargetPixel::from_rgb(p.r, p.g, p.b),
+        a => pix.blend(PremultipliedRgbaColor::premultiply(Color::from_argb_u8(a, p.r, p.g, p.b))),
+    }
 }
 
 impl TargetPixel for Rgb8Pixel {
@@ -87,6 +155,10 @@ impl TargetPixel for Rgb8Pixel {
     #[inline]
     fn from_rgb(r: u8, g: u8, b: u8) -> Self {
         Self::new(r, g, b)
+    }
+
+    fn blend_rgba_slice<S: RgbaTexel>(slice: &mut [Self], src: &[S], alpha: u8, _: InternalToken) {
+        blend_rgba_slice_in_bulk(slice, src, alpha, blend_opaque_per_pixel)
     }
 }
 
@@ -147,6 +219,10 @@ impl TargetPixel for Rgb565Pixel {
     #[inline]
     fn blend_dithered(&mut self, color: PremultipliedRgbaColor, noise: u8, _: InternalToken) {
         self.blend(dither_rgb565(color, noise))
+    }
+
+    fn blend_rgba_slice<S: RgbaTexel>(slice: &mut [Self], src: &[S], alpha: u8, _: InternalToken) {
+        blend_rgba_slice_in_bulk(slice, src, alpha, blend_opaque_per_pixel)
     }
 }
 
@@ -230,6 +306,41 @@ impl From<Rgb8Pixel> for Rgb565BigEndianPixel {
 impl From<Rgb565BigEndianPixel> for Rgb8Pixel {
     fn from(p: Rgb565BigEndianPixel) -> Self {
         Rgb565Pixel(u16::from_be(p.0)).into()
+    }
+}
+
+/// A pixel of an RGBA texture, with straight or premultiplied alpha.
+#[doc(hidden)]
+pub trait RgbaTexel: bytemuck::Pod {
+    /// Blends this pixel onto `pix`, at opacity `alpha`.
+    fn blend_into(&self, pix: &mut impl TargetPixel, alpha: u8);
+}
+
+impl RgbaTexel for Rgba8Pixel {
+    #[inline(always)]
+    fn blend_into(&self, pix: &mut impl TargetPixel, alpha: u8) {
+        blend_rgba(pix, ((self.a as u16 * alpha as u16) / 255) as u8, *self);
+    }
+}
+
+impl RgbaTexel for PremultipliedRgbaColor {
+    #[inline(always)]
+    fn blend_into(&self, pix: &mut impl TargetPixel, alpha: u8) {
+        if alpha == 0xff {
+            match self.alpha {
+                0 => {}
+                0xff => *pix = TargetPixel::from_rgb(self.red, self.green, self.blue),
+                _ => pix.blend(*self),
+            }
+        } else if self.alpha != 0 {
+            let scale = |c: u8| (c as u16 * alpha as u16 / 255) as u8;
+            pix.blend(PremultipliedRgbaColor {
+                alpha: scale(self.alpha),
+                red: scale(self.red),
+                green: scale(self.green),
+                blue: scale(self.blue),
+            });
+        }
     }
 }
 
