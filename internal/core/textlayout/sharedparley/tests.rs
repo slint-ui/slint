@@ -3,7 +3,7 @@
 
 // cSpell: ignore bidi
 
-use super::shaping::paragraph_ranges;
+use super::shaping::{TextParagraph, create_text_paragraphs, paragraph_ranges};
 use super::*;
 
 fn paragraphs(text: &str) -> Vec<&str> {
@@ -44,6 +44,7 @@ fn layout_text_with_builder(
         &mut font_ctx,
         PlainOrStyledText::Plain(text.into()),
         Color::default(),
+        Vec::new(),
     );
     layout(&builder, &mut font_ctx, paragraphs, ScaleFactor::new(1.0), options, None)
 }
@@ -70,8 +71,111 @@ fn styled_text_across_a_line_break_shapes() {
         &mut test_font_context(),
         PlainOrStyledText::Styled(text),
         Color::default(),
+        Vec::new(),
     );
     assert_eq!(paragraphs.len(), 2);
+}
+
+/// Shapes `text` after `previous`, with `builder`: the paragraphs, and how many were shaped
+/// rather than kept.
+fn shape_after(
+    builder: &super::shaping::LayoutWithoutLineBreaksBuilder,
+    font_ctx: &mut FontContext,
+    text: PlainOrStyledText,
+    previous: Vec<TextParagraph>,
+) -> (Vec<TextParagraph>, usize) {
+    let before = super::shaping::SHAPED_PARAGRAPHS.with(|shaped| shaped.get());
+    let paragraphs = create_text_paragraphs(builder, font_ctx, text, Color::default(), previous);
+    (paragraphs, super::shaping::SHAPED_PARAGRAPHS.with(|shaped| shaped.get()) - before)
+}
+
+fn plain(text: &str) -> PlainOrStyledText {
+    PlainOrStyledText::Plain(text.into())
+}
+
+fn styled(markdown: &str) -> PlainOrStyledText {
+    PlainOrStyledText::Styled(crate::styled_text::StyledText::from_markdown(markdown).unwrap())
+}
+
+/// Each paragraph's byte range and the width of each of its lines, laid out at `width`.
+fn laid_out(
+    builder: &super::shaping::LayoutWithoutLineBreaksBuilder,
+    font_ctx: &mut FontContext,
+    paragraphs: Vec<TextParagraph>,
+) -> Vec<(core::ops::Range<usize>, Vec<f32>)> {
+    let options =
+        LayoutOptions { max_width: Some(LogicalLength::new(60.)), ..LayoutOptions::default() };
+    let layout = layout(builder, font_ctx, paragraphs, ScaleFactor::new(1.0), options, None);
+    layout
+        .paragraphs
+        .iter()
+        .map(|p| (p.range.clone(), p.layout.lines().map(|line| line.metrics().advance).collect()))
+        .collect()
+}
+
+#[test]
+fn text_that_grows_shapes_only_what_is_new() {
+    let builder = super::shaping::wrap_builder_for_tests();
+    let font_ctx = &mut test_font_context();
+    let (first, shaped) =
+        shape_after(&builder, font_ctx, plain("one\ntwo words\nthree"), Vec::new());
+    assert_eq!(shaped, 3);
+    let grown = "one\ntwo words\nthree and more words\nfour";
+    let (kept, shaped) = shape_after(&builder, font_ctx, plain(grown), first);
+    // The last paragraph grew and one is new; the first two are kept.
+    assert_eq!(shaped, 2);
+    let (fresh, _) = shape_after(&builder, font_ctx, plain(grown), Vec::new());
+    assert_eq!(laid_out(&builder, font_ctx, kept), laid_out(&builder, font_ctx, fresh));
+}
+
+#[test]
+fn a_kept_paragraph_moves_with_the_text_before_it() {
+    let builder = super::shaping::plain_builder_for_tests();
+    let font_ctx = &mut test_font_context();
+    let (first, _) = shape_after(&builder, font_ctx, plain("aaaa\nb"), Vec::new());
+    let (kept, shaped) = shape_after(&builder, font_ctx, plain("a\nb"), first);
+    assert_eq!(shaped, 1);
+    assert_eq!(kept.iter().map(|p| p.range.clone()).collect::<Vec<_>>(), [0..1, 2..3]);
+}
+
+#[test]
+fn a_paragraph_restyled_is_shaped_again() {
+    let builder = super::shaping::plain_builder_for_tests();
+    let font_ctx = &mut test_font_context();
+    let (first, _) = shape_after(&builder, font_ctx, styled("a\\\nb"), Vec::new());
+    let (_, shaped) = shape_after(&builder, font_ctx, styled("**a**\\\nb"), first);
+    assert_eq!(shaped, 1);
+}
+
+#[test]
+fn text_that_grows_measures_only_what_is_new() {
+    let font_ctx = &mut test_font_context();
+    let builder = super::shaping::wrap_builder_for_tests();
+    let measure = |font_ctx: &mut FontContext, text, previous| {
+        let before = super::shaping::SHAPED_PARAGRAPHS.with(|shaped| shaped.get());
+        let widths = super::shaping::paragraph_widths(&builder, font_ctx, plain(text), previous);
+        (widths, super::shaping::SHAPED_PARAGRAPHS.with(|shaped| shaped.get()) - before)
+    };
+    let (first, shaped) = measure(font_ctx, "one\ntwo words", Vec::new());
+    assert_eq!(shaped, 2);
+    let grown = "one\ntwo words\na much longer third paragraph";
+    let (kept, shaped) = measure(font_ctx, grown, first);
+    assert_eq!(shaped, 1);
+    let (fresh, _) = measure(font_ctx, grown, Vec::new());
+    let widths = |widths: &[super::shaping::ParagraphWidths]| {
+        widths.iter().map(|p| (p.min, p.max)).collect::<Vec<_>>()
+    };
+    assert_eq!(widths(&kept), widths(&fresh));
+}
+
+#[test]
+fn another_builder_shapes_everything_again() {
+    let font_ctx = &mut test_font_context();
+    let plain_builder = super::shaping::plain_builder_for_tests();
+    let (first, _) = shape_after(&plain_builder, font_ctx, plain("a\nb"), Vec::new());
+    let wrap_builder = super::shaping::wrap_builder_for_tests();
+    let (_, shaped) = shape_after(&wrap_builder, font_ctx, plain("a\nb"), first);
+    assert_eq!(shaped, 2);
 }
 
 #[test]
