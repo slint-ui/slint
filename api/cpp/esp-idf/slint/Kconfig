@@ -20,4 +20,21 @@ menu "Slint"
         default 8192
         depends on SLINT_RENDER_ON_SECOND_CORE
 
+    config SLINT_TRACING
+        bool "Record tracing spans and send them over the console"
+        default n
+        help
+            Records the tracing spans of the Slint runtime, such as walking the item tree
+            and drawing each item, for 5 seconds starting 2 seconds after start-up. Then
+            sends them over the console, which blocks the UI until done.
+            Capture them with `idf.py trace`, which opens the result in Tracy.
+
+    config SLINT_LOG_FRAME_STATS
+        bool "Log frame statistics every second"
+        default n
+        help
+            Logs how many frames were rendered in the last second, and how long rendering and
+            presenting took on average. Compare a build with SLINT_TRACING to one without to see
+            how much tracing slows rendering down.
+
 endmenu

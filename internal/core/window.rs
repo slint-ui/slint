@@ -860,6 +860,7 @@ impl WindowInner {
     /// and the instantiation pass in a loop because init callbacks may set
     /// properties that trigger change handlers, and change handlers may
     /// make new conditionals/repeaters dirty.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn ensure_tree_instantiated(&self) {
         // Instantiation runs first so that ListView's ensure_updated_listview
         // sees the model property before any change handler can reset it.
@@ -2007,6 +2008,7 @@ impl WindowInner {
     /// of any item tree.
     ///
     /// Returns None if no component is set yet.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn draw_contents<T>(
         &self,
         render_components: impl FnOnce(

@@ -3505,6 +3505,7 @@ dependencies = [
  "tiny-skia 0.12.0",
  "tokio",
  "tr",
+ "tracing",
  "ttf-parser",
  "unicode-linebreak",
  "unicode-script",
@@ -3695,6 +3696,7 @@ dependencies = [
  "num-traits",
  "skrifa",
  "swash",
+ "tracing",
  "zeno",
 ]
 
@@ -7369,6 +7371,7 @@ dependencies = [
  "proc-macro2",
  "raw-window-handle",
  "slint-interpreter",
+ "tracing",
 ]
 
 [[package]]
