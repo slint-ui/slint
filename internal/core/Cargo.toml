@@ -77,7 +77,7 @@ shared-fontique = ["i-slint-common/shared-fontique"]
 # On Linux this builds against fontconfig.
 system-fonts = ["i-slint-common/system-fonts", "parley?/system"]
 
-# Dictionary and LSTM based line breaking for Chinese, Japanese, Thai, Lao, Khmer and Burmese.
+# Dictionary based line breaking for Chinese, Japanese, Thai, Lao, Khmer and Burmese.
 # This adds several MB to the binary. It has no effect on wasm, which never includes it.
 complex-scripts = ["i-slint-common/complex-scripts"]
 
