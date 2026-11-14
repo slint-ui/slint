@@ -290,7 +290,7 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
                 );
                 &mut nine_slice_fits
             } else {
-                single_fit = std::iter::once(i_slint_core::graphics::fit(
+                single_fit = i_slint_core::graphics::fit(
                     image_fit,
                     dest_size,
                     image
@@ -299,7 +299,8 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
                     self.scale_factor,
                     image.alignment(),
                     tiling,
-                ));
+                )
+                .into_iter();
                 &mut single_fit
             };
 

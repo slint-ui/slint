@@ -1757,6 +1757,8 @@ impl RemEuclid for f32 {
 }
 
 /// Return an FitResult that can be used to render an image in a buffer that matches a given ImageFit
+///
+/// Returns `None` when `source_rect` is empty, as there's nothing to draw.
 pub fn fit(
     image_fit: ImageFit,
     target: euclid::Size2D<f32, PhysicalPx>,
@@ -1764,36 +1766,41 @@ pub fn fit(
     scale_factor: ScaleFactor,
     alignment: (ImageHorizontalAlignment, ImageVerticalAlignment),
     tiling: (ImageTiling, ImageTiling),
-) -> FitResult {
+) -> Option<FitResult> {
+    if source_rect.is_empty() {
+        return None;
+    }
     let has_tiling = tiling != (ImageTiling::None, ImageTiling::None);
     let o = source_rect.size.cast::<f32>();
     let ratio = match image_fit {
         // If there is any tiling, we ignore image_fit
         _ if has_tiling => scale_factor.get(),
         ImageFit::Fill => {
-            return FitResult {
+            return Some(FitResult {
                 clip_rect: source_rect,
                 source_to_target_x: target.width / o.width,
                 source_to_target_y: target.height / o.height,
                 size: target,
                 offset: Default::default(),
                 tiled: None,
-            };
+            });
         }
         ImageFit::Preserve => scale_factor.get(),
         ImageFit::Contain => f32::min(target.width / o.width, target.height / o.height),
         ImageFit::Cover => f32::max(target.width / o.width, target.height / o.height),
     };
 
-    FitResult {
-        clip_rect: source_rect,
-        source_to_target_x: ratio,
-        source_to_target_y: ratio,
-        size: target,
-        offset: euclid::Point2D::default(),
-        tiled: None,
-    }
-    .adjust_for_tiling(ratio, alignment, tiling)
+    Some(
+        FitResult {
+            clip_rect: source_rect,
+            source_to_target_x: ratio,
+            source_to_target_y: ratio,
+            size: target,
+            offset: euclid::Point2D::default(),
+            tiled: None,
+        }
+        .adjust_for_tiling(ratio, alignment, tiling),
+    )
 }
 
 /// The pixel size a scalable image (an SVG) needs to be rasterized at to fill `target`
@@ -1808,10 +1815,6 @@ pub fn scalable_render_size(
     scale_factor: ScaleFactor,
     tiling: (ImageTiling, ImageTiling),
 ) -> Option<euclid::Size2D<u32, PhysicalPx>> {
-    let source = source_size.cast::<f32>();
-    if source.is_empty() {
-        return None;
-    }
     let fit = fit(
         image_fit,
         target,
@@ -1820,7 +1823,8 @@ pub fn scalable_render_size(
         // Only the size is of interest here, so the alignment doesn't matter.
         Default::default(),
         tiling,
-    );
+    )?;
+    let source = source_size.cast::<f32>();
     let size = euclid::size2(
         (source.width * fit.source_to_target_x) as u32,
         (source.height * fit.source_to_target_y) as u32,
