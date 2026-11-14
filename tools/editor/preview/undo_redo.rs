@@ -183,7 +183,7 @@ pub fn setup(api: &ui::Api<'_>) {
 }
 
 pub(super) fn edit_pending(state: &super::PreviewState) -> bool {
-    state.workspace_edit_sent || state.fill_refresh.is_some()
+    state.workspace_edit_sent
 }
 
 pub(super) fn apply_pending() {

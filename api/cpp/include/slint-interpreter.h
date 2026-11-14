@@ -600,11 +600,11 @@ public:
     /// Returns the Window associated with this component. The window API can be used
     /// to control different aspects of the integration into the windowing system,
     /// such as the position on the screen.
-    const slint::Window &window() const
+    slint::Window &window() const
     {
         const cbindgen_private::WindowAdapterRcOpaque *win_ptr = nullptr;
         cbindgen_private::slint_interpreter_component_instance_window(inner(), &win_ptr);
-        return *reinterpret_cast<const slint::Window *>(win_ptr);
+        return *const_cast<slint::Window *>(reinterpret_cast<const slint::Window *>(win_ptr));
     }
     /// This is a convenience function that first calls show(), followed by
     /// slint::run_event_loop() and hide().
@@ -881,9 +881,10 @@ public:
         return u.result;
     }
 
-    /// Returns a vector of PropertyDescriptor instances that describe the list of
-    /// public properties that can be read and written using ComponentInstance::set_property and
-    /// ComponentInstance::get_property.
+    /// Returns a vector of PropertyDescriptor instances that describe the public properties
+    /// declared at the root of the component, excluding inherited ones.
+    /// Read and write them using ComponentInstance::get_property and
+    /// ComponentInstance::set_property.
     slint::SharedVector<PropertyDescriptor> properties() const
     {
         slint::SharedVector<PropertyDescriptor> props;
@@ -891,8 +892,10 @@ public:
         return props;
     }
 
-    /// Returns a vector of strings that describe the list of public callbacks that can be invoked
-    /// using ComponentInstance::invoke and set using ComponentInstance::set_callback.
+    /// Returns the names of the callbacks declared at the root of the component,
+    /// excluding inherited ones.
+    /// Invoke them using ComponentInstance::invoke,
+    /// and set their handlers using ComponentInstance::set_callback.
     slint::SharedVector<slint::SharedString> callbacks() const
     {
         slint::SharedVector<slint::SharedString> callbacks;
@@ -900,8 +903,9 @@ public:
         return callbacks;
     }
 
-    /// Returns a vector of strings that describe the list of public functions that can be invoked
-    /// using ComponentInstance::invoke.
+    /// Returns the names of the public functions declared at the root of the component,
+    /// excluding inherited ones.
+    /// Invoke them using ComponentInstance::invoke.
     slint::SharedVector<slint::SharedString> functions() const
     {
         slint::SharedVector<slint::SharedString> functions;

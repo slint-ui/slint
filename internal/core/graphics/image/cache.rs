@@ -173,6 +173,14 @@ impl ImageCache {
     }
 }
 
+/// Returns the image cached for the given key, if any.
+pub fn lookup_cached_image(key: &ImageCacheKey) -> Option<ImageInner> {
+    if *key == ImageCacheKey::Invalid {
+        return None;
+    }
+    IMAGE_CACHE.with(|global_cache| global_cache.borrow_mut().0.get(key).cloned())
+}
+
 /// Replace the cached image key with the given value
 pub fn replace_cached_image(key: ImageCacheKey, value: ImageInner) {
     if key == ImageCacheKey::Invalid {

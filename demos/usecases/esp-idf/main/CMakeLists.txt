@@ -8,7 +8,7 @@ idf_component_register(
     REQUIRES esp32_p4_function_ev_board_noglib slint
 )
 
-slint_target_sources(${COMPONENT_LIB} ../../ui/app.slint)
+slint_target_sources(${COMPONENT_LIB} ../../slint-project.json)
 set_target_properties(${COMPONENT_LIB} PROPERTIES
     SLINT_TRANSLATION_DOMAIN usecases
     SLINT_BUNDLE_TRANSLATIONS "${CMAKE_CURRENT_SOURCE_DIR}/../../lang"

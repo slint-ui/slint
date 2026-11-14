@@ -65,7 +65,7 @@ const PLAIN: &str = "export component Main inherits Window { }";
 fn include_paths_come_from_the_project_file() {
     for manifest in [false, true] {
         let project = Project::new(Some(
-            r#"{ "edition": "1.19", "main": "main.slint", "include-paths": ["include"] }"#,
+            r#"{ "edition": "1.20", "main": "main.slint", "include-paths": ["include"] }"#,
         ));
         project.write("include/shared.slint", "export component Shared { }");
         project.write("main.slint", IMPORTS_SHARED);
@@ -79,7 +79,7 @@ fn include_paths_come_from_the_project_file() {
 fn an_include_path_argument_comes_before_the_project_file_paths() {
     for manifest in [false, true] {
         let project = Project::new(Some(
-            r#"{ "edition": "1.19", "main": "main.slint", "include-paths": ["include"] }"#,
+            r#"{ "edition": "1.20", "main": "main.slint", "include-paths": ["include"] }"#,
         ));
         project.write("include/shared.slint", "export component Shared { }");
         project.write("include/project-only.slint", "export component ProjectOnly { }");
@@ -104,7 +104,7 @@ fn an_include_path_argument_comes_before_the_project_file_paths() {
 #[test]
 fn a_library_path_argument_replaces_the_project_library_of_the_same_name() {
     let project = Project::new(Some(
-        r#"{ "edition": "1.19", "main": "main.slint", "library-paths": {"widgets": "widgets.slint", "icons": "icons.slint"} }"#,
+        r#"{ "edition": "1.20", "main": "main.slint", "library-paths": {"widgets": "widgets.slint", "icons": "icons.slint"} }"#,
     ));
     project.write("widgets.slint", "export component Widget { }");
     project.write(
@@ -128,7 +128,7 @@ fn a_library_path_argument_replaces_the_project_library_of_the_same_name() {
 fn library_paths_come_from_the_project_file() {
     for manifest in [false, true] {
         let project = Project::new(Some(
-            r#"{ "edition": "1.19", "main": "main.slint", "library-paths": {"widgets": "widgets.slint"} }"#,
+            r#"{ "edition": "1.20", "main": "main.slint", "library-paths": {"widgets": "widgets.slint"} }"#,
         ));
         project.write("widgets.slint", "export component Widget { }");
         project.write(
@@ -159,7 +159,7 @@ fn an_unreadable_project_file_is_reported() {
 fn the_project_file_is_a_dependency_in_the_depfile() {
     for manifest in [false, true] {
         let project = Project::new(Some(
-            r#"{ "edition": "1.19", "main": "main.slint", "include-paths": ["include"] }"#,
+            r#"{ "edition": "1.20", "main": "main.slint", "include-paths": ["include"] }"#,
         ));
         project.write("main.slint", PLAIN);
         let depfile = project.root.join("generated.d");
@@ -191,7 +191,7 @@ fn compiling_without_a_project_file_works() {
 fn a_project_directory_compiles_its_main_file() {
     for manifest in [false, true] {
         let project = Project::new(Some(
-            r#"{ "edition": "1.19", "main": "ui/main.slint", "include-paths": ["include"] }"#,
+            r#"{ "edition": "1.20", "main": "ui/main.slint", "include-paths": ["include"] }"#,
         ));
         project.write("include/shared.slint", "export component Shared { }");
         let main = project.write("ui/main.slint", IMPORTS_SHARED);
@@ -216,7 +216,7 @@ fn a_project_directory_compiles_its_main_file() {
 #[test]
 fn a_project_directory_without_a_main_file_is_reported() {
     for manifest in [false, true] {
-        let project = Project::new(Some(r#"{"edition":"1.19"}"#));
+        let project = Project::new(Some(r#"{"edition":"1.20"}"#));
 
         let output = project.compile(&project.input(manifest), &[]);
         assert!(!output.status.success());
@@ -227,7 +227,7 @@ fn a_project_directory_without_a_main_file_is_reported() {
 #[cfg(feature = "slint-sc")]
 #[test]
 fn slint_sc_rejects_project_inputs() {
-    let project = Project::new(Some(r#"{"edition":"1.19","main":"main.slint"}"#));
+    let project = Project::new(Some(r#"{"edition":"1.20","main":"main.slint"}"#));
     project.write("main.slint", PLAIN);
     for manifest in [false, true] {
         let output = Command::new(env!("CARGO_BIN_EXE_slint-compiler"))
@@ -256,7 +256,7 @@ fn a_slint_file_does_not_load_an_adjacent_project_file() {
 #[cfg(feature = "python")]
 #[test]
 fn generated_python_loads_the_project_directory_it_was_generated_from() {
-    let project = Project::new(Some(r#"{ "edition": "1.19", "main": "ui/main.slint" }"#));
+    let project = Project::new(Some(r#"{ "edition": "1.20", "main": "ui/main.slint" }"#));
     project.write("ui/main.slint", PLAIN);
     let generated = project.root.join("app_window.py");
     std::fs::write(&generated, "").unwrap();
@@ -294,7 +294,7 @@ fn an_edition_before_a_behavior_change_warns() {
         assert_eq!(message.matches(warning).count(), 1, "{message}");
         assert!(message.contains("slint-project.json"), "{message}");
 
-        let project = Project::new(Some(r#"{ "edition": "1.19", "main": "main.slint" }"#));
+        let project = Project::new(Some(r#"{ "edition": "1.20", "main": "main.slint" }"#));
         project.write("main.slint", PLAIN);
         let output = project.compile(&project.input(manifest), &[]);
         assert!(output.status.success(), "{}", stderr(&output));
@@ -324,7 +324,11 @@ fn the_edition_option_wins_over_the_project_file() {
 fn an_invalid_edition_option_is_rejected() {
     let project = Project::new(None);
     let main = project.write("main.slint", PLAIN);
-    for (edition, message) in [("1.19.0", "is not a Slint edition"), ("999.0", "is newer than")] {
+    for (edition, message) in [
+        ("1.19.0", "is not a Slint edition"),
+        ("1.17", "older than 1.18"),
+        ("999.0", "newer than Slint"),
+    ] {
         let output = project.compile(&main, &["--edition", edition]);
         assert!(!output.status.success(), "{}", stderr(&output));
         assert!(stderr(&output).contains(message), "{}", stderr(&output));

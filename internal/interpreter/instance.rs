@@ -175,13 +175,9 @@ pub struct SubComponentInstance {
     pub parent: Weak<SubComponentInstance>,
     /// Back-reference to the owning root, populated right after construction.
     pub root: OnceCell<VWeak<ItemTreeVTable, Instance>>,
-    /// Change trackers for the timers (two per timer, first) and the
-    /// `change_callbacks` (in declaration order, after).
+    /// One change tracker per entry of the LLR `change_callbacks`.
     pub change_trackers: Vec<ChangeTracker>,
-    /// Per-sub-component runtime `Timer`s, one per `SubComponent::timers`
-    /// entry. Owned here so they stay alive with the instance; their
-    /// lifecycle (start / stop / interval) is driven by a change tracker
-    /// that re-evaluates the LLR `running` / `interval` expressions.
+    /// One runtime `Timer` per `SubComponent::timers` entry.
     pub timers: Vec<i_slint_core::timers::Timer>,
     /// One entry per `SubComponent::popup_windows`. Stores the currently
     /// open popup's id (handed out by `WindowInner::show_popup`) so a
@@ -236,7 +232,7 @@ pub struct Instance {
     pub window_attached: OnceCell<()>,
     window_attachment_disabled: bool,
     /// Set once `bindings::install_bindings_only` has wired up property
-    /// bindings, two-way links and timers. Idempotent on repeated calls.
+    /// bindings, two-way links and change trackers. Idempotent on repeated calls.
     pub bindings_installed: OnceCell<()>,
     /// Set once the user-facing `init_code` has run on this instance. Kept
     /// separate from `bindings_installed` so the listview-virtualization
@@ -879,8 +875,8 @@ pub(crate) fn finalize_instance(vrc: &VRc<ItemTreeVTable, Instance>) {
     crate::bindings::run_init_code_for_instance(vrc);
 }
 
-/// Everything [`finalize_instance`] does except running `init_code`:
-/// `Item::init()`, bindings, two-way links and timers.
+/// Everything [`finalize_instance`] does except running `init_code` and starting the timers:
+/// `Item::init()`, bindings, two-way links and change trackers.
 pub(crate) fn init_items_and_bindings(vrc: &VRc<ItemTreeVTable, Instance>) {
     if vrc.bindings_installed.get().is_some() {
         return;
@@ -966,7 +962,7 @@ fn build_sub_component_instance(
             parent,
             root: OnceCell::new(),
             change_trackers: core::iter::repeat_with(ChangeTracker::default)
-                .take(2 * sc.timers.len() + sc.change_callbacks.len())
+                .take(sc.change_callbacks.len())
                 .collect(),
             timers: core::iter::repeat_with(Default::default).take(sc.timers.len()).collect(),
             popup_ids: vec![Cell::new(None); sc.popup_windows.len()],

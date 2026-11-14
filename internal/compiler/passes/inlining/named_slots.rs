@@ -363,6 +363,7 @@ export component PopupSuppliedForPopup inherits Window {
         let doc_node = crate::parser::parse(
             source.into(),
             Some(crate::source_path::SourcePath::new("test.slint")),
+            None,
             &mut diag,
         );
         let (doc, diag, _) =

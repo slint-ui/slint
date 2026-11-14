@@ -19,12 +19,6 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
 
     let cpp_namespace = test_driver_lib::extract_cpp_namespace(&source);
 
-    let mut diag = BuildDiagnostics::default();
-    let syntax_node = parser::parse(
-        source.clone(),
-        Some(i_slint_compiler::source_path::SourcePath::new(&testcase.absolute_path)),
-        &mut diag,
-    );
     let output_format = generator::OutputFormat::Cpp(generator::cpp::Config {
         namespace: cpp_namespace,
         ..Default::default()
@@ -49,8 +43,12 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         compiler_config.default_translation_context =
             i_slint_compiler::DefaultTranslationContext::None;
     }
-    let (root_component, diag, loader) =
-        spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
+    let (root_component, diag, loader) = spin_on::spin_on(compile_source(
+        &i_slint_compiler::source_path::SourcePath::new(&testcase.absolute_path),
+        source.clone(),
+        BuildDiagnostics::default(),
+        compiler_config,
+    ));
 
     if diag.has_errors() {
         let vec = diag.to_string_vec();

@@ -3,22 +3,46 @@
 
 // Test that having the model being dirty doesn't re-create items
 // Only actually changing the model does.
+// A row changing while the model is dirty still updates its item,
+// and doesn't keep the old items when the model changes.
 
 export component TestCase inherits Window {
+    width: 100phx;
+    height: 10phx;
     property <{xx: int, model :[string]}> model: { model: ["AA", "BB"] };
     in-out property <string> result ;
+    out property <string> clicked-row;
     public function mark_dirty() {
         model.xx += 1;
+    }
+    public function mark_dirty_and_change_row() {
+        model.xx += 1;
+        model.model[0] = "DD";
     }
     public function change() {
         model.model = ["CC"];
     }
+    property <[string]> list-a: ["P1", "P2"];
+    property <[string]> list-b: ["Q1", "Q2"];
+    public function show_list_a() {
+        model.model = list-a;
+    }
+    public function change_model_and_old_row() {
+        model.model = list-b;
+        list-a[0] = "R";
+    }
+    public function change_new_row() {
+        list-b[1] = "Q3";
+    }
 
     HorizontalLayout {
         Rectangle {}
-        for m in model.model : Rectangle {
+        for m in model.model : TouchArea {
             init => {
                 result += "Init '" + m + "' (" + model.xx + ")\n";
+            }
+            clicked => {
+                clicked-row = m;
             }
         }
     }
@@ -44,6 +68,23 @@ instance.set_result("".into());
 instance.invoke_mark_dirty();
 slint_testing::send_mouse_click(&instance, 15., 5.);
 assert_eq!(instance.get_result(), "");
+slint_testing::send_mouse_click(&instance, 75., 5.);
+assert_eq!(instance.get_clicked_row(), "CC");
+instance.invoke_mark_dirty_and_change_row();
+slint_testing::send_mouse_click(&instance, 75., 5.);
+assert_eq!(instance.get_clicked_row(), "DD");
+assert_eq!(instance.get_result(), "");
+instance.invoke_show_list_a();
+slint_testing::send_mouse_click(&instance, 85., 5.);
+assert_eq!(instance.get_clicked_row(), "P2");
+instance.invoke_change_model_and_old_row();
+slint_testing::send_mouse_click(&instance, 50., 5.);
+assert_eq!(instance.get_clicked_row(), "Q1");
+slint_testing::send_mouse_click(&instance, 85., 5.);
+assert_eq!(instance.get_clicked_row(), "Q2");
+instance.invoke_change_new_row();
+slint_testing::send_mouse_click(&instance, 85., 5.);
+assert_eq!(instance.get_clicked_row(), "Q3");
 
 ```
 
@@ -66,6 +107,23 @@ instance.set_result("");
 instance.invoke_mark_dirty();
 slint_testing::send_mouse_click(&instance, 15., 5.);
 assert_eq(instance.get_result(), "");
+slint_testing::send_mouse_click(&instance, 75., 5.);
+assert_eq(instance.get_clicked_row(), "CC");
+instance.invoke_mark_dirty_and_change_row();
+slint_testing::send_mouse_click(&instance, 75., 5.);
+assert_eq(instance.get_clicked_row(), "DD");
+assert_eq(instance.get_result(), "");
+instance.invoke_show_list_a();
+slint_testing::send_mouse_click(&instance, 85., 5.);
+assert_eq(instance.get_clicked_row(), "P2");
+instance.invoke_change_model_and_old_row();
+slint_testing::send_mouse_click(&instance, 50., 5.);
+assert_eq(instance.get_clicked_row(), "Q1");
+slint_testing::send_mouse_click(&instance, 85., 5.);
+assert_eq(instance.get_clicked_row(), "Q2");
+instance.invoke_change_new_row();
+slint_testing::send_mouse_click(&instance, 85., 5.);
+assert_eq(instance.get_clicked_row(), "Q3");
 
 ```
 
@@ -87,6 +145,23 @@ instance.result = "";
 instance.mark_dirty();
 slintlib.private_api.send_mouse_click(instance, 15., 5.);
 assert.equal(instance.result, "");
+slintlib.private_api.send_mouse_click(instance, 75., 5.);
+assert.equal(instance.clicked_row, "CC");
+instance.mark_dirty_and_change_row();
+slintlib.private_api.send_mouse_click(instance, 75., 5.);
+assert.equal(instance.clicked_row, "DD");
+assert.equal(instance.result, "");
+instance.show_list_a();
+slintlib.private_api.send_mouse_click(instance, 85., 5.);
+assert.equal(instance.clicked_row, "P2");
+instance.change_model_and_old_row();
+slintlib.private_api.send_mouse_click(instance, 50., 5.);
+assert.equal(instance.clicked_row, "Q1");
+slintlib.private_api.send_mouse_click(instance, 85., 5.);
+assert.equal(instance.clicked_row, "Q2");
+instance.change_new_row();
+slintlib.private_api.send_mouse_click(instance, 85., 5.);
+assert.equal(instance.clicked_row, "Q3");
 ```
 */
 

@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+pub mod change_handlers;
 pub mod context_menu;
 pub mod menubar;
 pub mod platform_uses_mock_data;
@@ -14,7 +15,7 @@ use std::sync::{
 #[satchel::test]
 fn multiple_quit_event_loop_calls() {
     slint::slint! {
-        #[edition = "1.19"]
+        #[edition = "1.20"]
         export component App inherits Window {
             Text { text: "Hello"; }
         }

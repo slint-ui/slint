@@ -17,7 +17,7 @@ function projectDirectory(settings: object): string {
     );
     fs.writeFileSync(
         path.join(directory, "slint-project.json"),
-        JSON.stringify({ edition: "1.19", ...settings }),
+        JSON.stringify({ edition: "1.20", ...settings }),
     );
     return directory;
 }

@@ -69,11 +69,12 @@ impl AppHandler {
         }
     }
 
-    pub fn initialize_ui(&mut self) {
-        let window = AppWindow::new().expect("Cannot create main window!");
+    pub fn initialize_ui(&mut self) -> Result<(), slint::PlatformError> {
+        let window = AppWindow::new()?;
         self.weather_display_controller.initialize_ui(&window, self.support_add_city);
 
         self.window = Some(window);
+        Ok(())
     }
 
     pub fn run(&self) -> Result<(), slint::PlatformError> {

@@ -1,10 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
- TestCase := Rectangle {
-    property<angle> t1: acos(0);
-    property<angle> t2: acos(0.5);
-    property<angle> t3: acos(1);
+component TestCase inherits Rectangle {
+    out property<angle> t1: acos(0);
+    out property<angle> t2: acos(0.5);
+    out property<angle> t3: acos(1);
 }
 /*
 ```cpp

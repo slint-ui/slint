@@ -3,14 +3,14 @@
 
 // issue #177
 
-export TestCase := Window {
+export component TestCase inherits Window {
     width: 100px;
     height: 100px;
 
     callback clicked;
     clicked => { debug("Hello"); model= []; }
-    property <bool> hover: under.has-hover;
-    property<[int]> model: [1];
+    out property <bool> hover: under.has-hover;
+    in-out property<[int]> model: [1];
     VerticalLayout {
         under := TouchArea {
             VerticalLayout {

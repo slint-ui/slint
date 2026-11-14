@@ -46,9 +46,7 @@ test("radial panel fills survive conversion without baking in their children", a
         throw Error("Invalid panel fixture");
     expect(normalized.snapshot.root).toMatchObject({
         kind: "frame",
-        fills: [
-            { kind: "image", mimeType: "image/svg+xml", scaleMode: "STRETCH" },
-        ],
+        fills: [{ kind: "radial-gradient" }],
         children: [{ id: "row", kind: "rectangle" }],
     });
     expect(

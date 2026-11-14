@@ -18,10 +18,9 @@ a declarative GUI toolkit for desktop, embedded, mobile, and web.
    exact element/property/widget signatures, trust that version's docs over
    this file rather than guessing.
 2. After editing, check the compiler diagnostics.
-   An IDE with the Slint extension, Claude Code with `slint-lsp`, and Codex with `slint-viewer` report them after each edit.
-   Codex runs this plugin's hooks only once the user trusts them in `/hooks`.
-   Elsewhere, `slint-viewer --check ui/main.slint` compiles one file and prints diagnostics,
-   and `slint-viewer --screenshot` renders it (both `(1.17+)`; [debugging-and-mcp.md](reference/debugging-and-mcp.md)).
+   An IDE with the Slint extension or Claude Code with `slint-lsp` reports them after each edit.
+   With Slint 1.17 or later, run `slint-viewer --check ui/main.slint` to check a file directly.
+   See [debugging-and-mcp.md](reference/debugging-and-mcp.md) for details.
 3. Never declare UI work done without looking at a render — a screenshot for
    appearance, the MCP server for interactions. Review against
    [polish.md](reference/polish.md).
@@ -77,6 +76,7 @@ Skim the matching file *before* building in that area, not only when stuck.
 | [interop.md](reference/interop.md) | Connecting the UI to host-language logic (models, callbacks, globals). |
 | [polish.md](reference/polish.md) | The UI works but looks rough; reviewing a rendered screenshot. |
 | [debugging-and-mcp.md](reference/debugging-and-mcp.md) | Runtime debugging, headless/CI rendering, screenshots, the MCP server. |
+| [licensing.md](reference/licensing.md) | The user asks about the license, or builds a closed-source app. |
 | [web-embedding.md](reference/web-embedding.md) | Showing a live `.slint` preview in a web page, HTML report, or docs. |
 | [tools-install.md](tools-install.md) | Installing `slint-lsp` (language server) or `slint-viewer` (preview / screenshots). |
 

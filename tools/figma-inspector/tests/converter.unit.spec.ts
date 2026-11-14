@@ -385,15 +385,9 @@ describe("converter", () => {
         expect(spreadResult.ok).toBe(true);
         if (!spreadResult.ok) return;
         expect(spreadResult.source).toContain("drop-shadow-spread: -6px;");
-        expect(spreadResult.warnings).toEqual(
-            expect.arrayContaining([
-                expect.objectContaining({
-                    code: "FEMTOVG_SHADOW_SPREAD_UNSUPPORTED",
-                    originalValue: "-6px",
-                    category: "approximation",
-                }),
-            ]),
-        );
+        expect(
+            spreadResult.warnings.map((warning) => warning.code),
+        ).not.toContain("FEMTOVG_SHADOW_SPREAD_UNSUPPORTED");
 
         const rectangleRoot = {
             ...base.root,

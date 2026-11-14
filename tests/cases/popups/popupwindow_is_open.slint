@@ -7,11 +7,13 @@
 // The popups live inside reusable components that read their *own* `popup.is-open` internally (like a
 // ComboBox styling its arrow). `AutoDropdown` is instantiated twice, exercising the sub-component /
 // `parent_level` code path that a single root-level popup would not.
+// From inside a popup, `is-open` reads `true` (#14677).
 
 component AutoDropdown inherits Rectangle {
     width: 40px;
     height: 20px;
     out property <bool> open: popup.is-open;
+    out property <bool> inner-open;
 
     TouchArea {
         clicked => {
@@ -24,7 +26,22 @@ component AutoDropdown inherits Rectangle {
         y: 20px;
         width: 40px;
         height: 40px;
+        init => { root.inner-open = self.is-open; }
+        changed is-open => { debug(self.is-open); }
         Rectangle { background: blue; }
+    }
+}
+
+component ManualPopup inherits PopupWindow {
+    callback opened(bool);
+    close-policy: no-auto-close;
+    init => { self.opened(self.is-open); }
+    TouchArea {
+        width: 100%;
+        height: 100%;
+        clicked => {
+            root.close();
+        }
     }
 }
 
@@ -32,6 +49,7 @@ component ManualDropdown inherits Rectangle {
     width: 40px;
     height: 20px;
     out property <bool> open: popup.is-open;
+    out property <bool> inner-open;
 
     TouchArea {
         clicked => {
@@ -39,19 +57,12 @@ component ManualDropdown inherits Rectangle {
         }
     }
 
-    popup := PopupWindow {
-        close-policy: no-auto-close;
+    popup := ManualPopup {
+        opened(value) => { root.inner-open = value; }
         x: 0;
         y: 20px;
         width: 40px;
         height: 40px;
-        TouchArea {
-            width: 100%;
-            height: 100%;
-            clicked => {
-                popup.close();
-            }
-        }
     }
 }
 
@@ -62,6 +73,8 @@ export component TestCase {
     out property <bool> a-open: a.open;
     out property <bool> a2-open: a2.open;
     out property <bool> b-open: b.open;
+    out property <bool> a-inner-open: a.inner-open;
+    out property <bool> b-inner-open: b.inner-open;
 
     a := AutoDropdown {
         x: 0;
@@ -85,10 +98,13 @@ let instance = TestCase::new().unwrap();
 assert_eq!(instance.get_a_open(), false);
 assert_eq!(instance.get_a2_open(), false);
 assert_eq!(instance.get_b_open(), false);
+assert_eq!(instance.get_a_inner_open(), false);
+assert_eq!(instance.get_b_inner_open(), false);
 
 // --------- `a`: close-on-click — opens on click, closes again on the next click
 slint_testing::send_mouse_click(&instance, 5., 5.);
 assert_eq!(instance.get_a_open(), true);
+assert_eq!(instance.get_a_inner_open(), true);
 assert_eq!(instance.get_a2_open(), false);
 
 // Any click dismisses a close-on-click popup, which must reset is-open to false.
@@ -105,6 +121,7 @@ assert_eq!(instance.get_a2_open(), false);
 // --------- `b`: no-auto-close, closed via close()
 slint_testing::send_mouse_click(&instance, 155., 5.);
 assert_eq!(instance.get_b_open(), true);
+assert_eq!(instance.get_b_inner_open(), true);
 
 // Clicking inside `b`'s popup calls close(), which must reset is-open to false.
 slint_testing::send_mouse_click(&instance, 155., 35.);
@@ -117,10 +134,13 @@ const TestCase &instance = *handle;
 assert_eq(instance.get_a_open(), false);
 assert_eq(instance.get_a2_open(), false);
 assert_eq(instance.get_b_open(), false);
+assert_eq(instance.get_a_inner_open(), false);
+assert_eq(instance.get_b_inner_open(), false);
 
 // --------- `a`: close-on-click — opens on click, closes again on the next click
 slint_testing::send_mouse_click(&instance, 5., 5.);
 assert_eq(instance.get_a_open(), true);
+assert_eq(instance.get_a_inner_open(), true);
 assert_eq(instance.get_a2_open(), false);
 
 // Any click dismisses a close-on-click popup, which must reset is-open to false.
@@ -137,6 +157,7 @@ assert_eq(instance.get_a2_open(), false);
 // --------- `b`: no-auto-close, closed via close()
 slint_testing::send_mouse_click(&instance, 155., 5.);
 assert_eq(instance.get_b_open(), true);
+assert_eq(instance.get_b_inner_open(), true);
 
 // Clicking inside `b`'s popup calls close(), which must reset is-open to false.
 slint_testing::send_mouse_click(&instance, 155., 35.);

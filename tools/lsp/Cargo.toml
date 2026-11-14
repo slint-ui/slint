@@ -4,16 +4,16 @@
 # cSpell: ignore nucleo
 [package]
 name = "slint-lsp"
-description = "A language server protocol implementation for Slint"
+description = "Language server for Slint, with live preview and visual editing of GUIs"
 authors = ["Slint Developers <info@slint.dev>"]
 edition.workspace = true
 homepage = "https://slint.dev"
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
-version = "1.19.0"
+version = "1.20.0"
 categories = ["gui", "development-tools", "command-line-utilities"]
-keywords = ["lsp", "ui", "toolkit"]
+keywords = ["lsp", "language-server", "live-preview", "gui", "ui"]
 default-run = "slint-lsp"
 
 [package.metadata.bundle]
@@ -106,8 +106,8 @@ tracing-subscriber = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 smol_str = { workspace = true }
-i-slint-live-preview = { version = "=1.19.0", path = "../../internal/live-preview", features = ["protocol", "file-watcher"] }
-i-slint-editor-preview = { version = "=1.19.0", path = "../../internal/editor-preview" }
+i-slint-live-preview = { version = "=1.20.0", path = "../../internal/live-preview", features = ["protocol", "file-watcher"] }
+i-slint-editor-preview = { version = "=1.20.0", path = "../../internal/editor-preview" }
 lsp-types = { workspace = true }
 
 # for the preview-engine feature

@@ -57,7 +57,7 @@ jobs:
             rust_version: ${{ matrix.rust_version }}
             extra_args: ${{ matrix.extra_args }}
             run_qt: ${{ inputs.full || contains(fromJSON(inputs.changes), 'qt') }}
-            test_workspace: ${{ inputs.full || contains(fromJSON(inputs.changes), 'slint') }}
+            test_workspace: ${{ inputs.full || (contains(fromJSON(inputs.changes), 'slint') && (!startsWith(matrix.os, 'macos') || contains(fromJSON(inputs.changes), 'qt'))) }}
             test_integration: ${{ inputs.full || contains(fromJSON(inputs.changes), 'integration') || contains(fromJSON(inputs.changes), 'tests') || contains(fromJSON(inputs.changes), 'integration_tests') }}
             # macOS only runs the rust driver when its inputs changed;
             # Windows always does, for the live-preview test.
@@ -381,7 +381,7 @@ jobs:
         runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v7
-            - uses: pnpm/action-setup@v6.1.0
+            - uses: pnpm/action-setup@v6.1.1
             - uses: Swatinem/rust-cache@v2
               with:
                 key: "vsce_1" # increment this to bust the cache if needed
@@ -392,7 +392,7 @@ jobs:
                   node-version: 24
                   package-manager-cache: false
             - name: Install wasm-pack
-              run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+              run: curl https://wasm-bindgen.github.io/wasm-pack/installer/init.sh -sSf | sh
             - name: Fake slint-lsp build
               run: |
                   mkdir -p target/debug
@@ -668,7 +668,8 @@ jobs:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_rs') || contains(fromJSON(inputs.changes), 'examples') || contains(fromJSON(inputs.changes), 'android_backend') }}
         runs-on: ubuntu-latest
         env:
-            RUSTFLAGS: -D warnings
+            # Without -z defs, an undefined symbol only fails when the app loads the library.
+            RUSTFLAGS: -D warnings -C link-arg=-Wl,-z,defs
             # cargo-apk2 does not honor the repository's relative `build.target-dir`
             # (.cargo/config.toml), so point it at an absolute path that matches
             # where cargo actually writes the artifacts.
@@ -683,17 +684,21 @@ jobs:
               uses: actions/cache@v6
               with:
                   path: ~/.cargo/bin/cargo-apk2
-                  key: cargo-apk2-1.4.2
+                  key: cargo-apk2-1.5.0
             # Only build cargo-apk2 if not cached
             - uses: dtolnay/rust-toolchain@stable
               if: steps.cargo-apk2-cache.outputs.cache-hit != 'true'
             - name: Install cargo-apk2
               if: steps.cargo-apk2-cache.outputs.cache-hit != 'true'
-              run: cargo install --locked cargo-apk2@1.4.2
+              run: cargo install --locked cargo-apk2@1.5.0
 
             - uses: ./.github/actions/setup-rust
               with:
                   target: aarch64-linux-android
+
+            # The prebuilt Skia binaries need the libc++ of NDK r30 or newer.
+            - name: Select the latest NDK
+              run: echo "ANDROID_NDK_ROOT=$ANDROID_NDK_LATEST_HOME" >> "$GITHUB_ENV"
 
             - name: Build todo demo
               run: cargo apk2 build --manifest-path examples/Cargo.toml -p todo --target aarch64-linux-android --lib
@@ -732,7 +737,8 @@ jobs:
             # itself, without retrying a failed download.
             - name: Install the Android NDK and CMake
               run: |
-                  install_android_sdk_parts() { ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "ndk;27.0.12077973" "cmake;3.22.1"; }
+                  ndk=$(sed -n 's/^ *ndkVersion = "\(.*\)"$/\1/p' demos/usecases/cpp/android/build.gradle.kts)
+                  install_android_sdk_parts() { ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "ndk;$ndk" "cmake;3.22.1"; }
                   install_android_sdk_parts || { sleep 10 && install_android_sdk_parts; }
             - name: Build usecases demo APK (Gradle end-to-end)
               working-directory: demos/usecases/cpp/android
@@ -751,7 +757,7 @@ jobs:
                   target: wasm32-unknown-emscripten
             - uses: mymindstorm/setup-emsdk@v16
               with:
-                  version: 6.0.10
+                  version: 6.0.13
             - run: sudo apt-get install -y ninja-build
             - name: Configure (default renderers)
               run: emcmake cmake -S . -B build -GNinja -DCMAKE_BUILD_TYPE=Debug -DSLINT_BUILD_EXAMPLES=ON
@@ -787,8 +793,8 @@ jobs:
               with:
                   node-version: 24
                   package-manager-cache: false
-            - name: Test the MCP servers and hooks
-              run: node --test 'ai-plugins/mcp/slint-preview/test/*.test.mjs' 'ai-plugins/hooks/test/*.test.mjs'
+            - name: Test the Slint preview MCP server
+              run: node --test 'ai-plugins/mcp/slint-preview/test/*.test.mjs'
 
     test-slint-preview-view:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'slint_preview_view') }}
@@ -799,13 +805,13 @@ jobs:
               with:
                   node-version: 24
                   package-manager-cache: false
-            - uses: pnpm/action-setup@v6.1.0
+            - uses: pnpm/action-setup@v6.1.1
             - uses: ./.github/actions/setup-rust
               with:
                   target: wasm32-unknown-unknown
                   key: slint-preview
             - name: Install wasm-pack
-              run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+              run: curl https://wasm-bindgen.github.io/wasm-pack/installer/init.sh -sSf | sh
             - name: Build the Wasm interpreter
               run: wasm-pack build --dev --target web -- --features console_error_panic_hook
               working-directory: api/wasm-interpreter
@@ -827,13 +833,13 @@ jobs:
               with:
                   node-version: 24
                   package-manager-cache: false
-            - uses: pnpm/action-setup@v6.1.0
+            - uses: pnpm/action-setup@v6.1.1
             - uses: ./.github/actions/setup-rust
               with:
                   target: wasm32-unknown-unknown
                   key: figma
             - name: Install wasm-pack
-              run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+              run: curl https://wasm-bindgen.github.io/wasm-pack/installer/init.sh -sSf | sh
             - run: pnpm install --frozen-lockfile
             - run: pnpm exec playwright install --with-deps chromium
               working-directory: tools/figma-inspector
@@ -1257,7 +1263,7 @@ jobs:
               run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-36"
             - uses: dtolnay/rust-toolchain@stable
             - name: Install cargo-apk2
-              run: cargo install --locked cargo-apk2@1.4.2
+              run: cargo install --locked cargo-apk2@1.5.0
             - uses: ./.github/actions/setup-rust
               with:
                   target: aarch64-linux-android

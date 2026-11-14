@@ -1,8 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Properties, FillData, BrushKind, GradientStop, GradientStopOrder } from "../../properties.slint";
+
 import { Style, Metrics, Colors, Typography, GradientStopsStyle } from "../../style.slint";
-import { Api, FillData, BrushKind, GradientStop, GradientStopOrder } from "../../api.slint";
+
 import { FillSession } from "fill-session.slint";
 import { InspectorColorValueField } from "color-value-field.slint";
 import { InspectorTextFieldBase } from "text-field-base.slint";
@@ -18,7 +20,7 @@ export component InspectorGradientStops inherits Rectangle {
     in-out property <int> selected-index <=> FillSession.selected-stop;
     private property <int> focus-generation: FillSession.focus-stop-generation;
     changed focus-generation => { if !FillSession.request.target.canvas { ramp.focus(); } }
-    private property <GradientStopOrder> order: Api.gradient-stop-order(root.value.stops, root.selected-index);
+    private property <GradientStopOrder> order: Properties.gradient-stop-order(root.value.stops, root.selected-index);
     private property <FillData> gesture-value;
     private property <bool> dragging;
     private property <bool> dragged;
@@ -61,7 +63,7 @@ export component InspectorGradientStops inherits Rectangle {
                 y: Metrics.space-small;
                 height: Metrics.control-compact;
                 border-radius: Metrics.radius-small;
-                background: Api.create-brush(BrushKind.linear, 90, transparent, root.value.stops);
+                background: Properties.create-brush(BrushKind.linear, 90, transparent, root.value.stops);
                 border-width: Metrics.border-width;
                 border-color: ramp.has-focus ? Colors.accent : Colors.border;
             }
@@ -95,7 +97,7 @@ export component InspectorGradientStops inherits Rectangle {
                         root.gesture-value = root.value;
                         root.press-position = { x: self.mouse-x, y: self.mouse-y };
                         root.dragged = false;
-                        let index = Api.nearest-gradient-stop(root.value.stops, position);
+                        let index = Properties.nearest-gradient-stop(root.value.stops, position);
                         if index >= 0 && abs(root.value.stops[index].position - position) * (self.width - root.style.marker.size) <= root.style.ramp.pick-distance {
                             root.selected-index = index;
                             root.pressed-index = index;
@@ -132,7 +134,7 @@ export component InspectorGradientStops inherits Rectangle {
             InspectorSegment {
                 width: root.style.action-width; kind: "text"; label: "+";
                 accessible-label: @tr("Add gradient stop");
-                clicked => { FillSession.add-stop-position(Api.gradient-stop-gap(root.value.stops).clamp(0, 1)); }
+                clicked => { FillSession.add-stop-position(Properties.gradient-stop-gap(root.value.stops).clamp(0, 1)); }
             }
         }
         HorizontalLayout {
@@ -184,12 +186,13 @@ export component InspectorGradientStops inherits Rectangle {
                             horizontal-stretch: 1;
                             accessible-name: @tr("Stop {} color", index + 1);
                             swatch-accessible-name: @tr("Edit stop {} color", index + 1);
-                            value: stop.color; enabled: FillSession.editable; live-edit: true;
+                            value: stop.color; enabled: FillSession.editable;
                             commit-key: root.session-key + ":" + index;
                             changed input-focused => { if self.input-focused { root.selected-index = index; } }
                             private property <int> focus-generation: root.focus-generation;
                             changed focus-generation => { if !FillSession.request.target.canvas && root.selected-index == index { self.focus-swatch(); } }
                             preview(color) => { root.selected-index = index; return FillSession.preview-color(color); }
+                            edit-input(color) => { root.selected-index = index; FillSession.preview-color(color); }
                             swatch-activated => { FillSession.edit-stop-color(index); }
                             remove-requested => { FillSession.remove-stop(index); }
                         }

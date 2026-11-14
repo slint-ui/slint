@@ -6,6 +6,7 @@
 // logic are identical; only the way the `CADisplayLink` is obtained differs, so
 // that part lives in the platform-specific `try_create` below.
 
+use std::cell::Cell;
 use std::rc::Weak;
 
 use i_slint_core as corelib;
@@ -19,6 +20,8 @@ use crate::winitwindowadapter::WinitWindowAdapter;
 
 struct DisplayLinkTargetIvars {
     window_adapter: Weak<WinitWindowAdapter>,
+    /// Whether the previous tick ended with nothing left to draw.
+    idle: Cell<bool>,
 }
 
 define_class!(
@@ -39,15 +42,21 @@ define_class!(
             corelib::window::WindowInner::from_pub(adapter.window())
                 .context()
                 .update_timers_and_animations();
-            // Call draw() directly rather than request_redraw(), because
-            // during modal tracking loops (e.g. context menus) winit's
-            // event loop is blocked and would never process RedrawRequested.
-            if let Err(e) = adapter.draw() {
-                i_slint_core::debug_log!("Error rendering during modal loop: {e}");
-                display_link.setPaused(true);
-                return;
+            if !self.ivars().idle.get() || adapter.pending_redraw() {
+                // Call draw() directly rather than request_redraw(), because
+                // during modal tracking loops (e.g. context menus) winit's
+                // event loop is blocked and would never process RedrawRequested.
+                if let Err(e) = adapter.draw() {
+                    i_slint_core::debug_log!("Error rendering during modal loop: {e}");
+                    display_link.setPaused(true);
+                    return;
+                }
             }
-            if !adapter.window().has_active_animations() && !adapter.pending_redraw() {
+            let idle = !adapter.window().has_active_animations() && !adapter.pending_redraw();
+            self.ivars().idle.set(idle);
+            // UIKit throttles touch delivery to 60Hz unless it sees an animation
+            // running on the main thread, such as this link (#14885).
+            if idle && !adapter.has_active_touches() {
                 display_link.setPaused(true);
             }
         }
@@ -56,7 +65,8 @@ define_class!(
 
 impl DisplayLinkTarget {
     fn new(mtm: MainThreadMarker, window_adapter: Weak<WinitWindowAdapter>) -> Retained<Self> {
-        let this = Self::alloc(mtm).set_ivars(DisplayLinkTargetIvars { window_adapter });
+        let this = Self::alloc(mtm)
+            .set_ivars(DisplayLinkTargetIvars { window_adapter, idle: Cell::new(false) });
         unsafe { msg_send![super(this), init] }
     }
 }

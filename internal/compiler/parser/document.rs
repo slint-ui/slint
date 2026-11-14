@@ -4,6 +4,8 @@
 use super::element::{parse_element, parse_element_content};
 use super::prelude::*;
 use super::r#type::{parse_enum_declaration, parse_rustattr, parse_struct_declaration};
+use crate::parser::normalize_identifier;
+use crate::project_file::SlintEdition;
 
 #[cfg_attr(test, parser_test)]
 /// ```test,Document
@@ -121,6 +123,7 @@ pub fn parse_component(p: &mut impl Parser) -> bool {
     if is_global || is_new_component || is_interface {
         p.consume();
     }
+    let legacy_id = simple_component.then(|| normalize_identifier(p.peek().as_str()));
     if !p.start_node(SyntaxKind::DeclaredIdentifier).expect(SyntaxKind::Identifier) {
         drop(p.start_node(SyntaxKind::Element));
         return false;
@@ -128,7 +131,11 @@ pub fn parse_component(p: &mut impl Parser) -> bool {
     let mut interface_inherits = false;
     if is_global {
         if p.peek().kind() == SyntaxKind::ColonEqual {
-            p.warning("':=' to declare a global is deprecated. Remove the ':='");
+            if p.edition() >= Some(SlintEdition::V1_20) {
+                p.error("':=' to declare a global isn't supported from edition 1.20. Remove the ':=', then review the behavior changes of 1.20 on the 'Editions' page of the documentation");
+            } else {
+                p.warning("':=' to declare a global is deprecated. Remove the ':='");
+            }
             p.consume();
         }
     } else if is_interface {
@@ -141,8 +148,11 @@ pub fn parse_component(p: &mut impl Parser) -> bool {
             interface_inherits = true;
         }
     } else if !is_new_component {
-        if p.peek().kind() == SyntaxKind::ColonEqual {
-            p.warning("':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info");
+        // `peek` skips the whitespace, so the diagnostic points at the ':='
+        if let Some(id) = legacy_id
+            && p.peek().kind() == SyntaxKind::ColonEqual
+        {
+            report_legacy_component(&mut *p, &id);
         }
         if !p.expect(SyntaxKind::ColonEqual) {
             drop(p.start_node(SyntaxKind::Element));
@@ -170,6 +180,35 @@ pub fn parse_component(p: &mut impl Parser) -> bool {
     }
 
     parse_element(&mut *p)
+}
+
+/// Reports the ':=' of `id := Base {`, at the current token.
+fn report_legacy_component(p: &mut impl Parser, id: &str) {
+    if p.edition() < Some(SlintEdition::V1_20) {
+        p.warning("':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info");
+        return;
+    }
+    // Each `nth` call scans again from the cursor, so stop at a length that no real base name reaches
+    const MAX_SEGMENTS: usize = 16;
+    let mut base = Vec::new();
+    let mut n = 1;
+    while p.nth(n).kind() == SyntaxKind::Identifier {
+        if base.len() == MAX_SEGMENTS {
+            base.push("…".into());
+            break;
+        }
+        base.push(normalize_identifier(p.nth(n).as_str()));
+        if p.nth(n + 1).kind() != SyntaxKind::Dot {
+            break;
+        }
+        n += 2;
+    }
+    if !base.is_empty() {
+        p.error(format!(
+            "':=' to declare a component isn't supported from edition 1.20. Use 'component {id} inherits {} {{', then review the behavior changes of 1.20 on the 'Editions' page of the documentation",
+            base.join(".")
+        ));
+    }
 }
 
 #[cfg_attr(test, parser_test)]
