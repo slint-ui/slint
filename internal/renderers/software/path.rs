@@ -89,13 +89,7 @@ fn render_path_with_style<T: TargetPixel>(
         return;
     }
 
-    // The mask is always rendered at the full path size: rasterizing a translated or cropped
-    // path rounds differently, so a partial repaint would differ from a full one.
-    let mut mask_buffer = vec![0u8; path_width * path_height];
-    Mask::new(commands)
-        .size(path_width as u32, path_height as u32)
-        .style(style)
-        .render_into(&mut mask_buffer, None);
+    let mask_buffer = mask(commands, path_width, path_height, style);
 
     for clip_geometry in region.iter_box().map(|r| r.to_rect()) {
         clips.clear();
@@ -109,6 +103,19 @@ fn render_path_with_style<T: TargetPixel>(
             buffer,
         );
     }
+}
+
+/// Rasterizes the coverage of the path into a `width` × `height` alpha map, row by row.
+///
+/// The mask is always rendered at the full path size: rasterizing a translated or cropped
+/// path rounds differently, so a partial repaint would differ from a full one.
+pub fn mask(commands: &[Command], width: usize, height: usize, style: Style) -> Vec<u8> {
+    let mut mask_buffer = vec![0u8; width * height];
+    Mask::new(commands)
+        .size(width as u32, height as u32)
+        .style(style)
+        .render_into(&mut mask_buffer, None);
+    mask_buffer
 }
 
 /// Draws `mask` within `clip_geometry`.
@@ -266,10 +273,6 @@ pub fn render_filled_path<T: TargetPixel>(
     fill_rule: i_slint_core::items::FillRule,
     buffer: &mut impl crate::target_pixel_buffer::TargetPixelBuffer<TargetPixel = T>,
 ) {
-    let fill = match fill_rule {
-        i_slint_core::items::FillRule::Evenodd => Fill::EvenOdd,
-        i_slint_core::items::FillRule::Nonzero | _ => Fill::NonZero,
-    };
     render_path_with_style(
         commands,
         path_geometry,
@@ -277,9 +280,17 @@ pub fn render_filled_path<T: TargetPixel>(
         rounded_clips,
         clips,
         paint,
-        zeno::Style::Fill(fill),
+        fill_style(fill_rule),
         buffer,
     );
+}
+
+/// The zeno style that fills a path with `fill_rule`.
+pub fn fill_style(fill_rule: i_slint_core::items::FillRule) -> Style<'static> {
+    Style::Fill(match fill_rule {
+        i_slint_core::items::FillRule::Evenodd => Fill::EvenOdd,
+        i_slint_core::items::FillRule::Nonzero | _ => Fill::NonZero,
+    })
 }
 
 #[derive(Clone)]
@@ -312,22 +323,6 @@ pub fn render_stroked_path<T: TargetPixel>(
     stroke_style: &StrokeStyle,
     buffer: &mut impl crate::target_pixel_buffer::TargetPixelBuffer<TargetPixel = T>,
 ) {
-    let mut stroke = Stroke::new(stroke_style.width);
-    stroke
-        .cap(match stroke_style.line_cap {
-            i_slint_core::items::LineCap::Round => Cap::Round,
-            i_slint_core::items::LineCap::Square => Cap::Square,
-            i_slint_core::items::LineCap::Butt | _ => Cap::Butt,
-        })
-        .join(match stroke_style.line_join {
-            i_slint_core::items::LineJoin::Round => Join::Round,
-            i_slint_core::items::LineJoin::Bevel => Join::Bevel,
-            i_slint_core::items::LineJoin::Miter | _ => Join::Miter,
-        })
-        .miter_limit(stroke_style.miter_limit)
-        .dash(&stroke_style.dash_array, stroke_style.dash_offset);
-
-    let style = Style::Stroke(stroke);
     render_path_with_style(
         commands,
         path_geometry,
@@ -335,7 +330,28 @@ pub fn render_stroked_path<T: TargetPixel>(
         rounded_clips,
         clips,
         paint,
-        style,
+        stroke_style.to_style(),
         buffer,
     );
+}
+
+impl StrokeStyle {
+    /// The zeno style that strokes a path like this.
+    pub fn to_style(&self) -> Style<'_> {
+        let mut stroke = Stroke::new(self.width);
+        stroke
+            .cap(match self.line_cap {
+                i_slint_core::items::LineCap::Round => Cap::Round,
+                i_slint_core::items::LineCap::Square => Cap::Square,
+                i_slint_core::items::LineCap::Butt | _ => Cap::Butt,
+            })
+            .join(match self.line_join {
+                i_slint_core::items::LineJoin::Round => Join::Round,
+                i_slint_core::items::LineJoin::Bevel => Join::Bevel,
+                i_slint_core::items::LineJoin::Miter | _ => Join::Miter,
+            })
+            .miter_limit(self.miter_limit)
+            .dash(&self.dash_array, self.dash_offset);
+        Style::Stroke(stroke)
+    }
 }

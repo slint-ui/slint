@@ -2120,6 +2120,60 @@ impl ScanlineRasterCommands {
             clip_len: (self.vectors.clips.len() - clip_start) as u16,
         });
     }
+
+    /// Rasterizes a path into an alpha map and pushes it as a texture, like a glyph.
+    ///
+    /// Only solid paints are drawn: the scanline rasterizer has no command that
+    /// fills a coverage mask with a gradient.
+    #[cfg(feature = "path")]
+    fn push_path_mask(
+        &mut self,
+        path_geometry: PhysicalRect,
+        clip_geometry: PhysicalRect,
+        commands: &[path::Command],
+        paint: &path::Paint,
+        style: zeno::Style<'_>,
+        rounded_clips: &[RoundedClip],
+    ) {
+        let path::Paint::Solid(color) = *paint else { return };
+        let (width, height) = (path_geometry.width() as usize, path_geometry.height() as usize);
+        if width == 0 || height == 0 || color.alpha == 0 {
+            return;
+        }
+        if path_geometry.intersection(&clip_geometry).is_none() {
+            return;
+        }
+        let mask = path::mask(commands, width, height, style);
+        // The alpha map is colorized with a color that isn't premultiplied.
+        let alpha = color.alpha as u16;
+        let unpremultiply = |c: u8| ((c as u16 * 255 + alpha / 2) / alpha).min(255) as u8;
+        let colorize = Color::from_argb_u8(
+            color.alpha,
+            unpremultiply(color.red),
+            unpremultiply(color.green),
+            unpremultiply(color.blue),
+        );
+        let texture = target_pixel_buffer::DrawTextureArgs {
+            data: target_pixel_buffer::TextureDataContainer::Shared {
+                buffer: SharedBufferData::AlphaMap {
+                    data: fonts::GlyphAlphaMap::Rendered(Rc::from(mask)),
+                    width: width as u16,
+                    sdf: false,
+                },
+                source_rect: euclid::rect(0, 0, width as i16, height as i16),
+            },
+            colorize: Some(colorize),
+            alpha: color.alpha,
+            dst_x: path_geometry.origin.x as _,
+            dst_y: path_geometry.origin.y as _,
+            dst_width: width,
+            dst_height: height,
+            // The path commands are already in rotated, physical coordinates.
+            rotation: RenderingRotation::NoRotation,
+            tiling: None,
+        };
+        self.push(RasterCommand::TargetTexture { texture, clip: clip_geometry }, rounded_clips);
+    }
 }
 
 impl RasterCommandSink for ScanlineRasterCommands {
@@ -2224,9 +2278,30 @@ impl RasterCommandSink for ScanlineRasterCommands {
                 self.vectors.box_shadows.push(shadow);
                 (geometry, ScanlineCommand::BoxShadow { box_shadow_index }, None)
             }
-            // The scanline rasterizer can't draw paths.
             #[cfg(feature = "path")]
-            FilledPath { .. } | StrokedPath { .. } => return,
+            FilledPath { path_geometry, clip_geometry, commands, paint, fill_rule } => {
+                self.push_path_mask(
+                    path_geometry,
+                    clip_geometry,
+                    &commands,
+                    &paint,
+                    path::fill_style(fill_rule),
+                    rounded_clips,
+                );
+                return;
+            }
+            #[cfg(feature = "path")]
+            StrokedPath { path_geometry, clip_geometry, commands, paint, style } => {
+                self.push_path_mask(
+                    path_geometry,
+                    clip_geometry,
+                    &commands,
+                    &paint,
+                    style.to_style(),
+                    rounded_clips,
+                );
+                return;
+            }
         };
         if !geometry.is_empty() {
             self.push_item(geometry, scanline_command, rounded_clips, own_clip);
