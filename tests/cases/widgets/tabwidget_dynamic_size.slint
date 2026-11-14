@@ -1,0 +1,75 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+
+// The minimum size of a TabWidget covers the panels of `if` and `for` tabs.
+
+import { TabWidget } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    in-out property <[length]> sizes: [100px, 600px];
+    in-out property <bool> show-large;
+    out property <length> widget-min-width: tab-widget.min-width;
+    out property <length> widget-min-height: tab-widget.min-height;
+
+    tab-widget := TabWidget {
+        Tab {
+            title: "Static";
+            VerticalLayout {
+                Rectangle {
+                    min-width: 50px;
+                    min-height: 50px;
+                }
+            }
+        }
+
+        for size in root.sizes: Tab {
+            title: "Repeated";
+            VerticalLayout {
+                Rectangle {
+                    min-width: size;
+                    min-height: size / 2;
+                }
+            }
+        }
+
+        if root.show-large: Tab {
+            title: "Conditional";
+            VerticalLayout {
+                Rectangle {
+                    min-width: 800px;
+                    min-height: 500px;
+                }
+            }
+        }
+    }
+
+    // The tab bar adds less than 100px to the height.
+    out property <bool> test: root.widget-min-width >= 600px && root.widget-min-height >= 300px && root.widget-min-height < 400px;
+}
+
+/*
+```rust
+use std::rc::Rc;
+
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+
+instance.set_sizes(Rc::new(slint::VecModel::from(vec![20., 60.])).into());
+slint_testing::mock_elapsed_time(16);
+assert!(instance.get_widget_min_height() >= 50.);
+assert!(instance.get_widget_min_height() < 150.);
+
+instance.set_show_large(true);
+slint_testing::mock_elapsed_time(16);
+assert!(instance.get_widget_min_width() >= 800.);
+assert!(instance.get_widget_min_height() >= 500.);
+assert!(instance.get_widget_min_height() < 600.);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+*/

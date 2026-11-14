@@ -1,0 +1,42 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { TabWidget, VerticalBox, LineEdit } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 600px;
+    height: 300px;
+    in-out property <string> title-text;
+    in-out property <int> current-index <=> tab-widget.current-index;
+    property <[string]> tab-titles: ["Alpha", "Bravo", "Charlie"];
+
+    VerticalBox {
+        LineEdit {
+            text <=> root.title-text;
+        }
+
+        tab-widget := TabWidget {
+            Tab {
+                title: "Static Tab";
+            }
+
+            if true: Tab {
+                title <=> root.title-text;
+                Text {
+                    text: "Content for " + root.title-text;
+                }
+            }
+
+            for item in root.tab-titles: Tab {
+                title <=> item;
+                Text {
+                    text: "Content for " + item;
+                }
+            }
+
+            Tab {
+                title: "End";
+            }
+        }
+    }
+}
