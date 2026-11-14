@@ -11,6 +11,8 @@ pub use crate::draw_functions::{
 };
 pub use crate::minimal_software_window::MinimalSoftwareWindow;
 #[cfg(feature = "experimental")]
+pub use crate::prepared_textures::PreparedTextures;
+#[cfg(feature = "experimental")]
 pub use crate::target_pixel_buffer::{
     DrawRectangleArgs, DrawTextureArgs, TargetPixelBuffer, TexturePixelFormat,
 };
@@ -205,6 +207,7 @@ pub struct SoftwareRenderer {
     pub(crate) rendering_metrics_collector: Option<Rc<RenderingMetricsCollector>>,
     #[cfg(feature = "systemfonts")]
     pub(crate) text_layout_cache: sharedparley::TextLayoutCache,
+    pub(crate) prepared_textures: RefCell<crate::PreparedTextures>,
 }
 
 impl Default for SoftwareRenderer {
@@ -219,6 +222,7 @@ impl Default for SoftwareRenderer {
             repaint_buffer_type: Default::default(),
             #[cfg(feature = "systemfonts")]
             text_layout_cache: Default::default(),
+            prepared_textures: Default::default(),
         }
     }
 }

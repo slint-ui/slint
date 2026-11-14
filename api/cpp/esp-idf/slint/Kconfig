@@ -20,6 +20,23 @@ menu "Slint"
         default 8192
         depends on SLINT_RENDER_ON_SECOND_CORE
 
+    config SLINT_CPU_TEXTURES
+        bool "Draw hinted images with a whole-image CPU loop"
+        default n
+        help
+            With a full frame buffer, blends each image inside an element with
+            `cache-rendering-hint: true` in one pass over its visible rows, instead of the
+            software renderer's per-line path. The renderer first prepares the image at its
+            drawn size, and keeps it.
+
+    config SLINT_PREPARED_TEXTURES_SIZE
+        int "Memory for prepared images, in KiB"
+        default 8192
+        depends on SLINT_CPU_TEXTURES && SLINT_RENDER_ON_SECOND_CORE
+        help
+            When the next image doesn't fit, all prepared images are dropped.
+            Larger images aren't prepared, so 0 turns preparing off.
+
     config SLINT_TRACING
         bool "Record tracing spans and send them over the console"
         default n

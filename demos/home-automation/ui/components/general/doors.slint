@@ -145,6 +145,7 @@ export component Doors {
         }
 
         Image {
+            cache-rendering-hint: true;
             x: 20px;
             y: (parent.height / 2) - 125px;
             source: @image-url("../../images/open-lock.svg");
