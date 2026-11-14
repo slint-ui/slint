@@ -35,9 +35,11 @@
         canvas {
             display: block; outline: none;
             width: calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right)) !important;
-            /* Mobile Safari's toolbars come and go, which the dynamic viewport height follows. */
+            /* Mobile Safari's toolbars come and go, which the dynamic viewport height follows,
+               but for the row of tabs of a phone held sideways. The script below measures
+               what shows. */
             height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
-            height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+            height: calc(var(--visible-height, 100dvh) - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
             /* Leaves dragging and pinching to the demo, instead of scrolling or zooming the page. */
             touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
         }
@@ -78,6 +80,22 @@
         const fill = document.getElementById("fill");
         const message = document.getElementById("message");
         const megabytes = (bytes) => (bytes / 1e6).toFixed(1);
+
+        // The visual viewport is the part of the page that the browser's toolbars leave to see.
+        // The keyboard takes from it too, but the demo keeps its size under the keyboard.
+        const visible = window.visualViewport;
+        if (visible) {
+            const typing = () => ["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName);
+            const fit = () => {
+                if (!typing()) {
+                    const height = visible.height * visible.scale;
+                    document.documentElement.style.setProperty("--visible-height", height + "px");
+                }
+            };
+            visible.addEventListener("resize", fit);
+            document.addEventListener("focusout", () => setTimeout(fit, 300));
+            fit();
+        }
 
         function show(received, total) {
             // A compressed download's length counts compressed bytes, so it can run out early.
