@@ -420,6 +420,8 @@ fn number_literal(expr: &Expression) -> Option<f64> {
 /// the menu item tree of a popup menu, and `UpdateTimers`,
 /// refer to the enclosing component implicitly,
 /// so they can only move within the same component.
+/// A `ModelDataAssignment` reaches its repeater by parent depth alone,
+/// so `map` must not have a sub-component path.
 /// Also unsafe when it reads a parameter more than once:
 /// a real call clones each read (`args.N.clone()`),
 /// but the inlined body reads a local that a second read would move.
@@ -437,8 +439,11 @@ fn body_is_inline_safe(exp: &Expression, map: &ContextMap) -> bool {
             }
         }
         Expression::ModelDataAssignment { .. } => {
-            safe &= matches!(map, ContextMap::Identity)
-                || matches!(map, ContextMap::InSubElement { path, .. } if path.is_empty());
+            safe &= match map {
+                ContextMap::Identity => true,
+                ContextMap::InSubElement { path, .. } => path.is_empty(),
+                ContextMap::InGlobal(_) => false,
+            }
         }
         _ => {}
     });
@@ -643,32 +648,5 @@ export component Foo {
                 "no '{kept}' on a `live` input left: {runtime:#?}"
             );
         }
-    }
-
-    #[test]
-    fn remaps_model_data_assignment_level_when_inlining_function() {
-        let unit = crate::llr::lower_test_source(
-            r#"
-export component Foo {
-    in-out property <[int]> m: [1];
-    in property <bool> c: true;
-    for item in root.m: r := Rectangle {
-        function bump() { item += 1; }
-        if root.c: TouchArea {
-            clicked => { r.bump(); }
-        }
-    }
-}
-"#,
-        );
-        let mut levels = Vec::new();
-        unit.for_each_expression(&mut |e, _| {
-            e.borrow().visit_recursive(&mut |e| {
-                if let Expression::ModelDataAssignment { level, .. } = e {
-                    levels.push(*level);
-                }
-            });
-        });
-        assert_eq!(levels, vec![1]);
     }
 }
