@@ -1013,6 +1013,58 @@ pub fn builtin_height_depends_on_width(elem: &Element) -> bool {
     }
 }
 
+/// Whether the vertical layout info of `elem` depends on its width,
+/// so a layout must measure it at a given width.
+/// This holds for a wrapping Text, an Image sized by its aspect ratio,
+/// and a component whose layout contains such a cell.
+pub fn is_height_for_width_cell(elem: &ElementRc) -> bool {
+    let elem_b = elem.borrow();
+
+    // Component path: `layoutinfo-v-with-constraint` may live on `elem`
+    // itself or on the base component's root_element.
+    let has_constrained_layoutinfo_v = elem_b.layout_info_v_with_constraint.is_some()
+        || matches!(
+            &elem_b.base_type,
+            ElementType::Component(base_comp)
+                if base_comp.root_element.borrow().layout_info_v_with_constraint.is_some()
+        );
+    if has_constrained_layoutinfo_v {
+        return true;
+    }
+
+    if elem_b.effective_layout_info_prop(Orientation::Vertical).is_some() {
+        return false;
+    }
+    drop(elem_b);
+
+    // Builtin path.
+    matches!(
+        implicit_layout_info_call(elem, Orientation::Vertical, BuiltinFilter::All, None),
+        Some(Expression::FunctionCall { .. })
+    )
+}
+
+/// The property that fixes the size of a cell along `orientation`, if any.
+pub fn fixed_size_property(
+    constraints: &LayoutConstraints,
+    orientation: Orientation,
+) -> Option<&NamedReference> {
+    let c = constraints.for_orientation(orientation);
+    c.min
+        .as_ref()
+        .filter(|min| c.fixed && c.max.as_ref() == Some(*min) && min.ty() == Type::LogicalLength)
+}
+
+/// The width a box layout measures the height-for-width cell `elem` at
+/// instead of the width it was given, if the cell fixes its own width.
+pub fn fixed_cell_width<'a>(
+    elem: &ElementRc,
+    constraints: &'a LayoutConstraints,
+) -> Option<&'a NamedReference> {
+    fixed_size_property(constraints, Orientation::Horizontal)
+        .filter(|_| elem.borrow().edition() >= Some(crate::project_file::SlintEdition::V1_19))
+}
+
 /// The stretch factor of elements based on text or image items, which never
 /// stretch: their `layout_info` always reports stretch 0, and a layoutinfo
 /// property synthesized later can only merge it with smaller values.
