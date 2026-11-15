@@ -461,7 +461,7 @@ impl core::ops::Mul for Shifted {
 /// The radius of the left and right corner that `line` crosses (0 if none),
 /// each with the distance of `line` from that corner's horizontal edge of `shape`,
 /// and the distance of `line` from the nearest horizontal edge.
-fn corner_radii_on_line(
+pub(super) fn corner_radii_on_line(
     span: &PhysicalRect,
     line: PhysicalLength,
     shape: &super::RoundedShape,
