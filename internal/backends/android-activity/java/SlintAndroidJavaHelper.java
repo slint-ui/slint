@@ -14,7 +14,9 @@ import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.res.Configuration;
 import android.content.res.TypedArray;
+import android.graphics.Canvas;
 import android.graphics.Insets;
+import android.graphics.Paint;
 import android.graphics.PorterDuff;
 import android.graphics.Rect;
 import android.graphics.drawable.ColorDrawable;
@@ -36,11 +38,16 @@ import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewConfiguration;
+import android.view.ViewGroup;
 import android.view.WindowInsets;
 import android.view.WindowInsetsAnimation;
 import android.view.WindowInsetsController;
+import android.view.WindowManager;
 import android.view.WindowMetrics;
+import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityManager;
+import android.view.accessibility.AccessibilityNodeInfo;
+import android.view.accessibility.AccessibilityNodeProvider;
 import android.view.inputmethod.BaseInputConnection;
 import android.view.inputmethod.CursorAnchorInfo;
 import android.view.inputmethod.ExtractedText;
@@ -889,9 +896,183 @@ class SlintInputView extends View {
     }
 }
 
+// Draws the focus indicator of accessibility services around the node that has accessibility focus.
+//
+// Android draws the indicator in the window of the activity, which doesn't happen for a native
+// activity: it renders to the surface of the window itself, so its views are never drawn. That is
+// why the indicator is drawn in a window of its own, on top. A GameActivity doesn't need this.
+class AccessibilityFocusFrame extends View {
+    // The look of the system, when the accessibility settings don't tell.
+    private static final int DEFAULT_COLOR = 0xFF4DAA40;
+    private static final int DEFAULT_STROKE_DP = 4;
+
+    private final SlintInputView mHost;
+    private final PopupWindow mWindow;
+    private final Paint mPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Rect mBounds = new Rect();
+    private final Runnable mUpdate = this::update;
+    private final View.OnLayoutChangeListener mLayoutListener =
+            (v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> scheduleUpdate();
+    private ViewGroup mParent;
+    private View.AccessibilityDelegate mPreviousDelegate;
+    private boolean mUpdatePending;
+    private boolean mDestroyed;
+
+    AccessibilityFocusFrame(Context context, SlintInputView host) {
+        super(context);
+        mHost = host;
+        mPaint.setStyle(Paint.Style.STROKE);
+        // A service should only see the nodes of the application, not the frame.
+        setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        mWindow = new PopupWindow(this, 1, 1);
+        mWindow.setTouchable(false);
+        mWindow.setFocusable(false);
+        mWindow.setClippingEnabled(false);
+        mWindow.setElevation(0);
+    }
+
+    // The events for the accessibility services tell when the focus or a node moved.
+    void install() {
+        mParent = (ViewGroup) mHost.getParent();
+        if (mParent == null) {
+            return;
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            mPreviousDelegate = mParent.getAccessibilityDelegate();
+        }
+        mParent.setAccessibilityDelegate(new View.AccessibilityDelegate() {
+            @Override
+            public boolean onRequestSendAccessibilityEvent(ViewGroup group, View child, AccessibilityEvent event) {
+                if (child == mHost) {
+                    switch (event.getEventType()) {
+                        case AccessibilityEvent.TYPE_VIEW_ACCESSIBILITY_FOCUSED:
+                        case AccessibilityEvent.TYPE_VIEW_ACCESSIBILITY_FOCUS_CLEARED:
+                        case AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED:
+                        case AccessibilityEvent.TYPE_VIEW_SCROLLED:
+                            scheduleUpdate();
+                            break;
+                        default:
+                            break;
+                    }
+                }
+                if (mPreviousDelegate != null) {
+                    return mPreviousDelegate.onRequestSendAccessibilityEvent(group, child, event);
+                }
+                return super.onRequestSendAccessibilityEvent(group, child, event);
+            }
+        });
+    }
+
+    void scheduleUpdate() {
+        if (!mUpdatePending && !mDestroyed) {
+            mUpdatePending = true;
+            mHost.post(mUpdate);
+        }
+    }
+
+    // Shows the frame around the node with accessibility focus, if there is one.
+    private void update() {
+        mUpdatePending = false;
+        if (mDestroyed) {
+            return;
+        }
+        AccessibilityManager manager = (AccessibilityManager) getContext().getSystemService(Context.ACCESSIBILITY_SERVICE);
+        AccessibilityNodeProvider provider = mHost.getAccessibilityNodeProvider();
+        AccessibilityNodeInfo node = null;
+        if (manager != null && manager.isEnabled() && provider != null && mHost.isAttachedToWindow()) {
+            node = provider.findFocus(AccessibilityNodeInfo.FOCUS_ACCESSIBILITY);
+        }
+        if (node == null) {
+            dismiss();
+            return;
+        }
+        node.getBoundsInScreen(mBounds);
+        if (mBounds.isEmpty()) {
+            dismiss();
+            return;
+        }
+        int color = DEFAULT_COLOR;
+        float strokeWidth = DEFAULT_STROKE_DP * getResources().getDisplayMetrics().density;
+        // The accessibility settings of API level 35. Looked up when needed, so that this compiles
+        // with an older android.jar too.
+        if (Build.VERSION.SDK_INT >= 35) {
+            try {
+                color = (Integer) AccessibilityManager.class.getMethod("getAccessibilityFocusColor").invoke(manager);
+                strokeWidth = (Integer) AccessibilityManager.class.getMethod("getAccessibilityFocusStrokeWidth")
+                        .invoke(manager);
+            } catch (ReflectiveOperationException e) {
+                // Keep the defaults.
+            }
+        }
+        mPaint.setColor(color);
+        mPaint.setStrokeWidth(strokeWidth);
+        // The window of the frame is placed relative to the window of the activity.
+        int[] onScreen = new int[2];
+        int[] inWindow = new int[2];
+        mHost.getLocationOnScreen(onScreen);
+        mHost.getLocationInWindow(inWindow);
+        int x = mBounds.left - (onScreen[0] - inWindow[0]);
+        int y = mBounds.top - (onScreen[1] - inWindow[1]);
+        try {
+            if (mWindow.isShowing()) {
+                mWindow.update(x, y, mBounds.width(), mBounds.height());
+            } else {
+                mWindow.setWidth(mBounds.width());
+                mWindow.setHeight(mBounds.height());
+                mWindow.showAtLocation(mHost, Gravity.TOP | Gravity.START, x, y);
+                // Resizing or moving the window of the activity moves the node without an event.
+                mHost.addOnLayoutChangeListener(mLayoutListener);
+            }
+        } catch (WindowManager.BadTokenException e) {
+            // The activity is going away.
+            return;
+        }
+        invalidate();
+    }
+
+    void dismiss() {
+        if (mWindow.isShowing()) {
+            mWindow.dismiss();
+            mHost.removeOnLayoutChangeListener(mLayoutListener);
+        }
+    }
+
+    // The window of the activity changed: the frame has to follow, if it is showing.
+    void windowChanged() {
+        if (mWindow.isShowing()) {
+            scheduleUpdate();
+        }
+    }
+
+    // No event tells that the last service was turned off, so the frame goes away here.
+    void accessibilityStateChanged(boolean enabled) {
+        if (!enabled) {
+            dismiss();
+        }
+    }
+
+    void destroy() {
+        mDestroyed = true;
+        mHost.removeCallbacks(mUpdate);
+        dismiss();
+        if (mParent != null) {
+            mParent.setAccessibilityDelegate(mPreviousDelegate);
+            mParent = null;
+        }
+    }
+
+    @Override
+    protected void onDraw(Canvas canvas) {
+        float half = mPaint.getStrokeWidth() / 2;
+        float radius = getResources().getDisplayMetrics().density * 2;
+        canvas.drawRoundRect(half, half, getWidth() - half, getHeight() - half, radius, radius, mPaint);
+    }
+}
+
 public class SlintAndroidJavaHelper {
     private final Activity mActivity;
     private final SlintInputView mInputView;
+    private AccessibilityFocusFrame mFocusFrame;
 
     public SlintAndroidJavaHelper(Activity activity) {
         mActivity = activity;
@@ -939,8 +1120,12 @@ public class SlintAndroidJavaHelper {
         }
         AccessibilityManager.TouchExplorationStateChangeListener touchListener =
                 enabled -> accessibilityStateChanged(manager.isEnabled(), enabled);
-        AccessibilityManager.AccessibilityStateChangeListener stateListener =
-                enabled -> accessibilityStateChanged(enabled, manager.isTouchExplorationEnabled());
+        AccessibilityManager.AccessibilityStateChangeListener stateListener = enabled -> {
+            if (mFocusFrame != null) {
+                mFocusFrame.accessibilityStateChanged(enabled);
+            }
+            accessibilityStateChanged(enabled, manager.isTouchExplorationEnabled());
+        };
         manager.addTouchExplorationStateChangeListener(touchListener);
         manager.addAccessibilityStateChangeListener(stateListener);
         accessibilityStateChanged(manager.isEnabled(), manager.isTouchExplorationEnabled());
@@ -951,6 +1136,9 @@ public class SlintAndroidJavaHelper {
                 if (activity == mActivity) {
                     manager.removeTouchExplorationStateChangeListener(touchListener);
                     manager.removeAccessibilityStateChangeListener(stateListener);
+                    if (mFocusFrame != null) {
+                        mFocusFrame.destroy();
+                    }
                     application.unregisterActivityLifecycleCallbacks(this);
                 }
             }
@@ -994,6 +1182,9 @@ public class SlintAndroidJavaHelper {
     }
 
     private WindowInsets dispatchInsets(WindowInsets insets) {
+        if (mFocusFrame != null) {
+            mFocusFrame.windowChanged();
+        }
         // The listener-supplied `insets` reflects what reaches the decor view
         // AFTER any ancestor has consumed insets, so in edge-to-edge mode the
         // system bars and the display cutout often arrive as zero. Read those
@@ -1158,7 +1349,15 @@ public class SlintAndroidJavaHelper {
 
     // The view that covers the content of the activity. The accessibility delegate is installed on it.
     public boolean claim_accessibility_host() {
-        return mInputView.claimAccessibility();
+        boolean claimed = mInputView.claimAccessibility();
+        // A GameActivity draws the focus indicator of accessibility services itself.
+        if (claimed && mActivity instanceof NativeActivity) {
+            mActivity.runOnUiThread(() -> {
+                mFocusFrame = new AccessibilityFocusFrame(mActivity, mInputView);
+                mFocusFrame.install();
+            });
+        }
+        return claimed;
     }
 
     public View get_input_view() {
