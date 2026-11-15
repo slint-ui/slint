@@ -9,6 +9,8 @@
 #![cfg_attr(slint_nightly_test, feature(non_exhaustive_omitted_patterns_lint))]
 #![cfg_attr(slint_nightly_test, warn(non_exhaustive_omitted_patterns))]
 
+#[cfg(feature = "accessibility")]
+mod accessibility;
 mod androidwindowadapter;
 mod javahelper;
 mod vsync;
