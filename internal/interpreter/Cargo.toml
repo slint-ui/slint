@@ -241,6 +241,8 @@ i-slint-backend-linuxkms = { workspace = true, optional = true }
 
 [dev-dependencies]
 i-slint-backend-testing = { path = "../../internal/backends/testing", features = ["internal"] }
+i-slint-core = { path = "../core", features = ["accessibility-text"] }
+accesskit = "0.25"
 spin_on = { workspace = true }
 tempfile = "3"
 

@@ -7420,6 +7420,7 @@ dependencies = [
 name = "slint-interpreter"
 version = "1.20.0"
 dependencies = [
+ "accesskit",
  "derive_more",
  "document-features",
  "either",
