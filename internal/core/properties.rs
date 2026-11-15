@@ -266,8 +266,6 @@ pub(crate) mod dependency_tracker {
         }
     }
 
-    /// Real nodes are owned by their binding, while stack-pinned traversal cursors
-    /// store `T::NULL`.
     pub struct DependencyNode<T> {
         next: Cell<*const DependencyNode<T>>,
         /// This is either null, or a pointer to a pointer to ourself
@@ -913,18 +911,15 @@ unsafe fn mark_dependencies_dirty_from_cursor(cursor: Pin<&DependencyNode>) {
                 "Const property marked as dirty"
             );
 
-            let has_dependencies = !was_dirty && !(*dependencies).is_empty();
-            let sub_cursor = DependencyNode::new(core::ptr::null());
-            let sub_cursor = Pin::new_unchecked(&sub_cursor);
-            if has_dependencies {
-                (&*dependencies).append(sub_cursor);
-            }
-
             let mark_dirty = (*binding).vtable.mark_dirty;
-            mark_dirty(binding, was_dirty);
-
-            if has_dependencies {
+            if !was_dirty && !(*dependencies).is_empty() {
+                let sub_cursor = DependencyNode::new(core::ptr::null());
+                let sub_cursor = Pin::new_unchecked(&sub_cursor);
+                (&*dependencies).append(sub_cursor);
+                mark_dirty(binding, was_dirty);
                 mark_dependencies_dirty_from_cursor(sub_cursor);
+            } else {
+                mark_dirty(binding, was_dirty);
             }
         });
     }
@@ -1781,8 +1776,6 @@ fn test_dirty_handler_frees_next_dependency_node() {
 fn test_dirty_handler_mutates_source_property_state() {
     use std::rc::Rc;
 
-    // Changing the source property's constant state or binding inside a dirty handler
-    // must not corrupt traversal of remaining dependents.
     let source = Rc::pin(Property::new(1));
     let survivor_notified = Rc::new(Cell::new(false));
     let survivor = Box::pin(PropertyTracker::<false, _>::new_with_dirty_handler({
@@ -1842,9 +1835,6 @@ fn test_dirty_handler_unwind_preserves_unvisited_dependents() {
 fn test_dirty_handler_self_drop_marks_downstream_dependents_dirty() {
     use std::rc::Rc;
 
-    // A zero-sized `PropertyDirtyHandler` that drops its own `PropertyTracker` while
-    // downstream dependents are registered on it must still mark those dependents dirty
-    // without reading the freed tracker after `mark_dirty` returns.
     struct DropSelfHandler;
     std::thread_local! {
         static SELF_DROP_SLOT: RefCell<Option<Pin<Box<PropertyTracker<false, DropSelfHandler>>>>> =

@@ -162,18 +162,17 @@ pub trait ModelChangeListener {
     fn reset(self: Pin<&Self>);
 }
 
-struct DummyModelChangeListener;
-
-impl ModelChangeListener for DummyModelChangeListener {
-    fn row_changed(self: Pin<&Self>, _row: usize) {}
-    fn row_added(self: Pin<&Self>, _index: usize, _count: usize) {}
-    fn row_removed(self: Pin<&Self>, _index: usize, _count: usize) {}
-    fn reset(self: Pin<&Self>) {}
-}
-
 impl crate::properties::dependency_tracker::DependencyBinding for *const dyn ModelChangeListener {
-    const NULL: Self =
-        core::ptr::null::<DummyModelChangeListener>() as *const dyn ModelChangeListener;
+    const NULL: Self = {
+        struct DummyModelChangeListener;
+        impl ModelChangeListener for DummyModelChangeListener {
+            fn row_changed(self: Pin<&Self>, _row: usize) {}
+            fn row_added(self: Pin<&Self>, _index: usize, _count: usize) {}
+            fn row_removed(self: Pin<&Self>, _index: usize, _count: usize) {}
+            fn reset(self: Pin<&Self>) {}
+        }
+        core::ptr::null::<DummyModelChangeListener>() as *const dyn ModelChangeListener
+    };
     fn is_null(self) -> bool {
         <*const dyn ModelChangeListener>::is_null(self)
     }
