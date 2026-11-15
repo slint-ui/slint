@@ -55,7 +55,7 @@ mod component_container;
 pub use self::component_container::*;
 mod flickable;
 pub(crate) use flickable::Dimension;
-pub use flickable::{AutoBool, Flickable};
+pub use flickable::{AutoBool, Flickable, ScrollMetrics};
 mod text;
 pub use text::*;
 mod input_items;
