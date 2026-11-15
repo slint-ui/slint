@@ -1534,6 +1534,10 @@ impl Item for TextInput {
                     return KeyEventResult::EventIgnored;
                 }
 
+                // Set before deleting the selection, so `edited` and the IME update see it.
+                self.preedit_text.set(event.preedit_text.clone());
+                self.preedit_selection.set(event.preedit_selection.clone().into());
+
                 // Like QLineEdit, any input replaces the selection right away,
                 // including a composition that isn't committed yet.
                 let replaces_range =
@@ -1554,8 +1558,6 @@ impl Item for TextInput {
                 }
 
                 let cursor = self.cursor_position(&self.text()) as i32;
-                self.preedit_text.set(event.preedit_text.clone());
-                self.preedit_selection.set(event.preedit_selection.clone().into());
 
                 if let Some(r) = &event.replacement_range {
                     // Set the selection so the call to insert erases it

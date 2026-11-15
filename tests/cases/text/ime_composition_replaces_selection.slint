@@ -8,6 +8,7 @@ export component TestCase inherits Window {
     out property <int> anchor: input.anchor-position-byte-offset;
     out property <int> cursor: input.cursor-position-byte-offset;
     in-out property <int> edited-count;
+    out property <string> preedit-when-edited;
     in-out property <bool> number;
     forward-focus: input;
 
@@ -19,6 +20,7 @@ export component TestCase inherits Window {
         input-type: root.number ? InputType.number : InputType.text;
         edited => {
             root.edited-count += 1;
+            root.preedit-when-edited = self.preedit-text;
         }
     }
 }
@@ -51,14 +53,15 @@ let compose = |commit: &str, preedit: &str, replacement_range: Option<core::ops:
     }));
 };
 
-// winit: the composition removes the selection when it starts, not when it's committed.
-// It used to show next to the selected text until then.
+// winit: the composition removes the selection when it starts, not when it's committed (#14963).
 instance.set_text("hello".into());
 instance.invoke_select(0, 5);
 instance.set_edited_count(0);
 compose("", "ㅎ", None);
 assert_eq!(instance.get_text(), "");
 assert_eq!(instance.get_edited_count(), 1);
+// So that `edited` doesn't see an empty input, such as a placeholder would.
+assert_eq!(instance.get_preedit_when_edited(), "ㅎ");
 compose("", "하", None);
 compose("한", "", None);
 assert_eq!(instance.get_text(), "한");
@@ -72,8 +75,7 @@ compose("한", "", None);
 assert_eq!(instance.get_text(), "h한o");
 assert_eq!(instance.get_edited_count(), 1);
 
-// Qt sends an empty replacement range with every event.
-// It used to drop the selection, and the commit didn't replace the selected text.
+// Qt sends an empty replacement range with every event, which must not collapse the selection.
 instance.set_text("hello".into());
 instance.invoke_select(1, 4);
 compose("", "ㅎ", Some(0..0));
