@@ -357,6 +357,9 @@ If no ancestor is a `Flickable`, the call does nothing.
 Use the following `accessible-` properties to make your items interact well with software like screen readers, braille terminals and other software to make your application accessible.
 `accessible-role` must be set in order to be able to set any other accessible property or callback.
 
+An element with an `accessible-role` that contains a `Flickable`, such as a `ListView` or a `TextEdit`, can also be scrolled by assistive technologies, without any callback.
+Give a plain `ScrollView` or `Flickable` an `accessible-role` to make it scrollable this way.
+
 ### accessible-role
 <SlintProperty typeName="enum" enumName="AccessibleRole">
 The role of the element. This property is mandatory to be able to use any other accessible properties. It should be set to a constant value. (default value: `none` for most elements, but `text` for the Text element)
