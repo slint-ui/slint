@@ -11,7 +11,7 @@
 
 use crate::androidwindowadapter::AndroidWindowAdapter;
 use crate::javahelper::JavaHelper;
-use accesskit::{ActionHandler, ActionRequest, ActivationHandler, TreeUpdate};
+use accesskit::{ActionHandler, ActionRequest, ActivationHandler, Role, TreeUpdate};
 use accesskit_android::InjectingAdapter;
 use i_slint_core::accessibility::accesskit_tree::{AccessKitHost, AccessKitTree};
 use i_slint_core::api::invoke_from_event_loop;
@@ -75,7 +75,7 @@ impl Accessibility {
     fn send_tree(&mut self, origin_in_view: (i32, i32)) {
         self.origin_in_view = origin_in_view;
         self.tree.set_physical_offset(origin_in_view.0 as f64, origin_in_view.1 as f64);
-        self.adapter.update_if_active(|| self.tree.build_new_tree());
+        self.adapter.update_if_active(|| without_window_label(self.tree.build_new_tree()));
         self.initial_tree_sent = true;
     }
 
@@ -137,7 +137,7 @@ impl Accessibility {
         if !self.is_live() || self.pending_update || !self.tree.has_dirty_nodes() {
             return;
         }
-        self.adapter.update_if_active(|| self.tree.rebuild_dirty_nodes());
+        self.adapter.update_if_active(|| without_window_label(self.tree.rebuild_dirty_nodes()));
     }
 
     fn update_focus(&mut self) {
@@ -151,6 +151,20 @@ impl Accessibility {
     fn run_later(&self, callback: impl FnOnce(&mut Accessibility) + 'static) {
         run_with_accessibility_later(self.window_adapter_weak.clone(), callback);
     }
+}
+
+/// Takes the label off the node of the window.
+///
+/// Android names the window after the activity. With a label of its own, the node of the window
+/// is a stop for screen readers, which land on it when a touch hits no element and then frame the
+/// whole window.
+fn without_window_label(mut update: TreeUpdate) -> TreeUpdate {
+    for (_, node) in &mut update.nodes {
+        if node.role() == Role::Window {
+            node.clear_label();
+        }
+    }
+    update
 }
 
 fn run_with_accessibility_later(
