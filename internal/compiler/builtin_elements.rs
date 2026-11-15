@@ -2488,7 +2488,7 @@ fn build(l: &mut Loader) {
         /// handle keys before `TextInput` does. Return `accept` to indicate that you've handled the event, or return
         /// `reject` to let `TextInput` handle it.
         callback key-released(event: KeyEvent) -> EventResult;
-        /// When `false`, the `TextInput` doesn't take the focus, ignores pointer and key events, and hides the text cursor.
+        /// When set to `false`, the `TextInput` doesn't take focus, ignores pointer and key events (including `key-pressed` and `key-released`), and hides the text cursor.
         /// Unlike `read-only`, it also prevents the user from selecting text.
         in property <bool> enabled: true;
         /// When set to `true`, the text is always rendered as a single line, regardless of new line separators in the text.
@@ -3528,9 +3528,9 @@ fn build(l: &mut Loader) {
             in property <length> anchor-width;*/
 
             @constexpr in property <bool> close-on-click;
-
-            /// Sets when the `PopupWindow` closes on its own. By default, any click closes it.
-            /// With `no-auto-close`, close it with the `close()` function.
+            /// Use this property to choose when the `PopupWindow` closes automatically.
+            /// By default, any click closes it.
+            /// With `no-auto-close`, close it by calling `close()`.
             @constexpr in property <PopupClosePolicy> close-policy;
             /// Use this read-only property to style the element that opened the popup, for example
             /// to rotate a ComboBox's arrow while the dropdown is open.
