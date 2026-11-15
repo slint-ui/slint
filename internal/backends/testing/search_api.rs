@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore STRASSE straße Straße ΟΔΟΣ ΟΔΟΣΑ οδος
+
 use core::ops::ControlFlow;
 use i_slint_core::SharedString;
 use i_slint_core::accessibility::{AccessibilityAction, AccessibleStringProperty};
@@ -118,13 +120,104 @@ impl<T: ComponentHandle> ElementRoot for T {
 
 impl<T: ComponentHandle> Sealed for T {}
 
+/// How an [`ElementQuery`] compares one of an element's strings with the expected text.
+///
+/// A string converts into [`TextMatch::Exact`],
+/// so the `match_*` functions take either a plain string or a `TextMatch`:
+///
+/// ```rust
+/// # i_slint_backend_testing::init_no_event_loop();
+/// # slint::slint!{ export component App { Text { text: "Save File"; } } }
+/// # let app = App::new().unwrap();
+/// use i_slint_backend_testing::{ElementRoot, TextMatch};
+/// let root = app.root_element();
+/// assert!(root.query_descendants().match_accessible_label("Save File").find_first().is_some());
+/// assert!(root
+///     .query_descendants()
+///     .match_accessible_label(TextMatch::ContainsIgnoringCase("save".into()))
+///     .find_first()
+///     .is_some());
+/// ```
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum TextMatch {
+    /// Matches a string equal to the text.
+    Exact(SharedString),
+    /// Matches a string that contains the text, ignoring case.
+    ContainsIgnoringCase(SharedString),
+}
+
+impl From<&str> for TextMatch {
+    fn from(text: &str) -> Self {
+        Self::Exact(text.into())
+    }
+}
+
+impl From<&String> for TextMatch {
+    fn from(text: &String) -> Self {
+        Self::Exact(text.into())
+    }
+}
+
+impl From<String> for TextMatch {
+    fn from(text: String) -> Self {
+        Self::Exact(text.into())
+    }
+}
+
+impl From<&SharedString> for TextMatch {
+    fn from(text: &SharedString) -> Self {
+        Self::Exact(text.clone())
+    }
+}
+
+impl From<SharedString> for TextMatch {
+    fn from(text: SharedString) -> Self {
+        Self::Exact(text)
+    }
+}
+
+enum TextMatcher {
+    Exact(SharedString),
+    ContainsFolded(String),
+}
+
+impl From<TextMatch> for TextMatcher {
+    fn from(text: TextMatch) -> Self {
+        match text {
+            TextMatch::Exact(text) => Self::Exact(text),
+            TextMatch::ContainsIgnoringCase(text) => Self::ContainsFolded(fold_case(&text)),
+        }
+    }
+}
+
+impl TextMatcher {
+    fn matches(&self, candidate: &str) -> bool {
+        match self {
+            Self::Exact(text) => candidate == text.as_str(),
+            Self::ContainsFolded(text) => fold_case(candidate).contains(text.as_str()),
+        }
+    }
+}
+
+// Approximates Unicode case folding. `str::to_lowercase` keeps `ß` apart from `SS`,
+// and turns a word-final `Σ` into `ς` rather than `σ`.
+fn fold_case(text: &str) -> String {
+    text.chars()
+        .flat_map(char::to_lowercase)
+        .flat_map(char::to_uppercase)
+        .flat_map(char::to_lowercase)
+        .collect()
+}
+
 #[allow(clippy::enum_variant_names)]
 enum SingleElementMatch {
     MatchById { id: String, root_base: Option<String> },
     MatchByTypeName(String),
     MatchByTypeNameOrBase(String),
     MatchByAccessibleRole(crate::AccessibleRole),
-    MatchByAccessibleLabel(String),
+    MatchByString { read: fn(&ElementHandle) -> Option<SharedString>, text: TextMatcher },
+    MatchByTestableProperty { name: SharedString, value: TextMatcher },
     MatchByPredicate(Box<dyn Fn(&ElementHandle) -> bool>),
 }
 
@@ -156,9 +249,12 @@ impl SingleElementMatch {
             SingleElementMatch::MatchByAccessibleRole(role) => {
                 element.accessible_role() == Some(*role)
             }
-            SingleElementMatch::MatchByAccessibleLabel(label) => {
-                element.accessible_label().is_some_and(|candidate_label| candidate_label == label)
+            SingleElementMatch::MatchByString { read, text } => {
+                read(element).is_some_and(|candidate| text.matches(&candidate))
             }
+            SingleElementMatch::MatchByTestableProperty { name, value } => element
+                .testable_property_value(name)
+                .is_some_and(|candidate| value.matches(&candidate)),
             SingleElementMatch::MatchByPredicate(predicate) => (predicate)(element),
         }
     }
@@ -284,10 +380,76 @@ impl ElementQuery {
         self
     }
 
-    /// Include only elements in the results where [`ElementHandle::accessible_label()`] is equal to the provided `label`.
-    pub fn match_accessible_label(mut self, label: impl Into<String>) -> Self {
+    /// Include only elements in the results where [`ElementHandle::accessible_label()`] matches `label`.
+    pub fn match_accessible_label(self, label: impl Into<TextMatch>) -> Self {
+        self.match_string(ElementHandle::accessible_label, label.into())
+    }
+
+    /// Include only elements in the results where [`ElementHandle::accessible_value()`] matches `value`.
+    pub fn match_accessible_value(self, value: impl Into<TextMatch>) -> Self {
+        self.match_string(ElementHandle::accessible_value, value.into())
+    }
+
+    /// Include only elements in the results where [`ElementHandle::accessible_description()`] matches `description`.
+    pub fn match_accessible_description(self, description: impl Into<TextMatch>) -> Self {
+        self.match_string(ElementHandle::accessible_description, description.into())
+    }
+
+    /// Include only elements in the results where [`ElementHandle::accessible_placeholder_text()`] matches `text`.
+    pub fn match_accessible_placeholder_text(self, text: impl Into<TextMatch>) -> Self {
+        self.match_string(ElementHandle::accessible_placeholder_text, text.into())
+    }
+
+    /// Include only elements in the results where [`ElementHandle::accessible_id()`] matches `id`.
+    pub fn match_accessible_id(self, id: impl Into<TextMatch>) -> Self {
+        self.match_string(ElementHandle::accessible_id, id.into())
+    }
+
+    /// Include only elements in the results that have a `@testable` property `name`
+    /// whose [`ElementHandle::testable_property_value()`] matches `value`.
+    ///
+    /// ```rust
+    /// # i_slint_backend_testing::init_no_event_loop();
+    /// slint::slint!{
+    ///
+    /// component Item {
+    ///     @testable in property <bool> selected;
+    /// }
+    ///
+    /// export component App {
+    ///     Item { }
+    ///     Item { selected: true; }
+    /// }
+    ///
+    /// }
+    ///
+    /// let app = App::new().unwrap();
+    /// use i_slint_backend_testing::ElementRoot;
+    /// let selected =
+    ///     app.root_element().query_descendants().match_testable_property("selected", "true");
+    /// assert_eq!(selected.find_all().len(), 1);
+    /// ```
+    pub fn match_testable_property(
+        mut self,
+        name: impl Into<SharedString>,
+        value: impl Into<TextMatch>,
+    ) -> Self {
         self.query_stack.push(ElementQueryInstruction::MatchSingleElement(
-            SingleElementMatch::MatchByAccessibleLabel(label.into()),
+            SingleElementMatch::MatchByTestableProperty {
+                name: name.into(),
+                value: TextMatcher::from(value.into()),
+            },
+        ));
+        self
+    }
+
+    fn match_string(
+        mut self,
+        read: fn(&ElementHandle) -> Option<SharedString>,
+        text: TextMatch,
+    ) -> Self {
+        self.query_stack.push(ElementQueryInstruction::MatchSingleElement(
+            SingleElementMatch::MatchByString { read, text: text.into() },
         ));
         self
     }
@@ -396,7 +558,9 @@ impl ElementHandle {
                 None
             };
 
-        visit_attached_popups(&self_item, visitor);
+        if let Some(result) = visit_attached_popups(&self_item, visitor) {
+            return Some(result);
+        }
 
         self_item.visit_descendants(move |item_rc| {
             if !item_rc.is_visible() {
@@ -430,6 +594,22 @@ impl ElementHandle {
     #[cfg(any(feature = "system-testing", feature = "mcp"))]
     pub(crate) fn identity_hint(&self) -> Option<(u32, usize)> {
         self.item.upgrade().map(|item| (item.index(), self.element_index))
+    }
+
+    /// Steps up the tree that [`Self::visit_descendants_impl`] walks with the same `active_popups`.
+    #[cfg(feature = "mcp")]
+    pub(crate) fn parent_element(
+        &self,
+        active_popups: &[(ItemRc, ItemTreeRc)],
+    ) -> Option<ElementHandle> {
+        let item = self.item.upgrade()?;
+        let parent = item.parent_item(ParentItemTraversalMode::StopAtPopups).or_else(|| {
+            active_popups
+                .iter()
+                .find(|(_, popup)| vtable::VRc::ptr_eq(popup, item.item_tree()))
+                .map(|(attached_to, _)| attached_to.clone())
+        })?;
+        Some(ElementHandle { item: parent.downgrade(), element_index: 0 })
     }
 
     /// Returns whether the compiler emitted the debug info that type names, ids and
@@ -632,6 +812,9 @@ impl ElementHandle {
     /// Returns the value of the element's `accessible-role` property, if present. Use this property to
     /// locate elements by their type/role, i.e. buttons, checkboxes, etc.
     pub fn accessible_role(&self) -> Option<crate::AccessibleRole> {
+        if self.element_index != 0 {
+            return None;
+        }
         self.item.upgrade().map(|item| item.accessible_role())
     }
 
@@ -1168,6 +1351,33 @@ impl ElementHandle {
         )
     }
 
+    /// Like [`Self::absolute_center()`], for the element's origin.
+    #[cfg(feature = "mcp")]
+    pub(crate) fn absolute_origin(&self) -> LogicalPosition {
+        let Some(item) = self.item.upgrade() else {
+            return Default::default();
+        };
+        i_slint_core::lengths::logical_position_to_api(
+            item.map_to_native_window(item.geometry().origin),
+        )
+    }
+
+    /// Returns true for a `TouchArea` or gesture handler with `enabled: false`.
+    #[cfg(feature = "mcp")]
+    pub(crate) fn input_handler_disabled(&self) -> bool {
+        use i_slint_core::items::{
+            ItemRef, ScaleRotateGestureHandler, SwipeGestureHandler, TouchArea,
+        };
+        let Some(item) = self.item.upgrade() else {
+            return false;
+        };
+        ItemRef::downcast_pin::<TouchArea>(item.borrow()).is_some_and(|area| !area.enabled())
+            || ItemRef::downcast_pin::<SwipeGestureHandler>(item.borrow())
+                .is_some_and(|handler| !handler.enabled())
+            || ItemRef::downcast_pin::<ScaleRotateGestureHandler>(item.borrow())
+                .is_some_and(|handler| !handler.enabled())
+    }
+
     pub fn scroll(&self, delta_x: f32, delta_y: f32) {
         let Some(window_adapter) = self.item.upgrade().and_then(|item| item.window_adapter())
         else {
@@ -1179,7 +1389,7 @@ impl ElementHandle {
         window.dispatch_event(WindowEvent::PointerScrolled { position: center, delta_x, delta_y });
     }
 
-    fn active_popups(&self) -> Vec<(ItemRc, ItemTreeRc)> {
+    pub(crate) fn active_popups(&self) -> Vec<(ItemRc, ItemTreeRc)> {
         self.item
             .upgrade()
             .and_then(|item| item.window_adapter())
@@ -1398,6 +1608,106 @@ fn test_matches() {
 }
 
 #[test]
+fn test_text_matchers() {
+    crate::init_no_event_loop();
+
+    slint::slint! {
+        #[edition = "1.19"]
+        component Row {
+            in property <string> title;
+            @testable in property <bool> selected;
+            @testable in property <string> status: "Draft";
+            accessible-role: list-item;
+            accessible-label: title;
+        }
+
+        export component App inherits Window {
+            Row { title: "Save File"; }
+            Row { title: "Save As…"; selected: true; status: "Published"; }
+            search := TextInput {
+                accessible-placeholder-text: "Search files";
+                accessible-description: "Filters the list below";
+                accessible-id: "search-box";
+                text: "report";
+            }
+        }
+    }
+
+    let app = App::new().unwrap();
+    let root = app.root_element();
+    let count = |query: ElementQuery| query.find_all().len();
+    let search = || root.query_descendants().match_id("App::search");
+
+    assert_eq!(count(root.query_descendants().match_accessible_label("Save")), 0);
+    assert_eq!(
+        count(
+            root.query_descendants()
+                .match_accessible_label(TextMatch::ContainsIgnoringCase("save".into()))
+        ),
+        2
+    );
+    assert_eq!(
+        count(
+            root.query_descendants()
+                .match_accessible_label(TextMatch::ContainsIgnoringCase("AS…".into()))
+        ),
+        1
+    );
+
+    assert_eq!(count(search().match_accessible_value("report")), 1);
+    assert_eq!(count(search().match_accessible_value("repo")), 0);
+    assert_eq!(count(search().match_accessible_placeholder_text("Search files")), 1);
+    assert_eq!(count(search().match_accessible_description("Filters the list below")), 1);
+    assert_eq!(
+        count(
+            search().match_accessible_description(TextMatch::ContainsIgnoringCase("LIST".into()))
+        ),
+        1
+    );
+    assert_eq!(count(root.query_descendants().match_accessible_id("search-box")), 1);
+    assert_eq!(count(root.query_descendants().match_accessible_id("search")), 0);
+
+    assert_eq!(count(root.query_descendants().match_testable_property("selected", "true")), 1);
+    assert_eq!(count(root.query_descendants().match_testable_property("selected", "false")), 1);
+    assert_eq!(
+        root.query_descendants()
+            .match_testable_property("selected", "true")
+            .find_first()
+            .and_then(|row| row.accessible_label())
+            .unwrap_or_default(),
+        "Save As…"
+    );
+    assert_eq!(
+        count(
+            root.query_descendants().match_testable_property(
+                "status",
+                TextMatch::ContainsIgnoringCase("publish".into())
+            )
+        ),
+        1
+    );
+    assert_eq!(
+        count(
+            root.query_descendants()
+                .match_testable_property("missing", TextMatch::ContainsIgnoringCase("".into()))
+        ),
+        0
+    );
+}
+
+#[test]
+fn test_contains_ignoring_case_folds_case() {
+    let contains = |candidate: &str, text: &str| {
+        TextMatcher::from(TextMatch::ContainsIgnoringCase(text.into())).matches(candidate)
+    };
+    assert!(contains("STRASSE", "straße"));
+    assert!(contains("Straße", "SS"));
+    assert!(contains("ΟΔΟΣ", "Σ"));
+    assert!(contains("ΟΔΟΣΑ", "οδος"));
+    assert!(!contains("ΟΔΟΣ", "x"));
+}
+
+#[test]
 fn test_normalize_id() {
     crate::init_no_event_loop();
 
@@ -1553,6 +1863,35 @@ fn test_popups() {
             .collect::<Vec<_>>(),
         ["Nested", "Ok"]
     );
+}
+
+#[test]
+fn test_visit_descendants_stops_in_popup_of_start_element() {
+    crate::init_no_event_loop();
+
+    slint::slint! {
+        #[edition = "1.19"]
+        export component App inherits Window {
+            width: 100px;
+            height: 100px;
+            public function show-popup() { popup.show(); }
+            popup := PopupWindow {
+                in-popup := Rectangle { }
+            }
+            after-popup := Rectangle { }
+        }
+    }
+
+    let app = App::new().unwrap();
+    app.invoke_show_popup();
+
+    let mut visited = 0;
+    let found = app.root_element().visit_descendants(|element| {
+        visited += 1;
+        ControlFlow::Break(element.id())
+    });
+    assert_eq!(found, Some(Some("App::in-popup".into())));
+    assert_eq!(visited, 1);
 }
 
 #[test]
