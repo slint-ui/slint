@@ -466,3 +466,38 @@ fn clearing_the_text_state_keeps_the_tree_usable() {
     let update = f.tree.build_new_tree();
     assert!(update.tree.is_some());
 }
+#[test]
+fn a_rebuilt_node_in_a_popup_keeps_the_position_of_the_popup() {
+    let source = r#"
+export component TestCase inherits Window {
+    width: 400px;
+    height: 300px;
+    in-out property <string> label: "Before";
+    public function open-popup() { popup.show(); }
+
+    popup := PopupWindow {
+        x: 20px;
+        y: 120px;
+        width: 100px;
+        height: 50px;
+        Rectangle {
+            accessible-role: button;
+            accessible-label: root.label;
+        }
+    }
+}
+"#;
+    let mut f = Fixture::with_source(source);
+    f.instance.invoke("open-popup", &[]).unwrap();
+    let full = f.tree.build_new_tree();
+    let (id, node) = node_by_label(&full, "Before");
+    let bounds = node.bounds().unwrap();
+    assert_eq!((bounds.x0, bounds.y0), (20., 120.));
+
+    f.instance.set_property("label", Value::String("After".into())).unwrap();
+    assert!(f.tree.has_dirty_nodes());
+    let partial = f.tree.rebuild_dirty_nodes();
+    let node = &partial.nodes.iter().find(|(n, _)| *n == id).expect("the node is rebuilt").1;
+    assert_eq!(node.label(), Some("After"));
+    assert_eq!(node.bounds(), Some(bounds));
+}
