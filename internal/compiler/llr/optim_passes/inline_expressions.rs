@@ -420,6 +420,8 @@ fn number_literal(expr: &Expression) -> Option<f64> {
 /// the menu item tree of a popup menu, and `UpdateTimers`,
 /// refer to the enclosing component implicitly,
 /// so they can only move within the same component.
+/// A `ModelDataAssignment` reaches its repeater by parent depth alone,
+/// so `map` must not have a sub-component path.
 /// Also unsafe when it reads a parameter more than once:
 /// a real call clones each read (`args.N.clone()`),
 /// but the inlined body reads a local that a second read would move.
@@ -434,6 +436,13 @@ fn body_is_inline_safe(exp: &Expression, map: &ContextMap) -> bool {
                 | BuiltinFunction::ShowPopupMenuInternal
                 | BuiltinFunction::UpdateTimers => matches!(map, ContextMap::Identity),
                 _ => true,
+            }
+        }
+        Expression::ModelDataAssignment { .. } => {
+            safe &= match map {
+                ContextMap::Identity => true,
+                ContextMap::InSubElement { path, .. } => path.is_empty(),
+                ContextMap::InGlobal(_) => false,
             }
         }
         _ => {}
