@@ -17,7 +17,7 @@ use gibs::Kind;
 const EMBED: &str = "FLIGHT_TRACKER_EMBED_TILES";
 
 fn main() {
-    slint_build::compile("ui/app.slint").unwrap();
+    slint_build::compile("slint-project.json").unwrap();
     println!("cargo::rerun-if-env-changed={EMBED}");
     let wasm = std::env::var("CARGO_CFG_TARGET_ARCH").as_deref() == Ok("wasm32");
     if !wasm && embed_tiles() {
