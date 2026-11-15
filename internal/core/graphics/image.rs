@@ -1934,7 +1934,7 @@ pub fn fit9slice(
     use euclid::rect;
     let sf = |x| scale_factor.get() * x as f32;
     let source = source_rect.cast::<u16>();
-    if t + b > source.height || l + r > source.width {
+    if t as u32 + b as u32 > source_rect.height || l as u32 + r as u32 > source_rect.width {
         [None, None, None, None, None, None, None, None, None]
     } else {
         [
@@ -2170,7 +2170,21 @@ pub struct BorrowedOpenGLTexture {
 mod tests {
     use crate::graphics::{Rgba8Pixel, SharedPixelBuffer};
 
-    use super::{Image, Rgb565Pixel};
+    use super::{Image, IntSize, Rgb565Pixel, ScaleFactor, fit9slice};
+
+    #[test]
+    fn fit9slice_borders_larger_than_image() {
+        // The borders' u16 sum used to overflow: 65336 + 200 wraps to 0.
+        let fits = fit9slice(
+            IntSize::new(1, 1),
+            [65336, 0, 200, 0],
+            euclid::size2(100., 100.),
+            ScaleFactor::new(1.),
+            Default::default(),
+            Default::default(),
+        );
+        assert_eq!(fits.count(), 0);
+    }
 
     #[test]
     #[should_panic(expected = "the requested 8x8 pixels")]
