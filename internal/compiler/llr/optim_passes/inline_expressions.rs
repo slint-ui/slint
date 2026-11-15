@@ -187,6 +187,7 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::ColorScheme => PROPERTY_ACCESS_COST,
         BuiltinFunction::AccentColor => PROPERTY_ACCESS_COST,
         BuiltinFunction::ReducedMotion => PROPERTY_ACCESS_COST,
+        BuiltinFunction::SystemColorSchemes => PROPERTY_ACCESS_COST,
         BuiltinFunction::SupportsNativeMenuBar => 10,
         BuiltinFunction::SetupMenuBar => isize::MAX,
         BuiltinFunction::SetupSystemTrayIcon => isize::MAX,
