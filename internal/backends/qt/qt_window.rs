@@ -2050,14 +2050,16 @@ impl QtItemRenderer<'_> {
             )
             .collect::<Vec<_>>()
         } else {
-            vec![i_slint_core::graphics::fit(
+            i_slint_core::graphics::fit(
                 image.image_fit(),
                 size * scale_factor,
                 source_rect,
                 scale_factor,
                 image.alignment(),
                 image.tiling(),
-            )]
+            )
+            .into_iter()
+            .collect()
         };
 
         for fit in fit {
