@@ -37,7 +37,7 @@ use crate::accessibility::{
 };
 use crate::api::Window;
 use crate::input::FocusReason;
-use crate::item_tree::{ItemTreeRc, ItemTreeRef, ItemTreeWeak};
+use crate::item_tree::{ItemTreeRc, ItemTreeRef, ItemTreeWeak, ParentItemTraversalMode};
 use crate::items::{ItemRc, WindowItem};
 use crate::lengths::{LogicalPoint, ScaleFactor};
 use crate::properties::PropertyTracker;
@@ -776,8 +776,12 @@ impl AccessKitTree {
             node.set_disabled();
         }
 
-        if !item.is_visible() {
+        if !item.is_visible() || is_behind_modal(item) {
             node.set_hidden();
+        }
+
+        if is_modal(item) {
+            node.set_modal();
         }
 
         if item.borrow().as_ref().clips_children() {
@@ -975,6 +979,43 @@ struct DelegateFocusPropertyTracker {
 impl crate::properties::PropertyDirtyHandler for DelegateFocusPropertyTracker {
     fn notify(self: Pin<&Self>) {
         self.host.focus_dirty();
+    }
+}
+
+/// Whether `item` is shown and has `accessible-modal` set.
+fn is_modal(item: &ItemRc) -> bool {
+    item.is_visible()
+        && item
+            .accessible_string_property(AccessibleStringProperty::Modal)
+            .is_some_and(|x| x == "true")
+}
+
+/// Whether `item` is a modal accessible item, or only wraps some, as an element with a `visible`
+/// binding does.
+fn is_or_wraps_modal(item: &ItemRc) -> bool {
+    if item.is_accessible() {
+        is_modal(item)
+    } else {
+        crate::accessibility::accessible_descendents(item).any(|x| is_modal(&x))
+    }
+}
+
+/// Whether a modal item is stacked on top of `item`: a later sibling of `item`, or of one of its
+/// ancestors. The modal item covers `item`, so assistive technologies shouldn't reach it.
+fn is_behind_modal(item: &ItemRc) -> bool {
+    let mut current = item.clone();
+    loop {
+        let mut sibling = current.next_sibling();
+        while let Some(candidate) = sibling {
+            if is_or_wraps_modal(&candidate) {
+                return true;
+            }
+            sibling = candidate.next_sibling();
+        }
+        match current.parent_item(ParentItemTraversalMode::StopAtPopups) {
+            Some(parent) => current = parent,
+            None => return false,
+        }
     }
 }
 
