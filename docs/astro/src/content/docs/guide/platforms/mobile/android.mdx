@@ -508,3 +508,5 @@ With the `accessibility` feature of the `slint` crate, which is on by default, S
 Describe your elements with the `accessible-role` and `accessible-label` properties, as on the other platforms.
 
 To try it, enable TalkBack in **Settings → Accessibility**, or dump the accessibility tree of the running app with `adb shell uiautomator dump`.
+
+A `NativeActivity` renders to the surface of the activity window, where Android can't draw the frame around the element that has accessibility focus, so Slint draws it itself.
