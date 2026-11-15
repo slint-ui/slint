@@ -2029,11 +2029,8 @@ fn generate_sub_component_body(
         )
     });
 
-    debug_assert_eq!(
-        component.needs_change_trackers_init(root),
-        !change_trackers_init_code.is_empty()
-    );
     let has_change_trackers = !change_trackers_init_code.is_empty();
+    debug_assert_eq!(component.needs_change_trackers_init(root), has_change_trackers);
     let mut chunk_fns = Vec::new();
     let change_trackers_init_fn = has_change_trackers.then(|| {
         let code = emit_in_chunks(

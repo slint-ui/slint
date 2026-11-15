@@ -2829,8 +2829,8 @@ fn generate_sub_component_body(
         }),
     ));
 
-    debug_assert_eq!(component.needs_change_trackers_init(root), init_change_trackers.len() > 1);
     let has_change_trackers = init_change_trackers.len() > 1;
+    debug_assert_eq!(component.needs_change_trackers_init(root), has_change_trackers);
     if has_change_trackers {
         target_struct.members.push((
             field_access,
