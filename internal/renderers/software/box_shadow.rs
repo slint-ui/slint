@@ -6,7 +6,7 @@
 use super::draw_functions::{PremultipliedRgbaColor, TargetPixel};
 use super::{
     Fixed, PhysicalLength, PhysicalRect, PhysicalSize, ProcessScene, RotationInfo, RoundedClip,
-    Transform, target_pixel_buffer,
+    ShapeClip, Transform, target_pixel_buffer,
 };
 use alloc::vec::Vec;
 use i_slint_core::graphics::BorderRadius;
@@ -105,19 +105,13 @@ pub(super) fn process_drop_shadow(
         && let [(shape, radius, weight)] = *shapes
     {
         let args = target_pixel_buffer::DrawRectangleArgs {
-            x: shape.origin.x,
-            y: shape.origin.y,
-            width: shape.size.width,
-            height: shape.size.height,
             top_left_radius: radius.top_left,
             top_right_radius: radius.top_right,
             bottom_right_radius: radius.bottom_right,
             bottom_left_radius: radius.bottom_left,
-            border_width: 0.,
-            background: Brush::SolidColor(color),
-            border: Brush::default(),
             alpha: (weight * 255.).round() as u8,
             rotation: rotation.orientation,
+            ..target_pixel_buffer::DrawRectangleArgs::from_rect(shape, Brush::SolidColor(color))
         };
         processor.process_rectangle(&args, *clip, rounded_clips);
         return;
@@ -135,9 +129,7 @@ pub(super) fn process_drop_shadow(
     else {
         return;
     };
-    // The shadow is point sampled at pixel centers, which aliases once σ nears a pixel.
-    // Adding the variance of a pixel's box filter, 1/12 px², keeps the edges anti-aliased.
-    let sigma = (options.blur_sigma().powi(2) + 1. / 12.).sqrt();
+    let sigma = sampled_sigma(options);
     for (rect, ..) in shapes.iter_mut() {
         *rect = rect.translate(-geometry.origin.cast::<f32>().to_vector());
     }
@@ -145,7 +137,74 @@ pub(super) fn process_drop_shadow(
         geometry,
         BoxShadowCommand::new(geometry.size, shapes, sigma, color.into()),
         rounded_clips,
+        None,
     );
+}
+
+/// Draws the inset shadow described by `options` inside the element of physical rectangle
+/// and radii `mask`, after the panel rotation, with `origin` the element's position before it.
+///
+/// `color` is the shadow color with the opacity applied, and `clip` is in rotated coordinates.
+pub(super) fn process_inner_shadow(
+    processor: &mut dyn ProcessScene,
+    options: &BoxShadowOptions,
+    origin: euclid::Point2D<f32, PhysicalPx>,
+    (mask, mask_radius): (euclid::Rect<f32, PhysicalPx>, BorderRadius<f32, PhysicalPx>),
+    color: Color,
+    clip: &PhysicalRect,
+    rounded_clips: &[RoundedClip],
+    rotation: RotationInfo,
+) {
+    if color.alpha() == 0 {
+        return;
+    }
+    let spread = options.spread.get();
+    let hole_size =
+        euclid::size2(options.width.get() - 2. * spread, options.height.get() - 2. * spread);
+    if hole_size.is_empty() {
+        let args = target_pixel_buffer::DrawRectangleArgs {
+            top_left_radius: mask_radius.top_left,
+            top_right_radius: mask_radius.top_right,
+            bottom_right_radius: mask_radius.bottom_right,
+            bottom_left_radius: mask_radius.bottom_left,
+            rotation: rotation.orientation,
+            ..target_pixel_buffer::DrawRectangleArgs::from_rect(mask, Brush::SolidColor(color))
+        };
+        processor.process_rectangle(&args, *clip, rounded_clips);
+        return;
+    }
+    // The same rectangle and shape as the element's background.
+    let Some(clipped) = mask.intersection(&clip.cast()) else { return };
+    let geometry: PhysicalRect = clipped.round().cast();
+    if geometry.is_empty() {
+        return;
+    }
+    let mask_clip = ShapeClip {
+        shape: super::rounded_shape(&mask, mask_radius, &clipped),
+        opaque_border: PhysicalLength::new(0),
+    };
+    let mask_clip = Some(mask_clip).filter(|clip| clip.touches_corner(geometry.size));
+
+    let hole_origin =
+        origin + euclid::vec2(spread + options.offset_x_inset, spread + options.offset_y_inset);
+    let hole = euclid::Rect::new(hole_origin, hole_size)
+        .transformed(rotation)
+        .translate(-geometry.origin.cast::<f32>().to_vector());
+    let hole_radius =
+        super::scale_overlapping_radii(options.inner_radius(), hole_size).transformed(rotation);
+    let sigma = sampled_sigma(options);
+    processor.process_box_shadow(
+        geometry,
+        BoxShadowCommand::new_inset(geometry.size, hole, hole_radius, sigma, color.into()),
+        rounded_clips,
+        mask_clip,
+    );
+}
+
+fn sampled_sigma(options: &BoxShadowOptions) -> f32 {
+    // The shadow is point sampled at pixel centers, which aliases once σ nears a pixel.
+    // Adding the variance of a pixel's box filter, 1/12 px², keeps the edges anti-aliased.
+    (options.blur_sigma().powi(2) + 1. / 12.).sqrt()
 }
 
 const GAUSSIAN_TAIL_STEPS: usize = 64;
@@ -319,7 +378,7 @@ impl ShadowShape {
 /// The most shapes a [`BoxShadowCommand`] combines.
 const MAX_SHADOW_SHAPES: usize = 3;
 
-/// A blurred drop shadow: a weighted sum of rounded rectangles, convolved with a Gaussian.
+/// A blurred shadow: a weighted sum of rounded rectangles, convolved with a Gaussian.
 #[derive(Debug)]
 pub struct BoxShadowCommand {
     shapes: [ShadowShape; MAX_SHADOW_SHAPES],
@@ -328,6 +387,8 @@ pub struct BoxShadowCommand {
     color: PremultipliedRgbaColor,
     /// Only for a single shape.
     profile: Option<StraightRowProfile>,
+    /// Draws one minus the coverage, for a single shape of weight 1.
+    inset: bool,
 }
 
 impl BoxShadowCommand {
@@ -359,6 +420,7 @@ impl BoxShadowCommand {
             sigma,
             color,
             profile: None,
+            inset: false,
         };
         for (shape, &(rect, radius, weight)) in command.shapes.iter_mut().zip(shapes) {
             let radius = BorderRadius::new(
@@ -396,6 +458,19 @@ impl BoxShadowCommand {
         command
     }
 
+    /// An inset shadow of standard deviation `sigma`: `color` everywhere but in the blurred
+    /// `hole`, which is relative to the origin of the geometry of `size` it's drawn in.
+    pub(super) fn new_inset(
+        size: PhysicalSize,
+        hole: euclid::Rect<f32, PhysicalPx>,
+        radius: BorderRadius<f32, PhysicalPx>,
+        sigma: f32,
+        color: PremultipliedRgbaColor,
+    ) -> Self {
+        // A weight of 1 leaves the color as is, so `1 − coverage` is exact.
+        Self { inset: true, ..Self::new(size, &[(hole, radius, 1.)], sigma, color) }
+    }
+
     fn shapes(&self) -> &[ShadowShape] {
         &self.shapes[..self.shape_count as usize]
     }
@@ -424,6 +499,7 @@ fn draw_straight_box_shadow_line(
     profile: &StraightRowProfile,
     weight: u32,
     color: PremultipliedRgbaColor,
+    inset: bool,
     line_buffer: &mut [impl TargetPixel],
     extra_left_clip: i16,
 ) {
@@ -432,7 +508,8 @@ fn draw_straight_box_shadow_line(
     let inner = &profile.inner;
     let index = |x: i32| (x - first_x).clamp(0, len) as usize;
     let (inner_start, inner_end) = (index(inner.start), index(inner.end));
-    if let Some(c) = scale_color(color, 2 * weight) {
+    let inner_weight = if inset { GAUSSIAN_ONE - weight } else { weight };
+    if let Some(c) = scale_color(color, 2 * inner_weight) {
         TargetPixel::blend_slice(&mut line_buffer[inner_start..inner_end], c);
     }
     let (before, after) = profile.ramps.split_at(inner.start as usize);
@@ -442,13 +519,17 @@ fn draw_straight_box_shadow_line(
     let ramps = head[..inner_start].iter_mut().zip(before).chain(tail.iter_mut().zip(after));
     for (pixel, &coverage) in ramps {
         // 257 widens the 1/255 coverage to Q16; `weight` is Q15.
-        if let Some(c) = scale_color(color, (weight * (coverage as u32 * 257) + (1 << 14)) >> 15) {
+        let coverage = (weight * (coverage as u32 * 257) + (1 << 14)) >> 15;
+        let coverage = if inset { (1 << 16) - coverage } else { coverage };
+        if let Some(c) = scale_color(color, coverage) {
             pixel.blend(c);
         }
     }
 }
 
 const MAX_BANDS: usize = 16;
+/// Bounds the offsets in [`Band::sum`]: with weights summing to at most 2^15, the sums fit in i32.
+const MAX_BAND_OFFSET: Fixed<i32, 8> = Fixed((1 << 16) - 1);
 
 /// Neighboring slices of a shape on one line, approximated as a single rectangle.
 #[derive(Clone, Copy, Default)]
@@ -459,9 +540,8 @@ struct Band {
     weight: i32,
     /// The first slice's edges, which later slices must stay close to.
     first: (Fixed<i32, 8>, Fixed<i32, 8>),
-    /// The slices' edges, weighted.
-    sum: (i64, i64),
-    slices: u32,
+    /// The slices' offsets from `first`, weighted.
+    sum: (i32, i32),
 }
 
 /// How far a corner of radius `r` indents the shape's edge at `distance` from the corner's
@@ -516,6 +596,7 @@ fn shape_bands(
     let slice_height =
         (sigma / 4).max(Fixed((curved_length.0 + curved_budget - 3) / (curved_budget - 2)));
 
+    let merge_distance = sigma.min(MAX_BAND_OFFSET);
     let max_bands = bands.len();
     let mut band_count: usize = 0;
     let mut edge = window_top;
@@ -536,41 +617,47 @@ fn shape_bands(
             if weight == 0 {
                 continue;
             }
-            let x0 = left
-                + corner_inset(radius.top_left, middle - top)
-                    .max(corner_inset(radius.bottom_left, bottom - middle));
-            let x1 = right
-                - corner_inset(radius.top_right, middle - top)
-                    .max(corner_inset(radius.bottom_right, bottom - middle));
-            let close = |a: Fixed<i32, 8>, b: Fixed<i32, 8>| (a - b).0.abs() <= sigma.0;
+            // Each inset takes a square root, and opposite corners usually share a radius.
+            let top_left = corner_inset(radius.top_left, middle - top);
+            let bottom_left = corner_inset(radius.bottom_left, bottom - middle);
+            let top_right = if radius.top_right == radius.top_left {
+                top_left
+            } else {
+                corner_inset(radius.top_right, middle - top)
+            };
+            let bottom_right = if radius.bottom_right == radius.bottom_left {
+                bottom_left
+            } else {
+                corner_inset(radius.bottom_right, bottom - middle)
+            };
+            let x0 = left + top_left.max(bottom_left);
+            let x1 = right - top_right.max(bottom_right);
+            let close = |a: Fixed<i32, 8>, b: Fixed<i32, 8>| (a - b).0.abs() <= merge_distance.0;
             match band_count.checked_sub(1).map(|last| &mut bands[last]) {
                 Some(last)
                     if band_count == max_bands
                         || (close(last.first.0, x0) && close(last.first.1, x1)) =>
                 {
+                    // A slice merged into a full list can be further away.
+                    let max = MAX_BAND_OFFSET.0;
+                    let offset =
+                        |x: Fixed<i32, 8>, first: Fixed<i32, 8>| (x - first).0.clamp(-max, max);
                     last.weight += weight;
-                    last.sum.0 += weight as i64 * x0.0 as i64;
-                    last.sum.1 += weight as i64 * x1.0 as i64;
-                    last.slices += 1;
+                    last.sum.0 += weight * offset(x0, last.first.0);
+                    last.sum.1 += weight * offset(x1, last.first.1);
                 }
                 _ => {
-                    bands[band_count] = Band {
-                        x0,
-                        x1,
-                        weight,
-                        first: (x0, x1),
-                        sum: (weight as i64 * x0.0 as i64, weight as i64 * x1.0 as i64),
-                        slices: 1,
-                    };
+                    bands[band_count] = Band { x0, x1, weight, first: (x0, x1), sum: (0, 0) };
                     band_count += 1;
                 }
             }
         }
     }
     for band in &mut bands[..band_count] {
-        if band.slices > 1 {
-            band.x0 = Fixed((band.sum.0 / band.weight as i64) as i32);
-            band.x1 = Fixed((band.sum.1 / band.weight as i64) as i32);
+        if band.sum != (0, 0) {
+            // Flooring makes this the floored mean of the edges, whatever `first` is.
+            band.x0 = band.first.0 + Fixed(band.sum.0.div_euclid(band.weight));
+            band.x1 = band.first.1 + Fixed(band.sum.1.div_euclid(band.weight));
         }
         // Both are at most 2^15, so the product fits.
         band.weight = (band.weight * shape_weight) >> 15;
@@ -578,7 +665,7 @@ fn shape_bands(
     band_count
 }
 
-/// Draws one line of a blurred drop shadow.
+/// Draws one line of a blurred shadow.
 ///
 /// The rows of each shape within reach of the blur are cut into horizontal slices,
 /// each approximated as a rectangle spanning the shape's width at the slice's middle.
@@ -588,6 +675,7 @@ fn shape_bands(
 /// both exact.
 /// Rows of a single shape out of reach of the corner curves are a single band, drawn from the
 /// precomputed [`StraightRowProfile`].
+/// An inset shadow draws one minus that coverage.
 pub(super) fn draw_box_shadow_line(
     span: &PhysicalRect,
     line: PhysicalLength,
@@ -598,7 +686,7 @@ pub(super) fn draw_box_shadow_line(
     /// The cost of interpolating a pixel, in quarters of a band loop.
     const INTERPOLATION_COST: i32 = 3;
 
-    let BoxShadowCommand { sigma, color, ref profile, .. } = *shadow;
+    let BoxShadowCommand { sigma, color, ref profile, inset, .. } = *shadow;
     let gaussian = Gaussian::new(sigma);
     let cutoff = gaussian.cutoff();
 
@@ -614,7 +702,14 @@ pub(super) fn draw_box_shadow_line(
         {
             let weight =
                 gaussian.cdf(y_center - window_top) - gaussian.cdf(y_center - window_bottom);
-            draw_straight_box_shadow_line(profile, weight, color, line_buffer, extra_left_clip);
+            draw_straight_box_shadow_line(
+                profile,
+                weight,
+                color,
+                inset,
+                line_buffer,
+                extra_left_clip,
+            );
             return;
         }
     }
@@ -629,14 +724,19 @@ pub(super) fn draw_box_shadow_line(
     let (Some(inner_begin), Some(inner_end)) =
         (bands.iter().map(|b| b.x0).max(), bands.iter().map(|b| b.x1).min())
     else {
+        if inset {
+            TargetPixel::blend_slice(line_buffer, color);
+        }
         return;
     };
     let (inner_begin, inner_end) = (inner_begin + cutoff, inner_end - cutoff);
 
     // Coverage is in Q30: weights and horizontal coverages are both Q15, and the weights sum to
     // at most 1. Negative weights can round it below zero.
-    let scaled_color =
-        |coverage: i32| scale_color(color, (coverage.max(0) as u32 + (1 << 13)) >> 14);
+    let scaled_color = |coverage: i32| {
+        let coverage = if inset { (1 << 30) - coverage } else { coverage };
+        scale_color(color, (coverage.max(0) as u32 + (1 << 13)) >> 14)
+    };
 
     let first_x = extra_left_clip as i32;
     let len = line_buffer.len() as i32;
@@ -755,6 +855,7 @@ impl BoxShadowCommand {
             sigma,
             color,
             profile,
+            inset: false,
         }
     }
 }
@@ -810,6 +911,10 @@ fn box_shadow_straight_row_is_separable() {
         }
     }
 }
+
+/// How far one slicing of the corners strays from the exact blur, in 1/255.
+#[cfg(test)]
+const BAND_ERROR: f64 = 3.5;
 
 #[test]
 fn box_shadow_bands_stay_close_to_the_exact_blur() {
@@ -894,7 +999,7 @@ fn box_shadow_bands_stay_close_to_the_exact_blur() {
                     })
                     .sum();
                 let error = (pixel.alpha as f64 - coverage * 255.).abs();
-                assert!(error <= 3.5, "sigma {sigma}, line {line}, x {x}: error {error}");
+                assert!(error <= BAND_ERROR, "sigma {sigma}, line {line}, x {x}: error {error}");
             }
         }
     }
@@ -1181,4 +1286,307 @@ fn drop_shadow_of_huge_shape_matches_a_smaller_one() {
     let huge_blur =
         render_drop_shadow(screen_size, &options(3e7, 3e7, 3e7), euclid::point2(-1e7, -1e7));
     assert!(huge_blur.iter().any(|p| p.alpha > 0));
+}
+
+#[test]
+fn drop_shadow_with_large_blur_matches_the_exact_blur() {
+    let screen_size = PhysicalSize::new(40, 40);
+    let (size, blur) = (600., 1000.);
+    let options = with_opaque_source(BoxShadowOptions {
+        width: euclid::Length::new(size),
+        height: euclid::Length::new(size),
+        color: Color::from_rgb_u8(255, 255, 255),
+        blur: euclid::Length::new(blur),
+        ..Default::default()
+    });
+    // Centered on the screen.
+    let start = 20. - size / 2.;
+    let data = render_drop_shadow(screen_size, &options, euclid::point2(start, start));
+    let sigma = sampled_sigma(&options) as f64;
+    let phi = |t: f64| {
+        let q = gaussian_q(t.abs().min(4.));
+        if t >= 0. { 1. - q } else { q }
+    };
+    let coverage = |p: usize| {
+        let center = p as f64 + 0.5;
+        phi((center - start as f64) / sigma) - phi((center - start as f64 - size as f64) / sigma)
+    };
+    for (i, pixel) in data.iter().enumerate() {
+        let expected = coverage(i % 40) * coverage(i / 40) * 255.;
+        assert!(
+            (pixel.alpha as f64 - expected).abs() <= 1.5,
+            "pixel {i}: {} vs {expected}",
+            pixel.alpha
+        );
+    }
+}
+
+/// The options of an inset shadow in an element of `size` and `radius`.
+#[cfg(test)]
+fn inset_options(
+    size: euclid::Size2D<f32, PhysicalPx>,
+    radius: BorderRadius<f32, PhysicalPx>,
+    offset: euclid::Vector2D<f32, PhysicalPx>,
+    blur: f32,
+    spread: f32,
+) -> BoxShadowOptions {
+    BoxShadowOptions {
+        width: euclid::Length::new(size.width),
+        height: euclid::Length::new(size.height),
+        color: Color::from_argb_u8(200, 10, 20, 30),
+        blur: euclid::Length::new(blur),
+        radius,
+        spread: euclid::Length::new(spread),
+        inset: true,
+        offset_x_inset: offset.x,
+        offset_y_inset: offset.y,
+        ..Default::default()
+    }
+}
+
+/// Calls [`process_inner_shadow`] for an element at `origin`, with the mask of a `Rectangle`.
+#[cfg(test)]
+fn process_inner_shadow_at(
+    processor: &mut dyn ProcessScene,
+    options: &BoxShadowOptions,
+    origin: euclid::Point2D<f32, PhysicalPx>,
+    clip: &PhysicalRect,
+    rounded_clips: &[RoundedClip],
+    rotation: RotationInfo,
+) {
+    let rect = euclid::Rect::new(origin, euclid::size2(options.width.get(), options.height.get()));
+    let radius = super::scale_overlapping_radii(options.radius, rect.size);
+    process_inner_shadow(
+        processor,
+        options,
+        origin,
+        (rect.transformed(rotation), radius.transformed(rotation)),
+        options.color,
+        clip,
+        rounded_clips,
+        rotation,
+    )
+}
+
+/// A pixel that records whether it was written.
+#[cfg(test)]
+#[derive(Clone, Copy, Default)]
+struct TouchedPixel {
+    color: PremultipliedRgbaColor,
+    touched: bool,
+}
+
+#[cfg(test)]
+impl TargetPixel for TouchedPixel {
+    fn blend(&mut self, color: PremultipliedRgbaColor) {
+        self.color.blend(color);
+        self.touched = true;
+    }
+    fn from_rgb(red: u8, green: u8, blue: u8) -> Self {
+        Self { color: PremultipliedRgbaColor::from_rgb(red, green, blue), touched: true }
+    }
+}
+
+#[test]
+fn inner_shadow_middle_is_skipped() {
+    let size = PhysicalSize::new(400, 300);
+    let span = PhysicalRect::from_size(size);
+    let (sigma, radius) = (4.2, 10.);
+    let hole = euclid::rect(3.3, 2.6, 392.4, 291.7);
+    let white = PremultipliedRgbaColor { red: 255, green: 255, blue: 255, alpha: 255 };
+    let shadow =
+        BoxShadowCommand::new_inset(size, hole, BorderRadius::new_uniform(radius), sigma, white);
+    assert!(shadow.profile.is_some());
+    let reference = BoxShadowCommand {
+        profile: None,
+        ..BoxShadowCommand::new_inset(size, hole, BorderRadius::new_uniform(radius), sigma, white)
+    };
+    // Past the reach of the blur and the corners, plus a pixel for rounding.
+    let reach = (3. * sigma + radius + 1.) as usize;
+    let skipped_x = hole.min_x() as usize + reach..hole.max_x() as usize - reach;
+    let skipped_y = hole.min_y() as usize + reach..hole.max_y() as usize - reach;
+    let mut untouched = 0;
+    for line in 0..size.height {
+        let mut buffer = [TouchedPixel::default(); 400];
+        draw_box_shadow_line(&span, PhysicalLength::new(line), &shadow, &mut buffer, 0);
+        let mut expected = [PremultipliedRgbaColor::default(); 400];
+        draw_box_shadow_line(&span, PhysicalLength::new(line), &reference, &mut expected, 0);
+        for (x, (pixel, expected)) in buffer.iter().zip(expected.iter()).enumerate() {
+            // The profile's 8-bit coverage rounds once more.
+            assert!(
+                pixel.color.alpha.abs_diff(expected.alpha) <= 1,
+                "({x}, {line}): {} vs {}",
+                pixel.color.alpha,
+                expected.alpha
+            );
+            if skipped_y.contains(&(line as usize)) && skipped_x.contains(&x) {
+                assert!(!pixel.touched, "({x}, {line}) was drawn");
+                untouched += 1;
+            }
+        }
+    }
+    assert!(untouched > 0);
+}
+
+#[test]
+fn inner_shadow_matches_one_minus_drop_shadow() {
+    let size = PhysicalSize::new(120, 90);
+    let span = PhysicalRect::from_size(size);
+    let white = PremultipliedRgbaColor { red: 255, green: 255, blue: 255, alpha: 255 };
+    for (hole, radius, sigma) in [
+        (euclid::rect(10.3, 8.7, 95.2, 70.1), BorderRadius::default(), 3.1),
+        (euclid::rect(-5., 12.2, 80., 90.), BorderRadius::new(4., 20., 0., 9.), 5.7),
+        (euclid::rect(20., 20., 3., 2.), BorderRadius::default(), 0.3),
+    ] {
+        let inset = BoxShadowCommand::new_inset(size, hole, radius, sigma, white);
+        let drop = BoxShadowCommand::new(size, &[(hole, radius, 1.)], sigma, white);
+        for line in 0..size.height {
+            let mut a = [PremultipliedRgbaColor::default(); 120];
+            let mut b = [PremultipliedRgbaColor::default(); 120];
+            draw_box_shadow_line(&span, PhysicalLength::new(line), &inset, &mut a, 0);
+            draw_box_shadow_line(&span, PhysicalLength::new(line), &drop, &mut b, 0);
+            for (x, (a, b)) in a.iter().zip(b.iter()).enumerate() {
+                let sum = a.alpha as i32 + b.alpha as i32;
+                assert!(
+                    (sum - 255).abs() <= 1,
+                    "{hole:?}, ({x}, {line}): {} + {}",
+                    a.alpha,
+                    b.alpha
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn inner_shadow_partial_render_is_identical() {
+    let screen_size = PhysicalSize::new(120, 100);
+    let options = inset_options(
+        euclid::size2(80., 60.),
+        BorderRadius::new(14., 3., 22., 0.),
+        euclid::vec2(4.3, -2.6),
+        7.1,
+        2.2,
+    );
+    let origin = euclid::point2(17.4, 12.8);
+    // An ancestor clip whose corners cut through the element's.
+    let rounded_clip = RoundedClip {
+        rect: euclid::rect(25, 8, 80, 70),
+        radius: super::PhysicalBorderRadius::new_uniform(18),
+    };
+    // The regions cut through the corners, and the item clip moves the drawn geometry's origin.
+    let region = [euclid::rect(10, 5, 35, 30), euclid::rect(70, 45, 40, 40)];
+    let clip = euclid::rect(30, 10, 90, 75);
+    assert_partial_render_is_identical(screen_size, clip, &region, |processor, clip| {
+        let Some(clip) = clip.intersection(&rounded_clip.rect) else { return };
+        process_inner_shadow_at(
+            processor,
+            &options,
+            origin,
+            &clip,
+            &[rounded_clip],
+            RotationInfo { orientation: RenderingRotation::NoRotation, screen_size },
+        )
+    });
+}
+
+#[test]
+fn shadow_rotation_is_consistent() {
+    use euclid::{point2, size2, vec2};
+    let screen_size = PhysicalSize::new(120, 90);
+    let origin = point2(17., 12.);
+    let size = size2(80., 60.);
+    let radius = BorderRadius::new(14., 3., 22., 0.);
+    let inset = inset_options(size, radius, vec2(4.3, -2.6), 7.1, 2.2);
+    let drop = with_opaque_source(BoxShadowOptions {
+        width: euclid::Length::new(size.width),
+        height: euclid::Length::new(size.height),
+        color: Color::from_argb_u8(200, 10, 20, 30),
+        blur: euclid::Length::new(7.1),
+        radius,
+        spread: euclid::Length::new(2.2),
+        ..Default::default()
+    });
+    #[derive(Clone, Copy, Debug, PartialEq)]
+    enum Draw {
+        Inner,
+        Drop,
+        /// The element's background, whose anti-aliased edge is the inner shadow's.
+        Background,
+    }
+    let render = |orientation, draw| {
+        let rotation = RotationInfo { orientation, screen_size };
+        let rotated_size = screen_size.transformed(rotation);
+        let screen = PhysicalRect::from_size(rotated_size);
+        let data =
+            render_region(rotated_size, &[screen], ScaleFactor::new(1.), |processor| match draw {
+                Draw::Inner => {
+                    process_inner_shadow_at(processor, &inset, origin, &screen, &[], rotation)
+                }
+                Draw::Drop => process_drop_shadow(
+                    processor,
+                    &drop,
+                    origin,
+                    drop.color,
+                    &screen,
+                    &[],
+                    rotation,
+                ),
+                Draw::Background => {
+                    let mask = euclid::Rect::new(origin, size).transformed(rotation);
+                    let radius = radius.transformed(rotation);
+                    let args = target_pixel_buffer::DrawRectangleArgs {
+                        top_left_radius: radius.top_left,
+                        top_right_radius: radius.top_right,
+                        bottom_right_radius: radius.bottom_right,
+                        bottom_left_radius: radius.bottom_left,
+                        rotation: orientation,
+                        ..target_pixel_buffer::DrawRectangleArgs::from_rect(
+                            mask,
+                            Brush::SolidColor(Color::from_rgb_u8(255, 255, 255)),
+                        )
+                    };
+                    processor.process_rectangle(&args, screen, &[]);
+                }
+            });
+        // Back to unrotated coordinates.
+        let mut unrotated = alloc::vec![PremultipliedRgbaColor::default(); data.len()];
+        for (i, pixel) in unrotated.iter_mut().enumerate() {
+            let p = PhysicalPoint::new(
+                (i % screen_size.width as usize) as i16,
+                (i / screen_size.width as usize) as i16,
+            );
+            let r = PhysicalRect::new(p, PhysicalSize::new(1, 1)).transformed(rotation).origin;
+            *pixel = data[r.y as usize * rotated_size.width as usize + r.x as usize];
+        }
+        unrotated
+    };
+    let reference_background = render(RenderingRotation::NoRotation, Draw::Background);
+    for draw in [Draw::Inner, Draw::Drop] {
+        let reference = render(RenderingRotation::NoRotation, draw);
+        assert!(reference.iter().any(|p| p.alpha > 0));
+        for orientation in [
+            RenderingRotation::Rotate90,
+            RenderingRotation::Rotate180,
+            RenderingRotation::Rotate270,
+        ] {
+            let rotated = render(orientation, draw);
+            let background = render(orientation, Draw::Background);
+            for (i, (a, b)) in reference.iter().zip(rotated.iter()).enumerate() {
+                // A curve's anti-aliasing depends on the line direction, for the background too.
+                let on_mask_edge =
+                    reference_background[i].alpha != 255 || background[i].alpha != 255;
+                if draw == Draw::Inner && on_mask_edge {
+                    continue;
+                }
+                // Each orientation slices the corners along its own axes.
+                assert!(
+                    a.alpha.abs_diff(b.alpha) as f64 <= 2. * BAND_ERROR,
+                    "{draw:?}, {orientation:?}, pixel {i}: {} vs {}",
+                    a.alpha,
+                    b.alpha
+                );
+            }
+        }
+    }
 }
