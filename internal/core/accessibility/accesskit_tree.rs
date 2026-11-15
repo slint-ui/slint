@@ -361,7 +361,7 @@ impl AccessKitTree {
                             let mut node = self.build_node_without_children(
                                 &item,
                                 scale_factor,
-                                Default::default(),
+                                cached_node.window_position,
                             );
                             node.set_children(cached_node.children.clone());
 
@@ -371,7 +371,7 @@ impl AccessKitTree {
                                 &mut node,
                                 cached_node.id,
                                 scale_factor,
-                                Default::default(),
+                                cached_node.window_position,
                                 &mut emitted,
                                 &window_adapter,
                             );
@@ -565,7 +565,12 @@ impl AccessKitTree {
 
         // Only the regular descendants: every emit pushes the TextRun children again, and
         // `accesskit_consumer` rejects a child that appears twice.
-        self.all_nodes.push(CachedNode { id, children: descendant_children, tracker });
+        self.all_nodes.push(CachedNode {
+            id,
+            children: descendant_children,
+            window_position,
+            tracker,
+        });
 
         nodes.push((id, node));
         nodes.extend(text_run_nodes);
@@ -994,6 +999,8 @@ impl crate::properties::PropertyDirtyHandler for DelegateFocusPropertyTracker {
 struct CachedNode {
     id: NodeId,
     children: Vec<NodeId>,
+    /// Where the window of the item is, which is not the origin for the items of a popup.
+    window_position: LogicalPoint,
     tracker: Pin<Box<PropertyTracker>>,
 }
 
