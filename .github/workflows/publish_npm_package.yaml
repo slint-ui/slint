@@ -259,3 +259,45 @@ jobs:
               if: ${{ github.event.inputs.private != 'true' && (github.ref == 'refs/heads/master' || github.event.inputs.release == 'true') }}
               run: |
                   node "$GITHUB_WORKSPACE/api/node/scripts/packaging.mts" publish-all "$GITHUB_WORKSPACE/api/node" https://registry.npmjs.org/ "$PUBLISH_DIST_TAG"
+
+    publish_highlightjs_grammar:
+        runs-on: ubuntu-latest
+        needs: determine_version
+        permissions:
+            id-token: write  # Required for OIDC
+            contents: read
+        env:
+            PKG_VERSION: ${{ needs.determine_version.outputs.PKG_VERSION }}
+            RELEASE_INPUT: ${{ github.event.inputs.release }}
+        steps:
+            - uses: actions/checkout@v7
+            - uses: pnpm/action-setup@v6.1.1
+            - uses: actions/setup-node@v7
+              with:
+                  node-version: "24"
+                  registry-url: "https://registry.npmjs.org"
+                  package-manager-cache: false
+            - name: Update npm as Node 20.x might not have an new enough npm for trusted publishing
+              run: npm install -g npm@latest
+            - name: Set version
+              working-directory: editors/grammar
+              run: |
+                  if [ "$RELEASE_INPUT" != "true" ]; then
+                      pnpm version --no-git-tag-version $PKG_VERSION
+                  fi
+            # pnpm pack replaces the catalog: versions, and its prepack script generates the grammar.
+            - name: Build package
+              working-directory: editors/grammar
+              run: pnpm pack --out highlightjs-slint.tgz
+            - name: "Upload npm package Artifact"
+              uses: actions/upload-artifact@v7
+              with:
+                  name: highlightjs-slint-package
+                  path: editors/grammar/highlightjs-slint.tgz
+            - name: Publish package
+              if: ${{ github.event.inputs.private != 'true' && (github.ref == 'refs/heads/master' || github.event.inputs.release == 'true') }}
+              env:
+                  # Empty for a release, which publishes as `latest`.
+                  PUBLISH_DIST_TAG: ${{ github.event.inputs.release != 'true' && 'nightly' || '' }}
+              run: |
+                  node "$GITHUB_WORKSPACE/api/node/scripts/packaging.mts" publish-all "$GITHUB_WORKSPACE/editors/grammar" https://registry.npmjs.org/ "$PUBLISH_DIST_TAG"

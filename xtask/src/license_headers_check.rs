@@ -635,6 +635,7 @@ static LICENSE_LOCATION_FOR_FILE: LazyLock<Vec<(regex::Regex, LicenseLocation)>>
 static LICENSE_FOR_FILE: LazyLock<Vec<(regex::Regex, &'static str)>> = LazyLock::new(|| {
     [
         ("^editors/tree-sitter-slint/grammar.js$", MIT_LICENSE),
+        ("^editors/grammar/", MIT_LICENSE),
         ("^editors/zed/", MIT_LICENSE),
         ("^helper_crates/const-field-offset/", MIT_OR_APACHE2_LICENSE),
         ("^helper_crates/vtable/", MIT_OR_APACHE2_LICENSE),

@@ -101,4 +101,4 @@ or preview individual components such as the library or properties view.
 This extensions comes with some tools to help with QA:
 - `pnpm lint` and `pnpm lint:fix` run the biome linter on the source code
 - `pnpm type-check` run the typescript compiler
-- `pnpm test_grammar` run the tests on the TextMate grammar build into the extension
+- `pnpm test` in `editors/grammar` runs the tests on the TextMate grammar

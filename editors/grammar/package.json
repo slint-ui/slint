@@ -1,0 +1,32 @@
+{
+    "name": "@slint-ui/highlightjs-slint",
+    "version": "1.20.0",
+    "description": "Slint grammar for highlight.js",
+    "homepage": "https://slint.dev",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/slint-ui/slint.git",
+        "directory": "editors/grammar"
+    },
+    "license": "MIT",
+    "keywords": [
+        "highlight.js",
+        "highlightjs",
+        "slint"
+    ],
+    "main": "dist/highlightjs-slint.js",
+    "files": [
+        "dist/highlightjs-slint.js"
+    ],
+    "scripts": {
+        "build": "node build.mjs",
+        "prepack": "pnpm build",
+        "check": "biome check",
+        "test": "pnpm build && node --test test/*.test.mjs && vscode-tmgrammar-test -g dist/slint.tmLanguage.json \"../vscode/tests/grammar/*.slint\""
+    },
+    "devDependencies": {
+        "@biomejs/biome": "catalog:",
+        "highlight.js": "11.11.1",
+        "vscode-tmgrammar-test": "0.1.3"
+    }
+}

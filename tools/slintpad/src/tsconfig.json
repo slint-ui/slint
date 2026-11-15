@@ -4,7 +4,12 @@
         "lib": ["dom", "es2021"],
         "types": ["vscode", "vite/client"]
     },
-    "include": ["./*.ts", "../package.json", "./welcome/*.ts"],
+    "include": [
+        "./*.ts",
+        "../package.json",
+        "../../../editors/grammar/words.json",
+        "./welcome/*.ts"
+    ],
     "references": [
         {
             "path": "worker"
