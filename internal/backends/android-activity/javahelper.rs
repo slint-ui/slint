@@ -40,6 +40,7 @@ bind_java_type! {
     type_map = {
         AndroidActivity => "android.app.Activity",
         AndroidRect => "android.graphics.Rect",
+        AndroidView => "android.view.View",
     },
     constructors {
         fn new(activity: AndroidActivity),
@@ -80,6 +81,22 @@ bind_java_type! {
         fn get_view_rect {
             name = "get_view_rect",
             sig = () -> AndroidRect,
+        },
+        fn get_window_origin_in_view {
+            name = "get_window_origin_in_view",
+            sig = () -> AndroidRect,
+        },
+        fn claim_accessibility_host {
+            name = "claim_accessibility_host",
+            sig = () -> jboolean,
+        },
+        fn get_input_view {
+            name = "get_input_view",
+            sig = () -> AndroidView,
+        },
+        fn dispatch_hover_event {
+            name = "dispatch_hover_event",
+            sig = (action: jint, x: jfloat, y: jfloat),
         },
         fn finish_activity {
             name = "finish_activity",
@@ -230,6 +247,10 @@ bind_java_type! {
             get = SDK_INT,
         },
     },
+}
+
+bind_java_type! {
+    AndroidView => "android.view.View",
 }
 
 bind_java_type! {
@@ -714,6 +735,55 @@ impl JavaHelper {
         })
     }
 
+    /// Installs an AccessKit adapter on the view that covers the activity, unless there is one
+    /// already: `accesskit_android` panics on the UI thread when the view has a delegate.
+    #[cfg(feature = "accessibility")]
+    pub fn install_accessibility_adapter(
+        &self,
+        activation_handler: impl accesskit::ActivationHandler + Send + 'static,
+        action_handler: impl accesskit::ActionHandler + Send + 'static,
+    ) -> Result<Option<accesskit_android::InjectingAdapter>, jni::errors::Error> {
+        self.with_jni_env(|env, helper| {
+            if !helper.claim_accessibility_host(env)? {
+                return Ok(None);
+            }
+            let view = helper.get_input_view(env)?;
+            // accesskit_android uses version 0.21 of the jni crate, while this crate uses
+            // version 0.22. Both wrap the same JNI environment and object reference, which
+            // only need to stay valid for this call.
+            let mut env_021 = unsafe { jni_021::JNIEnv::from_raw(env.get_raw().cast()) }
+                .map_err(|_| jni::errors::Error::NullPtr("JNIEnv"))?;
+            let view_021 = unsafe { jni_021::objects::JObject::from_raw(view.as_raw().cast()) };
+            Ok(Some(accesskit_android::InjectingAdapter::new(
+                &mut env_021,
+                &view_021,
+                activation_handler,
+                action_handler,
+            )))
+        })
+    }
+
+    /// The origin of the window relative to the view that hosts the accessibility delegate, in
+    /// physical pixels.
+    #[cfg(feature = "accessibility")]
+    pub fn window_origin_in_view(&self) -> Result<(i32, i32), jni::errors::Error> {
+        self.with_jni_env(|env, helper| {
+            let rect = helper.get_window_origin_in_view(env)?;
+            Ok((rect.left(env)?, rect.top(env)?))
+        })
+    }
+
+    /// Passes a hover event of the native input queue on to the view that hosts the accessibility
+    /// delegate. `action` is a `MotionEvent.ACTION_HOVER_*` value, the position is in window pixels.
+    #[cfg(feature = "accessibility")]
+    pub fn dispatch_hover_event(&self, action: i32, x: f32, y: f32) {
+        if let Err(e) =
+            self.with_jni_env(|env, helper| helper.dispatch_hover_event(env, action, x, y))
+        {
+            i_slint_core::debug_log!("Passing a hover event to accessibility failed: {e:#?}");
+        }
+    }
+
     pub fn set_light_system_bars(&self, light: bool) -> Result<(), jni::errors::Error> {
         self.with_jni_env(|env, helper| helper.set_light_system_bars(env, light))
     }
@@ -1106,6 +1176,10 @@ fn callback_set_insets<'local>(
                     keyboard_right as _,
                 ),
             );
+            // The insets, like the keyboard, can move the view that hosts the accessibility
+            // delegate without resizing the window.
+            #[cfg(feature = "accessibility")]
+            w.accessibility_check_origin();
         }
     })
     .unwrap();

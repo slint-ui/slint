@@ -19,6 +19,7 @@ import android.graphics.Rect;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
+import android.os.SystemClock;
 import android.provider.Settings;
 import android.text.Editable;
 import android.text.Selection;
@@ -27,6 +28,7 @@ import android.util.Log;
 import android.view.ActionMode;
 import android.view.ContextThemeWrapper;
 import android.view.Gravity;
+import android.view.InputDevice;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.MotionEvent;
@@ -36,6 +38,7 @@ import android.view.WindowInsets;
 import android.view.WindowInsetsAnimation;
 import android.view.WindowInsetsController;
 import android.view.WindowMetrics;
+import android.view.accessibility.AccessibilityManager;
 import android.view.inputmethod.BaseInputConnection;
 import android.view.inputmethod.CursorAnchorInfo;
 import android.view.inputmethod.ExtractedText;
@@ -172,6 +175,20 @@ class InputHandle extends ImageView {
 }
 
 class SlintInputView extends View {
+    private boolean mAccessibilityClaimed = false;
+
+    // The accessibility delegate can be installed once on a view: a second one panics in accesskit_android.
+    synchronized boolean claimAccessibility() {
+        boolean first = !mAccessibilityClaimed;
+        mAccessibilityClaimed = true;
+        return first;
+    }
+
+    // `dispatchHoverEvent` is protected, but the accessibility delegate listens for the events it dispatches.
+    void passHoverEvent(MotionEvent event) {
+        dispatchHoverEvent(event);
+    }
+
     private int mInputType = EditorInfo.TYPE_CLASS_TEXT;
     private SlintEditable mEditable;
     private SlintInputConnection mInputConnection;
@@ -1087,6 +1104,44 @@ public class SlintAndroidJavaHelper {
         int color = a.getColor(0, 0);
         a.recycle();
         return color;
+    }
+
+    // The view that covers the content of the activity. The accessibility delegate is installed on it.
+    public boolean claim_accessibility_host() {
+        return mInputView.claimAccessibility();
+    }
+
+    public View get_input_view() {
+        return mInputView;
+    }
+
+    // The origin of the window relative to the input view, both on screen. AccessKit expects the
+    // bounds of the nodes relative to the view that hosts the accessibility delegate.
+    public Rect get_window_origin_in_view() {
+        int[] view = new int[2];
+        mInputView.getLocationOnScreen(view);
+        int[] window = new int[2];
+        rootView().getLocationOnScreen(window);
+        return new Rect(window[0] - view[0], window[1] - view[1], 0, 0);
+    }
+
+    // Hover events, which touch exploration is made of, arrive on the native input queue and never
+    // reach the view hierarchy of a native activity. Pass them on to the input view, where the
+    // accessibility delegate listens for them.
+    public void dispatch_hover_event(int action, float x, float y) {
+        mActivity.runOnUiThread(() -> {
+            AccessibilityManager manager = (AccessibilityManager) mActivity.getSystemService(Context.ACCESSIBILITY_SERVICE);
+            if (manager == null || !manager.isTouchExplorationEnabled()) {
+                return;
+            }
+            int[] origin = new int[2];
+            mInputView.getLocationInWindow(origin);
+            long now = SystemClock.uptimeMillis();
+            MotionEvent event = MotionEvent.obtain(now, now, action, x - origin[0], y - origin[1], 0);
+            event.setSource(InputDevice.SOURCE_TOUCHSCREEN);
+            mInputView.passHoverEvent(event);
+            event.recycle();
+        });
     }
 
     // Get the size of the window
