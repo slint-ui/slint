@@ -7,6 +7,7 @@ package dev.slint.android;
 
 import android.animation.ValueAnimator;
 import android.app.Activity;
+import android.app.Application;
 import android.app.NativeActivity;
 import android.content.ClipData;
 import android.content.ClipboardManager;
@@ -19,6 +20,7 @@ import android.graphics.Rect;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.SystemClock;
 import android.provider.Settings;
 import android.text.Editable;
@@ -919,12 +921,58 @@ public class SlintAndroidJavaHelper {
         } else {
             rootView.getViewTreeObserver().addOnGlobalLayoutListener(this::dispatchLayoutInsets);
         }
+        listenToAccessibilityState();
         // On API 34+, Back arrives via OnBackInvokedDispatcher; forward
         // it into Slint's key-event pipeline.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             mActivity.getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
                     OnBackInvokedDispatcher.PRIORITY_DEFAULT, SlintAndroidJavaHelper::onBackInvoked);
         }
+    }
+
+    // The accessibility manager keeps its listeners alive, so they are removed with the activity.
+    private void listenToAccessibilityState() {
+        AccessibilityManager manager =
+                (AccessibilityManager) mActivity.getSystemService(Context.ACCESSIBILITY_SERVICE);
+        if (manager == null) {
+            return;
+        }
+        AccessibilityManager.TouchExplorationStateChangeListener touchListener =
+                enabled -> accessibilityStateChanged(manager.isEnabled(), enabled);
+        AccessibilityManager.AccessibilityStateChangeListener stateListener =
+                enabled -> accessibilityStateChanged(enabled, manager.isTouchExplorationEnabled());
+        manager.addTouchExplorationStateChangeListener(touchListener);
+        manager.addAccessibilityStateChangeListener(stateListener);
+        accessibilityStateChanged(manager.isEnabled(), manager.isTouchExplorationEnabled());
+        Application application = mActivity.getApplication();
+        application.registerActivityLifecycleCallbacks(new Application.ActivityLifecycleCallbacks() {
+            @Override
+            public void onActivityDestroyed(Activity activity) {
+                if (activity == mActivity) {
+                    manager.removeTouchExplorationStateChangeListener(touchListener);
+                    manager.removeAccessibilityStateChangeListener(stateListener);
+                    application.unregisterActivityLifecycleCallbacks(this);
+                }
+            }
+
+            @Override
+            public void onActivityCreated(Activity activity, Bundle savedInstanceState) {}
+
+            @Override
+            public void onActivityStarted(Activity activity) {}
+
+            @Override
+            public void onActivityResumed(Activity activity) {}
+
+            @Override
+            public void onActivityPaused(Activity activity) {}
+
+            @Override
+            public void onActivityStopped(Activity activity) {}
+
+            @Override
+            public void onActivitySaveInstanceState(Activity activity, Bundle outState) {}
+        });
     }
 
     private View rootView() {
@@ -1018,6 +1066,8 @@ public class SlintAndroidJavaHelper {
     public static native void setFontScale(float fontScale);
 
     public static native void onBackInvoked();
+
+    public static native void accessibilityStateChanged(boolean enabled, boolean touchExploration);
 
     public static native void moveCursorHandle(int id, int posX, int posY);
 
@@ -1130,10 +1180,6 @@ public class SlintAndroidJavaHelper {
     // accessibility delegate listens for them.
     public void dispatch_hover_event(int action, float x, float y) {
         mActivity.runOnUiThread(() -> {
-            AccessibilityManager manager = (AccessibilityManager) mActivity.getSystemService(Context.ACCESSIBILITY_SERVICE);
-            if (manager == null || !manager.isTouchExplorationEnabled()) {
-                return;
-            }
             int[] origin = new int[2];
             mInputView.getLocationInWindow(origin);
             long now = SystemClock.uptimeMillis();

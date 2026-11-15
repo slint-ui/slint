@@ -25,6 +25,8 @@ use jni::objects::{JClass, JClassLoader, JString, LoaderContext};
 use jni::sys::{jfloat, jint};
 use jni::{Env, JavaVM, bind_java_type};
 use std::sync::OnceLock;
+#[cfg(feature = "accessibility")]
+use std::sync::atomic::Ordering;
 use std::time::Duration;
 
 /// Maps an Android `Configuration.fontScale` to a Slint default font size.
@@ -167,6 +169,10 @@ bind_java_type! {
         pub static fn set_cursor_blink_suspended {
             sig = (suspended: jboolean) -> (),
             fn = callback_set_cursor_blink_suspended,
+        },
+        pub static fn accessibility_state_changed {
+            sig = (enabled: jboolean, touch_exploration: jboolean) -> (),
+            fn = callback_accessibility_state_changed,
         },
         pub static fn on_back_invoked {
             sig = () -> (),
@@ -1110,6 +1116,25 @@ fn callback_set_cursor_blink_suspended<'local>(
         }
     })
     .unwrap();
+    Ok(())
+}
+
+fn callback_accessibility_state_changed<'local>(
+    _env: &mut Env<'local>,
+    _class: JClass<'local>,
+    enabled: bool,
+    touch_exploration: bool,
+) -> Result<(), jni::errors::Error> {
+    #[cfg(feature = "accessibility")]
+    crate::accessibility::TOUCH_EXPLORATION.store(touch_exploration, Ordering::Relaxed);
+    #[cfg(feature = "accessibility")]
+    let _ = i_slint_core::api::invoke_from_event_loop(move || {
+        if let Some(adaptor) = CURRENT_WINDOW.with_borrow(|x| x.upgrade()) {
+            adaptor.accessibility_state_changed(enabled);
+        }
+    });
+    #[cfg(not(feature = "accessibility"))]
+    let _ = (enabled, touch_exploration);
     Ok(())
 }
 

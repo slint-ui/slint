@@ -303,6 +303,9 @@ impl AndroidWindowAdapter {
 
     #[cfg(feature = "accessibility")]
     fn forward_hover_to_accessibility(&self, event: &MotionEvent) {
+        if !crate::accessibility::TOUCH_EXPLORATION.load(std::sync::atomic::Ordering::Relaxed) {
+            return;
+        }
         // The `MotionEvent.ACTION_HOVER_*` values
         let action = match event.action() {
             MotionAction::HoverMove => 7,

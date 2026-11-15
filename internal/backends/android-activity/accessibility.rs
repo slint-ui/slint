@@ -19,6 +19,10 @@ use i_slint_core::platform::WindowAdapter;
 use i_slint_core::timers::Timer;
 use i_slint_core::window::WindowInner;
 use std::rc::{Rc, Weak};
+use std::sync::atomic::AtomicBool;
+
+/// Whether touch exploration is on, which is when hover events are for the accessibility adapter.
+pub(crate) static TOUCH_EXPLORATION: AtomicBool = AtomicBool::new(false);
 
 /// Connects the node tree built by [`AccessKitTree`] with the Android accessibility framework.
 pub(crate) struct Accessibility {
@@ -33,6 +37,8 @@ pub(crate) struct Accessibility {
     origin_in_view: (i32, i32),
     /// Whether the origin is going to be compared.
     pending_origin_check: bool,
+    /// Whether an accessibility service is enabled. The tree is not kept up to date while none is.
+    enabled: bool,
 }
 
 impl Accessibility {
@@ -61,6 +67,7 @@ impl Accessibility {
             initial_tree_sent: false,
             origin_in_view: (0, 0),
             pending_origin_check: false,
+            enabled: true,
         })
     }
 
@@ -72,17 +79,24 @@ impl Accessibility {
         self.initial_tree_sent = true;
     }
 
+    /// A service has the tree and listens to the updates.
+    fn is_live(&self) -> bool {
+        self.initial_tree_sent && self.enabled
+    }
+
     /// Sends the whole tree again, after the structure of the items changed or the window moved
     /// relative to the view that hosts the adapter.
-    fn reload_tree(&mut self, origin_in_view: (i32, i32)) {
-        if self.pending_update {
+    fn reload_tree(&mut self) {
+        if self.pending_update || !self.initial_tree_sent {
             return;
         }
         self.pending_update = true;
-        self.run_later(move |this| {
+        self.run_later(|this| {
             this.pending_update = false;
-            if this.initial_tree_sent {
-                this.send_tree(origin_in_view);
+            if this.enabled
+                && let Some(window_adapter) = this.window_adapter_weak.upgrade()
+            {
+                this.send_tree(window_adapter.accessibility_origin_in_view());
             }
         });
     }
@@ -90,13 +104,13 @@ impl Accessibility {
     /// Sends the tree again when the window moved relative to the view that hosts the adapter,
     /// which happens with the insets or the keyboard, without a resize of the window.
     fn check_origin(&mut self) {
-        if self.pending_origin_check || !self.initial_tree_sent {
+        if self.pending_origin_check || !self.is_live() {
             return;
         }
         self.pending_origin_check = true;
         self.run_later(|this| {
             this.pending_origin_check = false;
-            if this.initial_tree_sent
+            if this.is_live()
                 && let Some(window_adapter) = this.window_adapter_weak.upgrade()
             {
                 let origin = window_adapter.accessibility_origin_in_view();
@@ -107,17 +121,27 @@ impl Accessibility {
         });
     }
 
+    fn set_enabled(&mut self, enabled: bool) {
+        self.enabled = enabled;
+        if enabled {
+            // The tree was not kept up to date while no service was enabled
+            self.reload_tree();
+        } else {
+            self.tree.clear_text_state();
+        }
+    }
+
     fn rebuild_dirty_nodes(&mut self) {
         // A pending reload sends everything anyway, and the focus node might not be known to
         // Android yet when the structure of the tree changed.
-        if !self.initial_tree_sent || self.pending_update || !self.tree.has_dirty_nodes() {
+        if !self.is_live() || self.pending_update || !self.tree.has_dirty_nodes() {
             return;
         }
         self.adapter.update_if_active(|| self.tree.rebuild_dirty_nodes());
     }
 
     fn update_focus(&mut self) {
-        if !self.initial_tree_sent || self.pending_update {
+        if !self.is_live() || self.pending_update {
             return;
         }
         self.adapter.update_if_active(|| self.tree.focus_update());
@@ -180,13 +204,17 @@ impl AndroidWindowAdapter {
 
     /// The items were created or destroyed, or the window moved relative to the hosting view.
     pub(crate) fn accessibility_reload_tree(&self) {
-        let origin = self.accessibility_origin_in_view();
-        self.with_accessibility(|a| a.reload_tree(origin));
+        self.with_accessibility(|a| a.reload_tree());
     }
 
     /// The window may have moved relative to the view that hosts the accessibility delegate.
     pub(crate) fn accessibility_check_origin(&self) {
         self.with_accessibility(|a| a.check_origin());
+    }
+
+    /// An accessibility service was enabled or disabled.
+    pub(crate) fn accessibility_state_changed(&self, enabled: bool) {
+        self.with_accessibility(|a| a.set_enabled(enabled));
     }
 
     pub(crate) fn accessibility_forget_item_tree(
