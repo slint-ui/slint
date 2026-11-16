@@ -24,6 +24,7 @@ mod minimal_software_window;
 #[cfg(feature = "path")]
 mod path;
 mod scene;
+mod shape_coverage;
 
 pub use self::api::*;
 use self::box_shadow::{BoxShadowCommand, process_drop_shadow};
@@ -40,6 +41,8 @@ use i_slint_core::api::PlatformError;
 use i_slint_core::graphics::OwnedStorage;
 #[cfg(feature = "std")]
 use i_slint_core::graphics::Rgba8Pixel;
+#[cfg(feature = "path")]
+use i_slint_core::graphics::ShapedRect;
 use i_slint_core::graphics::boxshadow::{BoxShadowOptions, drop_shadow_bounding_rect};
 use i_slint_core::graphics::rendering_metrics_collector::RefreshMode;
 use i_slint_core::graphics::{BorderRadius, SharedImageBuffer, SharedPixelBuffer};
@@ -93,6 +96,25 @@ impl RotationInfo {
             orientation => orientation,
         };
         Self { orientation, screen_size: self.screen_size.transformed(self) }
+    }
+
+    /// Transforms a point in continuous physical coordinates,
+    /// unlike the pixel indices of [`Transform`].
+    #[cfg(feature = "path")]
+    fn transform_point(
+        self,
+        mut p: euclid::default::Point2D<f32>,
+    ) -> euclid::default::Point2D<f32> {
+        if self.orientation.mirror_width() {
+            p.x = self.screen_size.width as f32 - p.x;
+        }
+        if self.orientation.mirror_height() {
+            p.y = self.screen_size.height as f32 - p.y;
+        }
+        if self.orientation.is_transpose() {
+            core::mem::swap(&mut p.x, &mut p.y);
+        }
+        p
     }
 }
 
@@ -1416,6 +1438,9 @@ fn render_window_frame_by_line(
                             SceneCommand::RoundedRectangle { rectangle_index } => {
                                 draw!(&scene.vectors.rounded_rectangles[rectangle_index as usize])
                             }
+                            SceneCommand::ShapedRectangle { rectangle_index } => {
+                                draw!(&scene.vectors.shaped_rectangles[rectangle_index as usize])
+                            }
                             SceneCommand::LinearGradient { linear_gradient_index } => {
                                 draw!(
                                     &scene.vectors.linear_gradients[linear_gradient_index as usize]
@@ -1533,66 +1558,76 @@ trait ProcessScene {
         &mut self,
         geometry: PhysicalRect,
         texture: SceneTexture<'static>,
-        rounded_clips: &[RoundedClip],
+        rounded_clips: &[CornerClip],
     );
     fn process_shared_buffer(
         &mut self,
         geometry: PhysicalRect,
         command: SharedBufferCommand,
-        rounded_clips: &[RoundedClip],
+        rounded_clips: &[CornerClip],
     );
     fn process_target_texture(
         &mut self,
         texture: &target_pixel_buffer::DrawTextureArgs,
         clip: PhysicalRect,
-        rounded_clips: &[RoundedClip],
+        rounded_clips: &[CornerClip],
     );
     fn process_rectangle(
         &mut self,
         _: &target_pixel_buffer::DrawRectangleArgs,
         clip: PhysicalRect,
-        rounded_clips: &[RoundedClip],
+        rounded_clips: &[CornerClip],
     );
 
     fn process_simple_rectangle(
         &mut self,
         geometry: PhysicalRect,
         color: PremultipliedRgbaColor,
-        rounded_clips: &[RoundedClip],
+        rounded_clips: &[CornerClip],
     );
     fn process_rounded_rectangle(
         &mut self,
         geometry: PhysicalRect,
         data: RoundedRectangle,
-        rounded_clips: &[RoundedClip],
+        rounded_clips: &[CornerClip],
+    );
+    #[cfg_attr(
+        not(feature = "path"),
+        expect(dead_code, reason = "only the path feature draws corner shapes")
+    )]
+    fn process_shaped_rectangle(
+        &mut self,
+        geometry: PhysicalRect,
+        data: ShapedRectangle,
+        rounded_clips: &[CornerClip],
     );
     /// `clip` is the gradient's own shape, which applies after `rounded_clips`.
     fn process_linear_gradient(
         &mut self,
         geometry: PhysicalRect,
         gradient: LinearGradientCommand,
-        rounded_clips: &[RoundedClip],
+        rounded_clips: &[CornerClip],
         clip: Option<ShapeClip>,
     );
     fn process_radial_gradient(
         &mut self,
         geometry: PhysicalRect,
         gradient: RadialGradientCommand,
-        rounded_clips: &[RoundedClip],
+        rounded_clips: &[CornerClip],
         clip: Option<ShapeClip>,
     );
     fn process_conic_gradient(
         &mut self,
         geometry: PhysicalRect,
         gradient: ConicGradientCommand,
-        rounded_clips: &[RoundedClip],
+        rounded_clips: &[CornerClip],
         clip: Option<ShapeClip>,
     );
     fn process_box_shadow(
         &mut self,
         geometry: PhysicalRect,
         shadow: BoxShadowCommand,
-        rounded_clips: &[RoundedClip],
+        rounded_clips: &[CornerClip],
     );
     #[cfg(feature = "path")]
     fn process_filled_path(
@@ -1602,7 +1637,7 @@ trait ProcessScene {
         commands: alloc::vec::Vec<path::Command>,
         paint: path::Paint,
         fill_rule: FillRule,
-        rounded_clips: &[RoundedClip],
+        rounded_clips: &[CornerClip],
     );
     #[cfg(feature = "path")]
     fn process_stroked_path(
@@ -1612,50 +1647,68 @@ trait ProcessScene {
         commands: alloc::vec::Vec<path::Command>,
         paint: path::Paint,
         stroke_style: path::StrokeStyle<'_>,
-        rounded_clips: &[RoundedClip],
+        rounded_clips: &[CornerClip],
     );
 }
 
-/// A rounded clip in physical screen coordinates, after [`RenderingRotation`].
-#[derive(Clone, Copy, Debug)]
-struct RoundedClip {
-    rect: PhysicalRect,
-    radius: PhysicalBorderRadius,
+/// A clip with rounded or shaped corners in physical screen coordinates,
+/// after [`RenderingRotation`].
+#[derive(Clone, Debug)]
+enum CornerClip {
+    Rounded {
+        rect: PhysicalRect,
+        radius: PhysicalBorderRadius,
+    },
+    /// Corners with a `CornerShape`.
+    #[cfg_attr(
+        not(feature = "path"),
+        expect(dead_code, reason = "only the path feature draws corner shapes")
+    )]
+    Shaped(Rc<shape_coverage::ShapedClip>),
 }
 
-fn clip_to_rounded_clips(
-    rounded_clips: &[RoundedClip],
-    rect: PhysicalRect,
-) -> Option<PhysicalRect> {
-    rounded_clips.iter().try_fold(rect, |rect, clip| rect.intersection(&clip.rect))
+impl CornerClip {
+    fn rect(&self) -> PhysicalRect {
+        match self {
+            Self::Rounded { rect, .. } => *rect,
+            Self::Shaped(clip) => clip.coverage.rect,
+        }
+    }
+}
+
+fn clip_to_rounded_clips(rounded_clips: &[CornerClip], rect: PhysicalRect) -> Option<PhysicalRect> {
+    rounded_clips.iter().try_fold(rect, |rect, clip| rect.intersection(&clip.rect()))
 }
 
 fn shape_clips<'a>(
-    rounded_clips: &'a [RoundedClip],
+    rounded_clips: &'a [CornerClip],
     geometry: &'a PhysicalRect,
 ) -> impl Iterator<Item = ShapeClip> + 'a {
     rounded_clips
         .iter()
         .map(move |clip| {
-            let rect = clip.rect;
+            let rect = clip.rect();
             debug_assert!(rect.contains_rect(geometry), "{geometry:?} is outside {rect:?}");
-            ShapeClip {
-                shape: RoundedShape {
-                    radius: clip.radius,
-                    left_clip: Length::new(geometry.min_x() - rect.min_x()),
-                    right_clip: Length::new(rect.max_x() - geometry.max_x()),
-                    top_clip: Length::new(geometry.min_y() - rect.min_y()),
-                    bottom_clip: Length::new(rect.max_y() - geometry.max_y()),
-                },
-                opaque_border: PhysicalLength::new(0),
+            match clip {
+                CornerClip::Rounded { radius, .. } => ShapeClip::Rounded(RoundedShapeClip {
+                    shape: RoundedShape {
+                        radius: *radius,
+                        left_clip: Length::new(geometry.min_x() - rect.min_x()),
+                        right_clip: Length::new(rect.max_x() - geometry.max_x()),
+                        top_clip: Length::new(geometry.min_y() - rect.min_y()),
+                        bottom_clip: Length::new(rect.max_y() - geometry.max_y()),
+                    },
+                    opaque_border: PhysicalLength::new(0),
+                }),
+                CornerClip::Shaped(clip) => ShapeClip::Shaped(clip.clone()),
             }
         })
-        .filter(|clip| clip.touches_corner(geometry.size))
+        .filter(|clip| clip.clips(geometry))
 }
 
 /// Whether the `TargetPixelBuffer` hooks may draw a command in `geometry`.
 /// They can't clip to a rounded shape.
-fn hook_can_draw(rounded_clips: &[RoundedClip], geometry: impl FnOnce() -> PhysicalRect) -> bool {
+fn hook_can_draw(rounded_clips: &[CornerClip], geometry: impl FnOnce() -> PhysicalRect) -> bool {
     rounded_clips.is_empty() || shape_clips(rounded_clips, &geometry()).next().is_none()
 }
 
@@ -1664,7 +1717,7 @@ fn process_rectangle_impl(
     args: &target_pixel_buffer::DrawRectangleArgs,
     clip: &PhysicalRect,
     scale_factor: ScaleFactor,
-    rounded_clips: &[RoundedClip],
+    rounded_clips: &[CornerClip],
 ) {
     let geom = args.geometry();
     let Some(clipped) = geom.intersection(&clip.cast()) else { return };
@@ -1691,15 +1744,15 @@ fn process_rectangle_impl(
     let border =
         PhysicalLength::new(if border_color.alpha == 0 { 0 } else { args.border_width as _ });
     let gradient_clip = |rect: &PhysicalRect| {
-        Some(ShapeClip {
+        Some(ShapeClip::Rounded(RoundedShapeClip {
             shape: rounded_shape,
             opaque_border: if border_color.alpha == u8::MAX {
                 border
             } else {
                 PhysicalLength::new(0)
             },
-        })
-        .filter(|clip| clip.touches_corner(rect.size))
+        }))
+        .filter(|clip| clip.clips(rect))
     };
     let fill = gradient_commands(
         &args.background,
@@ -1708,23 +1761,12 @@ fn process_rectangle_impl(
         geom,
         clipped,
         scale_factor,
-        &mut |rect, gradient| match gradient {
-            AnyGradientCommand::Linear(g) => {
-                processor.process_linear_gradient(rect, g, rounded_clips, gradient_clip(&rect))
-            }
-            AnyGradientCommand::Radial(g) => {
-                processor.process_radial_gradient(rect, g, rounded_clips, gradient_clip(&rect))
-            }
-            AnyGradientCommand::Conic(g) => {
-                processor.process_conic_gradient(rect, g, rounded_clips, gradient_clip(&rect))
-            }
+        &mut |rect, gradient| {
+            gradient.process(processor, rect, rounded_clips, gradient_clip(&rect))
         },
     );
 
-    let color = match fill {
-        BrushFill::Solid(color) => PremultipliedRgbaColor::from(color),
-        BrushFill::Gradient => PremultipliedRgbaColor::default(),
-    };
+    let color = PremultipliedRgbaColor::from(fill);
     if border_color.alpha > 0 && border_color.alpha < 255 {
         // Find a color for the border which is an equivalent to blend the background and then the border.
         // In the end, the resulting of blending the background and the color is
@@ -1804,6 +1846,32 @@ enum BrushFill {
     Solid(Color),
     /// The gradient's commands went to the sink.
     Gradient,
+}
+
+/// The color to fill with, which a gradient leaves transparent.
+impl From<BrushFill> for PremultipliedRgbaColor {
+    fn from(fill: BrushFill) -> Self {
+        match fill {
+            BrushFill::Solid(color) => color.into(),
+            BrushFill::Gradient => Self::default(),
+        }
+    }
+}
+
+impl AnyGradientCommand {
+    fn process(
+        self,
+        processor: &mut (impl ProcessScene + ?Sized),
+        rect: PhysicalRect,
+        rounded_clips: &[CornerClip],
+        clip: Option<ShapeClip>,
+    ) {
+        match self {
+            Self::Linear(g) => processor.process_linear_gradient(rect, g, rounded_clips, clip),
+            Self::Radial(g) => processor.process_radial_gradient(rect, g, rounded_clips, clip),
+            Self::Conic(g) => processor.process_conic_gradient(rect, g, rounded_clips, clip),
+        }
+    }
 }
 
 fn gradient_commands(
@@ -1954,7 +2022,7 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> RenderToBuffer<'_, B> {
     fn draw_clipped(
         &mut self,
         geometry: PhysicalRect,
-        rounded_clips: &[RoundedClip],
+        rounded_clips: &[CornerClip],
         own_clip: Option<ShapeClip>,
         cmd: &impl draw_functions::LineCommand<B::TargetPixel>,
     ) {
@@ -1993,7 +2061,7 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
         &mut self,
         geometry: PhysicalRect,
         texture: SceneTexture<'static>,
-        rounded_clips: &[RoundedClip],
+        rounded_clips: &[CornerClip],
     ) {
         self.draw_clipped(geometry, rounded_clips, None, &texture);
     }
@@ -2002,7 +2070,7 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
         &mut self,
         geometry: PhysicalRect,
         command: SharedBufferCommand,
-        rounded_clips: &[RoundedClip],
+        rounded_clips: &[CornerClip],
     ) {
         self.draw_clipped(geometry, rounded_clips, None, &command.as_texture());
     }
@@ -2011,7 +2079,7 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
         &mut self,
         texture: &target_pixel_buffer::DrawTextureArgs,
         clip: PhysicalRect,
-        rounded_clips: &[RoundedClip],
+        rounded_clips: &[CornerClip],
     ) {
         if hook_can_draw(rounded_clips, || {
             let geometry = euclid::rect::<i32, PhysicalPx>(
@@ -2037,7 +2105,7 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
         &mut self,
         args: &target_pixel_buffer::DrawRectangleArgs,
         clip: PhysicalRect,
-        rounded_clips: &[RoundedClip],
+        rounded_clips: &[CornerClip],
     ) {
         if hook_can_draw(rounded_clips, || {
             args.geometry().round_out().cast().intersection(&clip).unwrap_or_default()
@@ -2054,16 +2122,25 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
         &mut self,
         geometry: PhysicalRect,
         rr: RoundedRectangle,
-        rounded_clips: &[RoundedClip],
+        rounded_clips: &[CornerClip],
     ) {
         self.draw_clipped(geometry, rounded_clips, None, &rr);
+    }
+
+    fn process_shaped_rectangle(
+        &mut self,
+        geometry: PhysicalRect,
+        sr: ShapedRectangle,
+        rounded_clips: &[CornerClip],
+    ) {
+        self.draw_clipped(geometry, rounded_clips, None, &sr);
     }
 
     fn process_simple_rectangle(
         &mut self,
         geometry: PhysicalRect,
         color: PremultipliedRgbaColor,
-        rounded_clips: &[RoundedClip],
+        rounded_clips: &[CornerClip],
     ) {
         self.draw_clipped(geometry, rounded_clips, None, &draw_functions::SolidColor(color));
     }
@@ -2072,7 +2149,7 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
         &mut self,
         geometry: PhysicalRect,
         g: LinearGradientCommand,
-        rounded_clips: &[RoundedClip],
+        rounded_clips: &[CornerClip],
         clip: Option<ShapeClip>,
     ) {
         self.draw_clipped(geometry, rounded_clips, clip, &g);
@@ -2081,7 +2158,7 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
         &mut self,
         geometry: PhysicalRect,
         g: RadialGradientCommand,
-        rounded_clips: &[RoundedClip],
+        rounded_clips: &[CornerClip],
         clip: Option<ShapeClip>,
     ) {
         self.draw_clipped(geometry, rounded_clips, clip, &g);
@@ -2090,7 +2167,7 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
         &mut self,
         geometry: PhysicalRect,
         g: ConicGradientCommand,
-        rounded_clips: &[RoundedClip],
+        rounded_clips: &[CornerClip],
         clip: Option<ShapeClip>,
     ) {
         self.draw_clipped(geometry, rounded_clips, clip, &g);
@@ -2099,7 +2176,7 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
         &mut self,
         geometry: PhysicalRect,
         shadow: BoxShadowCommand,
-        rounded_clips: &[RoundedClip],
+        rounded_clips: &[CornerClip],
     ) {
         self.draw_clipped(geometry, rounded_clips, None, &shadow);
     }
@@ -2112,7 +2189,7 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
         commands: alloc::vec::Vec<path::Command>,
         paint: path::Paint,
         fill_rule: FillRule,
-        rounded_clips: &[RoundedClip],
+        rounded_clips: &[CornerClip],
     ) {
         path::render_filled_path(
             &commands,
@@ -2134,7 +2211,7 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
         commands: alloc::vec::Vec<path::Command>,
         paint: path::Paint,
         stroke_style: path::StrokeStyle<'_>,
-        rounded_clips: &[RoundedClip],
+        rounded_clips: &[CornerClip],
     ) {
         path::render_stroked_path(
             &commands,
@@ -2161,7 +2238,7 @@ impl PrepareScene {
         &mut self,
         geometry: PhysicalRect,
         command: SceneCommand,
-        rounded_clips: &[RoundedClip],
+        rounded_clips: &[CornerClip],
         own_clip: Option<ShapeClip>,
     ) {
         let clip_start = self.vectors.clips.len();
@@ -2183,7 +2260,7 @@ impl ProcessScene for PrepareScene {
         &mut self,
         geometry: PhysicalRect,
         texture: SceneTexture<'static>,
-        rounded_clips: &[RoundedClip],
+        rounded_clips: &[CornerClip],
     ) {
         let texture_index = self.vectors.textures.len() as u16;
         self.vectors.textures.push(texture);
@@ -2194,7 +2271,7 @@ impl ProcessScene for PrepareScene {
         &mut self,
         geometry: PhysicalRect,
         command: SharedBufferCommand,
-        rounded_clips: &[RoundedClip],
+        rounded_clips: &[CornerClip],
     ) {
         let shared_buffer_index = self.vectors.shared_buffers.len() as u16;
         self.vectors.shared_buffers.push(command);
@@ -2210,7 +2287,7 @@ impl ProcessScene for PrepareScene {
         &mut self,
         texture: &target_pixel_buffer::DrawTextureArgs,
         clip: PhysicalRect,
-        rounded_clips: &[RoundedClip],
+        rounded_clips: &[CornerClip],
     ) {
         let Some((extra, geometry)) = SceneTextureExtra::from_target_texture(texture, &clip) else {
             return;
@@ -2247,7 +2324,7 @@ impl ProcessScene for PrepareScene {
         &mut self,
         args: &target_pixel_buffer::DrawRectangleArgs,
         clip: PhysicalRect,
-        rounded_clips: &[RoundedClip],
+        rounded_clips: &[CornerClip],
     ) {
         let scale_factor = self.scale_factor;
         process_rectangle_impl(self, args, &clip, scale_factor, rounded_clips);
@@ -2257,7 +2334,7 @@ impl ProcessScene for PrepareScene {
         &mut self,
         geometry: PhysicalRect,
         color: PremultipliedRgbaColor,
-        rounded_clips: &[RoundedClip],
+        rounded_clips: &[CornerClip],
     ) {
         if !geometry.is_empty() {
             self.push_item(geometry, SceneCommand::Rectangle { color }, rounded_clips, None);
@@ -2268,7 +2345,7 @@ impl ProcessScene for PrepareScene {
         &mut self,
         geometry: PhysicalRect,
         data: RoundedRectangle,
-        rounded_clips: &[RoundedClip],
+        rounded_clips: &[CornerClip],
     ) {
         if !geometry.is_empty() {
             let rectangle_index = self.vectors.rounded_rectangles.len() as u16;
@@ -2282,11 +2359,29 @@ impl ProcessScene for PrepareScene {
         }
     }
 
+    fn process_shaped_rectangle(
+        &mut self,
+        geometry: PhysicalRect,
+        data: ShapedRectangle,
+        rounded_clips: &[CornerClip],
+    ) {
+        if !geometry.is_empty() {
+            let rectangle_index = self.vectors.shaped_rectangles.len() as u16;
+            self.vectors.shaped_rectangles.push(data);
+            self.push_item(
+                geometry,
+                SceneCommand::ShapedRectangle { rectangle_index },
+                rounded_clips,
+                None,
+            );
+        }
+    }
+
     fn process_linear_gradient(
         &mut self,
         geometry: PhysicalRect,
         gradient: LinearGradientCommand,
-        rounded_clips: &[RoundedClip],
+        rounded_clips: &[CornerClip],
         clip: Option<ShapeClip>,
     ) {
         if !geometry.is_empty() {
@@ -2304,7 +2399,7 @@ impl ProcessScene for PrepareScene {
         &mut self,
         geometry: PhysicalRect,
         gradient: RadialGradientCommand,
-        rounded_clips: &[RoundedClip],
+        rounded_clips: &[CornerClip],
         clip: Option<ShapeClip>,
     ) {
         if !geometry.is_empty() {
@@ -2322,7 +2417,7 @@ impl ProcessScene for PrepareScene {
         &mut self,
         geometry: PhysicalRect,
         gradient: ConicGradientCommand,
-        rounded_clips: &[RoundedClip],
+        rounded_clips: &[CornerClip],
         clip: Option<ShapeClip>,
     ) {
         if !geometry.is_empty() {
@@ -2340,7 +2435,7 @@ impl ProcessScene for PrepareScene {
         &mut self,
         geometry: PhysicalRect,
         shadow: BoxShadowCommand,
-        rounded_clips: &[RoundedClip],
+        rounded_clips: &[CornerClip],
     ) {
         if !geometry.is_empty() {
             let box_shadow_index = self.vectors.box_shadows.len() as u16;
@@ -2362,7 +2457,7 @@ impl ProcessScene for PrepareScene {
         _commands: alloc::vec::Vec<path::Command>,
         _paint: path::Paint,
         _fill_rule: FillRule,
-        _rounded_clips: &[RoundedClip],
+        _rounded_clips: &[CornerClip],
     ) {
         // Path rendering is not supported in line-by-line mode (PrepareScene/render_by_line)
         // Only works with buffer-based rendering (RenderToBuffer)
@@ -2376,7 +2471,7 @@ impl ProcessScene for PrepareScene {
         _commands: alloc::vec::Vec<path::Command>,
         _paint: path::Paint,
         _stroke_style: path::StrokeStyle<'_>,
-        _rounded_clips: &[RoundedClip],
+        _rounded_clips: &[CornerClip],
     ) {
         // Path rendering is not supported in line-by-line mode (PrepareScene/render_by_line)
         // Only works with buffer-based rendering (RenderToBuffer)
@@ -2387,7 +2482,7 @@ struct SceneBuilder<'a, T> {
     processor: T,
     state_stack: Vec<RenderState>,
     current_state: RenderState,
-    rounded_clips: Vec<RoundedClip>,
+    rounded_clips: Vec<CornerClip>,
     scale_factor: ScaleFactor,
     window: &'a WindowInner,
     rotation: RotationInfo,
@@ -2452,7 +2547,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
     ) -> Option<euclid::Rect<f32, PhysicalPx>> {
         let inverse = self.rotation.inverse();
         self.rounded_clips.iter().try_fold(rect, |rect, clip| {
-            rect.intersection(&clip.rect.transformed(inverse).cast().translate(-offset))
+            rect.intersection(&clip.rect().transformed(inverse).cast().translate(-offset))
         })
     }
 
@@ -2478,15 +2573,19 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
         )
     }
 
+    /// The geometry of an item of `size` on the screen.
+    fn physical_geometry(&self, size: LogicalSize) -> euclid::Rect<f32, PhysicalPx> {
+        (LogicalRect::from(size).translate(self.current_state.offset.to_vector()).cast()
+            * self.scale_factor)
+            .transformed(self.rotation)
+    }
+
     fn physical_rounded_rect(
         &self,
         size: LogicalSize,
         radius: LogicalBorderRadius,
     ) -> (euclid::Rect<f32, PhysicalPx>, BorderRadius<f32, PhysicalPx>) {
-        let geom =
-            (LogicalRect::from(size).translate(self.current_state.offset.to_vector()).cast()
-                * self.scale_factor)
-                .transformed(self.rotation);
+        let geom = self.physical_geometry(size);
         let radius = scale_overlapping_radii(
             (radius.cast() * self.scale_factor).transformed(self.rotation),
             geom.size,
@@ -2500,7 +2599,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
         size: LogicalSize,
         radius: LogicalBorderRadius,
         border_width: LogicalLength,
-    ) -> Option<RoundedClip> {
+    ) -> Option<CornerClip> {
         // Inset in physical pixels, so the clip follows the inner edge of the border that
         // `draw_border_rectangle` draws for the same geometry.
         let (geom, radius) = self.physical_rounded_rect(size, radius);
@@ -2512,8 +2611,115 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
             inset(radius.bottom_right),
             inset(radius.bottom_left),
         );
-        (!radius.is_zero())
-            .then(|| RoundedClip { rect: geom.round().cast().inflate(-border, -border), radius })
+        (!radius.is_zero()).then(|| CornerClip::Rounded {
+            rect: geom.round().cast().inflate(-border, -border),
+            radius,
+        })
+    }
+
+    /// The offset of the current item in unrotated physical coordinates.
+    #[cfg(feature = "path")]
+    fn physical_offset(&self) -> euclid::Vector2D<f32, PhysicalPx> {
+        self.current_state.offset.to_vector().cast() * self.scale_factor
+    }
+
+    /// Clips the children to `clip` too, until `restore_state`.
+    /// Returns whether the clip covers an area.
+    fn push_rounded_clip(&mut self, clip: CornerClip) -> bool {
+        if clip.rect().is_empty() {
+            return false;
+        }
+        debug_assert_eq!(self.rounded_clips.len(), self.current_state.rounded_clip_count as usize);
+        self.rounded_clips.push(clip);
+        self.current_state.rounded_clip_count += 1;
+        true
+    }
+
+    /// `shape` on the screen, in the coordinates of the current item.
+    #[cfg(feature = "path")]
+    fn screen_shape(&self, shape: ShapedRect<PhysicalPx>) -> shape_coverage::ScreenShape {
+        shape_coverage::ScreenShape {
+            shape,
+            origin: self.physical_offset(),
+            rotation: self.rotation,
+        }
+    }
+
+    /// Draws a rectangle whose corners have a `CornerShape`, within `clip`.
+    #[cfg(feature = "path")]
+    fn draw_shaped_border_rectangle(
+        &mut self,
+        rect: Pin<&dyn RenderBorderRectangle>,
+        size: LogicalSize,
+        clip: PhysicalRect,
+    ) {
+        use shape_coverage::{ShapeCoverage, ShapedClip, mask_window, multiply};
+        let Some(layout) =
+            i_slint_core::item_rendering::BorderRectLayout::new(rect, size, self.scale_factor)
+        else {
+            return;
+        };
+        let Some(shaped) = layout.shaped else { return };
+        let background = self.screen_shape(shaped.background);
+        let alpha = (self.current_state.alpha * 255.) as u8;
+        let border_color =
+            PremultipliedRgbaColor::from(alpha_color(layout.border_color.color(), alpha));
+
+        let gradient_box = self.physical_geometry(size);
+        let brush = rect.background();
+        let fill = if gradient_background(&brush).is_none() {
+            BrushFill::Solid(alpha_color(brush.color(), alpha))
+        } else if let Some(window) = mask_window([&background], &clip)
+            && let Some(coverage) = ShapeCoverage::new(window, [&background.mask(&window)], |m| m)
+            && let Some(draw_rect) = coverage.rect.intersection(&clip)
+        {
+            let own_clip = ShapeClip::Shaped(Rc::new(ShapedClip::new(coverage)));
+            let processor = &mut self.processor;
+            let rounded_clips = &self.rounded_clips;
+            gradient_commands(
+                &brush,
+                alpha,
+                self.rotation.orientation,
+                gradient_box,
+                draw_rect.cast(),
+                self.scale_factor,
+                &mut |rect, gradient| {
+                    let clip = Some(own_clip.clone()).filter(|clip| clip.clips(&rect));
+                    gradient.process(processor, rect, rounded_clips, clip)
+                },
+            )
+        } else {
+            BrushFill::Gradient
+        };
+        let background_color = PremultipliedRgbaColor::from(fill);
+        let background = (background_color.alpha > 0).then_some(background);
+        let border = shaped
+            .border
+            .filter(|_| border_color.alpha > 0)
+            .map(|edges| edges.map(|edge| self.screen_shape(edge)));
+        // The inner edge lies within the outer one.
+        let drawn = background.iter().chain(border.iter().map(|[outer, _]| outer));
+        let Some(window) = mask_window(drawn, &clip) else { return };
+        let mask = |shape: Option<&shape_coverage::ScreenShape>| match shape {
+            Some(shape) => shape.mask(&window),
+            None => alloc::vec![0; window.width() as usize * window.height() as usize],
+        };
+        let [outer, inner] = border.as_ref().map_or([None, None], |[o, i]| [Some(o), Some(i)]);
+        let masks = [mask(background.as_ref()), mask(outer), mask(inner)];
+        let Some(coverage) =
+            ShapeCoverage::new(window, masks.each_ref().map(Vec::as_slice), |[b, o, i]| {
+                [b, multiply(o, 255 - i)]
+            })
+        else {
+            return;
+        };
+        if let Some(geometry) = coverage.rect.intersection(&clip) {
+            self.processor.process_shaped_rectangle(
+                geometry,
+                ShapedRectangle { coverage, background: background_color, border: border_color },
+                &self.rounded_clips,
+            );
+        }
     }
 
     fn draw_image_impl(
@@ -3041,7 +3247,14 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                 return;
             }
 
-            let (geom, radius) = self.physical_rounded_rect(size, rect.border_radius());
+            let radius = match rect.corner_shape().rounded_rect_radius(rect.border_radius()) {
+                Some(radius) => radius,
+                #[cfg(feature = "path")]
+                None => return self.draw_shaped_border_rectangle(rect, size, clipped),
+                #[cfg(not(feature = "path"))]
+                None => rect.border_radius(),
+            };
+            let (geom, radius) = self.physical_rounded_rect(size, radius);
             let args = target_pixel_buffer::DrawRectangleArgs {
                 x: geom.origin.x,
                 y: geom.origin.y,
@@ -3485,7 +3698,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
     fn visit_clip(
         &mut self,
         clip_item: Pin<&i_slint_core::items::Clip>,
-        _: &ItemRc,
+        #[cfg_attr(not(feature = "path"), allow(unused))] item_rc: &ItemRc,
         size: LogicalSize,
     ) -> RenderingResult {
         if !clip_item.clip() {
@@ -3493,6 +3706,23 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
         }
         let radius = clip_item.logical_border_radius();
         let border_width = clip_item.border_width();
+        let shape = clip_item.logical_corner_shape();
+        let radius = match shape.rounded_rect_radius(radius) {
+            Some(radius) => radius,
+            #[cfg(feature = "path")]
+            None => {
+                let rect = euclid::Rect::from_size(size.cast());
+                let offset = -border_width.cast::<f32>().get().max(0.);
+                let clip = ShapedRect::new(rect, radius.cast(), shape, offset);
+                return if self.combine_shaped_clip(item_rc, clip) {
+                    RenderingResult::ContinueRenderingChildren
+                } else {
+                    RenderingResult::ContinueRenderingWithoutChildren
+                };
+            }
+            #[cfg(not(feature = "path"))]
+            None => radius,
+        };
         let (clip_rect, inner_radius) = clip_content_box(size, radius, border_width);
         let rounded_clip = if inner_radius.is_zero() {
             None
@@ -3505,18 +3735,34 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
         if !self.combine_clip(clip_rect, LogicalBorderRadius::default()) {
             return RenderingResult::ContinueRenderingWithoutChildren;
         }
-        if let Some(rounded_clip) = rounded_clip {
-            if rounded_clip.rect.is_empty() {
-                return RenderingResult::ContinueRenderingWithoutChildren;
-            }
-            debug_assert_eq!(
-                self.rounded_clips.len(),
-                self.current_state.rounded_clip_count as usize
-            );
-            self.rounded_clips.push(rounded_clip);
-            self.current_state.rounded_clip_count += 1;
+        if rounded_clip.is_none_or(|clip| self.push_rounded_clip(clip)) {
+            RenderingResult::ContinueRenderingChildren
+        } else {
+            RenderingResult::ContinueRenderingWithoutChildren
         }
-        RenderingResult::ContinueRenderingChildren
+    }
+
+    #[cfg(feature = "path")]
+    fn combine_shaped_clip(
+        &mut self,
+        _: &ItemRc,
+        clip: ShapedRect<i_slint_core::lengths::LogicalPx>,
+    ) -> bool {
+        if !self.combine_clip(clip.rect.cast(), LogicalBorderRadius::default()) {
+            return false;
+        }
+        let Some(physical_clip) = self.physical_clip() else { return false };
+        let shape = self.screen_shape(clip.scale(self.scale_factor));
+        let Some(window) = shape_coverage::mask_window([&shape], &physical_clip) else {
+            return false;
+        };
+        let mask = shape.mask(&window);
+        match shape_coverage::ShapeCoverage::new(window, [&mask], |m| m) {
+            Some(coverage) => self.push_rounded_clip(CornerClip::Shaped(Rc::new(
+                shape_coverage::ShapedClip::new(coverage),
+            ))),
+            None => false,
+        }
     }
 
     fn combine_clip(&mut self, other: LogicalRect, radius: LogicalBorderRadius) -> bool {
@@ -3959,6 +4205,60 @@ fn assert_partial_render_is_identical(
         }
     }
     assert!(drawn);
+}
+
+#[cfg(feature = "path")]
+#[test]
+fn shaped_rectangle_and_clip_partial_render_is_identical() {
+    use i_slint_core::graphics::{CornerShape, CornerShapes};
+    use shape_coverage::{ScreenShape, ShapeCoverage, ShapedClip, mask_window, multiply};
+    let screen_size = PhysicalSize::new(100, 80);
+    let clip = euclid::rect(17, 5, 60, 70);
+    let region = [euclid::rect(12, 8, 21, 19), euclid::rect(48, 33, 31, 30)];
+    let outline = ShapedRect::new(
+        euclid::rect(10.3, 11., 62., 45.6),
+        BorderRadius::new(17., 9.5, 21.2, 6.),
+        CornerShapes::new(
+            CornerShape::Notch,
+            CornerShape::Squircle,
+            CornerShape::Scoop,
+            CornerShape::Bevel,
+        ),
+        0.,
+    );
+    let rotation = RotationInfo { orientation: RenderingRotation::NoRotation, screen_size };
+    let screen = |offset| ScreenShape {
+        shape: outline.grown(offset),
+        origin: euclid::vec2(0., 0.),
+        rotation,
+    };
+    let (outer, inner) = (screen(0.), screen(-4.3));
+    assert_partial_render_is_identical(screen_size, clip, &region, |processor, clip| {
+        let window = mask_window([&outer], clip).unwrap();
+        let (o, i) = (outer.mask(&window), inner.mask(&window));
+        let coverage =
+            ShapeCoverage::new(window, [&o, &i], |[o, i]| [o, multiply(o, 255 - i)]).unwrap();
+        let geometry = coverage.rect.intersection(clip).unwrap();
+        processor.process_shaped_rectangle(
+            geometry,
+            ShapedRectangle {
+                coverage,
+                background: PremultipliedRgbaColor { red: 8, green: 16, blue: 24, alpha: 200 },
+                border: PremultipliedRgbaColor { red: 200, green: 100, blue: 0, alpha: 230 },
+            },
+            &[],
+        );
+        let window = mask_window([&inner], clip).unwrap();
+        let shaped_clip = ShapeCoverage::new(window, [&inner.mask(&window)], |m| m).unwrap();
+        let shaped_clip = Rc::new(ShapedClip::new(shaped_clip));
+        let geometry =
+            euclid::rect(0, 0, 100, 40).intersection(&shaped_clip.coverage.rect).unwrap();
+        processor.process_simple_rectangle(
+            geometry.intersection(clip).unwrap(),
+            PremultipliedRgbaColor { red: 0, green: 0, blue: 255, alpha: 255 },
+            &[CornerClip::Shaped(shaped_clip)],
+        );
+    });
 }
 
 #[test]

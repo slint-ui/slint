@@ -706,6 +706,27 @@ pub(super) fn draw_rounded_rectangle_line(
     outer_right.for_each_pixel(right, left_clip, width, |x, cov| blend_outer(line_buffer, x, cov));
 }
 
+/// Draws one line of a rectangle whose corners have a `CornerShape`.
+fn draw_shaped_rectangle_line(
+    span: &PhysicalRect,
+    line: PhysicalLength,
+    sr: &super::ShapedRectangle,
+    line_buffer: &mut [impl TargetPixel],
+    extra_left_clip: i16,
+) {
+    let x = span.min_x() as i32 + extra_left_clip as i32;
+    sr.coverage.for_each_run(line.get(), x, line_buffer.len(), |range, [background, border]| {
+        let scale = |color, coverage: u8| {
+            interpolate_color(coverage as u32, PremultipliedRgbaColor::default(), color)
+        };
+        let mut color = scale(sr.background, background);
+        color.blend(scale(sr.border, border));
+        if color.alpha > 0 {
+            TargetPixel::blend_slice(&mut line_buffer[range], color);
+        }
+    });
+}
+
 // a is between 0 and 255. When 0, we get color1, when 255 we get color2
 pub(super) fn interpolate_color(
     a: u32,
@@ -790,6 +811,9 @@ impl_line_command!(SolidColor, |c, _rect, _line, buffer, _left, _right| {
 impl_line_command!(super::RoundedRectangle, |rr, rect, line, buffer, left, right| {
     draw_rounded_rectangle_line(rect, line, rr, buffer, left, right)
 });
+impl_line_command!(super::ShapedRectangle, |sr, rect, line, buffer, left, _right| {
+    draw_shaped_rectangle_line(rect, line, sr, buffer, left)
+});
 impl_line_command!(super::SceneTexture<'_>, |texture, rect, line, buffer, left, right| {
     draw_texture_line(rect, line, texture, buffer, left, right)
 });
@@ -806,11 +830,102 @@ impl_line_command!(super::BoxShadowCommand, |shadow, rect, line, buffer, left, _
     super::box_shadow::draw_box_shadow_line(rect, line, shadow, buffer, left)
 });
 
-/// Where the arcs of one [`super::ShapeClip`] cross a line.
+/// Where one [`super::ShapeClip`] crosses a line.
+#[derive(Clone, Copy)]
+enum ClipSpan<'a> {
+    Rounded(RoundedSpan),
+    Shaped(ShapedSpan<'a>),
+}
+
+impl Default for ClipSpan<'_> {
+    fn default() -> Self {
+        Self::Rounded(RoundedSpan::default())
+    }
+}
+
+impl<'a> ClipSpan<'a> {
+    fn new(
+        rect: &PhysicalRect,
+        line: PhysicalLength,
+        clip: &'a super::ShapeClip,
+        len: usize,
+        extra_left_clip: i16,
+        extra_right_clip: i16,
+    ) -> Option<Self> {
+        match clip {
+            super::ShapeClip::Rounded(clip) => {
+                RoundedSpan::new(rect, line, clip, len, extra_left_clip, extra_right_clip)
+                    .map(Self::Rounded)
+            }
+            super::ShapeClip::Shaped(clip) => {
+                ShapedSpan::new(rect, line, &clip.coverage, len, extra_left_clip).map(Self::Shaped)
+            }
+        }
+    }
+
+    fn outer(&self) -> core::ops::Range<usize> {
+        match self {
+            Self::Rounded(span) => span.outer(),
+            Self::Shaped(span) => span.outer.0..span.outer.1,
+        }
+    }
+
+    fn inner(&self) -> core::ops::Range<usize> {
+        match self {
+            Self::Rounded(span) => span.inner(),
+            Self::Shaped(span) => span.inner.0..span.inner.1,
+        }
+    }
+
+    /// The coverage of buffer pixel `x`, which must be in `outer()`.
+    fn coverage(&self, x: usize) -> u32 {
+        match self {
+            Self::Rounded(span) => span.coverage(x),
+            Self::Shaped(span) => {
+                crate::shape_coverage::coverage_at(span.runs, span.first_column + x as i32) as u32
+            }
+        }
+    }
+}
+
+/// Where a [`super::ShapeClip::Shaped`] covers a line.
+#[derive(Clone, Copy)]
+struct ShapedSpan<'a> {
+    runs: &'a [crate::shape_coverage::Run<1>],
+    /// The column of the coverage at the start of the buffer.
+    first_column: i32,
+    /// The buffer pixels the shape covers at all, as a range.
+    outer: (usize, usize),
+    /// Buffer pixels the shape covers fully, as a range.
+    inner: (usize, usize),
+}
+
+impl<'a> ShapedSpan<'a> {
+    /// `None` if the shape covers the whole line.
+    fn new(
+        rect: &PhysicalRect,
+        line: PhysicalLength,
+        coverage: &'a crate::shape_coverage::ShapeCoverage<1>,
+        len: usize,
+        extra_left_clip: i16,
+    ) -> Option<Self> {
+        use crate::shape_coverage::{covered_columns, longest_opaque_run};
+        let first_column =
+            rect.min_x() as i32 + extra_left_clip as i32 - coverage.rect.min_x() as i32;
+        let index = |column: i32| (column - first_column).clamp(0, len as i32) as usize;
+        let runs = coverage.row(line.get()).unwrap_or_default();
+        let outer = covered_columns(runs).map_or((0, 0), |r| (index(r.start), index(r.end)));
+        let inner =
+            longest_opaque_run(runs).map_or((outer.0, outer.0), |r| (index(r.start), index(r.end)));
+        (inner != (0, len)).then_some(Self { runs, first_column, outer, inner })
+    }
+}
+
+/// Where the arcs of one [`super::RoundedShapeClip`] cross a line.
 /// The arcs are relative to the shape's left edge rather than the buffer,
 /// so the coverage doesn't depend on where the dirty region splits the line.
 #[derive(Clone, Copy, Default)]
-struct ClipSpan {
+struct RoundedSpan {
     /// The shape's left edge, in pixels left of the buffer.
     left_offset: u32,
     len: usize,
@@ -820,11 +935,11 @@ struct ClipSpan {
     binary: bool,
 }
 
-impl ClipSpan {
+impl RoundedSpan {
     fn new(
         rect: &PhysicalRect,
         line: PhysicalLength,
-        clip: &super::ShapeClip,
+        clip: &super::RoundedShapeClip,
         len: usize,
         extra_left_clip: i16,
         extra_right_clip: i16,
@@ -925,7 +1040,7 @@ pub(super) struct LineClip<'a> {
     len: usize,
     extra_left_clip: i16,
     extra_right_clip: i16,
-    spans: [ClipSpan; CACHED_SPANS],
+    spans: [ClipSpan<'a>; CACHED_SPANS],
     span_count: usize,
     /// The pixels the run covers at all.
     pub outer: core::ops::Range<usize>,
@@ -979,7 +1094,7 @@ impl<'a> LineClip<'a> {
     }
 
     /// The spans of the clips that have a corner on this line; the others don't clip it.
-    fn compute_spans(&self) -> impl Iterator<Item = ClipSpan> + 'a {
+    fn compute_spans(&self) -> impl Iterator<Item = ClipSpan<'a>> + 'a {
         let (rect, line, len) = (self.rect, self.line, self.len);
         let (extra_left_clip, extra_right_clip) = (self.extra_left_clip, self.extra_right_clip);
         self.clips.iter().filter_map(move |clip| {
@@ -2174,18 +2289,18 @@ fn unscaled_texture_line_wraps_into_next_tile() {
 
 #[test]
 fn identical_clips_combine_to_one() {
-    let clip = super::ShapeClip {
+    let clip = super::ShapeClip::Rounded(super::RoundedShapeClip {
         shape: super::RoundedShape {
             radius: super::PhysicalBorderRadius::new_uniform(16),
             ..Default::default()
         },
         opaque_border: PhysicalLength::new(0),
-    };
+    });
     const SIZE: i16 = 40;
     let rect = PhysicalRect::new(Default::default(), euclid::size2(SIZE, SIZE));
     let color = SolidColor(PremultipliedRgbaColor { red: 0, green: 0, blue: 255, alpha: 255 });
     // More clips than are cached, so the spans are recomputed for each edge chunk.
-    let clips = [clip; CACHED_SPANS + 1];
+    let clips: [_; CACHED_SPANS + 1] = core::array::from_fn(|_| clip.clone());
     for line in 0..SIZE {
         let line = PhysicalLength::new(line);
         let mut one = [PremultipliedRgbaColor::default(); SIZE as usize];
@@ -2204,15 +2319,17 @@ fn identical_clips_combine_to_one() {
 
 #[test]
 fn clipped_line_does_not_depend_on_split() {
-    let clip = |radius, left, top, opaque_border| super::ShapeClip {
-        shape: super::RoundedShape {
-            radius,
-            left_clip: PhysicalLength::new(left),
-            right_clip: PhysicalLength::new(3),
-            top_clip: PhysicalLength::new(top),
-            bottom_clip: PhysicalLength::new(0),
-        },
-        opaque_border: PhysicalLength::new(opaque_border),
+    let clip = |radius, left, top, opaque_border| {
+        super::ShapeClip::Rounded(super::RoundedShapeClip {
+            shape: super::RoundedShape {
+                radius,
+                left_clip: PhysicalLength::new(left),
+                right_clip: PhysicalLength::new(3),
+                top_clip: PhysicalLength::new(top),
+                bottom_clip: PhysicalLength::new(0),
+            },
+            opaque_border: PhysicalLength::new(opaque_border),
+        })
     };
     let asymmetric = super::PhysicalBorderRadius::new(13, 6, 17, 9);
     let uniform = super::PhysicalBorderRadius::new_uniform(11);
