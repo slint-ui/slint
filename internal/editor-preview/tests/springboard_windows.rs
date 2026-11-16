@@ -54,6 +54,7 @@ fn every_attached_window_shows_the_state_and_forwards_callbacks() {
         let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
         tokio::task::LocalSet::new().block_on(&runtime, async move {
             let (to_editor, _from_springboard) = tokio::sync::mpsc::unbounded_channel();
+            let (to_debugger, _) = tokio::sync::mpsc::unbounded_channel();
             let springboard = Springboard::without_discovery(
                 LocalPreviewConfig {
                     executable: "slint-preview-not-started".into(),
@@ -62,6 +63,7 @@ fn every_attached_window_shows_the_state_and_forwards_callbacks() {
                     on_started: None,
                 },
                 to_editor,
+                to_debugger,
             );
             for weak_global in weak_globals {
                 springboard.attach_ui(weak_global);

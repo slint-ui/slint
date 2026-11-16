@@ -38,7 +38,9 @@ impl TestingClient {
                     .spawn_local(async move {
                         message_loop(&this.server_addr, |request| {
                             let this = this.clone();
-                            Box::pin(async move { this.handle_request(request).await })
+                            Box::pin(
+                                async move { Self::handle_request(&this.state, request).await },
+                            )
                         })
                         .await;
                     })
@@ -49,7 +51,7 @@ impl TestingClient {
     }
 
     async fn handle_request(
-        &self,
+        state: &IntrospectionState,
         request: Option<proto::request_to_aut::Msg>,
     ) -> Result<proto::aut_response::Msg, String> {
         use proto::aut_response::Msg as Resp;
@@ -58,12 +60,12 @@ impl TestingClient {
         let request = request.ok_or_else(|| "Empty request".to_string())?;
 
         Ok(match request {
-            Req::RequestWindowList(..) => Resp::WindowList(dispatch::list_windows(&self.state)),
+            Req::RequestWindowList(..) => Resp::WindowList(dispatch::list_windows(state)),
             Req::RequestWindowProperties(proto::RequestWindowProperties { window_handle }) => {
                 let window_index = handle_to_index(window_handle.ok_or_else(|| {
                     "window properties request missing window handle".to_string()
                 })?)?;
-                Resp::WindowProperties(dispatch::window_properties(&self.state, window_index)?)
+                Resp::WindowProperties(dispatch::window_properties(state, window_index)?)
             }
             Req::RequestFindElementsById(proto::RequestFindElementsById {
                 window_handle,
@@ -72,17 +74,13 @@ impl TestingClient {
                 let window_index = handle_to_index(window_handle.ok_or_else(|| {
                     "find elements by id request missing window handle".to_string()
                 })?)?;
-                Resp::Elements(dispatch::find_elements_by_id(
-                    &self.state,
-                    window_index,
-                    &elements_id,
-                )?)
+                Resp::Elements(dispatch::find_elements_by_id(state, window_index, &elements_id)?)
             }
             Req::RequestElementProperties(proto::RequestElementProperties { element_handle }) => {
                 let element_index = handle_to_index(element_handle.ok_or_else(|| {
                     "element properties request missing element handle".to_string()
                 })?)?;
-                Resp::ElementProperties(dispatch::element_properties(&self.state, element_index)?)
+                Resp::ElementProperties(dispatch::element_properties(state, element_index)?)
             }
             Req::RequestInvokeElementAccessibilityAction(
                 msg @ proto::RequestInvokeElementAccessibilityAction { element_handle, .. },
@@ -94,7 +92,7 @@ impl TestingClient {
                 let element_index = handle_to_index(element_handle.ok_or_else(|| {
                     "invoke element accessibility action request missing element handle".to_string()
                 })?)?;
-                dispatch::invoke_accessibility_action(&self.state, element_index, action)?;
+                dispatch::invoke_accessibility_action(state, element_index, action)?;
                 Resp::InvokeElementAccessibilityActionResponse(
                     proto::InvokeElementAccessibilityActionResponse {},
                 )
@@ -106,7 +104,7 @@ impl TestingClient {
                 let element_index = handle_to_index(element_handle.ok_or_else(|| {
                     "set element accessible value request missing element handle".to_string()
                 })?)?;
-                dispatch::set_accessible_value(&self.state, element_index, value)?;
+                dispatch::set_accessible_value(state, element_index, value)?;
                 Resp::SetElementAccessibleValueResponse(proto::SetElementAccessibleValueResponse {})
             }
             Req::RequestTakeSnapshot(proto::RequestTakeSnapshot {
@@ -118,7 +116,7 @@ impl TestingClient {
                         .ok_or_else(|| "grab window request missing window handle".to_string())?,
                 )?;
                 Resp::TakeSnapshotResponse(dispatch::take_snapshot(
-                    &self.state,
+                    state,
                     window_index,
                     &image_mime_type,
                 )?)
@@ -137,7 +135,7 @@ impl TestingClient {
                     .map_err(|_| format!("invalid PointerEventButton value: {button}"))?;
                 let action = proto::ClickAction::try_from(action)
                     .map_err(|_| format!("invalid ClickAction value: {action}"))?;
-                dispatch::click(&self.state, element_index, action, button, modifiers).await?;
+                dispatch::click(state, element_index, action, button, modifiers).await?;
                 Resp::ElementClickResponse(proto::ElementClickResponse {})
             }
             Req::RequestElementDrag(proto::RequestElementDrag {
@@ -154,7 +152,7 @@ impl TestingClient {
                     .map_err(|_| format!("invalid PointerEventButton value: {button}"))?;
                 let target =
                     target.ok_or_else(|| "element drag request missing target".to_string())?;
-                dispatch::drag(&self.state, element_index, target, button, modifiers).await?;
+                dispatch::drag(state, element_index, target, button, modifiers).await?;
                 Resp::ElementDragResponse(proto::ElementDragResponse {})
             }
             Req::RequestDispatchWindowEvent(proto::RequestDispatchWindowEvent {
@@ -164,7 +162,7 @@ impl TestingClient {
                 let window_index = handle_to_index(window_handle.ok_or_else(|| {
                     "window event dispatch request missing window handle".to_string()
                 })?)?;
-                self.state.dispatch_window_event(
+                state.dispatch_window_event(
                     window_index,
                     convert_window_event(event.ok_or_else(|| {
                         "window event dispatch request missing event".to_string()
@@ -181,7 +179,7 @@ impl TestingClient {
                     "run element query request missing element handle".to_string()
                 })?)?;
                 Resp::ElementQueryResponse(dispatch::query_element_descendants(
-                    &self.state,
+                    state,
                     element_index,
                     query_stack,
                     find_all,
@@ -195,7 +193,7 @@ impl TestingClient {
             }) => {
                 let window_index = window_handle.map(handle_to_index).transpose()?;
                 Resp::EventLogResponse(dispatch::event_log(
-                    &self.state,
+                    state,
                     window_index,
                     since_sequence,
                     max_events,
@@ -203,13 +201,13 @@ impl TestingClient {
                 ))
             }
             Req::RequestClearEventLog(..) => {
-                Resp::ClearEventLogResponse(dispatch::clear_event_log(&self.state))
+                Resp::ClearEventLogResponse(dispatch::clear_event_log(state))
             }
             Req::RequestStartEventRecording(..) => {
-                Resp::StartEventRecordingResponse(dispatch::start_event_recording(&self.state))
+                Resp::StartEventRecordingResponse(dispatch::start_event_recording(state))
             }
             Req::RequestStopEventRecording(..) => {
-                Resp::StopEventRecordingResponse(dispatch::stop_event_recording(&self.state))
+                Resp::StopEventRecordingResponse(dispatch::stop_event_recording(state))
             }
             // MCP-only tools — not supported over the binary system-testing transport
             Req::RequestDispatchKeyEvent(..) | Req::RequestGetElementTree(..) => {
@@ -217,6 +215,21 @@ impl TestingClient {
             }
         })
     }
+}
+
+/// Handles a protobuf-encoded `RequestToAut` and returns the encoded `AutResponse`.
+/// Use it to serve system-testing requests that arrive over another transport than TCP.
+pub async fn handle_encoded_request(request: &[u8]) -> Vec<u8> {
+    let response = match proto::RequestToAut::decode(request) {
+        Ok(request) => {
+            TestingClient::handle_request(&introspection::shared_state(), request.msg).await
+        }
+        Err(error) => Err(format!("Error de-serializing AUT request message: {error}")),
+    };
+    let response = response.unwrap_or_else(|message| {
+        proto::aut_response::Msg::Error(proto::ErrorResponse { message })
+    });
+    proto::AutResponse { msg: Some(response) }.encode_to_vec()
 }
 
 pub fn init() -> Result<(), EventLoopError> {
@@ -392,6 +405,29 @@ fn convert_window_event(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn handle_encoded(request: &[u8]) -> Option<proto::aut_response::Msg> {
+        let response = futures_lite::future::block_on(handle_encoded_request(request));
+        proto::AutResponse::decode(&response[..]).unwrap().msg
+    }
+
+    #[test]
+    fn encoded_request_gets_encoded_response() {
+        let request = proto::RequestToAut {
+            msg: Some(proto::request_to_aut::Msg::RequestWindowList(
+                proto::RequestWindowListMessage {},
+            )),
+        };
+        assert!(matches!(
+            handle_encoded(&request.encode_to_vec()),
+            Some(proto::aut_response::Msg::WindowList(_))
+        ));
+    }
+
+    #[test]
+    fn undecodable_request_gets_error_response() {
+        assert!(matches!(handle_encoded(&[0xff]), Some(proto::aut_response::Msg::Error(_))));
+    }
 
     #[test]
     fn buffered_request_observes_pending_timers_and_change_handlers() {

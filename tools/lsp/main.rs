@@ -966,6 +966,10 @@ async fn handle_preview_to_lsp_message(
         | M::PairingRejected { .. } => {
             tracing::debug!("Ignoring a pairing message outside the pairing handshake");
         }
+        M::DebuggerMessage(message) => {
+            debug_assert!(false, "A local preview sent a debugger message: {message:?}");
+            tracing::warn!("Ignoring debugger message {message:?}");
+        }
     }
     Ok(())
 }

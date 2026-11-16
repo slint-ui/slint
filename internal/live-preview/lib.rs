@@ -18,6 +18,9 @@ pub const SLINT_VERSION: &str = env!("CARGO_PKG_VERSION");
 #[cfg(feature = "protocol")]
 pub mod protocol;
 
+#[cfg(feature = "protocol")]
+pub mod system_testing;
+
 #[cfg(feature = "file-watcher")]
 pub mod file_watcher;
 
