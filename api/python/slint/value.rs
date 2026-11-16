@@ -90,6 +90,7 @@ impl<'py> IntoPyObject<'py> for SlintToPyValue {
             Value::DataTransfer(data) => {
                 crate::data_transfer::PyDataTransfer::from(data).into_bound_py_any(py)
             }
+            Value::CornerShape(shape) => shape.to_string().into_bound_py_any(py),
             v @ _ => {
                 eprintln!(
                     "Python: conversion from slint to python needed for {v:#?} and not implemented yet"

@@ -952,6 +952,7 @@ fn with_opaque_source(options: BoxShadowOptions) -> BoxShadowOptions {
         background_radius: options.radius,
         border_rect: rect,
         border_radius: options.radius,
+        shaped: None,
         border_width: Default::default(),
         border_color: Brush::default(),
     };

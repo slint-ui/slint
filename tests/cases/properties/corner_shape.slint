@@ -1,0 +1,58 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company , info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase {
+    shape := Rectangle {
+        corner-shape: bevel;
+        corner-top-left-shape: scoop;
+    }
+
+    // A per-corner radius selects the same native item, so the shape fans out too.
+    radius := Rectangle {
+        corner-shape: notch;
+        border-top-left-radius: 10px;
+    }
+
+    // Reading a per-corner property also fans out.
+    read := Rectangle {
+        border-radius: 6px;
+        corner-shape: bevel;
+    }
+
+    // Lowering `clip` and the drop shadow into separate elements keeps the fan-out.
+    clipped := Rectangle {
+        clip: true;
+        drop-shadow-blur: 2px;
+        drop-shadow-color: black;
+        border-radius: 4px;
+        corner-shape: squircle;
+        corner-bottom-right-shape: bevel;
+        Rectangle { }
+    }
+
+    out property <bool> shape-ok: shape.corner-top-left-shape == CornerShape.scoop
+        && shape.corner-top-right-shape == CornerShape.bevel
+        && shape.corner-bottom-right-shape == CornerShape.bevel
+        && shape.corner-bottom-left-shape == CornerShape.bevel;
+    out property <bool> radius-ok: radius.corner-top-left-shape == CornerShape.notch
+        && radius.corner-bottom-right-shape == CornerShape.notch;
+    out property <bool> read-ok: read.corner-top-left-shape == CornerShape.bevel
+        && read.border-bottom-right-radius == 6px;
+    out property <bool> clipped-ok: clipped.corner-top-left-shape == CornerShape.squircle
+        && clipped.corner-bottom-right-shape == CornerShape.bevel;
+
+    out property <bool> test: shape-ok && radius-ok && read-ok && clipped-ok;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+*/

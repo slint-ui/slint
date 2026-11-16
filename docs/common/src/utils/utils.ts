@@ -38,7 +38,8 @@ export type KnownType =
     | "styled-text"
     | "relative-font-size"
     | "string"
-    | "struct";
+    | "struct"
+    | "corner-shape";
 
 export type PropertyVisibility = "private" | "in" | "out" | "in-out";
 
@@ -73,6 +74,7 @@ const defaultValues: Partial<Record<KnownType, string>> = {
     "relative-font-size": "0rem",
     string: '""',
     struct: "a struct with all default values",
+    "corner-shape": "round",
 };
 
 // `link-data.json` keys the documentation of a type by the type's own name.

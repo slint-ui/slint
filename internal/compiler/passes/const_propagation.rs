@@ -236,6 +236,9 @@ fn fold_binary_expression(
         ('=' | '!', Expression::BoolLiteral(a), Expression::BoolLiteral(b)) => {
             Some(Expression::BoolLiteral((a == b) == (op == '=')))
         }
+        ('=' | '!', Expression::CornerShape(a), Expression::CornerShape(b)) => {
+            Some(Expression::BoolLiteral((a == b) == (op == '=')))
+        }
         // TODO: more types and more comparison operators
 
         // boolean logic

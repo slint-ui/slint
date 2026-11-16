@@ -968,7 +968,8 @@ fn map_value_and_type(
         | Type::PathData
         | Type::Easing
         | Type::StyledText
-        | Type::UnitProduct(_) => {
+        | Type::UnitProduct(_)
+        | Type::CornerShape => {
             mapping.headers.push(mapping.name_prefix.clone());
             mapping.is_too_complex = true;
         }
