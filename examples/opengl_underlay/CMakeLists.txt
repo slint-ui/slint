@@ -10,4 +10,4 @@ endif()
 
 add_executable(opengl_underlay main.cpp)
 target_link_libraries(opengl_underlay PRIVATE Slint::Slint OpenGLES2::OpenGLES2)
-slint_target_sources(opengl_underlay scene.slint)
+slint_target_sources(opengl_underlay slint-project.json)

@@ -13,7 +13,7 @@ const WIDTH: usize = 8;
 const HEIGHT: usize = 8;
 
 slint::slint! {
-    #[edition = "1.19"]
+    #[edition = "1.20"]
     export component App inherits Window {
         in property <string> family;
         background: black;

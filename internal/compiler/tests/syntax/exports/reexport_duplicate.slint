@@ -10,5 +10,4 @@ export * from "../../typeloader/incpath/dependency_from_incpath.slint";
 //     ^error{re-exporting modules is only allowed once per file}
 
 
-export SomeRect := Rectangle {}
-//              ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+export component SomeRect inherits Rectangle {}

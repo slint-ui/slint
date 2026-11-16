@@ -399,7 +399,7 @@ mod tests {
 
         crate::init_integration_test_with_system_time();
         slint::slint! {
-            #[edition = "1.19"]
+            #[edition = "1.20"]
             export component App inherits Window {
                 in-out property <int> input;
                 out property <int> observed;

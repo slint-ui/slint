@@ -368,6 +368,10 @@ def test_picker_pointer_cancel_restores_stops(
         tmp_path, "@linear-gradient(90deg, red 0%, blue 50%, white 100%)"
     )
     original = SourceSnapshot.capture(tmp_path)
+    expected = file.read_bytes().replace(
+        b"@linear-gradient(90deg, red 0%, blue 50%, white 100%)",
+        b"@linear-gradient(90deg, #ff0000 0%, #0000ff 50%, #ffffff 100%)",
+    )
     with launch_editor(editor_binary, editor_environment, file) as editor:
         wait_for_source(file, file.read_bytes())
         window = first_window(editor)
@@ -400,7 +404,7 @@ def test_picker_pointer_cancel_restores_stops(
                 == position
             )
         click_picker_button(window, "Close Fill")
-        original.assert_unchanged()
+        original.wait_for_applied(expected, file.name)
 
 
 def test_stop_interactions_preserve_color_identity(

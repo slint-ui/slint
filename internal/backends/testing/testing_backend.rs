@@ -222,6 +222,7 @@ impl i_slint_core::platform::Platform for TestingBackend {
             simulate_native_drag: Cell::new(false),
             native_drag: Default::default(),
             window_move_requests: Default::default(),
+            parent: None,
             #[cfg(supports_headless)]
             renderer_name: self.renderer_name.clone(),
             #[cfg(supports_headless)]
@@ -329,6 +330,7 @@ pub struct TestingWindow {
     /// so the receive-side helpers can build the drop they deliver to a target window.
     native_drag: RefCell<Option<(i_slint_core::data_transfer::DataTransfer, AllowedDragActions)>>,
     window_move_requests: Cell<usize>,
+    parent: Option<Weak<dyn WindowAdapter>>,
     /// Remembered for child popups, so they pick the same rasterizer.
     #[cfg(supports_headless)]
     renderer_name: Option<SharedString>,
@@ -437,6 +439,10 @@ impl TestingWindow {
 }
 
 impl WindowAdapterInternal for TestingWindow {
+    fn get_parent(&self) -> Option<Rc<dyn WindowAdapter>> {
+        self.parent.as_ref()?.upgrade()
+    }
+
     fn input_method_request(&self, request: i_slint_core::window::InputMethodRequest) {
         self.ime_requests.borrow_mut().push(request)
     }
@@ -500,6 +506,7 @@ impl WindowAdapterInternal for TestingWindow {
                 simulate_native_drag: self.simulate_native_drag.clone(),
                 native_drag: Default::default(),
                 window_move_requests: Default::default(),
+                parent: Some(Rc::downgrade(&WindowInner::from_pub(&self.window).window_adapter())),
                 #[cfg(supports_headless)]
                 renderer_name: self.renderer_name.clone(),
                 #[cfg(supports_headless)]

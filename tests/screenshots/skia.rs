@@ -83,6 +83,7 @@ pub fn run_test(testcase: TestCase) -> Result<(), Box<dyn std::error::Error>> {
     let source = std::fs::read_to_string(&testcase.absolute_path)?;
     let mut compiler = slint_interpreter::Compiler::default();
     compiler.set_style("fluent".into());
+    compiler.set_edition(test_driver_lib::edition_version_or_current(&source));
     let compiled =
         poll_once(compiler.build_from_source(source, testcase.absolute_path.clone())).unwrap();
 
@@ -258,6 +259,12 @@ impl i_slint_renderer_skia::Surface for DirtySurface {
     fn bits_per_pixel(&self) -> Result<u8, PlatformError> {
         Ok(32)
     }
+
+    fn with_graphics_api(&self, callback: &mut dyn FnMut(i_slint_core::api::GraphicsAPI<'_>)) {
+        callback(i_slint_core::api::GraphicsAPI::NativeOpenGL {
+            get_proc_address: &|_| core::ptr::null(),
+        })
+    }
 }
 
 const DIRTY_SIZE: i32 = 8;
@@ -386,4 +393,109 @@ fn svg_rasterized_again_when_magnified() {
     let actual = magnified_later.window().take_snapshot().unwrap();
 
     assert!(actual.as_bytes() == expected.as_bytes(), "the magnified SVG wasn't rasterized again");
+}
+
+#[test]
+fn snapshot_has_straight_alpha() {
+    init_skia();
+
+    let compiler = slint_interpreter::Compiler::default();
+    let source = r#"
+        export component App inherits Window {
+            width: 4px;
+            height: 4px;
+            background: transparent;
+            Rectangle {
+                background: #ff000080;
+            }
+        }
+    "#;
+    let result = poll_once(compiler.build_from_source(source.into(), Default::default())).unwrap();
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let component = result.components().last().unwrap().create().unwrap();
+    component.show().unwrap();
+
+    let snapshot = component.window().take_snapshot().unwrap();
+    let pixel = snapshot.as_slice()[0];
+    assert_eq!([pixel.r, pixel.g, pixel.b, pixel.a], [255, 0, 0, 0x80]);
+}
+
+#[test]
+fn rendering_notifier_removes_elements() {
+    use i_slint_core::api::SetRenderingNotifierError;
+    use i_slint_core::model::VecModel;
+    use slint_interpreter::{ComponentHandle, Value};
+
+    i_slint_core::platform::set_platform(Box::new(DirtyTargetBackend))
+        .expect("platform already initialized");
+
+    let source = r#"
+        export component TestCase inherits Window {
+            background: white;
+            in property <[int]> model;
+            in property <bool> condition: true;
+            for value[index] in root.model: Rectangle {
+                x: index * 2px;
+                width: 2px;
+                background: red;
+            }
+            if root.condition: Rectangle {
+                x: 6px;
+                width: 1px;
+                background: red;
+            }
+        }
+    "#;
+    let result = poll_once(
+        slint_interpreter::Compiler::default().build_from_source(source.into(), Default::default()),
+    )
+    .unwrap();
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let component = result.components().last().unwrap().create().unwrap();
+    let model = Rc::new(VecModel::from(vec![Value::from(1.), Value::from(2.), Value::from(3.)]));
+    component.set_property("model", Value::Model(model.clone().into())).unwrap();
+
+    let frame = Rc::new(Cell::new(0));
+    component
+        .window()
+        .set_rendering_notifier({
+            let model = model.clone();
+            let frame = frame.clone();
+            let component = component.as_weak();
+            move |state, _| {
+                if !matches!(state, slint_interpreter::RenderingState::BeforeRendering) {
+                    return;
+                }
+                frame.set(frame.get() + 1);
+                if frame.get() != 2 {
+                    return;
+                }
+                let component = component.upgrade().unwrap();
+                model.set_vec(vec![Value::from(1.)]);
+                component.set_property("condition", false.into()).unwrap();
+                // Runs every notifier call site again, while the notifier is running.
+                component.window().take_snapshot().unwrap();
+                assert!(matches!(
+                    component.window().set_rendering_notifier(|_, _| {}),
+                    Err(SetRenderingNotifierError::AlreadySet)
+                ));
+            }
+        })
+        .unwrap();
+    component.show().unwrap();
+
+    let window = DIRTY_WINDOW.with(|dirty_window| dirty_window.borrow().clone()).unwrap();
+    let red_columns = || {
+        let image = window.target.borrow_mut().image_snapshot();
+        let pixels = image.peek_pixels().unwrap();
+        (0..DIRTY_SIZE).filter(|&x| pixels.get_color((x, 0)).g() == 0).count()
+    };
+    for expected_red_columns in [7, 2, 2] {
+        assert!(matches!(
+            window.renderer.render(),
+            Ok(i_slint_core::renderer::DrawOutcome::Success)
+        ));
+        assert_eq!(red_columns(), expected_red_columns);
+    }
+    assert_eq!(frame.get(), 3);
 }

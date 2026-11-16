@@ -442,7 +442,7 @@ checksum = "f2032f911046de80f0a198e0901378627c33f59ea0ac00e363d481118bd70a53"
 
 [[package]]
 name = "bapp"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "blogica",
  "blogicb",
@@ -542,7 +542,7 @@ dependencies = [
 
 [[package]]
 name = "blogica"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "slint",
  "slint-build",
@@ -550,7 +550,7 @@ dependencies = [
 
 [[package]]
 name = "blogicb"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "slint",
  "slint-build",
@@ -1176,7 +1176,7 @@ dependencies = [
 
 [[package]]
 name = "doctests"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "i-slint-compiler",
  "slint-interpreter",
@@ -1927,7 +1927,7 @@ checksum = "48ce8546b993eaf241d69ded33b1be6d205dd9857ec879d9d18bd05d3676e144"
 
 [[package]]
 name = "i-slint-backend-linuxkms"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "bytemuck",
  "calloop",
@@ -1952,7 +1952,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-backend-qt"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "const-field-offset",
  "cpp",
@@ -1970,7 +1970,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-backend-selector"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "cfg_aliases",
  "i-slint-backend-linuxkms",
@@ -1985,7 +1985,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-backend-testing"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "cfg_aliases",
  "i-slint-common",
@@ -1996,7 +1996,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-backend-winit"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "accesskit",
  "arboard",
@@ -2044,7 +2044,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-common"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "derive_more",
  "euclid",
@@ -2062,7 +2062,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-compiler"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "annotate-snippets",
  "base64",
@@ -2103,7 +2103,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-core"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "accesskit",
  "async-channel",
@@ -2156,7 +2156,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-core-macros"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "quote",
  "serde_json",
@@ -2165,7 +2165,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-live-preview"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "i-slint-compiler",
  "i-slint-core",
@@ -2175,7 +2175,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-renderer-anyrender"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "anyrender",
  "i-slint-core",
@@ -2188,7 +2188,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-renderer-femtovg"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "const-field-offset",
  "femtovg",
@@ -2207,7 +2207,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-renderer-skia"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "bytemuck",
  "cfg_aliases",
@@ -2243,7 +2243,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-renderer-software"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "bytemuck",
  "clru",
@@ -2579,7 +2579,7 @@ checksum = "a6cb138bb79a146c1bd460005623e142ef0181e3d0219cb493e02f7d08a35695"
 
 [[package]]
 name = "issue-11836-test-app"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "issue-11836-test-library",
  "slint",
@@ -2588,7 +2588,7 @@ dependencies = [
 
 [[package]]
 name = "issue-11836-test-library"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "slint",
  "slint-build",
@@ -4281,9 +4281,9 @@ dependencies = [
 
 [[package]]
 name = "skia-bindings"
-version = "0.156.0"
+version = "0.157.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3fdac65e59d2ee3d2307397cc0a6a5156e4364debf3db465af1a8fd8252781f1"
+checksum = "3930c7f5e8d813364d74c3b17b227f3bb3a84504f93bb1f8c222d8fd5a7d9c6f"
 dependencies = [
  "bindgen",
  "cc",
@@ -4298,9 +4298,9 @@ dependencies = [
 
 [[package]]
 name = "skia-safe"
-version = "0.156.0"
+version = "0.157.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "38c60bc899f4b9e23eba0223187ff572b25d26155d0176b26e9b3a743f1e75b1"
+checksum = "dc1c946dbc1a10b6b1ace7e368ea71f96c81448bbf55effcad0a9a3a392358eb"
 dependencies = [
  "bitflags",
  "skia-bindings",
@@ -4325,7 +4325,7 @@ checksum = "0c790de23124f9ab44544d7ac05d60440adc586479ce501c1d6d7da3cd8c9cf5"
 
 [[package]]
 name = "slint"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "const-field-offset",
  "i-slint-backend-linuxkms",
@@ -4345,7 +4345,7 @@ dependencies = [
 
 [[package]]
 name = "slint-build"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "derive_more",
  "fontique",
@@ -4356,7 +4356,7 @@ dependencies = [
 
 [[package]]
 name = "slint-interpreter"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "derive_more",
  "either",
@@ -4383,7 +4383,7 @@ dependencies = [
 
 [[package]]
 name = "slint-macros"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "i-slint-compiler",
  "proc-macro2",
@@ -4720,7 +4720,7 @@ dependencies = [
 
 [[package]]
 name = "test-backends"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "i-slint-backend-qt",
  "i-slint-backend-winit",
@@ -4733,7 +4733,7 @@ dependencies = [
 
 [[package]]
 name = "test-driver-cpp"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "cc",
  "i-slint-compiler",
@@ -4746,7 +4746,7 @@ dependencies = [
 
 [[package]]
 name = "test-driver-interpreter"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "i-slint-backend-qt",
  "i-slint-backend-testing",
@@ -4760,7 +4760,7 @@ dependencies = [
 
 [[package]]
 name = "test-driver-nodejs"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "tempfile",
  "test_driver_lib",
@@ -4769,7 +4769,7 @@ dependencies = [
 
 [[package]]
 name = "test-driver-python"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "i-slint-compiler",
  "spin_on",
@@ -4779,7 +4779,7 @@ dependencies = [
 
 [[package]]
 name = "test-driver-rust"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "i-slint-backend-qt",
  "i-slint-backend-testing",
@@ -4796,7 +4796,7 @@ dependencies = [
 
 [[package]]
 name = "test-driver-screenshots"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "anyrender",
  "anyrender_serialize",
@@ -4823,7 +4823,7 @@ dependencies = [
 
 [[package]]
 name = "test-driver-typescript"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "i-slint-compiler",
  "spin_on",
@@ -4833,7 +4833,7 @@ dependencies = [
 
 [[package]]
 name = "test_driver_lib"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "i-slint-compiler",
  "libtest-mimic",
@@ -5776,7 +5776,7 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 
 [[package]]
 name = "windowattributes"
-version = "1.19.0"
+version = "1.20.0"
 dependencies = [
  "slint",
 ]

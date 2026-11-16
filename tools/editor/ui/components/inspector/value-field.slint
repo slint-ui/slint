@@ -19,7 +19,6 @@ export component InspectorValueField inherits FocusScope {
     in property <length> radius: root.style.radius;
     in property <TextHorizontalAlignment> horizontal-alignment: TextHorizontalAlignment.left;
     in property <bool> normalize-accepted: false;
-    in property <bool> live-edit: false;
     in property <bool> muted-value: false;
     in property <bool> show-focus-border: true;
     in property <bool> scrubbable: false;
@@ -29,7 +28,10 @@ export component InspectorValueField inherits FocusScope {
     in property <bool> scrub-has-maximum: false;
     in property <float> scrub-maximum;
     out property <bool> input-focused: field.input-focused;
+    out property <string> input-value: field.input-value;
+    public function commit-value(value: string) -> bool { return field.commit-value(value); }
     callback accepted(string) -> bool;
+    callback edit-input(string);
     callback normalized(string) -> string;
     callback scrub-started();
     callback scrub-preview(float) -> bool;
@@ -127,7 +129,6 @@ export component InspectorValueField inherits FocusScope {
                 suffix: root.suffix;
                 suffix-width: root.suffix-width;
                 normalize-accepted: root.normalize-accepted;
-                live-edit: root.live-edit;
                 muted-value: root.muted-value;
                 show-focus-border: root.show-focus-border;
                 accessible-name: root.accessible-name;
@@ -136,6 +137,7 @@ export component InspectorValueField inherits FocusScope {
                 enabled: root.enabled;
                 commit-key: root.commit-key;
                 accepted(text) => { return root.accepted(text); }
+                edit-input(text) => { root.edit-input(text); }
                 normalized(text) => { return root.normalized(text); }
 
                 if root.corner-index >= 0: Image {

@@ -18,7 +18,7 @@ const compiled = new Map();
 export function takeCompiled(url) {
     const module = compiled.get(url);
     compiled.delete(url);
-    return module ?? slint.loadFile(new URL(url));
+    return module ?? slint.loadFile(new URL(url), { loadProjectFile: true });
 }
 
 /**
@@ -27,7 +27,7 @@ export function takeCompiled(url) {
  * from reading the markup, so they match what `loadFile` returns.
  */
 export function moduleSource(url) {
-    const module = slint.loadFile(new URL(url));
+    const module = slint.loadFile(new URL(url), { loadProjectFile: true });
     compiled.set(url, module);
     return [
         `import { takeCompiled } from ${JSON.stringify(import.meta.url)};`,

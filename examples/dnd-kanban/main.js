@@ -5,7 +5,7 @@
 import * as slint from "slint-ui";
 const { DragAction } = slint.language;
 
-const ui = slint.loadFile(new URL("kanban.slint", import.meta.url));
+const ui = slint.loadFile(new URL("slint-project.json", import.meta.url));
 const appWindow = new ui.MainWindow();
 
 // What we attach to each `DataTransfer` via the `userData` property. A copy of

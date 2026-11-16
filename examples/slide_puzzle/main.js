@@ -4,7 +4,7 @@
 
 import * as slint from "slint-ui";
 
-const ui = slint.loadFile(new URL("slide_puzzle.slint", import.meta.url));
+const ui = slint.loadFile(new URL("slint-project.json", import.meta.url));
 const appWindow = new ui.MainWindow();
 
 // --- Game state ---

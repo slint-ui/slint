@@ -209,18 +209,15 @@ impl EGLUnderlay {
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
-pub fn main() {
+pub fn main() -> Result<(), slint::PlatformError> {
     // This provides better error messages in debug mode.
     // It's disabled in release mode so it doesn't bloat up the file size.
     #[cfg(all(debug_assertions, target_arch = "wasm32"))]
     console_error_panic_hook::set_once();
 
-    slint::BackendSelector::new()
-        .require_opengl_es()
-        .select()
-        .expect("Unable to create Slint backend with OpenGL ES renderer");
+    slint::BackendSelector::new().require_opengl_es().select()?;
 
-    let app = App::new().unwrap();
+    let app = App::new()?;
 
     let mut underlay = None;
 
@@ -278,5 +275,5 @@ pub fn main() {
         })
         .expect("Unable to set rendering notifier");
 
-    app.run().unwrap();
+    app.run()
 }

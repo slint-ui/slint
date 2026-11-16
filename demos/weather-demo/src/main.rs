@@ -22,7 +22,7 @@ fn main() -> Result<(), slint::PlatformError> {
         .init();
 
     let mut app_handler = AppHandler::new();
-    app_handler.initialize_ui();
+    app_handler.initialize_ui()?;
 
     let res = app_handler.run();
     app_handler.save();

@@ -7,5 +7,5 @@ idf_component_register(
     REQUIRES slint
 )
 
-slint_target_sources(${COMPONENT_LIB} ../../../ui/carousel_demo.slint)
+slint_target_sources(${COMPONENT_LIB} ../../../slint-project.json)
 target_compile_definitions(${COMPONENT_LIB} PRIVATE EXAMPLE_TARGET_S3_BOX)

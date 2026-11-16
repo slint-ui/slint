@@ -160,6 +160,57 @@ pub(crate) fn gradient_colors<'a>(
     )
 }
 
+/// Draws with `render` into a render target that `gr_context` allocates and reads it back,
+/// for [`Surface::render_snapshot`].
+#[cfg(skia_backend_wgpu)]
+pub(crate) fn render_snapshot_on_gpu(
+    gr_context: &mut skia_safe::gpu::DirectContext,
+    size: PhysicalWindowSize,
+    render: &mut dyn FnMut(
+        &skia_safe::Canvas,
+        &mut skia_safe::gpu::DirectContext,
+    ) -> Result<(), PlatformError>,
+) -> Result<SharedPixelBuffer<i_slint_core::graphics::Rgba8Pixel>, PlatformError> {
+    let target_info = image_info(
+        (size.width as i32, size.height as i32),
+        skia_safe::ColorType::RGBA8888,
+        skia_safe::AlphaType::Premul,
+    );
+    let mut target = skia_safe::gpu::surfaces::render_target(
+        gr_context,
+        skia_safe::gpu::Budgeted::No,
+        &target_info,
+        None,
+        skia_safe::gpu::SurfaceOrigin::TopLeft,
+        None,
+        false,
+        None,
+    )
+    .ok_or_else(|| PlatformError::from("Failed to create a Skia GPU surface for the snapshot"))?;
+
+    render(target.canvas(), gr_context)?;
+
+    read_snapshot_pixels(&mut target, size)
+}
+
+fn read_snapshot_pixels(
+    target: &mut skia_safe::Surface,
+    size: PhysicalWindowSize,
+) -> Result<SharedPixelBuffer<i_slint_core::graphics::Rgba8Pixel>, PlatformError> {
+    let mut pixels =
+        SharedPixelBuffer::<i_slint_core::graphics::Rgba8Pixel>::new(size.width, size.height);
+    // `Rgba8Pixel` is straight alpha, so Skia unpremultiplies while reading back.
+    if !target.read_pixels(
+        &target.image_info().with_alpha_type(skia_safe::AlphaType::Unpremul),
+        pixels.make_mut_bytes(),
+        size.width as usize * 4,
+        (0, 0),
+    ) {
+        return Err("Failed to read the snapshot back from the Skia surface".into());
+    }
+    Ok(pixels)
+}
+
 #[cfg(skia_backend_wgpu)]
 fn default_wgpu_surface_factory(
     context: &SkiaSharedContext,
@@ -382,6 +433,7 @@ pub struct SkiaSharedContext(#[allow(dead_code)] Rc<SkiaSharedContextInner>);
 pub struct SkiaRenderer {
     maybe_window_adapter: RefCell<Option<Weak<dyn WindowAdapter>>>,
     rendering_notifier: RefCell<Option<Box<dyn RenderingNotifier>>>,
+    has_rendering_notifier: Cell<bool>,
     image_cache: ItemCache<Option<skia_safe::Image>>,
     layer_cache: ItemCache<Option<(PhysicalPoint, skia_safe::Image)>>,
     path_cache: ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Path)>>,
@@ -431,6 +483,7 @@ impl SkiaRenderer {
         Self {
             maybe_window_adapter: Default::default(),
             rendering_notifier: Default::default(),
+            has_rendering_notifier: Default::default(),
             image_cache: Default::default(),
             layer_cache: Default::default(),
             path_cache: Default::default(),
@@ -592,16 +645,16 @@ impl SkiaRenderer {
         };
 
         // If we've rendered a frame before, then we need to invoke the RenderingTearDown notifier.
-        if !self.rendering_first_time.get()
-            && let Some(callback) = self.rendering_notifier.borrow_mut().as_mut()
-        {
-            surface
-                .with_active_surface(&mut || {
-                    surface.with_graphics_api(&mut |api| {
-                        callback.notify(RenderingState::RenderingTeardown, &api)
+        if !self.rendering_first_time.get() {
+            self.with_rendering_notifier(|callback| {
+                surface
+                    .with_active_surface(&mut || {
+                        surface.with_graphics_api(&mut |api| {
+                            callback.notify(RenderingState::RenderingTeardown, &api)
+                        })
                     })
-                })
-                .ok();
+                    .ok();
+            });
         }
 
         drop(surface);
@@ -676,11 +729,11 @@ impl SkiaRenderer {
                     surface.bits_per_pixel()?
                 ));
 
-            if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
+            self.with_rendering_notifier(|callback| {
                 surface.with_graphics_api(&mut |api| {
                     callback.notify(RenderingState::RenderingSetup, &api)
                 })
-            }
+            });
         }
         Ok(())
     }
@@ -710,6 +763,7 @@ impl SkiaRenderer {
                     back_buffer_age,
                     Some(surface.as_ref()),
                     window,
+                    true,
                 )
             },
             &self.pre_present_callback,
@@ -725,6 +779,7 @@ impl SkiaRenderer {
         back_buffer_age: u8,
         surface: Option<&dyn Surface>,
         window: &i_slint_core::api::Window,
+        invoke_rendering_notifier: bool,
     ) -> Result<Option<DirtyRegion>, PlatformError> {
         skia_canvas.rotate(rotation_angle_degrees, None);
         skia_canvas.translate(translation);
@@ -739,17 +794,19 @@ impl SkiaRenderer {
                     back_buffer_age,
                     surface,
                     window,
+                    invoke_rendering_notifier,
                     components,
                     post_render,
                 )
             })
             .unwrap_or(Ok(None));
 
-        if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut()
-            && let Some(surface) = surface
-        {
-            surface
-                .with_graphics_api(&mut |api| callback.notify(RenderingState::AfterRendering, &api))
+        if invoke_rendering_notifier && let Some(surface) = surface {
+            self.with_rendering_notifier(|callback| {
+                surface.with_graphics_api(&mut |api| {
+                    callback.notify(RenderingState::AfterRendering, &api)
+                })
+            });
         }
 
         dirty_region
@@ -762,6 +819,7 @@ impl SkiaRenderer {
         back_buffer_age: u8,
         surface: Option<&dyn Surface>,
         window: &i_slint_core::api::Window,
+        invoke_rendering_notifier: bool,
         components: &[(ItemTreeWeak, LogicalPoint)],
         post_render: &dyn Fn(&mut dyn ItemRenderer),
     ) -> Result<Option<DirtyRegion>, PlatformError> {
@@ -880,7 +938,7 @@ impl SkiaRenderer {
                 }
             }
 
-            if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
+            if invoke_rendering_notifier && self.has_rendering_notifier.get() {
                 // For the BeforeRendering rendering notifier callback it's important that this happens *after* clearing
                 // the back buffer, in order to allow the callback to provide its own rendering of the background.
                 // Skia's clear() will merely schedule a clear call, so flush right away to make it immediate.
@@ -889,9 +947,11 @@ impl SkiaRenderer {
                 }
 
                 if let Some(surface) = surface {
-                    surface.with_graphics_api(&mut |api| {
-                        callback.notify(RenderingState::BeforeRendering, &api)
-                    })
+                    self.with_rendering_notifier(|callback| {
+                        surface.with_graphics_api(&mut |api| {
+                            callback.notify(RenderingState::BeforeRendering, &api)
+                        })
+                    });
                 }
             }
 
@@ -947,13 +1007,16 @@ impl SkiaRenderer {
         *self.pre_present_callback.borrow_mut() = callback;
     }
 
+    /// Calls `f` with the rendering notifier, unless none is set or it's already running.
+    fn with_rendering_notifier(&self, f: impl FnOnce(&mut dyn RenderingNotifier)) {
+        let Some(mut notifier) = self.rendering_notifier.take() else { return };
+        f(notifier.as_mut());
+        *self.rendering_notifier.borrow_mut() = Some(notifier);
+    }
+
     fn partial_rendering_state(&self) -> Option<&PartialRenderingState> {
         // We don't know where the application might render to, so disable partial rendering.
-        if self.rendering_notifier.borrow().is_some() {
-            None
-        } else {
-            self.partial_rendering_state.as_ref()
-        }
+        if self.has_rendering_notifier.get() { None } else { self.partial_rendering_state.as_ref() }
     }
 }
 
@@ -966,12 +1029,11 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
         &self,
         callback: Box<dyn RenderingNotifier>,
     ) -> std::result::Result<(), SetRenderingNotifierError> {
-        let mut notifier = self.rendering_notifier.borrow_mut();
-        if notifier.replace(callback).is_some() {
-            Err(SetRenderingNotifierError::AlreadySet)
-        } else {
-            Ok(())
+        if self.has_rendering_notifier.replace(true) {
+            return Err(SetRenderingNotifierError::AlreadySet);
         }
+        *self.rendering_notifier.borrow_mut() = Some(callback);
+        Ok(())
     }
 
     fn free_graphics_resources(
@@ -1019,32 +1081,47 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
         }
     }
 
-    /// Returns an image buffer with the contents of the window, obtained by re-rendering the scene into a CPU-side surface.
+    /// Returns an image buffer with the contents of the window, obtained by re-rendering the scene,
+    /// on the GPU if the surface supports it, otherwise into a CPU-side surface.
     fn take_snapshot(
         &self,
     ) -> Result<SharedPixelBuffer<i_slint_core::graphics::Rgba8Pixel>, PlatformError> {
         let window_adapter = self.window_adapter()?;
         let window = window_adapter.window();
         let size = window_adapter.window().size();
-        let (width, height) = (size.width, size.height);
-        let mut target_buffer =
-            SharedPixelBuffer::<i_slint_core::graphics::Rgba8Pixel>::new(width, height);
 
-        let mut surface_borrow = skia_safe::surfaces::wrap_pixels(
+        if let Some(surface) = self.surface.borrow().as_deref()
+            && let Some(snapshot) = surface.render_snapshot(size, &mut |canvas, gr_context| {
+                self.render_to_canvas(
+                    canvas,
+                    0.,
+                    (0., 0.),
+                    Some(gr_context),
+                    0,
+                    Some(surface),
+                    window,
+                    false,
+                )
+                .map(|_| ())
+            })
+        {
+            return snapshot;
+        }
+
+        let mut target = skia_safe::surfaces::raster(
             &image_info(
-                (width as i32, height as i32),
+                (size.width as i32, size.height as i32),
                 skia_safe::ColorType::RGBA8888,
-                skia_safe::AlphaType::Opaque,
+                skia_safe::AlphaType::Premul,
             ),
-            target_buffer.make_mut_bytes(),
             None,
             None,
         )
-        .ok_or_else(|| "Error wrapping target buffer for rendering into with Skia".to_string())?;
+        .ok_or_else(|| "Error creating a Skia surface for the snapshot".to_string())?;
 
-        self.render_to_canvas(surface_borrow.canvas(), 0., (0.0, 0.0), None, 0, None, window)?;
+        self.render_to_canvas(target.canvas(), 0., (0.0, 0.0), None, 0, None, window, false)?;
 
-        Ok(target_buffer)
+        read_snapshot_pixels(&mut target, size)
     }
 
     fn mark_dirty_region(&self, region: DirtyRegion) {
@@ -1132,6 +1209,21 @@ pub trait Surface {
         _canvas: &skia_safe::Canvas,
         _texture: &i_slint_core::graphics::WGPUTexture,
     ) -> Option<skia_safe::Image> {
+        None
+    }
+
+    /// Renders a snapshot of the window on the GPU, with `render_callback` drawing the scene.
+    /// Unlike a snapshot rendered on the CPU, it includes the textures the surface imports,
+    /// such as imported WGPU textures.
+    /// Returns `None` if the surface doesn't render on the GPU.
+    fn render_snapshot(
+        &self,
+        _size: PhysicalWindowSize,
+        _render_callback: &mut dyn FnMut(
+            &skia_safe::Canvas,
+            &mut skia_safe::gpu::DirectContext,
+        ) -> Result<(), PlatformError>,
+    ) -> Option<Result<SharedPixelBuffer<i_slint_core::graphics::Rgba8Pixel>, PlatformError>> {
         None
     }
 

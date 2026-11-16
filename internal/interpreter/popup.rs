@@ -80,14 +80,7 @@ pub(crate) fn show_popup_window(ctx: &mut EvalContext, arguments: &[Expression])
             i_slint_core::window::WindowKind::Popup
         }
     };
-    // Give the popup its own window adapter when the backend can create
-    // one — `WindowInner::show_popup` then shows it as a native top-level
-    // popup instead of a child window rendered into the parent surface.
-    if let Some(child_adapter) = i_slint_core::window::WindowInner::from_pub(adapter.window())
-        .create_child_window_adapter(window_kind())
-    {
-        let _ = popup_vrc.window_adapter.set(child_adapter);
-    }
+    set_own_window_adapter(&popup_vrc, &adapter, window_kind());
 
     // Install bindings now but defer `init_code` until after `show_popup`,
     // so `forward-focus` calls reach a popup the window adapter already
@@ -274,6 +267,21 @@ pub(crate) fn setup_system_tray_icon(ctx: &mut EvalContext, arguments: &[Express
     Value::Void
 }
 
+/// Gives the popup its own window adapter when the backend can create one.
+/// `WindowInner::show_popup` then shows it as a native top-level popup
+/// instead of a child window rendered into the parent surface.
+fn set_own_window_adapter(
+    popup_vrc: &vtable::VRc<i_slint_core::item_tree::ItemTreeVTable, crate::instance::Instance>,
+    parent: &i_slint_core::window::WindowAdapterRc,
+    kind: i_slint_core::window::WindowKind,
+) {
+    if let Some(child_adapter) = i_slint_core::window::WindowInner::from_pub(parent.window())
+        .create_child_window_adapter(kind)
+    {
+        let _ = popup_vrc.window_adapter.set(child_adapter);
+    }
+}
+
 pub(crate) fn show_popup_menu(ctx: &mut EvalContext, arguments: &[Expression]) -> Value {
     let [Expression::PropertyReference(context_menu_ref), entries_expr, position_expr] = arguments
     else {
@@ -292,7 +300,9 @@ pub(crate) fn show_popup_menu(ctx: &mut EvalContext, arguments: &[Expression]) -
         context_flat_idx as u32,
     );
     let context_menu_item_weak = context_item_rc.downgrade();
-    let Some(adapter) = find_window_adapter(ctx) else {
+    // A sub-menu belongs to the window of its parent menu.
+    let Some(adapter) = context_item_rc.window_adapter().or_else(|| find_window_adapter(ctx))
+    else {
         return Value::Void;
     };
 
@@ -303,6 +313,7 @@ pub(crate) fn show_popup_menu(ctx: &mut EvalContext, arguments: &[Expression]) -
 
     let current = ctx.current.as_ref().unwrap();
     let popup_vrc = new_popup_for(current, &popup_menu.item_tree);
+    set_own_window_adapter(&popup_vrc, &adapter, i_slint_core::window::WindowKind::Menu);
     // Install bindings now but defer `init_code` until after `show_popup`,
     // so `forward-focus` calls reach a popup the window adapter already
     // considers active.

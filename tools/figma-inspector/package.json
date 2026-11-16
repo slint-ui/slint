@@ -1,7 +1,7 @@
 {
   "name": "slint.figma.plugin",
   "private": true,
-  "version": "1.19.0",
+  "version": "1.20.0",
   "type": "module",
   "scripts": {
     "check": "pnpm format && pnpm lint && pnpm type-check && pnpm knip && pnpm spellcheck && pnpm check:fonts",

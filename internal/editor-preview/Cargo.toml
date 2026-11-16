@@ -10,7 +10,7 @@ authors.workspace = true
 documentation.workspace = true
 edition.workspace = true
 homepage.workspace = true
-keywords.workspace = true
+keywords = ["visual-editor", "gui-designer", "ui-designer"]
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
@@ -23,7 +23,7 @@ path = "lib.rs"
 
 [features]
 remote-client = ["dep:tokio-tungstenite-wasm", "dep:postcard", "futures-util/sink"]
-springboard = ["dep:slint", "dep:slint-build", "dep:mdns-sd", "remote-client"]
+springboard = ["dep:slint", "dep:slint-build", "dep:mdns-sd", "remote-client", "serial"]
 preview-engine = []
 preview-builtin = ["preview-engine"]
 preview-process = [
@@ -54,7 +54,7 @@ slint-build = { workspace = true, features = ["experimental-module-builds"], opt
 slint = { workspace = true, features = ["compat-1-2"], optional = true }
 i-slint-common = { workspace = true, optional = true }
 i-slint-compiler = { workspace = true, features = ["display-diagnostics"] }
-i-slint-live-preview = { version = "=1.19.0", path = "../live-preview", features = ["protocol", "file-watcher"] }
+i-slint-live-preview = { version = "=1.20.0", path = "../live-preview", features = ["protocol", "file-watcher"] }
 
 itertools = { workspace = true }
 lsp-types = { workspace = true }

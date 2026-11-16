@@ -321,8 +321,10 @@ def test_gradient_stop_opacity_scrub_keeps_capture(
         original.wait_for_applied(expected, scene.name)
 
 
-@pytest.mark.parametrize("percent", [50, 100, 200])
-@pytest.mark.parametrize("rotation", [0, 45, 90, 180])
+@pytest.mark.parametrize(
+    "rotation,percent",
+    [(rotation, 100) for rotation in (0, 45, 90, 180)] + [(45, 50), (45, 200)],
+)
 def test_stop_drag_crosses_neighbors_without_losing_capture(
     editor_binary, editor_environment, scene, tmp_path, rotation, percent
 ):

@@ -15,21 +15,20 @@ and extend the include directories of your target so that the generated file is 
 
 The optional `NAMESPACE` argument will put the generated components in the given C++ namespace.
 
-Use the `EDITION` argument to set the <SlintRef type="Editions" label="edition" code={false} />, such as `1.19`.
+Use the `EDITION` argument to set the <SlintRef type="Editions" label="edition" code={false} />, such as `1.20`.
 It wins over the edition of the project file.
 
 Use the `LIBRARY_PATHS` argument to specify the name and paths to <SlintRef type="ComponentLibraries" label="component libraries" code={false} />,
 separated by an equals sign (`=`).
 
-Instead of a `.slint` file, pass a project directory.
-Slint loads `slint-project.json` inside that directory.
-The project file provides settings not specified by the CMake arguments.
+Instead of a `.slint` file, pass a project file (`slint-project.json`) or its directory.
+Slint loads the project file and applies settings not specified by the CMake arguments.
 It must contain a `main` entry, which specifies the `.slint` file the compiler loads.
 The header is named after the main file: `"main": "ui/the_window.slint"` generates `the_window.h`.
 Changing the project file re-runs the CMake configure step.
 
 Given a file called `the_window.slint`, the following example creates `the_window.h`, which you can include from your `.cpp` file.
-If `the_window.slint` contains a component `TheWindow`, the generated C++ class is `ui::TheWindow` and uses the language behavior of edition `1.19`.
+If `the_window.slint` contains a component `TheWindow`, the generated C++ class is `ui::TheWindow` and uses the language behavior of edition `1.20`.
 Imports from `@mycomponentlib/` resolve to the specified path.
 
 ```cmake
@@ -37,7 +36,7 @@ add_executable(my_application main.cpp)
 target_link_libraries(my_application PRIVATE Slint::Slint)
 slint_target_sources(my_application the_window.slint
     NAMESPACE ui
-    EDITION 1.19
+    EDITION 1.20
     LIBRARY_PATHS mycomponentlib=/path/to/customcomponents
 )
 ```

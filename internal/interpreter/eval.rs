@@ -760,7 +760,7 @@ fn eval_constant_expression(expr: &ConstantExpression) -> Value {
 fn cast_constant_value(value: Value, to: &Type) -> Value {
     debug_assert!(*to != Type::String, "struct field defaults reject casts to string");
     match (value, to) {
-        (Value::Number(n), Type::Int32) => Value::Number(n.trunc()),
+        (Value::Number(n), Type::Int32) => Value::Number(n as i32 as f64),
         (Value::Number(n), Type::Color) => Color::from_argb_encoded(n as u32).into(),
         (Value::Brush(brush), Type::Color) => brush.color().into(),
         (v, _) => v,
@@ -876,7 +876,7 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
             }
             let v = eval_expression(ctx, from);
             match (v, to) {
-                (Value::Number(n), Type::Int32) => Value::Number(n.trunc()),
+                (Value::Number(n), Type::Int32) => Value::Number(n as i32 as f64),
                 (Value::Number(n), Type::String) => {
                     Value::String(component_context(ctx).format_number(n))
                 }
@@ -2336,8 +2336,9 @@ fn call_builtin_function(
             Value::Void
         })(),
         BuiltinFunction::UpdateTimers => {
-            // Timers react to property changes through the change trackers
-            // installed in `bindings::install_timers`; nothing to do here.
+            if let Some(sub) = &ctx.current {
+                crate::bindings::update_timers(sub);
+            }
             Value::Void
         }
         BuiltinFunction::RestartTimer => (|| {

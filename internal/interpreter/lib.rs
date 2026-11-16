@@ -58,7 +58,7 @@ let code = r#"
 "#;
 
 let mut compiler = Compiler::default();
-compiler.set_edition((1, 19));
+compiler.set_edition((1, 20));
 let result =
     spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
 assert_eq!(result.diagnostics().count(), 0);

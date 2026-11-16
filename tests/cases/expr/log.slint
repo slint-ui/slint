@@ -1,9 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
- TestCase := Rectangle {
-    property<float> t1: log(4.0, 2);
-    property<float> t2: log(64, 4.0);
+component TestCase inherits Rectangle {
+    out property<float> t1: log(4.0, 2);
+    out property<float> t2: log(64, 4.0);
 }
 /*
 ```cpp

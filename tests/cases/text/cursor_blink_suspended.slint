@@ -1,0 +1,68 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    width: 100phx;
+    height: 100phx;
+
+    ti := TextInput {
+        text: "Hello";
+    }
+
+    out property <bool> input-focused: ti.has-focus;
+}
+
+/*
+```rust
+use slint::platform::Key;
+use slint::SharedString;
+
+let instance = TestCase::new().unwrap();
+let window = i_slint_core::window::WindowInner::from_pub(instance.window());
+let cursor_visible = || {
+    let item = window.focus_item.borrow().upgrade().unwrap();
+    let text_input = item.downcast::<i_slint_core::items::TextInput>().unwrap();
+    let visible = text_input.as_pin_ref().cursor_visible();
+    visible
+};
+// Whether the cursor showed at every step of 250 ms over the given time.
+let visible_throughout = |ms: u64| {
+    (0..ms / 250).all(|_| {
+        slint_testing::mock_elapsed_time(250);
+        cursor_visible()
+    })
+};
+
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert!(instance.get_input_focused());
+assert!(!visible_throughout(2000), "the cursor blinks");
+// Wait for the off phase.
+while cursor_visible() {
+    slint_testing::mock_elapsed_time(100);
+}
+
+// While a text handle is held on a touch screen, the cursor stays visible, also when the hold
+// starts while the cursor is off.
+window.set_cursor_blink_suspended(true);
+assert!(cursor_visible());
+assert!(visible_throughout(2000));
+// Moving the cursor during the hold doesn't start the blinking again.
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::LeftArrow));
+assert!(visible_throughout(2000));
+
+// A cursor that shows up during the hold, here after the focus left and came back, stays visible.
+instance.window().dispatch_event(slint::platform::WindowEvent::WindowActiveChanged(false));
+instance.window().dispatch_event(slint::platform::WindowEvent::WindowActiveChanged(true));
+assert!(visible_throughout(2000));
+
+window.set_cursor_blink_suspended(false);
+assert!(!visible_throughout(1000), "the cursor blinks again");
+
+// A hold that ends while no cursor shows lets the next cursor blink.
+window.set_cursor_blink_suspended(true);
+instance.window().dispatch_event(slint::platform::WindowEvent::WindowActiveChanged(false));
+window.set_cursor_blink_suspended(false);
+instance.window().dispatch_event(slint::platform::WindowEvent::WindowActiveChanged(true));
+assert!(!visible_throughout(1000), "the cursor blinks after the focus came back");
+```
+*/

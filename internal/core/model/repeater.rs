@@ -743,9 +743,6 @@ pub struct RepeaterTracker<T: RepeatedItemTree> {
     /// Marked dirty whenever `instances` changes, including when `ensure_updated` creates one.
     /// A row's data change alone doesn't mark it.
     instance_generation: Property<()>,
-    /// Only used for the list view to track if the scrollbar has changed and item needs to be laid out again.
-    #[pin]
-    listview_geometry_tracker: crate::properties::PropertyTracker,
 }
 
 impl<T: RepeatedItemTree> RepeaterTracker<T> {
@@ -761,16 +758,12 @@ impl<T: RepeatedItemTree> ModelChangeListener for RepeaterTracker<T> {
     fn row_changed(self: Pin<&Self>, row: usize) {
         let mut inner = self.inner.borrow_mut();
         let inner = &mut *inner;
-        if let Some(c) = inner.instances.get_mut(row.wrapping_sub(inner.layout_state.offset)) {
-            if !self.model.is_dirty() {
-                if let Some(comp) = c.1.as_ref() {
-                    let model = self.project_ref().model.get_untracked();
-                    as_typed::<T>(comp).update(row, model.row_data(row).unwrap_or_default());
-                    c.0 = RepeatedInstanceState::Clean;
-                }
-            } else {
-                c.0 = RepeatedInstanceState::Dirty;
-            }
+        if let Some(c) = inner.instances.get_mut(row.wrapping_sub(inner.layout_state.offset))
+            && let Some(comp) = c.1.as_ref()
+        {
+            let model = self.model.get_internal();
+            as_typed::<T>(comp).update(row, model.row_data(row).unwrap_or_default());
+            c.0 = RepeatedInstanceState::Clean;
         }
     }
     /// Notify the peers that rows were added
@@ -802,7 +795,6 @@ impl<C: RepeatedItemTree> Default for RepeaterTracker<C> {
                 (),
                 "i_slint_core::Repeater::instance_generation",
             ),
-            listview_geometry_tracker: Default::default(),
         }
     }
 }
@@ -947,7 +939,16 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         if model.is_dirty() {
             let old_model = model.get_internal();
             let m = model.get();
-            if old_model != m {
+            // A number model (`for i in n`) is new each time `n` is evaluated, but the
+            // existing rows stay the same, so keep their instances.
+            let number = |m: &ModelRc<C::Data>| m.as_any().downcast_ref::<usize>().copied();
+            if let (Some(old_count), Some(new_count)) = (number(&old_model), number(&m)) {
+                if new_count > old_count {
+                    self.data().row_added(old_count, new_count - old_count);
+                } else if new_count < old_count {
+                    self.data().row_removed(new_count, old_count - new_count);
+                }
+            } else if old_model != m {
                 *self.data().inner.borrow_mut() = RepeaterInner::default();
                 self.data().instances_changed();
                 let peer = self.project_ref().0.model_peer();

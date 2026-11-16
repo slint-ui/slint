@@ -196,7 +196,11 @@ impl winit::application::ApplicationHandler for EventLoopState {
         let events = std::mem::take(&mut *self.shared_backend_data.event_queue.lock().unwrap());
         for event in events {
             match event {
-                CustomEvent::UserEvent(user_callback) => user_callback(),
+                CustomEvent::UserEvent(user_callback) => {
+                    user_callback();
+                    // winit can run several user events, then sleep, without calling `new_events`.
+                    self.shared_backend_data.context().update_timers_and_animations();
+                }
                 CustomEvent::UserEventWithEventLoop(user_callback) => user_callback(event_loop),
                 CustomEvent::Exit(generation) => {
                     if self
@@ -274,6 +278,7 @@ impl winit::application::ApplicationHandler for EventLoopState {
 
         if let Err(err) = self.shared_backend_data.create_inactive_windows(event_loop) {
             self.loop_error = Some(err);
+            event_loop.exit();
         }
 
         if !event_loop.exiting() {
@@ -284,7 +289,7 @@ impl winit::application::ApplicationHandler for EventLoopState {
                 .values()
                 .filter_map(|w| w.upgrade())
             {
-                if w.window().has_active_animations() {
+                if w.window().has_active_animations() && !w.is_minimized_on_screen() {
                     w.request_redraw();
                 }
             }

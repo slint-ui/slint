@@ -63,4 +63,4 @@ def test_valid_inspector_edits_do_not_show_failure_card(
             element(
                 window, "Selected Rectangle", role=slint_testing.AccessibleRole.Region
             )
-        screenshot(window).save(tmp_path / "valid-inspector-edit.png")
+        screenshot(window, settle=False).save(tmp_path / "valid-inspector-edit.png")

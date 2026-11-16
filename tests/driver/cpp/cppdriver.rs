@@ -19,12 +19,6 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
 
     let cpp_namespace = test_driver_lib::extract_cpp_namespace(&source);
 
-    let mut diag = BuildDiagnostics::default();
-    let syntax_node = parser::parse(
-        source.clone(),
-        Some(i_slint_compiler::source_path::SourcePath::new(&testcase.absolute_path)),
-        &mut diag,
-    );
     let output_format = generator::OutputFormat::Cpp(generator::cpp::Config {
         namespace: cpp_namespace,
         ..Default::default()
@@ -49,8 +43,12 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         compiler_config.default_translation_context =
             i_slint_compiler::DefaultTranslationContext::None;
     }
-    let (root_component, diag, loader) =
-        spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
+    let (root_component, diag, loader) = spin_on::spin_on(compile_source(
+        &i_slint_compiler::source_path::SourcePath::new(&testcase.absolute_path),
+        source.clone(),
+        BuildDiagnostics::default(),
+        compiler_config,
+    ));
 
     if diag.has_errors() {
         let vec = diag.to_string_vec();
@@ -146,8 +144,7 @@ namespace slint_testing = slint::private_api::testing;
     }
 
     if compiler.is_like_clang() || compiler.is_like_gnu() {
-        compiler_command.arg("-std=c++20");
-        compiler_command.arg("-g");
+        compiler_command.args(GNU_COMMON_ARGS);
         compiler_command.arg("-Werror").arg("-Wall").arg("-Wextra");
         if let Some(prelude) = precompiled_header(&compiler) {
             compiler_command.arg("-include").arg(prelude);
@@ -263,6 +260,14 @@ fn precompiled_header(compiler: &cc::Tool) -> Option<&'static std::path::Path> {
     .as_deref()
 }
 
+/// The flags of the tests and of their precompiled header, which must match.
+/// ESP-IDF builds without RTTI by default.
+const GNU_COMMON_ARGS: &[&str] = if cfg!(feature = "live-preview") {
+    &["-std=c++20", "-g"]
+} else {
+    &["-std=c++20", "-g", "-fno-rtti"]
+};
+
 fn build_precompiled_header(compiler: &cc::Tool) -> Result<std::path::PathBuf, String> {
     // OUT_DIR is per-configuration, so eg the normal and live-preview builds
     // can't pick up each other's precompiled header.
@@ -286,7 +291,12 @@ fn build_precompiled_header(compiler: &cc::Tool) -> Result<std::path::PathBuf, S
         // With `-include prelude.h`, gcc loads prelude.h.gch and clang loads
         // prelude.h.pch when the file exists.
         let output = prelude.with_extension(if compiler.is_like_gnu() { "h.gch" } else { "h.pch" });
-        command.args(["-std=c++20", "-g", "-x", "c++-header"]).arg(&prelude).arg("-o").arg(&output);
+        command
+            .args(GNU_COMMON_ARGS)
+            .args(["-x", "c++-header"])
+            .arg(&prelude)
+            .arg("-o")
+            .arg(&output);
     }
     let output = command.output().map_err(|e| e.to_string())?;
     if !output.status.success() {

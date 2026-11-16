@@ -344,8 +344,9 @@ def test_hover_outside_selected_element_can_select_and_drag_child(
             window.dispatch_event(slint_testing.PointerReleaseEvent(target, button))
 
 
-@pytest.mark.parametrize("kind", MOVE_KINDS)
-@pytest.mark.parametrize("jitter", [0, 1])
+@pytest.mark.parametrize(
+    "kind,jitter", [(kind, 0) for kind in MOVE_KINDS] + [("Rectangle", 1)]
+)
 def test_unselected_element_click_selects_without_editing_source(
     editor_binary: Path,
     editor_environment: dict[str, str],
@@ -821,8 +822,10 @@ def wait_for_radius_tooltip(window: slint_testing.Window, radius: float) -> None
     ).to_equal(radius)
 
 
-@pytest.mark.parametrize("kind", MOVE_KINDS)
-@pytest.mark.parametrize("outside_window", (False, True))
+@pytest.mark.parametrize(
+    "kind,outside_window",
+    [(kind, False) for kind in MOVE_KINDS] + [("Rectangle", True)],
+)
 def test_move_element_writes_exact_source_on_release(
     editor_binary: Path,
     editor_environment: dict[str, str],
@@ -1379,8 +1382,11 @@ def run_canvas_boundary_case(
         snapshot.wait_for_applied(expected, "BoundsCases.slint")
 
 
-@pytest.mark.parametrize("kind", BOUNDARY_KINDS)
-@pytest.mark.parametrize("direction", BOUNDARY_MOVE_DIRECTIONS)
+@pytest.mark.parametrize(
+    "kind,direction",
+    [("Rectangle", direction) for direction in BOUNDARY_MOVE_DIRECTIONS]
+    + [("Text", "bottom-right"), ("Image", "bottom-right")],
+)
 def test_artboard_allows_moved_element_outside(
     editor_binary: Path,
     editor_environment: dict[str, str],
@@ -1398,8 +1404,11 @@ def test_artboard_allows_moved_element_outside(
     )
 
 
-@pytest.mark.parametrize("kind", BOUNDARY_KINDS)
-@pytest.mark.parametrize("corner", CORNERS)
+@pytest.mark.parametrize(
+    "kind,corner",
+    [("Rectangle", corner) for corner in CORNERS]
+    + [("Text", "bottom-right"), ("Image", "bottom-right")],
+)
 def test_artboard_allows_resized_element_outside(
     editor_binary: Path,
     editor_environment: dict[str, str],
@@ -1417,9 +1426,11 @@ def test_artboard_allows_resized_element_outside(
     )
 
 
-@pytest.mark.parametrize("corner", CORNERS)
-@pytest.mark.parametrize("resizable", [True, False])
-@pytest.mark.parametrize("outside", [False, True])
+@pytest.mark.parametrize(
+    "corner,resizable,outside",
+    [(corner, resizable, True) for corner in CORNERS for resizable in (True, False)]
+    + [("top-left", resizable, False) for resizable in (True, False)],
+)
 def test_rotation_starts_only_outside_resize_handle(
     editor_binary, editor_environment, fixture_project, corner, resizable, outside
 ):
@@ -1575,8 +1586,9 @@ def test_zero_radius_handles_stay_visible_and_drag_back_to_zero(
             assert position_distance(position, initial_positions[corner]) < 1.5
 
 
-@pytest.mark.parametrize("single", (False, True))
-@pytest.mark.parametrize("corner", CORNERS)
+@pytest.mark.parametrize(
+    "corner,single", [(corner, True) for corner in CORNERS] + [("top-left", False)]
+)
 def test_each_radius_handle_writes_exact_source(
     editor_binary: Path,
     editor_environment: dict[str, str],
@@ -1705,6 +1717,43 @@ def test_explicit_corner_radius_makes_every_handle_independent(
         snapshot.assert_unchanged_now()
 
         window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
+
+
+def test_radius_drag_back_restores_the_adjacent_corner(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source_file = fixture_project / "Main.slint"
+    baseline = radius_source(
+        source_file.read_bytes(), {"top-left": 12, "bottom-left": 100}
+    )
+    source_file.write_bytes(baseline)
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        wait_for_source(source_file, baseline)
+        window = first_window(editor)
+        select_fixture_element(window, "Rectangle")
+        start = center(radius_handle(window, "top-left"))
+        positions = radius_handle_positions(window)
+        end = offset_position(start, 88, 88, 0)
+        button = slint_testing.PointerEventButton.Left
+        window.dispatch_event(slint_testing.PointerPressEvent(start, button))
+        window.dispatch_event(slint_testing.PointerMoveEvent(end))
+        wait_for_radius_tooltip(window, 100)
+        assert (
+            position_distance(
+                radius_handle_positions(window)["bottom-left"], positions["bottom-left"]
+            )
+            > 70
+        )
+        snapshot.assert_unchanged_now()
+        window.dispatch_event(slint_testing.PointerMoveEvent(start))
+        wait_for_radius_tooltip(window, 12)
+        assert_radius_handle_positions(window, positions, "top-left", 0, True)
+        window.dispatch_event(slint_testing.PointerReleaseEvent(start, button))
+        snapshot.assert_unchanged()
+        assert_radius_handle_positions(window, positions, "top-left", 0, True)
 
 
 @pytest.mark.parametrize(

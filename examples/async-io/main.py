@@ -5,7 +5,7 @@ import slint
 import asyncio
 import aiohttp
 
-Symbol = slint.loader.stockticker.Symbol
+Symbol = slint.loader.slint_project.Symbol
 
 
 async def refresh_stocks(model: slint.ListModel[Symbol]) -> None:
@@ -24,7 +24,7 @@ async def refresh_stocks(model: slint.ListModel[Symbol]) -> None:
                     model.set_row_data(row, symbol)
 
 
-class MainWindow(slint.loader.stockticker.MainWindow):
+class MainWindow(slint.loader.slint_project.MainWindow):
     def __init__(self):
         super().__init__()
         self.stocks = slint.ListModel(

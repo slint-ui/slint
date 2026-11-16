@@ -591,6 +591,8 @@ mod parser_trait {
         fn consume(&mut self);
         fn error(&mut self, e: impl Into<String>);
         fn warning(&mut self, e: impl Into<String>);
+        /// The edition of the file being parsed, if any.
+        fn edition(&self) -> Option<crate::project_file::SlintEdition>;
 
         /// Consume the token if it has the right kind, otherwise report a syntax error.
         /// Returns true if the token was consumed.
@@ -672,6 +674,9 @@ fn nesting_weight(kind: SyntaxKind) -> usize {
     match kind {
         SyntaxKind::FunctionCallExpression => 4,
         SyntaxKind::Array | SyntaxKind::ConditionalElement | SyntaxKind::RepeatedElement => 3,
+        // The `Expression` around it already counts: a link of an `else if` or `? :` chain
+        // costs one level.
+        SyntaxKind::ConditionalExpression => 0,
         _ => 1,
     }
 }
@@ -684,6 +689,7 @@ pub struct DefaultParser<'a> {
     cursor: usize,
     diags: &'a mut BuildDiagnostics,
     source_file: SourceFile,
+    edition: Option<crate::project_file::SlintEdition>,
     depth: usize,
     /// Set once MAX_DEPTH was reached, to silence the errors reported while unwinding
     too_deep: bool,
@@ -697,6 +703,7 @@ impl<'a> DefaultParser<'a> {
             cursor: 0,
             diags,
             source_file: Default::default(),
+            edition: None,
             depth: 0,
             too_deep: false,
         }
@@ -799,6 +806,10 @@ impl Parser for DefaultParser<'_> {
     fn warning(&mut self, e: impl Into<String>) {
         let location = self.current_token_location();
         self.diags.push_warning_with_span(e.into(), location);
+    }
+
+    fn edition(&self) -> Option<crate::project_file::SlintEdition> {
+        self.edition
     }
 
     type Checkpoint = rowan::Checkpoint;
@@ -1102,9 +1113,11 @@ pub fn identifier_text(node: &SyntaxNode) -> Option<SmolStr> {
 pub use crate::names::{is_identifier_normalized, normalize_identifier};
 
 // Actual parser
+/// Parses `source` with the language of `edition`, which becomes the edition of its file.
 pub fn parse(
     source: String,
     path: Option<SourcePath>,
+    edition: Option<crate::project_file::SlintEdition>,
     build_diagnostics: &mut BuildDiagnostics,
 ) -> SyntaxNode {
     let mut p = DefaultParser::new(&source, build_diagnostics);
@@ -1112,6 +1125,10 @@ pub fn parse(
         path.unwrap_or_default(),
         source,
     ));
+    if let Some(edition) = edition {
+        p.source_file.set_edition(edition);
+    }
+    p.edition = edition;
     document::parse_document(&mut p);
     SyntaxNode {
         node: rowan::SyntaxNode::new_root(p.builder.finish()),
@@ -1127,15 +1144,21 @@ pub fn parse_file<P: AsRef<std::path::Path>>(
     let source = crate::diagnostics::load_from_path(&path)
         .map_err(|d| build_diagnostics.push_internal_error(d))
         .ok()?;
-    Some(parse(source, Some(SourcePath::File(path)), build_diagnostics))
+    Some(parse(source, Some(SourcePath::File(path)), None, build_diagnostics))
 }
 
+/// Parses `tokens` with the language of `edition`, which becomes the edition of `source_file`.
 pub fn parse_tokens(
     tokens: Vec<Token>,
     source_file: SourceFile,
+    edition: Option<crate::project_file::SlintEdition>,
     diags: &mut BuildDiagnostics,
 ) -> SyntaxNode {
     let mut p = DefaultParser::from_tokens(tokens, diags);
+    if let Some(edition) = edition {
+        source_file.set_edition(edition);
+    }
+    p.edition = edition;
     document::parse_document(&mut p);
     SyntaxNode { node: rowan::SyntaxNode::new_root(p.builder.finish()), source_file }
 }

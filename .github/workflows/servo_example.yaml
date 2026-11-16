@@ -57,7 +57,7 @@ jobs:
       - name: Install API level
         run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-36"
       - name: Install cargo-apk2
-        run: cargo install --locked cargo-apk2@1.4.2
+        run: cargo install --locked cargo-apk2@1.5.0
       - name: Build
         working-directory: examples/servo
         run: |

@@ -575,6 +575,27 @@ impl crate::Surface for WGPUSurface {
         })
     }
 
+    fn render_snapshot(
+        &self,
+        size: PhysicalWindowSize,
+        render_callback: &mut dyn FnMut(
+            &skia_safe::Canvas,
+            &mut skia_safe::gpu::DirectContext,
+        ) -> Result<(), PlatformError>,
+    ) -> Option<
+        Result<
+            i_slint_core::graphics::SharedPixelBuffer<i_slint_core::graphics::Rgba8Pixel>,
+            PlatformError,
+        >,
+    > {
+        // A rendering notifier taking a snapshot runs while `render()` holds the context.
+        let gr_context = &mut *self.gr_context.try_borrow_mut().ok()?;
+        Some(crate::render_snapshot_on_gpu(gr_context, size, &mut |canvas, gr_context| {
+            render_callback(canvas, gr_context)?;
+            self.flush_and_submit(gr_context)
+        }))
+    }
+
     fn set_transparent(&self, transparent: bool) -> Result<(), PlatformError> {
         // DXGI's `ResizeBuffers`, which wgpu uses to reconfigure a swap chain, can't change
         // its alpha mode.

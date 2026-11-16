@@ -15,13 +15,13 @@ fn app() -> Result<App, slint::PlatformError> {
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
-pub fn main() {
+pub fn main() -> Result<(), slint::PlatformError> {
     // This provides better error messages in debug mode.
     // It's disabled in release mode so it doesn't bloat up the file size.
     #[cfg(all(debug_assertions, target_arch = "wasm32"))]
     console_error_panic_hook::set_once();
 
-    let app = app().unwrap();
+    let app = app()?;
     virtual_keyboard::init(&app);
 
     if let Err(slint::SelectBundledTranslationError::LanguageNotFound { .. }) =
@@ -30,7 +30,7 @@ pub fn main() {
         slint::select_bundled_translation("en").unwrap();
     }
 
-    app.run().unwrap();
+    app.run()
 }
 
 #[cfg(target_os = "android")]

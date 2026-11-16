@@ -449,6 +449,9 @@ impl Flickable {
         // choose minimal translation along each axis
         let tx = Self::choose_min_move(cx, geo.width(), cw, pts.iter().map(|p| p.x));
         let ty = Self::choose_min_move(cy, geo.height(), ch, pts.iter().map(|p| p.y));
+        if tx == 0 as Coord && ty == 0 as Coord {
+            return LogicalVector::from_lengths(self.content_x(), self.content_y());
+        }
 
         let new_cx = cx + tx;
         let new_cy = cy + ty;
@@ -1157,14 +1160,23 @@ impl FlickableDataInner {
         if scroll_behavior == ScrollBehavior::Instant || Flickable::reduced_motion(flick_rc) {
             self.running_animation = None;
 
-            flick.content_x.set(target.x_length());
-            flick.content_y.set(target.y_length());
+            // Setting an axis that doesn't move would still drop its binding
+            if flick.content_x() != target.x_length() {
+                flick.content_x.set(target.x_length());
+            }
+            if flick.content_y() != target.y_length() {
+                flick.content_y.set(target.y_length());
+            }
             return target.to_vector();
         }
         let deflection_x = (flick.content_x() - target.x_length()).0;
         let deflection_y = (flick.content_y() - target.y_length()).0;
-        Flickable::FIELD_OFFSETS.content_x().apply_pin(flick).remove_binding();
-        Flickable::FIELD_OFFSETS.content_y().apply_pin(flick).remove_binding();
+        if deflection_x != 0 as Coord {
+            Flickable::FIELD_OFFSETS.content_x().apply_pin(flick).remove_binding();
+        }
+        if deflection_y != 0 as Coord {
+            Flickable::FIELD_OFFSETS.content_y().apply_pin(flick).remove_binding();
+        }
 
         let simulation = |deflection: f32,
                           dimension: Dimension|

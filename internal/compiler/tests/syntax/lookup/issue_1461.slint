@@ -10,8 +10,7 @@ component Button inherits Rectangle {
 }
 
 
- export AppWindow := Window {
-//                ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+export component AppWindow inherits Window {
      property<int> counter: 42;
      callback request-increase-value();
      VerticalLayout {

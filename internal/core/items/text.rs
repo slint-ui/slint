@@ -2114,14 +2114,13 @@ impl TextInput {
         self.cursor_position_byte_offset.set(new_position);
         self.cursor_affinity.set(affinity);
         if new_position >= 0 {
-            let pos = self
-                .cursor_rect_for_byte_offset(
-                    new_position as usize,
-                    affinity,
-                    window_adapter,
-                    self_rc,
-                )
-                .origin;
+            let cursor_rect = self.cursor_rect_for_byte_offset(
+                new_position as usize,
+                affinity,
+                window_adapter,
+                self_rc,
+            );
+            let pos = cursor_rect.origin;
             if reset_preferred_x_pos {
                 self.preferred_x_pos.set(pos.x);
             }
@@ -2130,6 +2129,12 @@ impl TextInput {
                     .cursor_position_changed()
                     .apply_pin(self)
                     .call(&(crate::api::LogicalPosition::from_euclid(pos),));
+                if self.has_focus() {
+                    self_rc.try_scroll_rect_into_visible(
+                        cursor_rect.translate(self_rc.geometry().origin.to_vector()),
+                        crate::items::ScrollBehavior::Instant,
+                    );
+                }
                 self.update_ime(window_adapter, self_rc);
             }
         }

@@ -81,7 +81,7 @@ pub(super) fn reseed_mask(instance: &ComponentInstance) {
                     overrides.insert(
                         override_id,
                         Box::pin(i_slint_core::Property::new(Some(
-                            slint_interpreter::Value::Brush(slint::Brush::default()),
+                            slint_interpreter::Value::Brush(slint::Brush::default()).into(),
                         ))),
                     );
                 }
@@ -471,6 +471,7 @@ export component Win inherits Window {
         let editor = ui::create_ui().unwrap();
         setup(&editor);
         let api = editor.global::<ui::Api>();
+        let properties_api = editor.global::<ui::Properties>();
         api.set_selection(ui::Selection { highlight_index: 0, ..Default::default() });
         let path = i_slint_editor_preview::test::main_test_file_name();
         let offset = code.find("Text {").unwrap() as u32;
@@ -486,6 +487,8 @@ export component Win inherits Window {
             state.editor_ui = Some(editor.clone_strong());
             state.to_lsp.replace(Some(to_lsp.clone()));
             state.api = <ui::Api as slint::Global<'_, ui::EditorUi>>::as_weak(&api);
+            state.properties =
+                <ui::Properties as slint::Global<'_, ui::EditorUi>>::as_weak(&properties_api);
             state.handle.replace(Some(instance.clone_strong()));
             state.document_cache.replace(Some(Rc::new(cache)));
             state.selected = Some(ElementSelection {
@@ -594,7 +597,7 @@ export component Win inherits Window {
             .with_borrow(|state| state.text_edit_session.as_ref().unwrap().color_override.clone());
         assert_eq!(
             (*overrides).borrow().get(&color_override).unwrap().as_ref().get(),
-            Some(slint_interpreter::Value::Brush(slint::Brush::default()))
+            Some(slint_interpreter::Value::Brush(slint::Brush::default()).into())
         );
         PREVIEW_STATE.with_borrow(|state| {
             state.handle.replace(Some(reloaded.clone_strong()));

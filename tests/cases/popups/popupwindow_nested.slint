@@ -220,21 +220,21 @@ let instance = TestCase::new().unwrap();
 slint_testing::access_testing_window(instance.window(), |w| w.use_native_popup(true));
 
 let inner =  slint_testing::WindowInner::from_pub(&instance.window());
-assert_eq!(inner.active_popups.borrow().len(), 0, "We don't have any open popup");
+assert_eq!(inner.active_popups().len(), 0, "We don't have any open popup");
 
 // open popup2
 instance.invoke_show_popup2();
 
 // check P2 is open
 assert_eq!(instance.get_result(), "P2");
-assert_eq!(inner.active_popups.borrow().len(), 1, "We have one open popup. Popup2");
+assert_eq!(inner.active_popups().len(), 1, "We have one open popup. Popup2");
 instance.set_result("".into());
 
 instance.invoke_close_popup2();
 
 slint_testing::mock_elapsed_time(500); // Give the change tracker time to execute
 
-assert_eq!(inner.active_popups.borrow().len(), 0, "We don't have any open popup anymore");
+assert_eq!(inner.active_popups().len(), 0, "We don't have any open popup anymore");
 ```
 
 ```cpp

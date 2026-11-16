@@ -1,16 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-export NotInIf := Rectangle {
-//             ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+export component NotInIf inherits Rectangle {
     if true: Rectangle {
         @children
 //      >       <error{The @children placeholder cannot appear in a conditional element}
     }
 }
 
-export NotInFor := Rectangle {
-//              ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+export component NotInFor inherits Rectangle {
     HorizontalLayout {
         for xxx in 12: Rectangle {
             VerticalLayout {
@@ -21,15 +19,13 @@ export NotInFor := Rectangle {
     }
 }
 
-TestBox := Rectangle {
-//      ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+component TestBox inherits Rectangle {
     @children
     @children
 //  >       <error{The @children placeholder can only appear once in an element}
 }
 
-export TestBox2 := Rectangle {
-//              ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+export component TestBox2 inherits Rectangle {
     Rectangle {
         @children
     }
@@ -37,8 +33,7 @@ export TestBox2 := Rectangle {
 //  >       <error{The @children placeholder can only appear once in an element}
 }
 
-export Final := TestBox {
-//           ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+export component Final inherits TestBox {
     Rectangle {
         @children
     }

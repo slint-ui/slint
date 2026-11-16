@@ -1,0 +1,54 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Style, Metrics, ButtonStyle } from "../style.slint";
+import { ButtonBase } from "../../controls/src/headless.slint";
+import { ViewerStyle } from "viewer-style.slint";
+
+export component DeviceAction inherits Rectangle {
+    in property <string> label <=> button.text;
+    in property <bool> enabled <=> button.enabled;
+    in property <string> accessible-name: root.label;
+    out property <bool> hovered <=> button.hovered;
+    callback activated <=> button.clicked;
+
+    button := ButtonBase {
+        width: parent.width;
+        height: parent.height;
+        accessible-label: root.accessible-name;
+        background << Rectangle {
+            border-radius: Metrics.radius-medium;
+            border-width: button.has-focus ? Metrics.border-width : 0px;
+            border-color: ViewerStyle.accent;
+        }
+        content << Rectangle {
+            @children
+        }
+    }
+}
+
+export component SoftButton inherits DeviceAction {
+    in property <bool> primary;
+    private property <ButtonStyle> style: root.primary ? Style.primary-button : Style.compact-button;
+    height: root.style.height;
+    Rectangle {
+        border-radius: root.style.radius;
+        border-width: root.style.border-width;
+        border-color: ViewerStyle.field-border;
+        background: root.hovered ? ViewerStyle.field-hover : ViewerStyle.field;
+        opacity: root.enabled ? 1 : root.style.disabled-opacity;
+    }
+    HorizontalLayout {
+        padding-left: root.style.padding-inline;
+        padding-right: root.style.padding-inline;
+        Text {
+            text: root.label;
+            color: !root.enabled ? ViewerStyle.unavailable : root.primary ? ViewerStyle.accent : ViewerStyle.ink;
+            font-size: root.style.text.size;
+            font-weight: root.style.text.weight;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+    }
+}

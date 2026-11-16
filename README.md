@@ -5,9 +5,10 @@
 [![REUSE status](https://api.reuse.software/badge/github.com/slint-ui/slint)](https://api.reuse.software/info/github.com/slint-ui/slint)
 [![Discussions](https://img.shields.io/github/discussions/slint-ui/slint)](https://github.com/slint-ui/slint/discussions)
 
-**Slint** is an open-source declarative GUI toolkit for building native user interfaces for embedded systems, desktops, and mobile platforms.
-
-Write your UI once in `.slint`, a simple markup language. Connect it to business logic written in Rust, C++, JavaScript, or Python.
+**Slint** is an open-source declarative GUI toolkit to build native user interfaces for any device.
+Write your UI in `.slint`, a simple markup language, and connect it to business logic written in Rust, C++, JavaScript, or Python.
+Slint scales from desktop apps to mobile apps on Android and iOS,
+and down to embedded Linux and microcontrollers such as STM32, ESP32, and RP2040.
 
 ## Why Slint?
 

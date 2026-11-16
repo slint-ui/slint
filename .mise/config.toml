@@ -5,20 +5,20 @@
 [tools]
 
 ## C++:
-"pipx:cmake" = "4.0.0"
-"pipx:ninja" = "1.11.1.4"
-"pipx:pipenv" = "2025.0.2"
+"pipx:cmake" = "4.4.4"
+"pipx:ninja" = "1.13.2"
+"pipx:pipenv" = "2026.10.5"
 # doxygen = "1.13.2" ## This is not available anywhere
 # graphviz = "12.2.1" ## This is not available anywhere
 
-"ubi:sharkdp/fd" = "10.2.0"
+"ubi:sharkdp/fd" = "10.5.1"
 "rust" = { version = "stable", profile = "default" }
 node = "24"
 # Not the default aqua backend: it has no packaging for pnpm 11's release
 # tarballs, and ubi picks the bundled Node.js binary out of them.
 "npm:pnpm" = "11.26.0"
-taplo = "0.9.3"
-"ubi:wasm-bindgen/wasm-pack" = "0.13.1"
+taplo = "0.10.0"
+"ubi:wasm-bindgen/wasm-pack" = "0.15.1"
 uv = "0.10.4"
 
 [task_config]

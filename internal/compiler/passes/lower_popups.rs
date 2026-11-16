@@ -7,6 +7,7 @@ use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
 use crate::element_type::ElementType;
 use crate::expression_tree::{BindingExpression, Expression, NamedReference};
 use crate::langtype::{EnumerationValue, Type};
+use crate::native_class::PropertyVisibility;
 use crate::object_tree::*;
 use crate::typeregister::TypeRegister;
 use by_address::ByAddress;
@@ -24,12 +25,14 @@ pub fn lower_popups(
     diag: &mut BuildDiagnostics,
 ) {
     let window_type = type_register.lookup_builtin_element("Window").unwrap();
+    #[allow(clippy::mutable_key_type)]
+    let mut lowered = HashSet::new();
 
     recurse_elem_including_sub_components_no_borrow(
         component,
         &None,
         &mut |elem, parent_element: &Option<ElementRc>| {
-            if is_popup_window(elem) {
+            if is_popup_window(elem) && lowered.insert(ByAddress(elem.clone())) {
                 lower_popup_window(elem, parent_element.as_ref(), &window_type, diag);
             }
             Some(elem.clone())
@@ -72,9 +75,7 @@ fn lower_popup_window(
     let parent_component = popup_window_element.borrow().enclosing_component.upgrade().unwrap();
     let parent_element = match parent_element {
         None => {
-            if matches!(popup_window_element.borrow().base_type, ElementType::Builtin(_)) {
-                popup_window_element.borrow_mut().base_type = window_type.clone();
-            }
+            lower_to_window(popup_window_element, window_type);
             parent_component.inherits_popup_window.set(true);
             return;
         }
@@ -222,9 +223,7 @@ fn lower_popup_window(
 
     check_no_reference_to_popup(popup_window_element, &parent_component, &weak, &coord_x, diag);
 
-    if matches!(popup_window_element.borrow().base_type, ElementType::Builtin(_)) {
-        popup_window_element.borrow_mut().base_type = window_type.clone();
-    }
+    lower_to_window(popup_window_element, window_type);
 
     super::focus_handling::call_focus_on_init(&popup_comp);
 
@@ -237,6 +236,42 @@ fn lower_popup_window(
         is_tooltip: popup_window_element.borrow().is_tooltip,
         is_open,
     });
+}
+
+/// Make a PopupWindow inherit from Window instead.
+/// The popup is only instantiated while shown, so its own `is-open` is constantly true.
+fn lower_to_window(popup_window_element: &ElementRc, window_type: &ElementType) {
+    let mut popup = popup_window_element.borrow_mut();
+    if !matches!(popup.base_type, ElementType::Builtin(_)) {
+        return;
+    }
+    #[cfg(debug_assertions)]
+    let popup_type = popup.base_type.clone();
+    popup.base_type = window_type.clone();
+    let is_open = SmolStr::new_static("is-open");
+    popup.property_declarations.insert(
+        is_open.clone(),
+        PropertyDeclaration {
+            visibility: PropertyVisibility::Output,
+            synthesized: true,
+            ..Type::Bool.into()
+        },
+    );
+    popup.set_binding_if_not_set(is_open, || Expression::BoolLiteral(true));
+    #[cfg(debug_assertions)]
+    for (prop, info) in &popup_type.as_builtin().properties {
+        let lowered = [CLOSE_ON_CLICK, CLOSE_POLICY].contains(&prop.as_str())
+            || matches!(info.ty, Type::Function(_));
+        if lowered {
+            continue;
+        }
+        assert!(
+            popup
+                .lookup_property(prop, crate::element_type::PropertyLookupMode::InternalName)
+                .is_valid(),
+            "PopupWindow property '{prop}' is missing after lowering to Window"
+        );
+    }
 }
 
 fn report_const_error(prop: &str, span: &Option<SourceLocation>, diag: &mut BuildDiagnostics) {

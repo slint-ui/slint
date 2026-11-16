@@ -6,7 +6,7 @@ fn main() {
     MainWindow::new().unwrap().run().unwrap();
 }
 slint::slint! {
-#[edition = "1.19"]
+#[edition = "1.20"]
 // ANCHOR: tile_data
 
 struct TileData {

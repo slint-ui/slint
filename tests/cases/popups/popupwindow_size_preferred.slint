@@ -57,10 +57,10 @@ let inner = slint_testing::WindowInner::from_pub(&instance.window());
 
 instance.invoke_show_popup();
 
-assert_eq!(inner.active_popups.borrow().len(), 1);
+assert_eq!(inner.active_popups().len(), 1);
 assert!(
     matches!(
-        inner.active_popups.borrow().first().unwrap().location,
+        inner.active_popups().first().unwrap().location,
         slint_testing::PopupWindowLocation::ChildWindow(..)
     ),
     "The popup is expected to be a ChildWindow"
@@ -81,10 +81,10 @@ slint_testing::access_testing_window(instance.window(), |w| w.use_native_popup(t
 
 instance.invoke_show_popup();
 
-assert_eq!(inner.active_popups.borrow().len(), 1);
+assert_eq!(inner.active_popups().len(), 1);
 assert!(
     matches!(
-        inner.active_popups.borrow().first().unwrap().location,
+        inner.active_popups().first().unwrap().location,
         slint_testing::PopupWindowLocation::TopLevel(..)
     ),
     "The popup is expected to be a TopLevel window"

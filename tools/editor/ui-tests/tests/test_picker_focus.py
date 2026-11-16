@@ -145,6 +145,20 @@ def test_picker_anchor_keeps_its_panel_and_focus(
             expect(query(window, "Close Fill")).to_be_hidden()
 
         if color_value:
+            for activation in (keys.Return, keys.Space):
+                point = center(field)
+                gesture(window, point, point)
+                expect(query(window, "Close Fill")).to_be_hidden()
+                element(
+                    window,
+                    ("Shadow color" if shadow_color else "Rectangle background")
+                    + " opacity",
+                    role=slint_testing.AccessibleRole.TextInput,
+                ).invoke_accessible_default_action()
+                press_key(window, keys.Tab)
+                press_key(window, activation)
+                expect(query(window, "Close Fill")).to_be_visible()
+                assert source.read_bytes() == baseline
             point = center(field)
             gesture(window, point, point)
             expect(query(window, "Close Fill")).to_be_hidden()

@@ -47,6 +47,11 @@ impl<Id: Copy + PartialEq> TouchFingerIdAllocator<Id> {
         Some(index as i32)
     }
 
+    #[cfg(any(target_vendor = "apple", test))]
+    pub(crate) fn has_active_touches(&self) -> bool {
+        self.slots.iter().any(Option::is_some)
+    }
+
     fn slot_of(&self, touch: Id) -> Option<usize> {
         self.slots.iter().position(|slot| *slot == Some(touch))
     }
@@ -66,14 +71,19 @@ mod tests {
     #[test]
     fn allocates_and_frees_slots() {
         let mut alloc = allocator();
+        assert!(!alloc.has_active_touches());
         assert_eq!(alloc.id_for((0, 11)), 0);
         assert_eq!(alloc.id_for((0, 22)), 1);
         // The same touch keeps its id for the rest of the gesture.
         assert_eq!(alloc.id_for((0, 11)), 0);
         assert_eq!(alloc.take((0, 11)), Some(0));
+        assert!(alloc.has_active_touches());
         // The freed slot is the lowest one, so the next touch reclaims it.
         assert_eq!(alloc.id_for((0, 33)), 0);
         assert_eq!(alloc.take((0, 99)), None);
+        assert_eq!(alloc.take((0, 33)), Some(0));
+        assert_eq!(alloc.take((0, 22)), Some(1));
+        assert!(!alloc.has_active_touches());
     }
 
     #[test]

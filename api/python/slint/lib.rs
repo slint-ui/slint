@@ -94,6 +94,13 @@ fn init_translations(_py: Python<'_>, translations: Bound<PyAny>) -> PyResult<()
     Ok(())
 }
 
+/// Replaces the system fonts with embedded fonts, for text layout that is the same on every host.
+#[cfg(feature = "backend-testing")]
+#[pyfunction]
+fn _configure_test_fonts() {
+    i_slint_backend_testing::configure_test_fonts();
+}
+
 /// Returns the list of optional capabilities that were compiled into the loaded
 /// native binary. This is how Python can tell whether the "dev" binary (with
 /// system-testing and MCP support) was loaded, or just the default lean one.
@@ -231,6 +238,8 @@ fn register_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(invoke_from_event_loop, m)?)?;
     m.add_function(wrap_pyfunction!(init_translations, m)?)?;
     m.add_function(wrap_pyfunction!(build_features, m)?)?;
+    #[cfg(feature = "backend-testing")]
+    m.add_function(wrap_pyfunction!(_configure_test_fonts, m)?)?;
 
     language::register_all(m.py(), m)?;
 

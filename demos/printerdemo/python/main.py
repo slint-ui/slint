@@ -12,10 +12,10 @@ import typing
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
-PrinterQueueItem = slint.loader.ui.printerdemo.PrinterQueueItem
+PrinterQueueItem = slint.loader.slint_project.PrinterQueueItem
 
 
-class MainWindow(slint.loader.ui.printerdemo.MainWindow):
+class MainWindow(slint.loader.slint_project.MainWindow):
     def __init__(self):
         super().__init__()
         self.PrinterState.ink_levels = ListModel(

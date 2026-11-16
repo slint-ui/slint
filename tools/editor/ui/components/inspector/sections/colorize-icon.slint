@@ -1,0 +1,28 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Properties } from "../../../properties.slint";
+import { InspectorPropertyRow, InspectorSection, InspectorSwitch } from "../index.slint";
+import { InspectorContext } from "context.slint";
+
+export component InspectorColorizeIconSection inherits InspectorSection {
+    private property <bool> value: Properties.editor-property-value-data("colorize-icon").value-bool;
+    changed value => { toggle.checked = root.value; }
+
+    title: @tr("Icon");
+
+    InspectorPropertyRow {
+        label: @tr("Colorize Icon");
+
+        toggle := InspectorSwitch {
+            accessible-label: @tr("Colorize Icon");
+            checked: root.value;
+            toggled => {
+                self.focus();
+                let requested = self.checked;
+                self.checked = root.value;
+                InspectorContext.commit-code("colorize-icon", requested ? "true" : "false");
+            }
+        }
+    }
+}
