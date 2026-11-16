@@ -22,7 +22,11 @@ fn spawn_answer(
 ) -> Result<(), String> {
     i_slint_backend_selector::with_global_context(|context| {
         context.spawn_local(async move {
-            let response = i_slint_backend_testing::systest::handle_encoded_request(&request).await;
+            let response = i_slint_backend_testing::systest::handle_encoded_request(
+                &request,
+                std::rc::Rc::new(|_| {}),
+            )
+            .await;
             send(&to_editor, id, Ok(response));
         })
     })

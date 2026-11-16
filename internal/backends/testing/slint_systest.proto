@@ -291,6 +291,25 @@ message RequestGetElementChildren {
     Handle element_handle = 1;
 }
 
+// Only over the debugger transport.
+message RequestSubscribeElementProperties {
+    Handle element_handle = 1;
+}
+
+// Only over the debugger transport.
+// Subscribes to the children of an element, as GetElementChildrenResponse lists them.
+// A missing element_handle subscribes to the root elements of every window,
+// including windows shown later.
+message RequestSubscribeElementChildren {
+    Handle element_handle = 1;
+}
+
+// Only over the debugger transport.
+// Succeeds for a subscription that already ended.
+message RequestUnsubscribe {
+    uint64 subscription_id = 1;
+}
+
 message RequestQueryElementDescendants {
     Handle element_handle = 1;
     repeated ElementQueryInstruction query_stack = 2;
@@ -333,6 +352,9 @@ message RequestToAUT {
         RequestStartEventRecording request_start_event_recording = 16;
         RequestStopEventRecording request_stop_event_recording = 17;
         RequestGetElementChildren request_get_element_children = 18;
+        RequestSubscribeElementProperties request_subscribe_element_properties = 19;
+        RequestSubscribeElementChildren request_subscribe_element_children = 20;
+        RequestUnsubscribe request_unsubscribe = 21;
     }
 }
 
@@ -472,6 +494,62 @@ message GetElementChildrenResponse {
     bool debug_info_available = 3;
 }
 
+message SubscribeElementPropertiesResponse {
+    // Meaningful only when available is true.
+    uint64 subscription_id = 1;
+    // The initial values, which later changes are relative to.
+    repeated TestableProperty properties = 2;
+    // Same meaning as testable_properties_available in ElementPropertiesResponse.
+    // No subscription exists when this is false.
+    bool available = 3;
+}
+
+message SubscribeElementChildrenResponse {
+    uint64 subscription_id = 1;
+    // The initial children, which later changes are relative to.
+    repeated ElementChild children = 2;
+    // Same meaning as in GetElementChildrenResponse.
+    bool debug_info_available = 3;
+}
+
+message UnsubscribeResponse {
+    uint64 subscription_id = 1;
+}
+
+// A change that a subscription pushes, until it ends or the debugger unsubscribes.
+message SubscriptionNotification {
+    uint64 subscription_id = 1;
+    oneof msg {
+        ElementPropertiesChanged properties_changed = 2;
+        ElementChildrenChanged children_changed = 3;
+        SubscriptionEnded ended = 4;
+    }
+}
+
+message ElementPropertiesChanged {
+    repeated TestableProperty changed = 1;
+}
+
+// Apply removals first, then insertions in order, then updates.
+message ElementChildrenChanged {
+    repeated Handle removed = 1;
+    repeated InsertedChildren inserted = 2;
+    // Children that stayed, but whose has_children changed.
+    repeated ElementChild updated = 3;
+}
+
+message InsertedChildren {
+    // The child these follow, after the removals and the insertions before this one.
+    // Missing when they come first.
+    Handle after = 1;
+    repeated ElementChild children = 2;
+}
+
+// The observed element was destroyed,
+// or it has more children than a subscription can hold.
+message SubscriptionEnded {
+}
+
 message ElementQueryResponse {
     repeated Handle element_handles = 1;
 }
@@ -532,5 +610,8 @@ message AUTResponse {
         StartEventRecordingResponse start_event_recording_response = 17;
         StopEventRecordingResponse stop_event_recording_response = 18;
         GetElementChildrenResponse get_element_children_response = 19;
+        SubscribeElementPropertiesResponse subscribe_element_properties_response = 20;
+        SubscribeElementChildrenResponse subscribe_element_children_response = 21;
+        UnsubscribeResponse unsubscribe_response = 22;
     }
 }
