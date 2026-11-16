@@ -1653,6 +1653,7 @@ mod tests {
         let editor = super::create_ui().unwrap();
         let api = editor.global::<super::Api>();
         let properties_api = editor.global::<super::Properties>();
+        properties_api.on_has_property(|name| name == "opacity");
         editor
             .global::<super::Diagnostics>()
             .set_preview_availability(super::PreviewAvailability::Current);
