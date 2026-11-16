@@ -1,6 +1,9 @@
 DebugMessage { location: Some(("app.slint", 300, 1000)), message: "hello" }
 0801096170702e736c696e74ac02e8070568656c6c6f
 
+DebuggerMessage(SubscriptionNotification { notification: [1, 2, 3] })
+1a0103010203
+
 DebuggerMessage(SystemTestRequest { id: 7, request: [1, 2, 3] })
 0d000703010203
 

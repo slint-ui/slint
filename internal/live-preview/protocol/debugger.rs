@@ -27,6 +27,13 @@ pub enum PreviewToDebuggerMessage {
         #[serde(with = "protobuf_result")]
         response: Result<Vec<u8>, String>,
     },
+    /// A protobuf-encoded `SubscriptionNotification` from `slint_systest.proto`,
+    /// pushed by a subscription a system-testing request created.
+    /// It can arrive after the debugger unsubscribed.
+    SubscriptionNotification {
+        #[serde(with = "protobuf")]
+        notification: Vec<u8>,
+    },
 }
 
 /// Base64 in human-readable formats, where JSON would spell out every byte as a number.
