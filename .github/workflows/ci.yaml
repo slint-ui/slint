@@ -510,7 +510,9 @@ jobs:
     # QEMU.
     slint_sc_targets:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'slint_sc_driver') }}
-        runs-on: blacksmith-4vcpu-ubuntu-2404
+        # The Armv7-R and Armv8-R tests need the mps3-an536 machine of QEMU 9.0.
+        # Ubuntu 24.04, the newest Blacksmith image, ships QEMU 8.2.
+        runs-on: ubuntu-26.04
         steps:
             - uses: useblacksmith/checkout@v1
             - uses: ./.github/actions/install-linux-dependencies
