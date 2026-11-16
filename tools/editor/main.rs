@@ -330,8 +330,13 @@ async fn lsp_main(
         #[cfg(not(target_os = "macos"))]
         on_started: None,
     };
-    let springboard =
-        editor_preview::springboard::Springboard::new(local_preview, from_run_preview_sender);
+    // TODO: pass the responses to `debugger::DebuggerWindow` once it has a tool that sends requests.
+    let (to_debugger, _) = tokio::sync::mpsc::unbounded_channel();
+    let springboard = editor_preview::springboard::Springboard::new(
+        local_preview,
+        from_run_preview_sender,
+        to_debugger,
+    );
     let to_previews = vec![
         LspToPreviews::with_one(EditorLspToPreview),
         LspToPreviews::with_one(springboard.clone()),
@@ -622,7 +627,8 @@ async fn handle_preview_message(
         | PairingConfirm { .. }
         | PairingAccepted
         | PairingRejected { .. }
-        | Exited => {
+        | Exited
+        | DebuggerMessage(..) => {
             tracing::debug!("Ignoring message from preview: {message:?}");
         }
         SendWorkspaceEdit { label, edit } => {
