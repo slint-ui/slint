@@ -414,7 +414,7 @@ void EspPlatform<PixelType>::run_event_loop()
                 }
             } else
 #endif
-            if (std::exchange(m_window->needs_redraw, false)) {
+                    if (std::exchange(m_window->needs_redraw, false)) {
                 if (buffer1) {
                     waited_for_refresh = render_and_present([&](std::span<PixelType> buffer) {
                         return m_window->m_renderer.render(buffer, stride);
