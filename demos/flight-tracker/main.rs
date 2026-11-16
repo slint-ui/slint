@@ -37,9 +37,10 @@ slint::include_modules!();
 const VIEW_CYCLE: [(View, f32); 3] = [(View::Follow, 14.0), (View::Route, 8.0), (View::Globe, 8.0)];
 const BOARDING_SECONDS: f32 = 4.0;
 const ARRIVED_SECONDS: f32 = 7.0;
-/// How long the kiosk waits on the entry screen before it proposes a flight,
-/// and then before it takes off.
+/// How long the kiosk waits on the entry screen before it picks an airport,
+/// then between the origin and the destination, and then before it takes off.
 const PROPOSE_SECONDS: f32 = 2.5;
+const PICK_SECONDS: f32 = 2.0;
 const TAKE_OFF_SECONDS: f32 = 4.0;
 /// How long the globe takes to grow from its place on the entry screen to the window.
 const ZOOM_IN_SECONDS: f32 = 0.9;
@@ -312,6 +313,8 @@ struct Demo {
     proposal: Option<(Option<usize>, Option<usize>)>,
     /// Whether the kiosk proposed a flight since the entry screen showed.
     proposed: bool,
+    /// When the kiosk last picked an airport, in the time of the stage.
+    picked: f32,
     /// Whether the kiosk was on in the last step.
     kiosk: bool,
     /// Whether the zoom out to the entry screen comes from the intro, rather than a flight.
@@ -373,6 +376,7 @@ impl Demo {
             planned: (None, None),
             proposal: None,
             proposed: false,
+            picked: 0.0,
             kiosk: true,
             from_intro: false,
             entry_size: ENTRY_FILL,
@@ -559,6 +563,7 @@ impl Demo {
         self.stage = stage;
         self.stage_time = 0.0;
         self.proposed = false;
+        self.picked = 0.0;
     }
 
     /// How far the globe has grown from its place on the entry screen to the window, from 0 to 1.
@@ -592,6 +597,29 @@ impl Demo {
         self.random ^= self.random >> 7;
         self.random ^= self.random << 17;
         self.random
+    }
+
+    /// The kiosk's next step on the entry screen: it picks one airport after the other,
+    /// like a visitor would, and then takes off.
+    fn pick(&mut self) {
+        if self.proposed {
+            if self.stage_time >= self.picked + TAKE_OFF_SECONDS {
+                self.take_off();
+            }
+        } else if let (Some(origin), _) = self.planned {
+            if self.stage_time >= PROPOSE_SECONDS.max(self.picked + PICK_SECONDS) {
+                self.proposed = true;
+                self.picked = self.stage_time;
+                let destination = self.random_destination(origin);
+                self.proposal = Some((Some(origin), Some(destination)));
+                self.plan(Some(origin), Some(destination));
+            }
+        } else if self.stage_time >= PROPOSE_SECONDS {
+            self.picked = self.stage_time;
+            let origin = self.random_hub();
+            self.proposal = Some((Some(origin), None));
+            self.plan(Some(origin), None);
+        }
     }
 
     fn random_hub(&mut self) -> usize {
@@ -680,18 +708,8 @@ impl Demo {
                 let resume = camera::ease((self.entry_held - ENTRY_SPIN_PAUSE) / 2.0);
                 let spin = ENTRY_SPIN * self.entry_zoom * resume;
                 self.entry_target = Quat::from_rotation_y(-spin * dt) * self.entry_target;
-                if kiosk && self.stage_time >= PROPOSE_SECONDS && !self.proposed {
-                    self.proposed = true;
-                    let origin = match self.planned {
-                        (Some(origin), _) => origin,
-                        _ => self.random_hub(),
-                    };
-                    let destination = self.random_destination(origin);
-                    self.proposal = Some((Some(origin), Some(destination)));
-                    self.plan(Some(origin), Some(destination));
-                }
-                if kiosk && self.stage_time >= PROPOSE_SECONDS + TAKE_OFF_SECONDS {
-                    self.take_off();
+                if kiosk {
+                    self.pick();
                 }
                 return;
             }
@@ -1426,7 +1444,14 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             let item = |index: Option<usize>| {
                 index.map_or(AirportItem::default(), |index| airport_item(&demo.airports, index))
             };
-            app.invoke_propose(item(origin), item(destination));
+            // The list shows all of the airports again, and the one that was picked last.
+            let all = atlas::search(&demo.airports, "");
+            let picked = destination.or(origin);
+            let row = picked.and_then(|picked| all.iter().position(|&index| index == picked));
+            let rows = all.into_iter().map(|index| airport_item(&demo.airports, index)).collect();
+            update_rows(&results, rows);
+            let row = row.map_or(-1, |row| row as i32);
+            app.invoke_propose(item(origin), item(destination), row);
         }
         // The frame covers the whole window, at the resolution the globe's place needs.
         let shown = entry.lerp(size, zoom_progress);
