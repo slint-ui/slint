@@ -12,13 +12,13 @@ global Theme {
     /// and are flat and more opaque otherwise.
     in-out property <Quality> quality: Quality.high;
     out property <bool> blur: self.quality == Quality.high;
-    out property <color> text: #f4efe3;
-    out property <color> muted: #98a2b6;
+    out property <color> text: #f4f4f6;
+    out property <color> muted: #9a9aa3;
     /// Placeholders and the frame rate, dimmer than `muted`.
-    out property <color> faint: #f4efe350;
+    out property <color> faint: #f4f4f650;
     /// Silver, for text, lines, and markers.
-    out property <color> accent: #c3cad6;
-    out property <color> accent-light: #dfe4ec;
+    out property <color> accent: #c8c9d0;
+    out property <color> accent-light: #e2e3e8;
     /// The one color of the UI, for what's selected, the primary action, and the route flown.
     out property <color> highlight: #6cb4ff;
     /// Surfaces in the highlight color, such as the primary button, lit softly from above.
@@ -32,11 +32,11 @@ global Theme {
     out property <color> flap-ink: #fbfaf5;
     out property <brush> lit-upper: @linear-gradient(180deg, #8ac4ff 0%, #74b6fb 100%);
     out property <brush> lit-lower: @linear-gradient(180deg, #62a9f5 0%, #559ff2 100%);
-    /// Behind the globe on the entry screen.
-    out property <color> background: #040915;
-    out property <color> surface: #0b1528;
+    /// Behind the globe on the entry screen, from the dark of the sky down to blue.
+    out property <brush> backdrop: @linear-gradient(170deg, #050818 0%, #0a1648 45%, #1a49c8 100%);
+    out property <color> surface: #18181b;
     out property <color> glass: self.surface.with-alpha(self.blur ? 0.86 : 0.95);
-    out property <color> line: #c3cad630;
+    out property <color> line: #ffffff24;
     /// A tint over the glass for buttons and fields, and its hover and pressed states.
     out property <color> fill: #ffffff0d;
     out property <color> fill-hover: #ffffff1f;
@@ -1056,7 +1056,7 @@ export component AppWindow inherits Window {
 
     // A pattern under the globe on the entry screen, which shows through around it.
     if root.zoom-progress < 1: Rectangle {
-        background: Theme.background;
+        background: Theme.backdrop;
         Image {
             width: 100%;
             height: 100%;
@@ -1071,7 +1071,7 @@ export component AppWindow inherits Window {
             y: root.entry-globe-y;
             width: root.entry-globe-width;
             height: root.entry-globe-height;
-            background: @radial-gradient(circle, Theme.accent.with-alpha(0.25) 0%, Theme.accent.with-alpha(0.06) 45%, Theme.background.with-alpha(0) 70%);
+            background: @radial-gradient(circle, Theme.accent.with-alpha(0.25) 0%, Theme.accent.with-alpha(0.06) 45%, Theme.accent.with-alpha(0) 70%);
         }
 
         // The globe's shadow on the pattern, so that the globe floats above it.
