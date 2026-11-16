@@ -53,6 +53,27 @@ struct Rgb565Pixel
     friend bool operator==(const Rgb565Pixel &lhs, const Rgb565Pixel &rhs) = default;
 };
 
+/// A 32bit pixel with red, green, blue and alpha, where the color components are
+/// premultiplied with alpha. Used as render target for layers that are blended over other
+/// content (for example by a display controller).
+///
+/// This is the C++ equivalent of `PremultipliedRgbaColor` in the Rust API.
+struct PremultipliedRgba8Pixel
+{
+    /// The red component, premultiplied with alpha.
+    uint8_t r;
+    /// The green component, premultiplied with alpha.
+    uint8_t g;
+    /// The blue component, premultiplied with alpha.
+    uint8_t b;
+    /// The alpha component.
+    uint8_t a;
+
+    /// Returns true if \a lhs \a rhs are pixels with identical components.
+    friend bool operator==(const PremultipliedRgba8Pixel &lhs,
+                           const PremultipliedRgba8Pixel &rhs) = default;
+};
+
 /// A grayscale pixel: a single luminance channel encoded as 8 bits.
 struct Gray8Pixel
 {
