@@ -2,10 +2,11 @@
 title: Key Handling Overview
 description: Key Handling Overview
 ---
+
 {/* cSpell: ignore Backtab */}
 
 import Link from '@slint/common-files/src/components/Link.astro';
-import SpecialKeys from "/src/content/docs/generated/reference/enums/_keys.md"
+import SpecialKeys from "/src/content/docs/generated/reference/enums/_keys.md";
 
 To handle keyboard input in Slint, use the `FocusScope` with `KeyBinding` elements or individual `key-pressed` and `key-released` callbacks in various elements.
 Keyboard input is delivered via [`KeyEvent`](#keyevent) data structures.
@@ -18,11 +19,61 @@ Slint's <Link type="KeyBinding"/> elements and the built-in <Link type="keys" />
 
 ## KeyEvent
 
- This structure is generated and passed to the key press and release callbacks of the `FocusScope` element.
+This structure is generated and passed to the key press and release callbacks of the `FocusScope` element.
 
-- **`text`** (_string_):  The unicode representation of the key pressed.
-- **`modifiers`** (_KeyboardModifiers_):  The keyboard modifiers active at the time of the key press event.
-- **`repeat`** (_bool_):  This field is set to true for key press events that are repeated, i.e. the key is held down. It's always false for key release events.
+- **`text`** (_string_): The unicode representation of the key pressed.
+- **`modifiers`** (_KeyboardModifiers_): The keyboard modifiers active at the time of the key press event.
+- **`repeat`** (_bool_): This field is set to true for key press events that are repeated, i.e. the key is held down. It's always false for key release events.
+
+## CompositionEvent
+
+This structure is generated and passed to the `composition-update` and `composition-commit` callbacks of the `FocusScope` element when `accepts-text-input` is true.
+
+- **`text`** (_string_): The pre-edit (marked) text for `composition-update`, or the committed text for `composition-commit`.
+- **`preedit-selection-start`** (_int_): The start of the selection within the pre-edit text, in bytes, or -1.
+- **`preedit-selection-end`** (_int_): The end of the selection within the pre-edit text, in bytes, or -1.
+- **`replacement-range-start`** (_int_): When set by the input method, the start of the range of the current text the composition replaces, relative to the pre-edit offset, or -1.
+- **`replacement-range-end`** (_int_): The end of the replaced range, or -1.
+- **`cursor-position`** (_int_): The cursor position after a commit, in bytes, or -1 to place it after the inserted text.
+- **`anchor-position`** (_int_): The anchor position after a commit, in bytes, or -1 to match the cursor.
+
+## Text Composition (IME)
+
+`TextInput` and `TextEdit` handle input method composition internally. A custom editing surface, for example a rich text editor drawn with custom code, can instead receive composition events directly by setting `accepts-text-input: true` on a `FocusScope`:
+
+```slint
+export component Example inherits Window {
+    scope := FocusScope {
+        accepts-text-input: true;
+        // Keep these properties up to date so the input method knows the edited text
+        // and where to place its candidate window:
+        ime-text: "hello";
+        ime-cursor-position: 5;
+        ime-cursor-rect-x: 10px;
+        ime-cursor-rect-y: 20px;
+        ime-cursor-rect-width: 1px;
+        ime-cursor-rect-height: 14px;
+
+        composition-update(event) => {
+            // Display event.text as pre-edit (marked) text at the caret
+            scope.ime-preedit-text = event.text;
+            accept
+        }
+        composition-commit(event) => {
+            // Insert event.text at the caret
+            scope.ime-preedit-text = "";
+            accept
+        }
+    }
+}
+```
+
+Focusing such a `FocusScope` enables the platform's input method and reports `TextInputInterface.text-input-focused: true`; leaving focus disables it.
+Changes to the `ime-*` properties are forwarded to the input method automatically.
+
+Note that on some platforms (Android, wasm) the backend only handles IME features such as selection updates, cursor handles and clipboard actions when the focused item is a `TextInput`.
+With a `FocusScope` as the IME client, those platform-specific IME actions are silently dropped.
+Composition events and the `ime-*` property synchronization work on all platforms.
 
 ## Key Bindings
 
