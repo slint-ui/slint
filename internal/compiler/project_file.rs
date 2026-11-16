@@ -253,10 +253,7 @@ pub fn resolve_input(input: &Path) -> Result<(PathBuf, Option<ProjectFile>), Dia
         ProjectFile::load_with_source(&project_file_path).map_err(|(error, source)| {
             project_load_error(&SourcePath::new(&project_file_path), error, source)
         })?;
-    let entry = project_file.main().ok_or_else(|| {
-        project_error("Project file has no 'main' to compile".into(), project_file.source_path())
-    })?;
-    let entry = entry.into_native_path().ok_or_else(|| {
+    let entry = project_file.main_to_compile()?.into_native_path().ok_or_else(|| {
         project_error(
             "Project file must specify a local file for 'main'".into(),
             project_file.source_path(),
@@ -331,7 +328,7 @@ pub struct Input {
     pub project_file: Option<ProjectFile>,
 }
 
-/// Finds the root file to compile for `input`, which may be a project directory, and reads it.
+/// Finds the root file to compile for `input`, which may be a project directory or a project file URL, and reads it.
 /// `source_code` is the contents of `input`, if the caller has them already.
 /// `project_root` is the directory whose project file applies to `input`.
 /// `file_loader` reads a file before the file system does, such as an editor's unsaved document.
@@ -362,14 +359,17 @@ pub async fn load_input(
             },
         ) as crate::OpenImportCallback
     };
-    let resolved = if input.file_name() == Some(FILE_NAME)
-        && (source_code.is_some() || project_root.is_some() || input.as_native_path().is_none())
-    {
+    let is_project_file = input.file_name() == Some(FILE_NAME);
+    let resolved = if is_project_file && (source_code.is_some() || project_root.is_some()) {
         Err(project_error(project_file_input_error(input), input))
     } else if let Some(root) = project_root {
         load_from_root_with_file_loader(root, Some(&file_loader))
             .await
             .map(|project_file| (input.clone(), project_file))
+    } else if is_project_file && input.as_native_path().is_none() {
+        ProjectFile::load_with_file_loader_diagnostic(input.clone(), Some(&file_loader))
+            .await
+            .and_then(|project_file| Ok((project_file.main_to_compile()?, Some(project_file))))
     } else if let Some(path) = input.as_native_path().filter(|_| source_code.is_none()) {
         resolve_input(path).map(|(source, project_file)| (SourcePath::new(source), project_file))
     } else {
@@ -581,6 +581,13 @@ impl ProjectFile {
     /// The `.slint` file to compile when a tool is given this project file.
     pub fn main(&self) -> Option<SourcePath> {
         self.source_path.parent().join(&self.data.main.as_ref()?.to_string_lossy())
+    }
+
+    /// The [`Self::main`] file, or an error on the project file if it has none.
+    pub fn main_to_compile(&self) -> Result<SourcePath, Diagnostic> {
+        self.main().ok_or_else(|| {
+            project_error("Project file has no 'main' to compile".into(), self.source_path())
+        })
     }
 
     pub fn into_compiler_configuration(

@@ -3210,6 +3210,40 @@ mod project_file_tests {
 
     #[cfg(feature = "internal")]
     #[test]
+    fn a_project_file_url_compiles_its_main_file_through_the_loader() {
+        let manifest = super::SourcePath::new("https://example.invalid/project/slint-project.json");
+        let entry = super::SourcePath::new("https://example.invalid/project/ui/main.slint");
+        let mut compiler = Compiler::default();
+        compiler.set_project_file_loader(
+            std::rc::Rc::new({
+                let (manifest, entry) = (manifest.clone(), entry.clone());
+                move |path| {
+                    let contents = if path == manifest {
+                        Ok(r#"{"edition":"1.20", /* comment */ "main":"ui/main.slint"}"#.into())
+                    } else if path == entry {
+                        Ok("export component Main inherits Window {}".into())
+                    } else {
+                        Err(std::io::ErrorKind::NotFound.into())
+                    };
+                    Box::pin(async move { Some(contents) })
+                }
+            }),
+            i_slint_core::InternalToken,
+        );
+        let result = spin_on::spin_on(compiler.build_from_source_path(
+            None,
+            manifest.clone(),
+            i_slint_core::InternalToken,
+        ));
+        assert!(!result.has_errors(), "{result:?}");
+        assert!(result.component("Main").is_some());
+        for dependency in [&manifest, &entry] {
+            assert!(result.watch_paths.contains(dependency));
+        }
+    }
+
+    #[cfg(feature = "internal")]
+    #[test]
     fn source_compilers_read_current_loader_settings_and_replace_overrides() {
         let source = "export component Main inherits Window { ComponentContainer {} }";
         use i_slint_compiler::{project_file::Overrides, source_path::SourcePath};
