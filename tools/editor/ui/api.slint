@@ -303,19 +303,20 @@ export enum FileTreeNodeKind {
     folder,
     file,
     image,
+    font,
 }
 
 export struct FileTreeNode {
     label: string,
     rename-selection-end: int,
     path: string,
+    relative-path: string,
     parent-path: string,
     indent-level: int,
     has-children: bool,
     is-expanded: bool,
     is-selected: bool,
     is-slint-file: bool,
-    show-selected-guide: bool,
     kind: FileTreeNodeKind,
 }
 
@@ -395,7 +396,9 @@ export global Api {
     in-out property <int> image-nine-slice-bottom;
     in-out property <int> image-nine-slice-left;
     callback file-tree-toggle(path: string);
+    callback file-tree-focus(path: string);
     callback file-tree-select(path: string);
+    pure callback file-tree-thumbnail(path: string) -> image;
     callback file-tree-rename(path: string, name: string) -> string;
     pure callback image-nine-slice-expression(path: string, top: int, right: int, bottom: int, left: int) -> string;
     pure callback image-nine-slice-preview(source: image, top: int, right: int, bottom: int, left: int) -> image;

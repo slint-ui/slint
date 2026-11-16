@@ -422,10 +422,8 @@ export struct TreeRowStyle {
 
 export struct TreeStyle {
     row: TreeRowStyle,
+    asset-row-height: length = 44px,
     guide: color,
-    selected-guide: color,
-    file-guide: color,
-    guide-width: length,
     drop-background: color,
     drop-border-width: length,
     root-drop-height: length,
@@ -759,8 +757,6 @@ struct PickerTheme {
 struct NavigationTheme {
     tree-row: TreeRowStyle,
     guide: color,
-    selected-guide: color,
-    file-guide: color,
     drop-background: color,
     palette-row: PaletteRowStyle,
 }
@@ -1001,8 +997,6 @@ export global LightTheme {
     };
 
     out property <color> guide: LightTheme.divider;
-    out property <color> selected-guide: LightTheme.surfaces.input-divider;
-    out property <color> file-guide: LightTheme.divider;
 
     out property <color> drop-background: #eaf5ff;
 
@@ -1279,8 +1273,6 @@ export global DarkTheme {
     };
 
     out property <color> guide: DarkTheme.divider;
-    out property <color> selected-guide: DarkTheme.surfaces.input-divider;
-    out property <color> file-guide: DarkTheme.divider;
 
     out property <color> drop-background: DarkTheme.colors.accent.with-alpha(0.14);
 
@@ -1463,15 +1455,11 @@ export global Theme {
     out property <NavigationTheme> navigation: root.current == ThemeKind.dark ? {
         tree-row: DarkTheme.tree-row,
         guide: DarkTheme.guide,
-        selected-guide: DarkTheme.selected-guide,
-        file-guide: DarkTheme.file-guide,
         drop-background: DarkTheme.drop-background,
         palette-row: DarkTheme.palette-row,
     } : {
         tree-row: LightTheme.tree-row,
         guide: LightTheme.guide,
-        selected-guide: LightTheme.selected-guide,
-        file-guide: LightTheme.file-guide,
         drop-background: LightTheme.drop-background,
         palette-row: LightTheme.palette-row,
     };
@@ -1860,10 +1848,7 @@ export global Style {
 
     out property <TreeStyle> tree: {
         row: root.tree-row,
-        guide-width: Metrics.border-width,
         guide: Theme.navigation.guide,
-        selected-guide: Theme.navigation.selected-guide,
-        file-guide: Theme.navigation.file-guide,
         drop-border-width: Metrics.border-width,
         root-drop-height: Metrics.space-regular,
         drop-background: Theme.navigation.drop-background,
