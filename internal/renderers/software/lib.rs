@@ -1986,7 +1986,7 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> RenderToBuffer<'_, B> {
 impl<B: target_pixel_buffer::TargetPixelBuffer> RenderToBuffer<'_, B> {
     /// Hands a solid-colour path without rounded clips to the target pixel buffer
     /// (e.g. a hardware path rasterizer). Returns true if it was drawn.
-    #[cfg(feature = "path")]
+    #[cfg(all(feature = "path", feature = "experimental"))]
     fn try_draw_path(
         &mut self,
         path_geometry: &PhysicalRect,
@@ -2148,6 +2148,7 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
         rounded_clips: &[RoundedClip],
     ) {
         let region = self.dirty_region.intersection(&clip_geometry);
+        #[cfg(feature = "experimental")]
         if self.try_draw_path(
             &path_geometry,
             &region,
@@ -2181,6 +2182,7 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
         rounded_clips: &[RoundedClip],
     ) {
         let region = self.dirty_region.intersection(&clip_geometry);
+        #[cfg(feature = "experimental")]
         if self.try_draw_path(
             &path_geometry,
             &region,

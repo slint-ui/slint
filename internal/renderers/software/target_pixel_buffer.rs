@@ -226,6 +226,7 @@ impl DrawRectangleArgs {
 }
 
 /// Kind of a [`PathElement`].
+#[cfg(feature = "experimental")]
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PathElementKind {
@@ -244,6 +245,7 @@ pub enum PathElementKind {
 /// One element of a path outline handed to [`TargetPixelBuffer::draw_path`].
 /// Coordinates are in physical pixels, relative to the top left corner of the path's
 /// bounding box ([`DrawPathArgs::x`], [`DrawPathArgs::y`]).
+#[cfg(feature = "experimental")]
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
 pub struct PathElement {
@@ -255,6 +257,7 @@ pub struct PathElement {
 
 /// A path to fill with a solid colour, see [`TargetPixelBuffer::draw_path`].
 /// Strokes are already converted to outlines.
+#[cfg(feature = "experimental")]
 #[non_exhaustive]
 #[derive(Debug)]
 pub struct DrawPathArgs<'a> {
@@ -309,6 +312,7 @@ pub trait TargetPixelBuffer {
 
     /// Fill a path outline with a solid colour, anti-aliased, clipped to the given region.
     /// Returns false if not supported; the software renderer then draws it.
+    #[cfg(feature = "experimental")]
     fn draw_path(&mut self, _: &DrawPathArgs, _clip: &PhysicalRegion) -> bool {
         false
     }

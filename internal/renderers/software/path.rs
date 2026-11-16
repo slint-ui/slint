@@ -64,6 +64,7 @@ pub fn convert_path_data_to_zeno(
 /// Converts a path (fill or stroke) into outline elements for
 /// [`crate::target_pixel_buffer::TargetPixelBuffer::draw_path`]. Strokes are turned into
 /// fill outlines by zeno. Returns the fill rule to use (true = non-zero).
+#[cfg(feature = "experimental")]
 pub(crate) fn outline_elements(
     commands: &[Command],
     style: zeno::Style,
@@ -86,6 +87,7 @@ pub(crate) fn outline_elements(
 }
 
 /// The zeno style of a stroke.
+#[cfg(feature = "experimental")]
 pub(crate) fn stroke_style<'a>(stroke_style: &StrokeStyle<'a>) -> zeno::Style<'a> {
     let mut stroke = Stroke::new(stroke_style.width);
     stroke
@@ -105,6 +107,7 @@ pub(crate) fn stroke_style<'a>(stroke_style: &StrokeStyle<'a>) -> zeno::Style<'a
 }
 
 /// The zeno style of a fill.
+#[cfg(feature = "experimental")]
 pub(crate) fn fill_style(fill_rule: i_slint_core::items::FillRule) -> zeno::Style<'static> {
     zeno::Style::Fill(match fill_rule {
         i_slint_core::items::FillRule::Evenodd => Fill::EvenOdd,
