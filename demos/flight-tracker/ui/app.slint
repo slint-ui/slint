@@ -827,14 +827,16 @@ component AirportRow inherits Rectangle {
     in property <AirportItem> airport;
     /// The row's place in the list, for the stripes.
     in property <int> index;
+    /// The airport that's picked for the field that the list is for.
+    in property <bool> selected;
     callback clicked();
-    height: 46px;
     border-radius: 2px;
-    background: touch.has-hover ? Theme.fill-hover : Math.mod(root.index, 2) == 1 ? #ffffff08 : transparent;
+    background: root.selected ? Theme.highlight.with-alpha(0.16) : touch.has-hover ? Theme.fill-hover : Math.mod(root.index, 2) == 1 ? #ffffff08 : transparent;
     Flaps {
         x: 14px;
         text: root.airport.code;
         size: 14px;
+        lit: root.selected;
         color: Theme.accent;
     }
 
@@ -1012,6 +1014,12 @@ export component AppWindow inherits Window {
     /// Which of the planner's fields the search results are for: 0 for the origin,
     /// 1 for the destination.
     property <int> active-field: 1;
+    property <length> row-height: 46px;
+    // The list's way to an airport that the kiosk picked.
+    property <length> scroll-from;
+    property <length> scroll-to;
+    property <float> scroll-progress;
+    property <bool> scrolling;
     /// A phone held upright.
     property <bool> narrow: root.width < 600px;
     property <bool> short: root.height < 500px;
@@ -1041,16 +1049,31 @@ export component AppWindow inherits Window {
     changed screen => {
         root.settings-open = false;
     }
+    Timer {
+        interval: 16ms;
+        running: root.scrolling;
+        triggered => {
+            root.scroll-progress = min(1, root.scroll-progress + self.interval / 700ms);
+            list.content-y = root.scroll-from + (root.scroll-to - root.scroll-from) * (root.scroll-progress * root.scroll-progress * (3 - 2 * root.scroll-progress));
+            root.scrolling = root.scroll-progress < 1;
+        }
+    }
     pure function field-text(airport: AirportItem) -> string {
         "\{airport.code}  ·  \{airport.city}"
     }
     /// Shows a flight that the kiosk proposes in the planner.
-    public function propose(origin: AirportItem, destination: AirportItem) {
+    /// `row` is the place in the list of the airport that was picked last, or -1 without one.
+    public function propose(origin: AirportItem, destination: AirportItem, row: int) {
         root.planned-origin = origin;
         root.planned-destination = destination;
         from-field.text = origin.index >= 0 ? root.field-text(origin) : "";
         to-field.text = destination.index >= 0 ? root.field-text(destination) : "";
-        root.active-field = 1;
+        root.active-field = destination.index >= 0 || origin.index < 0 ? 1 : 0;
+        // The list scrolls to the airport, to the middle where there's room.
+        root.scroll-from = list.content-y;
+        root.scroll-to = -max(0px, min(row * root.row-height - (list.visible-height - root.row-height) / 2, list.content-height - list.visible-height));
+        root.scroll-progress = 0;
+        root.scrolling = true;
     }
 
     function choose(airport: AirportItem) {
@@ -1341,11 +1364,13 @@ export component AppWindow inherits Window {
                 text: root.results.length == 1 ? "1 airport" : "\{root.results.length} airports";
             }
 
-            ListView {
+            list := ListView {
                 vertical-stretch: 1;
                 for airport[index] in root.results: AirportRow {
+                    height: root.row-height;
                     index: index;
                     airport: airport;
+                    selected: airport.index == (root.active-field == 0 ? root.planned-origin.index : root.planned-destination.index);
                     clicked => {
                         root.choose(airport);
                     }
