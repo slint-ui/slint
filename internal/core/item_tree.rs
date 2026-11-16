@@ -3329,6 +3329,7 @@ mod tests {
             window.show_popup(
                 &item_tree,
                 Box::new(LogicalPosition::default),
+                Box::new(crate::items::PopupAnchor::default),
                 crate::items::PopupClosePolicy::NoAutoClose,
                 &ItemRc::new_root(item_tree.clone()),
                 crate::window::WindowKind::Popup,
