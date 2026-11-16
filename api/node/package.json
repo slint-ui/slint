@@ -40,7 +40,7 @@
   "description": "Native GUI toolkit for JavaScript and TypeScript to build desktop and embedded apps without a webview or Chromium",
   "devDependencies": {
     "@biomejs/biome": "catalog:",
-    "@napi-rs/cli": "3.10.9",
+    "@napi-rs/cli": "3.10.12",
     "@types/capture-console": "1.0.5",
     "@types/node": "catalog:",
     "capture-console": "1.0.2",
