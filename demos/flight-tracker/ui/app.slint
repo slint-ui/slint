@@ -1015,11 +1015,6 @@ export component AppWindow inherits Window {
     /// 1 for the destination.
     property <int> active-field: 1;
     property <length> row-height: 46px;
-    // The list's way to an airport that the kiosk picked.
-    property <length> scroll-from;
-    property <length> scroll-to;
-    property <float> scroll-progress;
-    property <bool> scrolling;
     /// A phone held upright.
     property <bool> narrow: root.width < 600px;
     property <bool> short: root.height < 500px;
@@ -1049,15 +1044,7 @@ export component AppWindow inherits Window {
     changed screen => {
         root.settings-open = false;
     }
-    Timer {
-        interval: 16ms;
-        running: root.scrolling;
-        triggered => {
-            root.scroll-progress = min(1, root.scroll-progress + self.interval / 700ms);
-            list.content-y = root.scroll-from + (root.scroll-to - root.scroll-from) * (root.scroll-progress * root.scroll-progress * (3 - 2 * root.scroll-progress));
-            root.scrolling = root.scroll-progress < 1;
-        }
-    }
+
     pure function field-text(airport: AirportItem) -> string {
         "\{airport.code}  ·  \{airport.city}"
     }
@@ -1069,11 +1056,13 @@ export component AppWindow inherits Window {
         from-field.text = origin.index >= 0 ? root.field-text(origin) : "";
         to-field.text = destination.index >= 0 ? root.field-text(destination) : "";
         root.active-field = destination.index >= 0 || origin.index < 0 ? 1 : 0;
-        // The list scrolls to the airport, to the middle where there's room.
-        root.scroll-from = list.content-y;
-        root.scroll-to = -max(0px, min(row * root.row-height - (list.visible-height - root.row-height) / 2, list.content-height - list.visible-height));
-        root.scroll-progress = 0;
-        root.scrolling = true;
+        if row < 0 {
+            list.ensure-row-visible(0, ScrollBehavior.instant);
+        } else {
+            // The list brings a row to its edge. Half a list further, the airport's row ends up
+            // in the middle.
+            list.ensure-row-visible(clamp(row + (row * root.row-height > -list.content-y ? 1 : -1) * Math.floor(list.visible-height / root.row-height / 2), 0, root.results.length - 1), ScrollBehavior.smooth);
+        }
     }
 
     function choose(airport: AirportItem) {
