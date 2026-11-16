@@ -510,6 +510,7 @@ fn update_visible_instances(
             debug_assert!(idx >= row_count);
             // Reached end of model with room to spare. Scroll up.
             content_y_value += listview_height - y;
+            new_offset_y += listview_height - y;
             loop_count += 1;
             continue;
         }

@@ -1,0 +1,99 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// When content-y is set past the end of the rows, the ListView must scroll up so that the last
+// row ends at the bottom of the viewport, instead of laying the rows out far above it.
+// The rows are found with ElementHandle, not with mouse clicks: a press makes the Flickable move
+// an out of bounds content-y back within bounds, which would hide the bug.
+
+import { ListView } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 200px;
+
+    in-out property <[int]> model;
+    in-out property <length> content-y <=> lv.content-y;
+
+    lv := ListView {
+        for value in root.model: row := Rectangle {
+            height: 20px;
+            accessible-role: text;
+            accessible-label: value;
+        }
+    }
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+// The rows inside the viewport, with their top edge.
+auto shown = [&]() {
+    std::vector<std::pair<std::string, float>> rows;
+    for (auto &e : slint::testing::ElementHandle::find_by_element_id(handle, "TestCase::row")) {
+        float y = e.absolute_position().y;
+        if (y >= 0. && y < 200.) {
+            rows.emplace_back(std::string(*e.accessible_label()), y);
+        }
+    }
+    std::sort(rows.begin(), rows.end(),
+              [](const auto &a, const auto &b) { return a.second < b.second; });
+    return rows;
+};
+std::vector<std::pair<std::string, float>> last_ten;
+for (int i = 90; i < 100; ++i) {
+    last_ten.emplace_back(std::to_string(i), (i - 90) * 20.f);
+}
+
+// Right after the model is set, before anything clamped content-y.
+std::vector<int> values;
+for (int i = 0; i < 100; ++i) values.push_back(i);
+auto model = std::make_shared<slint::VectorModel<int>>(std::move(values));
+instance.set_model(model);
+instance.set_content_y(-5000.);
+assert(shown() == last_ten);
+assert_eq(instance.get_content_y(), -1800.);
+
+// From the top of a list that is already laid out.
+instance.set_content_y(0.);
+assert(shown()[0] == std::make_pair(std::string("0"), 0.f));
+instance.set_content_y(-5000.);
+assert(shown() == last_ten);
+assert_eq(instance.get_content_y(), -1800.);
+```
+
+```rust
+use slint::VecModel;
+use std::rc::Rc;
+
+let instance = TestCase::new().unwrap();
+
+// The rows inside the viewport, with their top edge.
+let shown = |inst: &TestCase| {
+    let mut rows: Vec<(String, f32)> =
+        slint_testing::ElementHandle::find_by_element_id(inst, "TestCase::row")
+            .map(|e| (e.accessible_label().unwrap().to_string(), e.absolute_position().y))
+            .filter(|(_, y)| *y >= 0. && *y < 200.)
+            .collect();
+    rows.sort_by(|a, b| a.1.total_cmp(&b.1));
+    rows
+};
+let last_ten = (90..100).map(|i| (i.to_string(), (i - 90) as f32 * 20.)).collect::<Vec<_>>();
+
+// Right after the model is set, before anything clamped content-y.
+let model = Rc::new(VecModel::from((0..100).collect::<Vec<i32>>()));
+instance.set_model(model.clone().into());
+instance.set_content_y(-5000.);
+assert_eq!(shown(&instance), last_ten);
+assert_eq!(instance.get_content_y(), -1800.);
+
+// From the top of a list that is already laid out.
+instance.set_content_y(0.);
+assert_eq!(shown(&instance)[0], ("0".to_string(), 0.));
+instance.set_content_y(-5000.);
+assert_eq!(shown(&instance), last_ten);
+assert_eq!(instance.get_content_y(), -1800.);
+```
+*/
