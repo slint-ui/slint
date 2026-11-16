@@ -1207,7 +1207,9 @@ def test_each_text_overflow_writes_exact_source(
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         select_element(window, "Text")
-        edit_field(window, "Text Overflow", overflow, slint_testing.AccessibleRole.Combobox)
+        edit_field(
+            window, "Text Overflow", overflow, slint_testing.AccessibleRole.Combobox
+        )
         snapshot.wait_for_exact(
             replace_once(
                 starting_source,
