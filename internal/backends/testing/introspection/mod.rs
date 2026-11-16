@@ -726,17 +726,8 @@ fn type_names_and_ids(element: &ElementHandle) -> Vec<proto::ElementTypeNameAndI
 }
 
 pub(crate) fn element_properties(element: &ElementHandle) -> proto::ElementPropertiesResponse {
-    let declared = element.testable_properties();
-    let testable_properties_available = declared.is_some();
-    let testable_properties = declared
-        .unwrap_or_default()
-        .into_iter()
-        .map(|(name, type_name)| proto::TestableProperty {
-            value: element.testable_property_value(&name).map(|v| v.to_string()),
-            name: name.to_string(),
-            type_name: type_name.to_string(),
-        })
-        .collect();
+    let testable_properties = testable_properties(element);
+    let testable_properties_available = testable_properties.is_some();
 
     proto::ElementPropertiesResponse {
         type_names_and_ids: type_names_and_ids(element),
@@ -788,9 +779,24 @@ pub(crate) fn element_properties(element: &ElementHandle) -> proto::ElementPrope
         )
         .unwrap_or_default()
         .into(),
-        testable_properties,
+        testable_properties: testable_properties.unwrap_or_default(),
         testable_properties_available,
     }
+}
+
+/// `None` when the application carries no testable-property debug info.
+fn testable_properties(element: &ElementHandle) -> Option<Vec<proto::TestableProperty>> {
+    Some(
+        element
+            .testable_properties()?
+            .into_iter()
+            .map(|(name, type_name)| proto::TestableProperty {
+                value: element.testable_property_value(&name).map(|v| v.to_string()),
+                name: name.to_string(),
+                type_name: type_name.to_string(),
+            })
+            .collect(),
+    )
 }
 
 pub(crate) fn query_element_descendants(
@@ -1022,6 +1028,19 @@ pub(crate) mod dispatch {
     ) -> Result<proto::ElementPropertiesResponse, String> {
         let element = state.element("element_properties", element)?;
         Ok(super::element_properties(&element))
+    }
+
+    #[cfg(feature = "system-testing")]
+    pub(crate) fn element_inspectable_properties(
+        state: &IntrospectionState,
+        element: ArenaIndex,
+    ) -> Result<proto::ElementInspectablePropertiesResponse, String> {
+        let element = state.element("element_inspectable_properties", element)?;
+        let properties = super::testable_properties(&element);
+        Ok(proto::ElementInspectablePropertiesResponse {
+            available: properties.is_some(),
+            properties: properties.unwrap_or_default(),
+        })
     }
 
     #[cfg(feature = "system-testing")]
@@ -1540,6 +1559,36 @@ fn test_dispatch_element_properties_stale_handle() {
     let state = IntrospectionState::new();
     let err = dispatch::element_properties(&state, ArenaIndex::default()).unwrap_err();
     assert!(err.contains("Invalid element handle"), "got: {err}");
+}
+
+#[cfg(feature = "system-testing")]
+#[test]
+fn test_dispatch_element_inspectable_properties_stale_handle() {
+    let state = IntrospectionState::new();
+    let err = dispatch::element_inspectable_properties(&state, ArenaIndex::default()).unwrap_err();
+    assert!(err.contains("Invalid element handle"), "got: {err}");
+}
+
+#[cfg(feature = "system-testing")]
+#[test]
+fn test_dispatch_element_inspectable_properties_lists_testable_properties() {
+    crate::init_no_event_loop();
+    slint::slint! {
+        #[edition = "1.20"]
+        export component App inherits Window {
+            @testable in-out property <int> marked: 7;
+            in-out property <int> unmarked: 1;
+        }
+    }
+    let app = App::new().unwrap();
+    let state = IntrospectionState::new();
+    state.add_window(&window_adapter_for_test(&app));
+    let root = state.windows.borrow().values().next().unwrap().root_element_handle;
+    let response = dispatch::element_inspectable_properties(&state, root).unwrap();
+    assert!(response.available);
+    let names: Vec<_> = response.properties.iter().map(|p| p.name.as_str()).collect();
+    assert_eq!(names, ["marked"]);
+    assert_eq!(response.properties[0].value.as_deref(), Some("7"));
 }
 
 #[test]

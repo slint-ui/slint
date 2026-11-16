@@ -209,6 +209,16 @@ impl TestingClient {
             Req::RequestStopEventRecording(..) => {
                 Resp::StopEventRecordingResponse(dispatch::stop_event_recording(state))
             }
+            Req::RequestElementInspectableProperties(
+                proto::RequestElementInspectableProperties { element_handle },
+            ) => {
+                let element_index = handle_to_index(element_handle.ok_or_else(|| {
+                    "element inspectable properties request missing element handle".to_string()
+                })?)?;
+                Resp::ElementInspectablePropertiesResponse(
+                    dispatch::element_inspectable_properties(state, element_index)?,
+                )
+            }
             Req::RequestGetElementChildren(proto::RequestGetElementChildren { element_handle }) => {
                 let parent = element_handle.map(handle_to_index).transpose()?;
                 Resp::GetElementChildrenResponse(dispatch::element_children(state, parent)?)
