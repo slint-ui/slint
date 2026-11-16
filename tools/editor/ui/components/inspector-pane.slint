@@ -125,10 +125,6 @@ export component InspectorPane inherits Rectangle {
                     pane-width: root.width;
                 }
 
-                if InspectorContext.is-rectangle-selection(): InspectorEffectsSection {
-                    field-width: root.field-width;
-                }
-
                 if InspectorContext.is-image-selection(): InspectorImageSection {
                     field-width: root.field-width;
                 }
@@ -142,6 +138,10 @@ export component InspectorPane inherits Rectangle {
                     show-vertical: !InspectorContext.has-only-horizontal-alignment();
                 }
                 if InspectorContext.is-text-selection(): InspectorTextWrapSection { }
+
+                if InspectorContext.has-opacity-selection(): InspectorEffectsSection {
+                    field-width: root.field-width;
+                }
             }
         }
     }
