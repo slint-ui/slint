@@ -74,7 +74,7 @@ export component TestCase inherits Window {
 #[cfg(feature = "rust")]
 fn generate_rust(source: &str) {
     let mut diagnostics = BuildDiagnostics::default();
-    let syntax_node = parse(source.into(), None, &mut diagnostics);
+    let syntax_node = parse(source.into(), None, None, &mut diagnostics);
     let config = CompilerConfiguration::new(OutputFormat::Rust);
     let (doc, diagnostics, loader) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diagnostics, config));
