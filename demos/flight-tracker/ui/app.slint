@@ -1249,8 +1249,8 @@ export component AppWindow inherits Window {
                 alignment: space-between;
                 cross-axis-alignment: center;
                 Flaps {
-                    text: "WHERE TO?";
-                    size: root.narrow ? 17px : 21px;
+                    text: "PLAN A FLIGHT";
+                    size: root.narrow || root.panel-width < 290px ? 17px : 21px;
                 }
 
                 if !root.narrow: MadeWithSlint {
