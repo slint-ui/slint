@@ -24,7 +24,7 @@ endif()
 
 set(SLINT_FEATURE_FREESTANDING ON)
 set(SLINT_FEATURE_RENDERER_SOFTWARE ON)
-if (CONFIG_SLINT_RENDER_ON_SECOND_CORE)
+if (CONFIG_SLINT_RENDER_IN_SEPARATE_TASK)
     # SoftwareRenderer::record_frame() is still experimental.
     set(SLINT_FEATURE_EXPERIMENTAL ON)
 endif()
