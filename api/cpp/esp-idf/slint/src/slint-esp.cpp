@@ -262,7 +262,8 @@ void EspPlatform<PixelType>::run_event_loop()
 
     // Draws a frame into buffer1 with `render`, which returns the region it drew, and presents
     // it. Returns whether it waited for the panel's refresh.
-    auto render_and_present = [&](auto &&render) {
+    auto render_and_present = [this, stride, physical_width, physical_height,
+                               draw_bitmap](auto &&render) {
         bool waited_for_refresh = false;
 #if SOC_LCD_RGB_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
         // Only created for double buffering on an RGB panel; wait for the vsync
@@ -321,10 +322,10 @@ void EspPlatform<PixelType>::run_event_loop()
     SemaphoreHandle_t frame_recorded = xSemaphoreCreateBinary();
     SemaphoreHandle_t frame_presented = xSemaphoreCreateBinary();
     xSemaphoreGive(frame_presented);
-    auto raster_task = [&] {
+    auto raster_task = [&recorded, render_and_present, stride, frame_recorded, frame_presented] {
         while (true) {
             xSemaphoreTake(frame_recorded, portMAX_DELAY);
-            render_and_present([&](std::span<PixelType> buffer) {
+            render_and_present([&recorded, stride](std::span<PixelType> buffer) {
                 return recorded->rasterize(buffer, stride);
             });
             xSemaphoreGive(frame_presented);
