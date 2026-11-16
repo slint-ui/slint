@@ -108,8 +108,6 @@ importers:
         specifier: 6.44.0
         version: 6.44.0
 
-  ai-plugins/hooks: {}
-
   ai-plugins/mcp/slint-preview:
     devDependencies:
       playwright:

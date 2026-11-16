@@ -165,7 +165,17 @@ export global InspectorContext {
 
     public pure function is-interaction-selection() -> bool {
         return Api.selection.highlight-index >= 0
+            && (Properties.has-property("enabled") || Properties.has-property("mouse-drag-pan-enabled"));
+    }
+
+    public pure function has-enabled-selection() -> bool {
+        return Api.selection.highlight-index >= 0
             && Properties.has-property("enabled");
+    }
+
+    public pure function has-mouse-drag-pan-selection() -> bool {
+        return Api.selection.highlight-index >= 0
+            && Properties.has-property("mouse-drag-pan-enabled");
     }
 
     public pure function is-read-only-selection() -> bool {

@@ -258,8 +258,10 @@ jobs:
               run: cargo test --manifest-path tests/Cargo.toml -p test-driver-cpp --target i686-unknown-linux-gnu --no-default-features --features live-preview
 
     cpp_cmake:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_cpp') || contains(fromJSON(inputs.changes), 'examples') }}
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_cpp') || contains(fromJSON(inputs.changes), 'examples') || contains(fromJSON(inputs.changes), 'ci_config') }}
         env:
+            # qttypes uses Cargo's debug-info setting to select debug Qt DLLs on Windows.
+            CARGO_PROFILE_DEV_DEBUG: ${{ startsWith(matrix.os, 'windows-') && '1' || '0' }}
             DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.5.1/clang_64/lib
             QT_QPA_PLATFORM: offscreen
             SLINT_EMIT_DEBUG_INFO: 1
@@ -582,6 +584,31 @@ jobs:
             latest: false
             tag: "v0.27.1"
 
+    zed_extension:
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'zed_extension') }}
+        runs-on: ubuntu-latest
+        env:
+            RUSTFLAGS: -D warnings
+        steps:
+            - uses: actions/checkout@v7
+            - name: Configure network retries
+              run: bash .github/actions/network-retries.sh
+            - name: Download the zed-extension CLI and read the toolchain of Zed's extensions CI
+              run: |
+                  ci=$(curl -sSfL https://raw.githubusercontent.com/zed-industries/extensions/main/.github/workflows/ci.yml)
+                  sha=$(grep -m1 -oP '^\s*ZED_EXTENSION_CLI_SHA: \K[0-9a-f]+' <<<"$ci")
+                  toolchain=$(grep -m1 -oP '^\s*RUSTUP_TOOLCHAIN: "\K[^"]+' <<<"$ci")
+                  echo "RUSTUP_TOOLCHAIN=$toolchain" >> "$GITHUB_ENV"
+                  curl -sSfL -o zed-extension "https://zed-extension-cli.nyc3.digitaloceanspaces.com/$sha/x86_64-unknown-linux-gnu/zed-extension"
+                  chmod +x zed-extension
+            - uses: ./.github/actions/setup-rust
+              with:
+                  toolchain: ${{ env.RUSTUP_TOOLCHAIN }}
+                  target: wasm32-wasip2
+                  cache: false
+            - name: Package the extension
+              run: ./zed-extension --scratch-dir "$RUNNER_TEMP/scratch" --source-dir editors/zed --output-dir "$RUNNER_TEMP/output"
+
     # Test that the formater don't introduce slint compilation error
     fmt_test:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'slintpad') }}
@@ -793,8 +820,8 @@ jobs:
               with:
                   node-version: 24
                   package-manager-cache: false
-            - name: Test the MCP servers and hooks
-              run: node --test 'ai-plugins/mcp/slint-preview/test/*.test.mjs' 'ai-plugins/hooks/test/*.test.mjs'
+            - name: Test the Slint preview MCP server
+              run: node --test 'ai-plugins/mcp/slint-preview/test/*.test.mjs'
 
     test-slint-preview-view:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'slint_preview_view') }}

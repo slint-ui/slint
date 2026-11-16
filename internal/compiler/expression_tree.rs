@@ -503,6 +503,60 @@ pub enum Expression {
     DashArray(Vec<f32>),
 }
 
+/// The type of a binary expression with the given operator and operand types
+pub fn binary_expression_ty(
+    op: char,
+    lhs_ty: impl FnOnce() -> Type,
+    rhs_ty: impl FnOnce() -> Type,
+) -> Type {
+    if operator_class(op) != OperatorClass::ArithmeticOp {
+        Type::Bool
+    } else if op == '+' || op == '-' {
+        let (rhs_ty, lhs_ty) = (rhs_ty(), lhs_ty());
+        if rhs_ty == lhs_ty { rhs_ty } else { Type::Invalid }
+    } else {
+        debug_assert!(op == '*' || op == '/');
+        let unit_vec = |ty| {
+            if let Type::UnitProduct(v) = ty {
+                v
+            } else if let Some(u) = ty.default_unit() {
+                vec![(u, 1)]
+            } else {
+                Vec::new()
+            }
+        };
+        let mut l_units = unit_vec(lhs_ty());
+        let mut r_units = unit_vec(rhs_ty());
+        if op == '/' {
+            for (_, power) in &mut r_units {
+                *power = -*power;
+            }
+        }
+        for (unit, power) in r_units {
+            if let Some((_, p)) = l_units.iter_mut().find(|(u, _)| *u == unit) {
+                *p += power;
+            } else {
+                l_units.push((unit, power));
+            }
+        }
+
+        // normalize the vector by removing empty and sorting
+        l_units.retain(|(_, p)| *p != 0);
+        l_units.sort_unstable_by(|(u1, p1), (u2, p2)| match p2.cmp(p1) {
+            std::cmp::Ordering::Equal => u1.cmp(u2),
+            x => x,
+        });
+
+        if l_units.is_empty() {
+            Type::Float32
+        } else if l_units.len() == 1 && l_units[0].1 == 1 {
+            l_units[0].0.ty()
+        } else {
+            Type::UnitProduct(l_units)
+        }
+    }
+}
+
 impl Expression {
     /// The property this expression reads, or the callback or function it calls
     pub fn referenced_property(&self) -> Option<&NamedReference> {
@@ -572,52 +626,7 @@ impl Expression {
                 merge(ty, expr.ty())
             }
             Expression::BinaryExpression { op, lhs, rhs, .. } => {
-                if operator_class(*op) != OperatorClass::ArithmeticOp {
-                    Type::Bool
-                } else if *op == '+' || *op == '-' {
-                    let (rhs_ty, lhs_ty) = (rhs.ty(), lhs.ty());
-                    if rhs_ty == lhs_ty { rhs_ty } else { Type::Invalid }
-                } else {
-                    debug_assert!(*op == '*' || *op == '/');
-                    let unit_vec = |ty| {
-                        if let Type::UnitProduct(v) = ty {
-                            v
-                        } else if let Some(u) = ty.default_unit() {
-                            vec![(u, 1)]
-                        } else {
-                            Vec::new()
-                        }
-                    };
-                    let mut l_units = unit_vec(lhs.ty());
-                    let mut r_units = unit_vec(rhs.ty());
-                    if *op == '/' {
-                        for (_, power) in &mut r_units {
-                            *power = -*power;
-                        }
-                    }
-                    for (unit, power) in r_units {
-                        if let Some((_, p)) = l_units.iter_mut().find(|(u, _)| *u == unit) {
-                            *p += power;
-                        } else {
-                            l_units.push((unit, power));
-                        }
-                    }
-
-                    // normalize the vector by removing empty and sorting
-                    l_units.retain(|(_, p)| *p != 0);
-                    l_units.sort_unstable_by(|(u1, p1), (u2, p2)| match p2.cmp(p1) {
-                        std::cmp::Ordering::Equal => u1.cmp(u2),
-                        x => x,
-                    });
-
-                    if l_units.is_empty() {
-                        Type::Float32
-                    } else if l_units.len() == 1 && l_units[0].1 == 1 {
-                        l_units[0].0.ty()
-                    } else {
-                        Type::UnitProduct(l_units)
-                    }
-                }
+                binary_expression_ty(*op, || lhs.ty(), || rhs.ty())
             }
             Expression::UnaryOp { sub, .. } => sub.ty(),
             Expression::Array { element_ty, .. } => Type::Array(Arc::new(element_ty.clone())),

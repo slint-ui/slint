@@ -1674,7 +1674,7 @@ impl Item for ContextMenu {
             is_menu_key
         }
 
-        if is_menu_key(event) {
+        if event.event_type == KeyEventType::KeyPressed && is_menu_key(event) {
             self.show.call(&(Default::default(),));
             KeyEventResult::EventAccepted
         } else {

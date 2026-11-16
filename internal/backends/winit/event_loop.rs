@@ -196,7 +196,11 @@ impl winit::application::ApplicationHandler for EventLoopState {
         let events = std::mem::take(&mut *self.shared_backend_data.event_queue.lock().unwrap());
         for event in events {
             match event {
-                CustomEvent::UserEvent(user_callback) => user_callback(),
+                CustomEvent::UserEvent(user_callback) => {
+                    user_callback();
+                    // winit can run several user events, then sleep, without calling `new_events`.
+                    self.shared_backend_data.context().update_timers_and_animations();
+                }
                 CustomEvent::UserEventWithEventLoop(user_callback) => user_callback(event_loop),
                 CustomEvent::Exit(generation) => {
                     if self

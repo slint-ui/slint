@@ -299,8 +299,7 @@ impl i_slint_core::platform::Platform for Backend {
                                 rust!(Slint_call_event_holder [fnbox: *mut dyn FnOnce() as "TraitObject"] {
                                    let b = unsafe { Box::from_raw(fnbox) };
                                    b();
-                                   // in case the callback started a new timer
-                                   crate::qt_window::restart_timer();
+                                   crate::qt_window::timer_event();
                                 });
                             }
 

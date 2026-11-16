@@ -377,6 +377,7 @@ fn extract_messages() {
     let syntax_node = i_slint_compiler::parser::parse(
         source.into(),
         Some(i_slint_compiler::source_path::SourcePath::new("test.slint")),
+        None,
         &mut diag,
     );
 

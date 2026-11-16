@@ -508,10 +508,16 @@ fn process_file_source(
         ));
         return process_diagnostics(&diagnostics, path, &project_path, &source, silent, update);
     }
+    let edition =
+        Some(match regex::Regex::new(r"//edition:\s*(\S+)\s*\n").unwrap().captures(&source) {
+            Some(m) => m[1].parse().unwrap(),
+            None => i_slint_compiler::project_file::SlintEdition::current(),
+        });
     let mut parse_diagnostics = BuildDiagnostics::default();
     let syntax_node = i_slint_compiler::parser::parse(
         source.clone(),
         Some(i_slint_compiler::source_path::SourcePath::new(path)),
+        edition,
         &mut parse_diagnostics,
     );
 
@@ -549,11 +555,7 @@ fn process_file_source(
         compiler_config.embed_resources = i_slint_compiler::EmbedResourcesKind::EmbedTextures;
     }
     compiler_config.experimental_features = i_slint_compiler::ExperimentalFeatures::all();
-    compiler_config.edition =
-        Some(match regex::Regex::new(r"//edition:\s*(\S+)\s*\n").unwrap().captures(&source) {
-            Some(m) => m[1].parse().unwrap(),
-            None => i_slint_compiler::project_file::SlintEdition::current(),
-        });
+    compiler_config.edition = edition;
     compiler_config.style = Some("fluent".into());
     // The interpreter inlines every component, which merges an instance into
     // its base. A diagnostic that depends on the two staying apart needs the

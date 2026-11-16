@@ -57,6 +57,12 @@ pub(crate) fn as_skia_image(
     match image_inner {
         ImageInner::None => None,
         ImageInner::EmbeddedImage { buffer, cache_key } => {
+            if let Some(ImageInner::BackendStorage(cached)) =
+                core_cache::lookup_cached_image(cache_key)
+                && let Some(img) = skia_cached_image(&cached)
+            {
+                return Some(img);
+            }
             let result = image_buffer_to_skia_image(buffer);
             if let Some(img) = result.as_ref() {
                 core_cache::replace_cached_image(
@@ -96,9 +102,7 @@ pub(crate) fn as_skia_image(
                 pixels.width() as usize * 4,
             )
         }
-        ImageInner::BackendStorage(x) => {
-            vtable::VRc::borrow(x).downcast::<SkiaCachedImage>().map(|x| x.image.clone())
-        }
+        ImageInner::BackendStorage(x) => skia_cached_image(x),
         ImageInner::BorrowedOpenGLTexture(texture) => {
             surface.and_then(|surface| surface.import_opengl_texture(canvas, texture))
         }
@@ -130,6 +134,10 @@ pub(crate) fn as_skia_image(
     }
 }
 
+fn skia_cached_image(storage: &vtable::VRc<OpaqueImageVTable>) -> Option<skia_safe::Image> {
+    vtable::VRc::borrow(storage).downcast::<SkiaCachedImage>().map(|x| x.image.clone())
+}
+
 fn image_buffer_to_skia_image(buffer: &SharedImageBuffer) -> Option<skia_safe::Image> {
     // Report fully opaque images as such to Skia. This allows Skia to skip
     // reading destination pixels back when blending, which is particularly
@@ -148,11 +156,10 @@ fn image_buffer_to_skia_image(buffer: &SharedImageBuffer) -> Option<skia_safe::I
     let (data, bpl, size, color_type, alpha_type) = match buffer {
         SharedImageBuffer::RGB8(pixels) => {
             // RGB888 with one byte per component is not supported by Skia right now. Convert once to RGBA8 :-(
-            let rgba = pixels
-                .as_bytes()
-                .chunks(3)
-                .flat_map(|rgb| IntoIterator::into_iter([rgb[0], rgb[1], rgb[2], 255]))
-                .collect::<Vec<u8>>();
+            let mut rgba = Vec::with_capacity(pixels.as_bytes().len() / 3 * 4);
+            rgba.extend(
+                pixels.as_bytes().as_chunks::<3>().0.iter().flat_map(|&[r, g, b]| [r, g, b, 255]),
+            );
             (
                 skia_safe::Data::new_with_owner(rgba),
                 pixels.width() as usize * 4,
@@ -199,4 +206,51 @@ fn image_buffer_to_skia_image(buffer: &SharedImageBuffer) -> Option<skia_safe::I
         alpha_type,
     );
     skia_safe::images::raster_from_data(&image_info, data, bpl)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use i_slint_core::graphics::{Rgb8Pixel, load_image_from_embedded_data};
+    use i_slint_core::slice::Slice;
+
+    static RED_PNG: &[u8] = include_bytes!("../../../tests/screenshots/cases/image/tiny-1x1.png");
+
+    fn to_skia(image: Image) -> skia_safe::Image {
+        let mut surface = skia_safe::surfaces::raster_n32_premul((1, 1)).unwrap();
+        as_skia_image(
+            image,
+            &|| LogicalSize::new(1., 1.),
+            ImageFit::Fill,
+            ScaleFactor::new(1.),
+            1.,
+            surface.canvas(),
+            None,
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn keyed_images_share_skia_image() {
+        let load =
+            || load_image_from_embedded_data(Slice::from_slice(RED_PNG), Slice::from_slice(b"png"));
+        let (first, second) = (load(), load());
+        let first = to_skia(first);
+        let second = to_skia(second);
+        assert_eq!(first.unique_id(), second.unique_id());
+        let pixels = first.peek_pixels().unwrap();
+        assert_eq!(pixels.color_type(), skia_safe::ColorType::RGBA8888);
+        assert_eq!(pixels.bytes().unwrap(), &[255, 0, 0, 255]);
+    }
+
+    #[test]
+    fn images_without_cache_key_keep_their_pixels() {
+        let rgb = |pixel: &[u8]| {
+            Image::from_rgb8(SharedPixelBuffer::<Rgb8Pixel>::clone_from_slice(pixel, 1, 1))
+        };
+        let red = to_skia(rgb(&[255, 0, 0]));
+        let blue = to_skia(rgb(&[0, 0, 255]));
+        assert_eq!(red.peek_pixels().unwrap().bytes().unwrap(), &[255, 0, 0, 255]);
+        assert_eq!(blue.peek_pixels().unwrap().bytes().unwrap(), &[0, 0, 255, 255]);
+    }
 }
