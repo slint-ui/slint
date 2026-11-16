@@ -626,14 +626,7 @@ impl SoftwareRenderer {
                     size,
                 );
 
-                if !renderer
-                    .actual_renderer
-                    .raster_commands
-                    .fill_background(&background, &dirty_region)
-                    && let Some(gradient) = gradient_background(&background)
-                {
-                    renderer.actual_renderer.draw_window_background_gradient(gradient);
-                }
+                renderer.actual_renderer.push_background(&background, &dirty_region);
 
                 let partial = self.repaint_buffer_type.get() != RepaintBufferType::NewBuffer;
                 for (component, origin) in components {
@@ -1479,7 +1472,7 @@ fn record_scanline_scene(
         );
 
         if let Some(gradient) = gradient_background {
-            renderer.actual_renderer.draw_window_background_gradient(gradient);
+            renderer.actual_renderer.push_background(gradient, &dirty_region);
         }
 
         let partial = software_renderer.repaint_buffer_type.get() != RepaintBufferType::NewBuffer;
@@ -1531,6 +1524,15 @@ fn record_scanline_scene(
 
 /// A drawing command of a frame, which a [`RasterCommandSink`] receives.
 enum RasterCommand {
+    /// The window background, which a [`target_pixel_buffer::TargetPixelBuffer`] may fill itself.
+    /// It's the first command of a frame, and `region` is the frame's dirty region.
+    /// Unlike a [`RasterCommand::Rectangle`], which blends over the previous frame's pixels,
+    /// it replaces them, so a semi-transparent background doesn't show the previous frame.
+    Background {
+        args: target_pixel_buffer::DrawRectangleArgs,
+        clip: PhysicalRect,
+        region: PhysicalRegion,
+    },
     /// Pixels that live as long as the program, such as embedded images and glyphs.
     Texture {
         geometry: PhysicalRect,
@@ -1591,12 +1593,6 @@ enum RasterCommand {
 trait RasterCommandSink {
     /// Each command is clipped to `rounded_clips`, and its rect lies inside theirs.
     fn push(&mut self, command: RasterCommand, rounded_clips: &[RoundedClip]);
-
-    /// Fills the frame's `dirty_region` with `background` before any command.
-    /// Returns false when a gradient background still needs to be pushed.
-    fn fill_background(&mut self, _background: &Brush, _dirty_region: &PhysicalRegion) -> bool {
-        false
-    }
 }
 
 /// A rounded clip in physical screen coordinates, after [`RenderingRotation`].
@@ -1974,6 +1970,7 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> BufferRasterizer<'_, B> {
     fn rasterize(&mut self, command: &RasterCommand, rounded_clips: &[RoundedClip]) {
         use RasterCommand::*;
         match command {
+            Background { args, clip, region } => self.rasterize_background(args, *clip, region),
             Texture { geometry, texture } => {
                 self.draw_clipped(*geometry, rounded_clips, None, texture)
             }
@@ -2062,6 +2059,38 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> BufferRasterizer<'_, B> {
         self.draw_clipped(geometry, rounded_clips, None, &texture);
     }
 
+    fn rasterize_background(
+        &mut self,
+        args: &target_pixel_buffer::DrawRectangleArgs,
+        clip: PhysicalRect,
+        region: &PhysicalRegion,
+    ) {
+        self.dirty_region = region.clone();
+        // The user's hook, such as a 2D accelerator.
+        if self.buffer.fill_background(&args.background, region) {
+            return;
+        }
+        // The software fallback.
+        match gradient_background(&args.background) {
+            None => {
+                let mut color = TargetPixel::background();
+                TargetPixel::blend(&mut color, args.background.color().into());
+                self.fallback_fill_dirty_region(color);
+            }
+            Some(gradient) => {
+                if !gradient.is_opaque() {
+                    self.fallback_fill_dirty_region(TargetPixel::background());
+                }
+                self.rasterize_rectangle(args, clip, &[]);
+            }
+        }
+    }
+
+    fn fallback_fill_dirty_region(&mut self, pixel: B::TargetPixel) {
+        let bounds = self.dirty_region.bounding_rect();
+        self.foreach_ranges(&bounds, |_, buffer, _, _| buffer.fill(pixel));
+    }
+
     fn rasterize_rectangle(
         &mut self,
         args: &target_pixel_buffer::DrawRectangleArgs,
@@ -2084,24 +2113,6 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> RasterCommandSink for BufferRast
     fn push(&mut self, command: RasterCommand, rounded_clips: &[RoundedClip]) {
         self.rasterize(&command, rounded_clips);
     }
-
-    fn fill_background(&mut self, background: &Brush, dirty_region: &PhysicalRegion) -> bool {
-        self.dirty_region = dirty_region.clone();
-        if self.buffer.fill_background(background, dirty_region) {
-            return true;
-        }
-        let gradient_background = gradient_background(background);
-        if !gradient_background.is_some_and(Brush::is_opaque) {
-            let mut bg = TargetPixel::background();
-            if gradient_background.is_none() {
-                TargetPixel::blend(&mut bg, background.color().into());
-            }
-            self.foreach_ranges(&dirty_region.bounding_rect(), |_, buffer, _, _| {
-                buffer.fill(bg);
-            });
-        }
-        false
-    }
 }
 
 /// The raster commands of a frame that [`SoftwareRenderer::record_frame`] recorded.
@@ -2118,8 +2129,6 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> RasterCommandSink for BufferRast
 pub struct RecordedRasterCommands {
     commands: Vec<(RasterCommand, core::ops::Range<usize>)>,
     rounded_clips: Vec<RoundedClip>,
-    background: Brush,
-    dirty_region: PhysicalRegion,
     scale_factor: ScaleFactor,
 }
 
@@ -2139,17 +2148,10 @@ impl RecordedRasterCommands {
             scale_factor: self.scale_factor,
             clips: Vec::new(),
         };
-        let mut commands = self.commands.as_slice();
-        if rasterizer.fill_background(&self.background, &self.dirty_region)
-            && gradient_background(&self.background).is_some()
-        {
-            // The buffer filled the gradient, which is the first command.
-            commands = &commands[1..];
-        }
-        for (command, rounded_clips) in commands {
+        for (command, rounded_clips) in &self.commands {
             rasterizer.rasterize(command, &self.rounded_clips[rounded_clips.clone()]);
         }
-        self.dirty_region.clone()
+        rasterizer.dirty_region
     }
 }
 
@@ -2159,12 +2161,6 @@ impl RasterCommandSink for RecordedRasterCommands {
         let start = self.rounded_clips.len();
         self.rounded_clips.extend_from_slice(rounded_clips);
         self.commands.push((command, start..self.rounded_clips.len()));
-    }
-
-    fn fill_background(&mut self, background: &Brush, dirty_region: &PhysicalRegion) -> bool {
-        self.background = background.clone();
-        self.dirty_region = dirty_region.clone();
-        false
     }
 }
 
@@ -2252,7 +2248,8 @@ impl RasterCommandSink for ScanlineRasterCommands {
                 self.push(command, rounded_clips);
                 return;
             }
-            Rectangle { args, clip } => {
+            // Only a gradient background gets here, over lines that the line loop already cleared.
+            Rectangle { args, clip } | Background { args, clip, .. } => {
                 let scale_factor = self.scale_factor;
                 process_rectangle_impl(self, &args, &clip, scale_factor, rounded_clips);
                 return;
@@ -2351,12 +2348,13 @@ impl<'a, T: RasterCommandSink> SoftwareItemRenderer<'a, T> {
         }
     }
 
-    fn draw_window_background_gradient(&mut self, gradient: &Brush) {
-        let screen = PhysicalRect::from_size(self.rotation.screen_size).transformed(self.rotation);
+    fn push_background(&mut self, background: &Brush, dirty_region: &PhysicalRegion) {
+        let clip = PhysicalRect::from_size(self.rotation.screen_size).transformed(self.rotation);
         let mut args =
-            target_pixel_buffer::DrawRectangleArgs::from_rect(screen.cast(), gradient.clone());
+            target_pixel_buffer::DrawRectangleArgs::from_rect(clip.cast(), background.clone());
         args.rotation = self.rotation.orientation;
-        self.raster_commands.push(RasterCommand::Rectangle { args, clip: screen }, &[]);
+        let region = dirty_region.clone();
+        self.raster_commands.push(RasterCommand::Background { args, clip, region }, &[]);
     }
 
     fn should_draw(&self, rect: &LogicalRect) -> bool {
