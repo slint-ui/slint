@@ -1,0 +1,102 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company , info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// cSpell: ignore unoffset
+
+// SIZE=240x205
+// BASE_THRESHOLD=3
+//ignore: software, anyrender, vello_cpu, femtovg
+
+// Box shadows on non-round corners follow corner-shape, without and with a blur,
+// for drop shadows and inner shadows alike.
+
+export component TestCase inherits Window {
+    width: 240px;
+    height: 205px;
+    background: #f3f5f8;
+
+    GridLayout {
+        spacing: 15px;
+        padding: 14px;
+
+        Row {
+            // Blurred drop shadow, unoffset: visible past every corner alike.
+            Rectangle {
+                background: skyblue;
+                border-radius: 16px;
+                corner-top-left-shape: CornerShape.notch;
+                corner-top-right-shape: CornerShape.scoop;
+                corner-bottom-right-shape: CornerShape.bevel;
+                corner-bottom-left-shape: CornerShape.superellipse(-2);
+                drop-shadow-color: #000000c0;
+                drop-shadow-blur: 2px;
+                drop-shadow-spread: 5px;
+            }
+            Rectangle {
+                background: skyblue;
+                border-radius: 16px;
+                corner-top-left-shape: CornerShape.round;
+                corner-top-right-shape: CornerShape.squircle;
+                corner-bottom-right-shape: CornerShape.square;
+                corner-bottom-left-shape: CornerShape.superellipse(4);
+                drop-shadow-color: #000000c0;
+                drop-shadow-blur: 2px;
+                drop-shadow-spread: 5px;
+            }
+        }
+        Row {
+            // Same corners and blur as the row above, shadowed from the inside instead.
+            Rectangle {
+                background: skyblue;
+                border-radius: 16px;
+                corner-top-left-shape: CornerShape.notch;
+                corner-top-right-shape: CornerShape.scoop;
+                corner-bottom-right-shape: CornerShape.bevel;
+                corner-bottom-left-shape: CornerShape.superellipse(-2);
+                inner-shadow-color: #000000c0;
+                inner-shadow-blur: 2px;
+                inner-shadow-spread: 5px;
+            }
+            Rectangle {
+                background: skyblue;
+                border-radius: 16px;
+                corner-top-left-shape: CornerShape.round;
+                corner-top-right-shape: CornerShape.squircle;
+                corner-bottom-right-shape: CornerShape.square;
+                corner-bottom-left-shape: CornerShape.superellipse(4);
+                inner-shadow-color: #000000c0;
+                inner-shadow-blur: 2px;
+                inner-shadow-spread: 5px;
+            }
+        }
+        Row {
+            // Offset shadows on the same corners: an inner shadow, then a drop shadow.
+            Rectangle {
+                background: skyblue;
+                border-radius: 16px;
+                corner-top-left-shape: CornerShape.notch;
+                corner-top-right-shape: CornerShape.scoop;
+                corner-bottom-right-shape: CornerShape.bevel;
+                corner-bottom-left-shape: CornerShape.superellipse(-2);
+                inner-shadow-color: #000000c0;
+                inner-shadow-blur: 2px;
+                inner-shadow-spread: 5px;
+                inner-shadow-offset-x: 5px;
+                inner-shadow-offset-y: 5px;
+            }
+            Rectangle {
+                background: skyblue;
+                border-radius: 16px;
+                corner-top-left-shape: CornerShape.round;
+                corner-top-right-shape: CornerShape.squircle;
+                corner-bottom-right-shape: CornerShape.square;
+                corner-bottom-left-shape: CornerShape.superellipse(4);
+                drop-shadow-color: #000000c0;
+                drop-shadow-blur: 2px;
+                drop-shadow-spread: 5px;
+                drop-shadow-offset-x: 5px;
+                drop-shadow-offset-y: 5px;
+            }
+        }
+    }
+}
