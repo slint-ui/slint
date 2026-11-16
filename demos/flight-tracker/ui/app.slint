@@ -494,6 +494,8 @@ component Stat {
     /// The number of flaps, see `Flaps.places`.
     in property <int> places;
     in property <length> value-size: 18px;
+    /// At the right of its column, for the last column of a card whose other rows end there.
+    in property <bool> trailing;
     // Columns of equal width, so that a changing value doesn't move the next column.
     min-width: 0;
     preferred-width: 0;
@@ -502,10 +504,11 @@ component Stat {
         spacing: 2px;
         Caption {
             text: root.label;
+            horizontal-alignment: root.trailing ? right : left;
         }
 
         HorizontalLayout {
-            alignment: start;
+            alignment: root.trailing ? end : start;
             spacing: 4px;
             Flaps {
                 text: root.value;
@@ -554,6 +557,7 @@ component Remaining inherits HorizontalLayout {
 
     Stat {
         label: "Distance to go";
+        trailing: true;
         places: 6;
         unit: "km";
         value: root.flight.remaining-distance;

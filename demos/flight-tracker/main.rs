@@ -781,7 +781,7 @@ impl Demo {
             remaining_time: format_hours(flight.remaining_hours()).into(),
             remaining_clock: {
                 let minutes = (flight.remaining_hours() * 60.0).round() as u32;
-                format!("{}:{:02}", minutes / 60, minutes % 60).into()
+                format!("{:02}:{:02}", minutes / 60, minutes % 60).into()
             },
             remaining_distance: thousands(flight.remaining_km()).into(),
             flown_distance: thousands(flight.flown_km()).into(),
