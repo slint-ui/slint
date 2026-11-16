@@ -115,6 +115,10 @@ pub fn setup(
         }
     });
 
+    api.on_file_tree_thumbnail(|path| {
+        Image::load_from_path(Path::new(path.as_str())).unwrap_or_default()
+    });
+
     api.on_image_nine_slice_expression(format_nine_slice_expression);
     api.on_image_nine_slice_preview(nine_slice_preview_image);
 
@@ -285,6 +289,9 @@ impl FileTreeController {
             api.set_image_nine_slice_bottom(0);
             api.set_image_nine_slice_left(0);
             api.set_editor_surface_mode(EditorSurfaceMode::Image);
+        } else if is_font_file(&path) {
+            self.select(&path);
+            self.publish(project);
         }
     }
 
@@ -475,6 +482,12 @@ fn is_image_file(path: &Path) -> bool {
     })
 }
 
+fn is_font_file(path: &Path) -> bool {
+    path.extension().and_then(|extension| extension.to_str()).is_some_and(|extension| {
+        matches!(extension.to_ascii_lowercase().as_str(), "ttf" | "otf" | "ttc")
+    })
+}
+
 pub(super) fn image_source_file_name(source: SharedString) -> SharedString {
     let source = source.trim();
     if source.is_empty() {
@@ -547,6 +560,7 @@ fn image_url_expression(source_path: &Path, image_path: &Path) -> Option<String>
 enum FileSurfaceKind {
     Component,
     Image,
+    Font,
     Unsupported,
 }
 
@@ -555,6 +569,8 @@ fn file_surface_kind(path: &Path) -> FileSurfaceKind {
         FileSurfaceKind::Component
     } else if is_image_file(path) {
         FileSurfaceKind::Image
+    } else if is_font_file(path) {
+        FileSurfaceKind::Font
     } else {
         FileSurfaceKind::Unsupported
     }
@@ -596,7 +612,7 @@ fn project_relative_path(root: &Path, path: &Path) -> String {
 
 fn selected_project_file(root: &Path, selected_path: Option<&Path>) -> String {
     let Some(path) = selected_path else { return String::new() };
-    if !is_slint_file(path) && !is_image_file(path) {
+    if !is_slint_file(path) && !is_image_file(path) && !is_font_file(path) {
         return String::new();
     }
     project_relative_path(root, path)
@@ -676,7 +692,7 @@ fn append_node(
     }
 
     let is_folder = file_type.is_dir();
-    if !is_folder && !is_slint_file(path) {
+    if !is_folder && !is_slint_file(path) && !is_image_file(path) && !is_font_file(path) {
         return;
     }
     let is_expanded = is_folder && !collapsed.contains(path);
@@ -777,7 +793,13 @@ fn file_tree_node_kind(path: &Path, is_folder: bool) -> FileTreeNodeKind {
         return FileTreeNodeKind::Folder;
     }
 
-    if is_image_file(path) { FileTreeNodeKind::Image } else { FileTreeNodeKind::File }
+    if is_image_file(path) {
+        FileTreeNodeKind::Image
+    } else if is_font_file(path) {
+        FileTreeNodeKind::Font
+    } else {
+        FileTreeNodeKind::File
+    }
 }
 
 struct DirectoryEntry {
@@ -956,9 +978,13 @@ mod tests {
     }
 
     #[test]
-    fn slint_files_are_discovered_in_nested_groups() {
+    fn supported_files_are_discovered_in_nested_groups() {
         let tree = TempTree::new();
         tree.file("ui/main.slint");
+        tree.file("assets/image.png");
+        tree.file("assets/fonts/Inter.TTF");
+        tree.file("assets/fonts/Roboto.otf");
+        tree.file("assets/fonts/collection.ttc");
         tree.file("README.md");
         tree.file("src/main.rs");
         tree.file("target/generated.slint");
@@ -968,12 +994,32 @@ mod tests {
         std::os::unix::fs::symlink(&tree.root, tree.root.join("loop")).unwrap();
 
         let rows = build_file_tree_rows(&tree.root, &HashSet::new(), None);
-        assert_eq!(labels(&rows)[1..], ["src", "ui", "main.slint"]);
+
+        assert_eq!(
+            labels(&rows)[1..],
+            [
+                "assets",
+                "image.png",
+                "fonts",
+                "collection.ttc",
+                "Inter.TTF",
+                "Roboto.otf",
+                "src",
+                "ui",
+                "main.slint"
+            ]
+        );
         assert!(
             rows.iter()
                 .filter(|row| row.kind == FileTreeNodeKind::Folder)
                 .all(|row| row.is_expanded)
         );
+        for name in ["Inter.TTF", "Roboto.otf", "collection.ttc"] {
+            assert_eq!(
+                rows.iter().find(|row| row.label == name).unwrap().kind,
+                FileTreeNodeKind::Font
+            );
+        }
     }
 
     #[test]
@@ -996,10 +1042,48 @@ mod tests {
 
     #[test]
     fn image_files_use_image_kind() {
-        for path in ["diagram.png", "photo.jpeg", "icon.svg"] {
-            assert_eq!(file_tree_node_kind(Path::new(path), false), FileTreeNodeKind::Image);
+        let tree = TempTree::new();
+        tree.file("diagram.png");
+        tree.file("photo.jpeg");
+        tree.file("icon.svg");
+        tree.file("source.slint");
+
+        let rows = build_file_tree_rows(&tree.root, &HashSet::new(), None);
+
+        for label in ["diagram.png", "photo.jpeg", "icon.svg"] {
+            assert_eq!(
+                rows.iter().find(|row| row.label == label).unwrap().kind,
+                FileTreeNodeKind::Image
+            );
         }
-        assert_eq!(file_tree_node_kind(Path::new("source.slint"), false), FileTreeNodeKind::File);
+        assert_eq!(
+            rows.iter().find(|row| row.label == "source.slint").unwrap().kind,
+            FileTreeNodeKind::File
+        );
+    }
+
+    #[test]
+    fn thumbnails_load_png_svg_and_jpeg() {
+        use slint::{ComponentHandle, Global};
+
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::super::EditorUi::new().unwrap();
+        let api = editor.global::<Api>();
+        let project = editor.global::<Project>();
+        let _controller = setup(&api, api.as_weak(), &project, project.as_weak());
+        let tree = TempTree::new();
+        for (name, bytes) in [
+            ("image.png", include_bytes!("../../../../tests/screenshots/cases/image/tiny-1x1.png").as_slice()),
+            ("image.jpg", include_bytes!("../../../../demos/food-processor/ui/images/photos/1.jpg").as_slice()),
+            ("image.jpeg", include_bytes!("../../../../demos/food-processor/ui/images/photos/1.jpg").as_slice()),
+            ("image.svg", br##"<svg xmlns="http://www.w3.org/2000/svg" width="2" height="2"><rect width="2" height="2" fill="#ff0000"/></svg>"##.as_slice()),
+        ] {
+            let path = tree.file(name);
+            fs::write(&path, bytes).unwrap();
+            let image = api.invoke_file_tree_thumbnail(path_to_shared_string(&path));
+            assert!(image.size().width > 0 && image.size().height > 0, "{name}");
+        }
+        assert_eq!(api.invoke_file_tree_thumbnail("/missing/image.png".into()).size().width, 0);
     }
 
     #[test]
@@ -1062,7 +1146,7 @@ mod tests {
         let rows = build_file_tree_rows(&tree.root, &HashSet::new(), None);
 
         assert!(rows.iter().find(|row| row.label == "view.slint").unwrap().is_slint_file);
-        assert!(!rows.iter().any(|row| row.label == "image.png"));
+        assert!(!rows.iter().find(|row| row.label == "image.png").unwrap().is_slint_file);
     }
 
     #[test]
