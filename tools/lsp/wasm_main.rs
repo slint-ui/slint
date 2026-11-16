@@ -160,6 +160,20 @@ pub fn set_panic_hook(callback: Function) {
     PANIC_CALLBACK.with(|c| *c.borrow_mut() = Some(callback));
 }
 
+/// Returns the URL of the `main` file of the project file at `url`, whose contents are `source`.
+#[wasm_bindgen]
+pub fn project_main(source: String, url: String) -> JsResult<String> {
+    let project = i_slint_compiler::project_file::ProjectFile::parse(
+        i_slint_compiler::source_path::SourcePath::new(&url),
+        source.into_bytes(),
+    )
+    .map_err(|error| JsError::new(&format!("{url}: {error}")))?;
+    project
+        .main_to_compile()
+        .map(|main| main.to_string())
+        .map_err(|diagnostic| JsError::new(&diagnostic.to_string()))
+}
+
 #[wasm_bindgen]
 extern "C" {
     #[wasm_bindgen(typescript_type = "ImportCallbackFunction")]
