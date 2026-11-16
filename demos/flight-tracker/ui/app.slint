@@ -42,6 +42,8 @@ global Theme {
     /// The tiles of the route still ahead.
     out property <color> track: #ffffff22;
     out property <length> margin: 16px;
+    /// Between two panels.
+    out property <length> gap: 10px;
 }
 
 export enum View { follow, route, globe, free }
@@ -122,7 +124,7 @@ component Glass inherits Rectangle {
     border-width: 1px;
     border-color: Theme.line;
     // The rivets.
-    for corner in (root.width > 80px ? 4 : 0): Rectangle {
+    for corner in (root.width > 80px && root.height > 56px ? 4 : 0): Rectangle {
         x: Math.mod(corner, 2) == 0 ? 6px : root.width - self.width - 6px;
         y: corner < 2 ? 6px : root.height - self.height - 6px;
         width: 4px;
@@ -424,23 +426,29 @@ component Toggle {
 component Segmented {
     in property <[string]> options;
     in property <int> current;
+    /// The first and the last option reach the edges, to line up with what's above and below.
+    in property <bool> flush;
     callback picked(index: int);
     height: 36px;
-    for option[index] in root.options: Rectangle {
-        x: root.width / root.options.length * index;
-        width: root.width / root.options.length;
-        Flaps {
-            text: option.to-uppercase();
-            size: 12px;
-            whole: true;
-            lit: index == root.current;
-            color: Theme.muted;
-        }
+    HorizontalLayout {
+        alignment: root.flush ? space-between : space-around;
+        for option[index] in root.options: Rectangle {
+            width: flaps.width;
+            flaps := Flaps {
+                text: option.to-uppercase();
+                size: 12px;
+                whole: true;
+                lit: index == root.current;
+                color: Theme.muted;
+            }
 
-        TouchArea {
-            mouse-cursor: pointer;
-            clicked => {
-                root.picked(index);
+            TouchArea {
+                x: -8px;
+                width: parent.width + 16px;
+                mouse-cursor: pointer;
+                clicked => {
+                    root.picked(index);
+                }
             }
         }
     }
@@ -550,9 +558,12 @@ component FlightCard inherits Glass {
             HorizontalLayout {
                 spacing: 12px;
                 VerticalLayout {
-                    origin-code := Flaps {
-                        text: root.flight.origin.code;
-                        size: root.code-size * 0.8;
+                    HorizontalLayout {
+                        alignment: start;
+                        origin-code := Flaps {
+                            text: root.flight.origin.code;
+                            size: root.code-size * 0.8;
+                        }
                     }
 
                     Text {
@@ -791,15 +802,15 @@ component AirportRow inherits Rectangle {
     border-radius: 2px;
     background: touch.has-hover ? Theme.fill-hover : Math.mod(root.index, 2) == 1 ? #ffffff08 : transparent;
     Flaps {
-        x: 8px;
+        x: 14px;
         text: root.airport.code;
         size: 14px;
         color: Theme.accent;
     }
 
     VerticalLayout {
-        x: 72px;
-        width: parent.width - 82px;
+        x: 64px;
+        width: parent.width - 74px;
         alignment: center;
         Text {
             text: "\{root.airport.city}, \{root.airport.country}".to-uppercase();
@@ -850,7 +861,7 @@ component AirportField inherits Rectangle {
     }
 
     Caption {
-        x: root.slim ? 12px : 14px;
+        x: 14px;
         text: root.label;
         vertical-alignment: center;
     }
@@ -963,7 +974,7 @@ export component AppWindow inherits Window {
         easing: spring;
     }
     /// The room to the left of the controls at the bottom.
-    property <length> beside-controls: root.content-width - controls.width - 10px;
+    property <length> beside-controls: root.content-width - controls.width - Theme.gap;
     /// Where the controls rest at the bottom.
     property <length> controls-y: root.height - controls.height - root.bottom-edge - (root.narrow ? 0 : 14px);
     /// Whether the globe shows a route: during a flight, or once the planner has one.
@@ -978,6 +989,10 @@ export component AppWindow inherits Window {
     /// the panels are rows along the top and the bottom, to leave the globe the middle.
     property <bool> sideways: root.short && !root.narrow;
     property <bool> compact: root.width < 900px || root.height < 620px;
+    /// The cards at the left during a flight, one above the other.
+    property <length> card-width: root.narrow ? root.content-width : min(420px, root.compact ? root.beside-controls : root.content-width);
+    /// The padding of the panels.
+    property <length> inset: root.narrow || root.short ? 14px : 18px;
     property <length> margin: root.narrow || root.short ? 10px : Theme.margin;
     // The edges of the area for controls, clear of a phone's notch and home indicator.
     property <length> left-edge: root.safe-area-insets.left + root.margin;
@@ -1219,7 +1234,6 @@ export component AppWindow inherits Window {
     // The planner, beside the globe, or below it on a phone held upright. It stays instantiated,
     // so its fields keep their text during a flight.
     planner := Glass {
-        property <length> inset: root.sideways ? 12px : root.narrow ? 14px : 20px;
         property <length> rest-y: root.narrow ? root.entry-globe-y + root.entry-globe-height + 8px : root.top-edge;
         visible: root.planner-away < 1;
         x: root.narrow ? root.left-edge : root.left-edge - root.planner-away * (self.width + root.left-edge + 30px);
@@ -1227,7 +1241,7 @@ export component AppWindow inherits Window {
         width: root.narrow ? root.content-width : root.panel-width;
         height: root.height - self.rest-y - root.bottom-edge;
         VerticalLayout {
-            padding: planner.inset;
+            padding: root.inset;
             spacing: root.sideways ? 8px : 12px;
             // The badge wraps below the heading where the panel is too narrow for both.
             if !root.sideways: FlexboxLayout {
@@ -1350,15 +1364,15 @@ export component AppWindow inherits Window {
         visible: root.flight-in > 0;
         height: root.sideways ? 30px : 40px;
         x: root.width - self.width - root.right-edge;
-        y: controls.y - self.height - 12px;
+        y: controls.y - self.height - Theme.gap;
     }
 
     flight-card := FlightCard {
         visible: root.flight-in > 0;
         x: root.left-edge;
         y: root.top-edge - (1 - root.flight-in) * (self.height + root.top-edge + 30px);
-        // Beside the buttons that zoom, except on a phone held upright.
-        width: root.narrow ? root.content-width : root.sideways ? root.content-width - 48px : min(420px, root.content-width - 56px);
+        // A row beside the buttons that zoom on a phone held sideways.
+        width: root.sideways ? root.content-width - 40px - Theme.gap : root.card-width;
         flight: root.flight;
         small: root.narrow || root.short;
         brief: root.short;
@@ -1369,9 +1383,9 @@ export component AppWindow inherits Window {
     if root.narrow || !root.compact || root.flight.phase != Phase.flying || (root.sideways && root.beside-controls >= 330px): StatusCard {
         visible: root.flight-in > 0;
         x: root.left-edge;
-        y: (root.narrow ? root.controls-y - self.height - 10px : root.height - self.height - root.bottom-edge - 14px)
+        y: (root.narrow ? root.controls-y - self.height - Theme.gap : root.height - self.height - root.bottom-edge - 14px)
             + (1 - root.flight-in) * (root.height - root.controls-y + self.height + 30px);
-        width: root.narrow ? root.content-width : min(420px, root.compact ? root.beside-controls : root.content-width);
+        width: root.card-width;
         flight: root.flight;
         small: root.narrow || root.short;
     }
@@ -1380,7 +1394,7 @@ export component AppWindow inherits Window {
     VerticalLayout {
         visible: root.flight-in > 0;
         x: root.width - self.width - root.right-edge + (1 - root.flight-in) * (self.width + root.right-edge + 30px);
-        y: root.narrow ? root.top-edge + flight-card.height + 10px : root.top-edge;
+        y: root.narrow ? root.top-edge + flight-card.height + Theme.gap : root.top-edge;
         width: 40px;
         spacing: 8px;
         RoundButton {
@@ -1403,7 +1417,8 @@ export component AppWindow inherits Window {
         visible: root.flight-in > 0;
         x: root.width - self.width - root.right-edge;
         y: root.controls-y + (1 - root.flight-in) * (root.height - root.controls-y + 30px);
-        width: root.narrow ? root.content-width : bar.preferred-width;
+        // Narrower where the card beside it would otherwise have too little room.
+        width: root.narrow ? root.content-width : max(bar.min-width, min(bar.preferred-width, root.content-width - 340px));
         height: bar.preferred-height;
         border-radius: 4px;
         bar := HorizontalLayout {
@@ -1411,7 +1426,7 @@ export component AppWindow inherits Window {
             spacing: 8px;
             Segmented {
                 preferred-width: 240px;
-                min-width: 150px;
+                min-width: 170px;
                 horizontal-stretch: 1;
                 options: ["Follow", "Route", "Globe"];
                 current: root.view == View.follow ? 0 : root.view == View.route ? 1 : root.view == View.globe ? 2 : -1;
@@ -1421,7 +1436,7 @@ export component AppWindow inherits Window {
             }
 
             PillButton {
-                text: root.narrow || root.sideways ? "" : "Plan a flight";
+                text: root.narrow || root.sideways || root.content-width < 720px ? "" : "Plan a flight";
                 icon: @image-url("icons/aircraft.svg");
                 primary: true;
                 clicked => {
@@ -1446,8 +1461,8 @@ export component AppWindow inherits Window {
     // Above the settings button: during a flight at the right, and on the entry screen at the
     // bottom of the planner.
     if root.settings-open && root.screen != Screen.zoom: Glass {
-        property <length> bottom: (root.screen == Screen.flight ? controls.y : planner.y + planner.height - planner.inset - 36px) - 10px;
-        x: root.screen == Screen.flight ? root.width - self.width - root.right-edge : planner.x + planner.inset;
+        property <length> bottom: (root.screen == Screen.flight ? controls.y : planner.y + planner.height - root.inset - 36px) - Theme.gap;
+        x: root.screen == Screen.flight ? root.width - self.width - root.right-edge : planner.x + root.inset;
         y: self.bottom - self.height;
         width: min(260px, root.content-width);
         // In a low window, the settings scroll.
@@ -1457,13 +1472,14 @@ export component AppWindow inherits Window {
             settings := VerticalLayout {
                 width: parent.width;
                 height: self.preferred-height;
-                padding: 16px;
+                padding: root.inset;
                 spacing: 6px;
                 Caption {
                     text: "Quality";
                 }
 
                 Segmented {
+                    flush: true;
                     options: ["Auto", "Low", "Medium", "High"];
                     current: root.auto-quality ? 0 : root.quality == Quality.low ? 1 : root.quality == Quality.medium ? 2 : 3;
                     picked(index) => {
