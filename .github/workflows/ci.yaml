@@ -514,7 +514,7 @@ jobs:
         # Ubuntu 24.04, the newest Blacksmith image, ships QEMU 8.2.
         runs-on: ubuntu-26.04
         steps:
-            - uses: useblacksmith/checkout@v1
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
               with:
                   extra-packages: >-
