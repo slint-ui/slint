@@ -401,14 +401,16 @@ void EspPlatform<PixelType>::run_event_loop()
 
             [[maybe_unused]] bool waited_for_refresh = false;
 #if CONFIG_SLINT_RENDER_IN_SEPARATE_TASK
-            if (pipeline && std::exchange(m_window->needs_redraw, false)) {
-                auto frame = m_window->m_renderer.record_frame(stride, num_lines);
-                xSemaphoreTake(frame_presented, portMAX_DELAY);
-                recorded.emplace(std::move(frame));
-                xSemaphoreGive(frame_recorded);
-                // Presenting the previous frame waited for the refresh.
-                waited_for_refresh = true;
-            }
+            if (pipeline) {
+                if (std::exchange(m_window->needs_redraw, false)) {
+                    auto frame = m_window->m_renderer.record_frame(stride, num_lines);
+                    xSemaphoreTake(frame_presented, portMAX_DELAY);
+                    recorded.emplace(std::move(frame));
+                    xSemaphoreGive(frame_recorded);
+                    // Presenting the previous frame waited for the refresh.
+                    waited_for_refresh = true;
+                }
+            } else
 #endif
             if (std::exchange(m_window->needs_redraw, false)) {
                 if (buffer1) {
