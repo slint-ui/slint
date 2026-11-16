@@ -9,10 +9,25 @@ import { edition_from_url } from "./edition";
 (async function () {
     await slint_init();
 
-    let base_url = "";
+    /// The file to compile instead of `main_source`, which may be a project file.
+    let main_url: string | undefined;
 
     /// Index by url. Inline documents will use the empty string.
     const loaded_documents: Map<string, string> = new Map();
+
+    async function load_file(url: string): Promise<string | null> {
+        const cached = loaded_documents.get(url);
+        if (cached !== undefined) {
+            return cached;
+        }
+        const response = await fetch(url);
+        if (!response.ok) {
+            return null;
+        }
+        const doc = await response.text();
+        loaded_documents.set(url, doc);
+        return doc;
+    }
 
     let main_source = `
 import { SpinBox, Button, CheckBox, Slider, GroupBox } from "std-widgets.slint";
@@ -33,13 +48,13 @@ export component Demo inherits Window {
     function update_preview() {
         const div = document.getElementById("preview") as HTMLDivElement;
         setTimeout(function () {
-            render_or_error(main_source, base_url, div);
+            render_or_error(main_source, main_url, div);
         }, 1);
     }
 
     async function render_or_error(
         source: string,
-        base_url: string,
+        url: string | undefined,
         div: HTMLDivElement,
     ) {
         const canvas_id = "canvas_" + Math.random().toString(36).slice(2, 11);
@@ -51,23 +66,22 @@ export component Demo inherits Window {
         div.appendChild(canvas);
 
         const { component, error_string } =
-            await slint.compile_from_string_with_style(
-                source,
-                base_url,
-                style,
-                async (url: string): Promise<string> => {
-                    const file_source = loaded_documents.get(url);
-                    if (file_source === undefined) {
-                        const response = await fetch(url);
-                        const doc = await response.text();
-                        loaded_documents.set(url, doc);
-                        return doc;
-                    }
-                    return file_source;
-                },
-                undefined,
-                edition,
-            );
+            url !== undefined
+                ? await slint.compile_from_url(
+                      url,
+                      style,
+                      load_file,
+                      undefined,
+                      edition,
+                  )
+                : await slint.compile_from_string_with_style(
+                      source,
+                      "",
+                      style,
+                      load_file,
+                      undefined,
+                      edition,
+                  );
 
         if (error_string !== "") {
             const text = document.createTextNode(error_string);
@@ -98,9 +112,7 @@ export component Demo inherits Window {
     if (code) {
         main_source = code;
     } else if (load_url) {
-        base_url = load_url;
-        const response = await fetch(load_url);
-        main_source = await response.text();
+        main_url = new URL(load_url, window.location.href).href;
     }
     update_preview();
 })();

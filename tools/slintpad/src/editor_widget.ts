@@ -9,6 +9,8 @@ import { slint_language } from "./highlighting";
 import type { Lsp } from "./lsp";
 import { edition_from_url } from "./edition";
 import * as github from "./github";
+import { is_project_url } from "./project";
+import { project_main } from "@lsp/slint_lsp_wasm.js";
 
 import { BoxLayout, TabPanel, Widget } from "@lumino/widgets";
 import type { Message as LuminoMessage } from "@lumino/messaging";
@@ -360,6 +362,34 @@ class EditorPaneWidget extends Widget {
     }
 }
 
+/** Downloads `url`, or returns `null` on failure, after an alert if `raise_alert` is set. */
+async function download(
+    url: string,
+    raise_alert: boolean,
+): Promise<string | null> {
+    try {
+        const response = await fetch(url);
+        if (response.ok) {
+            return await response.text();
+        }
+        if (raise_alert) {
+            alert(
+                "Failed to download data from " +
+                    url +
+                    ":\n" +
+                    response.status +
+                    " " +
+                    response.statusText,
+            );
+        }
+    } catch (e) {
+        if (raise_alert) {
+            alert("Failed to download data from " + url + ".");
+        }
+    }
+    return null;
+}
+
 export class EditorWidget extends Widget {
     #layout: BoxLayout;
     #tab_map: Map<string, EditorPaneWidget> = new Map();
@@ -465,12 +495,16 @@ export class EditorWidget extends Widget {
         return uri;
     }
 
-    private open_file_with_content(uri: monaco.Uri, content: string) {
+    private register_file(uri: monaco.Uri, content: string) {
         this.#open_files.push(
             FILESYSTEM_PROVIDER.registerFile(
                 new RegisteredMemoryFile(uri, content),
             ),
         );
+    }
+
+    private open_file_with_content(uri: monaco.Uri, content: string) {
+        this.register_file(uri, content);
 
         monaco.editor
             .createModelReference(uri)
@@ -565,7 +599,27 @@ export class EditorWidget extends Widget {
             input_url.toString(),
         );
 
-        const output_url = monaco.Uri.parse(url ?? input_url.toString());
+        const source_url = url ?? input_url.toString();
+        let output_url = monaco.Uri.parse(source_url);
+        if (is_project_url(output_url.path)) {
+            const project_source = await download(source_url, true);
+            if (project_source === null) {
+                return [null, ""];
+            }
+            const project_file = internal_file_uri(output_url.path);
+            this.register_file(project_file, project_source);
+            this.#open_files.push(
+                await monaco.editor.createModelReference(project_file),
+            );
+            try {
+                output_url = monaco.Uri.parse(
+                    project_main(project_source, source_url),
+                );
+            } catch (e) {
+                alert(String(e));
+                return [null, ""];
+            }
+        }
         this.#url_mapper = mapper ?? new RelativeUrlMapper(output_url);
 
         return this.safely_open_editor_with_url_content(
@@ -630,7 +684,9 @@ export class EditorWidget extends Widget {
         return this.#extra_file_urls;
     }
 
-    protected async handle_lsp_url_request(url: string): Promise<string> {
+    protected async handle_lsp_url_request(
+        url: string,
+    ): Promise<string | null> {
         if (url.startsWith("slintpad:/")) {
             if (this.#url_mapper === null) {
                 return Promise.resolve("Error: Can not resolve URL.");
@@ -643,16 +699,16 @@ export class EditorWidget extends Widget {
                 return Promise.resolve("Error: Can not map URL.");
             }
 
-            return (
+            const [opened, content] =
                 await this.safely_open_editor_with_url_content(
                     uri,
                     internal_uri,
                     false,
-                )
-            )[1];
+                );
+            return opened === null ? null : content;
         }
         const r = await fetch(url);
-        return await r.text();
+        return r.ok ? await r.text() : null;
     }
 
     private async safely_open_editor_with_url_content(
@@ -665,27 +721,8 @@ export class EditorWidget extends Widget {
             return [internal_uri, new TextDecoder().decode(content) ?? ""];
         } catch (e) {}
 
-        let doc = "";
-        try {
-            const response = await fetch(uri.toString());
-            if (!response.ok) {
-                if (raise_alert) {
-                    alert(
-                        "Failed to download data from " +
-                            uri +
-                            ":\n" +
-                            response.status +
-                            " " +
-                            response.statusText,
-                    );
-                }
-                return [null, ""];
-            }
-            doc = await response.text();
-        } catch (e) {
-            if (raise_alert) {
-                alert("Failed to download data from " + uri + ".");
-            }
+        const doc = await download(uri.toString(), raise_alert);
+        if (doc === null) {
             return [null, ""];
         }
 
