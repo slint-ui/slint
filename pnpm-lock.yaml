@@ -2803,9 +2803,6 @@ packages:
     cpu: [x64]
     os: [darwin]
 
-  '@pagefind/default-ui@1.5.2':
-    resolution: {integrity: sha512-pm1LMnQg8N2B3n2TnjKlhaFihpz6zTiA4HiGQ6/slKO/+8K9CAU5kcjdSSPgpuk1PMuuN4hxLipUIifnrkl3Sg==}
-
   '@pagefind/default-ui@1.6.0':
     resolution: {integrity: sha512-Wj93IzlLnaYYrMpOYrsqUerzA7+Vrs5Ri1U78hBh3zuKHNVkcjApNo5DUM99MzAam6f437VGG64jDenAObIt+w==}
 
@@ -7034,7 +7031,7 @@ snapshots:
       '@astrojs/markdown-satteri': 0.4.9
       '@astrojs/mdx': 8.1.1(@astrojs/markdown-remark@7.3.8(supports-color@10.2.2))(@astrojs/markdown-satteri@0.4.9)(astro@7.4.11(@astrojs/markdown-remark@7.3.8(supports-color@10.2.2))(@types/node@24.12.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))
       '@astrojs/sitemap': 3.7.4
-      '@pagefind/default-ui': 1.5.2
+      '@pagefind/default-ui': 1.6.0
       '@types/hast': 3.0.5
       '@types/mdast': 4.0.4
       astro: 7.4.11(@astrojs/markdown-remark@7.3.8(supports-color@10.2.2))(@types/node@24.12.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1)
@@ -7070,7 +7067,7 @@ snapshots:
       '@astrojs/markdown-satteri': 0.4.9
       '@astrojs/mdx': 8.1.1(@astrojs/markdown-remark@7.3.8)(@astrojs/markdown-satteri@0.4.9)(astro@7.4.11(@astrojs/markdown-remark@7.3.8)(@types/node@24.12.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))
       '@astrojs/sitemap': 3.7.4
-      '@pagefind/default-ui': 1.5.2
+      '@pagefind/default-ui': 1.6.0
       '@types/hast': 3.0.5
       '@types/mdast': 4.0.4
       astro: 7.4.11(@astrojs/markdown-remark@7.3.8)(@types/node@24.12.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1)
@@ -7106,7 +7103,7 @@ snapshots:
       '@astrojs/markdown-satteri': 0.4.9
       '@astrojs/mdx': 8.1.1(@astrojs/markdown-remark@7.3.8)(@astrojs/markdown-satteri@0.4.9)(astro@7.4.11(@astrojs/markdown-remark@7.3.8)(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))
       '@astrojs/sitemap': 3.7.4
-      '@pagefind/default-ui': 1.5.2
+      '@pagefind/default-ui': 1.6.0
       '@types/hast': 3.0.5
       '@types/mdast': 4.0.4
       astro: 7.4.11(@astrojs/markdown-remark@7.3.8)(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1)
@@ -8825,8 +8822,6 @@ snapshots:
 
   '@pagefind/darwin-x64@1.5.2':
     optional: true
-
-  '@pagefind/default-ui@1.5.2': {}
 
   '@pagefind/default-ui@1.6.0': {}
 
