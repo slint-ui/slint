@@ -109,6 +109,8 @@ fn wire_format_matches_snapshots() {
     snapshots.assert_roundtrip(P::DebuggerMessage(
         PreviewToDebuggerMessage::SubscriptionNotification { notification: vec![1, 2, 3] },
     ));
+    snapshots
+        .assert_roundtrip(P::DebuggerMessage(PreviewToDebuggerMessage::Reloaded { success: true }));
 
     let mut sealer = session::Sealer::new([7; 32]);
     let frames = [sealer.seal(b"a".to_vec()).unwrap(), sealer.seal(b"b".to_vec()).unwrap()];
