@@ -32,8 +32,16 @@ fn main() {
     struct Counts {
         wake_ups: Cell<u32>,
         frames: Cell<u32>,
-        // Run once, in the event loop's turn after the next frame.
-        after_next_frame: Cell<Option<Box<dyn FnOnce()>>>,
+        // Run once, in the event loop's turn after the next frame or throttle tick.
+        after_next_update: Cell<Option<Box<dyn FnOnce()>>>,
+    }
+
+    impl Counts {
+        fn run_after_next_update(&self) {
+            if let Some(then) = self.after_next_update.take() {
+                slint::Timer::single_shot(Duration::ZERO, then);
+            }
+        }
     }
 
     struct Count(Rc<Counts>);
@@ -49,9 +57,7 @@ fn main() {
         ) -> EventResult {
             if matches!(event, winit::event::WindowEvent::RedrawRequested) {
                 self.0.frames.set(self.0.frames.get() + 1);
-                if let Some(then) = self.0.after_next_frame.take() {
-                    slint::Timer::single_shot(Duration::ZERO, then);
-                }
+                self.0.run_after_next_update();
             }
             EventResult::Propagate
         }
@@ -63,6 +69,7 @@ fn main() {
         ) -> EventResult {
             if matches!(cause, winit::event::StartCause::ResumeTimeReached { .. }) {
                 self.0.wake_ups.set(self.0.wake_ups.get() + 1);
+                self.0.run_after_next_update();
             }
             EventResult::Propagate
         }
@@ -103,9 +110,11 @@ fn main() {
             let app = app.unwrap();
             app.show().unwrap();
             sleep(Duration::from_millis(300)).await;
-            // Hidden and changed right after a frame: the throttle's timer is still running then,
-            // until its next tick a refresh interval later.
-            counts.after_next_frame.set(Some(Box::new({
+            // Blacksmith's Windows runners never send `RedrawRequested`.
+            let draws = counts.frames.get() > 0;
+            // Hidden and changed right after a frame or a tick that left the throttle's timer
+            // running: it ticks once more a refresh interval later.
+            counts.after_next_update.set(Some(Box::new({
                 let app = app.as_weak();
                 move || {
                     let app = app.unwrap();
@@ -126,7 +135,9 @@ fn main() {
             counts.frames.set(0);
             app.show().unwrap();
             sleep(Duration::from_millis(300)).await;
-            assert!(counts.frames.get() > 0, "the window wasn't drawn when shown again");
+            if draws {
+                assert!(counts.frames.get() > 0, "the window wasn't drawn when shown again");
+            }
             app.hide().unwrap();
             slint::quit_event_loop().unwrap();
         }
