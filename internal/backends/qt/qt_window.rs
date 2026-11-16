@@ -77,6 +77,7 @@ cpp! {{
     #include <QtGui/QPainter>
     #include <QtGui/QPainterPath>
     #include <QtGui/QResizeEvent>
+    #include <QtGui/QScreen>
     #include <QtGui/QTextLayout>
     #include <QtGui/QWindow>
     #include <QtWidgets/QGesture>
@@ -1585,7 +1586,7 @@ impl QRawFont {
         }}
     }
 
-    /// The weight of the face Qt loaded, on the 100–900 scale.
+    /// The weight of the face Qt loaded, in QFont::Weight units.
     #[cfg(test)]
     pub fn weight(&self) -> i32 {
         cpp! { unsafe [ self as "const QRawFont*"] -> i32 as "int" {
@@ -2050,14 +2051,16 @@ impl QtItemRenderer<'_> {
             )
             .collect::<Vec<_>>()
         } else {
-            vec![i_slint_core::graphics::fit(
+            i_slint_core::graphics::fit(
                 image.image_fit(),
                 size * scale_factor,
                 source_rect,
                 scale_factor,
                 image.alignment(),
                 image.tiling(),
-            )]
+            )
+            .into_iter()
+            .collect()
         };
 
         for fit in fit {
@@ -3344,9 +3347,12 @@ mod tests {
                 )
             })
             .expect("the embedded font loads");
+        let normal_weight = cpp! { unsafe [] -> i32 as "int" {
+            return QFont::Normal;
+        }};
         assert_eq!(
             (got.style_name().as_str(), got.weight()),
-            ("Regular", 400),
+            ("Regular", normal_weight),
             "a variable font with no variations must be its default instance"
         );
     }

@@ -246,7 +246,10 @@ pub fn embed_glyphs(
                             }
                         };
                         font_paths.insert(query_font.family.0, path.clone());
-                        default_fonts.push((path.clone(), query_font));
+                        // Several exported components with the same default font share one embedded copy.
+                        if !default_fonts.iter().any(|(_, f)| f.family.0 == query_font.family.0) {
+                            default_fonts.push((path.clone(), query_font));
+                        }
                     }
                 }
             }

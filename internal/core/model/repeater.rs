@@ -758,16 +758,12 @@ impl<T: RepeatedItemTree> ModelChangeListener for RepeaterTracker<T> {
     fn row_changed(self: Pin<&Self>, row: usize) {
         let mut inner = self.inner.borrow_mut();
         let inner = &mut *inner;
-        if let Some(c) = inner.instances.get_mut(row.wrapping_sub(inner.layout_state.offset)) {
-            if !self.model.is_dirty() {
-                if let Some(comp) = c.1.as_ref() {
-                    let model = self.project_ref().model.get_untracked();
-                    as_typed::<T>(comp).update(row, model.row_data(row).unwrap_or_default());
-                    c.0 = RepeatedInstanceState::Clean;
-                }
-            } else {
-                c.0 = RepeatedInstanceState::Dirty;
-            }
+        if let Some(c) = inner.instances.get_mut(row.wrapping_sub(inner.layout_state.offset))
+            && let Some(comp) = c.1.as_ref()
+        {
+            let model = self.model.get_internal();
+            as_typed::<T>(comp).update(row, model.row_data(row).unwrap_or_default());
+            c.0 = RepeatedInstanceState::Clean;
         }
     }
     /// Notify the peers that rows were added

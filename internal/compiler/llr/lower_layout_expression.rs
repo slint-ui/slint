@@ -14,7 +14,10 @@ use super::{
 };
 use crate::expression_types::{MinMaxOp, Orientation};
 use crate::langtype::{BuiltinStruct, EnumerationValue, Type};
-use crate::layout::{FlexboxAxisRelation, GridLayoutCell, RowColExpr};
+use crate::layout::{
+    FlexboxAxisRelation, GridLayoutCell, RowColExpr, fixed_cell_width, fixed_size_property,
+    is_height_for_width_cell,
+};
 use crate::llr::ArrayOutput as llr_ArrayOutput;
 use crate::llr::Expression as llr_Expression;
 use crate::llr::{BoxMeasureCell, FlexboxMeasureCell};
@@ -1284,15 +1287,9 @@ fn cell_layout_info(
     let constraint = match orientation {
         Orientation::Vertical => cross_axis_size_override
             .filter(|_| is_height_for_width_cell(elem))
-            .map(|size| {
-                match fixed_size_property(constraints, Orientation::Horizontal).filter(|_| {
-                    elem.borrow().edition() >= Some(crate::project_file::SlintEdition::V1_19)
-                }) {
-                    Some(width) => {
-                        crate::expression_tree::Expression::PropertyReference(width.clone())
-                    }
-                    None => size.clone(),
-                }
+            .map(|size| match fixed_cell_width(elem, constraints) {
+                Some(width) => crate::expression_tree::Expression::PropertyReference(width.clone()),
+                None => size.clone(),
             })
             .or_else(|| {
                 (for_measure_solve && is_height_for_width_cell(elem))
@@ -1767,47 +1764,6 @@ fn generate_layout_padding_and_spacing(
     (padding, spacing)
 }
 
-/// Whether `elem` is a height-for-width cell — its vertical layout info
-/// depends on the horizontal dimension, so a cross-axis constraint must
-/// be supplied to get a meaningful answer.
-///
-/// Two cases qualify:
-/// - Builtin height-for-width items (Text with `wrap != no-wrap`, Image with
-///   aspect-ratio sizing).
-/// - Components whose subtree contains a height-for-width descendant — recognized
-///   by the presence of `Element::layout_info_v_with_constraint`.
-fn is_height_for_width_cell(elem: &ElementRc) -> bool {
-    let elem_b = elem.borrow();
-
-    // Component path: `layoutinfo-v-with-constraint` may live on `elem`
-    // itself or on the base component's root_element.
-    let has_constrained_layoutinfo_v = elem_b.layout_info_v_with_constraint.is_some()
-        || matches!(
-            &elem_b.base_type,
-            crate::element_type::ElementType::Component(base_comp)
-                if base_comp.root_element.borrow().layout_info_v_with_constraint.is_some()
-        );
-    if has_constrained_layoutinfo_v {
-        return true;
-    }
-
-    if elem_b.effective_layout_info_prop(Orientation::Vertical).is_some() {
-        return false;
-    }
-    drop(elem_b);
-
-    // Builtin path.
-    matches!(
-        crate::layout::implicit_layout_info_call(
-            elem,
-            Orientation::Vertical,
-            crate::layout::BuiltinFilter::All,
-            None,
-        ),
-        Some(crate::expression_tree::Expression::FunctionCall { .. })
-    )
-}
-
 /// Default cross-axis (width) constraint for a height-for-width cell:
 /// the element's own preferred horizontal size. Callers
 /// (`flexbox_layout_data`, `box_layout_data`,
@@ -2134,16 +2090,6 @@ pub fn get_fixed_size_root_layout_info(
         ctx,
     );
     Some(override_layout_info(own_info, ctx, constraints, orientation, Some(size)))
-}
-
-fn fixed_size_property(
-    constraints: &crate::layout::LayoutConstraints,
-    orientation: Orientation,
-) -> Option<&NamedReference> {
-    let c = constraints.for_orientation(orientation);
-    c.min
-        .as_ref()
-        .filter(|min| c.fixed && c.max.as_ref() == Some(*min) && min.ty() == Type::LogicalLength)
 }
 
 /// `layout_info` with each field that `constraints` restricts read from that constraint,
