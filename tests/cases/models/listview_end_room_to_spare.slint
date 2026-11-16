@@ -4,8 +4,6 @@
 // C++ live preview: no element search (wrapper has no item tree)
 //ignore: cpp-live-preview
 
-// When content-y is set past the end of the rows, the ListView must scroll up so that the last
-// row ends at the bottom of the viewport, instead of laying the rows out far above it.
 // The rows are found with ElementHandle, not with mouse clicks: a press makes the Flickable move
 // an out of bounds content-y back within bounds, which would hide the bug.
 
@@ -45,26 +43,40 @@ auto shown = [&]() {
               [](const auto &a, const auto &b) { return a.second < b.second; });
     return rows;
 };
-std::vector<std::pair<std::string, float>> last_ten;
-for (int i = 90; i < 100; ++i) {
-    last_ten.emplace_back(std::to_string(i), (i - 90) * 20.f);
-}
+// Rows `from` to `to` (excluded), the first one at the top of the viewport.
+auto rows = [](int from, int to) {
+    std::vector<std::pair<std::string, float>> rows;
+    for (int i = from; i < to; ++i) {
+        rows.emplace_back(std::to_string(i), (i - from) * 20.f);
+    }
+    return rows;
+};
+auto set_rows = [&](int count) {
+    std::vector<int> values;
+    for (int i = 0; i < count; ++i) values.push_back(i);
+    instance.set_model(std::make_shared<slint::VectorModel<int>>(std::move(values)));
+};
 
 // Right after the model is set, before anything clamped content-y.
-std::vector<int> values;
-for (int i = 0; i < 100; ++i) values.push_back(i);
-auto model = std::make_shared<slint::VectorModel<int>>(std::move(values));
-instance.set_model(model);
+set_rows(100);
 instance.set_content_y(-5000.);
-assert(shown() == last_ten);
+assert(shown() == rows(90, 100));
 assert_eq(instance.get_content_y(), -1800.);
 
 // From the top of a list that is already laid out.
 instance.set_content_y(0.);
-assert(shown()[0] == std::make_pair(std::string("0"), 0.f));
+assert(shown() == rows(0, 10));
 instance.set_content_y(-5000.);
-assert(shown() == last_ten);
+assert(shown() == rows(90, 100));
 assert_eq(instance.get_content_y(), -1800.);
+
+// A model shorter than the viewport starts at the top.
+set_rows(5);
+assert(shown() == rows(0, 5));
+assert_eq(instance.get_content_y(), 0.);
+instance.set_content_y(-50.);
+assert(shown() == rows(0, 5));
+assert_eq(instance.get_content_y(), 0.);
 ```
 
 ```rust
@@ -83,20 +95,33 @@ let shown = |inst: &TestCase| {
     rows.sort_by(|a, b| a.1.total_cmp(&b.1));
     rows
 };
-let last_ten = (90..100).map(|i| (i.to_string(), (i - 90) as f32 * 20.)).collect::<Vec<_>>();
+// Rows `from` to `to` (excluded), the first one at the top of the viewport.
+let rows = |from: i32, to: i32| {
+    (from..to).map(|i| (i.to_string(), (i - from) as f32 * 20.)).collect::<Vec<_>>()
+};
+let set_rows = |count: i32| {
+    instance.set_model(Rc::new(VecModel::from((0..count).collect::<Vec<i32>>())).into());
+};
 
 // Right after the model is set, before anything clamped content-y.
-let model = Rc::new(VecModel::from((0..100).collect::<Vec<i32>>()));
-instance.set_model(model.clone().into());
+set_rows(100);
 instance.set_content_y(-5000.);
-assert_eq!(shown(&instance), last_ten);
+assert_eq!(shown(&instance), rows(90, 100));
 assert_eq!(instance.get_content_y(), -1800.);
 
 // From the top of a list that is already laid out.
 instance.set_content_y(0.);
-assert_eq!(shown(&instance)[0], ("0".to_string(), 0.));
+assert_eq!(shown(&instance), rows(0, 10));
 instance.set_content_y(-5000.);
-assert_eq!(shown(&instance), last_ten);
+assert_eq!(shown(&instance), rows(90, 100));
 assert_eq!(instance.get_content_y(), -1800.);
+
+// A model shorter than the viewport starts at the top.
+set_rows(5);
+assert_eq!(shown(&instance), rows(0, 5));
+assert_eq!(instance.get_content_y(), 0.);
+instance.set_content_y(-50.);
+assert_eq!(shown(&instance), rows(0, 5));
+assert_eq!(instance.get_content_y(), 0.);
 ```
 */
