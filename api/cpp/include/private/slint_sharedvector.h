@@ -10,9 +10,6 @@
 
 namespace slint {
 
-template<typename Pixel>
-struct SharedPixelBuffer;
-
 /// SharedVector is a vector template class similar to std::vector that's primarily used for passing
 /// data in and out of the Slint run-time library. It uses implicit-sharing to make creating
 /// copies cheap. Only when a function changes the vector's data, a copy is is made.
@@ -183,25 +180,6 @@ struct SharedVector
     std::size_t capacity() const { return inner->capacity; }
 
 private:
-    template<typename U>
-    friend struct SharedVector;
-    template<typename Pixel>
-    friend struct SharedPixelBuffer;
-
-    /// Returns a vector that shares this vector's elements, reinterpreted as \a U, without
-    /// copying them. \a U must have the same size and alignment as \a T.
-    template<typename U>
-    SharedVector<U> reinterpret() const
-    {
-        static_assert(sizeof(U) == sizeof(T) && alignof(U) == alignof(T),
-                      "the element types must have the same memory layout");
-        if (inner->refcount > 0) {
-            ++inner->refcount;
-        }
-        return SharedVector<U>(
-                reinterpret_cast<typename SharedVector<U>::SharedVectorHeader *>(inner));
-    }
-
     void detach(std::size_t expected_capacity)
     {
         if (inner->refcount == 1 && expected_capacity <= inner->capacity) {

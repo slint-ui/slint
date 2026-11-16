@@ -130,7 +130,7 @@ mod tests {
     #[test]
     fn a_texture_becomes_the_whole_image() {
         use i_slint_common::pre_rendered::{StaticTexture, TexturePixelFormat};
-        use i_slint_core::graphics::{IntRect, IntSize, StraightRgba8Pixel};
+        use i_slint_core::graphics::{IntRect, IntSize, Rgba8Pixel};
         let texture = StaticTextures::<OwnedStorage> {
             size: IntSize::new(2, 1),
             original_size: IntSize::new(2, 1),
@@ -145,11 +145,11 @@ mod tests {
         let pixels = PreRendered::from_sendable([Some(PreRenderedResource::Texture(texture))])
             .image(EmbeddedResourcesIdx(0))
             .unwrap()
-            .to_rgba8_straight()
+            .to_rgba8()
             .unwrap();
         assert_eq!(
             pixels.as_slice(),
-            [StraightRgba8Pixel::new(0, 0, 0, 0), StraightRgba8Pixel::new(10, 20, 30, 255)]
+            [Rgba8Pixel::new(0, 0, 0, 0), Rgba8Pixel::new(10, 20, 30, 255)]
         );
     }
 }

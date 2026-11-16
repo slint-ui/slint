@@ -101,7 +101,7 @@ pub fn run_test(testcase: TestCase) -> Result<(), Box<dyn std::error::Error>> {
     let component = def.create().unwrap();
     component.show().unwrap();
 
-    let screenshot = component.window().take_snapshot().unwrap().assume_straight();
+    let screenshot = component.window().take_snapshot().unwrap();
 
     // Images are rendered a bit differently on macOs.
     // Elsewhere the tolerance covers a last-bit difference of 2 per channel: tagging the raster
