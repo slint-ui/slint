@@ -516,8 +516,11 @@ mod software_renderer {
             &DrawTextureArgs,
             &PhysicalRegion,
         ) -> bool,
-        draw_path:
-            unsafe extern "C" fn(CppTargetPixelBufferUserData, &DrawPathArgs, &PhysicalRegion) -> bool,
+        draw_path: unsafe extern "C" fn(
+            CppTargetPixelBufferUserData,
+            &DrawPathArgs,
+            &PhysicalRegion,
+        ) -> bool,
     }
 
     #[cfg(feature = "experimental")]
