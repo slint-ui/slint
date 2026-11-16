@@ -62,6 +62,18 @@ fn rc_test() {
     assert_eq!(rc.e, 55);
     drop(rc);
     assert_eq!(Rc::strong_count(&string), 1);
+
+    let rc = VRc::new_with(|| SomeStruct { e: 56, x: "_".into(), foo: string.clone() });
+    assert_eq!(rc.e, 56);
+    assert_eq!(VRc::strong_count(&rc), 1);
+    assert!(Rc::ptr_eq(&string, &VRc::borrow(&rc).rc_string()));
+    let w = VRc::downgrade(&rc);
+    assert!(VRc::ptr_eq(&rc, &w.upgrade().unwrap()));
+    let dyn_rc: VRc<FooVTable> = VRc::into_dyn(rc);
+    assert!(Rc::ptr_eq(&string, &VRc::borrow(&dyn_rc).rc_string()));
+    drop(dyn_rc);
+    assert_eq!(Rc::strong_count(&string), 1);
+    assert!(w.upgrade().is_none());
 }
 
 #[test]
