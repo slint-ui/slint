@@ -43,6 +43,6 @@
     "vitest": "catalog:",
     "cspell": "catalog:",
     "vite-plugin-singlefile": "2.3.4",
-    "concurrently": "10.0.6"
+    "concurrently": "10.0.7"
   }
 }
