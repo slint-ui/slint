@@ -6,7 +6,7 @@ use crate::{
     js_into_rust_model, rust_into_js_model,
 };
 use i_slint_compiler::langtype::Type;
-use i_slint_core::graphics::{Image, Rgba8Pixel, SharedPixelBuffer};
+use i_slint_core::graphics::{Image, SharedPixelBuffer, StraightRgba8Pixel};
 use i_slint_core::model::{ModelRc, SharedVectorModel};
 use i_slint_core::{Brush, Color, SharedVector};
 use napi::bindgen_prelude::*;
@@ -271,7 +271,7 @@ pub fn to_value(
                     object: &Object,
                     width: u32,
                     height: u32,
-                ) -> Result<SharedPixelBuffer<Rgba8Pixel>> {
+                ) -> Result<SharedPixelBuffer<StraightRgba8Pixel>> {
                     let buffer =
                         object.get::<BufferType>("data").ok().flatten().ok_or_else(|| {
                             napi::Error::from_reason(
@@ -279,7 +279,7 @@ pub fn to_value(
                                     .to_string(),
                             )
                         })?;
-                    const BPP: usize = core::mem::size_of::<Rgba8Pixel>();
+                    const BPP: usize = core::mem::size_of::<StraightRgba8Pixel>();
                     let actual_size = buffer.as_ref().len();
                     let expected_size: usize = (width as usize) * (height as usize) * BPP;
                     if actual_size != expected_size {
@@ -298,7 +298,7 @@ pub fn to_value(
                     try_convert_image::<Uint8ClampedArray>(&object, width, height)
                         .or_else(|_| try_convert_image::<Buffer>(&object, width, height))?;
 
-                Ok(Value::Image(Image::from_rgba8(pixel_buffer)))
+                Ok(Value::Image(Image::from_rgba8_straight(pixel_buffer)))
             }
         }
         Type::Struct(s) => {

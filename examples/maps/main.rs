@@ -10,7 +10,7 @@ use core::cell::RefCell;
 use core::future::Future;
 use core::pin::Pin;
 use core::task::{Context, Poll};
-use slint::{Rgba8Pixel, SharedPixelBuffer, VecModel};
+use slint::{SharedPixelBuffer, StraightRgba8Pixel, VecModel};
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
@@ -208,7 +208,7 @@ impl World {
                                     image::imageops::FilterType::Nearest,
                                 )
                                 .into_rgba8();
-                            let buffer = SharedPixelBuffer::<Rgba8Pixel>::clone_from_slice(
+                            let buffer = SharedPixelBuffer::<StraightRgba8Pixel>::clone_from_slice(
                                 image.as_raw(),
                                 image.width(),
                                 image.height(),
@@ -217,7 +217,7 @@ impl World {
                         })
                         .await
                         .unwrap();
-                        buffer.map(slint::Image::from_rgba8).unwrap_or_default()
+                        buffer.map(slint::Image::from_rgba8_straight).unwrap_or_default()
                     })
                 });
             }

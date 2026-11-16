@@ -27,7 +27,7 @@ impl SlintImageData {
     /// Each pixel will set to red = 0, green = 0, blue = 0 and alpha = 0.
     #[napi(constructor)]
     pub fn new(width: u32, height: u32) -> Self {
-        Self { inner: Image::from_rgba8(SharedPixelBuffer::new(width, height)) }
+        Self { inner: Image::from_rgba8_straight(SharedPixelBuffer::new(width, height)) }
     }
 
     /// Loads the image from the file at `path`.
@@ -66,7 +66,7 @@ impl SlintImageData {
     /// A Buffer is a subclass of Uint8Array.
     #[napi(getter)]
     pub fn data(&self) -> Buffer {
-        match self.inner.to_rgba8() {
+        match self.inner.to_rgba8_straight() {
             Some(buffer) => Buffer::from(buffer.as_bytes()),
             None => Buffer::from(vec![0; (self.width() * self.height() * 4) as usize]),
         }

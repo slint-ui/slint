@@ -319,7 +319,7 @@ fn is_same_icon(previous: &Image, next: &Image) -> bool {
 
 #[test]
 fn test_is_same_icon() {
-    let pixels = || Image::from_rgba8(SharedPixelBuffer::new(16, 16));
+    let pixels = || Image::from_rgba8_straight(SharedPixelBuffer::new(16, 16));
     let icon = pixels();
 
     assert!(is_same_icon(&Image::default(), &Image::default()));

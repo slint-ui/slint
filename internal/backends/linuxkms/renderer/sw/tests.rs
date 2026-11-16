@@ -6,7 +6,7 @@ use crate::display::Presenter;
 use crate::display::swdisplay::SoftwareBufferDisplay;
 use crate::fullscreenwindowadapter::FullscreenWindowAdapter;
 use i_slint_core::api::{LogicalPosition, LogicalSize};
-use i_slint_core::graphics::{Image, Rgba8Pixel, SharedPixelBuffer, euclid};
+use i_slint_core::graphics::{Image, SharedPixelBuffer, StraightRgba8Pixel, euclid};
 use i_slint_core::lengths::LogicalRect;
 use i_slint_core::platform::{Platform, WindowEvent};
 use i_slint_core::window::WindowAdapter;
@@ -167,9 +167,9 @@ fn cursor_frames(rotation: RenderingRotation, format: drm::buffer::DrmFourcc, sw
         .unwrap();
     let scene = CursorScene::new().unwrap();
     scene.show().unwrap();
-    let mut texture = SharedPixelBuffer::<Rgba8Pixel>::new(7, 9);
-    texture.make_mut_slice().fill(Rgba8Pixel::new(255, 255, 255, 180));
-    scene.set_custom_image(Image::from_rgba8(texture));
+    let mut texture = SharedPixelBuffer::<StraightRgba8Pixel>::new(7, 9);
+    texture.make_mut_slice().fill(StraightRgba8Pixel::new(255, 255, 255, 180));
+    scene.set_custom_image(Image::from_rgba8_straight(texture));
     // `None` is a pointer that left the window. The shapes come from hovering the `TouchArea`,
     // so every position is inside the window, which is 60x80 or 80x60 at scale 2.
     // Every state must change what's drawn, or it doesn't schedule the frame it compares.
