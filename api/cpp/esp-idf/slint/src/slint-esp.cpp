@@ -331,10 +331,11 @@ void EspPlatform<PixelType>::run_event_loop()
             xSemaphoreGive(frame_presented);
         }
     };
+    TaskHandle_t raster_task_handle = nullptr;
     const bool pipeline = buffer1
             && xTaskCreate([](void *task) { (*static_cast<decltype(raster_task) *>(task))(); },
                            "slint_raster", CONFIG_SLINT_RASTER_TASK_STACK_SIZE, &raster_task,
-                           uxTaskPriorityGet(nullptr), nullptr)
+                           uxTaskPriorityGet(nullptr), &raster_task_handle)
                     == pdPASS;
 #endif
 
@@ -487,6 +488,16 @@ void EspPlatform<PixelType>::run_event_loop()
 
         ulTaskNotifyTake(/*reset to zero*/ pdTRUE, ticks_to_wait);
     }
+
+#if CONFIG_SLINT_RENDER_IN_SEPARATE_TASK
+    if (pipeline) {
+        // The raster task uses data on this task's stack, so stop it after its current frame.
+        xSemaphoreTake(frame_presented, portMAX_DELAY);
+        vTaskDelete(raster_task_handle);
+    }
+    vSemaphoreDelete(frame_recorded);
+    vSemaphoreDelete(frame_presented);
+#endif
 
     vTaskDelete(NULL);
 }
