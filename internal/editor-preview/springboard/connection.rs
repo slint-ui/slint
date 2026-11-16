@@ -49,11 +49,11 @@ pub(super) struct Connection {
 /// Dropping it answers them with an error, so the debugger doesn't wait for a preview that's gone.
 struct PendingRequests {
     ids: HashSet<u64>,
-    to_debugger: mpsc::UnboundedSender<PreviewToDebuggerMessage>,
+    to_debugger: mpsc::UnboundedSender<PreviewToLspMessage>,
 }
 
 impl PendingRequests {
-    fn new(to_debugger: mpsc::UnboundedSender<PreviewToDebuggerMessage>) -> Self {
+    fn new(to_debugger: mpsc::UnboundedSender<PreviewToLspMessage>) -> Self {
         Self { ids: HashSet::new(), to_debugger }
     }
 }
@@ -63,10 +63,12 @@ impl Drop for PendingRequests {
         let mut ids: Vec<u64> = self.ids.drain().collect();
         ids.sort_unstable();
         for id in ids {
-            let _ = self.to_debugger.send(PreviewToDebuggerMessage::SystemTestResponse {
-                id,
-                response: Err("The preview ended before answering".into()),
-            });
+            let _ = self.to_debugger.send(PreviewToLspMessage::DebuggerMessage(
+                PreviewToDebuggerMessage::SystemTestResponse {
+                    id,
+                    response: Err("The preview ended before answering".into()),
+                },
+            ));
         }
     }
 }
@@ -75,7 +77,7 @@ impl Connection {
     pub(super) fn local(
         config: &LocalPreviewConfig,
         arguments: Vec<OsString>,
-        to_debugger: mpsc::UnboundedSender<PreviewToDebuggerMessage>,
+        to_debugger: mpsc::UnboundedSender<PreviewToLspMessage>,
     ) -> Self {
         let (sender, receiver) = mpsc::unbounded_channel();
         let preview = ChildProcessLspToPreview::new(config.executable.clone(), arguments, sender)
@@ -98,7 +100,7 @@ impl Connection {
     pub(super) fn remote(
         viewer: RemoteViewer,
         credentials: Option<PairingCredentials>,
-        to_debugger: mpsc::UnboundedSender<PreviewToDebuggerMessage>,
+        to_debugger: mpsc::UnboundedSender<PreviewToLspMessage>,
     ) -> Self {
         Self {
             state: ui::ConnectionState::Connecting,
