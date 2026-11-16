@@ -38,11 +38,11 @@ fn main() {
         let icon_atom =
             connection.intern_atom(false, b"_NET_WM_ICON").unwrap().reply().unwrap().atom;
         let app = App::new().unwrap();
-        let mut pixels = slint::SharedPixelBuffer::<slint::Rgba8Pixel>::new(2, 2);
+        let mut pixels = slint::SharedPixelBuffer::<slint::StraightRgba8Pixel>::new(2, 2);
         for pixel in pixels.make_mut_slice() {
-            *pixel = slint::Rgba8Pixel { r: 0x12, g: 0x34, b: 0x56, a: 0xff };
+            *pixel = slint::StraightRgba8Pixel::new(0x12, 0x34, 0x56, 0xff);
         }
-        app.set_window_icon(slint::Image::from_rgba8(pixels));
+        app.set_window_icon(slint::Image::from_rgba8_straight(pixels));
         let check_icon = |native: &slint::winit_030::winit::window::Window| {
             let RawWindowHandle::Xlib(handle) = native.window_handle().unwrap().as_raw() else {
                 panic!("expected an X11 window");

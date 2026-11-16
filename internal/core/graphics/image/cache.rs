@@ -192,7 +192,7 @@ pub fn replace_cached_image(key: ImageCacheKey, value: ImageInner) {
 
 #[cfg(all(test, feature = "image-decoders"))]
 mod tests {
-    use crate::graphics::Rgba8Pixel;
+    use crate::graphics::StraightRgba8Pixel;
 
     #[test]
     fn test_path_cache_invalidation() {
@@ -205,12 +205,9 @@ mod tests {
         let red_image = image::RgbImage::from_pixel(10, 10, image::Rgb([255, 0, 0]));
         red_image.save(&test_path).unwrap();
         let red_slint_image = crate::graphics::Image::load_from_path(&test_path).unwrap();
-        let buffer = red_slint_image.to_rgba8().unwrap();
+        let buffer = red_slint_image.to_rgba8_straight().unwrap();
         assert!(
-            buffer
-                .as_slice()
-                .iter()
-                .all(|pixel| *pixel == Rgba8Pixel { r: 255, g: 0, b: 0, a: 255 })
+            buffer.as_slice().iter().all(|pixel| *pixel == StraightRgba8Pixel::new(255, 0, 0, 255))
         );
 
         let green_image = image::RgbImage::from_pixel(10, 10, image::Rgb([0, 255, 0]));
@@ -230,12 +227,9 @@ mod tests {
         */
 
         let green_slint_image = crate::graphics::Image::load_from_path(&test_path).unwrap();
-        let buffer = green_slint_image.to_rgba8().unwrap();
+        let buffer = green_slint_image.to_rgba8_straight().unwrap();
         assert!(
-            buffer
-                .as_slice()
-                .iter()
-                .all(|pixel| *pixel == Rgba8Pixel { r: 0, g: 255, b: 0, a: 255 })
+            buffer.as_slice().iter().all(|pixel| *pixel == StraightRgba8Pixel::new(0, 255, 0, 255))
         );
     }
 }

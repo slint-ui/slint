@@ -192,7 +192,7 @@ mod tests {
         let SharedImageBuffer::RGBA8Premultiplied(pixels) = buffer else {
             panic!("unexpected pixel format")
         };
-        let p = pixels.as_slice()[0];
+        let p = pixels.as_slice()[0].0;
         [p.r, p.g, p.b]
     }
 

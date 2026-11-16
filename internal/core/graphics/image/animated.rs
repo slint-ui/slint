@@ -100,7 +100,7 @@ impl OpaqueImage for AnimatedImage {
 #[cfg(all(feature = "image-decoders", any(not(target_arch = "wasm32"), target_os = "emscripten")))]
 mod decoding {
     use super::super::ImageData;
-    use super::super::{Rgb8Pixel, Rgba8Pixel, SharedPixelBuffer};
+    use super::super::{PremultipliedRgba8Pixel, Rgb8Pixel, SharedPixelBuffer};
     use super::{AnimatedImage, ImageCacheKey, SharedImageBuffer};
     use crate::SharedVector;
     use crate::graphics::ImageInner;
@@ -199,7 +199,7 @@ mod decoding {
             if delay <= Duration::from_millis(10) { Duration::from_millis(100) } else { delay }
         }
 
-        pub(crate) fn into_pixels(self) -> SharedPixelBuffer<Rgba8Pixel> {
+        pub(crate) fn into_pixels(self) -> SharedPixelBuffer<PremultipliedRgba8Pixel> {
             super::super::rgba_image_to_premultiplied(self.0.into_buffer())
         }
     }
@@ -336,14 +336,17 @@ mod decoding {
         })
     }
 
-    fn still_buffer(frame: SharedPixelBuffer<Rgba8Pixel>, has_alpha: bool) -> SharedImageBuffer {
+    fn still_buffer(
+        frame: SharedPixelBuffer<PremultipliedRgba8Pixel>,
+        has_alpha: bool,
+    ) -> SharedImageBuffer {
         // Frames that don't cover the canvas leave transparent pixels even without an alpha channel.
-        if has_alpha || frame.as_slice().iter().any(|pixel| pixel.a != 255) {
+        if has_alpha || frame.as_slice().iter().any(|pixel| pixel.0.a != 255) {
             return SharedImageBuffer::RGBA8Premultiplied(frame);
         }
         let mut rgb = SharedPixelBuffer::<Rgb8Pixel>::new(frame.width(), frame.height());
         for (rgb, rgba) in rgb.make_mut_slice().iter_mut().zip(frame.as_slice()) {
-            *rgb = Rgb8Pixel::new(rgba.r, rgba.g, rgba.b);
+            *rgb = Rgb8Pixel::new(rgba.0.r, rgba.0.g, rgba.0.b);
         }
         SharedImageBuffer::RGB8(rgb)
     }
@@ -406,8 +409,8 @@ mod tests {
         }
     }
 
-    fn top_left_pixel(buffer: &SharedPixelBuffer<Rgba8Pixel>) -> [u8; 3] {
-        let p = buffer.as_slice()[0];
+    fn top_left_pixel<P: bytemuck::Pod>(buffer: &SharedPixelBuffer<P>) -> [u8; 3] {
+        let p: Rgba8Pixel = bytemuck::cast(buffer.as_slice()[0]);
         [p.r, p.g, p.b]
     }
 
@@ -417,9 +420,8 @@ mod tests {
                 let p = pixels.as_slice()[0];
                 [p.r, p.g, p.b]
             }
-            SharedImageBuffer::RGBA8(pixels) | SharedImageBuffer::RGBA8Premultiplied(pixels) => {
-                top_left_pixel(pixels)
-            }
+            SharedImageBuffer::RGBA8(pixels) => top_left_pixel(pixels),
+            SharedImageBuffer::RGBA8Premultiplied(pixels) => top_left_pixel(pixels),
             #[allow(unreachable_patterns)]
             _ => panic!("unexpected pixel format"),
         }
