@@ -516,33 +516,58 @@ fn write_slint_property(
     Ok(())
 }
 
-/// Write a documented member (property, callback, or function) with auto-generated
-/// section headings when entering a new kind for the first time.
+/// The member sections of an element page, in the order they must appear.
+#[derive(Clone, Copy, PartialEq, PartialOrd)]
+enum Section {
+    Properties,
+    Callbacks,
+    Functions,
+}
+
+impl Section {
+    const ALL: [Section; 3] = [Section::Properties, Section::Callbacks, Section::Functions];
+
+    fn heading(self) -> &'static str {
+        match self {
+            Section::Properties => "## Properties",
+            Section::Callbacks => "## Callbacks",
+            Section::Functions => "## Functions",
+        }
+    }
+}
+
+/// Write a documented member (property, callback, or function), preceded by its section
+/// heading when it's the first member of that section.
+/// Fails when the member belongs to a section before `section`, the last one written.
 fn write_member(
     file: &mut impl Write,
     name: &str,
     info: &BuiltinPropertyInfo,
-    in_properties: &mut bool,
-    in_callbacks: &mut bool,
-    in_functions: &mut bool,
+    section: &mut Option<Section>,
     types: &TypeContext,
     sc: &mut ScreenshotCounter,
 ) -> std::io::Result<()> {
+    let member_section = match &info.ty {
+        ty if ty.is_property_type() => Section::Properties,
+        Type::Callback(_) => Section::Callbacks,
+        Type::Function(_) => Section::Functions,
+        _ => return Ok(()),
+    };
+    if Some(member_section) < *section {
+        return Err(std::io::Error::other(format!(
+            "`{name}` is declared after a member of a later section. Declare the properties first, then the callbacks, then the functions"
+        )));
+    }
+    if Some(member_section) > *section {
+        writeln!(file, "{}", member_section.heading())?;
+        writeln!(file)?;
+        *section = Some(member_section);
+    }
     match &info.ty {
         ty if ty.is_property_type() => {
-            if !*in_properties && !*in_callbacks && !*in_functions {
-                writeln!(file, "## Properties")?;
-                writeln!(file)?;
-                *in_properties = true;
-            }
             write_slint_property(file, name, info, "###", types, sc)?;
         }
         Type::Callback(func) => {
-            if !*in_callbacks {
-                writeln!(file, "## Callbacks")?;
-                writeln!(file)?;
-                *in_callbacks = true;
-            }
             write_mdx_signature_heading(file, "###", name, func, types.links)?;
             if let Some(doc) = &info.docs
                 && !doc.is_empty()
@@ -552,11 +577,6 @@ fn write_member(
             writeln!(file)?;
         }
         Type::Function(func) => {
-            if !*in_functions {
-                writeln!(file, "## Functions")?;
-                writeln!(file)?;
-                *in_functions = true;
-            }
             write_mdx_signature_heading(file, "###", name, func, types.links)?;
             if let Some(doc) = &info.docs {
                 writeln!(file, "{}", transform_code_fences(doc, sc).trim_end())?;
@@ -620,9 +640,7 @@ fn write_members(
     // If the first body entry is a text section, don't auto-generate "## Properties".
     let has_leading_section =
         builtin.docs.get(start).is_some_and(|e| matches!(e, ElementDocEntry::Text(_)));
-    let mut in_properties = has_leading_section;
-    let mut in_callbacks = false;
-    let mut in_functions = false;
+    let mut section = if has_leading_section { Some(Section::Properties) } else { None };
     for entry in &builtin.docs[start..] {
         match entry {
             ElementDocEntry::Text(text) => {
@@ -635,14 +653,12 @@ fn write_members(
                 }
                 let trimmed = text.trim_matches('\n');
                 for line in trimmed.lines() {
-                    if line.starts_with("## Properties") {
-                        in_properties = true;
-                    }
-                    if line.starts_with("## Callbacks") {
-                        in_callbacks = true;
-                    }
-                    if line.starts_with("## Functions") {
-                        in_functions = true;
+                    for heading_section in Section::ALL {
+                        if line.starts_with(heading_section.heading())
+                            && Some(heading_section) > section
+                        {
+                            section = Some(heading_section);
+                        }
                     }
                 }
                 // Ensure blank lines before markdown headings so the
@@ -656,16 +672,7 @@ fn write_members(
                 if skip_member(cfg, info) {
                     continue;
                 }
-                write_member(
-                    file,
-                    name,
-                    info,
-                    &mut in_properties,
-                    &mut in_callbacks,
-                    &mut in_functions,
-                    types,
-                    sc,
-                )?;
+                write_member(file, name, info, &mut section, types, sc)?;
             }
         }
     }
@@ -929,7 +936,8 @@ pub fn generate(cfg: &Config, links: &mdx::TypeLinks) -> Result<(), Box<dyn std:
         }
 
         // Members.
-        write_members(&mut file, builtin, &types, &mut sc, cfg)?;
+        write_members(&mut file, builtin, &types, &mut sc, cfg)
+            .map_err(|e| format!("{name}: {e}"))?;
 
         // Sub-elements (recursive, with cycle protection).
         if !skip_children {
