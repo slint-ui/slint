@@ -258,8 +258,10 @@ jobs:
               run: cargo test --manifest-path tests/Cargo.toml -p test-driver-cpp --target i686-unknown-linux-gnu --no-default-features --features live-preview
 
     cpp_cmake:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_cpp') || contains(fromJSON(inputs.changes), 'examples') }}
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_cpp') || contains(fromJSON(inputs.changes), 'examples') || contains(fromJSON(inputs.changes), 'ci_config') }}
         env:
+            # qttypes uses Cargo's debug-info setting to select debug Qt DLLs on Windows.
+            CARGO_PROFILE_DEV_DEBUG: ${{ startsWith(matrix.os, 'windows-') && '1' || '0' }}
             DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.5.1/clang_64/lib
             QT_QPA_PLATFORM: offscreen
             SLINT_EMIT_DEBUG_INFO: 1
