@@ -470,6 +470,29 @@ mod software_renderer {
         }
     }
 
+    /// C mirror of the renderer's PathElement (kind: 0 move, 1 line, 2 quad, 3 cubic, 4 close).
+    #[repr(C)]
+    #[cfg(feature = "experimental")]
+    pub struct PathElement {
+        pub kind: u8,
+        pub points: [f32; 6],
+    }
+
+    /// C mirror of the renderer's DrawPathArgs.
+    #[repr(C)]
+    #[cfg(feature = "experimental")]
+    pub struct DrawPathArgs {
+        pub elements: *const PathElement,
+        pub element_count: usize,
+        pub x: i32,
+        pub y: i32,
+        pub width: u32,
+        pub height: u32,
+        pub non_zero: bool,
+        pub color: i_slint_core::Color,
+        pub alpha: u8,
+    }
+
     #[repr(C)]
     #[cfg(feature = "experimental")]
     pub struct CppTargetPixelBuffer<T> {
@@ -493,6 +516,8 @@ mod software_renderer {
             &DrawTextureArgs,
             &PhysicalRegion,
         ) -> bool,
+        draw_path:
+            unsafe extern "C" fn(CppTargetPixelBufferUserData, &DrawPathArgs, &PhysicalRegion) -> bool,
     }
 
     #[cfg(feature = "experimental")]
@@ -540,6 +565,26 @@ mod software_renderer {
         ) -> bool {
             let texture = texture.into();
             unsafe { (self.draw_texture)(self.user_data, &texture, clip) }
+        }
+
+        fn draw_path(
+            &mut self,
+            args: &i_slint_renderer_software::DrawPathArgs,
+            clip: &PhysicalRegion,
+        ) -> bool {
+            // PathElement has the same layout on both sides (u8 discriminant + 6 floats).
+            let c = DrawPathArgs {
+                elements: args.elements.as_ptr() as *const PathElement,
+                element_count: args.elements.len(),
+                x: args.x,
+                y: args.y,
+                width: args.width,
+                height: args.height,
+                non_zero: args.non_zero,
+                color: args.color,
+                alpha: args.alpha,
+            };
+            unsafe { (self.draw_path)(self.user_data, &c, clip) }
         }
     }
 

@@ -1255,6 +1255,7 @@ namespace slint::cbindgen_private {
     using slint::cbindgen_private::types::TexturePixelFormat;
     struct DrawTextureArgs;
     struct DrawRectangleArgs;
+    struct DrawPathArgs;
     using types::PhysicalRegion;
 }
 ",

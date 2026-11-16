@@ -225,6 +225,57 @@ impl DrawRectangleArgs {
     }
 }
 
+/// Kind of a [`PathElement`].
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PathElementKind {
+    /// Start a new sub-path at `points[0..2]`.
+    MoveTo = 0,
+    /// Line to `points[0..2]`.
+    LineTo = 1,
+    /// Quadratic Bézier with control point `points[0..2]` to `points[2..4]`.
+    QuadTo = 2,
+    /// Cubic Bézier with control points `points[0..2]`, `points[2..4]` to `points[4..6]`.
+    CubicTo = 3,
+    /// Close the current sub-path.
+    Close = 4,
+}
+
+/// One element of a path outline handed to [`TargetPixelBuffer::draw_path`].
+/// Coordinates are in physical pixels, relative to the top left corner of the path's
+/// bounding box ([`DrawPathArgs::x`], [`DrawPathArgs::y`]).
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct PathElement {
+    /// What this element does.
+    pub kind: PathElementKind,
+    /// Up to three points (x, y); unused entries are 0.
+    pub points: [f32; 6],
+}
+
+/// A path to fill with a solid colour, see [`TargetPixelBuffer::draw_path`].
+/// Strokes are already converted to outlines.
+#[non_exhaustive]
+#[derive(Debug)]
+pub struct DrawPathArgs<'a> {
+    /// The outline, relative to (x, y).
+    pub elements: &'a [PathElement],
+    /// Left of the path's bounding box in the buffer.
+    pub x: i32,
+    /// Top of the path's bounding box in the buffer.
+    pub y: i32,
+    /// Width of the path's bounding box.
+    pub width: u32,
+    /// Height of the path's bounding box.
+    pub height: u32,
+    /// Fill rule: non-zero (true) or even-odd (false).
+    pub non_zero: bool,
+    /// Colour to fill with (not premultiplied); its alpha is multiplied with `alpha`.
+    pub color: Color,
+    /// Opacity, 0 to 255.
+    pub alpha: u8,
+}
+
 /// This trait represents access to a buffer of pixels the software renderer can render into, as well
 /// as certain operations that the renderer will try to delegate to this trait. Implement these functions
 /// to delegate rendering further to hardware-provided 2D acceleration units, such as DMA2D or PXP.
@@ -253,6 +304,12 @@ pub trait TargetPixelBuffer {
     /// Returns true if the operation was successful; false if it could not be
     /// implemented and instead the software renderer needs to draw the texture
     fn draw_texture(&mut self, _: &DrawTextureArgs, _clip: &PhysicalRegion) -> bool {
+        false
+    }
+
+    /// Fill a path outline with a solid colour, anti-aliased, clipped to the given region.
+    /// Returns false if not supported; the software renderer then draws it.
+    fn draw_path(&mut self, _: &DrawPathArgs, _clip: &PhysicalRegion) -> bool {
         false
     }
 }

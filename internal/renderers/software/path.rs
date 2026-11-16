@@ -61,6 +61,57 @@ pub fn convert_path_data_to_zeno(
     commands
 }
 
+/// Converts a path (fill or stroke) into outline elements for
+/// [`crate::target_pixel_buffer::TargetPixelBuffer::draw_path`]. Strokes are turned into
+/// fill outlines by zeno. Returns the fill rule to use (true = non-zero).
+pub(crate) fn outline_elements(
+    commands: &[Command],
+    style: zeno::Style,
+) -> (Vec<crate::target_pixel_buffer::PathElement>, bool) {
+    use crate::target_pixel_buffer::{PathElement, PathElementKind};
+    let mut outline: Vec<Command> = Vec::new();
+    let fill = zeno::apply(commands, style, None, &mut outline);
+    let mut elements = Vec::with_capacity(outline.len());
+    for c in &outline {
+        let (kind, points) = match c {
+            Command::MoveTo(p) => (PathElementKind::MoveTo, [p.x, p.y, 0., 0., 0., 0.]),
+            Command::LineTo(p) => (PathElementKind::LineTo, [p.x, p.y, 0., 0., 0., 0.]),
+            Command::QuadTo(a, b) => (PathElementKind::QuadTo, [a.x, a.y, b.x, b.y, 0., 0.]),
+            Command::CurveTo(a, b, e) => (PathElementKind::CubicTo, [a.x, a.y, b.x, b.y, e.x, e.y]),
+            Command::Close => (PathElementKind::Close, [0.; 6]),
+        };
+        elements.push(PathElement { kind, points });
+    }
+    (elements, matches!(fill, Fill::NonZero))
+}
+
+/// The zeno style of a stroke.
+pub(crate) fn stroke_style<'a>(stroke_style: &StrokeStyle<'a>) -> zeno::Style<'a> {
+    let mut stroke = Stroke::new(stroke_style.width);
+    stroke
+        .cap(match stroke_style.line_cap {
+            i_slint_core::items::LineCap::Round => Cap::Round,
+            i_slint_core::items::LineCap::Square => Cap::Square,
+            i_slint_core::items::LineCap::Butt | _ => Cap::Butt,
+        })
+        .join(match stroke_style.line_join {
+            i_slint_core::items::LineJoin::Round => Join::Round,
+            i_slint_core::items::LineJoin::Bevel => Join::Bevel,
+            i_slint_core::items::LineJoin::Miter | _ => Join::Miter,
+        })
+        .miter_limit(stroke_style.miter_limit)
+        .dash(stroke_style.dash_array, stroke_style.dash_offset);
+    Style::Stroke(stroke)
+}
+
+/// The zeno style of a fill.
+pub(crate) fn fill_style(fill_rule: i_slint_core::items::FillRule) -> zeno::Style<'static> {
+    zeno::Style::Fill(match fill_rule {
+        i_slint_core::items::FillRule::Evenodd => Fill::EvenOdd,
+        i_slint_core::items::FillRule::Nonzero | _ => Fill::NonZero,
+    })
+}
+
 /// What a path's coverage mask is filled with.
 pub enum Paint {
     Solid(PremultipliedRgbaColor),

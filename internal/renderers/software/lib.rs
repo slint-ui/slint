@@ -1983,6 +1983,44 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> RenderToBuffer<'_, B> {
     }
 }
 
+impl<B: target_pixel_buffer::TargetPixelBuffer> RenderToBuffer<'_, B> {
+    /// Hands a solid-colour path without rounded clips to the target pixel buffer
+    /// (e.g. a hardware path rasterizer). Returns true if it was drawn.
+    #[cfg(feature = "path")]
+    fn try_draw_path(
+        &mut self,
+        path_geometry: &PhysicalRect,
+        region: &PhysicalRegion,
+        commands: &[path::Command],
+        paint: &path::Paint,
+        style: zeno::Style<'_>,
+        rounded_clips: &[RoundedClip],
+    ) -> bool {
+        let path::Paint::Solid(color) = paint else { return false };
+        if !rounded_clips.is_empty() || color.alpha == 0 || path_geometry.is_empty() {
+            return false;
+        }
+        let (elements, non_zero) = path::outline_elements(commands, style);
+        let unpremul =
+            |c: u8| ((c as u16 * 255 + color.alpha as u16 / 2) / color.alpha as u16).min(255) as u8;
+        let args = target_pixel_buffer::DrawPathArgs {
+            elements: &elements,
+            x: path_geometry.origin.x as i32,
+            y: path_geometry.origin.y as i32,
+            width: path_geometry.size.width as u32,
+            height: path_geometry.size.height as u32,
+            non_zero,
+            color: Color::from_rgb_u8(
+                unpremul(color.red),
+                unpremul(color.green),
+                unpremul(color.blue),
+            ),
+            alpha: color.alpha,
+        };
+        self.buffer.draw_path(&args, region)
+    }
+}
+
 impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<'_, B> {
     fn process_scene_texture(
         &mut self,
@@ -2109,10 +2147,21 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
         fill_rule: FillRule,
         rounded_clips: &[RoundedClip],
     ) {
+        let region = self.dirty_region.intersection(&clip_geometry);
+        if self.try_draw_path(
+            &path_geometry,
+            &region,
+            &commands,
+            &paint,
+            path::fill_style(fill_rule),
+            rounded_clips,
+        ) {
+            return;
+        }
         path::render_filled_path(
             &commands,
             &path_geometry,
-            &self.dirty_region.intersection(&clip_geometry),
+            &region,
             rounded_clips,
             &mut self.clips,
             &paint,
@@ -2131,10 +2180,21 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
         stroke_style: path::StrokeStyle<'_>,
         rounded_clips: &[RoundedClip],
     ) {
+        let region = self.dirty_region.intersection(&clip_geometry);
+        if self.try_draw_path(
+            &path_geometry,
+            &region,
+            &commands,
+            &paint,
+            path::stroke_style(&stroke_style),
+            rounded_clips,
+        ) {
+            return;
+        }
         path::render_stroked_path(
             &commands,
             &path_geometry,
-            &self.dirty_region.intersection(&clip_geometry),
+            &region,
             rounded_clips,
             &mut self.clips,
             &paint,
