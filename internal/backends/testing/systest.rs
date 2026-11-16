@@ -11,7 +11,7 @@ use prost::Message;
 use std::io::Cursor;
 use std::rc::Rc;
 
-use crate::introspection::{self, IntrospectionState, dispatch, proto};
+use crate::introspection::{self, IntrospectionState, dispatch, proto, subscriptions};
 use introspection::handle_to_index;
 
 const SERVER_VAR: &str = "SLINT_TEST_SERVER";
@@ -20,6 +20,10 @@ const SERVER_VAR: &str = "SLINT_TEST_SERVER";
 pub fn requested() -> bool {
     std::env::var_os(SERVER_VAR).is_some()
 }
+
+/// Receives the changes of the subscriptions created through [`handle_encoded_request`],
+/// each a protobuf-encoded `SubscriptionNotification` from `slint_systest.proto`.
+pub type NotificationSink = Rc<dyn Fn(Vec<u8>)>;
 
 struct TestingClient {
     state: Rc<IntrospectionState>,
@@ -45,9 +49,9 @@ impl TestingClient {
                     .spawn_local(async move {
                         message_loop(&this.server_addr, |request| {
                             let this = this.clone();
-                            Box::pin(
-                                async move { Self::handle_request(&this.state, request).await },
-                            )
+                            Box::pin(async move {
+                                Self::handle_request(&this.state, request, None).await
+                            })
                         })
                         .await;
                     })
@@ -58,8 +62,9 @@ impl TestingClient {
     }
 
     async fn handle_request(
-        state: &IntrospectionState,
+        state: &Rc<IntrospectionState>,
         request: Option<proto::request_to_aut::Msg>,
+        sink: Option<&NotificationSink>,
     ) -> Result<proto::aut_response::Msg, String> {
         use proto::aut_response::Msg as Resp;
         use proto::request_to_aut::Msg as Req;
@@ -220,6 +225,31 @@ impl TestingClient {
                 let parent = element_handle.map(handle_to_index).transpose()?;
                 Resp::GetElementChildrenResponse(dispatch::element_children(state, parent)?)
             }
+            Req::RequestSubscribeElementProperties(proto::RequestSubscribeElementProperties {
+                element_handle,
+            }) => {
+                let sink = sink.ok_or_else(debugger_only)?;
+                let element_index = handle_to_index(element_handle.ok_or_else(|| {
+                    "subscribe element properties request missing element handle".to_string()
+                })?)?;
+                Resp::SubscribeElementPropertiesResponse(
+                    subscriptions::subscribe_element_properties(state, element_index, sink)?,
+                )
+            }
+            Req::RequestSubscribeElementChildren(proto::RequestSubscribeElementChildren {
+                element_handle,
+            }) => {
+                let sink = sink.ok_or_else(debugger_only)?;
+                let parent = element_handle.map(handle_to_index).transpose()?;
+                Resp::SubscribeElementChildrenResponse(subscriptions::subscribe_element_children(
+                    state, parent, sink,
+                )?)
+            }
+            Req::RequestUnsubscribe(proto::RequestUnsubscribe { subscription_id }) => {
+                sink.ok_or_else(debugger_only)?;
+                state.subscriptions.remove(subscription_id);
+                Resp::UnsubscribeResponse(proto::UnsubscribeResponse { subscription_id })
+            }
             // MCP-only tools — not supported over the binary system-testing transport
             Req::RequestDispatchKeyEvent(..) | Req::RequestGetElementTree(..) => {
                 return Err("this request is only supported via the MCP transport".into());
@@ -228,12 +258,18 @@ impl TestingClient {
     }
 }
 
+fn debugger_only() -> String {
+    "this request is only supported over the debugger transport".into()
+}
+
 /// Handles a protobuf-encoded `RequestToAut` and returns the encoded `AutResponse`.
 /// Use it to serve system-testing requests that arrive over another transport than TCP.
-pub async fn handle_encoded_request(request: &[u8]) -> Vec<u8> {
+/// The subscriptions that the requests create push their changes to `sink`.
+pub async fn handle_encoded_request(request: &[u8], sink: NotificationSink) -> Vec<u8> {
     let response = match proto::RequestToAut::decode(request) {
         Ok(request) => {
-            TestingClient::handle_request(&introspection::shared_state(), request.msg).await
+            TestingClient::handle_request(&introspection::shared_state(), request.msg, Some(&sink))
+                .await
         }
         Err(error) => Err(format!("Error de-serializing AUT request message: {error}")),
     };
@@ -418,7 +454,8 @@ mod tests {
     use super::*;
 
     fn handle_encoded(request: &[u8]) -> Option<proto::aut_response::Msg> {
-        let response = futures_lite::future::block_on(handle_encoded_request(request));
+        let response =
+            futures_lite::future::block_on(handle_encoded_request(request, Rc::new(|_| {})));
         proto::AutResponse::decode(&response[..]).unwrap().msg
     }
 
@@ -433,6 +470,30 @@ mod tests {
             handle_encoded(&request.encode_to_vec()),
             Some(proto::aut_response::Msg::WindowList(_))
         ));
+    }
+
+    #[test]
+    fn subscribing_without_a_sink_errors() {
+        let state = Rc::new(IntrospectionState::new());
+        for request in [
+            proto::request_to_aut::Msg::RequestSubscribeElementChildren(
+                proto::RequestSubscribeElementChildren { element_handle: None },
+            ),
+            proto::request_to_aut::Msg::RequestSubscribeElementProperties(
+                proto::RequestSubscribeElementProperties { element_handle: None },
+            ),
+            proto::request_to_aut::Msg::RequestUnsubscribe(proto::RequestUnsubscribe {
+                subscription_id: 1,
+            }),
+        ] {
+            let err = futures_lite::future::block_on(TestingClient::handle_request(
+                &state,
+                Some(request),
+                None,
+            ))
+            .unwrap_err();
+            assert!(err.contains("debugger transport"), "got: {err}");
+        }
     }
 
     #[test]
