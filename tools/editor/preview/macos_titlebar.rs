@@ -43,7 +43,7 @@ pub fn setup<C: slint::ComponentHandle + 'static>(component: &C) -> impl Fn() ->
             return None;
         };
         let mtm = MainThreadMarker::new()?;
-        let ns_window = ns_window(&winit_window, mtm)?;
+        let ns_window = ns_window(&*winit_window, mtm)?;
 
         let mask =
             NSWindowStyleMask(ns_window.styleMask().0 | NSWindowStyleMask::FullSizeContentView.0);

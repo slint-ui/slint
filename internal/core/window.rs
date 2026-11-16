@@ -20,7 +20,8 @@ use crate::item_tree::{
     ParentItemTraversalMode,
 };
 use crate::items::{
-    BuiltInMouseCursor, InputMethodHints, InputType, ItemRef, MenuEntry, PopupClosePolicy,
+    BuiltInMouseCursor, InputMethodHints, InputType, ItemRef, MenuEntry, PopupAnchor,
+    PopupClosePolicy,
 };
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalVector, SizeLengths};
 use crate::menus::MenuVTable;
@@ -171,6 +172,25 @@ pub trait WindowAdapter {
     ) -> Result<raw_window_handle_06::DisplayHandle<'_>, raw_window_handle_06::HandleError> {
         Err(raw_window_handle_06::HandleError::NotSupported)
     }
+
+    /// Re-implement this to place a popup window relative to an anchor rectangle
+    ///
+    /// Slint calls this only on a window adapter that shows a `PopupWindow` to position the Popup
+    /// constraint by additional properties. So when a popup is not implemented as own `WindowAdapter` because
+    /// `create_child_window_adapter` returned None this function is never called and the positioning is done internally
+    /// automatically
+    ///
+    /// For a popup, the position passed to [`Self::set_position()`] is the corner of the anchor rectangle,
+    /// in the coordinates of the parent window (See `PopupAnchorLocation` which corner is used).
+    ///  - `width` and `height` are the size of the anchor rectangle.
+    ///  - `location` is the anchor point on that rectangle.
+    ///  - `x` and `y` offset the popup from the anchor point.
+    ///  - `gravity` is the direction in which the popup extends from the anchor point.
+    ///  - `constraint_adjustment_x` and `constraint_adjustment_y` select how to slide, flip, or resize the popup
+    ///    when it doesn't fit on the screen.
+    ///
+    /// The default implementation does nothing, so the popup stays at the position passed to [`Self::set_position()`].
+    fn set_position_anchor(&self, _anchor: &crate::items::PopupAnchor) {}
 }
 
 /// What a `DragArea` offers to start a native (OS-level) drag, passed to
@@ -554,6 +574,10 @@ pub struct PopupWindow {
     /// Called during re-evaluation of the position tracker to re-subscribe to dependencies.
     /// IMPORTANT: This position is relative to the parent
     position_access: Box<dyn Fn() -> LogicalPosition>,
+    /// Callback that returns the current anchor/gravity/constraint-adjustment positioner data,
+    /// re-evaluated alongside `position_access` so that native backends can
+    /// re-apply it when a dependency of the `anchor` property changes.
+    anchor_access: Box<dyn Fn() -> PopupAnchor>,
     /// Keeps the parent component's `PopupWindow::is-open` property in sync. Provided to
     /// [`WindowInner::show_popup`], invoked with `true` when the popup is shown and with `false` when
     /// this `PopupWindow` is dropped (see the `Drop` impl below). It is a no-op for popups whose
@@ -1950,21 +1974,25 @@ impl WindowInner {
                             h
                         };
 
-                        let clip_region = Some(LogicalRect::new(
+                        let clip_region = LogicalRect::new(
                             LogicalPoint::new(0.0 as crate::Coord, 0.0 as crate::Coord),
                             self.window_adapter()
                                 .size()
                                 .to_logical(self.scale_factor())
                                 .to_euclid(),
-                        ));
+                        );
 
+                        let anchor = (popup.anchor_access)();
+                        let anchor_offset = LogicalPoint::new(anchor.x, anchor.y);
                         let new_region_clipped = popup::place_popup(
-                            popup::Placement::Fixed(LogicalRect::new(
-                                offset,
-                                crate::lengths::LogicalSize::new(width, height),
-                            )),
+                            anchor,
+                            offset,
+                            anchor_offset,
+                            crate::lengths::LogicalSize::new(width, height),
                             &clip_region,
                         );
+                        window_item.width.set(new_region_clipped.size.width_length());
+                        window_item.height.set(new_region_clipped.size.height_length());
 
                         (old_popup_region, new_region_clipped)
                     });
@@ -1988,12 +2016,17 @@ impl WindowInner {
             PopupWindowLocation::TopLevel(adapter) => {
                 // The size is already tracked in the windowadapter
                 let mut new_position: Option<LogicalPosition> = None;
+                let mut new_anchor: Option<PopupAnchor> = None;
                 popup.properties_tracker.as_ref().evaluate_as_dependency_root(|| {
                     (popup.position_access)(); // Dummy access to track position changes
                     new_position = Some(LogicalPosition::from_euclid(offset));
+                    new_anchor = Some((popup.anchor_access)());
                 });
                 if let Some(pos) = new_position {
                     adapter.window().set_position(pos);
+                }
+                if let Some(anchor) = new_anchor {
+                    adapter.set_position_anchor(&anchor);
                 }
             }
         }
@@ -2262,10 +2295,14 @@ impl WindowInner {
     /// popup: it is invoked immediately with `true`, and again with `false` when the popup is closed
     /// through any path (the `Drop` impl of [`PopupWindow`] handles the `false`). Pass a no-op closure
     /// for popups (such as menus) that do not expose `is-open`.
+    ///
+    /// `popup_access_anchor` provides the positioner data (anchor rect, gravity, constraint
+    /// adjustment) that native backends supporting it use to place the popup.
     pub fn show_popup(
         &self,
         popup_componentrc: &ItemTreeRc,
         popup_access_position: Box<dyn Fn() -> LogicalPosition>,
+        popup_access_anchor: Box<dyn Fn() -> PopupAnchor>,
         close_policy: PopupClosePolicy,
         parent_item: &ItemRc,
         window_kind: WindowKind,
@@ -2371,13 +2408,15 @@ impl WindowInner {
         // because we weren't able to create a dedicated popup adapter (for example if the backend does not support it).
         let (location, properties_tracker) =
             if Rc::ptr_eq(&parent_window_adapter, &popup_window_adapter) {
-                // Tooltips may extend past the window (e.g. above/left of the anchor); do not clamp.
-                let clip_region = Some(LogicalRect::new(
+                let clip_region = LogicalRect::new(
                     LogicalPoint::new(0.0 as crate::Coord, 0.0 as crate::Coord),
                     self.window_adapter().size().to_logical(self.scale_factor()).to_euclid(),
-                ));
+                );
                 let rect = popup::place_popup(
-                    popup::Placement::Fixed(LogicalRect::new(position, size)),
+                    popup_access_anchor(),
+                    position,
+                    LogicalPoint::zero(),
+                    size,
                     &clip_region,
                 );
                 self.window_adapter().request_redraw();
@@ -2395,7 +2434,7 @@ impl WindowInner {
                 WindowInner::from_pub(popup_window).set_component(popup_componentrc);
                 popup_window.set_position(LogicalPosition::from_euclid(position));
                 popup_window.set_size(WindowSize::Logical(LogicalSize::from_euclid(size)));
-
+                popup_window_adapter.set_position_anchor(&popup_access_anchor());
                 popup_window_adapter.set_visible(true).expect("unable to show popup window");
                 (
                     PopupWindowLocation::TopLevel(popup_window_adapter),
@@ -2431,6 +2470,7 @@ impl WindowInner {
             parent_item: parent_item.downgrade(),
             window_kind,
             position_access: popup_access_position,
+            anchor_access: popup_access_anchor,
             is_open_setter,
             properties_tracker,
         });
@@ -2907,6 +2947,14 @@ pub mod ffi {
         }
     }
 
+    impl WithUserData<extern "C" fn(user_data: *mut c_void, anchor: &mut PopupAnchor)> {
+        fn call(&self) -> PopupAnchor {
+            let mut anchor = PopupAnchor::default();
+            (self.callback)(self.user_data, &mut anchor);
+            anchor
+        }
+    }
+
     impl WithUserData<extern "C" fn(user_data: *mut c_void, pos: &mut LogicalPosition)> {
         fn call(&self) -> LogicalPosition {
             let mut logical_position = LogicalPosition::default();
@@ -3094,6 +3142,9 @@ pub mod ffi {
         position: extern "C" fn(user_data: *mut c_void, pos: &mut LogicalPosition),
         drop_user_data: extern "C" fn(user_data: *mut c_void),
         user_data: *mut c_void,
+        anchor: extern "C" fn(user_data: *mut c_void, anchor: &mut PopupAnchor),
+        anchor_drop_user_data: extern "C" fn(user_data: *mut c_void),
+        anchor_user_data: *mut c_void,
         close_policy: PopupClosePolicy,
         parent_item: &ItemRc,
         window_kind: WindowKind,
@@ -3103,6 +3154,11 @@ pub mod ffi {
     ) -> NonZeroU32 {
         unsafe {
             let with_user_data = WithUserData { callback: position, drop_user_data, user_data };
+            let anchor_with_user_data = WithUserData {
+                callback: anchor,
+                drop_user_data: anchor_drop_user_data,
+                user_data: anchor_user_data,
+            };
             let is_open_with_user_data = WithUserData {
                 callback: is_open_setter,
                 drop_user_data: is_open_setter_drop_user_data,
@@ -3112,6 +3168,7 @@ pub mod ffi {
             WindowInner::from_pub(window_adapter.window()).show_popup(
                 popup,
                 Box::new(move || with_user_data.call()),
+                Box::new(move || anchor_with_user_data.call()),
                 close_policy,
                 parent_item,
                 window_kind,

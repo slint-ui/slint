@@ -3518,15 +3518,6 @@ fn build(l: &mut Loader) {
         /// :::
         /// \group:window
         PopupWindow {
-            //property <length> x;
-            //property <length> y;
-            in property <length> width: computed;
-            in property <length> height: computed;
-            /*property <length> anchor_x;
-            in property <length> anchor-y;
-            in property <length> anchor-height;
-            in property <length> anchor-width;*/
-
             @constexpr in property <bool> close-on-click;
             /// Use this property to choose when the `PopupWindow` closes automatically.
             /// By default, any click closes it.
@@ -3558,6 +3549,10 @@ fn build(l: &mut Loader) {
             /// }
             /// ```
             out property <bool> is-open;
+
+            /// Additional anchor possibilities. See `PopupAnchor` for further information.
+            in property <PopupAnchor> anchor;
+
             /// Show the popup on the screen.
             function show() { BuiltinFunction.ShowPopupWindow }
             /// Closes the popup. Use this if you set the `close-policy` property to `no-auto-close`.

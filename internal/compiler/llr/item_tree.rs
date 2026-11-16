@@ -695,6 +695,7 @@ pub struct SubComponent {
 pub struct PopupWindow {
     pub item_tree: ItemTree,
     pub position: MutExpression,
+    pub anchor: MemberReference,
     pub is_tooltip: bool,
 }
 

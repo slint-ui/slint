@@ -1,0 +1,88 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The `anchor` of a popup can be set by a component inheriting `PopupWindow`,
+// inherited by another component, and overridden by an instance.
+
+export global Anchors {
+    in-out property <PopupAnchor> base;
+    in-out property <PopupAnchor> derived;
+    in-out property <PopupAnchor> overridden;
+
+    out property <bool> base-ok: base.location == PopupAnchorLocation.bottom-left
+        && base.gravity == PopupGravity.bottom-right && base.width == 10px && base.height == 20px;
+    out property <bool> derived-ok: derived.location == PopupAnchorLocation.bottom-left
+        && derived.gravity == PopupGravity.bottom-right && derived.width == 10px && derived.height == 20px;
+    out property <bool> overridden-ok: overridden.location == PopupAnchorLocation.top-right
+        && overridden.gravity == PopupGravity.bottom-right && overridden.width == 30px && overridden.height == 40px;
+}
+
+component BasePopup inherits PopupWindow {
+    anchor: {
+        location: PopupAnchorLocation.bottom-left,
+        gravity: PopupGravity.bottom-right,
+        width: 10px,
+        height: 20px,
+    };
+}
+
+component DerivedPopup inherits BasePopup { }
+
+export component TestCase {
+    width: 100px;
+    height: 100px;
+
+    base := BasePopup {
+        init => {
+            Anchors.base = self.anchor;
+        }
+    }
+
+    derived := DerivedPopup {
+        init => {
+            Anchors.derived = self.anchor;
+        }
+    }
+
+    overridden := DerivedPopup {
+        anchor: {
+            location: PopupAnchorLocation.top-right,
+            gravity: PopupGravity.bottom-right,
+            width: 30px,
+            height: 40px,
+        };
+        init => {
+            Anchors.overridden = self.anchor;
+        }
+    }
+
+    public function show-base() {
+        base.show();
+    }
+    public function show-derived() {
+        derived.show();
+    }
+    public function show-overridden() {
+        overridden.show();
+    }
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+let anchors = instance.global::<Anchors<'_>>();
+assert_eq!(anchors.get_base_ok(), false);
+assert_eq!(anchors.get_derived_ok(), false);
+assert_eq!(anchors.get_overridden_ok(), false);
+
+instance.invoke_show_base();
+assert_eq!(anchors.get_base_ok(), true);
+
+instance.invoke_show_derived();
+assert_eq!(anchors.get_derived_ok(), true);
+
+instance.invoke_show_overridden();
+assert_eq!(anchors.get_overridden_ok(), true);
+```
+*/
