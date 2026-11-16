@@ -15,9 +15,25 @@ slint::slint! {
     import { InspectorTextFieldBase } from "../ui/components/inspector/text-field-base.slint";
     import { InspectorComboBox } from "../ui/components/inspector/combo-box.slint";
     import { EditorWindow } from "../ui/components/index.slint";
+    import { ElementPaletteTabs } from "../ui/components/element-palette-tabs.slint";
     import { ComboBoxBase, ComboBoxPopupBase } from "../controls/src/headless.slint";
     import { Style, FieldStyle } from "../ui/style.slint";
 
+    export component PaletteTabFocusTest inherits Window {
+        width: 240px;
+        height: 100px;
+        in property <bool> three-tabs;
+        in-out property <int> selected;
+        out property <bool> other-focused: other.has-focus;
+        public function focus-tabs() { tabs.focus(); }
+        public function focus-other() { other.focus(); }
+        tabs := ElementPaletteTabs {
+            height: 32px;
+            labels: root.three-tabs ? ["One", "Two", "Three"] : ["One", "Two"];
+            selected <=> root.selected;
+        }
+        other := FocusScope { x: 0px; y: 50px; width: 20px; height: 20px; }
+    }
     export component InspectorInputTest inherits Window {
         width: 200px;
         height: 40px;
@@ -107,6 +123,41 @@ slint::slint! {
             accessible-role: image;
             accessible-label: "Placement preview";
         }
+    }
+}
+
+#[test]
+fn palette_keyboard_focus_does_not_follow_external_selection() {
+    use slint::platform::Key;
+
+    i_slint_backend_testing::init_no_event_loop();
+    for three_tabs in [false, true] {
+        let editor = PaletteTabFocusTest::new().unwrap();
+        editor.set_three_tabs(three_tabs);
+        editor.show().unwrap();
+        let key = |key: Key| {
+            editor.window().dispatch_event(WindowEvent::KeyPressed { text: key.into() });
+            editor.window().dispatch_event(WindowEvent::KeyReleased { text: key.into() });
+            slint::platform::update_timers_and_animations();
+        };
+        editor.invoke_focus_tabs();
+        key(Key::RightArrow);
+        assert_eq!(editor.get_selected(), 1);
+        editor.invoke_focus_other();
+        assert!(editor.get_other_focused());
+        editor.set_selected(0);
+        slint::platform::update_timers_and_animations();
+        assert!(editor.get_other_focused());
+
+        editor.invoke_focus_tabs();
+        key(Key::LeftArrow);
+        assert_eq!(editor.get_selected(), if three_tabs { 2 } else { 1 });
+        key(Key::Home);
+        assert_eq!(editor.get_selected(), 0);
+        editor.invoke_focus_other();
+        editor.set_selected(1);
+        slint::platform::update_timers_and_animations();
+        assert!(editor.get_other_focused());
     }
 }
 

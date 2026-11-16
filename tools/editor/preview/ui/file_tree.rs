@@ -65,6 +65,13 @@ pub fn setup(
         }
     });
 
+    let controller_for_focus = controller.clone();
+    api.on_file_tree_focus(move |path| {
+        if let Some(controller) = controller_for_focus.borrow_mut().as_mut() {
+            controller.focus(Path::new(path.as_str()));
+        }
+    });
+
     let controller_for_toggle = controller.clone();
     let project_weak_for_toggle = project_weak.clone();
     api.on_file_tree_toggle(move |path| {
@@ -243,27 +250,21 @@ fn open_parent_directory(path: &Path) {
 
 pub(in crate::preview) struct FileTreeController {
     root: PathBuf,
-    expanded: HashSet<PathBuf>,
+    collapsed: HashSet<PathBuf>,
     selected_path: Option<PathBuf>,
-    active_folder_path: PathBuf,
+    focused_folder: PathBuf,
 }
 
 impl FileTreeController {
     fn new(root: PathBuf, selected_path: Option<PathBuf>) -> Self {
         let root = std::fs::canonicalize(&root).unwrap_or(root);
-        let mut expanded = HashSet::new();
-        expanded.insert(root.clone());
+        let collapsed = HashSet::new();
 
         let selected_path = selected_path
             .and_then(|path| std::fs::canonicalize(path).ok())
             .filter(|path| path.starts_with(&root));
-        let active_folder_path = selected_path
-            .as_deref()
-            .and_then(active_folder_for_path)
-            .unwrap_or(&root)
-            .to_path_buf();
-
-        Self { root, expanded, selected_path, active_folder_path }
+        let focused_folder = root.clone();
+        Self { root, collapsed, selected_path, focused_folder }
     }
 
     fn open_from_file_tree(&mut self, path: &Path, api: &Api<'_>, project: &Project<'_>) {
@@ -288,7 +289,8 @@ impl FileTreeController {
     }
 
     fn create_new_slint_file(&mut self, project: &Project<'_>) -> std::io::Result<()> {
-        let path = create_new_component_file(&self.root)?;
+        let path = create_new_component_file(&self.focused_folder)?;
+        self.collapsed.remove(&self.focused_folder);
         self.publish(project);
         if !super::super::request_preview_path(&path, Some(NEW_COMPONENT_NAME.into())) {
             tracing::warn!("Failed to open new Slint file {}", path.display());
@@ -296,9 +298,15 @@ impl FileTreeController {
         Ok(())
     }
 
+    fn focus(&mut self, path: &Path) {
+        let Some(path) = self.path_in_root(path) else { return };
+        if let Some(folder) = active_folder_for_path(&path) {
+            self.focused_folder = folder.to_path_buf();
+        }
+    }
+
     fn select(&mut self, path: &Path) {
         self.selected_path = Some(path.to_path_buf());
-        self.active_folder_path = active_folder_for_path(path).unwrap_or(&self.root).to_path_buf();
     }
 
     fn open_preview(&mut self, path: &Path) -> bool {
@@ -315,10 +323,10 @@ impl FileTreeController {
             return;
         }
 
-        if self.expanded.contains(&path) {
-            self.expanded.remove(&path);
+        if self.collapsed.contains(&path) {
+            self.collapsed.remove(&path);
         } else {
-            self.expanded.insert(path);
+            self.collapsed.insert(path);
         }
         self.publish(project);
     }
@@ -363,12 +371,7 @@ impl FileTreeController {
     }
 
     fn publish(&self, project: &Project<'_>) {
-        let rows = build_file_tree_rows(
-            &self.root,
-            &self.expanded,
-            self.selected_path.as_deref(),
-            &self.active_folder_path,
-        );
+        let rows = build_file_tree_rows(&self.root, &self.collapsed, self.selected_path.as_deref());
         let current = project.get_file_tree();
         if let Some(model) = current.as_any().downcast_ref::<VecModel<FileTreeNode>>()
             && model.row_count() == rows.len()
@@ -649,12 +652,11 @@ fn nine_slice_edge_to_u16(value: i32) -> u16 {
 
 fn build_file_tree_rows(
     root: &Path,
-    expanded: &HashSet<PathBuf>,
+    collapsed: &HashSet<PathBuf>,
     selected_path: Option<&Path>,
-    active_folder_path: &Path,
 ) -> Vec<FileTreeNode> {
     let mut rows = Vec::new();
-    append_node(root, None, 0, expanded, selected_path, active_folder_path, &mut rows);
+    append_node(root, None, 0, collapsed, selected_path, root, &mut rows);
     rows
 }
 
@@ -662,9 +664,9 @@ fn append_node(
     path: &Path,
     parent: Option<&Path>,
     indent_level: i32,
-    expanded: &HashSet<PathBuf>,
+    collapsed: &HashSet<PathBuf>,
     selected_path: Option<&Path>,
-    active_folder_path: &Path,
+    root: &Path,
     rows: &mut Vec<FileTreeNode>,
 ) {
     let Ok(metadata) = std::fs::symlink_metadata(path) else { return };
@@ -674,34 +676,37 @@ fn append_node(
     }
 
     let is_folder = file_type.is_dir();
-    let is_expanded = is_folder && expanded.contains(path);
+    if !is_folder && !is_slint_file(path) {
+        return;
+    }
+    let is_expanded = is_folder && !collapsed.contains(path);
     let children = if is_folder { read_directory_entries(path) } else { Vec::new() };
     rows.push(FileTreeNode {
         label: label_for_path(path),
         rename_selection_end: rename_selection_end(path, is_folder),
         path: path_to_shared_string(path),
+        relative_path: project_relative_path(root, path).into(),
         parent_path: parent.map(path_to_shared_string).unwrap_or_default(),
         indent_level,
         has_children: !children.is_empty(),
         is_expanded,
         is_selected: selected_path.is_some_and(|selected| selected == path),
         is_slint_file: !is_folder && is_slint_file(path),
-        show_selected_guide: parent.is_some_and(|parent| parent == active_folder_path),
         kind: file_tree_node_kind(path, is_folder),
     });
 
-    if !is_expanded {
-        return;
-    }
-
-    for child in children {
+    for child in children
+        .iter()
+        .filter(|entry| entry.kind == DirectoryEntryKind::File)
+        .chain(children.iter().filter(|entry| entry.kind == DirectoryEntryKind::Folder))
+    {
         append_node(
             &child.path,
             Some(path),
             indent_level + 1,
-            expanded,
+            collapsed,
             selected_path,
-            active_folder_path,
+            root,
             rows,
         );
     }
@@ -716,7 +721,13 @@ fn read_directory_entries(path: &Path) -> Vec<DirectoryEntry> {
         .filter_map(|entry| {
             let entry = entry.ok()?;
             let file_type = entry.file_type().ok()?;
-            if file_type.is_symlink() {
+            if file_type.is_symlink()
+                || (file_type.is_dir()
+                    && matches!(
+                        entry.file_name().to_str(),
+                        Some(".git" | "target" | "node_modules")
+                    ))
+            {
                 return None;
             }
             let kind = if file_type.is_dir() {
@@ -829,7 +840,7 @@ mod tests {
     }
 
     #[test]
-    fn publish_replaces_model_when_rows_change() {
+    fn publish_preserves_model_when_group_expansion_changes() {
         use slint::ComponentHandle;
 
         i_slint_backend_testing::init_no_event_loop();
@@ -843,30 +854,54 @@ mod tests {
         let mut controller = FileTreeController::new(tree.root.clone(), None);
         controller.publish(&project);
         let initial = project.get_file_tree();
-        let initial_labels = labels(&initial.iter().collect::<Vec<_>>());
-
-        controller.toggle(&folder, &project);
-        let expanded = project.get_file_tree();
-        assert_ne!(expanded, initial);
-        assert_eq!(
-            labels(&expanded.iter().collect::<Vec<_>>())[1..],
-            ["components", "child.slint", "a.slint", "z.slint"]
-        );
 
         controller.toggle(&folder, &project);
         let collapsed = project.get_file_tree();
-        assert_ne!(collapsed, expanded);
-        assert_eq!(labels(&collapsed.iter().collect::<Vec<_>>()), initial_labels);
+        assert_eq!(collapsed, initial);
+        assert!(!collapsed.iter().find(|row| row.label == "components").unwrap().is_expanded);
+        assert!(collapsed.iter().any(|row| row.label == "child.slint"));
+
+        controller.toggle(&folder, &project);
+        assert_eq!(project.get_file_tree(), initial);
+        assert!(initial.iter().find(|row| row.label == "components").unwrap().is_expanded);
 
         controller.rename_file(&source, "zz.slint").unwrap();
         controller.publish(&project);
         let renamed = project.get_file_tree();
-        assert_ne!(renamed, collapsed);
-        assert_eq!(renamed.row_count(), collapsed.row_count());
+        assert_ne!(renamed, initial);
+        assert_eq!(renamed.row_count(), initial.row_count());
         assert_eq!(
             labels(&renamed.iter().collect::<Vec<_>>())[1..],
-            ["components", "z.slint", "zz.slint"]
+            ["z.slint", "zz.slint", "components", "child.slint"]
         );
+    }
+
+    #[test]
+    fn new_components_use_tree_focus_and_default_to_root() {
+        use slint::ComponentHandle;
+
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::super::EditorUi::new().unwrap();
+        let project = editor.global::<Project>();
+        let tree = TempTree::new();
+        let root = std::fs::canonicalize(&tree.root).unwrap();
+        let folder = std::fs::canonicalize(tree.dir("components")).unwrap();
+        let file = tree.file("components/Card.slint");
+        let mut controller = FileTreeController::new(root.clone(), Some(file.clone()));
+        controller.create_new_slint_file(&project).unwrap();
+        assert!(root.join("NewComponent.slint").is_file());
+
+        controller.focus(&folder);
+        controller.collapsed.insert(folder.clone());
+        controller.select(&root.join("NewComponent.slint"));
+        controller.create_new_slint_file(&project).unwrap();
+        assert!(folder.join("NewComponent.slint").is_file());
+        assert!(!controller.collapsed.contains(&folder));
+
+        controller.focus(&file);
+        controller.focus(&tree.root.join("missing"));
+        controller.create_new_slint_file(&project).unwrap();
+        assert!(folder.join("NewComponent2.slint").is_file());
     }
 
     #[test]
@@ -885,8 +920,7 @@ mod tests {
     #[test]
     fn root_row_appears() {
         let tree = TempTree::new();
-        let rows =
-            build_file_tree_rows(&tree.root, &HashSet::from([tree.root.clone()]), None, &tree.root);
+        let rows = build_file_tree_rows(&tree.root, &HashSet::new(), None);
 
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].path, path_to_shared_string(&tree.root));
@@ -895,104 +929,77 @@ mod tests {
     }
 
     #[test]
-    fn directories_sort_before_files_case_insensitively() {
+    fn files_precede_nested_groups_case_insensitively() {
         let tree = TempTree::new();
         tree.file("z.slint");
         tree.dir("Beta");
         tree.file("a.slint");
         tree.dir("alpha");
 
-        let rows =
-            build_file_tree_rows(&tree.root, &HashSet::from([tree.root.clone()]), None, &tree.root);
+        let rows = build_file_tree_rows(&tree.root, &HashSet::new(), None);
 
-        assert_eq!(labels(&rows)[1..], ["alpha", "Beta", "a.slint", "z.slint"]);
+        assert_eq!(labels(&rows)[1..], ["a.slint", "z.slint", "alpha", "Beta"]);
     }
 
     #[test]
-    fn collapsed_directories_do_not_emit_children() {
+    fn collapsed_groups_keep_files_available_for_search() {
         let tree = TempTree::new();
         let dir = tree.dir("components");
         tree.file("components/button.slint");
 
-        let rows =
-            build_file_tree_rows(&tree.root, &HashSet::from([tree.root.clone()]), None, &tree.root);
+        let rows = build_file_tree_rows(&tree.root, &HashSet::from([dir]), None);
 
-        assert_eq!(
-            labels(&rows),
-            vec![label_for_path(&tree.root).to_string(), "components".into()]
-        );
+        assert_eq!(labels(&rows)[1..], ["components", "button.slint"]);
+        assert!(!rows[1].is_expanded);
+        assert_eq!(rows[2].parent_path, rows[1].path);
+        assert_eq!(rows[2].relative_path, "components/button.slint");
+    }
+
+    #[test]
+    fn slint_files_are_discovered_in_nested_groups() {
+        let tree = TempTree::new();
+        tree.file("ui/main.slint");
+        tree.file("README.md");
+        tree.file("src/main.rs");
+        tree.file("target/generated.slint");
+        tree.file(".git/hidden.slint");
+        tree.file("node_modules/hidden.slint");
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(&tree.root, tree.root.join("loop")).unwrap();
+
+        let rows = build_file_tree_rows(&tree.root, &HashSet::new(), None);
+        assert_eq!(labels(&rows)[1..], ["src", "ui", "main.slint"]);
         assert!(
-            rows.iter().find(|row| row.path == path_to_shared_string(&dir)).unwrap().has_children
+            rows.iter()
+                .filter(|row| row.kind == FileTreeNodeKind::Folder)
+                .all(|row| row.is_expanded)
         );
     }
 
     #[test]
-    fn expanded_directories_emit_direct_children() {
-        let tree = TempTree::new();
-        let dir = tree.dir("components");
-        tree.file("components/button.slint");
-
-        let rows = build_file_tree_rows(
-            &tree.root,
-            &HashSet::from([tree.root.clone(), dir]),
-            None,
-            &tree.root,
-        );
-
+    fn relative_paths_only_remove_the_leading_project_root() {
         assert_eq!(
-            labels(&rows),
-            vec![
-                label_for_path(&tree.root).to_string(),
-                "components".into(),
-                "button.slint".into()
-            ]
+            project_relative_path(
+                Path::new("/project"),
+                Path::new("/project/nested/project/Main.slint")
+            ),
+            "nested/project/Main.slint"
         );
-    }
-
-    #[test]
-    fn selected_file_marks_parent_branch_only() {
-        let tree = TempTree::new();
-        let components = tree.dir("components");
-        let nested = tree.dir("components/nested");
-        let selected = tree.file("components/button.slint");
-        tree.file("components/nested/deeper.slint");
-
-        let rows = build_file_tree_rows(
-            &tree.root,
-            &HashSet::from([tree.root.clone(), components.clone(), nested]),
-            Some(&selected),
-            &components,
+        assert_eq!(
+            project_relative_path(
+                Path::new("/日本語"),
+                Path::new("/日本語/nested/日本語/Main.slint")
+            ),
+            "nested/日本語/Main.slint"
         );
-
-        let button = rows.iter().find(|row| row.label == "button.slint").unwrap();
-        let nested = rows.iter().find(|row| row.label == "nested").unwrap();
-        let deeper = rows.iter().find(|row| row.label == "deeper.slint").unwrap();
-        assert!(button.show_selected_guide);
-        assert!(nested.show_selected_guide);
-        assert!(!deeper.show_selected_guide);
     }
 
     #[test]
     fn image_files_use_image_kind() {
-        let tree = TempTree::new();
-        tree.file("diagram.png");
-        tree.file("photo.jpeg");
-        tree.file("icon.svg");
-        tree.file("source.slint");
-
-        let rows =
-            build_file_tree_rows(&tree.root, &HashSet::from([tree.root.clone()]), None, &tree.root);
-
-        for label in ["diagram.png", "photo.jpeg", "icon.svg"] {
-            assert_eq!(
-                rows.iter().find(|row| row.label == label).unwrap().kind,
-                FileTreeNodeKind::Image
-            );
+        for path in ["diagram.png", "photo.jpeg", "icon.svg"] {
+            assert_eq!(file_tree_node_kind(Path::new(path), false), FileTreeNodeKind::Image);
         }
-        assert_eq!(
-            rows.iter().find(|row| row.label == "source.slint").unwrap().kind,
-            FileTreeNodeKind::File
-        );
+        assert_eq!(file_tree_node_kind(Path::new("source.slint"), false), FileTreeNodeKind::File);
     }
 
     #[test]
@@ -1052,11 +1059,10 @@ mod tests {
         tree.file("view.slint");
         tree.file("image.png");
 
-        let rows =
-            build_file_tree_rows(&tree.root, &HashSet::from([tree.root.clone()]), None, &tree.root);
+        let rows = build_file_tree_rows(&tree.root, &HashSet::new(), None);
 
         assert!(rows.iter().find(|row| row.label == "view.slint").unwrap().is_slint_file);
-        assert!(!rows.iter().find(|row| row.label == "image.png").unwrap().is_slint_file);
+        assert!(!rows.iter().any(|row| row.label == "image.png"));
     }
 
     #[test]
