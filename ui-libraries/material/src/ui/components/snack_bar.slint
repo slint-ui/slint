@@ -25,11 +25,10 @@ export component SnackBar inherits PopupWindow {
         y: parent.height - self.height;
         width: MaterialStyleMetrics.size_344;
         level: 3;
+        background: MaterialPalette.inverse_surface;
+        border_radius: MaterialStyleMetrics.border_radius_4;
 
-        background_layer := Rectangle {
-            background: MaterialPalette.inverse_surface;
-            border_radius: MaterialStyleMetrics.border_radius_4;
-
+        Rectangle {
             HorizontalLayout {
                 padding_left: MaterialStyleMetrics.padding_16;
                 padding_right: self.padding_left;

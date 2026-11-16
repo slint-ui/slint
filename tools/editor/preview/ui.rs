@@ -2633,6 +2633,7 @@ mod tests {
             ("font-italic", "Text", "Italic", false),
             ("primary", "Button", "Primary", false),
             ("checkable", "Button", "Checked", false),
+            ("mouse-drag-pan-enabled", "ScrollView", "Mouse Drag Pan", false),
         ] {
             let editor = super::create_ui().unwrap();
             let api = editor.global::<super::Api>();

@@ -40,6 +40,51 @@ export component TestCase inherits Window {
         horizontal-alignment: left;
     }
 
+    // Wrapping Texts in the box and grid layouts of flexbox cells.
+    // The outer VerticalLayout sizes the flexbox from its cells' heights.
+    // The flexbox measures each cell at its width, so there's no binding loop.
+    VerticalLayout {
+        x: 200px;
+        width: 150px;
+        height: 300px;
+        Rectangle {
+            FlexboxLayout {
+                flex-direction: column;
+                Rectangle {
+                    Rectangle {
+                        VerticalLayout {
+                            nested := Text {
+                                text: long-text;
+                                wrap: word-wrap;
+                            }
+                        }
+                    }
+                }
+                Rectangle {
+                    Rectangle {
+                        GridLayout {
+                            grid-nested := Text {
+                                text: long-text;
+                                wrap: word-wrap;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    nested-ref := Text {
+        x: -1000px;
+        width: nested.width;
+        text: long-text;
+        wrap: word-wrap;
+    }
+    one-line := Text {
+        x: -1000px;
+        text: "x";
+    }
+
     // In column direction, items stack vertically below the 20px top padding.
     out property <bool> test_r: r.height == 50px;
     // The text sits below the rectangle (+spacing), spans the content width, and
@@ -47,22 +92,39 @@ export component TestCase inherits Window {
     // that same width. Without measuring at the content width it would be shorter.
     out property <bool> test_t: t.y == 80px && t.width <= 110px && t.height == ref.height;
 
-    out property <bool> test: test_r && test_t;
+    out property <bool> test_nested: nested.width == 150px && nested.height == nested-ref.height
+        && nested.height > one-line.height;
+    out property <bool> test_grid_nested: grid-nested.width == 150px
+        && grid-nested.height == nested-ref.height;
+
+    out property <bool> test: test_r && test_t && test_nested && test_grid_nested;
 }
 
 /*
 ```cpp
 auto handle = TestCase::create();
+assert(handle->get_test_r());
+assert(handle->get_test_t());
+assert(handle->get_test_nested());
+assert(handle->get_test_grid_nested());
 assert(handle->get_test());
 ```
 
 ```rust
 let instance = TestCase::new().unwrap();
+assert!(instance.get_test_r());
+assert!(instance.get_test_t());
+assert!(instance.get_test_nested());
+assert!(instance.get_test_grid_nested());
 assert!(instance.get_test());
 ```
 
 ```js
 var instance = new slint.TestCase();
+assert(instance.test_r);
+assert(instance.test_t);
+assert(instance.test_nested);
+assert(instance.test_grid_nested);
 assert(instance.test);
 ```
 */

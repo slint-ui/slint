@@ -27,8 +27,20 @@ component RepeatedCell inherits VerticalLayout {
     for s in [root.label]: Text { text: s; wrap: word-wrap; }
 }
 
+// The same through a component based on Text (#14895).
+component WrappedText inherits Text {
+    wrap: word-wrap;
+}
+
+component InheritedCell inherits VerticalLayout {
+    in property <string> label;
+    padding: 0px;
+    spacing: 0px;
+    for s in [root.label]: WrappedText { text: s; }
+}
+
 export component TestCase inherits Window {
-    width: 470px;
+    width: 620px;
     height: 260px;
 
     property <length> band-width: 120px;
@@ -61,8 +73,22 @@ export component TestCase inherits Window {
         repeated-bar := Rectangle { height: 5px; }
     }
 
-    reference := Text {
+    FlexboxLayout {
         x: 300px;
+        width: band-width;
+        height: 170px;
+        flex-direction: column;
+        flex-wrap: no-wrap;
+        alignment: start;
+        cross-axis-alignment: stretch;
+        padding: 0px;
+        spacing: 0px;
+        InheritedCell { label: root.long; }
+        inherited-bar := Rectangle { height: 5px; }
+    }
+
+    reference := Text {
+        x: 450px;
         width: band-width;
         text: root.long;
         wrap: word-wrap;
@@ -70,6 +96,7 @@ export component TestCase inherits Window {
 
     out property <length> static-height: static-bar.y;
     out property <length> repeated-height: repeated-bar.y;
+    out property <length> inherited-height: inherited-bar.y;
     out property <length> reference-height: reference.height;
 
     // The text must wrap onto several lines to distinguish the measurements.
@@ -78,7 +105,8 @@ export component TestCase inherits Window {
 
     out property <bool> static-ok: abs(static-height - reference-height) < 1px;
     out property <bool> repeated-ok: abs(repeated-height - reference-height) < 1px;
-    out property <bool> test: wrapped && static-ok && repeated-ok;
+    out property <bool> inherited-ok: abs(inherited-height - reference-height) < 1px;
+    out property <bool> test: wrapped && static-ok && repeated-ok && inherited-ok;
 }
 
 /*
@@ -89,6 +117,8 @@ assert!(instance.get_static_ok(), "static cell: {} vs reference {}",
     instance.get_static_height(), instance.get_reference_height());
 assert!(instance.get_repeated_ok(), "repeated cell: {} vs reference {}",
     instance.get_repeated_height(), instance.get_reference_height());
+assert!(instance.get_inherited_ok(), "inherited cell: {} vs reference {}",
+    instance.get_inherited_height(), instance.get_reference_height());
 ```
 
 ```cpp
@@ -96,6 +126,7 @@ auto handle = TestCase::create();
 assert(handle->get_wrapped());
 assert(handle->get_static_ok());
 assert(handle->get_repeated_ok());
+assert(handle->get_inherited_ok());
 ```
 
 ```js
@@ -103,5 +134,6 @@ var instance = new slint.TestCase();
 assert(instance.wrapped);
 assert(instance.static_ok);
 assert(instance.repeated_ok);
+assert(instance.inherited_ok);
 ```
 */

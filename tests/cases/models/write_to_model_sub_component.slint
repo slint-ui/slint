@@ -4,10 +4,24 @@
 
 component SubComponent inherits Rectangle {
     in-out property <[int]> m;
+    in-out property <[int]> inner-m: [10];
     HorizontalLayout {
-        for foo in m: Rectangle {
+        for foo in m: r := Rectangle {
+            function bump() {
+                foo += 8;
+            }
+            function bump-from-for() {
+                foo += 100;
+            }
             if foo < 100 : TouchArea {
-                clicked => { foo += 8; }
+                height: 50px;
+                y: 0px;
+                clicked => { r.bump(); }
+            }
+            for bar in root.inner-m: TouchArea {
+                height: 50px;
+                y: 50px;
+                clicked => { r.bump-from-for(); }
             }
         }
     }
@@ -17,39 +31,73 @@ export component TestCase inherits Rectangle {
     width: 100px;
     height: 100px;
     in-out property <[int]> mod;
-    SubComponent {
+    in-out property <[int]> inner-mod <=> sub.inner-m;
+    sub := SubComponent {
         m: mod;
     }
+
+    property <[int]> auto-outer: [1];
+    property <[int]> auto-inner: [10];
+    hl := HorizontalLayout {
+        for item in root.auto-outer: el := HorizontalLayout {
+            function bump-if() { item += 2; }
+            function bump-for() { item += 4; }
+            if true: Rectangle {
+                width: 10px;
+                init => { el.bump-if(); }
+            }
+            for sub-item in root.auto-inner: Rectangle {
+                width: 10px;
+                init => { el.bump-for(); }
+            }
+        }
+    }
+    out property <bool> test: hl.preferred-width > 0px && root.auto-outer[0] == 7 && root.auto-inner[0] == 10;
 }
 
 /*
 ```rust
 use slint::Model;
 let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
 
 let the_model = std::rc::Rc::new(slint::VecModel::<i32>::from(vec![1, 2, 3]));
 instance.set_mod(the_model.clone().into());
-slint_testing::send_mouse_click(&instance, 50., 50.);
+slint_testing::send_mouse_click(&instance, 50., 25.);
 assert_eq!(the_model.row_data(1).unwrap() , 2+8);
+
+slint_testing::send_mouse_click(&instance, 50., 75.);
+assert_eq!(the_model.row_data(1).unwrap(), 2 + 8 + 100);
+assert_eq!(instance.get_inner_mod().row_data(0).unwrap(), 10);
 ```
 
 ```cpp
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
+assert(instance.get_test());
 std::vector<int> array { 1 , 2 ,  3 };
 auto the_model = std::make_shared<slint::VectorModel<int>>(std::move(array));
 instance.set_mod(the_model);
 
-slint_testing::send_mouse_click(&instance, 50., 50.);
+slint_testing::send_mouse_click(&instance, 50., 25.);
 assert_eq(*the_model->row_data(1) , 2+8);
+
+slint_testing::send_mouse_click(&instance, 50., 75.);
+assert_eq(*the_model->row_data(1), 2 + 8 + 100);
+assert_eq(*instance.get_inner_mod()->row_data(0), 10);
 ```
 
 
 ```js
 var instance = new slint.TestCase({});
+assert(instance.test);
 instance.mod = [1, 2, 3];
-slintlib.private_api.send_mouse_click(instance, 50., 50.);
+slintlib.private_api.send_mouse_click(instance, 50., 25.);
 assert.equal(instance.mod.rowData(1), 2+8);
+
+slintlib.private_api.send_mouse_click(instance, 50., 75.);
+assert.equal(instance.mod.rowData(1), 2 + 8 + 100);
+assert.equal(instance.inner_mod.rowData(0), 10);
 ```
 
 

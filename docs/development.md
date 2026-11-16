@@ -80,9 +80,7 @@ Its `channel.json` selects the WebAssembly interpreter:
 `snapshot` loads the `master` build from `snapshots.slint.dev`, and `release` loads the plugin's version from `releases.slint.dev`.
 The [slint-ui/ai-plugins](https://github.com/slint-ui/ai-plugins) mirror sets `release` on its `master` branch, synced from `release/1`.
 The separate [slint-ui/ai-plugins-nightly](https://github.com/slint-ui/ai-plugins-nightly) repository keeps `snapshot` on `master`, synced from the monorepo's `master`.
-`hooks/` holds hooks that report `.slint` compiler diagnostics to the agent, or tell it the tool for that is missing.
-Claude Code uses `slint-lsp` for diagnostics, and Codex, which has no LSP support, runs `hooks/check-slint-edit.mjs` after each patch or shell command.
-Run their tests with `mise run test:ai-plugins`.
+Run the preview unit tests with `mise run test:ai-plugins`.
 
 ## Documentation
 

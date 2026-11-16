@@ -1852,7 +1852,7 @@ mod tests {
     ) -> (crate::object_tree::Document, CompilerConfiguration) {
         let mut diagnostics = BuildDiagnostics::default();
         let syntax_node =
-            parse(source.into(), Some(SourcePath::new("test.slint")), &mut diagnostics);
+            parse(source.into(), Some(SourcePath::new("test.slint")), None, &mut diagnostics);
         let mut compiler_config = CompilerConfiguration::new(OutputFormat::Interpreter);
         compiler_config.debug_info = true;
         compiler_config.inline_all_elements = inline_all_elements;
@@ -2137,6 +2137,7 @@ export component TestCase inherits Window {
         let doc_node = crate::parser::parse(
             source.into(),
             Some(SourcePath::new("testable.slint")),
+            None,
             &mut diags,
         );
         let (doc, diag, _) =

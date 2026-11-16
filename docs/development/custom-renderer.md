@@ -9,21 +9,34 @@ This document covers how to implement a custom renderer for Slint. This is inten
 
 ## Overview
 
-Slint includes three built-in renderers:
-- **Software Renderer** (`internal/renderers/software/`) - Pure Rust CPU-based rendering
-- **FemtoVG Renderer** (`internal/renderers/femtovg/`) - OpenGL ES 2.0 via FemtoVG library
-- **Skia Renderer** (`internal/renderers/skia/`) - GPU-accelerated via Skia library
+Slint includes these renderer implementations:
+
+| Renderer | Location | Graphics Path |
+|----------|----------|---------------|
+| **Software** | `internal/renderers/software/` | Pure Rust CPU rendering |
+| **FemtoVG** | `internal/renderers/femtovg/` | OpenGL or WGPU through FemtoVG |
+| **Skia** | `internal/renderers/skia/` | GPU or software rendering through Skia |
+| **Anyrender** | `internal/renderers/anyrender/` | Anyrender drawing interface, with Vello over WGPU for window rendering |
+| **Qt** | `internal/backends/qt/qt_window.rs` | QPainter drawing integrated into the Qt backend |
 
 ## Core Traits
 
 ### RendererSealed (`internal/core/renderer.rs`)
 
-The fundamental trait all renderers must implement. Uses the sealed trait pattern—`RendererSealed` is internal, while `Renderer` is the public re-export that external code uses.
+All renderers implement the internal `RendererSealed` trait.
+The public `Renderer` trait extends it and has a blanket implementation for types implementing `RendererSealed`.
+Custom renderer implementations therefore use internal APIs.
+
+With `shared-parley` enabled, `RendererSealed` provides shared implementations for text measurement, font metrics, cursor geometry, and hit-testing.
+Return a `TextLayoutCache` from `text_layout_cache()` to reuse shaped paragraphs across these operations and drawing.
+Implement `sharedparley::GlyphRenderer` for glyph drawing through the same layout path.
+See [Text Layout System](text-layout.md) for the shared pipeline and the software bitmap-font fallback.
 
 **Key methods:**
 
 | Method | Purpose |
 |--------|---------|
+| `text_layout_cache()` | Provide the cache for shared text layout |
 | `text_size()` | Measure text dimensions with optional wrapping |
 | `font_metrics()` | Query font ascent, descent, line height |
 | `text_input_byte_offset_for_position()` | Hit-testing for text input cursor placement |
@@ -81,12 +94,25 @@ instead of drawing. See `Surface` in `internal/renderers/skia/lib.rs`.
 Available surface implementations: `OpenGLSurface`, `SoftwareSurface`, and one `WGPUSurface`
 per supported wgpu version.
 
-### Software Renderer Pattern: Scene Building
+### Software Renderer Pattern: Direct and Line-by-Line Rendering
 
-The software renderer builds a scene graph then rasterizes it. `SoftwareRenderer::render()` draws
-into a whole pixel buffer, while `render_by_line()` drives a `LineBufferProvider` one line at a
-time for memory-constrained devices. Both return the `PhysicalRegion` that was painted.
-See `internal/renderers/software/lib.rs`.
+`SceneBuilder` implements `ItemRenderer` and hands each draw call to a `ProcessScene` implementation.
+`SoftwareRenderer::render()` uses `RenderToBuffer`, which draws each item straight into a whole pixel buffer.
+`render_by_line()` uses `PrepareScene`, which collects the items into a `Scene`.
+The renderer then rasterizes that scene into a `LineBufferProvider` one line at a time, for memory-constrained devices.
+Both return the `PhysicalRegion` that was painted.
+See `internal/renderers/software/api.rs` for the entry points and `lib.rs` for the implementation.
+
+### Anyrender Pattern: Window Renderer Abstraction
+
+`AnyrenderSlintRenderer<W>` delegates surface handling and presentation to `SlintWindowRenderer`.
+`AnyrenderItemRenderer` translates Slint drawing operations to the Anyrender interface.
+The Vello implementation lives in `internal/renderers/anyrender/vello.rs`.
+
+### Qt Pattern: Backend-Owned Renderer
+
+`QtWindow` implements `RendererSealed`, and `QtItemRenderer` draws through QPainter.
+Both live in `internal/backends/qt/qt_window.rs` and share the Qt window and event-loop integration.
 
 ## Backend Integration
 
@@ -126,13 +152,17 @@ To implement a custom renderer:
 
 ### Feature Flags
 
-Renderers are enabled via Cargo features in `api/rs/slint/Cargo.toml`:
+Renderer selection starts with Cargo features in `api/rs/slint/Cargo.toml`:
 
-```toml
-renderer-femtovg = ["i-slint-backend-selector/renderer-femtovg"]
-renderer-skia = ["i-slint-backend-selector/renderer-skia"]
-renderer-software = ["i-slint-backend-selector/renderer-software"]
-```
+| Feature | Selection |
+|---------|-----------|
+| `renderer-software` | Software renderer |
+| `renderer-femtovg` | FemtoVG with OpenGL |
+| `renderer-femtovg-wgpu` | FemtoVG with WGPU |
+| `renderer-skia` | Skia with its default surface selection |
+| `renderer-skia-opengl`, `renderer-skia-vulkan`, `renderer-skia-software` | Skia surface variants |
+| `renderer-vello` | Anyrender with Vello |
+| `backend-qt` | Qt backend, including its renderer |
 
 ### Backend Selector
 
@@ -165,6 +195,8 @@ To add a new renderer:
 ```sh
 SLINT_BACKEND=winit-software cargo run    # Force software renderer
 SLINT_BACKEND=winit-skia cargo run        # Force Skia renderer
+SLINT_BACKEND=winit-vello cargo run       # Anyrender with Vello (requires renderer-vello)
+SLINT_BACKEND=qt cargo run                # Qt backend and renderer (requires backend-qt)
 ```
 
 ## Window & Event Loop Integration
@@ -252,6 +284,11 @@ cargo run --bin slint-viewer -- path/to/file.slint
 
 ```
 internal/renderers/
+├── anyrender/
+│   ├── lib.rs           # AnyrenderSlintRenderer, SlintWindowRenderer trait
+│   ├── itemrenderer.rs  # AnyrenderItemRenderer (ItemRenderer impl)
+│   ├── vello.rs         # Vello window renderer on WGPU
+│   └── recording.rs     # Records draw commands for the screenshot tests
 ├── femtovg/
 │   ├── lib.rs           # FemtoVGRenderer, GraphicsBackend trait
 │   ├── itemrenderer.rs  # GLItemRenderer (ItemRenderer impl)
@@ -267,18 +304,21 @@ internal/renderers/
 │   ├── wgpu_29_surface.rs / wgpu_30_surface.rs
 │   └── wgpu_renderer.rs
 └── software/
-    ├── lib.rs           # SoftwareRenderer, scene building
-    ├── scene.rs         # Scene graph structures
+    ├── api.rs           # SoftwareRenderer, LineBufferProvider
+    ├── lib.rs           # SceneBuilder (ItemRenderer impl), rendering
+    ├── scene.rs         # Scene and scene item structures
     └── draw_functions.rs
 ```
+
+The Qt renderer isn't in this directory: it's part of `internal/backends/qt/qt_window.rs`.
 
 ## Example: Studying Existing Implementations
 
 The software renderer is the simplest to study as it has no external dependencies:
 
-- Entry point: `internal/renderers/software/lib.rs`
-- Scene builder implements `ItemRenderer`: builds a scene graph from draw calls
-- `render()` method rasterizes the scene to a pixel buffer
+- Entry points: `SoftwareRenderer::render()` and `render_by_line()` in `internal/renderers/software/api.rs`
+- `SceneBuilder` in `lib.rs` implements `ItemRenderer` and forwards draw calls to a `ProcessScene`
+- `render()` draws them straight into a pixel buffer, while `render_by_line()` collects a `Scene` first
 
 For GPU rendering patterns, study `internal/renderers/skia/itemrenderer.rs` which shows:
 - Texture caching strategies

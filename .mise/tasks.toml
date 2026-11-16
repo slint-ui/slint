@@ -88,8 +88,19 @@ description = "Run cargo fmt --all"
 run = "cargo fmt --all"
 dir = "examples/safe-ui"
 
+["fix:rust:format:zed"]
+description = "Run cargo fmt --all"
+run = "cargo fmt --all"
+dir = "editors/zed"
+
 ["fix:rust:format:all"]
-depends = ["fix:rust:format:root", "fix:rust:format:bevy", "fix:rust:format:servo", "fix:rust:format:safeui"]
+depends = [
+  "fix:rust:format:root",
+  "fix:rust:format:bevy",
+  "fix:rust:format:servo",
+  "fix:rust:format:safeui",
+  "fix:rust:format:zed",
+]
 
 ["fix:toml:format"]
 description = "Run taplo format"
@@ -152,8 +163,8 @@ depends = ["prepare:pnpm-install"]
 ### Tests
 
 ["test:ai-plugins"]
-description = "Run the tests of the AI plugin's MCP servers and hooks"
-run = "node --test 'ai-plugins/mcp/slint-preview/test/*.test.mjs' 'ai-plugins/hooks/test/*.test.mjs'"
+description = "Run the Slint preview unit tests"
+run = "node --test 'ai-plugins/mcp/slint-preview/test/*.test.mjs'"
 
 ### Build
 
@@ -188,6 +199,12 @@ depends = ["fix:pnpm:lock"]
 # The reuse check fails on gitignored files (node_modules, .astro) that
 # appear while it runs, so everything that generates them waits for it.
 wait_for = ["lint:legal:reuse"]
+
+### Run
+
+["debugger"]
+description = "Run the visual editor with the Slint Debugger window open; pass the .slint file to open"
+run = "cargo run -p slint-editor --features debugger -- --debugger"
 
 
 ### CI

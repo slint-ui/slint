@@ -26,7 +26,7 @@ use derive_more as dm;
 use crate::CompilerConfiguration;
 use crate::expression_tree::Callable;
 use crate::project_file::SlintEdition;
-use smol_str::{SmolStr, ToSmolStr};
+use smol_str::SmolStr;
 
 /// Represent the kind of property for the DefaultFontSize based on the `default-font-size`` property of every `Window``
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -881,6 +881,9 @@ enum CrossAxisSize {
     /// That set is wider than `is_builtin_height_for_width`: an Image with an
     /// explicit height is in it.
     GivenByLayout,
+    /// The box or grid layout of a `layoutinfo-v-with-constraint` body passes
+    /// its width only to its height-for-width cells.
+    GivenToHeightForWidthCells,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -942,12 +945,17 @@ fn process_property(
             }
             _ => break,
         };
-        next.borrow()
-            .property_analysis
-            .borrow_mut()
-            .entry(prop.prop.name().clone())
-            .or_default()
-            .is_read_externally = true;
+        // A binding of an instance that reads the property uses it in the base,
+        // like a binding of the base itself would. A native read reads the item's
+        // current value, so it doesn't use the property.
+        if read_type == ReadType::PropertyRead {
+            next.borrow()
+                .property_analysis
+                .borrow_mut()
+                .entry(prop.prop.name().clone())
+                .or_default()
+                .is_read_externally = true;
+        }
         prop.elements.push(element.into());
         prop.prop = NamedReference::new(&next, prop.prop.name().clone());
     }
@@ -989,7 +997,7 @@ fn visit_expression_reads(
             visit_layout_items_dependencies(
                 l.elems.iter(),
                 *o,
-                CrossAxisSize::ReadByCell,
+                layout_cells_cross_size(expr),
                 l.is_synthesized_repeated_merge,
                 vis,
             );
@@ -1189,7 +1197,7 @@ fn visit_expression_reads(
             visit_layout_items_dependencies(
                 layout.elems.iter().map(|it| &it.item),
                 *orientation,
-                CrossAxisSize::ReadByCell,
+                layout_cells_cross_size(expr),
                 false,
                 vis,
             );
@@ -1298,6 +1306,27 @@ fn visit_expression_reads(
     }
 }
 
+/// How the cells of a box or grid layout expression get their width.
+fn layout_cells_cross_size(expr: &Expression) -> CrossAxisSize {
+    let is_constrained_info = matches!(
+        expr,
+        Expression::ComputeBoxLayoutInfo {
+            orientation: Orientation::Vertical,
+            cross_axis_size: Some(_),
+            ..
+        } | Expression::ComputeGridLayoutInfo {
+            orientation: Orientation::Vertical,
+            cross_axis_size: Some(_),
+            ..
+        }
+    );
+    if is_constrained_info {
+        CrossAxisSize::GivenToHeightForWidthCells
+    } else {
+        CrossAxisSize::ReadByCell
+    }
+}
+
 /// `skip_model_dependency` is set for the one-cell `BoxLayout`
 /// [`crate::layout::repeated_element_layout_info`] synthesizes to merge a
 /// repeated element's constraints into a non-layout parent (issue #407) —
@@ -1321,12 +1350,35 @@ fn visit_layout_items_dependencies<'a>(
             // Conservative for a repeated cell: whether the layout hands the
             // instance its width depends on it (see `builtin_height_depends_on_width`).
             CrossAxisSize::ReadByCell
+        } else if cross_size == CrossAxisSize::GivenToHeightForWidthCells {
+            if crate::layout::is_height_for_width_cell(&element) {
+                if let Some(width) = crate::layout::fixed_cell_width(&element, &it.constraints) {
+                    vis(&width.clone().into(), ReadType::PropertyRead);
+                }
+                CrossAxisSize::GivenByLayout
+            } else {
+                CrossAxisSize::ReadByCell
+            }
         } else {
             cross_size
         };
 
-        if let Some(nr) = element.borrow().effective_layout_info_prop(orientation) {
+        let width_given =
+            orientation == Orientation::Vertical && cross_size == CrossAxisSize::GivenByLayout;
+        if width_given && let Some(nr) = element.borrow().layout_info_v_with_constraint.clone() {
+            vis(&nr.into(), ReadType::PropertyRead);
+        } else if let Some(nr) = element.borrow().effective_layout_info_prop(orientation) {
             vis(&nr.clone().into(), ReadType::PropertyRead);
+        } else if width_given
+            && let Some(Expression::FunctionCall { function: Callable::Function(nr), .. }) =
+                crate::layout::implicit_layout_info_call(
+                    &element,
+                    orientation,
+                    crate::layout::BuiltinFilter::All,
+                    Some(Expression::Invalid),
+                )
+        {
+            vis(&nr.into(), ReadType::PropertyRead);
         } else {
             let height_settled = element.borrow().height_is_literal;
             if let Some(nr) = element.borrow().base_layout_info_prop(orientation, height_settled) {
@@ -1462,21 +1514,22 @@ fn constraint_reads_own_geometry(nr: &NamedReference) -> bool {
 }
 
 /// Cross-axis variant of [`visit_implicit_layout_info_dependencies`]: only
-/// declare deps that actually exist on the cross-axis path. Image/Text and
-/// other h-for-w builtins receive the cross-axis size via the item VTable's
+/// declare deps that actually exist on the cross-axis path. Elements based on
+/// text or image items receive the cross-axis size via the item VTable's
 /// `cross_axis_constraint`, so they don't read `self.{w,h}` here. For other
-/// items (user components, plain builtins), the native `ImplicitLayoutInfo`
-/// reads `preferred-{w,h}` — declare it when the user has bound it to read
-/// the opposite-axis dim on the same element. That catches cycles like
-/// `preferred-height: self.width` at compile time instead of panicking at
-/// runtime.
+/// items, the native `ImplicitLayoutInfo` reads `preferred-{w,h}` — declare
+/// it when the user has bound it to read the opposite-axis dim on the same
+/// element. That catches cycles like `preferred-height: self.width` at
+/// compile time instead of panicking at runtime.
 fn visit_cell_cross_axis_implicit_dependency(
     cross_axis: Orientation,
     item: &ElementRc,
     vis: &mut impl FnMut(&PropertyPath, ReadType),
 ) {
-    let base_type = item.borrow().base_type.to_smolstr();
-    if matches!(base_type.as_str(), "Image" | "ClippedImage" | "Text" | "TextInput" | "StyledText")
+    if item
+        .borrow()
+        .builtin_type()
+        .is_some_and(|b| matches!(b.name.as_str(), "Image" | "Text" | "TextInput" | "StyledText"))
     {
         return;
     }
@@ -1518,11 +1571,11 @@ fn visit_implicit_layout_info_dependencies(
     item: &ElementRc,
     vis: &mut impl FnMut(&PropertyPath, ReadType),
 ) {
-    let base_type = item.borrow().base_type.to_smolstr();
+    let Some(builtin) = item.borrow().builtin_type() else { return };
     const N: ReadType = ReadType::NativeRead;
     let reads_own_width =
         orientation == Orientation::Vertical && cross_size == CrossAxisSize::ReadByCell;
-    match base_type.as_str() {
+    match builtin.name.as_str() {
         "Image" => {
             vis(&NamedReference::new(item, SmolStr::new_static("source")).into(), N);
             vis(&NamedReference::new(item, SmolStr::new_static("source-clip-width")).into(), N);
@@ -1548,7 +1601,7 @@ fn visit_implicit_layout_info_dependencies(
                 );
             }
             vis(&NamedReference::new(item, SmolStr::new_static("wrap")).into(), N);
-            if base_type.as_str() == "TextInput" {
+            if builtin.name == "TextInput" {
                 vis(&NamedReference::new(item, SmolStr::new_static("single-line")).into(), N);
             } else {
                 vis(&NamedReference::new(item, SmolStr::new_static("overflow")).into(), N);
