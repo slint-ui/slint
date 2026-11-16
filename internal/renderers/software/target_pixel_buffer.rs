@@ -247,7 +247,7 @@ pub enum PathElementKind {
 /// bounding box ([`DrawPathArgs::x`], [`DrawPathArgs::y`]).
 #[cfg(feature = "experimental")]
 #[repr(C)]
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PathElement {
     /// What this element does.
     pub kind: PathElementKind,
@@ -255,7 +255,7 @@ pub struct PathElement {
     pub points: [f32; 6],
 }
 
-/// A path to fill with a solid colour, see [`TargetPixelBuffer::draw_path`].
+/// A path to fill with a solid color, see [`TargetPixelBuffer::draw_path`].
 /// Strokes are already converted to outlines.
 #[cfg(feature = "experimental")]
 #[non_exhaustive]
@@ -273,10 +273,9 @@ pub struct DrawPathArgs<'a> {
     pub height: u32,
     /// Fill rule: non-zero (true) or even-odd (false).
     pub non_zero: bool,
-    /// Colour to fill with (not premultiplied); its alpha is multiplied with `alpha`.
+    /// The color to fill with, not premultiplied.
+    /// Its alpha includes the opacity of the element.
     pub color: Color,
-    /// Opacity, 0 to 255.
-    pub alpha: u8,
 }
 
 /// This trait represents access to a buffer of pixels the software renderer can render into, as well
@@ -310,7 +309,7 @@ pub trait TargetPixelBuffer {
         false
     }
 
-    /// Fill a path outline with a solid colour, anti-aliased, clipped to the given region.
+    /// Fill a path outline with a solid color, anti-aliased, clipped to the given region.
     /// Returns false if not supported; the software renderer then draws it.
     #[cfg(feature = "experimental")]
     fn draw_path(&mut self, _: &DrawPathArgs, _clip: &PhysicalRegion) -> bool {

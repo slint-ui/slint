@@ -1984,8 +1984,8 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> RenderToBuffer<'_, B> {
 }
 
 impl<B: target_pixel_buffer::TargetPixelBuffer> RenderToBuffer<'_, B> {
-    /// Hands a solid-colour path without rounded clips to the target pixel buffer
-    /// (e.g. a hardware path rasterizer). Returns true if it was drawn.
+    /// Hands a solid-color path without rounded clips to the target pixel buffer,
+    /// such as a hardware path rasterizer. Returns true if it was drawn.
     #[cfg(all(feature = "path", feature = "experimental"))]
     fn try_draw_path(
         &mut self,
@@ -2010,12 +2010,12 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> RenderToBuffer<'_, B> {
             width: path_geometry.size.width as u32,
             height: path_geometry.size.height as u32,
             non_zero,
-            color: Color::from_rgb_u8(
+            color: Color::from_argb_u8(
+                color.alpha,
                 unpremul(color.red),
                 unpremul(color.green),
                 unpremul(color.blue),
             ),
-            alpha: color.alpha,
         };
         self.buffer.draw_path(&args, region)
     }
@@ -2154,7 +2154,7 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
             &region,
             &commands,
             &paint,
-            path::fill_style(fill_rule),
+            path::zeno_fill_style(fill_rule),
             rounded_clips,
         ) {
             return;
@@ -2188,7 +2188,7 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
             &region,
             &commands,
             &paint,
-            path::stroke_style(&stroke_style),
+            path::zeno_stroke_style(&stroke_style),
             rounded_clips,
         ) {
             return;
@@ -4101,4 +4101,172 @@ fn path_partial_render_stays_in_dirty_region() {
         }
         assert_partial_render_is_identical(screen_size, screen, &region, draw);
     }
+}
+
+#[cfg(all(feature = "path", feature = "experimental"))]
+#[test]
+fn draw_path_hook() {
+    use target_pixel_buffer::{PathElement, PathElementKind, TargetPixelBuffer};
+
+    #[derive(Debug, PartialEq)]
+    struct DrawnPath {
+        elements: Vec<PathElement>,
+        rect: (i32, i32, u32, u32),
+        non_zero: bool,
+        color: Color,
+    }
+
+    struct HookBuffer<'a> {
+        pixels: TargetPixelSlice<'a, PremultipliedRgbaColor>,
+        accept: bool,
+        drawn: Vec<DrawnPath>,
+    }
+
+    impl TargetPixelBuffer for HookBuffer<'_> {
+        type TargetPixel = PremultipliedRgbaColor;
+        fn line_slice(&mut self, line_number: usize) -> &mut [Self::TargetPixel] {
+            self.pixels.line_slice(line_number)
+        }
+        fn num_lines(&self) -> usize {
+            self.pixels.num_lines()
+        }
+        fn draw_path(
+            &mut self,
+            args: &target_pixel_buffer::DrawPathArgs,
+            _clip: &PhysicalRegion,
+        ) -> bool {
+            self.drawn.push(DrawnPath {
+                elements: args.elements.to_vec(),
+                rect: (args.x, args.y, args.width, args.height),
+                non_zero: args.non_zero,
+                color: args.color,
+            });
+            self.accept
+        }
+    }
+
+    /// Draws with `draw`, returns the hook calls and whether any pixel was drawn.
+    fn render(
+        accept: bool,
+        draw: impl FnOnce(&mut dyn ProcessScene, PhysicalRect),
+    ) -> (Vec<DrawnPath>, bool) {
+        let screen_size = PhysicalSize::new(40, 30);
+        let screen = PhysicalRect::from_size(screen_size);
+        let mut data = alloc::vec![PremultipliedRgbaColor::default(); 40 * 30];
+        let mut buffer = HookBuffer {
+            pixels: TargetPixelSlice { data: &mut data, pixel_stride: 40 },
+            accept,
+            drawn: Vec::new(),
+        };
+        let mut rectangles = [euclid::Box2D::default(); PHYSICAL_REGION_MAX_SIZE];
+        rectangles[0] = screen.to_box2d();
+        let mut processor = RenderToBuffer {
+            buffer: &mut buffer,
+            dirty_range_cache: Vec::new(),
+            dirty_region: PhysicalRegion { rectangles, count: 1 },
+            scale_factor: ScaleFactor::new(1.),
+            clips: Vec::new(),
+        };
+        draw(&mut processor, screen);
+        let drawn = buffer.drawn;
+        (drawn, data.iter().any(|p| p.alpha > 0))
+    }
+
+    let p = zeno::Point::new;
+    let commands = alloc::vec![
+        path::Command::MoveTo(p(2., 3.)),
+        path::Command::LineTo(p(20., 3.)),
+        path::Command::QuadTo(p(22., 10.), p(20., 15.)),
+        path::Command::CurveTo(p(15., 18.), p(8., 18.), p(2., 15.)),
+        path::Command::Close,
+    ];
+    let path_geometry = euclid::rect(5, 6, 25, 20);
+    // Survives the round trip through premultiplied alpha unchanged.
+    let color = Color::from_argb_u8(128, 100, 50, 0);
+    let solid = || path::Paint::Solid(PremultipliedRgbaColor::from(color));
+    let stroke = path::StrokeStyle {
+        width: 2.,
+        line_cap: i_slint_core::items::LineCap::Butt,
+        line_join: i_slint_core::items::LineJoin::Miter,
+        miter_limit: 4.,
+        dash_array: &[],
+        dash_offset: 0.,
+    };
+    let fill = |paint: path::Paint, fill_rule, rounded_clips: &'static [RoundedClip]| {
+        let commands = commands.clone();
+        move |processor: &mut dyn ProcessScene, clip| {
+            processor.process_filled_path(
+                path_geometry,
+                clip,
+                commands,
+                paint,
+                fill_rule,
+                rounded_clips,
+            )
+        }
+    };
+
+    // A filled path is handed over as it is.
+    let (drawn, painted) = render(true, fill(solid(), FillRule::Evenodd, &[]));
+    let element = |kind, points| PathElement { kind, points };
+    assert_eq!(
+        drawn,
+        [DrawnPath {
+            elements: alloc::vec![
+                element(PathElementKind::MoveTo, [2., 3., 0., 0., 0., 0.]),
+                element(PathElementKind::LineTo, [20., 3., 0., 0., 0., 0.]),
+                element(PathElementKind::QuadTo, [22., 10., 20., 15., 0., 0.]),
+                element(PathElementKind::CubicTo, [15., 18., 8., 18., 2., 15.]),
+                element(PathElementKind::Close, [0.; 6]),
+            ],
+            rect: (5, 6, 25, 20),
+            non_zero: false,
+            color,
+        }]
+    );
+    assert!(!painted);
+
+    let (drawn, _) = render(true, fill(solid(), FillRule::Nonzero, &[]));
+    assert!(drawn[0].non_zero);
+
+    // A stroke is converted to a fill outline.
+    let (drawn, painted) = render(true, |processor, clip| {
+        processor.process_stroked_path(path_geometry, clip, commands.clone(), solid(), stroke, &[])
+    });
+    assert_eq!(drawn.len(), 1);
+    let stroke_outline = &drawn[0];
+    assert_eq!(stroke_outline.rect, (5, 6, 25, 20));
+    assert_eq!(stroke_outline.color, color);
+    assert!(stroke_outline.non_zero);
+    assert!(stroke_outline.elements.len() > 5);
+    assert_eq!(stroke_outline.elements[0].kind, PathElementKind::MoveTo);
+    // The outline lies within the miter limit of the path.
+    for e in &stroke_outline.elements {
+        let n = match e.kind {
+            PathElementKind::MoveTo | PathElementKind::LineTo => 1,
+            PathElementKind::QuadTo => 2,
+            PathElementKind::CubicTo => 3,
+            PathElementKind::Close => 0,
+        };
+        for xy in e.points[..n * 2].chunks(2) {
+            assert!((-2. ..=26.).contains(&xy[0]) && (-1. ..=22.).contains(&xy[1]), "{e:?}");
+        }
+    }
+    assert!(!painted);
+
+    // The software renderer draws the path when the hook declines.
+    let (drawn, painted) = render(false, fill(solid(), FillRule::Nonzero, &[]));
+    assert_eq!(drawn.len(), 1);
+    assert!(painted);
+
+    // Gradients and rounded clips aren't handed over.
+    let (drawn, _) = render(true, fill(path::Paint::Gradient(Vec::new()), FillRule::Nonzero, &[]));
+    assert!(drawn.is_empty());
+    static ROUNDED_CLIP: [RoundedClip; 1] = [RoundedClip {
+        rect: euclid::Rect::new(euclid::Point2D::new(0, 0), euclid::Size2D::new(40, 30)),
+        radius: PhysicalBorderRadius::new(4, 4, 4, 4),
+    }];
+    let (drawn, painted) = render(true, fill(solid(), FillRule::Nonzero, &ROUNDED_CLIP));
+    assert!(drawn.is_empty());
+    assert!(painted);
 }

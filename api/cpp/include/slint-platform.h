@@ -623,10 +623,12 @@ public:
     using DrawTextureArgs = cbindgen_private::DrawTextureArgs;
     /// Arguments for draw_rectangle
     using DrawRectangleArgs = cbindgen_private::DrawRectangleArgs;
-    /// Arguments for draw_path: a path outline to fill with a solid colour.
+    /// Arguments for draw_path: a path outline to fill with a solid color.
     using DrawPathArgs = cbindgen_private::DrawPathArgs;
-    /// One element of a DrawPathArgs outline (kind: 0 move, 1 line, 2 quad, 3 cubic, 4 close).
-    using PathElement = cbindgen_private::PathElement;
+    /// One element of a DrawPathArgs outline.
+    using PathElement = cbindgen_private::PathOutlineElement;
+    /// The kind of a PathElement.
+    using PathElementKind = cbindgen_private::PathOutlineElementKind;
 
     /// Abstract base class for a target pixel buffer where certain drawing operations can be
     /// delegated. Use this to implement support for hardware accelerators such as DMA2D, PPA, or
@@ -659,7 +661,7 @@ public:
         virtual bool draw_rectangle(const DrawRectangleArgs &args, const PhysicalRegion &clip) = 0;
 
         /// Fill a path outline (strokes are already converted to outlines) with a solid
-        /// colour, anti-aliased, clipped to the given region. Return false to let the software
+        /// color, anti-aliased, clipped to the given region. Return false to let the software
         /// renderer draw it.
         virtual bool draw_path(const DrawPathArgs &args, const PhysicalRegion &clip)
         {

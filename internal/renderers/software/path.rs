@@ -87,8 +87,7 @@ pub(crate) fn outline_elements(
 }
 
 /// The zeno style of a stroke.
-#[cfg(feature = "experimental")]
-pub(crate) fn stroke_style<'a>(stroke_style: &StrokeStyle<'a>) -> zeno::Style<'a> {
+pub(crate) fn zeno_stroke_style<'a>(stroke_style: &StrokeStyle<'a>) -> zeno::Style<'a> {
     let mut stroke = Stroke::new(stroke_style.width);
     stroke
         .cap(match stroke_style.line_cap {
@@ -107,8 +106,7 @@ pub(crate) fn stroke_style<'a>(stroke_style: &StrokeStyle<'a>) -> zeno::Style<'a
 }
 
 /// The zeno style of a fill.
-#[cfg(feature = "experimental")]
-pub(crate) fn fill_style(fill_rule: i_slint_core::items::FillRule) -> zeno::Style<'static> {
+pub(crate) fn zeno_fill_style(fill_rule: i_slint_core::items::FillRule) -> zeno::Style<'static> {
     zeno::Style::Fill(match fill_rule {
         i_slint_core::items::FillRule::Evenodd => Fill::EvenOdd,
         i_slint_core::items::FillRule::Nonzero | _ => Fill::NonZero,
@@ -319,10 +317,6 @@ pub fn render_filled_path<T: TargetPixel>(
     fill_rule: i_slint_core::items::FillRule,
     buffer: &mut impl crate::target_pixel_buffer::TargetPixelBuffer<TargetPixel = T>,
 ) {
-    let fill = match fill_rule {
-        i_slint_core::items::FillRule::Evenodd => Fill::EvenOdd,
-        i_slint_core::items::FillRule::Nonzero | _ => Fill::NonZero,
-    };
     render_path_with_style(
         commands,
         path_geometry,
@@ -330,7 +324,7 @@ pub fn render_filled_path<T: TargetPixel>(
         rounded_clips,
         clips,
         paint,
-        zeno::Style::Fill(fill),
+        zeno_fill_style(fill_rule),
         buffer,
     );
 }
@@ -365,22 +359,6 @@ pub fn render_stroked_path<T: TargetPixel>(
     stroke_style: StrokeStyle<'_>,
     buffer: &mut impl crate::target_pixel_buffer::TargetPixelBuffer<TargetPixel = T>,
 ) {
-    let mut stroke = Stroke::new(stroke_style.width);
-    stroke
-        .cap(match stroke_style.line_cap {
-            i_slint_core::items::LineCap::Round => Cap::Round,
-            i_slint_core::items::LineCap::Square => Cap::Square,
-            i_slint_core::items::LineCap::Butt | _ => Cap::Butt,
-        })
-        .join(match stroke_style.line_join {
-            i_slint_core::items::LineJoin::Round => Join::Round,
-            i_slint_core::items::LineJoin::Bevel => Join::Bevel,
-            i_slint_core::items::LineJoin::Miter | _ => Join::Miter,
-        })
-        .miter_limit(stroke_style.miter_limit)
-        .dash(stroke_style.dash_array, stroke_style.dash_offset);
-
-    let style = Style::Stroke(stroke);
     render_path_with_style(
         commands,
         path_geometry,
@@ -388,7 +366,7 @@ pub fn render_stroked_path<T: TargetPixel>(
         rounded_clips,
         clips,
         paint,
-        style,
+        zeno_stroke_style(&stroke_style),
         buffer,
     );
 }
