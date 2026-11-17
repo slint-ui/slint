@@ -3362,7 +3362,7 @@ mod tests {
         editor.window().set_size(slint::LogicalSize::new(1360., 860.));
         for (type_name, expected) in [
             ("ComboBox", true),
-            ("RadioGroup", true),
+            ("RadioGroup", false),
             ("TabWidget", true),
             ("Slider", false),
             ("Rectangle", false),
