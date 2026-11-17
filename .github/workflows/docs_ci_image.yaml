@@ -6,7 +6,7 @@ name: Docs CI image
 on:
     workflow_dispatch:
     push:
-        branches: [master]
+        branches: [master, nigel/docs-ci-prebuilt-image]
         paths:
             - docker/Dockerfile.docs-ci
             - .github/workflows/docs_ci_image.yaml
@@ -17,6 +17,7 @@ permissions:
 
 jobs:
     build:
+        if: github.ref == 'refs/heads/master' || github.event_name == 'workflow_dispatch'
         runs-on: blacksmith-4vcpu-ubuntu-2404
         steps:
             - uses: actions/checkout@v7
@@ -40,3 +41,36 @@ jobs:
               env:
                   IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
               run: echo "ghcr.io/slint-ui/slint/docs-ci@$IMAGE_DIGEST" >> "$GITHUB_STEP_SUMMARY"
+
+    fonts:
+        if: github.ref == 'refs/heads/nigel/docs-ci-prebuilt-image'
+        strategy:
+            matrix:
+                include:
+                    - name: host
+                      image: ''
+                    - name: container
+                      image: ghcr.io/slint-ui/slint/docs-ci@sha256:9826312022e89fd173e350e213a8dd3e88817dbf1aa58231263894ebc3a9dfaf
+        name: Font inventory (${{ matrix.name }})
+        runs-on: blacksmith-4vcpu-ubuntu-2404
+        container: ${{ matrix.image }}
+        defaults:
+            run:
+                shell: bash -e {0}
+        steps:
+            - name: Match host docs font installation
+              if: matrix.name == 'host'
+              run: |
+                  echo ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true | sudo debconf-set-selections
+                  sudo apt-get update -qq
+                  sudo apt-get install -y --no-install-recommends ttf-mscorefonts-installer fonts-liberation
+            - name: Compare font selection
+              run: |
+                  echo "vCPUs: $(nproc)"
+                  for family in sans-serif serif monospace Arial 'Comic Sans MS'; do
+                      echo "$family"
+                      fc-match -f '%{family} | %{file}\n' "$family"
+                      fc-match -f '%{file}' "$family" | xargs sha256sum
+                  done
+                  dpkg-query -W libfontconfig1 libfreetype6
+                  fc-list : family | sort -u
