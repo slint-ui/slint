@@ -34,6 +34,7 @@ cpp = ["i-slint-compiler/cpp"]
 rust = ["i-slint-compiler/rust"]
 python = ["i-slint-compiler/python"]
 typescript = ["i-slint-compiler/typescript"]
+csharp = ["i-slint-compiler/csharp"]
 # Experimental: the safety-critical subset, which changes between releases with no compatibility guarantee
 slint-sc = ["i-slint-compiler/slint-sc"]
 
@@ -47,6 +48,7 @@ default = [
   "rust",
   "python",
   "typescript",
+  "csharp",
 ]
 
 [dependencies]

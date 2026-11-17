@@ -1,0 +1,73 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+name: .NET Test (Reusable)
+
+on:
+    workflow_call:
+      inputs:
+        name:
+            description: 'Name of the job'
+            required: true
+            type: string
+        os:
+            description: 'Operating system to run on'
+            required: true
+            type: string
+
+env:
+    RUSTFLAGS: -D warnings
+    CARGO_PROFILE_DEV_DEBUG: 0
+    CARGO_INCREMENTAL: false
+    RUST_BACKTRACE: full
+    SLINT_BACKEND: testing
+    DOTNET_CLI_TELEMETRY_OPTOUT: 1
+    DOTNET_NOLOGO: 1
+
+jobs:
+    dotnet_test:
+        name: ${{ inputs.name }}
+        runs-on: ${{ inputs.os }}
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/install-linux-dependencies
+            - uses: ./.github/actions/setup-rust
+              with:
+                  key: x-dotnet-v0
+            - uses: actions/setup-dotnet@v5
+              with:
+                  dotnet-version: 10.0.401
+            - name: Build the native library and slint-compiler
+              run: cargo build -p slint-dotnet --features testing -p slint-compiler
+            - name: Check the formatting
+              working-directory: api/dotnet
+              run: dotnet format Slint.slnx --verify-no-changes
+            - name: Run the .NET tests
+              working-directory: api/dotnet
+              run: dotnet test --project Slint.Tests
+            - name: Build the todo example
+              run: dotnet build examples/todo/dotnet
+            - name: Check the formatting of the todo example
+              run: dotnet format examples/todo/dotnet --verify-no-changes
+            # The kernel's virtual display driver, vkms, stands in for the display of a device without a desktop.
+            # The kernel of Ubuntu 22.04 has it in linux-modules-extra.
+            - name: Start the todo example on linuxkms
+              if: runner.os == 'Linux'
+              shell: bash
+              run: |
+                  if ! sudo modprobe vkms; then
+                      sudo apt-get install -y -q "linux-modules-extra-$(uname -r)"
+                      sudo modprobe vkms
+                  fi
+                  # linuxkms opens the DRM device and the input devices, which needs root without a seat manager.
+                  sudo env "PATH=$PATH" "DOTNET_ROOT=$DOTNET_ROOT" SLINT_BACKEND=linuxkms-software \
+                      SLINT_DEBUG_PERFORMANCE=console,refresh_full_speed \
+                      timeout 10 examples/todo/dotnet/bin/Debug/net10.0/Todo > linuxkms.log 2>&1 || [ $? = 124 ]
+                  cat linuxkms.log
+                  if grep -qE 'panicked|Unhandled exception|Error' linuxkms.log; then
+                      echo "::error::The todo example failed on linuxkms"
+                      exit 1
+                  fi
+                  grep -q 'frames per second' linuxkms.log || { echo "::error::The todo example rendered no frame on linuxkms"; exit 1; }
+            - name: Run the .NET test driver
+              run: cargo test --manifest-path tests/Cargo.toml -p test-driver-dotnet

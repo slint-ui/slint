@@ -1,0 +1,61 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> -->
+<!-- SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 -->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Slint</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <IsAotCompatible>true</IsAotCompatible>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <Description>$(SlintDescriptionPrefix)Slint is a declarative GUI toolkit to build native user interfaces for desktop and embedded applications.</Description>
+    <PackageId>$(SlintPackageId)</PackageId>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+  <!-- The Android target needs the .NET Android workload, so it's built only with SlintAndroid=true. -->
+  <PropertyGroup Condition="'$(SlintAndroid)' == 'true'">
+    <TargetFramework></TargetFramework>
+    <TargetFrameworks>net10.0;net10.0-android</TargetFrameworks>
+    <SupportedOSPlatformVersion Condition="'$(TargetPlatformIdentifier)' == 'android'">26</SupportedOSPlatformVersion>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(TargetPlatformIdentifier)' != 'android'">
+    <Compile Remove="Android/**" />
+  </ItemGroup>
+  <!-- Copies the native library from `cargo build -p slint-dotnet` to the output of this and every referencing project. -->
+  <PropertyGroup>
+    <SlintNativeLibraryName Condition="$([MSBuild]::IsOSPlatform('Windows'))">slint_dotnet.dll</SlintNativeLibraryName>
+    <SlintNativeLibraryName Condition="$([MSBuild]::IsOSPlatform('OSX'))">libslint_dotnet.dylib</SlintNativeLibraryName>
+    <SlintNativeLibraryName Condition="'$(SlintNativeLibraryName)' == ''">libslint_dotnet.so</SlintNativeLibraryName>
+    <SlintCargoProfile Condition="'$(SlintCargoProfile)' == ''">debug</SlintCargoProfile>
+    <SlintNativeLibraryPath Condition="'$(SlintNativeLibraryPath)' == ''">$(MSBuildThisFileDirectory)../../../target/$(SlintCargoProfile)/$(SlintNativeLibraryName)</SlintNativeLibraryPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="$(SlintNativeLibraryPath)" Link="$(SlintNativeLibraryName)" Condition="Exists('$(SlintNativeLibraryPath)') and '$(TargetPlatformIdentifier)' != 'android'" CopyToOutputDirectory="PreserveNewest" Visible="false" Pack="false" />
+    <InternalsVisibleTo Include="Slint.Tests" />
+    <InternalsVisibleTo Include="Slint.TestDriver" />
+    <!-- NuGet imports build/<package id>.targets, so the file takes the name of the package. -->
+    <None Include="build/Slint.targets" Pack="true" PackagePath="build/$(PackageId).targets" />
+    <None Include="../README.md" Pack="true" PackagePath="/" />
+    <!-- Pass SlintNativeRuntimesDir to pack, a directory with one sub-directory per runtime identifier. -->
+    <None Include="$(SlintNativeRuntimesDir)/**/*" Pack="true" PackagePath="runtimes/%(RecursiveDir)native/%(Filename)%(Extension)" Condition="'$(SlintNativeRuntimesDir)' != ''" />
+    <!-- Pass SlintIOSFramework to pack, the slint_dotnet.xcframework of scripts/build_dotnet_ios.sh, which Slint.targets finds in ios/. -->
+    <None Include="$(SlintIOSFramework)/**/*" Pack="true" PackagePath="ios/slint_dotnet.xcframework/" Condition="'$(SlintIOSFramework)' != ''" />
+    <!-- Becomes the dependency on the compiler package. -->
+    <ProjectReference Include="../Slint.Compiler/Slint.Compiler.csproj" PrivateAssets="none" />
+  </ItemGroup>
+  <!--
+    On Android, the apps that reference this project get the libraries from a release build of slint-dotnet for each Android target, see docs/development/dotnet-bindings.md.
+    A debug build would make every APK hundreds of megabytes, so it takes the release profile unless SlintAndroidCargoProfile says otherwise.
+  -->
+  <PropertyGroup>
+    <SlintAndroidCargoProfile Condition="'$(SlintAndroidCargoProfile)' == ''">release</SlintAndroidCargoProfile>
+    <_SlintAndroidArm64Library>$(MSBuildThisFileDirectory)../../../target/aarch64-linux-android/$(SlintAndroidCargoProfile)/libslint_dotnet.so</_SlintAndroidArm64Library>
+    <_SlintAndroidX64Library>$(MSBuildThisFileDirectory)../../../target/x86_64-linux-android/$(SlintAndroidCargoProfile)/libslint_dotnet.so</_SlintAndroidX64Library>
+  </PropertyGroup>
+  <!-- A package has the libraries in runtimes/android-*/native instead, see SlintNativeRuntimesDir. -->
+  <ItemGroup Condition="'$(TargetPlatformIdentifier)' == 'android' and '$(SlintNativeRuntimesDir)' == ''">
+    <AndroidNativeLibrary Include="$(_SlintAndroidArm64Library)" Abi="arm64-v8a" Condition="Exists('$(_SlintAndroidArm64Library)')" />
+    <AndroidNativeLibrary Include="$(_SlintAndroidX64Library)" Abi="x86_64" Condition="Exists('$(_SlintAndroidX64Library)')" />
+  </ItemGroup>
+  <Target Name="SlintWarnMissingNativeLibrary" BeforeTargets="Build" Condition="!Exists('$(SlintNativeLibraryPath)') and '$(TargetPlatformIdentifier)' != 'android'">
+    <Warning Code="SLINT001" Text="Native library $(SlintNativeLibraryPath) not found; run `cargo build -p slint-dotnet` and rebuild." />
+  </Target>
+</Project>
