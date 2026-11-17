@@ -311,6 +311,7 @@ pub fn install() {
     TICKS_PER_US.store(ticks_per_us, Relaxed);
     push(&[extended(CLOCK, 1), ticks_per_us]);
     if tracing::dispatcher::set_global_default(tracing::Dispatch::new(CaptureSubscriber)).is_err() {
+        RECORDING.store(false, Relaxed);
         return;
     }
 
@@ -425,18 +426,17 @@ pub struct TraceSite {
     registered: bool,
 }
 
-/// Safety: `site` points to a static site with a string literal as its name, which only the
-/// recording thread uses.
+/// Safety: `site` points to a static site with a string literal as its name.
+/// Both cores may use the same site, so `registered` is only accessed atomically.
 unsafe fn site_id(site: *mut TraceSite) -> u32 {
-    // Safety: see above.
-    let site = unsafe { &mut *site };
-    if !site.registered && RECORDING.load(Relaxed) {
+    // Safety: see above. An `AtomicBool` has the layout of the `bool` that C++ initializes.
+    let registered = unsafe { AtomicBool::from_ptr(&raw mut (*site).registered) };
+    if RECORDING.load(Relaxed) && !registered.swap(true, Relaxed) {
         // Safety: see above.
-        let name = unsafe { core::ffi::CStr::from_ptr(site.name) };
-        push_name(site as *const TraceSite as usize as u32, name.to_str().unwrap_or("?"));
-        site.registered = true;
+        let name = unsafe { core::ffi::CStr::from_ptr((*site).name) };
+        push_name(site as usize as u32, name.to_str().unwrap_or("?"));
     }
-    site as *const TraceSite as usize as u32
+    site as usize as u32
 }
 
 /// Safety: see `site_id`.
