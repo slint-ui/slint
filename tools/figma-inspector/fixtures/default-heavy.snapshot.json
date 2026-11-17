@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 8,
+  "schemaVersion": 9,
   "selection": {
     "nodeId": "defaults:1",
     "nodeName": "Default-heavy"

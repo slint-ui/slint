@@ -1,0 +1,27 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ButtonBase } from "../../../controls/src/headless.slint";
+import { Style, Colors, Metrics } from "../../style.slint";
+
+export component InspectorPreviewToggle inherits ButtonBase {
+    in property <image> picture;
+    width: 34px;
+    height: Metrics.control-small;
+    focus-on-click: true;
+    checkable: true;
+    background << Rectangle {
+        border-radius: Metrics.radius-small;
+        background: Style.control-well;
+        border-width: Metrics.border-width;
+        border-color: root.checked || root.focus-visible ? Colors.accent : Colors.border;
+    }
+    content << Rectangle {
+        x: 3px; y: 3px;
+        width: root.width - 6px;
+        height: root.height - 6px;
+        clip: true;
+        Image { width: 100%; height: 100%; source: root.picture; image-fit: cover; }
+    }
+    Tooltip { text: @markdown("\{root.text}"); }
+}

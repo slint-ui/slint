@@ -1,6 +1,6 @@
 {
   "name": "slint",
-  "version": "1.19.0",
+  "version": "1.20.0",
   "description": "Write and debug Slint GUIs for desktop, embedded, and mobile apps, with access to the Slint documentation",
   "author": {
     "name": "Slint",

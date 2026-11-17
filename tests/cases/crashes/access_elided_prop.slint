@@ -3,11 +3,11 @@
 
 // issue #177
 
-export TestCase := Window {
+export component TestCase inherits Window {
     r := Rectangle {
        background: blue;
     }
-    property <bool> test: r.border-radius == 0;
+    out property <bool> test: r.border-radius == 0;
 }
 
 /*

@@ -5,7 +5,7 @@ from typing import Optional
 
 import slint
 
-ui = slint.loader.system_tray
+ui = slint.loader.slint_project
 
 
 class ExampleTray(ui.ExampleTray):

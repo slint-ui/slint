@@ -1561,6 +1561,8 @@ pub struct ContextMenu {
     pub cached_rendering_data: CachedRenderingData,
     pub popup_id: Cell<Option<NonZeroU32>>,
     pub enabled: Property<bool>,
+    /// Set for the menus of a `MenuBar`, so that pointer events outside them still reach the menu bar.
+    pub is_menu_bar: Property<bool>,
     #[cfg(target_os = "android")]
     long_press_timer: crate::timers::Timer,
 }
@@ -1672,7 +1674,7 @@ impl Item for ContextMenu {
             is_menu_key
         }
 
-        if is_menu_key(event) {
+        if event.event_type == KeyEventType::KeyPressed && is_menu_key(event) {
             self.show.call(&(Default::default(),));
             KeyEventResult::EventAccepted
         } else {

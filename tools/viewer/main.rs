@@ -110,7 +110,7 @@ struct Cli {
     #[arg(long, value_name = "style name", action)]
     style: Option<String>,
 
-    /// The edition whose language behavior to use, such as '1.19'.
+    /// The edition whose language behavior to use, such as '1.20'.
     /// This wins over the edition of the project file.
     #[arg(long, value_name = "edition", value_parser = SlintEdition::parse_supported)]
     edition: Option<SlintEdition>,

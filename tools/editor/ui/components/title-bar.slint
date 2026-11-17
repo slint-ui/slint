@@ -1,0 +1,26 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Style, Metrics, Colors } from "../style.slint";
+
+export component ShellTitleBar inherits WindowMoveArea {
+    callback zoom-requested();
+
+    height: Style.shell.top-bar-height;
+
+    Rectangle {
+        background: Style.titlebar-background;
+    }
+
+    Rectangle {
+        y: parent.height - 1px;
+        height: Metrics.border-width;
+        background: Colors.border;
+    }
+
+    touch-area := TouchArea {
+        double-clicked => { root.zoom-requested(); }
+    }
+
+    @children
+}

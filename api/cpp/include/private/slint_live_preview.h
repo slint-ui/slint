@@ -49,7 +49,7 @@ inline slint::SharedString from_slint_value(const slint::interpreter::Value &val
 }
 inline int from_slint_value(const slint::interpreter::Value &val, const int *)
 {
-    return val.to_number().value();
+    return saturating_float_to_int(val.to_number().value());
 }
 inline float from_slint_value(const slint::interpreter::Value &val, const float *)
 {

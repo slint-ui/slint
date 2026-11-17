@@ -7,7 +7,7 @@
 import * as slint from "slint-ui";
 import { readFileSync } from "node:fs";
 
-const ui = slint.loadFile(new URL("ui/main.slint", import.meta.url));
+const ui = slint.loadFile(new URL("slint-project.json", import.meta.url));
 const appWindow = new ui.AppWindow();
 
 // --- Dummy weather data (provides initial city list) ---

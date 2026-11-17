@@ -47,4 +47,13 @@ export component TestCase inherits Window {
         width: 0.001px;
         height: 4000000px;
     }
+
+    // A source clip outside the image draws nothing and doesn't crash
+    Image {
+        x: 10px; y: 10px;
+        source: @image-url("../../../../demos/printerdemo/ui/images/sidebar/ink.svg");
+        width: 20px;
+        height: 20px;
+        source-clip-x: 1000;
+    }
 }

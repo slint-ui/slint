@@ -412,6 +412,17 @@ pub fn resolve_expressions(
                 );
             },
         );
+        visit_all_expressions(component, |expression, _| {
+            expression.visit_recursive(&mut |expression| {
+                if let Expression::ImageReference {
+                    resource_ref: ImageReference::Source(path),
+                    ..
+                } = expression
+                {
+                    doc.referenced_file_resources.borrow_mut().insert(path.clone());
+                }
+            });
+        });
     }
 }
 
@@ -875,6 +886,13 @@ impl Expression {
             ImageReference::DataUri(s)
         } else {
             let is_absolute = crate::source_path::is_absolute(&s);
+            if let Some(error) = ctx
+                .type_loader
+                .and_then(|loader| loader.library_import_error(Some(node.source_file.path()), &s))
+            {
+                ctx.diag.push_error(error, &node);
+                return Self::Invalid;
+            }
             let resolved = ctx
                 .type_loader
                 .filter(|_| !is_absolute)

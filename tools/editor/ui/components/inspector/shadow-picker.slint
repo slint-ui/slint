@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Properties } from "../../properties.slint";
+
 import { Api } from "../../api.slint";
 import { Style, Colors, Metrics, Typography } from "../../style.slint";
 import { ColorIndicator } from "../../../../lsp/ui/components/widgets/color-indicator.slint";
@@ -15,8 +17,8 @@ import { InspectorSwitch } from "switch.slint";
 export component InspectorShadowControl inherits Rectangle {
     in property <bool> inner;
     private property <string> title: ShadowSession.label(root.inner);
-    private property <string> prefix: Api.shadow-prefix(root.inner);
-    private property <bool> effect-enabled: Api.has-shadow(root.prefix);
+    private property <string> prefix: Properties.shadow-prefix(root.inner);
+    private property <bool> effect-enabled: Properties.has-shadow(root.prefix);
     height: Style.inspector-field.height;
     changed effect-enabled => { toggle.checked = root.effect-enabled; }
     private property <int> anchor-focus-generation: ShadowSession.anchor-focus-generation;
@@ -53,7 +55,7 @@ export component InspectorShadowControl inherits Rectangle {
                         border-radius: self.width / 2;
                         border-width: Metrics.border-width;
                         outline-color: Style.color-field.swatch-border;
-                        color: Api.source-color-field-data(root.prefix + "color").fill.color;
+                        color: Properties.editor-property-value-data(root.prefix + "color").fill.color;
                         checker-light: Style.color-field.checker.light;
                         checker-dark: Style.color-field.checker.dark;
                     }
@@ -83,7 +85,7 @@ export component InspectorShadowControl inherits Rectangle {
                 self.focus();
                 self.checked = root.effect-enabled;
                 ShadowSession.close();
-                Api.toggle-shadow(Api.current-element, root.inner);
+                Properties.toggle-shadow(Api.current-element, root.inner);
             }
         }
     }
@@ -137,18 +139,16 @@ export component InspectorShadowPicker inherits FocusScope {
             }
             InspectorColorField {
                 accessible-name: @tr("Shadow color");
-                value: Api.source-property-value(root.color-property, "");
-                swatch: Api.editor-property-value-data(root.color-property).value-brush;
                 wide: true;
                 width: parent.width - Style.effect-slider.label-width - Metrics.space-small;
                 horizontal-stretch: 1;
                 commit-key: ShadowSession.key + ":" + root.color-property;
                 preview-key: ShadowSession.key + ":" + root.color-property;
-                session-key: Api.current-element.source-uri + ":" + Api.current-element.offset + ":" + Api.selection.highlight-index + ":" + Api.inspector-fill-generation + ":" + root.color-property;
+                session-key: Api.current-element.source-uri + ":" + Api.current-element.offset + ":" + Api.selection.highlight-index + ":" + Properties.inspector-fill-generation + ":" + root.color-property;
                 property-name: root.color-property;
                 accepted(text) => {
                     ShadowSession.canvas-focus = false;
-                    return ShadowSession.canvas-active && Api.commit-code-binding(Api.current-element, root.color-property, text);
+                    return ShadowSession.canvas-active && Properties.commit-code-binding(Api.current-element, root.color-property, text);
                 }
             }
         }

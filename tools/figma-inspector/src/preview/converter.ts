@@ -40,6 +40,7 @@ import {
     fillLayersSource,
     shadowLayersSource,
     innerShadowSource,
+    shadowWarnings,
     imageFillSource,
     visualSource,
 } from "./converter-visual";
@@ -521,31 +522,13 @@ function nodeSource(
             }))
                 lines.push(line);
     } else if (isContainerNode(node) || node.kind === "rectangle") {
+        shadowWarnings(node, context);
         const externalStroke =
             node.strokes[0]?.align === "center" ||
             node.strokes[0]?.align === "outside";
         const container = isContainerNode(node);
         const clipExternalContent =
             externalStroke && node.clipsContent && container;
-        const spreadShadows = node.shadows.filter(
-            (shadow) => shadow.kind !== "inner" && shadow.spread !== 0,
-        );
-        if (spreadShadows.length > 0)
-            context.warnings.push({
-                severity: "warning",
-                code: "FEMTOVG_SHADOW_SPREAD_UNSUPPORTED",
-                nodeId: node.id,
-                nodeName: node.name,
-                propertyPath: "effects",
-                originalValue: spreadShadows
-                    .map((shadow) => `${number(shadow.spread)}px`)
-                    .join(", "),
-                fallbackAction:
-                    "The generated Slint preserves the spread for renderers that support it",
-                category: "approximation",
-                message:
-                    "Shadow spread is preserved in the generated Slint, but this FemtoVG preview currently ignores it; render with Skia for Figma-equivalent spread",
-            });
         lines.push(...appearanceSource(node, depth + 1, externalStroke));
         // Shadow helpers need an opaque shape to cast from. Emit them first so
         // they cannot hide layered fills or asymmetric border strips.

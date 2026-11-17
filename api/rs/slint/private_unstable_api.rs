@@ -132,6 +132,25 @@ pub fn no_dynamic_children(
     unreachable!()
 }
 
+/// Returns the item at `index` in the tree `nodes` of a generated item tree,
+/// whose items are at the offsets `item_array`.
+///
+/// Panics if `index` refers to a dynamic tree.
+pub fn get_item_ref<'a, T>(
+    item_tree: Pin<&'a T>,
+    nodes: &[ItemTreeNode],
+    item_array: &[VOffset<T, ItemVTable, AllowPin>],
+    index: u32,
+) -> Pin<ItemRef<'a>> {
+    fn item_array_index(nodes: &[ItemTreeNode], index: u32) -> usize {
+        match &nodes[index as usize] {
+            ItemTreeNode::Item { item_array_index, .. } => *item_array_index as usize,
+            ItemTreeNode::DynamicTree { .. } => panic!("get_item_ref called on dynamic tree"),
+        }
+    }
+    item_array[item_array_index(nodes, index)].apply_pin(item_tree)
+}
+
 /// Wrapper around `SlintContext::translate` for the generated code
 pub fn translate(
     ctx: &i_slint_core::SlintContext,

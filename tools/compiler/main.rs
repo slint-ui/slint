@@ -104,7 +104,7 @@ struct Cli {
     #[arg(long, name = "style name")]
     style: Option<String>,
 
-    /// Set the edition whose language behavior to use, such as '1.19'.
+    /// Set the edition whose language behavior to use, such as '1.20'.
     /// This wins over the edition of the project file.
     #[arg(long, name = "edition", value_parser = SlintEdition::parse_supported)]
     edition: Option<SlintEdition>,
@@ -161,13 +161,13 @@ struct Cli {
     cpp_files: Vec<std::path::PathBuf>,
 }
 
-/// Parses the file to compile, the main file of a project directory given as input,
+/// Reads the file to compile, the main file of a project directory given as input,
 /// and returns the project file that applies to it and the files it was found and read from.
-fn parse_input(
+fn read_input(
     args: &Cli,
     diag: &mut BuildDiagnostics,
 ) -> (
-    Option<parser::SyntaxNode>,
+    Option<(SourcePath, String)>,
     Option<i_slint_compiler::project_file::ProjectFile>,
     Vec<std::path::PathBuf>,
 ) {
@@ -180,16 +180,24 @@ fn parse_input(
         std::process::exit(1);
     }
 
+    let input_path = SourcePath::File(args.path.clone());
+    #[cfg(feature = "typescript")]
+    let project_root = (matches!(args.format, Some(generator::OutputFormat::TypeScript))
+        && input_path.extension() == Some("slint")
+        && !args.path.is_dir())
+    .then(|| input_path.parent());
+    #[cfg(not(feature = "typescript"))]
+    let project_root = None;
     let (input, input_files) = spin_on::spin_on(i_slint_compiler::project_file::load_input(
-        &SourcePath::File(args.path.clone()),
+        &input_path,
         None,
-        None,
+        project_root,
         None,
         diag,
     ));
     let Some(input) = input else { return (None, None, Vec::new()) };
     (
-        Some(parser::parse(input.source_code, Some(input.source), diag)),
+        Some((input.source, input.source_code)),
         input.project_file,
         input_files.into_iter().filter_map(SourcePath::into_native_path).collect(),
     )
@@ -201,8 +209,7 @@ fn main() -> std::io::Result<()> {
     let input = i_slint_compiler::project_file::project_root(&args.path);
     let input_project_directory = input.is_dir().then(|| input.to_path_buf());
     let mut diag = BuildDiagnostics::default();
-    let (syntax_node, project_file, input_files) = parse_input(&args, &mut diag);
-    //println!("{:#?}", syntax_node);
+    let (root_file, project_file, input_files) = read_input(&args, &mut diag);
     if diag.has_errors() {
         diag.print_styled_if_terminal();
         std::process::exit(-1);
@@ -365,9 +372,9 @@ fn main() -> std::io::Result<()> {
     if let Some(path) = args.bundle_translations {
         compiler_config.bundled_translations_path = Some(path);
     }
-    let syntax_node = syntax_node.expect("diags contained no compilation errors");
+    let (source, source_code) = root_file.expect("diags contained no compilation errors");
     let (doc, diag, loader) =
-        spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
+        spin_on::spin_on(compile_source(&source, source_code, diag, compiler_config));
 
     let diag = diag.check_and_exit_on_error();
 

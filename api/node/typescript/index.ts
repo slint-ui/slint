@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { dirname } from "node:path";
 import * as napi from "../binding.cjs";
 export {
     Diagnostic,
@@ -511,6 +512,9 @@ export interface LoadFileOptions {
      * @hidden
      */
     fileLoader?: (path: string) => string;
+
+    /** @hidden */
+    loadProjectFile?: boolean;
 }
 
 type LoadData =
@@ -538,6 +542,12 @@ function loadSlint(loadData: LoadData): Object {
     const { filePath, options } = loadData.fileData;
 
     const compiler = new napi.ComponentCompiler();
+    const projectRoot = options?.loadProjectFile
+        ? dirname(filePath)
+        : undefined;
+    if (projectRoot !== undefined) {
+        compiler.projectRoot = projectRoot;
+    }
 
     if (typeof options !== "undefined") {
         if (typeof options.style !== "undefined") {
@@ -655,11 +665,10 @@ function loadSlint(loadData: LoadData): Object {
                 let instance: napi.ComponentInstance | null = null;
                 if (live) {
                     try {
-                        instance = napi.createLiveInstance(
-                            filePath,
-                            key,
-                            options ?? {},
-                        );
+                        instance = napi.createLiveInstance(filePath, key, {
+                            ...options,
+                            projectRoot,
+                        });
                     } catch (error) {
                         liveUnavailable((error as Error).message);
                     }

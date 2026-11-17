@@ -437,7 +437,7 @@ pub(super) fn type_exports(
             // A `#[deprecated] pub use` does not warn on use, but a deprecated type alias does.
             deprecated_type_exports.push(quote! {
                 #[deprecated(note = #note)]
-                #[allow(dead_code)]
+                #[allow(dead_code, non_camel_case_types)]
                 pub type #exported = #generated_mod::#internal;
             });
         } else if e.is_alias() {
@@ -516,6 +516,8 @@ fn generate_public_component(
     let new_with_existing_window_enabled = compiler_config
         .experimental_features
         .contains(crate::ExperimentalFeature::NewWithExistingWindow);
+
+    let new_with_context_vis = new_with_existing_window_enabled.then(|| quote!(pub));
 
     let new_with_existing_window_impl: Option<TokenStream> = match llr.top_level_type {
         llr::TopLevelComponentType::Window => Some(quote!(
@@ -619,17 +621,10 @@ fn generate_public_component(
 
         impl #public_component_id {
             pub fn new() -> ::core::result::Result<Self, slint::PlatformError> {
-                let context = slint::private_unstable_api::ensure_context()?;
-                let inner = #inner_component_id::new(context)?;
-                #eager_create_window
-                #init_bundle_translations
-                #inner_component_id::user_init(sp::VRc::map(inner.clone(), |x| x));
-                #ensure_tree_instantiated
-                ::core::result::Result::Ok(Self(inner))
+                Self::new_with_context(slint::private_unstable_api::ensure_context()?)
             }
 
-            #[cfg(#new_with_existing_window_enabled)]
-            pub fn new_with_context(ctx: sp::SlintContext) -> ::core::result::Result<Self, slint::PlatformError> {
+            #new_with_context_vis fn new_with_context(ctx: sp::SlintContext) -> ::core::result::Result<Self, slint::PlatformError> {
                 let inner = #inner_component_id::new(ctx)?;
                 #eager_create_window
                 #init_bundle_translations
@@ -798,6 +793,10 @@ fn generate_shared_globals(
 
             #pub_token fn context(&self) -> &sp::SlintContext {
                 &self.context
+            }
+
+            fn scale_factor(&self) -> f32 {
+                self.window_adapter_ref().unwrap().window().scale_factor()
             }
 
             fn window_adapter_ref(&self) -> sp::Result<&sp::Rc<dyn sp::WindowAdapter>, slint::PlatformError>
@@ -1704,6 +1703,7 @@ fn generate_sub_component_body(
         .collect::<Vec<_>>();
 
     let mut user_init_code: Vec<TokenStream> = Vec::new();
+    let mut change_trackers_init_code: Vec<TokenStream> = Vec::new();
 
     let mut sub_component_names: Vec<Ident> = Vec::new();
     let mut sub_component_types: Vec<Ident> = Vec::new();
@@ -1730,15 +1730,17 @@ fn generate_sub_component_body(
         };
 
         let sub_compo_field = access_component_field_offset(&inner_component_id, &field_name);
+        let sub_rc = quote!(sp::VRcMapped::map(self_rc.clone(), |x| #sub_compo_field.apply_pin(x)));
 
         init.push(quote!(#sub_component_id::init(
-            sp::VRcMapped::map(self_rc.clone(), |x| #sub_compo_field.apply_pin(x)),
-            #global_access.clone(), #global_index, #global_children
+            #sub_rc, #global_access.clone(), #global_index, #global_children
         )?;));
+        if sc.needs_change_trackers_init(root) {
+            change_trackers_init_code
+                .push(quote!(#sub_component_id::init_change_trackers(#sub_rc);));
+        }
         if sc.needs_user_init(root) {
-            user_init_code.push(quote!(#sub_component_id::user_init(
-                sp::VRcMapped::map(self_rc.clone(), |x| #sub_compo_field.apply_pin(x)),
-            );));
+            user_init_code.push(quote!(#sub_component_id::user_init(#sub_rc);));
         }
 
         let sub_component_repeater_count = sc.repeater_count(root);
@@ -1899,24 +1901,26 @@ fn generate_sub_component_body(
         quote!(sp::VWeakMapped::<sp::ItemTreeVTable, #parent_component_id>)
     });
 
+    change_trackers_init_code.extend(component.change_callbacks.iter().enumerate().map(
+        |(idx, (p, e))| {
+            let code = compile_expression(&e.borrow(), &ctx);
+            let prop = compile_expression(&Expression::PropertyReference(p.clone()), &ctx);
+            let change_tracker = format_ident!("change_tracker{idx}");
+            quote! {
+                #[allow(dead_code, unused)]
+                sp::change_tracker_init_erased(
+                    &_self.#change_tracker,
+                    &self_rc,
+                    move |_self, _: &()| #prop,
+                    move |_self, _| { #code; }
+                );
+            }
+        },
+    ));
+
     user_init_code.extend(component.init_code.iter().map(|e| {
         let code = compile_expression(&e.borrow(), &ctx);
         quote!(#code;)
-    }));
-
-    user_init_code.extend(component.change_callbacks.iter().enumerate().map(|(idx, (p, e))| {
-        let code = compile_expression(&e.borrow(), &ctx);
-        let prop = compile_expression(&Expression::PropertyReference(p.clone()), &ctx);
-        let change_tracker = format_ident!("change_tracker{idx}");
-        quote! {
-            #[allow(dead_code, unused)]
-            sp::change_tracker_init_erased(
-                &_self.#change_tracker,
-                &self_rc,
-                move |_self, _: &()| #prop,
-                move |_self, _| { #code; }
-            );
-        }
     }));
 
     let layout_info_h = compile_expression_no_parenthesis(&component.layout_info_h.borrow(), &ctx);
@@ -2025,8 +2029,26 @@ fn generate_sub_component_body(
         )
     });
 
-    debug_assert_eq!(component.needs_user_init(root), !user_init_code.is_empty());
+    let has_change_trackers = !change_trackers_init_code.is_empty();
+    debug_assert_eq!(component.needs_change_trackers_init(root), has_change_trackers);
     let mut chunk_fns = Vec::new();
+    let change_trackers_init_fn = has_change_trackers.then(|| {
+        let code = emit_in_chunks(
+            "init_change_trackers",
+            change_trackers_init_code,
+            &quote!(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>),
+            &quote!(self_rc.clone()),
+            &quote!(let _self = self_rc.as_pin_ref();),
+            false,
+            &mut chunk_fns,
+        );
+        quote!(
+            pub(super) fn init_change_trackers(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>) {
+                let _self = self_rc.as_pin_ref();
+                #(#code)*
+            }
+        )
+    });
     let init = emit_in_chunks(
         "init",
         init,
@@ -2036,6 +2058,10 @@ fn generate_sub_component_body(
         true,
         &mut chunk_fns,
     );
+    debug_assert_eq!(component.needs_user_init(root), !user_init_code.is_empty());
+    if is_item_tree_root && has_change_trackers {
+        user_init_code.insert(0, quote!(Self::init_change_trackers(self_rc.clone());));
+    }
     let user_init_code = emit_in_chunks(
         "user_init",
         user_init_code,
@@ -2255,6 +2281,8 @@ fn generate_sub_component_body(
             }
 
             #user_init_fn
+
+            #change_trackers_init_fn
 
             #(#chunk_fns)*
 
@@ -2854,13 +2882,7 @@ fn generate_item_tree_body(
         }
 
         fn get_item_ref(self: ::core::pin::Pin<&Self>, index: u32) -> ::core::pin::Pin<sp::ItemRef<'_>> {
-            match &self.get_item_tree().as_slice()[index as usize] {
-                sp::ItemTreeNode::Item { item_array_index, .. } => {
-                    Self::item_array()[*item_array_index as usize].apply_pin(self)
-                }
-                sp::ItemTreeNode::DynamicTree { .. } => panic!("get_item_ref called on dynamic tree"),
-
-            }
+            slint::private_unstable_api::get_item_ref(self, Self::item_tree(), Self::item_array(), index)
         }
 
         fn get_item_tree(
@@ -5189,10 +5211,10 @@ fn compile_builtin_function_call(
                 panic!("internal error: invalid args to RegisterBitmapFont must be a number")
             }
         })(),
-        BuiltinFunction::GetWindowScaleFactor => (|| {
-            let window_adapter_tokens = access_window_adapter_field(ctx);
-            quote!(sp::WindowInner::from_pub(#window_adapter_tokens.window()).scale_factor())
-        })(),
+        BuiltinFunction::GetWindowScaleFactor => {
+            let global_access = &ctx.generator_state.global_access;
+            quote!(#global_access.scale_factor())
+        }
         BuiltinFunction::GetWindowDefaultFontSize => {
             quote!(
                 sp::WindowItem::resolved_default_font_size(sp::VRcMapped::origin(

@@ -7,7 +7,6 @@ import { InspectorContext } from "context.slint";
 
 export component InspectorLayoutAlignmentSection inherits InspectorSection {
     in property <InspectorStyle> style: Style.inspector-layout;
-    in property <length> popup-bottom;
     property <string> default-alignment: InspectorContext.is-flexbox-layout-selection() ? "start" : "stretch";
 
     title: @tr("Alignment");
@@ -15,6 +14,27 @@ export component InspectorLayoutAlignmentSection inherits InspectorSection {
     GridLayout {
         padding-left: root.style.padding;
         spacing: Metrics.space-compact;
+
+        if InspectorContext.is-flexbox-layout-selection(): Row {
+            InspectorFieldLabel {
+                text: @tr("Direction");
+                vertical-alignment: center;
+                horizontal-stretch: 0;
+            }
+
+            InspectorComboBox {
+                commit-key: InspectorContext.inspector-key;
+                accessible-name: @tr("Flex Direction");
+                value: InspectorEnumOptions.option-label("flex-direction", "row", InspectorEnumOptions.flex-direction-options);
+                selected-index: InspectorEnumOptions.option-index("flex-direction", "row", InspectorEnumOptions.flex-direction-options);
+                options: InspectorEnumOptions.flex-direction-options;
+                accepted(text) => {
+                    return text != "" && InspectorContext.commit-enum("flex-direction", text);
+                }
+            }
+
+            Rectangle { }
+        }
 
         Row {
             InspectorFieldLabel {
@@ -24,13 +44,13 @@ export component InspectorLayoutAlignmentSection inherits InspectorSection {
             }
 
             InspectorComboBox {
+                commit-key: InspectorContext.inspector-key;
                 accessible-name: @tr("Layout Alignment");
                 value: InspectorEnumOptions.option-label("alignment", root.default-alignment, InspectorEnumOptions.layout-alignment-options);
                 selected-index: InspectorEnumOptions.option-index("alignment", root.default-alignment, InspectorEnumOptions.layout-alignment-options);
                 options: InspectorEnumOptions.layout-alignment-options;
-                popup-available-height: max(Style.inspector-field.height, root.popup-bottom - self.absolute-position.y - Metrics.space-medium);
                 accepted(text) => {
-                    return text != "" && InspectorContext.commit-code("alignment", text);
+                    return text != "" && InspectorContext.commit-enum("alignment", text);
                 }
             }
 
@@ -45,13 +65,13 @@ export component InspectorLayoutAlignmentSection inherits InspectorSection {
             }
 
             InspectorComboBox {
+                commit-key: InspectorContext.inspector-key;
                 accessible-name: @tr("Cross Axis Line Alignment");
                 value: InspectorEnumOptions.option-label("cross-axis-line-alignment", "stretch", InspectorEnumOptions.layout-alignment-options);
                 selected-index: InspectorEnumOptions.option-index("cross-axis-line-alignment", "stretch", InspectorEnumOptions.layout-alignment-options);
                 options: InspectorEnumOptions.layout-alignment-options;
-                popup-available-height: max(Style.inspector-field.height, root.popup-bottom - self.absolute-position.y - Metrics.space-medium);
                 accepted(text) => {
-                    return text != "" && InspectorContext.commit-code("cross-axis-line-alignment", text);
+                    return text != "" && InspectorContext.commit-enum("cross-axis-line-alignment", text);
                 }
             }
 

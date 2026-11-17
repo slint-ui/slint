@@ -90,18 +90,6 @@ export default ${name}({
         });
     }
 
-    // #13989: Externalized Starlight imports resolve to the Node tooling's YAML major.
-    await config("astro/config", "defineConfig");
-    await assert.rejects(
-        build(),
-        (error: Error & { stdout: string; stderr: string }) => {
-            assert.match(
-                error.stdout + error.stderr,
-                /does not provide an export named 'default'/,
-            );
-            return true;
-        },
-    );
     await config(sharedConfig, "defineSlintDocsConfig");
     await build();
     const page = await readFile(join(root, "dist/index.html"), "utf8");

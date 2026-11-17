@@ -10,4 +10,4 @@ endif()
 
 add_executable(system-tray main.cpp)
 target_link_libraries(system-tray PRIVATE Slint::Slint)
-slint_target_sources(system-tray system-tray.slint)
+slint_target_sources(system-tray slint-project.json)

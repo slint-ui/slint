@@ -127,8 +127,7 @@ impl<'a> SkiaItemRenderer<'a> {
         );
 
         if let Some(radius) = shadow_options.opaque_source_radius() {
-            let radius = (radius + PhysicalBorderRadius::new_uniform(shadow_options.spread.get()))
-                .max(Default::default());
+            let radius = radius.spread(shadow_options.spread.get());
             let rounded_rect = to_skia_rrect(
                 &PhysicalRect::new(shadow_options.shape_origin(), shape_size),
                 &radius,
@@ -481,14 +480,16 @@ impl<'a> SkiaItemRenderer<'a> {
             )
             .collect::<Vec<_>>()
         } else {
-            vec![i_slint_core::graphics::fit(
+            i_slint_core::graphics::fit(
                 item.image_fit(),
                 dest_rect.size,
                 item.source_clip().unwrap_or_else(|| euclid::Rect::from_size(source_size.cast())),
                 self.scale_factor,
                 item.alignment(),
                 tiling,
-            )]
+            )
+            .into_iter()
+            .collect()
         };
 
         let _saved_canvas = self.pixel_align_origin_auto_restore();
@@ -556,10 +557,9 @@ impl<'a> SkiaItemRenderer<'a> {
                     paint.set_shader(shader);
                     self.canvas.draw_paint(&paint);
                 }
-            } else {
-                let transform =
-                    skia_safe::Matrix::rect_2_rect(skia_safe::Rect::from(src), dst, None)
-                        .unwrap_or_default();
+            } else if let Some(transform) =
+                skia_safe::Matrix::rect_2_rect(skia_safe::Rect::from(src), dst, None)
+            {
                 self.canvas.concat(&transform);
                 self.canvas.draw_image_with_sampling_options(
                     skia_image.clone(),

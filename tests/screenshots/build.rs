@@ -165,21 +165,19 @@ fn generate_source(
         .map(std::path::PathBuf::from)
         .collect::<Vec<_>>();
 
-    let mut diag = BuildDiagnostics::default();
-    let syntax_node = parser::parse(
-        source.to_owned(),
-        Some(i_slint_compiler::source_path::SourcePath::new(&testcase.absolute_path)),
-        &mut diag,
-    );
     let mut compiler_config = CompilerConfiguration::new(generator::OutputFormat::Rust);
     compiler_config.include_paths = include_paths;
     compiler_config.embed_resources = embed_resources;
     compiler_config.experimental_features = i_slint_compiler::ExperimentalFeatures::all();
-    compiler_config.edition = Some(i_slint_compiler::project_file::SlintEdition::current());
+    compiler_config.edition = Some(test_driver_lib::edition_or_current(source).parse().unwrap());
     compiler_config.style = Some("fluent".to_string());
     compiler_config.const_scale_factor = scale_factor.into();
-    let (root_component, diag, loader) =
-        spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
+    let (root_component, diag, loader) = spin_on::spin_on(compile_source(
+        &i_slint_compiler::source_path::SourcePath::new(&testcase.absolute_path),
+        source.to_owned(),
+        BuildDiagnostics::default(),
+        compiler_config,
+    ));
 
     if diag.has_errors() {
         diag.print_warnings_and_exit_on_error();

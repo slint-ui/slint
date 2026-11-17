@@ -70,7 +70,7 @@ use slint::{
 // - Animations (continuous oscillating slider animation)
 // - Layout system (VerticalBox with alignment)
 slint::slint! {
-#[edition = "1.19"]
+#[edition = "1.20"]
 
 import { VerticalBox, Button, Slider } from "std-widgets.slint";
 

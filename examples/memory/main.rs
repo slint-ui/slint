@@ -9,7 +9,7 @@ use std::time::Duration;
 use wasm_bindgen::prelude::*;
 
 slint::slint! {
-    #[edition = "1.19"]
+    #[edition = "1.20"]
     export { MainWindow } from "memory.slint";
 }
 

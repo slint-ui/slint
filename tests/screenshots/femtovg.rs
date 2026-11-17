@@ -175,6 +175,7 @@ pub fn run_test(testcase: TestCase) -> Result<(), Box<dyn std::error::Error>> {
     let source = std::fs::read_to_string(&testcase.absolute_path)?;
     let mut compiler = slint_interpreter::Compiler::default();
     compiler.set_style("fluent".into());
+    compiler.set_edition(test_driver_lib::edition_version_or_current(&source));
     let compiled = crate::testing::poll_once(
         compiler.build_from_source(source, testcase.absolute_path.clone()),
     )

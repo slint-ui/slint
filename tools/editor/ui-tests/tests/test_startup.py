@@ -19,7 +19,7 @@ from ui_driver import (
 
 
 def project_file(main: str | None = None) -> str:
-    contents = {"edition": "1.19"}
+    contents = {"edition": "1.20"}
     if main is not None:
         contents["main"] = main
     return json.dumps(contents)
@@ -187,7 +187,7 @@ def test_explicit_project_root_keeps_the_selected_source(
     manifest.write_text(
         json.dumps(
             {
-                "edition": "1.19",
+                "edition": "1.20",
                 "main": "Sibling.slint",
                 "include-paths": ["include"],
             }
@@ -198,6 +198,7 @@ def test_explicit_project_root_keeps_the_selected_source(
     (include / "shared.slint").write_text("export component Shared { }")
     source_directory = fixture_project / "ui"
     source_directory.mkdir()
+    (source_directory / "slint-project.json").write_text("{")
     main = source_directory / "Main.slint"
     main.write_text(
         'import { Shared } from "shared.slint";\n'
@@ -263,6 +264,11 @@ def test_broken_project_recovers_when_repaired_on_disk(
         diagnostics = element(
             window, "Preview unavailable", role=slint_testing.AccessibleRole.Region
         )
+        element(
+            diagnostics,
+            "Toggle advanced error details",
+            role=slint_testing.AccessibleRole.Button,
+        ).invoke_accessible_default_action()
         wait_until(
             lambda: (
                 any(

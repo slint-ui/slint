@@ -7,6 +7,7 @@ description: A general path to get started with Slint on an STM32 MCU using STM3
 The following instructions outline a rough, general path how to get started on an STM32 MCU
 with STM32 Cube tooling and Slint. Successful completion requires experience with STM32CubeMX
 as well as the peripherals of our board.
+
 1. Make sure to install all the [prerequisites](../#prerequisites).
 2. Start a new project with STM32CubeMX:
    - Select your base board.

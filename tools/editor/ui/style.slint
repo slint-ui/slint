@@ -324,7 +324,6 @@ export struct PreviewDiagnosticsStyle {
     background: color,
     foreground: color,
     muted: color,
-    border: color,
     veil: color,
 }
 
@@ -513,6 +512,9 @@ export struct InspectorSliderStyle {
 
 export struct ComboMenuStyle {
     row-height: length = 26px,
+    padding: length = 3px,
+    spacing: length = 2px,
+    highlight: brush,
     max-height: length = 220px,
     background: brush,
     border: brush,
@@ -1557,10 +1559,10 @@ export global Style {
     out property <brush> brightness-spectrum: @linear-gradient(0deg, black, transparent);
 
     out property <PreviewDiagnosticsStyle> preview-diagnostics: {
+        radius: Metrics.radius-large,
         background: Colors.surface,
         foreground: Colors.foreground,
         muted: Colors.muted,
-        border: Colors.border,
         veil: Colors.background.with-alpha(0.72),
     };
     out property <ScrollIndicatorStyle> scroll-indicator: {
@@ -1806,6 +1808,7 @@ export global Style {
     };
 
     out property <ComboMenuStyle> combo-menu: {
+        highlight: Theme.surfaces.raised-hover,
         background: root.floating-surface.background,
         border: root.floating-surface.border,
     };

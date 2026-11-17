@@ -10,9 +10,9 @@ use lsp_types::Url;
 use i_slint_compiler::{element_type, expression_tree, langtype, native_class, object_tree};
 use slint::{Model, ModelRc, SharedString};
 
-pub fn setup(api: &ui::Api<'_>) {
-    api.on_filter_palettes(filter_palettes);
-    api.on_is_css_color(is_css_color);
+pub fn setup(properties_api: &ui::Properties<'_>) {
+    properties_api.on_filter_palettes(filter_palettes);
+    properties_api.on_is_css_color(is_css_color);
 }
 
 /// Model for the palette.
@@ -69,8 +69,8 @@ pub fn collect_palette(
     ModelRc::new(model)
 }
 
-pub fn set_palette(api: &ui::Api<'_>, values: ModelRc<ui::PaletteEntry>) {
-    api.set_palettes(values);
+pub fn set_palette(properties_api: &ui::Properties<'_>, values: ModelRc<ui::PaletteEntry>) {
+    properties_api.set_palettes(values);
 }
 
 fn collect_colors_palette() -> Vec<ui::PaletteEntry> {

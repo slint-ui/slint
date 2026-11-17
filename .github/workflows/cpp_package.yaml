@@ -27,7 +27,7 @@ env:
 jobs:
     cmake_package_desktop:
         env:
-            DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.2.2/clang_64/lib
+            DYLD_FRAMEWORK_PATH: ${{ github.workspace }}/../Qt/6.2.2/clang_64/lib
             QT_QPA_PLATFORM: offscreen
             CARGO_INCREMENTAL: false
         strategy:

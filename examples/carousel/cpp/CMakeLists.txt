@@ -10,4 +10,4 @@ endif()
 
 add_executable(carousel main.cpp)
 target_link_libraries(carousel PRIVATE Slint::Slint)
-slint_target_sources(carousel ../ui/carousel_demo.slint)
+slint_target_sources(carousel ../slint-project.json)

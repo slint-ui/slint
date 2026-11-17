@@ -16,7 +16,7 @@ import { edition_from_url } from "./edition";
 
     let main_source = `
 import { SpinBox, Button, CheckBox, Slider, GroupBox } from "std-widgets.slint";
-export Demo := Window {
+export component Demo inherits Window {
     width:  300px;   // Width in logical pixels. All 'px' units are automatically scaled with screen resolution.
     height: 300px;
     t:= Text {

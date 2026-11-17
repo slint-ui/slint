@@ -43,6 +43,7 @@ fn compile(source: &str) -> Vec<String> {
     let syntax_node = parse(
         source.into(),
         Some(i_slint_compiler::source_path::SourcePath::new("main.slint")),
+        None,
         &mut diag,
     );
     let mut config = CompilerConfiguration::new(OutputFormat::Llr);

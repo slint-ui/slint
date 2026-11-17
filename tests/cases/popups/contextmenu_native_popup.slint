@@ -57,7 +57,7 @@ fn key(window: &slint::Window, key: Key) {
 // The windows of all open popups, the ones opened from a popup listed after it.
 fn popup_windows(window: &slint::Window) -> Vec<Adapter> {
     let inner = WindowInner::from_pub(window);
-    let locations: Vec<_> = inner.active_popups.borrow().iter().map(|p| match &p.location {
+    let locations: Vec<_> = inner.active_popups().iter().map(|p| match &p.location {
         PopupWindowLocation::TopLevel(adapter) => adapter.clone(),
         PopupWindowLocation::ChildWindow(_) => panic!("the menu should be a native popup window"),
     }).collect();
@@ -114,7 +114,7 @@ assert_eq!(popup_windows(instance.window()).len(), 0);
 let (menu, _) = open_sub_menu(instance.window());
 click(instance.window(), 250.0, 250.0, PointerEventButton::Left);
 assert_eq!(popup_windows(instance.window()).len(), 0);
-assert!(WindowInner::from_pub(menu.window()).active_popups.borrow().is_empty());
+assert!(WindowInner::from_pub(menu.window()).active_popups().is_empty());
 ```
 
 ```cpp

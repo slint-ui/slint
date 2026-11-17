@@ -40,10 +40,26 @@ self.onmessage = async (event: MessageEvent<unknown>) => {
         return;
     captured = { revision: request.revision, state: {} };
     const started = performance.now();
-    const message = await convertCapture(request, captured.state);
+    let published = false;
+    const message = await convertCapture(request, captured.state, (preview) => {
+        published = true;
+        self.postMessage({
+            revision: request.revision,
+            message: preview,
+            workerMs: performance.now() - started,
+        });
+    });
     self.postMessage({
         revision: request.revision,
-        message,
+        message:
+            published && message.type === "preview-source"
+                ? {
+                      type: "preview-export",
+                      revision: request.revision,
+                      exportPackage: message.exportPackage,
+                      warnings: message.warnings ?? [],
+                  }
+                : message,
         workerMs: performance.now() - started,
     });
 };

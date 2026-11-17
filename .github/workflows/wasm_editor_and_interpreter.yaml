@@ -16,6 +16,10 @@ on:
             release:
                 type: boolean
                 default: true
+            os:
+                type: string
+                description: The runner for the jobs
+
 jobs:
     wasm:
         env:
@@ -25,11 +29,11 @@ jobs:
             # cargo defaults, still small enough for the preview deployment.
             CARGO_PROFILE_RELEASE_LTO: ${{ inputs.release && 'fat' || 'false' }}
             CARGO_PROFILE_RELEASE_CODEGEN_UNITS: ${{ inputs.release && '1' || '16' }}
-        runs-on: ubuntu-22.04
+        runs-on: ${{ inputs.os || 'ubuntu-22.04' }}
         steps:
             - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
-            - uses: pnpm/action-setup@v6.1.0
+            - uses: pnpm/action-setup@v6.1.1
             - uses: actions/setup-node@v7
               with:
                 node-version: 24
@@ -38,7 +42,7 @@ jobs:
               with:
                   target: wasm32-unknown-unknown
             - name: Install wasm-pack
-              run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+              run: curl https://wasm-bindgen.github.io/wasm-pack/installer/init.sh -sSf | sh
 
             - name: Compile slint-wasm-interpreter
               run: wasm-pack build --release --target web -- --features console_error_panic_hook
@@ -60,14 +64,14 @@ jobs:
 
     build-slintpad:
         needs: [wasm]
-        runs-on: ubuntu-22.04
+        runs-on: ${{ inputs.os || 'ubuntu-22.04' }}
         steps:
             - uses: actions/checkout@v7
             - uses: actions/setup-node@v7
               with:
                 node-version: 24
                 package-manager-cache: false
-            - uses: pnpm/action-setup@v6.1.0
+            - uses: pnpm/action-setup@v6.1.1
             - name: Download wasm_lsp Artifacts
               uses: actions/download-artifact@v8
               with:

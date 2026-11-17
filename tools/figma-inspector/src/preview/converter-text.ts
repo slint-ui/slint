@@ -115,6 +115,27 @@ export function textSource(
 ): SlintLine[] {
     const lines: SlintLine[] = [];
     const fill = node.fills[0];
+    if (node.outline !== undefined) {
+        if (styledText)
+            context.warnings.push({
+                severity: "warning",
+                code: "TEXT_OUTLINE_APPROXIMATED",
+                nodeId: node.id,
+                nodeName: node.name,
+                propertyPath: "strokes",
+                message: "Rich text outline was omitted",
+            });
+        else
+            lines.push(
+                property("stroke", paint(node.outline.paint), depth),
+                property(
+                    "stroke-width",
+                    `${number(node.outline.width)}px`,
+                    depth,
+                ),
+                property("stroke-style", node.outline.align, depth),
+            );
+    }
     if (
         styledText &&
         (node.letterSpacing !== 0 ||

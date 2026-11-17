@@ -91,6 +91,13 @@ fn create_repeater_components(component: &Rc<Component>) {
         });
 
         if let Some(listview) = is_listview {
+            // `adjust_references` doesn't redirect a reference from the repeated element to itself
+            if let Some(lv) = original_elem.repeated.as_mut().and_then(|r| r.is_listview.as_mut()) {
+                lv.row_height = NamedReference::new(
+                    &repeated_component.root_element,
+                    lv.row_height.name().clone(),
+                );
+            }
             if !repeated_component.root_element.borrow().is_binding_set("height", false) {
                 let preferred = Expression::PropertyReference(NamedReference::new(
                     &repeated_component.root_element,

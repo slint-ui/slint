@@ -16,6 +16,7 @@ use crate::expression_types::{MinMaxOp, Orientation, Unit};
 use crate::langtype::Type;
 use crate::layout::{MergedFixedSize, is_layout, repeated_element_layout_info};
 use crate::object_tree::{Component, Element, ElementRc};
+use crate::project_file::SlintEdition;
 use crate::typeregister::TypeRegister;
 use smol_str::{SmolStr, format_smolstr};
 use std::rc::Rc;
@@ -184,9 +185,17 @@ fn fixup_geometry(flickable_elem: &ElementRc) {
     // (`ensure_updated_listview`), so folding it here would make the constraint
     // change as the user scrolls. Any other repeated child is fully
     // materialized before layout runs and is safe to merge.
+    // Before edition 1.19, only a static layout child counts, as before #407 and #13592:
+    // counting the others can reveal binding loops in existing code.
     let is_mergeable = |x: &&ElementRc| {
-        is_layout(&x.borrow().base_type)
-            && x.borrow().repeated.as_ref().is_none_or(|r| r.is_listview.is_none())
+        let x = x.borrow();
+        if x.edition() >= Some(SlintEdition::V1_19) {
+            is_layout(&x.base_type) && x.repeated.as_ref().is_none_or(|r| r.is_listview.is_none())
+        } else {
+            // `is_layout` as before #13592: a component inheriting a layout was already lowered to `Empty`
+            x.repeated.is_none()
+                && x.builtin_type().is_some_and(|b| is_layout(&ElementType::Builtin(b)))
+        }
     };
 
     let forward_minmax_of =

@@ -1,11 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use tokio::sync::watch;
+
 use i_slint_live_preview::protocol::{
     PROTOCOL_SUBPROTOCOL, SERVICE_TYPE, SLINT_VERSION, TXT_PROTOCOLS_KEY, TXT_SLINT_VERSION_KEY,
 };
 
 use super::EndpointIdentity;
+use crate::serial::{SERIAL_SCAN_INTERVAL, UsbSerialPort, usb_serial_ports};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct RemoteViewer {
@@ -255,6 +258,51 @@ impl DiscoveredViewers {
     #[cfg(test)]
     pub(super) fn is_browsing(&self) -> bool {
         self.mdns.is_some()
+    }
+}
+
+/// Lists the USB serial ports, until it's dropped.
+/// Only listing, never opening them: opening a port disturbs the device behind it.
+pub(super) struct UsbDiscovery {
+    receiver: watch::Receiver<Vec<UsbSerialPort>>,
+}
+
+impl UsbDiscovery {
+    pub(super) fn start() -> Self {
+        let (sender, receiver) = watch::channel(Vec::new());
+        crate::spawn_local(async move {
+            while !sender.is_closed() {
+                // Listing the ports blocks, for long on Windows
+                if let Ok(Ok(ports)) = tokio::task::spawn_blocking(usb_serial_ports).await {
+                    sender.send_if_modified(|current| {
+                        let changed = *current != ports;
+                        *current = ports;
+                        changed
+                    });
+                }
+                tokio::time::sleep(SERIAL_SCAN_INTERVAL).await;
+            }
+        });
+        Self { receiver }
+    }
+
+    /// Waits until the plugged-in ports change, and returns them.
+    pub(super) async fn get_ports(&mut self) -> Vec<UsbSerialPort> {
+        match self.receiver.changed().await {
+            Ok(()) => self.receiver.borrow_and_update().clone(),
+            Err(_) => std::future::pending().await,
+        }
+    }
+
+    #[cfg(test)]
+    pub(super) fn from_receiver(receiver: watch::Receiver<Vec<UsbSerialPort>>) -> Self {
+        Self { receiver }
+    }
+}
+
+impl Default for UsbDiscovery {
+    fn default() -> Self {
+        Self { receiver: watch::channel(Vec::new()).1 }
     }
 }
 

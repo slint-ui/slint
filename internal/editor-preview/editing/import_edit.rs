@@ -109,7 +109,11 @@ pub fn create_import_edit(
     let import_path = import_path.as_ref()?;
     let doc_node = document.node.as_ref().unwrap();
 
-    if document.local_registry.lookup_element(component).is_ok() {
+    // `TabWidget` and `RadioGroup` are also names of internal builtins that user code can't use,
+    // so finding the builtin doesn't mean the std-widgets component is already imported.
+    if document.local_registry.lookup_element(component).is_ok_and(|element| {
+        !matches!(element, i_slint_compiler::element_type::ElementType::Builtin(b) if b.is_internal)
+    }) {
         None // already known, no import needed
     } else {
         let (missing_import_location, known_import_locations) =
