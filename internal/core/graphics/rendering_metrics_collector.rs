@@ -212,7 +212,7 @@ impl RenderingMetricsCollector {
             let font_size = crate::textlayout::DEFAULT_FONT_SIZE.get();
             crate::lengths::LogicalRect::new(
                 Default::default(),
-                euclid::size2(font_size * 10., font_size * 2.),
+                euclid::size2(font_size * 10 as crate::Coord, font_size * 2 as crate::Coord),
             )
         })
     }
