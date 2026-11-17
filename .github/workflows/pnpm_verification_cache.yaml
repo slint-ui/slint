@@ -1,0 +1,49 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+name: pnpm lockfile verification cache
+
+on:
+    push:
+        branches: [master]
+        paths:
+            - .github/workflows/pnpm_verification_cache.yaml
+            - .mise/config.toml
+            - package.json
+            - pnpm-lock.yaml
+            - pnpm-workspace.yaml
+            - '**/.npmrc'
+            - '**/.pnpmfile.*'
+    schedule:
+        - cron: '27 3 * * 1'
+
+permissions:
+    contents: read
+
+jobs:
+    verify:
+        if: github.repository == 'slint-ui/slint' && github.ref == 'refs/heads/master'
+        runs-on: blacksmith-4vcpu-ubuntu-2404
+        timeout-minutes: 5
+        steps:
+            - uses: useblacksmith/checkout@v1
+              with:
+                  persist-credentials: false
+            - name: Cache the verification result
+              id: verification
+              uses: actions/cache@v6
+              with:
+                  path: ~/.cache/pnpm/lockfile-verified.jsonl
+                  key: pnpm-verification-v1-${{ hashFiles('.mise/config.toml', 'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', '**/.npmrc', '**/.pnpmfile.*') }}
+            - uses: pnpm/action-setup@v6.1.1
+              if: steps.verification.outputs.cache-hit != 'true'
+            - uses: actions/setup-node@v7
+              if: steps.verification.outputs.cache-hit != 'true'
+              with:
+                  node-version: 24
+                  package-manager-cache: false
+            - name: Verify the lockfile
+              if: steps.verification.outputs.cache-hit != 'true'
+              run: |
+                  pnpm install --lockfile-only --frozen-lockfile --ignore-scripts
+                  test -s "$HOME/.cache/pnpm/lockfile-verified.jsonl"

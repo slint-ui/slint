@@ -27,6 +27,21 @@ pnpm_manifests:
  - '**/package.json'
  - 'pnpm-workspace.yaml'
 
+# Keep JavaScript checks for changes outside these Rust implementation files.
+autofix_js:
+ - '**'
+ - '!internal/{core,backends,renderers}/**/*.rs'
+
+autofix_cargo_locks:
+ - '**/Cargo.toml'
+ - '**/Cargo.lock'
+ - '**/.cargo/**'
+ - '**/rust-toolchain{,.toml}'
+ - '.gitmodules'
+ - '.mise/**'
+ - '.github/ci_path_filters.yaml'
+ - '.github/workflows/autofix.yaml'
+
 # The compiler library and i-slint-common, without the language-specific
 # generator backends, the widget styles, and the compiler's own test data.
 compiler: &compiler

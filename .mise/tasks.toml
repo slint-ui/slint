@@ -211,6 +211,10 @@ run = "cargo run -p slint-editor --features debugger -- --debugger"
 
 ["ci:autofix:fix"]
 description = "CI autofix job -- fix steps"
+depends = ["ci:autofix:fix:base", "ci:autofix:fix:js", "ci:autofix:fix:cargo-locks"]
+
+["ci:autofix:fix:base"]
+hide = true
 depends = [
   "fix:cpp:format",
   "fix:legal:copyright",
@@ -218,16 +222,24 @@ depends = [
   "fix:rust:format:all",
   "fix:text:trailing_spaces",
   "fix:toml:format",
-  "fix:pnpm:lock",
-  "fix:pnpm:dedupe",
-  "fix:ts:biome",
-  "fix:ts:format",
-  "fix:rust:lockfile:root",
-  "fix:rust:lockfile:examples",
-  "fix:rust:lockfile:demos",
-  "fix:rust:lockfile:tests",
 ]
+
+["ci:autofix:fix:js"]
+hide = true
+depends = ["fix:pnpm:lock", "fix:pnpm:dedupe", "fix:ts:biome", "fix:ts:format"]
+
+["ci:autofix:fix:cargo-locks"]
+hide = true
+depends = ["fix:rust:lockfile:examples", "fix:rust:lockfile:demos", "fix:rust:lockfile:tests"]
 
 ["ci:autofix:lint"]
 description = "CI autofix job -- lint steps"
-depends = ["lint:legal:reuse", "lint:python", "lint:ts:typecheck", "lint:ts:knip"]
+depends = ["ci:autofix:lint:base", "ci:autofix:lint:js"]
+
+["ci:autofix:lint:base"]
+hide = true
+depends = ["lint:legal:reuse", "lint:python"]
+
+["ci:autofix:lint:js"]
+hide = true
+depends = ["lint:ts:typecheck", "lint:ts:knip"]
