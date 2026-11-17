@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Icons } from "../icons/index.slint";
 import { ButtonBase } from "../../controls/src/headless.slint";
 import { Style, Metrics, Typography, Motion } from "../style.slint";
 import { Preview } from "../preview.slint";
@@ -104,7 +105,7 @@ export component ViewerControls inherits Rectangle {
             Image {
                 width: Metrics.icon-small;
                 height: Metrics.icon-small;
-                source: Preview.is-running ? @image-url("../assets/lucide/square-filled.svg") : @image-url("../assets/lucide/play-filled.svg");
+                source: Preview.is-running ? Icons.square-filled : Icons.play-filled;
                 colorize: ViewerStyle.accent;
             }
         }

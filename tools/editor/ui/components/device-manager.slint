@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Icons } from "../icons/index.slint";
 import { Style, Theme, Metrics, Typography } from "../style.slint";
 import { EditorInput } from "editor-input.slint";
 import { DeviceAction, SoftButton } from "device-action.slint";
@@ -144,7 +145,7 @@ component SavedDevicesPage inherits Rectangle {
                         Image {
                             width: Metrics.icon-medium;
                             height: Metrics.icon-medium;
-                            source: @image-url("../assets/lucide/trash.svg");
+                            source: Icons.trash;
                             colorize: ViewerStyle.muted;
                         }
                     }
@@ -549,7 +550,7 @@ export component DeviceManager inherits Rectangle {
             Image {
                 width: Metrics.icon-medium;
                 height: Metrics.icon-medium;
-                source: @image-url("../assets/lucide/x.svg");
+                source: Icons.x;
                 colorize: ViewerStyle.muted;
             }
         }

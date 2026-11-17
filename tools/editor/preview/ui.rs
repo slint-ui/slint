@@ -86,8 +86,8 @@ pub fn create_ui() -> Result<EditorUi, PlatformError> {
             .borrow_mut()
             .entry(angle)
             .or_insert_with(|| {
-                let svg = include_str!("../ui/assets/cursors/rotate.svg")
-                    .replace("{angle}", &angle.to_string());
+                let svg =
+                    include_str!("../ui/cursors/rotate.svg").replace("{angle}", &angle.to_string());
                 let image = slint::Image::load_from_svg_data(svg.as_bytes())
                     .expect("valid rotation cursor SVG");
                 // Match the fixed-pixel canvas pointer; native SVG cursors scale with the display.
@@ -102,8 +102,8 @@ pub fn create_ui() -> Result<EditorUi, PlatformError> {
             .borrow_mut()
             .entry(angle)
             .or_insert_with(|| {
-                let svg = include_str!("../ui/assets/cursors/resize.svg")
-                    .replace("{angle}", &angle.to_string());
+                let svg =
+                    include_str!("../ui/cursors/resize.svg").replace("{angle}", &angle.to_string());
                 let image = slint::Image::load_from_svg_data(svg.as_bytes())
                     .expect("valid resize cursor SVG");
                 slint::Image::from_rgba8(image.to_rgba8().expect("resize cursor pixels"))
@@ -111,10 +111,9 @@ pub fn create_ui() -> Result<EditorUi, PlatformError> {
             .clone()
     });
     let scrub_horizontal_cursor = {
-        let image = slint::Image::load_from_svg_data(include_bytes!(
-            "../ui/assets/cursors/scrub-horizontal.svg"
-        ))
-        .expect("valid horizontal scrub cursor SVG");
+        let image =
+            slint::Image::load_from_svg_data(include_bytes!("../ui/cursors/scrub-horizontal.svg"))
+                .expect("valid horizontal scrub cursor SVG");
         slint::Image::from_rgba8(image.to_rgba8().expect("horizontal scrub cursor pixels"))
     };
     ui.global::<EditorCursors>().on_scrub_horizontal_image(move || scrub_horizontal_cursor.clone());
