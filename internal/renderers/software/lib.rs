@@ -2040,7 +2040,10 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
         rounded_clips: &[RoundedClip],
     ) {
         if hook_can_draw(rounded_clips, || {
-            args.geometry().round_out().cast().intersection(&clip).unwrap_or_default()
+            args.geometry()
+                .round_out()
+                .intersection(&clip.cast())
+                .map_or_else(Default::default, |r| r.cast())
         }) && self.buffer.draw_rectangle(args, &self.dirty_region.intersection(&clip))
         {
             return;
@@ -2512,8 +2515,19 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
             inset(radius.bottom_right),
             inset(radius.bottom_left),
         );
-        (!radius.is_zero())
-            .then(|| RoundedClip { rect: geom.round().cast().inflate(-border, -border), radius })
+        if radius.is_zero() {
+            return None;
+        }
+        // The rect can't change what's drawn past a corner's reach of the clip,
+        // and cutting it there keeps it within `i16`.
+        let largest =
+            radius.top_left.max(radius.top_right).max(radius.bottom_right).max(radius.bottom_left);
+        let reach = largest as f32 + border as f32 + 1.;
+        let rect = self
+            .physical_clip()
+            .and_then(|clip| geom.round().intersection(&clip.cast().inflate(reach, reach)))
+            .map_or_else(PhysicalRect::zero, |rect| rect.cast().inflate(-border, -border));
+        Some(RoundedClip { rect, radius })
     }
 
     fn draw_image_impl(
