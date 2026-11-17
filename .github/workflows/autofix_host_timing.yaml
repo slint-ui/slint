@@ -1,0 +1,94 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+name: Benchmark autofix host jobs
+
+on:
+    push:
+        branches: [nigel/autofix-host-timing]
+
+permissions:
+    contents: read
+
+env:
+    CARGO_INCREMENTAL: false
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    SLINT_SKIP_PNPM_DEDUPE: true
+
+jobs:
+    seed:
+        name: Seed verification benchmark cache
+        if: github.repository == 'slint-ui/slint'
+        runs-on: blacksmith-4vcpu-ubuntu-2404
+        timeout-minutes: 5
+        steps:
+            - uses: useblacksmith/checkout@v1
+              with:
+                  persist-credentials: false
+            - uses: pnpm/action-setup@v6.1.1
+            - uses: actions/setup-node@v7
+              with:
+                  node-version: 24
+                  package-manager-cache: false
+            - name: Verify the lockfile
+              run: |
+                  pnpm install --lockfile-only --frozen-lockfile --ignore-scripts
+                  test -s "$HOME/.cache/pnpm/lockfile-verified.jsonl"
+            - name: Save the verification result
+              uses: actions/cache/save@v6
+              with:
+                  path: ~/.cache/pnpm/lockfile-verified.jsonl
+                  key: &benchmark_memo slint-autofix-host-trial-${{ github.run_id }}-${{ github.run_attempt }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+    comparison:
+        name: ${{ matrix.variant }} (${{ matrix.task }}, ${{ matrix.repeat }})
+        needs: seed
+        runs-on: blacksmith-4vcpu-ubuntu-2404
+        timeout-minutes: 5
+        strategy:
+            fail-fast: false
+            matrix:
+                variant: [baseline, skip-js, cargo, rust-combined, pnpm-verification]
+                task: [fix, lint]
+                repeat: [1, 2]
+        steps:
+            - uses: useblacksmith/checkout@v1
+            - name: Record runner size
+              run: nproc
+            - uses: jdx/mise-action@v5.2.8
+              with:
+                  version: 2026.11.1
+                  log_level: debug
+            - name: Install rust dependencies
+              run: rustup toolchain install stable-x86_64-unknown-linux-gnu --profile default
+            - name: Restore pnpm lockfile verification
+              if: matrix.variant == 'pnpm-verification'
+              uses: actions/cache/restore@v6
+              with:
+                  path: ~/.cache/pnpm/lockfile-verified.jsonl
+                  key: *benchmark_memo
+                  fail-on-cache-miss: true
+            - name: Run checks
+              env:
+                  TASK: ${{ matrix.task }}
+                  VARIANT: ${{ matrix.variant }}
+              run: |
+                  case "$VARIANT" in
+                      cargo|rust-combined|pnpm-verification) export CARGO_PROFILE_DEV_DEBUG=0 ;;
+                  esac
+                  tasks=("ci:autofix:$TASK:base")
+                  if [[ "$VARIANT" != skip-js && "$VARIANT" != rust-combined ]]; then
+                      tasks+=(::: "ci:autofix:$TASK:js")
+                  fi
+                  if [[ "$TASK" == fix && ( "$VARIANT" == baseline || "$VARIANT" == skip-js ) ]]; then
+                      tasks+=(::: ci:autofix:fix:cargo-locks)
+                  fi
+                  mise run --force "${tasks[@]}"
+            - name: Check for unintended changes
+              run: git diff --exit-code
+            - name: Spell check
+              if: matrix.task == 'lint'
+              uses: streetsidesoftware/cspell-action@v9
+              with:
+                  files: .mise/tasks.toml
+                  incremental_files_only: false
