@@ -102,14 +102,16 @@ jobs:
                   if [[ "$REFRESH" == true ]]; then
                       exit 0
                   fi
-                  if result=$(docker buildx imagetools inspect --format '{{.Manifest.Digest}}' "$tag" 2>&1); then
-                      if ! [[ "$result" =~ ^sha256:[a-f0-9]{64}$ ]]; then
+                  error_log=$(mktemp)
+                  if manifest=$(docker buildx imagetools inspect "$tag" 2>"$error_log"); then
+                      digest=$(awk '$1 == "Digest:" {print $2; exit}' <<< "$manifest")
+                      if ! [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]; then
                           echo "::error::Expected a digest when looking up $tag."
                           exit 1
                       fi
-                      echo "digest=$result" >> "$GITHUB_OUTPUT"
-                  elif [[ "$result" != *"not found"* && "$result" != *"manifest unknown"* ]]; then
-                      echo "$result" >&2
+                      echo "digest=$digest" >> "$GITHUB_OUTPUT"
+                  elif ! grep -Eiq 'not found|manifest unknown' "$error_log"; then
+                      cat "$error_log" >&2
                       exit 1
                   fi
             - uses: useblacksmith/setup-docker-builder@v2
@@ -149,13 +151,23 @@ jobs:
                       echo "changed=true" >> "$GITHUB_OUTPUT"
                   fi
 
+            - name: Check the docs updater GitHub App configuration
+              if: steps.pin.outputs.changed == 'true'
+              env:
+                  APP_CLIENT_ID: ${{ vars.DOCS_CI_APP_CLIENT_ID }}
+                  APP_PRIVATE_KEY: ${{ secrets.DOCS_CI_APP_PRIVATE_KEY }}
+              run: |
+                  if [[ -z "$APP_CLIENT_ID" || -z "$APP_PRIVATE_KEY" ]]; then
+                      echo "::error::Set DOCS_CI_APP_CLIENT_ID and DOCS_CI_APP_PRIVATE_KEY for a GitHub App installed on this repository with Contents, Pull requests, and Workflows write access."
+                      exit 1
+                  fi
             - name: Create a token for the update PR
               id: app-token
               if: steps.pin.outputs.changed == 'true'
               uses: actions/create-github-app-token@v3
               with:
-                  app-id: ${{ vars.READ_WRITE_APP_ID }}
-                  private-key: ${{ secrets.READ_WRITE_PRIVATE_KEY }}
+                  client-id: ${{ vars.DOCS_CI_APP_CLIENT_ID }}
+                  private-key: ${{ secrets.DOCS_CI_APP_PRIVATE_KEY }}
                   permission-contents: write
                   permission-pull-requests: write
                   permission-workflows: write
