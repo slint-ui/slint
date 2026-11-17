@@ -50,6 +50,9 @@ jobs:
         container:
             image: ${{ inputs.container-image }}
             options: --ipc=host
+            volumes:
+                - /usr/local/lib/android/sdk:/usr/local/lib/android/sdk:ro
+                - /usr/lib/jvm:/usr/lib/jvm:ro
         env:
             # Allow deprecated warning because we are using nightly and some things might be deprecated in nightly
             # for which the stable alternative is not yet available.
@@ -63,6 +66,14 @@ jobs:
             CPPREFERENCE_DOC_VERSION: "20250209"
         steps:
             - uses: actions/checkout@v7
+            - name: Use the runner Android toolchain
+              if: inputs.container-image != ''
+              run: |
+                  java_home=$(find /usr/lib/jvm -mindepth 1 -maxdepth 1 -name 'temurin-17-*' -type d | head -1)
+                  test -n "$java_home"
+                  echo "JAVA_HOME=$java_home" >> "$GITHUB_ENV"
+                  echo "$java_home/bin" >> "$GITHUB_PATH"
+                  echo "ANDROID_HOME=/usr/local/lib/android/sdk" >> "$GITHUB_ENV"
             - name: Set up crate rustdoc link
               run: |
                   rgb_version=`grep 'rgb = '  internal/core/Cargo.toml | sed 's/^.*"\(.*\)"/\1/'`
