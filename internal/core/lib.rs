@@ -61,6 +61,8 @@ pub mod properties;
 pub mod renderer;
 #[cfg(feature = "rtti")]
 pub mod rtti;
+#[doc(hidden)]
+pub mod shared_pointer;
 pub mod sharedvector;
 pub mod slice;
 pub mod string;

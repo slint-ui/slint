@@ -333,8 +333,7 @@ void EspPlatform<PixelType>::run_event_loop()
 
 #if CONFIG_SLINT_RENDER_IN_SEPARATE_TASK
     // A separate task rasterizes and presents each recorded frame, while the event loop
-    // records the next one. A recording shares reference counts with the window that aren't
-    // atomic, so only the event loop destroys it.
+    // records the next one.
     std::optional<SoftwareRenderer::RecordedRasterCommands> recorded;
     const auto num_lines = buffer1 ? buffer1->size() / stride : 0;
     SemaphoreHandle_t frame_recorded = xSemaphoreCreateBinary();

@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // cSpell: ignore pixelfont vectorfont
-use alloc::rc::Rc;
 use alloc::vec::Vec;
 use core::cell::RefCell;
 
@@ -13,6 +12,9 @@ use i_slint_core::graphics::{BitmapFont, FontRequest, Storage};
 #[cfg(feature = "systemfonts")]
 use i_slint_core::graphics::{Rgba8Pixel, SharedPixelBuffer};
 use i_slint_core::lengths::ScaleFactor;
+use i_slint_core::shared_pointer::SharedPtr;
+#[cfg(feature = "owned-pre-rendered-resources")]
+use i_slint_core::shared_pointer::SharedWeak;
 use i_slint_core::textlayout::TextLayout;
 use pixelfont::PixelFont;
 
@@ -23,7 +25,7 @@ i_slint_core::thread_local! {
 enum RegisteredFont {
     Static(&'static BitmapFont),
     #[cfg(feature = "owned-pre-rendered-resources")]
-    Shared(alloc::rc::Weak<BitmapFont<OwnedStorage>>),
+    Shared(SharedWeak<BitmapFont<OwnedStorage>>),
 }
 
 impl PartialEq for RegisteredFont {
@@ -80,9 +82,9 @@ pub enum GlyphAlphaMap {
     /// A glyph of a font built at run time, which it keeps alive while the glyph is drawn
     #[cfg(feature = "owned-pre-rendered-resources")]
     #[from(skip)]
-    Shared { font: Rc<BitmapFont<OwnedStorage>>, glyph_set: u16, glyph: u16 },
+    Shared { font: SharedPtr<BitmapFont<OwnedStorage>>, glyph_set: u16, glyph: u16 },
     /// A glyph rendered at run time, from a vector font
-    Rendered(Rc<[u8]>),
+    Rendered(SharedPtr<[u8]>),
 }
 
 impl GlyphAlphaMap {
@@ -120,7 +122,7 @@ impl RenderableGlyph {
 #[derive(Clone)]
 pub enum VectorGlyphPixels {
     /// One coverage value per pixel, drawn in the text's color.
-    AlphaMap(Rc<[u8]>),
+    AlphaMap(SharedPtr<[u8]>),
     /// Premultiplied RGBA pixels of a color glyph, such as an emoji, drawn as they are.
     Color(SharedPixelBuffer<Rgba8Pixel>),
 }
@@ -301,8 +303,8 @@ pub fn register_bitmap_font(font_data: &'static BitmapFont) {
 }
 
 #[cfg(feature = "owned-pre-rendered-resources")]
-pub fn register_shared_bitmap_font(font_data: &Rc<BitmapFont<OwnedStorage>>) {
-    register(RegisteredFont::Shared(Rc::downgrade(font_data)));
+pub fn register_shared_bitmap_font(font_data: &SharedPtr<BitmapFont<OwnedStorage>>) {
+    register(RegisteredFont::Shared(SharedPtr::downgrade(font_data)));
 }
 
 fn register(font: RegisteredFont) {
@@ -384,7 +386,7 @@ mod tests {
     #[test]
     #[cfg(feature = "owned-pre-rendered-resources")]
     fn a_shared_font_goes_away_with_its_owner() {
-        let font = Rc::new(BitmapFont::<OwnedStorage> {
+        let font = SharedPtr::new(BitmapFont::<OwnedStorage> {
             family_name: b"Shared".to_vec(),
             character_map: Vec::new(),
             units_per_em: 1.,
