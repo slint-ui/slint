@@ -25,8 +25,8 @@ pub async fn compile(
         let mapped = data_url(url);
         Box::pin(async move { mapped })
     }));
-    let (mut diagnostics, loader) =
-        crate::load_root_file(path, source_code, Default::default(), config).await;
+    let (mut diagnostics, loader, _) =
+        crate::load_root_file(path, source_code, Default::default(), config, false).await;
     let Some(document) = loader.get_document(path).filter(|_| !diagnostics.has_errors()) else {
         return (diagnostics, None);
     };

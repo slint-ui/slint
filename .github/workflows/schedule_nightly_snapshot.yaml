@@ -17,9 +17,9 @@ jobs:
       matrix:
         # Exactly one branch uses `mode: full-nightly`: it owns the `nightly` tag and the VS Code extension.
         include:
-          - branch: pre-release/1.19
-            mode: full-nightly
           - branch: master
+            mode: full-nightly
+          - branch: pre-release/1.19
             mode: website-only
 
     steps:

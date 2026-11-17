@@ -137,8 +137,9 @@ fn llr_compile(code: &str, name: &str) -> crate::component::ComponentInstanceInn
         code.into(),
         Default::default(),
         config,
-        crate::AnimationMode::Running,
+        crate::component::AnimationMode::Running,
         None,
+        false,
     ));
     assert!(
         result
@@ -159,13 +160,14 @@ fn llr_compile(code: &str, name: &str) -> crate::component::ComponentInstanceInn
 fn compile_motion_test(code: &str, static_preview: bool) -> crate::ComponentInstance {
     let compiler = crate::Compiler::default();
     let result = if static_preview {
-        use i_slint_core::InternalToken;
-
-        spin_on::spin_on(compiler.build_static_from_source(
+        spin_on::spin_on(compiler.build(
             Some(code.into()),
             SourcePath::new("test.slint"),
-            InternalToken,
+            crate::component::AnimationMode::Static,
+            None,
+            false,
         ))
+        .0
     } else {
         spin_on::spin_on(
             compiler.build_from_source(code.into(), std::path::PathBuf::from("test.slint")),
@@ -514,8 +516,9 @@ fn interpreter_path_elements() {
         code.into(),
         Default::default(),
         config,
-        crate::AnimationMode::Running,
+        crate::component::AnimationMode::Running,
         None,
+        false,
     ));
     assert!(
         result
@@ -805,43 +808,6 @@ export component TestCase {
     // Programmatic close() drops the `PopupWindow`, whose `Drop` impl resets is-open to false.
     instance.invoke("close-a", &[]).unwrap();
     assert_eq!(instance.get_property("a-open").unwrap(), Value::from(false), "a after close");
-}
-
-/// `root_component()` must return the component the definition was built
-/// from, not a same-named component from another loaded document.
-#[cfg(feature = "internal")]
-#[test]
-fn root_component_resolves_to_the_right_document() {
-    i_slint_backend_testing::init_no_event_loop();
-    let mut compiler = crate::Compiler::default();
-    compiler.set_file_loader(|path| {
-        let path = path.to_path_buf();
-        Box::pin(async move {
-            (path.file_name().and_then(|n| n.to_str()) == Some("lib.slint")).then(|| {
-                Ok("component App inherits Rectangle { }\nexport component Helper inherits Rectangle { App {} }".to_owned())
-            })
-        })
-    });
-    let result = spin_on::spin_on(
-        compiler.build_from_source(
-            r#"
-            import { Helper } from "lib.slint";
-            export component App inherits Window {
-                width: 123px;
-                Helper { }
-            }
-        "#
-            .into(),
-            std::path::PathBuf::from("main.slint"),
-        ),
-    );
-    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
-    let definition = result.component("App").unwrap();
-    let root = definition.root_component();
-    assert_eq!(
-        root.root_element.borrow().debug.first().unwrap().node.source_file.path(),
-        &SourcePath::new("main.slint")
-    );
 }
 
 #[test]

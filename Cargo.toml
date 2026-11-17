@@ -21,7 +21,6 @@ members = [
   'api/python/slint',
   'api/dotnet/native',
   'api/wasm-interpreter',
-  'editors/zed',
   'helper_crates/const-field-offset',
   'helper_crates/vtable',
   'helper_crates/vtable/macro',
@@ -56,7 +55,7 @@ members = [
 ]
 
 # These subtrees are their own workspaces; keep them out of this one.
-exclude = ['examples', 'demos', 'tests', 'ui-libraries']
+exclude = ['editors/zed', 'examples', 'demos', 'tests', 'ui-libraries']
 
 default-members = [
   'api/rs/build',

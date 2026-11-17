@@ -4,8 +4,9 @@
 //! Hiding a window from one of its own event handlers must not report that the window
 //! is kept alive: the event loop holds a reference to it while dispatching the event.
 
-use std::cell::{Cell, RefCell};
+use std::cell::RefCell;
 use std::rc::Rc;
+use std::time::Duration;
 
 use slint::winit_030::{CustomApplicationHandler, EventResult, winit};
 
@@ -20,12 +21,10 @@ slint::slint! {
     }
 }
 
-/// Hides the window from a winit event, like an application does on a click on the close button.
-struct HideOnRedraw {
-    hidden: Rc<Cell<bool>>,
-}
+/// Hides the window from its first winit event, as an application does on a close button click.
+struct HideOnFirstEvent;
 
-impl CustomApplicationHandler for HideOnRedraw {
+impl CustomApplicationHandler for HideOnFirstEvent {
     fn window_event(
         &mut self,
         _event_loop: &winit::event_loop::ActiveEventLoop,
@@ -34,12 +33,10 @@ impl CustomApplicationHandler for HideOnRedraw {
         slint_window: Option<&slint::Window>,
         event: &winit::event::WindowEvent,
     ) -> EventResult {
-        // Every platform delivers a redraw for a window that was just shown.
-        if !self.hidden.get()
-            && matches!(event, winit::event::WindowEvent::RedrawRequested)
-            && let Some(slint_window) = slint_window
+        if let Some(slint_window) = slint_window
+            && slint_window.is_visible()
         {
-            self.hidden.set(true);
+            eprintln!("Hiding the window from {event:?}");
             slint_window.hide().unwrap();
         }
         EventResult::Propagate
@@ -47,14 +44,19 @@ impl CustomApplicationHandler for HideOnRedraw {
 }
 
 fn main() {
+    std::thread::spawn(|| {
+        std::thread::sleep(Duration::from_secs(60));
+        eprintln!("The event loop didn't return within a minute");
+        std::process::exit(1);
+    });
+
     // Only Wayland destroys the window when it is hidden, and only then is there
     // something that could be kept alive. Take that path on every platform.
     unsafe { std::env::set_var("SLINT_DESTROY_WINDOW_ON_HIDE", "1") };
 
-    let hidden = Rc::new(Cell::new(false));
     slint::BackendSelector::new()
         .backend_name("winit".into())
-        .with_winit_custom_application_handler(HideOnRedraw { hidden: hidden.clone() })
+        .with_winit_custom_application_handler(HideOnFirstEvent)
         .select()
         .unwrap();
 
@@ -72,7 +74,6 @@ fn main() {
     // The window is the only one, so the event loop returns once it is hidden.
     slint::run_event_loop().unwrap();
 
-    assert!(hidden.get(), "the window was never hidden");
     let reports: Vec<_> =
         messages.take().into_iter().filter(|message| message.contains(REPORT)).collect();
     assert!(reports.is_empty(), "the window was reported as kept alive: {reports:?}");

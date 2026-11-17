@@ -184,6 +184,9 @@ fn generate_public_component(
         let (major, minor) = (edition.major, edition.minor);
         quote!(compiler.set_edition((#major, #minor));)
     });
+    let debug_info = compiler_config
+        .debug_info
+        .then(|| quote!(compiler.set_overrides(sp::live_preview::Overrides { debug_info: Some(true), ..::core::default::Default::default() }, sp::live_preview::InternalToken);));
     let new_with_existing_window_enabled = compiler_config
         .experimental_features
         .contains(crate::ExperimentalFeature::NewWithExistingWindow);
@@ -191,6 +194,7 @@ fn generate_public_component(
     let compiler_factory = quote!(
         let compiler_factory = || {
             let mut compiler = sp::live_preview::Compiler::default();
+            #debug_info
             compiler.set_include_paths([#(#include_paths.into()),*].into_iter().collect());
             compiler.set_library_paths([#(#library_paths.into()),*].into_iter().collect());
             #(compiler.set_style(#style.to_string());)*
