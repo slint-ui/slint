@@ -724,6 +724,17 @@ SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
+path = ["tools/editor/ui/icons/codicons/*.svg"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Codicon Icons <https://github.com/microsoft/vscode-codicons/>"
+SPDX-License-Identifier = "CC-BY-4.0"
+
+[[annotations]]
+path = ["tools/editor/ui/icons/octicons/*.svg"]
+SPDX-FileCopyrightText = "Copyright © 2026 GitHub Inc."
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
 path = ["tools/editor/ui/icons/lucide/*.svg"]
 SPDX-FileCopyrightText = "Copyright (c) 2026 Lucide Icons and Contributors"
 SPDX-License-Identifier = "ISC"
@@ -743,13 +754,6 @@ path = [
   "tools/editor/ui/icons/lucide/trash.svg",
   "tools/editor/ui/icons/lucide/type.svg",
   "tools/editor/ui/icons/lucide/x.svg",
-  "tools/editor/ui/icons/lucide/chevron-right.svg",
-  "tools/editor/ui/icons/lucide/circle.svg",
-  "tools/editor/ui/icons/lucide/circle-alert.svg",
-  "tools/editor/ui/icons/lucide/circle-plus.svg",
-  "tools/editor/ui/icons/lucide/info.svg",
-  "tools/editor/ui/icons/lucide/minus.svg",
-  "tools/editor/ui/icons/lucide/panel-left.svg",
 ]
 SPDX-FileCopyrightText = ["Copyright (c) 2026 Lucide Icons and Contributors", "Copyright (c) 2013-present Cole Bemis"]
 SPDX-License-Identifier = "ISC AND MIT"
@@ -777,9 +781,3 @@ path = [
 ]
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
 SPDX-License-Identifier = "MIT"
-
-[[annotations]]
-path = ["tools/editor/ui/icons/stroked-icons.slint"]
-precedence = "aggregate"
-SPDX-FileCopyrightText = ["Copyright (c) 2026 Lucide Icons and Contributors", "Copyright (c) 2013-present Cole Bemis"]
-SPDX-License-Identifier = "ISC AND MIT"

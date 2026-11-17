@@ -58,7 +58,7 @@ component CornerModeSegment inherits ButtonBase {
         y: (root.height - self.height) / 2 + root.offset;
         width: 18px;
         height: 18px;
-        source: root.separate ? Icons.scan : Icons.square;
+        source: root.separate ? Icons.corners-separate : Icons.corners-all;
         colorize: root.checked ? root.style.foreground : root.style.muted;
     }
 }

@@ -48,8 +48,8 @@ component ActionIcon inherits Image {
     width: Metrics.icon-large;
     height: Metrics.icon-large;
     source: root.folder
-        ? Icons.folder-open
-        : Icons.circle-plus;
+        ? Icons.primer-folder-open
+        : Icons.primer-plus-circle;
     colorize: root.icon-color;
 }
 
@@ -139,7 +139,7 @@ component RecentProjectRow inherits Rectangle {
         Image {
             width: root.style.icon-size;
             height: root.style.icon-size;
-            source: Icons.file-code;
+            source: Icons.primer-file-code;
             colorize: root.selected ? Colors.on-accent : root.style.selected-background;
         }
 

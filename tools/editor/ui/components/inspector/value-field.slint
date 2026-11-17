@@ -144,9 +144,9 @@ export component InspectorValueField inherits FocusScope {
                     width: 9px;
                     height: 9px;
                     accessible-role: none;
-                    source: Icons.square-round-corner;
+                    source: Icons.radius-rounded;
                     colorize: root.style.appearance.muted;
-                    transform-rotation: root.corner-index == 1 ? 0deg : root.corner-index == 2 ? 180deg : root.corner-index == 3 ? 90deg : 270deg;
+                    transform-rotation: root.corner-index == 1 ? 90deg : root.corner-index == 2 ? 270deg : root.corner-index == 3 ? 180deg : 0deg;
                 }
                 if root.corner-index < 0 && root.prefix != "": Text {
                     width: root.style.prefix-width;

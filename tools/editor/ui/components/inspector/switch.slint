@@ -24,10 +24,9 @@ export component InspectorSwitch inherits SwitchBase {
         inner-shadow-offset-y: Style.rotation-dial.shadow.offset-y;
         for on in [false, true]: Image {
             x: parent.width * (on ? 0.75 : 0.25) - self.width / 2;
-            width: on ? 12px : 8px;
-            height: self.width;
-            source: on ? Icons.minus : Icons.circle;
-            transform-rotation: on ? 90deg : 0deg;
+            width: on ? 1.5px : 6px;
+            height: on ? 7px : 6px;
+            source: on ? Icons.switch-on : Icons.switch-off;
             colorize: Colors.muted.with-alpha(0.3);
         }
         Rectangle {
@@ -53,10 +52,9 @@ export component InspectorSwitch inherits SwitchBase {
                 border-color: Style.rotation-dial.face-border;
             }
             Image {
-                width: root.checked ? 12px : 8px;
-                height: self.width;
-                source: root.checked ? Icons.minus : Icons.circle;
-                transform-rotation: root.checked ? 90deg : 0deg;
+                width: root.checked ? 1.5px : 6px;
+                height: root.checked ? 7px : 6px;
+                source: root.checked ? Icons.switch-on : Icons.switch-off;
                 colorize: root.checked ? Style.rotation-dial.dot : Colors.muted;
             }
         }
