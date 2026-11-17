@@ -101,7 +101,7 @@ impl VisualEditorSettings {
                 }
                 Some(ui::RecentProject {
                     name: slint::format!("{}", project_name.display()),
-                    root_path: project.root.to_string_lossy().as_ref().into(),
+                    root_path: dunce::simplified(&project.root).to_string_lossy().as_ref().into(),
                     component: component.into(),
                     path: path.to_string_lossy().as_ref().into(),
                 })
@@ -399,6 +399,28 @@ mod tests {
             assert_eq!(settings.selected_canvas_preset(root), 1);
         }
         assert!(!settings.set_selected_canvas_preset(&normalized_root, 1));
+    }
+
+    #[test]
+    fn recent_project_root_is_shown_without_verbatim_prefix() {
+        let directory = tempfile::tempdir().unwrap();
+        // On Windows, `canonicalize` returns a verbatim path such as `\\?\C:\...`.
+        let root = fs::canonicalize(directory.path()).unwrap();
+        let path = root.join("main.slint");
+        fs::write(&path, "").unwrap();
+        let settings = VisualEditorSettings {
+            recent_projects: vec![recent_project(
+                &root,
+                Url::from_file_path(&path).unwrap(),
+                "Main",
+            )],
+            ..Default::default()
+        };
+
+        let visible = settings.visible_recent_projects();
+        assert_eq!(visible.len(), 1);
+        assert_eq!(visible[0].root_path.as_str(), dunce::simplified(&root).to_string_lossy());
+        assert!(!visible[0].root_path.starts_with(r"\\?\"));
     }
 
     #[test]
