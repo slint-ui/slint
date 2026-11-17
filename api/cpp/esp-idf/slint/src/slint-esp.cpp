@@ -191,8 +191,8 @@ template<typename PixelType>
 slint::PhysicalSize EspPlatform<PixelType>::physical_size() const
 {
     using RenderingRotation = slint::platform::SoftwareRenderer::RenderingRotation;
-    const bool rotated = rotation == RenderingRotation::Rotate90
-            || rotation == RenderingRotation::Rotate270;
+    const bool rotated =
+            rotation == RenderingRotation::Rotate90 || rotation == RenderingRotation::Rotate270;
     return rotated ? slint::PhysicalSize({ size.height, size.width }) : size;
 }
 
