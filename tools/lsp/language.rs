@@ -1505,14 +1505,16 @@ fn parse_configuration(
             if cfg!(any(target_arch = "wasm32", test))
                 && let Some(value) = config_object.get("edition")
             {
-                let current = i_slint_compiler::project_file::SlintEdition::current();
+                use i_slint_compiler::project_file::SlintEdition;
                 let parsed = value
                     .as_str()
                     .ok_or_else(|| format!("{value} is not a string"))
-                    .and_then(i_slint_compiler::project_file::SlintEdition::parse_supported);
-                edition = Some(parsed.unwrap_or_else(|error| {
-                    tracing::warn!("Using edition {current}: {error}");
-                    current
+                    .and_then(str::parse::<SlintEdition>);
+                let too_old = parsed.as_ref().is_ok_and(|edition| *edition < SlintEdition::FIRST);
+                let fallback = if too_old { SlintEdition::FIRST } else { SlintEdition::current() };
+                edition = Some(parsed.and_then(SlintEdition::supported).unwrap_or_else(|error| {
+                    tracing::warn!("Using edition {fallback}: {error}");
+                    fallback
                 }));
             }
         }
@@ -1694,6 +1696,7 @@ pub mod tests {
         assert_eq!(overrides.compiler.project.edition, None);
         for (value, expected) in [
             (serde_json::json!("1.18"), Some(SlintEdition { major: 1, minor: 18 })),
+            (serde_json::json!("1.10"), Some(SlintEdition::FIRST)),
             (serde_json::json!("1.18.1"), Some(SlintEdition::current())),
             (serde_json::json!(newer.to_string()), Some(SlintEdition::current())),
             (serde_json::json!(1.18), Some(SlintEdition::current())),

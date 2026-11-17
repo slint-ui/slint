@@ -493,7 +493,8 @@ fn expand(
         i_slint_compiler::source_path::SourcePath::new(source_path.clone()),
     );
     let mut diag = BuildDiagnostics::default();
-    let syntax_node = parser::parse_tokens(tokens.clone(), source_file, &mut diag);
+    let syntax_node =
+        parser::parse_tokens(tokens.clone(), source_file, compiler_config.edition, &mut diag);
     if diag.has_errors() {
         return diag.report_macro_diagnostic(&tokens);
     }

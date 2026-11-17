@@ -960,9 +960,6 @@ pub struct RepeaterTracker<T: RepeatedItemTree> {
     /// Marked dirty whenever `instances` changes, including when `ensure_updated` creates one.
     /// A row's data change alone doesn't mark it.
     instance_generation: Property<()>,
-    /// Only used for the list view to track if the scrollbar has changed and item needs to be laid out again.
-    #[pin]
-    listview_geometry_tracker: crate::properties::PropertyTracker,
 }
 
 impl<T: RepeatedItemTree> RepeaterTracker<T> {
@@ -980,16 +977,11 @@ impl<T: RepeatedItemTree> ModelChangeListener for RepeaterTracker<T> {
         let inner = &mut *inner;
         if let Some(c) =
             inner.instances.get_mut(inner.layout_state.item_index.get_instance_index(row))
+            && let Some(comp) = c.1.as_ref()
         {
-            if !self.model.is_dirty() {
-                if let Some(comp) = c.1.as_ref() {
-                    let model = self.project_ref().model.get_untracked();
-                    as_typed::<T>(comp).update(row, model.row_data(row).unwrap_or_default());
-                    c.0 = RepeatedInstanceState::Clean;
-                }
-            } else {
-                c.0 = RepeatedInstanceState::Dirty;
-            }
+            let model = self.model.get_internal();
+            as_typed::<T>(comp).update(row, model.row_data(row).unwrap_or_default());
+            c.0 = RepeatedInstanceState::Clean;
         }
     }
     /// Notify the peers that rows were added
@@ -1024,7 +1016,6 @@ impl<C: RepeatedItemTree> Default for RepeaterTracker<C> {
                 (),
                 "i_slint_core::Repeater::instance_generation",
             ),
-            listview_geometry_tracker: Default::default(),
         }
     }
 }

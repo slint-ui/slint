@@ -75,12 +75,13 @@ The Qt renderer comes with the <Link type="QtBackend" label="Qt backend" /> and 
 - Runs anywhere, highly portable, and lightweight.
 - Software rendering, no GPU acceleration.
 - Supports partial rendering.
-- Supports line-by-line rendering (Rust only).
+- Supports line-by-line rendering.
 - Suitable for Microcontrollers.
 - Some features haven't been implemented yet:
   * No support for rotations or scaling.
   * No support for `inner-shadow-*` properties.
   * No text stroking/outlining in bitmap/embedded fonts.
+  * No `Path` elements with line-by-line rendering: they're only drawn when rendering into a buffer.
 - Text rendering currently limited to western scripts.
 - `Path` elements in `no_std` environments requires enabling the `software-renderer-path` feature.
 - Available in `no_std` environments as well as in the <Link type="WinitBackend" label="Winit backend" /> and <Link type="LinuxkmsBackend" label="LinuxKMS backend" />.

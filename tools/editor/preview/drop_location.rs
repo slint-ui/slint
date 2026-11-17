@@ -1397,6 +1397,7 @@ fn parse_pasted_element(text: &str) -> Option<SyntaxNode> {
     let document = i_slint_compiler::parser::parse(
         format!("{PASTE_WRAPPER_PREFIX}{}{PASTE_WRAPPER_SUFFIX}", text.trim()),
         None,
+        None,
         &mut diag,
     );
     if diag.has_errors() {

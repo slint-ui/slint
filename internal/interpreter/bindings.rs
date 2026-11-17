@@ -28,13 +28,13 @@ use num_traits::Float as _;
 /// be in place when the factory closure returns.
 pub fn install_bindings_only(instance: &VRc<ItemTreeVTable, Instance>) {
     // Two passes: property bindings and two-way links across the whole
-    // sub-component tree first, then change trackers and timers.
+    // sub-component tree first, then change trackers.
     // A change tracker reads its target's current value on `init()`, so it
     // must run after every use-site override has landed; otherwise an inner
     // component's tracker would see the default value and fire when the
     // outer component's `property_init` supersedes it.
     install_property_bindings(&instance.root_sub_component);
-    install_trackers_and_timers(&instance.root_sub_component);
+    install_change_callbacks(&instance.root_sub_component);
 }
 
 pub fn run_init_code_for_instance(instance: &VRc<ItemTreeVTable, Instance>) {
@@ -77,114 +77,62 @@ fn install_property_bindings(sub: &Pin<Rc<SubComponentInstance>>) {
     install_repeater_model_bindings(sub, &weak_sub);
 }
 
-fn install_trackers_and_timers(sub: &Pin<Rc<SubComponentInstance>>) {
-    for nested in &sub.sub_components {
-        install_trackers_and_timers(nested);
-    }
-    let weak_sub = Rc::downgrade(&Pin::into_inner(sub.clone()));
-    install_change_callbacks(sub, &weak_sub);
-    install_timers(sub, &weak_sub);
-}
-
-/// Configure each `Timer` declared on `sub`: evaluate its LLR `interval` /
-/// `running` / `triggered` expressions and start or stop the matching
-/// `i_slint_core::timers::Timer` in `SubComponentInstance::timers`.
-fn install_timers(sub: &Pin<Rc<SubComponentInstance>>, weak_sub: &Weak<SubComponentInstance>) {
-    let cu = &sub.compilation_unit;
-    let sc: &SubComponent = &cu.sub_components[sub.sub_component_idx];
+/// Start or stop each `Timer` declared on `sub` to match its current
+/// `running` and `interval`.
+pub(crate) fn update_timers(sub: &Pin<Rc<SubComponentInstance>>) {
+    let sc = &sub.compilation_unit.sub_components[sub.sub_component_idx];
     if sc.timers.is_empty() {
         return;
     }
-    let update = {
-        let weak_sub = weak_sub.clone();
-        move || {
-            let Some(owner_rc) = weak_sub.upgrade() else { return };
-            let owner = Pin::new(owner_rc);
-            let cu = owner.compilation_unit.clone();
-            let sc = &cu.sub_components[owner.sub_component_idx];
-            for (idx, t) in sc.timers.iter().enumerate() {
-                let running_expr = t.running.borrow().clone();
-                let interval_expr = t.interval.borrow().clone();
-                let triggered_expr = t.triggered.borrow().clone();
-                let mut ctx = EvalContext::new(owner.clone());
-                let running = matches!(eval_expression(&mut ctx, &running_expr), Value::Bool(true));
-                if !running {
-                    if let Some(timer) = owner.timers.get(idx) {
-                        timer.stop();
-                    }
-                    continue;
-                }
-                let mut ctx = EvalContext::new(owner.clone());
-                let interval_ms: i64 =
-                    eval_expression(&mut ctx, &interval_expr).try_into().unwrap_or(0);
-                if interval_ms < 0 {
-                    if let Some(timer) = owner.timers.get(idx) {
-                        timer.stop();
-                    }
-                    continue;
-                }
-                let interval = core::time::Duration::from_millis(interval_ms as u64);
-                let Some(timer) = owner.timers.get(idx) else { continue };
-                if timer.running() && timer.interval() == interval {
-                    continue;
-                }
-                let weak = Rc::downgrade(&Pin::into_inner(owner.clone()));
-                let expr = triggered_expr.clone();
-                crate::eval::component_context(&ctx).start_timer(
-                    timer,
-                    i_slint_core::timers::TimerMode::Repeated,
-                    interval,
-                    move || {
-                        let Some(owner) = weak.upgrade() else { return };
-                        let mut ctx = EvalContext::new(Pin::new(owner));
-                        eval_expression(&mut ctx, &expr);
-                    },
-                );
-            }
+    let mut ctx = EvalContext::new(sub.clone());
+    let weak_sub = Rc::downgrade(&Pin::into_inner(sub.clone()));
+    for (t, timer) in sc.timers.iter().zip(&sub.timers) {
+        let running = matches!(eval_expression(&mut ctx, &t.running.borrow()), Value::Bool(true));
+        let interval_ms: i64 = if running {
+            eval_expression(&mut ctx, &t.interval.borrow()).try_into().unwrap_or(0)
+        } else {
+            -1
+        };
+        if interval_ms < 0 {
+            timer.stop();
+            continue;
         }
-    };
-
-    // Run once to start timers whose `running` is already true, then hook
-    // every `running` / `interval` expression into its own change tracker
-    // so mutations re-run the update step.
-    update();
-    for (timer_idx, t) in sc.timers.iter().enumerate() {
-        for (expr_idx, expr) in [&t.running, &t.interval].into_iter().enumerate() {
-            let get_expr = expr.borrow().clone();
-            let weak_get = weak_sub.clone();
-            let update = update.clone();
-            sub.change_trackers[2 * timer_idx + expr_idx].init(
-                (),
-                move |()| -> Value {
-                    let Some(owner) = weak_get.upgrade() else { return Value::Void };
-                    let mut ctx = EvalContext::new(Pin::new(owner));
-                    eval_expression(&mut ctx, &get_expr)
-                },
-                move |(), _| {
-                    update();
-                },
-            );
+        let interval = core::time::Duration::from_millis(interval_ms as u64);
+        if timer.running() && timer.interval() == interval {
+            continue;
         }
+        let weak = weak_sub.clone();
+        let expr = mut_expression_clone(&t.triggered);
+        crate::eval::component_context(&ctx).start_timer(
+            timer,
+            i_slint_core::timers::TimerMode::Repeated,
+            interval,
+            move || {
+                let Some(owner) = weak.upgrade() else { return };
+                let mut ctx = EvalContext::new(Pin::new(owner));
+                eval_expression(&mut ctx, &expr);
+            },
+        );
     }
 }
 
-fn install_change_callbacks(
-    sub: &Pin<Rc<SubComponentInstance>>,
-    weak_sub: &Weak<SubComponentInstance>,
-) {
+fn install_change_callbacks(sub: &Pin<Rc<SubComponentInstance>>) {
+    for nested in &sub.sub_components {
+        install_change_callbacks(nested);
+    }
     let cu = &sub.compilation_unit;
     let sc: &SubComponent = &cu.sub_components[sub.sub_component_idx];
     if sc.change_callbacks.is_empty() {
         return;
     }
-    let base = 2 * sc.timers.len();
+    let weak_sub = Rc::downgrade(&Pin::into_inner(sub.clone()));
     for (idx, (target, expr)) in sc.change_callbacks.iter().enumerate() {
         let target = target.clone();
         let expr = mut_expression_clone(expr);
         let weak_get = weak_sub.clone();
         let weak_set = weak_sub.clone();
         let expr_for_set = expr.clone();
-        sub.change_trackers[base + idx].init(
+        sub.change_trackers[idx].init(
             (),
             move |()| -> Value {
                 let Some(owner) = weak_get.upgrade() else { return Value::Void };
@@ -745,6 +693,7 @@ fn run_init_code(sub: &Pin<Rc<SubComponentInstance>>) {
         let mut ctx = EvalContext::new(sub.clone());
         eval_expression(&mut ctx, &expr);
     }
+    update_timers(sub);
 }
 
 use crate::eval::{walk_parent, walk_sub_path};

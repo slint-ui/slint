@@ -8,8 +8,8 @@ use core::num::NonZeroU16;
 use alloc::vec::Vec;
 use skrifa::MetadataProvider;
 
-use crate::PhysicalLength;
 use crate::fixed::Fixed;
+use crate::{PhysicalLength, TextLength};
 use i_slint_common::sharedfontique::fontique;
 use i_slint_core::graphics::{Rgba8Pixel, SharedPixelBuffer};
 use i_slint_core::lengths::PhysicalPx;
@@ -104,12 +104,12 @@ pub struct VectorFont {
     font_blob: fontique::Blob<u8>,
     swash_key: swash::CacheKey,
     swash_offset: u32,
-    ascender: PhysicalLength,
-    descender: PhysicalLength,
-    height: PhysicalLength,
+    ascender: TextLength,
+    descender: TextLength,
+    height: TextLength,
     pixel_size: PhysicalLength,
-    x_height: PhysicalLength,
-    cap_height: PhysicalLength,
+    x_height: TextLength,
+    cap_height: TextLength,
     /// Normalized variation coordinates (F2Dot14, fvar axis order) for variable font rendering.
     normalized_coords: Vec<i16>,
     /// Hash of normalized_coords for use in the glyph cache key.
@@ -354,9 +354,9 @@ impl VectorFont {
 }
 
 impl TextShaper for VectorFont {
-    type LengthPrimitive = i16;
-    type Length = PhysicalLength;
-    fn shape_text<GlyphStorage: core::iter::Extend<Glyph<PhysicalLength>>>(
+    type LengthPrimitive = i32;
+    type Length = TextLength;
+    fn shape_text<GlyphStorage: core::iter::Extend<Glyph<TextLength>>>(
         &self,
         text: &str,
         glyphs: &mut GlyphStorage,
@@ -370,20 +370,20 @@ impl TextShaper for VectorFont {
         glyphs.extend(text.char_indices().map(|(byte_offset, char)| {
             let glyph_id = NonZeroU16::try_from(charmap.map(char)).ok();
             let x_advance = glyph_id.map_or_else(
-                || self.pixel_size.get(),
+                || self.pixel_size.get().into(),
                 |id| (gm.advance_width(id.get()) * scale) as _,
             );
 
             Glyph {
                 glyph_id,
-                advance: PhysicalLength::new(x_advance),
+                advance: TextLength::new(x_advance),
                 text_byte_offset: byte_offset,
                 ..Default::default()
             }
         }));
     }
 
-    fn glyph_for_char(&self, ch: char) -> Option<Glyph<PhysicalLength>> {
+    fn glyph_for_char(&self, ch: char) -> Option<Glyph<TextLength>> {
         let font_ref = self.swash_font_ref();
         let charmap = font_ref.charmap();
         let gm = font_ref.glyph_metrics(&[]);
@@ -392,30 +392,30 @@ impl TextShaper for VectorFont {
 
         NonZeroU16::try_from(charmap.map(ch)).ok().map(|glyph_id| Glyph {
             glyph_id: Some(glyph_id),
-            advance: PhysicalLength::new((gm.advance_width(glyph_id.get()) * scale) as _),
+            advance: TextLength::new((gm.advance_width(glyph_id.get()) * scale) as _),
             ..Default::default()
         })
     }
 }
 
-impl i_slint_core::textlayout::FontMetrics<PhysicalLength> for VectorFont {
-    fn ascent(&self) -> PhysicalLength {
+impl i_slint_core::textlayout::FontMetrics<TextLength> for VectorFont {
+    fn ascent(&self) -> TextLength {
         self.ascender
     }
 
-    fn height(&self) -> PhysicalLength {
+    fn height(&self) -> TextLength {
         self.height
     }
 
-    fn descent(&self) -> PhysicalLength {
+    fn descent(&self) -> TextLength {
         self.descender
     }
 
-    fn x_height(&self) -> PhysicalLength {
+    fn x_height(&self) -> TextLength {
         self.x_height
     }
 
-    fn cap_height(&self) -> PhysicalLength {
+    fn cap_height(&self) -> TextLength {
         self.cap_height
     }
 }

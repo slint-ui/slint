@@ -190,7 +190,7 @@ fn choose_new_project_path(_window: Option<slint::WindowHandle>) -> Option<PathB
 
 #[cfg(not(target_arch = "wasm32"))]
 fn default_new_project_parent() -> PathBuf {
-    let home = std::env::var_os("HOME").map(PathBuf::from);
+    let home = std::env::home_dir();
     if let Some(documents) =
         home.as_ref().map(|home| home.join("Documents")).filter(|path| path.is_dir())
     {
