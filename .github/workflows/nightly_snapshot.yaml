@@ -408,6 +408,11 @@ jobs:
                 path: website
                 token: ${{ steps.app-token-website.outputs.token }}
                 persist-credentials: false
+            - uses: pnpm/action-setup@v6.1.1
+              with:
+                package_json_file: website/scripts/highlight/package.json
+            - name: Install the website's syntax highlighting dependencies
+              run: pnpm install --frozen-lockfile --dir website/scripts/highlight
             - name: Generate release-docs.html and 404.html
               run: |
                 mkdir -p website/output
