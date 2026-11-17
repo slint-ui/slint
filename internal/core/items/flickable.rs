@@ -1441,27 +1441,33 @@ impl FlickableData {
                 inner.capture_events = Some(CaptureEvents::MouseStart);
                 InputEventResult::GrabMouse
             }
-            MouseEvent::Exit | MouseEvent::Released { .. } => {
+            MouseEvent::Released { event_time, .. } => {
                 inner.pressed_mouse_state = None;
-                if let Some(c) = inner.capture_events {
-                    if c == CaptureEvents::MouseMove {
-                        let release_time = inner.sample_time(match event {
-                            MouseEvent::Released { event_time, .. } => *event_time,
-                            _ => None,
-                        });
+                match inner.capture_events {
+                    Some(CaptureEvents::MouseMove) => {
+                        let release_time = inner.sample_time(*event_time);
                         inner.animate(flick, flick_rc, release_time);
                         inner.capture_events = None;
                         InputEventResult::EventAccepted
-                    } else if c == CaptureEvents::MouseStart {
+                    }
+                    Some(CaptureEvents::MouseStart) => {
                         inner.capture_events = None;
                         inner.move_within_limits_if_outside(flick, flick_rc);
                         InputEventResult::EventAccepted
-                    } else {
-                        // an accepted wheel event is followed by an Exit, so the wheel states must survive it
-                        InputEventResult::EventIgnored
                     }
-                } else {
-                    InputEventResult::EventIgnored
+                    _ => InputEventResult::EventIgnored,
+                }
+            }
+            MouseEvent::Exit => {
+                inner.pressed_mouse_state = None;
+                match inner.capture_events {
+                    Some(CaptureEvents::MouseStart | CaptureEvents::MouseMove) => {
+                        inner.capture_events = None;
+                        inner.move_within_limits_if_outside(flick, flick_rc);
+                        InputEventResult::EventAccepted
+                    }
+                    // an accepted wheel event is followed by an Exit, so the wheel states must survive it
+                    _ => InputEventResult::EventIgnored,
                 }
             }
             MouseEvent::Moved { position, event_time, history, .. } => {
