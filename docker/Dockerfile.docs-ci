@@ -29,4 +29,7 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs -o /tmp/rustup-ini
     && rustup default stable \
     && rm /tmp/rustup-init.sh
 
+ARG PLAYWRIGHT_VERSION
+ENV SLINT_DOCS_CI_PLAYWRIGHT_VERSION=$PLAYWRIGHT_VERSION
+
 LABEL org.opencontainers.image.source="https://github.com/slint-ui/slint"
