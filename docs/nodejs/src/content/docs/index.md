@@ -33,13 +33,16 @@ pnpm -C api/node run build
 ## Prerequisites
 
 To use Slint with Node.js, ensure the following programs are installed:
+
 - **[Node.js](https://nodejs.org/download/release/)** (v22.18 or newer)
 - **[npm](https://www.npmjs.com/)**
 
 To use Slint with Deno, ensure the following programs are installed:
+
 - **[Deno](https://docs.deno.com/runtime/manual)**
 
 To use Slint with Bun, ensure the following programs are installed:
+
 - **[Bun](https://bun.sh/docs/installation)**
 
 ### Building from Source
@@ -86,6 +89,7 @@ await demo.run();
 ```
 
 This is your main JavaScript entry point:
+
 - Import the Slint API as an [ECMAScript module](https://nodejs.org/api/esm.html#modules-ecmascript-modules) module. If you prefer you can
   also import it as [CommonJS](https://nodejs.org/api/modules.html#modules-commonjs-modules) module.
 - Invoke `loadFile()` to compile and load the `.slint` file.
@@ -142,6 +146,7 @@ await demo.run();
 ```
 
 This is your main JavaScript entry point:
+
 - Import the Slint API as an [ECMAScript module](https://nodejs.org/api/esm.html#modules-ecmascript-modules) module through Deno's
   NPM compatibility layer.
 - Invoke `loadFile()` to compile and load the `.slint` file.
@@ -149,7 +154,6 @@ This is your main JavaScript entry point:
 - Run it by showing it on the screen and reacting to user input.
 
 1. Run the example with `deno run --allow-read --allow-ffi --allow-sys index.ts`
-
 
 ## Getting Started (bun)
 
@@ -188,13 +192,13 @@ await demo.run();
 ```
 
 This is your main TypeScript entry point:
+
 - Import the Slint API as an [ECMAScript module](https://nodejs.org/api/esm.html#modules-ecmascript-modules) module.
 - Invoke `loadFile()` to compile and load the `.slint` file.
 - Instantiate the `Demo` component declared in `main.slint`.
 - Run it by showing it on the screen and reacting to user input.
 
 5. Run the example with `bun run index.ts`
-
 
 ## API Overview
 
@@ -235,6 +239,7 @@ Bun also reads `preload` from `bunfig.toml`,
 so there the flag can live in the project configuration instead of the command line.
 
 This is the recommended approach because:
+
 - Imports are declarative and statically analyzable
 - Works with TypeScript type checking (see [TypeScript Support](#typescript-support) below)
 - Components, structs, and enums are available as named exports
@@ -275,6 +280,7 @@ let component = new ui.MainWindow({
 ```
 
 Use this when you need to:
+
 - Load `.slint` files dynamically (e.g. based on user input or configuration)
 - Pass compiler options like `style`, `includePaths`, or `libraryPaths`
 

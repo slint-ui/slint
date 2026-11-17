@@ -79,6 +79,12 @@ export global InspectorEnumOptions {
         { value: "space-around", label: @tr("Space around") },
         { value: "space-evenly", label: @tr("Space evenly") },
     ];
+    out property <[InspectorComboOption]> flex-direction-options: [
+        { value: "row", label: @tr("Row") },
+        { value: "row-reverse", label: @tr("Row reverse") },
+        { value: "column", label: @tr("Column") },
+        { value: "column-reverse", label: @tr("Column reverse") },
+    ];
     out property <[InspectorComboOption]> input-type-options: [
         { value: "text", label: @tr("Text") },
         { value: "password", label: @tr("Password") },

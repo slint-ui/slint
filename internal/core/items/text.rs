@@ -1600,7 +1600,10 @@ impl Item for TextInput {
                         ));
                     }
 
-                    if cfg!(not(target_vendor = "apple")) && *_reason == FocusReason::TabNavigation
+                    // Like line edits on Windows and Linux.
+                    if cfg!(not(target_vendor = "apple"))
+                        && *_reason == FocusReason::TabNavigation
+                        && self.single_line()
                     {
                         self.select_all(window_adapter, self_rc);
                     }

@@ -1594,14 +1594,16 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
             )
             .collect::<Vec<_>>()
         } else {
-            vec![i_slint_core::graphics::fit(
+            i_slint_core::graphics::fit(
                 item.image_fit(),
                 size * self.scale_factor,
                 source_clip_rect,
                 self.scale_factor,
                 item.alignment(),
                 item.tiling(),
-            )]
+            )
+            .into_iter()
+            .collect()
         };
 
         let scale_w = buf_size.width / orig_size.width;

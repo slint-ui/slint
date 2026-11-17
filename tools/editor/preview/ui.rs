@@ -1653,6 +1653,7 @@ mod tests {
         let editor = super::create_ui().unwrap();
         let api = editor.global::<super::Api>();
         let properties_api = editor.global::<super::Properties>();
+        properties_api.on_has_property(|name| name == "opacity");
         editor
             .global::<super::Diagnostics>()
             .set_preview_availability(super::PreviewAvailability::Current);
@@ -2633,6 +2634,7 @@ mod tests {
             ("font-italic", "Text", "Italic", false),
             ("primary", "Button", "Primary", false),
             ("checkable", "Button", "Checked", false),
+            ("mouse-drag-pan-enabled", "ScrollView", "Mouse Drag Pan", false),
         ] {
             let editor = super::create_ui().unwrap();
             let api = editor.global::<super::Api>();
@@ -3702,7 +3704,7 @@ mod tests {
         });
         editor.show().unwrap();
         editor.window().set_size(slint::LogicalSize::new(1360., 1200.));
-        for (type_name, alignment, line_alignment) in [
+        for (type_name, alignment, flexbox) in [
             ("HorizontalLayout", true, false),
             ("VerticalLayout", true, false),
             ("FlexboxLayout", true, true),
@@ -3713,9 +3715,11 @@ mod tests {
             element.type_name = type_name.into();
             api.set_current_element(element);
             slint::platform::update_timers_and_animations();
-            for (label, expected) in
-                [("Layout Alignment", alignment), ("Cross Axis Line Alignment", line_alignment)]
-            {
+            for (label, expected) in [
+                ("Flex Direction", flexbox),
+                ("Layout Alignment", alignment),
+                ("Cross Axis Line Alignment", flexbox),
+            ] {
                 assert_eq!(
                     i_slint_backend_testing::ElementHandle::find_by_accessible_label(
                         &editor, label
