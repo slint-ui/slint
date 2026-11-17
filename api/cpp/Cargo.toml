@@ -78,6 +78,7 @@ std = [
 ]
 freestanding = ["i-slint-core/libm", "i-slint-core/unsafe-single-threaded", "i-slint-renderer-software?/libm"]
 experimental = ["i-slint-renderer-software?/experimental"]
+tracing = ["dep:tracing", "i-slint-renderer-software?/tracing"]
 
 default = ["std", "backend-winit", "renderer-femtovg", "system-tray"]
 
@@ -90,6 +91,7 @@ i-slint-core = { workspace = true, features = ["ffi"] }
 slint-interpreter = { workspace = true, features = ["ffi", "compat-1-2"], optional = true }
 i-slint-live-preview = { workspace = true, optional = true, features = ["ffi"] }
 raw-window-handle = { version = "0.6", optional = true }
+tracing = { version = "0.1", default-features = false, optional = true }
 
 esp-backtrace = { version = "0.20.0", features = ["panic-handler", "println"], optional = true }
 esp-println = { version = "0.18.0", default-features = false, features = ["auto", "log-04"], optional = true }

@@ -159,6 +159,7 @@ impl CachedItemBoundingBoxAndTransform {
         }
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(name = "dirty_item_geometry", skip_all))]
     fn new<T: ItemRendererFeatures>(
         item_rc: &ItemRc,
         window_adapter: &Rc<dyn WindowAdapter>,
@@ -455,6 +456,7 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
     }
 
     /// Visit the tree of item and compute what are the dirty regions
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn compute_dirty_regions(
         &mut self,
         component: &ItemTreeRc,
@@ -499,6 +501,8 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
             component,
             crate::item_tree::TraversalOrder::BackToFront,
             |component, item, index, state| {
+                #[cfg(feature = "tracing")]
+                let _span = tracing::info_span!("dirty_item").entered();
                 let mut new_state = *state;
                 let item_rc = ItemRc::new(component.clone(), index);
 
@@ -719,6 +723,7 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
     /// Adds everything that each backdrop blur reading from `region` reads,
     /// because a blur changes as a whole when anything beneath it changes,
     /// and it must read the same freshly drawn pixels as in a full redraw.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn expand_to_backdrop_blurs(&self, mut region: DirtyRegion) -> DirtyRegion {
         let mut blurs = self.backdrop_blurs.clone();
         while let Some(index) = blurs.iter().position(|sampled| region.draw_intersects(*sampled)) {
@@ -727,6 +732,7 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
         region
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn mark_dirty_rect(
         &mut self,
         rect: &LogicalRect,
@@ -738,6 +744,7 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
         }
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn do_rendering(
         cache: &RefCell<PartialRendererCache>,
         rendering_data: &CachedRenderingData,
@@ -765,6 +772,7 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
     }
 
     /// Whether an item with this bounding rect is visible in the clip and dirty region.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn item_is_drawn(&self, item_bounding_rect: &LogicalRect) -> bool {
         self.get_current_clip().intersection(item_bounding_rect).is_some_and(|clipped_geom| {
             let screen_geom =
@@ -933,6 +941,7 @@ pub struct PartialRenderingState {
 impl PartialRenderingState {
     /// Creates a partial renderer that's initialized with the partial rendering caches maintained in this state structure.
     /// Call [`Self::apply_dirty_region`] after this function to compute the correct partial rendering region.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn create_partial_renderer<T: ItemRenderer + ItemRendererFeatures>(
         &self,
         renderer: T,
@@ -944,6 +953,7 @@ impl PartialRenderingState {
     /// changes items within, and the current repaint buffer type. Returns the computed dirty region just for this frame.
     /// The provided buffer_dirty_region specifies which area of the buffer is known to *additionally* require repainting,
     /// where `None` means that buffer is not known to be dirty beyond what applies to this frame (reused buffer).
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn apply_dirty_region<T: ItemRenderer + ItemRendererFeatures>(
         &self,
         partial_renderer: &mut PartialRenderer<'_, T>,
@@ -992,6 +1002,7 @@ impl PartialRenderingState {
     /// Call this from your renderer's `free_graphics_resources` function to ensure that the cached item geometries
     /// are cleared for the destroyed items in the item tree, and that the screen region the tree
     /// covered is repainted in the next frame.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn free_graphics_resources(
         &self,
         component: crate::item_tree::ItemTreeRef,
