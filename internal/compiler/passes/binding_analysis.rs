@@ -881,6 +881,9 @@ enum CrossAxisSize {
     /// That set is wider than `is_builtin_height_for_width`: an Image with an
     /// explicit height is in it.
     GivenByLayout,
+    /// The box or grid layout of a `layoutinfo-v-with-constraint` body passes
+    /// its width only to its height-for-width cells.
+    GivenToHeightForWidthCells,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -994,7 +997,7 @@ fn visit_expression_reads(
             visit_layout_items_dependencies(
                 l.elems.iter(),
                 *o,
-                CrossAxisSize::ReadByCell,
+                layout_cells_cross_size(expr),
                 l.is_synthesized_repeated_merge,
                 vis,
             );
@@ -1194,7 +1197,7 @@ fn visit_expression_reads(
             visit_layout_items_dependencies(
                 layout.elems.iter().map(|it| &it.item),
                 *orientation,
-                CrossAxisSize::ReadByCell,
+                layout_cells_cross_size(expr),
                 false,
                 vis,
             );
@@ -1303,6 +1306,27 @@ fn visit_expression_reads(
     }
 }
 
+/// How the cells of a box or grid layout expression get their width.
+fn layout_cells_cross_size(expr: &Expression) -> CrossAxisSize {
+    let is_constrained_info = matches!(
+        expr,
+        Expression::ComputeBoxLayoutInfo {
+            orientation: Orientation::Vertical,
+            cross_axis_size: Some(_),
+            ..
+        } | Expression::ComputeGridLayoutInfo {
+            orientation: Orientation::Vertical,
+            cross_axis_size: Some(_),
+            ..
+        }
+    );
+    if is_constrained_info {
+        CrossAxisSize::GivenToHeightForWidthCells
+    } else {
+        CrossAxisSize::ReadByCell
+    }
+}
+
 /// `skip_model_dependency` is set for the one-cell `BoxLayout`
 /// [`crate::layout::repeated_element_layout_info`] synthesizes to merge a
 /// repeated element's constraints into a non-layout parent (issue #407) —
@@ -1326,12 +1350,35 @@ fn visit_layout_items_dependencies<'a>(
             // Conservative for a repeated cell: whether the layout hands the
             // instance its width depends on it (see `builtin_height_depends_on_width`).
             CrossAxisSize::ReadByCell
+        } else if cross_size == CrossAxisSize::GivenToHeightForWidthCells {
+            if crate::layout::is_height_for_width_cell(&element) {
+                if let Some(width) = crate::layout::fixed_cell_width(&element, &it.constraints) {
+                    vis(&width.clone().into(), ReadType::PropertyRead);
+                }
+                CrossAxisSize::GivenByLayout
+            } else {
+                CrossAxisSize::ReadByCell
+            }
         } else {
             cross_size
         };
 
-        if let Some(nr) = element.borrow().effective_layout_info_prop(orientation) {
+        let width_given =
+            orientation == Orientation::Vertical && cross_size == CrossAxisSize::GivenByLayout;
+        if width_given && let Some(nr) = element.borrow().layout_info_v_with_constraint.clone() {
+            vis(&nr.into(), ReadType::PropertyRead);
+        } else if let Some(nr) = element.borrow().effective_layout_info_prop(orientation) {
             vis(&nr.clone().into(), ReadType::PropertyRead);
+        } else if width_given
+            && let Some(Expression::FunctionCall { function: Callable::Function(nr), .. }) =
+                crate::layout::implicit_layout_info_call(
+                    &element,
+                    orientation,
+                    crate::layout::BuiltinFilter::All,
+                    Some(Expression::Invalid),
+                )
+        {
+            vis(&nr.into(), ReadType::PropertyRead);
         } else {
             let height_settled = element.borrow().height_is_literal;
             if let Some(nr) = element.borrow().base_layout_info_prop(orientation, height_settled) {
