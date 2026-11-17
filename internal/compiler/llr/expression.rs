@@ -1371,6 +1371,14 @@ impl ContextMap {
             | Expression::GridRepeaterCacheAccess { layout_cache_prop: p, .. } => {
                 *p = self.map_property_reference(p);
             }
+            Expression::ModelDataAssignment { level, .. } => match self {
+                ContextMap::Identity => (),
+                ContextMap::InSubElement { path, parent } => {
+                    assert!(path.is_empty());
+                    *level += *parent;
+                }
+                ContextMap::InGlobal(_) => unreachable!(),
+            },
             _ => (),
         }
         e.visit_mut(|e| self.map_expression(e))

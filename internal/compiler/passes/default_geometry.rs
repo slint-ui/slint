@@ -856,6 +856,7 @@ fn test_no_property_for_100pc() {
 "#
         .into(),
         Some(crate::source_path::SourcePath::new("HELLO")),
+        None,
         &mut test_diags,
     );
     let (doc, diag, _) =

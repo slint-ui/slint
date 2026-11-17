@@ -14,6 +14,16 @@ export component TestCase inherits Rectangle {
         }
 
         fs2 := FocusScope { }
+
+        disabled := FocusScope {
+            height: 0px;
+            enabled: false;
+        }
+
+        hidden := FocusScope {
+            height: 0px;
+            visible: false;
+        }
     }
 
     popup := PopupWindow { }
@@ -30,8 +40,13 @@ export component TestCase inherits Rectangle {
         fs2.focus();
     }
 
+    public function focus-disabled() {
+        disabled.focus();
+    }
+
     out property <bool> scope-has-focus: fs1.has-focus;
     out property <FocusReason> scope-focus-reason;
+    out property <bool> hidden-has-focus: hidden.has-focus;
 }
 
 /*
@@ -93,6 +108,13 @@ assert_eq!(instance.get_scope_focus_reason(), FocusReason::WindowActivation);
 instance.window().dispatch_event(WindowEvent::WindowActiveChanged(true));
 assert!(instance.get_scope_has_focus());
 assert_eq!(instance.get_scope_focus_reason(), FocusReason::WindowActivation);
+
+// focus() on a disabled item moves on to the next visible one, as tabbing does (issue #14893)
+instance.invoke_focus_fs2();
+instance.invoke_focus_disabled();
+assert!(!instance.get_hidden_has_focus());
+assert!(instance.get_scope_has_focus());
+assert_eq!(instance.get_scope_focus_reason(), FocusReason::TabNavigation);
 ```
 
 ```cpp
@@ -153,5 +175,12 @@ assert(instance.get_scope_focus_reason() == FocusReason::WindowActivation);
 instance.window().dispatch_window_active_changed_event(true);
 assert(instance.get_scope_has_focus());
 assert(instance.get_scope_focus_reason() == FocusReason::WindowActivation);
+
+// focus() on a disabled item moves on to the next visible one, as tabbing does (issue #14893)
+instance.invoke_focus_fs2();
+instance.invoke_focus_disabled();
+assert(!instance.get_hidden_has_focus());
+assert(instance.get_scope_has_focus());
+assert(instance.get_scope_focus_reason() == FocusReason::TabNavigation);
 ```
 */

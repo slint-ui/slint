@@ -44,7 +44,7 @@ impl CheckedAdd for f32 {
     }
 }
 
-impl<U> CheckedAdd for euclid::Length<i16, U> {
+impl<U> CheckedAdd for euclid::Length<i32, U> {
     fn checked_add(self, other: Self) -> Option<Self> {
         self.get().checked_add(other.get()).map(euclid::Length::new)
     }
@@ -75,7 +75,6 @@ pub trait TextShaper {
         + core::ops::AddAssign
         + euclid::num::Zero
         + euclid::num::One
-        + core::convert::From<i16>
         + Copy
         + core::fmt::Debug;
     type Length: euclid::num::Zero
@@ -90,6 +89,7 @@ pub trait TextShaper {
         + core::ops::Mul<Self::LengthPrimitive, Output = Self::Length>
         + core::ops::Div<Self::LengthPrimitive, Output = Self::Length>
         + DivCount
+        + MulCount
         + core::fmt::Debug;
     // Shapes the given string and emits the result into the given glyphs buffer.
     fn shape_text<GlyphStorage: core::iter::Extend<Glyph<Self::Length>>>(
@@ -116,16 +116,41 @@ impl DivCount for f32 {
     }
 }
 
-impl DivCount for i16 {
+impl DivCount for i32 {
     fn div_count(self, divisor: Self) -> usize {
-        // Widen so that i16::MIN / -1 can't overflow.
-        (i32::from(self) / i32::from(divisor)).max(0) as usize
+        // Widen so that i32::MIN / -1 can't overflow.
+        (i64::from(self) / i64::from(divisor)).max(0) as usize
     }
 }
 
 impl<T: DivCount + Clone, U> DivCount for euclid::Length<T, U> {
     fn div_count(self, divisor: Self) -> usize {
         self.get().div_count(divisor.get())
+    }
+}
+
+/// Multiplies a length by a count, which `core::ops::Mul<LengthPrimitive>` can't take
+/// without a narrowing conversion.
+pub trait MulCount {
+    /// `count` times `self`, clamped to the coordinate type's range instead of overflowing.
+    fn mul_count(self, count: usize) -> Self;
+}
+
+impl MulCount for f32 {
+    fn mul_count(self, count: usize) -> Self {
+        self * count as f32
+    }
+}
+
+impl MulCount for i32 {
+    fn mul_count(self, count: usize) -> Self {
+        self.saturating_mul(count.try_into().unwrap_or(i32::MAX))
+    }
+}
+
+impl<T: MulCount + Clone, U> MulCount for euclid::Length<T, U> {
+    fn mul_count(self, count: usize) -> Self {
+        euclid::Length::new(self.get().mul_count(count))
     }
 }
 
@@ -297,14 +322,21 @@ fn test_div_count() {
     assert_eq!(3.0_f32.div_count(10.0), 0);
     assert_eq!(f32::NAN.div_count(16.0), 0);
 
-    assert_eq!(i16::MIN.div_count(-1), 32768);
+    assert_eq!(i32::MIN.div_count(-1), 1 << 31);
 
-    type IntLen = euclid::Length<i16, euclid::UnknownUnit>;
+    type IntLen = euclid::Length<i32, euclid::UnknownUnit>;
     assert_eq!(IntLen::new(10).div_count(IntLen::new(3)), 3);
     assert_eq!(IntLen::new(-10).div_count(IntLen::new(3)), 0);
 
     type FloatLen = euclid::Length<f32, euclid::UnknownUnit>;
     assert_eq!(FloatLen::new(10.).div_count(FloatLen::new(3.)), 3);
+}
+
+#[test]
+fn test_mul_count() {
+    assert_eq!(20i32.mul_count(40_000), 800_000);
+    assert_eq!(20i32.mul_count(usize::MAX), i32::MAX);
+    assert_eq!(1.5f32.mul_count(4), 6.);
 }
 
 #[test]

@@ -25,13 +25,6 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         .map(|(k, v)| (k.to_string(), std::path::PathBuf::from(v)))
         .collect::<std::collections::HashMap<_, _>>();
 
-    let mut diag = BuildDiagnostics::default();
-    let syntax_node = parser::parse(
-        source.clone(),
-        Some(i_slint_compiler::source_path::SourcePath::new(&testcase.absolute_path)),
-        &mut diag,
-    );
-
     let mut compiler_config = CompilerConfiguration::new(generator::OutputFormat::Python);
     compiler_config.include_paths = include_paths;
     compiler_config.library_paths = library_paths;
@@ -52,8 +45,12 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         compiler_config.translation_domain =
             Some(testcase.absolute_path.file_stem().unwrap().to_str().unwrap().to_string());
     }
-    let (root_component, diag, loader) =
-        spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
+    let (root_component, diag, loader) = spin_on::spin_on(compile_source(
+        &i_slint_compiler::source_path::SourcePath::new(&testcase.absolute_path),
+        source.clone(),
+        BuildDiagnostics::default(),
+        compiler_config,
+    ));
 
     if diag.has_errors() {
         let vec = diag.to_string_vec();

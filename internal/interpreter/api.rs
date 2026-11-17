@@ -937,7 +937,7 @@ impl Compiler {
     /// as its major and minor version, such as `(1, 19)`.
     ///
     /// This wins over the edition of the project file.
-    /// If the edition is newer than this version of Slint, compilation fails.
+    /// If the edition is older than 1.18 or newer than this version of Slint, compilation fails.
     pub fn set_edition(&mut self, edition: (u32, u32)) {
         self.overrides.project.edition = Some(edition.into());
     }
@@ -2979,7 +2979,7 @@ export component App inherits Window {
     let path = SourcePath::new("/virtual/inlined-repeaters.slint");
     let mut diagnostics = BuildDiagnostics::default();
     let syntax_node =
-        i_slint_compiler::parser::parse(code.into(), Some(path.clone()), &mut diagnostics);
+        i_slint_compiler::parser::parse(code.into(), Some(path.clone()), None, &mut diagnostics);
     let mut compiler_configuration =
         i_slint_compiler::CompilerConfiguration::new(OutputFormat::Interpreter);
     compiler_configuration.debug_info = true;
@@ -3091,7 +3091,7 @@ mod project_file_tests {
             let newer = build(Some((999, 0)));
             let messages = newer.diagnostics().map(|d| d.message().to_string()).collect::<Vec<_>>();
             assert!(
-                messages.iter().any(|m| m.starts_with("The edition 999.0 is newer than Slint")),
+                messages.iter().any(|m| m.starts_with("The edition is 999.0, newer than Slint")),
                 "{messages:?}"
             );
         });

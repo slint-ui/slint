@@ -58,6 +58,10 @@ export global InspectorContext {
         return InspectorContext.has-backend-rect() && InspectorContext.element-information.type-name == "Rectangle";
     }
 
+    public pure function has-opacity-selection() -> bool {
+        return InspectorContext.has-backend-rect() && Properties.has-property("opacity");
+    }
+
     public pure function is-touch-area-selection() -> bool {
         return InspectorContext.has-backend-rect() && InspectorContext.element-information.type-name == "TouchArea";
     }
@@ -164,7 +168,17 @@ export global InspectorContext {
 
     public pure function is-interaction-selection() -> bool {
         return Api.selection.highlight-index >= 0
+            && (Properties.has-property("enabled") || Properties.has-property("mouse-drag-pan-enabled"));
+    }
+
+    public pure function has-enabled-selection() -> bool {
+        return Api.selection.highlight-index >= 0
             && Properties.has-property("enabled");
+    }
+
+    public pure function has-mouse-drag-pan-selection() -> bool {
+        return Api.selection.highlight-index >= 0
+            && Properties.has-property("mouse-drag-pan-enabled");
     }
 
     public pure function is-read-only-selection() -> bool {

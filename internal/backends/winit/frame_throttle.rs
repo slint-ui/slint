@@ -8,7 +8,7 @@ use i_slint_core::timers::{Timer, TimerMode};
 #[cfg(target_vendor = "apple")]
 mod apple_display_link;
 
-use crate::winitwindowadapter::WinitWindowAdapter;
+use crate::winitwindowadapter::{WindowVisibility, WinitWindowAdapter};
 
 pub fn create_frame_throttle(
     window_adapter: Weak<WinitWindowAdapter>,
@@ -62,11 +62,13 @@ impl FrameThrottle for TimerBasedFrameThrottle {
         self.timer.start(TimerMode::Repeated, interval, move || {
             let Some(adapter) = window_adapter.upgrade() else { return };
             if adapter.pending_redraw()
+                && adapter.visibility() != WindowVisibility::Hidden
                 && !adapter.is_minimized_on_screen()
                 && let Some(winit_window) = adapter.winit_window()
             {
                 winit_window.request_redraw();
             } else {
+                // Showing a hidden window draws it.
                 // Windows sends no WM_PAINT to a minimized window, and repaints it on restore.
                 adapter.cancel_pending_redraw();
                 if let Some(timer) = timer.upgrade() {

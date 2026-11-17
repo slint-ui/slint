@@ -401,18 +401,11 @@ pub fn build_from_document(
 #[cfg(feature = "std")]
 fn make_static(compilation_unit: &mut CompilationUnit) {
     fn make_expression_static(expression: &mut Expression) {
-        let replacement = match expression {
-            Expression::BuiltinFunctionCall { function, .. } => match function {
-                BuiltinFunction::AnimationTick => Some(Expression::NumberLiteral(0.)),
-                BuiltinFunction::RestartTimer | BuiltinFunction::UpdateTimers => {
-                    Some(Expression::CodeBlock(Vec::new()))
-                }
-                _ => None,
-            },
-            _ => None,
-        };
-        if let Some(replacement) = replacement {
-            *expression = replacement;
+        if let Expression::BuiltinFunctionCall {
+            function: BuiltinFunction::AnimationTick, ..
+        } = expression
+        {
+            *expression = Expression::NumberLiteral(0.);
         }
     }
 
