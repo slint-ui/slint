@@ -1157,7 +1157,9 @@ impl RendererSealed for SoftwareRenderer {
     #[cfg(feature = "owned-pre-rendered-resources")]
     fn register_shared_bitmap_font(
         &self,
-        font: &Rc<i_slint_core::graphics::BitmapFont<i_slint_core::graphics::OwnedStorage>>,
+        font: &i_slint_core::shared_pointer::SharedPtr<
+            i_slint_core::graphics::BitmapFont<i_slint_core::graphics::OwnedStorage>,
+        >,
     ) {
         fonts::register_shared_bitmap_font(font);
     }
@@ -2336,15 +2338,12 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> RasterCommandSink for BufferRast
 
 /// The raster commands of a frame that [`SoftwareRenderer::record_frame`] recorded.
 ///
-/// It shares images and glyphs with the window through reference counts that aren't atomic,
-/// so it isn't `Send`.
-/// Another thread may still call [`Self::rasterize`] while the recording thread keeps it alive:
-/// rasterizing only reads the shared data.
-/// Until [`Self::rasterize`] returns, the recording thread must not drop or change
-/// the images and glyphs that the frame uses, or the behavior is undefined.
-/// Only the recording thread drops it.
-// TODO: Make it `Send + Sync` before stabilizing, by replacing the `Rc`s it holds
-// (static textures, bitmap fonts, rendered glyphs) with atomic reference counts.
+/// It keeps the images and glyphs that the frame uses alive.
+/// On targets with atomic pointers it is `Send` and `Sync`,
+/// so any thread may call [`Self::rasterize`] or drop it.
+/// Other targets, such as `thumbv6m`, count references without atomics:
+/// the recording is then neither `Send` nor `Sync`,
+/// and only the thread that recorded it may use it.
 #[cfg(feature = "experimental")]
 #[derive(Default)]
 pub struct RecordedRasterCommands {
@@ -2352,6 +2351,12 @@ pub struct RecordedRasterCommands {
     rounded_clips: Vec<RoundedClip>,
     scale_factor: ScaleFactor,
 }
+
+#[cfg(all(feature = "experimental", target_has_atomic = "ptr"))]
+const _: () = {
+    fn assert_send_sync<T: Send + Sync>() {}
+    let _ = assert_send_sync::<RecordedRasterCommands>;
+};
 
 #[cfg(feature = "experimental")]
 impl RecordedRasterCommands {
@@ -2702,7 +2707,7 @@ impl<'a, T: RasterCommandSink> SoftwareItemRenderer<'a, T> {
         enum Pixels {
             Static(&'static [u8]),
             #[cfg(feature = "owned-pre-rendered-resources")]
-            Owned(Rc<StaticTextures<OwnedStorage>>),
+            Owned(i_slint_core::shared_pointer::SharedPtr<StaticTextures<OwnedStorage>>),
         }
         let mut draw_textures = |pixels: Pixels,
                                  textures: &[StaticTexture],
