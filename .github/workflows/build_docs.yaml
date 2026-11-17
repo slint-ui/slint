@@ -33,7 +33,7 @@ on:
           description: The runner for the jobs
         container-image:
           type: string
-          default: ghcr.io/slint-ui/slint/docs-ci@sha256:225f2d3acbbe3302f912bbc25ef1f9b21dde3795d6d4e710e49ef95a54621c0c
+          default: ghcr.io/slint-ui/slint/docs-ci@sha256:538fb3a2218076400d66897c0e6ff5448922396a5623c2fd4df04b39b51e0a35
           description: Prebuilt docs environment, or an empty string to install dependencies on the host
 
 defaults:
@@ -199,6 +199,18 @@ jobs:
               uses: taiki-e/install-action@cargo-llvm-cov
             - name: "Install Node dependencies"
               run: pnpm i --frozen-lockfile
+            - name: Check Playwright image version
+              if: inputs.container-image != ''
+              working-directory: docs/astro
+              run: |
+                  version=$(node -p 'require("@playwright/test/package.json").version')
+                  image_version="${SLINT_DOCS_CI_PLAYWRIGHT_VERSION:-unknown}"
+                  if [[ "$version" != "$image_version" ]]; then
+                      echo "::error::The docs image has Playwright $image_version, but Astro uses $version."
+                      echo "Update the Playwright version and base image digest in docker/Dockerfile.docs-ci."
+                      echo "Run the Docs CI image workflow on the updated branch, then pin its published digest in .github/workflows/build_docs.yaml."
+                      exit 1
+                  fi
             - name: Test shared docs utilities and prerendering
               run: pnpm -C docs/common test
             - name: Extract Version from Cargo.toml
