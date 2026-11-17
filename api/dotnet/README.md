@@ -446,8 +446,7 @@ Android drops the saved state when the user closes the app, so keep what must ou
 
 The assembly embeds the `<SlintFile>` and `<SlintProject>` files, with the images and fonts they use, as on iOS.
 With `SlintEmbedFiles` set to `false`, the build puts only the `.slint` files into the APK, and `SlintActivity` extracts them at startup.
-`examples/todo/dotnet-android` is a complete example,
-and `examples/lols/dotnet-android` runs the [LOLs per second](https://github.com/jonathanpeppers/lols) test on Android.
+`examples/todo/dotnet-android` is a complete example.
 
 ## iOS (Preview)
 
