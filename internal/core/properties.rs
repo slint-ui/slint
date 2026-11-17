@@ -237,12 +237,10 @@ pub(crate) mod dependency_tracker {
 
     impl<T: DependencyBinding> DependencyListHead<T> {
         pub fn for_each(&self, mut f: impl FnMut(&T)) {
-            unsafe {
-                let cursor = DependencyNode::new(T::NULL);
-                let cursor = Pin::new_unchecked(&cursor);
-                self.append(cursor);
-                Self::for_each_from_cursor(cursor, &mut f);
-            }
+            let cursor = core::pin::pin!(DependencyNode::new(T::NULL));
+            let cursor = cursor.into_ref();
+            self.append(cursor);
+            unsafe { Self::for_each_from_cursor(cursor, &mut f) };
         }
 
         /// Safety: `cursor` must be a pinned cursor node owned by this traversal and
@@ -892,36 +890,33 @@ impl Drop for PropertyHandle {
 unsafe fn mark_dependencies_dirty(dependencies: *mut DependencyListHead) {
     unsafe {
         debug_assert!(*(dependencies as *mut *mut ()) != const_sentinel());
-        let cursor = DependencyNode::new(core::ptr::null());
-        let cursor = Pin::new_unchecked(&cursor);
-        (&*dependencies).append(cursor);
-        mark_dependencies_dirty_from_cursor(cursor);
+        DependencyListHead::for_each(&*dependencies, |binding| mark_binding_dirty(*binding));
     }
 }
 
-unsafe fn mark_dependencies_dirty_from_cursor(cursor: Pin<&DependencyNode>) {
+/// Safety: `binding` must point to a live `BindingHolder`
+unsafe fn mark_binding_dirty(binding: *const BindingHolder) {
     unsafe {
-        DependencyListHead::for_each_from_cursor(cursor, |binding| {
-            let binding: *const BindingHolder = *binding;
-            let was_dirty = (*binding).dirty.replace(true);
-            let dependencies = (*binding).dependencies.as_ptr() as *mut DependencyListHead;
+        let was_dirty = (*binding).dirty.replace(true);
+        let dependencies = (*binding).dependencies.as_ptr() as *mut DependencyListHead;
 
-            assert!(
-                *(dependencies as *mut *mut ()) != const_sentinel(),
-                "Const property marked as dirty"
-            );
+        assert!(
+            *(dependencies as *mut *mut ()) != const_sentinel(),
+            "Const property marked as dirty"
+        );
 
-            let mark_dirty = (*binding).vtable.mark_dirty;
-            if !was_dirty && !(*dependencies).is_empty() {
-                let sub_cursor = DependencyNode::new(core::ptr::null());
-                let sub_cursor = Pin::new_unchecked(&sub_cursor);
-                (&*dependencies).append(sub_cursor);
-                mark_dirty(binding, was_dirty);
-                mark_dependencies_dirty_from_cursor(sub_cursor);
-            } else {
-                mark_dirty(binding, was_dirty);
-            }
-        });
+        let mark_dirty = (*binding).vtable.mark_dirty;
+        if !was_dirty && !(*dependencies).is_empty() {
+            let sub_cursor = core::pin::pin!(DependencyNode::new(core::ptr::null()));
+            let sub_cursor = sub_cursor.into_ref();
+            (&*dependencies).append(sub_cursor);
+            mark_dirty(binding, was_dirty);
+            DependencyListHead::for_each_from_cursor(sub_cursor, |binding| {
+                mark_binding_dirty(*binding)
+            });
+        } else {
+            mark_dirty(binding, was_dirty);
+        }
     }
 }
 
