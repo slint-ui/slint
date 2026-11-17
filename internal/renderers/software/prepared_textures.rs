@@ -12,10 +12,10 @@ use super::target_pixel_buffer::{
 };
 use super::{PhysicalLength, PhysicalRect, PhysicalSize, RenderingRotation, Texture};
 use alloc::collections::BTreeMap;
-use alloc::rc::Rc;
 use alloc::vec;
 use alloc::vec::Vec;
 use i_slint_core::Color;
+use i_slint_core::shared_pointer::SharedPtr;
 
 /// An image in RGBA, or an alpha map when it's colorized.
 pub struct PreparedTexture {
@@ -89,7 +89,7 @@ impl PreparedTexture {
     }
 
     /// The texture to draw in place of `texture`.
-    pub fn at(self: &Rc<Self>, texture: &DrawTextureArgs) -> DrawTextureArgs {
+    pub fn at(self: &SharedPtr<Self>, texture: &DrawTextureArgs) -> DrawTextureArgs {
         DrawTextureArgs {
             data: TextureDataContainer::Prepared(self.clone()),
             colorize: texture.colorize,
@@ -126,7 +126,7 @@ struct Key {
 /// Images prepared for a [`TargetPixelBuffer`](super::target_pixel_buffer::TargetPixelBuffer),
 /// kept from frame to frame by the thread that rasterizes.
 pub struct PreparedTextures {
-    textures: BTreeMap<Key, Rc<PreparedTexture>>,
+    textures: BTreeMap<Key, SharedPtr<PreparedTexture>>,
     bytes: usize,
     max_bytes: usize,
 }
@@ -156,7 +156,7 @@ impl PreparedTextures {
     }
 
     /// Returns the prepared image of `texture`, preparing it the first time.
-    pub(crate) fn get(&mut self, texture: &DrawTextureArgs) -> Option<Rc<PreparedTexture>> {
+    pub(crate) fn get(&mut self, texture: &DrawTextureArgs) -> Option<SharedPtr<PreparedTexture>> {
         let TextureDataContainer::Static(source) = &texture.data else { return None };
         let key = Key {
             data: source.data.as_ptr() as usize,
@@ -176,7 +176,7 @@ impl PreparedTextures {
         let _span =
             tracing::info_span!("prepare_texture", w = texture.dst_width, h = texture.dst_height)
                 .entered();
-        let prepared = Rc::new(PreparedTexture::new(texture)?);
+        let prepared = SharedPtr::new(PreparedTexture::new(texture)?);
         if self.bytes + bytes > self.max_bytes {
             self.textures.clear();
             self.bytes = 0;
