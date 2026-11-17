@@ -89,6 +89,7 @@ jobs:
                 package-manager-cache: false
             - uses: ./.github/actions/setup-rust
               with:
+                  save_if: ${{ github.ref == 'refs/heads/master' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) }}
                   toolchain: nightly
                   target: aarch64-linux-android
             - name: "Install Node dependencies"
@@ -186,6 +187,7 @@ jobs:
                   extra-packages: ttf-mscorefonts-installer fonts-liberation
             - uses: ./.github/actions/setup-rust
               with:
+                  save_if: ${{ github.ref == 'refs/heads/master' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) }}
                   toolchain: stable
                   target: aarch64-linux-android
                   components: clippy
@@ -349,6 +351,7 @@ jobs:
               if: inputs.container-image == ''
             - uses: ./.github/actions/setup-rust
               with:
+                  save_if: ${{ github.ref == 'refs/heads/master' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) }}
                   toolchain: stable
                   target: aarch64-linux-android
             - name: Install uv
