@@ -71,6 +71,11 @@ type PhysicalRect = euclid::Rect<i16, PhysicalPx>;
 type PhysicalSize = euclid::Size2D<i16, PhysicalPx>;
 type PhysicalPoint = euclid::Point2D<i16, PhysicalPx>;
 type PhysicalBorderRadius = BorderRadius<i16, PhysicalPx>;
+/// The unit the text layout works in, wider than `PhysicalLength` for texts past the `i16` range.
+type TextLength = euclid::Length<i32, PhysicalPx>;
+type TextRect = euclid::Rect<i32, PhysicalPx>;
+type TextSize = euclid::Size2D<i32, PhysicalPx>;
+type TextPoint = euclid::Point2D<i32, PhysicalPx>;
 
 use fonts::with_font;
 
@@ -809,7 +814,7 @@ impl RendererSealed for SoftwareRenderer {
                 max_lines,
             )
         });
-        (PhysicalSize::from_lengths(longest_line_width, height).cast() / scale_factor).cast()
+        (TextSize::from_lengths(longest_line_width, height).cast() / scale_factor).cast()
     }
 
     // Mirrors the font selection in text_size(), so both widths always come from the
@@ -926,7 +931,7 @@ impl RendererSealed for SoftwareRenderer {
                 fonts::text_layout_for_font(font, &font_request, line_height_factor, scale_factor);
             layout.text_size(ch.encode_utf8(&mut buf), None, TextWrap::NoWrap, None)
         });
-        (PhysicalSize::from_lengths(longest_line_width, height).cast() / scale_factor).cast()
+        (TextSize::from_lengths(longest_line_width, height).cast() / scale_factor).cast()
     }
 
     fn font_metrics(
@@ -1006,9 +1011,9 @@ impl RendererSealed for SoftwareRenderer {
 
         let visual_representation = text_input.visual_representation();
 
-        let pos = (pos.cast() * scale_factor)
-            .clamp(euclid::point2(0., 0.), euclid::point2(i16::MAX, i16::MAX).cast())
-            .cast();
+        // `as` saturates where `cast` would panic.
+        let pos = (pos.cast() * scale_factor).max(euclid::point2(0., 0.));
+        let pos = TextPoint::new(pos.x as i32, pos.y as i32);
 
         let byte_offset = with_font!(&font, |font| {
             let layout = fonts::text_layout_for_font(
@@ -1114,9 +1119,9 @@ impl RendererSealed for SoftwareRenderer {
             (cursor_position, band_offset, cursor_height)
         });
 
-        (PhysicalRect::new(
-            PhysicalPoint::from_lengths(cursor_position.0, cursor_position.1 + band_offset),
-            PhysicalSize::from_lengths(
+        (TextRect::new(
+            TextPoint::from_lengths(cursor_position.0, cursor_position.1 + band_offset),
+            TextSize::from_lengths(
                 (text_input.text_cursor_width().cast() * scale_factor).cast(),
                 cursor_height,
             ),
@@ -1299,7 +1304,7 @@ fn text_input_query_paragraph<'a, Font>(
     scale_factor: ScaleFactor,
 ) -> TextParagraphLayout<'a, Font>
 where
-    Font: AbstractFont + i_slint_core::textlayout::TextShaper<Length = PhysicalLength>,
+    Font: AbstractFont + i_slint_core::textlayout::TextShaper<Length = TextLength>,
 {
     TextParagraphLayout {
         string,
@@ -2454,13 +2459,13 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
     /// `rect`, relative to `offset`, clipped to `physical_clip` and in physical screen coordinates.
     fn clip_text_rect(
         &self,
-        rect: PhysicalRect,
+        rect: TextRect,
         physical_clip: euclid::Rect<f32, PhysicalPx>,
         offset: euclid::Vector2D<f32, PhysicalPx>,
     ) -> Option<PhysicalRect> {
-        let clipped = rect.intersection(&physical_clip.cast())?;
+        let clipped = rect.intersection(&physical_clip.cast())?.translate(offset.cast()).cast();
         // Truncating the float clip can reach past a rounded clip's rect.
-        self.clip_to_rounded_clips(clipped.translate(offset.cast()).transformed(self.rotation))
+        self.clip_to_rounded_clips(clipped.transformed(self.rotation))
     }
 
     fn physical_clip(&self) -> Option<PhysicalRect> {
@@ -2744,7 +2749,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
         selection: Option<SelectionInfo>,
     ) where
         Font: AbstractFont
-            + i_slint_core::textlayout::TextShaper<Length = PhysicalLength>
+            + i_slint_core::textlayout::TextShaper<Length = TextLength>
             + GlyphRenderer,
     {
         let slint_context = self.window.context();
@@ -2778,14 +2783,14 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                         continue;
                     };
 
-                    let gl_x = PhysicalLength::new((-glyph.x).truncate() as i16);
-                    let gl_y = PhysicalLength::new(glyph.y.truncate() as i16);
-                    let target_rect = PhysicalRect::new(
-                        PhysicalPoint::from_lengths(
+                    let gl_x = TextLength::new((-glyph.x).truncate());
+                    let gl_y = TextLength::new(glyph.y.truncate());
+                    let target_rect = TextRect::new(
+                        TextPoint::from_lengths(
                             line_x + positioned_glyph.x - gl_x,
-                            baseline_y - gl_y - glyph.height,
+                            baseline_y - gl_y - glyph.height.cast(),
                         ),
-                        glyph.size(),
+                        glyph.size().cast(),
                     )
                     .cast();
 
@@ -2802,9 +2807,9 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
 
                     if glyph.sdf {
                         let geometry = clipped_target.translate(offset).round();
-                        let origin = (geometry.origin - offset.round()).round().cast::<i16>();
-                        let off_x = origin.x - target_rect.origin.x as i16;
-                        let off_y = origin.y - target_rect.origin.y as i16;
+                        let origin = (geometry.origin - offset.round()).round().cast::<i32>();
+                        let off_x = (origin.x - target_rect.origin.x as i32) as i16;
+                        let off_y = (origin.y - target_rect.origin.y as i32) as i16;
                         let pixel_stride = glyph.pixel_stride;
                         let mut geometry = geometry.cast();
                         if geometry.size.width > glyph.width.get() - off_x {
@@ -2822,9 +2827,9 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                         let normalize = |x: Fixed<i32, 8>| {
                             if x < Fixed::from_integer(0) { x + Fixed::from_integer(1) } else { x }
                         };
-                        let fract_x = normalize((-glyph.x) - Fixed::from_integer(gl_x.get() as _));
+                        let fract_x = normalize((-glyph.x) - Fixed::from_integer(gl_x.get()));
                         let off_x = delta32 * off_x as i32 + fract_x;
-                        let fract_y = normalize(glyph.y - Fixed::from_integer(gl_y.get() as _));
+                        let fract_y = normalize(glyph.y - Fixed::from_integer(gl_y.get()));
                         let off_y = delta32 * off_y as i32 + fract_y;
                         let extra = SceneTextureExtra {
                             colorize: color,
@@ -3105,15 +3110,16 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
             );
 
             let phys_size = geom.size_length().cast() * self.scale_factor;
-            let fit = i_slint_core::graphics::fit(
+            if let Some(fit) = i_slint_core::graphics::fit(
                 image.image_fit(),
                 phys_size,
                 source_clip,
                 self.scale_factor,
                 image.alignment(),
                 image.tiling(),
-            );
-            self.draw_image_impl(image_inner, fit, image.colorize().color());
+            ) {
+                self.draw_image_impl(image_inner, fit, image.colorize().color());
+            }
         }
     }
 
@@ -3294,9 +3300,9 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
 
         // Nothing below depends on the concrete font, so keep it out of the monomorphized body.
         if let Some(((cursor_x, cursor_y), cursor_height)) = cursor_pos_and_height {
-            let cursor_rect = PhysicalRect::new(
-                PhysicalPoint::from_lengths(cursor_x, cursor_y),
-                PhysicalSize::from_lengths(
+            let cursor_rect = TextRect::new(
+                TextPoint::from_lengths(cursor_x, cursor_y),
+                TextSize::from_lengths(
                     (text_input.text_cursor_width().cast() * self.scale_factor).cast(),
                     cursor_height,
                 ),
@@ -3662,20 +3668,19 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
     fn draw_image_direct(&mut self, image: i_slint_core::graphics::Image) {
         let image_inner: &ImageInner = (&image).into();
         let source_size = image.size();
-        if source_size.is_empty() {
-            return;
-        }
         let target_size = euclid::Size2D::<f32, i_slint_core::lengths::LogicalPx>::from_untyped(
             source_size.cast(),
         ) * self.scale_factor;
-        let fit = i_slint_core::graphics::fit(
+        let Some(fit) = i_slint_core::graphics::fit(
             i_slint_core::items::ImageFit::Fill,
             target_size,
             i_slint_core::graphics::IntRect::from_size(source_size.cast()),
             self.scale_factor,
             Default::default(),
             Default::default(),
-        );
+        ) else {
+            return;
+        };
         self.draw_image_impl(image_inner, fit, i_slint_core::Color::default());
     }
 
@@ -3850,8 +3855,7 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
             };
 
             let gl_y = PhysicalLength::new(glyph.y.truncate() as i16);
-            // i32 so a glyph past the i16 range survives until it is clipped below.
-            let target_rect: euclid::Rect<i32, PhysicalPx> = euclid::Rect::<f32, PhysicalPx>::new(
+            let target_rect: TextRect = euclid::Rect::<f32, PhysicalPx>::new(
                 euclid::Point2D::new(
                     dst_int_x as f32 + glyph.glyph_origin_x,
                     abs_y.round() + (-gl_y - glyph.height).get() as f32,
