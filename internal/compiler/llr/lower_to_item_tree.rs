@@ -621,7 +621,6 @@ fn lower_sub_component(
                             super::debug_info::ItemDebugInfo {
                                 source_location,
                                 qualified_id: element_debug_info.qualified_id.clone(),
-                                element_hash: element_debug_info.element_hash,
                             }
                         })
                         .collect();
@@ -1856,7 +1855,7 @@ mod tests {
         let mut compiler_config = CompilerConfiguration::new(OutputFormat::Interpreter);
         compiler_config.debug_info = true;
         compiler_config.inline_all_elements = inline_all_elements;
-        compiler_config.debug_hooks = debug_hooks.then(std::hash::RandomState::new);
+        compiler_config.debug_hooks = debug_hooks;
         let (document, diagnostics, type_loader) =
             spin_on::spin_on(crate::compile_syntax_node(syntax_node, diagnostics, compiler_config));
         assert!(!diagnostics.has_errors(), "{:?}", diagnostics.to_string_vec());
@@ -1896,7 +1895,7 @@ export component TestCase inherits Window {
                         element
                             .debug
                             .iter()
-                            .map(|entry| (entry.qualified_id.clone(), entry.element_hash))
+                            .map(|entry| entry.qualified_id.clone())
                             .collect::<Vec<_>>(),
                     );
                 }
@@ -1913,10 +1912,7 @@ export component TestCase inherits Window {
             .expect("inlined item debug entries");
 
         assert_eq!(
-            entries
-                .iter()
-                .map(|entry| (entry.qualified_id.clone(), entry.element_hash))
-                .collect::<Vec<_>>(),
+            entries.iter().map(|entry| entry.qualified_id.clone()).collect::<Vec<_>>(),
             expected_identities.unwrap()
         );
         let instance_entry = entries

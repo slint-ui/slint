@@ -88,6 +88,7 @@ jobs:
         env:
             RUSTFLAGS: -D warnings
             SLINT_EMIT_DEBUG_INFO: '1'
+            CARGO_PROFILE_DEV_OPT_LEVEL: '1'
         steps:
             - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
