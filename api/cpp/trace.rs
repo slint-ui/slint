@@ -60,6 +60,9 @@ static CAPACITY: AtomicUsize = AtomicUsize::new(0);
 static LEN: [AtomicUsize; CORES] = [ZERO; CORES];
 /// What to add to each core's cycle count to get the first core's.
 static CYCLE_OFFSET: [AtomicU32; CORES] = [AtomicU32::new(0), AtomicU32::new(0)];
+#[allow(clippy::declare_interior_mutable_const)]
+const NOT_ALIGNED: AtomicBool = AtomicBool::new(false);
+static ALIGNED: [AtomicBool; CORES] = [NOT_ALIGNED; CORES];
 static RECORDING: AtomicBool = AtomicBool::new(false);
 static INSTALLED: AtomicU32 = AtomicU32::new(0);
 /// The time and the first core's cycle count at one moment, to align the other cores' with.
@@ -120,9 +123,29 @@ fn core_id() -> usize {
 }
 
 /// The cycle count of the first core, wherever this runs.
+/// A task that isn't pinned can run on any core, so a core aligns itself when it first records.
 #[inline(always)]
 fn cycles() -> u32 {
-    core_cycles().wrapping_add(CYCLE_OFFSET[core_id()].load(Relaxed))
+    let core = core_id();
+    if core != 0 && !ALIGNED[core].load(Relaxed) {
+        align_core(core);
+    }
+    core_cycles().wrapping_add(CYCLE_OFFSET[core].load(Relaxed))
+}
+
+/// Sets what `core`'s cycle count needs to match the first core's, once `install` has run.
+fn align_core(core: usize) {
+    if REFERENCE_US.load(Relaxed) == 0 {
+        return;
+    }
+    // Safety: a plain function.
+    let elapsed_us =
+        (unsafe { esp_timer_get_time() } as u32).wrapping_sub(REFERENCE_US.load(Relaxed));
+    let first_core_now = REFERENCE_CYCLES
+        .load(Relaxed)
+        .wrapping_add(elapsed_us.wrapping_mul(TICKS_PER_US.load(Relaxed)));
+    CYCLE_OFFSET[core].store(first_core_now.wrapping_sub(core_cycles()), Relaxed);
+    ALIGNED[core].store(true, Relaxed);
 }
 
 /// Returns the time if records are being kept now, and ends the capture when it's over.
@@ -345,16 +368,9 @@ pub fn install() {
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_trace_register_core() {
     let core = core_id();
-    if core == 0 || REFERENCE_US.load(Relaxed) == 0 {
-        return;
+    if core != 0 {
+        align_core(core);
     }
-    // Safety: a plain function.
-    let elapsed_us =
-        (unsafe { esp_timer_get_time() } as u32).wrapping_sub(REFERENCE_US.load(Relaxed));
-    let first_core_now = REFERENCE_CYCLES
-        .load(Relaxed)
-        .wrapping_add(elapsed_us.wrapping_mul(TICKS_PER_US.load(Relaxed)));
-    CYCLE_OFFSET[core].store(first_core_now.wrapping_sub(core_cycles()), Relaxed);
 }
 
 /// Stops recording and sends the capture. Runs on the thread that recorded last, which blocks
