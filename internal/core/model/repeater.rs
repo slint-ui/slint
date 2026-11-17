@@ -41,13 +41,7 @@ fn downcast<C: RepeatedItemTree>(instance: &ItemTreeRc) -> ItemTreeRc<C> {
     vtable::VRc::downcast(instance).unwrap()
 }
 
-/// Represents the relationship between model row and instance collection index
-/// of an element
-/// This is required for components like the listview. The listview does not instantiate all
-/// items at once but instantiates only the visible ones. If the current item is in the center
-/// of the screen we have in the instance list a few items before the current item and a few after
-/// `instance_index` indicates the position of the current item in this instance list
-/// while `row` is the index of the current item in the complete model
+/// Represents the relationship between model row and instance collection index in a repeater
 #[derive(Default, Clone, Debug, PartialEq)]
 #[repr(C)]
 pub struct CurrentItem {

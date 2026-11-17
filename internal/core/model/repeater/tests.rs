@@ -24,7 +24,7 @@ mod simple_item;
 use simple_item::SimpleItem;
 
 mod listview;
-mod repeater_ops; // repeater ops tests // listview tests
+mod repeater_ops;
 
 type ItemRendererRef<'a> = &'a mut dyn crate::item_rendering::ItemRenderer;
 
