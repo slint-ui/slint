@@ -510,9 +510,9 @@ jobs:
     # QEMU.
     slint_sc_targets:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'slint_sc_driver') }}
-        runs-on: blacksmith-4vcpu-ubuntu-2404
+        runs-on: ubuntu-26.04
         steps:
-            - uses: useblacksmith/checkout@v1
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
               with:
                   extra-packages: >-
