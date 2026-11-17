@@ -1,0 +1,28 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+ARG PLAYWRIGHT_VERSION=1.65.0
+FROM mcr.microsoft.com/playwright:v${PLAYWRIGHT_VERSION}-noble
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    CARGO_HOME=/home/runner/.cargo \
+    RUSTUP_HOME=/home/runner/.rustup
+ENV PATH="/home/runner/.cargo/bin:${PATH}"
+
+RUN echo 'ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true' | debconf-set-selections \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        build-essential ca-certificates clang cmake curl doxygen fonts-liberation gettext git \
+        libfontconfig-dev libgbm-dev libinput-dev libseat-dev libssl-dev libsystemd-dev \
+        libudev-dev libwayland-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev \
+        libxkbcommon-x11-dev ninja-build pkg-config python3 sudo ttf-mscorefonts-installer \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs -o /tmp/rustup-init.sh \
+    && sh /tmp/rustup-init.sh -y --profile minimal --default-toolchain none --no-modify-path \
+    && rustup toolchain install stable --profile minimal --component clippy --target aarch64-linux-android \
+    && rustup toolchain install nightly --profile minimal --target aarch64-linux-android \
+    && rustup default stable \
+    && rm /tmp/rustup-init.sh
+
+LABEL org.opencontainers.image.source="https://github.com/slint-ui/slint"
