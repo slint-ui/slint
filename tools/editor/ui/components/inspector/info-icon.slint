@@ -12,7 +12,7 @@ export component InspectorInfoIcon inherits Rectangle {
     width: root.style.size;
     height: root.style.size;
     border-radius: root.style.size / 2;
-    border-width: icon-focus.has-focus ? Metrics.focus-width : Metrics.border-width;
+    border-width: icon-focus.has-focus ? Metrics.focus-width : 0px;
     border-color: touch.has-hover || icon-focus.has-focus ? root.style.accent : root.style.border;
     background: touch.has-hover || icon-focus.has-focus ? root.style.hover : transparent;
     accessible-role: button;
@@ -32,10 +32,9 @@ export component InspectorInfoIcon inherits Rectangle {
     }
 
     Image {
-        y: (parent.height - self.height) / 2 - 0.5px;
-        width: root.style.text.size;
-        height: root.style.text.size;
-        source: Icons.info-letter;
+        width: root.style.size;
+        height: root.style.size;
+        source: Icons.info;
         colorize: touch.has-hover || icon-focus.has-focus ? root.style.accent : root.style.foreground;
     }
 

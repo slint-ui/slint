@@ -7,7 +7,6 @@ import { DiagnosticList } from "diagnostic-list.slint";
 import { Api } from "../api.slint";
 import { Diagnostics, PreviewAvailability } from "../diagnostics.slint";
 import { Style, Colors, Metrics, Typography, Theme, PreviewDiagnosticsStyle } from "../style.slint";
-
 import { FloatingSurface } from "floating-surface.slint";
 
 export component PreviewDiagnostics inherits Rectangle {
@@ -46,7 +45,7 @@ export component PreviewDiagnostics inherits Rectangle {
                         height: self.width;
                         Image {
                             x: 0px; y: 0px;
-                            source: Icons.primer-file-code;
+                            source: Icons.file-code;
                             width: Metrics.control-small;
                             height: self.width;
                             colorize: root.style.muted;

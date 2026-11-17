@@ -16,8 +16,8 @@ export component InspectorSegmentIcon inherits Rectangle {
         width: 18px;
         height: 18px;
         source: root.kind == "horizontal"
-            ? (root.index == 0 ? Icons.segment-align-left : root.index == 1 ? Icons.segment-align-center : Icons.segment-align-right)
-            : (root.index == 0 ? Icons.segment-align-top : root.index == 1 ? Icons.segment-align-middle : Icons.segment-align-bottom);
+            ? (root.index == 0 ? Icons.text-align-start : root.index == 1 ? Icons.text-align-center : Icons.text-align-end)
+            : (root.index == 0 ? Icons.align-start-horizontal : root.index == 1 ? Icons.align-center-horizontal : Icons.align-end-horizontal);
         colorize: root.selected ? root.style.foreground : root.style.muted;
     }
 }

@@ -109,7 +109,7 @@ export component InspectorPickerPanel inherits FloatingSurface {
                 selected: root.gradient == gradient;
                 label: gradient ? @tr("Gradient") : @tr("Solid");
                 Image { width: 18px; height: 18px;
-                    source: gradient ? Icons.fill-gradient : Icons.fill-solid;
+                    source: gradient ? Icons.blend : Icons.square-filled;
                     colorize: root.gradient == gradient ? Colors.foreground : Colors.muted;
                 }
                 clicked => { root.mode-selected(gradient); }

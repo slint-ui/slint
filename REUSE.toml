@@ -301,7 +301,6 @@ path = [
   "tools/editor/packaging/tile-backdrop-wide.svg",
   "tools/editor/packaging/tile-backdrop.svg",
   "tools/editor/packaging/windows-appx/Package.appxmanifest.in",
-  "tools/editor/ui/cursors/**.svg",
   "tools/editor/ui/icons/**.svg",
   "tools/editor/ui/images/**.svg",
   "tools/editor/ui/visual-editor/example/image.png",
@@ -345,7 +344,6 @@ path = [
   "tools/lsp/ui/assets/sync.svg",
   "tools/lsp/ui/assets/black-square.png",
   "tools/lsp/ui/assets/close.svg",
-  "tools/editor/ui/icons/codicons/close.svg",
   "tools/lsp/ui/assets/plus.svg",
   "tools/lsp/ui/assets/info.svg",
   "tools/lsp/ui/assets/clear.svg",
@@ -726,11 +724,6 @@ SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
-path = ["tools/editor/ui/icons/octicons/*.svg"]
-SPDX-FileCopyrightText = "Copyright © 2026 GitHub Inc."
-SPDX-License-Identifier = "MIT"
-
-[[annotations]]
 path = ["tools/editor/ui/icons/lucide/*.svg"]
 SPDX-FileCopyrightText = "Copyright (c) 2026 Lucide Icons and Contributors"
 SPDX-License-Identifier = "ISC"
@@ -750,6 +743,13 @@ path = [
   "tools/editor/ui/icons/lucide/trash.svg",
   "tools/editor/ui/icons/lucide/type.svg",
   "tools/editor/ui/icons/lucide/x.svg",
+  "tools/editor/ui/icons/lucide/chevron-right.svg",
+  "tools/editor/ui/icons/lucide/circle.svg",
+  "tools/editor/ui/icons/lucide/circle-alert.svg",
+  "tools/editor/ui/icons/lucide/circle-plus.svg",
+  "tools/editor/ui/icons/lucide/info.svg",
+  "tools/editor/ui/icons/lucide/minus.svg",
+  "tools/editor/ui/icons/lucide/panel-left.svg",
 ]
 SPDX-FileCopyrightText = ["Copyright (c) 2026 Lucide Icons and Contributors", "Copyright (c) 2013-present Cole Bemis"]
 SPDX-License-Identifier = "ISC AND MIT"
@@ -777,3 +777,9 @@ path = [
 ]
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
 SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = ["tools/editor/ui/icons/stroked-icons.slint"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = ["Copyright (c) 2026 Lucide Icons and Contributors", "Copyright (c) 2013-present Cole Bemis"]
+SPDX-License-Identifier = "ISC AND MIT"
