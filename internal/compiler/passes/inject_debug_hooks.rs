@@ -406,6 +406,7 @@ mod tests {
         let doc_node = crate::parser::parse(
             source.into(),
             Some(crate::source_path::SourcePath::new("test.slint")),
+            config.edition,
             &mut diags,
         );
         let (doc, diag, _) = spin_on::spin_on(crate::compile_syntax_node(doc_node, diags, config));

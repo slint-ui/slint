@@ -3,7 +3,7 @@
 
 // cSpell: ignore altgr rpos Unapply
 /*! Module handling mouse events
-*/
+ */
 #![warn(missing_docs)]
 
 use crate::cursor::MouseCursorInner;

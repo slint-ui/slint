@@ -595,6 +595,7 @@ pub struct SubComponent {
     /// The initial value or binding for properties.
     /// This is ordered in the order they must be set.
     pub property_init: Vec<(MemberReference, BindingExpression)>,
+    /// Set up for the whole item tree before any `init_code` runs, so that the changes `init_code` makes are reported.
     pub change_callbacks: Vec<(MemberReference, MutExpression)>,
     /// The animation for properties which are animated
     pub animations: BTreeMap<LocalMemberReference, Expression>,
@@ -755,9 +756,11 @@ impl SubComponent {
     }
 
     pub fn needs_user_init(&self, cu: &CompilationUnit) -> bool {
-        self.any_in_tree(cu, &|sc| {
-            !sc.init_code.is_empty() || !sc.change_callbacks.is_empty() || !sc.timers.is_empty()
-        })
+        self.any_in_tree(cu, &|sc| !sc.init_code.is_empty() || !sc.timers.is_empty())
+    }
+
+    pub fn needs_change_trackers_init(&self, cu: &CompilationUnit) -> bool {
+        self.any_in_tree(cu, &|sc| !sc.change_callbacks.is_empty())
     }
 
     /// total count of items, including in sub components

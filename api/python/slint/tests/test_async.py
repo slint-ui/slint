@@ -7,6 +7,7 @@ import asyncio
 import contextlib
 import gc
 import platform
+import selectors
 import socket
 import sys
 import threading
@@ -390,6 +391,68 @@ def test_sleep_does_not_leak_timers() -> None:
         slint.quit_event_loop()
 
     slint.run_event_loop(run())
+
+
+@pytest.mark.parametrize(
+    "selector_class", [selectors.DefaultSelector, slint.loop._SlintSelector]
+)
+@pytest.mark.parametrize(
+    "events",
+    [
+        selectors.EVENT_READ,
+        selectors.EVENT_WRITE,
+        selectors.EVENT_READ | selectors.EVENT_WRITE,
+    ],
+)
+def test_selector_modify_data(
+    selector_class: type[selectors.BaseSelector], events: int
+) -> None:
+    reader, writer = socket.socketpair()
+    with reader, writer, selector_class() as selector:
+        old_data = object()
+        new_data = object()
+        original = selector.register(reader, events, old_data)
+        try:
+            modified = selector.modify(reader, events, new_data)
+
+            assert modified.fileobj is reader
+            assert modified.fd == reader.fileno()
+            assert modified.events == events
+            assert modified.data is new_data
+            assert original.data is old_data
+            assert selector.get_key(reader) is modified
+            assert selector.get_map()[reader.fileno()] is modified
+
+            cleared = selector.modify(reader, events)
+            assert cleared.data is None
+            assert selector.get_key(reader) is cleared
+        finally:
+            selector.unregister(reader)
+
+
+@pytest.mark.parametrize("event", [selectors.EVENT_READ, selectors.EVENT_WRITE])
+def test_replacing_socket_callback(event: int) -> None:
+    reader, writer = socket.socketpair()
+    with reader, writer, contextlib.closing(slint.loop.SlintEventLoop()) as loop:
+        selector = typing.cast(slint.loop._SlintSelector, loop._selector)  # ty: ignore[unresolved-attribute]
+        calls: list[str] = []
+        if event == selectors.EVENT_READ:
+            add_callback = loop.add_reader
+            remove_callback = loop.remove_reader
+            notify = selector.read_notify
+        else:
+            add_callback = loop.add_writer
+            remove_callback = loop.remove_writer
+            notify = selector.write_notify
+
+        add_callback(reader, calls.append, "old")
+        try:
+            add_callback(reader, calls.append, "new")
+            notify(reader.fileno())
+
+            assert calls == ["new"]
+        finally:
+            remove_callback(reader)
 
 
 def test_selector_adapter_cycle_is_collectable() -> None:
