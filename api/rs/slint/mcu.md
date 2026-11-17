@@ -105,7 +105,7 @@ task of receiving user input and forwarding it to the user interface layer, and 
 In bare metal environments it's your responsibility to substitute and connect functionality that's otherwise provided by the operating system:
 
  * Select crates that allow you to initialize the chips that operate peripherals, such as a touch input or display controller.
-   If there are no crates, you may have to to develop your own drivers.
+   If there are no crates, you may have to develop your own drivers.
  * Drive the event loop yourself by querying peripherals for input, forwarding that input into computational modules of your
    application and instructing Slint to render the user interface.
 

@@ -256,7 +256,7 @@ impl LocalMemberIndex {
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum MemberReference {
-    /// The property or callback is withing a global
+    /// The property or callback is within a global
     Global { global_index: GlobalIdx, member: LocalMemberIndex },
 
     /// The reference is relative to the current SubComponent
