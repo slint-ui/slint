@@ -23,16 +23,16 @@ use num_traits::Float;
 pub(super) fn draw_texture_line(
     span: &PhysicalRect,
     line: PhysicalLength,
-    texture: &super::SceneTexture,
+    texture: &super::Texture,
     line_buffer: &mut [impl TargetPixel],
     extra_clip_begin: i16,
     extra_clip_end: i16,
 ) {
-    let super::SceneTexture {
+    let super::Texture {
         data,
         format,
         pixel_stride,
-        extra: super::SceneTextureExtra { colorize, alpha, rotation, dx, dy, off_x, off_y },
+        extra: super::TextureExtra { colorize, alpha, rotation, dx, dy, off_x, off_y },
     } = *texture;
 
     let source_size = texture.source_size().cast::<i32>();
@@ -790,7 +790,7 @@ impl_line_command!(SolidColor, |c, _rect, _line, buffer, _left, _right| {
 impl_line_command!(super::RoundedRectangle, |rr, rect, line, buffer, left, right| {
     draw_rounded_rectangle_line(rect, line, rr, buffer, left, right)
 });
-impl_line_command!(super::SceneTexture<'_>, |texture, rect, line, buffer, left, right| {
+impl_line_command!(super::Texture<'_>, |texture, rect, line, buffer, left, right| {
     draw_texture_line(rect, line, texture, buffer, left, right)
 });
 impl_line_command!(super::LinearGradientCommand, |g, rect, line, buffer, left, _right| {
@@ -2093,17 +2093,17 @@ fn blend_stops_interpolates_like_float() {
 
 #[test]
 fn unscaled_texture_line_wraps_into_next_tile() {
-    use super::{SceneTexture, SceneTextureExtra};
+    use super::{Texture, TextureExtra};
 
     // A 4×1 source drawn at 1:1 from x = 1.5 into 7 pixels samples these source pixels.
     const SAMPLED: [usize; 7] = [1, 2, 3, 0, 1, 2, 3];
 
     fn draw(format: TexturePixelFormat, data: &[u8]) -> [Rgb8Pixel; 7] {
-        let texture = SceneTexture {
+        let texture = Texture {
             data,
             format,
             pixel_stride: 4,
-            extra: SceneTextureExtra {
+            extra: TextureExtra {
                 dx: Fixed::from_integer(1),
                 dy: Fixed::from_integer(1),
                 off_x: Fixed(24),
