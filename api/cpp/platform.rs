@@ -470,6 +470,61 @@ mod software_renderer {
         }
     }
 
+    /// The kind of a [`PathOutlineElement`].
+    #[repr(u8)]
+    #[cfg(feature = "experimental")]
+    pub enum PathOutlineElementKind {
+        /// Start a new sub-path at `points[0..2]`.
+        MoveTo = 0,
+        /// Line to `points[0..2]`.
+        LineTo = 1,
+        /// Quadratic Bézier with control point `points[0..2]` to `points[2..4]`.
+        QuadTo = 2,
+        /// Cubic Bézier with control points `points[0..2]`, `points[2..4]` to `points[4..6]`.
+        CubicTo = 3,
+        /// Close the current sub-path.
+        Close = 4,
+    }
+
+    /// One element of a path outline, relative to the top left corner of the path's bounding box.
+    #[repr(C)]
+    #[cfg(feature = "experimental")]
+    pub struct PathOutlineElement {
+        pub kind: PathOutlineElementKind,
+        /// Up to three points (x, y); unused entries are 0.
+        pub points: [f32; 6],
+    }
+
+    #[cfg(feature = "experimental")]
+    const _: () = {
+        use core::mem::{align_of, offset_of, size_of};
+        use i_slint_renderer_software::{PathElement, PathElementKind};
+        assert!(size_of::<PathOutlineElementKind>() == size_of::<PathElementKind>());
+        assert!(PathOutlineElementKind::MoveTo as u8 == PathElementKind::MoveTo as u8);
+        assert!(PathOutlineElementKind::LineTo as u8 == PathElementKind::LineTo as u8);
+        assert!(PathOutlineElementKind::QuadTo as u8 == PathElementKind::QuadTo as u8);
+        assert!(PathOutlineElementKind::CubicTo as u8 == PathElementKind::CubicTo as u8);
+        assert!(PathOutlineElementKind::Close as u8 == PathElementKind::Close as u8);
+        assert!(size_of::<PathOutlineElement>() == size_of::<PathElement>());
+        assert!(align_of::<PathOutlineElement>() == align_of::<PathElement>());
+        assert!(offset_of!(PathOutlineElement, kind) == offset_of!(PathElement, kind));
+        assert!(offset_of!(PathOutlineElement, points) == offset_of!(PathElement, points));
+    };
+
+    /// A path to fill with a solid color.
+    #[repr(C)]
+    #[cfg(feature = "experimental")]
+    pub struct DrawPathArgs {
+        pub elements: *const PathOutlineElement,
+        pub element_count: usize,
+        pub x: i32,
+        pub y: i32,
+        pub width: u32,
+        pub height: u32,
+        pub non_zero: bool,
+        pub color: i_slint_core::Color,
+    }
+
     #[repr(C)]
     #[cfg(feature = "experimental")]
     pub struct CppTargetPixelBuffer<T> {
@@ -491,6 +546,11 @@ mod software_renderer {
         draw_texture: unsafe extern "C" fn(
             CppTargetPixelBufferUserData,
             &DrawTextureArgs,
+            &PhysicalRegion,
+        ) -> bool,
+        draw_path: unsafe extern "C" fn(
+            CppTargetPixelBufferUserData,
+            &DrawPathArgs,
             &PhysicalRegion,
         ) -> bool,
     }
@@ -540,6 +600,24 @@ mod software_renderer {
         ) -> bool {
             let texture = texture.into();
             unsafe { (self.draw_texture)(self.user_data, &texture, clip) }
+        }
+
+        fn draw_path(
+            &mut self,
+            args: &i_slint_renderer_software::DrawPathArgs,
+            clip: &PhysicalRegion,
+        ) -> bool {
+            let c = DrawPathArgs {
+                elements: args.elements.as_ptr() as *const PathOutlineElement,
+                element_count: args.elements.len(),
+                x: args.x,
+                y: args.y,
+                width: args.width,
+                height: args.height,
+                non_zero: args.non_zero,
+                color: args.color,
+            };
+            unsafe { (self.draw_path)(self.user_data, &c, clip) }
         }
     }
 

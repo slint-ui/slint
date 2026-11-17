@@ -623,6 +623,12 @@ public:
     using DrawTextureArgs = cbindgen_private::DrawTextureArgs;
     /// Arguments for draw_rectangle
     using DrawRectangleArgs = cbindgen_private::DrawRectangleArgs;
+    /// Arguments for draw_path: a path outline to fill with a solid color.
+    using DrawPathArgs = cbindgen_private::DrawPathArgs;
+    /// One element of a DrawPathArgs outline.
+    using PathElement = cbindgen_private::PathOutlineElement;
+    /// The kind of a PathElement.
+    using PathElementKind = cbindgen_private::PathOutlineElementKind;
 
     /// Abstract base class for a target pixel buffer where certain drawing operations can be
     /// delegated. Use this to implement support for hardware accelerators such as DMA2D, PPA, or
@@ -653,6 +659,16 @@ public:
         /// Draw a rectangle specified by the DrawRectangleArgs. That rectangle must be clipped to
         /// the given region.
         virtual bool draw_rectangle(const DrawRectangleArgs &args, const PhysicalRegion &clip) = 0;
+
+        /// Fill a path outline (strokes are already converted to outlines) with a solid
+        /// color, anti-aliased, clipped to the given region. Return false to let the software
+        /// renderer draw it.
+        virtual bool draw_path(const DrawPathArgs &args, const PhysicalRegion &clip)
+        {
+            (void)args;
+            (void)clip;
+            return false;
+        }
 
     private:
         friend class SoftwareRenderer;
@@ -693,6 +709,13 @@ public:
                             auto *buffer = reinterpret_cast<TargetPixelBuffer<PixelType> *>(self);
                             auto clip_region = PhysicalRegion { *clip };
                             return buffer->draw_texture(*texture, clip_region);
+                        },
+                .draw_path =
+                        [](void *self, const cbindgen_private::DrawPathArgs *args,
+                           const cbindgen_private::PhysicalRegion *clip) {
+                            auto *buffer = reinterpret_cast<TargetPixelBuffer<PixelType> *>(self);
+                            auto clip_region = PhysicalRegion { *clip };
+                            return buffer->draw_path(*args, clip_region);
                         }
             };
         }

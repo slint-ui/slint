@@ -10,7 +10,8 @@ pub use crate::draw_functions::{
 pub use crate::minimal_software_window::MinimalSoftwareWindow;
 #[cfg(feature = "experimental")]
 pub use crate::target_pixel_buffer::{
-    DrawRectangleArgs, DrawTextureArgs, TargetPixelBuffer, TexturePixelFormat,
+    DrawPathArgs, DrawRectangleArgs, DrawTextureArgs, PathElement, PathElementKind,
+    TargetPixelBuffer, TexturePixelFormat,
 };
 pub use i_slint_core::partial_renderer::RepaintBufferType;
 
