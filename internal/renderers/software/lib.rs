@@ -2124,6 +2124,8 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> RasterCommandSink for BufferRast
 /// Until [`Self::rasterize`] returns, the recording thread must not drop or change
 /// the images and glyphs that the frame uses, or the behavior is undefined.
 /// Only the recording thread drops it.
+// TODO: Make it `Send + Sync` before stabilizing, by replacing the `Rc`s it holds
+// (static textures, bitmap fonts, rendered glyphs) with atomic reference counts.
 #[cfg(feature = "experimental")]
 #[derive(Default)]
 pub struct RecordedRasterCommands {
