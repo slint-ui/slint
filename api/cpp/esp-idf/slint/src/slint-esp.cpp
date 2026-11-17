@@ -379,7 +379,8 @@ void EspPlatform<PixelType>::run_event_loop()
 #ifdef SLINT_ESP_CPU_TEXTURES
     CpuTextureFrameBuffer cpu_textures;
 #endif
-#if (defined(SLINT_ESP_CPU_TEXTURES) || defined(SLINT_ESP_PPA)) && CONFIG_SLINT_RENDER_IN_SEPARATE_TASK
+#if (defined(SLINT_ESP_CPU_TEXTURES) || defined(SLINT_ESP_PPA))                                    \
+        && CONFIG_SLINT_RENDER_IN_SEPARATE_TASK
     // Used only by the thread that rasterizes.
     slint::platform::SoftwareRenderer::PreparedTextures prepared_textures;
     prepared_textures.set_max_bytes(std::size_t(CONFIG_SLINT_PREPARED_TEXTURES_SIZE) * 1024);
