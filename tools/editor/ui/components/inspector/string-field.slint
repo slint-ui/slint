@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Icons } from "../../icons/index.slint";
 import { Button, TextEdit } from "std-widgets.slint";
 import { Properties, PropertyEditKind, PropertyValue, PropertyValueKind } from "../../properties.slint";
 import { Api } from "../../api.slint";
@@ -109,7 +110,7 @@ export component InspectorStringField inherits Rectangle {
         }
 
         if root.plain-text: InspectorIconButton {
-            icon: @image-url("../../assets/lucide/languages.svg");
+            icon: Icons.languages;
             label: @tr("Translatable");
             selected: root.source-value.is-translatable;
             focus-on-click: false;
@@ -122,7 +123,7 @@ export component InspectorStringField inherits Rectangle {
         }
 
         if root.expandable: InspectorIconButton {
-            icon: @image-url("../../assets/lucide/maximize-2.svg");
+            icon: Icons.maximize-2;
             label: @tr("Edit text");
             focus-on-click: false;
             clicked => {
