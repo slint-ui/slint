@@ -605,7 +605,7 @@ void EspPlatform<PixelType>::run_event_loop()
                 }
             } else
 #endif
-            if (std::exchange(m_window->needs_redraw, false)) {
+                    if (std::exchange(m_window->needs_redraw, false)) {
                 if (buffer1) {
                     SLINT_TRACE_SPAN("redraw");
 #if CONFIG_SLINT_LOG_FRAME_STATS
