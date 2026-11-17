@@ -40,6 +40,7 @@ component EditorTreeRow {
     callback row-hover-changed(int, bool);
     callback expanded-changed(int, bool);
     callback add-child-requested(string, int);
+    callback remove-child-requested();
 
     property <bool> current: node.uri == current-source-uri && node.offset == current-offset;
     property <int> level-safe: max(1, node.indent-level + 1);
@@ -62,6 +63,12 @@ component EditorTreeRow {
         : root.node.element-type == "RadioGroup" ? @tr("Add Radio Button")
         : "";
     property <bool> show-add-child: root.add-child-label != "";
+
+    property <string> remove-child-label: !root.current ? ""
+        : root.node.element-type == "Tab" ? @tr("Remove Tab")
+        : root.node.element-type == "RadioButton" ? @tr("Remove Radio Button")
+        : "";
+    property <bool> show-remove-child: root.remove-child-label != "";
 
     height: Metrics.outline-row-height + root.gap-height;
     vertical-stretch: 0;
@@ -350,7 +357,7 @@ component EditorTreeRow {
                             }
                         }
 
-                        if root.show-add-child: Rectangle {
+                        if root.show-add-child || root.show-remove-child: Rectangle {
                             width: root.style.row.hit-size;
                         }
                     }
@@ -384,6 +391,38 @@ component EditorTreeRow {
 
                         Tooltip {
                             text: @markdown("\{root.add-child-label}");
+                        }
+                    }
+
+                    if root.show-remove-child: Rectangle {
+                        x: parent.width - self.width - root.style.row.padding-inline;
+                        y: root.content-y + (Metrics.outline-row-height - self.height) / 2;
+                        width: root.style.row.hit-size;
+                        height: root.style.row.hit-size;
+                        border-radius: root.style.row.radius;
+                        background: remove-child-touch.has-hover ? root.style.row.hover-background : transparent;
+                        accessible-role: AccessibleRole.button;
+                        accessible-label: root.remove-child-label;
+                        accessible-action-default => {
+                            root.remove-child-requested();
+                        }
+
+                        remove-child-touch := TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => {
+                                root.remove-child-requested();
+                            }
+                        }
+
+                        Image {
+                            width: Metrics.icon-small;
+                            height: Metrics.icon-small;
+                            source: Icons.trash;
+                            colorize: root.style.row.foreground;
+                        }
+
+                        Tooltip {
+                            text: @markdown("\{root.remove-child-label}");
                         }
                     }
 
@@ -436,6 +475,7 @@ export component EditorTreeView inherits FocusScope {
     callback drag-started();
     callback row-expanded-changed(int, bool);
     callback row-add-child-requested(string, int);
+    callback row-remove-child-requested();
 
     horizontal-stretch: 1;
     accessible-role: AccessibleRole.list;
@@ -546,6 +586,9 @@ export component EditorTreeView inherits FocusScope {
             }
             add-child-requested(uri, offset) => {
                 root.row-add-child-requested(uri, offset);
+            }
+            remove-child-requested => {
+                root.row-remove-child-requested();
             }
         }
     }
