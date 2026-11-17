@@ -4,199 +4,39 @@
 name: Docs CI image
 
 on:
-    schedule:
-        - cron: '23 4 * * 1'
     workflow_dispatch:
-        inputs:
-            refresh:
-                description: Rebuild the image even if the Dockerfile is unchanged
-                type: boolean
-                default: false
     push:
         branches: [master]
         paths:
             - docker/Dockerfile.docs-ci
+            - .github/workflows/docs_ci_image.yaml
 
 permissions:
     contents: read
-
-concurrency:
-    group: docs-ci-image
-
-env:
-    IMAGE: ghcr.io/slint-ui/slint/docs-ci
-    DOCKERFILE: docker/Dockerfile.docs-ci
-    DOCS_WORKFLOW: .github/workflows/build_docs.yaml
+    packages: write
 
 jobs:
-    update:
-        if: github.repository == 'slint-ui/slint' && github.ref == 'refs/heads/master'
+    build:
         runs-on: blacksmith-4vcpu-ubuntu-2404
-        permissions:
-            contents: read
-            packages: write
         steps:
             - uses: actions/checkout@v7
-              with:
-                  persist-credentials: false
-            - name: Resolve matching Playwright releases
-              id: playwright
-              run: |
-                  current=$(sed -nE 's/^  playwright: ([0-9.]+)$/\1/p' pnpm-workspace.yaml)
-                  latest=$(curl --fail --silent --show-error --retry 3 https://registry.npmjs.org/playwright/latest | jq -er .version)
-                  version_pattern='^[0-9]+\.[0-9]+\.[0-9]+$'
-                  if ! [[ "$current" =~ $version_pattern && "$latest" =~ $version_pattern ]]; then
-                      echo "::error::Expected exact stable Playwright versions in pnpm-workspace.yaml and npm."
-                      exit 1
-                  fi
-                  version=$(printf '%s\n' "$current" "$latest" | sort -V | tail -n 1)
-                  url="https://mcr.microsoft.com/v2/playwright/manifests/v$version-noble"
-                  headers=$(curl --silent --show-error --retry 3 --head \
-                      --header 'Accept: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json' \
-                      "$url")
-                  status=$(awk '/^HTTP\// {status = $2} END {print status}' <<< "$headers")
-                  if [[ "$status" == 404 ]]; then
-                      echo "::notice::The Playwright $version Noble image is not available yet."
-                      exit 0
-                  fi
-                  digest=$(awk 'tolower($1) == "docker-content-digest:" {print $2}' <<< "$headers" | tr -d '\r')
-                  if ! [[ "$status" == 200 && "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]; then
-                      echo "::error::Could not resolve the Playwright $version Noble image digest (HTTP $status)."
-                      exit 1
-                  fi
-
-                  sed -i -E "/^  ('@playwright\/test'|playwright): /s/: .*$/: $version/" pnpm-workspace.yaml
-                  sed -i -E \
-                      -e "s/^ARG PLAYWRIGHT_VERSION=.*/ARG PLAYWRIGHT_VERSION=$version/" \
-                      -e "/^FROM mcr\.microsoft\.com\/playwright:/s/@sha256:[a-f0-9]{64}$/@$digest/" \
-                      "$DOCKERFILE"
-                  grep -Fx "  '@playwright/test': $version" pnpm-workspace.yaml
-                  grep -Fx "  playwright: $version" pnpm-workspace.yaml
-                  grep -Fx "ARG PLAYWRIGHT_VERSION=$version" "$DOCKERFILE"
-                  grep -Fx "FROM mcr.microsoft.com/playwright:v\${PLAYWRIGHT_VERSION}-noble@$digest" "$DOCKERFILE"
-                  if ! git diff --quiet -- pnpm-workspace.yaml; then
-                      echo "catalog-changed=true" >> "$GITHUB_OUTPUT"
-                  fi
-                  echo "ready=true" >> "$GITHUB_OUTPUT"
-
-            - uses: pnpm/action-setup@v6.1.1
-              if: steps.playwright.outputs.catalog-changed == 'true'
-            - uses: actions/setup-node@v7
-              if: steps.playwright.outputs.catalog-changed == 'true'
-              with:
-                  node-version: 24
-                  package-manager-cache: false
-            - name: Update pnpm lockfile
-              if: steps.playwright.outputs.catalog-changed == 'true'
-              run: pnpm install --lockfile-only --no-frozen-lockfile --ignore-scripts
-
-            - name: Look for an image built from this Dockerfile
-              id: candidate
-              if: steps.playwright.outputs.ready == 'true'
-              env:
-                  REFRESH: ${{ inputs.refresh }}
-              run: |
-                  recipe=$(sha256sum "$DOCKERFILE" | cut -d' ' -f1)
-                  tag="$IMAGE:dockerfile-$recipe"
-                  echo "tag=$tag" >> "$GITHUB_OUTPUT"
-                  if [[ "$REFRESH" == true ]]; then
-                      exit 0
-                  fi
-                  error_log=$(mktemp)
-                  if manifest=$(docker buildx imagetools inspect "$tag" 2>"$error_log"); then
-                      digest=$(awk '$1 == "Digest:" {print $2; exit}' <<< "$manifest")
-                      if ! [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]; then
-                          echo "::error::Expected a digest when looking up $tag."
-                          exit 1
-                      fi
-                      echo "digest=$digest" >> "$GITHUB_OUTPUT"
-                  elif ! grep -Eiq 'not found|manifest unknown' "$error_log"; then
-                      cat "$error_log" >&2
-                      exit 1
-                  fi
             - uses: useblacksmith/setup-docker-builder@v2
-              if: steps.candidate.outputs.tag != '' && steps.candidate.outputs.digest == ''
               with:
                   cache-key: docker/Dockerfile.docs-ci
             - uses: docker/login-action@v4
-              if: steps.candidate.outputs.tag != '' && steps.candidate.outputs.digest == ''
               with:
                   registry: ghcr.io
                   username: ${{ github.actor }}
                   password: ${{ secrets.GITHUB_TOKEN }}
             - name: Build and publish docs environment
               id: image
-              if: steps.candidate.outputs.tag != '' && steps.candidate.outputs.digest == ''
               uses: useblacksmith/build-push-action@v2
               with:
-                  context: docker
+                  context: .
                   file: docker/Dockerfile.docs-ci
                   push: true
-                  no-cache: ${{ inputs.refresh || false }}
-                  tags: ${{ steps.candidate.outputs.tag }}
-            - name: Pin the docs image
-              id: pin
-              if: steps.candidate.outputs.tag != ''
+                  tags: ghcr.io/slint-ui/slint/docs-ci:${{ github.sha }}
+            - name: Record image identity
               env:
-                  IMAGE_DIGEST: ${{ steps.image.outputs.digest || steps.candidate.outputs.digest }}
-              run: |
-                  if ! [[ "$IMAGE_DIGEST" =~ ^sha256:[a-f0-9]{64}$ ]]; then
-                      echo "::error::Expected a published docs image digest."
-                      exit 1
-                  fi
-                  sed -i -E "/^ +default: ghcr\.io\/slint-ui\/slint\/docs-ci@/s/@sha256:[a-f0-9]{64}$/@$IMAGE_DIGEST/" "$DOCS_WORKFLOW"
-                  grep -Fx "          default: $IMAGE@$IMAGE_DIGEST" "$DOCS_WORKFLOW"
-                  echo "$IMAGE@$IMAGE_DIGEST" >> "$GITHUB_STEP_SUMMARY"
-                  if ! git diff --quiet; then
-                      echo "changed=true" >> "$GITHUB_OUTPUT"
-                  fi
-
-            - name: Check the docs updater GitHub App configuration
-              if: steps.pin.outputs.changed == 'true'
-              env:
-                  APP_CLIENT_ID: ${{ vars.DOCS_CI_APP_CLIENT_ID }}
-                  APP_PRIVATE_KEY: ${{ secrets.DOCS_CI_APP_PRIVATE_KEY }}
-              run: |
-                  if [[ -z "$APP_CLIENT_ID" || -z "$APP_PRIVATE_KEY" ]]; then
-                      echo "::error::Set DOCS_CI_APP_CLIENT_ID and DOCS_CI_APP_PRIVATE_KEY for a GitHub App installed on this repository with Contents, Pull requests, and Workflows write access."
-                      exit 1
-                  fi
-            - name: Create a token for the update PR
-              id: app-token
-              if: steps.pin.outputs.changed == 'true'
-              uses: actions/create-github-app-token@v3
-              with:
-                  client-id: ${{ vars.DOCS_CI_APP_CLIENT_ID }}
-                  private-key: ${{ secrets.DOCS_CI_APP_PRIVATE_KEY }}
-                  permission-contents: write
-                  permission-pull-requests: write
-                  permission-workflows: write
-            - name: Open or update the docs image PR
-              if: steps.pin.outputs.changed == 'true'
-              env:
-                  GH_TOKEN: ${{ steps.app-token.outputs.token }}
-                  APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
-              run: |
-                  branch=automation/docs-ci-image
-                  ref="refs/heads/$branch"
-                  pr=$(gh pr list --base master --head "$branch" --json number --jq '.[0].number // empty')
-                  remote=$(git ls-remote origin "$ref")
-                  previous=$(cut -f1 <<< "$remote")
-                  files=(pnpm-workspace.yaml pnpm-lock.yaml "$DOCKERFILE" "$DOCS_WORKFLOW")
-
-                  if [[ -n "$previous" ]]; then
-                      git fetch --depth=1 --no-tags origin "$ref"
-                  fi
-                  if [[ -z "$previous" ]] || ! git diff --quiet "$previous" -- "${files[@]}"; then
-                      user_id=$(gh api "/users/$APP_SLUG[bot]" --jq .id)
-                      git config user.name "$APP_SLUG[bot]"
-                      git config user.email "$user_id+$APP_SLUG[bot]@users.noreply.github.com"
-                      git add -- "${files[@]}"
-                      git commit -m 'CI: Update the docs image'
-                      gh auth setup-git
-                      git push --force-with-lease="$ref:$previous" origin "HEAD:$ref"
-                  fi
-                  if [[ -z "$pr" ]]; then
-                      gh pr create --base master --head "$branch" --title 'CI: Update the docs image' \
-                          --body 'Adopt the published docs image by digest. Playwright packages and the matching browser image are updated together.'
-                  fi
+                  IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
+              run: echo "ghcr.io/slint-ui/slint/docs-ci@$IMAGE_DIGEST" >> "$GITHUB_STEP_SUMMARY"

@@ -74,9 +74,6 @@ updates:
       - dependency-name: "vscode-languageclient"
       - dependency-name: "js-yaml"
       - dependency-name: "tailwindcss"
-      # The docs image workflow updates these together with the browser image.
-      - dependency-name: "@playwright/test"
-      - dependency-name: "playwright"
 
     groups:
       npm-major-updates:
