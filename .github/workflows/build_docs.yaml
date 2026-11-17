@@ -280,7 +280,8 @@ jobs:
             - name: Run Playwright tests
               working-directory: docs/astro
               # Firefox requires HOME to belong to the user running the browser.
-              run: HOME="$(getent passwd "$(id -u)" | cut -d: -f6)" pnpm exec playwright test
+              run: |
+                  HOME="$(getent passwd "$(id -u)" | cut -d: -f6)" pnpm exec playwright test
             - name: Publish Test Summary Results
               working-directory: docs/astro
               run: npx github-actions-ctrf playwright-report/ctrf-report.json
