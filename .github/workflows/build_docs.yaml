@@ -31,6 +31,14 @@ on:
           type: string
           default: ubuntu-26.04
           description: The runner for the jobs
+        container-image:
+          type: string
+          default: ghcr.io/slint-ui/slint/docs-ci@sha256:9826312022e89fd173e350e213a8dd3e88817dbf1aa58231263894ebc3a9dfaf
+          description: Prebuilt docs environment, or an empty string to install dependencies on the host
+
+defaults:
+    run:
+        shell: bash
 
 env:
     CARGO_PROFILE_DEV_DEBUG: 0
@@ -39,6 +47,9 @@ jobs:
     # Job 1: Build Rust and C++ documentation
     rust-cpp-docs:
         runs-on: ${{ inputs.os }}
+        container:
+            image: ${{ inputs.container-image }}
+            options: --ipc=host
         env:
             # Allow deprecated warning because we are using nightly and some things might be deprecated in nightly
             # for which the stable alternative is not yet available.
@@ -57,6 +68,7 @@ jobs:
                   rgb_version=`grep 'rgb = '  internal/core/Cargo.toml | sed 's/^.*"\(.*\)"/\1/'`
                   echo "RUSTDOCFLAGS=$RUSTDOCFLAGS --extern-html-root-url rgb=https://docs.rs/rgb/$rgb_version/ --extern-html-root-url android_activity=https://docs.rs/android-activity/0.5/ --extern-html-root-url raw_window_handle=https://docs.rs/raw_window_handle/0.6 --extern-html-root-url winit=https://docs.rs/winit/0.30 --extern-html-root-url wgpu=https://docs.rs/wgpu/30 --extern-html-root-url input=https://docs.rs/input/0.9 --extern-html-root-url fontique=https://docs.rs/fontique/0.8" >> $GITHUB_ENV
             - uses: ./.github/actions/install-linux-dependencies
+              if: inputs.container-image == ''
               with:
                   extra-packages: doxygen
             - uses: pnpm/action-setup@v6.1.1
@@ -135,6 +147,9 @@ jobs:
     # Job 2: Build Astro docs and run tests
     astro-docs-tests:
         runs-on: ${{ inputs.os }}
+        container:
+            image: ${{ inputs.container-image }}
+            options: --ipc=host
         outputs:
             version: ${{ steps.version.outputs.VERSION }}
         env:
@@ -152,8 +167,10 @@ jobs:
                 node-version: 24
                 package-manager-cache: false
             - name: Accept the MS fonts license, for comic sans needed by one of the screenshots in the docs
+              if: inputs.container-image == ''
               run: echo ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true | sudo debconf-set-selections
             - uses: ./.github/actions/install-linux-dependencies
+              if: inputs.container-image == ''
               with:
                   extra-packages: ttf-mscorefonts-installer fonts-liberation
             - uses: ./.github/actions/setup-rust
@@ -257,6 +274,7 @@ jobs:
                       docs/safety/dist-offline/
                       !docs/safety/dist-offline/*.zip
             - name: Install Playwright
+              if: inputs.container-image == ''
               working-directory: docs/astro
               run: pnpm exec playwright install --with-deps
             - name: Run Playwright tests
@@ -302,6 +320,9 @@ jobs:
     node-python-docs:
         if: ${{ inputs['node-python-docs'] }}
         runs-on: ${{ inputs.os }}
+        container:
+            image: ${{ inputs.container-image }}
+            options: --ipc=host
         env:
             RELEASE_INPUT: ${{ inputs.release }}
         steps:
@@ -312,6 +333,7 @@ jobs:
                 node-version: 24
                 package-manager-cache: false
             - uses: ./.github/actions/install-linux-dependencies
+              if: inputs.container-image == ''
             - uses: ./.github/actions/setup-rust
               with:
                   toolchain: stable
