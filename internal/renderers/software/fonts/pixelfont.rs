@@ -23,7 +23,7 @@ impl FontStorage for StaticStorage {
 
 #[cfg(feature = "owned-pre-rendered-resources")]
 impl FontStorage for i_slint_core::graphics::OwnedStorage {
-    type Font = alloc::rc::Rc<BitmapFont<Self>>;
+    type Font = i_slint_core::shared_pointer::SharedPtr<BitmapFont<Self>>;
     fn alpha_map(font: &Self::Font, glyph_set: usize, glyph: usize) -> GlyphAlphaMap {
         GlyphAlphaMap::Shared {
             font: font.clone(),

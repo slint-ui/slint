@@ -838,12 +838,10 @@ public:
 
     /// The raster commands of a frame that record_frame() recorded.
     ///
-    /// It shares images and glyphs with the window through reference counts that aren't atomic.
-    /// Another thread may still call rasterize() while the recording thread keeps it alive:
-    /// rasterizing only reads the shared data.
-    /// Until rasterize() returns, the recording thread must not destroy or change
-    /// the images and glyphs that the frame uses, or the behavior is undefined.
-    /// Only the recording thread destroys it.
+    /// It keeps the images and glyphs that the frame uses alive.
+    /// On targets with atomic pointers, any thread may call rasterize() or destroy it.
+    /// Other targets, such as Cortex-M0, count references without atomics,
+    /// so only the thread that recorded the frame may use it.
     ///
     /// **Note**: This class is still experimental - its API is subject to changes and not
     /// stabilized yet. To use the class, you must enable the `SLINT_FEATURE_EXPERIMENTAL=ON` CMake
