@@ -541,7 +541,7 @@ pub enum SharedBufferData {
     },
     #[cfg(feature = "owned-pre-rendered-resources")]
     Texture {
-        textures: alloc::rc::Rc<StaticTextures<OwnedStorage>>,
+        textures: i_slint_core::shared_pointer::SharedPtr<StaticTextures<OwnedStorage>>,
         texture: StaticTexture,
     },
 }

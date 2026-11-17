@@ -379,7 +379,8 @@ void EspPlatform<PixelType>::run_event_loop()
 #ifdef SLINT_ESP_CPU_TEXTURES
     CpuTextureFrameBuffer cpu_textures;
 #endif
-#if (defined(SLINT_ESP_CPU_TEXTURES) || defined(SLINT_ESP_PPA)) && CONFIG_SLINT_RENDER_IN_SEPARATE_TASK
+#if (defined(SLINT_ESP_CPU_TEXTURES) || defined(SLINT_ESP_PPA))                                    \
+        && CONFIG_SLINT_RENDER_IN_SEPARATE_TASK
     // Used only by the thread that rasterizes.
     slint::platform::SoftwareRenderer::PreparedTextures prepared_textures;
     prepared_textures.set_max_bytes(std::size_t(CONFIG_SLINT_PREPARED_TEXTURES_SIZE) * 1024);
@@ -472,8 +473,7 @@ void EspPlatform<PixelType>::run_event_loop()
 
 #if CONFIG_SLINT_RENDER_IN_SEPARATE_TASK
     // A separate task rasterizes and presents each recorded frame, while the event loop
-    // records the next one. A recording shares reference counts with the window that aren't
-    // atomic, so only the event loop destroys it.
+    // records the next one.
     std::optional<SoftwareRenderer::RecordedRasterCommands> recorded;
     const auto num_lines = buffer1 ? buffer1->size() / stride : 0;
     SemaphoreHandle_t frame_recorded = xSemaphoreCreateBinary();
@@ -651,7 +651,7 @@ void EspPlatform<PixelType>::run_event_loop()
                 }
             } else
 #endif
-            if (std::exchange(m_window->needs_redraw, false)) {
+                    if (std::exchange(m_window->needs_redraw, false)) {
                 if (buffer1) {
                     SLINT_TRACE_SPAN("redraw");
 #if CONFIG_SLINT_LOG_FRAME_STATS

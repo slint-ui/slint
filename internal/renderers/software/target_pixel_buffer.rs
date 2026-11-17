@@ -37,7 +37,7 @@ impl<'a> TextureData<'a> {
 pub(super) enum TextureDataContainer {
     Static(TextureData<'static>),
     Shared { buffer: super::scene::SharedBufferData, source_rect: PhysicalRect },
-    Prepared(alloc::rc::Rc<super::prepared_textures::PreparedTexture>),
+    Prepared(i_slint_core::shared_pointer::SharedPtr<super::prepared_textures::PreparedTexture>),
 }
 
 #[derive(Debug, Clone)]

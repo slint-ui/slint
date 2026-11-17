@@ -369,7 +369,9 @@ pub trait RendererSealed {
     #[cfg(feature = "owned-pre-rendered-resources")]
     fn register_shared_bitmap_font(
         &self,
-        _font: &Rc<crate::graphics::BitmapFont<crate::graphics::OwnedStorage>>,
+        _font: &crate::shared_pointer::SharedPtr<
+            crate::graphics::BitmapFont<crate::graphics::OwnedStorage>,
+        >,
     ) {
         crate::debug_log!("{NO_BITMAP_FONT_SUPPORT}");
     }
