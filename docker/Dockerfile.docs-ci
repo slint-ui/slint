@@ -1,6 +1,6 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
-# cSpell: ignore mscorefonts msttcorefonts debconf libsystemd libwayland tlsv
+# cSpell: ignore mscorefonts msttcorefonts debconf libsystemd libwayland tlsv dejavu lato
 
 ARG PLAYWRIGHT_VERSION=1.65.0
 FROM mcr.microsoft.com/playwright:v${PLAYWRIGHT_VERSION}-noble@sha256:9beb546099e11f52d62e505537914870e01a67e0e6b00ae41da4775324e73dbe
