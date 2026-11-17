@@ -201,6 +201,7 @@ tests:
  - 'tests/{cases,helper_components,driver}/**'
  - 'tests/Cargo.{toml,lock}'
  - 'internal/backends/testing/**'
+ - 'tools/editor/controls/**'
 
 # The other members of the tests/ workspace, which only the integration tests build.
 integration_tests:
