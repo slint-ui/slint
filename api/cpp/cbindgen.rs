@@ -880,6 +880,7 @@ fn gen_corelib(
             "ConicGradientBrush",
             // Handwritten in private/slint_color.h
             "Rgb565Pixel",
+            "PremultipliedRgbaColor",
             "Gray8Pixel",
             "slint_conic_gradient_normalize_stops",
             "slint_conic_gradient_apply_rotation",
@@ -1249,9 +1250,10 @@ fn gen_platform(
         .with_include("private/slint_internal.h")
         .with_after_include(
             r"
-namespace slint { struct Rgb565Pixel; }
+namespace slint { struct Rgb565Pixel; struct PremultipliedRgba8Pixel; }
 namespace slint::cbindgen_private {
     struct WindowProperties; using slint::Rgb565Pixel;
+    using PremultipliedRgbaColor = slint::PremultipliedRgba8Pixel;
     using slint::cbindgen_private::types::TexturePixelFormat;
     struct DrawTextureArgs;
     struct DrawRectangleArgs;

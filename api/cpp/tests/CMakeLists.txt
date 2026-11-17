@@ -44,6 +44,10 @@ if(SLINT_FEATURE_INTERPRETER)
     slint_test(window)
 endif()
 
+if(SLINT_FEATURE_INTERPRETER AND SLINT_FEATURE_RENDERER_SOFTWARE)
+    slint_test(software_renderer)
+endif()
+
 if(SLINT_FEATURE_INTERPRETER AND SLINT_FEATURE_EXPERIMENTAL)
     slint_test(translator)
 endif()
