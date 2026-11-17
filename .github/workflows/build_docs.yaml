@@ -33,7 +33,7 @@ on:
           description: The runner for the jobs
         container-image:
           type: string
-          default: ""
+          default: ghcr.io/slint-ui/slint/docs-ci@sha256:9826312022e89fd173e350e213a8dd3e88817dbf1aa58231263894ebc3a9dfaf
           description: Prebuilt docs environment, or an empty string to install dependencies on the host
 
 defaults:
@@ -54,7 +54,7 @@ jobs:
             # Allow deprecated warning because we are using nightly and some things might be deprecated in nightly
             # for which the stable alternative is not yet available.
             RUSTFLAGS: -D warnings -W deprecated --cfg slint_nightly_test
-            RUSTDOCFLAGS: --html-in-header=${{ github.workspace }}/docs/astro/src/utils/slint-docs-highlight.html -D warnings -W deprecated --cfg docsrs -Zunstable-options --generate-link-to-definition
+            RUSTDOCFLAGS: -D warnings -W deprecated --cfg docsrs -Zunstable-options --generate-link-to-definition
             SLINT_NO_QT: 1
             CARGO_INCREMENTAL: false
             RELEASE_INPUT: ${{ inputs.release }}
@@ -66,7 +66,7 @@ jobs:
             - name: Set up crate rustdoc link
               run: |
                   rgb_version=`grep 'rgb = '  internal/core/Cargo.toml | sed 's/^.*"\(.*\)"/\1/'`
-                  echo "RUSTDOCFLAGS=$RUSTDOCFLAGS --extern-html-root-url rgb=https://docs.rs/rgb/$rgb_version/ --extern-html-root-url android_activity=https://docs.rs/android-activity/0.5/ --extern-html-root-url raw_window_handle=https://docs.rs/raw_window_handle/0.6 --extern-html-root-url winit=https://docs.rs/winit/0.30 --extern-html-root-url wgpu=https://docs.rs/wgpu/30 --extern-html-root-url input=https://docs.rs/input/0.9 --extern-html-root-url fontique=https://docs.rs/fontique/0.8" >> $GITHUB_ENV
+                  echo "RUSTDOCFLAGS=$RUSTDOCFLAGS --html-in-header=$PWD/docs/astro/src/utils/slint-docs-highlight.html --extern-html-root-url rgb=https://docs.rs/rgb/$rgb_version/ --extern-html-root-url android_activity=https://docs.rs/android-activity/0.5/ --extern-html-root-url raw_window_handle=https://docs.rs/raw_window_handle/0.6 --extern-html-root-url winit=https://docs.rs/winit/0.30 --extern-html-root-url wgpu=https://docs.rs/wgpu/30 --extern-html-root-url input=https://docs.rs/input/0.9 --extern-html-root-url fontique=https://docs.rs/fontique/0.8" >> $GITHUB_ENV
             - uses: ./.github/actions/install-linux-dependencies
               if: inputs.container-image == ''
               with:
