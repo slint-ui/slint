@@ -306,7 +306,7 @@ impl ScanlineScene {
             ScanlineCommand::LinearGradient { linear_gradient_index } => {
                 self.vectors.linear_gradients[*linear_gradient_index as usize].covers_line()
             }
-            SceneCommand::RoundedRectangle { rectangle_index } => {
+            ScanlineCommand::RoundedRectangle { rectangle_index } => {
                 let rr = &self.vectors.rounded_rectangles[*rectangle_index as usize];
                 // Off the corners every pixel of the span is opaque fill or border.
                 if rr.inner_color.alpha != 255
