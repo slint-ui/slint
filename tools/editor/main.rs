@@ -481,8 +481,7 @@ fn sync_file_watcher_if_needed(
     // Until notify 9.0 is released, let's not watch the project root.
     watcher.update_watched_paths(
         session
-            .document_cache
-            .all_paths_to_watch()
+            .paths_to_watch()
             .into_iter()
             .chain(
                 session
@@ -494,7 +493,6 @@ fn sync_file_watcher_if_needed(
                     .component()
                     .and_then(|component| SourcePath::from_url(&component.url).into_native_path())
             }))
-            .chain(session.active_project_file_paths().map(Path::to_path_buf))
             // Missing and deleted project files aren't active, but their creation must be observed.
             .chain(std::iter::once(project_root.join(i_slint_compiler::project_file::FILE_NAME))),
     )?;

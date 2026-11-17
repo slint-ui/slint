@@ -44,7 +44,6 @@ use i_slint_compiler::source_path::SourcePath;
 use itertools::Itertools;
 use lsp_server::{Connection, ErrorCode, IoThreads, Message, Response};
 use std::io::Write as _;
-use std::path::Path;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Duration;
@@ -623,14 +622,8 @@ fn sync_file_watcher_if_needed(
         return Ok(());
     }
 
-    let watched_paths = ctx
-        .session
-        .document_cache
-        .all_paths_to_watch()
-        .into_iter()
-        .chain(ctx.session.active_project_file_paths().map(Path::to_path_buf));
     watcher
-        .update_watched_paths(watched_paths)
+        .update_watched_paths(ctx.session.paths_to_watch())
         .map_err(|err| std::io::Error::other(format!("Failed to update watched paths: {err:?}")))?;
     *watch_paths_revision = Some(current_revision);
     Ok(())
