@@ -168,7 +168,7 @@ objc2-quartz-core = { version = "0.3.2", default-features = false, features = ["
 block2 = "0.6.2"
 
 [target.'cfg(target_os = "windows")'.dependencies]
-windows = { workspace = true, features = ["Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging", "Win32_UI_Shell", "Win32_Graphics_Gdi", "Win32_Graphics_Dwm", "Win32_System_Threading"] }
+windows = { workspace = true, features = ["Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging", "Win32_UI_Shell", "Win32_Graphics_Gdi", "Win32_Graphics_Dwm", "Win32_System_Threading", "Win32_Graphics_Direct3D", "Win32_Graphics_Direct3D11", "Win32_Graphics_Dxgi", "Win32_Graphics_Dxgi_Common"] }
 arboard = { version = "3.6", default-features = false }
 
 [build-dependencies]
@@ -179,6 +179,9 @@ slint = { path = "../../../api/rs/slint", default-features = false, features = [
 
 [target.'cfg(target_os = "linux")'.dev-dependencies]
 x11rb = { version = "0.13.2", default-features = false }
+
+[target.'cfg(target_os = "windows")'.dev-dependencies]
+windows = { workspace = true, features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_Storage_Xps"] }
 
 [package.metadata.docs.rs]
 features = ["wayland", "renderer-software", "raw-window-handle-06"]
@@ -209,3 +212,8 @@ harness = false
 name = "initial_window_icon"
 harness = false
 required-features = ["x11", "renderer-software"]
+
+[[test]]
+name = "software_present"
+harness = false
+required-features = ["renderer-software"]
