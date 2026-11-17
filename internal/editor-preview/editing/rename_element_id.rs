@@ -86,7 +86,15 @@ pub fn rename_element_id(
     new_name: &str,
     format: ByteFormat,
 ) -> Option<Vec<TextEdit>> {
-    let edits = if let Some(current_id) = element.child_token(SyntaxKind::Identifier) {
+    let edits = if new_name.is_empty() {
+        let current_id = element.child_token(SyntaxKind::Identifier)?;
+        let range =
+            TextRange::new(current_id.text_range().start(), element.Element().text_range().start());
+        vec![TextEdit {
+            range: crate::util::text_range_to_lsp_range(&element.source_file, range, format),
+            new_text: String::new(),
+        }]
+    } else if let Some(current_id) = element.child_token(SyntaxKind::Identifier) {
         let all_ids = find_element_ids(&current_id, &element)?;
         all_ids
             .into_iter()
@@ -292,5 +300,51 @@ component Foo inherits Rectangle {
 }
 "#
         );
+
+        let t_a = dc
+            .element_at_offset(&uri, TextSize::new(source.find("TouchArea").unwrap() as u32))
+            .unwrap();
+        let t_a =
+            t_a.with_element_node(|n| n.parent().and_then(syntax_nodes::SubElement::new).unwrap());
+
+        let edit = crate::editing::create_workspace_edit(
+            uri.clone(),
+            None,
+            rename_element_id(t_a, "", dc.format).unwrap(),
+        );
+        let renamed = crate::editing::text_edit::apply_workspace_edit(&dc, &edit)
+            .unwrap()
+            .into_iter()
+            .next()
+            .unwrap()
+            .contents;
+        assert_eq!(
+            renamed,
+            r#"
+component t-a inherits Rectangle { false_rectangle := Image {} }
+global G { in-out property<brush> t-a;  }
+component Foo inherits Rectangle {
+    /// This is a comment
+    Rectangle/*X*/ {
+        background: t-a.has-hover ? red : G.t-a.transparentize(0.5);
+    }
+
+    TouchArea {  }
+    if true: Rectangle/*Y*/ {
+        background: t_a.has-hover ? red : green;
+    }
+    if false: false_rectangle := Rectangle/*Z*/ {
+        height: false-rectangle.width;
+    }
+}
+"#
+        );
+
+        let rect_x = dc
+            .element_at_offset(&uri, TextSize::new(source.find("Rectangle/*X*/").unwrap() as u32))
+            .unwrap();
+        let rect_x = rect_x
+            .with_element_node(|n| n.parent().and_then(syntax_nodes::SubElement::new).unwrap());
+        assert!(rename_element_id(rect_x, "", dc.format).is_none());
     }
 }

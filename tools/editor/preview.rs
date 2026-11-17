@@ -1098,6 +1098,20 @@ fn set_code_bindings(
     send_workspace_edit("Edit properties".to_string(), edit, true)
 }
 
+/// Turns whitespace into `-` and drops every character that can't continue a Slint identifier.
+fn normalize_element_id(text: slint::SharedString) -> slint::SharedString {
+    let mut id = String::new();
+    for c in text.chars() {
+        let c = if c.is_whitespace() { '-' } else { c };
+        let len = id.len();
+        id.push(c);
+        if i_slint_compiler::lexer::lex_identifier(&id, &mut Default::default()) != id.len() {
+            id.truncate(len);
+        }
+    }
+    id.into()
+}
+
 fn set_element_id(
     element_url: slint::SharedString,
     element_version: i32,
@@ -3288,6 +3302,20 @@ pub mod test {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_normalize_element_id() {
+        for (text, expected) in [
+            ("my button", "my-button"),
+            ("foo_bar-1", "foo_bar-1"),
+            (" 1-foo", "foo"),
+            ("a.b+c", "abc"),
+            ("été", "été"),
+            ("", ""),
+        ] {
+            assert_eq!(normalize_element_id(text.into()), expected);
+        }
+    }
     use i_slint_editor_preview::PreviewToLsp;
     use i_slint_live_preview::protocol::PreviewToLspMessage;
     use slint::Model;
