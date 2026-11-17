@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.ref }}
+  group: ci-${{ github.event.pull_request.number || github.ref }}${{ github.head_ref == 'nigel/docs-ci-prebuilt-image' && format('-{0}', github.sha) || '' }}
   cancel-in-progress: true
 
 env:
