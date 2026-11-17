@@ -1080,14 +1080,14 @@ class Repeater
 
         void row_added(size_t index, size_t count) override
         {
-            cbindgen_private::InstanceSlots slots;
+            cbindgen_private::InstanceSlots inserted;
             if (!cbindgen_private::slint_repeater_rows_added(&layout_state.item_index, data.size(),
-                                                             index, count, &slots)) {
+                                                             index, count, &inserted)) {
                 return;
             }
             instances_changed();
-            data.insert(data.begin() + slots.position, slots.count, {});
-            for (std::size_t i = slots.position; i < data.size(); ++i) {
+            data.insert(data.begin() + inserted.position, inserted.count, {});
+            for (std::size_t i = inserted.position; i < data.size(); ++i) {
                 data[i].state = State::Dirty;
             }
         }
