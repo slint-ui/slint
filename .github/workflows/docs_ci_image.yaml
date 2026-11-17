@@ -6,7 +6,7 @@ name: Docs CI image
 on:
     workflow_dispatch:
     push:
-        branches: [master, nigel/docs-ci-prebuilt-image]
+        branches: [master]
         paths:
             - docker/Dockerfile.docs-ci
             - .github/workflows/docs_ci_image.yaml

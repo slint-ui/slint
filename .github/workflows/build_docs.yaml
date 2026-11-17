@@ -33,7 +33,7 @@ on:
           description: The runner for the jobs
         container-image:
           type: string
-          default: ""
+          default: ghcr.io/slint-ui/slint/docs-ci@sha256:9826312022e89fd173e350e213a8dd3e88817dbf1aa58231263894ebc3a9dfaf
           description: Prebuilt docs environment, or an empty string to install dependencies on the host
 
 defaults:
