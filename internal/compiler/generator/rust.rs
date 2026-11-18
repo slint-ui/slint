@@ -1596,6 +1596,13 @@ fn generate_sub_component_body(
                         quote!(Some(#row))
                     },
                 );
+                let item_offset = listview.item_offset.as_ref().map_or_else(
+                    || quote!(None),
+                    |offset| {
+                        let offset = access_member(offset, &ctx).unwrap();
+                        quote!(Some(#offset))
+                    },
+                );
 
                 repeated_visit_branch.push(quote!(
                     #idx => {
@@ -1608,7 +1615,7 @@ fn generate_sub_component_body(
                 ensure_instantiated_stmts.push(quote!({
                     _changed |= #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).ensure_updated_listview(
                         || { #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone()).unwrap().into() },
-                        #flickable, #content_w, #content_h, #current_row, #content_y, #lv_w.get(), #lv_h
+                        #flickable, #content_w, #content_h, #current_row, #item_offset, #content_y, #lv_w.get(), #lv_h
                     );
                 }));
             } else {

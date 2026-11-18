@@ -53,6 +53,9 @@ pub fn count_property_use(root: &CompilationUnit) {
                 if let Some(current_row) = &lv.current_row {
                     visit_property(current_row, ctx);
                 }
+                if let Some(item_offset) = &lv.item_offset {
+                    visit_property(item_offset, ctx);
+                }
 
                 let parent_ctx = ParentScope::new(ctx, Some(idx));
                 let rep_ctx = EvaluationContext::new_sub_component(

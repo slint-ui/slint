@@ -447,6 +447,8 @@ pub struct ListViewInfo {
     pub listview_width: MemberReference,
     /// The property the layout sets to the ListView's current row, if it declares one
     pub current_row: Option<MemberReference>,
+    /// The property the layout sets to the ListView's item offset, if it declares one
+    pub item_offset: Option<MemberReference>,
 
     // In the repeated component context
     pub prop_y: MemberReference,

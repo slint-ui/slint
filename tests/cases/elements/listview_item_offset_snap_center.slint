@@ -1,0 +1,110 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// With center snapping, the item offset is the current row's center relative to the list's center.
+// A `content-y` of `-50px * row` puts a row's center on the list's center.
+// The list springs a `content-y` between rows back to a row, so the test compares
+// the offset with the `content-y` the layout used.
+
+import { ListView } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 200px;
+    height: 200px;
+
+    in-out property <length> content-y <=> list.content-y;
+    out property <int> current-row: list.current-row;
+    out property <length> item-offset: list.item-offset;
+    out property <length> expected-offset: root.content-y + root.current-row * 50px;
+
+    // A click next to the list lays it out without starting a snap.
+    list := ListView {
+        x: 0;
+        width: 100px;
+        snap-mode: SnapMode.center;
+        for i in 100: Rectangle {
+            height: 50px;
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+
+slint_testing::send_mouse_click(&instance, 150., 5.);
+assert_eq!(instance.get_current_row(), 0);
+assert_eq!(instance.get_item_offset(), 0.);
+
+// Row 1's center is above the list's center.
+instance.set_content_y(-60.);
+slint_testing::send_mouse_click(&instance, 150., 5.);
+assert_eq!(instance.get_current_row(), 1);
+assert!(instance.get_item_offset() < 0.);
+assert!((instance.get_item_offset() - instance.get_expected_offset()).abs() < 0.01);
+
+// Once snapped, row 1's center is on the list's center.
+slint_testing::mock_elapsed_time(5000);
+slint_testing::send_mouse_click(&instance, 150., 5.);
+assert_eq!(instance.get_current_row(), 1);
+assert!(instance.get_item_offset().abs() < 0.01);
+
+// Row 2's center is below the list's center.
+instance.set_content_y(-90.);
+slint_testing::send_mouse_click(&instance, 150., 5.);
+assert_eq!(instance.get_current_row(), 2);
+assert!(instance.get_item_offset() > 0.);
+assert!((instance.get_item_offset() - instance.get_expected_offset()).abs() < 0.01);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+slint_testing::send_mouse_click(&instance, 150., 5.);
+assert_eq(instance.get_current_row(), 0);
+assert_eq(instance.get_item_offset(), 0.);
+
+instance.set_content_y(-60.);
+slint_testing::send_mouse_click(&instance, 150., 5.);
+assert_eq(instance.get_current_row(), 1);
+assert(instance.get_item_offset() < 0.);
+assert(std::abs(instance.get_item_offset() - instance.get_expected_offset()) < 0.01);
+
+slint_testing::mock_elapsed_time(5000);
+slint_testing::send_mouse_click(&instance, 150., 5.);
+assert_eq(instance.get_current_row(), 1);
+assert(std::abs(instance.get_item_offset()) < 0.01);
+
+instance.set_content_y(-90.);
+slint_testing::send_mouse_click(&instance, 150., 5.);
+assert_eq(instance.get_current_row(), 2);
+assert(instance.get_item_offset() > 0.);
+assert(std::abs(instance.get_item_offset() - instance.get_expected_offset()) < 0.01);
+```
+
+```js
+var instance = new slint.TestCase({});
+
+slintlib.private_api.send_mouse_click(instance, 150., 5.);
+assert.equal(instance.current_row, 0);
+assert.equal(instance.item_offset, 0);
+
+instance.content_y = -60;
+slintlib.private_api.send_mouse_click(instance, 150., 5.);
+assert.equal(instance.current_row, 1);
+assert(instance.item_offset < 0);
+assert(Math.abs(instance.item_offset - instance.expected_offset) < 0.01);
+
+slintlib.private_api.mock_elapsed_time(5000);
+slintlib.private_api.send_mouse_click(instance, 150., 5.);
+assert.equal(instance.current_row, 1);
+assert(Math.abs(instance.item_offset) < 0.01);
+
+instance.content_y = -90;
+slintlib.private_api.send_mouse_click(instance, 150., 5.);
+assert.equal(instance.current_row, 2);
+assert(instance.item_offset > 0);
+assert(Math.abs(instance.item_offset - instance.expected_offset) < 0.01);
+```
+*/

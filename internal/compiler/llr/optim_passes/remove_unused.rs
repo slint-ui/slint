@@ -392,6 +392,9 @@ mod visitor {
                 if let Some(current_row) = &mut listview.current_row {
                     visit_member_reference(current_row, &scope, state, visitor);
                 }
+                if let Some(item_offset) = &mut listview.item_offset {
+                    visit_member_reference(item_offset, &scope, state, visitor);
+                }
 
                 visit_member_reference(&mut listview.prop_y, &inner_scope, state, visitor);
                 visit_member_reference(&mut listview.prop_height, &inner_scope, state, visitor);
