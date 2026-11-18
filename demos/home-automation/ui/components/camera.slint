@@ -28,6 +28,7 @@ export component Camera inherits Control {
     tile := Rectangle {
         x: 0;
         Image {
+            cache-rendering-hint: true;
             x: 1px;
             source: root.cam;
             width: tile.width - 2px;
@@ -36,6 +37,7 @@ export component Camera inherits Control {
         }
 
         Image {
+            cache-rendering-hint: true;
             x: 1px;
             source: @image-url("../images/back-yard.jpg");
             width: tile.width - 2px;

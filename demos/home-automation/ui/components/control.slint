@@ -38,6 +38,7 @@ export component Control inherits Rectangle {
 
 
     if !AppState.graphics-accelerator-available : Image {
+        cache-rendering-hint: true;
         x: -14px;
         y: -12px;
         width: parent.width + 34px;

@@ -120,6 +120,7 @@ export component HVAC inherits Control {
 
 
             Image {
+                cache-rendering-hint: true;
                 x: dial.width * 3 / 4;
                 y: dial.height / 4;
                 height: 20px;
@@ -188,6 +189,7 @@ export component HVAC inherits Control {
         }
 
         Image {
+            cache-rendering-hint: true;
             visible: AppState.orientation == Orientation.landscape;
             source: @image-url("../images/enlarge.svg");
             opacity: root.full-screen ? 0 : 0.6;
@@ -202,6 +204,7 @@ export component HVAC inherits Control {
         }
 
         closeButton := Image {
+            cache-rendering-hint: true;
             opacity: root.full-screen ? 1 : 0;
             animate opacity {
                 duration: Animation.full-screen-duration;

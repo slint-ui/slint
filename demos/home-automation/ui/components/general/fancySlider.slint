@@ -97,6 +97,7 @@ export component FancySlider inherits Rectangle {
             alignment: center;
             x: - parent.width / 2 + 10px;
             Image {
+                cache-rendering-hint: true;
                 colorize: root.colorize-icon;
                 height: 60%;
                 source: root.icon;

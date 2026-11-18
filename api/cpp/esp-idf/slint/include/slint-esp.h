@@ -12,6 +12,9 @@
 #if defined(SLINT_FEATURE_EXPERIMENTAL) && !CONFIG_FREERTOS_UNICORE
 #    define SLINT_ESP_RENDER_IN_SEPARATE_TASK 1
 #endif
+#ifdef SLINT_FEATURE_EXPERIMENTAL
+#    define SLINT_ESP_CPU_TEXTURES 1
+#endif
 
 /**
  * The type of LCD peripheral that drives the panel.
@@ -112,6 +115,19 @@ struct SlintPlatformConfiguration
 #endif
     /// Log the frame rate and the average time to render and present a frame once a second.
     bool log_frame_stats = false;
+#ifdef SLINT_ESP_CPU_TEXTURES
+    /// Blend the images inside an element with `cache-rendering-hint: true` with a whole-image CPU
+    /// loop, instead of the software renderer's per-line path. It needs a full frame buffer.
+    ///
+    /// **Note**: This field is still experimental - its API is subject to changes and not
+    /// stabilized yet. To use it, build Slint from source with the environment variable
+    /// `SLINT_ESP_EXPERIMENTAL=1` set when running CMake.
+    bool use_cpu_textures = false;
+    /// The memory in KiB for the images the renderer prepares, if `use_cpu_textures` is set.
+    /// When the next image doesn't fit, the renderer drops all prepared images.
+    /// Larger images aren't prepared, so 0 turns preparing off.
+    uint32_t prepared_textures_kib = 8192;
+#endif
 };
 
 template<typename... Args>

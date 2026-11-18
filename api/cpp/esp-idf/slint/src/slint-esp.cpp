@@ -19,6 +19,10 @@
 #include "esp_log.h"
 #include "esp_timer.h"
 #include <atomic>
+#ifdef SLINT_ESP_CPU_TEXTURES
+#    include <type_traits>
+#    include "slint-esp-cpu-texture-buffer.h"
+#endif
 
 static const char *TAG = "slint_platform";
 
@@ -140,6 +144,10 @@ struct EspPlatform : public slint::platform::Platform
         render_in_separate_task = config.render_in_separate_task;
         raster_task_stack_size = config.raster_task_stack_size;
 #endif
+#ifdef SLINT_ESP_CPU_TEXTURES
+        use_cpu_textures = config.use_cpu_textures;
+        prepared_textures_kib = config.prepared_textures_kib;
+#endif
     }
 
     std::unique_ptr<slint::platform::WindowAdapter> create_window_adapter() override;
@@ -168,6 +176,10 @@ private:
     uint32_t raster_task_stack_size = 8192;
 #endif
     bool log_frame_stats;
+#ifdef SLINT_ESP_CPU_TEXTURES
+    bool use_cpu_textures = false;
+    uint32_t prepared_textures_kib = 8192;
+#endif
     class EspWindowAdapter *m_window = nullptr;
 
     // Need to be static because we can't pass user data to the touch interrupt callback
@@ -373,6 +385,15 @@ void EspPlatform<PixelType>::run_event_loop()
 {
     esp_lcd_panel_disp_on_off(panel_handle, true);
 
+#ifdef SLINT_ESP_CPU_TEXTURES
+    CpuTextureFrameBuffer cpu_textures;
+#    ifdef SLINT_ESP_RENDER_IN_SEPARATE_TASK
+    // Used only by the thread that rasterizes.
+    slint::platform::SoftwareRenderer::PreparedTextures prepared_textures;
+    prepared_textures.set_max_bytes(std::size_t(prepared_textures_kib) * 1024);
+#    endif
+#endif
+
     TickType_t max_ticks_to_wait = portMAX_DELAY;
 
     if (touch_handle) {
@@ -463,7 +484,12 @@ void EspPlatform<PixelType>::run_event_loop()
     SemaphoreHandle_t frame_recorded = xSemaphoreCreateBinary();
     SemaphoreHandle_t frame_presented = xSemaphoreCreateBinary();
     xSemaphoreGive(frame_presented);
-    auto raster_task = [this, &recorded, stride, frame_recorded, frame_presented, &count_frame] {
+    auto raster_task = [this, &recorded, stride, frame_recorded, frame_presented, &count_frame
+#    ifdef SLINT_ESP_CPU_TEXTURES
+                        ,
+                        &cpu_textures, &prepared_textures
+#    endif
+    ] {
 #    ifdef SLINT_ESP_TRACING
         slint::cbindgen_private::slint_trace_register_core();
 #    endif
@@ -472,7 +498,21 @@ void EspPlatform<PixelType>::run_event_loop()
             {
                 SLINT_TRACE_SPAN("redraw");
                 const int64_t frame_start_us = esp_timer_get_time();
-                render_and_present([&recorded, stride](std::span<PixelType> buffer) {
+                render_and_present([&recorded, stride
+#    ifdef SLINT_ESP_CPU_TEXTURES
+                                    ,
+                                    this, &cpu_textures, &prepared_textures
+#    endif
+                ](std::span<PixelType> buffer) {
+#    ifdef SLINT_ESP_CPU_TEXTURES
+                    if constexpr (std::is_same_v<PixelType, slint::platform::Rgb565Pixel>) {
+                        if (use_cpu_textures) {
+                            cpu_textures.set_target(buffer, stride);
+                            return recorded->rasterize_into_buffer(&cpu_textures,
+                                                                   prepared_textures);
+                        }
+                    }
+#    endif
                     return recorded->rasterize(buffer, stride);
                 });
                 count_frame(frame_start_us);
@@ -576,6 +616,14 @@ void EspPlatform<PixelType>::run_event_loop()
                     SLINT_TRACE_SPAN("redraw");
                     const int64_t frame_start_us = esp_timer_get_time();
                     waited_for_refresh = render_and_present([&](std::span<PixelType> buffer) {
+#ifdef SLINT_ESP_CPU_TEXTURES
+                        if constexpr (std::is_same_v<PixelType, slint::platform::Rgb565Pixel>) {
+                            if (use_cpu_textures) {
+                                cpu_textures.set_target(buffer, stride);
+                                return m_window->m_renderer.render(&cpu_textures);
+                            }
+                        }
+#endif
                         return m_window->m_renderer.render(buffer, stride);
                     });
                     count_frame(frame_start_us);
