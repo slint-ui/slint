@@ -21,7 +21,7 @@ export component App inherits Window {
 ```
 
 Every styled control supplies default colors and dimensions.
-Set geometry directly on the control and use `style` for state colors.
+Set layout dimensions directly on the control and use `style` for state colors and visual dimensions.
 
 Set `enabled: false` to disable interaction.
 Supply `accessible-label` for controls without a text label, including icon-only buttons, sliders, and combo boxes.
@@ -56,26 +56,38 @@ Use the read-only colors on `BasicTheme` for application visuals that should fol
 Host applications can export `BasicTheme` and set its `palette` input directly.
 
 For custom colors, supply an application-owned `BasicPalette` instead of a library preset.
-Supply every field, referencing preset fields for colors you want to keep; omitted fields become transparent.
+Use `{ accent: blue, ..BasicPalettes.dark }` to change selected colors while retaining the rest of a preset.
 Library palettes and style presets are read-only.
 The application selects light or dark mode; standard widgets from `std-widgets.slint` require their own palette configuration.
 
 ## Colors and State Styles
 
-Use direct properties, such as `foreground-color` or `checked-color`, for simple color changes.
-Direct colors override the selected style while enabled, including hover and pressed states.
-Disabled controls use their style's disabled colors.
+Each control selects its rest, hover, pressed, or disabled values from its `style`.
+Use an explicit preset to customize selected fields:
 
-For different colors in each state, pass a complete style struct through `style`.
-Struct literals don't merge with presets.
-Omitted fields receive their declared defaults or their type's default value.
-Reference preset fields explicitly to retain their values and reactive bindings.
-Custom styles follow the application theme only where their bindings reference it.
-See [Style Struct Fields](API.md#style-struct-fields) for the states and colors available on each control.
+```slint
+import { Button, ButtonStyles } from "src/basic.slint";
+
+export component App inherits Window {
+    Button {
+        text: "Save";
+        style: {
+            pressed.background-color: yellow,
+            pressed.foreground-color: black,
+            ..ButtonStyles.primary,
+        };
+    }
+}
+```
+
+CheckBox and Switch distinguish checked and unchecked states.
+State-specific dimensions use the same syntax, such as `pressed.handle-width: 12px` in a Slider update.
+Use `thumb-size` on Switch and `handle-width` / `handle-height` on Slider for their base sizes.
+See the [language reference](../../../docs/astro/src/content/docs/reference/language/structs-and-enums.mdx#updating-struct-values) for struct updates and [Style Struct Fields](API.md#style-struct-fields) for the available fields.
 
 ## Dimensions and Padding
 
-Set dimensions, padding, fonts, borders, and focus geometry directly:
+Set layout dimensions, padding, fonts, and focus geometry directly:
 
 ```slint
 import { Button } from "src/basic.slint";
@@ -96,6 +108,8 @@ Use axis padding for symmetric spacing and edge padding for individual adjustmen
 Minimum dimensions allow content to grow; explicit dimensions determine the control's size.
 See the [API reference](API.md) for each control's geometry inputs and defaults.
 
+Set `Window.default-font-size` to scale control text, or override `font-size` on individual controls.
+
 ## Shared Control Defaults
 
 Use an application component to share defaults across instances without changing other controls:
@@ -104,7 +118,7 @@ Use an application component to share defaults across instances without changing
 import { CheckBox } from "src/basic.slint";
 
 component AppCheckBox inherits CheckBox {
-    checked-color: #0f766e;
+    style.checked.rest { indicator-color: #0f766e };
     indicator-size: 18px;
     font-size: 13px;
     vertical-padding: 4px;
@@ -118,8 +132,7 @@ export component App inherits Window {
 }
 ```
 
-Set `style` on the application component to share state colors as well.
-Individual instances can override these defaults.
+Instances inherit the shared style and can override individual fields.
 
 ## Custom Visuals and Slots
 
@@ -186,7 +199,7 @@ Each `src/basic/<control>.slint` file defines the component, its style structs, 
 Run the gallery with the checkout's viewer:
 
 ```powershell
-$env:SLINT_ENABLE_EXPERIMENTAL_FEATURES = "interfaces,shadowable,closures,named-slots"
+$env:SLINT_ENABLE_EXPERIMENTAL_FEATURES = "interfaces,shadowable,closures,named-slots,struct-updates"
 .\target\debug\slint-viewer.exe --auto-reload tools/editor/controls/examples/controls.slint
 ```
 
@@ -194,4 +207,6 @@ Each page provides size and disabled settings for previews, and the gallery supp
 Preview sizes are defined by gallery components in `examples/preview_controls.slint`; headless examples keep their custom dimensions.
 The Button page shows defaults, direct adjustments, reusable application defaults, and custom visuals through slots.
 Its customization examples keep their own dimensions independently of the preview size selector.
+The Button, Slider, and CheckBox pages show nested style updates that retain the remaining preset fields.
+The [font and border example](../../../examples/struct-updates/demo.slint) demonstrates the same syntax on custom components.
 Every control page demonstrates custom visuals through slots.
