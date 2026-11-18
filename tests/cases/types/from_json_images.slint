@@ -14,12 +14,12 @@ export component TestCase {
 
     out property <bool> test:
         no_image.width == 0 && no_image.height == 0
-        && cat.width == 320 && cat.height == 480
+        && cat.width == 32 && cat.height == 48
         && logo.width == 64 && logo.height == 64
         && pixel.width == 1 && pixel.height == 1
         && circle.width == 50 && circle.height == 40
         && pets.length == 2
-        && pets[0].name == "Cat" && pets[0].photo.width == 320 && pets[0].photo.height == 480
+        && pets[0].name == "Cat" && pets[0].photo.width == 32 && pets[0].photo.height == 48
         && pets[1].name == "Frame" && pets[1].photo.width == 324 && pets[1].photo.height == 384;
 }
 
