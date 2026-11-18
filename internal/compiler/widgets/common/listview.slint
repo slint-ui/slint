@@ -10,8 +10,9 @@ export component ListView inherits ScrollView {
 
     callback current-row-changed(row: int);
 
-    // The ListView's layout sets it.
-    private property <int> current-row-index: -1;
+    // The ListView's layout sets these.
+    out property <int> current-row: -1;
+    out property <length> item-offset;
 
     @children
     accessible-role: list;
@@ -20,12 +21,8 @@ export component ListView inherits ScrollView {
     // The body will be overwritten
     @shadowable public function ensure-row-visible(row: int, behavior: ScrollBehavior) {}
 
-    public pure function current-row() -> int {
-        return root.current-row-index;
-    }
-
-    changed current-row-index => {
-        root.current-row-changed(root.current-row-index);
+    changed current-row => {
+        root.current-row-changed(root.current-row);
     }
 }
 
