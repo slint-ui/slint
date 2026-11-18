@@ -92,6 +92,14 @@ struct SlintPlatformConfiguration
     /// The type of LCD peripheral that drives the panel. Only set this on chips that support
     /// several peripherals, such as the ESP32-P4.
     SlintDisplayPanelType panel_type = SlintDisplayPanelType::Auto;
+    /// Rasterize and present each frame in a separate task, so the event loop already records the
+    /// next frame meanwhile. It needs a frame buffer and a chip with two cores.
+    /// This is experimental: build Slint from source with the environment variable
+    /// `SLINT_ESP_EXPERIMENTAL_RENDER_IN_SEPARATE_TASK=1` set when running CMake.
+    /// Without it, Slint ignores this and renders in the event loop.
+    bool render_in_separate_task = false;
+    /// The stack size in bytes of the task that rasterizes, if `render_in_separate_task` is set.
+    uint32_t raster_task_stack_size = 8192;
 };
 
 template<typename... Args>
