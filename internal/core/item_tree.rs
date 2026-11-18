@@ -207,6 +207,7 @@ pub type ItemTreeWeak = vtable::VWeak<ItemTreeVTable, Dyn>;
 /// instantiated. Call this before non-rendering tree walks that use
 /// `first_child` / `next_sibling`.
 /// Returns `true` if any instance was created or removed.
+#[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 pub fn ensure_item_tree_instantiated(item_tree: &vtable::VRc<ItemTreeVTable>) -> bool {
     vtable::VRc::borrow_pin(item_tree).as_ref().ensure_instantiated()
 }
@@ -709,6 +710,7 @@ impl ItemRc {
         })
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn geometry(&self) -> LogicalRect {
         let comp_ref_pin = vtable::VRc::borrow_pin(&self.item_tree);
         comp_ref_pin.as_ref().item_geometry(self.index)
@@ -716,6 +718,7 @@ impl ItemRc {
 
     /// Returns the rendering bounding rect for that particular item in the parent's item coordinate
     /// (same coordinate system as the geometry)
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn bounding_rect(
         &self,
         geometry: &LogicalRect,
@@ -1138,6 +1141,7 @@ impl ItemRc {
 
     /// Returns the transform to apply to children to map them into the local coordinate space of this item.
     /// Typically this is None, but rotation for example may return Some.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn children_transform(&self) -> Option<ItemTransform> {
         self.downcast::<crate::items::Transform>().map(|transform_item| {
             let item = transform_item.as_pin_ref();

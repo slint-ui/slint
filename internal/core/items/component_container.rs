@@ -55,6 +55,10 @@ pub struct ComponentContainer {
 
 impl ComponentContainer {
     /// Must not run inside a binding: it runs the factory and the init callbacks.
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(name = "component_container_ensure_updated", skip_all)
+    )]
     pub fn ensure_updated(self: Pin<&Self>) -> bool {
         let rebuilt = self.build_component_if_dirty();
         let instantiated = self

@@ -24,6 +24,8 @@ ffi = ["dep:static_assertions", "i-slint-core-macros/ffi"] # Expose C ABI
 libm = ["num-traits/libm", "euclid/libm"]
 # Allow the viewer to query at runtime information about item types
 rtti = []
+# Emit `tracing` spans in the rendering hot paths
+tracing = ["dep:tracing"]
 # Use the standard library
 std = [
   "euclid/std",
@@ -123,6 +125,7 @@ lyon_algorithms = { version = "1.0", optional = true, default-features = false }
 lyon_geom = { version = "1.0", optional = true, default-features = false }
 lyon_path = { workspace = true, optional = true, default-features = false }
 lyon_extra = { version = "1.1", optional = true, default-features = false }
+tracing = { version = "0.1", default-features = false, features = ["attributes"], optional = true }
 num-traits = { version = "0.2", default-features = false }
 once_cell = { version = "1.5", default-features = false, features = ["critical-section"] }
 pin-project = "1"
