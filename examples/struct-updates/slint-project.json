@@ -1,0 +1,5 @@
+{
+    "edition": "1.20",
+    "main": "demo.slint",
+    "experimental-features": ["struct-updates"]
+}

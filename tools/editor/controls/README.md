@@ -208,5 +208,5 @@ Preview sizes are defined by gallery components in `examples/preview_controls.sl
 The Button page shows defaults, direct adjustments, reusable application defaults, and custom visuals through slots.
 Its customization examples keep their own dimensions independently of the preview size selector.
 The Button, Slider, and CheckBox pages show nested style updates that retain the remaining preset fields.
-The [font and border example](../../../examples/struct-updates.slint) demonstrates the same syntax on custom components.
+The [font and border example](../../../examples/struct-updates/demo.slint) demonstrates the same syntax on custom components.
 Every control page demonstrates custom visuals through slots.
