@@ -387,11 +387,9 @@ void EspPlatform<PixelType>::run_event_loop()
 
 #ifdef SLINT_ESP_CPU_TEXTURES
     CpuTextureFrameBuffer cpu_textures;
-#    ifdef SLINT_ESP_RENDER_IN_SEPARATE_TASK
     // Used only by the thread that rasterizes.
     slint::platform::SoftwareRenderer::PreparedTextures prepared_textures;
     prepared_textures.set_max_bytes(std::size_t(prepared_textures_kib) * 1024);
-#    endif
 #endif
 
     TickType_t max_ticks_to_wait = portMAX_DELAY;
@@ -620,7 +618,7 @@ void EspPlatform<PixelType>::run_event_loop()
                         if constexpr (std::is_same_v<PixelType, slint::platform::Rgb565Pixel>) {
                             if (use_cpu_textures) {
                                 cpu_textures.set_target(buffer, stride);
-                                return m_window->m_renderer.render(&cpu_textures);
+                                return m_window->m_renderer.render(&cpu_textures, prepared_textures);
                             }
                         }
 #endif

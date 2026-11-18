@@ -546,10 +546,10 @@ impl SoftwareRenderer {
     fn render_buffer_impl(
         &self,
         buffer: &mut impl target_pixel_buffer::TargetPixelBuffer,
+        prepared_textures: &mut PreparedTextures,
     ) -> PhysicalRegion {
         let pixels_per_line = buffer.line_slice(0).len();
         let num_lines = buffer.num_lines();
-        let prepared_textures = &mut self.prepared_textures.borrow_mut();
         self.render_frame(pixels_per_line, num_lines, |scale_factor| BufferRasterizer {
             buffer,
             dirty_range_cache: Vec::new(),

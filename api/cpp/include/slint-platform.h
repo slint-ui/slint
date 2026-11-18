@@ -814,26 +814,32 @@ public:
 
 #    ifdef SLINT_FEATURE_EXPERIMENTAL
     /// Renders into the given TargetPixelBuffer.
+    /// Images prepared for the buffer go into \a prepared_textures.
     ///
     /// **Note**: This class is still experimental - its API is subject to changes and not
     /// stabilized yet. To use the class, you must enable the `SLINT_FEATURE_EXPERIMENTAL=ON` CMake
     /// option.
-    PhysicalRegion render(TargetPixelBuffer<Rgb8Pixel> *buffer) const
+    PhysicalRegion render(TargetPixelBuffer<Rgb8Pixel> *buffer,
+                           PreparedTextures &prepared_textures) const
     {
         auto wrapper = buffer->wrap();
-        auto r = cbindgen_private::slint_software_renderer_render_accel_rgb8(inner, &wrapper);
+        auto r = cbindgen_private::slint_software_renderer_render_accel_rgb8(
+                inner, &wrapper, prepared_textures.inner);
         return PhysicalRegion { r };
     }
 
     /// Renders into the given TargetPixelBuffer.
+    /// Images prepared for the buffer go into \a prepared_textures.
     ///
     /// **Note**: This class is still experimental - its API is subject to changes and not
     /// stabilized yet. To use the class, you must enable the `SLINT_FEATURE_EXPERIMENTAL=ON` CMake
     /// option.
-    PhysicalRegion render(TargetPixelBuffer<Rgb565Pixel> *buffer) const
+    PhysicalRegion render(TargetPixelBuffer<Rgb565Pixel> *buffer,
+                           PreparedTextures &prepared_textures) const
     {
         auto wrapper = buffer->wrap();
-        auto r = cbindgen_private::slint_software_renderer_render_accel_rgb565(inner, &wrapper);
+        auto r = cbindgen_private::slint_software_renderer_render_accel_rgb565(
+                inner, &wrapper, prepared_textures.inner);
         return PhysicalRegion { r };
     }
 
