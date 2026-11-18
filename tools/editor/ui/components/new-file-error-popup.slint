@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Icons } from "../icons/index.slint";
 import { Style, Metrics, Typography, Colors, Theme, DialogStyle } from "../style.slint";
 import { Button } from "../../controls/src/basic.slint";
 import { ErrorNotice } from "error-notice.slint";
@@ -40,7 +41,7 @@ export component NewFileErrorPopup inherits PopupWindow {
                         Image {
                             width: Metrics.icon-small;
                             height: Metrics.icon-small;
-                            source: @image-url("../assets/lucide/file-plus.svg");
+                            source: Icons.file-plus;
                             colorize: Colors.muted;
                         }
                     }

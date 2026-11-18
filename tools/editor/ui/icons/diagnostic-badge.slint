@@ -2,15 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Colors } from "../style.slint";
-
-export global Icons {
-    out property <image> alert: @image-url("../assets/diagnostic-alert.svg");
-    out property <image> chevron-down: @image-url("../assets/octicons/chevron-down.svg");
-    out property <image> chevron-right: @image-url("../assets/octicons/chevron-right.svg");
-    out property <image> image: @image-url("../assets/lucide/image.svg");
-    out property <image> plus: @image-url("../assets/lucide/plus.svg");
-    out property <image> trash: @image-url("../assets/lucide/trash.svg");
-}
+import { Icons } from "icons.slint";
 
 export component DiagnosticBadge inherits Rectangle {
     in property <color> foreground: Colors.danger;

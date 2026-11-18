@@ -688,9 +688,16 @@ mod tests {
 
         let preview_path =
             std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test-preview.slint");
+        let mut compiler = slint_interpreter::Compiler::default();
+        compiler.set_overrides(
+            i_slint_compiler::project_file::Overrides {
+                debug_info: Some(true),
+                ..Default::default()
+            },
+            i_slint_core::InternalToken,
+        );
         let compilation_result = crate::poll_ready(
-            slint_interpreter::Compiler::default()
-                .build_from_source(TEST_PREVIEW_SOURCE.into(), preview_path.clone()),
+            compiler.build_from_source(TEST_PREVIEW_SOURCE.into(), preview_path.clone()),
         );
         assert!(!compilation_result.has_errors());
         let compilation_result =
@@ -717,10 +724,10 @@ mod tests {
         let preview = user_instance.as_ref().unwrap();
         assert!(
             !preview
-                .component_positions(
-                    &i_slint_compiler::source_path::SourcePath::new(&preview_path),
-                    offset
-                )
+                .component_positions(&i_slint_compiler::object_tree::ElementLocation {
+                    path: i_slint_compiler::source_path::SourcePath::new(&preview_path),
+                    offset: offset.into(),
+                })
                 .is_empty()
         );
         let preview_item_tree = preview.as_item_tree(i_slint_core::InternalToken);

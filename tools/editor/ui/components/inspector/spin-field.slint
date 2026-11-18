@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Icons } from "../../icons/index.slint";
 import { ButtonBase } from "../../../controls/src/headless.slint";
 import { Style, Metrics } from "../../style.slint";
 import { InputSurface } from "../input-surface.slint";
@@ -16,7 +17,7 @@ component StepButton inherits ButtonBase {
     }
     content << Image {
         width: 12px; height: 12px;
-        source: @image-url("../../assets/lucide/chevron-down.svg");
+        source: Icons.chevron-down;
         colorize: root.enabled ? Style.field.appearance.muted : Style.field.appearance.disabled.foreground;
         transform-rotation: root.increase ? 180deg : 0deg;
     }

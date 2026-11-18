@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Icons } from "icons/index.slint";
+import { Images } from "images/index.slint";
 import { Style, PaintStyle, Metrics, Colors, Motion, Typography, WelcomeBrandStyle, ButtonStyle, RecentProjectRowStyle, WelcomeShellStyle } from "style.slint";
 import { Project } from "project.slint";
 
@@ -34,7 +36,7 @@ component BrandMark inherits Rectangle {
     Image {
         width: parent.width * 56%;
         height: parent.height * 56%;
-        source: @image-url("assets/slint-mark.svg");
+        source: Images.slint-mark;
         colorize: Colors.on-accent;
         opacity: 0.94;
     }
@@ -46,8 +48,8 @@ component ActionIcon inherits Image {
     width: Metrics.icon-large;
     height: Metrics.icon-large;
     source: root.folder
-        ? @image-url("assets/primer-folder-open.svg")
-        : @image-url("assets/primer-plus-circle.svg");
+        ? Icons.primer-folder-open
+        : Icons.primer-plus-circle;
     colorize: root.icon-color;
 }
 
@@ -137,7 +139,7 @@ component RecentProjectRow inherits Rectangle {
         Image {
             width: root.style.icon-size;
             height: root.style.icon-size;
-            source: @image-url("assets/primer-file-code.svg");
+            source: Icons.primer-file-code;
             colorize: root.selected ? Colors.on-accent : root.style.selected-background;
         }
 
