@@ -919,6 +919,8 @@ public:
     /// RecordedRasterCommands::rasterize() into a buffer of \a num_lines lines of
     /// \a pixels_per_line pixels.
     ///
+    /// Only usable on targets with atomic pointers, not on `thumbv6m`: elsewhere it fails to link.
+    ///
     /// **Note**: This function is still experimental - its API is subject to changes and not
     /// stabilized yet. To use the function, you must enable the `SLINT_FEATURE_EXPERIMENTAL=ON`
     /// CMake option.
