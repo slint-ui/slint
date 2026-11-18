@@ -530,7 +530,8 @@ impl TextParagraph {
         selection_brush: Option<&<R as GlyphRenderer>::PlatformBrush>,
         line_spans: &[SelectionSpan],
     ) {
-        let run_x = glyph_run.offset()..glyph_run.offset() + glyph_run.advance();
+        let run_start = origin.x + glyph_run.offset();
+        let run_x = run_start..run_start + glyph_run.advance();
 
         // Bidirectional text reorders glyphs within a run, so this filters rather than truncating.
         let x_range = visible_x_range.cloned();
@@ -608,7 +609,7 @@ impl TextParagraph {
         }
     }
 
-    /// Draws `glyphs` clipped to the horizontal band `x`, so that a glyph straddling the band's
+    /// Draws `glyphs` clipped to the horizontal band `x`, in item coordinates, so that a glyph straddling the band's
     /// edge is cut rather than recolored as a whole.
     fn draw_glyph_run_segment<R: GlyphRenderer>(
         glyph_run: &parley::layout::GlyphRun<Brush>,
@@ -633,7 +634,7 @@ impl TextParagraph {
         let render = item_renderer.combine_clip(
             LogicalRect::new(
                 LogicalPoint::from_lengths(
-                    PhysicalLength::new(origin.x + x.start) / scale_factor,
+                    PhysicalLength::new(x.start) / scale_factor,
                     current_clip.origin.y_length(),
                 ),
                 LogicalSize::from_lengths(

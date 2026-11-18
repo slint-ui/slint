@@ -600,6 +600,27 @@ fn link_hit_test_respects_quote_indent() {
 }
 
 #[test]
+fn selection_and_cursor_respect_quote_indent() {
+    let layout = layout_markdown("> quoted", LayoutOptions::default());
+    let paragraph = &layout.paragraphs[0];
+    let x = paragraph.x(layout.quote_step);
+    let start = paragraph.range.start;
+    let y = paragraph.y.get() + paragraph.layout.height() / 2.;
+
+    let everything = PhysicalLength::new(f32::NEG_INFINITY)..PhysicalLength::new(f32::INFINITY);
+    let spans = layout.selection_geometry(start..paragraph.range.end, &everything, f32::round);
+    assert_eq!(spans.0[0].x().start, x.get());
+
+    assert_eq!(layout.byte_offset_from_point(PhysicalPoint::new(x.get() + 1., y)).0, start);
+    let cursor = layout.cursor_rect_for_byte_offset(
+        start,
+        crate::items::TextCursorAffinity::default(),
+        PhysicalLength::new(1.),
+    );
+    assert_eq!(cursor.origin.x, x.get());
+}
+
+#[test]
 fn elision_in_quote_respects_indent() {
     let max_width = LogicalLength::new(100.);
     let options = LayoutOptions {

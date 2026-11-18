@@ -159,14 +159,14 @@ In the Parley path, `sharedparley/shaping.rs` maps spans to Parley styles, and `
 
 A quoted paragraph's lines start at an x offset of `quote_depth` times `QUOTE_INDENT_EM` font sizes.
 See `TextParagraph::x` in `internal/core/textlayout/sharedparley/shaping.rs`.
-Line breaking, the max width, content widths, elision and link hit-testing all account for the offset.
+Line breaking, the max width, content widths, elision, hit-testing, and selection all account for the offset.
 Drawing adds the offset in physical pixels, so glyphs, decorations and bars stay aligned at any scale factor.
 `draw_quote_bars` in `sharedparley/draw.rs` draws one bar per level beside the drawn lines.
 The bars stay on the left in right-to-left text.
 A centered quote is centered in the width after its indent, like text in a CSS box with left padding.
-Cursor and selection geometry ignore the offset, because `StyledText` has neither.
 An interpolated `@markdown` argument keeps its text and spans, but not its quote depth.
 Renderers without parley show each level as a `> ` prefix; see `get_raw_text` in `internal/core/styled_text.rs`.
+A copied selection includes these prefixes, but selection offsets never fall inside one.
 
 ## Legacy Software Text Layout
 
