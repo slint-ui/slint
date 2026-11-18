@@ -141,6 +141,13 @@ component Glass inherits Rectangle {
     }
 }
 
+/// Keeps an image of its content, which it draws again only when the content changes.
+/// A panel's content goes in one, because a panel's own blur keeps the panel from being cached.
+/// Some GPUs take long to draw the many flaps of a panel.
+component Cached inherits Rectangle {
+    cache-rendering-hint: true;
+}
+
 /// The characters of a string, which Slint can't slice.
 export global Characters {
     /// The character at `index` of `text`, counted like `character-count`,
@@ -293,6 +300,7 @@ component Flap {
 /// Text on a split-flap display, as on an airport's departures board.
 /// Each character has a flap of its own, which flips when that character changes.
 component Flaps {
+    cache-rendering-hint: true;
     in property <string> text;
     in property <length> size: 16px;
     in property <color> color: Theme.flap-ink;
@@ -1079,6 +1087,8 @@ export component AppWindow inherits Window {
 
     // A pattern under the globe on the entry screen, which shows through around it.
     if root.zoom-progress < 1: Rectangle {
+        // The gradients are slow to draw on some GPUs, and stay as they are while the globe turns.
+        cache-rendering-hint: true;
         background: Theme.backdrop;
         Image {
             width: 100%;
@@ -1282,111 +1292,113 @@ export component AppWindow inherits Window {
         y: root.narrow ? self.rest-y + root.planner-away * (root.height - self.rest-y + 30px) : self.rest-y;
         width: root.narrow ? root.content-width : root.panel-width;
         height: root.height - self.rest-y - root.bottom-edge;
-        VerticalLayout {
-            padding: root.inset;
-            spacing: root.sideways ? 8px : 12px;
-            // The badge wraps below the heading where the panel is too narrow for both.
-            if !root.sideways: FlexboxLayout {
-                spacing: 10px;
-                alignment: space-between;
-                cross-axis-alignment: center;
-                Flaps {
-                    text: "PLAN A FLIGHT";
-                    size: root.narrow || root.panel-width < 290px ? 17px : 21px;
-                }
-
-                if !root.narrow: MadeWithSlint {
-                    height: 30px;
-                }
-            }
-
-            // Side by side where the window is low, to leave the list some rows.
-            GridLayout {
+        Cached {
+            VerticalLayout {
+                padding: root.inset;
                 spacing: root.sideways ? 8px : 12px;
-                from-field := AirportField {
-                    row: 0;
-                    col: 0;
-                    label: "From";
-                    slim: root.sideways;
-                    active: root.active-field == 0;
-                    activated => {
-                        root.active-field = 0;
-                        root.search(self.text == root.field-text(root.planned-origin) ? "" : self.text);
+                // The badge wraps below the heading where the panel is too narrow for both.
+                if !root.sideways: FlexboxLayout {
+                    spacing: 10px;
+                    alignment: space-between;
+                    cross-axis-alignment: center;
+                    Flaps {
+                        text: "PLAN A FLIGHT";
+                        size: root.narrow || root.panel-width < 290px ? 17px : 21px;
                     }
-                    edited(text) => {
-                        root.planned-origin.index = -1;
-                        root.search(text);
-                        root.planned-changed();
+
+                    if !root.narrow: MadeWithSlint {
+                        height: 30px;
                     }
-                    accepted => {
-                        if root.results.length > 0 {
-                            root.choose(root.results[0]);
+                }
+
+                // Side by side where the window is low, to leave the list some rows.
+                GridLayout {
+                    spacing: root.sideways ? 8px : 12px;
+                    from-field := AirportField {
+                        row: 0;
+                        col: 0;
+                        label: "From";
+                        slim: root.sideways;
+                        active: root.active-field == 0;
+                        activated => {
+                            root.active-field = 0;
+                            root.search(self.text == root.field-text(root.planned-origin) ? "" : self.text);
+                        }
+                        edited(text) => {
+                            root.planned-origin.index = -1;
+                            root.search(text);
+                            root.planned-changed();
+                        }
+                        accepted => {
+                            if root.results.length > 0 {
+                                root.choose(root.results[0]);
+                            }
+                        }
+                    }
+
+                    to-field := AirportField {
+                        row: root.sideways ? 0 : 1;
+                        col: root.sideways ? 1 : 0;
+                        label: "To";
+                        slim: root.sideways;
+                        active: root.active-field == 1;
+                        activated => {
+                            root.active-field = 1;
+                            root.search(self.text == root.field-text(root.planned-destination) ? "" : self.text);
+                        }
+                        edited(text) => {
+                            root.planned-destination.index = -1;
+                            root.search(text);
+                            root.planned-changed();
+                        }
+                        accepted => {
+                            if root.results.length > 0 {
+                                root.choose(root.results[0]);
+                            }
+                        }
+                    }
+
+                }
+
+                if !root.sideways: Caption {
+                    text: root.results.length == 1 ? "1 airport" : "\{root.results.length} airports";
+                }
+
+                list := ListView {
+                    vertical-stretch: 1;
+                    for airport[index] in root.results: AirportRow {
+                        height: root.row-height;
+                        index: index;
+                        airport: airport;
+                        selected: airport.index == (root.active-field == 0 ? root.planned-origin.index : root.planned-destination.index);
+                        clicked => {
+                            root.choose(airport);
                         }
                     }
                 }
 
-                to-field := AirportField {
-                    row: root.sideways ? 0 : 1;
-                    col: root.sideways ? 1 : 0;
-                    label: "To";
-                    slim: root.sideways;
-                    active: root.active-field == 1;
-                    activated => {
-                        root.active-field = 1;
-                        root.search(self.text == root.field-text(root.planned-destination) ? "" : self.text);
-                    }
-                    edited(text) => {
-                        root.planned-destination.index = -1;
-                        root.search(text);
-                        root.planned-changed();
-                    }
-                    accepted => {
-                        if root.results.length > 0 {
-                            root.choose(root.results[0]);
+                // Below the list, where the airports were just picked.
+                HorizontalLayout {
+                    alignment: space-between;
+                    RoundButton {
+                        width: 36px;
+                        height: 36px;
+                        icon: @image-url("icons/settings.svg");
+                        checked: root.settings-open;
+                        clicked => {
+                            root.settings-open = !root.settings-open;
+                            root.interacted();
                         }
                     }
-                }
 
-            }
-
-            if !root.sideways: Caption {
-                text: root.results.length == 1 ? "1 airport" : "\{root.results.length} airports";
-            }
-
-            list := ListView {
-                vertical-stretch: 1;
-                for airport[index] in root.results: AirportRow {
-                    height: root.row-height;
-                    index: index;
-                    airport: airport;
-                    selected: airport.index == (root.active-field == 0 ? root.planned-origin.index : root.planned-destination.index);
-                    clicked => {
-                        root.choose(airport);
-                    }
-                }
-            }
-
-            // Below the list, where the airports were just picked.
-            HorizontalLayout {
-                alignment: space-between;
-                RoundButton {
-                    width: 36px;
-                    height: 36px;
-                    icon: @image-url("icons/settings.svg");
-                    checked: root.settings-open;
-                    clicked => {
-                        root.settings-open = !root.settings-open;
-                        root.interacted();
-                    }
-                }
-
-                PillButton {
-                    text: "Take off";
-                    icon: @image-url("icons/aircraft.svg");
-                    primary: true;
-                    enabled: root.planned-origin.index >= 0 && root.planned-destination.index >= 0 && root.planned-origin.index != root.planned-destination.index;
-                    clicked => {
-                        root.take-off();
+                    PillButton {
+                        text: "Take off";
+                        icon: @image-url("icons/aircraft.svg");
+                        primary: true;
+                        enabled: root.planned-origin.index >= 0 && root.planned-destination.index >= 0 && root.planned-origin.index != root.planned-destination.index;
+                        clicked => {
+                            root.take-off();
+                        }
                     }
                 }
             }
