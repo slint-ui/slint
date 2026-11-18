@@ -65,17 +65,23 @@ impl StyledText {
     }
 }
 
+const QUOTE_MARKER: &str = "> ";
+
 /// The text without its markup: the paragraphs joined by `'\n'`, an empty one included.
+/// A quoted paragraph starts with one `> ` per level.
 /// [`raw_text_ranges`] gives each paragraph's byte range in it.
 pub fn get_raw_text(styled_text: &StyledText) -> alloc::borrow::Cow<'_, str> {
     match styled_text.paragraphs.as_slice() {
         [] => "".into(),
-        [paragraph] => paragraph.text.as_str().into(),
-        _ => {
+        [paragraph] if paragraph.quote_depth == 0 => paragraph.text.as_str().into(),
+        paragraphs => {
             let mut result = alloc::string::String::new();
-            for (index, paragraph) in styled_text.paragraphs.iter().enumerate() {
+            for (index, paragraph) in paragraphs.iter().enumerate() {
                 if index > 0 {
                     result.push('\n');
+                }
+                for _ in 0..paragraph.quote_depth {
+                    result.push_str(QUOTE_MARKER);
                 }
                 result.push_str(paragraph.text.as_str());
             }
@@ -85,12 +91,14 @@ pub fn get_raw_text(styled_text: &StyledText) -> alloc::borrow::Cow<'_, str> {
 }
 
 /// Each paragraph's byte range in [`get_raw_text`], in order.
+/// A range starts after the paragraph's quote markers.
 pub fn raw_text_ranges(
     styled_text: &StyledText,
 ) -> impl Iterator<Item = core::ops::Range<usize>> + '_ {
     let mut start = 0;
     styled_text.paragraphs.iter().map(move |paragraph| {
-        let range = start..start + paragraph.text.len();
+        let text_start = start + usize::from(paragraph.quote_depth) * QUOTE_MARKER.len();
+        let range = text_start..text_start + paragraph.text.len();
         start = range.end + 1;
         range
     })
@@ -116,13 +124,14 @@ pub(crate) fn paragraph_at(
 
 /// `offset` clamped into [`get_raw_text`] and up to a character boundary, as
 /// `str::ceil_char_boundary` does, without joining the text.
+/// An offset inside quote markers moves to the start of the paragraph's text.
 pub fn clamp_byte_offset(styled_text: &StyledText, offset: i32) -> usize {
     let Ok(offset) = usize::try_from(offset) else {
         return 0;
     };
     match paragraph_at(styled_text, offset) {
         Some((paragraph, range)) => {
-            range.start + paragraph.text.ceil_char_boundary(offset - range.start)
+            range.start + paragraph.text.ceil_char_boundary(offset.saturating_sub(range.start))
         }
         None => raw_text_len(styled_text),
     }
@@ -283,5 +292,17 @@ mod tests {
     #[test]
     fn string_to_styled_text_returns_default_for_empty_string() {
         assert_eq!(super::string_to_styled_text(Default::default()), StyledText::default());
+    }
+
+    #[test]
+    fn raw_text_prefixes_quotes() {
+        let text = StyledText::from_markdown("> a\n>> b\n\nc").unwrap();
+        assert_eq!(get_raw_text(&text), "> a\n> > b\nc");
+        assert_eq!(raw_text_ranges(&text).collect::<alloc::vec::Vec<_>>(), [2..3, 8..9, 10..11]);
+        assert_eq!(raw_text_len(&text), 11);
+        assert_eq!(clamp_byte_offset(&text, 0), 2);
+        assert_eq!(clamp_byte_offset(&text, 5), 8);
+        let text = StyledText::from_markdown("> a").unwrap();
+        assert_eq!(get_raw_text(&text), "> a");
     }
 }

@@ -29,7 +29,7 @@ pub(super) struct SelectionSpan {
 }
 
 impl SelectionSpan {
-    /// Horizontal extent of the highlight, in the same coordinate space as `GlyphRun::offset()`.
+    /// Horizontal extent of the highlight, in item coordinates.
     pub(super) fn x(&self) -> Range<f32> {
         self.background.min_x()..self.background.max_x()
     }
@@ -122,6 +122,7 @@ impl Layout {
             // Like the draw cull, padded by an (average) line height for ink that overhangs its
             // line box: such a line still draws, so it still needs its spans.
             let paragraph_top = self.y_offset + paragraph.y;
+            let paragraph_x = paragraph.x(self.quote_step).get();
             let paragraph_height = PhysicalLength::new(paragraph.layout.height());
             let line_pad = paragraph_height / paragraph.layout.lines().len().max(1) as f32;
             if paragraph_top + paragraph_height + line_pad < visible_band.start
@@ -157,7 +158,7 @@ impl Layout {
                 if last_kept.is_some_and(|last_kept| (paragraph_index, line) > last_kept) {
                     return;
                 }
-                let x = snap_x(rect.x0 as f32)..snap_x(rect.x1 as f32);
+                let x = snap_x(paragraph_x + rect.x0 as f32)..snap_x(paragraph_x + rect.x1 as f32);
                 if x.end <= x.start {
                     return;
                 }
