@@ -14,6 +14,46 @@ pub mod rename_element_id;
 #[cfg(any(test, feature = "testing", feature = "preview-engine"))]
 pub mod text_edit;
 
+pub fn dotted_property_bindings(
+    element: &i_slint_compiler::parser::syntax_nodes::Element,
+    property_name: &str,
+) -> Vec<i_slint_compiler::parser::syntax_nodes::DottedBinding> {
+    element
+        .DottedBinding()
+        .filter(|binding| {
+            i_slint_compiler::parser::identifier_text(&binding.QualifiedName())
+                .is_some_and(|name| name == property_name)
+        })
+        .collect()
+}
+
+pub fn replace_dotted_property_bindings(
+    element: &i_slint_compiler::parser::syntax_nodes::Element,
+    property_name: &str,
+    expression: &str,
+    uri: Url,
+    version: SourceFileVersion,
+    format: crate::ByteFormat,
+) -> Option<lsp_types::TextDocumentEdit> {
+    let bindings = dotted_property_bindings(element, property_name);
+    if bindings.is_empty() {
+        return None;
+    }
+    let edits = bindings
+        .iter()
+        .enumerate()
+        .map(|(index, binding)| TextEdit {
+            range: crate::util::node_to_lsp_range(binding, format),
+            new_text: if index == 0 && !expression.is_empty() {
+                format!("{property_name}: {expression};")
+            } else {
+                String::new()
+            },
+        })
+        .collect();
+    Some(create_text_document_edit(uri, version, edits))
+}
+
 pub struct SingleTextEdit {
     pub url: Url,
     pub version: SourceFileVersion,

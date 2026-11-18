@@ -259,17 +259,22 @@ module.exports = grammar({
 
     anon_struct_assignment: ($) =>
       seq(
-        field("member", $.simple_identifier),
+        field("member", choice($.simple_identifier, alias($.reference_identifier, $.simple_identifier), $.member_access)),
         ":",
         field("value", $.expression)
       ),
+
+    struct_update: ($) => seq("..", $.expression),
 
     anon_struct_block: ($) =>
       prec(
         100,
         seq(
           "{",
-          commaSep($.anon_struct_assignment),
+          optional(choice(
+            seq(commaSep1($.anon_struct_assignment), optional(seq(",", $.struct_update))),
+            $.struct_update,
+          )),
           optional(","),
           "}",
         ),
@@ -294,6 +299,7 @@ module.exports = grammar({
         $.match_element,
         $.property,
         $.property_assignment,
+        $.grouped_property_assignment,
         $.slot_declaration,
         $.slot_assignment,
         $.slot_forwarding,
@@ -356,6 +362,7 @@ module.exports = grammar({
     property_assignment: ($) =>
       seq(
         field("property", $._statement_identifier),
+        repeat(seq(".", $.simple_identifier)),
         ":",
         field(
           "value",
@@ -364,6 +371,14 @@ module.exports = grammar({
             seq($.expression, ";"),
           ),
         ),
+      ),
+
+    grouped_property_assignment: ($) =>
+      seq(
+        field("property", $._statement_identifier),
+        repeat1(seq(".", $.simple_identifier)),
+        $.anon_struct_block,
+        ";",
       ),
 
     in_out_transition: ($) =>

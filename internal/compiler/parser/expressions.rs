@@ -326,14 +326,43 @@ fn parse_array(p: &mut impl Parser) {
 /// {a:b}
 /// { a: "foo" , }
 /// {a:b, c: 4 + 4, d: [a,] }
+/// { ..base }
+/// { a: 1, ..base, }
+/// { a: { b: 2, ..base.a }, ..base }
 /// ```
-fn parse_object_notation(p: &mut impl Parser) {
+pub(super) fn parse_object_notation(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::ObjectLiteral);
     p.expect(SyntaxKind::LBrace);
 
     while p.nth(0).kind() != SyntaxKind::RBrace {
+        if p.peek().kind() == SyntaxKind::DotDot {
+            {
+                let mut p = p.start_node(SyntaxKind::ObjectUpdate);
+                p.consume();
+                if p.peek().kind() == SyntaxKind::Dot {
+                    p.error("Use two dots ('..') to update a struct");
+                    p.consume();
+                }
+                if matches!(p.peek().kind(), SyntaxKind::Comma | SyntaxKind::RBrace) {
+                    p.error("Expected a base expression after '..'");
+                    drop(p.start_node(SyntaxKind::Expression));
+                } else {
+                    parse_expression(&mut *p);
+                }
+                p.test(SyntaxKind::Comma);
+            }
+            if p.peek().kind() != SyntaxKind::RBrace {
+                p.error("The '..base' expression must be the last entry in a struct literal");
+                p.until(SyntaxKind::RBrace);
+                return;
+            }
+            break;
+        }
         let mut p = p.start_node(SyntaxKind::ObjectMember);
         p.expect(SyntaxKind::Identifier);
+        while p.test(SyntaxKind::Dot) {
+            p.expect(SyntaxKind::Identifier);
+        }
         p.expect(SyntaxKind::Colon);
         parse_expression(&mut *p);
         if !p.test(SyntaxKind::Comma) {

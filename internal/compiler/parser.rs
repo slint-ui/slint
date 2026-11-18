@@ -344,6 +344,7 @@ declare_syntax! {
         Comma -> ",",
         Semicolon -> ";",
         Bang -> "!",
+        DotDot -> "..",
         Dot -> ".",
         Question -> "?",
         Dollar -> "$",
@@ -359,7 +360,7 @@ declare_syntax! {
         Component -> [ DeclaredIdentifier, Element ],
         /// `id := Element { ... }`
         SubElement -> [ Element ],
-        Element -> [ ?QualifiedName, *PropertyDeclaration, *Binding, *CallbackConnection,
+        Element -> [ ?QualifiedName, *PropertyDeclaration, *Binding, *DottedBinding, *CallbackConnection,
                      *CallbackDeclaration, *ConditionalElement, *MatchElement, *Function, *SubElement,
                      *RepeatedElement, *PropertyAnimation, *PropertyChangedCallback,
                      *TwoWayBinding, *States, *Transitions, *ImplementStatement, ?ChildrenPlaceholder,
@@ -405,6 +406,7 @@ declare_syntax! {
         SlotAssignment -> [ DeclaredIdentifier, ?SubElement ],
         SlotForwarding -> [ DeclaredIdentifier, ?Expression ],
         Binding-> [ BindingExpression ],
+        DottedBinding -> [ QualifiedName, ?BindingExpression, ?ObjectLiteral ],
         /// `xxx <=> something`
         TwoWayBinding -> [ Expression ],
         /// `implement Interface <=> target;`
@@ -453,10 +455,12 @@ declare_syntax! {
         MemberAccess -> [Expression],
         /// `[ ... ]`
         Array -> [ *Expression ],
-        /// `{ foo: bar }`
-        ObjectLiteral -> [ *ObjectMember ],
+        /// `{ foo: bar, ..base }`
+        ObjectLiteral -> [ *ObjectMember, ?ObjectUpdate ],
         /// `foo: bar` inside an ObjectLiteral
         ObjectMember -> [ Expression ],
+        /// `..base` inside an ObjectLiteral
+        ObjectUpdate -> [ Expression ],
         /// `states: [...]`
         States -> [*State],
         /// The DeclaredIdentifier is the state name. The Expression, if any, is the condition.

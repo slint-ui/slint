@@ -62,7 +62,9 @@ pub fn get_semantic_tokens(
                     SyntaxKind::Element => Some((self::TYPE, 0)),
                     // FIXME: we should do actual lookup
                     SyntaxKind::Expression => None,
-                    SyntaxKind::StatePropertyChange => Some((self::PROPERTY, 0)),
+                    SyntaxKind::StatePropertyChange | SyntaxKind::DottedBinding => {
+                        Some((self::PROPERTY, 0))
+                    }
                     SyntaxKind::PropertyAnimation => Some((self::PROPERTY, 0)),
                     _ => None,
                 },

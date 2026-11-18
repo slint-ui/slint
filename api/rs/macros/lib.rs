@@ -98,6 +98,14 @@ fn fill_token_vec(stream: impl Iterator<Item = TokenTree>, vec: &mut Vec<parser:
                             prev_span = span;
                             continue;
                         }
+                        if let Some(last) = vec.last_mut()
+                            && last.kind == SyntaxKind::Dot
+                            && prev_spacing == Spacing::Joint
+                        {
+                            last.kind = SyntaxKind::DotDot;
+                            last.text = "..".into();
+                            continue;
+                        }
                         SyntaxKind::Dot
                     }
                     '+' => SyntaxKind::Plus,

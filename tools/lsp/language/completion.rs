@@ -316,7 +316,21 @@ pub(crate) fn completion_at(
         })?;
     } else if node.kind() == SyntaxKind::AtKeys {
         return with_lookup_ctx(document_cache, node, Some(offset), at_keys_completions);
+    } else if node.kind() == SyntaxKind::ObjectLiteral {
+        return complete_struct_members(document_cache, node.clone(), &node, &token, offset);
     } else if let Some(member) = syntax_nodes::ObjectMember::new(node.clone()) {
+        if member
+            .child_token(SyntaxKind::Colon)
+            .is_none_or(|colon| offset <= colon.text_range().start())
+        {
+            return complete_struct_members(
+                document_cache,
+                member.parent()?,
+                &member,
+                &token,
+                offset,
+            );
+        }
         // Completing an object-literal field value (the value expression is still empty).
         if let Some(colon) = member.child_token(SyntaxKind::Colon)
             && offset >= colon.text_range().end()
@@ -336,6 +350,19 @@ pub(crate) fn completion_at(
         }
     } else if let Some(q) = syntax_nodes::QualifiedName::new(node.clone()) {
         match q.parent()?.kind() {
+            SyntaxKind::DottedBinding => {
+                let path = field_path_before_cursor(&q, &token, offset);
+                let (property, fields) = path.split_first()?;
+                return with_lookup_ctx(document_cache, node, None, |ctx| {
+                    let ty = ctx
+                        .component_scope
+                        .last()?
+                        .borrow()
+                        .lookup_property(property, PropertyLookupMode::ComponentLocal)
+                        .property_type;
+                    struct_field_items(ty, fields)
+                })?;
+            }
             SyntaxKind::Element => {
                 let element = q.parent()?;
                 if is_interface_root_element(&element) {
@@ -1416,6 +1443,60 @@ fn add_types_to_import(
     );
 }
 
+fn field_path_before_cursor(
+    node: &SyntaxNode,
+    token: &SyntaxToken,
+    offset: TextSize,
+) -> Vec<SmolStr> {
+    node.children_with_tokens()
+        .filter_map(|child| child.into_token())
+        .take_while(|child| child.text_range().start() < offset)
+        .filter(|child| child.kind() == SyntaxKind::Identifier && child.token != token.token)
+        .map(|child| i_slint_compiler::parser::normalize_identifier(child.text()))
+        .collect()
+}
+
+fn struct_field_items(mut ty: Type, path: &[SmolStr]) -> Option<Vec<CompletionItem>> {
+    for field in path {
+        let Type::Struct(structure) = ty else { return None };
+        ty = structure.fields.get(field)?.clone();
+    }
+    let Type::Struct(structure) = ty else { return None };
+    Some(
+        structure
+            .fields
+            .iter()
+            .map(|(field, ty)| {
+                CompletionItem::new_simple(field.to_string(), ty.to_string())
+                    .with_kind(CompletionItemKind::PROPERTY)
+            })
+            .collect(),
+    )
+}
+
+fn complete_struct_members(
+    document_cache: &DocumentCache,
+    object: SyntaxNode,
+    member: &SyntaxNode,
+    token: &SyntaxToken,
+    offset: TextSize,
+) -> Option<Vec<CompletionItem>> {
+    let object = syntax_nodes::ObjectLiteral::new(object)?;
+    let path = field_path_before_cursor(member, token, offset);
+    with_lookup_ctx(
+        document_cache,
+        object.clone().into(),
+        Some(object.text_range().start()),
+        |ctx| {
+            let ty = object
+                .ObjectUpdate()
+                .map(|update| Expression::from_expression_node(update.Expression(), ctx).ty())
+                .unwrap_or_else(|| ctx.expected_type.clone());
+            struct_field_items(ty, &path)
+        },
+    )?
+}
+
 /// What `items` offer, normalized, to compare against the normalized names the catalog holds.
 ///
 /// A completion carries whichever spelling of a separator its declaration used (#7492).
@@ -1616,6 +1697,59 @@ mod tests {
         };
 
         completion_at(&mut dc, token, offset, Some(&caps))
+    }
+
+    #[test]
+    fn struct_update_field_completion() {
+        for (binding, expected) in [
+            ("appearance.🔺", vec!["font", "mode"]),
+            ("appearance.font.🔺", vec!["size", "weight"]),
+            ("appearance.font { we🔺: 700 };", vec!["size", "weight"]),
+            ("appearance.font { 🔺 };", vec!["size", "weight"]),
+            ("appearance: { font.we🔺: 700, ..root.preset };", vec!["size", "weight"]),
+        ] {
+            let source = format!(
+                r#"
+                struct Font {{ size: length, weight: int }}
+                struct Appearance {{ font: Font, mode: int }}
+                component Label inherits Text {{ in property <Appearance> appearance; }}
+                export component Main inherits Window {{
+                    private property <Appearance> preset;
+                    Label {{ {binding} }}
+                }}
+            "#
+            );
+            let items = get_completions_experimental(&source).unwrap_or_default();
+            for field in expected {
+                assert!(items.iter().any(|item| item.label == field), "{binding}: {items:?}");
+            }
+            assert!(!items.iter().any(|item| item.label == "width"), "{binding}: {items:?}");
+        }
+    }
+
+    #[test]
+    fn struct_override_value_completion() {
+        for binding in [
+            "appearance.mode: 🔺;",
+            "appearance.font { mode: 🔺 };",
+            "appearance: { font.mode: 🔺, ..root.preset };",
+        ] {
+            let source = format!(
+                r#"
+                enum Mode {{ regular, strong }}
+                struct Font {{ mode: Mode }}
+                struct Appearance {{ font: Font, mode: Mode }}
+                component Label inherits Text {{ in property <Appearance> appearance; }}
+                export component Main inherits Window {{
+                    private property <Appearance> preset;
+                    Label {{ {binding} }}
+                }}
+            "#
+            );
+            let items = get_completions_experimental(&source).unwrap_or_default();
+            assert!(items.iter().any(|item| item.label == "regular"), "{binding}: {items:?}");
+            assert!(items.iter().any(|item| item.label == "strong"), "{binding}: {items:?}");
+        }
     }
 
     #[test]
