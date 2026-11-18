@@ -29,7 +29,7 @@ use crate::items::{
 };
 use crate::lengths::{
     ItemTransform, LogicalBorderRadius, LogicalPoint, LogicalPx, LogicalRect, LogicalSize,
-    LogicalVector, ScaleFactor,
+    LogicalVector, PackedLogicalRect, ScaleFactor, pack_logical_rect,
 };
 use crate::properties::{PropertyDirtyHandler, PropertyTracker};
 use crate::window::WindowAdapter;
@@ -271,10 +271,40 @@ struct PartialRenderingCachedData {
     pub tracker: Option<Pin<Box<ChangeTracker>>>,
     /// Tracks the properties that `data` was computed from.
     pub geometry_tracker: Option<Pin<Box<ChangeTracker>>>,
+    /// Contains the clipped screen rects of the item and all its descendants.
+    pub subtree_screen_rect: PackedLogicalRect,
 }
 impl PartialRenderingCachedData {
     fn new(data: CachedItemBoundingBoxAndTransform) -> Self {
-        Self { data, tracker: None, geometry_tracker: None }
+        Self {
+            data,
+            tracker: None,
+            geometry_tracker: None,
+            subtree_screen_rect: PackedLogicalRect::default(),
+        }
+    }
+}
+
+/// Grows the subtree rects of `item`'s ancestors to contain `rect`.
+fn grow_ancestor_subtree_rects(
+    cache: &mut PartialRendererCache,
+    item: &ItemRc,
+    rect: &PackedLogicalRect,
+) {
+    if rect.is_empty() {
+        return;
+    }
+    let mut current = item.parent_item(ParentItemTraversalMode::StopAtPopups);
+    while let Some(ancestor) = current {
+        let Some(entry) = ancestor.borrow().cached_rendering_data_offset().get_entry(cache) else {
+            return;
+        };
+        // Each subtree rect contains the subtree rects of its children.
+        if entry.subtree_screen_rect.contains_box(rect) {
+            return;
+        }
+        entry.subtree_screen_rect = entry.subtree_screen_rect.union(rect);
+        current = ancestor.parent_item(ParentItemTraversalMode::StopAtPopups);
     }
 }
 
@@ -660,13 +690,18 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
                     self.backdrop_blurs.push(sampled);
                 }
 
+                let packed_screen_rect = pack_logical_rect(&new_screen_rect);
+                grow_ancestor_subtree_rects(&mut cache, &item_rc, &packed_screen_rect);
+
                 match rendering_data.get_entry(&mut cache) {
                     Some(PartialRenderingCachedData {
                         data: cached_geom,
                         tracker,
                         geometry_tracker: cached_geometry_tracker,
+                        subtree_screen_rect,
                     }) => {
                         *cached_geometry_tracker = Some(geometry_tracker);
+                        *subtree_screen_rect = packed_screen_rect;
                         let rendering_dirty = tracker.as_ref().is_some_and(|tr| tr.is_dirty());
 
                         // Repaint when the rank among the previously known siblings changed,
@@ -778,6 +813,7 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
                     None => {
                         let mut cache_entry = PartialRenderingCachedData::new(new_geom.clone());
                         cache_entry.geometry_tracker = Some(geometry_tracker);
+                        cache_entry.subtree_screen_rect = packed_screen_rect;
                         rendering_data.cache_index.set(cache.insert(cache_entry));
                         rendering_data.cache_generation.set(cache.generation());
 
@@ -963,6 +999,11 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
         self.dirty_region.add_rect(rect);
         let tree_key = vtable::VRef::as_ptr(ItemTreeRc::borrow(item.item_tree())).as_ptr() as usize;
         let mut cache = self.cache.borrow_mut();
+        let packed_rect = pack_logical_rect(&rect);
+        if let Some(entry) = item.borrow().cached_rendering_data_offset().get_entry(&mut cache) {
+            entry.subtree_screen_rect = entry.subtree_screen_rect.union(&packed_rect);
+        }
+        grow_ancestor_subtree_rects(&mut cache, item, &packed_rect);
         let acc = cache.tree_screen_rects.entry(tree_key).or_default();
         *acc = acc.union(&rect);
     }
@@ -1085,6 +1126,13 @@ macro_rules! forward_rendering_call2 {
 }
 
 impl<T: ItemRenderer + ItemRendererFeatures> ItemRenderer for PartialRenderer<'_, T> {
+    fn skip_subtree(&mut self, item_rc: &ItemRc) -> bool {
+        let mut cache = self.cache.borrow_mut();
+        item_rc.borrow().cached_rendering_data_offset().get_entry(&mut cache).is_some_and(|e| {
+            !self.dirty_region.draw_intersects(e.subtree_screen_rect.cast().to_rect())
+        })
+    }
+
     fn filter_item(
         &mut self,
         item_rc: &ItemRc,
@@ -1093,7 +1141,6 @@ impl<T: ItemRenderer + ItemRendererFeatures> ItemRenderer for PartialRenderer<'_
         let item = item_rc.borrow();
         let rendering_data = item.cached_rendering_data_offset();
 
-        // The entry is fresh: compute_dirty_regions() refreshes it every frame.
         let cached = {
             let mut cache = self.cache.borrow_mut();
             rendering_data.get_entry(&mut cache).map(|e| {
