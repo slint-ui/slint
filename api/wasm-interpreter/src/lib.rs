@@ -413,12 +413,13 @@ impl WrappedInstance {
     }
 }
 
-/// Register a font for use by the `font-family` property.
+/// Register a font for use by the `font-family` property, and as fallback for the scripts it covers.
 ///
 /// `data` is the content of a TrueType or OpenType file.
 /// The families it declares become available to the components compiled afterwards,
 /// under the names the font itself carries,
-/// so a page that registers JetBrains Mono can then use `font-family: "JetBrains Mono"`.
+/// so a page that registers JetBrains Mono can then use `font-family: "JetBrains Mono"`,
+/// and a page that registers a Chinese font renders Chinese text in any `font-family`.
 ///
 /// The browser build has no system fonts to query,
 /// so this is the only way to draw a component in a font of the host page's choosing.

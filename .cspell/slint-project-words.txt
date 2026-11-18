@@ -82,6 +82,7 @@ cfgs
 CFLAGS
 chacha
 charmap
+charmaps
 checkboxtile
 checkmark
 checkstate

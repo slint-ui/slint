@@ -490,3 +490,54 @@ fn test_control_glyphs() {
         .collect::<Vec<_>>();
     assert_eq!(missing_glyphs, paragraph.control_glyphs(&line));
 }
+
+#[test]
+fn registered_font_is_a_fallback_for_its_scripts() {
+    // The default font has no Latin glyphs, so "abc" can only come from the registered font.
+    let mut font_ctx = parley::FontContext {
+        collection: fontique::Collection::new(fontique::CollectionOptions {
+            system_fonts: false,
+            ..Default::default()
+        }),
+        source_cache: Default::default(),
+    };
+    let symbols =
+        include_bytes!("../../../../tests/screenshots/fonts/NotoSansSymbols2-Regular.ttf");
+    let families = font_ctx.collection.register_fonts(fontique::Blob::new(Arc::new(symbols)), None);
+    font_ctx.collection.set_generic_families(
+        fontique::GenericFamily::SansSerif,
+        families.iter().map(|(id, _)| *id),
+    );
+    let mut font_ctx = FontContext::new(font_ctx);
+
+    let latin = fontique::Blob::new(Arc::new(include_bytes!(
+        "../../../../tests/screenshots/fonts/NotoSans-Regular.ttf"
+    )));
+    font_ctx.register_fonts(latin.clone());
+
+    let builder = super::shaping::plain_builder_for_tests();
+    let paragraphs = create_text_paragraphs(
+        &builder,
+        &mut font_ctx,
+        PlainOrStyledText::Plain("abc".into()),
+        Color::default(),
+    );
+    let layout = layout(
+        &builder,
+        &mut font_ctx,
+        paragraphs,
+        ScaleFactor::new(1.0),
+        LayoutOptions::default(),
+        None,
+    );
+    let mut runs = 0;
+    for line in layout.paragraphs[0].layout.lines() {
+        for item in line.items() {
+            if let parley::PositionedLayoutItem::GlyphRun(run) = item {
+                assert_eq!(run.run().font().data.id(), latin.id());
+                runs += 1;
+            }
+        }
+    }
+    assert_eq!(runs, 1);
+}
