@@ -1228,24 +1228,25 @@ export component AppWindow inherits Window {
         y: label.y * 1px;
         width: 0;
         height: 0;
-        opacity: label.opacity;
+        // The colors fade, rather than an opacity, which would draw each label through a layer of
+        // its own, too slowly for some GPUs.
         Rectangle {
             x: -2px;
             y: -2px;
             width: 4px;
             height: 4px;
             border-radius: 2px;
-            background: #ffffffb0;
+            background: #ffffff.with-alpha(0.69 * label.opacity);
         }
 
         Text {
             x: 6px;
             y: -self.height / 2;
             text: label.name;
-            color: Theme.text.with-alpha(0.8);
+            color: Theme.text.with-alpha(0.8 * label.opacity);
             font-size: 11px;
-            stroke: #00000080;
-            stroke-width: 2px;
+            stroke: #000000.with-alpha(0.3 * label.opacity);
+            stroke-width: 1px;
         }
     }
 
