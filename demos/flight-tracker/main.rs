@@ -1486,7 +1486,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 } else {
                     0.0
                 },
-                border_width: density,
+                // Thinner, they'd break up into dots that crawl as the globe moves.
+                border_width: density.max(1.0),
                 viewport: pixels,
                 time: demo.time,
                 space: zoom_progress,
