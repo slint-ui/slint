@@ -67,20 +67,7 @@ impl AccessKitAdapter {
                 proxy,
             ),
             window_adapter_weak: window_adapter_weak.clone(),
-            nodes: NodeCollection {
-                next_component_id: 1,
-                free_component_ids: Default::default(),
-                root_node_id: NodeId(0),
-                components_by_id: Default::default(),
-                component_ids: Default::default(),
-                all_nodes: Default::default(),
-                focused_node_tracker: Box::pin(PropertyTracker::new_with_dirty_handler(
-                    DelegateFocusPropertyTracker {
-                        window_adapter_weak: window_adapter_weak.clone(),
-                    },
-                )),
-                text_state: Default::default(),
-            },
+            nodes: NodeCollection::new(window_adapter_weak.clone()),
             global_property_tracker: Box::pin(PropertyTracker::new_with_dirty_handler(
                 AccessibilityPropertyDirtyHandler {
                     window_adapter_weak: window_adapter_weak.clone(),
@@ -368,7 +355,6 @@ fn wraps_text_input(role: Role) -> bool {
 
 struct NodeCollection {
     next_component_id: u32,
-    free_component_ids: Vec<u32>,
     components_by_id: HashMap<u32, ItemTreeWeak>,
     component_ids: HashMap<NonNull<u8>, u32>,
     all_nodes: Vec<CachedNode>,
@@ -383,6 +369,20 @@ struct NodeCollection {
 }
 
 impl NodeCollection {
+    fn new(window_adapter_weak: Weak<WinitWindowAdapter>) -> Self {
+        Self {
+            next_component_id: 1,
+            root_node_id: NodeId(0),
+            components_by_id: Default::default(),
+            component_ids: Default::default(),
+            all_nodes: Default::default(),
+            focused_node_tracker: Box::pin(PropertyTracker::new_with_dirty_handler(
+                DelegateFocusPropertyTracker { window_adapter_weak },
+            )),
+            text_state: Default::default(),
+        }
+    }
+
     fn focus_node(&mut self, window_adapter_weak: &Weak<WinitWindowAdapter>) -> NodeId {
         window_adapter_weak
             .upgrade()
@@ -429,18 +429,23 @@ impl NodeCollection {
         self.encode_item_node_id(&item)
     }
 
+    /// Returns an id that no registered component uses.
     fn alloc_component_id(&mut self) -> u32 {
-        self.free_component_ids.pop().unwrap_or_else(|| {
+        // Ids are only reused once the id space wraps around (#14819).
+        // AT-SPI derives object paths from NodeIds,
+        // and Orca ignores a path once its object became defunct.
+        loop {
             let id = self.next_component_id;
-            self.next_component_id += 1;
-            id
-        })
+            self.next_component_id = id % NODE_ID_COMPONENT_MASK as u32 + 1;
+            if !self.components_by_id.contains_key(&id) {
+                return id;
+            }
+        }
     }
 
     fn forget_component(&mut self, component_ptr: NonNull<u8>) {
         if let Some(component_id) = self.component_ids.remove(&component_ptr) {
             self.components_by_id.remove(&component_id);
-            self.free_component_ids.push(component_id);
         }
         self.text_state.component_destroyed_at(component_ptr);
     }
@@ -473,10 +478,6 @@ impl NodeCollection {
             }
         };
 
-        debug_assert!(
-            (component_id as u64) <= NODE_ID_COMPONENT_MASK,
-            "component_id exceeds {NODE_ID_COMPONENT_BITS} bits"
-        );
         let index = item.index();
         NodeId((component_id as u64) << NODE_ID_INDEX_BITS | (index as u64 & NODE_ID_INDEX_MASK))
     }
@@ -1023,4 +1024,20 @@ struct AccessiblePopup {
     location: LogicalPoint,
     parent_node: NodeId,
     component: ItemTreeRc,
+}
+
+#[test]
+fn component_ids_are_not_reused_until_wrap_around() {
+    let mut nodes = NodeCollection::new(Weak::new());
+    let component_ptr = NonNull::dangling();
+    let id = nodes.alloc_component_id();
+    nodes.component_ids.insert(component_ptr, id);
+    nodes.components_by_id.insert(id, ItemTreeWeak::default());
+    nodes.forget_component(component_ptr);
+    assert_ne!(nodes.alloc_component_id(), id);
+
+    nodes.next_component_id = NODE_ID_COMPONENT_MASK as u32;
+    nodes.components_by_id.insert(1, ItemTreeWeak::default());
+    assert_eq!(nodes.alloc_component_id(), NODE_ID_COMPONENT_MASK as u32);
+    assert_eq!(nodes.alloc_component_id(), 2);
 }
