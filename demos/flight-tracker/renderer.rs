@@ -479,21 +479,37 @@ impl Renderer {
         for (level, data) in mips.iter().enumerate() {
             let size = tiles::TILE >> level;
             let (bytes_per_row, rows) = (size / block * block_bytes, size / block);
-            self.queue.write_texture(
-                wgpu::TexelCopyTextureInfo {
-                    texture: &self.tile_texture,
-                    mip_level: level as u32,
-                    origin: wgpu::Origin3d { x: slot.0 * size, y: slot.1 * size, z: layer },
-                    aspect: wgpu::TextureAspect::All,
-                },
-                data,
-                wgpu::TexelCopyBufferLayout {
-                    offset: 0,
-                    bytes_per_row: Some(bytes_per_row),
-                    rows_per_image: Some(rows),
-                },
-                wgpu::Extent3d { width: size, height: size, depth_or_array_layers: 1 },
-            );
+            // NXP's Vivante Vulkan driver ignores the row length of a copy into part of a
+            // compressed texture. wgpu pads the rows to `COPY_BYTES_PER_ROW_ALIGNMENT`, so
+            // narrower levels go one row of blocks at a time.
+            let rows_at_once =
+                if bytes_per_row % wgpu::COPY_BYTES_PER_ROW_ALIGNMENT == 0 { rows } else { 1 };
+            for first in (0..rows).step_by(rows_at_once as usize) {
+                self.queue.write_texture(
+                    wgpu::TexelCopyTextureInfo {
+                        texture: &self.tile_texture,
+                        mip_level: level as u32,
+                        origin: wgpu::Origin3d {
+                            x: slot.0 * size,
+                            y: slot.1 * size + first * block,
+                            z: layer,
+                        },
+                        aspect: wgpu::TextureAspect::All,
+                    },
+                    &data[(first * bytes_per_row) as usize..]
+                        [..(rows_at_once * bytes_per_row) as usize],
+                    wgpu::TexelCopyBufferLayout {
+                        offset: 0,
+                        bytes_per_row: Some(bytes_per_row),
+                        rows_per_image: Some(rows_at_once),
+                    },
+                    wgpu::Extent3d {
+                        width: size,
+                        height: rows_at_once * block,
+                        depth_or_array_layers: 1,
+                    },
+                );
+            }
         }
     }
 
