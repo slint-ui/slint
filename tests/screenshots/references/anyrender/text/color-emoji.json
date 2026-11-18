@@ -119,6 +119,27 @@
     }
   },
   {
+    "PushLayer": {
+      "alpha": 0.502,
+      "backdrop_filter": null,
+      "blend": {
+        "compose": "SrcOver",
+        "mix": "Normal"
+      },
+      "clip": "M0,0 L1000000000,0 L1000000000,1000000000 L0,1000000000 Z",
+      "fill": "NonZero",
+      "filter": null,
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
     "GlyphRun": {
       "brush": {
         "Solid": {
@@ -126,7 +147,7 @@
             0.0,
             0.0,
             1.0,
-            0.502
+            1.0
           ]
         }
       },
@@ -163,6 +184,7 @@
       ]
     }
   },
+  "PopLayer",
   "PopLayer",
   {
     "PushClipLayer": {
@@ -351,6 +373,27 @@
     }
   },
   {
+    "PushLayer": {
+      "alpha": 0.502,
+      "backdrop_filter": null,
+      "blend": {
+        "compose": "SrcOver",
+        "mix": "Normal"
+      },
+      "clip": "M0,0 L1000000000,0 L1000000000,1000000000 L0,1000000000 Z",
+      "fill": "NonZero",
+      "filter": null,
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
     "GlyphRun": {
       "brush": {
         "Solid": {
@@ -358,7 +401,7 @@
             0.0,
             0.0,
             1.0,
-            0.502
+            1.0
           ]
         }
       },
@@ -395,6 +438,7 @@
       ]
     }
   },
+  "PopLayer",
   "PopLayer",
   {
     "PushClipLayer": {

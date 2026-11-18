@@ -1970,6 +1970,7 @@ dependencies = [
  "hashbrown 0.17.1",
  "log",
  "peniko",
+ "png",
  "skrifa",
  "smallvec",
  "vello_common",
@@ -2429,6 +2430,7 @@ dependencies = [
  "lyon_path",
  "peniko",
  "rgb",
+ "skrifa",
  "vtable",
 ]
 
@@ -5289,6 +5291,7 @@ dependencies = [
  "slint-interpreter",
  "spin_on",
  "test_driver_lib",
+ "vello_cpu",
  "walkdir",
  "wgpu",
 ]
@@ -5750,6 +5753,7 @@ dependencies = [
  "bytemuck",
  "glifo",
  "hashbrown 0.17.1",
+ "png",
  "vello_common",
 ]
 
