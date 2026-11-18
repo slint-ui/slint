@@ -50,9 +50,11 @@ fn send(to_editor: &Weak<dyn PreviewToLsp>, id: u64, response: Result<Vec<u8>, S
         .ok();
 }
 
-#[cfg(all(test, not(feature = "system-testing")))]
+#[cfg(all(test, feature = "system-testing"))]
 mod tests {
     use super::*;
+    use i_slint_backend_testing::{TestingBackend, TestingBackendOptions};
+    use i_slint_core::SlintContext;
     use std::cell::RefCell;
     use std::rc::Rc;
 
@@ -70,13 +72,21 @@ mod tests {
     }
 
     #[test]
-    fn answers_with_error_when_disabled() {
+    fn answers_on_the_event_loop() {
+        let context = SlintContext::new(Box::new(TestingBackend::new(TestingBackendOptions {
+            threading: true,
+            ..Default::default()
+        })));
         let capture = Rc::new(CaptureToDebugger::default());
         let to_editor: Rc<dyn PreviewToLsp> = capture.clone();
-        answer_request(7, vec![], Rc::downgrade(&to_editor));
+        answer_request(7, vec![0xff], Rc::downgrade(&to_editor));
+        let proxy = context.event_loop_proxy().unwrap();
+        context.spawn_local(async move { proxy.quit_event_loop().unwrap() }).unwrap();
+        context.run_event_loop().unwrap();
         assert!(matches!(
             capture.0.take().as_slice(),
-            [PreviewToDebuggerMessage::SystemTestResponse { id: 7, response: Err(_) }]
+            [PreviewToDebuggerMessage::SystemTestResponse { id: 7, response: Ok(response) }]
+                if !response.is_empty()
         ));
     }
 }
