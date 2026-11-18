@@ -44,15 +44,10 @@ struct DetailWindow {
 const PI: f32 = 3.14159265;
 const TAU: f32 = 6.2831853;
 
-struct VertexOutput {
-    @builtin(position) position: vec4<f32>,
-    @location(0) ndc: vec2<f32>,
-}
-
 @vertex
-fn vs_main(@builtin(vertex_index) index: u32) -> VertexOutput {
+fn vs_main(@builtin(vertex_index) index: u32) -> @builtin(position) vec4<f32> {
     let ndc = vec2<f32>(f32((index << 1u) & 2u), f32(index & 2u)) * 2.0 - 1.0;
-    return VertexOutput(vec4<f32>(ndc, 0.0, 1.0), ndc);
+    return vec4<f32>(ndc, 0.0, 1.0);
 }
 
 fn hash3(p: vec3<f32>) -> vec3<f32> {
@@ -107,9 +102,12 @@ fn detail(first: i32, uv: vec2<f32>, ddx: vec2<f32>, ddy: vec2<f32>) -> vec4<f32
 }
 
 @fragment
-fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    let near = globals.inverse_view_projection * vec4<f32>(in.ndc, 0.0, 1.0);
-    let far = globals.inverse_view_projection * vec4<f32>(in.ndc, 1.0, 1.0);
+fn fs_main(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
+    // NXP's Vivante Vulkan driver interpolates varyings too coarsely for the rays, so they come
+    // from the pixel's position.
+    let ndc = position.xy / globals.viewport.xy * vec2<f32>(2.0, -2.0) + vec2<f32>(-1.0, 1.0);
+    let near = globals.inverse_view_projection * vec4<f32>(ndc, 0.0, 1.0);
+    let far = globals.inverse_view_projection * vec4<f32>(ndc, 1.0, 1.0);
     let origin = globals.eye.xyz;
     let direction = normalize(far.xyz / far.w - near.xyz / near.w);
     let sun = globals.sun.xyz;
@@ -250,7 +248,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let alpha = mix(coverage + (1.0 - coverage) * glow_alpha, 1.0, space);
     // Noise below one step of the 8-bit output keeps smooth gradients, like the sun's glare,
     // from showing bands.
-    let dither = (hash3(vec3<f32>(in.position.xy, 0.0)).x - 0.5) / 255.0;
+    let dither = (hash3(vec3<f32>(position.xy, 0.0)).x - 0.5) / 255.0;
     // Slint shows the frame with straight alpha.
     return vec4<f32>(output(premultiplied / max(alpha, 1e-4)) + dither, alpha);
 }
