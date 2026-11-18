@@ -13,6 +13,8 @@ component TestCase inherits Window {
         x: 0;
         width: 50%;
         y: 0;
+        // `single-line` defaults to true, so the new lines render as spaces (#7413).
+        // `word-wrap` still breaks the text into several lines.
         text: "VAVAv\nLine\nWAWA";
         wrap: word-wrap;
         color: green;

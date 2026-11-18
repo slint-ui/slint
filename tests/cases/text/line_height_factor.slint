@@ -48,6 +48,20 @@ export component TestCase inherits Window {
             line-height-factor: 2;
         }
 
+        // #7413
+        single-line-input := TextInput {
+            text: "One\nTwo";
+        }
+
+        parley-cr-input := TextInput {
+            text: "One\u{d}Two";
+            font-family: "Inter 24pt";
+        }
+
+        parley-space-input := TextInput {
+            text: "One Two";
+            font-family: "Inter 24pt";
+        }
     }
 
     hit-test-input := TextInput {
@@ -72,7 +86,11 @@ export component TestCase inherits Window {
         && negative-text.height == 20phx
         // Text-block heights are rounded up to whole physical pixels, so doubling the
         // reference height can differ from the factor-2 height by up to 2 pixels.
-        && Math.abs((parley-text.height - 2 * parley-default-text.height) / 1phx) < 2;
+        && Math.abs((parley-text.height - 2 * parley-default-text.height) / 1phx) < 2
+        && single-line-input.height == 10phx
+        && single-line-input.preferred-width == 70phx
+        && parley-cr-input.height == parley-space-input.height
+        && parley-cr-input.preferred-width == parley-space-input.preferred-width;
 }
 
 /*
