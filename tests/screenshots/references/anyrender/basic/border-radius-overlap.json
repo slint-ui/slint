@@ -339,20 +339,48 @@
   },
   "PopLayer",
   {
-    "Fill": {
-      "brush": {
-        "Solid": {
-          "components": [
-            1.0,
-            0.6471,
-            0.0,
-            1.0
-          ]
+    "BoxShadow": {
+      "box_shape": {
+        "radii": {
+          "bottom_left": {
+            "x": 8.0,
+            "y": 8.0
+          },
+          "bottom_right": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "top_left": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "top_right": {
+            "x": 0.0,
+            "y": 0.0
+          }
+        },
+        "rect": {
+          "x0": 0.0,
+          "x1": 20.0,
+          "y0": 0.0,
+          "y1": 20.0
         }
       },
-      "brush_transform": null,
-      "fill": "NonZero",
-      "shape": "M3,3 C3,3 3,3 3,3 L23,3 C23,3 23,3 23,3 L23,23 C23,23 23,23 23,23 L11,23 C6.5817,23 3,19.4183 3,15 Z",
+      "color": {
+        "components": [
+          1.0,
+          0.6471,
+          0.0,
+          1.0
+        ]
+      },
+      "kind": "OutsetUnclipped",
+      "offset": {
+        "x": 3.0,
+        "y": 3.0
+      },
+      "spread": 0.0,
+      "std_dev": 0.0,
       "transform": [
         1.0,
         0.0,

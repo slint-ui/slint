@@ -19,18 +19,38 @@
         "output": 0,
         "primitives": [
           {
+            "color_space": "Srgb",
             "effect": {
               "GaussianBlur": {
                 "edge_mode": "None",
-                "std_deviation": 1.0
+                "std_deviation_x": 1.0,
+                "std_deviation_y": 1.0
               }
             },
             "inputs": {
               "primary": null,
               "secondary": null
+            },
+            "region": {
+              "x0": -8.0,
+              "x1": 56.0,
+              "y0": -8.0,
+              "y1": 56.0
+            },
+            "subregion": {
+              "x0": -8.0,
+              "x1": 56.0,
+              "y0": -8.0,
+              "y1": 56.0
             }
           }
-        ]
+        ],
+        "region": {
+          "x0": -8.0,
+          "x1": 56.0,
+          "y0": -8.0,
+          "y1": 56.0
+        }
       },
       "transform": [
         1.0,

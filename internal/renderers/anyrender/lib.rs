@@ -21,8 +21,8 @@
 //!
 //! Shadows of opaque backgrounds use the backend's analytic box shadow primitive.
 //! Translucent and border-only shadows require Gaussian blur filters on compositing layers.
-//! `anyrender_vello` 0.15 ignores these filters, rendering those shadows without blur.
-//! For `anyrender_vello_cpu` 0.18, enable its `filters` feature and leave
+//! `anyrender_vello` 0.16 ignores these filters, rendering those shadows without blur.
+//! For `anyrender_vello_cpu` 0.19, enable its `filters` feature and leave
 //! `multithreading` disabled, because that configuration ignores filters.
 
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
