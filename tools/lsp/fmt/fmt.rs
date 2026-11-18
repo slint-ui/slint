@@ -5,8 +5,9 @@
 
 use super::writer::TokenWriter;
 use i_slint_compiler::parser::{NodeOrToken, SyntaxKind, SyntaxNode, syntax_nodes};
+use std::borrow::Cow;
 
-/// One level of indentation, unless the editor asks for something else.
+/// One level of indentation when the editor inserts spaces.
 pub const DEFAULT_INDENTATION: &str = "    ";
 
 pub fn format_document(
@@ -68,13 +69,15 @@ impl FormatState {
     }
 
     /// `whitespace` kept as written, with the indentation of its last line converted from
-    /// `DEFAULT_INDENTATION` to `self.indentation`, or `None` if that doesn't change it.
-    fn convert_indentation(&self, whitespace: &str) -> Option<String> {
+    /// `DEFAULT_INDENTATION` to `self.indentation`.
+    fn convert_indentation<'a>(&self, whitespace: &'a str) -> Cow<'a, str> {
         if self.indentation == DEFAULT_INDENTATION {
-            return None;
+            return whitespace.into();
         }
-        let (lines, indent) = whitespace.rsplit_once('\n')?;
-        Some(format!("{lines}\n{}", indent.replace(DEFAULT_INDENTATION, &self.indentation)))
+        let Some((lines, indent)) = whitespace.rsplit_once('\n') else {
+            return whitespace.into();
+        };
+        format!("{lines}\n{}", indent.replace(DEFAULT_INDENTATION, &self.indentation)).into()
     }
 
     fn insert_whitespace(&mut self, arg: &str) {
@@ -299,7 +302,7 @@ fn fold(
                     writer.with_new_content(t, "")?;
                     return Ok(());
                 }
-                if let Some(ws) = state.convert_indentation(t.text()) {
+                if let Cow::Owned(ws) = state.convert_indentation(t.text()) {
                     state.insertion_count += 1;
                     return writer.with_new_content(t, &ws);
                 }
@@ -311,7 +314,7 @@ fn fold(
                 {
                     // restore the previously skipped spaces before comment.
                     state.insertion_count += 1;
-                    writer.insert_before(t, &state.convert_indentation(&ws).unwrap_or(ws))?;
+                    writer.insert_before(t, &state.convert_indentation(&ws))?;
                     state.whitespace_to_add = None;
                     return Ok(());
                 }
