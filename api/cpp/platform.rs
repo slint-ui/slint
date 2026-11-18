@@ -368,9 +368,9 @@ mod software_renderer {
     };
 
     #[cfg(feature = "experimental")]
-    use i_slint_renderer_software::{
-        PreparedTextures, RecordedRasterCommands, TargetPixelBuffer, TexturePixelFormat,
-    };
+    use i_slint_renderer_software::{PreparedTextures, TargetPixelBuffer, TexturePixelFormat};
+    #[cfg(all(feature = "experimental", target_has_atomic = "ptr"))]
+    use i_slint_renderer_software::RecordedRasterCommands;
 
     #[cfg(feature = "experimental")]
     type CppTargetPixelBufferUserData = *mut c_void;
@@ -614,7 +614,7 @@ mod software_renderer {
         }
     }
 
-    #[cfg(feature = "experimental")]
+    #[cfg(all(feature = "experimental", target_has_atomic = "ptr"))]
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_software_renderer_record_frame(
         r: SoftwareRendererOpaque,
@@ -625,7 +625,7 @@ mod software_renderer {
         Box::into_raw(Box::new(renderer.record_frame(pixels_per_line, num_lines))) as _
     }
 
-    #[cfg(feature = "experimental")]
+    #[cfg(all(feature = "experimental", target_has_atomic = "ptr"))]
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_recorded_raster_commands_rasterize_rgb8(
         recorded: *const c_void,
@@ -639,7 +639,7 @@ mod software_renderer {
         }
     }
 
-    #[cfg(feature = "experimental")]
+    #[cfg(all(feature = "experimental", target_has_atomic = "ptr"))]
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_recorded_raster_commands_rasterize_rgb565(
         recorded: *const c_void,
@@ -653,7 +653,7 @@ mod software_renderer {
         }
     }
 
-    #[cfg(feature = "experimental")]
+    #[cfg(all(feature = "experimental", target_has_atomic = "ptr"))]
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_recorded_raster_commands_drop(recorded: *mut c_void) {
         drop(unsafe { Box::from_raw(recorded as *mut RecordedRasterCommands) });
