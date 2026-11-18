@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore jtag LOGI rgbpix
+// cSpell: ignore jtag LOGI LOGW rgbpix
 #include <deque>
 #include <mutex>
 #include "slint-esp.h"
@@ -104,6 +104,11 @@ struct SlintTraceSpan
 #    define SLINT_TRACE_FIELD(name, value)
 #endif
 
+#ifdef SLINT_ESP_PPA
+#    include <type_traits>
+#    include "slint-esp-ppa-buffer.h"
+#endif
+
 using RepaintBufferType = slint::platform::SoftwareRenderer::RepaintBufferType;
 
 class EspWindowAdapter : public slint::platform::WindowAdapter
@@ -148,6 +153,9 @@ struct EspPlatform : public slint::platform::Platform
         use_cpu_textures = config.use_cpu_textures;
         prepared_textures_kib = config.prepared_textures_kib;
 #endif
+#ifdef SLINT_ESP_PPA
+        use_ppa = config.use_ppa;
+#endif
     }
 
     std::unique_ptr<slint::platform::WindowAdapter> create_window_adapter() override;
@@ -179,6 +187,9 @@ private:
 #ifdef SLINT_ESP_CPU_TEXTURES
     bool use_cpu_textures = false;
     uint32_t prepared_textures_kib = 8192;
+#endif
+#ifdef SLINT_ESP_PPA
+    bool use_ppa = false;
 #endif
     class EspWindowAdapter *m_window = nullptr;
 
@@ -387,11 +398,16 @@ void EspPlatform<PixelType>::run_event_loop()
 
 #ifdef SLINT_ESP_CPU_TEXTURES
     CpuTextureFrameBuffer cpu_textures;
-#    ifdef SLINT_ESP_RENDER_IN_SEPARATE_TASK
+#endif
+#if (defined(SLINT_ESP_CPU_TEXTURES) || defined(SLINT_ESP_PPA))                                    \
+        && defined(SLINT_ESP_RENDER_IN_SEPARATE_TASK)
     // Used only by the thread that rasterizes.
     slint::platform::SoftwareRenderer::PreparedTextures prepared_textures;
     prepared_textures.set_max_bytes(std::size_t(prepared_textures_kib) * 1024);
-#    endif
+#endif
+#ifdef SLINT_ESP_PPA
+    // Registered and used only by the thread that rasterizes.
+    std::optional<PpaFrameBuffer> ppa;
 #endif
 
     TickType_t max_ticks_to_wait = portMAX_DELAY;
@@ -487,11 +503,33 @@ void EspPlatform<PixelType>::run_event_loop()
     auto raster_task = [this, &recorded, stride, frame_recorded, frame_presented, &count_frame
 #    ifdef SLINT_ESP_CPU_TEXTURES
                         ,
-                        &cpu_textures, &prepared_textures
+                        &cpu_textures
+#    endif
+#    ifdef SLINT_ESP_PPA
+                        ,
+                        &ppa
+#    endif
+#    if defined(SLINT_ESP_CPU_TEXTURES) || defined(SLINT_ESP_PPA)
+                        ,
+                        &prepared_textures
 #    endif
     ] {
 #    ifdef SLINT_ESP_TRACING
         slint::cbindgen_private::slint_trace_register_core();
+#    endif
+#    ifdef SLINT_ESP_PPA
+        if constexpr (std::is_same_v<PixelType, slint::platform::Rgb565Pixel>) {
+            if (use_ppa) {
+                ppa.emplace();
+                if (ppa->init()) {
+                    // The PPA reads ARGB8888 blue first.
+                    prepared_textures.set_blue_first(true);
+                } else {
+                    ESP_LOGW(TAG, "The PPA is unavailable, rasterizing without it");
+                    ppa.reset();
+                }
+            }
+        }
 #    endif
         while (true) {
             xSemaphoreTake(frame_recorded, portMAX_DELAY);
@@ -501,9 +539,25 @@ void EspPlatform<PixelType>::run_event_loop()
                 render_and_present([&recorded, stride
 #    ifdef SLINT_ESP_CPU_TEXTURES
                                     ,
-                                    this, &cpu_textures, &prepared_textures
+                                    this, &cpu_textures
+#    endif
+#    ifdef SLINT_ESP_PPA
+                                    ,
+                                    &ppa
+#    endif
+#    if defined(SLINT_ESP_CPU_TEXTURES) || defined(SLINT_ESP_PPA)
+                                    ,
+                                    &prepared_textures
 #    endif
                 ](std::span<PixelType> buffer) {
+#    ifdef SLINT_ESP_PPA
+                    if constexpr (std::is_same_v<PixelType, slint::platform::Rgb565Pixel>) {
+                        if (ppa) {
+                            ppa->set_target(buffer, stride);
+                            return recorded->rasterize_into_buffer(&*ppa, prepared_textures);
+                        }
+                    }
+#    endif
 #    ifdef SLINT_ESP_CPU_TEXTURES
                     if constexpr (std::is_same_v<PixelType, slint::platform::Rgb565Pixel>) {
                         if (use_cpu_textures) {

@@ -6,6 +6,7 @@
 #include "slint-platform.h"
 #include "esp_lcd_touch.h"
 #include "sdkconfig.h"
+#include "soc/soc_caps.h"
 #include "esp_lcd_types.h"
 
 // The separate raster task needs a second core, and with it the atomics that a recording needs.
@@ -14,6 +15,10 @@
 #endif
 #ifdef SLINT_FEATURE_EXPERIMENTAL
 #    define SLINT_ESP_CPU_TEXTURES 1
+#endif
+// The PPA draws into the frame buffer from the raster task, and only the ESP32-P4 has one.
+#if defined(SLINT_ESP_RENDER_IN_SEPARATE_TASK) && SOC_PPA_SUPPORTED
+#    define SLINT_ESP_PPA 1
 #endif
 
 /**
@@ -127,6 +132,17 @@ struct SlintPlatformConfiguration
     /// When the next image doesn't fit, the renderer drops all prepared images.
     /// Larger images aren't prepared, so 0 turns preparing off.
     uint32_t prepared_textures_kib = 8192;
+#endif
+#ifdef SLINT_ESP_PPA
+    /// Draw opaque solid fills, and images inside an element with `cache-rendering-hint: true`,
+    /// with the Pixel-Processing Accelerator of the ESP32-P4. The CPU draws everything else.
+    /// It needs `render_in_separate_task`.
+    ///
+    /// **Note**: This field is still experimental - its API is subject to changes and not
+    /// stabilized yet. To use it, build Slint from source with the environment variable
+    /// `SLINT_ESP_EXPERIMENTAL=1` set when running CMake.
+    /// It only exists on chips with a PPA.
+    bool use_ppa = false;
 #endif
 };
 
