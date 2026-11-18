@@ -14,7 +14,7 @@ slint = { path = "../../../../api/rs/slint" }
 blogica = { path = "../blogica" }
 blogicb = { path = "../blogicb" }
 rand = "0.10"
-random_word = { version = "0.5.2", features = ["en"] }
+random_word = { version = "1.0.0", features = ["en"] }
 
 [build-dependencies]
 slint-build = { path = "../../../../api/rs/build", features = ["experimental-module-builds"] }

@@ -621,7 +621,7 @@ dependencies = [
  "regex",
  "rustc-hash 2.1.3",
  "shlex",
- "syn 3.0.9",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -3378,9 +3378,9 @@ dependencies = [
 
 [[package]]
 name = "nix"
-version = "0.31.3"
+version = "0.32.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf20d2fde8ff38632c426f1165ed7436270b44f199fc55284c38276f9db47c3d"
+checksum = "77730ed34f01f4990cb2ea67fec715ecebc6fab9a6396cf83c5529b13f581bdc"
 dependencies = [
  "bitflags 2.13.2",
  "cfg-if",
@@ -4263,9 +4263,9 @@ checksum = "63b8176103e19a2643978565ca18b50549f6101881c443590420e4dc998a3c69"
 
 [[package]]
 name = "random_word"
-version = "0.5.3"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a624195e0ebed209339a96296c5cee20400354f834b49cc5a7da4f4c38b14d88"
+checksum = "5d9299243acac3cb4f35c9f78d5ad29c87e70cd916a70f293d8526e54049c340"
 dependencies = [
  "ahash",
  "brotli 9.1.1",
@@ -4823,7 +4823,7 @@ version = "1.20.0"
 dependencies = [
  "derive_more",
  "either",
- "hashbrown 0.16.1",
+ "hashbrown 0.17.1",
  "i-slint-backend-linuxkms",
  "i-slint-backend-selector",
  "i-slint-backend-winit",

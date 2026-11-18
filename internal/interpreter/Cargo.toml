@@ -203,7 +203,7 @@ vtable = { workspace = true }
 
 derive_more = { workspace = true, features = ["error"] }
 either = { version = "1.13", default-features = false }
-hashbrown = { version = "0.16", default-features = false, features = ["default-hasher"] }
+hashbrown = { version = "0.17", default-features = false, features = ["default-hasher"] }
 num-traits = { version = "0.2", default-features = false }
 once_cell = { version = "1.5", default-features = false, features = ["critical-section"] }
 lyon_path = { workspace = true }
