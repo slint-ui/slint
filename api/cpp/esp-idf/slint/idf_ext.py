@@ -3,7 +3,7 @@
 
 # cSpell: ignore varint
 
-"""Adds `idf.py trace`, which receives the capture that CONFIG_SLINT_TRACING records and opens it in Tracy."""
+"""Adds `idf.py trace`, which receives the capture that SLINT_ESP_TRACING=1 records and opens it in Tracy."""
 
 from __future__ import annotations
 
@@ -346,7 +346,7 @@ def action_extensions(base_actions: dict, project_path: str) -> dict:
         events = decode(capture)
         if not events:
             print(
-                "The capture has no spans. Enable CONFIG_SLINT_TRACING, then build and flash again."
+                "The capture has no spans. Set SLINT_ESP_TRACING=1 when running CMake, then build and flash again."
             )
             return
 
@@ -361,7 +361,7 @@ def action_extensions(base_actions: dict, project_path: str) -> dict:
         "actions": {
             "trace": {
                 "callback": trace,
-                "help": "Receive the capture that CONFIG_SLINT_TRACING records, then open it in Tracy.",
+                "help": "Receive the capture that SLINT_ESP_TRACING=1 records, then open it in Tracy.",
                 "options": [
                     {
                         "names": ["--no-reset"],
