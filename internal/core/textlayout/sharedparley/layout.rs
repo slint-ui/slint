@@ -503,7 +503,7 @@ impl Layout {
         };
         let cursor = parley::editing::Cursor::from_point(
             &paragraph.layout,
-            pos.x,
+            pos.x - paragraph.x(self.quote_step).get(),
             (pos.y_length() - self.y_offset - paragraph.y).get(),
         );
         (paragraph.range.start + cursor.index(), cursor.affinity().into())
@@ -529,7 +529,7 @@ impl Layout {
 
         PhysicalRect::new(
             PhysicalPoint::from_lengths(
-                PhysicalLength::new(rect.x0 as _),
+                PhysicalLength::new(rect.x0 as _) + paragraph.x(self.quote_step),
                 PhysicalLength::new(rect.y0 as _) + self.y_offset + paragraph.y,
             ),
             PhysicalSize::new(rect.width() as _, rect.height() as _),
