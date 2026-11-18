@@ -3778,8 +3778,8 @@ fn test_from_json_uses_open_import_callback() {
 
 #[test]
 fn test_from_json_files_are_dependencies() {
-    let dir = std::env::temp_dir().join(format!("slint-from-json-{}", std::process::id()));
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = tempfile::TempDir::new().unwrap();
+    let dir = dir.path();
     let main_path = SourcePath::new(dir.join("main.slint"));
     let json_path = SourcePath::new(dir.join("data.json"));
     let missing_path = SourcePath::new(dir.join("missing.json"));
@@ -3801,7 +3801,6 @@ export component Main {
         compiler_config,
         false,
     ));
-    std::fs::remove_dir_all(&dir).unwrap();
 
     assert!(diagnostics.all_loaded_files.contains(&json_path));
     assert!(!diagnostics.all_loaded_files.contains(&missing_path));

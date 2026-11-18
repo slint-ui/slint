@@ -158,6 +158,7 @@ serde_json = { workspace = true }
 spin_on = { workspace = true }
 rayon = { workspace = true }
 divan = "0.1.14"
+tempfile = "3"
 
 [[bench]]
 name = "semantic_analysis"
