@@ -462,16 +462,7 @@ fn json_to_expression(
                             path.0.pop();
                             e
                         }
-                        None => {
-                            ctx.diag.push_warning(
-                                format!(
-                                    "The JSON object {} has no key for the struct field '{field_name}'; using its default value",
-                                    path.location(file)
-                                ),
-                                node,
-                            );
-                            Expression::default_value_for_field(st, field_name)
-                        }
+                        None => Expression::default_value_for_field(st, field_name),
                     };
                     values.insert(field_name.clone(), expr);
                 }
