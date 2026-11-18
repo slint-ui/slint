@@ -3,7 +3,7 @@
 
 // cSpell: ignore bidi
 
-use super::shaping::paragraph_ranges;
+use super::shaping::{paragraph_ranges, shape_plain_text};
 use super::*;
 
 fn paragraphs(text: &str) -> Vec<&str> {
@@ -489,4 +489,42 @@ fn test_control_glyphs() {
         .flat_map(|run| run.glyphs().map(|glyph| glyph.id == 0).collect::<Vec<_>>())
         .collect::<Vec<_>>();
     assert_eq!(missing_glyphs, paragraph.control_glyphs(&line));
+}
+
+#[test]
+fn reshaping_reuses_unchanged_paragraphs() {
+    let builder = super::shaping::wrap_builder_for_tests();
+    let mut font_ctx = test_font_context();
+    let (paragraphs, source) =
+        shape_plain_text(&builder, &mut font_ctx, "one\ntwo\r\nthree\nfour".into(), None);
+    let options =
+        || LayoutOptions { max_width: Some(LogicalLength::new(50.)), ..Default::default() };
+    let laid_out =
+        layout(&builder, &mut font_ctx, paragraphs, ScaleFactor::new(1.0), options(), None);
+    let (paragraphs, _) = laid_out.dismantle();
+
+    let edited = "one\nthe second paragraph\n\nthree\nfour";
+    let (paragraphs, source) =
+        shape_plain_text(&builder, &mut font_ctx, edited.into(), Some((paragraphs, source)));
+    let reused: Vec<bool> = paragraphs.iter().map(|p| p.broken_for.is_some()).collect();
+    assert_eq!(reused, [true, false, false, true, true]);
+    let texts: Vec<&str> = paragraphs.iter().map(|p| &edited[p.range.clone()]).collect();
+    assert_eq!(texts, ["one", "the second paragraph", "", "three", "four"]);
+
+    let relaid =
+        layout(&builder, &mut font_ctx, paragraphs, ScaleFactor::new(1.0), options(), None);
+    let fresh = layout_text_with_builder(edited, builder.clone(), options());
+    let ys = |layout: &Layout| layout.paragraphs.iter().map(|p| p.y).collect::<Vec<_>>();
+    assert_eq!(ys(&relaid), ys(&fresh));
+    assert_eq!((relaid.max_width, relaid.height), (fresh.max_width, fresh.height));
+
+    // Nothing is reused from paragraphs shaped differently.
+    let (paragraphs, _) = relaid.dismantle();
+    let (paragraphs, _) = shape_plain_text(
+        &super::shaping::plain_builder_for_tests(),
+        &mut font_ctx,
+        edited.into(),
+        Some((paragraphs, source)),
+    );
+    assert!(paragraphs.iter().all(|p| p.broken_for.is_none()));
 }

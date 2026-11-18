@@ -39,6 +39,8 @@ pub struct FontContext {
     registered_static_fonts: HashSet<(usize, usize)>,
     /// See [`Self::query_font`].
     resolved_fonts: HashMap<FontQueryKey, Option<ResolvedFont>>,
+    /// Changes whenever the fonts registered through this context change.
+    font_generation: u64,
 }
 
 /// The fields of a [`FontRequest`] that [`FontRequest::query_fontique`] matches on.
@@ -75,6 +77,7 @@ impl FontContext {
         Self {
             inner,
             registered_static_fonts: HashSet::default(),
+            font_generation: 0,
             resolved_fonts: HashMap::default(),
         }
     }
@@ -111,7 +114,7 @@ impl FontContext {
         &mut self,
         data: fontique::Blob<u8>,
     ) -> Vec<(fontique::FamilyId, Vec<fontique::FontInfo>)> {
-        self.resolved_fonts.clear();
+        self.fonts_changed();
         self.inner.collection.register_fonts(data, None)
     }
 
@@ -126,7 +129,12 @@ impl FontContext {
     /// Call after replacing it.
     pub fn clear_registered_static_fonts(&mut self) {
         self.registered_static_fonts.clear();
+        self.fonts_changed();
+    }
+
+    fn fonts_changed(&mut self) {
         self.resolved_fonts.clear();
+        self.font_generation += 1;
     }
 }
 
@@ -182,24 +190,13 @@ fn with_text_layout<R>(
     let ctx = crate::window::WindowInner::from_pub(window).try_context()?;
     let font_context = ctx.font_context();
 
-    let text_wrap = layout_builder.text_wrap;
-    let scale_factor = layout_builder.scale_factor;
-    let mut guard = cached_paragraphs(
-        cache,
-        item_rc,
-        text_wrap,
-        layout_builder.line_height_factor,
-        text.measures_width_only(),
-        window,
-        &|| shape_paragraphs(text, item_rc, text_wrap, scale_factor, font_context),
-    );
-
+    let mut guard = shape_cached(cache, item_rc, text, layout_builder, window, font_context);
     let line_breaking = guard.take_line_breaking();
     let layout = layout(
         layout_builder,
         &mut font_context.borrow_mut(),
         guard.take(),
-        scale_factor,
+        layout_builder.scale_factor,
         options,
         line_breaking,
     );
@@ -213,8 +210,50 @@ fn with_text_layout<R>(
 
     let result = f(&layout);
     let (paragraphs, line_breaking) = layout.dismantle();
-    guard.restore(paragraphs, line_breaking);
+    guard.restore(paragraphs, Some(line_breaking));
     Some(result)
+}
+
+fn shape_cached<'a>(
+    cache: Option<&'a TextLayoutCache>,
+    item_rc: Option<&crate::item_tree::ItemRc>,
+    text: Pin<&dyn crate::item_rendering::RenderString>,
+    layout_builder: &LayoutWithoutLineBreaksBuilder,
+    window: &crate::api::Window,
+    font_context: &RefCell<FontContext>,
+) -> cache::CachedParagraphsGuard<'a> {
+    let text_wrap = layout_builder.text_wrap;
+    let scale_factor = layout_builder.scale_factor;
+    cached_paragraphs(
+        cache,
+        item_rc,
+        text_wrap,
+        layout_builder.line_height_factor,
+        text.measures_width_only(),
+        window,
+        font_context,
+        &|previous| {
+            shape_paragraphs(text, item_rc, text_wrap, scale_factor, font_context, previous)
+        },
+    )
+}
+
+fn unconstrained_text_size(
+    cache: Option<&TextLayoutCache>,
+    item_rc: &crate::item_tree::ItemRc,
+    text: Pin<&dyn crate::item_rendering::RenderString>,
+    layout_builder: &LayoutWithoutLineBreaksBuilder,
+    window: &crate::api::Window,
+) -> Option<PhysicalSize> {
+    let ctx = crate::window::WindowInner::from_pub(window).try_context()?;
+
+    let mut guard =
+        shape_cached(cache, Some(item_rc), text, layout_builder, window, ctx.font_context());
+    let mut paragraphs = guard.take();
+    let (size, broke_lines) = layout::unconstrained_size(&mut paragraphs);
+    let line_breaking = guard.take_line_breaking().filter(|_| !broke_lines);
+    guard.restore(paragraphs, line_breaking);
+    Some(size)
 }
 
 pub fn draw_text(
@@ -588,6 +627,18 @@ fn text_size_impl(
     // Only `layout()`'s elision glyph reads this, and `TextOverflow::Clip` never asks for one.
     let layout_builder = shaping_builder(text_item, Some(item_rc), text_wrap, scale_factor);
 
+    let line_limit = text_item.line_limit();
+    if max_width.is_none() && line_limit.is_none() {
+        return unconstrained_text_size(
+            cache,
+            item_rc,
+            text_item,
+            &layout_builder,
+            window_adapter.window(),
+        )
+        .map(|size| size / scale_factor);
+    }
+
     with_text_layout(
         cache,
         Some(item_rc),
@@ -596,7 +647,7 @@ fn text_size_impl(
         LayoutOptions {
             max_width,
             max_height: None,
-            max_lines: text_item.line_limit(),
+            max_lines: line_limit,
             horizontal_align: TextHorizontalAlignment::Left,
             vertical_align: TextVerticalAlignment::Top,
             text_overflow: TextOverflow::Clip,
@@ -672,7 +723,7 @@ fn text_content_widths_impl(
     let Some((cache, window_adapter)) = cache.zip(window_adapter) else {
         return Some(compute());
     };
-    cache.clear_if_scale_factor_changed(window_adapter.window());
+    cache.clear_if_stale(window_adapter.window(), ctx.font_context());
     Some(cache.content_widths(item_rc, compute))
 }
 

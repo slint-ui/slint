@@ -80,6 +80,45 @@ fn cache_hit_avoids_reshaping() {
 }
 
 #[test]
+fn font_registration_reshapes_cached_text() {
+    let window = setup();
+
+    slint::slint! {
+        #[edition = "1.19"]
+        export component TestComponent inherits Window {
+            Text {
+                text: "Hello World";
+            }
+        }
+    }
+
+    let ui = TestComponent::new().unwrap();
+    ui.show().unwrap();
+    assert!(window.draw_if_needed(|renderer| {
+        render_and_get_miss_count(renderer);
+    }));
+
+    static FONT: &[u8] =
+        include_bytes!("../../../../internal/common/sharedfontique/Inter-VariableFont.ttf");
+    i_slint_core::window::WindowInner::from_pub(ui.window())
+        .context()
+        .font_context()
+        .borrow_mut()
+        .register_static_font(FONT);
+
+    use slint::platform::software_renderer::RepaintBufferType;
+    let mut miss_count = 0u64;
+    window.request_redraw();
+    assert!(window.draw_if_needed(|renderer| {
+        // With a reused buffer, only what changed is drawn again.
+        renderer.set_repaint_buffer_type(RepaintBufferType::NewBuffer);
+        miss_count = render_and_get_miss_count(renderer);
+        renderer.set_repaint_buffer_type(RepaintBufferType::ReusedBuffer);
+    }));
+    assert!(miss_count > 0, "the text should be shaped again with the registered font");
+}
+
+#[test]
 fn text_change_invalidates_cache() {
     let window = setup();
 
