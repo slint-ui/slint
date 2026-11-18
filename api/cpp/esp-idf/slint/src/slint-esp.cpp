@@ -147,7 +147,8 @@ struct EspPlatform : public slint::platform::Platform
 #ifndef SLINT_ESP_RENDER_IN_SEPARATE_TASK
         if (render_in_separate_task) {
             ESP_LOGW(TAG,
-                     "render_in_separate_task needs SLINT_ESP_EXPERIMENTAL_RENDER_IN_SEPARATE_TASK=1 "
+                     "render_in_separate_task needs "
+                     "SLINT_ESP_EXPERIMENTAL_RENDER_IN_SEPARATE_TASK=1 "
                      "when building Slint; rendering in the event loop");
         }
 #endif
