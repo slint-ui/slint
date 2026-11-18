@@ -228,10 +228,6 @@ async fn compile(
         compiler.set_project_file_loader(open_import_callback, i_slint_core::InternalToken);
     }
 
-    #[cfg(feature = "headless")]
-    let resource_errors =
-        headless::set_image_loader(&mut compiler, optional_resource_loader.as_ref());
-
     if let Some(load_resource) = optional_resource_loader {
         let load_resource = js_sys::Function::from(JsValue::from(load_resource));
         compiler.set_resource_loader(
@@ -280,18 +276,6 @@ async fn compile(
         }
 
         array.push(&diagnostic_object(&d.message(), (line, column), &filename, d.level())?.into());
-    }
-
-    #[cfg(feature = "headless")]
-    for (path, message) in resource_errors.borrow().iter() {
-        array.push(
-            &diagnostic_object(message, (0, 0), path, slint_interpreter::DiagnosticLevel::Error)?
-                .into(),
-        );
-        if !error_as_string.is_empty() {
-            error_as_string.push('\n');
-        }
-        error_as_string.push_str(message);
     }
 
     Ok(CompilationResult {

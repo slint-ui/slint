@@ -171,6 +171,9 @@ raw-window-handle-06 = ["std", "dep:raw-window-handle-06", "i-slint-backend-sele
 ## any stability guarantees whatsoever.
 internal = []
 
+# (internal) Decode images from the host resource loader for headless Wasm.
+internal-load-images = ["std", "i-slint-core/image-decoders", "i-slint-core/svg"]
+
 # (internal) Draw an highlight on a specified element
 # NOTE: this is not a semver compatible feature
 internal-highlight = ["std"]

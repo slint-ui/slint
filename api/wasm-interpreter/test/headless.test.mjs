@@ -38,18 +38,21 @@ test("Headless Wasm renders text, an SVG, and a raster image in plain Node", asy
         }
     `;
     const loadedResources = [];
-    const compilation = await interpreter.compile_from_string_with_style(
-        source,
-        new URL("preview.slint", repository).href,
-        "fluent",
-        async (url) => readFile(new URL(url), "utf8").catch(() => null),
-        async (url) => {
-            loadedResources.push(url);
-            return new Uint8Array(await readFile(new URL(url)));
-        },
-        undefined,
-        undefined,
-    );
+    const sourceUrl = new URL("preview.slint", repository).href;
+    const compile = (source, loadResource) =>
+        interpreter.compile_from_string_with_style(
+            source,
+            sourceUrl,
+            "fluent",
+            async (url) => readFile(new URL(url), "utf8").catch(() => null),
+            loadResource,
+            undefined,
+            undefined,
+        );
+    const compilation = await compile(source, async (url) => {
+        loadedResources.push(url);
+        return new Uint8Array(await readFile(new URL(url)));
+    });
     assert.deepEqual(compilation.diagnostics, []);
     const component = compilation.component;
     assert.ok(component, compilation.error_string);
@@ -93,4 +96,25 @@ test("Headless Wasm renders text, an SVG, and a raster image in plain Node", asy
     frame.free();
     component.free();
     compilation.free();
+
+    for (const loadResource of [
+        async () => {
+            throw new Error("File not found");
+        },
+        async () => new Uint8Array([0]),
+    ]) {
+        const invalid = await compile(
+            'export component Preview inherits Window {\n    Image { source: @image-url("logo.png"); }\n}',
+            loadResource,
+        );
+        const [diagnostic] = invalid.diagnostics;
+        assert.equal(invalid.component, undefined);
+        assert.equal(invalid.diagnostics.length, 1);
+        assert.match(diagnostic.message, /Cannot load image .*logo\.png/);
+        assert.equal(diagnostic.level, 0);
+        assert.equal(diagnostic.fileName, sourceUrl);
+        assert.equal(diagnostic.lineNumber, 2);
+        assert.equal(diagnostic.columnNumber, 21);
+        invalid.free();
+    }
 });
