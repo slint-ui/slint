@@ -638,9 +638,10 @@ public:
         PreparedTextures &operator=(const PreparedTextures &) = delete;
         ~PreparedTextures() { cbindgen_private::slint_prepared_textures_drop(inner); }
 
-        /// Sets how many bytes the prepared images may take. The default is 8 MiB.
-        /// When the next image doesn't fit, all images are dropped.
-        /// Images larger than this aren't prepared, so 0 turns preparing off.
+        /// Sets how many bytes the prepared images may take. The default is 0, which prepares
+        /// no images.
+        /// When the next image doesn't fit, the images used longest ago are dropped.
+        /// Images larger than this aren't prepared.
         void set_max_bytes(std::size_t max_bytes)
         {
             cbindgen_private::slint_prepared_textures_set_max_bytes(inner, max_bytes);

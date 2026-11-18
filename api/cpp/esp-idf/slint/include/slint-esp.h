@@ -116,8 +116,8 @@ struct SlintPlatformConfiguration
     /// Log the frame rate and the average time to render and present a frame once a second.
     bool log_frame_stats = false;
 #ifdef SLINT_ESP_CPU_TEXTURES
-    /// Blend the images inside an element with `cache-rendering-hint: true` with a whole-image CPU
-    /// loop, instead of the software renderer's per-line path. It needs a full frame buffer.
+    /// Blend the images with a whole-image CPU loop, instead of the software renderer's per-line
+    /// path. It needs a full frame buffer.
     ///
     /// **Note**: This field is still experimental - its API is subject to changes and not
     /// stabilized yet. To use it, build Slint from source with the environment variable
