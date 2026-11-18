@@ -593,20 +593,48 @@
     }
   },
   {
-    "Fill": {
-      "brush": {
-        "Solid": {
-          "components": [
-            1.0,
-            0.0,
-            0.0,
-            0.7529
-          ]
+    "BoxShadow": {
+      "box_shape": {
+        "radii": {
+          "bottom_left": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "bottom_right": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "top_left": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "top_right": {
+            "x": 0.0,
+            "y": 0.0
+          }
+        },
+        "rect": {
+          "x0": 0.0,
+          "x1": 32.0,
+          "y0": 0.0,
+          "y1": 28.0
         }
       },
-      "brush_transform": null,
-      "fill": "NonZero",
-      "shape": "M10,7 L42,7 L42,35 L10,35 Z",
+      "color": {
+        "components": [
+          1.0,
+          0.0,
+          0.0,
+          0.7529
+        ]
+      },
+      "kind": "OutsetUnclipped",
+      "offset": {
+        "x": 10.0,
+        "y": 7.0
+      },
+      "spread": 0.0,
+      "std_dev": 0.0,
       "transform": [
         1.0,
         0.0,
@@ -662,18 +690,38 @@
         "output": 0,
         "primitives": [
           {
+            "color_space": "Srgb",
             "effect": {
               "GaussianBlur": {
                 "edge_mode": "None",
-                "std_deviation": 2.0
+                "std_deviation_x": 2.0,
+                "std_deviation_y": 2.0
               }
             },
             "inputs": {
               "primary": null,
               "secondary": null
+            },
+            "region": {
+              "x0": -17.0,
+              "x1": 49.0,
+              "y0": -17.0,
+              "y1": 45.0
+            },
+            "subregion": {
+              "x0": -17.0,
+              "x1": 49.0,
+              "y0": -17.0,
+              "y1": 45.0
             }
           }
-        ]
+        ],
+        "region": {
+          "x0": -17.0,
+          "x1": 49.0,
+          "y0": -17.0,
+          "y1": 45.0
+        }
       },
       "transform": [
         1.0,
@@ -819,18 +867,38 @@
         "output": 0,
         "primitives": [
           {
+            "color_space": "Srgb",
             "effect": {
               "GaussianBlur": {
                 "edge_mode": "None",
-                "std_deviation": 2.0
+                "std_deviation_x": 2.0,
+                "std_deviation_y": 2.0
               }
             },
             "inputs": {
               "primary": null,
               "secondary": null
+            },
+            "region": {
+              "x0": -17.0,
+              "x1": 49.0,
+              "y0": -17.0,
+              "y1": 45.0
+            },
+            "subregion": {
+              "x0": -17.0,
+              "x1": 49.0,
+              "y0": -17.0,
+              "y1": 45.0
             }
           }
-        ]
+        ],
+        "region": {
+          "x0": -17.0,
+          "x1": 49.0,
+          "y0": -17.0,
+          "y1": 45.0
+        }
       },
       "transform": [
         1.0,
@@ -1026,18 +1094,38 @@
         "output": 0,
         "primitives": [
           {
+            "color_space": "Srgb",
             "effect": {
               "GaussianBlur": {
                 "edge_mode": "None",
-                "std_deviation": 2.0
+                "std_deviation_x": 2.0,
+                "std_deviation_y": 2.0
               }
             },
             "inputs": {
               "primary": null,
               "secondary": null
+            },
+            "region": {
+              "x0": -17.0,
+              "x1": 49.0,
+              "y0": -17.0,
+              "y1": 45.0
+            },
+            "subregion": {
+              "x0": -17.0,
+              "x1": 49.0,
+              "y0": -17.0,
+              "y1": 45.0
             }
           }
-        ]
+        ],
+        "region": {
+          "x0": -17.0,
+          "x1": 49.0,
+          "y0": -17.0,
+          "y1": 45.0
+        }
       },
       "transform": [
         1.0,
@@ -1303,7 +1391,33 @@
   },
   {
     "BoxShadow": {
-      "brush": {
+      "box_shape": {
+        "radii": {
+          "bottom_left": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "bottom_right": {
+            "x": 4.0,
+            "y": 4.0
+          },
+          "top_left": {
+            "x": 8.0,
+            "y": 8.0
+          },
+          "top_right": {
+            "x": 0.0,
+            "y": 0.0
+          }
+        },
+        "rect": {
+          "x0": 0.0,
+          "x1": 32.0,
+          "y0": 0.0,
+          "y1": 28.0
+        }
+      },
+      "color": {
         "components": [
           1.0,
           0.0,
@@ -1311,13 +1425,12 @@
           0.7529
         ]
       },
-      "radius": 4.0,
-      "rect": {
-        "x0": 8.0,
-        "x1": 44.0,
-        "y0": 5.0,
-        "y1": 37.0
+      "kind": "OutsetUnclipped",
+      "offset": {
+        "x": 10.0,
+        "y": 7.0
       },
+      "spread": 2.0,
       "std_dev": 2.0,
       "transform": [
         1.0,
@@ -1374,18 +1487,38 @@
         "output": 0,
         "primitives": [
           {
+            "color_space": "Srgb",
             "effect": {
               "GaussianBlur": {
                 "edge_mode": "None",
-                "std_deviation": 2.0
+                "std_deviation_x": 2.0,
+                "std_deviation_y": 2.0
               }
             },
             "inputs": {
               "primary": null,
               "secondary": null
+            },
+            "region": {
+              "x0": -13.0,
+              "x1": 45.0,
+              "y0": -13.0,
+              "y1": 41.0
+            },
+            "subregion": {
+              "x0": -13.0,
+              "x1": 45.0,
+              "y0": -13.0,
+              "y1": 41.0
             }
           }
-        ]
+        ],
+        "region": {
+          "x0": -13.0,
+          "x1": 45.0,
+          "y0": -13.0,
+          "y1": 41.0
+        }
       },
       "transform": [
         1.0,
@@ -1498,18 +1631,38 @@
         "output": 0,
         "primitives": [
           {
+            "color_space": "Srgb",
             "effect": {
               "GaussianBlur": {
                 "edge_mode": "None",
-                "std_deviation": 2.0
+                "std_deviation_x": 2.0,
+                "std_deviation_y": 2.0
               }
             },
             "inputs": {
               "primary": null,
               "secondary": null
+            },
+            "region": {
+              "x0": -13.0,
+              "x1": 45.0,
+              "y0": -13.0,
+              "y1": 41.0
+            },
+            "subregion": {
+              "x0": -13.0,
+              "x1": 45.0,
+              "y0": -13.0,
+              "y1": 41.0
             }
           }
-        ]
+        ],
+        "region": {
+          "x0": -13.0,
+          "x1": 45.0,
+          "y0": -13.0,
+          "y1": 41.0
+        }
       },
       "transform": [
         1.0,
@@ -1672,18 +1825,38 @@
         "output": 0,
         "primitives": [
           {
+            "color_space": "Srgb",
             "effect": {
               "GaussianBlur": {
                 "edge_mode": "None",
-                "std_deviation": 2.0
+                "std_deviation_x": 2.0,
+                "std_deviation_y": 2.0
               }
             },
             "inputs": {
               "primary": null,
               "secondary": null
+            },
+            "region": {
+              "x0": -13.0,
+              "x1": 45.0,
+              "y0": -13.0,
+              "y1": 41.0
+            },
+            "subregion": {
+              "x0": -13.0,
+              "x1": 45.0,
+              "y0": -13.0,
+              "y1": 41.0
             }
           }
-        ]
+        ],
+        "region": {
+          "x0": -13.0,
+          "x1": 45.0,
+          "y0": -13.0,
+          "y1": 41.0
+        }
       },
       "transform": [
         1.0,
@@ -1916,7 +2089,33 @@
   },
   {
     "BoxShadow": {
-      "brush": {
+      "box_shape": {
+        "radii": {
+          "bottom_left": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "bottom_right": {
+            "x": 4.0,
+            "y": 4.0
+          },
+          "top_left": {
+            "x": 8.0,
+            "y": 8.0
+          },
+          "top_right": {
+            "x": 0.0,
+            "y": 0.0
+          }
+        },
+        "rect": {
+          "x0": 0.0,
+          "x1": 32.0,
+          "y0": 0.0,
+          "y1": 28.0
+        }
+      },
+      "color": {
         "components": [
           1.0,
           0.0,
@@ -1924,13 +2123,12 @@
           0.7529
         ]
       },
-      "radius": 2.0,
-      "rect": {
-        "x0": 12.0,
-        "x1": 40.0,
-        "y0": 9.0,
-        "y1": 33.0
+      "kind": "OutsetUnclipped",
+      "offset": {
+        "x": 10.0,
+        "y": 7.0
       },
+      "spread": -2.0,
       "std_dev": 2.0,
       "transform": [
         1.0,

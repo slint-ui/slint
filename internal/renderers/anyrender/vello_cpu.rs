@@ -51,6 +51,7 @@ impl VelloCpuWindowRenderer {
                     peniko::BrushRef::Solid(base_color),
                     None,
                     &kurbo::Rect::new(0., 0., width as f64, height as f64),
+                    anyrender::AntiAliasing::Enabled,
                 );
                 result = draw(painter);
             },
