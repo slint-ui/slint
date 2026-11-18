@@ -53,7 +53,13 @@ test("load_url opens a project file in the editor", async ({ page }) => {
 
     await page.goto(`http://localhost:3000/?load_url=${PROJECT}`);
 
-    await expect(page.locator("#tab-key-1-0")).toContainText("main.slint");
+    await expect(page.getByRole("tab").first()).toHaveText(
+        "slint-project.json",
+    );
+    await expect(
+        page.getByRole("tab", { name: "slint-project.json", selected: true }),
+    ).toBeVisible();
+    await expect(page.getByRole("tab", { name: "main.slint" })).toBeVisible();
     await expect(page.locator(".preview-container canvas")).toBeVisible({
         timeout: 30_000,
     });

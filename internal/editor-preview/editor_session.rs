@@ -1203,10 +1203,18 @@ impl EditorSession {
             self.reload_dependent_roots(&dependencies, diagnostics).await;
             extra_files.extend(dependencies.iter().map(SourcePath::from_url));
         } else {
-            match path.read_to_string() {
-                Ok(content) => {
+            let contents = if path.as_native_path().is_none()
+                && let Some(loader) =
+                    self.document_cache.configuration_with_import_callback().open_import_callback
+            {
+                loader(path.clone()).await
+            } else {
+                Some(path.read_to_string().map(|content| (None, content)))
+            };
+            match contents {
+                Some(Ok((version, content))) => {
                     let (dependent_files, loaded_diagnostics) =
-                        self.load_document_impl(content, url, None).await;
+                        self.load_document_impl(content, url, version).await;
                     extra_files.extend(dependent_files);
                     diagnostics
                         .all_loaded_files
@@ -1215,9 +1223,10 @@ impl EditorSession {
                         diagnostics.push_compiler_error(diagnostic);
                     }
                 }
-                Err(error) => {
-                    tracing::debug!("Failed to read {path} from disk: {error}")
+                Some(Err(error)) => {
+                    tracing::debug!("Failed to load {path}: {error}");
                 }
+                None => {}
             }
         }
         extra_files

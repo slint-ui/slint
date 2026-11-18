@@ -9,8 +9,6 @@ import { slint_language } from "./highlighting";
 import type { Lsp } from "./lsp";
 import { edition_from_url } from "./edition";
 import * as github from "./github";
-import { is_project_url } from "./project";
-import { project_main } from "@lsp/slint_lsp_wasm.js";
 
 import { BoxLayout, TabPanel, Widget } from "@lumino/widgets";
 import type { Message as LuminoMessage } from "@lumino/messaging";
@@ -495,17 +493,12 @@ export class EditorWidget extends Widget {
         return uri;
     }
 
-    private register_file(uri: monaco.Uri, content: string) {
+    private open_file_with_content(uri: monaco.Uri, content: string) {
         this.#open_files.push(
             FILESYSTEM_PROVIDER.registerFile(
                 new RegisteredMemoryFile(uri, content),
             ),
         );
-    }
-
-    private open_file_with_content(uri: monaco.Uri, content: string) {
-        this.register_file(uri, content);
-
         monaco.editor
             .createModelReference(uri)
             .then((model_ref) => this.open_model_ref(model_ref));
@@ -599,27 +592,7 @@ export class EditorWidget extends Widget {
             input_url.toString(),
         );
 
-        const source_url = url ?? input_url.toString();
-        let output_url = monaco.Uri.parse(source_url);
-        if (is_project_url(output_url.path)) {
-            const project_source = await download(source_url, true);
-            if (project_source === null) {
-                return [null, ""];
-            }
-            const project_file = internal_file_uri(output_url.path);
-            this.register_file(project_file, project_source);
-            this.#open_files.push(
-                await monaco.editor.createModelReference(project_file),
-            );
-            try {
-                output_url = monaco.Uri.parse(
-                    project_main(project_source, source_url),
-                );
-            } catch (e) {
-                alert(String(e));
-                return [null, ""];
-            }
-        }
+        const output_url = monaco.Uri.parse(url ?? input_url.toString());
         this.#url_mapper = mapper ?? new RelativeUrlMapper(output_url);
 
         return this.safely_open_editor_with_url_content(
