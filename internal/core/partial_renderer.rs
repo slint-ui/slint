@@ -21,6 +21,7 @@ use crate::item_rendering::{
     RenderText,
 };
 use crate::item_tree::{ItemTreeRc, ItemTreeWeak, ItemVisitorResult};
+use crate::item_tree::{ItemWeak, ParentItemTraversalMode};
 #[cfg(feature = "path")]
 use crate::items::Path;
 use crate::items::{
@@ -30,10 +31,10 @@ use crate::lengths::{
     ItemTransform, LogicalBorderRadius, LogicalPoint, LogicalPx, LogicalRect, LogicalSize,
     LogicalVector, ScaleFactor,
 };
-use crate::properties::PropertyTracker;
+use crate::properties::{PropertyDirtyHandler, PropertyTracker};
 use crate::window::WindowAdapter;
 use alloc::boxed::Box;
-use alloc::rc::Rc;
+use alloc::rc::{Rc, Weak};
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;
 
@@ -195,15 +196,85 @@ impl CachedItemBoundingBoxAndTransform {
     }
 }
 
+/// Items whose trackers got dirty since the last frame.
+#[derive(Default)]
+struct ChangedItems {
+    items: RefCell<alloc::vec::Vec<ItemWeak>>,
+    /// Set when the item trees changed, so the next frame must walk all items.
+    needs_full_walk: Cell<bool>,
+    window_adapter: RefCell<Option<Weak<dyn WindowAdapter>>>,
+    /// While a frame is built, a change waits for the next frame instead of requesting one,
+    /// like the window's redraw tracker.
+    in_frame: Cell<bool>,
+}
+
+/// Marks the frame of a [`PartialRenderer`] as built while it lives.
+struct FrameGuard(Rc<ChangedItems>);
+
+impl FrameGuard {
+    fn new(changed: Rc<ChangedItems>) -> Self {
+        changed.in_frame.set(true);
+        Self(changed)
+    }
+}
+
+impl Drop for FrameGuard {
+    fn drop(&mut self) {
+        self.0.in_frame.set(false);
+    }
+}
+
+/// What a [`ChangeHandler`] reports when its tracker goes dirty.
+enum Change {
+    /// A property that the item's geometry or rendering depends on changed.
+    /// The item goes on the changed list, and only it is re-evaluated.
+    Item(ItemWeak),
+    /// Something that decides which items exist changed, such as a `for` model or an `if`.
+    /// The next frame walks all items.
+    Structural,
+}
+
+/// Records a [`Change`] in `changed`.
+struct ChangeHandler {
+    changed: Rc<ChangedItems>,
+    change: Change,
+}
+
+impl PropertyDirtyHandler for ChangeHandler {
+    fn notify(self: Pin<&Self>) {
+        match &self.change {
+            Change::Item(item) => self.changed.items.borrow_mut().push(item.clone()),
+            Change::Structural => self.changed.needs_full_walk.set(true),
+        }
+        if !self.changed.in_frame.get()
+            && let Some(window_adapter) =
+                self.changed.window_adapter.borrow().as_ref().and_then(Weak::upgrade)
+        {
+            window_adapter.request_redraw();
+        }
+    }
+}
+
+type ChangeTracker = PropertyTracker<false, ChangeHandler>;
+
+fn new_change_tracker(changed: &Rc<ChangedItems>, change: Change) -> Pin<Box<ChangeTracker>> {
+    Box::pin(ChangeTracker::new_with_dirty_handler(ChangeHandler {
+        changed: changed.clone(),
+        change,
+    }))
+}
+
 struct PartialRenderingCachedData {
     /// The geometry of the item as it was previously rendered.
     pub data: CachedItemBoundingBoxAndTransform,
     /// The property tracker that should be used to evaluate whether the item needs to be re-rendered
-    pub tracker: Option<core::pin::Pin<Box<PropertyTracker>>>,
+    pub tracker: Option<Pin<Box<ChangeTracker>>>,
+    /// Tracks the properties that `data` was computed from.
+    pub geometry_tracker: Option<Pin<Box<ChangeTracker>>>,
 }
 impl PartialRenderingCachedData {
     fn new(data: CachedItemBoundingBoxAndTransform) -> Self {
-        Self { data, tracker: None }
+        Self { data, tracker: None, geometry_tracker: None }
     }
 }
 
@@ -211,6 +282,7 @@ impl PartialRenderingCachedData {
 struct PartialRendererCache {
     slab: slab::Slab<PartialRenderingCachedData>,
     generation: usize,
+    changed: Rc<ChangedItems>,
     /// Per ItemTree (keyed by its instance pointer), the union of the clipped screen-space
     /// regions of the tree's own items, as of the tree's last visit by
     /// [`PartialRenderer::compute_dirty_regions`]. Nested trees have their own entry.
@@ -221,7 +293,12 @@ struct PartialRendererCache {
 
 impl Default for PartialRendererCache {
     fn default() -> Self {
-        Self { slab: Default::default(), generation: 1, tree_screen_rects: Default::default() }
+        Self {
+            slab: Default::default(),
+            generation: 1,
+            changed: Default::default(),
+            tree_screen_rects: Default::default(),
+        }
     }
 }
 
@@ -253,6 +330,8 @@ impl PartialRendererCache {
         self.slab.clear();
         self.generation += 1;
         self.tree_screen_rects.clear();
+        self.changed.items.borrow_mut().clear();
+        self.changed.needs_full_walk.set(true);
     }
 }
 
@@ -422,6 +501,24 @@ fn screen_rect(rect: &LogicalRect, transform: &ItemTransform) -> Option<LogicalR
     Some(transformed.cast())
 }
 
+/// The screen region that an item with `geometry` clips its children to, given the clip of
+/// its parent and its parent's transforms to the screen.
+fn clip_for_children(
+    geometry: &CachedItemBoundingBoxAndTransform,
+    parent_transforms: &[ItemTransform],
+    parent_clip: &LogicalRect,
+) -> LogicalRect {
+    let CachedItemBoundingBoxAndTransform::ClipItem { geometry, .. } = geometry else {
+        return *parent_clip;
+    };
+    let clip = parent_transforms
+        .iter()
+        .map(|transform| transform.outer_transformed_rect(&geometry.cast()).cast())
+        .reduce(|a: LogicalRect, b| a.union(&b))
+        .unwrap_or_default();
+    parent_clip.intersection(&clip).unwrap_or_default()
+}
+
 /// Put this structure in the renderer to help with partial rendering
 ///
 /// This is constructed from a [`PartialRenderingState`]
@@ -436,6 +533,7 @@ pub struct PartialRenderer<'a, T> {
     /// What each `BackdropBlur` item reads, including the parts outside of its clip,
     /// see [`Self::expand_to_backdrop_blurs`].
     backdrop_blurs: alloc::vec::Vec<LogicalRect>,
+    _frame: FrameGuard,
 }
 
 impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
@@ -446,12 +544,15 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
         actual_renderer: T,
     ) -> Self {
         let window_adapter = actual_renderer.window().window_adapter();
+        let changed = cache.borrow().changed.clone();
+        changed.window_adapter.replace(Some(Rc::downgrade(&window_adapter)));
         Self {
             cache,
             dirty_region: initial_dirty_region,
             actual_renderer,
             window_adapter,
             backdrop_blurs: Default::default(),
+            _frame: FrameGuard::new(changed),
         }
     }
 
@@ -497,6 +598,7 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
             }
         }
 
+        let changed = self.cache.borrow().changed.clone();
         crate::item_tree::visit_items(
             component,
             crate::item_tree::TraversalOrder::BackToFront,
@@ -519,11 +621,8 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
                 };
                 new_state.depth = state.depth + 1;
 
-                let new_geom = CachedItemBoundingBoxAndTransform::new::<T>(
-                    &item_rc,
-                    &self.window_adapter,
-                    my_sibling_index,
-                );
+                let (geometry_tracker, new_geom) =
+                    self.evaluate_geometry(&changed, &item_rc, my_sibling_index);
 
                 // The region the item covers on screen. It is merged into the owning
                 // tree's entry in `tree_screen_rects` so that destroying the tree can
@@ -562,7 +661,12 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
                 }
 
                 match rendering_data.get_entry(&mut cache) {
-                    Some(PartialRenderingCachedData { data: cached_geom, tracker }) => {
+                    Some(PartialRenderingCachedData {
+                        data: cached_geom,
+                        tracker,
+                        geometry_tracker: cached_geometry_tracker,
+                    }) => {
+                        *cached_geometry_tracker = Some(geometry_tracker);
                         let rendering_dirty = tracker.as_ref().is_some_and(|tr| tr.is_dirty());
 
                         // Repaint when the rank among the previously known siblings changed,
@@ -643,8 +747,6 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
                                     &state.clipped,
                                 );
                                 self.dirty_region.add_rect(new_screen_rect);
-                            } else if let Some(tr) = &tracker {
-                                tr.as_ref().register_as_dependency_to_current_binding();
                             }
 
                             if let CachedItemBoundingBoxAndTransform::ClipItem {
@@ -674,7 +776,8 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
                         }
                     }
                     None => {
-                        let cache_entry = PartialRenderingCachedData::new(new_geom.clone());
+                        let mut cache_entry = PartialRenderingCachedData::new(new_geom.clone());
+                        cache_entry.geometry_tracker = Some(geometry_tracker);
                         rendering_data.cache_index.set(cache.insert(cache_entry));
                         rendering_data.cache_generation.set(cache.generation());
 
@@ -720,6 +823,178 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
         );
     }
 
+    /// Reads the current geometry of `item_rc`, and returns it with a new tracker of the
+    /// properties that the geometry was read from.
+    ///
+    /// Reading evaluates the pending bindings of those properties.
+    /// When one of them changes later, the tracker puts the item on the changed list.
+    /// The caller must keep the tracker, usually in the item's cache entry,
+    /// because dropping it ends the notifications.
+    /// `sibling_index` is the item's rank among its siblings, and is stored with the geometry.
+    fn evaluate_geometry(
+        &self,
+        changed: &Rc<ChangedItems>,
+        item_rc: &ItemRc,
+        sibling_index: u16,
+    ) -> (Pin<Box<ChangeTracker>>, CachedItemBoundingBoxAndTransform) {
+        let tracker = new_change_tracker(changed, Change::Item(item_rc.downgrade()));
+        let geometry = tracker.as_ref().evaluate_as_dependency_root(|| {
+            CachedItemBoundingBoxAndTransform::new::<T>(
+                item_rc,
+                &self.window_adapter,
+                sibling_index,
+            )
+        });
+        (tracker, geometry)
+    }
+
+    /// Marks the old and the new region of each changed item and its descendants as dirty,
+    /// without visiting the other items.
+    /// Returns false when an item can't be placed on screen, and all items must be walked.
+    // TODO: Drop "fast" from the name once the full walk is gone.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+    fn compute_dirty_regions_fast(
+        &mut self,
+        components: &[(ItemTreeWeak, LogicalPoint)],
+        size: LogicalSize,
+    ) -> bool {
+        let changed = self.cache.borrow().changed.clone();
+        let items = changed.items.take();
+        let screen = LogicalRect::from_size(size);
+        for item_rc in items.iter().filter_map(ItemWeak::upgrade) {
+            let Some((transform, clip)) =
+                self.parent_transform_and_clip(&item_rc, components, screen)
+            else {
+                return false;
+            };
+            let item = item_rc.borrow();
+            let rendering_data = item.cached_rendering_data_offset();
+            let (old_geom, new_geom, rendering_dirty) = {
+                let mut cache = self.cache.borrow_mut();
+                let Some(entry) = rendering_data.get_entry(&mut cache) else { return false };
+                let rendering_dirty = entry.tracker.as_ref().is_some_and(|tr| tr.is_dirty());
+                if rendering_dirty {
+                    // A dirty tracker doesn't notify again; drawing the item creates a new one.
+                    entry.tracker = None;
+                }
+                let (geometry_tracker, new_geom) =
+                    self.evaluate_geometry(&changed, &item_rc, *entry.data.sibling_index());
+                entry.geometry_tracker = Some(geometry_tracker);
+                let old_geom = core::mem::replace(&mut entry.data, new_geom.clone());
+                (old_geom, new_geom, rendering_dirty)
+            };
+            let geometry_changed = !old_geom.same_geometry(&new_geom);
+            if !geometry_changed && !rendering_dirty {
+                continue;
+            }
+            self.mark_screen_rect(&item_rc, new_geom.bounding_rect(), &transform, &clip);
+            if geometry_changed {
+                self.mark_screen_rect(&item_rc, old_geom.bounding_rect(), &transform, &clip);
+            }
+            let affects_children = geometry_changed
+                || ItemRef::downcast_pin::<Clip>(item).is_some()
+                || ItemRef::downcast_pin::<Opacity>(item).is_some()
+                || ItemRef::downcast_pin::<Layer>(item).is_some();
+            if affects_children
+                && !self.mark_descendants(
+                    &item_rc,
+                    &old_geom.transform().then(&transform),
+                    &new_geom.transform().then(&transform),
+                    &clip,
+                )
+            {
+                return false;
+            }
+        }
+        true
+    }
+
+    /// Marks the cached rect of each descendant of `item` as dirty,
+    /// both at the old and at the new transform of `item`'s children.
+    /// Returns false when a descendant has no cached geometry.
+    fn mark_descendants(
+        &mut self,
+        item: &ItemRc,
+        old_transform: &ItemTransform,
+        new_transform: &ItemTransform,
+        clip: &LogicalRect,
+    ) -> bool {
+        let mut child = item.first_child();
+        while let Some(child_rc) = child {
+            let geometry = {
+                let mut cache = self.cache.borrow_mut();
+                child_rc
+                    .borrow()
+                    .cached_rendering_data_offset()
+                    .get_entry(&mut cache)
+                    .map(|entry| entry.data.clone())
+            };
+            let Some(geometry) = geometry else { return false };
+            self.mark_screen_rect(&child_rc, geometry.bounding_rect(), old_transform, clip);
+            if new_transform != old_transform {
+                self.mark_screen_rect(&child_rc, geometry.bounding_rect(), new_transform, clip);
+            }
+            let child_clip = clip_for_children(&geometry, &[*old_transform, *new_transform], clip);
+            if !child_clip.is_empty()
+                && !self.mark_descendants(
+                    &child_rc,
+                    &geometry.transform().then(old_transform),
+                    &geometry.transform().then(new_transform),
+                    &child_clip,
+                )
+            {
+                return false;
+            }
+            child = child_rc.next_sibling();
+        }
+        true
+    }
+
+    /// Marks `rect`, relative to `item`'s parent, as dirty, and adds it to the region of
+    /// `item`'s tree.
+    fn mark_screen_rect(
+        &mut self,
+        item: &ItemRc,
+        rect: &LogicalRect,
+        transform: &ItemTransform,
+        clip: &LogicalRect,
+    ) {
+        let Some(rect) = clipped_screen_rect(rect, transform, clip) else { return };
+        self.dirty_region.add_rect(rect);
+        let tree_key = vtable::VRef::as_ptr(ItemTreeRc::borrow(item.item_tree())).as_ptr() as usize;
+        let mut cache = self.cache.borrow_mut();
+        let acc = cache.tree_screen_rects.entry(tree_key).or_default();
+        *acc = acc.union(&rect);
+    }
+
+    /// The transform from the coordinates of `item`'s parent to the screen, and the screen
+    /// region that `item`'s ancestors clip it to, from their cached geometry.
+    fn parent_transform_and_clip(
+        &self,
+        item: &ItemRc,
+        components: &[(ItemTreeWeak, LogicalPoint)],
+        screen: LogicalRect,
+    ) -> Option<(ItemTransform, LogicalRect)> {
+        let mut ancestors = alloc::vec::Vec::new();
+        let mut root = item.clone();
+        while let Some(parent) = root.parent_item(ParentItemTraversalMode::StopAtPopups) {
+            ancestors.push(parent.clone());
+            root = parent;
+        }
+        let origin = components.iter().find_map(|(component, origin)| {
+            component.upgrade().filter(|component| root.is_root_item_of(component)).map(|_| *origin)
+        })?;
+        let mut transform = ItemTransform::translation(origin.x as f32, origin.y as f32);
+        let mut clip = screen;
+        let mut cache = self.cache.borrow_mut();
+        for ancestor in ancestors.iter().rev() {
+            let entry = ancestor.borrow().cached_rendering_data_offset().get_entry(&mut cache)?;
+            clip = clip_for_children(&entry.data, &[transform], &clip);
+            transform = entry.data.transform().then(&transform);
+        }
+        Some((transform, clip))
+    }
+
     /// Adds everything that each backdrop blur reading from `region` reads,
     /// because a blur changes as a whole when anything beneath it changes,
     /// and it must read the same freshly drawn pixels as in a full redraw.
@@ -752,10 +1027,13 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
         render_fn: impl FnOnce(),
     ) {
         let mut cache = cache.borrow_mut();
+        let changed = cache.changed.clone();
         if let Some(entry) = rendering_data.get_entry(&mut cache) {
             entry
                 .tracker
-                .get_or_insert_with(|| Box::pin(PropertyTracker::default()))
+                .get_or_insert_with(|| {
+                    new_change_tracker(&changed, Change::Item(item_rc.downgrade()))
+                })
                 .as_ref()
                 .evaluate(render_fn);
         } else {
@@ -936,6 +1214,18 @@ pub struct PartialRenderingState {
     force_dirty: RefCell<DirtyRegion>,
     /// Force a redraw in the next frame, no matter what's dirty. Use only as a last resort.
     force_screen_refresh: Cell<bool>,
+    /// Tracks the item trees' structure during the last walk over all items.
+    structure_tracker: RefCell<Option<Pin<Box<ChangeTracker>>>>,
+    /// What the last walk over all items depends on, besides `structure_tracker`.
+    last_full_walk: RefCell<Option<FullWalkKey>>,
+}
+
+struct FullWalkKey {
+    generation: usize,
+    size: LogicalSize,
+    components: alloc::vec::Vec<(usize, LogicalPoint)>,
+    /// Backdrop blurs are only collected by the walk over all items.
+    has_backdrop_blur: bool,
 }
 
 impl PartialRenderingState {
@@ -961,10 +1251,55 @@ impl PartialRenderingState {
         logical_window_size: LogicalSize,
         dirty_region_of_existing_buffer: Option<DirtyRegion>,
     ) -> DirtyRegion {
-        for (component, origin) in components {
-            if let Some(component) = crate::item_tree::ItemTreeWeak::upgrade(component) {
-                partial_renderer.compute_dirty_regions(&component, *origin, logical_window_size);
-            }
+        let key = FullWalkKey {
+            generation: self.partial_cache.borrow().generation(),
+            size: logical_window_size,
+            components: components
+                .iter()
+                .filter_map(|(component, origin)| {
+                    let component = component.upgrade()?;
+                    Some((
+                        vtable::VRef::as_ptr(ItemTreeRc::borrow(&component)).as_ptr() as usize,
+                        *origin,
+                    ))
+                })
+                .collect(),
+            has_backdrop_blur: false,
+        };
+        let changed = self.partial_cache.borrow().changed.clone();
+        let fast_path = !changed.needs_full_walk.get()
+            && self.last_full_walk.borrow().as_ref().is_some_and(|last| {
+                !last.has_backdrop_blur
+                    && last.generation == key.generation
+                    && last.size == key.size
+                    && last.components == key.components
+            })
+            // The fast path: only the changed items are visited.
+            // Returns `false` if it failed and the full walk must run.
+            && partial_renderer.compute_dirty_regions_fast(components, logical_window_size);
+        if !fast_path {
+            // TODO: Once the fast path covers all cases, rename this to `legacy_fallback`
+            // and remove it.
+            // Changes made while walking stay for the next frame.
+            changed.items.borrow_mut().clear();
+            changed.needs_full_walk.set(false);
+            let structure_tracker = new_change_tracker(&changed, Change::Structural);
+            structure_tracker.as_ref().evaluate_as_dependency_root(|| {
+                for (component, origin) in components {
+                    if let Some(component) = crate::item_tree::ItemTreeWeak::upgrade(component) {
+                        partial_renderer.compute_dirty_regions(
+                            &component,
+                            *origin,
+                            logical_window_size,
+                        );
+                    }
+                }
+            });
+            self.structure_tracker.replace(Some(structure_tracker));
+            self.last_full_walk.replace(Some(FullWalkKey {
+                has_backdrop_blur: !partial_renderer.backdrop_blurs.is_empty(),
+                ..key
+            }));
         }
 
         let screen_region = LogicalRect::from_size(logical_window_size);
