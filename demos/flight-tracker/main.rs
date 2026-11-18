@@ -1491,6 +1491,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 time: demo.time,
                 space: zoom_progress,
                 windows,
+                low: app.get_quality() == Quality::Low,
                 clouds: match clouds_since {
                     Some(since) if app.get_clouds() => {
                         cloud_strength(eye) * since.elapsed().as_secs_f32().min(1.0)

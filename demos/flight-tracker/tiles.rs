@@ -36,9 +36,10 @@ pub const WINDOW_TILES: u32 = 4;
 /// The mip levels of a tile, down to the 4 pixels of one compressed block.
 pub const MIPS: u32 = 8;
 /// What the shader gets for each window, see `Detail::update()`.
-pub const WINDOW_FLOATS: usize = 4 + (WINDOW_TILES * WINDOW_TILES) as usize;
-// `globe.wgsl` spells out these numbers, in its `DetailWindow` and its `detail()`.
-const _: () = assert!(LEVELS == 3 && WINDOW_TILES == 4);
+pub const WINDOW_FLOATS: usize = 8 + (WINDOW_TILES * WINDOW_TILES) as usize;
+// `globe.wgsl` spells out these numbers, in its `DetailWindow`, its `detail()`,
+// and its `window_sample()`.
+const _: () = assert!(LEVELS == 3 && WINDOW_TILES == 4 && TILE == 512);
 /// The degrees per pixel of the globe's own imagery.
 const BASE_RESOLUTION: f32 = 360.0 / 4096.0;
 /// How many tiles load at once.
@@ -397,7 +398,8 @@ impl Detail {
     ///
     /// Returns what the shader needs for each window: where the camera looks, in tiles,
     /// the number of the map's columns and rows, which is 0 without tiles,
-    /// and how far the tile of each slot has faded in.
+    /// how far the tile of each slot has faded in,
+    /// and a bit for each slot that holds its tile.
     pub fn update(
         &mut self,
         renderer: &Renderer,
@@ -466,6 +468,9 @@ impl Detail {
             for (slot, shown) in window.slots.iter().zip(&mut out[4..]) {
                 *shown = slot.shown;
             }
+            let loaded =
+                window.slots.iter().enumerate().filter(|(_, slot)| slot.state == State::Loaded);
+            out[4 + window.slots.len()] = loaded.map(|(index, _)| 1 << index).sum::<u32>() as f32;
         }
 
         if self.paused_until.is_some_and(|until| web_time::Instant::now() < until) {

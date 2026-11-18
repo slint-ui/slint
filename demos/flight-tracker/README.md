@@ -74,6 +74,8 @@ Slint renders with wgpu, and the demo renders the globe on Slint's own device:
 - `main.rs` requires wgpu with `BackendSelector::require_wgpu_30()`, and gets the device in the rendering notifier.
   Before Slint renders each frame, the demo renders the globe into a texture, and shows it in an `Image` underneath the UI.
 - `globe.wgsl` ray traces the globe, its atmosphere, and the stars in a single pass over the screen, so the globe needs no mesh.
+  In low quality, for GPUs too slow for that, it draws the part of the globe that the camera sees as a mesh instead, and the atmosphere as rings around it.
+  The mesh is lit per vertex, and there are no stars, no clouds, and no glare around the sun.
   The ground is NASA's Blue Marble for July, and the lights on the night side are its Black Marble, both 4096 pixels wide.
   `compress.rs` compresses it to BC1 or ETC2, whichever the GPU supports, to an eighth of its size in GPU memory.
 - `tiles.rs` shows sharper imagery where the camera looks, once it comes close.

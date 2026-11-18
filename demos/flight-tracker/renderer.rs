@@ -31,6 +31,38 @@ pub struct Frame {
     pub clouds: f32,
     /// The detail windows, see `tiles::Detail::update()`.
     pub windows: [[f32; tiles::WINDOW_FLOATS]; tiles::WINDOWS],
+    /// Draws the globe as a mesh, without the stars, the clouds, and the sun's glare,
+    /// for GPUs too slow to ray trace it.
+    pub low: bool,
+}
+
+/// How many segments the cap of `vs_cap` in `globe.wgsl` has around,
+/// as many as `GLOW_SEGMENTS` there, so that the glow meets the globe's outline.
+const CAP_SEGMENTS: u16 = 128;
+/// How many rings the cap has from the point below the camera to the horizon.
+const CAP_RINGS: u16 = 24;
+/// The vertices of `vs_glow` in `globe.wgsl`: six for each of `GLOW_SEGMENTS` by `GLOW_RINGS`.
+const GLOW_VERTICES: u32 = 6 * 128 * 6;
+
+/// The grid of `vs_cap`, as its vertices and the indices of its triangles.
+fn cap_mesh() -> (Vec<[f32; 2]>, Vec<u16>) {
+    let vertices = (0..=CAP_RINGS)
+        .flat_map(|ring| {
+            (0..=CAP_SEGMENTS).map(move |segment| {
+                [segment as f32 / CAP_SEGMENTS as f32, ring as f32 / CAP_RINGS as f32]
+            })
+        })
+        .collect();
+    let row = CAP_SEGMENTS + 1;
+    let indices = (0..CAP_RINGS)
+        .flat_map(|ring| {
+            (0..CAP_SEGMENTS).flat_map(move |segment| {
+                let (inner, outer) = (ring * row + segment, (ring + 1) * row + segment);
+                [inner, inner + 1, outer, inner + 1, outer + 1, outer]
+            })
+        })
+        .collect();
+    (vertices, indices)
 }
 
 /// An image of the earth, equirectangular like the map, with its mip levels.
@@ -248,6 +280,12 @@ pub struct Renderer {
     border_pipeline: wgpu::RenderPipeline,
     border_segments: wgpu::Buffer,
     border_segment_count: u32,
+    cap_pipeline: wgpu::RenderPipeline,
+    cap_vertices: wgpu::Buffer,
+    cap_indices: wgpu::Buffer,
+    cap_index_count: u32,
+    glow_pipeline: wgpu::RenderPipeline,
+    sun_pipeline: wgpu::RenderPipeline,
     /// Whether the shader encodes sRGB, because the target's format doesn't.
     encode_srgb: bool,
     layout: wgpu::BindGroupLayout,
@@ -407,6 +445,36 @@ impl Renderer {
             attributes: &wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3],
         };
         // The frame has straight alpha, which the borders leave as it is.
+        let (cap_vertices, cap_indices) = cap_mesh();
+        let cap_index_count = cap_indices.len() as u32;
+        let cap_vertices = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("globe cap"),
+            contents: bytemuck::cast_slice(&cap_vertices),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+        let cap_indices = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("globe cap"),
+            contents: bytemuck::cast_slice(&cap_indices),
+            usage: wgpu::BufferUsages::INDEX,
+        });
+        let grid = wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<[f32; 2]>() as u64,
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: &wgpu::vertex_attr_array![0 => Float32x2],
+        };
+        // The glow and the sun add their light, and the frame is opaque where either is.
+        let add = wgpu::BlendState {
+            color: wgpu::BlendComponent {
+                src_factor: wgpu::BlendFactor::One,
+                dst_factor: wgpu::BlendFactor::One,
+                operation: wgpu::BlendOperation::Add,
+            },
+            alpha: wgpu::BlendComponent {
+                src_factor: wgpu::BlendFactor::One,
+                dst_factor: wgpu::BlendFactor::One,
+                operation: wgpu::BlendOperation::Max,
+            },
+        };
         let over = wgpu::BlendState {
             color: wgpu::BlendComponent {
                 src_factor: wgpu::BlendFactor::SrcAlpha,
@@ -433,6 +501,12 @@ impl Renderer {
             ),
             border_segments,
             border_segment_count: segments.len() as u32,
+            cap_pipeline: pipeline("globe cap", ["vs_cap", "fs_cap"], &[Some(grid)], None),
+            cap_vertices,
+            cap_indices,
+            cap_index_count,
+            glow_pipeline: pipeline("globe glow", ["vs_glow", "fs_glow"], &[], Some(add)),
+            sun_pipeline: pipeline("globe sun", ["vs_sun", "fs_sun"], &[], Some(add)),
             encode_srgb: !format.is_srgb(),
             layout,
             sampler,
@@ -540,23 +614,42 @@ impl Renderer {
                     depth_slice: None,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
+                        load: wgpu::LoadOp::Clear(if frame.low {
+                            // Space without stars.
+                            wgpu::Color { a: frame.space as f64, ..wgpu::Color::BLACK }
+                        } else {
+                            wgpu::Color::TRANSPARENT
+                        }),
                         store: wgpu::StoreOp::Store,
                     },
                 })],
                 ..Default::default()
             });
             pass.set_viewport(0.0, 0.0, frame.viewport.x, frame.viewport.y, 0.0, 1.0);
-            // Without space around it, the globe leaves the rest of the frame transparent, as
-            // the pass cleared it.
-            if frame.space == 0.0
-                && let Some([x, y, width, height]) = globe_rectangle(frame)
-            {
-                pass.set_scissor_rect(x, y, width, height);
-            }
-            pass.set_pipeline(&self.pipeline);
             pass.set_bind_group(0, &self.bind_group, &[]);
-            pass.draw(0..3, 0..1);
+            if frame.low {
+                // The globe covers the sun where it's in front of it.
+                if frame.space > 0.0 {
+                    pass.set_pipeline(&self.sun_pipeline);
+                    pass.draw(0..6, 0..1);
+                }
+                pass.set_pipeline(&self.cap_pipeline);
+                pass.set_vertex_buffer(0, self.cap_vertices.slice(..));
+                pass.set_index_buffer(self.cap_indices.slice(..), wgpu::IndexFormat::Uint16);
+                pass.draw_indexed(0..self.cap_index_count, 0, 0..1);
+                pass.set_pipeline(&self.glow_pipeline);
+                pass.draw(0..GLOW_VERTICES, 0..1);
+            } else {
+                // Without space around it, the globe leaves the rest of the frame transparent,
+                // as the pass cleared it.
+                if frame.space == 0.0
+                    && let Some([x, y, width, height]) = globe_rectangle(frame)
+                {
+                    pass.set_scissor_rect(x, y, width, height);
+                }
+                pass.set_pipeline(&self.pipeline);
+                pass.draw(0..3, 0..1);
+            }
             if frame.borders > 0.0 {
                 pass.set_pipeline(&self.border_pipeline);
                 pass.set_vertex_buffer(0, self.border_segments.slice(..));
@@ -605,6 +698,7 @@ mod tests {
                 space: 0.0,
                 clouds: 0.0,
                 windows: Default::default(),
+                low: false,
             };
             let [left, top, width, height] = globe_rectangle(&frame).unwrap();
             let (right, bottom) = (left + width, top + height);
