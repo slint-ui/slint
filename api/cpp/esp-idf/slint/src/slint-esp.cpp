@@ -18,18 +18,15 @@
 #endif
 #include "esp_log.h"
 #include "esp_timer.h"
-#if CONFIG_SLINT_CPU_TEXTURES && defined(SLINT_FEATURE_EXPERIMENTAL)
-#    define SLINT_ESP_CPU_TEXTURES 1
+#include <atomic>
+#ifdef SLINT_ESP_CPU_TEXTURES
 #    include <type_traits>
 #    include "slint-esp-cpu-texture-buffer.h"
-#endif
-#if CONFIG_SLINT_LOG_FRAME_STATS
-#    include <atomic>
 #endif
 
 static const char *TAG = "slint_platform";
 
-#if CONFIG_SLINT_TRACING
+#ifdef SLINT_ESP_TRACING
 #    include <cstdio>
 #    include "esp_cpu.h"
 #    if SOC_USB_SERIAL_JTAG_SUPPORTED
@@ -107,8 +104,7 @@ struct SlintTraceSpan
 #    define SLINT_TRACE_FIELD(name, value)
 #endif
 
-#if CONFIG_SLINT_PPA && defined(SLINT_FEATURE_EXPERIMENTAL)
-#    define SLINT_ESP_PPA 1
+#ifdef SLINT_ESP_PPA
 #    include <type_traits>
 #    include "slint-esp-ppa-buffer.h"
 #endif
@@ -147,13 +143,18 @@ struct EspPlatform : public slint::platform::Platform
           byte_swap(config.byte_swap),
           rotation(config.rotation),
           render_in_separate_task(config.render_in_separate_task),
-          raster_task_stack_size(config.raster_task_stack_size)
+          raster_task_stack_size(config.raster_task_stack_size),
+          log_frame_stats(config.log_frame_stats),
+          use_cpu_textures(config.use_cpu_textures),
+          prepared_textures_kib(config.prepared_textures_kib),
+          use_ppa(config.use_ppa)
     {
         task = xTaskGetCurrentTaskHandle();
 #ifndef SLINT_ESP_RENDER_IN_SEPARATE_TASK
         if (render_in_separate_task) {
             ESP_LOGW(TAG,
-                     "render_in_separate_task needs SLINT_ESP_EXPERIMENTAL_RENDER_IN_SEPARATE_TASK=1 "
+                     "render_in_separate_task needs "
+                     "SLINT_ESP_EXPERIMENTAL_RENDER_IN_SEPARATE_TASK=1 "
                      "when building Slint; rendering in the event loop");
         }
 #endif
@@ -182,6 +183,10 @@ private:
     slint::platform::SoftwareRenderer::RenderingRotation rotation;
     bool render_in_separate_task;
     uint32_t raster_task_stack_size;
+    bool log_frame_stats;
+    bool use_cpu_textures;
+    uint32_t prepared_textures_kib;
+    bool use_ppa;
     class EspWindowAdapter *m_window = nullptr;
 
     // Need to be static because we can't pass user data to the touch interrupt callback
@@ -394,7 +399,7 @@ void EspPlatform<PixelType>::run_event_loop()
         && defined(SLINT_ESP_RENDER_IN_SEPARATE_TASK)
     // Used only by the thread that rasterizes.
     slint::platform::SoftwareRenderer::PreparedTextures prepared_textures;
-    prepared_textures.set_max_bytes(std::size_t(CONFIG_SLINT_PREPARED_TEXTURES_SIZE) * 1024);
+    prepared_textures.set_max_bytes(std::size_t(prepared_textures_kib) * 1024);
 #endif
 #ifdef SLINT_ESP_PPA
     // Registered and used only by the thread that rasterizes.
@@ -459,12 +464,14 @@ void EspPlatform<PixelType>::run_event_loop()
     using slint::platform::SoftwareRenderer;
     const auto stride = physical_size().width;
 
-#if CONFIG_SLINT_LOG_FRAME_STATS
     int64_t stats_start_us = esp_timer_get_time();
     int64_t stats_frame_us = 0;
     uint32_t stats_frames = 0;
     std::atomic<int64_t> stats_record_us = 0;
     auto count_frame = [&](int64_t frame_start_us) {
+        if (!log_frame_stats) {
+            return;
+        }
         stats_frame_us += esp_timer_get_time() - frame_start_us;
         stats_frames++;
         if (const int64_t now_us = esp_timer_get_time(); now_us - stats_start_us >= 1000000) {
@@ -480,7 +487,6 @@ void EspPlatform<PixelType>::run_event_loop()
             stats_frames = 0;
         }
     };
-#endif
 
 #ifdef SLINT_ESP_RENDER_IN_SEPARATE_TASK
     // A separate task rasterizes and presents each recorded frame, while the event loop
@@ -490,11 +496,7 @@ void EspPlatform<PixelType>::run_event_loop()
     SemaphoreHandle_t frame_recorded = xSemaphoreCreateBinary();
     SemaphoreHandle_t frame_presented = xSemaphoreCreateBinary();
     xSemaphoreGive(frame_presented);
-    auto raster_task = [this, &recorded, stride, frame_recorded, frame_presented
-#    if CONFIG_SLINT_LOG_FRAME_STATS
-                        ,
-                        &count_frame
-#    endif
+    auto raster_task = [this, &recorded, stride, frame_recorded, frame_presented, &count_frame
 #    ifdef SLINT_ESP_CPU_TEXTURES
                         ,
                         &cpu_textures
@@ -508,18 +510,20 @@ void EspPlatform<PixelType>::run_event_loop()
                         &prepared_textures
 #    endif
     ] {
-#    if CONFIG_SLINT_TRACING
+#    ifdef SLINT_ESP_TRACING
         slint::cbindgen_private::slint_trace_register_core();
 #    endif
 #    ifdef SLINT_ESP_PPA
         if constexpr (std::is_same_v<PixelType, slint::platform::Rgb565Pixel>) {
-            ppa.emplace();
-            if (ppa->init()) {
-                // The PPA reads ARGB8888 blue first.
-                prepared_textures.set_blue_first(true);
-            } else {
-                ESP_LOGW(TAG, "The PPA is unavailable, rasterizing without it");
-                ppa.reset();
+            if (use_ppa) {
+                ppa.emplace();
+                if (ppa->init()) {
+                    // The PPA reads ARGB8888 blue first.
+                    prepared_textures.set_blue_first(true);
+                } else {
+                    ESP_LOGW(TAG, "The PPA is unavailable, rasterizing without it");
+                    ppa.reset();
+                }
             }
         }
 #    endif
@@ -527,13 +531,11 @@ void EspPlatform<PixelType>::run_event_loop()
             xSemaphoreTake(frame_recorded, portMAX_DELAY);
             {
                 SLINT_TRACE_SPAN("redraw");
-#    if CONFIG_SLINT_LOG_FRAME_STATS
                 const int64_t frame_start_us = esp_timer_get_time();
-#    endif
                 render_and_present([&recorded, stride
 #    ifdef SLINT_ESP_CPU_TEXTURES
                                     ,
-                                    &cpu_textures
+                                    this, &cpu_textures
 #    endif
 #    ifdef SLINT_ESP_PPA
                                     ,
@@ -554,15 +556,16 @@ void EspPlatform<PixelType>::run_event_loop()
 #    endif
 #    ifdef SLINT_ESP_CPU_TEXTURES
                     if constexpr (std::is_same_v<PixelType, slint::platform::Rgb565Pixel>) {
-                        cpu_textures.set_target(buffer, stride);
-                        return recorded->rasterize_into_buffer(&cpu_textures, prepared_textures);
+                        if (use_cpu_textures) {
+                            cpu_textures.set_target(buffer, stride);
+                            return recorded->rasterize_into_buffer(&cpu_textures,
+                                                                   prepared_textures);
+                        }
                     }
 #    endif
                     return recorded->rasterize(buffer, stride);
                 });
-#    if CONFIG_SLINT_LOG_FRAME_STATS
                 count_frame(frame_start_us);
-#    endif
             }
             xSemaphoreGive(frame_presented);
         }
@@ -641,16 +644,12 @@ void EspPlatform<PixelType>::run_event_loop()
 #ifdef SLINT_ESP_RENDER_IN_SEPARATE_TASK
             if (pipeline) {
                 if (std::exchange(m_window->needs_redraw, false)) {
-#    if CONFIG_SLINT_LOG_FRAME_STATS
                     const int64_t record_start_us = esp_timer_get_time();
-#    endif
                     auto frame = [&] {
                         SLINT_TRACE_SPAN("record");
                         return m_window->m_renderer.record_frame(stride, num_lines);
                     }();
-#    if CONFIG_SLINT_LOG_FRAME_STATS
                     stats_record_us += esp_timer_get_time() - record_start_us;
-#    endif
                     {
                         SLINT_TRACE_SPAN("wait_render_core");
                         xSemaphoreTake(frame_presented, portMAX_DELAY);
@@ -665,26 +664,22 @@ void EspPlatform<PixelType>::run_event_loop()
                     if (std::exchange(m_window->needs_redraw, false)) {
                 if (buffer1) {
                     SLINT_TRACE_SPAN("redraw");
-#if CONFIG_SLINT_LOG_FRAME_STATS
                     const int64_t frame_start_us = esp_timer_get_time();
-#endif
                     waited_for_refresh = render_and_present([&](std::span<PixelType> buffer) {
 #ifdef SLINT_ESP_CPU_TEXTURES
                         if constexpr (std::is_same_v<PixelType, slint::platform::Rgb565Pixel>) {
-                            cpu_textures.set_target(buffer, stride);
-                            return m_window->m_renderer.render(&cpu_textures);
+                            if (use_cpu_textures) {
+                                cpu_textures.set_target(buffer, stride);
+                                return m_window->m_renderer.render(&cpu_textures);
+                            }
                         }
 #endif
                         return m_window->m_renderer.render(buffer, stride);
                     });
-#if CONFIG_SLINT_LOG_FRAME_STATS
                     count_frame(frame_start_us);
-#endif
                 } else {
                     SLINT_TRACE_SPAN("redraw");
-#if CONFIG_SLINT_LOG_FRAME_STATS
                     const int64_t frame_start_us = esp_timer_get_time();
-#endif
                     // esp_lcd_panel_draw_bitmap is "async" so we have two buffers, one in which we
                     // render, and one which is being transmitted with a DMA transfer in parallel.
                     // On MIPI-DSI DPI panels draw_bitmap() above waits for the previous transfer to
@@ -724,9 +719,7 @@ void EspPlatform<PixelType>::run_event_loop()
                         xSemaphoreGive(sem_dpi_draw_done);
                     }
 #endif
-#if CONFIG_SLINT_LOG_FRAME_STATS
                     count_frame(frame_start_us);
-#endif
                 }
             }
 

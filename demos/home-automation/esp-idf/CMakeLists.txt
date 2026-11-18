@@ -9,6 +9,7 @@ set(SLINT_ESP_LOCAL_EXAMPLE ON)
 set(EXTRA_COMPONENT_DIRS ../../../api/cpp/esp-idf/)
 set(SLINT_STYLE "cosmic-light" CACHE STRING "Style for demo" FORCE)
 set(ENV{SLINT_ESP_EXPERIMENTAL_RENDER_IN_SEPARATE_TASK} 1)
+set(ENV{SLINT_ESP_EXPERIMENTAL_PPA} 1)
 
 add_compile_options(-fdiagnostics-color=always)
 
