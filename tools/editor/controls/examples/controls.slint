@@ -16,11 +16,13 @@ import { ComboBoxExamples } from "combo_boxes.slint";
 import { SliderExamples } from "sliders.slint";
 import { SwitchExamples } from "switches.slint";
 import { LineEditExamples } from "line_edits.slint";
+import { RadioGroupExamples } from "radio_groups.slint";
+import { CollectionTabExamples } from "collection_tabs.slint";
 
 export component ControlsDemo inherits Window {
     in-out property <int> current-page;
     in-out property <bool> dark-mode;
-    private property <[string]> pages: ["Button", "ComboBox", "Slider", "CheckBox", "Switch", "LineEdit"];
+    private property <[string]> pages: ["Button", "ComboBox", "Slider", "CheckBox", "Switch", "LineEdit", "RadioGroup", "Collection tabs"];
     title: "Slint controls — Component gallery";
     preferred-width: 1000px;
     preferred-height: 760px;
@@ -129,7 +131,11 @@ export component ControlsDemo inherits Window {
                         ? "Shared toggle behavior, with a base theme or your own indicator and label."
                         : root.current-page == 4
                         ? "Shared switch behavior, with a base theme or your own track and label."
-                        : "Shared text editing, with a base theme or your own field visuals.";
+                        : root.current-page == 5
+                        ? "Shared text editing, with a base theme or your own field visuals."
+                        : root.current-page == 6
+                        ? "Shared radio selection, with custom headers, orientation, spacing, and padding."
+                        : "Nested tab pages, with headers generated through a collection.";
                     color: BasicTheme.disabled-foreground;
                     wrap: word-wrap;
                 }
@@ -144,6 +150,8 @@ export component ControlsDemo inherits Window {
                 if root.current-page == 3: CheckBoxExamples { }
                 if root.current-page == 4: SwitchExamples { }
                 if root.current-page == 5: LineEditExamples { }
+                if root.current-page == 6: RadioGroupExamples { }
+                if root.current-page == 7: CollectionTabExamples { }
             }
         }
     }

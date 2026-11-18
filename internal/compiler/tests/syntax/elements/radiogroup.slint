@@ -1,14 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { RadioGroup } from "std-widgets.slint";
+import { RadioGroup, RadioButton } from "std-widgets.slint";
 
 export component Test inherits Rectangle {
     RadioGroup {
         Rectangle {}
-//      >        <error{Rectangle is not allowed within RadioGroup. Only RadioButton are valid children}
+//      >          <error{Cannot implement 'RadioGroupMember'.↵- missing 'callback focus-change(bool);'↵- missing 'in property <int> group-current-index;'↵- missing 'in property <bool> group-enabled;'↵- missing 'callback group-select();'↵- missing 'in property <int> item-index;'↵- missing 'in property <string> text;'}
     }
 
     RadioButton {}
-//  >          <error{RadioButton can only be within a RadioGroup element}
 }

@@ -1,0 +1,93 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import {
+    CollectionTabEntry,
+    CollectionTabBase,
+    CollectionTabHeaderBase,
+    CollectionTabBar,
+    PageStack,
+} from "../headless.slint";
+import { BasicTheme } from "theme.slint";
+
+export component CollectionTab inherits CollectionTabBase { }
+
+export component CollectionTabHeader inherits CollectionTabHeaderBase {
+    in property <length> horizontal-padding: 16px;
+    horizontal-stretch: 0;
+    vertical-stretch: 0;
+    min-width: 88px;
+    min-height: 40px;
+
+    Rectangle {
+        background: root.selected ? BasicTheme.accent.with-alpha(0.1)
+            : root.has-hover ? BasicTheme.hover-background : transparent;
+    }
+    HorizontalLayout {
+        padding-left: root.horizontal-padding;
+        padding-right: root.horizontal-padding;
+        Text {
+            text: root.title;
+            color: !root.enabled ? BasicTheme.disabled-foreground
+                : root.selected ? BasicTheme.accent : BasicTheme.foreground;
+            vertical-alignment: center;
+            accessible-role: none;
+        }
+    }
+    Rectangle {
+        y: parent.height - self.height;
+        height: 2px;
+        background: root.selected ? BasicTheme.accent : transparent;
+    }
+    if root.focused && root.enabled: Rectangle {
+        x: 3px;
+        y: 3px;
+        width: parent.width - 6px;
+        height: parent.height - 6px;
+        border-width: 1px;
+        border-radius: 4px;
+        border-color: BasicTheme.focus;
+    }
+}
+
+export component CollectionTabWidget inherits Rectangle {
+    in-out property <int> current-index: 0;
+    in property <Orientation> orientation: Orientation.horizontal;
+    in property <length> content-padding: 12px;
+    out property <int> item-count: tabs.length;
+    default slot <[implements CollectionTabEntry]> tabs;
+
+    forward-focus: bar;
+
+    GridLayout {
+        bar := CollectionTabBar {
+            row: 0;
+            col: 0;
+            current-index <=> root.current-index;
+            orientation: root.orientation;
+            for tab in tabs: CollectionTabHeader {
+                title: tab.title;
+                enabled: tab.enabled;
+            }
+        }
+
+        Rectangle {
+            row: root.orientation == Orientation.horizontal ? 1 : 0;
+            col: root.orientation == Orientation.vertical ? 1 : 0;
+            horizontal-stretch: 1;
+            vertical-stretch: 1;
+            background: BasicTheme.background;
+            border-width: 1px;
+            border-color: BasicTheme.border;
+            PageStack {
+                current-index: root.current-index;
+                content-padding: root.content-padding;
+                for tab[index] in tabs: tab {
+                    accessible-role: tab-panel;
+                    accessible-label: tab.title;
+                    accessible-item-index: index;
+                }
+            }
+        }
+    }
+}

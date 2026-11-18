@@ -1,0 +1,80 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { RadioGroupBase, RadioButtonBase, RadioGroup } from "std-widgets.slint";
+
+component Option inherits RadioButtonBase {
+    width: 20px;
+    height: 10px;
+}
+
+export component TestCase inherits Window {
+    width: 120px;
+    height: 120px;
+    in-out property <length> gap: 12px;
+    in-out property <length> inset: 6px;
+
+    vertical := RadioGroupBase {
+        x: 0px;
+        y: 0px;
+        width: 20px + 2 * root.inset;
+        height: 20px + root.gap + 2 * root.inset;
+        spacing: root.gap;
+        content-padding: root.inset;
+        a := Option { text: "A"; }
+        b := Option { text: "B"; }
+    }
+
+    horizontal := RadioGroupBase {
+        x: 0px;
+        y: 0px;
+        width: 40px + root.gap + 2 * root.inset;
+        height: 10px + 2 * root.inset;
+        orientation: Orientation.horizontal;
+        spacing: root.gap;
+        content-padding: root.inset;
+        c := Option { text: "C"; }
+        d := Option { text: "D"; }
+    }
+
+    custom := RadioGroupBase {
+        x: 0px;
+        y: 0px;
+        width: 20px + 2 * root.inset;
+        height: 32px + root.gap + 2 * root.inset;
+        spacing: root.gap;
+        content-padding: root.inset;
+        header << Rectangle { height: 12px; }
+        e := Option { text: "E"; }
+        Option { text: "F"; }
+    }
+
+    cleared := RadioGroup {
+        x: 0px;
+        y: 0px;
+        title: "Replaced title";
+        width: 20px + 2 * root.inset;
+        height: 20px + root.gap + 2 * root.inset;
+        spacing: root.gap;
+        content-padding: root.inset;
+        header << { }
+        g := Option { text: "G"; }
+        Option { text: "H"; }
+    }
+
+    out property <bool> test: vertical.item-count == 2 && custom.item-count == 2
+        && cleared.item-count == 2 && a.absolute-position.x == root.inset && a.absolute-position.y == root.inset
+        && b.absolute-position.y - a.absolute-position.y == 10px + root.gap && c.absolute-position.x == root.inset && c.absolute-position.y == root.inset
+        && d.absolute-position.x - c.absolute-position.x == 20px + root.gap && e.absolute-position.y == root.inset + 12px
+        && g.absolute-position.y == root.inset;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+instance.set_gap(20.0);
+instance.set_inset(10.0);
+assert!(instance.get_test());
+```
+*/

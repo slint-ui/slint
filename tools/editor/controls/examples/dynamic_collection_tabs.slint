@@ -1,0 +1,99 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Button, LineEdit, CollectionTabWidget, CollectionTab, BasicTheme } from "../src/basic.slint";
+
+enum PageKind { counter, notes }
+struct Document { id: int, title: string, kind: PageKind }
+
+component DocumentPage inherits CollectionTab {
+    in property <Document> document;
+    private property <int> count;
+    title: root.document.kind == PageKind.counter ? "\{root.document.title} (\{root.count})" : root.document.title;
+    min-height: 140px;
+    if root.document.kind == PageKind.counter: VerticalLayout {
+        spacing: 12px;
+        Text { text: "Count: \{root.count}"; color: BasicTheme.foreground; }
+        Button { text: "Increment \{root.document.title}"; clicked => { root.count += 1; } }
+        Rectangle { vertical-stretch: 1; }
+    }
+    if root.document.kind == PageKind.notes: VerticalLayout {
+        spacing: 12px;
+        Text { text: root.document.title; color: BasicTheme.foreground; }
+        LineEdit {
+            accessible-label: "Notes \{root.document.id}";
+            placeholder-text: "Write something, then insert or close another tab.";
+        }
+        Rectangle { vertical-stretch: 1; }
+    }
+}
+
+export component DynamicTabsExample inherits Rectangle {
+    in-out property <int> current-index <=> tabs.current-index;
+    out property <int> item-count: tabs.item-count;
+    private property <int> next-id: 3;
+    private property <[Document]> documents: [
+        { id: 1, title: "Counter 1", kind: PageKind.counter },
+        { id: 2, title: "Notes 2", kind: PageKind.notes },
+    ];
+    private property <string> current-title: root.current-index >= 0 ? root.documents[root.current-index].title : "";
+    changed current-title => { title-input.text = root.current-title; }
+
+    function insert(index: int, kind: PageKind) {
+        let selected = root.current-index;
+        root.documents.insert(index, {
+            id: root.next-id,
+            title: kind == PageKind.counter ? "Counter \{root.next-id}" : "Notes \{root.next-id}",
+            kind: kind,
+        });
+        root.next-id += 1;
+        root.current-index = selected >= index ? selected + 1 : Math.max(selected, 0);
+    }
+
+    function append(kind: PageKind) {
+        root.insert(root.documents.length, kind);
+        root.current-index = root.documents.length - 1;
+    }
+
+    function close-current() {
+        root.documents.remove(root.current-index);
+        root.current-index = Math.min(root.current-index, root.documents.length - 1);
+    }
+
+    VerticalLayout {
+        spacing: 12px;
+        HorizontalLayout {
+            spacing: 8px;
+            Button { text: "Add counter"; clicked => { root.append(PageKind.counter); } }
+            Button { text: "Add notes"; clicked => { root.append(PageKind.notes); } }
+            Button {
+                text: "Insert before";
+                enabled: root.current-index >= 0;
+                clicked => { root.insert(root.current-index, PageKind.counter); }
+            }
+            Button {
+                text: "Close tab";
+                enabled: root.current-index >= 0;
+                clicked => { root.close-current(); }
+            }
+            Rectangle { horizontal-stretch: 1; }
+        }
+        HorizontalLayout {
+            spacing: 8px;
+            Text { text: "Title:"; color: BasicTheme.foreground; vertical-alignment: center; }
+            title-input := LineEdit {
+                accessible-label: "Tab title";
+                text: root.current-title;
+                enabled: root.current-index >= 0;
+                edited(value) => { root.documents[root.current-index].title = value; }
+            }
+        }
+        tabs := CollectionTabWidget {
+            for document in root.documents: DocumentPage { document: document; }
+        }
+        if root.item-count == 0: Text {
+            text: "No tabs. Add a counter or notes page.";
+            color: BasicTheme.disabled-foreground;
+        }
+    }
+}
