@@ -1,5 +1,4 @@
-#if (defined(SLINT_ESP_CPU_TEXTURES) || defined(SLINT_ESP_PPA))                                    \
-        && defined(SLINT_ESP_RENDER_IN_SEPARATE_TASK)// Copyright © SixtyFPS GmbH <info@slint.dev>
+// Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // cSpell: ignore jtag LOGI LOGW rgbpix
@@ -391,7 +390,8 @@ void EspPlatform<PixelType>::run_event_loop()
 #ifdef SLINT_ESP_CPU_TEXTURES
     CpuTextureFrameBuffer cpu_textures;
 #endif
-#if (defined(SLINT_ESP_CPU_TEXTURES) || defined(SLINT_ESP_PPA)) && defined(SLINT_ESP_RENDER_IN_SEPARATE_TASK)
+#if (defined(SLINT_ESP_CPU_TEXTURES) || defined(SLINT_ESP_PPA))                                    \
+        && defined(SLINT_ESP_RENDER_IN_SEPARATE_TASK)
     // Used only by the thread that rasterizes.
     slint::platform::SoftwareRenderer::PreparedTextures prepared_textures;
     prepared_textures.set_max_bytes(std::size_t(CONFIG_SLINT_PREPARED_TEXTURES_SIZE) * 1024);
