@@ -5,22 +5,6 @@
 
 menu "Slint"
 
-    config SLINT_RENDER_IN_SEPARATE_TASK
-        bool "Rasterize and present in a separate task"
-        default n
-        depends on !FREERTOS_UNICORE
-        help
-            With a frame buffer, the event loop only records each frame,
-            and a separate task rasterizes and presents it,
-            while the event loop goes on with the next frame.
-            The task isn't pinned, so FreeRTOS runs it on whichever core is free.
-            A frame then takes as long as the slower of the two, instead of both.
-
-    config SLINT_RASTER_TASK_STACK_SIZE
-        int "Stack size of the task that rasterizes, in bytes"
-        default 8192
-        depends on SLINT_RENDER_IN_SEPARATE_TASK
-
     config SLINT_CPU_TEXTURES
         bool "Draw hinted images with a whole-image CPU loop"
         default n
@@ -33,7 +17,7 @@ menu "Slint"
     config SLINT_PREPARED_TEXTURES_SIZE
         int "Memory for prepared images, in KiB"
         default 8192
-        depends on SLINT_CPU_TEXTURES && SLINT_RENDER_IN_SEPARATE_TASK
+        depends on SLINT_CPU_TEXTURES
         help
             When the next image doesn't fit, all prepared images are dropped.
             Larger images aren't prepared, so 0 turns preparing off.
