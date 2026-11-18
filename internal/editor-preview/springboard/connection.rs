@@ -134,7 +134,7 @@ impl Connection {
 
     /// Pending while nothing is started. `None` when the preview went away.
     pub(super) async fn next_event(&mut self) -> Option<ConnectionEvent> {
-        let event = match &mut self.preview {
+        match &mut self.preview {
             Some(ActivePreview::Remote { connection, .. }) => connection.next_event().await,
             Some(ActivePreview::Local { receiver, .. }) => {
                 receiver.recv().await.map(|message| match message {
@@ -155,15 +155,12 @@ impl Connection {
                 })
             }
             None => std::future::pending().await,
-        };
-        if let Some(ConnectionEvent::DebuggerMessage(
-            PreviewToDebuggerMessage::SystemTestResponse { id, .. },
-        )) = &event
-            && let Some(pending) = &mut self.pending_requests
-        {
-            pending.ids.remove(id);
         }
-        event
+    }
+
+    /// Marks the request `id` as answered, and returns whether it was pending.
+    pub(super) fn take_pending(&mut self, id: u64) -> bool {
+        self.pending_requests.as_mut().is_some_and(|pending| pending.ids.remove(&id))
     }
 
     pub(super) fn fail(&mut self, error: String) {
@@ -260,15 +257,17 @@ impl Connection {
         }
     }
 
-    /// Forward the debugger's `message` to the preview, once connected.
-    /// Returns why it wasn't forwarded.
+    /// Sends the debugger's `message` to the preview, once connected.
+    /// Drops a request that reuses the ID of an unanswered one.
+    /// Returns why it wasn't sent.
     pub(super) fn send_debugger_message(
         &mut self,
         message: DebuggerToPreviewMessage,
     ) -> Result<(), String> {
         let &DebuggerToPreviewMessage::SystemTestRequest { id, .. } = &message;
         if self.pending_requests.as_ref().is_some_and(|pending| pending.ids.contains(&id)) {
-            return Err(format!("The request with ID {id} is still unanswered"));
+            tracing::warn!("Dropping the debugger request {id}, its ID is still unanswered");
+            return Ok(());
         }
         match &self.preview {
             Some(ActivePreview::Local { preview, .. }) => {
@@ -279,7 +278,13 @@ impl Connection {
             {
                 connection.send(LspToPreviewMessage::DebuggerMessage(message))
             }
-            _ => return Err("No preview is running".into()),
+            Some(ActivePreview::Remote { .. }) => {
+                return Err("The viewer isn't connected yet".into());
+            }
+            Some(ActivePreview::Serial { .. }) => {
+                return Err("Serial previews don't answer debugger requests".into());
+            }
+            None => return Err("No preview is running".into()),
         }
         if let Some(pending) = &mut self.pending_requests {
             pending.ids.insert(id);

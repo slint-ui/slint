@@ -280,8 +280,8 @@ impl Springboard {
     }
 
     /// Sends the debugger's `message` to the running preview.
-    /// The debugger gets an error response without one,
-    /// or when a request with the same ID is still unanswered.
+    /// The debugger gets an error response without one.
+    /// A request reusing the ID of an unanswered one is dropped.
     pub fn send_debugger_message(&self, message: DebuggerToPreviewMessage) {
         let _ = self.task_sender.send(Box::new(move |task| task.send_debugger_message(message)));
     }
@@ -531,7 +531,12 @@ impl SpringboardTask {
                 return;
             }
             ConnectionEvent::DebuggerMessage(message) => {
-                let _ = self.to_debugger.send(message);
+                let &PreviewToDebuggerMessage::SystemTestResponse { id, .. } = &message;
+                if self.connection.take_pending(id) {
+                    let _ = self.to_debugger.send(message);
+                } else {
+                    tracing::debug!("Dropping the response to request {id}, which isn't pending");
+                }
                 return;
             }
             ConnectionEvent::Ended { error } => {
@@ -1274,16 +1279,23 @@ mod tests {
                     controller_with_debugger("echo_child");
                 controller.start();
                 started(&mut receiver).await;
+                let (sender, endpoint) = mpsc::unbounded_channel();
+                controller
+                    .task_sender
+                    .send(Box::new(move |task| task.connection.replace_local_receiver(endpoint)))
+                    .unwrap();
+                controller.send_debugger_message(DebuggerToPreviewMessage::SystemTestRequest {
+                    id: 7,
+                    request: vec![1],
+                });
                 let response =
                     PreviewToDebuggerMessage::SystemTestResponse { id: 7, response: Ok(vec![1]) };
                 let queued = response.clone();
                 controller
                     .task_sender
-                    .send(Box::new(move |task| {
-                        let (sender, endpoint) = mpsc::unbounded_channel();
+                    .send(Box::new(move |_| {
                         sender.send(PreviewToLspMessage::DebuggerMessage(queued)).unwrap();
                         sender.send(PreviewToLspMessage::Exited).unwrap();
-                        task.connection.replace_local_receiver(endpoint);
                     }))
                     .unwrap();
                 assert_eq!(receive_debugger(&mut debugger).await, response);
@@ -1327,7 +1339,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_request_reusing_an_unanswered_id_gets_an_error() {
+    async fn a_request_reusing_an_unanswered_id_is_dropped() {
         tokio::task::LocalSet::new()
             .run_until(async {
                 let (controller, mut receiver, mut debugger, _discovery, _usb) =
@@ -1345,10 +1357,6 @@ mod tests {
                         request: vec![1],
                     });
                 }
-                assert!(matches!(
-                    receive_debugger(&mut debugger).await,
-                    PreviewToDebuggerMessage::SystemTestResponse { id: 7, response: Err(_) }
-                ));
                 controller
                     .task_sender
                     .send(Box::new(move |_| {
@@ -1359,6 +1367,45 @@ mod tests {
                     receive_debugger(&mut debugger).await,
                     PreviewToDebuggerMessage::SystemTestResponse { id: 7, response: Err(_) }
                 ));
+                wait_idle(&controller).await;
+                assert!(debugger.try_recv().is_err());
+                controller.shutdown().await;
+            })
+            .await;
+    }
+
+    #[tokio::test]
+    async fn responses_to_requests_that_are_not_pending_are_dropped() {
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                let (controller, mut receiver, mut debugger, _discovery, _usb) =
+                    controller_with_debugger("echo_child");
+                controller.start();
+                started(&mut receiver).await;
+                let (sender, endpoint) = mpsc::unbounded_channel();
+                controller
+                    .task_sender
+                    .send(Box::new(move |task| task.connection.replace_local_receiver(endpoint)))
+                    .unwrap();
+                controller.send_debugger_message(DebuggerToPreviewMessage::SystemTestRequest {
+                    id: 7,
+                    request: vec![1],
+                });
+                let response =
+                    PreviewToDebuggerMessage::SystemTestResponse { id: 7, response: Ok(vec![1]) };
+                let unsolicited =
+                    PreviewToDebuggerMessage::SystemTestResponse { id: 8, response: Ok(vec![2]) };
+                let queued = [unsolicited, response.clone(), response.clone()];
+                controller
+                    .task_sender
+                    .send(Box::new(move |_| {
+                        for message in queued {
+                            sender.send(PreviewToLspMessage::DebuggerMessage(message)).unwrap();
+                        }
+                        sender.send(PreviewToLspMessage::Exited).unwrap();
+                    }))
+                    .unwrap();
+                assert_eq!(receive_debugger(&mut debugger).await, response);
                 wait_idle(&controller).await;
                 assert!(debugger.try_recv().is_err());
                 controller.shutdown().await;
