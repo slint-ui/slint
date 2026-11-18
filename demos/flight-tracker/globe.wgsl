@@ -103,8 +103,9 @@ fn detail(first: i32, uv: vec2<f32>, ddx: vec2<f32>, ddy: vec2<f32>) -> vec4<f32
 
 @fragment
 fn fs_main(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
-    // NXP's Vivante Vulkan driver interpolates varyings too coarsely for the rays, so they come
-    // from the pixel's position.
+    // NXP's Vivante Vulkan driver gets wrong values from a vertex output that goes into a vector,
+    // like `vec4<f32>(ndc, 0.0, 1.0)`, before any arithmetic. So the rays come from the pixel's
+    // position.
     let ndc = position.xy / globals.viewport.xy * vec2<f32>(2.0, -2.0) + vec2<f32>(-1.0, 1.0);
     let near = globals.inverse_view_projection * vec4<f32>(ndc, 0.0, 1.0);
     let far = globals.inverse_view_projection * vec4<f32>(ndc, 1.0, 1.0);
