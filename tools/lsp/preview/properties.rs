@@ -2164,7 +2164,10 @@ export component Main inherits Window {
         let (dc, uri, _) =
             i_slint_editor_preview::test::loaded_document_cache_with_experimental(source.into());
         let element = dc
-            .element_at_offset(&uri, TextSize::new(source.find("appearance.font {").unwrap() as u32))
+            .element_at_offset(
+                &uri,
+                TextSize::new(source.find("appearance.font {").unwrap() as u32),
+            )
             .unwrap();
         let properties = get_properties(&element, LayoutKind::None);
         assert!(find_property(&properties, "appearance").unwrap().defined_at.is_some());
