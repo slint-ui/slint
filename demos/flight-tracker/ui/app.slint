@@ -275,13 +275,13 @@ component Flap {
         background: #ffffff16;
     }
 
-    // The pins that hold the flaps, at both ends of the hinge.
+    // The notches at both ends of the hinge, where the housing holds the flaps and shows through.
     for side in (root.size >= 20px ? 2 : 0): Rectangle {
         x: side == 0 ? 0 : root.width - self.width;
         y: (root.height - self.height) / 2;
         width: max(2px, root.size * 0.1);
         height: max(4px, root.size * 0.22);
-        background: #4a4b52;
+        background: Theme.surface;
     }
 }
 
@@ -382,8 +382,7 @@ component PillButton inherits Rectangle {
 }
 
 component RoundButton inherits Glass {
-    in property <string> text;
-    /// An icon instead of the text, in the text's color.
+    /// In the text's color.
     in property <image> icon;
     in property <bool> checked;
     callback clicked;
@@ -396,14 +395,7 @@ component RoundButton inherits Glass {
         background: touch.pressed ? Theme.fill-pressed : touch.has-hover ? Theme.fill-hover : transparent;
     }
 
-    if root.icon.width == 0: Text {
-        text: root.text;
-        color: Theme.text;
-        font-size: 18px;
-        horizontal-alignment: center;
-        vertical-alignment: center;
-    }
-    if root.icon.width > 0: Image {
+    Image {
         width: 18px;
         height: 18px;
         source: root.icon;
@@ -1442,14 +1434,14 @@ export component AppWindow inherits Window {
         width: 40px;
         spacing: 8px;
         RoundButton {
-            text: "+";
+            icon: @image-url("icons/plus.svg");
             clicked => {
                 root.zoom(1.5);
             }
         }
 
         RoundButton {
-            text: "−";
+            icon: @image-url("icons/minus.svg");
             clicked => {
                 root.zoom(1 / 1.5);
             }
