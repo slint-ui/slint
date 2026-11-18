@@ -1586,28 +1586,16 @@ impl TargetPixel for PremultipliedRgbaColor {
 
 pub use i_slint_core::graphics::Rgb565Pixel;
 
-const R_MASK: u16 = 0b1111_1000_0000_0000;
-const G_MASK: u16 = 0b0000_0111_1110_0000;
-const B_MASK: u16 = 0b0000_0000_0001_1111;
-
 impl TargetPixel for Rgb565Pixel {
     fn blend(&mut self, color: PremultipliedRgbaColor) {
-        let a = (u8::MAX - color.alpha) as u32;
-        // convert to 5 bits
-        let a = (a + 4) >> 3;
-
-        // 00000ggg_ggg00000_rrrrr000_000bbbbb
-        let expanded = (self.0 & (R_MASK | B_MASK)) as u32 | (((self.0 & G_MASK) as u32) << 16);
-
-        // gggggggg_000rrrrr_rrr000bb_bbbbbb00
-        let c =
-            ((color.red as u32) << 13) | ((color.green as u32) << 24) | ((color.blue as u32) << 2);
-        // gggggg00_000rrrrr_000000bb_bbb00000
-        let c = c & 0b11111100_00011111_00000011_11100000;
-
-        let res = expanded * a + c;
-
-        self.0 = ((res >> 21) as u16 & G_MASK) | ((res >> 5) as u16 & (R_MASK | B_MASK));
+        // Blend with the full 8-bit alpha. Quantizing alpha to 5 bits here
+        // turns a fade on an RGB565 target into about 20 visible steps, no
+        // matter how smoothly the animation itself is sampled.
+        let a = u16::from(u8::MAX - color.alpha);
+        let r = (u16::from(self.red()) * a / 255) + u16::from(color.red);
+        let g = (u16::from(self.green()) * a / 255) + u16::from(color.green);
+        let b = (u16::from(self.blue()) * a / 255) + u16::from(color.blue);
+        self.0 = ((r & 0b1111_1000) << 8) | ((g & 0b1111_1100) << 3) | (b >> 3);
     }
 
     fn from_rgb(r: u8, g: u8, b: u8) -> Self {
@@ -1697,6 +1685,16 @@ fn rgb565() {
     let pix565 = Rgb565Pixel::from_rgb(0x56, 0x42, 0xe3);
     let pix888: Rgb8Pixel = pix565.into();
     assert_eq!(pix565, pix888.into());
+}
+
+#[test]
+fn rgb565_blend_uses_eight_bit_alpha() {
+    // Alpha 4 and alpha 0 used to collapse to the same 5-bit value, so a long
+    // fade moved in ~20 steps. At alpha 4, green keeps 251/255 of its value
+    // (0x07c0); the 5-bit path kept 31/32 and rounded to 0x07a0.
+    let mut pixel = Rgb565Pixel(0x07e0);
+    pixel.blend(PremultipliedRgbaColor { red: 0, green: 0, blue: 0, alpha: 4 });
+    assert_eq!(pixel.0, 0x07c0);
 }
 
 #[test]
