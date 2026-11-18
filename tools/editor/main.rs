@@ -130,7 +130,10 @@ fn main() -> Result<()> {
         start_project(project);
     }
 
-    editor_ui.run()?;
+    let result = editor_ui.run();
+    // Release the preview's Metal resources before Objective-C thread-local cleanup.
+    drop(preview::PREVIEW_STATE.take());
+    result?;
     Ok(())
 }
 

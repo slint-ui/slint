@@ -180,15 +180,21 @@ def test_file_tree_limits_rename_error_to_edited_row(
         window = first_window(editor)
         file_row(window, source).invoke_accessible_default_action()
         press_key(window, keys.Return if sys.platform == "darwin" else keys.F2)
-        element(
+        input = element(
             window, "Rename Main.slint", role=slint_testing.AccessibleRole.TextInput
         )
+        input_y = input.absolute_position.y
+        row_height = file_row(window, source).size.height
 
         press_key(window, keys.Backspace)
         press_keys(window, "Sibling")
         press_key(window, keys.Return)
 
         expect(query(window, "A file with that name already exists")).to_be_visible()
+        message = element(window, "A file with that name already exists")
+        assert input.absolute_position.y == input_y
+        assert file_row(window, source).size.height > row_height
+        assert message.absolute_position.y >= input_y + input.size.height
 
 
 def test_file_tree_opens_sibling_component(

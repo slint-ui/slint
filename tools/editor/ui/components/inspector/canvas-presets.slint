@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Icons } from "../../icons/index.slint";
 import { Project, ProjectFileState } from "../../project.slint";
 import { Style, Metrics, Typography, Colors } from "../../style.slint";
 import { InspectorSection, InspectorValueField, InspectorSegment, InspectorIconButton } from "index.slint";
@@ -60,7 +61,7 @@ export component CanvasPresetsSection inherits InspectorSection {
                     y: (parent.height - self.height) / 2;
                     width: 16px;
                     height: 16px;
-                    source: @image-url("../../assets/lucide/trash.svg");
+                    source: Icons.trash;
                     colorize: Colors.muted;
                 }
                 clicked => { Project.delete-canvas-preset(index); }

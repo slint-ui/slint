@@ -266,8 +266,12 @@ pub fn reset_outline(api: &ui::Api<'_>, root_component: Option<Rc<object_tree::C
 pub fn setup(api: &ui::Api<'_>, api_weak: slint::Weak<ui::Api<'static>>) {
     api.on_outline_select_element(|uri, offset, notify_editor| {
         super::element_selection::select_element_at_source_code_position(
-            i_slint_compiler::source_path::SourcePath::from(Url::parse(uri.as_str()).unwrap()),
-            TextSize::new(offset as u32),
+            object_tree::ElementLocation {
+                path: i_slint_compiler::source_path::SourcePath::from(
+                    Url::parse(uri.as_str()).unwrap(),
+                ),
+                offset: TextSize::new(offset as u32),
+            },
             None,
             if notify_editor {
                 super::SelectionNotification::Now
@@ -296,13 +300,12 @@ pub fn setup(api: &ui::Api<'_>, api_weak: slint::Weak<ui::Api<'static>>) {
     api.on_outline_drop(|data, target_uri, target_offset, location| {
         let Ok(drag_item) = DragItem::try_from(data) else { return };
         let is_new = matches!(drag_item, DragItem::NewComponent { .. });
-        if let Some((edit, drop_data)) = drop_edit(drag_item, target_uri, target_offset, location)
+        if let Some((edit, inserted)) = drop_edit(drag_item, target_uri, target_offset, location)
             && preview::send_workspace_edit("Drop element".to_string(), edit, true)
             && is_new
         {
             super::element_selection::select_element_at_source_code_position(
-                drop_data.path,
-                drop_data.selection_offset,
+                inserted,
                 None,
                 preview::SelectionNotification::AfterUpdate,
             );
@@ -312,12 +315,11 @@ pub fn setup(api: &ui::Api<'_>, api_weak: slint::Weak<ui::Api<'static>>) {
         can_drop(data, target_uri, target_offset, location)
     });
     api.on_outline_add_child(|target_uri, target_offset| {
-        if let Some((edit, drop_data)) = add_child_edit(target_uri, target_offset)
+        if let Some((edit, inserted)) = add_child_edit(target_uri, target_offset)
             && preview::send_workspace_edit("Add child".to_string(), edit, true)
         {
             super::element_selection::select_element_at_source_code_position(
-                drop_data.path,
-                drop_data.selection_offset,
+                inserted,
                 None,
                 preview::SelectionNotification::AfterUpdate,
             );
@@ -348,7 +350,7 @@ fn child_template(container_type: &str) -> Option<ChildTemplate> {
 fn add_child_edit(
     target_uri: SharedString,
     target_offset: i32,
-) -> Option<(lsp_types::WorkspaceEdit, preview::drop_location::DropData)> {
+) -> Option<(lsp_types::WorkspaceEdit, object_tree::ElementLocation)> {
     let document_cache = super::document_cache()?;
     let url = Url::parse(target_uri.as_str()).ok()?;
     let container = document_cache.element_at_offset(&url, TextSize::new(target_offset as u32))?;
@@ -397,7 +399,7 @@ fn drop_edit(
     target_uri: SharedString,
     target_offset: i32,
     location: ui::DropLocation,
-) -> Option<(lsp_types::WorkspaceEdit, preview::drop_location::DropData)> {
+) -> Option<(lsp_types::WorkspaceEdit, object_tree::ElementLocation)> {
     let document_cache = super::document_cache()?;
     let url = Url::parse(target_uri.as_str()).ok()?;
     let target_elem =
