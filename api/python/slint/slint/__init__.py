@@ -90,6 +90,12 @@ def _normalize_prop(name: str) -> str:
     return name + "_" if keyword.iskeyword(name) or name == "self" else name
 
 
+def _normalize_component_member(name: str) -> str:
+    # Like `component_member_ident` in the Python generator
+    name = _normalize_prop(name)
+    return name + "_" if name in ("show", "hide", "run") else name
+
+
 def _build_global_class(compdef: native.ComponentDefinition, global_name: str) -> Any:
     properties_and_callbacks = {}
 
@@ -217,7 +223,7 @@ def _build_class(
     properties_and_callbacks: dict[Any, Any] = {"__init__": cls_init}
 
     for prop_name in compdef.properties:
-        python_prop = _normalize_prop(prop_name)
+        python_prop = _normalize_component_member(prop_name)
         if python_prop in properties_and_callbacks:
             _logger.warning(f"Duplicated property {prop_name}")
             continue
@@ -234,7 +240,7 @@ def _build_class(
         properties_and_callbacks[python_prop] = mk_setter_getter(prop_name)
 
     for callback_name in compdef.callbacks:
-        python_prop = _normalize_prop(callback_name)
+        python_prop = _normalize_component_member(callback_name)
         if python_prop in properties_and_callbacks:
             _logger.warning(f"Duplicated property {prop_name}")
             continue
@@ -254,7 +260,7 @@ def _build_class(
         properties_and_callbacks[python_prop] = mk_setter_getter(callback_name)
 
     for function_name in compdef.functions:
-        python_prop = _normalize_prop(function_name)
+        python_prop = _normalize_component_member(function_name)
         if python_prop in properties_and_callbacks:
             _logger.warning(f"Duplicated function {prop_name}")
             continue

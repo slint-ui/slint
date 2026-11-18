@@ -45,6 +45,16 @@ pub fn ident(ident: &str) -> SmolStr {
     new_ident
 }
 
+/// Get the `ident` for a member of a component class, adding a trailing underscore if it would clash with the names of the `slint.Component` methods.
+fn component_member_ident(name: &str) -> SmolStr {
+    let new_ident = ident(name);
+    if matches!(new_ident.as_str(), "show" | "hide" | "run") {
+        format_smolstr!("{}_", new_ident)
+    } else {
+        new_ident
+    }
+}
+
 #[derive(Clone, PartialEq, Serialize, Deserialize, Debug)]
 pub struct PyProperty {
     name: SmolStr,
@@ -61,9 +71,9 @@ impl From<&PyProperty> for python_ast::Field {
     }
 }
 
-impl From<(&SmolStr, &llr::PublicProperty)> for PyProperty {
-    fn from((name, llr_prop): (&SmolStr, &llr::PublicProperty)) -> Self {
-        Self { name: ident(name), ty: python_type_name(&llr_prop.ty) }
+impl PyProperty {
+    fn new(name: SmolStr, llr_prop: &llr::PublicProperty) -> Self {
+        Self { name, ty: python_type_name(&llr_prop.ty) }
     }
 }
 
@@ -125,7 +135,11 @@ impl From<&llr::PublicComponent> for PyComponent {
     fn from(llr_compo: &llr::PublicComponent) -> Self {
         Self {
             name: ident(&llr_compo.name),
-            properties: llr_compo.public_properties.iter().map(From::from).collect(),
+            properties: llr_compo
+                .public_properties
+                .iter()
+                .map(|(name, llr_prop)| PyProperty::new(component_member_ident(name), llr_prop))
+                .collect(),
             aliases: Vec::new(),
         }
     }
@@ -135,7 +149,11 @@ impl From<&llr::GlobalComponent> for PyComponent {
     fn from(llr_global: &llr::GlobalComponent) -> Self {
         Self {
             name: ident(&llr_global.name),
-            properties: llr_global.public_properties.iter().map(From::from).collect(),
+            properties: llr_global
+                .public_properties
+                .iter()
+                .map(|(name, llr_prop)| PyProperty::new(ident(name), llr_prop))
+                .collect(),
             aliases: llr_global.aliases.iter().map(|exported_name| ident(exported_name)).collect(),
         }
     }
