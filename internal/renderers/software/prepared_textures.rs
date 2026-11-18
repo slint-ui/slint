@@ -131,7 +131,7 @@ impl PreparedTexture {
     }
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct Key {
     data: usize,
     source_size: (u32, u32),
@@ -143,32 +143,54 @@ struct Key {
 /// Images prepared for a [`TargetPixelBuffer`](super::target_pixel_buffer::TargetPixelBuffer),
 /// kept from frame to frame by the thread that rasterizes.
 pub struct PreparedTextures {
-    textures: BTreeMap<Key, PreparedTexture>,
+    textures: BTreeMap<Key, Entry>,
     bytes: usize,
     max_bytes: usize,
+    /// Counts the lookups, to tell which image was used last.
+    clock: u64,
+}
+
+struct Entry {
+    texture: PreparedTexture,
+    bytes: usize,
+    last_used: u64,
 }
 
 impl Default for PreparedTextures {
     fn default() -> Self {
-        Self { textures: BTreeMap::new(), bytes: 0, max_bytes: 8 << 20 }
+        Self { textures: BTreeMap::new(), bytes: 0, max_bytes: 0, clock: 0 }
     }
 }
 
 #[cfg_attr(not(feature = "experimental"), allow(dead_code))]
 impl PreparedTextures {
-    /// Creates an empty cache that holds up to 8 MiB of images.
+    /// Creates an empty cache that prepares no images, until [`Self::set_max_bytes`].
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Sets how many bytes the prepared images may take.
-    /// When the next image doesn't fit, the cache drops all images.
+    /// When the next image doesn't fit, the cache drops the images used longest ago.
     /// Images larger than this aren't prepared, so 0 turns preparing off.
     pub fn set_max_bytes(&mut self, max_bytes: usize) {
         self.max_bytes = max_bytes;
-        if self.bytes > max_bytes {
-            self.textures.clear();
-            self.bytes = 0;
+        self.drop_until_fits(0);
+    }
+
+    /// Drops the image used longest ago, until `extra` more bytes fit.
+    fn drop_until_fits(&mut self, extra: usize) {
+        while self.bytes + extra > self.max_bytes {
+            let Some(oldest) = self
+                .textures
+                .iter()
+                .min_by_key(|(_, entry)| entry.last_used)
+                .map(|(key, _)| key.clone())
+            else {
+                return;
+            };
+            if let Some(entry) = self.textures.remove(&oldest) {
+                self.bytes -= entry.bytes;
+            }
         }
     }
 
@@ -182,8 +204,10 @@ impl PreparedTextures {
             rotation: texture.rotation.angle() as u16,
             colorized: texture.colorize.is_some(),
         };
-        if let Some(prepared) = self.textures.get(&key) {
-            return Some(prepared.clone());
+        self.clock += 1;
+        if let Some(entry) = self.textures.get_mut(&key) {
+            entry.last_used = self.clock;
+            return Some(entry.texture.clone());
         }
         let bytes = texture.dst_width * texture.dst_height * if key.colorized { 1 } else { 4 };
         if bytes > self.max_bytes {
@@ -193,13 +217,10 @@ impl PreparedTextures {
         let _span =
             tracing::info_span!("prepare_texture", w = texture.dst_width, h = texture.dst_height)
                 .entered();
-        let prepared = PreparedTexture::new(texture)?;
-        if self.bytes + bytes > self.max_bytes {
-            self.textures.clear();
-            self.bytes = 0;
-        }
+        let texture = PreparedTexture::new(texture)?;
+        self.drop_until_fits(bytes);
         self.bytes += bytes;
-        self.textures.insert(key, prepared.clone());
-        Some(prepared)
+        self.textures.insert(key, Entry { texture: texture.clone(), bytes, last_used: self.clock });
+        Some(texture)
     }
 }

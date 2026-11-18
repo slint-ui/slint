@@ -258,8 +258,8 @@ pub trait TargetPixelBuffer {
     /// The texture must be clipped to the given region.
     /// Returns true if the operation was successful; false if it could not be
     /// implemented and instead the software renderer needs to draw the texture.
-    /// The renderer offers only textures inside an element with `cache-rendering-hint: true`.
-    /// It offers embedded images as a copy at their destination size, unrotated, in RAM,
+    /// When the caller gave the renderer a budget for prepared textures, the renderer offers
+    /// embedded images as a copy at their destination size, unrotated, in RAM,
     /// in RGBA or as an alpha map when colorized, and keeps that copy for later frames.
     fn draw_texture(&mut self, _: &DrawTextureArgs, _clip: &PhysicalRegion) -> bool {
         false
