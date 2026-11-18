@@ -24,9 +24,9 @@ endif()
 
 set(SLINT_FEATURE_FREESTANDING ON)
 set(SLINT_FEATURE_RENDERER_SOFTWARE ON)
-if ("$ENV{SLINT_ESP_EXPERIMENTAL_RENDER_IN_SEPARATE_TASK}" STREQUAL "1")
+if ("$ENV{SLINT_ESP_EXPERIMENTAL}" STREQUAL "1")
+    # The software renderer API for recording frames is still experimental.
     set(SLINT_FEATURE_EXPERIMENTAL ON)
-    target_compile_definitions(${COMPONENT_LIB} PRIVATE SLINT_ESP_RENDER_IN_SEPARATE_TASK=1)
 endif()
 set(SLINT_LIBRARY_CARGO_FLAGS "-Zbuild-std=core,alloc")
 set(DEFAULT_SLINT_EMBED_RESOURCES "embed-for-software-renderer" CACHE STRING "")

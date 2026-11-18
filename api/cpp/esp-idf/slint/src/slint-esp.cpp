@@ -52,18 +52,12 @@ struct EspPlatform : public slint::platform::Platform
           buffer1(config.buffer1),
           buffer2(config.buffer2),
           byte_swap(config.byte_swap),
-          rotation(config.rotation),
-          render_in_separate_task(config.render_in_separate_task),
-          raster_task_stack_size(config.raster_task_stack_size)
+          rotation(config.rotation)
     {
         task = xTaskGetCurrentTaskHandle();
-#ifndef SLINT_ESP_RENDER_IN_SEPARATE_TASK
-        if (render_in_separate_task) {
-            ESP_LOGW(TAG,
-                     "render_in_separate_task needs "
-                     "SLINT_ESP_EXPERIMENTAL_RENDER_IN_SEPARATE_TASK=1 "
-                     "when building Slint; rendering in the event loop");
-        }
+#ifdef SLINT_ESP_RENDER_IN_SEPARATE_TASK
+        render_in_separate_task = config.render_in_separate_task;
+        raster_task_stack_size = config.raster_task_stack_size;
 #endif
     }
 
@@ -88,8 +82,10 @@ private:
     std::optional<std::span<PixelType>> buffer2;
     bool byte_swap;
     slint::platform::SoftwareRenderer::RenderingRotation rotation;
-    bool render_in_separate_task;
-    uint32_t raster_task_stack_size;
+#ifdef SLINT_ESP_RENDER_IN_SEPARATE_TASK
+    bool render_in_separate_task = false;
+    uint32_t raster_task_stack_size = 8192;
+#endif
     class EspWindowAdapter *m_window = nullptr;
 
     // Need to be static because we can't pass user data to the touch interrupt callback
