@@ -4,6 +4,8 @@
 
 #MISE description="Check that every symlink in the repository points to an existing file"
 
+# cSpell: ignore readlink
+
 set -e
 
 broken=0
