@@ -367,10 +367,10 @@ mod software_renderer {
         PhysicalRegion, RepaintBufferType, Rgb565Pixel, SoftwareRenderer,
     };
 
-    #[cfg(feature = "experimental")]
-    use i_slint_renderer_software::{TargetPixelBuffer, TexturePixelFormat};
     #[cfg(all(feature = "experimental", target_has_atomic = "ptr"))]
     use i_slint_renderer_software::RecordedRasterCommands;
+    #[cfg(feature = "experimental")]
+    use i_slint_renderer_software::{TargetPixelBuffer, TexturePixelFormat};
 
     #[cfg(feature = "experimental")]
     type CppTargetPixelBufferUserData = *mut c_void;
