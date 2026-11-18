@@ -266,7 +266,12 @@ fn main() {
             .unwrap();
         let local_set = tokio::task::LocalSet::new();
         match local_set.block_on(&rt, run_lsp_server(args)) {
-            Ok(threads) => threads.join().unwrap(),
+            Ok(threads) => {
+                if let Err(error) = threads.join() {
+                    // When quitting, the editor may close its pipes while we still write to stdout (broken pipe)
+                    tracing::warn!("LSP I/O error: {error}");
+                }
+            }
             Err(error) => {
                 tracing::error!("Error running LSP server: {error}");
                 std::process::exit(3);
