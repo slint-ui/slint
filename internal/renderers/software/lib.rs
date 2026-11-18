@@ -2225,12 +2225,9 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> RasterCommandSink for BufferRast
 /// The raster commands of a frame that [`SoftwareRenderer::record_frame`] recorded.
 ///
 /// It keeps the images and glyphs that the frame uses alive.
-/// On targets with atomic pointers it is `Send` and `Sync`,
-/// so any thread may call [`Self::rasterize`] or drop it.
-/// Other targets, such as `thumbv6m`, count references without atomics:
-/// the recording is then neither `Send` nor `Sync`,
-/// and only the thread that recorded it may use it.
-#[cfg(feature = "experimental")]
+/// It is `Send` and `Sync`, so any thread may call [`Self::rasterize`] or drop it.
+/// It only exists on targets with atomic pointers, so not on `thumbv6m`.
+#[cfg(all(feature = "experimental", target_has_atomic = "ptr"))]
 #[derive(Default)]
 pub struct RecordedRasterCommands {
     commands: Vec<(RasterCommand, core::ops::Range<usize>)>,
@@ -2244,7 +2241,7 @@ const _: () = {
     let _ = assert_send_sync::<RecordedRasterCommands>;
 };
 
-#[cfg(feature = "experimental")]
+#[cfg(all(feature = "experimental", target_has_atomic = "ptr"))]
 impl RecordedRasterCommands {
     /// Rasterizes the frame into `buffer`, like [`SoftwareRenderer::render`] renders it.
     #[cfg_attr(feature = "tracing", tracing::instrument(name = "render_recorded", skip_all))]
@@ -2268,7 +2265,7 @@ impl RecordedRasterCommands {
     }
 }
 
-#[cfg(feature = "experimental")]
+#[cfg(all(feature = "experimental", target_has_atomic = "ptr"))]
 impl RasterCommandSink for RecordedRasterCommands {
     fn push(&mut self, command: RasterCommand, rounded_clips: &[RoundedClip]) {
         let start = self.rounded_clips.len();
