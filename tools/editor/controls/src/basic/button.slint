@@ -112,12 +112,8 @@ export global ButtonStyles {
 export component Button inherits ButtonBase {
     in property <ButtonStyle> style: root.primary || root.checked ? ButtonStyles.primary : ButtonStyles.secondary;
 
-    in property <brush> background-color: root.state-style.background-color;
-    in property <brush> foreground-color: root.state-style.foreground-color;
-    in property <brush> icon-color: root.foreground-color;
-
     in property <string> font-family;
-    in property <length> font-size: 14px;
+    in property <length> font-size: 1rem;
     in property <int> font-weight: 400;
     in property <bool> font-italic;
 
@@ -150,7 +146,7 @@ export component Button inherits ButtonBase {
     ]
 
     background << surface := Rectangle {
-        background: root.enabled ? root.background-color : root.state-style.background-color;
+        background: root.state-style.background-color;
         border-color: root.state-style.border-color;
         border-width: root.border-width;
         border-radius: root.border-radius;
@@ -179,11 +175,11 @@ export component Button inherits ButtonBase {
             width: root.icon-size;
             height: root.icon-size;
             source: root.icon;
-            colorize: !root.colorize-icon ? transparent : root.enabled ? root.icon-color : root.state-style.foreground-color;
+            colorize: root.colorize-icon ? root.state-style.foreground-color : transparent;
         }
-        if root.text != "": Text {
+        if root.text != "": label := Text {
             text: root.text;
-            color: root.enabled ? root.foreground-color : root.state-style.foreground-color;
+            color: root.state-style.foreground-color;
             font-size: root.font-size;
             font-weight: root.font-weight;
             font-family: root.font-family;

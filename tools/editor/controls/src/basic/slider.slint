@@ -10,6 +10,8 @@ export struct SliderStateStyle {
     fill-color: brush,
     handle-color: brush,
     handle-border-color: brush,
+    handle-width: length = -1px,
+    handle-height: length = -1px,
 }
 
 export struct SliderStyle {
@@ -53,10 +55,6 @@ export global SliderStyles {
 export component Slider inherits SliderBase {
     in property <SliderStyle> style: SliderStyles.standard;
 
-    in property <brush> track-color: root.state-style.track-color;
-    in property <brush> fill-color: root.state-style.fill-color;
-    in property <brush> handle-color: root.state-style.handle-color;
-
     in property <length> preferred-length: 200px;
     in property <length> min-thickness: 32px;
 
@@ -72,15 +70,21 @@ export component Slider inherits SliderBase {
     in property <length> focus-offset: 2px;
 
     private property <SliderStateStyle> state-style: root.style.rest;
-    private property <length> effective-handle-radius: root.handle-radius < 0px ? min(root.handle-width, root.handle-height) / 2 : root.handle-radius;
+    private property <length> reserved-handle-width: max(0px, root.handle-width, root.style.rest.handle-width, root.style.hover.handle-width,
+        root.style.pressed.handle-width, root.style.disabled.handle-width);
+    private property <length> reserved-handle-height: max(0px, root.handle-height, root.style.rest.handle-height, root.style.hover.handle-height,
+        root.style.pressed.handle-height, root.style.disabled.handle-height);
+    private property <length> visual-handle-width: max(0px, root.state-style.handle-width < 0px ? root.handle-width : root.state-style.handle-width);
+    private property <length> visual-handle-height: max(0px, root.state-style.handle-height < 0px ? root.handle-height : root.state-style.handle-height);
+    private property <length> effective-handle-radius: root.handle-radius < 0px ? min(root.visual-handle-width, root.visual-handle-height) / 2 : root.handle-radius;
     private property <length> effective-track-radius: root.track-radius < 0px ? root.track-thickness / 2 : root.track-radius;
 
     preferred-width: root.orientation == Orientation.vertical ? root.min-width : max(root.min-width, root.preferred-length);
     preferred-height: root.orientation == Orientation.vertical ? max(root.min-height, root.preferred-length) : root.min-height;
     min-width: root.orientation == Orientation.vertical
-        ? max(root.min-thickness, max(root.handle-width, root.track-thickness)) : root.handle-width;
-    min-height: root.orientation == Orientation.vertical ? root.handle-height
-        : max(root.min-thickness, max(root.handle-height, root.track-thickness));
+        ? max(root.min-thickness, max(root.reserved-handle-width, root.track-thickness)) : root.reserved-handle-width;
+    min-height: root.orientation == Orientation.vertical ? root.reserved-handle-height
+        : max(root.min-thickness, max(root.reserved-handle-height, root.track-thickness));
 
     states [
         disabled when !root.enabled: {
@@ -95,38 +99,44 @@ export component Slider inherits SliderBase {
     ]
 
     surface << LinearSliderSurface {
-        handle-width: root.handle-width;
-        handle-height: root.handle-height;
+        handle-width: root.reserved-handle-width;
+        handle-height: root.reserved-handle-height;
         track-thickness: root.track-thickness;
-        track << Rectangle {
-            background: root.enabled ? root.track-color : root.state-style.track-color;
+        track << track := Rectangle {
+            background: root.state-style.track-color;
             border-radius: root.effective-track-radius;
-            Rectangle {
+            fill := Rectangle {
                 x: root.orientation == Orientation.horizontal && root.inverted
                     ? parent.width * root.visual-position : 0px;
                 y: root.orientation == Orientation.vertical && !root.inverted
                     ? parent.height * root.visual-position : 0px;
                 width: root.orientation == Orientation.horizontal ? parent.width * root.position : parent.width;
                 height: root.orientation == Orientation.vertical ? parent.height * root.position : parent.height;
-                background: root.enabled ? root.fill-color : root.state-style.fill-color;
+                background: root.state-style.fill-color;
                 border-radius: root.effective-track-radius;
             }
         }
 
         handle << Rectangle {
-            background: root.enabled ? root.handle-color : root.state-style.handle-color;
-            border-color: root.state-style.handle-border-color;
-            border-width: root.handle-border-width;
-            border-radius: root.effective-handle-radius;
+            handle := Rectangle {
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+                width: root.visual-handle-width;
+                height: root.visual-handle-height;
+                background: root.state-style.handle-color;
+                border-color: root.state-style.handle-border-color;
+                border-width: root.handle-border-width;
+                border-radius: root.effective-handle-radius;
 
-            focus-outline := FocusOutline {
-                active: root.enabled && root.has-focus;
-                outline-color: root.style.focus-color;
-                target-width: parent.width;
-                target-height: parent.height;
-                line-width: root.focus-width;
-                offset: root.focus-offset;
-                radius: root.effective-handle-radius;
+                focus-outline := FocusOutline {
+                    active: root.enabled && root.has-focus;
+                    outline-color: root.style.focus-color;
+                    target-width: parent.width;
+                    target-height: parent.height;
+                    line-width: root.focus-width;
+                    offset: root.focus-offset;
+                    radius: root.effective-handle-radius;
+                }
             }
         }
     }

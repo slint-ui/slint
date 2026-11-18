@@ -20,6 +20,8 @@ export struct LineEditStyle {
     selection-background-color: color,
     selection-foreground-color: color,
     focus-color: brush,
+    border-width: length = 1px,
+    focused-border-width: length = 1px,
 }
 
 export global LineEditStyles {
@@ -53,11 +55,6 @@ export component LineEdit {
 
     in property <LineEditStyle> style: LineEditStyles.standard;
 
-    in property <brush> background-color: root.state-style.background-color;
-    in property <brush> foreground-color: root.state-style.foreground-color;
-    in property <color> selection-background-color: root.style.selection-background-color;
-    in property <color> selection-foreground-color: root.style.selection-foreground-color;
-
     in property <int> font-weight <=> field.font-weight;
     in-out property <bool> password-revealed <=> field.password-revealed;
 
@@ -69,7 +66,6 @@ export component LineEdit {
     in property <length> bottom-padding: root.vertical-padding;
     in property <length> spacing: 8px;
 
-    in property <length> border-width: 1px;
     in property <length> border-radius: 4px;
 
     in property <length> focus-width: 2px;
@@ -117,11 +113,11 @@ export component LineEdit {
         width: 100%;
         height: 100%;
         accessible-role: none;
-        foreground-color: root.enabled ? root.foreground-color : root.state-style.foreground-color;
-        font-size: 14px;
+        foreground-color: root.state-style.foreground-color;
+        font-size: 1rem;
         font-weight: 400;
-        selection-background-color: root.enabled ? root.selection-background-color : root.style.selection-background-color;
-        selection-foreground-color: root.enabled ? root.selection-foreground-color : root.style.selection-foreground-color;
+        selection-background-color: root.style.selection-background-color;
+        selection-foreground-color: root.style.selection-foreground-color;
         left-padding: root.left-padding;
         right-padding: root.right-padding;
         top-padding: root.top-padding;
@@ -132,9 +128,9 @@ export component LineEdit {
         @children
 
         background << surface := Rectangle {
-            background: root.enabled ? root.background-color : root.state-style.background-color;
+            background: root.state-style.background-color;
             border-color: root.state-style.border-color;
-            border-width: root.border-width;
+            border-width: root.enabled && root.has-focus ? root.style.focused-border-width : root.style.border-width;
             border-radius: root.border-radius;
 
             focus-outline := FocusOutline {

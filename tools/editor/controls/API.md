@@ -12,8 +12,6 @@ This reference covers additions to the standard widget interfaces, behavior diff
 Each control links to its standard API and behavior documentation.
 For examples and customization rules, see the [usage guide](README.md).
 
-Defaults described as “state style” follow the active state of the selected `style`.
-
 ## Shared Styled Inputs
 
 Button, CheckBox, Switch, ComboBox, and LineEdit accept these `in` properties:
@@ -21,7 +19,7 @@ Button, CheckBox, Switch, ComboBox, and LineEdit accept these `in` properties:
 | Property | Type | Default |
 | --- | --- | --- |
 | `font-family` | `string` | Application default font |
-| `font-size` | `length` | `14px` |
+| `font-size` | `length` | `1rem`, following `Window.default-font-size` |
 | `font-weight` | `int` | `400` |
 | `font-italic` | `bool` | `false` |
 | `horizontal-padding` | `length` | See each control |
@@ -34,8 +32,9 @@ All six styled controls accept `focus-width: length = 2px` and `focus-offset: le
 Set `focus-width` to zero to hide the focus outline.
 Focus color comes from `style.focus-color`.
 
-Direct color inputs apply while enabled; disabled colors come from the style.
-Geometry overrides apply in every state.
+All styled control colors come from the selected `style`.
+Use nested struct updates to customize state colors and visual dimensions while retaining other preset fields.
+Padding, minimum sizes, and fonts remain component properties.
 State priority is disabled, pressed, then hover; focus is independent.
 Focus outlines don't change layout dimensions.
 
@@ -64,8 +63,6 @@ Button includes the shared styled inputs above.
 | Input | Type | Default |
 | --- | --- | --- |
 | `style` | `ButtonStyle` | `ButtonStyles.primary` when primary or checked; otherwise `ButtonStyles.secondary` |
-| `background-color`, `foreground-color` | `brush` | State style |
-| `icon-color` | `brush` | `foreground-color` |
 | `icon-size` | `length` | `20px` |
 | `spacing` | `length` | `6px` |
 | `horizontal-padding`, `vertical-padding` | `length` | `12px`, `6px` |
@@ -74,8 +71,7 @@ Button includes the shared styled inputs above.
 Minimum size follows the text, icon, spacing, and padding.
 Missing icons and empty text don't create spacing gaps.
 Icons retain their original colors unless `colorize-icon` is true, including while disabled.
-When tinting is enabled, `icon-color` applies while enabled; disabled icons use the style's disabled foreground color.
-Set `icon-color: transparent` to retain original image colors while enabled.
+When tinting is enabled, icons use the selected state's foreground color.
 
 ## CheckBox
 
@@ -100,17 +96,15 @@ CheckBox includes the shared styled inputs above.
 | Input | Type | Default |
 | --- | --- | --- |
 | `style` | `CheckBoxStyle` | `CheckBoxStyles.standard` |
-| `checked-color` | `brush` | State style's `indicator-color` |
-| `foreground-color` | `brush` | State style |
 | `spacing` | `length` | `6px`, or `0px` when text is empty |
 | `horizontal-padding`, `vertical-padding` | `length` | `6px`, `6px` |
 | `indicator-size` | `length` | `20px` |
-| `indicator-border-width`, `indicator-radius` | `length` | `1px`, `4px` |
+| `indicator-radius` | `length` | `4px` |
 | `checkmark-padding`, `checkmark-width` | `length` | `3px`, `2px` |
 
 Minimum size follows the indicator, label, and padding.
 The styled control places its indicator beside the label, centered vertically.
-`checked-color` overrides the indicator fill only while enabled and checked.
+Set checked indicator colors in `style.checked` and unchecked colors in `style.unchecked`.
 
 ## Switch
 
@@ -129,8 +123,6 @@ Switch includes the shared styled inputs above.
 | Input | Type | Default |
 | --- | --- | --- |
 | `style` | `SwitchStyle` | `SwitchStyles.standard` |
-| `checked-color` | `brush` | State style's `track-color` |
-| `foreground-color` | `brush` | State style |
 | `spacing` | `length` | `6px`, or `0px` when text is empty |
 | `horizontal-padding`, `vertical-padding` | `length` | `6px`, `5px` |
 | `track-width`, `track-height` | `length` | `40px`, `22px` |
@@ -142,7 +134,7 @@ Switch includes the shared styled inputs above.
 Minimum size follows the track, label, and padding.
 The styled control places its track beside the label, centered vertically.
 The thumb's rendered size is bounded by the track's inner dimensions.
-`checked-color` overrides the track fill only while enabled and checked.
+Set checked track colors in `style.checked` and unchecked colors in `style.unchecked`.
 
 ## Slider
 
@@ -178,7 +170,6 @@ Slider accepts the shared focus inputs; it has no font or padding inputs.
 | Input | Type | Default |
 | --- | --- | --- |
 | `style` | `SliderStyle` | `SliderStyles.standard` |
-| `track-color`, `fill-color`, `handle-color` | `brush` | State style |
 | `preferred-length`, `min-thickness` | `length` | `200px`, `32px`, following orientation |
 | `handle-width`, `handle-height` | `length` | `20px`, `20px` |
 | `handle-border-width` | `length` | `1px` |
@@ -187,6 +178,8 @@ Slider accepts the shared focus inputs; it has no font or padding inputs.
 
 The minimum cross-axis size contains the handle and track, and is at least `min-thickness`.
 The preferred size never falls below the minimum size.
+Minimum size includes the largest handle dimensions from the base size and state overrides.
+Changing interaction state doesn't change drag travel.
 
 ### LinearSliderSurface and SliderSurface
 
@@ -253,7 +246,6 @@ ComboBox includes the shared styled inputs above.
 | `placeholder-text` | `string` | Empty |
 | `display-text` | `string` | Selected value, or placeholder when no valid selection exists |
 | `style` | `ComboBoxStyle` | `ComboBoxStyles.standard` |
-| `background-color`, `foreground-color` | `brush` | Field state style |
 | `horizontal-padding`, `vertical-padding`, `spacing` | `length` | `12px`, `6px`, `6px` |
 | `border-width`, `border-radius` | `length` | `1px`, `4px` |
 | `indicator-width`, `indicator-stroke-width` | `length` | `16px`, `2px` |
@@ -266,7 +258,7 @@ ComboBox includes the shared styled inputs above.
 
 Minimum and preferred sizes follow the label, indicator, spacing, and padding.
 Field fonts also apply to popup rows.
-Field padding and direct field colors don't change popup row padding or colors.
+Field padding and state colors don't change popup row padding or colors.
 An explicit `item-height` replaces automatic row sizing.
 It determines popup height and keyboard scrolling.
 Popup row colors come from `style.popup`; disabled colors take priority over highlighted and selected colors.
@@ -333,10 +325,8 @@ LineEdit includes the shared styled inputs above.
 | Input | Type | Default |
 | --- | --- | --- |
 | `style` | `LineEditStyle` | `LineEditStyles.standard` |
-| `background-color`, `foreground-color` | `brush` | State style |
-| `selection-background-color`, `selection-foreground-color` | `color` | Style |
 | `horizontal-padding`, `vertical-padding`, `spacing` | `length` | `12px`, `6px`, `8px` |
-| `border-width`, `border-radius` | `length` | `1px`, `4px` |
+| `border-radius` | `length` | `4px` |
 
 Default minimum size is at least `160px` wide and `34px` high, growing to accommodate the native input and slots.
 LineEdit exposes `leading` and `trailing` slots; its background and placeholder visuals are supplied internally.
@@ -347,27 +337,33 @@ Read-only fields retain enabled style colors.
 ## Style Struct Fields
 
 All types below are exported from `basic.slint`.
-Omitted fields in ordinary struct literals use their type defaults, rather than the control's preset colors.
+Omitted fields in ordinary struct literals use their declared defaults or type defaults, rather than the control's preset values.
+Use `..base` to retain fields from an existing style; see [Colors and State Styles](README.md#colors-and-state-styles).
 All color fields are `brush`, except LineEdit selection colors, which are `color`.
 
 | Struct | Fields and Types |
 | --- | --- |
 | `ButtonStateStyle` | `background-color`, `foreground-color`, `border-color`: `brush` |
 | `ButtonStyle` | `rest`, `hover`, `pressed`, `disabled`: `ButtonStateStyle`; `focus-color`: `brush` |
-| `CheckBoxStateStyle` | `indicator-color`, `checkmark-color`, `foreground-color`, `indicator-border-color`: `brush` |
+| `CheckBoxStateStyle` | `indicator-color`, `checkmark-color`, `foreground-color`, `indicator-border-color`: `brush`; `indicator-border-width`: `length` |
 | `CheckBoxStateStyles` | `rest`, `hover`, `pressed`, `disabled`: `CheckBoxStateStyle` |
 | `CheckBoxStyle` | `unchecked`, `checked`: `CheckBoxStateStyles`; `focus-color`: `brush` |
-| `SwitchStateStyle` | `track-color`, `thumb-color`, `foreground-color`, `track-border-color`: `brush` |
+| `SwitchStateStyle` | `track-color`, `thumb-color`, `foreground-color`, `track-border-color`: `brush`; `thumb-width`, `thumb-height`: `length` |
 | `SwitchStateStyles` | `rest`, `hover`, `pressed`, `disabled`: `SwitchStateStyle` |
 | `SwitchStyle` | `unchecked`, `checked`: `SwitchStateStyles`; `focus-color`: `brush` |
-| `SliderStateStyle` | `track-color`, `fill-color`, `handle-color`, `handle-border-color`: `brush` |
+| `SliderStateStyle` | `track-color`, `fill-color`, `handle-color`, `handle-border-color`: `brush`; `handle-width`, `handle-height`: `length` |
 | `SliderStyle` | `rest`, `hover`, `pressed`, `disabled`: `SliderStateStyle`; `focus-color`: `brush` |
 | `ComboBoxStateStyle` | `background-color`, `foreground-color`, `border-color`: `brush` |
 | `ComboBoxItemStyle` | `background-color`, `foreground-color`: `brush` |
 | `ComboBoxPopupStyle` | `background-color`, `border-color`: `brush`; `rest`, `highlighted`, `selected`, `disabled`: `ComboBoxItemStyle` |
 | `ComboBoxStyle` | `rest`, `hover`, `pressed`, `disabled`: `ComboBoxStateStyle`; `popup`: `ComboBoxPopupStyle`; `focus-color`: `brush` |
 | `LineEditStateStyle` | `background-color`, `foreground-color`, `border-color`, `placeholder-color`: `brush` |
-| `LineEditStyle` | `rest`, `hover`, `disabled`: `LineEditStateStyle`; `selection-background-color`, `selection-foreground-color`: `color`; `focus-color`: `brush` |
+| `LineEditStyle` | `rest`, `hover`, `disabled`: `LineEditStateStyle`; `selection-background-color`, `selection-foreground-color`: `color`; `focus-color`: `brush`; `border-width`, `focused-border-width`: `length` |
+
+Switch thumb and slider handle style dimensions default to `-1px`, meaning use the component's base size.
+Set a nonnegative state dimension to override that axis.
+Checkbox indicator borders and both LineEdit border widths default to `1px`.
+LineEdit uses `focused-border-width` while enabled and focused, and `border-width` otherwise.
 
 Read-only preset globals expose `ButtonStyles.secondary`, `primary`, `danger`, and `invisible`.
 `CheckBoxStyles`, `SwitchStyles`, `SliderStyles`, `ComboBoxStyles`, and `LineEditStyles` each expose `standard`.

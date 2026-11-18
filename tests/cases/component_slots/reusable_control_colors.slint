@@ -21,7 +21,25 @@ global AppColors {
 }
 
 component AppCheckBox inherits CheckBox {
-    checked-color: AppColors.checkbox;
+    in property <CheckBoxStyle> base-style: CheckBoxStyles.standard;
+    style: {
+        checked: {
+            rest: {
+                indicator-color: AppColors.checkbox,
+                ..root.base-style.checked.rest,
+            },
+            hover: {
+                indicator-color: AppColors.checkbox,
+                ..root.base-style.checked.hover,
+            },
+            pressed: {
+                indicator-color: AppColors.checkbox,
+                ..root.base-style.checked.pressed,
+            },
+            ..root.base-style.checked,
+        },
+        ..root.base-style,
+    };
 }
 
 export component TestCase inherits Window {
@@ -33,21 +51,22 @@ export component TestCase inherits Window {
     in-out property <bool> checked: true;
     in-out property <CheckBoxStyle> checkbox-style: CheckBoxStyles.standard;
     out property <int> activations;
-    out property <brush> switch-foreground: switch.foreground-color;
-    out property <bool> test: first.checked-color == second.checked-color
-        && first.checked-color == root.custom-color
-        && button.background-color == root.custom-color
-        && button.foreground-color == root.foreground-color
-        && switch.checked-color == root.custom-color
-        && slider.fill-color == root.custom-color
-        && slider.handle-color == root.custom-color
-        && combo.background-color == root.custom-color
-        && combo.foreground-color == root.foreground-color
-        && first.style == root.checkbox-style
-        && button.style == ButtonStyles.primary
-        && switch.style == SwitchStyles.standard
-        && slider.style == SliderStyles.standard
-        && combo.style == ComboBoxStyles.standard;
+    out property <brush> switch-foreground: switch.style.unchecked.rest.foreground-color;
+    out property <bool> test: first.style.checked.rest.indicator-color == second.style.checked.rest.indicator-color
+        && first.style.checked.rest.indicator-color == root.custom-color
+        && button.style.rest.background-color == root.custom-color
+        && button.style.rest.foreground-color == root.foreground-color
+        && switch.style.checked.rest.track-color == root.custom-color
+        && slider.style.rest.fill-color == root.custom-color
+        && slider.style.rest.handle-color == root.custom-color
+        && combo.style.rest.background-color == root.custom-color
+        && combo.style.rest.foreground-color == root.foreground-color
+        && first.style.unchecked == root.checkbox-style.unchecked
+        && first.style.checked.disabled == root.checkbox-style.checked.disabled
+        && button.style.disabled == ButtonStyles.primary.disabled
+        && switch.style.checked.disabled == SwitchStyles.standard.checked.disabled
+        && slider.style.disabled == SliderStyles.standard.disabled
+        && combo.style.disabled == ComboBoxStyles.standard.disabled;
 
     public function activate-all() {
         first.activate();
@@ -60,7 +79,7 @@ export component TestCase inherits Window {
     VerticalLayout {
         HorizontalLayout {
             first := AppCheckBox {
-                style: root.checkbox-style;
+                base-style: root.checkbox-style;
                 text: "Shared one";
                 checked <=> root.checked;
                 enabled: root.enabled;
@@ -68,7 +87,7 @@ export component TestCase inherits Window {
             }
 
             second := AppCheckBox {
-                style: root.checkbox-style;
+                base-style: root.checkbox-style;
                 text: "Shared two";
                 checked <=> root.checked;
                 enabled: root.enabled;
@@ -77,7 +96,24 @@ export component TestCase inherits Window {
             switch := Switch {
                 text: "Switch";
                 checked <=> root.checked;
-                checked-color: root.custom-color;
+                style: {
+                    checked: {
+                        rest: {
+                            track-color: root.custom-color,
+                            ..SwitchStyles.standard.checked.rest,
+                        },
+                        hover: {
+                            track-color: root.custom-color,
+                            ..SwitchStyles.standard.checked.hover,
+                        },
+                        pressed: {
+                            track-color: root.custom-color,
+                            ..SwitchStyles.standard.checked.pressed,
+                        },
+                        ..SwitchStyles.standard.checked,
+                    },
+                    ..SwitchStyles.standard,
+                };
                 enabled: root.enabled;
                 toggled => { root.activations += 1; }
             }
@@ -86,17 +122,48 @@ export component TestCase inherits Window {
         HorizontalLayout {
             button := Button {
                 text: "Button";
-                style: ButtonStyles.primary;
-                background-color: root.custom-color;
-                foreground-color: root.foreground-color;
+                style: {
+                    rest: {
+                        background-color: root.custom-color,
+                        foreground-color: root.foreground-color,
+                        ..ButtonStyles.primary.rest,
+                    },
+                    hover: {
+                        background-color: root.custom-color,
+                        foreground-color: root.foreground-color,
+                        ..ButtonStyles.primary.hover,
+                    },
+                    pressed: {
+                        background-color: root.custom-color,
+                        foreground-color: root.foreground-color,
+                        ..ButtonStyles.primary.pressed,
+                    },
+                    ..ButtonStyles.primary,
+                };
                 enabled: root.enabled;
                 clicked => { root.activations += 1; }
             }
 
             slider := Slider {
                 accessible-label: "Slider";
-                fill-color: root.custom-color;
-                handle-color: root.custom-color;
+                style: {
+                    rest: {
+                        fill-color: root.custom-color,
+                        handle-color: root.custom-color,
+                        ..SliderStyles.standard.rest,
+                    },
+                    hover: {
+                        fill-color: root.custom-color,
+                        handle-color: root.custom-color,
+                        ..SliderStyles.standard.hover,
+                    },
+                    pressed: {
+                        fill-color: root.custom-color,
+                        handle-color: root.custom-color,
+                        ..SliderStyles.standard.pressed,
+                    },
+                    ..SliderStyles.standard,
+                };
                 enabled: root.enabled;
                 changed(value) => { root.activations += 1; }
             }
@@ -104,8 +171,24 @@ export component TestCase inherits Window {
             combo := ComboBox {
                 accessible-label: "ComboBox";
                 model: ["One", "Two"];
-                background-color: root.custom-color;
-                foreground-color: root.foreground-color;
+                style: {
+                    rest: {
+                        background-color: root.custom-color,
+                        foreground-color: root.foreground-color,
+                        ..ComboBoxStyles.standard.rest,
+                    },
+                    hover: {
+                        background-color: root.custom-color,
+                        foreground-color: root.foreground-color,
+                        ..ComboBoxStyles.standard.hover,
+                    },
+                    pressed: {
+                        background-color: root.custom-color,
+                        foreground-color: root.foreground-color,
+                        ..ComboBoxStyles.standard.pressed,
+                    },
+                    ..ComboBoxStyles.standard,
+                };
                 enabled: root.enabled;
                 selected(value) => { root.activations += 1; }
             }

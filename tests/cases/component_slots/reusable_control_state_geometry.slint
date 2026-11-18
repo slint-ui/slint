@@ -1,0 +1,223 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Switch, SwitchStyles, Slider, SliderStyles, CheckBox, CheckBoxStyles, LineEdit, LineEditStyles } from "../../../tools/editor/controls/src/basic.slint";
+
+export component TestCase inherits Window {
+    width: 400px;
+    height: 260px;
+    in-out property <bool> controls-enabled: true;
+    in-out property <bool> checked;
+    in-out property <bool> vertical;
+    in-out property <bool> inverted;
+    in-out property <length> thumb-size: 16px;
+    in-out property <length> hover-width: 22px;
+    in-out property <length> handle-size: 20px;
+    in-out property <float> value <=> slider.value;
+    public function focus-field() { field.focus(); }
+    public function blur() { other.focus(); }
+
+    switch := Switch {
+        x: 20px; y: 20px;
+        text: "Switch";
+        thumb-size: root.thumb-size;
+        enabled: root.controls-enabled;
+        checked <=> root.checked;
+        style: {
+            unchecked: {
+                hover: { thumb-width: root.hover-width, ..SwitchStyles.standard.unchecked.hover },
+                pressed: { thumb-width: 26px, thumb-height: 10px, ..SwitchStyles.standard.unchecked.pressed },
+                ..SwitchStyles.standard.unchecked
+            },
+            checked: {
+                rest: { thumb-width: 18px, thumb-height: 14px, ..SwitchStyles.standard.checked.rest },
+                ..SwitchStyles.standard.checked
+            },
+            ..SwitchStyles.standard
+        };
+    }
+    checkbox := CheckBox {
+        x: 20px; y: 65px;
+        text: "CheckBox";
+        enabled: root.controls-enabled;
+        checked <=> root.checked;
+        style: {
+            unchecked: {
+                rest: { indicator-border-width: 2px, ..CheckBoxStyles.standard.unchecked.rest },
+                disabled: { indicator-border-width: 2px, ..CheckBoxStyles.standard.unchecked.disabled },
+                pressed: { indicator-border-width: 3px, ..CheckBoxStyles.standard.unchecked.pressed },
+                ..CheckBoxStyles.standard.unchecked
+            },
+            checked: {
+                rest: { indicator-border-width: 0px, ..CheckBoxStyles.standard.checked.rest },
+                ..CheckBoxStyles.standard.checked
+            },
+            ..CheckBoxStyles.standard
+        };
+    }
+    slider := Slider {
+        x: 150px; y: 20px;
+        width: root.vertical ? 40px : 220px;
+        height: root.vertical ? 220px : 40px;
+        accessible-label: "Slider";
+        value: 50;
+        enabled: root.controls-enabled;
+        orientation: root.vertical ? Orientation.vertical : Orientation.horizontal;
+        inverted: root.inverted;
+        handle-width: root.handle-size;
+        handle-height: root.handle-size;
+        style: {
+            hover: { handle-width: 24px, handle-height: 14px, ..SliderStyles.standard.hover },
+            pressed: { handle-width: 12px, handle-height: 10px, ..SliderStyles.standard.pressed },
+            ..SliderStyles.standard
+        };
+    }
+    field := LineEdit {
+        x: 20px; y: 120px;
+        width: 120px; height: 34px;
+        enabled: root.controls-enabled;
+        placeholder-text: "Focus border";
+        style: { focused-border-width: 3px, ..LineEditStyles.standard };
+    }
+    other := FocusScope { x: 20px; y: 200px; width: 20px; height: 20px; }
+}
+
+/*
+```rust
+use slint::platform::{PointerEventButton, WindowEvent};
+use slint_testing::ElementHandle;
+use i_slint_core::{item_tree::ItemRc, items::{BasicBorderRectangle, BorderRectangle}, window::WindowInner};
+mod visuals { include!(concat!(env!("CARGO_MANIFEST_DIR"), "/control_visuals.rs")); }
+let instance = TestCase::new().unwrap();
+instance.show().unwrap();
+instance.invoke_blur();
+let point = |x, y| slint::LogicalPosition::new(x, y);
+let move_to = |position| instance.window().dispatch_event(WindowEvent::PointerMoved { position });
+let press = |position| instance.window().dispatch_event(WindowEvent::PointerPressed { position, button: PointerEventButton::Left });
+let release = |position| instance.window().dispatch_event(WindowEvent::PointerReleased { position, button: PointerEventButton::Left });
+let outside = point(390., 250.);
+let item = |control, element| {
+    let root = ItemRc::new_root(WindowInner::from_pub(instance.window()).component());
+    let result = visuals::find(&visuals::find(&root, control), element);
+    result
+};
+let geometry = |control, element| item(control, element).geometry();
+let thumb = || geometry("TestCase::switch", "Switch::thumb").size;
+let handle = || geometry("TestCase::slider", "Slider::handle").size;
+let border = |control, element| {
+    let item = item(control, element);
+    if let Some(rect) = item.downcast::<BasicBorderRectangle>() {
+        return rect.as_pin_ref().border_width().get();
+    }
+    let width = item.downcast::<BorderRectangle>().unwrap().as_pin_ref().border_width().get();
+    width
+};
+let center = |label: &str| {
+    let element = ElementHandle::find_by_accessible_label(&instance, label).next().unwrap();
+    let pos = element.absolute_position();
+    let size = element.size();
+    point(pos.x + size.width / 2., pos.y + size.height / 2.)
+};
+move_to(outside);
+let switch_color = visuals::color(instance.window(), "TestCase::switch", "Switch::thumb");
+assert_eq!((thumb().width, thumb().height), (16., 16.));
+instance.set_thumb_size(12.);
+assert_eq!((thumb().width, thumb().height), (12., 12.));
+let switch_size = ElementHandle::find_by_accessible_label(&instance, "Switch").next().unwrap().size();
+let track = geometry("TestCase::switch", "Switch::track");
+let switch_center = center("Switch");
+move_to(switch_center);
+assert_eq!((thumb().width, thumb().height), (22., 12.));
+instance.set_thumb_size(14.);
+assert_eq!((thumb().width, thumb().height), (22., 14.));
+instance.set_thumb_size(12.);
+instance.set_hover_width(0.);
+assert_eq!((thumb().width, thumb().height), (0., 12.));
+instance.set_hover_width(24.);
+assert_eq!(thumb().width, 24.);
+press(switch_center);
+assert_eq!((thumb().width, thumb().height), (26., 10.));
+assert_eq!(geometry("TestCase::switch", "Switch::track"), track);
+assert_eq!(ElementHandle::find_by_accessible_label(&instance, "Switch").next().unwrap().size(), switch_size);
+instance.set_controls_enabled(false);
+assert_eq!((thumb().width, thumb().height), (12., 12.));
+assert_ne!(visuals::color(instance.window(), "TestCase::switch", "Switch::thumb"), switch_color);
+release(switch_center);
+move_to(outside);
+instance.set_controls_enabled(true);
+instance.set_checked(true);
+assert_eq!((thumb().width, thumb().height), (18., 14.));
+assert_eq!(border("TestCase::checkbox", "CheckBox::indicator"), 0.);
+instance.set_checked(false);
+assert_eq!(border("TestCase::checkbox", "CheckBox::indicator"), 2.);
+let check_center = center("CheckBox");
+press(check_center);
+assert_eq!(border("TestCase::checkbox", "CheckBox::indicator"), 3.);
+instance.set_controls_enabled(false);
+assert_eq!(border("TestCase::checkbox", "CheckBox::indicator"), 2.);
+release(check_center);
+move_to(outside);
+instance.set_controls_enabled(true);
+
+for vertical in [false, true] {
+    for inverted in [false, true] {
+        instance.set_vertical(vertical);
+        instance.set_inverted(inverted);
+        instance.set_value(50.);
+        move_to(outside);
+        assert_eq!((handle().width, handle().height), (20., 20.));
+        assert_eq!(geometry("TestCase::slider", "Slider::handle").origin, i_slint_core::lengths::LogicalPoint::new(2., 0.));
+        let center = center("Slider");
+        let track = geometry("TestCase::slider", "Slider::track");
+        move_to(center);
+        assert_eq!((handle().width, handle().height), (24., 14.));
+        assert_eq!(geometry("TestCase::slider", "Slider::handle").origin, i_slint_core::lengths::LogicalPoint::new(0., 3.));
+        press(center);
+        assert_eq!((handle().width, handle().height), (12., 10.));
+        assert_eq!(geometry("TestCase::slider", "Slider::handle").origin, i_slint_core::lengths::LogicalPoint::new(6., 5.));
+        assert_eq!(instance.get_value(), 50.);
+        assert_eq!(geometry("TestCase::slider", "Slider::track"), track);
+        let end = if vertical { point(center.x, center.y + 20.) } else { point(center.x + 20., center.y) };
+        move_to(end);
+        let expected = if vertical != inverted { 40. } else { 60. };
+        assert_eq!(instance.get_value(), expected);
+        release(end);
+        assert_eq!(instance.get_value(), expected);
+        for value in [0., 100.] {
+            move_to(outside);
+            instance.set_value(value);
+            let control = ElementHandle::find_by_accessible_label(&instance, "Slider").next().unwrap();
+            let handle = control.query_descendants().match_id("Slider::handle").find_first().unwrap();
+            let p = handle.absolute_position();
+            let size = handle.size();
+            let center = point(p.x + size.width / 2., p.y + size.height / 2.);
+            move_to(center);
+            let p = handle.absolute_position();
+            let size = handle.size();
+            let bounds = control.absolute_position();
+            let extent = control.size();
+            assert!(p.x >= bounds.x && p.y >= bounds.y);
+            assert!(p.x + size.width <= bounds.x + extent.width);
+            assert!(p.y + size.height <= bounds.y + extent.height);
+            press(center);
+            assert_eq!(instance.get_value(), value);
+            release(center);
+            assert_eq!(instance.get_value(), value);
+        }
+    }
+}
+move_to(outside);
+instance.set_handle_size(16.);
+assert_eq!((handle().width, handle().height), (16., 16.));
+instance.invoke_blur();
+assert_eq!(border("TestCase::field", "LineEdit::surface"), 1.);
+instance.invoke_focus_field();
+assert_eq!(border("TestCase::field", "LineEdit::surface"), 3.);
+instance.set_controls_enabled(false);
+assert_eq!(border("TestCase::field", "LineEdit::surface"), 1.);
+assert_eq!((handle().width, handle().height), (16., 16.));
+instance.set_controls_enabled(true);
+instance.invoke_blur();
+assert_eq!(border("TestCase::field", "LineEdit::surface"), 1.);
+```
+*/

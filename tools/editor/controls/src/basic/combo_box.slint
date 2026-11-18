@@ -117,7 +117,7 @@ export component ComboBoxPopup {
     in property <ComboBoxPopupStyle> style: ComboBoxStyles.standard.popup;
 
     in property <string> font-family;
-    in property <length> font-size: 14px;
+    in property <length> font-size: 1rem;
     in property <int> font-weight: 400;
     in property <bool> font-italic;
 
@@ -235,6 +235,7 @@ export component ComboBoxPopup {
                 }
             }
         }
+
         @children
     }
 }
@@ -245,11 +246,8 @@ export component ComboBox inherits ComboBoxBase {
         ? root.current-value : root.placeholder-text;
     in property <ComboBoxStyle> style: ComboBoxStyles.standard;
 
-    in property <brush> background-color: root.state-style.background-color;
-    in property <brush> foreground-color: root.state-style.foreground-color;
-
     in property <string> font-family;
-    in property <length> font-size: 14px;
+    in property <length> font-size: 1rem;
     in property <int> font-weight: 400;
     in property <bool> font-italic;
 
@@ -303,7 +301,7 @@ export component ComboBox inherits ComboBoxBase {
         }
     ]
     background << surface := Rectangle {
-        background: root.enabled ? root.background-color : root.state-style.background-color;
+        background: root.state-style.background-color;
         border-color: root.state-style.border-color;
         border-width: root.border-width;
         border-radius: root.border-radius;
@@ -318,10 +316,10 @@ export component ComboBox inherits ComboBoxBase {
         }
     }
 
-    content << Text {
+    content << label := Text {
         horizontal-stretch: 1;
         text: root.display-text;
-        color: root.enabled ? root.foreground-color : root.state-style.foreground-color;
+        color: root.state-style.foreground-color;
         font-size: root.font-size;
         font-weight: root.font-weight;
         font-family: root.font-family;
@@ -333,7 +331,7 @@ export component ComboBox inherits ComboBoxBase {
     indicator << ComboBoxChevronIcon {
         width: root.indicator-width;
         height: 100%;
-        stroke: root.enabled ? root.foreground-color : root.state-style.foreground-color;
+        stroke: root.state-style.foreground-color;
         stroke-width: root.indicator-stroke-width;
     }
 

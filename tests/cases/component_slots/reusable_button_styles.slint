@@ -9,9 +9,24 @@ import {
 } from "../../../tools/editor/controls/src/basic.slint";
 export { BasicTheme, ButtonStyles }
 component CustomButton inherits Button {
-    style: ButtonStyles.primary;
-    background-color: #123456;
-    foreground-color: #abcdef;
+    style: {
+        rest: {
+            background-color: #123456,
+            foreground-color: #abcdef,
+            ..ButtonStyles.primary.rest,
+        },
+        hover: {
+            background-color: #123456,
+            foreground-color: #abcdef,
+            ..ButtonStyles.primary.hover,
+        },
+        pressed: {
+            background-color: #123456,
+            foreground-color: #abcdef,
+            ..ButtonStyles.primary.pressed,
+        },
+        ..ButtonStyles.primary,
+    };
 }
 
 export component TestCase inherits Window {
@@ -21,12 +36,10 @@ export component TestCase inherits Window {
     in-out property <ButtonStyle> style: ButtonStyles.secondary;
     in-out property <brush> custom-background: #654321;
     in-out property <brush> custom-foreground: #fedcba;
-    out property <brush> subject-background: subject.background-color;
-    out property <brush> subject-foreground: subject.foreground-color;
     out property <bool> subject-pressed: subject.pressed;
     out property <bool> subject-focused: subject.has-focus;
-    out property <bool> test: custom.background-color == #123456 && custom.foreground-color == #abcdef
-        && bound.background-color == root.custom-background && bound.foreground-color == root.custom-foreground;
+    out property <bool> test: custom.style.rest.background-color == #123456 && custom.style.rest.foreground-color == #abcdef
+        && bound.style.rest.background-color == root.custom-background && bound.style.rest.foreground-color == root.custom-foreground;
     public function focus-subject() { subject.focus(); }
 
     subject := Button {
@@ -55,9 +68,24 @@ export component TestCase inherits Window {
         height: 40px;
         text: "Bound";
         enabled: root.enabled;
-        style: ButtonStyles.secondary;
-        background-color: root.custom-background;
-        foreground-color: root.custom-foreground;
+        style: {
+            rest: {
+                background-color: root.custom-background,
+                foreground-color: root.custom-foreground,
+                ..ButtonStyles.secondary.rest,
+            },
+            hover: {
+                background-color: root.custom-background,
+                foreground-color: root.custom-foreground,
+                ..ButtonStyles.secondary.hover,
+            },
+            pressed: {
+                background-color: root.custom-background,
+                foreground-color: root.custom-foreground,
+                ..ButtonStyles.secondary.pressed,
+            },
+            ..ButtonStyles.secondary,
+        };
     }
 }
 
@@ -65,6 +93,10 @@ export component TestCase inherits Window {
 ```rust
 use slint::platform::{PointerEventButton, WindowEvent};
 let instance = TestCase::new().unwrap();
+mod visuals { include!(concat!(env!("CARGO_MANIFEST_DIR"), "/control_visuals.rs")); }
+let subject_background = || visuals::color(instance.window(), "TestCase::subject", "Button::surface");
+let subject_foreground = || visuals::color(instance.window(), "TestCase::subject", "Button::label");
+
 let palette = instance.global::<BasicTheme<'_>>();
 let styles = instance.global::<ButtonStyles<'_>>();
 let inside = slint::LogicalPosition::new(50., 20.);
@@ -72,10 +104,10 @@ let outside = slint::LogicalPosition::new(350., 80.);
 for (style, accented) in [(styles.get_secondary(), false), (styles.get_primary(), true)] {
     instance.set_style(style);
     instance.window().dispatch_event(WindowEvent::PointerMoved { position: outside });
-    assert_eq!(instance.get_subject_background(), if accented { palette.get_accent() } else { palette.get_background() });
-    assert_eq!(instance.get_subject_foreground(), if accented { palette.get_accent_foreground() } else { palette.get_foreground() });
+    assert_eq!(subject_background(), if accented { palette.get_accent() } else { palette.get_background() });
+    assert_eq!(subject_foreground(), if accented { palette.get_accent_foreground() } else { palette.get_foreground() });
     instance.window().dispatch_event(WindowEvent::PointerMoved { position: inside });
-    assert_eq!(instance.get_subject_background(), if accented { palette.get_accent_hover() } else { palette.get_hover_background() });
+    assert_eq!(subject_background(), if accented { palette.get_accent_hover() } else { palette.get_hover_background() });
     instance.invoke_focus_subject();
     instance.window().dispatch_event(WindowEvent::PointerPressed { position: inside, button: PointerEventButton::Left });
     assert!(instance.get_subject_pressed());
@@ -83,16 +115,16 @@ for (style, accented) in [(styles.get_secondary(), false), (styles.get_primary()
     let subject = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Subject").next().unwrap();
     let outline = subject.query_descendants().match_id("Button::focus-outline").find_first().unwrap();
     assert_eq!(outline.size().width, 108.);
-    assert_eq!(instance.get_subject_background(), if accented { palette.get_accent_pressed() } else { palette.get_pressed_background() });
+    assert_eq!(subject_background(), if accented { palette.get_accent_pressed() } else { palette.get_pressed_background() });
     instance.set_enabled(false);
     slint::platform::update_timers_and_animations();
     assert!(!instance.get_subject_pressed());
-    assert_eq!(instance.get_subject_background(), palette.get_disabled_background());
-    assert_eq!(instance.get_subject_foreground(), palette.get_disabled_foreground());
+    assert_eq!(subject_background(), palette.get_disabled_background());
+    assert_eq!(subject_foreground(), palette.get_disabled_foreground());
     assert!(instance.get_test());
     instance.set_enabled(true);
     instance.window().dispatch_event(WindowEvent::PointerReleased { position: inside, button: PointerEventButton::Left });
-    assert_eq!(instance.get_subject_background(), if accented { palette.get_accent_hover() } else { palette.get_hover_background() });
+    assert_eq!(subject_background(), if accented { palette.get_accent_hover() } else { palette.get_hover_background() });
 }
 
 for x in [170., 290.] {

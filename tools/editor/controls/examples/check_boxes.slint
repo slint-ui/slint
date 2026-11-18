@@ -12,7 +12,13 @@ import { ExampleSection } from "section.slint";
 import { PreviewSettings } from "preview_settings.slint";
 
 component CustomCheckBox inherits PreviewCheckBox {
-    checked-color: #0f766e;
+    in property <CheckBoxStyle> base-style: CheckBoxStyles.standard;
+    style: {
+        checked.rest.indicator-color: #0f766e,
+        checked.hover.indicator-color: #0f766e,
+        checked.pressed.indicator-color: #0f766e,
+        ..root.base-style,
+    };
 }
 
 export component CheckBoxExamples inherits Rectangle {
@@ -89,11 +95,11 @@ export component CheckBoxExamples inherits Rectangle {
 
         ExampleSection {
             title: "Custom checkboxes";
-            description: "Set a checked color, reuse component defaults, or supply your own visuals through slots.";
+            description: "Set a checked color, override a state style, reuse component defaults, or supply your own visuals through slots.";
             VerticalLayout {
                 spacing: 12px;
                 CustomCheckBox {
-                    style: root.preview-style;
+                    base-style: root.preview-style;
                     size-index: root.size-index;
                     enabled: !root.preview-disabled;
                     text: "Custom checked color";
@@ -102,10 +108,24 @@ export component CheckBoxExamples inherits Rectangle {
                 }
 
                 CustomCheckBox {
-                    style: root.preview-style;
+                    base-style: root.preview-style;
                     size-index: root.size-index;
                     enabled: !root.preview-disabled;
                     text: "Same shared defaults";
+                    toggled => { root.custom-toggles += 1; }
+                }
+
+                PreviewCheckBox {
+                    preview-base-style: root.preview-style;
+                    style.checked.rest {
+                        indicator-color: #0f766e,
+                        indicator-border-color: #0f766e,
+                        indicator-border-width: 0px,
+                    };
+                    size-index: root.size-index;
+                    enabled: !root.preview-disabled;
+                    text: "Checked rest state without a border";
+                    checked: true;
                     toggled => { root.custom-toggles += 1; }
                 }
 
@@ -139,6 +159,7 @@ export component CheckBoxExamples inherits Rectangle {
                                 background: white;
                             }
                         }
+
                         Text {
                             text: bare.text;
                             color: #5b21b6;
