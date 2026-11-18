@@ -100,6 +100,8 @@ struct SlintPlatformConfiguration
     bool render_in_separate_task = false;
     /// The stack size in bytes of the task that rasterizes, if `render_in_separate_task` is set.
     uint32_t raster_task_stack_size = 8192;
+    /// Log the frame rate and the average time to render and present a frame once a second.
+    bool log_frame_stats = false;
 };
 
 template<typename... Args>
