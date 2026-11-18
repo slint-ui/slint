@@ -154,7 +154,6 @@ export component MainScreen inherits Rectangle {
     background: #181532;
 
     Image {
-        cache-rendering-hint: true;
         x: 30px;
         y: AppState.orientation == Orientation.landscape ? 35px : 36px;
         width: 84px;
@@ -302,7 +301,6 @@ export component MainScreen inherits Rectangle {
                 height: 40px;
 
                 if !AppState.graphics-accelerator-available: Image {
-                    cache-rendering-hint: true;
                     width: parent.width;
                     height: self.source.height * 1px;
                     source: @image-url("../../images/title-frame.png", nine-slice(0 50 0 50));
@@ -368,7 +366,6 @@ export component MainScreen inherits Rectangle {
                         width: 50px;
                         height: 40px;
                         lock := Image {
-                            cache-rendering-hint: true;
                             source: @image-url("../../images/lock.svg");
                             colorize: white;
                             opacity: lta.pressed ? 100% : 50%;

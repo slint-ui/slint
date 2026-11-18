@@ -27,7 +27,6 @@ export component MusicPlayer inherits Rectangle {
     tile := Rectangle {
 
         Image {
-            cache-rendering-hint: true;
             x: -5px;
             y: 0px;
             source: cover-art;
@@ -85,7 +84,6 @@ export component MusicPlayer inherits Rectangle {
                         border-radius: self.height / 2;
                         background: white;
                         Image {
-                            cache-rendering-hint: true;
                             source: @image-url("../images/back.svg");
                             width: 18px;
                             height: self.width;
@@ -104,7 +102,6 @@ export component MusicPlayer inherits Rectangle {
                         background: white;
                         property <bool> playing: true;
                         Image {
-                            cache-rendering-hint: true;
                             source: playing ? @image-url("../images/pause.svg") : @image-url("../images/play.svg");
                             colorize: Palette.music-alternate-foreground;
                         }
@@ -124,7 +121,6 @@ export component MusicPlayer inherits Rectangle {
                         border-radius: self.height / 2;
                         background: white;
                         Image {
-                            cache-rendering-hint: true;
                             source: @image-url("../images/fwd.svg");
                             width: 18px;
                             height: self.width;
