@@ -24,7 +24,7 @@ fn compile(source: &str, enable_experimental: bool) -> BuildDiagnostics {
 
 #[test]
 fn font_and_border_example_compiles() {
-    let diag = compile(include_str!("../../../examples/struct-updates.slint"), true);
+    let diag = compile(include_str!("../../../examples/struct-updates/demo.slint"), true);
     assert!(!diag.has_errors(), "{:?}", diag.to_string_vec());
 }
 
