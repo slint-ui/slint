@@ -67,9 +67,9 @@ fn inside(polygons: impl Iterator<Item = Vec<Point>>) -> Vec<bool> {
     for (row, xs) in crossings.iter_mut().enumerate() {
         xs.sort_by(f32::total_cmp);
         let line = &mut inside[row * width..][..width];
-        for span in xs.chunks_exact(2) {
-            let first = ((span[0] - 0.5).ceil().max(0.0) as usize).min(width);
-            let last = ((span[1] - 0.5).ceil().max(0.0) as usize).min(width);
+        for &[enter, leave] in xs.as_chunks::<2>().0 {
+            let first = ((enter - 0.5).ceil().max(0.0) as usize).min(width);
+            let last = ((leave - 0.5).ceil().max(0.0) as usize).min(width);
             line[first..last.max(first)].fill(true);
         }
     }

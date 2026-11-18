@@ -35,9 +35,9 @@ fn encode_blocks(
     let (columns, rows) = (width.div_ceil(4), height.div_ceil(4));
     let mut out = vec![0u8; columns * rows * 8];
     let encode_rows = |first_row: usize, out: &mut [u8]| {
-        for (k, block_out) in out.chunks_exact_mut(8).enumerate() {
+        for (k, block_out) in out.as_chunks_mut::<8>().0.iter_mut().enumerate() {
             let (bx, by) = (k % columns, first_row + k / columns);
-            block_out.copy_from_slice(&encode(&block(rgba, width, height, bx, by)));
+            *block_out = encode(&block(rgba, width, height, bx, by));
         }
     };
     crate::background::fill_rows(&mut out, columns * 8, encode_rows);
