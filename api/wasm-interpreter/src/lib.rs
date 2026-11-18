@@ -106,6 +106,50 @@ pub async fn compile_from_string_with_style(
     optional_edition: Option<String>,
     optional_project_root: Option<String>,
 ) -> Result<CompilationResult, JsValue> {
+    compile(
+        Some(source),
+        base_url,
+        style,
+        optional_import_callback,
+        optional_resource_loader,
+        optional_edition,
+        optional_project_root,
+    )
+    .await
+}
+
+/// Compiles the file at `url`, which it loads through `optional_import_callback`.
+/// For a project file (`slint-project.json`), it compiles the project's `main` file with the project's settings.
+/// The other parameters are the same as for [`compile_from_string_with_style`].
+#[wasm_bindgen]
+pub async fn compile_from_url(
+    url: String,
+    style: String,
+    optional_import_callback: Option<ImportCallbackFunction>,
+    optional_resource_loader: Option<ResourceLoaderFunction>,
+    optional_edition: Option<String>,
+) -> Result<CompilationResult, JsValue> {
+    compile(
+        None,
+        url,
+        style,
+        optional_import_callback,
+        optional_resource_loader,
+        optional_edition,
+        None,
+    )
+    .await
+}
+
+async fn compile(
+    source: Option<String>,
+    url: String,
+    style: String,
+    optional_import_callback: Option<ImportCallbackFunction>,
+    optional_resource_loader: Option<ResourceLoaderFunction>,
+    optional_edition: Option<String>,
+    optional_project_root: Option<String>,
+) -> Result<CompilationResult, JsValue> {
     let mut compiler = slint_interpreter::Compiler::default();
     let config = compiler.compiler_configuration(i_slint_core::InternalToken);
     config.is_preview = true;
@@ -192,7 +236,9 @@ pub async fn compile_from_string_with_style(
         );
     }
 
-    let result = compiler.build_from_source(source, base_url.into()).await;
+    let result = compiler
+        .build_from_source_path(source, SourcePath::new(url), i_slint_core::InternalToken)
+        .await;
 
     let mut error_as_string = String::new();
     let array = js_sys::Array::new();

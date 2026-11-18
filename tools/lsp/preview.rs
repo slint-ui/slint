@@ -1536,6 +1536,7 @@ async fn parse_source(
     editor_preview::document_cache::configure_preview(cc, component);
     cc.resource_url_mapper = resource_url_mapper();
     cc.embed_resources = EmbedResourcesKind::ListAllResources;
+    cc.edition = config.default_edition.or(cc.edition);
 
     let (open_file_fallback, source_file_versions) =
         editor_preview::document_cache::document_cache_parts_setup(
@@ -1553,10 +1554,14 @@ async fn parse_source(
             path.to_url().and_then(|url| config.rust_macro_editions.get(&url).copied());
     }
     builder.set_overrides(overrides, i_slint_core::InternalToken);
-    builder.set_project_root(
-        PREVIEW_STATE.with_borrow(|preview_state| preview_state.project_root.clone()),
-        i_slint_core::InternalToken,
-    );
+    let is_project_url = path.as_native_path().is_none()
+        && path.file_name() == Some(i_slint_compiler::project_file::FILE_NAME);
+    if !is_project_url {
+        builder.set_project_root(
+            PREVIEW_STATE.with_borrow(|preview_state| preview_state.project_root.clone()),
+            i_slint_core::InternalToken,
+        );
+    }
     let project_loader = open_file_fallback.clone();
     let project_versions = source_file_versions.clone();
     builder.set_project_file_loader(
@@ -1578,9 +1583,10 @@ async fn parse_source(
         }),
         i_slint_core::InternalToken,
     );
+    // A project URL supplies its own root and entry file through the project loader.
     let (result, raw_type_loader) = builder
         .build_with_raw_type_loader(
-            source_code,
+            source_code.filter(|_| !is_project_url),
             path,
             slint_interpreter::AnimationMode::Running,
             i_slint_core::InternalToken,

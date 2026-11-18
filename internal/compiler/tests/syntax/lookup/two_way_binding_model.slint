@@ -4,6 +4,7 @@
 struct Foo {
     field: string,
     nested: { value: int },
+    counter_max: int,
 }
 
 export component Testcase  {
@@ -38,6 +39,9 @@ export component Testcase  {
         property <int> p12 <=> item.nested.value;
         property p13 <=> item.nested.value;
         property <int> p13_check: p13;
+
+        property <int> p14 <=> item.counter_max;
+        property <int> p15 <=> item.counter-max;
 
         inner := Rectangle {
             // Same model is visible from a nested element.
