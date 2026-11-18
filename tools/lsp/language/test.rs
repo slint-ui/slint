@@ -328,9 +328,8 @@ mod from_json_files {
     fn changed_json_file_reloads_the_document() {
         let mut ctx = mock_context();
         let dir = tempfile::tempdir().unwrap();
-        let dir = dir.path().canonicalize().unwrap();
-        let json_path = dir.join("data.json");
-        std::fs::write(&json_path, r#"{ "greeting": "hello" }"#).unwrap();
+        let dir = dir.path();
+        std::fs::write(dir.join("data.json"), r#"{ "greeting": "hello" }"#).unwrap();
 
         let (main_url, diag) = load(
             &mut ctx.session,
@@ -338,7 +337,9 @@ mod from_json_files {
             r#"export component Main { property <string> greeting: @from-json("data.json").greeting; }"#,
         );
         assert!(diag[&main_url].is_empty(), "{diag:?}");
-        assert!(ctx.session.document_cache.all_paths_to_watch().contains(&json_path));
+        let json_path = main_url.to_file_path().unwrap().with_file_name("data.json");
+        let watch_paths = ctx.session.document_cache.all_paths_to_watch();
+        assert!(watch_paths.contains(&json_path), "{json_path:?} not in {watch_paths:?}");
 
         ctx.session.open_urls.insert(main_url.clone());
         std::fs::write(&json_path, r#"{ "greeting": 42 }"#).unwrap();
@@ -359,8 +360,7 @@ mod from_json_files {
     fn created_json_file_reloads_the_document() {
         let mut ctx = mock_context();
         let dir = tempfile::tempdir().unwrap();
-        let dir = dir.path().canonicalize().unwrap();
-        let json_path = dir.join("data.json");
+        let dir = dir.path();
 
         let (main_url, diag) = load(
             &mut ctx.session,
@@ -368,7 +368,9 @@ mod from_json_files {
             r#"export component Main { property <string> greeting: @from-json("data.json").greeting; }"#,
         );
         assert!(!diag[&main_url].is_empty(), "the JSON file doesn't exist yet");
-        assert!(ctx.session.document_cache.all_paths_to_watch().contains(&json_path));
+        let json_path = main_url.to_file_path().unwrap().with_file_name("data.json");
+        let watch_paths = ctx.session.document_cache.all_paths_to_watch();
+        assert!(watch_paths.contains(&json_path), "{json_path:?} not in {watch_paths:?}");
 
         ctx.session.open_urls.insert(main_url.clone());
         std::fs::write(&json_path, r#"{ "greeting": "hello" }"#).unwrap();
