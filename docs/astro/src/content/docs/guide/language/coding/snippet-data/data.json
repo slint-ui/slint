@@ -1,0 +1,12 @@
+{
+    "greeting": "Hello, world!",
+    "stats": {
+        "visitors": {
+            "count": 42
+        }
+    },
+    "tags": [
+        "news",
+        "weather"
+    ]
+}

@@ -12,7 +12,7 @@ use std::rc::{Rc, Weak};
 use crate::diagnostics::{BuildDiagnostics, Diagnostic, Spanned};
 use crate::expression_tree::Callable;
 use crate::object_tree::{self, Document, ExportedName, Exports};
-use crate::parser::{NodeOrToken, SyntaxKind, SyntaxToken, syntax_nodes};
+use crate::parser::{NodeOrToken, SyntaxKind, SyntaxNode, SyntaxToken, syntax_nodes};
 use crate::source_path::SourcePath;
 use crate::typeregister::TypeRegister;
 use crate::{CompilerConfiguration, expression_tree};
@@ -244,6 +244,7 @@ impl Snapshotter {
             revision: type_loader.revision,
             // Share the counters so names generated after the snapshot stay unique.
             symbol_counters: type_loader.symbol_counters.clone(),
+            json_files: type_loader.json_files.clone(),
             library_projects: type_loader.library_projects.clone(),
         })
     }
@@ -1065,6 +1066,8 @@ pub struct TypeLoader {
     /// passes. Shared across all documents of the compilation so the names stay
     /// unique even after inlining merges components from different documents.
     pub symbol_counters: Rc<crate::symbol_counters::SymbolCounters>,
+    /// The files read by `@from-json(...)` calls, by resolved path.
+    json_files: HashMap<SourcePath, Rc<std::io::Result<String>>>,
     /// The library project files by path, or why one failed to load, reported when an import uses
     /// the library.
     library_projects: HashMap<SourcePath, Result<Rc<LibraryProject>, Diagnostic>>,
@@ -1096,6 +1099,7 @@ impl TypeLoader {
             revision: 0,
             all_documents: Default::default(),
             symbol_counters,
+            json_files: Default::default(),
             library_projects: HashMap::new(),
         };
 
@@ -1186,6 +1190,9 @@ impl TypeLoader {
                 for import in doc.imports.iter().filter_map(|import| import.resolved.as_ref()) {
                     self.all_documents.dependencies.entry(import.clone()).or_default().remove(path);
                 }
+                for dependents in self.all_documents.dependencies.values_mut() {
+                    dependents.remove(path);
+                }
                 match doc.node.take() {
                     None => {
                         self.all_documents.docs.remove(path);
@@ -1237,6 +1244,8 @@ impl TypeLoader {
         registry_to_populate: &'b Rc<RefCell<TypeRegister>>,
         import_stack: &'b HashSet<SourcePath>,
     ) -> (Vec<ImportedTypes>, Exports) {
+        Self::load_json_files(state, doc).await;
+
         let mut imports = Vec::new();
         let mut dependencies_futures = Vec::new();
         for mut import in Self::collect_dependencies(state, doc) {
@@ -1538,6 +1547,58 @@ impl TypeLoader {
                         .filter(SourcePath::exists)
                 },
             )
+        }
+    }
+
+    /// The file that `@from-json(path)` reads, where `node` is the `@from-json(...)` call.
+    pub fn resolve_from_json_path(&self, node: &SyntaxNode, path: &str) -> SourcePath {
+        Some(path)
+            .filter(|path| !crate::source_path::is_absolute(path))
+            .and_then(|path| self.resolve_import_path(Some(&node.clone().into()), path))
+            .unwrap_or_else(|| {
+                node.source_file.path().parent().join(path).unwrap_or_else(|| SourcePath::new(path))
+            })
+    }
+
+    /// The content of a file read for `@from-json(...)`, as resolved by [`Self::resolve_from_json_path`].
+    /// `None` if the file wasn't read while loading the document.
+    pub fn from_json_file(&self, path: &SourcePath) -> Option<Rc<std::io::Result<String>>> {
+        self.json_files.get(path).cloned()
+    }
+
+    /// Reads the files of the `@from-json(...)` calls in `doc` with the `open_import_callback`,
+    /// so that the editors and the online playground can provide them.
+    async fn load_json_files<'a>(
+        state: &'a RefCell<BorrowedTypeLoader<'a>>,
+        doc: &syntax_nodes::Document,
+    ) {
+        let mut read = HashSet::new();
+        for node in doc.descendants().filter(|n| n.kind() == SyntaxKind::AtFromJson) {
+            let Some(path) = node
+                .child_token(SyntaxKind::StringLiteral)
+                .and_then(|token| crate::literals::unescape_string(token.text()))
+            else {
+                continue;
+            };
+            let path = state.borrow().tl.resolve_from_json_path(&node, &path);
+            if !read.insert(path.clone()) {
+                continue;
+            }
+            let content = Self::read_import(state, &path).await;
+            let mut state = state.borrow_mut();
+            // The build systems only track absolute paths.
+            let absolute_path = crate::fileaccess::find_file(&path).unwrap_or_else(|| path.clone());
+            if content.is_ok() {
+                state.diag.all_loaded_files.insert(absolute_path.clone());
+            }
+            state
+                .tl
+                .all_documents
+                .dependencies
+                .entry(absolute_path)
+                .or_default()
+                .insert(doc.source_file.path().clone());
+            state.tl.json_files.insert(path, Rc::new(content));
         }
     }
 
@@ -2058,9 +2119,6 @@ impl TypeLoader {
         )
         .await;
 
-        let ignore_missing_font_files =
-            state.borrow().tl.compiler_config.resource_url_mapper.is_some();
-        let symbol_counters = state.borrow().tl.symbol_counters.clone();
         if state.borrow().diag.has_errors() {
             // If there was error (esp parse error) we don't want to report further error in this document.
             // because they might be nonsense (TODO: we should check that the parse error were really in this document).
@@ -2072,8 +2130,7 @@ impl TypeLoader {
                 reexports,
                 &mut ignore_diag,
                 &dependency_registry,
-                ignore_missing_font_files,
-                &symbol_counters,
+                state.borrow().tl,
             );
             return (path.to_owned(), doc);
         }
@@ -2085,8 +2142,7 @@ impl TypeLoader {
             reexports,
             state.diag,
             &dependency_registry,
-            ignore_missing_font_files,
-            &symbol_counters,
+            state.tl,
         );
         (path.to_owned(), doc)
     }
@@ -2310,9 +2366,9 @@ impl TypeLoader {
 
     /// Returns all file paths whose on-disk changes can affect the current document graph.
     ///
-    /// This includes loaded documents, the resources they reference, and unresolved import
-    /// targets that are kept in the dependency graph so newly created files can invalidate
-    /// their dependents.
+    /// This includes loaded documents, the resources they reference, the files read by
+    /// `@from-json(...)`, and unresolved import targets that are kept in the dependency graph
+    /// so newly created files can invalidate their dependents.
     pub fn all_files_to_watch(&self) -> HashSet<SourcePath> {
         fn resource_paths(document: &LoadedDocument) -> Vec<SourcePath> {
             match document {
@@ -3681,4 +3737,76 @@ fn test_watch_paths_revision_bumps_on_mutations() {
     type_loader.drop_document(&path).unwrap();
     let after_drop = type_loader.revision();
     assert_ne!(after_drop, after_invalidate);
+}
+
+#[test]
+fn test_from_json_uses_open_import_callback() {
+    let mut compiler_config =
+        CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    compiler_config.style = Some("fluent".into());
+    compiler_config.open_import_callback = Some(Rc::new(move |path: SourcePath| {
+        Box::pin(async move {
+            (path.to_string() == "https://example.com/project/data.json")
+                .then(|| Ok(r#"{ "greeting": "from the callback" }"#.to_owned()))
+        })
+    }));
+
+    let mut diagnostics = BuildDiagnostics::default();
+    let doc_node = crate::parser::parse(
+        r#"export component X { out property <string> greeting: @from-json("data.json").greeting; }"#
+            .into(),
+        Some(SourcePath::new("https://example.com/project/main.slint")),
+        None,
+        &mut diagnostics,
+    );
+    let (doc, diagnostics, _loader) =
+        spin_on::spin_on(crate::compile_syntax_node(doc_node, diagnostics, compiler_config));
+    assert!(!diagnostics.has_errors(), "{:?}", diagnostics.to_string_vec());
+
+    let component = doc.inner_components.last().unwrap();
+    let root_element = component.root_element.borrow();
+    let binding = root_element.binding("greeting").unwrap();
+    assert!(
+        matches!(
+            binding.expression.ignore_debug_hooks(),
+            expression_tree::Expression::StringLiteral(s) if s.as_str() == "from the callback"
+        ),
+        "{:?}",
+        binding.expression
+    );
+}
+
+#[test]
+fn test_from_json_files_are_dependencies() {
+    let dir = std::env::temp_dir().join(format!("slint-from-json-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let main_path = SourcePath::new(dir.join("main.slint"));
+    let json_path = SourcePath::new(dir.join("data.json"));
+    let missing_path = SourcePath::new(dir.join("missing.json"));
+    std::fs::write(json_path.as_native_path().unwrap(), r#"{ "greeting": "hello" }"#).unwrap();
+
+    let mut compiler_config =
+        CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    compiler_config.style = Some("fluent".into());
+    let (diagnostics, mut loader, _) = spin_on::spin_on(crate::load_root_file(
+        &main_path,
+        r#"
+export component Main {
+    property <string> greeting: @from-json("data.json").greeting;
+    property <string> missing: @from-json("missing.json").greeting;
+}
+"#
+        .into(),
+        BuildDiagnostics::default(),
+        compiler_config,
+        false,
+    ));
+    std::fs::remove_dir_all(&dir).unwrap();
+
+    assert!(diagnostics.all_loaded_files.contains(&json_path));
+    assert!(!diagnostics.all_loaded_files.contains(&missing_path));
+    let watch_files = loader.all_files_to_watch();
+    assert!(watch_files.contains(&json_path), "{watch_files:?}");
+    assert!(watch_files.contains(&missing_path), "{watch_files:?}");
+    assert!(loader.drop_document(&json_path).unwrap().contains(&main_path));
 }

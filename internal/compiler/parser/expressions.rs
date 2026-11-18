@@ -30,6 +30,7 @@ use super::prelude::*;
 /// array[index]
 /// {object:42}
 /// "foo".bar.something().something.xx({a: 1.foo}.a)
+/// @from-json("data.json").a.b[0].c
 /// (x) => x > 0
 /// ```
 pub fn parse_expression(p: &mut impl Parser) -> bool {
@@ -292,10 +293,13 @@ fn parse_at_keyword(p: &mut impl Parser) {
         "keys" => {
             parse_keys(p);
         }
+        "from-json" | "from_json" => {
+            parse_from_json(p);
+        }
         _ => {
             p.consume();
             p.test(SyntaxKind::Identifier); // consume the identifier, so that autocomplete works
-            p.error("Expected 'image-url', 'tr', 'keys', 'markdown' 'conic-gradient', 'linear-gradient', or 'radial-gradient' after '@'");
+            p.error("Expected 'image-url', 'from-json', 'tr', 'keys', 'markdown' 'conic-gradient', 'linear-gradient', or 'radial-gradient' after '@'");
         }
     }
 }
@@ -711,6 +715,25 @@ fn parse_keys(p: &mut impl Parser) {
     }
 }
 
+/// Consume the `StringLiteral` path argument of `function_name`,
+/// which must be a plain string without `\{ }` interpolation.
+fn consume_path_plain_string_literal(p: &mut impl Parser, function_name: &str) -> bool {
+    let peek = p.peek();
+    if peek.kind() != SyntaxKind::StringLiteral {
+        p.error(format!("{function_name} must contain a plain path as a string literal"));
+        p.until(SyntaxKind::RParent);
+        return false;
+    }
+    if !peek.is_plain_string_literal() {
+        p.error(format!(
+            "{function_name} must contain a plain path as a string literal, without any '\\{{}}' expressions"
+        ));
+        p.until(SyntaxKind::RParent);
+        return false;
+    }
+    p.expect(SyntaxKind::StringLiteral)
+}
+
 #[cfg_attr(test, parser_test)]
 /// ```test,AtImageUrl
 /// @image-url("foo.png")
@@ -725,18 +748,9 @@ fn parse_image_url(p: &mut impl Parser) {
     if !(p.expect(SyntaxKind::LParent)) {
         return;
     }
-    let peek = p.peek();
-    if peek.kind() != SyntaxKind::StringLiteral {
-        p.error("@image-url must contain a plain path as a string literal");
-        p.until(SyntaxKind::RParent);
+    if !consume_path_plain_string_literal(&mut *p, "@image-url") {
         return;
     }
-    if !peek.as_str().starts_with('"') || !peek.as_str().ends_with('"') {
-        p.error("@image-url must contain a plain path as a string literal, without any '\\{}' expressions");
-        p.until(SyntaxKind::RParent);
-        return;
-    }
-    p.expect(SyntaxKind::StringLiteral);
     if !p.test(SyntaxKind::Comma) {
         if !p.test(SyntaxKind::RParent) {
             p.error("Expected ')' or ','");
@@ -782,6 +796,26 @@ fn parse_image_url(p: &mut impl Parser) {
                 break;
             }
         }
+    }
+    if !p.expect(SyntaxKind::RParent) {
+        p.until(SyntaxKind::RParent);
+    }
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,AtFromJson
+/// @from-json("data.json")
+/// @from_json("data.json")
+/// ```
+fn parse_from_json(p: &mut impl Parser) {
+    let mut p = p.start_node(SyntaxKind::AtFromJson);
+    p.consume(); // "@"
+    p.consume(); // "from-json" or "from_json"
+    if !(p.expect(SyntaxKind::LParent)) {
+        return;
+    }
+    if !consume_path_plain_string_literal(&mut *p, "@from-json") {
+        return;
     }
     if !p.expect(SyntaxKind::RParent) {
         p.until(SyntaxKind::RParent);

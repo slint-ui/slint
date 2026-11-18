@@ -33,6 +33,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 use unicode_segmentation::UnicodeSegmentation;
 
+mod from_json;
 mod remove_noop;
 
 /// This represents a scope for the Component, where Component is the repeated component, but
@@ -727,6 +728,15 @@ impl Expression {
                         #[cfg(feature = "slint-sc")]
                         ctx.diag.slint_sc_error("@keys() expressions are", &node);
                         return Self::from_at_keys_node(node.into(), ctx);
+                    }
+                    SyntaxKind::AtFromJson
+                    | SyntaxKind::MemberAccess
+                    | SyntaxKind::IndexExpression
+                        if let Some((at_from_json, steps)) = from_json::as_chain(&node) =>
+                    {
+                        #[cfg(feature = "slint-sc")]
+                        ctx.diag.slint_sc_error("@from-json() expressions are", &node);
+                        return from_json::lower(&at_from_json, &steps, &node, ctx);
                     }
                     SyntaxKind::QualifiedName => {
                         return Self::from_qualified_name_node(node.into(), ctx);
