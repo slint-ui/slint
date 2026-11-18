@@ -101,7 +101,7 @@ impl VisualEditorSettings {
                 }
                 Some(ui::RecentProject {
                     name: slint::format!("{}", project_name.display()),
-                    root_path: project.root.to_string_lossy().as_ref().into(),
+                    root_path: dunce::simplified(&project.root).to_string_lossy().as_ref().into(),
                     component: component.into(),
                     path: path.to_string_lossy().as_ref().into(),
                 })
@@ -402,6 +402,28 @@ mod tests {
     }
 
     #[test]
+    fn recent_project_root_is_shown_without_verbatim_prefix() {
+        let directory = tempfile::tempdir().unwrap();
+        // On Windows, `canonicalize` returns a verbatim path such as `\\?\C:\...`.
+        let root = fs::canonicalize(directory.path()).unwrap();
+        let path = root.join("main.slint");
+        fs::write(&path, "").unwrap();
+        let settings = VisualEditorSettings {
+            recent_projects: vec![recent_project(
+                &root,
+                Url::from_file_path(&path).unwrap(),
+                "Main",
+            )],
+            ..Default::default()
+        };
+
+        let visible = settings.visible_recent_projects();
+        assert_eq!(visible.len(), 1);
+        assert_eq!(visible[0].root_path.as_str(), dunce::simplified(&root).to_string_lossy());
+        assert!(!visible[0].root_path.starts_with(r"\\?\"));
+    }
+
+    #[test]
     fn missing_recent_projects_stay_stored_but_are_not_visible() {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("visible.slint");
@@ -476,7 +498,7 @@ mod tests {
         let nested = root.join("ui");
         std::fs::create_dir(&nested).unwrap();
         let manifest = root.join(i_slint_compiler::project_file::FILE_NAME);
-        std::fs::write(&manifest, r#"{"edition":"1.19","main":"ui/missing.slint"}"#).unwrap();
+        std::fs::write(&manifest, r#"{"edition":"1.20","main":"ui/missing.slint"}"#).unwrap();
         let source = nested.join("missing.slint");
         let standalone = Project::from_input(&source, None, None).unwrap();
         assert_eq!(standalone.root, nested);
@@ -505,7 +527,7 @@ mod tests {
         std::fs::create_dir(source.parent().unwrap()).unwrap();
         std::fs::write(&source, "export component Main inherits Window {}").unwrap();
         let manifest = root.join(i_slint_compiler::project_file::FILE_NAME);
-        std::fs::write(&manifest, r#"{"edition":"1.19","main":"ui/main.slint"}"#).unwrap();
+        std::fs::write(&manifest, r#"{"edition":"1.20","main":"ui/main.slint"}"#).unwrap();
 
         let project = Project::from_selected_file(&manifest, None).unwrap();
         assert_eq!(project.root, root);
@@ -514,7 +536,7 @@ mod tests {
         assert_eq!(project.root, root);
         assert_eq!(project.preview.url, Url::from_file_path(&source).unwrap());
 
-        std::fs::write(&manifest, r#"{"edition":"1.19"}"#).unwrap();
+        std::fs::write(&manifest, r#"{"edition":"1.20"}"#).unwrap();
         assert!(Project::from_selected_file(&manifest, None).is_err());
         assert!(Project::from_selected_file(root.join("other.json"), None).is_err());
     }

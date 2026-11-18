@@ -31,6 +31,8 @@ path = "gallery/main.rs"
 preview-remote = ["dep:mdns-sd"]
 ## Enable the out-of-process system-testing transport.
 system-testing = ["slint/system-testing"]
+## Open the Slint Debugger window from the Window menu or with --debugger.
+debugger = []
 
 [dependencies]
 i-slint-backend-selector = { workspace = true }
@@ -41,9 +43,11 @@ i-slint-editor-preview = { workspace = true, features = ["preview-engine", "prev
 i-slint-live-preview = { workspace = true, features = ["protocol", "file-watcher"] }
 
 by_address = { workspace = true }
+cfg-if = "1"
 clap = { workspace = true }
 clru = { workspace = true }
 crossbeam-channel = "0.5"
+dunce = "1.0.5"
 futures-util = "0.3.32"
 itertools = { workspace = true }
 jsonc-parser = "0.34.0"
@@ -64,7 +68,7 @@ tracing-subscriber = { workspace = true }
 slint-build = { workspace = true, features = ["experimental-module-builds"] }
 
 [dev-dependencies]
-i-slint-backend-testing = { path = "../../internal/backends/testing", features = ["internal"] }
+i-slint-backend-testing = { path = "../../internal/backends/testing", features = ["internal", "renderer-software"] }
 i-slint-editor-preview = { path = "../../internal/editor-preview", features = ["testing"] }
 spin_on = { workspace = true }
 tempfile = "3"

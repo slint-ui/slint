@@ -27,6 +27,8 @@
 //!
 //! The newlines are replaced by `↵` in the error message. Also the manifest dir (CARGO_MANIFEST_DIR) is replaced by `📂`.
 //!
+//! A `//edition: 1.18` line compiles the file with that edition instead of the current one.
+//!
 //! When the env variable `SLINT_SYNTAX_TEST_UPDATE` is set to `1`, the source code will be modified to add the comments
 //! The env variable `SLINT_TEST_FILTER` accepts a regexp and will filter out tests not matching that pattern
 
@@ -506,10 +508,16 @@ fn process_file_source(
         ));
         return process_diagnostics(&diagnostics, path, &project_path, &source, silent, update);
     }
+    let edition =
+        Some(match regex::Regex::new(r"//edition:\s*(\S+)\s*\n").unwrap().captures(&source) {
+            Some(m) => m[1].parse().unwrap(),
+            None => i_slint_compiler::project_file::SlintEdition::current(),
+        });
     let mut parse_diagnostics = BuildDiagnostics::default();
     let syntax_node = i_slint_compiler::parser::parse(
         source.clone(),
         Some(i_slint_compiler::source_path::SourcePath::new(path)),
+        edition,
         &mut parse_diagnostics,
     );
 
@@ -530,11 +538,15 @@ fn process_file_source(
     #[cfg(not(feature = "slint-sc"))]
     let is_slint_sc = false;
     let mut compiler_config = i_slint_compiler::CompilerConfiguration::new(output_format);
-    compiler_config.library_paths = [(
-        "test-lib".into(),
-        concat!(env!("CARGO_MANIFEST_DIR"), "/tests/typeloader/library").into(),
-    )]
+    let typeloader_tests = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/typeloader");
+    compiler_config.library_paths = [
+        ("test-lib", "library"),
+        ("test-project-lib", "project_library/slint-project.json"),
+        ("test-broken-project-lib", "broken_project_library/slint-project.json"),
+        ("test-no-main-project-lib", "no_main_project_library/slint-project.json"),
+    ]
     .into_iter()
+    .map(|(name, path)| (name.into(), typeloader_tests.join(path)))
     .collect();
     compiler_config.embed_resources = i_slint_compiler::EmbedResourcesKind::OnlyBuiltinResources;
     // The `renderer-software` tests diagnose the glyph embedding, which the other tests skip.
@@ -543,7 +555,7 @@ fn process_file_source(
         compiler_config.embed_resources = i_slint_compiler::EmbedResourcesKind::EmbedTextures;
     }
     compiler_config.experimental_features = i_slint_compiler::ExperimentalFeatures::all();
-    compiler_config.edition = Some(i_slint_compiler::project_file::SlintEdition::current());
+    compiler_config.edition = edition;
     compiler_config.style = Some("fluent".into());
     // The interpreter inlines every component, which merges an instance into
     // its base. A diagnostic that depends on the two staying apart needs the

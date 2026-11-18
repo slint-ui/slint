@@ -948,6 +948,9 @@ impl WinitWindowAdapter {
         self.shared_backend_data.watch_hidden_window(&last_window_rc);
         self.shared_backend_data.unregister_window(Some(last_window_rc.id()));
 
+        // No event ends the touches that were down on a window that's gone.
+        self.touch_finger_ids.take();
+
         Ok(())
     }
 
@@ -2006,6 +2009,26 @@ impl WinitWindowAdapter {
         self.pending_redraw.get()
     }
 
+    #[cfg(target_vendor = "apple")]
+    pub(crate) fn has_active_touches(&self) -> bool {
+        self.touch_finger_ids.borrow().has_active_touches()
+    }
+
+    /// Asks the windowing system and updates `Window::is_minimized()` to match,
+    /// because winit's X11 backend emits no event when the window manager minimizes a window.
+    pub(crate) fn is_minimized_on_screen(&self) -> bool {
+        let minimized =
+            self.winit_window().is_some_and(|window| window.is_minimized() == Some(true));
+        if minimized != self.window().is_minimized() {
+            self.window_state_event();
+        }
+        minimized
+    }
+
+    pub(crate) fn cancel_pending_redraw(&self) {
+        self.pending_redraw.set(false);
+    }
+
     pub async fn async_winit_window(
         self_weak: Weak<Self>,
     ) -> Result<Arc<winit::window::Window>, PlatformError> {
@@ -2099,6 +2122,7 @@ impl WindowAdapter for WinitWindowAdapter {
 
     fn request_redraw(&self) {
         if !self.pending_redraw.replace(true)
+            && self.shown.get() != WindowVisibility::Hidden
             && let WinitWindowOrNone::HasWindow { window, frame_throttle, .. } =
                 &*self.winit_window_or_none.borrow()
         {

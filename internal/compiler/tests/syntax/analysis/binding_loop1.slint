@@ -1,5 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+//edition: 1.18
 
 
 WithStates := Rectangle {
@@ -21,16 +22,16 @@ export Test := Rectangle {
     property <int> a: 45 + root.b;
 //                    >          <error{The binding for the property 'a' is part of a binding loop (root_window.a -> root_window.d -> root_window.c -> root_window.b -> root_window.a)}
     property <float> b: root.c;
-//                      >     <note{'b' is part of the binding loop reported for 'a' at line 21}
+//                      >     <note{'b' is part of the binding loop reported for 'a' at line 22}
 //                      >     <^error{The binding for the property 'b' is part of a binding loop (root_window.b -> root_window.e -> root_window.d -> root_window.c -> root_window.b)}
     property <int> c <=> d;
-//                   >    <note{'c' is part of the binding loop reported for 'a' at line 21}
-//                   >    <^note{'c' is part of the binding loop reported for 'b' at line 23}
+//                   >    <note{'c' is part of the binding loop reported for 'a' at line 22}
+//                   >    <^note{'c' is part of the binding loop reported for 'b' at line 24}
     property <int> d: root.a + root.e;
-//                    >              <note{'d' is part of the binding loop reported for 'a' at line 21}
-//                    >              <^note{'d' is part of the binding loop reported for 'b' at line 23}
+//                    >              <note{'d' is part of the binding loop reported for 'a' at line 22}
+//                    >              <^note{'d' is part of the binding loop reported for 'b' at line 24}
     property <int> e: root.b;
-//                    >     <note{'e' is part of the binding loop reported for 'b' at line 23}
+//                    >     <note{'e' is part of the binding loop reported for 'b' at line 24}
     property <int> w: root.a + root.b; // This id not part of a loop
 
     property<bool> cond: xx.x == 0;
@@ -38,13 +39,13 @@ export Test := Rectangle {
 
     xx := Rectangle {
         x: y;
-//         ><note{'x' is part of the binding loop reported for 'cond' at line 36}
+//         ><note{'x' is part of the binding loop reported for 'cond' at line 37}
         y: root.cond ? 42px : 55px;
-//         >                      <note{'y' is part of the binding loop reported for 'cond' at line 36}
+//         >                      <note{'y' is part of the binding loop reported for 'cond' at line 37}
     }
 
     WithStates {
         extra_background: background;
-//                        >         <note{'extra-background' is part of the binding loop reported for 'background' at line 9}
+//                        >         <note{'extra-background' is part of the binding loop reported for 'background' at line 10}
     }
 }

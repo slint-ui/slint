@@ -5,7 +5,7 @@ use std::cell::RefCell;
 use std::num::NonZeroUsize;
 
 use i_slint_compiler::diagnostics::{BuildDiagnostics, SourceFile};
-use i_slint_compiler::object_tree;
+use i_slint_compiler::object_tree::{self, ElementLocation};
 use i_slint_compiler::parser::{
     SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize, syntax_nodes,
 };
@@ -540,7 +540,7 @@ pub fn add_new_component(
     document_cache: &i_slint_editor_preview::DocumentCache,
     component_name: &str,
     document: &syntax_nodes::Document,
-) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
+) -> Option<(lsp_types::WorkspaceEdit, ElementLocation)> {
     let insert_position = insert_position_before_first_component(document_cache, document)?;
     let new_text = format!(
         "{}component {component_name} {{ }}{}",
@@ -579,7 +579,7 @@ pub fn add_new_component(
             source_file.path(),
             vec![edit],
         )?,
-        DropData { selection_offset, path },
+        ElementLocation { path, offset: selection_offset },
     ))
 }
 
@@ -592,7 +592,7 @@ fn drop_target_element_nodes(
     let mut result = Vec::with_capacity(3);
 
     for sc in &element_selection::collect_all_element_nodes_covering(position, component_instance) {
-        let Some(en) = sc.as_element_node(component_instance) else {
+        let Some(en) = sc.selection.as_element_node() else {
             continue;
         };
 
@@ -660,7 +660,7 @@ fn find_drop_location(
     position: LogicalPoint,
     component_type: &str,
 ) -> Option<DropInformation> {
-    let root_node_path = element_selection::root_element(component_instance)
+    let root_node_path = element_selection::root_element(component_instance)?
         .borrow()
         .debug
         .first()
@@ -863,15 +863,6 @@ pub fn edited_text_compiles(
     }
 }
 
-/// Extra data on an added Element, relevant to the Preview side only.
-#[derive(Clone, Debug)]
-pub struct DropData {
-    /// The offset to select next. This is different from the insert position
-    /// due to indentation, etc.
-    pub selection_offset: TextSize,
-    pub path: SourcePath,
-}
-
 fn pretty_node_removal_range(node: &SyntaxNode) -> Option<TextRange> {
     let first_et = node.first_token()?;
     let before_et = first_et.prev_token()?;
@@ -925,13 +916,13 @@ fn drop_ignored_elements_from_node(
 
 /// Find a location in a file that would be a good place to insert the new component at
 ///
-/// Return a WorkspaceEdit to send to the editor and extra info for the live preview in
-/// the DropData struct.
+/// Return a WorkspaceEdit to send to the editor,
+/// and the location of the element for the live preview to select.
 pub fn drop_at(
     document_cache: &i_slint_editor_preview::DocumentCache,
     position: LogicalPoint,
     component: &i_slint_editor_preview::component_catalog::ComponentInformation,
-) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
+) -> Option<(lsp_types::WorkspaceEdit, ElementLocation)> {
     let component_instance = preview::component_instance()?;
 
     let drop_info = find_drop_location(&component_instance, position, &component.name)?;
@@ -948,7 +939,7 @@ pub fn drop_at_with_geometry(
     position: LogicalPoint,
     component: &i_slint_editor_preview::component_catalog::ComponentInformation,
     geometry: LogicalRect,
-) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
+) -> Option<(lsp_types::WorkspaceEdit, ElementLocation)> {
     let component_instance = preview::component_instance()?;
 
     let drop_info = find_drop_location(&component_instance, position, &component.name)?;
@@ -1144,7 +1135,7 @@ pub fn create_drop_element_workspace_edit(
     document_cache: &i_slint_editor_preview::DocumentCache,
     component: &i_slint_editor_preview::component_catalog::ComponentInformation,
     drop_info: &DropInformation,
-) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
+) -> Option<(lsp_types::WorkspaceEdit, ElementLocation)> {
     create_drop_element_workspace_edit_with_properties(document_cache, component, drop_info, &[])
 }
 
@@ -1153,7 +1144,7 @@ pub fn create_drop_element_workspace_edit_with_properties(
     component: &i_slint_editor_preview::component_catalog::ComponentInformation,
     drop_info: &DropInformation,
     extra_properties: &[i_slint_editor_preview::editing::PropertyChange],
-) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
+) -> Option<(lsp_types::WorkspaceEdit, ElementLocation)> {
     let placeholder = if component.is_layout { placeholder() } else { String::new() };
 
     let is_list_view = drop_info.target_element_node.with_element_node(|node| {
@@ -1161,7 +1152,27 @@ pub fn create_drop_element_workspace_edit_with_properties(
     });
     let for_loop = if is_list_view { "for _ in 3: " } else { "" };
 
-    let new_text = if component.default_properties.is_empty() && extra_properties.is_empty() {
+    let mut extra_properties = extra_properties.to_vec();
+    if drop_info.target_element_node.layout_kind() == ui::LayoutKind::None {
+        extend_with_new_properties(
+            &mut extra_properties,
+            &component.default_properties,
+            component.default_size.clone(),
+        );
+    }
+
+    // `Tab` and `RadioButton` only work inside their parent and aren't in the component catalog,
+    // so start the container with one child the user can then edit or duplicate.
+    let first_child = match component.name.as_str() {
+        "TabWidget" if component.is_std_widget => Some("Tab { title: \"Tab 1\"; }"),
+        "RadioGroup" if component.is_std_widget => Some("RadioButton { text: \"Option 1\"; }"),
+        _ => None,
+    };
+
+    let new_text = if component.default_properties.is_empty()
+        && extra_properties.is_empty()
+        && first_child.is_none()
+    {
         format!(
             "{}{for_loop}{} {{{placeholder} }}\n{}",
             drop_info.insert_info.pre_indent, component.name, drop_info.insert_info.post_indent
@@ -1174,8 +1185,11 @@ pub fn create_drop_element_workspace_edit_with_properties(
         for p in &component.default_properties {
             to_insert += &format!("{}    {}: {};\n", drop_info.insert_info.indent, p.name, p.value);
         }
-        for p in extra_properties {
+        for p in &extra_properties {
             to_insert += &format!("{}    {}: {};\n", drop_info.insert_info.indent, p.name, p.value);
+        }
+        if let Some(child) = first_child {
+            to_insert += &format!("{}    {child}\n", drop_info.insert_info.indent);
         }
         to_insert +=
             &format!("{}}}\n{}", drop_info.insert_info.indent, drop_info.insert_info.post_indent);
@@ -1188,7 +1202,7 @@ pub fn create_drop_element_workspace_edit_with_properties(
                 as u32,
         );
 
-    let (path, _) = drop_info.target_element_node.path_and_offset();
+    let path = drop_info.target_element_node.location().path;
 
     let doc = document_cache.get_document_by_path(&path)?;
     let source_file = doc.node.as_ref().unwrap().source_file.clone();
@@ -1239,7 +1253,7 @@ pub fn create_drop_element_workspace_edit_with_properties(
             source_file.path(),
             edits,
         )?,
-        DropData { selection_offset, path },
+        ElementLocation { path, offset: selection_offset },
     ))
 }
 
@@ -1248,7 +1262,7 @@ pub fn create_swap_element_workspace_edit(
     element: &i_slint_editor_preview::ElementRcNode,
     placeholder_text: String,
     format: i_slint_editor_preview::ByteFormat,
-) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
+) -> Option<(lsp_types::WorkspaceEdit, ElementLocation)> {
     let component_type = element.component_type();
     let new_text = {
         let element_text_lines = extract_text_of_element(element, &["x", "y"]);
@@ -1279,7 +1293,7 @@ pub fn create_swap_element_workspace_edit(
         }
     };
 
-    let (path, _) = drop_info.target_element_node.path_and_offset();
+    let path = drop_info.target_element_node.location().path;
 
     let document_cache = preview::document_cache()?;
     let doc = document_cache.get_document_by_path(&path)?;
@@ -1354,7 +1368,336 @@ pub fn create_swap_element_workspace_edit(
 
     Some((
         i_slint_editor_preview::editing::create_workspace_edit_from_single_text_edits(edits),
-        DropData { selection_offset, path },
+        ElementLocation { path, offset: selection_offset },
+    ))
+}
+
+/// Returns the source of `element`, including its id and `if` or `for` prefix, without the indentation of its first line.
+pub fn element_clipboard_text(element: &i_slint_editor_preview::ElementRcNode) -> String {
+    extract_text_of_element(element, &[]).join("\n")
+}
+
+const PASTE_WRAPPER_PREFIX: &str = "component PasteWrapper {\n";
+const PASTE_WRAPPER_SUFFIX: &str = "\n}\n";
+
+/// Parses `text` as exactly one element, and returns it with its id and `if` or `for` prefix.
+///
+/// Offsets in the result include the length of `PASTE_WRAPPER_PREFIX`.
+fn parse_pasted_element(text: &str) -> Option<SyntaxNode> {
+    let mut diag = BuildDiagnostics::default();
+    let document = i_slint_compiler::parser::parse(
+        format!("{PASTE_WRAPPER_PREFIX}{}{PASTE_WRAPPER_SUFFIX}", text.trim()),
+        None,
+        None,
+        &mut diag,
+    );
+    if diag.has_errors() {
+        return None;
+    }
+    let wrapper = document.child_node(SyntaxKind::Component)?.child_node(SyntaxKind::Element)?;
+    let mut children = wrapper.children();
+    let pasted = children.next().filter(is_element_child_node)?;
+    children.next().is_none().then_some(pasted)
+}
+
+/// Returns `text` with the `x` and `y` bindings of its element replaced by `position`, or removed when `position` is `None`.
+fn with_element_position(text: &str, position: Option<LogicalPoint>) -> Option<String> {
+    let pasted = parse_pasted_element(text)?;
+    let element = i_slint_editor_preview::extract_element(pasted.clone())?;
+    let mut source = pasted.source_file.source()?.to_string();
+
+    let mut removals = element
+        .Binding()
+        .filter(|b| b.first_token().is_some_and(|t| matches!(t.text(), "x" | "y")))
+        .filter_map(|b| pretty_node_removal_range(&b))
+        .collect::<Vec<_>>();
+    removals.sort_by_key(|r| std::cmp::Reverse(r.start()));
+    for range in removals {
+        source.replace_range(usize::from(range.start())..usize::from(range.end()), "");
+    }
+
+    if let Some(position) = position {
+        let brace_end = usize::from(element.child_token(SyntaxKind::LBrace)?.text_range().end());
+        let separator = if element.text().to_string().contains('\n') { "\n    " } else { " " };
+        source.insert_str(
+            brace_end,
+            &format!(
+                "{separator}x: {}px;{separator}y: {}px;",
+                position.x.round(),
+                position.y.round()
+            ),
+        );
+    }
+
+    Some(source[PASTE_WRAPPER_PREFIX.len()..source.len() - PASTE_WRAPPER_SUFFIX.len()].to_string())
+}
+
+fn is_element_child_node(node: &SyntaxNode) -> bool {
+    matches!(
+        node.kind(),
+        SyntaxKind::SubElement | SyntaxKind::RepeatedElement | SyntaxKind::ConditionalElement
+    )
+}
+
+fn sub_element_id(node: &SyntaxNode) -> Option<SyntaxToken> {
+    (node.kind() == SyntaxKind::SubElement && node.child_token(SyntaxKind::ColonEqual).is_some())
+        .then(|| node.child_token(SyntaxKind::Identifier))
+        .flatten()
+}
+
+/// Returns whether `token` names an element id, either where it's declared or where an expression starts with it.
+fn is_id_reference(token: &SyntaxToken) -> bool {
+    let parent = token.parent();
+    match parent.kind() {
+        SyntaxKind::SubElement => true,
+        SyntaxKind::QualifiedName => {
+            parent.first_token().is_some_and(|first| first.text_range() == token.text_range())
+                && parent.parent().is_none_or(|p| p.kind() != SyntaxKind::Element)
+        }
+        _ => false,
+    }
+}
+
+fn tokens_of(node: &SyntaxNode) -> impl Iterator<Item = SyntaxToken> {
+    let end = node.text_range().end();
+    std::iter::successors(node.first_token(), |t| t.next_token())
+        .take_while(move |t| t.text_range().end() <= end)
+}
+
+/// Element source parsed from the clipboard, with ids renamed to avoid clashes.
+struct PastedElement {
+    lines: Vec<String>,
+    /// Offset of the element itself, after its id and `if` or `for` prefix.
+    element_offset: usize,
+    type_names: Vec<String>,
+}
+
+impl PastedElement {
+    fn parse(text: &str, existing_ids: &std::collections::HashSet<String>) -> Option<Self> {
+        let pasted = parse_pasted_element(text)?;
+        let element: SyntaxNode = i_slint_editor_preview::extract_element(pasted.clone())?.into();
+
+        let mut taken_ids = existing_ids.clone();
+        let pasted_ids = pasted
+            .descendants()
+            .filter_map(|n| sub_element_id(&n))
+            .map(|t| i_slint_compiler::parser::normalize_identifier(t.text()).to_string())
+            .collect::<Vec<_>>();
+        taken_ids.extend(pasted_ids.iter().cloned());
+        let mut renamed = std::collections::HashMap::new();
+        for id in pasted_ids {
+            if !existing_ids.contains(&id) || renamed.contains_key(&id) {
+                continue;
+            }
+            let fresh = (2..)
+                .map(|n| format!("{id}-{n}"))
+                .find(|candidate| !taken_ids.contains(candidate))
+                .expect("There is always a free id");
+            taken_ids.insert(fresh.clone());
+            renamed.insert(id, fresh);
+        }
+
+        let mut source = String::new();
+        let mut element_offset = 0;
+        for token in tokens_of(&pasted) {
+            if token.text_range().start() == element.text_range().start() {
+                element_offset = source.len();
+            }
+            let new_name = (token.kind() == SyntaxKind::Identifier && is_id_reference(&token))
+                .then(|| {
+                    renamed
+                        .get(i_slint_compiler::parser::normalize_identifier(token.text()).as_str())
+                })
+                .flatten();
+            source.push_str(new_name.map_or(token.text(), |n| n.as_str()));
+        }
+
+        let mut type_names = Vec::new();
+        for node in pasted.descendants().filter(|n| n.kind() == SyntaxKind::Element) {
+            if let Some(name) = node.child_node(SyntaxKind::QualifiedName) {
+                let name = name.text().to_string().trim().to_string();
+                if !type_names.contains(&name) {
+                    type_names.push(name);
+                }
+            }
+        }
+
+        let lines = source.split('\n').map(str::to_string).collect();
+        Some(Self { lines, element_offset, type_names })
+    }
+
+    /// Returns the text to insert, and the offset of the element within it.
+    fn indented(&self, prefix: &str, indent: &str, suffix: &str) -> (String, usize) {
+        let mut text = prefix.to_string();
+        let mut element_offset = None;
+        let mut consumed = 0;
+        for (index, line) in self.lines.iter().enumerate() {
+            if index > 0 {
+                text.push('\n');
+                text.push_str(indent);
+            }
+            if element_offset.is_none() && self.element_offset <= consumed + line.len() {
+                element_offset = Some(text.len() + self.element_offset - consumed);
+            }
+            text.push_str(line);
+            consumed += line.len() + 1;
+        }
+        text.push_str(suffix);
+        (text, element_offset.unwrap_or_default())
+    }
+}
+
+fn ids_in_component(node: &SyntaxNode) -> std::collections::HashSet<String> {
+    let component = std::iter::successors(Some(node.clone()), |n| n.parent())
+        .find(|n| n.kind() == SyntaxKind::Component);
+    component
+        .iter()
+        .flat_map(|c| c.descendants())
+        .filter_map(|n| sub_element_id(&n))
+        .map(|t| i_slint_compiler::parser::normalize_identifier(t.text()).to_string())
+        .collect()
+}
+
+type ComponentInfoLookup<'a> =
+    &'a dyn Fn(&str) -> Option<i_slint_editor_preview::component_catalog::ComponentInformation>;
+
+/// Creates the edit that pastes the element source `text` next to `selected`.
+///
+/// The element goes right after `selected`, or into it when `selected` is the root of its component.
+/// Ids that clash with ids of the target component get a numeric suffix.
+pub fn create_paste_element_workspace_edit(
+    document_cache: &i_slint_editor_preview::DocumentCache,
+    selected: &i_slint_editor_preview::ElementRcNode,
+    text: &str,
+    component_info: ComponentInfoLookup,
+) -> Option<(lsp_types::WorkspaceEdit, ElementLocation)> {
+    let pasted = PastedElement::parse(text, &selected.with_element_node(|n| ids_in_component(n)))?;
+
+    if !selected.parent().is_some_and(|parent| parent.is_same_component_as(selected)) {
+        return create_paste_into_workspace_edit(
+            document_cache,
+            selected,
+            &insert_position_at_end(selected)?,
+            &pasted,
+            component_info,
+        );
+    }
+
+    let indent = util::find_element_indent(selected).unwrap_or_default();
+    let end = selected.with_decorated_node(|n| n.text_range().end());
+    let (new_text, element_offset) = pasted.indented(&format!("\n{indent}"), &indent, "");
+    create_paste_text_workspace_edit(
+        document_cache,
+        selected,
+        Vec::new(),
+        (end, 0, new_text, element_offset),
+        &pasted,
+        component_info,
+    )
+}
+
+/// Creates the edit that pastes the element source `text` where a drop at `position` would go.
+///
+/// Outside of layouts, the element's top-left corner goes to `position`.
+/// Ids that clash with ids of the target component get a numeric suffix.
+pub fn create_paste_element_at_workspace_edit(
+    document_cache: &i_slint_editor_preview::DocumentCache,
+    position: LogicalPoint,
+    text: &str,
+    component_info: ComponentInfoLookup,
+) -> Option<(lsp_types::WorkspaceEdit, ElementLocation)> {
+    let component_instance = preview::component_instance()?;
+    let type_name = PastedElement::parse(text, &Default::default())?.type_names.first()?.clone();
+    let drop_info = find_drop_location(&component_instance, position, &type_name)?;
+    let target = &drop_info.target_element_node;
+
+    let element_position = if target.layout_kind() == ui::LayoutKind::None {
+        let origin = target.geometry_at(&component_instance, position)?.rect.origin;
+        Some(LogicalPoint::new(position.x - origin.x, position.y - origin.y))
+    } else {
+        None
+    };
+    let text = with_element_position(text, element_position)?;
+    let pasted = PastedElement::parse(&text, &target.with_element_node(|n| ids_in_component(n)))?;
+
+    create_paste_into_workspace_edit(
+        document_cache,
+        target,
+        &drop_info.insert_info,
+        &pasted,
+        component_info,
+    )
+}
+
+fn create_paste_into_workspace_edit(
+    document_cache: &i_slint_editor_preview::DocumentCache,
+    target: &i_slint_editor_preview::ElementRcNode,
+    info: &InsertInformation,
+    pasted: &PastedElement,
+    component_info: ComponentInfoLookup,
+) -> Option<(lsp_types::WorkspaceEdit, ElementLocation)> {
+    let source_file = target.with_element_node(|n| n.source_file.clone());
+    let placeholder_edits =
+        drop_ignored_elements_from_node(target, &source_file, document_cache.format);
+    let (new_text, element_offset) =
+        pasted.indented(&info.pre_indent, &info.indent, &format!("\n{}", info.post_indent));
+    create_paste_text_workspace_edit(
+        document_cache,
+        target,
+        placeholder_edits,
+        (info.insertion_position.offset(), info.replacement_range, new_text, element_offset),
+        pasted,
+        component_info,
+    )
+}
+
+/// `insertion` holds the insert offset, the length of the replaced text, the new text, and the offset of the element within it.
+fn create_paste_text_workspace_edit(
+    document_cache: &i_slint_editor_preview::DocumentCache,
+    target: &i_slint_editor_preview::ElementRcNode,
+    mut edits: Vec<lsp_types::TextEdit>,
+    insertion: (TextSize, u32, String, usize),
+    pasted: &PastedElement,
+    component_info: ComponentInfoLookup,
+) -> Option<(lsp_types::WorkspaceEdit, ElementLocation)> {
+    let (insert_offset, replacement_range, new_text, element_offset) = insertion;
+    let path = target.location().path;
+    let doc = document_cache.get_document_by_path(&path)?;
+    let source_file = doc.node.as_ref()?.source_file.clone();
+    let format = document_cache.format;
+
+    let mut selection_offset = insert_offset + TextSize::new(element_offset as u32);
+    for te in &edits {
+        selection_offset =
+            text_edit::TextOffsetAdjustment::new(te, &source_file, format).adjust(selection_offset);
+    }
+
+    let url = path.to_url();
+    for type_name in &pasted.type_names {
+        let Some(info) = component_info(type_name) else { continue };
+        let import_file = info.import_file_name(&url);
+        if let Some(edit) = import_edit::create_import_edit(doc, type_name, &import_file, format) {
+            selection_offset = text_edit::TextOffsetAdjustment::new(&edit, &source_file, format)
+                .adjust(selection_offset);
+            edits.push(edit);
+        }
+    }
+
+    let start = util::text_size_to_lsp_position(&source_file, insert_offset, format);
+    let end = util::text_size_to_lsp_position(
+        &source_file,
+        insert_offset + TextSize::new(replacement_range),
+        format,
+    );
+    edits.push(lsp_types::TextEdit { range: lsp_types::Range::new(start, end), new_text });
+
+    Some((
+        i_slint_editor_preview::editing::create_workspace_edit_from_path(
+            document_cache,
+            source_file.path(),
+            edits,
+        )?,
+        ElementLocation { path, offset: selection_offset },
     ))
 }
 
@@ -1365,10 +1708,10 @@ pub fn create_wrap_in_layout_workspace_edit(
     element: &i_slint_editor_preview::ElementRcNode,
     layout: &str,
     import_file: &Option<String>,
-) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
+) -> Option<(lsp_types::WorkspaceEdit, ElementLocation)> {
     element.parent()?;
 
-    let (path, _) = element.path_and_offset();
+    let path = element.location().path;
     let doc = document_cache.get_document_by_path(&path)?;
     let source_file = doc.node.as_ref()?.source_file.clone();
     let format = document_cache.format;
@@ -1418,7 +1761,7 @@ pub fn create_wrap_in_layout_workspace_edit(
 
     Some((
         i_slint_editor_preview::editing::create_workspace_edit_from_single_text_edits(edits),
-        DropData { selection_offset, path },
+        ElementLocation { path, offset: selection_offset },
     ))
 }
 
@@ -1678,7 +2021,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 582
         let doc = document_cache.get_document_by_path(&test::main_test_file_name()).unwrap();
         let doc_node = doc.node.as_ref().unwrap();
 
-        let (workspace_edit, drop_data) =
+        let (workspace_edit, inserted) =
             super::add_new_component(&document_cache, "TestComponent", doc_node).unwrap();
 
         let result = text_edit::apply_workspace_edit(&document_cache, &workspace_edit).unwrap();
@@ -1686,8 +2029,8 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 582
         assert_eq!(SourcePath::from_url(&result[0].url), test::main_test_file_name());
         assert_eq!(&result[0].contents, output);
 
-        assert_eq!(drop_data.path, test::main_test_file_name());
-        assert_eq!(drop_data.selection_offset, selection_offset.into());
+        assert_eq!(inserted.path, test::main_test_file_name());
+        assert_eq!(inserted.offset, selection_offset.into());
 
         assert_eq!(
             super::workspace_edit_compiles(&document_cache, &workspace_edit),
@@ -1859,7 +2202,7 @@ export component Main inherits Window {
             .element_at_position(&url, &lsp_types::Position::new(line, character))
             .unwrap();
 
-        let (workspace_edit, drop_data) = super::create_wrap_in_layout_workspace_edit(
+        let (workspace_edit, inserted) = super::create_wrap_in_layout_workspace_edit(
             &document_cache,
             &element,
             layout,
@@ -1872,9 +2215,9 @@ export component Main inherits Window {
         );
         let result = text_edit::apply_workspace_edit(&document_cache, &workspace_edit).unwrap();
         assert_eq!(result.len(), 1);
-        assert_eq!(drop_data.path, test::main_test_file_name());
+        assert_eq!(inserted.path, test::main_test_file_name());
         let contents = result[0].contents.clone();
-        assert!(contents[usize::from(drop_data.selection_offset)..].starts_with(layout));
+        assert!(contents[usize::from(inserted.offset)..].starts_with(layout));
         Some(contents)
     }
 
@@ -1903,5 +2246,195 @@ export component Main inherits Window {
     #[test]
     fn test_wrap_in_layout_rejects_root() {
         assert!(wrap_in_layout(2, 30, "VerticalLayout", None).is_none());
+    }
+
+    const BEFORE_PASTE_CODE: &str = r#"export component Main {
+    HorizontalLayout {
+        label := Text {
+            text: "a";
+        }
+        Text {
+            text: label.text;
+        }
+    }
+}
+"#;
+
+    #[track_caller]
+    fn paste_test(selected_offset: u32, clipboard: &str, output: &str) {
+        let url = test::main_test_file_name().to_url().unwrap();
+        let document_cache = test::compile_test_with_sources(
+            "fluent",
+            HashMap::from([(url.clone(), BEFORE_PASTE_CODE.to_string())]),
+            false,
+        );
+        super::preview::PREVIEW_STATE.with_borrow_mut(|state| {
+            state.source_code.insert(
+                url.clone(),
+                super::preview::SourceCodeCacheEntry {
+                    version: None,
+                    code: BEFORE_PASTE_CODE.into(),
+                },
+            );
+        });
+        let selected =
+            document_cache.element_at_offset(&url, TextSize::new(selected_offset)).unwrap();
+
+        let (workspace_edit, inserted) = super::create_paste_element_workspace_edit(
+            &document_cache,
+            &selected,
+            clipboard,
+            &|_| None,
+        )
+        .unwrap();
+
+        let result = text_edit::apply_workspace_edit(&document_cache, &workspace_edit).unwrap();
+        assert_eq!(&result[0].contents, output);
+        assert!(result[0].contents[usize::from(inserted.offset)..].starts_with("Text {"));
+        assert_eq!(
+            super::workspace_edit_compiles(&document_cache, &workspace_edit),
+            super::preview::CompilationResult::ChangeCompiles
+        );
+    }
+
+    #[test]
+    fn test_element_clipboard_text() {
+        let url = test::main_test_file_name().to_url().unwrap();
+        let document_cache = test::compile_test_with_sources(
+            "fluent",
+            HashMap::from([(url.clone(), BEFORE_PASTE_CODE.to_string())]),
+            false,
+        );
+        let label = document_cache.element_at_offset(&url, TextSize::new(68)).unwrap();
+        assert_eq!(super::element_clipboard_text(&label), "label := Text {\n    text: \"a\";\n}");
+    }
+
+    #[test]
+    fn test_paste_after_selected_renames_clashing_ids() {
+        paste_test(
+            68,
+            "label := Text {\n    text: \"a\";\n    width: label.preferred-width;\n}",
+            r#"export component Main {
+    HorizontalLayout {
+        label := Text {
+            text: "a";
+        }
+        label-2 := Text {
+            text: "a";
+            width: label-2.preferred-width;
+        }
+        Text {
+            text: label.text;
+        }
+    }
+}
+"#,
+        );
+    }
+
+    #[test]
+    fn test_paste_renames_ids_clashing_outside_selected() {
+        paste_test(
+            113,
+            "label := Text { }",
+            r#"export component Main {
+    HorizontalLayout {
+        label := Text {
+            text: "a";
+        }
+        Text {
+            text: label.text;
+        }
+        label-2 := Text { }
+    }
+}
+"#,
+        );
+    }
+
+    #[test]
+    fn test_paste_keeps_ids_without_clash() {
+        paste_test(
+            68,
+            "other := Text {\n    text: other.width / 1px;\n}",
+            r#"export component Main {
+    HorizontalLayout {
+        label := Text {
+            text: "a";
+        }
+        other := Text {
+            text: other.width / 1px;
+        }
+        Text {
+            text: label.text;
+        }
+    }
+}
+"#,
+        );
+    }
+
+    #[test]
+    fn test_paste_into_component_root() {
+        paste_test(
+            22,
+            "Text { text: \"b\"; }",
+            r#"export component Main {
+    HorizontalLayout {
+        label := Text {
+            text: "a";
+        }
+        Text {
+            text: label.text;
+        }
+    }
+    Text { text: "b"; }
+}
+"#,
+        );
+    }
+
+    #[test]
+    fn test_with_element_position() {
+        let position = Some(super::LogicalPoint::new(10.4, 20.6));
+        assert_eq!(
+            super::with_element_position(
+                "a := Rectangle {\n    x: 1px;\n    width: 5px;\n    y: 2px;\n}",
+                position
+            )
+            .as_deref(),
+            Some("a := Rectangle {\n    x: 10px;\n    y: 21px;\n    width: 5px;\n}")
+        );
+        assert_eq!(
+            super::with_element_position("Text { x: 1px; text: \"b\"; }", position).as_deref(),
+            Some("Text { x: 10px; y: 21px; text: \"b\"; }")
+        );
+        assert_eq!(
+            super::with_element_position("for i in 2: Text { x: 1px; }", None).as_deref(),
+            Some("for i in 2: Text { }")
+        );
+    }
+
+    #[test]
+    fn test_paste_rejects_non_element_text() {
+        let url = test::main_test_file_name().to_url().unwrap();
+        let document_cache = test::compile_test_with_sources(
+            "fluent",
+            HashMap::from([(url.clone(), BEFORE_PASTE_CODE.to_string())]),
+            false,
+        );
+        let label = document_cache.element_at_offset(&url, TextSize::new(68)).unwrap();
+        for clipboard in ["hello world", "text: \"a\";", "Text { }\nText { }", ""] {
+            assert!(
+                super::create_paste_element_workspace_edit(
+                    &document_cache,
+                    &label,
+                    clipboard,
+                    &|_| None
+                )
+                .is_none(),
+                "{clipboard:?}"
+            );
+        }
     }
 }

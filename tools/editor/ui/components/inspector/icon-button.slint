@@ -1,11 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style, PaintStyle, ButtonStyle } from "../../style.slint";
+import { Icons } from "../../icons/index.slint";
+import { Style, PaintStyle, ButtonStyle, Metrics } from "../../style.slint";
 
 export component InspectorIconButton inherits Rectangle {
     in property <ButtonStyle> style: Style.inspector-icon-button;
     in property <string> kind;
+    in property <image> icon;
     in property <string> label: root.kind;
     in property <bool> selected: false;
     in property <bool> focus-on-click: true;
@@ -39,7 +41,7 @@ export component InspectorIconButton inherits Rectangle {
     if root.kind == "close": Image {
         width: root.style.height;
         height: self.width;
-        source: @image-url("../../../../lsp/ui/assets/close.svg");
+        source: Icons.close;
         colorize: root.paint.foreground;
     }
 
@@ -48,7 +50,14 @@ export component InspectorIconButton inherits Rectangle {
         y: 3px;
         width: 13px;
         height: 13px;
-        source: @image-url("../../assets/primer-folder-open.svg");
+        source: Icons.primer-folder-open;
+        colorize: root.paint.foreground;
+    }
+
+    if root.icon.width > 0: Image {
+        width: Metrics.icon-medium;
+        height: self.width;
+        source: root.icon;
         colorize: root.paint.foreground;
     }
 

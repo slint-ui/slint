@@ -12,7 +12,7 @@ fn compile(
     enable_experimental: bool,
 ) -> i_slint_compiler::diagnostics::BuildDiagnostics {
     let mut diag = i_slint_compiler::diagnostics::BuildDiagnostics::default();
-    let syntax_node = i_slint_compiler::parser::parse(source.into(), None, &mut diag);
+    let syntax_node = i_slint_compiler::parser::parse(source.into(), None, None, &mut diag);
     let mut compiler_config = i_slint_compiler::CompilerConfiguration::new(
         i_slint_compiler::generator::OutputFormat::Interpreter,
     );

@@ -341,6 +341,7 @@ impl PreviewSession {
 
     fn create_compiler(self: &Rc<Self>) -> slint_interpreter::Compiler {
         let mut compiler = slint_interpreter::Compiler::new();
+        apply_configuration(&mut compiler, &PreviewConfig::default());
         let manifest_session = Rc::downgrade(self);
         compiler.set_project_file_loader(
             Rc::new(move |path| {
@@ -506,7 +507,9 @@ impl PreviewSession {
 }
 
 fn apply_configuration(compiler: &mut slint_interpreter::Compiler, configuration: &PreviewConfig) {
-    compiler.set_overrides(configuration.overrides.clone(), InternalToken);
+    let mut overrides = configuration.overrides.clone();
+    overrides.debug_info = Some(true);
+    compiler.set_overrides(overrides, InternalToken);
 }
 
 impl PreviewSessionHandle {
@@ -831,7 +834,7 @@ mod tests {
                 let directory = tempfile::tempdir().unwrap();
                 let root = Url::from_directory_path(directory.path()).unwrap();
                 let manifest_path = directory.path().join("slint-project.json");
-                std::fs::write(&manifest_path, r#"{"edition":"1.19","experimental-features":["component-container"]}"#).unwrap();
+                std::fs::write(&manifest_path, r#"{"edition":"1.20","experimental-features":["component-container"]}"#).unwrap();
                 let manifest = Url::from_file_path(&manifest_path).unwrap();
                 let nested_manifest =
                     Url::from_file_path(directory.path().join("ui/slint-project.json")).unwrap();
@@ -839,7 +842,7 @@ mod tests {
                 let target = PreviewComponent { url: source.clone(), component: None };
                 for (url, contents) in [
                     (source, "export component Main inherits Window { ComponentContainer {} }"),
-                    (nested_manifest, r#"{"edition":"1.19","experimental-features":["component-container"]}"#),
+                    (nested_manifest, r#"{"edition":"1.20","experimental-features":["component-container"]}"#),
                 ] {
                     session.process_message(
                         LspToPreviewMessage::SetContents {
@@ -861,7 +864,7 @@ mod tests {
                 ));
                 assert!(session.dependencies.borrow().contains(&manifest));
                 for contents in
-                    [r#"{"edition":"1.19","main":"other.slint","experimental-features":["component-container"]}"#, r#"{"edition":"1.19"}"#, "{"]
+                    [r#"{"edition":"1.20","main":"other.slint","experimental-features":["component-container"]}"#, r#"{"edition":"1.20"}"#, "{"]
                 {
                     session.process_message(
                         LspToPreviewMessage::SetContents {
@@ -880,7 +883,7 @@ mod tests {
                 session.process_message(
                     LspToPreviewMessage::SetContents {
                         url: VersionedUrl::new(manifest, None),
-                        contents: r#"{"edition":"1.19","experimental-features":["component-container"]}"#.into(),
+                        contents: r#"{"edition":"1.20","experimental-features":["component-container"]}"#.into(),
                     },
                     &|_| {},
                     &mut None,
@@ -932,8 +935,8 @@ mod tests {
         assert!(session.dependencies.borrow().contains(&url));
         assert!(capture.0.borrow().is_empty());
         for (contents, rebuild) in [
-            (Some(r#"{"edition":"1.19"}"#), true),
-            (Some(r#"{"edition":"1.19"}"#), true),
+            (Some(r#"{"edition":"1.20"}"#), true),
+            (Some(r#"{"edition":"1.20"}"#), true),
             (Some("{broken"), true),
             (None, true),
             (None, true),

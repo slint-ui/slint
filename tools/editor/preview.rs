@@ -11,6 +11,7 @@
 //! the case of `native` runs in a separate thread at this time.
 
 use crate::preview::element_selection::ElementSelection;
+use i_slint_compiler::object_tree::{ElementLocation, ElementProperty};
 use i_slint_compiler::parser::{TextSize, syntax_nodes};
 use i_slint_compiler::source_path::SourcePath;
 use i_slint_compiler::{EmbedResourcesKind, diagnostics};
@@ -19,6 +20,7 @@ use i_slint_core::component_factory::FactoryContext;
 use i_slint_core::lengths::{
     LogicalPoint, LogicalRect, LogicalSize as CoreLogicalSize, LogicalVector,
 };
+use i_slint_core::platform::Clipboard;
 use i_slint_editor_preview::{
     ElementRcNode,
     component_catalog::{self, ComponentInformation},
@@ -32,7 +34,6 @@ use i_slint_live_preview::protocol::{
 use lsp_types::Url;
 use slint::{LogicalPosition, LogicalSize, PlatformError, SharedString, ToSharedString};
 use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance};
-use smol_str::SmolStr;
 use std::borrow::BorrowMut;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
@@ -73,7 +74,10 @@ pub fn initialize(
     PREVIEW_STATE.with_borrow_mut(|preview_state| {
         *preview_state.to_lsp.borrow_mut() = Some(to_lsp.clone());
         let api = editor_ui.global::<ui::Api>();
+        let properties_api = editor_ui.global::<ui::Properties>();
         preview_state.api = <ui::Api as slint::Global<'_, ui::EditorUi>>::as_weak(&api);
+        preview_state.properties =
+            <ui::Properties as slint::Global<'_, ui::EditorUi>>::as_weak(&properties_api);
         preview_state.editor_ui = Some(editor_ui.clone_strong());
         preview_state.settings = settings;
     });
@@ -241,23 +245,41 @@ type SourceCodeCache = HashMap<Url, SourceCodeCacheEntry>;
 
 /// Property overrides the editor pushes into the previewed instance, keyed by debug hook id.
 type DebugHookOverrides = Rc<
-    RefCell<HashMap<SmolStr, Pin<Box<i_slint_core::Property<Option<slint_interpreter::Value>>>>>>,
+    RefCell<HashMap<ElementProperty, Pin<Box<i_slint_core::Property<Option<DebugHookOverride>>>>>>,
 >;
+
+#[derive(Clone, PartialEq, Debug)]
+struct DebugHookOverride {
+    value: slint_interpreter::Value,
+    expression: Option<String>,
+    fill: Option<ui::FillData>,
+}
+
+impl From<slint_interpreter::Value> for DebugHookOverride {
+    fn from(value: slint_interpreter::Value) -> Self {
+        Self { value, expression: None, fill: None }
+    }
+}
 
 /// Routes `instance`'s debug hooks through `overrides`, so that the editor can override a
 /// property of the previewed element without going through the source.
 fn install_debug_hook_callback(instance: &ComponentInstance, overrides: DebugHookOverrides) {
-    instance.set_debug_hook_callback(Some(Box::new(move |id: &str| {
+    instance.set_debug_hook_callback(Some(Box::new(move |id| {
         let mut hooks = (*overrides).borrow_mut();
-        let property = hooks.entry(SmolStr::from(id)).or_insert_with(|| {
-            tracing::trace!("Inserting Property override: {id}");
-            Box::pin(i_slint_core::Property::new(None))
-        });
-        property.as_ref().get()
+        if let Some(property) = hooks.get(id) {
+            return property.as_ref().get().map(|override_value| override_value.value);
+        }
+        tracing::trace!("Inserting Property override: {id:?}");
+        let property = Box::pin(i_slint_core::Property::<Option<DebugHookOverride>>::new(None));
+        let value = property.as_ref().get().map(|override_value| override_value.value);
+        hooks.insert(id.clone(), property);
+        value
     })));
 }
 
-fn set_override(id: &SmolStr, value: Option<slint_interpreter::Value>) {
+fn set_override(id: &ElementProperty, value: Option<slint_interpreter::Value>) {
+    let value = value.map(DebugHookOverride::from);
+
     PREVIEW_STATE.with_borrow(|state| {
         let mut overrides = (*state.debug_hook_overrides).borrow_mut();
         if value.is_some() {
@@ -278,6 +300,7 @@ fn set_override(id: &SmolStr, value: Option<slint_interpreter::Value>) {
 pub struct PreviewState {
     pub editor_ui: Option<ui::EditorUi>,
     pub api: slint::Weak<ui::Api<'static>>,
+    pub properties: slint::Weak<ui::Properties<'static>>,
     property_range_declarations: Option<ui::PropertyDeclarations>,
     /// The handle to the previewed component instance
     handle: Rc<RefCell<Option<slint_interpreter::ComponentInstance>>>,
@@ -293,7 +316,6 @@ pub struct PreviewState {
     undo_redo_stack: undo_redo::UndoRedoStack,
     pending_history: std::collections::VecDeque<bool>,
     inspector_edit: Option<inspector::Edit>,
-    fill_refresh: Option<inspector::FillRefresh>,
     text_edit_session: Option<inline_text_edit::Session>,
 
     source_code: SourceCodeCache,
@@ -369,14 +391,13 @@ impl PreviewState {
         self.initial_live_data.clear();
         self.current_live_data.clear();
         self.inspector_edit = None;
-        self.fill_refresh = None;
         self.resources.clear();
         if let Some(api) = self.api.upgrade() {
+            let properties_api = self.properties.upgrade().unwrap();
             api.set_preview_area(Default::default());
             api.set_current_element(Default::default());
-            api.set_properties(Default::default());
+            properties_api.set_properties(Default::default());
             api.set_selection(ui::Selection { highlight_index: -1, ..Default::default() });
-            api.set_inspector_fill_refresh_pending(false);
             ui::ui_set_project_components(&api, &[]);
             ui::ui_set_preview_data(&api, Default::default(), None);
             outline::reset_outline(&api, None);
@@ -713,12 +734,10 @@ fn apply_live_preview_data() {
 }
 
 fn set_contents(url: &VersionedUrl, content: String) {
-    let own_fill_edit = inspector::fill_contents_changed(url.url(), &content);
     let (reload, invalidate) = PREVIEW_STATE.with_borrow_mut(|preview_state| {
         let changed = preview_state.source_code.get(url.url()).is_none_or(|old| old.code != content);
         tracing::debug!(url = %url.url(), changed, edit_pending = preview_state.workspace_edit_sent, "Preview: source notification");
-        if changed && !own_fill_edit
-            && !preview_state.undo_redo_stack.check_set_contents_valid(url.url(), &content)
+        if changed && !preview_state.undo_redo_stack.check_set_contents_valid(url.url(), &content)
         {
             tracing::debug!(url = %url.url(), "Preview: source change invalidated history");
             undo_redo::set_undo_redo_enabled(preview_state);
@@ -728,9 +747,9 @@ fn set_contents(url: &VersionedUrl, content: String) {
             SourceCodeCacheEntry { version: *url.version(), code: content.clone() },
         );
         let version_changed = old.as_ref().is_none_or(|old| old.version != *url.version());
-        let selected_document =
-            preview_state.selected.as_ref().and_then(|selected| selected.path.to_url()).as_ref()
-                == Some(url.url());
+        let selected_url =
+            preview_state.selected.as_ref().and_then(|selected| selected.location.path.to_url());
+        let selected_document = selected_url.as_ref() == Some(url.url());
         let dependency = preview_state.dependencies.contains(url.url());
         let invalidate =
             (selected_document && (changed || version_changed)) || (dependency && changed);
@@ -887,7 +906,7 @@ fn add_new_component() {
         return;
     };
 
-    if let Some((edit, drop_data)) =
+    if let Some((edit, inserted)) =
         drop_location::add_new_component(&document_cache, &component_name, document)
         && send_workspace_edit(format!("Add {component_name}"), edit, true)
     {
@@ -900,8 +919,7 @@ fn add_new_component() {
                 component: Some(component_name),
             });
             preview_state.selected = Some(ElementSelection {
-                path: drop_data.path,
-                offset: drop_data.selection_offset,
+                location: inserted,
                 instance_index: 0,
                 editing_text: false,
             });
@@ -1059,47 +1077,28 @@ fn set_code_binding(
     )
 }
 
+fn notify_property_changed() {
+    let lsp = PREVIEW_STATE.with_borrow(|state| state.to_lsp.borrow().clone().unwrap());
+    lsp.send_telemetry(&mut [(
+        "type".to_string(),
+        serde_json::to_value("property_changed").unwrap(),
+    )])
+    .ok();
+}
+
 fn set_code_bindings(
     element_url: slint::SharedString,
     element_version: i32,
     element_offset: i32,
     bindings: impl IntoIterator<Item = ui::CodeBinding>,
 ) -> bool {
-    let lsp = PREVIEW_STATE.with_borrow(|ps| ps.to_lsp.borrow().clone().unwrap());
-    lsp.send_telemetry(&mut [(
-        "type".to_string(),
-        serde_json::to_value("property_changed").unwrap(),
-    )])
-    .ok();
+    notify_property_changed();
 
     let Some(edit) = evaluate_bindings(element_url, element_version, element_offset, bindings)
     else {
         return false;
     };
     send_workspace_edit("Edit properties".to_string(), edit, true)
-}
-
-fn set_color_binding(
-    element_url: slint::SharedString,
-    element_version: i32,
-    element_offset: i32,
-    property_name: slint::SharedString,
-    value: slint::Color,
-) {
-    // We need a CSS value which is rgba, color converts to a argb only :-/
-    let rgba: slint::RgbaColor<u8> = value.into();
-    let value: u32 = ((rgba.red as u32) << 24)
-        + ((rgba.green as u32) << 16)
-        + ((rgba.blue as u32) << 8)
-        + (rgba.alpha as u32);
-
-    let _ = set_code_binding(
-        element_url,
-        element_version,
-        element_offset,
-        property_name,
-        format!("#{value:08x}").into(),
-    );
 }
 
 fn set_element_id(
@@ -1325,8 +1324,8 @@ fn drop_component(data: DataTransfer, x: f32, y: f32) {
     let drop_result = drop_location::drop_at(&document_cache, position, &component)
         .map(|(e, d)| (e, d, component.name.clone()));
 
-    if let Some((edit, drop_data, component_name)) = drop_result {
-        submit_component_drop(edit, drop_data, component_name, kind);
+    if let Some((edit, inserted, component_name)) = drop_result {
+        submit_component_drop(edit, inserted, component_name, kind);
     };
 }
 
@@ -1358,22 +1357,21 @@ fn drop_component_with_geometry(
         drop_location::drop_at_with_geometry(&document_cache, hit_position, &component, geometry)
             .map(|(edit, data)| (edit, data, component.name.clone()));
 
-    if let Some((edit, drop_data, component_name)) = drop_result {
-        submit_component_drop(edit, drop_data, component_name, kind);
+    if let Some((edit, inserted, component_name)) = drop_result {
+        submit_component_drop(edit, inserted, component_name, kind);
     };
 }
 
 fn submit_component_drop(
     edit: lsp_types::WorkspaceEdit,
-    drop_data: drop_location::DropData,
+    inserted: ElementLocation,
     component_name: String,
     kind: ui::ElementKind,
 ) {
     if send_workspace_edit(format!("Add element {component_name}"), edit, false) {
         set_selected_element(
             Some(ElementSelection {
-                path: drop_data.path,
-                offset: drop_data.selection_offset,
+                location: inserted,
                 instance_index: 0,
                 editing_text: kind == ui::ElementKind::Text,
             }),
@@ -1399,7 +1397,7 @@ fn delete_selected_element() {
         return;
     };
 
-    let Some(url) = selected.path.to_url() else {
+    let Some(url) = selected.location.path.to_url() else {
         return;
     };
 
@@ -1436,9 +1434,9 @@ fn wrap_selected_element_in_layout(layout: SharedString) {
     };
     let Some(document_cache) = document_cache() else { return };
 
-    let import_file =
-        get_component_info(&layout).and_then(|info| info.import_file_name(&selected.path.to_url()));
-    let Some((edit, drop_data)) = drop_location::create_wrap_in_layout_workspace_edit(
+    let import_file = get_component_info(&layout)
+        .and_then(|info| info.import_file_name(&selected.location.path.to_url()));
+    let Some((edit, inserted)) = drop_location::create_wrap_in_layout_workspace_edit(
         &document_cache,
         &selected_node,
         &layout,
@@ -1449,15 +1447,73 @@ fn wrap_selected_element_in_layout(layout: SharedString) {
 
     if send_workspace_edit(format!("Wrap in {layout}"), edit, true) {
         set_selected_element(
-            Some(ElementSelection {
-                path: drop_data.path,
-                offset: drop_data.selection_offset,
-                instance_index: 0,
-                editing_text: false,
-            }),
+            Some(ElementSelection { location: inserted, instance_index: 0, editing_text: false }),
             SelectionNotification::AfterUpdate,
         );
     }
+}
+
+fn copy_selected_element() -> bool {
+    let Some(selected_node) = selected_element().and_then(|s| s.as_element_node()) else {
+        return false;
+    };
+    let text = drop_location::element_clipboard_text(&selected_node);
+    i_slint_backend_selector::with_platform(|platform| {
+        platform.set_clipboard_text(&text, Clipboard::DefaultClipboard);
+        Ok(())
+    })
+    .inspect_err(|err| tracing::warn!("Failed to copy element to clipboard: {err}"))
+    .is_ok()
+}
+
+fn cut_selected_element() {
+    if copy_selected_element() {
+        delete_selected_element();
+    }
+}
+
+fn paste_element(at_pointer: bool, x: f32, y: f32) {
+    let Some(document_cache) = document_cache() else { return };
+    let Some(text) = i_slint_backend_selector::with_platform(|platform| {
+        Ok(platform.clipboard_text(Clipboard::DefaultClipboard))
+    })
+    .ok()
+    .flatten() else {
+        return;
+    };
+
+    let paste_edit = if at_pointer {
+        drop_location::create_paste_element_at_workspace_edit(
+            &document_cache,
+            LogicalPoint::new(x, y),
+            &text,
+            &get_component_info,
+        )
+    } else {
+        selected_element().and_then(|s| s.as_element_node()).and_then(|selected_node| {
+            drop_location::create_paste_element_workspace_edit(
+                &document_cache,
+                &selected_node,
+                &text,
+                &get_component_info,
+            )
+        })
+    };
+    let Some((edit, inserted)) = paste_edit else {
+        return;
+    };
+    if drop_location::workspace_edit_compiles(&document_cache, &edit)
+        != CompilationResult::ChangeCompiles
+    {
+        return;
+    }
+
+    element_selection::select_element_at_source_code_position(
+        inserted,
+        None,
+        SelectionNotification::AfterUpdate,
+    );
+    send_workspace_edit("Paste element".to_string(), edit, false);
 }
 
 fn resize_selected_element(x: f32, y: f32, width: f32, height: f32) {
@@ -1514,7 +1570,7 @@ fn rotate_selected_element_impl(
 ) -> Option<(lsp_types::WorkspaceEdit, String)> {
     let rotation = override_selected_element_rotation_impl(element_node, instance_index, angle)?;
 
-    let (path, offset) = element_node.path_and_offset();
+    let ElementLocation { path, offset } = element_node.location();
     let url = path.to_url()?;
     let document_cache = document_cache()?;
 
@@ -1555,18 +1611,6 @@ fn override_selected_element_rotation_impl(
 
     let component_instance = component_instance()?;
 
-    let element_hash = element_node
-        .element
-        .borrow()
-        .debug
-        .get(element_node.debug_index)
-        .map(|debug| debug.element_hash)
-        .unwrap_or(0);
-    if element_hash == 0 {
-        tracing::debug!("Element does not have a hash, cannot override rotation");
-        return None;
-    }
-
     // `transform-rotation` is relative to the element's parent, so subtract the parent's
     // absolute rotation. Like `parent_origin` for the geometry override, the parent's rotation
     // rides along on the selected instance's geometry, so we don't have to guess which parent
@@ -1586,17 +1630,14 @@ fn override_selected_element_rotation_impl(
 
     PREVIEW_STATE.with_borrow(|preview_state| {
         let overrides = (*preview_state.debug_hook_overrides).borrow();
-        let id = i_slint_compiler::passes::property_id(
-            element_hash,
-            &SmolStr::from("transform-rotation"),
-        );
+        let id = element_node.property("transform-rotation");
         let Some(rotation_override) = overrides.get(&id) else {
             tracing::debug!(
                 "Element does not have a transform-rotation debug hook, cannot override rotation"
             );
             return None;
         };
-        (**rotation_override).set(Some(slint_interpreter::Value::Number(new_rotation)));
+        (**rotation_override).set(Some(slint_interpreter::Value::Number(new_rotation).into()));
         Some(())
     })?;
 
@@ -1702,18 +1743,6 @@ fn override_selected_element_geometry_impl(
     tracing::trace!("Setting geometry preview: {rect:?} in {coordinate_space:?}");
     let component_instance = component_instance()?;
 
-    let element_hash = element_node
-        .element
-        .borrow()
-        .debug
-        .get(element_node.debug_index)
-        .map(|debug| debug.element_hash)
-        .unwrap_or(0);
-    if element_hash == 0 {
-        tracing::debug!("Element does not have a hash, cannot override geometry");
-        return None;
-    }
-
     // The parent frame rides along on the selected instance's geometry, so we don't have to
     // guess which parent instance contains the dragged point (which breaks once the element is
     // dragged outside of its parent).
@@ -1748,18 +1777,18 @@ fn override_selected_element_geometry_impl(
         })
         .collect::<Vec<_>>();
 
+    let location = element_node.location();
     PREVIEW_STATE.with_borrow(|preview_state| {
         let overrides = (*preview_state.debug_hook_overrides).borrow();
         let property_overrides = values
             .into_iter()
             .map(|(name, value)| {
-                let id = i_slint_compiler::passes::property_id(element_hash, &SmolStr::from(name));
-                let property_override = overrides.get(&id)?;
+                let property_override = overrides.get(&location.property(name))?;
                 Some((property_override, value))
             })
             .collect::<Option<Vec<_>>>()?;
         for (property_override, value) in property_overrides {
-            (**property_override).set(Some(slint_interpreter::Value::Number(value)));
+            (**property_override).set(Some(slint_interpreter::Value::Number(value).into()));
         }
         Some(())
     })?;
@@ -1798,18 +1827,6 @@ fn set_selected_element_border_radius_override(
     let Some(element_node) = element_selection.as_element_node() else { return };
     let Some(component_instance) = component_instance() else { return };
 
-    let element_hash = element_node
-        .element
-        .borrow()
-        .debug
-        .get(element_node.debug_index)
-        .map(|d| d.element_hash)
-        .unwrap_or(0);
-    if element_hash == 0 {
-        tracing::debug!("Element does not have a hash, cannot override geometry");
-        return;
-    }
-
     let property_name = match corner {
         ui::CanvasCorner::TopLeft => "border-top-left-radius",
         ui::CanvasCorner::TopRight => "border-top-right-radius",
@@ -1819,14 +1836,14 @@ fn set_selected_element_border_radius_override(
 
     PREVIEW_STATE.with_borrow(|preview_state| {
         let m = (*preview_state.debug_hook_overrides).borrow();
-        let id = i_slint_compiler::passes::property_id(element_hash, &SmolStr::from(property_name));
+        let id = element_node.property(property_name);
         let Some(property_override) = m.get(&id) else {
             tracing::debug!(
                 "Property debug hook {property_name} does not exist, cannot override geometry",
             );
             return;
         };
-        (**property_override).set(value);
+        (**property_override).set(value.map(DebugHookOverride::from));
     });
 
     component_instance.window().request_redraw();
@@ -1840,20 +1857,8 @@ fn persist_selected_element_border_radius() {
         return;
     };
 
-    let element_hash = element_node
-        .element
-        .borrow()
-        .debug
-        .get(element_node.debug_index)
-        .map(|d| d.element_hash)
-        .unwrap_or(0);
-    if element_hash == 0 {
-        tracing::debug!("Element does not have a hash, cannot resize");
-        return;
-    }
-
     // They all have the same size anyway:
-    let (path, offset) = element_node.path_and_offset();
+    let location = element_node.location();
 
     // Apply the overrides permanently
     let properties = [
@@ -1868,13 +1873,11 @@ fn persist_selected_element_border_radius() {
         properties
             .into_iter()
             .filter_map(|property| {
-                let id =
-                    i_slint_compiler::passes::property_id(element_hash, &SmolStr::from(property));
                 overrides
-                    .get(&id)
+                    .get(&location.property(property))
                     .and_then(|property_override| property_override.as_ref().get())
                     .and_then(|value| {
-                        if let slint_interpreter::Value::Number(value) = value && value.is_finite() {
+                        if let slint_interpreter::Value::Number(value) = value.value && value.is_finite() {
                             Some((property, value))
                         } else {
                             tracing::debug!(
@@ -1895,7 +1898,7 @@ fn persist_selected_element_border_radius() {
         return;
     }
 
-    let Some(url) = path.to_url() else {
+    let Some(url) = location.path.to_url() else {
         return;
     };
     let Some(document_cache) = document_cache() else {
@@ -1908,7 +1911,7 @@ fn persist_selected_element_border_radius() {
         &document_cache,
         i_slint_editor_preview::editing::VersionedPosition::new(
             VersionedUrl::new(url, version),
-            offset,
+            location.offset,
         ),
         geometry_changes,
     )
@@ -1938,19 +1941,7 @@ fn resize_selected_element_impl(
 fn persist_selected_element_geometry_impl(
     element_node: &ElementRcNode,
 ) -> Option<(lsp_types::WorkspaceEdit, String)> {
-    let element_hash = element_node
-        .element
-        .borrow()
-        .debug
-        .get(element_node.debug_index)
-        .map(|d| d.element_hash)
-        .unwrap_or(0);
-    if element_hash == 0 {
-        tracing::debug!("Element does not have a hash, cannot persist geometry");
-        return None;
-    }
-
-    let (path, offset) = element_node.path_and_offset();
+    let location = element_node.location();
 
     let properties = ["x", "y", "width", "height"];
     let geometry_changes = PREVIEW_STATE.with_borrow(|preview_state| {
@@ -1959,13 +1950,11 @@ fn persist_selected_element_geometry_impl(
         properties
             .into_iter()
             .filter_map(|property| {
-                let id =
-                    i_slint_compiler::passes::property_id(element_hash, &SmolStr::from(property));
                 overrides
-                    .get(&id)
+                    .get(&location.property(property))
                     .and_then(|property_override| property_override.as_ref().get())
                     .and_then(|value| {
-                        if let slint_interpreter::Value::Number(value) = value && value.is_finite() {
+                        if let slint_interpreter::Value::Number(value) = value.value && value.is_finite() {
                             Some((property, value))
                         } else {
                             tracing::debug!(
@@ -1986,7 +1975,7 @@ fn persist_selected_element_geometry_impl(
         return None;
     }
 
-    let url = path.to_url()?;
+    let url = location.path.to_url()?;
     let document_cache = document_cache()?;
 
     let version = document_cache.document_version(&url);
@@ -1995,7 +1984,7 @@ fn persist_selected_element_geometry_impl(
         &document_cache,
         i_slint_editor_preview::editing::VersionedPosition::new(
             VersionedUrl::new(url, version),
-            offset,
+            location.offset,
         ),
         geometry_changes,
     )
@@ -2012,8 +2001,8 @@ enum CompilationResult {
 pub(super) fn workspace_edit_finished(edit: lsp_types::WorkspaceEdit, applied: bool) {
     let _ = slint::invoke_from_event_loop(move || {
         project_file::workspace_edit_finished(&edit, applied);
-        if !inline_text_edit::workspace_edit_finished(&edit, applied) {
-            inspector::workspace_edit_finished(edit, applied);
+        if !inline_text_edit::workspace_edit_finished(&edit, applied) && !applied {
+            PREVIEW_STATE.with_borrow_mut(|state| state.workspace_edit_sent = false);
         }
     });
 }
@@ -2036,15 +2025,6 @@ fn workspace_edit_source_file(
 }
 
 fn send_workspace_edit(label: String, edit: lsp_types::WorkspaceEdit, test_edit: bool) -> bool {
-    submit_workspace_edit(label, edit, test_edit, None)
-}
-
-fn submit_workspace_edit(
-    label: String,
-    edit: lsp_types::WorkspaceEdit,
-    test_edit: bool,
-    fill: Option<ui::FillData>,
-) -> bool {
     let Some(document_cache) = document_cache() else {
         return false;
     };
@@ -2054,28 +2034,6 @@ fn submit_workspace_edit(
         })
     });
     let Ok(result) = result else { return false };
-    let fill_refresh = if let Some(fill) = fill.clone() {
-        let [expected] = result.as_slice() else { return false };
-        let unchanged = PREVIEW_STATE.with_borrow(|state| {
-            state
-                .source_code
-                .get(&expected.url)
-                .is_some_and(|source| source.code == expected.contents)
-        });
-        if unchanged {
-            inspector::cancel();
-            return true;
-        }
-        Some((
-            fill,
-            text_edit::EditedText {
-                url: expected.url.clone(),
-                contents: expected.contents.clone(),
-            },
-        ))
-    } else {
-        None
-    };
     let file_hashes = undo_redo::compute_file_hashes(&result);
 
     if test_edit {
@@ -2093,26 +2051,12 @@ fn submit_workspace_edit(
         })
     });
 
-    let accepted = PREVIEW_STATE.with_borrow_mut(|preview_state| {
+    PREVIEW_STATE.with_borrow_mut(|preview_state| {
         if undo_redo::edit_pending(preview_state) {
             tracing::debug!(%label, "Preview: rejecting an edit while another is pending");
             return false;
         }
-        if let Some((fill, expected)) = fill_refresh {
-            let Some(reverse) = reverse_edit else { return false };
-            preview_state.fill_refresh = Some(inspector::FillRefresh {
-                expected,
-                submitted_edit: edit.clone(),
-                fill,
-                undo: Some(undo_redo::EditItem {
-                    title: label.clone(),
-                    edit: reverse,
-                    file_hashes,
-                }),
-            });
-        } else {
-            preview_state.undo_redo_stack.push(label.clone(), reverse_edit, file_hashes);
-        }
+        preview_state.undo_redo_stack.push(label.clone(), reverse_edit, file_hashes);
         preview_state.workspace_edit_sent = true;
         undo_redo::set_undo_redo_enabled(preview_state);
         preview_state
@@ -2123,14 +2067,7 @@ fn submit_workspace_edit(
             .send(&PreviewToLspMessage::SendWorkspaceEdit { label: Some(label), edit })
             .unwrap();
         true
-    });
-    if accepted && fill.is_some() {
-        let api = PREVIEW_STATE.with_borrow(|state| state.api.upgrade());
-        if let Some(api) = api {
-            api.set_inspector_fill_refresh_pending(true);
-        }
-    }
-    accepted
+    })
 }
 
 fn change_style() {
@@ -2149,28 +2086,6 @@ fn change_style() {
 
 fn start_parsing() {
     ui::diagnostics::set_compiling(true);
-}
-
-fn extract_resources(
-    dependencies: &HashSet<Url>,
-    component_instance: &ComponentInstance,
-) -> HashSet<Url> {
-    let type_loader = component_instance.definition().type_loader();
-
-    let mut result: HashSet<Url> = Default::default();
-
-    for dependency in dependencies {
-        let path = SourcePath::from_url(dependency);
-        let Some(doc) = type_loader.get_document(&path) else {
-            continue;
-        };
-
-        result.extend(
-            doc.embedded_file_resources.borrow().iter().filter_map(|er| er.path.as_ref()?.to_url()),
-        );
-    }
-
-    result
 }
 
 fn finish_parsing() {
@@ -2247,35 +2162,23 @@ fn previewed_component_changed() {
                 .unwrap_or_default();
 
             if let Some(api) = preview_state.api.upgrade() {
+                let properties_api = preview_state.properties.upgrade().unwrap();
                 if let Some(editor_ui) = &preview_state.editor_ui {
                     let win = i_slint_core::window::WindowInner::from_pub(editor_ui.window())
                         .window_adapter();
                     let palettes =
                         ui::palette::collect_palette(&document_cache, &previewed_url, &win);
-                    ui::palette::set_palette(&api, palettes);
+                    ui::palette::set_palette(&properties_api, palettes);
                 }
                 ui::ui_set_uses_widgets(&api, uses_widgets);
                 ui::ui_set_project_components(&api, &preview_state.known_components);
-                let component = document_cache.get_document(&previewed_url).and_then(|doc| {
-                    match preview_component.as_ref() {
-                        Some(c_id) => doc.inner_components.iter().find(|c| c.id == c_id).cloned(),
-                        None => doc.last_exported_component(),
-                    }
-                });
+                let component =
+                    document_cache.component(&previewed_url, preview_component.as_deref());
                 outline::reset_outline(&api, component);
                 ui::ui_set_preview_data(&api, preview_data, preview_component.clone());
             }
         });
     }
-
-    PREVIEW_STATE.with_borrow_mut(|preview_state| {
-        if let Some(component_instance) = preview_state.component_instance() {
-            preview_state.resources =
-                extract_resources(&preview_state.dependencies, &component_instance);
-        } else {
-            preview_state.resources.clear();
-        }
-    });
 }
 
 fn config_changed(config: PreviewConfig) {
@@ -2451,21 +2354,13 @@ fn notify_restored_selection() {
         lsp.send(&PreviewToLspMessage::ClearHighlight).ok();
         return;
     };
-    let Some(instance) = component_instance() else { return };
-    let Some((element, debug_index)) = instance
-        .element_node_at_source_code_position(&selection.path, selection.offset.into())
-        .first()
-        .cloned()
-    else {
-        return;
-    };
-    let Some(element_node) = ElementRcNode::new(element, debug_index) else { return };
+    let Some(element_node) = selection.as_element_node() else { return };
     let format = PREVIEW_STATE.with_borrow(|state| state.format());
     let (path, position) = element_node.with_element_node(|node| {
         let source_file = &node.source_file;
         (
             source_file.path().to_url(),
-            util::text_size_to_lsp_position(source_file, selection.offset, format),
+            util::text_size_to_lsp_position(source_file, selection.location.offset, format),
         )
     });
     if let Some(url) = path {
@@ -2478,8 +2373,9 @@ fn hovered_element_changed(source_uri: SharedString, offset: i32) {
     let lsp = PREVIEW_STATE.with_borrow(|state| state.to_lsp.borrow().clone());
     let Some(lsp) = lsp else { return };
     let (url, offset) = if source_uri.is_empty() {
-        selected_element()
-            .map_or((None, 0), |selection| (selection.path.to_url(), selection.offset.into()))
+        selected_element().map_or((None, 0), |selection| {
+            (selection.location.path.to_url(), selection.location.offset.into())
+        })
     } else {
         (Url::parse(&source_uri).ok(), u32::try_from(offset).unwrap_or_default())
     };
@@ -2545,6 +2441,15 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
     });
 }
 
+/// A successful compilation of the previewed component.
+struct Compiled {
+    definition: ComponentDefinition,
+    /// The tree as the user wrote it, which the `DocumentCache` of the preview is built from.
+    raw_type_loader: i_slint_compiler::typeloader::TypeLoader,
+    /// The files other than `.slint` documents that the compilation read.
+    resources: HashSet<Url>,
+}
+
 async fn parse_source(
     config: PreviewConfig,
     path: SourcePath,
@@ -2561,7 +2466,7 @@ async fn parse_source(
     > + 'static,
 ) -> (
     Vec<diagnostics::Diagnostic>,
-    Option<ComponentDefinition>,
+    Option<Compiled>,
     Option<i_slint_editor_preview::document_cache::OpenImportCallback>,
     Rc<RefCell<i_slint_editor_preview::document_cache::SourceFileVersionMap>>,
     bool,
@@ -2573,7 +2478,7 @@ async fn parse_source(
     i_slint_editor_preview::document_cache::configure_preview(cc, component);
     cc.resource_url_mapper = resource_url_mapper();
     cc.embed_resources = EmbedResourcesKind::ListAllResources;
-    cc.debug_hooks = Some(std::hash::RandomState::new());
+    cc.debug_hooks = true;
 
     let (open_file_fallback, source_file_versions) =
         i_slint_editor_preview::document_cache::document_cache_parts_setup(
@@ -2618,10 +2523,24 @@ async fn parse_source(
         }),
         i_slint_core::InternalToken,
     );
-    let result =
-        builder.build_static_from_source(source_code, path, i_slint_core::InternalToken).await;
+    let (result, raw_type_loader) = builder
+        .build_with_raw_type_loader(
+            source_code,
+            path,
+            slint_interpreter::AnimationMode::Static,
+            i_slint_core::InternalToken,
+        )
+        .await;
 
-    let compiled = result.components().next();
+    let compiled = result.components().next().zip(raw_type_loader).map(|(definition, raw)| {
+        let resources = result
+            .watch_paths(i_slint_core::InternalToken)
+            .iter()
+            .filter(|path| raw.get_document(path).is_none())
+            .filter_map(|path| path.to_url())
+            .collect();
+        Compiled { definition, raw_type_loader: raw, resources }
+    });
     let diagnostics = result.diagnostics().collect::<Vec<_>>();
     let no_component = !named_component
         && compiled.is_none()
@@ -2699,12 +2618,12 @@ async fn reload_preview_impl(
         return Ok(());
     }
     let success = compiled.is_some();
-    let loaded_component_name = compiled.as_ref().map(|c| c.name().to_string());
+    let loaded_component_name = compiled.as_ref().map(|c| c.definition.name().to_string());
 
     // Reflect the style the compiler actually used (after resolving the default,
     // SLINT_STYLE, and "native") in the ComboBox.
     if let Some(compiled) = &compiled {
-        set_current_style(compiled.type_loader().resolved_style.clone());
+        set_current_style(compiled.raw_type_loader.resolved_style.clone());
     }
 
     tracing::debug!(
@@ -2849,12 +2768,8 @@ pub fn highlight(url: Option<Url>, offset: TextSize) {
         return;
     };
 
-    let selected = selected_element();
-
-    if let Some(selected) = &selected
-        && selected.path == path
-        && selected.offset == offset
-    {
+    let location = ElementLocation { path, offset };
+    if selected_element().is_some_and(|selected| selected.location == location) {
         return;
     }
 
@@ -2863,13 +2778,8 @@ pub fn highlight(url: Option<Url>, offset: TextSize) {
     });
 
     if contains_dependency {
-        if Some((path.clone(), offset)) == selected.map(|s| (s.path, s.offset)) {
-            // Already selected!
-            return;
-        }
         element_selection::select_element_at_source_code_position(
-            path,
-            offset,
+            location,
             None,
             SelectionNotification::Never,
         );
@@ -2980,6 +2890,7 @@ fn set_selected_element(
         };
 
         if let Some(api) = preview_state.api.upgrade() {
+            let properties_api = preview_state.properties.upgrade().unwrap();
             api.set_selection(ui::Selection {
                 highlight_index: selection.as_ref().map(|s| s.instance_index as i32).unwrap_or(-1),
                 layout_data: layout_kind,
@@ -2991,12 +2902,12 @@ fn set_selected_element(
 
             if let Some(document_cache) = document_cache_from(preview_state)
                 && let Some((uri, version, selection)) = selection.as_ref().and_then(|selection| {
-                    let url = selection.path.to_url()?;
+                    let url = selection.location.path.to_url()?;
                     let version = document_cache.document_version(&url);
                     Some((
                         url.clone(),
                         version,
-                        document_cache.element_at_offset(&url, selection.offset)?,
+                        document_cache.element_at_offset(&url, selection.location.offset)?,
                     ))
                 })
             {
@@ -3004,7 +2915,7 @@ fn set_selected_element(
                     let win = i_slint_core::window::WindowInner::from_pub(editor_ui.window())
                         .window_adapter();
                     let palettes = ui::palette::collect_palette(&document_cache, &uri, &win);
-                    ui::palette::set_palette(&api, palettes);
+                    ui::palette::set_palette(&properties_api, palettes);
                 }
 
                 let in_layout = match parent_layout_kind {
@@ -3017,6 +2928,7 @@ fn set_selected_element(
                 if let Some(editor_ui) = &preview_state.editor_ui {
                     preview_state.property_range_declarations = Some(ui::ui_set_properties(
                         &api,
+                        &properties_api,
                         editor_ui.window(),
                         &document_cache,
                         properties::query_properties(&uri, version, &selection, in_layout).ok(),
@@ -3027,7 +2939,7 @@ fn set_selected_element(
                     && !preview_state.workspace_edit_sent)
             {
                 api.set_current_element(Default::default());
-                api.set_properties(Default::default());
+                properties_api.set_properties(Default::default());
                 api.set_selection(ui::Selection { highlight_index: -1, ..Default::default() });
                 preview_state.property_range_declarations = None;
                 selection = None;
@@ -3121,7 +3033,7 @@ pub fn get_current_style() -> String {
 
 /// This ensure that the preview window is visible and runs `set_preview_factory`
 fn update_preview_area(
-    compiled: Option<ComponentDefinition>,
+    compiled: Option<Compiled>,
     behavior: LoadBehavior,
     open_import_callback: Option<i_slint_editor_preview::document_cache::OpenImportCallback>,
     source_file_versions: Rc<RefCell<i_slint_editor_preview::document_cache::SourceFileVersionMap>>,
@@ -3138,31 +3050,30 @@ fn update_preview_area(
         let shared_document_cache = preview_state.document_cache.clone();
         let shared_overrides = preview_state.debug_hook_overrides.clone();
 
-        if let Some(compiled) = compiled {
+        if let Some(Compiled { definition, raw_type_loader, resources }) = compiled {
+            preview_state.resources = resources;
+            let document_cache =
+                Rc::new(i_slint_editor_preview::DocumentCache::new_from_raw_parts(
+                    raw_type_loader,
+                    open_import_callback,
+                    source_file_versions,
+                    format,
+                ));
             api.set_focus_previewed_element(behavior == LoadBehavior::BringWindowToFront);
             // Keep the inspector mounted until reselection, so edits retain keyboard focus.
 
             set_preview_factory(
                 editor_ui,
                 &api,
-                compiled,
+                definition,
                 Box::new(move |instance| {
-                    if let Some(rtl) = instance.definition().raw_type_loader() {
-                        shared_document_cache.replace(Some(Rc::new(
-                            i_slint_editor_preview::DocumentCache::new_from_raw_parts(
-                                rtl,
-                                open_import_callback.clone(),
-                                source_file_versions.clone(),
-                                format,
-                            ),
-                        )));
-                    }
+                    shared_document_cache.replace(Some(document_cache.clone()));
 
-                    // element_hash (and thus hook ids) change on every recompile, so drop stale overrides.
+                    // Hook ids may point to other elements after a recompile, so drop stale overrides.
                     (*shared_overrides).borrow_mut().clear();
                     install_debug_hook_callback(&instance, shared_overrides.clone());
 
-                    inline_text_edit::reseed_mask(&instance);
+                    inline_text_edit::reseed_mask();
                     shared_handle.replace(Some(instance));
                     previewed_component_changed();
                 }),
@@ -3239,9 +3150,9 @@ pub mod test {
 
         let path = main_test_file_name();
         let source_code = code.get(&path).unwrap().clone();
-        let (diagnostics, component_definition, _, _, _) = spin_on::spin_on(super::parse_source(
+        let (diagnostics, compiled, _, versions, _) = spin_on::spin_on(super::parse_source(
             Default::default(),
-            path,
+            path.clone(),
             Some(24),
             Some(source_code.to_string()),
             style.to_string(),
@@ -3264,7 +3175,22 @@ pub mod test {
 
         assert!(diagnostics.is_empty());
 
-        component_definition.unwrap().create().unwrap()
+        // Register the compilation the way `update_preview_area` does.
+        let compiled = compiled.unwrap();
+        let document_cache = i_slint_editor_preview::DocumentCache::new_from_raw_parts(
+            compiled.raw_type_loader,
+            None,
+            versions,
+            i_slint_editor_preview::ByteFormat::Utf8,
+        );
+        super::PREVIEW_STATE.with_borrow_mut(|state| {
+            state.set_current_component(super::PreviewComponent {
+                url: path.to_url().unwrap(),
+                component: None,
+            });
+            state.document_cache.replace(Some(Rc::new(document_cache)));
+        });
+        compiled.definition.create().unwrap()
     }
 
     #[track_caller]
@@ -3374,7 +3300,7 @@ mod tests {
         let manifest_path = directory.path().join("slint-project.json");
         std::fs::write(
             &manifest_path,
-            r#"{"edition":"1.19","library-paths":{"widgets":"shared.slint"}}"#,
+            r#"{"edition":"1.20","library-paths":{"widgets":"shared.slint"}}"#,
         )
         .unwrap();
         let manifest = Url::from_file_path(&manifest_path).unwrap();
@@ -3388,7 +3314,7 @@ mod tests {
                 nested_manifest.to_url().unwrap(),
                 SourceCodeCacheEntry {
                     version: Some(1),
-                    code: r#"{"edition":"1.19","library-paths":{"widgets":"missing.slint"}}"#
+                    code: r#"{"edition":"1.20","library-paths":{"widgets":"missing.slint"}}"#
                         .into(),
                 },
             );
@@ -3404,11 +3330,11 @@ mod tests {
             (None, true),
             (
                 Some(
-                    r#"{"edition":"1.19","main":"other.slint","library-paths":{"widgets":"shared.slint"}}"#,
+                    r#"{"edition":"1.20","main":"other.slint","library-paths":{"widgets":"shared.slint"}}"#,
                 ),
                 false,
             ),
-            (Some(r#"{"edition":"1.19"}"#), true),
+            (Some(r#"{"edition":"1.20"}"#), true),
             (Some("{"), true),
         ] {
             PREVIEW_STATE.with_borrow_mut(|state| {
@@ -3433,6 +3359,9 @@ mod tests {
             let diagnostics = test::without_info(diagnostics);
             assert_eq!(!diagnostics.is_empty(), has_errors, "{diagnostics:?}");
             assert_eq!(compiled.is_some(), !has_errors);
+            if let Some(compiled) = compiled {
+                assert!(compiled.resources.contains(&manifest), "{:?}", compiled.resources);
+            }
         }
         reset_preview_state(Default::default());
     }
@@ -3459,7 +3388,7 @@ mod tests {
             });
             state.document_cache.replace(Some(Rc::new(cache)));
             for (url, source) in [
-                (manifest.clone(), r#"{"edition":"1.19"}"#),
+                (manifest.clone(), r#"{"edition":"1.20"}"#),
                 (extra.clone(), "export component Extra {}"),
             ] {
                 state
@@ -3529,8 +3458,8 @@ mod tests {
         });
         assert_eq!(get_url_from_cache(&manifest).unwrap_err().kind(), std::io::ErrorKind::NotFound);
         for (contents, reload) in [
-            (Some(r#"{"edition":"1.19"}"#), true),
-            (Some(r#"{"edition":"1.19"}"#), false),
+            (Some(r#"{"edition":"1.20"}"#), true),
+            (Some(r#"{"edition":"1.20"}"#), false),
             (Some("{broken"), true),
             (None, true),
             (None, true),
@@ -3558,10 +3487,13 @@ mod tests {
         reset_preview_state(Default::default());
         let editor = ui::create_ui().unwrap();
         let api = editor.global::<ui::Api>();
+        let properties_api = editor.global::<ui::Properties>();
         ui::diagnostics::setup(&editor.global::<ui::Diagnostics>());
         PREVIEW_STATE.with_borrow_mut(|state| {
             state.editor_ui = Some(editor.clone_strong());
             state.api = <ui::Api as slint::Global<'_, ui::EditorUi>>::as_weak(&api);
+            state.properties =
+                <ui::Properties as slint::Global<'_, ui::EditorUi>>::as_weak(&properties_api);
             state.set_current_component(PreviewComponent {
                 url: i_slint_editor_preview::test::main_test_file_name().to_url().unwrap(),
                 component: None,
@@ -3596,7 +3528,8 @@ mod tests {
                 |_| Box::pin(async { Some(Err(std::io::ErrorKind::NotFound.into())) }),
             ));
         let mut diagnostics = test::without_info(diagnostics);
-        let loaded_component_name = compiled.as_ref().map(|compiled| compiled.name().to_string());
+        let loaded_component_name =
+            compiled.as_ref().map(|compiled| compiled.definition.name().to_string());
         ui::diagnostics::set_compilation_diagnostics(
             &mut diagnostics,
             no_component,
@@ -3632,15 +3565,20 @@ mod tests {
         let offset = source.find("Text {").unwrap() as u32;
         PREVIEW_STATE.with_borrow_mut(|state| {
             state.selected = Some(ElementSelection {
-                path: path.clone(),
-                offset: offset.into(),
+                location: ElementLocation { path: path.clone(), offset: offset.into() },
                 instance_index: 0,
                 editing_text: false,
             });
         });
         let global = editor.global::<ui::InlineTextEdit>();
         let instance = component_instance().unwrap();
-        let item = instance.component_item(&path, offset, 0, i_slint_core::InternalToken).unwrap();
+        let item = instance
+            .component_item(
+                &ElementLocation { path: path.clone(), offset: offset.into() },
+                0,
+                i_slint_core::InternalToken,
+            )
+            .unwrap();
         let paint = || {
             ["color", "stroke"].map(|property_name| {
                 ComponentInstance::item_property(&item, property_name, i_slint_core::InternalToken)
@@ -3696,7 +3634,11 @@ mod tests {
             global.set_compiling(compiling);
             assert_eq!(global.get_preview_availability(), ui::PreviewAvailability::Stale);
         }
-        apply_availability_test_source(&editor, "export Main := Rectangle {}", true);
+        apply_availability_test_source(
+            &editor,
+            "export component Main inherits Rectangle { color: red; }",
+            true,
+        );
         assert_eq!(global.get_preview_availability(), ui::PreviewAvailability::Current);
         assert!(global.get_preview_editable());
         assert_eq!(global.get_errors().row_count(), 0);
@@ -3737,8 +3679,10 @@ mod tests {
             let generation = editor.global::<ui::Hover>().get_preview_generation();
             PREVIEW_STATE.with_borrow_mut(|state| {
                 state.selected = Some(ElementSelection {
-                    path: SourcePath::from_url(&main),
-                    offset: 0.into(),
+                    location: ElementLocation {
+                        path: SourcePath::from_url(&main),
+                        offset: 0.into(),
+                    },
                     instance_index: 0,
                     editing_text: false,
                 });
@@ -3912,7 +3856,7 @@ mod tests {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("slint-project.json");
         let url = Url::from_file_path(&path).unwrap();
-        let original = r#"{"edition":"1.19","main":"main.slint",/* keep */"metadata":{"visual-editor":{"old":"🦊"}}}"#;
+        let original = r#"{"edition":"1.20","main":"main.slint",/* keep */"metadata":{"visual-editor":{"old":"🦊"}}}"#;
         std::fs::write(&path, original).unwrap();
         set_contents(&VersionedUrl::new(url.clone(), Some(1)), original.into());
         let messages = Rc::new(RefCell::new(Vec::new()));
@@ -4025,14 +3969,14 @@ mod tests {
     height: 100px;
     Rectangle { x: 20px; y: 20px; width: 40px; height: 40px; }
 }"#;
-        let instance = test::interpret_test("fluent", code);
         let messages = Rc::new(RefCell::new(Vec::new()));
         reset_preview_state(messages.clone());
+        let instance = test::interpret_test("fluent", code);
         PREVIEW_STATE.with_borrow(|state| state.handle.replace(Some(instance.clone_strong())));
 
         element_selection::select_element_at(30.0, 30.0, false);
         let selected = selected_element().expect("Rectangle selected");
-        assert_eq!(selected.offset, (code.find("Rectangle").unwrap() as u32).into());
+        assert_eq!(selected.location.offset, (code.find("Rectangle").unwrap() as u32).into());
         messages.as_ref().borrow_mut().clear();
 
         let previous_instance = PREVIEW_STATE.with_borrow(|state| state.handle.take());
@@ -4059,8 +4003,10 @@ mod tests {
             reset_preview_state(messages.clone());
             PREVIEW_STATE.with_borrow_mut(|state| {
                 state.selected = Some(ElementSelection {
-                    path: i_slint_editor_preview::test::main_test_file_name(),
-                    offset: 0.into(),
+                    location: ElementLocation {
+                        path: i_slint_editor_preview::test::main_test_file_name(),
+                        offset: 0.into(),
+                    },
                     instance_index: 0,
                     editing_text: false,
                 });
@@ -4098,8 +4044,10 @@ mod tests {
         {
             set_selected_element(
                 Some(ElementSelection {
-                    path: i_slint_editor_preview::test::main_test_file_name(),
-                    offset: (offset.unwrap() as u32).into(),
+                    location: ElementLocation {
+                        path: i_slint_editor_preview::test::main_test_file_name(),
+                        offset: (offset.unwrap() as u32).into(),
+                    },
                     instance_index: 0,
                     editing_text: false,
                 }),
@@ -4116,18 +4064,23 @@ mod tests {
         i_slint_backend_testing::init_no_event_loop();
         let editor = ui::EditorUi::new().unwrap();
         let api = editor.global::<ui::Api>();
+        let properties_api = editor.global::<ui::Properties>();
         for notification in [SelectionNotification::Never, SelectionNotification::Now] {
             let notify_now = notification == SelectionNotification::Now;
             let messages = Rc::new(RefCell::new(Vec::new()));
             reset_preview_state(messages.clone());
             PREVIEW_STATE.with_borrow_mut(|state| {
                 state.api = <ui::Api as slint::Global<'_, ui::EditorUi>>::as_weak(&api);
+                state.properties =
+                    <ui::Properties as slint::Global<'_, ui::EditorUi>>::as_weak(&properties_api);
             });
 
             set_selected_element(
                 Some(ElementSelection {
-                    path: i_slint_editor_preview::test::main_test_file_name(),
-                    offset: 0.into(),
+                    location: ElementLocation {
+                        path: i_slint_editor_preview::test::main_test_file_name(),
+                        offset: 0.into(),
+                    },
                     instance_index: 0,
                     editing_text: false,
                 }),
@@ -4338,7 +4291,7 @@ export component Main inherits Rectangle {
 
         let document_cache = Rc::new(document_cache);
         let offset = SOURCE.find("Rectangle {").unwrap() as i32;
-        for kind in ["single", "batch", "color"] {
+        for kind in ["single", "batch"] {
             for case in ["valid", "stale", "pending", "invalid"] {
                 let messages = Rc::new(RefCell::new(Vec::new()));
                 reset_preview_state(messages.clone());
@@ -4361,14 +4314,14 @@ export component Main inherits Rectangle {
                 );
                 assert!(messages.borrow().is_empty());
                 let accepted = match kind {
-                    "single" => Some(set_code_binding(
+                    "single" => set_code_binding(
                         url.as_str().into(),
                         version,
                         offset,
                         name,
                         "#12345678".into(),
-                    )),
-                    "batch" => Some(set_code_bindings(
+                    ),
+                    "batch" => set_code_bindings(
                         url.as_str().into(),
                         version,
                         offset,
@@ -4376,22 +4329,10 @@ export component Main inherits Rectangle {
                             ui::CodeBinding { name, value: "#12345678".into() },
                             ui::CodeBinding { name: "width".into(), value: "40px".into() },
                         ],
-                    )),
-                    "color" => {
-                        set_color_binding(
-                            url.as_str().into(),
-                            version,
-                            offset,
-                            name,
-                            slint::Color::from_argb_u8(0x78, 0x12, 0x34, 0x56),
-                        );
-                        None
-                    }
+                    ),
                     _ => unreachable!(),
                 };
-                if let Some(accepted) = accepted {
-                    assert_eq!(accepted, case == "valid", "{kind}: {case}");
-                }
+                assert_eq!(accepted, case == "valid", "{kind}: {case}");
                 let messages = messages.borrow();
                 assert_eq!(
                     messages
@@ -4433,13 +4374,15 @@ export component Main inherits Rectangle {
         reset_preview_state(Default::default());
         let editor = ui::EditorUi::new().unwrap();
         let api = editor.global::<ui::Api>();
+        let properties_api = editor.global::<ui::Properties>();
         let path = std::env::temp_dir().join("inspector-push.slint");
         let url = Url::from_file_path(&path).unwrap();
         PREVIEW_STATE.with_borrow_mut(|state| {
             state.api = <ui::Api as slint::Global<'_, ui::EditorUi>>::as_weak(&api);
+            state.properties =
+                <ui::Properties as slint::Global<'_, ui::EditorUi>>::as_weak(&properties_api);
             state.selected = Some(ElementSelection {
-                path: SourcePath::new(path),
-                offset: 0.into(),
+                location: ElementLocation { path: SourcePath::new(path), offset: 0.into() },
                 instance_index: 0,
                 editing_text: false,
             });
@@ -4449,14 +4392,14 @@ export component Main inherits Rectangle {
                 .insert(url.clone(), SourceCodeCacheEntry { version: Some(1), code: "old".into() });
         });
         set_contents(&VersionedUrl::new(url.clone(), Some(1)), "old".into());
-        assert_eq!(api.get_inspector_generation(), 0);
+        assert_eq!(properties_api.get_inspector_generation(), 0);
         let unrelated = Url::from_file_path(std::env::temp_dir().join("unrelated.slint")).unwrap();
         set_contents(&VersionedUrl::new(unrelated, Some(2)), "other".into());
-        assert_eq!(api.get_inspector_generation(), 0);
+        assert_eq!(properties_api.get_inspector_generation(), 0);
         set_contents(&VersionedUrl::new(url.clone(), Some(2)), "old".into());
-        assert_eq!(api.get_inspector_generation(), 1);
+        assert_eq!(properties_api.get_inspector_generation(), 1);
         set_contents(&VersionedUrl::new(url, Some(2)), "new".into());
-        assert_eq!(api.get_inspector_generation(), 2);
+        assert_eq!(properties_api.get_inspector_generation(), 2);
         reset_preview_state(Default::default());
     }
 
@@ -4528,24 +4471,24 @@ export component Main {
         instance: &ComponentInstance,
         id: &str,
     ) -> slint_interpreter::highlight::HighlightedRect {
-        let path = i_slint_editor_preview::test::main_test_file_name();
-        *instance.component_positions(&path, element_offset(id)).first().expect("geometry")
+        let location = ElementLocation {
+            path: i_slint_editor_preview::test::main_test_file_name(),
+            offset: element_offset(id).into(),
+        };
+        *instance.component_positions(&location).first().expect("geometry")
     }
 
-    fn element_node_of(instance: &ComponentInstance, id: &str) -> ElementRcNode {
+    fn element_node_of(id: &str) -> ElementRcNode {
         let path = i_slint_editor_preview::test::main_test_file_name();
-        let (element, debug_index) = instance
-            .element_node_at_source_code_position(&path, element_offset(id))
-            .first()
-            .cloned()
-            .expect("element");
-        ElementRcNode::new(element, debug_index).expect("element node")
+        document_cache()
+            .expect("document cache")
+            .element_at_offset(&path.to_url().unwrap(), element_offset(id).into())
+            .expect("element node")
     }
 
     /// Wires `instance` into the preview state the way `set_preview_factory` does, so that the
     /// geometry overrides of a drag reach the previewed element.
     fn install_preview_instance(instance: &ComponentInstance) {
-        reset_preview_state(Default::default());
         let overrides = PREVIEW_STATE.with_borrow(|preview_state| {
             preview_state.handle.replace(Some(instance.clone_strong()));
             preview_state.debug_hook_overrides.clone()
@@ -4553,12 +4496,361 @@ export component Main {
         install_debug_hook_callback(instance, overrides);
     }
 
+    fn inspector_test_messages() -> Rc<RefCell<Vec<PreviewToLspMessage>>> {
+        let messages = Rc::new(RefCell::new(Vec::new()));
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            *state.to_lsp.borrow_mut() =
+                Some(Rc::new(CapturePreviewToLsp { messages: messages.clone() }));
+        });
+        messages
+    }
+
+    fn inspector_test_workspace_edit(messages: &[PreviewToLspMessage]) -> lsp_types::WorkspaceEdit {
+        let mut edits = messages.iter().filter_map(|message| match message {
+            PreviewToLspMessage::SendWorkspaceEdit { edit, .. } => Some(edit),
+            _ => None,
+        });
+        let edit = edits.next().expect("Expected one workspace edit").clone();
+        assert!(edits.next().is_none());
+        edit
+    }
+
+    fn apply_inspector_test_edit(edit: &lsp_types::WorkspaceEdit) -> Vec<text_edit::EditedText> {
+        let cache = document_cache().unwrap();
+        PREVIEW_STATE.with_borrow(|state| {
+            text_edit::apply_workspace_edit_with_source(edit, cache.format, |url| {
+                workspace_edit_source_file(&cache, &state.source_code, url)
+            })
+            .unwrap()
+        })
+    }
+
+    fn inspector_test_target(editor: &ui::EditorUi, source: &str) {
+        apply_availability_test_source(editor, source, true);
+        let properties_api = editor.global::<ui::Properties>();
+        properties_api.on_inspector_preview(inspector::preview_property);
+        properties_api.on_inspector_commit(inspector::commit_properties);
+        properties_api.on_inspector_cancel(inspector::cancel);
+        slint_editor::component_support::recent_fills::setup(
+            &properties_api,
+            <ui::Properties as slint::Global<'_, ui::EditorUi>>::as_weak(&properties_api),
+        );
+        element_selection::restore_selection(
+            ElementSelection {
+                location: ElementLocation {
+                    path: SourcePath::from_url(
+                        &PREVIEW_STATE.with_borrow(|state| state.current_component().unwrap().url),
+                    ),
+                    offset: element_offset("inner").into(),
+                },
+                instance_index: 0,
+                editing_text: false,
+            },
+            SelectionNotification::Never,
+        );
+    }
+
+    fn inspector_number(number: f32, unit: &str) -> ui::PropertyEditValue {
+        ui::PropertyEditValue {
+            kind: ui::PropertyEditKind::Number,
+            number,
+            unit: unit.into(),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn inspector_typed_edits_commit_latest_values_together() {
+        let editor = availability_test_editor();
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("main.slint");
+        let url = Url::from_file_path(&path).unwrap();
+        std::fs::write(&path, ROTATED_SOURCE).unwrap();
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            state.set_current_component(PreviewComponent { url: url.clone(), component: None });
+        });
+        inspector_test_target(&editor, ROTATED_SOURCE);
+        undo_redo::setup(&editor.global::<ui::Api>());
+        let messages = inspector_test_messages();
+        for (name, value) in [
+            ("transform-rotation", inspector_number(45., "deg")),
+            ("border-width", inspector_number(3., "px")),
+            ("transform-rotation", inspector_number(60., "deg")),
+        ] {
+            assert!(inspector::preview_property(name.into(), value));
+        }
+        let instance = component_instance().unwrap();
+        assert_eq!(
+            instance.component_positions(&ElementLocation {
+                path: SourcePath::from_url(&url),
+                offset: element_offset("inner").into()
+            })[0]
+                .transform_rotation,
+            60.
+        );
+        assert!(inspector::commit_properties());
+        assert!(editor.global::<ui::Api>().get_undo_enabled());
+        assert!(!inspector::commit_properties());
+        inspector::cancel();
+        assert_eq!(
+            instance.component_positions(&ElementLocation {
+                path: SourcePath::from_url(&url),
+                offset: element_offset("inner").into()
+            })[0]
+                .transform_rotation,
+            60.
+        );
+        let sent = messages.as_ref().borrow();
+        let edit = inspector_test_workspace_edit(&sent);
+        assert_eq!(sent.iter().filter(|message| matches!(message,
+            PreviewToLspMessage::TelemetryEvent(event) if event.get("type") == Some(&serde_json::json!("property_changed"))
+        )).count(), 1);
+        let result = apply_inspector_test_edit(&edit);
+        assert_eq!(result.len(), 1);
+        assert!(result[0].contents.contains("transform-rotation: 60deg;"));
+        assert!(result[0].contents.contains("border-width: 3px;"));
+        assert!(!result[0].contents.contains("45deg"));
+        let mut current_source = result[0].contents.clone();
+        drop(sent);
+        for (redo, expected) in
+            [(false, ROTATED_SOURCE.to_string()), (true, current_source.clone())]
+        {
+            std::fs::write(&path, &current_source).unwrap();
+            set_contents(&VersionedUrl::new(url.clone(), None), current_source.clone());
+            apply_availability_test_source(&editor, &current_source, true);
+            preview_instance_ready();
+            messages.as_ref().borrow_mut().clear();
+            if redo {
+                editor.global::<ui::Api>().invoke_redo();
+            } else {
+                editor.global::<ui::Api>().invoke_undo();
+            }
+            let sent = messages.as_ref().borrow();
+            let edit = inspector_test_workspace_edit(&sent);
+            let restored = apply_inspector_test_edit(&edit);
+            assert_eq!(restored[0].contents, expected);
+            current_source = restored[0].contents.clone();
+        }
+        reset_preview_state(Default::default());
+    }
+
+    #[test]
+    fn inspector_typed_values_preserve_literal_intent_and_validate_types() {
+        let editor = availability_test_editor();
+        let source = ROTATED_SOURCE.replace(
+            "height: 60px;",
+            r#"height: 60px;
+            opacity: 0.2 + 0.3;
+            in-out property <bool> enabled: false;
+            in-out property <int> count: 1;
+            in-out property <string> label: "before";
+            in-out property <TextHorizontalAlignment> alignment: left;
+        "#,
+        );
+        inspector_test_target(&editor, &source);
+        let messages = inspector_test_messages();
+        let mut value = ui::PropertyEditValue::default();
+        for (name, kind) in [
+            ("enabled", ui::PropertyEditKind::Boolean),
+            ("count", ui::PropertyEditKind::Integer),
+            ("label", ui::PropertyEditKind::String),
+            ("alignment", ui::PropertyEditKind::Enumeration),
+            ("background", ui::PropertyEditKind::Fill),
+        ] {
+            value.kind = kind;
+            value.boolean = true;
+            value.integer = 7;
+            value.text =
+                if name == "alignment" { "center".into() } else { "after\n\"text\"".into() };
+            value.fill.color = slint::Color::from_rgb_u8(18, 52, 86);
+            assert!(inspector::preview_property(name.into(), value.clone()), "{name}");
+        }
+        value.kind = ui::PropertyEditKind::Enumeration;
+        value.text = "invalid-member".into();
+        assert!(!inspector::preview_property("alignment".into(), value));
+        assert!(inspector::preview_property("opacity".into(), inspector_number(0.5, "")));
+        assert!(inspector::commit_properties());
+        let messages = messages.as_ref().borrow();
+        let edit = inspector_test_workspace_edit(&messages);
+        let result = apply_inspector_test_edit(&edit);
+        for expression in ["enabled: true;", "count: 7;", "alignment: center;", "opacity: 0.5;"] {
+            assert!(result[0].contents.contains(expression), "{expression}");
+        }
+        assert!(result[0].contents.contains(r#"label: "after\n\"text\"";"#));
+        reset_preview_state(Default::default());
+    }
+
+    #[test]
+    fn fill_transactions_submit_only_the_latest_values_without_updating_recent_fills() {
+        let editor = availability_test_editor();
+        let source = ROTATED_SOURCE.replace(
+            "height: 60px;",
+            "height: 60px; background: #112233; border-color: #445566; drop-shadow-color: #778899;",
+        );
+        inspector_test_target(&editor, &source);
+        let messages = inspector_test_messages();
+        let api = editor.global::<ui::Api>();
+        let properties_api = editor.global::<ui::Properties>();
+        let first = slint::Color::from_rgb_u8(255, 0, 0);
+        let border = slint::Color::from_rgb_u8(0, 0, 255);
+        let latest = slint::Color::from_rgb_u8(0, 255, 0);
+        for (name, color) in [
+            ("background", first),
+            ("border-color", border),
+            ("background", latest),
+            ("drop-shadow-color", slint::Color::from_rgb_u8(0x77, 0x88, 0x99)),
+        ] {
+            assert!(inspector::preview_property(
+                name.into(),
+                ui::PropertyEditValue {
+                    kind: ui::PropertyEditKind::Fill,
+                    fill: ui::FillData { color, ..Default::default() },
+                    ..Default::default()
+                }
+            ));
+        }
+        assert_eq!(properties_api.get_recent_fills().row_count(), 0);
+        assert!(inspector::commit_properties());
+        assert!(file_edit_pending());
+        assert!(api.get_undo_enabled());
+        assert_eq!(properties_api.get_recent_fills().row_count(), 0);
+        let edit = inspector_test_workspace_edit(&messages.as_ref().borrow());
+        let result = apply_inspector_test_edit(&edit);
+        assert!(result[0].contents.contains("background: #00ff00;"));
+        assert!(result[0].contents.contains("border-color: #0000ff;"));
+        assert!(result[0].contents.contains("drop-shadow-color: #778899;"));
+        assert!(!inspector::commit_properties());
+        inspector::cancel();
+        assert_eq!(properties_api.get_recent_fills().row_count(), 0);
+        reset_preview_state(Default::default());
+    }
+
+    #[test]
+    fn canceled_unchanged_and_rejected_fills_do_not_become_recent() {
+        let editor = availability_test_editor();
+        let source = ROTATED_SOURCE.replace("height: 60px;", "height: 60px; background: #112233;");
+        for action in ["cancel", "unchanged", "pending"] {
+            inspector_test_target(&editor, &source);
+            let messages = inspector_test_messages();
+            let color = if action == "unchanged" {
+                slint::Color::from_rgb_u8(17, 34, 51)
+            } else {
+                slint::Color::from_rgb_u8(255, 0, 0)
+            };
+            assert!(inspector::preview_property(
+                "background".into(),
+                ui::PropertyEditValue {
+                    kind: ui::PropertyEditKind::Fill,
+                    fill: ui::FillData { color, ..Default::default() },
+                    ..Default::default()
+                }
+            ));
+            match action {
+                "cancel" => inspector::cancel(),
+                "unchanged" => assert!(inspector::commit_properties()),
+                _ => {
+                    PREVIEW_STATE.with_borrow_mut(|state| state.workspace_edit_sent = true);
+                    assert!(!inspector::commit_properties());
+                    PREVIEW_STATE.with_borrow_mut(|state| state.workspace_edit_sent = false);
+                }
+            }
+            assert_eq!(editor.global::<ui::Properties>().get_recent_fills().row_count(), 0);
+            assert!(messages.as_ref().borrow().is_empty());
+            PREVIEW_STATE.with_borrow(|state| assert!(state.inspector_edit.is_none()));
+        }
+        reset_preview_state(Default::default());
+    }
+
+    #[test]
+    fn inspector_typed_edits_restore_overrides_on_cancel_noop_and_stale_target() {
+        let editor = availability_test_editor();
+        for action in ["cancel", "noop", "selection", "generation", "pending"] {
+            inspector_test_target(&editor, ROTATED_SOURCE);
+            let messages = inspector_test_messages();
+            let instance = component_instance().unwrap();
+            let before = geometry_of(&instance, "inner").transform_rotation;
+            assert!(
+                override_selected_element_rotation_impl(&element_node_of("inner"), 0, 42.)
+                    .is_some()
+            );
+            let previous = geometry_of(&instance, "inner").transform_rotation;
+            let value = if action == "noop" { before } else { 60. };
+            assert!(inspector::preview_property(
+                "transform-rotation".into(),
+                inspector_number(value, "deg"),
+            ));
+            match action {
+                "cancel" => inspector::cancel(),
+                "noop" => assert!(inspector::commit_properties()),
+                "selection" => {
+                    element_selection::unselect_element(SelectionNotification::Never);
+                    assert!(!inspector::commit_properties());
+                }
+                "pending" => {
+                    PREVIEW_STATE.with_borrow_mut(|state| state.workspace_edit_sent = true);
+                    assert!(!inspector::commit_properties());
+                    PREVIEW_STATE.with_borrow_mut(|state| state.workspace_edit_sent = false);
+                }
+                _ => {
+                    let properties_api = editor.global::<ui::Properties>();
+                    properties_api
+                        .set_inspector_generation(properties_api.get_inspector_generation() + 1);
+                    assert!(!inspector::commit_properties());
+                }
+            }
+            assert_eq!(geometry_of(&instance, "inner").transform_rotation, previous);
+            PREVIEW_STATE.with_borrow(|state| assert!(state.inspector_edit.is_none()));
+            assert!(!file_edit_pending());
+            assert!(messages.as_ref().borrow().is_empty());
+        }
+        reset_preview_state(Default::default());
+    }
+
+    #[test]
+    fn inspector_typed_edits_reject_invalid_values_without_changing_the_draft() {
+        let editor = availability_test_editor();
+        let source = ROTATED_SOURCE
+            .replace("height: 60px;", "height: 60px; in-out property <length> font-size: 12px;");
+        inspector_test_target(&editor, &source);
+        assert!(inspector::preview_property("font-size".into(), inspector_number(20., "px")));
+        let instance = component_instance().unwrap();
+        assert!(inspector::preview_property(
+            "transform-rotation".into(),
+            inspector_number(60., "deg"),
+        ));
+        for (name, value) in [
+            ("transform-rotation", inspector_number(f32::NAN, "deg")),
+            ("transform-rotation", inspector_number(1., "px")),
+            ("border-width", inspector_number(-1., "px")),
+            ("font-size", inspector_number(0., "px")),
+            ("font-size", inspector_number(-1., "px")),
+            ("font-size", inspector_number(f32::NAN, "px")),
+            ("drop-shadow-blur", inspector_number(-1., "px")),
+            ("inner-shadow-blur", inspector_number(-1., "px")),
+            ("missing-property", inspector_number(1., "px")),
+            (
+                "transform-rotation",
+                ui::PropertyEditValue {
+                    kind: ui::PropertyEditKind::Boolean,
+                    boolean: true,
+                    ..Default::default()
+                },
+            ),
+        ] {
+            assert!(!inspector::preview_property(name.into(), value));
+            assert_eq!(geometry_of(&instance, "inner").transform_rotation, 60.);
+        }
+        inspector::cancel();
+        assert_eq!(geometry_of(&instance, "inner").transform_rotation, 45.);
+        reset_preview_state(Default::default());
+    }
+
     #[test]
     fn stale_preview_restores_compiled_values_after_temporary_overrides() {
         let editor = availability_test_editor();
         apply_availability_test_source(&editor, ROTATED_SOURCE, true);
         let instance = component_instance().unwrap();
-        let node = element_node_of(&instance, "inner");
+        let node = element_node_of("inner");
         let before = geometry_of(&instance, "inner");
         override_selected_element_geometry_impl(
             &node,
@@ -4575,20 +4867,17 @@ export component Main {
         let path = i_slint_editor_preview::test::main_test_file_name();
         element_selection::restore_selection(
             ElementSelection {
-                path,
-                offset: element_offset("inner").into(),
+                location: ElementLocation { path, offset: element_offset("inner").into() },
                 instance_index: 0,
                 editing_text: false,
             },
             SelectionNotification::Never,
         );
         assert!(override_selected_element_rotation_impl(&node, 0, before.angle + 10.).is_some());
-        let (path, offset) = node.path_and_offset();
-        let url = path.to_url().unwrap();
-        let version = document_cache().unwrap().document_version(&url).unwrap();
-        let generation = editor.global::<ui::Api>().get_inspector_generation();
-        let key = format!("{url}:{version}:{}:0:{generation}", u32::from(offset));
-        assert!(inspector::preview(key.into(), "transform-rotation".into(), 60.));
+        assert!(inspector::preview_property(
+            "transform-rotation".into(),
+            inspector_number(60., "deg")
+        ));
         assert_ne!(geometry_of(&instance, "inner").transform_rotation, before.transform_rotation);
 
         apply_availability_test_source(&editor, "export component Main { invalid }", true);
@@ -4684,12 +4973,13 @@ export component Main {
 
     #[test]
     fn dragging_a_rotated_element_writes_parent_relative_coordinates() {
+        reset_preview_state(Default::default());
         let instance = test::interpret_test("fluent", ROTATED_SOURCE);
         install_preview_instance(&instance);
 
         let before = geometry_of(&instance, "inner");
         override_selected_element_geometry_impl(
-            &element_node_of(&instance, "inner"),
+            &element_node_of("inner"),
             0,
             LogicalRect::new(
                 LogicalPoint::new(before.rect.origin.x + 10., before.rect.origin.y),
@@ -4793,7 +5083,8 @@ export component Main {
                     && VisualEditorSettings::deserialize(contents).is_some_and(|settings| {
                         settings.visible_recent_projects().first().is_some_and(|project| {
                             project.component == "MainWindow"
-                                && project.root_path == root.to_string_lossy().as_ref()
+                                && project.root_path
+                                    == dunce::simplified(&root).to_string_lossy().as_ref()
                         })
                     })
         ));

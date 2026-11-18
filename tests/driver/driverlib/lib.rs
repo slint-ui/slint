@@ -271,6 +271,15 @@ pub fn edition_or_current(source: &str) -> &str {
     ))
 }
 
+/// [`edition_or_current()`] as its major and minor version.
+pub fn edition_version_or_current(source: &str) -> (u32, u32) {
+    let edition = edition_or_current(source);
+    edition
+        .split_once('.')
+        .and_then(|(major, minor)| Some((major.parse().ok()?, minor.parse().ok()?)))
+        .unwrap_or_else(|| panic!("'{edition}' is not a Slint edition"))
+}
+
 /// Writes a `slint-project.json` into `directory` that compiles `main`
 /// with the edition that `source` selects.
 pub fn write_project_file(
@@ -287,6 +296,24 @@ fn test_extract_edition() {
     assert!(extract_edition("something").is_none());
     assert_eq!(extract_edition("//edition: 1.18\nBlah {}\n"), Some("1.18"));
     assert_eq!(extract_edition("//edition: 1.18\r\nBlah {}\r\n"), Some("1.18"));
+}
+
+#[test]
+fn test_edition_version_or_current() {
+    assert_eq!(edition_version_or_current("//edition: 1.18\nBlah {}\n"), (1, 18));
+    assert_eq!(
+        edition_version_or_current("Blah {}\n"),
+        (
+            env!("CARGO_PKG_VERSION_MAJOR").parse().unwrap(),
+            env!("CARGO_PKG_VERSION_MINOR").parse().unwrap()
+        )
+    );
+}
+
+#[test]
+#[should_panic(expected = "'1' is not a Slint edition")]
+fn test_edition_version_or_current_rejects_a_malformed_edition() {
+    edition_version_or_current("//edition: 1\n");
 }
 
 pub fn extract_cpp_namespace(source: &str) -> Option<String> {

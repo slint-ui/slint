@@ -30,6 +30,7 @@ export component TestCase inherits Window {
     out property <int> test_anchor_pos: ti.anchor-position-byte-offset;
     out property <bool> has_selection: test_cursor_pos != test_anchor_pos;
     out property <bool> input_focused: ti.has-focus;
+    out property <length> viewport-y: flick.viewport-y;
 }
 
 /*
@@ -109,5 +110,87 @@ assert_eq!(res.unwrap(), Accepted);
 // KeyReleased is always ignored
 let res = window.dispatch_event_with_result(platform::WindowEvent::KeyReleased { text: 'a'.into() });
 assert_eq!(res.unwrap(), Rejected);
+```
+
+```rust
+// Touch (#5142): the Flickable delays every press, by its delay or until the finger lifts
+use slint::platform::WindowEvent;
+use slint_testing::{InternalEvent, LogicalPoint, TouchPhase};
+
+let instance = TestCase::new().unwrap();
+slint_testing::send_mouse_click(&instance, 50.0, 15.0);
+slint_testing::send_keyboard_string_sequence(&instance, "hello world");
+let touch = |x: f32, phase: TouchPhase| {
+    instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 1, position: LogicalPoint::new(x, 5.0), phase, event_time: None, history: Default::default() }));
+};
+let tap = |x: f32, held: u64| {
+    touch(x, TouchPhase::Started);
+    slint_testing::mock_elapsed_time(held);
+    touch(x, TouchPhase::Ended);
+};
+let selection = || (instance.get_test_anchor_pos(), instance.get_test_cursor_pos());
+
+// Each tap shorter than the delay
+slint_testing::mock_elapsed_time(1000);
+tap(80.0, 0);
+slint_testing::mock_elapsed_time(50);
+tap(80.0, 0);
+assert_eq!(selection(), (6, 11));
+
+// Each tap longer than the delay
+slint_testing::mock_elapsed_time(1000);
+tap(20.0, 150);
+assert_eq!(selection(), (2, 2));
+slint_testing::mock_elapsed_time(50);
+tap(20.0, 150);
+assert_eq!(selection(), (0, 5));
+```
+
+```rust
+// A drag that the Flickable takes doesn't count as a click: click, drag, click is one click after
+// the drag
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+
+let instance = TestCase::new().unwrap();
+slint_testing::send_mouse_click(&instance, 50.0, 15.0);
+slint_testing::send_keyboard_string_sequence(&instance, "hello world");
+let selection = || (instance.get_test_anchor_pos(), instance.get_test_cursor_pos());
+let button = PointerEventButton::Left;
+let at = |y: f32| LogicalPosition::new(80.0, y);
+
+slint_testing::mock_elapsed_time(1000);
+slint_testing::send_mouse_click(&instance, 80.0, 15.0);
+assert_eq!(selection(), (11, 11));
+slint_testing::mock_elapsed_time(50);
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: at(15.0), button });
+slint_testing::mock_elapsed_time(16);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: at(6.0) });
+slint_testing::mock_elapsed_time(150);
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: at(6.0), button });
+assert_eq!(instance.get_viewport_y(), -9.0);
+slint_testing::mock_elapsed_time(50);
+slint_testing::send_mouse_click(&instance, 80.0, 15.0);
+assert_eq!(selection(), (11, 11));
+
+// The same when the press reached the TextInput (held past the delay) before the Flickable took
+// it over
+slint_testing::mock_elapsed_time(1000);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: at(6.0) });
+instance.window().dispatch_event(WindowEvent::PointerScrolled { position: at(6.0), delta_x: 0.0, delta_y: 9.0 });
+assert_eq!(instance.get_viewport_y(), 0.0);
+slint_testing::mock_elapsed_time(1000);
+slint_testing::send_mouse_click(&instance, 80.0, 15.0);
+assert_eq!(selection(), (11, 11));
+slint_testing::mock_elapsed_time(50);
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: at(15.0), button });
+slint_testing::mock_elapsed_time(150);
+assert_eq!(selection(), (6, 11));
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: at(6.0) });
+slint_testing::mock_elapsed_time(16);
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: at(6.0), button });
+assert_eq!(instance.get_viewport_y(), -9.0);
+slint_testing::mock_elapsed_time(50);
+slint_testing::send_mouse_click(&instance, 80.0, 15.0);
+assert_eq!(selection(), (11, 11));
 ```
 */

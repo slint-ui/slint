@@ -9,18 +9,18 @@ use std::time::Duration;
 use wasm_bindgen::prelude::*;
 
 slint::slint! {
-    #[edition = "1.19"]
+    #[edition = "1.20"]
     export { MainWindow } from "memory.slint";
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
-pub fn main() {
+pub fn main() -> Result<(), slint::PlatformError> {
     // This provides better error messages in debug mode.
     // It's disabled in release mode so it doesn't bloat up the file size.
     #[cfg(all(debug_assertions, target_arch = "wasm32"))]
     console_error_panic_hook::set_once();
 
-    let main_window = MainWindow::new().unwrap();
+    let main_window = MainWindow::new()?;
 
     let mut tiles: Vec<TileData> = main_window.get_memory_tiles().iter().collect();
     tiles.extend(tiles.clone());
@@ -63,5 +63,5 @@ pub fn main() {
         }
     });
 
-    main_window.run().unwrap();
+    main_window.run()
 }

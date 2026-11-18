@@ -6,7 +6,7 @@
 mod common;
 
 slint::slint! {
-    #[edition = "1.19"]
+    #[edition = "1.20"]
     export struct DefaultedField {
         // Folded to a string literal at compile time.
         label: string = 42,

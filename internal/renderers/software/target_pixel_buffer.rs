@@ -6,7 +6,7 @@ use super::*;
 use i_slint_core::graphics::IntSize;
 pub use i_slint_core::graphics::TexturePixelFormat;
 
-/// The pixel data of a for the source of a [`Texture`].
+/// The pixel data of the source of a [`DrawTextureArgs`].
 #[derive(Clone)]
 #[non_exhaustive]
 pub struct TextureData<'a> {
@@ -170,7 +170,7 @@ impl DrawTextureArgs {
 ///
 /// All the coordinate are in physical pixels
 #[non_exhaustive]
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct DrawRectangleArgs {
     /// The x position in the destination buffer
     pub x: f32,

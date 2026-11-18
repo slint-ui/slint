@@ -57,7 +57,7 @@ export global UpdateStatus {
 
     public pure function foreground() -> color {
         if Api.update-state == UpdateState.Error {
-            return Style.update-status.error;
+            return Colors.foreground;
         }
         if Api.update-state == UpdateState.Available
             || Api.update-state == UpdateState.ReadyToInstall
@@ -105,6 +105,9 @@ export component UpdateStatusPill inherits Rectangle {
     }
 
     TouchArea {
+        if Api.update-state == UpdateState.Error: Tooltip {
+            text: @markdown("\{UpdateStatus.label()}");
+        }
         enabled: UpdateStatus.clickable();
         clicked => {
             Api.check-for-update();
@@ -152,6 +155,9 @@ export component UpdateStatusBar inherits Rectangle {
             }
 
             TouchArea {
+                if Api.update-state == UpdateState.Error: Tooltip {
+                    text: @markdown("\{UpdateStatus.label()}");
+                }
                 enabled: UpdateStatus.clickable();
                 clicked => {
                     Api.check-for-update();

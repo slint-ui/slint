@@ -46,14 +46,18 @@ int main()
     // Hide-to-tray button: hide the window but keep the loop alive via
     // the visible tray. Pressing the OS close button does the same thing
     // by default (Slint's `CloseRequestResponse::HideWindow`).
-    main_window->on_hide_to_tray([window_weak] {
+    main_window->on_hide_to_tray([window_weak, tray_weak] {
         if (auto w = window_weak.lock()) {
             (*w)->hide();
+
+            if (auto t = tray_weak.lock()) {
+                (*t)->set_window_visible(false);
+            }
         }
     });
 
     // Tray click / "Show / hide window" menu item toggles the window.
-    tray->on_toggle_window([window_weak] {
+    tray->on_toggle_window([window_weak, tray_weak] {
         auto w = window_weak.lock();
         if (!w) {
             return;
@@ -63,6 +67,9 @@ int main()
             (*w)->show();
         } else {
             (*w)->hide();
+        }
+        if (auto t = tray_weak.lock()) {
+            (*t)->set_window_visible(now_visible);
         }
         (*w)->set_activation_log(now_visible
                                          ? slint::SharedString("Tray activated → window shown")

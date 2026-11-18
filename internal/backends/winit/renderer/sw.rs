@@ -72,8 +72,11 @@ impl TargetPixel for SoftBufferPixel {
 
 impl WinitSoftwareRenderer {
     pub fn new_suspended(
-        _shared_backend_data: &Rc<crate::SharedBackendData>,
+        shared_backend_data: &Rc<crate::SharedBackendData>,
     ) -> Result<Box<dyn WinitCompatibleRenderer>, PlatformError> {
+        if shared_backend_data.requested_graphics_api.is_some() {
+            return Err("The software renderer doesn't support a graphics API selection".into());
+        }
         Ok(Box::new(Self {
             renderer: SoftwareRenderer::new(),
             _context: RefCell::new(None),

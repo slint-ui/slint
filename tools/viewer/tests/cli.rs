@@ -322,7 +322,7 @@ fn project_input(project: &tempfile::TempDir, manifest: bool) -> std::path::Path
 fn project_file_include_paths_are_used() {
     for manifest in [false, true] {
         let project = project_with_shared_component(
-            r#"{ "edition": "1.19", "main": "main.slint", "include-paths": ["shared"] }"#,
+            r#"{ "edition": "1.20", "main": "main.slint", "include-paths": ["shared"] }"#,
         );
         let main = project.path().join("main.slint");
         std::fs::write(
@@ -364,7 +364,7 @@ fn an_old_project_file_edition_warns() {
             project_input(&project, manifest).to_str().unwrap(),
         ]);
         assert_ne!(code, 0, "stderr was:\n{stderr}");
-        assert!(stderr.contains("is newer than"), "stderr was:\n{stderr}");
+        assert!(stderr.contains("newer than Slint"), "stderr was:\n{stderr}");
     }
 }
 
@@ -372,7 +372,7 @@ fn an_old_project_file_edition_warns() {
 fn project_file_library_paths_are_used() {
     for manifest in [false, true] {
         let project = project_with_shared_component(
-            r#"{ "edition": "1.19", "main": "main.slint", "library-paths": { "lib": "shared/shared.slint" } }"#,
+            r#"{ "edition": "1.20", "main": "main.slint", "library-paths": { "lib": "shared/shared.slint" } }"#,
         );
         let main = project.path().join("main.slint");
         std::fs::write(
@@ -390,7 +390,7 @@ fn project_file_library_paths_are_used() {
 fn an_empty_include_path_keeps_the_project_file_paths() {
     for manifest in [false, true] {
         let project = project_with_shared_component(
-            r#"{ "edition": "1.19", "main": "main.slint", "include-paths": ["shared"] }"#,
+            r#"{ "edition": "1.20", "main": "main.slint", "include-paths": ["shared"] }"#,
         );
         let main = project.path().join("main.slint");
         std::fs::write(
@@ -408,7 +408,7 @@ fn an_empty_include_path_keeps_the_project_file_paths() {
 fn an_empty_library_path_keeps_the_project_file_paths() {
     for manifest in [false, true] {
         let project = project_with_shared_component(
-            r#"{ "edition": "1.19", "main": "main.slint", "library-paths": { "lib": "shared/shared.slint" } }"#,
+            r#"{ "edition": "1.20", "main": "main.slint", "library-paths": { "lib": "shared/shared.slint" } }"#,
         );
         let main = project.path().join("main.slint");
         std::fs::write(
@@ -425,7 +425,7 @@ fn an_empty_library_path_keeps_the_project_file_paths() {
 #[test]
 fn file_with_project_root_keeps_the_selected_file() {
     for project_file in
-        [None, Some(r#"{"edition":"1.19"}"#), Some(r#"{"edition":"1.19","main":"other.slint"}"#)]
+        [None, Some(r#"{"edition":"1.20"}"#), Some(r#"{"edition":"1.20","main":"other.slint"}"#)]
     {
         let project = tempfile::tempdir().unwrap();
         let main = project.path().join("main.slint");
@@ -458,7 +458,7 @@ fn file_with_project_root_uses_only_the_direct_project_file() {
         std::fs::write(source_directory.join("slint-project.json"), "{").unwrap();
         std::fs::write(
             root.join("slint-project.json"),
-            r#"{"edition":"1.19","include-paths":["include"]}"#,
+            r#"{"edition":"1.20","include-paths":["include"]}"#,
         )
         .unwrap();
         std::fs::write(root.join("include/shared.slint"), "export component Shared {}").unwrap();

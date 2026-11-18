@@ -199,7 +199,7 @@ fn parse_source(source: &str) -> parser::SyntaxNode {
     let tokens = i_slint_compiler::lexer::lex(source);
     let source_file: SourceFile =
         Arc::new(SourceFileInner::new(SourcePath::new("bench.slint"), source.to_string()));
-    parser::parse_tokens(tokens, source_file, &mut diagnostics)
+    parser::parse_tokens(tokens, source_file, None, &mut diagnostics)
 }
 
 /// Full compilation including all passes

@@ -43,7 +43,17 @@ export function embeddedFontSupports(
                         typeof value === "number" &&
                         Number.isInteger(value)
                     ) &&
-                    !(tag === "ital" && value === Number(available.italic)),
+                    !(tag === "ital" && value === Number(available.italic)) &&
+                    !(
+                        tag !== "wght" &&
+                        value ===
+                            (
+                                available.axes as Record<
+                                    string,
+                                    { default: number }
+                                >
+                            )[tag]?.default
+                    ),
             )
         )
             return false;

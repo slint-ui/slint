@@ -12,14 +12,14 @@ mod callback;
 pub use callback::*;
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
-pub fn main() {
-    let main_window = init();
+pub fn main() -> Result<(), slint::PlatformError> {
+    let main_window = init()?;
 
-    main_window.run().unwrap();
+    main_window.run()
 }
 
-fn init() -> ui::MainWindow {
-    let view_handle = ui::MainWindow::new().unwrap();
+fn init() -> Result<ui::MainWindow, slint::PlatformError> {
+    let view_handle = ui::MainWindow::new()?;
 
     let task_list_controller = mvc::TaskListController::new(mvc::task_repo());
     ui::task_list_adapter::connect(&view_handle, task_list_controller.clone());
@@ -33,7 +33,7 @@ fn init() -> ui::MainWindow {
     ui::navigation_adapter::connect_create_task_controller(&view_handle, create_task_controller);
     ui::create_task_adapter::connect_task_list_controller(&view_handle, task_list_controller);
 
-    view_handle
+    Ok(view_handle)
 }
 
 // FIXME: android example

@@ -49,7 +49,7 @@ inline slint::SharedString from_slint_value(const slint::interpreter::Value &val
 }
 inline int from_slint_value(const slint::interpreter::Value &val, const int *)
 {
-    return val.to_number().value();
+    return saturating_float_to_int(val.to_number().value());
 }
 inline float from_slint_value(const slint::interpreter::Value &val, const float *)
 {
@@ -168,14 +168,15 @@ public:
                            const slint::SharedVector<slint::SharedString> &libraries,
                            std::string_view style, std::string_view translation_domain,
                            bool no_default_translation_context,
-                           std::string_view bundled_translations_path, std::string_view edition)
+                           std::string_view bundled_translations_path, std::string_view edition,
+                           bool debug_info)
     {
         assert_main_thread();
         inner = cbindgen_private::slint_live_preview_new(
                 string_to_slice(file_name), string_to_slice(component_name), &include_paths,
                 &libraries, string_to_slice(style), string_to_slice(translation_domain),
                 no_default_translation_context, string_to_slice(bundled_translations_path),
-                string_to_slice(edition));
+                string_to_slice(edition), debug_info);
     }
 
     LiveReloadingComponent(const LiveReloadingComponent &other) : inner(other.inner)

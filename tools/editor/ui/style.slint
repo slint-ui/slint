@@ -324,7 +324,6 @@ export struct PreviewDiagnosticsStyle {
     background: color,
     foreground: color,
     muted: color,
-    border: color,
     veil: color,
 }
 
@@ -513,6 +512,9 @@ export struct InspectorSliderStyle {
 
 export struct ComboMenuStyle {
     row-height: length = 26px,
+    padding: length = 3px,
+    spacing: length = 2px,
+    highlight: brush,
     max-height: length = 220px,
     background: brush,
     border: brush,
@@ -1005,7 +1007,7 @@ export global LightTheme {
     out property <color> drop-background: #eaf5ff;
 
     out property <PaletteRowStyle> palette-row: {
-        hover: LightTheme.colors.subtle,
+        hover: LightTheme.tree-row.hover-background,
         selected: LightTheme.colors.subtle-selection,
         foreground: LightTheme.colors.foreground,
         selected-foreground: LightTheme.colors.focus,
@@ -1283,7 +1285,7 @@ export global DarkTheme {
     out property <color> drop-background: DarkTheme.colors.accent.with-alpha(0.14);
 
     out property <PaletteRowStyle> palette-row: {
-        hover: DarkTheme.colors.subtle,
+        hover: root.neutral-700,
         selected: DarkTheme.colors.subtle-selection,
         foreground: DarkTheme.colors.foreground,
         selected-foreground: DarkTheme.colors.focus,
@@ -1557,10 +1559,10 @@ export global Style {
     out property <brush> brightness-spectrum: @linear-gradient(0deg, black, transparent);
 
     out property <PreviewDiagnosticsStyle> preview-diagnostics: {
+        radius: Metrics.radius-large,
         background: Colors.surface,
         foreground: Colors.foreground,
         muted: Colors.muted,
-        border: Colors.border,
         veil: Colors.background.with-alpha(0.72),
     };
     out property <ScrollIndicatorStyle> scroll-indicator: {
@@ -1806,6 +1808,7 @@ export global Style {
     };
 
     out property <ComboMenuStyle> combo-menu: {
+        highlight: Theme.surfaces.raised-hover,
         background: root.floating-surface.background,
         border: root.floating-surface.border,
     };

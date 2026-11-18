@@ -58,7 +58,7 @@ let code = r#"
 "#;
 
 let mut compiler = Compiler::default();
-compiler.set_edition((1, 19));
+compiler.set_edition((1, 20));
 let result =
     spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
 assert_eq!(result.diagnostics().count(), 0);
@@ -111,6 +111,7 @@ mod prelude {
 mod api;
 mod bindings;
 mod component;
+#[cfg(feature = "std")]
 mod debug_hook;
 mod erased;
 mod eval;
@@ -139,6 +140,10 @@ mod value_model;
 
 #[doc(inline)]
 pub use api::*;
+
+#[cfg(all(feature = "std", any(feature = "internal", feature = "internal-highlight")))]
+#[doc(hidden)]
+pub use component::AnimationMode;
 
 #[cfg(feature = "internal")]
 #[doc(hidden)]

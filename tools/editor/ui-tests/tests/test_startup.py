@@ -3,6 +3,7 @@
 
 import json
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -19,7 +20,7 @@ from ui_driver import (
 
 
 def project_file(main: str | None = None) -> str:
-    contents = {"edition": "1.19"}
+    contents = {"edition": "1.20"}
     if main is not None:
         contents["main"] = main
     return json.dumps(contents)
@@ -59,6 +60,25 @@ def test_editor_loads_its_own_project(
         element(
             canvas, "Project and elements", role=slint_testing.AccessibleRole.Navigation
         )
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="Requires macOS Metal renderer")
+def test_quit_exits_cleanly_after_loading_a_project(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    editor_environment["SLINT_NO_MUDA"] = "1"
+    editor_environment["RUST_BACKTRACE"] = "1"
+    editor_environment["SLINT_BACKEND"] = "winit-skia"
+    with launch_editor(
+        editor_binary, editor_environment, fixture_project / "Main.slint"
+    ) as editor:
+        window = first_window(editor)
+        element(window, "Fixture text", role=slint_testing.AccessibleRole.Text)
+        element(window, "File").single_click(slint_testing.PointerEventButton.Left)
+        element(window, "Quit").single_click(slint_testing.PointerEventButton.Left)
+        assert editor.wait(timeout=10) == 0
 
 
 @pytest.mark.parametrize("project_input", ["source", "directory", "manifest"])
@@ -187,7 +207,7 @@ def test_explicit_project_root_keeps_the_selected_source(
     manifest.write_text(
         json.dumps(
             {
-                "edition": "1.19",
+                "edition": "1.20",
                 "main": "Sibling.slint",
                 "include-paths": ["include"],
             }
@@ -198,6 +218,7 @@ def test_explicit_project_root_keeps_the_selected_source(
     (include / "shared.slint").write_text("export component Shared { }")
     source_directory = fixture_project / "ui"
     source_directory.mkdir()
+    (source_directory / "slint-project.json").write_text("{")
     main = source_directory / "Main.slint"
     main.write_text(
         'import { Shared } from "shared.slint";\n'
@@ -263,6 +284,11 @@ def test_broken_project_recovers_when_repaired_on_disk(
         diagnostics = element(
             window, "Preview unavailable", role=slint_testing.AccessibleRole.Region
         )
+        element(
+            diagnostics,
+            "Toggle advanced error details",
+            role=slint_testing.AccessibleRole.Button,
+        ).invoke_accessible_default_action()
         wait_until(
             lambda: (
                 any(

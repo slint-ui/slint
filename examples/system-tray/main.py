@@ -5,7 +5,7 @@ from typing import Optional
 
 import slint
 
-ui = slint.loader.system_tray
+ui = slint.loader.slint_project
 
 
 class ExampleTray(ui.ExampleTray):
@@ -16,7 +16,6 @@ class ExampleTray(ui.ExampleTray):
     def __init__(self) -> None:
         super().__init__()
         self.main_window: Optional["MainWindow"] = None
-        self.window_visible: bool = True
 
     @slint.callback
     def toggle_window(self) -> None:

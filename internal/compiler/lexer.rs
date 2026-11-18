@@ -521,7 +521,7 @@ fn blank_out_leading_attributes(body: &mut [u8]) {
 }
 
 /// The value of the `#[edition = ...]` attribute of the first `slint!` macro in `rust_source`,
-/// such as `"1.19"` with its quotes, and its byte range in `rust_source`.
+/// such as `"1.20"` with its quotes, and its byte range in `rust_source`.
 pub fn extract_rust_macro_edition(rust_source: &str) -> Option<(&str, core::ops::Range<usize>)> {
     let macro_range = locate_slint_macro(rust_source).next()?;
     let body = &rust_source[macro_range.clone()];
@@ -655,7 +655,7 @@ fn test_extract_rust_macro() {
     );
     assert_eq!(
         extract_rust_macro(
-            "slint!{ #[edition = \"1.19\"]\n # [style = \"a]\\\"\"] export X {} #[y] }".into()
+            "slint!{ #[edition = \"1.20\"]\n # [style = \"a]\\\"\"] export X {} #[y] }".into()
         ),
         Some("      \u{2}                    \n                    export X {} #[y] \u{3}".into()),
     );

@@ -86,6 +86,80 @@ export component TestCase  {
             pointer-event-test += ":";
         }
     }
+
+    // Touch (#5142): a double tap counts only on the same item, also inside a Flickable,
+    // which delays every press. The TextInputs show the count on the press: a repeat selects a word.
+    in-out property <int> tap-clicked;
+    in-out property <int> tap-double;
+    TouchArea {
+        x: 300phx;
+        y: 100phx;
+        width: 100phx;
+        height: 100phx;
+        clicked => { tap-clicked += 1; }
+        double-clicked => { tap-double += 1; }
+    }
+    out property <bool> left-selects: left.anchor-position-byte-offset != left.cursor-position-byte-offset;
+    out property <bool> right-selects: right.anchor-position-byte-offset != right.cursor-position-byte-offset;
+    left := TextInput {
+        x: 300phx;
+        y: 0phx;
+        width: 50phx;
+        height: 50phx;
+        font-family: "FixedTestFont";
+        font-size: 10phx;
+        text: "aaaa bbbb";
+    }
+    right := TextInput {
+        x: 350phx;
+        y: 0phx;
+        width: 50phx;
+        height: 50phx;
+        font-family: "FixedTestFont";
+        font-size: 10phx;
+        text: "aaaa bbbb";
+    }
+    // A button whose click puts a TextInput under the pointer
+    in-out property <bool> swapped;
+    out property <bool> page-selects: page.anchor-position-byte-offset != page.cursor-position-byte-offset;
+    if !swapped: TouchArea {
+        x: 400phx;
+        y: 0phx;
+        width: 100phx;
+        height: 50phx;
+        clicked => { swapped = true; }
+    }
+    page := TextInput {
+        x: 400phx;
+        y: 0phx;
+        width: 100phx;
+        height: 50phx;
+        visible: swapped;
+        font-family: "FixedTestFont";
+        font-size: 10phx;
+        text: "aaaa bbbb";
+    }
+    in-out property <int> flicked-double;
+    Flickable {
+        x: 300phx;
+        y: 300phx;
+        width: 100phx;
+        height: 100phx;
+        viewport-height: 1000phx;
+        TouchArea {
+            x: 0phx;
+            y: 0phx;
+            width: 50phx;
+            height: 50phx;
+        }
+        TouchArea {
+            x: 50phx;
+            y: 0phx;
+            width: 50phx;
+            height: 50phx;
+            double-clicked => { flicked-double += 1; }
+        }
+    }
 }
 
 /*
@@ -608,6 +682,94 @@ assert_eq!(instance.get_touch3(), 0);
 assert_eq!(instance.get_touch_double1(), 0);
 assert_eq!(instance.get_touch_double2(), 300);
 assert_eq!(instance.get_touch_double3(), 0);
+```
+
+```rust
+// Touch (#5142)
+use slint::platform::WindowEvent;
+use slint_testing::{InternalEvent, LogicalPoint, TouchPhase};
+
+let instance = TestCase::new().unwrap();
+let touch = |x: f32, y: f32, phase: TouchPhase| {
+    instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 1, position: LogicalPoint::new(x, y), phase, event_time: None, history: Default::default() }));
+};
+let tap = |x: f32, y: f32| {
+    touch(x, y, TouchPhase::Started);
+    touch(x, y, TouchPhase::Ended);
+};
+
+// Two taps at the same spot, 50 ms apart
+tap(350.0, 150.0);
+slint_testing::mock_elapsed_time(50);
+tap(350.0, 150.0);
+assert_eq!(instance.get_tap_clicked(), 2);
+assert_eq!(instance.get_tap_double(), 1);
+
+// Two taps 20 px apart, or a second apart
+slint_testing::mock_elapsed_time(1000);
+tap(330.0, 150.0);
+slint_testing::mock_elapsed_time(50);
+tap(350.0, 150.0);
+slint_testing::mock_elapsed_time(1000);
+tap(350.0, 150.0);
+assert_eq!(instance.get_tap_double(), 1);
+
+// One tap on each of two items 8 px apart, then a second tap on the right one 2 px further
+slint_testing::mock_elapsed_time(1000);
+tap(344.0, 5.0);
+slint_testing::mock_elapsed_time(50);
+tap(352.0, 5.0);
+assert!(!instance.get_left_selects() && !instance.get_right_selects());
+slint_testing::mock_elapsed_time(50);
+tap(354.0, 5.0);
+assert!(!instance.get_left_selects() && instance.get_right_selects());
+
+// A tap that swaps the item under the finger, then a tap on the new item, also with the mouse
+slint_testing::mock_elapsed_time(1000);
+tap(450.0, 5.0);
+slint_testing::mock_elapsed_time(50);
+tap(450.0, 5.0);
+assert!(instance.get_swapped() && !instance.get_page_selects());
+instance.set_swapped(false);
+slint_testing::mock_elapsed_time(1000);
+slint_testing::send_mouse_click(&instance, 450.0, 5.0);
+slint_testing::mock_elapsed_time(50);
+slint_testing::send_mouse_click(&instance, 450.0, 5.0);
+assert!(instance.get_swapped() && !instance.get_page_selects());
+
+// Inside the Flickable: a tap on each of two items 4 px apart, then a double tap, by touch and
+// by mouse
+slint_testing::mock_elapsed_time(1000);
+tap(348.0, 325.0);
+slint_testing::mock_elapsed_time(50);
+tap(352.0, 325.0);
+assert_eq!(instance.get_flicked_double(), 0);
+slint_testing::mock_elapsed_time(50);
+tap(352.0, 325.0);
+assert_eq!(instance.get_flicked_double(), 1);
+slint_testing::mock_elapsed_time(1000);
+slint_testing::send_mouse_click(&instance, 348.0, 325.0);
+slint_testing::mock_elapsed_time(50);
+slint_testing::send_mouse_click(&instance, 352.0, 325.0);
+assert_eq!(instance.get_flicked_double(), 1);
+slint_testing::mock_elapsed_time(50);
+slint_testing::send_mouse_click(&instance, 352.0, 325.0);
+assert_eq!(instance.get_flicked_double(), 2);
+
+// The same with taps held past the Flickable's delay
+let held_tap = |x: f32, y: f32| {
+    touch(x, y, TouchPhase::Started);
+    slint_testing::mock_elapsed_time(150);
+    touch(x, y, TouchPhase::Ended);
+};
+slint_testing::mock_elapsed_time(1000);
+held_tap(348.0, 325.0);
+slint_testing::mock_elapsed_time(50);
+held_tap(352.0, 325.0);
+assert_eq!(instance.get_flicked_double(), 2);
+slint_testing::mock_elapsed_time(50);
+held_tap(352.0, 325.0);
+assert_eq!(instance.get_flicked_double(), 3);
 ```
 
 */

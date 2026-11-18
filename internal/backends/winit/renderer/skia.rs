@@ -37,9 +37,14 @@ impl WinitSkiaRenderer {
     pub fn new_software_suspended(
         shared_backend_data: &Rc<crate::SharedBackendData>,
     ) -> Result<Box<dyn super::WinitCompatibleRenderer>, PlatformError> {
+        if shared_backend_data.requested_graphics_api.is_some() {
+            return Err(
+                "The Skia software renderer doesn't support a graphics API selection".into()
+            );
+        }
         Ok(Box::new(Self {
             renderer: SkiaRenderer::default_software(&shared_backend_data.skia_context),
-            requested_graphics_api: shared_backend_data.requested_graphics_api.clone(),
+            requested_graphics_api: None,
         }))
     }
 
@@ -47,6 +52,9 @@ impl WinitSkiaRenderer {
     pub fn new_opengl_suspended(
         shared_backend_data: &Rc<crate::SharedBackendData>,
     ) -> Result<Box<dyn super::WinitCompatibleRenderer>, PlatformError> {
+        if let Some(api) = &shared_backend_data.requested_graphics_api {
+            i_slint_core::graphics::RequestedOpenGLVersion::try_from(api)?;
+        }
         Ok(Box::new(Self {
             renderer: SkiaRenderer::default_opengl(&shared_backend_data.skia_context),
             requested_graphics_api: shared_backend_data.requested_graphics_api.clone(),

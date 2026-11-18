@@ -16,7 +16,7 @@ use crate::langtype::{
 use crate::layout::LayoutConstraints;
 use crate::namedreference::NamedReference;
 use crate::native_class::PropertyVisibility;
-use crate::parser::{SyntaxKind, SyntaxNode, syntax_nodes};
+use crate::parser::{SyntaxKind, SyntaxNode, TextSize, syntax_nodes};
 use crate::property_analysis::PropertyAnalysis;
 use crate::source_path::SourcePath;
 use crate::typeloader::{ImportKind, ImportedTypes, LibraryInfo};
@@ -56,6 +56,10 @@ pub struct Document {
     pub exports: Exports,
     pub imports: Vec<ImportedTypes>,
     pub library_exports: HashMap<String, LibraryInfo>,
+
+    /// The paths and URLs that the document's `@image-url()`s resolve to,
+    /// also the ones that aren't embedded.
+    pub referenced_file_resources: RefCell<HashSet<SourcePath>>,
 
     /// Resources to embed in the generated code.
     ///
@@ -299,6 +303,7 @@ impl Document {
             imports,
             exports,
             library_exports: Default::default(),
+            referenced_file_resources: Default::default(),
             embedded_file_resources: Default::default(),
             #[cfg(feature = "bundle-translations")]
             translation_builder: None,
@@ -1212,16 +1217,40 @@ impl Bindings {
     }
 }
 
+/// The file and the start of an element in the source.
+/// It identifies the element through all the compiler passes.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct ElementLocation {
+    pub path: SourcePath,
+    /// The start of the element's `Element` syntax node, which is its type name,
+    /// such as `Rectangle` in `foo := Rectangle { }`.
+    /// The root of `component Foo { }` has no type name and starts at its `{`.
+    /// The node doesn't include the id, or the `if` or `for` in front of the type name.
+    pub offset: TextSize,
+}
+
+impl ElementLocation {
+    pub fn of(node: &syntax_nodes::Element) -> Self {
+        Self { path: node.source_file.path().clone(), offset: node.text_range().start() }
+    }
+
+    pub fn property(&self, name: &str) -> ElementProperty {
+        ElementProperty { element: self.clone(), property: name.into() }
+    }
+}
+
+/// A property of an element in the source, such as the one that a debug hook observes.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct ElementProperty {
+    pub element: ElementLocation,
+    pub property: SmolStr,
+}
+
 #[derive(Clone, Debug)]
 pub struct ElementDebugInfo {
     // The id qualified with the enclosing component name. Given `foo := Bar {}` this is `EnclosingComponent::foo`
     pub qualified_id: Option<SmolStr>,
     pub type_name: String,
-    // Hold an id for each element that is unique during this build, based on the source file and
-    // the offset of the `LBrace` token.
-    //
-    // This helps to cross-reference the element in the different build stages the LSP has to deal with.
-    pub element_hash: u64,
     pub node: syntax_nodes::Element,
     // Field to indicate whether this element was a layout that had
     // been lowered into a rectangle in the lower_layouts pass.
@@ -1376,7 +1405,8 @@ pub struct Element {
     /// True when this element is in a component was declared with the `:=` symbol instead of the `component` keyword
     pub is_legacy_syntax: bool,
 
-    /// How many times the element was inlined
+    /// How deep the element was inlined. Its own bindings have a
+    /// [`BindingExpression::priority`] of `1 + inline_depth`.
     pub inline_depth: i32,
 
     /// If this element is assigned to a specific slot in its parent component (e.g., `name << ...`)
@@ -1536,6 +1566,9 @@ pub struct ListViewInfo {
     pub listview_width: NamedReference,
     /// The ListView's `ensure-row-visible` function, if it declares one
     pub ensure_row_visible: Option<NamedReference>,
+    /// The row's `height`. Unlike the root's geometry, a wrapper such as the
+    /// zero-size Clip of the `visible` pass doesn't replace it.
+    pub row_height: NamedReference,
 }
 
 #[derive(Debug, Clone)]
@@ -1641,6 +1674,20 @@ impl Element {
         let g = GeometryProps::new(&r);
         r.borrow_mut().geometry_props = Some(g);
         r
+    }
+
+    /// The edition of the component that declares the element, which inlining doesn't change.
+    /// An element that a pass created takes the edition of its component.
+    pub fn edition(&self) -> Option<crate::project_file::SlintEdition> {
+        if let Some(file) = self.source_file() {
+            return file.edition();
+        }
+        let component = self.enclosing_component.upgrade()?;
+        if let Some(node) = &component.node {
+            return node.source_file.edition();
+        }
+        let root = component.root_element.try_borrow().ok()?;
+        root.source_file()?.edition()
     }
 
     pub fn from_node(
@@ -1861,7 +1908,6 @@ impl Element {
             base_type,
             debug: vec![ElementDebugInfo {
                 qualified_id,
-                element_hash: 0,
                 type_name,
                 node: node.clone(),
                 layout: None,
@@ -2139,6 +2185,7 @@ impl Element {
                 ensure_row_visible: declares_ensure_row_visible.then(|| {
                     NamedReference::new(parent, SmolStr::new_static("ensure-row-visible"))
                 }),
+                row_height: geometry_props.height.clone(),
             };
             // these properties are set by the ListView layouting code
             if let Some(content_height) = &lvi.content_height {
@@ -2608,8 +2655,8 @@ impl Element {
     }
 
     /// Whether this element is a *builtin* whose vertical layout info
-    /// depends on its width. Returns `false` for user components — even
-    /// ones whose own bindings derive height from width (e.g.
+    /// depends on its width. Returns `false` for user components not based
+    /// on such a builtin — even ones whose own bindings derive height from width (e.g.
     /// `component Foo { height: self.width; }`); those don't carry the
     /// information needed to detect the dependency here. The synthesis
     /// pass catches user components by other means (descendant
@@ -2622,7 +2669,7 @@ impl Element {
             "Text" | "TextInput" => self.is_binding_set("wrap", false),
             // An Image is height-for-width only while its height comes from its
             // width; with an explicit height it is fixed, so it is not.
-            "Image" | "ClippedImage" => !self.is_binding_set("height", true),
+            "Image" => !self.is_binding_set("height", true),
             // Markdown text always wraps to fill the given width.
             "StyledText" => true,
             _ => false,
@@ -3904,6 +3951,7 @@ fn visit_all_named_references_in_element_dyn(
         if let Some(ensure_row_visible) = &mut lv.ensure_row_visible {
             vis(ensure_row_visible);
         }
+        vis(&mut lv.row_height);
     }
     elem.borrow_mut().repeated = repeated;
     let mut layout_info_prop = std::mem::take(&mut elem.borrow_mut().layout_info_prop);
