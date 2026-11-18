@@ -467,8 +467,7 @@ void EspPlatform<PixelType>::run_event_loop()
     SemaphoreHandle_t frame_recorded = xSemaphoreCreateBinary();
     SemaphoreHandle_t frame_presented = xSemaphoreCreateBinary();
     xSemaphoreGive(frame_presented);
-    auto raster_task = [this, &recorded, stride, frame_recorded, frame_presented,
-                        &count_frame] {
+    auto raster_task = [this, &recorded, stride, frame_recorded, frame_presented, &count_frame] {
 #    ifdef SLINT_ESP_TRACING
         slint::cbindgen_private::slint_trace_register_core();
 #    endif
