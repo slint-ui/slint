@@ -34,9 +34,13 @@ endif()
 
 set(SLINT_FEATURE_FREESTANDING ON)
 set(SLINT_FEATURE_RENDERER_SOFTWARE ON)
-if (CONFIG_SLINT_RENDER_IN_SEPARATE_TASK OR CONFIG_SLINT_CPU_TEXTURES)
+set(RENDER_IN_SEPARATE_TASK "$ENV{SLINT_ESP_EXPERIMENTAL_RENDER_IN_SEPARATE_TASK}")
+if (RENDER_IN_SEPARATE_TASK STREQUAL "1" OR CONFIG_SLINT_CPU_TEXTURES OR CONFIG_SLINT_PPA)
     # SoftwareRenderer::record_frame() and TargetPixelBuffer are still experimental.
     set(SLINT_FEATURE_EXPERIMENTAL ON)
+endif()
+if (RENDER_IN_SEPARATE_TASK STREQUAL "1")
+    target_compile_definitions(${COMPONENT_LIB} PRIVATE SLINT_ESP_RENDER_IN_SEPARATE_TASK=1)
 endif()
 if (CONFIG_SLINT_TRACING)
     set(SLINT_FEATURE_TRACING ON)
@@ -51,8 +55,9 @@ if (SLINT_ESP_LOCAL_EXAMPLE)
     add_subdirectory(../.. slint_build)
 else()
     list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
-    # This variable is set when generating nightly snapshot's CMakeLists.txt
-    if (NOT SLINT_NIGHTLY)
+    # SLINT_NIGHTLY is set when generating nightly snapshot's CMakeLists.txt.
+    # The precompiled release lacks the experimental API, so build from source for that.
+    if (NOT SLINT_NIGHTLY AND NOT SLINT_FEATURE_EXPERIMENTAL)
         find_package(Slint)
     endif()
 

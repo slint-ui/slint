@@ -1,4 +1,5 @@
-// Copyright © SixtyFPS GmbH <info@slint.dev>
+#if (defined(SLINT_ESP_CPU_TEXTURES) || defined(SLINT_ESP_PPA))                                    \
+        && defined(SLINT_ESP_RENDER_IN_SEPARATE_TASK)// Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // cSpell: ignore jtag LOGI LOGW rgbpix
@@ -145,9 +146,18 @@ struct EspPlatform : public slint::platform::Platform
           buffer1(config.buffer1),
           buffer2(config.buffer2),
           byte_swap(config.byte_swap),
-          rotation(config.rotation)
+          rotation(config.rotation),
+          render_in_separate_task(config.render_in_separate_task),
+          raster_task_stack_size(config.raster_task_stack_size)
     {
         task = xTaskGetCurrentTaskHandle();
+#ifndef SLINT_ESP_RENDER_IN_SEPARATE_TASK
+        if (render_in_separate_task) {
+            ESP_LOGW(TAG,
+                     "render_in_separate_task needs SLINT_ESP_EXPERIMENTAL_RENDER_IN_SEPARATE_TASK=1 "
+                     "when building Slint; rendering in the event loop");
+        }
+#endif
     }
 
     std::unique_ptr<slint::platform::WindowAdapter> create_window_adapter() override;
@@ -171,6 +181,8 @@ private:
     std::optional<std::span<PixelType>> buffer2;
     bool byte_swap;
     slint::platform::SoftwareRenderer::RenderingRotation rotation;
+    bool render_in_separate_task;
+    uint32_t raster_task_stack_size;
     class EspWindowAdapter *m_window = nullptr;
 
     // Need to be static because we can't pass user data to the touch interrupt callback
@@ -379,8 +391,7 @@ void EspPlatform<PixelType>::run_event_loop()
 #ifdef SLINT_ESP_CPU_TEXTURES
     CpuTextureFrameBuffer cpu_textures;
 #endif
-#if (defined(SLINT_ESP_CPU_TEXTURES) || defined(SLINT_ESP_PPA))                                    \
-        && CONFIG_SLINT_RENDER_IN_SEPARATE_TASK
+#if (defined(SLINT_ESP_CPU_TEXTURES) || defined(SLINT_ESP_PPA)) && defined(SLINT_ESP_RENDER_IN_SEPARATE_TASK)
     // Used only by the thread that rasterizes.
     slint::platform::SoftwareRenderer::PreparedTextures prepared_textures;
     prepared_textures.set_max_bytes(std::size_t(CONFIG_SLINT_PREPARED_TEXTURES_SIZE) * 1024);
@@ -471,7 +482,7 @@ void EspPlatform<PixelType>::run_event_loop()
     };
 #endif
 
-#if CONFIG_SLINT_RENDER_IN_SEPARATE_TASK
+#ifdef SLINT_ESP_RENDER_IN_SEPARATE_TASK
     // A separate task rasterizes and presents each recorded frame, while the event loop
     // records the next one.
     std::optional<SoftwareRenderer::RecordedRasterCommands> recorded;
@@ -557,9 +568,9 @@ void EspPlatform<PixelType>::run_event_loop()
         }
     };
     TaskHandle_t raster_task_handle = nullptr;
-    const bool pipeline = buffer1
+    const bool pipeline = render_in_separate_task && buffer1
             && xTaskCreate([](void *task) { (*static_cast<decltype(raster_task) *>(task))(); },
-                           "slint_raster", CONFIG_SLINT_RASTER_TASK_STACK_SIZE, &raster_task,
+                           "slint_raster", raster_task_stack_size, &raster_task,
                            uxTaskPriorityGet(nullptr), &raster_task_handle)
                     == pdPASS;
 #endif
@@ -627,7 +638,7 @@ void EspPlatform<PixelType>::run_event_loop()
             }
 
             [[maybe_unused]] bool waited_for_refresh = false;
-#if CONFIG_SLINT_RENDER_IN_SEPARATE_TASK
+#ifdef SLINT_ESP_RENDER_IN_SEPARATE_TASK
             if (pipeline) {
                 if (std::exchange(m_window->needs_redraw, false)) {
 #    if CONFIG_SLINT_LOG_FRAME_STATS
@@ -725,7 +736,7 @@ void EspPlatform<PixelType>::run_event_loop()
                 // (letting the idle task run) between frames instead of saturating the CPU and
                 // tripping the task watchdog.
                 if (sem_dpi_refresh && !waited_for_refresh) {
-#    if CONFIG_SLINT_RENDER_IN_SEPARATE_TASK
+#    ifdef SLINT_ESP_RENDER_IN_SEPARATE_TASK
                     // Don't take the refresh from the raster task.
                     {
                         SLINT_TRACE_SPAN("wait_render_core");
@@ -748,7 +759,7 @@ void EspPlatform<PixelType>::run_event_loop()
         ulTaskNotifyTake(/*reset to zero*/ pdTRUE, ticks_to_wait);
     }
 
-#if CONFIG_SLINT_RENDER_IN_SEPARATE_TASK
+#ifdef SLINT_ESP_RENDER_IN_SEPARATE_TASK
     if (pipeline) {
         // The raster task uses data on this task's stack, so stop it after its current frame.
         xSemaphoreTake(frame_presented, portMAX_DELAY);
