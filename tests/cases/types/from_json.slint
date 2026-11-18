@@ -69,6 +69,20 @@ export component TestCase {
     // Field default values of a struct
     property <WithDefaults> with_defaults;
 
+    // The return value of a function or callback
+    function implicit_return() -> Point { @from-json("from_json.json").a_point }
+    function explicit_return() -> string { return @from-json("from_json.json").a_string; }
+    function early_return(from_json: bool) -> int {
+        if from_json { return @from-json("from_json.json").flat_value; }
+        0
+    }
+    pure callback callback_return() -> [int];
+    callback_return => { @from-json("from_json.json").an_array }
+    function implicit_return_whole_file() -> Root { @from-json("from_json.json") }
+    function explicit_return_whole_file() -> [Point] { return @from-json("from_json_array.json"); }
+    pure callback callback_return_whole_file() -> Root;
+    callback_return_whole_file => { @from-json("from_json.json") }
+
     out property <bool> test:
         root_object.int_property == 5
         && root_object.a-float == 3.5
@@ -114,7 +128,15 @@ export component TestCase {
         && dashed_key_underscore == 11 && dashed_key_dash == 11
         && a_sum == 5 && a_comparison
         && with_defaults.label == "hello"
-        && with_defaults.point.x == 1 && with_defaults.point.y == 2;
+        && with_defaults.point.x == 1 && with_defaults.point.y == 2
+        && implicit_return().x == 1 && implicit_return().y == 2
+        && explicit_return() == "hello"
+        && early_return(true) == 10 && early_return(false) == 0
+        && callback_return().length == 3 && callback_return()[2] == 3
+        && implicit_return_whole_file().int_property == 5
+        && implicit_return_whole_file().a_point.y == 2
+        && explicit_return_whole_file().length == 2 && explicit_return_whole_file()[1].x == 3
+        && callback_return_whole_file().a-float == 3.5;
 }
 
 /*
