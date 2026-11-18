@@ -208,7 +208,7 @@ The JSON value is converted to match the declared type of the property:
 | `string`                                                               | a string                                                                                            |
 | `color`                                                                | a string, e.g. `"#ff0000"` or `"red"`                                                               |
 | `brush`                                                                | a color string like `color`                                                                         |
-| `image`                                                                | a string: a path relative to the JSON file, a URL, or a `data:` URI. An empty string is no image    |
+| `image`                                                                | a string: a path relative to the JSON file, a path in a [library](../../../guide/language/coding/file/#component-libraries) such as `"@mylibrary/logo.png"`, a URL, or a `data:` URI. An empty string is no image |
 | an enum                                                                | a string naming one of its values, optionally prefixed with `"EnumName."`                           |
 | an array `[T]`                                                         | an array, each element converted per `T`'s row                                                      |
 | a struct                                                               | an object; each field is looked up by name and converted per its own type, recursively              |
@@ -229,5 +229,6 @@ export component Example {
 It's an error if the file can't be found, a member doesn't name a key of the JSON object,
 an index is out of range for the JSON array,
 or the JSON value's shape doesn't match the property's type.
-Since the value is read once, at compile time, rebuild the application to pick up changes to the JSON file.
-Tools that reload the `.slint` file, such as `slint-viewer` or an editor's live preview, pick them up on reload.
+The value is read once, at compile time.
+The Rust and C++ builds track the JSON file, so changing it rebuilds the application.
+`slint-viewer --auto-reload` and an editor's live preview reload when the JSON file changes.
