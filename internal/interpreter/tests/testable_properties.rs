@@ -14,12 +14,13 @@ use i_slint_backend_testing::ElementHandle;
 use slint_interpreter::{Compiler, ComponentInstance, Value};
 
 fn compile(code: &str) -> ComponentInstance {
-    i_slint_backend_testing::init_no_event_loop();
-    // SAFETY: set once, before any component is compiled; no test in this file
-    // reads or relies on a concurrently different value.
-    unsafe {
+    static ENVIRONMENT: std::sync::Once = std::sync::Once::new();
+    // SAFETY: the other tests wait on the `Once` before they read the environment.
+    ENVIRONMENT.call_once(|| unsafe {
         std::env::set_var("SLINT_ENABLE_EXPERIMENTAL_FEATURES", "testable");
-    }
+        std::env::set_var("SLINT_EMIT_DEBUG_INFO", "1");
+    });
+    i_slint_backend_testing::init_no_event_loop();
     let result =
         spin_on::spin_on(Compiler::default().build_from_source(code.into(), Default::default()));
     assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());

@@ -1188,12 +1188,15 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
         Expression::DashArray(dash_array) => {
             Value::ArrayOfCoord(SharedVector::from_slice(dash_array))
         }
+        #[cfg(feature = "std")]
         Expression::DebugHook { expression, id } => {
             if let Some(hook_value) = crate::debug_hook::trigger_debug_hook(ctx, id) {
                 return hook_value;
             }
             eval_expression(ctx, expression)
         }
+        #[cfg(not(feature = "std"))]
+        Expression::DebugHook { expression } => eval_expression(ctx, expression),
     }
 }
 

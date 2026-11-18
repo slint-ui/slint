@@ -217,7 +217,7 @@ assert_eq!(instance.get_value(), "");
 let instance = TestCase::new().unwrap();
 instance.show().unwrap();
 let combo = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Selection").next().unwrap();
-let arrow = combo.query_descendants().match_type_name("Path").find_first().unwrap();
+let arrow = combo.query_descendants().match_inherits("Path").find_first().unwrap();
 for height in [40., 160.] {
     for width in [8., 16., 32.] {
         instance.set_combo_height(height);

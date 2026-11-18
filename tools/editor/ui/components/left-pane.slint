@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Icons } from "../icons/index.slint";
 import { Style, PaintStyle, Metrics, Colors, Typography, ButtonStyle, PaletteCardStyle } from "../style.slint";
 import { BodyLabel, EdgeDivider, HorizontalResizeDivider, MutedLabel, SectionTitle, SidebarToggleButton } from "index.slint";
 import { Api, EditorSurfaceMode } from "../api.slint";
@@ -34,7 +35,7 @@ component NewSlintFileButton inherits Rectangle {
     Image {
         width: Metrics.icon-medium;
         height: Metrics.icon-medium;
-        source: @image-url("../assets/lucide/file-plus.svg");
+        source: Icons.file-plus;
         colorize: root.paint.foreground;
     }
 
