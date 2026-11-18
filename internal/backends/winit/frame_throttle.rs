@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore vblank
 use std::rc::{Rc, Weak};
 
 use i_slint_core::timers::{Timer, TimerMode};
@@ -86,8 +87,6 @@ fn refresh_interval(millihertz: u32) -> std::time::Duration {
     std::time::Duration::from_nanos(1_000_000_000_000 / u64::from(millihertz))
 }
 
-/// On Windows, frames start at DWM's vblank, as Chromium paces its software frames.
-/// A fixed period drifts against the display, which shows frames twice or skips them.
 fn next_frame(interval: std::time::Duration) -> std::time::Duration {
     #[cfg(target_os = "windows")]
     if let Some(delay) = compositor_clock::until_next_vblank(interval) {
@@ -109,12 +108,12 @@ fn until_next_tick(
     frequency: i64,
     interval: std::time::Duration,
 ) -> Option<std::time::Duration> {
-    let frequency = u128::try_from(frequency).ok().filter(|&frequency| frequency > 0)?;
-    if period <= 0 {
+    if frequency <= 0 || period <= 0 {
         return None;
     }
     let duration = |count: i64| {
-        std::time::Duration::from_nanos((count.max(0) as u128 * 1_000_000_000 / frequency) as u64)
+        let nanos = count.max(0) as u128 * 1_000_000_000 / frequency as u128;
+        std::time::Duration::from_nanos(nanos as u64)
     };
     let ratio = duration(period).as_secs_f64() / interval.as_secs_f64();
     if !(0.9..1.1).contains(&ratio) {
