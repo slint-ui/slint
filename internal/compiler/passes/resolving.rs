@@ -2820,7 +2820,10 @@ fn lookup_qualified_name_node(
             // (e.g. when called from `infer_aliases_types`). Skip type
             // checking here; `resolve_two_way_binding` does it later.
             for n in it {
-                e = Expression::StructFieldAccess { base: e.into(), name: n.text().into() };
+                e = Expression::StructFieldAccess {
+                    base: e.into(),
+                    name: crate::parser::normalize_identifier(n.text()),
+                };
             }
             Some(e.into())
         }
