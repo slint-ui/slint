@@ -13,16 +13,14 @@ use super::target_pixel_buffer::{
 use super::{PhysicalLength, PhysicalRect, PhysicalSize, RenderingRotation, Texture};
 use alloc::collections::BTreeMap;
 use alloc::vec;
-use alloc::vec::Vec;
 use i_slint_core::Color;
-use i_slint_core::shared_pointer::SharedPtr;
+use i_slint_core::graphics::{Gray8Pixel, Rgba8Pixel, SharedPixelBuffer};
 
 /// An image in RGBA, or an alpha map when it's colorized.
-pub struct PreparedTexture {
-    pixels: Vec<u8>,
-    format: TexturePixelFormat,
-    width: u32,
-    height: u32,
+#[derive(Clone)]
+pub enum PreparedTexture {
+    Rgba(SharedPixelBuffer<Rgba8Pixel>),
+    AlphaMap(SharedPixelBuffer<Gray8Pixel>),
 }
 
 impl PreparedTexture {
@@ -35,8 +33,6 @@ impl PreparedTexture {
         }
         let (width, height) = (texture.dst_width, texture.dst_height);
         let colorized = texture.colorize.is_some();
-        let format =
-            if colorized { TexturePixelFormat::AlphaMap } else { TexturePixelFormat::Rgba };
         let size = PhysicalSize::new(i16::try_from(width).ok()?, i16::try_from(height).ok()?);
         let sampled = DrawTextureArgs {
             data: TextureDataContainer::Static(source.clone()),
@@ -52,10 +48,14 @@ impl PreparedTexture {
         };
         let geometry = PhysicalRect::from_size(size);
         let (sampler, _) = Texture::from_target_texture(&sampled, &geometry)?;
-        let bpp = format.bpp();
-        let mut pixels = vec![0; width * height * bpp];
+        let (buffer_width, buffer_height) = (width as u32, height as u32);
+        let mut prepared = if colorized {
+            Self::AlphaMap(SharedPixelBuffer::new(buffer_width, buffer_height))
+        } else {
+            Self::Rgba(SharedPixelBuffer::new(buffer_width, buffer_height))
+        };
         let mut row = vec![PremultipliedRgbaColor::default(); width];
-        for (line, out) in pixels.chunks_exact_mut(width * bpp).enumerate() {
+        for line in 0..height {
             row.fill(PremultipliedRgbaColor::default());
             draw_functions::draw_texture_line(
                 &geometry,
@@ -65,31 +65,39 @@ impl PreparedTexture {
                 0,
                 0,
             );
-            for (pixel, &PremultipliedRgbaColor { red, green, blue, alpha }) in
-                out.chunks_exact_mut(bpp).zip(&row)
-            {
-                if colorized {
-                    pixel[0] = alpha;
-                } else {
-                    let unmultiply = |channel: u8| match alpha {
-                        0 => 0,
-                        _ => ((channel as u16 * 255 + alpha as u16 / 2) / alpha as u16).min(255)
-                            as u8,
-                    };
-                    pixel.copy_from_slice(&[
-                        unmultiply(red),
-                        unmultiply(green),
-                        unmultiply(blue),
-                        alpha,
-                    ]);
+            match &mut prepared {
+                Self::AlphaMap(buffer) => {
+                    let out = &mut buffer.make_mut_slice()[line * width..][..width];
+                    for (pixel, color) in out.iter_mut().zip(&row) {
+                        *pixel = Gray8Pixel(color.alpha);
+                    }
+                }
+                Self::Rgba(buffer) => {
+                    let out = &mut buffer.make_mut_slice()[line * width..][..width];
+                    for (pixel, &PremultipliedRgbaColor { red, green, blue, alpha }) in
+                        out.iter_mut().zip(&row)
+                    {
+                        let unmultiply =
+                            |channel: u8| match alpha {
+                                0 => 0,
+                                _ => ((channel as u16 * 255 + alpha as u16 / 2) / alpha as u16)
+                                    .min(255) as u8,
+                            };
+                        *pixel = Rgba8Pixel::new(
+                            unmultiply(red),
+                            unmultiply(green),
+                            unmultiply(blue),
+                            alpha,
+                        );
+                    }
                 }
             }
         }
-        Some(Self { pixels, format, width: width as u32, height: height as u32 })
+        Some(prepared)
     }
 
     /// The texture to draw in place of `texture`.
-    pub fn at(self: &SharedPtr<Self>, texture: &DrawTextureArgs) -> DrawTextureArgs {
+    pub fn at(&self, texture: &DrawTextureArgs) -> DrawTextureArgs {
         DrawTextureArgs {
             data: TextureDataContainer::Prepared(self.clone()),
             colorize: texture.colorize,
@@ -104,12 +112,21 @@ impl PreparedTexture {
     }
 
     pub fn source(&self) -> TextureData<'_> {
-        TextureData {
-            data: &self.pixels,
-            pixel_format: self.format,
-            byte_stride: self.width as usize * self.format.bpp(),
-            width: self.width,
-            height: self.height,
+        match self {
+            Self::Rgba(buffer) => TextureData {
+                data: buffer.as_bytes(),
+                pixel_format: TexturePixelFormat::Rgba,
+                byte_stride: buffer.width() as usize * TexturePixelFormat::Rgba.bpp(),
+                width: buffer.width(),
+                height: buffer.height(),
+            },
+            Self::AlphaMap(buffer) => TextureData {
+                data: buffer.as_bytes(),
+                pixel_format: TexturePixelFormat::AlphaMap,
+                byte_stride: buffer.width() as usize * TexturePixelFormat::AlphaMap.bpp(),
+                width: buffer.width(),
+                height: buffer.height(),
+            },
         }
     }
 }
@@ -126,7 +143,7 @@ struct Key {
 /// Images prepared for a [`TargetPixelBuffer`](super::target_pixel_buffer::TargetPixelBuffer),
 /// kept from frame to frame by the thread that rasterizes.
 pub struct PreparedTextures {
-    textures: BTreeMap<Key, SharedPtr<PreparedTexture>>,
+    textures: BTreeMap<Key, PreparedTexture>,
     bytes: usize,
     max_bytes: usize,
 }
@@ -156,7 +173,7 @@ impl PreparedTextures {
     }
 
     /// Returns the prepared image of `texture`, preparing it the first time.
-    pub(crate) fn get(&mut self, texture: &DrawTextureArgs) -> Option<SharedPtr<PreparedTexture>> {
+    pub(crate) fn get(&mut self, texture: &DrawTextureArgs) -> Option<PreparedTexture> {
         let TextureDataContainer::Static(source) = &texture.data else { return None };
         let key = Key {
             data: source.data.as_ptr() as usize,
@@ -176,7 +193,7 @@ impl PreparedTextures {
         let _span =
             tracing::info_span!("prepare_texture", w = texture.dst_width, h = texture.dst_height)
                 .entered();
-        let prepared = SharedPtr::new(PreparedTexture::new(texture)?);
+        let prepared = PreparedTexture::new(texture)?;
         if self.bytes + bytes > self.max_bytes {
             self.textures.clear();
             self.bytes = 0;
