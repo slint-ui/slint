@@ -127,8 +127,8 @@ pub fn embed_glyphs(
             .chain('A'..='Z')
             .chain('0'..='9')
             .chain(" '!\"#$%&()*+,-./:;<=>?@\\[]{}^_|~".chars())
-            .chain(std::iter::once('●'))
-            .chain(std::iter::once('…')),
+            .chain("●…".chars())
+            .chain(i_slint_common::styled_text::LIST_BULLETS),
     );
 
     if let Ok(sizes_str) = std::env::var("SLINT_FONT_SIZES") {
