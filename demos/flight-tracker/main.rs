@@ -786,6 +786,20 @@ impl Demo {
         }
     }
 
+    fn flight_progress(&self) -> FlightProgress {
+        let flight = &self.flight;
+        FlightProgress {
+            progress: flight.progress(),
+            remaining_time: format_hours(flight.remaining_hours()).into(),
+            remaining_clock: {
+                let minutes = (flight.remaining_hours() * 60.0).round() as u32;
+                format!("{:02}:{:02}", minutes / 60, minutes % 60).into()
+            },
+            remaining_distance: thousands(flight.remaining_km()).into(),
+            flown_distance: thousands(flight.flown_km()).into(),
+        }
+    }
+
     fn flight_info(&self) -> FlightInfo {
         let flight = &self.flight;
         let destination = &self.airports[flight.destination];
@@ -795,14 +809,6 @@ impl Demo {
             number: flight_number(flight.origin, flight.destination).into(),
             origin: airport_item(&self.airports, flight.origin),
             destination: airport_item(&self.airports, flight.destination),
-            progress: flight.progress(),
-            remaining_time: format_hours(flight.remaining_hours()).into(),
-            remaining_clock: {
-                let minutes = (flight.remaining_hours() * 60.0).round() as u32;
-                format!("{:02}:{:02}", minutes / 60, minutes % 60).into()
-            },
-            remaining_distance: thousands(flight.remaining_km()).into(),
-            flown_distance: thousands(flight.flown_km()).into(),
             total_distance: thousands(flight.distance_km).into(),
             speed: thousands(flight.ground_speed_kmh()).into(),
             altitude: thousands(flight.altitude_m()).into(),
@@ -1430,6 +1436,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             None => Aircraft::default(),
         });
         app.set_flight(demo.flight_info());
+        app.set_flight_progress(demo.flight_progress());
         app.set_view(demo.view);
         app.set_screen(match demo.stage {
             Stage::Entry => Screen::Entry,

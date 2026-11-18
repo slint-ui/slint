@@ -71,13 +71,6 @@ export struct FlightInfo {
     number: string,
     origin: AirportItem,
     destination: AirportItem,
-    /// The flown part of the distance, from 0 to 1.
-    progress: float,
-    remaining-time: string,
-    /// The remaining time as hours and minutes, such as "9:05".
-    remaining-clock: string,
-    remaining-distance: string,
-    flown-distance: string,
     total-distance: string,
     speed: string,
     altitude: string,
@@ -86,6 +79,18 @@ export struct FlightInfo {
     heading: string,
     heading-compass: string,
     arrival-light: string,
+}
+
+/// The parts of a flight that change from frame to frame.
+/// They're apart from `FlightInfo`, so that what shows the rest isn't drawn again every frame.
+export struct FlightProgress {
+    /// The flown part of the distance, from 0 to 1.
+    progress: float,
+    remaining-time: string,
+    /// The remaining time as hours and minutes, such as "9:05".
+    remaining-clock: string,
+    remaining-distance: string,
+    flown-distance: string,
 }
 
 /// An airport's place on the screen, in logical pixels.
@@ -536,14 +541,14 @@ component AircraftIcon inherits Image {
 
 /// The time and the distance that a flight has left.
 component Remaining inherits HorizontalLayout {
-    in property <FlightInfo> flight;
+    in property <FlightProgress> progress;
     in property <length> value-size;
     spacing: 16px;
     Stat {
         label: "Time to go";
         places: 5;
         unit: "h";
-        value: root.flight.remaining-clock;
+        value: root.progress.remaining-clock;
         value-size: root.value-size;
     }
 
@@ -552,7 +557,7 @@ component Remaining inherits HorizontalLayout {
         trailing: true;
         places: 6;
         unit: "km";
-        value: root.flight.remaining-distance;
+        value: root.progress.remaining-distance;
         value-size: root.value-size;
     }
 }
@@ -560,6 +565,7 @@ component Remaining inherits HorizontalLayout {
 /// The route from the origin to the destination, and how far along the aircraft is.
 component FlightCard inherits Glass {
     in property <FlightInfo> flight;
+    in property <FlightProgress> progress;
     /// Smaller, for phones.
     in property <bool> small;
     /// Leaves out the light at arrival, for short windows.
@@ -608,11 +614,11 @@ component FlightCard inherits Glass {
                         width: (parent.width + 2px) / parent.tiles - 2px;
                         height: 10px;
                         border-radius: 1px;
-                        background: tile < root.flight.progress * parent.tiles ? Theme.highlight : Theme.track;
+                        background: tile < root.progress.progress * parent.tiles ? Theme.highlight : Theme.track;
                     }
 
                     AircraftIcon {
-                        x: (parent.width - self.width) * root.flight.progress;
+                        x: (parent.width - self.width) * root.progress.progress;
                         y: parent.tiles-y - self.height - 2px;
                         width: 22px;
                         height: 22px;
@@ -645,7 +651,7 @@ component FlightCard inherits Glass {
             }
 
             if !root.strip: Remaining {
-                flight: root.flight;
+                progress: root.progress;
                 value-size: root.value-size;
             }
 
@@ -676,7 +682,7 @@ component FlightCard inherits Glass {
             alignment: center;
             Remaining {
                 width: 230px;
-                flight: root.flight;
+                progress: root.progress;
                 value-size: root.value-size;
             }
         }
@@ -686,6 +692,7 @@ component FlightCard inherits Glass {
 /// The aircraft's readings in flight, or the flight before boarding and after landing.
 component StatusCard inherits Glass {
     in property <FlightInfo> flight;
+    in property <FlightProgress> progress;
     /// Smaller, for phones, with one row of readings.
     in property <bool> small;
     height: layout.preferred-height;
@@ -733,7 +740,7 @@ component StatusCard inherits Glass {
                     label: "Flown";
                     places: 6;
                     unit: "km";
-                    value: root.flight.flown-distance;
+                    value: root.progress.flown-distance;
                 }
 
                 Stat {
@@ -759,7 +766,7 @@ component StatusCard inherits Glass {
             }
 
             Text {
-                text: "\{root.flight.total-distance} km  ·  \{root.flight.remaining-time}";
+                text: "\{root.flight.total-distance} km  ·  \{root.progress.remaining-time}";
                 color: Theme.muted;
                 font-size: 14px;
             }
@@ -924,6 +931,7 @@ export component AppWindow inherits Window {
     in property <int> texture-used-width;
     in property <int> texture-used-height;
     in property <FlightInfo> flight;
+    in property <FlightProgress> flight-progress;
     in property <Marker> origin-marker;
     in property <Marker> destination-marker;
     in property <Aircraft> aircraft;
@@ -1410,6 +1418,7 @@ export component AppWindow inherits Window {
         // A row beside the buttons that zoom on a phone held sideways.
         width: root.sideways ? root.content-width - 40px - Theme.gap : root.card-width;
         flight: root.flight;
+        progress: root.flight-progress;
         small: root.narrow || root.short;
         brief: root.short;
         strip: root.sideways;
@@ -1423,6 +1432,7 @@ export component AppWindow inherits Window {
             + (1 - root.flight-in) * (root.height - root.controls-y + self.height + 30px);
         width: root.card-width;
         flight: root.flight;
+        progress: root.flight-progress;
         small: root.narrow || root.short;
     }
 
