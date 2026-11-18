@@ -54,6 +54,7 @@ skrifa = { workspace = true, optional = true }
 swash = { workspace = true, optional = true, features = ["scale", "render"] }
 zeno = { version = "0.3.3", optional = true, default-features = false, features = ["eval"] }
 lyon_path = { workspace = true, optional = true }
+wide = { version = "1.7", default-features = false }
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ["cfg(cbindgen)", "cfg(slint_nightly_test)"] }
