@@ -6,7 +6,7 @@
 
 pub use crate::minimal_software_window::MinimalSoftwareWindow;
 pub use crate::target_pixel::{
-    PremultipliedRgbaColor, Rgb565BigEndianPixel, Rgb565Pixel, TargetPixel,
+    Argb8888Pixel, PremultipliedRgbaColor, Rgb565BigEndianPixel, Rgb565Pixel, TargetPixel,
 };
 #[cfg(feature = "experimental")]
 pub use crate::target_pixel_buffer::{
