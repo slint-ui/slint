@@ -80,7 +80,12 @@ Its `channel.json` selects the WebAssembly interpreter:
 `snapshot` loads the `master` build from `snapshots.slint.dev`, and `release` loads the plugin's version from `releases.slint.dev`.
 The [slint-ui/ai-plugins](https://github.com/slint-ui/ai-plugins) mirror sets `release` on its `master` branch, synced from `release/1`.
 The separate [slint-ui/ai-plugins-nightly](https://github.com/slint-ui/ai-plugins-nightly) repository keeps `snapshot` on `master`, synced from the monorepo's `master`.
-Run the preview unit tests with `mise run test:ai-plugins`.
+The MCP server checks and renders source with a separate software Wasm build before publication.
+Use Node.js 24 to build and run the checker.
+Run `pnpm build:checker` in `ai-plugins/mcp/slint-preview` to place its release JS, Wasm, and package metadata under `checker/`.
+Include that generated directory when packaging the plugin; the server loads it lazily when `check_slint` is called.
+The browser card keeps using the hosted interpreter selected by `channel.json`.
+Run the preview unit tests and the Node rendering test with `mise run test:ai-plugins`.
 
 ## Documentation
 

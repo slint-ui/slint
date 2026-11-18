@@ -77,9 +77,13 @@ test("reports the plugin version", async () => {
     );
 });
 
-test("lists preview_slint with its view, and the view's own tools for the view only", async () => {
+test("lists check_slint, publish_preview with its view, and app-only tools", async () => {
     const { result } = await request("tools/list");
-    const preview = result.tools.find((t) => t.name === "preview_slint");
+    const preview = result.tools.find((t) => t.name === "publish_preview");
+    assert.equal(
+        result.tools.find((tool) => tool.name === "check_slint")._meta,
+        undefined,
+    );
     assert.equal(preview._meta.ui.resourceUri, "ui://slint/preview.html");
     for (const name of [
         "read_slint_file",
@@ -103,8 +107,16 @@ test("lists preview_slint with its view, and the view's own tools for the view o
 test("all tools declare their annotations", async () => {
     const { result } = await request("tools/list");
     for (const tool of result.tools) {
-        for (const hint of ["readOnlyHint", "destructiveHint", "openWorldHint"]) {
-            assert.equal(typeof tool.annotations?.[hint], "boolean", `${tool.name}: ${hint}`);
+        for (const hint of [
+            "readOnlyHint",
+            "destructiveHint",
+            "openWorldHint",
+        ]) {
+            assert.equal(
+                typeof tool.annotations?.[hint],
+                "boolean",
+                `${tool.name}: ${hint}`,
+            );
         }
     }
 });
@@ -136,10 +148,14 @@ test("serves the view with the interpreter of the plugin's release on the releas
             ".claude-plugin/plugin.json",
             "assets/slint.svg",
             "mcp/slint-preview/server.mjs",
+            "mcp/slint-preview/checker.mjs",
             "mcp/slint-preview/view.html.in",
             "mcp/slint-preview/assets",
         ]) {
-            cpSync(new URL(file, pluginRoot), join(root, file), { recursive: true, dereference: true });
+            cpSync(new URL(file, pluginRoot), join(root, file), {
+                recursive: true,
+                dereference: true,
+            });
         }
         writeFileSync(
             join(root, "mcp/slint-preview/channel.json"),
@@ -180,18 +196,29 @@ test("lists the view resource", async () => {
     );
 });
 
-test("answers a call with text only", async () => {
-    const { result } = await request("tools/call", {
-        name: "preview_slint",
-        arguments: { source: "export component Main {}" },
+test("checks a render before publishing with text only", async () => {
+    const checked = await callTool("check_slint", {
+        source: 'export component Main inherits Rectangle { width: 20px; height: 20px; background: blue; init => { debug("MCP check"); } }',
+        prepare_preview: true,
+    });
+    assert.equal(checked.structuredContent.ok, true);
+    assert.deepEqual(checked.structuredContent.diagnostics, []);
+    assert.equal(checked.content[1].type, "image");
+    assert.equal(checked.content[1].mimeType, "image/png");
+    assert.match(checked.structuredContent.runtime, /MCP Wasm software/);
+    const result = await callTool("publish_preview", {
+        previewId: checked.structuredContent.previewId,
     });
     assert.equal(result.content[0].type, "text");
     assert.equal(result.structuredContent, undefined);
+    assert.ok(
+        result._meta["slint/preview"].source.includes("background: blue"),
+    );
 });
 
 test("takes either an absolute path or source, and a project root only with a path", async () => {
     const call = (args) =>
-        request("tools/call", { name: "preview_slint", arguments: args });
+        request("tools/call", { name: "check_slint", arguments: args });
     assert.ok((await call({ path: "/project/main.slint" })).result);
     assert.ok(
         (
@@ -296,22 +323,27 @@ test("the Claude and Codex manifests start this server", () => {
 
 // Starts a preview and returns its ID, which the view reads from the result.
 async function startPreview(args) {
-    const result = await callTool("preview_slint", args);
-    const previewId = result._meta["slint/previewId"];
-    assert.equal(
-        result.content[0].text,
-        `Rendering Slint preview ${previewId}.`,
-    );
+    const checked = await callTool("check_slint", {
+        ...args,
+        prepare_preview: true,
+    });
+    assert.equal(checked.structuredContent?.ok, true, JSON.stringify(checked));
+    const previewId = checked.structuredContent.previewId;
+    const result = await callTool("publish_preview", { previewId });
+    assert.equal(result._meta["slint/previewId"], previewId);
+    assert.match(result.content[0].text, /Use the screenshot returned by check_slint/);
     return previewId;
 }
 
 test("gives every preview its own ID", async () => {
-    const args = { path: "/project/main.slint" };
+    const args = {
+        source: "export component Main inherits Rectangle { width: 20px; height: 20px; }",
+    };
     assert.notEqual(await startPreview(args), await startPreview(args));
 });
 
 test("returns the capture the view publishes for the latest preview", async () => {
-    const previewId = await startPreview({ source: "export component A {}" });
+    const previewId = await startPreview({ source: "export component A inherits Rectangle { width: 20px; height: 20px; }" });
     const screenshot = callTool("get_preview_screenshot", {});
     await callTool("publish_preview_capture", { previewId, stage: "started" });
     await callTool("publish_preview_capture", { previewId, stage: "ready" });
@@ -349,7 +381,7 @@ test("returns the capture the view publishes for the latest preview", async () =
 });
 
 test("times out a fresh capture and ignores its late response", async () => {
-    const previewId = await startPreview({ source: "export component A {}" });
+    const previewId = await startPreview({ source: "export component A inherits Rectangle { width: 20px; height: 20px; }" });
     await callTool("publish_preview_capture", { previewId, stage: "ready" });
     const screenshot = callTool("get_preview_screenshot", {});
     const expiredCaptureId = await captureRequestId(previewId);
@@ -368,17 +400,16 @@ test("times out a fresh capture and ignores its late response", async () => {
     assert.equal((await retry).content[0].data, "ZnJlc2g=");
 });
 
-test("reports why a preview has no screenshot", async () => {
-    const previewId = await startPreview({
-        source: "export component A { colour: red; }",
-    });
+test("reports why a restored preview has no screenshot", async () => {
+    const previewId = "restored-preview";
+    await callTool("publish_preview_capture", { previewId, stage: "started" });
     await callTool("publish_preview_capture", {
         previewId,
         error: "main.slint:1:23: error: Unknown property colour",
     });
     const { content, structuredContent, isError } = await callTool(
         "get_preview_screenshot",
-        {},
+        { previewId },
     );
     assert.match(content[0].text, /Unknown property colour/);
     assert.equal(structuredContent.status, "error");
@@ -386,7 +417,7 @@ test("reports why a preview has no screenshot", async () => {
 });
 
 test("reports a crash while a screenshot is pending and ignores a late capture", async () => {
-    const previewId = await startPreview({ source: "export component A {}" });
+    const previewId = await startPreview({ source: "export component A inherits Rectangle { width: 20px; height: 20px; }" });
     await callTool("publish_preview_capture", { previewId, stage: "ready" });
     const screenshot = callTool("get_preview_screenshot", {});
     const captureId = await captureRequestId(previewId);
@@ -410,7 +441,7 @@ test("reports a crash while a screenshot is pending and ignores a late capture",
 
 test("captures multiple previews independently while defaulting to the latest opened preview", async () => {
     // cspell:ignore Zmlyc Vmcm
-    const args = { path: "/project/main.slint" };
+    const args = { source: "export component Main inherits Rectangle { width: 20px; height: 20px; }" };
     const firstPreviewId = await startPreview(args);
     const firstScreenshot = callTool("get_preview_screenshot", {});
     const latestPreviewId = await startPreview(args);
@@ -449,9 +480,9 @@ test("rejects invalid preview IDs and reports unknown screenshot targets", async
 });
 
 test("evicts previews that stop polling and reactivates them without changing the default target", async () => {
-    const previewId = await startPreview({ source: "export component A {}" });
+    const previewId = await startPreview({ source: "export component A inherits Rectangle { width: 20px; height: 20px; }" });
     await callTool("poll_preview_capture", { previewId });
-    const latestPreviewId = await startPreview({ source: "export component B {}" });
+    const latestPreviewId = await startPreview({ source: "export component B inherits Rectangle { width: 20px; height: 20px; }" });
     await callTool("publish_preview_capture", { previewId: latestPreviewId, stage: "ready" });
     const keepPolling = setInterval(() => {
         callTool("poll_preview_capture", { previewId: latestPreviewId });
@@ -485,7 +516,7 @@ test("evicts previews that stop polling and reactivates them without changing th
 });
 
 test("asks the user to open the chat when startup is unconfirmed, then accepts a late view", async () => {
-    const previewId = await startPreview({ source: "export component B {}" });
+    const previewId = await startPreview({ source: "export component B inherits Rectangle { width: 20px; height: 20px; }" });
     const result = await callTool("get_preview_screenshot", {});
     assert.equal(result.isError, true);
     assert.equal(
@@ -506,7 +537,7 @@ test("asks the user to open the chat when startup is unconfirmed, then accepts a
 });
 
 test("reports the current stage and timings while rendering remains pending", async () => {
-    const previewId = await startPreview({ source: "export component C {}" });
+    const previewId = await startPreview({ source: "export component C inherits Rectangle { width: 20px; height: 20px; }" });
     await callTool("publish_preview_capture", { previewId, stage: "started" });
     const screenshot = callTool("get_preview_screenshot", {});
     const stages = ["started", "reading", "loading", "compiling"];
