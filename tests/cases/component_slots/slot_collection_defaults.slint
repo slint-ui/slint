@@ -1,0 +1,178 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+global ConstructionCount {
+    in-out property <int> pages;
+    in-out property <int> views;
+}
+
+interface Entry {
+    in property <string> title;
+    in property <int> position;
+}
+
+component Page {
+    in property <string> title;
+    in property <int> position: -1;
+    init => { ConstructionCount.pages += 1; }
+    accessible-role: tab-panel;
+    accessible-label: "Page \{root.position}: \{root.title}";
+}
+
+component Header inherits Text {
+    init => { ConstructionCount.views += 1; }
+    accessible-role: text;
+    accessible-label: root.text;
+}
+
+component Group {
+    default slot <[implements Entry]> entries << Page { title: "Declaration"; }
+    out property <int> length: entries.length;
+    VerticalLayout {
+        for entry[index] in entries: Header { text: "Header \{index}: \{entry.title}"; }
+        for entry[index] in entries: entry { position: index; }
+    }
+}
+
+component Preset inherits Group {
+    Page { title: "First default"; }
+    Page { title: "Second default"; }
+}
+
+component InheritedPreset inherits Preset { }
+component ReplacedPreset inherits InheritedPreset { Page { title: "Derived"; } }
+component ClearedPreset inherits InheritedPreset { entries << { } }
+
+component Named {
+    slot <[Page]> entries << Page { title: "Named declaration"; }
+    out property <int> length: entries.length;
+    VerticalLayout {
+        for entry in entries: Header { text: "Named header: " + entry.title; }
+        for entry[index] in entries: entry { position: index; }
+    }
+}
+
+component NamedPreset inherits Named {
+    entries << Page { title: "Named first"; }
+    entries << Page { title: "Named second"; }
+}
+
+component NamedInherited inherits NamedPreset { }
+component NamedCleared inherits NamedInherited { entries << { } }
+component NamedReplaced inherits NamedInherited { entries << Page { title: "Named derived"; } }
+
+component RepeatedPreset inherits Group {
+    in property <[string]> model: ["Repeated first", "Repeated second"];
+    for title in root.model: Page { title: title; }
+}
+
+component AnyGroup {
+    default slot <[*]> entries << Text { text: "Wildcard"; }
+    out property <int> length: entries.length;
+    VerticalLayout { for entry in entries: entry { } }
+}
+
+component Sink {
+    default slot <[implements Entry]> entries << Page { title: "Inner default"; }
+    out property <int> length: entries.length;
+    VerticalLayout {
+        for entry in entries: Text { text: "Sink header: " + entry.title; }
+        for entry[index] in entries: entry { position: index; }
+    }
+}
+
+component Composed {
+    default slot <[implements Entry]> entries << Page { title: "Composed default"; }
+    out property <int> length: sink.length;
+    VerticalLayout {
+        for entry in entries: Header { text: "Composed header: " + entry.title; }
+        sink := Sink { for entry in entries: entry { } }
+    }
+}
+
+component EmptyComposed {
+    default slot <[implements Entry]> entries;
+    out property <int> length: sink.length;
+    sink := Sink { for entry in entries: entry { } }
+}
+
+export component TestCase inherits Window {
+    width: 600px;
+    height: 600px;
+    in-out property <[string]> model: ["Runtime first", "Runtime second"];
+    out property <int> constructions: ConstructionCount.pages;
+    out property <int> views: ConstructionCount.views;
+    out property <int> repeated-length: repeated.length;
+    out property <int> repeated-default-length: repeated-default.length;
+    out property <bool> test: declaration.length == 1 && kept.length == 2
+        && replaced.length == 1 && cleared.length == 0 && derived.length == 1
+        && derived-cleared.length == 0 && refilled.length == 1
+        && named-kept.length == 2 && named-replaced.length == 1
+        && named-cleared.length == 0 && named-derived.length == 1
+        && named-derived-cleared.length == 0 && named-refilled.length == 1
+        && repeated.length == 2 && repeated-default.length == 2
+        && repeated-replaced.length == 1 && repeated-cleared.length == 0
+        && any.length == 1 && any-replaced.length == 2 && any-cleared.length == 0
+        && composed.length == 1 && composed-replaced.length == 1
+        && composed-cleared.length == 0 && composed-empty.length == 0;
+    VerticalLayout {
+        declaration := Group { }
+        kept := InheritedPreset { }
+        replaced := InheritedPreset { Page { title: "Caller"; } }
+        cleared := InheritedPreset { entries << { } }
+        derived := ReplacedPreset { }
+        derived-cleared := ClearedPreset { }
+        refilled := ClearedPreset { Page { title: "Refilled"; } }
+        named-kept := NamedInherited { }
+        named-replaced := NamedInherited { entries << Page { title: "Named caller"; } }
+        named-cleared := NamedInherited { entries << { } }
+        named-derived := NamedReplaced { }
+        named-derived-cleared := NamedCleared { }
+        named-refilled := NamedCleared { entries << Page { title: "Named refilled"; } }
+        repeated := InheritedPreset { for title in root.model: Page { title: title; } }
+        repeated-default := RepeatedPreset { model: root.model; }
+        repeated-replaced := RepeatedPreset { Page { title: "Static replacement"; } }
+        repeated-cleared := RepeatedPreset { entries << { } }
+        any := AnyGroup { }
+        any-replaced := AnyGroup { Rectangle { } Text { text: "Replacement"; } }
+        any-cleared := AnyGroup { entries << { } }
+        composed := Composed { }
+        composed-replaced := Composed { Page { title: "Composed caller"; } }
+        composed-cleared := Composed { entries << { } }
+        composed-empty := EmptyComposed { }
+    }
+}
+
+/*
+```rust
+use slint_testing::ElementHandle;
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+assert_eq!(instance.get_constructions(), 18);
+assert_eq!(instance.get_views(), 18);
+assert_eq!(ElementHandle::find_by_accessible_label(&instance, "Header 0: Caller").count(), 1);
+assert_eq!(ElementHandle::find_by_accessible_label(&instance, "Page 0: Caller").count(), 1);
+assert_eq!(ElementHandle::find_by_accessible_label(&instance, "Header 1: Second default").count(), 1);
+assert_eq!(ElementHandle::find_by_accessible_label(&instance, "Named header: Named first").count(), 1);
+assert_eq!(ElementHandle::find_by_accessible_label(&instance, "Composed header: Composed default").count(), 1);
+assert_eq!(ElementHandle::find_by_accessible_label(&instance, "Sink header: Composed default").count(), 1);
+assert_eq!(ElementHandle::find_by_accessible_label(&instance, "Sink header: Inner default").count(), 0);
+assert_eq!(ElementHandle::find_by_accessible_label(&instance, "Composed header: Composed caller").count(), 1);
+instance.set_model(slint::ModelRc::new(slint::VecModel::from(vec!["Updated".into()])));
+assert_eq!(instance.get_repeated_length(), 1);
+assert_eq!(instance.get_repeated_default_length(), 1);
+assert_eq!(ElementHandle::find_by_accessible_label(&instance, "Header 0: Updated").count(), 2);
+```
+
+```cpp
+auto instance = TestCase::create();
+assert(instance->get_test());
+assert(instance->get_constructions() == 18);
+assert(instance->get_views() == 18);
+auto model = std::make_shared<slint::VectorModel<slint::SharedString>>();
+model->push_back("Updated");
+instance->set_model(model);
+assert(instance->get_repeated_length() == 1);
+assert(instance->get_repeated_default_length() == 1);
+```
+*/

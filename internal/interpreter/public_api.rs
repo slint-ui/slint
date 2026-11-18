@@ -169,6 +169,7 @@ pub fn set_callback(
     let (public, sub) = resolve(instance).ok_or(())?;
     let prop = find_public_property(public, name).ok_or(())?;
     match &prop.prop {
+        MemberReference::Repeated { .. } => Err(()),
         MemberReference::Relative { parent_level, local_reference } => {
             let target = walk_to(sub, *parent_level, local_reference).ok_or(())?;
             match &local_reference.reference {
@@ -242,6 +243,7 @@ fn resolve_global_property(
     prop: &PublicProperty,
 ) -> Option<(Rc<crate::globals::GlobalInstance>, i_slint_compiler::llr::LocalMemberIndex)> {
     match &prop.prop {
+        MemberReference::Repeated { .. } => None,
         MemberReference::Global { global_index, member } => {
             let target = instance.globals.get(*global_index)?.clone();
             Some((target, member.clone()))

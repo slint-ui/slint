@@ -158,6 +158,9 @@ impl ElementType {
     ) -> Result<ElementType, String> {
         match self {
             Self::Component(component) => {
+                if crate::object_tree::slot_collections::default_collection(component).is_some() {
+                    return tr.empty_type().lookup_type_for_child_element(name, tr);
+                }
                 let base_type = match component.child_insertion_points.borrow().get(DEFAULT_SLOT_NAME) {
                     Some(insert_in) => insert_in.parent.borrow().base_type.clone(),
                     None => {

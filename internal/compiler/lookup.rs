@@ -409,14 +409,20 @@ impl LookupObject for IdLookup {
                         .children
                         .iter()
                         .rev()
-                        .filter(|x| x.borrow().repeated.is_none())
+                        .filter(|x| {
+                            x.borrow().repeated.is_none() && x.borrow().slot_expansion.is_none()
+                        })
                         .cloned(),
                 );
             }
             None
         }
         for e in ctx.component_scope.iter().rev() {
-            if e.borrow().repeated.is_some()
+            if (e.borrow().repeated.is_some()
+                || e.borrow()
+                    .slot_expansion
+                    .as_ref()
+                    .is_some_and(|expansion| expansion.projection_slot.is_some()))
                 && let Some(r) = visit(e, f)
             {
                 return Some(r);
@@ -443,6 +449,27 @@ impl InScopeLookup {
     ) -> Option<R> {
         let is_legacy = ctx.is_legacy_component();
         for (idx, elem) in ctx.component_scope.iter().rev().enumerate() {
+            if let Some(expansion) = &elem.borrow().slot_expansion {
+                let entry = expansion.entry_element(elem);
+                if let Some(r) = visit_entry(
+                    &expansion.entry_id,
+                    Expression::ElementReference(Rc::downgrade(&entry)).into(),
+                ) {
+                    return Some(r);
+                }
+                if !expansion.index_id.is_empty()
+                    && let Some(r) = visit_entry(
+                        &expansion.index_id,
+                        Expression::PropertyReference(NamedReference::new(
+                            elem,
+                            expansion.index_property.clone(),
+                        ))
+                        .into(),
+                    )
+                {
+                    return Some(r);
+                }
+            }
             if let Some(repeated) = &elem.borrow().repeated {
                 if !repeated.index_id.is_empty()
                     && let Some(r) = visit_entry(
@@ -532,6 +559,11 @@ impl LookupObject for ElementRc {
         ctx: &LookupCtx,
         f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
+        if self.borrow().slot_collection {
+            return self
+                .lookup(ctx, &SmolStr::new_static("length"))
+                .and_then(|result| f(&SmolStr::new_static("length"), result));
+        }
         for (internal_name, prop) in &self.borrow().property_declarations {
             let name = prop.declared_name(internal_name);
             let r = expression_from_reference(
@@ -584,6 +616,9 @@ impl LookupObject for ElementRc {
     }
 
     fn lookup(&self, ctx: &LookupCtx, name: &SmolStr) -> Option<LookupResult> {
+        if self.borrow().slot_collection && name != "length" {
+            return None;
+        }
         let lookup_result = self.borrow().lookup_property(name, PropertyLookupMode::ComponentLocal);
         if lookup_result.property_type != Type::Invalid
             && (lookup_result.is_local_to_component

@@ -36,6 +36,7 @@ pub(crate) mod forward_inherited_expression;
 pub(crate) mod interfaces;
 mod match_element;
 mod members;
+pub(crate) mod slot_collections;
 mod states;
 pub(crate) mod typed_slots;
 
@@ -498,11 +499,39 @@ pub struct ChildrenInsertionPoint {
 
 #[derive(Clone, Debug)]
 pub struct DeclaredSlot {
+    pub is_collection: bool,
+    pub is_default: bool,
     pub interface: Option<Rc<Component>>,
+    pub component_type: Option<ElementType>,
     pub name: SmolStr,
     pub name_node: syntax_nodes::DeclaredIdentifier,
     pub default: Option<syntax_nodes::SubElement>,
     has_rejected_placeholder: bool,
+}
+
+impl DeclaredSlot {
+    pub fn insertion_name(&self) -> &str {
+        if self.is_default { DEFAULT_SLOT_NAME } else { &self.name }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct SlotExpansion {
+    pub node: syntax_nodes::RepeatedElement,
+    pub slot_name: SmolStr,
+    pub entry_id: SmolStr,
+    pub index_id: SmolStr,
+    pub index_property: SmolStr,
+    pub projection_slot: Option<SmolStr>,
+}
+
+impl SlotExpansion {
+    pub(crate) fn entry_element(&self, template: &ElementRc) -> ElementRc {
+        let Some(slot) = &self.projection_slot else {
+            return template.clone();
+        };
+        template.borrow().children.iter().find(|child| &child.borrow().id == slot).unwrap().clone()
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -732,8 +761,9 @@ impl Component {
             return;
         }
         let mut declared_slot_nodes = BTreeMap::<SmolStr, syntax_nodes::DeclaredIdentifier>::new();
+        let mut declared_names = HashSet::new();
         for slot in self.declared_slots.borrow().iter() {
-            if slot.name == "children" {
+            if slot.name == "children" && !slot.is_default {
                 diagnostics.push_error(
                     format!(
                         "The name '{}' is reserved for the default slot. Use @children instead",
@@ -743,7 +773,8 @@ impl Component {
                 );
                 continue;
             }
-            if declared_slot_nodes.insert(slot.name.clone(), slot.name_node.clone()).is_some() {
+            declared_slot_nodes.insert(slot.insertion_name().into(), slot.name_node.clone());
+            if !declared_names.insert(slot.name.clone()) {
                 diagnostics.push_error(
                     format!("Duplicate slot declaration '{}'", slot.name),
                     &slot.name_node,
@@ -761,7 +792,7 @@ impl Component {
         }
         for slot in self.declared_slots.borrow().iter() {
             if let Some(default) = &slot.default
-                && let Some(cip) = self.child_insertion_points.borrow().get(slot.name.as_str())
+                && let Some(cip) = self.child_insertion_points.borrow().get(slot.insertion_name())
                 && matches!(cip.node, ChildInsertionPointNode::SlotForwarding(_))
                 && let Some(forwarding) =
                     cip.parent.borrow().forwarded_slots.iter().find(|f| f.source == slot.name)
@@ -776,15 +807,42 @@ impl Component {
             }
         }
         for (name, node) in declared_slot_nodes.iter() {
+            if self
+                .declared_slots
+                .borrow()
+                .iter()
+                .any(|slot| slot.is_collection && slot.insertion_name() == name)
+            {
+                continue;
+            }
             let has_rejected_placeholder = self
                 .declared_slots
                 .borrow()
                 .iter()
-                .any(|slot| slot.has_rejected_placeholder && &slot.name == name);
+                .any(|slot| slot.has_rejected_placeholder && slot.insertion_name() == name);
             if !self.child_insertion_points.borrow().contains_key(name.as_str())
                 && !has_rejected_placeholder
             {
                 diagnostics.push_error(format!("The slot '{name}' is declared but not used"), node);
+            }
+        }
+        for slot in self.declared_slots.borrow().iter().filter(|s| s.is_collection) {
+            let mut expanded =
+                self.child_insertion_points.borrow().get(slot.insertion_name()).is_some_and(
+                    |point| matches!(point.node, ChildInsertionPointNode::SlotForwarding(_)),
+                );
+            recurse_elem(&self.root_element, &(), &mut |element, _| {
+                expanded |= element
+                    .borrow()
+                    .slot_expansion
+                    .as_ref()
+                    .is_some_and(|e| e.slot_name == slot.name && e.projection_slot.is_none());
+            });
+            if !expanded && !slot.has_rejected_placeholder {
+                diagnostics.push_error(
+                    format!("Place collection slot '{}' with a 'for' loop or forward it to another collection slot", slot.name),
+                    &slot.name_node,
+                );
             }
         }
     }
@@ -1326,6 +1384,7 @@ pub struct Element {
 
     /// This element is part of a `for <xxx> in <model>`:
     pub repeated: Option<RepeatedElementInfo>,
+    pub collection_source: Option<ElementWeak>,
     /// This element is a placeholder to embed an Component at
     pub is_component_placeholder: bool,
 
@@ -1420,6 +1479,8 @@ pub struct Element {
     pub empty_slot_assignments: Vec<SmolStr>,
 
     pub typed_slot_interface: Option<Rc<Component>>,
+    pub slot_collection: bool,
+    pub slot_expansion: Option<SlotExpansion>,
 
     /// Slot forwarding mappings declared on this element: `target: source;`
     pub forwarded_slots: Vec<SlotForwarding>,
@@ -1780,6 +1841,17 @@ impl Element {
                     tr,
                 ));
             } else if se.kind() == SyntaxKind::RepeatedElement {
+                if slot_collections::create_expansion(
+                    se.clone().into(),
+                    &r,
+                    component_child_insertion_points,
+                    declared_slots,
+                    is_legacy_syntax,
+                    diag,
+                    tr,
+                ) {
+                    continue;
+                }
                 let mut sub_child_insertion_points = BTreeMap::new();
                 let rep = Element::from_repeated_node(
                     se.into(),
@@ -1852,6 +1924,9 @@ impl Element {
             }
         }
 
+        if is_component_root {
+            slot_collections::mark_inherited_defaults(&r);
+        }
         Self::apply_states_and_transitions(&node, &r, is_legacy_syntax, diag, tr);
         Self::check_list_view_children(&node, &r, diag);
         interfaces::apply_child_implement_statements(&r, &child_implements, diag);
@@ -1891,9 +1966,9 @@ impl Element {
         is_legacy_syntax: bool,
         diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
-        slot_interface: Option<Rc<Component>>,
+        slot_type: Option<ElementType>,
     ) -> Option<(ElementRc, Vec<ImplementedInterface>, Vec<ImplementedInterface>)> {
-        let base_type = Self::resolve_base_type(node, parent_type, slot_interface, diag, tr)?;
+        let base_type = Self::resolve_base_type(node, parent_type, slot_type, diag, tr)?;
         // This isn't truly qualified yet, the enclosing component is added at the end of Component::from_node
         let qualified_id = (!id.is_empty()).then(|| id.clone());
         if let ElementType::Component(c) | ElementType::Interface(Some(c)) = &base_type {
@@ -1981,15 +2056,15 @@ impl Element {
     fn resolve_base_type(
         node: &syntax_nodes::Element,
         parent_type: ElementType,
-        slot_interface: Option<Rc<Component>>,
+        slot_type: Option<ElementType>,
         diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
     ) -> Option<ElementType> {
         let is_component_root = is_component_root(node);
         let is_interface_declaration =
             is_component_root && matches!(parent_type, ElementType::Interface(_));
-        Some(if let Some(interface) = slot_interface {
-            ElementType::Component(interface)
+        Some(if let Some(slot_type) = slot_type {
+            slot_type
         } else if is_interface_declaration {
             disallow_non_member_content(node, &parent_type, diag);
             match node.QualifiedName() {
@@ -2108,7 +2183,7 @@ impl Element {
     }
 
     fn mark_placeholder_rejected(declared_slots: &mut [DeclaredSlot], name: &str) {
-        if let Some(slot) = declared_slots.iter_mut().find(|slot| slot.name.as_str() == name) {
+        if let Some(slot) = declared_slots.iter_mut().find(|slot| slot.insertion_name() == name) {
             slot.has_rejected_placeholder = true;
         }
     }
@@ -3890,6 +3965,15 @@ fn visit_named_references_in_expression_dyn(
         }
         // This is not really a named reference, but the result is the same, it need to be updated
         // FIXME: this should probably be lowered into a PropertyReference
+        Expression::IndexedPropertyReference { repeater, property, .. } => {
+            vis(property);
+            if let Some(repeater) = repeater {
+                let mut reference =
+                    NamedReference::new(&repeater.upgrade().unwrap(), "$model".into());
+                vis(&mut reference);
+                *repeater = Rc::downgrade(&reference.element());
+            }
+        }
         Expression::RepeaterModelReference { element }
         | Expression::RepeaterIndexReference { element } => {
             // FIXME: this is questionable

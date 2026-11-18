@@ -57,7 +57,7 @@ pub fn get_semantic_tokens(
                 SyntaxKind::PropertyAnimation => Some((self::KEYWORD, 0)),
                 SyntaxKind::EnumValue => Some((self::ENUM_MEMBER, 1 << self::DEFINITION)),
                 SyntaxKind::QualifiedName => match token.parent().parent()?.kind() {
-                    SyntaxKind::Type => Some((self::TYPE, 0)),
+                    SyntaxKind::Type | SyntaxKind::SlotDeclaration => Some((self::TYPE, 0)),
                     // the base type
                     SyntaxKind::Element => Some((self::TYPE, 0)),
                     // FIXME: we should do actual lookup
@@ -71,6 +71,9 @@ pub fn get_semantic_tokens(
                         SyntaxKind::Component => Some((self::TYPE, 1 << self::DEFINITION)),
                         SyntaxKind::RepeatedElement => {
                             Some((self::PROPERTY, 1 << self::DEFINITION))
+                        }
+                        SyntaxKind::SlotDeclaration => {
+                            Some((self::VARIABLE, 1 << self::DEFINITION))
                         }
                         SyntaxKind::CallbackDeclaration => {
                             Some((self::FUNCTION, 1 << self::DEFINITION))
@@ -93,6 +96,7 @@ pub fn get_semantic_tokens(
                     }
                 }
                 SyntaxKind::ChildrenPlaceholder => Some((self::MACRO, 0)),
+                SyntaxKind::SlotDeclaration => Some((self::KEYWORD, 0)),
                 SyntaxKind::Binding | SyntaxKind::TwoWayBinding => Some((self::PROPERTY, 0)),
                 SyntaxKind::ReturnStatement => Some((self::KEYWORD, 0)),
                 SyntaxKind::LetStatement => Some((self::KEYWORD, 0)),

@@ -18,7 +18,7 @@ use crate::object_tree::{self, Component, ElementRc};
 use crate::property_analysis::PropertyAnalysis;
 use smol_str::{SmolStr, format_smolstr};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 use typed_index_collections::TiVec;
 
 /// The types the generated module re-exports: every declared struct/enum under its own
@@ -370,7 +370,7 @@ impl LoweringState {
             .clone()
     }
 
-    fn sub_component_idx(&self, component: &Rc<Component>) -> SubComponentIdx {
+    pub(super) fn sub_component_idx(&self, component: &Rc<Component>) -> SubComponentIdx {
         *self.sub_component_mapping.get(&ByAddress(component.clone())).unwrap_or_else(|| {
             debug_assert!(
                 false,
@@ -677,15 +677,30 @@ fn lower_sub_component(
 
     let inner = ExpressionLoweringCtxInner { mapping: &mapping, parent: parent_context, component };
     let mut ctx = ExpressionLoweringCtx { inner, state };
+    sub_component.collection_source = ctx.collection_source();
 
     // Lower repeated components first, so their sub-components (e.g. Row) are available
     // when lowering layout expressions that need to read row_child_templates.
-    sub_component.repeated = repeated
-        .into_iter()
-        .map(|(elem, parent)| {
-            lower_repeated_component(&elem, parent, &sub_component, &mut ctx, compiler_config)
+    let source_dependency_depth = |element: &ElementRc| {
+        std::iter::successors(Some(element.clone()), |element| {
+            element.borrow().collection_source.as_ref().and_then(Weak::upgrade)
         })
-        .collect();
+        .skip(1)
+        .count()
+    };
+    let mut pending: Vec<_> = repeated.into_iter().enumerate().collect();
+    pending.sort_by_cached_key(|(_, (element, _))| source_dependency_depth(element));
+    let mut lowered: Vec<_> = (0..pending.len()).map(|_| None).collect();
+    for (index, (element, parent)) in pending {
+        lowered[index] = Some(lower_repeated_component(
+            &element,
+            parent,
+            &sub_component,
+            &mut ctx,
+            compiler_config,
+        ));
+    }
+    sub_component.repeated = lowered.into_iter().map(Option::unwrap).collect();
     for s in &mut sub_component.sub_components {
         s.repeater_offset +=
             (sub_component.repeated.len() + sub_component.component_containers.len()) as u32;
@@ -830,6 +845,7 @@ fn new_sub_component(
     compiler_config: &CompilerConfiguration,
 ) -> SubComponent {
     SubComponent {
+        collection_source: None,
         name: component_id(component),
         properties: Default::default(),
         callbacks: Default::default(),
@@ -1721,9 +1737,10 @@ fn make_tree(
                                 .into(),
                             ));
                         }
-                        global @ MemberReference::Global { .. } => {
+                        reference @ (MemberReference::Global { .. }
+                        | MemberReference::Repeated { .. }) => {
                             z_sources.push(ZSource::Expression(
-                                super::Expression::PropertyReference(global).into(),
+                                super::Expression::PropertyReference(reference).into(),
                             ));
                         }
                     }

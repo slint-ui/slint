@@ -1,0 +1,27 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+interface Entry { in property <int> position; }
+component Item { in property <int> position; }
+component Sink {
+    default slot <[implements Entry]> entries;
+    for entry[index] in entries: entry { position: index; }
+}
+component Mixed {
+    default slot <[implements Entry]> entries;
+    Sink {
+        Item { }
+        for entry in entries: entry { }
+//                            >    <error{A collection expansion must be the only child in its target collection}
+    }
+}
+component Override {
+    default slot <[implements Entry]> entries;
+    Sink {
+        for entry in entries: entry { position: 99; }
+    }
+}
+export component Test inherits Window {
+    Mixed { Item { } }
+    Override { Item { } }
+}

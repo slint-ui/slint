@@ -1,0 +1,214 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+global ConstructionCount {
+    in-out property <int> pages;
+    in-out property <int> headers;
+}
+
+interface Entry {
+    in property <string> title;
+    in property <int> position;
+    in-out property <int> value;
+    callback activated();
+}
+
+component Page {
+    in property <string> title;
+    in property <int> position: -1;
+    in-out property <int> value;
+    callback activated();
+    init => { ConstructionCount.pages += 1; }
+    public function activate() { root.value += 1; root.activated(); }
+}
+
+component Header inherits Rectangle {
+    in property <string> text;
+    callback activated();
+    min-width: 150px;
+    min-height: 24px;
+    init => { ConstructionCount.headers += 1; }
+    accessible-role: button;
+    accessible-label: root.text;
+    Text { text: root.text; accessible-role: none; }
+    TouchArea { clicked => { root.activated(); } }
+}
+
+component Host {
+    default slot <[implements Entry]> items << Page { title: "Fallback"; }
+    out property <int> length: items.length;
+    out property <int> last-index: -1;
+    VerticalLayout {
+        for item in items: Header {
+            text: "Header: \{item.title}: \{item.value}";
+            activated => { item.value += 1; item.activated(); }
+        }
+        for item[index] in items: item {
+            position: index;
+            activated => { root.last-index = index; }
+        }
+    }
+}
+
+component Wrapper {
+    slot <[implements Entry]> entries;
+    out property <int> length: entries.length;
+    out property <int> inner-length: host.length;
+    out property <int> last-index: host.last-index;
+    VerticalLayout {
+        for entry in entries: Header { text: "Outer: " + entry.title; }
+        host := Host { items << entries; }
+    }
+}
+
+component Outer {
+    default slot <[implements Entry]> pages;
+    out property <int> length: pages.length;
+    out property <int> inner-length: wrapper.inner-length;
+    out property <int> last-index: wrapper.last-index;
+    wrapper := Wrapper { entries << pages; }
+}
+
+component PresetHost inherits Host {
+    in property <string> prefix;
+    first := Page { title: root.prefix; value: 3; }
+    Page { title: first.title + " next"; value: first.value + 1; }
+}
+
+component PresetWrapper {
+    default slot <[implements Entry]> pages;
+    in property <string> prefix;
+    out property <int> length: pages.length;
+    PresetHost { prefix: root.prefix; items << pages; }
+}
+
+component RepeatedHost inherits Host {
+    in property <[string]> model;
+    for title in root.model: Page { title: title; }
+}
+
+component RepeatedWrapper {
+    default slot <[implements Entry]> pages;
+    in property <[string]> model;
+    out property <int> length: pages.length;
+    RepeatedHost { model: root.model; items << pages; }
+}
+
+component PresetOuter inherits Outer { Page { title: "Inherited"; } }
+
+component NominalWrapper {
+    slot <[Page]> pages;
+    out property <int> length: pages.length;
+    Host { items << pages; }
+}
+
+component AnyHost {
+    slot <[*]> items;
+    out property <int> length: items.length;
+    VerticalLayout { for item in items: item { } }
+}
+
+component AnyWrapper {
+    default slot <[*]> content;
+    out property <int> length: content.length;
+    AnyHost { items << content; }
+}
+
+export component TestCase inherits Window {
+    width: 600px;
+    height: 1000px;
+    in-out property <[string]> model: ["X", "Y"];
+    in-out property <[string]> default-model: ["D1", "D2"];
+    in-out property <string> prefix: "Preset";
+    out property <int> repeated-length: repeated.length;
+    out property <int> constructions: ConstructionCount.pages;
+    out property <int> headers: ConstructionCount.headers;
+    out property <int> last-index: supplied.last-index;
+    out property <int> repeated-last-index: repeated.last-index;
+    out property <int> default-length: receiver-repeated.length;
+    public function activate-second() { second.activate(); }
+    out property <bool> test: omitted.length == 1 && omitted.inner-length == 1
+        && cleared.length == 0 && cleared.inner-length == 0
+        && supplied.length == 2 && supplied.inner-length == 2
+        && repeated.length == 2 && repeated.inner-length == 2
+        && first.position == 0 && second.position == 1
+        && receiver-preset.length == 2 && receiver-repeated.length == 2
+        && inherited.length == 1 && inherited-replaced.length == 1 && inherited-cleared.length == 0
+        && nominal.length == 1 && any.length == 2
+        && ConstructionCount.pages == 12 && ConstructionCount.headers == 19;
+    VerticalLayout {
+        omitted := Outer { }
+        cleared := Outer { pages << { } }
+        supplied := Outer {
+            first := Page { title: "A"; }
+            second := Page { title: "B"; }
+        }
+        repeated := Outer { for title in root.model: Page { title: title; } }
+        receiver-preset := PresetWrapper { prefix: root.prefix; }
+        receiver-repeated := RepeatedWrapper { model: root.default-model; }
+        inherited := PresetOuter { }
+        inherited-replaced := PresetOuter { Page { title: "Replacement"; } }
+        inherited-cleared := PresetOuter { pages << { } }
+        nominal := NominalWrapper { }
+        any := AnyWrapper { Rectangle { } Text { text: "Any"; } }
+    }
+}
+
+/*
+```rust
+use slint_testing::ElementHandle;
+use slint::Model;
+use slint::platform::PointerEventButton;
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_constructions(), 12);
+assert_eq!(instance.get_headers(), 19);
+assert_eq!(instance.get_repeated_length(), 2);
+assert!(instance.get_test());
+instance.invoke_activate_second();
+assert_eq!(instance.get_last_index(), 1);
+assert_eq!(ElementHandle::find_by_accessible_label(&instance, "Header: Fallback: 0").count(), 2);
+assert_eq!(ElementHandle::find_by_accessible_label(&instance, "Outer: Fallback").count(), 1);
+assert_eq!(ElementHandle::find_by_accessible_label(&instance, "Header: Preset next: 4").count(), 1);
+instance.set_prefix("Changed".into());
+assert_eq!(ElementHandle::find_by_accessible_label(&instance, "Header: Changed next: 4").count(), 1);
+let model = std::rc::Rc::new(slint::VecModel::from(vec!["New".into()]));
+instance.set_model(model.clone().into());
+assert_eq!(instance.get_repeated_length(), 1);
+ElementHandle::find_by_accessible_label(&instance, "Header: New: 0").next().unwrap()
+    .mock_single_click(PointerEventButton::Left);
+assert_eq!(ElementHandle::find_by_accessible_label(&instance, "Header: New: 1").count(), 1);
+model.insert(0, "Before".into());
+ElementHandle::find_by_accessible_label(&instance, "Header: New: 1").next().unwrap()
+    .mock_single_click(PointerEventButton::Left);
+assert_eq!(instance.get_repeated_last_index(), 1);
+model.set_row_data(1, "Renamed".into());
+assert_eq!(ElementHandle::find_by_accessible_label(&instance, "Header: Renamed: 2").count(), 1);
+model.remove(0);
+assert_eq!(instance.get_repeated_length(), 1);
+model.clear();
+assert_eq!(instance.get_repeated_length(), 0);
+assert_eq!(ElementHandle::find_by_accessible_label(&instance, "Header: Fallback: 0").count(), 2);
+instance.set_model(slint::ModelRc::new(slint::VecModel::from(vec!["New".into()])));
+assert_eq!(ElementHandle::find_by_accessible_label(&instance, "Outer: New").count(), 1);
+instance.set_default_model(slint::ModelRc::new(slint::VecModel::from(vec!["Default updated".into()])));
+assert_eq!(instance.get_default_length(), 1);
+assert_eq!(ElementHandle::find_by_accessible_label(&instance, "Header: Default updated: 0").count(), 1);
+```
+
+```cpp
+auto instance = TestCase::create();
+assert(instance->get_test());
+instance->invoke_activate_second();
+assert(instance->get_last_index() == 1);
+auto model = std::make_shared<slint::VectorModel<slint::SharedString>>();
+model->push_back("New");
+instance->set_model(model);
+assert(instance->get_repeated_length() == 1);
+model->push_back("After");
+assert(instance->get_repeated_length() == 2);
+auto defaults = std::make_shared<slint::VectorModel<slint::SharedString>>();
+defaults->push_back("Default updated");
+instance->set_default_model(defaults);
+assert(instance->get_default_length() == 1);
+```
+*/

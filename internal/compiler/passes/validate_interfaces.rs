@@ -10,5 +10,6 @@ pub(crate) fn validate_interfaces(doc: &Document, diag: &mut BuildDiagnostics) {
     for component in doc.inner_components.iter() {
         validate_implement_statements(&component.root_element, diag);
         validate_assignments(&component.root_element, diag);
+        crate::object_tree::slot_collections::validate_assignments(component, diag);
     }
 }

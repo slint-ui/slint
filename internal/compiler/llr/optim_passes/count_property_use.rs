@@ -190,6 +190,12 @@ pub fn count_property_use(root: &CompilationUnit) {
 }
 
 fn visit_property(pr: &MemberReference, ctx: &EvaluationContext) {
+    if let MemberReference::Repeated { local_reference, .. } = pr {
+        ctx.with_repeated_scope(pr, |source_ctx| {
+            visit_property(&local_reference.clone().into(), &source_ctx);
+        });
+        return;
+    }
     let p_info = ctx.property_info(pr);
     if let Some(use_count) = &p_info.use_count {
         use_count.set(use_count.get() + 1);

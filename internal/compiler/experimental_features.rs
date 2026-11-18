@@ -31,7 +31,7 @@ pub enum ExperimentalFeature {
     Shadowable,
     /// Closures, and the array functions that take them, such as `any` and `index-of`
     Closures,
-    /// Named slots and slot forwarding
+    /// Named slots, collection slots, and slot forwarding
     NamedSlots,
     /// `match` elements
     Match,

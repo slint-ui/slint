@@ -23,6 +23,7 @@ const INLINE_SINGLE_THRESHOLD: isize = ALLOC_COST * 10;
 // The cost of an expression.
 fn expression_cost(exp: &Expression, ctx: &EvaluationContext) -> isize {
     let mut cost = match exp {
+        Expression::RepeaterPropertyReference { .. } => return isize::MAX,
         Expression::StringLiteral(_) => ALLOC_COST,
         Expression::NumberLiteral(_) => 0,
         Expression::BoolLiteral(_) => 0,

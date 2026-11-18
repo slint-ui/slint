@@ -1,0 +1,92 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+interface Entry { in property <int> value; }
+export component MissingImplements {
+    default slot <[Entry]> entries;
+//                 >   <error{'Entry' is an interface; use '[implements Entry]' for an interface collection}
+    for entry in entries: entry { }
+}
+export component WildcardDefault {
+    slot <[*]> entries << Rectangle { }
+    for entry in entries: entry { }
+}
+export component WrongType {
+    default slot <[implements Rectangle]> items;
+//                            >       <error{Slot type 'Rectangle' must be an interface}
+    for item in items: item { }
+}
+export component Nested {
+    Rectangle { slot <[implements Entry]> items; }
+//                                        >   <error{Declare collection slots on a component root}
+}
+export component Duplicate {
+    default slot <[implements Entry]> first;
+    default slot <[implements Entry]> second;
+//                                    >    <error{A component can only declare one default slot}
+    for item in first: item { }
+}
+export component InvalidBody {
+    default slot <[implements Entry]> items;
+    for item in items: item { Rectangle { } }
+//                            >           <error{Slot expansions only accept property bindings and callback connections}
+}
+export component MissingExpansion { default slot <[implements Entry]> items; }
+//                                                                    >   <error{Place collection slot 'items' with a 'for' loop or forward it to another collection slot}
+export component DuplicateExpansion {
+    default slot <[implements Entry]> items;
+    for item in items: item { }
+//                     >      <note{The slot 'items' is already used here}
+    for item in items: item { }
+//  >                         <error{The slot 'items' can only appear once in an element}
+}
+export component WrongExpansion {
+    default slot <[implements Entry]> items;
+//                                    >   <error{Place collection slot 'items' with a 'for' loop or forward it to another collection slot}
+    for item in items: Rectangle { }
+}
+export component ScalarDefault {
+    default slot <Entry> item;
+//  >                        <error{A default slot must have a collection type, such as <[*]>}
+    item { }
+}
+export component Base {
+    default slot <[implements Entry]> items;
+    for item in items: item { }
+}
+export component Redeclared inherits Base { default slot <[implements Entry]> items; }
+//                                                                            >   <error{A component can only declare one default slot}
+export component Test inherits Window { }
+
+component ScalarHost {
+    slot content;
+    content { }
+}
+export component CollectionToScalar {
+    slot <[*]> entries;
+    ScalarHost { content << entries; }
+//                          >     <error{Declare both 'entries' and 'content' as collection slots to forward a collection}
+}
+export component ScalarToCollection {
+    slot content;
+    Base { items << content; }
+//                  >     <error{Declare both 'content' and 'items' as collection slots to forward a collection}
+}
+export component ForwardedDefault {
+    slot <[implements Entry]> entries << Rectangle { in property <int> value; }
+//                                       >                                    <error{Remove the default content of the forwarded slot 'entries'; set it on the target slot 'items' instead}
+    Base { items << entries; }
+}
+export component ForwardedAndPlaced {
+    default slot <[implements Entry]> entries;
+    Base { items << entries; }
+//                  >     <note{The slot 'entries' is already used here}
+    for entry in entries: entry { }
+//  >                             <error{The slot 'entries' can only appear once in an element}
+}
+export component ForwardedTwice {
+    slot <[implements Entry]> entries;
+    Base { items << entries; }
+    Base { items << entries; }
+//                  >     <error{The slot 'entries' can only appear once in an element}
+}
