@@ -86,4 +86,18 @@ export component InspectorGeometrySection inherits InspectorSection {
             accepted(text) => { return text.is-float() && InspectorContext.commit-number("transform-rotation", text.to-float(), "deg"); }
         }
     }
+    if !InspectorContext.is-root-selection(): InspectorPropertyRow {
+        label: @tr("Order");
+        InspectorValueField {
+            width: parent.width - root.style.label-width - 2 * root.style.padding - root.style.row-gap;
+            accessible-name: @tr("Z order"); prefix: "Z";
+            value: "\{Properties.editor-number-property("z", 0)}";
+            commit-key: InspectorContext.field-key("z");
+            scrubbable: true; scrub-value: Properties.editor-number-property("z", 0);
+            scrub-preview(value) => { return InspectorContext.preview-number("z", value.round(), ""); }
+            scrub-accepted(value) => { return InspectorContext.commit-number("z", value.round(), ""); }
+            scrub-canceled(value) => { Properties.inspector-cancel(); }
+            accepted(text) => { return text.is-float() && InspectorContext.commit-number("z", text.to-float(), ""); }
+        }
+    }
 }
