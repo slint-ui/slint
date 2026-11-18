@@ -137,20 +137,16 @@ struct EspPlatform : public slint::platform::Platform
           buffer2(config.buffer2),
           byte_swap(config.byte_swap),
           rotation(config.rotation),
-          render_in_separate_task(config.render_in_separate_task),
-          raster_task_stack_size(config.raster_task_stack_size),
-          log_frame_stats(config.log_frame_stats),
-          use_cpu_textures(config.use_cpu_textures),
-          prepared_textures_kib(config.prepared_textures_kib)
+          log_frame_stats(config.log_frame_stats)
     {
         task = xTaskGetCurrentTaskHandle();
-#ifndef SLINT_ESP_RENDER_IN_SEPARATE_TASK
-        if (render_in_separate_task) {
-            ESP_LOGW(TAG,
-                     "render_in_separate_task needs "
-                     "SLINT_ESP_EXPERIMENTAL_RENDER_IN_SEPARATE_TASK=1 "
-                     "when building Slint; rendering in the event loop");
-        }
+#ifdef SLINT_ESP_RENDER_IN_SEPARATE_TASK
+        render_in_separate_task = config.render_in_separate_task;
+        raster_task_stack_size = config.raster_task_stack_size;
+#endif
+#ifdef SLINT_ESP_CPU_TEXTURES
+        use_cpu_textures = config.use_cpu_textures;
+        prepared_textures_kib = config.prepared_textures_kib;
 #endif
     }
 
@@ -175,11 +171,15 @@ private:
     std::optional<std::span<PixelType>> buffer2;
     bool byte_swap;
     slint::platform::SoftwareRenderer::RenderingRotation rotation;
-    bool render_in_separate_task;
-    uint32_t raster_task_stack_size;
+#ifdef SLINT_ESP_RENDER_IN_SEPARATE_TASK
+    bool render_in_separate_task = false;
+    uint32_t raster_task_stack_size = 8192;
+#endif
     bool log_frame_stats;
-    bool use_cpu_textures;
-    uint32_t prepared_textures_kib;
+#ifdef SLINT_ESP_CPU_TEXTURES
+    bool use_cpu_textures = false;
+    uint32_t prepared_textures_kib = 8192;
+#endif
     class EspWindowAdapter *m_window = nullptr;
 
     // Need to be static because we can't pass user data to the touch interrupt callback
