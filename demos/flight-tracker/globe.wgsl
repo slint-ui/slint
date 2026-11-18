@@ -30,6 +30,9 @@ struct DetailWindow {
     grid: vec4<f32>,
     // How far the tile in each of the window's 4 by 4 slots has faded in, by row and column.
     shown: array<vec4<f32>, 4>,
+    // x: a bit for each slot that holds its tile, by row and column, from the lowest bit on.
+    // The other slots still hold the tile of another place, or nothing.
+    loaded: vec4<f32>,
 }
 
 @group(0) @binding(0) var<uniform> globals: Globals;
@@ -72,33 +75,88 @@ fn stars(direction: vec3<f32>) -> vec3<f32> {
     return tint * brightness * smoothstep(0.1 + 0.14 * random.z, 0.0, distance);
 }
 
+// How much the detail window `index` shows at `uv`: none outside of it and where its tile is
+// missing, and fading in towards its middle and while its tile fades in.
+fn window_weight(index: i32, uv: vec2<f32>) -> f32 {
+    let grid = globals.windows[index].grid;
+    if grid.z == 0.0 {
+        return 0.0;
+    }
+    let tile = uv * grid.zw;
+    var offset = tile - grid.xy;
+    offset.x -= grid.z * round(offset.x / grid.z);
+    // The window reaches at least 1.5 tiles from where the camera looks.
+    let inside = 1.0 - smoothstep(1.15, 1.45, max(abs(offset.x), abs(offset.y)));
+    let slot = vec2<i32>(floor(tile)) & vec2<i32>(3);
+    return inside * globals.windows[index].shown[slot.y][slot.x];
+}
+
 // What the three detail windows from `first` on show at `uv`, whose derivatives along the
 // screen are `ddx` and `ddy`. The finest window that has its tile there counts, and fades into
-// the next coarser one towards its edge, and while its tile fades in.
+// the next coarser one.
 // rgb: the windows' imagery, a: how much of the globe's own imagery still shows.
 fn detail(first: i32, uv: vec2<f32>, ddx: vec2<f32>, ddy: vec2<f32>) -> vec4<f32> {
     var imagery = vec3<f32>(0.0);
     var uncovered = 1.0;
     for (var index = first + 2; index >= first; index--) {
-        let grid = globals.windows[index].grid;
-        if grid.z == 0.0 || uncovered < 0.002 {
+        if uncovered < 0.002 {
             continue;
         }
-        let tile = uv * grid.zw;
-        var offset = tile - grid.xy;
-        offset.x -= grid.z * round(offset.x / grid.z);
-        // The window reaches at least 1.5 tiles from where the camera looks.
-        let inside = 1.0 - smoothstep(1.15, 1.45, max(abs(offset.x), abs(offset.y)));
-        let slot = vec2<i32>(floor(tile)) & vec2<i32>(3);
-        let weight = inside * globals.windows[index].shown[slot.y][slot.x] * uncovered;
+        let weight = window_weight(index, uv) * uncovered;
         if weight > 0.002 {
-            let scale = grid.zw / 4.0;
+            let scale = globals.windows[index].grid.zw / 4.0;
             imagery += weight
-                * textureSampleGrad(tiles, tile_sampler, tile / 4.0, index, ddx * scale, ddy * scale).rgb;
+                * textureSampleGrad(tiles, tile_sampler, uv * scale, index, ddx * scale, ddy * scale).rgb;
             uncovered -= weight;
         }
     }
     return vec4<f32>(imagery, uncovered);
+}
+
+// `window_weight()` of each of the three detail windows from `first` on at `uv`, coarse to fine.
+fn window_weights(first: i32, uv: vec2<f32>) -> vec3<f32> {
+    return vec3<f32>(
+        window_weight(first, uv),
+        window_weight(first + 1, uv),
+        window_weight(first + 2, uv)
+    );
+}
+
+// The imagery of the detail window `index` at `uv`, where a pixel covers `2^footprint` of the
+// map's width, as a level of detail rather than as gradients, which are slow on some GPUs.
+// The size of a tile is spelled out, because NXP's Vivante Vulkan driver gets the size of the
+// tiles' texture wrong in most frames.
+fn window_sample(index: i32, uv: vec2<f32>, footprint: f32) -> vec3<f32> {
+    let grid = globals.windows[index].grid;
+    let level = footprint + log2(grid.z * 512.0);
+    return textureSampleLevel(tiles, tile_sampler, uv * grid.zw / 4.0, index, level).rgb;
+}
+
+// 1 where the slot of the detail window `index` at `uv` holds its tile, 0 elsewhere.
+fn holds_tile(index: i32, uv: vec2<f32>) -> f32 {
+    let slot = vec2<u32>(vec2<i32>(floor(uv * globals.windows[index].grid.zw)) & vec2<i32>(3));
+    return f32((u32(globals.windows[index].loaded.x) >> (slot.y * 4u + slot.x)) & 1u);
+}
+
+// What the three detail windows from `first` on show at `uv`, like `detail()` does, from their
+// `window_weights()`.
+// The weights come from the vertices, and reach into slots next to those that hold their tile.
+// rgb: the windows' imagery, a: how much of it shows.
+fn windows_imagery(first: i32, uv: vec2<f32>, footprint: f32, weights: vec3<f32>) -> vec4<f32> {
+    let fine = weights.z * holds_tile(first + 2, uv);
+    let middle = weights.y * holds_tile(first + 1, uv) * (1.0 - fine);
+    let coarse = weights.x * holds_tile(first, uv) * (1.0 - fine - middle);
+    var imagery = vec3<f32>(0.0);
+    if coarse > 0.002 {
+        imagery += coarse * window_sample(first, uv, footprint);
+    }
+    if middle > 0.002 {
+        imagery += middle * window_sample(first + 1, uv, footprint);
+    }
+    if fine > 0.002 {
+        imagery += fine * window_sample(first + 2, uv, footprint);
+    }
+    return vec4<f32>(imagery, coarse + middle + fine);
 }
 
 @fragment
@@ -190,31 +248,15 @@ fn fs_main(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     }
 
 
-    // The space around the globe, and the atmosphere where the sun lights it, reddish where
-    // the sun rises or sets.
+    // The space around the globe, and the atmosphere.
     let starlight = stars(direction) * smoothstep(1.02, 1.12, miss_distance);
-    let limb_sun = dot(normalize(closest), sun);
-    let limb_light = mix(1.0, smoothstep(-0.2, 0.4, limb_sun), sun_strength);
-    let limb_dusk = exp(-100.0 * limb_sun * limb_sun) * sun_strength;
-    // Close to the ground, the camera is inside the soft glow that rims the globe from afar, so
-    // the glow thins to a line along the horizon there.
-    let thinness = mix(55.0, 450.0, smoothstep(0.4, 0.03, length(origin) - 1.0));
-    let halo = exp(-max(miss_distance - 1.0, 0.0) * thinness) * select(0.0, 1.0, along > 0.0);
-    let halo_color = vec3<f32>(0.4, 0.65, 1.0);
-    // Looking towards the sun, the thin air at the edge lights up with the light it scatters
-    // forward.
+    let glow = atmosphere(origin, direction, closest) * select(0.0, 1.0, along > 0.0);
     let sun_angle = dot(direction, sun);
-    let forward_scattering = vec3<f32>(1.0, 0.85, 0.62) * pow(max(sun_angle, 0.0), 24.0) * 2.0 * sun_strength;
-    let glow = (halo_color * limb_light + vec3<f32>(1.0, 0.5, 0.2) * limb_dusk * 0.4 + forward_scattering) * halo * 0.8;
     // The sun, and its glare while it's in view, which spills over everything in front of it.
-    // It's in view where the line from the camera towards it passes the globe.
-    let sun_along = -dot(origin, sun);
-    let sun_miss = length(origin + sun * max(sun_along, 0.0));
-    let sun_in_view = select(1.0, smoothstep(0.995, 1.02, sun_miss), sun_along > 0.0) * sun_strength * globals.options.x;
     let sun_disc = smoothstep(0.99993, 0.99997, sun_angle);
     let towards_sun = max(sun_angle, 0.0);
     let glare = pow(towards_sun, 3000.0) * 2.5 + pow(towards_sun, 250.0) * 0.4 + pow(towards_sun, 40.0) * 0.05;
-    let sunshine = vec3<f32>(1.0, 0.95, 0.86) * sun_in_view;
+    let sunshine = vec3<f32>(1.0, 0.95, 0.86) * sun_in_view();
 
     // The ground.
     let view = -direction;
@@ -252,6 +294,42 @@ fn fs_main(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     let dither = (hash3(vec3<f32>(position.xy, 0.0)).x - 0.5) / 255.0;
     // Slint shows the frame with straight alpha.
     return vec4<f32>(output(premultiplied / max(alpha, 1e-4)) + dither, alpha);
+}
+
+// How much of the sun shows: none behind the globe, and none without space around the globe.
+// It's in view where the line from the camera towards it passes the globe.
+fn sun_in_view() -> f32 {
+    let eye = globals.eye.xyz;
+    let sun = globals.sun.xyz;
+    let sun_along = -dot(eye, sun);
+    let sun_miss = length(eye + sun * max(sun_along, 0.0));
+    return select(1.0, smoothstep(0.995, 1.02, sun_miss), sun_along > 0.0) * globals.sun.w
+        * globals.options.x;
+}
+
+// How fast the atmosphere's glow fades away from the globe, seen from `eye_distance`.
+// Close to the ground, the camera is inside the soft glow that rims the globe from afar, so
+// the glow thins to a line along the horizon there.
+fn glow_thinness(eye_distance: f32) -> f32 {
+    return mix(55.0, 450.0, smoothstep(0.4, 0.03, eye_distance - 1.0));
+}
+
+// The atmosphere's glow along the ray from `origin` in `direction`, which comes closest to the
+// globe's center at `closest`. The sun lights it, reddish where the sun rises or sets.
+fn atmosphere(origin: vec3<f32>, direction: vec3<f32>, closest: vec3<f32>) -> vec3<f32> {
+    let sun = globals.sun.xyz;
+    let sun_strength = globals.sun.w;
+    let miss_distance = length(closest);
+    let limb_sun = dot(closest / miss_distance, sun);
+    let limb_light = mix(1.0, smoothstep(-0.2, 0.4, limb_sun), sun_strength);
+    let limb_dusk = exp(-100.0 * limb_sun * limb_sun) * sun_strength;
+    let halo = exp(-max(miss_distance - 1.0, 0.0) * glow_thinness(length(origin)));
+    let halo_color = vec3<f32>(0.4, 0.65, 1.0);
+    // Looking towards the sun, the thin air at the edge lights up with the light it scatters
+    // forward.
+    let sun_angle = dot(direction, sun);
+    let forward_scattering = vec3<f32>(1.0, 0.85, 0.62) * pow(max(sun_angle, 0.0), 24.0) * 2.0 * sun_strength;
+    return (halo_color * limb_light + vec3<f32>(1.0, 0.5, 0.2) * limb_dusk * 0.4 + forward_scattering) * halo * 0.8;
 }
 
 fn output(color: vec3<f32>) -> vec3<f32> {
@@ -312,4 +390,176 @@ fn fs_border(in: BorderOutput) -> @location(0) vec4<f32> {
     let day = mix(1.0, smoothstep(-0.02, 0.05, sunlight), globals.sun.w);
     let edge = clamp(globals.options.y * 0.5 + 0.5 - abs(in.across), 0.0, 1.0);
     return vec4<f32>(output(vec3<f32>(0.95, 0.95, 0.85)), edge * facing * day * 0.45 * globals.options.w);
+}
+
+// Low quality draws the globe as a mesh of the cap that the camera sees, the atmosphere as rings
+// around it, and the sun as a disc, without stars and clouds.
+
+// The camera's side, up, and the direction from the globe's center to the camera, as columns.
+fn camera_axes(towards: vec3<f32>) -> mat3x3<f32> {
+    let helper = select(vec3<f32>(0.0, 1.0, 0.0), vec3<f32>(1.0, 0.0, 0.0), abs(towards.y) > 0.9);
+    let side = normalize(cross(helper, towards));
+    return mat3x3<f32>(side, cross(towards, side), towards);
+}
+
+// The point where a ray from the camera touches the sphere of `radius` around the globe's center,
+// `turn` of the way around the circle of these points.
+fn touching(radius: f32, turn: f32) -> vec3<f32> {
+    let eye = globals.eye.xyz;
+    let eye_distance = length(eye);
+    let toward_eye = radius * radius / eye_distance;
+    let around = radius * sqrt(max(1.0 - toward_eye / eye_distance, 0.0));
+    let angle = turn * TAU;
+    return camera_axes(eye / eye_distance) * vec3<f32>(around * cos(angle), around * sin(angle), toward_eye);
+}
+
+struct CapOutput {
+    @builtin(position) position: vec4<f32>,
+    @location(0) normal: vec3<f32>,
+    // The light on the day's imagery.
+    @location(1) daylight: vec3<f32>,
+    // x: how much the city lights show, y: how much of the haze, z: how bright the haze is.
+    @location(2) shading: vec3<f32>,
+    // The `window_weights()` of the day's imagery and of the night's lights.
+    @location(3) day_windows: vec3<f32>,
+    @location(4) night_windows: vec3<f32>,
+}
+
+// `grid` goes around the point below the camera, and from it to the horizon.
+// The light and the detail windows change slowly over the globe, so they're computed per vertex.
+@vertex
+fn vs_cap(@location(0) grid: vec2<f32>) -> CapOutput {
+    let eye = globals.eye.xyz;
+    let eye_distance = length(eye);
+    // The rings come closer towards the horizon, where they shape the globe's outline.
+    let out_to = 1.0 - (1.0 - grid.y) * (1.0 - grid.y);
+    let from_below = acos(1.0 / eye_distance) * out_to;
+    let angle = grid.x * TAU;
+    let normal = camera_axes(eye / eye_distance)
+        * vec3<f32>(sin(from_below) * cos(angle), sin(from_below) * sin(angle), cos(from_below));
+    let u = atan2(normal.x, normal.z) / TAU + 0.5;
+
+    let sun = globals.sun.xyz;
+    let sun_strength = globals.sun.w;
+    let sunlight = dot(normal, sun);
+    let lambert = clamp((sunlight + 0.06) / 1.06, 0.0, 1.0);
+    let darkness = smoothstep(0.08, -0.12, sunlight) * sun_strength;
+    let reddening = mix(vec3<f32>(1.0, 0.58, 0.36), vec3<f32>(1.0), smoothstep(0.0, 0.3, sunlight));
+    let sun_light = mix(vec3<f32>(1.0), reddening * lambert * 1.2, sun_strength);
+    let moonlight = vec3<f32>(0.03, 0.04, 0.075) * darkness;
+    let rim = 1.0 - max(dot(normal, normalize(eye - normal)), 0.0);
+    let haze = rim * rim * rim * 0.35 * mix(1.0, smoothstep(-0.1, 0.4, sunlight), sun_strength);
+
+    var out: CapOutput;
+    out.position = globals.view_projection * vec4<f32>(normal, 1.0);
+    let v = 0.5 - asin(clamp(normal.y, -1.0, 1.0)) / PI;
+    out.normal = normal;
+    out.daylight = sun_light + moonlight;
+    out.shading = vec3<f32>(2.4 * darkness, haze, mix(1.0, lambert + 0.15, sun_strength));
+    // Under the moonlight, the globe's own imagery will do.
+    let lit = lambert > 0.0 || sun_strength < 1.0;
+    out.day_windows = select(vec3<f32>(0.0), window_weights(0, vec2<f32>(u, v)), lit);
+    out.night_windows = select(vec3<f32>(0.0), window_weights(3, vec2<f32>(u, v)), darkness > 0.0);
+    return out;
+}
+
+@fragment
+fn fs_cap(in: CapOutput) -> @location(0) vec4<f32> {
+    // NXP's Vivante Vulkan driver gets a vertex output wrong that's taken apart before any
+    // arithmetic.
+    let shading = in.shading * 1.0;
+    // The place on the map comes from each pixel's direction, since the mesh moves with the
+    // camera, and the imagery would move with it between the vertices.
+    let normal = normalize(in.normal);
+    let u = atan2(normal.x, normal.z) / TAU + 0.5;
+    // The longitude jumps at the date line, where the copy half a turn further doesn't.
+    let shifted = fract(u + 0.5);
+    let jumps = fwidth(vec2<f32>(u, shifted));
+    let uv = vec2<f32>(
+        select(u, shifted - 0.5, jumps.y < jumps.x),
+        0.5 - asin(clamp(normal.y, -1.0, 1.0)) / PI
+    );
+    let day_windows = in.day_windows * 1.0;
+    let night_windows = in.night_windows * 1.0;
+    // The map is twice as wide as high, so a step in `uv.y` covers half as much of its width.
+    let ddx = dpdx(uv) * vec2<f32>(1.0, 0.5);
+    let ddy = dpdy(uv) * vec2<f32>(1.0, 0.5);
+    let footprint = 0.5 * log2(max(dot(ddx, ddx), dot(ddy, ddy)));
+    let day = windows_imagery(0, uv, footprint, day_windows);
+    let night = windows_imagery(3, uv, footprint, night_windows);
+    // The globe's own imagery shows where no window does.
+    let imagery = day.rgb + textureSample(day_imagery, map_sampler, uv).rgb * (1.0 - day.a);
+    let city_light = night.r + textureSample(night_imagery, map_sampler, uv).r * (1.0 - night.a);
+    var ground = imagery * in.daylight + vec3<f32>(1.0, 0.62, 0.3) * city_light * shading.x;
+    ground = mix(ground, vec3<f32>(0.4, 0.62, 1.0) * shading.z, shading.y);
+    ground = ground * 1.2 / (1.0 + ground * 0.2);
+    return vec4<f32>(output(ground), 1.0);
+}
+
+struct GlowOutput {
+    @builtin(position) position: vec4<f32>,
+    // The glow with straight alpha.
+    @location(0) color: vec3<f32>,
+    @location(1) alpha: f32,
+}
+
+const GLOW_SEGMENTS: u32 = 128u;
+const GLOW_RINGS: u32 = 6u;
+
+// Six vertices for each of `GLOW_SEGMENTS` by `GLOW_RINGS` quads, from the globe's outline out.
+@vertex
+fn vs_glow(@builtin(vertex_index) index: u32) -> GlowOutput {
+    let quad = index / 6u;
+    let corner = index % 6u;
+    let turn = f32(quad % GLOW_SEGMENTS + ((0x32u >> corner) & 1u)) / f32(GLOW_SEGMENTS);
+    let ring = f32(quad / GLOW_SEGMENTS + ((0x2cu >> corner) & 1u)) / f32(GLOW_RINGS);
+    let eye = globals.eye.xyz;
+    let eye_distance = length(eye);
+    // Out to where the glow is below one step of 8 bits, but short of the camera.
+    let reach = min(6.0 / glow_thinness(eye_distance), 0.9 * (eye_distance - 1.0));
+    let point = touching(1.0 + reach * ring * ring, turn);
+    // The outer ring fades out, in case the camera cut it short.
+    let glow = atmosphere(eye, normalize(point - eye), point) * select(1.0, 0.0, ring >= 1.0);
+    let alpha = mix(clamp(max(glow.r, max(glow.g, glow.b)), 0.0, 1.0), 1.0, globals.options.x);
+    var out: GlowOutput;
+    out.position = globals.view_projection * vec4<f32>(point, 1.0);
+    out.color = glow / max(alpha, 1e-4);
+    out.alpha = alpha;
+    return out;
+}
+
+@fragment
+fn fs_glow(in: GlowOutput) -> @location(0) vec4<f32> {
+    return vec4<f32>(output(in.color * 1.0), in.alpha * 1.0);
+}
+
+struct SunOutput {
+    @builtin(position) position: vec4<f32>,
+    // The angles from the sun's center.
+    @location(0) at: vec2<f32>,
+    @location(1) strength: f32,
+}
+
+// The angle from the sun's center to the edge of its disc.
+const SUN_RADIUS: f32 = 0.012;
+
+// A square around the sun.
+@vertex
+fn vs_sun(@builtin(vertex_index) index: u32) -> SunOutput {
+    let corner = vec2<f32>(f32((0x32u >> index) & 1u), f32((0x2cu >> index) & 1u)) * 2.0 - 1.0;
+    let eye = globals.eye.xyz;
+    let sun = globals.sun.xyz;
+    let axes = camera_axes(sun);
+    let direction = sun + (axes[0] * corner.x + axes[1] * corner.y) * SUN_RADIUS;
+    var out: SunOutput;
+    out.position = globals.view_projection * vec4<f32>(eye + direction * 10.0, 1.0);
+    out.at = corner * SUN_RADIUS;
+    out.strength = sun_in_view();
+    return out;
+}
+
+@fragment
+fn fs_sun(in: SunOutput) -> @location(0) vec4<f32> {
+    let disc = smoothstep(SUN_RADIUS, SUN_RADIUS * 0.65, length(in.at * 1.0));
+    return vec4<f32>(output(vec3<f32>(1.0, 0.95, 0.86) * disc * in.strength * 8.0), 0.0);
 }
