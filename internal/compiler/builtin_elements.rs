@@ -3451,6 +3451,240 @@ fn build(l: &mut Loader) {
     }
 
     element! {
+        /// The `Emitter` sub-element of `Particles` emits particles from an area.
+        /// Its coordinates are relative to the `Particles` element.
+        @is_non_item_type
+        Emitter {
+            /// The x position of the emit area.
+            in property <length> x;
+            /// The y position of the emit area.
+            in property <length> y;
+            /// The width of the emit area.
+            in property <length> width;
+            /// The height of the emit area.
+            in property <length> height;
+            /// The shape of the emit area.
+            in property <ParticleShape> shape;
+            /// Whether particles are emitted from the whole shape, or only from its outline.
+            in property <bool> filled: true;
+            /// Whether the emitter emits particles.
+            in property <bool> enabled: true;
+            /// The number of particles emitted per second.
+            in property <float> rate: 10;
+            /// How long a particle lives.
+            in property <duration> lifetime: 1s;
+            /// The maximum random amount added to or subtracted from `lifetime`.
+            in property <duration> lifetime-variation;
+            /// The direction in which particles move.
+            /// `0deg` points to the right and angles increase clockwise.
+            in property <angle> direction;
+            /// The range around `direction` in which particles are emitted.
+            /// `360deg` emits in all directions.
+            in property <angle> spread;
+            /// The initial speed of a particle, in pixels per second.
+            in property <length> speed;
+            /// The maximum random amount added to or subtracted from `speed`.
+            in property <length> speed-variation;
+            /// The initial acceleration of a particle, in pixels per second squared.
+            in property <length> acceleration;
+            /// The direction of `acceleration`.
+            in property <angle> acceleration-direction;
+        }
+    }
+
+    element! {
+        /// The `Gravity` sub-element of `Particles` accelerates particles in one direction.
+        @is_non_item_type
+        Gravity {
+            /// Whether the affector applies.
+            in property <bool> enabled: true;
+            /// The x position of the area in which the affector applies.
+            /// Without any of `x`, `y`, `width`, and `height`, it applies everywhere.
+            in property <length> x;
+            /// The y position of the area in which the affector applies.
+            in property <length> y;
+            /// The width of the area in which the affector applies.
+            in property <length> width;
+            /// The height of the area in which the affector applies.
+            in property <length> height;
+            /// The direction of the acceleration.
+            /// `90deg` points down.
+            in property <angle> direction: 90deg;
+            /// The acceleration, in pixels per second squared.
+            in property <length> magnitude;
+        }
+    }
+
+    element! {
+        /// The `Friction` sub-element of `Particles` slows particles down.
+        @is_non_item_type
+        Friction {
+            /// Whether the affector applies.
+            in property <bool> enabled: true;
+            /// The x position of the area in which the affector applies.
+            /// Without any of `x`, `y`, `width`, and `height`, it applies everywhere.
+            in property <length> x;
+            /// The y position of the area in which the affector applies.
+            in property <length> y;
+            /// The width of the area in which the affector applies.
+            in property <length> width;
+            /// The height of the area in which the affector applies.
+            in property <length> height;
+            /// The fraction of its speed that a particle loses per second.
+            in property <float> factor;
+            /// The speed, in pixels per second, below which friction stops slowing particles down.
+            in property <length> threshold;
+        }
+    }
+
+    element! {
+        /// The `Attractor` sub-element of `Particles` accelerates particles towards a point.
+        /// A negative `strength` pushes particles away.
+        @is_non_item_type
+        Attractor {
+            /// Whether the affector applies.
+            in property <bool> enabled: true;
+            /// The x position of the area in which the affector applies.
+            /// Without any of `x`, `y`, `width`, and `height`, it applies everywhere.
+            in property <length> x;
+            /// The y position of the area in which the affector applies.
+            in property <length> y;
+            /// The width of the area in which the affector applies.
+            in property <length> width;
+            /// The height of the area in which the affector applies.
+            in property <length> height;
+            /// The x position of the point that particles are attracted to.
+            in property <length> point-x;
+            /// The y position of the point that particles are attracted to.
+            in property <length> point-y;
+            /// The acceleration, in pixels per second squared, at a distance of 100px.
+            in property <length> strength;
+            /// How the acceleration changes with the distance to the point.
+            in property <AttractorFalloff> falloff;
+        }
+    }
+
+    element! {
+        /// The `Sink` sub-element of `Particles` shortens the lifetime of the particles inside its area, for example to remove them at a wall.
+        @is_non_item_type
+        Sink {
+            /// Whether the affector applies.
+            in property <bool> enabled: true;
+            /// The x position of the area in which the affector applies.
+            /// Without any of `x`, `y`, `width`, and `height`, it applies everywhere.
+            in property <length> x;
+            /// The y position of the area in which the affector applies.
+            in property <length> y;
+            /// The width of the area in which the affector applies.
+            in property <length> width;
+            /// The height of the area in which the affector applies.
+            in property <length> height;
+            /// The lifetime a particle has left after it's aged.
+            /// Particles with less lifetime left aren't affected.
+            in property <duration> lifetime-left;
+        }
+    }
+
+    item! { Particles {
+        /// The image of each particle.
+        in property <image> source;
+        /// The maximum number of live particles, up to 16384.
+        /// Emission pauses while this many particles are alive.
+        in property <int> max-particles: 1000;
+        /// Whether the simulation runs.
+        /// When `false`, particles freeze in place.
+        in property <bool> running: true;
+        /// Whether particles are clipped to the bounds of the element.
+        in property <bool> clip;
+        /// The size of a particle when it's emitted.
+        /// The longer side of `source` is scaled to this size.
+        in property <length> start-size: 16px;
+        /// The size of a particle at the end of its lifetime.
+        in property <length> end-size: 16px;
+        /// The maximum random amount added to or subtracted from the size of each particle.
+        in property <length> size-variation;
+        /// The color of a particle when it's emitted.
+        /// `source` is used as an alpha mask in this color.
+        /// When both `start-color` and `end-color` are transparent, `source` is drawn as is.
+        in property <color> start-color;
+        /// The color of a particle at the end of its lifetime.
+        in property <color> end-color;
+        /// The maximum random change of the red, green, and blue channels of each particle's color, from 0 to 1.
+        in property <float> color-variation;
+        /// The opacity of a particle when it's emitted.
+        in property <float> start-opacity: 1;
+        /// The opacity of a particle at the end of its lifetime.
+        in property <float> end-opacity: 1;
+        /// The easing curve for the change of size, color, and opacity over the lifetime of a particle.
+        in property <easing> easing;
+        /// The rotation of a particle when it's emitted.
+        /// The software renderer ignores rotation.
+        in property <angle> rotation;
+        /// The maximum random amount added to or subtracted from `rotation`.
+        in property <angle> rotation-variation;
+        /// The rotation speed, per second.
+        in property <angle> angular-velocity;
+        /// The maximum random amount added to or subtracted from `angular-velocity`.
+        in property <angle> angular-velocity-variation;
+        /// Whether a particle is rotated in the direction it moves, in addition to `rotation`.
+        in property <bool> align-to-velocity;
+        /// The seed of the random number generator, to get the same particles on each run.
+        /// `0` seeds from the clock.
+        in property <int> seed;
+        /// The number of live particles.
+        /// Apart from `burst()` and `reset()`, it's only updated while the element is rendered.
+        out property <int> particle-count;
+        private property <[ParticleEmitter]> emitters;
+        private property <[ParticleAffector]> affectors;
+        /// Emits `count` particles from each enabled emitter.
+        function burst(count: int) { BuiltinFunction.ParticlesBurst }
+        /// Removes all particles.
+        function reset() { BuiltinFunction.ParticlesReset }
+    } }
+
+    element! {
+        /// Use the `Particles` element for effects such as sparks, smoke, snow, confetti, and fire.
+        ///
+        /// Add `Emitter` sub-elements to emit particles, and affector sub-elements
+        /// (`Gravity`, `Friction`, `Attractor`, and `Sink`) to change how they move.
+        /// The coordinates of sub-elements are relative to the `Particles` element.
+        /// Particles aren't clipped to the element unless `clip` is `true`.
+        ///
+        /// ```slint no-test
+        /// export component Example inherits Window {
+        ///     width: 400px;
+        ///     height: 400px;
+        ///     background: black;
+        ///     Particles {
+        ///         source: @image-url("spark.png");
+        ///         start-color: #ffaa33;
+        ///         end-color: #ff330000;
+        ///         start-size: 8px;
+        ///         end-size: 32px;
+        ///         Emitter {
+        ///             x: 0;
+        ///             y: parent.height - 10px;
+        ///             width: parent.width;
+        ///             height: 10px;
+        ///             rate: 100;
+        ///             lifetime: 2s;
+        ///             direction: -90deg;
+        ///             spread: 20deg;
+        ///             speed: 120px;
+        ///         }
+        ///         Gravity { magnitude: 30px; }
+        ///     }
+        /// }
+        /// ```
+        /// \group:elements
+        @disallow_global_types_as_child_elements @expands_to_parent_geometry
+        @experimental_feature(Particles)
+        Particles: Particles {
+            children: Emitter, Gravity, Friction, Attractor, Sink;
+        }
+    }
+
+    element! {
         Tab {
             in property <string> title;
         }

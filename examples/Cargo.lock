@@ -4875,6 +4875,7 @@ dependencies = [
  "const-field-offset",
  "derive_more",
  "euclid",
+ "fastrand",
  "gettext-rs",
  "i-slint-common",
  "i-slint-core-macros",

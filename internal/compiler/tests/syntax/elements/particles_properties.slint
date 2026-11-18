@@ -1,0 +1,20 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component Foo inherits Window {
+    Particles {
+        Emitter { foo: 3; }
+//                > <error{Unknown property foo in Emitter}
+        Friction { magnitude: 3px; }
+//                 >       <error{Unknown property magnitude in Friction}
+        Emitter { rate: "fast"; }
+//                      >     <error{Cannot convert string to float}
+        emitters: [];
+//      >      <error{Cannot assign to 'private' property 'emitters'}
+    }
+
+    Rectangle {
+        Emitter { }
+//      >      <error{Emitter can only be within a Particles element}
+    }
+}

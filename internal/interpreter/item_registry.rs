@@ -58,6 +58,7 @@ impl ItemRegistry {
             SwipeGestureHandler,
             ScaleRotateGestureHandler,
             Path,
+            Particles,
             Flickable,
             WindowItem,
             TextInput,

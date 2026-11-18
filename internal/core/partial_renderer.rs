@@ -24,7 +24,8 @@ use crate::item_tree::{ItemTreeRc, ItemTreeWeak, ItemVisitorResult};
 #[cfg(feature = "path")]
 use crate::items::Path;
 use crate::items::{
-    BackdropBlur, BoxShadow, Clip, ItemRc, ItemRef, Layer, Opacity, RenderingResult, TextInput,
+    BackdropBlur, BoxShadow, Clip, ItemRc, ItemRef, Layer, Opacity, Particles, RenderingResult,
+    TextInput,
 };
 use crate::lengths::{
     ItemTransform, LogicalBorderRadius, LogicalPoint, LogicalPx, LogicalRect, LogicalSize,
@@ -844,6 +845,7 @@ impl<T: ItemRenderer + ItemRendererFeatures> ItemRenderer for PartialRenderer<'_
     forward_rendering_call!(fn draw_text_input(TextInput));
     #[cfg(feature = "path")]
     forward_rendering_call!(fn draw_path(Path));
+    forward_rendering_call!(fn draw_particles(Particles));
     forward_rendering_call!(fn draw_box_shadow(BoxShadow));
     forward_rendering_call!(fn draw_backdrop_blur(BackdropBlur));
 

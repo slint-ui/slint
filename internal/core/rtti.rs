@@ -60,6 +60,8 @@ macro_rules! declare_ValueType {
             crate::items::MenuEntry,
             crate::items::DropEvent,
             crate::model::ModelRc<crate::items::MenuEntry>,
+            crate::model::ModelRc<crate::items::ParticleEmitter>,
+            crate::model::ModelRc<crate::items::ParticleAffector>,
             crate::styled_text::StyledText,
             crate::input::Keys,
             crate::data_transfer::DataTransfer,

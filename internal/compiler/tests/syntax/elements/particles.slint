@@ -1,0 +1,33 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component Base inherits Particles {
+    Emitter { }
+}
+
+component Bursting inherits Particles { }
+
+export component Foo inherits Window {
+    Particles { }
+//  >        <warning{This 'Particles' element never shows particles. Add an 'Emitter', or call 'burst()'}
+
+    bursting := Particles { }
+    TouchArea {
+        clicked => { bursting.burst(5); }
+    }
+
+    Base {
+//  >   <error{The base type already has an 'Emitter' or affector. Declare all of them in one place}
+        Gravity { }
+    }
+
+    Bursting { }
+
+    Particles {
+        for i in 3: Emitter { x: i * 1px; }
+//                  >      <error{'Emitter' and affector elements can't be repeated or conditional}
+        if true: Gravity { }
+//               >      <error{'Emitter' and affector elements can't be repeated or conditional}
+        Emitter { }
+    }
+}

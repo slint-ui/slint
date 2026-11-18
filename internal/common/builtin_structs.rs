@@ -213,6 +213,48 @@ macro_rules! for_each_builtin_structs {
                 /// The bottom edge value
                 bottom: Coord,
             }
+
+            /// An `Emitter` of a `Particles` element, with angles in degrees and durations in milliseconds
+            struct ParticleEmitter {
+                x: Coord,
+                y: Coord,
+                width: Coord,
+                height: Coord,
+                shape: ParticleShape,
+                filled: bool = true,
+                enabled: bool = true,
+                rate: f32,
+                lifetime: f32,
+                lifetime_variation: f32,
+                direction: f32,
+                spread: f32,
+                speed: Coord,
+                speed_variation: Coord,
+                acceleration: Coord,
+                acceleration_direction: f32,
+            }
+
+            /// An affector of a `Particles` element, with angles in degrees and durations in milliseconds.
+            /// `kind` selects which of the other fields apply.
+            struct ParticleAffector {
+                kind: ParticleAffectorKind,
+                enabled: bool = true,
+                /// Whether `x`, `y`, `width`, and `height` limit the affector to an area
+                has_area: bool,
+                x: Coord,
+                y: Coord,
+                width: Coord,
+                height: Coord,
+                direction: f32,
+                magnitude: Coord,
+                factor: f32,
+                threshold: Coord,
+                point_x: Coord,
+                point_y: Coord,
+                strength: Coord,
+                falloff: AttractorFalloff,
+                lifetime_left: f32,
+            }
         }
     };
 }

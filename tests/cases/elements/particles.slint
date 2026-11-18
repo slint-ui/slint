@@ -1,0 +1,67 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Particles isn't supported in C++ yet
+//ignore: cpp
+
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+
+    two-emitters := Particles {
+        Emitter { }
+        Emitter { width: 10px; height: 10px; shape: ellipse; }
+        Emitter { enabled: false; }
+        Gravity { magnitude: 10px; }
+    }
+
+    capped := Particles {
+        max-particles: 3;
+        Emitter { }
+    }
+
+    emptied := Particles {
+        Emitter { }
+        Friction { factor: 0.5; x: 10px; }
+    }
+
+    no-emitter := Particles { }
+
+    init => {
+        two-emitters.burst(5);
+        capped.burst(5);
+        emptied.burst(5);
+        emptied.reset();
+        no-emitter.burst(5);
+    }
+
+    public function burst(count: int) {
+        two-emitters.burst(count);
+    }
+    public function reset() {
+        two-emitters.reset();
+    }
+
+    out property <int> count: two-emitters.particle-count;
+    out property <bool> test: count == 10 && capped.particle-count == 3 && emptied.particle-count == 0 && no-emitter.particle-count == 0;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+instance.invoke_burst(2);
+assert_eq!(instance.get_count(), 14);
+instance.invoke_reset();
+assert_eq!(instance.get_count(), 0);
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+instance.burst(2);
+assert.equal(instance.count, 14);
+instance.reset();
+assert.equal(instance.count, 0);
+```
+*/

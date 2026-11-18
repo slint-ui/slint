@@ -3451,6 +3451,7 @@ dependencies = [
  "const-field-offset",
  "derive_more",
  "euclid",
+ "fastrand",
  "fontique",
  "gettext-rs",
  "i-slint-backend-testing",

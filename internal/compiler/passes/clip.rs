@@ -34,9 +34,9 @@ pub fn handle_clip(
                     .get("clip")
                     .is_some_and(|a| a.is_set || a.is_linked)
             {
-                match elem.builtin_type().as_ref().map(|ty| ty.name.as_str()) {
-                    Some("Rectangle") => {}
-                    Some("Path") => {
+                match elem.builtin_type() {
+                    Some(ty) if ty.name == "Rectangle" => {}
+                    Some(ty) if ty.native_class.lookup_property("clip").is_some() => {
                         // it's an actual property, so keep it as is
                         return;
                     }

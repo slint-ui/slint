@@ -740,6 +740,15 @@ pub trait ItemRenderer {
     );
     #[cfg(feature = "path")]
     fn draw_path(&mut self, path: Pin<&Path>, _self_rc: &ItemRc, _size: LogicalSize);
+    /// Draws the particles of [`Particles::instances`].
+    /// Renderers that don't implement it draw nothing.
+    fn draw_particles(
+        &mut self,
+        _particles: Pin<&Particles>,
+        _self_rc: &ItemRc,
+        _size: LogicalSize,
+    ) {
+    }
     fn draw_box_shadow(
         &mut self,
         box_shadow: Pin<&BoxShadow>,

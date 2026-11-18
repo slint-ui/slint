@@ -262,6 +262,12 @@ macro_rules! for_each_builtin_function {
             PathAngleAt: #[cfg(feature = "path")] pure fn path_angle_at(path: ItemArg<Path> => ElementReference, t: f32) -> f32 => Angle {
                 path.item.angle_at(&path.rc, t)
             }
+            ParticlesBurst: impure fn particles_burst(particles: ItemArg<Particles> => ElementReference, count: i32) -> () {
+                particles.item.burst(count)
+            }
+            ParticlesReset: impure fn particles_reset(particles: ItemArg<Particles> => ElementReference) -> () {
+                particles.item.reset()
+            }
         }
     };
 }

@@ -2360,6 +2360,7 @@ dependencies = [
  "const-field-offset",
  "derive_more",
  "euclid",
+ "fastrand",
  "i-slint-common",
  "i-slint-core-macros",
  "icu_normalizer",

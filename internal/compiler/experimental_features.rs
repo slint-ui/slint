@@ -46,6 +46,8 @@ pub enum ExperimentalFeature {
     /// The internal builtin types, such as the `SlintInternal` namespace,
     /// to preview the sources of the builtin styles
     InternalTypes,
+    /// `Particles`
+    Particles,
 }
 
 /// A set of [`ExperimentalFeature`]s.

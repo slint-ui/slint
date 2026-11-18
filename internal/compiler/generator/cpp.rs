@@ -826,6 +826,10 @@ pub fn generate(
 
     let llr = llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config);
 
+    if llr.sub_components.iter().any(|sc| sc.items.iter().any(|i| i.ty.class_name == "Particles")) {
+        return Err(std::io::Error::other("The 'Particles' element isn't supported in C++ yet"));
+    }
+
     let mut file = generate_types(&doc.used_types.borrow().structs_and_enums, &config, &llr);
 
     for (resource_id, er) in doc.embedded_file_resources.borrow().iter_enumerated() {

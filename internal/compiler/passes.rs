@@ -16,6 +16,7 @@ mod collect_init_code;
 mod collect_libraries;
 mod collect_structs_and_enums;
 mod collect_subcomponents;
+mod compile_particles;
 mod compile_paths;
 pub(crate) mod const_propagation;
 mod deduplicate_property_read;
@@ -155,6 +156,7 @@ pub async fn run_passes(
         );
         lower_text_input_interface::lower_text_input_interface(component);
         compile_paths::check_derived_paths(component, &doc.local_registry, diag);
+        compile_particles::check_particles(component, diag);
         repeater_component::process_repeater_components(component);
         lower_popups::lower_popups(component, &doc.local_registry, diag);
         collect_init_code::collect_init_code(component);
@@ -212,6 +214,9 @@ pub async fn run_passes(
     if let Some(popup_menu_impl) = &doc.popup_menu_impl {
         focus_handling::call_focus_on_init(popup_menu_impl);
     }
+
+    // After inlining, like `compile_paths`
+    compile_particles::compile_particles(doc, diag);
 
     doc.visit_all_used_components(|component| {
         // After inlining, so that path elements added through `@children` or to a

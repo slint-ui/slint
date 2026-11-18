@@ -145,6 +145,8 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         | BuiltinFunction::StyledTextClearSelection
         | BuiltinFunction::StyledTextCopy
         | BuiltinFunction::SwipeGestureHandlerCancel
+        | BuiltinFunction::ParticlesBurst
+        | BuiltinFunction::ParticlesReset
         | BuiltinFunction::ContextMenuClose
         | BuiltinFunction::WindowClose
         | BuiltinFunction::WindowHide => isize::MAX,

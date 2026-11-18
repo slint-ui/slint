@@ -68,6 +68,8 @@ pub use drag_n_drop::*;
 mod path;
 #[cfg(feature = "path")]
 pub use path::*;
+mod particles;
+pub use particles::{ParticleInstance, Particles};
 pub mod system_tray;
 
 /// Alias for `&mut dyn ItemRenderer`. Required so cbindgen generates the ItemVTable
@@ -2077,6 +2079,10 @@ declare_item_vtable! {
 #[cfg(feature = "path")]
 declare_item_vtable! {
     fn slint_get_PathVTable() -> PathVTable for Path
+}
+
+declare_item_vtable! {
+    fn slint_get_ParticlesVTable() -> ParticlesVTable for Particles
 }
 
 declare_item_vtable! {

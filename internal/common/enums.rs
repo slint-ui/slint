@@ -740,6 +740,44 @@ macro_rules! for_each_enums {
                 /// Smooth scroll animation to the scroll position
                 Smooth,
             }
+
+            /// This enum describes the shape of the area of an `Emitter` in which particles are emitted.
+            #[non_exhaustive]
+            enum ParticleShape {
+                /// The emitter's rectangle.
+                Rectangle,
+                /// The ellipse inscribed in the emitter's rectangle.
+                Ellipse,
+                /// The diagonal from the top-left to the bottom-right corner of the emitter's rectangle.
+                Line,
+            }
+
+            /// This enum describes how the strength of an `Attractor` changes with the distance to its point.
+            #[non_exhaustive]
+            enum AttractorFalloff {
+                /// The strength is the same at any distance.
+                Constant,
+                /// The strength grows linearly with the distance.
+                Linear,
+                /// The strength grows with the square of the distance.
+                Quadratic,
+                /// The strength decreases linearly with the distance.
+                InverseLinear,
+                /// The strength decreases with the square of the distance.
+                InverseQuadratic,
+            }
+
+            /// The kind of a particle affector, as lowered from the children of a `Particles` element.
+            enum ParticleAffectorKind {
+                /// A `Gravity` element.
+                Gravity,
+                /// A `Friction` element.
+                Friction,
+                /// An `Attractor` element.
+                Attractor,
+                /// A `Sink` element.
+                Sink,
+            }
         }
     };
 }

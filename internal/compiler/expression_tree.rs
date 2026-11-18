@@ -98,6 +98,8 @@ fn builtin_function_is_const(
         | BuiltinFunction::StyledTextClearSelection
         | BuiltinFunction::StyledTextCopy
         | BuiltinFunction::SwipeGestureHandlerCancel
+        | BuiltinFunction::ParticlesBurst
+        | BuiltinFunction::ParticlesReset
         | BuiltinFunction::ContextMenuClose
         | BuiltinFunction::WindowClose
         | BuiltinFunction::WindowHide => false,
