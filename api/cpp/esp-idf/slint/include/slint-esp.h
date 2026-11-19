@@ -113,8 +113,6 @@ struct SlintPlatformConfiguration
     /// The stack size in bytes of the task that rasterizes, if `render_in_separate_task` is set.
     uint32_t raster_task_stack_size = 8192;
 #endif
-    /// Log the frame rate and the average time to render and present a frame once a second.
-    bool log_frame_stats = false;
 #ifdef SLINT_ESP_CPU_TEXTURES
     /// Blend the images with a whole-image CPU loop, instead of the software renderer's per-line
     /// path. It needs a full frame buffer.
