@@ -12,7 +12,8 @@ global Theme {
     /// and are flat and more opaque otherwise.
     in-out property <Quality> quality: Quality.high;
     out property <bool> blur: self.quality == Quality.high;
-    /// Above low quality, the flaps flip to a new character, rather than show it at once.
+    /// Above low quality, the flaps flip to a new character, rather than show it at once,
+    /// the city names have an outline, and the route flown glows.
     out property <bool> full-detail: self.quality != Quality.low;
     out property <color> text: #f4f4f6;
     out property <color> muted: #9a9aa3;
@@ -1245,7 +1246,7 @@ export component AppWindow inherits Window {
         commands: root.flown-path;
         stroke: Theme.highlight.with-alpha(0.55);
         stroke-width: 7px;
-        visible: root.flown-path != "" && root.route-shown;
+        visible: root.flown-path != "" && root.route-shown && Theme.full-detail;
     }
 
     Path {
@@ -1297,7 +1298,7 @@ export component AppWindow inherits Window {
             color: Theme.text.with-alpha(0.8 * label.opacity);
             font-size: 11px;
             stroke: #000000.with-alpha(0.3 * label.opacity);
-            stroke-width: 1px;
+            stroke-width: Theme.full-detail ? 1px : 0;
         }
     }
 
