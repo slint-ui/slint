@@ -364,7 +364,7 @@ impl Item for NativeSlider {
         }
     }
 
-    fn_render! { this dpr size painter widget initial_state =>
+    fn_render! { this size painter widget initial_state =>
         let enabled = this.enabled();
         let has_focus = this.has_focus();
         // Slint slider supports floating point ranges, while Qt uses integer. To support (0..1) ranges
@@ -389,7 +389,6 @@ impl Item for NativeSlider {
             active_controls as "int",
             pressed as "bool",
             vertical as "bool",
-            dpr as "float",
             initial_state as "int"
         ] {
             QStyleOptionSlider option;
@@ -398,7 +397,7 @@ impl Item for NativeSlider {
             if (has_focus) {
                 option.state |= QStyle::State_HasFocus | QStyle::State_KeyboardFocusChange | QStyle::State_Item;
             }
-            option.rect = QRect(QPoint(), size / dpr);
+            option.rect = QRect(QPoint(), size);
             initQSliderOptions(option, pressed, enabled, active_controls, min, max, value, vertical);
             auto style = qApp->style();
             style->drawComplexControl(QStyle::CC_Slider, &option, painter->get(), widget);

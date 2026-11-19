@@ -438,6 +438,7 @@ fn update_visible_instances(
     let target_row = scroll_to_row.as_ref().map(|request| request.row);
     let mut target_span: Option<(Coord, Coord)>;
     let mut loop_count = 0;
+    let mut shifted_to_end = false;
     loop {
         target_span = None;
         // Fill gap before new_offset using already-instantiated items.
@@ -457,7 +458,9 @@ fn update_visible_instances(
         if prepend_count > 0 {
             state.offset = new_offset;
         }
-        if seek.is_some() && new_offset == 0 {
+        // Shifting rows down to fill the viewport must not move row 0 below the top: a model
+        // shorter than the viewport starts at the top.
+        if (seek.is_some() || shifted_to_end) && new_offset == 0 {
             new_offset_y = new_offset_y.min(0 as Coord);
         }
         debug_assert!(new_offset >= state.offset && new_offset <= state.offset + ops.len());
@@ -510,6 +513,8 @@ fn update_visible_instances(
             debug_assert!(idx >= row_count);
             // Reached end of model with room to spare. Scroll up.
             content_y_value += listview_height - y;
+            new_offset_y += listview_height - y;
+            shifted_to_end = true;
             loop_count += 1;
             continue;
         }
