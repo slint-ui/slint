@@ -5,7 +5,7 @@
 
 [package]
 name = "zed_slint"
-version = "1.19.0"
+version = "1.19.1"
 edition = "2024"
 rust-version = "1.90"
 publish = false
