@@ -1856,7 +1856,7 @@ fn eval_stops(ctx: &mut EvalContext, stops: &[(Expression, Expression)]) -> Vec<
 }
 
 #[cfg_attr(
-    not(any(feature = "internal-mcu-interpreter", feature = "internal-load-images")),
+    not(any(feature = "internal-mcu-interpreter", feature = "std")),
     allow(unused_variables)
 )]
 fn load_image_reference(
@@ -1864,8 +1864,9 @@ fn load_image_reference(
     ctx: &EvalContext,
 ) -> i_slint_core::graphics::Image {
     use i_slint_compiler::expression_types::ImageReference as Ref;
-    #[cfg(feature = "internal-load-images")]
-    if let Ref::Source(path) = resource_ref
+    #[cfg(feature = "std")]
+    if i_slint_core::IMAGE_DECODERS_ENABLED
+        && let Ref::Source(path) = resource_ref
         && let Some(globals) = ctx.globals.upgrade()
         && let Some(image) = globals.resources.images.get(path)
     {

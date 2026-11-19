@@ -45,7 +45,7 @@ pub type FontFiles = HashMap<String, alloc::sync::Arc<Vec<u8>>>;
 #[derive(Clone, Default)]
 pub struct Resources {
     pub font_files: FontFiles,
-    #[cfg(feature = "internal-load-images")]
+    #[cfg(feature = "std")]
     pub images: HashMap<SourcePath, i_slint_core::graphics::Image>,
     #[cfg(feature = "internal-mcu-interpreter")]
     pub pre_rendered: crate::static_resources::PreRendered,
@@ -435,7 +435,7 @@ async fn load_font_files(
     files
 }
 
-#[cfg(feature = "internal-load-images")]
+#[cfg(feature = "std")]
 async fn load_images(
     document: &i_slint_compiler::object_tree::Document,
     resource_loader: Option<&ResourceLoader>,
@@ -444,7 +444,8 @@ async fn load_images(
     use i_slint_compiler::expression_tree::Expression;
     use i_slint_compiler::expression_types::ImageReference;
 
-    let Some(resource_loader) = resource_loader else {
+    let Some(resource_loader) = resource_loader.filter(|_| i_slint_core::IMAGE_DECODERS_ENABLED)
+    else {
         return Default::default();
     };
 
@@ -627,7 +628,6 @@ pub async fn build_from_source(
     };
     let resources = Resources {
         font_files: load_font_files(&loader, &config, resource_loader.as_ref(), &mut diag).await,
-        #[cfg(feature = "internal-load-images")]
         images: load_images(doc, resource_loader.as_ref(), &mut diag).await,
         #[cfg(feature = "internal-mcu-interpreter")]
         pre_rendered: Default::default(),

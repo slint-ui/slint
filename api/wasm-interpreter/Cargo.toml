@@ -19,7 +19,7 @@ crate-type = ["cdylib"]
 [features]
 default = ["browser"]
 browser = ["slint-interpreter/backend-winit", "slint-interpreter/renderer-femtovg", "dep:i-slint-backend-winit"]
-headless = ["dep:i-slint-renderer-software", "slint-interpreter/internal-load-images"]
+headless = ["dep:i-slint-renderer-software", "i-slint-core/image-decoders", "i-slint-core/svg"]
 
 [dependencies]
 slint-interpreter = { workspace = true, features = ["std", "compat-1-2", "internal"] }
