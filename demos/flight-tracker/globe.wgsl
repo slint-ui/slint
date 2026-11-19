@@ -126,35 +126,44 @@ fn window_weights(first: i32, uv: vec2<f32>) -> vec3<f32> {
 // map's width, as a level of detail rather than as gradients, which are slow on some GPUs.
 // The size of a tile is spelled out, because NXP's Vivante Vulkan driver gets the size of the
 // tiles' texture wrong in most frames.
-fn window_sample(index: i32, uv: vec2<f32>, footprint: f32) -> vec3<f32> {
-    let grid = globals.windows[index].grid;
+fn window_sample(index: i32, grid: vec4<f32>, uv: vec2<f32>, footprint: f32) -> vec3<f32> {
     let level = footprint + log2(grid.z * 512.0);
     return textureSampleLevel(tiles, tile_sampler, uv * grid.zw / 4.0, index, level).rgb;
 }
 
-// 1 where the slot of the detail window `index` at `uv` holds its tile, 0 elsewhere.
-fn holds_tile(index: i32, uv: vec2<f32>) -> f32 {
-    let slot = vec2<u32>(vec2<i32>(floor(uv * globals.windows[index].grid.zw)) & vec2<i32>(3));
-    return f32((u32(globals.windows[index].loaded.x) >> (slot.y * 4u + slot.x)) & 1u);
+// 1 where the slot of a detail window with `grid` and `loaded` at `uv` holds its tile, 0 elsewhere.
+fn holds_tile(grid: vec4<f32>, loaded: f32, uv: vec2<f32>) -> f32 {
+    let slot = vec2<u32>(vec2<i32>(floor(uv * grid.zw)) & vec2<i32>(3));
+    return f32((u32(loaded) >> (slot.y * 4u + slot.x)) & 1u);
 }
 
 // What the three detail windows from `first` on show at `uv`, like `detail()` does, from their
 // `window_weights()`.
 // The weights come from the vertices, and reach into slots next to those that hold their tile.
+// The windows are read at constant indices, because NXP's Vivante Vulkan driver is slow to read
+// uniforms at a variable index.
 // rgb: the windows' imagery, a: how much of it shows.
 fn windows_imagery(first: i32, uv: vec2<f32>, footprint: f32, weights: vec3<f32>) -> vec4<f32> {
-    let fine = weights.z * holds_tile(first + 2, uv);
-    let middle = weights.y * holds_tile(first + 1, uv) * (1.0 - fine);
-    let coarse = weights.x * holds_tile(first, uv) * (1.0 - fine - middle);
+    var coarse_window = globals.windows[0];
+    var middle_window = globals.windows[1];
+    var fine_window = globals.windows[2];
+    if first != 0 {
+        coarse_window = globals.windows[3];
+        middle_window = globals.windows[4];
+        fine_window = globals.windows[5];
+    }
+    let fine = weights.z * holds_tile(fine_window.grid, fine_window.loaded.x, uv);
+    let middle = weights.y * holds_tile(middle_window.grid, middle_window.loaded.x, uv) * (1.0 - fine);
+    let coarse = weights.x * holds_tile(coarse_window.grid, coarse_window.loaded.x, uv) * (1.0 - fine - middle);
     var imagery = vec3<f32>(0.0);
     if coarse > 0.002 {
-        imagery += coarse * window_sample(first, uv, footprint);
+        imagery += coarse * window_sample(first, coarse_window.grid, uv, footprint);
     }
     if middle > 0.002 {
-        imagery += middle * window_sample(first + 1, uv, footprint);
+        imagery += middle * window_sample(first + 1, middle_window.grid, uv, footprint);
     }
     if fine > 0.002 {
-        imagery += fine * window_sample(first + 2, uv, footprint);
+        imagery += fine * window_sample(first + 2, fine_window.grid, uv, footprint);
     }
     return vec4<f32>(imagery, coarse + middle + fine);
 }
