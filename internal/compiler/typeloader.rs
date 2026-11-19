@@ -3343,11 +3343,12 @@ export component Main { Button { } Rel { } }
     assert_eq!(loader.resolve_import_path(None, "@rel"), None);
 
     // Without a project file, the directory of the root file holds the application's files
-    let (build_diagnostics, loader) = spin_on::spin_on(crate::load_root_file(
+    let (build_diagnostics, loader, _) = spin_on::spin_on(crate::load_root_file(
         &main,
         main_source.into(),
         BuildDiagnostics::default(),
         without_project_file.clone(),
+        false,
     ));
     assert!(!build_diagnostics.has_errors(), "{:?}", build_diagnostics.to_string_vec());
     assert!(loader.is_private_library_file(&SourcePath::new("/lib/button.slint")));
@@ -3402,11 +3403,12 @@ Legacy := Rectangle { }
 export struct Size := { }
 export component Main { Legacy { } }
 "#;
-    let (build_diagnostics, _) = spin_on::spin_on(crate::load_root_file(
+    let (build_diagnostics, _, _) = spin_on::spin_on(crate::load_root_file(
         &main,
         main_source.into(),
         BuildDiagnostics::default(),
         compiler_config,
+        false,
     ));
     build_diagnostics.to_string_vec()
 }

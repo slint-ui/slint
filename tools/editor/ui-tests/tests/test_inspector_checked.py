@@ -18,6 +18,7 @@ from ui_driver import (
 )
 
 INSPECTOR_SOURCE = "InspectorCases.slint"
+RADIO_GROUP_SOURCE = "RadioGroupCases.slint"
 
 
 def checked_switch(window: slint_testing.Window) -> slint_testing.Element:
@@ -58,4 +59,32 @@ def test_checked_switch_writes_exact_source(
         expect(checked_switch(window)).to_be_checked()
         press_shortcut(window, keys.Control, keys.Shift, "z")
         snapshot.wait_for_applied(unchecked, INSPECTOR_SOURCE)
+        expect(checked_switch(window)).to_be_checked(False)
+
+
+def test_checked_switch_writes_radio_button_source(
+    editor_binary: Path, editor_environment: dict[str, str], fixture_project: Path
+) -> None:
+    source = fixture_project / RADIO_GROUP_SOURCE
+    baseline = source.read_bytes()
+    with launch_editor(editor_binary, editor_environment, source) as editor:
+        wait_for_source(source, baseline)
+        window = first_window(editor)
+        select_outline_row(window, "first-option")
+        expect(checked_switch(window)).to_be_checked(False)
+
+        checked_switch(window).invoke_accessible_default_action()
+        checked = wait_for_source_change(source, baseline)
+        assert checked == replace_once(
+            baseline,
+            b'            text: "Option 1";',
+            b'            checked: true;\n            text: "Option 1";',
+        )
+        expect(checked_switch(window)).to_be_checked()
+
+        checked_switch(window).invoke_accessible_default_action()
+        unchecked = wait_for_source_change(source, checked)
+        assert unchecked == replace_once(
+            checked, b"            checked: true;", b"            checked: false;"
+        )
         expect(checked_switch(window)).to_be_checked(False)

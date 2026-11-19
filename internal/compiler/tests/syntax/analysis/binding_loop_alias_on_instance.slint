@@ -1,0 +1,23 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A binding on an instance that reads an alias of the same property is a loop (#4458)
+
+component Xxx {
+    in-out property <length> prop <=> prop2;
+    property <length> prop2;
+    out property <length> prop3 <=> prop2;
+    in-out property <length> other;
+}
+
+export component Example inherits Window {
+    Xxx {
+        prop: self.prop3;
+//            >         <error{Property 'prop' cannot refer to itself}
+        height: self.prop;
+    }
+    Xxx {
+        other: self.prop3;
+        prop: 5px;
+    }
+}

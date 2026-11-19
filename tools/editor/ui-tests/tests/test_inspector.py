@@ -1186,6 +1186,41 @@ def test_each_text_wrap_writes_exact_source(
         element(window, "Inspector text", role=slint_testing.AccessibleRole.Text)
 
 
+@pytest.mark.parametrize(
+    ("kind", "preceding_binding"),
+    [
+        ("Text", b"        width: 200px;\n        height: 48px;"),
+        ("StyledText", b"        horizontal-alignment: start;"),
+    ],
+)
+@pytest.mark.parametrize("value", ("2", "1 + 2"))
+def test_max_lines_writes_exact_source(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    kind: str,
+    preceding_binding: bytes,
+    value: str,
+) -> None:
+    source_file = fixture_project / INSPECTOR_SOURCE
+    baseline = source_file.read_bytes()
+    snapshot = SourceSnapshot.capture(fixture_project)
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_element(window, kind)
+        wait_for_field(window, "Max lines", "0", slint_testing.AccessibleRole.TextInput)
+        edit_field(window, "Max lines", value, slint_testing.AccessibleRole.TextInput)
+        snapshot.wait_for_exact(
+            replace_once(
+                baseline,
+                preceding_binding,
+                preceding_binding + f"\n        max-lines: {value};".encode(),
+            ),
+            relative_path=INSPECTOR_SOURCE,
+        )
+
+
 ORIENTATION_ROWS = {
     "Slider": "inspect-slider",
     "RadioGroup": "inspect-radio-group",
@@ -1553,6 +1588,66 @@ def test_text_content_writes_exact_source(
             relative_path=INSPECTOR_SOURCE,
         )
         element(window, rendered, role=slint_testing.AccessibleRole.Text)
+
+
+@pytest.mark.parametrize(
+    ("original", "draft", "expected"),
+    [
+        ('"Inspector text"', None, '@tr("Inspector text")'),
+        ('@tr("Context" => "Inspector text")', None, '"Inspector text"'),
+        ('"Inspector text"', "Draft text", '@tr("Draft text")'),
+    ],
+    ids=("enable", "disable", "draft"),
+)
+def test_text_content_translatable_toggle(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    original: str,
+    draft: str | None,
+    expected: str,
+) -> None:
+    source_file = fixture_project / INSPECTOR_SOURCE
+    baseline = replace_once(
+        source_file.read_bytes(),
+        b'        text: "Inspector text";',
+        f"        text: {original};".encode(),
+    )
+    source_file.write_bytes(baseline)
+    translated = original.startswith("@tr")
+    snapshot = SourceSnapshot.capture(fixture_project)
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        wait_for_source(source_file, baseline)
+        window = first_window(editor)
+        select_element(window, "Text")
+        toggle = element(
+            window, "Translatable", role=slint_testing.AccessibleRole.Button
+        )
+        expect(toggle).to_be_checked(translated)
+        if draft is not None:
+            field = inspector_field(
+                window, "Text content", slint_testing.AccessibleRole.TextInput
+            )
+            field.single_click(slint_testing.PointerEventButton.Left)
+            press_shortcut(window, keys.Control, "a")
+            press_keys(window, draft)
+            element(window, draft, role=slint_testing.AccessibleRole.Text)
+            snapshot.assert_unchanged()
+        toggle.invoke_accessible_default_action()
+        snapshot.wait_for_applied(
+            replace_once(
+                baseline,
+                f"        text: {original};".encode(),
+                f"        text: {expected};".encode(),
+            ),
+            INSPECTOR_SOURCE,
+        )
+        expect(toggle).to_be_checked(not translated)
+        select_element(window, "Text")
+        press_shortcut(window, keys.Control, "z")
+        snapshot.wait_for_applied(baseline, INSPECTOR_SOURCE)
+        expect(toggle).to_be_checked(translated)
 
 
 @pytest.mark.parametrize(

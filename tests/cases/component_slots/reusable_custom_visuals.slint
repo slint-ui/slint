@@ -116,7 +116,7 @@ let text_count = |label: &str| {
     find(label).query_descendants().match_type_name("Text").find_all().len()
 };
 let path_count = |label: &str| {
-    find(label).query_descendants().match_type_name("Path").find_all().len()
+    find(label).query_descendants().match_inherits("Path").find_all().len()
 };
 for label in ["Custom button", "Custom checkbox", "Custom switch", "Custom combo"] {
     assert_eq!(text_count(label), 1, "{label}");
