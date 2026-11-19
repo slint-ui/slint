@@ -168,6 +168,8 @@ assert_eq!(element("Notes 5", AccessibleRole::TextInput).accessible_value().as_d
 
 ```cpp
 auto handle = TestCase::create();
+#ifndef SLINT_FEATURE_LIVE_PREVIEW
+// The live-preview wrapper does not support ElementHandle queries.
 const auto &instance = *handle;
 auto element = [&](const char *label, slint::language::AccessibleRole role) {
     auto matches = slint::testing::ElementHandle::find_by_accessible_label(handle, label);
@@ -210,10 +212,13 @@ tab("Fresh (0)").invoke_accessible_default_action();
 increment("Increment Fresh");
 tab("Fresh (1)");
 assert_eq(instance.get_constructions(), 4);
+#endif
 ```
 
 ```cpp
 auto handle = GalleryTest::create();
+#ifndef SLINT_FEATURE_LIVE_PREVIEW
+// The live-preview wrapper does not support ElementHandle queries.
 auto tabs = slint::testing::ElementHandle::find_by_accessible_label(handle, "Counter 1 (0)");
 assert(!tabs.empty());
 auto buttons = slint::testing::ElementHandle::find_by_accessible_label(handle, "Increment Counter 1");
@@ -223,5 +228,6 @@ auto button = std::find_if(buttons.begin(), buttons.end(), [](const auto &elemen
 assert(button != buttons.end());
 button->invoke_accessible_default_action();
 assert(!slint::testing::ElementHandle::find_by_accessible_label(handle, "Counter 1 (1)").empty());
+#endif
 ```
 */
