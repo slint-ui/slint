@@ -419,10 +419,12 @@ The label for an interactive element. (default value: empty for most elements, o
 ### accessible-modal
 <SlintProperty typeName="bool" propName="accessible-modal" defaultValue="false">
 Marks the element as a modal surface, such as a sheet or an overlay that covers the rest of the window.
-Assistive technologies can then only reach the modal element and what is on top of it: the elements that
-the modal element is stacked above, that is its earlier siblings and the earlier siblings of its ancestors,
-are hidden from them for as long as it is shown. They stay visible on screen, so this does not replace
-`visible`, and what the modal element covers still responds to input unless you stop it.
+Assistive technologies can then only reach the modal element and what is on top of it.
+The elements that the modal element is stacked above are hidden from them for as long as it is shown.
+These are its earlier siblings and the earlier siblings of its ancestors.
+They stay visible on screen, so this does not replace `visible`.
+What the modal element covers still responds to input unless you stop it.
+This only works with the AccessKit-based backends, not with the Qt backend.
 
 ```slint
 Window {
