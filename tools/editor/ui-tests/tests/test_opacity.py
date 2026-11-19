@@ -1,5 +1,6 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+# cspell:ignore FAFC
 
 from pathlib import Path
 
@@ -20,8 +21,10 @@ from ui_driver import (
     elements,
     first_window,
     launch_editor,
+    outline_rows,
     press_keys,
     press_shortcut,
+    query,
     select_outline_row,
 )
 
@@ -168,3 +171,24 @@ def test_text_selection_shows_opacity_without_rectangle_effects(
         inspector_field(window, "Opacity", slint_testing.AccessibleRole.Slider)
         for label in ("Drop shadow", "Inner shadow", "Enable backdrop blur"):
             assert not elements(window, label)
+
+
+def test_root_selection_hides_effects(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source_file = fixture_project / INSPECTOR_SOURCE
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        wait_for_source(source_file, source_file.read_bytes())
+        window = first_window(editor)
+        select_element(window, "Rectangle")
+        inspector_field(window, "Opacity", slint_testing.AccessibleRole.Slider)
+        outline_rows(window)[0].invoke_accessible_default_action()
+        wait_for_field(
+            window, "Root background", "F8FAFC", slint_testing.AccessibleRole.TextInput
+        )
+        expect(
+            query(window, "Opacity", role=slint_testing.AccessibleRole.Slider)
+        ).to_be_hidden()
+        assert not elements(window, "Drop shadow")
