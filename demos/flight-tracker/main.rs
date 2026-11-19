@@ -841,7 +841,7 @@ impl Demo {
         taken: &[Vec2],
         aircraft: Option<Vec2>,
         dt: f32,
-    ) -> Vec<Label> {
+    ) -> Vec<(Label, LabelPlace)> {
         // From further away, only larger cities show.
         let least = |height: f32| {
             if height > 2.0 {
@@ -938,12 +938,13 @@ impl Demo {
                 continue;
             }
             let Some(point) = project(view_projection, city.position, size) else { continue };
-            labels.push(Label {
-                x: point.x,
-                y: point.y,
-                name: city.name.as_str().into(),
-                opacity: state.fade * ((facing - 0.15) / 0.2).clamp(0.0, 1.0),
-            });
+            labels.push((
+                Label {
+                    name: city.name.as_str().into(),
+                    opacity: state.fade * ((facing - 0.15) / 0.2).clamp(0.0, 1.0),
+                },
+                LabelPlace { x: point.x, y: point.y },
+            ));
         }
         labels
     }
@@ -1070,6 +1071,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let demo = Rc::new(RefCell::new(Demo::new()));
     let labels = Rc::new(slint::VecModel::<Label>::default());
     app.set_labels(labels.clone().into());
+    let label_places = Rc::new(slint::VecModel::<LabelPlace>::default());
+    app.set_label_places(label_places.clone().into());
     let results = Rc::new(slint::VecModel::<AirportItem>::default());
     app.set_results(results.clone().into());
     results.set_vec(
@@ -1418,7 +1421,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             .map(|marker| Vec2::new(marker.x, marker.y))
             .collect();
         let over = aircraft.map(|(at, _)| at);
-        update_rows(&labels, demo.labels(view_projection, eye, size, &taken, over, dt));
+        let (names, places) =
+            demo.labels(view_projection, eye, size, &taken, over, dt).into_iter().unzip();
+        update_rows(&labels, names);
+        update_rows(&label_places, places);
         let [origin, destination] = markers;
         app.set_origin_marker(origin);
         app.set_destination_marker(destination);

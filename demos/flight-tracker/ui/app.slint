@@ -108,10 +108,15 @@ export struct Aircraft {
 }
 
 export struct Label {
-    x: float,
-    y: float,
     name: string,
     opacity: float,
+}
+
+/// Where a label is, in logical pixels.
+/// It's apart from `Label`, so that a label that moves doesn't lay out its name again.
+export struct LabelPlace {
+    x: float,
+    y: float,
 }
 
 /// The "#MadeWithSlint" badge, at the size of its height.
@@ -949,6 +954,8 @@ export component AppWindow inherits Window {
     in property <string> flown-path;
     in property <string> remaining-path;
     in property <[Label]> labels;
+    /// The place of each of the `labels`.
+    in property <[LabelPlace]> label-places;
     in property <View> view;
     /// The airports that match the planner's search.
     in property <[AirportItem]> results;
@@ -1225,9 +1232,9 @@ export component AppWindow inherits Window {
         opacity: root.screen == Screen.flight ? 1 : 0;
         visible: self.opacity > 0;
         animate opacity { duration: 200ms; }
-    for label in root.labels: Rectangle {
-        x: label.x * 1px;
-        y: label.y * 1px;
+    for label[index] in root.labels: Rectangle {
+        x: root.label-places[index].x * 1px;
+        y: root.label-places[index].y * 1px;
         width: 0;
         height: 0;
         // The colors fade, rather than an opacity, which would draw each label through a layer of
