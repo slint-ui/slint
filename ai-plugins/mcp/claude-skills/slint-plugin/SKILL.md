@@ -1,6 +1,6 @@
 ---
 name: slint-plugin
-description: Use the Slint plugin in Claude Code to look up Slint APIs, check .slint diagnostics, and render local previews.
+description: Write, edit, debug, or review Slint UIs and host-language integration in Claude Code. Use for Slint docs, development guidance, local diagnostics, and previews.
 ---
 
 # Slint Plugin for Claude Code
@@ -35,10 +35,11 @@ Read the PNG with Claude Code's file-reading tool and inspect the UI before judg
 When sharing a local screenshot in a terminal session, give its absolute path.
 Use the running app or its tests to verify host-language callbacks, models, and application state.
 
-- [Install Slint tools](https://github.com/slint-ui/ai-plugins/blob/master/skills/slint/tools-install.md)
-- [Local rendering and runtime debugging](https://github.com/slint-ui/ai-plugins/blob/master/skills/slint/reference/debugging-and-mcp.md)
+- [Install Slint tools](../../guidance/tools-install.md)
+- [Local rendering and runtime debugging](../../guidance/reference/debugging-and-mcp.md)
 
 ## Find Slint Development Guidance
 
-For language and layout, common errors, host integration, and visual polish,
-use the [Slint development reference index](https://github.com/slint-ui/ai-plugins/blob/master/skills/slint/SKILL.md#reference-files).
+For component work, read [Language and Layout](../../guidance/reference/language-and-layout.md) before editing.
+For project setup and build wiring, read [Project Setup](../../guidance/setup.md).
+Use the [development references](../../guidance/reference/) for common errors, host integration, and visual polish.
