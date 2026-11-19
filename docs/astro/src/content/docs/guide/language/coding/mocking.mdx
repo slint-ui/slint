@@ -105,6 +105,8 @@ The preview shows the data from `contacts.json`.
 In a real application, `Platform.uses-mock-data` is `false`,
 so the compiler removes the `@from-json` call together with the branch that contains it.
 Nothing from `contacts.json` ends up in the final binary.
+The compiler still reads and checks the JSON file in every build,
+so a broken mock file fails the build instead of only the preview.
 
 ## Mocking several properties at once
 
