@@ -13,7 +13,8 @@ Use `main` for an app preview when the project file selects the entry point.
 
 For Rust, check the owning crate's `Cargo.toml` and any inherited workspace dependencies.
 If the crate uses `slint_build`, read its build script for the entry point and compiler settings.
-Use `Cargo.lock` for the resolved Slint version. The project file's `edition` controls language behavior.
+Use `Cargo.lock` for the resolved Slint version.
+The project file's `edition` controls language behavior.
 
 ## Look Up Slint APIs
 

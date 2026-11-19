@@ -74,12 +74,13 @@ Run `cargo xtask --help` for the full list.
 The standalone [Slint skill](../ai-plugins/skills/slint/SKILL.md) lives at `ai-plugins/skills/slint/`.
 Codex and Claude Code use the same marketplace entry, which installs `ai-plugins/mcp/`.
 Their manifests load `codex-skills/` and `claude-skills/`, respectively.
+Keep the project discovery and documentation lookup instructions aligned across both skills.
 Cursor and Antigravity have their manifests at the `ai-plugins` root.
 
 `mcp/slint-preview` contains the MCP App that shows `.slint` source as a live preview in the conversation.
 The [release mirror](https://github.com/slint-ui/ai-plugins) syncs from `release/1` and selects `release` in `mcp/slint-preview/channel.json`.
 The [nightly mirror](https://github.com/slint-ui/ai-plugins-nightly) syncs from `master` and selects `snapshot`.
-The nightly mirror uses `slint-nightly` as the marketplace name and reads the version from `mcp/.claude-plugin/plugin.json` before adding a nightly suffix.
+Its marketplace name is `slint-nightly`.
 
 The MCP server checks and renders source with a separate software Wasm build before publication.
 Use Node.js 24 to build and run the checker.
