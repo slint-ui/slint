@@ -53,6 +53,10 @@ export global InspectorContext {
                 || InspectorContext.element-information.type-name == "TabWidget");
     }
 
+    public pure function is-combo-box-selection() -> bool {
+        return InspectorContext.has-backend-rect() && InspectorContext.element-information.type-name == "ComboBox";
+    }
+
     public pure function is-rectangle-selection() -> bool {
         return InspectorContext.has-backend-rect() && InspectorContext.element-information.type-name == "Rectangle";
     }

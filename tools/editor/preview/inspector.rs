@@ -212,9 +212,60 @@ fn edit_value(
             ui::fill_expression(value.fill.clone()).to_string(),
             fill_value(node, name, &value.fill)?,
         ),
+        ui::PropertyEditKind::StringList if matches!(&property_type, Type::Array(item) if **item == Type::String) =>
+        {
+            let items = value.text.lines().collect::<Vec<_>>();
+            let expression = format!(
+                "[{}]",
+                items.iter().map(|item| string_expression(item)).collect::<Vec<_>>().join(", ")
+            );
+            let runtime: Vec<_> =
+                items.into_iter().map(|item| Value::String(item.into())).collect();
+            (expression, Value::Model(slint::ModelRc::new(slint::VecModel::from(runtime))))
+        }
         _ => return None,
     };
     Some((if value.code.is_empty() { expression } else { value.code.to_string() }, runtime))
+}
+
+/// Returns the items of a `[string]` array literal, one per line.
+/// `valid` is false when `code` is any other expression.
+pub(super) fn string_list_text(code: SharedString) -> ui::StringListText {
+    use i_slint_compiler::parser::SyntaxKind;
+    let invalid = ui::StringListText { valid: false, text: SharedString::new() };
+    if code.trim().is_empty() {
+        return ui::StringListText { valid: true, text: SharedString::new() };
+    }
+    let tokens = i_slint_compiler::lexer::lex(&code);
+    let mut tokens = tokens
+        .iter()
+        .filter(|token| !matches!(token.kind, SyntaxKind::Whitespace | SyntaxKind::Comment));
+    if tokens.next().map(|token| token.kind) != Some(SyntaxKind::LBracket) {
+        return invalid;
+    }
+    let mut items = Vec::new();
+    loop {
+        match tokens.next() {
+            Some(token) if token.kind == SyntaxKind::RBracket => break,
+            Some(token) if token.kind == SyntaxKind::StringLiteral => {
+                match i_slint_compiler::literals::unescape_string(&token.text) {
+                    Some(item) if !item.contains(['\n', '\r']) => items.push(item),
+                    _ => return invalid,
+                }
+                match tokens.next().map(|token| token.kind) {
+                    Some(SyntaxKind::Comma) => {}
+                    Some(SyntaxKind::RBracket) => break,
+                    _ => return invalid,
+                }
+            }
+            _ => return invalid,
+        }
+    }
+    let text = items.join("\n");
+    if tokens.next().is_some() || !text.lines().eq(items.iter().map(|item| item.as_str())) {
+        return invalid;
+    }
+    ui::StringListText { valid: true, text: text.into() }
 }
 
 pub(super) fn preview_code_property(
@@ -421,6 +472,30 @@ mod tests {
             assert_eq!(
                 i_slint_compiler::literals::unescape_string(&string_expression(value)).as_deref(),
                 Some(value)
+            );
+        }
+    }
+
+    #[test]
+    fn string_list_text_accepts_only_string_array_literals() {
+        for (code, expected) in [
+            ("", Some("")),
+            ("[]", Some("")),
+            (r#"["a", "b c"]"#, Some("a\nb c")),
+            (r#"[ "a" , /* note */ "\"q\"", ]"#, Some("a\n\"q\"")),
+            (r#"["a", "", "b"]"#, Some("a\n\nb")),
+            (r#"[""]"#, None),
+            (r#"["a", ""]"#, None),
+            (r#"["line\nbreak"]"#, None),
+            (r#"[@tr("a")]"#, None),
+            ("root.items", None),
+            (r#"["a"] + 1"#, None),
+        ] {
+            let result = string_list_text(code.into());
+            assert_eq!(
+                result.valid.then(|| result.text.to_string()).as_deref(),
+                expected,
+                "{code}"
             );
         }
     }
