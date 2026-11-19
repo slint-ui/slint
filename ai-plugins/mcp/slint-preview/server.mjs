@@ -27,7 +27,7 @@ const PREVIEW_POLL_TIMEOUT_MS = 5000;
 
 const pluginVersion = JSON.parse(
     readFileSync(
-        new URL("../../.claude-plugin/plugin.json", import.meta.url),
+        new URL("../.claude-plugin/plugin.json", import.meta.url),
         "utf8",
     ),
 ).version;
@@ -56,7 +56,7 @@ const icons = [
         src:
             "data:image/svg+xml;base64," +
             readFileSync(
-                new URL("../../assets/slint.svg", import.meta.url),
+                new URL("../icon.svg", import.meta.url),
             ).toString("base64"),
         mimeType: "image/svg+xml",
         sizes: ["any"],

@@ -8,6 +8,7 @@ import {
     existsSync,
     mkdtempSync,
     readFileSync,
+    readdirSync,
     rmSync,
     writeFileSync,
 } from "node:fs";
@@ -18,7 +19,7 @@ import { pathToFileURL } from "node:url";
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 
-const pluginRoot = new URL("../../../", import.meta.url);
+const pluginRoot = new URL("../../", import.meta.url);
 const serverPath = new URL("../server.mjs", import.meta.url);
 const readManifest = (path) =>
     JSON.parse(readFileSync(new URL(path, pluginRoot), "utf8"));
@@ -160,11 +161,11 @@ test("serves the view with the interpreter of the plugin's release on the releas
     try {
         for (const file of [
             ".claude-plugin/plugin.json",
-            "assets/slint.svg",
-            "mcp/slint-preview/server.mjs",
-            "mcp/slint-preview/checker.mjs",
-            "mcp/slint-preview/view.html.in",
-            "mcp/slint-preview/assets",
+            "icon.svg",
+            "slint-preview/server.mjs",
+            "slint-preview/checker.mjs",
+            "slint-preview/view.html.in",
+            "slint-preview/assets",
         ]) {
             cpSync(new URL(file, pluginRoot), join(root, file), {
                 recursive: true,
@@ -172,12 +173,12 @@ test("serves the view with the interpreter of the plugin's release on the releas
             });
         }
         writeFileSync(
-            join(root, "mcp/slint-preview/channel.json"),
+            join(root, "slint-preview/channel.json"),
             JSON.stringify({ channel: "release" }),
         );
         const release = spawn(
             process.execPath,
-            [join(root, "mcp/slint-preview/server.mjs")],
+            [join(root, "slint-preview/server.mjs")],
             { stdio: ["pipe", "pipe", "inherit"] },
         );
         const lines = createInterface({ input: release.stdout });
@@ -327,7 +328,7 @@ test("the Claude and Codex manifests start this server", () => {
         "slint-preview"
     ];
     assert.deepEqual(claude.args, [
-        "${CLAUDE_PLUGIN_ROOT}/mcp/slint-preview/server.mjs",
+        "${CLAUDE_PLUGIN_ROOT}/slint-preview/server.mjs",
     ]);
 
     // Codex expands no variables in plugin MCP args and resolves `cwd` against the plugin root.
@@ -336,6 +337,27 @@ test("the Claude and Codex manifests start this server", () => {
     ];
     assert.equal(codex.cwd, ".");
     assert.ok(existsSync(new URL(codex.args[0], pluginRoot)));
+});
+
+test("the shared plugin loads one skill for each host", () => {
+    const root = new URL("../", pluginRoot);
+    const marketplace = JSON.parse(
+        readFileSync(new URL(".claude-plugin/marketplace.json", root), "utf8"),
+    );
+    assert.equal(new URL(`${marketplace.plugins[0].source}/`, root).href, pluginRoot.href);
+    assert.ok(existsSync(new URL("skills/slint/SKILL.md", root)));
+    assert.equal(existsSync(new URL("skills/", pluginRoot)), false);
+
+    for (const [host, expectedPath] of [
+        ["codex", "./codex-skills/"],
+        ["claude", "./claude-skills/"],
+    ]) {
+        const { skills } = readManifest(`.${host}-plugin/plugin.json`);
+        assert.equal(skills, expectedPath);
+        const dir = new URL(skills, pluginRoot);
+        assert.deepEqual(readdirSync(dir), ["slint-plugin"]);
+        assert.ok(existsSync(new URL("slint-plugin/SKILL.md", dir)));
+    }
 });
 
 // Starts a preview and returns its ID, which the view reads from the result.
