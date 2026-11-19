@@ -86,14 +86,24 @@ static TALL_FONT: BitmapFont = BitmapFont {
     cap_height: 4.,
     glyphs: Slice::from_slice(&[BitmapGlyphs {
         pixel_size: 4,
-        glyph_data: Slice::from_slice(&[BitmapGlyph {
-            x: 0,
-            y: 0,
-            width: 2,
-            height: 2,
-            x_advance: 3 << 6,
-            data: Slice::from_slice(&[255, 255, 255, 255]),
-        }]),
+        glyph_data: Slice::from_slice(&[
+            BitmapGlyph {
+                x: 0,
+                y: 0,
+                width: 0,
+                height: 0,
+                x_advance: 3 << 6,
+                data: Slice::from_slice(&[]),
+            },
+            BitmapGlyph {
+                x: 0,
+                y: 0,
+                width: 2,
+                height: 2,
+                x_advance: 3 << 6,
+                data: Slice::from_slice(&[255, 255, 255, 255]),
+            },
+        ]),
     }]),
     weight: 400,
     italic: false,
