@@ -3,7 +3,8 @@
 
 import {
     Button, LineEdit, Switch, CollectionTabWidget, CollectionTab,
-    CollectionTabBar, CollectionTabHeader, BasicTheme,
+    CollectionTabBar, CollectionTabHeader,
+    CollectionTabHeaderStateStyle, CollectionTabHeaderStyle, CollectionTabHeaderStyles, BasicTheme,
 } from "../src/basic.slint";
 import { PageStack, CollectionTabHeaderBase } from "../src/headless.slint";
 import { ExampleSection } from "section.slint";
@@ -47,6 +48,29 @@ component RoundedTabHeader inherits CollectionTabHeaderBase {
 
 export component CollectionTabExamples inherits Rectangle {
     in-out property <bool> vertical;
+    private property <CollectionTabHeaderStateStyle> selected-colors: {
+        background-color: #ccfbf1,
+        foreground-color: #115e59,
+        indicator-color: #0f766e,
+    };
+    private property <CollectionTabHeaderStyle> custom-header-style: {
+        unselected: CollectionTabHeaderStyles.standard.unselected,
+        selected: {
+            rest: root.selected-colors,
+            hover: {
+                background-color: #99f6e4,
+                foreground-color: #134e4a,
+                indicator-color: #0f766e,
+            },
+            pressed: {
+                background-color: #5eead4,
+                foreground-color: #134e4a,
+                indicator-color: #0f766e,
+            },
+            disabled: CollectionTabHeaderStyles.standard.selected.disabled,
+        },
+        focus-color: #0f766e,
+    };
     vertical-stretch: 0;
     VerticalLayout {
         spacing: 20px;
@@ -78,6 +102,32 @@ export component CollectionTabExamples inherits Rectangle {
                     spacing: 16px;
                     RoundedTabHeader { title: "Details"; }
                     CollectionTabHeader { title: "Activity"; horizontal-padding: 24px; }
+                }
+            }
+        }
+        ExampleSection {
+            title: "Per-widget styles";
+            description: "Custom selected, hover, pressed, and focus colors apply only to this widget; other controls keep the shared palette.";
+            CollectionTabWidget {
+                style: {
+                    header: root.custom-header-style,
+                    background-color: BasicTheme.background,
+                    border-color: #0f766e,
+                };
+                CollectionTab {
+                    title: "Overview";
+                    Text {
+                        text: "A complete style can reuse the preset states you want to keep.";
+                        color: BasicTheme.foreground;
+                    }
+                }
+                CollectionTab {
+                    title: "Activity";
+                    ActivityPage { }
+                }
+                CollectionTab {
+                    title: "Disabled";
+                    enabled: false;
                 }
             }
         }

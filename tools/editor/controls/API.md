@@ -378,6 +378,7 @@ These prototype components are separate from the standard `TabWidget`; see the [
 | --- | --- | --- |
 | `in-out` | `current-index: int` | `0`; selects the visible page. |
 | `in` | `orientation: Orientation` | `horizontal`; can change at runtime. |
+| `in` | `style: CollectionTabWidgetStyle` | `CollectionTabWidgetStyles.standard`; header state colors, content background, and border. |
 | `in` | `content-padding: length` | `12px`; inset around the pages. |
 | `out` | `item-count: int` | Number of supplied pages. |
 
@@ -407,7 +408,12 @@ Its `item-count` is bound to the header count; callers don't need to supply it.
 It handles disabled-header lookup through indexed collection reads and manages each header's `previous-enabled-index` and `next-enabled-index`.
 It is exported through both `headless.slint` and `basic.slint`.
 Use `CollectionTabBarBase` directly for a different header layout.
-The styled `CollectionTabHeader` adds `horizontal-padding` (default `16px`); inherit `CollectionTabHeaderBase` to supply different visuals.
+The styled `CollectionTabHeader` adds `horizontal-padding` (default `16px`) and `style: CollectionTabHeaderStyle`, defaulting to `CollectionTabHeaderStyles.standard`.
+Its style has `unselected` and `selected` state sets, each with `rest`, `hover`, `pressed`, and `disabled` colors for the background, text, and indicator, plus a shared `focus-color`.
+Disabled colors take precedence over pressed and hover colors.
+`CollectionTabWidget.style.header` supplies the style of every generated header; standalone headers accept their own style.
+Padding and sizing remain direct properties.
+Inherit `CollectionTabHeaderBase` to supply different visuals.
 
 [`PageStack`](src/headless/page_stack.slint), exported through `headless.slint`, has these properties:
 
@@ -451,9 +457,14 @@ All color fields are `brush`, except LineEdit selection colors, which are `color
 | `ComboBoxStyle` | `rest`, `hover`, `pressed`, `disabled`: `ComboBoxStateStyle`; `popup`: `ComboBoxPopupStyle`; `focus-color`: `brush` |
 | `LineEditStateStyle` | `background-color`, `foreground-color`, `border-color`, `placeholder-color`: `brush` |
 | `LineEditStyle` | `rest`, `hover`, `disabled`: `LineEditStateStyle`; `selection-background-color`, `selection-foreground-color`: `color`; `focus-color`: `brush` |
+| `CollectionTabHeaderStateStyle` | `background-color`, `foreground-color`, `indicator-color`: `brush` |
+| `CollectionTabHeaderStateStyles` | `rest`, `hover`, `pressed`, `disabled`: `CollectionTabHeaderStateStyle` |
+| `CollectionTabHeaderStyle` | `unselected`, `selected`: `CollectionTabHeaderStateStyles`; `focus-color`: `brush` |
+| `CollectionTabWidgetStyle` | `header`: `CollectionTabHeaderStyle`; `background-color`, `border-color`: `brush` |
 
 Read-only preset globals expose `ButtonStyles.secondary`, `primary`, `danger`, and `invisible`.
 `CheckBoxStyles`, `SwitchStyles`, `SliderStyles`, `ComboBoxStyles`, and `LineEditStyles` each expose `standard`.
+`CollectionTabHeaderStyles` and `CollectionTabWidgetStyles` also expose `standard`.
 Presets derive their colors from BasicTheme.
 
 ## Theme API

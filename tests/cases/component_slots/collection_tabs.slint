@@ -1,7 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { CollectionTabWidget, CollectionTab } from "../../../tools/editor/controls/src/basic.slint";
+import {
+    CollectionTabWidget, CollectionTab, CollectionTabWidgetStyles,
+    CollectionTabHeaderStateStyle, CollectionTabHeaderStyles,
+} from "../../../tools/editor/controls/src/basic.slint";
 
 export component TestCase inherits Window {
     width: 400px;
@@ -10,10 +13,29 @@ export component TestCase inherits Window {
     in-out property <Orientation> orientation <=> tabs.orientation;
     out property <int> count: counter.value;
     out property <int> constructions;
+    private property <CollectionTabHeaderStateStyle> selected-colors: {
+        background-color: #ccfbf1,
+        foreground-color: #115e59,
+        indicator-color: #0f766e,
+    };
     out property <bool> test: tabs.item-count == 2;
     public function increment() { counter.value += 1; }
     VerticalLayout {
         tabs := CollectionTabWidget {
+            style: {
+                header: {
+                    unselected: CollectionTabHeaderStyles.standard.unselected,
+                    selected: {
+                        rest: root.selected-colors,
+                        hover: root.selected-colors,
+                        pressed: root.selected-colors,
+                        disabled: CollectionTabHeaderStyles.standard.selected.disabled,
+                    },
+                    focus-color: #0f766e,
+                },
+                background-color: CollectionTabWidgetStyles.standard.background-color,
+                border-color: #0f766e,
+            };
             CollectionTab {
                 title: "Settings";
                 Text { text: "Settings page"; }

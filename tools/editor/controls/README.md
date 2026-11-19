@@ -229,7 +229,10 @@ The [Collection tabs gallery](examples/collection_tabs.slint) demonstrates two A
 The combined widget uses the same bar and stack through generic collection composition.
 Wrappers can pass pages through a collection expansion to add bindings or callback connections while the widget generates their headers.
 Titles remain reactive, and inactive pages retain their state and contribute layout constraints.
-The gallery includes horizontal and vertical tabs and a custom header.
+The gallery includes horizontal and vertical tabs, a custom header, and per-widget style structs.
+Use `CollectionTabWidget.style.header` for header state colors and `style.background-color` and `style.border-color` for the content surface.
+Standalone `CollectionTabHeader` components also accept a `style`.
+Style presets follow BasicTheme; complete custom styles can reference preset states without changing other controls.
 See the [API](API.md#collection-tabs) for properties, input behavior, and headless bases.
 
 The combined widget accepts static pages or a single model loop, with headers reading each page's reactive properties.
