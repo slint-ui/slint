@@ -93,7 +93,7 @@ Slint renders with wgpu, and the demo renders the globe on Slint's own device:
 - Beside the planner, the frame is transparent but for the globe and its atmosphere, so Slint's background shows through.
   The globe's place there shows the middle of a frame rendered for the whole window, so it grows to the window seamlessly, as space and the stars fade in.
 - `adaptive.rs` keeps the frame rate near 60 fps, or near what the display reaches: it lowers the globe's render scale first, then the quality.
-  High quality blurs the globe behind the panels, medium and low show flat panels, and low also renders the globe at one pixel per logical pixel.
+  High quality blurs the globe behind the panels, medium and low show flat panels, and low also renders the globe at 0.4 pixels per logical pixel.
   The settings pick a quality, or Auto.
 - The route, the aircraft, the airports, and the city names are ordinary Slint elements.
   Each frame, `main.rs` projects them to the screen with the camera's matrices, and passes their positions to Slint.
