@@ -1542,6 +1542,7 @@ fn macro_completions(token: SyntaxToken, snippet_support: bool) -> Option<Vec<Co
                 ("keys(..)", "keys($1)"),
                 ("markdown(..)", "markdown(\"$1\")"),
                 ("image-url(..)", "image-url(\"$1\")"),
+                ("from-json(..)", "from-json(\"$1\")"),
                 ("linear-gradient(..)", "linear-gradient($1)"),
                 ("radial-gradient(..)", "radial-gradient(${1|circle,ellipse|}, $2)"),
                 ("conic-gradient(..)", "conic-gradient($1)"),

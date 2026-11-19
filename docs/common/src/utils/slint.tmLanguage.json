@@ -696,7 +696,7 @@
                     "include": "#boolean"
                 },
                 {
-                    "begin": "(@(tr|markdown|keys|linear-gradient|radial-gradient|conic-gradient|image-url))\\s*(\\()",
+                    "begin": "(@(tr|markdown|keys|linear-gradient|radial-gradient|conic-gradient|image-url|from-json|from_json))\\s*(\\()",
                     "end": "(\\))",
                     "beginCaptures": {
                         "1": {

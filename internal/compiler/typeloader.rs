@@ -1187,9 +1187,6 @@ impl TypeLoader {
     pub fn invalidate_document(&mut self, path: &SourcePath) -> HashSet<SourcePath> {
         if let Some((d, _)) = self.all_documents.docs.get_mut(path) {
             if let LoadedDocument::Document(doc) = d {
-                for import in doc.imports.iter().filter_map(|import| import.resolved.as_ref()) {
-                    self.all_documents.dependencies.entry(import.clone()).or_default().remove(path);
-                }
                 for dependents in self.all_documents.dependencies.values_mut() {
                     dependents.remove(path);
                 }
