@@ -91,7 +91,7 @@ input = { workspace = true, default-features = true, optional = true }
 xkbcommon = { version = "0.9.0", optional = true }
 calloop = { version = "0.14.1" }
 libseat = { version = "0.2.1", optional = true, default-features = false }
-nix = { version = "0.31.0", features = ["fs", "ioctl"] }
+nix = { version = "0.32.0", features = ["fs", "ioctl"] }
 # Keep in sync with the drm version used by gbm
 drm = { version = "0.14.0", optional = true }
 gbm = { version = "0.18.0", optional = true, default-features = false, features = ["drm-support"] }
@@ -115,7 +115,7 @@ pkg-config = "0.3"
 
 [dev-dependencies]
 log = { workspace = true }
-nix = { version = "0.31.0", features = ["poll"] }
+nix = { version = "0.32.0", features = ["poll"] }
 slint = { path = "../../../api/rs/slint", default-features = false, features = ["std", "compat-1-2"] }
 
 [package.metadata.docs.rs]

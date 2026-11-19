@@ -540,7 +540,7 @@ impl OpaqueImage for NineSliceImage {
 
 /// Represents a `wgpu::Texture` for each version of WGPU we support.
 #[cfg(any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30"))]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum WGPUTexture {
     /// A texture for WGPU version 29.
     #[cfg(feature = "unstable-wgpu-29")]
@@ -892,6 +892,8 @@ impl PartialEq for ImageInner {
             (Self::BorrowedOpenGLTexture(l0), Self::BorrowedOpenGLTexture(r0)) => l0 == r0,
             (Self::NineSlice(l), Self::NineSlice(r)) => l.0 == r.0 && l.1 == r.1,
             (Self::AnimatedImage(l), Self::AnimatedImage(r)) => **l == **r,
+            #[cfg(any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30"))]
+            (Self::WGPUTexture(l), Self::WGPUTexture(r)) => **l == **r,
             _ => false,
         }
     }
