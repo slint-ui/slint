@@ -534,6 +534,7 @@ pub struct FocusScope {
     pub has_focus: Property<bool>,
     pub focus_on_click: Property<bool>,
     pub focus_on_tab_navigation: Property<bool>,
+    pub consume_focus_click: Property<bool>,
     pub key_pressed: Callback<KeyEventArg, EventResult>,
     pub key_released: Callback<KeyEventArg, EventResult>,
     pub capture_key_pressed: Callback<KeyEventArg, EventResult>,
@@ -652,7 +653,11 @@ impl Item for FocusScope {
                 true,
                 FocusReason::PointerClick,
             );
-            InputEventResult::EventAccepted
+            if self.consume_focus_click() {
+                InputEventResult::EventAccepted
+            } else {
+                InputEventResult::EventIgnored
+            }
         } else {
             InputEventResult::EventIgnored
         }

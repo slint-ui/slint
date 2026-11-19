@@ -1505,6 +1505,13 @@ fn build(l: &mut Loader) {
         ///
         /// This property has no effect if the `enabled` property is set to false.
         in property <bool> focus-on-tab-navigation: true;
+        /// When false, the pointer press that gives the `FocusScope` the focus via `focus-on-click` is not
+        /// consumed: after the focus is transferred, the press continues to be processed by elements behind
+        /// the `FocusScope`. Note that an enclosing `FocusScope` with default settings may then take the
+        /// focus instead.
+        ///
+        /// This property has no effect if `enabled` or `focus-on-click` is set to false.
+        in property <bool> consume-focus-click: true;
         //! ## Functions
         //!
         //! ### focus()
