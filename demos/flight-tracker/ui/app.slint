@@ -12,6 +12,8 @@ global Theme {
     /// and are flat and more opaque otherwise.
     in-out property <Quality> quality: Quality.high;
     out property <bool> blur: self.quality == Quality.high;
+    /// Above low quality, the flaps flip to a new character, rather than show it at once.
+    out property <bool> full-detail: self.quality != Quality.low;
     out property <color> text: #f4f4f6;
     out property <color> muted: #9a9aa3;
     /// Placeholders and the frame rate, dimmer than `muted`.
@@ -303,7 +305,7 @@ component Flap {
 /// Text on a split-flap display, as on an airport's departures board.
 /// Each character has a flap of its own, which flips when that character changes.
 component Flaps {
-    cache-rendering-hint: true;
+    cache-rendering-hint: root.flipping;
     in property <string> text;
     in property <length> size: 16px;
     in property <color> color: Theme.flap-ink;
@@ -320,8 +322,16 @@ component Flaps {
     /// Shorter text is aligned to the right, after blank flaps,
     /// so that a number's digits keep their flaps as it grows or shrinks.
     in property <int> places;
-    property <int> length: self.text.character-count;
+    // Without flipping, the characters are one text on blank flaps, which stay as they are.
+    property <bool> flipping: Theme.full-detail || self.whole;
+    // Without flipping, the text changes after `hold`, as the flaps would.
+    property <string> held;
+    property <string> shown: self.flipping ? self.text : self.held;
+    property <int> length: self.shown.character-count;
     property <int> count: self.whole ? 1 : max(1, max(self.places, self.length));
+    init => {
+        self.held = self.text;
+    }
     // When all of the flaps flip, each one starts a little after the one on its left.
     property <duration> flip-duration: self.flip / (1 + (self.count - 1) * 0.15);
     property <length> gap: max(3px, self.size * 0.2);
@@ -329,6 +339,14 @@ component Flaps {
     property <length> flap-width: self.whole ? measure.preferred-width + 2 * self.gap : measure.preferred-width + self.gap;
     width: self.count * (self.flap-width + 2px) - 2px;
     height: self.size * 1.42;
+
+    Timer {
+        interval: root.hold;
+        running: !root.flipping && root.held != root.text;
+        triggered => {
+            root.held = root.text;
+        }
+    }
 
     measure := Text {
         visible: false;
@@ -338,13 +356,37 @@ component Flaps {
         font-weight: 700;
     }
 
-    for index in root.count: Flap {
+    if !root.flipping: Rectangle {
+        cache-rendering-hint: true;
+        for index in root.count: Flap {
+            x: index * (root.flap-width + 2px);
+            width: root.flap-width;
+            height: root.height;
+            size: root.size;
+            upper: root.lit ? Theme.lit-upper : Theme.flap-upper;
+            lower: root.lit ? Theme.lit-lower : Theme.flap-lower;
+        }
+    }
+
+    if !root.flipping: Text {
+        x: (root.count - root.length) * (root.flap-width + 2px) + root.gap / 2;
+        height: root.height;
+        text: root.held;
+        color: root.lit ? Theme.on-highlight : root.color;
+        font-family: "JetBrains Mono NL";
+        font-size: root.size;
+        font-weight: 700;
+        letter-spacing: root.gap + 2px;
+        vertical-alignment: center;
+    }
+
+    for index in (root.flipping ? root.count : 0): Flap {
         x: index * (root.flap-width + 2px);
         width: root.flap-width;
         height: root.height;
         text: root.whole ? root.text : Characters.at(root.text, index - (root.count - root.length));
         hold: root.hold + index * root.flip-duration * 0.15;
-        flip-duration: root.flip-duration;
+        flip-duration: Theme.full-detail ? root.flip-duration : 0ms;
         size: root.size;
         ink: root.lit ? Theme.on-highlight : root.color;
         upper: root.lit ? Theme.lit-upper : Theme.flap-upper;
