@@ -444,6 +444,10 @@ async fn load_images(
     use i_slint_compiler::expression_tree::Expression;
     use i_slint_compiler::expression_types::ImageReference;
 
+    let Some(resource_loader) = resource_loader else {
+        return Default::default();
+    };
+
     let mut references = std::collections::BTreeMap::new();
     document.visit_all_used_components(|component| {
         i_slint_compiler::object_tree::visit_all_expressions(component, |expression, _| {
@@ -455,17 +459,18 @@ async fn load_images(
                 } = expression
                     && !matches!(path, SourcePath::Builtin(_))
                 {
-                    references.entry(path.clone()).or_insert_with(|| source_location.clone());
+                    references.entry(path.clone()).or_insert_with(|| {
+                        (resource_loader(path.clone()), source_location.clone())
+                    });
                 }
             });
         });
     });
 
     let mut images = HashMap::new();
-    for (path, source_location) in references {
+    for (path, (load, source_location)) in references {
         let image = async {
-            let loader = resource_loader.ok_or("Provide a resource loader for external images")?;
-            let bytes = loader(path.clone()).await.map_err(|error| error.to_string())?;
+            let bytes = load.await.map_err(|error| error.to_string())?;
             let extension = path.extension().map(str::to_ascii_lowercase);
             i_slint_core::graphics::Image::load_from_data(&bytes, extension.as_deref())
                 .map_err(|error| error.to_string())

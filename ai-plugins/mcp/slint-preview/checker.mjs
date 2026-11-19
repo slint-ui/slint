@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { readFileSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { isAbsolute, normalize } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -94,7 +95,7 @@ export async function checkSlint(previewInput) {
     const readResource = async (value) => {
         if (!previewInput.path)
             throw new Error("Use path to load local images or fonts");
-        return new Uint8Array(readFileSync(localPath(value)));
+        return readFile(localPath(value));
     };
     const result = {
         ok: false,
