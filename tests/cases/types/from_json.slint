@@ -83,8 +83,75 @@ export component TestCase {
     pure callback callback_return_whole_file() -> Root;
     callback_return_whole_file => { @from-json("from_json.json") }
 
+    // The model of a repeater
+    points_layout := HorizontalLayout {
+        padding: 0;
+        for point in @from-json("from_json.json").an_array_of_points : Rectangle {
+            width: point.x * 1px;
+        }
+    }
+    root_points_layout := HorizontalLayout {
+        padding: 0;
+        for point in @from-json("from_json_array.json") : Rectangle {
+            width: point.y * 1px;
+        }
+    }
+    ints_layout := HorizontalLayout {
+        padding: 0;
+        for value in @from-json("from_json.json").an_array : Rectangle {
+            width: value * 1px;
+        }
+    }
+
+    // Built-in members of a value that isn't a JSON object
+    property <int> array_length: @from-json("from_json.json").an_array.length;
+    property <int> root_array_length: @from-json("from_json_array.json").length;
+    property <int> nested_array_length: @from-json("from_json.json").element.sub_element.complex_nested.nested.length;
+    property <int> empty_array_length: @from-json("from_json.json").an_empty_array.length;
+    property <bool> array_length_comparison: @from-json("from_json.json").an_array.length > 2;
+    property <int> string_character_count: @from-json("from_json.json").a_string.character-count;
+    property <bool> string_is_empty: @from-json("from_json.json").a_string.is-empty;
+    property <bool> empty_string_is_empty: @from-json("from_json.json").an_empty_string.is-empty;
+    property <string> string_to_uppercase: @from-json("from_json.json").a_string.to-uppercase();
+    property <string> string_to_lowercase: @from-json("from_json.json").a_nested.label.to-uppercase().to-lowercase();
+    property <int> string_to_uppercase_count: @from-json("from_json.json").a_string.to-uppercase().character-count;
+    property <bool> string_starts_with: @from-json("from_json.json").a_string.starts-with("he");
+    property <bool> string_is_float: @from-json("from_json.json").a_numeric_string.is-float();
+    property <float> string_to_float: @from-json("from_json.json").a_numeric_string.to-float();
+    property <int> element_character_count: @from-json("from_json.json").element.sub_element.complex_nested.nested[0].label.character-count;
+    property <float> number_abs: @from-json("from_json.json").a_negative.abs();
+    property <int> number_round: @from-json("from_json.json").a_float.round();
+    property <int> number_floor: @from-json("from_json.json").a_negative.floor();
+    property <int> number_mod: @from-json("from_json.json").flat_value.mod(4);
+    property <string> number_to_fixed: @from-json("from_json.json").a_float.to-fixed(2);
+    property <int> element_max: @from-json("from_json.json").an_array[0].max(@from-json("from_json.json").an_array[2]);
+
     out property <bool> test:
-        root_object.int_property == 5
+        points_layout.min-width == 3px
+        && root_points_layout.min-width == 6px
+        && ints_layout.min-width == 6px
+        && array_length == 3
+        && root_array_length == 2
+        && nested_array_length == 2
+        && empty_array_length == 0
+        && array_length_comparison
+        && string_character_count == 5
+        && !string_is_empty
+        && empty_string_is_empty
+        && string_to_uppercase == "HELLO"
+        && string_to_lowercase == "hi"
+        && string_to_uppercase_count == 5
+        && string_starts_with
+        && string_is_float
+        && string_to_float == 4.5
+        && element_character_count == 5
+        && number_abs == 2.5
+        && number_round == 4
+        && number_floor == -3
+        && number_mod == 2
+        && number_to_fixed == "3.50"
+        && element_max == 3
+        && root_object.int_property == 5
         && root_object.a-float == 3.5
         && root_object.a_point.x == 1 && root_object.a_point.y == 2
         && root_array.length == 2
