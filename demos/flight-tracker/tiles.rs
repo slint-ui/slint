@@ -350,6 +350,8 @@ pub struct Detail {
     failures: u32,
     /// Until when no tiles are asked for, after one failed to load.
     paused_until: Option<web_time::Instant>,
+    /// The tiles that arrived and wait for their turn, see `update()`.
+    arrivals: std::collections::VecDeque<(usize, (u32, u32), Payload)>,
     /// The tiles that arrived, and the one being compressed.
     #[cfg(target_arch = "wasm32")]
     files: std::collections::VecDeque<(usize, (u32, u32), Vec<u8>)>,
@@ -373,6 +375,7 @@ impl Detail {
             loading: 0,
             failures: 0,
             paused_until: None,
+            arrivals: Default::default(),
             #[cfg(target_arch = "wasm32")]
             files: Default::default(),
             #[cfg(target_arch = "wasm32")]
@@ -414,7 +417,7 @@ impl Detail {
         while let Ok(arrived) = self.receiver.try_recv() {
             match arrived.tile_data {
                 Fetched::Tile(payload) => {
-                    self.arrived(renderer, arrived.window, arrived.tile, payload)
+                    self.arrivals.push_back((arrived.window, arrived.tile, payload))
                 }
                 Fetched::Missing => {
                     self.settle(arrived.window, arrived.tile, State::Missing);
@@ -429,6 +432,10 @@ impl Detail {
                     }
                 }
             }
+        }
+        // One tile goes onto the GPU per frame, see `Renderer::set_tile()`.
+        if let Some((window, tile, payload)) = self.arrivals.pop_front() {
+            self.arrived(renderer, window, tile, payload);
         }
         #[cfg(target_arch = "wasm32")]
         self.compress(renderer);

@@ -1057,8 +1057,15 @@ pub fn main() {
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     // The globe renders on Slint's device, so Slint can draw the rendered frames directly.
+    let mut settings = WGPUSettings::default();
+    // For the tiles, see `renderer::draws_tiles()`.
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        settings.device_required_limits.max_storage_buffers_per_shader_stage = 1;
+        settings.device_required_limits.max_storage_buffer_binding_size = 2 << 20;
+    }
     slint::BackendSelector::new()
-        .require_wgpu_30(WGPUConfiguration::Automatic(WGPUSettings::default()))
+        .require_wgpu_30(WGPUConfiguration::Automatic(settings))
         .select()?;
 
     let app = AppWindow::new()?;
@@ -1302,7 +1309,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             cloud_generation = Some(background::Background::start(3, clouds::generate));
             let tiles = tiles::Source::detect();
             let with_tiles = tiles.is_some();
-            detail = Some(tiles::Detail::new(tiles, features));
+            // Tiles that are drawn onto the GPU stay uncompressed.
+            let tile_features =
+                if renderer::draws_tiles(device) { wgpu::Features::empty() } else { features };
+            detail = Some(tiles::Detail::new(tiles, tile_features));
             let info = device.adapter_info();
             // OpenGL, and WebGL in a browser without WebGPU, can't view a texture as sRGB.
             if info.backend != wgpu::Backend::Gl {

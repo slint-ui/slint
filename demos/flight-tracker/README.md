@@ -82,6 +82,8 @@ Slint renders with wgpu, and the demo renders the globe on Slint's own device:
   It fetches the same Blue Marble as tiles from NASA's GIBS, up to ten times as fine, and replaces the globe's own imagery around that point.
   On the night side, it fetches the lights of the Black Marble the same way, except in low quality.
   The tiles are small JPEG and PNG files, and natively they stay in the user's cache directory.
+  Natively, `renderer.rs` draws them onto the GPU from a buffer, uncompressed.
+  Copying them into a texture stalls NXP's Vivante Vulkan driver for about 100 ms at a time.
   Without a network, the globe keeps its own imagery.
   `build.rs` can put the tiles into the binary instead, and `gibs.rs` names them for both.
 - `clouds.rs` generates the clouds from noise, shaped like the earth's weather, so that they add nothing to the download.
