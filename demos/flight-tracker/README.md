@@ -80,7 +80,7 @@ Slint renders with wgpu, and the demo renders the globe on Slint's own device:
   `compress.rs` compresses it to BC1 or ETC2, whichever the GPU supports, to an eighth of its size in GPU memory.
 - `tiles.rs` shows sharper imagery where the camera looks, once it comes close.
   It fetches the same Blue Marble as tiles from NASA's GIBS, up to ten times as fine, and replaces the globe's own imagery around that point.
-  On the night side, it fetches the lights of the Black Marble the same way.
+  On the night side, it fetches the lights of the Black Marble the same way, except in low quality.
   The tiles are small JPEG and PNG files, and natively they stay in the user's cache directory.
   Without a network, the globe keeps its own imagery.
   `build.rs` can put the tiles into the binary instead, and `gibs.rs` names them for both.
