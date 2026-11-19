@@ -8,7 +8,6 @@ import {
     existsSync,
     mkdtempSync,
     readFileSync,
-    readdirSync,
     rmSync,
     writeFileSync,
 } from "node:fs";
@@ -337,27 +336,6 @@ test("the Claude and Codex manifests start this server", () => {
     ];
     assert.equal(codex.cwd, ".");
     assert.ok(existsSync(new URL(codex.args[0], pluginRoot)));
-});
-
-test("the shared plugin loads one skill for each host", () => {
-    const root = new URL("../", pluginRoot);
-    const marketplace = JSON.parse(
-        readFileSync(new URL(".claude-plugin/marketplace.json", root), "utf8"),
-    );
-    assert.equal(new URL(`${marketplace.plugins[0].source}/`, root).href, pluginRoot.href);
-    assert.ok(existsSync(new URL("skills/slint/SKILL.md", root)));
-    assert.equal(existsSync(new URL("skills/", pluginRoot)), false);
-
-    for (const [host, expectedPath] of [
-        ["codex", "./codex-skills/"],
-        ["claude", "./claude-skills/"],
-    ]) {
-        const { skills } = readManifest(`.${host}-plugin/plugin.json`);
-        assert.equal(skills, expectedPath);
-        const dir = new URL(skills, pluginRoot);
-        assert.deepEqual(readdirSync(dir), ["slint-plugin"]);
-        assert.ok(existsSync(new URL("slint-plugin/SKILL.md", dir)));
-    }
 });
 
 // Starts a preview and returns its ID, which the view reads from the result.

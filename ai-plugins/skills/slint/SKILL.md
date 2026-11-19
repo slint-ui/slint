@@ -18,21 +18,12 @@ a declarative GUI toolkit for desktop, embedded, mobile, and web.
    exact element/property/widget signatures, trust that version's docs over
    this file rather than guessing.
 2. After editing, check the compiler diagnostics.
-   An IDE with the Slint extension or Claude Code with `slint-lsp` reports them after each edit.
+   An IDE with the Slint extension reports them after each edit.
    With Slint 1.17 or later, run `slint-viewer --check ui/main.slint` to check a file directly.
    See [debugging-and-mcp.md](reference/debugging-and-mcp.md) for details.
-3. Never declare UI work done without looking at a render — a screenshot for
-   appearance, the MCP server for interactions. Review against
-   [polish.md](reference/polish.md).
-   When available, call `check_slint` with the saved file's absolute `path` and `prepare_preview: true`.
-   Inspect its diagnostics and PNG to assess correctness and appearance.
-   Fix issues and repeat the check as needed.
-   Then call `publish_preview` with the successful `previewId` to open the live preview for the user.
-   Use the screenshot returned by `check_slint` for the visual review and any screenshot shared in chat.
-   Call `get_preview_screenshot` only when inspecting changes after interaction,
-   investigating a browser rendering problem, or responding to an explicit screenshot request.
-   If a preparation expires, check again before publishing.
-   Use `slint-viewer --screenshot` if the host lacks MCP Apps support.
+3. Run `slint-viewer --screenshot preview.png ui/main.slint` and inspect the render.
+   Review against [polish.md](reference/polish.md).
+   Use the running app to verify interactions.
 4. Share the render when the host supports it: inline the screenshot in chat
    apps, or print its absolute path and summarize the visual checks in CLI-only
    environments.
@@ -107,9 +98,7 @@ interop: `export global Foo { ... }`. One-time code: `init => { ... }`.
 The docs are the authority on element, property, and widget signatures; this
 skill only covers what agents commonly get wrong.
 
-Prefer the `slint-docs` MCP server when its `search` and `fetch` tools are
-available; this plugin declares it, so they usually are.
-Run `search`, then `fetch` a result's `url`.
-Without them, fetch https://slint.dev/docs (latest) or `https://releases.slint.dev/<version>/docs`.
+Read [the current Slint docs](https://docs.slint.dev/) or open
+`https://releases.slint.dev/<version>/docs` for the project's release.
 For ~10× fewer tokens `(1.17+)`, swap a page's trailing slash for `.md`: `…/property-types/colors-and-brushes/` → `…/property-types/colors-and-brushes.md`.
 That's raw MDX: skip `import` lines; some snippets live in external files.
