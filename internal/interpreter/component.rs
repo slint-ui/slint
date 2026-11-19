@@ -45,6 +45,8 @@ pub type FontFiles = HashMap<String, alloc::sync::Arc<Vec<u8>>>;
 #[derive(Clone, Default)]
 pub struct Resources {
     pub font_files: FontFiles,
+    #[cfg(feature = "std")]
+    pub images: HashMap<SourcePath, i_slint_core::graphics::Image>,
     #[cfg(feature = "internal-mcu-interpreter")]
     pub pre_rendered: crate::static_resources::PreRendered,
 }
@@ -339,14 +341,15 @@ impl ComponentInstanceInner {
 pub fn build_from_document(
     document: &i_slint_compiler::object_tree::Document,
     compiler_config: &i_slint_compiler::CompilerConfiguration,
-    font_files: FontFiles,
+    resources: Resources,
     animation_mode: AnimationMode,
 ) -> Vec<ComponentDefinitionInner> {
-    let resources = Rc::new(Resources {
-        font_files,
-        #[cfg(feature = "internal-mcu-interpreter")]
+    #[cfg(feature = "internal-mcu-interpreter")]
+    let resources = Resources {
         pre_rendered: crate::static_resources::PreRendered::from_document(document),
-    });
+        ..resources
+    };
+    let resources = Rc::new(resources);
     let mut unit =
         i_slint_compiler::llr::lower_to_item_tree::lower_to_item_tree(document, compiler_config);
     if matches!(animation_mode, AnimationMode::Static) {
@@ -430,6 +433,61 @@ async fn load_font_files(
         }
     }
     files
+}
+
+#[cfg(feature = "std")]
+async fn load_images(
+    document: &i_slint_compiler::object_tree::Document,
+    resource_loader: Option<&ResourceLoader>,
+    diagnostics: &mut i_slint_compiler::diagnostics::BuildDiagnostics,
+) -> HashMap<SourcePath, i_slint_core::graphics::Image> {
+    use i_slint_compiler::expression_tree::Expression;
+    use i_slint_compiler::expression_types::ImageReference;
+
+    let Some(resource_loader) = resource_loader.filter(|_| i_slint_core::IMAGE_DECODERS_ENABLED)
+    else {
+        return Default::default();
+    };
+
+    let mut references = std::collections::BTreeMap::new();
+    document.visit_all_used_components(|component| {
+        i_slint_compiler::object_tree::visit_all_expressions(component, |expression, _| {
+            expression.visit_recursive(&mut |expression| {
+                if let Expression::ImageReference {
+                    resource_ref: ImageReference::Source(path),
+                    source_location,
+                    ..
+                } = expression
+                    && !matches!(path, SourcePath::Builtin(_))
+                {
+                    references.entry(path.clone()).or_insert_with(|| {
+                        (resource_loader(path.clone()), source_location.clone())
+                    });
+                }
+            });
+        });
+    });
+
+    let mut images = HashMap::new();
+    for (path, (load, source_location)) in references {
+        let image = async {
+            let bytes = load.await.map_err(|error| error.to_string())?;
+            let extension = path.extension().map(str::to_ascii_lowercase);
+            i_slint_core::graphics::Image::load_from_data(&bytes, extension.as_deref())
+                .map_err(|error| error.to_string())
+        }
+        .await;
+        match image {
+            Ok(image) => {
+                images.insert(path, image);
+            }
+            Err(error) => diagnostics.push_error(
+                format!("Cannot load image {path}: {}", error.trim_end_matches('.')),
+                &source_location,
+            ),
+        }
+    }
+    images
 }
 
 #[cfg(all(feature = "std", target_arch = "wasm32", target_os = "unknown"))]
@@ -568,8 +626,20 @@ pub async fn build_from_source(
             };
         }
     };
-    let font_files = load_font_files(&loader, &config, resource_loader.as_ref(), &mut diag).await;
-    let components: HashMap<_, _> = build_from_document(doc, &config, font_files, animation_mode)
+    let resources = Resources {
+        font_files: load_font_files(&loader, &config, resource_loader.as_ref(), &mut diag).await,
+        images: load_images(doc, resource_loader.as_ref(), &mut diag).await,
+        #[cfg(feature = "internal-mcu-interpreter")]
+        pre_rendered: Default::default(),
+    };
+    if diag.has_errors() {
+        return BuildResult {
+            #[cfg(feature = "internal")]
+            watch_paths,
+            ..error_result(diag.into_iter().collect())
+        };
+    }
+    let components: HashMap<_, _> = build_from_document(doc, &config, resources, animation_mode)
         .into_iter()
         .map(|def| (def.name().to_string(), def))
         .collect();
