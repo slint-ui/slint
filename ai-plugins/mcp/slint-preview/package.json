@@ -3,7 +3,7 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "test:e2e": "node --test test/view.e2e.mjs"
+        "test:e2e": "node --test --test-timeout=600000 test/view.e2e.mjs"
     },
     "devDependencies": {
         "playwright": "catalog:"

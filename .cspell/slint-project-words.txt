@@ -482,6 +482,7 @@ noopener
 Nord
 noseat
 nostrud
+notdef
 notexist
 noto
 nsview
@@ -552,6 +553,7 @@ pypiserver
 pyproject
 pystruct
 pytest
+qreal
 qskinny
 qtbase
 qtsvg

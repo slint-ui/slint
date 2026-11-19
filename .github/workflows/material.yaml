@@ -89,7 +89,7 @@ jobs:
       - name: Take screenshots
         # slint-doc-generator lives in the repository root workspace, not the
         # material workspace, so point cargo at the root manifest.
-        run: cargo run --manifest-path ../../Cargo.toml -p slint-doc-generator -- screenshots -Lmaterial=$PWD/src/material.slint docs
+        run: cargo run --manifest-path ../../Cargo.toml -p slint-doc-generator -- screenshots -Lmaterial=$PWD/src/slint-project.json docs
         working-directory: ui-libraries/material
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
