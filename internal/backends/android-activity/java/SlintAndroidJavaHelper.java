@@ -872,10 +872,12 @@ class SlintInputView extends View {
 
 public class SlintAndroidJavaHelper {
     private final Activity mActivity;
+    private final int mBackCallbackPriority;
     private final SlintInputView mInputView;
 
-    public SlintAndroidJavaHelper(Activity activity) {
+    public SlintAndroidJavaHelper(Activity activity, int backCallbackPriority) {
         mActivity = activity;
+        mBackCallbackPriority = backCallbackPriority;
         mInputView = new SlintInputView(activity);
         mActivity.runOnUiThread(this::attachInputView);
     }
@@ -904,9 +906,9 @@ public class SlintAndroidJavaHelper {
         }
         // On API 34+, Back arrives via OnBackInvokedDispatcher; forward
         // it into Slint's key-event pipeline.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE && mBackCallbackPriority >= 0) {
             mActivity.getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
-                    OnBackInvokedDispatcher.PRIORITY_DEFAULT, SlintAndroidJavaHelper::onBackInvoked);
+                    mBackCallbackPriority, SlintAndroidJavaHelper::onBackInvoked);
         }
     }
 

@@ -42,7 +42,7 @@ bind_java_type! {
         AndroidRect => "android.graphics.Rect",
     },
     constructors {
-        fn new(activity: AndroidActivity),
+        fn new(activity: AndroidActivity, back_callback_priority: jint),
     },
     methods {
         fn accent_color {
@@ -426,6 +426,7 @@ fn get_helper_class_loader(
 
 fn load_java_helper(
     app: &AndroidApp,
+    back_callback_priority: Option<u32>,
 ) -> Result<jni::refs::Global<SlintAndroidJavaHelper<'static>>, jni::errors::Error> {
     let jvm = JavaVM::singleton().unwrap_or_else(|_| unsafe {
         // Safety: as documented in android-activity to obtain a jni::JavaVM
@@ -437,7 +438,11 @@ fn load_java_helper(
             unsafe { env.as_cast_raw::<jni::refs::Global<AndroidActivity>>(&native_activity_ptr)? };
         let loader = LoaderContext::Loader(get_helper_class_loader(env, native_activity.as_ref())?);
         let _ = SlintAndroidJavaHelperAPI::get(env, &loader)?;
-        let helper_instance = SlintAndroidJavaHelper::new(env, native_activity)?;
+        let helper_instance = SlintAndroidJavaHelper::new(
+            env,
+            native_activity,
+            back_callback_priority.map_or(-1, |p| p.min(jint::MAX as u32) as jint),
+        )?;
         env.new_global_ref(&helper_instance)
     })
 }
@@ -460,8 +465,16 @@ impl JavaHelper {
         });
         Duration::from_nanos(event_nanos.saturating_add(*offset).max(0) as u64).into()
     }
-    pub fn new(app: &AndroidApp) -> Result<Self, jni::errors::Error> {
-        Ok(Self(load_java_helper(app)?, app.clone(), Default::default(), Default::default()))
+    pub fn new(
+        app: &AndroidApp,
+        back_callback_priority: Option<u32>,
+    ) -> Result<Self, jni::errors::Error> {
+        Ok(Self(
+            load_java_helper(app, back_callback_priority)?,
+            app.clone(),
+            Default::default(),
+            Default::default(),
+        ))
     }
 
     fn with_jni_env<R>(
