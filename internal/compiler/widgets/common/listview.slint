@@ -8,6 +8,8 @@ import { ListViewInterface, StandardListViewInterface } from "std-widget-interfa
 export component ListView inherits ScrollView {
     implement ListViewInterface <=> self;
 
+    in property <FlexboxLayoutDirection> flex-direction: FlexboxLayoutDirection.column;
+
     @children
     accessible-role: list;
     accessible-orientation: Orientation.vertical;

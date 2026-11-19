@@ -13,13 +13,13 @@ use super::model_peer::{ModelChangeListener, ModelChangeListenerContainer};
 use super::{Model, ModelExt, ModelRc};
 use crate::api::LogicalPosition;
 use crate::item_tree::{ItemTreeVTable, TraversalOrder};
-use crate::items::{Flickable, ItemRc, ScrollBehavior};
+use crate::items::{FlexboxLayoutDirection, Flickable, ItemRc, ScrollBehavior};
 use crate::layout::Orientation;
 use crate::lengths::{LogicalLength, RectLengths};
 use crate::model::repeater::scroll::accelerate_jump_decelerate::AccelerateJumpDecelerate;
 use crate::{Coord, Property};
 use alloc::vec::Vec;
-use core::cell::RefCell;
+use core::cell::{Cell, RefCell};
 use core::pin::Pin;
 #[allow(unused)]
 use euclid::num::Floor;
@@ -158,6 +158,28 @@ pub struct RepeaterLayoutState {
     pub previous_content_y: Coord,
     /// The y position of the item at `offset`.
     pub anchor_y: Coord,
+    /// Whether the previous layout pass had `flex-direction: column-reverse`, with row 0 at the bottom.
+    pub column_reverse: bool,
+    /// The content height set by the previous layout pass that placed row 0 at the bottom.
+    pub content_height: Coord,
+}
+
+impl RepeaterLayoutState {
+    /// Converts the Flickable's `content-y` to the one of the top-down layout, or back.
+    fn top_down_content_y(&self, content_y: Coord, viewport_height: Coord) -> Coord {
+        if self.column_reverse {
+            mirror_content_y(content_y, self.content_height, viewport_height)
+        } else {
+            content_y
+        }
+    }
+}
+
+/// Mirrors `content-y` within the scroll range, which maps the top of the content to the bottom.
+fn mirror_content_y(content_y: Coord, content_height: Coord, viewport_height: Coord) -> Coord {
+    let scroll_range = (content_height - viewport_height).max(0 as Coord);
+    // Subtracting from 0 never gives -0, which JavaScript's `Object.is` tells apart from 0.
+    0 as Coord - scroll_range - content_y
 }
 
 /// Abstraction over a repeater's instance collection so the same algorithm
@@ -282,7 +304,146 @@ impl ListViewProperties for TypedListViewProps<'_> {
 /// With an ongoing scroll request, a layout pass also:
 /// - plans the smooth scroll, including whether to jump and where the jump lands,
 /// - advances the request to its next phase.
+///
+/// With `flex-direction: column-reverse`, row 0 is at the bottom and the rows stack upwards.
+/// `row` and `row-reverse` lay out like `column`.
+#[allow(clippy::too_many_arguments)]
 fn update_visible_instances(
+    ops: &mut impl RepeaterInstanceOps,
+    state: &mut RepeaterLayoutState,
+    scroll_to_row: &mut Option<scroll::ScrollToRowRequest>,
+    row_count: usize,
+    props: &dyn ListViewProperties,
+    listview_width: LogicalLength,
+    listview_height: LogicalLength,
+    flex_direction: FlexboxLayoutDirection,
+) -> bool {
+    let column_reverse = flex_direction == FlexboxLayoutDirection::ColumnReverse;
+    switch_layout_direction(state, props, row_count, listview_height.get(), column_reverse);
+    let viewport_height = column_reverse.then_some(listview_height.get());
+    let mirrored_props = viewport_height.map(|viewport_height| MirroredListViewProps {
+        props,
+        viewport_height,
+        content_height: Cell::new(state.content_height),
+    });
+    let props: &dyn ListViewProperties = match &mirrored_props {
+        Some(mirrored_props) => mirrored_props,
+        None => props,
+    };
+    let mut ops = MirroredOps { ops, viewport_height };
+    let changed = update_visible_instances_top_down(
+        &mut ops,
+        state,
+        scroll_to_row,
+        row_count,
+        props,
+        listview_width,
+        listview_height,
+    );
+    if let Some(mirrored_props) = &mirrored_props {
+        state.content_height = mirrored_props.content_height.get();
+    }
+    changed
+}
+
+/// Keeps the same rows in view when the ListView moves row 0 between the top and the bottom.
+fn switch_layout_direction(
+    state: &mut RepeaterLayoutState,
+    props: &dyn ListViewProperties,
+    row_count: usize,
+    viewport_height: Coord,
+    column_reverse: bool,
+) {
+    if state.column_reverse == column_reverse {
+        return;
+    }
+    state.column_reverse = column_reverse;
+    state.content_height = state.cached_item_height * row_count as Coord;
+    let content_y = props.content_y_get_internal().get();
+    let mirrored_content_y = mirror_content_y(content_y, state.content_height, viewport_height);
+    if mirrored_content_y != content_y {
+        props.content_y_set(LogicalLength::new(mirrored_content_y));
+    }
+}
+
+/// Places the rows through `ops`, mirrored within a viewport of `viewport_height` when it's set.
+struct MirroredOps<'a, O> {
+    ops: &'a mut O,
+    viewport_height: Option<Coord>,
+}
+
+impl<O: RepeaterInstanceOps> RepeaterInstanceOps for MirroredOps<'_, O> {
+    fn len(&self) -> usize {
+        self.ops.len()
+    }
+    fn splice(&mut self, position: usize, remove: usize, add: usize) {
+        self.ops.splice(position, remove, add)
+    }
+    fn ensure_updated(&mut self, instance_idx: usize, row: usize) -> bool {
+        self.ops.ensure_updated(instance_idx, row)
+    }
+    fn height(&self, instance_idx: usize) -> Option<Coord> {
+        self.ops.height(instance_idx)
+    }
+    fn listview_layout(&self, instance_idx: usize, y: &mut Coord) -> Coord {
+        let width = self.ops.listview_layout(instance_idx, y);
+        if let Some(viewport_height) = self.viewport_height {
+            let mut mirrored_y = viewport_height - *y;
+            self.ops.listview_layout(instance_idx, &mut mirrored_y);
+        }
+        width
+    }
+}
+
+/// The content properties of a ListView with row 0 at the bottom, as the top-down layout sees them.
+/// `content-y` is mirrored within the scroll range, so that scrolling to the top
+/// of the top-down layout scrolls the ListView to the bottom.
+struct MirroredListViewProps<'a> {
+    props: &'a dyn ListViewProperties,
+    viewport_height: Coord,
+    content_height: Cell<Coord>,
+}
+
+impl MirroredListViewProps<'_> {
+    fn mirror(&self, content_y: LogicalLength) -> LogicalLength {
+        LogicalLength::new(mirror_content_y(
+            content_y.get(),
+            self.content_height.get(),
+            self.viewport_height,
+        ))
+    }
+}
+
+impl ListViewProperties for MirroredListViewProps<'_> {
+    fn content_y_get(&self) -> LogicalLength {
+        self.mirror(self.props.content_y_get())
+    }
+    fn content_y_get_internal(&self) -> LogicalLength {
+        self.mirror(self.props.content_y_get_internal())
+    }
+    fn content_y_set(&self, value: LogicalLength) {
+        self.props.content_y_set(self.mirror(value));
+    }
+    fn content_y_has_binding(&self) -> bool {
+        self.props.content_y_has_binding()
+    }
+    fn computes_content_height(&self) -> bool {
+        self.props.computes_content_height()
+    }
+    fn content_width_set(&self, value: LogicalLength) {
+        self.props.content_width_set(value);
+    }
+    fn content_height_set(&self, value: LogicalLength) {
+        self.content_height.set(value.get());
+        self.props.content_height_set(value);
+    }
+    fn register_as_dependencies(&self) {
+        self.props.register_as_dependencies();
+    }
+}
+
+/// Implements [`update_visible_instances`] with row 0 at the top.
+fn update_visible_instances_top_down(
     ops: &mut impl RepeaterInstanceOps,
     state: &mut RepeaterLayoutState,
     scroll_to_row: &mut Option<scroll::ScrollToRowRequest>,
@@ -567,6 +728,7 @@ fn update_visible_instances(
                 height,
                 listview_height,
                 jump.is_some(),
+                state.column_reverse,
             );
         }
 
@@ -836,10 +998,11 @@ fn listview_ensure_row_visible(
     let flickable = flickable.as_pin_ref();
     let content_y = flickable.content_y();
     let viewport_height = flickable_rc.geometry().height();
+    let top_down_content_y = state.top_down_content_y(content_y.get(), viewport_height);
     let row_in_viewport =
         (!heights.is_empty() && state.cached_item_height > 0 as Coord).then(|| {
             let (top_anchor, height) = scroll::row_geometry(state, heights.iter().copied(), row);
-            (top_anchor + content_y.get(), height)
+            (top_anchor + top_down_content_y, height)
         });
     // an instant scroll pulls an overscroll back in bounds.
     let stop_scrolling = || {
@@ -870,11 +1033,13 @@ fn listview_ensure_row_visible(
             let distance = alignment.distance(top_anchor, row_height, viewport_height);
             match behavior {
                 ScrollBehavior::Instant => {
+                    let target_content_y =
+                        state.top_down_content_y(top_down_content_y + distance, viewport_height);
                     flickable.scroll_to(
                         flickable_rc,
                         LogicalPosition::new(
                             -flickable.content_x().get() as f32,
-                            -(content_y.get() + distance) as f32,
+                            -target_content_y as f32,
                         ),
                         ScrollBehavior::Instant,
                     );
@@ -1031,9 +1196,16 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         content_y: Pin<&Property<LogicalLength>>,
         listview_width: LogicalLength,
         listview_height: Pin<&Property<LogicalLength>>,
+        flex_direction: FlexboxLayoutDirection,
     ) -> bool {
         let props = TypedListViewProps { content_width, content_height, content_y };
-        self.ensure_updated_listview_callback(init, &props, listview_width, listview_height.get())
+        self.ensure_updated_listview_callback(
+            init,
+            &props,
+            listview_width,
+            listview_height.get(),
+            flex_direction,
+        )
     }
 
     /// Trait-based variant of [`Self::ensure_updated_listview`] for runtime
@@ -1047,6 +1219,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         props: &dyn ListViewProperties,
         listview_width: LogicalLength,
         listview_height: LogicalLength,
+        flex_direction: FlexboxLayoutDirection,
     ) -> bool {
         self.data().project_ref().is_dirty.set(false);
 
@@ -1069,6 +1242,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
             props,
             listview_width,
             listview_height,
+            flex_direction,
         );
         {
             let mut inner = data.inner.borrow_mut();
@@ -1521,6 +1695,7 @@ mod ffi {
         content_y: Pin<&Property<LogicalLength>>,
         listview_width: LogicalLength,
         listview_height: LogicalLength,
+        flex_direction: FlexboxLayoutDirection,
     ) -> bool {
         let props = TypedListViewProps { content_width, content_height, content_y };
         let mut layout_state = unsafe { (*state).clone() };
@@ -1541,6 +1716,7 @@ mod ffi {
             &props,
             listview_width,
             listview_height,
+            flex_direction,
         );
         unsafe {
             *state = layout_state;

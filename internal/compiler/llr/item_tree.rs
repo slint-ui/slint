@@ -445,6 +445,8 @@ pub struct ListViewInfo {
     pub listview_height: MemberReference,
     /// The ListView's inner visible width (not counting eventual scrollbar)
     pub listview_width: MemberReference,
+    /// The ListView's `flex-direction` property, if it declares one
+    pub flex_direction: Option<MemberReference>,
 
     // In the repeated component context
     pub prop_y: MemberReference,

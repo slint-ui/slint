@@ -107,6 +107,7 @@ impl RepeaterOrConditional {
         props: &dyn i_slint_core::model::ListViewProperties,
         listview_width: i_slint_core::lengths::LogicalLength,
         listview_height: i_slint_core::lengths::LogicalLength,
+        flex_direction: i_slint_core::items::FlexboxLayoutDirection,
     ) -> bool {
         match self {
             Self::Repeater(r) => Pin::as_ref(r).ensure_updated_listview_callback(
@@ -114,6 +115,7 @@ impl RepeaterOrConditional {
                 props,
                 listview_width,
                 listview_height,
+                flex_direction,
             ),
             Self::Conditional(_) => unreachable!("listview on a conditional element"),
         }
@@ -506,6 +508,7 @@ impl Instance {
         if let Some(lv) = listview_info.as_ref() {
             let listview_width = read_logical_length(&sub, &lv.listview_width);
             let listview_height = read_logical_length(&sub, &lv.listview_height);
+            let flex_direction = read_flex_direction(&sub, lv);
             let props = ValueListViewProps {
                 content_y: lv.content_y.clone(),
                 content_width: lv.content_width.clone(),
@@ -517,6 +520,7 @@ impl Instance {
                 &props,
                 listview_width,
                 listview_height,
+                flex_direction,
             )
         } else {
             repeater.ensure_updated(factory)
@@ -572,6 +576,7 @@ impl Instance {
             };
             let listview_width = read_logical_length(&sub, &lv.listview_width);
             let _ = read_logical_length(&sub, &lv.listview_height);
+            let _ = read_flex_direction(&sub, lv);
             Pin::as_ref(r).track_changes_listview_callback(&props, listview_width);
         }
         repeater.visit(order, visitor)
@@ -953,6 +958,19 @@ fn read_logical_length(
     let _ = &mut ctx;
     let n: f64 = v.try_into().unwrap_or(0.0);
     i_slint_core::lengths::LogicalLength::new(n as f32)
+}
+
+fn read_flex_direction(
+    sub: &Pin<Rc<SubComponentInstance>>,
+    lv: &llr::ListViewInfo,
+) -> i_slint_core::items::FlexboxLayoutDirection {
+    lv.flex_direction
+        .as_ref()
+        .and_then(|flex_direction| {
+            let ctx = crate::eval::EvalContext::new(sub.clone());
+            crate::eval::load_property(&ctx, flex_direction).try_into().ok()
+        })
+        .unwrap_or(i_slint_core::items::FlexboxLayoutDirection::Column)
 }
 
 /// Shim implementing [`i_slint_core::model::ListViewProperties`] over

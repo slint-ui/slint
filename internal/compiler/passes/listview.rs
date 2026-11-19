@@ -35,6 +35,31 @@ pub fn check_children_in_flickable(component: &Rc<Component>, diag: &mut BuildDi
     }
 }
 
+/// Reports a `ListView` whose `flex-direction` is `row` or `row-reverse`.
+pub fn check_flex_direction(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
+    crate::object_tree::recurse_elem(&component.root_element, &(), &mut |elem, _| {
+        let elem = elem.borrow();
+        if !is_listview(&elem.base_type) {
+            return;
+        }
+        let Some(binding) = elem.binding("flex-direction") else { return };
+        if let Expression::EnumerationValue(value) = &binding.expression
+            && matches!(value.to_string().as_str(), "row" | "row-reverse")
+        {
+            diag.push_error(
+                "'ListView' lays out its rows vertically, use 'column' or 'column-reverse'".into(),
+                &*binding,
+            );
+        }
+    });
+}
+
+/// Whether `ty` is a `ListView` or inherits one.
+fn is_listview(ty: &ElementType) -> bool {
+    let ElementType::Component(component) = ty else { return false };
+    component.id == "ListView" || is_listview(&component.root_element.borrow().base_type)
+}
+
 /// The type of the element that the children of an element of type `ty` end up in,
 /// like `ElementType::lookup_type_for_child_element`.
 fn children_type(ty: &ElementType) -> ElementType {

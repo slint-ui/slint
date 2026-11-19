@@ -101,19 +101,29 @@ pub(super) fn start_simulation<S: Simulation + PositionSimulation + 'static>(
 }
 
 /// Determine the new request state of the scroll to state machine
+///
+/// With `column_reverse`, the Flickable's `content-y` moves the opposite way of the top-down layout's.
 pub(super) fn advance_scroll_to_row(
     mut request: ScrollToRowRequest,
     top: Coord,
     row_height: Coord,
     viewport_height: Coord,
     jumped: bool,
+    column_reverse: bool,
 ) -> Option<ScrollToRowRequest> {
     match &mut request.animation {
         ScrollAnimation::Instant(_) => return None,
         ScrollAnimation::AccelerateJumpDecelerate(sim) => {
             let alignment = RowAlignment::for_row(top, row_height, viewport_height)?;
-            let distance = alignment.distance(top, row_height, viewport_height) as f32;
-            sim.advance(viewport_height, alignment, distance, jumped, &request.flickable)?;
+            let distance = alignment.distance(top, row_height, viewport_height);
+            let flickable_distance = if column_reverse { -distance } else { distance };
+            sim.advance(
+                viewport_height,
+                alignment,
+                flickable_distance as f32,
+                jumped,
+                &request.flickable,
+            )?;
         }
     };
     Some(request)

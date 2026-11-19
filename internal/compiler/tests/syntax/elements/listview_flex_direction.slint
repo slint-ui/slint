@@ -1,0 +1,35 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ListView } from "std-widgets.slint";
+
+component Numbers inherits ListView {
+    for i in 10: Rectangle { height: 10px; }
+}
+
+export component Test inherits Window {
+    in property <bool> reverse;
+
+    ListView {
+        flex-direction: row;
+//                      >  <error{'ListView' lays out its rows vertically, use 'column' or 'column-reverse'}
+        for i in 10: Rectangle { height: 10px; }
+    }
+    ListView {
+        flex-direction: FlexboxLayoutDirection.row-reverse;
+//                      >                                 <error{'ListView' lays out its rows vertically, use 'column' or 'column-reverse'}
+        for i in 10: Rectangle { height: 10px; }
+    }
+    Numbers {
+        flex-direction: row;
+//                      >  <error{'ListView' lays out its rows vertically, use 'column' or 'column-reverse'}
+    }
+
+    ListView {
+        flex-direction: column-reverse;
+        for i in 10: Rectangle { height: 10px; }
+    }
+    Numbers {
+        flex-direction: reverse ? FlexboxLayoutDirection.column-reverse : FlexboxLayoutDirection.column;
+    }
+}

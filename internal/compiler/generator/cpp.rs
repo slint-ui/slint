@@ -2718,15 +2718,23 @@ fn generate_sub_component_body(
                     format!("&{h}")
                 },
             );
+            let flex_direction = listview.flex_direction.as_ref().map_or_else(
+                || "::slint::cbindgen_private::FlexboxLayoutDirection::Column".to_string(),
+                |r| {
+                    let r = access_member(r, &ctx).unwrap();
+                    format!("{r}.get()")
+                },
+            );
 
             children_visitor_cases.push(format!(
                 "\n        case {idx}: {{
+                (void){flex_direction};
                 self->{repeater_id}.track_changes_listview({content_w}, {content_h}, &{content_y}, {lv_w}.get(), &{lv_h});
                 return self->{repeater_id}.visit(order, visitor);
             }}",
             ));
             ensure_instantiated_stmts.push(format!(
-                "_changed |= self->{repeater_id}.ensure_updated_listview(self, {content_w}, {content_h}, &{content_y}, {lv_w}.get(), {lv_h}.get());"
+                "_changed |= self->{repeater_id}.ensure_updated_listview(self, {content_w}, {content_h}, &{content_y}, {lv_w}.get(), {lv_h}.get(), {flex_direction});"
             ));
         } else {
             children_visitor_cases.push(format!(

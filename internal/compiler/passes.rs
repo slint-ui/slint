@@ -181,6 +181,7 @@ pub async fn run_passes(
     doc.visit_all_used_components(|component| {
         if checked_components.insert(std::rc::Rc::as_ptr(component)) {
             listview::check_children_in_flickable(component, diag);
+            listview::check_flex_direction(component, diag);
         }
     });
 

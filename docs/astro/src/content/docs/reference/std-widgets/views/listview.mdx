@@ -3,6 +3,7 @@ title: ListView
 description: ListView api.
 ---
 
+import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
 import CodeSnippetMD from '@slint/common-files/src/components/CodeSnippetMD.astro';
 import Link from '@slint/common-files/src/components/Link.astro';
 
@@ -48,8 +49,31 @@ export component Example inherits Window {
 
 ## Properties
 
-Same as <Link type="ScrollView"/>.
+Same as <Link type="ScrollView"/>, and:
 
+### flex-direction
+<SlintProperty propName="flex-direction" typeName="enum" enumName="FlexboxLayoutDirection" defaultValue="column" propertyVisibility="in">
+The direction in which the rows are placed.
+With `column`, the first row is at the top.
+With `column-reverse`, the first row is at the bottom and the rows stack upwards.
+The list then starts scrolled to the bottom, and rows that don't fill the view stay at the bottom.
+Use it for a chat, where the newest message is row 0 of the model.
+
+A `ListView` places its rows vertically, so `row` and `row-reverse` aren't supported.
+
+```slint {7}
+import { ListView } from "std-widgets.slint";
+export component Example inherits Window {
+    width: 150px;
+    height: 150px;
+
+    ListView {
+        flex-direction: column-reverse;
+        for i in 100 : Text { text: "Row \{i}"; }
+    }
+}
+```
+</SlintProperty>
 
 ## Callbacks
 
