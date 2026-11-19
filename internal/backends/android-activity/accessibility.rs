@@ -13,7 +13,9 @@ use crate::androidwindowadapter::AndroidWindowAdapter;
 use crate::javahelper::JavaHelper;
 use accesskit::{ActionHandler, ActionRequest, ActivationHandler, Role, TreeUpdate};
 use accesskit_android::InjectingAdapter;
-use i_slint_core::accessibility::accesskit_tree::{AccessKitHost, AccessKitTree};
+use i_slint_core::accessibility::accesskit_tree::{
+    AccessKitHost, AccessKitTree, AccessKitUpdateState,
+};
 use i_slint_core::api::invoke_from_event_loop;
 use i_slint_core::platform::WindowAdapter;
 use i_slint_core::timers::Timer;
@@ -29,16 +31,11 @@ pub(crate) struct Accessibility {
     adapter: InjectingAdapter,
     tree: AccessKitTree,
     window_adapter_weak: Weak<AndroidWindowAdapter>,
-    /// A rebuild of the whole tree is scheduled.
-    pending_update: bool,
-    /// An accessibility service asked for the tree, which was sent.
-    initial_tree_sent: bool,
+    update_state: AccessKitUpdateState,
     /// The window origin relative to the hosting view of the tree that was sent last.
     origin_in_view: (i32, i32),
     /// Whether the origin is going to be compared.
     pending_origin_check: bool,
-    /// Whether an accessibility service is enabled. The tree is not kept up to date while none is.
-    enabled: bool,
 }
 
 impl Accessibility {
@@ -63,11 +60,9 @@ impl Accessibility {
             adapter,
             tree,
             window_adapter_weak,
-            pending_update: false,
-            initial_tree_sent: false,
+            update_state: Default::default(),
             origin_in_view: (0, 0),
             pending_origin_check: false,
-            enabled: true,
         })
     }
 
@@ -76,24 +71,17 @@ impl Accessibility {
         self.origin_in_view = origin_in_view;
         self.tree.set_physical_offset(origin_in_view.0 as f64, origin_in_view.1 as f64);
         self.adapter.update_if_active(|| without_window_label(self.tree.build_new_tree()));
-        self.initial_tree_sent = true;
-    }
-
-    /// A service has the tree and listens to the updates.
-    fn is_live(&self) -> bool {
-        self.initial_tree_sent && self.enabled
+        self.update_state.set_initial_tree_sent();
     }
 
     /// Sends the whole tree again, after the structure of the items changed or the window moved
     /// relative to the view that hosts the adapter.
     fn reload_tree(&mut self) {
-        if self.pending_update || !self.initial_tree_sent {
+        if !self.update_state.should_schedule_reload() {
             return;
         }
-        self.pending_update = true;
         self.run_later(|this| {
-            this.pending_update = false;
-            if this.enabled
+            if this.update_state.reload_started()
                 && let Some(window_adapter) = this.window_adapter_weak.upgrade()
             {
                 this.send_tree(window_adapter.accessibility_origin_in_view());
@@ -104,13 +92,13 @@ impl Accessibility {
     /// Sends the tree again when the window moved relative to the view that hosts the adapter,
     /// which happens with the insets or the keyboard, without a resize of the window.
     fn check_origin(&mut self) {
-        if self.pending_origin_check || !self.is_live() {
+        if self.pending_origin_check || !self.update_state.is_live() {
             return;
         }
         self.pending_origin_check = true;
         self.run_later(|this| {
             this.pending_origin_check = false;
-            if this.is_live()
+            if this.update_state.is_live()
                 && let Some(window_adapter) = this.window_adapter_weak.upgrade()
             {
                 let origin = window_adapter.accessibility_origin_in_view();
@@ -122,7 +110,7 @@ impl Accessibility {
     }
 
     fn set_enabled(&mut self, enabled: bool) {
-        self.enabled = enabled;
+        self.update_state.set_enabled(enabled);
         if enabled {
             // The tree was not kept up to date while no service was enabled
             self.reload_tree();
@@ -132,16 +120,14 @@ impl Accessibility {
     }
 
     fn rebuild_dirty_nodes(&mut self) {
-        // A pending reload sends everything anyway, and the focus node might not be known to
-        // Android yet when the structure of the tree changed.
-        if !self.is_live() || self.pending_update || !self.tree.has_dirty_nodes() {
+        if !self.update_state.should_send_dirty_nodes(&self.tree) {
             return;
         }
         self.adapter.update_if_active(|| without_window_label(self.tree.rebuild_dirty_nodes()));
     }
 
     fn update_focus(&mut self) {
-        if !self.is_live() || self.pending_update {
+        if !self.update_state.should_send_focus() {
             return;
         }
         self.adapter.update_if_active(|| self.tree.focus_update());
