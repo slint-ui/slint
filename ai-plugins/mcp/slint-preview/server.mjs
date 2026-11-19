@@ -631,6 +631,10 @@ const handlers = {
                             },
                             prefersBorder: true,
                         },
+                        "openai/ui": {
+                            availableDisplayModes: ["inline", "fullscreen"],
+                            preferredDisplayMode: "inline",
+                        },
                     },
                 },
             ],

@@ -60,9 +60,10 @@ const HOST_PAGE = `<!doctype html>
     if (method === "ui/notifications/initialized") window.viewInitialized = true;
     if (id === undefined) return;
     if (method === "ui/initialize") {
+      window.previewDisplayModes = params.appCapabilities.availableDisplayModes;
       post({ id, result: {
         protocolVersion: params.protocolVersion,
-        hostContext: { theme: "light" },
+        hostContext: { theme: "light", displayMode: "inline", availableDisplayModes: ["inline", "fullscreen"] },
         hostCapabilities: { experimental: window.noDraftSupport ? {} : { "openai/message": {} } },
       } });
     } else if (method === "tools/call") {
@@ -271,7 +272,7 @@ function centerPixel(screenshot) {
     }, screenshot.content[0].data);
 }
 
-test("captures the current state after interacting with the preview", async () => {
+test("preserves the running preview when the host changes display mode", async () => {
     const initial = await preview({ source: `
         export component Main inherits Window {
             width: 40px;
@@ -284,10 +285,20 @@ test("captures the current state after interacting with the preview", async () =
     assertRendered(initial);
     assert.deepEqual(await centerPixel(initial), [255, 0, 0, 255]);
 
-    await page.frameLocator("iframe").locator("#preview").click();
-    const refreshed = await callTool("get_preview_screenshot", {});
-    assertRendered(refreshed);
-    assert.deepEqual(await centerPixel(refreshed), [0, 0, 255, 255]);
+    const frame = page.frameLocator("iframe");
+    assert.deepEqual(await page.evaluate(() => window.previewDisplayModes), ["inline", "fullscreen"]);
+    await frame.locator('body[data-display-mode="inline"]').waitFor();
+    await frame.locator("#preview").click();
+
+    for (const displayMode of ["fullscreen", "inline"]) {
+        await page.evaluate((mode) => window.notifyView("ui/notifications/host-context-changed", {
+            displayMode: mode,
+        }), displayMode);
+        await frame.locator(`body[data-display-mode="${displayMode}"]`).waitFor();
+        const screenshot = await callTool("get_preview_screenshot", {});
+        assertRendered(screenshot);
+        assert.deepEqual(await centerPixel(screenshot), [0, 0, 255, 255]);
+    }
 });
 
 const BLUE_SVG =
