@@ -360,6 +360,34 @@ class EditorPaneWidget extends Widget {
     }
 }
 
+/** Downloads `url`, or returns `null` on failure, after an alert if `raise_alert` is set. */
+async function download(
+    url: string,
+    raise_alert: boolean,
+): Promise<string | null> {
+    try {
+        const response = await fetch(url);
+        if (response.ok) {
+            return await response.text();
+        }
+        if (raise_alert) {
+            alert(
+                "Failed to download data from " +
+                    url +
+                    ":\n" +
+                    response.status +
+                    " " +
+                    response.statusText,
+            );
+        }
+    } catch (e) {
+        if (raise_alert) {
+            alert("Failed to download data from " + url + ".");
+        }
+    }
+    return null;
+}
+
 export class EditorWidget extends Widget {
     #layout: BoxLayout;
     #tab_map: Map<string, EditorPaneWidget> = new Map();
@@ -471,7 +499,6 @@ export class EditorWidget extends Widget {
                 new RegisteredMemoryFile(uri, content),
             ),
         );
-
         monaco.editor
             .createModelReference(uri)
             .then((model_ref) => this.open_model_ref(model_ref));
@@ -630,7 +657,9 @@ export class EditorWidget extends Widget {
         return this.#extra_file_urls;
     }
 
-    protected async handle_lsp_url_request(url: string): Promise<string> {
+    protected async handle_lsp_url_request(
+        url: string,
+    ): Promise<string | null> {
         if (url.startsWith("slintpad:/")) {
             if (this.#url_mapper === null) {
                 return Promise.resolve("Error: Can not resolve URL.");
@@ -643,16 +672,16 @@ export class EditorWidget extends Widget {
                 return Promise.resolve("Error: Can not map URL.");
             }
 
-            return (
+            const [opened, content] =
                 await this.safely_open_editor_with_url_content(
                     uri,
                     internal_uri,
                     false,
-                )
-            )[1];
+                );
+            return opened === null ? null : content;
         }
         const r = await fetch(url);
-        return await r.text();
+        return r.ok ? await r.text() : null;
     }
 
     private async safely_open_editor_with_url_content(
@@ -665,27 +694,8 @@ export class EditorWidget extends Widget {
             return [internal_uri, new TextDecoder().decode(content) ?? ""];
         } catch (e) {}
 
-        let doc = "";
-        try {
-            const response = await fetch(uri.toString());
-            if (!response.ok) {
-                if (raise_alert) {
-                    alert(
-                        "Failed to download data from " +
-                            uri +
-                            ":\n" +
-                            response.status +
-                            " " +
-                            response.statusText,
-                    );
-                }
-                return [null, ""];
-            }
-            doc = await response.text();
-        } catch (e) {
-            if (raise_alert) {
-                alert("Failed to download data from " + uri + ".");
-            }
+        const doc = await download(uri.toString(), raise_alert);
+        if (doc === null) {
             return [null, ""];
         }
 

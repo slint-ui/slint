@@ -18,5 +18,6 @@ export component TestCase inherits Window {
     ScrollView {
         viewport-width: v.width;
         v := VerticalLayout { }
+//           >             <error{The binding for the property 'width' is part of a binding loop (v.width -> flickable-content.width -> v.width)}
     }
 }
