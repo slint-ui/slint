@@ -135,6 +135,10 @@ function assertServesInterpreter(content, url, hosts) {
     assert.equal(content.mimeType, "text/html;profile=mcp-app");
     assert.doesNotMatch(content.text, /__[A-Za-z_-]+__/);
     assert.ok(content.text.includes(url), url);
+    assert.deepEqual(content._meta["openai/ui"], {
+        availableDisplayModes: ["inline", "fullscreen"],
+        preferredDisplayMode: "inline",
+    });
     const { csp } = content._meta.ui;
     assert.deepEqual(csp.connectDomains, hosts);
     assert.deepEqual(csp.resourceDomains, [...hosts, "blob:"]);

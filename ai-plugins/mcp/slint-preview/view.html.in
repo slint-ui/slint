@@ -28,6 +28,12 @@
   }
   [hidden] { display: none !important; }
   #stage { overflow: hidden; }
+  body[data-display-mode="fullscreen"] #stage {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: calc(100dvh - 48px);
+  }
   #preview-frame { position: relative; width: fit-content; max-width: 100%; margin-inline: auto; }
   button, textarea { font: inherit; color: inherit; }
   button {
@@ -66,9 +72,9 @@
   #annotate { min-width: 102px; }
   #annotate[aria-pressed="true"] { color: var(--accent); }
   #preview-theme { display: flex; gap: 3px; }
-  #annotate:not([hidden]) + #preview-theme { padding-left: 5px; border-left: 1px solid var(--border); }
   #preview-theme button { width: 26px; padding: 0; }
   #preview-theme button[aria-pressed="false"] { border-color: transparent; background: transparent; }
+  #annotate:not([hidden]) + #preview-theme { padding-left: 5px; border-left: 1px solid var(--border); }
   #annotation-layer {
     position: absolute;
     inset: 0;
@@ -185,7 +191,7 @@
   const crashDetailsEl = document.getElementById("crash-details");
   const retryButton = document.getElementById("retry");
   const frame = document.getElementById("preview-frame");
-  const tools = document.getElementById("preview-tools");
+  const toolbar = document.getElementById("preview-tools");
   const lightButton = document.getElementById("preview-light");
   const darkButton = document.getElementById("preview-dark");
   const annotateButton = document.getElementById("annotate");
@@ -201,6 +207,11 @@
   let renderedInput = null;
   let hostTheme = null;
   let themeOverride = null;
+
+  function applyHostContext(context) {
+    applyTheme(context);
+    if (context?.displayMode) document.body.dataset.displayMode = context.displayMode;
+  }
 
   function positionComment() {
     if (!annotation) return;
@@ -524,7 +535,7 @@
     const { previewId, runtime } = interpreter;
     activePreviewId = null;
     setAnnotationMode(false);
-    tools.hidden = true;
+    toolbar.hidden = true;
     interpreter.panic(new Panic(message));
     interpreter = null;
     instance = null;
@@ -617,7 +628,7 @@
   let instance = null;
   async function render({ source, path, projectRoot, style }, previewId) {
     setAnnotationMode(false);
-    tools.hidden = true;
+    toolbar.hidden = true;
     renderedInput = null;
     imageFailure = null;
     // Loading is asynchronous; start it early so it overlaps with source reads.
@@ -697,7 +708,7 @@
     await finishMeasuring();
     showStatus(imageFailure ?? "", imageFailure ? "error" : "");
     renderedInput = { source, path, projectRoot, style };
-    tools.hidden = false;
+    toolbar.hidden = false;
   }
 
   function resultPreviewId(result) {
@@ -830,7 +841,7 @@
         break;
       }
       case "ui/notifications/host-context-changed":
-        applyTheme(message.params);
+        applyHostContext(message.params);
         break;
       case "ui/resource-teardown":
         activePreviewId = null;
@@ -846,10 +857,10 @@
   const result = await request("ui/initialize", {
     protocolVersion: "2026-01-26",
     appInfo: { name: "Slint Preview", version: "1.0.0" },
-    appCapabilities: { availableDisplayModes: ["inline"] },
+    appCapabilities: { availableDisplayModes: ["inline", "fullscreen"] },
   });
   annotateButton.hidden = !result?.hostCapabilities?.experimental?.["openai/message"];
-  applyTheme(result?.hostContext);
+  applyHostContext(result?.hostContext);
   notify("ui/notifications/initialized", {});
 </script>
 </body>
