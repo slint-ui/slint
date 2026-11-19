@@ -789,7 +789,6 @@ impl Demo {
     fn flight_progress(&self) -> FlightProgress {
         let flight = &self.flight;
         FlightProgress {
-            progress: flight.progress(),
             remaining_time: format_hours(flight.remaining_hours()).into(),
             remaining_clock: {
                 let minutes = (flight.remaining_hours() * 60.0).round() as u32;
@@ -1437,6 +1436,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         });
         app.set_flight(demo.flight_info());
         app.set_flight_progress(demo.flight_progress());
+        app.set_flown(demo.flight.progress());
         app.set_view(demo.view);
         app.set_screen(match demo.stage {
             Stage::Entry => Screen::Entry,

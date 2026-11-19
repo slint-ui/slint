@@ -81,11 +81,9 @@ export struct FlightInfo {
     arrival-light: string,
 }
 
-/// The parts of a flight that change from frame to frame.
-/// They're apart from `FlightInfo`, so that what shows the rest isn't drawn again every frame.
+/// The readings of a flight that change several times a second.
+/// They're apart from `FlightInfo`, so that what shows the rest isn't drawn again with them.
 export struct FlightProgress {
-    /// The flown part of the distance, from 0 to 1.
-    progress: float,
     remaining-time: string,
     /// The remaining time as hours and minutes, such as "9:05".
     remaining-clock: string,
@@ -574,6 +572,8 @@ component Remaining inherits HorizontalLayout {
 component FlightCard inherits Glass {
     in property <FlightInfo> flight;
     in property <FlightProgress> progress;
+    /// The flown part of the distance, from 0 to 1.
+    in property <float> flown;
     /// Smaller, for phones.
     in property <bool> small;
     /// Leaves out the light at arrival, for short windows.
@@ -622,11 +622,11 @@ component FlightCard inherits Glass {
                         width: (parent.width + 2px) / parent.tiles - 2px;
                         height: 10px;
                         border-radius: 1px;
-                        background: tile < root.progress.progress * parent.tiles ? Theme.highlight : Theme.track;
+                        background: tile < root.flown * parent.tiles ? Theme.highlight : Theme.track;
                     }
 
                     AircraftIcon {
-                        x: (parent.width - self.width) * root.progress.progress;
+                        x: (parent.width - self.width) * root.flown;
                         y: parent.tiles-y - self.height - 2px;
                         width: 22px;
                         height: 22px;
@@ -940,6 +940,8 @@ export component AppWindow inherits Window {
     in property <int> texture-used-height;
     in property <FlightInfo> flight;
     in property <FlightProgress> flight-progress;
+    /// The flown part of the flight's distance, from 0 to 1.
+    in property <float> flown;
     in property <Marker> origin-marker;
     in property <Marker> destination-marker;
     in property <Aircraft> aircraft;
@@ -1432,6 +1434,7 @@ export component AppWindow inherits Window {
         width: root.sideways ? root.content-width - 40px - Theme.gap : root.card-width;
         flight: root.flight;
         progress: root.flight-progress;
+        flown: root.flown;
         small: root.narrow || root.short;
         brief: root.short;
         strip: root.sideways;
