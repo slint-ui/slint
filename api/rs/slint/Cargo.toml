@@ -81,7 +81,8 @@ unsafe-single-threaded = ["i-slint-core/unsafe-single-threaded"]
 ## Enable integration with operating system provided accessibility APIs
 ##
 ## Enabling this feature will try to expose the tree of UI elements to OS provided accessibility
-## APIs to support screen readers and other assistive technologies.
+## APIs to support screen readers and other assistive technologies. This is supported on Windows,
+## macOS, Linux and Android, where it works with TalkBack.
 accessibility = ["i-slint-backend-selector/accessibility"]
 
 ## Enable the `SystemTrayIcon` element. On Linux/BSD this pulls in
