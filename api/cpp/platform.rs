@@ -585,9 +585,10 @@ mod software_renderer {
     pub unsafe extern "C" fn slint_software_renderer_render_accel_rgb8(
         r: SoftwareRendererOpaque,
         buffer: &mut CppTargetPixelBuffer<Rgb8Pixel>,
+        prepared_textures: *mut c_void,
     ) -> PhysicalRegion {
         let renderer = unsafe { &*(r as *const SoftwareRenderer) };
-        renderer.render_into_buffer(buffer)
+        renderer.render_into_buffer(buffer, unsafe { &mut *(prepared_textures as *mut PreparedTextures) })
     }
 
     #[cfg(feature = "experimental")]
@@ -595,9 +596,10 @@ mod software_renderer {
     pub unsafe extern "C" fn slint_software_renderer_render_accel_rgb565(
         r: SoftwareRendererOpaque,
         buffer: &mut CppTargetPixelBuffer<Rgb565Pixel>,
+        prepared_textures: *mut c_void,
     ) -> PhysicalRegion {
         let renderer = unsafe { &*(r as *const SoftwareRenderer) };
-        renderer.render_into_buffer(buffer)
+        renderer.render_into_buffer(buffer, unsafe { &mut *(prepared_textures as *mut PreparedTextures) })
     }
 
     #[unsafe(no_mangle)]

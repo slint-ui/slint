@@ -18,7 +18,7 @@ import threading
 import time
 from typing import Any
 
-# The packet and capture format is described in api/cpp/trace.rs.
+# The packet and capture format is described in src/slint-esp-trace.cpp.
 PACKET_PREFIX = b"\x1eB"
 END_PREFIX = b"\x1eE"
 ESCAPE = 0x1B

@@ -546,10 +546,10 @@ impl SoftwareRenderer {
     fn render_buffer_impl(
         &self,
         buffer: &mut impl target_pixel_buffer::TargetPixelBuffer,
+        prepared_textures: &mut PreparedTextures,
     ) -> PhysicalRegion {
         let pixels_per_line = buffer.line_slice(0).len();
         let num_lines = buffer.num_lines();
-        let prepared_textures = &mut self.prepared_textures.borrow_mut();
         self.render_frame(pixels_per_line, num_lines, |scale_factor| BufferRasterizer {
             buffer,
             dirty_range_cache: Vec::new(),
@@ -1580,8 +1580,6 @@ enum RasterCommand {
     TargetTexture {
         texture: target_pixel_buffer::DrawTextureArgs,
         clip: PhysicalRect,
-        /// Inside an element with `cache-rendering-hint: true`, so offered to the buffer.
-        cache_rendering_hint: bool,
     },
     /// Pixels shared with the window, such as images and glyphs loaded at run time.
     SharedBuffer {
@@ -2088,11 +2086,10 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> BufferRasterizer<'_, B> {
                 ),
                 GlyphTexture { geometry, .. } => span!("process_scene_texture", geometry.size),
                 SharedBuffer { geometry, .. } => span!("process_shared_buffer", geometry.size),
-                TargetTexture { texture, cache_rendering_hint, .. } => {
+                TargetTexture { texture, .. } => {
                     let source = texture.source();
                     tracing::info_span!(
                         "process_target_texture",
-                        hint = *cache_rendering_hint as u8,
                         w = texture.dst_width,
                         h = texture.dst_height,
                         src_w = source.width,
@@ -2137,8 +2134,8 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> BufferRasterizer<'_, B> {
             SharedBuffer { geometry, buffer } => {
                 self.draw_clipped(*geometry, rounded_clips, None, &buffer.as_texture())
             }
-            TargetTexture { texture, clip, cache_rendering_hint } => {
-                self.rasterize_target_texture(texture, *clip, *cache_rendering_hint, rounded_clips)
+            TargetTexture { texture, clip } => {
+                self.rasterize_target_texture(texture, *clip, rounded_clips)
             }
             Rectangle { args, clip } => self.rasterize_rectangle(args, *clip, rounded_clips),
             SolidRectangle { geometry, color } => self.draw_clipped(
@@ -2197,32 +2194,27 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> BufferRasterizer<'_, B> {
         &mut self,
         texture: &target_pixel_buffer::DrawTextureArgs,
         clip: PhysicalRect,
-        cache_rendering_hint: bool,
         rounded_clips: &[RoundedClip],
     ) {
-        if cache_rendering_hint
-            && hook_can_draw(rounded_clips, || {
-                let geometry = euclid::rect::<i32, PhysicalPx>(
-                    texture.dst_x as _,
-                    texture.dst_y as _,
-                    texture.dst_width as _,
-                    texture.dst_height as _,
-                );
-                geometry.intersection(&clip.cast()).map_or_else(Default::default, |r| r.cast())
-            })
-            && {
-                let region = self.dirty_region.intersection(&clip);
-                let prepared = self.prepared_textures.get(texture);
-                #[cfg(feature = "tracing")]
-                let _span =
-                    tracing::info_span!("texture_hook", prepared = prepared.is_some() as u8)
-                        .entered();
-                match prepared {
-                    Some(prepared) => self.buffer.draw_texture(&prepared.at(texture), &region),
-                    None => self.buffer.draw_texture(texture, &region),
-                }
+        if hook_can_draw(rounded_clips, || {
+            let geometry = euclid::rect::<i32, PhysicalPx>(
+                texture.dst_x as _,
+                texture.dst_y as _,
+                texture.dst_width as _,
+                texture.dst_height as _,
+            );
+            geometry.intersection(&clip.cast()).map_or_else(Default::default, |r| r.cast())
+        }) && {
+            let region = self.dirty_region.intersection(&clip);
+            let prepared = self.prepared_textures.get(texture);
+            #[cfg(feature = "tracing")]
+            let _span =
+                tracing::info_span!("texture_hook", prepared = prepared.is_some() as u8).entered();
+            match prepared {
+                Some(prepared) => self.buffer.draw_texture(&prepared.at(texture), &region),
+                None => self.buffer.draw_texture(texture, &region),
             }
-        {
+        } {
             return;
         }
 
@@ -2577,7 +2569,6 @@ impl<'a, T: RasterCommandSink> SoftwareItemRenderer<'a, T> {
                     (screen_size.cast() / scale_factor).cast(),
                 ),
                 rounded_clip_count: 0,
-                cache_rendering_hint: false,
             },
             rounded_clips: Vec::new(),
             scale_factor,
@@ -2817,11 +2808,7 @@ impl<'a, T: RasterCommandSink> SoftwareItemRenderer<'a, T> {
                 };
 
                 self.raster_commands.push(
-                    RasterCommand::TargetTexture {
-                        texture: t,
-                        clip: clipped_target.cast(),
-                        cache_rendering_hint: self.current_state.cache_rendering_hint,
-                    },
+                    RasterCommand::TargetTexture { texture: t, clip: clipped_target.cast() },
                     &self.rounded_clips,
                 );
             }
@@ -2897,11 +2884,7 @@ impl<'a, T: RasterCommandSink> SoftwareItemRenderer<'a, T> {
                     };
 
                     self.raster_commands.push(
-                        RasterCommand::TargetTexture {
-                            texture: t,
-                            clip: clipped_target.cast(),
-                            cache_rendering_hint: self.current_state.cache_rendering_hint,
-                        },
+                        RasterCommand::TargetTexture { texture: t, clip: clipped_target.cast() },
                         &self.rounded_clips,
                     );
                 } else {
@@ -3094,11 +3077,7 @@ impl<'a, T: RasterCommandSink> SoftwareItemRenderer<'a, T> {
                     };
 
                     self.raster_commands.push(
-                        RasterCommand::TargetTexture {
-                            texture: t,
-                            clip: clipped_target.cast(),
-                            cache_rendering_hint: self.current_state.cache_rendering_hint,
-                        },
+                        RasterCommand::TargetTexture { texture: t, clip: clipped_target.cast() },
                         &self.rounded_clips,
                     );
                 }
@@ -3172,7 +3151,6 @@ struct RenderState {
     offset: LogicalPoint,
     clip: LogicalRect,
     rounded_clip_count: u16,
-    cache_rendering_hint: bool,
 }
 
 impl<T: RasterCommandSink> i_slint_core::item_rendering::ItemRenderer
@@ -3779,16 +3757,6 @@ impl<T: RasterCommandSink> i_slint_core::item_rendering::ItemRenderer
         self.current_state.alpha *= opacity;
     }
 
-    fn visit_layer(
-        &mut self,
-        layer_item: Pin<&i_slint_core::items::Layer>,
-        _self_rc: &ItemRc,
-        _size: LogicalSize,
-    ) -> RenderingResult {
-        self.current_state.cache_rendering_hint |= layer_item.cache_rendering_hint();
-        RenderingResult::ContinueRenderingChildren
-    }
-
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn save_state(&mut self) {
         self.state_stack.push(self.current_state);
@@ -3843,11 +3811,7 @@ impl<T: RasterCommandSink> i_slint_core::item_rendering::ItemRenderer
                     self.clip_to_rounded_clips(geometry.cast().transformed(self.rotation))
                 {
                     self.raster_commands.push(
-                        RasterCommand::TargetTexture {
-                            texture: t,
-                            clip,
-                            cache_rendering_hint: self.current_state.cache_rendering_hint,
-                        },
+                        RasterCommand::TargetTexture { texture: t, clip },
                         &self.rounded_clips,
                     );
                 }
@@ -4147,11 +4111,7 @@ impl<T: RasterCommandSink> sharedparley::GlyphRenderer for SoftwareItemRenderer<
             };
 
             self.raster_commands.push(
-                RasterCommand::TargetTexture {
-                    texture: t,
-                    clip: clipped_target.cast(),
-                    cache_rendering_hint: self.current_state.cache_rendering_hint,
-                },
+                RasterCommand::TargetTexture { texture: t, clip: clipped_target.cast() },
                 &self.rounded_clips,
             );
         }

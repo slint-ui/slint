@@ -207,7 +207,6 @@ pub struct SoftwareRenderer {
     pub(crate) rendering_metrics_collector: Option<Rc<RenderingMetricsCollector>>,
     #[cfg(feature = "systemfonts")]
     pub(crate) text_layout_cache: sharedparley::TextLayoutCache,
-    pub(crate) prepared_textures: RefCell<crate::PreparedTextures>,
 }
 
 impl Default for SoftwareRenderer {
@@ -222,7 +221,6 @@ impl Default for SoftwareRenderer {
             repaint_buffer_type: Default::default(),
             #[cfg(feature = "systemfonts")]
             text_layout_cache: Default::default(),
-            prepared_textures: Default::default(),
         }
     }
 }
@@ -311,7 +309,10 @@ impl SoftwareRenderer {
     /// Returns the physical dirty region for this frame, excluding the extra_draw_region,
     /// in the window frame of reference. It is affected by the screen rotation.
     pub fn render(&self, buffer: &mut [impl TargetPixel], pixel_stride: usize) -> PhysicalRegion {
-        self.render_buffer_impl(&mut TargetPixelSlice { data: buffer, pixel_stride })
+        self.render_buffer_impl(
+            &mut TargetPixelSlice { data: buffer, pixel_stride },
+            &mut PreparedTextures::new(),
+        )
     }
 
     /// Render the window to the given frame buffer.
@@ -325,10 +326,17 @@ impl SoftwareRenderer {
     /// or the `height` and `width` swapped if the screen is rotated by 90°.
     ///
     /// Returns the physical dirty region for this frame, excluding the extra_draw_region,
+    ///
+    /// Images prepared for the buffer go into `prepared_textures`.
+    /// Pass the same one with every frame. A new one prepares no images.
     /// in the window frame of reference. It is affected by the screen rotation.
     #[cfg(feature = "experimental")]
-    pub fn render_into_buffer(&self, buffer: &mut impl TargetPixelBuffer) -> PhysicalRegion {
-        self.render_buffer_impl(buffer)
+    pub fn render_into_buffer(
+        &self,
+        buffer: &mut impl TargetPixelBuffer,
+        prepared_textures: &mut PreparedTextures,
+    ) -> PhysicalRegion {
+        self.render_buffer_impl(buffer, prepared_textures)
     }
 
     /// Records the window's next frame, like [`Self::render`] renders it,
@@ -337,6 +345,7 @@ impl SoftwareRenderer {
     ///
     /// Only available on targets with atomic pointers.
     #[cfg(all(feature = "experimental", target_has_atomic = "ptr"))]
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn record_frame(&self, pixels_per_line: usize, num_lines: usize) -> RecordedRasterCommands {
         let recorder = |scale_factor| RecordedRasterCommands { scale_factor, ..Default::default() };
         self.render_frame(pixels_per_line, num_lines, recorder).map(|(_, r)| r).unwrap_or_default()

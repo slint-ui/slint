@@ -10,10 +10,10 @@ if (IDF_TARGET STREQUAL "esp32p4")
 endif()
 
 idf_component_register(
-    SRCS "src/slint-esp.cpp"
+    SRCS "src/slint-esp.cpp" "src/slint-esp-trace.cpp"
     INCLUDE_DIRS "include"
     REQUIRES "esp_lcd" "esp_lcd_touch" "esp_timer"
-    # The tracing capture is sent through this driver, see api/cpp/trace.rs.
+    # The tracing capture is sent through this driver, see src/slint-esp-trace.cpp.
     PRIV_REQUIRES ${slint_priv_requires} "esp_driver_usb_serial_jtag")
 
 list(PREPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
@@ -39,7 +39,7 @@ if ("$ENV{SLINT_ESP_EXPERIMENTAL}" STREQUAL "1")
     set(SLINT_FEATURE_EXPERIMENTAL ON)
 endif()
 if ("$ENV{SLINT_ESP_TRACING}" STREQUAL "1")
-    set(SLINT_FEATURE_TRACING ON)
+    set(SLINT_INTERNAL_TRACING ON)
     target_compile_definitions(${COMPONENT_LIB} PRIVATE SLINT_ESP_TRACING=1)
 endif()
 set(SLINT_LIBRARY_CARGO_FLAGS "-Zbuild-std=core,alloc")
@@ -54,7 +54,7 @@ else()
     list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
     # SLINT_NIGHTLY is set when generating nightly snapshot's CMakeLists.txt.
     # The precompiled release lacks the experimental API and tracing, so build from source for them.
-    if (NOT SLINT_NIGHTLY AND NOT SLINT_FEATURE_EXPERIMENTAL AND NOT SLINT_FEATURE_TRACING)
+    if (NOT SLINT_NIGHTLY AND NOT SLINT_FEATURE_EXPERIMENTAL AND NOT SLINT_INTERNAL_TRACING)
         find_package(Slint)
     endif()
 

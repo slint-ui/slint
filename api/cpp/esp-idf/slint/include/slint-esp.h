@@ -118,11 +118,9 @@ struct SlintPlatformConfiguration
     /// The stack size in bytes of the task that rasterizes, if `render_in_separate_task` is set.
     uint32_t raster_task_stack_size = 8192;
 #endif
-    /// Log the frame rate and the average time to render and present a frame once a second.
-    bool log_frame_stats = false;
 #ifdef SLINT_ESP_CPU_TEXTURES
-    /// Blend the images inside an element with `cache-rendering-hint: true` with a whole-image CPU
-    /// loop, instead of the software renderer's per-line path. It needs a full frame buffer.
+    /// Blend the images with a whole-image CPU loop, instead of the software renderer's per-line
+    /// path. It needs a full frame buffer.
     ///
     /// **Note**: This field is still experimental - its API is subject to changes and not
     /// stabilized yet. To use it, build Slint from source with the environment variable
@@ -134,7 +132,7 @@ struct SlintPlatformConfiguration
     uint32_t prepared_textures_kib = 8192;
 #endif
 #ifdef SLINT_ESP_PPA
-    /// Draw opaque solid fills, and images inside an element with `cache-rendering-hint: true`,
+    /// Draw opaque solid fills and the images that fit in `prepared_textures_kib`
     /// with the Pixel-Processing Accelerator of the ESP32-P4. The CPU draws everything else.
     /// It needs `render_in_separate_task`.
     ///
