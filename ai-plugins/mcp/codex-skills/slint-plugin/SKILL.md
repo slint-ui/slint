@@ -1,6 +1,6 @@
 ---
 name: slint-plugin
-description: Use the Slint plugin in Codex to look up Slint APIs, preview .slint files, inspect screenshots, and act on preview annotations.
+description: Write, edit, debug, or review Slint UIs and host-language integration in Codex. Use for Slint docs, development guidance, inline previews, and preview annotations.
 ---
 
 # Slint Plugin for Codex
@@ -55,9 +55,10 @@ for (const block of result.content ?? []) {
 For a terminal-only session, use `slint-viewer` to check and render the file locally.
 Pass `--project-root <directory>` to apply project settings to a specific `.slint` file.
 Use the running app or its tests to verify host-language callbacks, models, and application state.
-See [local rendering and runtime debugging](https://github.com/slint-ui/ai-plugins/blob/master/skills/slint/reference/debugging-and-mcp.md).
+See [local rendering and runtime debugging](../../guidance/reference/debugging-and-mcp.md).
 
 ## Find Slint Development Guidance
 
-For language and layout, common errors, host integration, and visual polish,
-use the [Slint development reference index](https://github.com/slint-ui/ai-plugins/blob/master/skills/slint/SKILL.md#reference-files).
+For component work, read [Language and Layout](../../guidance/reference/language-and-layout.md) before editing.
+For project setup and build wiring, read [Project Setup](../../guidance/setup.md).
+Use the [development references](../../guidance/reference/) for common errors, host integration, and visual polish.
