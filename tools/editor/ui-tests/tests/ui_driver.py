@@ -88,6 +88,22 @@ def first_window(
     return window
 
 
+def windows_of(
+    application: slint_testing.Application, component: str
+) -> list[slint_testing.Window]:
+    return [
+        window
+        for window in application.windows
+        if window.root_element.id == f"{component}::root"
+    ]
+
+
+def window_of(
+    application: slint_testing.Application, component: str
+) -> slint_testing.Window:
+    return wait_until(lambda: next(iter(windows_of(application, component)), None))
+
+
 def query(
     scope: slint_testing.Window | slint_testing.Element,
     name: str | None = None,

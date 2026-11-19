@@ -372,16 +372,16 @@ fn lower_element_layout(
 
     match layout_type.as_ref()?.as_str() {
         "Row" => return layout_type,
-        "GridLayout" => lower_grid_layout(component, elem, diag, type_register),
-        "HorizontalLayout" => lower_box_layout(elem, diag, Orientation::Horizontal),
-        "VerticalLayout" => lower_box_layout(elem, diag, Orientation::Vertical),
-        "FlexboxLayout" => lower_flexbox_layout(elem, diag),
         "Dialog" => {
             lower_dialog_layout(elem, style_metrics, diag);
             // return now, the Dialog stays in the tree as a Dialog
             return layout_type;
         }
-        _ => return None,
+        name => match LayoutKind::from_builtin_name(name)? {
+            LayoutKind::Grid => lower_grid_layout(component, elem, diag, type_register),
+            LayoutKind::Box(orientation) => lower_box_layout(elem, diag, orientation),
+            LayoutKind::Flexbox => lower_flexbox_layout(elem, diag),
+        },
     };
 
     let mut elem = elem.borrow_mut();

@@ -24,15 +24,24 @@ const readManifest = (path) =>
     JSON.parse(readFileSync(new URL(path, pluginRoot), "utf8"));
 
 let server;
+let exited;
 let nextId = 1;
 const pending = new Map();
+
+const failOnExit = (child) =>
+    once(child, "exit").then(([code, signal]) => {
+        throw new Error(`The server exited (${signal ?? code})`);
+    });
 
 function request(method, params) {
     const id = nextId++;
     server.stdin.write(
         JSON.stringify({ jsonrpc: "2.0", id, method, params }) + "\n",
     );
-    return new Promise((resolve) => pending.set(id, resolve));
+    return Promise.race([
+        new Promise((resolve) => pending.set(id, resolve)),
+        exited,
+    ]);
 }
 
 const callTool = async (name, args) =>
@@ -54,6 +63,7 @@ before(async () => {
             SLINT_PREVIEW_TIMEOUT_MS: "700",
         },
     });
+    exited = failOnExit(server);
     createInterface({ input: server.stdout }).on("line", (line) => {
         const message = JSON.parse(line);
         pending.get(message.id)?.(message);
@@ -159,7 +169,10 @@ test("serves the view with the interpreter of the plugin's release on the releas
                 params: { uri: "ui://slint/preview.html" },
             }) + "\n",
         );
-        const [line] = await once(lines, "line");
+        const [line] = await Promise.race([
+            once(lines, "line"),
+            failOnExit(release),
+        ]);
         release.kill();
         const { version } = readManifest(".claude-plugin/plugin.json");
         assertServesInterpreter(

@@ -37,6 +37,7 @@ Issues should be reported in the [Slint issue tracker](https://github.com/slint-
 ## Building from Source and Debugging
 
 You need to install the following components:
+
 - **[Node.js](https://nodejs.org/download/release/)** (v20. or newer)
 - **[pnpm](https://www.pnpm.io/)**
 
@@ -65,6 +66,7 @@ If you want to load the web extension, add `--extensionDevelopmentKind=web`
 ## How to build the extension package
 
 To create a `.vsix` package for local installation:
+
 1. Follow the setup steps above to build the lsp binary and install npm dependencies.
 
 2. Create a `.vsix` package (needs `vsce` installed)
@@ -99,6 +101,7 @@ or preview individual components such as the library or properties view.
 ## Quality Assurance
 
 This extensions comes with some tools to help with QA:
+
 - `pnpm lint` and `pnpm lint:fix` run the biome linter on the source code
 - `pnpm type-check` run the typescript compiler
 - `pnpm test_grammar` run the tests on the TextMate grammar build into the extension
