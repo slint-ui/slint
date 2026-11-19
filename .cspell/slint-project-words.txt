@@ -542,6 +542,7 @@ pypiserver
 pyproject
 pystruct
 pytest
+qreal
 qskinny
 qtbase
 qtsvg
