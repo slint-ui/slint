@@ -972,7 +972,7 @@ fn geometry_properties_for_drop(
     drop_info: &DropInformation,
     geometry: LogicalRect,
 ) -> Option<Vec<i_slint_editor_preview::editing::PropertyChange>> {
-    if drop_info.target_element_node.layout_kind() != ui::LayoutKind::None {
+    if drop_info.target_element_node.children_layout_kind() != ui::LayoutKind::None {
         return Some(Vec::new());
     }
 
@@ -1153,7 +1153,7 @@ pub fn create_drop_element_workspace_edit_with_properties(
     let for_loop = if is_list_view { "for _ in 3: " } else { "" };
 
     let mut extra_properties = extra_properties.to_vec();
-    if drop_info.target_element_node.layout_kind() == ui::LayoutKind::None {
+    if drop_info.target_element_node.children_layout_kind() == ui::LayoutKind::None {
         extend_with_new_properties(
             &mut extra_properties,
             &component.default_properties,
@@ -1611,7 +1611,7 @@ pub fn create_paste_element_at_workspace_edit(
     let drop_info = find_drop_location(&component_instance, position, &type_name)?;
     let target = &drop_info.target_element_node;
 
-    let element_position = if target.layout_kind() == ui::LayoutKind::None {
+    let element_position = if target.children_layout_kind() == ui::LayoutKind::None {
         let origin = target.geometry_at(&component_instance, position)?.rect.origin;
         Some(LogicalPoint::new(position.x - origin.x, position.y - origin.y))
     } else {
