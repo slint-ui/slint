@@ -1,9 +1,9 @@
 ---
-name: slint-plugin
+name: slint
 description: Write, edit, debug, or review Slint UIs and host-language integration in Claude Code. Use for Slint docs, development guidance, local diagnostics, and previews.
 ---
 
-# Slint Plugin for Claude Code
+# Slint Skill for Claude Code
 
 ## Find the Slint Project
 
