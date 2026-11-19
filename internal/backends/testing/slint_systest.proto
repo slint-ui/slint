@@ -284,7 +284,9 @@ message RequestGetElementTree {
 }
 
 // Only over system testing.
-// A missing element_handle requests the root elements of every window.
+// Requests the children of element_handle, or, without a handle, the root elements of every window.
+// Elements that an optimization merged into an element come first among its children.
+// The children include clipped-away elements, and the elements of popups the element shows.
 message RequestGetElementChildren {
     Handle element_handle = 1;
 }
@@ -460,14 +462,13 @@ message ElementChild {
     bool has_children = 3;
 }
 
-// Elements that an optimization merged into an element come first among its children.
-// The children include clipped-away elements, and the elements of popups the element shows.
 message GetElementChildrenResponse {
     repeated ElementChild children = 1;
     // True when the element has more children than the application keeps handles for.
     bool truncated = 2;
     // False when the application was built without debug info,
-    // so there are no children.
+    // which leaves the window roots without children.
+    // True when no window shows a component.
     bool debug_info_available = 3;
 }
 

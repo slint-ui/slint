@@ -636,6 +636,13 @@ impl ItemRc {
         comp_ref_pin.as_ref().item_element_infos(self.index, &mut result).then_some(result)
     }
 
+    /// Returns whether this item was declared by a `.slint` element,
+    /// as opposed to synthesized by the compiler, such as the `Clip` of a `clip` property.
+    /// Returns false without debug info.
+    pub fn has_element_info(&self) -> bool {
+        self.raw_element_infos().is_some_and(|infos| !infos.is_empty())
+    }
+
     pub fn element_count(&self) -> Option<usize> {
         self.raw_element_infos().map(|s| s.as_str().split("/").count())
     }

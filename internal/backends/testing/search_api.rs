@@ -445,7 +445,8 @@ impl ElementHandle {
         }
     }
 
-    /// Visits the first element of each popup and child item of `item`.
+    /// Visits the first element of each popup and child item of `item`,
+    /// looking through items without element info.
     #[cfg(feature = "system-testing")]
     fn visit_child_items<R>(
         item: &ItemRc,
@@ -453,9 +454,7 @@ impl ElementHandle {
         visitor: &mut dyn FnMut(ElementHandle) -> ControlFlow<R>,
     ) -> ControlFlow<R> {
         let mut visit_item = |item: &ItemRc| {
-            // Items the compiler synthesized have no element info,
-            // so their children belong to the nearest element above.
-            if item.element_count().unwrap_or(0) == 0 {
+            if !item.has_element_info() {
                 Self::visit_child_items(item, active_popups, visitor)
             } else {
                 visitor(ElementHandle { item: item.downgrade(), element_index: 0 })

@@ -24,8 +24,9 @@ pub(crate) mod proto;
 
 /// Maximum number of element handles kept in the arena before evicting the least recently used.
 const ELEMENT_HANDLE_CAP: usize = 10_000;
-/// How far under the cap one eviction takes the arena, so the next new handle doesn't evict again.
-const ELEMENT_HANDLE_EVICTION_SLACK: usize = ELEMENT_HANDLE_CAP / 8;
+/// How many handles one eviction leaves,
+/// under the cap so the next new handle doesn't evict again.
+const ELEMENT_HANDLE_EVICTION_TARGET: usize = ELEMENT_HANDLE_CAP - ELEMENT_HANDLE_CAP / 8;
 const EVENT_LOG_CAP: usize = 1024;
 
 fn bump(counter: &Cell<u64>) {
@@ -214,13 +215,11 @@ impl IntrospectionState {
             let root_wrapper = RootWrapper(&item_tree);
             self.element_to_handle(root_wrapper.root_element())
         };
+        // A window shows again with a new component when the live preview recompiles.
+        let shown_again = self.window_handle_for_adapter(adapter);
         let mut windows = self.windows.borrow_mut();
         windows.retain(|_, window| window.window_adapter.strong_count() > 0);
-        // A window shows again with a new component when the live preview recompiles.
-        let shown_again = windows.values_mut().find(|window| {
-            window.window_adapter.upgrade().is_some_and(|known| Rc::ptr_eq(&known, adapter))
-        });
-        match shown_again {
+        match shown_again.and_then(|index| windows.get_mut(index)) {
             Some(window) => window.root_element_handle = root_element_handle,
             None => {
                 windows.insert(TrackedWindow {
@@ -322,8 +321,7 @@ impl IntrospectionState {
                 .filter(|(index, _)| !root_indices.contains(index))
                 .map(|(index, tracked)| (tracked.last_used.get(), index))
                 .collect();
-            let excess = (arena.len() + ELEMENT_HANDLE_EVICTION_SLACK - ELEMENT_HANDLE_CAP)
-                .min(candidates.len());
+            let excess = (arena.len() - ELEMENT_HANDLE_EVICTION_TARGET).min(candidates.len());
             if excess > 0 {
                 candidates.select_nth_unstable_by_key(excess - 1, |(last_used, _)| *last_used);
             }
@@ -346,9 +344,7 @@ impl IntrospectionState {
     /// [`Self::element_to_handle`] evicts the earliest of them.
     #[cfg(feature = "system-testing")]
     fn handles_per_response(&self) -> usize {
-        // Eviction spares the window roots and shrinks the other handles to this many.
-        (ELEMENT_HANDLE_CAP - ELEMENT_HANDLE_EVICTION_SLACK)
-            .saturating_sub(self.windows.borrow().len())
+        ELEMENT_HANDLE_EVICTION_TARGET.saturating_sub(self.windows.borrow().len())
     }
 
     fn tick(&self) -> u64 {
@@ -1419,6 +1415,12 @@ mod element_children_tests {
                 x: 200px;
                 hidden-child := Rectangle { background: red; }
             }
+            wrapped := Rectangle {
+                clip: true;
+                opacity: 0.5;
+                visible: row-count > 0;
+                wrapped-child := Rectangle { }
+            }
             popup := PopupWindow {
                 popup-text := Text { text: "popup"; }
             }
@@ -1474,7 +1476,7 @@ mod element_children_tests {
         let (_app, state) = app_with_state();
         let root = child(&children(&state, None), "App::root");
         let root_children = children(&state, Some(root));
-        assert_eq!(names(&root_children), ["App::card", "App::hidden"]);
+        assert_eq!(names(&root_children), ["App::card", "App::hidden", "App::wrapped"]);
         assert!(!root_children.truncated);
 
         let hidden = children(&state, Some(child(&root_children, "App::hidden")));
@@ -1483,6 +1485,14 @@ mod element_children_tests {
 
         let card = children(&state, Some(child(&root_children, "App::card")));
         assert_eq!(names(&card), ["Card::label", "App::row", "App::row"]);
+    }
+
+    #[test]
+    fn skips_items_the_compiler_synthesized() {
+        let (_app, state) = app_with_state();
+        let root = child(&children(&state, None), "App::root");
+        let wrapped = children(&state, Some(child(&children(&state, Some(root)), "App::wrapped")));
+        assert_eq!(names(&wrapped), ["App::wrapped-child"]);
     }
 
     #[test]
