@@ -137,33 +137,28 @@ fn holds_tile(grid: vec4<f32>, loaded: f32, uv: vec2<f32>) -> f32 {
     return f32((u32(loaded) >> (slot.y * 4u + slot.x)) & 1u);
 }
 
-// What the three detail windows from `first` on show at `uv`, like `detail()` does, from their
-// `window_weights()`.
+// What the three detail windows of the day's imagery show at `uv`, like `detail()` does, from
+// their `window_weights()`.
 // The weights come from the vertices, and reach into slots next to those that hold their tile.
 // The windows are read at constant indices, because NXP's Vivante Vulkan driver is slow to read
 // uniforms at a variable index.
 // rgb: the windows' imagery, a: how much of it shows.
-fn windows_imagery(first: i32, uv: vec2<f32>, footprint: f32, weights: vec3<f32>) -> vec4<f32> {
-    var coarse_window = globals.windows[0];
-    var middle_window = globals.windows[1];
-    var fine_window = globals.windows[2];
-    if first != 0 {
-        coarse_window = globals.windows[3];
-        middle_window = globals.windows[4];
-        fine_window = globals.windows[5];
-    }
+fn day_windows_imagery(uv: vec2<f32>, footprint: f32, weights: vec3<f32>) -> vec4<f32> {
+    let coarse_window = globals.windows[0];
+    let middle_window = globals.windows[1];
+    let fine_window = globals.windows[2];
     let fine = weights.z * holds_tile(fine_window.grid, fine_window.loaded.x, uv);
     let middle = weights.y * holds_tile(middle_window.grid, middle_window.loaded.x, uv) * (1.0 - fine);
     let coarse = weights.x * holds_tile(coarse_window.grid, coarse_window.loaded.x, uv) * (1.0 - fine - middle);
     var imagery = vec3<f32>(0.0);
     if coarse > 0.002 {
-        imagery += coarse * window_sample(first, coarse_window.grid, uv, footprint);
+        imagery += coarse * window_sample(0, coarse_window.grid, uv, footprint);
     }
     if middle > 0.002 {
-        imagery += middle * window_sample(first + 1, middle_window.grid, uv, footprint);
+        imagery += middle * window_sample(1, middle_window.grid, uv, footprint);
     }
     if fine > 0.002 {
-        imagery += fine * window_sample(first + 2, fine_window.grid, uv, footprint);
+        imagery += fine * window_sample(2, fine_window.grid, uv, footprint);
     }
     return vec4<f32>(imagery, coarse + middle + fine);
 }
@@ -429,9 +424,9 @@ struct CapOutput {
     @location(1) daylight: vec3<f32>,
     // x: how much the city lights show, y: how much of the haze, z: how bright the haze is.
     @location(2) shading: vec3<f32>,
-    // The `window_weights()` of the day's imagery and of the night's lights.
+    // The `window_weights()` of the day's imagery.
+    // The night's lights come from the globe's own imagery, which is quicker.
     @location(3) day_windows: vec3<f32>,
-    @location(4) night_windows: vec3<f32>,
 }
 
 // `grid` goes around the point below the camera, and from it to the horizon.
@@ -468,7 +463,6 @@ fn vs_cap(@location(0) grid: vec2<f32>) -> CapOutput {
     // Under the moonlight, the globe's own imagery will do.
     let lit = lambert > 0.0 || sun_strength < 1.0;
     out.day_windows = select(vec3<f32>(0.0), window_weights(0, vec2<f32>(u, v)), lit);
-    out.night_windows = select(vec3<f32>(0.0), window_weights(3, vec2<f32>(u, v)), darkness > 0.0);
     return out;
 }
 
@@ -489,16 +483,14 @@ fn fs_cap(in: CapOutput) -> @location(0) vec4<f32> {
         0.5 - asin(clamp(normal.y, -1.0, 1.0)) / PI
     );
     let day_windows = in.day_windows * 1.0;
-    let night_windows = in.night_windows * 1.0;
     // The map is twice as wide as high, so a step in `uv.y` covers half as much of its width.
     let ddx = dpdx(uv) * vec2<f32>(1.0, 0.5);
     let ddy = dpdy(uv) * vec2<f32>(1.0, 0.5);
     let footprint = 0.5 * log2(max(dot(ddx, ddx), dot(ddy, ddy)));
-    let day = windows_imagery(0, uv, footprint, day_windows);
-    let night = windows_imagery(3, uv, footprint, night_windows);
+    let day = day_windows_imagery(uv, footprint, day_windows);
     // The globe's own imagery shows where no window does.
     let imagery = day.rgb + textureSample(day_imagery, map_sampler, uv).rgb * (1.0 - day.a);
-    let city_light = night.r + textureSample(night_imagery, map_sampler, uv).r * (1.0 - night.a);
+    let city_light = textureSample(night_imagery, map_sampler, uv).r;
     var ground = imagery * in.daylight + vec3<f32>(1.0, 0.62, 0.3) * city_light * shading.x;
     ground = mix(ground, vec3<f32>(0.4, 0.62, 1.0) * shading.z, shading.y);
     ground = ground * 1.2 / (1.0 + ground * 0.2);

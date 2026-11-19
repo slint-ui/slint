@@ -1475,9 +1475,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         let windows = match &mut detail {
             Some(detail) => {
                 let target = demo.camera.pose.target;
-                // The day side shows no lights.
+                // The day side shows no lights, and low quality draws them from the base imagery.
                 let dark = app.get_sunlight() && target.dot(sun) < 0.15;
-                let kinds = (true, dark);
+                let kinds = (true, dark && app.get_quality() != Quality::Low);
                 detail.update(renderer, target, footprint, app.get_online_imagery(), kinds, dt)
             }
             None => Default::default(),
