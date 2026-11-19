@@ -99,9 +99,9 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SkiaDmabufRendererAd
 
         // Skia and the release submit to the queue directly, so this empty submission
         // is the first one known to wgpu that completes after the frame.
-        let submission = self.queue.submit([]);
+        let submit = || self.queue.submit([]);
         self.display
-            .present_after(&self.device, submission, sync_file)
+            .present_after(&self.device, submit, sync_file)
             .map_err(|e| format!("Error presenting dma-buf: {e}"))?;
         Ok(DrawOutcome::Success)
     }
