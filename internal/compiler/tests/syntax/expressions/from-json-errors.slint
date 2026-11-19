@@ -27,7 +27,7 @@ export component SuperSimple {
     property <int> missing_nested_key: @from-json("from-json/data.json").element.sub-element.missing;
 //                                                                                           >     <error{No key 'missing' in 'element.sub_element' of the JSON file 📂/tests/syntax/expressions/from-json/data.json}
     property <int> not_an_object: @from-json("from-json/data.json").a_string.x;
-//                                                                           ^error{'a_string' in the JSON file 📂/tests/syntax/expressions/from-json/data.json is not an object}
+//                                                                           ^error{Cannot access the field 'x' of string}
     property <int> is_null: @from-json("from-json/data.json").a_null;
 //                          >                                      <error{The JSON value at 'a_null' in 📂/tests/syntax/expressions/from-json/data.json is null, which cannot be used for a value of type int}
     property <int> type_mismatch: @from-json("from-json/data.json").a_string;

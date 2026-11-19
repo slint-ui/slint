@@ -47,20 +47,24 @@ pub fn as_chain(node: &SyntaxNode) -> Option<(syntax_nodes::AtFromJson, Vec<Step
 
 /// Lowers `node`, followed by `steps`, to a literal of the expected type.
 /// `whole` is the complete expression, used to report a mismatching value.
+///
+/// Returns `None` if a `.member` step applies to a JSON value that isn't an object,
+/// such as `.length` on an array.
+/// The caller then resolves `whole` as a regular member access or index expression.
 pub fn lower(
     node: &syntax_nodes::AtFromJson,
     steps: &[Step],
     whole: &SyntaxNode,
     ctx: &mut LookupCtx,
-) -> Expression {
+) -> Option<Expression> {
     let Some(path_token) = node.child_token(SyntaxKind::StringLiteral) else {
         debug_assert!(ctx.diag.has_errors());
-        return Expression::Invalid;
+        return Some(Expression::Invalid);
     };
     let Some(path_str) =
         crate::literals::unescape_string_reporting(Some(&path_token), ctx.diag, node)
     else {
-        return Expression::Invalid;
+        return Some(Expression::Invalid);
     };
 
     let resolved = match ctx.type_loader {
@@ -80,11 +84,11 @@ pub fn lower(
         Ok(content) => content,
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
             ctx.diag.push_error(format!("Cannot find JSON file {resolved}"), &path_token);
-            return Expression::Invalid;
+            return Some(Expression::Invalid);
         }
         Err(err) => {
             ctx.diag.push_error(format!("Cannot read JSON file {resolved}: {err}"), &path_token);
-            return Expression::Invalid;
+            return Some(Expression::Invalid);
         }
     };
     // serde_json rejects the UTF-8 BOM that some editors write.
@@ -94,7 +98,7 @@ pub fn lower(
         Ok(v) => v,
         Err(err) => {
             ctx.diag.push_error(format!("Cannot parse JSON file {resolved}: {err}"), &path_token);
-            return Expression::Invalid;
+            return Some(Expression::Invalid);
         }
     };
 
@@ -102,23 +106,27 @@ pub fn lower(
     let mut path = JsonPath::default();
     for step in steps {
         let next = match step {
-            Step::Member(token) => member(current, token, &path, &resolved, ctx),
+            Step::Member(token) => member(current.as_object()?, token, &path, &resolved, ctx),
             Step::Index(index) => element(current, index, &path, &resolved, ctx),
         };
         let Some((segment, value)) = next else {
-            return Expression::Invalid;
+            return Some(Expression::Invalid);
         };
         path.0.push(segment);
         current = value;
     }
 
     let target_ty = match &ctx.expected_type {
-        Type::Invalid | Type::Void | Type::InferredProperty | Type::InferredCallback => None,
+        Type::Invalid
+        | Type::Void
+        | Type::InferredProperty
+        | Type::InferredCallback
+        | Type::Model => None,
         _ if !is_converted_to_expected_type(whole) => None,
         ty => Some(ty.clone()),
     };
     let target_ty = target_ty.unwrap_or_else(|| infer_type(current));
-    json_to_expression(current, &target_ty, &mut path, &resolved, whole, ctx)
+    Some(json_to_expression(current, &target_ty, &mut path, &resolved, whole, ctx))
 }
 
 /// Whether `node` is converted to the `expected_type` of the lookup context.
@@ -165,19 +173,15 @@ fn infer_type(value: &serde_json::Value) -> Type {
     }
 }
 
-/// Looks up the key named by `token` in `value`.
+/// Looks up the key named by `token` in `object`.
 fn member<'a>(
-    value: &'a serde_json::Value,
+    object: &'a serde_json::Map<String, serde_json::Value>,
     token: &SyntaxToken,
     path: &JsonPath,
     file: &SourcePath,
     ctx: &mut LookupCtx,
 ) -> Option<(Segment, &'a serde_json::Value)> {
     let name = token.text();
-    let Some(object) = value.as_object() else {
-        ctx.diag.push_error(path.not_a(file, "an object"), token);
-        return None;
-    };
     let Some((key, value)) = lookup_key(object, name) else {
         let message = if path.0.is_empty() {
             format!("No key '{name}' at the root of the JSON file {}", file)
@@ -206,7 +210,7 @@ fn element<'a>(
         return None;
     };
     let Some(array) = value.as_array() else {
-        ctx.diag.push_error(path.not_a(file, "an array"), index);
+        ctx.diag.push_error(path.not_an_array(file), index);
         return None;
     };
     let Some(element) = usize::try_from(i).ok().and_then(|i| array.get(i)) else {
@@ -268,12 +272,12 @@ impl JsonPath {
         }
     }
 
-    /// The error for a value that isn't `what` ("an object" or "an array").
-    fn not_a(&self, file: &SourcePath, what: &str) -> String {
+    /// The error for a value that isn't an array.
+    fn not_an_array(&self, file: &SourcePath) -> String {
         if self.0.is_empty() {
-            format!("The root of the JSON file {} is not {what}", file)
+            format!("The root of the JSON file {} is not an array", file)
         } else {
-            format!("'{self}' in the JSON file {} is not {what}", file)
+            format!("'{self}' in the JSON file {} is not an array", file)
         }
     }
 }

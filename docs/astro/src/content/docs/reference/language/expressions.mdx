@@ -196,6 +196,8 @@ Each member name matches a JSON object key exactly first.
 Otherwise, keys are compared with underscores and dashes treated as equivalent,
 so a JSON file can use whichever convention suits the tool that generated it.
 Member access only reaches keys that are valid Slint identifiers.
+On a JSON value that isn't an object, a member is one of the value's built-in members,
+such as `.length` on an array or `.character-count` on a string.
 
 The JSON value is converted to match the declared type of the property:
 
@@ -217,12 +219,18 @@ A JSON object converted to a struct only uses the keys that match a declared fie
 Other keys in that object are ignored.
 A struct field that's absent from the JSON object takes the field's declared default value.
 
-Inside a larger expression, such as an operand of `+` or `>`, the type comes from the JSON value instead.
+Inside a larger expression, such as an operand of `+` or `>`, or as the model of a `for`, the type comes from the JSON value instead.
 A number is a `float`, an object is an anonymous struct, and an array takes the common type of its elements:
 
 ```slint
 export component Example {
     property <bool> popular: @from-json("snippet-data/data.json")[0].stats.visitors.count > 10;
+    property <int> tag-count: @from-json("snippet-data/data.json")[0].tags.length;
+    VerticalLayout {
+        for entry in @from-json("snippet-data/data.json") : Text {
+            text: entry.greeting;
+        }
+    }
 }
 ```
 

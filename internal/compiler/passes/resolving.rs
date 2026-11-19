@@ -734,9 +734,17 @@ impl Expression {
                     | SyntaxKind::IndexExpression
                         if let Some((at_from_json, steps)) = from_json::as_chain(&node) =>
                     {
-                        #[cfg(feature = "slint-sc")]
-                        ctx.diag.slint_sc_error("@from-json() expressions are", &node);
-                        return from_json::lower(&at_from_json, &steps, &node, ctx);
+                        if let Some(expr) = from_json::lower(&at_from_json, &steps, &node, ctx) {
+                            #[cfg(feature = "slint-sc")]
+                            ctx.diag.slint_sc_error("@from-json() expressions are", &node);
+                            return expr;
+                        }
+                        return match node.kind() {
+                            SyntaxKind::MemberAccess => {
+                                Self::from_member_access_node(node.into(), ctx)
+                            }
+                            _ => Self::from_index_expression_node(node.into(), ctx),
+                        };
                     }
                     SyntaxKind::QualifiedName => {
                         return Self::from_qualified_name_node(node.into(), ctx);
