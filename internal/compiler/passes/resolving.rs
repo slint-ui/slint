@@ -2111,18 +2111,18 @@ impl Expression {
                     .find(|slot| slot.name == metadata.borrow().id)
                     .cloned()
                     .unwrap();
-                let constraint = slot.interface.map(ElementType::Component).or(slot.component_type);
-                let lookup = constraint.map(|constraint| {
-                    constraint.lookup_property(&name, PropertyLookupMode::ComponentLocal)
-                });
-                let Some(lookup) = lookup.filter(|lookup| {
-                    lookup.property_type.is_property_type()
-                        && !matches!(
-                            lookup.property_visibility,
-                            PropertyVisibility::Private | PropertyVisibility::Protected
-                        )
-                        && lookup.property_type != Type::Invalid
-                }) else {
+                let constraint = slot
+                    .interface
+                    .map(ElementType::Component)
+                    .or(slot.component_type)
+                    .unwrap_or_else(|| ctx.type_register.empty_type());
+                let lookup = constraint.lookup_property(&name, PropertyLookupMode::ComponentLocal);
+                if !lookup.property_type.is_property_type()
+                    || matches!(
+                        lookup.property_visibility,
+                        PropertyVisibility::Private | PropertyVisibility::Protected
+                    )
+                {
                     ctx.diag.push_error(
                         format!(
                             "Collection slot '{}' does not expose a readable property '{name}'",
@@ -2131,7 +2131,7 @@ impl Expression {
                         &node,
                     );
                     return Expression::Invalid;
-                };
+                }
                 let function = crate::object_tree::slot_collections::indexed_member(
                     &metadata,
                     name.clone(),

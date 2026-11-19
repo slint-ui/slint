@@ -363,8 +363,16 @@ Calls with return values return type defaults after the instance is destroyed.
 An expansion can supply the default collection of another component:
 
 ```slint
-InnerContainer {
-    for entry in entries: entry { }
+component InnerContainer {
+    default slot <[*]> content;
+    for child in content: child { }
+}
+
+export component OuterContainer {
+    default slot <[*]> entries;
+    InnerContainer {
+        for entry in entries: entry { }
+    }
 }
 ```
 

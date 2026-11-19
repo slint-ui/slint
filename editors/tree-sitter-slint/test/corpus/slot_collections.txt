@@ -1,0 +1,125 @@
+================================================================================
+collection_slot_declarations
+================================================================================
+
+component Group {
+    default slot <[*]> entries;
+    slot <[Text]> labels;
+    slot <[widgets.Page]> pages;
+    slot <[implements Entry]> actions;
+    slot <[implements widgets.Entry]> others;
+    slot <[*]> content << Rectangle { }
+    for entry[index] in entries: entry { visible: index == 0; }
+    for entry in entries: Text { text: entry.width; }
+    out property <bool> first-visible: entries[0].visible;
+}
+--------------------------------------------------------------------------------
+
+(sourcefile
+  (component_definition
+    (user_type_identifier)
+    (block
+      (slot_declaration
+        (simple_identifier))
+      (slot_declaration
+        (user_type_identifier)
+        (simple_identifier))
+      (slot_declaration
+        (user_type_identifier)
+        (user_type_identifier)
+        (simple_identifier))
+      (slot_declaration
+        (user_type_identifier)
+        (simple_identifier))
+      (slot_declaration
+        (user_type_identifier)
+        (user_type_identifier)
+        (simple_identifier))
+      (slot_declaration
+        (simple_identifier)
+        (component
+          (user_type_identifier)
+          (block)))
+      (for_loop
+        (simple_indexed_identifier
+          (simple_identifier)
+          (simple_identifier))
+        (for_range
+          (expression
+            (simple_identifier)))
+        (component
+          (user_type_identifier)
+          (block
+            (property_assignment
+              (simple_identifier)
+              (expression
+                (binary_expression
+                  (expression
+                    (simple_identifier))
+                  (comparison_operator)
+                  (expression
+                    (value
+                      (int_value)))))))))
+      (for_loop
+        (simple_indexed_identifier
+          (simple_identifier))
+        (for_range
+          (expression
+            (simple_identifier)))
+        (component
+          (user_type_identifier)
+          (block
+            (property_assignment
+              (simple_identifier)
+              (expression
+                (member_access
+                  (expression
+                    (simple_identifier))
+                  (expression
+                    (simple_identifier))))))))
+      (property
+        (property_visibility)
+        (type
+          (builtin_type_identifier))
+        (simple_identifier)
+        (expression
+          (member_access
+            (expression
+              (index_op
+                (expression
+                  (simple_identifier))
+                (expression
+                  (value
+                    (int_value)))))
+            (expression
+              (simple_identifier))))))))
+
+================================================================================
+default_remains_a_contextual_keyword
+================================================================================
+
+component Example {
+    default: 42;
+    default { }
+    callback default();
+    default => { }
+}
+--------------------------------------------------------------------------------
+
+(sourcefile
+  (component_definition
+    (user_type_identifier)
+    (block
+      (property_assignment
+        (simple_identifier)
+        (expression
+          (value
+            (int_value))))
+      (component
+        (user_type_identifier)
+        (block))
+      (callback
+        (simple_identifier))
+      (callback_event
+        (simple_identifier)
+        (imperative_block)))))

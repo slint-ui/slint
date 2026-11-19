@@ -181,6 +181,9 @@ instance->set_model_count(3);
 instance->invoke_append_projected();
 assert(instance->get_repeated_count() == 3);
 assert(instance->get_repeated_view_count() == 3);
+#ifndef SLINT_FEATURE_LIVE_PREVIEW
+// The live-preview wrapper does not support ElementHandle queries.
 assert(!slint::testing::ElementHandle::find_by_accessible_label(instance, "Summary 2: Projected 2").empty());
+#endif
 ```
 */

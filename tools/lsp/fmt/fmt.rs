@@ -4310,7 +4310,7 @@ export component MainWindow2 inherits Rectangle {
     fn slot_collections() {
         assert_formatting(
             "component Group { default slot < [ implements   Entry ] > items; HorizontalLayout {for item[index] in items: item{value:index;}} }",
-            "component Group {\n    default slot <[implements Entry]> items;\n    HorizontalLayout {\n        for item[index] in items: item {\n            value: index;\n        }\n    }\n}\n",
+            "component Group {\n    default slot <[implements Entry]> items;\n\n    HorizontalLayout {\n        for item[index] in items: item {\n            value: index;\n        }\n    }\n}\n",
         );
         assert_formatting(
             "component Group {slot< [ * ] > items;for item in items:item{}}",

@@ -325,6 +325,8 @@ button("Change 0:B: 0");
 
 ```cpp
 auto handle = TestCase::create();
+#ifndef SLINT_FEATURE_LIVE_PREVIEW
+// The live-preview wrapper does not support ElementHandle queries.
 const auto &instance = *handle;
 auto button = [&](const char *label) {
     auto matches = slint::testing::ElementHandle::find_by_accessible_label(handle, label);
@@ -349,9 +351,12 @@ slint_testing::mock_elapsed_time(100);
 assert_eq(slint::testing::ElementHandle::find_by_accessible_label(handle, "Progress B: 50").size(), 1u);
 slint_testing::mock_elapsed_time(100);
 assert_eq(slint::testing::ElementHandle::find_by_accessible_label(handle, "Progress B: 100").size(), 1u);
+#endif
 ```
 
 ```cpp
+#ifndef SLINT_FEATURE_LIVE_PREVIEW
+// The live-preview wrapper does not support ElementHandle queries.
 for (bool composed : {false, true}) {
     for (int mode = 0; mode < 3; ++mode) {
         auto handle = LifetimeTest::create();
@@ -385,9 +390,12 @@ for (bool composed : {false, true}) {
         }
     }
 }
+#endif
 ```
 
 ```cpp
+#ifndef SLINT_FEATURE_LIVE_PREVIEW
+// The live-preview wrapper does not support ElementHandle queries.
 auto handle = VirtualizedTest::create();
 auto layout = [&] { handle->window().dispatch_pointer_move_event(slint::LogicalPosition({ 1., 1. })); };
 auto button = [&](const char *label) {
@@ -410,6 +418,7 @@ assert(handle->get_constructions() < 200);
 handle->invoke_scroll_to(0);
 layout();
 button("Change 0:B: 0");
+#endif
 ```
 
 ```rust
@@ -427,6 +436,8 @@ for index in [1, 0] {
 ```cpp
 auto handle = FocusTest::create();
 assert(handle->get_test());
+#ifndef SLINT_FEATURE_LIVE_PREVIEW
+// The live-preview wrapper does not support ElementHandle queries.
 for (int index : {1, 0}) {
     auto buttons = slint::testing::ElementHandle::find_by_accessible_label(handle, index ? "Focus 1" : "Focus 0");
     auto button = std::find_if(buttons.begin(), buttons.end(), [](const auto &element) {
@@ -436,5 +447,6 @@ for (int index : {1, 0}) {
     button->invoke_accessible_default_action();
     assert(handle->get_focused_index() == index);
 }
+#endif
 ```
 */
