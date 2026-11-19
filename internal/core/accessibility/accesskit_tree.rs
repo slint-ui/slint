@@ -60,6 +60,76 @@ pub trait AccessKitHost {
     fn focus_dirty(&self);
 }
 
+/// What a backend has sent to its platform adapter, and the rules for when a further update is
+/// worth sending.
+///
+/// A backend keeps one next to its [`AccessKitTree`] and asks it before every update.
+pub struct AccessKitUpdateState {
+    initial_tree_sent: bool,
+    pending_update: bool,
+    enabled: bool,
+}
+
+impl Default for AccessKitUpdateState {
+    fn default() -> Self {
+        Self { initial_tree_sent: false, pending_update: false, enabled: true }
+    }
+}
+
+impl AccessKitUpdateState {
+    /// The platform asked for the tree and the whole tree was sent.
+    pub fn set_initial_tree_sent(&mut self) {
+        self.initial_tree_sent = true;
+    }
+
+    /// The platform does not use the tree anymore.
+    pub fn set_deactivated(&mut self) {
+        self.initial_tree_sent = false;
+    }
+
+    /// Whether updates are wanted. Backends whose platform can switch the accessibility services
+    /// on and off without dropping the adapter turn this off; nothing is sent while it is.
+    pub fn set_enabled(&mut self, enabled: bool) {
+        self.enabled = enabled;
+    }
+
+    /// The platform has the tree and listens to updates.
+    pub fn is_live(&self) -> bool {
+        self.initial_tree_sent && self.enabled
+    }
+
+    /// Whether the whole tree should be sent again, because its structure changed. Returns `false`
+    /// when that is not needed or already scheduled. When it returns `true`, the backend schedules
+    /// the reload and calls [`Self::reload_started`] when it runs.
+    pub fn should_schedule_reload(&mut self) -> bool {
+        if self.pending_update || !self.initial_tree_sent {
+            return false;
+        }
+        self.pending_update = true;
+        true
+    }
+
+    /// The scheduled reload runs now. Returns whether the tree should be sent.
+    pub fn reload_started(&mut self) -> bool {
+        self.pending_update = false;
+        self.enabled
+    }
+
+    /// Whether the nodes that were marked dirty should be sent. A pending reload sends everything
+    /// anyway, and the focus node might not be known to the platform yet when the structure
+    /// changed.
+    pub fn should_send_dirty_nodes(&self, tree: &AccessKitTree) -> bool {
+        self.is_live() && !self.pending_update && tree.has_dirty_nodes()
+    }
+
+    /// Whether a focus change should be sent. Sending one before the initial tree would send a
+    /// `tree: None`, and for the reason of [`Self::should_send_dirty_nodes`] it waits for a pending
+    /// reload.
+    pub fn should_send_focus(&self) -> bool {
+        self.is_live() && !self.pending_update
+    }
+}
+
 const NODE_ID_INDEX_BITS: u32 = 16;
 const NODE_ID_INDEX_MASK: u64 = (1 << NODE_ID_INDEX_BITS) - 1; // 0xFFFF
 const NODE_ID_COMPONENT_BITS: u32 = 22;
@@ -937,4 +1007,45 @@ struct AccessiblePopup {
     location: LogicalPoint,
     parent_node: NodeId,
     component: ItemTreeRc,
+}
+
+#[cfg(test)]
+mod update_state_tests {
+    use super::AccessKitUpdateState;
+
+    #[test]
+    fn nothing_is_sent_before_the_initial_tree() {
+        let mut state = AccessKitUpdateState::default();
+        assert!(!state.should_send_focus());
+        assert!(!state.should_schedule_reload());
+        state.set_initial_tree_sent();
+        assert!(state.should_send_focus());
+        state.set_deactivated();
+        assert!(!state.should_send_focus());
+    }
+
+    #[test]
+    fn a_reload_is_scheduled_once_and_blocks_focus_updates() {
+        let mut state = AccessKitUpdateState::default();
+        state.set_initial_tree_sent();
+        assert!(state.should_schedule_reload());
+        assert!(!state.should_schedule_reload());
+        assert!(!state.should_send_focus());
+        assert!(state.reload_started());
+        assert!(state.should_send_focus());
+        assert!(state.should_schedule_reload());
+    }
+
+    #[test]
+    fn nothing_is_sent_while_disabled() {
+        let mut state = AccessKitUpdateState::default();
+        state.set_initial_tree_sent();
+        state.set_enabled(false);
+        assert!(!state.is_live());
+        assert!(!state.should_send_focus());
+        assert!(state.should_schedule_reload());
+        assert!(!state.reload_started());
+        state.set_enabled(true);
+        assert!(state.should_send_focus());
+    }
 }

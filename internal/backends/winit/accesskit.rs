@@ -5,7 +5,7 @@ use std::rc::{Rc, Weak};
 
 use accesskit::ActionRequest;
 use i_slint_core::accessibility::accesskit_tree::{
-    AccessKitHost, AccessKitTree, DeferredAccessKitAction,
+    AccessKitHost, AccessKitTree, AccessKitUpdateState, DeferredAccessKitAction,
 };
 use i_slint_core::item_tree::ItemTreeRef;
 
@@ -30,8 +30,7 @@ pub struct AccessKitAdapter {
     inner: accesskit_winit::Adapter,
     window_adapter_weak: Weak<WinitWindowAdapter>,
     tree: AccessKitTree,
-    pending_update: bool,
-    initial_tree_sent: bool,
+    update_state: AccessKitUpdateState,
 }
 
 impl AccessKitAdapter {
@@ -52,8 +51,7 @@ impl AccessKitAdapter {
                 window_adapter_weak.clone(),
                 Rc::new(WinitAccessKitHost { window_adapter_weak }),
             ),
-            pending_update: false,
-            initial_tree_sent: false,
+            update_state: Default::default(),
         }
     }
 
@@ -76,12 +74,12 @@ impl AccessKitAdapter {
         match window_event {
             accesskit_winit::WindowEvent::InitialTreeRequested => {
                 self.inner.update_if_active(|| self.tree.build_new_tree());
-                self.initial_tree_sent = true;
+                self.update_state.set_initial_tree_sent();
                 None
             }
             accesskit_winit::WindowEvent::ActionRequested(r) => self.handle_request(r),
             accesskit_winit::WindowEvent::AccessibilityDeactivated => {
-                self.initial_tree_sent = false;
+                self.update_state.set_deactivated();
                 self.tree.clear_text_state();
                 None
             }
@@ -89,14 +87,7 @@ impl AccessKitAdapter {
     }
 
     pub fn handle_focus_item_change(&mut self) {
-        // Ignore focus changes until an initial tree was sent, to avoid sending `tree: None`.
-        if !self.initial_tree_sent {
-            return;
-        }
-        // Don't send a tree update now with an empty tree/node list when we know that the structure
-        // if the tree has changed. It might be that the focus node is not known yet to AccessKit.
-        // The pending update will take care of setting the focus node.
-        if self.pending_update {
+        if !self.update_state.should_send_focus() {
             return;
         }
         self.inner.update_if_active(|| self.tree.focus_update())
@@ -107,16 +98,16 @@ impl AccessKitAdapter {
     }
 
     pub fn reload_tree(&mut self) {
-        if self.pending_update {
+        if !self.update_state.should_schedule_reload() {
             return;
         }
-        self.pending_update = true;
 
         self.invoke_later(|self_cell, _| {
             let mut self_ = self_cell.borrow_mut();
             let self_ = &mut *self_;
-            self_.pending_update = false;
-            self_.inner.update_if_active(|| self_.tree.build_new_tree())
+            if self_.update_state.reload_started() {
+                self_.inner.update_if_active(|| self_.tree.build_new_tree())
+            }
         });
     }
 
@@ -126,10 +117,7 @@ impl AccessKitAdapter {
     }
 
     fn rebuild_tree_of_dirty_nodes(&mut self) {
-        // Don't end a tree update now with an empty tree/node list when we know that the structure
-        // if the tree has changed. It might be that the focus node is not known yet to AccessKit.
-        // The pending update will take care rebuilding the entire tree anyway.
-        if self.pending_update || !self.tree.has_dirty_nodes() {
+        if !self.update_state.should_send_dirty_nodes(&self.tree) {
             return;
         }
 
