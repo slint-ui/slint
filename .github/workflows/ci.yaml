@@ -279,10 +279,13 @@ jobs:
                   dotnet-version: 10.0.401
             # Each .NET for iOS requires one Xcode: the workload set 10.0.401 has .NET for iOS 26.5,
             # which requires the runner's default Xcode 26.6, while newer sets require Xcode 27.
+            # The runner also has a newer SDK, so these run where api/dotnet/global.json selects 10.0.401.
             - name: Install the .NET iOS workload
+              working-directory: api/dotnet
               run: dotnet workload install ios --version 10.0.401
             - name: Build the todo example for the iOS simulator
-              run: dotnet build examples/todo/dotnet-ios/TodoIOS.csproj
+              working-directory: api/dotnet
+              run: dotnet build ../../examples/todo/dotnet-ios/TodoIOS.csproj
             - name: Start the todo example in an iPhone simulator
               run: scripts/dotnet_ios_smoke_test.sh examples/todo/dotnet-ios/bin/Debug/net10.0-ios/iossimulator-arm64/TodoIOS.app dev.slint.dotnet.todo 30
 
