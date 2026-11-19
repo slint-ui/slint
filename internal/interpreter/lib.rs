@@ -74,9 +74,9 @@ instance.run().unwrap();
 #![warn(missing_docs)]
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 
-#[cfg(not(any(feature = "compat-1-18", feature = "internal-mcu-interpreter")))]
+#[cfg(not(any(feature = "compat-1-20", feature = "internal-mcu-interpreter")))]
 compile_error!(
-    "The feature `compat-1-18` must be enabled to ensure \
+    "The feature `compat-1-20` must be enabled to ensure \
     forward compatibility with future version of this crate"
 );
 
