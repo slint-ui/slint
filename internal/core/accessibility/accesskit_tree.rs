@@ -704,8 +704,20 @@ impl AccessKitTree {
     /// away from it as well. The popups themselves, and what they open from, stay in reach.
     fn is_blocked_by_popup(&self, item: &ItemRc) -> bool {
         let Some(modal) = &self.modal_popups else { return false };
-        !modal.trees.iter().any(|tree| vtable::VRc::ptr_eq(tree, item.item_tree()))
-            && !modal.ancestors.contains(item)
+        if modal.ancestors.contains(item) {
+            return false;
+        }
+        // Items of a `for` or `if` in a popup are in a repeated tree, so look through the parents.
+        let mut current = item.clone();
+        loop {
+            if modal.trees.iter().any(|tree| vtable::VRc::ptr_eq(tree, current.item_tree())) {
+                return false;
+            }
+            match current.parent_item(ParentItemTraversalMode::StopAtPopups) {
+                Some(parent) => current = parent,
+                None => return true,
+            }
+        }
     }
 
     fn build_node_without_children(
@@ -999,7 +1011,7 @@ impl crate::properties::PropertyDirtyHandler for DelegateFocusPropertyTracker {
 struct CachedNode {
     id: NodeId,
     children: Vec<NodeId>,
-    /// Where the window of the item is, which is not the origin for the items of a popup.
+    /// The origin of the popup the item is in, or zero for an item of the main window.
     window_position: LogicalPoint,
     tracker: Pin<Box<PropertyTracker>>,
 }

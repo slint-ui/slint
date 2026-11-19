@@ -245,8 +245,8 @@ fn an_open_popup_hides_the_rest_of_the_window() {
 
     f.instance.invoke("open-popup", &[]).unwrap();
     let update = f.tree.build_new_tree();
-    // What is not in reach of the popup is hidden, and so is the rest of the window: the popup
-    // blocks input to it. The button that opened the popup is what the popup is a child of.
+    // The popup blocks input to the rest of the window, so that is hidden.
+    // The button that opened the popup is what the popup is a child of.
     let hidden = hidden_labels(&update);
     assert_eq!(hidden, ["Background", "Beside"], "{hidden:?}");
     assert!(!node_by_label(&update, "In the popup").1.is_hidden());
@@ -256,11 +256,59 @@ fn an_open_popup_hides_the_rest_of_the_window() {
     assert!(hidden_labels(&f.tree.build_new_tree()).is_empty());
 }
 
+const REPEATED_POPUP_SOURCE: &str = r#"
+export component TestCase inherits Window {
+    width: 400px;
+    height: 300px;
+
+    in property <[string]> items: ["First", "Second"];
+    in property <bool> show-extra: true;
+    public function open-popup() { popup.show(); }
+
+    Rectangle {
+        accessible-role: button;
+        accessible-label: "Background";
+    }
+
+    opener := Rectangle {
+        accessible-role: button;
+        accessible-label: "Opener";
+        height: 20px;
+
+        popup := PopupWindow {
+            y: 30px;
+            width: 100px;
+            height: 80px;
+            for item in root.items: Rectangle {
+                accessible-role: button;
+                accessible-label: item;
+            }
+            if root.show-extra: Rectangle {
+                accessible-role: button;
+                accessible-label: "Extra";
+            }
+        }
+    }
+}
+"#;
+
+#[test]
+fn items_repeated_in_a_popup_are_not_hidden() {
+    let mut f = Fixture::with_source(REPEATED_POPUP_SOURCE);
+    f.instance.invoke("open-popup", &[]).unwrap();
+    let update = f.tree.build_new_tree();
+    let hidden = hidden_labels(&update);
+    assert_eq!(hidden, ["Background"], "{hidden:?}");
+    for label in ["First", "Second", "Extra"] {
+        assert!(!node_by_label(&update, label).1.is_hidden(), "{label}");
+    }
+}
+
 #[test]
 fn a_popup_that_does_not_close_itself_blocks_input_too() {
     let mut f = Fixture::with_source(POPUP_SOURCE);
     f.instance.invoke("open-quiet-popup", &[]).unwrap();
-    // Input to the rest of the window is blocked here too
+    // Input to the rest of the window is blocked here too.
     let hidden = hidden_labels(&f.tree.build_new_tree());
     assert_eq!(hidden, ["Background", "Beside", "Opener"], "{hidden:?}");
 }
@@ -466,6 +514,7 @@ fn clearing_the_text_state_keeps_the_tree_usable() {
     let update = f.tree.build_new_tree();
     assert!(update.tree.is_some());
 }
+
 #[test]
 fn a_rebuilt_node_in_a_popup_keeps_the_position_of_the_popup() {
     let source = r#"
