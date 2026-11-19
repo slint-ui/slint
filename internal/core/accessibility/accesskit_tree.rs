@@ -740,16 +740,15 @@ impl AccessKitTree {
         let (flickable_item, flickable) = find_exposed_flickable(&item)?;
         let metrics = flickable.as_pin_ref().scroll_metrics(&flickable_item);
 
-        // The part of a page that the next page repeats, so that the last item stays in view
+        // A page moves 90% of the viewport, so the next page repeats the last 10%.
         const PAGE: f32 = 0.9;
+        // The items are not known here, so one item is approximated by 10% of the viewport.
         const ITEM: f32 = 0.1;
-        let amount = |viewport: crate::Coord| {
-            let fraction = match request.data {
-                Some(accesskit::ActionData::ScrollUnit(accesskit::ScrollUnit::Item)) => ITEM,
-                _ => PAGE,
-            };
-            viewport as f32 * fraction
+        let fraction = match request.data {
+            Some(accesskit::ActionData::ScrollUnit(accesskit::ScrollUnit::Item)) => ITEM,
+            _ => PAGE,
         };
+        let amount = |viewport: crate::Coord| viewport as f32 * fraction;
         let (current_x, current_y) = (metrics.offset.x as f32, metrics.offset.y as f32);
         let (x, y) = match request.action {
             Action::ScrollLeft => (current_x - amount(metrics.viewport.width), current_y),

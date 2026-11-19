@@ -462,8 +462,6 @@ impl Flickable {
     /// How far the content is scrolled and how far it can be: the size of the visible part, the
     /// distance between the top left corners of the content and of the visible part, and the
     /// largest such distance.
-    ///
-    /// This is what assistive technologies need to scroll the content.
     pub fn scroll_metrics(self: Pin<&Self>, self_rc: &ItemRc) -> ScrollMetrics {
         let viewport = Self::geometry_without_virtual_keyboard(self_rc).size;
         let max_x = (self.content_width().get() - viewport.width).max(0 as Coord);
