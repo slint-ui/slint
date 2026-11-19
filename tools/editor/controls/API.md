@@ -354,13 +354,23 @@ See the [standard radio API](../../../docs/astro/src/content/docs/reference/std-
 | Component | Input | Type | Default or Meaning |
 | --- | --- | --- | --- |
 | RadioGroup | `title` | `string` | Empty; default header text and accessibility label |
-| RadioGroup | `title-color` | `brush` | Theme foreground, or disabled foreground |
+| RadioGroup | `style` | `RadioGroupStyle` | `RadioGroupStyles.standard`; enabled and disabled title colors |
+| RadioGroup | `title-color` | `brush` | Current style's title color; an explicit binding overrides both enabled and disabled colors |
 | RadioGroup | `title-font-size` | `length` | `14px` |
 | RadioGroup | `title-font-weight` | `int` | `600` |
 | RadioGroupBase | `orientation` | `Orientation` | Vertical |
 | RadioGroupBase | `spacing` | `length` | `8px`; gap between buttons |
 | RadioGroupBase | `content-padding` | `length` | `0px`; inset around header and buttons |
-| RadioButton | `checked-color` | `brush` | Theme accent |
+| RadioButton | `style` | `RadioButtonStyle` | `RadioButtonStyles.with-accent(checked-color)` |
+| RadioButton | `checked-color` | `brush` | Theme accent; customizes the default style |
+
+`RadioGroup.style` styles the default title; each RadioButton has its own style.
+Share a button style through a binding or an application component to style a whole group.
+`RadioButtonStyle.checked` and `.unchecked` each contain `rest`, `hover`, `pressed`, and `disabled` colors for the card background, label, card border, indicator, and indicator border.
+The shared `focus-color` colors the focused card border.
+Disabling the button or its group selects the disabled state before pressed or hover colors.
+An explicit button `style` takes precedence over the `checked-color` shortcut.
+`RadioButtonStyles.standard` uses the theme accent; `with-accent(accent: brush)` returns the same state structure with a different accent while retaining theme-derived surface and disabled colors.
 
 The optional `header` slot is declared by RadioGroupBase.
 The Basic style supplies a title header; callers can replace it with `header << Component { }` or remove it with `header << { }`.
@@ -457,6 +467,10 @@ All color fields are `brush`, except LineEdit selection colors, which are `color
 | `ComboBoxStyle` | `rest`, `hover`, `pressed`, `disabled`: `ComboBoxStateStyle`; `popup`: `ComboBoxPopupStyle`; `focus-color`: `brush` |
 | `LineEditStateStyle` | `background-color`, `foreground-color`, `border-color`, `placeholder-color`: `brush` |
 | `LineEditStyle` | `rest`, `hover`, `disabled`: `LineEditStateStyle`; `selection-background-color`, `selection-foreground-color`: `color`; `focus-color`: `brush` |
+| `RadioGroupStyle` | `title-color`, `disabled-title-color`: `brush` |
+| `RadioButtonStateStyle` | `background-color`, `foreground-color`, `border-color`, `indicator-color`, `indicator-border-color`: `brush` |
+| `RadioButtonStateStyles` | `rest`, `hover`, `pressed`, `disabled`: `RadioButtonStateStyle` |
+| `RadioButtonStyle` | `unchecked`, `checked`: `RadioButtonStateStyles`; `focus-color`: `brush` |
 | `CollectionTabHeaderStateStyle` | `background-color`, `foreground-color`, `indicator-color`: `brush` |
 | `CollectionTabHeaderStateStyles` | `rest`, `hover`, `pressed`, `disabled`: `CollectionTabHeaderStateStyle` |
 | `CollectionTabHeaderStyle` | `unselected`, `selected`: `CollectionTabHeaderStateStyles`; `focus-color`: `brush` |
@@ -465,6 +479,7 @@ All color fields are `brush`, except LineEdit selection colors, which are `color
 Read-only preset globals expose `ButtonStyles.secondary`, `primary`, `danger`, and `invisible`.
 `CheckBoxStyles`, `SwitchStyles`, `SliderStyles`, `ComboBoxStyles`, and `LineEditStyles` each expose `standard`.
 `CollectionTabHeaderStyles` and `CollectionTabWidgetStyles` also expose `standard`.
+`RadioGroupStyles` and `RadioButtonStyles` expose `standard`; `RadioButtonStyles.with-accent(brush)` builds an accent variant.
 Presets derive their colors from BasicTheme.
 
 ## Theme API

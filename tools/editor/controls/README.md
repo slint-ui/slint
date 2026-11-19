@@ -65,6 +65,7 @@ The application selects light or dark mode; standard widgets from `std-widgets.s
 Use direct properties, such as `foreground-color` or `checked-color`, for simple color changes.
 Direct colors override the selected style while enabled, including hover and pressed states.
 Disabled controls use their style's disabled colors.
+RadioButton's `checked-color` builds its default style; an explicit `style` replaces that default.
 
 For different colors in each state, pass a complete style struct through `style`.
 Struct literals don't merge with presets.
@@ -210,6 +211,9 @@ Use `spacing` for the gap between buttons and `content-padding` for the inset ar
 
 The radio controls demonstrate [collection slots](../../../docs/astro/src/content/docs/guide/experimental/named-slots.mdx#collection-slots).
 Selection and input logic live in the shared Slint bases; the compiler handles generic interface validation and collection wiring.
+The Basic RadioGroup and RadioButton expose `style` structs and theme-derived presets.
+The [radio gallery](examples/radio_groups.slint) demonstrates custom title and button state colors without changing the shared palette.
+Set styles on individual buttons or an application component to share them; the group style covers its title.
 
 The bases still own the orientation-aware layout; replacing the entire layout isn't supported.
 The radio controls have these limitations:
