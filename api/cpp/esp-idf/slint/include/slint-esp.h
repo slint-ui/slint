@@ -122,7 +122,7 @@ struct SlintPlatformConfiguration
     /// `SLINT_ESP_EXPERIMENTAL=1` set when running CMake.
     bool use_cpu_textures = false;
     /// The memory in KiB for the images the renderer prepares, if `use_cpu_textures` is set.
-    /// When the next image doesn't fit, the renderer drops all prepared images.
+    /// When the next image doesn't fit, the renderer drops the images used longest ago.
     /// Larger images aren't prepared, so 0 turns preparing off.
     uint32_t prepared_textures_kib = 8192;
 #endif
