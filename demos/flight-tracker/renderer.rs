@@ -3,7 +3,7 @@
 
 // cSpell: ignore equirectangular multisampled
 
-use std::cell::RefCell;
+use std::cell::Cell;
 
 use glam::{Mat4, Vec2, Vec3, Vec4, Vec4Swizzles};
 use slint::wgpu_30::wgpu;
@@ -300,18 +300,19 @@ pub struct Renderer {
     tile_sampler: wgpu::Sampler,
     tile_format: wgpu::TextureFormat,
     /// Draws the tiles into `tile_texture`, where `draws_tiles()`.
-    tile_drawing: Option<wgpu::RenderPipeline>,
-    /// The tiles' mip levels to draw before the next frame.
-    tile_draws: RefCell<Vec<TileDraw>>,
+    tile_drawing: Option<TileDrawing>,
+    /// The detail window and the slot of the tile in `TileDrawing::levels`, to draw with the next
+    /// frame.
+    tile_draw: Cell<Option<(u32, (u32, u32))>>,
 }
 
-/// A tile's mip level to draw into its slot, see `Renderer::set_tile()`.
-struct TileDraw {
-    layer: u32,
-    level: u32,
-    bind_group: wgpu::BindGroup,
-    /// The slot's left, top, and size, in pixels of the mip level.
-    viewport: (f32, f32, f32),
+/// Draws a tile into its slot, see `Renderer::set_tile()`.
+struct TileDrawing {
+    pipeline: wgpu::RenderPipeline,
+    /// A buffer for each of a tile's mip levels, as `TILE_DRAWING` reads it, and its bind group.
+    /// They're made once: NXP's Vivante Vulkan driver reports its descriptor pools as full early,
+    /// which wgpu doesn't expect.
+    levels: Vec<(wgpu::Buffer, wgpu::BindGroup)>,
 }
 
 /// Draws a tile's mip level from a storage buffer into the viewport,
@@ -454,7 +455,7 @@ impl Renderer {
                 label: Some("tile drawing"),
                 source: wgpu::ShaderSource::Wgsl(TILE_DRAWING.into()),
             });
-            device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
                 label: Some("tile drawing"),
                 layout: None,
                 vertex: wgpu::VertexState {
@@ -474,7 +475,28 @@ impl Renderer {
                 multisample: Default::default(),
                 multiview_mask: None,
                 cache: None,
-            })
+            });
+            let levels = (0..tiles::MIPS)
+                .map(|level| {
+                    let size = (tiles::TILE >> level) as u64;
+                    let buffer = device.create_buffer(&wgpu::BufferDescriptor {
+                        label: Some("tile level"),
+                        size: 16 + size * size * 4,
+                        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+                        mapped_at_creation: false,
+                    });
+                    let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                        label: Some("tile level"),
+                        layout: &pipeline.get_bind_group_layout(0),
+                        entries: &[wgpu::BindGroupEntry {
+                            binding: 0,
+                            resource: buffer.as_entire_binding(),
+                        }],
+                    });
+                    (buffer, bind_group)
+                })
+                .collect();
+            TileDrawing { pipeline, levels }
         });
         let tile_view = tile_texture.create_view(&wgpu::TextureViewDescriptor {
             dimension: Some(wgpu::TextureViewDimension::D2Array),
@@ -602,7 +624,7 @@ impl Renderer {
             tile_sampler,
             tile_format,
             tile_drawing,
-            tile_draws: Default::default(),
+            tile_draw: Default::default(),
         }
     }
 
@@ -639,31 +661,20 @@ impl Renderer {
     /// A drawn tile goes onto the GPU with the next frame.
     /// On NXP's i.MX 8M Plus, that adds about 12 ms to the frame.
     pub fn set_tile(&self, layer: u32, slot: (u32, u32), mips: &[Vec<u8>]) {
-        if let Some(pipeline) = &self.tile_drawing {
-            let mut draws = self.tile_draws.borrow_mut();
-            for (level, pixels) in mips.iter().enumerate() {
-                let size = tiles::TILE >> level;
-                let origin = (slot.0 * size, slot.1 * size);
-                let header: [u32; 4] = [origin.0, origin.1, size, 0];
-                let buffer = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("tile level"),
-                    contents: &[bytemuck::cast_slice(&header), pixels.as_slice()].concat(),
-                    usage: wgpu::BufferUsages::STORAGE,
-                });
-                draws.push(TileDraw {
-                    layer,
-                    level: level as u32,
-                    bind_group: self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-                        label: Some("tile level"),
-                        layout: &pipeline.get_bind_group_layout(0),
-                        entries: &[wgpu::BindGroupEntry {
-                            binding: 0,
-                            resource: buffer.as_entire_binding(),
-                        }],
-                    }),
-                    viewport: (origin.0 as f32, origin.1 as f32, size as f32),
-                });
+        if let Some(drawing) = &self.tile_drawing {
+            // The buffers hold one tile at a time.
+            if self.tile_draw.get().is_some() {
+                let mut encoder = self.device.create_command_encoder(&Default::default());
+                self.draw_tile(&mut encoder);
+                self.queue.submit([encoder.finish()]);
             }
+            for (level, (pixels, (buffer, _))) in mips.iter().zip(&drawing.levels).enumerate() {
+                let size = tiles::TILE >> level;
+                let header: [u32; 4] = [slot.0 * size, slot.1 * size, size, 0];
+                self.queue.write_buffer(buffer, 0, bytemuck::cast_slice(&header));
+                self.queue.write_buffer(buffer, 16, pixels);
+            }
+            self.tile_draw.set(Some((layer, slot)));
             return;
         }
         let block = self.tile_format.block_dimensions().0;
@@ -705,6 +716,41 @@ impl Renderer {
         }
     }
 
+    /// Draws the tile that `set_tile()` left in the buffers into its slot.
+    fn draw_tile(&self, encoder: &mut wgpu::CommandEncoder) {
+        let (Some(drawing), Some((layer, slot))) = (&self.tile_drawing, self.tile_draw.take())
+        else {
+            return;
+        };
+        for (level, (_, bind_group)) in drawing.levels.iter().enumerate() {
+            let size = tiles::TILE >> level;
+            let view = self.tile_texture.create_view(&wgpu::TextureViewDescriptor {
+                format: Some(wgpu::TextureFormat::Rgba8Unorm),
+                dimension: Some(wgpu::TextureViewDimension::D2),
+                base_mip_level: level as u32,
+                mip_level_count: Some(1),
+                base_array_layer: layer,
+                array_layer_count: Some(1),
+                ..Default::default()
+            });
+            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("tile level"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &view,
+                    depth_slice: None,
+                    resolve_target: None,
+                    ops: wgpu::Operations { load: wgpu::LoadOp::Load, store: wgpu::StoreOp::Store },
+                })],
+                ..Default::default()
+            });
+            let (x, y) = ((slot.0 * size) as f32, (slot.1 * size) as f32);
+            pass.set_viewport(x, y, size as f32, size as f32, 0.0, 1.0);
+            pass.set_pipeline(&drawing.pipeline);
+            pass.set_bind_group(0, bind_group, &[]);
+            pass.draw(0..3, 0..1);
+        }
+    }
+
     /// Renders `frame` into the top left of `target`, as large as `frame.viewport`.
     pub fn render(&self, frame: &Frame, target: &wgpu::TextureView) {
         let options = Vec4::new(frame.space, frame.border_width, frame.time, frame.borders);
@@ -725,36 +771,7 @@ impl Renderer {
 
         let mut encoder = self.device.create_command_encoder(&Default::default());
         // In the frame's commands, since a submission of their own takes long on some GPUs.
-        let mut draws = self.tile_draws.take();
-        draws.sort_by_key(|draw| (draw.layer, draw.level));
-        for group in draws.chunk_by(|a, b| (a.layer, a.level) == (b.layer, b.level)) {
-            let view = self.tile_texture.create_view(&wgpu::TextureViewDescriptor {
-                format: Some(wgpu::TextureFormat::Rgba8Unorm),
-                dimension: Some(wgpu::TextureViewDimension::D2),
-                base_mip_level: group[0].level,
-                mip_level_count: Some(1),
-                base_array_layer: group[0].layer,
-                array_layer_count: Some(1),
-                ..Default::default()
-            });
-            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("tile level"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &view,
-                    depth_slice: None,
-                    resolve_target: None,
-                    ops: wgpu::Operations { load: wgpu::LoadOp::Load, store: wgpu::StoreOp::Store },
-                })],
-                ..Default::default()
-            });
-            pass.set_pipeline(self.tile_drawing.as_ref().unwrap());
-            for draw in group {
-                let (x, y, size) = draw.viewport;
-                pass.set_viewport(x, y, size, size, 0.0, 1.0);
-                pass.set_bind_group(0, &draw.bind_group, &[]);
-                pass.draw(0..3, 0..1);
-            }
-        }
+        self.draw_tile(&mut encoder);
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("globe"),
