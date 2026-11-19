@@ -160,8 +160,8 @@ A handler may also be set on a callback declared in the same component.
 
 `init` is a built-in callback present on every element.
 Its handler runs once when the element is instantiated.
-`init` handlers run from the outermost component inward, so a component's own `init` runs after
-the `init` of the elements it contains.
+`init` handlers run from the inside out:
+a component's own `init` runs after the `init` of the elements it contains.
 Calling `init` explicitly does nothing and is deprecated.
 
 A [global](../globals/) can neither declare nor handle an `init` callback; both are compile errors.
@@ -208,6 +208,7 @@ It is queued and runs in a later iteration of the event loop.
 It runs only if the value actually differs from the value at the previous run:
 multiple changes within one cycle collapse to a single invocation,
 and a value that changes and reverts before the callback runs produces no invocation.
+It doesn't run for the property's initial value, but it runs for changes made in an [`init` callback](#the-init-callback).
 
 Changing a property from within a change callback in a way that feeds back into the same property is undefined:
 
@@ -222,6 +223,7 @@ export component Example {
 Such a chain, where one change callback triggers another, does not run unbounded.
 The runtime runs the queued change handlers in a loop that stops after ten passes,
 so a self-perpetuating sequence terminates without invoking the remaining handlers.
+Don't rely on the order in which queued change callbacks run.
 
 A change callback forces the property to be evaluated eagerly rather than [lazily](../evaluation-and-purity/),
 and its side effects make the surrounding bindings impure.

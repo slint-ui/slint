@@ -113,6 +113,8 @@ unstable-libinput-09 = ["dep:input", "i-slint-backend-linuxkms?/libinput"]
 
 backend-android-activity = ["dep:i-slint-backend-android-activity"]
 
+svg = ["i-slint-renderer-skia?/svg", "i-slint-backend-android-activity?/svg"]
+
 default = ["backend-winit"]
 
 [dependencies]

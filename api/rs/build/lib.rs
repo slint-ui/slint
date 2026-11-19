@@ -175,7 +175,7 @@ impl CompilerConfiguration {
     /// whose language behavior to use, as its major and minor version, such as `(1, 19)`.
     ///
     /// This wins over the edition of the project file.
-    /// If the edition is newer than this version of Slint, compilation fails.
+    /// If the edition is older than 1.18 or newer than this version of Slint, compilation fails.
     #[must_use]
     pub fn with_edition(mut self, edition: (u32, u32)) -> Self {
         self.overrides.project.edition = Some(edition.into());

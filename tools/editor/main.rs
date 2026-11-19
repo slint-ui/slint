@@ -22,6 +22,8 @@ use i_slint_live_preview::protocol::{
 use lsp_types::{MessageType, Url};
 use slint::ComponentHandle;
 
+#[cfg(feature = "debugger")]
+mod debugger;
 #[cfg(not(target_arch = "wasm32"))]
 mod file_dialog;
 #[cfg(target_os = "linux")]
@@ -90,6 +92,8 @@ fn main() -> Result<()> {
         }
     });
     let editor_ui_weak = editor_ui.as_weak();
+    #[cfg(feature = "debugger")]
+    let open_debugger = cli.debugger;
     let start_project = Rc::new(move |project| {
         let mut session_slot = active_session.borrow_mut();
         if let Some(session_sender) = session_slot.as_ref() {
@@ -98,7 +102,10 @@ fn main() -> Result<()> {
         let Some(editor_ui) = editor_ui_weak.upgrade() else {
             return false;
         };
-        *session_slot = Some(start_editor_session(&editor_ui, project, startup::load_settings()));
+        let session_sender = start_editor_session(&editor_ui, project, startup::load_settings());
+        #[cfg(feature = "debugger")]
+        debugger::connect(&editor_ui, session_sender.clone(), open_debugger);
+        *session_slot = Some(session_sender);
         true
     });
     startup::setup(&editor_ui, &settings, start_project.clone(), close_project);
@@ -123,7 +130,10 @@ fn main() -> Result<()> {
         start_project(project);
     }
 
-    editor_ui.run()?;
+    let result = editor_ui.run();
+    // Release the preview's Metal resources before Objective-C thread-local cleanup.
+    drop(preview::PREVIEW_STATE.take());
+    result?;
     Ok(())
 }
 
@@ -182,6 +192,9 @@ struct Cli {
         help = "Use a directory or slint-project.json file as the project root"
     )]
     project_root: Option<PathBuf>,
+    #[cfg(feature = "debugger")]
+    #[arg(long, help = "Open the Slint Debugger window once a project is open")]
+    debugger: bool,
 }
 
 fn headless_requested() -> bool {
@@ -484,7 +497,12 @@ fn sync_file_watcher_if_needed(
                     .component()
                     .and_then(|component| SourcePath::from_url(&component.url).into_native_path())
             }))
-            .chain(session.active_project_file_paths().map(Path::to_path_buf))
+            .chain(
+                session
+                    .active_project_file_paths()
+                    .filter_map(SourcePath::as_native_path)
+                    .map(Path::to_path_buf),
+            )
             // Missing and deleted project files aren't active, but their creation must be observed.
             .chain(std::iter::once(project_root.join(i_slint_compiler::project_file::FILE_NAME))),
     )?;
@@ -624,7 +642,8 @@ async fn activate_project(
     let mut session = new_editor_session();
 
     *project_root = project.root;
-    session.set_workspace_roots(vec![project_root.clone()]);
+    let root = SourcePath::new(&*project_root);
+    session.set_workspace_roots(vec![root.clone()]);
     let component = project.preview;
     if let Err(error) =
         watcher.update_watched_paths(SourcePath::from_url(&component.url).into_native_path())
@@ -632,13 +651,6 @@ async fn activate_project(
         tracing::warn!("Failed to watch project: {error}");
     }
     while watcher_events.try_recv().is_ok() {}
-    let root = match Url::from_directory_path(project_root.as_path()) {
-        Ok(root) => Some(root),
-        Err(()) => {
-            tracing::warn!("Failed to convert {} to URL", project_root.display());
-            None
-        }
-    };
     if let Err(error) = session.reload_document(component.url.clone()).await {
         tracing::warn!("Failed to load {}: {error}", component.url);
     }
@@ -652,7 +664,7 @@ async fn activate_project(
     // this function returns.
     // This happens either via the initial RequestState from the preview itself.
     // Or manually in switch_project.
-    session.attach_preview(to_previews[PRIMARY_PREVIEW_INDEX].clone(), Some(component), root);
+    session.attach_preview(to_previews[PRIMARY_PREVIEW_INDEX].clone(), Some(component), Some(root));
     session.attach_preview(to_previews[RUN_PREVIEW_INDEX].clone(), None, None);
     if let Err(error) = sync_file_watcher_if_needed(watcher, &session, project_root, &mut None) {
         tracing::warn!("Failed to watch project: {error}");
@@ -697,7 +709,7 @@ async fn open_preview(
     session: &mut editor_preview::EditorSession,
     preview_index: usize,
     component: PreviewComponent,
-    root: Option<Url>,
+    root: Option<SourcePath>,
 ) {
     if let Err(error) = session.reload_document(component.url.clone()).await {
         tracing::warn!("Failed to load {}: {error}", component.url);
@@ -1423,6 +1435,17 @@ mod tests {
         }));
         assert!(session.primary_preview().component().cloned().is_none());
         assert_eq!(session.preview(1).unwrap().component().cloned(), Some(component));
+    }
+
+    #[cfg(feature = "debugger")]
+    #[test]
+    fn debugger_flag_opens_the_debugger() {
+        use clap::Parser;
+
+        assert!(!Cli::try_parse_from(["slint-editor", "main.slint"]).unwrap().debugger);
+        let cli = Cli::try_parse_from(["slint-editor", "--debugger", "main.slint"]).unwrap();
+        assert!(cli.debugger);
+        assert_eq!(cli.file.as_deref(), Some("main.slint"));
     }
 
     #[test]

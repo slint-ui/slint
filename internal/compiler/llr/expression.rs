@@ -415,7 +415,11 @@ pub enum Expression {
     /// Only present when the `debug_hooks` compiler option is enabled.
     DebugHook {
         expression: Box<Expression>,
-        id: SmolStr,
+        // Not serialized: a reader without `std` has no such field,
+        // and the editors, which enable the debug hooks, don't serialize the LLR.
+        #[cfg(feature = "std")]
+        #[cfg_attr(feature = "serde", serde(skip))]
+        id: crate::object_tree::ElementProperty,
     },
 }
 
@@ -830,7 +834,7 @@ macro_rules! visit_impl {
                 $visitor(expression);
             }
             Expression::DashArray(_) => {}
-            Expression::DebugHook { expression, id: _ } => $visitor(expression),
+            Expression::DebugHook { expression, .. } => $visitor(expression),
         }
     };
 }
@@ -1371,6 +1375,14 @@ impl ContextMap {
             | Expression::GridRepeaterCacheAccess { layout_cache_prop: p, .. } => {
                 *p = self.map_property_reference(p);
             }
+            Expression::ModelDataAssignment { level, .. } => match self {
+                ContextMap::Identity => (),
+                ContextMap::InSubElement { path, parent } => {
+                    assert!(path.is_empty());
+                    *level += *parent;
+                }
+                ContextMap::InGlobal(_) => unreachable!(),
+            },
             _ => (),
         }
         e.visit_mut(|e| self.map_expression(e))

@@ -29,7 +29,6 @@ mod focus_handling;
 pub mod generate_item_indices;
 pub mod infer_aliases_types;
 mod inject_debug_hooks;
-pub use inject_debug_hooks::property_id;
 mod inlining;
 mod key_bindings;
 mod listview;
@@ -117,11 +116,10 @@ pub async fn run_passes(
 
     // Inject debug hooks early — before any lowering or inlining — so source element identity
     // is preserved and hooks can be attributed to the correct source location.
-    if let Some(random_state) = &type_loader.compiler_config.debug_hooks {
+    if type_loader.compiler_config.debug_hooks {
         let root_components = doc.exported_roots().collect::<Vec<_>>();
         inject_debug_hooks::inject_debug_hooks(
             &root_components,
-            random_state,
             &symbol_counters,
             &mut forwarded_references,
         );
@@ -295,9 +293,7 @@ pub async fn run_passes(
         // traversal.
         // Also keep the rectangles when debug hooks are enabled: their (synthetic) hooks are
         // what makes the elements live-editable, and removing the element would drop them.
-        if !type_loader.compiler_config.debug_info
-            && type_loader.compiler_config.debug_hooks.is_none()
-        {
+        if !type_loader.compiler_config.debug_info && !type_loader.compiler_config.debug_hooks {
             optimize_useless_rectangles::optimize_useless_rectangles(component);
         }
         move_declarations::move_declarations(component);
@@ -322,7 +318,7 @@ pub async fn run_passes(
     // default) or sit on a property that exists at runtime. An orphan would abort the
     // interpreter at instantiation ("unknown property ..."); catch it here with a source
     // location instead.
-    if type_loader.compiler_config.debug_hooks.is_some() && !diag.has_errors() {
+    if type_loader.compiler_config.debug_hooks && !diag.has_errors() {
         doc.visit_all_used_components(|component| {
             inject_debug_hooks::validate_no_orphan_synthetic_hooks(component);
         });

@@ -84,7 +84,7 @@ jobs:
                     - "https://github.com/Knowit-Objectnet/infoskjerm-trondheim"
                     - "https://github.com/CaleGlisson/Zelda_pattern_rust"
                     - "https://codeberg.org/dweiss96/rf2_league_mod_tool"
-                    - "https://github.com/Badless/slint-editor"
+                    #- "https://github.com/Badless/slint-editor" # the repository is gone
                     - "https://github.com/IvanB101/hamming-huffman"
                     - "https://github.com/izuku0550/Custom-Note-Builder"
                     - "https://github.com/mrquantumoff/quadrant_lite"
@@ -209,7 +209,7 @@ jobs:
                     - "https://github.com/HELPMEEADICE/Netodia"
                     - "https://github.com/GlitchAwakened/Favnyr"
                     - "https://github.com/KenanSalar/Melodia"
-                    - "https://github.com/conic-apps/launcher"
+                    #- "https://github.com/conic-apps/launcher" # uses the parley 0.11 API, and Slint needs parley 0.12
                     - "https://github.com/OpenRsG/OpenFadeR"
                     - "https://github.com/zmactep/patinae"
                     - "https://github.com/Moosync/Moosync"
@@ -222,7 +222,7 @@ jobs:
                     - "https://github.com/NobleDoodle/ferricone"
                     - "https://github.com/NigelBreslaw/slint-headerless"
                     - "https://github.com/Freedragonlancer/AudioLib-Explorer"
-                    - "https://github.com/zhugenanbei181/music-frog"
+                    #- "https://github.com/zhugenanbei181/music-frog" # depends on a zhuge-ui-kit git revision that is private or gone
                     - "https://github.com/talgonite/talgonite"
                     - "https://github.com/GhostEagle68/umbriel-config"
                     - "https://github.com/dimitribellini/manifold"
@@ -311,14 +311,26 @@ jobs:
                       extra_commands: |
                           cargo update
                           cargo update duckdb --precise 1.10505.0
+                    - git_url: "https://github.com/gregoryraymond/slint-mobile-components"
+                      # Its page crates are also build-dependencies, built without the image decoders a backend brings.
+                      # slint-mapping 0.1.2 changed the API the viewer uses.
+                      extra_commands: |
+                          find . -name Cargo.toml | xargs sed -i -E 's/^(\s*)"compat-1-2",$/\1"compat-1-2", "backend-winit", "renderer-software",/'
+                          grep -rl 'SLINT_ENABLE_EXPERIMENTAL_FEATURES", "1"' crates | xargs -r sed -i 's/"SLINT_ENABLE_EXPERIMENTAL_FEATURES", "1"/"SLINT_ENABLE_EXPERIMENTAL_FEATURES", "component-container"/'
+                          cargo update
+                          cargo update slint-mapping --precise 0.1.0
                     - git_url: "https://github.com/mpwsh/baucord"
-                      extra_packages: libpipewire-0.3-dev
+                      extra_packages: libpipewire-0.3-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev
                     - git_url: "https://github.com/dliangx/chatx"
                       extra_packages: libpipewire-0.3-dev
                     - git_url: "https://github.com/u2dm/u2dm-client"
                       extra_packages: libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev
+                      # livekit-signaling 0.1.9 drops a field that livekit 0.9.6 sets
+                      extra_commands: |
+                          cargo update
+                          cargo update livekit-signaling --precise 0.1.7
                     - git_url: "https://github.com/2018wzh/AstraEngine"
-                      extra_packages: libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
+                      extra_packages: libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libass-dev
                     - git_url: "https://github.com/AbdurahmanAlmehdi/jidr"
                       extra_packages: protobuf-compiler libprotobuf-dev
                     - git_url: "https://github.com/NobleDoodle/ferricone"
@@ -334,9 +346,11 @@ jobs:
                           cp "$GITHUB_WORKSPACE/demos/home-automation/ui/fonts/Inter-VariableFont.ttf" crates/limedl-native/assets/fonts/MiSansVF.ttf
                           cargo update
                     - git_url: "https://github.com/Moosync/Moosync"
+                      extra_packages: libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev
                       # slint-lsp from crates.io pins the released Slint crates
                       extra_commands: |
                           sed -i "s|^slint-lsp = { version = \"[^\"]*\"|slint-lsp = { path = \"$GITHUB_WORKSPACE/tools/lsp\"|" Cargo.toml
+                          export FFMPEG_PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig FFMPEG_LINK_MODE=dynamic
                           cargo update
                     - git_url: "https://github.com/People-11/HMCL-rs"
                       # rfd needs a backend on Linux, and the project only enables the Windows one
@@ -349,12 +363,6 @@ jobs:
                           find . -name Cargo.toml | xargs sed -i -E 's/^(rfd = \{ version = "[^"]*", default-features = false)( \})/\1, features = ["gtk3"]\2/'
                           cargo update
                     - git_url: "https://github.com/wilssola/zapive"
-                      # Slint 1.19 moved its unstable fontique API to fontique and parley 0.12
-                      extra_commands: |
-                          grep -rlE 'fontique[_-]0[0-9]+' --include=Cargo.toml --include='*.rs' "$HOME/the_repo/" | xargs -r sed -i -E 's/unstable-fontique-0[0-9]+/unstable-fontique-012/g; s/fontique_0[0-9]+/fontique_012/g'
-                          find "$HOME/the_repo/" -name Cargo.toml | xargs sed -i -E 's/^((fontique|parley)\s*=\s*(\{\s*version\s*=\s*)?)"[=^~]?0\.1[01][.0-9]*"/\1"0.12"/'
-                          cargo update
-                    - git_url: "https://github.com/conic-apps/launcher"
                       # Slint 1.19 moved its unstable fontique API to fontique and parley 0.12
                       extra_commands: |
                           grep -rlE 'fontique[_-]0[0-9]+' --include=Cargo.toml --include='*.rs' "$HOME/the_repo/" | xargs -r sed -i -E 's/unstable-fontique-0[0-9]+/unstable-fontique-012/g; s/fontique_0[0-9]+/fontique_012/g'
@@ -695,6 +703,8 @@ jobs:
                           cargo update ort --precise 2.0.0-rc.12
                           # webpx 0.4.1 doesn't build without its std feature
                           cargo update webpx --precise 0.4.0
+                          # pliron asks for any hashbrown 0.x, and the update gives it 0.12, which lacks `Equivalent`
+                          sed -i '/^name = "pliron"$/,/^$/ s/"hashbrown 0.12.3"/"hashbrown 0.17.1"/' Cargo.lock
                     - git_url: https://github.com/heng30/tasklog
                       sub_path: tasklog
                       extra_args: "--features=desktop"
@@ -962,6 +972,11 @@ jobs:
                       sub_path: "crates/app"
                     - git_url: "https://github.com/zhangxichang/pupu"
                       sub_path: "app"
+                      # Slint 1.19 moved its unstable fontique API to fontique and parley 0.12
+                      extra_commands: |
+                          grep -rlE 'fontique[_-]0[0-9]+' --include=Cargo.toml --include='*.rs' "$HOME/the_repo/" | xargs -r sed -i -E 's/unstable-fontique-0[0-9]+/unstable-fontique-012/g; s/fontique_0[0-9]+/fontique_012/g'
+                          find "$HOME/the_repo/" -name Cargo.toml | xargs sed -i -E 's/^((fontique|parley)\s*=\s*(\{\s*version\s*=\s*)?)"[=^~]?0\.1[01][.0-9]*"/\1"0.12"/'
+                          cargo update
                     - git_url: "https://github.com/Amne-Dev/NLC"
                       sub_path: "src/frontend"
                     - git_url: "https://github.com/worflor/neuron"
@@ -969,6 +984,8 @@ jobs:
                       # its optional wgpu-renderer feature names a wgpu version Slint no longer has
                       extra_commands: |
                           sed -i 's/unstable-wgpu-28/unstable-wgpu-29/' Cargo.toml
+                          # its build script denies warnings, and it uses the viewport-* properties deprecated in 1.18
+                          sed -i '/SLINT_COMPILER_DENY_WARNINGS/d' build.rs
                           cargo update
                     - git_url: "https://github.com/sebastian-beca/opendj"
                       sub_path: "crates/app"
@@ -977,6 +994,8 @@ jobs:
                           grep -rlE 'fontique[_-]0[0-9]+' --include=Cargo.toml --include='*.rs' "$HOME/the_repo/" | xargs -r sed -i -E 's/unstable-fontique-0[0-9]+/unstable-fontique-012/g; s/fontique_0[0-9]+/fontique_012/g'
                           find "$HOME/the_repo/" -name Cargo.toml | xargs sed -i -E 's/^((fontique|parley)\s*=\s*(\{\s*version\s*=\s*)?)"[=^~]?0\.1[01][.0-9]*"/\1"0.12"/'
                           cargo update
+                          # rbox 0.3.1 renamed the waveform fields the project uses
+                          for p in rbox-onelib rbox-masterdb rbox-devlib rbox-db rbox-core rbox-anlz; do cargo update $p --precise 0.3.0; done
                     # only builds on macOS: on Linux, a `None` in its own code has no inferable type
                     #- git_url: "https://github.com/siggifly/ipod-emulator"
                     #  sub_path: "tools/ipod-gui"
@@ -1024,6 +1043,12 @@ jobs:
                           grep -rlE 'fontique[_-]0[0-9]+' --include=Cargo.toml --include='*.rs' "$HOME/the_repo/" | xargs -r sed -i -E 's/unstable-fontique-0[0-9]+/unstable-fontique-012/g; s/fontique_0[0-9]+/fontique_012/g'
                           find "$HOME/the_repo/" -name Cargo.toml | xargs sed -i -E 's/^((fontique|parley)\s*=\s*(\{\s*version\s*=\s*)?)"[=^~]?0\.1[01][.0-9]*"/\1"0.12"/'
                           cargo update
+                          # vergen 9.1 breaks the build script of librespot-core
+                          cargo update vergen --precise 9.0.6
+                    - git_url: "https://github.com/vodolazny/burmalda57"
+                      sub_path: "crates/ui"
+                      # the library enables no backend, so its generated code lacks the image decoders
+                      extra_args: "--features slint/backend-winit,slint/renderer-software"
                     - git_url: "https://github.com/dimms0/maestro"
                       sub_path: "crates/maestro-gui"
                       extra_packages: libpipewire-0.3-dev
@@ -1713,9 +1738,10 @@ jobs:
                     # not a Rust project
                     - git_url: "https://github.com/MiyukiVigil/Hub_Moon"
                       files: "gui/ui/app.slint"
-                    # vendors patched copies of Slint crates, so the patch does not apply
+                    # crater_subpath builds crates/ui; the web app targets wasm
                     - git_url: "https://github.com/vodolazny/burmalda57"
-                      files: "apps/web/ui/app.slint crates/ui/ui/app.slint"
+                      files: "apps/web/ui/app.slint"
+                      extra_args: "-L simulator-easter-egg=crates/ui/ui/views/simulator_easter_egg.slint"
         runs-on: "ubuntu-latest"
         steps:
             - uses: actions/download-artifact@v8

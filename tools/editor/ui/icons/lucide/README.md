@@ -28,6 +28,8 @@ The element palette also uses these icons from the same revision:
 - [square-dashed-mouse-pointer.svg](https://github.com/lucide-icons/lucide/blob/22e6094bb533ac2b0ae3b592d2184da461ec1f4b/icons/square-dashed-mouse-pointer.svg)
 - [text-cursor-input.svg](https://github.com/lucide-icons/lucide/blob/22e6094bb533ac2b0ae3b592d2184da461ec1f4b/icons/text-cursor-input.svg)
 
+The property inspector also uses [languages.svg](https://github.com/lucide-icons/lucide/blob/22e6094bb533ac2b0ae3b592d2184da461ec1f4b/icons/languages.svg) from that revision.
+
 The viewer controls also use `check`, `chevron-down`, `monitor`, `plus`, `smartphone`, `trash`, and `x` from that revision.
 `play-filled.svg` and `square-filled.svg` come from its `play.svg` and `square.svg`.
 

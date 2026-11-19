@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Icons } from "../../icons/index.slint";
 import { Style, Colors, Metrics, FieldStyle, PaintStyle, ComboMenuStyle } from "../../style.slint";
 import { Properties } from "../../properties.slint";
 import { InspectorComboOption } from "control-data.slint";
@@ -125,7 +126,7 @@ export component InspectorComboBox inherits ComboBoxBase {
         Image {
             width: Metrics.icon-medium;
             height: Metrics.icon-medium;
-            source: @image-url("../../assets/lucide/chevron-down.svg");
+            source: Icons.chevron-down;
             transform-rotation: root.expanded ? 180deg : 0deg;
             colorize: root.style.appearance.muted;
         }

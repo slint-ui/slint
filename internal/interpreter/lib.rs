@@ -74,9 +74,9 @@ instance.run().unwrap();
 #![warn(missing_docs)]
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 
-#[cfg(not(any(feature = "compat-1-18", feature = "internal-mcu-interpreter")))]
+#[cfg(not(any(feature = "compat-1-20", feature = "internal-mcu-interpreter")))]
 compile_error!(
-    "The feature `compat-1-18` must be enabled to ensure \
+    "The feature `compat-1-20` must be enabled to ensure \
     forward compatibility with future version of this crate"
 );
 
@@ -111,6 +111,7 @@ mod prelude {
 mod api;
 mod bindings;
 mod component;
+#[cfg(feature = "std")]
 mod debug_hook;
 mod erased;
 mod eval;
@@ -139,6 +140,10 @@ mod value_model;
 
 #[doc(inline)]
 pub use api::*;
+
+#[cfg(all(feature = "std", any(feature = "internal", feature = "internal-highlight")))]
+#[doc(hidden)]
+pub use component::AnimationMode;
 
 #[cfg(feature = "internal")]
 #[doc(hidden)]
