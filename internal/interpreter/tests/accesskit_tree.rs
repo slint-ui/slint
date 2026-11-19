@@ -257,8 +257,6 @@ fn a_destroyed_component_does_not_hand_its_node_ids_to_the_next_one() {
     f.instance.set_property("show", Value::Bool(true)).unwrap();
     let second = node_by_label(&f.tree.build_new_tree(), "Shown").0;
 
-    // A screen reader that still holds the first id (its focus, say) must not find the new
-    // node under it.
     assert_ne!(first, second);
 }
 

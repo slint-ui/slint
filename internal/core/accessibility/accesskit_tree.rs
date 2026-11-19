@@ -135,8 +135,8 @@ const NODE_ID_INDEX_BITS: u32 = 16;
 const NODE_ID_INDEX_MASK: u64 = (1 << NODE_ID_INDEX_BITS) - 1; // 0xFFFF
 const NODE_ID_COMPONENT_BITS: u32 = 22;
 const NODE_ID_COMPONENT_MASK: u64 = (1 << NODE_ID_COMPONENT_BITS) - 1; // 0x3FFFFF
-/// How many freed component ids queue up before the oldest one is handed out again. It bounds
-/// the memory of the queue and the time before an id comes back.
+/// How many freed component ids queue up before the oldest one is handed out again.
+/// It bounds the memory of the queue and the time before an id comes back.
 const MIN_FREE_COMPONENT_IDS_TO_REUSE: usize = 100_000;
 
 // NodeIds for the TextRun children of a text input:
