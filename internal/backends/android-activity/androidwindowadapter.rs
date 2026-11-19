@@ -234,11 +234,12 @@ impl AndroidWindowAdapter {
         }
     }
 
-    pub fn new(app: AndroidApp) -> Rc<Self> {
+    pub fn new(app: AndroidApp, back_callback_priority: Option<u32>) -> Rc<Self> {
         // GameActivity only reports the axes that are enabled, which by default are X and Y.
         app.enable_motion_axis(Axis::Vscroll);
         app.enable_motion_axis(Axis::Hscroll);
-        let java_helper = JavaHelper::new(&app).unwrap_or_else(|e| print_jni_error(&app, e));
+        let java_helper = JavaHelper::new(&app, back_callback_priority)
+            .unwrap_or_else(|e| print_jni_error(&app, e));
         Rc::<Self>::new_cyclic(|w| Self {
             app,
             window: Window::new(w.clone()),
