@@ -20,9 +20,9 @@ a declarative GUI toolkit for desktop, embedded, mobile, and web.
 2. After editing, check the compiler diagnostics.
    An IDE with the Slint extension reports them after each edit.
    With Slint 1.17 or later, run `slint-viewer --check ui/main.slint` to check a file directly.
-   See [debugging-and-mcp.md](reference/debugging-and-mcp.md) for details.
+   See [debugging-and-mcp.md](guidance/reference/debugging-and-mcp.md) for details.
 3. Run `slint-viewer --screenshot preview.png ui/main.slint` and inspect the render.
-   Review against [polish.md](reference/polish.md).
+   Review against [polish.md](guidance/reference/polish.md).
    Use the running app to verify interactions.
 4. Share the render when the host supports it: inline the screenshot in chat
    apps, or print its absolute path and summarize the visual checks in CLI-only
@@ -48,8 +48,8 @@ Add a background only when the user requests one.
 Preserve the window, background, and layout of an existing application.
 
 Most "won't compile" / "won't fill" / "padding ignored" questions are answered
-in [gotchas.md](reference/gotchas.md) and
-[language-and-layout.md](reference/language-and-layout.md).
+in [gotchas.md](guidance/reference/gotchas.md) and
+[language-and-layout.md](guidance/reference/language-and-layout.md).
 
 ## Reference Files
 
@@ -57,17 +57,17 @@ Skim the matching file *before* building in that area, not only when stuck.
 
 | File | Read when… |
 |---|---|
-| [setup.md](setup.md) | Starting a project / wiring the build (Rust/C++/Node/Python). |
-| [language-and-layout.md](reference/language-and-layout.md) | Writing components; an element won't size/fill as expected. |
-| [gotchas.md](reference/gotchas.md) | A file won't compile, or colors/units/math/enums behave oddly. |
-| [events-and-overlays.md](reference/events-and-overlays.md) | Clicks/keys/modifiers, or popovers/menus/context menus. |
-| [icons-and-theming.md](reference/icons-and-theming.md) | Icons, or light/dark theming. |
-| [interop.md](reference/interop.md) | Connecting the UI to host-language logic (models, callbacks, globals). |
-| [polish.md](reference/polish.md) | The UI works but looks rough; reviewing a rendered screenshot. |
-| [debugging-and-mcp.md](reference/debugging-and-mcp.md) | Runtime debugging, headless/CI rendering, screenshots, the MCP server. |
-| [licensing.md](reference/licensing.md) | The user asks about the license, or builds a closed-source app. |
-| [web-embedding.md](reference/web-embedding.md) | Showing a live `.slint` preview in a web page, HTML report, or docs. |
-| [tools-install.md](tools-install.md) | Installing `slint-lsp` (language server) or `slint-viewer` (preview / screenshots). |
+| [setup.md](guidance/setup.md) | Starting a project / wiring the build (Rust/C++/Node/Python). |
+| [language-and-layout.md](guidance/reference/language-and-layout.md) | Writing components; an element won't size/fill as expected. |
+| [gotchas.md](guidance/reference/gotchas.md) | A file won't compile, or colors/units/math/enums behave oddly. |
+| [events-and-overlays.md](guidance/reference/events-and-overlays.md) | Clicks/keys/modifiers, or popovers/menus/context menus. |
+| [icons-and-theming.md](guidance/reference/icons-and-theming.md) | Icons, or light/dark theming. |
+| [interop.md](guidance/reference/interop.md) | Connecting the UI to host-language logic (models, callbacks, globals). |
+| [polish.md](guidance/reference/polish.md) | The UI works but looks rough; reviewing a rendered screenshot. |
+| [debugging-and-mcp.md](guidance/reference/debugging-and-mcp.md) | Runtime debugging, headless/CI rendering, screenshots, the MCP server. |
+| [licensing.md](guidance/reference/licensing.md) | The user asks about the license, or builds a closed-source app. |
+| [web-embedding.md](guidance/reference/web-embedding.md) | Showing a live `.slint` preview in a web page, HTML report, or docs. |
+| [tools-install.md](guidance/tools-install.md) | Installing `slint-lsp` (language server) or `slint-viewer` (preview / screenshots). |
 
 ## `.slint` in 30 seconds
 

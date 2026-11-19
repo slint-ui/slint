@@ -1,9 +1,9 @@
 ---
-name: slint-plugin
+name: slint
 description: Write, edit, debug, or review Slint UIs and host-language integration in Codex. Use for Slint docs, development guidance, inline previews, and preview annotations.
 ---
 
-# Slint Plugin for Codex
+# Slint Skill for Codex
 
 ## Find the Slint Project
 
