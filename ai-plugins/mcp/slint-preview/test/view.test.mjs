@@ -60,6 +60,11 @@ function startView({
         offsetWidth: 320,
         offsetHeight: 160,
         clientWidth: 320,
+        getBoundingClientRect() {
+            return this.hidden
+                ? { left: 0, right: 0, top: 0, height: 0 }
+                : { left: 0, right: this.width, top: 0, height: this.height };
+        },
         cloneNode() {
             return element();
         },
@@ -73,7 +78,7 @@ function startView({
         },
     });
     const elements = new Map(
-        ["status", "preview", "diagnostics", "stage", "crash", "crash-details", "retry", "preview-frame", "annotate",
+        ["root", "preview-content", "status", "preview", "diagnostics", "stage", "crash", "crash-details", "retry", "preview-frame", "annotate",
             "annotation-layer", "annotation-snapshot", "annotation-pin",
             "annotation-editor", "annotation-comment", "annotation-send", "annotation-error",
             "preview-tools", "preview-light", "preview-dark"].map((id) => [
@@ -84,9 +89,11 @@ function startView({
     elements.get("preview").hidden = true;
     elements.get("crash").hidden = true;
     const window = {
+        innerWidth: 320,
+        innerHeight: 600,
         matchMedia: () => ({ matches: false, dispatchEvent() {} }),
-        addEventListener(_type, listener) {
-            onMessage = listener;
+        addEventListener(type, listener) {
+            if (type === "message") onMessage = listener;
         },
         parent: {
             postMessage(message) {
@@ -160,12 +167,12 @@ function startView({
             addEventListener() {},
             getElementById: (id) => elements.get(id),
             documentElement: { style: {} },
-            body: element(),
             createElement: element,
         },
         MouseEvent,
         HTMLCanvasElement,
         HTMLImageElement,
+        getComputedStyle: () => ({ bottom: "10px" }),
         ResizeObserver: class {
             observe() {}
         },
