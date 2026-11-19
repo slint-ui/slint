@@ -992,6 +992,7 @@ impl Compiler {
     }
 
     /// Sets the callback that loads the contents of imported font files while compiling.
+    /// With Slint's image decoders enabled, it also loads images referenced by the component.
     /// The compiled components register these fonts when they're created.
     /// Without it, the browser build fetches the fonts by URL,
     /// and other builds read them from the file system when a component is created.
@@ -1263,6 +1264,8 @@ impl CompilationResult {
         let compilation_unit = compilation_unit.map(Rc::new);
         let resources = Rc::new(crate::component::Resources {
             font_files,
+            #[cfg(feature = "std")]
+            images: Default::default(),
             #[cfg(feature = "internal-mcu-interpreter")]
             pre_rendered,
         });
@@ -1377,6 +1380,8 @@ impl CompilationResult {
     }
 
     /// Consume the result so that it can be sent to another thread.
+    ///
+    /// Panics if the result contains images decoded through the internal resource loader.
     pub fn into_send(self) -> SendableCompilationResult {
         let Self {
             components,
@@ -1411,6 +1416,8 @@ impl CompilationResult {
         // the caller kept one of them, or an instance, alive.
         let compilation_unit = unit.map(Rc::unwrap_or_clone);
         let resources = resources.map(Rc::unwrap_or_clone).unwrap_or_default();
+        #[cfg(feature = "std")]
+        assert!(resources.images.is_empty(), "Decoded images cannot be sent to another thread");
 
         SendableCompilationResult {
             compilation_unit,
