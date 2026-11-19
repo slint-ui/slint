@@ -1,0 +1,94 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { BasicTheme, Button, SpinBox } from "../src/basic.slint";
+import { SpinBoxBase } from "../src/headless.slint";
+import { PreviewSettings } from "preview_settings.slint";
+import { ExampleSection } from "section.slint";
+
+export component SpinBoxExamples inherits VerticalLayout {
+    in-out property <int> size-index: 1;
+    in-out property <bool> preview-disabled;
+    private property <int> size: clamp(root.size-index, 0, 2);
+
+    vertical-stretch: 0;
+    spacing: 20px;
+
+    PreviewSettings {
+        control-name: "SpinBox";
+        size-index <=> root.size-index;
+        disabled <=> root.preview-disabled;
+    }
+
+    ExampleSection {
+        title: "Bounded numeric input";
+        description: "Type a quantity, use the arrow keys, or select a stepper to change the value.";
+
+        HorizontalLayout {
+            spacing: 16px;
+            SpinBox {
+                enabled: !root.preview-disabled;
+                accessible-label: "Quantity";
+                stepper-size: [20px, 24px, 32px][root.size];
+                font-size: [12px, 14px, 16px][root.size];
+                width: 160px;
+                value: 12;
+                step-size: 2;
+                maximum: 20;
+            }
+
+            SpinBox {
+                enabled: !root.preview-disabled;
+                accessible-label: "Read-only quantity";
+                stepper-size: [20px, 24px, 32px][root.size];
+                font-size: [12px, 14px, 16px][root.size];
+                width: 160px;
+                value: 20;
+                read-only: true;
+            }
+        }
+    }
+
+    ExampleSection {
+        title: "Custom steppers";
+        description: "A headless SpinBox with its own arrangement and controls.";
+
+        offset := SpinBoxBase {
+            enabled: !root.preview-disabled;
+            accessible-label: "Offset";
+            width: 210px;
+            horizontal-padding: 10px;
+            vertical-padding: 6px;
+            spacing: 6px;
+            value: 0;
+            minimum: -60;
+            maximum: 60;
+            step-size: 5;
+            foreground-color: BasicTheme.foreground;
+
+            background << Rectangle {
+                border-width: 1px;
+                border-radius: 8px;
+                border-color: BasicTheme.border;
+            }
+            steppers << HorizontalLayout {
+                spacing: 6px;
+                Text { text: "min"; color: BasicTheme.disabled-foreground; vertical-alignment: center; }
+                Button {
+                    text: "−5";
+                    accessible-label: "Decrease offset by five";
+                    focus-on-tab-navigation: false;
+                    enabled: offset.can-decrement;
+                    clicked => { offset.decrement(); }
+                }
+                Button {
+                    text: "+5";
+                    accessible-label: "Increase offset by five";
+                    focus-on-tab-navigation: false;
+                    enabled: offset.can-increment;
+                    clicked => { offset.increment(); }
+                }
+            }
+        }
+    }
+}

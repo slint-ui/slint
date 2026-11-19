@@ -1,0 +1,152 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { SpinBoxInterface } from "std-widget-interfaces.slint";
+import { LineEditBase } from "line_edit_base.slint";
+
+export component SpinBoxBase {
+    implement SpinBoxInterface <=> self;
+
+    in property <bool> enabled: true;
+    in property <bool> read-only;
+    in property <int> minimum;
+    in property <int> maximum: 100;
+    in property <int> step-size: 1;
+    in-out property <int> value: root.minimum;
+
+    in property <string> font-family <=> field.font-family;
+    in property <length> font-size <=> field.font-size;
+    in property <bool> font-italic <=> field.font-italic;
+    in property <int> font-weight <=> field.font-weight;
+    in property <TextHorizontalAlignment> horizontal-alignment <=> field.horizontal-alignment;
+    in property <brush> foreground-color <=> field.foreground-color;
+    in property <color> selection-background-color <=> field.selection-background-color;
+    in property <color> selection-foreground-color <=> field.selection-foreground-color;
+
+    in property <length> horizontal-padding;
+    in property <length> vertical-padding;
+    in property <length> left-padding: root.horizontal-padding;
+    in property <length> right-padding: root.horizontal-padding;
+    in property <length> top-padding: root.vertical-padding;
+    in property <length> bottom-padding: root.vertical-padding;
+    in property <length> spacing;
+
+    out property <bool> has-focus: field.has-focus;
+    out property <bool> hovered: root.enabled && pointer.has-hover;
+    out property <bool> can-increment: root.editable && root.step-size > 0 && root.value < root.upper;
+    out property <bool> can-decrement: root.editable && root.step-size > 0 && root.value > root.lower;
+
+    private property <bool> editable: root.enabled && !root.read-only;
+    private property <int> lower: min(root.minimum, root.maximum);
+    private property <int> upper: max(root.minimum, root.maximum);
+
+    slot background;
+    slot steppers;
+
+    callback edited(value: int);
+
+    function change-value(requested: int) {
+        let bounded = clamp(requested, root.lower, root.upper);
+        if bounded != root.value {
+            root.value = bounded;
+            root.edited(bounded);
+        }
+    }
+
+    public function set-value(requested: int) {
+        if !root.editable { return; }
+        root.change-value(requested);
+        root.restore-text();
+    }
+
+    public function increment() {
+        if root.can-increment {
+            root.set-value(root.value > 2147483647 - root.step-size ? root.upper : root.value + root.step-size);
+        }
+    }
+
+    public function decrement() {
+        if root.can-decrement {
+            root.set-value(root.value < -2147483648 + root.step-size ? root.lower : root.value - root.step-size);
+        }
+    }
+
+    function apply-text(text: string, limit-to-range: bool) {
+        if !root.editable || !text.is-float() { return; }
+        let number = text.to-float();
+        if number != floor(number) || (limit-to-range && (number < root.lower || number > root.upper)) { return; }
+        let bounded: int = number <= root.lower ? root.lower : number >= root.upper ? root.upper : number;
+        root.change-value(bounded);
+    }
+
+    function restore-text() {
+        field.text = root.value;
+    }
+
+    changed value => { root.restore-text(); }
+    changed has-focus => { if !root.has-focus { root.restore-text(); } }
+    changed editable => { if !root.editable { root.restore-text(); } }
+
+    min-width: layout.min-width;
+    min-height: layout.min-height;
+    preferred-width: layout.preferred-width;
+    preferred-height: layout.preferred-height;
+    horizontal-stretch: 1;
+    vertical-stretch: 0;
+    forward-focus: field;
+    accessible-role: spinbox;
+    accessible-label: "";
+    accessible-enabled: root.enabled;
+    accessible-read-only: root.read-only;
+    accessible-value: root.value;
+    accessible-value-minimum: root.lower;
+    accessible-value-maximum: root.upper;
+    accessible-value-step: max(0, root.step-size);
+    accessible-action-default => { if root.enabled { field.focus(); } }
+    accessible-action-increment => { root.increment(); }
+    accessible-action-decrement => { root.decrement(); }
+    accessible-action-set-value(value) => { root.apply-text(value, false); root.restore-text(); }
+    accessible-action-set-selection-offsets(anchor, focus) => { field.set-selection-offsets(anchor, focus); }
+
+    background { }
+
+    pointer := TouchArea {
+        enabled: root.enabled;
+        scroll-event(event) => {
+            if !root.has-focus { return reject; }
+            if event.delta-y > 0px && root.can-increment { root.increment(); return accept; }
+            if event.delta-y < 0px && root.can-decrement { root.decrement(); return accept; }
+            return reject;
+        }
+
+        layout := HorizontalLayout {
+            padding-left: root.left-padding;
+            padding-right: root.right-padding;
+            padding-top: root.top-padding;
+            padding-bottom: root.bottom-padding;
+            spacing: root.spacing;
+
+            field := LineEditBase {
+                horizontal-stretch: 1;
+                enabled: root.enabled;
+                read-only: root.read-only;
+                text: root.value;
+                accessible-role: none;
+                edited(text) => { root.apply-text(text, true); }
+                accepted => { root.restore-text(); }
+                key-pressed(event) => {
+                    if !root.editable || event.modifiers.control || event.modifiers.alt || event.modifiers.meta {
+                        return reject;
+                    }
+                    if event.text == Key.UpArrow { root.increment(); return accept; }
+                    if event.text == Key.DownArrow { root.decrement(); return accept; }
+                    return reject;
+                }
+            }
+
+            steppers { }
+        }
+    }
+
+    @children
+}

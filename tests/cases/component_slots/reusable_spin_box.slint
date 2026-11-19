@@ -1,0 +1,137 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Button, SpinBox } from "../../../tools/editor/controls/src/basic.slint";
+import { SpinBoxBase } from "../../../tools/editor/controls/src/headless.slint";
+import { SpinBoxInterface } from "std-widget-interfaces.slint";
+
+component BoundedInput {
+    slot <SpinBoxInterface> editor;
+    out property <int> value: editor.value;
+    editor { minimum: 2; maximum: 8; }
+}
+
+export component TestCase inherits Window {
+    width: 440px;
+    height: 240px;
+    in-out property <int> number <=> spin.value;
+    in-out property <int> minimum <=> spin.minimum;
+    in-out property <int> maximum <=> spin.maximum;
+    in-out property <int> step <=> spin.step-size;
+    in-out property <bool> spin-enabled <=> spin.enabled;
+    in-out property <bool> spin-read-only <=> spin.read-only;
+    out property <bool> spin-focused: spin.has-focus;
+    out property <int> spin-edits;
+    out property <int> custom-number: bounded.value;
+
+    out property <bool> test: spin.value == 4 && root.custom-number == 2;
+
+    public function step-up() { spin.increment(); }
+    public function step-down() { spin.decrement(); }
+
+    public function focus-elsewhere() { other.focus(); }
+
+    other := FocusScope { width: 0px; height: 0px; }
+
+    VerticalLayout {
+        padding: 20px;
+        spacing: 12px;
+
+        spin := SpinBox {
+            accessible-label: "Quantity";
+            value: 4;
+            minimum: -10;
+            maximum: 10;
+            step-size: 3;
+            edited => { root.spin-edits += 1; }
+        }
+
+        bounded := BoundedInput {
+            height: 36px;
+            editor << custom := SpinBoxBase {
+                accessible-label: "Custom quantity";
+                steppers << Button {
+                    text: "Custom step";
+                    clicked => { custom.increment(); }
+                }
+            }
+        }
+    }
+}
+
+/*
+```rust
+use slint::{ComponentHandle, SharedString, platform::{Key, PointerEventButton}};
+use slint_testing::{AccessibleRole, ElementHandle, send_keyboard_string_sequence};
+
+let instance = TestCase::new().unwrap();
+instance.show().unwrap();
+assert!(instance.get_test());
+let find = |label| ElementHandle::find_by_accessible_label(&instance, label).next().unwrap();
+let press = |key: Key| send_keyboard_string_sequence(&instance, &SharedString::from(key));
+
+let spin = find("Quantity");
+assert_eq!(spin.accessible_role(), Some(AccessibleRole::Spinbox));
+assert_eq!(spin.accessible_value_minimum(), Some(-10.));
+assert_eq!(spin.accessible_value_maximum(), Some(10.));
+spin.invoke_accessible_default_action();
+assert!(instance.get_spin_focused());
+find("Increase value").mock_single_click(PointerEventButton::Left);
+assert_eq!(instance.get_number(), 7);
+assert!(instance.get_spin_focused());
+press(Key::UpArrow);
+assert_eq!(instance.get_number(), 10);
+assert_eq!(find("Increase value").accessible_enabled(), Some(false));
+spin.invoke_accessible_increment_action();
+assert_eq!(instance.get_spin_edits(), 2);
+spin.invoke_accessible_decrement_action();
+assert_eq!(instance.get_number(), 7);
+
+spin.set_accessible_selection_offsets(0, 2);
+send_keyboard_string_sequence(&instance, "-8");
+assert_eq!(instance.get_number(), -8);
+spin.set_accessible_selection_offsets(0, 2);
+send_keyboard_string_sequence(&instance, "25");
+press(Key::Return);
+assert_eq!(instance.get_number(), 2);
+spin.set_accessible_value("5.5");
+assert_eq!(instance.get_number(), 2);
+spin.set_accessible_value("-12");
+assert_eq!(instance.get_number(), -10);
+
+let edits = instance.get_spin_edits();
+instance.set_spin_read_only(true);
+assert_eq!(find("Increase value").accessible_enabled(), Some(false));
+press(Key::UpArrow);
+spin.set_accessible_value("4");
+spin.invoke_accessible_increment_action();
+assert_eq!(instance.get_number(), -10);
+assert_eq!(instance.get_spin_edits(), edits);
+instance.set_spin_read_only(false);
+instance.set_spin_enabled(false);
+spin.invoke_accessible_increment_action();
+assert_eq!(instance.get_number(), -10);
+
+instance.set_spin_enabled(true);
+instance.invoke_focus_elsewhere();
+assert!(!instance.get_spin_focused());
+spin.scroll(0., 12.);
+assert_eq!(instance.get_number(), -10);
+spin.invoke_accessible_default_action();
+spin.scroll(0., 12.);
+assert_eq!(instance.get_number(), -7);
+
+instance.set_minimum(i32::MIN);
+instance.set_maximum(i32::MAX);
+instance.set_step(10);
+instance.set_number(i32::MAX - 1);
+instance.invoke_step_up();
+assert_eq!(instance.get_number(), i32::MAX);
+instance.set_number(i32::MIN + 1);
+instance.invoke_step_down();
+assert_eq!(instance.get_number(), i32::MIN);
+
+find("Custom step").mock_single_click(PointerEventButton::Left);
+assert_eq!(instance.get_custom_number(), 3);
+```
+*/

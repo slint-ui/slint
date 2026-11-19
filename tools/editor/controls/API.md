@@ -16,7 +16,7 @@ Defaults described as “state style” follow the active state of the selected 
 
 ## Shared Styled Inputs
 
-Button, CheckBox, Switch, ComboBox, and LineEdit accept these `in` properties:
+Button, CheckBox, Switch, ComboBox, LineEdit, and SpinBox accept these `in` properties:
 
 | Property | Type | Default |
 | --- | --- | --- |
@@ -30,9 +30,9 @@ Button, CheckBox, Switch, ComboBox, and LineEdit accept these `in` properties:
 | `top-padding`, `bottom-padding` | `length` | `vertical-padding` |
 | `spacing` | `length` | See each control |
 
-All six styled controls accept `focus-width: length = 2px` and `focus-offset: length = 2px`.
+These controls and Slider accept `focus-width: length = 2px` and `focus-offset: length = 2px`.
 Set `focus-width` to zero to hide the focus outline.
-Focus color comes from `style.focus-color`.
+Set the focus color through `style.focus-color` or through `style.field.focus-color` on SpinBox.
 
 Direct color inputs apply while enabled; disabled colors come from the style.
 Geometry overrides apply in every state.
@@ -343,6 +343,23 @@ LineEdit exposes `leading` and `trailing` slots; its background and placeholder 
 Derived components inherit these slots automatically.
 Selection color overrides apply while enabled; disabled fields use style selection colors.
 Read-only fields retain enabled style colors.
+
+## SpinBox
+
+`SpinBoxBase` and `SpinBox` implement [`SpinBoxInterface`](../../../internal/compiler/widgets/interfaces/spinbox.slint).
+They use integer values. Up and Down, accessibility actions, and the optional steppers share the same bounds and editing guards.
+The wheel steps the value while the numeric input has focus.
+
+- `increment()` and `decrement()` change the value by `step-size` and clamp to the bounds. A nonpositive step disables stepping.
+- `set-value(int)` applies a bounded edit. Assign to `value` directly to update it from the application without emitting `edited`.
+- `can-increment` and `can-decrement` include the enabled, read-only, step, and range checks. Bind custom steppers to these outputs.
+- A valid, in-range integer edit updates the value while typing. Enter and focus loss restore the current value's text. Text-to-number conversion uses the same float parser as the standard SpinBox, so very large integers can lose precision during direct entry.
+
+Fill `background` for a custom surface and `steppers` with any component or layout containing your step controls.
+The base places `steppers` after the numeric input and leaves the slot empty by default.
+The Basic `SpinBox` fills it with two buttons that preserve input focus and stay out of the tab order.
+`stepper-size` sets their minimum dimensions and `stepper-spacing` sets the gap.
+`SpinBoxStyles.standard` supplies a `SpinBoxStyle` with a `LineEditStyle` in `field` and a `ButtonStyle` in `stepper`.
 
 ## Style Struct Fields
 
