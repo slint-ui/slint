@@ -844,7 +844,7 @@ fn test_unit_normalization() {
         config.style = Some("fluent".into());
         let mut diags = crate::diagnostics::BuildDiagnostics::default();
         let doc_node = crate::parser::parse(
-            format!("export component Foo {{ out property <{ty}> a: {expr}; }}").into(),
+            format!("export component Foo {{ out property <{ty}> a: {expr}; }}"),
             Some(SourcePath::new("HELLO")),
             None,
             &mut diags,

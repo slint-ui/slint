@@ -374,7 +374,7 @@ mod tests {
         doc
     }
 
-    fn component<'a>(doc: &'a crate::object_tree::Document, id: &str) -> Rc<Component> {
+    fn component(doc: &crate::object_tree::Document, id: &str) -> Rc<Component> {
         doc.inner_components.iter().find(|c| c.id == id).expect("component").clone()
     }
 
