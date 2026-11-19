@@ -55,6 +55,7 @@
     z-index: 2;
     display: flex;
     gap: 6px;
+    width: max-content;
     height: 28px;
     box-sizing: border-box;
     padding: 2px;
@@ -438,15 +439,20 @@
   }
 
   let lastSize = "";
-  new ResizeObserver(() => {
-    // The document's scroll size never drops below the frame's current size, so it can't shrink.
-    const width = Math.ceil(document.body.scrollWidth);
-    const height = Math.ceil(document.body.getBoundingClientRect().height);
+  const sizeObserver = new ResizeObserver(() => {
+    const toolbar = tools.getBoundingClientRect();
+    const width = Math.ceil(Math.max(document.body.scrollWidth, toolbar.right + toolbar.left));
+    // The document's scroll height is at least the iframe height, so it would prevent shrinking.
+    const contentHeight = document.body.getBoundingClientRect().height;
+    const toolbarInset = tools.hidden ? 0 : parseFloat(getComputedStyle(tools).bottom);
+    const height = Math.ceil(contentHeight + toolbar.height + 2 * toolbarInset);
     const size = `${width}x${height}`;
     if (size === lastSize) return;
     lastSize = size;
     notify("ui/notifications/size-changed", { width, height });
-  }).observe(document.body);
+  });
+  sizeObserver.observe(document.body);
+  sizeObserver.observe(tools, { box: "border-box" });
 
   // The component's preferred size in logical pixels, measured at scale 1.
   let designSize = null;

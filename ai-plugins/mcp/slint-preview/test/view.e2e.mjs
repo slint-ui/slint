@@ -58,6 +58,10 @@ const HOST_PAGE = `<!doctype html>
     if (event.source !== frame.contentWindow) return;
     const { id, method, params } = event.data;
     if (method === "ui/notifications/initialized") window.viewInitialized = true;
+    if (method === "ui/notifications/size-changed" && window.resizeToView) {
+      frame.style.width = params.width + "px";
+      frame.style.height = params.height + "px";
+    }
     if (id === undefined) return;
     if (method === "ui/initialize") {
       window.previewDisplayModes = params.appCapabilities.availableDisplayModes;
@@ -499,6 +503,54 @@ test("anchors the tools to the plugin viewport and switches the Slint theme", as
     await waitForBackground(false);
     assert.equal(await toolbar.isVisible(), true);
     await page.locator("iframe").evaluate((element) => { element.style.width = "800px"; element.style.height = "600px"; });
+});
+
+test("keeps the toolbar inside an iframe sized to a 20px preview", async () => {
+    const iframe = page.locator("iframe");
+    await iframe.evaluate((element) => {
+        window.resizeToView = true;
+        window.viewInitialized = false;
+        element.style.width = "100px";
+        element.srcdoc = element.srcdoc;
+    });
+    try {
+        await page.waitForFunction(() => window.viewInitialized);
+        assertRendered(await preview({ source: COMPONENT("Main") }));
+        const frame = page.frameLocator("iframe");
+        const toolbar = frame.getByRole("toolbar", { name: "Preview tools" });
+        const readBounds = () => toolbar.evaluate((element) => {
+            const toolbar = element.getBoundingClientRect();
+            const canvas = document.getElementById("preview").getBoundingClientRect();
+            return {
+                canvasWidth: canvas.width,
+                canvasHeight: canvas.height,
+                fits: toolbar.left >= 0 && toolbar.right <= window.innerWidth
+                    && toolbar.top >= canvas.bottom && toolbar.bottom <= window.innerHeight,
+            };
+        });
+        const bounds = await readBounds();
+        assert.equal(bounds.canvasWidth, 20);
+        assert.equal(bounds.canvasHeight, 20);
+        assert.ok(bounds.fits, "the full toolbar fits below the preview");
+
+        const initialHeight = await iframe.evaluate((element) => element.clientHeight);
+        await toolbar.evaluate((element) => {
+            element.style.height = `${element.offsetHeight + 48}px`;
+        });
+        await page.waitForFunction(
+            (previousHeight) => document.querySelector("iframe").clientHeight > previousHeight,
+            initialHeight,
+            { timeout: 5000 },
+        );
+        assert.ok((await readBounds()).fits, "the iframe grows to fit the taller toolbar");
+        await toolbar.getByRole("button", { name: "Annotate" }).click();
+    } finally {
+        await iframe.evaluate((element) => {
+            window.resizeToView = false;
+            element.style.width = "800px";
+            element.style.height = "600px";
+        });
+    }
 });
 
 test("hides Annotate when the host cannot stage a draft", async () => {
