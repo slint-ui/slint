@@ -636,6 +636,9 @@ pub struct Component {
     /// Slots declared in this component, in source order.
     pub declared_slots: RefCell<Vec<DeclaredSlot>>,
 
+    /// Child types available in this component without an explicit import.
+    pub(crate) implicit_child_types: RefCell<BTreeMap<SmolStr, Rc<Component>>>,
+
     pub init_code: RefCell<InitCode>,
 
     pub popup_windows: RefCell<Vec<PopupWindow>>,

@@ -204,6 +204,12 @@ impl Snapshotter {
 
     fn finalize(&mut self) {
         for (source, target) in &self.keep_alive {
+            *target.implicit_child_types.borrow_mut() = source
+                .implicit_child_types
+                .borrow()
+                .iter()
+                .map(|(name, child)| (name.clone(), self.use_component(child).upgrade().unwrap()))
+                .collect();
             for (name, point) in source.child_insertion_points.borrow().iter() {
                 if let Some(copied) = target.child_insertion_points.borrow_mut().get_mut(name) {
                     copied.parent = self.use_element(&point.parent);
@@ -427,6 +433,7 @@ impl Snapshotter {
                 id: component.id.clone(),
                 child_insertion_points,
                 declared_slots,
+                implicit_child_types: component.implicit_child_types.clone(),
                 exported_global_names: RefCell::new(
                     component.exported_global_names.borrow().clone(),
                 ),
@@ -2098,6 +2105,12 @@ impl TypeLoader {
             ignore_missing_font_files,
             &symbol_counters,
         );
+        if is_builtin
+            && let (Some(itertools::Either::Left(group)), Some(itertools::Either::Left(button))) =
+                (doc.exports.find("RadioGroup"), doc.exports.find("RadioButton"))
+        {
+            group.implicit_child_types.borrow_mut().insert("RadioButton".into(), button.clone());
+        }
         (path.to_owned(), doc)
     }
 
@@ -3210,12 +3223,12 @@ fn snapshotting_slot_collections() {
 #[test]
 fn radio_widgets_without_experimental_features() {
     let source = r#"
-        import { RadioGroup, RadioButton, RadioGroupBase, RadioButtonBase } from "std-widgets.slint";
+        import { RadioGroup as Choices, RadioGroupBase, RadioButtonBase } from "std-widgets.slint";
         component CustomRadio inherits RadioButtonBase {
             Text { text: root.text; }
         }
         component CustomGroup inherits RadioGroupBase { }
-        component Colors inherits RadioGroup {
+        component Colors inherits Choices {
             RadioButton { text: "Red"; checked: true; }
             RadioButton { text: "Green"; }
         }
@@ -3225,7 +3238,7 @@ fn radio_widgets_without_experimental_features() {
             CustomGroup {
                 CustomRadio { text: "Custom"; checked: true; }
             }
-            RadioGroup {
+            Choices {
                 orientation: root.orientation;
                 for label in ["Desktop", "Mobile"]: RadioButton { text: label; }
             }
@@ -3240,6 +3253,58 @@ fn radio_widgets_without_experimental_features() {
         let (_, diag, _) = spin_on::spin_on(crate::compile_syntax_node(node, diag, config));
         assert!(!diag.has_errors(), "{style}: {:?}", diag.to_string_vec());
     }
+}
+
+#[test]
+fn radio_group_respects_local_button_type() {
+    let source = r#"
+        import { RadioGroup, RadioButtonBase } from "std-widgets.slint";
+        component RadioButton inherits RadioButtonBase {
+            in property <int> marker;
+        }
+        export component App inherits Window {
+            RadioGroup { RadioButton { text: "Custom"; marker: 42; } }
+        }
+    "#;
+    let mut config = CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    config.style = Some("fluent".into());
+    let mut diag = BuildDiagnostics::default();
+    let node = crate::parser::parse(source.into(), None, None, &mut diag);
+    let (_, diag, _) = spin_on::spin_on(crate::compile_syntax_node(node, diag, config));
+    assert!(!diag.has_errors(), "{:?}", diag.to_string_vec());
+}
+
+#[test]
+fn snapshotting_radio_group_implicit_button() {
+    let mut config = CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    config.style = Some("fluent".into());
+    let mut diag = BuildDiagnostics::default();
+    let mut loader = TypeLoader::new(config, &mut diag);
+    spin_on::spin_on(loader.load_file(
+        &SourcePath::new("/tmp/radio-exports.slint"),
+        r#"export { RadioGroup as Choices } from "std-widgets.slint";"#.into(),
+        false,
+        &mut diag,
+    ));
+    assert!(!diag.has_errors(), "{:?}", diag.to_string_vec());
+    let mut copy = snapshot(&loader).unwrap();
+    drop(loader);
+    spin_on::spin_on(
+        copy.load_file(
+            &SourcePath::new("/tmp/radio-app.slint"),
+            r#"
+            import { Choices } from "radio-exports.slint";
+            component Derived inherits Choices { }
+            export component App inherits Window {
+                Derived { RadioButton { text: "A"; checked: true; } }
+            }
+        "#
+            .into(),
+            false,
+            &mut diag,
+        ),
+    );
+    assert!(!diag.has_errors(), "{:?}", diag.to_string_vec());
 }
 
 #[test]

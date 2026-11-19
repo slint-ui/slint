@@ -819,6 +819,7 @@ fn duplicate_sub_component(
         root_constraints: component_to_duplicate.root_constraints.clone(),
         child_insertion_points: component_to_duplicate.child_insertion_points.clone(),
         declared_slots: component_to_duplicate.declared_slots.clone(),
+        implicit_child_types: component_to_duplicate.implicit_child_types.clone(),
         init_code: component_to_duplicate.init_code.clone(),
         popup_windows: Default::default(),
         timers: component_to_duplicate.timers.clone(),
