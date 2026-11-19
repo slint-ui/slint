@@ -653,12 +653,14 @@ inline bool select_bundled_translation(std::string_view language)
 }
 
 #if !defined(DOXYGEN)
+namespace cbindgen_private {
 template<typename T>
-cbindgen_private::OnceBox<T>::~OnceBox()
+OnceBox<T>::~OnceBox()
 {
     if (alloc.ptr) {
-        cbindgen_private::slint_once_box_drop(alloc.ptr);
+        slint_once_box_drop(alloc.ptr);
     }
+}
 }
 
 cbindgen_private::NativeStyleMetrics::NativeStyleMetrics(void *)

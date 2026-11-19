@@ -312,7 +312,7 @@ impl Item for NativeSpinBox {
         FocusEventResult::FocusAccepted
     }
 
-    fn_render! { this dpr size painter widget initial_state =>
+    fn_render! { this size painter widget initial_state =>
         let value: i32 = this.value();
         let enabled = this.enabled();
         let has_focus = this.has_focus();
@@ -338,7 +338,6 @@ impl Item for NativeSpinBox {
             size as "QSize",
             active_controls as "int",
             pressed as "bool",
-            dpr as "float",
             initial_state as "int",
             horizontal_alignment as "int"
         ] {
@@ -349,7 +348,7 @@ impl Item for NativeSpinBox {
             if (enabled && has_focus) {
                 option.state |= QStyle::State_HasFocus;
             }
-            option.rect = QRect(QPoint(), size / dpr);
+            option.rect = QRect(QPoint(), size);
             initQSpinBoxOptions(option, pressed, enabled, read_only, active_controls);
             style->drawComplexControl(QStyle::CC_SpinBox, &option, painter->get(), widget);
 

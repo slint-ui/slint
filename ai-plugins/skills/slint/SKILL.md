@@ -24,7 +24,14 @@ a declarative GUI toolkit for desktop, embedded, mobile, and web.
 3. Never declare UI work done without looking at a render — a screenshot for
    appearance, the MCP server for interactions. Review against
    [polish.md](reference/polish.md).
-   When available, call `preview_slint` with the saved file's absolute `path`, then `get_preview_screenshot` to inspect it.
+   When available, call `check_slint` with the saved file's absolute `path` and `prepare_preview: true`.
+   Inspect its diagnostics and PNG to assess correctness and appearance.
+   Fix issues and repeat the check as needed.
+   Then call `publish_preview` with the successful `previewId` to open the live preview for the user.
+   Use the screenshot returned by `check_slint` for the visual review and any screenshot shared in chat.
+   Call `get_preview_screenshot` only when inspecting changes after interaction,
+   investigating a browser rendering problem, or responding to an explicit screenshot request.
+   If a preparation expires, check again before publishing.
    Use `slint-viewer --screenshot` if the host lacks MCP Apps support.
 4. Share the render when the host supports it: inline the screenshot in chat
    apps, or print its absolute path and summarize the visual checks in CLI-only

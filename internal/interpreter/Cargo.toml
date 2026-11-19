@@ -203,7 +203,7 @@ vtable = { workspace = true }
 
 derive_more = { workspace = true, features = ["error"] }
 either = { version = "1.13", default-features = false }
-hashbrown = { version = "0.16", default-features = false, features = ["default-hasher"] }
+hashbrown = { version = "0.17", default-features = false, features = ["default-hasher"] }
 num-traits = { version = "0.2", default-features = false }
 once_cell = { version = "1.5", default-features = false, features = ["critical-section"] }
 lyon_path = { workspace = true }
@@ -216,7 +216,6 @@ typed-index-collections = { workspace = true, features = ["alloc"] }
 
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-i-slint-backend-winit = { workspace = true }
 js-sys = { version = "0.3.57", default-features = false, features = ["std"] }
 wasm-bindgen = "0.2.80"
 wasm-bindgen-futures = "0.4.30"
@@ -241,6 +240,8 @@ i-slint-backend-linuxkms = { workspace = true, optional = true }
 
 [dev-dependencies]
 i-slint-backend-testing = { path = "../../internal/backends/testing", features = ["internal"] }
+i-slint-core = { path = "../core", features = ["accessibility-text"] }
+accesskit = "0.25"
 spin_on = { workspace = true }
 tempfile = "3"
 

@@ -82,7 +82,12 @@ The [release mirror](https://github.com/slint-ui/ai-plugins) syncs from `release
 The [nightly mirror](https://github.com/slint-ui/ai-plugins-nightly) syncs from `master` and selects `snapshot`.
 Its marketplace name is `slint-nightly`.
 
-Run the preview unit tests with `mise run test:ai-plugins`.
+The MCP server checks and renders source with a separate software Wasm build before publication.
+Use Node.js 24 to build and run the checker.
+Run `pnpm build:checker` in `ai-plugins/mcp/slint-preview` to place its release JS, Wasm, and package metadata under `checker/`.
+Include that generated directory when packaging the plugin; the server loads it lazily when `check_slint` is called.
+The browser card keeps using the hosted interpreter selected by `channel.json`.
+Run the preview unit tests and the Node rendering test with `mise run test:ai-plugins`.
 
 ## Documentation
 
