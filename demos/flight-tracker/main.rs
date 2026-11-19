@@ -87,7 +87,7 @@ const MAX_GLOBE_SCALE: f32 = 2.0;
 /// The most physical pixels per logical pixel the globe renders at in `quality`,
 /// before the adaptive render scale.
 fn globe_density(window: &slint::Window, quality: Quality) -> f32 {
-    let limit = if quality == Quality::Low { 1.0 } else { MAX_GLOBE_SCALE };
+    let limit = if quality == Quality::Low { 0.4 } else { MAX_GLOBE_SCALE };
     window.scale_factor().min(limit)
 }
 /// The kiosk flies between airports within `HUB_KM` of a city with at least `HUB_POPULATION`
