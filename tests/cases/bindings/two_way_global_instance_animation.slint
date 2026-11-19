@@ -1,0 +1,45 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+global Shared {
+    in-out property <int> value;
+}
+
+component Alias {
+    in-out property <int> value <=> Shared.value;
+    animate value { duration: 200ms; }
+}
+
+export component TestCase inherits Window {
+    base := Alias {}
+    child := Alias {
+        value <=> Shared.value;
+        animate value { duration: 400ms; }
+    }
+    initialized-instance := Alias {
+        value: 0;
+        animate value { duration: 400ms; }
+    }
+    out property <int> observed: Shared.value;
+    public function write-base() { base.value = 100; }
+    public function write-initialized-instance() { initialized-instance.value = 100; }
+    public function write-instance() { child.value = 0; }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+instance.invoke_write_base();
+slint_testing::mock_elapsed_time(100);
+let base_halfway = instance.get_observed();
+slint_testing::mock_elapsed_time(100);
+instance.invoke_write_instance();
+slint_testing::mock_elapsed_time(200);
+let instance_halfway = instance.get_observed();
+assert_eq!((base_halfway, instance_halfway), (50, 50));
+slint_testing::mock_elapsed_time(200);
+instance.invoke_write_initialized_instance();
+slint_testing::mock_elapsed_time(200);
+assert_eq!(instance.get_observed(), 50, "instance animation with a value initializer");
+```
+*/
