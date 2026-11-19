@@ -73,6 +73,24 @@ Reference preset fields explicitly to retain their values and reactive bindings.
 Custom styles follow the application theme only where their bindings reference it.
 See [Style Struct Fields](API.md#style-struct-fields) for the states and colors available on each control.
 
+With a compiler that supports the experimental `struct-updates` feature, copy a preset and override individual fields.
+
+```slint
+import { TextArea, TextAreaStyles } from "src/basic.slint";
+
+export component App inherits Window {
+    VerticalLayout {
+        TextArea {
+            placeholder-text: "Notes";
+            style: {
+                rest: { border-color: #2563eb, ..TextAreaStyles.standard.rest },
+                ..TextAreaStyles.standard
+            };
+        }
+    }
+}
+```
+
 ## Dimensions and Padding
 
 Set dimensions, padding, fonts, borders, and focus geometry directly:
@@ -190,8 +208,10 @@ $env:SLINT_ENABLE_EXPERIMENTAL_FEATURES = "interfaces,shadowable,closures,named-
 .\target\debug\slint-viewer.exe --auto-reload tools/editor/controls/examples/controls.slint
 ```
 
-Each page provides size and disabled settings for previews, and the gallery supports light and dark palettes.
+Most pages provide size and disabled settings for previews.
+The gallery supports light and dark palettes.
 Preview sizes are defined by gallery components in `examples/preview_controls.slint`; headless examples keep their custom dimensions.
 The Button page shows defaults, direct adjustments, reusable application defaults, and custom visuals through slots.
 Its customization examples keep their own dimensions independently of the preview size selector.
-Every control page demonstrates custom visuals through slots.
+The ScrollBar page lets you try horizontal and vertical scrollbars on the same viewport.
+The ScrollView page lets you change each scrollbar policy and see how the view handles content that fits or overflows.

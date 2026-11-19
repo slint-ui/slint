@@ -1,0 +1,66 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ScrollBarBase } from "../headless/scroll_bar_base.slint";
+import { BasicTheme } from "theme.slint";
+
+export struct ScrollBarStateStyle {
+    track-color: brush,
+    thumb-color: brush,
+}
+
+export struct ScrollBarStyle {
+    rest: ScrollBarStateStyle,
+    hover: ScrollBarStateStyle,
+    pressed: ScrollBarStateStyle,
+    disabled: ScrollBarStateStyle,
+}
+
+export global ScrollBarStyles {
+    out property <ScrollBarStyle> standard: {
+        rest: {
+            track-color: BasicTheme.pressed-background,
+            thumb-color: BasicTheme.disabled-foreground,
+        },
+        hover: {
+            track-color: BasicTheme.border.with-alpha(0.7),
+            thumb-color: BasicTheme.accent,
+        },
+        pressed: {
+            track-color: BasicTheme.border.with-alpha(0.7),
+            thumb-color: BasicTheme.accent-pressed,
+        },
+        disabled: {
+            track-color: BasicTheme.disabled-background,
+            thumb-color: BasicTheme.border,
+        },
+    };
+}
+
+export component ScrollBar inherits ScrollBarBase {
+    in property <ScrollBarStyle> style: ScrollBarStyles.standard;
+    in property <brush> track-color: root.state-style.track-color;
+    in property <brush> thumb-color: root.state-style.thumb-color;
+    in property <length> thickness: 12px;
+    in property <length> preferred-length: 160px;
+
+    private property <ScrollBarStateStyle> state-style: !root.enabled ? root.style.disabled
+        : root.pressed ? root.style.pressed : root.has-hover ? root.style.hover : root.style.rest;
+
+    min-width: root.horizontal ? root.minimum-thumb-length : root.thickness;
+    min-height: root.horizontal ? root.thickness : root.minimum-thumb-length;
+    preferred-width: root.horizontal ? root.preferred-length : root.thickness;
+    preferred-height: root.horizontal ? root.thickness : root.preferred-length;
+    horizontal-stretch: root.horizontal ? 1 : 0;
+    vertical-stretch: root.horizontal ? 0 : 1;
+
+    track << Rectangle {
+        background: root.enabled ? root.track-color : root.style.disabled.track-color;
+        border-radius: min(self.width, self.height) / 2;
+    }
+
+    thumb << Rectangle {
+        background: root.enabled ? root.thumb-color : root.style.disabled.thumb-color;
+        border-radius: min(self.width, self.height) / 2;
+    }
+}

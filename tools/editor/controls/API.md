@@ -16,7 +16,7 @@ Defaults described as “state style” follow the active state of the selected 
 
 ## Shared Styled Inputs
 
-Button, CheckBox, Switch, ComboBox, and LineEdit accept these `in` properties:
+Button, CheckBox, Switch, ComboBox, LineEdit, and TextArea accept these `in` properties:
 
 | Property | Type | Default |
 | --- | --- | --- |
@@ -28,9 +28,9 @@ Button, CheckBox, Switch, ComboBox, and LineEdit accept these `in` properties:
 | `vertical-padding` | `length` | See each control |
 | `left-padding`, `right-padding` | `length` | `horizontal-padding` |
 | `top-padding`, `bottom-padding` | `length` | `vertical-padding` |
-| `spacing` | `length` | See each control |
+| `spacing` | `length` | See each control. TextArea has no adjacent content. |
 
-All six styled controls accept `focus-width: length = 2px` and `focus-offset: length = 2px`.
+All styled controls accept `focus-width: length = 2px` and `focus-offset: length = 2px`.
 Set `focus-width` to zero to hide the focus outline.
 Focus color comes from `style.focus-color`.
 
@@ -344,6 +344,73 @@ Derived components inherit these slots automatically.
 Selection color overrides apply while enabled; disabled fields use style selection colors.
 Read-only fields retain enabled style colors.
 
+## TextArea
+
+`TextAreaBase` and `TextArea` implement [`TextEditInterface`](../../../internal/compiler/widgets/interfaces/textedit.slint).
+They support multiline editing, clipboard and selection functions, wrapping, and the `content-*` and `visible-*` viewport properties.
+Set `wrap: no-wrap` to allow horizontal scrolling. The base hides scrollbars by default.
+The Basic TextArea shows vertical scrollbars as needed, and horizontal scrollbars as needed when wrapping is off.
+Override either policy to control when scrollbars appear.
+The default scrollbar has a transparent track and a thumb that uses the text color at reduced opacity.
+
+`TextAreaBase` supplies the input and viewport. Fill `background` and `placeholder` to draw a custom surface.
+The placeholder is shown when the text and input-method preedit are empty.
+Set `placeholder-text` for accessibility. Bind your custom placeholder to that value to display it.
+
+Fill `vertical-scrollbar-track` and `vertical-scrollbar-thumb` to draw a custom vertical scrollbar.
+For a horizontal scrollbar, use `horizontal-scrollbar-height`, `horizontal-scrollbar-track`, and `horizontal-scrollbar-thumb`.
+Both bars default to `12px` of thickness. Set `vertical-scrollbar-width` or `horizontal-scrollbar-height` to change it.
+The slots fill the track and thumb geometry of a [`ScrollBarBase`](#scrollbarbase).
+Each bar shares its `value` with the corresponding viewport offset.
+With `as-needed`, the scrollbar appears on overflow and its space stays reserved to keep the text layout stable.
+With `always-on`, it stays visible. `always-off` hides the scrollbar and releases its space.
+
+`TextArea` supplies both slots and uses `TextAreaStyles.standard`, which shares the `LineEditStyle` defaults.
+Its preferred size is `240px × 100px`, with `12px` horizontal and `8px` vertical padding.
+Set `background-color`, `foreground-color`, `placeholder-color`, the selection colors, or the geometry inputs directly for simple overrides.
+
+## ScrollBar
+
+`ScrollBar` inherits `ScrollBarBase` and fills its `track` and `thumb` slots with themed visuals.
+Set `thickness` or `preferred-length` to change the default dimensions of `12px × 160px` in the vertical orientation.
+Set `track-color` and `thumb-color` for simple color overrides, or set `style` to override the states in `ScrollBarStyles.standard`.
+
+### ScrollBarBase
+
+Fill `track` and `thumb` with your own visuals.
+Use `has-hover` and `pressed` to style pointer states.
+Set `horizontal: true` for a horizontal bar.
+
+Bind `value` to the viewport's `content-x` or `content-y` with `<=>`.
+The offset runs from `-maximum` to zero.
+Set `maximum` to the content length minus the visible length, and `page-size` to the visible length.
+The thumb scales with the visible fraction and respects `minimum-thumb-length` (default `12px`) within the available track.
+
+The default `as-needed` policy shows the bar when `maximum` is positive.
+With `always-on`, the thumb fills the track when the content fits.
+Drag the thumb or click the track to scroll by one page.
+Wheel input uses the bar's axis and passes to the enclosing view at either limit.
+`scrolled()` fires when pointer input changes the value.
+
+## ScrollView
+
+`ScrollView` inherits `ScrollViewBase` and supplies a Basic `ScrollBar` for each axis.
+Both policies default to `as-needed` and both bars reserve `12px` by default.
+Set `scrollbar-style` to style both bars, or set `vertical-scrollbar-width` and `horizontal-scrollbar-height` to adjust them independently.
+
+### ScrollViewBase
+
+`ScrollViewBase` implements [`ScrollViewInterface`](../../../internal/compiler/widgets/interfaces/scrollview.slint).
+Add children directly to the view. It clips them to the viewport and reports the visible size through `visible-width` and `visible-height`.
+`content-x` and `content-y` are two-way scroll offsets. The `scrolled()` callback receives scroll events from the viewport and custom bars.
+
+Fill the `vertical-scrollbar` and `horizontal-scrollbar` typed slots with `ScrollBarBase`, Basic `ScrollBar`, or another implementation of `ScrollBarSurface`.
+Set `vertical-scrollbar-width` or `horizontal-scrollbar-height` to a positive length to reserve space for a custom bar.
+The view binds the bar's range, page size, and offset to the viewport.
+A custom bar with `as-needed` appears on overflow and keeps its space reserved so content can wrap consistently.
+`always-off` hides the bar and releases its space.
+Set the size to zero and fill the slot with an empty `ScrollBarBase` for an unused axis.
+
 ## Style Struct Fields
 
 All types below are exported from `basic.slint`.
@@ -362,6 +429,8 @@ All color fields are `brush`, except LineEdit selection colors, which are `color
 | `SwitchStyle` | `unchecked`, `checked`: `SwitchStateStyles`; `focus-color`: `brush` |
 | `SliderStateStyle` | `track-color`, `fill-color`, `handle-color`, `handle-border-color`: `brush` |
 | `SliderStyle` | `rest`, `hover`, `pressed`, `disabled`: `SliderStateStyle`; `focus-color`: `brush` |
+| `ScrollBarStateStyle` | `track-color`, `thumb-color`: `brush` |
+| `ScrollBarStyle` | `rest`, `hover`, `pressed`, `disabled`: `ScrollBarStateStyle` |
 | `ComboBoxStateStyle` | `background-color`, `foreground-color`, `border-color`: `brush` |
 | `ComboBoxItemStyle` | `background-color`, `foreground-color`: `brush` |
 | `ComboBoxPopupStyle` | `background-color`, `border-color`: `brush`; `rest`, `highlighted`, `selected`, `disabled`: `ComboBoxItemStyle` |
@@ -370,7 +439,7 @@ All color fields are `brush`, except LineEdit selection colors, which are `color
 | `LineEditStyle` | `rest`, `hover`, `disabled`: `LineEditStateStyle`; `selection-background-color`, `selection-foreground-color`: `color`; `focus-color`: `brush` |
 
 Read-only preset globals expose `ButtonStyles.secondary`, `primary`, `danger`, and `invisible`.
-`CheckBoxStyles`, `SwitchStyles`, `SliderStyles`, `ComboBoxStyles`, and `LineEditStyles` each expose `standard`.
+`CheckBoxStyles`, `SwitchStyles`, `SliderStyles`, `ScrollBarStyles`, `ComboBoxStyles`, and `LineEditStyles` each expose `standard`.
 Presets derive their colors from BasicTheme.
 
 ## Theme API

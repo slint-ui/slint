@@ -1,0 +1,94 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { BasicTheme, CheckBox, ComboBox, ScrollView } from "../src/basic.slint";
+import { ExampleSection } from "section.slint";
+
+export component ScrollViewExamples inherits VerticalLayout {
+    private property <[ScrollBarPolicy]> policies: [ScrollBarPolicy.as-needed, ScrollBarPolicy.always-on, ScrollBarPolicy.always-off];
+    private property <[{ label: string, color: brush }]> swatches: [
+        { label: "Accent", color: BasicTheme.accent },
+        { label: "Focus", color: BasicTheme.focus },
+        { label: "Danger", color: BasicTheme.danger },
+        { label: "Hover background", color: BasicTheme.hover-background },
+        { label: "Pressed background", color: BasicTheme.pressed-background },
+        { label: "Border", color: BasicTheme.border },
+    ];
+
+    vertical-stretch: 0;
+    spacing: 20px;
+
+    HorizontalLayout {
+        alignment: start;
+        spacing: 16px;
+
+        VerticalLayout {
+            spacing: 4px;
+            Text { text: "Vertical scrollbar"; color: BasicTheme.foreground; }
+            vertical-policy := ComboBox {
+                accessible-label: "Vertical scrollbar policy";
+                width: 152px;
+                model: ["As needed", "Always on", "Always off"];
+            }
+        }
+
+        VerticalLayout {
+            spacing: 4px;
+            Text { text: "Horizontal scrollbar"; color: BasicTheme.foreground; }
+            horizontal-policy := ComboBox {
+                accessible-label: "Horizontal scrollbar policy";
+                width: 152px;
+                model: ["As needed", "Always on", "Always off"];
+            }
+        }
+
+        fit := CheckBox { text: "Fit content"; }
+    }
+
+    ExampleSection {
+        title: "Palette board";
+        description: "Drag the board or use the scrollbars. Turn on Fit content to see when each policy shows a bar.";
+
+        view := ScrollView {
+            height: 240px;
+            mouse-drag-pan-enabled: true;
+            vertical-scrollbar-policy: root.policies[vertical-policy.current-index];
+            horizontal-scrollbar-policy: root.policies[horizontal-policy.current-index];
+            content-width: self.visible-width + (fit.checked ? 0px : 280px);
+            content-height: self.visible-height + (fit.checked ? 0px : 168px);
+
+            Rectangle {
+                x: 0px;
+                y: 0px;
+                width: view.content-width;
+                height: view.content-height;
+                background: BasicTheme.hover-background;
+
+                for swatch[index] in root.swatches: Rectangle {
+                    x: 12px + Math.mod(index, 3) * (self.width + 12px);
+                    y: 12px + Math.floor(index / 3) * (self.height + 12px);
+                    width: (view.content-width - 48px) / 3;
+                    height: (view.content-height - 36px) / 2;
+                    background: BasicTheme.background;
+                    border-radius: 6px;
+
+                    VerticalLayout {
+                        padding: 8px;
+                        spacing: 8px;
+                        Rectangle {
+                            vertical-stretch: 1;
+                            border-radius: 4px;
+                            background: swatch.color;
+                        }
+                        Text {
+                            text: swatch.label;
+                            color: BasicTheme.foreground;
+                            font-weight: 600;
+                            overflow: elide;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

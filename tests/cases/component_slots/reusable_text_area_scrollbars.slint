@@ -1,0 +1,81 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { TextAreaBase } from "../../../tools/editor/controls/src/headless.slint";
+
+export component TestCase inherits Window {
+    width: 240px;
+    height: 180px;
+    in-out property <string> text <=> editor.text;
+    in-out property <length> scroll-x <=> editor.content-x;
+    in-out property <length> scroll-y <=> editor.content-y;
+    out property <length> visible-width: editor.visible-width;
+    out property <length> visible-height: editor.visible-height;
+    out property <length> horizontal-range: editor.content-width - editor.visible-width;
+    out property <length> vertical-range: editor.content-height - editor.visible-height;
+
+    editor := TextAreaBase {
+        x: 10px;
+        y: 10px;
+        width: 200px;
+        height: 140px;
+        vertical-scrollbar-width: 12px;
+        horizontal-scrollbar-height: 16px;
+        vertical-scrollbar-policy: as-needed;
+        horizontal-scrollbar-policy: as-needed;
+        wrap: no-wrap;
+
+        vertical-scrollbar-track << vertical-track := Rectangle { background: gray; }
+        vertical-scrollbar-thumb << vertical-thumb := Rectangle { background: blue; }
+        horizontal-scrollbar-track << horizontal-track := Rectangle { background: gray; }
+        horizontal-scrollbar-thumb << horizontal-thumb := Rectangle { background: blue; }
+    }
+}
+
+/*
+```rust
+use slint::{ComponentHandle, LogicalPosition, platform::PointerEventButton};
+use slint_testing::ElementHandle;
+
+let instance = TestCase::new().unwrap();
+instance.set_text(("Wide text ".repeat(16) + "\n").repeat(30).into());
+instance.show().unwrap();
+assert_eq!(instance.get_visible_width(), 188.);
+assert_eq!(instance.get_visible_height(), 124.);
+assert!(instance.get_horizontal_range() > 188.);
+assert!(instance.get_vertical_range() > 124.);
+
+let find = |id| ElementHandle::find_by_element_id(&instance, id).next().unwrap();
+let vertical_track = find("TestCase::vertical-track");
+let vertical_thumb = find("TestCase::vertical-thumb");
+let horizontal_track = find("TestCase::horizontal-track");
+let horizontal_thumb = find("TestCase::horizontal-thumb");
+let left = PointerEventButton::Left;
+assert_eq!(vertical_track.size().width, 12.);
+assert_eq!(horizontal_track.size().height, 16.);
+assert!(vertical_thumb.size().height < vertical_track.size().height / 2.);
+
+let top = vertical_thumb.absolute_position().y;
+let start = horizontal_thumb.absolute_position().x;
+vertical_track.mock_single_click(left);
+assert_eq!(instance.get_scroll_y(), -instance.get_visible_height());
+assert!(vertical_thumb.absolute_position().y > top);
+
+find("TestCase::editor").scroll(0., -24.);
+assert!(instance.get_scroll_y() < -instance.get_visible_height());
+let before_wheel = instance.get_scroll_y();
+vertical_track.scroll(0., -12.);
+assert_eq!(instance.get_scroll_y(), before_wheel - 12.);
+instance.set_scroll_y(0.);
+assert_eq!(vertical_thumb.absolute_position().y, top);
+
+let track_origin = vertical_track.absolute_position();
+vertical_thumb.mock_drag(LogicalPosition::new(track_origin.x + 6., track_origin.y + vertical_track.size().height), left);
+assert_eq!(instance.get_scroll_y(), -instance.get_vertical_range());
+
+let track_origin = horizontal_track.absolute_position();
+horizontal_thumb.mock_drag(LogicalPosition::new(track_origin.x + horizontal_track.size().width, track_origin.y + 8.), left);
+assert_eq!(instance.get_scroll_x(), -instance.get_horizontal_range());
+assert!(horizontal_thumb.absolute_position().x > start);
+```
+*/

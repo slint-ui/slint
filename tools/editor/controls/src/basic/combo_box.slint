@@ -7,8 +7,11 @@ import {
     ComboBoxPopupBase,
     ComboBoxPopupSurface,
     ButtonBase,
+    ScrollBarBase,
+    ScrollViewBase,
 } from "../headless.slint";
 import { FocusOutline } from "focus_outline.slint";
+import { ScrollBar } from "scroll_bar.slint";
 import { BasicTheme } from "theme.slint";
 
 export struct ComboBoxStateStyle {
@@ -158,18 +161,18 @@ export component ComboBoxPopup {
             border-radius: root.border-radius;
         }
 
-        items := Flickable {
+        items := ScrollViewBase {
             private property <int> highlight-index: root.highlighted-index;
             private property <bool> opened: root.opened;
 
             function ensure-highlight-visible() {
-                if self.highlight-index < 0 || self.highlight-index >= root.count || self.height <= 0px { return; }
-                let maximum-offset = max(0px, self.content-height - self.height);
+                if self.highlight-index < 0 || self.highlight-index >= root.count || self.visible-height <= 0px { return; }
+                let maximum-offset = max(0px, self.content-height - self.visible-height);
                 let offset = clamp(-self.content-y, 0px, maximum-offset);
                 let top = self.highlight-index * root.item-height;
                 if top < offset { self.content-y = -min(top, maximum-offset); }
-                else if top + root.item-height > offset + self.height {
-                    self.content-y = -clamp(top + root.item-height - self.height, 0px, maximum-offset);
+                else if top + root.item-height > offset + self.visible-height {
+                    self.content-y = -clamp(top + root.item-height - self.visible-height, 0px, maximum-offset);
                 } else {
                     self.content-y = -offset;
                 }
@@ -179,21 +182,28 @@ export component ComboBoxPopup {
             y: root.popup-padding;
             width: root.popup-width - 2 * root.popup-padding;
             height: root.popup-height - 2 * root.popup-padding;
-            content-width: self.width;
+            enabled: root.enabled;
+            mouse-drag-pan-enabled: true;
+            horizontal-scrollbar-policy: always-off;
+            vertical-scrollbar-width: self.content-height > self.height ? popup-scrollbar.thickness : 0px;
+            content-width: self.visible-width;
             content-height: root.count * root.item-height;
             content-y: -max(0, clamp(root.current-index, 0, root.count - 1) - max(1, root.maximum-visible-items) + 1) * root.item-height;
 
             changed highlight-index => { self.ensure-highlight-visible(); }
-            changed height => { self.ensure-highlight-visible(); }
+            changed visible-height => { self.ensure-highlight-visible(); }
             changed content-height => { self.ensure-highlight-visible(); }
             changed opened => { if self.opened { self.ensure-highlight-visible(); } }
+
+            vertical-scrollbar << popup-scrollbar := ScrollBar {}
+            horizontal-scrollbar << ScrollBarBase {}
 
             for value[index] in root.model: item := ButtonBase {
                 private property <ComboBoxItemStyle> current-style: root.style.rest;
                 private property <int> item-font-weight: root.font-weight;
 
                 y: index * root.item-height;
-                width: items.width;
+                width: items.visible-width;
                 height: root.item-height;
                 enabled: root.enabled;
                 states [
