@@ -6,6 +6,7 @@
 // Run with SLINT_PREVIEW_INTERPRETER_DIR set to that build's `pkg` directory.
 
 import { spawn } from "node:child_process";
+import { once } from "node:events";
 import {
     mkdirSync,
     mkdtempSync,
@@ -25,6 +26,7 @@ const interpreterDir = process.env.SLINT_PREVIEW_INTERPRETER_DIR;
 const serverPath = new URL("../server.mjs", import.meta.url);
 
 let server;
+let exited;
 let nextId = 1;
 const pending = new Map();
 
@@ -33,7 +35,10 @@ function request(method, params) {
     server.stdin.write(
         JSON.stringify({ jsonrpc: "2.0", id, method, params }) + "\n",
     );
-    return new Promise((resolve) => pending.set(id, resolve));
+    return Promise.race([
+        new Promise((resolve) => pending.set(id, resolve)),
+        exited,
+    ]);
 }
 
 const callTool = async (name, args) =>
@@ -101,6 +106,9 @@ before(async () => {
             SLINT_PREVIEW_SCREENSHOT_TIMEOUT_MS: "120000",
             SLINT_PREVIEW_TIMEOUT_MS: "120000",
         },
+    });
+    exited = once(server, "exit").then(([code, signal]) => {
+        throw new Error(`The server exited (${signal ?? code})`);
     });
     createInterface({ input: server.stdout }).on("line", (line) => {
         const message = JSON.parse(line);

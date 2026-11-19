@@ -42,8 +42,9 @@ pub fn format_document(
     let doc = document_cache.get_document(&params.text_document.uri)?;
     let doc = doc.node.as_ref()?;
 
+    let indentation = if params.options.insert_spaces { fmt::DEFAULT_INDENTATION } else { "\t" };
     let mut writer = StringWriter { text: String::new() };
-    fmt::format_document(doc.clone(), &mut writer).ok()?;
+    fmt::format_document(doc.clone(), indentation, &mut writer).ok()?;
 
     let original: String = doc.text().into();
     let diff = dissimilar::diff(&original, &writer.text);
@@ -93,11 +94,20 @@ mod tests {
 
     /// Given an unformatted source text, return text edits that will turn the source into formatted text
     fn get_formatting_edits(source: &str) -> Option<Vec<TextEdit>> {
+        get_formatting_edits_with_options(
+            source,
+            lsp_types::FormattingOptions { tab_size: 4, insert_spaces: true, ..Default::default() },
+        )
+    }
+
+    fn get_formatting_edits_with_options(
+        source: &str,
+        options: lsp_types::FormattingOptions,
+    ) -> Option<Vec<TextEdit>> {
         let (dc, uri, _) = crate::language::test::loaded_document_cache(source.into());
-        // we only care about "uri" in params
         let params = lsp_types::DocumentFormattingParams {
             text_document: lsp_types::TextDocumentIdentifier { uri },
-            options: lsp_types::FormattingOptions::default(),
+            options,
             work_done_progress_params: lsp_types::WorkDoneProgressParams::default(),
         };
         format_document(params, &dc)
@@ -132,5 +142,28 @@ mod tests {
         for (actual, expected) in edits.iter().zip(expected.iter()) {
             assert_eq!(actual, expected);
         }
+    }
+
+    #[test]
+    fn test_formatting_with_tabs() {
+        let source = "component Bar { Rectangle { width: 1px; } }";
+        let edits = get_formatting_edits_with_options(
+            source,
+            lsp_types::FormattingOptions {
+                tab_size: 4,
+                insert_spaces: false,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+
+        let mut formatted = source.to_string();
+        for edit in edits.iter().rev() {
+            assert_eq!(edit.range.start.line, 0);
+            assert_eq!(edit.range.end.line, 0);
+            let range = edit.range.start.character as usize..edit.range.end.character as usize;
+            formatted.replace_range(range, &edit.new_text);
+        }
+        assert_eq!(formatted, "component Bar {\n\tRectangle {\n\t\twidth: 1px;\n\t}\n}\n");
     }
 }

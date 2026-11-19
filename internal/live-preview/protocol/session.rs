@@ -9,7 +9,7 @@
 //! in order: a repeated or reordered frame fails to open rather than
 //! being accepted twice.
 
-use chacha20poly1305::aead::{Aead, AeadInPlace, KeyInit};
+use chacha20poly1305::aead::{Aead, AeadInOut, KeyInit};
 use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce};
 use std::borrow::Cow;
 
@@ -29,7 +29,7 @@ pub struct NotAuthentic;
 fn nonce_for(counter: u64) -> Nonce {
     let mut bytes = [0u8; 12];
     bytes[4..].copy_from_slice(&counter.to_be_bytes());
-    *Nonce::from_slice(&bytes)
+    Nonce::from(bytes)
 }
 
 /// The writing half of a session.
@@ -40,7 +40,7 @@ pub struct Sealer {
 
 impl Sealer {
     pub fn new(key: [u8; DIRECTION_KEY_LEN]) -> Self {
-        Self { cipher: ChaCha20Poly1305::new(Key::from_slice(&key)), counter: 0 }
+        Self { cipher: ChaCha20Poly1305::new(&Key::from(key)), counter: 0 }
     }
 
     /// Takes the buffer and encrypts it in place: the plaintext is spent
@@ -62,7 +62,7 @@ pub struct Opener {
 
 impl Opener {
     pub fn new(key: [u8; DIRECTION_KEY_LEN]) -> Self {
-        Self { cipher: ChaCha20Poly1305::new(Key::from_slice(&key)), counter: 0 }
+        Self { cipher: ChaCha20Poly1305::new(&Key::from(key)), counter: 0 }
     }
 
     pub fn open(&mut self, ciphertext: &[u8]) -> Result<Vec<u8>, NotAuthentic> {

@@ -230,4 +230,4 @@ depends = [
 
 ["ci:autofix:lint"]
 description = "CI autofix job -- lint steps"
-depends = ["lint:legal:reuse", "lint:python", "lint:ts:typecheck", "lint:ts:knip"]
+depends = ["lint:legal:reuse", "lint:python", "lint:symlinks", "lint:ts:typecheck", "lint:ts:knip"]
