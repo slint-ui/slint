@@ -602,7 +602,7 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
             && 2. * spread >= phys_size.width.min(phys_size.height) as f64;
         self.scene.draw_box_shadow(
             self.current_state.transform,
-            &shadow_box_shape(to_kurbo_size(phys_size), radius),
+            &rect_shape(to_kurbo_size(phys_size).to_rect(), radius),
             kurbo::Vec2::new(offset.x as f64, offset.y as f64),
             spread,
             if fills_box { 0. } else { blur / 2. },
@@ -854,7 +854,10 @@ impl<'a, S: PaintScene> GlyphRenderer for AnyrenderItemRenderer<'a, S> {
         radius: sharedparley::PhysicalLength,
         border: Option<sharedparley::RectangleBorder<Self::PlatformBrush>>,
     ) {
-        let shape = RectShape::uniform(to_kurbo_rect(physical_rect), radius.get() as f64);
+        let shape = rect_shape(
+            to_kurbo_rect(physical_rect),
+            PhysicalBorderRadius::new_uniform(radius.get()),
+        );
         self.fill_and_stroke(&shape, brush, border);
     }
 }
@@ -1113,25 +1116,22 @@ fn to_kurbo_size(size: PhysicalSize) -> kurbo::Size {
     kurbo::Size::new(size.width as f64, size.height as f64)
 }
 
-fn phys_rect_shape(rect: PhysicalRect, radius: PhysicalBorderRadius) -> RectShape {
-    RectShape::new(to_kurbo_rect(rect), radius)
-}
-
-/// The border box of an item of `size` with corner `radius`, for `draw_box_shadow`.
-///
-/// The radii are clamped like [`kurbo::RoundedRect`] clamps them,
-/// so that the shadow follows the outline of the item drawn with [`RectShape`].
-fn shadow_box_shape(
-    size: kurbo::Size,
+fn phys_rect_shape(
+    rect: PhysicalRect,
     radius: PhysicalBorderRadius,
 ) -> anyrender::NonUniformRoundedRect {
-    let max_radius = size.min_side() / 2.;
-    let corner = |r: f32| {
-        let r = (r as f64).min(max_radius);
-        kurbo::Vec2::new(r, r)
-    };
+    rect_shape(to_kurbo_rect(rect), radius)
+}
+
+/// A rectangle with rounded corners, whose radii scale down to fit as in CSS.
+fn rect_shape(rect: kurbo::Rect, radius: PhysicalBorderRadius) -> anyrender::NonUniformRoundedRect {
+    if radius.is_zero() {
+        return rect.into();
+    }
+    let radius = radius.fit_to(euclid::size2(rect.width() as f32, rect.height() as f32));
+    let corner = |r: f32| kurbo::Vec2::new(r as f64, r as f64);
     anyrender::NonUniformRoundedRect::new(
-        size.to_rect(),
+        rect,
         anyrender::NonUniformRoundedRectRadii {
             top_left: corner(radius.top_left),
             top_right: corner(radius.top_right),
@@ -1139,123 +1139,6 @@ fn shadow_box_shape(
             bottom_left: corner(radius.bottom_left),
         },
     )
-}
-
-/// A rectangle that may have rounded corners, staying a plain
-/// [`kurbo::Rect`] when none of them do.
-///
-/// [`kurbo::RoundedRect`] does not collapse zero radii: it emits one
-/// degenerate cubic per corner whatever the radii are, which backends then
-/// encode and flatten. Square corners are the common case in a user
-/// interface, and keeping those a `Rect` also keeps
-/// [`kurbo::Shape::as_rect`] answering, so a backend with a fast path for
-/// axis-aligned rectangles can still recognize one.
-#[derive(Clone, Copy)]
-enum RectShape {
-    Sharp(kurbo::Rect),
-    Rounded(kurbo::RoundedRect),
-}
-
-impl RectShape {
-    fn new(rect: kurbo::Rect, radius: PhysicalBorderRadius) -> Self {
-        if radius.is_zero() {
-            return Self::Sharp(rect);
-        }
-        Self::Rounded(kurbo::RoundedRect::from_rect(
-            rect,
-            kurbo::RoundedRectRadii::new(
-                radius.top_left as f64,
-                radius.top_right as f64,
-                radius.bottom_right as f64,
-                radius.bottom_left as f64,
-            ),
-        ))
-    }
-
-    /// Like [`Self::new`] but for a single radius shared by all four
-    /// corners, already in device pixels.
-    fn uniform(rect: kurbo::Rect, radius: f64) -> Self {
-        if radius > 0. {
-            Self::Rounded(kurbo::RoundedRect::from_rect(rect, radius))
-        } else {
-            Self::Sharp(rect)
-        }
-    }
-}
-
-// The rounded variant is the bigger one by far, but it is what kurbo itself
-// hands out for a rounded rectangle, and the iterator is a short-lived local.
-// Boxing it would move an allocation into every fill.
-#[allow(clippy::large_enum_variant)]
-enum RectShapePathIter {
-    Sharp(kurbo::RectPathIter),
-    Rounded(kurbo::RoundedRectPathIter),
-}
-
-impl Iterator for RectShapePathIter {
-    type Item = kurbo::PathEl;
-
-    fn next(&mut self) -> Option<kurbo::PathEl> {
-        match self {
-            Self::Sharp(iter) => iter.next(),
-            Self::Rounded(iter) => iter.next(),
-        }
-    }
-}
-
-/// Delegates to whichever variant is held, so that a `RectShape` behaves
-/// exactly like the `kurbo` shape inside it.
-impl kurbo::Shape for RectShape {
-    type PathElementsIter<'iter> = RectShapePathIter;
-
-    fn path_elements(&self, tolerance: f64) -> RectShapePathIter {
-        match self {
-            Self::Sharp(rect) => RectShapePathIter::Sharp(rect.path_elements(tolerance)),
-            Self::Rounded(rect) => RectShapePathIter::Rounded(rect.path_elements(tolerance)),
-        }
-    }
-
-    fn area(&self) -> f64 {
-        match self {
-            Self::Sharp(rect) => rect.area(),
-            Self::Rounded(rect) => rect.area(),
-        }
-    }
-
-    fn perimeter(&self, accuracy: f64) -> f64 {
-        match self {
-            Self::Sharp(rect) => rect.perimeter(accuracy),
-            Self::Rounded(rect) => rect.perimeter(accuracy),
-        }
-    }
-
-    fn winding(&self, pt: kurbo::Point) -> i32 {
-        match self {
-            Self::Sharp(rect) => rect.winding(pt),
-            Self::Rounded(rect) => rect.winding(pt),
-        }
-    }
-
-    fn bounding_box(&self) -> kurbo::Rect {
-        match self {
-            Self::Sharp(rect) => rect.bounding_box(),
-            Self::Rounded(rect) => rect.bounding_box(),
-        }
-    }
-
-    fn as_rect(&self) -> Option<kurbo::Rect> {
-        match self {
-            Self::Sharp(rect) => rect.as_rect(),
-            Self::Rounded(rect) => rect.as_rect(),
-        }
-    }
-
-    fn as_rounded_rect(&self) -> Option<kurbo::RoundedRect> {
-        match self {
-            Self::Sharp(rect) => rect.as_rounded_rect(),
-            Self::Rounded(rect) => rect.as_rounded_rect(),
-        }
-    }
 }
 
 /// Snap the translation of `transform` to whole device pixels, if it is a

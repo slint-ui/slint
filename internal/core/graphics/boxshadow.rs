@@ -140,7 +140,8 @@ impl BoxShadowOptions {
             height,
             color,
             blur: box_shadow.blur().cast() * scale_factor, // This effectively becomes the blur radius, so scale to physical pixels
-            radius: box_shadow.logical_border_radius().cast() * scale_factor,
+            radius: (box_shadow.logical_border_radius().cast() * scale_factor)
+                .fit_to(euclid::size2(width.get(), height.get())),
             spread: box_shadow.spread().cast() * scale_factor,
             inset,
             offset_x_inset,
