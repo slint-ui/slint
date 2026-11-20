@@ -1,0 +1,62 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// An open popup moves with its parent when a layout moves the parent, as a button at the
+// end of a toolbar does when the window gets wider.
+
+export component TestCase {
+    in-out property <length> bar-width: 400px;
+    width: 600px;
+    height: 400px;
+
+    callback show-popup();
+    show-popup => {
+        popup.show();
+    }
+
+    HorizontalLayout {
+        x: 0;
+        y: 0;
+        width: root.bar-width;
+        height: 30px;
+        alignment: end;
+        Rectangle {
+            width: 40px;
+            popup := PopupWindow {
+                x: 0;
+                y: parent.height;
+                width: 100px;
+                height: 50px;
+                close-policy: PopupClosePolicy.no-auto-close;
+            }
+        }
+    }
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+let window = instance.window();
+window.set_size(slint::PhysicalSize::new(600, 400));
+let inner = slint_testing::WindowInner::from_pub(&window);
+let location = || match inner.active_popups().first().unwrap().location {
+    slint_testing::PopupWindowLocation::ChildWindow(position) => position,
+    _ => panic!("expected a popup in the window"),
+};
+
+instance.invoke_show_popup();
+assert_eq!(location(), slint_testing::LogicalPoint::new(360., 30.));
+
+instance.set_bar_width(500.);
+slint_testing::mock_elapsed_time(500); // The tracker notices
+slint_testing::mock_elapsed_time(500); // The popup is placed again
+assert_eq!(location(), slint_testing::LogicalPoint::new(460., 30.));
+
+instance.set_bar_width(300.);
+slint_testing::mock_elapsed_time(500);
+slint_testing::mock_elapsed_time(500);
+assert_eq!(location(), slint_testing::LogicalPoint::new(260., 30.));
+```
+
+*/
