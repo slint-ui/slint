@@ -48,13 +48,4 @@ export interface TestCase {
 
 export declare const TestCase: { new(properties?: Partial<TestCase>): TestCase & Omit<slint.ComponentHandle, keyof TestCase> };
 ```
-
-```python
-instance = TestCase()
-assert instance.test
-instance.show_ = 10
-assert instance.show_ == 10
-assert instance.hide_ == 2
-assert instance.run_ == 4
-```
 */
