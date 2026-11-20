@@ -202,8 +202,6 @@ impl WGPUSurface {
     /// Transitions any imported wgpu textures to sampling state,
     /// and the texture given to [`Self::transition_to_color_target`] to a color target.
     /// Then submits Skia's GPU work, which the frame's rendering only recorded.
-    /// The transitions share a submission, since each one takes wgpu a few hundred
-    /// microseconds on a slow CPU.
     pub(crate) fn flush_and_submit(
         &self,
         gr_context: &mut skia_safe::gpu::DirectContext,
