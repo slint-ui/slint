@@ -418,6 +418,61 @@ impl ElementHandle {
         })
     }
 
+    /// Visits the elements one level below this one, including clipped-away ones,
+    /// until the visitor returns [`ControlFlow::Break`].
+    /// Elements that an optimization merged into this one come first,
+    /// then the elements of popups it shows, then those of its child items.
+    #[cfg(feature = "system-testing")]
+    pub(crate) fn visit_children<R>(
+        &self,
+        mut visitor: impl FnMut(ElementHandle) -> ControlFlow<R>,
+    ) -> Option<R> {
+        let item = self.item.upgrade()?;
+        // A merged element shares its item with the first element, which owns the children.
+        if self.element_index != 0 {
+            return None;
+        }
+        for element_index in 1..item.element_count().unwrap_or(0) {
+            if let ControlFlow::Break(result) =
+                visitor(ElementHandle { item: item.downgrade(), element_index })
+            {
+                return Some(result);
+            }
+        }
+        match Self::visit_child_items(&item, &self.active_popups(), &mut visitor) {
+            ControlFlow::Break(result) => Some(result),
+            ControlFlow::Continue(()) => None,
+        }
+    }
+
+    /// Visits the first element of each popup and child item of `item`,
+    /// looking through items without element info.
+    #[cfg(feature = "system-testing")]
+    fn visit_child_items<R>(
+        item: &ItemRc,
+        active_popups: &[(ItemRc, ItemTreeRc)],
+        visitor: &mut dyn FnMut(ElementHandle) -> ControlFlow<R>,
+    ) -> ControlFlow<R> {
+        let mut visit_item = |item: &ItemRc| {
+            if !item.has_element_info() {
+                Self::visit_child_items(item, active_popups, visitor)
+            } else {
+                visitor(ElementHandle { item: item.downgrade(), element_index: 0 })
+            }
+        };
+        for (popup_parent, popup) in active_popups {
+            if popup_parent == item {
+                visit_item(&ItemRc::new_root(popup.clone()))?;
+            }
+        }
+        let mut child = item.first_child();
+        while let Some(item) = child {
+            visit_item(&item)?;
+            child = item.next_sibling();
+        }
+        ControlFlow::Continue(())
+    }
+
     /// Returns whether both handles refer to the same element of the same item.
     #[cfg(any(feature = "system-testing", feature = "mcp"))]
     pub(crate) fn is_same_element(&self, other: &ElementHandle) -> bool {

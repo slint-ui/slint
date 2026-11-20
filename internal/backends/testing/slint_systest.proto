@@ -283,6 +283,14 @@ message RequestGetElementTree {
     uint32 max_elements = 2;
 }
 
+// Only over system testing.
+// Requests the children of element_handle, or, without a handle, the root elements of every window.
+// Elements that an optimization merged into an element come first among its children.
+// The children include clipped-away elements, and the elements of popups the element shows.
+message RequestGetElementChildren {
+    Handle element_handle = 1;
+}
+
 message RequestQueryElementDescendants {
     Handle element_handle = 1;
     repeated ElementQueryInstruction query_stack = 2;
@@ -324,6 +332,7 @@ message RequestToAUT {
         RequestClearEventLog request_clear_event_log = 15;
         RequestStartEventRecording request_start_event_recording = 16;
         RequestStopEventRecording request_stop_event_recording = 17;
+        RequestGetElementChildren request_get_element_children = 18;
     }
 }
 
@@ -447,6 +456,22 @@ message DispatchKeyEventResponse {
 message GetElementTreeResponse {
 }
 
+message ElementChild {
+    Handle handle = 1;
+    repeated ElementTypeNameAndId type_names_and_ids = 2;
+    bool has_children = 3;
+}
+
+message GetElementChildrenResponse {
+    repeated ElementChild children = 1;
+    // True when the element has more children than the application keeps handles for.
+    bool truncated = 2;
+    // False when the application was built without debug info,
+    // which leaves the window roots without children.
+    // True when no window shows a component.
+    bool debug_info_available = 3;
+}
+
 message ElementQueryResponse {
     repeated Handle element_handles = 1;
 }
@@ -506,5 +531,6 @@ message AUTResponse {
         ClearEventLogResponse clear_event_log_response = 16;
         StartEventRecordingResponse start_event_recording_response = 17;
         StopEventRecordingResponse stop_event_recording_response = 18;
+        GetElementChildrenResponse get_element_children_response = 19;
     }
 }
