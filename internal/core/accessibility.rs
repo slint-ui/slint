@@ -185,6 +185,8 @@ pub fn find_exposed_text_input(
 
 /// The `Flickable` that `item` scrolls for assistive technologies.
 ///
+/// A `Flickable` that is not `interactive` can't be scrolled this way.
+///
 /// This is the first `Flickable` below `item`, and only when `item` is the accessible item
 /// nearest to it: that is how a `ListView`, which has a role of its own, becomes scrollable,
 /// without the items inside it, or an accessible item further up, claiming the same content.
@@ -209,7 +211,8 @@ pub fn find_exposed_flickable(
         None
     }
     let found = find(item)?;
-    (nearest_accessible_item(found.0.clone()) == *item).then_some(found)
+    (found.1.as_pin_ref().interactive() && nearest_accessible_item(found.0.clone()) == *item)
+        .then_some(found)
 }
 
 /// Same as [`find_text_input`], but also returns the `TextInput`'s `ItemRc`.
