@@ -13,6 +13,10 @@ pub enum DebuggerToPreviewMessage {
         #[serde(with = "protobuf")]
         request: Vec<u8>,
     },
+    /// Enters or leaves inspect mode, in which a click selects an element.
+    /// The preview answers a selection with
+    /// [`PreviewToDebuggerMessage::InspectSelected`] and leaves inspect mode.
+    SetInspectMode { enabled: bool },
 }
 
 /// A message from a preview to the debugger.
@@ -37,6 +41,10 @@ pub enum PreviewToDebuggerMessage {
     /// A compilation finished; its `Diagnostics` follow.
     /// `success` says whether it produced a component to show.
     Reloaded { success: bool },
+    /// The user selected an element in inspect mode.
+    /// `handle` is the `index` and `generation` of its `Handle` from `slint_systest.proto`.
+    /// `source` is the file and offset of its definition, when known.
+    InspectSelected { handle: (u64, u64), source: Option<(lsp_types::Url, u32)> },
 }
 
 /// Base64 in human-readable formats, where JSON would spell out every byte as a number.
