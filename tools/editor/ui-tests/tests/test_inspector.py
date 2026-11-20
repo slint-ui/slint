@@ -256,6 +256,35 @@ def test_geometry_scrub_reverts_when_commit_is_rejected(
         snapshot.wait_for_applied(baseline, relative_path=INSPECTOR_SOURCE)
 
 
+def test_z_order_field_writes_exact_source(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source_file = fixture_project / INSPECTOR_SOURCE
+    baseline = source_file.read_bytes()
+    snapshot = SourceSnapshot.capture(fixture_project)
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        wait_for_source(source_file, baseline)
+        window = first_window(editor)
+        select_element(window, "Rectangle")
+        wait_for_field(window, "Z order", "0", slint_testing.AccessibleRole.TextInput)
+
+        edit_field(window, "Z order", "2", slint_testing.AccessibleRole.TextInput)
+        snapshot.wait_for_applied(
+            replace_once(
+                baseline, b"        y: 32px;", b"        y: 32px;\n        z: 2;"
+            ),
+            relative_path=INSPECTOR_SOURCE,
+        )
+        wait_for_field(window, "Z order", "2", slint_testing.AccessibleRole.TextInput)
+
+        press_shortcut(window, keys.Control, "z")
+        snapshot.wait_for_applied(baseline, relative_path=INSPECTOR_SOURCE)
+        wait_for_field(window, "Z order", "0", slint_testing.AccessibleRole.TextInput)
+
+
 @pytest.mark.parametrize(
     ("kind", "label", "value", "old", "new"),
     [
@@ -892,7 +921,7 @@ def test_image_alignment_grid_writes_both_properties(
             == "checker.svg"
         )
         element(window, "Choose image file", role=slint_testing.AccessibleRole.Button)
-        element(window, "Alignment", role=slint_testing.AccessibleRole.Text)
+        inspector_field(window, "Alignment", slint_testing.AccessibleRole.Text)
         assert image_alignment_button(window, "center", "center").accessible_checked
         image_alignment_button(
             window, "center", "center"
@@ -965,7 +994,7 @@ def test_image_alignment_grid_replaces_custom_expression(
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         select_element(window, "Image")
-        element(window, "Custom", role=slint_testing.AccessibleRole.Text)
+        inspector_field(window, "Custom", slint_testing.AccessibleRole.Text)
         assert not any(
             image_alignment_button(window, vertical, horizontal).accessible_checked
             for vertical in ("top", "center", "bottom")
