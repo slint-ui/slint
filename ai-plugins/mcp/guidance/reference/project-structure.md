@@ -1,7 +1,10 @@
 # Structure a Slint application
 
-For a multi-page UI, organize the Slint source around the parts a developer changes together.
-A typical UI directory looks like this:
+When refactoring a UI, first sketch the new entry file and the public interface of each page.
+If the caller permits an interface change, design the Slint API for the target release.
+An older host can migrate separately. Validate the UI by opening its project in the target viewer.
+
+A typical multi-page UI has this structure.
 
 ```text
 main.slint                # Window and page selection
@@ -31,12 +34,24 @@ A page can keep small private helpers beside their only caller.
 
 ## Decide who owns each interaction
 
-Start a refactor by following one interaction from the widget to its owner.
-The window selects a page with an enum.
-The page owns its commands, shortcuts, and popup instances.
-The component owns transient state such as expansion or draft text.
-Only state shared with the host or across views needs a global.
-Group it by feature, and re-export each host-facing global from main.slint.
+Keep the window small enough to see the complete navigation at a glance:
+
+```slint
+// main.slint
+import { LibraryPage, PlayerPage } from "pages/index.slint";
+export { Library, Player } from "pages/index.slint";
+export enum Page { library, player }
+
+export component MainWindow inherits Window {
+    in-out property <Page> page: Page.library;
+    if root.page == Page.library: LibraryPage { }
+    if root.page == Page.player: PlayerPage { }
+}
+```
+
+Put each host-facing global beside its page and re-export it through both index and entry files.
+A page invokes its own named commands directly.
+Keep draft text in the form, expansion in the row, and each popup instance on its owning page.
 
 ```slint
 // pages/player.slint
@@ -45,20 +60,14 @@ export global Player {
     in property <RepeatMode> repeat-mode;
     callback change-repeat(mode: RepeatMode);
 }
-
-export component PlayerPage inherits Rectangle {
-    Button {
-        text: @tr("Repeat track");
-        clicked => { Player.change-repeat(RepeatMode.track); }
-    }
-}
 ```
 
-Import `Button` from `"std-widgets.slint"`.
-Use an enum for a closed set of choices and named callbacks for commands.
-Use a struct to keep a model item's identity, label and image together.
-When the interface may change, replace numeric modes and string dispatch at their source.
-Moving them into a window adapter leaves every caller coupled to the old protocol.
+For example, bind a button's `clicked` to `Player.change-repeat(RepeatMode.track)`.
+Use a struct to keep each model item's identity, label and image together.
+
+Review the result starting at main.slint.
+If it still forwards page properties, switches on dialog numbers, or translates commands into strings, finish moving those decisions to their owners.
+Retain a legacy adapter only when the caller requires API compatibility.
 
 ## Share design decisions
 

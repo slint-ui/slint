@@ -15,14 +15,13 @@ Use `main` for an app preview when the project file selects the entry point.
 
 For Rust, check the owning crate's `Cargo.toml` and any inherited workspace dependencies.
 If the crate uses `slint_build`, read its build script for the entry point and compiler settings.
-Use `Cargo.lock` for the resolved Slint version.
+Use the requested UI version, defaulting to the version resolved in `Cargo.lock`.
 The project file's `edition` controls language behavior.
 
 ## Look Up Slint APIs
 
-Find the project's Slint version in its build configuration or lockfile.
 Call `slint-docs` `search` for the element, property, widget, or API you need.
-Pass `version` when the project uses an older release.
+Pass `version` for the target release.
 Call `fetch` with the result's URL exactly as returned to read the page for that release.
 
 If the documentation tools are unavailable, open the matching release at
@@ -45,7 +44,7 @@ Use the PNG from `check_slint` for the visual review and to share the render.
 In Codex code mode, forward the tool's image and text blocks so the screenshot and diagnostics are visible.
 When the user annotates an inline preview, use the attached screenshot and any source location to identify the element.
 
-Use the running app or its tests to verify host-language callbacks, models, and application state.
+For host integration changes, verify callbacks and models in the running app.
 
 ## Reference Files
 

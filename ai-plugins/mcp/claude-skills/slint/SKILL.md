@@ -15,14 +15,13 @@ Check `main` when the project file selects the entry point.
 
 For Rust, check the owning crate's `Cargo.toml` and any inherited workspace dependencies.
 If the crate uses `slint_build`, read its build script for the entry point and compiler settings.
-Use `Cargo.lock` for the resolved Slint version.
+Use the requested UI version, defaulting to the version resolved in `Cargo.lock`.
 The project file's `edition` controls language behavior.
 
 ## Look Up Slint APIs
 
-Find the project's Slint version in its build configuration or lockfile.
 Call `slint-docs` `search` for the element, property, widget, or API you need.
-Pass `version` when the project uses an older release.
+Pass `version` for the target release.
 Pass `site: "testing"` to search the Slint UI Testing docs.
 Call `fetch` with the result's URL exactly as returned to read the page for that release.
 
@@ -42,7 +41,7 @@ Use the `slint-lsp` language server for hover, go-to-definition, and source diag
    Fix issues and run the check again.
 
 Use the returned PNG when sharing a screenshot.
-Use the running app or its tests to verify host-language callbacks, models, and application state.
+For host integration changes, verify callbacks and models in the running app.
 
 ## Reference Files
 
