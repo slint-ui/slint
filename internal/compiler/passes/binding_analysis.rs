@@ -1860,10 +1860,15 @@ fn propagate_is_set_on_aliases(doc: &Document, reverse_aliases: &mut ReverseAlia
     }
 
     fn mark_alias(alias: &NamedReference) {
+        let was_set = alias
+            .element()
+            .borrow()
+            .property_analysis
+            .borrow()
+            .get(alias.name())
+            .is_some_and(|analysis| analysis.is_set);
         alias.mark_as_set();
-        if !alias.is_externally_modified()
-            && let Some(bind) = alias.element().borrow().binding(alias.name())
-        {
+        if !was_set && let Some(bind) = alias.element().borrow().binding(alias.name()) {
             propagate_alias(&bind)
         }
     }
