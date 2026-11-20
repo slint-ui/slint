@@ -810,8 +810,7 @@ jobs:
               run: cmake --build build --target todo
 
     test-ai-plugins:
-        # The Slint preview MCP App isn't part of 1.19.
-        if: false
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'ai_plugins') }}
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v7
@@ -823,8 +822,7 @@ jobs:
               run: node --test 'ai-plugins/mcp/slint-preview/test/*.test.mjs'
 
     test-slint-preview-view:
-        # The Slint preview MCP App isn't part of 1.19.
-        if: false
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'slint_preview_view') }}
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v7
