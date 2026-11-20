@@ -3291,7 +3291,7 @@ fn collection_child_import_scope() {
         );
         let mut diag = BuildDiagnostics::default();
         let node = crate::parser::parse(source, None, None, &mut diag);
-        let (_, diag, _) = spin_on::spin_on(crate::compile_syntax_node(node, diag, config));
+        let (_, diag, _) = crate::poll_ready(crate::compile_syntax_node(node, diag, config));
         if let Some(error) = error {
             assert!(diag.has_errors(), "{body}");
             assert!(
@@ -3335,7 +3335,7 @@ fn radio_widgets_without_experimental_features() {
         config.experimental_features = crate::ExperimentalFeatures::default();
         let mut diag = BuildDiagnostics::default();
         let node = crate::parser::parse(source.into(), None, None, &mut diag);
-        let (_, diag, _) = spin_on::spin_on(crate::compile_syntax_node(node, diag, config));
+        let (_, diag, _) = crate::poll_ready(crate::compile_syntax_node(node, diag, config));
         assert!(!diag.has_errors(), "{style}: {:?}", diag.to_string_vec());
     }
 }
@@ -3355,7 +3355,7 @@ fn radio_group_respects_local_button_type() {
     config.style = Some("fluent".into());
     let mut diag = BuildDiagnostics::default();
     let node = crate::parser::parse(source.into(), None, None, &mut diag);
-    let (_, diag, _) = spin_on::spin_on(crate::compile_syntax_node(node, diag, config));
+    let (_, diag, _) = crate::poll_ready(crate::compile_syntax_node(node, diag, config));
     assert!(!diag.has_errors(), "{:?}", diag.to_string_vec());
 }
 
@@ -3365,7 +3365,7 @@ fn snapshotting_radio_group_implicit_button() {
     config.style = Some("fluent".into());
     let mut diag = BuildDiagnostics::default();
     let mut loader = TypeLoader::new(config, &mut diag);
-    spin_on::spin_on(loader.load_file(
+    crate::poll_ready(loader.load_file(
         &SourcePath::new("/tmp/radio-exports.slint"),
         r#"export { RadioGroup as Choices } from "std-widgets.slint";"#.into(),
         false,
@@ -3374,7 +3374,7 @@ fn snapshotting_radio_group_implicit_button() {
     assert!(!diag.has_errors(), "{:?}", diag.to_string_vec());
     let mut copy = snapshot(&loader).unwrap();
     drop(loader);
-    spin_on::spin_on(
+    crate::poll_ready(
         copy.load_file(
             &SourcePath::new("/tmp/radio-app.slint"),
             r#"
