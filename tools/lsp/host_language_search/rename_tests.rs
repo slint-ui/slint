@@ -90,7 +90,7 @@ fn setup(
         ..Default::default()
     };
     let mut cache = editor_preview::DocumentCache::new(config);
-    spin_on::spin_on(cache.preload_builtins());
+    i_slint_compiler::poll_ready(cache.preload_builtins());
 
     // Write each slint file and load it into the cache.
     let mut main_url: Option<Url> = None;
@@ -102,7 +102,13 @@ fn setup(
         std::fs::write(&full, contents).unwrap();
         let url = Url::from_file_path(&full).unwrap();
         let mut diag = BuildDiagnostics::default();
-        spin_on::spin_on(cache.load_url(&url, Some(1), contents.to_string(), &mut diag)).unwrap();
+        i_slint_compiler::poll_ready(cache.load_url(
+            &url,
+            Some(1),
+            contents.to_string(),
+            &mut diag,
+        ))
+        .unwrap();
         assert!(
             !diag.has_errors(),
             "slint diagnostics in {rel_path}: {:?}",

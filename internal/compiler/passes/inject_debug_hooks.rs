@@ -369,7 +369,7 @@ mod tests {
             config.edition,
             &mut diags,
         );
-        let (doc, diag, _) = spin_on::spin_on(crate::compile_syntax_node(doc_node, diags, config));
+        let (doc, diag, _) = crate::poll_ready(crate::compile_syntax_node(doc_node, diags, config));
         assert!(!diag.has_errors(), "{:?}", diag.to_string_vec());
         doc
     }

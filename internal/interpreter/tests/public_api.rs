@@ -14,8 +14,9 @@ fn compile(code: &str, name: &str) -> ComponentInstance {
     // SAFETY: the other tests wait on the `Once` before they read the environment.
     DEBUG_INFO.call_once(|| unsafe { std::env::set_var("SLINT_EMIT_DEBUG_INFO", "1") });
     i_slint_backend_testing::init_no_event_loop();
-    let result =
-        spin_on::spin_on(Compiler::default().build_from_source(code.into(), Default::default()));
+    let result = i_slint_compiler::poll_ready(
+        Compiler::default().build_from_source(code.into(), Default::default()),
+    );
     assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
     result.component(name).expect("component should compile").create().unwrap()
 }
@@ -99,7 +100,7 @@ fn compile_collection_case(name: &str, component: &str) -> ComponentInstance {
     compiler.compiler_configuration(i_slint_core::InternalToken).debug_info = true;
     compiler.compiler_configuration(i_slint_core::InternalToken).experimental_features =
         i_slint_compiler::ExperimentalFeatures::all();
-    let result = spin_on::spin_on(compiler.build_from_path(path));
+    let result = i_slint_compiler::poll_ready(compiler.build_from_path(path));
     assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
     result.component(component).unwrap().create().unwrap()
 }

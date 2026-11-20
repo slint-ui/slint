@@ -571,6 +571,27 @@ pub async fn load_root_file(
     (diagnostics, loader, raw_type_loader)
 }
 
+/// Polls `future` once and returns its output.
+///
+/// Use it to run the compiler's `async` functions when no file loader callback is set,
+/// or when its futures are ready immediately.
+///
+/// # Panics
+///
+/// Panics if `future` isn't ready after the first poll,
+/// for example when a file loader callback actually waits.
+/// Use a real executor in that case.
+#[track_caller]
+pub fn poll_ready<F: core::future::Future>(future: F) -> F::Output {
+    let mut ctx = core::task::Context::from_waker(core::task::Waker::noop());
+    match core::pin::pin!(future).poll(&mut ctx) {
+        core::task::Poll::Ready(result) => result,
+        core::task::Poll::Pending => {
+            panic!("poll_ready: the future wasn't ready on its first poll")
+        }
+    }
+}
+
 /// Returns true and reports an error on `source`, naming `what`, if `feature` is disabled.
 #[cfg(feature = "std")]
 fn reject_experimental_feature(

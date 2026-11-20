@@ -279,27 +279,24 @@ private:
     {
         std::shared_ptr<Property<T>> common_property;
 
-        static void del_fn(void *user_data)
-        {
-            delete reinterpret_cast<TwoWayBinding *>(user_data);
-        };
+        static void del_fn(void *user_data) { delete reinterpret_cast<TwoWayBinding *>(user_data); }
         static void call_fn(void *user_data, void *value)
         {
             *reinterpret_cast<T *>(value) =
                     reinterpret_cast<TwoWayBinding *>(user_data)->common_property->get();
-        };
+        }
         static bool intercept_fn(void *user_data, const void *value)
         {
             reinterpret_cast<TwoWayBinding *>(user_data)->common_property->set(
                     *reinterpret_cast<const T *>(value));
             return true;
-        };
+        }
         static bool intercept_binding_fn(void *user_data, void *value)
         {
             cbindgen_private::slint_property_set_binding_internal(
                     &reinterpret_cast<TwoWayBinding *>(user_data)->common_property->inner, value);
             return true;
-        };
+        }
     };
 };
 

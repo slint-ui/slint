@@ -27,7 +27,7 @@ harness = false
 [features]
 default = ["backend-qt"]
 
-build-time = ["i-slint-compiler", "spin_on"]
+build-time = ["i-slint-compiler"]
 backend-qt = ["slint/backend-qt"]
 live-preview = ["slint/live-preview"]
 
@@ -36,7 +36,7 @@ slint = { workspace = true, features = ["std", "compat-1-2"] }
 i-slint-backend-testing = { workspace = true, features = ["internal"] }
 slint-interpreter = { workspace = true, features = ["std", "compat-1-2", "internal"] }
 i-slint-core = { workspace = true, features = ["std"] }
-spin_on = { workspace = true }
+pollster = "1"
 
 [target.'cfg(not(target_os = "wasm"))'.dependencies]
 i-slint-backend-qt = { workspace = true }
@@ -51,5 +51,4 @@ test_driver_lib = { path = "../driverlib", features = ["fork-harness"] }
 i-slint-compiler = { workspace = true, features = ["default", "rust", "display-diagnostics", "bundle-translations", "renderer-software"], optional = true }
 
 rayon = { workspace = true }
-spin_on = { workspace = true, optional = true }
 test_driver_lib = { path = "../driverlib" }
