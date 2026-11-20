@@ -85,32 +85,30 @@ impl CurrentItem {
         *self = Self { row, instance_index: 0 };
     }
 
-    /// Updates the indexes before inserting `count` slots in front of `instance_count` instances.
-    fn instances_prepended(&mut self, instance_count: usize, count: usize) {
-        if instance_count > 0 {
-            self.instance_index += count;
+    /// Updates the indexes before removing `remove` of `instance_count` instances at `position`
+    /// and inserting `add` slots there.
+    /// A removed current item moves to the next kept instance, or else to the previous one.
+    fn instances_spliced(
+        &mut self,
+        instance_count: usize,
+        position: usize,
+        remove: usize,
+        add: usize,
+    ) {
+        if instance_count == 0 || self.instance_index < position {
+            return;
         }
-    }
-
-    /// Updates the indexes before removing the first `count` of `instance_count` instances.
-    fn first_instances_removed(&mut self, instance_count: usize, count: usize) {
-        if count >= instance_count {
-            self.instances_cleared();
-        } else if count > self.instance_index {
-            self.row = self.first_row() + count;
-            self.instance_index = 0;
+        let removed_end = position + remove;
+        if self.instance_index >= removed_end {
+            self.instance_index = self.instance_index - remove + add;
+        } else if removed_end < instance_count {
+            self.row += removed_end - self.instance_index;
+            self.instance_index = position + add;
+        } else if position > 0 {
+            self.row -= self.instance_index + 1 - position;
+            self.instance_index = position - 1;
         } else {
-            self.instance_index -= count;
-        }
-    }
-
-    /// Updates the indexes before keeping only the first `len` of `instance_count` instances.
-    fn instances_truncated(&mut self, instance_count: usize, len: usize) {
-        if len == 0 {
             self.instances_cleared();
-        } else if len < instance_count && self.instance_index >= len {
-            self.row = self.first_row() + len - 1;
-            self.instance_index = len - 1;
         }
     }
 
@@ -821,47 +819,47 @@ struct RustRepeaterOps<'a> {
     instance_generation: Pin<&'a Property<()>>,
 }
 
+impl RustRepeaterOps<'_> {
+    /// Do not call this function directly but use the functions of the trait implementation
+    fn splice_internal(&mut self, position: usize, remove: usize, add: usize) {
+        let mut inner = self.inner.borrow_mut();
+        let instance_count = inner.instances.len();
+        inner.layout_state.item_index.instances_spliced(instance_count, position, remove, add);
+        inner.instances.splice(position..position + remove, empty_slots(add));
+    }
+}
+
 impl RepeaterInstanceOps for RustRepeaterOps<'_> {
     fn len(&self) -> usize {
         self.inner.borrow().instances.len()
     }
 
     fn clear(&mut self) {
-        let mut inner = self.inner.borrow_mut();
-        inner.instances.clear();
-        inner.layout_state.item_index.instances_cleared();
+        self.splice_internal(0, self.len(), 0);
     }
 
     fn push_first(&mut self, row: usize) {
-        let mut inner = self.inner.borrow_mut();
-        debug_assert!(inner.instances.is_empty());
-        inner.layout_state.item_index.first_instance_added(row);
-        inner.instances.extend(empty_slots(1));
+        debug_assert_eq!(self.len(), 0);
+        self.inner.borrow_mut().layout_state.item_index.first_instance_added(row);
+        self.splice_internal(0, 0, 1);
     }
 
     fn push(&mut self, count: usize) {
-        self.inner.borrow_mut().instances.extend(empty_slots(count));
+        self.splice_internal(self.len(), 0, count);
     }
 
     fn prepend(&mut self, count: usize) {
-        let mut inner = self.inner.borrow_mut();
-        let instance_count = inner.instances.len();
-        inner.layout_state.item_index.instances_prepended(instance_count, count);
-        inner.instances.splice(0..0, empty_slots(count));
+        self.splice_internal(0, 0, count);
     }
 
     fn remove_first(&mut self, count: usize) {
-        let mut inner = self.inner.borrow_mut();
-        let instance_count = inner.instances.len();
-        inner.layout_state.item_index.first_instances_removed(instance_count, count);
-        inner.instances.drain(..count.min(instance_count));
+        self.splice_internal(0, count.min(self.len()), 0);
     }
 
     fn truncate(&mut self, len: usize) {
-        let mut inner = self.inner.borrow_mut();
-        let instance_count = inner.instances.len();
-        inner.layout_state.item_index.instances_truncated(instance_count, len);
-        inner.instances.truncate(len);
+        let instance_count = self.len();
+        let len = len.min(instance_count);
+        self.splice_internal(len, instance_count - len, 0);
     }
 
     fn ensure_updated(&mut self, instance_idx: usize, row: usize) -> bool {
@@ -1700,48 +1698,41 @@ mod ffi {
         pub init: unsafe extern "C" fn(user_data: *mut core::ffi::c_void, instance_idx: usize),
     }
 
+    impl RepeaterInstanceOpsVTable {
+        fn splice_internal(&mut self, position: usize, remove: usize, add: usize) {
+            let instance_count = self.len();
+            unsafe {
+                (*self.item_index).instances_spliced(instance_count, position, remove, add);
+                (self.splice)(self.user_data, position, remove, add)
+            }
+        }
+    }
+
     impl RepeaterInstanceOps for RepeaterInstanceOpsVTable {
         fn len(&self) -> usize {
             unsafe { (self.len)(self.user_data) }
         }
         fn clear(&mut self) {
-            unsafe {
-                (*self.item_index).instances_cleared();
-                (self.splice)(self.user_data, 0, self.len(), 0)
-            }
+            self.splice_internal(0, self.len(), 0);
         }
         fn push_first(&mut self, row: usize) {
             debug_assert_eq!(self.len(), 0);
-            unsafe {
-                (*self.item_index).first_instance_added(row);
-                (self.splice)(self.user_data, 0, 0, 1)
-            }
+            unsafe { (*self.item_index).first_instance_added(row) };
+            self.splice_internal(0, 0, 1);
         }
         fn push(&mut self, count: usize) {
-            let len = self.len();
-            unsafe { (self.splice)(self.user_data, len, 0, count) }
+            self.splice_internal(self.len(), 0, count);
         }
         fn prepend(&mut self, count: usize) {
-            let instance_count = self.len();
-            unsafe {
-                (*self.item_index).instances_prepended(instance_count, count);
-                (self.splice)(self.user_data, 0, 0, count)
-            }
+            self.splice_internal(0, 0, count);
         }
         fn remove_first(&mut self, count: usize) {
-            let instance_count = self.len();
-            unsafe {
-                (*self.item_index).first_instances_removed(instance_count, count);
-                (self.splice)(self.user_data, 0, count.min(instance_count), 0)
-            }
+            self.splice_internal(0, count.min(self.len()), 0);
         }
         fn truncate(&mut self, len: usize) {
             let instance_count = self.len();
             let len = len.min(instance_count);
-            unsafe {
-                (*self.item_index).instances_truncated(instance_count, len);
-                (self.splice)(self.user_data, len, instance_count - len, 0)
-            }
+            self.splice_internal(len, instance_count - len, 0);
         }
         fn ensure_updated(&mut self, instance_idx: usize, row: usize) -> bool {
             let created = unsafe { (self.ensure_updated)(self.user_data, instance_idx, row) };
