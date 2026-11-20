@@ -543,7 +543,8 @@ mod tests {
             "#
             );
             let mut diagnostics = BuildDiagnostics::default();
-            spin_on::spin_on(cache.load_url(&url, None, source, &mut diagnostics)).unwrap();
+            i_slint_compiler::poll_ready(cache.load_url(&url, None, source, &mut diagnostics))
+                .unwrap();
             match expected_error {
                 Some(message) => assert!(
                     diagnostics.to_string_vec().iter().any(|error| error.contains(message)),

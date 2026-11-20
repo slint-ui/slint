@@ -3117,7 +3117,7 @@ fn slot_collections_requires_its_feature() {
         };
         let mut diag = BuildDiagnostics::default();
         let node = crate::parser::parse(source.into(), None, None, &mut diag);
-        let (_, diag, _) = spin_on::spin_on(crate::compile_syntax_node(node, diag, config));
+        let (_, diag, _) = crate::poll_ready(crate::compile_syntax_node(node, diag, config));
         assert_eq!(diag.has_errors(), !enabled, "{:?}", diag.to_string_vec());
     }
 }
@@ -3143,7 +3143,7 @@ fn component_collection_types_without_interfaces() {
     config.experimental_features = crate::ExperimentalFeature::NamedSlots.into();
     let mut diag = BuildDiagnostics::default();
     let node = crate::parser::parse(source.into(), None, None, &mut diag);
-    let (_, diag, _) = spin_on::spin_on(crate::compile_syntax_node(node, diag, config));
+    let (_, diag, _) = crate::poll_ready(crate::compile_syntax_node(node, diag, config));
     assert!(!diag.has_errors(), "{:?}", diag.to_string_vec());
 }
 
@@ -3154,7 +3154,7 @@ fn snapshotting_slot_collections() {
     let mut diag = BuildDiagnostics::default();
     let mut loader = TypeLoader::new(config, &mut diag);
     let path = SourcePath::new("/tmp/slot-collections-library.slint");
-    spin_on::spin_on(
+    crate::poll_ready(
         loader.load_file(
             &path,
             r#"
@@ -3197,7 +3197,7 @@ fn snapshotting_slot_collections() {
             ViewGroup { Item { value: 7; } }
         }
     "#;
-    let raw = spin_on::spin_on(copy.load_root_file(
+    let raw = crate::poll_ready(copy.load_root_file(
         &SourcePath::new("/tmp/slot-collections-app.slint"),
         source.into(),
         true,

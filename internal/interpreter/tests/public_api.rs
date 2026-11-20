@@ -100,7 +100,7 @@ fn compile_collection_case(name: &str, component: &str) -> ComponentInstance {
     compiler.compiler_configuration(i_slint_core::InternalToken).debug_info = true;
     compiler.compiler_configuration(i_slint_core::InternalToken).experimental_features =
         i_slint_compiler::ExperimentalFeatures::all();
-    let result = spin_on::spin_on(compiler.build_from_path(path));
+    let result = i_slint_compiler::poll_ready(compiler.build_from_path(path));
     assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
     result.component(component).unwrap().create().unwrap()
 }
