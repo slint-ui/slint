@@ -1151,29 +1151,11 @@ class Repeater
             .user_data = &ctx,
             .item_index = &ctx.inner->layout_state.item_index,
             .len = [](void *ud) -> uintptr_t { return static_cast<Ctx *>(ud)->inner->data.size(); },
-            .clear = [](void *ud) { static_cast<Ctx *>(ud)->inner->data.clear(); },
-            .push =
-                    [](void *ud, uintptr_t count) {
+            .splice =
+                    [](void *ud, uintptr_t position, uintptr_t remove, uintptr_t add) {
                         auto &data = static_cast<Ctx *>(ud)->inner->data;
-                        data.resize(data.size() + count);
-                    },
-            .prepend =
-                    [](void *ud, uintptr_t count) {
-                        auto &data = static_cast<Ctx *>(ud)->inner->data;
-                        data.insert(data.begin(), count, {});
-                    },
-            .remove_first =
-                    [](void *ud, uintptr_t count) {
-                        auto &data = static_cast<Ctx *>(ud)->inner->data;
-                        data.erase(data.begin(),
-                                   data.begin() + std::min<size_t>(count, data.size()));
-                    },
-            .truncate =
-                    [](void *ud, uintptr_t len) {
-                        auto &data = static_cast<Ctx *>(ud)->inner->data;
-                        if (len < data.size()) {
-                            data.erase(data.begin() + len, data.end());
-                        }
+                        data.erase(data.begin() + position, data.begin() + position + remove);
+                        data.insert(data.begin() + position, add, {});
                     },
             .ensure_updated = [](void *ud, uintptr_t instance_idx, uintptr_t row) -> bool {
                 auto *ctx = static_cast<Ctx *>(ud);

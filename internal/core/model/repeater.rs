@@ -1675,11 +1675,13 @@ mod ffi {
         /// The `item_index` of the repeater's layout state, updated along with the instances.
         pub item_index: *mut CurrentItem,
         pub len: unsafe extern "C" fn(user_data: *mut core::ffi::c_void) -> usize,
-        pub clear: unsafe extern "C" fn(user_data: *mut core::ffi::c_void),
-        pub push: unsafe extern "C" fn(user_data: *mut core::ffi::c_void, count: usize),
-        pub prepend: unsafe extern "C" fn(user_data: *mut core::ffi::c_void, count: usize),
-        pub remove_first: unsafe extern "C" fn(user_data: *mut core::ffi::c_void, count: usize),
-        pub truncate: unsafe extern "C" fn(user_data: *mut core::ffi::c_void, len: usize),
+        /// Remove `remove` instances at `position`, then insert `add` empty, dirty slots there.
+        pub splice: unsafe extern "C" fn(
+            user_data: *mut core::ffi::c_void,
+            position: usize,
+            remove: usize,
+            add: usize,
+        ),
         pub ensure_updated: unsafe extern "C" fn(
             user_data: *mut core::ffi::c_void,
             instance_idx: usize,
@@ -1705,38 +1707,40 @@ mod ffi {
         fn clear(&mut self) {
             unsafe {
                 (*self.item_index).instances_cleared();
-                (self.clear)(self.user_data)
+                (self.splice)(self.user_data, 0, self.len(), 0)
             }
         }
         fn push_first(&mut self, row: usize) {
             debug_assert_eq!(self.len(), 0);
             unsafe {
                 (*self.item_index).first_instance_added(row);
-                (self.push)(self.user_data, 1)
+                (self.splice)(self.user_data, 0, 0, 1)
             }
         }
         fn push(&mut self, count: usize) {
-            unsafe { (self.push)(self.user_data, count) }
+            let len = self.len();
+            unsafe { (self.splice)(self.user_data, len, 0, count) }
         }
         fn prepend(&mut self, count: usize) {
             let instance_count = self.len();
             unsafe {
                 (*self.item_index).instances_prepended(instance_count, count);
-                (self.prepend)(self.user_data, count)
+                (self.splice)(self.user_data, 0, 0, count)
             }
         }
         fn remove_first(&mut self, count: usize) {
             let instance_count = self.len();
             unsafe {
                 (*self.item_index).first_instances_removed(instance_count, count);
-                (self.remove_first)(self.user_data, count)
+                (self.splice)(self.user_data, 0, count.min(instance_count), 0)
             }
         }
         fn truncate(&mut self, len: usize) {
             let instance_count = self.len();
+            let len = len.min(instance_count);
             unsafe {
                 (*self.item_index).instances_truncated(instance_count, len);
-                (self.truncate)(self.user_data, len)
+                (self.splice)(self.user_data, len, instance_count - len, 0)
             }
         }
         fn ensure_updated(&mut self, instance_idx: usize, row: usize) -> bool {
