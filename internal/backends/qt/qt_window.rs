@@ -486,6 +486,9 @@ cpp! {{
         }
 
         void inputMethodEvent(QInputMethodEvent *event) override {
+            fprintf(stderr, "[imdbg] inputMethodEvent rust_window=%p commit='%s' start=%d length=%d ime_text='%s' ime_cursor=%d\n",
+                rust_window, event->commitString().toUtf8().constData(), event->replacementStart(), event->replacementLength(),
+                this->ime_text.toUtf8().constData(), ime_cursor);
             if (!rust_window)
                 return;
             QString commit_string = event->commitString();
@@ -521,6 +524,7 @@ cpp! {{
                         .then_some(replacement_start..replacement_start+replacement_length),
                         ..Default::default()
                     };
+                    eprintln!("[imdbg] dispatching replacement_range={:?} text={:?}", event.replacement_range, event.key_event.text);
                     rust_window.window.dispatch_event(WindowEvent::internal(event));
                 });
         }

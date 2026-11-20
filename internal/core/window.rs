@@ -1425,6 +1425,15 @@ impl WindowInner {
         }
 
         let mut item = self.focus_item.borrow().clone().upgrade();
+        #[cfg(feature = "std")]
+        std::eprintln!(
+            "[imdbg] process_key_input type={:?} text={:?} modifiers={:?} focus_item={} visible={:?}",
+            internal_key_event.event_type,
+            internal_key_event.key_event.text,
+            internal_key_event.key_event.modifiers,
+            item.is_some(),
+            item.as_ref().map(|i| i.is_visible_or_clipped_by_flickable()),
+        );
 
         // A hidden item loses the focus. An item that a Flickable only scrolled out of view
         // keeps it, and the key goes to it.

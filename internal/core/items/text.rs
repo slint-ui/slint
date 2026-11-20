@@ -1530,6 +1530,15 @@ impl Item for TextInput {
                 }
             }
             KeyEventType::UpdateComposition | KeyEventType::CommitComposition => {
+                #[cfg(feature = "std")]
+                std::eprintln!(
+                    "[imdbg] TextInput composition text={:?} range={:?} current={:?} cursor={} accept={}",
+                    event.key_event.text,
+                    event.replacement_range,
+                    self.text(),
+                    self.cursor_position(&self.text()),
+                    self.accept_text_input(&event.key_event.text, window_adapter),
+                );
                 if !self.accept_text_input(&event.key_event.text, window_adapter) {
                     return KeyEventResult::EventIgnored;
                 }
