@@ -97,7 +97,7 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SkiaDmabufRendererAd
             }
         };
 
-        // Skia and the release submit to the queue directly, so this empty submission
+        // Skia and the release submit to the queue directly, so an empty submission
         // is the first one known to wgpu that completes after the frame.
         let submit = || self.queue.submit([]);
         self.display
