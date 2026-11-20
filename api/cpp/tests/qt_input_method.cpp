@@ -57,7 +57,7 @@ std::string replace_with_x(const std::string &text, int cursor, int start, int l
     auto instance = text_input(text, cursor);
     QWidget *widget = instance->qwidget();
     fprintf(stderr,
-            "[imdbg] test: platform=%s WA_InputMethodEnabled=%d enabled=%d visible=%d "
+            "[ime-debug] test: platform=%s WA_InputMethodEnabled=%d enabled=%d visible=%d "
             "focus_widget=%p widget=%p\n",
             QGuiApplication::platformName().toUtf8().constData(),
             int(widget->testAttribute(Qt::WA_InputMethodEnabled)), int(widget->isEnabled()),
@@ -67,7 +67,7 @@ std::string replace_with_x(const std::string &text, int cursor, int start, int l
     event.setCommitString("x", start, length);
     bool handled = QCoreApplication::sendEvent(widget, &event);
     auto result = std::string(*instance->get_property("text")->to_string());
-    fprintf(stderr, "[imdbg] test: sendEvent returned %d accepted=%d text '%s' -> '%s'\n",
+    fprintf(stderr, "[ime-debug] test: sendEvent returned %d accepted=%d text '%s' -> '%s'\n",
             int(handled), int(event.isAccepted()), text.c_str(), result.c_str());
     return result;
 }

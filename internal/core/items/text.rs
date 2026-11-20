@@ -1532,7 +1532,7 @@ impl Item for TextInput {
             KeyEventType::UpdateComposition | KeyEventType::CommitComposition => {
                 #[cfg(feature = "std")]
                 std::eprintln!(
-                    "[imdbg] TextInput composition text={:?} range={:?} current={:?} cursor={} accept={}",
+                    "[ime-debug] TextInput composition text={:?} range={:?} current={:?} cursor={} accept={}",
                     event.key_event.text,
                     event.replacement_range,
                     self.text(),

@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore CBDT frameless glyf qbrush qdrag qimage qpointf qreal qvariant qwidgetsize sbix svgz Nesw qsize qstring
+// cSpell: ignore CBDT fprintf frameless glyf qbrush qdrag qimage qpointf qreal qvariant qwidgetsize sbix svgz Nesw qsize qstring
 
 use cpp::*;
 use i_slint_common::sharedfontique::HashedBlob;
@@ -486,7 +486,7 @@ cpp! {{
         }
 
         void inputMethodEvent(QInputMethodEvent *event) override {
-            fprintf(stderr, "[imdbg] inputMethodEvent rust_window=%p commit='%s' start=%d length=%d ime_text='%s' ime_cursor=%d\n",
+            fprintf(stderr, "[ime-debug] inputMethodEvent rust_window=%p commit='%s' start=%d length=%d ime_text='%s' ime_cursor=%d\n",
                 rust_window, event->commitString().toUtf8().constData(), event->replacementStart(), event->replacementLength(),
                 this->ime_text.toUtf8().constData(), ime_cursor);
             if (!rust_window)
@@ -524,7 +524,7 @@ cpp! {{
                         .then_some(replacement_start..replacement_start+replacement_length),
                         ..Default::default()
                     };
-                    eprintln!("[imdbg] dispatching replacement_range={:?} text={:?}", event.replacement_range, event.key_event.text);
+                    eprintln!("[ime-debug] dispatching replacement_range={:?} text={:?}", event.replacement_range, event.key_event.text);
                     rust_window.window.dispatch_event(WindowEvent::internal(event));
                 });
         }

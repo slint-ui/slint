@@ -1427,7 +1427,7 @@ impl WindowInner {
         let mut item = self.focus_item.borrow().clone().upgrade();
         #[cfg(feature = "std")]
         std::eprintln!(
-            "[imdbg] process_key_input type={:?} text={:?} modifiers={:?} focus_item={} visible={:?}",
+            "[ime-debug] process_key_input type={:?} text={:?} modifiers={:?} focus_item={} visible={:?}",
             internal_key_event.event_type,
             internal_key_event.key_event.text,
             internal_key_event.key_event.modifiers,
