@@ -8,7 +8,8 @@ description: Use when writing, editing, debugging, or reviewing `.slint` UI code
 For building, debugging, or reviewing apps that use [Slint](https://slint.dev),
 a declarative GUI toolkit for desktop, embedded, mobile, and web.
 
-For application UI design or refactoring, start with [project structure and state ownership](guidance/reference/project-structure.md).
+For a multi-page UI or a structural refactor, follow the [application workflow](guidance/reference/project-structure.md) before choosing the interface.
+Complete its source review before the preview check.
 
 ## Workflow
 

@@ -1,9 +1,15 @@
 # Refactor a multi-page UI
 
-Build one vertical slice first.
-Start from the [working Slint 1.19 project](../examples/library/slint-project.json).
-Read its [window](../examples/library/main.slint), [page](../examples/library/pages/library.slint), and [popup](../examples/library/components/confirm-removal.slint) together.
-Adapt that file structure and ownership to the real application before moving the remaining controls.
+## Start with the target structure
+
+For a single-file UI with several screens, build the new page contracts before extracting widgets.
+When the public interface may change, replace the old window API as part of the refactor.
+Preserve a compatibility adapter only for an explicit caller requirement.
+
+Use the [runnable project](../examples/library/slint-project.json) as the starting skeleton.
+Copy its layout into the UI directory or stage it beside the old UI.
+Replace the sample pages and commands with the application's own.
+For an existing modular UI, use the same conventions in the affected feature.
 
 ```text
 main.slint                   Window and typed page selection
@@ -24,24 +30,28 @@ The index files re-export each folder's public names.
 
 ## Migrate a page
 
-1. Write the page's host contract beside the page. Give each command a named callback and each closed choice an enum.
-   Keep a model item's identity, label and image together in a struct.
-   Re-export host-facing globals from main.slint.
-2. Move screens one workflow at a time. Give each page its own popup instances and shortcuts.
-   Keep draft text in the form and expansion in the row.
-   A button and its page's KeyBinding can both call the same popup's show().
-   Its confirmed callback calls the feature global directly.
-3. Extract reusable controls into individual component files.
-   Bind their measurements to shared Metrics properties at the use sites.
-   Lay out floating sidebars over a background with a horizontal layout and a stretching spacer.
-   Stack panels with a vertical layout.
+1. Write a page file and its feature global together.
+   Define the domain types the host needs. Give closed choices enums and model rows typed fields for identity, label, and image.
+   Replace a command such as `action("repeat", "track")` with `Player.change-repeat(RepeatMode.track)`.
+   Re-export the global from the page index and main.slint.
+2. Move controls and behavior into that page.
+   Create dialog instances where they open. A button and a page shortcut both call `confirm.show()`; the popup owns Escape, cancel and confirm.
+   Keep draft input, selection awaiting confirmation, and row expansion local.
+3. Move reusable visual controls into individual files under components/.
+   Keep all page layout in the page. A horizontal layout with a stretching spacer places sidebars over a background.
+   Replace repeated measurements at the use sites with named metrics.
 
-If the caller permits an interface change, finish replacing the old dispatch API at its source.
-The old host can migrate separately.
+## Review the source before rendering
 
-## Check the result
+Inspect the implemented API, including every global. For example:
 
-Read the resulting entry file and globals before compiling.
-If one object still owns unrelated pages' models, form fields or commands, move those members to their owning pages.
-Replace dialog switches with page-owned PopupWindow instances and raw shortcut comparisons with KeyBinding in the owning FocusScope.
-Open the project directory in the requested version of slint-viewer and exercise a shortcut and an open/dismiss cycle.
+```sh
+rg -n -g '*.slint' '^export (component|global|enum)|callback |(in-out|in) property'
+```
+
+- A single window or global containing unrelated pages' members means the migration is incomplete. Redistribute them by feature.
+- Follow a command from its button to its destination. Remove any string dispatch or integer mode switch along that path.
+- Follow one form from opening to dismissal. Replace a central dialog selector with a page-owned PopupWindow. Place its shortcuts in its FocusScope.
+- Check the files themselves. Each reusable widget has a home in components/; style.slint and metrics.slint contain values. Replace repeated panel coordinates with layouts.
+
+Build and exercise the finished project in the requested Slint viewer.

@@ -5,7 +5,8 @@ description: Write, edit, debug, or review Slint UIs and host-language integrati
 
 # Slint
 
-For application UI design or refactoring, start with [project structure and state ownership](../../guidance/reference/project-structure.md).
+For a multi-page UI or a structural refactor, follow the [application workflow](../../guidance/reference/project-structure.md) before choosing the interface.
+Complete its source review before the preview check.
 
 ## Find the Slint Project
 
