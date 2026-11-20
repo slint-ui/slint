@@ -101,7 +101,7 @@ pub fn run_bevy_app_with_slint(
 
     // Construct Bevy render resources from Slint's wgpu resources.
     // We need an Adapter for RenderAdapter and RenderAdapterInfo.
-    let adapter = spin_on::spin_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+    let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
         power_preference: wgpu::PowerPreference::default(),
         force_fallback_adapter: false,
         compatible_surface: None,

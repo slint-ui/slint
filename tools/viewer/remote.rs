@@ -662,7 +662,7 @@ mod tests {
         assert!(matches!(events.try_recv(), Ok(Event::CloseRequested)));
 
         let compilation =
-            crate::poll_ready(slint_interpreter::Compiler::default().build_from_source(
+            i_slint_compiler::poll_ready(slint_interpreter::Compiler::default().build_from_source(
                 TEST_PREVIEW_SOURCE.into(),
                 std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test-preview.slint"),
             ));
@@ -696,7 +696,7 @@ mod tests {
             },
             i_slint_core::InternalToken,
         );
-        let compilation_result = crate::poll_ready(
+        let compilation_result = i_slint_compiler::poll_ready(
             compiler.build_from_source(TEST_PREVIEW_SOURCE.into(), preview_path.clone()),
         );
         assert!(!compilation_result.has_errors());
@@ -706,7 +706,7 @@ mod tests {
         let mut placeholder = RemoteViewerWindow::new().unwrap();
         let to_editor: Rc<dyn PreviewToLsp> = Rc::new(DiscardToEditor);
         let mut debug_agent = DebugAgent::new(Rc::downgrade(&to_editor)).unwrap();
-        crate::poll_ready(debug_agent.create_overlay(placeholder.window())).unwrap();
+        i_slint_compiler::poll_ready(debug_agent.create_overlay(placeholder.window())).unwrap();
         let offset = TEST_PREVIEW_SOURCE.find("Rectangle").unwrap() as u32;
         debug_agent.handle_event(
             PreviewSessionEvent::HighlightFromEditor {

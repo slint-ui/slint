@@ -2943,12 +2943,12 @@ mod tests {
         let main_content = main_file_with_cursor.replace(CURSOR_EMOJI, "");
         let cursor_offset = (main_file_with_cursor.find(CURSOR_EMOJI).unwrap() as u32).into();
 
-        spin_on::spin_on(dc.preload_builtins());
+        i_slint_compiler::poll_ready(dc.preload_builtins());
         let mut diagnostics = BuildDiagnostics::default();
 
         let types_url =
             crate::editor_preview::test::test_file_name(types_file_name).to_url().unwrap();
-        let _ = spin_on::spin_on(dc.load_url(
+        let _ = i_slint_compiler::poll_ready(dc.load_url(
             &types_url,
             Some(1),
             types_content.to_string(),
@@ -2957,7 +2957,7 @@ mod tests {
 
         let main_url =
             crate::editor_preview::test::test_file_name(main_file_name).to_url().unwrap();
-        let _ = spin_on::spin_on(dc.load_url(
+        let _ = i_slint_compiler::poll_ready(dc.load_url(
             &main_url,
             Some(2),
             main_content.clone(),
@@ -3002,8 +3002,12 @@ mod tests {
                 editor_preview::DummyLspToPreview::default(),
             )],
         );
-        spin_on::spin_on(session.open_document(source.into(), document_url.clone(), Some(1)))
-            .unwrap();
+        i_slint_compiler::poll_ready(session.open_document(
+            source.into(),
+            document_url.clone(),
+            Some(1),
+        ))
+        .unwrap();
         let document = session.document_cache.get_document(&document_url).unwrap();
         let token =
             crate::language::token_at_offset(document.node.as_ref().unwrap(), cursor_offset.into())

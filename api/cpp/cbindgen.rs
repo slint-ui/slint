@@ -464,7 +464,7 @@ extern "C" {{
 "#,
         items
             .iter()
-            .map(|item_name| format!("SLINT_DECL_ITEM({item_name});"))
+            .map(|item_name| format!("SLINT_DECL_ITEM({item_name})"))
             .collect::<Vec<_>>()
             .join("\n")
     )

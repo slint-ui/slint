@@ -2470,7 +2470,7 @@ fn test_dependency_loading() {
     let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
     let registry = Rc::new(RefCell::new(TypeRegister::new(&loader.global_type_registry)));
 
-    let (foreign_imports, _) = spin_on::spin_on(loader.load_dependencies_recursively(
+    let (foreign_imports, _) = crate::poll_ready(loader.load_dependencies_recursively(
         &doc_node,
         &mut build_diagnostics,
         &registry,
@@ -2541,7 +2541,7 @@ fn test_dependency_loading_from_rust() {
     let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
     let registry = Rc::new(RefCell::new(TypeRegister::new(&loader.global_type_registry)));
 
-    let (foreign_imports, _) = spin_on::spin_on(loader.load_dependencies_recursively(
+    let (foreign_imports, _) = crate::poll_ready(loader.load_dependencies_recursively(
         &doc_node,
         &mut build_diagnostics,
         &registry,
@@ -2595,7 +2595,7 @@ export component X { A {} B {} C {} D {} }
     let mut build_diagnostics = BuildDiagnostics::default();
     let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
     let registry = Rc::new(RefCell::new(TypeRegister::new(&loader.global_type_registry)));
-    spin_on::spin_on(loader.load_dependencies_recursively(
+    crate::poll_ready(loader.load_dependencies_recursively(
         &doc_node,
         &mut build_diagnostics,
         &registry,
@@ -2646,7 +2646,7 @@ component X inherits XX {}
     let mut build_diagnostics = BuildDiagnostics::default();
     let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
     let registry = Rc::new(RefCell::new(TypeRegister::new(&loader.global_type_registry)));
-    spin_on::spin_on(loader.load_dependencies_recursively(
+    crate::poll_ready(loader.load_dependencies_recursively(
         &doc_node,
         &mut build_diagnostics,
         &registry,
@@ -2689,7 +2689,7 @@ fn test_load_from_callback_with_url_base() {
     let mut build_diagnostics = BuildDiagnostics::default();
     let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
     let registry = Rc::new(RefCell::new(TypeRegister::new(&loader.global_type_registry)));
-    spin_on::spin_on(loader.load_dependencies_recursively(
+    crate::poll_ready(loader.load_dependencies_recursively(
         &doc_node,
         &mut build_diagnostics,
         &registry,
@@ -2749,7 +2749,7 @@ fn load_url_imports_with_include_paths(
     .into();
     let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
     let registry = Rc::new(RefCell::new(TypeRegister::new(&loader.global_type_registry)));
-    spin_on::spin_on(loader.load_dependencies_recursively(
+    pollster::block_on(loader.load_dependencies_recursively(
         &doc_node,
         &mut build_diagnostics,
         &registry,
@@ -2857,7 +2857,7 @@ component Foo { XX {} }
     let mut build_diagnostics = BuildDiagnostics::default();
     let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
     let registry = Rc::new(RefCell::new(TypeRegister::new(&loader.global_type_registry)));
-    spin_on::spin_on(loader.load_dependencies_recursively(
+    crate::poll_ready(loader.load_dependencies_recursively(
         &doc_node,
         &mut build_diagnostics,
         &registry,
@@ -2871,7 +2871,7 @@ component Foo { XX {} }
     );
     // Try loading another time with the same registry
     let mut build_diagnostics = BuildDiagnostics::default();
-    spin_on::spin_on(loader.load_dependencies_recursively(
+    crate::poll_ready(loader.load_dependencies_recursively(
         &doc_node,
         &mut build_diagnostics,
         &registry,
@@ -2894,7 +2894,7 @@ fn test_load_file_watches_missing_imports() {
     let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
     let main_path = SourcePath::new("/tmp/main.slint");
 
-    spin_on::spin_on(
+    crate::poll_ready(
         loader.load_file(
             &main_path,
             r#"
@@ -2925,7 +2925,7 @@ fn test_load_root_file_tracks_missing_imports() {
     let main_path = SourcePath::new(std::env::temp_dir().join("main.slint"));
     let missing_path = SourcePath::new(std::env::temp_dir().join("missing.slint"));
     let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
-    spin_on::spin_on(
+    crate::poll_ready(
         loader.load_root_file(
             &main_path,
             r#"
@@ -2967,7 +2967,7 @@ fn test_load_root_file_tracks_missing_resources() {
         let resource_path = SourcePath::new(std::env::temp_dir().join("icon.svg"));
 
         let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
-        let raw_loader = spin_on::spin_on(
+        let raw_loader = crate::poll_ready(
             loader.load_root_file(
                 &main_path,
                 r#"
@@ -3011,7 +3011,7 @@ fn test_load_file_tracks_missing_resources() {
     let resource_path = SourcePath::new(std::env::temp_dir().join("icon.svg"));
 
     let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
-    spin_on::spin_on(
+    crate::poll_ready(
         loader.load_file(
             &main_path,
             r#"
@@ -3041,7 +3041,7 @@ fn test_manual_import() {
     let mut build_diagnostics = BuildDiagnostics::default();
     let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
 
-    let maybe_button_type = spin_on::spin_on(loader.import_component(
+    let maybe_button_type = crate::poll_ready(loader.import_component(
         "std-widgets.slint",
         "Button",
         &mut build_diagnostics,
@@ -3060,7 +3060,7 @@ fn component_container_requires_its_feature() {
     compiler_config.experimental_features = crate::ExperimentalFeatures::default();
     let mut diag = BuildDiagnostics::default();
     let node = crate::parser::parse(source.into(), None, None, &mut diag);
-    let (_, diag, _) = spin_on::spin_on(crate::compile_syntax_node(node, diag, compiler_config));
+    let (_, diag, _) = crate::poll_ready(crate::compile_syntax_node(node, diag, compiler_config));
     let errors = diag.iter().filter(|d| d.level() == crate::diagnostics::DiagnosticLevel::Error);
     let messages = errors.map(|d| d.message().to_string()).collect::<Vec<_>>();
     assert_eq!(messages.len(), 2, "{messages:?}");
@@ -3084,7 +3084,7 @@ fn test_import_widget_interfaces() {
         let mut build_diagnostics = BuildDiagnostics::default();
         let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
 
-        let interface = spin_on::spin_on(loader.import_component(
+        let interface = crate::poll_ready(loader.import_component(
             "std-widget-interfaces.slint",
             "ButtonInterface",
             &mut build_diagnostics,
@@ -3296,7 +3296,7 @@ import { LibraryHelperType } from "@libdir/library_helper_type.slint";
     let mut build_diagnostics = BuildDiagnostics::default();
     let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
     let registry = Rc::new(RefCell::new(TypeRegister::new(&loader.global_type_registry)));
-    spin_on::spin_on(loader.load_dependencies_recursively(
+    crate::poll_ready(loader.load_dependencies_recursively(
         &doc_node,
         &mut build_diagnostics,
         &registry,
@@ -3330,7 +3330,7 @@ fn test_library_import_of_resources() {
             &mut test_diags,
         );
         assert!(!test_diags.has_errors());
-        spin_on::spin_on(crate::compile_syntax_node(doc_node, test_diags, compiler_config))
+        crate::poll_ready(crate::compile_syntax_node(doc_node, test_diags, compiler_config))
     };
 
     let (document, diagnostics, _) = compile(
@@ -3434,7 +3434,7 @@ export component Main { Button { } Rel { } }
     let mut build_diagnostics = BuildDiagnostics::default();
     let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
     let registry = Rc::new(RefCell::new(TypeRegister::new(&loader.global_type_registry)));
-    spin_on::spin_on(loader.load_dependencies_recursively(
+    crate::poll_ready(loader.load_dependencies_recursively(
         &doc_node,
         &mut build_diagnostics,
         &registry,
@@ -3465,7 +3465,7 @@ export component Main { Button { } Rel { } }
     assert_eq!(loader.resolve_import_path(None, "@rel"), None);
 
     // Without a project file, the directory of the root file holds the application's files
-    let (build_diagnostics, loader, _) = spin_on::spin_on(crate::load_root_file(
+    let (build_diagnostics, loader, _) = crate::poll_ready(crate::load_root_file(
         &main,
         main_source.into(),
         BuildDiagnostics::default(),
@@ -3484,7 +3484,7 @@ export component Main { Button { } Rel { } }
         without_project_file.edition,
         &mut build_diagnostics,
     );
-    let (_, build_diagnostics, _) = spin_on::spin_on(crate::compile_syntax_node(
+    let (_, build_diagnostics, _) = crate::poll_ready(crate::compile_syntax_node(
         doc_node,
         build_diagnostics,
         without_project_file,
@@ -3525,7 +3525,7 @@ Legacy := Rectangle { }
 export struct Size := { }
 export component Main { Legacy { } }
 "#;
-    let (build_diagnostics, _, _) = spin_on::spin_on(crate::load_root_file(
+    let (build_diagnostics, _, _) = crate::poll_ready(crate::load_root_file(
         &main,
         main_source.into(),
         BuildDiagnostics::default(),
@@ -3590,7 +3590,7 @@ fn test_library_project_file_without_main() {
     let mut build_diagnostics = BuildDiagnostics::default();
     let mut loader = TypeLoader::new(compiler_config.clone(), &mut build_diagnostics);
     let registry = Rc::new(RefCell::new(TypeRegister::new(&loader.global_type_registry)));
-    spin_on::spin_on(loader.load_dependencies_recursively(
+    crate::poll_ready(loader.load_dependencies_recursively(
         &doc_node,
         &mut build_diagnostics,
         &registry,
@@ -3640,7 +3640,7 @@ import { E } from "@unknown/lib.slint";
     let mut build_diagnostics = BuildDiagnostics::default();
     let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
     let registry = Rc::new(RefCell::new(TypeRegister::new(&loader.global_type_registry)));
-    spin_on::spin_on(loader.load_dependencies_recursively(
+    crate::poll_ready(loader.load_dependencies_recursively(
         &doc_node,
         &mut build_diagnostics,
         &registry,
@@ -3694,7 +3694,7 @@ fn test_snapshotting() {
 
     let path = SourcePath::new("/tmp/test.slint");
     let mut diag = BuildDiagnostics::default();
-    spin_on::spin_on(type_loader.load_file(
+    crate::poll_ready(type_loader.load_file(
         &path,
         "export component Foobar inherits Rectangle { }".to_string(),
         false,
@@ -3726,7 +3726,7 @@ fn test_snapshotting_typed_slot_implementations() {
     let mut type_loader = TypeLoader::new(config, &mut BuildDiagnostics::default());
     let library_path = SourcePath::new("/tmp/typed-slot-implementations.slint");
     let mut diag = BuildDiagnostics::default();
-    spin_on::spin_on(
+    crate::poll_ready(
         type_loader.load_file(
             &library_path,
             r#"
@@ -3755,7 +3755,7 @@ fn test_snapshotting_typed_slot_implementations() {
     let mut copy = snapshot(&type_loader).unwrap();
     drop(type_loader);
     let application_path = SourcePath::new("/tmp/typed-slot-application.slint");
-    spin_on::spin_on(
+    crate::poll_ready(
         copy.load_file(
             &application_path,
             r#"
@@ -3786,7 +3786,7 @@ fn test_watch_paths_revision_bumps_on_mutations() {
 
     let path = SourcePath::new("/tmp/test-revision.slint");
     let mut diag = BuildDiagnostics::default();
-    spin_on::spin_on(type_loader.load_file(
+    crate::poll_ready(type_loader.load_file(
         &path,
         "export component Foobar inherits Rectangle { }".to_string(),
         false,
