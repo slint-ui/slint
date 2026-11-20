@@ -211,7 +211,7 @@ public:
 #ifndef SLINT_FEATURE_FREESTANDING
         std::cerr << "Model::set_row_data was called on a read-only model" << std::endl;
 #endif
-    };
+    }
 
     /// Adds a new row with the given \a data at the end of the model.
     /// Returns true when the row was added, false when the model rejected it.
