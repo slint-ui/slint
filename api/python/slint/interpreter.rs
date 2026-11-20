@@ -582,6 +582,14 @@ impl ComponentInstance {
             .ensure_tree_instantiated();
     }
 
+    #[getter]
+    fn window(&self) -> Option<crate::window::PyWindow> {
+        self.instance
+            .definition()
+            .is_window()
+            .then(|| crate::window::PyWindow { instance: self.instance.as_weak() })
+    }
+
     fn show(&self) -> Result<(), PyPlatformError> {
         Ok(self.instance.show()?)
     }
