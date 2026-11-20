@@ -292,6 +292,11 @@ impl GbmDmabufDisplay {
 
 #[cfg(skia_wgpu_30)]
 impl GbmDmabufDisplay {
+    /// The textures of the ring's buffers.
+    pub fn textures(&self) -> impl Iterator<Item = &wgpu::Texture> {
+        self.buffers.iter().map(|buffer| &buffer.texture)
+    }
+
     /// Posts the back buffer once the GPU finished it, and advances the ring.
     ///
     /// Where the display can wait for `sync_file`, the frame is posted right away.
