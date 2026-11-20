@@ -160,7 +160,7 @@ wgpu-hal-29 = { package = "wgpu-hal", version = "29.0.4", default-features = fal
 wgpu-hal-30 = { package = "wgpu-hal", version = "30", default-features = false }
 input = { version = "0.10.0", default-features = false }
 tr = { version = "0.1", default-features = false }
-fontique = { version = "0.13.0" }
+fontique = { version = "0.13.0", default-features = false }
 # Pinned to match parley's version
 read-fonts = { version = "0.46" }
 skrifa = { version = "0.49" }
