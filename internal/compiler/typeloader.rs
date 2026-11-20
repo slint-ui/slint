@@ -2739,7 +2739,7 @@ fn load_url_imports_with_include_paths(
     .into();
     let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
     let registry = Rc::new(RefCell::new(TypeRegister::new(&loader.global_type_registry)));
-    crate::poll_ready(loader.load_dependencies_recursively(
+    pollster::block_on(loader.load_dependencies_recursively(
         &doc_node,
         &mut build_diagnostics,
         &registry,

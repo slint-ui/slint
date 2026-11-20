@@ -3441,6 +3441,7 @@ dependencies = [
  "num_enum",
  "once_cell",
  "pathdiff",
+ "pollster 1.0.2",
  "postcard",
  "proc-macro2",
  "quote",
