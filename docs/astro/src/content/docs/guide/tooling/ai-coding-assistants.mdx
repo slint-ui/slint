@@ -1,12 +1,12 @@
 ---
 title: AI Coding Assistants
-description: Install the Slint skill for Claude Code, Codex, Cursor, and other AI coding agents.
+description: Install the Slint plugin or standalone skill for Claude Code, Codex, Cursor, and other AI coding agents.
 ---
 
 import { Tabs, TabItem } from '@astrojs/starlight/components';
 
-Use the Slint skill to give your AI coding agent project-specific guidance for working with Slint.
-The skill covers the `.slint` language, layouts, common gotchas, host-language interop, and the embedded MCP server.
+The Codex and Claude Code plugins each provide a skill for their host's Slint tools and link to the Slint development references.
+The standalone Slint skill covers the `.slint` language, layouts, common gotchas, host-language interop, and the embedded MCP server.
 
 The plugin and skills are available from the [slint-ui/ai-plugins](https://github.com/slint-ui/ai-plugins) repository.
 
@@ -19,17 +19,17 @@ The plugin and skills are available from the [slint-ui/ai-plugins](https://githu
   /plugin install slint@slint
   ```
 
-  Claude Code can then use the bundled Slint skill when working with Slint projects.
+  Claude Code can then use the plugin skill to look up Slint APIs, check diagnostics, and render local previews.
   </TabItem>
   <TabItem label="Codex">
-  Enter the following in the Codex prompt to install the skill from GitHub:
+  Install the Slint plugin from GitHub:
 
   ```sh
   codex plugin marketplace add slint-ui/ai-plugins
   codex plugin add slint@slint
   ```
 
-  Restart Codex after the install so it picks up the new skill.
+  Restart Codex after installation to load the plugin skill for documentation and inline previews.
   </TabItem>
   <TabItem label="Antigravity">
   Install the plugin from GitHub with the [Antigravity CLI](https://antigravity.google/docs/cli/):

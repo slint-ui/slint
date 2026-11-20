@@ -210,13 +210,9 @@ fn read_input(
     .then(|| input_path.parent());
     #[cfg(not(feature = "typescript"))]
     let project_root = None;
-    let (input, input_files) = spin_on::spin_on(i_slint_compiler::project_file::load_input(
-        &input_path,
-        None,
-        project_root,
-        None,
-        diag,
-    ));
+    let (input, input_files) = i_slint_compiler::poll_ready(
+        i_slint_compiler::project_file::load_input(&input_path, None, project_root, None, diag),
+    );
     let Some(input) = input else { return (None, None, Vec::new()) };
     (
         Some((input.source, input.source_code)),
@@ -444,7 +440,7 @@ fn main() -> std::io::Result<()> {
     #[cfg(feature = "csharp")]
     let main_file = unit_config.is_some().then(|| (source.clone(), source_code.clone()));
     let (doc, diag, loader) =
-        spin_on::spin_on(compile_source(&source, source_code, diag, compiler_config));
+        i_slint_compiler::poll_ready(compile_source(&source, source_code, diag, compiler_config));
 
     let diag = diag.check_and_exit_on_error();
 

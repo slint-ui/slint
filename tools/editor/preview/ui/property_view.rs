@@ -827,7 +827,7 @@ export component Win inherits Window {
             i_slint_core::InternalToken,
         );
         compiler.compiler_configuration(i_slint_core::InternalToken).debug_hooks = true;
-        let compiled = spin_on::spin_on(compiler.build_from_source_path(
+        let compiled = i_slint_compiler::poll_ready(compiler.build_from_source_path(
             Some(code.into()),
             path.clone(),
             i_slint_core::InternalToken,
@@ -904,7 +904,7 @@ export component Win inherits Window {
         assert_eq!(lookups.get(), 3);
         drop(item);
         let old_item = cache.as_ref().get();
-        let compiled = spin_on::spin_on(compiler.build_from_source_path(
+        let compiled = i_slint_compiler::poll_ready(compiler.build_from_source_path(
             Some(code.replace("Test Family", "Next Family")),
             path,
             i_slint_core::InternalToken,
