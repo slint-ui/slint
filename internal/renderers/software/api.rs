@@ -326,10 +326,10 @@ impl SoftwareRenderer {
     /// or the `height` and `width` swapped if the screen is rotated by 90°.
     ///
     /// Returns the physical dirty region for this frame, excluding the extra_draw_region,
+    /// in the window frame of reference. It is affected by the screen rotation.
     ///
     /// Images prepared for the buffer go into `prepared_textures`.
     /// Pass the same one with every frame. A new one prepares no images.
-    /// in the window frame of reference. It is affected by the screen rotation.
     #[cfg(feature = "experimental")]
     pub fn render_into_buffer(
         &self,
