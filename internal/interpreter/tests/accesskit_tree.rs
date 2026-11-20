@@ -571,3 +571,41 @@ fn an_accessible_item_scrolls_its_own_flickable_not_the_one_of_an_accessible_chi
     let (_, inner) = node_by_label(&update, "Inner");
     assert!(inner.supports_action(Action::ScrollDown), "the list still scrolls its rows");
 }
+
+const LOCKED_SCROLL_SOURCE: &str = r#"
+export component TestCase inherits Window {
+    in property <bool> interactive: true;
+    width: 400px;
+    height: 300px;
+
+    Flickable {
+        interactive: root.interactive;
+        content-height: 1000px;
+        accessible-role: list;
+        accessible-label: "Content";
+    }
+}
+"#;
+
+#[test]
+fn a_flickable_that_is_not_interactive_cannot_be_scrolled() {
+    let mut f = Fixture::with_source(LOCKED_SCROLL_SOURCE);
+    let update = f.tree.build_new_tree();
+    let (id, node) = node_by_label(&update, "Content");
+    assert!(node.supports_action(Action::ScrollDown));
+    assert!(node.supports_action(Action::SetScrollOffset));
+    assert!(f.tree.handle_request(request(Action::ScrollDown, id, None)).is_some());
+
+    f.instance.set_property("interactive", false.into()).unwrap();
+    let update = f.tree.build_new_tree();
+    let (id, node) = node_by_label(&update, "Content");
+    assert_eq!(node.scroll_y(), None);
+    assert!(!node.supports_action(Action::ScrollDown));
+    assert!(!node.supports_action(Action::SetScrollOffset));
+    assert!(f.tree.handle_request(request(Action::ScrollDown, id, None)).is_none());
+    assert!(f.tree.handle_request(request(Action::SetScrollOffset, id, None)).is_none());
+
+    f.instance.set_property("interactive", true.into()).unwrap();
+    let update = f.tree.build_new_tree();
+    assert!(node_by_label(&update, "Content").1.supports_action(Action::ScrollDown));
+}
