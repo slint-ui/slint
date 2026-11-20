@@ -5,21 +5,21 @@ use std::{cell::Cell, rc::Rc};
 
 use i_slint_core::api::{PhysicalSize, Window, WindowSize};
 use i_slint_core::platform::{Platform, Renderer, WindowAdapter, WindowEvent};
-use i_slint_renderer_software::{RepaintBufferType, SoftwareRenderer};
+use i_slint_renderer_anyrender::VelloCpuRenderer;
 use slint_interpreter::ComponentHandle;
 use wasm_bindgen::prelude::*;
 
 use crate::WrappedCompiledComp;
 
-struct SoftwarePlatform;
+struct HeadlessPlatform;
 
-impl Platform for SoftwarePlatform {
+impl Platform for HeadlessPlatform {
     fn create_window_adapter(
         &self,
     ) -> Result<Rc<dyn WindowAdapter>, i_slint_core::api::PlatformError> {
-        Ok(Rc::new_cyclic(|window| SoftwareWindow {
+        Ok(Rc::new_cyclic(|window| HeadlessWindow {
             window: Window::new(window.clone()),
-            renderer: SoftwareRenderer::new_with_repaint_buffer_type(RepaintBufferType::NewBuffer),
+            renderer: VelloCpuRenderer::new_vello_cpu(),
             size: Cell::new(PhysicalSize::default()),
         }))
     }
@@ -29,13 +29,13 @@ impl Platform for SoftwarePlatform {
     }
 }
 
-struct SoftwareWindow {
+struct HeadlessWindow {
     window: Window,
-    renderer: SoftwareRenderer,
+    renderer: VelloCpuRenderer,
     size: Cell<PhysicalSize>,
 }
 
-impl WindowAdapter for SoftwareWindow {
+impl WindowAdapter for HeadlessWindow {
     fn window(&self) -> &Window {
         &self.window
     }
@@ -72,7 +72,7 @@ extern "C" {
 pub fn init() -> Result<(), JsValue> {
     #[cfg(feature = "console_error_panic_hook")]
     console_error_panic_hook::set_once();
-    i_slint_core::platform::set_platform(Box::new(SoftwarePlatform))
+    i_slint_core::platform::set_platform(Box::new(HeadlessPlatform))
         .map_err(|error| JsValue::from_str(&error.to_string()))?;
     i_slint_core::with_existing_context(|context| {
         context.set_log_message_handler(Some(Box::new(|message| {
