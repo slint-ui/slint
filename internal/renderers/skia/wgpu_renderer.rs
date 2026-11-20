@@ -5,7 +5,6 @@
 use std::pin::Pin;
 use std::rc::Rc;
 
-#[cfg(feature = "wgpu-30")]
 use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::RendererSealed;
 use i_slint_core::window::WindowAdapter;

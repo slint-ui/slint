@@ -319,5 +319,12 @@ jobs:
           RESULT: ${{ needs.classify.outputs.result }}
           PR_NUMBER: ${{ inputs.pr_number }}
         run: |
+          # gh pr merge --auto can merge immediately on a branch without required reviews.
+          # So only enable auto-merge if the branch requires reviews.
+          base_branch=$(gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json baseRefName --jq .baseRefName)
+          encoded_branch=$(jq -rn --arg branch "$base_branch" '$branch | @uri')
+          requires_review=$(gh api "repos/$GITHUB_REPOSITORY/rules/branches/$encoded_branch" \
+            --jq 'any(.[]; .type == "pull_request" and .parameters.required_approving_review_count > 0)')
+          [ "$requires_review" = true ] || exit 0
           method=$(jq -r .merge_method <<< "$RESULT")
           gh pr merge "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --auto "--$method"

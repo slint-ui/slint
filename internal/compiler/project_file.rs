@@ -1411,8 +1411,13 @@ mod tests {
             with_project_file_contents(source, |path| {
                 let input = SourcePath::new(path.parent().unwrap());
                 let mut diagnostics = crate::diagnostics::BuildDiagnostics::default();
-                let (loaded, _) =
-                    spin_on::spin_on(super::load_input(&input, None, None, None, &mut diagnostics));
+                let (loaded, _) = crate::poll_ready(super::load_input(
+                    &input,
+                    None,
+                    None,
+                    None,
+                    &mut diagnostics,
+                ));
                 assert!(loaded.is_none());
                 let diagnostic = diagnostics.iter().next().unwrap();
                 assert_eq!(diagnostic.source_file().unwrap(), path);
@@ -1578,7 +1583,7 @@ mod tests {
                     Default::default(),
                 );
                 let disk = ProjectFile::load(path);
-                let callback = spin_on::spin_on(ProjectFile::load_with_file_loader(
+                let callback = crate::poll_ready(ProjectFile::load_with_file_loader(
                     source_path,
                     Some(&loader),
                 ));
@@ -1605,7 +1610,7 @@ mod tests {
             Default::default(),
         );
         let project =
-            spin_on::spin_on(ProjectFile::load_with_file_loader(manifest.clone(), Some(&loader)))
+            crate::poll_ready(ProjectFile::load_with_file_loader(manifest.clone(), Some(&loader)))
                 .unwrap();
         assert_eq!(project.source_path(), &manifest);
         assert_eq!(
@@ -1645,7 +1650,7 @@ mod tests {
                         response.map(|result| result.map(str::to_owned).map_err(Into::into))
                     })
                 });
-                let result = spin_on::spin_on(ProjectFile::load_with_file_loader(
+                let result = crate::poll_ready(ProjectFile::load_with_file_loader(
                     path.clone(),
                     Some(&loader),
                 ));
@@ -1680,7 +1685,7 @@ mod tests {
                 ]),
                 requested.clone(),
             );
-            let project = spin_on::spin_on(super::load_from_root_with_file_loader(
+            let project = crate::poll_ready(super::load_from_root_with_file_loader(
                 root.clone(),
                 Some(&loader),
             ))
@@ -1692,7 +1697,7 @@ mod tests {
             requested.borrow_mut().clear();
             let loader = callback_loader(HashMap::new(), requested.clone());
             assert!(
-                spin_on::spin_on(super::load_from_root_with_file_loader(root, Some(&loader)))
+                crate::poll_ready(super::load_from_root_with_file_loader(root, Some(&loader)))
                     .unwrap()
                     .is_none()
             );
@@ -1708,7 +1713,7 @@ mod tests {
         for loader in [None, Some(&declined_loader)] {
             let root = SourcePath::new("/project/ui");
             assert!(
-                spin_on::spin_on(super::load_from_root_with_file_loader(root, loader))
+                crate::poll_ready(super::load_from_root_with_file_loader(root, loader))
                     .unwrap()
                     .is_none()
             );
@@ -1731,7 +1736,7 @@ mod tests {
                     Box::pin(async move { Some(contents.map(str::to_owned).map_err(Into::into)) })
                 });
                 assert!(
-                    spin_on::spin_on(super::load_from_root_with_file_loader(
+                    crate::poll_ready(super::load_from_root_with_file_loader(
                         SourcePath::new(root),
                         Some(&loader)
                     ))
@@ -1759,7 +1764,7 @@ mod tests {
                 ]),
                 requested.clone(),
             );
-            let project = spin_on::spin_on(super::load_from_root_with_file_loader(
+            let project = crate::poll_ready(super::load_from_root_with_file_loader(
                 root.clone(),
                 Some(&loader),
             ))

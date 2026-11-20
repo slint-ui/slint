@@ -42,7 +42,7 @@ let ei = embedded_instance.clone();
 let dyn_factory = slint::ComponentFactory::new(move |ctx| {
     let mut compiler = slint_interpreter::Compiler::new();
     compiler.compiler_configuration(i_slint_core::InternalToken).debug_hooks = true;
-    let e = spin_on::spin_on(compiler.build_from_source(
+    let e = pollster::block_on(compiler.build_from_source(
         r#"export component E1 inherits Rectangle {
     out property <length> embedded-width <=> self.width;
     out property <length> embedded-height <=> self.height;
@@ -137,7 +137,7 @@ let ei = embedded_instance.clone();
 
 let fixed_factory = slint::ComponentFactory::new(move |ctx| {
     let compiler = slint_interpreter::Compiler::new();
-    let e = spin_on::spin_on(compiler.build_from_source(
+    let e = pollster::block_on(compiler.build_from_source(
         r#"export component E1 inherits Rectangle {
     out property <length> embedded-width <=> self.width;
     out property <length> embedded-height <=> self.height;

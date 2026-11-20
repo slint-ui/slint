@@ -48,8 +48,8 @@ unsafe-single-threaded = []
 
 unicode = ["unicode-script", "unicode-linebreak"]
 
-# Decode encoded images with the image crate. Not needed on wasm, where the
-# browser decodes encoded image data.
+# Decode encoded images with the image crate. On Wasm, omit this feature to use
+# the browser's image decoders.
 image-decoders = ["dep:image", "dep:clru"]
 image-default-formats = ["image?/default-formats"]
 svg = ["dep:resvg", "i-slint-common/svg-text"]
