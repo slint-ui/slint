@@ -2253,8 +2253,8 @@ impl TextCursorBlinker {
                         let left = blinker.toggles_left.get().saturating_sub(1);
                         blinker.toggles_left.set(left);
                         if left == 0 {
-                            // Left visible, and the timer's wakeups and the redraws they ask
-                            // for stop until the cursor is used again.
+                            // Left visible: the timer, and the redraws it asks for, stop until
+                            // the cursor is used again.
                             blinker.cursor_visible.set(true);
                             blinker.cursor_blink_timer.stop();
                         } else {
