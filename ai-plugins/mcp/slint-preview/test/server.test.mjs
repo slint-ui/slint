@@ -18,7 +18,7 @@ import { pathToFileURL } from "node:url";
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 
-const pluginRoot = new URL("../../../", import.meta.url);
+const pluginRoot = new URL("../../", import.meta.url);
 const serverPath = new URL("../server.mjs", import.meta.url);
 const readManifest = (path) =>
     JSON.parse(readFileSync(new URL(path, pluginRoot), "utf8"));
@@ -160,11 +160,11 @@ test("serves the view with the interpreter of the plugin's release on the releas
     try {
         for (const file of [
             ".claude-plugin/plugin.json",
-            "assets/slint.svg",
-            "mcp/slint-preview/server.mjs",
-            "mcp/slint-preview/checker.mjs",
-            "mcp/slint-preview/view.html.in",
-            "mcp/slint-preview/assets",
+            "icon.svg",
+            "slint-preview/server.mjs",
+            "slint-preview/checker.mjs",
+            "slint-preview/view.html.in",
+            "slint-preview/assets",
         ]) {
             cpSync(new URL(file, pluginRoot), join(root, file), {
                 recursive: true,
@@ -172,12 +172,12 @@ test("serves the view with the interpreter of the plugin's release on the releas
             });
         }
         writeFileSync(
-            join(root, "mcp/slint-preview/channel.json"),
+            join(root, "slint-preview/channel.json"),
             JSON.stringify({ channel: "release" }),
         );
         const release = spawn(
             process.execPath,
-            [join(root, "mcp/slint-preview/server.mjs")],
+            [join(root, "slint-preview/server.mjs")],
             { stdio: ["pipe", "pipe", "inherit"] },
         );
         const lines = createInterface({ input: release.stdout });
@@ -327,7 +327,7 @@ test("the Claude and Codex manifests start this server", () => {
         "slint-preview"
     ];
     assert.deepEqual(claude.args, [
-        "${CLAUDE_PLUGIN_ROOT}/mcp/slint-preview/server.mjs",
+        "${CLAUDE_PLUGIN_ROOT}/slint-preview/server.mjs",
     ]);
 
     // Codex expands no variables in plugin MCP args and resolves `cwd` against the plugin root.
