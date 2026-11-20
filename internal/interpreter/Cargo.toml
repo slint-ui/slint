@@ -50,8 +50,8 @@ system-tray = ["i-slint-core/system-tray"]
 ## With `compat-1-18` the Skia renderer and the Android backend always render SVG. With `compat-1-20`
 ## or newer this is opt-in: enable `svg` (it is part of the default features).
 ## Without it, the Skia renderer and the Android backend leave out SVG support; other backends
-## still include it.
-svg = ["i-slint-core/svg", "i-slint-backend-selector/svg"]
+## still include it on native targets. WebAssembly builds never include it, since the browser decodes images.
+svg = ["i-slint-backend-selector/svg"]
 
 # (internal) Use the standard library. Mandatory and enabled by `compat-1-20`
 std = ["i-slint-core/default", "derive_more/std", "i-slint-compiler/std"]
