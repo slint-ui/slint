@@ -17,8 +17,8 @@ use tokio::sync::{mpsc, oneshot};
 use crate::REBUILD_DEBOUNCE;
 use crate::debug_agent::{DebugAgent, PreviewUpdate};
 use crate::protocol::{
-    LspToPreviewMessage, PreviewComponent, PreviewConfig, PreviewToLsp, PreviewToLspMessage,
-    SourceFileVersion,
+    DebuggerToPreviewMessage, LspToPreviewMessage, PreviewComponent, PreviewConfig, PreviewToLsp,
+    PreviewToLspMessage, SourceFileVersion,
 };
 
 /// Small wrapper around tokio::spawn_local to silence the clippy warning that
@@ -51,6 +51,7 @@ pub enum PreviewSessionEvent {
     ContentsChanged,
     HighlightFromEditor { url: Option<Url>, offset: u32 },
     RegisterFont { url: Url, contents: Arc<[u8]> },
+    DebuggerMessage(DebuggerToPreviewMessage),
 }
 
 pub enum PreviewCompilation {
@@ -281,6 +282,9 @@ impl PreviewSession {
             LspToPreviewMessage::PairingHello { .. }
             | LspToPreviewMessage::PairingResponse { .. } => {
                 tracing::warn!("Ignoring pairing message on an established session");
+            }
+            LspToPreviewMessage::DebuggerMessage(message) => {
+                event_handler(PreviewSessionEvent::DebuggerMessage(message));
             }
         }
         true

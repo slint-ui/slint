@@ -309,25 +309,28 @@ pub(crate) mod tests {
         true
     }
 
+    /// Answers each system-test request with an empty response,
+    /// and echoes every other message as a `DebugMessage`.
     #[test]
     #[ignore]
     fn echo_child() {
+        use i_slint_live_preview::protocol::{DebuggerToPreviewMessage, PreviewToDebuggerMessage};
+
         if !fixture_started() {
             return;
         }
         for line in std::io::stdin().lock().lines() {
             let line = line.unwrap();
-            if matches!(serde_json::from_str(&line), Ok(LspToPreviewMessage::Quit)) {
-                std::process::exit(0);
-            }
-            println!(
-                "{}",
-                serde_json::to_string(&PreviewToLspMessage::DebugMessage {
-                    location: None,
-                    message: line,
-                })
-                .unwrap()
-            );
+            let reply = match serde_json::from_str(&line) {
+                Ok(LspToPreviewMessage::Quit) => std::process::exit(0),
+                Ok(LspToPreviewMessage::DebuggerMessage(
+                    DebuggerToPreviewMessage::SystemTestRequest { id, .. },
+                )) => PreviewToLspMessage::DebuggerMessage(
+                    PreviewToDebuggerMessage::SystemTestResponse { id, response: Ok(Vec::new()) },
+                ),
+                _ => PreviewToLspMessage::DebugMessage { location: None, message: line },
+            };
+            println!("{}", serde_json::to_string(&reply).unwrap());
             std::io::stdout().flush().unwrap();
         }
     }

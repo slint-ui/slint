@@ -93,6 +93,8 @@ pub enum LspToPreviewMessage {
         element: super::pairing::Element,
         confirmation: super::pairing::Confirmation,
     },
+    /// A message from the debugger, passed on by the Springboard.
+    DebuggerMessage(super::DebuggerToPreviewMessage),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
