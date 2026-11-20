@@ -748,6 +748,12 @@ impl RendererSealed for TestingWindow {
     }
 }
 
+/// Returns the error that creating a window with the headless renderer `name` would give.
+#[cfg(supports_headless)]
+pub fn check_headless_renderer(name: &str) -> Result<(), PlatformError> {
+    create_headless_renderer(name).map(drop)
+}
+
 /// Pick the rasterizer for the headless backend.
 /// `""` / `"default"` picks Skia software when compiled in, else the
 /// built-in software renderer.

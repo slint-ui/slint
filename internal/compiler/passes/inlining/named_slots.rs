@@ -367,7 +367,7 @@ export component PopupSuppliedForPopup inherits Window {
             &mut diag,
         );
         let (doc, diag, _) =
-            spin_on::spin_on(crate::compile_syntax_node(doc_node, diag, compiler_config));
+            crate::poll_ready(crate::compile_syntax_node(doc_node, diag, compiler_config));
         assert!(!diag.has_errors(), "compile error: {:?}", diag.to_string_vec());
         doc.exported_roots().collect()
     }

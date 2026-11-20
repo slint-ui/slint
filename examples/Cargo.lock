@@ -780,10 +780,10 @@ dependencies = [
  "async-compat",
  "bevy",
  "bevy_image",
+ "pollster",
  "reqwest",
  "slint",
  "smol",
- "spin_on",
 ]
 
 [[package]]
@@ -802,8 +802,8 @@ version = "1.20.0"
 dependencies = [
  "bevy",
  "bevy_image",
+ "pollster",
  "slint",
- "spin_on",
  "wgpu",
 ]
 
@@ -4993,7 +4993,6 @@ dependencies = [
  "scoped-tls-hkt",
  "skia-safe",
  "softbuffer",
- "spin_on",
  "unicode-segmentation",
  "vtable",
  "wgpu",
@@ -7077,12 +7076,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a89322df9ebe1c1578d689c92318e070967d1042b512afbe49518723f4e6d5cd"
 
 [[package]]
-name = "pin-utils"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "13bee6c73da26345c729282832b60b0363cf3dd9f4bfd81d8551b7a1c889a113"
-
-[[package]]
 name = "pin-weak"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7178,6 +7171,12 @@ dependencies = [
  "rustix 1.1.6",
  "windows-sys 0.61.2",
 ]
+
+[[package]]
+name = "pollster"
+version = "1.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7e9b9cf600136f5b976fbc5727d58c26e1ecab8ee23088d44ef1c7af793550ab"
 
 [[package]]
 name = "polycool"
@@ -8167,7 +8166,6 @@ dependencies = [
  "derive_more",
  "fontique 0.13.0",
  "i-slint-compiler",
- "spin_on",
  "toml_edit",
 ]
 
@@ -8178,7 +8176,6 @@ dependencies = [
  "i-slint-compiler",
  "proc-macro2",
  "quote",
- "spin_on",
 ]
 
 [[package]]
@@ -8376,15 +8373,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0134f9043ed38b087ac4f7d4af44c79e2c9e5094421fe3164f435ce585953b10"
 dependencies = [
  "portable-atomic",
-]
-
-[[package]]
-name = "spin_on"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "076e103ed41b9864aa838287efe5f4e3a7a0362dd00671ae62a212e5e4612da2"
-dependencies = [
- "pin-utils",
 ]
 
 [[package]]

@@ -3441,6 +3441,7 @@ dependencies = [
  "num_enum",
  "once_cell",
  "pathdiff",
+ "pollster 1.0.2",
  "postcard",
  "proc-macro2",
  "quote",
@@ -3453,7 +3454,6 @@ dependencies = [
  "serde_json",
  "skrifa 0.49.0",
  "smol_str 0.3.7",
- "spin_on",
  "strum",
  "swash",
  "syn 3.0.10",
@@ -3565,7 +3565,6 @@ dependencies = [
  "slint-build",
  "slint-interpreter",
  "smol_str 0.3.7",
- "spin_on",
  "tempfile",
  "tokio",
  "tokio-tungstenite 0.30.0",
@@ -3682,7 +3681,6 @@ dependencies = [
  "skia-safe",
  "slint",
  "softbuffer",
- "spin_on",
  "unicode-segmentation",
  "vtable",
  "wgpu 29.0.4",
@@ -5913,12 +5911,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a89322df9ebe1c1578d689c92318e070967d1042b512afbe49518723f4e6d5cd"
 
 [[package]]
-name = "pin-utils"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "13bee6c73da26345c729282832b60b0363cf3dd9f4bfd81d8551b7a1c889a113"
-
-[[package]]
 name = "pin-weak"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7357,7 +7349,6 @@ dependencies = [
  "document-features",
  "fontique",
  "i-slint-compiler",
- "spin_on",
  "tempfile",
  "toml_edit",
 ]
@@ -7371,7 +7362,6 @@ dependencies = [
  "i-slint-compiler",
  "itertools 0.15.0",
  "proc-macro2",
- "spin_on",
  "tempfile",
  "tikv-jemallocator",
 ]
@@ -7412,7 +7402,6 @@ dependencies = [
  "itertools 0.15.0",
  "serde_json",
  "slint-interpreter",
- "spin_on",
  "termcolor",
  "walkdir",
  "xshell",
@@ -7455,7 +7444,6 @@ dependencies = [
  "slint-build",
  "slint-interpreter",
  "smol_str 0.3.7",
- "spin_on",
  "tempfile",
  "tokio",
  "tr",
@@ -7473,6 +7461,7 @@ dependencies = [
 name = "slint-interpreter"
 version = "1.20.0"
 dependencies = [
+ "accesskit",
  "derive_more",
  "document-features",
  "either",
@@ -7481,7 +7470,6 @@ dependencies = [
  "i-slint-backend-qt",
  "i-slint-backend-selector",
  "i-slint-backend-testing",
- "i-slint-backend-winit",
  "i-slint-common",
  "i-slint-compiler",
  "i-slint-core",
@@ -7491,10 +7479,10 @@ dependencies = [
  "lyon_path",
  "num-traits",
  "once_cell",
+ "pollster 1.0.2",
  "raw-window-handle",
  "serde_json",
  "smol_str 0.3.7",
- "spin_on",
  "tempfile",
  "typed-index-collections",
  "vtable",
@@ -7542,7 +7530,6 @@ dependencies = [
  "slint-build",
  "slint-interpreter",
  "smol_str 0.3.7",
- "spin_on",
  "tempfile",
  "tikv-jemallocator",
  "tokio",
@@ -7562,7 +7549,6 @@ dependencies = [
  "i-slint-compiler",
  "proc-macro2",
  "quote",
- "spin_on",
 ]
 
 [[package]]
@@ -7585,7 +7571,6 @@ dependencies = [
  "send_wrapper",
  "slint-interpreter",
  "smol_str 0.3.7",
- "spin_on",
  "syn 3.0.10",
  "windows",
 ]
@@ -7605,7 +7590,6 @@ dependencies = [
  "pyo3",
  "slint-interpreter",
  "smol",
- "spin_on",
 ]
 
 [[package]]
@@ -7695,6 +7679,7 @@ dependencies = [
  "i-slint-backend-winit",
  "i-slint-compiler",
  "i-slint-core",
+ "i-slint-renderer-software",
  "js-sys",
  "send_wrapper",
  "slint-interpreter",
@@ -7947,15 +7932,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3763264f6b73151db08c50ff20d7d8a0b8796e021cdea7ceedad07b80155fa0e"
 dependencies = [
  "lock_api",
-]
-
-[[package]]
-name = "spin_on"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "076e103ed41b9864aa838287efe5f4e3a7a0362dd00671ae62a212e5e4612da2"
-dependencies = [
- "pin-utils",
 ]
 
 [[package]]

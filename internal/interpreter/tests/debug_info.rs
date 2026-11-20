@@ -7,7 +7,7 @@
 use slint_interpreter::Compiler;
 
 fn finds_element_by_id(compiler: &Compiler) -> bool {
-    let result = spin_on::spin_on(compiler.build_from_source(
+    let result = i_slint_compiler::poll_ready(compiler.build_from_source(
         "export component TestCase inherits Window { foo := Rectangle {} }".into(),
         Default::default(),
     ));

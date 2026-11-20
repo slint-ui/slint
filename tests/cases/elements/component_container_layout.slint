@@ -39,7 +39,7 @@ let inner_clone = inner.clone();
 
 let factory = slint::ComponentFactory::new(move |ctx| {
     let compiler = slint_interpreter::Compiler::new();
-    let e = spin_on::spin_on(compiler.build_from_source(
+    let e = pollster::block_on(compiler.build_from_source(
         r#"import { AboutSlint, Button, VerticalBox, HorizontalBox } from "std-widgets.slint";
         export component Demo {
             out property <length> demo-width: self.width;

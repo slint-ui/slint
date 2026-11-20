@@ -680,7 +680,7 @@ impl ComponentCompiler {
     /// let mut compiler = ComponentCompiler::default();
     /// compiler.set_style("material".into());
     /// let definition =
-    ///     spin_on::spin_on(compiler.build_from_path("hello.slint"));
+    ///     pollster::block_on(compiler.build_from_path("hello.slint"));
     /// ```
     ///
     pub fn set_style(&mut self, style: String) {
@@ -742,10 +742,9 @@ impl ComponentCompiler {
     /// A `.slint` file path compiles without loading a project file.
     /// If the extension of the file .rs, the first `slint!` macro from a rust file will be extracted
     ///
-    /// This function is `async` but in practice, this is only asynchronous if
-    /// [`Self::set_file_loader`] was called and its future is actually asynchronous.
-    /// If that is not used, then it is fine to use a very simple executor, such as the one
-    /// provided by the `spin_on` crate
+    /// This function is `async`, but its future resolves on the first poll,
+    /// unless a [`Self::set_file_loader`] callback returns a future that isn't ready yet.
+    /// Any executor works, such as `pollster::block_on`.
     pub async fn build_from_path<P: AsRef<Path>>(
         &mut self,
         path: P,
@@ -772,10 +771,9 @@ impl ComponentCompiler {
     ///
     /// Diagnostics from previous calls are cleared when calling this function.
     ///
-    /// This function is `async` but in practice, this is only asynchronous if
-    /// [`Self::set_file_loader`] is set and its future is actually asynchronous.
-    /// If that is not used, then it is fine to use a very simple executor, such as the one
-    /// provided by the `spin_on` crate
+    /// This function is `async`, but its future resolves on the first poll,
+    /// unless a [`Self::set_file_loader`] callback returns a future that isn't ready yet.
+    /// Any executor works, such as `pollster::block_on`.
     pub async fn build_from_source(
         &mut self,
         source_code: String,
@@ -918,7 +916,7 @@ impl Compiler {
     ///
     /// let mut compiler = Compiler::default();
     /// compiler.set_style("material".into());
-    /// let result = spin_on::spin_on(compiler.build_from_path("hello.slint"));
+    /// let result = pollster::block_on(compiler.build_from_path("hello.slint"));
     /// ```
     ///
     pub fn set_style(&mut self, style: String) {
@@ -990,6 +988,7 @@ impl Compiler {
     }
 
     /// Sets the callback that loads the contents of imported font files while compiling.
+    /// With Slint's image decoders enabled, it also loads images referenced by the component.
     /// The compiled components register these fonts when they're created.
     /// Without it, the browser build fetches the fonts by URL,
     /// and other builds read them from the file system when a component is created.
@@ -1024,10 +1023,9 @@ impl Compiler {
     /// A `.slint` file path compiles without loading a project file.
     /// If the extension of the file .rs, the first `slint!` macro from a rust file will be extracted
     ///
-    /// This function is `async` but in practice, this is only asynchronous if
-    /// [`Self::set_file_loader`] was called and its future is actually asynchronous.
-    /// If that is not used, then it is fine to use a very simple executor, such as the one
-    /// provided by the `spin_on` crate
+    /// This function is `async`, but its future resolves on the first poll,
+    /// unless a [`Self::set_file_loader`] callback returns a future that isn't ready yet.
+    /// Any executor works, such as `pollster::block_on`.
     pub async fn build_from_path<P: AsRef<Path>>(&self, path: P) -> CompilationResult {
         let input_path = i_slint_compiler::source_path::clean_path(path.as_ref());
         self.build(
@@ -1049,10 +1047,9 @@ impl Compiler {
     /// Any diagnostics produced during the compilation, such as warnings or errors, can be retrieved
     /// after the call using [`CompilationResult::diagnostics()`].
     ///
-    /// This function is `async` but in practice, this is only asynchronous if
-    /// [`Self::set_file_loader`] is set and its future is actually asynchronous.
-    /// If that is not used, then it is fine to use a very simple executor, such as the one
-    /// provided by the `spin_on` crate
+    /// This function is `async`, but its future resolves on the first poll,
+    /// unless a [`Self::set_file_loader`] callback returns a future that isn't ready yet.
+    /// Any executor works, such as `pollster::block_on`.
     pub async fn build_from_source(&self, source_code: String, path: PathBuf) -> CompilationResult {
         self.build(
             Some(source_code),
@@ -1204,7 +1201,7 @@ async fn build_compilation_result(
 /// let source = "export component App inherits Window { out property <int> v: 42; }".into();
 /// let sent = std::thread::spawn(move || {
 ///     let compiler = slint_interpreter::Compiler::default();
-///     spin_on::spin_on(compiler.build_from_source(source, Default::default())).into_send()
+///     pollster::block_on(compiler.build_from_source(source, Default::default())).into_send()
 /// })
 /// .join()
 /// .unwrap();
@@ -1270,6 +1267,8 @@ impl CompilationResult {
         let compilation_unit = compilation_unit.map(Rc::new);
         let resources = Rc::new(crate::component::Resources {
             font_files,
+            #[cfg(feature = "std")]
+            images: Default::default(),
             #[cfg(feature = "internal-mcu-interpreter")]
             pre_rendered,
         });
@@ -1400,6 +1399,8 @@ impl CompilationResult {
     }
 
     /// Consume the result so that it can be sent to another thread.
+    ///
+    /// Panics if the result contains images decoded through the internal resource loader.
     pub fn into_send(self) -> SendableCompilationResult {
         let Self {
             components,
@@ -1434,6 +1435,8 @@ impl CompilationResult {
         // the caller kept one of them, or an instance, alive.
         let compilation_unit = unit.map(Rc::unwrap_or_clone);
         let resources = resources.map(Rc::unwrap_or_clone).unwrap_or_default();
+        #[cfg(feature = "std")]
+        assert!(resources.images.is_empty(), "Decoded images cannot be sent to another thread");
 
         SendableCompilationResult {
             compilation_unit,
@@ -1811,7 +1814,7 @@ impl ComponentInstance {
     /// "#;
     /// let mut compiler = Compiler::default();
     /// compiler.set_edition((1, 20));
-    /// let result = spin_on::spin_on(
+    /// let result = pollster::block_on(
     ///     compiler.build_from_source(code.into(), Default::default()));
     /// assert_eq!(result.diagnostics().count(), 0, "{:?}", result.diagnostics().collect::<Vec<_>>());
     /// let instance = result.component("MyWin").unwrap().create().unwrap();
@@ -1847,7 +1850,7 @@ impl ComponentInstance {
     /// "#;
     /// let mut compiler = Compiler::default();
     /// compiler.set_edition((1, 20));
-    /// let result = spin_on::spin_on(
+    /// let result = pollster::block_on(
     ///     compiler.build_from_source(code.into(), Default::default()));
     /// assert_eq!(result.diagnostics().count(), 0, "{:?}", result.diagnostics().collect::<Vec<_>>());
     /// let instance = result.component("MyWin").unwrap().create().unwrap();
@@ -1898,7 +1901,7 @@ impl ComponentInstance {
     /// "#;
     /// let mut compiler = Compiler::default();
     /// compiler.set_edition((1, 20));
-    /// let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+    /// let result = pollster::block_on(compiler.build_from_source(code.into(), Default::default()));
     /// assert_eq!(result.diagnostics().count(), 0, "{:?}", result.diagnostics().collect::<Vec<_>>());
     /// let instance = result.component("MyWin").unwrap().create().unwrap();
     /// assert_eq!(instance.get_global_property("TheGlobal", "my_property").unwrap(), Value::from(42));
@@ -1939,7 +1942,7 @@ impl ComponentInstance {
     ///         out property <string> hello: Logic.to_uppercase("world");
     ///     }
     /// "#;
-    /// let result = spin_on::spin_on(
+    /// let result = pollster::block_on(
     ///     Compiler::default().build_from_source(code.into(), Default::default()));
     /// let instance = result.component("MyWin").unwrap().create().unwrap();
     /// instance.set_global_callback("Logic", "to_uppercase", |args: &[Value]| -> Value {
@@ -2189,7 +2192,7 @@ fn component_definition_properties() {
     i_slint_backend_testing::init_no_event_loop();
     let mut compiler = Compiler::default();
     compiler.set_style("fluent".into());
-    let comp_def = spin_on::spin_on(
+    let comp_def = i_slint_compiler::poll_ready(
         compiler.build_from_source(
             r#"
     export component Dummy {
@@ -2238,7 +2241,7 @@ fn component_definition_properties2() {
     i_slint_backend_testing::init_no_event_loop();
     let mut compiler = Compiler::default();
     compiler.set_style("fluent".into());
-    let comp_def = spin_on::spin_on(
+    let comp_def = i_slint_compiler::poll_ready(
         compiler.build_from_source(
             r#"
     export component Dummy {
@@ -2290,7 +2293,7 @@ fn globals() {
     i_slint_backend_testing::init_no_event_loop();
     let mut compiler = Compiler::default();
     compiler.set_style("fluent".into());
-    let definition = spin_on::spin_on(
+    let definition = i_slint_compiler::poll_ready(
         compiler.build_from_source(
             r#"
     export global My-Super_Global {
@@ -2420,7 +2423,7 @@ fn call_functions() {
     i_slint_backend_testing::init_no_event_loop();
     let mut compiler = Compiler::default();
     compiler.set_style("fluent".into());
-    let definition = spin_on::spin_on(
+    let definition = i_slint_compiler::poll_ready(
         compiler.build_from_source(
             r#"
     export global Gl {
@@ -2472,7 +2475,7 @@ fn component_definition_struct_properties() {
     i_slint_backend_testing::init_no_event_loop();
     let mut compiler = Compiler::default();
     compiler.set_style("fluent".into());
-    let comp_def = spin_on::spin_on(
+    let comp_def = i_slint_compiler::poll_ready(
         compiler.build_from_source(
             r#"
     export struct Settings {
@@ -2524,7 +2527,7 @@ fn component_definition_model_properties() {
     i_slint_backend_testing::init_no_event_loop();
     let mut compiler = Compiler::default();
     compiler.set_style("fluent".into());
-    let comp_def = spin_on::spin_on(compiler.build_from_source(
+    let comp_def = i_slint_compiler::poll_ready(compiler.build_from_source(
         "export component Dummy { in-out property <[int]> prop: [42, 12]; }".into(),
         "".into(),
     ))
@@ -2608,7 +2611,7 @@ fn test_multi_components() {
     i_slint_backend_testing::init_no_event_loop();
     let mut compiler = Compiler::default();
     compiler.set_edition((1, 20));
-    let result = spin_on::spin_on(
+    let result = i_slint_compiler::poll_ready(
         compiler.build_from_source(
             r#"
         export struct Settings {
@@ -2686,7 +2689,7 @@ fn compile(code: &str) -> (ComponentInstance, SourcePath) {
     compiler.set_style("fluent".into());
     let path = SourcePath::new("/tmp/test.slint");
 
-    let compile_result = spin_on::spin_on(compiler.build_from_source_path(
+    let compile_result = i_slint_compiler::poll_ready(compiler.build_from_source_path(
         Some(code.to_string()),
         path.clone(),
         i_slint_core::InternalToken,
@@ -2829,7 +2832,8 @@ export component App inherits Window {
 "#;
     let path = PathBuf::from("/virtual/round-trip.slint");
     let compiler = compiler_with_debug_info();
-    let result = spin_on::spin_on(compiler.build_from_source(code.into(), path.clone()));
+    let result =
+        i_slint_compiler::poll_ready(compiler.build_from_source(code.into(), path.clone()));
     assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
     let result = CompilationResult::from(result.into_send());
     let instance = result.component("App").unwrap().create().unwrap();
@@ -2913,7 +2917,9 @@ export component App inherits Window {
             Box::pin(core::future::ready(source))
         }
     });
-    let result = spin_on::spin_on(compiler.build_from_source(main_code.into(), main_path.clone()));
+    let result = i_slint_compiler::poll_ready(
+        compiler.build_from_source(main_code.into(), main_path.clone()),
+    );
     assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
     let result = CompilationResult::from(result.into_send());
     let instance = result.component("App").unwrap().create().unwrap();
@@ -2969,11 +2975,12 @@ export component App inherits Window {
         i_slint_compiler::CompilerConfiguration::new(OutputFormat::Interpreter);
     compiler_configuration.debug_info = true;
     compiler_configuration.inline_all_elements = true;
-    let (document, diagnostics, _) = spin_on::spin_on(i_slint_compiler::compile_syntax_node(
-        syntax_node,
-        diagnostics,
-        compiler_configuration.clone(),
-    ));
+    let (document, diagnostics, _) =
+        i_slint_compiler::poll_ready(i_slint_compiler::compile_syntax_node(
+            syntax_node,
+            diagnostics,
+            compiler_configuration.clone(),
+        ));
     assert!(!diagnostics.has_errors(), "{:?}", diagnostics.to_string_vec());
     let definition = crate::component::build_from_document(
         &document,
@@ -3035,7 +3042,7 @@ mod project_file_tests {
     fn compile(root: &Path, source: &str) -> super::CompilationResult {
         let main = root.join("main.slint");
         std::fs::write(&main, source).unwrap();
-        spin_on::spin_on(Compiler::default().build_from_path(root))
+        i_slint_compiler::poll_ready(Compiler::default().build_from_path(root))
     }
 
     #[test]
@@ -3043,10 +3050,10 @@ mod project_file_tests {
     fn missing_source_files_have_no_line_or_column() {
         with_project(r#"{"edition":"1.20"}"#, |root| {
             let source = root.join("missing.slint");
-            let result = spin_on::spin_on(Compiler::default().build_from_path(&source));
+            let result = i_slint_compiler::poll_ready(Compiler::default().build_from_path(&source));
             assert!(result.has_errors());
             let mut compiler = super::ComponentCompiler::new();
-            assert!(spin_on::spin_on(compiler.build_from_path(&source)).is_none());
+            assert!(i_slint_compiler::poll_ready(compiler.build_from_path(&source)).is_none());
             for diagnostics in
                 [result.diagnostics().collect::<Vec<_>>(), compiler.diagnostics().clone()]
             {
@@ -3072,7 +3079,7 @@ mod project_file_tests {
                 if let Some(edition) = edition {
                     compiler.set_edition(edition);
                 }
-                spin_on::spin_on(compiler.build_from_path(root))
+                i_slint_compiler::poll_ready(compiler.build_from_path(root))
             };
             assert!(!build(None).has_errors());
             assert!(build(Some((1, 19))).has_errors());
@@ -3092,7 +3099,7 @@ mod project_file_tests {
         let build = |attribute: &str| {
             let source = format!("slint::slint! {{ {attribute} {EDITION_DEPENDENT_BODY} }}");
             std::fs::write(&main, source).unwrap();
-            spin_on::spin_on(Compiler::default().build_from_path(&main))
+            i_slint_compiler::poll_ready(Compiler::default().build_from_path(&main))
         };
         assert!(!build("").has_errors());
         assert!(!build(r#"#[edition = "1.18"]"#).has_errors());
@@ -3114,7 +3121,7 @@ mod project_file_tests {
     ) -> super::CompilationResult {
         let source = source.into();
         if static_compilation {
-            spin_on::spin_on(compiler.build(
+            i_slint_compiler::poll_ready(compiler.build(
                 Some(source),
                 path,
                 super::AnimationMode::Static,
@@ -3123,7 +3130,7 @@ mod project_file_tests {
             ))
             .0
         } else {
-            spin_on::spin_on(compiler.build_from_source_path(
+            i_slint_compiler::poll_ready(compiler.build_from_source_path(
                 Some(source),
                 path,
                 i_slint_core::InternalToken,
@@ -3155,13 +3162,13 @@ mod project_file_tests {
                 Box::pin(async move { Some(Ok(source)) })
             });
             let result = if remote {
-                spin_on::spin_on(compiler.build_from_source_path(
+                i_slint_compiler::poll_ready(compiler.build_from_source_path(
                     Some(source.into()),
                     super::SourcePath::new("https://example.invalid/ui/main.slint"),
                     i_slint_core::InternalToken,
                 ))
             } else {
-                spin_on::spin_on(compiler.build_from_path(&main))
+                i_slint_compiler::poll_ready(compiler.build_from_path(&main))
             };
             assert!(!result.has_errors(), "{result:?}");
             assert!(result.component("Main").is_some());
@@ -3191,7 +3198,7 @@ mod project_file_tests {
             }),
             i_slint_core::InternalToken,
         );
-        let result = spin_on::spin_on(compiler.build_from_path(directory.path()));
+        let result = i_slint_compiler::poll_ready(compiler.build_from_path(directory.path()));
         assert!(!result.has_errors(), "{result:?}");
         assert!(result.component("Main").is_some());
         for dependency in [&manifest, &entry] {
@@ -3221,7 +3228,7 @@ mod project_file_tests {
             }),
             i_slint_core::InternalToken,
         );
-        let result = spin_on::spin_on(compiler.build_from_source_path(
+        let result = i_slint_compiler::poll_ready(compiler.build_from_source_path(
             None,
             manifest.clone(),
             i_slint_core::InternalToken,
@@ -3341,7 +3348,9 @@ mod project_file_tests {
             if let Some(contents) = contents {
                 std::fs::write(&manifest, contents).unwrap();
             }
-            let result = spin_on::spin_on(compiler.build_from_source(source.into(), main.clone()));
+            let result = i_slint_compiler::poll_ready(
+                compiler.build_from_source(source.into(), main.clone()),
+            );
             assert!(!result.has_errors(), "{result:?}");
             let expected_paths = vec![super::SourcePath::new(&main)];
             let native_paths = result
@@ -3359,7 +3368,7 @@ mod project_file_tests {
     #[cfg(windows)]
     #[test]
     fn a_windows_root_relative_manifest_source_is_an_error() {
-        let result = spin_on::spin_on(
+        let result = i_slint_compiler::poll_ready(
             Compiler::default()
                 .build_from_source("{}".into(), r"\project\slint-project.json".into()),
         );
@@ -3384,8 +3393,9 @@ mod project_file_tests {
         let manifest = directory.path().join(FILE_NAME);
         std::fs::write(&manifest, "{").unwrap();
         let relative_manifest = manifest.strip_prefix(&current_directory).unwrap().to_path_buf();
-        let result =
-            spin_on::spin_on(Compiler::default().build_from_source("{}".into(), relative_manifest));
+        let result = i_slint_compiler::poll_ready(
+            Compiler::default().build_from_source("{}".into(), relative_manifest),
+        );
         assert!(result.has_errors(), "{result:?}");
         assert_eq!(
             result
@@ -3511,7 +3521,7 @@ mod project_file_tests {
             let mut compiler = Compiler::default();
             compiler.set_include_paths(vec![]);
             assert!(compiler.include_paths().is_empty());
-            let result = spin_on::spin_on(compiler.build_from_path(&main));
+            let result = i_slint_compiler::poll_ready(compiler.build_from_path(&main));
             assert!(result.has_errors());
             assert!(
                 result
@@ -3524,7 +3534,7 @@ mod project_file_tests {
             #[allow(deprecated)]
             compiler.set_include_paths(vec![]);
             #[allow(deprecated)]
-            let result = spin_on::spin_on(compiler.build_from_path(&main));
+            let result = i_slint_compiler::poll_ready(compiler.build_from_path(&main));
             assert!(result.is_none());
             #[allow(deprecated)]
             let missing_import = compiler
@@ -3555,7 +3565,7 @@ mod project_file_tests {
                         vec![include_directory.clone()];
                     compiler.set_include_paths(Vec::new());
                     let result = if static_compilation {
-                        spin_on::spin_on(compiler.build(
+                        i_slint_compiler::poll_ready(compiler.build(
                             Some(source.into()),
                             path.clone(),
                             super::AnimationMode::Static,
@@ -3564,7 +3574,7 @@ mod project_file_tests {
                         ))
                         .0
                     } else {
-                        spin_on::spin_on(compiler.build_from_source_path(
+                        i_slint_compiler::poll_ready(compiler.build_from_source_path(
                             Some(source.into()),
                             path.clone(),
                             i_slint_core::InternalToken,
@@ -3609,7 +3619,7 @@ mod project_file_tests {
                 #[allow(deprecated)]
                 let mut compiler = super::ComponentCompiler::new();
                 #[allow(deprecated)]
-                let definition = spin_on::spin_on(compiler.build_from_path(root));
+                let definition = i_slint_compiler::poll_ready(compiler.build_from_path(root));
                 assert!(definition.is_some());
             },
         );
@@ -3622,7 +3632,7 @@ mod project_file_tests {
             std::fs::write(root.join("ui/main.slint"), "export component Main inherits Window { }")
                 .unwrap();
 
-            let result = spin_on::spin_on(Compiler::default().build_from_path(root));
+            let result = i_slint_compiler::poll_ready(Compiler::default().build_from_path(root));
             assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
             assert!(result.component_names().any(|name| name == "Main"));
         });
@@ -3631,7 +3641,7 @@ mod project_file_tests {
     #[test]
     fn a_project_directory_without_an_entry_is_an_error() {
         with_project(r#"{"edition":"1.20"}"#, |root| {
-            let result = spin_on::spin_on(Compiler::default().build_from_path(root));
+            let result = i_slint_compiler::poll_ready(Compiler::default().build_from_path(root));
             assert!(result.has_errors());
             assert!(
                 result
@@ -3647,8 +3657,9 @@ mod project_file_tests {
         with_project(r#"{"edition": "1.20", "main":"main.slint"}"#, |root| {
             std::fs::write(root.join("main.slint"), "export component Main inherits Window { }")
                 .unwrap();
-            let result =
-                spin_on::spin_on(Compiler::default().build_from_path(root.join(FILE_NAME)));
+            let result = i_slint_compiler::poll_ready(
+                Compiler::default().build_from_path(root.join(FILE_NAME)),
+            );
             assert!(!result.has_errors(), "{result:?}");
             assert!(result.component_names().any(|name| name == "Main"));
         });
@@ -3663,7 +3674,7 @@ mod project_file_tests {
             #[allow(deprecated)]
             let mut compiler = super::ComponentCompiler::new();
             #[allow(deprecated)]
-            let definition = spin_on::spin_on(compiler.build_from_path(root));
+            let definition = i_slint_compiler::poll_ready(compiler.build_from_path(root));
             assert_eq!(
                 definition.map(|definition| definition.name().to_string()),
                 Some("Main".into())
@@ -3677,7 +3688,7 @@ mod project_file_tests {
         let root = std::fs::canonicalize(directory.path()).unwrap();
         let main = root.join("main.slint");
         std::fs::write(&main, "export component Main inherits Window { }").unwrap();
-        let result = spin_on::spin_on(Compiler::default().build_from_path(&main));
+        let result = i_slint_compiler::poll_ready(Compiler::default().build_from_path(&main));
         assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
     }
 
@@ -3685,7 +3696,8 @@ mod project_file_tests {
     fn relative_directory_inputs_compile() {
         if std::env::var_os("SLINT_INTERPRETER_PROJECT_ROOT_TEST").is_some() {
             for input in [".", "ui/.."] {
-                let result = spin_on::spin_on(Compiler::default().build_from_path(input));
+                let result =
+                    i_slint_compiler::poll_ready(Compiler::default().build_from_path(input));
                 assert!(!result.has_errors(), "{result:?}");
                 assert!(result.component("Main").is_some());
             }

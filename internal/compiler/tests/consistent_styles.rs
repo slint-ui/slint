@@ -145,7 +145,7 @@ fn load_style(style_name: String) -> Style {
     let mut diag = i_slint_compiler::diagnostics::BuildDiagnostics::default();
     let mut loader = TypeLoader::new(config, &mut diag);
     // ensure that the style is loaded
-    spin_on::spin_on(loader.import_component("std-widgets.slint", "Button", &mut diag));
+    i_slint_compiler::poll_ready(loader.import_component("std-widgets.slint", "Button", &mut diag));
 
     if diag.has_errors() {
         #[cfg(feature = "display-diagnostics")]
