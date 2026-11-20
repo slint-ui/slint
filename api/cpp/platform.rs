@@ -313,7 +313,7 @@ pub unsafe extern "C" fn slint_platform_register(
         invoke_from_event_loop,
     };
     i_slint_core::platform::set_platform(Box::new(p)).unwrap();
-    #[cfg(all(feature = "tracing", target_os = "espidf"))]
+    #[cfg(all(feature = "tracing", any(target_os = "espidf", target_arch = "xtensa")))]
     crate::trace::install();
     #[cfg(any(feature = "mcp", feature = "system-testing"))]
     i_slint_backend_selector::init_testing_backends();

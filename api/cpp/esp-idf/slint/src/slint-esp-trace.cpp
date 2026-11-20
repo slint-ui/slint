@@ -33,6 +33,7 @@
 #    include <cstdlib>
 #    include <cstring>
 #    include "esp_cpu.h"
+#    include "esp_heap_caps.h"
 #    include "esp_rom_sys.h"
 #    include "esp_timer.h"
 #    if __has_include("soc/soc_caps.h")
@@ -48,7 +49,10 @@ namespace {
 // Skips the start-up before recording.
 constexpr uint32_t DELAY_US = 2'000'000;
 constexpr uint32_t DURATION_US = 5'000'000;
+// The capture takes a quarter of the largest free block, and leaves RESERVE_BYTES of it free.
 constexpr size_t MAX_CAPTURE_BYTES = 16u << 20;
+constexpr size_t MIN_CAPTURE_BYTES = 256u << 10;
+constexpr size_t RESERVE_BYTES = 2u << 20;
 
 constexpr uint32_t ENTER = 0;
 constexpr uint32_t EXIT = 1;
@@ -134,11 +138,13 @@ inline uint32_t cycles()
     return core_cycles() + cycle_offset[core].load(relaxed);
 }
 
-void write_all(const uint8_t *data, size_t length)
+// Without the driver, the console drops output while the host isn't reading fast enough.
+// The console switches to the driver as well, so its output doesn't bypass the driver's buffer.
+// The driver allocates internal RAM, which a running application can use up, so the capture
+// installs it when it starts.
+void install_console_driver()
 {
 #    if SOC_USB_SERIAL_JTAG_SUPPORTED
-    // Without the driver, the console drops output while the host isn't reading fast enough.
-    // The console switches to the driver as well, so its output doesn't bypass the driver's buffer.
     if (!usb_serial_jtag_is_driver_installed()) {
         usb_serial_jtag_driver_config_t config = {};
         config.tx_buffer_size = 8192;
@@ -147,6 +153,13 @@ void write_all(const uint8_t *data, size_t length)
             usb_serial_jtag_vfs_use_driver();
         }
     }
+#    endif
+}
+
+void write_all(const uint8_t *data, size_t length)
+{
+#    if SOC_USB_SERIAL_JTAG_SUPPORTED
+    install_console_driver();
     if (usb_serial_jtag_is_driver_installed()) {
         while (length > 0) {
             const int written = usb_serial_jtag_write_bytes(data, length, portMAX_DELAY);
@@ -341,14 +354,23 @@ bool slint_esp_trace_start()
     if (capture[0].load(relaxed)) {
         return false;
     }
-    size_t bytes = MAX_CAPTURE_BYTES;
-    void *memory;
-    while (!(memory = std::malloc(bytes)) && bytes > (1u << 20)) {
-        bytes /= 2;
+    // PSRAM when there is some, so that the frame buffers and the renderer keep the internal RAM.
+    uint32_t caps = MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT;
+    size_t largest = heap_caps_get_largest_free_block(caps);
+    if (largest == 0) {
+        caps = MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT;
+        largest = heap_caps_get_largest_free_block(caps);
     }
+    const size_t after_reserve = largest > RESERVE_BYTES ? largest - RESERVE_BYTES : 0;
+    const size_t bytes = std::min({ MAX_CAPTURE_BYTES, largest / 4, after_reserve });
+    if (bytes < MIN_CAPTURE_BYTES) {
+        return false;
+    }
+    void *memory = heap_caps_malloc(bytes, caps);
     if (!memory) {
         return false;
     }
+    install_console_driver();
     const size_t words_per_core = bytes / 4 / CORES;
     for (size_t core = 0; core < CORES; ++core) {
         capture[core].store(static_cast<uint32_t *>(memory) + core * words_per_core, relaxed);
