@@ -10,34 +10,37 @@ use crate::ui;
 use itertools::Itertools as _;
 use std::rc::Rc;
 
-pub fn setup(api: &ui::Api<'_>) {
-    api.on_fill_brush(fill_brush);
-    api.on_fill_expression(fill_expression);
-    api.on_linear_gradient_axis(super::linear_gradient::editing_axis);
-    api.on_radial_gradient_axis(super::radial_gradient::editing_axis);
-    api.on_radial_gradient_y_axis(super::radial_gradient::editing_y_axis);
-    api.on_remap_radial_gradient(super::radial_gradient::remap);
-    api.on_resize_radial_gradient_x(super::radial_gradient::resize_x);
-    api.on_remap_radial_gradient_y(super::radial_gradient::remap_y);
-    api.on_conic_gradient_axis(super::conic_gradient::editing_axis);
-    api.on_remap_conic_gradient(super::conic_gradient::remap);
-    api.on_conic_gradient_point(super::conic_gradient::point);
-    api.on_conic_gradient_position(super::conic_gradient::position);
-    api.on_gradient_angular_delta(super::conic_gradient::angular_delta);
-    api.on_nearest_conic_gradient_stop(super::conic_gradient::nearest_stop);
-    api.on_gradient_axis_point(|axis, position| super::linear_gradient::point(&axis, position));
-    api.on_gradient_axis_position(super::linear_gradient::position);
-    api.on_linear_gradient_point(|angle, size, position| {
+pub fn setup(properties_api: &ui::Properties<'_>) {
+    properties_api.on_color_field_data(color_field_data);
+    properties_api.on_fill_brush(fill_brush);
+    properties_api.on_brush_fill(|brush| fill_from_brush(brush).unwrap_or_default());
+    properties_api.on_fill_expression(fill_expression);
+    properties_api.on_linear_gradient_axis(super::linear_gradient::editing_axis);
+    properties_api.on_radial_gradient_axis(super::radial_gradient::editing_axis);
+    properties_api.on_radial_gradient_y_axis(super::radial_gradient::editing_y_axis);
+    properties_api.on_remap_radial_gradient(super::radial_gradient::remap);
+    properties_api.on_resize_radial_gradient_x(super::radial_gradient::resize_x);
+    properties_api.on_remap_radial_gradient_y(super::radial_gradient::remap_y);
+    properties_api.on_conic_gradient_axis(super::conic_gradient::editing_axis);
+    properties_api.on_remap_conic_gradient(super::conic_gradient::remap);
+    properties_api.on_conic_gradient_point(super::conic_gradient::point);
+    properties_api.on_conic_gradient_position(super::conic_gradient::position);
+    properties_api.on_gradient_angular_delta(super::conic_gradient::angular_delta);
+    properties_api.on_nearest_conic_gradient_stop(super::conic_gradient::nearest_stop);
+    properties_api
+        .on_gradient_axis_point(|axis, position| super::linear_gradient::point(&axis, position));
+    properties_api.on_gradient_axis_position(super::linear_gradient::position);
+    properties_api.on_linear_gradient_point(|angle, size, position| {
         super::linear_gradient::point(
             &super::linear_gradient::canonical_axis(angle, size),
             position,
         )
     });
-    api.on_linear_gradient_position(|angle, size, point| {
+    properties_api.on_linear_gradient_position(|angle, size, point| {
         super::linear_gradient::position(super::linear_gradient::canonical_axis(angle, size), point)
     });
-    api.on_remap_linear_gradient(super::linear_gradient::remap);
-    api.on_nearest_gradient_stop(|stops, position| {
+    properties_api.on_remap_linear_gradient(super::linear_gradient::remap);
+    properties_api.on_nearest_gradient_stop(|stops, position| {
         stops
             .iter()
             .enumerate()
@@ -46,7 +49,7 @@ pub fn setup(api: &ui::Api<'_>) {
             })
             .map_or(-1, |(index, _)| index as i32)
     });
-    api.on_gradient_stop_gap(|stops| {
+    properties_api.on_gradient_stop_gap(|stops| {
         let mut positions = vec![0., 1.];
         positions.extend(stops.iter().map(|s| s.position.clamp(0., 1.)));
         positions.sort_by(f32::total_cmp);
@@ -59,10 +62,10 @@ pub fn setup(api: &ui::Api<'_>) {
         }
         best.1
     });
-    api.on_add_gradient_stop(add_gradient_stop);
-    api.on_remove_gradient_stop(remove_gradient_stop);
+    properties_api.on_add_gradient_stop(add_gradient_stop);
+    properties_api.on_remove_gradient_stop(remove_gradient_stop);
     let stop_order_indices = std::cell::Cell::new(slint::ModelRc::<i32>::default());
-    api.on_gradient_stop_order(move |model, selected| {
+    properties_api.on_gradient_stop_order(move |model, selected| {
         let mut order = gradient_stop_order(model, selected);
         let indices = stop_order_indices.take();
         if indices.iter().eq(order.indices.iter()) {
@@ -72,18 +75,18 @@ pub fn setup(api: &ui::Api<'_>) {
         order
     });
     // Skia interpolates linear/radial gradients in premultiplied alpha, but conic gradients in straight alpha.
-    api.on_sample_fill_stop(|fill, position| {
+    properties_api.on_sample_fill_stop(|fill, position| {
         gradient_stop_at_position(fill.stops, position, fill.kind != ui::BrushKind::Conic)
     });
-    api.on_clone_gradient_stops(clone_gradient_stops);
+    properties_api.on_clone_gradient_stops(clone_gradient_stops);
 
-    api.on_create_brush(create_brush);
+    properties_api.on_create_brush(create_brush);
 
-    api.on_color_value_data(color_value_data);
-    api.on_color_value_color_edit(color_value_color_edit);
-    api.on_color_value_opacity_edit(color_value_opacity_edit);
-    api.on_color_value_with_opacity(color_value_with_opacity);
-    api.on_fill_with_color(|mut fill, color| {
+    properties_api.on_color_value_data(color_value_data);
+    properties_api.on_color_value_color_edit(color_value_color_edit);
+    properties_api.on_color_value_opacity_edit(color_value_opacity_edit);
+    properties_api.on_color_value_with_opacity(color_value_with_opacity);
+    properties_api.on_fill_with_color(|mut fill, color| {
         fill.color = color;
         fill
     });
@@ -161,12 +164,7 @@ fn color_field_input_has_alpha(expression: &str) -> bool {
 }
 
 fn color_field_edit(color: slint::Color) -> ui::ColorFieldEdit {
-    ui::ColorFieldEdit {
-        valid: true,
-        color,
-        expression: color_to_string(color),
-        display: color_to_short_string(color).into(),
-    }
+    ui::ColorFieldEdit { valid: true, color, display: color_to_short_string(color).into() }
 }
 
 fn color_value_color_edit(color: slint::Color, text: slint::SharedString) -> ui::ColorFieldEdit {
@@ -195,12 +193,7 @@ fn color_value_opacity_edit(color: slint::Color, text: slint::SharedString) -> u
     }
     let opacity = opacity.clamp(0., 100.);
     let color = color_value_with_opacity(color, opacity);
-    ui::ColorFieldEdit {
-        valid: true,
-        color,
-        expression: color_to_string(color),
-        display: format!("{opacity:.0}").into(),
-    }
+    ui::ColorFieldEdit { valid: true, color, display: format!("{opacity:.0}").into() }
 }
 
 pub fn string_to_color(text: &str) -> Option<slint::Color> {
@@ -578,14 +571,12 @@ mod tests {
             let edit = super::color_value_color_edit(fill.color, input.into());
             assert!(edit.valid);
             assert_eq!(edit.color, slint::Color::from_argb_u8(77, 0x1a, 0x2d, 0xac));
-            assert_eq!(edit.expression, "#1a2dac4d");
             assert_eq!(edit.display, "1A2DAC");
         }
 
         let edit = super::color_value_color_edit(fill.color, "#1234".into());
         assert!(edit.valid);
         assert_eq!(edit.color, slint::Color::from_argb_u8(0x44, 0x11, 0x22, 0x33));
-        assert_eq!(edit.expression, "#11223344");
 
         let invalid = super::color_value_color_edit(Default::default(), "not a color".into());
         assert!(!invalid.valid);
@@ -597,17 +588,11 @@ mod tests {
             color: slint::Color::from_rgb_u8(0x1a, 0x2d, 0xac),
             ..Default::default()
         };
-        for (input, expression, display, alpha) in [
-            ("-1", "#1a2dac00", "0", 0),
-            ("30", "#1a2dac4d", "30", 77),
-            ("101", "#1a2dac", "100", 255),
-        ] {
+        for (input, display, alpha) in [("-1", "0", 0), ("30", "30", 77), ("101", "100", 255)] {
             let edit = super::color_value_opacity_edit(fill.color, input.into());
             assert!(edit.valid);
             assert_eq!(edit.color.alpha(), alpha);
-            assert_eq!(edit.expression, expression);
             assert_eq!(edit.display, display);
-            assert_eq!(super::string_to_color(expression).unwrap().alpha(), alpha);
         }
 
         let invalid = super::color_value_opacity_edit(fill.color, "opaque".into());

@@ -23,6 +23,10 @@ jobs:
             SLINT_NO_QT: 1
             CARGO_INCREMENTAL: false
             RUST_BACKTRACE: 1
+            # A project's rust-version older than Slint's would otherwise make cargo pick a released Slint
+            CARGO_RESOLVER_INCOMPATIBLE_RUST_VERSIONS: allow
+            # CMake 4 rejects the cmake_minimum_required below 3.5 of the C libraries that -sys crates build
+            CMAKE_POLICY_VERSION_MINIMUM: 3.5
         strategy:
             fail-fast: false
             matrix:
@@ -31,7 +35,7 @@ jobs:
                     - "https://github.com/slint-ui/cargo-ui"
                     - "https://github.com/GaspardCulis/slint-tetris"
                     - "https://github.com/dngulin/gpcl"
-                    - "https://codeberg.org/flovansl/co_sl"
+                    #- "https://codeberg.org/flovansl/co_sl" # the repository is gone
                     - "https://codeberg.org/vivi-ui/vivi"
                     #- "https://github.com/ElevenJune/mastermind_Rust" # Not upgraded to Slint 1.0
                     #- "https://github.com/Project-Trains/launcher" # Not upgraded to Slint 1.0
@@ -80,7 +84,7 @@ jobs:
                     - "https://github.com/Knowit-Objectnet/infoskjerm-trondheim"
                     - "https://github.com/CaleGlisson/Zelda_pattern_rust"
                     - "https://codeberg.org/dweiss96/rf2_league_mod_tool"
-                    - "https://github.com/Badless/slint-editor"
+                    #- "https://github.com/Badless/slint-editor" # the repository is gone
                     - "https://github.com/IvanB101/hamming-huffman"
                     - "https://github.com/izuku0550/Custom-Note-Builder"
                     - "https://github.com/mrquantumoff/quadrant_lite"
@@ -97,7 +101,8 @@ jobs:
                     #- "https://github.com/Heng30/solana-wallet-sollet" # error in dependency (pyth-sdk-solana)
                     #- "https://github.com/hambooooo/hamboo-rs" #uses nightly rust
                     # - "https://github.com/hambooooo/hamboo-embassy" #uses nightly rust
-                    - "https://github.com/tredeneo/simple-inventary-management" #uses sqlx that needs database access
+                    # its pinned libcosmic needs cosmic-settings-daemon, which dbus-settings-bindings no longer has
+                    #- "https://github.com/tredeneo/simple-inventary-management"
                     # - "https://github.com/xcodes2cn/Xviewer" #copies slint
                     - "https://github.com/olishmollie/radix"
                     - "https://github.com/zivit/watchlist"
@@ -204,25 +209,21 @@ jobs:
                     - "https://github.com/HELPMEEADICE/Netodia"
                     - "https://github.com/GlitchAwakened/Favnyr"
                     - "https://github.com/KenanSalar/Melodia"
-                    - "https://github.com/conic-apps/launcher"
+                    #- "https://github.com/conic-apps/launcher" # uses the parley 0.11 API, and Slint needs parley 0.12
                     - "https://github.com/OpenRsG/OpenFadeR"
                     - "https://github.com/zmactep/patinae"
                     - "https://github.com/Moosync/Moosync"
                     - "https://github.com/evanalyzer/evanalyzer"
                     - "https://github.com/NekoRain404/NekoNetease"
                     - "https://github.com/u2dm/u2dm-client"
-                    - "https://github.com/nixesty/now-bar"
                     - "https://github.com/damione1/slint-kit"
                     - "https://github.com/Power2All/nanotorrent"
                     - "https://github.com/freakydude/freakymate"
                     - "https://github.com/NobleDoodle/ferricone"
                     - "https://github.com/NigelBreslaw/slint-headerless"
                     - "https://github.com/Freedragonlancer/AudioLib-Explorer"
-                    - "https://github.com/zhugenanbei181/music-frog"
-                    - "https://github.com/PraxisGrove/Saymore"
-                    - "https://github.com/amit-voais/fortax-mail"
+                    #- "https://github.com/zhugenanbei181/music-frog" # depends on a zhuge-ui-kit git revision that is private or gone
                     - "https://github.com/talgonite/talgonite"
-                    - "https://github.com/matheusb432/tufo"
                     - "https://github.com/GhostEagle68/umbriel-config"
                     - "https://github.com/dimitribellini/manifold"
                     - "https://github.com/ovoene/NewShell"
@@ -237,24 +238,19 @@ jobs:
                     - "https://github.com/lionxlover/ltk"
                     - "https://github.com/M-Tre-Consulting/devkit"
                     - "https://github.com/zkz098/limedl"
-                    - "https://github.com/ghitatruongle/ShieldGhita"
-                    - "https://github.com/Woffluon/BarePDF"
                     - "https://github.com/horrorbringer/NativeVideoDownloader"
                     - "https://github.com/neerajsunil/axi-launcher"
                     - "https://github.com/2018wzh/AstraEngine"
                     - "https://github.com/AbdurahmanAlmehdi/jidr"
                     - "https://github.com/armanmaurya/arithmetic"
-                    - "https://github.com/LX-Audiolabs/lx-audiolabs-plugins"
                     - "https://github.com/dliangx/chatx"
                     - "https://github.com/littlephish/Parrotfish"
-                    - "https://github.com/wanghua98/cloudshell"
-                    - "https://github.com/eXeruvim/Takt"
+                    #- "https://github.com/eXeruvim/Takt" # the repository is gone
                     - "https://github.com/0xrariux/Atlas-UI"
                     - "https://github.com/yazeed-01/winklet"
                     - "https://github.com/mpwsh/baucord"
                     - "https://github.com/thefoultarnished/zima"
                     - "https://github.com/vitoluo/clash-ui"
-                    - "https://github.com/LuizFer1/Tex"
                     - "https://github.com/qarmin/mykrut"
                     - "https://github.com/theguy000/QuillScribe"
                     - "https://github.com/nettanvirdev/sonicnet"
@@ -262,10 +258,8 @@ jobs:
                     - "https://github.com/okcoe21/MYSQL-GUI"
                     - "https://github.com/p-sodmann/maple"
                     - "https://github.com/ABowlOfEleven/NeonPrime"
-                    - "https://github.com/T58574/Synapse"
-                    - "https://gitlab.com/joltedbot-public/accidental-synth"
+                    #- "https://github.com/T58574/Synapse" # the repository is gone
                     - "https://github.com/caprado/nightowl"
-                    - "https://github.com/themkoi/koia-shell"
 
                     # Missing images (hardcoded absolute path)
                     # - "https://github.com/Tricked-dev/stardew-mod-manager"
@@ -298,6 +292,88 @@ jobs:
 
                 sub_path: ["."]
                 os: ["ubuntu-26.04"]
+                include:
+                    # the deleted .cargo/config.toml sets these
+                    - git_url: "https://github.com/HELPMEEADICE/Netodia"
+                      extra_commands: |
+                          export NETODIA_REPO_ROOT="$HOME/the_repo/"
+                          cargo update
+                    - git_url: "https://github.com/KenanSalar/Melodia"
+                      extra_commands: |
+                          export MELODIA_REPO_ROOT="$HOME/the_repo/"
+                          cargo update
+                    - git_url: "https://github.com/NekoRain404/NekoNetease"
+                      extra_commands: |
+                          export NEKONETEASE_REPO_ROOT="$HOME/the_repo/"
+                          cargo update
+                    - git_url: "https://github.com/evanalyzer/evanalyzer"
+                      # duckdb 1.20000 brings an arrow whose API the project doesn't build with
+                      extra_commands: |
+                          cargo update
+                          cargo update duckdb --precise 1.10505.0
+                    - git_url: "https://github.com/gregoryraymond/slint-mobile-components"
+                      # Its page crates are also build-dependencies, built without the image decoders a backend brings.
+                      # slint-mapping 0.1.2 changed the API the viewer uses.
+                      extra_commands: |
+                          find . -name Cargo.toml | xargs sed -i -E 's/^(\s*)"compat-1-2",$/\1"compat-1-2", "backend-winit", "renderer-software",/'
+                          grep -rl 'SLINT_ENABLE_EXPERIMENTAL_FEATURES", "1"' crates | xargs -r sed -i 's/"SLINT_ENABLE_EXPERIMENTAL_FEATURES", "1"/"SLINT_ENABLE_EXPERIMENTAL_FEATURES", "component-container"/'
+                          cargo update
+                          cargo update slint-mapping --precise 0.1.0
+                    - git_url: "https://github.com/mpwsh/baucord"
+                      extra_packages: libpipewire-0.3-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev
+                    - git_url: "https://github.com/dliangx/chatx"
+                      extra_packages: libpipewire-0.3-dev
+                    - git_url: "https://github.com/u2dm/u2dm-client"
+                      extra_packages: libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev
+                      # livekit-signaling 0.1.9 drops a field that livekit 0.9.6 sets
+                      extra_commands: |
+                          cargo update
+                          cargo update livekit-signaling --precise 0.1.7
+                    - git_url: "https://github.com/2018wzh/AstraEngine"
+                      extra_packages: libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libass-dev
+                    - git_url: "https://github.com/AbdurahmanAlmehdi/jidr"
+                      extra_packages: protobuf-compiler libprotobuf-dev
+                    - git_url: "https://github.com/NobleDoodle/ferricone"
+                      # its build script only checks that scripts/build-libvlc.sh produced a libVLC
+                      extra_commands: |
+                          mkdir -p vendor/vlc/lib
+                          cargo update
+                    - git_url: "https://github.com/zkz098/limedl"
+                      # its build script checks that `cargo xtask fetch-font` downloaded the MiSans font
+                      extra_commands: |
+                          export RUSTFLAGS="--cfg reqwest_unstable"
+                          mkdir -p crates/limedl-native/assets/fonts
+                          cp "$GITHUB_WORKSPACE/demos/home-automation/ui/fonts/Inter-VariableFont.ttf" crates/limedl-native/assets/fonts/MiSansVF.ttf
+                          cargo update
+                    - git_url: "https://github.com/Moosync/Moosync"
+                      extra_packages: libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev
+                      # slint-lsp from crates.io pins the released Slint crates
+                      extra_commands: |
+                          sed -i "s|^slint-lsp = { version = \"[^\"]*\"|slint-lsp = { path = \"$GITHUB_WORKSPACE/tools/lsp\"|" Cargo.toml
+                          export FFMPEG_PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig FFMPEG_LINK_MODE=dynamic
+                          cargo update
+                    - git_url: "https://github.com/People-11/HMCL-rs"
+                      # rfd needs a backend on Linux, and the project only enables the Windows one
+                      extra_commands: |
+                          find . -name Cargo.toml | xargs sed -i -E 's/^(rfd = \{ version = "[^"]*", default-features = false)( \})/\1, features = ["gtk3"]\2/'
+                          cargo update
+                    - git_url: "https://github.com/NeutrinoMCL/Neutrino-Minecraft-Launcher"
+                      # rfd needs a backend on Linux, and the project only enables the Windows one
+                      extra_commands: |
+                          find . -name Cargo.toml | xargs sed -i -E 's/^(rfd = \{ version = "[^"]*", default-features = false)( \})/\1, features = ["gtk3"]\2/'
+                          cargo update
+                    - git_url: "https://github.com/wilssola/zapive"
+                      # Slint 1.19 moved its unstable fontique API to fontique and parley 0.12
+                      extra_commands: |
+                          grep -rlE 'fontique[_-]0[0-9]+' --include=Cargo.toml --include='*.rs' "$HOME/the_repo/" | xargs -r sed -i -E 's/unstable-fontique-0[0-9]+/unstable-fontique-012/g; s/fontique_0[0-9]+/fontique_012/g'
+                          find "$HOME/the_repo/" -name Cargo.toml | xargs sed -i -E 's/^((fontique|parley)\s*=\s*(\{\s*version\s*=\s*)?)"[=^~]?0\.1[01][.0-9]*"/\1"0.12"/'
+                          cargo update
+                    - git_url: "https://github.com/dimitribellini/manifold"
+                      # Slint 1.19 moved its unstable fontique API to fontique and parley 0.12
+                      extra_commands: |
+                          grep -rlE 'fontique[_-]0[0-9]+' --include=Cargo.toml --include='*.rs' "$HOME/the_repo/" | xargs -r sed -i -E 's/unstable-fontique-0[0-9]+/unstable-fontique-012/g; s/fontique_0[0-9]+/fontique_012/g'
+                          find "$HOME/the_repo/" -name Cargo.toml | xargs sed -i -E 's/^((fontique|parley)\s*=\s*(\{\s*version\s*=\s*)?)"[=^~]?0\.1[01][.0-9]*"/\1"0.12"/'
+                          cargo update
 
         runs-on: "ubuntu-latest"
         steps:
@@ -305,7 +381,7 @@ jobs:
             - uses: ./.github/actions/install-linux-dependencies
               if: runner.os == 'Linux'
               with:
-                  extra-packages: libpango1.0-dev libgtk-3-dev libatk1.0-dev libjack-jackd2-dev autoconf libxcb-xrm0 libxcb-xrm-dev automake  libxcb-keysyms1-dev libxcb-util0-dev libxcb-icccm4-dev libyajl-dev libstartup-notification0-dev libxcb-randr0-dev libev-dev libxcb-cursor-dev libxcb-xinerama0-dev libxcb-xkb-dev libxkbcommon-dev libxkbcommon-x11-dev libudev-dev clang pkg-config nasm libsoup2.4-dev libfuse3-dev libx11-xcb-dev  ${{ matrix.extra_packages }}
+                  extra-packages: libpango1.0-dev libgtk-3-dev libatk1.0-dev libjack-jackd2-dev autoconf libxcb-xrm0 libxcb-xrm-dev automake  libxcb-keysyms1-dev libxcb-util0-dev libxcb-icccm4-dev libyajl-dev libstartup-notification0-dev libxcb-randr0-dev libev-dev libxcb-cursor-dev libxcb-xinerama0-dev libxcb-xkb-dev libxkbcommon-dev libxkbcommon-x11-dev libudev-dev clang pkg-config nasm libsoup2.4-dev libfuse3-dev libx11-xcb-dev libasound2-dev ${{ matrix.extra_packages }}
             # Don't use the cache because we don't run this job often, and it would cache the .cargo/config.toml with extra keys
             - uses: dtolnay/rust-toolchain@master
               with:
@@ -382,6 +458,10 @@ jobs:
             SLINT_NO_QT: 1
             CARGO_INCREMENTAL: false
             RUST_BACKTRACE: 1
+            # A project's rust-version older than Slint's would otherwise make cargo pick a released Slint
+            CARGO_RESOLVER_INCOMPATIBLE_RUST_VERSIONS: allow
+            # CMake 4 rejects the cmake_minimum_required below 3.5 of the C libraries that -sys crates build
+            CMAKE_POLICY_VERSION_MINIMUM: 3.5
         strategy:
             fail-fast: false
             matrix:
@@ -556,6 +636,8 @@ jobs:
                           cargo update
                     - git_url: "https://github.com/nununoisy/nsf-presenter-rs"
                       sub_path: "."
+                      # ffmpeg-sys-next 7 and older need avfft.h, which FFmpeg 8 removed
+                      os: ubuntu-24.04
                       extra_packages: libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev
                     - git_url: "https://github.com/RustOtomeLab/RustEng"
                       sub_path: "."
@@ -619,6 +701,10 @@ jobs:
                           cargo update
                           # rc.13 is a semver compatible update that changes the API
                           cargo update ort --precise 2.0.0-rc.12
+                          # webpx 0.4.1 doesn't build without its std feature
+                          cargo update webpx --precise 0.4.0
+                          # pliron asks for any hashbrown 0.x, and the update gives it 0.12, which lacks `Equivalent`
+                          sed -i '/^name = "pliron"$/,/^$/ s/"hashbrown 0.12.3"/"hashbrown 0.17.1"/' Cargo.lock
                     - git_url: https://github.com/heng30/tasklog
                       sub_path: tasklog
                       extra_args: "--features=desktop"
@@ -698,6 +784,10 @@ jobs:
                       sub_path: "waitaha-ui"
                     - git_url: "https://github.com/RiskRunner0/blackshark-linux"
                       sub_path: "crates/blackshark-gui"
+                      # its tokio::io::AsyncBufReadExt needs the io-util feature, which it doesn't enable
+                      extra_commands: |
+                          cargo add tokio --features io-util
+                          cargo update
                     - git_url: "https://github.com/brianmay/robotica-rust"
                       sub_path: "robotica-slint"
                     # needs private submodules, and workspace member plugins/annotations is missing
@@ -777,6 +867,8 @@ jobs:
                       extra_packages: libasound2-dev
                     - git_url: "https://github.com/JeninSutradhar/ffmpeg-VideoPlayer-Rust_Slint"
                       sub_path: "."
+                      # ffmpeg-sys-next 7 and older need avfft.h, which FFmpeg 8 removed
+                      os: ubuntu-24.04
                       extra_packages: libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev
                       extra_commands: |
                           # derive_more 1.0 refuses to build without a derive feature, and nothing here uses it
@@ -784,6 +876,8 @@ jobs:
                           cargo update
                     - git_url: "https://github.com/NateAGeek/SenToAni"
                       sub_path: "."
+                      # ffmpeg-sys-next 7 and older need avfft.h, which FFmpeg 8 removed
+                      os: ubuntu-24.04
                       extra_packages: libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev
                     - git_url: "https://github.com/rahulkuzur3/KVPlayer"
                       sub_path: "."
@@ -871,66 +965,100 @@ jobs:
                           printf '\n[workspace]\n' >> Cargo.toml
                           cargo update
                     # from ecosystem survey (added 2026-10)
-                    - git_url: "https://github.com/MohsenDastaran/uni-kit"
-                      sub_path: "crates/slint-component"
+                    # the repository is gone
+                    #- git_url: "https://github.com/MohsenDastaran/uni-kit"
+                    #  sub_path: "crates/slint-component"
                     - git_url: "https://github.com/AhmedEzo686/ezoo-download"
                       sub_path: "crates/app"
                     - git_url: "https://github.com/zhangxichang/pupu"
                       sub_path: "app"
-                    - git_url: "https://github.com/coreyjj1679/gs-widget"
-                      sub_path: "widget"
+                      # Slint 1.19 moved its unstable fontique API to fontique and parley 0.12
+                      extra_commands: |
+                          grep -rlE 'fontique[_-]0[0-9]+' --include=Cargo.toml --include='*.rs' "$HOME/the_repo/" | xargs -r sed -i -E 's/unstable-fontique-0[0-9]+/unstable-fontique-012/g; s/fontique_0[0-9]+/fontique_012/g'
+                          find "$HOME/the_repo/" -name Cargo.toml | xargs sed -i -E 's/^((fontique|parley)\s*=\s*(\{\s*version\s*=\s*)?)"[=^~]?0\.1[01][.0-9]*"/\1"0.12"/'
+                          cargo update
                     - git_url: "https://github.com/Amne-Dev/NLC"
                       sub_path: "src/frontend"
                     - git_url: "https://github.com/worflor/neuron"
                       sub_path: "crates/neuron-app"
+                      # its optional wgpu-renderer feature names a wgpu version Slint no longer has
+                      extra_commands: |
+                          sed -i 's/unstable-wgpu-28/unstable-wgpu-29/' Cargo.toml
+                          # its build script denies warnings, and it uses the viewport-* properties deprecated in 1.18
+                          sed -i '/SLINT_COMPILER_DENY_WARNINGS/d' build.rs
+                          cargo update
                     - git_url: "https://github.com/sebastian-beca/opendj"
                       sub_path: "crates/app"
-                    - git_url: "https://github.com/siggifly/ipod-emulator"
-                      sub_path: "tools/ipod-gui"
+                      # Slint 1.19 moved its unstable fontique API to fontique and parley 0.12
+                      extra_commands: |
+                          grep -rlE 'fontique[_-]0[0-9]+' --include=Cargo.toml --include='*.rs' "$HOME/the_repo/" | xargs -r sed -i -E 's/unstable-fontique-0[0-9]+/unstable-fontique-012/g; s/fontique_0[0-9]+/fontique_012/g'
+                          find "$HOME/the_repo/" -name Cargo.toml | xargs sed -i -E 's/^((fontique|parley)\s*=\s*(\{\s*version\s*=\s*)?)"[=^~]?0\.1[01][.0-9]*"/\1"0.12"/'
+                          cargo update
+                          # rbox 0.3.1 renamed the waveform fields the project uses
+                          for p in rbox-onelib rbox-masterdb rbox-devlib rbox-db rbox-core rbox-anlz; do cargo update $p --precise 0.3.0; done
+                    # only builds on macOS: on Linux, a `None` in its own code has no inferable type
+                    #- git_url: "https://github.com/siggifly/ipod-emulator"
+                    #  sub_path: "tools/ipod-gui"
                     - git_url: "https://github.com/ricercar-player/ricercar"
                       sub_path: "crates/ricercar-ui"
-                    - git_url: "https://github.com/damione1/souffle"
-                      sub_path: "app/souffle-slint"
+                    # only builds on macOS: it depends on objc2 for every target
+                    #- git_url: "https://github.com/damione1/souffle"
+                    #  sub_path: "app/souffle-slint"
                     - git_url: "https://github.com/ZaparooProject/zaparoo-frontend"
                       sub_path: "rust/frontend"
+                      # its .cargo/config.toml links with mold
+                      extra_packages: mold
+                      # Slint 1.19 moved its unstable fontique API to fontique and parley 0.12
+                      extra_commands: |
+                          grep -rlE 'fontique[_-]0[0-9]+' --include=Cargo.toml --include='*.rs' "$HOME/the_repo/" | xargs -r sed -i -E 's/unstable-fontique-0[0-9]+/unstable-fontique-012/g; s/fontique_0[0-9]+/fontique_012/g'
+                          find "$HOME/the_repo/" -name Cargo.toml | xargs sed -i -E 's/^((fontique|parley)\s*=\s*(\{\s*version\s*=\s*)?)"[=^~]?0\.1[01][.0-9]*"/\1"0.12"/'
+                          cargo update
                     - git_url: "https://github.com/palaashatri/rust-loom"
                       sub_path: "loom-core/crates/loom-ui"
                     - git_url: "https://github.com/penumbra-mobile/penumbra-env"
                       sub_path: "crates/penumbra-shell"
-                    - git_url: "https://github.com/roe-office/roe-desktop"
-                      sub_path: "crates/slint-shell"
                     - git_url: "https://github.com/fatyzzz/multicore"
                       sub_path: "apps/multicore-desktop"
                     - git_url: "https://github.com/GT-610/Freya-NLE"
                       sub_path: "rust/freya-nle"
+                      extra_packages: libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev
                     - git_url: "https://github.com/LucasPicoli/8B"
                       sub_path: "crates/gui"
-                    - git_url: "https://codeberg.org/SoulCrafted/Slicer"
-                      sub_path: "apps/slicer-gui"
-                    - git_url: "https://github.com/RaunakxShrivastva/Raven-Island"
-                      sub_path: "raven-native"
                     - git_url: "https://github.com/Z1xus/interpolini"
                       sub_path: "crates/gui"
+                      extra_packages: libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev
                     - git_url: "https://github.com/yassersutojoyo/audiosync"
                       sub_path: "desktop"
+                      extra_packages: libpipewire-0.3-dev
                     - git_url: "https://github.com/florianaltendorfer/d4lc"
                       sub_path: "crates/d4lc-app"
                     - git_url: "https://github.com/evoggy/swarmkeeper"
                       sub_path: "client"
                     - git_url: "https://github.com/SeitiFurumori/morune"
                       sub_path: "crates/morune-app"
+                      # The next commit removes the Slint app
+                      git_rev: f03a1944c9d7376e6fd55e2d66286f62b148dc39
+                      # Slint 1.19 moved its unstable fontique API to fontique and parley 0.12
+                      extra_commands: |
+                          grep -rlE 'fontique[_-]0[0-9]+' --include=Cargo.toml --include='*.rs' "$HOME/the_repo/" | xargs -r sed -i -E 's/unstable-fontique-0[0-9]+/unstable-fontique-012/g; s/fontique_0[0-9]+/fontique_012/g'
+                          find "$HOME/the_repo/" -name Cargo.toml | xargs sed -i -E 's/^((fontique|parley)\s*=\s*(\{\s*version\s*=\s*)?)"[=^~]?0\.1[01][.0-9]*"/\1"0.12"/'
+                          cargo update
+                          # vergen 9.1 breaks the build script of librespot-core
+                          cargo update vergen --precise 9.0.6
+                    - git_url: "https://github.com/vodolazny/burmalda57"
+                      sub_path: "crates/ui"
+                      # the library enables no backend, so its generated code lacks the image decoders
+                      extra_args: "--features slint/backend-winit,slint/renderer-software"
                     - git_url: "https://github.com/dimms0/maestro"
                       sub_path: "crates/maestro-gui"
-                    - git_url: "https://github.com/theguy000/stremio-lightning"
-                      sub_path: "crates/stremio-lightning"
-                    - git_url: "https://github.com/ESO-Toolkit/kalpa"
-                      sub_path: "prototypes/slint-kalpa"
+                      extra_packages: libpipewire-0.3-dev
                     - git_url: "https://github.com/Scrimas/MHGU-Save-editor"
                       sub_path: "app/gui"
                     - git_url: "https://github.com/KeRoDeveloper2026/KeRo-Smarter-Download"
                       sub_path: "crates/app"
-                    - git_url: "https://github.com/kakadon000/highwater"
-                      sub_path: "crates/highwater"
+                    # the repository is gone
+                    #- git_url: "https://github.com/kakadon000/highwater"
+                    #  sub_path: "crates/highwater"
                     - git_url: "https://github.com/mrFrok/AniRust"
                       sub_path: "gui"
                     - git_url: "https://github.com/nglmercer/obs-rs"
@@ -940,22 +1068,29 @@ jobs:
                       sub_path: "apps"
                     - git_url: "https://github.com/fathialamre/vento"
                       sub_path: "crates/vento"
+                      extra_packages: libheif-dev libpoppler-glib-dev
                     - git_url: "https://github.com/flipperdevices/flipctl-slint"
                       sub_path: "crates/flipper-ui"
                     - git_url: "https://github.com/nyl/Penumbra-Shell"
                       sub_path: "crates/penumbra-shell"
                     - git_url: "https://github.com/ivall/viralflow"
                       sub_path: "app"
+                      extra_packages: libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev
                     - git_url: "https://github.com/KimP0ssible-no/OpenCRT"
                       sub_path: "crates/opencrt"
+                      # Slint 1.19 moved its unstable fontique API to fontique and parley 0.12
+                      extra_commands: |
+                          grep -rlE 'fontique[_-]0[0-9]+' --include=Cargo.toml --include='*.rs' "$HOME/the_repo/" | xargs -r sed -i -E 's/unstable-fontique-0[0-9]+/unstable-fontique-012/g; s/fontique_0[0-9]+/fontique_012/g'
+                          find "$HOME/the_repo/" -name Cargo.toml | xargs sed -i -E 's/^((fontique|parley)\s*=\s*(\{\s*version\s*=\s*)?)"[=^~]?0\.1[01][.0-9]*"/\1"0.12"/'
+                          cargo update
                     - git_url: "https://github.com/pierregouedar/canape"
                       sub_path: "crates/canape-shell"
-                    - git_url: "https://github.com/MarcoS0ft/ConMan"
-                      sub_path: "crates/cm-ui"
                     - git_url: "https://github.com/Fab2bprog/Rust-Vendetta-Chess-GUI"
                       sub_path: "crates/gui"
                     - git_url: "https://github.com/JanezSedeljsak/calumma-v2"
                       sub_path: "gui"
+                      # libaom 3.11, built by libaom-sys, rejects the NASM 3 of Ubuntu 26.04
+                      os: ubuntu-24.04
                     - git_url: "https://github.com/xyzyt010/quickstt"
                       sub_path: "quickstt-rust/quickstt-slint"
                     - git_url: "https://github.com/MahmoudAhmed100/zero-download"
@@ -964,25 +1099,26 @@ jobs:
                       sub_path: "nalufx-ui"
                     - git_url: "https://github.com/0xrariux/template-atlas"
                       sub_path: "slint/forge"
+                      # depends on the Atlas-UI repository as a sibling checkout
+                      extra_commands: |
+                          git clone https://github.com/0xrariux/Atlas-UI "$HOME/Atlas" --depth 1
+                          cargo update
                     - git_url: "https://github.com/Dethon/lookout"
                       sub_path: "crates/app"
-                    - git_url: "https://github.com/ashp0/SonicOS"
-                      sub_path: "sonic-shell"
                     - git_url: "https://github.com/yasuflatland-lf/gashuu"
                       sub_path: "crates/gashuu"
-                    - git_url: "https://github.com/HouseAlwaysWin/CliGJ"
-                      sub_path: "app"
+                      extra_packages: libdav1d-dev
                     - git_url: "https://github.com/lemonxah/pithsim"
                       sub_path: "dashboard"
                     - git_url: "https://github.com/Trareon-com/Trareon-Lab"
                       sub_path: "apps/lab-slint"
-        runs-on: "ubuntu-latest"
+        runs-on: ${{ matrix.os || 'ubuntu-latest' }}
         steps:
             - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
               if: runner.os == 'Linux'
               with:
-                  extra-packages: libpango1.0-dev libgtk-3-dev libatk1.0-dev libjack-jackd2-dev autoconf libxcb-xrm0 libxcb-xrm-dev automake  libxcb-keysyms1-dev libxcb-util0-dev libxcb-icccm4-dev libyajl-dev libstartup-notification0-dev libxcb-randr0-dev libev-dev libxcb-cursor-dev libxcb-xinerama0-dev libxcb-xkb-dev libxkbcommon-dev libxkbcommon-x11-dev libudev-dev clang pkg-config nasm libsoup2.4-dev libfuse3-dev libx11-xcb-dev  ${{ matrix.extra_packages }}
+                  extra-packages: libpango1.0-dev libgtk-3-dev libatk1.0-dev libjack-jackd2-dev autoconf libxcb-xrm0 libxcb-xrm-dev automake  libxcb-keysyms1-dev libxcb-util0-dev libxcb-icccm4-dev libyajl-dev libstartup-notification0-dev libxcb-randr0-dev libev-dev libxcb-cursor-dev libxcb-xinerama0-dev libxcb-xkb-dev libxkbcommon-dev libxkbcommon-x11-dev libudev-dev clang pkg-config nasm libsoup2.4-dev libfuse3-dev libx11-xcb-dev libasound2-dev ${{ matrix.extra_packages }}
             # Don't use the cache because we don't run this job often, and it would cache the .cargo/config.toml with extra keys
             - uses: dtolnay/rust-toolchain@master
               with:
@@ -1059,6 +1195,8 @@ jobs:
             SLINT_NO_QT: 1
             CARGO_INCREMENTAL: false
             RUST_BACKTRACE: 1
+            # A project's rust-version older than Slint's would otherwise make cargo pick a released Slint
+            CARGO_RESOLVER_INCOMPATIBLE_RUST_VERSIONS: allow
         strategy:
             fail-fast: false
             matrix:
@@ -1075,12 +1213,25 @@ jobs:
                     - "https://github.com/gvastethecreator/panopticon"
                     #- "https://github.com/STanJK/rust-boundary-tool-box" # vnt-core is out of sync with its ipstack dependency
                     - "https://github.com/ahmedmbarektorjmene/PASSX"
+                    - "https://github.com/nixesty/now-bar"
+                    - "https://github.com/Woffluon/BarePDF"
+                    - "https://github.com/ghitatruongle/ShieldGhita"
+                    - "https://github.com/LuizFer1/Tex"
+                    # its PlatformSecretStore only exists on macOS and Windows
+                    - "https://github.com/PraxisGrove/Saymore"
                 include:
                     # its own code uses let-chains, which need edition 2024
                     #- git_url: "https://github.com/tadghh/transparent-windows"
                     #  toolchain: nightly
                     - git_url: "https://github.com/chengbuilds/PetPhrase"
                       sub_path: "app-slint"
+                    - git_url: "https://github.com/coreyjj1679/gs-widget"
+                      sub_path: "widget"
+                    - git_url: "https://github.com/RaunakxShrivastva/Raven-Island"
+                      sub_path: "raven-native"
+                    # its #[path] goes through a src/uploader directory that doesn't exist, which only Windows accepts
+                    - git_url: "https://github.com/ESO-Toolkit/kalpa"
+                      sub_path: "prototypes/slint-kalpa"
                     #- git_url: "https://github.com/0hgawa/vayou-slint" # the 0hgawa account is gone
                     # servicemanager-win32 has no Linux implementation
                     - git_url: "https://github.com/chstc/NGSM"
@@ -1523,9 +1674,9 @@ jobs:
                     # compiles with 1.18.1; master reports a binding loop on run-max-width
                     - git_url: "https://github.com/Zealbase/snapflow"
                       files: "panel-rust/ui/app.slint"
-                    # vendors patched copies of Slint crates, so the patch does not apply
-                    - git_url: "https://github.com/ylsdamxssjxxdd/wunder"
-                      files: "frontend-slint/ui/main.slint"
+                    # its vendored Slint compiler adds a 'context-menu' callback to StyledText
+                    #- git_url: "https://github.com/ylsdamxssjxxdd/wunder"
+                    #  files: "crates/wunder-desktop/frontend/ui/main.slint"
                     # vendors patched copies of Slint crates, so the patch does not apply
                     - git_url: "https://github.com/wenlar/gezik"
                       files: "crates/gezik/ui/app.slint"
@@ -1540,16 +1691,57 @@ jobs:
                       files: "ui/app.slint"
                     # not a Rust project
                     - git_url: "https://github.com/Malvaos/Malva-ui-toolkit"
-                      files: "gallery/gallery.slint"
+                      files: "cpp/examples/gallery.slint apps/dock/ui/dock-window.slint apps/files/ui/files-window.slint apps/menubar/ui/menubar-window.slint"
+                      extra_args: "-L malva=slint"
+                    # libghostty-vt needs a Zig toolchain
+                    - git_url: "https://github.com/MarcoS0ft/ConMan"
+                      files: "crates/cm-ui/ui/app.slint"
+                    # lx-aura-editor from crates.io pins slint =1.17.1
+                    - git_url: "https://github.com/LX-Audiolabs/lx-audiolabs-plugins"
+                      files: "plugins/aether/ui/main.slint plugins/equilibrium/ui/main.slint plugins/lucent-relay/ui/main.slint plugins/lucent/ui/main.slint plugins/meridian/ui/main.slint crates/lx-ui-slint/ui/gallery.slint"
+                    # cargo update needs xml-rs 0.7 for gl_generator, and every 0.7 release is yanked
+                    - git_url: "https://github.com/theguy000/stremio-lightning"
+                      files: "crates/stremio-lightning/ui/main.slint"
+                    # only builds on macOS
+                    - git_url: "https://gitlab.com/joltedbot-public/accidental-synth"
+                      files: "crates/accidental-synth/ui/main.slint"
+                    # uses i_slint_core internals through spell-framework
+                    - git_url: "https://github.com/themkoi/koia-shell"
+                      files: "ui/ui.slint"
+                      extra_args: "-L material=ui/material-1.0"
+                    # uses Slint's private_unstable_api
+                    - git_url: "https://github.com/wanghua98/cloudshell"
+                      files: "ui/app.slint"
+                      extra_args: "--style fluent"
+                    # uses Slint's private_unstable_api
+                    - git_url: "https://codeberg.org/SoulCrafted/Slicer"
+                      files: "apps/slicer-gui/ui/main-window.slint"
+                    # sonic-core doesn't compile: it uses a channel sender after moving it
+                    - git_url: "https://github.com/ashp0/SonicOS"
+                      files: "sonic-shell/ui/app-window.slint"
                     # depends on a Slint fork via git, so the patch does not apply
                     - git_url: "https://github.com/postvak-app/postvak"
-                      files: "crates/postvak-gui/src/ui/app.slint"
+                      files: "crates/postvak-ui/ui/app.slint"
+                    # tufo-wire's build script runs the buf tool
+                    - git_url: "https://github.com/matheusb432/tufo"
+                      files: "crates/tufo-gui/ui/app.slint"
+                    # its fontique 0.10 and 0.11 enable fontconfig-dlopen, which Slint's fontique 0.12 doesn't build with
+                    - git_url: "https://github.com/amit-voais/fortax-mail"
+                      files: "ui/app.slint"
+                      extra_args: "--style fluent"
+                    # uses fontique 0.11's API through Slint's unstable fontique re-export
+                    - git_url: "https://github.com/HouseAlwaysWin/CliGJ"
+                      files: "ui/app.slint"
+                    # roe-core's workspace needs a charts-rs directory that isn't in its repository
+                    - git_url: "https://github.com/roe-office/roe-desktop"
+                      files: "crates/slint-shell/ui/app.slint"
                     # not a Rust project
                     - git_url: "https://github.com/MiyukiVigil/Hub_Moon"
                       files: "gui/ui/app.slint"
-                    # vendors patched copies of Slint crates, so the patch does not apply
+                    # crater_subpath builds crates/ui; the web app targets wasm
                     - git_url: "https://github.com/vodolazny/burmalda57"
-                      files: "apps/web/ui/app.slint crates/ui/ui/app.slint"
+                      files: "apps/web/ui/app.slint"
+                      extra_args: "-L simulator-easter-egg=crates/ui/ui/views/simulator_easter_egg.slint"
         runs-on: "ubuntu-latest"
         steps:
             - uses: actions/download-artifact@v8
@@ -1575,6 +1767,6 @@ jobs:
                   [ -d ui ] && ui_inc="-I ui"
                   for f in ${{ matrix.files }}; do
                       echo "::group::$f"
-                      SLINT_ENABLE_EXPERIMENTAL_FEATURES=interfaces,shadowable,closures,named-slots,match,custom-mouse-cursor,component-container,new-with-existing-window,testable,internal-types "$GITHUB_WORKSPACE/slint-compiler-bin/slint-compiler" -f cpp -I "$(dirname "$f")" -I . $ui_inc "$f" -o /dev/null
+                      SLINT_ENABLE_EXPERIMENTAL_FEATURES=interfaces,shadowable,closures,named-slots,match,custom-mouse-cursor,component-container,new-with-existing-window,testable,internal-types "$GITHUB_WORKSPACE/slint-compiler-bin/slint-compiler" -f cpp -I "$(dirname "$f")" -I . $ui_inc ${{ matrix.extra_args }} "$f" -o /dev/null
                       echo "::endgroup::"
                   done

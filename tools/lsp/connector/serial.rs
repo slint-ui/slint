@@ -75,7 +75,7 @@ impl SerialLspToPreview {
                         let _ = preview_to_lsp.send(message);
                         continue;
                     }
-                    SerialEvent::Connected { problem } => {
+                    SerialEvent::Connected { problem, .. } => {
                         (RemoteConnectionState::Connected, problem)
                     }
                     SerialEvent::Failed(err) => {

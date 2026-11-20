@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use i_slint_compiler::diagnostics::{BuildDiagnostics, SourceFile};
-use i_slint_compiler::object_tree::Document;
+use i_slint_compiler::object_tree::{Component, Document, ElementLocation};
 use i_slint_compiler::parser::{TextSize, syntax_nodes};
 use i_slint_compiler::source_path::SourcePath;
 use i_slint_compiler::typeloader::TypeLoader;
@@ -188,6 +188,14 @@ impl DocumentCache {
         self.source_file_versions.borrow().get(path).and_then(|v| *v)
     }
 
+    pub fn library_import_for(&self, file: &SourcePath) -> Option<String> {
+        self.type_loader.library_import_for(file)
+    }
+
+    pub fn is_private_library_file(&self, file: &SourcePath) -> bool {
+        self.type_loader.is_private_library_file(file)
+    }
+
     pub fn get_document<'a>(&'a self, url: &'_ Url) -> Option<&'a Document> {
         self.type_loader.get_document(&SourcePath::from_url(url))
     }
@@ -268,14 +276,6 @@ impl DocumentCache {
         self.type_loader.revision()
     }
 
-    fn invalidate_everything(&mut self) {
-        let all_files = self.type_loader.all_files().cloned().collect::<Vec<_>>();
-
-        for path in all_files {
-            self.type_loader.invalidate_document(&path);
-        }
-    }
-
     /// Re-apply a complete configuration to the document cache
     ///
     /// Returns the new compiler configuration and the set of paths that were reloaded.
@@ -301,11 +301,24 @@ impl DocumentCache {
         self.open_import_callback = open_import_callback;
         self.source_file_versions = source_file_versions;
         self.format = config.format;
-        self.type_loader.compiler_config = compiler_config;
-
-        self.invalidate_everything();
+        self.type_loader.set_compiler_config(compiler_config);
 
         self.preload_builtins().await;
+
+        let outdated_edition = self
+            .type_loader
+            .all_file_documents()
+            .filter(|(path, node)| {
+                node.source_file.edition() != self.type_loader.project_edition(path)
+            })
+            .map(|(path, node)| (path.clone(), node.text().to_string()))
+            .collect::<Vec<_>>();
+        for (path, content) in outdated_edition {
+            self.type_loader
+                .load_file(&path, content, false, &mut BuildDiagnostics::default())
+                .await;
+            self.type_loader.invalidate_document(&path);
+        }
 
         let all_urls = self.all_urls().filter(|url| roots.contains(url)).collect::<HashSet<_>>();
         for url in &all_urls {
@@ -455,6 +468,23 @@ impl DocumentCache {
         None
     }
 
+    /// Returns the element that starts at `location`.
+    pub fn element_node_at(&self, location: &ElementLocation) -> Option<ElementRcNode> {
+        let doc = self.get_document_by_path(&location.path)?;
+        self.element_at_document_and_offset(doc, location.offset)
+            .filter(|node| node.with_element_node(|n| n.text_range().start() == location.offset))
+    }
+
+    /// Returns the component `name` of the document at `url`, or its last exported component.
+    pub fn component(&self, url: &Url, name: Option<&str>) -> Option<Rc<Component>> {
+        let doc = self.get_document(url)?;
+        let Some(name) = name else { return doc.last_exported_component() };
+        doc.exports
+            .find(name)
+            .and_then(|exported| exported.left())
+            .or_else(|| doc.inner_components.iter().find(|c| c.id == name).cloned())
+    }
+
     pub fn element_at_offset(
         &self,
         text_document_uri: &Url,
@@ -514,6 +544,38 @@ mod tests {
         assert_eq!(id_at_position(&dc, &url, 1, 0), None);
         assert_eq!(id_at_position(&dc, &url, 55, 1), None);
         assert_eq!(id_at_position(&dc, &url, 56, 5), None);
+    }
+
+    /// The previews select an element by its start, so only the offsets marked with `🔺` resolve.
+    #[test]
+    fn element_node_at_resolves_element_starts() {
+        let marked_code = r#"
+component Bar1 🔺{}
+
+component Foo1 🔺{
+}
+
+export component Foo2 inherits 🔺Window  {
+    🔺Bar1 {}
+    foo := 🔺Foo1   {}
+    if true: 🔺Bar1 {}
+}"#;
+        let starts: Vec<u32> = marked_code
+            .match_indices('🔺')
+            .enumerate()
+            .map(|(i, (offset, marker))| (offset - i * marker.len()) as u32)
+            .collect();
+        let code = marked_code.replace('🔺', "");
+        let (dc, url, _) = crate::test::loaded_document_cache(code.clone());
+        let path = SourcePath::from_url(&url);
+        for offset in 0..code.len() as u32 {
+            let location = ElementLocation { path: path.clone(), offset: offset.into() };
+            let node = dc.element_node_at(&location);
+            assert_eq!(node.is_some(), starts.contains(&offset), "offset {offset}");
+            if let Some(node) = node {
+                assert_eq!(node.location(), location);
+            }
+        }
     }
 
     #[test]
@@ -576,20 +638,49 @@ mod tests {
             assert!(config.open_import_callback.is_some());
             assert!(config.compiler_config.open_import_callback.is_none());
             assert!(cache.compiler_configuration().open_import_callback.is_none());
-            spin_on::spin_on(cache.reconfigure(
+            i_slint_compiler::poll_ready(cache.reconfigure(
                 config,
                 &HashSet::new(),
                 &mut BuildDiagnostics::default(),
             ));
             let import_callback =
                 cache.type_loader.compiler_config.open_import_callback.as_ref().unwrap();
-            assert!(spin_on::spin_on(import_callback(path.clone())).unwrap().is_ok());
+            assert!(i_slint_compiler::poll_ready(import_callback(path.clone())).unwrap().is_ok());
             assert_eq!(cache.document_version_by_path(&path), Some(42));
 
             fail_import.set(true);
-            assert!(spin_on::spin_on(import_callback(path.clone())).unwrap().is_err());
+            assert!(i_slint_compiler::poll_ready(import_callback(path.clone())).unwrap().is_err());
             assert_eq!(cache.document_version_by_path(&path), None);
         }
+    }
+
+    #[test]
+    fn reconfigure_applies_a_changed_edition() {
+        let mut config = CompilerConfiguration::default();
+        config.compiler_config.edition = Some((1, 18).into());
+        let mut cache = DocumentCache::new(config.clone());
+        let url = crate::test::test_file_name("edition.slint").to_url().unwrap();
+        let mut diag = BuildDiagnostics::default();
+        i_slint_compiler::poll_ready(cache.load_url(
+            &url,
+            None,
+            "export component Main {}".into(),
+            &mut diag,
+        ))
+        .unwrap();
+        let edition = |cache: &DocumentCache| {
+            cache.get_document(&url).unwrap().node.as_ref().unwrap().source_file.edition()
+        };
+        assert_eq!(edition(&cache), Some((1, 18).into()));
+
+        config.compiler_config.edition = Some((1, 19).into());
+        i_slint_compiler::poll_ready(cache.reconfigure(
+            config,
+            &HashSet::from([url.clone()]),
+            &mut diag,
+        ));
+        assert!(!diag.has_errors(), "{:?}", diag.to_string_vec());
+        assert_eq!(edition(&cache), Some((1, 19).into()));
     }
 
     #[test]

@@ -10,7 +10,7 @@ pub fn load(
     include_paths: &[&str],
 ) -> slint_interpreter::ComponentInstance {
     let (source, compiler) = compiler(path, scale_factor, include_paths);
-    let result = spin_on::spin_on(compiler.build_from_source(source, path.into()));
+    let result = i_slint_compiler::poll_ready(compiler.build_from_source(source, path.into()));
     result.print_diagnostics();
     assert!(!result.has_errors(), "compile error in {path}");
     create(result, scale_factor)
@@ -29,7 +29,7 @@ pub fn load_serialized(
     // The compiler keeps these as overrides, outside of its configuration
     config.include_paths = compiler.include_paths().clone();
     config.style = compiler.style().cloned();
-    let (diagnostics, compiled) = spin_on::spin_on(serialize::compile(
+    let (diagnostics, compiled) = i_slint_compiler::poll_ready(serialize::compile(
         &i_slint_compiler::source_path::SourcePath::new(path),
         source,
         config,
@@ -68,7 +68,9 @@ fn compiler(
     let config = compiler.compiler_configuration(InternalToken);
     config.experimental_features = i_slint_compiler::ExperimentalFeatures::all();
     config.const_scale_factor = Some(scale_factor);
-    (std::fs::read_to_string(path).unwrap(), compiler)
+    let source = std::fs::read_to_string(path).unwrap();
+    compiler.set_edition(test_driver_lib::edition_version_or_current(&source));
+    (source, compiler)
 }
 
 fn create(

@@ -4,7 +4,7 @@
 
 import * as slint from "slint-ui";
 
-const ui = slint.loadFile(new URL("memory.slint", import.meta.url));
+const ui = slint.loadFile(new URL("slint-project.json", import.meta.url));
 const window = new ui.MainWindow();
 
 const initial_tiles = [...window.memory_tiles];

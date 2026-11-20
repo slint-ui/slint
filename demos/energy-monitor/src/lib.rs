@@ -27,13 +27,13 @@ mod controllers {
 use controllers::*;
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
-pub fn main() {
+pub fn main() -> Result<(), slint::PlatformError> {
     // This provides better error messages in debug mode.
     // It's disabled in release mode so it doesn't bloat up the file size.
     #[cfg(all(debug_assertions, target_arch = "wasm32"))]
     console_error_panic_hook::set_once();
 
-    let window = MainWindow::new().unwrap();
+    let window = MainWindow::new()?;
 
     // let _ to keep the timer alive.
     #[cfg(all(not(feature = "mcu-board-support"), feature = "chrono"))]
@@ -44,10 +44,12 @@ pub fn main() {
 
     let _kiosk_mode_timer = kiosk_timer(&window);
 
-    window.run().unwrap();
+    window.run()?;
 
     #[cfg(all(not(feature = "mcu-board-support"), feature = "network"))]
     weather_join.join().unwrap();
+
+    Ok(())
 }
 
 fn kiosk_timer(window: &MainWindow) -> Timer {
@@ -77,5 +79,5 @@ fn kiosk_timer(window: &MainWindow) -> Timer {
 #[unsafe(no_mangle)]
 fn android_main(app: slint::android::AndroidApp) {
     slint::android::init(app).unwrap();
-    main();
+    main().unwrap();
 }

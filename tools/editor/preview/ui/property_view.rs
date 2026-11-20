@@ -19,8 +19,14 @@ use crate::preview::{properties, ui};
 pub fn setup(editor: &ui::EditorUi, api: &ui::Api<'_>) {
     use slint::ComponentHandle as _;
     let api_weak = <ui::Api as slint::Global<'_, ui::EditorUi>>::as_weak(api);
+    let properties_api = editor.global::<ui::Properties>();
+    let properties_api_weak =
+        <ui::Properties as slint::Global<'_, ui::EditorUi>>::as_weak(&properties_api);
     let selection_api_weak = api_weak.clone();
-    let has_property_api_weak = api_weak.clone();
+    let has_property_api_weak = properties_api_weak.clone();
+    let hooked_api_weak = api_weak.clone();
+    let hooked_properties_api_weak = properties_api_weak.clone();
+    let hooked_editor_weak = editor.as_weak();
     let editor_weak = editor.as_weak();
     let selected_item = selected_item_cache(move || {
         let editor = editor_weak.upgrade()?;
@@ -30,22 +36,62 @@ pub fn setup(editor: &ui::EditorUi, api: &ui::Api<'_>) {
         let instance_index = usize::try_from(api.get_selection().highlight_index).ok()?;
         let instance = crate::preview::component_instance()?;
         let source_uri = lsp_types::Url::parse(element.source_uri.as_str()).ok()?;
-        let path = i_slint_compiler::source_path::SourcePath::from_url(&source_uri);
-        let offset = u32::try_from(element.offset).ok()?;
-        instance.component_item(&path, offset, instance_index, i_slint_core::InternalToken)
+        let location = i_slint_compiler::object_tree::ElementLocation {
+            path: i_slint_compiler::source_path::SourcePath::from_url(&source_uri),
+            offset: u32::try_from(element.offset).ok()?.into(),
+        };
+        instance.component_item(&location, instance_index, i_slint_core::InternalToken)
     });
-    api.on_source_property_value_data(move |property_name, fallback| {
-        api_weak
+    properties_api.on_source_property_value_data(move |property_name, fallback| {
+        properties_api_weak
             .upgrade()
-            .and_then(|api| ui::source_property_value_data(&api, property_name))
+            .and_then(|properties_api| {
+                ui::source_property_value_data(&properties_api, property_name)
+            })
             .unwrap_or(fallback)
     });
-    api.on_has_property(move |property_name| {
-        has_property_api_weak
-            .upgrade()
-            .is_some_and(|api| ui::source_property_value_data(&api, property_name).is_some())
+    properties_api.on_has_property(move |property_name| {
+        has_property_api_weak.upgrade().is_some_and(|properties_api| {
+            ui::source_property_value_data(&properties_api, property_name).is_some()
+        })
     });
-    api.on_runtime_property_value_data(move |property_name, fallback| {
+    properties_api.on_hooked_property_value_data(move |property_name, fallback| {
+        let value = (|| {
+            let editor = hooked_editor_weak.upgrade()?;
+            editor.global::<ui::Hover>().get_preview_generation();
+            let api = hooked_api_weak.upgrade()?;
+            let properties_api = hooked_properties_api_weak.upgrade()?;
+            properties_api.get_inspector_generation();
+            let element = api.get_current_element();
+            let id = i_slint_compiler::object_tree::ElementProperty {
+                element: i_slint_compiler::object_tree::ElementLocation {
+                    path: i_slint_compiler::source_path::SourcePath::from_url(
+                        &Url::parse(element.source_uri.as_str()).ok()?,
+                    ),
+                    offset: u32::try_from(element.offset).ok()?.into(),
+                },
+                property: property_name.as_str().into(),
+            };
+            let overrides = crate::preview::PREVIEW_STATE
+                .with_borrow(|state| state.debug_hook_overrides.clone());
+            let mut overrides = (*overrides).borrow_mut();
+            let runtime = overrides
+                .entry(id)
+                .or_insert_with(|| Box::pin(i_slint_core::Property::new(None)))
+                .as_ref()
+                .get()?;
+            let mut result = runtime_property_value(Some(runtime.value), fallback.clone());
+            if let Some(expression) = runtime.expression {
+                result.code = expression.into();
+            }
+            if let Some(fill) = runtime.fill {
+                result.fill = fill;
+            }
+            Some(result)
+        })();
+        value.unwrap_or(fallback)
+    });
+    properties_api.on_runtime_property_value_data(move |property_name, fallback| {
         let runtime = selected_item
             .as_ref()
             .get()
@@ -130,8 +176,17 @@ fn runtime_property_value(
             ui::PropertyValueKind::Boolean
         }
         Value::Brush(brush) => {
+            property.fill = ui::brushes::fill_from_brush(brush.clone()).unwrap_or_default();
             property.value_brush = brush;
-            ui::PropertyValueKind::Brush
+            if fallback.value_kind == ui::PropertyValueKind::Color {
+                ui::PropertyValueKind::Color
+            } else {
+                ui::PropertyValueKind::Brush
+            }
+        }
+        Value::MouseCursorInner(i_slint_core::cursor::MouseCursorInner::BuiltIn(cursor)) => {
+            property.value_string = cursor.to_string().into();
+            ui::PropertyValueKind::Enum
         }
         Value::EnumerationValue(enumeration_name, value) => {
             let enumeration_type = i_slint_compiler::typeregister::TypeRegister::builtin()
@@ -563,6 +618,143 @@ mod tests {
     }
 
     #[test]
+    fn editor_property_values_preserve_fallbacks_without_preview_setup() {
+        use slint::ComponentHandle;
+
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = ui::create_ui().unwrap();
+        let properties_api = editor.global::<ui::Properties>();
+        let source = ui::PropertyValue {
+            code: "root.border".into(),
+            value_float: 12.0,
+            value_resolved: true,
+            value_kind: ui::PropertyValueKind::Float,
+            ..Default::default()
+        };
+        let source_value = source.clone();
+        properties_api.on_source_property_value_data(move |name, fallback| {
+            if name == "border-radius" { source_value.clone() } else { fallback }
+        });
+        assert_eq!(
+            properties_api.invoke_editor_property_value_data("border-radius".into()),
+            source
+        );
+        assert_eq!(
+            properties_api
+                .invoke_hooked_property_value_data("border-top-left-radius".into(), source.clone()),
+            source
+        );
+    }
+
+    #[test]
+    fn hooked_properties_follow_selection_overrides_and_preview_replacement() {
+        use crate::preview::{self, SelectionNotification, element_selection::ElementSelection};
+        use slint::ComponentHandle;
+        use slint_interpreter::Value;
+
+        let editor = preview::tests::availability_test_editor();
+        let api = editor.global::<ui::Api>();
+        let properties_api = editor.global::<ui::Properties>();
+        super::setup(&editor, &api);
+        let source = r#"export component Main inherits Window {
+            width: 300px;
+            height: 200px;
+            Rectangle { width: 40px; }
+            Rectangle { width: 60px; }
+        }"#;
+        preview::tests::apply_availability_test_source(&editor, source, true);
+        let path = i_slint_editor_preview::test::main_test_file_name();
+        let offsets = [source.find("Rectangle {").unwrap(), source.rfind("Rectangle {").unwrap()];
+        let select = |offset: usize| {
+            preview::element_selection::restore_selection(
+                ElementSelection {
+                    location: i_slint_compiler::object_tree::ElementLocation {
+                        path: path.clone(),
+                        offset: (offset as u32).into(),
+                    },
+                    instance_index: 0,
+                    editing_text: false,
+                },
+                SelectionNotification::Never,
+            );
+        };
+        let hook_id = |name: &str| {
+            let node = preview::PREVIEW_STATE
+                .with_borrow(|state| state.selected.clone())
+                .unwrap()
+                .as_element_node()
+                .unwrap();
+            node.property(name)
+        };
+        select(offsets[0]);
+        let source_width =
+            properties_api.invoke_source_property_value_data("width".into(), Default::default());
+        assert_eq!(source_width.value_float, 40.0);
+        let width = hook_id("width");
+        let absent = hook_id("test-absent-property");
+        preview::PREVIEW_STATE.with_borrow(|state| {
+            (*state.debug_hook_overrides).borrow_mut().remove(&absent);
+        });
+        let editor_weak = editor.as_weak();
+        let displayed = Box::pin(i_slint_core::Property::default());
+        displayed.as_ref().set_binding(move || {
+            editor_weak
+                .unwrap()
+                .global::<ui::Properties>()
+                .invoke_editor_property_value_data("width".into())
+        });
+        let editor_weak = editor.as_weak();
+        let missing = Box::pin(i_slint_core::Property::default());
+        missing.as_ref().set_binding(move || {
+            editor_weak
+                .unwrap()
+                .global::<ui::Properties>()
+                .invoke_editor_property_value_data("test-absent-property".into())
+        });
+        assert_eq!(displayed.as_ref().get(), source_width);
+        assert!(!missing.as_ref().get().value_resolved);
+        assert!(missing.as_ref().get().code.is_empty());
+        for (value, expected) in
+            [(Some(Value::Number(87.0)), 87.0), (Some(Value::Number(92.0)), 92.0), (None, 0.0)]
+        {
+            preview::set_override(&absent, value.clone());
+            let actual = missing.as_ref().get();
+            assert_eq!(actual.value_resolved, value.is_some());
+            assert_eq!(actual.value_float, expected);
+            assert_eq!(displayed.as_ref().get(), source_width);
+        }
+        preview::set_override(&width, Some(Value::Number(75.0)));
+        assert_eq!(displayed.as_ref().get().value_float, 75.0);
+        assert_eq!(
+            properties_api.invoke_source_property_value_data("width".into(), Default::default()),
+            source_width
+        );
+        select(offsets[1]);
+        assert_eq!(displayed.as_ref().get().value_float, 60.0);
+        select(offsets[0]);
+        assert_eq!(displayed.as_ref().get().value_float, 75.0);
+        preview::PREVIEW_STATE.with_borrow_mut(|state| state.reset_preview_overrides());
+        assert_eq!(
+            displayed.as_ref().get(),
+            properties_api.invoke_source_property_value_data("width".into(), Default::default())
+        );
+        preview::set_override(&width, Some(Value::Number(81.0)));
+        assert_eq!(displayed.as_ref().get().value_float, 81.0);
+        preview::tests::apply_availability_test_source(&editor, source, true);
+        select(offsets[0]);
+        assert_eq!(displayed.as_ref().get().value_float, 40.0);
+        preview::set_override(&hook_id("width"), Some(Value::Number(95.0)));
+        assert_eq!(displayed.as_ref().get().value_float, 95.0);
+        select(source.find("Window {").unwrap());
+        api.set_selection(ui::Selection { highlight_index: -1, ..api.get_selection() });
+        preview::set_override(&hook_id("width"), Some(Value::Number(350.0)));
+        assert_eq!(displayed.as_ref().get().value_float, 350.0);
+        preview::PREVIEW_STATE.with_borrow_mut(|state| state.clear_preview());
+        assert!(!displayed.as_ref().get().value_resolved);
+        assert!(displayed.as_ref().get().code.is_empty());
+    }
+
+    #[test]
     fn runtime_property_values_are_independent_of_source_and_preserve_fallbacks() {
         use slint_interpreter::Value;
         let source = property_conversion_test(
@@ -597,6 +789,14 @@ mod tests {
             fallback,
         );
         assert_eq!(alignment.value_int, 4);
+        let cursor = super::runtime_property_value(
+            Some(Value::MouseCursorInner(i_slint_core::cursor::MouseCursorInner::BuiltIn(
+                i_slint_core::items::BuiltInMouseCursor::Pointer,
+            ))),
+            Default::default(),
+        );
+        assert_eq!(cursor.value_kind, ui::PropertyValueKind::Enum);
+        assert_eq!(cursor.value_string, "pointer");
     }
 
     #[test]
@@ -619,9 +819,15 @@ export component Win inherits Window {
 }"#;
         let path = i_slint_compiler::source_path::SourcePath::new("/tmp/property-query.slint");
         let mut compiler = slint_interpreter::Compiler::default();
-        compiler.compiler_configuration(i_slint_core::InternalToken).debug_hooks =
-            Some(std::hash::RandomState::new());
-        let compiled = spin_on::spin_on(compiler.build_from_source_path(
+        compiler.set_overrides(
+            i_slint_compiler::project_file::Overrides {
+                debug_info: Some(true),
+                ..Default::default()
+            },
+            i_slint_core::InternalToken,
+        );
+        compiler.compiler_configuration(i_slint_core::InternalToken).debug_hooks = true;
+        let compiled = i_slint_compiler::poll_ready(compiler.build_from_source_path(
             Some(code.into()),
             path.clone(),
             i_slint_core::InternalToken,
@@ -630,8 +836,10 @@ export component Win inherits Window {
         let instance = compiled.components().next().unwrap().create().unwrap();
         let rectangle = instance
             .component_item(
-                &path,
-                code.find("Rectangle {").unwrap() as u32,
+                &i_slint_compiler::object_tree::ElementLocation {
+                    path: path.clone(),
+                    offset: (code.find("Rectangle {").unwrap() as u32).into(),
+                },
                 0,
                 i_slint_core::InternalToken,
             )
@@ -643,14 +851,16 @@ export component Win inherits Window {
             );
         }
         drop(rectangle);
-        let offset = code.find("Text {").unwrap() as u32;
+        let text = i_slint_compiler::object_tree::ElementLocation {
+            path: path.clone(),
+            offset: (code.find("Text {").unwrap() as u32).into(),
+        };
         for (index, color) in
             [slint::Color::from_rgb_u8(255, 0, 0), slint::Color::from_rgb_u8(0, 0, 255)]
                 .into_iter()
                 .enumerate()
         {
-            let item =
-                instance.component_item(&path, offset, index, i_slint_core::InternalToken).unwrap();
+            let item = instance.component_item(&text, index, i_slint_core::InternalToken).unwrap();
             assert_eq!(
                 slint_interpreter::ComponentInstance::item_property(
                     &item,
@@ -671,16 +881,11 @@ export component Win inherits Window {
             let current_instance = current_instance.clone();
             let generation = generation.clone();
             let lookups = lookups.clone();
-            let path = path.clone();
+            let text = text.clone();
             super::selected_item_cache(move || {
                 generation.as_ref().get();
                 lookups.set(lookups.get() + 1);
-                current_instance.borrow().component_item(
-                    &path,
-                    offset,
-                    1,
-                    i_slint_core::InternalToken,
-                )
+                current_instance.borrow().component_item(&text, 1, i_slint_core::InternalToken)
             })
         };
         assert!(cache.as_ref().get().upgrade().is_some());
@@ -699,7 +904,7 @@ export component Win inherits Window {
         assert_eq!(lookups.get(), 3);
         drop(item);
         let old_item = cache.as_ref().get();
-        let compiled = spin_on::spin_on(compiler.build_from_source_path(
+        let compiled = i_slint_compiler::poll_ready(compiler.build_from_source_path(
             Some(code.replace("Test Family", "Next Family")),
             path,
             i_slint_core::InternalToken,
@@ -1487,6 +1692,46 @@ export component Test { in property <Foobar> test1; }"#,
             0,
         );
         assert_eq!(result.kind, ui::PropertyValueKind::Code);
+    }
+
+    #[test]
+    fn inspector_boolean_source_defaults() {
+        let source = r#"
+import { Button, CheckBox, LineEdit, ProgressIndicator, ScrollView } from "std-widgets.slint";
+export component Main inherits Window {
+    Button { /*button*/ }
+    CheckBox { /*checked*/ }
+    LineEdit { /*read-only*/ }
+    ProgressIndicator { /*indeterminate*/ }
+    Text { /*font-italic*/ }
+    ScrollView { /*mouse-drag-pan*/ }
+    Flickable { /*flickable-drag-pan*/ }
+}"#;
+        let (document_cache, url, _) = loaded_document_cache(source.into());
+        for (marker, property_name, expected) in [
+            ("button", "enabled", true),
+            ("button", "checkable", false),
+            ("checked", "checked", false),
+            ("read-only", "read-only", false),
+            ("indeterminate", "indeterminate", false),
+            ("font-italic", "font-italic", false),
+            ("mouse-drag-pan", "mouse-drag-pan-enabled", false),
+            ("flickable-drag-pan", "mouse-drag-pan-enabled", true),
+        ] {
+            let element = document_cache
+                .element_at_offset(
+                    &url,
+                    (source.find(&format!("/*{marker}*/")).unwrap() as u32).into(),
+                )
+                .unwrap();
+            let properties = properties::get_properties(&element, properties::LayoutKind::None);
+            let property =
+                properties.iter().find(|property| property.name == property_name).unwrap();
+            let value =
+                super::map_property_to_ui(&document_cache, &element.element, property, None).0;
+            assert_eq!(value.value_kind, ui::PropertyValueKind::Boolean, "{property_name}");
+            assert_eq!(value.value_bool, expected, "{property_name}");
+        }
     }
 
     #[test]

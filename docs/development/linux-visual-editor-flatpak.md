@@ -7,8 +7,7 @@ This will become part of the docs later, but for now, this is a placeholder.
 ## CI entry point
 
 `.github/workflows/visual_editor_linux_flatpak.yaml` builds the app for x86_64
-and aarch64. It runs on pull requests against the `visual-editor` branch, on
-manual dispatch, and as a reusable workflow.
+and aarch64. It runs on manual dispatch and as a reusable workflow.
 
 `.github/workflows/visual_editor_nightly.yaml` calls it once a night alongside
 the macOS build, and publishes the result. The two platforms publish from

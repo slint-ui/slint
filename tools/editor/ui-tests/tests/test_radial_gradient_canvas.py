@@ -583,6 +583,77 @@ def test_ellipse_center_and_stop_save_with_history(
         assert moved.y == pytest.approx(c.y + 23, abs=0.001)
 
 
+@pytest.mark.parametrize("initial_rotation,parent_rotation", [(45, 0), (405, 25)])
+def test_radial_rotation_uses_rendered_local_angle_for_unresolved_binding(
+    editor_binary, editor_environment, tmp_path, initial_rotation, parent_rotation
+):
+    source = tmp_path / "BoundRotation.slint"
+    source.write_text(f"""export component BoundRotation inherits Window {{
+    width: 400px;
+    height: 400px;
+    for rotation in [{initial_rotation}deg]: Rectangle {{
+        width: 400px;
+        height: 400px;
+        transform-rotation: {parent_rotation}deg;
+        fill := Rectangle {{
+            x: 100px;
+            y: 100px;
+            width: 200px;
+            height: 200px;
+            transform-rotation: rotation;
+            background: @radial-gradient(circle 80px, red 0%, blue 100%);
+        }}
+    }}
+}}
+""")
+    baseline = source.read_bytes()
+    snapshot = SourceSnapshot.capture(tmp_path)
+    with launch_editor(editor_binary, editor_environment, source) as editor:
+        wait_for_source(source, baseline)
+        window = first_window(editor)
+        open_radial(window)
+        move_picker_to_files(window, "main")
+        rendered_angle = (initial_rotation + parent_rotation) % 360
+        pivot = center(control(window, "Gradient center handle"), rendered_angle)
+        handle = center(
+            control(window, "Gradient radius X and rectangle rotation handle"),
+            rendered_angle,
+        )
+        radius = math.hypot(handle.x - pivot.x, handle.y - pivot.y)
+        target_angle = math.radians(rendered_angle + 10)
+        gesture(
+            window,
+            handle,
+            shifted(
+                pivot,
+                x=radius * math.cos(target_angle),
+                y=radius * math.sin(target_angle),
+            ),
+        )
+        expect.poll(
+            lambda: float(
+                control(
+                    window, "Rotation", slint_testing.AccessibleRole.TextInput
+                ).accessible_value
+            )
+        ).to_equal(pytest.approx((initial_rotation + 10) % 360, abs=0.001))
+        snapshot.assert_unchanged_now()
+        click(window, "Close Fill")
+        saved = wait_for_source_change(source, baseline)
+        rotation_match = re.search(
+            rb"transform-rotation: ([0-9.]+)deg", saved[saved.index(b"fill :=") :]
+        )
+        assert rotation_match is not None
+        assert float(rotation_match.group(1)) == pytest.approx(
+            initial_rotation + 10, abs=0.001
+        )
+        snapshot.wait_for_applied(saved, source.name)
+        press_shortcut(window, keys.Control, "z")
+        snapshot.wait_for_applied(baseline, source.name)
+        press_shortcut(window, keys.Control, keys.Shift, "z")
+        snapshot.wait_for_applied(saved, source.name)
+
+
 def test_radial_endpoint_rotation_saves_rectangle_and_noop_does_not_write_source(
     editor_binary, editor_environment, radial_scene, tmp_path
 ):

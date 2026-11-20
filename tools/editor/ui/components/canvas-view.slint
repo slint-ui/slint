@@ -59,6 +59,8 @@ export global CanvasView {
     // Position of the selected element while arrow keys move it, until `selection` catches up.
     in-out property <bool> nudging;
     in-out property <Point> nudge-position;
+    in-out property <Point> pointer;
+    in-out property <bool> pointer-inside;
     out property <bool> navigation-enabled: !self.manipulating && !AppState.has-active-drag();
     public pure function canvas-origin(size: Size) -> Point {
         return {

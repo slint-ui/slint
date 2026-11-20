@@ -3,11 +3,11 @@
 
 [package]
 name = "slint-build"
-description = "Helper for Slint build script"
+description = "Compile .slint UI files to Rust code from a Cargo build script"
 authors.workspace = true
 edition = "2024"
 homepage = "https://slint.rs"
-keywords.workspace = true
+keywords = ["gui", "ui", "build-script", "codegen"]
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
@@ -47,7 +47,6 @@ experimental-module-builds = ["i-slint-compiler/experimental-library-module"]
 [dependencies]
 i-slint-compiler = { workspace = true, features = ["default", "rust", "display-diagnostics", "bundle-translations"] }
 
-spin_on = { workspace = true }
 toml_edit = { workspace = true }
 derive_more = { workspace = true, features = ["std", "error"] }
 

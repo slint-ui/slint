@@ -415,7 +415,11 @@ pub enum Expression {
     /// Only present when the `debug_hooks` compiler option is enabled.
     DebugHook {
         expression: Box<Expression>,
-        id: SmolStr,
+        // Not serialized: a reader without `std` has no such field,
+        // and the editors, which enable the debug hooks, don't serialize the LLR.
+        #[cfg(feature = "std")]
+        #[cfg_attr(feature = "serde", serde(skip))]
+        id: crate::object_tree::ElementProperty,
     },
 }
 
@@ -579,7 +583,14 @@ impl Expression {
             Self::BinaryExpression { lhs, rhs: _, op } => binary_expression_ty(*op, || lhs.ty(ctx)),
             Self::UnaryOp { sub, .. } => sub.ty(ctx),
             Self::ImageReference { .. } => Type::Image,
-            Self::Condition { false_expr, .. } => false_expr.ty(ctx),
+            Self::Condition { false_expr, .. } => {
+                // A condition has the type of its false branch: loop through `else if` chains.
+                let mut expr = &**false_expr;
+                while let Self::Condition { false_expr, .. } = expr {
+                    expr = false_expr;
+                }
+                expr.ty(ctx)
+            }
             Self::Array { element_ty, .. } => Type::Array(element_ty.clone().into()),
             Self::Struct { ty, .. } => ty.clone().into(),
             Self::EasingCurve(_) => Type::Easing,
@@ -823,7 +834,7 @@ macro_rules! visit_impl {
                 $visitor(expression);
             }
             Expression::DashArray(_) => {}
-            Expression::DebugHook { expression, id: _ } => $visitor(expression),
+            Expression::DebugHook { expression, .. } => $visitor(expression),
         }
     };
 }
@@ -1364,6 +1375,14 @@ impl ContextMap {
             | Expression::GridRepeaterCacheAccess { layout_cache_prop: p, .. } => {
                 *p = self.map_property_reference(p);
             }
+            Expression::ModelDataAssignment { level, .. } => match self {
+                ContextMap::Identity => (),
+                ContextMap::InSubElement { path, parent } => {
+                    assert!(path.is_empty());
+                    *level += *parent;
+                }
+                ContextMap::InGlobal(_) => unreachable!(),
+            },
             _ => (),
         }
         e.visit_mut(|e| self.map_expression(e))

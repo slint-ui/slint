@@ -137,6 +137,37 @@ def test_preview_reload_updates_hover_target_without_pointer_motion(
         )
 
 
+def test_stale_preview_clears_hover_when_pointer_leaves(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source = fixture_project / "Main.slint"
+    baseline = source.read_bytes()
+    with launch_editor(editor_binary, editor_environment, source) as editor:
+        window = first_window(editor)
+        wait_for_source(source, baseline)
+        select_fixture_element(window, "Rectangle")
+        hover_rectangle(window)
+
+        source.write_bytes(baseline + b"\nbroken")
+        element(window, "Stale preview", role=slint_testing.AccessibleRole.Region)
+        artboard = element(window, "Artboard")
+        window.dispatch_event(
+            slint_testing.PointerMoveEvent(
+                slint_testing.LogicalPosition(
+                    x=artboard.absolute_position.x - 12,
+                    y=artboard.absolute_position.y - 12,
+                )
+            )
+        )
+
+        source.write_bytes(baseline)
+        wait_for_source(source, baseline)
+        element(window, "Selected Rectangle", role=slint_testing.AccessibleRole.Region)
+        assert not elements(window, "Hovered Rectangle")
+
+
 @pytest.mark.parametrize(
     "state",
     ["outside", "resize top-left", "rotate top-left", "radius top-left", "pressed"],

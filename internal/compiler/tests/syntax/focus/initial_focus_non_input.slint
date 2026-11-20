@@ -2,8 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 
-export X := Rectangle {
-//       ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+export component X inherits Rectangle {
     forward-focus: someRect;
 //                 >       <error{Cannot forward focus to unfocusable element}
 
@@ -34,8 +33,7 @@ export X := Rectangle {
 
 
 
-export Y := FocusScope {
-//       ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+export component Y inherits FocusScope {
     forward-focus: self;
 //                 >   <error{forward-focus can't refer to itself}
     x:= X { }

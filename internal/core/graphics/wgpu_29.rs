@@ -53,7 +53,10 @@ pub mod api {
 
         /// The label for the device. This is used to identify the device in debugging tools.
         pub device_label: Option<std::borrow::Cow<'static, str>>,
-        /// The required features for the device.
+        /// The features that your application requires.
+        /// If the adapter lacks one of them, creating the device fails.
+        /// Slint also enables every other non-experimental feature that the adapter supports.
+        /// To use an optional feature, check that [`wgpu::Device::features()`] contains it.
         pub device_required_features: wgpu_29::Features,
         /// The required limits for the device.
         pub device_required_limits: wgpu_29::Limits,
@@ -291,7 +294,8 @@ fn device_descriptor_from_settings<'a>(
 ) -> wgpu::DeviceDescriptor<'a> {
     wgpu::DeviceDescriptor {
         label: settings.device_label.as_deref(),
-        required_features: settings.device_required_features,
+        required_features: settings.device_required_features
+            | (adapter.features() - wgpu::Features::all_experimental_mask()),
         // support images the size of the swapchain
         required_limits: settings.device_required_limits.clone().using_resolution(adapter.limits()),
         experimental_features: settings.device_experimental_features,
@@ -532,8 +536,10 @@ pub fn init_instance_adapter_device_queue_surface_then(
     }
 }
 
-// Helper function to poll a future once. Remove once the suspension API uses async.
-fn poll_once<F: std::future::Future>(future: F) -> Option<F::Output> {
+/// Polls `future` once, which is all a wgpu future needs on native platforms.
+/// `None` if it isn't ready.
+#[doc(hidden)]
+pub fn poll_once<F: std::future::Future>(future: F) -> Option<F::Output> {
     let waker = std::task::Waker::noop();
     let mut ctx = std::task::Context::from_waker(waker);
 

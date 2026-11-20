@@ -1,0 +1,5 @@
+{
+  "$schema": 42,
+//            |error{invalid type: integer `42`, expected a string}
+  "edition": "1.20"
+}

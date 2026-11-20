@@ -11,7 +11,7 @@ import slint
 from slint import Color, ListModel, Timer, TimerMode
 
 
-class MainWindow(slint.loader.memory.MainWindow):
+class MainWindow(slint.loader.slint_project.MainWindow):
     def __init__(self):
         super().__init__()
         initial_tiles = self.memory_tiles

@@ -1,0 +1,87 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A touch the system cancels, such as Android's back gesture, is not a click (#14876)
+
+export component TestCase inherits Window {
+    width: 200phx;
+    height: 200phx;
+
+    plain := TouchArea {
+        y: 0;
+        height: 100phx;
+        clicked => {
+            root.plain-clicks += 1;
+        }
+        double-clicked => {
+            root.double-clicks += 1;
+        }
+    }
+
+    Flickable {
+        y: 100phx;
+        height: 100phx;
+        viewport-height: 1000phx;
+
+        flicked := TouchArea {
+            clicked => {
+                root.flicked-clicks += 1;
+            }
+            double-clicked => {
+                root.double-clicks += 1;
+            }
+        }
+    }
+
+    out property <int> plain-clicks;
+    out property <bool> plain-pressed: plain.pressed;
+    out property <int> flicked-clicks;
+    out property <bool> flicked-pressed: flicked.pressed;
+    out property <int> double-clicks;
+}
+
+/*
+
+```rust
+use slint::platform::WindowEvent;
+use slint_testing::{InternalEvent, LogicalPoint, TouchPhase};
+let instance = TestCase::new().unwrap();
+
+let touch = |y: f32, phase: TouchPhase| {
+    instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 0, position: LogicalPoint::new(50.0, y), phase, event_time: None, history: Default::default() }));
+};
+
+touch(50.0, TouchPhase::Started);
+assert!(instance.get_plain_pressed());
+touch(50.0, TouchPhase::Cancelled);
+assert!(!instance.get_plain_pressed());
+assert_eq!(instance.get_plain_clicks(), 0);
+
+// The cancelled touch doesn't count towards a double click either
+touch(50.0, TouchPhase::Started);
+touch(50.0, TouchPhase::Ended);
+assert_eq!(instance.get_plain_clicks(), 1);
+assert_eq!(instance.get_double_clicks(), 0);
+
+// Cancelled while the Flickable still holds back the press: the press isn't replayed later
+touch(150.0, TouchPhase::Started);
+touch(150.0, TouchPhase::Cancelled);
+slint_testing::mock_elapsed_time(500);
+assert!(!instance.get_flicked_pressed());
+assert_eq!(instance.get_flicked_clicks(), 0);
+
+// Cancelled after the Flickable forwarded the press
+touch(150.0, TouchPhase::Started);
+slint_testing::mock_elapsed_time(500);
+assert!(instance.get_flicked_pressed());
+touch(150.0, TouchPhase::Cancelled);
+assert!(!instance.get_flicked_pressed());
+assert_eq!(instance.get_flicked_clicks(), 0);
+
+touch(150.0, TouchPhase::Started);
+touch(150.0, TouchPhase::Ended);
+assert_eq!(instance.get_flicked_clicks(), 1);
+assert_eq!(instance.get_double_clicks(), 0);
+```
+
+*/

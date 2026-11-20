@@ -68,6 +68,16 @@ impl SourcePath {
         }
     }
 
+    /// The URL of `self` taken as a directory, which ends with `/`.
+    /// Returns `None` for a relative `File`.
+    pub fn to_directory_url(&self) -> Option<url::Url> {
+        match self {
+            #[cfg(not(target_arch = "wasm32"))]
+            Self::File(path) => url::Url::from_directory_path(path).ok(),
+            _ => self.join(".")?.to_url(),
+        }
+    }
+
     /// The inverse of [`Self::new`], with a URL stored as its string.
     #[deprecated(note = "A URL isn't a path: only for public APIs that take a `Path`")]
     pub fn to_legacy_path(&self) -> PathBuf {
@@ -79,6 +89,15 @@ impl SourcePath {
 
     pub fn exists(&self) -> bool {
         self.as_native_path().is_some_and(Path::exists)
+    }
+
+    /// Whether `self` is a file on the disk, or the error that prevents checking it.
+    /// A `Url` or a `Builtin` isn't on the disk, and neither is anything on wasm.
+    pub fn try_exists_locally(&self) -> std::io::Result<bool> {
+        match self.as_native_path() {
+            Some(path) if !cfg!(target_arch = "wasm32") => path.try_exists(),
+            _ => Ok(false),
+        }
     }
 
     pub fn is_builtin(&self) -> bool {
@@ -116,10 +135,15 @@ impl SourcePath {
         }
     }
 
+    /// The directory that contains `self`, or `self` at the root.
+    /// A URL that ends with `/` names a directory, whose parent is the directory above.
     pub fn parent(&self) -> Self {
         match self {
             Self::File(path) => Self::File(path.parent().unwrap_or(path).to_owned()),
-            _ => self.to_url().and_then(|url| url.join(".").ok()).map_or(self.clone(), Self::from),
+            _ => self
+                .to_url()
+                .and_then(|url| url.join(if url.path().ends_with('/') { ".." } else { "." }).ok())
+                .map_or(self.clone(), Self::from),
         }
     }
 
@@ -159,9 +183,39 @@ impl SourcePath {
         name.rsplit('/').next().filter(|name| !name.is_empty())
     }
 
+    /// The number of named directories and files in the path, so a file is one deeper than its directory.
+    /// The root, a drive, a host, and a trailing `/` don't count.
+    pub fn depth(&self) -> usize {
+        match self {
+            Self::File(path) => path
+                .components()
+                .filter(|component| matches!(component, Component::Normal(_)))
+                .count(),
+            Self::Builtin(path) => path.split('/').filter(|segment| !segment.is_empty()).count(),
+            Self::Url(url) => url
+                .path_segments()
+                .map_or(0, |segments| segments.filter(|segment| !segment.is_empty()).count()),
+        }
+    }
+
     pub fn extension(&self) -> Option<&str> {
         let (stem, extension) = self.file_name()?.rsplit_once('.')?;
         (!stem.is_empty()).then_some(extension)
+    }
+
+    /// The path of `self` from the directory `base`, starting with `..` if `self` is outside of it.
+    /// A relative `self` is taken as relative to `base`.
+    ///
+    /// Returns `None` unless both are a `File` with a common root.
+    /// Two drives on Windows have none.
+    pub fn relative_to(&self, base: &Self) -> Option<Self> {
+        let (Self::File(path), Self::File(base)) = (self, base) else { return None };
+        let path = clean_path(&base.join(path));
+        let common = path.components().zip(base.components()).take_while(|(a, b)| a == b).count();
+        (common > 0).then(|| {
+            let parents = base.components().skip(common).map(|_| Component::ParentDir);
+            Self::File(parents.chain(path.components().skip(common)).collect())
+        })
     }
 }
 
@@ -290,6 +344,57 @@ mod tests {
     }
 
     #[test]
+    fn depths() {
+        for (path, depth) in [
+            ("/", 0),
+            ("/ui/main.slint", 2),
+            ("ui/main.slint", 2),
+            ("builtin:/fluent/button.slint", 2),
+            ("https://slint.dev/", 0),
+            ("https://slint.dev/ui/", 1),
+            ("https://slint.dev/ui/main.slint", 2),
+        ] {
+            assert_eq!(SourcePath::new(path).depth(), depth, "{path}");
+        }
+        assert_eq!(SourcePath::new("https://slint.dev/ui/").parent().depth(), 0);
+    }
+
+    #[test]
+    fn exists_only_on_the_disk() {
+        assert!(SourcePath::new(env!("CARGO_MANIFEST_DIR")).try_exists_locally().unwrap());
+        assert!(!SourcePath::new("/does/not/exist").try_exists_locally().unwrap());
+        assert!(!SourcePath::new("https://slint.dev/").try_exists_locally().unwrap());
+        assert!(!SourcePath::new("builtin:/fluent/button.slint").try_exists_locally().unwrap());
+    }
+
+    #[test]
+    fn directory_urls() {
+        let (dir, dir_url) =
+            if cfg!(windows) { ("C:/ui", "file:///C:/ui/") } else { ("/ui", "file:///ui/") };
+        for (path, url) in [
+            (dir.to_string(), dir_url),
+            (format!("{dir}/"), dir_url),
+            ("https://slint.dev/ui".into(), "https://slint.dev/ui/"),
+            ("https://slint.dev/ui/".into(), "https://slint.dev/ui/"),
+        ] {
+            assert_eq!(SourcePath::new(&path).to_directory_url().unwrap().as_str(), url, "{path}");
+        }
+    }
+
+    #[test]
+    fn parents() {
+        for (path, parent) in [
+            ("/ui/main.slint", "/ui"),
+            ("/", "/"),
+            ("https://slint.dev/ui/main.slint", "https://slint.dev/ui/"),
+            ("https://slint.dev/ui/", "https://slint.dev/"),
+            ("https://slint.dev/", "https://slint.dev/"),
+        ] {
+            assert_eq!(SourcePath::new(path).parent(), SourcePath::new(parent), "{path}");
+        }
+    }
+
+    #[test]
     fn joins() {
         assert_eq!(
             join("builtin:/fluent/button.slint", "../common/x.svg"),
@@ -358,6 +463,28 @@ mod tests {
         }
         assert_eq!(join("ui/main.slint", "sub\\x.slint"), SourcePath::new("ui/sub/x.slint"));
         assert_eq!(join("/ui/main.slint", "\\abs\\x.slint"), SourcePath::new("/abs/x.slint"));
+    }
+
+    #[test]
+    fn relative_paths() {
+        let relative_to =
+            |path: &str, base: &str| SourcePath::new(path).relative_to(&SourcePath::new(base));
+        for (path, base, relative) in [
+            ("/a/b/c.slint", "/a", "b/c.slint"),
+            ("/a/c.slint", "/a/b", "../c.slint"),
+            ("/x/c.slint", "/a/b", "../../x/c.slint"),
+            ("/ab/c.slint", "/a", "../ab/c.slint"),
+            ("c.slint", "/a", "c.slint"),
+            ("../c.slint", "/a/b", "../c.slint"),
+        ] {
+            assert_eq!(relative_to(path, base), Some(SourcePath::new(relative)), "{path} {base}");
+        }
+        assert_eq!(relative_to("/a", "b"), None);
+        assert_eq!(relative_to("builtin:/a.slint", "/a"), None);
+        assert_eq!(relative_to("https://slint.dev/a.slint", "/a"), None);
+        assert_eq!(relative_to("/a", "https://slint.dev/"), None);
+        #[cfg(windows)]
+        assert_eq!(relative_to("D:/a.slint", "C:/a"), None);
     }
 
     /// The remote preview asks the editor for imports by the URL it derives back (#13674).

@@ -760,7 +760,7 @@ fn eval_constant_expression(expr: &ConstantExpression) -> Value {
 fn cast_constant_value(value: Value, to: &Type) -> Value {
     debug_assert!(*to != Type::String, "struct field defaults reject casts to string");
     match (value, to) {
-        (Value::Number(n), Type::Int32) => Value::Number(n.trunc()),
+        (Value::Number(n), Type::Int32) => Value::Number(n as i32 as f64),
         (Value::Number(n), Type::Color) => Color::from_argb_encoded(n as u32).into(),
         (Value::Brush(brush), Type::Color) => brush.color().into(),
         (v, _) => v,
@@ -876,7 +876,7 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
             }
             let v = eval_expression(ctx, from);
             match (v, to) {
-                (Value::Number(n), Type::Int32) => Value::Number(n.trunc()),
+                (Value::Number(n), Type::Int32) => Value::Number(n as i32 as f64),
                 (Value::Number(n), Type::String) => {
                     Value::String(component_context(ctx).format_number(n))
                 }
@@ -1188,12 +1188,15 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
         Expression::DashArray(dash_array) => {
             Value::ArrayOfCoord(SharedVector::from_slice(dash_array))
         }
+        #[cfg(feature = "std")]
         Expression::DebugHook { expression, id } => {
             if let Some(hook_value) = crate::debug_hook::trigger_debug_hook(ctx, id) {
                 return hook_value;
             }
             eval_expression(ctx, expression)
         }
+        #[cfg(not(feature = "std"))]
+        Expression::DebugHook { expression } => eval_expression(ctx, expression),
     }
 }
 
@@ -1852,12 +1855,23 @@ fn eval_stops(ctx: &mut EvalContext, stops: &[(Expression, Expression)]) -> Vec<
         .collect()
 }
 
-#[cfg_attr(not(feature = "internal-mcu-interpreter"), allow(unused_variables))]
+#[cfg_attr(
+    not(any(feature = "internal-mcu-interpreter", feature = "std")),
+    allow(unused_variables)
+)]
 fn load_image_reference(
     resource_ref: &i_slint_compiler::expression_types::ImageReference,
     ctx: &EvalContext,
 ) -> i_slint_core::graphics::Image {
     use i_slint_compiler::expression_types::ImageReference as Ref;
+    #[cfg(feature = "std")]
+    if i_slint_core::IMAGE_DECODERS_ENABLED
+        && let Ref::Source(path) = resource_ref
+        && let Some(globals) = ctx.globals.upgrade()
+        && let Some(image) = globals.resources.images.get(path)
+    {
+        return image.clone();
+    }
     let image: Result<_, i_slint_core::graphics::LoadImageError> = match resource_ref {
         Ref::None => Ok(Default::default()),
         #[cfg(feature = "std")]
@@ -2336,8 +2350,9 @@ fn call_builtin_function(
             Value::Void
         })(),
         BuiltinFunction::UpdateTimers => {
-            // Timers react to property changes through the change trackers
-            // installed in `bindings::install_timers`; nothing to do here.
+            if let Some(sub) = &ctx.current {
+                crate::bindings::update_timers(sub);
+            }
             Value::Void
         }
         BuiltinFunction::RestartTimer => (|| {

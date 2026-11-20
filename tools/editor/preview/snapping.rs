@@ -3,6 +3,7 @@
 
 use std::ops::RangeInclusive;
 
+use i_slint_compiler::object_tree::ElementLocation;
 use i_slint_compiler::source_path::SourcePath;
 use i_slint_core::{
     graphics::euclid::approxeq::ApproxEq,
@@ -76,10 +77,10 @@ struct SnapTargets {
     targets: Vec<SnapTarget>,
 }
 
-fn collect_targets(path: &SourcePath, offset: u32, instance_index: usize) -> Option<SnapTargets> {
+fn collect_targets(location: &ElementLocation, instance_index: usize) -> Option<SnapTargets> {
     let instance = super::component_instance()?;
     let geometry =
-        instance.snapping_geometry(path, offset, instance_index, i_slint_core::InternalToken)?;
+        instance.snapping_geometry(location, instance_index, i_slint_core::InternalToken)?;
     let mut targets: Vec<SnapTarget> = Vec::new();
     for occurrence in geometry.occurrences {
         if !matches!(
@@ -170,7 +171,7 @@ fn selected_geometry() -> Option<slint_interpreter::highlight::HighlightedRect> 
 
 fn selected_targets() -> Option<SnapTargets> {
     let selection = super::selected_element()?;
-    collect_targets(&selection.path, selection.offset.into(), selection.instance_index)
+    collect_targets(&selection.location, selection.instance_index)
 }
 
 fn logical_rect(geometry: &ui::Geometry) -> LogicalRect {
@@ -604,14 +605,23 @@ export component Main inherits Window {
         (declaration + format!("{id} := ").len()) as u32
     }
 
+    fn location(offset: u32) -> ElementLocation {
+        ElementLocation {
+            path: i_slint_editor_preview::test::main_test_file_name(),
+            offset: offset.into(),
+        }
+    }
+
     fn install_selection(id: &str, instance_index: usize) -> slint_interpreter::ComponentInstance {
+        PREVIEW_STATE.with_borrow_mut(|state| *state = Default::default());
         let instance = crate::preview::test::interpret_test("fluent", SOURCE);
         PREVIEW_STATE.with_borrow_mut(|state| {
-            *state = Default::default();
             state.handle.replace(Some(instance.clone_strong()));
             state.selected = Some(ElementSelection {
-                path: i_slint_editor_preview::test::main_test_file_name(),
-                offset: offset(id).into(),
+                location: i_slint_compiler::object_tree::ElementLocation {
+                    path: i_slint_editor_preview::test::main_test_file_name(),
+                    offset: offset(id).into(),
+                },
                 instance_index,
                 editing_text: false,
             });
@@ -673,8 +683,12 @@ export component Main inherits Window {
         let _instance = install_selection("selected", 0);
         let targets = selected_targets().expect("selected targets");
         assert_eq!(targets.targets.len(), 36);
-        let path = i_slint_editor_preview::test::main_test_file_name();
-        assert!(targets.targets.iter().all(|target| target.path == path));
+        assert!(
+            targets
+                .targets
+                .iter()
+                .all(|target| target.path == i_slint_editor_preview::test::main_test_file_name())
+        );
         for (id, origin, size) in
             [("container", (0., 0.), (300., 200.)), ("sibling", (90., 60.), (50., 20.))]
         {
@@ -697,8 +711,7 @@ export component Main inherits Window {
     #[test]
     fn repeated_targets_have_live_coordinates_and_exclude_all_selected_occurrences() {
         let _instance = install_selection("selected", 0);
-        let path = i_slint_editor_preview::test::main_test_file_name();
-        let targets = collect_targets(&path, offset("selected"), 0).expect("targets");
+        let targets = collect_targets(&location(offset("selected")), 0).expect("targets");
         for instance_index in 0..2 {
             let rectangle = targets
                 .targets
@@ -708,7 +721,7 @@ export component Main inherits Window {
                 })
                 .collect::<Vec<_>>();
             assert_rectangle(&rectangle, (10. + instance_index as f32 * 60., 120.), (30., 20.));
-            let selected = collect_targets(&path, offset("repeated"), instance_index)
+            let selected = collect_targets(&location(offset("repeated")), instance_index)
                 .expect("repeated selection targets");
             assert!(selected.targets.iter().all(|target| target.offset != offset("repeated")));
             assert_eq!(selected.targets.len(), 30);
@@ -718,9 +731,8 @@ export component Main inherits Window {
     #[test]
     fn component_source_and_use_site_share_one_runtime_target() {
         let instance = install_selection("selected", 0);
-        let path = i_slint_editor_preview::test::main_test_file_name();
         let definition_offset = SOURCE.find("Rectangle {}").unwrap() as u32;
-        let geometries = instance.component_positions(&path, definition_offset);
+        let geometries = instance.component_positions(&location(definition_offset));
         assert_eq!(geometries.len(), 2);
         let targets = selected_targets().expect("targets");
         for (instance_index, id, origin, size) in
@@ -730,7 +742,7 @@ export component Main inherits Window {
                 geometries[instance_index].local_rect.origin,
                 LogicalPoint::new(origin.0, origin.1)
             );
-            assert_eq!(instance.component_positions(&path, offset(id)).len(), 1);
+            assert_eq!(instance.component_positions(&location(offset(id))).len(), 1);
             let rectangle = targets
                 .targets
                 .iter()
@@ -742,12 +754,12 @@ export component Main inherits Window {
                 .collect::<Vec<_>>();
             assert_rectangle(&rectangle, origin, size);
             let selected =
-                collect_targets(&path, offset(id), 0).expect("use site selection targets");
+                collect_targets(&location(offset(id)), 0).expect("use site selection targets");
             assert!(selected.targets.iter().all(|target| target.offset != offset(id)
                 && !(target.offset == definition_offset
                     && target.instance_index == instance_index)));
             assert_eq!(selected.targets.len(), 36);
-            let selected = collect_targets(&path, definition_offset, instance_index)
+            let selected = collect_targets(&location(definition_offset), instance_index)
                 .expect("component source selection targets");
             assert!(selected.targets.iter().all(|target| {
                 ![definition_offset, offset("tile"), offset("other_tile")].contains(&target.offset)

@@ -452,7 +452,9 @@ fn build_and_snapshot(
     screenshot_path: &Path,
 ) -> Result<()> {
     let compiler = init_compiler(args);
-    let r = spin_on::spin_on(compiler.build_from_source(source, doc_file_path.to_path_buf()));
+    let r = i_slint_compiler::poll_ready(
+        compiler.build_from_source(source, doc_file_path.to_path_buf()),
+    );
     r.print_diagnostics();
     if r.has_errors() {
         return Err("Compile error".into());

@@ -122,7 +122,7 @@ impl Item for NativeProgressIndicator {
         FocusEventResult::FocusIgnored
     }
 
-    fn_render! { this dpr size painter widget initial_state =>
+    fn_render! { this size painter widget initial_state =>
         let indeterminate = this.indeterminate();
         let progress = if indeterminate { -1 } else { (this.progress().clamp(0.0, 1.0) * 100.) as i32 };
 
@@ -131,14 +131,13 @@ impl Item for NativeProgressIndicator {
             widget as "QWidget*",
             size as "QSize",
             progress as "int",
-            dpr as "float",
             initial_state as "int"
         ] {
             QPainter *painter_ = painter->get();
             QStyleOptionProgressBar option;
             option.styleObject = widget;
             option.state |= QStyle::State(initial_state) | QStyle::State_Horizontal |  QStyle::State_Enabled;
-            option.rect = QRect(QPoint(), size / dpr);
+            option.rect = QRect(QPoint(), size);
             option.maximum = progress < 0 ? 0 : 100;
             option.minimum = 0;
             option.progress = progress;

@@ -23,6 +23,7 @@ mod models;
 mod styled_text;
 mod timer;
 mod value;
+mod window;
 use i_slint_core::translations::Translator;
 
 fn handle_unraisable(py: Python<'_>, context: String, err: PyErr) {
@@ -92,6 +93,13 @@ fn init_translations(_py: Python<'_>, translations: Bound<PyAny>) -> PyResult<()
     })
     .map_err(|e| errors::PyPlatformError(e))?;
     Ok(())
+}
+
+/// Replaces the system fonts with embedded fonts, for text layout that is the same on every host.
+#[cfg(feature = "backend-testing")]
+#[pyfunction]
+fn _configure_test_fonts() {
+    i_slint_backend_testing::configure_test_fonts();
 }
 
 /// Returns the list of optional capabilities that were compiled into the loaded
@@ -208,6 +216,7 @@ fn register_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<ComponentInstance>()?;
     m.add_class::<ComponentDefinition>()?;
     m.add_class::<image::PyImage>()?;
+    m.add_class::<window::PyWindow>()?;
     m.add_class::<PyValueType>()?;
     m.add_class::<PyDiagnosticLevel>()?;
     m.add_class::<PyDiagnostic>()?;
@@ -231,6 +240,8 @@ fn register_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(invoke_from_event_loop, m)?)?;
     m.add_function(wrap_pyfunction!(init_translations, m)?)?;
     m.add_function(wrap_pyfunction!(build_features, m)?)?;
+    #[cfg(feature = "backend-testing")]
+    m.add_function(wrap_pyfunction!(_configure_test_fonts, m)?)?;
 
     language::register_all(m.py(), m)?;
 

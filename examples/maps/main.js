@@ -5,7 +5,7 @@
 import * as slint from "slint-ui";
 import sharp from "sharp";
 
-const ui = slint.loadFile(new URL("ui/main.slint", import.meta.url));
+const ui = slint.loadFile(new URL("slint-project.json", import.meta.url));
 const appWindow = new ui.MainUI();
 
 const TILE_SIZE = 256;

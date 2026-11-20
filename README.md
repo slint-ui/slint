@@ -5,9 +5,10 @@
 [![REUSE status](https://api.reuse.software/badge/github.com/slint-ui/slint)](https://api.reuse.software/info/github.com/slint-ui/slint)
 [![Discussions](https://img.shields.io/github/discussions/slint-ui/slint)](https://github.com/slint-ui/slint/discussions)
 
-**Slint** is an open-source declarative GUI toolkit for building native user interfaces for embedded systems, desktops, and mobile platforms.
-
-Write your UI once in `.slint`, a simple markup language. Connect it to business logic written in Rust, C++, JavaScript, or Python.
+**Slint** is an open-source declarative GUI toolkit to build native user interfaces for any device.
+Write your UI in `.slint`, a simple markup language, and connect it to business logic written in Rust, C++, JavaScript, or Python.
+Slint scales from desktop apps to mobile apps on Android and iOS,
+and down to embedded Linux and microcontrollers such as STM32, ESP32, and RP2040.
 
 ## Why Slint?
 
@@ -206,6 +207,8 @@ We chat in [our Mattermost instance](https://chat.slint.dev) where you are
 welcome to listen in or ask your questions.
 
 You can of course also contact us privately via email to [info@slint.dev](mailto:info@slint.dev).
+
+<a href="https://www.blacksmith.sh"><img src="https://github.com/user-attachments/assets/427b8763-2f4d-4816-80fa-aa6e1e4106f5" alt="CI powered by Blacksmith" width="368"></a>
 
 [#1]: https://www.youtube.com/watch?v=_BDbNHrjK7g
 [#2]: https://www.youtube.com/watch?v=NNNOJJsOAis

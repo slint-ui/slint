@@ -4,6 +4,7 @@
 use super::JsComponentDefinition;
 use super::JsDiagnostic;
 use i_slint_compiler::langtype::Type;
+use i_slint_compiler::source_path::SourcePath;
 use itertools::Itertools;
 use napi::bindgen_prelude::*;
 use napi::{Env, JsValue};
@@ -27,6 +28,7 @@ pub struct JsComponentCompiler {
 #[napi(object)]
 pub struct LiveBuildOptions {
     pub style: Option<String>,
+    pub project_root: Option<String>,
     pub include_paths: Option<Vec<String>>,
     pub library_paths: Option<HashMap<String, String>>,
 }
@@ -233,12 +235,17 @@ impl JsComponentCompiler {
         Ok(())
     }
 
+    #[napi(setter)]
+    pub fn set_project_root(&mut self, root: String) {
+        self.internal.set_project_root(Some(SourcePath::new(root)), i_slint_core::InternalToken);
+    }
+
     /// Compile a .slint file into a ComponentDefinition
     ///
     /// Returns the compiled `ComponentDefinition` if there were no errors.
     #[napi]
     pub fn build_from_path(&mut self, path: String) -> HashMap<String, JsComponentDefinition> {
-        let r = spin_on::spin_on(self.internal.build_from_path(PathBuf::from(path)));
+        let r = i_slint_compiler::poll_ready(self.internal.build_from_path(PathBuf::from(path)));
         self.structs_and_enums =
             r.structs_and_enums(i_slint_core::InternalToken {}).cloned().collect::<Vec<_>>();
         self.diagnostics = r.diagnostics().collect();
@@ -252,7 +259,9 @@ impl JsComponentCompiler {
         source_code: String,
         path: String,
     ) -> HashMap<String, JsComponentDefinition> {
-        let r = spin_on::spin_on(self.internal.build_from_source(source_code, PathBuf::from(path)));
+        let r = i_slint_compiler::poll_ready(
+            self.internal.build_from_source(source_code, PathBuf::from(path)),
+        );
         self.diagnostics = r.diagnostics().collect();
         self.structs_and_enums =
             r.structs_and_enums(i_slint_core::InternalToken {}).cloned().collect::<Vec<_>>();
@@ -275,6 +284,10 @@ pub fn create_live_instance(
     {
         let compiler_factory = move || {
             let mut compiler = compiler_from_env();
+            compiler.set_project_root(
+                options.project_root.map(SourcePath::new),
+                i_slint_core::InternalToken,
+            );
             if let Some(style) = options.style {
                 compiler.set_style(style);
             }

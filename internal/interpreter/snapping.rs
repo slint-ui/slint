@@ -33,14 +33,14 @@ pub struct SnappingGeometry {
 
 pub(crate) fn snapping_geometry(
     root: &VRc<ItemTreeVTable, Instance>,
-    path: &SourcePath,
-    offset: u32,
+    location: &i_slint_compiler::object_tree::ElementLocation,
     instance_index: usize,
 ) -> Option<SnappingGeometry> {
     use i_slint_core::item_tree::ParentItemTraversalMode::StopAtPopups;
 
     let sources = SourceOccurrences::new(root);
-    let selected_source = sources.elements.get(&(path.clone(), offset as usize))?;
+    let selected_source =
+        sources.elements.get(&(location.path.clone(), usize::from(location.offset)))?;
     let (selected_index, selected_geometry) =
         selected_source.occurrences(&sources.items, root).nth(instance_index)?;
     let (selected_anchor, _) = geometry_anchor(&sources.items[selected_index].as_item_rc());

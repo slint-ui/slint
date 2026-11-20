@@ -4,7 +4,7 @@
 // This should render as a rectangle with a black border and
 // green "fill".
 
-export Test := Window {
+export component Test inherits Window {
     background: white;
 
     TouchArea {
@@ -32,6 +32,7 @@ export Test := Window {
 
         Text {
             color: blue;
+            x: 0;
             y: 10px;
             text: "This Text is clipped";
             font-size: 24px;

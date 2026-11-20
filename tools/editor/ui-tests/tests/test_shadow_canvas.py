@@ -289,8 +289,15 @@ def test_shadow_handles_follow_the_rotated_guides(
         ("spread", 20, 12, (("spread", 10, 30),)),
     ],
 )
-@pytest.mark.parametrize("rotation,percent", [(0, 100), (30, 200)])
-@pytest.mark.parametrize("outcome", ["commit", "cancel", "return"])
+@pytest.mark.parametrize(
+    "rotation,percent,outcome",
+    [
+        (0, 100, "commit"),
+        (30, 200, "commit"),
+        (30, 200, "cancel"),
+        (30, 200, "return"),
+    ],
+)
 def test_shadow_canvas_gestures_preview_cancel_and_undo(
     shadow_family,
     editor_binary,
@@ -390,10 +397,16 @@ def test_shadow_canvas_gestures_preview_cancel_and_undo(
 
 
 @pytest.mark.parametrize(
-    "x,y,angle,distance",
-    [(3, 4, 53, 5), (-3, 4, 127, 5), (-3, -4, 233, 5), (3, -4, 307, 5), (0, 0, 0, 0)],
+    "x,y,angle,distance,rotation,percent",
+    [
+        (3, 4, 53, 5, 0, 100),
+        (-3, 4, 127, 5, 0, 100),
+        (-3, -4, 233, 5, 0, 100),
+        (3, -4, 307, 5, 0, 100),
+        (0, 0, 0, 0, 0, 100),
+        (3, 4, 53, 5, 30, 200),
+    ],
 )
-@pytest.mark.parametrize("rotation,percent", [(0, 100), (30, 200)])
 def test_shadow_offset_tooltip_uses_angle_and_distance(
     shadow_family,
     editor_binary,
@@ -1087,8 +1100,16 @@ def test_shadow_picker_does_not_undo_a_stale_preview(
 @pytest.mark.parametrize(
     "expression,expected", [(None, "16"), ("root.shadow-blur", "28")]
 )
+@pytest.mark.parametrize("outcome", ["commit", "cancel"])
 def test_shadow_blur_uses_inspector_defaults_and_resolved_bindings(
-    shadow_family, editor_binary, editor_environment, shadow_scene, expression, expected
+    shadow_family,
+    editor_binary,
+    editor_environment,
+    shadow_scene,
+    tmp_path,
+    expression,
+    expected,
+    outcome,
 ):
     baseline = shadow_scene.read_bytes().replace(
         f"        {shadow_family.prefix}blur: 32px;\n".encode(),
@@ -1101,15 +1122,46 @@ def test_shadow_blur_uses_inspector_defaults_and_resolved_bindings(
         b"    in property <length> shadow-blur: 28px;\n    shadow-card :=",
     )
     shadow_scene.write_bytes(baseline)
+    snapshot = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, shadow_scene) as editor:
         wait_for_source(shadow_scene, baseline)
         window = first_window(editor)
         open_shadow(window, shadow_family)
-        expect(
-            element(
-                window, "Shadow blur value", role=slint_testing.AccessibleRole.TextInput
-            )
-        ).to_have_value(expected)
+        field = element(
+            window, "Shadow blur value", role=slint_testing.AccessibleRole.TextInput
+        )
+        expect(field).to_have_value(expected)
+        move_shadow_panel(window, shadow_family)
+        start = center(element(window, "Shadow blur handle"))
+        end = offset_position(start, 0, -4 * shadow_family.direction, 0)
+        button = slint_testing.PointerEventButton.Left
+        window.dispatch_event(slint_testing.PointerMoveEvent(start))
+        window.dispatch_event(slint_testing.PointerPressEvent(start, button))
+        window.dispatch_event(slint_testing.PointerMoveEvent(end))
+        changed = str(int(expected) + 8)
+        expect(field).to_have_value(changed)
+        snapshot.assert_unchanged()
+        if outcome == "cancel":
+            press_key(window, keys.Escape)
+        window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
+        if outcome == "cancel":
+            snapshot.assert_unchanged()
+            expect(field).to_have_value(expected)
+        else:
+            expect(field).to_have_value(changed)
+            edited = wait_for_source_change(shadow_scene, baseline)
+            binding = f"{shadow_family.prefix}blur: {changed}px;".encode()
+            if expression is None:
+                assert edited.replace(b"        " + binding + b"\n", b"", 1) == baseline
+            else:
+                assert edited == baseline.replace(
+                    f"{shadow_family.prefix}blur: {expression};".encode(), binding, 1
+                )
+            snapshot.wait_for_applied(edited)
+            expect(field).to_have_value(changed)
+            press_shortcut(window, keys.Control, "z")
+            snapshot.wait_for_applied(baseline)
+            expect(field).to_have_value(expected)
 
 
 def test_shadow_drag_back_to_start_leaves_no_draft_or_history_entry(

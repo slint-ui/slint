@@ -155,7 +155,11 @@ impl ImageCache {
         })
     }
 
-    #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
+    #[cfg(all(
+        target_arch = "wasm32",
+        not(target_os = "emscripten"),
+        not(feature = "image-decoders")
+    ))]
     pub(crate) fn load_image_from_data_uri(
         &mut self,
         uri: &str,
@@ -171,6 +175,14 @@ impl ImageCache {
             )
         })
     }
+}
+
+/// Returns the image cached for the given key, if any.
+pub fn lookup_cached_image(key: &ImageCacheKey) -> Option<ImageInner> {
+    if *key == ImageCacheKey::Invalid {
+        return None;
+    }
+    IMAGE_CACHE.with(|global_cache| global_cache.borrow_mut().0.get(key).cloned())
 }
 
 /// Replace the cached image key with the given value

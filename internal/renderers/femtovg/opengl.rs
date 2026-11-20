@@ -9,6 +9,31 @@ use crate::{
     BeginRendering, FemtoVGRenderer, GraphicsBackend, WindowSurface, itemrenderer::CanvasRc,
 };
 
+#[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
+pub const WEBGL2_REQUIRED: &str = "Slint requires WebGL 2 to be enabled in your browser";
+
+/// Returns whether the browser can create a WebGL 2 context.
+#[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
+pub fn webgl2_available() -> bool {
+    use wasm_bindgen::JsCast;
+
+    // A canvas keeps the first context type requested from it, so probe a throwaway one.
+    let Some(context) = web_sys::window()
+        .and_then(|window| window.document())
+        .and_then(|document| document.create_element("canvas").ok())
+        .and_then(|element| element.dyn_into::<web_sys::HtmlCanvasElement>().ok())
+        .and_then(|canvas| canvas.get_context("webgl2").ok().flatten())
+        .and_then(|context| context.dyn_into::<web_sys::WebGl2RenderingContext>().ok())
+    else {
+        return false;
+    };
+    // Browsers limit the number of live WebGL contexts per page.
+    if let Ok(Some(extension)) = context.get_extension("WEBGL_lose_context") {
+        extension.unchecked_into::<web_sys::WebglLoseContext>().lose_context();
+    }
+    true
+}
+
 /// This trait describes the interface GPU accelerated renderers in Slint require to render with OpenGL.
 ///
 /// It serves the purpose to ensure that the OpenGL context is current before running any OpenGL
@@ -143,9 +168,7 @@ impl OpenGLBackend {
                 context_2d.set_font("20px serif");
                 // We don't know if we're rendering on dark or white background, so choose a "color" in the middle for the text.
                 context_2d.set_fill_style_str("red");
-                context_2d
-                    .fill_text("Slint requires WebGL to be enabled in your browser", 0., 30.)
-                    .unwrap();
+                context_2d.fill_text(WEBGL2_REQUIRED, 0., 30.).unwrap();
                 panic!("Cannot proceed without WebGL - aborting")
             }
         };

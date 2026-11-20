@@ -173,12 +173,39 @@ before(async () => {
     const port = typeof address === "object" && address ? address.port : 0;
     assert.ok(port, "Verdaccio did not bind a port");
     registry = `http://127.0.0.1:${port}/`;
+
+    const registration = await fetch(
+        `${registry}-/user/org.couchdb.user:slint-e2e`,
+        {
+            method: "PUT",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+                name: "slint-e2e",
+                password: "temporary-e2e-password",
+                email: "slint-e2e@example.invalid",
+                type: "user",
+                roles: [],
+                date: new Date().toISOString(),
+            }),
+        },
+    );
+    assert.ok(
+        registration.ok,
+        `Verdaccio user registration failed: ${registration.status}`,
+    );
+    const credentials = (await registration.json()) as { token?: unknown };
+    assert.equal(
+        typeof credentials.token,
+        "string",
+        "Verdaccio did not return an authentication token",
+    );
+
     writeFileSync(
         join(work, ".npmrc"),
         [
             `registry=${registry}`,
             `@slint-ui:registry=${registry}`,
-            `//127.0.0.1:${port}/:_authToken=fake`,
+            `//127.0.0.1:${port}/:_authToken=${credentials.token}`,
             `store-dir=${join(work, "pnpm-store")}`,
             "",
         ].join("\n"),

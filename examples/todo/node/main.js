@@ -4,7 +4,7 @@
 
 import * as slint from "slint-ui";
 
-const demo = slint.loadFile(new URL("../ui/todo.slint", import.meta.url));
+const demo = slint.loadFile(new URL("../slint-project.json", import.meta.url));
 const app = new demo.MainWindow();
 
 const model = new slint.ArrayModel([

@@ -57,18 +57,15 @@ For comments in source code — both internal implementation notes and public AP
 
 1. Where a comment earns its place (see rule 6), describe what the code *is*, in the present tense.
    - Rationale: The comment should make sense to whoever reads the code next; what changed belongs in the commit message, not the source.
-2. A item's documentation is its contract, and the one exception to rule 6.
+2. A documentation comment documents the item's interface for its users, and is the one exception to rule 6.
    - It says what the item does and when to use it, not how it works inside.
-   - It is targeted at the person using that item and can explain how to use it
-   - It may restate the signature,
-     because it's published apart from the code and callers read it instead of the body.
-   - "Public" means an item that appears in published API documentation, not merely one marked `pub`.
-     Everything else falls under rule 6, where a name and signature are the documentation.
+     It may restate the signature.
+   - Private items may have one, but don't need it.
    - Rationale: Callers shouldn't have to read the implementation, and implementation details in the comment go stale as the code evolves.
-3. Explain a thing once
-   - Avoid: repeating the same rationale on the trait, on each implementation, and again at the call site.
-   - Use: the full explanation where the thing is defined, and "see `foo`" everywhere else.
-   - Rationale: One copy can't drift out of sync with the other three, and a reader who already knows the rationale skips a reference faster than a paragraph.
+3. Explain a thing once.
+   - Avoid: repeating the same rationale on the trait, each implementation, and the call site, or pointing to it with "see `foo`".
+   - Use: the explanation where the thing is defined, and nothing elsewhere.
+   - Rationale: One copy can't drift out of sync, and the reader can follow the code to the definition.
 4. Never write what the code used to be, or what a review said about it.
    - Avoid: "the review found this wrong", "this used to be unrounded", "round 3", "see the commit message".
    - Use: an issue reference such as `#6739` only when the background is worth chasing.
@@ -94,7 +91,7 @@ For comments in source code — both internal implementation notes and public AP
    - "It explains the why", "it states the design intent", and "it records an invariant" aren't exemptions.
      Rule 2 is the only one.
    - Use: a code-level fix over a reworded comment,
-     such as a shared constant, a clearer name, or a cross-reference.
+     such as a shared constant or a clearer name.
    - Rationale: A comment can be true and sound useful, yet still repeat what the code says.
 8. Self-documented code is better than a comment.
 
@@ -134,6 +131,7 @@ ChangeLog: Fixed a GridLayout row collapsing to its min-height when a sibling ce
 
 The trailer sets the wording of the entry.
 It doesn't decide whether there is one: the whole log is read, so a commit without a trailer can still get an entry.
+Otherwise, don't mention the ChangeLog in the commit message.
 
 ChangeLog entries are only for noteworthy changes relevant to the end user.
  - Only for changes that are part of the released product. (Libraries and released tools)
@@ -161,6 +159,8 @@ For the documentation website, blog posts, and social media we also aim to sound
 
 ### Docs
 
+- Make new content part of the page rather than appending it.
+  Rework the surrounding paragraphs so the page still reads as a whole.
 - Make sure links resolve — don't point at blank or moved pages.
 
 ### Tab Order

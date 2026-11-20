@@ -1163,10 +1163,19 @@ impl ItemRc {
     /// Scrolls every `Flickable` ancestor up to the nearest popup by the smallest amount that brings `self` into view.
     /// Does nothing if no such ancestor is a `Flickable`.
     pub fn try_scroll_into_visible(&self, scroll_behavior: ScrollBehavior) {
+        self.try_scroll_rect_into_visible(self.geometry(), scroll_behavior);
+    }
+
+    /// Like [`Self::try_scroll_into_visible`], but brings only `geo` into view.
+    /// `geo` is relative to the parent item, like [`Self::geometry`].
+    pub(crate) fn try_scroll_rect_into_visible(
+        &self,
+        geo: LogicalRect,
+        scroll_behavior: ScrollBehavior,
+    ) {
         let supports_transformations = self
             .window_adapter()
             .is_none_or(|adapter| adapter.renderer().supports_transformations());
-        let geo = self.geometry();
         let mut points = [geo.min(), geo.max()];
         let mut current = self.clone();
         while let Some(parent) = current.parent_item(ParentItemTraversalMode::StopAtPopups) {
@@ -3305,6 +3314,49 @@ mod tests {
         //                         Root.x       +     first_child.x   + 3
         assert_eq!(point.x, GEOMETRY_POSITION_X + GEOMETRY_POSITION_X + 3.);
         assert_eq!(point.y, GEOMETRY_POSITION_Y + GEOMETRY_POSITION_Y - 82.);
+    }
+
+    #[test]
+    fn test_showing_and_closing_popups_bumps_popups_generation() {
+        let (window_adapter, item_tree) = create_subsubtree_items(None);
+        let window = &window_adapter.window.0;
+        let tracker = Box::pin(crate::properties::PropertyTracker::<false>::default());
+        let observe = || tracker.as_ref().evaluate(|| window.popups_generation());
+        let show = || {
+            window.show_popup(
+                &item_tree,
+                Box::new(LogicalPosition::default),
+                crate::items::PopupClosePolicy::NoAutoClose,
+                &ItemRc::new_root(item_tree.clone()),
+                crate::window::WindowKind::Popup,
+                Box::new(|_| {}),
+            )
+        };
+
+        let mut generation = observe();
+        let mut assert_bumped = |what: &str| {
+            assert!(tracker.is_dirty(), "{what} didn't dirty a dependent");
+            let next = observe();
+            assert_ne!(next, generation, "{what} didn't bump the generation");
+            generation = next;
+        };
+
+        let popup = show();
+        assert_bumped("showing a popup");
+        window.close_popup(popup);
+        assert_bumped("closing a popup");
+        show();
+        assert_bumped("showing a popup");
+        window.close_top_popup();
+        assert_bumped("closing the top popup");
+        show();
+        assert_bumped("showing a popup");
+        window.close_all_popups();
+        assert_bumped("closing all popups");
+
+        window.close_all_popups();
+        window.close_top_popup();
+        assert!(!tracker.is_dirty(), "closing no popup dirtied a dependent");
     }
 
     // Includes also dynamic elements
