@@ -463,11 +463,11 @@ impl Flickable {
     /// distance between the top left corners of the content and of the visible part, and the
     /// largest such distance.
     pub fn scroll_metrics(self: Pin<&Self>, self_rc: &ItemRc) -> ScrollMetrics {
-        let viewport = Self::geometry_without_virtual_keyboard(self_rc).size;
-        let max_x = (self.content_width().get() - viewport.width).max(0 as Coord);
-        let max_y = (self.content_height().get() - viewport.height).max(0 as Coord);
+        let visible_size = Self::geometry_without_virtual_keyboard(self_rc).size;
+        let max_x = (self.content_width().get() - visible_size.width).max(0 as Coord);
+        let max_y = (self.content_height().get() - visible_size.height).max(0 as Coord);
         ScrollMetrics {
-            viewport,
+            visible_size,
             offset: LogicalPoint::new(
                 (-self.content_x().get()).max(0 as Coord).min(max_x),
                 (-self.content_y().get()).max(0 as Coord).min(max_y),
@@ -499,7 +499,7 @@ impl Flickable {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ScrollMetrics {
     /// The size of the visible part of the content.
-    pub viewport: LogicalSize,
+    pub visible_size: LogicalSize,
     /// The distance between the top left corners of the content and of the visible part.
     pub offset: LogicalPoint,
     /// The largest value of `offset`.

@@ -740,21 +740,21 @@ impl AccessKitTree {
         let (flickable_item, flickable) = find_exposed_flickable(&item)?;
         let metrics = flickable.as_pin_ref().scroll_metrics(&flickable_item);
 
-        // A page moves 90% of the viewport, so the next page repeats the last 10%.
+        // A page moves 90% of the visible size, so the next page repeats the last 10%.
         const PAGE: f32 = 0.9;
-        // The items are not known here, so one item is approximated by 10% of the viewport.
+        // The items are not known here, so one item is approximated by 10% of the visible size.
         const ITEM: f32 = 0.1;
         let fraction = match request.data {
             Some(accesskit::ActionData::ScrollUnit(accesskit::ScrollUnit::Item)) => ITEM,
             _ => PAGE,
         };
-        let amount = |viewport: crate::Coord| viewport as f32 * fraction;
+        let amount = |visible: crate::Coord| visible as f32 * fraction;
         let (current_x, current_y) = (metrics.offset.x as f32, metrics.offset.y as f32);
         let (x, y) = match request.action {
-            Action::ScrollLeft => (current_x - amount(metrics.viewport.width), current_y),
-            Action::ScrollRight => (current_x + amount(metrics.viewport.width), current_y),
-            Action::ScrollUp => (current_x, current_y - amount(metrics.viewport.height)),
-            Action::ScrollDown => (current_x, current_y + amount(metrics.viewport.height)),
+            Action::ScrollLeft => (current_x - amount(metrics.visible_size.width), current_y),
+            Action::ScrollRight => (current_x + amount(metrics.visible_size.width), current_y),
+            Action::ScrollUp => (current_x, current_y - amount(metrics.visible_size.height)),
+            Action::ScrollDown => (current_x, current_y + amount(metrics.visible_size.height)),
             Action::SetScrollOffset => {
                 let Some(accesskit::ActionData::SetScrollOffset(point)) = request.data else {
                     return None;

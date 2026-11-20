@@ -436,7 +436,7 @@ fn list_view_reports_and_performs_scrolling() {
     assert_eq!(list.role(), Role::ListBox);
     assert_eq!(list.scroll_y(), Some(0.));
     assert_eq!(list.scroll_y_min(), Some(0.));
-    // 100 rows of 30 logical pixels in a viewport that is the window less the strip and the button
+    // 100 rows of 30 logical pixels in a visible part that is the window less the strip and the button
     assert_eq!(list.scroll_y_max(), Some(3000. - 230.));
     assert_eq!(list.scroll_x(), None);
     assert!(list.supports_action(Action::ScrollDown));
