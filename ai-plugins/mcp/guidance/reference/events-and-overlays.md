@@ -8,22 +8,12 @@
   Also: `double-clicked`, `has-hover`, `pressed`, `mouse-x`/`mouse-y` (local),
   `absolute-position` (window coords), `mouse-cursor`. For right-click *menus*
   use `ContextMenuArea` (below), not `pointer-event`.
+
 ## Shortcuts and dialogs
 
-Give each shortcut to the page or dialog where it applies.
-A `KeyBinding` is a direct child of a `FocusScope`; focus the page when it opens or forward focus to a child in that scope.
-Use raw key events for input that needs individual presses and releases.
-
-```slint
-export component LibraryPage inherits FocusScope {
-    init => { self.focus(); }
-    KeyBinding {
-        keys: @keys(Control + F);
-        activated => { search-field.focus(); }
-    }
-    search-field := LineEdit { }
-}
-```
+Place a `KeyBinding` directly inside the `FocusScope` that owns the command.
+Focus the page when it opens or forward focus to a child in that scope.
+Use raw events for input that needs individual presses and releases.
 
 For an in-window confirmation or form, define a reusable `PopupWindow` and instantiate it on the page that opens it.
 Call `show()` on the instance.
@@ -49,5 +39,5 @@ export component ConfirmRemoval inherits PopupWindow {
 }
 ```
 
-Import `Button` and `LineEdit` from `"std-widgets.slint"` for these examples.
+Import `Button` from `"std-widgets.slint"` for this example.
 Use `ContextMenuArea` for context menus and `MenuBar` directly on the window for application menus.
