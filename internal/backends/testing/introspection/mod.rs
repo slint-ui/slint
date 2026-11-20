@@ -21,6 +21,8 @@ slotmap::new_key_type! {
 
 #[allow(dead_code, non_snake_case, unused_imports, non_camel_case_types, clippy::all)]
 pub(crate) mod proto;
+#[cfg(feature = "system-testing")]
+pub(crate) mod subscriptions;
 
 /// Maximum number of element handles kept in the arena before evicting the least recently used.
 const ELEMENT_HANDLE_CAP: usize = 10_000;
@@ -171,8 +173,14 @@ pub(crate) struct TrackedWindow {
 
 /// A tracked element, and the tick of the last reply or request that used its handle.
 pub(crate) struct TrackedElement {
-    pub element: ElementHandle,
+    element: Rc<ElementHandle>,
     last_used: Cell<u64>,
+}
+
+impl TrackedElement {
+    fn is_pinned(&self) -> bool {
+        Rc::strong_count(&self.element) > 1
+    }
 }
 
 /// Shared introspection state: window and element handle arenas.
@@ -190,6 +198,10 @@ pub(crate) struct IntrospectionState {
     unknown_event_count: Cell<u64>,
     unknown_event_warned: Cell<bool>,
     recording_enabled: Cell<bool>,
+    #[cfg(feature = "system-testing")]
+    windows_generation: core::pin::Pin<Box<i_slint_core::Property<u32>>>,
+    #[cfg(feature = "system-testing")]
+    pub subscriptions: subscriptions::Subscriptions,
 }
 
 impl IntrospectionState {
@@ -205,6 +217,10 @@ impl IntrospectionState {
             unknown_event_count: Default::default(),
             unknown_event_warned: Cell::new(false),
             recording_enabled: Cell::new(false),
+            #[cfg(feature = "system-testing")]
+            windows_generation: Box::pin(Default::default()),
+            #[cfg(feature = "system-testing")]
+            subscriptions: Default::default(),
         }
     }
 
@@ -217,17 +233,30 @@ impl IntrospectionState {
         };
         // A window shows again with a new component when the live preview recompiles.
         let shown_again = self.window_handle_for_adapter(adapter);
-        let mut windows = self.windows.borrow_mut();
-        windows.retain(|_, window| window.window_adapter.strong_count() > 0);
-        match shown_again.and_then(|index| windows.get_mut(index)) {
-            Some(window) => window.root_element_handle = root_element_handle,
-            None => {
-                windows.insert(TrackedWindow {
-                    window_adapter: Rc::downgrade(adapter),
-                    root_element_handle,
-                });
+        {
+            let mut windows = self.windows.borrow_mut();
+            windows.retain(|_, window| window.window_adapter.strong_count() > 0);
+            match shown_again.and_then(|index| windows.get_mut(index)) {
+                Some(window) => window.root_element_handle = root_element_handle,
+                None => {
+                    windows.insert(TrackedWindow {
+                        window_adapter: Rc::downgrade(adapter),
+                        root_element_handle,
+                    });
+                }
             }
         }
+        #[cfg(feature = "system-testing")]
+        {
+            let generation = self.windows_generation.as_ref();
+            generation.set(generation.get_untracked().wrapping_add(1));
+        }
+    }
+
+    /// Makes the calling binding re-evaluate when a window shows, or shows a new component.
+    #[cfg(feature = "system-testing")]
+    fn track_windows(&self) {
+        self.windows_generation.as_ref().get();
     }
 
     /// Returns the root elements of the tracked windows that still show a component.
@@ -301,27 +330,41 @@ impl IntrospectionState {
     /// that re-queries doesn't fill the arena with duplicates of what it already has
     /// and evict its own live handles (#13243).
     pub fn element_to_handle(&self, element: ElementHandle) -> ArenaIndex {
+        self.pin_element(element).0
+    }
+
+    /// Like [`Self::element_to_handle`], but eviction spares the handle
+    /// for as long as the returned `Rc` lives.
+    /// Pinned handles don't count toward the cap.
+    fn pin_element(&self, element: ElementHandle) -> (ArenaIndex, Rc<ElementHandle>) {
         let hint = element.identity_hint();
         if let Some(hint) = hint
-            && let Some(index) = self.tracked_handle(&element, hint)
+            && let Some(pinned) = self.tracked_handle(&element, hint)
         {
-            return index;
+            return pinned;
         }
 
         let mut arena = self.element_handles.borrow_mut();
-        let index = arena.insert(TrackedElement { element, last_used: Cell::new(self.tick()) });
+        let element = Rc::new(element);
+        let index = arena
+            .insert(TrackedElement { element: element.clone(), last_used: Cell::new(self.tick()) });
         if let Some(hint) = hint {
             self.element_handle_lookup.borrow_mut().entry(hint).or_default().push(index);
         }
-        if arena.len() > ELEMENT_HANDLE_CAP {
+        let unpinned = if arena.len() > ELEMENT_HANDLE_CAP {
+            arena.values().filter(|tracked| !tracked.is_pinned()).count()
+        } else {
+            arena.len()
+        };
+        if unpinned > ELEMENT_HANDLE_CAP {
             let root_indices: HashSet<ArenaIndex> =
                 self.windows.borrow().iter().map(|(_, w)| w.root_element_handle).collect();
             let mut candidates: Vec<(u64, ArenaIndex)> = arena
                 .iter()
-                .filter(|(index, _)| !root_indices.contains(index))
+                .filter(|(index, tracked)| !tracked.is_pinned() && !root_indices.contains(index))
                 .map(|(index, tracked)| (tracked.last_used.get(), index))
                 .collect();
-            let excess = (arena.len() - ELEMENT_HANDLE_EVICTION_TARGET).min(candidates.len());
+            let excess = (unpinned - ELEMENT_HANDLE_EVICTION_TARGET).min(candidates.len());
             if excess > 0 {
                 candidates.select_nth_unstable_by_key(excess - 1, |(last_used, _)| *last_used);
             }
@@ -337,7 +380,7 @@ impl IntrospectionState {
                 }
             }
         }
-        index
+        (index, element)
     }
 
     /// How many handles one response can return before
@@ -354,7 +397,11 @@ impl IntrospectionState {
 
     /// Returns the handle already tracking `element` and marks it used,
     /// dropping lookup entries whose slot was evicted or whose element is gone.
-    fn tracked_handle(&self, element: &ElementHandle, hint: (u32, usize)) -> Option<ArenaIndex> {
+    fn tracked_handle(
+        &self,
+        element: &ElementHandle,
+        hint: (u32, usize),
+    ) -> Option<(ArenaIndex, Rc<ElementHandle>)> {
         let arena = self.element_handles.borrow();
         let mut lookup = self.element_handle_lookup.borrow_mut();
         let bucket = lookup.get_mut(&hint)?;
@@ -363,7 +410,7 @@ impl IntrospectionState {
             Some(tracked_element) if tracked_element.element.is_valid() => {
                 if tracked_element.element.is_same_element(element) {
                     tracked_element.last_used.set(self.tick());
-                    tracked = Some(*candidate);
+                    tracked = Some((*candidate, tracked_element.element.clone()));
                 }
                 true
             }
@@ -382,7 +429,7 @@ impl IntrospectionState {
             .get(index)
             .map(|tracked| {
                 tracked.last_used.set(self.tick());
-                tracked.element.clone()
+                ElementHandle::clone(&tracked.element)
             })
             .ok_or_else(|| format!("Invalid element handle for {request}"))?;
         if !element.is_valid() {
@@ -722,17 +769,8 @@ fn type_names_and_ids(element: &ElementHandle) -> Vec<proto::ElementTypeNameAndI
 }
 
 pub(crate) fn element_properties(element: &ElementHandle) -> proto::ElementPropertiesResponse {
-    let declared = element.testable_properties();
-    let testable_properties_available = declared.is_some();
-    let testable_properties = declared
-        .unwrap_or_default()
-        .into_iter()
-        .map(|(name, type_name)| proto::TestableProperty {
-            value: element.testable_property_value(&name).map(|v| v.to_string()),
-            name: name.to_string(),
-            type_name: type_name.to_string(),
-        })
-        .collect();
+    let testable_properties = testable_properties(element);
+    let testable_properties_available = testable_properties.is_some();
 
     proto::ElementPropertiesResponse {
         type_names_and_ids: type_names_and_ids(element),
@@ -784,8 +822,65 @@ pub(crate) fn element_properties(element: &ElementHandle) -> proto::ElementPrope
         )
         .unwrap_or_default()
         .into(),
-        testable_properties,
+        testable_properties: testable_properties.unwrap_or_default(),
         testable_properties_available,
+    }
+}
+
+/// `None` when the application carries no testable-property debug info.
+fn testable_properties(element: &ElementHandle) -> Option<Vec<proto::TestableProperty>> {
+    Some(
+        element
+            .testable_properties()?
+            .into_iter()
+            .map(|(name, type_name)| proto::TestableProperty {
+                value: element.testable_property_value(&name).map(|v| v.to_string()),
+                name: name.to_string(),
+                type_name: type_name.to_string(),
+            })
+            .collect(),
+    )
+}
+
+/// Returns the children of `parent`, or the root elements of every window,
+/// and whether the application has the debug info that listing children needs.
+#[cfg(feature = "system-testing")]
+fn children_of(
+    state: &IntrospectionState,
+    parent: Option<&ElementHandle>,
+) -> (Vec<ElementHandle>, bool) {
+    match parent {
+        Some(parent) => {
+            let mut children = Vec::new();
+            parent.visit_children(|child| {
+                children.push(child);
+                std::ops::ControlFlow::<()>::Continue(())
+            });
+            (children, parent.has_debug_info())
+        }
+        None => {
+            let roots = state.window_root_elements();
+            let debug_info_available = roots.iter().all(ElementHandle::has_debug_info);
+            (roots, debug_info_available)
+        }
+    }
+}
+
+#[cfg(feature = "system-testing")]
+fn has_children(element: &ElementHandle) -> bool {
+    element.visit_children(|_| std::ops::ControlFlow::Break(())).is_some()
+}
+
+#[cfg(feature = "system-testing")]
+fn element_child(
+    element: &ElementHandle,
+    handle: ArenaIndex,
+    has_children: bool,
+) -> proto::ElementChild {
+    proto::ElementChild {
+        handle: Some(index_to_handle(handle)),
+        type_names_and_ids: type_names_and_ids(element),
+        has_children,
     }
 }
 
@@ -1025,32 +1120,17 @@ pub(crate) mod dispatch {
         state: &IntrospectionState,
         parent: Option<ArenaIndex>,
     ) -> Result<proto::GetElementChildrenResponse, String> {
-        use std::ops::ControlFlow;
         state.ensure_windows_instantiated();
-        let (children, debug_info_available) = match parent {
-            Some(parent) => {
-                let parent = state.element("get_element_children", parent)?;
-                let mut children = Vec::new();
-                parent.visit_children(|child| {
-                    children.push(child);
-                    ControlFlow::<()>::Continue(())
-                });
-                (children, parent.has_debug_info())
-            }
-            None => {
-                let roots = state.window_root_elements();
-                let debug_info_available = roots.iter().all(super::ElementHandle::has_debug_info);
-                (roots, debug_info_available)
-            }
-        };
+        let parent =
+            parent.map(|parent| state.element("get_element_children", parent)).transpose()?;
+        let (children, debug_info_available) = super::children_of(state, parent.as_ref());
         let truncated = children.len() > state.handles_per_response();
         let children = children
             .into_iter()
             .take(state.handles_per_response())
-            .map(|child| proto::ElementChild {
-                type_names_and_ids: super::type_names_and_ids(&child),
-                has_children: child.visit_children(|_| ControlFlow::Break(())).is_some(),
-                handle: Some(index_to_handle(state.element_to_handle(child))),
+            .map(|child| {
+                let has_children = super::has_children(&child);
+                super::element_child(&child, state.element_to_handle(child.clone()), has_children)
             })
             .collect();
         Ok(proto::GetElementChildrenResponse { children, truncated, debug_info_available })

@@ -473,6 +473,42 @@ impl ElementHandle {
         ControlFlow::Continue(())
     }
 
+    /// Instantiates the repeaters and conditionals of the item tree that holds this element,
+    /// so that [`Self::visit_children`] sees the current instances.
+    /// Unlike `WindowInner::ensure_tree_instantiated`, it runs no change handlers,
+    /// so a binding can call it, and then depends on the models.
+    #[cfg(feature = "system-testing")]
+    pub(crate) fn instantiate_item_tree(&self) {
+        if let Some(item) = self.item.upgrade() {
+            i_slint_core::item_tree::ensure_item_tree_instantiated(item.item_tree());
+        }
+    }
+
+    /// Makes the calling binding depend on the repeaters, conditionals and popups that hold
+    /// this element, and instantiates them, so that the binding re-evaluates and
+    /// [`Self::is_valid()`] turns false when they destroy the element.
+    #[cfg(feature = "system-testing")]
+    pub(crate) fn track_existence(&self) {
+        let Some(mut holder) = self.item.upgrade().and_then(|item| {
+            if let Some(window_adapter) = item.window_adapter() {
+                WindowInner::from_pub(window_adapter.window()).popups_generation();
+            }
+            ItemRc::new_root(item.item_tree().clone())
+                .parent_item(ParentItemTraversalMode::FindAllParents)
+        }) else {
+            return;
+        };
+        loop {
+            i_slint_core::item_tree::ensure_item_tree_instantiated(holder.item_tree());
+            let Some(parent) = ItemRc::new_root(holder.item_tree().clone())
+                .parent_item(ParentItemTraversalMode::FindAllParents)
+            else {
+                return;
+            };
+            holder = parent;
+        }
+    }
+
     /// Returns whether both handles refer to the same element of the same item.
     #[cfg(any(feature = "system-testing", feature = "mcp"))]
     pub(crate) fn is_same_element(&self, other: &ElementHandle) -> bool {
@@ -1240,6 +1276,8 @@ impl ElementHandle {
             .and_then(|item| item.window_adapter())
             .map(|window_adapter| {
                 let window = WindowInner::from_pub(window_adapter.window());
+                // Makes a binding that visits children re-evaluate when a popup opens or closes.
+                window.popups_generation();
                 window
                     .active_popups()
                     .iter()
