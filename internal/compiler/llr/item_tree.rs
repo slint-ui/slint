@@ -170,6 +170,11 @@ pub struct BindingExpression {
     /// The amount of time this binding is used.
     /// Only valid after the [`count_property_use`](super::optim_passes::count_property_use) pass.
     pub use_count: Cell<usize>,
+
+    /// Whether a global or a parent ends up holding this binding, so that it can run after the
+    /// sub component that set it is gone.
+    /// Only valid after the [`mark_outliving_bindings`](super::optim_passes::mark_outliving_bindings) pass.
+    pub can_outlive_sub_component: Cell<bool>,
 }
 
 #[derive(Debug, Clone)]
@@ -316,7 +321,7 @@ impl<T: Into<LocalMemberIndex>> From<T> for LocalMemberReference {
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct TwoWayBinding {
-    pub prop1: LocalMemberReference,
+    pub prop1: MemberReference,
     pub prop2: MemberReference,
     /// `Some` when the binding targets a model row. `prop2` is then the
     /// `model_data` property of the enclosing `for`'s body sub-component,
@@ -324,6 +329,8 @@ pub struct TwoWayBinding {
     pub is_model: Option<PropertyIdx>,
     /// Field path applied to `prop2`, when `prop2` is a struct.
     pub field_access: Vec<SmolStr>,
+    /// Whether `prop1` keeps its value instead of taking the field's value.
+    pub prop1_keeps_value: bool,
 }
 
 /// Resolved view of a model two-way binding, used by code generators to

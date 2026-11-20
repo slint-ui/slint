@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { StyleMetrics } from "std-widgets.slint";
+import { Palette, StyleMetrics } from "std-widgets.slint";
 
 global Glop  {
     in-out property <int> hello: 42;
@@ -13,6 +13,166 @@ global DualBindingGlop  {
     in-out property third <=> Glop.third;
 }
 
+global Linked {
+    in-out property <int> value: 88;
+}
+
+global Valued {
+    in-out property <int> value;
+}
+
+component ValuedWidget {
+    in-out property <int> value <=> Valued.value;
+}
+
+global ChainA {
+    in-out property <int> a <=> ChainB.b;
+}
+
+global ChainB {
+    in-out property <int> b <=> ChainC.c;
+}
+
+global ChainC {
+    in-out property <int> c: 1;
+}
+
+global Other {
+    in-out property <int> o;
+}
+
+component ChainWidget {
+    in-out property <int> p <=> ChainA.a;
+}
+
+component OtherWidget {
+    in-out property <int> q <=> Other.o;
+}
+
+component MiddleWidget inherits ChainWidget { }
+
+struct FieldStruct {
+    x: int,
+    y: int,
+}
+
+global Fields {
+    in-out property <FieldStruct> s;
+    in-out property <int> v;
+    in-out property <int> m;
+}
+
+component FieldWidget {
+    in-out property <int> f <=> Fields.s.x;
+}
+
+component ValueWidget {
+    in-out property <int> v <=> Fields.v;
+}
+
+component ModelWidget {
+    in-out property <int> m <=> Fields.m;
+}
+
+global Watched {
+    in-out property <int> value;
+}
+
+component WatchedWidget {
+    in-out property <int> watched <=> Watched.value;
+    changed watched => { }
+}
+
+global Paired {
+    in-out property <int> first;
+    in-out property <int> second;
+    in-out property <int> third;
+}
+
+component PairWidget {
+    in-out property <int> first <=> Paired.first;
+    in-out property <int> second <=> Paired.second;
+}
+
+global Values {
+    in-out property <int> over-value: 42;
+    in-out property <int> over-empty;
+    in-out property <int> kept: 42;
+    in-out property <int> in-row: 42;
+    in-out property <int> not-linked: 1;
+    in-out property <int> not-linked-rows: 1;
+    in-out property <int> nested: 12;
+    in-out property <int> animated;
+    in-out property <int> animated-link;
+    in-out property <int> derived;
+    in-out property <int> in-conditional;
+    in-out property <int> in-popup;
+    in-out property <int> on-target: 88;
+    in-out property <int> from-base;
+    in-out property <int> from-derived;
+    in-out property <int> two-sites;
+    in-out property <int> field-kept: 42;
+    in-out property <int> model-rows;
+    in-out property <int> field-rows;
+}
+
+component WithValue {
+    in-out property <int> q: 42;
+}
+
+component WithoutValue {
+    in-out property <int> q;
+}
+
+component WithDerivedValue inherits WithoutValue {
+    q: 43;
+}
+
+component PlainValue {
+    in-out property <int> v;
+}
+
+component ValuesWidget {
+    in-out property <int> over-value <=> Values.over-value;
+    in-out property <int> over-empty <=> Values.over-empty;
+    in-out property <int> kept <=> Values.kept;
+    in-out property <int> in-row <=> Values.in-row;
+    in-out property <int> not-linked <=> Values.not-linked;
+    in-out property <int> not-linked-rows <=> Values.not-linked-rows;
+    in-out property <int> animated <=> Values.animated;
+    in-out property <int> animated-link <=> Values.animated-link;
+    in-out property <int> derived <=> Values.derived;
+    in-out property <int> in-conditional <=> Values.in-conditional;
+    in-out property <int> in-popup <=> Values.in-popup;
+    in-out property <int> on-target <=> Values.on-target;
+    in-out property <int> from-base <=> Values.from-base;
+    in-out property <int> from-derived <=> Values.from-derived;
+    in-out property <int> two-sites <=> Values.two-sites;
+    in-out property <int> field-kept <=> Values.field-kept;
+    in-out property <int> model-rows <=> Values.model-rows;
+    in-out property <int> field-rows <=> Values.field-rows;
+    in-out property scheme <=> Palette.color-scheme;
+}
+
+component DerivedValuesWidget inherits ValuesWidget {
+    in-out property <int> own;
+    derived <=> self.own;
+}
+
+component NestedInner {
+    in-out property <int> v <=> Values.nested;
+}
+
+component NestedWidget {
+    in-out property <int> a <=> inner.v;
+    inner := NestedInner { }
+}
+
+component Holder {
+    in-out property <int> held;
+    ChainWidget { p <=> root.held; }
+}
+
 component Widget inherits Rectangle {
     in-out property second <=> Glop.second;
 }
@@ -22,12 +182,177 @@ export component TestCase inherits Rectangle {
     // Unfortunately, this is only a native global with the Qt backend and not with the Test backend
     out property <length> alias_to_native <=> StyleMetrics.text_cursor_width;
     in-out property <int> alias_to_global <=> Glop.hello;
-    in-out property <bool> test: root.alias_to_native == StyleMetrics.text_cursor_width && root.alias_to_global == 42 && root.indirect == 88;
+    in-out property <bool> test: root.alias_to_native == StyleMetrics.text_cursor_width && root.alias_to_global == 42 && root.indirect == 88
+        && Valued.value == 7 && root.valued-alias == 7
+        && a-plain.v == 88 && Values.on-target == 88
+        && with-value.q == 42 && Values.from-base == 42
+        && with-derived-value.q == 43 && Values.from-derived == 43
+        && Values.field-kept == 42 && root.kept-struct.x == 42;
     in-out property <int> indirect <=> widget.second;
     in-out property <int> direct: Glop.second;
     in-out property <int> dual <=> DualBindingGlop.third;
 
     widget := Widget { }
+
+    // Two-way bindings on instances whose declaration is an alias to a global (#14170).
+    same-global := Widget { second <=> Glop.second; }
+    in-out property <int> via-root <=> Glop.second;
+    Widget { second <=> root.via-root; }
+    other-global := Widget { second <=> Linked.value; }
+    in-out property <int> watched;
+    changed watched => { }
+    Widget { second <=> root.watched; }
+    in-out property <int> animated;
+    animate animated { duration: 100ms; }
+    Widget { second <=> root.animated; }
+    in-out property <int> repeated;
+    for i in 2: Widget { second <=> root.repeated; }
+    // The value an instance sets is kept.
+    valued := ValuedWidget { value: 7; }
+    in-out property <int> valued-alias <=> valued.value;
+
+    // The same with a chain of globals, and between instances.
+    chain-end := ChainWidget { p <=> ChainC.c; }
+    chain-middle := ChainWidget { p <=> ChainB.b; }
+    middle := MiddleWidget { p <=> ChainA.a; }
+    holder := Holder { }
+    in-out property <int> chain-local-1 <=> chain-local-2;
+    in-out property <int> chain-local-2;
+    ChainWidget { p <=> root.chain-local-1; }
+    peer := ChainWidget { }
+    linked-peer := ChainWidget { p <=> peer.p; }
+    OtherWidget { q <=> chain-end.p; }
+    // Two properties of one instance, and a property the root aliases to another global.
+    PairWidget { first <=> self.second; }
+    in-out property <int> via-paired <=> Paired.third;
+    paired := PairWidget { second <=> root.via-paired; }
+    // A declaration with a `changed` handler stays in its component.
+    in-out property <int> watched-value: 9;
+    watched-widget := WatchedWidget { watched <=> root.watched-value; }
+
+    // A value on the other end wins, also from a row. Without a value, the global keeps its own.
+    in-out property <int> value-5: 5;
+    ValuesWidget { over-value <=> root.value-5; }
+    in-out property <int> value-6: 6;
+    ValuesWidget { over-empty <=> root.value-6; }
+    in-out property <int> no-value;
+    ValuesWidget { kept <=> root.no-value; }
+    in-out property <int> value-7: 7;
+    for i in 2: ValuesWidget { in-row <=> root.value-7; }
+    // Instances that don't exist don't link.
+    in-out property <int> value-8: 8;
+    if false: ValuesWidget { not-linked <=> root.value-8; }
+    in-out property <int> value-9: 9;
+    for i in 0: ValuesWidget { not-linked-rows <=> root.value-9; }
+    // The alias is the target of the link, and the source's id sorts first.
+    a-plain := PlainValue { v <=> target-widget.on-target; }
+    target-widget := ValuesWidget { }
+    // The value of the other end comes from its declaring component.
+    with-value := WithValue { }
+    ValuesWidget { from-base <=> with-value.q; }
+    with-derived-value := WithDerivedValue { }
+    ValuesWidget { from-derived <=> with-derived-value.q; }
+    // The same struct field linked from two places.
+    in-out property <FieldStruct> two-sites;
+    ValuesWidget { two-sites <=> root.two-sites.x; }
+    ValuesWidget { two-sites <=> root.two-sites.x; }
+    // A struct field without a value doesn't overwrite the global.
+    in-out property <FieldStruct> kept-struct;
+    ValuesWidget { field-kept <=> root.kept-struct.x; }
+    // Several rows link to one global.
+    in-out property <[int]> model-rows: [1, 2];
+    for item in root.model-rows: ValuesWidget { model-rows <=> item; }
+    in-out property <FieldStruct> field-rows;
+    for i in 2: ValuesWidget { field-rows <=> root.field-rows.x; }
+    // A conditional instance and a popup link from a sub-component with a parent.
+    in-out property <int> conditional-local;
+    if true: ValuesWidget { in-conditional <=> root.conditional-local; }
+    in-out property <int> popup-local;
+    popup := PopupWindow { ValuesWidget { in-popup <=> root.popup-local; } }
+    // Through an inner instance, and from a derived component.
+    in-out property <int> nested-local;
+    NestedWidget { a <=> root.nested-local; }
+    derived-widget := DerivedValuesWidget { }
+    // Animations on the instance.
+    ValuesWidget { animated: 3; animate animated { duration: 100ms; } }
+    in-out property <int> animated-link-local;
+    ValuesWidget { animated-link <=> root.animated-link-local; animate animated-link { duration: 100ms; } }
+    // A native global.
+    in-out property <ColorScheme> scheme;
+    ValuesWidget { scheme <=> root.scheme; }
+
+    // Struct fields and model values.
+    in-out property <int> field-local;
+    FieldWidget { f <=> root.field-local; }
+    value-to-field := ValueWidget { v <=> Fields.s.y; }
+    in-out property <FieldStruct> local-struct;
+    ValueWidget { v <=> root.local-struct.x; }
+    in-out property <[int]> model: [1];
+    for item in model: ModelWidget { m <=> item; }
+
+    public function check-values() -> bool {
+        if root.value-5 != 5 || Values.over-value != 5 || root.value-6 != 6 || Values.over-empty != 6
+            || root.no-value != 42 || Values.kept != 42 || root.value-7 != 7 || Values.in-row != 7
+            || root.nested-local != 12 {
+            return false;
+        }
+        Values.not-linked = 2;
+        Values.not-linked-rows = 2;
+        Values.nested = 13;
+        derived-widget.own = 14;
+        root.animated-link-local = 15;
+        root.scheme = ColorScheme.dark;
+        Values.model-rows = 18;
+        Values.field-rows = 19;
+        Values.two-sites = 20;
+        if (root.model-rows[0] != 18 && root.model-rows[1] != 18) || root.field-rows.x != 19
+            || root.two-sites.x != 20 {
+            return false;
+        }
+        root.conditional-local = 16;
+        popup.show();
+        root.popup-local = 17;
+        return root.value-8 == 8 && root.value-9 == 9 && root.nested-local == 13
+            && Values.derived == 14 && Values.animated-link == 15 && Values.animated == 3
+            && Palette.color-scheme == ColorScheme.dark && Values.in-conditional == 16
+            && Values.in-popup == 17;
+    }
+
+    public function check-fields() -> bool {
+        Fields.s.x = 8;
+        if root.field-local != 8 {
+            return false;
+        }
+        Fields.v = 9;
+        if Fields.s.y != 9 || value-to-field.v != 9 || root.local-struct.x != 9 {
+            return false;
+        }
+        Fields.m = 10;
+        return root.model[0] == 10;
+    }
+
+    public function check-chains() -> bool {
+        ChainC.c = 3;
+        if ChainA.a != 3 || chain-end.p != 3 || chain-middle.p != 3 || middle.p != 3
+            || holder.held != 3 || root.chain-local-2 != 3 || linked-peer.p != 3
+            || Other.o != 3 {
+            return false;
+        }
+        Other.o = 4;
+        root.watched-value = 5;
+        Paired.first = 11;
+        return ChainA.a == 4 && ChainB.b == 4 && ChainC.c == 4 && peer.p == 4
+            && root.chain-local-1 == 4 && Watched.value == 5 && watched-widget.watched == 5
+            && Paired.second == 11 && Paired.third == 11 && paired.first == 11
+            && root.via-paired == 11;
+    }
+
+    public function check-links() -> bool {
+        Linked.value = 6;
+        return Glop.second == 6 && widget.second == 6 && same-global.second == 6
+            && root.via-root == 6 && other-global.second == 6 && root.watched == 6
+            && root.repeated == 6;
+    }
 }
 
 /*
@@ -41,7 +366,11 @@ assert_eq!(instance.get_indirect(), 88);
 instance.set_indirect(99);
 assert_eq!(instance.get_direct(), 99);
 assert_eq!(instance.get_dual(), 102);
-
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert!(instance.invoke_check_links());
+assert!(instance.invoke_check_values());
+assert!(instance.invoke_check_chains());
+assert!(instance.invoke_check_fields());
 ```
 
 ```cpp
@@ -49,6 +378,11 @@ auto handle = TestCase::create();
 const TestCase &instance = *handle;
 assert(instance.get_test());
 assert_eq(instance.get_dual(), 102);
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert(instance.invoke_check_links());
+assert(instance.invoke_check_values());
+assert(instance.invoke_check_chains());
+assert(instance.invoke_check_fields());
 ```
 
 ```js
@@ -61,6 +395,11 @@ assert.equal(instance.indirect, 88);
 instance.indirect = 99;
 assert.equal(instance.direct, 99);
 assert.equal(instance.dual, 102);
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
+assert(instance.check_links());
+assert(instance.check_values());
+assert(instance.check_chains());
+assert(instance.check_fields());
 ```
 
 */
