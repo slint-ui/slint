@@ -7,22 +7,19 @@
     "email": "info@slint.dev"
   },
   "homepage": "https://slint.dev",
+  "privacyPolicyUrl": "https://slint.dev/imprint#privacy",
+  "icon": "./icon.svg",
   "repository": "https://github.com/slint-ui/slint",
   "keywords": ["slint", "gui", "ui", "hmi", "declarative", "rust", "cpp", "javascript", "python", "embedded", "mcu", "esp32", "stm32", "desktop", "mobile", "android", "ios", "live-preview"],
   "license": "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0",
-  "skills": "./skills/",
-  "interface": {
-    "displayName": "Slint",
-    "shortDescription": "Write, debug, and preview Slint UIs",
-    "longDescription": "Teaches Codex the Slint language and tooling, searches the Slint documentation, and shows live previews of .slint code.",
-    "developerName": "Slint",
-    "category": "Coding",
-    "capabilities": ["Interactive"],
-    "logo": "./assets/slint.svg",
-    "composerIcon": "./assets/slint.svg",
-    "websiteURL": "https://slint.dev",
-    "privacyPolicyURL": "https://slint.dev/imprint#privacy",
-    "defaultPrompt": ["Preview a Slint window with a button and a slider."]
+  "skills": "./claude-skills/",
+  "lspServers": {
+    "slint": {
+      "command": "slint-lsp",
+      "extensionToLanguage": {
+        ".slint": "slint"
+      }
+    }
   },
   "mcpServers": {
     "slint-docs": {
@@ -31,8 +28,9 @@
     },
     "slint-preview": {
       "command": "node",
-      "args": ["mcp/slint-preview/server.mjs"],
-      "cwd": "."
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/slint-preview/server.mjs"
+      ]
     }
   }
 }
