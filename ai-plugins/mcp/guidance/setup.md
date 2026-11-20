@@ -19,7 +19,8 @@ releases. If `uv add` / `pip install` picks an older Slint than expected, bump
 the project's `requires-python` (and `.python-version` for uv) to match the
 latest wheel on PyPI before pinning a Slint version.
 
-Preview a `.slint` file without host code: `slint-viewer ui/main.slint`
-(hot-reloads on save; install via [tools-install.md](tools-install.md)).
+Use `check_slint` for compiler diagnostics and a first-frame PNG when it is available.
+Otherwise, run `slint-viewer ui/main.slint` to preview the file with hot reload.
+See [tools-install.md](tools-install.md) for installation.
 
 See [interop.md](reference/interop.md) for connecting business logic.
