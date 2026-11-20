@@ -47,10 +47,9 @@ system-tray = ["i-slint-core/system-tray"]
 
 ## Render `.svg` images.
 ##
-## With `compat-1-18` the Skia renderer and the Android backend always render SVG. With `compat-1-20`
-## or newer this is opt-in: enable `svg` (it is part of the default features).
-## Without it, the Skia renderer and the Android backend leave out SVG support; other backends
-## still include it on native targets. WebAssembly builds never include it, since the browser decodes images.
+## On native targets the interpreter always renders SVG, since it loads images from files at runtime.
+## WebAssembly builds never include it, since the browser decodes images.
+## The feature exists to match the `slint` crate, and is part of the default features.
 svg = ["i-slint-backend-selector/svg"]
 
 # (internal) Use the standard library. Mandatory and enabled by `compat-1-20`
@@ -243,7 +242,7 @@ web-sys = { workspace = true, features = ["Navigator", "Response", "Window"] }
 # always need the decoders. The browser decodes images on the web, and a
 # microcontroller only gets images that the compiler already decoded.
 [target.'cfg(not(any(target_arch = "wasm32", target_os = "none")))'.dependencies]
-i-slint-core = { workspace = true, features = ["image-decoders"] }
+i-slint-core = { workspace = true, features = ["image-decoders", "svg"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # this line is there to add the "enable" feature by default, but only on linux
