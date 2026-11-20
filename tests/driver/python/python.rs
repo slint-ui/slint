@@ -152,6 +152,8 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         .arg("3.12")
         .arg(format!("ty@{}", *TY_VERSION))
         .arg("check")
+        .arg("--ignore")
+        .arg("unused-type-ignore-comment")
         .arg(&python_file)
         .env("PYTHONPATH", PYTHON_PATH.clone())
         .stdout(std::process::Stdio::piped())
