@@ -75,7 +75,7 @@ impl Compiler {
     }
 
     fn build_from_path(&mut self, py: Python<'_>, path: PathBuf) -> CompilationResult {
-        let result = spin_on::spin_on(self.compiler.build_from_path(&path));
+        let result = i_slint_compiler::poll_ready(self.compiler.build_from_path(&path));
         CompilationResult::new(result, path, py)
     }
 
@@ -85,7 +85,9 @@ impl Compiler {
         source_code: String,
         path: PathBuf,
     ) -> CompilationResult {
-        let result = spin_on::spin_on(self.compiler.build_from_source(source_code, path.clone()));
+        let result = i_slint_compiler::poll_ready(
+            self.compiler.build_from_source(source_code, path.clone()),
+        );
         CompilationResult::new(result, path, py)
     }
 }

@@ -1406,7 +1406,6 @@ version = "1.20.0"
 dependencies = [
  "i-slint-compiler",
  "slint-interpreter",
- "spin_on",
  "test_driver_lib",
  "walkdir",
 ]
@@ -2487,7 +2486,6 @@ dependencies = [
  "scoped-tls-hkt",
  "skia-safe",
  "softbuffer",
- "spin_on",
  "unicode-segmentation",
  "vtable",
  "wgpu",
@@ -4040,12 +4038,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a89322df9ebe1c1578d689c92318e070967d1042b512afbe49518723f4e6d5cd"
 
 [[package]]
-name = "pin-utils"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "13bee6c73da26345c729282832b60b0363cf3dd9f4bfd81d8551b7a1c889a113"
-
-[[package]]
 name = "pin-weak"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4100,6 +4092,12 @@ dependencies = [
  "rustix 1.1.6",
  "windows-sys 0.61.2",
 ]
+
+[[package]]
+name = "pollster"
+version = "1.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7e9b9cf600136f5b976fbc5727d58c26e1ecab8ee23088d44ef1c7af793550ab"
 
 [[package]]
 name = "polycool"
@@ -4851,7 +4849,6 @@ dependencies = [
  "derive_more",
  "fontique",
  "i-slint-compiler",
- "spin_on",
  "toml_edit",
 ]
 
@@ -4888,7 +4885,6 @@ dependencies = [
  "i-slint-compiler",
  "proc-macro2",
  "quote",
- "spin_on",
 ]
 
 [[package]]
@@ -5041,15 +5037,6 @@ dependencies = [
  "web-sys",
  "windows-sys 0.61.2",
  "x11rb",
-]
-
-[[package]]
-name = "spin_on"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "076e103ed41b9864aa838287efe5f4e3a7a0362dd00671ae62a212e5e4612da2"
-dependencies = [
- "pin-utils",
 ]
 
 [[package]]
@@ -5248,7 +5235,6 @@ dependencies = [
  "i-slint-compiler",
  "scopeguard",
  "serde_json",
- "spin_on",
  "tempfile",
  "test_driver_lib",
 ]
@@ -5263,7 +5249,6 @@ dependencies = [
  "i-slint-core",
  "itertools",
  "slint-interpreter",
- "spin_on",
  "test_driver_lib",
 ]
 
@@ -5281,7 +5266,6 @@ name = "test-driver-python"
 version = "1.20.0"
 dependencies = [
  "i-slint-compiler",
- "spin_on",
  "tempfile",
  "test_driver_lib",
 ]
@@ -5295,11 +5279,11 @@ dependencies = [
  "i-slint-compiler",
  "i-slint-core",
  "linkme",
+ "pollster",
  "rayon",
  "satchel",
  "slint",
  "slint-interpreter",
- "spin_on",
  "test_driver_lib",
 ]
 
@@ -5324,7 +5308,6 @@ dependencies = [
  "serde_json",
  "slint",
  "slint-interpreter",
- "spin_on",
  "test_driver_lib",
  "walkdir",
  "wgpu",
@@ -5335,7 +5318,6 @@ name = "test-driver-typescript"
 version = "1.20.0"
 dependencies = [
  "i-slint-compiler",
- "spin_on",
  "tempfile",
  "test_driver_lib",
 ]

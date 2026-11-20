@@ -1856,8 +1856,11 @@ mod tests {
         compiler_config.debug_info = true;
         compiler_config.inline_all_elements = inline_all_elements;
         compiler_config.debug_hooks = debug_hooks;
-        let (document, diagnostics, type_loader) =
-            spin_on::spin_on(crate::compile_syntax_node(syntax_node, diagnostics, compiler_config));
+        let (document, diagnostics, type_loader) = crate::poll_ready(crate::compile_syntax_node(
+            syntax_node,
+            diagnostics,
+            compiler_config,
+        ));
         assert!(!diagnostics.has_errors(), "{:?}", diagnostics.to_string_vec());
         (document, type_loader.compiler_config)
     }
@@ -2137,7 +2140,7 @@ export component TestCase inherits Window {
             &mut diags,
         );
         let (doc, diag, _) =
-            spin_on::spin_on(crate::compile_syntax_node(doc_node, diags, config.clone()));
+            crate::poll_ready(crate::compile_syntax_node(doc_node, diags, config.clone()));
         assert!(!diag.has_errors(), "compile error: {:#?}", diag.to_string_vec());
         (doc, config)
     }

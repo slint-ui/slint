@@ -54,16 +54,26 @@ impl CodeActionRequest {
         } else {
             empty_document_cache()
         };
-        spin_on::spin_on(document_cache.preload_builtins());
+        i_slint_compiler::poll_ready(document_cache.preload_builtins());
         let mut diagnostics = i_slint_compiler::diagnostics::BuildDiagnostics::default();
         for (name, content) in self.extra_files {
             let url = editor_preview::test::test_file_name(name).to_url().unwrap();
-            spin_on::spin_on(document_cache.load_url(&url, Some(1), content, &mut diagnostics))
-                .unwrap();
+            i_slint_compiler::poll_ready(document_cache.load_url(
+                &url,
+                Some(1),
+                content,
+                &mut diagnostics,
+            ))
+            .unwrap();
         }
         let url = editor_preview::test::main_test_file_name().to_url().unwrap();
-        spin_on::spin_on(document_cache.load_url(&url, Some(42), self.source, &mut diagnostics))
-            .unwrap();
+        i_slint_compiler::poll_ready(document_cache.load_url(
+            &url,
+            Some(42),
+            self.source,
+            &mut diagnostics,
+        ))
+        .unwrap();
 
         let mut capabilities = lsp_types::ClientCapabilities::default();
         if self.snippets {
