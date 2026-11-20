@@ -1688,6 +1688,12 @@ fn build(l: &mut Loader) {
         /// Call `scroll-to()` to scroll to a position in the content.
         /// To bring an element inside the `Flickable` into view, call
         /// [`ensure-visible()`](/reference/common/#ensure-visiblebehavior-scrollbehavior) on that element instead.
+        ///
+        /// ## Scrolling with Assistive Technologies
+        ///
+        /// An element with an `accessible-role` that contains a `Flickable`, such as a `ListView` or a `TextEdit`,
+        /// can be scrolled by assistive technologies, without any callback.
+        /// Give a plain `ScrollView` or `Flickable` an `accessible-role` to make it scrollable this way.
         /// \group:gestures
         @expands_to_parent_geometry @constant_layout_info(1.)
         Flickable: Flickable
