@@ -531,11 +531,12 @@ impl SpringboardTask {
                 return;
             }
             ConnectionEvent::DebuggerMessage(message) => {
-                let &PreviewToDebuggerMessage::SystemTestResponse { id, .. } = &message;
-                if self.connection.take_pending(id) {
-                    let _ = self.to_debugger.send(message);
-                } else {
+                if let &PreviewToDebuggerMessage::SystemTestResponse { id, .. } = &message
+                    && !self.connection.take_pending(id)
+                {
                     tracing::debug!("Dropping the response to request {id}, which isn't pending");
+                } else {
+                    let _ = self.to_debugger.send(message);
                 }
                 return;
             }
