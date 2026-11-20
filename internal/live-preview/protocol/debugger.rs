@@ -34,6 +34,9 @@ pub enum PreviewToDebuggerMessage {
         #[serde(with = "protobuf")]
         notification: Vec<u8>,
     },
+    /// A compilation finished; its `Diagnostics` follow.
+    /// `success` says whether it produced a component to show.
+    Reloaded { success: bool },
 }
 
 /// Base64 in human-readable formats, where JSON would spell out every byte as a number.
