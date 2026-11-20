@@ -14,11 +14,37 @@ component LiTest inherits Rectangle {
     in-out property <bool> test_li: li1.text == "li1" && li3.text == "li4";
 }
 
+// Inlined chains can lose updates when only the innermost property is written.
+component MutableLeaf {
+    visible: true;
+    in-out property <int> value;
+    changed value => { }
+    public function increment() { root.value += 1; }
+}
+
+component Middle {
+    visible: true;
+    in-out property <int> value;
+    leaf := MutableLeaf { value <=> root.value; }
+    public function increment() { leaf.increment(); }
+}
+
+component Outer {
+    visible: true;
+    in-out property <int> value;
+    middle := Middle { value <=> root.value; }
+    public function increment() { middle.increment(); }
+}
+
 export component TestCase inherits Window {
 
     li := LiTest {  }
+    chain := Outer { }
+    out property <int> observed: chain.value;
+    init => { chain.increment(); }
+    public function increment() { chain.increment(); }
 
-    in-out property <bool> test: li.test_li;
+    in-out property <bool> test: li.test_li && root.observed == 1;
 }
 
 /*
@@ -26,6 +52,9 @@ export component TestCase inherits Window {
 ```rust
 let instance = TestCase::new().unwrap();
 assert!(instance.get_test());
+assert_eq!(instance.get_observed(), 1);
+instance.invoke_increment();
+assert_eq!(instance.get_observed(), 2);
 ```
 
 
@@ -34,12 +63,18 @@ assert!(instance.get_test());
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
 assert(instance.get_test());
+assert(instance.get_observed() == 1);
+instance.invoke_increment();
+assert(instance.get_observed() == 2);
 ```
 
 
 ```js
 let instance = new slint.TestCase({});
 assert(instance.test);
+assert.equal(instance.observed, 1);
+instance.increment();
+assert.equal(instance.observed, 2);
 ```
 
 */
