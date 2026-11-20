@@ -22,14 +22,15 @@ use crate::lookup::{LookupCtx, LookupObject, LookupResult, LookupResultCallable}
 use crate::native_class::PropertyVisibility;
 use crate::object_tree::*;
 use crate::parser::{
-    NodeOrToken, SyntaxKind, SyntaxNode, TextRange, identifier_text, syntax_nodes,
+    NodeOrToken, SyntaxKind, SyntaxNode, TextRange, identifier_text, struct_field_path,
+    syntax_nodes,
 };
 use crate::source_path::SourcePath;
 use crate::symbol_counters::SymbolCounters;
 use crate::typeregister::TypeRegister;
 use core::num::IntErrorKind;
 use smol_str::{SmolStr, ToSmolStr};
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 use std::rc::Rc;
 use std::sync::Arc;
 use unicode_segmentation::UnicodeSegmentation;
@@ -138,14 +139,6 @@ fn struct_override_type(
     Some(field_ty.clone())
 }
 
-fn struct_field_path(node: &SyntaxNode) -> Vec<SmolStr> {
-    node.children_with_tokens()
-        .filter_map(NodeOrToken::into_token)
-        .filter(|token| token.kind() == SyntaxKind::Identifier)
-        .map(|token| crate::parser::normalize_identifier(token.text()))
-        .collect()
-}
-
 fn lower_struct_update(
     ty: Arc<Struct>,
     base: Expression,
@@ -163,7 +156,6 @@ fn lower_struct_update(
     let mut overrides = StructOverrides::default();
     for (path, ty, value, node) in fields {
         let override_name = symbols.generate_name("struct_override_");
-        // Evaluate overrides in source order before assembling the result.
         statements.push(Expression::StoreLocalVariable {
             name: override_name.clone(),
             value: Box::new(value),
@@ -572,16 +564,8 @@ pub fn resolve_expressions(
 
     // An inherited base can itself have field overrides.
     dotted_bindings.sort_by_key(|(depth, _, _)| *depth);
-    let mut inherited_defaults = HashMap::new();
     for (_, scope, bindings) in dotted_bindings {
-        resolve_dotted_bindings(
-            &scope.0,
-            bindings,
-            doc,
-            type_loader,
-            &mut inherited_defaults,
-            diag,
-        );
+        resolve_dotted_bindings(&scope.0, bindings, doc, type_loader, diag);
     }
     for component in &doc.inner_components {
         visit_all_expressions(component, |expression, _| {
@@ -603,7 +587,6 @@ fn resolve_dotted_bindings(
     bindings: Vec<syntax_nodes::DottedBinding>,
     doc: &Document,
     type_loader: &crate::typeloader::TypeLoader,
-    inherited_defaults: &mut HashMap<NamedReference, SmolStr>,
     diag: &mut BuildDiagnostics,
 ) {
     let elem = scope.last().unwrap();
@@ -630,7 +613,10 @@ fn resolve_dotted_bindings(
             group.push((prefix.to_vec(), node.into(), binding.into()));
         } else if let Some(object) = node.ObjectLiteral() {
             if let Some(update) = object.ObjectUpdate() {
-                diag.push_error("Grouped overrides already use the inherited base".into(), &update);
+                diag.push_error(
+                    "Remove '..base' from a grouped override; it always starts from the inherited value".into(),
+                    &update,
+                );
                 continue;
             }
             if object.ObjectMember().next().is_none() {
@@ -653,6 +639,10 @@ fn resolve_dotted_bindings(
         diag.slint_sc_error("Dotted property bindings are", &location);
         let property = elem.borrow().lookup_property(&name, PropertyLookupMode::ComponentLocal);
         let property_name = property.internal_or_resolved_name();
+        if property.property_type == Type::Invalid {
+            diag.push_error(format!("Unknown property '{name}'"), &location);
+            continue;
+        }
         let Type::Struct(ty) = &property.property_type else {
             diag.push_error(
                 format!("Dotted overrides require a struct property: '{name}'"),
@@ -683,7 +673,6 @@ fn resolve_dotted_bindings(
             elem,
             &property_name,
             &property.property_type,
-            inherited_defaults,
             &type_loader.symbol_counters,
             &location,
             diag,
@@ -723,7 +712,6 @@ fn inherited_struct_base(
     elem: &ElementRc,
     property: &SmolStr,
     ty: &Type,
-    inherited_defaults: &mut HashMap<NamedReference, SmolStr>,
     symbols: &SymbolCounters,
     location: &dyn Spanned,
     diag: &mut BuildDiagnostics,
@@ -731,13 +719,12 @@ fn inherited_struct_base(
     let mut base = elem.borrow().base_type.clone();
     while let ElementType::Component(component) = base {
         let owner = &component.root_element;
-        let inherited =
-            owner.borrow().binding(property).filter(|binding| binding.has_binding()).map(
-                |binding| {
-                    (binding.value_expression().clone(), !binding.two_way_bindings.is_empty())
-                },
-            );
-        if let Some((expression, two_way)) = inherited {
+        let inherited = owner
+            .borrow()
+            .binding(property)
+            .filter(|binding| binding.has_binding())
+            .map(|binding| !binding.two_way_bindings.is_empty());
+        if let Some(two_way) = inherited {
             if two_way {
                 diag.push_error(
                     format!("Cannot update '{property}' using an inherited two-way binding"),
@@ -745,16 +732,12 @@ fn inherited_struct_base(
                 );
                 return None;
             }
-            let original = NamedReference::new(owner, property.clone());
-            let backing = inherited_defaults.entry(original).or_insert_with(|| {
-                // Keep the default in its defining component so its references resolve per instance.
-                // A leading hyphen keeps Slint identifiers from shadowing this name.
-                let name = symbols.generate_name("-struct-update-base-");
-                let backing = crate::layout::create_new_prop(owner, name, ty.clone());
-                owner.borrow_mut().set_binding(backing.name().clone(), expression.into());
-                backing.name().clone()
-            });
-            return Some(Expression::PropertyReference(NamedReference::new(elem, backing.clone())));
+            let name = symbols.generate_name("-struct-update-base-");
+            let backing = crate::layout::create_new_prop(elem, name, ty.clone());
+            elem.borrow_mut()
+                .inherited_struct_bases
+                .insert(property.clone(), backing.name().clone());
+            return Some(Expression::PropertyReference(backing));
         }
         if owner.borrow().property_declarations.contains_key(property) {
             break;

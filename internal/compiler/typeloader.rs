@@ -508,6 +508,7 @@ impl Snapshotter {
         let elem = element.borrow();
 
         target_element.base_type = self.snapshot_element_type(&elem.base_type);
+        target_element.inherited_struct_bases = elem.inherited_struct_bases.clone();
         target_element.slot_target = elem.slot_target.clone();
         target_element.slot_default = elem.slot_default.clone();
         target_element.empty_slot_assignments = elem.empty_slot_assignments.clone();

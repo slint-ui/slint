@@ -41,6 +41,7 @@ fn create_repeater_components(component: &Rc<Component>) {
                 id: original_elem.id.clone(),
                 base_type: std::mem::take(&mut original_elem.base_type),
                 bindings: std::mem::take(&mut original_elem.bindings),
+                inherited_struct_bases: std::mem::take(&mut original_elem.inherited_struct_bases),
                 change_callbacks: std::mem::take(&mut original_elem.change_callbacks),
                 property_analysis: std::mem::take(&mut original_elem.property_analysis),
                 moved_property_declarations: std::mem::take(

@@ -36,16 +36,30 @@ component DefaultStyle inherits Rectangle {
     in property <color> input-color;
     private property <color> inherited-color: root.input-color;
     in property <Style> style: {
-        pressed: { background: root.inherited-color, foreground: white },
+        pressed: { background: root.default-color(), foreground: child.foreground },
         spacing: 9px,
     };
+    pure function default-color() -> color { return root.inherited-color; }
+    child := Rectangle {
+        in property <color> foreground: root.input-color == black ? white : root.input-color;
+    }
 }
 
 component CompactStyle inherits DefaultStyle {
     style.spacing: 6px;
 }
 
+component InheritedStyle inherits CompactStyle { }
+
 export component TestCase {
+    third := InheritedStyle {
+        input-color: root.pressed-color;
+        style.emphasis: strong;
+    }
+    fourth := InheritedStyle {
+        input-color: root.accent;
+        style.rest.background: red;
+    }
     first := CompactStyle {
         input-color: root.accent;
         style.pressed { foreground: yellow };
@@ -179,6 +193,14 @@ export component TestCase {
         && second.style.emphasis == Emphasis.strong
         && second.style-override-base == 42
         && second.style.spacing == 9px
+        && third.style.spacing == 6px
+        && third.style.emphasis == Emphasis.strong
+        && third.style.pressed.background == root.pressed-color
+        && third.style.pressed.foreground == root.pressed-color
+        && fourth.style.spacing == 6px
+        && fourth.style.rest.background == red
+        && fourth.style.pressed.background == root.accent
+        && fourth.style.pressed.foreground == root.accent
         && root.dotted().rest == root.base.rest
         && root.dotted().spacing == root.base.spacing
         && root.copy == root.base

@@ -8,7 +8,9 @@ use i_slint_compiler::expression_tree::Expression;
 use i_slint_compiler::langtype::Type;
 use i_slint_compiler::lookup::LookupCtx;
 use i_slint_compiler::object_tree::{self, type_from_node};
-use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, SyntaxToken, syntax_nodes};
+use i_slint_compiler::parser::{
+    SyntaxKind, SyntaxNode, SyntaxToken, struct_field_path, syntax_nodes,
+};
 use i_slint_compiler::parser::{TextRange, TextSize};
 use i_slint_compiler::typeregister::TypeRegister;
 use smol_str::SmolStr;
@@ -226,14 +228,6 @@ fn resolve_repeater_models(scope: &[object_tree::ElementRc], tr: &TypeRegister) 
             }
         });
     }
-}
-
-pub fn struct_field_path(node: &SyntaxNode) -> Vec<SmolStr> {
-    node.children_with_tokens()
-        .filter_map(|child| child.into_token())
-        .filter(|token| token.kind() == SyntaxKind::Identifier)
-        .map(|token| i_slint_compiler::parser::normalize_identifier(token.text()))
-        .collect()
 }
 
 /// Run the function with the LookupCtx associated with the token

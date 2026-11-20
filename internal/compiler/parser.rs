@@ -1109,6 +1109,15 @@ impl Spanned for Option<SyntaxToken> {
     }
 }
 
+/// The normalized identifier path of a qualified name or struct literal member.
+pub fn struct_field_path(node: &SyntaxNode) -> Vec<SmolStr> {
+    node.children_with_tokens()
+        .filter_map(NodeOrToken::into_token)
+        .filter(|token| token.kind() == SyntaxKind::Identifier)
+        .map(|token| normalize_identifier(token.text()))
+        .collect()
+}
+
 /// return the normalized identifier string of the first SyntaxKind::Identifier in this node
 pub fn identifier_text(node: &SyntaxNode) -> Option<SmolStr> {
     node.child_text(SyntaxKind::Identifier).map(|x| normalize_identifier(&x))

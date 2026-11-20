@@ -500,6 +500,17 @@ fn inline_element(
         };
     }
 
+    for (property, backing) in std::mem::take(&mut elem_mut.inherited_struct_bases) {
+        let expression = inlined_component
+            .root_element
+            .borrow()
+            .binding(&property)
+            .expect("inherited struct binding must be inlined")
+            .value_expression()
+            .clone();
+        elem_mut.set_binding(backing, expression.into());
+    }
+
     for (property, root_binding) in
         inlined_component.root_element.borrow().bindings_including_synthetic()
     {
@@ -652,6 +663,7 @@ fn duplicate_element_with_mapping(
         base_type: elem.base_type.clone(),
         id: elem.id.clone(),
         property_declarations: elem.property_declarations.clone(),
+        inherited_struct_bases: elem.inherited_struct_bases.clone(),
         shadowing_members: elem.shadowing_members.clone(),
         implement_statements: Default::default(),
         moved_property_declarations: elem.moved_property_declarations.clone(),
@@ -1062,6 +1074,10 @@ fn component_requires_inlining(component: &Rc<Component>) -> bool {
 }
 
 fn element_require_inlining(elem: &ElementRc) -> bool {
+    if !elem.borrow().inherited_struct_bases.is_empty() {
+        return true;
+    }
+
     if !elem.borrow().children.is_empty() {
         // the generators assume that the children list is complete, which sub-components may break
         return true;
