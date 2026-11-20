@@ -219,3 +219,7 @@ harness = false
 name = "initial_window_icon"
 harness = false
 required-features = ["x11", "renderer-software"]
+
+[[test]]
+name = "popup_forwards_pointer_to_parent"
+harness = false
