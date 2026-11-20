@@ -553,7 +553,7 @@ fn main() {
         adapter_info,
         adapter,
         instance,
-    ) = spin_on::spin_on(bevy::render::renderer::initialize_renderer(
+    ) = pollster::block_on(bevy::render::renderer::initialize_renderer(
         backends,
         None,
         &bevy::render::settings::WgpuSettings::default(),

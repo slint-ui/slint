@@ -522,7 +522,7 @@ fn expand(
 
     //println!("{syntax_node:#?}");
     let (root_component, mut diag, loader) =
-        spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
+        i_slint_compiler::poll_ready(compile_syntax_node(syntax_node, diag, compiler_config));
     diag.remove_infos();
     //println!("{tree:#?}");
     if diag.has_errors() {

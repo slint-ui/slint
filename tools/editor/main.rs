@@ -812,6 +812,7 @@ async fn handle_workspace_edit(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use i_slint_compiler::poll_ready;
     use std::collections::{HashMap, HashSet};
 
     fn count_file_contents(messages: &[LspToPreviewMessage]) -> HashMap<Url, usize> {
@@ -842,7 +843,7 @@ mod tests {
         let (to_previews, messages) = recording_previews();
         let mut watcher = FileWatcher::start(|_| {}, |_| {}).unwrap();
         let mut root = PathBuf::new();
-        let mut session = spin_on::spin_on(activate_project(
+        let mut session = poll_ready(activate_project(
             &mut watcher,
             &mut tokio::sync::mpsc::unbounded_channel().1,
             &mut root,
@@ -850,9 +851,9 @@ mod tests {
             &to_previews,
         ));
         let request = PreviewToLspMessage::RequestState { files: Vec::new(), settings: Vec::new() };
-        spin_on::spin_on(handle_preview_message(request, PRIMARY_PREVIEW_INDEX, &mut session));
+        poll_ready(handle_preview_message(request, PRIMARY_PREVIEW_INDEX, &mut session));
         for url in std::mem::take(&mut session.pending_recompile) {
-            spin_on::spin_on(session.reload_document(url)).unwrap();
+            poll_ready(session.reload_document(url)).unwrap();
         }
 
         let contents_counts = count_file_contents(&messages[PRIMARY_PREVIEW_INDEX].borrow());
@@ -872,13 +873,13 @@ mod tests {
         .unwrap();
         messages[PRIMARY_PREVIEW_INDEX].borrow_mut().clear();
         let main_url = Url::from_file_path(&main_path).unwrap();
-        spin_on::spin_on(session.trigger_file_watcher(
+        poll_ready(session.trigger_file_watcher(
             main_url.clone(),
             i_slint_live_preview::file_watcher::FileChangeKind::Changed,
         ))
         .unwrap();
         for url in std::mem::take(&mut session.pending_recompile) {
-            spin_on::spin_on(session.reload_document(url)).unwrap();
+            poll_ready(session.reload_document(url)).unwrap();
         }
         let late_import_url = Url::from_file_path(&late_import_path).unwrap();
         assert!(messages[PRIMARY_PREVIEW_INDEX].borrow().iter().any(|message| {
@@ -887,7 +888,7 @@ mod tests {
         }));
 
         messages[PRIMARY_PREVIEW_INDEX].borrow_mut().clear();
-        spin_on::spin_on(handle_preview_message(
+        poll_ready(handle_preview_message(
             PreviewToLspMessage::RequestState { files: Vec::new(), settings: Vec::new() },
             PRIMARY_PREVIEW_INDEX,
             &mut session,
@@ -911,14 +912,14 @@ mod tests {
         let (to_previews, messages) = recording_previews();
         let mut watcher = FileWatcher::start(|_| {}, |_| {}).unwrap();
         let mut root = PathBuf::new();
-        let mut session = spin_on::spin_on(activate_project(
+        let mut session = poll_ready(activate_project(
             &mut watcher,
             &mut tokio::sync::mpsc::unbounded_channel().1,
             &mut root,
             project,
             &to_previews,
         ));
-        spin_on::spin_on(handle_preview_message(
+        poll_ready(handle_preview_message(
             PreviewToLspMessage::RequestState { files: Vec::new(), settings: Vec::new() },
             PRIMARY_PREVIEW_INDEX,
             &mut session,
@@ -953,7 +954,7 @@ mod tests {
         let (to_previews, _) = recording_previews();
         let mut watcher = FileWatcher::start(|_| {}, |_| {}).unwrap();
         let mut root = PathBuf::new();
-        let session = spin_on::spin_on(activate_project(
+        let session = poll_ready(activate_project(
             &mut watcher,
             &mut tokio::sync::mpsc::unbounded_channel().1,
             &mut root,
@@ -1012,7 +1013,7 @@ mod tests {
             .unwrap();
             let url = Url::from_file_path(&path).unwrap();
             let (mut session, _) = session_with_recording_previews();
-            spin_on::spin_on(session.load_document_impl(original.into(), url.clone(), None));
+            poll_ready(session.load_document_impl(original.into(), url.clone(), None));
             session.show_preview(
                 PRIMARY_PREVIEW_INDEX,
                 PreviewComponent { url: url.clone(), component: Some("Main".into()) },
@@ -1029,7 +1030,7 @@ mod tests {
                     new_text: expected.clone(),
                 }],
             );
-            spin_on::spin_on(trigger_editor_file_watcher(
+            poll_ready(trigger_editor_file_watcher(
                 &mut session,
                 WatchEvent {
                     path: root.join(changed_file),
@@ -1044,7 +1045,7 @@ mod tests {
                     .and_then(|document| document.node.as_ref())
                     .is_none()
             );
-            spin_on::spin_on(handle_preview_message(
+            poll_ready(handle_preview_message(
                 PreviewToLspMessage::SendWorkspaceEdit { label: Some("Resize".into()), edit },
                 PRIMARY_PREVIEW_INDEX,
                 &mut session,
@@ -1069,16 +1070,16 @@ mod tests {
             let url = Url::from_file_path(&path).unwrap();
             let contents = r#"{"edition":"1.20","main":"main.slint"}"#;
             let (mut session, messages) = session_with_recording_previews();
-            spin_on::spin_on(session.reload_document(Url::from_file_path(main).unwrap())).unwrap();
+            poll_ready(session.reload_document(Url::from_file_path(main).unwrap())).unwrap();
             std::fs::write(&path, contents).unwrap();
             std::fs::remove_file(&path).unwrap();
-            spin_on::spin_on(trigger_editor_file_watcher(
+            poll_ready(trigger_editor_file_watcher(
                 &mut session,
                 WatchEvent { path: path.clone(), kind },
             ));
             clear_messages(&messages);
             std::fs::write(&path, contents).unwrap();
-            spin_on::spin_on(trigger_editor_file_watcher(&mut session, WatchEvent { path, kind }));
+            poll_ready(trigger_editor_file_watcher(&mut session, WatchEvent { path, kind }));
             assert!(messages[PRIMARY_PREVIEW_INDEX].borrow().iter().any(|message| {
                 matches!(message, LspToPreviewMessage::SetContents { url: received, contents: received_contents }
                     if received.url() == &url && received_contents == contents.as_bytes())
@@ -1096,7 +1097,7 @@ mod tests {
         let path = root.join("slint-project.json");
         let url = Url::from_file_path(&path).unwrap();
         let (mut session, messages) = session_with_recording_previews();
-        spin_on::spin_on(session.reload_document(Url::from_file_path(main).unwrap())).unwrap();
+        poll_ready(session.reload_document(Url::from_file_path(main).unwrap())).unwrap();
         let (sender, receiver) = std::sync::mpsc::channel();
         let mut watcher = FileWatcher::start(
             move |event| {
@@ -1129,7 +1130,7 @@ mod tests {
                     .recv_timeout(deadline.saturating_duration_since(std::time::Instant::now()))
                     .unwrap();
                 if event.path == path && event.kind == expected_kind {
-                    spin_on::spin_on(trigger_editor_file_watcher(&mut session, event));
+                    poll_ready(trigger_editor_file_watcher(&mut session, event));
                     break;
                 }
             }
@@ -1171,7 +1172,7 @@ mod tests {
                     new_text: width.to_string(),
                 }],
             );
-            assert!(spin_on::spin_on(handle_workspace_edit(&mut session, None, &edit)));
+            assert!(poll_ready(handle_workspace_edit(&mut session, None, &edit)));
             assert!(session.document_cache.get_document(&url).is_none());
             assert_eq!(
                 std::fs::read_to_string(&path).unwrap(),
@@ -1184,7 +1185,7 @@ mod tests {
             None,
             vec![lsp_types::TextEdit { range: lsp_types::Range::default(), new_text: "{}".into() }],
         );
-        assert!(!spin_on::spin_on(handle_workspace_edit(&mut session, None, &edit)));
+        assert!(!poll_ready(handle_workspace_edit(&mut session, None, &edit)));
         assert!(!path.exists());
     }
 
@@ -1198,7 +1199,7 @@ mod tests {
         let url = Url::from_file_path(&path).unwrap();
         let missing = Url::from_file_path(root.join("Missing.slint")).unwrap();
         let (mut session, _) = session_with_recording_previews();
-        spin_on::spin_on(session.load_document_impl(original.into(), url.clone(), None));
+        poll_ready(session.load_document_impl(original.into(), url.clone(), None));
         let edit = lsp_types::TextEdit {
             range: lsp_types::Range::new(
                 lsp_types::Position::new(0, 0),
@@ -1210,7 +1211,7 @@ mod tests {
             editor_preview::editing::create_text_document_edit(url, None, vec![edit.clone()]),
             editor_preview::editing::create_text_document_edit(missing, None, vec![edit]),
         ]);
-        assert!(!spin_on::spin_on(handle_workspace_edit(&mut session, Some("Resize"), &edit)));
+        assert!(!poll_ready(handle_workspace_edit(&mut session, Some("Resize"), &edit)));
         assert_eq!(std::fs::read_to_string(&path).unwrap(), original);
     }
 
@@ -1239,7 +1240,7 @@ mod tests {
         let old_project = tempfile::tempdir().unwrap();
         let old_path = old_project.path().join("old.slint");
         let old_url = Url::from_file_path(&old_path).unwrap();
-        spin_on::spin_on(session.load_document_impl(
+        poll_ready(session.load_document_impl(
             "export component Old {}".into(),
             old_url.clone(),
             None,
@@ -1262,7 +1263,7 @@ mod tests {
         let mut project_root = old_project.path().to_path_buf();
         let mut watcher = FileWatcher::start(|_| {}, |_| {}).unwrap();
         clear_messages(&messages);
-        spin_on::spin_on(switch_project(
+        poll_ready(switch_project(
             &mut session,
             &mut watcher,
             &mut tokio::sync::mpsc::unbounded_channel().1,
@@ -1346,7 +1347,7 @@ mod tests {
         let old_project = tempfile::tempdir().unwrap();
         let old_path = old_project.path().join("old.slint");
         let old_url = Url::from_file_path(&old_path).unwrap();
-        spin_on::spin_on(session.load_document_impl(
+        poll_ready(session.load_document_impl(
             "export component Old {}".into(),
             old_url.clone(),
             None,
@@ -1370,7 +1371,7 @@ mod tests {
         clear_messages(&messages);
 
         let target = project.preview.clone();
-        spin_on::spin_on(switch_project(
+        poll_ready(switch_project(
             &mut session,
             &mut watcher,
             &mut tokio::sync::mpsc::unbounded_channel().1,
@@ -1402,7 +1403,7 @@ mod tests {
             component: Some("Secondary".into()),
         };
 
-        spin_on::spin_on(handle_preview_message(
+        poll_ready(handle_preview_message(
             PreviewToLspMessage::RequestState { files: Vec::new(), settings: Vec::new() },
             1,
             &mut session,
@@ -1418,7 +1419,7 @@ mod tests {
 
         clear_messages(&messages);
 
-        spin_on::spin_on(handle_preview_message(
+        poll_ready(handle_preview_message(
             PreviewToLspMessage::RequestPreview { component: component.clone() },
             1,
             &mut session,
@@ -1505,7 +1506,7 @@ mod tests {
         let path = project.path().join("main.slint");
         let url = Url::from_file_path(&path).unwrap();
         let source = "export component Main {\n    Text {}\n}";
-        spin_on::spin_on(session.load_document_impl(source.into(), url.clone(), None));
+        poll_ready(session.load_document_impl(source.into(), url.clone(), None));
         session.show_preview(
             PRIMARY_PREVIEW_INDEX,
             PreviewComponent { url: url.clone(), component: Some("Main".into()) },
@@ -1521,7 +1522,7 @@ mod tests {
             expected_offset.into(),
             session.document_cache.format,
         );
-        spin_on::spin_on(handle_preview_message(
+        poll_ready(handle_preview_message(
             PreviewToLspMessage::ShowDocument {
                 file: url.clone(),
                 selection: lsp_types::Range::new(position, position),
@@ -1538,7 +1539,7 @@ mod tests {
         }));
 
         clear_messages(&messages);
-        spin_on::spin_on(handle_preview_message(
+        poll_ready(handle_preview_message(
             PreviewToLspMessage::RequestState { files: Vec::new(), settings: Vec::new() },
             RUN_PREVIEW_INDEX,
             &mut session,
@@ -1561,7 +1562,7 @@ mod tests {
         for preview_index in [PRIMARY_PREVIEW_INDEX, RUN_PREVIEW_INDEX] {
             let (mut session, messages) = session_with_recording_previews();
 
-            spin_on::spin_on(handle_preview_message(
+            poll_ready(handle_preview_message(
                 PreviewToLspMessage::ClearHighlight,
                 preview_index,
                 &mut session,
@@ -1586,7 +1587,7 @@ mod tests {
         for preview_index in [PRIMARY_PREVIEW_INDEX, RUN_PREVIEW_INDEX] {
             let (mut session, messages) = session_with_recording_previews();
 
-            spin_on::spin_on(handle_preview_message(
+            poll_ready(handle_preview_message(
                 PreviewToLspMessage::HighlightInRunPreview { url: Some(url.clone()), offset: 42 },
                 preview_index,
                 &mut session,
@@ -1609,7 +1610,7 @@ mod tests {
     fn show_document_from_the_run_preview_is_ignored() {
         let (mut session, messages) = session_with_recording_previews();
 
-        spin_on::spin_on(handle_preview_message(
+        poll_ready(handle_preview_message(
             PreviewToLspMessage::ShowDocument {
                 file: editor_preview::test::test_file_name("run.slint").to_url().unwrap(),
                 selection: Default::default(),
@@ -1637,7 +1638,7 @@ mod tests {
         let main = project.path().join("main.slint");
         let main_source = r#"export component Main { Image { source: @image-url("logo.png"); } }"#;
         std::fs::write(&main, main_source).unwrap();
-        spin_on::spin_on(session.load_document_impl(
+        poll_ready(session.load_document_impl(
             main_source.into(),
             Url::from_file_path(&main).unwrap(),
             None,
@@ -1646,7 +1647,7 @@ mod tests {
         let [inside, unreferenced, outside] =
             [inside, unreferenced, outside].map(|path| Url::from_file_path(path).unwrap());
 
-        spin_on::spin_on(handle_preview_message(
+        poll_ready(handle_preview_message(
             PreviewToLspMessage::RequestState {
                 files: vec![inside.clone(), unreferenced.clone(), outside.clone()],
                 settings: Vec::new(),

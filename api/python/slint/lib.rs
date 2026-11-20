@@ -23,6 +23,7 @@ mod models;
 mod styled_text;
 mod timer;
 mod value;
+mod window;
 use i_slint_core::translations::Translator;
 
 fn handle_unraisable(py: Python<'_>, context: String, err: PyErr) {
@@ -215,6 +216,7 @@ fn register_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<ComponentInstance>()?;
     m.add_class::<ComponentDefinition>()?;
     m.add_class::<image::PyImage>()?;
+    m.add_class::<window::PyWindow>()?;
     m.add_class::<PyValueType>()?;
     m.add_class::<PyDiagnosticLevel>()?;
     m.add_class::<PyDiagnostic>()?;

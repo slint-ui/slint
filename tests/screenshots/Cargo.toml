@@ -58,7 +58,6 @@ interpreter-embed-assets = [
   "slint-interpreter/internal",
   "slint-interpreter/internal-embed-textures",
   "i-slint-compiler/serde",
-  "dep:spin_on",
 ]
 
 [dependencies]
@@ -76,7 +75,6 @@ kurbo = { version = "0.13", optional = true }
 peniko = { version = "0.6", optional = true }
 serde_json = { version = "1", optional = true }
 slint-interpreter = { workspace = true, features = ["display-diagnostics", "compat-1-2"], optional = true }
-spin_on = { workspace = true, optional = true }
 i-slint-compiler = { workspace = true, optional = true }
 # Provides `configure_test_fonts()` to register the bundled test fonts at runtime so the default
 # software driver resolves fonts deterministically without importing a .ttf.
@@ -89,7 +87,6 @@ test_driver_lib = { path = "../driver/driverlib" }
 [build-dependencies]
 i-slint-compiler = { workspace = true, features = ["default", "rust", "display-diagnostics", "renderer-software"], optional = true }
 walkdir = "2.3"
-spin_on = { workspace = true }
 test_driver_lib = { path = "../driver/driverlib" }
 
 [dev-dependencies]

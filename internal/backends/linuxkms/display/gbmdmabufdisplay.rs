@@ -296,7 +296,7 @@ impl GbmDmabufDisplay {
     ///
     /// Where the display can wait for `sync_file`, the frame is posted right away.
     /// Otherwise, it stays pending until the next call or [`Self::flush`] posts it,
-    /// once `submission` completed.
+    /// once the submission that `submit` makes completed.
     /// Posting a frame only once the next one is drawn costs a frame of latency.
     /// In exchange, the GPU finishes the frame while the CPU draws the next one.
     /// Call [`Self::flush`] when no frame follows right away.
@@ -307,7 +307,7 @@ impl GbmDmabufDisplay {
     pub fn present_after(
         &self,
         device: &wgpu::Device,
-        submission: wgpu::SubmissionIndex,
+        submit: impl FnOnce() -> wgpu::SubmissionIndex,
         sync_file: Option<OwnedFd>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         debug_assert!(self.buffers.len() >= 4, "see the buffers this needs");
@@ -318,7 +318,7 @@ impl GbmDmabufDisplay {
             self.drm_output.present_framebuffer_after(framebuffer, &sync_file)
         });
         if !posted {
-            self.pending.set(Some((index, submission)));
+            self.pending.set(Some((index, submit())));
         }
         self.next.set((index + 1) % self.buffers.len());
         Ok(())

@@ -60,4 +60,3 @@ i-slint-renderer-skia = { version = "=1.20.0", path = "../internal/renderers/ski
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 itertools = { version = "0.15" }
 rayon = { version = "1.10", default-features = false }
-spin_on = { version = "0.1" }

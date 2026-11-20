@@ -18,7 +18,8 @@ fn compile(source: &str, enable_experimental: bool) -> BuildDiagnostics {
     config.style = Some("fluent".into());
     config.edition = Some(i_slint_compiler::project_file::SlintEdition::current());
     let node = i_slint_compiler::parser::parse(source.into(), None, config.edition, &mut diag);
-    let (_, diag, _) = spin_on::spin_on(i_slint_compiler::compile_syntax_node(node, diag, config));
+    let (_, diag, _) =
+        i_slint_compiler::poll_ready(i_slint_compiler::compile_syntax_node(node, diag, config));
     diag
 }
 
@@ -77,7 +78,7 @@ fn inherited_overrides_keep_cached_imports_unchanged() {
     let mut loader = TypeLoader::new(config, &mut diag);
     let base_path = SourcePath::new(std::env::temp_dir().join("struct-update-base.slint"));
     let app_path = SourcePath::new(std::env::temp_dir().join("struct-update-app.slint"));
-    spin_on::spin_on(
+    i_slint_compiler::poll_ready(
         loader.load_file(
             &base_path,
             r#"
@@ -108,7 +109,7 @@ fn inherited_overrides_keep_cached_imports_unchanged() {
 
     for binding in ["data.value.number: 42;", "data.value { number: 42 };", "data.other: 43;"] {
         let mut diag = BuildDiagnostics::default();
-        spin_on::spin_on(loader.load_file(
+        i_slint_compiler::poll_ready(loader.load_file(
             &app_path,
             format!(
                 r#"

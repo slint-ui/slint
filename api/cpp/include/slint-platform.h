@@ -442,7 +442,7 @@ public:
                 cbindgen_private::slint_platform_task_run(
                         std::exchange(inner, { nullptr, nullptr }));
             }
-        };
+        }
     };
 
     /// Run a task from the event loop.
@@ -699,7 +699,7 @@ public:
     };
 #    endif
 
-    virtual ~SoftwareRenderer() { cbindgen_private::slint_software_renderer_drop(inner); };
+    virtual ~SoftwareRenderer() { cbindgen_private::slint_software_renderer_drop(inner); }
     SoftwareRenderer(const SoftwareRenderer &) = delete;
     SoftwareRenderer &operator=(const SoftwareRenderer &) = delete;
     /// Constructs a new SoftwareRenderer with the \a buffer_type as strategy for handling the

@@ -172,7 +172,7 @@ fn generate_source(
     compiler_config.edition = Some(test_driver_lib::edition_or_current(source).parse().unwrap());
     compiler_config.style = Some("fluent".to_string());
     compiler_config.const_scale_factor = scale_factor.into();
-    let (root_component, diag, loader) = spin_on::spin_on(compile_source(
+    let (root_component, diag, loader) = i_slint_compiler::poll_ready(compile_source(
         &i_slint_compiler::source_path::SourcePath::new(&testcase.absolute_path),
         source.to_owned(),
         BuildDiagnostics::default(),

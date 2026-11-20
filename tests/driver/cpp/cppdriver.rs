@@ -43,7 +43,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         compiler_config.default_translation_context =
             i_slint_compiler::DefaultTranslationContext::None;
     }
-    let (root_component, diag, loader) = spin_on::spin_on(compile_source(
+    let (root_component, diag, loader) = i_slint_compiler::poll_ready(compile_source(
         &i_slint_compiler::source_path::SourcePath::new(&testcase.absolute_path),
         source.clone(),
         BuildDiagnostics::default(),
