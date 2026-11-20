@@ -3150,27 +3150,28 @@ pub mod test {
 
         let path = main_test_file_name();
         let source_code = code.get(&path).unwrap().clone();
-        let (diagnostics, compiled, _, versions, _) = spin_on::spin_on(super::parse_source(
-            Default::default(),
-            path.clone(),
-            Some(24),
-            Some(source_code.to_string()),
-            style.to_string(),
-            None,
-            move |path| {
-                let code = code.clone();
+        let (diagnostics, compiled, _, versions, _) =
+            i_slint_compiler::poll_ready(super::parse_source(
+                Default::default(),
+                path.clone(),
+                Some(24),
+                Some(source_code.to_string()),
+                style.to_string(),
+                None,
+                move |path| {
+                    let code = code.clone();
 
-                Box::pin(async move {
-                    let Some(source) = code.get(&path) else {
-                        return Some(Result::Err(std::io::Error::new(
-                            std::io::ErrorKind::NotFound,
-                            "path not found",
-                        )));
-                    };
-                    Some(Ok((Some(24), source.clone())))
-                })
-            },
-        ));
+                    Box::pin(async move {
+                        let Some(source) = code.get(&path) else {
+                            return Some(Result::Err(std::io::Error::new(
+                                std::io::ErrorKind::NotFound,
+                                "path not found",
+                            )));
+                        };
+                        Some(Ok((Some(24), source.clone())))
+                    })
+                },
+            ));
         let diagnostics = without_info(diagnostics);
 
         assert!(diagnostics.is_empty());
@@ -3243,7 +3244,7 @@ mod tests {
                 state.set_current_component(original.clone());
             });
             let switched_target = replacement.clone();
-            let (diagnostics, _, _, _, _) = spin_on::spin_on(parse_source(
+            let (diagnostics, _, _, _, _) = i_slint_compiler::poll_ready(parse_source(
                 Default::default(), SourcePath::from_url(&original.url), None,
                 Some(r#"import { Dependency } from "dependency.slint"; export component Main inherits Dependency {}"#.into()),
                 String::new(), None,
@@ -3271,15 +3272,16 @@ mod tests {
         let directory = tempfile::tempdir().unwrap();
         for file_name in ["main.slint", "main.rs"] {
             let path = SourcePath::new(directory.path().join(file_name));
-            let (diagnostics, compiled, _, versions, _) = spin_on::spin_on(parse_source(
-                Default::default(),
-                path.clone(),
-                None,
-                None,
-                String::new(),
-                None,
-                |path| Box::pin(async move { Some(get_path_from_cache(&path)) }),
-            ));
+            let (diagnostics, compiled, _, versions, _) =
+                i_slint_compiler::poll_ready(parse_source(
+                    Default::default(),
+                    path.clone(),
+                    None,
+                    None,
+                    String::new(),
+                    None,
+                    |path| Box::pin(async move { Some(get_path_from_cache(&path)) }),
+                ));
             assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
             assert!(diagnostics[0].message().contains("File not found"), "{diagnostics:?}");
             assert!(compiled.is_none());
@@ -3347,7 +3349,7 @@ mod tests {
                     state.source_code.remove(&manifest);
                 }
             });
-            let (diagnostics, compiled, _, _, _) = spin_on::spin_on(parse_source(
+            let (diagnostics, compiled, _, _, _) = i_slint_compiler::poll_ready(parse_source(
                 Default::default(),
                 source.clone(),
                 Some(3),
@@ -3374,7 +3376,7 @@ mod tests {
         let manifest = Url::parse("file:///snapshot/slint-project.json").unwrap();
         let extra = Url::parse("file:///snapshot/extra.slint").unwrap();
         let mut cache = i_slint_editor_preview::test::empty_document_cache();
-        spin_on::spin_on(cache.load_url(
+        i_slint_compiler::poll_ready(cache.load_url(
             &main,
             Some(1),
             "export component Main {}".into(),
@@ -3414,7 +3416,8 @@ mod tests {
             reset_preview_state(Default::default());
             let mut cache = i_slint_editor_preview::test::empty_document_cache();
             let mut diag = diagnostics::BuildDiagnostics::default();
-            spin_on::spin_on(cache.load_url(&main, Some(1), source.into(), &mut diag)).unwrap();
+            i_slint_compiler::poll_ready(cache.load_url(&main, Some(1), source.into(), &mut diag))
+                .unwrap();
             assert!(!diag.has_errors());
             let documents = cache.all_urls().collect::<HashSet<_>>();
             PREVIEW_STATE.with_borrow_mut(|state| {
@@ -3518,7 +3521,7 @@ mod tests {
             });
         }
         let (diagnostics, compiled, open_import_callback, source_file_versions, no_component) =
-            spin_on::spin_on(parse_source(
+            i_slint_compiler::poll_ready(parse_source(
                 Default::default(),
                 path,
                 Some(24),
@@ -4239,7 +4242,7 @@ mod tests {
                 component: None,
             };
             load_preview(component.clone(), LoadBehavior::BringWindowToFront);
-            spin_on::spin_on(reload_timer_function(old_project_generation));
+            i_slint_compiler::poll_ready(reload_timer_function(old_project_generation));
             PREVIEW_STATE.with_borrow(|state| {
                 assert_eq!(state.current_component(), Some(component));
                 assert_eq!(state.loading_state, PreviewFutureState::PreLoading);
@@ -4261,7 +4264,7 @@ mod tests {
             state.current_load_behavior = Some(LoadBehavior::BringWindowToFront);
             state.project_generation
         });
-        spin_on::spin_on(reload_timer_function(project_generation));
+        i_slint_compiler::poll_ready(reload_timer_function(project_generation));
         assert_eq!(
             PREVIEW_STATE.with_borrow(|state| state.loading_state),
             PreviewFutureState::Pending
@@ -4280,7 +4283,7 @@ export component Main inherits Rectangle {
         let url = path.to_url().unwrap();
         let mut document_cache = i_slint_editor_preview::test::empty_document_cache();
         let mut diagnostics = i_slint_compiler::diagnostics::BuildDiagnostics::default();
-        spin_on::spin_on(document_cache.load_url(
+        i_slint_compiler::poll_ready(document_cache.load_url(
             &url,
             Some(1),
             SOURCE.to_owned(),

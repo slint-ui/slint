@@ -209,8 +209,11 @@ fn compile_full(source: &str) -> (Document, BuildDiagnostics) {
 
     let config = CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Interpreter);
 
-    let (doc, diag, _loader) =
-        spin_on::spin_on(i_slint_compiler::compile_syntax_node(node, diagnostics, config));
+    let (doc, diag, _loader) = i_slint_compiler::poll_ready(i_slint_compiler::compile_syntax_node(
+        node,
+        diagnostics,
+        config,
+    ));
     (doc, diag)
 }
 
@@ -363,8 +366,9 @@ mod proc_macro_simulation {
 
         let config = CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Rust);
 
-        let (doc, diag, loader) =
-            spin_on::spin_on(i_slint_compiler::compile_syntax_node(node, diagnostics, config));
+        let (doc, diag, loader) = i_slint_compiler::poll_ready(
+            i_slint_compiler::compile_syntax_node(node, diagnostics, config),
+        );
 
         let rust_code = i_slint_compiler::generator::rust::generate(&doc, &loader.compiler_config)
             .expect("Rust code generation failed");
@@ -411,7 +415,7 @@ mod phase_breakdown {
         let type_registry = Rc::new(RefCell::new(
             i_slint_compiler::typeregister::TypeRegister::new(&loader.global_type_registry),
         ));
-        divan::black_box(spin_on::spin_on(loader.load_dependencies_recursively(
+        divan::black_box(i_slint_compiler::poll_ready(loader.load_dependencies_recursively(
             &doc_node,
             &mut diag,
             &type_registry,
@@ -424,7 +428,7 @@ mod phase_breakdown {
         let diagnostics = BuildDiagnostics::default();
         let node = parse_source(EMPTY_COMPONENT);
         let config = CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Rust);
-        divan::black_box(spin_on::spin_on(i_slint_compiler::compile_syntax_node(
+        divan::black_box(i_slint_compiler::poll_ready(i_slint_compiler::compile_syntax_node(
             node,
             diagnostics,
             config,
@@ -438,8 +442,9 @@ mod phase_breakdown {
         let diagnostics = BuildDiagnostics::default();
         let node = parse_source(EMPTY_COMPONENT);
         let config = CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Rust);
-        let (doc, _diag, loader) =
-            spin_on::spin_on(i_slint_compiler::compile_syntax_node(node, diagnostics, config));
+        let (doc, _diag, loader) = i_slint_compiler::poll_ready(
+            i_slint_compiler::compile_syntax_node(node, diagnostics, config),
+        );
 
         // Now benchmark just the code generation
         divan::black_box(
@@ -458,11 +463,9 @@ mod phase_breakdown {
         let type_registry = Rc::new(RefCell::new(
             i_slint_compiler::typeregister::TypeRegister::new(&loader.global_type_registry),
         ));
-        let (foreign_imports, reexports) = spin_on::spin_on(loader.load_dependencies_recursively(
-            &doc_node,
-            &mut diag,
-            &type_registry,
-        ));
+        let (foreign_imports, reexports) = i_slint_compiler::poll_ready(
+            loader.load_dependencies_recursively(&doc_node, &mut diag, &type_registry),
+        );
 
         // Benchmark just Document::from_node
         divan::black_box(i_slint_compiler::object_tree::Document::from_node(
@@ -487,11 +490,9 @@ mod phase_breakdown {
         let type_registry = Rc::new(RefCell::new(
             i_slint_compiler::typeregister::TypeRegister::new(&loader.global_type_registry),
         ));
-        let (foreign_imports, reexports) = spin_on::spin_on(loader.load_dependencies_recursively(
-            &doc_node,
-            &mut diag,
-            &type_registry,
-        ));
+        let (foreign_imports, reexports) = i_slint_compiler::poll_ready(
+            loader.load_dependencies_recursively(&doc_node, &mut diag, &type_registry),
+        );
         let mut doc = i_slint_compiler::object_tree::Document::from_node(
             doc_node,
             foreign_imports,
@@ -503,7 +504,7 @@ mod phase_breakdown {
         );
 
         // Benchmark just run_passes
-        divan::black_box(spin_on::spin_on(i_slint_compiler::passes::run_passes(
+        divan::black_box(i_slint_compiler::poll_ready(i_slint_compiler::passes::run_passes(
             &mut doc,
             &mut loader,
             false,
@@ -520,12 +521,12 @@ mod phase_breakdown {
 
         // Benchmark just the import_component calls
         let mut build_diags_to_ignore = BuildDiagnostics::default();
-        let _style_metrics = spin_on::spin_on(loader.import_component(
+        let _style_metrics = i_slint_compiler::poll_ready(loader.import_component(
             "slint-widgets.slint",
             "StyleMetrics",
             &mut build_diags_to_ignore,
         ));
-        let _palette = spin_on::spin_on(loader.import_component(
+        let _palette = i_slint_compiler::poll_ready(loader.import_component(
             "slint-widgets.slint",
             "Palette",
             &mut build_diags_to_ignore,

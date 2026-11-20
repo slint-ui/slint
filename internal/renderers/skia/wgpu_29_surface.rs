@@ -126,7 +126,9 @@ impl WGPUSurface {
 
         let error_scope = device.push_error_scope(wgpu::ErrorFilter::Validation);
         surface.configure(device, &surface_config);
-        if let Some(e) = spin_on::spin_on(error_scope.pop()) {
+        if let Some(e) = i_slint_core::graphics::wgpu_29::poll_once(error_scope.pop())
+            .expect("internal error: wgpu error scopes are not expected to be async")
+        {
             return Err(PlatformError::from(format!("Error configuring WGPU surface: {e}")));
         }
 

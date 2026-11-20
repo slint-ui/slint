@@ -1963,7 +1963,7 @@ pub mod tests {
         // In that case, make sure we do not return an error, as that would crash the LSP.
         // The reload_document function is a best-effort anyway.
         let mut ctx = test::mock_context();
-        spin_on::spin_on(
+        i_slint_compiler::poll_ready(
             ctx.session.reload_document(Url::parse("file:///non/existent/file.slint").unwrap()),
         )
         .expect("reload_document failed");
@@ -2274,10 +2274,18 @@ enum {}
         let nested_manifest_url = Url::from_file_path(&nested_manifest).unwrap();
         let (mut context, messages) = mock_context_with_preview_capture();
         context.session.set_workspace_roots(vec![SourcePath::new(outer_root)]);
-        spin_on::spin_on(context.session.load_document(source.into(), outer_source_url, None))
-            .unwrap();
-        spin_on::spin_on(context.session.load_document(source.into(), source_url.clone(), None))
-            .unwrap();
+        i_slint_compiler::poll_ready(context.session.load_document(
+            source.into(),
+            outer_source_url,
+            None,
+        ))
+        .unwrap();
+        i_slint_compiler::poll_ready(context.session.load_document(
+            source.into(),
+            source_url.clone(),
+            None,
+        ))
+        .unwrap();
         messages.borrow_mut().clear();
 
         show_preview_command(&[serde_json::to_value(&source_url).unwrap()], &mut context).unwrap();
@@ -2312,7 +2320,7 @@ enum {}
         drop(replay);
 
         std::fs::remove_file(&nested_manifest).unwrap();
-        spin_on::spin_on(context.session.trigger_file_watcher(
+        i_slint_compiler::poll_ready(context.session.trigger_file_watcher(
             nested_manifest_url,
             i_slint_live_preview::file_watcher::FileChangeKind::Deleted,
         ))
@@ -2330,7 +2338,7 @@ enum {}
         }));
 
         std::fs::remove_file(&outer_manifest).unwrap();
-        spin_on::spin_on(context.session.trigger_file_watcher(
+        i_slint_compiler::poll_ready(context.session.trigger_file_watcher(
             outer_manifest_url,
             i_slint_live_preview::file_watcher::FileChangeKind::Deleted,
         ))
@@ -2343,7 +2351,7 @@ enum {}
         ));
 
         std::fs::write(&outer_manifest, r#"{"edition":"1.20"}"#).unwrap();
-        spin_on::spin_on(context.session.reload_document(source_url)).unwrap();
+        i_slint_compiler::poll_ready(context.session.reload_document(source_url)).unwrap();
         messages.borrow_mut().clear();
         sync_preview_project_root(&mut context.session).unwrap();
         assert!(
@@ -2375,8 +2383,12 @@ enum {}
                 .session
                 .set_workspace_roots(workspace_roots.into_iter().map(SourcePath::new).collect());
             for url in [&outer_url, &inner_url] {
-                spin_on::spin_on(context.session.load_document(code.into(), url.clone(), None))
-                    .unwrap();
+                i_slint_compiler::poll_ready(context.session.load_document(
+                    code.into(),
+                    url.clone(),
+                    None,
+                ))
+                .unwrap();
             }
             assert_eq!(
                 context.session.project_root_for(&SourcePath::new(&outer_source)).unwrap(),
@@ -2396,7 +2408,7 @@ enum {}
         let source_url = Url::parse("slintpad:/project/ui/main.slint").unwrap();
         let (mut context, messages) = mock_context_with_preview_capture();
         context.session.set_workspace_roots(vec![SourcePath::new("slintpad:/")]);
-        spin_on::spin_on(context.session.open_document(
+        i_slint_compiler::poll_ready(context.session.open_document(
             r#"{"edition":"1.19"}"#.into(),
             project_url,
             None,
