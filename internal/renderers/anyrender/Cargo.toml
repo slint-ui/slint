@@ -19,6 +19,8 @@ path = "lib.rs"
 default = []
 ## Render through vello on WGPU, using Slint's own WGPU initialization.
 vello = ["dep:anyrender_vello", "dep:vello", "i-slint-core/unstable-wgpu-30"]
+## Render with vello_cpu into an offscreen buffer, for snapshots without a window.
+vello-cpu = ["dep:anyrender_vello_cpu"]
 image-pixel-format-rgb565 = ["i-slint-core/image-pixel-format-rgb565"]
 image-pixel-format-gray8 = ["i-slint-core/image-pixel-format-gray8"]
 
@@ -40,6 +42,7 @@ anyrender = { version = "0.14" }
 # Slint's own, see vello.rs.
 anyrender_vello = { version = "0.15", optional = true, default-features = false }
 vello = { version = "0.11", optional = true }
+anyrender_vello_cpu = { version = "0.18", optional = true, features = ["filters"] }
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]
