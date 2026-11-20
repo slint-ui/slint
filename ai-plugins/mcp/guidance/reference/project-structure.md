@@ -1,109 +1,47 @@
-# Structure a Slint application
+# Refactor a multi-page UI
 
-When refactoring a UI, first sketch the new entry file and the public interface of each page.
-If the caller permits an interface change, design the Slint API for the target release.
-An older host can migrate separately.
-Validate the UI by opening its project in the target viewer.
-
-A typical multi-page UI has this structure.
+Build one vertical slice first.
+Start from the [working Slint 1.19 project](../examples/library/slint-project.json).
+Read its [window](../examples/library/main.slint), [page](../examples/library/pages/library.slint), and [popup](../examples/library/components/confirm-removal.slint) together.
+Adapt that file structure and ownership to the real application before moving the remaining controls.
 
 ```text
-main.slint                # Window and page selection
-slint-project.json        # {"main": "main.slint", "edition": "1.19"}
-style.slint               # Style: named brushes and colors
-metrics.slint             # Metrics: shared spacing, sizes and typography
-pages/
-  index.slint
-  library.slint
-  player.slint
-components/
-  index.slint
-  album-tile.slint
-  confirmation-dialog.slint
+main.slint                   Window and typed page selection
+slint-project.json           {"main":"main.slint","edition":"1.19"}
+style.slint                  Named brushes and colors
+metrics.slint                Shared spacing, radii, sizes and typography
+pages/{index,library,player}.slint
+components/{index,confirm-removal}.slint
 assets/
-  icons.slint             # Icons global pointing into icons/
-  images.slint            # Images global pointing into images/
+  icons.slint                Icons global referencing icons/*.svg, *.png, etc.
+  images.slint               Images global referencing images/*.webp, etc.
   icons/
   images/
 ```
 
-Use the project file on Slint 1.19+ and create asset groups as you need them.
-Keep SVG, PNG, and WebP files under their asset group and other media such as videos under assets/.
-An index re-exports the public names from its folder, for example `export { AlbumTile } from "album-tile.slint";`.
-Keep reusable visual components in their own files.
-A page can keep small private helpers beside their only caller.
+Create asset groups as needed and keep other media under assets/.
+The index files re-export each folder's public names.
 
-## Decide who owns each interaction
+## Migrate a page
 
-Keep navigation visible at a glance.
+1. Write the page's host contract beside the page. Give each command a named callback and each closed choice an enum.
+   Keep a model item's identity, label and image together in a struct.
+   Re-export host-facing globals from main.slint.
+2. Move screens one workflow at a time. Give each page its own popup instances and shortcuts.
+   Keep draft text in the form and expansion in the row.
+   A button and its page's KeyBinding can both call the same popup's show().
+   Its confirmed callback calls the feature global directly.
+3. Extract reusable controls into individual component files.
+   Bind their measurements to shared Metrics properties at the use sites.
+   Lay out floating sidebars over a background with a horizontal layout and a stretching spacer.
+   Stack panels with a vertical layout.
 
-```slint
-// main.slint
-import { LibraryPage, PlayerPage } from "pages/index.slint";
-export { Library, Player } from "pages/index.slint";
-export enum Page { library, player }
+If the caller permits an interface change, finish replacing the old dispatch API at its source.
+The old host can migrate separately.
 
-export component MainWindow inherits Window {
-    in-out property <Page> page: Page.library;
-    if root.page == Page.library: LibraryPage { }
-    if root.page == Page.player: PlayerPage { }
-}
-```
+## Check the result
 
-Define each host-facing global in its page file and re-export it through the page index and main.slint.
-Here the keyboard and the button open the same page-owned confirmation.
-Reset draft fields on opening when each invocation starts a new edit.
-
-```slint
-// pages/library.slint
-import { Button } from "std-widgets.slint";
-import { ConfirmRemoval } from "../components/index.slint";
-import { Metrics } from "../metrics.slint";
-
-export global Library {
-    callback remove-selection();
-}
-
-export component LibraryPage inherits FocusScope {
-    init => { self.focus(); }
-    KeyBinding {
-        keys: @keys(Delete);
-        activated => { confirm.show(); }
-    }
-    HorizontalLayout {
-        padding: Metrics.panel-padding;
-        spacing: Metrics.gap;
-        alignment: end;
-        Button { text: @tr("Remove…"); clicked => { confirm.show(); } }
-    }
-    confirm := ConfirmRemoval {
-        confirmed => { Library.remove-selection(); }
-    }
-}
-```
-
-Implement [ConfirmRemoval as a PopupWindow](events-and-overlays.md#shortcuts-and-dialogs).
-Give each workflow its own instance, content and confirmation callback.
-A single dialog enum and an application-wide switch on confirm or Escape defeat that ownership.
-Keep draft text in the form and expansion in the row.
-For closed choices use an enum such as `RepeatMode { off, track, playlist }`.
-Pass the enum to a named callback.
-Keep a model item's identity, label, and image together in a struct.
-
-Review the refactor by tracing one button and its shortcut.
-Both should reach the same page operation without a round trip through the window.
-Retain a legacy adapter only when the caller requires API compatibility.
-
-## Share design decisions
-
-```slint
-// metrics.slint
-export global Metrics {
-    out property <length> gap: 8px;
-    out property <length> panel-padding: 2 * gap;
-}
-```
-
-Replace recurring measurements at their use sites, including padding, spacing, radii, icon sizes, and typography.
-Arrange floating sidebars with a horizontal layout over the background and a stretching spacer between panels.
-Use a vertical layout for stacked panels so resizing keeps the same gaps.
+Read the resulting entry file and globals before compiling.
+If one object still owns unrelated pages' models, form fields or commands, move those members to their owning pages.
+Replace dialog switches with page-owned PopupWindow instances and raw shortcut comparisons with KeyBinding in the owning FocusScope.
+Open the project directory in the requested version of slint-viewer and exercise a shortcut and an open/dismiss cycle.

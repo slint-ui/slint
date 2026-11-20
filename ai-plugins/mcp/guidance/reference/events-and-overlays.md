@@ -21,23 +21,5 @@ The popup owns its dismissal, form values, and focus.
 For an explicit confirmation, use `no-auto-close` and handle Escape and the buttons inside the popup.
 For a dimmed modal, size the popup to the page and place its card over a backdrop inside it.
 
-```slint
-export component ConfirmRemoval inherits PopupWindow {
-    callback confirmed();
-    close-policy: no-auto-close;
-    FocusScope {
-        init => { self.focus(); }
-        KeyBinding {
-            keys: @keys(Escape);
-            activated => { root.close(); }
-        }
-        HorizontalLayout {
-            Button { text: "Cancel"; clicked => { root.close(); } }
-            Button { text: "Remove"; clicked => { root.confirmed(); root.close(); } }
-        }
-    }
-}
-```
-
-Import `Button` from `"std-widgets.slint"` for this example.
+See the [confirmation popup](../examples/library/components/confirm-removal.slint) and its [owning page](../examples/library/pages/library.slint).
 Use `ContextMenuArea` for context menus and `MenuBar` directly on the window for application menus.

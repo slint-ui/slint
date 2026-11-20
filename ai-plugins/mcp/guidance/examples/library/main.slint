@@ -1,0 +1,14 @@
+import { LibraryPage, PlayerPage } from "pages/index.slint";
+export { Library, Player } from "pages/index.slint";
+
+export enum Page { library, player }
+
+export component MainWindow inherits Window {
+    in-out property <Page> page: Page.library;
+    if root.page == Page.library: LibraryPage {
+        play => { root.page = Page.player; }
+    }
+    if root.page == Page.player: PlayerPage {
+        back => { root.page = Page.library; }
+    }
+}
