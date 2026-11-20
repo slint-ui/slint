@@ -133,7 +133,15 @@ pub(crate) fn validate_children(
                 actual = component.root_element.borrow().base_type.clone();
             }
             if &actual != expected {
-                diag.push_error(format!("Collection slot '{}' requires '{expected}' or a component inheriting it, but got '{}'", slot.name, child.borrow().base_type), &*child.borrow());
+                diag.push_error(
+                    format!(
+                        "Collection slot '{}' requires '{expected}' or a component inheriting it, \
+                         but got '{}'",
+                        slot.name,
+                        child.borrow().base_type,
+                    ),
+                    &*child.borrow(),
+                );
                 valid = false;
             }
         }
@@ -197,7 +205,9 @@ pub(super) fn create_expansion(
     };
     let mut parent_type = parent.borrow().base_type.clone();
     while let ElementType::Component(component) = parent_type {
-        if component.id == "ListView" {
+        if component.id == "ListView"
+            && component.node.as_ref().is_some_and(|node| node.source_file.path().is_builtin())
+        {
             diag.push_error(
                 "Collection slots cannot be expanded directly in 'ListView'; use a model 'for' loop instead".into(),
                 &node.Expression(),

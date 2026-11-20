@@ -10,9 +10,9 @@ component Group {
     for entry[index] in entries: entry {
         clicked => {
             index = 2;
-//          >       <error{Collection metadata is read-only}
+//          >       <error{Collection metadata is read-only; bind a property on the supplied component instead}
             entries.length = 3;
-//          >                <error{Collection metadata is read-only}
+//          >                <error{Collection metadata is read-only; bind a property on the supplied component instead}
         }
     }
     forward-focus: entries;

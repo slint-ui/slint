@@ -1530,7 +1530,12 @@ impl Expression {
                         .as_ref()
                         .is_some_and(|s| &s.index_property == nr.name())
                 {
-                    ctx.diag.push_error("Collection metadata is read-only".into(), node);
+                    ctx.diag.push_error(
+                        "Collection metadata is read-only; \
+                         bind a property on the supplied component instead"
+                            .into(),
+                        node,
+                    );
                     return false;
                 }
                 nr.mark_as_set();
@@ -1592,7 +1597,12 @@ impl Expression {
             Expression::FunctionCall { function: Callable::Function(function), .. }
                 if function.element().borrow().slot_collection =>
             {
-                ctx.diag.push_error("Indexed collection properties are read-only".into(), node);
+                ctx.diag.push_error(
+                    "Indexed collection properties are read-only; \
+                     bind the property on the supplied component instead"
+                        .into(),
+                    node,
+                );
                 false
             }
             _ => {
