@@ -1,8 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Properties } from "../../../properties.slint";
-
 import { Style, InspectorStyle } from "../../../style.slint";
 
 import { InspectorCodeField, InspectorSection } from "../index.slint";
@@ -20,11 +18,9 @@ export component InspectorPlaceholderSection inherits InspectorSection {
         InspectorCodeField {
             accessible-name: @tr("Placeholder text");
             prefix: @tr("Placeholder");
-            value: Properties.source-property-value("placeholder-text", "\"\"");
+            property-name: "placeholder-text";
+            fallback: "\"\"";
             commit-key: InspectorContext.field-key("placeholder-text");
-            accepted(text) => {
-                return InspectorContext.commit-code("placeholder-text", text);
-            }
         }
     }
 }

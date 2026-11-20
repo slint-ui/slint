@@ -5,6 +5,7 @@
 use std::collections::BTreeMap;
 use std::{collections::HashMap, iter::once, rc::Rc};
 
+use i_slint_compiler::object_tree::ElementLocation;
 use i_slint_compiler::parser::TextRange;
 use i_slint_compiler::source_path::SourcePath;
 use i_slint_compiler::{expression_types, langtype};
@@ -86,8 +87,8 @@ pub fn create_ui() -> Result<EditorUi, PlatformError> {
             .borrow_mut()
             .entry(angle)
             .or_insert_with(|| {
-                let svg = include_str!("../ui/assets/cursors/rotate.svg")
-                    .replace("{angle}", &angle.to_string());
+                let svg =
+                    include_str!("../ui/cursors/rotate.svg").replace("{angle}", &angle.to_string());
                 let image = slint::Image::load_from_svg_data(svg.as_bytes())
                     .expect("valid rotation cursor SVG");
                 // Match the fixed-pixel canvas pointer; native SVG cursors scale with the display.
@@ -102,8 +103,8 @@ pub fn create_ui() -> Result<EditorUi, PlatformError> {
             .borrow_mut()
             .entry(angle)
             .or_insert_with(|| {
-                let svg = include_str!("../ui/assets/cursors/resize.svg")
-                    .replace("{angle}", &angle.to_string());
+                let svg =
+                    include_str!("../ui/cursors/resize.svg").replace("{angle}", &angle.to_string());
                 let image = slint::Image::load_from_svg_data(svg.as_bytes())
                     .expect("valid resize cursor SVG");
                 slint::Image::from_rgba8(image.to_rgba8().expect("resize cursor pixels"))
@@ -111,10 +112,9 @@ pub fn create_ui() -> Result<EditorUi, PlatformError> {
             .clone()
     });
     let scrub_horizontal_cursor = {
-        let image = slint::Image::load_from_svg_data(include_bytes!(
-            "../ui/assets/cursors/scrub-horizontal.svg"
-        ))
-        .expect("valid horizontal scrub cursor SVG");
+        let image =
+            slint::Image::load_from_svg_data(include_bytes!("../ui/cursors/scrub-horizontal.svg"))
+                .expect("valid horizontal scrub cursor SVG");
         slint::Image::from_rgba8(image.to_rgba8().expect("horizontal scrub cursor pixels"))
     };
     ui.global::<EditorCursors>().on_scrub_horizontal_image(move || scrub_horizontal_cursor.clone());
@@ -193,8 +193,10 @@ pub fn initialize_editor(
     });
     api.on_select_element(|path, offset, x, y| {
         super::element_selection::select_element_at_source_code_position(
-            SourcePath::new(path.as_str()),
-            preview::TextSize::from(offset as u32),
+            ElementLocation {
+                path: SourcePath::new(path.as_str()),
+                offset: preview::TextSize::from(offset as u32),
+            },
             Some(i_slint_core::lengths::LogicalPoint::new(x, y)),
             SelectionNotification::Now,
         );
@@ -253,6 +255,7 @@ pub fn initialize_editor(
     api.on_persist_selected_element_border_radius(super::persist_selected_element_border_radius);
 
     properties_api.on_inspector_preview(super::inspector::preview_property);
+    properties_api.on_inspector_preview_code(super::inspector::preview_code_property);
     properties_api.on_inspector_commit(super::inspector::commit_properties);
     properties_api.on_inspector_cancel(super::inspector::cancel);
     let editor_weak = editor_ui.as_weak();
@@ -1652,6 +1655,7 @@ mod tests {
         let editor = super::create_ui().unwrap();
         let api = editor.global::<super::Api>();
         let properties_api = editor.global::<super::Properties>();
+        properties_api.on_has_property(|name| name == "opacity");
         editor
             .global::<super::Diagnostics>()
             .set_preview_availability(super::PreviewAvailability::Current);
@@ -2632,6 +2636,7 @@ mod tests {
             ("font-italic", "Text", "Italic", false),
             ("primary", "Button", "Primary", false),
             ("checkable", "Button", "Checked", false),
+            ("mouse-drag-pan-enabled", "ScrollView", "Mouse Drag Pan", false),
         ] {
             let editor = super::create_ui().unwrap();
             let api = editor.global::<super::Api>();
@@ -2753,7 +2758,7 @@ mod tests {
     }
 
     #[test]
-    fn title_field_commits_code_binding() {
+    fn title_field_commits_inspector_edit() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
         let api = editor.global::<super::Api>();
@@ -2768,12 +2773,17 @@ mod tests {
         let mut selection = api.get_selection();
         selection.highlight_index = 0;
         api.set_selection(selection);
-        properties_api.on_test_code_binding(|_, _, _, _, _| true);
         properties_api.on_string_to_code(super::string_to_code);
-        let commits = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
-        let recorded = commits.clone();
-        properties_api.on_set_code_binding(move |_, _, _, name, value| {
-            recorded.borrow_mut().push((name.to_string(), value.to_string()));
+        let previews = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let recorded = previews.clone();
+        properties_api.on_inspector_preview(move |name, value| {
+            recorded.borrow_mut().push((name.to_string(), value.code.to_string()));
+            true
+        });
+        let committed = std::rc::Rc::new(std::cell::Cell::new(false));
+        let recorded = committed.clone();
+        properties_api.on_inspector_commit(move || {
+            recorded.set(true);
             true
         });
         connect_has_property(&properties_api);
@@ -2789,7 +2799,8 @@ mod tests {
                 })
                 .unwrap();
         field.set_accessible_value("Settings");
-        assert_eq!(*commits.borrow(), [("title".to_string(), "\"Settings\"".to_string())]);
+        assert_eq!(*previews.borrow(), [("title".to_string(), "\"Settings\"".to_string())]);
+        assert!(committed.get());
     }
 
     #[test]
@@ -3354,7 +3365,7 @@ mod tests {
         editor.window().set_size(slint::LogicalSize::new(1360., 860.));
         for (type_name, expected) in [
             ("ComboBox", true),
-            ("RadioGroup", true),
+            ("RadioGroup", false),
             ("TabWidget", true),
             ("Slider", false),
             ("Rectangle", false),
@@ -3695,7 +3706,7 @@ mod tests {
         });
         editor.show().unwrap();
         editor.window().set_size(slint::LogicalSize::new(1360., 1200.));
-        for (type_name, alignment, line_alignment) in [
+        for (type_name, alignment, flexbox) in [
             ("HorizontalLayout", true, false),
             ("VerticalLayout", true, false),
             ("FlexboxLayout", true, true),
@@ -3706,9 +3717,11 @@ mod tests {
             element.type_name = type_name.into();
             api.set_current_element(element);
             slint::platform::update_timers_and_animations();
-            for (label, expected) in
-                [("Layout Alignment", alignment), ("Cross Axis Line Alignment", line_alignment)]
-            {
+            for (label, expected) in [
+                ("Flex Direction", flexbox),
+                ("Layout Alignment", alignment),
+                ("Cross Axis Line Alignment", flexbox),
+            ] {
                 assert_eq!(
                     i_slint_backend_testing::ElementHandle::find_by_accessible_label(
                         &editor, label
@@ -4142,10 +4155,10 @@ mod tests {
 
         let title_move_area = i_slint_backend_testing::ElementHandle::find_by_element_id(
             &editor,
-            "EditorUi::title-move-area",
+            "EditorUi::title-bar",
         )
         .next()
-        .expect("the title move area must be inside EditorUi's FocusScope");
+        .expect("the title bar must be inside EditorUi's FocusScope");
         let position = title_move_area.absolute_position();
         let size = title_move_area.size();
         let start =
@@ -4174,10 +4187,10 @@ mod tests {
 
         let title_touch_area = i_slint_backend_testing::ElementHandle::find_by_element_id(
             &editor,
-            "EditorUi::title-touch-area",
+            "ShellTitleBar::touch-area",
         )
         .next()
-        .expect("the title touch area must be inside the window move area");
+        .expect("the title bar must have a touch area");
 
         title_touch_area.mock_single_click(PointerEventButton::Left);
         title_touch_area.mock_single_click(PointerEventButton::Left);
@@ -4197,6 +4210,32 @@ mod tests {
         title_touch_area.mock_single_click(PointerEventButton::Left);
         assert_eq!(native_zoom_count.get(), 1);
         assert!(!editor.window().is_maximized());
+    }
+
+    #[test]
+    fn viewer_controls_sit_at_the_right_of_the_title_bar() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        editor.show().unwrap();
+
+        let find = |id| {
+            i_slint_backend_testing::ElementHandle::find_by_element_id(&editor, id)
+                .next()
+                .unwrap_or_else(|| panic!("{id} must exist"))
+        };
+        let title_bar = find("EditorUi::title-bar");
+        let viewer = find("EditorTopBar::viewer");
+
+        let title_bar_right = title_bar.absolute_position().x + title_bar.size().width;
+        let viewer_right = viewer.absolute_position().x + viewer.size().width;
+        assert_eq!(
+            title_bar_right - viewer_right,
+            editor.global::<super::Metrics>().get_space_large()
+        );
+        let title_bar_middle = title_bar.absolute_position().y + title_bar.size().height / 2.;
+        let viewer_middle = viewer.absolute_position().y + viewer.size().height / 2.;
+        assert!((title_bar_middle - viewer_middle).abs() < 1.);
     }
 
     const LEFT_PANE: usize = 0;

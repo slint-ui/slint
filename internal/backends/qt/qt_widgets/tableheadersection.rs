@@ -114,7 +114,7 @@ impl Item for NativeTableHeaderSection {
         FocusEventResult::FocusIgnored
     }
 
-    fn_render! { this dpr size painter widget initial_state =>
+    fn_render! { this size painter widget initial_state =>
         let index: i32 = this.index();
         let has_hover: bool = this.has_hover();
         let item = this.item();
@@ -126,7 +126,6 @@ impl Item for NativeTableHeaderSection {
             painter as "QPainterPtr*",
             widget as "QWidget*",
             size as "QSize",
-            dpr as "float",
             index as "int",
             has_hover as "bool",
             text as "QString",
@@ -137,7 +136,9 @@ impl Item for NativeTableHeaderSection {
             QPainter *painter_ = painter->get();
 
             #if defined(Q_OS_MAC)
-                QImage header_image(size, QImage::Format_ARGB32_Premultiplied);
+                const qreal dpr = painter_->device()->devicePixelRatioF();
+                QImage header_image(size * dpr, QImage::Format_ARGB32_Premultiplied);
+                header_image.setDevicePixelRatio(dpr);
                 header_image.fill(Qt::transparent);
                 {QPainter p(&header_image); QPainter *painter_ = &p;
             #endif
@@ -146,7 +147,7 @@ impl Item for NativeTableHeaderSection {
             option.styleObject = widget;
             option.state |= QStyle::State(initial_state);
             option.state |= QStyle::State_Horizontal | QStyle::State_Enabled;
-            option.rect = QRect(QPoint(), size / dpr);
+            option.rect = QRect(QPoint(), size);
 
             option.section = index;
 

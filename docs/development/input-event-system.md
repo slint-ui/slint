@@ -44,12 +44,20 @@ so that `WindowEvent` stays `Send` and `Sync`.
 
 ### Click Counting
 
-`ClickState` (`internal/core/input.rs`) tracks multi-clicks (double-click, triple-click) by
-remembering the timestamp, count, position and button of the last press.
+`ClickState` (`internal/core/input.rs`) tracks multi-clicks (double-click, triple-click).
+It remembers the timestamp, count, position and button of the last press,
+and the item that press was delivered to.
 
 **Logic:**
-- If press occurs within `click_interval` of previous press, at same position, with same button → increment `click_count`
-- Otherwise reset to count 0
+- A press within `click_interval` of the previous press, within 10 px of the first press of the sequence, with the same button increments `click_count`
+- Any other press resets it to 0
+- A press only reaches an item with a count above 0 if the previous press was delivered to that same item.
+  When it lands on another item, that item gets 0 and the count starts again there.
+  When a Flickable takes over a press for a drag, it counts as the item that got the press, so the next press starts at 0.
+- This compares with the last press, not with the hovered item,
+  because a finger lifts with an `Exit` and a Flickable delays its presses.
+  So moving the pointer away and back between two clicks on the same item doesn't restart the count;
+  time and distance decide.
 - `click_count` is included in Press/Release events
 
 ### Mouse Input State

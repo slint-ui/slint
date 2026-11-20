@@ -80,7 +80,7 @@ export component GalleryProperties inherits Rectangle {
                     InspectorColorValueField {
                         accessible-name: "Property fill color";
                         value: Gallery.fill.color;
-                        live-edit: true;
+                        edit-input(color) => { Gallery.fill.color = color; }
                         preview(color) => { Gallery.fill.color = color; return true; }
                         swatch-activated => { Gallery.open-picker(self.absolute-position, { width: self.width, height: self.height }); }
                     }

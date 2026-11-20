@@ -13,7 +13,7 @@ The helper provides:
 
 - predictive text and autocorrect
 - IME composition for languages such as Chinese and Japanese
-- native selection handles
+- native selection handles, with a magnifier on Android 10 and later when using NativeActivity
 - the cut, copy, and paste menu
 
 **NOTE**: This library is an **internal** crate of the [Slint project](https://slint.dev).

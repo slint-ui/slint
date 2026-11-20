@@ -486,7 +486,7 @@ pub enum Expression {
 
     DebugHook {
         expression: Box<Expression>,
-        id: SmolStr,
+        id: ElementProperty,
         /// True if this hook was materialized for a property that had no binding in the source.
         /// Passes should treat a synthetic hook as "no binding" — the same as `Expression::Invalid`.
         synthetic: bool,
@@ -501,6 +501,60 @@ pub enum Expression {
 
     /// A pre-parsed `Path.stroke-dash-array`, packed for `Type::ArrayOfCoord`.
     DashArray(Vec<f32>),
+}
+
+/// The type of a binary expression with the given operator and operand types
+pub fn binary_expression_ty(
+    op: char,
+    lhs_ty: impl FnOnce() -> Type,
+    rhs_ty: impl FnOnce() -> Type,
+) -> Type {
+    if operator_class(op) != OperatorClass::ArithmeticOp {
+        Type::Bool
+    } else if op == '+' || op == '-' {
+        let (rhs_ty, lhs_ty) = (rhs_ty(), lhs_ty());
+        if rhs_ty == lhs_ty { rhs_ty } else { Type::Invalid }
+    } else {
+        debug_assert!(op == '*' || op == '/');
+        let unit_vec = |ty| {
+            if let Type::UnitProduct(v) = ty {
+                v
+            } else if let Some(u) = ty.default_unit() {
+                vec![(u, 1)]
+            } else {
+                Vec::new()
+            }
+        };
+        let mut l_units = unit_vec(lhs_ty());
+        let mut r_units = unit_vec(rhs_ty());
+        if op == '/' {
+            for (_, power) in &mut r_units {
+                *power = -*power;
+            }
+        }
+        for (unit, power) in r_units {
+            if let Some((_, p)) = l_units.iter_mut().find(|(u, _)| *u == unit) {
+                *p += power;
+            } else {
+                l_units.push((unit, power));
+            }
+        }
+
+        // normalize the vector by removing empty and sorting
+        l_units.retain(|(_, p)| *p != 0);
+        l_units.sort_unstable_by(|(u1, p1), (u2, p2)| match p2.cmp(p1) {
+            std::cmp::Ordering::Equal => u1.cmp(u2),
+            x => x,
+        });
+
+        if l_units.is_empty() {
+            Type::Float32
+        } else if l_units.len() == 1 && l_units[0].1 == 1 {
+            l_units[0].0.ty()
+        } else {
+            Type::UnitProduct(l_units)
+        }
+    }
 }
 
 impl Expression {
@@ -572,52 +626,7 @@ impl Expression {
                 merge(ty, expr.ty())
             }
             Expression::BinaryExpression { op, lhs, rhs, .. } => {
-                if operator_class(*op) != OperatorClass::ArithmeticOp {
-                    Type::Bool
-                } else if *op == '+' || *op == '-' {
-                    let (rhs_ty, lhs_ty) = (rhs.ty(), lhs.ty());
-                    if rhs_ty == lhs_ty { rhs_ty } else { Type::Invalid }
-                } else {
-                    debug_assert!(*op == '*' || *op == '/');
-                    let unit_vec = |ty| {
-                        if let Type::UnitProduct(v) = ty {
-                            v
-                        } else if let Some(u) = ty.default_unit() {
-                            vec![(u, 1)]
-                        } else {
-                            Vec::new()
-                        }
-                    };
-                    let mut l_units = unit_vec(lhs.ty());
-                    let mut r_units = unit_vec(rhs.ty());
-                    if *op == '/' {
-                        for (_, power) in &mut r_units {
-                            *power = -*power;
-                        }
-                    }
-                    for (unit, power) in r_units {
-                        if let Some((_, p)) = l_units.iter_mut().find(|(u, _)| *u == unit) {
-                            *p += power;
-                        } else {
-                            l_units.push((unit, power));
-                        }
-                    }
-
-                    // normalize the vector by removing empty and sorting
-                    l_units.retain(|(_, p)| *p != 0);
-                    l_units.sort_unstable_by(|(u1, p1), (u2, p2)| match p2.cmp(p1) {
-                        std::cmp::Ordering::Equal => u1.cmp(u2),
-                        x => x,
-                    });
-
-                    if l_units.is_empty() {
-                        Type::Float32
-                    } else if l_units.len() == 1 && l_units[0].1 == 1 {
-                        l_units[0].0.ty()
-                    } else {
-                        Type::UnitProduct(l_units)
-                    }
-                }
+                binary_expression_ty(*op, || lhs.ty(), || rhs.ty())
             }
             Expression::UnaryOp { sub, .. } => sub.ty(),
             Expression::Array { element_ty, .. } => Type::Array(Arc::new(element_ty.clone())),
@@ -1697,7 +1706,8 @@ pub struct BindingExpression {
     pub span: Option<SourceLocation>,
     /// How deep is this binding declared in the hierarchy. When two bindings are conflicting
     /// for the same priority (because of a two way binding), the lower priority wins.
-    /// The priority starts at 1, and each level of inlining adds one to the priority.
+    /// The priority starts at 1, and grows by one for each level of components that inlining
+    /// nests the binding in.
     /// 0 means the expression was added by some passes and it is not explicit in the source code
     pub priority: i32,
 
@@ -2169,7 +2179,7 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             if *synthetic {
                 write!(f, " SYNTHETIC")?;
             }
-            write!(f, "\"{id}\")")
+            write!(f, " {id:?})")
         }
         Expression::Closure { arg_name, expression } => {
             let display_name = arg_name.strip_prefix("local_").unwrap_or(arg_name);

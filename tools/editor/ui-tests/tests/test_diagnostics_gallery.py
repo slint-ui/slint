@@ -8,7 +8,7 @@ import slint_testing
 from editor_sync import wait_for_source
 from source_snapshot import SourceSnapshot
 from ui_assertions import expect
-from ui_driver import element, first_window, launch_editor, query, screenshot
+from ui_driver import element, elements, first_window, launch_editor, query, screenshot
 
 
 @pytest.mark.parametrize("dark", [False, True], ids=["light", "dark"])
@@ -17,6 +17,7 @@ from ui_driver import element, first_window, launch_editor, query, screenshot
     [
         ("Current", None, ""),
         ("Warnings", "Preview warnings", "warnings"),
+        ("ManyWarnings", "Preview warnings", "warnings"),
         ("Stale", "Stale preview", "errors"),
         ("Unavailable", "Preview unavailable", "errors"),
         ("NoComponent", "No component to preview", ""),
@@ -58,10 +59,39 @@ def test_diagnostics_gallery_uses_preview_only_mock_data(
             )
         ).to_equal(True)
         if state:
-            element(pane, state, role=slint_testing.AccessibleRole.Region)
+            card = element(pane, state, role=slint_testing.AccessibleRole.Region)
         else:
             expect(query(pane, "Stale preview")).to_be_hidden()
             expect(query(pane, "Preview unavailable")).to_be_hidden()
+        if scenario in {"Stale", "Unavailable", "ManyErrors", "Imports"}:
+            title = "components/Card.slint" if scenario == "Imports" else "Main.slint"
+            element(card, title, role=slint_testing.AccessibleRole.Text)
+            message = (
+                "An error in this file is preventing the preview from being displayed."
+                if scenario == "Unavailable"
+                else "An error in this file is preventing the preview from updating. Showing the last working preview."
+            )
+            element(card, message, role=slint_testing.AccessibleRole.Text)
+            copy = query(
+                card,
+                "Copy preview diagnostics",
+                role=slint_testing.AccessibleRole.Button,
+            )
+            expect(copy).to_be_hidden()
+            advanced = element(
+                card,
+                "Toggle advanced error details",
+                role=slint_testing.AccessibleRole.Button,
+            )
+            advanced.invoke_accessible_default_action()
+            expect(copy).to_be_visible()
+            advanced.invoke_accessible_default_action()
+            expect(copy).to_be_hidden()
+            advanced.invoke_accessible_default_action()
+            expect(copy).to_be_visible()
+            expect(
+                query(pane, "Open in editor", role=slint_testing.AccessibleRole.Button)
+            ).to_be_hidden()
         if scenario == "Imports":
             folder = element(
                 pane,
@@ -85,6 +115,46 @@ def test_diagnostics_gallery_uses_preview_only_mock_data(
         if scenario in {"Stale", "Unavailable", "ManyErrors", "Imports"}:
             element(
                 pane,
+                "Copy preview diagnostics",
+                role=slint_testing.AccessibleRole.Button,
+            ).invoke_accessible_default_action()
+            element(pane, "Copies: 1", role=slint_testing.AccessibleRole.Text)
+        if scenario in {"Warnings", "ManyWarnings"}:
+            warnings = element(
+                pane, "Preview warnings", role=slint_testing.AccessibleRole.Region
+            )
+            element(
+                warnings,
+                "Toggle preview warning details",
+                role=slint_testing.AccessibleRole.Button,
+            ).invoke_accessible_default_action()
+            count = 3 if scenario == "ManyWarnings" else 1
+            expect.poll(
+                lambda: len(
+                    elements(
+                        warnings,
+                        "Main.slint:1:17",
+                        role=slint_testing.AccessibleRole.Text,
+                    )
+                )
+            ).to_equal(count)
+            expect.poll(
+                lambda: len(
+                    elements(
+                        warnings,
+                        "Component declaration syntax is deprecated",
+                        role=slint_testing.AccessibleRole.Text,
+                    )
+                )
+            ).to_equal(count)
+            if scenario == "ManyWarnings":
+                element(
+                    warnings,
+                    "2 more warnings. Copy diagnostics to see all messages.",
+                    role=slint_testing.AccessibleRole.Text,
+                )
+            element(
+                warnings,
                 "Copy preview diagnostics",
                 role=slint_testing.AccessibleRole.Button,
             ).invoke_accessible_default_action()

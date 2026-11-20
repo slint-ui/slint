@@ -879,6 +879,15 @@ impl SkiaRenderer {
                     buffer_dirty_region,
                 );
 
+                if let Some(overlay_rect) = self
+                    .rendering_metrics_collector
+                    .borrow()
+                    .as_ref()
+                    .and_then(|m| m.overlay_rect())
+                {
+                    partial_renderer.dirty_region.add_rect(overlay_rect);
+                }
+
                 if matches!(self.dirty_region_debug_mode, DirtyRegionDebugMode::Log) {
                     let area_to_repaint: f32 =
                         partial_renderer.dirty_region.iter().map(|b| b.area()).sum();

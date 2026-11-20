@@ -175,7 +175,7 @@ impl CompilerConfiguration {
     /// whose language behavior to use, as its major and minor version, such as `(1, 19)`.
     ///
     /// This wins over the edition of the project file.
-    /// If the edition is newer than this version of Slint, compilation fails.
+    /// If the edition is older than 1.18 or newer than this version of Slint, compilation fails.
     #[must_use]
     pub fn with_edition(mut self, edition: (u32, u32)) -> Self {
         self.overrides.project.edition = Some(edition.into());
@@ -524,7 +524,7 @@ pub fn compile_with_output_path(
 /// and the files it was found and read from.
 fn load_input(path: PathBuf) -> Result<(project_file::Input, Vec<PathBuf>), CompileError> {
     let mut diag = BuildDiagnostics::default();
-    let (input, input_files) = spin_on::spin_on(project_file::load_input(
+    let (input, input_files) = i_slint_compiler::poll_ready(project_file::load_input(
         &SourcePath::File(path),
         None,
         None,
@@ -548,21 +548,14 @@ fn compile_resolved(
     output_rust_file_path: &Path,
     mut compiler_config: i_slint_compiler::CompilerConfiguration,
 ) -> Result<Vec<std::path::PathBuf>, CompileError> {
-    let mut diag = BuildDiagnostics::default();
-    let syntax_node =
-        i_slint_compiler::parser::parse(input.source_code, Some(input.source), &mut diag);
-
-    if diag.has_errors() {
-        let vec = diag.to_string_vec();
-        diag.print();
-        return Err(CompileError::CompileError(vec));
-    }
-
     compiler_config.translation_domain = std::env::var("CARGO_PKG_NAME").ok();
 
-    // 'spin_on' is ok here because the compiler in single threaded and does not block if there is no blocking future
-    let (doc, mut diag, loader) =
-        spin_on::spin_on(i_slint_compiler::compile_syntax_node(syntax_node, diag, compiler_config));
+    let (doc, mut diag, loader) = i_slint_compiler::poll_ready(i_slint_compiler::compile_source(
+        &input.source,
+        input.source_code,
+        BuildDiagnostics::default(),
+        compiler_config,
+    ));
     diag.remove_infos();
 
     if diag.has_errors()

@@ -30,7 +30,7 @@ web-sys = { version = "0.3", features = ["console"] }
 console_error_panic_hook = "0.1.5"
 
 [package.metadata.android.sdk]
-min_sdk_version = 23
+min_sdk_version = 26
 target_sdk_version = 36
 
 [[package.metadata.android.application.activity]]

@@ -38,6 +38,8 @@ mod coverage;
 use rayon::prelude::*;
 use regex::Regex;
 use slint_sc_coverage::expectations;
+use std::collections::BTreeSet;
+use std::ffi::OsString;
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -64,12 +66,13 @@ fn main() {
         })
     });
     let compiler = build_compiler(&target_dir);
-    let slint_sc_rlib = build_slint_sc_rlib(&target_dir, target);
+    let (slint_sc_rlib, link_args) = build_slint_sc_rlib(&target_dir, target);
     let rx = Regex::new(r"(?sU)\r?\n```rust( compile_fail)?\r?\n(.+)\r?\n```\r?\n").unwrap();
 
     let config = TestConfig {
         compiler: &compiler,
         slint_sc_rlib: &slint_sc_rlib,
+        link_args: &link_args,
         rustc: &rustc,
         clippy_driver: &clippy_driver,
         target,
@@ -166,6 +169,8 @@ fn write_report(
 struct TestConfig<'a> {
     compiler: &'a Path,
     slint_sc_rlib: &'a Path,
+    /// The rustc arguments that link slint-sc-test-sys, on bare metal.
+    link_args: &'a [OsString],
     rustc: &'a str,
     clippy_driver: &'a str,
     target: Option<&'a Target>,
@@ -215,28 +220,57 @@ fn build_compiler(target_dir: &Path) -> PathBuf {
     compiler
 }
 
-/// Cargo places the library of the package it builds in the target directory.
+/// Builds the slint-sc library, plus slint-sc-test-sys on bare metal.
+/// Returns the slint-sc rlib, and the rustc arguments that link slint-sc-test-sys.
 /// The environment is kept, so under cargo-llvm-cov this is the instrumented
 /// build that the test binary links.
-fn build_slint_sc_rlib(target_dir: &Path, target: Option<&Target>) -> PathBuf {
+fn build_slint_sc_rlib(target_dir: &Path, target: Option<&Target>) -> (PathBuf, Vec<OsString>) {
     let mut cmd = cargo_build(target_dir);
-    cmd.args(["-p", "slint-sc", "--lib"]);
+    // Cargo writes the artifact messages to stdout as JSON, and renders the
+    // compiler diagnostics to stderr, where the user sees them.
+    cmd.args(["-p", "slint-sc", "--lib", "--message-format=json-render-diagnostics"]);
     if let Some(target) = target {
         cmd.args(["--target", target.triple]);
         if let Platform::BareMetal { .. } = target.platform {
             cmd.args(["-p", "slint-sc-test-sys"]);
         }
     }
-    let rlib_dir = match target {
-        // Cargo builds for a `--target` in a directory of its own
-        Some(target) => target_dir.parent().unwrap().join(target.triple).join("debug"),
-        None => target_dir.to_path_buf(),
-    };
-    let status = cmd.status().expect("Failed to run cargo build for slint-sc");
-    assert!(status.success(), "Failed to build slint-sc");
-    let rlib = rlib_dir.join("libslint_sc.rlib");
-    assert!(rlib.exists(), "slint-sc rlib not found at {}", rlib.display());
-    rlib
+    cmd.stderr(std::process::Stdio::inherit());
+    let output = cmd.output().expect("Failed to run cargo build for slint-sc");
+    assert!(output.status.success(), "Failed to build slint-sc");
+    let mut slint_sc_rlib = None;
+    let mut link_args = Vec::new();
+    let mut dependency_dirs = BTreeSet::new();
+    for line in String::from_utf8_lossy(&output.stdout).lines() {
+        let Ok(message) = serde_json::from_str::<serde_json::Value>(line) else { continue };
+        if message["reason"] != "compiler-artifact" {
+            continue;
+        }
+        let filenames = message["filenames"].as_array().into_iter().flatten();
+        let Some(rlib) =
+            filenames.filter_map(|file| file.as_str()).find(|file| file.ends_with(".rlib"))
+        else {
+            continue;
+        };
+        let rlib = PathBuf::from(rlib);
+        match message["target"]["name"].as_str() {
+            Some("slint_sc") => slint_sc_rlib = Some(rlib),
+            Some("slint_sc_test_sys") => {
+                let mut extern_arg = OsString::from("slint_sc_test_sys=");
+                extern_arg.push(&rlib);
+                link_args.extend([OsString::from("--extern"), extern_arg]);
+            }
+            _ => {
+                dependency_dirs.insert(rlib.parent().unwrap().to_path_buf());
+            }
+        }
+    }
+    for dir in dependency_dirs {
+        let mut dependency = OsString::from("dependency=");
+        dependency.push(dir);
+        link_args.extend([OsString::from("-L"), dependency]);
+    }
+    (slint_sc_rlib.expect("cargo reported no slint-sc rlib"), link_args)
 }
 
 fn run_test(slint_path: &Path, rel: &Path, config: &TestConfig) -> Result<(), String> {
@@ -639,11 +673,7 @@ fn compile(
         Some(Platform::BareMetal { code, ram, .. }) => {
             // The host build checks that the generated code uses no crate but
             // slint-sc, see `rust_command`.
-            let rlib_dir = config.slint_sc_rlib.parent().unwrap();
-            let mut dependencies = std::ffi::OsString::from("dependency=");
-            dependencies.push(rlib_dir.join("deps"));
-            rustc_cmd.args(["--extern", "slint_sc_test_sys", "-L"]).arg(rlib_dir);
-            rustc_cmd.arg("-L").arg(&dependencies);
+            rustc_cmd.args(config.link_args);
             let link_x =
                 Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/driver/bare_metal/link.x");
             rustc_cmd.arg(format!("-Clink-arg=-T{}", link_x.display()));

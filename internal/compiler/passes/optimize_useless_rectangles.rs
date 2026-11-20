@@ -118,10 +118,14 @@ export component Foo {
 "#
         .into(),
         Some(crate::source_path::SourcePath::new("test.slint")),
+        None,
         &mut test_diags,
     );
-    let (doc, diag, _) =
-        spin_on::spin_on(crate::compile_syntax_node(doc_node, test_diags, compiler_config.clone()));
+    let (doc, diag, _) = crate::poll_ready(crate::compile_syntax_node(
+        doc_node,
+        test_diags,
+        compiler_config.clone(),
+    ));
     assert!(!diag.has_errors(), "slint compile error {:#?}", diag.to_string_vec());
     crate::llr::lower_to_item_tree::lower_to_item_tree(&doc, &compiler_config);
 

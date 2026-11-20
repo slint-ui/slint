@@ -300,6 +300,12 @@ impl UsbDiscovery {
     }
 }
 
+impl Default for UsbDiscovery {
+    fn default() -> Self {
+        Self { receiver: watch::channel(Vec::new()).1 }
+    }
+}
+
 #[cfg(test)]
 pub(super) mod tests {
     use super::*;

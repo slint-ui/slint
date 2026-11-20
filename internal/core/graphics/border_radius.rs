@@ -243,6 +243,26 @@ impl<T, U> BorderRadius<T, U> {
     }
 }
 
+impl<U> BorderRadius<f32, U> {
+    /// Returns the radii scaled down by a common factor, so that the radii of adjacent corners
+    /// fit along the side between them of a box of `size`, as CSS does:
+    /// <https://drafts.csswg.org/css-backgrounds/#corner-overlap>
+    pub fn fit_to(&self, size: euclid::Size2D<f32, U>) -> Self {
+        let radius = self.max(Self::zero());
+        let factor = [
+            (size.width, radius.top_left + radius.top_right),
+            (size.width, radius.bottom_left + radius.bottom_right),
+            (size.height, radius.top_left + radius.bottom_left),
+            (size.height, radius.top_right + radius.bottom_right),
+        ]
+        .into_iter()
+        .filter(|&(_, sum)| sum > 0.)
+        .map(|(length, sum)| length / sum)
+        .fold(1., f32::min);
+        radius * factor
+    }
+}
+
 /// Trait for testing approximate equality
 pub trait ApproxEq<Eps> {
     /// Returns `true` is this object is approximately equal to the other one.

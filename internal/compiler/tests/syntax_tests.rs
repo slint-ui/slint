@@ -499,7 +499,7 @@ fn process_file_source(
             Box::pin(async move { Some(Ok(contents)) })
         });
         let mut diagnostics = BuildDiagnostics::default();
-        spin_on::spin_on(i_slint_compiler::project_file::load_input(
+        i_slint_compiler::poll_ready(i_slint_compiler::project_file::load_input(
             &i_slint_compiler::source_path::SourcePath::new(path),
             Some(String::new()),
             Some(i_slint_compiler::source_path::SourcePath::new(&root)),
@@ -508,10 +508,16 @@ fn process_file_source(
         ));
         return process_diagnostics(&diagnostics, path, &project_path, &source, silent, update);
     }
+    let edition =
+        Some(match regex::Regex::new(r"//edition:\s*(\S+)\s*\n").unwrap().captures(&source) {
+            Some(m) => m[1].parse().unwrap(),
+            None => i_slint_compiler::project_file::SlintEdition::current(),
+        });
     let mut parse_diagnostics = BuildDiagnostics::default();
     let syntax_node = i_slint_compiler::parser::parse(
         source.clone(),
         Some(i_slint_compiler::source_path::SourcePath::new(path)),
+        edition,
         &mut parse_diagnostics,
     );
 
@@ -549,11 +555,7 @@ fn process_file_source(
         compiler_config.embed_resources = i_slint_compiler::EmbedResourcesKind::EmbedTextures;
     }
     compiler_config.experimental_features = i_slint_compiler::ExperimentalFeatures::all();
-    compiler_config.edition =
-        Some(match regex::Regex::new(r"//edition:\s*(\S+)\s*\n").unwrap().captures(&source) {
-            Some(m) => m[1].parse().unwrap(),
-            None => i_slint_compiler::project_file::SlintEdition::current(),
-        });
+    compiler_config.edition = edition;
     compiler_config.style = Some("fluent".into());
     // The interpreter inlines every component, which merges an instance into
     // its base. A diagnostic that depends on the two staying apart needs the
@@ -570,11 +572,12 @@ fn process_file_source(
             ComponentSelection::LastExported
         };
     let compile_diagnostics = if !parse_diagnostics.has_errors() {
-        let (_, build_diags, _) = spin_on::spin_on(i_slint_compiler::compile_syntax_node(
-            syntax_node.clone(),
-            parse_diagnostics,
-            compiler_config.clone(),
-        ));
+        let (_, build_diags, _) =
+            i_slint_compiler::poll_ready(i_slint_compiler::compile_syntax_node(
+                syntax_node.clone(),
+                parse_diagnostics,
+                compiler_config.clone(),
+            ));
         build_diags
     } else {
         parse_diagnostics
@@ -595,7 +598,7 @@ fn process_file_source(
 
     if has_parse_error {
         // Still try to compile to make sure it doesn't panic
-        spin_on::spin_on(i_slint_compiler::compile_syntax_node(
+        i_slint_compiler::poll_ready(i_slint_compiler::compile_syntax_node(
             syntax_node,
             compile_diagnostics,
             compiler_config,

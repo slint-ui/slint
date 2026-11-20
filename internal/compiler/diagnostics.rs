@@ -71,7 +71,7 @@ impl SourceFileInner {
         &self.path
     }
 
-    /// The edition of the project that the file belongs to.
+    /// The edition that the file is compiled with.
     pub fn edition(&self) -> Option<crate::project_file::SlintEdition> {
         self.edition.get().copied()
     }

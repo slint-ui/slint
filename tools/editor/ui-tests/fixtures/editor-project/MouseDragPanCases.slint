@@ -1,0 +1,31 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ListView, ScrollView } from "std-widgets.slint";
+
+export component MouseDragPanCases inherits Window {
+    width: 640px;
+    height: 480px;
+
+    default-scroll-view := ScrollView {
+        x: 32px;
+        y: 32px;
+        width: 200px;
+        height: 120px;
+    }
+
+    panning-list-view := ListView {
+        x: 32px;
+        y: 176px;
+        width: 200px;
+        height: 120px;
+        mouse-drag-pan-enabled: true;
+    }
+
+    default-flickable := Flickable {
+        x: 32px;
+        y: 320px;
+        width: 200px;
+        height: 120px;
+    }
+}
