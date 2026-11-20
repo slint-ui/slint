@@ -1051,13 +1051,13 @@ jobs:
             matrix:
                 include:
                     - name: "minimal"
-                      features: "compat-1-18,backend-linuxkms,renderer-software"
+                      features: "compat-1-20,backend-linuxkms,renderer-software"
                     - name: "libseat"
-                      features: "compat-1-18,backend-linuxkms,backend-linuxkms-libseat,renderer-software"
+                      features: "compat-1-20,backend-linuxkms,backend-linuxkms-libseat,renderer-software"
                     - name: "libinput"
-                      features: "compat-1-18,backend-linuxkms,backend-linuxkms-libinput,renderer-software"
+                      features: "compat-1-20,backend-linuxkms,backend-linuxkms-libinput,renderer-software"
                     - name: "libseat + libinput"
-                      features: "compat-1-18,backend-linuxkms,backend-linuxkms-libseat,backend-linuxkms-libinput,renderer-software"
+                      features: "compat-1-20,backend-linuxkms,backend-linuxkms-libseat,backend-linuxkms-libinput,renderer-software"
         name: LinuxKMS ${{ matrix.name }}
         steps:
             - uses: useblacksmith/checkout@v1

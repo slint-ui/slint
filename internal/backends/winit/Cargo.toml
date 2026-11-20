@@ -105,7 +105,7 @@ scopeguard = { version = "1.1.0", default-features = false }
 i-slint-renderer-femtovg = { workspace = true, features = ["default"], optional = true }
 
 # For the Skia renderer
-i-slint-renderer-skia = { workspace = true, optional = true }
+i-slint-renderer-skia = { workspace = true, features = ["svg"], optional = true }
 
 # For the vello renderer
 i-slint-renderer-anyrender = { workspace = true, optional = true }
@@ -157,7 +157,7 @@ arboard = { version = "3.6", default-features = false }
 
 [target.'cfg(all(target_vendor = "apple", not(target_os = "macos")))'.dependencies]
 # Enable Skia by default on Apple platforms with iOS, etc. (but not macOS). See also enable_skia_renderer in build.rs
-i-slint-renderer-skia = { workspace = true, features = ["default"] }
+i-slint-renderer-skia = { workspace = true, features = ["default", "svg"] }
 
 [target.'cfg(target_os = "ios")'.dependencies]
 objc2 = { workspace = true }
