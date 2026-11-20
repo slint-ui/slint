@@ -352,6 +352,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "anyrender_vello_cpu"
+version = "0.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a09d9356dd2b2f032345711a350c0e2326a854cb5070f899265bc80fb33884b1"
+dependencies = [
+ "anyrender",
+ "bytemuck",
+ "color",
+ "debug_timer",
+ "glifo",
+ "kurbo",
+ "peniko",
+ "vello_common",
+ "vello_cpu",
+]
+
+[[package]]
 name = "approx"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1276,6 +1293,9 @@ name = "color"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2ec7c5eb7a16992b1904d76c517d170ab353b0e0b3d5a0c81a8a0cd1037893cf"
+dependencies = [
+ "bytemuck",
+]
 
 [[package]]
 name = "color_quant"
@@ -2230,6 +2250,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "fearless_simd"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f4beca3cb2444e3304ac30843cc091f44ed58932353cd492ce740067bfce6b12"
+
+[[package]]
 name = "femtovg"
 version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2788,6 +2814,22 @@ name = "glam"
 version = "0.32.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f70749695b063ecbf6b62949ccccde2e733ec3ecbbd71d467dca4e5c6c97cca0"
+
+[[package]]
+name = "glifo"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9f1218dedd5348c1b166ec3b8b3cbca49d2f527bd43b3fa072ea5123c523ed3f"
+dependencies = [
+ "bytemuck",
+ "foldhash 0.2.0",
+ "hashbrown 0.17.1",
+ "log",
+ "peniko",
+ "skrifa",
+ "smallvec",
+ "vello_common",
+]
 
 [[package]]
 name = "glob"
@@ -3603,6 +3645,7 @@ version = "1.19.1"
 dependencies = [
  "anyrender",
  "anyrender_vello",
+ "anyrender_vello_cpu",
  "i-slint-core",
  "kurbo",
  "lyon_path",
@@ -5785,6 +5828,7 @@ version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "839c8299360d2e998bdb106dc0a6cd71dcc5f4df51df1b620361bf50e283cca6"
 dependencies = [
+ "bytemuck",
  "color",
  "kurbo",
  "linebender_resource_handle",
@@ -7632,7 +7676,7 @@ dependencies = [
  "i-slint-backend-winit",
  "i-slint-compiler",
  "i-slint-core",
- "i-slint-renderer-software",
+ "i-slint-renderer-anyrender",
  "js-sys",
  "send_wrapper",
  "slint-interpreter",
@@ -8921,6 +8965,34 @@ dependencies = [
  "vello_encoding",
  "vello_shaders",
  "wgpu 30.0.2",
+]
+
+[[package]]
+name = "vello_common"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "73c2fbe53548bcd25c8ff42f75a93770a8611a16b37bee56d7ef7b44e36027f1"
+dependencies = [
+ "bytemuck",
+ "fearless_simd",
+ "guillotiere",
+ "log",
+ "peniko",
+ "png",
+ "smallvec",
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "vello_cpu"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ed1fec424fbba6acf6cbc78bb526447eb77590d95f40419d598870fe37535212"
+dependencies = [
+ "bytemuck",
+ "glifo",
+ "hashbrown 0.17.1",
+ "vello_common",
 ]
 
 [[package]]

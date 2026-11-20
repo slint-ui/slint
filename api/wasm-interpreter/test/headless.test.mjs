@@ -26,6 +26,7 @@ test("Headless Wasm renders text, an SVG, and a raster image in plain Node", asy
             Image {
                 x: 72px; y: 8px; width: 40px; height: 24px;
                 source: @image-url("${new URL("examples/iot-dashboard/images/up.png", repository)}");
+                image-rendering: pixelated;
             }
             Text {
                 x: 8px; y: 40px; width: 112px; height: 28px;
