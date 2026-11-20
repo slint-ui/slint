@@ -8,6 +8,8 @@ description: Use when writing, editing, debugging, or reviewing `.slint` UI code
 For building, debugging, or reviewing apps that use [Slint](https://slint.dev),
 a declarative GUI toolkit for desktop, embedded, mobile, and web.
 
+For application UI design or refactoring, start with [project structure and state ownership](guidance/reference/project-structure.md).
+
 ## Workflow
 
 1. Find the project's Slint version first (`Cargo.toml`/`Cargo.lock`,

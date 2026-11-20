@@ -28,7 +28,7 @@ If a design specifies glyphs as raw geometry and ships no asset files, **generat
 - `Palette.color-scheme` (from `std-widgets.slint`) reflects the OS light/dark
   setting and updates live; it's also settable to force a scheme for native
   widgets.
-- A clean pattern: one `export global Theme` holding every color/length token
+- A clean pattern: an `export global Style` holding the color roles
   as `out property`s selected by a `dark` bool, bound to the palette with an
   optional user override:
   ```slint
@@ -36,7 +36,7 @@ If a design specifies glyphs as raw geometry and ships no asset files, **generat
 
   export enum ThemePreference { system, light, dark }
 
-  export global Theme {
+  export global Style {
       in property <ThemePreference> preference;  // defaults to system
       out property <bool> dark:
           preference == ThemePreference.dark ? true
@@ -45,8 +45,5 @@ If a design specifies glyphs as raw geometry and ships no asset files, **generat
       out property <brush> bg: dark ? #1e2025 : #ffffff;
   }
 
-  export component Card inherits Rectangle {
-      background: Theme.bg;   // reacts to scheme and preference changes
-  }
   ```
-  Every component reads `Theme.bg` etc., so theme switching is automatic.
+  Bind a component's background to `Style.bg` so it updates with the palette.

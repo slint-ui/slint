@@ -5,6 +5,8 @@ description: Write, edit, debug, or review Slint UIs and host-language integrati
 
 # Slint
 
+For application UI design or refactoring, start with [project structure and state ownership](../../guidance/reference/project-structure.md).
+
 ## Find the Slint Project
 
 Look beside the target `.slint` file and up through the workspace for the applicable `slint-project.json`.
@@ -44,30 +46,6 @@ In Codex code mode, forward the tool's image and text blocks so the screenshot a
 When the user annotates an inline preview, use the attached screenshot and any source location to identify the element.
 
 Use the running app or its tests to verify host-language callbacks, models, and application state.
-
-## `.slint` in 30 Seconds
-
-Declarative and reactive: a property binding re-evaluates automatically when
-anything it reads changes.
-
-```slint
-import { Button, VerticalBox } from "std-widgets.slint";
-
-component Counter inherits Rectangle {     // root element decides fill behavior
-    in property <string> label;            // parent/host writes
-    out property <int> count;              // component writes
-    callback changed(int);                 // notify the outside world
-
-    VerticalBox {
-        Text { text: "\{root.label}: \{root.count}"; }   // interpolation
-        Button { text: "+"; clicked => { root.count += 1; root.changed(root.count); } }
-    }
-}
-```
-
-Property directions: `in` / `out` / `in-out` / `private`. Two-way bind: `a <=> b`.
-Control flow: `if cond : E {}`, `for it[i] in model : E {}`. Shared state & host
-interop: `export global Foo { ... }`. One-time code: `init => { ... }`.
 
 ## Reference Files
 
