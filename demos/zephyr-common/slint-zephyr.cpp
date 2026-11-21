@@ -162,6 +162,11 @@ using namespace std::chrono_literals;
 
 using RepaintBufferType = slint::platform::SoftwareRenderer::RepaintBufferType;
 
+// Boards with a small panel set this below 1.0 to show a larger logical user interface on it.
+#ifndef SLINT_ZEPHYR_SCALE_FACTOR
+#    define SLINT_ZEPHYR_SCALE_FACTOR 1.0f
+#endif
+
 K_SEM_DEFINE(SLINT_SEM, 0, 1);
 
 class ZephyrPlatform : public slint::platform::Platform
@@ -474,6 +479,17 @@ void ZephyrPlatform::run_event_loop()
 {
     LOG_DBG("Start");
 
+    if (m_window && SLINT_ZEPHYR_SCALE_FACTOR != 1.0f) {
+        const auto physical = m_window->size();
+        m_window->window().dispatch_scale_factor_change_event(SLINT_ZEPHYR_SCALE_FACTOR);
+        m_window->window().dispatch_resize_event(
+                slint::LogicalSize({ physical.width / SLINT_ZEPHYR_SCALE_FACTOR,
+                                     physical.height / SLINT_ZEPHYR_SCALE_FACTOR }));
+        LOG_INF("Scale factor: %f, logical size: %f x %f", (double)SLINT_ZEPHYR_SCALE_FACTOR,
+                (double)(physical.width / SLINT_ZEPHYR_SCALE_FACTOR),
+                (double)(physical.height / SLINT_ZEPHYR_SCALE_FACTOR));
+    }
+
     while (true) {
         LOG_DBG("Loop");
         slint::platform::update_timers_and_animations();
@@ -548,6 +564,12 @@ void ZephyrPlatform::run_in_event_loop(Task event)
     k_sem_give(&SLINT_SEM);
 }
 
+static slint::LogicalPosition to_logical(slint::LogicalPosition p)
+{
+    return slint::LogicalPosition(
+            { p.x / SLINT_ZEPHYR_SCALE_FACTOR, p.y / SLINT_ZEPHYR_SCALE_FACTOR });
+}
+
 void zephyr_process_input_event(struct input_event *event, void *user_data)
 {
     ARG_UNUSED(user_data);
@@ -586,7 +608,7 @@ void zephyr_process_input_event(struct input_event *event, void *user_data)
             slint::invoke_from_event_loop([=, button = button.value()] {
                 __ASSERT(ZEPHYR_WINDOW, "Expected ZephyrWindowAdapter");
                 // Transform the panel position to the logical coordinate
-                const auto slintPos = ZEPHYR_WINDOW->map_touch_position(pos);
+                const auto slintPos = to_logical(ZEPHYR_WINDOW->map_touch_position(pos));
                 ZEPHYR_WINDOW->window().dispatch_pointer_move_event(slintPos);
                 ZEPHYR_WINDOW->window().dispatch_pointer_press_event(slintPos, button);
             });
@@ -595,7 +617,7 @@ void zephyr_process_input_event(struct input_event *event, void *user_data)
             slint::invoke_from_event_loop([=] {
                 __ASSERT(ZEPHYR_WINDOW, "Expected ZephyrWindowAdapter");
                 // Transform the panel position to the logical coordinate
-                const auto slintPos = ZEPHYR_WINDOW->map_touch_position(pos);
+                const auto slintPos = to_logical(ZEPHYR_WINDOW->map_touch_position(pos));
                 ZEPHYR_WINDOW->window().dispatch_pointer_move_event(slintPos);
             });
         } else {
@@ -603,7 +625,7 @@ void zephyr_process_input_event(struct input_event *event, void *user_data)
             slint::invoke_from_event_loop([=, button = button.value()] {
                 __ASSERT(ZEPHYR_WINDOW, "Expected ZephyrWindowAdapter");
                 // Transform the panel position to the logical coordinate
-                const auto slintPos = ZEPHYR_WINDOW->map_touch_position(pos);
+                const auto slintPos = to_logical(ZEPHYR_WINDOW->map_touch_position(pos));
                 ZEPHYR_WINDOW->window().dispatch_pointer_release_event(slintPos, button);
                 ZEPHYR_WINDOW->window().dispatch_pointer_exit_event();
             });

@@ -106,3 +106,14 @@ west build -b rza3m_ek -p always slint/demos/home-automation/zephyr -- -DSHIELD=
 # Flash (using J-Link)
 west flash
 ```
+
+### NXP FRDM-MCXN947
+
+This sample has been tested on the [NXP FRDM-MCXN947](https://docs.zephyrproject.org/latest/boards/nxp/frdm_mcxn947/doc/index.html) with an [LCD-PAR-S035 shield](https://www.nxp.com/part/LCD-PAR-S035).
+
+```bash
+# Build
+west build -b frdm_mcxn947/mcxn947/cpu0 -p always slint/demos/home-automation/zephyr -- -DSHIELD=lcd_par_s035_8080 -DCMAKE_BUILD_TYPE=Release
+```
+
+Flash it as described for the [printer demo for MCUs](../../printerdemo_mcu/zephyr/README.md#nxp-frdm-mcxn947--lcd-par-s035).
