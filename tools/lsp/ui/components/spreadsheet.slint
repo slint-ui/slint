@@ -82,8 +82,8 @@ export component EditWindow inherits PopupWindow {
                 test-color-binding(text) => {
                     return root.test("\"\{text}\"");
                 }
-                test-brush-binding(kind, angle, color, stops) => {
-                    return root.test(Api.as-json-brush(kind, angle, color, stops));
+                test-brush-binding(kind, angle, color, stops, color-space) => {
+                    return root.test(Api.as-json-brush(kind, angle, color, stops, color-space));
                 }
                 test-float-binding(text, unit) => {
                     return root.test(text);
@@ -101,8 +101,8 @@ export component EditWindow inherits PopupWindow {
                 set-color-binding(text) => {
                     root.save("\"\{text}\"");
                 }
-                set-brush-binding(kind, angle, color, stops) => {
-                    root.save(Api.as-json-brush(kind, angle, color, stops));
+                set-brush-binding(kind, angle, color, stops, color-space) => {
+                    root.save(Api.as-json-brush(kind, angle, color, stops, color-space));
                 }
                 set-float-binding(text, _unit) => {
                     root.save(text);

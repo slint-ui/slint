@@ -211,6 +211,8 @@ impl<E: Default> Default for MouseCursorInner<E> {
     }
 }
 
+pub use i_slint_common::gradient_color_space::GradientColorSpace;
+
 /// The ending shape of a `@radial-gradient`, with its explicit size in the element's local
 /// coordinate space. `None` means the shape's default size.
 #[derive(Clone, Debug)]
