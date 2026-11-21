@@ -65,6 +65,10 @@ struct Cli {
         feature = "typescript",
         doc = "'typescript' generates TypeScript type declarations, to be written to a `.d.ts` file."
     )]
+    #[cfg_attr(
+        feature = "csharp",
+        doc = "'csharp' generates typed C# classes for the .NET bindings."
+    )]
     #[cfg_attr(feature = "slint-sc", doc = "'slint-sc' generates the safety-critical subset.")]
     /// 'llr' prints the compiler's low-level representation, to look at what it produces.
     #[arg(short = 'f', long = "format")]
@@ -159,6 +163,24 @@ struct Cli {
     #[cfg(feature = "cpp")]
     #[arg(long = "cpp-file", name = "output .cpp file", number_of_values = 1)]
     cpp_files: Vec<std::path::PathBuf>,
+
+    /// Define the C# namespace for generated code.
+    #[cfg(feature = "csharp")]
+    #[arg(long = "csharp-namespace", name = "C# namespace")]
+    csharp_namespace: Option<String>,
+
+    /// Set the path that the generated C# code loads the input from at run time,
+    /// relative to the application directory: the .slint file, or the project directory.
+    /// Defaults to the name of the input.
+    #[cfg(feature = "csharp")]
+    #[arg(long = "csharp-runtime-path", name = "runtime path")]
+    csharp_runtime_path: Option<String>,
+
+    /// Also write the compiled input to this file, for the generated C# code to run
+    /// from the assembly's resource `slint-unit:<runtime path>` instead of compiling the input at startup.
+    #[cfg(feature = "csharp")]
+    #[arg(long = "csharp-unit", name = "unit file")]
+    csharp_unit: Option<std::path::PathBuf>,
 }
 
 /// Reads the file to compile, the main file of a project directory given as input,
@@ -235,6 +257,12 @@ fn main() -> std::io::Result<()> {
         reject(args.cpp_namespace.is_some(), "--cpp-namespace");
         #[cfg(feature = "cpp")]
         reject(!args.cpp_files.is_empty(), "--cpp-file");
+        #[cfg(feature = "csharp")]
+        reject(args.csharp_namespace.is_some(), "--csharp-namespace");
+        #[cfg(feature = "csharp")]
+        reject(args.csharp_runtime_path.is_some(), "--csharp-runtime-path");
+        #[cfg(feature = "csharp")]
+        reject(args.csharp_unit.is_some(), "--csharp-unit");
     }
 
     #[allow(unused_mut)]
@@ -248,6 +276,8 @@ fn main() -> std::io::Result<()> {
             Some("rs") => generator::OutputFormat::Rust,
             #[cfg(feature = "python")]
             Some("py") => generator::OutputFormat::Python,
+            #[cfg(feature = "csharp")]
+            Some("cs") => generator::OutputFormat::CSharp(Default::default()),
             #[cfg(feature = "cpp")]
             _ => generator::OutputFormat::Cpp(Default::default()),
             #[cfg(not(feature = "cpp"))]
@@ -286,6 +316,23 @@ fn main() -> std::io::Result<()> {
             }
             _ => {
                 eprintln!("C++ files option was set but the output format is not C++ - ignoring");
+            }
+        }
+    }
+
+    #[cfg(feature = "csharp")]
+    if args.csharp_namespace.is_some()
+        || args.csharp_runtime_path.is_some()
+        || args.csharp_unit.is_some()
+    {
+        match &mut format {
+            generator::OutputFormat::CSharp(config) => {
+                config.namespace = args.csharp_namespace.clone();
+                config.runtime_path = args.csharp_runtime_path.clone();
+                config.unit = args.csharp_unit.is_some();
+            }
+            _ => {
+                eprintln!("C# options were set but the output format is not C# - ignoring");
             }
         }
     }
@@ -356,6 +403,14 @@ fn main() -> std::io::Result<()> {
             }
         };
     }
+    #[cfg(feature = "csharp")]
+    if args.embed_resources.is_none()
+        && args.depfile.is_some()
+        && matches!(format, OutputFormat::CSharp(_))
+    {
+        // C# loads the images at run time, and doesn't embed any, so this only lists them in the dependency file.
+        compiler_config.embed_resources = EmbedResourcesKind::ListAllResources;
+    }
 
     compiler_config.debug_info |= format == OutputFormat::Llr;
     if let Some(style) = args.style {
@@ -368,7 +423,22 @@ fn main() -> std::io::Result<()> {
     if let Some(path) = args.bundle_translations {
         compiler_config.bundled_translations_path = Some(path);
     }
+    // The native style depends on the platform that the application runs on.
+    #[cfg(feature = "csharp")]
+    if let generator::OutputFormat::CSharp(config) = &mut format
+        && compiler_config.style.as_deref() == Some("native")
+    {
+        config.unit = false;
+    }
+    #[cfg(feature = "csharp")]
+    let unit_config = args
+        .csharp_unit
+        .is_some()
+        .then(|| compiler_config.clone())
+        .filter(|_| matches!(&format, generator::OutputFormat::CSharp(c) if c.unit));
     let (source, source_code) = root_file.expect("diags contained no compilation errors");
+    #[cfg(feature = "csharp")]
+    let main_file = unit_config.is_some().then(|| (source.clone(), source_code.clone()));
     let (doc, diag, loader) =
         i_slint_compiler::poll_ready(compile_source(&source, source_code, diag, compiler_config));
 
@@ -390,6 +460,23 @@ fn main() -> std::io::Result<()> {
         // Important: Write without unnecessary mtime modification to avoid
         // build systems to always detect the generated file as modified.
         fileaccess::write_file_if_changed(&args.output, &cursor.into_inner())?;
+    }
+
+    #[cfg(feature = "csharp")]
+    if let Some(unit_file) = &args.csharp_unit {
+        let bytes = match (unit_config, main_file) {
+            (Some(config), Some((path, source))) => {
+                let (unit_diag, bytes) =
+                    spin_on::spin_on(generator::csharp::unit::compile(&path, source, config));
+                if unit_diag.has_errors() {
+                    unit_diag.print_styled_if_terminal();
+                    std::process::exit(-1);
+                }
+                bytes.unwrap_or_default()
+            }
+            _ => Vec::new(),
+        };
+        fileaccess::write_file_if_changed(unit_file, &bytes)?;
     }
 
     if let Some(depfile) = args.depfile {

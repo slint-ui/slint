@@ -53,6 +53,9 @@ sed -i 's/slint-dev==[0-9]*\.[0-9]*\.[0-9]*\(.*\)"/slint-dev=='"$version"'\1"/' 
     echo api/node/binaries.json api/node/binaries-dev.json
 } | xargs sed -i 's/"version": ".*"/"version": "'"$version"'"/'
 
+# Version of the .NET packages
+sed -i 's#<Version>[0-9]*\.[0-9]*\.[0-9]*</Version>#<Version>'"$version"'</Version>#' api/dotnet/Directory.Build.props
+
 # VersionCheck
 sed -i "s/VersionCheck_[0-9]*_[0-9]*_[0-9]*;/VersionCheck_${major}_${minor}_${patch};/" api/rs/slint/lib.rs api/slint-sc/lib.rs
 

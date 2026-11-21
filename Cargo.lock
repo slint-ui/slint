@@ -7464,6 +7464,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "slint-dotnet"
+version = "1.20.0"
+dependencies = [
+ "base64 0.23.1",
+ "i-slint-backend-android-activity",
+ "i-slint-backend-linuxkms",
+ "i-slint-backend-selector",
+ "i-slint-backend-testing",
+ "i-slint-compiler",
+ "i-slint-core",
+ "slint-interpreter",
+ "spin_on",
+ "url",
+]
+
+[[package]]
 name = "slint-editor"
 version = "1.20.0"
 dependencies = [
