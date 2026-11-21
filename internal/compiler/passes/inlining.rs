@@ -85,6 +85,31 @@ fn element_key(e: ElementRc) -> ByAddress<ElementRc> {
 
 type Mapping = HashMap<ByAddress<ElementRc>, ElementRc>;
 
+pub(super) fn duplicate_element(element: &ElementRc, component: &Rc<Component>) -> ElementRc {
+    duplicate_elements(std::slice::from_ref(element), component).remove(0)
+}
+
+pub(super) fn duplicate_elements(
+    elements: &[ElementRc],
+    component: &Rc<Component>,
+) -> Vec<ElementRc> {
+    let mut mapping = Mapping::new();
+    let duplicates = elements
+        .iter()
+        .map(|element| duplicate_element_with_mapping(element, &mut mapping, component, 0))
+        .collect();
+    for element in mapping.values() {
+        fixup_collection_source(element, &mapping);
+        visit_element_expressions(element, |expression, _, _| {
+            fixup_element_references(expression, &mapping);
+        });
+        visit_all_named_references_in_element(element, |reference| {
+            fixup_reference(reference, &mapping);
+        });
+    }
+    duplicates
+}
+
 fn inline_element(
     elem: &ElementRc,
     inlined_component: &Rc<Component>,
@@ -213,24 +238,27 @@ fn inline_element(
     let mut reexported = HashSet::new();
     if Rc::ptr_eq(elem, &root_component.root_element) {
         for slot in inlined_component.declared_slots.borrow().iter() {
-            if (slot.interface.is_some() && children_by_slot.contains_key(&slot.name))
-                || elem_mut.forwarded_slots.iter().any(|f| f.target == slot.name)
+            let slot_name = slot.insertion_name();
+            if (slot.interface.is_some()
+                && !slot.is_collection
+                && children_by_slot.contains_key(slot_name))
+                || elem_mut.forwarded_slots.iter().any(|f| f.target.as_str() == slot_name)
             {
                 continue;
             }
-            if let Some(cip) = inlined_insertion_points.get(slot.name.as_str())
+            if let Some(cip) = inlined_insertion_points.get(slot_name)
                 && let Some(parent) = mapping.get(&element_key(cip.parent.clone()))
             {
                 if let Entry::Vacant(entry) =
-                    root_component.child_insertion_points.borrow_mut().entry(slot.name.to_string())
+                    root_component.child_insertion_points.borrow_mut().entry(slot_name.to_string())
                 {
                     entry.insert(ChildrenInsertionPoint {
                         parent: parent.clone(),
                         insertion_index: cip.insertion_index,
                         node: cip.node.clone(),
                     });
-                    if slot.interface.is_none() {
-                        reexported.insert(slot.name.clone());
+                    if slot.interface.is_none() || slot.is_collection {
+                        reexported.insert(SmolStr::new(slot_name));
                     }
                 }
                 let mut declarations = root_component.declared_slots.borrow_mut();
@@ -370,6 +398,9 @@ fn inline_element(
                 if Rc::ptr_eq(&cip.parent, elem)
                     && !is_reexported
                     && (name.as_str() == insertion.slot_name.as_str()
+                        && !forwarded_sources_by_target.values().any(|sources| {
+                            sources.iter().any(|source| source.as_str() == name.as_str())
+                        })
                         || forwarded_sources_by_target
                             .get(insertion.slot_name.as_str())
                             .is_some_and(|sources| sources.iter().any(|source| source == name)))
@@ -592,6 +623,7 @@ fn inline_element(
 
     // Now fixup all bindings and references
     for e in mapping.values() {
+        fixup_collection_source(e, &mapping);
         // Must run before visit_all_named_references_in_element to break shared
         // GridLayoutCell Rcs (otherwise NR fixup would modify the original's cells).
         visit_element_expressions(e, |expr, _, _| fixup_element_references(expr, &mapping));
@@ -668,6 +700,7 @@ fn duplicate_element_with_mapping(
             .map(|x| duplicate_element_with_mapping(x, mapping, root_component, priority_delta))
             .collect(),
         repeated: elem.repeated.clone(),
+        collection_source: elem.collection_source.clone(),
         is_component_placeholder: elem.is_component_placeholder,
         debug: elem.debug.clone(),
         enclosing_component: Rc::downgrade(root_component),
@@ -702,6 +735,8 @@ fn duplicate_element_with_mapping(
         slot_default: elem.slot_default.clone(),
         empty_slot_assignments: elem.empty_slot_assignments.clone(),
         typed_slot_interface: elem.typed_slot_interface.clone(),
+        slot_collection: elem.slot_collection,
+        slot_expansion: elem.slot_expansion.clone(),
         forwarded_slots: elem.forwarded_slots.clone(),
         // Deep-clone grid_layout_cell to avoid sharing between original and inlined copies.
         // This is important because children_constraints contain NamedReferences that need
@@ -720,6 +755,15 @@ fn duplicate_element_with_mapping(
     };
 
     new
+}
+
+fn fixup_collection_source(element: &ElementRc, mapping: &Mapping) {
+    if let Some(source) = element.borrow_mut().collection_source.as_mut()
+        && let Some(original) = source.upgrade()
+        && let Some(mapped) = mapping.get(&element_key(original))
+    {
+        *source = Rc::downgrade(mapped);
+    }
 }
 
 fn duplicate_optimized_elements(

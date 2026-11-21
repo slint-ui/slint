@@ -217,6 +217,14 @@ impl Snapshotter {
             {
                 copied.interface =
                     original.interface.as_ref().map(|c| self.use_component(c).upgrade().unwrap());
+                copied.component_type = original.component_type.as_ref().map(|ty| match ty {
+                    element_type::ElementType::Component(component) => {
+                        element_type::ElementType::Component(
+                            self.use_component(component).upgrade().unwrap(),
+                        )
+                    }
+                    _ => ty.clone(),
+                });
             }
         }
         let mut elements = std::mem::take(&mut self.keep_alive_elements);
@@ -514,6 +522,8 @@ impl Snapshotter {
         target_element.forwarded_slots = elem.forwarded_slots.clone();
         target_element.typed_slot_interface =
             elem.typed_slot_interface.as_ref().map(|c| self.use_component(c).upgrade().unwrap());
+        target_element.slot_collection = elem.slot_collection;
+        target_element.slot_expansion = elem.slot_expansion.clone();
         target_element.implement_statements =
             elem.implement_statements.iter().map(|statement| statement.snapshot(self)).collect();
 
@@ -3083,6 +3093,118 @@ fn test_import_widget_interfaces() {
         assert_eq!(interface.is_some(), enable_experimental);
         assert_eq!(build_diagnostics.has_errors(), !enable_experimental);
     }
+}
+
+#[test]
+fn slot_collections_requires_its_feature() {
+    let source = r#"
+        interface Entry { in property <int> value; }
+        component Group {
+            default slot <[implements Entry]> items;
+            for item[index] in items: item { value: index; }
+        }
+        component Item { in property <int> value; }
+        export component Test inherits Window { Group { Item { } } }
+    "#;
+    for enabled in [false, true] {
+        let mut config = CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+        config.experimental_features = if enabled {
+            [crate::ExperimentalFeature::Interfaces, crate::ExperimentalFeature::NamedSlots]
+                .into_iter()
+                .collect()
+        } else {
+            crate::ExperimentalFeature::Interfaces.into()
+        };
+        let mut diag = BuildDiagnostics::default();
+        let node = crate::parser::parse(source.into(), None, None, &mut diag);
+        let (_, diag, _) = crate::poll_ready(crate::compile_syntax_node(node, diag, config));
+        assert_eq!(diag.has_errors(), !enabled, "{:?}", diag.to_string_vec());
+    }
+}
+
+#[test]
+fn component_collection_types_without_interfaces() {
+    let source = r#"
+        component Entry { in property <int> value; }
+        component Group {
+            default slot <[Entry]> items;
+            for item[index] in items: item { value: index; }
+        }
+        component AnyGroup {
+            default slot <[*]> items;
+            for item in items: item { }
+        }
+        export component Test inherits Window {
+            Group { Entry { } }
+            AnyGroup { Rectangle { } Text { } }
+        }
+    "#;
+    let mut config = CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    config.experimental_features = crate::ExperimentalFeature::NamedSlots.into();
+    let mut diag = BuildDiagnostics::default();
+    let node = crate::parser::parse(source.into(), None, None, &mut diag);
+    let (_, diag, _) = crate::poll_ready(crate::compile_syntax_node(node, diag, config));
+    assert!(!diag.has_errors(), "{:?}", diag.to_string_vec());
+}
+
+#[test]
+fn snapshotting_slot_collections() {
+    let mut config = CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    config.experimental_features = crate::ExperimentalFeatures::all();
+    let mut diag = BuildDiagnostics::default();
+    let mut loader = TypeLoader::new(config, &mut diag);
+    let path = SourcePath::new("/tmp/slot-collections-library.slint");
+    crate::poll_ready(
+        loader.load_file(
+            &path,
+            r#"
+        interface Entry { in property <int> value; }
+        export component Group {
+            out property <int> count: items.length;
+            out property <int> first-value: items[0].value;
+            default slot <[implements Entry]> items;
+            for item[index] in items: item { value: index; }
+        }
+        export component NominalEntry { in property <int> value; }
+        export component NominalGroup {
+            default slot <[NominalEntry]> items;
+            for item[index] in items: item { value: index; }
+        }
+        export component ViewGroup {
+            default slot <[implements Entry]> items;
+            HorizontalLayout {
+                for item in items: Text { text: "\{item.value}"; }
+            }
+            for item in items: item { }
+        }
+        "#
+            .into(),
+            false,
+            &mut diag,
+        ),
+    );
+    assert!(!diag.has_errors(), "{:?}", diag.to_string_vec());
+    let mut copy = snapshot(&loader).unwrap();
+    drop(loader);
+    let source = r#"
+        import { Group, ViewGroup, NominalEntry as ImportedEntry, NominalGroup } from "slot-collections-library.slint";
+        component Item { in property <int> value; }
+        component DerivedEntry inherits ImportedEntry { }
+        export component Test inherits Window {
+            Group { Item { } }
+            Group { for value in [1, 2, 3]: Item { } }
+            NominalGroup { ImportedEntry { } DerivedEntry { } }
+            ViewGroup { Item { value: 7; } }
+        }
+    "#;
+    let raw = crate::poll_ready(copy.load_root_file(
+        &SourcePath::new("/tmp/slot-collections-app.slint"),
+        source.into(),
+        true,
+        &mut diag,
+    ));
+    assert!(raw.is_some());
+    assert!(!diag.has_errors(), "{:?}", diag.to_string_vec());
 }
 
 #[test]

@@ -55,6 +55,7 @@ pub fn ensure_window(
         implement_statements: Default::default(),
         named_references: Default::default(),
         repeated: Default::default(),
+        collection_source: None,
         states: Default::default(),
         transitions: Default::default(),
         match_elements: Default::default(),
@@ -84,6 +85,8 @@ pub fn ensure_window(
         slot_default: None,
         empty_slot_assignments: Vec::new(),
         typed_slot_interface: None,
+        slot_collection: false,
+        slot_expansion: None,
         forwarded_slots: Vec::new(),
     };
     let new_root = new_root.make_rc();

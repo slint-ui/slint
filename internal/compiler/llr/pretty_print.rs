@@ -436,6 +436,27 @@ impl<T> Display for DisplayPropertyRef<'_, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result {
         let ctx = self.1;
         match &self.0 {
+            MemberReference::Repeated {
+                parent_level,
+                sub_component_path,
+                sub_component,
+                local_reference,
+            } => {
+                ctx.with_reference_scope(*parent_level, sub_component_path, |view| {
+                    write!(
+                        f,
+                        "{}.collection_source.",
+                        ctx.compilation_unit.sub_components[view.sub_component].name
+                    )
+                })?;
+                let source_ctx = EvaluationContext::new_sub_component(
+                    ctx.compilation_unit,
+                    *sub_component,
+                    (),
+                    None,
+                );
+                print_local_ref(f, &source_ctx, local_reference, 0)
+            }
             MemberReference::Relative { parent_level, local_reference } => {
                 print_local_ref(f, ctx, local_reference, *parent_level)
             }
@@ -538,6 +559,9 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
             Expression::ReadLocalVariable { name, .. } => write!(f, "{name}"),
             Expression::StructFieldAccess { base, name } => write!(f, "{}.{}", e(base), name),
             Expression::ArrayIndex { array, index } => write!(f, "{}[{}]", e(array), e(index)),
+            Expression::RepeaterPropertyReference { repeater, index, property, .. } => {
+                write!(f, "{repeater:?}[{}].{property:?}", e(index))
+            }
             Expression::Cast { from, to } => write!(f, "{} /*as {:?}*/", e(from), to),
             Expression::CodeBlock(v) => {
                 write!(f, "{{ {} }}", v.iter().map(e).join("; "))

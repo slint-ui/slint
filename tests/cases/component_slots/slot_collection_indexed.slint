@@ -1,0 +1,136 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+interface Entry {
+    in property <bool> enabled;
+    in property <string> title;
+}
+
+component Item {
+    in property <bool> enabled: true;
+    in property <string> title;
+}
+
+component Group {
+    default slot <[implements Entry]> entries;
+    in property <int> index;
+    out property <bool> selected-enabled: entries[root.index].enabled;
+    out property <string> selected-title: entries[root.index].title;
+    VerticalLayout {
+        for entry in entries: Text { text: entry.title; }
+        for entry in entries: entry { }
+    }
+}
+
+component Wrapper {
+    default slot <[implements Entry]> entries;
+    in property <int> index;
+    out property <bool> selected-enabled: group.selected-enabled;
+    out property <string> selected-title: group.selected-title;
+    group := Group { index: root.index; entries << entries; }
+}
+
+component AnyGroup {
+    default slot <[*]> entries;
+    in property <int> index;
+    out property <bool> selected-visible: entries[root.index].visible;
+    for entry in entries: entry { }
+}
+
+export component TestCase inherits Window {
+    in-out property <int> index: 1;
+    in-out property <bool> second-enabled;
+    in-out property <bool> second-visible;
+    in-out property <[string]> names: ["A", "B", "C"];
+    out property <bool> static-enabled: static-group.selected-enabled;
+    out property <bool> repeated-enabled: repeated-group.selected-enabled;
+    out property <string> static-title: static-group.selected-title;
+    out property <string> repeated-title: repeated-group.selected-title;
+    out property <bool> wildcard-static-visible: wildcard-static.selected-visible;
+    out property <bool> wildcard-repeated-visible: wildcard-repeated.selected-visible;
+    out property <bool> test: !root.wildcard-static-visible && !root.wildcard-repeated-visible
+        && !root.static-enabled && !root.repeated-enabled
+        && root.static-title == "Second" && root.repeated-title == "B";
+    wildcard-static := AnyGroup {
+        index: root.index;
+        Text { text: "First"; }
+        Rectangle { visible: root.second-visible; }
+    }
+    wildcard-repeated := AnyGroup {
+        index: root.index;
+        for name[index] in root.names: Text {
+            text: name;
+            visible: index != 1 || root.second-visible;
+        }
+    }
+    static-group := Wrapper {
+        index: root.index;
+        Item { title: "First"; }
+        Item { title: "Second"; enabled: root.second-enabled; }
+    }
+    repeated-group := Wrapper {
+        index: root.index;
+        for name[index] in root.names: Item {
+            title: name;
+            enabled: index != 1 || root.second-enabled;
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+instance.set_second_enabled(true);
+instance.set_second_visible(true);
+assert!(instance.get_wildcard_static_visible());
+assert!(instance.get_wildcard_repeated_visible());
+assert!(instance.get_static_enabled());
+assert!(instance.get_repeated_enabled());
+instance.set_index(0);
+assert_eq!(instance.get_static_title(), "First");
+assert_eq!(instance.get_repeated_title(), "A");
+let names = std::rc::Rc::new(slint::VecModel::from(vec!["X".into(), "Y".into()]));
+instance.set_names(names.clone().into());
+assert_eq!(instance.get_repeated_title(), "X");
+names.remove(0);
+assert_eq!(instance.get_repeated_title(), "Y");
+for index in [-1, 3] {
+    instance.set_index(index);
+    assert!(!instance.get_wildcard_static_visible());
+    assert!(!instance.get_wildcard_repeated_visible());
+    assert!(!instance.get_static_enabled());
+    assert!(!instance.get_repeated_enabled());
+    assert_eq!(instance.get_static_title(), "");
+    assert_eq!(instance.get_repeated_title(), "");
+}
+```
+
+```cpp
+auto instance = TestCase::create();
+assert(instance->get_test());
+instance->set_second_enabled(true);
+instance->set_second_visible(true);
+assert(instance->get_wildcard_static_visible());
+assert(instance->get_wildcard_repeated_visible());
+assert(instance->get_static_enabled());
+assert(instance->get_repeated_enabled());
+instance->set_index(0);
+assert(instance->get_static_title() == "First");
+assert(instance->get_repeated_title() == "A");
+auto names = std::make_shared<slint::VectorModel<slint::SharedString>>(std::vector<slint::SharedString>{"X", "Y"});
+instance->set_names(names);
+assert(instance->get_repeated_title() == "X");
+names->erase(0);
+assert(instance->get_repeated_title() == "Y");
+for (int index : {-1, 3}) {
+    instance->set_index(index);
+    assert(!instance->get_wildcard_static_visible());
+    assert(!instance->get_wildcard_repeated_visible());
+    assert(!instance->get_static_enabled());
+    assert(!instance->get_repeated_enabled());
+    assert(instance->get_static_title() == "");
+    assert(instance->get_repeated_title() == "");
+}
+```
+*/

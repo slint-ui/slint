@@ -133,6 +133,14 @@ pub enum Expression {
         index: Box<Expression>,
     },
 
+    RepeaterPropertyReference {
+        repeater: Box<MemberReference>,
+        index: Box<Expression>,
+        sub_component: SubComponentIdx,
+        property: LocalMemberReference,
+        ty: Type,
+    },
+
     /// Cast an expression to the given type
     Cast {
         from: Box<Expression>,
@@ -567,6 +575,7 @@ impl Expression {
                 Type::Array(ty) => (*ty).clone(),
                 _ => unreachable!(),
             },
+            Self::RepeaterPropertyReference { ty, .. } => ty.clone(),
             Self::Cast { to, .. } => to.clone(),
             Self::CodeBlock(sub) => sub.last().map_or(Type::Void, |e| e.ty(ctx)),
             Self::BuiltinFunctionCall { function, .. } => function.ty().return_type.clone(),
@@ -638,6 +647,7 @@ macro_rules! visit_impl {
                 $visitor(array);
                 $visitor(index);
             }
+            Expression::RepeaterPropertyReference { index, .. } => $visitor(index),
             Expression::Cast { from, .. } => $visitor(from),
             Expression::CodeBlock(b) => b.$iter().for_each($visitor),
             Expression::BuiltinFunctionCall { arguments, .. }
@@ -869,6 +879,35 @@ impl Expression {
         visitor: &mut dyn FnMut(&MemberReference, &EvaluationContext),
     ) {
         self.visit_recursive(&mut |expr| {
+            if let Expression::RepeaterPropertyReference {
+                repeater, property, sub_component, ..
+            } = expr
+            {
+                visitor(repeater, ctx);
+                let MemberReference::Relative { parent_level, local_reference } = repeater.as_ref()
+                else {
+                    unreachable!()
+                };
+                let super::LocalMemberIndex::Repeater(repeater_index) = local_reference.reference
+                else {
+                    unreachable!()
+                };
+                ctx.with_reference_scope(
+                    *parent_level,
+                    &local_reference.sub_component_path,
+                    |mut owner| {
+                        owner.repeater_index = Some(repeater_index);
+                        let child_ctx = EvaluationContext::new_sub_component(
+                            ctx.compilation_unit,
+                            *sub_component,
+                            (),
+                            Some(&owner),
+                        );
+                        visitor(&property.clone().into(), &child_ctx);
+                    },
+                );
+                return;
+            }
             let p = match expr {
                 Expression::PropertyReference(p) => p,
                 Expression::CallBackCall { callback, .. } => callback,
@@ -1089,6 +1128,9 @@ impl<'a, T> EvaluationContext<'a, T> {
         }
 
         match prop {
+            MemberReference::Repeated { .. } => {
+                PropertyInfoResult { ty: self.property_ty(prop).clone(), ..Default::default() }
+            }
             MemberReference::Relative { parent_level, local_reference } => {
                 match self.current_scope {
                     EvaluationScope::Global(g) => {
@@ -1129,6 +1171,7 @@ impl<'a, T> EvaluationContext<'a, T> {
     ) -> Option<(&'b super::Function, ContextMap)> {
         let cu = self.compilation_unit;
         match reference {
+            MemberReference::Repeated { .. } => None,
             MemberReference::Relative { parent_level, local_reference } => {
                 // Cheap check before walking the scope: most references are not functions.
                 let LocalMemberIndex::Function(idx) = local_reference.reference else {
@@ -1191,6 +1234,40 @@ impl<'a, T> EvaluationContext<'a, T> {
         self.compilation_unit.sub_components.get(i)
     }
 
+    pub fn with_repeated_scope<R>(
+        &self,
+        reference: &MemberReference,
+        f: impl FnOnce(EvaluationContext<'_, T>) -> R,
+    ) -> R
+    where
+        T: Clone,
+    {
+        let MemberReference::Repeated { parent_level, sub_component_path, .. } = reference else {
+            unreachable!()
+        };
+        self.with_reference_scope(*parent_level, sub_component_path, |view| {
+            let source = self.compilation_unit.sub_components[view.sub_component]
+                .collection_source
+                .as_ref()
+                .unwrap();
+            let view_ctx = EvaluationContext::new_sub_component(
+                self.compilation_unit,
+                view.sub_component,
+                (),
+                view.parent,
+            );
+            view_ctx.with_reference_scope(source.parent_level, &[], |mut parent| {
+                parent.repeater_index = Some(source.repeater_index);
+                f(EvaluationContext::new_sub_component(
+                    self.compilation_unit,
+                    source.sub_component,
+                    self.generator_state.clone(),
+                    Some(&parent),
+                ))
+            })
+        })
+    }
+
     pub fn current_global(&self) -> Option<&super::GlobalComponent> {
         let EvaluationScope::Global(i) = self.current_scope else { return None };
         self.compilation_unit.globals.get(i)
@@ -1233,8 +1310,18 @@ impl<'a, T> EvaluationContext<'a, T> {
             };
         }
 
-        let mut sc = &self.compilation_unit.sub_components
-            [self.parent_sub_component_idx(parent_level).unwrap()];
+        self.sub_component_property_ty(
+            self.parent_sub_component_idx(parent_level).unwrap(),
+            local_reference,
+        )
+    }
+
+    pub fn sub_component_property_ty(
+        &self,
+        sub_component: SubComponentIdx,
+        local_reference: &LocalMemberReference,
+    ) -> &Type {
+        let mut sc = &self.compilation_unit.sub_components[sub_component];
         for i in &local_reference.sub_component_path {
             sc = &self.compilation_unit.sub_components[sc.sub_components[*i].ty];
         }
@@ -1245,6 +1332,9 @@ impl<'a, T> EvaluationContext<'a, T> {
             LocalMemberIndex::Timer(_) => unreachable!("a timer reference has no type"),
             LocalMemberIndex::Repeater(_) => unreachable!("a repeater reference has no type"),
             LocalMemberIndex::Native { item_index, prop_name, .. } => {
+                if prop_name.is_empty() {
+                    return &Type::ElementReference;
+                }
                 if prop_name == "elements" {
                     // The `Path::elements` property is not in the NativeClass
                     return &Type::PathData;
@@ -1264,6 +1354,9 @@ impl<'a, T> EvaluationContext<'a, T> {
 impl<T> TypeResolutionContext for EvaluationContext<'_, T> {
     fn property_ty(&self, prop: &MemberReference) -> &Type {
         match prop {
+            MemberReference::Repeated { sub_component, local_reference, .. } => {
+                self.sub_component_property_ty(*sub_component, local_reference)
+            }
             MemberReference::Relative { parent_level, local_reference } => {
                 self.relative_property_ty(local_reference, *parent_level)
             }
@@ -1336,6 +1429,17 @@ impl ContextMap {
         match self {
             ContextMap::Identity => p.clone(),
             ContextMap::InSubElement { path, parent } => match p {
+                MemberReference::Repeated {
+                    parent_level,
+                    sub_component_path,
+                    sub_component,
+                    local_reference,
+                } => MemberReference::Repeated {
+                    parent_level: *parent_level + *parent,
+                    sub_component_path: path.iter().chain(sub_component_path).copied().collect(),
+                    sub_component: *sub_component,
+                    local_reference: local_reference.clone(),
+                },
                 MemberReference::Relative { parent_level, local_reference } => {
                     MemberReference::Relative {
                         parent_level: *parent_level + *parent,
@@ -1352,6 +1456,9 @@ impl ContextMap {
                 MemberReference::Global { .. } => p.clone(),
             },
             ContextMap::InGlobal(global_index) => match p {
+                MemberReference::Repeated { .. } => {
+                    unreachable!("a global cannot contain a repeated component reference")
+                }
                 MemberReference::Relative { parent_level, local_reference } => {
                     assert!(local_reference.sub_component_path.is_empty());
                     assert_eq!(*parent_level, 0);
@@ -1367,6 +1474,9 @@ impl ContextMap {
 
     pub fn map_expression(&self, e: &mut Expression) {
         match e {
+            Expression::RepeaterPropertyReference { repeater, .. } => {
+                **repeater = self.map_property_reference(repeater);
+            }
             Expression::PropertyReference(p)
             | Expression::CallBackCall { callback: p, .. }
             | Expression::FunctionCall { function: p, .. }
