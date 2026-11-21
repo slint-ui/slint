@@ -18,7 +18,7 @@ fn generate_dts(path: &Path) -> Result<Vec<u8>, String> {
     compiler_config.debug_info = true;
     compiler_config.edition = Some(test_driver_lib::edition_or_current(&source).parse()?);
 
-    let (root_component, diag, loader) = spin_on::spin_on(compile_source(
+    let (root_component, diag, loader) = i_slint_compiler::poll_ready(compile_source(
         &i_slint_compiler::source_path::SourcePath::new(path),
         source,
         BuildDiagnostics::default(),

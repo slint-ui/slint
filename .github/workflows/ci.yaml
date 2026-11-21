@@ -88,6 +88,7 @@ jobs:
         env:
             RUSTFLAGS: -D warnings
             SLINT_EMIT_DEBUG_INFO: '1'
+            CARGO_PROFILE_DEV_OPT_LEVEL: '1'
         steps:
             - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
@@ -510,9 +511,9 @@ jobs:
     # QEMU.
     slint_sc_targets:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'slint_sc_driver') }}
-        runs-on: blacksmith-4vcpu-ubuntu-2404
+        runs-on: ubuntu-26.04
         steps:
-            - uses: useblacksmith/checkout@v1
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
               with:
                   extra-packages: >-
@@ -840,8 +841,16 @@ jobs:
               with:
                   node-version: 24
                   package-manager-cache: false
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: wasm32-unknown-unknown
+                  key: slint-preview-checker
+            - name: Install wasm-pack
+              run: curl https://wasm-bindgen.github.io/wasm-pack/installer/init.sh -sSf | sh
+            - name: Build the MCP Wasm checker
+              run: node ai-plugins/mcp/slint-preview/build-checker.mjs --dev
             - name: Test the Slint preview MCP server
-              run: node --test 'ai-plugins/mcp/slint-preview/test/*.test.mjs'
+              run: node --test --test-timeout=60000 api/wasm-interpreter/test/headless.test.mjs 'ai-plugins/mcp/slint-preview/test/*.test.mjs'
 
     test-slint-preview-view:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'slint_preview_view') }}
@@ -862,6 +871,8 @@ jobs:
             - name: Build the Wasm interpreter
               run: wasm-pack build --dev --target web -- --features console_error_panic_hook
               working-directory: api/wasm-interpreter
+            - name: Build the MCP Wasm checker
+              run: node ai-plugins/mcp/slint-preview/build-checker.mjs --dev
             - run: pnpm install --frozen-lockfile --filter slint-preview-mcp
             - run: pnpm exec playwright install --with-deps chromium
               working-directory: ai-plugins/mcp/slint-preview

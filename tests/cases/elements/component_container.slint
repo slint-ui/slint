@@ -33,7 +33,7 @@ export component TestCase inherits Rectangle {
 let factory = slint::ComponentFactory::new(|ctx| {
 
     let compiler = slint_interpreter::Compiler::new();
-    let e = spin_on::spin_on(compiler.build_from_source(
+    let e = pollster::block_on(compiler.build_from_source(
         r#"import { Button } from "std-widgets.slint";
 
 export component E1 inherits Rectangle {

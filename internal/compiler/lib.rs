@@ -264,7 +264,7 @@ pub struct CompilerConfiguration {
     pub coverage: bool,
 
     /// Generate debug hooks to inspect/override properties.
-    pub debug_hooks: Option<std::hash::RandomState>,
+    pub debug_hooks: bool,
 
     pub components_to_generate: ComponentSelection,
 
@@ -406,7 +406,7 @@ impl CompilerConfiguration {
             error_on_binding_loop_with_window_layout: false,
             debug_info,
             coverage: false,
-            debug_hooks: None,
+            debug_hooks: false,
             components_to_generate: ComponentSelection::ExportedWindows,
             #[cfg(all(feature = "renderer-software", feature = "sdf-fonts"))]
             use_sdf_fonts: false,
@@ -554,36 +554,42 @@ async fn compile_document(
 /// Pass a file to the compiler and process it fully, applying all the
 /// necessary compilation passes.
 ///
-/// This returns a `Tuple` containing a set of `BuildDiagnostics` and a
-/// `TypeLoader` with all compilation passes applied.
+/// This returns a `Tuple` containing a set of `BuildDiagnostics`, a `TypeLoader`
+/// with all compilation passes applied and, if `keep_raw` is set, another
+/// `TypeLoader` with a minimal set of passes applied to it.
 #[cfg(feature = "std")]
 pub async fn load_root_file(
     path: &SourcePath,
     source_code: String,
     mut diagnostics: diagnostics::BuildDiagnostics,
     #[allow(unused_mut)] mut compiler_config: CompilerConfiguration,
-) -> (diagnostics::BuildDiagnostics, typeloader::TypeLoader) {
-    let mut loader = prepare_for_compile(&mut diagnostics, compiler_config, path);
-    loader.load_root_file(path, source_code, false, &mut diagnostics).await;
-    (diagnostics, loader)
-}
-
-/// Pass a file to the compiler and process it fully, applying all the
-/// necessary compilation passes, just like `load_root_file`.
-///
-/// This returns a `Tuple` containing a set of `BuildDiagnostics`, a `TypeLoader`
-/// with all compilation passes applied and another `TypeLoader` with a minimal
-/// set of passes applied to it.
-#[cfg(feature = "std")]
-pub async fn load_root_file_with_raw_type_loader(
-    path: &SourcePath,
-    source_code: String,
-    mut diagnostics: diagnostics::BuildDiagnostics,
-    #[allow(unused_mut)] mut compiler_config: CompilerConfiguration,
+    keep_raw: bool,
 ) -> (diagnostics::BuildDiagnostics, typeloader::TypeLoader, Option<typeloader::TypeLoader>) {
     let mut loader = prepare_for_compile(&mut diagnostics, compiler_config, path);
-    let raw_type_loader = loader.load_root_file(path, source_code, true, &mut diagnostics).await;
+    let raw_type_loader =
+        loader.load_root_file(path, source_code, keep_raw, &mut diagnostics).await;
     (diagnostics, loader, raw_type_loader)
+}
+
+/// Polls `future` once and returns its output.
+///
+/// Use it to run the compiler's `async` functions when no file loader callback is set,
+/// or when its futures are ready immediately.
+///
+/// # Panics
+///
+/// Panics if `future` isn't ready after the first poll,
+/// for example when a file loader callback actually waits.
+/// Use a real executor in that case.
+#[track_caller]
+pub fn poll_ready<F: core::future::Future>(future: F) -> F::Output {
+    let mut ctx = core::task::Context::from_waker(core::task::Waker::noop());
+    match core::pin::pin!(future).poll(&mut ctx) {
+        core::task::Poll::Ready(result) => result,
+        core::task::Poll::Pending => {
+            panic!("poll_ready: the future wasn't ready on its first poll")
+        }
+    }
 }
 
 /// Returns true and reports an error on `source`, naming `what`, if `feature` is disabled.

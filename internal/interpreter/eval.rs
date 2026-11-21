@@ -1188,12 +1188,15 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
         Expression::DashArray(dash_array) => {
             Value::ArrayOfCoord(SharedVector::from_slice(dash_array))
         }
+        #[cfg(feature = "std")]
         Expression::DebugHook { expression, id } => {
             if let Some(hook_value) = crate::debug_hook::trigger_debug_hook(ctx, id) {
                 return hook_value;
             }
             eval_expression(ctx, expression)
         }
+        #[cfg(not(feature = "std"))]
+        Expression::DebugHook { expression } => eval_expression(ctx, expression),
     }
 }
 
@@ -1852,12 +1855,23 @@ fn eval_stops(ctx: &mut EvalContext, stops: &[(Expression, Expression)]) -> Vec<
         .collect()
 }
 
-#[cfg_attr(not(feature = "internal-mcu-interpreter"), allow(unused_variables))]
+#[cfg_attr(
+    not(any(feature = "internal-mcu-interpreter", feature = "std")),
+    allow(unused_variables)
+)]
 fn load_image_reference(
     resource_ref: &i_slint_compiler::expression_types::ImageReference,
     ctx: &EvalContext,
 ) -> i_slint_core::graphics::Image {
     use i_slint_compiler::expression_types::ImageReference as Ref;
+    #[cfg(feature = "std")]
+    if i_slint_core::IMAGE_DECODERS_ENABLED
+        && let Ref::Source(path) = resource_ref
+        && let Some(globals) = ctx.globals.upgrade()
+        && let Some(image) = globals.resources.images.get(path)
+    {
+        return image.clone();
+    }
     let image: Result<_, i_slint_core::graphics::LoadImageError> = match resource_ref {
         Ref::None => Ok(Default::default()),
         #[cfg(feature = "std")]

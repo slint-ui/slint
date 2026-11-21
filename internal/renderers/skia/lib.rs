@@ -61,7 +61,7 @@ pub use wgpu_renderer::SkiaWGPURenderer;
 #[cfg(any(feature = "wgpu-29", feature = "wgpu-30"))]
 pub use wgpu_renderer::SkiaWGPURendererGeneric;
 #[cfg(feature = "wgpu-30")]
-pub use wgpu_renderer::{SkiaWGPU30Renderer, SkiaWGPU30RendererExt};
+pub use wgpu_renderer::{SkiaWGPU30RenderTarget, SkiaWGPU30Renderer, SkiaWGPU30RendererExt};
 
 use itemrenderer::to_skia_rect;
 pub use skia_safe;
@@ -878,6 +878,15 @@ impl SkiaRenderer {
                     logical_window_size,
                     buffer_dirty_region,
                 );
+
+                if let Some(overlay_rect) = self
+                    .rendering_metrics_collector
+                    .borrow()
+                    .as_ref()
+                    .and_then(|m| m.overlay_rect())
+                {
+                    partial_renderer.dirty_region.add_rect(overlay_rect);
+                }
 
                 if matches!(self.dirty_region_debug_mode, DirtyRegionDebugMode::Log) {
                     let area_to_repaint: f32 =

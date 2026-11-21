@@ -47,8 +47,8 @@ pub async fn compile(
     if std::env::var_os("SLINT_INLINING").is_none() {
         config.inline_all_elements = false;
     }
-    let (diagnostics, loader) =
-        crate::load_root_file(path, source_code, Default::default(), config).await;
+    let (diagnostics, loader, _) =
+        crate::load_root_file(path, source_code, Default::default(), config, false).await;
     let compiled =
         loader.get_document(path).filter(|_| !diagnostics.has_errors()).map(|document| {
             (

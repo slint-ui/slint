@@ -20,9 +20,9 @@ in turn provides access to properties, callbacks, functions, global singletons, 
 
 ### Note about `async` functions
 
-Compiling a component is `async` but in practice, this is only asynchronous if [`Compiler::set_file_loader`]
-is set and its future is actually asynchronous.  If that is not used, then it is fine to use a very simple
-executor, such as the one provided by the `spin_on` crate
+Compiling a component is `async`, but its future resolves on the first poll,
+unless a [`Compiler::set_file_loader`] callback returns a future that isn't ready yet.
+Any executor works, such as `pollster::block_on`.
 
 ## Examples
 
@@ -32,7 +32,7 @@ This example loads a `.slint` dynamically from a path and show errors if any:
 use slint_interpreter::{ComponentDefinition, Compiler, ComponentHandle};
 
 let compiler = Compiler::default();
-let result = spin_on::spin_on(compiler.build_from_path("hello.slint"));
+let result = pollster::block_on(compiler.build_from_path("hello.slint"));
 let diagnostics : Vec<_> = result.diagnostics().collect();
 # #[cfg(feature="print_diagnostics")]
 diagnostics.print();
@@ -60,7 +60,7 @@ let code = r#"
 let mut compiler = Compiler::default();
 compiler.set_edition((1, 20));
 let result =
-    spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+    pollster::block_on(compiler.build_from_source(code.into(), Default::default()));
 assert_eq!(result.diagnostics().count(), 0);
 let definition = result.component("MyWin");
 let instance = definition.unwrap().create().unwrap();
@@ -111,6 +111,7 @@ mod prelude {
 mod api;
 mod bindings;
 mod component;
+#[cfg(feature = "std")]
 mod debug_hook;
 mod erased;
 mod eval;
@@ -139,6 +140,10 @@ mod value_model;
 
 #[doc(inline)]
 pub use api::*;
+
+#[cfg(all(feature = "std", any(feature = "internal", feature = "internal-highlight")))]
+#[doc(hidden)]
+pub use component::AnimationMode;
 
 #[cfg(feature = "internal")]
 #[doc(hidden)]

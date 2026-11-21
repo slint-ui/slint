@@ -257,11 +257,13 @@ export interface ComponentHandle {
 
     /**
      * Shows the component's window on the screen.
+     * For a component inheriting `SystemTrayIcon`, sets its `visible` property to `true`.
      */
     show(): void;
 
     /**
      * Hides the component's window, so that it is not visible anymore.
+     * For a component inheriting `SystemTrayIcon`, sets its `visible` property to `false`.
      */
     hide(): void;
 
@@ -316,17 +318,17 @@ class Component implements ComponentHandle {
     }
 
     async run() {
-        this[windowSymbol].show();
+        this[componentInstance].show();
         await runEventLoop();
-        this[windowSymbol].hide();
+        this[componentInstance].hide();
     }
 
     show(): void {
-        this[windowSymbol].show();
+        this[componentInstance].show();
     }
 
     hide(): void {
-        this[windowSymbol].hide();
+        this[componentInstance].hide();
     }
 }
 

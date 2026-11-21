@@ -1,28 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Icons } from "../icons/index.slint";
 import { Style, PaintStyle, Metrics, Colors, Typography, Motion, FieldStyle, SidebarToggleStyle, PaletteRowStyle } from "../style.slint";
 import { EditorInput } from "editor-input.slint";
 import { ElementVisuals } from "element-presentation.slint";
 import { Project } from "../project.slint";
 import { Api, CanvasCorner, ElementKind } from "../api.slint";
-
-export global EditorCursors {
-    out property <MouseCursor> corner-radius: MouseCursor.custom(
-        @image-url("../assets/cursors/corner-radius.png"),
-        14,
-        14,
-    );
-    pure callback rotation-image(angle) -> image;
-    pure callback resize-image(angle) -> image;
-    pure callback scrub-horizontal-image() -> image;
-    scrub-horizontal-image => { return @image-url("../assets/cursors/scrub-horizontal.svg"); }
-    out property <MouseCursor> canvas-default: MouseCursor.custom(
-        @image-url("../assets/cursors/default-32.png"),
-        14,
-        14,
-    );
-}
 
 export global EditorAngles {
     public pure function rounded(value: angle) -> float {
@@ -241,21 +225,11 @@ export component SidebarToggleButton inherits Rectangle {
         root.clicked();
     }
 
-    Rectangle {
-        x: (parent.width - self.width) / 2;
-        y: (parent.height - self.height) / 2;
+    Image {
         width: Metrics.icon-large;
         height: Metrics.icon-medium;
-        border-radius: Metrics.radius-small;
-        border-width: Metrics.focus-width;
-        border-color: root.active ? root.style.selected.border : root.style.normal.foreground;
-
-        Rectangle {
-            x: 7px;
-            width: 2px;
-            height: parent.height;
-            background: root.active ? root.style.selected.border : root.style.normal.foreground;
-        }
+        source: Icons.sidebar-toggle;
+        colorize: root.active ? root.style.selected.border : root.style.normal.foreground;
     }
 
     touch := TouchArea {

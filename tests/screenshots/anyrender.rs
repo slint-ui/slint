@@ -152,12 +152,25 @@ pub fn run_test(testcase: TestCase) -> Result<(), Box<dyn std::error::Error>> {
 /// compare pixels against `references/vello_cpu/<case>.png`. vello_cpu output
 /// is bit-identical across OSes and architectures, so a single reference set
 /// serves all platforms. `SLINT_CREATE_SCREENSHOTS=1` (re)creates references.
+///
+/// anyrender_vello_cpu snaps glyph origins like CoreGraphics on Apple platforms,
+/// and like Skia elsewhere. The references follow Skia,
+/// so Apple platforms skip the cases that draw text.
 pub fn run_pixel_test(testcase: TestCase) -> Result<(), Box<dyn std::error::Error>> {
     let renderer = init_anyrender();
 
     let component = compile_and_show(&testcase.absolute_path)?;
 
     let scene = renderer.record()?;
+    if cfg!(any(target_os = "macos", target_os = "ios"))
+        && scene
+            .commands
+            .iter()
+            .any(|command| matches!(command, anyrender::recording::RenderCommand::GlyphRun(_)))
+    {
+        eprintln!("Skipped: the case draws text, and the references snap glyphs like Skia");
+        return Ok(());
+    }
     let base_color = renderer.window_renderer().base_color();
     let size = component.window().size();
 
@@ -306,6 +319,7 @@ fn render_scene(
                     peniko::BrushRef::Solid(color),
                     None,
                     &kurbo::Rect::new(0., 0., width as f64, height as f64),
+                    anyrender::AntiAliasing::Enabled,
                 );
             }
             painter.append_scene(scene_clone, kurbo::Affine::IDENTITY);

@@ -6,6 +6,7 @@
 // Run with SLINT_PREVIEW_INTERPRETER_DIR set to that build's `pkg` directory.
 
 import { spawn } from "node:child_process";
+import { once } from "node:events";
 import {
     mkdirSync,
     mkdtempSync,
@@ -25,6 +26,7 @@ const interpreterDir = process.env.SLINT_PREVIEW_INTERPRETER_DIR;
 const serverPath = new URL("../server.mjs", import.meta.url);
 
 let server;
+let exited;
 let nextId = 1;
 const pending = new Map();
 
@@ -33,7 +35,10 @@ function request(method, params) {
     server.stdin.write(
         JSON.stringify({ jsonrpc: "2.0", id, method, params }) + "\n",
     );
-    return new Promise((resolve) => pending.set(id, resolve));
+    return Promise.race([
+        new Promise((resolve) => pending.set(id, resolve)),
+        exited,
+    ]);
 }
 
 const callTool = async (name, args) =>
@@ -55,9 +60,10 @@ const HOST_PAGE = `<!doctype html>
     if (method === "ui/notifications/initialized") window.viewInitialized = true;
     if (id === undefined) return;
     if (method === "ui/initialize") {
+      window.previewDisplayModes = params.appCapabilities.availableDisplayModes;
       post({ id, result: {
         protocolVersion: params.protocolVersion,
-        hostContext: { theme: "light" },
+        hostContext: { theme: "light", displayMode: "inline", availableDisplayModes: ["inline", "fullscreen"] },
         hostCapabilities: { experimental: window.noDraftSupport ? {} : { "openai/message": {} } },
       } });
     } else if (method === "tools/call") {
@@ -101,6 +107,9 @@ before(async () => {
             SLINT_PREVIEW_SCREENSHOT_TIMEOUT_MS: "120000",
             SLINT_PREVIEW_TIMEOUT_MS: "120000",
         },
+    });
+    exited = once(server, "exit").then(([code, signal]) => {
+        throw new Error(`The server exited (${signal ?? code})`);
     });
     createInterface({ input: server.stdout }).on("line", (line) => {
         const message = JSON.parse(line);
@@ -167,7 +176,10 @@ after(async () => {
 
 // Renders a preview and returns the get_preview_screenshot result.
 async function preview(args, openingDelayMs = 0) {
-    const result = await callTool("preview_slint", args);
+    const checked = await callTool("check_slint", { ...args, prepare_preview: true });
+    if (!checked.structuredContent?.ok) return checked;
+    const result = await callTool("publish_preview", { previewId: checked.structuredContent.previewId });
+    assert.deepEqual(result._meta["slint/preview"], args);
     if (openingDelayMs) await new Promise((resolve) => setTimeout(resolve, openingDelayMs));
     await page.evaluate(
         ([args, result]) => {
@@ -228,13 +240,16 @@ test("resolves imports through the project's include and library paths, and by a
     const withoutRoot = await preview({ path });
     assert.equal(withoutRoot.content[0].type, "text");
     assert.match(
-        withoutRoot.content[0].text,
+        withoutRoot.structuredContent.diagnostics.map((diagnostic) => diagnostic.message).join("\n"),
         /Cannot find requested import "card\.slint" in the include search path/,
     );
 });
 
 test("previews a file whose project root has no project file", async () => {
-    writeFiles({ "plain/main.slint": COMPONENT("Main") });
+    writeFiles({
+        "plain/main.slint": 'import "NotoSans.ttf"; export component Main inherits Window { width: 100px; height: 40px; Text { text: "Hello"; font-family: "Noto Sans"; } }',
+        "plain/NotoSans.ttf": readFileSync(new URL("../../../../tests/screenshots/fonts/NotoSans-Regular.ttf", import.meta.url)),
+    });
     assertRendered(
         await preview({
             path: join(projects, "plain/main.slint"),
@@ -257,7 +272,7 @@ function centerPixel(screenshot) {
     }, screenshot.content[0].data);
 }
 
-test("captures the current state after interacting with the preview", async () => {
+test("preserves the running preview when the host changes display mode", async () => {
     const initial = await preview({ source: `
         export component Main inherits Window {
             width: 40px;
@@ -270,10 +285,20 @@ test("captures the current state after interacting with the preview", async () =
     assertRendered(initial);
     assert.deepEqual(await centerPixel(initial), [255, 0, 0, 255]);
 
-    await page.frameLocator("iframe").locator("#preview").click();
-    const refreshed = await callTool("get_preview_screenshot", {});
-    assertRendered(refreshed);
-    assert.deepEqual(await centerPixel(refreshed), [0, 0, 255, 255]);
+    const frame = page.frameLocator("iframe");
+    assert.deepEqual(await page.evaluate(() => window.previewDisplayModes), ["inline", "fullscreen"]);
+    await frame.locator('body[data-display-mode="inline"]').waitFor();
+    await frame.locator("#preview").click();
+
+    for (const displayMode of ["fullscreen", "inline"]) {
+        await page.evaluate((mode) => window.notifyView("ui/notifications/host-context-changed", {
+            displayMode: mode,
+        }), displayMode);
+        await frame.locator(`body[data-display-mode="${displayMode}"]`).waitFor();
+        const screenshot = await callTool("get_preview_screenshot", {});
+        assertRendered(screenshot);
+        assert.deepEqual(await centerPixel(screenshot), [0, 0, 255, 255]);
+    }
 });
 
 const BLUE_SVG =
