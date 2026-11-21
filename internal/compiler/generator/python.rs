@@ -57,6 +57,7 @@ impl From<&PyProperty> for python_ast::Field {
             name: prop.name.clone(),
             ty: Some(PyType { name: prop.ty.clone(), optional: false }),
             default_value: None,
+            needs_type_ignore_comment: false,
         }
     }
 }
@@ -106,8 +107,15 @@ impl PyComponent {
                     name: glob.name.clone(),
                     ty: Some(PyType { name: glob.name.clone(), optional: false }),
                     default_value: None,
+                    needs_type_ignore_comment: false,
                 }),
             )
+            .map(|mut field: Field| {
+                const SLINT_COMPONENT_MEMBERS: [&str; 3] = ["show", "hide", "run"];
+                field.needs_type_ignore_comment = matches!(ty, ComponentType::Component { .. })
+                    && SLINT_COMPONENT_MEMBERS.contains(&field.name.as_str());
+                field
+            })
             .collect();
 
         file.declarations.push(python_ast::Declaration::Class(class));
@@ -184,6 +192,7 @@ impl From<&PyStruct> for python_ast::Declaration {
                 name: field.name.clone(),
                 ty: Some(PyType { name: field.ty.clone(), optional: false }),
                 default_value: None,
+                needs_type_ignore_comment: false,
             })
             .collect::<Vec<_>>();
 
@@ -262,6 +271,7 @@ impl From<&PyEnum> for python_ast::Declaration {
                     name: variant.name.clone(),
                     ty: None,
                     default_value: Some(format_smolstr!("\"{}\"", variant.strvalue)),
+                    needs_type_ignore_comment: false,
                 })
                 .collect(),
             function_declarations: Vec::new(),
@@ -496,6 +506,7 @@ mod python_ast {
         pub name: SmolStr,
         pub ty: Option<PyType>,
         pub default_value: Option<SmolStr>,
+        pub needs_type_ignore_comment: bool,
     }
 
     impl Display for Field {
@@ -506,6 +517,9 @@ mod python_ast {
             }
             if let Some(default_value) = &self.default_value {
                 write!(f, " = {}", default_value)?
+            }
+            if self.needs_type_ignore_comment {
+                write!(f, "  # type: ignore")?
             }
             Ok(())
         }
