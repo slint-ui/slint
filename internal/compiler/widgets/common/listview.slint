@@ -56,7 +56,7 @@ component StandardListViewBase inherits ListView {
     }
 
     pure function last-visible-item() -> int {
-        return min(root.model.length - 1, max(0, round((-root.top-down-content-y + root.height - root.item-height) / root.item-height)));
+        return min(root.model.length - 1, max(0, round((-root.top-down-content-y + root.visible-height - root.item-height) / root.item-height)));
     }
 
     pure function item-y(index: int) -> length {
@@ -103,7 +103,7 @@ component StandardListViewBase inherits ListView {
         if root.focus-item != root.first-visible-item() {
             root.set-focus-item(root.first-visible-item())
         } else {
-            root.set-focus-item(root.item-at-y(root.item-y(root.first-visible-item()) - root.height));
+            root.set-focus-item(root.item-at-y(root.item-y(root.first-visible-item()) - root.visible-height));
         }
     }
 
@@ -127,7 +127,7 @@ component StandardListViewBase inherits ListView {
         if root.focus-item != root.last-visible-item() {
             root.set-focus-item(root.last-visible-item())
         } else {
-            root.set-focus-item(root.item-at-y(root.item-y(root.last-visible-item()) + root.height));
+            root.set-focus-item(root.item-at-y(root.item-y(root.last-visible-item()) + root.visible-height));
         }
     }
 
@@ -146,7 +146,7 @@ component StandardListViewBase inherits ListView {
         root.has-item-been-selected = true;
 
         if (root.current-item-y + root.item-height < 0
-            || root.current-item-y > root.height) {
+            || root.current-item-y > root.visible-height) {
                 root.focus-item = root.first-visible-item();
         }
     }
