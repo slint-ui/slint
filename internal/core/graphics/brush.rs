@@ -22,7 +22,7 @@ use num_traits::float::Float;
 ///
 /// Clones of a Brush share the same underlying data, so cloning is cheap.
 #[derive(Clone, PartialEq, Debug, derive_more::From)]
-#[repr(C)]
+#[repr(C, u32)]
 #[non_exhaustive]
 pub enum Brush {
     /// The color variant of brush is a plain color that is to be used for the fill.

@@ -1081,7 +1081,7 @@ impl PreEditSelection {
     }
 }
 
-#[repr(C)]
+#[repr(u32)]
 #[derive(Clone)]
 enum UndoItemKind {
     TextInsert,
@@ -1777,7 +1777,7 @@ impl core::convert::TryFrom<char> for TextCursorDirection {
 
 /// Which visual position a cursor byte offset means when it sits at a soft line break: the same
 /// offset is both the end of the wrapped line and the start of the following one.
-#[repr(C)]
+#[repr(u32)]
 #[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
 pub enum TextCursorAffinity {
     /// The start of the line after the break. Produced by typing and horizontal movement.
