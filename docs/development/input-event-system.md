@@ -73,12 +73,10 @@ events from the public `platform::WindowEvent` API).
 
 The policy is applied at delivery time by the items:
 
-- `TouchArea` suppresses the pressed state (and therefore `clicked` /
-  `double-clicked` / `moved`) for activation clicks, while keeping the grab
-  and still emitting `pointer-event` with the `is-activation-click` field
-  set. The `accepts-activation-clicks` property opts a `TouchArea` into
-  normal processing — used by selection surfaces (list/table rows) and
-  scrollbar thumbs in the std-widgets.
+- `TouchArea` suppresses the pressed state for activation clicks, and with it `clicked`, `double-clicked`, and `moved`.
+  It keeps the grab and still emits `pointer-event` with the `is-activation-click` field set.
+  Set `accepts-activation-clicks` to process them like any other click.
+  In the std-widgets, list rows, table rows, tab headers, and scrollbars do.
 - `Text` ignores an activation release for `link-clicked`.
 - `SliderBase` (std-widgets) returns early from its `pointer-event` handler,
   since it changes the value on pointer-down directly.

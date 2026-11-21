@@ -81,6 +81,7 @@ export component TabImpl inherits Rectangle {
 
     i-touch-area := TouchArea {
         enabled <=> root.enabled;
+        accepts-activation-clicks: true;
 
         clicked => {
             root.current = root.tab-index;
