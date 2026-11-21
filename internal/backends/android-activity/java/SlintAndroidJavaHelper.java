@@ -1067,6 +1067,14 @@ public class SlintAndroidJavaHelper {
         return mActivity.getResources().getConfiguration().fontScale;
     }
 
+    public float horizontal_scroll_factor() {
+        return ViewConfiguration.get(mActivity).getScaledHorizontalScrollFactor();
+    }
+
+    public float vertical_scroll_factor() {
+        return ViewConfiguration.get(mActivity).getScaledVerticalScrollFactor();
+    }
+
     public boolean animators_enabled() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             return ValueAnimator.areAnimatorsEnabled();
