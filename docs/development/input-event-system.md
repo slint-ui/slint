@@ -76,8 +76,6 @@ The items decide at delivery time:
   With `accepts-activation-clicks` set to `false`, it suppresses the pressed state for activation clicks,
   and with it `clicked`, `double-clicked`, and `moved`, while keeping the grab.
 - `Text` ignores an activation release for `link-clicked`.
-- `SliderBase` (std-widgets) returns early from its `pointer-event` handler,
-  so an activation click doesn't change the value.
 - `Flickable`, `TextInput`, `SwipeGestureHandler`, and `ContextMenuArea` process activation clicks normally.
 
 ### Mouse Input State
