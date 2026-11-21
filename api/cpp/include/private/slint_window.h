@@ -593,7 +593,7 @@ public:
     {
         private_api::assert_main_thread();
         inner.dispatch_pointer_event(slint::cbindgen_private::BackendMouseEvent::Pressed(
-                { pos.x, pos.y }, button, 0, 0));
+                { pos.x, pos.y }, button, 0, 0, false));
     }
     /// Dispatches a pointer or mouse release event to the scene.
     ///
@@ -606,7 +606,7 @@ public:
     {
         private_api::assert_main_thread();
         inner.dispatch_pointer_event(slint::cbindgen_private::BackendMouseEvent::Released(
-                { pos.x, pos.y }, button, 0, 0));
+                { pos.x, pos.y }, button, 0, 0, false));
     }
     /// Dispatches a pointer exit event to the scene.
     ///

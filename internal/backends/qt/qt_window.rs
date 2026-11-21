@@ -216,7 +216,7 @@ cpp! {{
                 let rust_window = unsafe { QtWindow::from_widget(rust_window) };
                 let position = LogicalPoint::new(pos.x as _, pos.y as _);
                 let button = from_qt_button(button);
-                rust_window.mouse_event(BackendMouseEvent::Pressed{ position, button, click_count: 0, touch_finger_id: 0 })
+                rust_window.mouse_event(BackendMouseEvent::Pressed{ position, button, click_count: 0, touch_finger_id: 0, is_activation_click: false })
             });
         }
         void mouseReleaseEvent(QMouseEvent *event) override {
@@ -247,7 +247,7 @@ cpp! {{
                 let rust_window = unsafe { QtWindow::from_widget(rust_window) };
                 let position = LogicalPoint::new(pos.x as _, pos.y as _);
                 let button = from_qt_button(button);
-                rust_window.mouse_event(BackendMouseEvent::Released{ position, button, click_count: 0, touch_finger_id: 0 })
+                rust_window.mouse_event(BackendMouseEvent::Released{ position, button, click_count: 0, touch_finger_id: 0, is_activation_click: false })
             });
         }
         void mouseMoveEvent(QMouseEvent *event) override {

@@ -31,7 +31,8 @@ Slint's input system handles mouse, touch, keyboard events and focus management.
 `MouseEvent` (`internal/core/input.rs`) is what an item's input handlers receive:
 
 - `Pressed` and `Released`, with a position, a `PointerEventButton`, the click count, and a touch
-  finger id (set for touch input, 0 for the mouse); `Moved`, with a position and finger id
+  finger id (set for touch input, 0 for the mouse), and whether it belongs to a window-activating
+  click (see "Activation Clicks" below); `Moved`, with a position and finger id
 - `Wheel` for the mouse wheel or a touchpad scroll: a position, an x and y delta, and a
   `TouchPhase`
 - `DragMove` and `Drop`, each with the `DropEvent` and the allowed drag actions
@@ -59,6 +60,23 @@ and the item that press was delivered to.
   So moving the pointer away and back between two clicks on the same item doesn't restart the count;
   time and distance decide.
 - `click_count` is included in Press/Release events
+- An activation click (see below) resets the state and always carries `click_count` 0, so it neither continues nor starts a multi-click sequence
+
+### Activation Clicks (macOS "first mouse")
+
+On macOS, a click on an inactive window activates the window, and the window's view also receives it.
+AppKit's own controls differ in what they do with it: `NSButton` and `NSSlider` react, most other views don't.
+The backend tags both the press and the matching release of such a click with `is_activation_click`.
+The flag is always false on other platforms, and for events from the public `platform::WindowEvent` API.
+
+The items decide at delivery time:
+
+- `TouchArea` processes an activation click like any other click.
+  It always emits `pointer-event` with the `is-activation-click` field set.
+  With `accepts-activation-clicks` set to `false`, it suppresses the pressed state for activation clicks,
+  and with it `clicked`, `double-clicked`, and `moved`, while keeping the grab.
+- `Text` ignores an activation release for `link-clicked`.
+- `Flickable`, `TextInput`, `SwipeGestureHandler`, and `ContextMenuArea` process activation clicks normally.
 
 ### Mouse Input State
 
