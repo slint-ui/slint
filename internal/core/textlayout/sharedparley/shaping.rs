@@ -29,6 +29,9 @@ pub(super) struct Brush {
     pub(super) link_color: Option<Color>,
 }
 
+/// Everything shaping a paragraph depends on but its text and spans: two builders that compare
+/// equal shape the same text the same way (see [`ParagraphSource`]).
+#[derive(Clone, PartialEq)]
 pub(super) struct LayoutWithoutLineBreaksBuilder {
     font_request: Option<FontRequest>,
     /// See [`crate::item_rendering::RenderString::line_height_factor`].
@@ -270,18 +273,44 @@ pub(super) fn paragraph_ranges(text: &str) -> impl Iterator<Item = Range<usize>>
     })
 }
 
+#[cfg(test)]
+std::thread_local! {
+    /// How many paragraphs were shaped, rather than kept from before.
+    pub(super) static SHAPED_PARAGRAPHS: core::cell::Cell<usize> = const { core::cell::Cell::new(0) };
+}
+
+/// Shapes `text` into its paragraphs, keeping those of `previous` (what the same item showed
+/// before) that are as they were: the paragraph at the same index, of the same text and spans,
+/// shaped by an equal builder for the same link color. Shaping is most of what laying text out
+/// costs, so text that grows at its end, or changes in a paragraph or two, costs only those.
 pub(super) fn create_text_paragraphs(
     layout_builder: &LayoutWithoutLineBreaksBuilder,
     font_context: &mut FontContext,
     text: PlainOrStyledText,
     link_color: Color,
+    previous: Vec<TextParagraph>,
 ) -> Vec<TextParagraph> {
-    let paragraph_from_text =
+    let shaped_alike = previous.first().is_some_and(|paragraph| {
+        paragraph.source.link_color == link_color && paragraph.source.builder == *layout_builder
+    });
+    let mut previous = if shaped_alike { previous } else { Vec::new() }.into_iter();
+
+    let mut paragraph_from_text =
         |font_context: &mut FontContext,
          text: &str,
          range: std::ops::Range<usize>,
          formatting: Vec<i_slint_common::styled_text::FormattedSpan>,
          links: Vec<(std::ops::Range<usize>, std::string::String)>| {
+            if let Some(kept) = previous.next()
+                && kept.source.text == text
+                && kept.source.formatting == formatting
+            {
+                return TextParagraph { range, y: PhysicalLength::default(), links, ..kept };
+            }
+
+            #[cfg(test)]
+            SHAPED_PARAGRAPHS.with(|shaped| shaped.set(shaped.get() + 1));
+
             let code_ranges: alloc::vec::Vec<Range<usize>> = formatting
                 .iter()
                 .filter(|s| matches!(s.style, i_slint_common::styled_text::Style::Code))
@@ -293,7 +322,8 @@ pub(super) fn create_text_paragraphs(
                 .filter_map(|(index, c)| c.is_control().then_some(index))
                 .collect();
 
-            let layout = layout_builder.build(font_context, text, formatting, Some(link_color));
+            let layout =
+                layout_builder.build(font_context, text, formatting.clone(), Some(link_color));
 
             TextParagraph {
                 range,
@@ -302,21 +332,36 @@ pub(super) fn create_text_paragraphs(
                 links,
                 code_ranges,
                 control_characters,
+                source: ParagraphSource {
+                    builder: layout_builder.clone(),
+                    link_color,
+                    text: text.into(),
+                    formatting,
+                },
             }
         };
 
     let mut paragraphs = Vec::with_capacity(1);
+    for_each_paragraph(text, |text, range, formatting, links| {
+        paragraphs.push(paragraph_from_text(font_context, text, range, formatting, links));
+    });
+    paragraphs
+}
 
+/// Calls `f` with each paragraph of `text`: its text, its byte range, its spans and its links.
+fn for_each_paragraph(
+    text: PlainOrStyledText,
+    mut f: impl FnMut(
+        &str,
+        Range<usize>,
+        Vec<i_slint_common::styled_text::FormattedSpan>,
+        Vec<(Range<usize>, std::string::String)>,
+    ),
+) {
     match text {
         PlainOrStyledText::Plain(ref text) => {
             for range in paragraph_ranges(text) {
-                paragraphs.push(paragraph_from_text(
-                    font_context,
-                    &text[range.clone()],
-                    range,
-                    Default::default(),
-                    Default::default(),
-                ));
+                f(&text[range.clone()], range, Default::default(), Default::default());
             }
         }
         PlainOrStyledText::Styled(rich_text) => {
@@ -324,18 +369,60 @@ pub(super) fn create_text_paragraphs(
             // offsets index.
             let ranges: Vec<_> = crate::styled_text::raw_text_ranges(&rich_text).collect();
             for (paragraph, range) in rich_text.paragraphs.into_iter().zip(ranges) {
-                paragraphs.push(paragraph_from_text(
-                    font_context,
-                    &paragraph.text,
-                    range,
-                    paragraph.formatting,
-                    paragraph.links,
-                ));
+                f(&paragraph.text, range, paragraph.formatting, paragraph.links);
             }
         }
-    };
+    }
+}
 
-    paragraphs
+/// A paragraph's content widths, in physical pixels: the widest piece of it that can't be
+/// broken up, and its width unbroken.
+pub(super) struct ParagraphWidths {
+    pub(super) min: f32,
+    pub(super) max: f32,
+    source: ParagraphSource,
+}
+
+/// The content widths of each paragraph of `text`, keeping those of `previous` (the same
+/// item's, before) whose paragraph is as it was, as [`create_text_paragraphs`] keeps shaped
+/// paragraphs: measuring text that grows costs only what is new.
+pub(super) fn paragraph_widths(
+    layout_builder: &LayoutWithoutLineBreaksBuilder,
+    font_context: &mut FontContext,
+    text: PlainOrStyledText,
+    previous: Vec<ParagraphWidths>,
+) -> Vec<ParagraphWidths> {
+    let link_color = Color::default();
+    let shaped_alike =
+        previous.first().is_some_and(|paragraph| paragraph.source.builder == *layout_builder);
+    let mut previous = if shaped_alike { previous } else { Vec::new() }.into_iter();
+    let mut widths = Vec::with_capacity(1);
+    for_each_paragraph(text, |text, _, formatting, _| {
+        if let Some(kept) = previous.next()
+            && kept.source.text == text
+            && kept.source.formatting == formatting
+        {
+            widths.push(kept);
+            return;
+        }
+
+        #[cfg(test)]
+        SHAPED_PARAGRAPHS.with(|shaped| shaped.set(shaped.get() + 1));
+
+        let layout = layout_builder.build(font_context, text, formatting.clone(), Some(link_color));
+        let content_widths = layout.calculate_content_widths();
+        widths.push(ParagraphWidths {
+            min: content_widths.min,
+            max: content_widths.max,
+            source: ParagraphSource {
+                builder: layout_builder.clone(),
+                link_color,
+                text: text.into(),
+                formatting,
+            },
+        });
+    });
+    widths
 }
 
 /// The builder the shaped paragraphs of `text` must be produced with. Measuring and drawing share
@@ -403,6 +490,7 @@ pub(super) fn shape_paragraphs(
     text_wrap: TextWrap,
     scale_factor: ScaleFactor,
     font_context: &RefCell<FontContext>,
+    previous: Vec<TextParagraph>,
 ) -> Vec<TextParagraph> {
     let builder = shaping_builder(text, item_rc, text_wrap, scale_factor);
     let plain_or_styled_text = text.text();
@@ -412,7 +500,17 @@ pub(super) fn shape_paragraphs(
         &mut font_context.borrow_mut(),
         plain_or_styled_text,
         link_color,
+        previous,
     )
+}
+
+/// What a paragraph was shaped from: shaping the same again gives the same layout, so a
+/// paragraph whose source is unchanged keeps its layout (see [`create_text_paragraphs`]).
+pub(super) struct ParagraphSource {
+    builder: LayoutWithoutLineBreaksBuilder,
+    link_color: Color,
+    text: std::string::String,
+    formatting: std::vec::Vec<i_slint_common::styled_text::FormattedSpan>,
 }
 
 pub(super) struct TextParagraph {
@@ -426,4 +524,5 @@ pub(super) struct TextParagraph {
     pub(super) code_ranges: std::vec::Vec<Range<usize>>,
     /// Ascending byte offsets of the control characters in the paragraph's text.
     pub(super) control_characters: std::vec::Vec<usize>,
+    pub(super) source: ParagraphSource,
 }
