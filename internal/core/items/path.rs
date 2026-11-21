@@ -22,7 +22,7 @@ use crate::items::ImageFit;
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPx, LogicalRect, LogicalSize, LogicalVector,
-    RectLengths,
+    SizeLengths,
 };
 use crate::once_box::OnceBox;
 #[cfg(feature = "rtti")]
@@ -31,7 +31,7 @@ use crate::window::WindowAdapter;
 use crate::{Coord, Property};
 use alloc::rc::Rc;
 use const_field_offset::FieldOffsets;
-use core::cell::RefCell;
+use core::cell::{Cell, RefCell};
 use core::pin::Pin;
 use euclid::Point2D;
 use euclid::num::Zero;
@@ -62,6 +62,7 @@ pub struct Path {
     pub cached_rendering_data: CachedRenderingData,
     fitted_path: OnceBox<FittedPathInner>,
     tracker: crate::properties::PropertyTracker,
+    bounds: OnceBox<PathBounds>,
 }
 
 impl Item for Path {
@@ -150,7 +151,26 @@ impl Item for Path {
         _self_rc: &ItemRc,
         geometry: LogicalRect,
     ) -> LogicalRect {
-        geometry
+        if self.clip() {
+            return geometry;
+        }
+        let bounds = self.bounds.get_or_init_pin(Default::default).project_ref();
+        if bounds.size.get() != geometry.size {
+            bounds.tracker.set_dirty();
+        }
+        if let Some(path_rect) =
+            bounds.tracker.evaluate_if_dirty(|| self.fitted_path_bounds(geometry.size))
+        {
+            bounds.size.set(geometry.size);
+            bounds.path_rect.set(path_rect);
+        }
+        let outset = self.stroke_outset();
+        bounds
+            .path_rect
+            .get()
+            .inflate(outset, outset)
+            .union(&LogicalRect::from_size(geometry.size))
+            .translate(geometry.origin.to_vector())
     }
 
     fn clips_children(self: core::pin::Pin<&Self>) -> bool {
@@ -166,6 +186,13 @@ impl Path {
         self: Pin<&Self>,
         self_rc: &ItemRc,
     ) -> Option<(LogicalVector, PathDataIterator)> {
+        self.fitted_path_events_for_size(self_rc.geometry().size)
+    }
+
+    fn fitted_path_events_for_size(
+        self: Pin<&Self>,
+        size: LogicalSize,
+    ) -> Option<(LogicalVector, PathDataIterator)> {
         let mut elements_iter = self.elements().iter()?;
 
         let fit = self.fit();
@@ -174,9 +201,8 @@ impl Path {
         }
 
         let stroke_width = self.stroke_width();
-        let geometry = self_rc.geometry();
-        let bounds_width = (geometry.width_length() - stroke_width).max(LogicalLength::zero());
-        let bounds_height = (geometry.height_length() - stroke_width).max(LogicalLength::zero());
+        let bounds_width = (size.width_length() - stroke_width).max(LogicalLength::zero());
+        let bounds_height = (size.height_length() - stroke_width).max(LogicalLength::zero());
         let offset =
             LogicalVector::from_lengths(stroke_width / 2 as Coord, stroke_width / 2 as Coord);
 
@@ -194,6 +220,32 @@ impl Path {
 
         elements_iter.fit(bounds_width.get() as _, bounds_height.get() as _, maybe_viewbox, fit);
         (offset, elements_iter).into()
+    }
+
+    /// The bounds of the path's outline in item coordinates, without the stroke.
+    fn fitted_path_bounds(self: Pin<&Self>, size: LogicalSize) -> LogicalRect {
+        let Some((offset, elements_iter)) = self.fitted_path_events_for_size(size) else {
+            return LogicalRect::zero();
+        };
+        let bounds = lyon_algorithms::aabb::bounding_box(elements_iter.iter());
+        LogicalRect::from_untyped(&bounds.to_rect().cast()).translate(offset)
+    }
+
+    /// How far the stroke reaches past the path's outline.
+    fn stroke_outset(self: Pin<&Self>) -> Coord {
+        if self.stroke().is_transparent() {
+            return 0 as Coord;
+        }
+        // Skia draws a zero width stroke as a one pixel wide hairline.
+        let half_width = self.stroke_width().get().max(1 as Coord) / 2 as Coord;
+        let join_factor = if self.stroke_line_join() == LineJoin::Miter {
+            self.stroke_miter_limit().max(1.)
+        } else {
+            1.
+        };
+        let cap_factor =
+            if self.stroke_line_cap() == LineCap::Square { core::f32::consts::SQRT_2 } else { 1. };
+        half_width * join_factor.max(cap_factor) as Coord
     }
 
     fn sample_at(
@@ -228,3 +280,13 @@ impl ItemConsts for Path {
 
 #[derive(Default)]
 struct FittedPathInner(RefCell<Option<FittedPath>>);
+
+#[pin_project::pin_project]
+#[derive(Default)]
+struct PathBounds {
+    #[pin]
+    tracker: crate::properties::PropertyTracker<true>,
+    /// The item size `path_rect` was computed for.
+    size: Cell<LogicalSize>,
+    path_rect: Cell<LogicalRect>,
+}

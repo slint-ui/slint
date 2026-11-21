@@ -216,7 +216,11 @@ fn shadow_spread_preserves_adjusted_corner_radii() {
 }
 
 /// A target that still holds an earlier frame, as a swapchain image or a scanout buffer may.
-struct DirtySurface(Rc<RefCell<i_slint_renderer_skia::skia_safe::Surface>>);
+/// It reports the age of that frame, so a back buffer age of one renders only what changed.
+struct DirtySurface {
+    target: Rc<RefCell<i_slint_renderer_skia::skia_safe::Surface>>,
+    back_buffer_age: Rc<Cell<u8>>,
+}
 
 impl i_slint_renderer_skia::Surface for DirtySurface {
     fn new(
@@ -248,7 +252,7 @@ impl i_slint_renderer_skia::Surface for DirtySurface {
         >,
         _pre_present_callback: &RefCell<Option<Box<dyn FnMut()>>>,
     ) -> Result<i_slint_core::renderer::DrawOutcome, PlatformError> {
-        render_callback(self.0.borrow_mut().canvas(), None, 0)?;
+        render_callback(self.target.borrow_mut().canvas(), None, self.back_buffer_age.get())?;
         Ok(i_slint_core::renderer::DrawOutcome::Success)
     }
 
@@ -258,6 +262,10 @@ impl i_slint_renderer_skia::Surface for DirtySurface {
 
     fn bits_per_pixel(&self) -> Result<u8, PlatformError> {
         Ok(32)
+    }
+
+    fn use_partial_rendering(&self) -> bool {
+        true
     }
 
     fn with_graphics_api(&self, callback: &mut dyn FnMut(i_slint_core::api::GraphicsAPI<'_>)) {
@@ -277,6 +285,8 @@ struct DirtyWindow {
     window: i_slint_core::api::Window,
     renderer: SkiaRenderer,
     target: Rc<RefCell<i_slint_renderer_skia::skia_safe::Surface>>,
+    back_buffer_age: Rc<Cell<u8>>,
+    size: i32,
 }
 
 impl WindowAdapter for DirtyWindow {
@@ -285,7 +295,7 @@ impl WindowAdapter for DirtyWindow {
     }
 
     fn size(&self) -> PhysicalSize {
-        PhysicalSize::new(DIRTY_SIZE as u32, DIRTY_SIZE as u32)
+        PhysicalSize::new(self.size as u32, self.size as u32)
     }
 
     fn renderer(&self) -> &dyn Renderer {
@@ -293,22 +303,31 @@ impl WindowAdapter for DirtyWindow {
     }
 }
 
-struct DirtyTargetBackend;
+/// Creates `DirtyWindow`s of `size` pixels square.
+struct DirtyTargetBackend {
+    size: i32,
+}
 
 impl Platform for DirtyTargetBackend {
     fn create_window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
         use i_slint_renderer_skia::skia_safe;
-        let mut surface = skia_safe::surfaces::raster_n32_premul((DIRTY_SIZE, DIRTY_SIZE))
+        let mut surface = skia_safe::surfaces::raster_n32_premul((self.size, self.size))
             .ok_or("Error creating a raster surface")?;
         surface.canvas().clear(skia_safe::Color::RED);
         let target = Rc::new(RefCell::new(surface));
+        let back_buffer_age = Rc::new(Cell::new(0));
         let window = Rc::new_cyclic(|self_weak| DirtyWindow {
             window: i_slint_core::api::Window::new(self_weak.clone() as _),
             renderer: SkiaRenderer::new_with_surface(
                 &SkiaSharedContext::default(),
-                Box::new(DirtySurface(target.clone())),
+                Box::new(DirtySurface {
+                    target: target.clone(),
+                    back_buffer_age: back_buffer_age.clone(),
+                }),
             ),
             target,
+            back_buffer_age,
+            size: self.size,
         });
         DIRTY_WINDOW.with(|dirty_window| *dirty_window.borrow_mut() = Some(window.clone()));
         Ok(window)
@@ -317,7 +336,7 @@ impl Platform for DirtyTargetBackend {
 
 #[test]
 fn transparent_gradient_background_replaces_the_previous_frame() {
-    i_slint_core::platform::set_platform(Box::new(DirtyTargetBackend))
+    i_slint_core::platform::set_platform(Box::new(DirtyTargetBackend { size: DIRTY_SIZE }))
         .expect("platform already initialized");
 
     let source = r#"
@@ -426,7 +445,7 @@ fn rendering_notifier_removes_elements() {
     use i_slint_core::model::VecModel;
     use slint_interpreter::{ComponentHandle, Value};
 
-    i_slint_core::platform::set_platform(Box::new(DirtyTargetBackend))
+    i_slint_core::platform::set_platform(Box::new(DirtyTargetBackend { size: DIRTY_SIZE }))
         .expect("platform already initialized");
 
     let source = r#"
@@ -498,4 +517,95 @@ fn rendering_notifier_removes_elements() {
         assert_eq!(red_columns(), expected_red_columns);
     }
     assert_eq!(frame.get(), 3);
+}
+
+/// Renders the `TestCase` in `source` into a fresh `DirtyWindow` and returns the window.
+fn render_in_dirty_window(
+    source: &str,
+    properties: &[(&str, slint_interpreter::Value)],
+) -> (slint_interpreter::ComponentInstance, Rc<DirtyWindow>) {
+    let result = poll_once(
+        slint_interpreter::Compiler::default().build_from_source(source.into(), Default::default()),
+    )
+    .unwrap();
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let component = result.components().last().unwrap().create().unwrap();
+    for (name, value) in properties {
+        component.set_property(name, value.clone()).unwrap();
+    }
+    component.show().unwrap();
+    let window = DIRTY_WINDOW.with(|dirty_window| dirty_window.borrow().clone()).unwrap();
+    assert!(matches!(window.renderer.render(), Ok(i_slint_core::renderer::DrawOutcome::Success)));
+    (component, window)
+}
+
+// Moving an item repaints what it drew outside its geometry, at the old and the new position.
+#[test]
+fn moved_overhang_leaves_no_stale_pixels() {
+    use slint_interpreter::Value;
+
+    const SIZE: i32 = 64;
+    i_slint_core::platform::set_platform(Box::new(DirtyTargetBackend { size: SIZE }))
+        .expect("platform already initialized");
+
+    let source = r#"
+        export component TestCase inherits Window {
+            background: white;
+            in property <length> dx;
+            Path {
+                x: 2px + root.dx;
+                y: 2px;
+                width: 8px;
+                height: 8px;
+                fit: preserve;
+                fill: blue;
+                commands: "M 0 0 L 20 0 L 20 12 Z";
+            }
+            Path {
+                x: 2px + root.dx;
+                y: 18px;
+                width: 12px;
+                height: 20px;
+                stroke: green;
+                stroke-width: 6px;
+                stroke-miter-limit: 10;
+                commands: "M 30 0 L 0 10 L 30 20";
+            }
+            Text {
+                x: 4px + root.dx;
+                y: 42px;
+                text: "ff";
+                font-size: 16px;
+                font-italic: true;
+                color: black;
+                stroke: red;
+                stroke-width: 2px;
+                stroke-style: outside;
+                overflow: elide;
+            }
+        }
+    "#;
+    let moved = Value::Number(30.);
+
+    let (component, window) = render_in_dirty_window(source, &[]);
+    component.set_property("dx", moved.clone()).unwrap();
+    window.back_buffer_age.set(1);
+    assert!(matches!(window.renderer.render(), Ok(i_slint_core::renderer::DrawOutcome::Success)));
+    let image = window.target.borrow_mut().image_snapshot();
+
+    let (_, fresh_window) = render_in_dirty_window(source, &[("dx", moved)]);
+    let fresh_image = fresh_window.target.borrow_mut().image_snapshot();
+
+    let pixels = image.peek_pixels().unwrap();
+    let fresh_pixels = fresh_image.peek_pixels().unwrap();
+    let stale: Vec<_> = (0..SIZE)
+        .flat_map(|y| (0..SIZE).map(move |x| (x, y)))
+        .filter(|&(x, y)| {
+            let (a, b) = (pixels.get_color((x, y)), fresh_pixels.get_color((x, y)));
+            [(a.r(), b.r()), (a.g(), b.g()), (a.b(), b.b())]
+                .iter()
+                .any(|(a, b)| a.abs_diff(*b) > 64)
+        })
+        .collect();
+    assert!(stale.is_empty(), "stale pixels: {stale:?}");
 }
