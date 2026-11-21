@@ -1567,6 +1567,8 @@ pub struct ListViewInfo {
     pub listview_width: NamedReference,
     /// The ListView's `ensure-row-visible` function, if it declares one
     pub ensure_row_visible: Option<NamedReference>,
+    /// The ListView's `flex-direction` property, if it declares one
+    pub flex_direction: Option<NamedReference>,
     /// The row's `height`. Unlike the root's geometry, a wrapper such as the
     /// zero-size Clip of the `visible` pass doesn't replace it.
     pub row_height: NamedReference,
@@ -2173,6 +2175,10 @@ impl Element {
                 )
             };
             let declares_ensure_row_visible = Self::declares_ensure_row_visible(&parent_elem);
+            let declares_flex_direction = parent_elem
+                .lookup_property("flex-direction", PropertyLookupMode::InternalName)
+                .property_type
+                == Type::Enumeration(typeregister::BUILTIN.enums.FlexboxLayoutDirection.clone());
             drop(parent_elem); // Drop the borrow before creating NamedReference
 
             let lvi = ListViewInfo {
@@ -2186,6 +2192,8 @@ impl Element {
                 ensure_row_visible: declares_ensure_row_visible.then(|| {
                     NamedReference::new(parent, SmolStr::new_static("ensure-row-visible"))
                 }),
+                flex_direction: declares_flex_direction
+                    .then(|| NamedReference::new(parent, SmolStr::new_static("flex-direction"))),
                 row_height: geometry_props.height.clone(),
             };
             // these properties are set by the ListView layouting code
@@ -3948,6 +3956,9 @@ fn visit_all_named_references_in_element_dyn(
         vis(&mut lv.listview_width);
         if let Some(ensure_row_visible) = &mut lv.ensure_row_visible {
             vis(ensure_row_visible);
+        }
+        if let Some(flex_direction) = &mut lv.flex_direction {
+            vis(flex_direction);
         }
         vis(&mut lv.row_height);
     }

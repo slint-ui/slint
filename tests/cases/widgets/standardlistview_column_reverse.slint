@@ -1,0 +1,98 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { StandardListView } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 200px;
+    height: 200px;
+
+    callback set-current-item(int);
+    set-current-item(index) => {
+        list.set-current-item(index);
+    }
+
+    in-out property <int> current-item <=> list.current-item;
+    out property content-y <=> list.content-y;
+    out property content-height <=> list.content-height;
+    out property visible-height <=> list.visible-height;
+    out property <int> count: list.model.length;
+
+    list := StandardListView {
+        width: 100%;
+        height: 100%;
+        flex-direction: column-reverse;
+        model: [
+            { text: "Item 0" }, { text: "Item 1" }, { text: "Item 2" }, { text: "Item 3" }, { text: "Item 4" },
+            { text: "Item 5" }, { text: "Item 6" }, { text: "Item 7" }, { text: "Item 8" }, { text: "Item 9" },
+            { text: "Item 10" }, { text: "Item 11" }, { text: "Item 12" }, { text: "Item 13" }, { text: "Item 14" },
+            { text: "Item 15" }, { text: "Item 16" }, { text: "Item 17" }, { text: "Item 18" }, { text: "Item 19" },
+            { text: "Item 20" }, { text: "Item 21" }, { text: "Item 22" }, { text: "Item 23" }, { text: "Item 24" },
+            { text: "Item 25" }, { text: "Item 26" }, { text: "Item 27" }, { text: "Item 28" }, { text: "Item 29" },
+        ];
+    }
+}
+
+/*
+```rust
+use slint::platform::{Key, WindowEvent};
+use slint::{LogicalPosition, SharedString};
+
+let instance = TestCase::new().unwrap();
+let press = |key: Key| slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(key));
+let item = |index: i32| {
+    let label = format!("Item {index}");
+    let item = slint_testing::ElementHandle::find_by_accessible_label(&instance, &label).next().unwrap();
+    item
+};
+let layout = || {
+    instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(-10., -10.) });
+};
+
+// The list starts at the bottom, with item 0 at the bottom edge.
+layout();
+assert_eq!(instance.get_content_y(), instance.get_visible_height() - instance.get_content_height());
+assert!(item(1).absolute_position().y < item(0).absolute_position().y);
+let viewport_bottom = item(0).absolute_position().y + item(0).size().height;
+let viewport_top = viewport_bottom - instance.get_visible_height();
+let is_fully_visible = |index: i32| {
+    layout();
+    let item = item(index);
+    let top = item.absolute_position().y;
+    top >= viewport_top - 0.5 && top + item.size().height <= viewport_bottom + 0.5
+};
+
+// The arrow keys follow the screen: Up selects the row above, which is the next one in the model.
+press(Key::Tab);
+assert_eq!(instance.get_current_item(), 0);
+press(Key::DownArrow);
+assert_eq!(instance.get_current_item(), 0);
+press(Key::UpArrow);
+assert_eq!(instance.get_current_item(), 1);
+press(Key::DownArrow);
+assert_eq!(instance.get_current_item(), 0);
+
+// Page Up selects the top visible row, the one with the highest index.
+let row_height = instance.get_content_height() / instance.get_count() as f32;
+let top_visible = ((instance.get_visible_height() - row_height) / row_height).round() as i32;
+press(Key::PageUp);
+assert_eq!(instance.get_current_item(), top_visible);
+assert!(is_fully_visible(top_visible));
+press(Key::PageDown);
+assert_eq!(instance.get_current_item(), 0);
+
+// Home selects the top row of the list, and End the bottom one.
+press(Key::Home);
+assert_eq!(instance.get_current_item(), instance.get_count() - 1);
+assert!(is_fully_visible(instance.get_count() - 1));
+press(Key::End);
+assert_eq!(instance.get_current_item(), 0);
+assert!(is_fully_visible(0));
+
+// Selecting a row scrolls it into view, from either side.
+instance.invoke_set_current_item(20);
+assert!(is_fully_visible(20));
+instance.invoke_set_current_item(2);
+assert!(is_fully_visible(2));
+```
+*/

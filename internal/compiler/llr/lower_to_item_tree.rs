@@ -1401,6 +1401,10 @@ fn lower_repeated_component_body(
                 .map(|content_width| ctx.map_property_reference(content_width)),
             listview_height: ctx.map_property_reference(&lv.listview_height),
             listview_width: ctx.map_property_reference(&lv.listview_width),
+            flex_direction: lv
+                .flex_direction
+                .as_ref()
+                .map(|flex_direction| ctx.map_property_reference(flex_direction)),
             prop_y: sc.mapping.map_property_reference(&geom.y, ctx.state),
             prop_height: sc.mapping.map_property_reference(&lv.row_height, ctx.state),
         }

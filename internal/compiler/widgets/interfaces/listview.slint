@@ -4,5 +4,6 @@
 import { ScrollView } from "./scrollview.slint";
 
 export interface ListView inherits ScrollView {
+    in property <FlexboxLayoutDirection> flex-direction;
     @shadowable public function ensure-row-visible(row: int, behavior: ScrollBehavior);
 }

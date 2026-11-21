@@ -8,6 +8,8 @@ import { ListViewInterface, StandardListViewInterface } from "std-widget-interfa
 export component ListView inherits ScrollView {
     implement ListViewInterface <=> self;
 
+    in property <FlexboxLayoutDirection> flex-direction: FlexboxLayoutDirection.column;
+
     @children
     accessible-role: list;
     accessible-orientation: Orientation.vertical;
@@ -41,20 +43,24 @@ component StandardListViewBase inherits ListView {
     private property <length> current-item-y: root.item-y(root.focus-item);
     private property <int> focus-item: 0;
     private property <bool> has-item-been-selected: false;
+    private property <bool> column-reverse: root.flex-direction == FlexboxLayoutDirection.column-reverse;
+    private property <length> top-down-content-y: root.column-reverse
+        ? -max(0px, root.content-height - root.visible-height) - root.content-y
+        : root.content-y;
 
     accessible-delegate-focus: root.focus-item;
     accessible-item-count: root.model.length;
 
     pure function first-visible-item() -> int {
-        return min(root.model.length - 1, max(0, round(-root.content-y / root.item-height)));
+        return min(root.model.length - 1, max(0, round(-root.top-down-content-y / root.item-height)));
     }
 
     pure function last-visible-item() -> int {
-        return min(root.model.length - 1, max(0, round((-root.content-y + root.height - root.item-height) / root.item-height)));
+        return min(root.model.length - 1, max(0, round((-root.top-down-content-y + root.visible-height - root.item-height) / root.item-height)));
     }
 
     pure function item-y(index: int) -> length {
-        return root.content-y + index * root.item-height;
+        return root.top-down-content-y + index * root.item-height;
     }
 
     pure function item-at-y(y: length) -> int {
@@ -69,44 +75,64 @@ component StandardListViewBase inherits ListView {
         into-view-item = index;
 
         if (into-view-item-y < 0) {
-            self.content-y += 0 - into-view-item-y;
+            root.scroll-top-down(0 - into-view-item-y);
         }
 
         if (into-view-item-y + item-height > self.visible-height) {
-            self.content-y -= into-view-item-y + item-height - self.visible-height;
+            root.scroll-top-down(self.visible-height - into-view-item-y - item-height);
         }
     }
 
+    function scroll-top-down(distance: length) {
+        self.content-y += root.column-reverse ? -distance : distance;
+    }
+
     protected function focus-up() {
-        root.set-focus-item(root.focus-item - 1);
+        root.set-focus-item(root.focus-item + (root.column-reverse ? 1 : -1));
     }
 
     protected function focus-page-up() {
+        if root.column-reverse {
+            root.focus-page-towards-end();
+        } else {
+            root.focus-page-towards-start();
+        }
+    }
+
+    function focus-page-towards-start() {
         if root.focus-item != root.first-visible-item() {
             root.set-focus-item(root.first-visible-item())
         } else {
-            root.set-focus-item(root.item-at-y(root.item-y(root.first-visible-item()) - root.height));
+            root.set-focus-item(root.item-at-y(root.item-y(root.first-visible-item()) - root.visible-height));
         }
     }
 
     protected function focus-first() {
-        root.set-focus-item(0);
+        root.set-focus-item(root.column-reverse ? root.model.length - 1 : 0);
     }
 
     protected function focus-down() {
-        root.set-focus-item(root.focus-item + 1);
+        root.set-focus-item(root.focus-item + (root.column-reverse ? -1 : 1));
     }
 
     protected function focus-page-down() {
+        if root.column-reverse {
+            root.focus-page-towards-start();
+        } else {
+            root.focus-page-towards-end();
+        }
+    }
+
+    function focus-page-towards-end() {
         if root.focus-item != root.last-visible-item() {
             root.set-focus-item(root.last-visible-item())
         } else {
-            root.set-focus-item(root.item-at-y(root.item-y(root.last-visible-item()) + root.height));
+            root.set-focus-item(root.item-at-y(root.item-y(root.last-visible-item()) + root.visible-height));
         }
     }
 
     protected function focus-last() {
-        root.set-focus-item(root.model.length - 1);
+        root.set-focus-item(root.column-reverse ? 0 : root.model.length - 1);
     }
 
     protected function select-focus-item() {
@@ -120,7 +146,7 @@ component StandardListViewBase inherits ListView {
         root.has-item-been-selected = true;
 
         if (root.current-item-y + root.item-height < 0
-            || root.current-item-y > root.height) {
+            || root.current-item-y > root.visible-height) {
                 root.focus-item = root.first-visible-item();
         }
     }

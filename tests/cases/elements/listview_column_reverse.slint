@@ -1,0 +1,231 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ListView } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 200px;
+    height: 200px;
+
+    in property <int> row-count: 100;
+    in property <bool> reverse: true;
+    in-out property <string> value;
+    in-out property content-y <=> listview.content-y;
+    out property content-height <=> listview.content-height;
+    out property visible-height <=> listview.visible-height;
+
+    callback ensure-row-visible(int, ScrollBehavior);
+    ensure-row-visible(row, behavior) => {
+        listview.ensure-row-visible(row, behavior);
+    }
+
+    listview := ListView {
+        flex-direction: reverse ? FlexboxLayoutDirection.column-reverse : FlexboxLayoutDirection.column;
+        for i in row-count: TouchArea {
+            height: 50px;
+            clicked => {
+                value = i;
+            }
+        }
+    }
+
+    out property <bool> test: content-y == visible-height - content-height;
+}
+
+/*
+```rust
+use slint::language::ScrollBehavior;
+use slint::{platform::WindowEvent, LogicalPosition};
+
+let instance = TestCase::new().unwrap();
+let layout = || {
+    slint_testing::mock_elapsed_time(16);
+    instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(1., 1.) });
+    instance.get_content_y()
+};
+let ensure_visible_instantly = |row| {
+    instance.invoke_ensure_row_visible(row, ScrollBehavior::Instant);
+    layout()
+};
+let ensure_visible_smoothly = |row| {
+    instance.invoke_ensure_row_visible(row, ScrollBehavior::Smooth);
+    let mut positions = vec![instance.get_content_y()];
+    while positions.len() < 3 || positions[positions.len() - 3..].windows(2).any(|w| w[0] != w[1]) {
+        assert!(positions.len() < 200, "scrolling didn't settle: {positions:?}");
+        positions.push(layout());
+    }
+    positions
+};
+assert_eq!(instance.get_visible_height(), 200.);
+assert_eq!(instance.get_content_height(), 100. * 50.);
+// The ListView starts scrolled to the bottom, with row 0 at the bottom.
+assert!(instance.get_test());
+slint_testing::send_mouse_click(&instance, 5., 175.);
+assert_eq!(instance.get_value(), "0");
+slint_testing::send_mouse_click(&instance, 5., 25.);
+assert_eq!(instance.get_value(), "3");
+
+// Scrolling up reveals the higher rows.
+instance.set_content_y(instance.get_content_y() + 100.);
+slint_testing::send_mouse_click(&instance, 5., 175.);
+assert_eq!(instance.get_value(), "2");
+instance.set_content_y(0.);
+slint_testing::send_mouse_click(&instance, 5., 25.);
+assert_eq!(instance.get_value(), "99");
+
+// A row below the viewport ends up at the bottom edge, and a row above it at the top edge.
+ensure_visible_instantly(10);
+slint_testing::send_mouse_click(&instance, 5., 175.);
+assert_eq!(instance.get_value(), "10");
+let content_y = ensure_visible_instantly(20);
+slint_testing::send_mouse_click(&instance, 5., 25.);
+assert_eq!(instance.get_value(), "20");
+assert_eq!(ensure_visible_instantly(20), content_y);
+let content_y = ensure_visible_instantly(0);
+assert!(instance.get_test());
+// A fully visible row doesn't move.
+assert_eq!(ensure_visible_instantly(1), content_y);
+
+// A smooth scroll moves towards the row only.
+let positions = ensure_visible_smoothly(60);
+assert!(positions.windows(2).all(|w| w[1] >= w[0]), "{positions:?}");
+slint_testing::send_mouse_click(&instance, 5., 25.);
+assert_eq!(instance.get_value(), "60");
+let positions = ensure_visible_smoothly(0);
+assert!(positions.windows(2).all(|w| w[1] <= w[0]), "{positions:?}");
+assert!(instance.get_test());
+
+// Switching the layout keeps the same rows in view.
+instance.set_reverse(false);
+slint_testing::send_mouse_click(&instance, 5., 25.);
+assert_eq!(instance.get_value(), "0");
+assert_eq!(instance.get_content_y(), 0.);
+instance.set_reverse(true);
+slint_testing::send_mouse_click(&instance, 5., 175.);
+assert_eq!(instance.get_value(), "0");
+assert!(instance.get_test());
+
+// Rows that don't fill the viewport stick to the bottom.
+instance.set_row_count(2);
+instance.set_value("".into());
+slint_testing::send_mouse_click(&instance, 5., 25.);
+assert_eq!(instance.get_value(), "");
+slint_testing::send_mouse_click(&instance, 5., 125.);
+assert_eq!(instance.get_value(), "1");
+slint_testing::send_mouse_click(&instance, 5., 175.);
+assert_eq!(instance.get_value(), "0");
+assert_eq!(instance.get_content_y(), 0.);
+```
+
+```cpp
+using slint::language::ScrollBehavior;
+
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+auto ensure_visible_instantly = [&](int row) {
+    instance.invoke_ensure_row_visible(row, ScrollBehavior::Instant);
+    slint_testing::mock_elapsed_time(16);
+    instance.window().dispatch_pointer_move_event(slint::LogicalPosition({ 1., 1. }));
+    return instance.get_content_y();
+};
+assert_eq(instance.get_visible_height(), 200.);
+assert_eq(instance.get_content_height(), 100. * 50.);
+assert(instance.get_test());
+slint_testing::send_mouse_click(&instance, 5., 175.);
+assert_eq(instance.get_value(), "0");
+slint_testing::send_mouse_click(&instance, 5., 25.);
+assert_eq(instance.get_value(), "3");
+
+instance.set_content_y(instance.get_content_y() + 100.);
+slint_testing::send_mouse_click(&instance, 5., 175.);
+assert_eq(instance.get_value(), "2");
+instance.set_content_y(0.);
+slint_testing::send_mouse_click(&instance, 5., 25.);
+assert_eq(instance.get_value(), "99");
+
+ensure_visible_instantly(10);
+slint_testing::send_mouse_click(&instance, 5., 175.);
+assert_eq(instance.get_value(), "10");
+auto content_y = ensure_visible_instantly(20);
+slint_testing::send_mouse_click(&instance, 5., 25.);
+assert_eq(instance.get_value(), "20");
+assert_eq(ensure_visible_instantly(20), content_y);
+content_y = ensure_visible_instantly(0);
+assert(instance.get_test());
+assert_eq(ensure_visible_instantly(1), content_y);
+
+instance.set_reverse(false);
+slint_testing::send_mouse_click(&instance, 5., 25.);
+assert_eq(instance.get_value(), "0");
+assert_eq(instance.get_content_y(), 0.);
+instance.set_reverse(true);
+slint_testing::send_mouse_click(&instance, 5., 175.);
+assert_eq(instance.get_value(), "0");
+assert(instance.get_test());
+
+instance.set_row_count(2);
+instance.set_value("");
+slint_testing::send_mouse_click(&instance, 5., 25.);
+assert_eq(instance.get_value(), "");
+slint_testing::send_mouse_click(&instance, 5., 125.);
+assert_eq(instance.get_value(), "1");
+slint_testing::send_mouse_click(&instance, 5., 175.);
+assert_eq(instance.get_value(), "0");
+assert_eq(instance.get_content_y(), 0.);
+```
+
+```js
+var instance = new slint.TestCase();
+function ensure_visible_instantly(row) {
+    instance.ensure_row_visible(row, "instant");
+    slintlib.private_api.mock_elapsed_time(16);
+    // The click only triggers the layout pass: the row it hits sets `value`, which the caller overwrites.
+    slintlib.private_api.send_mouse_click(instance, 5., 100.);
+    return instance.content_y;
+}
+assert.equal(instance.visible_height, 200.);
+assert.equal(instance.content_height, 100. * 50.);
+assert(instance.test);
+slintlib.private_api.send_mouse_click(instance, 5., 175.);
+assert.equal(instance.value, "0");
+slintlib.private_api.send_mouse_click(instance, 5., 25.);
+assert.equal(instance.value, "3");
+
+instance.content_y = instance.content_y + 100.;
+slintlib.private_api.send_mouse_click(instance, 5., 175.);
+assert.equal(instance.value, "2");
+instance.content_y = 0.;
+slintlib.private_api.send_mouse_click(instance, 5., 25.);
+assert.equal(instance.value, "99");
+
+ensure_visible_instantly(10);
+slintlib.private_api.send_mouse_click(instance, 5., 175.);
+assert.equal(instance.value, "10");
+var content_y = ensure_visible_instantly(20);
+slintlib.private_api.send_mouse_click(instance, 5., 25.);
+assert.equal(instance.value, "20");
+assert.equal(ensure_visible_instantly(20), content_y);
+content_y = ensure_visible_instantly(0);
+assert(instance.test);
+assert.equal(ensure_visible_instantly(1), content_y);
+
+instance.reverse = false;
+slintlib.private_api.send_mouse_click(instance, 5., 25.);
+assert.equal(instance.value, "0");
+assert.equal(instance.content_y, 0);
+instance.reverse = true;
+slintlib.private_api.send_mouse_click(instance, 5., 175.);
+assert.equal(instance.value, "0");
+assert(instance.test);
+
+instance.row_count = 2;
+instance.value = "";
+slintlib.private_api.send_mouse_click(instance, 5., 25.);
+assert.equal(instance.value, "");
+slintlib.private_api.send_mouse_click(instance, 5., 125.);
+assert.equal(instance.value, "1");
+slintlib.private_api.send_mouse_click(instance, 5., 175.);
+assert.equal(instance.value, "0");
+assert.equal(instance.content_y, 0.);
+```
+*/

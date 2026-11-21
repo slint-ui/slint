@@ -1582,9 +1582,17 @@ fn generate_sub_component_body(
                         quote!(Some(#h))
                     },
                 );
+                let flex_direction = listview.flex_direction.as_ref().map_or_else(
+                    || quote!(sp::FlexboxLayoutDirection::Column),
+                    |r| {
+                        let r = access_member(r, &ctx).unwrap();
+                        quote!(#r.get())
+                    },
+                );
 
                 repeated_visit_branch.push(quote!(
                     #idx => {
+                        let _ = #flex_direction;
                         #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).track_changes_listview(
                             #content_w, #content_h, #content_y, #lv_w.get(), #lv_h
                         );
@@ -1594,7 +1602,7 @@ fn generate_sub_component_body(
                 ensure_instantiated_stmts.push(quote!({
                     _changed |= #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).ensure_updated_listview(
                         || { #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone()).unwrap().into() },
-                        #content_w, #content_h, #content_y, #lv_w.get(), #lv_h
+                        #content_w, #content_h, #content_y, #lv_w.get(), #lv_h, #flex_direction
                     );
                 }));
             } else {
