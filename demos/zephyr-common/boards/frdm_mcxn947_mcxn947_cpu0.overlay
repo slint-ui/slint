@@ -1,0 +1,11 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+// The GT911's axes don't match the panel's orientation: they're swapped and X is inverted.
+// The shield sets screen-height, which touchscreen-common only allows together with inverted-y.
+&gt911_lcd_par_s035 {
+	swapped-x-y;
+	inverted-x;
+	screen-width = <320>;
+	screen-height = <0>;
+};

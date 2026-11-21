@@ -210,21 +210,37 @@ private:
     const bool m_needs_byte_swap;
 
     bool m_needs_redraw = true;
+#ifdef CONFIG_SHIELD_LCD_PAR_S035
+    slint::platform::Rgb565Pixel *m_buffer;
+#else
     std::vector<slint::platform::Rgb565Pixel> m_buffer;
+#endif
     display_buffer_descriptor m_buffer_descriptor;
 };
 
 static ZephyrWindowAdapter *ZEPHYR_WINDOW = nullptr;
+
+// The LCD-PAR-S035 renders line by line: its board has 320 KB of SRAM.
+#ifdef CONFIG_SHIELD_LCD_PAR_S035
+static constexpr std::size_t RENDER_BUFFER_WIDTH = 480;
+static constexpr std::size_t RENDER_BUFFER_HEIGHT = 1;
+alignas(8) static slint::platform::Rgb565Pixel
+        render_buffer[RENDER_BUFFER_WIDTH * RENDER_BUFFER_HEIGHT];
+#endif
 
 std::unique_ptr<ZephyrWindowAdapter> ZephyrWindowAdapter::init_from(const device *display)
 {
     display_capabilities capabilities;
     display_get_capabilities(display, &capabilities);
 
+#ifdef CONFIG_SHIELD_LCD_PAR_S035
+    RepaintBufferType bufferType = RepaintBufferType::NewBuffer;
+#else
     // TODO: Double buffer
     RepaintBufferType bufferType = RepaintBufferType::ReusedBuffer;
     // if (capabilities.screen_info & SCREEN_INFO_DOUBLE_BUFFER)
     //     bufferType = RepaintBufferType::SwappedBuffers;
+#endif
 
     LOG_INF("Screen size: %u x %u", capabilities.x_resolution, capabilities.y_resolution);
     LOG_INF("Double buffering: %d", (capabilities.screen_info & SCREEN_INFO_DOUBLE_BUFFER));
@@ -320,11 +336,17 @@ ZephyrWindowAdapter::ZephyrWindowAdapter(const device *display, RepaintBufferTyp
       m_buffer_size(rotation.buffer_size()),
       m_needs_byte_swap(needs_byte_swap)
 {
+#ifdef CONFIG_SHIELD_LCD_PAR_S035
+    m_buffer = render_buffer;
+    m_buffer_descriptor.buf_size = sizeof(render_buffer);
+    m_buffer_descriptor.width = m_buffer_size.width;
+    m_buffer_descriptor.height = RENDER_BUFFER_HEIGHT;
+#else
     m_buffer.resize(m_buffer_size.width * m_buffer_size.height);
-
     m_buffer_descriptor.buf_size = sizeof(m_buffer[0]) * m_buffer.size();
     m_buffer_descriptor.width = m_buffer_size.width;
     m_buffer_descriptor.height = m_buffer_size.height;
+#endif
     m_buffer_descriptor.pitch = m_buffer_size.width;
 
     m_renderer.set_rendering_rotation(m_rotation.rendering);
@@ -350,6 +372,29 @@ void ZephyrWindowAdapter::maybe_redraw()
     if (!std::exchange(m_needs_redraw, false))
         return;
 
+#ifdef CONFIG_SHIELD_LCD_PAR_S035
+    display_buffer_descriptor line_desc { };
+    line_desc.pitch = m_buffer_size.width;
+
+    m_renderer.render_by_line<slint::platform::Rgb565Pixel>(
+            [this, &line_desc](size_t line_y, size_t first_x, size_t last_x, auto render_fn) {
+                size_t width = last_x - first_x;
+                render_fn(std::span<slint::platform::Rgb565Pixel>(m_buffer, width));
+
+                if (m_needs_byte_swap) {
+                    for (size_t x = 0; x < width; x++) {
+                        auto px = reinterpret_cast<uint16_t *>(&m_buffer[x]);
+                        *px = (*px << 8) | (*px >> 8);
+                    }
+                }
+
+                line_desc.width = width;
+                line_desc.height = 1;
+                line_desc.buf_size = width * sizeof(slint::platform::Rgb565Pixel);
+
+                display_write(m_display, first_x, line_y, &line_desc, m_buffer);
+            });
+#else
     auto start = k_uptime_get();
     auto region = m_renderer.render(m_buffer, m_buffer_size.width);
     const auto slintRenderDelta = k_uptime_delta(&start);
@@ -366,7 +411,7 @@ void ZephyrWindowAdapter::maybe_redraw()
                     s.height);
         }
 
-#ifndef CONFIG_MCUX_ELCDIF_PXP
+#    ifndef CONFIG_MCUX_ELCDIF_PXP
         m_buffer_descriptor.width = s.width;
         m_buffer_descriptor.height = s.height;
 
@@ -376,10 +421,10 @@ void ZephyrWindowAdapter::maybe_redraw()
             LOG_WRN("display_write returned non-zero: %d", ret);
         }
         LOG_DBG("   - rendered x: %d y: %d w: %d h: %d", o.x, o.y, s.width, s.height);
-#endif
+#    endif
     }
 
-#ifdef CONFIG_MCUX_ELCDIF_PXP
+#    ifdef CONFIG_MCUX_ELCDIF_PXP
     // The display driver cannot do partial updates when the PXP is using the DMA API.
     if (const auto ret =
                 display_write(m_display, 0, 0, &m_buffer_descriptor, m_buffer.data()) != 0) {
@@ -387,11 +432,12 @@ void ZephyrWindowAdapter::maybe_redraw()
     }
     LOG_DBG("   - rendered x: 0 y: 0 w: %d h: %d", m_buffer_descriptor.width,
             m_buffer_descriptor.height);
-#endif
+#    endif
 
     const auto displayWriteDelta = k_uptime_delta(&start);
     LOG_DBG(" - total: %lld ms, slint: %lld ms, write: %lld ms",
             slintRenderDelta + displayWriteDelta, slintRenderDelta, displayWriteDelta);
+#endif
 }
 
 slint::LogicalPosition

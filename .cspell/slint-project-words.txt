@@ -255,6 +255,7 @@ fooo
 FOURCC
 fract
 framebuffers
+frdm
 freetype
 frontends
 frontmatter
@@ -282,6 +283,7 @@ Grotesk
 gstreamer
 GWLP
 Hani
+hardabi
 hdmipi
 heapless
 hidpi
@@ -421,6 +423,7 @@ maturin
 mcp
 mcus
 MCUX
+mcxn
 mdbook
 memsize
 menuconfig
@@ -482,6 +485,7 @@ NUMS
 Nunito
 NVIC
 nvim
+nxpdebugmbox
 O_WRONLY
 objc
 objfile
@@ -537,6 +541,7 @@ pyfunction
 pymethods
 pymodule
 pyobject
+pyocd
 pypi
 pypiserver
 pyproject
@@ -675,6 +680,7 @@ Swapchain
 swapusage
 swipegesturehandler
 Sysclk
+sysconf
 sysexit
 sysinfo
 systemfonts
@@ -718,6 +724,7 @@ Twemoji
 typedoc
 typeregister
 Tzimabazafi
+tzname
 uart
 udisksctl
 udivdi
@@ -783,6 +790,7 @@ wldisplay
 wlsurface
 WNDCLASS
 wordlike
+workqueue
 WQXGA
 writeback
 wrappable
