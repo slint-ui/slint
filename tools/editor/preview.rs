@@ -4648,6 +4648,7 @@ export component Main {
             in-out property <int> count: 1;
             in-out property <string> label: "before";
             in-out property <TextHorizontalAlignment> alignment: left;
+            in-out property <[string]> items: ["old"];
         "#,
         );
         inspector_test_target(&editor, &source);
@@ -4668,6 +4669,10 @@ export component Main {
             value.fill.color = slint::Color::from_rgb_u8(18, 52, 86);
             assert!(inspector::preview_property(name.into(), value.clone()), "{name}");
         }
+        value.kind = ui::PropertyEditKind::StringList;
+        value.text = "first\n\"second\"\n".into();
+        assert!(!inspector::preview_property("label".into(), value.clone()));
+        assert!(inspector::preview_property("items".into(), value.clone()));
         value.kind = ui::PropertyEditKind::Enumeration;
         value.text = "invalid-member".into();
         assert!(!inspector::preview_property("alignment".into(), value));
@@ -4680,6 +4685,7 @@ export component Main {
             assert!(result[0].contents.contains(expression), "{expression}");
         }
         assert!(result[0].contents.contains(r#"label: "after\n\"text\"";"#));
+        assert!(result[0].contents.contains(r#"items: ["first", "\"second\""];"#));
         reset_preview_state(Default::default());
     }
 

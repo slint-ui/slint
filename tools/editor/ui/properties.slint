@@ -63,6 +63,7 @@ export enum PropertyEditKind {
     string,
     enumeration,
     fill,
+    string-list,
 }
 
 export struct PropertyEditValue {
@@ -74,6 +75,11 @@ export struct PropertyEditValue {
     text: string,
     code: string,
     fill: FillData,
+}
+
+export struct StringListText {
+    valid: bool,
+    text: string,
 }
 
 export enum ColorFieldMode {
@@ -215,6 +221,7 @@ export global Properties {
     // Text
     pure callback string-is-single-line(value: string) -> bool;
     pure callback string-to-code(value: string, is_translatable: bool, tr_context: string, tr_plural: string, tr_plural_expression: string) -> string;
+    pure callback string-list-text(code: string) -> StringListText;
 
     // Images
     pure callback image-source-file-name(source: string) -> string;
