@@ -6,7 +6,9 @@
 
 use std::rc::Rc;
 
-use slint::platform::software_renderer::{MinimalSoftwareWindow, RepaintBufferType};
+use slint::platform::software_renderer::{
+    MinimalSoftwareWindow, RenderingRotation, RepaintBufferType,
+};
 use slint::platform::{PlatformError, WindowAdapter};
 use slint::{Rgb8Pixel, SharedPixelBuffer};
 
@@ -35,6 +37,39 @@ slint::slint! {
             image-rendering: pixelated;
         }
     }
+
+    export component ClippedUpscaledImageCase inherits Window {
+        in property <image> source;
+        in property <bool> clipped;
+        background: black;
+        Image {
+            x: 0px;
+            y: 0px;
+            width: 29px;
+            height: 29px;
+            source: root.source;
+            image-fit: fill;
+            image-rendering: ImageRendering.pixelated;
+            visible: !root.clipped;
+        }
+        Rectangle {
+            x: 44px;
+            y: 44px;
+            width: 40px;
+            height: 40px;
+            clip: true;
+            visible: root.clipped;
+            Image {
+                x: -4px;
+                y: -4px;
+                width: 29px;
+                height: 29px;
+                source: root.source;
+                image-fit: fill;
+                image-rendering: ImageRendering.pixelated;
+            }
+        }
+    }
 }
 
 fn render(window: &MinimalSoftwareWindow) -> Vec<Rgb8Pixel> {
@@ -42,6 +77,16 @@ fn render(window: &MinimalSoftwareWindow) -> Vec<Rgb8Pixel> {
     window.request_redraw();
     assert!(window.draw_if_needed(|renderer| {
         renderer.render(&mut buffer, SIZE);
+    }));
+    buffer
+}
+
+fn render_clipped(window: &MinimalSoftwareWindow) -> Vec<Rgb8Pixel> {
+    let mut buffer = vec![Rgb8Pixel::new(0, 0, 0); 84 * 84];
+    window.request_redraw();
+    assert!(window.draw_if_needed(|renderer| {
+        renderer.set_rendering_rotation(RenderingRotation::NoRotation);
+        renderer.render(&mut buffer, 84);
     }));
     buffer
 }
@@ -116,6 +161,33 @@ fn optional_pixel_formats_render() {
 
     #[cfg(feature = "owned-pre-rendered-resources")]
     alpha_map_renders_in_its_color_or_the_colorize_color(&window, &ui);
+
+    drop(ui);
+    window.set_size(slint::PhysicalSize::new(84, 84));
+    let ui = ClippedUpscaledImageCase::new().unwrap();
+    ui.show().unwrap();
+
+    let mut pixels = SharedPixelBuffer::<Rgb8Pixel>::new(3, 3);
+    for (index, pixel) in pixels.make_mut_slice().iter_mut().enumerate() {
+        *pixel =
+            Rgb8Pixel::new((index as u8).saturating_mul(120), (index as u8).saturating_mul(40), 0);
+    }
+    ui.set_source(slint::Image::from_rgb8(pixels));
+    ui.set_clipped(false);
+    let reference = render_clipped(&window);
+    ui.set_clipped(true);
+    let rendered = render_clipped(&window);
+    const CLIP_OFFSET: usize = 4;
+    const VISIBLE: usize = 29 - CLIP_OFFSET;
+    for y in 0..VISIBLE {
+        for x in 0..VISIBLE {
+            assert_eq!(
+                rendered[(44 + y) * 84 + 44 + x],
+                reference[(CLIP_OFFSET + y) * 84 + CLIP_OFFSET + x],
+                "clipped image differs from its unclipped pixels at ({x}, {y})"
+            );
+        }
+    }
 }
 
 #[cfg(feature = "owned-pre-rendered-resources")]
