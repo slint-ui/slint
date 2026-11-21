@@ -65,6 +65,25 @@ The plugin and skills are available from the [slint-ui/ai-plugins](https://githu
   </TabItem>
 </Tabs>
 
+## Symposium (Rust)
+
+The Rust `slint` crate ships the standalone skill and a registration for the Slint documentation MCP server.
+[Symposium](https://symposium.dev/) installs them into the coding agents you configure:
+
+```sh
+cargo agents init
+# In your Rust project:
+cargo agents sync
+```
+
+Accept the offer to enable Slint, then restart your agent to load the skill and documentation tools.
+Use `cargo agents status` to inspect the plugin's state.
+Older Slint releases without the embedded plugin can use the standalone skill installation above.
+
+This integration supplies guidance and documentation lookup.
+The Codex and Claude Code marketplace plugins also provide preview tooling.
+Choose one installation method per agent to avoid duplicate Slint skills.
+
 ## What Your Assistant Can Do
 
 With the skill installed, the assistant follows Slint's conventions when it writes, debugs, and reviews `.slint` code, and wires the UI to Rust, C++, JavaScript, or Python.
