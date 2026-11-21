@@ -10,17 +10,22 @@ export component TestCase inherits Window {
 
     out property <bool> input_focused: ti.has_focus;
     in-out property <string> text <=> ti.text;
+    out property<InputType> input-type: TextInputInterface.text-input-type;
 }
 
 /*
 ```rust
 use slint::platform::Key;
 use slint::SharedString;
+use i_slint_core::items::InputType;
 
 let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_input_type(), InputType::default());
+
 slint_testing::send_mouse_click(&instance, 5., 5.);
 assert!(instance.get_input_focused());
 assert!(instance.get_text().is_empty());
+assert_eq!(instance.get_input_type(), InputType::Decimal);
 
 let send_and_check = |seq: &str, expected: &str| {
     slint_testing::send_keyboard_string_sequence(&instance, seq);
