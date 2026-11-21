@@ -1,0 +1,100 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { TabWidget } from "std-widgets.slint";
+import { TabBarLayoutBase } from "../../../tools/editor/controls/src/headless.slint";
+
+component AliasHeader {
+    in property <string> title;
+    in property <bool> selected;
+    in property <bool> focused;
+    callback activated <=> interaction.clicked;
+    out property <int> calls;
+    public function trigger() { interaction.clicked(); }
+    min-width: 100px;
+    min-height: 32px;
+    interaction := TouchArea { clicked => { root.calls += 1; } }
+}
+
+component InheritedHeader inherits AliasHeader { }
+
+component EmptyAliasHeader {
+    in property <string> title;
+    in property <bool> selected;
+    in property <bool> focused;
+    callback activated <=> interaction.clicked;
+    public function trigger() { interaction.clicked(); }
+    min-width: 100px;
+    min-height: 32px;
+    interaction := TouchArea { }
+}
+
+component ChainHeader {
+    in property <string> title;
+    in property <bool> selected;
+    in property <bool> focused;
+    callback activated <=> interaction.activated;
+    out property <int> calls: interaction.calls;
+    public function trigger() { interaction.trigger(); }
+    interaction := AliasHeader { }
+}
+
+export component TestCase inherits Window {
+    width: 700px;
+    height: 200px;
+    out property <int> index: tabs.current-index;
+    out property <int> first-calls: first.calls;
+    out property <int> second-calls: second.calls;
+    out property <int> chain-calls: chain.calls;
+    public function activate-first() { first.trigger(); }
+    public function activate-second() { second.trigger(); }
+    public function activate-empty() { empty.trigger(); }
+    public function activate-chain() { chain.trigger(); }
+
+    tabs := TabWidget {
+        bar << TabBarLayoutBase { }
+        Tab {
+            title: "First";
+            header << first := AliasHeader { }
+        }
+        Tab {
+            title: "Second";
+            header << second := InheritedHeader { }
+        }
+        Tab {
+            title: "Empty";
+            header << empty := EmptyAliasHeader { }
+        }
+        Tab {
+            title: "Chain";
+            header << chain := ChainHeader { }
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+instance.invoke_activate_second();
+assert_eq!(instance.get_index(), 1);
+assert_eq!(instance.get_first_calls(), 0);
+assert_eq!(instance.get_second_calls(), 1);
+instance.invoke_activate_first();
+assert_eq!(instance.get_index(), 0);
+assert_eq!(instance.get_first_calls(), 1);
+assert_eq!(instance.get_second_calls(), 1);
+instance.invoke_activate_second();
+assert_eq!(instance.get_index(), 1);
+assert_eq!(instance.get_second_calls(), 2);
+instance.invoke_activate_empty();
+assert_eq!(instance.get_index(), 2);
+assert_eq!(instance.get_first_calls(), 1);
+assert_eq!(instance.get_second_calls(), 2);
+instance.invoke_activate_chain();
+assert_eq!(instance.get_index(), 3);
+assert_eq!(instance.get_chain_calls(), 1);
+instance.invoke_activate_chain();
+assert_eq!(instance.get_index(), 3);
+assert_eq!(instance.get_chain_calls(), 2);
+```
+*/

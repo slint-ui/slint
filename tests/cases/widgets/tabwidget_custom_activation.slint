@@ -1,0 +1,102 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { TabWidget } from "std-widgets.slint";
+import { TabHeaderBase, TabBarLayoutBase } from "../../../tools/editor/controls/src/headless.slint";
+
+component GuardedHeader inherits TabHeaderBase {
+    in property <bool> allow-activation;
+    callback attempted();
+    accessible-action-default => {
+        root.attempted();
+        if root.allow-activation { root.activate(); }
+    }
+}
+
+component PlainHeader inherits Rectangle {
+    in property <string> title;
+    in property <bool> selected;
+    in property <bool> focused;
+    callback activated();
+    min-width: 100px;
+    min-height: 32px;
+    Text { text: root.title; }
+}
+
+export component TestCase inherits Window {
+    width: 560px;
+    height: 200px;
+    in-out property <int> current-index <=> tabs.current-index;
+    in-out property <bool> header-enabled: true;
+    in-out property <bool> allow-activation;
+    out property <int> local-actions;
+    out property <int> guarded-actions;
+
+    tabs := TabWidget {
+        bar << TabBarLayoutBase { }
+        Tab {
+            title: "Local handler";
+            header << local := TabHeaderBase {
+                min-width: 120px;
+                min-height: 32px;
+                accessible-action-default => {
+                    root.local-actions += 1;
+                    local.activate();
+                }
+            }
+        }
+        Tab {
+            title: "Inherited handler";
+            header << TabHeaderBase {
+                min-width: 120px;
+                min-height: 32px;
+                enabled: root.header-enabled;
+            }
+        }
+        Tab {
+            title: "Guarded handler";
+            header << GuardedHeader {
+                min-width: 120px;
+                min-height: 32px;
+                allow-activation: root.allow-activation;
+                attempted => { root.guarded-actions += 1; }
+            }
+        }
+        Tab {
+            title: "Fallback handler";
+            header << PlainHeader { }
+        }
+    }
+}
+
+/*
+```rust
+use slint::platform::PointerEventButton;
+use slint_testing::{AccessibleRole, ElementQuery};
+let instance = TestCase::new().unwrap();
+instance.show().unwrap();
+let headers = ElementQuery::from_root(&instance).match_accessible_role(AccessibleRole::Tab).find_all();
+assert_eq!(headers.len(), 4);
+instance.set_header_enabled(false);
+assert_eq!(headers[1].accessible_enabled(), Some(false));
+headers[1].mock_single_click(PointerEventButton::Left);
+assert_eq!(instance.get_current_index(), 0);
+headers[1].invoke_accessible_default_action();
+assert_eq!(instance.get_current_index(), 0);
+instance.set_header_enabled(true);
+headers[1].invoke_accessible_default_action();
+assert_eq!(instance.get_current_index(), 1);
+headers[0].invoke_accessible_default_action();
+assert_eq!(instance.get_current_index(), 0);
+assert_eq!(instance.get_local_actions(), 1);
+headers[2].invoke_accessible_default_action();
+assert_eq!(instance.get_guarded_actions(), 1);
+assert_eq!(instance.get_current_index(), 0);
+instance.set_allow_activation(true);
+headers[2].invoke_accessible_default_action();
+assert_eq!(instance.get_guarded_actions(), 2);
+assert_eq!(instance.get_current_index(), 2);
+headers[3].invoke_accessible_default_action();
+assert_eq!(instance.get_current_index(), 3);
+```
+*/

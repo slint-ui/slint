@@ -1,0 +1,34 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { TabWidget } from "std-widgets.slint";
+import { TabBar } from "../../../tools/editor/controls/src/basic.slint";
+
+component ApplicationTabs inherits TabWidget {
+    bar << TabBar {
+        background << Rectangle {
+            TabWidget {
+                Tab { title: "Nested A"; Text { text: "Nested page A"; } }
+                Tab { title: "Nested B"; Text { text: "Nested page B"; } }
+            }
+        }
+    }
+}
+
+export component TestCase inherits Window {
+    width: 600px;
+    height: 400px;
+    ApplicationTabs {
+        Tab { title: "Outer A"; Text { text: "Page A"; } }
+        Tab { title: "Outer B"; Text { text: "Page B"; } }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+instance.show().unwrap();
+let headers = slint_testing::ElementQuery::from_root(&instance).match_accessible_role(slint_testing::AccessibleRole::Tab).find_all();
+assert_eq!(headers.len(), 4);
+```
+*/

@@ -39,6 +39,66 @@ Geometry overrides apply in every state.
 State priority is disabled, pressed, then hover; focus is independent.
 Focus outlines don't change layout dimensions.
 
+## Tabs
+
+Sources: [Basic controls](src/basic/tabs.slint), [headless header](src/headless/tab_header_base.slint), [bar](src/headless/tab_bar_base.slint), [bar layout](src/headless/tab_bar_layout_base.slint), [panel](src/headless/tab_panel_base.slint).
+Import `TabHeader`, `TabBar`, and `TabPanel` from `src/basic.slint`.
+Import their bases and `TabBarItem` from `src/headless.slint`.
+
+Use the experimental `header` and `bar` slots with `TabWidget` from `std-widgets.slint`:
+
+```slint
+TabWidget {
+    bar << TabBar { }
+    Tab {
+        title: "Profile";
+        header << TabHeader { }
+        ProfilePage { }
+    }
+}
+```
+
+`TabWidget` connects header state and activation to each page.
+Custom headers require a custom `bar`; `TabWidget.orientation` must be constant.
+See [the runnable example](examples/tabs.slint).
+
+For standalone composition, give `TabBarBase` a `tabs` model of `TabBarItem { index: int, title: string }`, with indexes matching model positions.
+Bind header selection and focus to `current-index` and `focused-index`; the latter is `-1` when the bar lacks focus.
+On `activated`, set `current-index` and call `focus-tab(index)`.
+Bind each panel's `current-index` to the bar and set its `tab-index`.
+Standalone bars support runtime changes to `orientation`.
+
+Arrow keys follow `orientation` and wrap at the ends.
+Home and End move to the first and last headers.
+Enter or Space selects the focused tab.
+An invalid selection falls back to the first tab, or `-1` if the model is empty.
+Page state survives switching tabs.
+
+`TabBarLayoutBase` scrolls headers when space is constrained.
+
+| Component | API and Defaults | Visual Slots |
+| --- | --- | --- |
+| `TabHeaderBase` | `title`, `enabled`, `selected`, `focused`; outputs `hovered` and `pressed`; callback `activated()`; function `activate()` | `background`, `content`, `focus-outline` |
+| `TabHeader` | Header base API; `style: TabHeaderStyles.standard` | Same three slots, with replaceable default visuals |
+| `TabBarBase` | `tabs`, `orientation`; in-out `current-index`; output `focused-index`; function `focus-tab(index)` | `background`; arrange header children yourself |
+| `TabBarLayoutBase` | Bar base API; `horizontal-padding`, `vertical-padding`, and `spacing` default to zero | `background`; default children go into its horizontal or vertical header layout |
+| `TabBar` | Bar layout API; `style: TabBarStyles.standard`; padding and spacing default to `4px` | `background`, with a replaceable default surface |
+| `TabPanelBase` | `title`, `tab-index`, `current-index`; output `selected` | Page children |
+| `TabPanel` | Panel base API; `style: TabPanelStyles.standard`; horizontal and vertical padding default to `16px`; spacing defaults to `12px` | Page children in a padded vertical layout |
+
+`TabHeaderStyle` has `selected` and `unselected` groups, each containing `rest`, `hover`, `pressed`, and `disabled` states.
+Each state contains `background-color`, `foreground-color`, and `border-color` brushes.
+Its independent `focus-color` brush controls the focus outline.
+Color overrides and state priority follow the shared styling rules above.
+
+`TabHeader` accepts the shared font and edge-padding inputs.
+Its horizontal and vertical padding default to `12px` and `8px`; font size defaults to `14px`.
+Font weight defaults to `600` when selected and `400` otherwise.
+Its border width and radius default to `1px` and `4px`; focus width and offset both default to `2px`.
+
+`TabBarStyle` and `TabPanelStyle` each contain `background-color` and `border-color` brushes.
+Both controls accept `border-width: 1px` and `border-radius: 6px`.
+
 ## Button
 
 Sources: [styled](src/basic/button.slint), [headless](src/headless/button_base.slint), [standard interface](../../../internal/compiler/widgets/interfaces/button.slint), [standard behavior](../../../docs/astro/src/content/docs/reference/std-widgets/basic-widgets/button.mdx).

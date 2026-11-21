@@ -85,7 +85,7 @@ fn element_key(e: ElementRc) -> ByAddress<ElementRc> {
 
 type Mapping = HashMap<ByAddress<ElementRc>, ElementRc>;
 
-fn inline_element(
+pub(super) fn inline_element(
     elem: &ElementRc,
     inlined_component: &Rc<Component>,
     root_component: &Rc<Component>,
