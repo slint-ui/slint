@@ -250,12 +250,12 @@ pub(in crate::preview) struct FileTreeController {
 
 impl FileTreeController {
     fn new(root: PathBuf, selected_path: Option<PathBuf>) -> Self {
-        let root = std::fs::canonicalize(&root).unwrap_or(root);
+        let root = dunce::canonicalize(&root).unwrap_or(root);
         let mut expanded = HashSet::new();
         expanded.insert(root.clone());
 
         let selected_path = selected_path
-            .and_then(|path| std::fs::canonicalize(path).ok())
+            .and_then(|path| dunce::canonicalize(path).ok())
             .filter(|path| path.starts_with(&root));
         let active_folder_path = selected_path
             .as_deref()
@@ -355,7 +355,7 @@ impl FileTreeController {
         if let Err(error) = std::fs::rename(&path, &target) {
             return Err(tr::tr!("Could not rename file: {}", error));
         }
-        let target = std::fs::canonicalize(&target).unwrap_or(target);
+        let target = dunce::canonicalize(&target).unwrap_or(target);
         if selected {
             self.selected_path = Some(target.clone());
         }
@@ -388,7 +388,7 @@ impl FileTreeController {
     }
 
     fn path_in_root(&self, path: &Path) -> Option<PathBuf> {
-        let path = std::fs::canonicalize(path).ok()?;
+        let path = dunce::canonicalize(path).ok()?;
         (path == self.root || path.starts_with(&self.root)).then_some(path)
     }
 }
@@ -419,7 +419,7 @@ pub(in crate::preview) fn open_project(
     project: &Project<'_>,
 ) {
     let Ok(root) = root.to_file_path() else { return };
-    let root = std::fs::canonicalize(&root).unwrap_or(root);
+    let root = dunce::canonicalize(&root).unwrap_or(root);
     *controller.borrow_mut() = Some(FileTreeController::new(root, None));
 
     if let Some(file_tree) = controller.borrow().as_ref() {
@@ -1160,7 +1160,7 @@ mod tests {
         let outside_tree = TempTree::new();
         let outside = outside_tree.file("outside.slint");
         let controller = FileTreeController::new(tree.root.clone(), None);
-        let child = std::fs::canonicalize(child).unwrap();
+        let child = dunce::canonicalize(child).unwrap();
 
         assert_eq!(controller.path_in_root(&child), Some(child));
         assert_eq!(controller.path_in_root(&outside), None);
@@ -1289,11 +1289,11 @@ mod tests {
             Some(FileTreeController::new(first_tree.root.clone(), Some(first_file)));
         assert_eq!(
             controller.as_ref().unwrap().root,
-            std::fs::canonicalize(&first_tree.root).unwrap()
+            dunce::canonicalize(&first_tree.root).unwrap()
         );
 
         controller = Some(FileTreeController::new(second_tree.root.clone(), None));
-        assert_eq!(controller.unwrap().root, std::fs::canonicalize(&second_tree.root).unwrap());
+        assert_eq!(controller.unwrap().root, dunce::canonicalize(&second_tree.root).unwrap());
     }
 
     #[test]
@@ -1318,8 +1318,8 @@ mod tests {
     fn open_preview_preserves_file_tree_root() {
         let tree = TempTree::new();
         let first_file = tree.file("first.slint");
-        let second_file = std::fs::canonicalize(tree.file("second.slint")).unwrap();
-        let expected_root = std::fs::canonicalize(&tree.root).unwrap();
+        let second_file = dunce::canonicalize(tree.file("second.slint")).unwrap();
+        let expected_root = dunce::canonicalize(&tree.root).unwrap();
         let mut controller = FileTreeController::new(tree.root.clone(), Some(first_file));
 
         assert!(controller.open_preview(&second_file));
@@ -1331,8 +1331,8 @@ mod tests {
     fn open_preview_outside_root_preserves_selection() {
         let tree = TempTree::new();
         let outside_tree = TempTree::new();
-        let first_file = std::fs::canonicalize(tree.file("first.slint")).unwrap();
-        let outside_file = std::fs::canonicalize(outside_tree.file("outside.slint")).unwrap();
+        let first_file = dunce::canonicalize(tree.file("first.slint")).unwrap();
+        let outside_file = dunce::canonicalize(outside_tree.file("outside.slint")).unwrap();
         let mut controller = FileTreeController::new(tree.root.clone(), Some(first_file.clone()));
 
         assert!(!controller.open_preview(&outside_file));
