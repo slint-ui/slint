@@ -762,6 +762,7 @@ pub(crate) fn query_element_descendants(
     element: ElementHandle,
     query_stack: Vec<proto::ElementQueryInstruction>,
     find_all: bool,
+    scroll_into_view: bool,
 ) -> Result<Vec<ElementHandle>, String> {
     use proto::element_query_instruction::Instruction;
     let mut query = element.query_descendants();
@@ -793,7 +794,13 @@ pub(crate) fn query_element_descendants(
             }
         }
     }
-    Ok(if find_all { query.find_all() } else { query.find_first().into_iter().collect() })
+    Ok(if scroll_into_view {
+        query.scroll_into_view().into_iter().collect()
+    } else if find_all {
+        query.find_all()
+    } else {
+        query.find_first().into_iter().collect()
+    })
 }
 
 pub(crate) fn invoke_element_accessibility_action(
@@ -994,9 +1001,11 @@ pub(crate) mod dispatch {
         element: ArenaIndex,
         query_stack: Vec<proto::ElementQueryInstruction>,
         find_all: bool,
+        scroll_into_view: bool,
     ) -> Result<proto::ElementQueryResponse, String> {
         let element = state.element("query_element_descendants", element)?;
-        let results = super::query_element_descendants(element, query_stack, find_all)?;
+        let results =
+            super::query_element_descendants(element, query_stack, find_all, scroll_into_view)?;
         Ok(proto::ElementQueryResponse {
             element_handles: results
                 .into_iter()
@@ -1061,6 +1070,14 @@ pub(crate) mod dispatch {
         let element = state.element("set_accessible_value", element)?;
         element.set_accessible_value(value);
         Ok(())
+    }
+
+    pub(crate) fn scroll_element_into_view(
+        state: &IntrospectionState,
+        element: ArenaIndex,
+    ) -> Result<proto::ScrollElementIntoViewResponse, String> {
+        state.element("scroll_element_into_view", element)?.scroll_into_view();
+        Ok(proto::ScrollElementIntoViewResponse {})
     }
 
     pub(crate) async fn click(
@@ -1190,7 +1207,8 @@ fn test_query_element_descendants_by_accessible_label() {
     let instruction = proto::ElementQueryInstruction {
         instruction: Some(Instruction::MatchElementAccessibleLabel("world".into())),
     };
-    let results = query_element_descendants(app.root_element(), vec![instruction], true).unwrap();
+    let results =
+        query_element_descendants(app.root_element(), vec![instruction], true, false).unwrap();
     assert_eq!(results.len(), 1);
 }
 
