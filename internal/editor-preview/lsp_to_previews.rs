@@ -102,7 +102,14 @@ impl LspToPreviews {
     /// `RemoteConnectionState`) that must reach the dialog and never the
     /// remote viewer.
     pub fn send_to_local_preview(&self, message: &LspToPreviewMessage) {
-        self.locals.get(&self.current_local.borrow()).unwrap().send(message);
+        self.send_to_local_target(self.local_target(), message);
+    }
+
+    /// Send to a specific local transport, even if the selected target has changed.
+    pub fn send_to_local_target(&self, target: PreviewTarget, message: &LspToPreviewMessage) {
+        if let Some(transport) = self.locals.get(&target) {
+            transport.send(message);
+        }
     }
 
     pub async fn shutdown(&self) {
@@ -157,5 +164,46 @@ mod tests {
         let calls = Rc::new(Cell::new(0));
         LspToPreviews::with_one(ShutdownPreview(calls.clone())).shutdown().await;
         assert_eq!(calls.get(), 1);
+    }
+
+    #[test]
+    fn edit_completion_reaches_the_original_local_target() {
+        struct Target(PreviewTarget, Rc<Cell<usize>>);
+        impl LspToPreview for Target {
+            fn send(&self, message: &LspToPreviewMessage) {
+                assert!(matches!(message, LspToPreviewMessage::WorkspaceEditFinished { .. }));
+                self.1.set(self.1.get() + 1);
+            }
+            fn preview_target(&self) -> PreviewTarget {
+                self.0
+            }
+        }
+        let native = Rc::new(Cell::new(0));
+        let wasm = Rc::new(Cell::new(0));
+        let previews = LspToPreviews {
+            locals: HashMap::from([
+                (
+                    PreviewTarget::ChildProcess,
+                    Box::new(Target(PreviewTarget::ChildProcess, native.clone()))
+                        as Box<dyn LspToPreview>,
+                ),
+                (
+                    PreviewTarget::EmbeddedWasm,
+                    Box::new(Target(PreviewTarget::EmbeddedWasm, wasm.clone()))
+                        as Box<dyn LspToPreview>,
+                ),
+            ]),
+            current_local: RefCell::new(PreviewTarget::ChildProcess),
+            #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
+            remote: None,
+        };
+        let origin = previews.local_target();
+        previews.set_local_target(PreviewTarget::EmbeddedWasm).unwrap();
+        previews.send_to_local_target(
+            origin,
+            &LspToPreviewMessage::WorkspaceEditFinished { applied: false },
+        );
+        assert_eq!(native.get(), 1);
+        assert_eq!(wasm.get(), 0);
     }
 }

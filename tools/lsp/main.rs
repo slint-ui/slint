@@ -21,6 +21,8 @@ mod lsp_to_editor;
 #[cfg(feature = "preview-engine")]
 mod preview;
 mod server_notifier;
+#[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+mod workspace_edit;
 
 pub use i_slint_editor_preview as editor_preview;
 pub use i_slint_editor_preview::util;
@@ -483,6 +485,7 @@ async fn run_main_loop(
     };
 
     let mut session = crate::editor_preview::EditorSession::new(compiler_config);
+    session.preview_config.workspace_edit_completion = true;
     session.attach_preview(to_preview, None, None);
     session.set_workspace_roots(language::workspace_roots(&init_param));
     session.set_startup_config_overrides(editor_preview::SessionConfigOverrides {
@@ -575,7 +578,9 @@ async fn run_main_loop(
                 #[cfg(feature = "preview-engine")]
                 {
                     if let Some(msg) =
-                        _msg && let Err(err) = handle_preview_to_lsp_message(msg, &mut ctx).await
+                        _msg && let Err(err) = handle_preview_to_lsp_message(
+                            msg, i_slint_live_preview::protocol::PreviewTarget::ChildProcess, &mut ctx,
+                        ).await
                     {
                         tracing::error!("handle_preview_to_lsp_message: {err}");
                     }
@@ -818,37 +823,21 @@ async fn handle_notification(
         // Messages from the WASM preview come in as notifications sent by the "editor":
         #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
         "slint/preview_to_lsp" => {
-            handle_preview_to_lsp_message(serde_json::from_value(req.params)?, ctx).await
+            handle_preview_to_lsp_message(
+                serde_json::from_value(req.params)?,
+                i_slint_live_preview::protocol::PreviewTarget::EmbeddedWasm,
+                ctx,
+            )
+            .await
         }
         _ => Ok(()),
     }
 }
 
-#[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-async fn send_workspace_edit(
-    server_notifier: ServerNotifier,
-    label: Option<String>,
-    edit: Result<lsp_types::WorkspaceEdit>,
-) -> Result<()> {
-    let edit = edit?;
-
-    let response = server_notifier
-        .send_request::<lsp_types::request::ApplyWorkspaceEdit>(
-            lsp_types::ApplyWorkspaceEditParams { label, edit },
-        )?
-        .await?;
-    if !response.applied {
-        return Err(response
-            .failure_reason
-            .unwrap_or("Operation failed, no specific reason given".into())
-            .into());
-    }
-    Ok(())
-}
-
 #[cfg(any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"))]
 async fn handle_preview_to_lsp_message(
     message: PreviewToLspMessage,
+    origin: i_slint_live_preview::protocol::PreviewTarget,
     ctx: &mut Context,
 ) -> Result<()> {
     use PreviewToLspMessage as M;
@@ -886,9 +875,16 @@ async fn handle_preview_to_lsp_message(
         M::UpdateUserSettings { name, contents } => {
             crate::language::store_user_settings(&name, &contents);
         }
-        M::SendWorkspaceEdit { label, edit } => {
-            let sn = ctx.server_notifier.clone();
-            let _ = send_workspace_edit(sn, label, Ok(edit)).await;
+        M::SendWorkspaceEdit { label, edit, notify_on_completion } => {
+            workspace_edit::apply(
+                ctx.server_notifier.clone(),
+                ctx.session.primary_preview().to_preview().clone(),
+                origin,
+                label,
+                edit,
+                notify_on_completion,
+            )
+            .await;
         }
         M::SendShowMessage { message } => {
             ctx.server_notifier

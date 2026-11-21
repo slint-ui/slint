@@ -271,6 +271,9 @@ impl PreviewSession {
             LspToPreviewMessage::RemoteConnectionState { .. } => {
                 tracing::warn!("Ignoring unexpected RemoteConnectionState over WebSocket");
             }
+            LspToPreviewMessage::WorkspaceEditFinished { .. } => {
+                tracing::warn!("Ignoring unexpected WorkspaceEditFinished over WebSocket");
+            }
             LspToPreviewMessage::OpenProject { root } => {
                 let root = root.as_ref().map(SourcePath::from_url);
                 if *self.project_root.borrow() != root {

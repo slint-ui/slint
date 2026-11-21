@@ -174,6 +174,9 @@ pub fn lsp_to_preview(message: LspToPreviewMessage) {
         M::RemoteConnectionState { state, target, error } => {
             set_remote_connection_state(state, target, error);
         }
+        M::WorkspaceEditFinished { .. } => {
+            tracing::warn!("Ignoring an LSP workspace edit completion in the Visual Editor");
+        }
         M::Quit => {
             tracing::debug!("Preview: Quit requested");
             #[cfg(not(target_arch = "wasm32"))]
@@ -2064,7 +2067,11 @@ fn send_workspace_edit(label: String, edit: lsp_types::WorkspaceEdit, test_edit:
             .borrow()
             .as_ref()
             .unwrap()
-            .send(&PreviewToLspMessage::SendWorkspaceEdit { label: Some(label), edit })
+            .send(&PreviewToLspMessage::SendWorkspaceEdit {
+                label: Some(label),
+                edit,
+                notify_on_completion: false,
+            })
             .unwrap();
         true
     })
