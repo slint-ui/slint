@@ -1982,6 +1982,8 @@ fn set_selected_element(
                         properties::query_properties(&uri, version, &selection, in_layout).ok(),
                     ));
                 }
+            } else if api.get_current_element().source_uri.is_empty() {
+                api.set_properties(Default::default());
             }
         }
 
@@ -2309,6 +2311,33 @@ mod tests {
         update_previewed_component(&target.url, Some("Main".into()));
         assert!(window.api().get_uses_widgets());
         assert_eq!(PREVIEW_STATE.with_borrow(|state| state.current_component()), Some(target));
+    }
+
+    #[test]
+    fn an_unresolved_selection_clears_the_property_rows_once_no_element_is_loaded() {
+        use slint::Model;
+
+        reset_preview_state(Default::default());
+        let _instance = test::interpret_test("fluent", "export component Main inherits Window {}");
+        let window = ui::AppWindow::Preview(ui::PreviewUi::new().unwrap());
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            state.api = window.api_weak();
+            state.app_window = Some(window.clone_strong());
+        });
+        let api = window.api();
+
+        element_selection::unselect_element();
+        let root_rows = api.get_properties().row_count();
+        assert_ne!(root_rows, 0);
+        assert!(!api.get_current_element().source_uri.is_empty());
+
+        PREVIEW_STATE.with_borrow_mut(|state| state.document_cache.replace(None));
+        element_selection::unselect_element();
+        assert_eq!(api.get_properties().row_count(), root_rows);
+
+        api.set_current_element(Default::default());
+        element_selection::unselect_element();
+        assert_eq!(api.get_properties().row_count(), 0);
     }
 
     #[test]
