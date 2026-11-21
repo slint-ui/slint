@@ -296,6 +296,20 @@ impl Document {
             }
         }
 
+        let child_types: BTreeMap<_, _> = exports
+            .iter()
+            .filter_map(|(name, ty)| {
+                let component = ty.as_ref().left()?;
+                (!component.is_global() && !component.is_interface())
+                    .then(|| (name.name.clone(), Rc::downgrade(component)))
+            })
+            .collect();
+        for component in &inner_components {
+            if slot_collections::default_collection(component).is_some() {
+                *component.implicit_child_types.borrow_mut() = child_types.clone();
+            }
+        }
+
         Document {
             node: Some(node),
             inner_components,
@@ -635,6 +649,10 @@ pub struct Component {
 
     /// Slots declared in this component, in source order.
     pub declared_slots: RefCell<Vec<DeclaredSlot>>,
+
+    /// Exported components from the defining module, available inside its default collection.
+    /// Weak references avoid cycles between components in the same module.
+    pub(crate) implicit_child_types: RefCell<BTreeMap<SmolStr, Weak<Component>>>,
 
     pub init_code: RefCell<InitCode>,
 

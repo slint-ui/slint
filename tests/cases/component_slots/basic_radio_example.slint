@@ -1,0 +1,64 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import {
+    RadioGroup as BasicRadioGroup, RadioButton as BasicRadioButton,
+    RadioButtonStyle, RadioButtonStyles, RadioGroupStyles,
+} from "../../../tools/editor/controls/src/basic.slint";
+
+export component TestCase inherits Window {
+    width: 360px;
+    height: 220px;
+    out property <int> current-index: group.current-index;
+    out property <string> current-value: group.current-value;
+    in property <brush> accent: #0f766e;
+    in property <bool> group-enabled: true;
+    in property <bool> first-enabled: true;
+    private property <RadioButtonStyle> button-style: RadioButtonStyles.with-accent(root.accent);
+    out property <bool> test: group.item-count == 2
+        && first.item-index == 0 && second.item-index == 1
+        && first.checked == (group.current-index == 0)
+        && second.checked == (group.current-index == 1);
+
+    group := BasicRadioGroup {
+        style: {
+            title-color: root.accent,
+            disabled-title-color: RadioGroupStyles.standard.disabled-title-color,
+        };
+        enabled: root.group-enabled;
+        current-index: 0;
+        accessible-label: "Billing cycle";
+        first := BasicRadioButton { text: "Monthly"; style: root.button-style; enabled: root.first-enabled; }
+        second := BasicRadioButton { text: "Yearly"; checked-color: root.accent; }
+    }
+}
+
+/*
+```rust
+use slint::platform::PointerEventButton;
+use slint_testing::ElementHandle;
+
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+assert_eq!(instance.get_current_index(), 0);
+let yearly = ElementHandle::find_by_accessible_label(&instance, "Yearly").next().unwrap();
+yearly.mock_single_click(PointerEventButton::Left);
+assert_eq!(instance.get_current_index(), 1);
+assert_eq!(instance.get_current_value(), "Yearly");
+assert!(instance.get_test());
+instance.set_accent(slint::Color::from_rgb_u8(37, 99, 235).into());
+assert_eq!(instance.get_current_index(), 1, "Changing style keeps the selection");
+let monthly = ElementHandle::find_by_accessible_label(&instance, "Monthly").next().unwrap();
+instance.set_group_enabled(false);
+monthly.mock_single_click(PointerEventButton::Left);
+assert_eq!(instance.get_current_index(), 1);
+instance.set_group_enabled(true);
+instance.set_first_enabled(false);
+monthly.mock_single_click(PointerEventButton::Left);
+assert_eq!(instance.get_current_index(), 1);
+instance.set_first_enabled(true);
+monthly.mock_single_click(PointerEventButton::Left);
+assert_eq!(instance.get_current_index(), 0);
+assert!(instance.get_test());
+```
+*/

@@ -276,6 +276,8 @@ Wildcard entries expose the standard element properties; typed entries also expo
 Scalar typed slots keep the syntax `slot <Entry> entry;`, where `Entry` is an interface.
 
 The `default` qualifier routes ordinary children into the collection instead of `@children`.
+Inside that container, exported components from its defining module are available as child types without separate imports.
+Local types and explicit imports take precedence; the collection still checks each child against its constraint.
 Fill named collections with repeated assignments such as `entries << EntryView { }`.
 A component can declare multiple collection slots, including one default collection, alongside scalar slots.
 

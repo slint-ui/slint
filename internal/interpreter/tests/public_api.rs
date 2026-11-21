@@ -107,6 +107,53 @@ fn compile_collection_case(name: &str, component: &str) -> ComponentInstance {
 
 #[cfg(feature = "internal")]
 #[test]
+fn dynamic_collection_tabs_follow_model() {
+    use i_slint_backend_testing::{AccessibleRole, ElementHandle};
+    i_slint_backend_testing::init_no_event_loop();
+    let instance = compile_collection_case("collection_tabs_dynamic.slint", "TestCase");
+    let element = |label: &str, role| {
+        ElementHandle::find_by_accessible_label(&instance, label)
+            .find(|element| element.accessible_role() == Some(role))
+            .unwrap_or_else(|| panic!("Missing {role:?}: {label}"))
+    };
+
+    element("Two (0)", AccessibleRole::Tab).invoke_accessible_default_action();
+    element("Increment Two", AccessibleRole::Button).invoke_accessible_default_action();
+    element("Two (1)", AccessibleRole::Tab);
+    assert_eq!(instance.get_property("constructions").unwrap(), Value::Number(2.));
+    instance.invoke("insert", &[Value::Number(0.), Value::String("Zero".into())]).unwrap();
+    element("Two (1)", AccessibleRole::Tab).invoke_accessible_default_action();
+    assert_eq!(instance.get_property("current-index").unwrap(), Value::Number(2.));
+    assert_eq!(instance.get_property("constructions").unwrap(), Value::Number(3.));
+    instance.invoke("remove", &[Value::Number(0.)]).unwrap();
+    instance.invoke("rename", &[Value::Number(1.), Value::String("Renamed".into())]).unwrap();
+    element("Renamed (1)", AccessibleRole::Tab).invoke_accessible_default_action();
+    element("Increment Renamed", AccessibleRole::Button).invoke_accessible_default_action();
+    element("Renamed (2)", AccessibleRole::Tab);
+    instance.invoke("clear", &[]).unwrap();
+    assert_eq!(instance.get_property("item-count").unwrap(), Value::Number(0.));
+    instance.invoke("append", &[Value::String("Fresh".into())]).unwrap();
+    element("Fresh (0)", AccessibleRole::Tab);
+    assert_eq!(instance.get_property("constructions").unwrap(), Value::Number(4.));
+    let disabled = compile_collection_case("collection_tabs_headless.slint", "DisabledHeaders");
+    let bars = ElementHandle::find_by_accessible_label(&disabled, "Disabled headers");
+    let bar = bars
+        .into_iter()
+        .find(|element| element.accessible_role() == Some(AccessibleRole::TabList))
+        .unwrap();
+    disabled.invoke("activate", &[Value::Number(1.)]).unwrap();
+    bar.scroll(0., -20.);
+    assert_eq!(disabled.get_property("current-index").unwrap(), Value::Number(3.));
+    bar.scroll(0., 20.);
+    assert_eq!(disabled.get_property("current-index").unwrap(), Value::Number(1.));
+    disabled.set_property("all-disabled", Value::Bool(true)).unwrap();
+    disabled.invoke("activate", &[Value::Number(3.)]).unwrap();
+    bar.scroll(0., -20.);
+    assert_eq!(disabled.get_property("current-index").unwrap(), Value::Number(1.));
+}
+
+#[cfg(feature = "internal")]
+#[test]
 fn repeated_collection_views_follow_page_instances() {
     use i_slint_backend_testing::{AccessibleRole, ElementHandle};
     i_slint_backend_testing::init_no_event_loop();

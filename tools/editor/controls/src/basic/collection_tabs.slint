@@ -1,0 +1,192 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import {
+    CollectionTabEntry,
+    CollectionTabBase,
+    CollectionTabHeaderBase,
+    CollectionTabBar,
+    PageStack,
+} from "../headless.slint";
+import { BasicTheme } from "theme.slint";
+
+export struct CollectionTabHeaderStateStyle {
+    background-color: brush,
+    foreground-color: brush,
+    indicator-color: brush,
+}
+
+export struct CollectionTabHeaderStateStyles {
+    rest: CollectionTabHeaderStateStyle,
+    hover: CollectionTabHeaderStateStyle,
+    pressed: CollectionTabHeaderStateStyle,
+    disabled: CollectionTabHeaderStateStyle,
+}
+
+export struct CollectionTabHeaderStyle {
+    unselected: CollectionTabHeaderStateStyles,
+    selected: CollectionTabHeaderStateStyles,
+    focus-color: brush,
+}
+
+export struct CollectionTabWidgetStyle {
+    header: CollectionTabHeaderStyle,
+    background-color: brush,
+    border-color: brush,
+}
+
+export global CollectionTabHeaderStyles {
+    out property <CollectionTabHeaderStyle> standard: {
+        unselected: {
+            rest: {
+                background-color: transparent,
+                foreground-color: BasicTheme.foreground,
+                indicator-color: transparent,
+            },
+            hover: {
+                background-color: BasicTheme.hover-background,
+                foreground-color: BasicTheme.foreground,
+                indicator-color: transparent,
+            },
+            pressed: {
+                background-color: BasicTheme.hover-background,
+                foreground-color: BasicTheme.foreground,
+                indicator-color: transparent,
+            },
+            disabled: {
+                background-color: transparent,
+                foreground-color: BasicTheme.disabled-foreground,
+                indicator-color: transparent,
+            },
+        },
+        selected: {
+            rest: {
+                background-color: BasicTheme.accent.with-alpha(0.1),
+                foreground-color: BasicTheme.accent,
+                indicator-color: BasicTheme.accent,
+            },
+            hover: {
+                background-color: BasicTheme.accent.with-alpha(0.1),
+                foreground-color: BasicTheme.accent,
+                indicator-color: BasicTheme.accent,
+            },
+            pressed: {
+                background-color: BasicTheme.accent.with-alpha(0.1),
+                foreground-color: BasicTheme.accent,
+                indicator-color: BasicTheme.accent,
+            },
+            disabled: {
+                background-color: BasicTheme.accent.with-alpha(0.1),
+                foreground-color: BasicTheme.disabled-foreground,
+                indicator-color: BasicTheme.accent,
+            },
+        },
+        focus-color: BasicTheme.focus,
+    };
+}
+
+export global CollectionTabWidgetStyles {
+    out property <CollectionTabWidgetStyle> standard: {
+        header: CollectionTabHeaderStyles.standard,
+        background-color: BasicTheme.background,
+        border-color: BasicTheme.border,
+    };
+}
+
+export component CollectionTab inherits CollectionTabBase { }
+
+export component CollectionTabHeader inherits CollectionTabHeaderBase {
+    in property <CollectionTabHeaderStyle> style: CollectionTabHeaderStyles.standard;
+    in property <length> horizontal-padding: 16px;
+    horizontal-stretch: 0;
+    vertical-stretch: 0;
+    min-width: 88px;
+    min-height: 40px;
+
+    private property <CollectionTabHeaderStateStyles> selected-styles: root.selected ? root.style.selected : root.style.unselected;
+    private property <CollectionTabHeaderStateStyle> state-style: root.selected-styles.rest;
+
+    states [
+        disabled when !root.enabled: {
+            state-style: root.selected-styles.disabled;
+        }
+        pressed when root.pressed: {
+            state-style: root.selected-styles.pressed;
+        }
+        hover when root.has-hover: {
+            state-style: root.selected-styles.hover;
+        }
+    ]
+
+    Rectangle {
+        background: root.state-style.background-color;
+    }
+    HorizontalLayout {
+        padding-left: root.horizontal-padding;
+        padding-right: root.horizontal-padding;
+        Text {
+            text: root.title;
+            color: root.state-style.foreground-color;
+            vertical-alignment: center;
+            accessible-role: none;
+        }
+    }
+    Rectangle {
+        y: parent.height - self.height;
+        height: 2px;
+        background: root.state-style.indicator-color;
+    }
+    if root.focused && root.enabled: Rectangle {
+        x: 3px;
+        y: 3px;
+        width: parent.width - 6px;
+        height: parent.height - 6px;
+        border-width: 1px;
+        border-radius: 4px;
+        border-color: root.style.focus-color;
+    }
+}
+
+export component CollectionTabWidget inherits Rectangle {
+    in property <CollectionTabWidgetStyle> style: CollectionTabWidgetStyles.standard;
+    in-out property <int> current-index: 0;
+    in property <Orientation> orientation: Orientation.horizontal;
+    in property <length> content-padding: 12px;
+    out property <int> item-count: tabs.length;
+    default slot <[implements CollectionTabEntry]> tabs;
+
+    forward-focus: bar;
+
+    GridLayout {
+        bar := CollectionTabBar {
+            row: 0;
+            col: 0;
+            current-index <=> root.current-index;
+            orientation: root.orientation;
+            for tab in tabs: CollectionTabHeader {
+                style: root.style.header;
+                title: tab.title;
+                enabled: tab.enabled;
+            }
+        }
+
+        Rectangle {
+            row: root.orientation == Orientation.horizontal ? 1 : 0;
+            col: root.orientation == Orientation.vertical ? 1 : 0;
+            horizontal-stretch: 1;
+            vertical-stretch: 1;
+            background: root.style.background-color;
+            border-width: 1px;
+            border-color: root.style.border-color;
+            PageStack {
+                current-index: root.current-index;
+                content-padding: root.content-padding;
+                for tab[index] in tabs: tab {
+                    accessible-role: tab-panel;
+                    accessible-label: tab.title;
+                    accessible-item-index: index;
+                }
+            }
+        }
+    }
+}

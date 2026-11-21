@@ -1,0 +1,166 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import {
+    Button, LineEdit, Switch, CollectionTabWidget, CollectionTab,
+    CollectionTabBar, CollectionTabHeader,
+    CollectionTabHeaderStateStyle, CollectionTabHeaderStyle, CollectionTabHeaderStyles, BasicTheme,
+} from "../src/basic.slint";
+import { PageStack, CollectionTabHeaderBase } from "../src/headless.slint";
+import { ExampleSection } from "section.slint";
+import { DynamicTabsExample } from "dynamic_collection_tabs.slint";
+
+component ActivityPage {
+    out property <int> count;
+    VerticalLayout {
+        spacing: 12px;
+        Text { text: "This counter survives switching tabs."; color: BasicTheme.foreground; }
+        Button {
+            text: "Count: \{root.count}";
+            clicked => { root.count += 1; }
+        }
+        Rectangle { vertical-stretch: 1; }
+    }
+}
+
+component RoundedTabHeader inherits CollectionTabHeaderBase {
+    horizontal-stretch: 0;
+    vertical-stretch: 0;
+    min-width: 100px;
+    Rectangle {
+        background: root.selected ? BasicTheme.accent : root.has-hover ? BasicTheme.hover-background : transparent;
+        border-radius: 16px;
+        border-width: root.focused ? 2px : 0px;
+        border-color: BasicTheme.focus;
+    }
+    HorizontalLayout {
+        padding-left: 20px;
+        padding-right: 20px;
+        padding-top: 10px;
+        padding-bottom: 10px;
+        Text {
+            text: root.title;
+            color: root.selected ? BasicTheme.accent-foreground : BasicTheme.foreground;
+            accessible-role: none;
+        }
+    }
+}
+
+export component CollectionTabExamples inherits Rectangle {
+    in-out property <bool> vertical;
+    private property <CollectionTabHeaderStateStyle> selected-colors: {
+        background-color: #ccfbf1,
+        foreground-color: #115e59,
+        indicator-color: #0f766e,
+    };
+    private property <CollectionTabHeaderStyle> custom-header-style: {
+        unselected: CollectionTabHeaderStyles.standard.unselected,
+        selected: {
+            rest: root.selected-colors,
+            hover: {
+                background-color: #99f6e4,
+                foreground-color: #134e4a,
+                indicator-color: #0f766e,
+            },
+            pressed: {
+                background-color: #5eead4,
+                foreground-color: #134e4a,
+                indicator-color: #0f766e,
+            },
+            disabled: CollectionTabHeaderStyles.standard.selected.disabled,
+        },
+        focus-color: #0f766e,
+    };
+    vertical-stretch: 0;
+    VerticalLayout {
+        spacing: 20px;
+        ExampleSection {
+            title: "Dynamic tabs";
+            description: "One model loop supplies pages and reactive titles. Add, insert, close, or rename tabs; counters and notes keep their state.";
+            DynamicTabsExample { }
+        }
+        ExampleSection {
+            title: "Choose your own layout";
+            description: "Pages above the headers, with custom padding, spacing, and a rounded header. The stack handles page visibility.";
+            VerticalLayout {
+                spacing: 12px;
+                Rectangle {
+                    background: BasicTheme.hover-background;
+                    border-radius: 8px;
+                    PageStack {
+                        current-index: custom-bar.current-index;
+                        content-padding: 20px;
+                        VerticalLayout {
+                            spacing: 8px;
+                            Text { text: "Headers can go below the pages."; color: BasicTheme.foreground; }
+                            LineEdit { placeholder-text: "This page keeps its contents"; }
+                        }
+                        ActivityPage { }
+                    }
+                }
+                custom-bar := CollectionTabBar {
+                    spacing: 16px;
+                    RoundedTabHeader { title: "Details"; }
+                    CollectionTabHeader { title: "Activity"; horizontal-padding: 24px; }
+                }
+            }
+        }
+        ExampleSection {
+            title: "Per-widget styles";
+            description: "Custom selected, hover, pressed, and focus colors apply only to this widget; other controls keep the shared palette.";
+            CollectionTabWidget {
+                style: {
+                    header: root.custom-header-style,
+                    background-color: BasicTheme.background,
+                    border-color: #0f766e,
+                };
+                CollectionTab {
+                    title: "Overview";
+                    Text {
+                        text: "A complete style can reuse the preset states you want to keep.";
+                        color: BasicTheme.foreground;
+                    }
+                }
+                CollectionTab {
+                    title: "Activity";
+                    ActivityPage { }
+                }
+                CollectionTab {
+                    title: "Disabled";
+                    enabled: false;
+                }
+            }
+        }
+        ExampleSection {
+            title: "Tabs from a collection";
+            description: "Each tab supplies its title and page together. Arrow keys move focus; Enter or Space selects.";
+            Switch { text: "Vertical tabs"; checked <=> root.vertical; }
+            CollectionTabWidget {
+                orientation: root.vertical ? Orientation.vertical : Orientation.horizontal;
+                CollectionTab {
+                    title: "Settings";
+                    VerticalLayout {
+                        spacing: 12px;
+                        Text { text: "Project settings"; color: BasicTheme.foreground; }
+                        name := LineEdit { placeholder-text: "Project name"; }
+                        Text { text: "Editing: \{name.text}"; color: BasicTheme.disabled-foreground; }
+                        Rectangle { vertical-stretch: 1; }
+                    }
+                }
+                CollectionTab {
+                    title: "Preview";
+                    enabled: false;
+                    Rectangle {
+                        background: BasicTheme.accent.with-alpha(0.08);
+                        border-radius: 6px;
+                        Text { text: "A different page component"; color: BasicTheme.foreground; }
+                    }
+                }
+                CollectionTab {
+                    title: "Activity (\{activity.count})";
+                    activity := ActivityPage { }
+                }
+            }
+        }
+    }
+}
