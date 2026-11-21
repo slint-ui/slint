@@ -1,0 +1,4 @@
+{
+    "main": "tests/project_file_macro/ancestor/nested/ui/main.slint",
+    "edition": "1.19"
+}
