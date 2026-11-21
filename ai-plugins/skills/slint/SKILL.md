@@ -98,6 +98,10 @@ interop: `export global Foo { ... }`. One-time code: `init => { ... }`.
 The docs are the authority on element, property, and widget signatures; this
 skill only covers what agents commonly get wrong.
 
+If the `slint-docs` MCP server is available, use `search` to find the APIs you need, then `fetch` the returned URL.
+Pass the project's resolved Slint version to `search` when looking up an older release.
+Otherwise, use the documentation links below.
+
 Read [the current Slint docs](https://docs.slint.dev/) or open
 `https://releases.slint.dev/<version>/docs` for the project's release.
 For ~10× fewer tokens `(1.17+)`, swap a page's trailing slash for `.md`: `…/property-types/colors-and-brushes/` → `…/property-types/colors-and-brushes.md`.
