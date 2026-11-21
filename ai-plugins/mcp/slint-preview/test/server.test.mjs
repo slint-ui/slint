@@ -17,6 +17,7 @@ import { createInterface } from "node:readline";
 import { pathToFileURL } from "node:url";
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
+import { MAX_SOURCE_BATCH_BYTES, PREVIEW_RESPONSE_BUDGET_BYTES } from "../checker.mjs";
 
 const pluginRoot = new URL("../../", import.meta.url);
 const serverPath = new URL("../server.mjs", import.meta.url);
@@ -266,6 +267,39 @@ test("checks a render before publishing with text only", async () => {
     assert.ok(
         result._meta["slint/preview"].source.includes("background: blue"),
     );
+});
+
+test("bounds the startup batch for a project larger than the response limit", async () => {
+    const directory = mkdtempSync(join(tmpdir(), "slint-preview-batch-"));
+    try {
+        const imports = [];
+        for (let index = 0; index < 4; index++) {
+            const name = `Part${index}`;
+            writeFileSync(
+                join(directory, `${name}.slint`),
+                `export component ${name} inherits Rectangle {}\n// ${'é\\"'.repeat(4096)}`,
+            );
+            imports.push(`import { ${name} } from "${name}.slint";`);
+        }
+        const path = join(directory, "main.slint");
+        writeFileSync(path, imports.join("\n") +
+            "\nexport component Main inherits Window { width: 20px; height: 20px; Part0 {} Part1 {} Part2 {} Part3 {} }");
+        const checked = await callTool("check_slint", { path, prepare_preview: true });
+        assert.equal(checked.structuredContent.ok, true);
+        const previewId = checked.structuredContent.previewId;
+        await callTool("publish_preview", { previewId });
+        const response = await request("tools/call", {
+            name: "publish_preview_capture",
+            arguments: { previewId, stage: "started" },
+        });
+        const { sourceFiles } = response.result.structuredContent;
+        assert.ok(Object.keys(sourceFiles).length > 0);
+        assert.ok(Object.keys(sourceFiles).length < 5);
+        assert.ok(Buffer.byteLength(JSON.stringify(sourceFiles)) <= MAX_SOURCE_BATCH_BYTES);
+        assert.ok(Buffer.byteLength(JSON.stringify(response)) < PREVIEW_RESPONSE_BUDGET_BYTES);
+    } finally {
+        rmSync(directory, { recursive: true, force: true });
+    }
 });
 
 test("takes either an absolute path or source, and a project root only with a path", async () => {

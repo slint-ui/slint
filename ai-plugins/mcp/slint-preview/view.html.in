@@ -618,7 +618,8 @@
     publish({ previewId: activePreviewId, runtime: interpreter?.runtime, error: imageFailure }).catch(() => {});
   }
 
-  async function readSlintFile(path) {
+  async function readSlintFile(path, sourceFiles) {
+    if (Object.hasOwn(sourceFiles, path)) return sourceFiles[path];
     const result = await request("tools/call", { name: "read_slint_file", arguments: { path } });
     const text = result?.content?.[0]?.text ?? "";
     if (result?.isError) throw new Error(text);
@@ -626,7 +627,7 @@
   }
 
   let instance = null;
-  async function render({ source, path, projectRoot, style }, previewId) {
+  async function render({ source, path, projectRoot, style }, previewId, sourceFiles = {}) {
     setAnnotationMode(false);
     toolbar.hidden = true;
     renderedInput = null;
@@ -644,12 +645,12 @@
     if (path) {
       showStatus(`Reading ${path}…`);
       publish({ previewId, stage: "reading" }).catch(() => {});
-      source = await readSlintFile(path);
+      source = await readSlintFile(path, sourceFiles);
       url = toFileUrl(path);
       // The interpreter reports only a string rejection as the import error,
       // and continues the include path search for null.
       // cspell:ignore ENOENT ENOTDIR
-      loadImport = (file) => readSlintFile(fromFileUrl(file)).catch((error) => {
+      loadImport = (file) => readSlintFile(fromFileUrl(file), sourceFiles).catch((error) => {
         const message = String(error.message ?? error);
         return /^(ENOENT|ENOTDIR):/.test(message) ? null : Promise.reject(message);
       });
@@ -802,8 +803,8 @@
           activePreviewId = id;
           crashEl.hidden = true;
           try {
-            await publish({ previewId: id, stage: "started" });
-            await render(inputs, id);
+            const started = await publish({ previewId: id, stage: "started" });
+            await render(inputs, id, started?.structuredContent?.sourceFiles);
           } catch (error) {
             if (error instanceof Panic) return;
             if (error instanceof WebAssembly.RuntimeError) {
