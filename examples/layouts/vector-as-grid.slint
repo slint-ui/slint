@@ -24,14 +24,11 @@ export component MainWindow inherits Window {
     property <int> columns: 4;
 
     GridLayout {
-        Row {
-            for text[i] in names: Cell {
-                cell_text: text;
-                width: 100phx;
-                height: 50phx;
-                row: i / columns;
-                col: mod(i, columns);
-            }
+        column-count: root.columns;
+        for text in names: Cell {
+            cell_text: text;
+            width: 100phx;
+            height: 50phx;
         }
     }
 }

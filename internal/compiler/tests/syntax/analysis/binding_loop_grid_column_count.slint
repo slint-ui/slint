@@ -1,0 +1,14 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A loop through the window layout is an error for `column-count`, unlike older properties
+export component ColumnsLoop inherits Window {
+    VerticalLayout {
+//  >             <note{setting an 'x' or a 'y' here takes 'VerticalLayout' out of its parent's size, one way out of the binding loop reported for 'column-count' at line 9}
+        lay2 := GridLayout {
+            column-count: self.width / 100px;
+//                        >                 <error{The binding for the property 'column-count' is part of a binding loop (VerticalLayout.width -> lay2.width -> lay2.column-count -> lay2 -> VerticalLayout -> root -> VerticalLayout.width)↵Compute 'column-count' without depending on a size or a position the layout produces, or set an 'x' or a 'y' on 'VerticalLayout', so its parent stops sizing itself from it}
+            Rectangle { }
+        }
+    }
+}

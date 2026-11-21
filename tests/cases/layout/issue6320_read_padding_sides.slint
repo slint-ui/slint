@@ -12,6 +12,15 @@ component MyBox inherits HorizontalLayout {
 
 component EmptyBox inherits HorizontalLayout { }
 
+component NotInlinedBox inherits HorizontalLayout {
+    child := Rectangle { }
+    out property <length> child-x: child.x;
+}
+
+component ForwardingBox inherits HorizontalLayout {
+    in property <length> gap <=> self.padding;
+}
+
 export component TestCase inherits Window {
     width: 300px;
     height: 300px;
@@ -59,6 +68,29 @@ export component TestCase inherits Window {
             padding: pad;
             Rectangle { }
         }
+
+        assigned := HorizontalLayout {
+            assigned-child := Rectangle { }
+        }
+
+        assigned-instance := NotInlinedBox { }
+
+        forwarding := ForwardingBox {
+            gap: 9px;
+            forwarding-child := Rectangle { }
+        }
+
+        // A single cell must keep the runtime alignment
+        assigned-alignment := HorizontalLayout {
+            assigned-alignment-child := Rectangle {
+                width: 10px;
+            }
+        }
+
+        assigned-side := HorizontalLayout {
+            padding: 4px;
+            assigned-side-child := Rectangle { }
+        }
     }
 
     out property <bool> box-ok: h.padding-left == 8px && h.padding-right == 8px && h.padding-top == 8px && h.padding-bottom == 8px;
@@ -69,7 +101,18 @@ export component TestCase inherits Window {
     out property <bool> std-box-ok: hb.padding > 0 && hb.padding-left == hb.padding && hb.padding-top == hb.padding;
     out property <bool> use-site-ok: e.padding-left == 3px && e.padding-bottom == 3px;
     out property <bool> runtime-ok: v.padding-left == pad && v.padding-bottom == pad;
-    out property <bool> test: box-ok && box-override-ok && grid-ok && flexbox-ok && component-ok && std-box-ok && use-site-ok && runtime-ok;
+    property <bool> assigned-ok: assigned.padding-top == 6px && assigned-child.x == 6px
+        && assigned-side.padding-left == 2px && assigned-side.padding-right == 4px && assigned-side-child.x == 2px;
+    property <bool> assigned-other-ok: assigned-instance.child-x == 5px
+        && forwarding-child.x == 9px
+        && assigned-alignment-child.x == assigned-alignment.width - 10px;
+    init => {
+        assigned-instance.padding = 5px;
+        assigned-alignment.alignment = end;
+        assigned.padding = 6px;
+        assigned-side.padding-left = 2px;
+    }
+    out property <bool> test: assigned-ok && assigned-other-ok && box-ok && box-override-ok && grid-ok && flexbox-ok && component-ok && std-box-ok && use-site-ok && runtime-ok;
 }
 
 /*
