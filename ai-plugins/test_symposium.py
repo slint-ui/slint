@@ -21,7 +21,9 @@ SKILLS = ROOT / "ai-plugins/skills"
 
 def contents(root):
     return {
-        (Path(directory) / name).relative_to(root): (Path(directory) / name).read_bytes()
+        (Path(directory) / name).relative_to(root): (
+            Path(directory) / name
+        ).read_bytes()
         for directory, _, names in os.walk(root, followlinks=True)
         for name in names
     }
@@ -29,7 +31,9 @@ def contents(root):
 
 def run(args, cwd):
     # Git's repository-routing variables override the subprocess cwd.
-    env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+    env = {
+        key: value for key, value in os.environ.items() if not key.startswith("GIT_")
+    }
     env.update(GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM="1")
     result = subprocess.run(args, cwd=cwd, env=env, capture_output=True, text=True)
     if result.returncode:
@@ -40,17 +44,30 @@ def run(args, cwd):
 def commit_fixture(root):
     run(["git", "init", "-q"], root)
     run(["git", "add", "."], root)
-    run([
-        "git", "-c", "user.name=Packaging test", "-c", "user.email=test@example.invalid",
-        "-c", "commit.gpgsign=false", "-c", f"core.hooksPath={os.devnull}",
-        "commit", "-qm", "Package fixture",
-    ], root)
+    run(
+        [
+            "git",
+            "-c",
+            "user.name=Packaging test",
+            "-c",
+            "user.email=test@example.invalid",
+            "-c",
+            "commit.gpgsign=false",
+            "-c",
+            f"core.hooksPath={os.devnull}",
+            "commit",
+            "-qm",
+            "Package fixture",
+        ],
+        root,
+    )
 
 
 class SymposiumPackageTests(unittest.TestCase):
     def test_cargo_includes_skills_and_existing_crate_files(self):
         result = run(
-            ["cargo", "package", "-p", "slint", "--list", "--allow-dirty", "--locked"], ROOT,
+            ["cargo", "package", "-p", "slint", "--list", "--allow-dirty", "--locked"],
+            ROOT,
         )
         packaged = set(result.stdout.splitlines())
         self.assertIn("Symposium.toml", packaged)
@@ -100,9 +117,13 @@ class SymposiumPackageTests(unittest.TestCase):
                         with patch.dict(os.environ, variables):
                             self.check_clean_cargo_archive()
                     finally:
-                        self.assertEqual(run(["git", "rev-parse", "HEAD"], root).stdout, before_head)
+                        self.assertEqual(
+                            run(["git", "rev-parse", "HEAD"], root).stdout, before_head
+                        )
                         self.assertEqual(index.read_bytes(), before_index)
-                        self.assertEqual(sentinel.read_text(), "Keep this repository unchanged.\n")
+                        self.assertEqual(
+                            sentinel.read_text(), "Keep this repository unchanged.\n"
+                        )
 
     def check_clean_cargo_archive(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -118,11 +139,25 @@ class SymposiumPackageTests(unittest.TestCase):
             (crate / "lib.rs").write_text("")
             shutil.copyfile(CRATE / "Symposium.toml", crate / "Symposium.toml")
             shutil.copytree(SKILLS, root / "ai-plugins/skills", symlinks=True)
-            shutil.copytree(ROOT / "ai-plugins/mcp/guidance", root / "ai-plugins/mcp/guidance")
-            (crate / "skills").symlink_to((CRATE / "skills").readlink(), target_is_directory=True)
+            shutil.copytree(
+                ROOT / "ai-plugins/mcp/guidance", root / "ai-plugins/mcp/guidance"
+            )
+            (crate / "skills").symlink_to(
+                (CRATE / "skills").readlink(), target_is_directory=True
+            )
             commit_fixture(root)
             target = root / "target"
-            run(["cargo", "package", "--no-verify", "--offline", "--target-dir", str(target)], crate)
+            run(
+                [
+                    "cargo",
+                    "package",
+                    "--no-verify",
+                    "--offline",
+                    "--target-dir",
+                    str(target),
+                ],
+                crate,
+            )
             unpacked = root / "unpacked"
             with tarfile.open(target / "package/slint-0.0.0.crate") as archive:
                 manifest = archive.extractfile("slint-0.0.0/Symposium.toml").read()
@@ -145,7 +180,9 @@ class SymposiumPackageTests(unittest.TestCase):
                     if url.scheme or url.netloc or not url.path:
                         continue
                     target = (path.parent / unquote(url.path)).resolve()
-                    self.assertTrue(target.is_relative_to(unpacked.resolve()), (path, link))
+                    self.assertTrue(
+                        target.is_relative_to(unpacked.resolve()), (path, link)
+                    )
                     self.assertTrue(target.exists(), (path, link))
 
 
