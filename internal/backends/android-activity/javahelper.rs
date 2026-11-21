@@ -13,7 +13,6 @@ use i_slint_common::unicode_utils::{
 };
 use i_slint_core::MotionPreference;
 use i_slint_core::SharedString;
-use i_slint_core::animations::Instant;
 use i_slint_core::api::{PhysicalPosition, PhysicalSize};
 use i_slint_core::graphics::{Color, euclid};
 use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventType};
@@ -334,7 +333,6 @@ pub fn print_jni_error(_app: &AndroidApp, e: jni::errors::Error) -> ! {
 pub struct JavaHelper(
     jni::refs::Global<SlintAndroidJavaHelper<'static>>,
     AndroidApp,
-    std::cell::OnceCell<i64>,
     /// The editing state as last sent to or received from the Java side.
     std::cell::RefCell<Option<ImeEditState>>,
 );
@@ -442,26 +440,9 @@ fn load_java_helper(
     })
 }
 
-bind_java_type! {
-    JavaSystem => "java.lang.System",
-    methods {
-        static fn nano_time { name = "nanoTime", sig = () -> jlong, },
-    }
-}
-
 impl JavaHelper {
-    pub fn input_timestamp(&self, event_nanos: i64, window: &i_slint_core::api::Window) -> Instant {
-        let offset = self.2.get_or_init(|| {
-            let now_nanos = self
-                .with_jni_env(|env, _| JavaSystem::nano_time(env))
-                .unwrap_or_else(|e| print_jni_error(&self.1, e));
-            let ctx = i_slint_core::window::WindowInner::from_pub(window).context();
-            i_slint_core::animations::Instant::now(ctx).as_nanos() as i64 - now_nanos
-        });
-        Duration::from_nanos(event_nanos.saturating_add(*offset).max(0) as u64).into()
-    }
     pub fn new(app: &AndroidApp) -> Result<Self, jni::errors::Error> {
-        Ok(Self(load_java_helper(app)?, app.clone(), Default::default(), Default::default()))
+        Ok(Self(load_java_helper(app)?, app.clone(), Default::default()))
     }
 
     fn with_jni_env<R>(
@@ -507,7 +488,7 @@ impl JavaHelper {
             }
 
             let to_utf16 = |x| byte_offset_to_utf16_offset(&text, x as usize) as i32;
-            let mut last_known = self.3.borrow_mut();
+            let mut last_known = self.2.borrow_mut();
             // Slint doesn't track the composition, which input methods keep in the text, so their
             // composing region is kept until the text changes.
             let composing = if !data.preedit_text.is_empty() {
@@ -724,7 +705,7 @@ impl JavaHelper {
 
     /// Disconnects the input method from the text input that lost focus.
     pub fn clear_text_input_client(&self) -> Result<(), jni::errors::Error> {
-        self.3.take();
+        self.2.take();
         self.with_jni_env(|env, helper| helper.clear_text_input_client(env))
     }
 
@@ -778,7 +759,7 @@ fn callback_update_text<'local>(
         if let Some(adaptor) = CURRENT_WINDOW.with_borrow(|x| x.upgrade()) {
             // Input methods also move the composing region when the user taps or selects, which
             // mustn't hide the handles.
-            let previous = adaptor.java_helper.3.replace(Some(remote_state.clone()));
+            let previous = adaptor.java_helper.2.replace(Some(remote_state.clone()));
             if previous.is_none_or(|previous| {
                 (&previous.text, previous.cursor, previous.anchor)
                     != (&remote_state.text, remote_state.cursor, remote_state.anchor)
