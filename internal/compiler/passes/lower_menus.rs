@@ -279,6 +279,26 @@ fn process_context_menu(
         return false;
     }
 
+    // A `show` handler of the application's own replaces the built-in menu: the area still
+    // reports a right click, the Menu key and a long press through it, and the handler opens
+    // whatever it likes there, such as a PopupWindow drawn by the application.
+    if !is_internal && context_menu_elem.borrow().binding(SHOW).is_some() {
+        if let Some(menu_elem) = find_root_menu(context_menu_elem, "ContextMenu", diag) {
+            diag.push_error(
+                "A ContextMenuArea with its own 'show' handler doesn't show a Menu: remove one of them"
+                    .into(),
+                &*menu_elem.borrow(),
+            );
+        }
+        context_menu_elem.borrow_mut().base_type = components.context_menu_internal.clone();
+        for (name, _) in &components.context_menu_internal.property_list() {
+            if let Some(decl) = context_menu_elem.borrow().property_declarations.get(name) {
+                diag.push_error(format!("Cannot re-define internal property '{name}'"), &decl.node);
+            }
+        }
+        return true;
+    }
+
     // generate the show callback
     let source_location = Some(context_menu_elem.borrow().to_source_location());
     let position = Expression::FunctionParameterReference {

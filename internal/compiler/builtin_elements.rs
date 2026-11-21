@@ -2177,9 +2177,31 @@ fn build(l: &mut Loader) {
         /// On Android, the menu is shown with a long press.
         /// Call the `show()` function on the `ContextMenuArea` element to programmatically show the context menu.
         ///
-        /// One of the children of the `ContextMenuArea` must be a `Menu` element, which defines the menu to be shown.
+        /// Unless it has a `show` handler of its own (see below), one of the children of the `ContextMenuArea` must be a `Menu` element, which defines the menu to be shown.
         /// There can be at most one `Menu` child, all other children must be of a different type and will be shown as regular visual children.
         /// Define the structure of the menu by placing `MenuItem` or `Menu` elements inside that `Menu`.
+        ///
+        /// To show a menu of your own instead, for example a `PopupWindow` drawn to match your application,
+        /// declare a `show(position)` handler and no `Menu`. A right click, the "Menu" key, a long press
+        /// and a call of `show()` then run the handler, with the position relative to the `ContextMenuArea`,
+        /// and `close()` does nothing: close your popup yourself.
+        ///
+        /// ```slint
+        /// export component Example {
+        ///     area := ContextMenuArea {
+        ///         show(position) => {
+        ///             menu.x = position.x;
+        ///             menu.y = position.y;
+        ///             menu.show();
+        ///         }
+        ///     }
+        ///     menu := PopupWindow {
+        ///         width: 120px;
+        ///         height: 60px;
+        ///         Rectangle { background: lightgray; }
+        ///     }
+        /// }
+        /// ```
         ///
         /// ## Example
         ///
@@ -2221,6 +2243,7 @@ fn build(l: &mut Loader) {
             //! ### show(Point)
             //!
             //! Call this function to programmatically show the context menu at the given position relative to the `ContextMenuArea` element.
+            //! With a `show` handler of your own, calling it runs that handler.
             //!
             //! ## close()
             //!
