@@ -8,14 +8,33 @@ export component TabBarBase inherits TouchArea {
     // The total number of tabs
     in-out property <int> num-tabs;
 
+    // The tab that keyboard navigation moves to, in the styles that move the focus apart from the selection
+    in-out property <int> focused-tab;
+
+    // `if` and `for` can add and remove tabs.
+    // Assign only when out of range, as an assignment removes the binding of `current-index`.
+    changed num-tabs => {
+        if root.current != root.clamp-tab(root.current) {
+            root.current = root.clamp-tab(root.current);
+        }
+        if root.focused-tab != root.clamp-tab(root.focused-tab) {
+            root.focused-tab = root.clamp-tab(root.focused-tab);
+        }
+    }
+
+    // Returns the index of the existing tab closest to `index`, or -1 when there are no tabs
+    protected pure function clamp-tab(index: int) -> int {
+        return Math.min(Math.max(index, 0), root.num-tabs - 1);
+    }
+
     // Returns the index of the previous tab
     protected pure function previous-tab() -> int {
-        return Math.max(root.current - 1,  0);
+        return root.clamp-tab(root.current - 1);
     }
 
     // Returns the index of the next tab
     protected pure function next-tab() -> int {
-        return Math.min(root.current + 1, root.num-tabs - 1);
+        return root.clamp-tab(root.current + 1);
     }
 
     private property <length> scroll-delta: 2px;
