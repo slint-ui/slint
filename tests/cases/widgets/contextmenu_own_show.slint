@@ -1,0 +1,76 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A ContextMenuArea with a `show` handler of its own and no Menu: a right click, the Menu key
+// and a call of `show()` run the handler, which opens a popup of the application's own, and
+// left clicks still reach what is inside the area.
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+
+    forward-focus: fs;
+
+    in-out property <string> result;
+    in-out property <int> left-clicks;
+
+    area := ContextMenuArea {
+        show(position) => {
+            result += "show(" + position.x / 1px + "," + position.y / 1px + ")";
+            popup.show();
+        }
+        fs := FocusScope { }
+        TouchArea {
+            clicked => { left-clicks += 1; }
+        }
+    }
+
+    popup := PopupWindow {
+        x: 100px;
+        y: 100px;
+        width: 50px;
+        height: 50px;
+        Rectangle { background: red; }
+    }
+
+    public function show-at(x: length, y: length) {
+        area.show({ x: x, y: y });
+    }
+
+    out property <bool> test: result == "";
+}
+
+/*
+```rust
+use slint::{platform::WindowEvent, platform::PointerEventButton, platform::Key, LogicalPosition, SharedString};
+
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+
+// A left click reaches the TouchArea inside, and doesn't run the handler.
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(15.0, 25.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(15.0, 25.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_left_clicks(), 1);
+assert_eq!(instance.get_result(), "");
+
+// A right click runs it, where the click was.
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(15.0, 25.0), button: PointerEventButton::Right });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(15.0, 25.0), button: PointerEventButton::Right });
+assert_eq!(instance.get_result(), "show(15,25)");
+assert_eq!(instance.get_left_clicks(), 1);
+
+// A click outside closes the application's popup, which the handler opened.
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(250.0, 250.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(250.0, 250.0), button: PointerEventButton::Left });
+
+// The Menu key runs it too, at the area's origin.
+instance.set_result("".into());
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::Menu));
+assert_eq!(instance.get_result(), "show(0,0)");
+
+// And so does a call of `show()`.
+instance.set_result("".into());
+instance.invoke_show_at(40.0, 60.0);
+assert_eq!(instance.get_result(), "show(40,60)");
+```
+*/

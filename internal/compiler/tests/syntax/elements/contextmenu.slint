@@ -4,12 +4,11 @@
 export component A  {
     ContextMenuArea {
         show => {
-//      >error{'show' is not a callback in ContextMenuArea}
             debug("hello");
         }
 
         Menu {
-//     <error{'show' is not a callback in ContextMenuArea}
+//      >   <error{A ContextMenuArea with its own 'show' handler doesn't show a Menu: remove one of them}
         }
 
 
@@ -26,6 +25,12 @@ export component A  {
 
     ContextMenuArea { Rectangle {} }
 //  >              <error{ContextMenuArea should have a Menu}
+
+    // Its own handler instead of a Menu.
+    ContextMenuArea {
+        show(position) => { debug(position.x); }
+        Rectangle {}
+    }
 
     ContextMenuArea {
         Menu {
