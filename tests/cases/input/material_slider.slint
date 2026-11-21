@@ -1,0 +1,270 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The Material Slider takes the finger on its whole track, like Android's Material slider.
+
+// Python is ignored because include paths aren't forwarded in the generated stubs.
+//ignore: pyi
+
+import { Slider } from "../../../ui-libraries/material/src/ui/components/slider.slint";
+
+export component TestCase inherits Window {
+    width: 200px;
+    height: 760px;
+
+    out property <float> drag-value <=> drag.value;
+    out property <int> drag-releases;
+    out property <float> drag-released;
+    out property <float> thumb-value <=> thumb.value;
+    out property <float> stepped-value <=> stepped.value;
+    out property <float> continuous-value <=> continuous.value;
+    out property <float> scrolled-value <=> scrolled.value;
+    out property <int> scrolled-releases;
+    out property <float> disabled-value <=> disabled.value;
+    in-out property <bool> disabled-enabled: true;
+    out property <float> unit-step-value <=> unit-step.value;
+    out property <float> uneven-value <=> uneven.value;
+    out property <float> narrow-value <=> narrow.value;
+    out property <float> rounding-value <=> rounding.value;
+    out property <float> signed-value <=> signed.value;
+    public function focus-disabled() {
+        disabled.focus();
+    }
+
+    drag := Slider {
+        accessible-label: "drag";
+        y: 0px;
+        width: 200px;
+        height: 48px;
+        released(value) => {
+            root.drag-releases += 1;
+            root.drag-released = value;
+        }
+    }
+
+    // The layout gives it its minimum height, which is the 48px touch target.
+    VerticalLayout {
+        y: 60px;
+        width: 200px;
+        height: 60px;
+        alignment: start;
+
+        thumb := Slider {
+            value: 50;
+        }
+    }
+
+    stepped := Slider {
+        accessible-label: "stepped";
+        y: 120px;
+        width: 200px;
+        height: 48px;
+        minimum: 10;
+        maximum: 110;
+        stop_count: 4;
+        value: 10;
+    }
+
+    continuous := Slider {
+        y: 180px;
+        width: 200px;
+        height: 48px;
+        minimum: 10;
+        maximum: 110;
+        value: 10;
+    }
+
+    Flickable {
+        y: 240px;
+        width: 200px;
+        height: 60px;
+        viewport-height: 200px;
+
+        scrolled := Slider {
+            y: 0px;
+            width: 200px;
+            height: 48px;
+            value: 20;
+            released => { root.scrolled-releases += 1; }
+        }
+    }
+
+    disabled := Slider {
+        accessible-label: "disabled";
+        y: 400px;
+        width: 200px;
+        height: 48px;
+        enabled: root.disabled-enabled;
+    }
+
+    unit-step := Slider {
+        y: 460px;
+        width: 200px;
+        maximum: 4;
+        stop_count: 4;
+    }
+
+    uneven := Slider {
+        accessible-label: "uneven";
+        y: 520px;
+        width: 200px;
+        stop_count: 3;
+    }
+
+    narrow := Slider {
+        accessible-label: "narrow";
+        y: 580px;
+        width: 200px;
+        maximum: 1;
+        stop_count: 4;
+    }
+
+    // 13 / 11 * 11 is just below 13 in f32.
+    rounding := Slider {
+        accessible-label: "rounding";
+        y: 640px;
+        width: 200px;
+        maximum: 13;
+        stop_count: 11;
+    }
+
+    // -0.3 + (1 - -0.3) is just below 1 in C++'s float.
+    signed := Slider {
+        y: 700px;
+        width: 200px;
+        minimum: -0.3;
+        maximum: 1;
+        stop_count: 4;
+        value: -0.3;
+    }
+}
+
+/*
+```rust
+use slint::platform::{Key, PointerEventButton, WindowEvent};
+let instance = TestCase::new().unwrap();
+let button = PointerEventButton::Left;
+let point = |x, y| slint::LogicalPosition::new(x, y);
+let move_to = |x, y| instance.window().dispatch_event(WindowEvent::PointerMoved { position: point(x, y) });
+let press = |x, y| instance.window().dispatch_event(WindowEvent::PointerPressed { position: point(x, y), button });
+let release = |x, y| instance.window().dispatch_event(WindowEvent::PointerReleased { position: point(x, y), button });
+let find = |label| slint_testing::ElementHandle::find_by_accessible_label(&instance, label).next().unwrap();
+let tick_centers = |label| -> Vec<f32> {
+    find(label)
+        .query_descendants()
+        .match_id("Slider::tick")
+        .find_all()
+        .iter()
+        .map(|tick| tick.absolute_position().x + tick.size().width / 2.)
+        .collect()
+};
+let assert_near = |actual: Vec<f32>, expected: &[f32]| {
+    assert_eq!(actual.len(), expected.len(), "{actual:?}");
+    for (a, e) in actual.iter().zip(expected) {
+        assert!((a - e).abs() < 0.01, "{actual:?} != {expected:?}");
+    }
+};
+let thumb_width = || find("drag").query_descendants().match_id("Slider::thumb").find_first().unwrap().size().width;
+
+// A drag that starts on the track follows the finger, and the thumb narrows while held.
+assert_eq!(thumb_width(), 4.);
+press(50., 24.);
+assert_eq!(instance.get_drag_value(), 25.);
+assert_eq!(thumb_width(), 2.);
+move_to(150., 24.);
+assert_eq!(instance.get_drag_value(), 75.);
+release(150., 24.);
+assert_eq!(instance.get_drag_releases(), 1);
+assert_eq!(instance.get_drag_released(), 75.);
+assert_eq!(thumb_width(), 4.);
+
+// A right-button drag leaves the value alone.
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: point(100., 24.), button: PointerEventButton::Right });
+move_to(20., 24.);
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: point(20., 24.), button: PointerEventButton::Right });
+assert_eq!(instance.get_drag_value(), 75.);
+assert_eq!(instance.get_drag_releases(), 1);
+
+// A drag that starts next to the thumb line, 40px down the slider, follows the finger.
+press(106., 100.);
+assert_eq!(instance.get_thumb_value(), 53.);
+move_to(146., 100.);
+assert_eq!(instance.get_thumb_value(), 73.);
+release(146., 100.);
+
+// Positions, stops and tick marks count from the minimum.
+slint_testing::send_mouse_click(&instance, 60., 144.);
+assert_eq!(instance.get_stepped_value(), 35.);
+assert_eq!(tick_centers("stepped"), vec![50., 100., 150.]);
+press(180., 204.);
+assert_eq!(instance.get_continuous_value(), 100.);
+move_to(250., 204.);
+assert_eq!(instance.get_continuous_value(), 110.);
+release(250., 204.);
+
+// When the page takes the finger over, the value goes back to where it was.
+press(100., 264.);
+slint_testing::mock_elapsed_time(150);
+slint::platform::update_timers_and_animations();
+assert_eq!(instance.get_scrolled_value(), 50.);
+move_to(100., 294.);
+assert_eq!(instance.get_scrolled_value(), 20.);
+release(100., 294.);
+assert_eq!(instance.get_scrolled_releases(), 0);
+// A right press during the drag doesn't move the value the cancel goes back to.
+press(100., 264.);
+slint_testing::mock_elapsed_time(150);
+slint::platform::update_timers_and_animations();
+move_to(140., 264.);
+assert_eq!(instance.get_scrolled_value(), 70.);
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: point(140., 264.), button: PointerEventButton::Right });
+move_to(140., 294.);
+assert_eq!(instance.get_scrolled_value(), 20.);
+release(140., 294.);
+
+// A disabled slider ignores the pointer, the keyboard and accessibility actions.
+slint_testing::send_mouse_click(&instance, 100., 424.);
+assert_eq!(instance.get_disabled_value(), 50.);
+instance.invoke_focus_disabled();
+slint_testing::send_keyboard_char(&instance, Key::RightArrow.into(), true);
+slint_testing::send_keyboard_char(&instance, Key::RightArrow.into(), false);
+assert_eq!(instance.get_disabled_value(), 51.);
+instance.set_disabled_enabled(false);
+slint_testing::send_mouse_click(&instance, 150., 424.);
+slint_testing::send_keyboard_char(&instance, Key::RightArrow.into(), true);
+slint_testing::send_keyboard_char(&instance, Key::RightArrow.into(), false);
+find("disabled").invoke_accessible_increment_action();
+assert_eq!(instance.get_disabled_value(), 51.);
+// A right press that is cancelled keeps the current value, not the one from an earlier press.
+instance.set_disabled_enabled(true);
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: point(100., 424.), button: PointerEventButton::Right });
+instance.set_disabled_enabled(false);
+move_to(110., 424.);
+assert_eq!(instance.get_disabled_value(), 51.);
+
+// Stops work whatever the range: a step of 1, a range that doesn't divide evenly, a range below the stop count.
+slint_testing::send_mouse_click(&instance, 74., 484.);
+assert_eq!(instance.get_unit_step_value(), 1.);
+press(190., 544.);
+assert_eq!(instance.get_uneven_value(), 100.);
+release(190., 544.);
+assert_near(tick_centers("uneven"), &[200. / 3., 400. / 3.]);
+assert_near(tick_centers("narrow"), &[50., 100., 150.]);
+slint_testing::send_mouse_click(&instance, 74., 604.);
+assert_eq!(instance.get_narrow_value(), 0.25);
+find("narrow").invoke_accessible_increment_action();
+assert_eq!(instance.get_narrow_value(), 0.5);
+find("rounding").set_accessible_value("13");
+assert_eq!(instance.get_rounding_value(), 13.);
+// Assistive technology moves by one stop.
+assert_eq!(find("stepped").accessible_value_step(), Some(25.));
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+// The last stop is exactly the maximum.
+slint_testing::send_mouse_click(&instance, 199., 724.);
+assert(instance.get_signed_value() == 1.f);
+```
+*/
