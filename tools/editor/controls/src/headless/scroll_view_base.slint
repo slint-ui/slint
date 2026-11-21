@@ -1,0 +1,86 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ScrollViewInterface } from "std-widget-interfaces.slint";
+import { ScrollBarSurface } from "scroll_bar_base.slint";
+
+export component ScrollViewBase {
+    implement ScrollViewInterface <=> self;
+
+    in property <bool> enabled: true;
+    in property <bool> mouse-drag-pan-enabled <=> viewport.mouse-drag-pan-enabled;
+    in property <ScrollBarPolicy> vertical-scrollbar-policy: as-needed;
+    in property <ScrollBarPolicy> horizontal-scrollbar-policy: as-needed;
+    in property <length> vertical-scrollbar-width;
+    in property <length> horizontal-scrollbar-height;
+
+    @shadowable in-out property <length> content-x <=> viewport.content-x;
+    @shadowable in-out property <length> content-y <=> viewport.content-y;
+    @shadowable in-out property <length> content-width <=> viewport.content-width;
+    @shadowable in-out property <length> content-height <=> viewport.content-height;
+    in-out property <bool> has-focus;
+    out property <length> visible-width: viewport.width;
+    out property <length> visible-height: viewport.height;
+
+    callback scrolled();
+
+    slot <ScrollBarSurface> vertical-scrollbar;
+    slot <ScrollBarSurface> horizontal-scrollbar;
+
+    private property <length> vertical-gutter: root.vertical-scrollbar-policy == ScrollBarPolicy.always-off
+        ? 0px : max(0px, root.vertical-scrollbar-width);
+    private property <length> horizontal-gutter: root.horizontal-scrollbar-policy == ScrollBarPolicy.always-off
+        ? 0px : max(0px, root.horizontal-scrollbar-height);
+
+    min-width: root.vertical-gutter;
+    min-height: root.horizontal-gutter;
+    preferred-width: 100%;
+    preferred-height: 100%;
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
+
+    viewport := Flickable {
+        x: 0px;
+        y: 0px;
+        width: max(0px, root.width - root.vertical-gutter);
+        height: max(0px, root.height - root.horizontal-gutter);
+        mouse-drag-pan-enabled: false;
+        flicked => { root.scrolled(); }
+
+        @children
+    }
+
+    VerticalLayout {
+        x: viewport.width;
+        y: 0px;
+        width: root.vertical-gutter;
+        height: root.visible-height;
+
+        vertical-scrollbar {
+            enabled: root.enabled;
+            horizontal: false;
+            policy: root.vertical-gutter > 0px ? root.vertical-scrollbar-policy : always-off;
+            maximum: max(0px, root.content-height - root.visible-height);
+            page-size: root.visible-height;
+            value <=> root.content-y;
+            scrolled => { root.scrolled(); }
+        }
+    }
+
+    HorizontalLayout {
+        x: 0px;
+        y: viewport.height;
+        width: root.visible-width;
+        height: root.horizontal-gutter;
+
+        horizontal-scrollbar {
+            enabled: root.enabled;
+            horizontal: true;
+            policy: root.horizontal-gutter > 0px ? root.horizontal-scrollbar-policy : always-off;
+            maximum: max(0px, root.content-width - root.visible-width);
+            page-size: root.visible-width;
+            value <=> root.content-x;
+            scrolled => { root.scrolled(); }
+        }
+    }
+}

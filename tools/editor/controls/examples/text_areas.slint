@@ -1,0 +1,97 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { BasicTheme, TextArea } from "../src/basic.slint";
+import { TextAreaBase } from "../src/headless.slint";
+import { PreviewSettings } from "preview_settings.slint";
+import { ExampleSection } from "section.slint";
+
+export component TextAreaExamples inherits VerticalLayout {
+    in-out property <int> size-index: 1;
+    in-out property <bool> preview-disabled;
+    private property <int> size: clamp(root.size-index, 0, 2);
+
+    vertical-stretch: 0;
+    spacing: 20px;
+
+    PreviewSettings {
+        control-name: "TextArea";
+        size-index <=> root.size-index;
+        disabled <=> root.preview-disabled;
+    }
+
+    ExampleSection {
+        title: "Multiline input";
+        description: "Edit notes with word wrapping, or scroll a read-only log.";
+
+        HorizontalLayout {
+            spacing: 16px;
+            TextArea {
+                height: [76px, 104px, 144px][root.size];
+                font-size: [12px, 14px, 16px][root.size];
+                enabled: !root.preview-disabled;
+                accessible-label: "Release notes";
+                placeholder-text: "Write release notes…";
+            }
+
+            TextArea {
+                height: [76px, 104px, 144px][root.size];
+                font-size: [12px, 14px, 16px][root.size];
+                enabled: !root.preview-disabled;
+                accessible-label: "Build log";
+                text: "Checking assets…\nCompiling UI…\nRunning tests…\nPackaging release…\nBuild complete.";
+                read-only: true;
+                wrap: no-wrap;
+            }
+        }
+    }
+
+    ExampleSection {
+        title: "Custom surface";
+        description: "Drag the custom scrollbar. Clear the notes to see the custom placeholder.";
+
+        TextAreaBase {
+            accessible-label: "Draft description";
+            placeholder-text: "Describe your changes…";
+            text: "Release notes\n\nAdded keyboard navigation to the sidebar.\nImproved the contrast of focus indicators.\nPreserved drafts when switching panels.\nUpdated the empty-state messages.";
+            vertical-scrollbar-policy: as-needed;
+            vertical-scrollbar-width: 12px;
+            enabled: !root.preview-disabled;
+            height: 96px;
+            horizontal-padding: 12px;
+            vertical-padding: 10px;
+            font-size: 14px;
+            foreground-color: BasicTheme.foreground;
+
+            background << Rectangle {
+                border-width: 2px;
+                border-radius: 10px;
+                border-color: root.preview-disabled ? BasicTheme.border : BasicTheme.accent;
+            }
+            placeholder << Text {
+                text: "Describe your changes…";
+                color: BasicTheme.disabled-foreground;
+                font-size: 14px;
+                x: 0px;
+                y: 0px;
+                accessible-role: none;
+            }
+            vertical-scrollbar-track << Rectangle {
+                Rectangle {
+                    x: 4px;
+                    width: parent.width - self.x;
+                    border-radius: self.width / 2;
+                    background: BasicTheme.accent.with-alpha(0.16);
+                }
+            }
+            vertical-scrollbar-thumb << Rectangle {
+                Rectangle {
+                    x: 4px;
+                    width: parent.width - self.x;
+                    border-radius: self.width / 2;
+                    background: root.preview-disabled ? BasicTheme.border : BasicTheme.accent;
+                }
+            }
+        }
+    }
+}

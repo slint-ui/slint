@@ -1,0 +1,22 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ScrollViewBase } from "../headless/scroll_view_base.slint";
+import { ScrollBar, ScrollBarStyle, ScrollBarStyles } from "scroll_bar.slint";
+
+export component ScrollView inherits ScrollViewBase {
+    in property <ScrollBarStyle> scrollbar-style: ScrollBarStyles.standard;
+
+    vertical-scrollbar-width: 12px;
+    horizontal-scrollbar-height: 12px;
+
+    vertical-scrollbar << ScrollBar {
+        style: root.scrollbar-style;
+        thickness: root.vertical-scrollbar-width;
+    }
+
+    horizontal-scrollbar << ScrollBar {
+        style: root.scrollbar-style;
+        thickness: root.horizontal-scrollbar-height;
+    }
+}
