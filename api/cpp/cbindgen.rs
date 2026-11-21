@@ -1442,5 +1442,34 @@ pub fn gen_all(
     if enabled_features.live_preview {
         live_preview_enums(&gen_dir)?;
     }
+    ensure_enums_have_fixed_size(&gen_dir)?;
     Ok(deps)
+}
+
+/// Rust's bare-metal Arm targets size a `#[repr(C)]` enum to fit its values,
+/// while a C++ `enum class` without an underlying type is always an `int`.
+fn ensure_enums_have_fixed_size(gen_dir: &Path) -> anyhow::Result<()> {
+    // Written by hand in this file, from enums that are `#[repr(u32)]`.
+    const HAND_WRITTEN: &[&str] =
+        &["slint_enums.h", "slint_enums_internal.h", "slint_live_preview_enums.h"];
+    for entry in std::fs::read_dir(gen_dir).context("Error reading the include directory")? {
+        let path = entry?.path();
+        let name = path.file_name().and_then(|n| n.to_str()).unwrap_or_default();
+        if !name.ends_with(".h") || HAND_WRITTEN.contains(&name) {
+            continue;
+        }
+        let header = std::fs::read_to_string(&path)
+            .with_context(|| format!("Error reading {}", path.display()))?;
+        for line in header.lines().map(str::trim) {
+            if let Some(declaration) = line.strip_prefix("enum class ")
+                && declaration.ends_with('{')
+                && !declaration.contains(':')
+            {
+                anyhow::bail!(
+                    "{name}: `{line}` has no underlying type. Use `#[repr(u32)]` or `#[repr(C, u32)]` on the Rust enum"
+                );
+            }
+        }
+    }
+    Ok(())
 }

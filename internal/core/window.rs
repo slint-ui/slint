@@ -47,7 +47,7 @@ fn previous_focus_item(item: ItemRc) -> ItemRc {
 }
 
 /// The window kind when creating a new child window
-#[repr(C)]
+#[repr(u32)]
 pub enum WindowKind {
     /// Tooltip
     ToolTip,
