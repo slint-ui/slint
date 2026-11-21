@@ -1,0 +1,68 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// C++ live preview: no element search (wrapper has no item tree)
+//ignore: cpp-live-preview
+
+import { TimePickerPopup, Time } from "std-widgets.slint";
+export { Time }
+
+export component TestCase inherits Window {
+    width: 600px;
+    height: 600px;
+
+    t := TimePickerPopup {
+        x: 0;
+        y: 0;
+        time: { hour: 8, minute: 45 };
+    }
+
+    public function show-popup() {
+        t.show();
+    }
+}
+
+/*
+
+```rust
+use slint::platform::{PointerEventButton, WindowEvent};
+use slint::LogicalPosition;
+
+let instance = TestCase::new().unwrap();
+instance.invoke_show_popup();
+
+let clock = slint_testing::ElementHandle::find_by_element_type_name(&instance, "Clock").next().unwrap();
+let pos = clock.absolute_position();
+let size = clock.size();
+let center = LogicalPosition::new(pos.x + size.width / 2., pos.y + size.height / 2.);
+// A point on the outer ring at `turns` of a full turn, clockwise from 12 o'clock.
+let at = |turns: f32| {
+    let a = turns * std::f32::consts::TAU;
+    LogicalPosition::new(center.x + 100. * a.sin(), center.y - 100. * a.cos())
+};
+let value = |label: &str| {
+    slint_testing::ElementHandle::find_by_accessible_label(&instance, label)
+        .next()
+        .unwrap()
+        .accessible_value()
+        .unwrap()
+};
+let button = PointerEventButton::Left;
+
+// Hours: clicking at 3 o'clock selects 3 and switches to minutes.
+let p = at(0.25);
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: p, button });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: p, button });
+assert_eq!(value("hour"), "3");
+
+// Minutes: dragging selects values between the 5-minute labels.
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: at(0.), button });
+assert_eq!(value("minute"), "0");
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: at(8. / 60.) });
+assert_eq!(value("minute"), "8");
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: at(37. / 60.) });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: at(37. / 60.), button });
+assert_eq!(value("minute"), "37");
+assert_eq!(value("hour"), "3");
+```
+*/
