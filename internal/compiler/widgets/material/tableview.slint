@@ -102,7 +102,6 @@ component TableViewRow inherits Rectangle {
     min-height: max(42px, layout.min-height);
 
     state-layer := StateLayer {
-        // Selection is safe to trigger from a window-activating click.
         accepts-activation-clicks: true;
         checked: root.selected;
         background: MaterialPalette.accent-background;

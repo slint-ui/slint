@@ -12,6 +12,7 @@ export component TestCase {
     in-out property <int> double-clicks;
     in-out property <int> moves;
     in-out property <int> accepting-clicks;
+    in-out property <int> accepting-double-clicks;
     out property <bool> is-pressed <=> default-ta.pressed;
     out property <bool> accepting-is-pressed <=> accepting-ta.pressed;
 
@@ -31,8 +32,6 @@ export component TestCase {
             }
         }
     }
-
-    in-out property <int> accepting-double-clicks;
 
     accepting-ta := TouchArea {
         x: 100phx;

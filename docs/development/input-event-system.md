@@ -64,14 +64,13 @@ and the item that press was delivered to.
 
 ### Activation Clicks (macOS "first mouse")
 
-On macOS, a click on an inactive window activates the window, and by
-convention only "safe" interactions (selection, scrolling, text-cursor
-placement) react to that click, while action-triggering controls (buttons)
-ignore it. The backend tags both the press and the matching release of such a
-click with `is_activation_click` (always false on other platforms and for
-events from the public `platform::WindowEvent` API).
+On macOS, a click on an inactive window activates the window.
+By convention, only safe interactions react to that click: selection, scrolling, and text-cursor placement.
+Controls that trigger an action, such as buttons, ignore it.
+The backend tags both the press and the matching release of such a click with `is_activation_click`.
+The flag is always false on other platforms, and for events from the public `platform::WindowEvent` API.
 
-The policy is applied at delivery time by the items:
+The items apply the policy at delivery time:
 
 - `TouchArea` suppresses the pressed state for activation clicks, and with it `clicked`, `double-clicked`, and `moved`.
   It keeps the grab and still emits `pointer-event` with the `is-activation-click` field set.
@@ -80,9 +79,8 @@ The policy is applied at delivery time by the items:
 - `Text` ignores an activation release for `link-clicked`.
 - `SliderBase` (std-widgets) returns early from its `pointer-event` handler,
   since it changes the value on pointer-down directly.
-- `Flickable`, `TextInput`, `SwipeGestureHandler`, and `ContextMenuArea`
-  process activation clicks normally on purpose: panning, cursor placement,
-  and context menus are safe on a window-activating click.
+- `Flickable`, `TextInput`, `SwipeGestureHandler`, and `ContextMenuArea` process activation clicks normally on purpose.
+  Panning, cursor placement, and context menus are safe on a window-activating click.
 
 ### Mouse Input State
 
