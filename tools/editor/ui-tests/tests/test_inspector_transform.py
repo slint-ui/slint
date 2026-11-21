@@ -11,7 +11,7 @@ import slint_testing
 from canvas_interactions import center
 from editor_sync import wait_for_source
 from inspector_interactions import edit_field as edit_inspector_field
-from inspector_interactions import slider_position
+from inspector_interactions import inspector_field, slider_position
 from inspector_interactions import wait_for_field as wait_for_inspector_field
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
@@ -214,7 +214,7 @@ def test_corner_field_scrubs_with_transient_preview(
         select_element(window, "Rectangle")
         if index >= 0:
             action(window, "Separate corners")
-        field = element(window, label, role=slint_testing.AccessibleRole.TextInput)
+        field = inspector_field(window, label, slint_testing.AccessibleRole.TextInput)
         rect = field.absolute_rect
         start = slint_testing.LogicalPosition(
             x=rect.x + rect.width * position, y=rect.y + rect.height / 2

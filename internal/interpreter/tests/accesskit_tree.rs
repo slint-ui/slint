@@ -110,7 +110,7 @@ struct Fixture {
 impl Fixture {
     fn new() -> Self {
         i_slint_backend_testing::init_no_event_loop();
-        let result = spin_on::spin_on(
+        let result = i_slint_compiler::poll_ready(
             Compiler::default().build_from_source(SOURCE.into(), Default::default()),
         );
         assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());

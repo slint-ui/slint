@@ -231,11 +231,14 @@ impl<'a> SkiaItemRenderer<'a> {
         );
 
         // Inner "hole" rrect: geometry inset by spread on each side, translated by offset.
-        let inner_rect = skia_safe::Rect::new(
-            spread + offset_x,
-            spread + offset_y,
-            width - spread + offset_x,
-            height - spread + offset_y,
+        // A spread past half a side collapses the hole to the center, as in CSS.
+        let hole_width = (width - 2. * spread).max(0.);
+        let hole_height = (height - 2. * spread).max(0.);
+        let inner_rect = skia_safe::Rect::from_xywh(
+            (width - hole_width) / 2. + offset_x,
+            (height - hole_height) / 2. + offset_y,
+            hole_width,
+            hole_height,
         );
         let inner_radius = shadow_options.inner_radius();
         let inner_rrect = to_skia_rrect(

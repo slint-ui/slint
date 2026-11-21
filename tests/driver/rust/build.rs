@@ -361,7 +361,7 @@ fn compile_and_generate(
         compiler_config.default_translation_context =
             i_slint_compiler::DefaultTranslationContext::None;
     }
-    let (root_component, diag, loader) = spin_on::spin_on(compile_source(
+    let (root_component, diag, loader) = i_slint_compiler::poll_ready(compile_source(
         &source_path::SourcePath::new(&testcase.absolute_path),
         source.to_owned(),
         BuildDiagnostics::default(),

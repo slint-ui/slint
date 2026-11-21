@@ -54,7 +54,7 @@ fn do_test(snippet: &str, path: &str) -> Result<(), Box<dyn std::error::Error>> 
         ))
         .collect(),
     );
-    let result = spin_on::spin_on(compiler.build_from_source(code, path.into()));
+    let result = i_slint_compiler::poll_ready(compiler.build_from_source(code, path.into()));
 
     let diagnostics = result
         .diagnostics()
@@ -92,7 +92,7 @@ fn do_test_sc(snippet: &str, path: &str) -> Result<(), Box<dyn std::error::Error
         i_slint_compiler::generator::OutputFormat::SlintSc,
     );
     config.edition = Some(i_slint_compiler::project_file::SlintEdition::current());
-    let (doc, diag, loader) = spin_on::spin_on(i_slint_compiler::compile_source(
+    let (doc, diag, loader) = i_slint_compiler::poll_ready(i_slint_compiler::compile_source(
         &i_slint_compiler::source_path::SourcePath::new(path),
         code,
         Default::default(),
