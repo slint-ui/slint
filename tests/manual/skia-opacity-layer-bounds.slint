@@ -1,0 +1,36 @@
+// Copyright © 2026 Marius Cirsta
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+// cSpell: ignore Cirsta
+
+export component TestCase inherits Window {
+    width: 1200px; height: 800px; background: white;
+    // Overflow must participate in group opacity, including its overlap.
+    Rectangle {
+        x: 20px; y: 20px; width: 40px; height: 40px;
+        background: red; opacity: 0.5;
+        Rectangle {x: -10px; y: 10px; width: 70px; height: 20px; background: blue;}
+    }
+    // Transform the overflowing child, not the opacity item's geometry.
+    Rectangle {
+        x: 100px; y: 20px; width: 20px; height: 20px; opacity: 0.5;
+        Rectangle {x: 0px; y: 0px; width: 40px; height: 20px; background: blue; transform-rotation: 90deg; transform-origin: {x: 0px, y: 0px};}
+        Rectangle {width: 10px; height: 10px; background: blue;}
+    }
+    // An offscreen parent may have a visible child inside an ancestor clip.
+    Rectangle {
+        x: 200px; y: 20px; width: 50px; height: 50px; clip: true;
+        Rectangle {
+            x: 2000px; y: -8000px; width: 50px; height: 50px;
+            background: red; opacity: 0.5;
+            Rectangle {x: -1990px; y: 8030px; width: 50px; height: 50px; background: blue;}
+        }
+    }
+    // Resize the window with seven translucent groups, as in a thumbnail strip.
+    for i in 7: Rectangle {
+        x: 16px + i * 80px; y: parent.height - 80px;
+        width: 64px; height: 64px; background: #ddeef4;
+        border-width: 1px; border-color: #668899; border-radius: 8px;
+        opacity: 0.65;
+        Rectangle { x: 6px; y: 6px; width: 52px; height: 52px; background: @linear-gradient(45deg, #4488bb, #77bb99); }
+    }
+}
