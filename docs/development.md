@@ -77,6 +77,14 @@ Their manifests load `codex-skills/` and `claude-skills/`, respectively.
 Keep the project discovery and documentation lookup instructions aligned across both skills.
 Cursor and Antigravity have their manifests at the `ai-plugins` root.
 
+The Rust `slint` crate ships the standalone skill and registers the documentation MCP server through `api/rs/slint/Symposium.toml`.
+Its `skills` symlink points to `ai-plugins/skills`, so edits apply to both path dependencies and published packages.
+Cargo packages the skill and its linked guidance as regular files, keeping the published crate self-contained.
+Symposium cannot match path or Git dependencies against an audit because the symlink leaves the crate directory.
+Explicit consent still enables them; published crates remain eligible for auditing.
+Run `python3 -m unittest discover -s ai-plugins -p 'test_symposium.py'` to check the package contents and extracted skill references.
+The workspace package check needs network access when the Cargo registry cache is incomplete.
+
 `mcp/slint-preview` contains the MCP App that shows `.slint` source as a live preview in the conversation.
 The [release mirror](https://github.com/slint-ui/ai-plugins) syncs from `release/1` and selects `release` in `mcp/slint-preview/channel.json`.
 The [nightly mirror](https://github.com/slint-ui/ai-plugins-nightly) syncs from `master` and selects `snapshot`.

@@ -845,6 +845,8 @@ jobs:
               with:
                   target: wasm32-unknown-unknown
                   key: slint-preview-checker
+            - name: Check the Symposium crate package
+              run: python3 -m unittest discover -s ai-plugins -p 'test_symposium.py' -v
             - name: Install wasm-pack
               run: curl https://wasm-bindgen.github.io/wasm-pack/installer/init.sh -sSf | sh
             - name: Build the MCP Wasm checker
