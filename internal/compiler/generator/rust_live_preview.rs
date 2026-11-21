@@ -269,7 +269,7 @@ fn generate_public_component(
             }
         }
 
-        /// This is needed for the the internal tests  (eg `slint_testing::send_keyboard_string_sequence`)
+        /// This is needed for the internal tests  (eg `slint_testing::send_keyboard_string_sequence`)
         impl<X> ::core::convert::From<#public_component_id> for sp::VRc<sp::ItemTreeVTable, X>
             where Self : ::core::convert::From<sp::live_preview::ComponentInstance>
         {

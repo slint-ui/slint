@@ -296,7 +296,7 @@ The exported `MyData` struct can be constructed as follows:
 ```python
 import slint
 
-# Look for for `app.slint` in `sys.path`:
+# Look for `app.slint` in `sys.path`:
 main_window = slint.loader.app.MainWindow()
 
 data = slint.loader.app.MyData(name="Simon")
@@ -329,7 +329,7 @@ Variants of the exported `MyOption` enum can be constructed as follows:
 ```python
 import slint
 
-# Look for for `app.slint` in `sys.path`:
+# Look for `app.slint` in `sys.path`:
 main_window = slint.loader.app.MainWindow()
 
 value = slint.loader.app.MyOption.Variant2
