@@ -33,24 +33,20 @@ export component TestCase inherits Window {
     in-out property <length> focus-offset: 2px;
     in-out property <SwitchStyle> switch-style: SwitchStyles.standard;
     in-out property <length> switch-extent: 40px;
-    out property <brush> switch-color: switch.checked-color;
     out property <length> switch-dimension: switch.track-width;
     in-out property <CheckBoxStyle> check-box-style: CheckBoxStyles.standard;
     in-out property <length> check-box-extent: 20px;
-    out property <brush> check-box-color: check-box.checked-color;
     out property <length> check-box-dimension: check-box.indicator-size;
     in-out property <SliderStyle> slider-style: SliderStyles.standard;
     in-out property <length> slider-extent: 20px;
-    out property <brush> slider-color: slider.handle-color;
     out property <length> slider-dimension: slider.handle-width;
     in-out property <ComboBoxStyle> combo-box-style: ComboBoxStyles.standard;
     in-out property <length> combo-box-extent: 32px;
-    out property <brush> combo-box-color: combo-box.background-color;
     out property <length> combo-box-dimension: combo-box.item-height;
-    out property <bool> test: switch-override.checked-color == #123456 && switch-override.font-size == 13px
-        && check-box-override.checked-color == #123456 && check-box-override.font-size == 13px
-        && slider-override.handle-color == #123456 && slider-override.handle-width == 17px
-        && combo-box-override.background-color == #123456 && combo-box-override.font-size == 13px;
+    out property <bool> test: switch-override.style.checked.rest.track-color == #123456 && switch-override.font-size == 13px
+        && check-box-override.style.checked.rest.indicator-color == #123456 && check-box-override.font-size == 13px
+        && slider-override.style.rest.handle-color == #123456 && slider-override.handle-width == 17px
+        && combo-box-override.style.rest.background-color == #123456 && combo-box-override.font-size == 13px;
 
     public function focus-control(index: int) {
         if index == 0 { switch.focus(); }
@@ -80,8 +76,24 @@ export component TestCase inherits Window {
         y: 230px;
         width: 120px;
         height: 40px;
-        style: root.switch-style;
-        checked-color: #123456;
+        style: {
+            checked: {
+                rest: {
+                    track-color: #123456,
+                    ..root.switch-style.checked.rest,
+                },
+                hover: {
+                    track-color: #123456,
+                    ..root.switch-style.checked.hover,
+                },
+                pressed: {
+                    track-color: #123456,
+                    ..root.switch-style.checked.pressed,
+                },
+                ..root.switch-style.checked,
+            },
+            ..root.switch-style,
+        };
         track-width: root.switch-extent;
         focus-width: root.focus-width;
         focus-offset: root.focus-offset;
@@ -109,8 +121,24 @@ export component TestCase inherits Window {
         y: 230px;
         width: 120px;
         height: 40px;
-        style: root.check-box-style;
-        checked-color: #123456;
+        style: {
+            checked: {
+                rest: {
+                    indicator-color: #123456,
+                    ..root.check-box-style.checked.rest,
+                },
+                hover: {
+                    indicator-color: #123456,
+                    ..root.check-box-style.checked.hover,
+                },
+                pressed: {
+                    indicator-color: #123456,
+                    ..root.check-box-style.checked.pressed,
+                },
+                ..root.check-box-style.checked,
+            },
+            ..root.check-box-style,
+        };
         indicator-size: root.check-box-extent;
         focus-width: root.focus-width;
         focus-offset: root.focus-offset;
@@ -138,8 +166,21 @@ export component TestCase inherits Window {
         y: 230px;
         width: 120px;
         height: 40px;
-        style: root.slider-style;
-        handle-color: #123456;
+        style: {
+            rest: {
+                handle-color: #123456,
+                ..root.slider-style.rest,
+            },
+            hover: {
+                handle-color: #123456,
+                ..root.slider-style.hover,
+            },
+            pressed: {
+                handle-color: #123456,
+                ..root.slider-style.pressed,
+            },
+            ..root.slider-style,
+        };
         handle-width: 17px;
         enabled: root.enabled;
     }
@@ -164,9 +205,24 @@ export component TestCase inherits Window {
         y: 230px;
         width: 120px;
         height: 40px;
-        style: root.combo-box-style;
-        background-color: #123456;
-        foreground-color: #ffffff;
+        style: {
+            rest: {
+                background-color: #123456,
+                foreground-color: #ffffff,
+                ..root.combo-box-style.rest,
+            },
+            hover: {
+                background-color: #123456,
+                foreground-color: #ffffff,
+                ..root.combo-box-style.hover,
+            },
+            pressed: {
+                background-color: #123456,
+                foreground-color: #ffffff,
+                ..root.combo-box-style.pressed,
+            },
+            ..root.combo-box-style,
+        };
         min-item-height: root.combo-box-extent;
         focus-width: root.focus-width;
         focus-offset: root.focus-offset;
@@ -179,6 +235,12 @@ export component TestCase inherits Window {
 ```rust
 use slint::platform::{PointerEventButton, WindowEvent};
 let instance = TestCase::new().unwrap();
+mod visuals { include!(concat!(env!("CARGO_MANIFEST_DIR"), "/control_visuals.rs")); }
+let get_switch_color = || visuals::color(instance.window(), "TestCase::switch", "Switch::track");
+let get_check_box_color = || visuals::color(instance.window(), "TestCase::check-box", "CheckBox::indicator");
+let get_slider_color = || visuals::color(instance.window(), "TestCase::slider", "Slider::handle");
+let get_combo_box_color = || visuals::color(instance.window(), "TestCase::combo-box", "ComboBox::surface");
+
 let brush = |r, g, b| slint::Brush::from(slint::Color::from_rgb_u8(r, g, b));
 let move_to = |x, y| instance.window().dispatch_event(WindowEvent::PointerMoved { position: slint::LogicalPosition::new(x, y) });
 let press = |x, y| instance.window().dispatch_event(WindowEvent::PointerPressed { position: slint::LogicalPosition::new(x, y), button: PointerEventButton::Left });
@@ -196,18 +258,18 @@ macro_rules! toggle_states {
             instance.set_checked(checked);
             move_to(590., 310.);
             let states = if checked { &custom.checked } else { &custom.unchecked };
-            assert_eq!(instance.$color(), states.rest.$field);
+            assert_eq!($color(), states.rest.$field);
             move_to($x, 45.);
-            assert_eq!(instance.$color(), states.hover.$field);
+            assert_eq!($color(), states.hover.$field);
             press($x, 45.);
-            assert_eq!(instance.$color(), states.pressed.$field);
+            assert_eq!($color(), states.pressed.$field);
             instance.set_checked(!checked);
             let other = if checked { &custom.unchecked } else { &custom.checked };
-            assert_eq!(instance.$color(), other.pressed.$field);
+            assert_eq!($color(), other.pressed.$field);
             release($x, 45.);
             instance.set_checked(checked);
             instance.set_enabled(false);
-            assert_eq!(instance.$color(), states.disabled.$field);
+            assert_eq!($color(), states.disabled.$field);
             let before = instance.get_activations();
             press($x, 45.); release($x, 45.);
             instance.invoke_activate_all();
@@ -228,15 +290,15 @@ macro_rules! control_states {
         custom.pressed.$field = brush(0x31, 0x11, 0x71);
         instance.$set(custom.clone());
         move_to(590., 310.);
-        assert_eq!(instance.$color(), custom.rest.$field);
+        assert_eq!($color(), custom.rest.$field);
         move_to($x, 145.);
-        assert_eq!(instance.$color(), custom.hover.$field);
+        assert_eq!($color(), custom.hover.$field);
         press($x, 145.);
-        assert_eq!(instance.$color(), custom.pressed.$field);
+        assert_eq!($color(), custom.pressed.$field);
         release($x, 145.);
         instance.invoke_close_combo();
         instance.set_enabled(false);
-        assert_eq!(instance.$color(), custom.disabled.$field);
+        assert_eq!($color(), custom.disabled.$field);
         let before = instance.get_activations();
         instance.invoke_activate_all();
         assert_eq!(instance.get_activations(), before);

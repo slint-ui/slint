@@ -48,16 +48,16 @@ export component TestCase inherits Window {
     out property <bool> test: BasicTheme.palette == AppTheme.palette
         && BasicTheme.default-palette == AppTheme.light
         && BasicTheme.danger == AppTheme.palette.danger
-        && ((root.enabled && primary.background-color == AppTheme.palette.accent)
-            || (!root.enabled && primary.background-color == AppTheme.palette.disabled-background))
+        && primary.style.rest.background-color == AppTheme.palette.accent
+        && primary.style.disabled.background-color == AppTheme.palette.disabled-background
         && checkbox.style.checked.rest.indicator-color == AppTheme.palette.accent
         && switch.style.checked.rest.track-color == AppTheme.palette.accent
         && slider.style.rest.handle-color == AppTheme.palette.accent
         && combo.style.popup.highlighted.background-color == AppTheme.palette.accent
-        && ((root.enabled && field.background-color == AppTheme.palette.background)
-            || (!root.enabled && field.background-color == AppTheme.palette.disabled-background))
+        && field.style.rest.background-color == AppTheme.palette.background
+        && field.style.disabled.background-color == AppTheme.palette.disabled-background
         && primary.style.focus-color == AppTheme.palette.focus
-        && custom.background-color == #654321;
+        && custom.style.rest.background-color == #654321;
 
     BasicThemeProvider { palette: AppTheme.palette; }
 
@@ -87,23 +87,36 @@ use i_slint_core::items::{BasicBorderRectangle, BorderRectangle, ComplexText, Si
 use i_slint_core::window::WindowInner;
 use std::ops::ControlFlow;
 let instance = TestCase::new().unwrap();
+mod visuals { include!(concat!(env!("CARGO_MANIFEST_DIR"), "/control_visuals.rs")); }
+let assert_rendered = || {
+    let palette = instance.global::<BasicTheme<'_>>().get_palette();
+    let primary = if instance.get_enabled() { palette.accent } else { palette.disabled_background.clone() };
+    let field = if instance.get_enabled() { palette.background } else { palette.disabled_background };
+    assert_eq!(visuals::color(instance.window(), "TestCase::primary", "Button::surface"), primary);
+    assert_eq!(visuals::color(instance.window(), "TestCase::field", "LineEdit::surface"), field);
+};
+
 let other = TestCase::new().unwrap();
 let brush = |r, g, b| slint::Brush::from(slint::Color::from_rgb_u8(r, g, b));
 assert!(instance.get_test());
+assert_rendered();
 assert!(other.get_test());
 assert_eq!(instance.get_background_color(), brush(0xf6, 0xf8, 0xfa));
 assert_eq!(instance.get_accent(), brush(0x1c, 0x87, 0x3c));
 for dark in [true, false, true] {
     instance.set_dark(dark);
     assert!(instance.get_test());
+    assert_rendered();
     assert!(other.get_test());
     assert_eq!(instance.get_background_color(), if dark { brush(0x18, 0x21, 0x2b) } else { brush(0xf6, 0xf8, 0xfa) });
     assert_eq!(instance.get_accent(), if dark { brush(0xaa, 0xbb, 0xcc) } else { brush(0x1c, 0x87, 0x3c) });
     assert_eq!(other.get_accent(), brush(0x1c, 0x87, 0x3c));
     instance.set_enabled(false);
     assert!(instance.get_test());
+    assert_rendered();
     instance.set_enabled(true);
     assert!(instance.get_test());
+    assert_rendered();
 }
 let theme = instance.global::<BasicTheme<'_>>();
 assert_eq!(theme.get_default_palette().danger, brush(0xb9, 0x1c, 0x1c));
@@ -114,6 +127,7 @@ instance.set_use_presets(true);
 for dark in [true, false] {
     instance.set_dark(dark);
     assert!(instance.get_test());
+    assert_rendered();
     let expected = if dark { presets.get_dark() } else { presets.get_light() };
     assert_eq!(theme.get_palette(), expected);
     assert_eq!(instance.get_background_color(), if dark { brush(0x16, 0x1b, 0x22) } else { brush(0xf6, 0xf8, 0xfa) });
@@ -122,6 +136,7 @@ for dark in [true, false] {
     assert!(other.get_test());
     instance.set_enabled(false);
     assert!(instance.get_test());
+    assert_rendered();
     instance.set_enabled(true);
 }
 
