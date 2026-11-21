@@ -1,0 +1,35 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+# cSpell: ignore mscorefonts msttcorefonts debconf libsystemd libwayland tlsv dejavu lato
+
+ARG PLAYWRIGHT_VERSION=1.65.0
+FROM mcr.microsoft.com/playwright:v${PLAYWRIGHT_VERSION}-noble@sha256:9beb546099e11f52d62e505537914870e01a67e0e6b00ae41da4775324e73dbe
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    CARGO_HOME=/home/runner/.cargo \
+    RUSTUP_HOME=/home/runner/.rustup
+ENV PATH="/home/runner/.cargo/bin:${PATH}"
+
+RUN echo 'ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true' | debconf-set-selections \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        build-essential ca-certificates clang cmake curl doxygen fonts-dejavu-core fonts-dejavu-extra fonts-lato fonts-liberation gettext git \
+        libfontconfig-dev libgbm-dev libinput-dev libseat-dev libssl-dev libsystemd-dev \
+        libudev-dev libwayland-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev \
+        libxkbcommon-x11-dev ninja-build pkg-config python3 sudo ttf-mscorefonts-installer zip \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN test "$(fc-match -f '%{family}' sans-serif)" = 'DejaVu Sans' \
+    && echo 'ae7b7855e115a5966d8b1b3f80f254ccc117ec86f9965e202ee2940453837280  /usr/share/fonts/truetype/dejavu/DejaVuSans.ttf' | sha256sum -c -
+
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs -o /tmp/rustup-init.sh \
+    && sh /tmp/rustup-init.sh -y --profile minimal --default-toolchain none --no-modify-path \
+    && rustup toolchain install stable --profile minimal --component clippy --target aarch64-linux-android \
+    && rustup toolchain install nightly --profile minimal --target aarch64-linux-android \
+    && rustup default stable \
+    && rm /tmp/rustup-init.sh
+
+ARG PLAYWRIGHT_VERSION
+ENV SLINT_DOCS_CI_PLAYWRIGHT_VERSION=$PLAYWRIGHT_VERSION
+
+LABEL org.opencontainers.image.source="https://github.com/slint-ui/slint"
