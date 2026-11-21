@@ -234,8 +234,9 @@ impl AndroidWindowAdapter {
         }
     }
 
-    pub fn new(app: AndroidApp) -> Rc<Self> {
-        let java_helper = JavaHelper::new(&app).unwrap_or_else(|e| print_jni_error(&app, e));
+    pub fn new(app: AndroidApp, back_callback_priority: Option<u32>) -> Rc<Self> {
+        let java_helper = JavaHelper::new(&app, back_callback_priority)
+            .unwrap_or_else(|e| print_jni_error(&app, e));
         Rc::<Self>::new_cyclic(|w| Self {
             app,
             window: Window::new(w.clone()),

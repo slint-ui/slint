@@ -99,6 +99,95 @@ pub use android_activity::AndroidApp;
 
 use crate::platform::SetPlatformError;
 
+/// Builds and installs the Android backend, with more control than [`init()`].
+///
+/// **Note:** This type is only functional on Android with the "backend-android-activity-06" feature
+///
+/// Call [`init()`](Self::init) from the `android_main` function before any call to Slint that
+/// needs a backend.
+///
+/// ```rust
+/// # #[cfg(target_os = "android")]
+/// #[unsafe(no_mangle)]
+/// fn android_main(app: slint::android_activity::AndroidApp) {
+///     slint::android::BackendBuilder::new(app)
+///         .with_back_callback_priority(None)
+///         .with_event_listener(|event| eprintln!("got event {event:?}"))
+///         .init()
+///         .unwrap();
+///
+///     // ... rest of your application ...
+/// }
+/// ```
+#[must_use = "call init() to install the backend"]
+pub struct BackendBuilder {
+    app: android_activity::AndroidApp,
+    back_callback_priority: Option<Option<u32>>,
+    event_listener: Option<alloc::boxed::Box<dyn Fn(&android_activity::PollEvent<'_>)>>,
+}
+
+impl BackendBuilder {
+    /// Creates a builder with the same behavior as [`init()`].
+    pub fn new(app: android_activity::AndroidApp) -> Self {
+        Self { app, back_callback_priority: None, event_listener: None }
+    }
+
+    /// Sets the priority of the `OnBackInvokedCallback` that Slint registers on Android 14
+    /// (API 34) and later.
+    ///
+    /// The callback passes Back to the items as a key event and finishes the activity if no
+    /// item accepts it. Android calls the callback with the highest priority first, so an
+    /// application that registers its own callback can choose a priority above or below Slint's.
+    /// The default is `Some(0)`, which is `OnBackInvokedDispatcher.PRIORITY_DEFAULT`.
+    /// Values above `i32::MAX` count as `i32::MAX`.
+    ///
+    /// `None` registers no callback: Back reaches the application's own handler,
+    /// and Slint items don't see it as a key event.
+    ///
+    /// This has no effect before Android 14.
+    pub fn with_back_callback_priority(mut self, priority: Option<u32>) -> Self {
+        self.back_callback_priority = Some(priority);
+        self
+    }
+
+    /// Notifies `listener` of the [`android_activity::PollEvent`]s, as [`init_with_event_listener()`] does.
+    pub fn with_event_listener(
+        mut self,
+        listener: impl Fn(&android_activity::PollEvent<'_>) + 'static,
+    ) -> Self {
+        self.event_listener = Some(alloc::boxed::Box::new(listener));
+        self
+    }
+
+    /// Installs the backend as Slint's platform.
+    ///
+    /// **Note:** This function is only available on Android with the "backend-android-activity-06" feature
+    pub fn init(self) -> Result<(), SetPlatformError> {
+        #[cfg(not(target_os = "android"))]
+        {
+            let _ = self;
+            unreachable!();
+        }
+        #[cfg(target_os = "android")]
+        {
+            use i_slint_backend_android_activity::AndroidPlatform;
+            let mut platform = match self.back_callback_priority {
+                Some(priority) => {
+                    AndroidPlatform::new_with_back_callback_priority(self.app, priority)
+                }
+                None => AndroidPlatform::new(self.app),
+            };
+            if let Some(listener) = self.event_listener {
+                platform = platform.with_event_listener(listener);
+            }
+            crate::platform::set_platform(alloc::boxed::Box::new(platform))?;
+            #[cfg(any(feature = "mcp", feature = "system-testing"))]
+            i_slint_backend_selector::init_testing_backends();
+            Ok(())
+        }
+    }
+}
+
 /// Initializes the Android backend.
 ///
 /// **Note:** This function is only available on Android with the "backend-android-activity-06" feature
@@ -107,22 +196,14 @@ use crate::platform::SetPlatformError;
 ///
 /// See the [module documentation](self) for an example on how to create Android application.
 ///
-/// See also [`init_with_event_listener`]
+/// See also [`init_with_event_listener`] and [`BackendBuilder`] for more options.
 pub fn init(app: android_activity::AndroidApp) -> Result<(), SetPlatformError> {
-    #[cfg(not(target_os = "android"))]
-    unreachable!();
-    #[cfg(target_os = "android")]
-    {
-        crate::platform::set_platform(alloc::boxed::Box::new(
-            i_slint_backend_android_activity::AndroidPlatform::new(app),
-        ))?;
-        #[cfg(any(feature = "mcp", feature = "system-testing"))]
-        i_slint_backend_selector::init_testing_backends();
-        Ok(())
-    }
+    BackendBuilder::new(app).init()
 }
 
 /// Similar to [`init()`], which allow to listen to android-activity's event
+///
+/// This is a shortcut for `BackendBuilder::new(app).with_event_listener(listener).init()`.
 ///
 /// **Note:** This function is only available on Android with the "backend-android-activity-06" feature
 ///
@@ -149,17 +230,5 @@ pub fn init_with_event_listener(
     app: android_activity::AndroidApp,
     listener: impl Fn(&android_activity::PollEvent<'_>) + 'static,
 ) -> Result<(), SetPlatformError> {
-    #[cfg(not(target_os = "android"))]
-    unreachable!();
-    #[cfg(target_os = "android")]
-    {
-        crate::platform::set_platform(alloc::boxed::Box::new(
-            i_slint_backend_android_activity::AndroidPlatform::new_with_event_listener(
-                app, listener,
-            ),
-        ))?;
-        #[cfg(any(feature = "mcp", feature = "system-testing"))]
-        i_slint_backend_selector::init_testing_backends();
-        Ok(())
-    }
+    BackendBuilder::new(app).with_event_listener(listener).init()
 }
