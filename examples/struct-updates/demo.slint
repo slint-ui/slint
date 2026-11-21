@@ -1,0 +1,96 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+struct Font {
+    size: length,
+    weight: int,
+    italic: bool,
+}
+
+struct CornerRadii {
+    top-left: length,
+    top-right: length,
+    bottom-left: length,
+    bottom-right: length,
+}
+
+struct Border {
+    width: length,
+    color: color,
+    radius: CornerRadii,
+}
+
+component Label inherits Text {
+    in property <Font> font: { size: 16px, weight: 400 };
+    font-size: root.font.size;
+    font-weight: root.font.weight;
+    font-italic: root.font.italic;
+    color: #18283d;
+}
+
+component Card inherits Rectangle {
+    in property <Border> border: {
+        width: 1px,
+        color: #bec9d6,
+        radius: { top-left: 8px, top-right: 8px, bottom-left: 8px, bottom-right: 8px },
+    };
+
+    background: white;
+    border-width: root.border.width;
+    border-color: root.border.color;
+    border-top-left-radius: root.border.radius.top-left;
+    border-top-right-radius: root.border.radius.top-right;
+    border-bottom-left-radius: root.border.radius.bottom-left;
+    border-bottom-right-radius: root.border.radius.bottom-right;
+
+    VerticalLayout {
+        padding: 24px;
+        spacing: 8px;
+        alignment: center;
+        @children
+    }
+}
+
+export component StructUpdates inherits Window {
+    title: "Struct updates";
+    preferred-width: 560px;
+    preferred-height: 200px;
+    background: #edf1f5;
+
+    private property <Font> caption-font: { size: 14px, weight: 400 };
+
+    HorizontalLayout {
+        padding: 20px;
+        spacing: 16px;
+
+        Card {
+            Label {
+                text: "Account";
+                font.weight: 700;
+            }
+            Label {
+                text: "Profile and preferences";
+                font: root.caption-font;
+                color: #46586e;
+            }
+        }
+        Card {
+            border.width: 2px;
+            border.color: #0f766e;
+            border.radius {
+                top-right: 24px,
+                bottom-left: 24px,
+            };
+            Label {
+                text: "Notifications";
+                font.size: 22px;
+                font.weight: 700;
+            }
+            Label {
+                text: "Review delivery settings";
+                font: { italic: true, ..root.caption-font };
+                color: #46586e;
+            }
+        }
+    }
+}

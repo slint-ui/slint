@@ -44,6 +44,7 @@ pub fn ensure_window(
         id: std::mem::replace(&mut win_elem_mut.id, "root_window".into()),
         base_type: std::mem::replace(&mut win_elem_mut.base_type, window_type),
         bindings: Default::default(),
+        inherited_struct_bases: Default::default(),
         change_callbacks: Default::default(),
         moved_property_declarations: Default::default(),
         is_component_placeholder: false,

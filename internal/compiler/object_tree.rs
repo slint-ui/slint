@@ -1302,6 +1302,9 @@ pub struct Element {
     pub base_type: ElementType,
     /// Currently contains also the callbacks. FIXME: should that be changed?
     pub bindings: Bindings,
+    /// Struct properties with field overrides, mapped to local properties that receive their
+    /// inherited bindings during inlining.
+    pub inherited_struct_bases: BTreeMap<SmolStr, SmolStr>,
     pub change_callbacks: BTreeMap<SmolStr, RefCell<Vec<Expression>>>,
     pub property_analysis: RefCell<BTreeMap<SmolStr, PropertyAnalysis>>,
 
@@ -3254,7 +3257,10 @@ fn resolve_struct_field_default_value(
     let mut expr = {
         let mut ctx = crate::lookup::LookupCtx::empty_context(tr, diag, symbol_counters.clone());
         ctx.property_type = field_ty.clone();
-        Expression::from_expression_node(node.clone(), &mut ctx).maybe_convert_to(
+        ctx.with_expected_type(field_ty.clone(), |ctx| {
+            Expression::from_expression_node(node.clone(), ctx)
+        })
+        .maybe_convert_to(
             field_ty.clone(),
             Some(&node.clone().into()),
             ctx.diag,
@@ -3281,7 +3287,7 @@ fn resolve_struct_field_default_value(
     constant
 }
 
-fn constant_from_expression(expression: &Expression) -> Option<ConstantExpression> {
+pub(crate) fn constant_from_expression(expression: &Expression) -> Option<ConstantExpression> {
     Some(match expression {
         Expression::StringLiteral(s) => ConstantExpression::StringLiteral(s.clone()),
         Expression::NumberLiteral(n, unit) => ConstantExpression::NumberLiteral(*n, *unit),

@@ -17,18 +17,23 @@ use crate::object_tree::*;
 use crate::source_path::SourcePath;
 use smol_str::format_smolstr;
 
-type ConstPropCache = HashMap<NamedReference, Option<Expression>>;
+#[derive(Default)]
+struct ConstPropCache {
+    property_values: HashMap<NamedReference, Option<Expression>>,
+    fold_struct_blocks: bool,
+}
 
 /// Fold constants in an expression that stands on its own, outside of a component.
 ///
 /// This is used for expressions that cannot reference any properties or elements,
 /// such as the default values of struct fields.
 pub(crate) fn fold_const_expression(expr: &mut Expression) {
-    simplify_expression(expr, &GlobalAnalysis::default(), &mut ConstPropCache::default());
+    let mut cache = ConstPropCache { fold_struct_blocks: true, ..Default::default() };
+    simplify_expression(expr, &GlobalAnalysis::default(), &mut cache);
 }
 
 pub fn const_propagation(component: &Component, global_analysis: &GlobalAnalysis) {
-    let mut cache = ConstPropCache::new();
+    let mut cache = ConstPropCache::default();
     visit_all_expressions(component, |expr, _ty| {
         simplify_expression(expr, global_analysis, &mut cache);
     });
@@ -77,6 +82,9 @@ fn simplify_expression(
             if stmts.len() == 1 && !matches!(stmts[0], Expression::StoreLocalVariable { .. }) =>
         {
             simplify_single_statement_code_block(expr, ga, cache)
+        }
+        Expression::CodeBlock(_) if cache.fold_struct_blocks => {
+            simplify_constant_struct_block(expr, ga, cache)
         }
         Expression::FunctionCall { .. } => simplify_function_call(expr, ga, cache),
         Expression::ElementReference { .. } => false,
@@ -386,6 +394,53 @@ fn simplify_single_statement_code_block(
 }
 
 #[inline(never)]
+fn simplify_constant_struct_block(
+    expr: &mut Expression,
+    ga: &GlobalAnalysis,
+    cache: &mut ConstPropCache,
+) -> bool {
+    let Expression::CodeBlock(stmts) = expr else { unreachable!() };
+    let can_inline = stmts
+        .iter_mut()
+        .fold(true, |can_inline, stmt| can_inline & simplify_expression(stmt, ga, cache));
+    let Some((result @ Expression::Struct { .. }, initializers)) = stmts.split_last() else {
+        return can_inline;
+    };
+
+    let mut fold_with_locals = |expr: &Expression, locals: &HashMap<_, Expression>| {
+        let mut expr = expr.clone();
+        let mut substituted = false;
+        expr.visit_recursive_mut(&mut |expr| {
+            if let Expression::ReadLocalVariable { name, .. } = expr
+                && let Some(value) = locals.get(name)
+            {
+                *expr = value.clone();
+                substituted = true;
+            }
+        });
+        if substituted {
+            simplify_expression(&mut expr, ga, cache);
+        }
+        constant_from_expression(&expr).map(|_| expr)
+    };
+
+    let mut locals = HashMap::new();
+    for initializer in initializers {
+        let Expression::StoreLocalVariable { name, value } = initializer else {
+            return can_inline;
+        };
+        let Some(value) = fold_with_locals(value, &locals) else {
+            return can_inline;
+        };
+        locals.insert(name.clone(), value);
+    }
+    if let Some(result) = fold_with_locals(result, &locals) {
+        *expr = result;
+    }
+    can_inline
+}
+
+#[inline(never)]
 fn simplify_function_call(
     expr: &mut Expression,
     ga: &GlobalAnalysis,
@@ -412,11 +467,11 @@ fn extract_constant_property_reference(
     cache: &mut ConstPropCache,
 ) -> Option<Expression> {
     debug_assert!(nr.is_constant());
-    if let Some(cached) = cache.get(nr) {
+    if let Some(cached) = cache.property_values.get(nr) {
         return cached.clone();
     }
     let result = extract_constant_property_reference_impl(nr, ga, cache);
-    cache.insert(nr.clone(), result.clone());
+    cache.property_values.insert(nr.clone(), result.clone());
     result
 }
 
@@ -430,7 +485,7 @@ fn extract_struct_field_from_constant(
 ) -> Option<Expression> {
     // Populate the cache via the canonical path (result itself is discarded)
     let _ = extract_constant_property_reference(nr, ga, cache);
-    if let Some(Some(Expression::Struct { values, .. })) = cache.get(nr) {
+    if let Some(Some(Expression::Struct { values, .. })) = cache.property_values.get(nr) {
         values.get(field_name).cloned()
     } else {
         None
@@ -897,6 +952,72 @@ fn test_unit_normalization() {
     // Equality folds for numbers (now via the ordering arm) and bools.
     assert!(matches!(fold("bool", "1px != 2px"), Expression::BoolLiteral(true)));
     assert!(matches!(fold("bool", "true == false"), Expression::BoolLiteral(false)));
+}
+
+#[test]
+fn test_fold_struct_update_block() {
+    let ty = std::sync::Arc::new(crate::langtype::Struct::new(
+        [("x".into(), Type::Float32), ("y".into(), Type::Float32)].into(),
+        StructName::None,
+    ));
+    let literal = |x| Expression::Struct {
+        ty: ty.clone(),
+        values: [("x".into(), x), ("y".into(), Expression::NumberLiteral(2., Unit::None))].into(),
+    };
+    let local =
+        || Expression::ReadLocalVariable { name: "base".into(), ty: Type::Struct(ty.clone()) };
+    let update = |base, x| {
+        Expression::CodeBlock(vec![
+            Expression::StoreLocalVariable { name: "base".into(), value: Box::new(base) },
+            Expression::Struct {
+                ty: ty.clone(),
+                values: [
+                    ("x".into(), x),
+                    (
+                        "y".into(),
+                        Expression::StructFieldAccess { base: Box::new(local()), name: "y".into() },
+                    ),
+                ]
+                .into(),
+            },
+        ])
+    };
+    let mut expr = update(
+        literal(Expression::NumberLiteral(1., Unit::None)),
+        Expression::NumberLiteral(3., Unit::None),
+    );
+    fold_const_expression(&mut expr);
+    let Expression::Struct { values, .. } = expr else { panic!("not folded: {expr:?}") };
+    assert!(matches!(values["x"], Expression::NumberLiteral(3., Unit::None)));
+    assert!(matches!(values["y"], Expression::NumberLiteral(2., Unit::None)));
+
+    for base in [
+        local(),
+        literal(Expression::ReadLocalVariable { name: "other".into(), ty: Type::Float32 }),
+        literal(Expression::FunctionParameterReference { index: 0, ty: Type::Float32 }),
+    ] {
+        let mut expr = update(base, Expression::NumberLiteral(3., Unit::None));
+        fold_const_expression(&mut expr);
+        assert!(matches!(expr, Expression::CodeBlock(_)), "{expr:?}");
+    }
+
+    let mut expr = update(
+        literal(Expression::NumberLiteral(1., Unit::None)),
+        Expression::CodeBlock(vec![
+            Expression::SelfAssignment {
+                lhs: Box::new(Expression::StructFieldAccess {
+                    base: Box::new(local()),
+                    name: "y".into(),
+                }),
+                rhs: Box::new(Expression::NumberLiteral(4., Unit::None)),
+                op: '=',
+                node: None,
+            },
+            Expression::NumberLiteral(3., Unit::None),
+        ]),
+    );
+    fold_const_expression(&mut expr);
+    assert!(matches!(expr, Expression::CodeBlock(_)), "{expr:?}");
 }
 
 #[test]

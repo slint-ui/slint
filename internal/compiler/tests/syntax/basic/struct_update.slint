@@ -1,0 +1,75 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+struct Data { number: int, label: string }
+struct Outer { inner: Data }
+
+export component Test {
+    in property <Data> base: { number: 1, label: "base" };
+    property <Data> not-struct: { number: 2, ..42 };
+//                                             > <error{The '..base' expression must have a struct type}
+    property <Data> unknown: { missing: 2, ..root.base };
+//                             >         <error{Unknown field 'missing' in struct update}
+    property <Data> duplicate: { number: 2, number: 3, ..root.base };
+//                                          >        <error{Field 'number' is overridden more than once}
+    property <Data> wrong-type: { number: false, ..root.base };
+//                                        >   <error{Cannot convert bool to int}
+    private property <Outer> outer;
+    property <Outer> overlap-first: { inner: {}, inner.number: 2, ..root.outer };
+//                                               >              <error{Field 'inner.number' overlaps another override}
+    property <Outer> overlap-last: { inner.number: 2, inner: {}, ..root.outer };
+//                                                    >        <error{Field 'inner' overlaps another override}
+    property <Outer> duplicate-path: { inner.number: 2, inner.number: 3, ..root.outer };
+//                                                      >              <error{Field 'inner.number' is overridden more than once}
+    property <Outer> unknown-path: { inner.missing: 2, ..root.outer };
+//                                   >               <error{Unknown field 'missing' in struct update}
+    property <Outer> scalar-path: { inner.number.value: 2, ..root.outer };
+//                                  >                    <error{Cannot follow 'inner.number.value' through a non-struct field}
+    property <Outer> missing-base: { inner.number: 2, };
+//                                   >              <error{Dotted fields require a '..base' expression}
+}
+
+component Styled inherits Rectangle {
+    in property <Outer> style;
+}
+
+export component MixedOverrides {
+    Styled {
+        style: {};
+        style.inner.number: 2;
+//      >                    <error{Cannot combine a binding for 'style' with dotted overrides on the same element}
+    }
+    Styled {
+        style.inner.number: 2;
+//      >                    <error{Cannot combine a binding for 'style' with dotted overrides on the same element}
+        style: {};
+    }
+    Styled {
+        style.inner.number: 2;
+        style.inner: {};
+//      >              <error{Field 'inner' overlaps another override}
+    }
+}
+
+export component GroupedOverrides {
+    Styled {
+        style: {};
+        style.inner { number: 2 };
+//      >                        <error{Cannot combine a binding for 'style' with dotted overrides on the same element}
+    }
+    Styled {
+        style.inner { number: 2 };
+//      >                        <error{Cannot combine a binding for 'style' with dotted overrides on the same element}
+        style: {};
+    }
+    Styled {
+        style.inner: {};
+        style.inner { number: 2 };
+//                    >        <error{Field 'inner.number' overlaps another override}
+    }
+    Styled {
+        style.inner { number: 2 };
+        style.inner { number: 3 };
+//                    >        <error{Field 'inner.number' is overridden more than once}
+    }
+}

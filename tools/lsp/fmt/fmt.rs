@@ -119,7 +119,7 @@ fn format_node(
         SyntaxKind::PropertyDeprecation => {
             return format_property_deprecation(node, writer, state);
         }
-        SyntaxKind::Binding => {
+        SyntaxKind::Binding | SyntaxKind::DottedBinding => {
             return format_binding(node, writer, state);
         }
         SyntaxKind::TwoWayBinding => {
@@ -676,9 +676,19 @@ fn format_binding(
     state: &mut FormatState,
 ) -> Result<(), std::io::Error> {
     let mut sub = node.children_with_tokens();
-    let _ok = whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?
-        && whitespace_to(&mut sub, SyntaxKind::Colon, writer, state, "")?
-        && whitespace_to(&mut sub, SyntaxKind::BindingExpression, writer, state, " ")?;
+    let name_kind = if node.kind() == SyntaxKind::DottedBinding {
+        SyntaxKind::QualifiedName
+    } else {
+        SyntaxKind::Identifier
+    };
+    let _ok = whitespace_to(&mut sub, name_kind, writer, state, "")?
+        && if node.child_node(SyntaxKind::ObjectLiteral).is_some() {
+            whitespace_to(&mut sub, SyntaxKind::ObjectLiteral, writer, state, " ")?
+                && whitespace_to(&mut sub, SyntaxKind::Semicolon, writer, state, "")?
+        } else {
+            whitespace_to(&mut sub, SyntaxKind::Colon, writer, state, "")?
+                && whitespace_to(&mut sub, SyntaxKind::BindingExpression, writer, state, " ")?
+        };
     // FIXME: more formatting
     for s in sub {
         fold(s, writer, state)?;
@@ -1773,13 +1783,13 @@ fn format_object_literal(
     loop {
         let el = whitespace_to_one_of(
             &mut sub,
-            &[SyntaxKind::ObjectMember, SyntaxKind::RBrace],
+            &[SyntaxKind::ObjectMember, SyntaxKind::ObjectUpdate, SyntaxKind::RBrace],
             writer,
             state,
             "",
         )?;
 
-        if let SyntaxMatch::Found(SyntaxKind::ObjectMember) = el {
+        if let SyntaxMatch::Found(SyntaxKind::ObjectMember | SyntaxKind::ObjectUpdate) = el {
             if indent_with_new_line {
                 state.after_comment = false;
                 state.new_line();
@@ -3312,6 +3322,30 @@ export component MainWindow inherits Window {
     ];
 }
 "#,
+        );
+    }
+
+    #[test]
+    fn struct_update() {
+        assert_formatting(
+            "export component Test {style.checked.rest{border-width: 0px, border-color: red};}",
+            "export component Test {\n    style.checked.rest { border-width: 0px, border-color: red };\n}\n",
+        );
+        assert_formatting(
+            "export component Test {style.checked.rest.border-width:0px;}",
+            "export component Test {\n    style.checked.rest.border-width: 0px;\n}\n",
+        );
+        assert_formatting(
+            "export component Test { property <Style> style: {pressed.background: yellow,..base}; }",
+            "export component Test {\n    property <Style> style: { pressed.background: yellow, ..base };\n}\n",
+        );
+        assert_formatting(
+            "export component Test { property <Style> style: {pressed: {background: yellow,..base.pressed},..base}; property <Style> copy: {..base}; }",
+            "export component Test {\n    property <Style> style: { pressed: { background: yellow, ..base.pressed }, ..base };\n    property <Style> copy: { ..base };\n}\n",
+        );
+        assert_formatting(
+            "export component Test { property <Style> style: {background: yellow,..base,}; }",
+            "export component Test {\n    property <Style> style: {\n        background: yellow,\n        ..base,\n    };\n}\n",
         );
     }
 

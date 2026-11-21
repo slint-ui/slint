@@ -8,7 +8,9 @@ use i_slint_compiler::expression_tree::Expression;
 use i_slint_compiler::langtype::Type;
 use i_slint_compiler::lookup::LookupCtx;
 use i_slint_compiler::object_tree::{self, type_from_node};
-use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, SyntaxToken, syntax_nodes};
+use i_slint_compiler::parser::{
+    SyntaxKind, SyntaxNode, SyntaxToken, struct_field_path, syntax_nodes,
+};
 use i_slint_compiler::parser::{TextRange, TextSize};
 use i_slint_compiler::typeregister::TypeRegister;
 use smol_str::SmolStr;
@@ -190,6 +192,7 @@ pub fn lookup_current_element_type(mut node: SyntaxNode, tr: &TypeRegister) -> O
 struct ExpressionContextInfo {
     element: syntax_nodes::Element,
     property_name: SmolStr,
+    field_path: Vec<SmolStr>,
     is_animate: bool,
     match_subject: Option<syntax_nodes::Expression>,
     /// Expression to resolve for the probe, with its parent (used only to special-case a typed
@@ -310,7 +313,14 @@ pub fn with_lookup_ctx<R>(
         i_slint_compiler::symbol_counters::SymbolCounters::shared(),
     );
     lookup_context.property_name = Some(prop_name);
-    lookup_context.property_type = ty.unwrap_or_default();
+    let mut ty = ty.unwrap_or_default();
+    for field in &expr_context_info.field_path {
+        ty = match ty {
+            Type::Struct(ref structure) => structure.fields.get(field).cloned().unwrap_or_default(),
+            _ => Type::default(),
+        };
+    }
+    lookup_context.property_type = ty;
     lookup_context.expected_type = lookup_context.return_type().clone();
     lookup_context.component_scope = &scope;
     lookup_context.current_token = Some((**element).clone().into());
@@ -438,6 +448,27 @@ fn lookup_expression_context(mut n: SyntaxNode, offset: TextSize) -> Option<Expr
             break (element, prop_name, false);
         }
         match n.kind() {
+            SyntaxKind::DottedBinding => {
+                let binding = syntax_nodes::DottedBinding::from(n.clone());
+                let mut path = struct_field_path(&binding.QualifiedName());
+                let property_name = path.remove(0);
+                if let Some(member) = binding.ObjectLiteral().and_then(|object| {
+                    object
+                        .ObjectMember()
+                        .find(|member| member.text_range().contains_inclusive(offset))
+                }) {
+                    path.extend(struct_field_path(&member));
+                    binding_expr = Some((member.Expression().into(), member.into()));
+                }
+                return Some(ExpressionContextInfo {
+                    element: syntax_nodes::Element::from(n.parent()?),
+                    property_name,
+                    field_path: path,
+                    is_animate: false,
+                    match_subject: None,
+                    binding_expr,
+                });
+            }
             SyntaxKind::Binding
             | SyntaxKind::TwoWayBinding
             | SyntaxKind::CallbackConnection
@@ -455,6 +486,7 @@ fn lookup_expression_context(mut n: SyntaxNode, offset: TextSize) -> Option<Expr
                             return Some(ExpressionContextInfo {
                                 element,
                                 property_name: prop_name,
+                                field_path: Vec::new(),
                                 is_animate: false,
                                 match_subject: None,
                                 binding_expr,
@@ -480,6 +512,7 @@ fn lookup_expression_context(mut n: SyntaxNode, offset: TextSize) -> Option<Expr
                 return Some(ExpressionContextInfo {
                     element: syntax_nodes::Element::new(match_element.parent()?)?,
                     property_name: SmolStr::default(),
+                    field_path: Vec::new(),
                     is_animate: false,
                     match_subject: match_element.child_node(SyntaxKind::Expression).map(Into::into),
                     binding_expr,
@@ -496,6 +529,7 @@ fn lookup_expression_context(mut n: SyntaxNode, offset: TextSize) -> Option<Expr
     Some(ExpressionContextInfo {
         element,
         property_name: prop_name,
+        field_path: Vec::new(),
         is_animate,
         match_subject: None,
         binding_expr,
