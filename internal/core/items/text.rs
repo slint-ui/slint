@@ -148,10 +148,18 @@ impl Item for ComplexText {
     fn bounding_rect(
         self: core::pin::Pin<&Self>,
         _window_adapter: &Rc<dyn WindowAdapter>,
-        _self_rc: &ItemRc,
+        self_rc: &ItemRc,
         geometry: LogicalRect,
     ) -> LogicalRect {
-        geometry
+        if self.overflow() == TextOverflow::Clip {
+            return geometry;
+        }
+        // Glyph ink, such as italics, swashes, and stacked diacritics, may overhang the
+        // advance and the line's ascent and descent. One em covers it in practice.
+        let font_size =
+            self.font_request(self_rc).pixel_size.unwrap_or(crate::textlayout::DEFAULT_FONT_SIZE);
+        let outset = font_size + self.stroke_outset();
+        geometry.outer_rect(euclid::SideOffsets2D::new_all_same(outset.get()))
     }
 
     fn clips_children(self: core::pin::Pin<&Self>) -> bool {
@@ -176,6 +184,20 @@ impl HasFont for ComplexText {
             self.letter_spacing(),
             self.font_italic(),
         )
+    }
+}
+
+impl ComplexText {
+    /// How far the stroke reaches past the glyph outlines.
+    fn stroke_outset(self: Pin<&Self>) -> LogicalLength {
+        if self.stroke().is_transparent() {
+            return LogicalLength::new(0 as Coord);
+        }
+        let width = self.stroke_width().max(LogicalLength::new(1 as Coord));
+        match self.stroke_style() {
+            TextStrokeStyle::Outside => width,
+            TextStrokeStyle::Center => width / 2 as Coord,
+        }
     }
 }
 
