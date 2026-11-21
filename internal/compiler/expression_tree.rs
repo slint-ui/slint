@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::builtin_functions::BuiltinFunction;
-use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
+use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned, Suggestion};
 use crate::element_type::{BuiltinElement, PropertyLookupMode};
 use crate::expression_types::{
     EasingCurve, ImageReference, MinMaxOp, MouseCursorInner, OperatorClass, RadialGradientShape,
@@ -12,7 +12,7 @@ use crate::langtype::{ConstantExpression, EnumerationValue, Keys, Struct, Type};
 use crate::lookup::{LookupCtx, TypeSpecificLookup};
 use crate::native_class::{BuiltinPropertyDefault, PropertyVisibility};
 use crate::object_tree::*;
-use crate::parser::{NodeOrToken, SyntaxKind, SyntaxNode};
+use crate::parser::{NodeOrToken, SyntaxKind, SyntaxNode, SyntaxToken};
 use crate::symbol_counters::SymbolCounters;
 use crate::typeregister;
 use core::cell::RefCell;
@@ -1349,6 +1349,7 @@ impl Expression {
             }
         } else {
             let mut message = format!("Cannot convert {ty} to {target_type}");
+            let mut suggestion = None;
             // Explicit error message for unit conversion
             if let Some(from_unit) = ty.default_unit() {
                 if matches!(&target_type, Type::Int32 | Type::Float32 | Type::String) {
@@ -1371,11 +1372,18 @@ impl Expression {
                 message = format!(
                     "{message}. Use an unit, or multiply by 1{to_unit} to convert explicitly"
                 );
+                if let Some(literal) = single_token(node)
+                    && literal.kind() == SyntaxKind::NumberLiteral
+                {
+                    suggestion =
+                        Some(Suggestion::replace(&literal, format!("{}{to_unit}", literal.text())));
+                }
             }
-            if let Some(qualified) = shadowed_value(&target_type, node, diag) {
+            if let Some((identifier, qualified)) = shadowed_value(&target_type, node, diag) {
                 message = format!("{message}. Did you mean '{qualified}'?");
+                suggestion = Some(Suggestion::replace(&identifier, qualified.as_str()));
             }
-            diag.push_error(message, &node);
+            diag.push_error_with_suggestions(message, &node, suggestion);
             self
         }
     }
@@ -2190,33 +2198,40 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
     }
 }
 
-/// The qualified value of `target_type` that `node` names when it's just an identifier,
+/// The token that `node` consists of, if it's just one, ignoring trivia and braces.
+fn single_token(node: Option<&NodeOrToken>) -> Option<SyntaxToken> {
+    let node = node?.as_node()?;
+    let mut tokens = node.descendants_with_tokens().filter_map(|n| n.into_token()).filter(|t| {
+        !matches!(
+            t.kind(),
+            SyntaxKind::Whitespace
+                | SyntaxKind::Comment
+                | SyntaxKind::Semicolon
+                | SyntaxKind::LBrace
+                | SyntaxKind::RBrace
+        )
+    });
+    let (Some(token), None) = (tokens.next(), tokens.next()) else { return None };
+    Some(SyntaxToken { token, source_file: node.source_file.clone() })
+}
+
+/// The identifier that `node` is, with the qualified value of `target_type` it names,
 /// such as `MouseCursor.text` for `text;` or `{ text }`.
 fn shadowed_value(
     target_type: &Type,
     node: Option<&NodeOrToken>,
     diag: &mut BuildDiagnostics,
-) -> Option<SmolStr> {
-    let mut tokens =
-        node?.as_node()?.descendants_with_tokens().filter_map(|n| n.into_token()).filter(|t| {
-            !matches!(
-                t.kind(),
-                SyntaxKind::Whitespace
-                    | SyntaxKind::Comment
-                    | SyntaxKind::Semicolon
-                    | SyntaxKind::LBrace
-                    | SyntaxKind::RBrace
-            )
-        });
-    let (Some(identifier), None) = (tokens.next(), tokens.next()) else { return None };
+) -> Option<(SyntaxToken, SmolStr)> {
+    let identifier = single_token(node)?;
     if identifier.kind() != SyntaxKind::Identifier {
         return None;
     }
     let register = typeregister::TypeRegister::default();
     let mut ctx = LookupCtx::empty_context(&register, diag, Default::default());
     ctx.expected_type = target_type.clone();
-    TypeSpecificLookup::qualified_name(
+    let qualified = TypeSpecificLookup::qualified_name(
         &ctx,
         &crate::parser::normalize_identifier(identifier.text()),
-    )
+    )?;
+    Some((identifier, qualified))
 }

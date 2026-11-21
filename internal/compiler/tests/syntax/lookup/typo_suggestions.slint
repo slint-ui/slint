@@ -10,30 +10,40 @@ export component TestCase inherits Rectangle {
 
     backgrund: #f00;
 //  >       <error{Unknown property backgrund in Rectangle. Did you mean 'background'?}
+//  >       <suggestion{background}
     with: 10px;
 //  >  <error{Unknown property with in Rectangle. Did you mean 'width'?}
+//  >  <suggestion{width}
     Text {
         text: countr;
 //            >    <error{Unknown unqualified identifier 'countr'. Did you mean 'counter'?}
+//            >    <suggestion{counter}
         wrap: TextWrap.wrod-wrap;
 //                     >       <error{'wrod-wrap' is not a member of the enum TextWrap. Did you mean 'word-wrap'?}
+//                     >       <suggestion{word-wrap}
         color: Colors.blu;
 //                    > <error{'blu' is not a member of the namespace Colors. Did you mean 'blue'?}
+//                    > <suggestion{blue}
     }
     Text {
         text: person.nmae;
 //                   >  <error{Cannot access the field 'nmae'. Did you mean 'name'?}
+//                   >  <suggestion{name}
         width: self.widht;
 //                  >   <error{Element 'Text' does not have a property 'widht'. Did you mean 'width'?}
+//                  >   <suggestion{width}
         height: self.Height;
 //                   >    <error{Element 'Text' does not have a property 'Height'. Did you mean 'height'?}
+//                   >    <suggestion{height}
         visible: "".is-emtpy;
 //                  >      <error{Cannot access the field 'is-emtpy' of string. Did you mean 'is-empty'?}
+//                  >      <suggestion{is-empty}
     }
     TouchArea {
         clicked => {
             root.do-sometihng();
 //               >          <error{Element 'Rectangle' does not have a property 'do-sometihng'. Did you mean 'do-something'?}
+//               >          <suggestion{do-something}
         }
     }
 

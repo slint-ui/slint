@@ -9,6 +9,7 @@ export component X inherits Rectangle {
     property<brush> g3: @radial_gradient(circle, blue, red);
     property<brush> g4: @radial_gradient(circle, blue 45%, red red);
 //                                                             > <error{Unknown unqualified identifier 'red'. Did you mean 'Colors.red'?}
+//                                                             > <suggestion{Colors.red}
     property<brush> g5: @radial-gradient(ellipse at top, #e66465, transparent);
 //                                               > <error{Expected two length values after 'at'}
     property<brush> g6: @radial-gradient(circle, blue 45%, red 88%);
@@ -19,6 +20,7 @@ export component X inherits Rectangle {
 
     property<brush> g9: @radial-gradient(circle blue, blue, red);
 //                                              >  <error{Unknown unqualified identifier 'blue'. Did you mean 'Colors.blue'?}
+//                                              >  <suggestion{Colors.blue}
     property<brush> g9b: @radial-gradient(circle #00f, blue, red);
 //                                               >  <error{'circle' must be followed by a comma, a radius, or 'at'}
 
@@ -35,6 +37,7 @@ export component X inherits Rectangle {
     property<brush> g15: @radial-gradient(circle 80px at 50px 50px, red, blue);
     property<brush> g16: @radial-gradient(circle at red 50px, red, blue);
 //                                                  >  <error{Unknown unqualified identifier 'red'. Did you mean 'Colors.red'?}
+//                                                  > <suggestion{Colors.red}
 
     property<brush> g17: @radial-gradient(ellipse, red, blue);
     property<brush> g18: @radial-gradient(ellipse 100px 50px, red, blue);
@@ -53,6 +56,7 @@ export component X inherits Rectangle {
 //                                               > <error{'circle' radius must be a length such as '50px', not a percentage}
     property<brush> g26: @radial-gradient(ellipse blue, red);
 //                                                >  <error{Unknown unqualified identifier 'blue'. Did you mean 'Colors.blue'?}
+//                                                >  <suggestion{Colors.blue}
     property<brush> g27: @radial-gradient(circle 10px 20%, red, blue);
 //                                                    > <error{'circle' takes a single radius, use 'ellipse' for a horizontal and a vertical radius}
     property<brush> g28: @radial-gradient(circle 10px foo, red, blue);
@@ -61,4 +65,5 @@ export component X inherits Rectangle {
 //                                                     > <error{Unknown unqualified identifier 'foo'}
     property<brush> g30: @radial-gradient(ellipse 10px blue, red, blue);
 //                                                     >  <error{Unknown unqualified identifier 'blue'. Did you mean 'Colors.blue'?}
+//                                                     >  <suggestion{Colors.blue}
 }

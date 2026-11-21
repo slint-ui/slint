@@ -15,11 +15,13 @@ export component SuperSimple inherits Rectangle {
 
     property<int> c4: area.pressed ? 123ms : 123;
 //                                           > <error{Cannot convert float to duration. Use an unit, or multiply by 1ms to convert explicitly}
+//                                           > <suggestion{123ms}
 
     property <length> c5: true ? 123px : 0;
 
     property<duration> c6: area.pressed ? 123ms : 123;
 //                                                > <error{Cannot convert float to duration. Use an unit, or multiply by 1ms to convert explicitly}
+//                                                > <suggestion{123ms}
 
     property<int> value1: 5;
     property<int> value2: 7;
