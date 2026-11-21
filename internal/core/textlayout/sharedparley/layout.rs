@@ -489,7 +489,8 @@ impl Layout {
             let end = self.line_limit_cut.and_then(|(last_paragraph, last_line)| {
                 let paragraph = self.paragraphs.get(last_paragraph)?;
                 let line = paragraph.layout.lines().nth(last_line)?;
-                Some(paragraph.range.start + line.text_range().end.min(paragraph.range.len()))
+                let end = paragraph.text_offset(line.text_range().end);
+                Some(paragraph.range.start + end.min(paragraph.range.len()))
             });
             return (end.unwrap_or(0), crate::items::TextCursorAffinity::PreviousCharacter);
         };
@@ -498,7 +499,7 @@ impl Layout {
             pos.x,
             (pos.y_length() - self.y_offset - paragraph.y).get(),
         );
-        (paragraph.range.start + cursor.index(), cursor.affinity().into())
+        (paragraph.range.start + paragraph.text_offset(cursor.index()), cursor.affinity().into())
     }
 
     pub(super) fn cursor_rect_for_byte_offset(
@@ -514,7 +515,7 @@ impl Layout {
         let local_offset = (byte_offset - paragraph.range.start).min(paragraph.range.len());
         let cursor = parley::editing::Cursor::from_byte_index(
             &paragraph.layout,
-            local_offset,
+            paragraph.layout_offset(local_offset),
             affinity.into(),
         );
         let rect = cursor.geometry(&paragraph.layout, cursor_width.get());

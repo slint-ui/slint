@@ -426,12 +426,12 @@ fn link_in_layout(layout: &Layout, cursor: PhysicalPoint) -> Option<std::string:
             .find(|(range, _)| {
                 let start = parley::editing::Cursor::from_byte_index(
                     &paragraph.layout,
-                    range.start,
+                    paragraph.layout_offset(range.start),
                     Default::default(),
                 );
                 let end = parley::editing::Cursor::from_byte_index(
                     &paragraph.layout,
-                    range.end,
+                    paragraph.layout_offset(range.end),
                     Default::default(),
                 );
                 let mut clicked = false;
