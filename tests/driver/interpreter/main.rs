@@ -4,6 +4,8 @@
 // cSpell: ignore vlayout
 #[cfg(test)]
 mod interpreter;
+#[cfg(all(test, feature = "llr-serialization"))]
+mod serialized_fonts;
 
 include!(env!("TEST_FUNCTIONS"));
 
