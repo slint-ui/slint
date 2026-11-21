@@ -139,4 +139,36 @@ assert!(instance.get_moves() > 0);
 send(release(60., 60., false));
 assert_eq!(instance.get_clicks(), 4);
 ```
+
+```cpp
+using slint::PointerEventButton;
+using slint::cbindgen_private::BackendMouseEvent;
+
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+auto &window = instance.window().window_handle();
+
+window.dispatch_pointer_event(
+        BackendMouseEvent::Pressed({ 50.f, 50.f }, PointerEventButton::Left, 0, 0, true));
+assert(!instance.get_is_pressed());
+window.dispatch_pointer_event(
+        BackendMouseEvent::Released({ 50.f, 50.f }, PointerEventButton::Left, 0, 0, true));
+assert_eq(instance.get_clicks(), 0);
+assert_eq(instance.get_log(), "D*U*");
+
+window.dispatch_pointer_event(
+        BackendMouseEvent::Pressed({ 150.f, 50.f }, PointerEventButton::Left, 0, 0, true));
+assert(instance.get_accepting_is_pressed());
+window.dispatch_pointer_event(
+        BackendMouseEvent::Released({ 150.f, 50.f }, PointerEventButton::Left, 0, 0, true));
+assert_eq(instance.get_accepting_clicks(), 1);
+
+window.dispatch_pointer_event(
+        BackendMouseEvent::Pressed({ 50.f, 50.f }, PointerEventButton::Left, 0, 0, false));
+assert(instance.get_is_pressed());
+window.dispatch_pointer_event(
+        BackendMouseEvent::Released({ 50.f, 50.f }, PointerEventButton::Left, 0, 0, false));
+assert_eq(instance.get_clicks(), 1);
+assert_eq(instance.get_log(), "D*U*DU");
+```
 */
