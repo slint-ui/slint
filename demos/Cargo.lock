@@ -5931,7 +5931,7 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "vtable"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "const-field-offset",
  "portable-atomic",
@@ -5941,7 +5941,7 @@ dependencies = [
 
 [[package]]
 name = "vtable-macro"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "proc-macro2",
  "quote",
