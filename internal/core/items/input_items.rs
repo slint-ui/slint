@@ -59,6 +59,9 @@ pub struct TouchArea {
     /// true when the current grab originates from a window-activating press
     /// that is suppressed because `accepts-activation-clicks` is false
     suppressed_grab: Cell<bool>,
+    /// How many clicks of the current multi-click sequence don't count toward `double-clicked`:
+    /// those up to and including a suppressed window-activating click
+    suppressed_click_count: Cell<u8>,
 }
 
 impl Item for TouchArea {
@@ -129,7 +132,12 @@ impl Item for TouchArea {
         }
         match event {
             MouseEvent::Pressed {
-                position, button, touch_finger_id, is_activation_click, ..
+                position,
+                button,
+                click_count,
+                touch_finger_id,
+                is_activation_click,
+                ..
             } => {
                 // An ignored window-activating click (macOS "first mouse")
                 // keeps the grab, so the matching release still arrives here
@@ -138,6 +146,12 @@ impl Item for TouchArea {
                 let suppressed = *is_activation_click && !self.accepts_activation_clicks();
                 self.grabbed.set(true);
                 self.suppressed_grab.set(suppressed);
+                if suppressed {
+                    self.suppressed_click_count.set(click_count.wrapping_add(1));
+                } else if *click_count < self.suppressed_click_count.get() {
+                    // A new multi-click sequence started.
+                    self.suppressed_click_count.set(0);
+                }
                 if *button == PointerEventButton::Left && !suppressed {
                     Self::FIELD_OFFSETS.pressed_x().apply_pin(self).set(position.x_length());
                     Self::FIELD_OFFSETS.pressed_y().apply_pin(self).set(position.y_length());
@@ -188,7 +202,7 @@ impl Item for TouchArea {
                     && self.pressed()
                 {
                     Self::FIELD_OFFSETS.clicked().apply_pin(self).call(&());
-                    if (click_count % 2) == 1 {
+                    if (click_count.wrapping_sub(self.suppressed_click_count.get()) % 2) == 1 {
                         Self::FIELD_OFFSETS.double_clicked().apply_pin(self).call(&())
                     }
                 }

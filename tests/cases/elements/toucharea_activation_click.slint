@@ -95,8 +95,8 @@ assert!(!instance.get_is_pressed());
 send(release(60., 60., true));
 assert_eq!(instance.get_clicks(), 0);
 
-// A suppressed activation click doesn't start a multi-click sequence: a quick
-// follow-up click is a single click, not a double-click.
+// An ignored activation click doesn't count toward a double-click here: a
+// quick follow-up click is a single click, and the one after it the double-click.
 instance.set_log("".into());
 send(press(50., 50., true));
 send(release(50., 50., true));
@@ -105,15 +105,19 @@ send(release(50., 50., false));
 assert_eq!(instance.get_clicks(), 1);
 assert_eq!(instance.get_double_clicks(), 0);
 assert_eq!(instance.get_log().as_str(), "D*U*DU");
+send(press(50., 50., false));
+send(release(50., 50., false));
+assert_eq!(instance.get_clicks(), 2);
+assert_eq!(instance.get_double_clicks(), 1);
 
-// ... while two quick normal clicks are still a double-click.
+// Two quick normal clicks in a new sequence are a double-click as usual.
 slint_testing::mock_elapsed_time(1000);
 send(press(50., 50., false));
 send(release(50., 50., false));
 send(press(50., 50., false));
 send(release(50., 50., false));
-assert_eq!(instance.get_clicks(), 3);
-assert_eq!(instance.get_double_clicks(), 1);
+assert_eq!(instance.get_clicks(), 4);
+assert_eq!(instance.get_double_clicks(), 2);
 
 // By default, a `TouchArea` processes the activation click normally.
 send(press(150., 50., true));
@@ -121,14 +125,12 @@ assert!(instance.get_accepting_is_pressed());
 send(release(150., 50., true));
 assert_eq!(instance.get_accepting_clicks(), 1);
 
-// Even on an accepting surface, an activation click doesn't start a
-// multi-click sequence: activation click + quick second click are two single
-// clicks, not a double-click. (Deliberate divergence from e.g. Finder's
-// open-on-double-click, see the discussion in #10451.)
+// An accepted activation click starts a multi-click sequence like any other
+// click: a quick second click makes a double-click.
 send(press(150., 50., false));
 send(release(150., 50., false));
 assert_eq!(instance.get_accepting_clicks(), 2);
-assert_eq!(instance.get_accepting_double_clicks(), 0);
+assert_eq!(instance.get_accepting_double_clicks(), 1);
 
 // Normal clicks on the ignoring TouchArea are unaffected.
 slint_testing::mock_elapsed_time(1000);
@@ -137,7 +139,7 @@ assert!(instance.get_is_pressed());
 send(move_to(60., 60.));
 assert!(instance.get_moves() > 0);
 send(release(60., 60., false));
-assert_eq!(instance.get_clicks(), 4);
+assert_eq!(instance.get_clicks(), 5);
 ```
 
 ```cpp

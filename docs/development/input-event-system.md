@@ -60,7 +60,6 @@ and the item that press was delivered to.
   So moving the pointer away and back between two clicks on the same item doesn't restart the count;
   time and distance decide.
 - `click_count` is included in Press/Release events
-- An activation click (see below) resets the state and always carries `click_count` 0, so it neither continues nor starts a multi-click sequence
 
 ### Activation Clicks (macOS "first mouse")
 
@@ -75,8 +74,11 @@ The items decide at delivery time:
   It always emits `pointer-event` with the `is-activation-click` field set.
   With `accepts-activation-clicks` set to `false`, it suppresses the pressed state for activation clicks,
   and with it `clicked`, `double-clicked`, and `moved`, while keeping the grab.
+  The suppressed click doesn't count toward that `TouchArea`'s `double-clicked` either,
+  so the next click there is a single click.
 - `Text` ignores an activation release for `link-clicked`.
-- `Flickable`, `TextInput`, `SwipeGestureHandler`, and `ContextMenuArea` process activation clicks normally.
+- Every other item processes an activation click like any other click.
+  It counts in `ClickState`, so a double-click into an inactive window is a double-click.
 
 ### Mouse Input State
 

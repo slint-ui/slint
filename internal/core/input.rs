@@ -1464,22 +1464,6 @@ impl ClickState {
             } => {
                 self.last_press_position.set(position);
                 self.pressed.set(true);
-                // A window-activating click (macOS "first mouse") never joins a
-                // multi-click sequence: an item can ignore it, and counting it
-                // would then turn the next actual click into a double-click.
-                // Also don't let the following click chain onto it.
-                if is_activation_click {
-                    self.click_count.set(0);
-                    self.click_count_time_stamp.set(None);
-                    return MouseEvent::Pressed {
-                        position,
-                        button,
-                        click_count: 0,
-                        touch_finger_id,
-                        event_time,
-                        is_activation_click,
-                    };
-                }
                 let instant_now = crate::animations::Instant::now(ctx);
                 let click_interval = ctx.platform().click_interval();
 
@@ -1518,7 +1502,7 @@ impl ClickState {
                 return MouseEvent::Released {
                     position,
                     button,
-                    click_count: if is_activation_click { 0 } else { self.click_count.get() },
+                    click_count: self.click_count.get(),
                     touch_finger_id,
                     event_time,
                     is_activation_click,
