@@ -593,20 +593,48 @@
     }
   },
   {
-    "Fill": {
-      "brush": {
-        "Solid": {
-          "components": [
-            1.0,
-            0.0,
-            0.0,
-            0.7529
-          ]
+    "BoxShadow": {
+      "box_shape": {
+        "radii": {
+          "bottom_left": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "bottom_right": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "top_left": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "top_right": {
+            "x": 0.0,
+            "y": 0.0
+          }
+        },
+        "rect": {
+          "x0": 0.0,
+          "x1": 32.0,
+          "y0": 0.0,
+          "y1": 28.0
         }
       },
-      "brush_transform": null,
-      "fill": "NonZero",
-      "shape": "M10,7 L42,7 L42,35 L10,35 Z",
+      "color": {
+        "components": [
+          1.0,
+          0.0,
+          0.0,
+          0.7529
+        ]
+      },
+      "kind": "OutsetUnclipped",
+      "offset": {
+        "x": 10.0,
+        "y": 7.0
+      },
+      "spread": 0.0,
+      "std_dev": 0.0,
       "transform": [
         1.0,
         0.0,
@@ -662,18 +690,38 @@
         "output": 0,
         "primitives": [
           {
+            "color_space": "Srgb",
             "effect": {
               "GaussianBlur": {
                 "edge_mode": "None",
-                "std_deviation": 2.0
+                "std_deviation_x": 2.0,
+                "std_deviation_y": 2.0
               }
             },
             "inputs": {
               "primary": null,
               "secondary": null
+            },
+            "region": {
+              "x0": -17.0,
+              "x1": 49.0,
+              "y0": -17.0,
+              "y1": 45.0
+            },
+            "subregion": {
+              "x0": -17.0,
+              "x1": 49.0,
+              "y0": -17.0,
+              "y1": 45.0
             }
           }
-        ]
+        ],
+        "region": {
+          "x0": -17.0,
+          "x1": 49.0,
+          "y0": -17.0,
+          "y1": 45.0
+        }
       },
       "transform": [
         1.0,
@@ -698,7 +746,7 @@
         }
       },
       "brush_transform": null,
-      "shape": "M2,8 C2,4.6863 4.6863,2 8,2 L30,2 C30,2 30,2 30,2 L30,24 C30,25.1046 29.1046,26 28,26 L2,26 C2,26 2,26 2,26 Z",
+      "shape": "M2,8 C2,4.6863 4.6863,2 8,2 L30,2 L30,24 C30,25.1046 29.1046,26 28,26 L2,26 Z",
       "style": {
         "dash_offset": 0.0,
         "dash_pattern": [],
@@ -779,7 +827,7 @@
         }
       },
       "brush_transform": null,
-      "shape": "M2,8 C2,4.6863 4.6863,2 8,2 L30,2 C30,2 30,2 30,2 L30,24 C30,25.1046 29.1046,26 28,26 L2,26 C2,26 2,26 2,26 Z",
+      "shape": "M2,8 C2,4.6863 4.6863,2 8,2 L30,2 L30,24 C30,25.1046 29.1046,26 28,26 L2,26 Z",
       "style": {
         "dash_offset": 0.0,
         "dash_pattern": [],
@@ -819,18 +867,38 @@
         "output": 0,
         "primitives": [
           {
+            "color_space": "Srgb",
             "effect": {
               "GaussianBlur": {
                 "edge_mode": "None",
-                "std_deviation": 2.0
+                "std_deviation_x": 2.0,
+                "std_deviation_y": 2.0
               }
             },
             "inputs": {
               "primary": null,
               "secondary": null
+            },
+            "region": {
+              "x0": -17.0,
+              "x1": 49.0,
+              "y0": -17.0,
+              "y1": 45.0
+            },
+            "subregion": {
+              "x0": -17.0,
+              "x1": 49.0,
+              "y0": -17.0,
+              "y1": 45.0
             }
           }
-        ]
+        ],
+        "region": {
+          "x0": -17.0,
+          "x1": 49.0,
+          "y0": -17.0,
+          "y1": 45.0
+        }
       },
       "transform": [
         1.0,
@@ -856,7 +924,7 @@
       },
       "brush_transform": null,
       "fill": "NonZero",
-      "shape": "M-2,8 C-2,2.4772 2.4772,-2 8,-2 L34,-2 C34,-2 34,-2 34,-2 L34,24 C34,27.3137 31.3137,30 28,30 L-2,30 C-2,30 -2,30 -2,30 Z",
+      "shape": "M-2,8 C-2,2.4772 2.4772,-2 8,-2 L34,-2 L34,24 C34,27.3137 31.3137,30 28,30 L-2,30 Z",
       "transform": [
         1.0,
         0.0,
@@ -880,7 +948,7 @@
         }
       },
       "brush_transform": null,
-      "shape": "M2,8 C2,4.6863 4.6863,2 8,2 L30,2 C30,2 30,2 30,2 L30,24 C30,25.1046 29.1046,26 28,26 L2,26 C2,26 2,26 2,26 Z",
+      "shape": "M2,8 C2,4.6863 4.6863,2 8,2 L30,2 L30,24 C30,25.1046 29.1046,26 28,26 L2,26 Z",
       "style": {
         "dash_offset": 0.0,
         "dash_pattern": [],
@@ -962,7 +1030,7 @@
       },
       "brush_transform": null,
       "fill": "NonZero",
-      "shape": "M2,8 C2,4.6863 4.6863,2 8,2 L30,2 C30,2 30,2 30,2 L30,24 C30,25.1046 29.1046,26 28,26 L2,26 C2,26 2,26 2,26 Z",
+      "shape": "M2,8 C2,4.6863 4.6863,2 8,2 L30,2 L30,24 C30,25.1046 29.1046,26 28,26 L2,26 Z",
       "transform": [
         1.0,
         0.0,
@@ -986,7 +1054,7 @@
         }
       },
       "brush_transform": null,
-      "shape": "M2,8 C2,4.6863 4.6863,2 8,2 L30,2 C30,2 30,2 30,2 L30,24 C30,25.1046 29.1046,26 28,26 L2,26 C2,26 2,26 2,26 Z",
+      "shape": "M2,8 C2,4.6863 4.6863,2 8,2 L30,2 L30,24 C30,25.1046 29.1046,26 28,26 L2,26 Z",
       "style": {
         "dash_offset": 0.0,
         "dash_pattern": [],
@@ -1026,18 +1094,38 @@
         "output": 0,
         "primitives": [
           {
+            "color_space": "Srgb",
             "effect": {
               "GaussianBlur": {
                 "edge_mode": "None",
-                "std_deviation": 2.0
+                "std_deviation_x": 2.0,
+                "std_deviation_y": 2.0
               }
             },
             "inputs": {
               "primary": null,
               "secondary": null
+            },
+            "region": {
+              "x0": -17.0,
+              "x1": 49.0,
+              "y0": -17.0,
+              "y1": 45.0
+            },
+            "subregion": {
+              "x0": -17.0,
+              "x1": 49.0,
+              "y0": -17.0,
+              "y1": 45.0
             }
           }
-        ]
+        ],
+        "region": {
+          "x0": -17.0,
+          "x1": 49.0,
+          "y0": -17.0,
+          "y1": 45.0
+        }
       },
       "transform": [
         1.0,
@@ -1107,7 +1195,7 @@
       },
       "brush_transform": null,
       "fill": "NonZero",
-      "shape": "M-2,8 C-2,2.4772 2.4772,-2 8,-2 L34,-2 C34,-2 34,-2 34,-2 L34,24 C34,27.3137 31.3137,30 28,30 L-2,30 C-2,30 -2,30 -2,30 Z",
+      "shape": "M-2,8 C-2,2.4772 2.4772,-2 8,-2 L34,-2 L34,24 C34,27.3137 31.3137,30 28,30 L-2,30 Z",
       "transform": [
         1.0,
         0.0,
@@ -1131,7 +1219,7 @@
         }
       },
       "brush_transform": null,
-      "shape": "M2,8 C2,4.6863 4.6863,2 8,2 L30,2 C30,2 30,2 30,2 L30,24 C30,25.1046 29.1046,26 28,26 L2,26 C2,26 2,26 2,26 Z",
+      "shape": "M2,8 C2,4.6863 4.6863,2 8,2 L30,2 L30,24 C30,25.1046 29.1046,26 28,26 L2,26 Z",
       "style": {
         "dash_offset": 0.0,
         "dash_pattern": [],
@@ -1257,7 +1345,7 @@
       },
       "brush_transform": null,
       "fill": "NonZero",
-      "shape": "M0,8 C0,3.5817 3.5817,0 8,0 L32,0 C32,0 32,0 32,0 L32,24 C32,26.2091 30.2091,28 28,28 L0,28 C0,28 0,28 0,28 Z",
+      "shape": "M0,8 C0,3.5817 3.5817,0 8,0 L32,0 L32,24 C32,26.2091 30.2091,28 28,28 L0,28 Z",
       "transform": [
         1.0,
         0.0,
@@ -1281,7 +1369,7 @@
         }
       },
       "brush_transform": null,
-      "shape": "M2,8 C2,4.6863 4.6863,2 8,2 L30,2 C30,2 30,2 30,2 L30,24 C30,25.1046 29.1046,26 28,26 L2,26 C2,26 2,26 2,26 Z",
+      "shape": "M2,8 C2,4.6863 4.6863,2 8,2 L30,2 L30,24 C30,25.1046 29.1046,26 28,26 L2,26 Z",
       "style": {
         "dash_offset": 0.0,
         "dash_pattern": [],
@@ -1303,7 +1391,33 @@
   },
   {
     "BoxShadow": {
-      "brush": {
+      "box_shape": {
+        "radii": {
+          "bottom_left": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "bottom_right": {
+            "x": 4.0,
+            "y": 4.0
+          },
+          "top_left": {
+            "x": 8.0,
+            "y": 8.0
+          },
+          "top_right": {
+            "x": 0.0,
+            "y": 0.0
+          }
+        },
+        "rect": {
+          "x0": 0.0,
+          "x1": 32.0,
+          "y0": 0.0,
+          "y1": 28.0
+        }
+      },
+      "color": {
         "components": [
           1.0,
           0.0,
@@ -1311,13 +1425,12 @@
           0.7529
         ]
       },
-      "radius": 4.0,
-      "rect": {
-        "x0": 8.0,
-        "x1": 44.0,
-        "y0": 5.0,
-        "y1": 37.0
+      "kind": "OutsetUnclipped",
+      "offset": {
+        "x": 10.0,
+        "y": 7.0
       },
+      "spread": 2.0,
       "std_dev": 2.0,
       "transform": [
         1.0,
@@ -1343,7 +1456,7 @@
       },
       "brush_transform": null,
       "fill": "NonZero",
-      "shape": "M0,8 C0,3.5817 3.5817,0 8,0 L32,0 C32,0 32,0 32,0 L32,24 C32,26.2091 30.2091,28 28,28 L0,28 C0,28 0,28 0,28 Z",
+      "shape": "M0,8 C0,3.5817 3.5817,0 8,0 L32,0 L32,24 C32,26.2091 30.2091,28 28,28 L0,28 Z",
       "transform": [
         1.0,
         0.0,
@@ -1374,18 +1487,38 @@
         "output": 0,
         "primitives": [
           {
+            "color_space": "Srgb",
             "effect": {
               "GaussianBlur": {
                 "edge_mode": "None",
-                "std_deviation": 2.0
+                "std_deviation_x": 2.0,
+                "std_deviation_y": 2.0
               }
             },
             "inputs": {
               "primary": null,
               "secondary": null
+            },
+            "region": {
+              "x0": -13.0,
+              "x1": 45.0,
+              "y0": -13.0,
+              "y1": 41.0
+            },
+            "subregion": {
+              "x0": -13.0,
+              "x1": 45.0,
+              "y0": -13.0,
+              "y1": 41.0
             }
           }
-        ]
+        ],
+        "region": {
+          "x0": -13.0,
+          "x1": 45.0,
+          "y0": -13.0,
+          "y1": 41.0
+        }
       },
       "transform": [
         1.0,
@@ -1458,7 +1591,7 @@
         }
       },
       "brush_transform": null,
-      "shape": "M2,8 C2,4.6863 4.6863,2 8,2 L30,2 C30,2 30,2 30,2 L30,24 C30,25.1046 29.1046,26 28,26 L2,26 C2,26 2,26 2,26 Z",
+      "shape": "M2,8 C2,4.6863 4.6863,2 8,2 L30,2 L30,24 C30,25.1046 29.1046,26 28,26 L2,26 Z",
       "style": {
         "dash_offset": 0.0,
         "dash_pattern": [],
@@ -1498,18 +1631,38 @@
         "output": 0,
         "primitives": [
           {
+            "color_space": "Srgb",
             "effect": {
               "GaussianBlur": {
                 "edge_mode": "None",
-                "std_deviation": 2.0
+                "std_deviation_x": 2.0,
+                "std_deviation_y": 2.0
               }
             },
             "inputs": {
               "primary": null,
               "secondary": null
+            },
+            "region": {
+              "x0": -13.0,
+              "x1": 45.0,
+              "y0": -13.0,
+              "y1": 41.0
+            },
+            "subregion": {
+              "x0": -13.0,
+              "x1": 45.0,
+              "y0": -13.0,
+              "y1": 41.0
             }
           }
-        ]
+        ],
+        "region": {
+          "x0": -13.0,
+          "x1": 45.0,
+          "y0": -13.0,
+          "y1": 41.0
+        }
       },
       "transform": [
         1.0,
@@ -1535,7 +1688,7 @@
       },
       "brush_transform": null,
       "fill": "NonZero",
-      "shape": "M2,8 C2,4.6863 4.6863,2 8,2 L30,2 C30,2 30,2 30,2 L30,24 C30,25.1046 29.1046,26 28,26 L2,26 C2,26 2,26 2,26 Z",
+      "shape": "M2,8 C2,4.6863 4.6863,2 8,2 L30,2 L30,24 C30,25.1046 29.1046,26 28,26 L2,26 Z",
       "transform": [
         1.0,
         0.0,
@@ -1608,7 +1761,7 @@
       },
       "brush_transform": null,
       "fill": "NonZero",
-      "shape": "M2,8 C2,4.6863 4.6863,2 8,2 L30,2 C30,2 30,2 30,2 L30,24 C30,25.1046 29.1046,26 28,26 L2,26 C2,26 2,26 2,26 Z",
+      "shape": "M2,8 C2,4.6863 4.6863,2 8,2 L30,2 L30,24 C30,25.1046 29.1046,26 28,26 L2,26 Z",
       "transform": [
         1.0,
         0.0,
@@ -1632,7 +1785,7 @@
         }
       },
       "brush_transform": null,
-      "shape": "M2,8 C2,4.6863 4.6863,2 8,2 L30,2 C30,2 30,2 30,2 L30,24 C30,25.1046 29.1046,26 28,26 L2,26 C2,26 2,26 2,26 Z",
+      "shape": "M2,8 C2,4.6863 4.6863,2 8,2 L30,2 L30,24 C30,25.1046 29.1046,26 28,26 L2,26 Z",
       "style": {
         "dash_offset": 0.0,
         "dash_pattern": [],
@@ -1672,18 +1825,38 @@
         "output": 0,
         "primitives": [
           {
+            "color_space": "Srgb",
             "effect": {
               "GaussianBlur": {
                 "edge_mode": "None",
-                "std_deviation": 2.0
+                "std_deviation_x": 2.0,
+                "std_deviation_y": 2.0
               }
             },
             "inputs": {
               "primary": null,
               "secondary": null
+            },
+            "region": {
+              "x0": -13.0,
+              "x1": 45.0,
+              "y0": -13.0,
+              "y1": 41.0
+            },
+            "subregion": {
+              "x0": -13.0,
+              "x1": 45.0,
+              "y0": -13.0,
+              "y1": 41.0
             }
           }
-        ]
+        ],
+        "region": {
+          "x0": -13.0,
+          "x1": 45.0,
+          "y0": -13.0,
+          "y1": 41.0
+        }
       },
       "transform": [
         1.0,
@@ -1753,7 +1926,7 @@
       },
       "brush_transform": null,
       "fill": "NonZero",
-      "shape": "M2,8 C2,4.6863 4.6863,2 8,2 L30,2 C30,2 30,2 30,2 L30,24 C30,25.1046 29.1046,26 28,26 L2,26 C2,26 2,26 2,26 Z",
+      "shape": "M2,8 C2,4.6863 4.6863,2 8,2 L30,2 L30,24 C30,25.1046 29.1046,26 28,26 L2,26 Z",
       "transform": [
         1.0,
         0.0,
@@ -1870,7 +2043,7 @@
       },
       "brush_transform": null,
       "fill": "NonZero",
-      "shape": "M0,8 C0,3.5817 3.5817,0 8,0 L32,0 C32,0 32,0 32,0 L32,24 C32,26.2091 30.2091,28 28,28 L0,28 C0,28 0,28 0,28 Z",
+      "shape": "M0,8 C0,3.5817 3.5817,0 8,0 L32,0 L32,24 C32,26.2091 30.2091,28 28,28 L0,28 Z",
       "transform": [
         1.0,
         0.0,
@@ -1894,7 +2067,7 @@
         }
       },
       "brush_transform": null,
-      "shape": "M2,8 C2,4.6863 4.6863,2 8,2 L30,2 C30,2 30,2 30,2 L30,24 C30,25.1046 29.1046,26 28,26 L2,26 C2,26 2,26 2,26 Z",
+      "shape": "M2,8 C2,4.6863 4.6863,2 8,2 L30,2 L30,24 C30,25.1046 29.1046,26 28,26 L2,26 Z",
       "style": {
         "dash_offset": 0.0,
         "dash_pattern": [],
@@ -1916,7 +2089,33 @@
   },
   {
     "BoxShadow": {
-      "brush": {
+      "box_shape": {
+        "radii": {
+          "bottom_left": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "bottom_right": {
+            "x": 4.0,
+            "y": 4.0
+          },
+          "top_left": {
+            "x": 8.0,
+            "y": 8.0
+          },
+          "top_right": {
+            "x": 0.0,
+            "y": 0.0
+          }
+        },
+        "rect": {
+          "x0": 0.0,
+          "x1": 32.0,
+          "y0": 0.0,
+          "y1": 28.0
+        }
+      },
+      "color": {
         "components": [
           1.0,
           0.0,
@@ -1924,13 +2123,12 @@
           0.7529
         ]
       },
-      "radius": 2.0,
-      "rect": {
-        "x0": 12.0,
-        "x1": 40.0,
-        "y0": 9.0,
-        "y1": 33.0
+      "kind": "OutsetUnclipped",
+      "offset": {
+        "x": 10.0,
+        "y": 7.0
       },
+      "spread": -2.0,
       "std_dev": 2.0,
       "transform": [
         1.0,
@@ -1956,7 +2154,7 @@
       },
       "brush_transform": null,
       "fill": "NonZero",
-      "shape": "M0,8 C0,3.5817 3.5817,0 8,0 L32,0 C32,0 32,0 32,0 L32,24 C32,26.2091 30.2091,28 28,28 L0,28 C0,28 0,28 0,28 Z",
+      "shape": "M0,8 C0,3.5817 3.5817,0 8,0 L32,0 L32,24 C32,26.2091 30.2091,28 28,28 L0,28 Z",
       "transform": [
         1.0,
         0.0,

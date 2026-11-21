@@ -19,7 +19,6 @@ cargo-fuzz = true
 [dependencies]
 i-slint-compiler = { path = "..", default-features = false, features = ["std"] }
 libfuzzer-sys = "0.4"
-spin_on = "0.1"
 
 [[bin]]
 name = "compiler_fuzzing"

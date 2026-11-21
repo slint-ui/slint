@@ -63,8 +63,9 @@ fn run_test(
         compiler.compiler_configuration(i_slint_core::InternalToken).debug_hooks = true;
     }
 
-    let result =
-        spin_on::spin_on(compiler.build_from_source(source, testcase.absolute_path.clone()));
+    let result = i_slint_compiler::poll_ready(
+        compiler.build_from_source(source, testcase.absolute_path.clone()),
+    );
 
     if result.has_errors() {
         let diagnostics = result.diagnostics().collect::<Vec<_>>();
@@ -144,7 +145,8 @@ fn run_test_serialized_llr(testcase: &test_driver_lib::TestCase) -> Result<(), B
     config.library_paths = compiler.library_paths().clone();
     config.style = compiler.style().cloned();
     let path = i_slint_compiler::source_path::SourcePath::File(testcase.absolute_path.clone());
-    let (diagnostics, compiled) = spin_on::spin_on(serialize::compile(&path, source, config));
+    let (diagnostics, compiled) =
+        i_slint_compiler::poll_ready(serialize::compile(&path, source, config));
     let mode = " (with a serialized LLR)";
     let (unit, resources) = compiled.ok_or_else(|| {
         format!("compilation failed{mode}:\n{}", diagnostics.to_string_vec().join("\n"))

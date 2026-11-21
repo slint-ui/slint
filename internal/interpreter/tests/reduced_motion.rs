@@ -26,8 +26,9 @@ export component TestCase inherits Window {
 #[test]
 fn animations_follow_the_motion_preference() {
     i_slint_backend_testing::init_no_event_loop();
-    let result =
-        spin_on::spin_on(Compiler::default().build_from_source(SOURCE.into(), Default::default()));
+    let result = i_slint_compiler::poll_ready(
+        Compiler::default().build_from_source(SOURCE.into(), Default::default()),
+    );
     assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
     let instance = result.component("TestCase").unwrap().create().unwrap();
     assert_eq!(instance.get_property("eased").unwrap(), Value::Number(0.));
