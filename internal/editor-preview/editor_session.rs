@@ -591,6 +591,7 @@ impl EditorSession {
             default_edition: overrides.default_edition,
             rust_macro_editions: self.rust_macro_editions.clone(),
             format_utf8: compiler_config.format == crate::ByteFormat::Utf8,
+            workspace_edit_completion: self.preview_config.workspace_edit_completion,
         };
         self.send_to_previews(&LspToPreviewMessage::SetConfiguration {
             config: self.preview_config.clone(),
@@ -1389,6 +1390,7 @@ mod preview_tests {
                     default_edition: None,
                     rust_macro_editions: Default::default(),
                     format_utf8: false,
+                    workspace_edit_completion: false,
                 })
             );
         }
@@ -1494,6 +1496,7 @@ mod preview_tests {
     #[test]
     fn preview_configuration_sends_explicit_overrides_without_manifest_settings() {
         let (mut session, messages) = session_with_recording_previews();
+        session.preview_config.workspace_edit_completion = true;
         let directory = tempfile::tempdir().unwrap();
         std::fs::write(
             directory.path().join(i_slint_compiler::project_file::FILE_NAME),
@@ -1524,6 +1527,7 @@ mod preview_tests {
         let expected = session.effective_config_overrides();
         assert_eq!(session.preview_config.overrides, expected.compiler);
         assert_eq!(session.preview_config.hide_ui, Some(true));
+        assert!(session.preview_config.workspace_edit_completion);
         assert_eq!(session.preview_config.overrides.style, None);
         assert_eq!(
             session.document_cache.compiler_configuration().compiler_config.experimental_features,

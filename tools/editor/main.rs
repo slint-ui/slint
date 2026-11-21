@@ -625,7 +625,7 @@ async fn handle_preview_message(
         | Exited => {
             tracing::debug!("Ignoring message from preview: {message:?}");
         }
-        SendWorkspaceEdit { label, edit } => {
+        SendWorkspaceEdit { label, edit, .. } => {
             let applied = handle_workspace_edit(session, label.as_deref(), edit).await;
             preview::workspace_edit_finished(edit.clone(), applied);
         }
@@ -1046,7 +1046,11 @@ mod tests {
                     .is_none()
             );
             poll_ready(handle_preview_message(
-                PreviewToLspMessage::SendWorkspaceEdit { label: Some("Resize".into()), edit },
+                PreviewToLspMessage::SendWorkspaceEdit {
+                    label: Some("Resize".into()),
+                    edit,
+                    notify_on_completion: false,
+                },
                 PRIMARY_PREVIEW_INDEX,
                 &mut session,
             ));

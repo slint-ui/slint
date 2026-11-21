@@ -137,6 +137,7 @@ pub fn setup(api: &ui::Api<'_>) {
                 .send(&PreviewToLspMessage::SendWorkspaceEdit {
                     label: Some(format!("Undo \"{}\"", edit.title)),
                     edit: edit.edit,
+                    notify_on_completion: false,
                 })
                 .unwrap();
             set_undo_redo_enabled(state);
@@ -174,6 +175,7 @@ pub fn setup(api: &ui::Api<'_>) {
                 .send(&PreviewToLspMessage::SendWorkspaceEdit {
                     label: Some(format!("Redo \"{}\"", edit.title)),
                     edit: edit.edit,
+                    notify_on_completion: false,
                 })
                 .unwrap();
             set_undo_redo_enabled(state);

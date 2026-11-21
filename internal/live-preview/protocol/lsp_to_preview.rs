@@ -15,18 +15,16 @@ pub struct PreviewComponent {
     pub component: Option<String>,
 }
 
-#[derive(Default, Clone, PartialEq, Debug, serde::Deserialize, serde::Serialize)]
+#[derive(Default, Clone, PartialEq, Debug)]
 pub struct PreviewConfig {
     pub hide_ui: Option<bool>,
-    #[serde(default, with = "named_overrides")]
     pub overrides: i_slint_compiler::project_file::Overrides,
     /// The edition of a file without a project file or `slint!` macro that sets one.
-    #[serde(default)]
     pub default_edition: Option<i_slint_compiler::project_file::SlintEdition>,
-    #[serde(default)]
     pub rust_macro_editions:
         std::collections::BTreeMap<Url, i_slint_compiler::project_file::SlintEdition>,
     pub format_utf8: bool,
+    pub workspace_edit_completion: bool,
 }
 
 #[derive(Clone, derive_more::Debug, serde::Deserialize, serde::Serialize)]
@@ -93,6 +91,71 @@ pub enum LspToPreviewMessage {
         element: super::pairing::Element,
         confirmation: super::pairing::Confirmation,
     },
+    /// Completes a local preview's [`super::PreviewToLspMessage::SendWorkspaceEdit`].
+    WorkspaceEditFinished {
+        applied: bool,
+    },
+}
+
+// Completion reporting is local to the editor. Keep it out of the remote
+// viewer's positional postcard encoding so older viewers can still decode it.
+mod configuration_encoding {
+    use super::PreviewConfig;
+    use serde::{Deserialize, Serialize};
+
+    #[derive(Serialize, Deserialize)]
+    #[serde(remote = "PreviewConfig")]
+    struct WireConfig {
+        hide_ui: Option<bool>,
+        #[serde(default, with = "super::named_overrides")]
+        overrides: i_slint_compiler::project_file::Overrides,
+        #[serde(default)]
+        default_edition: Option<i_slint_compiler::project_file::SlintEdition>,
+        #[serde(default)]
+        rust_macro_editions: std::collections::BTreeMap<
+            lsp_types::Url,
+            i_slint_compiler::project_file::SlintEdition,
+        >,
+        format_utf8: bool,
+        #[serde(skip)]
+        workspace_edit_completion: bool,
+    }
+
+    #[derive(Serialize, Deserialize)]
+    struct LocalConfig {
+        #[serde(flatten, with = "WireConfig")]
+        config: PreviewConfig,
+        #[serde(default)]
+        workspace_edit_completion: bool,
+    }
+
+    impl Serialize for PreviewConfig {
+        fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+            if serializer.is_human_readable() {
+                LocalConfig {
+                    config: self.clone(),
+                    workspace_edit_completion: self.workspace_edit_completion,
+                }
+                .serialize(serializer)
+            } else {
+                WireConfig::serialize(self, serializer)
+            }
+        }
+    }
+
+    impl<'de> Deserialize<'de> for PreviewConfig {
+        fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+            if deserializer.is_human_readable() {
+                let local = LocalConfig::deserialize(deserializer)?;
+                Ok(Self {
+                    workspace_edit_completion: local.workspace_edit_completion,
+                    ..local.config
+                })
+            } else {
+                WireConfig::deserialize(deserializer)
+            }
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
@@ -161,6 +224,31 @@ mod named_overrides {
 #[cfg(test)]
 mod configuration_tests {
     use super::PreviewConfig;
+
+    #[test]
+    fn completion_support_defaults_to_false_for_old_servers() {
+        let config = PreviewConfig { workspace_edit_completion: true, ..Default::default() };
+        let mut json = serde_json::to_value(&config).unwrap();
+        assert_eq!(json["workspace_edit_completion"], true);
+        assert_eq!(serde_json::from_value::<PreviewConfig>(json.clone()).unwrap(), config);
+        json.as_object_mut().unwrap().remove("workspace_edit_completion");
+        assert!(!serde_json::from_value::<PreviewConfig>(json).unwrap().workspace_edit_completion);
+    }
+
+    #[cfg(feature = "remote")]
+    #[test]
+    fn local_completion_support_does_not_change_the_remote_wire_format() {
+        let mut config = PreviewConfig::default();
+        let legacy = postcard::to_allocvec(&config).unwrap();
+        config.workspace_edit_completion = true;
+        let with_support = postcard::to_allocvec(&config).unwrap();
+        assert_eq!(with_support, legacy);
+        assert!(
+            !postcard::from_bytes::<PreviewConfig>(&with_support)
+                .unwrap()
+                .workspace_edit_completion
+        );
+    }
 
     fn future_overrides() -> serde_json::Value {
         serde_json::json!({
