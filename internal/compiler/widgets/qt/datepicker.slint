@@ -17,9 +17,6 @@ export component DatePickerPopup inherits PopupWindow  {
     in property <string> title: @tr("Select date");
     in property <Date> date <=> base.date;
 
-    property <brush> state: Palette.color-scheme == ColorScheme.dark ? #ffffff : #000000;
-    property <brush> state-secondary: Palette.color-scheme == ColorScheme.dark ? #000000 : #ffffff;
-
     callback canceled();
     callback accepted(date: Date);
 
@@ -50,18 +47,18 @@ export component DatePickerPopup inherits PopupWindow  {
                           font-size: 14px,
                           font-weight: FontWeight.medium,
                           foreground: Palette.foreground,
-                          state-brush: root.state,
+                          state-brush: Palette.foreground,
                           background-selected: Palette.accent-background,
                           foreground-selected: Palette.accent-foreground,
-                          state-brush-selected: root.state-secondary,
+                          state-brush-selected: Palette.accent-foreground,
                           border-color-today: Palette.accent-background,
                           foreground-today: Palette.accent-background,
-                          state-brush-today: root.state,
+                          state-brush-today: Palette.foreground,
                       }
                   },
                   icon-button-style: {
                       foreground: Palette.foreground,
-                      state-brush: root.state,
+                      state-brush: Palette.foreground,
                       icon-size: 12px,
                   },
                   current-day-style: {
@@ -81,7 +78,7 @@ export component DatePickerPopup inherits PopupWindow  {
                   calendar-icon: @image-url("./_calendar.svg"),
                   selection-button-style: {
                       foreground: Palette.foreground,
-                      state-brush: root.state,
+                      state-brush: Palette.foreground,
                       icon-size: 8px,
                       font-size: 14px,
                       font-weight: FontWeight.medium
