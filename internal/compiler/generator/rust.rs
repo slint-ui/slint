@@ -1906,10 +1906,12 @@ fn generate_sub_component_body(
             let code = compile_expression(&e.borrow(), &ctx);
             let prop = compile_expression(&Expression::PropertyReference(p.clone()), &ctx);
             let change_tracker = format_ident!("change_tracker{idx}");
+            let context = access_context(&ctx);
             quote! {
                 #[allow(dead_code, unused)]
                 sp::change_tracker_init_erased(
                     &_self.#change_tracker,
+                    #context.change_handler_queue(),
                     &self_rc,
                     move |_self, _: &()| #prop,
                     move |_self, _| { #code; }
@@ -2421,9 +2423,11 @@ fn generate_global(
         let code = compile_expression(&e.borrow(), &ctx);
         let prop = access_local_member(&(*p).into(), &ctx);
         let change_tracker = format_ident!("change_tracker{}", usize::from(*p));
+        let context = access_context(&ctx);
         quote! {
             #[allow(dead_code, unused)]
             _self.#change_tracker.init(
+                #context.change_handler_queue(),
                 self_rc.globals.get().unwrap().clone(),
                 move |global_weak| {
                     let self_rc = global_weak.upgrade().unwrap().#global_id.clone();

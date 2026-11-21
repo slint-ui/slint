@@ -3427,7 +3427,9 @@ mod tests {
         slint::platform::update_timers_and_animations();
         editor.invoke_focus_editor();
         inline.set_active(true);
-        i_slint_core::properties::ChangeTracker::run_change_handlers();
+        i_slint_core::window::WindowInner::from_pub(editor.window())
+            .context()
+            .run_change_handlers();
         let input = find_element(&editor, "Inline text editor");
         assert_eq!(input.accessible_value().unwrap(), "Text");
         for character in "Undo me".chars() {

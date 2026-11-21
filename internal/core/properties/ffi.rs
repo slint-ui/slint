@@ -542,6 +542,7 @@ pub unsafe extern "C" fn slint_change_tracker_init(
     let ct = unsafe { &*ct.cast::<ChangeTracker>() };
     #[allow(non_camel_case_types)]
     struct C_ChangeTrackerInner {
+        queue: super::change_tracker::ChangeHandlerQueue,
         user_data: *mut c_void,
         drop_user_data: extern "C" fn(user_data: *mut c_void),
         eval_fn: extern "C" fn(user_data: *mut c_void) -> bool,
@@ -576,7 +577,10 @@ pub unsafe extern "C" fn slint_change_tracker_init(
     const VT: &BindingVTable = &BindingVTable {
         drop,
         evaluate,
-        mark_dirty: ChangeTracker::mark_dirty,
+        mark_dirty: |s, _| unsafe {
+            let inner = &(*(s as *const BindingHolder<C_ChangeTrackerInner>)).binding;
+            ChangeTracker::mark_dirty(s, &inner.queue)
+        },
         intercept_set: |_, _| false,
         intercept_set_binding: |_, _| false,
         velocity: |_| None,
@@ -585,7 +589,17 @@ pub unsafe extern "C" fn slint_change_tracker_init(
 
     ct.clear();
 
-    let inner = C_ChangeTrackerInner { user_data, drop_user_data, eval_fn, notify_fn };
+    let inner = C_ChangeTrackerInner {
+        // C++ components only use the current context.
+        queue: crate::SlintContext::current()
+            .expect("a component exists, so there is a current context")
+            .change_handler_queue()
+            .clone(),
+        user_data,
+        drop_user_data,
+        eval_fn,
+        notify_fn,
+    };
 
     let holder = BindingHolder {
         dependencies: Cell::new(core::ptr::null_mut()),
@@ -641,6 +655,7 @@ mod ffi_change_tracker_leak_test {
     // The dependency nodes must not accumulate across re-evaluations.
     #[test]
     fn ffi_change_tracker_does_not_leak_dep_nodes() {
+        let ctx = crate::SlintContext::new(Box::new(crate::testing::NoWindowPlatform));
         let prop = Box::pin(Property::new(0));
         let state = EvalState { prop: &*prop as *const _, last: Cell::new(0) };
         let ct = ChangeTracker::default();
@@ -657,7 +672,7 @@ mod ffi_change_tracker_leak_test {
 
         for i in 1..=200 {
             prop.as_ref().set(i);
-            ChangeTracker::run_change_handlers();
+            ctx.run_change_handlers();
             assert_eq!(ct.test_dep_node_count(), 1, "leaked a DependencyNode at iteration {i}");
         }
     }
