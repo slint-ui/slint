@@ -297,6 +297,9 @@ unstable-wgpu-29 = [
   "dep:wgpu-29",
 ]
 
+# Experimental: with `SLINT_SKIA_GRAPHITE` set, the linuxkms backend renders with Skia Graphite on WGPU 30.
+unstable-skia-graphite = ["unstable-wgpu-30", "i-slint-backend-selector/graphite-wgpu-30"]
+
 ## Enable support for [WGPU](http://wgpu.rs) based rendering and expose WGPU based APIs based on WGPU version 30.x.
 unstable-wgpu-30 = [
   "i-slint-core/unstable-wgpu-30",

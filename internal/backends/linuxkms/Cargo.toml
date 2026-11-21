@@ -37,6 +37,7 @@ image-pixel-format-rgb565 = [
 ]
 renderer-skia = ["renderer-skia-opengl"]
 renderer-skia-vulkan = ["unstable-wgpu-30", "i-slint-renderer-skia/vulkan"]
+graphite-wgpu-30 = ["unstable-wgpu-30", "i-slint-renderer-skia/graphite-wgpu-30"]
 unstable-wgpu-29 = ["i-slint-renderer-skia/unstable-wgpu-29", "drm", "dep:memmap2"]
 unstable-wgpu-30 = [
   "i-slint-renderer-skia/unstable-wgpu-30",

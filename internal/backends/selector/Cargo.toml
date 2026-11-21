@@ -57,6 +57,7 @@ renderer-femtovg-wgpu = [
   "i-slint-backend-winit?/renderer-femtovg-wgpu",
   "i-slint-backend-linuxkms?/renderer-femtovg-wgpu",
 ]
+graphite-wgpu-30 = ["i-slint-backend-linuxkms?/graphite-wgpu-30"]
 renderer-skia = [
   "dep:i-slint-renderer-skia",
   "i-slint-backend-winit?/renderer-skia",
