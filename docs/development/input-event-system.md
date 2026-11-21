@@ -76,7 +76,6 @@ The items decide at delivery time:
   and with it `clicked`, `double-clicked`, and `moved`, while keeping the grab.
   The suppressed click doesn't count toward that `TouchArea`'s `double-clicked` either,
   so the next click there is a single click.
-- `Text` ignores an activation release for `link-clicked`.
 - Every other item processes an activation click like any other click.
   It counts in `ClickState`, so a double-click into an inactive window is a double-click.
 
