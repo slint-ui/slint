@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // Test the handling of window-activating clicks (macOS "first mouse").
-// A `TouchArea` suppresses them by default, unless `accepts-activation-clicks`
-// is set. The `pointer-event` callback fires either way and reports the
-// activation state in `is-activation-click`.
+// A `TouchArea` processes them by default, and ignores them when
+// `accepts-activation-clicks` is `false`. The `pointer-event` callback fires
+// either way and reports the activation state in `is-activation-click`.
 
 export component TestCase {
     in-out property <string> log;
@@ -13,14 +13,15 @@ export component TestCase {
     in-out property <int> moves;
     in-out property <int> accepting-clicks;
     in-out property <int> accepting-double-clicks;
-    out property <bool> is-pressed <=> default-ta.pressed;
+    out property <bool> is-pressed <=> ignoring-ta.pressed;
     out property <bool> accepting-is-pressed <=> accepting-ta.pressed;
 
-    default-ta := TouchArea {
+    ignoring-ta := TouchArea {
         x: 0phx;
         y: 0phx;
         width: 100phx;
         height: 100phx;
+        accepts-activation-clicks: false;
         clicked => { clicks += 1; }
         double-clicked => { double-clicks += 1; }
         moved => { moves += 1; }
@@ -38,7 +39,6 @@ export component TestCase {
         y: 0phx;
         width: 100phx;
         height: 100phx;
-        accepts-activation-clicks: true;
         clicked => { accepting-clicks += 1; }
         double-clicked => { accepting-double-clicks += 1; }
     }
@@ -77,8 +77,9 @@ let instance = TestCase::new().unwrap();
 let window = instance.window();
 let send = |event: BackendMouseEvent| window.dispatch_event(WindowEvent::internal(event));
 
-// An activation click is suppressed by default: `pressed` stays false, no
-// `clicked`, but `pointer-event` fires with the activation flag on both ends.
+// `accepts-activation-clicks: false` suppresses an activation click: `pressed`
+// stays false, no `clicked`, but `pointer-event` fires with the activation flag
+// on both ends.
 send(press(50., 50., true));
 assert!(!instance.get_is_pressed());
 send(release(50., 50., true));
@@ -114,7 +115,7 @@ send(release(50., 50., false));
 assert_eq!(instance.get_clicks(), 3);
 assert_eq!(instance.get_double_clicks(), 1);
 
-// `accepts-activation-clicks: true` processes the activation click normally.
+// By default, a `TouchArea` processes the activation click normally.
 send(press(150., 50., true));
 assert!(instance.get_accepting_is_pressed());
 send(release(150., 50., true));
@@ -129,7 +130,7 @@ send(release(150., 50., false));
 assert_eq!(instance.get_accepting_clicks(), 2);
 assert_eq!(instance.get_accepting_double_clicks(), 0);
 
-// Normal clicks on the default TouchArea are unaffected.
+// Normal clicks on the ignoring TouchArea are unaffected.
 slint_testing::mock_elapsed_time(1000);
 send(press(50., 50., false));
 assert!(instance.get_is_pressed());

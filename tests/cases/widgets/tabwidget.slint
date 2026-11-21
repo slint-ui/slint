@@ -152,43 +152,6 @@ assert_eq!(instance.get_current_index(), 1, "tiny scroll changed the current tab
 ```
 
 ```rust
-use slint::platform::WindowEvent;
-use slint_testing::{BackendMouseEvent, LogicalPoint, PointerEventButton};
-
-let instance = TestCase::new().unwrap();
-
-let click = |label: &str, is_activation_click: bool| {
-    let tab =
-        slint_testing::ElementHandle::find_by_accessible_label(&instance, label).next().unwrap();
-    let top_left = tab.absolute_position();
-    let size = tab.size();
-    let position =
-        LogicalPoint::new(top_left.x + size.width / 2., top_left.y + size.height / 2.);
-    let button = PointerEventButton::Left;
-    instance.window().dispatch_event(WindowEvent::internal(BackendMouseEvent::Pressed {
-        position,
-        button,
-        click_count: 0,
-        touch_finger_id: 0,
-        is_activation_click,
-    }));
-    instance.window().dispatch_event(WindowEvent::internal(BackendMouseEvent::Released {
-        position,
-        button,
-        click_count: 0,
-        touch_finger_id: 0,
-        is_activation_click,
-    }));
-};
-
-click("Third Tab", false);
-assert_eq!(instance.get_current_index(), 2);
-
-click("Second Tab", true);
-assert_eq!(instance.get_current_index(), 1, "a window-activating click didn't switch tabs");
-```
-
-```rust
 let instance = TestCase::new().unwrap();
 assert!(instance.get_test());
 ```

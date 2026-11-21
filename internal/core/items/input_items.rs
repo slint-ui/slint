@@ -131,10 +131,10 @@ impl Item for TouchArea {
             MouseEvent::Pressed {
                 position, button, touch_finger_id, is_activation_click, ..
             } => {
-                // A window-activating click (macOS "first mouse") should not
-                // trigger actions by default: keep the grab so the matching
-                // release still arrives here and `pointer-event` still fires,
-                // but don't enter the pressed state that `clicked` depends on.
+                // An ignored window-activating click (macOS "first mouse")
+                // keeps the grab, so the matching release still arrives here
+                // and `pointer-event` still fires, but it doesn't enter the
+                // pressed state that `clicked` depends on.
                 let suppressed = *is_activation_click && !self.accepts_activation_clicks();
                 self.grabbed.set(true);
                 self.suppressed_grab.set(suppressed);

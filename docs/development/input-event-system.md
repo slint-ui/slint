@@ -64,23 +64,21 @@ and the item that press was delivered to.
 
 ### Activation Clicks (macOS "first mouse")
 
-On macOS, a click on an inactive window activates the window.
-By convention, only safe interactions react to that click: selection, scrolling, and text-cursor placement.
-Controls that trigger an action, such as buttons, ignore it.
+On macOS, a click on an inactive window activates the window, and the window's view also receives it.
+AppKit's own controls differ in what they do with it: `NSButton` and `NSSlider` react, most other views don't.
 The backend tags both the press and the matching release of such a click with `is_activation_click`.
 The flag is always false on other platforms, and for events from the public `platform::WindowEvent` API.
 
-The items apply the policy at delivery time:
+The items decide at delivery time:
 
-- `TouchArea` suppresses the pressed state for activation clicks, and with it `clicked`, `double-clicked`, and `moved`.
-  It keeps the grab and still emits `pointer-event` with the `is-activation-click` field set.
-  Set `accepts-activation-clicks` to process them like any other click.
-  In the std-widgets, list rows, table rows, tab headers, and scrollbars do.
+- `TouchArea` processes an activation click like any other click.
+  It always emits `pointer-event` with the `is-activation-click` field set.
+  With `accepts-activation-clicks` set to `false`, it suppresses the pressed state for activation clicks,
+  and with it `clicked`, `double-clicked`, and `moved`, while keeping the grab.
 - `Text` ignores an activation release for `link-clicked`.
 - `SliderBase` (std-widgets) returns early from its `pointer-event` handler,
-  since it changes the value on pointer-down directly.
-- `Flickable`, `TextInput`, `SwipeGestureHandler`, and `ContextMenuArea` process activation clicks normally on purpose.
-  Panning, cursor placement, and context menus are safe on a window-activating click.
+  so an activation click doesn't change the value.
+- `Flickable`, `TextInput`, `SwipeGestureHandler`, and `ContextMenuArea` process activation clicks normally.
 
 ### Mouse Input State
 

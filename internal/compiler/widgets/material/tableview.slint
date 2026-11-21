@@ -102,7 +102,6 @@ component TableViewRow inherits Rectangle {
     min-height: max(42px, layout.min-height);
 
     state-layer := StateLayer {
-        accepts-activation-clicks: true;
         checked: root.selected;
         background: MaterialPalette.accent-background;
         checked-background: MaterialPalette.control-background;

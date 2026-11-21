@@ -1465,9 +1465,9 @@ impl ClickState {
                 self.last_press_position.set(position);
                 self.pressed.set(true);
                 // A window-activating click (macOS "first mouse") never joins a
-                // multi-click sequence: it is typically suppressed by the items,
-                // and counting it would turn the next actual click into a
-                // double-click. Also don't let the following click chain onto it.
+                // multi-click sequence: an item can ignore it, and counting it
+                // would then turn the next actual click into a double-click.
+                // Also don't let the following click chain onto it.
                 if is_activation_click {
                     self.click_count.set(0);
                     self.click_count_time_stamp.set(None);

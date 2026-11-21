@@ -39,9 +39,7 @@ export component SliderBase {
                 return;
             }
 
-            // A window-activating click must not change the value: the slider
-            // acts on pointer-event directly, so the TouchArea default
-            // (`accepts-activation-clicks: false`) doesn't cover it.
+            // A window-activating click must not change the value.
             if (event.is-activation-click) {
                 return;
             }
