@@ -143,6 +143,24 @@ macro_rules! for_each_enums {
                 Ignore,
             }
 
+            /// The kind of the standard menu item. Sets predefined shortcuts and titles of the standard menu items.
+            enum StandardMenuItemKind {
+                /// Copy selection to the clipboard (Ctrl/Cmd+c)
+                Copy,
+                /// Cut selection to the clipboard (Ctrl/Cmd+x)
+                Cut,
+                /// Paste selection from the clipboard (Ctrl/Cmd+v)
+                Paste,
+                /// Select all contents (Ctrl/Cmd+a)
+                SelectAll,
+                /// Undo last action (Ctrl/Cmd+z)
+                Undo,
+                /// Redo last action (Ctrl/Cmd+Shift+z)
+                Redo,
+                /// Quit the application (Ctrl/Cmd+q)
+                Quit,
+            }
+
             /// This enum represents the value of the `dialog-button-role` property which can be added to
             /// any element within a `Dialog` to put that item in the button row, and its exact position
             /// depends on the role and the platform.
