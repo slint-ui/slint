@@ -1,0 +1,48 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// An animated binding whose dependencies change without changing its value must not start an
+// animation, which would keep the window redrawing for the whole duration of the animation.
+
+export component TestCase inherits Window {
+    in-out property <bool> on: false;
+    in-out property <int> ticks: 0;
+
+    out property <length> x-prop: ticks >= 0 && on ? 200px : 40px;
+    animate x-prop {
+        duration: 1s;
+    }
+
+    Timer {
+        interval: 100ms;
+        running: root.ticks < 3;
+        triggered => {
+            root.ticks += 1;
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_x_prop(), 40.);
+
+// Each tick of the timer changes the `ticks` the binding depends on, but not its value.
+for tick in 1..=3 {
+    slint_testing::mock_elapsed_time(100);
+    assert_eq!(instance.get_ticks(), tick);
+    assert_eq!(instance.get_x_prop(), 40.);
+    assert!(!instance.window().has_active_animations(), "tick {tick} started an animation");
+}
+
+// A change of the value still animates from the value it had.
+instance.set_on(true);
+assert_eq!(instance.get_x_prop(), 40.);
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_x_prop(), 120.);
+assert!(instance.window().has_active_animations());
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_x_prop(), 200.);
+assert!(!instance.window().has_active_animations());
+```
+*/
