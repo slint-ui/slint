@@ -539,6 +539,9 @@ pub struct WinitWindowAdapter {
     #[cfg(target_arch = "wasm32")]
     virtual_keyboard_helper: RefCell<Option<super::wasm_input_helper::WasmInputHelper>>,
 
+    /// Whether the input method has a composition in progress.
+    ime_composing: Cell<bool>,
+
     /// Set while a shown window waits for its first frame, see [`crate::macos::RevealOnFirstFrame`].
     #[cfg(target_os = "macos")]
     reveal_on_first_frame: RefCell<Option<crate::macos::RevealOnFirstFrame>>,
@@ -599,6 +602,7 @@ impl WinitWindowAdapter {
             window: corelib::api::Window::new(self_weak.clone() as _),
             self_weak: self_weak.clone(),
             pending_redraw: Default::default(),
+            ime_composing: Default::default(),
             constraints: Default::default(),
             shown: Default::default(),
             window_level: Default::default(),
@@ -1667,6 +1671,7 @@ impl WinitWindowAdapter {
                 WindowInner::from_pub(self.window()).release_modifiers_not_held(held);
             }
             WinitWindowEvent::Ime(winit::event::Ime::Preedit(string, preedit_selection)) => {
+                self.ime_composing.set(!string.is_empty());
                 let event = InternalKeyEvent {
                     event_type: KeyEventType::UpdateComposition,
                     preedit_text: string.into(),
@@ -1676,6 +1681,7 @@ impl WinitWindowAdapter {
                 self.dispatch_internal_event(event);
             }
             WinitWindowEvent::Ime(winit::event::Ime::Commit(string)) => {
+                self.ime_composing.set(false);
                 let mut key_event = KeyEvent::default();
                 key_event.text = string.into();
                 let event = InternalKeyEvent {
@@ -2387,10 +2393,15 @@ impl WindowAdapterInternal for WinitWindowAdapter {
         if let Some(winit_window) = self.winit_window_or_none.borrow().as_window() {
             let props = match &request {
                 corelib::window::InputMethodRequest::Enable(props) => {
+                    if self.ime_composing.take() {
+                        // winit has no other way to end a composition.
+                        winit_window.set_ime_allowed(false);
+                    }
                     winit_window.set_ime_allowed(true);
                     props
                 }
                 corelib::window::InputMethodRequest::Disable => {
+                    self.ime_composing.set(false);
                     return winit_window.set_ime_allowed(false);
                 }
                 corelib::window::InputMethodRequest::Update(props) => props,

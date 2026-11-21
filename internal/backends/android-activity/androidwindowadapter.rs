@@ -128,6 +128,7 @@ impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
                         self.window.scale_factor(),
                         self.show_cursor_handles.get(),
                         new_client,
+                        true,
                     )
                     .unwrap_or_else(|e| print_jni_error(&self.app, e));
                 self.java_helper
@@ -228,6 +229,7 @@ impl AndroidWindowAdapter {
                     &props,
                     self.window.scale_factor(),
                     self.show_cursor_handles.get(),
+                    false,
                     false,
                 )
                 .unwrap_or_else(|e| print_jni_error(&self.app, e));
