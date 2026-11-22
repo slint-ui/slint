@@ -2194,8 +2194,7 @@ fn send_mouse_event_to_item(
 pub(crate) struct TextCursorBlinker {
     cursor_visible: Property<bool>,
     cursor_blink_timer: crate::timers::Timer,
-    /// How many more times the cursor toggles before it settles, visible, until the next
-    /// call of `show`: a blinking cursor that nobody is using keeps the window redrawing.
+    /// How many more times the cursor toggles before it stays visible until the next `show`.
     toggles_left: core::cell::Cell<u32>,
 }
 
@@ -2238,7 +2237,7 @@ impl TextCursorBlinker {
             return;
         }
         let half_cycle = (cycle_duration / 2).max(Duration::from_millis(1));
-        self.toggles_left.set((BLINK_TIMEOUT.as_millis() / half_cycle.as_millis()).max(1) as u32);
+        self.toggles_left.set((BLINK_TIMEOUT.div_duration_f32(half_cycle) as u32).max(1));
         if self.cursor_blink_timer.running() {
             self.cursor_blink_timer.restart();
         } else {
@@ -2253,8 +2252,6 @@ impl TextCursorBlinker {
                         let left = blinker.toggles_left.get().saturating_sub(1);
                         blinker.toggles_left.set(left);
                         if left == 0 {
-                            // Left visible: the timer, and the redraws it asks for, stop until
-                            // the cursor is used again.
                             blinker.cursor_visible.set(true);
                             blinker.cursor_blink_timer.stop();
                         } else {

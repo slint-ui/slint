@@ -52,10 +52,10 @@ assert!(slint::platform::duration_until_next_timer_update().is_none(), "no timer
 slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::LeftArrow));
 assert!(!visible_throughout(2000), "the cursor blinks after it moved");
 
-// So does typing, and the time out starts over.
+// So does typing, and the timeout starts over.
 let _ = visible_throughout(9000);
 slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from("a"));
-assert!(!visible_throughout(9000), "the time out started over with typing");
+assert!(!visible_throughout(9000), "the timeout started over with typing");
 let _ = visible_throughout(3000);
 assert!(visible_throughout(2000));
 
