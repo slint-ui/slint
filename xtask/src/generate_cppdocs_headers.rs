@@ -77,7 +77,7 @@ fn generated_enums_have_fixed_size() {
             {
                 assert!(
                     declaration.contains(':'),
-                    "{name}: `{line}` has no underlying type. Use `#[repr(u32)]` or `#[repr(C, u32)]` on the Rust enum"
+                    "{name}: `{line}` has no underlying type. Use `#[repr(u8)]` or `#[repr(C, u8)]` on the Rust enum"
                 );
             }
         }
