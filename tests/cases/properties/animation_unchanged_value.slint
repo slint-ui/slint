@@ -13,6 +13,14 @@ export component TestCase inherits Window {
         duration: 1s;
     }
 
+    in-out property <bool> pulse-on: false;
+    out property <length> pulse: ticks >= 0 && pulse-on ? 200px : 40px;
+    animate pulse {
+        duration: 1s;
+        iteration-count: -1;
+        direction: alternate;
+    }
+
     Timer {
         interval: 100ms;
         running: root.ticks < 3;
@@ -44,5 +52,17 @@ assert!(instance.window().has_active_animations());
 slint_testing::mock_elapsed_time(500);
 assert_eq!(instance.get_x_prop(), 200.);
 assert!(!instance.window().has_active_animations());
+
+// A dependency change while a repeating animation shows its target keeps the animation running.
+assert_eq!(instance.get_pulse(), 40.);
+instance.set_pulse_on(true);
+assert_eq!(instance.get_pulse(), 40.);
+slint_testing::mock_elapsed_time(1000);
+assert_eq!(instance.get_pulse(), 200.);
+instance.set_ticks(10);
+assert_eq!(instance.get_pulse(), 200.);
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_pulse(), 120.);
+assert!(instance.window().has_active_animations());
 ```
 */

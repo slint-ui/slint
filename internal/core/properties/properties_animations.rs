@@ -408,8 +408,9 @@ impl<T: InterpolatedPropertyValue + Clone, A: Fn() -> AnimationDetail> BindingCa
                 // original binding's value type
                 unsafe { self.original_binding.update(&mut new_to_value as *mut T) };
 
-                if new_to_value == *value {
+                if previous_to_value.as_ref() != Some(&new_to_value) && new_to_value == *value {
                     animation_data.to_value = Some(new_to_value);
+                    animation_data.from_value = value.clone();
                     animation_data.state = AnimationState::Done { iteration_count: 0 };
                     self.state.set(AnimatedBindingState::NotAnimating);
                     return BindingResult::KeepBinding;
@@ -1548,6 +1549,54 @@ mod animation_tests {
         crate::animations::CURRENT_ANIMATION_DRIVER
             .with(|driver| driver.update_animations(change_time + DURATION));
         assert_eq!(get_prop_value(&compo.width), 200);
+    }
+
+    #[test]
+    fn properties_test_reverse_animation_retargeted_to_current_value() {
+        #[derive(Default)]
+        struct Component {
+            width: Property<i32>,
+            target: Property<i32>,
+            unrelated: Property<i32>,
+        }
+
+        let compo = Rc::pin(Component::default());
+
+        let animation_details = PropertyAnimation {
+            duration: DURATION.as_millis() as _,
+            iteration_count: 1.,
+            direction: AnimationDirection::Reverse,
+            ..PropertyAnimation::default()
+        };
+
+        let w = PinWeak::downgrade(compo.clone());
+        compo.width.set_animated_binding(
+            move || {
+                let compo = w.upgrade().unwrap();
+                get_prop_value(&compo.unrelated);
+                get_prop_value(&compo.target)
+            },
+            move || (animation_details.clone(), None),
+        );
+
+        compo.target.set(40);
+        assert_eq!(get_prop_value(&compo.width), 40);
+
+        let start_time = crate::animations::current_tick();
+        compo.target.set(200);
+        get_prop_value(&compo.width);
+        crate::animations::CURRENT_ANIMATION_DRIVER
+            .with(|driver| driver.update_animations(start_time + DURATION / 2));
+        assert_eq!(get_prop_value(&compo.width), 120);
+
+        compo.target.set(120);
+        assert_eq!(get_prop_value(&compo.width), 120);
+
+        // A dependency change that keeps the target must keep the value it settled on.
+        compo.unrelated.set(1);
+        crate::animations::CURRENT_ANIMATION_DRIVER
+            .with(|driver| driver.update_animations(start_time + DURATION));
+        assert_eq!(get_prop_value(&compo.width), 120);
     }
 
     #[test]
