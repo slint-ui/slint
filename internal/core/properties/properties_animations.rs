@@ -408,7 +408,10 @@ impl<T: InterpolatedPropertyValue + Clone, A: Fn() -> AnimationDetail> BindingCa
                 // original binding's value type
                 unsafe { self.original_binding.update(&mut new_to_value as *mut T) };
 
-                if previous_to_value.as_ref() != Some(&new_to_value) && new_to_value == *value {
+                if previous_to_value.as_ref() != Some(&new_to_value)
+                    && animation_data.apply_map(new_to_value.clone())
+                        == animation_data.apply_map(value.clone())
+                {
                     animation_data.to_value = Some(new_to_value);
                     animation_data.from_value = value.clone();
                     animation_data.state = AnimationState::Done { iteration_count: 0 };
@@ -1597,6 +1600,50 @@ mod animation_tests {
         crate::animations::CURRENT_ANIMATION_DRIVER
             .with(|driver| driver.update_animations(start_time + DURATION));
         assert_eq!(get_prop_value(&compo.width), 120);
+    }
+
+    #[test]
+    fn properties_test_mapped_animation_retargeted_to_shown_value() {
+        #[derive(Default)]
+        struct Component {
+            width: Property<f32>,
+            target: Property<f32>,
+        }
+
+        let compo = Rc::pin(Component::default());
+
+        let animation_details = PropertyAnimation {
+            duration: DURATION.as_millis() as _,
+            iteration_count: 1.,
+            ..PropertyAnimation::default()
+        };
+
+        let w = PinWeak::downgrade(compo.clone());
+        compo.width.set_animated_binding_with_map(
+            move || get_prop_value(&w.upgrade().unwrap().target),
+            move || (animation_details.clone(), None),
+            |v: f32| v.round(),
+        );
+
+        compo.target.set(40.);
+        assert_eq!(get_prop_value(&compo.width), 40.);
+
+        let start_time = crate::animations::current_tick();
+        compo.target.set(200.);
+        get_prop_value(&compo.width);
+        crate::animations::CURRENT_ANIMATION_DRIVER
+            .with(|driver| driver.update_animations(start_time + DURATION / 2));
+        assert_eq!(get_prop_value(&compo.width), 120.);
+
+        // The new target maps to the value shown now: nothing is left to animate.
+        compo.target.set(120.3);
+        crate::animations::CURRENT_ANIMATION_DRIVER
+            .with(|driver| driver.update_animations(start_time + DURATION / 2 + DURATION / 4));
+        assert_eq!(get_prop_value(&compo.width), 120.);
+        assert!(
+            !crate::animations::CURRENT_ANIMATION_DRIVER
+                .with(|driver| driver.has_active_animations())
+        );
     }
 
     #[test]
