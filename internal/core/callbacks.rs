@@ -29,15 +29,23 @@ impl<Arg: ?Sized, Ret> Default for Callback<Arg, Ret> {
     }
 }
 
+impl<Arg: ?Sized, Ret> Callback<Arg, Ret> {
+    fn call_impl(&self, a: &Arg, r: &mut Ret) {
+        if let Some(mut h) = self.handler.take() {
+            h(a, r);
+            let new_handler = self.handler.replace(Some(h));
+            if new_handler.is_some() {
+                self.handler.set(new_handler);
+            }
+        }
+    }
+}
+
 impl<Arg: ?Sized, Ret: Default> Callback<Arg, Ret> {
     /// Call the callback with the given argument.
     pub fn call(&self, a: &Arg) -> Ret {
         let mut r = Ret::default();
-        if let Some(mut h) = self.handler.take() {
-            h(a, &mut r);
-            assert!(self.handler.take().is_none(), "Callback Handler set while called");
-            self.handler.set(Some(h));
-        }
+        self.call_impl(a, &mut r);
         r
     }
 
@@ -105,11 +113,7 @@ pub(crate) mod ffi {
     ) {
         unsafe {
             let sig = &*(sig as *const Callback<c_void, c_void>);
-            if let Some(mut h) = sig.handler.take() {
-                h(&*arg, &mut *ret);
-                assert!(sig.handler.take().is_none(), "Callback Handler set while called");
-                sig.handler.set(Some(h));
-            }
+            sig.call_impl(&*arg, &mut *ret);
         }
     }
 
