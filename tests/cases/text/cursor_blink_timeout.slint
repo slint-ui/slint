@@ -14,7 +14,8 @@ export component TestCase inherits Window {
 
 /*
 ```rust
-use slint::platform::Key;
+use i_slint_core::input::{InternalKeyEvent, KeyEventType};
+use slint::platform::{Key, WindowEvent};
 use slint::SharedString;
 
 let instance = TestCase::new().unwrap();
@@ -57,5 +58,46 @@ slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from("a")
 assert!(!visible_throughout(9000), "the time out started over with typing");
 let _ = visible_throughout(3000);
 assert!(visible_throughout(2000));
+
+// Every other way of editing or moving the cursor starts the blinking again, too.
+let ctrl_key = |key: &str, shift: bool| {
+    slint_testing::send_keyboard_char(&instance, Key::Control.into(), true);
+    if shift {
+        slint_testing::send_keyboard_char(&instance, Key::Shift.into(), true);
+    }
+    slint_testing::send_keyboard_string_sequence(&instance, key);
+    slint_testing::send_keyboard_char(&instance, Key::Control.into(), false);
+    if shift {
+        slint_testing::send_keyboard_char(&instance, Key::Shift.into(), false);
+    }
+};
+let compose = |event_type: KeyEventType, text: &str| {
+    let mut event = InternalKeyEvent::default();
+    event.event_type = event_type;
+    if event_type == KeyEventType::CommitComposition {
+        event.key_event.text = text.into();
+    } else {
+        event.preedit_text = text.into();
+    }
+    instance.window().dispatch_event(WindowEvent::internal(event));
+};
+slint_testing::send_keyboard_char(&instance, Key::Shift.into(), true);
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::LeftArrow));
+slint_testing::send_keyboard_char(&instance, Key::Shift.into(), false);
+let actions: [(&str, &dyn Fn()); 7] = [
+    ("cut", &|| ctrl_key("x", false)),
+    ("a click", &|| slint_testing::send_mouse_click(&instance, 1., 5.)),
+    ("a composition", &|| compose(KeyEventType::UpdateComposition, "ka")),
+    ("a committed composition", &|| compose(KeyEventType::CommitComposition, "か")),
+    ("paste", &|| ctrl_key("v", false)),
+    ("undo", &|| ctrl_key("z", false)),
+    ("redo", &|| ctrl_key("z", true)),
+];
+for (name, action) in actions {
+    let _ = visible_throughout(11000);
+    assert!(visible_throughout(1000), "the cursor is steady before {name}");
+    action();
+    assert!(!visible_throughout(2000), "the cursor blinks after {name}");
+}
 ```
 */

@@ -1280,6 +1280,9 @@ impl Item for TextInput {
                     2 => self.select_paragraph(window_adapter, self_rc),
                     _ => unreachable!(),
                 };
+                if self.has_focus() {
+                    self.as_ref().show_cursor(window_adapter);
+                }
 
                 return InputEventResult::GrabMouse;
             }
@@ -1566,6 +1569,7 @@ impl Item for TextInput {
                         self_rc,
                     );
                 }
+                self.show_cursor(window_adapter);
                 KeyEventResult::EventAccepted
             }
         }
@@ -2356,6 +2360,7 @@ impl TextInput {
         }
         self.copy(window_adapter);
         self.delete_selection(window_adapter, self_rc, TextChangeNotify::TriggerCallbacks);
+        self.show_cursor(window_adapter);
     }
 
     pub fn set_selection_offsets(
@@ -2499,6 +2504,7 @@ impl TextInput {
         {
             self.preedit_text.set(Default::default());
             self.insert(&text, window_adapter, self_rc);
+            self.show_cursor(window_adapter);
         }
     }
 
@@ -2723,6 +2729,7 @@ impl TextInput {
         let mut redo = self.redo_items.take();
         redo.push(last);
         self.redo_items.set(redo);
+        self.show_cursor(window_adapter);
         Self::FIELD_OFFSETS.edited().apply_pin(self).call(&());
     }
 
@@ -2771,6 +2778,7 @@ impl TextInput {
         let mut undo_items = self.undo_items.take();
         undo_items.push(last);
         self.undo_items.set(undo_items);
+        self.show_cursor(window_adapter);
         Self::FIELD_OFFSETS.edited().apply_pin(self).call(&());
     }
 
