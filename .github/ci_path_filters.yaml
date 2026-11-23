@@ -126,7 +126,7 @@ figma_inspector:
  - 'tools/figma-inspector/**'
  - *js_config
 
-ai_plugins:
+ai_plugins: &ai_plugins
  - 'ai-plugins/**'
  - *ci_config
 
@@ -227,6 +227,8 @@ examples_mcu:
 vsce:
  - *js_config
  - *ci_config
+ # The VS Code Extension packages the MCP
+ - *ai_plugins
  - 'editors/vscode/**'
  - 'docs/common/src/utils/slint.tmLanguage.json'
 
