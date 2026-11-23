@@ -1297,8 +1297,8 @@ export component AppWindow inherits Window {
             text: label.name;
             color: Theme.text.with-alpha(0.8 * label.opacity);
             font-size: 11px;
-            stroke: #000000.with-alpha(0.3 * label.opacity);
-            stroke-width: Theme.full-detail ? 1px : 0;
+            stroke: Theme.full-detail ? #000000.with-alpha(0.3 * label.opacity) : transparent;
+            stroke-width: 1px;
         }
     }
 
