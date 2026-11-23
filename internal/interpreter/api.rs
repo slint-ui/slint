@@ -3575,6 +3575,24 @@ mod project_file_tests {
     }
 
     #[test]
+    fn the_project_file_fonts_must_exist() {
+        with_project(
+            r#"{ "edition": "1.20", "main": "main.slint", "fonts": ["Font.ttf", "Missing.ttf"] }"#,
+            |root| {
+                std::fs::write(root.join("Font.ttf"), "").unwrap();
+                let result = compile(root, "export component Main inherits Window { }");
+                let errors: Vec<_> = result
+                    .diagnostics()
+                    .filter(|d| d.level() == super::DiagnosticLevel::Error)
+                    .collect();
+                assert_eq!(errors.len(), 1, "{errors:?}");
+                assert!(errors[0].message().contains("Missing.ttf"), "{errors:?}");
+                assert_eq!(errors[0].source_file(), Some(root.join(FILE_NAME).as_path()));
+            },
+        );
+    }
+
+    #[test]
     fn an_invalid_project_file_is_reported() {
         with_project("{", |root| {
             let result = compile(root, "export component Main inherits Window { }");

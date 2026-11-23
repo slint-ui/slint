@@ -125,6 +125,39 @@ fn a_library_path_argument_replaces_the_project_library_of_the_same_name() {
 }
 
 #[test]
+fn fonts_from_the_project_file_are_registered() {
+    let project = Project::new(Some(
+        r#"{ "edition": "1.20", "main": "main.slint", "fonts": ["fonts/Font.ttf"] }"#,
+    ));
+    project.write("fonts/Font.ttf", "");
+    project.write("main.slint", PLAIN);
+
+    let output = project.compile(&project.input(false), &[]);
+    assert!(output.status.success(), "{}", stderr(&output));
+    let generated = std::fs::read_to_string(project.root.join("generated.h")).unwrap();
+    assert!(
+        generated
+            .lines()
+            .any(|line| line.contains("register_font_from_path(") && line.contains("Font.ttf\")")),
+        "{generated}"
+    );
+}
+
+#[test]
+fn a_missing_font_is_reported_on_the_project_file() {
+    let project = Project::new(Some(
+        r#"{ "edition": "1.20", "main": "main.slint", "fonts": ["fonts/Missing.ttf"] }"#,
+    ));
+    project.write("main.slint", PLAIN);
+
+    let output = project.compile(&project.input(false), &[]);
+    assert!(!output.status.success());
+    let stderr = stderr(&output);
+    assert!(stderr.contains("Missing.ttf") && stderr.contains("not found"), "{stderr}");
+    assert!(stderr.contains("slint-project.json"), "{stderr}");
+}
+
+#[test]
 fn library_paths_come_from_the_project_file() {
     for manifest in [false, true] {
         let project = Project::new(Some(
