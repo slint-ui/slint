@@ -230,6 +230,64 @@ fn daylight(point: Vec3, hours: f32) -> &'static str {
     }
 }
 
+/// How many seconds a reading on the cards stays as it is.
+/// The flaps take most of a second to flip to a new one, and drawing them while they flip takes
+/// small CPUs a good part of a frame.
+const READING_SECONDS: f32 = 2.0;
+
+/// The readings that the cards show, which change less often than the flight does.
+#[derive(Default)]
+struct Readings {
+    shown: Option<(FlightInfo, FlightProgress)>,
+    /// When each reading last changed, in units of `READING_SECONDS`.
+    turns: [i64; 7],
+}
+
+impl Readings {
+    /// Replaces the readings in `info` and `progress` that aren't due for a change with those
+    /// shown before. The readings take turns, so that only a few flip at any time.
+    /// At `time` in seconds.
+    fn hold(&mut self, time: f32, info: &mut FlightInfo, progress: &mut FlightProgress) {
+        let same_flight = self
+            .shown
+            .as_ref()
+            .is_some_and(|(shown, _)| shown.phase == info.phase && shown.number == info.number);
+        if let (true, Some((shown, shown_progress))) = (same_flight, &self.shown) {
+            let mut due = [false; 7];
+            for (index, (due, turn)) in due.iter_mut().zip(&mut self.turns).enumerate() {
+                let offset = index as f32 / 7.0;
+                let now = (time / READING_SECONDS + offset).floor() as i64;
+                *due = now != *turn;
+                *turn = now;
+            }
+            if !due[0] {
+                info.speed = shown.speed.clone();
+            }
+            if !due[1] {
+                info.altitude = shown.altitude.clone();
+            }
+            if !due[2] {
+                info.temperature = shown.temperature.clone();
+            }
+            if !due[3] {
+                info.heading = shown.heading.clone();
+                info.heading_compass = shown.heading_compass.clone();
+            }
+            if !due[4] {
+                progress.flown_distance = shown_progress.flown_distance.clone();
+            }
+            if !due[5] {
+                progress.remaining_clock = shown_progress.remaining_clock.clone();
+                progress.remaining_time = shown_progress.remaining_time.clone();
+            }
+            if !due[6] {
+                progress.remaining_distance = shown_progress.remaining_distance.clone();
+            }
+        }
+        self.shown = Some((info.clone(), progress.clone()));
+    }
+}
+
 /// How far from the ground the camera shows all of `flight`'s route.
 fn route_range(flight: &Flight, aspect: f32) -> f32 {
     let half = flight.point(0.0).angle_between(flight.point(1.0)) / 2.0;
@@ -1255,6 +1313,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut frame_count = 0u32;
     let mut fps_window_start = web_time::Instant::now();
     let mut adaptive = adaptive::Adaptive::new(app.get_quality(), true);
+    let mut readings = Readings::default();
     // Only a landed flight outside the kiosk stands still, once the UI shows the landing.
     let animating = |app: &AppWindow, demo: &Demo| {
         let waiting = demo.stage == Stage::Flight
@@ -1483,8 +1542,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             },
             None => Aircraft::default(),
         });
-        app.set_flight(demo.flight_info());
-        app.set_flight_progress(demo.flight_progress());
+        let (mut flight_info, mut flight_progress) = (demo.flight_info(), demo.flight_progress());
+        readings.hold(demo.time, &mut flight_info, &mut flight_progress);
+        app.set_flight(flight_info);
+        app.set_flight_progress(flight_progress);
         app.set_flown(demo.flight.progress());
         app.set_view(demo.view);
         app.set_screen(match demo.stage {
