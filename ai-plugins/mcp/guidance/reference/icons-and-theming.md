@@ -45,5 +45,8 @@ If a design specifies glyphs as raw geometry and ships no asset files, **generat
       out property <brush> bg: dark ? #1e2025 : #ffffff;
   }
 
+  export component Card inherits Rectangle {
+      background: Style.bg;   // reacts to scheme and preference changes
+  }
   ```
   Bind a component's background to `Style.bg` so it updates with the palette.

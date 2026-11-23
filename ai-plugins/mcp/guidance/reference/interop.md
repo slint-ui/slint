@@ -13,7 +13,7 @@ export global Library {
 }
 ```
 
-```slint
+```slint no-test
 // main.slint
 export { Library, Row } from "pages/library.slint";
 ```
