@@ -1,1 +1,4 @@
-{ "main": "main.slint", "edition": "1.19" }
+{
+    "main": "main.slint",
+    "edition": "1.19"
+}

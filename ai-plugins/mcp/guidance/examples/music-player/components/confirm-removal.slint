@@ -5,15 +5,32 @@ import { Style } from "../style.slint";
 export component ConfirmRemoval inherits PopupWindow {
     callback confirmed();
     close-policy: no-auto-close;
-    Rectangle { background: Style.surface; }
+
+    Rectangle {
+        background: Style.surface;
+    }
+
     FocusScope {
         init => { self.focus(); }
-        KeyBinding { keys: @keys(Escape); activated => { root.close(); } }
+
+        KeyBinding {
+            keys: @keys(Escape);
+            activated => { root.close(); }
+        }
+
         HorizontalLayout {
             padding: Metrics.panel-padding;
             spacing: Metrics.gap;
-            Button { text: @tr("Cancel"); clicked => { root.close(); } }
-            Button { text: @tr("Remove"); clicked => { root.confirmed(); root.close(); } }
+
+            Button {
+                text: @tr("Cancel");
+                clicked => { root.close(); }
+            }
+
+            Button {
+                text: @tr("Remove");
+                clicked => { root.confirmed(); root.close(); }
+            }
         }
     }
 }

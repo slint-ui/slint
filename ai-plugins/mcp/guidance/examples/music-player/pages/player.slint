@@ -2,18 +2,33 @@ import { Button } from "std-widgets.slint";
 import { Metrics } from "../metrics.slint";
 
 export enum RepeatMode { off, track, playlist }
+
 export global Player {
     callback change-repeat(mode: RepeatMode);
 }
 
 export component PlayerPage inherits FocusScope {
     callback back();
+
     init => { self.focus(); }
-    KeyBinding { keys: @keys(Escape); activated => { root.back(); } }
+
+    KeyBinding {
+        keys: @keys(Escape);
+        activated => { root.back(); }
+    }
+
     HorizontalLayout {
         padding: Metrics.panel-padding;
         spacing: Metrics.gap;
-        Button { text: @tr("Back"); clicked => { root.back(); } }
-        Button { text: @tr("Repeat track"); clicked => { Player.change-repeat(RepeatMode.track); } }
+
+        Button {
+            text: @tr("Back");
+            clicked => { root.back(); }
+        }
+
+        Button {
+            text: @tr("Repeat track");
+            clicked => { Player.change-repeat(RepeatMode.track); }
+        }
     }
 }

@@ -8,17 +8,29 @@ export global Library {
 
 export component LibraryPage inherits FocusScope {
     callback play();
+
     init => { self.focus(); }
+
     KeyBinding {
         keys: @keys(Delete);
         activated => { confirm.show(); }
     }
+
     HorizontalLayout {
         padding: Metrics.panel-padding;
         spacing: Metrics.gap;
-        Button { text: @tr("Play"); clicked => { root.play(); } }
-        Button { text: @tr("Remove…"); clicked => { confirm.show(); } }
+
+        Button {
+            text: @tr("Play");
+            clicked => { root.play(); }
+        }
+
+        Button {
+            text: @tr("Remove…");
+            clicked => { confirm.show(); }
+        }
     }
+
     confirm := ConfirmRemoval {
         confirmed => { Library.remove-selection(); }
     }
