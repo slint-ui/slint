@@ -341,10 +341,9 @@ pub async fn run_passes(
     let font_collection = (type_loader.compiler_config.embed_resources
         == crate::EmbedResourcesKind::EmbedTextures)
         .then(|| {
-            let custom = embed_glyphs::read_custom_fonts(
-                std::iter::once(&*doc).chain(type_loader.all_documents()),
-                diag,
-            );
+            let font_files = type_loader
+                .font_files(std::iter::once(&*doc).chain(type_loader.all_documents()), diag);
+            let custom = embed_glyphs::read_custom_fonts(&font_files, diag);
             embed_glyphs::shared_font_collection(custom)
         });
     #[cfg(not(feature = "renderer-software"))]
@@ -414,9 +413,11 @@ pub async fn run_passes(
         }
         _ => {
             // Create font registration calls for custom fonts, unless we're embedding pre-rendered glyphs
+            let font_files = type_loader
+                .font_files(std::iter::once(&*doc).chain(type_loader.all_documents()), diag);
             collect_custom_fonts::collect_custom_fonts(
                 doc,
-                std::iter::once(&*doc).chain(type_loader.all_documents()),
+                font_files.iter().map(|(path, _)| path),
                 type_loader.compiler_config.embed_resources
                     == crate::EmbedResourcesKind::EmbedAllResources,
             );

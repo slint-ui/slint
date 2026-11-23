@@ -1541,6 +1541,45 @@ impl TypeLoader {
         }
     }
 
+    /// The font files to register: the fonts of the compiler configuration,
+    /// then the fonts that `documents` import, each with where to report a problem with it.
+    /// A configured font that doesn't exist is reported to `diag` and left out.
+    pub fn font_files<'a>(
+        &self,
+        documents: impl Iterator<Item = &'a Document>,
+        diag: &mut BuildDiagnostics,
+    ) -> Vec<(SourcePath, crate::diagnostics::SourceLocation)> {
+        let location = self.compiler_config.fonts_location.clone().unwrap_or_default();
+        let mut fonts: Vec<(SourcePath, crate::diagnostics::SourceLocation)> = Vec::new();
+        for font in &self.compiler_config.fonts {
+            let font = font.to_string_lossy();
+            let path = match font.strip_prefix('@') {
+                Some(library_import) => self.find_file_in_library_path(None, library_import),
+                None => Some(SourcePath::new(&*font)),
+            };
+            let path = path.filter(|path| {
+                self.compiler_config.resource_url_mapper.is_some()
+                    || matches!(path, SourcePath::Url(_))
+                    || crate::fileaccess::find_file(path).is_some()
+            });
+            match path {
+                Some(path) => fonts.push((path, location.clone())),
+                None => diag.push_error(
+                    format!("Font file '{font}' not found. Correct its path in 'fonts'"),
+                    &location,
+                ),
+            }
+        }
+        for document in documents {
+            for (path, import_token) in &document.custom_fonts {
+                fonts.push((path.clone(), import_token.to_source_location()));
+            }
+        }
+        let mut seen = HashSet::new();
+        fonts.retain(|(path, _)| seen.insert(path.clone()));
+        fonts
+    }
+
     /// Returns whether the file was successfully loaded.
     /// If not, the path that was attempted to be loaded is returned (if any).
     #[allow(clippy::await_holding_refcell_ref)] // false positive: explicit drop() before await
@@ -3258,6 +3297,71 @@ export component Test inherits Window { }
         errors.iter().any(|e| e.contains("no-such-font.ttf") && e.contains("not found")),
         "{errors:?}"
     );
+}
+
+#[test]
+fn configured_fonts_are_registered_with_the_imported_ones() {
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let fonts_dir = manifest_dir.join("../common/sharedfontique");
+    let project_file = SourcePath::new(manifest_dir.join(crate::project_file::FILE_NAME));
+
+    let compile = |fonts: Vec<PathBuf>| {
+        let mut compiler_config =
+            CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+        compiler_config.library_paths = HashMap::from([("fonts".into(), fonts_dir.clone())]);
+        compiler_config.style = Some("fluent".into());
+        compiler_config.embed_resources = crate::EmbedResourcesKind::EmbedAllResources;
+        compiler_config.fonts = fonts;
+        compiler_config.fonts_location = Some(crate::diagnostics::SourceLocation {
+            source_file: Some(crate::diagnostics::SourceFileInner::from_path_only(
+                project_file.clone(),
+            )),
+            span: Default::default(),
+        });
+
+        let mut test_diags = crate::diagnostics::BuildDiagnostics::default();
+        let doc_node = crate::parser::parse(
+            r#"
+import "@fonts/Inter-VariableFont.ttf";
+export component Test inherits Window { }
+"#
+            .into(),
+            Some(SourcePath::new(manifest_dir.join("test.slint"))),
+            None,
+            &mut test_diags,
+        );
+        crate::poll_ready(crate::compile_syntax_node(doc_node, test_diags, compiler_config))
+    };
+
+    let configured = manifest_dir.join("../../demos/printerdemo/ui/fonts/Inter-24pt-Regular.ttf");
+    let (document, diagnostics, loader) =
+        compile(vec![configured.clone(), "@fonts/Inter-VariableFont.ttf".into()]);
+    assert!(!diagnostics.has_errors(), "{:?}", diagnostics.to_string_vec());
+    let font_files = loader.font_files(
+        std::iter::once(&document).chain(loader.all_documents()),
+        &mut BuildDiagnostics::discarded(),
+    );
+    let file_names: Vec<_> = font_files
+        .iter()
+        .map(|(path, _)| path.as_native_path().unwrap().file_name().unwrap().to_owned())
+        .collect();
+    assert_eq!(file_names, ["Inter-24pt-Regular.ttf", "Inter-VariableFont.ttf"]);
+    let embedded: Vec<_> = document
+        .embedded_file_resources
+        .borrow()
+        .iter()
+        .filter_map(|resource| resource.path.clone())
+        .collect();
+    assert_eq!(embedded.len(), 2, "{embedded:?}");
+    assert!(embedded.contains(&SourcePath::new(&configured)), "{embedded:?}");
+
+    let (_, diagnostics, _) = compile(vec![fonts_dir.join("no-such-font.ttf")]);
+    let error = diagnostics
+        .iter()
+        .find(|d| d.message().contains("no-such-font.ttf"))
+        .expect("the missing font is reported");
+    assert!(error.message().contains("not found"), "{}", error.message());
+    assert_eq!(error.source_file(), project_file.as_native_path());
 }
 
 #[test]

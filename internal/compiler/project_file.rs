@@ -612,6 +612,14 @@ impl ProjectFile {
     pub fn apply_to(&self, compiler_config: &mut crate::CompilerConfiguration) {
         self.resolved_data().apply_to(compiler_config);
         compiler_config.edition_location = Some(self.edition_location());
+        if self.data.fonts.is_some() {
+            compiler_config.fonts_location = Some(crate::diagnostics::SourceLocation {
+                source_file: Some(crate::diagnostics::SourceFileInner::from_path_only(
+                    self.source_path.clone(),
+                )),
+                span: crate::diagnostics::Span::new(0, 0),
+            });
+        }
         compiler_config.project_roots = vec![normalize_project_root(self.source_path.clone())];
     }
 

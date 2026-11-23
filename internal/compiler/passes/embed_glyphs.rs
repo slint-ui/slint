@@ -45,20 +45,18 @@ pub type SharedFontCollection = std::sync::Arc<
     >,
 >;
 
-/// Reads every imported (`import "...ttf"`) font file, reporting load errors with
-/// their import span. The bytes feed [`shared_font_collection`].
+/// Reads every font file of [`TypeLoader::font_files`](crate::typeloader::TypeLoader::font_files),
+/// reporting load errors at their location. The bytes feed [`shared_font_collection`].
 #[cfg(feature = "renderer-software")]
-pub fn read_custom_fonts<'a>(
-    all_docs: impl Iterator<Item = &'a Document>,
+pub fn read_custom_fonts(
+    font_files: &[(SourcePath, crate::diagnostics::SourceLocation)],
     diag: &mut BuildDiagnostics,
 ) -> Vec<(SourcePath, Vec<u8>)> {
     let mut fonts = Vec::new();
-    for doc in all_docs {
-        for (font_path, import_token) in doc.custom_fonts.iter() {
-            match font_path.read() {
-                Err(e) => diag.push_error(format!("Error loading font: {e}"), import_token),
-                Ok(bytes) => fonts.push((font_path.clone(), bytes.into_owned())),
-            }
+    for (font_path, location) in font_files {
+        match font_path.read() {
+            Err(e) => diag.push_error(format!("Error loading font: {e}"), location),
+            Ok(bytes) => fonts.push((font_path.clone(), bytes.into_owned())),
         }
     }
     fonts
@@ -206,7 +204,7 @@ pub fn embed_glyphs(
                     if let Some(family) = &family {
                         diag.push_warning(
                             format!(
-                                r#"no font found for family '{family}', embedding the default font instead; add the font with 'import "my-font.ttf";'"#
+                                r#"no font found for family '{family}', embedding the default font instead; add the font file to 'fonts' in slint-project.json"#
                             ),
                             &source_location,
                         );
@@ -217,7 +215,7 @@ pub fn embed_glyphs(
             match font {
                 None => {
                     diag.push_error(
-                        r#"no font found to embed: install a font, or add one with 'import "my-font.ttf";'"#
+                        r#"no font found to embed: install a font, or add a font file to 'fonts' in slint-project.json"#
                             .to_string(),
                         &generic_diag_location,
                     );
