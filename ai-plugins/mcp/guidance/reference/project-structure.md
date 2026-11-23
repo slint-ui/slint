@@ -1,19 +1,25 @@
-# Refactor a multi-page UI
+# Setting up a multi-page UI
 
-## Start with the target structure
+This document describes Slint project structure conventions.
 
-For a single-file UI with several screens, build the new page contracts before extracting widgets.
+When refactoring, target this general structure.
+If the project already splits up the UI correctly, but with different naming conventions, follow the existing naming conventions and folder organization.
+Use the Target Structure when the project does not yet establish a similar structure or parts of the structure are missing.
+
+## Target Structure
+
+For a UI with several screens, focus on the new page contracts before extracting widgets.
 When the public interface may change, replace the old window API as part of the refactor.
 Preserve a compatibility adapter only for an explicit caller requirement.
 
-Use the [runnable project](../examples/library/slint-project.json) as the starting skeleton.
+Use the [runnable project](../examples/music-player/slint-project.json) as the starting skeleton.
 Copy its layout into the UI directory or stage it beside the old UI.
 Replace the sample pages and commands with the application's own.
 For an existing modular UI, use the same conventions in the affected feature.
 
 ```text
 main.slint                   Window and typed page selection
-slint-project.json           {"main":"main.slint","edition":"1.19"}
+slint-project.json           Project Settings, entry point and Slint Edition
 style.slint                  Named brushes and colors
 metrics.slint                Shared spacing, radii, sizes and typography
 pages/{index,library,player}.slint
@@ -28,7 +34,7 @@ assets/
 Create asset groups as needed and keep other media under assets/.
 The index files re-export each folder's public names.
 
-## Migrate a page
+## Organizing pages
 
 1. Write a page file and its feature global together.
    Define the domain types the host needs. Give closed choices enums and model rows typed fields for identity, label, and image.

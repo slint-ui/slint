@@ -5,9 +5,6 @@ description: Write, edit, debug, or review Slint UIs and host-language integrati
 
 # Slint Skill for Claude Code
 
-For a multi-page UI or a structural refactor, follow the [application workflow](../../guidance/reference/project-structure.md) before choosing the interface.
-Complete its source review before the preview check.
-
 ## Find the Slint Project
 
 Look beside the target `.slint` file and up through the workspace for the applicable `slint-project.json`.
@@ -44,6 +41,17 @@ Use the `slint-lsp` language server for hover, go-to-definition, and source diag
 Use the returned PNG when sharing a screenshot.
 For host integration changes, verify callbacks and models in the running app.
 
+## `.slint` in 30 Seconds
+
+Slint is declarative and reactive: a property binding re-evaluates automatically when
+anything it reads changes.
+ 
+Read all files in ../../guidance/examples/music-player/ for a short example project.
+ 
+Property directions: `in` / `out` / `in-out` / `private`. Two-way bind: `a <=> b`.
+Control flow: `if cond : E {}`, `for it[i] in model : E {}`. Shared state & host
+interop: `export global Foo { ... }`. One-time code: `init => { ... }`.
+
 ## Reference Files
 
 Read the matching reference before working in that area.
@@ -52,6 +60,7 @@ Read the matching reference before working in that area.
 |---|---|
 | [setup.md](../../guidance/setup.md) | Starting a project / wiring the build (Rust/C++/Node/Python). |
 | [language-and-layout.md](../../guidance/reference/language-and-layout.md) | Writing components; an element won't size/fill as expected. |
+| [project-structure](../../guidance/reference/project-structure.md) | Best Practices & Target Project Structure for a multi-page UI | 
 | [gotchas.md](../../guidance/reference/gotchas.md) | A file won't compile, or colors/units/math/enums behave oddly. |
 | [events-and-overlays.md](../../guidance/reference/events-and-overlays.md) | Clicks/keys/modifiers, or popovers/menus/context menus. |
 | [icons-and-theming.md](../../guidance/reference/icons-and-theming.md) | Icons, or light/dark theming. |

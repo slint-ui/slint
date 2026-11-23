@@ -8,9 +8,6 @@ description: Use when writing, editing, debugging, or reviewing `.slint` UI code
 For building, debugging, or reviewing apps that use [Slint](https://slint.dev),
 a declarative GUI toolkit for desktop, embedded, mobile, and web.
 
-For a multi-page UI or a structural refactor, follow the [application workflow](guidance/reference/project-structure.md) before choosing the interface.
-Complete its source review before the preview check.
-
 ## Workflow
 
 1. Find the project's Slint version first (`Cargo.toml`/`Cargo.lock`,
@@ -62,6 +59,7 @@ Skim the matching file *before* building in that area, not only when stuck.
 |---|---|
 | [setup.md](guidance/setup.md) | Starting a project / wiring the build (Rust/C++/Node/Python). |
 | [language-and-layout.md](guidance/reference/language-and-layout.md) | Writing components; an element won't size/fill as expected. |
+| [project-structure](guidance/reference/project-structure.md) | Best Practices & Target Project Structure for a multi-page UI | 
 | [gotchas.md](guidance/reference/gotchas.md) | A file won't compile, or colors/units/math/enums behave oddly. |
 | [events-and-overlays.md](guidance/reference/events-and-overlays.md) | Clicks/keys/modifiers, or popovers/menus/context menus. |
 | [icons-and-theming.md](guidance/reference/icons-and-theming.md) | Icons, or light/dark theming. |
@@ -72,26 +70,13 @@ Skim the matching file *before* building in that area, not only when stuck.
 | [web-embedding.md](guidance/reference/web-embedding.md) | Showing a live `.slint` preview in a web page, HTML report, or docs. |
 | [tools-install.md](guidance/tools-install.md) | Installing `slint-lsp` (language server) or `slint-viewer` (preview / screenshots). |
 
-## `.slint` in 30 seconds
+## `.slint` in 30 Seconds
 
-Declarative and reactive: a property binding re-evaluates automatically when
+Slint is declarative and reactive: a property binding re-evaluates automatically when
 anything it reads changes.
-
-```slint
-import { Button, VerticalBox } from "std-widgets.slint";
-
-component Counter inherits Rectangle {     // root element decides fill behavior
-    in property <string> label;            // parent/host writes
-    out property <int> count;              // component writes
-    callback changed(int);                 // notify the outside world
-
-    VerticalBox {
-        Text { text: "\{root.label}: \{root.count}"; }   // interpolation
-        Button { text: "+"; clicked => { root.count += 1; root.changed(root.count); } }
-    }
-}
-```
-
+ 
+Read all files in guidance/examples/music-player/ for a short example project.
+ 
 Property directions: `in` / `out` / `in-out` / `private`. Two-way bind: `a <=> b`.
 Control flow: `if cond : E {}`, `for it[i] in model : E {}`. Shared state & host
 interop: `export global Foo { ... }`. One-time code: `init => { ... }`.
