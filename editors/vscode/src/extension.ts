@@ -247,6 +247,26 @@ function startClient(
 }
 
 export function activate(context: vscode.ExtensionContext) {
+    // @ts-expect-error The optional MCP API postdates our minimum VS Code version (1.82).
+    const { lm, McpHttpServerDefinition, McpStdioServerDefinition } = vscode;
+    if (lm?.registerMcpServerDefinitionProvider) {
+        context.subscriptions.push(
+            lm.registerMcpServerDefinitionProvider("slint.mcp", {
+                provideMcpServerDefinitions: () => [
+                    new McpHttpServerDefinition(
+                        "slint-docs",
+                        vscode.Uri.parse("https://docs.slint.dev/mcp"),
+                    ),
+                    new McpStdioServerDefinition("slint-preview", "node", [
+                        context.asAbsolutePath(
+                            "out/mcp/slint-preview/server.mjs",
+                        ),
+                    ]),
+                ],
+            }),
+        );
+    }
+
     // Disable native preview in Codespace.
     //
     // We want to have a good default (WASM preview), but we also need to

@@ -1,9 +1,9 @@
 ---
 name: slint
-description: Write, edit, debug, or review Slint UIs and host-language integration in Codex. Use for Slint docs, development guidance, inline previews, and preview annotations.
+description: Write, edit, debug, or review Slint UIs and host-language integration. Use for Slint docs, development guidance, inline previews, and preview annotations.
 ---
 
-# Slint Skill for Codex
+# Slint
 
 ## Find the Slint Project
 
@@ -26,7 +26,7 @@ Call `fetch` with the result's URL exactly as returned to read the page for that
 If the documentation tools are unavailable, open the matching release at
 `https://releases.slint.dev/<version>/docs` or use the [current Slint docs](https://docs.slint.dev/).
 
-## Check and Preview in Codex
+## Check and Preview
 
 Set `prepare_preview: true` when the session supports MCP Apps and you want to show an interactive preview.
 
