@@ -40,7 +40,9 @@ const HITCH: Duration = Duration::from_millis(100);
 const WARM_UP: Duration = Duration::from_secs(5);
 /// The scale is `level / MAX_LEVEL`.
 const MAX_LEVEL: u32 = 20;
-const MIN_LEVEL: u32 = 10;
+/// Three quarters: below that, the globe is visibly soft, and drawing it takes little of a
+/// frame at any scale.
+const MIN_LEVEL: u32 = 15;
 
 pub struct Adaptive {
     level: u32,
