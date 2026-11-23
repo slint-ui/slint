@@ -177,8 +177,32 @@ pub fn build_array_chunk(chunk: impl FnOnce()) {
     chunk()
 }
 
+/// [`Option::unwrap`] for the generated code, without a panic location for each call site.
+/// `Option::unwrap` is `#[track_caller]`, so every call site stores its own location in the binary.
+#[inline]
+pub fn unwrap<T>(option: Option<T>) -> T {
+    match option {
+        Some(value) => value,
+        None => unwrap_failed(),
+    }
+}
+
+#[cold]
+#[inline(never)]
+fn unwrap_failed() -> ! {
+    panic!("called `Option::unwrap()` on a `None` value in generated code")
+}
+
+/// Panics because `dyn_index` doesn't refer to a repeater of the item tree.
+#[cold]
+#[inline(never)]
+pub fn invalid_dyn_index(dyn_index: u32) -> ! {
+    panic!("invalid dyn_index {dyn_index}")
+}
+
 /// internal re_exports used by the macro generated
 pub mod re_exports {
+    pub use super::{invalid_dyn_index, unwrap};
     pub use alloc::boxed::Box;
     pub use alloc::rc::{Rc, Weak};
     pub use alloc::string::String;
