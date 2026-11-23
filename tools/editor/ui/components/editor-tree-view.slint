@@ -205,6 +205,7 @@ component EditorTreeRow {
                 row-drag := DragArea {
                     width: parent.width;
                     height: parent.height;
+                    enabled: !root.editing-id;
                     data: root.make-drag-data(root.node.uri, root.node.offset);
                     allow-move: true;
                     opacity: self.dragging ? root.style.row.drag-opacity : 1;
@@ -383,47 +384,52 @@ component EditorTreeRow {
                                 border-radius: root.style.row.radius;
                                 background: Style.field.appearance.focus.background;
 
-                                id-input := TextInput {
-                                    x: root.style.row.padding-inline;
-                                    width: parent.width - 2 * self.x;
-                                    height: parent.height;
-                                    text: root.node.element-id;
-                                    vertical-alignment: center;
-                                    color: root.style.row.foreground;
-                                    font-size: root.style.row.font-size;
-                                    selection-background-color: Style.field.appearance.selection;
-                                    selection-foreground-color: Style.field.appearance.selection-foreground;
-                                    accessible-label: @tr("Element id");
-                                    init => {
-                                        self.focus();
-                                        self.select-all();
-                                    }
-                                    key-pressed(event) => {
-                                        if event.text == Key.Escape {
-                                            root.id-edit-cancelled();
-                                            return accept;
-                                        }
-                                        return reject;
-                                    }
-                                    edited => {
-                                        self.text = Api.normalize-element-id(self.text);
-                                    }
-                                    accepted => {
-                                        root.finish-id-edit(self.text);
-                                    }
-                                    changed has-focus => {
-                                        if !self.has-focus {
-                                            root.finish-id-edit(self.text);
-                                        }
+                                FocusScope {
+                                    KeyBinding {
+                                        keys: @keys(Escape);
+                                        activated => root.id-edit-cancelled();
                                     }
 
-                                    if id-input.text == "": Text {
-                                        width: parent.width;
+                                    id-input := TextInput {
+                                        x: root.style.row.padding-inline;
+                                        width: parent.width - 2 * self.x;
                                         height: parent.height;
+                                        text: root.node.element-id;
                                         vertical-alignment: center;
-                                        text: root.node.element-type;
-                                        color: root.style.row.muted;
+                                        color: root.style.row.foreground;
                                         font-size: root.style.row.font-size;
+                                        selection-background-color: Style.field.appearance.selection;
+                                        selection-foreground-color: Style.field.appearance.selection-foreground;
+                                        accessible-label: @tr("Element id");
+                                        init => {
+                                            self.focus();
+                                            self.select-all();
+                                        }
+                                        edited => {
+                                            let normalized = Api.normalize-element-id(self.text);
+                                            if normalized != self.text {
+                                                let cursor = Api.normalized-element-id-cursor(self.text, self.cursor-position-byte-offset);
+                                                self.text = normalized;
+                                                self.set-selection-offsets(cursor, cursor);
+                                            }
+                                        }
+                                        accepted => {
+                                            root.finish-id-edit(self.text);
+                                        }
+                                        changed has-focus => {
+                                            if !self.has-focus {
+                                                root.finish-id-edit(self.text);
+                                            }
+                                        }
+
+                                        if id-input.text == "": Text {
+                                            width: parent.width;
+                                            height: parent.height;
+                                            vertical-alignment: center;
+                                            text: root.node.element-type;
+                                            color: root.style.row.muted;
+                                            font-size: root.style.row.font-size;
+                                        }
                                     }
                                 }
                             }
@@ -540,7 +546,8 @@ export component EditorTreeView inherits FocusScope {
         && root.drag-pointer.y < tree.absolute-position.y + tree.height;
     private property <int> hovered-row-index: -1;
     private property <int> focused-row-index: 0;
-    private property <int> editing-row: -1;
+    private property <string> editing-uri;
+    private property <int> editing-offset: -1;
 
     pure callback make-row-drag-data(string, int) -> data-transfer;
     callback row-can-drop(DropEvent, string, int, DropLocation) -> DragAction;
@@ -580,19 +587,23 @@ export component EditorTreeView inherits FocusScope {
 
     function edit-id(index: int) {
         root.focus-row(index);
-        root.editing-row = index;
+        root.editing-uri = root.rows[index].uri;
+        root.editing-offset = root.rows[index].offset;
     }
 
     function end-id-edit() {
-        root.editing-row = -1;
+        root.editing-uri = "";
+        root.editing-offset = -1;
         root.focus();
     }
 
+    KeyBinding {
+        keys: @keys(F2);
+        enabled: root.focused-row-index >= 0 && root.focused-row-index < root.rows.length;
+        activated => root.edit-id(root.focused-row-index);
+    }
+
     key-pressed(event) => {
-        if event.text == Key.F2 && root.focused-row-index >= 0 && root.focused-row-index < root.rows.length {
-            root.edit-id(root.focused-row-index);
-            return accept;
-        }
         if event.text == Key.Tab {
             let next = root.focused-row-index + (event.modifiers.shift ? -1 : 1);
             if next >= 0 && next < root.rows.length {
@@ -619,7 +630,7 @@ export component EditorTreeView inherits FocusScope {
             row-index: i;
             hovered-source-uri: root.hovered-source-uri;
             hovered-offset: root.hovered-offset;
-            editing-id: i == root.editing-row;
+            editing-id: row.uri == root.editing-uri && row.offset == root.editing-offset;
             hide-drag-source: root.show-gap;
             gap-before: root.show-gap && root.drop-location == DropLocation.before && i == root.drop-row;
             gap-after: root.show-gap

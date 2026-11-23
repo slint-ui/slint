@@ -38,16 +38,8 @@ def begin_id_edit(window: slint_testing.Window, row: str) -> None:
 
 
 @pytest.mark.parametrize(
-    ("typed", "old", "new"),
-    [
-        ("renamed", b"    sibling-a := Rectangle {", b"    renamed := Rectangle {"),
-        ("", b"    sibling-a := Rectangle {", b"    Rectangle {"),
-        (
-            "my side.bar",
-            b"    sibling-a := Rectangle {",
-            b"    my-sidebar := Rectangle {",
-        ),
-    ],
+    ("typed", "new_id"),
+    [("renamed", "renamed"), ("", ""), ("my side.bar", "my-sidebar")],
     ids=("rename", "remove", "normalize"),
 )
 def test_edit_element_id(
@@ -55,12 +47,14 @@ def test_edit_element_id(
     editor_environment: dict[str, str],
     fixture_project: Path,
     typed: str,
-    old: bytes,
-    new: bytes,
+    new_id: str,
 ) -> None:
     source_file = fixture_project / OUTLINE_SOURCE
     baseline = source_file.read_bytes()
-    expected = replace_once(baseline, old, new)
+    new_line = f"    {new_id} := Rectangle {{" if new_id else "    Rectangle {"
+    expected = replace_once(
+        baseline, b"    sibling-a := Rectangle {", new_line.encode()
+    )
     snapshot = SourceSnapshot.capture(fixture_project)
 
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
@@ -73,49 +67,27 @@ def test_edit_element_id(
         snapshot.wait_for_applied(expected, relative_path=OUTLINE_SOURCE)
         expect(query(window, "Element id")).to_be_hidden()
 
+        edited = SourceSnapshot.capture(fixture_project)
+        outline = element(
+            window, "Current file outline", role=slint_testing.AccessibleRole.List
+        )
+        row = element(
+            outline, new_id or "Rectangle", role=slint_testing.AccessibleRole.ListItem
+        )
+        double_click_at(window, center(row))
+        expect(id_editor(window)).to_have_value(new_id)
+        press_key(window, keys.Return)
+        expect(query(window, "Element id")).to_be_hidden()
+        edited.assert_unchanged()
+
         press_shortcut(window, keys.Control, "z")
         snapshot.wait_for_applied(baseline, relative_path=OUTLINE_SOURCE)
 
 
-def test_double_click_adds_element_id(
+def test_rejected_element_id_edits(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
-) -> None:
-    source_file = fixture_project / OUTLINE_SOURCE
-    without_id = replace_once(
-        source_file.read_bytes(), b"    sibling-b := Image {", b"    Image {"
-    )
-    source_file.write_bytes(without_id)
-    expected = replace_once(without_id, b"    Image {", b"    picture := Image {")
-    snapshot = SourceSnapshot.capture(fixture_project)
-
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
-        wait_for_source(source_file, without_id)
-        window = first_window(editor)
-        outline = element(
-            window, "Current file outline", role=slint_testing.AccessibleRole.List
-        )
-        row = element(outline, "Image", role=slint_testing.AccessibleRole.ListItem)
-        double_click_at(window, center(row))
-        expect(id_editor(window)).to_have_value("")
-        press_keys(window, "picture")
-        press_key(window, keys.Return)
-        snapshot.wait_for_applied(expected, relative_path=OUTLINE_SOURCE)
-        outline_row(window, "picture")
-
-
-@pytest.mark.parametrize(
-    ("typed", "commit_key"),
-    [("renamed", keys.Escape), ("container", keys.Return), ("root", keys.Return)],
-    ids=("escape", "duplicate", "invalid"),
-)
-def test_element_id_edit_leaves_source_unchanged(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
-    fixture_project: Path,
-    typed: str,
-    commit_key: str,
 ) -> None:
     source_file = fixture_project / OUTLINE_SOURCE
     snapshot = SourceSnapshot.capture(fixture_project)
@@ -123,9 +95,14 @@ def test_element_id_edit_leaves_source_unchanged(
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         wait_for_source(source_file, source_file.read_bytes())
         window = first_window(editor)
-        begin_id_edit(window, "sibling-a")
-        press_keys(window, typed)
-        press_key(window, commit_key)
-        expect(query(window, "Element id")).to_be_hidden()
-        snapshot.assert_unchanged()
-        outline_row(window, "sibling-a")
+        for typed, commit_key in (
+            ("renamed", keys.Escape),
+            ("container", keys.Return),
+            ("root", keys.Return),
+        ):
+            begin_id_edit(window, "sibling-a")
+            press_keys(window, typed)
+            press_key(window, commit_key)
+            expect(query(window, "Element id")).to_be_hidden()
+            snapshot.assert_unchanged()
+            outline_row(window, "sibling-a")
