@@ -1549,8 +1549,23 @@ impl TypeLoader {
         documents: impl Iterator<Item = &'a Document>,
         diag: &mut BuildDiagnostics,
     ) -> Vec<(SourcePath, crate::diagnostics::SourceLocation)> {
+        let mut fonts = self.configured_fonts(diag);
+        for document in documents {
+            for (path, import_token) in &document.custom_fonts {
+                fonts.push((path.clone(), import_token.to_source_location()));
+            }
+        }
+        let mut seen = HashSet::new();
+        fonts.retain(|(path, _)| seen.insert(path.clone()));
+        fonts
+    }
+
+    fn configured_fonts(
+        &self,
+        diag: &mut BuildDiagnostics,
+    ) -> Vec<(SourcePath, crate::diagnostics::SourceLocation)> {
         let location = self.compiler_config.fonts_location.clone().unwrap_or_default();
-        let mut fonts: Vec<(SourcePath, crate::diagnostics::SourceLocation)> = Vec::new();
+        let mut fonts = Vec::new();
         for font in &self.compiler_config.fonts {
             let font = font.to_string_lossy();
             let path = match font.strip_prefix('@') {
@@ -1570,13 +1585,6 @@ impl TypeLoader {
                 ),
             }
         }
-        for document in documents {
-            for (path, import_token) in &document.custom_fonts {
-                fonts.push((path.clone(), import_token.to_source_location()));
-            }
-        }
-        let mut seen = HashSet::new();
-        fonts.retain(|(path, _)| seen.insert(path.clone()));
         fonts
     }
 
@@ -2370,6 +2378,11 @@ impl TypeLoader {
             })
             .chain(self.all_documents.dependencies.keys().cloned())
             .chain(self.library_projects.keys().cloned())
+            .chain(
+                self.configured_fonts(&mut BuildDiagnostics::discarded())
+                    .into_iter()
+                    .map(|(path, _)| path),
+            )
             .collect()
     }
 
@@ -3354,6 +3367,7 @@ export component Test inherits Window { }
         .collect();
     assert_eq!(embedded.len(), 2, "{embedded:?}");
     assert!(embedded.contains(&SourcePath::new(&configured)), "{embedded:?}");
+    assert!(loader.all_files_to_watch().contains(&SourcePath::new(&configured)));
 
     let (_, diagnostics, _) = compile(vec![fonts_dir.join("no-such-font.ttf")]);
     let error = diagnostics

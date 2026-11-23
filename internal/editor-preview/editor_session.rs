@@ -937,7 +937,7 @@ impl EditorSession {
         Ok((None, contents))
     }
 
-    /// Read each font file imported by the `.slint` at `doc_url` and push it
+    /// Read each font file that the `.slint` at `doc_url` registers and push it
     /// to the remote viewer via `SetContents`. Only the remote viewer needs
     /// font bytes pushed: local previews read fonts from disk. Fonts in `sent`
     /// are skipped: callers seed it with fonts that were already transferred
@@ -951,10 +951,7 @@ impl EditorSession {
         sent: &mut HashSet<SourcePath>,
     ) {
         let Some(remote) = preview.to_preview.remote() else { return };
-        let Some(doc) = self.document_cache.get_document(doc_url) else { return };
-        // `custom_fonts` holds the resolved path of every font import that
-        // passed the compiler's existence check, plus remote URLs.
-        for (font_path, _) in &doc.custom_fonts {
+        for font_path in &self.document_cache.font_files(doc_url) {
             if font_path.as_native_path().is_none() || !sent.insert(font_path.clone()) {
                 continue;
             }
@@ -1049,11 +1046,8 @@ impl EditorSession {
                 // already; seed the sent set with them so only fonts added by this
                 // edit are transferred.
                 #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
-                let fonts_sent: HashSet<SourcePath> = self
-                    .document_cache
-                    .get_document(&url)
-                    .map(|doc| doc.custom_fonts.iter().map(|(p, _)| p.clone()).collect())
-                    .unwrap_or_default();
+                let fonts_sent: HashSet<SourcePath> =
+                    self.document_cache.font_files(&url).into_iter().collect();
                 let dependencies: HashSet<Url> = self.document_cache.invalidate_url(&url);
                 let _ = self.document_cache.load_url(&url, version, content, &mut diag).await;
                 #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
