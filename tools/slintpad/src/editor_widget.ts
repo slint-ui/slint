@@ -9,6 +9,7 @@ import { slint_language } from "./highlighting";
 import type { Lsp } from "./lsp";
 import { edition_from_url } from "./edition";
 import * as github from "./github";
+import { is_project_url } from "./project";
 
 import { BoxLayout, TabPanel, Widget } from "@lumino/widgets";
 import type { Message as LuminoMessage } from "@lumino/messaging";
@@ -520,6 +521,7 @@ export class EditorWidget extends Widget {
         this.#tab_map.set(uri.toString(), pane);
         this.#tab_panel!.addWidget(pane);
 
+        const [first_uri] = this.#tab_map.keys();
         if (this.#tab_map.size === 1) {
             await this.#client?.sendRequest("workspace/executeCommand", {
                 command: "slint/showPreview",
@@ -528,6 +530,14 @@ export class EditorWidget extends Widget {
                     "",
                 ],
             });
+        } else if (
+            this.#tab_map.size === 2 &&
+            is_project_url(monaco.Uri.parse(first_uri).path)
+        ) {
+            // This runs as each tab opens, so it selects the second tab only.
+            // That's the project's main file, which the compiler loads right
+            // after the project file, before any of its imports.
+            this.#tab_panel!.currentWidget = pane;
         }
 
         return Promise.resolve(pane.editor);
