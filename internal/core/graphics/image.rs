@@ -302,7 +302,7 @@ fn map_pixels<Source: Clone, Dest: Clone + From<Source>>(
 /// The SharedImageBuffer's variants represent the different common formats for encoding
 /// images in pixels.
 #[derive(Clone, Debug)]
-#[repr(C)]
+#[repr(C, u8)]
 #[non_exhaustive]
 pub enum SharedImageBuffer {
     /// This variant holds the data for an image where each pixel has three color channels (red, green,
