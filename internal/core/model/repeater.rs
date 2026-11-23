@@ -80,11 +80,6 @@ impl CurrentItem {
         self.instance_index = 0;
     }
 
-    /// Updates the indexes before adding the instance for `row` to no instances.
-    fn first_instance_added(&mut self, row: usize) {
-        *self = Self { row, instance_index: 0 };
-    }
-
     /// Updates the indexes before removing `remove` of `instance_count` instances at `position`
     /// and inserting `add` slots there.
     /// A removed current item moves to the next kept instance, or else to the previous one.
@@ -94,8 +89,15 @@ impl CurrentItem {
         position: usize,
         remove: usize,
         add: usize,
+        new_first_row: Option<usize>,
     ) {
-        if instance_count == 0 || self.instance_index < position {
+        if instance_count == 0 {
+            if let Some(row) = new_first_row {
+                *self = Self { row, instance_index: 0 };
+            }
+            return;
+        }
+        if self.instance_index < position {
             return;
         }
         let removed_end = position + remove;
@@ -377,23 +379,48 @@ trait RepeaterInstanceOps {
     /// Number of currently instantiated items.
     fn len(&self) -> usize;
 
+    /// Replace the instances `position..position + remove` with `add` empty, dirty slots.
+    /// `new_first_row` is the row of the first slot when adding slots to no instances.
+    fn splice_internal(
+        &mut self,
+        position: usize,
+        remove: usize,
+        add: usize,
+        new_first_row: Option<usize>,
+    );
+
     /// Remove all instances.
-    fn clear(&mut self);
+    fn clear(&mut self) {
+        self.splice_internal(0, self.len(), 0, None);
+    }
 
     /// Add an empty, dirty slot for `row` to no instances.
-    fn push_first(&mut self, row: usize);
+    fn push_first(&mut self, row: usize) {
+        debug_assert_eq!(self.len(), 0);
+        self.splice_internal(0, 0, 1, Some(row));
+    }
 
     /// Append `count` empty, dirty slots.
-    fn push(&mut self, count: usize);
+    fn push(&mut self, count: usize) {
+        self.splice_internal(self.len(), 0, count, None);
+    }
 
     /// Insert `count` empty, dirty slots before the first instance.
-    fn prepend(&mut self, count: usize);
+    fn prepend(&mut self, count: usize) {
+        self.splice_internal(0, 0, count, None);
+    }
 
     /// Remove the first `count` instances.
-    fn remove_first(&mut self, count: usize);
+    fn remove_first(&mut self, count: usize) {
+        self.splice_internal(0, count.min(self.len()), 0, None);
+    }
 
     /// Keep only the first `len` instances.
-    fn truncate(&mut self, len: usize);
+    fn truncate(&mut self, len: usize) {
+        let instance_count = self.len();
+        let len = len.min(instance_count);
+        self.splice_internal(len, instance_count - len, 0, None);
+    }
 
     /// If dirty, ensure the instance is created, initialized, and updated
     /// for `row`. Returns `true` if freshly created.
@@ -850,16 +877,6 @@ struct RustRepeaterOps<'a> {
     instance_generation: Pin<&'a Property<()>>,
 }
 
-impl RustRepeaterOps<'_> {
-    /// Do not call this function directly but use the functions of the trait implementation
-    fn splice_internal(&mut self, position: usize, remove: usize, add: usize) {
-        let mut inner = self.inner.borrow_mut();
-        let instance_count = inner.instances.len();
-        inner.layout_state.item_index.instances_spliced(instance_count, position, remove, add);
-        inner.instances.splice(position..position + remove, empty_slots(add));
-    }
-}
-
 impl RepeaterInstanceOps for RustRepeaterOps<'_> {
     fn layout_state(&self) -> RepeaterLayoutState {
         self.inner.borrow().layout_state.clone()
@@ -873,32 +890,18 @@ impl RepeaterInstanceOps for RustRepeaterOps<'_> {
         self.inner.borrow().instances.len()
     }
 
-    fn clear(&mut self) {
-        self.splice_internal(0, self.len(), 0);
-    }
-
-    fn push_first(&mut self, row: usize) {
-        debug_assert_eq!(self.len(), 0);
-        self.inner.borrow_mut().layout_state.item_index.first_instance_added(row);
-        self.splice_internal(0, 0, 1);
-    }
-
-    fn push(&mut self, count: usize) {
-        self.splice_internal(self.len(), 0, count);
-    }
-
-    fn prepend(&mut self, count: usize) {
-        self.splice_internal(0, 0, count);
-    }
-
-    fn remove_first(&mut self, count: usize) {
-        self.splice_internal(0, count.min(self.len()), 0);
-    }
-
-    fn truncate(&mut self, len: usize) {
-        let instance_count = self.len();
-        let len = len.min(instance_count);
-        self.splice_internal(len, instance_count - len, 0);
+    fn splice_internal(
+        &mut self,
+        position: usize,
+        remove: usize,
+        add: usize,
+        new_first_row: Option<usize>,
+    ) {
+        let mut inner = self.inner.borrow_mut();
+        let instance_count = inner.instances.len();
+        let item_index = &mut inner.layout_state.item_index;
+        item_index.instances_spliced(instance_count, position, remove, add, new_first_row);
+        inner.instances.splice(position..position + remove, empty_slots(add));
     }
 
     fn ensure_updated(&mut self, instance_idx: usize, row: usize) -> bool {
@@ -1734,21 +1737,6 @@ mod ffi {
         pub init: unsafe extern "C" fn(user_data: *mut core::ffi::c_void, instance_idx: usize),
     }
 
-    impl RepeaterInstanceOpsVTable {
-        fn splice_internal(&mut self, position: usize, remove: usize, add: usize) {
-            let instance_count = self.len();
-            unsafe {
-                (*self.layout_state).item_index.instances_spliced(
-                    instance_count,
-                    position,
-                    remove,
-                    add,
-                );
-                (self.splice)(self.user_data, position, remove, add)
-            }
-        }
-    }
-
     impl RepeaterInstanceOps for RepeaterInstanceOpsVTable {
         fn layout_state(&self) -> RepeaterLayoutState {
             unsafe { (*self.layout_state).clone() }
@@ -1759,27 +1747,24 @@ mod ffi {
         fn len(&self) -> usize {
             unsafe { (self.len)(self.user_data) }
         }
-        fn clear(&mut self) {
-            self.splice_internal(0, self.len(), 0);
-        }
-        fn push_first(&mut self, row: usize) {
-            debug_assert_eq!(self.len(), 0);
-            unsafe { (*self.layout_state).item_index.first_instance_added(row) };
-            self.splice_internal(0, 0, 1);
-        }
-        fn push(&mut self, count: usize) {
-            self.splice_internal(self.len(), 0, count);
-        }
-        fn prepend(&mut self, count: usize) {
-            self.splice_internal(0, 0, count);
-        }
-        fn remove_first(&mut self, count: usize) {
-            self.splice_internal(0, count.min(self.len()), 0);
-        }
-        fn truncate(&mut self, len: usize) {
+        fn splice_internal(
+            &mut self,
+            position: usize,
+            remove: usize,
+            add: usize,
+            new_first_row: Option<usize>,
+        ) {
             let instance_count = self.len();
-            let len = len.min(instance_count);
-            self.splice_internal(len, instance_count - len, 0);
+            unsafe {
+                (*self.layout_state).item_index.instances_spliced(
+                    instance_count,
+                    position,
+                    remove,
+                    add,
+                    new_first_row,
+                );
+                (self.splice)(self.user_data, position, remove, add)
+            }
         }
         fn ensure_updated(&mut self, instance_idx: usize, row: usize) -> bool {
             let created = unsafe { (self.ensure_updated)(self.user_data, instance_idx, row) };
