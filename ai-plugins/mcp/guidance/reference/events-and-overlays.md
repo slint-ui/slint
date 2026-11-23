@@ -21,7 +21,7 @@ The popup owns its dismissal, form values, and focus.
 For an explicit confirmation, use `no-auto-close` and handle Escape and the buttons inside the popup.
 For a dimmed modal, size the popup to the page and place its card over a backdrop inside it.
 
-See the [confirmation popup](../examples/music-player/components/confirm-removal.slint) and its [owning page](../examples/music-player/pages/library.slint).
+See the [confirmation popup](../examples/music-player/components/confirm-removal.slint) and its [owning page](../examples/music-player/views/library.slint).
 
 For context menus, always use the builtin `ContextMenuArea` (no import): it
 opens on right-click *and* the keyboard menu key, and its entries are
