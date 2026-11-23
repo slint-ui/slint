@@ -10,7 +10,10 @@ All notable changes to this project are documented in this file.
  - Fixed two-way bindings to model fields whose names contain `_`. (#15031)
  - `TextInput`, `TextEdit`: A multi-line input no longer selects all its text when focused with Tab.
  - `ListView`: Fixed an empty view after setting `content-y` past the end of its rows.
+ - `ListView`: Fixed "long callback/instantiation chain detected" while scrolling over rows of different heights,
+   or during a smooth `ensure-row-visible()`. (#15105)
  - `SystemTrayIcon`: An icon with `visible: false` is no longer shown at startup.
+ - `Spinner`: The indeterminate animation no longer runs backwards. (#9261)
  - Fixed an unnecessary redraw when setting an image property to the same wgpu texture image again. (#15033)
  - Software renderer: Fixed a panic with a rounded `Clip` far out of view or taller than 32767 physical pixels.
  - FemtoVG: Fixed parts of aligned text being drawn one pixel off. (#15000)
@@ -19,9 +22,14 @@ All notable changes to this project are documented in this file.
  - Qt: Fixed input methods replacing the wrong text around the cursor.
  - Windows: The `SystemTrayIcon` is added again after Explorer restarts. (#14839)
  - macOS: Fixed a crash when creating a `SystemTrayIcon` without a window, such as with the testing backend.
+ - Android: Fixed a panic when turning a mouse wheel.
  - Rust: Fixed building the Skia renderer with `unstable-wgpu-29` as the only wgpu version.
+ - Rust: The `slint` crate includes the Slint agent skill, for tools that load skills from dependencies.
  - C++: Including `slint.h` no longer warns with `-Wpedantic` or `-Wextra-semi`.
+ - C++: Fixed a crash on bare-metal Arm targets, where some enums had a different size in Rust and in C++.
+ - Node.js: Fixed `show()` and `hide()` throwing on components inheriting `SystemTrayIcon`.
  - Python: Added `Window.take_snapshot()`.
+ - Fixed a compiler panic when a component binds an inferred property of a base component from a file with errors.
  - LSP: Fixed a crash when the editor quits while the server is still sending a message.
 
 ## [1.19.0] - 2026-11-16
