@@ -2,26 +2,22 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { cp, rm } from "node:fs/promises";
+import { basename } from "node:path";
 
 const source = new URL("../../ai-plugins/mcp/", import.meta.url);
 const destination = new URL("./out/mcp/", import.meta.url);
+const excluded = ["node_modules", "test", "build-checker.mjs", ".gitignore"];
 await rm(destination, { recursive: true, force: true });
 
-for (const file of [
+for (const entry of [
     ".claude-plugin/plugin.json",
     "icon.svg",
     "codex-skills/slint",
-    "slint-preview/assets",
-    "slint-preview/channel.json",
-    "slint-preview/checker.mjs",
-    "slint-preview/checker/package.json",
-    "slint-preview/checker/slint_wasm_interpreter.js",
-    "slint-preview/checker/slint_wasm_interpreter_bg.wasm",
-    "slint-preview/server.mjs",
-    "slint-preview/view.html.in",
+    "slint-preview",
 ]) {
-    await cp(new URL(file, source), new URL(file, destination), {
+    await cp(new URL(entry, source), new URL(entry, destination), {
         recursive: true,
         dereference: true,
+        filter: (path) => !excluded.includes(basename(path)),
     });
 }
