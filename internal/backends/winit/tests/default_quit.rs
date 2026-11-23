@@ -14,20 +14,71 @@ fn main() {
     let Some(mode) =
         std::env::args().find_map(|arg| arg.strip_prefix("--mode=").map(str::to_owned))
     else {
-        for mode in ["default", "shortcut", "multiple", "menubar", "custom", "restart"] {
-            let output = std::process::Command::new(std::env::current_exe().unwrap())
+        for mode in [
+            "default",
+            "shortcut",
+            "multiple",
+            "menubar",
+            "custom",
+            "restart",
+            "terminate",
+            "external",
+            "receiver",
+            "handler",
+            "until-quit",
+            "pump",
+            "pump-between",
+            "idle-quit",
+        ] {
+            let mut child = std::process::Command::new(std::env::current_exe().unwrap())
                 .arg(format!("--mode={mode}"))
-                .output()
+                .stdout(std::process::Stdio::piped())
+                .stderr(std::process::Stdio::piped())
+                .spawn()
                 .unwrap();
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(15);
+            while child.try_wait().unwrap().is_none() {
+                if std::time::Instant::now() >= deadline {
+                    child.kill().unwrap();
+                    let output = child.wait_with_output().unwrap();
+                    panic!(
+                        "{mode}: subprocess timed out: {}",
+                        String::from_utf8_lossy(&output.stderr)
+                    );
+                }
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+            let output = child.wait_with_output().unwrap();
             assert!(output.status.success(), "{mode}: {}", String::from_utf8_lossy(&output.stderr));
             let stdout = String::from_utf8(output.stdout).unwrap();
             assert!(
-                stdout.contains("EVENT_LOOP_RETURNED") && stdout.contains("CLEANUP_DROPPED"),
+                stdout.contains("EVENT_LOOP_RETURNED")
+                    && (stdout.contains("CLEANUP_DROPPED") != (mode == "idle-quit")),
                 "{mode}: native Quit bypassed cleanup"
             );
+            println!("{mode}: passed");
         }
         return;
     };
+
+    static FOREIGN_CALLED: std::sync::atomic::AtomicBool =
+        std::sync::atomic::AtomicBool::new(false);
+    if mode == "send-external" {
+        unsafe {
+            let pid: i32 = std::env::args().nth(2).unwrap().parse().unwrap();
+            let target: *mut AnyObject = msg_send![class!(NSRunningApplication), runningApplicationWithProcessIdentifier: pid];
+            assert!(!target.is_null());
+            let sent: bool = msg_send![target, terminate];
+            assert!(sent);
+        }
+        return;
+    }
+    if mode == "handler" {
+        muda::MenuEvent::set_event_handler(Some(|event: muda::MenuEvent| {
+            assert_eq!(event.id().0, "foreign-item");
+            FOREIGN_CALLED.store(true, std::sync::atomic::Ordering::Relaxed);
+        }));
+    }
 
     slint::slint! {
         #[edition = "1.19"]
@@ -82,14 +133,50 @@ fn main() {
     fn run(app: impl ComponentHandle, mode: &str) {
         let shortcut = mode == "shortcut";
         let custom = mode == "custom";
+        let terminate = mode == "terminate";
+        let external = mode == "external";
+        let foreign = matches!(mode, "receiver" | "handler");
+        let handler = mode == "handler";
+        let between_pumps = mode == "pump-between";
+        let sender = Rc::new(std::cell::RefCell::new(None::<std::process::Child>));
+        let sender_handle = sender.clone();
         slint::Timer::single_shot(std::time::Duration::from_secs(5), || {
             panic!("native Quit did not exit the event loop")
         });
         slint::Timer::single_shot(std::time::Duration::from_millis(200), move || unsafe {
+            if between_pumps {
+                return;
+            }
             let (app, menu, quit) = native_quit_item(custom);
             let modifiers = 1usize << 20;
+            if foreign {
+                use muda::ContextMenu;
+                let submenu = muda::Submenu::new("Foreign", true);
+                let item = muda::MenuItem::with_id("foreign-item", "Foreign", true, None);
+                submenu.append(&item).unwrap();
+                let native = submenu.ns_menu().cast::<AnyObject>();
+                let _: () = msg_send![native, performActionForItemAtIndex: 0isize];
+                if handler {
+                    assert!(FOREIGN_CALLED.load(std::sync::atomic::Ordering::Relaxed));
+                } else {
+                    assert_eq!(
+                        muda::MenuEvent::receiver().try_recv().unwrap().id().0,
+                        "foreign-item"
+                    );
+                }
+            }
             // AppKit dispatches native menu actions outside Slint callbacks.
-            if shortcut {
+            if external {
+                *sender_handle.borrow_mut() = Some(
+                    std::process::Command::new(std::env::current_exe().unwrap())
+                        .arg("--mode=send-external")
+                        .arg(std::process::id().to_string())
+                        .spawn()
+                        .unwrap(),
+                );
+            } else if terminate {
+                let _: () = msg_send![app, performSelector: sel!(terminate:), withObject: std::ptr::null::<AnyObject>(), afterDelay: 0.0f64];
+            } else if shortcut {
                 let key = objc2_foundation::NSString::from_str("q");
                 let event: *mut AnyObject = msg_send![class!(NSEvent),
                     keyEventWithType: objc2_app_kit::NSEventType::KeyDown,
@@ -112,7 +199,54 @@ fn main() {
                 let _: () = msg_send![target, performSelector: action.unwrap(), withObject: quit, afterDelay: 0.0f64];
             }
         });
-        app.run().unwrap();
+        if matches!(mode, "pump" | "pump-between") {
+            app.show().unwrap();
+            i_slint_core::context::with_existing_context(|context| {
+                let deadline = std::time::Instant::now() + std::time::Duration::from_secs(8);
+                let mut sent_between_pumps = false;
+                loop {
+                    assert!(std::time::Instant::now() < deadline, "pump timed out");
+                    if context
+                        .platform()
+                        .process_events(
+                            Some(std::time::Duration::from_millis(10)),
+                            i_slint_core::InternalToken,
+                        )
+                        .unwrap()
+                        .is_break()
+                    {
+                        break;
+                    }
+                    let menu_ready = unsafe {
+                        let application: *mut AnyObject = msg_send![class!(NSApplication), sharedApplication];
+                        let menu: *mut AnyObject = msg_send![application, mainMenu];
+                        !menu.is_null() && { let count: isize = msg_send![menu, numberOfItems]; count > 0 }
+                    };
+                    if mode == "pump-between" && !sent_between_pumps && menu_ready {
+                        let (application, _, quit) = native_quit_item(false);
+                        unsafe {
+                            let action: Option<Sel> = msg_send![quit, action];
+                            let target: *mut AnyObject = msg_send![quit, target];
+                            let sent: bool = msg_send![application, sendAction: action.unwrap(), to: target, from: quit];
+                            assert!(sent);
+                        }
+                        sent_between_pumps = true;
+                    }
+                }
+                assert!(mode != "pump-between" || sent_between_pumps);
+            })
+            .unwrap();
+            app.hide().unwrap();
+        } else if mode == "until-quit" {
+            app.show().unwrap();
+            slint::run_event_loop_until_quit().unwrap();
+            app.hide().unwrap();
+        } else {
+            app.run().unwrap();
+        }
+        if let Some(child) = sender.borrow_mut().as_mut() {
+            assert!(child.wait().unwrap().success(), "external Quit sender failed");
+        }
         println!("EVENT_LOOP_RETURNED");
     }
 
@@ -128,22 +262,26 @@ fn main() {
         .renderer_name("software".into())
         .select()
         .unwrap();
-    if matches!(mode.as_str(), "default" | "shortcut" | "multiple" | "restart") {
+    if !matches!(mode.as_str(), "menubar" | "custom") {
         let second = (mode == "multiple").then(|| PlainApp::new().unwrap());
         if let Some(second) = &second {
             second.show().unwrap();
         }
         let app = PlainApp::new().unwrap();
         run(app.clone_strong(), &mode);
-        if mode == "restart" {
-            // Queue another native Quit after the first loop has returned.
-            let (application, _, quit) = native_quit_item(false);
+        if mode == "idle-quit" {
+            let (application, _, _) = native_quit_item(false);
             unsafe {
-                let action: Option<Sel> = msg_send![quit, action];
-                let target: *mut AnyObject = msg_send![quit, target];
-                let sent: bool =
-                    msg_send![application, sendAction: action.unwrap(), to: target, from: quit];
-                assert!(sent);
+                let _: () = msg_send![application, terminate: std::ptr::null::<AnyObject>()];
+            }
+            panic!("idle Quit must terminate the process");
+        }
+        if mode == "restart" {
+            let (application, _, _) = native_quit_item(false);
+            unsafe {
+                let delegate: *mut AnyObject = msg_send![application, delegate];
+                let reply: usize = msg_send![delegate, applicationShouldTerminate: application];
+                assert_eq!(reply, 1, "idle Quit must permit process termination");
             }
             let continued = Rc::new(Cell::new(false));
             let timer_continued = continued.clone();

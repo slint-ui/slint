@@ -209,7 +209,7 @@ fn try_create_window_with_fallback_renderer(
             shared_backend_data.clone(),
             renderer_factory(shared_backend_data).ok()?,
             attrs.clone(),
-            #[cfg(enable_accesskit)]
+            #[cfg(any(enable_accesskit, muda))]
             _proxy.clone(),
             #[cfg(all(muda, target_os = "macos"))]
             muda_enable_default_menu_bar,
@@ -426,6 +426,9 @@ impl BackendBuilder {
             self.allow_fallback,
         )?);
 
+        #[cfg(target_os = "macos")]
+        macos::install_termination_handler(Rc::downgrade(&shared_data));
+
         Ok(Backend {
             event_loop_state: Default::default(),
             window_attributes_hook: self.window_attributes_hook,
@@ -474,6 +477,8 @@ pub(crate) struct SharedBackendData {
     /// The generation is used to determine if a quit_event_loop call is meant for the current
     /// event loop or is from a stale event.
     event_loop_generation: Arc<AtomicUsize>,
+    #[cfg(target_os = "macos")]
+    native_quit_active: Cell<bool>,
     is_wayland: bool,
     /// Desktop settings read from the XDG portal (cursor blink, appearance query).
     #[cfg(xdg_desktop_settings)]
@@ -582,6 +587,8 @@ impl SharedBackendData {
             not_running_event_loop: RefCell::new(Some(event_loop)),
             event_loop_proxy,
             event_loop_generation: Default::default(),
+            #[cfg(target_os = "macos")]
+            native_quit_active: Cell::new(false),
             is_wayland,
             #[cfg(xdg_desktop_settings)]
             desktop_settings: xdg_desktop_settings::DesktopSettings::new(),
@@ -954,7 +961,7 @@ impl i_slint_core::platform::Platform for Backend {
                     self.shared_data.clone(),
                     renderer,
                     attrs.clone(),
-                    #[cfg(enable_accesskit)]
+                    #[cfg(any(enable_accesskit, muda))]
                     self.shared_data.event_loop_proxy.clone(),
                     #[cfg(all(muda, target_os = "macos"))]
                     self.muda_enable_default_menu_bar_bar,
@@ -976,7 +983,12 @@ impl i_slint_core::platform::Platform for Backend {
         }
         // Note: fetch_add wraps around on overflow, which is what we want.
         self.shared_data.event_loop_generation.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        let new_state = loop_state.run()?;
+        #[cfg(target_os = "macos")]
+        self.shared_data.native_quit_active.set(true);
+        let result = loop_state.run();
+        #[cfg(target_os = "macos")]
+        self.shared_data.native_quit_active.set(false);
+        let new_state = result?;
         *self.event_loop_state.borrow_mut() = Some(new_state);
         Ok(())
     }
@@ -990,7 +1002,14 @@ impl i_slint_core::platform::Platform for Backend {
         let loop_state = self.event_loop_state.borrow_mut().take().unwrap_or_else(|| {
             EventLoopState::new(self.shared_data.clone(), self.custom_application_handler.take())
         });
-        let (new_state, status) = loop_state.pump_events(timeout)?;
+        #[cfg(target_os = "macos")]
+        self.shared_data.native_quit_active.set(true);
+        let result = loop_state.pump_events(timeout);
+        #[cfg(target_os = "macos")]
+        self.shared_data
+            .native_quit_active
+            .set(matches!(&result, Ok((_, winit::platform::pump_events::PumpStatus::Continue))));
+        let (new_state, status) = result?;
         *self.event_loop_state.borrow_mut() = Some(new_state);
         match status {
             winit::platform::pump_events::PumpStatus::Continue => {
