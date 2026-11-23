@@ -1,0 +1,26 @@
+diff --git a/lib/common/fileOperations.js b/lib/common/fileOperations.js
+index 286ef1e84c8a198b3b94cab972fb68d8a82e398f..953996f3a4c5e808de224caa660936e0ac8ad36a 100644
+--- a/lib/common/fileOperations.js
++++ b/lib/common/fileOperations.js
+@@ -108,7 +108,7 @@ class FileOperationFeature {
+         }
+         const minimatchFilter = data.registerOptions.filters.map((filter) => {
+             const matcher = new minimatch.Minimatch(filter.pattern.glob, FileOperationFeature.asMinimatchOptions(filter.pattern.options));
+-            if (!matcher.makeRe()) {
++            if (matcher.set.length === 0) {
+                 throw new Error(`Invalid pattern ${filter.pattern.glob}!`);
+             }
+             return { scheme: filter.scheme, matcher, kind: filter.pattern.matches };
+diff --git a/lib/common/utils/globPattern.js b/lib/common/utils/globPattern.js
+index 644722806efdab79e5181863f14d3eaae1c0b8d4..8b2eab0f9dbc9de2b924fd21e47d7f5fe17a60a4 100644
+--- a/lib/common/utils/globPattern.js
++++ b/lib/common/utils/globPattern.js
+@@ -55,7 +55,7 @@ function matchGlobPattern(pattern, resource) {
+         }
+     }
+     const matcher = new minimatch.Minimatch(miniMatchPattern, { noext: true });
+-    if (!matcher.makeRe()) {
++    if (matcher.set.length === 0) {
+         return false;
+     }
+     return matcher.match(resource.fsPath);

@@ -420,6 +420,10 @@
   ],
   "overrides": [
     {
+      "filename": "patches/*.patch",
+      "words": ["minimatch", "noext"]
+    },
+    {
       "filename": "tests/manual/ios-scroll-physics-comparison/cases/**/*.csv",
       "words": ["uikit"]
     },

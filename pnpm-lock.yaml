@@ -46,8 +46,8 @@ catalogs:
       specifier: 1.65.1
       version: 1.65.1
     playwright-ctrf-json-reporter:
-      specifier: 0.2.0
-      version: 0.2.0
+      specifier: 0.3.0
+      version: 0.3.0
     rehype-external-links:
       specifier: 3.0.0
       version: 3.0.0
@@ -80,6 +80,7 @@ overrides:
   '@napi-rs/wasm-runtime@1.2.4>@emnapi/runtime': 1.11.3
   compression@<1.8.2: 1.8.2
   deepmerge-ts@<8.0.0: 8.0.0
+  follow-redirects@>=1.16.0 <=1.16.1: 1.16.2
   js-yaml@>=4.0.0 <4.3.2: 4.3.2
   js-yaml@>=5.0.0 <=5.4.0: 5.4.1
   katex@>=0.11.0 <0.18.2: 0.18.2
@@ -91,6 +92,12 @@ overrides:
   sharp@<0.35.4: 0.35.4
   shell-quote@>=1.8.4 <1.11.0: 1.11.0
   svgo@>=4.0.0 <4.1.0: 4.1.0
+  typedoc@0.28.20>minimatch@^10.2.5: 11.0.8
+  vscode-languageclient@10.0.1>minimatch@^10.2.6: 11.0.8
+
+patchedDependencies:
+  typedoc@0.28.20: 5f341e561c399cbde9429784d4dffd7d897bdf587c552a8d1265fe339a756660
+  vscode-languageclient@10.0.1: 74d13898b06255f2c71b3977d414305354240178fdc2b87d92328486777b214b
 
 importers:
 
@@ -204,7 +211,7 @@ importers:
         version: 0.14.0(astro@7.4.13(@astrojs/markdown-remark@7.3.10(supports-color@10.2.2))(@types/node@24.12.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))(typescript@6.0.3)
       playwright-ctrf-json-reporter:
         specifier: 'catalog:'
-        version: 0.2.0
+        version: 0.3.0
       remark-parse:
         specifier: 'catalog:'
         version: 11.0.0(supports-color@10.2.2)
@@ -257,7 +264,7 @@ importers:
         version: 7.4.13(@astrojs/markdown-remark@7.3.10)(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1)
       playwright-ctrf-json-reporter:
         specifier: 'catalog:'
-        version: 0.2.0
+        version: 0.3.0
       starlight-links-validator:
         specifier: 'catalog:'
         version: 0.27.0(@astrojs/starlight@0.43.1(@astrojs/markdown-remark@7.3.10)(astro@7.4.13(@astrojs/markdown-remark@7.3.10)(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))(typescript@6.0.3))(astro@7.4.13(@astrojs/markdown-remark@7.3.10)(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))
@@ -320,13 +327,13 @@ importers:
         version: 0.35.5(@types/node@24.12.0)
       starlight-typedoc:
         specifier: 0.23.3
-        version: 0.23.3(@astrojs/starlight@0.43.1(@astrojs/markdown-remark@7.3.10)(astro@7.4.13(@astrojs/markdown-remark@7.3.10)(@types/node@24.12.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))(typescript@6.0.3))(astro@7.4.13(@astrojs/markdown-remark@7.3.10)(@types/node@24.12.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))(typedoc-plugin-markdown@4.14.1(typedoc@0.28.20(typescript@6.0.3)))(typedoc@0.28.20(typescript@6.0.3))
+        version: 0.23.3(@astrojs/starlight@0.43.1(@astrojs/markdown-remark@7.3.10)(astro@7.4.13(@astrojs/markdown-remark@7.3.10)(@types/node@24.12.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))(typescript@6.0.3))(astro@7.4.13(@astrojs/markdown-remark@7.3.10)(@types/node@24.12.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))(typedoc-plugin-markdown@4.14.1(typedoc@0.28.20(patch_hash=5f341e561c399cbde9429784d4dffd7d897bdf587c552a8d1265fe339a756660)(typescript@6.0.3)))(typedoc@0.28.20(patch_hash=5f341e561c399cbde9429784d4dffd7d897bdf587c552a8d1265fe339a756660)(typescript@6.0.3))
       typedoc:
         specifier: 0.28.20
-        version: 0.28.20(typescript@6.0.3)
+        version: 0.28.20(patch_hash=5f341e561c399cbde9429784d4dffd7d897bdf587c552a8d1265fe339a756660)(typescript@6.0.3)
       typedoc-plugin-markdown:
         specifier: 4.14.1
-        version: 4.14.1(typedoc@0.28.20(typescript@6.0.3))
+        version: 4.14.1(typedoc@0.28.20(patch_hash=5f341e561c399cbde9429784d4dffd7d897bdf587c552a8d1265fe339a756660)(typescript@6.0.3))
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
@@ -639,7 +646,7 @@ importers:
         version: 1.0.1
       playwright-ctrf-json-reporter:
         specifier: 'catalog:'
-        version: 0.2.0
+        version: 0.3.0
       rimraf:
         specifier: 6.1.4
         version: 6.1.4
@@ -654,7 +661,7 @@ importers:
         version: '@codingame/monaco-vscode-api@8.0.4'
       vscode-languageclient:
         specifier: 10.0.1
-        version: 10.0.1
+        version: 10.0.1(patch_hash=74d13898b06255f2c71b3977d414305354240178fdc2b87d92328486777b214b)
       vscode-languageserver:
         specifier: 10.0.1
         version: 10.0.1
@@ -700,7 +707,7 @@ importers:
         version: 10.5.2
       playwright-ctrf-json-reporter:
         specifier: 'catalog:'
-        version: 0.2.0
+        version: 0.3.0
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
@@ -3992,8 +3999,8 @@ packages:
     resolution: {integrity: sha512-0LrrStPOdJj+SPCCrGhzryycLjwcgUSHBtxNA8aIDxf0GLsRh1cKYhB00Gd1lDOS4yGH69+SNn13+TWbVHETFQ==}
     engines: {node: ^10 || ^12.20.0 || ^14.13.0 || >=15.0.0, npm: '>=7.0.0'}
 
-  ctrf@0.5.0:
-    resolution: {integrity: sha512-7g/OmkHoTq5guKOWuVfLkoT/GJ8HCJja5GKIYdri+WOVksXMh7JrrdiFAPUSlhOnk07U2BCUIDd2J8aIeOOyfw==}
+  ctrf@0.6.0:
+    resolution: {integrity: sha512-nF+fkW49WgHE+Y3ISMjsrm3Kwn2GGyRz+iuZ5fYjBfazCpypBv1An/qqKvE/TdTWa5E67zy1NUqwsytOdJ5pig==}
     engines: {node: '>=20.19.0'}
     hasBin: true
 
@@ -4490,8 +4497,8 @@ packages:
   fnv1a-64@0.1.2:
     resolution: {integrity: sha512-mJbcILTPybAR1jdOwt/lVv8N2cffeJFFP+gVbSAwLEx1ujXH27RpPd8Rokec/KX9c76UYIB6Co+H4lQzxPnJfA==}
 
-  follow-redirects@1.16.1:
-    resolution: {integrity: sha512-FNvFGzoMLWmE6Yj9spb/zjd7yiNCHiAW9/Tg9CXrQ8wuu32HtlJOwWO11OJafl5FfY3DxTdQ0vj42zU1kvv5jg==}
+  follow-redirects@1.16.2:
+    resolution: {integrity: sha512-/kVP2U8z596Ia0gwFrwyIeo74ta5aVmSeU1FfAUMAmcEP5EP7zydmag3SLiN64NaRKef3lxsq7i/g7ltJQDGow==}
     engines: {node: '>=4.0'}
     peerDependencies:
       debug: '*'
@@ -4575,10 +4582,6 @@ packages:
   glob-parent@5.1.2:
     resolution: {integrity: sha512-AOIgSQCepiJYwP3ARnGx+5VnTu2HBYdzbGP45eLw1vr3zB3vZLeyed1sC9hnbcOc9/SrMyM5RPQrkGz4aS9Zow==}
     engines: {node: '>= 6'}
-
-  glob@13.0.6:
-    resolution: {integrity: sha512-Wjlyrolmm8uDpm/ogGyXZXb1Z+Ca2B8NbJwqBVg0axK9GbBeoS7yGV6vjXnYdGm6X53iehEuxxbyiKp8QmN4Vw==}
-    engines: {node: 18 || 20 || >=22}
 
   glob@14.0.6:
     resolution: {integrity: sha512-OwXjVP2svY5EyLY75Vek96C8qK43gqrt4xsZ+qSILdnaEiJPXkd62mcfUSNx/TQErQRdu5uM5kF67sfONragKw==}
@@ -5334,10 +5337,6 @@ packages:
     resolution: {integrity: sha512-e5ISH9xMYU0DzrT+jl8q2ze9D6eWBto+I8CNpe+VI+K2J/F/k3PdkdTdz4wvGVH4NTpo+NRYTVIuMQEMMcsLqg==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
 
-  minimatch@10.2.6:
-    resolution: {integrity: sha512-vpLQEs+VLCr1nU0BXS07maYoFwlDAH0gngQuuttxIwutDFEMHq2blX+8vpgxDdK3J1PwjCJiep77OitTZ4Ll1A==}
-    engines: {node: 18 || 20 || >=22}
-
   minimatch@11.0.3:
     resolution: {integrity: sha512-iny/40PEGkNJQ5/Pv6z3nm6FbRAby32GeZRjCUJk2WnNDbgPSTcdI+DDvLqsgBdD4cD5sMtMheqPPnehCCa8Nw==}
     engines: {node: 18 || 20 || >=22}
@@ -5601,10 +5600,6 @@ packages:
   path-parse@1.0.7:
     resolution: {integrity: sha512-LDJzPVEEEPR+y48z93A0Ed0yXb8pAByGWo/k5YYdYgpY2/2EsOsksJrq7lOHxryrVOn1ejG6oAp8ahvOIQD8sw==}
 
-  path-scurry@2.0.2:
-    resolution: {integrity: sha512-3O/iVVsJAPsOnpwWIeD+d6z/7PmqApyQePUtCndjatj/9I5LylHvt5qluFaBT3I5h3r1ejfR056c+FCv+NnNXg==}
-    engines: {node: 18 || 20 || >=22}
-
   path-scurry@3.0.0:
     resolution: {integrity: sha512-1pTbQqH1wIwMi/eleQ5leFTTCkzFsPcgXNjwOA8YGGW/W4/kHT3dssE7Z6NH+zuqNLOzOB0uaD61yl7cAcVhgg==}
     engines: {node: 18 || 20 || >=22}
@@ -5651,8 +5646,8 @@ packages:
     engines: {node: '>=20'}
     hasBin: true
 
-  playwright-ctrf-json-reporter@0.2.0:
-    resolution: {integrity: sha512-Fb1B8cnU55MI1xlwI78PxEvKMnnmxD2nsc7Tp3S4EfObKff871Ypew/cdKftohZY3XMg3aIeNZGOy/S4CYqusw==}
+  playwright-ctrf-json-reporter@0.3.0:
+    resolution: {integrity: sha512-bC6shqpZQ8JJCHxn09w02fW7pPd7MIxAjCKExoAGemO9tFa/NmBCMqF5bvHb9unIvbrCklBKFfin5xSS80l+HQ==}
 
   playwright@1.65.1:
     resolution: {integrity: sha512-vJ1FuoOrNwOKHUIVEvSt3jT1L+wjjDpwhwIstKtfvTh8XIG4FG4bIFuvNdMxi81LGfAhUgUZleVFaOLY4RIUUw==}
@@ -10534,11 +10529,11 @@ snapshots:
     dependencies:
       css-tree: 2.2.1
 
-  ctrf@0.5.0:
+  ctrf@0.6.0:
     dependencies:
       ajv: 8.20.0
       ajv-formats: 3.0.1(ajv@8.20.0)
-      glob: 13.0.6
+      glob: 14.0.6
       yargs: 18.2.0
 
   cytoscape-cose-bilkent@4.1.0(cytoscape@3.34.4):
@@ -11103,7 +11098,7 @@ snapshots:
 
   fnv1a-64@0.1.2: {}
 
-  follow-redirects@1.16.1(debug@4.4.3(supports-color@10.2.2)):
+  follow-redirects@1.16.2(debug@4.4.3(supports-color@10.2.2)):
     optionalDependencies:
       debug: 4.4.3(supports-color@10.2.2)
     optional: true
@@ -11184,12 +11179,6 @@ snapshots:
   glob-parent@5.1.2:
     dependencies:
       is-glob: 4.0.3
-
-  glob@13.0.6:
-    dependencies:
-      minimatch: 10.2.6
-      minipass: 7.1.3
-      path-scurry: 2.0.2
 
   glob@14.0.6:
     dependencies:
@@ -12354,10 +12343,6 @@ snapshots:
 
   mimic-response@4.0.0: {}
 
-  minimatch@10.2.6:
-    dependencies:
-      brace-expansion: 5.0.12
-
   minimatch@11.0.3:
     dependencies:
       '@isaacs/nonrecursive-glob-match': 1.1.0
@@ -12689,11 +12674,6 @@ snapshots:
 
   path-parse@1.0.7: {}
 
-  path-scurry@2.0.2:
-    dependencies:
-      lru-cache: 11.5.3
-      minipass: 7.1.3
-
   path-scurry@3.0.0:
     dependencies:
       lru-cache: 11.5.3
@@ -12741,9 +12721,9 @@ snapshots:
 
   playwright-core@1.65.1: {}
 
-  playwright-ctrf-json-reporter@0.2.0:
+  playwright-ctrf-json-reporter@0.3.0:
     dependencies:
-      ctrf: 0.5.0
+      ctrf: 0.6.0
 
   playwright@1.65.1:
     dependencies:
@@ -13371,7 +13351,7 @@ snapshots:
   skia-canvas@3.0.8(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2):
     dependencies:
       detect-libc: 2.1.2
-      follow-redirects: 1.16.1(debug@4.4.3(supports-color@10.2.2))
+      follow-redirects: 1.16.2(debug@4.4.3(supports-color@10.2.2))
       https-proxy-agent: 7.0.6(supports-color@10.2.2)
       string-split-by: 1.0.0
     transitivePeerDependencies:
@@ -13437,13 +13417,13 @@ snapshots:
       astro: 7.4.13(@astrojs/markdown-remark@7.3.10)(@types/node@24.12.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1)
       picomatch: 4.0.7
 
-  starlight-typedoc@0.23.3(@astrojs/starlight@0.43.1(@astrojs/markdown-remark@7.3.10)(astro@7.4.13(@astrojs/markdown-remark@7.3.10)(@types/node@24.12.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))(typescript@6.0.3))(astro@7.4.13(@astrojs/markdown-remark@7.3.10)(@types/node@24.12.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))(typedoc-plugin-markdown@4.14.1(typedoc@0.28.20(typescript@6.0.3)))(typedoc@0.28.20(typescript@6.0.3)):
+  starlight-typedoc@0.23.3(@astrojs/starlight@0.43.1(@astrojs/markdown-remark@7.3.10)(astro@7.4.13(@astrojs/markdown-remark@7.3.10)(@types/node@24.12.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))(typescript@6.0.3))(astro@7.4.13(@astrojs/markdown-remark@7.3.10)(@types/node@24.12.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))(typedoc-plugin-markdown@4.14.1(typedoc@0.28.20(patch_hash=5f341e561c399cbde9429784d4dffd7d897bdf587c552a8d1265fe339a756660)(typescript@6.0.3)))(typedoc@0.28.20(patch_hash=5f341e561c399cbde9429784d4dffd7d897bdf587c552a8d1265fe339a756660)(typescript@6.0.3)):
     dependencies:
       '@astrojs/starlight': 0.43.1(@astrojs/markdown-remark@7.3.10)(astro@7.4.13(@astrojs/markdown-remark@7.3.10)(@types/node@24.12.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))(typescript@6.0.3)
       astro: 7.4.13(@astrojs/markdown-remark@7.3.10)(@types/node@24.12.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1)
       github-slugger: 2.0.0
-      typedoc: 0.28.20(typescript@6.0.3)
-      typedoc-plugin-markdown: 4.14.1(typedoc@0.28.20(typescript@6.0.3))
+      typedoc: 0.28.20(patch_hash=5f341e561c399cbde9429784d4dffd7d897bdf587c552a8d1265fe339a756660)(typescript@6.0.3)
+      typedoc-plugin-markdown: 4.14.1(typedoc@0.28.20(patch_hash=5f341e561c399cbde9429784d4dffd7d897bdf587c552a8d1265fe339a756660)(typescript@6.0.3))
 
   statuses@2.0.2: {}
 
@@ -13640,16 +13620,16 @@ snapshots:
       media-typer: 1.1.1
       mime-types: 3.0.2
 
-  typedoc-plugin-markdown@4.14.1(typedoc@0.28.20(typescript@6.0.3)):
+  typedoc-plugin-markdown@4.14.1(typedoc@0.28.20(patch_hash=5f341e561c399cbde9429784d4dffd7d897bdf587c552a8d1265fe339a756660)(typescript@6.0.3)):
     dependencies:
-      typedoc: 0.28.20(typescript@6.0.3)
+      typedoc: 0.28.20(patch_hash=5f341e561c399cbde9429784d4dffd7d897bdf587c552a8d1265fe339a756660)(typescript@6.0.3)
 
-  typedoc@0.28.20(typescript@6.0.3):
+  typedoc@0.28.20(patch_hash=5f341e561c399cbde9429784d4dffd7d897bdf587c552a8d1265fe339a756660)(typescript@6.0.3):
     dependencies:
       '@gerrit0/mini-shiki': 3.23.0
       lunr: 2.3.9
       markdown-it: 14.3.3
-      minimatch: 10.2.6
+      minimatch: 11.0.8
       typescript: 6.0.3
       yaml: 2.9.1
 
@@ -14007,9 +13987,9 @@ snapshots:
 
   vscode-jsonrpc@9.0.0: {}
 
-  vscode-languageclient@10.0.1:
+  vscode-languageclient@10.0.1(patch_hash=74d13898b06255f2c71b3977d414305354240178fdc2b87d92328486777b214b):
     dependencies:
-      minimatch: 10.2.6
+      minimatch: 11.0.8
       semver: 7.8.6
       vscode-languageserver-protocol: 3.18.1
       vscode-languageserver-textdocument: 1.0.13
