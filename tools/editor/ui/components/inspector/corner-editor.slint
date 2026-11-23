@@ -10,13 +10,14 @@ import { InspectorCornerModeSelector } from "corner-mode-selector.slint";
 export component InspectorCornerEditor inherits Rectangle {
     in property <CornerEditorStyle> style: Style.corner-editor;
     in property <[float]> values;
+    in property <[float]> source-values: root.values;
     in property <float> maximum;
     in property <string> commit-key;
     in property <string> selection-key;
     callback preview(int, float) -> bool;
     callback accepted(int, float) -> bool;
     callback canceled();
-    private property <bool> unequal: root.values[0] != root.values[1] || root.values[0] != root.values[2] || root.values[0] != root.values[3];
+    private property <bool> unequal: root.source-values[0] != root.source-values[1] || root.source-values[0] != root.source-values[2] || root.source-values[0] != root.source-values[3];
     private property <bool> separate: root.unequal;
     changed selection-key => { root.separate = root.unequal; }
     changed unequal => { if root.unequal { root.separate = true; } }

@@ -121,6 +121,7 @@ impl super::Surface for SoftwareSurface {
         display_handle: Arc<dyn raw_window_handle::HasDisplayHandle + Send + Sync>,
         _size: PhysicalWindowSize,
         _requested_graphics_api: Option<RequestedGraphicsAPI>,
+        _transparent: bool,
     ) -> Result<Self, i_slint_core::platform::PlatformError> {
         let _context = softbuffer::Context::new(display_handle)
             .map_err(|e| format!("Error creating softbuffer context: {e}"))?;
@@ -143,6 +144,7 @@ impl super::Surface for SoftwareSurface {
         _display_handle: Arc<dyn raw_window_handle::HasDisplayHandle + Send + Sync>,
         _size: PhysicalWindowSize,
         _requested_graphics_api: Option<RequestedGraphicsAPI>,
+        _transparent: bool,
     ) -> Result<Self, i_slint_core::platform::PlatformError> {
         struct DummyBuffer;
         impl RenderBuffer for DummyBuffer {

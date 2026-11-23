@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore CRTC crtcs htotal modeset NONBLOCK vrefresh vtotal
+// cSpell: ignore ADDFB CRTC crtcs htotal LCDIF modeset NONBLOCK virtio vrefresh vtotal
 use std::cell::{Cell, RefCell};
 use std::os::fd::{AsFd, BorrowedFd, OwnedFd};
 use std::rc::Rc;
@@ -464,6 +464,16 @@ impl DrmOutput {
         } else {
             Ok(all_formats.into_iter().collect())
         }
+    }
+
+    /// Whether the display takes framebuffers that name a DRM format modifier.
+    /// A KMS driver without `DRM_CAP_ADDFB2_MODIFIERS`, such as i.MX8M Plus's LCDIF or virtio-gpu,
+    /// rejects them, and scans out buffers in their implicit layout only, which is linear on the LCDIF.
+    #[cfg(any(feature = "renderer-skia-opengl", feature = "renderer-femtovg", gbm_dmabuf))]
+    pub fn takes_modifiers(&self) -> bool {
+        self.drm_device
+            .get_driver_capability(drm::DriverCapability::AddFB2Modifiers)
+            .is_ok_and(|value| value != 0)
     }
 
     #[cfg(feature = "gbm")]

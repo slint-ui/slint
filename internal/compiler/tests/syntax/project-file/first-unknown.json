@@ -1,0 +1,5 @@
+{
+  "first-unknown": true,
+//              |error{unknown field `first-unknown`, expected one of `$schema`, `library-paths`, `include-paths`, `experimental-features`, `main`, `edition`, `metadata`}
+  "second-unknown": false
+}

@@ -33,7 +33,7 @@ backend-linuxkms = [
 ]
 backend-linuxkms-libseat = ["backend-linuxkms", "slint-interpreter/backend-linuxkms-libseat"]
 backend-linuxkms-libinput = ["backend-linuxkms", "slint-interpreter/backend-linuxkms-libinput"]
-backend-testing = ["i-slint-backend-selector/backend-testing"]
+backend-testing = ["i-slint-backend-selector/backend-testing", "dep:i-slint-backend-testing"]
 
 # The features below are additive and binary-compatible with the default build:
 # they don't change the PyO3 surface, only enabling extra runtime behavior, and
@@ -57,16 +57,16 @@ accessibility = ["slint-interpreter/accessibility"]
 
 [dependencies]
 i-slint-backend-selector = { workspace = true }
+i-slint-backend-testing = { workspace = true, optional = true, features = ["internal"] }
 i-slint-common = { workspace = true, features = ["color-parsing"] }
 i-slint-core = { workspace = true, features = ["tr"] }
-slint-interpreter = { workspace = true, default-features = false, features = ["backend-default", "renderer-femtovg", "renderer-software", "accessibility", "compat-1-18", "system-tray", "display-diagnostics", "internal", "internal-highlight"] }
+slint-interpreter = { workspace = true, default-features = false, features = ["backend-default", "renderer-femtovg", "renderer-software", "accessibility", "compat-1-18", "system-tray", "display-diagnostics", "internal"] }
 i-slint-compiler = { workspace = true, features = ["python"] }
 # Pinned: with a newer pyo3, maturin 1.14.0 writes a cross-compile PYO3_CONFIG_FILE
 # that has no "version" key, which the pyo3 build script rejects.
 pyo3 = { version = "=0.29.0", features = ["extension-module", "indexmap", "chrono", "abi3-py311"] }
 indexmap = { version = "2.1.0" }
 chrono = "0.4"
-spin_on = { workspace = true }
 smol = { version = "2.0.0" }
 
 [target.'cfg(target_os = "linux")'.dependencies]

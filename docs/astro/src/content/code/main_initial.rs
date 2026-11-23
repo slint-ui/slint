@@ -8,7 +8,7 @@ fn main() {
 }
 
 slint::slint! {
-    #[edition = "1.19"]
+    #[edition = "1.20"]
     export component MainWindow inherits Window {
         Text {
             text: "hello world";

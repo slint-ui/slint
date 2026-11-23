@@ -1,0 +1,449 @@
+[
+  {
+    "BoxShadow": {
+      "box_shape": {
+        "radii": {
+          "bottom_left": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "bottom_right": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "top_left": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "top_right": {
+            "x": 0.0,
+            "y": 0.0
+          }
+        },
+        "rect": {
+          "x0": 0.0,
+          "x1": 53.3333,
+          "y0": 0.0,
+          "y1": 40.0
+        }
+      },
+      "color": {
+        "components": [
+          1.0,
+          0.0,
+          0.0,
+          0.8
+        ]
+      },
+      "kind": "OutsetUnclipped",
+      "offset": {
+        "x": 4.0,
+        "y": 4.0
+      },
+      "spread": 6.0,
+      "std_dev": 0.0,
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        12.0,
+        12.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Solid": {
+          "components": [
+            0.3098,
+            0.549,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M0,0 L53.3333,0 L53.3333,40 L0,40 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        12.0,
+        12.0
+      ]
+    }
+  },
+  {
+    "BoxShadow": {
+      "box_shape": {
+        "radii": {
+          "bottom_left": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "bottom_right": {
+            "x": 12.0,
+            "y": 12.0
+          },
+          "top_left": {
+            "x": 12.0,
+            "y": 12.0
+          },
+          "top_right": {
+            "x": 3.0,
+            "y": 3.0
+          }
+        },
+        "rect": {
+          "x0": 0.0,
+          "x1": 53.3333,
+          "y0": 0.0,
+          "y1": 40.0
+        }
+      },
+      "color": {
+        "components": [
+          1.0,
+          0.0,
+          0.0,
+          0.8
+        ]
+      },
+      "kind": "OutsetUnclipped",
+      "offset": {
+        "x": 4.0,
+        "y": 4.0
+      },
+      "spread": 6.0,
+      "std_dev": 0.0,
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        85.3333,
+        12.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Solid": {
+          "components": [
+            0.3098,
+            0.549,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M0,12 C0,5.3726 5.3726,0 12,0 L50.3333,0 C51.9902,0 53.3333,1.3431 53.3333,3 L53.3333,28 C53.3333,34.6274 47.9607,40 41.3333,40 L0,40 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        85.3333,
+        12.0
+      ]
+    }
+  },
+  {
+    "PushLayer": {
+      "alpha": 1.0,
+      "backdrop_filter": null,
+      "blend": {
+        "compose": "SrcOver",
+        "mix": "Normal"
+      },
+      "clip": "M-7,-7 L60.3333,-7 L60.3333,47 L-7,47 Z",
+      "fill": "NonZero",
+      "filter": null,
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        162.6667,
+        16.0
+      ]
+    }
+  },
+  {
+    "Stroke": {
+      "brush": {
+        "Solid": {
+          "components": [
+            0.1255,
+            0.1882,
+            0.3765,
+            1.0
+          ]
+        }
+      },
+      "brush_transform": null,
+      "shape": "M2,12 C2,6.4772 6.4772,2 12,2 L50.3333,2 C50.8856,2 51.3333,2.4477 51.3333,3 L51.3333,28 C51.3333,33.5228 46.8562,38 41.3333,38 L2,38 Z",
+      "style": {
+        "dash_offset": 0.0,
+        "dash_pattern": [],
+        "end_cap": "Round",
+        "join": "Miter",
+        "miter_limit": 4.0,
+        "start_cap": "Round",
+        "width": 16.0
+      },
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        162.6667,
+        16.0
+      ]
+    }
+  },
+  {
+    "PushLayer": {
+      "alpha": 1.0,
+      "backdrop_filter": null,
+      "blend": {
+        "compose": "SrcIn",
+        "mix": "Normal"
+      },
+      "clip": "M-7,-7 L60.3333,-7 L60.3333,47 L-7,47 Z",
+      "fill": "NonZero",
+      "filter": null,
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        162.6667,
+        16.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Solid": {
+          "components": [
+            1.0,
+            0.0,
+            0.0,
+            0.8
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M-7,-7 L60.3333,-7 L60.3333,47 L-7,47 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        162.6667,
+        16.0
+      ]
+    }
+  },
+  "PopLayer",
+  "PopLayer",
+  {
+    "Stroke": {
+      "brush": {
+        "Solid": {
+          "components": [
+            0.1255,
+            0.1882,
+            0.3765,
+            1.0
+          ]
+        }
+      },
+      "brush_transform": null,
+      "shape": "M2,12 C2,6.4772 6.4772,2 12,2 L50.3333,2 C50.8856,2 51.3333,2.4477 51.3333,3 L51.3333,28 C51.3333,33.5228 46.8562,38 41.3333,38 L2,38 Z",
+      "style": {
+        "dash_offset": 0.0,
+        "dash_pattern": [],
+        "end_cap": "Round",
+        "join": "Miter",
+        "miter_limit": 4.0,
+        "start_cap": "Round",
+        "width": 4.0
+      },
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        158.6667,
+        12.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Solid": {
+          "components": [
+            0.3098,
+            0.549,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M0,0 L53.3333,0 L53.3333,40 L0,40 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        12.0,
+        72.0
+      ]
+    }
+  },
+  {
+    "BoxShadow": {
+      "box_shape": {
+        "radii": {
+          "bottom_left": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "bottom_right": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "top_left": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "top_right": {
+            "x": 0.0,
+            "y": 0.0
+          }
+        },
+        "rect": {
+          "x0": 0.0,
+          "x1": 53.3333,
+          "y0": 0.0,
+          "y1": 40.0
+        }
+      },
+      "color": {
+        "components": [
+          0.1255,
+          0.1882,
+          0.3765,
+          1.0
+        ]
+      },
+      "kind": "Inset",
+      "offset": {
+        "x": 6.0,
+        "y": 6.0
+      },
+      "spread": -4.0,
+      "std_dev": 0.0,
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        12.0,
+        72.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Solid": {
+          "components": [
+            0.3098,
+            0.549,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M0,12 C0,5.3726 5.3726,0 12,0 L50.3333,0 C51.9902,0 53.3333,1.3431 53.3333,3 L53.3333,28 C53.3333,34.6274 47.9607,40 41.3333,40 L0,40 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        85.3333,
+        72.0
+      ]
+    }
+  },
+  {
+    "BoxShadow": {
+      "box_shape": {
+        "radii": {
+          "bottom_left": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "bottom_right": {
+            "x": 12.0,
+            "y": 12.0
+          },
+          "top_left": {
+            "x": 12.0,
+            "y": 12.0
+          },
+          "top_right": {
+            "x": 3.0,
+            "y": 3.0
+          }
+        },
+        "rect": {
+          "x0": 0.0,
+          "x1": 53.3333,
+          "y0": 0.0,
+          "y1": 40.0
+        }
+      },
+      "color": {
+        "components": [
+          0.1255,
+          0.1882,
+          0.3765,
+          1.0
+        ]
+      },
+      "kind": "Inset",
+      "offset": {
+        "x": 6.0,
+        "y": 6.0
+      },
+      "spread": -4.0,
+      "std_dev": 0.0,
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        85.3333,
+        72.0
+      ]
+    }
+  }
+]

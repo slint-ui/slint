@@ -6,6 +6,7 @@ actionchip
 addrs
 adipiscing
 Adressliste
+Adwaita
 aiohttp
 alignas
 alignof
@@ -470,6 +471,7 @@ noopener
 Nord
 noseat
 nostrud
+notdef
 notexist
 noto
 nsview
@@ -540,6 +542,7 @@ pypiserver
 pyproject
 pystruct
 pytest
+qreal
 qskinny
 qtbase
 qtsvg
@@ -589,6 +592,7 @@ rustup
 Rustybuzz
 safeui
 Schukat
+scanline
 scanout
 sclk
 scopeguard
@@ -683,6 +687,7 @@ Tdefmt
 tempor
 termcolor
 testdata
+texel
 texels
 texteditor
 textinput
@@ -731,6 +736,7 @@ unpark
 unparseable
 unpic
 Unpremul
+unpremultiplies
 unpremultiply
 unsendable
 usbc

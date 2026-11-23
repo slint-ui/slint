@@ -10,15 +10,15 @@ use wasm_bindgen::prelude::*;
 slint::include_modules!();
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
-pub fn main() {
-    let state = init();
+pub fn main() -> Result<(), slint::PlatformError> {
+    let state = init()?;
     let main_window = state.main_window.clone_strong();
     #[cfg(target_os = "android")]
     STATE.with(|ui| *ui.borrow_mut() = Some(state));
-    main_window.run().unwrap();
+    main_window.run()
 }
 
-fn init() -> State {
+fn init() -> Result<State, slint::PlatformError> {
     // This provides better error messages in debug mode.
     // It's disabled in release mode so it doesn't bloat up the file size.
     #[cfg(all(debug_assertions, target_arch = "wasm32"))]
@@ -35,7 +35,7 @@ fn init() -> State {
         TodoItem { checked: false, title: "Profit".into() },
     ]));
 
-    let main_window = MainWindow::new().unwrap();
+    let main_window = MainWindow::new()?;
 
     main_window.on_todo_added({
         let todo_model = todo_model.clone();
@@ -102,7 +102,7 @@ fn init() -> State {
 
     main_window.set_show_header(true);
     main_window.set_todo_model(todo_model.clone().into());
-    State { main_window, todo_model }
+    Ok(State { main_window, todo_model })
 }
 
 #[cfg(target_os = "android")]
@@ -130,7 +130,7 @@ fn android_main(app: slint::android::AndroidApp) {
         };
     })
     .unwrap();
-    main();
+    main().unwrap();
 }
 
 pub struct State {
@@ -176,7 +176,7 @@ fn press_add_adds_one_todo() {
     }
     i_slint_backend_testing::init_no_event_loop();
     use i_slint_backend_testing::{ElementHandle, ElementQuery};
-    let state = init();
+    let state = init().unwrap();
     state.todo_model.set_vec(vec![TodoItem { checked: false, title: "first".into() }]);
     let line_edit = ElementQuery::from_root(&state.main_window)
         .match_id("MainWindow::text-edit")

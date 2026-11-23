@@ -6,11 +6,6 @@ name: Build an APK and AAB for the gallery example
 on:
   workflow_dispatch:
   workflow_call:
-    secrets:
-      ANDROID_KEYSTORE_PASSWORD:
-        required: true
-      ANDROID_KEYSTORE_BASE64:
-        required: true
 
 jobs:
   material_gallery_android:
@@ -19,8 +14,6 @@ jobs:
       CARGO_INCREMENTAL: false
       # xbuild outputs to the workspace's target dir; use the shared repository one
       CARGO_TARGET_DIR: ${{ github.workspace }}/target
-      CARGO_APK_RELEASE_KEYSTORE: /home/runner/.android/release.keystore
-      CARGO_APK_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -35,7 +28,7 @@ jobs:
         with:
           path: |
             target/x/release/android/material-gallery.apk
-          key: apk-build-${{ hashFiles('ui-libraries/material/examples/gallery/**', 'ui-libraries/material/src/**', 'ui-libraries/material/Cargo.toml') }}
+          key: apk-build-${{ hashFiles('ui-libraries/material/examples/gallery/**', 'ui-libraries/material/src/**', 'ui-libraries/material/Cargo.toml', 'internal/renderers/skia/Cargo.toml', '.github/workflows/material_gallery.yaml') }}
 
       - name: Cache aab build
         id: cache-aab
@@ -43,7 +36,7 @@ jobs:
         with:
           path: |
             target/x/release/android/material-gallery.aab
-          key: aab-build-${{ hashFiles('ui-libraries/material/examples/gallery/**', 'ui-libraries/material/src/**', 'ui-libraries/material/Cargo.toml') }}
+          key: aab-build-${{ hashFiles('ui-libraries/material/examples/gallery/**', 'ui-libraries/material/src/**', 'ui-libraries/material/Cargo.toml', 'internal/renderers/skia/Cargo.toml', '.github/workflows/material_gallery.yaml') }}
 
       # 2. Install Dependencies (Run only if artifacts are missing)
       - uses: ./.github/actions/install-linux-dependencies
@@ -60,14 +53,21 @@ jobs:
         run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
 
       # 3. Setup Environment (Run only if artifacts are missing)
-      - name: Add NDK LLVM to PATH
-        if: steps.cache-apk.outputs.cache-hit != 'true' || steps.cache-aab.outputs.cache-hit != 'true'
-        run: echo "${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_PATH
-      - name: Dump keystore
+      # xbuild otherwise downloads its own NDK sysroot from 2022, whose libc++
+      # lacks symbols that the prebuilt Skia binaries need.
+      # Without -z defs, an undefined symbol only fails when the app loads the library.
+      # xbuild replaces CARGO_TARGET_<triple>_RUSTFLAGS, and cargo joins a cfg target's flags with it.
+      - name: Set up the NDK for xbuild
         if: steps.cache-apk.outputs.cache-hit != 'true' || steps.cache-aab.outputs.cache-hit != 'true'
         run: |
-          mkdir -p /home/runner/.android
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > $CARGO_APK_RELEASE_KEYSTORE
+          toolchain=${ANDROID_NDK_LATEST_HOME}/toolchains/llvm/prebuilt/linux-x86_64
+          echo "$toolchain/bin" >> $GITHUB_PATH
+          mkdir -p ~/.cache/x ~/.cargo
+          ln -sfn "$toolchain/sysroot" ~/.cache/x/Android.ndk
+          cat >> ~/.cargo/config.toml <<'EOF'
+          [target.'cfg(target_os = "android")']
+          rustflags = ["-C", "link-arg=-Wl,-z,defs"]
+          EOF
 
       # 4. Tool Caching & Installation
       - name: Cache xbuild

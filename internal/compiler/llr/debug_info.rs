@@ -21,9 +21,6 @@ pub struct ItemDebugInfo {
     pub source_location: SourceLocation,
     /// Qualified id of the element, e.g. `MyComponent::my-button`.
     pub qualified_id: Option<SmolStr>,
-    /// Stable hash identifying the source element across builds.
-    /// See [`crate::object_tree::ElementDebugInfo::element_hash`].
-    pub element_hash: u64,
 }
 
 /// Debug info for a [`SubComponent`](super::SubComponent).

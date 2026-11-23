@@ -24,7 +24,8 @@ use objc2::{
 };
 use objc2_app_kit::{
     NSAppearance, NSAppearanceCustomization, NSAppearanceNameAqua, NSAppearanceNameDarkAqua,
-    NSImage, NSMenu, NSMenuItem, NSStatusBar, NSStatusItem, NSVariableStatusItemLength,
+    NSApplication, NSControlStateValueOn, NSImage, NSMenu, NSMenuItem, NSStatusBar, NSStatusItem,
+    NSVariableStatusItemLength,
 };
 use objc2_foundation::{
     NSArray, NSData, NSDictionary, NSKeyValueChangeKey, NSKeyValueObservingOptions, NSObject,
@@ -207,6 +208,9 @@ impl PlatformTray {
 
         let image = image_to_nsimage(params.icon)?;
 
+        // The status bar needs the window server connection that the shared application opens,
+        // which a backend without windows, such as the testing backend, never creates.
+        NSApplication::sharedApplication(mtm);
         let status_bar = NSStatusBar::systemStatusBar();
         let status_item = status_bar.statusItemWithLength(NSVariableStatusItemLength);
 
@@ -244,6 +248,8 @@ impl PlatformTray {
                 core::ptr::null_mut(),
             );
         }
+
+        status_item.setVisible(params.visible);
 
         let tray = Self { status_item, action_target, appearance_observer: observer, mtm };
         if let Some((menu, entries_out)) = params.menu {
@@ -369,6 +375,9 @@ fn entry_to_nsmenuitem(
         item.setTitle(&title);
         item.setEnabled(entry.enabled);
         item.setTag(entry_index as isize);
+        if entry.checkable && entry.checked {
+            item.setState(NSControlStateValueOn);
+        }
         // Tray menu items are never targeted at a focused responder; wire the action
         // to our MenuAction object directly. `shortcut` bindings on MenuItem are
         // ignored (see the SystemTrayIcon docs) so no key equivalent is set.

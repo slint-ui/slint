@@ -2,12 +2,14 @@
 
 [![npm](https://img.shields.io/npm/v/slint-ui)](https://www.npmjs.com/package/slint-ui)
 
-[Slint](https://slint.dev/) is a UI toolkit that supports different programming languages.
-Slint-node is the integration with Node.js.
+[Slint](https://slint.dev/) is a GUI toolkit to build native user interfaces for any device,
+with JavaScript, Rust, C++, or Python.
+Slint-node is the JavaScript and TypeScript API for Node.js, Deno, and Bun.
+Describe your UI in the `.slint` language and connect it to your JavaScript code.
+Slint renders the UI itself, so desktop and embedded Linux apps don't need a webview or a bundled Chromium.
 
-To get started you use the [walk-through tutorial](https://slint.dev/docs/slint/tutorial/quickstart).
-We also have a [Getting Started Template](https://github.com/slint-ui/slint-nodejs-template) repository with
-the code of a minimal application using Slint that can be used as a starting point to your program.
+To get started, follow the [walk-through tutorial](https://slint.dev/docs/slint/tutorial/quickstart),
+or start from the [Getting Started Template](https://github.com/slint-ui/slint-nodejs-template), a minimal app.
 
 **Warning: Beta**
 Slint-node is still in the early stages of development: APIs will change and important features are still being developed.
@@ -36,6 +38,7 @@ included for Linux (x86-64 and ARM64, glibc), macOS (ARM64), and Windows (x86-64
 
 On platforms without pre-built binaries, build Slint-node from a checkout of this repository by running
 `pnpm install && pnpm build` in `api/node`. You need to install the following components:
+
 - **[pnpm](https://www.pnpm.io/)**
 - **[Rust compiler](https://www.rust-lang.org/tools/install)**
 
@@ -95,6 +98,9 @@ dash in `.slint` can be given either as declared (`"my-property"`) or with under
 which is how it is exposed on the instance.
 
 #### `import` the `.slint` File (Recommended)
+
+Place `slint-project.json` beside the imported `.slint` file to apply project settings such as library paths.
+The import selects the source file. The project file's `main` entry is used when you load the project itself.
 
 Import `.slint` files directly.
 Load `slint-ui/register` before your own code:
@@ -246,6 +252,7 @@ component.model = component.model.concat(4);
 ```
 
 Another option is to set a model object. A model object has the following function:
+
 - `rowCount()`: returns the number of element in the model.
 - `rowData(index)`: return the row at the given index
 - `setRowData(index, data)`: called when the model need to be changed. `this.notify.rowDataChanged` must be called if successful.
@@ -376,3 +383,20 @@ component.position = "top";
 // use the value of the enum
 component.position = ui.Position.bottom;
 ```
+
+## License
+
+Slint is open source and available under three licenses: you pick the one that fits your app.
+
+- If your app is open source, use the [GNU GPLv3](https://github.com/slint-ui/slint/blob/master/LICENSES/GPL-3.0-only.txt), a widely used, OSI-approved open-source license.
+  It covers any platform, including embedded devices.
+- If your app is closed source and runs on desktop, mobile, or the web,
+  use the [Royalty-free License](https://github.com/slint-ui/slint/blob/master/LICENSES/LicenseRef-Slint-Royalty-free-2.0.md).
+  It's free of charge, and only asks you to credit Slint, with the `AboutSlint` widget or the Slint badge on your website.
+- If your app is closed source and runs on an embedded device,
+  buy a [commercial license](https://github.com/slint-ui/slint/blob/master/LICENSES/LicenseRef-Slint-Software-3.0.md).
+  See the [pricing](https://slint.dev/pricing).
+
+Your own code can stay under a permissive license such as MIT or Apache-2.0.
+Anyone who forks it chooses their own Slint license, so they can reuse it in a closed-source app.
+The [Licensing FAQ](https://github.com/slint-ui/slint/blob/master/FAQ.md#licensing) covers the details.

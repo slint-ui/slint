@@ -26,21 +26,21 @@ TITLE_SOURCE = "TitleCases.slint"
         (
             "titled-group-box",
             "GroupBox",
-            '"Options"',
+            "Options",
             b'        title: "Options";\n',
             b'        title: "Settings";\n',
         ),
         (
             "untitled-radio-group",
             "RadioGroup",
-            '""',
+            "",
             b"        y: 192px;\n",
             b'        y: 192px;\n        title: "Settings";\n',
         ),
         (
             "titled-tab",
             "Tab",
-            '"General"',
+            "General",
             b'            title: "General";\n',
             b'            title: "Settings";\n',
         ),
@@ -68,12 +68,10 @@ def test_title_writes_exact_source(
         select_outline_row(window, row)
         element(window, f"Selected {kind}", role=slint_testing.AccessibleRole.Region)
         wait_for_field(window, "Title", current, slint_testing.AccessibleRole.TextInput)
-        edit_field(
-            window, "Title", '"Settings"', slint_testing.AccessibleRole.TextInput
-        )
+        edit_field(window, "Title", "Settings", slint_testing.AccessibleRole.TextInput)
         snapshot.wait_for_applied(expected, relative_path=TITLE_SOURCE)
         wait_for_field(
-            window, "Title", '"Settings"', slint_testing.AccessibleRole.TextInput
+            window, "Title", "Settings", slint_testing.AccessibleRole.TextInput
         )
         press_shortcut(window, keys.Control, "z")
         snapshot.wait_for_applied(baseline, relative_path=TITLE_SOURCE)

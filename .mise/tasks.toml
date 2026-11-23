@@ -88,8 +88,19 @@ description = "Run cargo fmt --all"
 run = "cargo fmt --all"
 dir = "examples/safe-ui"
 
+["fix:rust:format:zed"]
+description = "Run cargo fmt --all"
+run = "cargo fmt --all"
+dir = "editors/zed"
+
 ["fix:rust:format:all"]
-depends = ["fix:rust:format:root", "fix:rust:format:bevy", "fix:rust:format:servo", "fix:rust:format:safeui"]
+depends = [
+  "fix:rust:format:root",
+  "fix:rust:format:bevy",
+  "fix:rust:format:servo",
+  "fix:rust:format:safeui",
+  "fix:rust:format:zed",
+]
 
 ["fix:toml:format"]
 description = "Run taplo format"
@@ -152,8 +163,13 @@ depends = ["prepare:pnpm-install"]
 ### Tests
 
 ["test:ai-plugins"]
-description = "Run the tests of the AI plugin's MCP servers and hooks"
-run = "node --test 'ai-plugins/mcp/slint-preview/test/*.test.mjs' 'ai-plugins/hooks/test/*.test.mjs'"
+description = "Run the Slint preview unit tests and Node rendering test"
+depends = ["build:ai-plugins:checker"]
+run = "node --test api/wasm-interpreter/test/headless.test.mjs 'ai-plugins/mcp/slint-preview/test/*.test.mjs'"
+
+["build:ai-plugins:checker"]
+description = "Build and bundle the MCP Wasm checker"
+run = "node ai-plugins/mcp/slint-preview/build-checker.mjs --dev"
 
 ### Build
 
@@ -169,7 +185,7 @@ sources = [
 ]
 outputs = ["tools/lsp/pkg/*"]
 run = "pnpm run build:wasm_lsp"
-tools = { "ubi:wasm-bindgen/wasm-pack" = "0.13.1" }
+tools = { "ubi:wasm-bindgen/wasm-pack" = "0.15.1" }
 depends = ["prepare:pnpm-install"]
 
 ["build:interpreter:wasm"]
@@ -178,7 +194,7 @@ dir = "tools/slintpad"
 sources = ["api/wasm-interpreter/Cargo.toml", "api/wasm-interpreter/src/**/*.rs"]
 outputs = ["api/wasm-interpreter/pkg/*"]
 run = "pnpm run build:wasm_interpreter"
-tools = { "ubi:wasm-bindgen/wasm-pack" = "0.13.1" }
+tools = { "ubi:wasm-bindgen/wasm-pack" = "0.15.1" }
 depends = ["prepare:pnpm-install"]
 
 ["prepare:pnpm-install"]
@@ -188,6 +204,12 @@ depends = ["fix:pnpm:lock"]
 # The reuse check fails on gitignored files (node_modules, .astro) that
 # appear while it runs, so everything that generates them waits for it.
 wait_for = ["lint:legal:reuse"]
+
+### Run
+
+["debugger"]
+description = "Run the visual editor with the Slint Debugger window open; pass the .slint file to open"
+run = "cargo run -p slint-editor --features debugger -- --debugger"
 
 
 ### CI
@@ -213,4 +235,4 @@ depends = [
 
 ["ci:autofix:lint"]
 description = "CI autofix job -- lint steps"
-depends = ["lint:legal:reuse", "lint:python", "lint:ts:typecheck", "lint:ts:knip"]
+depends = ["lint:legal:reuse", "lint:python", "lint:symlinks", "lint:ts:typecheck", "lint:ts:knip"]

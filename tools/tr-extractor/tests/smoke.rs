@@ -5,9 +5,9 @@ use rayon::prelude::*;
 use std::path::Path;
 use std::process::Command;
 
-// To add a new fixture: drop `<name>.slint` and `<name>.expected.pot` into
-// tests/fixtures/, then append the name here.
-const CASES: &[&str] = &["sample"];
+// To add a new fixture: drop `<name>.slint`, or a `<name>` project directory,
+// and `<name>.expected.pot` into tests/fixtures/, then append the input here.
+const CASES: &[&str] = &["sample.slint", "project", "project/slint-project.json"];
 
 // Normalize a .pot file for comparison:
 // - strip the REUSE/SPDX header that reference files carry (but the extractor doesn't emit)
@@ -33,35 +33,36 @@ fn normalize(pot: &str) -> String {
     out
 }
 
-fn run_case(fixtures: &Path, name: &str) -> Result<(), String> {
+fn run_case(fixtures: &Path, input: &str) -> Result<(), String> {
+    let first_component = Path::new(input).components().next().unwrap().as_os_str();
+    let name = Path::new(first_component).file_stem().unwrap().to_string_lossy();
     let bin = env!("CARGO_BIN_EXE_slint-tr-extractor");
-    let tmp = tempfile::tempdir().map_err(|e| format!("[{name}] tempdir: {e}"))?;
+    let tmp = tempfile::tempdir().map_err(|e| format!("[{input}] tempdir: {e}"))?;
     let out = tmp.path().join(format!("{name}.pot"));
-    let input = format!("{name}.slint");
 
     let status = Command::new(bin)
         .current_dir(fixtures)
         .arg("-o")
         .arg(&out)
-        .arg(&input)
+        .arg(input)
         .status()
-        .map_err(|e| format!("[{name}] spawn: {e}"))?;
+        .map_err(|e| format!("[{input}] spawn: {e}"))?;
     if !status.success() {
-        return Err(format!("[{name}] extractor exited with {status}"));
+        return Err(format!("[{input}] extractor exited with {status}"));
     }
 
     let actual = normalize(
-        &std::fs::read_to_string(&out).map_err(|e| format!("[{name}] read output: {e}"))?,
+        &std::fs::read_to_string(&out).map_err(|e| format!("[{input}] read output: {e}"))?,
     );
     let expected_path = fixtures.join(format!("{name}.expected.pot"));
     let expected = normalize(
         &std::fs::read_to_string(&expected_path)
-            .map_err(|e| format!("[{name}] read {}: {e}", expected_path.display()))?,
+            .map_err(|e| format!("[{input}] read {}: {e}", expected_path.display()))?,
     );
 
     if actual != expected {
         return Err(format!(
-            "[{name}] generated .pot does not match reference\n--- expected ---\n{expected}\n--- actual ---\n{actual}"
+            "[{input}] generated .pot does not match reference\n--- expected ---\n{expected}\n--- actual ---\n{actual}"
         ));
     }
     Ok(())
@@ -72,7 +73,7 @@ fn pot_fixtures() {
     let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests").join("fixtures");
 
     let failures: Vec<String> =
-        CASES.par_iter().filter_map(|name| run_case(&fixtures, name).err()).collect();
+        CASES.par_iter().filter_map(|input| run_case(&fixtures, input).err()).collect();
 
     assert!(failures.is_empty(), "{}", failures.join("\n\n"));
 }

@@ -4,6 +4,7 @@
 //! Adapted from the AccessKit integration in Parley's `editor` example.
 
 use alloc::string::{String, ToString};
+use alloc::vec;
 use alloc::vec::Vec;
 use std::collections::HashMap;
 
@@ -91,6 +92,32 @@ impl LayoutAccessibility {
                 }
             }
             runs.sort_by_key(|(r, _)| r.text_range().start);
+
+            if layout.text_len() == 0 {
+                // The line of an empty layout has no runs, but AccessKit needs a text run to put
+                // the caret in.
+                let id = self.span_id_or_new(0, &mut next_node_id);
+                let mut node = Node::new(Role::TextRun);
+                node.set_text_direction(text_direction(layout.is_rtl()));
+                if let Some(alignment) = alignment {
+                    node.set_text_align(text_align(alignment, layout.is_rtl()));
+                }
+                let line_break = line_break.unwrap_or_default();
+                let character_count = usize::from(!line_break.is_empty());
+                finish_span(
+                    &mut node,
+                    x_offset + metrics.offset as f64,
+                    y_offset,
+                    metrics,
+                    0.0,
+                    line_break.into(),
+                    vec![line_break.len() as u8; character_count],
+                    vec![0.0; character_count],
+                    vec![0.0; character_count],
+                    Vec::new(),
+                );
+                add_span(text_runs, parent_node, id, node);
+            }
 
             let last_run_index = runs.len().checked_sub(1);
             for (run_index, (run, run_offset)) in runs.drain(..).enumerate() {
@@ -226,6 +253,11 @@ impl LayoutAccessibility {
         pos: &TextPosition,
         layout: &Layout<B>,
     ) -> Option<Cursor> {
+        if layout.text_len() == 0 {
+            let is_empty_layout_span = self.span_id(0)? == pos.node;
+            return is_empty_layout_span
+                .then(|| Cursor::from_byte_index(layout, 0, Affinity::Downstream));
+        }
         let span_path = self.span_paths_by_access_id.get(&pos.node)?;
         let run = span_path.run(layout)?;
         let (index, affinity) = run
@@ -244,12 +276,7 @@ impl LayoutAccessibility {
         layout: &Layout<B>,
     ) -> Option<TextPosition> {
         if layout.text_len() == 0 {
-            let run = layout.get(0)?.runs().next()?;
-            let position = self.span_positions_by_cluster_path.get(&run_start_path(0, &run))?;
-            return Some(TextPosition {
-                node: self.span_id(position.span_index)?,
-                character_index: 0,
-            });
+            return Some(TextPosition { node: self.span_id(0)?, character_index: 0 });
         }
         // At the end of the text there is no downstream cluster, so take the upstream one
         // and step past it.
@@ -274,6 +301,21 @@ impl LayoutAccessibility {
         Some(TextPosition { node: self.span_id(span_index)?, character_index })
     }
 
+    fn span_id_or_new(
+        &mut self,
+        span_index: usize,
+        next_node_id: &mut impl FnMut() -> NodeId,
+    ) -> NodeId {
+        match self.span_ids.get(span_index) {
+            Some(id) => *id,
+            None => {
+                let id = next_node_id();
+                self.span_ids.push(id);
+                id
+            }
+        }
+    }
+
     fn span_id_and_node<B: Brush>(
         &mut self,
         next_node_id: &mut impl FnMut() -> NodeId,
@@ -283,21 +325,10 @@ impl LayoutAccessibility {
         alignment: Option<Alignment>,
         span_path: ClusterPath,
     ) -> (NodeId, Node) {
-        let id = match self.span_ids.get(span_index) {
-            Some(id) => *id,
-            None => {
-                let id = next_node_id();
-                self.span_ids.push(id);
-                id
-            }
-        };
+        let id = self.span_id_or_new(span_index, next_node_id);
         self.span_paths_by_access_id.insert(id, span_path);
         let mut node = Node::new(Role::TextRun);
-        node.set_text_direction(if run.is_rtl() {
-            TextDirection::RightToLeft
-        } else {
-            TextDirection::LeftToRight
-        });
+        node.set_text_direction(text_direction(run.is_rtl()));
 
         if let Some(font_family) = font_family {
             node.set_font_family(font_family);
@@ -308,17 +339,8 @@ impl LayoutAccessibility {
         if matches!(attrs.style, FontStyle::Italic) {
             node.set_italic();
         }
-        if let Some(align) = alignment {
-            node.set_text_align(match align {
-                Alignment::Start if run.is_rtl() => TextAlign::Right,
-                Alignment::Start => TextAlign::Left,
-                Alignment::End if run.is_rtl() => TextAlign::Left,
-                Alignment::End => TextAlign::Right,
-                Alignment::Left => TextAlign::Left,
-                Alignment::Center => TextAlign::Center,
-                Alignment::Right => TextAlign::Right,
-                Alignment::Justify => TextAlign::Justify,
-            });
+        if let Some(alignment) = alignment {
+            node.set_text_align(text_align(alignment, run.is_rtl()));
         }
 
         (id, node)
@@ -342,6 +364,23 @@ fn run_start_path<B: Brush>(line_index: usize, run: &Run<'_, B>) -> ClusterPath 
         .next()
         .map(|cluster| cluster.path())
         .unwrap_or_else(|| ClusterPath::new(line_index as u32, run.index() as u32, 0))
+}
+
+fn text_direction(is_rtl: bool) -> TextDirection {
+    if is_rtl { TextDirection::RightToLeft } else { TextDirection::LeftToRight }
+}
+
+fn text_align(alignment: Alignment, is_rtl: bool) -> TextAlign {
+    match alignment {
+        Alignment::Start if is_rtl => TextAlign::Right,
+        Alignment::Start => TextAlign::Left,
+        Alignment::End if is_rtl => TextAlign::Left,
+        Alignment::End => TextAlign::Right,
+        Alignment::Left => TextAlign::Left,
+        Alignment::Center => TextAlign::Center,
+        Alignment::Right => TextAlign::Right,
+        Alignment::Justify => TextAlign::Justify,
+    }
 }
 
 fn link_spans(prev_id: NodeId, prev: &mut Node, next_id: NodeId, next: &mut Node) {
@@ -470,10 +509,16 @@ mod tests {
 
     #[test]
     fn line_break_in_an_empty_paragraph() {
-        let (_, _, text_runs) = build("", Some("\n"));
-        let (_, node) = text_runs.last().unwrap();
+        let (layout, access, text_runs) = build("", Some("\n"));
+        let (id, node) = text_runs.last().unwrap();
         assert_eq!(node.value(), Some("\n"));
         assert_eq!(node.character_lengths(), [1]);
+        assert_eq!(node.text_align(), Some(TextAlign::Left));
+
+        let cursor = Cursor::from_byte_index(&layout, 0, Affinity::Downstream);
+        let position = access.cursor_to_access_position(cursor, &layout).unwrap();
+        assert_eq!(position, TextPosition { node: *id, character_index: 0 });
+        assert_eq!(access.cursor_from_access_position(&position, &layout).unwrap().index(), 0);
     }
 
     #[test]

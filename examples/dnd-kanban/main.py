@@ -7,7 +7,7 @@ import slint
 from slint import DataTransfer, ListModel
 from slint.language import DragAction, DropEvent
 
-TaskData = slint.loader.kanban.TaskData
+TaskData = slint.loader.slint_project.TaskData
 
 
 # What we attach to each `DataTransfer` via `set_user_data`. A copy of the
@@ -20,7 +20,7 @@ class DragPayload:
     source_index: int
 
 
-class MainWindow(slint.loader.kanban.MainWindow):
+class MainWindow(slint.loader.slint_project.MainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.todo = ListModel(

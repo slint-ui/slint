@@ -6,7 +6,7 @@
 use super::*;
 use crate::javahelper::{JavaHelper, print_jni_error};
 use android_activity::input::{
-    ButtonState, InputEvent, KeyAction, KeyMapChar, Keycode, MotionAction, MotionEvent,
+    Axis, ButtonState, InputEvent, KeyAction, KeyMapChar, Keycode, MotionAction, MotionEvent,
 };
 use android_activity::{InputStatus, MainEvent, PollEvent};
 use i_slint_core::SharedString;
@@ -56,6 +56,14 @@ pub struct AndroidWindowAdapter {
     /// Pending dead-key accent from `KeyMapChar::CombiningAccent`, composed with
     /// the next Unicode key.
     pending_dead_key: Cell<Option<char>>,
+
+    /// The text input the input method is connected to.
+    #[cfg(feature = "native-activity")]
+    ime_client: std::cell::RefCell<i_slint_core::item_tree::ItemWeak>,
+    /// The latest input method update, sent once the current events are processed so the input
+    /// method never sees the intermediate states of an edit.
+    #[cfg(feature = "native-activity")]
+    pending_ime_update: std::cell::RefCell<Option<i_slint_core::window::InputMethodProperties>>,
 }
 
 impl WindowAdapter for AndroidWindowAdapter {
@@ -111,11 +119,15 @@ impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
     fn input_method_request(&self, request: InputMethodRequest) {
         match request {
             InputMethodRequest::Enable(props) => {
+                self.pending_ime_update.take();
+                let focus_item = WindowInner::from_pub(&self.window).focus_item.borrow().clone();
+                let new_client = self.ime_client.replace(focus_item.clone()) != focus_item;
                 self.java_helper
                     .set_imm_data(
                         &props,
                         self.window.scale_factor(),
                         self.show_cursor_handles.get(),
+                        new_client,
                     )
                     .unwrap_or_else(|e| print_jni_error(&self.app, e));
                 self.java_helper
@@ -136,15 +148,20 @@ impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
                 }
             }
             InputMethodRequest::Update(props) => {
-                self.java_helper
-                    .set_imm_data(
-                        &props,
-                        self.window.scale_factor(),
-                        self.show_cursor_handles.get(),
-                    )
-                    .unwrap_or_else(|e| print_jni_error(&self.app, e));
+                if self.pending_ime_update.replace(Some(props)).is_none() {
+                    let _ = i_slint_core::api::invoke_from_event_loop(|| {
+                        if let Some(adaptor) = CURRENT_WINDOW.with_borrow(|x| x.upgrade()) {
+                            adaptor.flush_ime_update();
+                        }
+                    });
+                }
             }
             InputMethodRequest::Disable => {
+                self.pending_ime_update.take();
+                self.ime_client.take();
+                self.java_helper
+                    .clear_text_input_client()
+                    .unwrap_or_else(|e| print_jni_error(&self.app, e));
                 self.java_helper
                     .show_or_hide_soft_input(false)
                     .unwrap_or_else(|e| print_jni_error(&self.app, e));
@@ -203,18 +220,29 @@ impl AndroidWindowAdapter {
                 .unwrap_or_else(|e| print_jni_error(&self.app, e));
         }
     }
+    #[cfg(feature = "native-activity")]
+    fn flush_ime_update(&self) {
+        if let Some(props) = self.pending_ime_update.take() {
+            self.java_helper
+                .set_imm_data(
+                    &props,
+                    self.window.scale_factor(),
+                    self.show_cursor_handles.get(),
+                    false,
+                )
+                .unwrap_or_else(|e| print_jni_error(&self.app, e));
+        }
+    }
 
     pub fn new(app: AndroidApp) -> Rc<Self> {
+        // GameActivity only reports the axes that are enabled, which by default are X and Y.
+        app.enable_motion_axis(Axis::Vscroll);
+        app.enable_motion_axis(Axis::Hscroll);
         let java_helper = JavaHelper::new(&app).unwrap_or_else(|e| print_jni_error(&app, e));
         Rc::<Self>::new_cyclic(|w| Self {
             app,
             window: Window::new(w.clone()),
-            #[cfg(not(any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30")))]
             renderer: SkiaRenderer::default(&SkiaSharedContext::default()),
-            #[cfg(all(feature = "unstable-wgpu-29", not(feature = "unstable-wgpu-30")))]
-            renderer: SkiaRenderer::default_wgpu_29(&SkiaSharedContext::default()),
-            #[cfg(feature = "unstable-wgpu-30")]
-            renderer: SkiaRenderer::default_wgpu_30(&SkiaSharedContext::default()),
             requested_graphics_api: RefCell::new(None),
             event_queue: Default::default(),
             pending_redraw: Default::default(),
@@ -227,6 +255,10 @@ impl AndroidWindowAdapter {
             show_menu_on_release: Cell::new(false),
             last_pressed_state: Cell::new(ButtonState(0)),
             pending_dead_key: Cell::new(None),
+            #[cfg(feature = "native-activity")]
+            ime_client: Default::default(),
+            #[cfg(feature = "native-activity")]
+            pending_ime_update: Default::default(),
         })
     }
 
@@ -558,7 +590,27 @@ impl AndroidWindowAdapter {
                             }
                             InputStatus::Handled
                         }
-                        MotionAction::Scroll => todo!(),
+                        MotionAction::Scroll => {
+                            let scroll_factors = self
+                                .java_helper
+                                .scroll_factors()
+                                .unwrap_or_else(|e| print_jni_error(&self.app, e));
+                            let (delta_x, delta_y) =
+                                scroll_delta_for_event(motion_event, scroll_factors, scale);
+                            if delta_x == 0. && delta_y == 0. {
+                                InputStatus::Unhandled
+                            } else {
+                                result = self
+                                    .window
+                                    .dispatch_event_with_result(WindowEvent::PointerScrolled {
+                                        position: position_for_event(motion_event, offset, scale),
+                                        delta_x,
+                                        delta_y,
+                                    })
+                                    .map(|_| ());
+                                InputStatus::Handled
+                            }
+                        }
                         MotionAction::HoverEnter | MotionAction::HoverExit => {
                             InputStatus::Unhandled
                         }
@@ -740,6 +792,23 @@ fn pointer_logical_position(
     scale_factor: f32,
 ) -> LogicalPosition {
     PhysicalPosition::new(x as i32 - offset.x, y as i32 - offset.y).to_logical(scale_factor)
+}
+
+/// Convert the scroll axes of a mouse wheel event to the content displacement in logical pixels.
+/// `scroll_factors` are the horizontal and vertical distance per wheel notch, in physical pixels.
+fn scroll_delta_for_event(
+    motion_event: &MotionEvent,
+    (factor_x, factor_y): (f32, f32),
+    scale: f32,
+) -> (f32, f32) {
+    // Android reports a wheel that turns up or tilts right as positive.
+    // Its views then move their content down or to the left.
+    motion_event.pointers().next().map_or((0., 0.), |p| {
+        (
+            -p.axis_value(Axis::Hscroll) * factor_x / scale,
+            p.axis_value(Axis::Vscroll) * factor_y / scale,
+        )
+    })
 }
 
 fn position_for_event(

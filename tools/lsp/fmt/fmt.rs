@@ -5,12 +5,17 @@
 
 use super::writer::TokenWriter;
 use i_slint_compiler::parser::{NodeOrToken, SyntaxKind, SyntaxNode, syntax_nodes};
+use std::borrow::Cow;
+
+/// One level of indentation when the editor inserts spaces.
+pub const DEFAULT_INDENTATION: &str = "    ";
 
 pub fn format_document(
     doc: syntax_nodes::Document,
+    indentation: &str,
     writer: &mut impl TokenWriter,
 ) -> Result<(), std::io::Error> {
-    let mut state = FormatState::default();
+    let mut state = FormatState { indentation: indentation.into(), ..Default::default() };
     format_node(&doc, writer, &mut state)
 }
 
@@ -28,6 +33,7 @@ struct FormatState {
 
     /// The level of indentation
     indentation_level: u32,
+    indentation: String,
 
     /// A counter that is incremented when something is inserted
     insertion_count: usize,
@@ -57,9 +63,21 @@ impl FormatState {
         }
         let mut new_line = String::from("\n");
         for _ in 0..self.indentation_level {
-            new_line += "    ";
+            new_line += &self.indentation;
         }
         self.whitespace_to_add = Some(new_line);
+    }
+
+    /// `whitespace` kept as written, with the indentation of its last line converted from
+    /// `DEFAULT_INDENTATION` to `self.indentation`.
+    fn convert_indentation<'a>(&self, whitespace: &'a str) -> Cow<'a, str> {
+        if self.indentation == DEFAULT_INDENTATION {
+            return whitespace.into();
+        }
+        let Some((lines, indent)) = whitespace.rsplit_once('\n') else {
+            return whitespace.into();
+        };
+        format!("{lines}\n{}", indent.replace(DEFAULT_INDENTATION, &self.indentation)).into()
     }
 
     fn insert_whitespace(&mut self, arg: &str) {
@@ -284,6 +302,10 @@ fn fold(
                     writer.with_new_content(t, "")?;
                     return Ok(());
                 }
+                if let Cow::Owned(ws) = state.convert_indentation(t.text()) {
+                    state.insertion_count += 1;
+                    return writer.with_new_content(t, &ws);
+                }
             } else {
                 state.after_comment = t.kind() == SyntaxKind::Comment;
                 state.skip_all_whitespace = false;
@@ -292,7 +314,7 @@ fn fold(
                 {
                     // restore the previously skipped spaces before comment.
                     state.insertion_count += 1;
-                    writer.insert_before(t, &ws)?;
+                    writer.insert_before(t, &state.convert_indentation(&ws))?;
                     state.whitespace_to_add = None;
                     return Ok(());
                 }
@@ -2450,33 +2472,57 @@ mod tests {
     // FIXME more descriptive errors when an assertion fails
     #[track_caller]
     fn assert_formatting(unformatted: &str, formatted: &str) {
+        assert_formatting_with_indentation(unformatted, formatted, DEFAULT_INDENTATION);
+    }
+
+    #[track_caller]
+    fn assert_formatting_with_indentation(unformatted: &str, formatted: &str, indentation: &str) {
         // Parse the unformatted string
         let syntax_node = i_slint_compiler::parser::parse(
             String::from(unformatted),
+            None,
             None,
             &mut BuildDiagnostics::default(),
         );
         // Turn the syntax node into a document
         let doc = syntax_nodes::Document::new(syntax_node).unwrap();
         let mut file = Vec::new();
-        format_document(doc, &mut FileWriter { file: &mut file }).unwrap();
+        format_document(doc, indentation, &mut FileWriter { file: &mut file }).unwrap();
         let first_pass = String::from_utf8(file).unwrap();
         assert_eq!(first_pass, formatted);
 
         let syntax_node = i_slint_compiler::parser::parse(
             first_pass.clone(),
             None,
+            None,
             &mut BuildDiagnostics::default(),
         );
         let doc = syntax_nodes::Document::new(syntax_node).unwrap();
         let mut file = Vec::new();
-        format_document(doc, &mut FileWriter { file: &mut file }).unwrap();
+        format_document(doc, indentation, &mut FileWriter { file: &mut file }).unwrap();
         assert_eq!(String::from_utf8(file).unwrap(), first_pass);
     }
 
     #[test]
     fn basic_formatting() {
         assert_formatting("A:=Text{}", "A := Text { }\n");
+    }
+
+    #[test]
+    fn indent_with_tabs() {
+        assert_formatting_with_indentation(
+            r#"component A {
+    Text { }
+    // first
+    Rectangle {
+        /* inner */
+        width: 1px;
+    }
+}
+"#,
+            "component A {\n\tText { }\n\t// first\n\tRectangle {\n\t\t/* inner */\n\t\twidth: 1px;\n\t}\n}\n",
+            "\t",
+        );
     }
 
     #[test]
@@ -2586,12 +2632,12 @@ component C1 {
     fn complex_formatting() {
         assert_formatting(
             r#"
-Main :=Window{callback some-fn(string,string)->bool;some-fn(a, b)=>{a<=b} property<bool>prop-x;
+component Main inherits Window{callback some-fn(string,string)->bool;some-fn(a, b)=>{a<=b} property<bool>prop-x;
     VerticalBox {      combo:=ComboBox{}    }
     pure   callback   some-fn  ({x: int},string);  in property <  int >  foo: 42; }
             "#,
             r#"
-Main := Window {
+component Main inherits Window {
     callback some-fn(string, string) -> bool;
     some-fn(a, b) => { a <= b }
     property <bool> prop-x;
@@ -2657,11 +2703,11 @@ component W inherits Window {
     fn parent_access() {
         assert_formatting(
             r#"
-Main := Parent{            Child{
+component Main inherits Parent{            Child{
     some-prop: parent.foo - 60px;
 }}"#,
             r#"
-Main := Parent {
+component Main inherits Parent {
     Child {
         some-prop: parent.foo - 60px;
     }
@@ -2676,18 +2722,18 @@ Main := Parent {
         // Also in a child
         assert_formatting(
             r#"
-Main := Window{Child{}}"#,
+component Main inherits Window{Child{}}"#,
             r#"
-Main := Window {
+component Main inherits Window {
     Child { }
 }
 "#,
         );
         assert_formatting(
             r#"
-Main := VerticalLayout{HorizontalLayout{prop:3;}}"#,
+component Main inherits VerticalLayout{HorizontalLayout{prop:3;}}"#,
             r#"
-Main := VerticalLayout {
+component Main inherits VerticalLayout {
     HorizontalLayout {
         prop: 3;
     }
@@ -2700,13 +2746,13 @@ Main := VerticalLayout {
     fn binary_expressions() {
         assert_formatting(
             r#"
-Main := Some{
+component Main inherits Some{
     a:3+2;  b:4-7;  c:3*7;  d:3/9;
     e:3==4; f:3!=4; g:3<4;  h:3<=4;
     i:3>4;  j:3>=4; k:3&&4; l:3||4;
 }"#,
             r#"
-Main := Some {
+component Main inherits Some {
     a: 3 + 2;
     b: 4 - 7;
     c: 3 * 7;
@@ -2725,7 +2771,7 @@ Main := Some {
 
         assert_formatting(
             r#"
-Main := Some{
+component Main inherits Some{
     m: 3 + 8;
     m:3 + 8;
     m: 3+ 8;
@@ -2736,7 +2782,7 @@ Main := Some{
     m:3+8;
 }"#,
             r#"
-Main := Some {
+component Main inherits Some {
     m: 3 + 8;
     m: 3 + 8;
     m: 3 + 8;
@@ -2756,11 +2802,11 @@ Main := Some {
             r#"
 import { Some } from "./here.slint";
 
-A := Some{    padding-left: 10px;    Text{        x: 3px;    }}"#,
+component A inherits Some{    padding-left: 10px;    Text{        x: 3px;    }}"#,
             r#"
 import { Some } from "./here.slint";
 
-A := Some {
+component A inherits Some {
     padding-left: 10px;
 
     Text {
@@ -2776,13 +2822,13 @@ A := Some {
         // Regression test - children was causing additional newlines
         assert_formatting(
             r#"
-A := B {
+component A inherits B {
     C {
         @children
     }
 }"#,
             r#"
-A := B {
+component A inherits B {
     C {
         @children
     }
@@ -2795,10 +2841,10 @@ A := B {
     fn for_in() {
         assert_formatting(
             r#"
-A := B {  for c   in root.d: T  { e: c.attr; } }
+component A inherits B {  for c   in root.d: T  { e: c.attr; } }
         "#,
             r#"
-A := B {
+component A inherits B {
     for c in root.d: T {
         e: c.attr;
     }
@@ -2812,13 +2858,13 @@ A := B {
         // FIXME: there should not be a whitespace before [index]
         assert_formatting(
             r#"
-A := B {
+component A inherits B {
     for number   [  index
          ]  in [1,2,3]: C { d:number*index; }
 }
         "#,
             r#"
-A := B {
+component A inherits B {
     for number[index] in [1, 2, 3]: C {
         d: number * index;
     }
@@ -2895,37 +2941,37 @@ component A {
     fn array() {
         assert_formatting(
             r#"
-A := B { c: [1,2,3]; }
+component A inherits B { c: [1,2,3]; }
 "#,
             r#"
-A := B {
+component A inherits B {
     c: [1, 2, 3];
 }
 "#,
         );
         assert_formatting(
             r#"
-A := B { c: [    1    ]; }
+component A inherits B { c: [    1    ]; }
 "#,
             r#"
-A := B {
+component A inherits B {
     c: [1];
 }
 "#,
         );
         assert_formatting(
             r#"
-A := B { c:   [    ]  ; }
+component A inherits B { c:   [    ]  ; }
 "#,
             r#"
-A := B {
+component A inherits B {
     c: [];
 }
 "#,
         );
         assert_formatting(
             r#"
-A := B { c:   [
+component A inherits B { c:   [
 
 1,
 
@@ -2934,7 +2980,7 @@ A := B { c:   [
   ]  ; }
 "#,
             r#"
-A := B {
+component A inherits B {
     c: [1, 2];
 }
 "#,
@@ -3067,24 +3113,24 @@ component FooBar {
     fn if_else() {
         assert_formatting(
             r#"
-A := B { c: true  ||false?  45 + 6:34+ 1; }
+component A inherits B { c: true  ||false?  45 + 6:34+ 1; }
 "#,
             r#"
-A := B {
+component A inherits B {
     c: true || false ? 45 + 6 : 34 + 1;
 }
 "#,
         );
         assert_formatting(
-            r#"A := B { c => { if(!abc){nothing}else   if  (true){if (0== 8) {}    } else{  } } } "#,
-            r#"A := B {
+            r#"component A inherits B { c => { if(!abc){nothing}else   if  (true){if (0== 8) {}    } else{  } } } "#,
+            r#"component A inherits B {
     c => { if (!abc) { nothing } else if (true) { if (0 == 8) {} } else {} }
 }
 "#,
         );
         assert_formatting(
-            r#"A := B { c => { if !abc{nothing}else   if  true{if 0== 8 {}    } else{  } } } "#,
-            r#"A := B {
+            r#"component A inherits B { c => { if !abc{nothing}else   if  true{if 0== 8 {}    } else{  } } } "#,
+            r#"component A inherits B {
     c => { if !abc { nothing } else if true { if 0 == 8 {} } else {} }
 }
 "#,

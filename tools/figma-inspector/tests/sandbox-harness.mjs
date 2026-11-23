@@ -29,7 +29,7 @@ function events() {
         has: (name) => listeners.has(name),
     };
 }
-function boot({ forceFallback = false, forceRasterFallback = false } = {}) {
+function boot({ slowExport = false } = {}) {
     const messages = [],
         global = events(),
         first = events(),
@@ -41,7 +41,11 @@ function boot({ forceFallback = false, forceRasterFallback = false } = {}) {
         type: "RECTANGLE",
         removed: false,
     };
-    if (forceFallback)
+    let finishExport = () => {};
+    const pendingExport = new Promise((resolve) => {
+        finishExport = () => resolve(squarePng);
+    });
+    if (slowExport)
         Object.assign(node, {
             type: "TEXT",
             characters: "cloud_upload",
@@ -56,21 +60,10 @@ function boot({ forceFallback = false, forceRasterFallback = false } = {}) {
             textAutoResize: "NONE",
             hasMissingFont: false,
             getStyledTextSegments: () => [],
-            exportAsync: () => new Promise(() => {}),
-        });
-    if (forceRasterFallback)
-        Object.assign(node, {
-            fills: [
-                {
-                    type: "IMAGE",
-                    visible: true,
-                    opacity: 1,
-                    blendMode: "NORMAL",
-                    imageHash: "slow-image",
-                    scaleMode: "FILL",
-                },
-            ],
-            exportAsync: async () => squarePng,
+            exportAsync: (settings) =>
+                settings.format === "JSON_REST_V1"
+                    ? Promise.resolve({})
+                    : pendingExport,
         });
     const other = { ...node, id: "authored:other", name: "Other" };
     Object.assign(first, { id: "page:1", type: "PAGE", selection: [node] });
@@ -90,7 +83,17 @@ function boot({ forceFallback = false, forceRasterFallback = false } = {}) {
         ui: {
             onmessage: undefined,
             resize() {},
-            postMessage: (message) => messages.push(message),
+            postMessage: (message) => {
+                messages.push(message);
+                if (message.type === "preview-reuse")
+                    queueMicrotask(() =>
+                        figma.ui.onmessage({
+                            type: "capture-reuse-miss",
+                            revision: message.revision,
+                            captureId: message.captureId,
+                        }),
+                    );
+            },
         },
         getNodeByIdAsync: async (id) => (id === node.id ? node : null),
         getImageByHash: () => ({
@@ -104,11 +107,10 @@ function boot({ forceFallback = false, forceRasterFallback = false } = {}) {
         '$& throw Error("Preview attempted sandbox conversion");',
     );
     assert.notEqual(previewCode, code);
-    const sandboxSetTimeout =
-        forceFallback || forceRasterFallback
-            ? (callback, delay, ...args) =>
-                  setTimeout(callback, delay === 20_000 ? 0 : delay, ...args)
-            : setTimeout;
+    const sandboxSetTimeout = slowExport
+        ? (callback, delay, ...args) =>
+              setTimeout(callback, delay === 20_000 ? 0 : delay, ...args)
+        : setTimeout;
     vm.runInNewContext(previewCode, {
         figma,
         __html__: "",
@@ -127,6 +129,7 @@ function boot({ forceFallback = false, forceRasterFallback = false } = {}) {
         second,
         node,
         other,
+        finishExport,
     };
 }
 async function until(predicate) {
@@ -203,41 +206,29 @@ assert.equal(
     restarted.messages.find((m) => m.type === "pin-state").pinned,
     false,
 );
-const slow = boot({ forceFallback: true });
+const slow = boot({ slowExport: true });
 slow.figma.ui.onmessage({ type: "ui-ready", devicePixelRatio: 1 });
+await new Promise((resolve) => setTimeout(resolve, 5));
+assert.equal(
+    slow.messages.filter((message) => message.type === "preview-busy").length,
+    1,
+);
+assert.equal(
+    slow.messages.some((message) => message.type === "preview-capture"),
+    false,
+);
+slow.finishExport();
 await until(() =>
     slow.messages.some((message) => message.type === "preview-capture"),
 );
 const slowCapture = slow.messages.find(
     (message) => message.type === "preview-capture",
 );
-const slowBusy = slow.messages.filter(
-    (message) => message.type === "preview-busy",
-);
-assert.equal(slowBusy.length, 2);
-assert.equal(
-    slowBusy[1].message,
-    "This selection is large. Trying a simpler export.",
-);
-assert.equal(JSON.parse(slowCapture.captureJson).flattened, true);
-assert.equal(JSON.parse(slowCapture.captureJson).components, undefined);
-assert.equal(JSON.parse(slowCapture.captureJson).root.exports, undefined);
-assert.equal(slowCapture.warnings[0].code, "SIMPLIFIED_CAPTURE");
-const raster = boot({ forceRasterFallback: true });
-raster.figma.ui.onmessage({ type: "ui-ready", devicePixelRatio: 1 });
-await until(() =>
-    raster.messages.some((message) => message.type === "preview-capture"),
-);
-const rasterCapture = raster.messages.find(
-    (message) => message.type === "preview-capture",
-);
-const rasterSource = JSON.parse(rasterCapture.captureJson);
-assert.equal(rasterSource.flattened, undefined);
-assert.equal(rasterSource.root.type, "RECTANGLE");
-assert.equal(rasterSource.rasterized, true);
-assert.equal(rasterSource.root.children, undefined);
-assert.notEqual(rasterSource.root.exports.png.value, undefined);
-assert.equal(rasterCapture.warnings[0].code, "SIMPLIFIED_CAPTURE");
+const slowSource = JSON.parse(slowCapture.captureJson);
+assert.equal(slowSource.flattened, undefined);
+assert.equal(slowSource.rasterized, undefined);
+assert.equal(slowSource.root.type, "TEXT");
+assert.equal(slowSource.root.properties.characters, "cloud_upload");
 // Pinning retains a selection independently of how the converter renders it.
 for (const type of [
     "TABLE",

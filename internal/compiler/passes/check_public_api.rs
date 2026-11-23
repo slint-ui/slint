@@ -156,9 +156,10 @@ fn component_selected_by_either_of_its_names() {
         let doc_node = crate::parser::parse(
             "component Foo inherits Window { } export { Foo as Bob }".into(),
             Some(crate::source_path::SourcePath::new("test.slint")),
+            None,
             &mut diags,
         );
-        let (doc, diag, _) = spin_on::spin_on(crate::compile_syntax_node(doc_node, diags, config));
+        let (doc, diag, _) = crate::poll_ready(crate::compile_syntax_node(doc_node, diags, config));
         assert!(!diag.has_errors(), "{:#?}", diag.to_string_vec());
         doc.last_exported_component().map(|c| c.id.clone())
     }
@@ -185,9 +186,10 @@ export component Foo {
 }"#
         .into(),
         Some(crate::source_path::SourcePath::new("test.slint")),
+        None,
         &mut diags,
     );
-    let (doc, diag, _) = spin_on::spin_on(crate::compile_syntax_node(doc_node, diags, config));
+    let (doc, diag, _) = crate::poll_ready(crate::compile_syntax_node(doc_node, diags, config));
     assert!(!diag.has_errors(), "{:#?}", diag.to_string_vec());
     let component = doc.last_exported_component().unwrap();
     let private_names: Vec<_> =

@@ -24,14 +24,24 @@ fn render(window: &MinimalSoftwareWindow) {
 
 static GLYPHS: [BitmapGlyphs; 1] = [BitmapGlyphs {
     pixel_size: 4,
-    glyph_data: Slice::from_slice(&[BitmapGlyph {
-        x: 0,
-        y: 0,
-        width: 2,
-        height: 2,
-        x_advance: 3 << 6,
-        data: Slice::from_slice(&[255; 4]),
-    }]),
+    glyph_data: Slice::from_slice(&[
+        BitmapGlyph {
+            x: 0,
+            y: 0,
+            width: 0,
+            height: 0,
+            x_advance: 3 << 6,
+            data: Slice::from_slice(&[]),
+        },
+        BitmapGlyph {
+            x: 0,
+            y: 0,
+            width: 2,
+            height: 2,
+            x_advance: 3 << 6,
+            data: Slice::from_slice(&[255; 4]),
+        },
+    ]),
 }];
 
 static BITMAP_FONT: BitmapFont = BitmapFont {
@@ -51,7 +61,7 @@ static BITMAP_FONT: BitmapFont = BitmapFont {
 #[test]
 fn draw_text() {
     slint::slint! {
-        #[edition = "1.19"]
+        #[edition = "1.20"]
         export component App inherits Window {
             reference := Text { width: 10px; height: 10px; text: "reference"; }
             Text {
@@ -71,7 +81,7 @@ fn draw_text() {
 #[test]
 fn draw_styled_text_link() {
     slint::slint! {
-        #[edition = "1.19"]
+        #[edition = "1.20"]
         export component App inherits Window {
             reference := Text { width: 10px; height: 10px; text: "reference"; }
             StyledText {
@@ -92,7 +102,7 @@ fn draw_styled_text_link() {
 #[test]
 fn draw_styled_text_selection() {
     slint::slint! {
-        #[edition = "1.19"]
+        #[edition = "1.20"]
         export component App inherits Window {
             reference := Text { width: 10px; height: 10px; text: "reference"; }
             StyledText {
@@ -116,7 +126,7 @@ fn draw_styled_text_selection() {
 #[test]
 fn draw_text_input_selection() {
     slint::slint! {
-        #[edition = "1.19"]
+        #[edition = "1.20"]
         export component App inherits Window {
             reference := Text { width: 10px; height: 10px; text: "reference"; }
             TextInput {
@@ -137,7 +147,7 @@ fn draw_text_input_selection() {
 #[test]
 fn hover_styled_text() {
     slint::slint! {
-        #[edition = "1.19"]
+        #[edition = "1.20"]
         export component App inherits Window {
             reference := Text { width: 10px; height: 10px; text: "reference"; }
             StyledText {
@@ -159,7 +169,7 @@ fn hover_styled_text() {
 #[test]
 fn draw_bitmap_font_text() {
     slint::slint! {
-        #[edition = "1.19"]
+        #[edition = "1.20"]
         export component App inherits Window {
             reference := Text { width: 10px; height: 10px; text: "reference"; }
             Text {
@@ -183,7 +193,7 @@ fn draw_bitmap_font_text() {
 #[test]
 fn draw_bitmap_font_text_input() {
     slint::slint! {
-        #[edition = "1.19"]
+        #[edition = "1.20"]
         export component App inherits Window {
             in property <string> reference-text: "reference";
             reference := Text { width: 10px; height: 10px; text: root.reference-text; }

@@ -30,7 +30,7 @@ slint_testing::access_testing_window(instance.window(), |w| w.use_native_popup(t
 instance.invoke_show_popup();
 
 let inner = slint_testing::WindowInner::from_pub(instance.window());
-let popups = inner.active_popups.borrow();
+let popups = inner.active_popups();
 let i_slint_core::window::PopupWindowLocation::TopLevel(adapter) = &popups[0].location else {
     panic!("the popup should have its own window");
 };

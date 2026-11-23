@@ -4,7 +4,7 @@
 mod desktop_platform;
 
 slint::slint! {
-    #[edition = "1.19"]
+    #[edition = "1.20"]
     import { AboutSlint, VerticalBox } from "std-widgets.slint";
 
     export component MainWindow inherits Window {

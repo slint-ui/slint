@@ -52,7 +52,7 @@ fn cache_hit_avoids_reshaping() {
     let window = setup();
 
     slint::slint! {
-        #[edition = "1.19"]
+        #[edition = "1.20"]
         export component TestComponent inherits Window {
             Text {
                 text: "Hello World";
@@ -84,7 +84,7 @@ fn text_change_invalidates_cache() {
     let window = setup();
 
     slint::slint! {
-        #[edition = "1.19"]
+        #[edition = "1.20"]
         export component TestComponent inherits Window {
             in property <string> label: "Hello";
             Text {
@@ -117,7 +117,7 @@ fn text_change_repaints_after_eviction() {
 
     // A fixed geometry, because a size that follows the text would repaint it regardless.
     slint::slint! {
-        #[edition = "1.19"]
+        #[edition = "1.20"]
         export component EvictionComponent inherits Window {
             in property <string> busy: "0";
             in property <string> quiet: "Hello";
@@ -156,7 +156,7 @@ fn font_size_change_invalidates_cache() {
     let window = setup();
 
     slint::slint! {
-        #[edition = "1.19"]
+        #[edition = "1.20"]
         export component TestComponent inherits Window {
             in property <length> size: 16px;
             Text {
@@ -189,7 +189,7 @@ fn font_weight_change_invalidates_cache() {
     let window = setup();
 
     slint::slint! {
-        #[edition = "1.19"]
+        #[edition = "1.20"]
         export component TestComponent inherits Window {
             in property <int> weight: 400;
             Text {
@@ -222,7 +222,7 @@ fn wrap_change_invalidates_cache() {
     let window = setup();
 
     slint::slint! {
-        #[edition = "1.19"]
+        #[edition = "1.20"]
         export component TestComponent inherits Window {
             in property <bool> use-no-wrap: false;
             Text {
@@ -256,7 +256,7 @@ fn line_height_factor_change_invalidates_cache() {
 
     // A fixed size, so the redraw can't come from a layout change.
     slint::slint! {
-        #[edition = "1.19"]
+        #[edition = "1.20"]
         export component TestComponent inherits Window {
             in property <float> factor: 1;
             Text {
@@ -289,7 +289,7 @@ fn width_dependent_line_height() {
 
     // #13799. The window is 200px wide, so the factor is 2.
     slint::slint! {
-        #[edition = "1.19"]
+        #[edition = "1.20"]
         export component TestComponent inherits Window {
             in property <string> content: "Hello\nWorld";
             out property <length> spaced-height: spaced.preferred-height;
@@ -323,7 +323,7 @@ fn width_dependent_line_height_with_word_wrap_shapes_once() {
 
     // A `word-wrap` Text measures its width through the content widths cache instead.
     slint::slint! {
-        #[edition = "1.19"]
+        #[edition = "1.20"]
         export component TestComponent inherits Window {
             in property <string> content: "Hello\nWorld";
             HorizontalLayout {
@@ -357,7 +357,7 @@ fn wrapping_items_shape_once_per_layout_pass() {
 
     // A `word-wrap` Text wouldn't show this: its width comes from the content widths cache.
     slint::slint! {
-        #[edition = "1.19"]
+        #[edition = "1.20"]
         export component TestComponent inherits Window {
             in property <string> content: "Hello World this is a long text";
             HorizontalLayout {
@@ -388,7 +388,7 @@ fn alignment_change_does_not_reshape() {
     let window = setup();
 
     slint::slint! {
-        #[edition = "1.19"]
+        #[edition = "1.20"]
         export component TestComponent inherits Window {
             in property <bool> use-center-align: false;
             Text {
@@ -421,7 +421,7 @@ fn overflow_change_does_not_reshape() {
     let window = setup();
 
     slint::slint! {
-        #[edition = "1.19"]
+        #[edition = "1.20"]
         export component TestComponent inherits Window {
             in property <bool> use-elide: false;
             Text {
@@ -456,7 +456,7 @@ fn width_measurement_reuses_layout_with_line_height_factor() {
     // The overflow change re-measures the width, which mustn't evict the entry shaped with the
     // factor.
     slint::slint! {
-        #[edition = "1.19"]
+        #[edition = "1.20"]
         export component TestComponent inherits Window {
             in property <bool> use-elide: false;
             HorizontalLayout {
@@ -489,7 +489,7 @@ fn color_change_does_not_reshape() {
     let window = setup();
 
     slint::slint! {
-        #[edition = "1.19"]
+        #[edition = "1.20"]
         export component TestComponent inherits Window {
             in property <color> text-color: black;
             Text {
@@ -525,7 +525,7 @@ fn scale_factor_change_invalidates_cache() {
     // it was shaped at. The renderers drop the cache when they notice a new scale factor, but that
     // happens when rendering starts -- and the layout pass that follows the change measures first.
     slint::slint! {
-        #[edition = "1.19"]
+        #[edition = "1.20"]
         export component ScaleComponent inherits Window {
             out property <length> preferred: label.preferred-width;
             HorizontalLayout {
@@ -566,7 +566,7 @@ fn link_color_survives_measuring() {
     // shape it identically -- otherwise whichever runs first wins and the other one's color is
     // silently dropped. Layout runs first, so a mismatch shows up as unstyled link text.
     slint::slint! {
-        #[edition = "1.19"]
+        #[edition = "1.20"]
         export component TestComponent inherits Window {
             background: white;
             StyledText {
@@ -589,7 +589,7 @@ fn text_input_cache_hit_avoids_reshaping() {
     let window = setup();
 
     slint::slint! {
-        #[edition = "1.19"]
+        #[edition = "1.20"]
         export component TestComponent inherits Window {
             in property <string> label: "Hello World";
             TextInput {
@@ -629,7 +629,7 @@ fn password_input_is_cached() {
     // A password field shapes a substituted text, but the substitution is the same on every path,
     // so the result is a pure function of its properties like any other text.
     slint::slint! {
-        #[edition = "1.19"]
+        #[edition = "1.20"]
         export component TestComponent inherits Window {
             in property <string> secret: "hunter2";
             TextInput {
@@ -673,7 +673,7 @@ fn composition_is_shaped_through_the_cache() {
     // cursor rect query is then the only thing that shapes the composed text, and the cache miss
     // it accounts for is what tells the two apart.
     slint::slint! {
-        #[edition = "1.19"]
+        #[edition = "1.20"]
         export component CursorComponent inherits Window {
             forward-focus: input;
             out property <length> cursor-x;
@@ -744,7 +744,7 @@ fn text_input_selection_still_colors_text() {
     // so the selected text is served from the very same cache entry as the unselected text and has
     // to come out red all the same.
     slint::slint! {
-        #[edition = "1.19"]
+        #[edition = "1.20"]
         export component TestComponent inherits Window {
             background: white;
             public function select() { input.select-all(); }
@@ -777,7 +777,7 @@ fn text_input_selection_change_does_not_reshape() {
     // selection, which is what keeps a drag-select from re-shaping the whole document on every
     // mouse move. Moving the cursor is the same story.
     slint::slint! {
-        #[edition = "1.19"]
+        #[edition = "1.20"]
         export component TestComponent inherits Window {
             in property <string> content: "Hello World";
             callback select(start: int, end: int);
@@ -834,7 +834,7 @@ fn ime_composition_is_not_served_a_stale_size() {
     // if drawing filled the entry without looking at the composition, a later measurement would
     // trust that entry and size the box for the pre-composition text.
     slint::slint! {
-        #[edition = "1.19"]
+        #[edition = "1.20"]
         export component ImeComponent inherits Window {
             forward-focus: input;
             out property <length> preferred: input.preferred-width;
@@ -889,7 +889,7 @@ fn unchanged_layout_inputs_reuse_the_line_breaking() {
     // reuses it wholesale. Anything else -- moving the item, vertical alignment -- must not break
     // lines again.
     slint::slint! {
-        #[edition = "1.19"]
+        #[edition = "1.20"]
         export component TestComponent inherits Window {
             in property <length> item-x: 0px;
             in property <length> w: 180px;
@@ -980,7 +980,7 @@ fn cursor_movement_reuses_the_cached_layout() {
     // retained the shaped glyphs. It stopped costing anything once the entry started retaining
     // the line breaking too, and this test is what keeps it that way.
     slint::slint! {
-        #[edition = "1.19"]
+        #[edition = "1.20"]
         export component TestComponent inherits Window {
             in-out property <string> content: "Hello World this text wraps across several lines and keeps going for a while";
             out property <int> offset: input.cursor-position-byte-offset;

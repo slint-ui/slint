@@ -2,5 +2,5 @@
 // SPDX-License-Identifier: MIT
 
 fn main() {
-    slint_build::compile("../ui/todo.slint").unwrap();
+    slint_build::compile("../slint-project.json").unwrap();
 }

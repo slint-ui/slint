@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Icons } from "../../icons/index.slint";
 import { SwitchBase } from "../../../controls/src/headless.slint";
 
 import { Style, Colors, Metrics, Motion } from "../../style.slint";
@@ -21,15 +22,12 @@ export component InspectorSwitch inherits SwitchBase {
         inner-shadow-color: Style.rotation-dial.shadow.color;
         inner-shadow-blur: Style.rotation-dial.shadow.blur;
         inner-shadow-offset-y: Style.rotation-dial.shadow.offset-y;
-        for on in [false, true]: Rectangle {
+        for on in [false, true]: Image {
             x: parent.width * (on ? 0.75 : 0.25) - self.width / 2;
-            y: (parent.height - self.height) / 2;
             width: on ? 1.5px : 6px;
             height: on ? 7px : 6px;
-            border-radius: on ? 0.75px : self.height / 2;
-            background: on ? Colors.muted.with-alpha(0.3) : transparent;
-            border-width: on ? 0px : Metrics.border-width;
-            border-color: Colors.muted.with-alpha(0.3);
+            source: on ? Icons.switch-on : Icons.switch-off;
+            colorize: Colors.muted.with-alpha(0.3);
         }
         Rectangle {
             x: root.checked ? parent.width - self.width : 0px;
@@ -53,15 +51,11 @@ export component InspectorSwitch inherits SwitchBase {
                 border-width: Metrics.hairline-width;
                 border-color: Style.rotation-dial.face-border;
             }
-            Rectangle {
-                x: (parent.width - self.width) / 2;
-                y: (parent.height - self.height) / 2;
+            Image {
                 width: root.checked ? 1.5px : 6px;
                 height: root.checked ? 7px : 6px;
-                border-radius: root.checked ? 0.75px : self.height / 2;
-                background: root.checked ? Style.rotation-dial.dot : transparent;
-                border-width: root.checked ? 0px : Metrics.border-width;
-                border-color: Colors.muted;
+                source: root.checked ? Icons.switch-on : Icons.switch-off;
+                colorize: root.checked ? Style.rotation-dial.dot : Colors.muted;
             }
         }
         if !Diagnostics.preview-status-visible && root.focus-visible: switch-focus-ring := Rectangle {

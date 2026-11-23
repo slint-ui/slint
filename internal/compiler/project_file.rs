@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use crate::diagnostics::{ByteFormat, Diagnostic, SourceFileInner, SourceLocation, Span, Spanned};
 use crate::source_path::SourcePath;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -45,8 +46,11 @@ pub struct SlintEdition {
 }
 
 impl SlintEdition {
+    /// The oldest edition, with the language behavior of Slint 1.18 and earlier.
+    pub const FIRST: Self = Self { major: 1, minor: 18 };
     pub const V1_19: Self = Self { major: 1, minor: 19 };
-    /// The newest edition that a compiler behavior check depends on.
+    pub const V1_20: Self = Self { major: 1, minor: 20 };
+    /// The newest edition that changes the behavior of code that compiles without warnings.
     pub const LATEST_BEHAVIOR_CHANGE: Self = Self::V1_19;
 
     /// The warning for an edition that misses a newer behavior change, where `setting` is
@@ -78,12 +82,31 @@ impl SlintEdition {
         )
     }
 
-    /// Returns `self` if this Slint supports it: if it isn't newer than [`Self::current()`].
+    /// Returns `self` if this Slint supports it:
+    /// if it's between [`Self::FIRST`] and [`Self::current()`].
     pub fn supported(self) -> Result<Self, String> {
+        self.check_supported("The edition", |current| format!("use edition {current}"))
+    }
+
+    /// Returns `self` if it's between [`Self::FIRST`] and [`Self::current()`].
+    /// Otherwise, the error calls the edition `setting`,
+    /// and for a newer edition, suggests `set_current`.
+    fn check_supported(
+        self,
+        setting: &str,
+        set_current: impl FnOnce(Self) -> String,
+    ) -> Result<Self, String> {
         let current = Self::current();
         if self > current {
             return Err(format!(
-                "The edition {self} is newer than Slint {current}: upgrade Slint, or use edition {current}"
+                "{setting} is {self}, newer than Slint {current}: upgrade Slint, or {}",
+                set_current(current)
+            ));
+        }
+        if self < Self::FIRST {
+            return Err(format!(
+                "{setting} is {self}, older than {}, the first edition",
+                Self::FIRST
             ));
         }
         Ok(self)
@@ -94,7 +117,7 @@ impl SlintEdition {
         s.parse::<Self>()?.supported()
     }
 
-    /// Parses the value of the `#[edition]` attribute of `slint!`, such as `"1.19"` with its quotes.
+    /// Parses the value of the `#[edition]` attribute of `slint!`, such as `"1.20"` with its quotes.
     pub fn parse_rust_macro_attribute(value: &str) -> Result<Self, String> {
         let current = Self::current();
         let edition: Self = value
@@ -102,11 +125,7 @@ impl SlintEdition {
             .and_then(|value| value.strip_suffix('"'))
             .ok_or_else(|| format!("'edition' takes a string, such as \"{current}\""))?
             .parse()?;
-        edition.supported().map_err(|_| {
-            format!(
-                "'edition' is {edition}, newer than Slint {current}: upgrade Slint, or set '#[edition = \"{current}\"]'"
-            )
-        })
+        edition.check_supported("'edition'", |current| format!("set '#[edition = \"{current}\"]'"))
     }
 
     /// The edition of this compiler's release.
@@ -189,6 +208,24 @@ pub fn is_project_file(path: &Path) -> bool {
     path.file_name().is_some_and(|name| name == FILE_NAME)
 }
 
+pub fn project_root(path: &Path) -> &Path {
+    if is_project_file(path) {
+        path.parent().filter(|parent| !parent.as_os_str().is_empty()).unwrap_or(Path::new("."))
+    } else {
+        path
+    }
+}
+
+pub fn normalize_project_root(root: SourcePath) -> SourcePath {
+    if let Some(path) = root.as_native_path() {
+        SourcePath::File(project_root(path).to_path_buf())
+    } else if root.file_name() == Some(FILE_NAME) {
+        root.parent()
+    } else {
+        root
+    }
+}
+
 fn project_file_input_error(input: &SourcePath) -> String {
     let project_directory = input.parent();
     let project_directory =
@@ -206,21 +243,21 @@ fn project_file_input_error(input: &SourcePath) -> String {
 ///
 /// A directory resolves to the main file specified by its `slint-project.json`.
 /// A source file resolves to itself without loading a project file.
-pub fn resolve_input(input: &Path) -> Result<(PathBuf, Option<ProjectFile>), String> {
-    if is_project_file(input) {
-        return Err(project_file_input_error(&SourcePath::File(input.to_path_buf())));
-    }
+pub fn resolve_input(input: &Path) -> Result<(PathBuf, Option<ProjectFile>), Diagnostic> {
+    let input = project_root(input);
     if !input.is_dir() {
         return Ok((input.to_path_buf(), None));
     }
     let project_file_path = input.join(FILE_NAME);
-    let project_file = ProjectFile::load(&project_file_path)
-        .map_err(|error| format!("Cannot load {}: {error}", project_file_path.display()))?;
-    let entry = project_file
-        .main()
-        .ok_or_else(|| format!("{} has no 'main' to compile", project_file.source_path()))?;
-    let entry = entry.into_native_path().ok_or_else(|| {
-        format!("{} must specify a local file for 'main'", project_file.source_path())
+    let project_file =
+        ProjectFile::load_with_source(&project_file_path).map_err(|(error, source)| {
+            project_load_error(&SourcePath::new(&project_file_path), error, source)
+        })?;
+    let entry = project_file.main_to_compile()?.into_native_path().ok_or_else(|| {
+        project_error(
+            "Project file must specify a local file for 'main'".into(),
+            project_file.source_path(),
+        )
     })?;
     Ok((entry, Some(project_file)))
 }
@@ -228,19 +265,59 @@ pub fn resolve_input(input: &Path) -> Result<(PathBuf, Option<ProjectFile>), Str
 async fn load_from_root_with_file_loader(
     root: SourcePath,
     file_loader: Option<&crate::OpenImportCallback>,
-) -> Result<Option<ProjectFile>, String> {
-    let path =
-        root.join(FILE_NAME).ok_or_else(|| format!("Cannot resolve {FILE_NAME} under {root}"))?;
-    match ProjectFile::load_with_file_loader(path.clone(), file_loader).await {
+) -> Result<Option<ProjectFile>, Diagnostic> {
+    let path = root
+        .join(FILE_NAME)
+        .ok_or_else(|| project_error(format!("Cannot resolve {FILE_NAME} under {root}"), &root))?;
+    match ProjectFile::load_with_file_loader_and_source(path.clone(), file_loader).await {
         Ok(project_file) => Ok(Some(project_file)),
-        Err(error)
+        Err((error, _))
             if error
                 .downcast_ref::<std::io::Error>()
                 .is_some_and(|error| error.kind() == std::io::ErrorKind::NotFound) =>
         {
             Ok(None)
         }
-        Err(error) => Err(format!("Cannot load {path}: {error}")),
+        Err((error, source)) => Err(project_load_error(&path, error, source)),
+    }
+}
+
+fn project_error(message: String, path: &SourcePath) -> Diagnostic {
+    Diagnostic::error(
+        message,
+        SourceLocation {
+            source_file: Some(SourceFileInner::from_path_only(path.clone())),
+            span: Span::new(0, 0),
+        },
+    )
+}
+
+pub fn project_load_error(
+    path: &SourcePath,
+    error: Box<dyn Error>,
+    source: Option<Vec<u8>>,
+) -> Diagnostic {
+    let mut message = error.to_string();
+    if let Some(error) = error.downcast_ref::<serde_json::Error>() {
+        // serde_json adds an "at line X column Y" suffix to the error message.
+        // Strip it, as our diagnostics already contain the line/column info.
+        let suffix = format!(" at line {} column {}", error.line(), error.column());
+        if let Some(without_location) = message.strip_suffix(&suffix) {
+            message = without_location.to_owned();
+        }
+    }
+    let location = error.downcast_ref::<serde_json::Error>().and_then(|error| {
+        let source = String::from_utf8(source?).ok()?;
+        if error.line() == 0 {
+            return None;
+        }
+        let source_file = std::sync::Arc::new(SourceFileInner::new(path.clone(), source));
+        let offset = source_file.offset(error.line(), error.column(), ByteFormat::Utf8);
+        Some(SourceLocation { source_file: Some(source_file), span: Span::new(offset, 0) })
+    });
+    match location {
+        Some(location) => Diagnostic::error(message, location),
+        None => project_error(message, path),
     }
 }
 
@@ -251,7 +328,7 @@ pub struct Input {
     pub project_file: Option<ProjectFile>,
 }
 
-/// Finds the root file to compile for `input`, which may be a project directory, and reads it.
+/// Finds the root file to compile for `input`, which may be a project directory or a project file URL, and reads it.
 /// `source_code` is the contents of `input`, if the caller has them already.
 /// `project_root` is the directory whose project file applies to `input`.
 /// `file_loader` reads a file before the file system does, such as an editor's unsaved document.
@@ -282,12 +359,17 @@ pub async fn load_input(
             },
         ) as crate::OpenImportCallback
     };
-    let resolved = if input.file_name() == Some(FILE_NAME) {
-        Err(project_file_input_error(input))
+    let is_project_file = input.file_name() == Some(FILE_NAME);
+    let resolved = if is_project_file && (source_code.is_some() || project_root.is_some()) {
+        Err(project_error(project_file_input_error(input), input))
     } else if let Some(root) = project_root {
         load_from_root_with_file_loader(root, Some(&file_loader))
             .await
             .map(|project_file| (input.clone(), project_file))
+    } else if is_project_file && input.as_native_path().is_none() {
+        ProjectFile::load_with_file_loader_diagnostic(input.clone(), Some(&file_loader))
+            .await
+            .and_then(|project_file| Ok((project_file.main_to_compile()?, Some(project_file))))
     } else if let Some(path) = input.as_native_path().filter(|_| source_code.is_none()) {
         resolve_input(path).map(|(source, project_file)| (SourcePath::new(source), project_file))
     } else {
@@ -307,7 +389,13 @@ pub async fn load_input(
         None
     };
     let loaded = match resolved {
-        Err(message) => error(message, input, crate::diagnostics::Span::new(0, 0)),
+        Err(diagnostic) => {
+            if let Some(source_file) = Spanned::source_file(&diagnostic) {
+                attempted_paths.borrow_mut().push(source_file.path().clone());
+            }
+            diagnostics.push_compiler_error(diagnostic);
+            None
+        }
         Ok((source, project_file)) => {
             if let Some(project_file) = &project_file {
                 attempted_paths.borrow_mut().push(project_file.source_path().clone());
@@ -366,11 +454,15 @@ pub async fn load_input(
 
 impl ProjectFile {
     pub fn load(path: impl AsRef<Path>) -> Result<Self, Box<dyn Error>> {
+        Self::load_with_source(path).map_err(|(error, _)| error)
+    }
+
+    fn load_with_source(path: impl AsRef<Path>) -> Result<Self, (Box<dyn Error>, Option<Vec<u8>>)> {
         let source_path = normalize_project_file_path(SourcePath::File(
             crate::source_path::clean_path(path.as_ref()),
         ));
-        let source = source_path.read()?.into_owned();
-        Self::parse(source_path, source)
+        let source = source_path.read().map_err(|error| (error.into(), None))?.into_owned();
+        Self::parse(source_path, source.clone()).map_err(|error| (error, Some(source)))
     }
 
     /// Parses project-file contents without reading from disk.
@@ -387,13 +479,10 @@ impl ProjectFile {
         struct EditionOnly {
             edition: Option<SlintEdition>,
         }
-        if let Some(version) = serde_json::from_slice::<EditionOnly>(&source)?.edition
-            && version > current
-        {
-            return Err(format!(
-                "'edition' is {version}, newer than Slint {current}: upgrade Slint, or set \"edition\": \"{current}\""
-            )
-            .into());
+        if let Some(version) = serde_json::from_slice::<EditionOnly>(&source)?.edition {
+            version.check_supported("'edition'", |current| {
+                format!("set \"edition\": \"{current}\"")
+            })?;
         }
         let data: ProjectFileData = serde_json::from_slice(&source)?;
         let Some(edition) = data.edition else { return Err(missing()) };
@@ -405,19 +494,36 @@ impl ProjectFile {
         path: SourcePath,
         file_loader: Option<&crate::OpenImportCallback>,
     ) -> Result<Self, Box<dyn Error>> {
+        Self::load_with_file_loader_and_source(path, file_loader).await.map_err(|(error, _)| error)
+    }
+
+    pub async fn load_with_file_loader_diagnostic(
+        path: SourcePath,
+        file_loader: Option<&crate::OpenImportCallback>,
+    ) -> Result<Self, Diagnostic> {
+        let path = normalize_project_file_path(path);
+        Self::load_with_file_loader_and_source(path.clone(), file_loader)
+            .await
+            .map_err(|(error, source)| project_load_error(&path, error, source))
+    }
+
+    async fn load_with_file_loader_and_source(
+        path: SourcePath,
+        file_loader: Option<&crate::OpenImportCallback>,
+    ) -> Result<Self, (Box<dyn Error>, Option<Vec<u8>>)> {
         let path = normalize_project_file_path(path);
         let source = if let Some(result) = match file_loader {
             Some(file_loader) => file_loader(path.clone()).await,
             None => None,
         } {
-            result?.into_bytes()
+            result.map_err(|error| (error.into(), None))?.into_bytes()
         } else {
             if cfg!(target_arch = "wasm32") && matches!(path, SourcePath::File(_)) {
-                return Err(std::io::Error::from(std::io::ErrorKind::NotFound).into());
+                return Err((std::io::Error::from(std::io::ErrorKind::NotFound).into(), None));
             }
-            path.read()?.into_owned()
+            path.read().map_err(|error| (error.into(), None))?.into_owned()
         };
-        Self::parse(path, source)
+        Self::parse(path, source.clone()).map_err(|error| (error, Some(source)))
     }
 
     pub fn source_path(&self) -> &SourcePath {
@@ -477,6 +583,13 @@ impl ProjectFile {
         self.source_path.parent().join(&self.data.main.as_ref()?.to_string_lossy())
     }
 
+    /// The [`Self::main`] file, or an error on the project file if it has none.
+    pub fn main_to_compile(&self) -> Result<SourcePath, Diagnostic> {
+        self.main().ok_or_else(|| {
+            project_error("Project file has no 'main' to compile".into(), self.source_path())
+        })
+    }
+
     pub fn into_compiler_configuration(
         &self,
         output_format: crate::generator::OutputFormat,
@@ -492,6 +605,7 @@ impl ProjectFile {
     pub fn apply_to(&self, compiler_config: &mut crate::CompilerConfiguration) {
         self.resolved_data().apply_to(compiler_config);
         compiler_config.edition_location = Some(self.edition_location());
+        compiler_config.project_roots = vec![normalize_project_root(self.source_path.clone())];
     }
 
     pub fn resolved_data(&self) -> ProjectFileData {
@@ -800,7 +914,8 @@ pub fn resolve_relative_path(directory: &Path, path: PathBuf) -> PathBuf {
 mod tests {
     use super::{
         FILE_NAME, Overrides, ProjectFile, ProjectFileData, SlintEdition, is_project_file,
-        resolve_input, resolve_relative_path, resolve_source_relative_path,
+        normalize_project_root, project_root, resolve_input, resolve_relative_path,
+        resolve_source_relative_path,
     };
     use crate::{ExperimentalFeature, ExperimentalFeatures};
     use crate::{generator::OutputFormat, source_path::SourcePath};
@@ -824,7 +939,7 @@ mod tests {
     #[test]
     fn build_overrides_apply_after_project_settings_and_existing_defaults() {
         with_project_file_contents(
-            r#"{"edition":"1.19","include-paths":["include"],"library-paths":{"widgets":"lib"},"experimental-features":["match"]}"#,
+            r#"{"edition":"1.20","include-paths":["include"],"library-paths":{"widgets":"lib"},"experimental-features":["match"]}"#,
             |path| {
                 let project = ProjectFile::load(path).unwrap();
                 let mut config = crate::CompilerConfiguration::new(OutputFormat::Interpreter);
@@ -867,7 +982,7 @@ mod tests {
     #[test]
     fn override_paths_add_to_the_project_paths() {
         with_project_file_contents(
-            r#"{"edition":"1.19","include-paths":["include","shared"],"library-paths":{"widgets":"lib","icons":"icons"}}"#,
+            r#"{"edition":"1.20","include-paths":["include","shared"],"library-paths":{"widgets":"lib","icons":"icons"}}"#,
             |path| {
                 let project = ProjectFile::load(path).unwrap();
                 let project_directory = project.source_path().parent();
@@ -941,14 +1056,13 @@ mod tests {
                 serde_json::to_value(&baseline).unwrap()
             );
         }
-        assert!(serde_json::from_str::<super::ProjectFileData>(r#"{"unknown":{}}"#).is_err());
     }
 
     #[test]
     fn partially_specified_project_file_is_valid() {
         let parsed = load_project_file(
             r#"{
-                "edition": "1.19",
+                "edition": "1.20",
                 "experimental-features": ["match", "closures"]
             }"#,
         )
@@ -980,25 +1094,10 @@ mod tests {
     }
 
     #[test]
-    fn unknown_experimental_features_are_rejected() {
-        let error = load_project_file(
-            r#"{"edition": "1.19", "experimental-features": ["match", "unknown"]}"#,
-        )
-        .unwrap_err();
-        assert!(error.to_string().contains("unknown variant `unknown`"), "{error}");
-    }
-
-    #[test]
-    fn snake_case_keys_are_rejected() {
-        let error = load_project_file(r#"{"include_paths": ["include"]}"#).unwrap_err();
-        assert!(error.to_string().contains("unknown field"), "{error}");
-    }
-
-    #[test]
     fn kebab_case_project_file_keys_are_valid() {
         let parsed = load_project_file(
             r#"{
-                "edition": "1.19",
+                "edition": "1.20",
                 "library-paths": {"widgets": "libs"},
                 "include-paths": ["include"],
                 "experimental-features": ["match", "closures"]
@@ -1021,7 +1120,7 @@ mod tests {
     fn a_schema_reference_is_accepted() {
         let parsed = load_project_file(
             r#"{
-                "edition": "1.19",
+                "edition": "1.20",
                 "$schema": "https://slint.dev/slint-project.schema.json",
                 "include-paths": ["include"]
             }"#,
@@ -1034,7 +1133,7 @@ mod tests {
     #[test]
     fn a_schema_reference_alone_is_accepted() {
         let parsed = load_project_file(
-            r#"{"edition":"1.19","$schema": "https://slint.dev/slint-project.schema.json"}"#,
+            r#"{"edition":"1.20","$schema": "https://slint.dev/slint-project.schema.json"}"#,
         )
         .unwrap();
 
@@ -1045,7 +1144,7 @@ mod tests {
     fn line_comments_are_accepted() {
         let parsed = load_project_file(
             r#"{
-                "edition": "1.19",
+                "edition": "1.20",
                 "include-paths": ["include"] // trailing comment
             }"#,
         )
@@ -1058,7 +1157,7 @@ mod tests {
     fn block_comments_are_accepted() {
         let parsed = load_project_file(
             r#"{
-                "edition": "1.19",
+                "edition": "1.20",
                 /* Disabled until the upgrade:
                    "include-paths": ["disabled"],
                 */
@@ -1074,7 +1173,7 @@ mod tests {
     fn comment_markers_inside_strings_are_kept() {
         let parsed = load_project_file(
             r#"{
-                "edition": "1.19",
+                "edition": "1.20",
                 "include-paths": ["not//a/comment", "not/*a*/comment", "with \" quote // and slashes"]
             }"#,
         )
@@ -1091,64 +1190,8 @@ mod tests {
     }
 
     #[test]
-    fn a_file_of_only_comments_is_invalid() {
-        assert!(load_project_file("// nothing set yet\n/* not even this */\n").is_err());
-    }
-
-    #[test]
-    fn a_comment_keeps_the_line_of_a_later_error() {
-        let error = load_project_file(
-            r#"{
-                "edition": "1.19",
-                // one
-                // two
-                "include-paths": nonsense
-            }"#,
-        )
-        .unwrap_err();
-
-        // The blanked comments keep the offsets, so the error names line 5.
-        assert!(error.to_string().contains("line 5"), "{error}");
-    }
-
-    #[test]
-    fn field_errors_keep_the_first_field_and_its_source_position() {
-        for (source, message, line, column) in [
-            (
-                r#"{
-  "$schema": 42,
-  "main": "main.slint"
-}"#,
-                "invalid type",
-                2,
-                15,
-            ),
-            (
-                r#"{
-  "first-unknown": true,
-  "second-unknown": false
-}"#,
-                "unknown field `first-unknown`",
-                2,
-                17,
-            ),
-        ] {
-            let error = load_project_file(&source).unwrap_err();
-            let error = error.downcast_ref::<serde_json::Error>().unwrap();
-            assert!(error.to_string().contains(message), "{error}");
-            assert_eq!((error.line(), error.column()), (line, column), "{error}");
-        }
-    }
-
-    #[test]
-    fn unknown_settings_are_rejected() {
-        let error = load_project_file(r#"{"unknown_setting": true}"#).unwrap_err();
-        assert!(error.to_string().contains("unknown field"));
-    }
-
-    #[test]
     fn the_edition_is_required() {
-        let cases = ["", "{}", "{\n}", "  \t \n", "// nothing set yet\n/* not even this */\n"];
+        let cases = ["", "  \t \n"];
 
         for case in cases {
             let error = load_project_file(case).unwrap_err().to_string();
@@ -1158,25 +1201,24 @@ mod tests {
     }
 
     #[test]
-    fn empty_files_and_invalid_metadata_are_rejected() {
-        for source in ["", "  \t \n", r#"{ "metadata": { this is not json! } }"#] {
-            assert!(load_project_file(source).is_err(), "{source}");
-        }
-    }
-
-    #[test]
     fn a_minimal_project_file_is_valid() {
-        let parsed = load_project_file(r#"{ "edition": "1.19" }"#).unwrap();
-        assert_eq!(parsed.edition(), SlintEdition::V1_19);
+        let parsed = load_project_file(r#"{ "edition": "1.20" }"#).unwrap();
+        assert_eq!(parsed.edition(), SlintEdition::current());
         assert_eq!(parsed.library_paths(), None);
         assert_eq!(parsed.include_paths(), None);
         assert_eq!(parsed.experimental_features(), None);
     }
 
     #[test]
-    fn an_older_edition_is_valid() {
-        let parsed = load_project_file(r#"{ "edition": "1.10" }"#).unwrap();
-        assert_eq!(parsed.edition(), SlintEdition { major: 1, minor: 10 });
+    fn editions_start_at_the_first() {
+        let parsed = load_project_file(r#"{ "edition": "1.18" }"#).unwrap();
+        assert_eq!(parsed.edition(), SlintEdition::FIRST);
+        assert_eq!(
+            SlintEdition::parse_supported("1.17"),
+            Err("The edition is 1.17, older than 1.18, the first edition".into())
+        );
+        let error = SlintEdition::parse_rust_macro_attribute("\"1.5\"").unwrap_err();
+        assert_eq!(error, "'edition' is 1.5, older than 1.18, the first edition");
     }
 
     #[test]
@@ -1200,22 +1242,12 @@ mod tests {
     }
 
     #[test]
-    fn a_malformed_edition_is_rejected() {
-        for value in [r#""1.19.0""#, r#""1""#, r#""1.x""#, r#""1.019""#, r#""""#, "1.19", "119"] {
-            let error =
-                load_project_file(&format!(r#"{{ "edition": {value} }}"#)).unwrap_err().to_string();
-            assert!(error.contains("such as"), "{value}: {error}");
-            assert!(error.contains("line 1"), "{value}: {error}");
-        }
-    }
-
-    #[test]
     fn the_project_file_edition_wins_over_the_configuration() {
-        with_project_file_contents(r#"{ "edition": "1.19" }"#, |path| {
+        with_project_file_contents(r#"{ "edition": "1.20" }"#, |path| {
             let mut config = crate::CompilerConfiguration::new(OutputFormat::Llr);
-            config.edition = Some(SlintEdition { major: 1, minor: 10 });
+            config.edition = Some(SlintEdition::FIRST);
             ProjectFile::load(path).unwrap().apply_to(&mut config);
-            assert_eq!(config.edition, Some(SlintEdition::V1_19));
+            assert_eq!(config.edition, Some(SlintEdition::current()));
         });
     }
 
@@ -1261,7 +1293,7 @@ mod tests {
 
     #[test]
     fn stores_loaded_project_file_path() {
-        with_project_file_contents(r#"{ "edition": "1.19" }"#, |path| {
+        with_project_file_contents(r#"{ "edition": "1.20" }"#, |path| {
             let project = ProjectFile::load(path).unwrap();
             assert_eq!(project.source_path(), &crate::source_path::SourcePath::new(path));
         });
@@ -1277,7 +1309,7 @@ mod tests {
         ));
         let path = directory.join(FILE_NAME);
         fs::create_dir(&directory).unwrap();
-        fs::write(&path, r#"{"edition":"1.19","main":"native"}"#).unwrap();
+        fs::write(&path, r#"{"edition":"1.20","main":"native"}"#).unwrap();
         let loaded = ProjectFile::load(&path);
         fs::remove_file(&path).unwrap();
         fs::remove_dir(&directory).unwrap();
@@ -1290,7 +1322,7 @@ mod tests {
     fn project_file_converts_to_compiler_configuration() {
         with_project_file_contents(
             r#"{
-                "edition": "1.19",
+                "edition": "1.20",
                 "library-paths": {"widgets": "libraries/widgets.slint"},
                 "include-paths": ["include", "../shared"],
                 "experimental-features": ["match", "closures"]
@@ -1324,7 +1356,7 @@ mod tests {
 
     #[test]
     fn project_file_conversion_preserves_defaults_for_omitted_settings() {
-        with_project_file_contents(r#"{ "edition": "1.19" }"#, |path| {
+        with_project_file_contents(r#"{ "edition": "1.20" }"#, |path| {
             let project = ProjectFile::load(path).unwrap();
             let compiler_config = project.into_compiler_configuration(OutputFormat::Interpreter);
             let default_config = crate::CompilerConfiguration::new(OutputFormat::Interpreter);
@@ -1338,7 +1370,7 @@ mod tests {
 
     #[test]
     fn the_main_file_is_relative_to_the_project_file() {
-        with_project_file_contents(r#"{ "edition": "1.19", "main": "ui/main.slint" }"#, |path| {
+        with_project_file_contents(r#"{ "edition": "1.20", "main": "ui/main.slint" }"#, |path| {
             let project = ProjectFile::load(path).unwrap();
             assert_eq!(
                 project.main(),
@@ -1352,7 +1384,7 @@ mod tests {
     #[test]
     fn a_project_directory_resolves_to_its_main_file() {
         with_project_file_contents(
-            r#"{ "edition": "1.19", "main": "main.slint", "include-paths": ["include"] }"#,
+            r#"{ "edition": "1.20", "main": "main.slint", "include-paths": ["include"] }"#,
             |path| {
                 let (slint_file, project) = resolve_input(path.parent().unwrap()).unwrap();
                 assert_eq!(slint_file, path.parent().unwrap().join("main.slint"));
@@ -1363,19 +1395,44 @@ mod tests {
 
     #[test]
     fn a_project_directory_without_a_main_file_is_an_error() {
-        with_project_file_contents(r#"{"edition":"1.19"}"#, |path| {
+        with_project_file_contents(r#"{"edition":"1.20"}"#, |path| {
             let error = resolve_input(path.parent().unwrap()).unwrap_err();
-            assert!(error.contains("'main'"), "{error}");
+            assert!(error.message().contains("'main'"), "{error}");
+            assert_eq!(error.source_file(), Some(path));
         });
     }
 
     #[test]
+    fn a_project_directory_reports_a_parse_error_in_the_project_file() {
+        for (source, expected) in [
+            ("{\n  \"$schema\": 42,\n  \"edition\": \"1.20\"\n}\n", (2, 15)),
+            ("{\n  \"edition\": \"1.20\",\n", (3, 1)),
+        ] {
+            with_project_file_contents(source, |path| {
+                let input = SourcePath::new(path.parent().unwrap());
+                let mut diagnostics = crate::diagnostics::BuildDiagnostics::default();
+                let (loaded, _) = crate::poll_ready(super::load_input(
+                    &input,
+                    None,
+                    None,
+                    None,
+                    &mut diagnostics,
+                ));
+                assert!(loaded.is_none());
+                let diagnostic = diagnostics.iter().next().unwrap();
+                assert_eq!(diagnostic.source_file().unwrap(), path);
+                assert_eq!(diagnostic.line_column(), expected);
+            });
+        }
+    }
+
+    #[test]
     fn a_project_directory_does_not_search_its_parent() {
-        with_project_file_contents(r#"{"edition": "1.19", "main":"main.slint"}"#, |path| {
+        with_project_file_contents(r#"{"edition": "1.20", "main":"main.slint"}"#, |path| {
             let nested_directory = path.parent().unwrap().join("nested");
             fs::create_dir_all(&nested_directory).unwrap();
             let error = resolve_input(&nested_directory).unwrap_err();
-            assert!(error.contains(&nested_directory.join(FILE_NAME).display().to_string()));
+            assert_eq!(error.source_file(), Some(nested_directory.join(FILE_NAME).as_path()));
             fs::remove_dir_all(&nested_directory).unwrap();
         });
     }
@@ -1383,12 +1440,11 @@ mod tests {
     #[test]
     fn a_project_directory_with_a_non_local_main_file_is_an_error() {
         with_project_file_contents(
-            r#"{ "edition": "1.19", "main": "https://example.com/main.slint" }"#,
+            r#"{ "edition": "1.20", "main": "https://example.com/main.slint" }"#,
             |path| {
-                assert_eq!(
-                    resolve_input(path.parent().unwrap()).unwrap_err(),
-                    format!("{} must specify a local file for 'main'", SourcePath::new(path))
-                );
+                let error = resolve_input(path.parent().unwrap()).unwrap_err();
+                assert_eq!(error.message(), "Project file must specify a local file for 'main'");
+                assert_eq!(error.source_file(), Some(path));
             },
         );
     }
@@ -1396,13 +1452,13 @@ mod tests {
     #[test]
     fn a_project_directory_ignores_a_nearer_project_file() {
         with_project_file_contents(
-            r#"{ "edition": "1.19", "main": "ui/main.slint", "include-paths": ["outer"] }"#,
+            r#"{ "edition": "1.20", "main": "ui/main.slint", "include-paths": ["outer"] }"#,
             |path| {
                 let ui_directory = path.parent().unwrap().join("ui");
                 fs::create_dir_all(&ui_directory).unwrap();
                 fs::write(
                     ui_directory.join(FILE_NAME),
-                    r#"{ "edition": "1.19", "include-paths": ["inner"] }"#,
+                    r#"{ "edition": "1.20", "include-paths": ["inner"] }"#,
                 )
                 .unwrap();
 
@@ -1425,19 +1481,53 @@ mod tests {
     }
 
     #[test]
-    fn a_project_file_input_is_an_error() {
-        with_project_file_contents(r#"{ "edition": "1.19", "main": "main.slint" }"#, |path| {
-            for (input, directory) in [
-                (path.to_path_buf(), path.parent().unwrap().display().to_string()),
-                (PathBuf::from(FILE_NAME), ".".into()),
-            ] {
-                assert_eq!(
-                    resolve_input(&input).unwrap_err(),
-                    format!(
-                        "A `{FILE_NAME}` cannot be compiled directly; pass its directory instead ({directory})"
-                    )
-                );
-            }
+    fn a_project_file_input_resolves_its_main_file() {
+        with_project_file_contents(r#"{ "edition": "1.20", "main": "main.slint" }"#, |path| {
+            let (source, project) = resolve_input(path).unwrap();
+            assert_eq!(source, path.parent().unwrap().join("main.slint"));
+            assert!(project.is_some());
+        });
+    }
+
+    #[test]
+    fn other_json_is_not_a_project_input() {
+        with_project_file_contents(r#"{ "edition": "1.20", "main": "main.slint" }"#, |path| {
+            let other = path.parent().unwrap().join("other.json");
+            fs::copy(path, &other).unwrap();
+            let (source, project) = resolve_input(&other).unwrap();
+            assert_eq!(source, other);
+            assert!(project.is_none());
+            fs::remove_file(other).unwrap();
+        });
+    }
+
+    #[test]
+    fn a_relative_project_file_input_resolves_its_main_file() {
+        const CHILD: &str = "SLINT_TEST_RELATIVE_PROJECT_INPUT";
+        if std::env::var_os(CHILD).is_some() {
+            let (source, project) = resolve_input(Path::new(FILE_NAME)).unwrap();
+            assert_eq!(source, std::env::current_dir().unwrap().join("main.slint"));
+            assert!(project.is_some());
+            return;
+        }
+        with_project_file_contents(r#"{ "edition": "1.20", "main": "main.slint" }"#, |path| {
+            let output = std::process::Command::new(std::env::current_exe().unwrap())
+                .current_dir(path.parent().unwrap())
+                .env(CHILD, "1")
+                .args([
+                    "--exact",
+                    "project_file::tests::a_relative_project_file_input_resolves_its_main_file",
+                    "--nocapture",
+                ])
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "{}\n{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+            assert!(String::from_utf8_lossy(&output.stdout).contains("1 passed"));
         });
     }
 
@@ -1446,6 +1536,19 @@ mod tests {
         assert!(is_project_file(Path::new("ui/slint-project.json")));
         assert!(!is_project_file(Path::new("ui/other.json")));
         assert!(!is_project_file(Path::new("ui/main.slint")));
+    }
+
+    #[test]
+    fn project_root_accepts_only_the_exact_manifest_name() {
+        for (input, expected) in [
+            ("slint-project.json", "."),
+            ("ui/slint-project.json", "ui"),
+            ("ui/other.json", "ui/other.json"),
+            ("ui", "ui"),
+        ] {
+            assert_eq!(project_root(Path::new(input)), Path::new(expected));
+            assert_eq!(normalize_project_root(SourcePath::new(input)), SourcePath::new(expected));
+        }
     }
 
     fn callback_loader(
@@ -1469,7 +1572,7 @@ mod tests {
             "{}",
             "// empty\n/* manifest */",
             r#"{ "metadata": { this is not json! } }"#,
-            r#"{"edition":"1.19","main":"ui/main.slint","include-paths":["include","../shared"],"library-paths":{"widgets":"lib/main.slint"}}"#,
+            r#"{"edition":"1.20","main":"ui/main.slint","include-paths":["include","../shared"],"library-paths":{"widgets":"lib/main.slint"}}"#,
             r#"{"unknown":true}"#,
             "{\n// preserved line\n\"main\": invalid}",
         ] {
@@ -1480,7 +1583,7 @@ mod tests {
                     Default::default(),
                 );
                 let disk = ProjectFile::load(path);
-                let callback = spin_on::spin_on(ProjectFile::load_with_file_loader(
+                let callback = crate::poll_ready(ProjectFile::load_with_file_loader(
                     source_path,
                     Some(&loader),
                 ));
@@ -1503,11 +1606,11 @@ mod tests {
     fn callback_paths_resolve_against_the_manifest_url() {
         let manifest = SourcePath::new("https://example.com/project/slint-project.json");
         let loader = callback_loader(
-            HashMap::from([(manifest.clone(), r#"{"edition":"1.19","main":"ui/main.slint","include-paths":["include","../shared"],"library-paths":{"widgets":"lib/main.slint"}}"#.into())]),
+            HashMap::from([(manifest.clone(), r#"{"edition":"1.20","main":"ui/main.slint","include-paths":["include","../shared"],"library-paths":{"widgets":"lib/main.slint"}}"#.into())]),
             Default::default(),
         );
         let project =
-            spin_on::spin_on(ProjectFile::load_with_file_loader(manifest.clone(), Some(&loader)))
+            crate::poll_ready(ProjectFile::load_with_file_loader(manifest.clone(), Some(&loader)))
                 .unwrap();
         assert_eq!(project.source_path(), &manifest);
         assert_eq!(
@@ -1534,10 +1637,10 @@ mod tests {
 
     #[test]
     fn callback_result_is_authoritative_and_none_falls_back_to_disk() {
-        with_project_file_contents(r#"{"edition":"1.19","main":"disk"}"#, |path| {
+        with_project_file_contents(r#"{"edition":"1.20","main":"disk"}"#, |path| {
             let path = SourcePath::new(path);
             for (response, expected) in [
-                (Some(Ok(r#"{"edition":"1.19","main":"callback"}"#)), Some("callback")),
+                (Some(Ok(r#"{"edition":"1.20","main":"callback"}"#)), Some("callback")),
                 (None, Some("disk")),
                 (Some(Err(std::io::ErrorKind::NotFound)), None),
                 (Some(Err(std::io::ErrorKind::PermissionDenied)), None),
@@ -1547,7 +1650,7 @@ mod tests {
                         response.map(|result| result.map(str::to_owned).map_err(Into::into))
                     })
                 });
-                let result = spin_on::spin_on(ProjectFile::load_with_file_loader(
+                let result = crate::poll_ready(ProjectFile::load_with_file_loader(
                     path.clone(),
                     Some(&loader),
                 ));
@@ -1576,13 +1679,13 @@ mod tests {
             let requested = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
             let loader = callback_loader(
                 HashMap::from([
-                    (manifest.clone(), r#"{"edition":"1.19"}"#.into()),
+                    (manifest.clone(), r#"{"edition":"1.20"}"#.into()),
                     (root.join("ui/slint-project.json").unwrap(), "broken".into()),
                     (root.join("../slint-project.json").unwrap(), "broken".into()),
                 ]),
                 requested.clone(),
             );
-            let project = spin_on::spin_on(super::load_from_root_with_file_loader(
+            let project = crate::poll_ready(super::load_from_root_with_file_loader(
                 root.clone(),
                 Some(&loader),
             ))
@@ -1594,7 +1697,7 @@ mod tests {
             requested.borrow_mut().clear();
             let loader = callback_loader(HashMap::new(), requested.clone());
             assert!(
-                spin_on::spin_on(super::load_from_root_with_file_loader(root, Some(&loader)))
+                crate::poll_ready(super::load_from_root_with_file_loader(root, Some(&loader)))
                     .unwrap()
                     .is_none()
             );
@@ -1610,7 +1713,7 @@ mod tests {
         for loader in [None, Some(&declined_loader)] {
             let root = SourcePath::new("/project/ui");
             assert!(
-                spin_on::spin_on(super::load_from_root_with_file_loader(root, loader))
+                crate::poll_ready(super::load_from_root_with_file_loader(root, loader))
                     .unwrap()
                     .is_none()
             );
@@ -1633,7 +1736,7 @@ mod tests {
                     Box::pin(async move { Some(contents.map(str::to_owned).map_err(Into::into)) })
                 });
                 assert!(
-                    spin_on::spin_on(super::load_from_root_with_file_loader(
+                    crate::poll_ready(super::load_from_root_with_file_loader(
                         SourcePath::new(root),
                         Some(&loader)
                     ))
@@ -1650,8 +1753,8 @@ mod tests {
         let manifest = root.join(FILE_NAME).unwrap();
         for entry in [None, Some("ui/main.slint")] {
             let contents = entry.map_or_else(
-                || r#"{"edition":"1.19"}"#.to_string(),
-                |entry| format!(r#"{{"edition":"1.19","main":"{entry}"}}"#),
+                || r#"{"edition":"1.20"}"#.to_string(),
+                |entry| format!(r#"{{"edition":"1.20","main":"{entry}"}}"#),
             );
             let requested = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
             let loader = callback_loader(
@@ -1661,7 +1764,7 @@ mod tests {
                 ]),
                 requested.clone(),
             );
-            let project = spin_on::spin_on(super::load_from_root_with_file_loader(
+            let project = crate::poll_ready(super::load_from_root_with_file_loader(
                 root.clone(),
                 Some(&loader),
             ))

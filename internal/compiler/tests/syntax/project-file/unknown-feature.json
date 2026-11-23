@@ -1,0 +1,5 @@
+{
+  "edition": "1.20",
+  "experimental-features": ["match", "unknown"]
+//                                           |error{unknown variant `unknown`, expected one of `interfaces`, `shadowable`, `closures`, `named-slots`, `match`, `custom-mouse-cursor`, `component-container`, `new-with-existing-window`, `testable`, `internal-types`}
+}

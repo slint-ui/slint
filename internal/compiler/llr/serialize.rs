@@ -47,8 +47,8 @@ pub async fn compile(
     if std::env::var_os("SLINT_INLINING").is_none() {
         config.inline_all_elements = false;
     }
-    let (diagnostics, loader) =
-        crate::load_root_file(path, source_code, Default::default(), config).await;
+    let (diagnostics, loader, _) =
+        crate::load_root_file(path, source_code, Default::default(), config, false).await;
     let compiled =
         loader.get_document(path).filter(|_| !diagnostics.has_errors()).map(|document| {
             (
@@ -256,6 +256,36 @@ mod tests {
         let mut out = String::new();
         crate::llr::pretty_print::pretty_print(unit, &mut out).unwrap();
         out
+    }
+
+    #[test]
+    fn round_trip_layouts() {
+        let source = r#"
+            export component Main inherits Window {
+                VerticalLayout {
+                    for t in ["a", "b"]: HorizontalLayout {
+                        Text { text: t; wrap: word-wrap; }
+                    }
+                    FlexboxLayout {
+                        flex-direction: column;
+                        for t in ["a", "b"]: Text { text: t; wrap: word-wrap; }
+                        Text { text: "c"; wrap: word-wrap; }
+                        Rectangle { height: 10px; }
+                    }
+                    GridLayout {
+                        for t in ["a", "b"]: Row {
+                            Text { text: t; }
+                            Text { text: t; }
+                        }
+                    }
+                }
+            }
+            "#;
+        let unit = compile(source, false);
+        let bytes = to_bytes(&unit).unwrap();
+        let restored = from_bytes(&bytes).unwrap();
+        assert_eq!(pretty(&restored), pretty(&unit));
+        assert_eq!(to_bytes(&restored).unwrap(), bytes);
     }
 
     #[test]

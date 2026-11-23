@@ -140,9 +140,21 @@ core::cfg_select! {
                     return builder.build().map(|b| Box::new(b) as Box<dyn Platform + 'static>)
                 },
                 #[cfg(feature = "backend-testing")]
-                "testing" => return Ok(Box::new(i_slint_backend_testing::TestingBackend::new(
-                    i_slint_backend_testing::TestingBackendOptions { mock_time: false, threading: true, ..Default::default() },
-                ))),
+                "testing" => {
+                    let options = i_slint_backend_testing::TestingBackendOptions { mock_time: false, threading: true, ..Default::default() };
+                    #[cfg(supports_headless)]
+                    let options = if _renderer.is_empty() {
+                        options
+                    } else {
+                        i_slint_backend_testing::testing_backend::check_headless_renderer(_renderer)?;
+                        i_slint_backend_testing::TestingBackendOptions { renderer_name: Some(_renderer.into()), ..options }
+                    };
+                    #[cfg(not(supports_headless))]
+                    if !_renderer.is_empty() {
+                        return Err(format!("The testing backend can't use the {_renderer} renderer: this build has no renderer for it").into());
+                    }
+                    return Ok(Box::new(i_slint_backend_testing::TestingBackend::new(options)));
+                },
                 #[cfg(all(feature = "mcp", supports_headless))]
                 "headless" => return create_headless_backend(_renderer),
                 _ => {},
@@ -194,6 +206,19 @@ pub fn init_testing_backends() {
     if let Err(e) = i_slint_backend_testing::mcp_server::init() {
         i_slint_core::debug_log!("MCP server init failed: {e:?}");
     }
+}
+
+/// Returns true if the system-testing or MCP server starts with the platform.
+pub fn testing_backends_requested() -> bool {
+    #[cfg(feature = "system-testing")]
+    if i_slint_backend_testing::systest::requested() {
+        return true;
+    }
+    #[cfg(feature = "mcp")]
+    if i_slint_backend_testing::mcp_server::requested() {
+        return true;
+    }
+    false
 }
 
 /// Run the callback with the platform abstraction.

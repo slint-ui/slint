@@ -102,26 +102,29 @@ pub fn run(placement: Option<Placement>) -> i_slint_editor_preview::Result<()> {
                 placement.bounds_origin.1.round() as i32,
             ));
         }
-        let Ok(native) = window.winit_window().await else { return };
-        if let Some(placement) = placement {
-            let size = native.outer_size();
-            let coordinate_scale =
-                if cfg!(target_os = "macos") { native.scale_factor() } else { 1. };
-            let size = size.to_logical::<f64>(coordinate_scale);
-            let position = placement.position((size.width, size.height));
-            #[cfg(target_os = "macos")]
-            native.set_outer_position(winit::dpi::LogicalPosition::new(position.0, position.1));
-            #[cfg(not(target_os = "macos"))]
-            native.set_outer_position(winit::dpi::PhysicalPosition::new(
-                position.0.round() as i32,
-                position.1.round() as i32,
-            ));
-        }
         let mut presented = false;
         window.on_winit_window_event(move |window, event| {
             if !presented && matches!(event, winit::event::WindowEvent::RedrawRequested) {
                 presented = true;
-                window.with_winit_window(|native| native.focus_window());
+                window.with_winit_window(|native| {
+                    if let Some(placement) = placement {
+                        let size = native.outer_size();
+                        let coordinate_scale =
+                            if cfg!(target_os = "macos") { native.scale_factor() } else { 1. };
+                        let size = size.to_logical::<f64>(coordinate_scale);
+                        let position = placement.position((size.width, size.height));
+                        #[cfg(target_os = "macos")]
+                        native.set_outer_position(winit::dpi::LogicalPosition::new(
+                            position.0, position.1,
+                        ));
+                        #[cfg(not(target_os = "macos"))]
+                        native.set_outer_position(winit::dpi::PhysicalPosition::new(
+                            position.0.round() as i32,
+                            position.1.round() as i32,
+                        ));
+                    }
+                    native.focus_window();
+                });
             }
             slint::winit_030::EventResult::Propagate
         });

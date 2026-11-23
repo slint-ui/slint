@@ -20,6 +20,9 @@ pub struct PreviewConfig {
     pub hide_ui: Option<bool>,
     #[serde(default, with = "named_overrides")]
     pub overrides: i_slint_compiler::project_file::Overrides,
+    /// The edition of a file without a project file or `slint!` macro that sets one.
+    #[serde(default)]
+    pub default_edition: Option<i_slint_compiler::project_file::SlintEdition>,
     #[serde(default)]
     pub rust_macro_editions:
         std::collections::BTreeMap<Url, i_slint_compiler::project_file::SlintEdition>,
@@ -162,7 +165,7 @@ mod configuration_tests {
     fn future_overrides() -> serde_json::Value {
         serde_json::json!({
             "style": "fluent",
-            "project": { "include-paths": [], "edition": "1.19" },
+            "project": { "include-paths": [], "edition": "1.20" },
             "embed_resources": "FutureEmbedding",
             "default_translation_context": "FutureContext",
             "debug_info": false,
@@ -183,7 +186,7 @@ mod configuration_tests {
         assert_eq!(config.overrides.project.include_paths, Some(Vec::new()));
         assert_eq!(
             config.overrides.project.edition,
-            Some(i_slint_compiler::project_file::SlintEdition::V1_19)
+            Some(i_slint_compiler::project_file::SlintEdition::current())
         );
         assert_eq!(config.overrides.debug_info, Some(false));
         assert_eq!(config.overrides.const_scale_factor, Some(2.));
@@ -218,12 +221,14 @@ mod configuration_tests {
         struct FutureConfig {
             hide_ui: Option<bool>,
             overrides: Vec<u8>,
+            default_edition: Option<String>,
             rust_macro_editions: std::collections::BTreeMap<String, String>,
             format_utf8: bool,
         }
         let encoded = postcard::to_allocvec(&FutureConfig {
             hide_ui: Some(true),
             overrides: serde_json::to_vec(&future_overrides()).unwrap(),
+            default_edition: Some("1.17".into()),
             rust_macro_editions: [("file:///main.rs".into(), "1.18".into())].into(),
             format_utf8: true,
         })
@@ -232,6 +237,10 @@ mod configuration_tests {
         assert_eq!(decoded.overrides.style.as_deref(), Some("fluent"));
         assert_eq!(decoded.overrides.embed_resources, None);
         assert_eq!(decoded.overrides.default_translation_context, None);
+        assert_eq!(
+            decoded.default_edition,
+            Some(i_slint_compiler::project_file::SlintEdition { major: 1, minor: 17 })
+        );
         assert_eq!(
             decoded.rust_macro_editions.values().copied().collect::<Vec<_>>(),
             [i_slint_compiler::project_file::SlintEdition { major: 1, minor: 18 }]

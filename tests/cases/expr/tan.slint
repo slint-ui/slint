@@ -1,10 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
- TestCase := Rectangle {
-    property<float> t1: tan(0);
-    property<float> t2: tan(45deg);
-    property<float> t3: tan(75deg);
+component TestCase inherits Rectangle {
+    out property<float> t1: tan(0);
+    out property<float> t2: tan(45deg);
+    out property<float> t3: tan(75deg);
 }
 /*
 ```cpp

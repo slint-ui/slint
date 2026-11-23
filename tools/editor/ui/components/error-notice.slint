@@ -1,0 +1,40 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Colors, Theme, Metrics, Typography } from "../style.slint";
+import { EditorScrollView } from "editor-scroll-view.slint";
+
+export component ErrorNotice inherits Rectangle {
+    in property <string> title;
+    in property <string> text;
+    height: min(content.preferred-height + 2 * Metrics.space-medium, 192px);
+    background: Theme.surfaces.recessed;
+    border-radius: Metrics.radius-large;
+
+    EditorScrollView {
+        x: Metrics.space-medium;
+        y: Metrics.space-medium;
+        width: parent.width - 2 * Metrics.space-medium;
+        height: parent.height - 2 * Metrics.space-medium;
+        content-width: self.width;
+        content-height: content.preferred-height;
+        horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
+        content := VerticalLayout {
+            width: parent.width;
+            spacing: Metrics.space-compact;
+            if root.title != "": Text {
+                text: root.title;
+                color: Colors.foreground;
+                font-size: Typography.control.size;
+                font-weight: FontWeight.semi-bold;
+                wrap: word-wrap;
+            }
+            message := Text {
+                text: root.text;
+                color: root.title == "" ? Colors.foreground : Colors.muted;
+                font-size: Typography.control.size;
+                wrap: word-wrap;
+            }
+        }
+    }
+}

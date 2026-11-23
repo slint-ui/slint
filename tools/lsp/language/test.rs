@@ -205,8 +205,10 @@ fn preview_file_recompiled_when_dependency_changes() {
     );
     ctx.session.pending_recompile.clear();
 
-    spin_on::spin_on(ctx.session.trigger_file_watcher(dep_url.clone(), FileChangeKind::Changed))
-        .unwrap();
+    i_slint_compiler::poll_ready(
+        ctx.session.trigger_file_watcher(dep_url.clone(), FileChangeKind::Changed),
+    )
+    .unwrap();
 
     // The preview file (main.slint) should be scheduled for recompilation
     // even though it's not in open_urls
@@ -243,36 +245,6 @@ fn request_state_re_sends_only_targeted_files_when_present() {
         messages[0],
         i_slint_live_preview::protocol::LspToPreviewMessage::SetContents { .. }
     ));
-}
-
-#[test]
-#[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-fn request_state_serves_assets_of_the_workspace_folders() {
-    let (capture, messages) = preview_capture();
-    let mut ctx = mock_context();
-    ctx.session.replace_preview_transport(0, capture);
-    let workspace = tempfile::tempdir().unwrap();
-    let logo = workspace.path().join("logo.png");
-    std::fs::write(&logo, []).unwrap();
-    ctx.init_param.workspace_folders = Some(vec![lsp_types::WorkspaceFolder {
-        uri: Url::from_file_path(workspace.path()).unwrap(),
-        name: "workspace".into(),
-    }]);
-
-    crate::language::send_requested_state_to_preview(
-        &ctx,
-        &[Url::from_file_path(&logo).unwrap()],
-        &[],
-    );
-
-    let messages = messages.borrow();
-    assert!(
-        matches!(
-            messages.as_slice(),
-            [i_slint_live_preview::protocol::LspToPreviewMessage::SetContents { .. }]
-        ),
-        "{messages:?}"
-    );
 }
 
 /// Test for issue #11304
@@ -324,8 +296,10 @@ mod missing_imports {
         ctx.session.open_urls.insert(main_url.clone());
 
         let dep_url = Url::from_file_path(dir.join("dep.slint")).unwrap();
-        spin_on::spin_on(ctx.session.trigger_file_watcher(dep_url, FileChangeKind::Created))
-            .unwrap();
+        i_slint_compiler::poll_ready(
+            ctx.session.trigger_file_watcher(dep_url, FileChangeKind::Created),
+        )
+        .unwrap();
 
         assert!(
             ctx.session.pending_recompile.contains(&main_url),

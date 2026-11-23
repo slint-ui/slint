@@ -106,7 +106,7 @@ impl Item for NativeComboBox {
         FocusEventResult::FocusIgnored
     }
 
-    fn_render! { this dpr size painter widget initial_state =>
+    fn_render! { this size painter widget initial_state =>
         let down: bool = this.pressed();
         let is_open: bool = this.is_open();
         let text: qttypes::QString =
@@ -124,7 +124,6 @@ impl Item for NativeComboBox {
             is_open as "bool",
             has_focus as "bool",
             has_hover as "bool",
-            dpr as "float",
             initial_state as "int"
         ] {
             ensure_initialized();
@@ -132,7 +131,7 @@ impl Item for NativeComboBox {
             option.styleObject = widget;
             option.state |= QStyle::State(initial_state);
             option.currentText = std::move(text);
-            option.rect = QRect(QPoint(), size / dpr);
+            option.rect = QRect(QPoint(), size);
             if (down)
                 option.state |= QStyle::State_Sunken;
             else
@@ -258,12 +257,11 @@ impl Item for NativeComboBoxPopup {
         FocusEventResult::FocusIgnored
     }
 
-    fn_render! { _this dpr size painter widget initial_state =>
+    fn_render! { _this size painter widget initial_state =>
         cpp!(unsafe [
             painter as "QPainterPtr*",
             widget as "QWidget*",
             size as "QSize",
-            dpr as "float",
             initial_state as "int"
         ] {
             ensure_initialized();
@@ -273,7 +271,7 @@ impl Item for NativeComboBoxPopup {
             option.state |= QStyle::State(initial_state);
             option.lineWidth = 0;
             option.midLineWidth = 0;
-            option.rect = QRect(QPoint(), size / dpr);
+            option.rect = QRect(QPoint(), size);
             option.state |= QStyle::State_Sunken | QStyle::State_Enabled;
 
             auto style = qApp->style();

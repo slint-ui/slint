@@ -12,7 +12,7 @@ use slint::winit_030::WinitWindowAccessor;
 const REPORT: &str = "references to it still exist";
 
 slint::slint! {
-    #[edition = "1.19"]
+    #[edition = "1.20"]
     export component App inherits Window {
         width: 100px;
         height: 100px;
@@ -44,15 +44,21 @@ fn main() {
         app.window().hide().unwrap();
 
         // The report comes once the event loop is done with what hid the window, so read it
-        // on the next iteration.
+        // on the next iteration. A timer started here can fire in this iteration, right after
+        // this task, and one started from that timer can't.
         slint::Timer::single_shot(std::time::Duration::default(), move || {
-            let reports: Vec<_> =
-                reported.take().into_iter().filter(|message| message.contains(REPORT)).collect();
-            assert_eq!(reports.len(), 1, "expected one report, got {reports:?}");
+            slint::Timer::single_shot(std::time::Duration::default(), move || {
+                let reports: Vec<_> = reported
+                    .take()
+                    .into_iter()
+                    .filter(|message| message.contains(REPORT))
+                    .collect();
+                assert_eq!(reports.len(), 1, "expected one report, got {reports:?}");
 
-            // Let go of the window while the event loop is still there to destroy it.
-            drop(kept_alive);
-            slint::quit_event_loop().unwrap();
+                // Let go of the window while the event loop is still there to destroy it.
+                drop(kept_alive);
+                slint::quit_event_loop().unwrap();
+            });
         });
     })
     .unwrap();

@@ -127,8 +127,7 @@ impl<'a> SkiaItemRenderer<'a> {
         );
 
         if let Some(radius) = shadow_options.opaque_source_radius() {
-            let radius = (radius + PhysicalBorderRadius::new_uniform(shadow_options.spread.get()))
-                .max(Default::default());
+            let radius = radius.spread(shadow_options.spread.get());
             let rounded_rect = to_skia_rrect(
                 &PhysicalRect::new(shadow_options.shape_origin(), shape_size),
                 &radius,
@@ -232,11 +231,14 @@ impl<'a> SkiaItemRenderer<'a> {
         );
 
         // Inner "hole" rrect: geometry inset by spread on each side, translated by offset.
-        let inner_rect = skia_safe::Rect::new(
-            spread + offset_x,
-            spread + offset_y,
-            width - spread + offset_x,
-            height - spread + offset_y,
+        // A spread past half a side collapses the hole to the center, as in CSS.
+        let hole_width = (width - 2. * spread).max(0.);
+        let hole_height = (height - 2. * spread).max(0.);
+        let inner_rect = skia_safe::Rect::from_xywh(
+            (width - hole_width) / 2. + offset_x,
+            (height - hole_height) / 2. + offset_y,
+            hole_width,
+            hole_height,
         );
         let inner_radius = shadow_options.inner_radius();
         let inner_rrect = to_skia_rrect(
@@ -481,14 +483,16 @@ impl<'a> SkiaItemRenderer<'a> {
             )
             .collect::<Vec<_>>()
         } else {
-            vec![i_slint_core::graphics::fit(
+            i_slint_core::graphics::fit(
                 item.image_fit(),
                 dest_rect.size,
                 item.source_clip().unwrap_or_else(|| euclid::Rect::from_size(source_size.cast())),
                 self.scale_factor,
                 item.alignment(),
                 tiling,
-            )]
+            )
+            .into_iter()
+            .collect()
         };
 
         let _saved_canvas = self.pixel_align_origin_auto_restore();
@@ -556,10 +560,9 @@ impl<'a> SkiaItemRenderer<'a> {
                     paint.set_shader(shader);
                     self.canvas.draw_paint(&paint);
                 }
-            } else {
-                let transform =
-                    skia_safe::Matrix::rect_2_rect(skia_safe::Rect::from(src), dst, None)
-                        .unwrap_or_default();
+            } else if let Some(transform) =
+                skia_safe::Matrix::rect_2_rect(skia_safe::Rect::from(src), dst, None)
+            {
                 self.canvas.concat(&transform);
                 self.canvas.draw_image_with_sampling_options(
                     skia_image.clone(),
@@ -775,6 +778,10 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
                     path.fitted_path_events(item_rc)?;
 
                 let mut builder = skia_safe::PathBuilder::new();
+                builder.set_fill_type(match path.fill_rule() {
+                    i_slint_core::items::FillRule::Evenodd => skia_safe::PathFillType::EvenOdd,
+                    i_slint_core::items::FillRule::Nonzero | _ => skia_safe::PathFillType::Winding,
+                });
 
                 for x in path_events.iter() {
                     match x {

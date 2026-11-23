@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 8,
+  "schemaVersion": 9,
   "selection": {
     "nodeId": "30:1",
     "nodeName": "Continue button instance"

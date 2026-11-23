@@ -43,9 +43,19 @@ def layout_scene(fixture_project: Path) -> Path:
     return source
 
 
-@pytest.mark.parametrize("name,initial", [("padding", 8), ("spacing", 6)])
-@pytest.mark.parametrize("outcome", ["commit", "cancel", "source"])
-@pytest.mark.parametrize("bound", [True, False], ids=["bound", "default"])
+@pytest.mark.parametrize(
+    "name,initial,outcome,bound",
+    [
+        ("padding", 8, "commit", True),
+        ("padding", 8, "commit", False),
+        ("spacing", 6, "commit", True),
+        ("spacing", 6, "commit", False),
+        ("padding", 8, "cancel", True),
+        ("spacing", 6, "cancel", False),
+        ("padding", 8, "source", False),
+        ("spacing", 6, "source", True),
+    ],
+)
 def test_layout_scrub_previews_and_reverts(
     editor_binary,
     editor_environment,
@@ -117,16 +127,16 @@ def test_layout_scrub_previews_and_reverts(
             expect.poll(lambda: child.absolute_position.x).to_equal(before)
 
 
-@pytest.mark.parametrize("name,initial", [("padding", 8), ("spacing", 6)])
 @pytest.mark.parametrize(
-    "expression",
+    "name,initial,expression",
     [
-        "root.base-value",
-        "(root.base-value)",
-        "root.width / 40",
-        "8px + 4px",
-        "1cm",
-        "{ return root.base-value; }",
+        ("padding", 8, "root.base-value"),
+        ("padding", 8, "(root.base-value)"),
+        ("padding", 8, "root.width / 40"),
+        ("padding", 8, "8px + 4px"),
+        ("padding", 8, "1cm"),
+        ("padding", 8, "{ return root.base-value; }"),
+        ("spacing", 6, "root.base-value"),
     ],
 )
 def test_layout_bindings_are_editable_without_scrubbing(

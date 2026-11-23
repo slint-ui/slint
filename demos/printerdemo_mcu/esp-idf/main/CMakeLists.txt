@@ -8,4 +8,4 @@ idf_component_register(
     REQUIRES slint
 )
 
-slint_target_sources(${COMPONENT_LIB} ../../ui/printerdemo.slint)
+slint_target_sources(${COMPONENT_LIB} ../../slint-project.json)

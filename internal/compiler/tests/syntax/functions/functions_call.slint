@@ -11,8 +11,7 @@ global Glob {
     }
 }
 
-Comp := Rectangle {
-//   ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+component Comp inherits Rectangle {
     function f1() {}
     public function f2() {}
     protected function f3() {}
@@ -22,8 +21,7 @@ Comp := Rectangle {
     }
 }
 
-export Xxx := Rectangle {
-//         ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+export component Xxx inherits Rectangle {
     function foo(a: int) -> string { return a; }
 
     comp := Comp {}

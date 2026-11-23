@@ -1,0 +1,157 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Typing or moving the caret scrolls every Flickable around a TextInput so the caret stays visible (#11810).
+// Each glyph of the fixed test font is 10px wide and 10px tall; the caret is 1px wide.
+
+export component TestCase inherits Window {
+    width: 200px;
+    height: 200px;
+    default-font-family: "FixedTestFont";
+    default-font-size: 10px;
+
+    // A single-line input four times as wide as its Flickable.
+    wide-flick := Flickable {
+        x: 0px;
+        y: 0px;
+        width: 100px;
+        height: 10px;
+        content-width: 400px;
+        content-height: 30px;
+        content-y: root.wide-y;
+
+        wide := TextInput {
+            y: 0px;
+            width: 400px;
+            height: 10px;
+            single-line: true;
+        }
+    }
+
+    // A multi-line input in a Flickable, like TextEdit, which sits in a page Flickable.
+    page := Flickable {
+        x: 0px;
+        y: 20px;
+        width: 100px;
+        height: 50px;
+        content-width: 100px;
+        content-height: 500px;
+
+        tall-flick := Flickable {
+            y: 40px;
+            width: 100px;
+            height: 30px;
+            content-width: 100px;
+            content-height: max(30px, tall.preferred-height);
+
+            tall := TextInput {
+                width: 100px;
+                height: parent.content-height;
+                single-line: false;
+            }
+        }
+    }
+
+    public function focus-wide() {
+        wide.focus();
+    }
+
+    public function focus-tall() {
+        tall.focus();
+    }
+
+    // Moving the caret from code scrolls the same way.
+    sel-flick := Flickable {
+        x: 0px;
+        y: 100px;
+        width: 100px;
+        height: 10px;
+        content-width: 400px;
+
+        sel := TextInput {
+            width: 400px;
+            height: 10px;
+            text: "0123456789abcde";
+        }
+    }
+
+    init => {
+        sel.focus();
+        sel.set-selection-offsets(15, 15);
+    }
+
+    out property <bool> test: sel-flick.content-x == -51px;
+
+    out property <length> wide-scroll-x: wide-flick.content-x;
+    out property <length> tall-scroll-y: tall-flick.content-y;
+    in-out property <length> page-scroll-y <=> page.content-y;
+    out property <length> wide-scroll-y: wide-flick.content-y;
+    in property <length> wide-y;
+}
+
+/*
+```rust
+use slint::SharedString;
+use slint::platform::Key;
+
+let key = |k: Key| SharedString::from(k);
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+
+instance.invoke_focus_wide();
+// Typing where the caret is already visible leaves the Flickable's bindings alone.
+slint_testing::send_keyboard_string_sequence(&instance, "01234");
+assert_eq!(instance.get_wide_scroll_x(), 0.);
+instance.set_wide_y(-20.);
+assert_eq!(instance.get_wide_scroll_y(), -20.);
+instance.set_wide_y(0.);
+
+slint_testing::send_keyboard_string_sequence(&instance, "56789");
+// The caret spans 100..101, the viewport 0..100.
+assert_eq!(instance.get_wide_scroll_x(), -1.);
+// Scrolling along x leaves the binding of y alone.
+instance.set_wide_y(-20.);
+assert_eq!(instance.get_wide_scroll_y(), -20.);
+instance.set_wide_y(0.);
+slint_testing::send_keyboard_string_sequence(&instance, "abcde");
+assert_eq!(instance.get_wide_scroll_x(), -51.);
+// Ctrl+arrow moves by word, or to the line end on Apple platforms, where Slint reports Cmd as control.
+let ctrl_key = |k: Key| {
+    slint_testing::send_keyboard_char(&instance, Key::Control.into(), true);
+    slint_testing::send_keyboard_string_sequence(&instance, &key(k));
+    slint_testing::send_keyboard_char(&instance, Key::Control.into(), false);
+};
+ctrl_key(Key::LeftArrow);
+assert_eq!(instance.get_wide_scroll_x(), 0.);
+ctrl_key(Key::RightArrow);
+assert_eq!(instance.get_wide_scroll_x(), -51.);
+
+instance.invoke_focus_tall();
+// Revealing the focused input whole animates, so let it settle.
+slint_testing::mock_elapsed_time(5000);
+assert_eq!(instance.get_page_scroll_y(), -20.);
+assert_eq!(instance.get_tall_scroll_y(), 0.);
+
+// The page shows 45..95, which cuts off the top of the caret at 40..50.
+instance.set_page_scroll_y(-45.);
+slint_testing::send_keyboard_string_sequence(&instance, "a");
+assert_eq!(instance.get_page_scroll_y(), -40.);
+
+// The fifth line spans 40..50 in the input, below its 30px tall Flickable.
+slint_testing::send_keyboard_string_sequence(&instance, "\nb\nc\nd\ne");
+assert_eq!(instance.get_tall_scroll_y(), -20.);
+assert_eq!(instance.get_page_scroll_y(), -40.);
+
+// The inner Flickable shows the caret at 60..70 in the page, below the page's 0..50.
+instance.set_page_scroll_y(0.);
+slint_testing::send_keyboard_string_sequence(&instance, "f");
+assert_eq!(instance.get_tall_scroll_y(), -20.);
+assert_eq!(instance.get_page_scroll_y(), -20.);
+
+for _ in 0..4 {
+    slint_testing::send_keyboard_string_sequence(&instance, &key(Key::UpArrow));
+}
+assert_eq!(instance.get_tall_scroll_y(), 0.);
+assert_eq!(instance.get_page_scroll_y(), -20.);
+```
+*/

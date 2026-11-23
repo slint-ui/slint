@@ -8,7 +8,6 @@ import { InspectorContext } from "context.slint";
 
 export component InspectorOrientationSection inherits InspectorSection {
     in property <InspectorStyle> style: Style.inspector-layout;
-    in property <length> popup-bottom;
     property <string> default-orientation: Api.current-element.type-name == "RadioGroup" ? "vertical" : "horizontal";
 
     title: @tr("Orientation");
@@ -18,14 +17,14 @@ export component InspectorOrientationSection inherits InspectorSection {
         spacing: Metrics.space-compact;
 
         InspectorComboBox {
+            commit-key: InspectorContext.inspector-key;
             accessible-name: @tr("Orientation");
             value: InspectorEnumOptions.option-label("orientation", root.default-orientation, InspectorEnumOptions.orientation-options);
             selected-index: InspectorEnumOptions.option-index("orientation", root.default-orientation, InspectorEnumOptions.orientation-options);
             options: InspectorEnumOptions.orientation-options;
             wide: true;
-            popup-available-height: max(Style.inspector-field.height, root.popup-bottom - self.absolute-position.y - Metrics.space-medium);
             accepted(text) => {
-                return text != "" && InspectorContext.commit-code("orientation", text);
+                return text != "" && InspectorContext.commit-enum("orientation", text);
             }
         }
     }

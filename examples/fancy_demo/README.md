@@ -32,5 +32,5 @@ This example implements a complete widget set from scratch, demonstrating how to
 Open it with the viewer:
 
 ```sh
-cargo run --bin slint-viewer -- examples/fancy_demo/main.slint
+cargo run --bin slint-viewer -- examples/fancy_demo/slint-project.json
 ```

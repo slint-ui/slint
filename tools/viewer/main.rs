@@ -12,7 +12,6 @@ mod remote;
 use clap::Parser;
 use i_slint_compiler::ComponentSelection;
 use i_slint_compiler::project_file::SlintEdition;
-use i_slint_live_preview::live_component::poll_ready;
 use itertools::Itertools;
 use slint_interpreter::{
     CompilationResult, ComponentDefinition, ComponentHandle, ComponentInstance, Value,
@@ -75,7 +74,7 @@ struct Cli {
     #[arg(short = 'L', value_name = "library=path", number_of_values = 1, action)]
     library_paths: Option<Vec<String>>,
 
-    /// The .slint file to load ('-' for stdin)
+    /// The .slint file, project directory, or slint-project.json file to load ('-' for stdin)
     #[arg(name = "path", action, required_unless_present = "remote")]
     path: Option<std::path::PathBuf>,
 
@@ -83,7 +82,7 @@ struct Cli {
         short = 'p',
         long,
         requires = "path",
-        help = "Load project settings from this directory"
+        help = "Load project settings from a directory or slint-project.json file"
     )]
     project_root: Option<std::path::PathBuf>,
 
@@ -110,7 +109,7 @@ struct Cli {
     #[arg(long, value_name = "style name", action)]
     style: Option<String>,
 
-    /// The edition whose language behavior to use, such as '1.19'.
+    /// The edition whose language behavior to use, such as '1.20'.
     /// This wins over the edition of the project file.
     #[arg(long, value_name = "edition", value_parser = SlintEdition::parse_supported)]
     edition: Option<SlintEdition>,
@@ -208,8 +207,13 @@ fn main() -> Result<()> {
     #[cfg(not(all(target_os = "ios", feature = "remote")))]
     let args = Cli::parse();
 
-    if args.project_root.is_some() && args.path.as_ref().is_some_and(|path| path.is_dir()) {
-        eprintln!("A project directory cannot be combined with --project-root");
+    if args.project_root.is_some()
+        && args
+            .path
+            .as_ref()
+            .is_some_and(|path| i_slint_compiler::project_file::project_root(path).is_dir())
+    {
+        eprintln!("A project file or directory cannot be combined with --project-root");
         std::process::exit(2);
     }
 
@@ -279,7 +283,8 @@ fn main() -> Result<()> {
     }
 
     if args.check {
-        let result = poll_ready(init_compiler(&args).build_from_path(args.path()));
+        let result =
+            i_slint_compiler::poll_ready(init_compiler(&args).build_from_path(args.path()));
         result.print_diagnostics();
         std::process::exit(if result.has_errors() { 1 } else { 0 });
     }
@@ -320,7 +325,8 @@ fn main() -> Result<()> {
         let instance = live.borrow().instance().clone_strong();
         instance.run()?;
     } else {
-        let result = poll_ready(init_compiler(&args).build_from_path(args.path()));
+        let result =
+            i_slint_compiler::poll_ready(init_compiler(&args).build_from_path(args.path()));
         result.print_diagnostics();
         if result.has_errors() {
             std::process::exit(-1);

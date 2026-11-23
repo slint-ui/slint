@@ -3,7 +3,7 @@
 
 //! This module contains the GraphicsWindow that used to be within corelib.
 
-// cspell:ignore accesskit borderless corelib nesw webgl winit winsys xlib
+// cspell:ignore accesskit borderless capslock corelib nesw webgl winit winsys xlib
 
 use core::cell::{Cell, RefCell};
 #[cfg(target_os = "macos")]
@@ -178,6 +178,94 @@ fn test_round_up_logical() {
     assert_eq!(round_up_logical(12., 0.2), 13.);
     // 21..=24 all round to 2 physical at scale 0.1; 25 * 0.1 = 2.5 rounds to 3.
     assert_eq!(round_up_logical(21., 0.1), 25.);
+}
+
+/// Clears the window's redirection bitmap to transparent black on `WM_ERASEBKGND`
+/// while the renderer presents with alpha.
+///
+/// GDI, OpenGL, and software rendering present into the redirection bitmap,
+/// and DirectComposition visuals are composited on top of it.
+/// winit's window class has no background brush (see <https://github.com/rust-windowing/winit/issues/2570>),
+/// so Windows never clears the bitmap and it shows through transparent pixels, as white or as resize artifacts.
+/// Creating the window with `no_redirection_bitmap` would avoid that, but only suits DirectX,
+/// and the renderer picks its graphics API after the window exists.
+#[cfg(target_os = "windows")]
+fn subclass_window_for_transparent_erase(
+    winit_window: &winit::window::Window,
+    adapter: Weak<WinitWindowAdapter>,
+) {
+    use raw_window_handle::{HasWindowHandle as _, RawWindowHandle};
+    use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, RECT, WPARAM};
+    use windows::Win32::Graphics::Gdi::{BLACK_BRUSH, FillRect, GetStockObject, HBRUSH, HDC};
+    use windows::Win32::System::Threading::GetCurrentThreadId;
+    use windows::Win32::UI::Shell::{DefSubclassProc, RemoveWindowSubclass, SetWindowSubclass};
+    use windows::Win32::UI::WindowsAndMessaging::{
+        GetClientRect, GetWindowThreadProcessId, WM_ERASEBKGND, WM_NCDESTROY,
+    };
+
+    unsafe extern "system" fn erase_background(
+        hwnd: HWND,
+        msg: u32,
+        wparam: WPARAM,
+        lparam: LPARAM,
+        id: usize,
+        adapter: usize,
+    ) -> LRESULT {
+        let adapter = adapter as *mut Weak<WinitWindowAdapter>;
+        match msg {
+            // SAFETY: `adapter` lives until WM_NCDESTROY, the last message the window receives.
+            WM_ERASEBKGND
+                if unsafe { &*adapter }.upgrade().is_some_and(|adapter| {
+                    adapter.renderer().presentation_may_use_transparency()
+                }) =>
+            {
+                let mut rect = RECT::default();
+                // SAFETY: for WM_ERASEBKGND, `wparam` is the device context to draw into.
+                // <https://learn.microsoft.com/en-us/windows/win32/winmsg/wm-erasebkgnd>
+                unsafe {
+                    if GetClientRect(hwnd, &mut rect).is_ok() {
+                        FillRect(
+                            HDC(wparam.0 as *mut _),
+                            &rect,
+                            HBRUSH(GetStockObject(BLACK_BRUSH).0),
+                        );
+                    }
+                }
+                LRESULT(1)
+            }
+            WM_NCDESTROY => {
+                // SAFETY: WM_NCDESTROY is the last message the window receives, so nothing uses
+                // `adapter` afterwards.
+                // <https://learn.microsoft.com/en-us/windows/win32/winmsg/wm-ncdestroy>
+                unsafe {
+                    let _ = RemoveWindowSubclass(hwnd, Some(erase_background), id);
+                    drop(Box::from_raw(adapter));
+                    DefSubclassProc(hwnd, msg, wparam, lparam)
+                }
+            }
+            // SAFETY: forwards the message unchanged.
+            _ => unsafe { DefSubclassProc(hwnd, msg, wparam, lparam) },
+        }
+    }
+
+    let Ok(handle) = winit_window.window_handle() else { return };
+    let RawWindowHandle::Win32(handle) = handle.as_raw() else { return };
+    let hwnd = HWND(handle.hwnd.get() as *mut _);
+    // SAFETY: neither of these functions have preconditions
+    if unsafe { GetWindowThreadProcessId(hwnd, None) } != unsafe { GetCurrentThreadId() } {
+        i_slint_core::debug_log!(
+            "Slint: not subclassing window for transparency: \
+            called from a different thread than the one that created the window"
+        );
+        return;
+    }
+    let adapter = Box::into_raw(Box::new(adapter));
+    // SAFETY: SetWindowSubclass must run on the thread that created the hwnd, which
+    // is enforced by the thread ID comparison above
+    if !unsafe { SetWindowSubclass(hwnd, Some(erase_background), 0, adapter as usize) }.as_bool() {
+        // SAFETY: the subclass wasn't installed, so it doesn't own `adapter`.
+        drop(unsafe { Box::from_raw(adapter) });
+    }
 }
 
 /// Whether the platform assigns the window its size, so requesting one is pointless.
@@ -688,6 +776,9 @@ impl WinitWindowAdapter {
             self.renderer.resume(active_event_loop, window_attributes, self.self_weak.clone())?;
         self.has_presentable_frame.set(false);
 
+        #[cfg(target_os = "windows")]
+        subclass_window_for_transparent_erase(&winit_window, self.self_weak.clone());
+
         // Push the host shell's color scheme and accent color to the SlintContext.
         // With `xdg_desktop_settings` the backend-wide portal watcher (spawned in
         // `Backend::bind_context`) is responsible for that; we only echo the
@@ -856,6 +947,9 @@ impl WinitWindowAdapter {
         // that's not visible.
         self.shared_backend_data.watch_hidden_window(&last_window_rc);
         self.shared_backend_data.unregister_window(Some(last_window_rc.id()));
+
+        // No event ends the touches that were down on a window that's gone.
+        self.touch_finger_ids.take();
 
         Ok(())
     }
@@ -1237,6 +1331,25 @@ impl WinitWindowAdapter {
         // that we only update the internal maximized state when the window is
         // not minimized. Otherwise, the window would be restored in a
         // non-maximized state even if it was maximized before being minimized.
+        //
+        // On macOS, winit's `is_maximized` temporarily makes a window titled and resizable.
+        // AppKit then moves the window below the menu bar and emits another resize
+        // (rust-windowing/winit#4071).
+        // The user can't zoom a window that lacks either, so the last requested state is accurate.
+        #[cfg(target_os = "macos")]
+        let maximized = if crate::macos::ns_view(&winit_window)
+            .and_then(|view| view.window())
+            .is_some_and(|ns_window| {
+                use objc2_app_kit::NSWindowStyleMask;
+                ns_window
+                    .styleMask()
+                    .contains(NSWindowStyleMask::Titled | NSWindowStyleMask::Resizable)
+            }) {
+            winit_window.is_maximized()
+        } else {
+            self.maximized.get()
+        };
+        #[cfg(not(target_os = "macos"))]
         let maximized = winit_window.is_maximized();
         if !self.window().is_minimized() {
             self.maximized.set(maximized);
@@ -1387,7 +1500,18 @@ impl WinitWindowAdapter {
         match event {
             WinitWindowEvent::RedrawRequested => self.draw()?,
             WinitWindowEvent::Resized(size) => {
-                let resized = self.resize_event(*size);
+                // winit has a bug where it defers a Resize event if it is raised at the same time
+                // as an event handler, which might happen if something's size is responsively
+                // changing while the user is also dragging to resize the window. Then that event
+                // comes back around when the user finishes dragging, but it still has the old size
+                // from the time it was raised.
+                //
+                // TODO: remove this when we have a version of winit featuring the following change:
+                // <https://github.com/rust-windowing/winit/pull/4625>
+                let size =
+                    if cfg!(target_os = "macos") { winit_window.surface_size() } else { *size };
+
+                let resized = self.resize_event(size);
 
                 // Entering fullscreen, maximizing or minimizing the window will
                 // trigger a resize event. We need to update the internal window
@@ -1529,6 +1653,20 @@ impl WinitWindowAdapter {
                 };
 
                 self.dispatch_internal_event(event);
+            }
+            WinitWindowEvent::ModifiersChanged(modifiers) => {
+                // A modifier's release can arrive as a key that doesn't map to the modifier,
+                // such as Shift's `Caps_Lock` level with xkb's `shift:both_capslock_cancel` (#14429).
+                let state = modifiers.state();
+                let mut held = corelib::items::KeyboardModifiers::default();
+                held.alt = state.alt_key();
+                held.shift = state.shift_key();
+                (held.control, held.meta) = if i_slint_core::is_apple_platform() {
+                    (state.super_key(), state.control_key())
+                } else {
+                    (state.control_key(), state.super_key())
+                };
+                WindowInner::from_pub(self.window()).release_modifiers_not_held(held);
             }
             WinitWindowEvent::Ime(winit::event::Ime::Preedit(string, preedit_selection)) => {
                 let event = InternalKeyEvent {
@@ -1873,6 +2011,26 @@ impl WinitWindowAdapter {
         self.pending_redraw.get()
     }
 
+    #[cfg(target_vendor = "apple")]
+    pub(crate) fn has_active_touches(&self) -> bool {
+        self.touch_finger_ids.borrow().has_active_touches()
+    }
+
+    /// Asks the windowing system and updates `Window::is_minimized()` to match,
+    /// because winit's X11 backend emits no event when the window manager minimizes a window.
+    pub(crate) fn is_minimized_on_screen(&self) -> bool {
+        let minimized =
+            self.winit_window().is_some_and(|window| window.is_minimized() == Some(true));
+        if minimized != self.window().is_minimized() {
+            self.window_state_event();
+        }
+        minimized
+    }
+
+    pub(crate) fn cancel_pending_redraw(&self) {
+        self.pending_redraw.set(false);
+    }
+
     pub async fn async_winit_window(
         self_weak: Weak<Self>,
     ) -> Result<Arc<winit::window::Window>, PlatformError> {
@@ -1966,6 +2124,7 @@ impl WindowAdapter for WinitWindowAdapter {
 
     fn request_redraw(&self) {
         if !self.pending_redraw.replace(true)
+            && self.shown.get() != WindowVisibility::Hidden
             && let WinitWindowOrNone::HasWindow { window, frame_throttle, .. } =
                 &*self.winit_window_or_none.borrow()
         {

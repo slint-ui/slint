@@ -47,8 +47,23 @@ pub struct WGPUSurface {
     surface_config: RefCell<Option<wgpu::SurfaceConfiguration>>,
     surface: Option<wgpu::Surface<'static>>,
     textures_to_transition_for_sampling: RefCell<Vec<wgpu::Texture>>,
+    /// The texture that [`Self::flush_and_submit`] makes a color target.
+    color_target_to_transition: RefCell<Option<wgpu::Texture>>,
     pub(crate) backend: Backend,
     alpha_modes: Vec<wgpu::CompositeAlphaMode>,
+}
+
+/// The alpha mode to composite the surface with: a translucent one when the window is
+/// transparent, and `Opaque` when it isn't. Metal (CAMetalLayer) only offers `PostMultiplied`,
+/// so it has to be a fallback. `None` when the surface advertises nothing suitable.
+fn composite_alpha_mode(
+    transparent: bool,
+    advertised: &[wgpu::CompositeAlphaMode],
+) -> Option<wgpu::CompositeAlphaMode> {
+    use wgpu::CompositeAlphaMode::{Opaque, PostMultiplied, PreMultiplied};
+    let wanted: &[wgpu::CompositeAlphaMode] =
+        if transparent { &[PreMultiplied, PostMultiplied] } else { &[Opaque] };
+    wanted.iter().copied().find(|mode| advertised.contains(mode))
 }
 
 impl WGPUSurface {
@@ -67,6 +82,7 @@ impl WGPUSurface {
             Rc::new(SharedWgpuState { instance, adapter, device, queue }),
             surface,
             size,
+            false,
         )
     }
 
@@ -74,6 +90,7 @@ impl WGPUSurface {
         wgpu: Rc<SharedWgpuState>,
         surface: wgpu::Surface<'static>,
         size: PhysicalWindowSize,
+        transparent: bool,
     ) -> Result<Self, PlatformError> {
         let SharedWgpuState { adapter, device, queue, .. } = &*wgpu;
         #[cfg(target_vendor = "apple")]
@@ -99,6 +116,9 @@ impl WGPUSurface {
         // With only `RENDER_ATTACHMENT`, wgpu makes the CAMetalLayer `framebufferOnly`,
         // which breaks Skia reading back the backdrop for backdrop-blur.
         surface_config.usage |= swapchain_capabilities.usages & wgpu::TextureUsages::COPY_SRC;
+        if let Some(mode) = composite_alpha_mode(transparent, &swapchain_capabilities.alpha_modes) {
+            surface_config.alpha_mode = mode;
+        }
 
         // Prefer FIFO modes over the Mailbox that `get_default_config` picks on some backends
         // (it takes the first advertised mode, and DX12 lists Mailbox first), for frame pacing
@@ -108,7 +128,9 @@ impl WGPUSurface {
 
         let error_scope = device.push_error_scope(wgpu::ErrorFilter::Validation);
         surface.configure(device, &surface_config);
-        if let Some(e) = spin_on::spin_on(error_scope.pop()) {
+        if let Some(e) = i_slint_core::graphics::wgpu_30::poll_once(error_scope.pop())
+            .expect("internal error: wgpu error scopes are not expected to be async")
+        {
             return Err(PlatformError::from(format!("Error configuring WGPU surface: {e}")));
         }
 
@@ -124,6 +146,7 @@ impl WGPUSurface {
             surface_config: Some(surface_config).into(),
             surface: Some(surface),
             textures_to_transition_for_sampling: RefCell::new(Vec::new()),
+            color_target_to_transition: Default::default(),
             backend,
             alpha_modes: swapchain_capabilities.alpha_modes,
         })
@@ -143,15 +166,22 @@ impl WGPUSurface {
             surface_config: None.into(),
             surface: None,
             textures_to_transition_for_sampling: RefCell::new(Vec::new()),
+            color_target_to_transition: Default::default(),
             backend,
             alpha_modes: vec![],
         }
     }
 
-    /// Moves `texture` to a color target through wgpu, before Skia draws into it as one.
+    /// Has [`Self::flush_and_submit`] move `texture` to a color target through wgpu,
+    /// ahead of what Skia draws into it as one.
     /// The application may have left it in another layout, such as by sampling it.
     /// Going through wgpu keeps wgpu's record of the layout true, see `release_vulkan_surface`.
-    pub(crate) fn transition_to_color_target(
+    pub(crate) fn transition_to_color_target(&self, texture: &wgpu::Texture) {
+        *self.color_target_to_transition.borrow_mut() = Some(texture.clone());
+    }
+
+    /// Fails if `texture` lacks a usage that Skia needs to draw into it.
+    pub(crate) fn check_color_target_usage(
         &self,
         texture: &wgpu::Texture,
     ) -> Result<(), PlatformError> {
@@ -172,42 +202,38 @@ impl WGPUSurface {
         if !missing.is_empty() {
             return Err(format!("The texture to render into lacks {missing:?} usage").into());
         }
-        let mut encoder =
-            self.wgpu.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("Skia render target transition encoder"),
-            });
-        encoder.transition_resources(
-            std::iter::empty(),
-            std::iter::once(wgpu::TextureTransition {
-                texture,
-                selector: None,
-                state: wgpu::TextureUses::COLOR_TARGET,
-            }),
-        );
-        self.wgpu.queue.submit(Some(encoder.finish()));
         Ok(())
     }
 
-    /// Transitions any imported wgpu textures to sampling state and flushes
-    /// the Skia graphics context. Must be called after rendering to ensure
-    /// Skia's GPU work is submitted.
+    /// Transitions any imported wgpu textures to sampling state,
+    /// and the texture given to [`Self::transition_to_color_target`] to a color target.
+    /// Then submits Skia's GPU work, which the frame's rendering only recorded.
     pub(crate) fn flush_and_submit(
         &self,
         gr_context: &mut skia_safe::gpu::DirectContext,
     ) -> Result<(), PlatformError> {
         let textures_to_transition = self.textures_to_transition_for_sampling.take();
-        if !textures_to_transition.is_empty() {
+        let color_target = self.color_target_to_transition.take();
+        if !textures_to_transition.is_empty() || color_target.is_some() {
             let mut encoder =
                 self.wgpu.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
                     label: Some("Skia texture transition encoder"),
                 });
             encoder.transition_resources(
                 std::iter::empty(),
-                textures_to_transition.iter().map(|texture| wgpu::TextureTransition {
-                    texture,
-                    selector: None,
-                    state: wgpu::TextureUses::RESOURCE,
-                }),
+                textures_to_transition
+                    .iter()
+                    .map(|texture| (texture, wgpu::TextureUses::RESOURCE))
+                    .chain(
+                        color_target
+                            .iter()
+                            .map(|texture| (texture, wgpu::TextureUses::COLOR_TARGET)),
+                    )
+                    .map(|(texture, state)| wgpu::TextureTransition {
+                        texture,
+                        selector: None,
+                        state,
+                    }),
             );
             self.wgpu.queue.submit(Some(encoder.finish()));
         }
@@ -287,6 +313,7 @@ impl crate::Surface for WGPUSurface {
         display_handle: Arc<dyn raw_window_handle::HasDisplayHandle + Send + Sync>,
         size: PhysicalWindowSize,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
+        transparent: bool,
     ) -> Result<Self, PlatformError> {
         let make_target = || -> Box<dyn wgpu::DisplayAndWindowHandle + 'static> {
             Box::new(WindowAndDisplayHandle(window_handle.clone(), display_handle.clone()))
@@ -330,7 +357,7 @@ impl crate::Surface for WGPUSurface {
                     && let Ok(surface) = shared.instance.create_surface(make_target())
                     && shared.adapter.is_surface_supported(&surface)
                 {
-                    match Self::init_with_parts(shared, surface, size) {
+                    match Self::init_with_parts(shared, surface, size, transparent) {
                         Ok(surface) => return Ok(surface),
                         Err(err) => {
                             // The shared device may be lost. Drop it and start over.
@@ -351,7 +378,7 @@ impl crate::Surface for WGPUSurface {
                 i_slint_core::graphics::wgpu_30::default_backends_to_avoid(),
             )?;
         let wgpu = Rc::new(SharedWgpuState { instance, adapter, device, queue });
-        let new_surface = Self::init_with_parts(wgpu.clone(), surface, size)?;
+        let new_surface = Self::init_with_parts(wgpu.clone(), surface, size, transparent)?;
         if !manual_configuration {
             *shared_context.0.wgpu_30_state.borrow_mut() = Rc::downgrade(&wgpu);
         }
@@ -547,13 +574,43 @@ impl crate::Surface for WGPUSurface {
         self.backend.import_texture(canvas, texture)
     }
 
+    fn presentation_may_use_transparency(&self) -> bool {
+        use wgpu::CompositeAlphaMode::{PostMultiplied, PreMultiplied};
+        self.surface_config.try_borrow().ok().is_some_and(|config| {
+            config
+                .as_ref()
+                .is_some_and(|config| matches!(config.alpha_mode, PreMultiplied | PostMultiplied))
+        })
+    }
+
+    fn render_snapshot(
+        &self,
+        size: PhysicalWindowSize,
+        render_callback: &mut dyn FnMut(
+            &skia_safe::Canvas,
+            &mut skia_safe::gpu::DirectContext,
+        ) -> Result<(), PlatformError>,
+    ) -> Option<
+        Result<
+            i_slint_core::graphics::SharedPixelBuffer<i_slint_core::graphics::Rgba8Pixel>,
+            PlatformError,
+        >,
+    > {
+        // A rendering notifier taking a snapshot runs while `render()` holds the context.
+        let gr_context = &mut *self.gr_context.try_borrow_mut().ok()?;
+        Some(crate::render_snapshot_on_gpu(gr_context, size, &mut |canvas, gr_context| {
+            render_callback(canvas, gr_context)?;
+            self.flush_and_submit(gr_context)
+        }))
+    }
+
     fn set_transparent(&self, transparent: bool) -> Result<(), PlatformError> {
-        // `Opaque` discards the scene's alpha; pick a translucent mode if offered.
-        // Metal (CAMetalLayer) only offers `PostMultiplied`, so it must be a fallback.
-        use wgpu::CompositeAlphaMode::{Opaque, PostMultiplied, PreMultiplied};
-        let wanted: &[wgpu::CompositeAlphaMode] =
-            if transparent { &[PreMultiplied, PostMultiplied] } else { &[Opaque] };
-        let Some(mode) = wanted.iter().copied().find(|m| self.alpha_modes.contains(m)) else {
+        // DXGI's `ResizeBuffers`, which wgpu uses to reconfigure a swap chain, can't change
+        // its alpha mode.
+        if self.wgpu.adapter.get_info().backend == wgpu::Backend::Dx12 {
+            return Ok(());
+        }
+        let Some(mode) = composite_alpha_mode(transparent, &self.alpha_modes) else {
             return Ok(());
         };
 

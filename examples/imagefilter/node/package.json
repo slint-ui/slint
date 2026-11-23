@@ -1,6 +1,6 @@
 {
     "name": "imagefilter",
-    "version": "1.19.0",
+    "version": "1.20.0",
     "main": "main.js",
     "type": "module",
     "dependencies": {
@@ -12,7 +12,7 @@
         "typescript": "catalog:"
     },
     "scripts": {
-        "generate": "cargo run --manifest-path ../../../Cargo.toml -p slint-compiler -- -f typescript ../ui/main.slint -o ../ui/main.slint.d.ts",
+        "generate": "cargo run --manifest-path ../../../Cargo.toml -p slint-compiler -- -f typescript ../slint-project.json -o ../ui/main.slint.d.ts",
         "start": "npm run generate && node --import slint-ui/register main.ts",
         "prestart": "cd ../../../api/node/ && pnpm run build && pnpm compile",
         "check": "npm run generate && tsc --noEmit"

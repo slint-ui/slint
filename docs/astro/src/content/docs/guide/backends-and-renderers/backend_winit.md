@@ -28,7 +28,6 @@ The Winit backend supports different renderers. They can be explicitly selected 
 If no renderer is explicitly set, the backend will first try to use the Skia renderer, if it was enabled at compile time.
 If that fails, it will fall back to the FemtoVG renderer, and if that also fails, it will use the software renderer.
 
-
 ## Configuration Options
 
 The Winit backend reads and interprets the following environment variables:
