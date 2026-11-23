@@ -1,0 +1,100 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    in-out property <bool> on: false;
+    in-out property <int> ticks: 0;
+
+    out property <length> x-prop: ticks >= 0 && on ? 200px : 40px;
+    animate x-prop {
+        duration: 1s;
+    }
+
+    in-out property <bool> pulse-on: false;
+    out property <length> pulse: ticks >= 0 && pulse-on ? 200px : 40px;
+    animate pulse {
+        duration: 1s;
+        iteration-count: -1;
+        direction: alternate;
+    }
+
+    Timer {
+        interval: 100ms;
+        running: root.ticks < 3;
+        triggered => {
+            root.ticks += 1;
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_x_prop(), 40.);
+
+// Each tick of the timer changes the `ticks` the binding depends on, but not its value.
+for tick in 1..=3 {
+    slint_testing::mock_elapsed_time(100);
+    assert_eq!(instance.get_ticks(), tick);
+    assert_eq!(instance.get_x_prop(), 40.);
+    assert!(!instance.window().has_active_animations(), "tick {tick} started an animation");
+}
+
+// A change of the value still animates from the value it had.
+instance.set_on(true);
+assert_eq!(instance.get_x_prop(), 40.);
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_x_prop(), 120.);
+assert!(instance.window().has_active_animations());
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_x_prop(), 200.);
+assert!(!instance.window().has_active_animations());
+
+// A dependency change while a repeating animation shows its target keeps the animation running.
+assert_eq!(instance.get_pulse(), 40.);
+instance.set_pulse_on(true);
+assert_eq!(instance.get_pulse(), 40.);
+slint_testing::mock_elapsed_time(1000);
+assert_eq!(instance.get_pulse(), 200.);
+instance.set_ticks(10);
+assert_eq!(instance.get_pulse(), 200.);
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_pulse(), 120.);
+assert!(instance.window().has_active_animations());
+```
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_x_prop(), 40.);
+
+// Each tick of the timer changes the `ticks` the binding depends on, but not its value.
+for (int tick = 1; tick <= 3; ++tick) {
+    slint_testing::mock_elapsed_time(100);
+    assert_eq(instance.get_ticks(), tick);
+    assert_eq(instance.get_x_prop(), 40.);
+    assert(!instance.window().has_active_animations());
+}
+
+// A change of the value still animates from the value it had.
+instance.set_on(true);
+assert_eq(instance.get_x_prop(), 40.);
+slint_testing::mock_elapsed_time(500);
+assert_eq(instance.get_x_prop(), 120.);
+assert(instance.window().has_active_animations());
+slint_testing::mock_elapsed_time(500);
+assert_eq(instance.get_x_prop(), 200.);
+assert(!instance.window().has_active_animations());
+
+// A dependency change while a repeating animation shows its target keeps the animation running.
+assert_eq(instance.get_pulse(), 40.);
+instance.set_pulse_on(true);
+assert_eq(instance.get_pulse(), 40.);
+slint_testing::mock_elapsed_time(1000);
+assert_eq(instance.get_pulse(), 200.);
+instance.set_ticks(10);
+assert_eq(instance.get_pulse(), 200.);
+slint_testing::mock_elapsed_time(500);
+assert_eq(instance.get_pulse(), 120.);
+assert(instance.window().has_active_animations());
+```
+*/
