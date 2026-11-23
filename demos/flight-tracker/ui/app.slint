@@ -192,7 +192,65 @@ component FlapHalf inherits Rectangle {
     }
 }
 
+/// The two halves of a `Flap` without a character, which `Flaps` draws under its flaps.
+component FlapBody {
+    in property <brush> upper;
+    in property <brush> lower;
+    Rectangle {
+        y: 0;
+        height: root.height / 2;
+        border-top-left-radius: 2px;
+        border-top-right-radius: 2px;
+        background: root.upper;
+    }
+
+    Rectangle {
+        y: root.height / 2;
+        height: root.height / 2;
+        border-bottom-left-radius: 2px;
+        border-bottom-right-radius: 2px;
+        background: root.lower;
+    }
+
+    Rectangle {
+        y: 0;
+        height: 1px;
+        border-top-left-radius: 2px;
+        border-top-right-radius: 2px;
+        background: #ffffff1c;
+    }
+}
+
+/// The hinge of a `Flap`, which `Flaps` draws over its flaps.
+component FlapHinge {
+    in property <length> size;
+    Rectangle {
+        y: (root.height - self.height) / 2;
+        height: 1px;
+        // Fainter through small characters, which it would otherwise cut in half.
+        background: root.size < 16px ? #00000080 : #000000d0;
+    }
+
+    // The light that the edge of the lower half catches.
+    if root.size >= 20px: Rectangle {
+        y: root.height / 2 + 0.5px;
+        height: 1px;
+        background: #ffffff16;
+    }
+
+    // The notches at both ends of the hinge, where the housing holds the flaps and shows through.
+    for side in (root.size >= 20px ? 2 : 0): Rectangle {
+        x: side == 0 ? 0 : root.width - self.width;
+        y: (root.height - self.height) / 2;
+        width: max(2px, root.size * 0.1);
+        height: max(4px, root.size * 0.22);
+        background: Theme.surface;
+    }
+}
+
 /// One flap of `Flaps`, which flips when its text changes.
+/// At rest, it draws its character alone: `Flaps` draws what stays the same for all of its flaps,
+/// the `FlapBody` under it and the `FlapHinge` over it, once.
 component Flap {
     in property <string> text;
     /// How long the flap shows a text before it flips to a newer one.
@@ -224,7 +282,19 @@ component Flap {
         }
     }
 
-    FlapHalf {
+    if root.t >= 1: Text {
+        width: 100%;
+        height: 100%;
+        text: root.shown;
+        color: root.ink;
+        font-family: "JetBrains Mono NL";
+        font-size: root.size;
+        font-weight: 700;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    if root.t < 1: FlapHalf {
         y: 0;
         height: root.height / 2;
         background: root.upper;
@@ -234,7 +304,7 @@ component Flap {
         ink: root.ink;
     }
 
-    FlapHalf {
+    if root.t < 1: FlapHalf {
         y: root.height / 2;
         height: root.height / 2;
         lower: true;
@@ -270,43 +340,11 @@ component Flap {
         transform-origin: { x: 0, y: 0 };
         transform-scale-y: (2 * root.t - 1) * 100%;
     }
-    // The hinge.
-    Rectangle {
-        y: (root.height - self.height) / 2;
-        height: 1px;
-        // Fainter through small characters, which it would otherwise cut in half.
-        background: root.size < 16px ? #00000080 : #000000d0;
-    }
-
-    Rectangle {
-        y: 0;
-        height: 1px;
-        border-top-left-radius: 2px;
-        border-top-right-radius: 2px;
-        background: #ffffff1c;
-    }
-
-    // The light that the edge of the lower half catches.
-    if root.size >= 20px: Rectangle {
-        y: root.height / 2 + 0.5px;
-        height: 1px;
-        background: #ffffff16;
-    }
-
-    // The notches at both ends of the hinge, where the housing holds the flaps and shows through.
-    for side in (root.size >= 20px ? 2 : 0): Rectangle {
-        x: side == 0 ? 0 : root.width - self.width;
-        y: (root.height - self.height) / 2;
-        width: max(2px, root.size * 0.1);
-        height: max(4px, root.size * 0.22);
-        background: Theme.surface;
-    }
 }
 
 /// Text on a split-flap display, as on an airport's departures board.
 /// Each character has a flap of its own, which flips when that character changes.
 component Flaps {
-    cache-rendering-hint: root.flipping;
     in property <string> text;
     in property <length> size: 16px;
     in property <color> color: Theme.flap-ink;
@@ -329,9 +367,17 @@ component Flaps {
     property <string> held;
     property <string> shown: self.flipping ? self.text : self.held;
     property <int> length: self.shown.character-count;
-    property <int> count: self.whole ? 1 : max(1, max(self.places, self.length));
+    property <int> wanted: self.whole ? 1 : max(1, max(self.places, self.length));
+    // The number of flaps, which is only set when it changes: a binding would tell the flaps
+    // that it may have changed whenever the text does, and the images of the flaps without
+    // their characters would be drawn again each time.
+    property <int> count;
     init => {
         self.held = self.text;
+        self.count = self.wanted;
+    }
+    changed wanted => {
+        self.count = self.wanted;
     }
     // When all of the flaps flip, each one starts a little after the one on its left.
     property <duration> flip-duration: self.flip / (1 + (self.count - 1) * 0.15);
@@ -357,13 +403,13 @@ component Flaps {
         font-weight: 700;
     }
 
-    if !root.flipping: Rectangle {
+    // The flaps without their characters stay as they are, so they're drawn once.
+    Rectangle {
         cache-rendering-hint: true;
-        for index in root.count: Flap {
+        for index in root.count: FlapBody {
             x: index * (root.flap-width + 2px);
             width: root.flap-width;
             height: root.height;
-            size: root.size;
             upper: root.lit ? Theme.lit-upper : Theme.flap-upper;
             lower: root.lit ? Theme.lit-lower : Theme.flap-lower;
         }
@@ -392,6 +438,17 @@ component Flaps {
         ink: root.lit ? Theme.on-highlight : root.color;
         upper: root.lit ? Theme.lit-upper : Theme.flap-upper;
         lower: root.lit ? Theme.lit-lower : Theme.flap-lower;
+    }
+
+    // So do the hinges, over the characters.
+    Rectangle {
+        cache-rendering-hint: true;
+        for index in root.count: FlapHinge {
+            x: index * (root.flap-width + 2px);
+            width: root.flap-width;
+            height: root.height;
+            size: root.size;
+        }
     }
 }
 
