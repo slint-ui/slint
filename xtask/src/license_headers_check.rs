@@ -493,6 +493,10 @@ static LICENSE_LOCATION_FOR_FILE: LazyLock<Vec<(regex::Regex, LicenseLocation)>>
             ("^\\.github/.*\\.md$", LicenseLocation::NoLicense),
             ("^\\.mailmap$", LicenseLocation::NoLicense),
             ("^\\.mise/tasks/", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+            (
+                "^ai-plugins/mcp/guidance/examples/music-player/.*\\.slint$",
+                LicenseLocation::NoLicense,
+            ),
             ("^docs/reference/Pipfile$", LicenseLocation::NoLicense),
             ("^docs/reference/conf\\.py$", LicenseLocation::NoLicense),
             ("^editors/vscode/src/snippets\\.ts$", LicenseLocation::NoLicense), // liberal license

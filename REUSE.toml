@@ -246,6 +246,8 @@ path = [
   "ai-plugins/mcp/.claude-plugin/*.json",
   "ai-plugins/.cursor-plugin/*.json",
   "ai-plugins/**/*.md",
+  # Keep license metadata here so AI agents don't copy headers from the example into user projects.
+  "ai-plugins/mcp/guidance/examples/music-player/**",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
