@@ -1400,6 +1400,7 @@ impl GlyphRenderer for QtItemRenderer<'_> {
         synthesis: &fontique::Synthesis,
         brush: Self::PlatformBrush,
         y_offset: sharedparley::PhysicalLength,
+        _baseline: sharedparley::PhysicalLength,
         glyphs_it: &mut dyn Iterator<Item = sharedparley::parley::layout::Glyph>,
     ) {
         let stroke = matches!(brush, GlyphBrush::Stroke(_));

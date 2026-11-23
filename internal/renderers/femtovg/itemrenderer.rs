@@ -1059,6 +1059,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
         synthesis: &fontique::Synthesis,
         mut brush: Self::PlatformBrush,
         y_offset: sharedparley::PhysicalLength,
+        _baseline: sharedparley::PhysicalLength,
         glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph>,
     ) {
         let font_id = font_cache::FONT_CACHE.with(|cache| cache.borrow_mut().font(font));
