@@ -186,7 +186,7 @@ impl SkiaWGPU30Renderer {
     /// `Rgba8Unorm` and `Rgba8UnormSrgb` are supported on all backends,
     /// and `Bgra8Unorm` on Metal and Vulkan too.
     pub fn render_to_texture(&self, texture: &wgpu_30::Texture) -> Result<(), PlatformError> {
-        self.render_to_target_transformed(&self.render_target(texture)?, 0., (0., 0.))
+        self.render_to_target_transformed(&self.render_target(texture)?, 0, 0., (0., 0.))
     }
 }
 
@@ -220,12 +220,21 @@ pub trait SkiaWGPU30RendererExt {
     /// and rotates the scene by `rotation_angle_degrees` around the origin
     /// and then moves it by `translation`,
     /// for a screen mounted in a different orientation than the window's.
+    ///
+    /// `back_buffer_age` is how many frames ago the frame that `target` holds was rendered,
+    /// or 0 when that's unknown, as in `EGL_EXT_buffer_age`.
+    /// With partial rendering enabled, only what changed since then is repainted.
     fn render_to_target_transformed(
         &self,
         target: &SkiaWGPU30RenderTarget,
+        back_buffer_age: u8,
         rotation_angle_degrees: f32,
         translation: (f32, f32),
     ) -> Result<(), PlatformError>;
+
+    /// Repaints only what changed in each frame,
+    /// for targets whose age [`Self::render_to_target_transformed`] gets.
+    fn enable_partial_rendering(&mut self);
 }
 
 #[doc(hidden)]
@@ -247,6 +256,7 @@ impl SkiaWGPU30RendererExt for SkiaWGPU30Renderer {
     fn render_to_target_transformed(
         &self,
         target: &SkiaWGPU30RenderTarget,
+        back_buffer_age: u8,
         rotation_angle_degrees: f32,
         translation: (f32, f32),
     ) -> Result<(), PlatformError> {
@@ -270,7 +280,7 @@ impl SkiaWGPU30RendererExt for SkiaWGPU30Renderer {
             rotation_angle_degrees,
             translation,
             Some(gr_context),
-            0,
+            back_buffer_age,
             Some(&*surface),
             window,
             true,
@@ -283,6 +293,10 @@ impl SkiaWGPU30RendererExt for SkiaWGPU30Renderer {
         surface.flush_and_submit(gr_context)?;
 
         Ok(())
+    }
+
+    fn enable_partial_rendering(&mut self) {
+        crate::SkiaRendererExt::enable_partial_rendering(&mut self.renderer);
     }
 }
 
