@@ -128,7 +128,7 @@ fn process_project(
     args: &Cli,
 ) -> BuildDiagnostics {
     let mut diag = BuildDiagnostics::default();
-    let (input, _) = poll_ready(project_file::load_input(
+    let (input, _) = i_slint_compiler::poll_ready(project_file::load_input(
         &SourcePath::File(path.into()),
         None,
         None,
@@ -141,7 +141,12 @@ fn process_project(
         .expect("load_input returns the project file of a project directory")
         .into_compiler_configuration(OutputFormat::Llr);
     let mut loader = TypeLoader::new(config, &mut diag);
-    poll_ready(loader.load_file(&input.source, input.source_code, false, &mut diag));
+    i_slint_compiler::poll_ready(loader.load_file(
+        &input.source,
+        input.source_code,
+        false,
+        &mut diag,
+    ));
 
     let mut documents =
         loader.all_file_documents().filter(|(path, _)| !path.is_builtin()).collect::<Vec<_>>();
@@ -154,15 +159,6 @@ fn process_project(
         visit_node(document.clone().into(), messages, None, &file, args);
     }
     diag
-}
-
-/// Runs a compiler future that has no file loader, so it completes on the first poll.
-fn poll_ready<F: std::future::Future>(future: F) -> F::Output {
-    let mut context = std::task::Context::from_waker(std::task::Waker::noop());
-    let std::task::Poll::Ready(result) = std::pin::pin!(future).poll(&mut context) else {
-        unreachable!("the compiler returned Pending without a file loader")
-    };
-    result
 }
 
 fn visit_node(

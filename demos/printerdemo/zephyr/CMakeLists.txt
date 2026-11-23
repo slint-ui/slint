@@ -21,8 +21,6 @@ elseif(BOARD STREQUAL "rza3m_ek")
     # The panel is mounted in portrait orientation, so the software renderer turns the user
     # interface by a quarter. See SLINT_ZEPHYR_PANEL_ROTATION in slint-zephyr.cpp.
     set(SLINT_ZEPHYR_PANEL_ROTATION 90)
-    # This display driver consumes native endian RGB 565 pixel data.
-    set(SLINT_ZEPHYR_RGB565_NATIVE_ENDIAN 1)
 else()
     # See rustc --print target-list for available targets. Match that up with you supported board
     # https://docs.zephyrproject.org/latest/boards

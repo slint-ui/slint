@@ -24,6 +24,8 @@ mod minimal_software_window;
 #[cfg(feature = "path")]
 mod path;
 mod scene;
+mod simd;
+mod target_pixel;
 
 pub use self::api::*;
 use self::box_shadow::{BoxShadowCommand, process_drop_shadow};
@@ -2538,13 +2540,12 @@ impl<'a, T: RasterCommandSink> SoftwareItemRenderer<'a, T> {
                 };
 
                 let orig = image_inner.size().cast::<f32>();
-                let svg_target_size = if tiled.is_some() {
-                    euclid::size2(orig.width * source_to_target_x, orig.height * source_to_target_y)
-                        .round()
-                        .cast()
-                } else {
-                    target_rect.size.cast()
-                };
+                let svg_target_size = euclid::size2(
+                    orig.width * source_to_target_x,
+                    orig.height * source_to_target_y,
+                )
+                .round()
+                .cast();
                 if let Some(buffer) = image_inner.render_to_buffer(Some(svg_target_size)) {
                     let buf_size = buffer.size().cast::<f32>();
 
@@ -3702,10 +3703,6 @@ impl<T: RasterCommandSink> sharedparley::GlyphRenderer for SoftwareItemRenderer<
         let physical_clip = physical_clip.cast::<i32>();
 
         for positioned_glyph in glyphs_it {
-            let Some(id) = std::num::NonZero::new(positioned_glyph.id as u16) else {
-                continue;
-            };
-
             // Absolute, sub-pixel-accurate device position of the pen for this glyph.
             let abs_x = global_offset.x + positioned_glyph.x;
             let abs_y = global_offset.y + positioned_glyph.y + y_offset.get();
@@ -3721,7 +3718,7 @@ impl<T: RasterCommandSink> sharedparley::GlyphRenderer for SoftwareItemRenderer<
             let subpixel_bin = quantized_x.rem_euclid(SUBPIXEL_BINS) as u8;
 
             let Some(glyph) = font.render_vector_glyph(
-                id,
+                positioned_glyph.id as u16,
                 subpixel_bin,
                 brush.stroke,
                 Some(text_rgb),

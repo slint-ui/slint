@@ -61,6 +61,14 @@ bind_java_type! {
             name = "font_scale",
             sig = () -> jfloat,
         },
+        fn horizontal_scroll_factor {
+            name = "horizontal_scroll_factor",
+            sig = () -> jfloat,
+        },
+        fn vertical_scroll_factor {
+            name = "vertical_scroll_factor",
+            sig = () -> jfloat,
+        },
         fn get_clipboard {
             name = "get_clipboard",
             sig = () -> JString,
@@ -645,6 +653,14 @@ impl JavaHelper {
 
     pub fn font_scale(&self) -> Result<f32, jni::errors::Error> {
         self.with_jni_env(|env, helper| helper.font_scale(env))
+    }
+
+    /// Returns the horizontal and vertical distance that one notch of a mouse wheel scrolls,
+    /// in physical pixels.
+    pub fn scroll_factors(&self) -> Result<(f32, f32), jni::errors::Error> {
+        self.with_jni_env(|env, helper| {
+            Ok((helper.horizontal_scroll_factor(env)?, helper.vertical_scroll_factor(env)?))
+        })
     }
 
     /// Sets the motion preference of `ctx` to reduced when Android doesn't run animators,

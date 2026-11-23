@@ -47,6 +47,8 @@ pub struct WGPUSurface {
     surface_config: RefCell<Option<wgpu::SurfaceConfiguration>>,
     surface: Option<wgpu::Surface<'static>>,
     textures_to_transition_for_sampling: RefCell<Vec<wgpu::Texture>>,
+    /// The texture that [`Self::flush_and_submit`] makes a color target.
+    color_target_to_transition: RefCell<Option<wgpu::Texture>>,
     pub(crate) backend: Backend,
     alpha_modes: Vec<wgpu::CompositeAlphaMode>,
 }
@@ -126,7 +128,9 @@ impl WGPUSurface {
 
         let error_scope = device.push_error_scope(wgpu::ErrorFilter::Validation);
         surface.configure(device, &surface_config);
-        if let Some(e) = spin_on::spin_on(error_scope.pop()) {
+        if let Some(e) = i_slint_core::graphics::wgpu_30::poll_once(error_scope.pop())
+            .expect("internal error: wgpu error scopes are not expected to be async")
+        {
             return Err(PlatformError::from(format!("Error configuring WGPU surface: {e}")));
         }
 
@@ -142,6 +146,7 @@ impl WGPUSurface {
             surface_config: Some(surface_config).into(),
             surface: Some(surface),
             textures_to_transition_for_sampling: RefCell::new(Vec::new()),
+            color_target_to_transition: Default::default(),
             backend,
             alpha_modes: swapchain_capabilities.alpha_modes,
         })
@@ -161,15 +166,22 @@ impl WGPUSurface {
             surface_config: None.into(),
             surface: None,
             textures_to_transition_for_sampling: RefCell::new(Vec::new()),
+            color_target_to_transition: Default::default(),
             backend,
             alpha_modes: vec![],
         }
     }
 
-    /// Moves `texture` to a color target through wgpu, before Skia draws into it as one.
+    /// Has [`Self::flush_and_submit`] move `texture` to a color target through wgpu,
+    /// ahead of what Skia draws into it as one.
     /// The application may have left it in another layout, such as by sampling it.
     /// Going through wgpu keeps wgpu's record of the layout true, see `release_vulkan_surface`.
-    pub(crate) fn transition_to_color_target(
+    pub(crate) fn transition_to_color_target(&self, texture: &wgpu::Texture) {
+        *self.color_target_to_transition.borrow_mut() = Some(texture.clone());
+    }
+
+    /// Fails if `texture` lacks a usage that Skia needs to draw into it.
+    pub(crate) fn check_color_target_usage(
         &self,
         texture: &wgpu::Texture,
     ) -> Result<(), PlatformError> {
@@ -190,42 +202,38 @@ impl WGPUSurface {
         if !missing.is_empty() {
             return Err(format!("The texture to render into lacks {missing:?} usage").into());
         }
-        let mut encoder =
-            self.wgpu.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("Skia render target transition encoder"),
-            });
-        encoder.transition_resources(
-            std::iter::empty(),
-            std::iter::once(wgpu::TextureTransition {
-                texture,
-                selector: None,
-                state: wgpu::TextureUses::COLOR_TARGET,
-            }),
-        );
-        self.wgpu.queue.submit(Some(encoder.finish()));
         Ok(())
     }
 
-    /// Transitions any imported wgpu textures to sampling state and flushes
-    /// the Skia graphics context. Must be called after rendering to ensure
-    /// Skia's GPU work is submitted.
+    /// Transitions any imported wgpu textures to sampling state,
+    /// and the texture given to [`Self::transition_to_color_target`] to a color target.
+    /// Then submits Skia's GPU work, which the frame's rendering only recorded.
     pub(crate) fn flush_and_submit(
         &self,
         gr_context: &mut skia_safe::gpu::DirectContext,
     ) -> Result<(), PlatformError> {
         let textures_to_transition = self.textures_to_transition_for_sampling.take();
-        if !textures_to_transition.is_empty() {
+        let color_target = self.color_target_to_transition.take();
+        if !textures_to_transition.is_empty() || color_target.is_some() {
             let mut encoder =
                 self.wgpu.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
                     label: Some("Skia texture transition encoder"),
                 });
             encoder.transition_resources(
                 std::iter::empty(),
-                textures_to_transition.iter().map(|texture| wgpu::TextureTransition {
-                    texture,
-                    selector: None,
-                    state: wgpu::TextureUses::RESOURCE,
-                }),
+                textures_to_transition
+                    .iter()
+                    .map(|texture| (texture, wgpu::TextureUses::RESOURCE))
+                    .chain(
+                        color_target
+                            .iter()
+                            .map(|texture| (texture, wgpu::TextureUses::COLOR_TARGET)),
+                    )
+                    .map(|(texture, state)| wgpu::TextureTransition {
+                        texture,
+                        selector: None,
+                        state,
+                    }),
             );
             self.wgpu.queue.submit(Some(encoder.finish()));
         }
