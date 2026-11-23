@@ -1269,6 +1269,7 @@ impl GlyphRenderer for SkiaItemRenderer<'_> {
         synthesis: &fontique::Synthesis,
         brush: Self::PlatformBrush,
         y_offset: sharedparley::PhysicalLength,
+        _baseline: sharedparley::PhysicalLength,
         glyphs_it: &mut dyn Iterator<Item = sharedparley::parley::layout::Glyph>,
     ) {
         let Some(type_face) = crate::font_cache::FONT_CACHE

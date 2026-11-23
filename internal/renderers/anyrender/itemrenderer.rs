@@ -814,23 +814,24 @@ impl<'a, S: PaintScene> GlyphRenderer for AnyrenderItemRenderer<'a, S> {
         synthesis: &fontique::Synthesis,
         brush: Self::PlatformBrush,
         y_offset: sharedparley::PhysicalLength,
+        baseline: sharedparley::PhysicalLength,
         glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph>,
     ) {
-        let glyphs: Vec<_> =
-            glyphs_it.map(|g| anyrender::Glyph { id: g.id, x: g.x, y: g.y }).collect();
         let mut transform = self
             .current_state
             .transform
             .then_translate(kurbo::Vec2::new(0., y_offset.get() as f64));
         // Faux italic (#10178). Not `glyph_transform`, which vello applies inconsistently:
         // in Y-up space to outline and COLR glyphs, but in Y-down image space to bitmap glyphs.
-        if let (Some(degrees), Some(first)) = (synthesis.skew(), glyphs.first()) {
-            let baseline = first.y as f64;
+        if let Some(degrees) = synthesis.skew() {
+            let baseline = baseline.get() as f64;
             transform = transform
                 * kurbo::Affine::translate((0., baseline))
                 * kurbo::Affine::skew(-degrees.to_radians().tan() as f64, 0.0)
                 * kurbo::Affine::translate((0., -baseline));
         }
+        let glyphs: Vec<_> =
+            glyphs_it.map(|g| anyrender::Glyph { id: g.id, x: g.x, y: g.y }).collect();
         self.scene.draw_glyphs(
             font,
             font_size.get(),
