@@ -7,6 +7,8 @@ This extension for VS Code adds support for the [Slint](https://slint.dev) desig
 -   Syntax highlighting
 -   Diagnostics from .slint files
 -   Live Preview of a .slint file
+-   Slint documentation, UI checks, and interactive previews in Copilot Chat.
+    The preview server requires Node.js 24 on your PATH.
 -   Completion of properties
 -   Jump to definition (currently, only definition of Component)
 -   Rename refactoring across `.slint` files.
@@ -71,8 +73,6 @@ If you want to load the web extension, add `--extensionDevelopmentKind=web`
 To create a `.vsix` package for local installation:
 
 1. Follow the setup steps above to build the lsp binary and install npm dependencies.
-   If `vsce` reports `Cannot create a string longer than` while scanning a large debug binary,
-   rebuild it with `cargo build -p slint-lsp --features renderer-skia --config 'profile.dev.strip="debuginfo"'`.
 
 2. Create a `.vsix` package from `editors/vscode`.
 
@@ -88,7 +88,7 @@ code --install-extension slint-*.vsix
 
 4. Reload your VS code windows
 
-To try the bundled Slint tools, open a Slint project in desktop VS Code with Copilot Chat enabled and Node.js 24 on your PATH.
+To try the bundled Slint tools, open a Slint project in desktop VS Code with Copilot Chat enabled.
 Run `MCP: List Servers` and look for `slint-docs` and `slint-preview`.
 In an agent chat, ask “Use the Slint tools to check this file and show its interactive preview.”
 The checker runs locally and returns a PNG.
