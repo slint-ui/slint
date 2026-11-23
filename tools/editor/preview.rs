@@ -3009,7 +3009,7 @@ fn set_current_style(style: String) {
     PREVIEW_STATE.with_borrow(move |preview_state| {
         if let Some(api) = preview_state.api.upgrade() {
             use slint::Model;
-            if let Some(index) = api.get_known_styles().iter().position(|s| s.as_str() == style) {
+            if let Some(index) = api.get_known_styles().iter().position(|s| s.value == style) {
                 api.set_current_style_index(index as i32);
             }
         }
@@ -3023,7 +3023,7 @@ pub fn get_current_style() -> String {
             let index = api.get_current_style_index();
             api.get_known_styles()
                 .row_data(usize::try_from(index).unwrap_or(0))
-                .map(|s| s.to_string())
+                .map(|s| s.value.to_string())
                 .unwrap_or_default()
         } else {
             String::new()

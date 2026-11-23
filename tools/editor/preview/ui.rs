@@ -154,7 +154,11 @@ pub fn initialize_editor(
 
     let style_model = Rc::new({
         let model = VecModel::default();
-        model.extend(known_styles.iter().map(|s| SharedString::from(*s)));
+        model.extend(
+            known_styles
+                .iter()
+                .map(|s| InspectorComboOption { value: (*s).into(), label: (*s).into() }),
+        );
         assert!(model.row_count() > 1);
         model
     });

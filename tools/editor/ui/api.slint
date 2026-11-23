@@ -3,6 +3,7 @@
 
 import { PropertyValue } from "properties.slint";
 import { Range, ElementInformation } from "editor-types.slint";
+import { InspectorComboOption } from "components/inspector/control-data.slint";
 export { Range, ElementInformation } from "editor-types.slint";
 
 export enum CoordinateSpace { Root, Parent }
@@ -347,7 +348,7 @@ export global Api {
 
     // ## Style:
     // All the known styles
-    in property <[string]> known-styles;
+    in property <[InspectorComboOption]> known-styles;
     // The index of the current style within `known-styles`
     in-out property <int> current-style-index;
     // control, but command on macOS

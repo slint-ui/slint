@@ -3,15 +3,19 @@
 
 import { Metrics, Colors, Typography } from "../style.slint";
 import { ViewerControls } from "viewer-controls.slint";
+import { InspectorComboBox } from "inspector/combo-box.slint";
 import { Api, EditorSurfaceMode } from "../api.slint";
 import { Diagnostics } from "../diagnostics.slint";
 import { Preview } from "../preview.slint";
+import { Properties } from "../properties.slint";
 
 import { Project } from "../project.slint";
 
 export component EditorTopBar inherits Rectangle {
+    private property <length> trailing-width: root.width -(style-combobox.visible ? style-combobox.x : viewer.x);
+
     HorizontalLayout {
-        x: viewer.width + Metrics.space-large;
+        x: root.trailing-width + Metrics.space-large;
         width: max(0px, parent.width - 2 * self.x);
         alignment: center;
         cross-axis-alignment: center;
@@ -22,6 +26,21 @@ export component EditorTopBar inherits Rectangle {
             font-size: Typography.body.size;
             vertical-alignment: center;
             overflow: elide;
+        }
+    }
+
+    style-combobox := InspectorComboBox {
+        x: viewer.x - self.width - Metrics.space-medium;
+        y: (parent.height - self.height) / 2;
+        visible: Api.uses-widgets;
+        accessible-name: @tr("Style");
+        value: Api.known-styles[Api.current-style-index].label;
+        selected-index: Api.current-style-index;
+        options: Api.known-styles;
+        accepted(style) => {
+            Api.current-style-index = Properties.combo-option-index(style, Api.known-styles);
+            Api.style-changed();
+            return true;
         }
     }
 
