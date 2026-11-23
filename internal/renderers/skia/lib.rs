@@ -446,7 +446,8 @@ pub struct SkiaRenderer {
     pre_present_callback: RefCell<Option<Box<dyn FnMut()>>>,
     partial_rendering_state: Option<PartialRenderingState>,
     dirty_region_debug_mode: DirtyRegionDebugMode,
-    /// Tracking dirty regions indexed by buffer age - 1. More than 3 back buffers aren't supported, but also unlikely to happen.
+    /// The dirty regions of the last frames, most recent first.
+    /// A buffer of age n misses the first n - 1, so ages above 4 get a full repaint.
     dirty_region_history: RefCell<[DirtyRegion; 3]>,
     shared_context: SkiaSharedContext,
 }
@@ -860,7 +861,7 @@ impl SkiaRenderer {
                 let mut dirty_region_history = self.dirty_region_history.borrow_mut();
 
                 let buffer_dirty_region = if back_buffer_age > 0
-                    && back_buffer_age as usize - 1 < dirty_region_history.len()
+                    && back_buffer_age as usize - 1 <= dirty_region_history.len()
                 {
                     // The dirty region is the union of all the previous dirty regions
                     Some(
