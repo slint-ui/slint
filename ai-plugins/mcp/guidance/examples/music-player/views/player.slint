@@ -5,12 +5,17 @@ export enum RepeatMode { off, track, playlist }
 
 export global Player {
     callback change-repeat(mode: RepeatMode);
+    change-repeat(mode) => {
+        repeat = mode;
+    }
+
+    in-out property <RepeatMode> repeat: RepeatMode.off;
 }
 
 export component PlayerView inherits FocusScope {
     callback back();
 
-    init => { self.focus(); }
+    forward-focus: back;
 
     KeyBinding {
         keys: @keys(Escape);
@@ -20,15 +25,26 @@ export component PlayerView inherits FocusScope {
     HorizontalLayout {
         padding: Metrics.panel-padding;
         spacing: Metrics.gap;
+        alignment: LayoutAlignment.center;
+        cross-axis-alignment: CrossAxisAlignment.center;
 
-        Button {
+        back := Button {
             text: @tr("Back");
             clicked => { root.back(); }
         }
 
-        Button {
+        repeat := Button {
             text: @tr("Repeat track");
             clicked => { Player.change-repeat(RepeatMode.track); }
         }
     }
+
+    states [
+        repeat-track when Player.repeat == RepeatMode.track: {
+            repeat.text: @tr("Repeat Playlist");
+        }
+        repeat-playlist when Player.repeat == RepeatMode.playlist: {
+            repeat.text: @tr("Disable Repeat");
+        }
+    ]
 }

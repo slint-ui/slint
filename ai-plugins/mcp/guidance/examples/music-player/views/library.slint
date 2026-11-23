@@ -9,7 +9,7 @@ export global Library {
 export component LibraryView inherits FocusScope {
     callback play();
 
-    init => { self.focus(); }
+    forward-focus: play;
 
     KeyBinding {
         keys: @keys(Delete);
@@ -19,8 +19,10 @@ export component LibraryView inherits FocusScope {
     HorizontalLayout {
         padding: Metrics.panel-padding;
         spacing: Metrics.gap;
+        alignment: LayoutAlignment.center;
+        cross-axis-alignment: CrossAxisAlignment.center;
 
-        Button {
+        play := Button {
             text: @tr("Play");
             clicked => { root.play(); }
         }
