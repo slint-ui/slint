@@ -2,11 +2,12 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
-## [1.19.1] - 2026-11-23
+## [1.19.1] - 2026-11-24
 
  - AI plugins: Codex shows an interactive preview of your Slint UI inline, which you can open fullscreen.
-   In Codex and Claude Code, the agent compiles and renders your Slint code,
+   In Codex, Claude Code, and GitHub Copilot, the agent compiles and renders your Slint code,
    so it can fix errors and review a screenshot.
+   The VS Code extension sets up the plugin for GitHub Copilot.
  - Fixed two-way bindings to model fields whose names contain `_`. (#15031)
  - `TextInput`, `TextEdit`: A multi-line input no longer selects all its text when focused with Tab.
  - `ListView`: Fixed an empty view after setting `content-y` past the end of its rows.
@@ -21,11 +22,13 @@ All notable changes to this project are documented in this file.
    and looking blocky with the software renderer.
  - Qt: Fixed input methods replacing the wrong text around the cursor.
  - Windows: The `SystemTrayIcon` is added again after Explorer restarts. (#14839)
+ - winit: Fixed a panic and a wrong window size when the display scale changed after `Window::set_size()`
+   with a physical size. (#15092)
  - macOS: Fixed a crash when creating a `SystemTrayIcon` without a window, such as with the testing backend.
  - Android: Fixed a panic when turning a mouse wheel.
  - Rust: Fixed building the Skia renderer with `unstable-wgpu-29` as the only wgpu version.
  - Rust: The `slint` crate includes the Slint agent skill, for tools that load skills from dependencies.
- - C++: Including `slint.h` no longer warns with `-Wpedantic` or `-Wextra-semi`.
+ - C++: Fixed some `-Wpedantic` and `-Wextra-semi` warnings in Slint's headers.
  - C++: Fixed a crash on bare-metal Arm targets, where some enums had a different size in Rust and in C++.
  - Node.js: Fixed `show()` and `hide()` throwing on components inheriting `SystemTrayIcon`.
  - Python: Added `Window.take_snapshot()`.
