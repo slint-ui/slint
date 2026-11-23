@@ -8,7 +8,6 @@ This extension for VS Code adds support for the [Slint](https://slint.dev) desig
 -   Diagnostics from .slint files
 -   Live Preview of a .slint file
 -   Slint documentation, UI checks, and interactive previews in Copilot Chat.
-    The preview server requires Node.js 24 on your PATH.
 -   Completion of properties
 -   Jump to definition (currently, only definition of Component)
 -   Rename refactoring across `.slint` files.

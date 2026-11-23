@@ -262,13 +262,14 @@ export function activate(context: vscode.ExtensionContext) {
                     ),
                     new McpStdioServerDefinition(
                         "slint-preview",
-                        "node",
+                        process.execPath,
                         [
                             context.asAbsolutePath(
                                 "out/mcp/slint-preview/server.mjs",
                             ),
                         ],
-                        undefined,
+                        // Desktop VS Code needs this flag to run its executable as Node.js.
+                        { ELECTRON_RUN_AS_NODE: "1" },
                         version,
                     ),
                 ],
