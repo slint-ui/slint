@@ -21,8 +21,8 @@ use crate::item_rendering::CachedRenderingData;
 use crate::items::ImageFit;
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{
-    LogicalBorderRadius, LogicalLength, LogicalPx, LogicalRect, LogicalSize, LogicalVector,
-    RectLengths,
+    LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalPx, LogicalRect, LogicalSize,
+    LogicalVector, RectLengths,
 };
 use crate::once_box::OnceBox;
 #[cfg(feature = "rtti")]
@@ -147,10 +147,22 @@ impl Item for Path {
     fn bounding_rect(
         self: core::pin::Pin<&Self>,
         _window_adapter: &Rc<dyn WindowAdapter>,
-        _self_rc: &ItemRc,
+        self_rc: &ItemRc,
         geometry: LogicalRect,
     ) -> LogicalRect {
-        geometry
+        if self.clip() {
+            return geometry;
+        }
+        let outset = self.stroke_outset();
+        let path_rect = self.fit_rect(geometry.size).or_else(|| {
+            let (offset, elements_iter) = self.fitted_path_events(self_rc)?;
+            let bounds = lyon_algorithms::aabb::bounding_box(elements_iter.iter());
+            Some(LogicalRect::from_untyped(&bounds.to_rect().cast()).translate(offset))
+        });
+        path_rect
+            .map_or(LogicalRect::zero(), |rect| rect.inflate(outset, outset))
+            .union(&LogicalRect::from_size(geometry.size))
+            .translate(geometry.origin.to_vector())
     }
 
     fn clips_children(self: core::pin::Pin<&Self>) -> bool {
@@ -194,6 +206,42 @@ impl Path {
 
         elements_iter.fit(bounds_width.get() as _, bounds_height.get() as _, maybe_viewbox, fit);
         (offset, elements_iter).into()
+    }
+
+    /// The rectangle that `fitted_path_events` fits the path's outline into, or `None` when
+    /// the outline may lie outside of it, so that only its own bounds tell where it is.
+    fn fit_rect(self: Pin<&Self>, size: LogicalSize) -> Option<LogicalRect> {
+        if !matches!(self.fit(), ImageFit::Contain | ImageFit::Fill)
+            || (self.viewbox_width() > 0. && self.viewbox_height() > 0.)
+        {
+            return None;
+        }
+        let stroke_width = self.stroke_width().get();
+        let fit_size =
+            (size - LogicalSize::new(stroke_width, stroke_width)).max(LogicalSize::zero());
+        (fit_size.width > 0 as Coord || fit_size.height > 0 as Coord).then(|| {
+            LogicalRect::new(
+                LogicalPoint::new(stroke_width / 2 as Coord, stroke_width / 2 as Coord),
+                fit_size,
+            )
+        })
+    }
+
+    /// How far the stroke reaches past the path's outline.
+    fn stroke_outset(self: Pin<&Self>) -> Coord {
+        if self.stroke().is_transparent() {
+            return 0 as Coord;
+        }
+        // Skia draws a zero width stroke as a one pixel wide hairline.
+        let half_width = self.stroke_width().get().max(1 as Coord) / 2 as Coord;
+        let join_factor = if self.stroke_line_join() == LineJoin::Miter {
+            self.stroke_miter_limit().max(1.)
+        } else {
+            1.
+        };
+        let cap_factor =
+            if self.stroke_line_cap() == LineCap::Square { core::f32::consts::SQRT_2 } else { 1. };
+        half_width * join_factor.max(cap_factor) as Coord
     }
 
     fn sample_at(
