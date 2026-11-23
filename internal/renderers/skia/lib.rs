@@ -780,7 +780,7 @@ impl SkiaRenderer {
         back_buffer_age: u8,
         surface: Option<&dyn Surface>,
         window: &i_slint_core::api::Window,
-        invoke_rendering_notifier: bool,
+        for_display: bool,
     ) -> Result<Option<DirtyRegion>, PlatformError> {
         skia_canvas.rotate(rotation_angle_degrees, None);
         skia_canvas.translate(translation);
@@ -795,14 +795,14 @@ impl SkiaRenderer {
                     back_buffer_age,
                     surface,
                     window,
-                    invoke_rendering_notifier,
+                    for_display,
                     components,
                     post_render,
                 )
             })
             .unwrap_or(Ok(None));
 
-        if invoke_rendering_notifier && let Some(surface) = surface {
+        if for_display && let Some(surface) = surface {
             self.with_rendering_notifier(|callback| {
                 surface.with_graphics_api(&mut |api| {
                     callback.notify(RenderingState::AfterRendering, &api)
@@ -820,7 +820,7 @@ impl SkiaRenderer {
         back_buffer_age: u8,
         surface: Option<&dyn Surface>,
         window: &i_slint_core::api::Window,
-        invoke_rendering_notifier: bool,
+        for_display: bool,
         components: &[(ItemTreeWeak, LogicalPoint)],
         post_render: &dyn Fn(&mut dyn ItemRenderer),
     ) -> Result<Option<DirtyRegion>, PlatformError> {
@@ -854,7 +854,9 @@ impl SkiaRenderer {
             let mut partial_renderer;
             let mut dirty_region_to_visualize = None;
 
-            if let Some(partial_rendering_state) = self.partial_rendering_state() {
+            if let Some(partial_rendering_state) =
+                self.partial_rendering_state().filter(|_| for_display)
+            {
                 partial_renderer =
                     partial_rendering_state.create_partial_renderer(skia_item_renderer);
 
@@ -948,7 +950,7 @@ impl SkiaRenderer {
                 }
             }
 
-            if invoke_rendering_notifier && self.has_rendering_notifier.get() {
+            if for_display && self.has_rendering_notifier.get() {
                 // For the BeforeRendering rendering notifier callback it's important that this happens *after* clearing
                 // the back buffer, in order to allow the callback to provide its own rendering of the background.
                 // Skia's clear() will merely schedule a clear call, so flush right away to make it immediate.
