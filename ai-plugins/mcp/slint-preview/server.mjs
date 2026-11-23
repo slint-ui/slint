@@ -11,6 +11,7 @@ import { extname, isAbsolute } from "node:path";
 import { pathToFileURL } from "node:url";
 import { createInterface } from "node:readline";
 
+const headless = process.argv.slice(2).includes("--headless");
 const VIEW_URI = "ui://slint/preview.html";
 const VIEW_MIME_TYPE = "text/html;profile=mcp-app";
 const VIEW_START_TIMEOUT_MS = Number(
@@ -27,7 +28,7 @@ const PREVIEW_POLL_TIMEOUT_MS = 5000;
 
 const pluginVersion = JSON.parse(
     readFileSync(
-        new URL("../../.claude-plugin/plugin.json", import.meta.url),
+        new URL("../.claude-plugin/plugin.json", import.meta.url),
         "utf8",
     ),
 ).version;
@@ -56,33 +57,38 @@ const icons = [
         src:
             "data:image/svg+xml;base64," +
             readFileSync(
-                new URL("../../assets/slint.svg", import.meta.url),
+                new URL("../icon.svg", import.meta.url),
             ).toString("base64"),
         mimeType: "image/svg+xml",
         sizes: ["any"],
     },
 ];
 
-const tools = [
+const headlessTools = [
     {
         name: "check_slint",
         title: "Check Slint",
         icons,
         description:
-            "Compile Slint source and render its initial frame with the MCP Wasm software interpreter. " +
-            "Inspect all diagnostics and the returned PNG before publishing. " +
+            "Compile Slint source and render its initial frame with the MCP Wasm interpreter. " +
+            "Inspect all diagnostics and the returned PNG" +
+            (headless ? ". " : " before publishing. ") +
             "Pass path for a saved file with imports, images, and optional projectRoot, or source for a snippet. " +
-            "Set prepare_preview to retain a successful check for 15 minutes; publish_preview accepts its previewId. " +
+            (headless
+                ? ""
+                : "Set prepare_preview to retain a successful check for 15 minutes; publish_preview accepts its previewId. ") +
             "The MCP checker supports PNG, JPEG, SVG, and SVGZ images.",
         inputSchema: {
             type: "object",
             properties: {
-                prepare_preview: {
-                    type: "boolean",
-                    default: false,
-                    description:
-                        "Retain successful checked inputs for publish_preview.",
-                },
+                ...(!headless && {
+                    prepare_preview: {
+                        type: "boolean",
+                        default: false,
+                        description:
+                            "Retain successful checked inputs for publish_preview.",
+                    },
+                }),
                 path: {
                     type: "string",
                     description:
@@ -113,6 +119,9 @@ const tools = [
             openWorldHint: false,
         },
     },
+];
+
+const mcpAppTools = [
     {
         name: "publish_preview",
         title: "Publish Slint Preview",
@@ -200,6 +209,8 @@ const tools = [
         _meta: { ui: { visibility: ["app"] } },
     },
 ];
+
+const tools = headless ? headlessTools : [...headlessTools, ...mcpAppTools];
 
 const preparations = new Map();
 const PREPARATION_TTL_MS = 15 * 60 * 1000;
@@ -330,6 +341,9 @@ const toolCalls = {
             typeof args.prepare_preview !== "boolean"
         ) {
             throw rpcError(-32602, "'prepare_preview' must be a boolean");
+        }
+        if (headless && args.prepare_preview !== undefined) {
+            throw rpcError(-32602, "'prepare_preview' is unavailable in headless mode");
         }
         if (
             args.style !== undefined &&
@@ -593,11 +607,11 @@ const handlers = {
     ping: () => ({}),
     "tools/list": () => ({ tools }),
     "tools/call": (params) => {
-        const call = toolCalls[params?.name];
-        if (!call) {
-            throw rpcError(-32602, `Unknown tool: ${params?.name}`);
+        const name = params?.name;
+        if (!tools.some((tool) => tool.name === name)) {
+            throw rpcError(-32602, `Unknown tool: ${name}`);
         }
-        return call(params.arguments ?? {});
+        return toolCalls[name](params.arguments ?? {});
     },
     "resources/list": () => ({
         resources: [

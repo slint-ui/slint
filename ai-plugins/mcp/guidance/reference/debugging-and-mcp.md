@@ -25,6 +25,8 @@
 
 ## Check a `.slint` file (`slint-viewer --check`)
 
+Use these CLI checks and screenshots when working with the standalone Slint skill.
+
 `slint-viewer --check ui/main.slint` compiles the file and prints diagnostics
 without opening a window `(1.17+)`: exit 1 on errors, 0 otherwise
 (warnings still print). `-I`/`-L`/`--style` apply. Use this as the fast
@@ -55,8 +57,7 @@ slint-viewer --screenshot out.png --load-data props.json ui/main.slint
   (`{"AppData": {"rows": [...]}}`). It runs no host-language logic, so for
   real application state use the MCP server or `Window::take_snapshot()`.
 
-Rule of thumb: **viewer** for previewing components/layout/theme; **MCP
-server** for the running app with real data and interactions.
+Use the embedded MCP server to inspect the running app with real data and interactions.
 
 When the assistant host can display local images inline, include the rendered
 screenshot in the chat. In CLI-only hosts, print the absolute image path and
@@ -65,11 +66,15 @@ summarize what was visually checked.
 ## In-Chat Preview Checks
 
 Use `check_slint` for the plugin's compiler diagnostics and initial-frame PNG.
-The MCP software checker supports PNG, JPEG, SVG, and SVGZ images.
+The MCP checker supports PNG, JPEG, SVG, and SVGZ images.
 Other raster formats need conversion before checking.
-The hosted browser interpreter keeps its existing image-format support.
 Pass exactly one of `path` or `source`, with optional `style`.
 Saved files also support `projectRoot`.
+Use the returned PNG for the initial visual review and any screenshot shared in chat.
+
+### Live Preview
+
+Use this workflow when the plugin exposes `publish_preview`.
 Use `prepare_preview: true` when you want a live card after inspecting the check.
 Only successful compilation and rendering produce a `previewId`; warnings do not block preparation.
 
@@ -78,8 +83,7 @@ Preparations expire after 15 minutes, are bounded to 16 entries, and are consume
 A missing or expired preparation needs another check.
 The card uses the original source or file path, including when restored.
 File previews reload their source, imports, fonts, and images from disk.
-Its hosted browser renderer can differ visually from the software check.
-Use the PNG returned by `check_slint` for the initial visual review and any screenshot shared in chat.
+Its hosted browser renderer can differ visually from the checker and supports additional image formats.
 Call `get_preview_screenshot` only for changes after interaction, browser rendering problems, or an explicit screenshot request.
 Card errors remain visible in the preview and through explicit screenshot requests.
 

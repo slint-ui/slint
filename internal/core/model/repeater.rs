@@ -360,6 +360,10 @@ pub struct RepeaterLayoutState {
     pub anchor_y: Coord,
     /// The current item's top is at `anchor_y + content-y + snap_offset` in the viewport.
     pub snap_offset: Coord,
+    /// The content-y value from the previous layout pass.
+    pub previous_content_y: Coord,
+    /// The current item's top in the viewport minus `snap_offset`, from the previous layout pass.
+    pub previous_anchor_viewport_y: Coord,
 }
 
 /// Abstraction over a repeater's instance collection so the same algorithm
@@ -620,7 +624,8 @@ fn update_visible_instances(
         };
         (row, row_top)
     } else {
-        let (row, anchor_y) = if first_item_y
+        // The row and its `anchor_y + content-y`.
+        let (row, anchor_viewport_y) = if first_item_y
             > -content_y_value + listview_height * 3 as Coord / 2 as Coord
             || (props.computes_content_height()
                 && last_item_bottom + element_height < -content_y_value)
@@ -630,12 +635,16 @@ fn update_visible_instances(
             let anchor_y = element_height * row as Coord;
             restart_at(ops, row, anchor_y);
             first_row = row;
-            (row, anchor_y)
+            (row, anchor_y + content_y_value)
+        } else if content_y_value == state.previous_content_y {
+            // Recomputing the position from `anchor_y` rounds, which can move a row edge across the
+            // viewport edge, so that each pass would add or remove that row.
+            (anchor_row, state.previous_anchor_viewport_y)
         } else {
-            (anchor_row, state.anchor_y)
+            (anchor_row, state.anchor_y + content_y_value)
         };
         let height = measure_row(ops, &mut first_row, row, &mut changed).unwrap_or(element_height);
-        (row, snap_line + anchor_y + content_y_value - snap_fraction * height)
+        (row, snap_line + anchor_viewport_y - snap_fraction * height)
     };
     let fill_top = -extra_above;
 
@@ -729,10 +738,12 @@ fn update_visible_instances(
     state.anchor_y = state.cached_item_height * current_row as Coord;
     let current_height = ops.height(current_row - first_row).unwrap_or(state.cached_item_height);
     state.snap_offset = snap_line - snap_fraction * current_height;
+    let new_content_y = current_top - state.anchor_y - state.snap_offset;
+    state.previous_content_y = new_content_y;
+    state.previous_anchor_viewport_y = current_top - state.snap_offset;
     ops.set_layout_state(state.clone());
     props.content_height_set(LogicalLength::new(state.cached_item_height * row_count as Coord));
     props.content_width_set(LogicalLength::new(content_width_value));
-    let new_content_y = current_top - state.anchor_y - state.snap_offset;
     // Important: Use get_internal here, the content_y may have a binding on it (especially
     // a physical animation).
     // We must not yet trigger a re-evaluation of that binding, as we have already updated the

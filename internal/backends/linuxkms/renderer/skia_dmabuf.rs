@@ -9,7 +9,7 @@ use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 use i_slint_core::graphics::RequestedGraphicsAPI;
 use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::DrawOutcome;
-use i_slint_renderer_skia::{SkiaWGPU30Renderer, SkiaWGPU30RendererExt};
+use i_slint_renderer_skia::{SkiaWGPU30RenderTarget, SkiaWGPU30Renderer, SkiaWGPU30RendererExt};
 use wgpu_30 as wgpu;
 
 use super::dmabuf::init_wgpu;
@@ -25,6 +25,10 @@ pub struct SkiaDmabufRendererAdapter {
     /// Dropped first, waiting for the frames still on the GPU,
     /// which use the renderer's resources and draw into the display's buffers.
     barriers: ScanoutBarriers,
+    /// One for each of the display's buffers, in the same order.
+    /// Declared before `renderer`, so that the Skia surfaces are freed
+    /// while the Skia context and the wgpu device still exist.
+    targets: Vec<SkiaWGPU30RenderTarget>,
     renderer: SkiaWGPU30Renderer,
     display: GbmDmabufDisplay,
     device: wgpu::Device,
@@ -47,10 +51,14 @@ impl SkiaDmabufRendererAdapter {
         let barriers = ScanoutBarriers::new(&device, BUFFER_COUNT)?;
 
         let renderer = SkiaWGPU30Renderer::new(instance, adapter, device.clone(), queue.clone())?;
+        let targets = display
+            .textures()
+            .map(|texture| renderer.render_target(texture))
+            .collect::<Result<_, _>>()?;
 
         eprintln!("Using Skia renderer with wgpu, presenting dma-bufs on a DRM plane");
 
-        Ok(Box::new(Self { renderer, display, barriers, device, queue, size }))
+        Ok(Box::new(Self { renderer, targets, display, barriers, device, queue, size }))
     }
 }
 
@@ -68,8 +76,8 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SkiaDmabufRendererAd
             .barriers
             .acquire(index, texture)
             .and_then(|()| {
-                self.renderer.render_to_texture_transformed(
-                    texture,
+                self.renderer.render_to_target_transformed(
+                    &self.targets[index],
                     rotation.degrees(),
                     rotation.translation_after_rotation(self.size),
                 )

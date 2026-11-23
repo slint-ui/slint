@@ -149,26 +149,41 @@ pub(super) fn smooth_scroll_layout(
         };
     };
 
-    let heights = (0..ops.len()).map(|i| ops.height(i).unwrap_or(state.cached_item_height));
-    let (top_anchor, row_height) = row_geometry(state, heights, request.row);
+    let height = |i| ops.height(i).unwrap_or(state.cached_item_height);
+    let heights = (0..ops.len()).map(height);
+    let (top_anchor, row_height) = row_geometry(state, heights.clone(), request.row);
     let distance = alignment.distance(top_anchor + content_y, row_height, viewport_height);
 
     let jump = sim.should_jump(viewport_height, distance).map(|landing| (alignment, landing));
-    let lookahead_limit = sim.lookahead_limit(viewport_height);
+    let lookahead = if distance.abs() <= sim.lookahead_limit(viewport_height) {
+        viewport_height + distance.abs()
+    } else {
+        0 as Coord
+    };
 
-    // lay out the rows up to the target, so that the scroll stops exactly on it.
+    // Lay out the rows up to the target, so that the scroll stops exactly on it.
+    // Measuring the rows changes the estimated distance, so the rows that exist toward the target
+    // stay, up to the middle of the outermost one so that rounding never adds a row beyond it:
+    // otherwise the next pass may drop them and the one after lay them out again.
+    let top = row_geometry(state, heights.clone(), state.item_index.first_row()).0 + content_y;
     let (extra_above, extra_below) = match jump {
         Some((RowAlignment::Top, landing)) => (landing, 0 as Coord),
         Some((RowAlignment::Bottom, landing)) => (0 as Coord, landing + viewport_height),
-        // If the distance is not too large
-        None if distance.abs() <= lookahead_limit => {
-            if distance > 0 as Coord {
-                (distance + viewport_height, 0 as Coord)
-            } else {
-                (0 as Coord, viewport_height - distance)
-            }
+        None if distance > 0 as Coord => {
+            let has_rows = ops.len() > 0;
+            let first_middle = has_rows.then(|| top + height(0) / 2 as Coord);
+            (first_middle.map_or(lookahead, |middle| lookahead.max(-middle)), 0 as Coord)
         }
-        _ => (0 as Coord, 0 as Coord),
+        None => {
+            let last_middle = ops
+                .len()
+                .checked_sub(1)
+                .map(|last| top + heights.sum::<Coord>() - height(last) / 2 as Coord);
+            (
+                0 as Coord,
+                last_middle.map_or(lookahead, |middle| lookahead.max(middle - viewport_height)),
+            )
+        }
     };
     SmoothScrollLayout { jump, extra_above, layout_end: viewport_height + extra_below }
 }
