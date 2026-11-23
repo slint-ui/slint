@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore COLR
+
 use std::pin::Pin;
 use std::sync::Arc;
 
@@ -814,23 +816,21 @@ impl<'a, S: PaintScene> GlyphRenderer for AnyrenderItemRenderer<'a, S> {
         y_offset: sharedparley::PhysicalLength,
         glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph>,
     ) {
-        let transform = self
+        let glyphs: Vec<_> =
+            glyphs_it.map(|g| anyrender::Glyph { id: g.id, x: g.x, y: g.y }).collect();
+        let mut transform = self
             .current_state
             .transform
             .then_translate(kurbo::Vec2::new(0., y_offset.get() as f64));
-        // Faux italic, for fonts fontique picked as the closest match to an `italic` request
-        // but that carry neither a true italic face nor an `ital`/`slnt` variation axis
-        // (common for CJK fonts, see issue #10178). `glyph_transform` is applied per glyph in
-        // its own local coordinate frame, so it leans each glyph in place rather than shearing
-        // the whole run sideways the way transforming `transform` itself would. The sign here
-        // was picked by rendering both ways and comparing which one actually leans right, not
-        // derived from a convention doc alone -- kurbo's own `Affine::skew` example assumes a
-        // Y-up frame, but empirically vello_cpu's glyph space behaves Y-down here.
-        let glyph_transform = synthesis
-            .skew()
-            .map(|degrees| kurbo::Affine::skew(-degrees.to_radians().tan() as f64, 0.0));
-        let glyphs: Vec<_> =
-            glyphs_it.map(|g| anyrender::Glyph { id: g.id, x: g.x, y: g.y }).collect();
+        // Faux italic (#10178). Not `glyph_transform`, which vello applies inconsistently:
+        // in Y-up space to outline and COLR glyphs, but in Y-down image space to bitmap glyphs.
+        if let (Some(degrees), Some(first)) = (synthesis.skew(), glyphs.first()) {
+            let baseline = first.y as f64;
+            transform = transform
+                * kurbo::Affine::translate((0., baseline))
+                * kurbo::Affine::skew(-degrees.to_radians().tan() as f64, 0.0)
+                * kurbo::Affine::translate((0., -baseline));
+        }
         self.scene.draw_glyphs(
             font,
             font_size.get(),
@@ -841,7 +841,7 @@ impl<'a, S: PaintScene> GlyphRenderer for AnyrenderItemRenderer<'a, S> {
             peniko::BrushRef::from(&brush.peniko_brush),
             1.0,
             transform,
-            glyph_transform,
+            None,
             glyphs.into_iter(),
             anyrender::AntiAliasing::Enabled,
         );
