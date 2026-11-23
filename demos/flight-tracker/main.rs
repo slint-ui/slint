@@ -987,7 +987,10 @@ extern "C" {
 /// They're as large as the largest frame,
 /// so that a change in the render scale or in the globe's place doesn't create new ones.
 struct Frames {
-    textures: Vec<wgpu::Texture>,
+    /// Each texture with the view to render through.
+    /// The views are made once: PowerVR's Vulkan driver sets up a view as a render target
+    /// the first time it's rendered into, which takes it over a millisecond.
+    textures: Vec<(wgpu::Texture, wgpu::TextureView)>,
     next: usize,
     /// The format the globe renders through:
     /// an sRGB view of the textures where the device supports one,
@@ -996,12 +999,17 @@ struct Frames {
 }
 
 impl Frames {
-    fn texture(&mut self, device: &wgpu::Device, width: u32, height: u32) -> wgpu::Texture {
+    fn texture(
+        &mut self,
+        device: &wgpu::Device,
+        width: u32,
+        height: u32,
+    ) -> (wgpu::Texture, wgpu::TextureView) {
         let size = |texture: &wgpu::Texture| (texture.width(), texture.height());
-        if self.textures.first().is_none_or(|texture| size(texture) != (width, height)) {
+        if self.textures.first().is_none_or(|(texture, _)| size(texture) != (width, height)) {
             self.textures = (0..2)
                 .map(|_| {
-                    device.create_texture(&wgpu::TextureDescriptor {
+                    let texture = device.create_texture(&wgpu::TextureDescriptor {
                         label: Some("globe frame"),
                         size: wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
                         mip_level_count: 1,
@@ -1015,7 +1023,12 @@ impl Frames {
                         } else {
                             &[]
                         },
-                    })
+                    });
+                    let view = texture.create_view(&wgpu::TextureViewDescriptor {
+                        format: Some(self.view_format),
+                        ..Default::default()
+                    });
+                    (texture, view)
                 })
                 .collect();
         }
@@ -1479,13 +1492,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         // The frame covers the whole window, at the resolution the globe's place needs.
         let shown = entry.lerp(size, zoom_progress);
         let largest = (size * full_density).ceil().max(Vec2::ONE);
-        let texture = frames.texture(device, largest.x as u32, largest.y as u32);
+        let (texture, view) = frames.texture(device, largest.x as u32, largest.y as u32);
         let pixels =
             (size * (shown / size).max_element() * density).floor().clamp(Vec2::ONE, largest);
-        let view = texture.create_view(&wgpu::TextureViewDescriptor {
-            format: Some(frames.view_format),
-            ..Default::default()
-        });
         let footprint =
             (demo.camera.pose.range * 2.0 * (FOV_Y / 2.0).tan() / pixels.y).to_degrees();
         let windows = match &mut detail {
