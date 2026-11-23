@@ -16,7 +16,7 @@ path = "main.rs"
 name = "gallery"
 
 [dependencies]
-slint = { path = "../../api/rs/slint", default-features = false, features = ["compat-1-18", "std", "gettext"] }
+slint = { path = "../../api/rs/slint", default-features = false, features = ["compat-1-20", "svg", "std", "gettext"] }
 
 [build-dependencies]
 slint-build = { path = "../../api/rs/build" }
