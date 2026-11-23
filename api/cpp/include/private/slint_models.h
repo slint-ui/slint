@@ -1149,7 +1149,7 @@ class Repeater
         using Ctx = VTableContext<Parent>;
         return cbindgen_private::RepeaterInstanceOpsVTable {
             .user_data = &ctx,
-            .item_index = &ctx.inner->layout_state.item_index,
+            .layout_state = &ctx.inner->layout_state,
             .len = [](void *ud) -> uintptr_t { return static_cast<Ctx *>(ud)->inner->data.size(); },
             .splice =
                     [](void *ud, uintptr_t position, uintptr_t remove, uintptr_t add) {
@@ -1295,8 +1295,8 @@ public:
         VTableContext<Parent> ctx { inner.get(), parent };
         auto ops = make_ops(ctx);
         bool changed = cbindgen_private::slint_repeater_ensure_updated_listview(
-                &ops, &inner->layout_state, &inner->scroll_to_row, row_count(), content_width,
-                content_height, content_y, listview_width, listview_height);
+                &ops, &inner->scroll_to_row, row_count(), content_width, content_height, content_y,
+                listview_width, listview_height);
         if (changed)
             instance_generation.mark_dirty();
         return recurse_ensure_instantiated() || changed;

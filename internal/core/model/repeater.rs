@@ -365,6 +365,11 @@ pub struct RepeaterLayoutState {
 /// Abstraction over a repeater's instance collection so the same algorithm
 /// works for both native Rust repeaters and C++ repeaters via FFI.
 trait RepeaterInstanceOps {
+    /// The repeater's layout state, which the instance changes keep up to date.
+    fn layout_state(&self) -> RepeaterLayoutState;
+
+    fn set_layout_state(&mut self, state: RepeaterLayoutState);
+
     /// Number of currently instantiated items.
     fn len(&self) -> usize;
 
@@ -505,7 +510,6 @@ impl ListViewProperties for TypedListViewProps<'_> {
 /// - advances the request to its next phase.
 fn update_visible_instances(
     ops: &mut impl RepeaterInstanceOps,
-    state: &mut RepeaterLayoutState,
     scroll_to_row: &mut Option<scroll::ScrollToRowRequest>,
     row_count: usize,
     props: &dyn ListViewProperties,
@@ -519,7 +523,6 @@ fn update_visible_instances(
     if row_count == 0 {
         *scroll_to_row = None;
         ops.clear();
-        state.item_index.instances_cleared();
         props.content_height_set(zero);
         props.content_y_set(zero);
         props.content_width_set(listview_width);
@@ -529,7 +532,6 @@ fn update_visible_instances(
     // Unlike with an empty model, the content geometry stays, so that the scroll position does too.
     if listview_height <= 0 as Coord {
         ops.clear();
-        state.item_index.instances_cleared();
         return false;
     }
     if scroll_to_row
@@ -544,9 +546,10 @@ fn update_visible_instances(
         content_y_value = content_y_value.min(0 as Coord);
     }
 
+    let mut state = ops.layout_state();
     let scroll::SmoothScrollLayout { jump, extra_above, layout_end } = scroll::smooth_scroll_layout(
         scroll_to_row.as_ref(),
-        state,
+        &state,
         ops,
         content_y_value,
         listview_height,
@@ -557,6 +560,7 @@ fn update_visible_instances(
     if state.item_index.row >= row_count {
         ops.clear();
         state.item_index = CurrentItem { row: row_count - 1, instance_index: 0 };
+        ops.set_layout_state(state.clone());
     }
     // The current item is the row at `anchor_row`, the instance at `anchor_instance`.
     let CurrentItem { row: anchor_row, instance_index: mut anchor_instance } = state.item_index;
@@ -602,7 +606,8 @@ fn update_visible_instances(
         // Keep the instances when the row is about one page away from them.
         let len = ops.len();
         if row + len < first_row || row >= first_row + 2 * len {
-            ops.clear();
+            restart_at(ops, row, element_height * row as Coord);
+            first_row = row;
         }
         let row_height =
             measure_row(ops, &mut first_row, row, &mut changed).unwrap_or(element_height);
@@ -621,9 +626,11 @@ fn update_visible_instances(
                 && last_item_bottom + element_height < -content_y_value)
         {
             // Jumping more than 1.5 screens: random seek.
-            ops.clear();
             let row = ((-content_y_value / element_height).floor() as usize).min(row_count - 1);
-            (row, element_height * row as Coord)
+            let anchor_y = element_height * row as Coord;
+            restart_at(ops, row, anchor_y);
+            first_row = row;
+            (row, anchor_y)
         } else {
             (anchor_row, state.anchor_y)
         };
@@ -710,8 +717,10 @@ fn update_visible_instances(
     first_row = row;
     ops.truncate(end_row - row);
     let Some((current_row, current_top)) = current else { return changed };
+    let mut state = ops.layout_state();
     state.item_index = CurrentItem { row: current_row, instance_index: current_row - first_row };
     if ops.len() == 0 {
+        ops.set_layout_state(state);
         return changed;
     }
 
@@ -720,6 +729,7 @@ fn update_visible_instances(
     state.anchor_y = state.cached_item_height * current_row as Coord;
     let current_height = ops.height(current_row - first_row).unwrap_or(state.cached_item_height);
     state.snap_offset = snap_line - snap_fraction * current_height;
+    ops.set_layout_state(state.clone());
     props.content_height_set(LogicalLength::new(state.cached_item_height * row_count as Coord));
     props.content_width_set(LogicalLength::new(content_width_value));
     let new_content_y = current_top - state.anchor_y - state.snap_offset;
@@ -740,7 +750,7 @@ fn update_visible_instances(
             target_span.map(|(top, bottom)| (top, bottom - top)).unwrap_or_else(|| {
                 let heights =
                     (0..ops.len()).map(|i| ops.height(i).unwrap_or(state.cached_item_height));
-                let (top, height) = scroll::row_geometry(state, heights, request.row);
+                let (top, height) = scroll::row_geometry(&state, heights, request.row);
                 (top + new_content_y, height)
             });
         *scroll_to_row =
@@ -748,6 +758,16 @@ fn update_visible_instances(
     }
 
     changed
+}
+
+/// Replaces all instances with an empty, dirty slot for `row`,
+/// and makes `row` the current item, with its top at `anchor_y` in the content.
+fn restart_at(ops: &mut impl RepeaterInstanceOps, row: usize, anchor_y: Coord) {
+    ops.clear();
+    ops.push_first(row);
+    let mut state = ops.layout_state();
+    state.anchor_y = anchor_y;
+    ops.set_layout_state(state);
 }
 
 /// Makes sure an updated instance for `row` exists, adding empty slots up to it,
@@ -830,6 +850,14 @@ impl RustRepeaterOps<'_> {
 }
 
 impl RepeaterInstanceOps for RustRepeaterOps<'_> {
+    fn layout_state(&self) -> RepeaterLayoutState {
+        self.inner.borrow().layout_state.clone()
+    }
+
+    fn set_layout_state(&mut self, state: RepeaterLayoutState) {
+        self.inner.borrow_mut().layout_state = state;
+    }
+
     fn len(&self) -> usize {
         self.inner.borrow().instances.len()
     }
@@ -1268,7 +1296,6 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         let row_count = model.row_count();
 
         let data = self.data();
-        let mut layout_state = data.inner.borrow().layout_state.clone();
         let mut scroll_to_row = data.inner.borrow_mut().scroll_to_row.take();
         let mut ops = RustRepeaterOps {
             inner: &data.inner,
@@ -1277,7 +1304,6 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         };
         let changed = update_visible_instances(
             &mut ops,
-            &mut layout_state,
             &mut scroll_to_row,
             row_count,
             props,
@@ -1286,7 +1312,6 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         );
         {
             let mut inner = data.inner.borrow_mut();
-            inner.layout_state = layout_state;
             // A request made while the layout ran, from a row's init code, wins.
             inner.scroll_to_row = inner.scroll_to_row.take().or(scroll_to_row);
         }
@@ -1670,8 +1695,8 @@ mod ffi {
     #[repr(C)]
     pub struct RepeaterInstanceOpsVTable {
         pub user_data: *mut core::ffi::c_void,
-        /// The `item_index` of the repeater's layout state, updated along with the instances.
-        pub item_index: *mut CurrentItem,
+        /// The repeater's layout state, updated along with the instances.
+        pub layout_state: *mut RepeaterLayoutState,
         pub len: unsafe extern "C" fn(user_data: *mut core::ffi::c_void) -> usize,
         /// Remove `remove` instances at `position`, then insert `add` empty, dirty slots there.
         pub splice: unsafe extern "C" fn(
@@ -1702,13 +1727,24 @@ mod ffi {
         fn splice_internal(&mut self, position: usize, remove: usize, add: usize) {
             let instance_count = self.len();
             unsafe {
-                (*self.item_index).instances_spliced(instance_count, position, remove, add);
+                (*self.layout_state).item_index.instances_spliced(
+                    instance_count,
+                    position,
+                    remove,
+                    add,
+                );
                 (self.splice)(self.user_data, position, remove, add)
             }
         }
     }
 
     impl RepeaterInstanceOps for RepeaterInstanceOpsVTable {
+        fn layout_state(&self) -> RepeaterLayoutState {
+            unsafe { (*self.layout_state).clone() }
+        }
+        fn set_layout_state(&mut self, state: RepeaterLayoutState) {
+            unsafe { *self.layout_state = state };
+        }
         fn len(&self) -> usize {
             unsafe { (self.len)(self.user_data) }
         }
@@ -1717,7 +1753,7 @@ mod ffi {
         }
         fn push_first(&mut self, row: usize) {
             debug_assert_eq!(self.len(), 0);
-            unsafe { (*self.item_index).first_instance_added(row) };
+            unsafe { (*self.layout_state).item_index.first_instance_added(row) };
             self.splice_internal(0, 0, 1);
         }
         fn push(&mut self, count: usize) {
@@ -1758,7 +1794,7 @@ mod ffi {
         count: usize,
     ) {
         let instance_count = ops.len();
-        let offset = unsafe { (*ops.item_index).start_update_all(instance_count) };
+        let offset = unsafe { (*ops.layout_state).item_index.start_update_all(instance_count) };
         update_all_instances(ops, offset, count);
     }
 
@@ -1799,12 +1835,11 @@ mod ffi {
             .is_some()
     }
 
-    /// `state` and `scroll_to_row` are pointers, not references, because a row's init code,
-    /// which `ops` runs, can call `slint_repeater_listview_ensure_row_visible` on them.
+    /// `scroll_to_row` is a pointer, not a reference, because a row's init code,
+    /// which `ops` runs, can call `slint_repeater_listview_ensure_row_visible` on it.
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_repeater_ensure_updated_listview(
         ops: &mut RepeaterInstanceOpsVTable,
-        state: *mut RepeaterLayoutState,
         scroll_to_row: *mut ScrollToRowRequestOpaque,
         row_count: usize,
         content_width: Option<Pin<&Property<LogicalLength>>>,
@@ -1814,7 +1849,6 @@ mod ffi {
         listview_height: LogicalLength,
     ) -> bool {
         let props = TypedListViewProps { content_width, content_height, content_y };
-        let mut layout_state = unsafe { (*state).clone() };
         // When a new item gets created in update_visible_instances and in its init
         // we call ensure-row-visible() we modify scroll_to_row
         // here we make a copy and reset `scroll_to_row`. If below `scroll_to_row`
@@ -1826,7 +1860,6 @@ mod ffi {
         let mut request = unsafe { (*storage).take() }.map(|request| *request);
         let changed = update_visible_instances(
             ops,
-            &mut layout_state,
             &mut request,
             row_count,
             &props,
@@ -1834,7 +1867,6 @@ mod ffi {
             listview_height,
         );
         unsafe {
-            *state = layout_state;
             // See `Repeater::ensure_updated_listview_callback`.
             if (*storage).is_none() {
                 *storage = request.map(Box::new);
