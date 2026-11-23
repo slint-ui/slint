@@ -95,6 +95,7 @@ impl<T: Tree> TreeAdapterModel<T> {
             count += 1;
         }
         cached_layout.drain(row + 1..row + 1 + count);
+        drop(cached_layout);
         self.model_tracker.row_removed(row + 1, count);
     }
 }
@@ -557,4 +558,71 @@ fn can_drop(
             does_compile
         }
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    slint::slint! {
+        #[edition = "1.20"]
+        export component RepeaterTest inherits Window {
+            in property <[int]> rows;
+            for row in rows: row-rect := Rectangle { height: 10px; }
+        }
+    }
+
+    /// Row 0 has the children 1 and 2, and row 3 is a second root. Setting any data collapses row 0.
+    struct TestTree;
+
+    impl Tree for TestTree {
+        type Data = i32;
+        type Id = usize;
+
+        fn data(&self, id: &usize) -> Option<i32> {
+            Some(*id as i32)
+        }
+
+        fn children(&self, parent: Option<&usize>) -> impl Iterator<Item = usize> {
+            match parent {
+                None => vec![0, 3],
+                Some(0) => vec![1, 2],
+                Some(_) => vec![],
+            }
+            .into_iter()
+        }
+
+        fn level(&self, id: &usize) -> usize {
+            if matches!(id, 1 | 2) { 1 } else { 0 }
+        }
+
+        fn is_expanded(&self, id: &usize) -> bool {
+            *id == 0
+        }
+
+        fn update_data(&self, _id: &mut usize, _data: i32) -> TreeNodeChange {
+            TreeNodeChange::Collapse
+        }
+    }
+
+    #[test]
+    fn collapse_notifies_a_repeater_that_reads_the_row_count() {
+        i_slint_backend_testing::init_no_event_loop();
+        let model = Rc::new(TreeAdapterModel::new(TestTree));
+        let ui = RepeaterTest::new().unwrap();
+        ui.set_rows(ModelRc::from(model.clone()));
+        let instances = || {
+            // Searching the items instantiates the repeater, which then listens to the model.
+            i_slint_backend_testing::ElementHandle::find_by_element_id(
+                &ui,
+                "RepeaterTest::row-rect",
+            )
+            .count()
+        };
+        assert_eq!(instances(), 4);
+
+        model.set_row_data(0, 0);
+        assert_eq!(model.row_count(), 2);
+        assert_eq!(instances(), 2);
+    }
 }
