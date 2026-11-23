@@ -282,9 +282,8 @@ impl<'a> SkiaItemRenderer<'a> {
         width: PhysicalLength,
         height: PhysicalLength,
     ) -> Option<skia_safe::Paint> {
-        // A solid color goes on the paint itself, not into a shader: Skia takes a color glyph's
-        // opacity, and the color of its COLR layers that use the text color (0xFFFF), from the
-        // paint, never from the shader.
+        // Skia ignores the shader for color glyphs and takes their opacity,
+        // and the color of their 0xFFFF COLR layers, from the paint.
         if let Brush::SolidColor(color) = &brush {
             if color.alpha() == 0 {
                 return None;
