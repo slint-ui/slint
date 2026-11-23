@@ -1265,6 +1265,9 @@ pub trait SkiaRendererExt {
         translation: (f32, f32),
         surface_size: PhysicalWindowSize,
     ) -> Result<DrawOutcome, i_slint_core::platform::PlatformError>;
+
+    /// Repaints only what changed in each frame, for a surface that reports its buffer age.
+    fn enable_partial_rendering(&mut self);
 }
 
 impl SkiaRendererExt for SkiaRenderer {
@@ -1275,5 +1278,9 @@ impl SkiaRendererExt for SkiaRenderer {
         surface_size: PhysicalWindowSize,
     ) -> Result<DrawOutcome, i_slint_core::platform::PlatformError> {
         self.internal_render_transformed(rotation_angle_degrees, translation, surface_size)
+    }
+
+    fn enable_partial_rendering(&mut self) {
+        self.partial_rendering_state = Some(Default::default());
     }
 }
