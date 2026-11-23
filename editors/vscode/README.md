@@ -7,6 +7,7 @@ This extension for VS Code adds support for the [Slint](https://slint.dev) desig
 -   Syntax highlighting
 -   Diagnostics from .slint files
 -   Live Preview of a .slint file
+-   Slint documentation, UI checks, and interactive previews in Copilot Chat.
 -   Completion of properties
 -   Jump to definition (currently, only definition of Component)
 -   Rename refactoring across `.slint` files.
@@ -54,6 +55,9 @@ pnpm compile
 Later, you only need to do the steps for the part you change like `cargo build -p slint-lsp` to rebuild the lsp binary
 or `pnpm compile` to rebuild the typescript.
 
+To try the MCP tools in the extension development host, also run `pnpm build:ai-plugin`.
+The local packaging command below runs this step automatically.
+
 You can run vscode with that extension by running, in the `editors/vscode` directory:
 
 ```sh
@@ -67,7 +71,7 @@ If you want to load the web extension, add `--extensionDevelopmentKind=web`
 To create a `.vsix` package for local installation:
 1. Follow the setup steps above to build the lsp binary and install npm dependencies.
 
-2. Create a `.vsix` package (needs `vsce` installed)
+2. Create a `.vsix` package from `editors/vscode`.
 
 ```sh
 pnpm local-package
@@ -80,6 +84,12 @@ code --install-extension slint-*.vsix
 ```
 
 4. Reload your VS code windows
+
+To try the bundled Slint tools, open a Slint project in desktop VS Code with Copilot Chat enabled.
+Run `MCP: List Servers` and look for `slint-docs` and `slint-preview`.
+In an agent chat, ask “Use the Slint tools to check this file and show its interactive preview.”
+The checker runs locally and returns a PNG.
+The interactive view downloads the browser interpreter on first use.
 
 Note that the resulting `.vsix` package contains your locally built debug LSP server. It is not suitable for distribution.
 

@@ -295,7 +295,7 @@ jobs:
                   path: editors/vscode/bin
             - name: Fix permissions
               run: chmod 755 editors/vscode/bin/* editors/vscode/bin/*.app/Contents/MacOS/*
-            - name: "Prepare meta-data files for nightly package"
+            - name: Prepare extension metadata
               env:
                   RELEASE_INPUT: ${{ github.event.inputs.mode == 'release' }}
               working-directory: editors/vscode
@@ -306,7 +306,9 @@ jobs:
                     echo "Missing strip marker in VS Code Extension README. Either add or fix this script."
                     exit 1
                   fi
-                  if [ "$RELEASE_INPUT" != "true" ]; then
+                  if [ "$RELEASE_INPUT" = "true" ]; then
+                    echo '{ "channel": "release" }' > ../../ai-plugins/mcp/slint-preview/channel.json
+                  else
                     ../../scripts/prepare_vscode_nightly.sh
                   fi
               shell: bash
