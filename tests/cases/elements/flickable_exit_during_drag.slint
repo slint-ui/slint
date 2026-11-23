@@ -61,4 +61,33 @@ let after = instance.get_content_y();
 assert!(after < at_cancel - 100.0, "the content keeps moving after the cancel: {at_cancel} -> {after}");
 ```
 
+```rust
+// Touch drag with platform times, a pause, then the system cancels the touch
+use slint::platform::WindowEvent;
+use slint_testing::{InternalEvent, LogicalPoint, TouchPhase};
+use std::time::Duration;
+let instance = TestCase::new().unwrap();
+
+let touch = |y: f32, phase: TouchPhase, ms: u64| {
+    instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 0, position: LogicalPoint::new(100.0, y), phase, event_time: Some(Duration::from_millis(ms).into()), history: Default::default() }));
+};
+
+let mut ms = 1000;
+touch(190.0, TouchPhase::Started, ms);
+for y in [170.0, 130.0, 90.0, 50.0, 10.0] {
+    slint_testing::mock_elapsed_time(16);
+    ms += 16;
+    touch(y, TouchPhase::Moved, ms);
+}
+slint_testing::mock_elapsed_time(500);
+ms += 500;
+touch(10.0, TouchPhase::Cancelled, ms);
+let at_cancel = instance.get_content_y();
+assert!(at_cancel < -100.0, "the drag moved the content: {at_cancel}");
+
+slint_testing::mock_elapsed_time(5000);
+let after = instance.get_content_y();
+assert_eq!(after, at_cancel, "the finger stopped before the cancel, so the content doesn't fling");
+```
+
 */
