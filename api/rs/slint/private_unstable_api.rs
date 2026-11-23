@@ -233,7 +233,7 @@ pub mod re_exports {
     };
     pub use i_slint_core::slice::Slice;
     pub use i_slint_core::timers::{Timer, TimerMode};
-    pub use i_slint_core::translations::TranslationsBundled;
+    pub use i_slint_core::translations::{BundledPlurals, BundledStrings, TranslationsBundled};
     pub use i_slint_core::window::{
         InputMethodRequest, WindowAdapter, WindowAdapterRc, WindowInner, WindowKind,
     };
