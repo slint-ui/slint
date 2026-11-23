@@ -7,5 +7,6 @@
     "experimental-features": ["interfaces", "shadowable", "closures", "named-slots", "match", "custom-mouse-cursor", "component-container"],
     "library-paths": {
         "springboard": "../../internal/editor-preview/springboard/springboard.slint"
-    }
+    },
+    "fonts": ["ui/assets/Inter-VariableFont.ttf"]
 }
