@@ -1050,6 +1050,32 @@ fn buffer_age_repaints_the_frames_since() {
 }
 
 #[test]
+fn snapshot_leaves_the_next_frame_unchanged() {
+    let (_ui, window, colors) = show_four_rectangles();
+    let blue = slint::Color::from_rgb_u8(0, 0, 255);
+    for i in 0..2 {
+        colors.set_row_data(i, blue);
+        assert!(window.draw_if_needed());
+    }
+
+    // A snapshot between frames neither consumes the change to the third rectangle
+    // nor counts as a frame for the buffer's age.
+    colors.set_row_data(2, blue);
+    window.window().take_snapshot().unwrap();
+    window.render_buffer.buffer_age.set(Some(3));
+    assert!(window.draw_if_needed());
+    assert_eq!(
+        window.last_dirty_region_bounding_box_origin(),
+        Some(slint::LogicalPosition { x: 10., y: 10. })
+    );
+    assert_eq!(
+        window.last_dirty_region_bounding_box_size(),
+        Some(slint::LogicalSize { width: 80., height: 20. })
+    );
+    assert_eq!(window.pixel(75, 15), slint::Rgba8Pixel::new(0, 0, 255, 255));
+}
+
+#[test]
 fn backdrop_blur_redraws_as_a_whole() {
     slint::slint! {
         #[edition = "1.20"]
