@@ -378,7 +378,7 @@ void ZephyrWindowAdapter::maybe_redraw()
         return;
 
 #ifdef CONFIG_SHIELD_LCD_PAR_S035
-    display_buffer_descriptor line_desc { };
+    display_buffer_descriptor line_desc {};
     line_desc.pitch = m_buffer_size.width;
 
     m_renderer.render_by_line<slint::platform::Rgb565Pixel>(
