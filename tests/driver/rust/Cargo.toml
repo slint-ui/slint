@@ -31,20 +31,19 @@ build-time = ["i-slint-compiler"]
 backend-qt = ["slint/backend-qt"]
 live-preview = ["slint/live-preview"]
 
-[dependencies]
-slint-interpreter = { workspace = true, features = ["std", "compat-1-2", "internal"] }
-i-slint-core = { workspace = true, features = ["std"] }
-
-[target.'cfg(not(target_os = "wasm"))'.dependencies]
-i-slint-backend-qt = { workspace = true }
-
 # cSpell: ignore linkme
 [dev-dependencies]
 slint = { workspace = true, features = ["std", "compat-1-2"] }
 i-slint-backend-testing = { workspace = true, features = ["internal"] }
+slint-interpreter = { workspace = true, features = ["std", "compat-1-2", "internal"] }
+i-slint-core = { workspace = true, features = ["std"] }
 linkme = "0.3"
+pollster = "1"
 satchel = "0.3"
 test_driver_lib = { path = "../driverlib", features = ["fork-harness"] }
+
+[target.'cfg(not(target_os = "wasm"))'.dev-dependencies]
+i-slint-backend-qt = { workspace = true }
 
 [build-dependencies]
 i-slint-compiler = { workspace = true, features = ["default", "rust", "display-diagnostics", "bundle-translations", "renderer-software"], optional = true }

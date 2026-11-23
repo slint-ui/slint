@@ -4099,6 +4099,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "pollster"
+version = "1.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7e9b9cf600136f5b976fbc5727d58c26e1ecab8ee23088d44ef1c7af793550ab"
+
+[[package]]
 name = "polycool"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5280,6 +5286,7 @@ dependencies = [
  "i-slint-compiler",
  "i-slint-core",
  "linkme",
+ "pollster",
  "rayon",
  "satchel",
  "slint",
