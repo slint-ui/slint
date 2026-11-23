@@ -7,7 +7,7 @@ use crate::instance::SubComponentInstance;
 use crate::prelude::*;
 use i_slint_compiler::diagnostics::SourceLocation;
 use i_slint_compiler::llr::ItemInstanceIdx;
-use i_slint_compiler::object_tree::ElementRc;
+use i_slint_compiler::object_tree::ElementLocation;
 use i_slint_compiler::source_path::SourcePath;
 use i_slint_core::graphics::euclid;
 use i_slint_core::item_tree::{ItemTreeRc, TraversalOrder, VisitChildrenResult};
@@ -96,27 +96,24 @@ pub struct ElementCandidate {
     pub instance_index: usize,
 }
 
-/// Return the geometry of every runtime item whose source location covers
-/// the given `(path, offset)` pair.
+/// Return the geometry of every runtime item whose source location covers `location`.
 pub(crate) fn component_positions(
     root: &VRc<ItemTreeVTable, Instance>,
-    path: &SourcePath,
-    offset: u32,
+    location: &ElementLocation,
 ) -> Vec<HighlightedRect> {
     let sources = SourceOccurrences::new(root);
-    sources.matching_occurrences(path, offset).map(|(_, geometry)| geometry).collect()
+    sources.matching_occurrences(location).map(|(_, geometry)| geometry).collect()
 }
 
 #[cfg(feature = "internal")]
 pub(crate) fn component_item(
     root: &VRc<ItemTreeVTable, Instance>,
-    path: &SourcePath,
-    offset: u32,
+    location: &ElementLocation,
     instance_index: usize,
 ) -> Option<ItemRc> {
     let sources = SourceOccurrences::new(root);
     sources
-        .matching_occurrences(path, offset)
+        .matching_occurrences(location)
         .nth(instance_index)
         .map(|(item_index, _)| sources.items[item_index].as_item_rc())
 }
@@ -401,12 +398,11 @@ impl<'a> SourceOccurrences<'a> {
 
     fn matching_occurrences(
         &self,
-        path: &SourcePath,
-        offset: u32,
+        location: &ElementLocation,
     ) -> impl Iterator<Item = (usize, HighlightedRect)> {
         self.elements
             .values()
-            .filter(|element| source_location_contains(&element.source_location, path, offset))
+            .filter(|element| source_location_contains(&element.source_location, location))
             .flat_map(|element| element.occurrences(&self.items, self.root))
             .collect::<BTreeMap<_, _>>()
             .into_iter()
@@ -471,77 +467,6 @@ fn component_root_items(
         .and_then(|key| elements.get(&key))
         .map(|element| element.item_indices.clone())
         .unwrap_or_default()
-}
-
-/// Look up the `(ElementRc, index)` tuples whose `debug` entries cover
-/// the given source offset. Uses the `TypeLoader` stored on the instance
-/// (if available) to walk the original object-tree `Document`.
-pub(crate) fn element_node_at_source_code_position(
-    instance: &VRc<ItemTreeVTable, Instance>,
-    path: &SourcePath,
-    offset: u32,
-) -> Vec<(ElementRc, usize)> {
-    let Some(type_loader) = instance.type_loaders.type_loader.as_ref() else {
-        return Vec::new();
-    };
-    let Some(doc) = type_loader.get_document(path) else {
-        return Vec::new();
-    };
-    let mut result = Vec::new();
-    // `inner_components` lists every component defined in the file,
-    // exported or not.
-    for component in &doc.inner_components {
-        visit_element_for_position(&component.root_element, path, offset, &mut result);
-    }
-    result
-}
-
-fn visit_element_for_position(
-    element: &ElementRc,
-    path: &SourcePath,
-    offset: u32,
-    result: &mut Vec<(ElementRc, usize)>,
-) {
-    if element.borrow().repeated.is_some() {
-        // The children of a repeated element live in the component the
-        // repeater pass wrapped around it, which is not part of
-        // `inner_components` — descend explicitly. The wrapper's root
-        // element carries the same source node as the repeated element.
-        let base = match &element.borrow().base_type {
-            i_slint_compiler::element_type::ElementType::Component(c) => {
-                Some(c.root_element.clone())
-            }
-            _ => None,
-        };
-        if let Some(root) = base {
-            visit_element_for_position(&root, path, offset, result);
-        }
-        return;
-    }
-    for (index, node_path, node_range) in
-        element.borrow().debug.iter().enumerate().map(|(index, debug_info)| {
-            let text_range = debug_info
-                .node
-                .QualifiedName()
-                .map(|qualified_name| qualified_name.text_range())
-                .or_else(|| {
-                    debug_info
-                        .node
-                        .child_token(i_slint_compiler::parser::SyntaxKind::LBrace)
-                        .map(|left_brace| left_brace.text_range())
-                })
-                .expect("An Element must contain a LBrace somewhere");
-            (index, debug_info.node.source_file.path(), text_range)
-        })
-    {
-        if node_path == path && node_range.contains(offset.into()) {
-            result.push((element.clone(), index));
-        }
-    }
-    let children = element.borrow().children.clone();
-    for child in &children {
-        visit_element_for_position(child, path, offset, result);
-    }
 }
 
 /// `root` plus every instantiated repeated / conditional row instance
@@ -744,16 +669,12 @@ enum SourceMatch {
     Start,
 }
 
-fn source_location_contains(
-    source_location: &SourceLocation,
-    target_path: &SourcePath,
-    target_offset: u32,
-) -> bool {
+fn source_location_contains(source_location: &SourceLocation, target: &ElementLocation) -> bool {
     let Some(source_file) = source_location.source_file.as_ref() else { return false };
-    if source_file.path() != target_path {
+    if source_file.path() != &target.path {
         return false;
     }
-    let target_offset = target_offset as usize;
+    let target_offset = usize::from(target.offset);
     source_location.span.offset <= target_offset
         && target_offset < source_location.span.offset.saturating_add(source_location.span.length)
 }
@@ -776,7 +697,13 @@ mod tests {
     ) -> crate::highlight::HighlightedRect {
         let id_position = code.find(id).unwrap_or_else(|| panic!("{id} not found"));
         let offset = id_position + code[id_position..].find("Rectangle").unwrap();
-        *instance.component_positions(&test_path(), offset as u32).first().expect("geometry")
+        *instance
+            .component_positions(&i_slint_compiler::object_tree::ElementLocation {
+                path: test_path(),
+                offset: (offset as u32).into(),
+            })
+            .first()
+            .expect("geometry")
     }
 
     fn runtime_item_of(instance: &ComponentInstance, source: &str, element_id: &str) -> ItemRc {
@@ -1078,7 +1005,11 @@ export component Win inherits Window {
             width",
             )
             .unwrap();
-        let geometries = instance.component_positions(&test_path(), offset as u32);
+        let geometries =
+            instance.component_positions(&i_slint_compiler::object_tree::ElementLocation {
+                path: test_path(),
+                offset: (offset as u32).into(),
+            });
         assert_eq!(geometries.len(), 2);
         for (geometry, expected) in geometries.iter().zip([382.25, -397.5]) {
             assert_eq!(geometry.transform_rotation, expected);

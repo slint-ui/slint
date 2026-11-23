@@ -169,7 +169,11 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
 
     fn user_event(&mut self, event_loop: &ActiveEventLoop, event: SlintEvent) {
         match event.0 {
-            CustomEvent::UserEvent(user_callback) => user_callback(),
+            CustomEvent::UserEvent(user_callback) => {
+                user_callback();
+                // winit can run several user events, then sleep, without calling `new_events`.
+                self.shared_backend_data.context().update_timers_and_animations();
+            }
             CustomEvent::UserEventWithEventLoop(user_callback) => user_callback(event_loop),
             CustomEvent::Exit(generation) => {
                 if self

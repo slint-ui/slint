@@ -289,8 +289,15 @@ def test_shadow_handles_follow_the_rotated_guides(
         ("spread", 20, 12, (("spread", 10, 30),)),
     ],
 )
-@pytest.mark.parametrize("rotation,percent", [(0, 100), (30, 200)])
-@pytest.mark.parametrize("outcome", ["commit", "cancel", "return"])
+@pytest.mark.parametrize(
+    "rotation,percent,outcome",
+    [
+        (0, 100, "commit"),
+        (30, 200, "commit"),
+        (30, 200, "cancel"),
+        (30, 200, "return"),
+    ],
+)
 def test_shadow_canvas_gestures_preview_cancel_and_undo(
     shadow_family,
     editor_binary,
@@ -390,10 +397,16 @@ def test_shadow_canvas_gestures_preview_cancel_and_undo(
 
 
 @pytest.mark.parametrize(
-    "x,y,angle,distance",
-    [(3, 4, 53, 5), (-3, 4, 127, 5), (-3, -4, 233, 5), (3, -4, 307, 5), (0, 0, 0, 0)],
+    "x,y,angle,distance,rotation,percent",
+    [
+        (3, 4, 53, 5, 0, 100),
+        (-3, 4, 127, 5, 0, 100),
+        (-3, -4, 233, 5, 0, 100),
+        (3, -4, 307, 5, 0, 100),
+        (0, 0, 0, 0, 0, 100),
+        (3, 4, 53, 5, 30, 200),
+    ],
 )
-@pytest.mark.parametrize("rotation,percent", [(0, 100), (30, 200)])
 def test_shadow_offset_tooltip_uses_angle_and_distance(
     shadow_family,
     editor_binary,

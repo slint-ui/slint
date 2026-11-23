@@ -46,8 +46,11 @@ pub struct SlintEdition {
 }
 
 impl SlintEdition {
+    /// The oldest edition, with the language behavior of Slint 1.18 and earlier.
+    pub const FIRST: Self = Self { major: 1, minor: 18 };
     pub const V1_19: Self = Self { major: 1, minor: 19 };
-    /// The newest edition that a compiler behavior check depends on.
+    pub const V1_20: Self = Self { major: 1, minor: 20 };
+    /// The newest edition that changes the behavior of code that compiles without warnings.
     pub const LATEST_BEHAVIOR_CHANGE: Self = Self::V1_19;
 
     /// The warning for an edition that misses a newer behavior change, where `setting` is
@@ -79,12 +82,31 @@ impl SlintEdition {
         )
     }
 
-    /// Returns `self` if this Slint supports it: if it isn't newer than [`Self::current()`].
+    /// Returns `self` if this Slint supports it:
+    /// if it's between [`Self::FIRST`] and [`Self::current()`].
     pub fn supported(self) -> Result<Self, String> {
+        self.check_supported("The edition", |current| format!("use edition {current}"))
+    }
+
+    /// Returns `self` if it's between [`Self::FIRST`] and [`Self::current()`].
+    /// Otherwise, the error calls the edition `setting`,
+    /// and for a newer edition, suggests `set_current`.
+    fn check_supported(
+        self,
+        setting: &str,
+        set_current: impl FnOnce(Self) -> String,
+    ) -> Result<Self, String> {
         let current = Self::current();
         if self > current {
             return Err(format!(
-                "The edition {self} is newer than Slint {current}: upgrade Slint, or use edition {current}"
+                "{setting} is {self}, newer than Slint {current}: upgrade Slint, or {}",
+                set_current(current)
+            ));
+        }
+        if self < Self::FIRST {
+            return Err(format!(
+                "{setting} is {self}, older than {}, the first edition",
+                Self::FIRST
             ));
         }
         Ok(self)
@@ -103,11 +125,7 @@ impl SlintEdition {
             .and_then(|value| value.strip_suffix('"'))
             .ok_or_else(|| format!("'edition' takes a string, such as \"{current}\""))?
             .parse()?;
-        edition.supported().map_err(|_| {
-            format!(
-                "'edition' is {edition}, newer than Slint {current}: upgrade Slint, or set '#[edition = \"{current}\"]'"
-            )
-        })
+        edition.check_supported("'edition'", |current| format!("set '#[edition = \"{current}\"]'"))
     }
 
     /// The edition of this compiler's release.
@@ -235,10 +253,7 @@ pub fn resolve_input(input: &Path) -> Result<(PathBuf, Option<ProjectFile>), Dia
         ProjectFile::load_with_source(&project_file_path).map_err(|(error, source)| {
             project_load_error(&SourcePath::new(&project_file_path), error, source)
         })?;
-    let entry = project_file.main().ok_or_else(|| {
-        project_error("Project file has no 'main' to compile".into(), project_file.source_path())
-    })?;
-    let entry = entry.into_native_path().ok_or_else(|| {
+    let entry = project_file.main_to_compile()?.into_native_path().ok_or_else(|| {
         project_error(
             "Project file must specify a local file for 'main'".into(),
             project_file.source_path(),
@@ -313,7 +328,7 @@ pub struct Input {
     pub project_file: Option<ProjectFile>,
 }
 
-/// Finds the root file to compile for `input`, which may be a project directory, and reads it.
+/// Finds the root file to compile for `input`, which may be a project directory or a project file URL, and reads it.
 /// `source_code` is the contents of `input`, if the caller has them already.
 /// `project_root` is the directory whose project file applies to `input`.
 /// `file_loader` reads a file before the file system does, such as an editor's unsaved document.
@@ -344,14 +359,17 @@ pub async fn load_input(
             },
         ) as crate::OpenImportCallback
     };
-    let resolved = if input.file_name() == Some(FILE_NAME)
-        && (source_code.is_some() || project_root.is_some() || input.as_native_path().is_none())
-    {
+    let is_project_file = input.file_name() == Some(FILE_NAME);
+    let resolved = if is_project_file && (source_code.is_some() || project_root.is_some()) {
         Err(project_error(project_file_input_error(input), input))
     } else if let Some(root) = project_root {
         load_from_root_with_file_loader(root, Some(&file_loader))
             .await
             .map(|project_file| (input.clone(), project_file))
+    } else if is_project_file && input.as_native_path().is_none() {
+        ProjectFile::load_with_file_loader_diagnostic(input.clone(), Some(&file_loader))
+            .await
+            .and_then(|project_file| Ok((project_file.main_to_compile()?, Some(project_file))))
     } else if let Some(path) = input.as_native_path().filter(|_| source_code.is_none()) {
         resolve_input(path).map(|(source, project_file)| (SourcePath::new(source), project_file))
     } else {
@@ -461,13 +479,10 @@ impl ProjectFile {
         struct EditionOnly {
             edition: Option<SlintEdition>,
         }
-        if let Some(version) = serde_json::from_slice::<EditionOnly>(&source)?.edition
-            && version > current
-        {
-            return Err(format!(
-                "'edition' is {version}, newer than Slint {current}: upgrade Slint, or set \"edition\": \"{current}\""
-            )
-            .into());
+        if let Some(version) = serde_json::from_slice::<EditionOnly>(&source)?.edition {
+            version.check_supported("'edition'", |current| {
+                format!("set \"edition\": \"{current}\"")
+            })?;
         }
         let data: ProjectFileData = serde_json::from_slice(&source)?;
         let Some(edition) = data.edition else { return Err(missing()) };
@@ -566,6 +581,13 @@ impl ProjectFile {
     /// The `.slint` file to compile when a tool is given this project file.
     pub fn main(&self) -> Option<SourcePath> {
         self.source_path.parent().join(&self.data.main.as_ref()?.to_string_lossy())
+    }
+
+    /// The [`Self::main`] file, or an error on the project file if it has none.
+    pub fn main_to_compile(&self) -> Result<SourcePath, Diagnostic> {
+        self.main().ok_or_else(|| {
+            project_error("Project file has no 'main' to compile".into(), self.source_path())
+        })
     }
 
     pub fn into_compiler_configuration(
@@ -1188,9 +1210,15 @@ mod tests {
     }
 
     #[test]
-    fn an_older_edition_is_valid() {
-        let parsed = load_project_file(r#"{ "edition": "1.10" }"#).unwrap();
-        assert_eq!(parsed.edition(), SlintEdition { major: 1, minor: 10 });
+    fn editions_start_at_the_first() {
+        let parsed = load_project_file(r#"{ "edition": "1.18" }"#).unwrap();
+        assert_eq!(parsed.edition(), SlintEdition::FIRST);
+        assert_eq!(
+            SlintEdition::parse_supported("1.17"),
+            Err("The edition is 1.17, older than 1.18, the first edition".into())
+        );
+        let error = SlintEdition::parse_rust_macro_attribute("\"1.5\"").unwrap_err();
+        assert_eq!(error, "'edition' is 1.5, older than 1.18, the first edition");
     }
 
     #[test]
@@ -1217,7 +1245,7 @@ mod tests {
     fn the_project_file_edition_wins_over_the_configuration() {
         with_project_file_contents(r#"{ "edition": "1.20" }"#, |path| {
             let mut config = crate::CompilerConfiguration::new(OutputFormat::Llr);
-            config.edition = Some(SlintEdition { major: 1, minor: 10 });
+            config.edition = Some(SlintEdition::FIRST);
             ProjectFile::load(path).unwrap().apply_to(&mut config);
             assert_eq!(config.edition, Some(SlintEdition::current()));
         });
@@ -1383,8 +1411,13 @@ mod tests {
             with_project_file_contents(source, |path| {
                 let input = SourcePath::new(path.parent().unwrap());
                 let mut diagnostics = crate::diagnostics::BuildDiagnostics::default();
-                let (loaded, _) =
-                    spin_on::spin_on(super::load_input(&input, None, None, None, &mut diagnostics));
+                let (loaded, _) = crate::poll_ready(super::load_input(
+                    &input,
+                    None,
+                    None,
+                    None,
+                    &mut diagnostics,
+                ));
                 assert!(loaded.is_none());
                 let diagnostic = diagnostics.iter().next().unwrap();
                 assert_eq!(diagnostic.source_file().unwrap(), path);
@@ -1550,7 +1583,7 @@ mod tests {
                     Default::default(),
                 );
                 let disk = ProjectFile::load(path);
-                let callback = spin_on::spin_on(ProjectFile::load_with_file_loader(
+                let callback = crate::poll_ready(ProjectFile::load_with_file_loader(
                     source_path,
                     Some(&loader),
                 ));
@@ -1577,7 +1610,7 @@ mod tests {
             Default::default(),
         );
         let project =
-            spin_on::spin_on(ProjectFile::load_with_file_loader(manifest.clone(), Some(&loader)))
+            crate::poll_ready(ProjectFile::load_with_file_loader(manifest.clone(), Some(&loader)))
                 .unwrap();
         assert_eq!(project.source_path(), &manifest);
         assert_eq!(
@@ -1617,7 +1650,7 @@ mod tests {
                         response.map(|result| result.map(str::to_owned).map_err(Into::into))
                     })
                 });
-                let result = spin_on::spin_on(ProjectFile::load_with_file_loader(
+                let result = crate::poll_ready(ProjectFile::load_with_file_loader(
                     path.clone(),
                     Some(&loader),
                 ));
@@ -1652,7 +1685,7 @@ mod tests {
                 ]),
                 requested.clone(),
             );
-            let project = spin_on::spin_on(super::load_from_root_with_file_loader(
+            let project = crate::poll_ready(super::load_from_root_with_file_loader(
                 root.clone(),
                 Some(&loader),
             ))
@@ -1664,7 +1697,7 @@ mod tests {
             requested.borrow_mut().clear();
             let loader = callback_loader(HashMap::new(), requested.clone());
             assert!(
-                spin_on::spin_on(super::load_from_root_with_file_loader(root, Some(&loader)))
+                crate::poll_ready(super::load_from_root_with_file_loader(root, Some(&loader)))
                     .unwrap()
                     .is_none()
             );
@@ -1680,7 +1713,7 @@ mod tests {
         for loader in [None, Some(&declined_loader)] {
             let root = SourcePath::new("/project/ui");
             assert!(
-                spin_on::spin_on(super::load_from_root_with_file_loader(root, loader))
+                crate::poll_ready(super::load_from_root_with_file_loader(root, loader))
                     .unwrap()
                     .is_none()
             );
@@ -1703,7 +1736,7 @@ mod tests {
                     Box::pin(async move { Some(contents.map(str::to_owned).map_err(Into::into)) })
                 });
                 assert!(
-                    spin_on::spin_on(super::load_from_root_with_file_loader(
+                    crate::poll_ready(super::load_from_root_with_file_loader(
                         SourcePath::new(root),
                         Some(&loader)
                     ))
@@ -1731,7 +1764,7 @@ mod tests {
                 ]),
                 requested.clone(),
             );
-            let project = spin_on::spin_on(super::load_from_root_with_file_loader(
+            let project = crate::poll_ready(super::load_from_root_with_file_loader(
                 root.clone(),
                 Some(&loader),
             ))

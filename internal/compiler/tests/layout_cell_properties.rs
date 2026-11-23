@@ -21,12 +21,12 @@ const OUTSIDE_ERROR: &str = "used outside of a FlexboxLayout, HorizontalLayout, 
 /// (warnings are not of interest here).
 fn errors(source: String) -> Vec<String> {
     let mut diagnostics = BuildDiagnostics::default();
-    let syntax_node = parse(source, None, &mut diagnostics);
+    let syntax_node = parse(source, None, None, &mut diagnostics);
     let mut config = CompilerConfiguration::new(OutputFormat::Interpreter);
     // The default follows SLINT_ENABLE_EXPERIMENTAL_FEATURES; pin it off.
     config.experimental_features = i_slint_compiler::ExperimentalFeatures::default();
     let (_, diagnostics, _) =
-        spin_on::spin_on(compile_syntax_node(syntax_node, diagnostics, config));
+        i_slint_compiler::poll_ready(compile_syntax_node(syntax_node, diagnostics, config));
     diagnostics
         .iter()
         .filter(|d| d.level() == DiagnosticLevel::Error)

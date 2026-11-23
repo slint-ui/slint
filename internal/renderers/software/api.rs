@@ -4,10 +4,10 @@
 //! The public API of the software renderer, which `slint::platform::software_renderer`
 //! re-exports. The other public items of this crate are for the crates of this repository.
 
-pub use crate::draw_functions::{
-    PremultipliedRgbaColor, Rgb565BigEndianPixel, Rgb565Pixel, TargetPixel,
-};
 pub use crate::minimal_software_window::MinimalSoftwareWindow;
+pub use crate::target_pixel::{
+    Argb8888Pixel, PremultipliedRgbaColor, Rgb565BigEndianPixel, Rgb565Pixel, TargetPixel,
+};
 #[cfg(feature = "experimental")]
 pub use crate::target_pixel_buffer::{
     DrawRectangleArgs, DrawTextureArgs, TargetPixelBuffer, TexturePixelFormat,
@@ -119,14 +119,7 @@ impl PhysicalRegion {
     }
 
     pub(crate) fn bounding_rect(&self) -> PhysicalRect {
-        if self.count == 0 {
-            return Default::default();
-        }
-        let mut r = self.rectangles[0];
-        for i in 1..self.count {
-            r = r.union(&self.rectangles[i]);
-        }
-        r.to_rect()
+        self.iter_box().reduce(|a, b| a.union(&b)).map(|r| r.to_rect()).unwrap_or_default()
     }
 
     /// Returns the size of the bounding box of this region.
@@ -181,14 +174,10 @@ impl PhysicalRegion {
     pub(crate) fn intersection(&self, clip: &PhysicalRect) -> PhysicalRegion {
         let mut res = Self::default();
         let clip = clip.to_box2d();
-        let mut count = 0;
-        for i in 0..self.count {
-            if let Some(r) = self.rectangles[i].intersection(&clip) {
-                res.rectangles[count] = r;
-                count += 1;
-            }
+        for r in self.iter_box().filter_map(|r| r.intersection(&clip)) {
+            res.rectangles[res.count] = r;
+            res.count += 1;
         }
-        res.count = count;
         res
     }
 }

@@ -26,7 +26,7 @@ use derive_more as dm;
 use crate::CompilerConfiguration;
 use crate::expression_tree::Callable;
 use crate::project_file::SlintEdition;
-use smol_str::{SmolStr, ToSmolStr};
+use smol_str::SmolStr;
 
 /// Represent the kind of property for the DefaultFontSize based on the `default-font-size`` property of every `Window``
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -192,6 +192,8 @@ struct AnalysisContext<'a> {
     /// For each place a binding loop diagnostic or note points at, whether one of those loops
     /// was an error.
     loop_reported_at: HashMap<(Option<SourcePath>, usize, usize), bool>,
+    /// The bindings reported as referring to themselves, directly or through an alias
+    self_references_reported: HashSet<(Option<SourcePath>, usize, usize)>,
     global_analysis: &'a mut GlobalAnalysis,
 }
 
@@ -209,6 +211,7 @@ fn perform_binding_analysis(
         window_layout_property: None,
         depth_limit_reported: false,
         loop_reported_at: HashMap::new(),
+        self_references_reported: HashSet::new(),
         global_analysis,
     };
     doc.visit_all_used_components(|component| {
@@ -374,7 +377,7 @@ fn analyze_binding(
             .span
             .clone()
             .unwrap_or_else(|| element.borrow().to_source_location());
-        diag.push_error(format!("Property '{name}' cannot refer to itself"), &span);
+        report_self_reference(name, &span, context, diag);
         return depends_on_external;
     }
 
@@ -461,19 +464,51 @@ fn analyze_binding(
     });
 
     // `remove_aliases` merges two-way bound properties into one, keeping only one of the bindings,
-    // so the expression of a property aliased to this one is a dependency of this binding too.
-    // The other direction is covered by the `two_way_bindings` loop above.
+    // so the expression of every property in the alias group is a dependency of this binding too.
     let mut aliased_deps = Vec::new();
-    for alias in transitive_reverse_aliases(&current.prop, reverse_aliases) {
+    // A binding on the instance overrides the one in the component, and its
+    // expression is in the scope of the instance's own component.
+    let mut instance_deps = Vec::new();
+    let mut self_references = Vec::new();
+    let group = if b.two_way_bindings.is_empty() && !reverse_aliases.contains_key(&current.prop) {
+        Vec::new()
+    } else {
+        alias_group(&current.prop, reverse_aliases)
+    };
+    // `scope` is where the reading binding is set: the element of a group member, or the
+    // instance that overrides the binding of a member of its component's root element.
+    let in_group = |p: &PropertyPath, scope: &ElementRc| {
+        p.elements.is_empty()
+            && group.iter().any(|a| {
+                *a == p.prop
+                    || a.name() == p.prop.name()
+                        && Rc::ptr_eq(&p.prop.element(), scope)
+                        && is_instance_of(scope, &a.element())
+            })
+    };
+    for alias in group.iter().skip(1) {
         let element = alias.element();
-        let element_borrow = element.borrow();
-        if let Some(alias_binding) = element_borrow.binding(alias.name()) {
-            recurse_expression(&element, &alias_binding.expression, &mut |p, r| {
-                // A reference back to this property is reported as "cannot refer to itself".
-                if !(p.elements.is_empty() && p.prop == current.prop) {
-                    aliased_deps.push((p.clone(), r))
-                }
-            });
+        let on_instance = current.elements.split_last().filter(|(instance, _)| {
+            is_instance_of(instance, &element) && instance.borrow().binding(alias.name()).is_some()
+        });
+        let scope = on_instance.map_or(element, |(instance, _)| instance.0.clone());
+        let scope_borrow = scope.borrow();
+        let Some(binding) = scope_borrow.binding(alias.name()) else { continue };
+        let mut refers_to_itself = false;
+        recurse_expression(&scope, &binding.expression, &mut |p, r| {
+            if in_group(p, &scope) {
+                refers_to_itself = true;
+            } else if let Some((_, outer_elements)) = on_instance {
+                let mut elements = outer_elements.to_vec();
+                elements.extend(p.elements.iter().cloned());
+                instance_deps.push((PropertyPath { elements, prop: p.prop.clone() }, r))
+            } else {
+                aliased_deps.push((p.clone(), r))
+            }
+        });
+        if refers_to_itself {
+            let span = binding.span.clone().unwrap_or_else(|| scope_borrow.to_source_location());
+            self_references.push((alias.name().clone(), span));
         }
     }
     // Process outside of the loop so that the alias binding isn't borrowed while it is analyzed.
@@ -508,6 +543,13 @@ fn analyze_binding(
             }
         }
         None => (),
+    }
+
+    for (p, r) in &instance_deps {
+        depends_on_external |= process_property(p, *r, context, reverse_aliases, diag);
+    }
+    for (name, span) in &self_references {
+        report_self_reference(name, span, context, diag);
     }
 
     let o = context.currently_analyzing.pop();
@@ -814,21 +856,44 @@ fn describe_loop(current: &PropertyPath, cycle: &[&PropertyPath]) -> String {
     out
 }
 
-fn transitive_reverse_aliases(
-    prop: &NamedReference,
-    reverse_aliases: &ReverseAliases,
-) -> Vec<NamedReference> {
-    let mut result = Vec::new();
-    let mut pending = vec![prop];
-    while let Some(p) = pending.pop() {
-        for alias in reverse_aliases.get(p).into_iter().flatten() {
-            if alias != prop && !result.contains(alias) {
-                result.push(alias.clone());
-                pending.push(alias);
+/// `prop` and the properties two-way bound to it, directly or through other properties.
+fn alias_group(prop: &NamedReference, reverse_aliases: &ReverseAliases) -> Vec<NamedReference> {
+    let mut group = vec![prop.clone()];
+    let mut index = 0;
+    while let Some(current) = group.get(index).cloned() {
+        index += 1;
+        let element = current.element();
+        let forward: Vec<_> = element
+            .borrow()
+            .binding_cell_including_synthetic(current.name())
+            .map(|b| {
+                b.borrow().two_way_bindings.iter().filter_map(|t| t.property().cloned()).collect()
+            })
+            .unwrap_or_default();
+        for next in
+            forward.into_iter().chain(reverse_aliases.get(&current).into_iter().flatten().cloned())
+        {
+            if !group.contains(&next) {
+                group.push(next);
             }
         }
     }
-    result
+    group
+}
+
+fn is_instance_of(instance: &ElementRc, root_element: &ElementRc) -> bool {
+    matches!(&instance.borrow().base_type, ElementType::Component(c) if Rc::ptr_eq(&c.root_element, root_element))
+}
+
+fn report_self_reference(
+    name: &str,
+    span: &SourceLocation,
+    context: &mut AnalysisContext,
+    diag: &mut BuildDiagnostics,
+) {
+    if context.self_references_reported.insert(place(span)) {
+        diag.push_error(format!("Property '{name}' cannot refer to itself"), span);
+    }
 }
 
 /// Find properties two-way-bound (via `<=>`) to `prop`, ascending through base components
@@ -881,6 +946,9 @@ enum CrossAxisSize {
     /// That set is wider than `is_builtin_height_for_width`: an Image with an
     /// explicit height is in it.
     GivenByLayout,
+    /// The box or grid layout of a `layoutinfo-v-with-constraint` body passes
+    /// its width only to its height-for-width cells.
+    GivenToHeightForWidthCells,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -942,12 +1010,17 @@ fn process_property(
             }
             _ => break,
         };
-        next.borrow()
-            .property_analysis
-            .borrow_mut()
-            .entry(prop.prop.name().clone())
-            .or_default()
-            .is_read_externally = true;
+        // A binding of an instance that reads the property uses it in the base,
+        // like a binding of the base itself would. A native read reads the item's
+        // current value, so it doesn't use the property.
+        if read_type == ReadType::PropertyRead {
+            next.borrow()
+                .property_analysis
+                .borrow_mut()
+                .entry(prop.prop.name().clone())
+                .or_default()
+                .is_read_externally = true;
+        }
         prop.elements.push(element.into());
         prop.prop = NamedReference::new(&next, prop.prop.name().clone());
     }
@@ -989,7 +1062,7 @@ fn visit_expression_reads(
             visit_layout_items_dependencies(
                 l.elems.iter(),
                 *o,
-                CrossAxisSize::ReadByCell,
+                layout_cells_cross_size(expr),
                 l.is_synthesized_repeated_merge,
                 vis,
             );
@@ -1189,7 +1262,7 @@ fn visit_expression_reads(
             visit_layout_items_dependencies(
                 layout.elems.iter().map(|it| &it.item),
                 *orientation,
-                CrossAxisSize::ReadByCell,
+                layout_cells_cross_size(expr),
                 false,
                 vis,
             );
@@ -1298,6 +1371,27 @@ fn visit_expression_reads(
     }
 }
 
+/// How the cells of a box or grid layout expression get their width.
+fn layout_cells_cross_size(expr: &Expression) -> CrossAxisSize {
+    let is_constrained_info = matches!(
+        expr,
+        Expression::ComputeBoxLayoutInfo {
+            orientation: Orientation::Vertical,
+            cross_axis_size: Some(_),
+            ..
+        } | Expression::ComputeGridLayoutInfo {
+            orientation: Orientation::Vertical,
+            cross_axis_size: Some(_),
+            ..
+        }
+    );
+    if is_constrained_info {
+        CrossAxisSize::GivenToHeightForWidthCells
+    } else {
+        CrossAxisSize::ReadByCell
+    }
+}
+
 /// `skip_model_dependency` is set for the one-cell `BoxLayout`
 /// [`crate::layout::repeated_element_layout_info`] synthesizes to merge a
 /// repeated element's constraints into a non-layout parent (issue #407) —
@@ -1321,12 +1415,35 @@ fn visit_layout_items_dependencies<'a>(
             // Conservative for a repeated cell: whether the layout hands the
             // instance its width depends on it (see `builtin_height_depends_on_width`).
             CrossAxisSize::ReadByCell
+        } else if cross_size == CrossAxisSize::GivenToHeightForWidthCells {
+            if crate::layout::is_height_for_width_cell(&element) {
+                if let Some(width) = crate::layout::fixed_cell_width(&element, &it.constraints) {
+                    vis(&width.clone().into(), ReadType::PropertyRead);
+                }
+                CrossAxisSize::GivenByLayout
+            } else {
+                CrossAxisSize::ReadByCell
+            }
         } else {
             cross_size
         };
 
-        if let Some(nr) = element.borrow().effective_layout_info_prop(orientation) {
+        let width_given =
+            orientation == Orientation::Vertical && cross_size == CrossAxisSize::GivenByLayout;
+        if width_given && let Some(nr) = element.borrow().layout_info_v_with_constraint.clone() {
+            vis(&nr.into(), ReadType::PropertyRead);
+        } else if let Some(nr) = element.borrow().effective_layout_info_prop(orientation) {
             vis(&nr.clone().into(), ReadType::PropertyRead);
+        } else if width_given
+            && let Some(Expression::FunctionCall { function: Callable::Function(nr), .. }) =
+                crate::layout::implicit_layout_info_call(
+                    &element,
+                    orientation,
+                    crate::layout::BuiltinFilter::All,
+                    Some(Expression::Invalid),
+                )
+        {
+            vis(&nr.into(), ReadType::PropertyRead);
         } else {
             let height_settled = element.borrow().height_is_literal;
             if let Some(nr) = element.borrow().base_layout_info_prop(orientation, height_settled) {
@@ -1462,21 +1579,22 @@ fn constraint_reads_own_geometry(nr: &NamedReference) -> bool {
 }
 
 /// Cross-axis variant of [`visit_implicit_layout_info_dependencies`]: only
-/// declare deps that actually exist on the cross-axis path. Image/Text and
-/// other h-for-w builtins receive the cross-axis size via the item VTable's
+/// declare deps that actually exist on the cross-axis path. Elements based on
+/// text or image items receive the cross-axis size via the item VTable's
 /// `cross_axis_constraint`, so they don't read `self.{w,h}` here. For other
-/// items (user components, plain builtins), the native `ImplicitLayoutInfo`
-/// reads `preferred-{w,h}` — declare it when the user has bound it to read
-/// the opposite-axis dim on the same element. That catches cycles like
-/// `preferred-height: self.width` at compile time instead of panicking at
-/// runtime.
+/// items, the native `ImplicitLayoutInfo` reads `preferred-{w,h}` — declare
+/// it when the user has bound it to read the opposite-axis dim on the same
+/// element. That catches cycles like `preferred-height: self.width` at
+/// compile time instead of panicking at runtime.
 fn visit_cell_cross_axis_implicit_dependency(
     cross_axis: Orientation,
     item: &ElementRc,
     vis: &mut impl FnMut(&PropertyPath, ReadType),
 ) {
-    let base_type = item.borrow().base_type.to_smolstr();
-    if matches!(base_type.as_str(), "Image" | "ClippedImage" | "Text" | "TextInput" | "StyledText")
+    if item
+        .borrow()
+        .builtin_type()
+        .is_some_and(|b| matches!(b.name.as_str(), "Image" | "Text" | "TextInput" | "StyledText"))
     {
         return;
     }
@@ -1518,11 +1636,11 @@ fn visit_implicit_layout_info_dependencies(
     item: &ElementRc,
     vis: &mut impl FnMut(&PropertyPath, ReadType),
 ) {
-    let base_type = item.borrow().base_type.to_smolstr();
+    let Some(builtin) = item.borrow().builtin_type() else { return };
     const N: ReadType = ReadType::NativeRead;
     let reads_own_width =
         orientation == Orientation::Vertical && cross_size == CrossAxisSize::ReadByCell;
-    match base_type.as_str() {
+    match builtin.name.as_str() {
         "Image" => {
             vis(&NamedReference::new(item, SmolStr::new_static("source")).into(), N);
             vis(&NamedReference::new(item, SmolStr::new_static("source-clip-width")).into(), N);
@@ -1548,7 +1666,7 @@ fn visit_implicit_layout_info_dependencies(
                 );
             }
             vis(&NamedReference::new(item, SmolStr::new_static("wrap")).into(), N);
-            if base_type.as_str() == "TextInput" {
+            if builtin.name == "TextInput" {
                 vis(&NamedReference::new(item, SmolStr::new_static("single-line")).into(), N);
             } else {
                 vis(&NamedReference::new(item, SmolStr::new_static("overflow")).into(), N);

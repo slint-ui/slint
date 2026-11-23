@@ -8,14 +8,17 @@ import { InspectorContext } from "context.slint";
 
 export component InspectorInteractionSection inherits InspectorSection {
     private property <bool> value: Properties.editor-property-value-data("enabled").value-bool;
-    changed value => { toggle.checked = root.value; }
     private property <bool> read-only: Properties.editor-property-value-data("read-only").value-bool;
 
     private property <bool> checkable: InspectorContext.is-checkable();
+    private property <bool> mouse-drag-pan: Properties.editor-property-value-data("mouse-drag-pan-enabled").value-bool;
 
     title: @tr("Interaction");
 
-    InspectorPropertyRow {
+    if InspectorContext.has-enabled-selection(): InspectorPropertyRow {
+        private property <bool> value: root.value;
+        changed value => { toggle.checked = self.value; }
+
         label: @tr("Enabled");
 
         toggle := InspectorSwitch {
@@ -62,6 +65,24 @@ export component InspectorInteractionSection inherits InspectorSection {
                 let requested = self.checked;
                 self.checked = root.checkable;
                 InspectorContext.commit-boolean("checkable", requested);
+            }
+        }
+    }
+
+    if InspectorContext.has-mouse-drag-pan-selection(): InspectorPropertyRow {
+        private property <bool> value: root.mouse-drag-pan;
+        changed value => { mouse-drag-pan-toggle.checked = self.value; }
+
+        label: @tr("Mouse Drag Pan");
+
+        mouse-drag-pan-toggle := InspectorSwitch {
+            accessible-label: @tr("Mouse Drag Pan");
+            checked: root.mouse-drag-pan;
+            toggled => {
+                self.focus();
+                let requested = self.checked;
+                self.checked = root.mouse-drag-pan;
+                InspectorContext.commit-boolean("mouse-drag-pan-enabled", requested);
             }
         }
     }

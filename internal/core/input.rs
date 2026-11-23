@@ -3,7 +3,7 @@
 
 // cSpell: ignore altgr rpos Unapply
 /*! Module handling mouse events
-*/
+ */
 #![warn(missing_docs)]
 
 use crate::cursor::MouseCursorInner;
@@ -231,7 +231,7 @@ pub struct TouchHistory {
 
 /// The mouse events a backend can deliver to the runtime.
 #[allow(missing_docs)]
-#[repr(C)]
+#[repr(C, u8)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum BackendMouseEvent {
     /// The mouse or finger was pressed
@@ -350,7 +350,7 @@ pub enum InputEventResult {
 /// This value is returned by the `input_event_filter_before_children` function, which
 /// can specify how to further process the event.
 /// See [`crate::items::ItemVTable::input_event_filter_before_children`].
-#[repr(C)]
+#[repr(C, u8)]
 #[derive(Debug, Copy, Clone, PartialEq, Default)]
 pub enum InputEventFilterResult {
     /// The event is going to be forwarded to children, then the [`crate::items::ItemVTable::input_event`]
@@ -1376,6 +1376,7 @@ pub struct ClickState {
     click_button: Cell<PointerEventButton>,
     /// Unlike `click_position`, also moves on a repeated press.
     last_press_position: Cell<LogicalPoint>,
+    pressed: Cell<bool>,
     /// The item that holds the last press.
     target: RefCell<ItemWeak>,
 }
@@ -1415,6 +1416,7 @@ impl ClickState {
         match mouse_event {
             MouseEvent::Pressed { position, button, touch_finger_id, event_time, .. } => {
                 self.last_press_position.set(position);
+                self.pressed.set(true);
                 let instant_now = crate::animations::Instant::now(ctx);
                 let click_interval = ctx.platform().click_interval();
 
@@ -1441,6 +1443,7 @@ impl ClickState {
                 };
             }
             MouseEvent::Released { position, button, touch_finger_id, event_time, .. } => {
+                self.pressed.set(false);
                 return MouseEvent::Released {
                     position,
                     button,
@@ -1448,6 +1451,11 @@ impl ClickState {
                     touch_finger_id,
                     event_time,
                 };
+            }
+            // A cancelled press doesn't count towards a double click.
+            // A finished touch also ends with an Exit, so only reset if there was no release.
+            MouseEvent::Exit if self.pressed.replace(false) => {
+                self.click_count_time_stamp.set(None);
             }
             _ => {}
         };
@@ -1839,6 +1847,7 @@ pub fn process_mouse_input(
         .is_none_or(|((accepting_item, _), delaying_item)| accepting_item != delaying_item);
     let delaying_item_still_undecided = is_move && !result.grabbed;
     if mouse_input_state.delayed.is_some()
+        && !matches!(mouse_event, MouseEvent::Exit)
         && !moved_outside_delaying_item
         && (!accepted || accepted_by_other_item || delaying_item_still_undecided)
     {
@@ -2645,13 +2654,15 @@ impl TouchState {
             GestureRecognitionState::Idle => {
                 if self.primary_touch_id == Some(id) {
                     self.primary_touch_id = None;
-                    events.push(MouseEvent::Released {
-                        position,
-                        button: PointerEventButton::Left,
-                        click_count: 0,
-                        touch_finger_id: id + 1,
-                        event_time: None,
-                    });
+                    if !is_cancelled {
+                        events.push(MouseEvent::Released {
+                            position,
+                            button: PointerEventButton::Left,
+                            click_count: 0,
+                            touch_finger_id: id + 1,
+                            event_time: None,
+                        });
+                    }
                     events.push(MouseEvent::Exit);
                 }
             }
@@ -2928,7 +2939,7 @@ mod touch_tests {
 
         let evs =
             state.process(1, pt(100.0, 200.0), TouchPhase::Cancelled, None, Default::default());
-        assert_eq!(classify(&evs), vec![Ev::Released(100.0, 200.0), Ev::Exit]);
+        assert_eq!(classify(&evs), vec![Ev::Exit]);
     }
 
     #[test]

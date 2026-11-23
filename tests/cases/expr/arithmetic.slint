@@ -11,6 +11,11 @@ component TestCase inherits Rectangle {
 
     out property <length> len: 50px / 2;
 
+    in-out property <length> w: 40px;
+    out property <int> ratio: (w + 2 * 10px) / 10px + 1;
+    in-out property <length> wide: 100000000000px;
+    out property <int> wide-as-int: wide / 10px;
+
     callback foo;
     foo => {
         a += +8;
@@ -24,7 +29,8 @@ component TestCase inherits Rectangle {
         len *= 3;
     }
 
-    out property <bool> test:  t1 == -40 && t2 == 7499 && t3 == -(3+2 * 2) && -1090 == t4 && t5 == 13;
+    out property <bool> test:  t1 == -40 && t2 == 7499 && t3 == -(3+2 * 2) && -1090 == t4 && t5 == 13
+        && ratio == 7 && wide-as-int == 2147483647;
 }
 /*
 ```cpp
@@ -41,6 +47,11 @@ instance.invoke_foo();
 assert_eq(instance.get_a(), (((42 + 8) * 10) / 2) - 3);
 
 assert_eq(instance.get_len(), ((25.+1.)/2. - 3.) * 3.);
+
+assert_eq(instance.get_ratio(), 7);
+instance.set_w(55.);
+assert_eq(instance.get_ratio(), 8);
+assert_eq(instance.get_wide_as_int(), 2147483647);
 ```
 
 
@@ -57,6 +68,11 @@ instance.invoke_foo();
 assert_eq!(instance.get_a(), (((42 + 8) * 10) / 2) - 3);
 
 assert_eq!(instance.get_len(), ((25.+1.)/2. - 3.) * 3.);
+
+assert_eq!(instance.get_ratio(), 7);
+instance.set_w(55.);
+assert_eq!(instance.get_ratio(), 8);
+assert_eq!(instance.get_wide_as_int(), i32::MAX);
 ```
 
 ```js
@@ -72,5 +88,10 @@ instance.foo();
 assert.equal(instance.a, (((42 + 8) * 10) / 2) - 3);
 
 assert.equal(instance.len, ((25.+1.)/2. - 3.) * 3.);
+
+assert.equal(instance.ratio, 7);
+instance.w = 55;
+assert.equal(instance.ratio, 8);
+assert.equal(instance.wide_as_int, 2147483647);
 ```
 */

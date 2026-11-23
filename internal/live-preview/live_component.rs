@@ -14,6 +14,8 @@ use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
 //re-export for the generated code:
+pub use i_slint_compiler::project_file::Overrides;
+pub use i_slint_core::InternalToken;
 pub use slint_interpreter::{Compiler, ComponentInstance, DefaultTranslationContext, Value};
 
 /// Builds the [`Compiler`] the worker thread compiles with. A `Compiler` is not
@@ -329,18 +331,6 @@ impl LiveReloadingComponent {
     }
 }
 
-/// Poll a future that is expected to be immediately ready. The compiler is only
-/// asynchronous when an async file loader is set, which the live preview does
-/// not use.
-pub fn poll_ready<F: std::future::Future>(future: F) -> F::Output {
-    let mut future = core::pin::pin!(future);
-    let mut cx = std::task::Context::from_waker(std::task::Waker::noop());
-    match std::future::Future::poll(future.as_mut(), &mut cx) {
-        std::task::Poll::Ready(result) => result,
-        std::task::Poll::Pending => unreachable!("Compiler returned Pending"),
-    }
-}
-
 struct Watcher {
     // (wouldn't need to be an option if new_cyclic() could return errors)
     watcher: Option<FileWatcher>,
@@ -432,7 +422,10 @@ impl Watcher {
                 compiler
                     .set_embed_resources(i_slint_compiler::EmbedResourcesKind::ListAllResources);
                 if first_build
-                    .send(poll_ready(compiler.build_from_path(&file_name)).into_send())
+                    .send(
+                        i_slint_compiler::poll_ready(compiler.build_from_path(&file_name))
+                            .into_send(),
+                    )
                     .is_err()
                 {
                     return;
@@ -442,7 +435,8 @@ impl Watcher {
                     while let Ok(g) = rx.try_recv() {
                         generation = g;
                     }
-                    let result = poll_ready(compiler.build_from_path(&file_name)).into_send();
+                    let result = i_slint_compiler::poll_ready(compiler.build_from_path(&file_name))
+                        .into_send();
                     let Some(watcher) = watcher_weak.upgrade() else { return };
                     let mut locked = watcher.lock().unwrap();
                     // A newer change arrived while compiling; the next request is fresher
@@ -494,6 +488,7 @@ mod ffi {
         no_default_translation_context: bool,
         bundled_translations_path: Slice<u8>,
         edition: Slice<u8>,
+        debug_info: bool,
     ) -> *const LiveReloadingComponentInner {
         // Owned, so that the worker thread can build a Compiler of its own from them
         let include_paths: Vec<PathBuf> =
@@ -516,6 +511,10 @@ mod ffi {
 
         let compiler_factory = move || {
             let mut compiler = Compiler::default();
+            compiler.set_overrides(
+                Overrides { debug_info: debug_info.then_some(true), ..Default::default() },
+                InternalToken,
+            );
             compiler.set_include_paths(include_paths.clone());
             compiler.set_library_paths(library_paths.clone());
             if let Some(style) = &style {

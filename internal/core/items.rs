@@ -115,7 +115,7 @@ macro_rules! declare_item_vtable {
 /// Returned by the `render()` function on items to indicate whether the rendering of
 /// children should be handled by the caller, of if the item took care of that (for example
 /// through layer indirection)
-#[repr(C)]
+#[repr(u8)]
 #[derive(Default)]
 pub enum RenderingResult {
     #[default]
@@ -1674,7 +1674,7 @@ impl Item for ContextMenu {
             is_menu_key
         }
 
-        if is_menu_key(event) {
+        if event.event_type == KeyEventType::KeyPressed && is_menu_key(event) {
             self.show.call(&(Default::default(),));
             KeyEventResult::EventAccepted
         } else {
