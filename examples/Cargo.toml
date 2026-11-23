@@ -51,8 +51,6 @@ rust-version = "1.95"
 
 [workspace.dependencies]
 i-slint-backend-testing = { version = "=1.20.0", path = "../internal/backends/testing", default-features = false }
-i-slint-core = { version = "=1.20.0", path = "../internal/core", default-features = false }
-i-slint-renderer-software = { version = "=1.20.0", path = "../internal/renderers/software", default-features = false }
 
 bytemuck = { version = "1.13.1" }
 cfg_aliases = { version = "0.2.2" }
