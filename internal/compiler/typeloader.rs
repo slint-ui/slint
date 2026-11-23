@@ -1318,6 +1318,13 @@ impl TypeLoader {
                     };
                     import.resolved = Some(path);
                 }
+                if crate::fileaccess::is_font_file(&import.file) {
+                    let importing_file = import.import_uri_token.source_file.path();
+                    let warning = state.borrow().tl.font_import_warning(importing_file, &import);
+                    if let Some(warning) = warning {
+                        state.borrow_mut().diag.push_warning(warning, &import.import_uri_token);
+                    }
+                }
                 imports.push(import);
                 continue;
             }
@@ -1540,6 +1547,37 @@ impl TypeLoader {
                 },
             )
         }
+    }
+
+    /// The deprecation warning for `import`, a font import in `importing_file`,
+    /// if a project file applies to that file.
+    fn font_import_warning(
+        &self,
+        importing_file: &SourcePath,
+        import: &ImportedTypes,
+    ) -> Option<String> {
+        use crate::project_file::normalize_project_file_path as absolute;
+        let importing_file = absolute(importing_file.clone());
+        let project_directory = match self.library_project_of(&importing_file) {
+            Some(library) => library.root.clone(),
+            None => self
+                .compiler_config
+                .project_files
+                .iter()
+                .map(SourcePath::parent)
+                .filter(|directory| is_within(directory, &importing_file))
+                .max_by_key(|directory| directory.to_string().len())?,
+        };
+        let suggestion = import
+            .resolved
+            .clone()
+            .map(absolute)
+            .and_then(|font| font.relative_to(&project_directory))
+            .map_or_else(|| import.file.clone(), |font| font.to_string().replace('\\', "/"));
+        Some(format!(
+            "Importing a font is deprecated. Add \"{suggestion}\" to 'fonts' in {} instead",
+            crate::project_file::FILE_NAME
+        ))
     }
 
     /// The font files to register: the fonts of the compiler configuration and of the library
@@ -3492,6 +3530,79 @@ fn the_fonts_of_a_used_library_project_are_registered() {
         .map(|(path, _)| path)
         .collect();
     assert_eq!(font_files, [SourcePath::new(&library_font)]);
+
+    std::fs::remove_dir_all(&root).unwrap();
+}
+
+#[test]
+fn font_imports_are_deprecated_where_a_project_file_applies() {
+    let root = std::env::temp_dir().join(format!(
+        "slint-font-import-warning-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+    ));
+    let write = |path: &str, contents: &str| {
+        let path = root.join(path);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(&path, contents).unwrap();
+        path
+    };
+    write("app/slint-project.json", r#"{ "edition": "1.20", "main": "main.slint" }"#);
+    write("app/fonts/App.ttf", "");
+    let main = write(
+        "app/main.slint",
+        r#"import "fonts/App.ttf";
+import { Button } from "@lib";
+export component Main inherits Window { Button { } }"#,
+    );
+    write("lib/slint-project.json", r#"{ "edition": "1.20", "main": "lib.slint" }"#);
+    write("lib/lib.slint", r#"import "../shared/Shared.ttf"; export component Button { }"#);
+    write("shared/Shared.ttf", "");
+
+    let warnings = |project_files: bool, main: &SourcePath| {
+        let mut compiler_config =
+            CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+        compiler_config.style = Some("fluent".into());
+        let library = if project_files { "lib/slint-project.json" } else { "lib/lib.slint" };
+        compiler_config.library_paths = HashMap::from([("lib".into(), root.join(library))]);
+        if project_files {
+            compiler_config.project_roots = vec![SourcePath::new(root.join("app"))];
+            compiler_config.project_files =
+                vec![SourcePath::new(root.join("app/slint-project.json"))];
+        }
+        let source = std::fs::read_to_string(main.as_native_path().unwrap()).unwrap();
+        let (diagnostics, _, _) = crate::poll_ready(crate::load_root_file(
+            main,
+            source,
+            BuildDiagnostics::default(),
+            compiler_config,
+            false,
+        ));
+        assert!(!diagnostics.has_errors(), "{:?}", diagnostics.to_string_vec());
+        diagnostics
+            .iter()
+            .filter(|d| d.message().contains("deprecated"))
+            .map(|d| d.message().to_owned())
+            .collect::<Vec<_>>()
+    };
+
+    let main = SourcePath::new(&main);
+    // A tool may pass the root file relative to the working directory.
+    let relative_main =
+        main.relative_to(&SourcePath::new(std::env::current_dir().unwrap())).unwrap();
+    for main in [&main, &relative_main] {
+        let mut with_project_files = warnings(true, main);
+        with_project_files.sort();
+        assert_eq!(
+            with_project_files,
+            [
+                r#"Importing a font is deprecated. Add "../shared/Shared.ttf" to 'fonts' in slint-project.json instead"#,
+                r#"Importing a font is deprecated. Add "fonts/App.ttf" to 'fonts' in slint-project.json instead"#,
+            ],
+            "{main}"
+        );
+        assert_eq!(warnings(false, main), Vec::<String>::new());
+    }
 
     std::fs::remove_dir_all(&root).unwrap();
 }

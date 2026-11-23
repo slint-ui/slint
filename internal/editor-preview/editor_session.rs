@@ -560,6 +560,7 @@ impl EditorSession {
             .iter()
             .map(|path| i_slint_compiler::project_file::normalize_project_root(path.clone()))
             .collect();
+        config.compiler_config.project_files = self.project_file_paths.clone();
         if config.compiler_config.project_roots.is_empty() {
             config.compiler_config.project_roots = self.workspace_roots.clone();
         }

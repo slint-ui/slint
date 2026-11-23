@@ -647,6 +647,10 @@ impl ProjectFile {
             compiler_config.font_locations = fonts.into_iter().zip(self.font_locations()).collect();
         }
         compiler_config.project_roots = vec![normalize_project_root(self.source_path.clone())];
+        compiler_config.project_files = match self.rust_macro_edition {
+            None => vec![self.source_path.clone()],
+            Some(_) => Vec::new(),
+        };
     }
 
     pub fn resolved_data(&self) -> ProjectFileData {

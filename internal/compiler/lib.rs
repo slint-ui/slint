@@ -242,6 +242,10 @@ pub struct CompilerConfiguration {
     /// When it's empty, compiling a root file uses the directory of that file.
     pub project_roots: Vec<source_path::SourcePath>,
 
+    /// The `slint-project.json` files of the application, empty when it has none,
+    /// such as for the `slint!` macro.
+    pub project_files: Vec<source_path::SourcePath>,
+
     /// The domain used as one of the parameter to the translate function
     pub translation_domain: Option<String>,
     /// When Some, this is the path where the translations are looked at to bundle the translations
@@ -406,6 +410,7 @@ impl CompilerConfiguration {
             edition: None,
             edition_location: None,
             project_roots: Vec::new(),
+            project_files: Vec::new(),
             translation_domain: None,
             default_translation_context: DefaultTranslationContext::ComponentName,
             no_native_menu: false,
