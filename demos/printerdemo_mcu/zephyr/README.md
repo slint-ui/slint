@@ -91,11 +91,13 @@ This sample has been tested on the [NXP FRDM-MCXN947](https://docs.zephyrproject
 west build -b frdm_mcxn947/mcxn947/cpu0 -p always slint/demos/printerdemo_mcu/zephyr -- -DSHIELD=lcd_par_s035_8080 -DCMAKE_BUILD_TYPE=Release
 ```
 
-The standard `west flash` does not work reliably with this board. Use the following workaround with pyocd and nxpdebugmbox:
+`west flash` needs NXP's LinkServer.
+Without it, reset the board through the debug mailbox and flash with pyocd:
 
 ```bash
-# Flash
 nxpdebugmbox -i mcu-link tool reset -f mcxn947 && \
 pyocd flash -O pack.debug_sequences.disabled_sequences=ResetSystem,ResetCatchClear \
   -M halt -e chip -t mcxn947 -a 0x10000000 build/zephyr/zephyr.bin
 ```
+
+Then press the reset button to start the demo.

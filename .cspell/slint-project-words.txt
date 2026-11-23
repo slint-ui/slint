@@ -283,7 +283,6 @@ Grotesk
 gstreamer
 GWLP
 Hani
-hardabi
 hdmipi
 heapless
 hidpi
@@ -680,7 +679,6 @@ Swapchain
 swapusage
 swipegesturehandler
 Sysclk
-sysconf
 sysexit
 sysinfo
 systemfonts
@@ -724,7 +722,6 @@ Twemoji
 typedoc
 typeregister
 Tzimabazafi
-tzname
 uart
 udisksctl
 udivdi
@@ -790,7 +787,6 @@ wldisplay
 wlsurface
 WNDCLASS
 wordlike
-workqueue
 WQXGA
 writeback
 wrappable
