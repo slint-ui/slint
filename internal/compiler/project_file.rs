@@ -202,6 +202,8 @@ pub struct ProjectFile {
     edition: SlintEdition,
     /// The file and byte range of the `#[edition]` of a `slint!` macro that sets `edition`.
     rust_macro_edition: Option<(SourcePath, core::ops::Range<usize>)>,
+    /// The text of the file and the byte range of each entry of `fonts`, when it has any.
+    font_spans: Option<(String, Vec<Option<core::ops::Range<usize>>>)>,
 }
 
 pub const FILE_NAME: &str = "slint-project.json";
@@ -470,6 +472,7 @@ impl ProjectFile {
 
     /// Parses project-file contents without reading from disk.
     pub fn parse(source_path: SourcePath, mut source: Vec<u8>) -> Result<Self, Box<dyn Error>> {
+        let original = source.clone();
         blank_out_comments(&mut source);
         let current = SlintEdition::current();
         let missing = || format!("'edition' is missing: add \"edition\": \"{current}\"").into();
@@ -489,8 +492,12 @@ impl ProjectFile {
         }
         let data: ProjectFileData = serde_json::from_slice(&source)?;
         let Some(edition) = data.edition else { return Err(missing()) };
+        let font_spans = data.fonts.as_ref().and_then(|fonts| {
+            let spans = font_spans(core::str::from_utf8(&source).ok()?, fonts);
+            Some((String::from_utf8(original).ok()?, spans))
+        });
 
-        Ok(Self { source_path, data, edition, rust_macro_edition: None })
+        Ok(Self { source_path, data, edition, rust_macro_edition: None, font_spans })
     }
 
     pub async fn load_with_file_loader(
@@ -545,6 +552,28 @@ impl ProjectFile {
         self.data.fonts.as_ref()
     }
 
+    /// Where each entry of `fonts` is, for diagnostics about it.
+    pub fn font_locations(&self) -> Vec<SourceLocation> {
+        let fonts = self.data.fonts.as_deref().unwrap_or_default();
+        let (source_file, spans) = match &self.font_spans {
+            Some((text, spans)) => (
+                std::sync::Arc::new(SourceFileInner::new(self.source_path.clone(), text.clone())),
+                spans.as_slice(),
+            ),
+            None => (SourceFileInner::from_path_only(self.source_path.clone()), &[][..]),
+        };
+        (0..fonts.len())
+            .map(|index| SourceLocation {
+                source_file: Some(source_file.clone()),
+                span: spans
+                    .get(index)
+                    .cloned()
+                    .flatten()
+                    .map_or(Span::new(0, 0), |span| Span::new(span.start, span.len())),
+            })
+            .collect()
+    }
+
     pub fn experimental_features(&self) -> Option<crate::ExperimentalFeatures> {
         self.data.experimental_features
     }
@@ -578,6 +607,7 @@ impl ProjectFile {
             data: Default::default(),
             edition,
             rust_macro_edition: None,
+            font_spans: None,
         });
         project_file.data.edition = Some(edition);
         project_file.edition = edition;
@@ -610,15 +640,11 @@ impl ProjectFile {
     /// leaving the settings the project file doesn't specify untouched.
     /// Its experimental features add to the ones `compiler_config` already enables.
     pub fn apply_to(&self, compiler_config: &mut crate::CompilerConfiguration) {
-        self.resolved_data().apply_to(compiler_config);
+        let data = self.resolved_data();
+        data.apply_to(compiler_config);
         compiler_config.edition_location = Some(self.edition_location());
-        if self.data.fonts.is_some() {
-            compiler_config.fonts_location = Some(crate::diagnostics::SourceLocation {
-                source_file: Some(crate::diagnostics::SourceFileInner::from_path_only(
-                    self.source_path.clone(),
-                )),
-                span: crate::diagnostics::Span::new(0, 0),
-            });
+        if let Some(fonts) = data.fonts {
+            compiler_config.font_locations = fonts.into_iter().zip(self.font_locations()).collect();
         }
         compiler_config.project_roots = vec![normalize_project_root(self.source_path.clone())];
     }
@@ -855,6 +881,25 @@ fn replace_if_supplied<T>(target: &mut Option<T>, supplied: Option<T>) {
     if supplied.is_some() {
         *target = supplied;
     }
+}
+
+/// The byte range of each entry of `fonts` in `source`, the project file without comments.
+/// An entry that `source` spells with other escapes than serde_json has none.
+fn font_spans(source: &str, fonts: &[PathBuf]) -> Vec<Option<core::ops::Range<usize>>> {
+    let array = source.match_indices("\"fonts\"").find_map(|(index, key)| {
+        let rest = source[index + key.len()..].trim_start().strip_prefix(':')?.trim_start();
+        rest.starts_with('[').then(|| source.len() - rest.len())
+    });
+    let Some(mut from) = array else { return Vec::new() };
+    fonts
+        .iter()
+        .map(|font| {
+            let entry = serde_json::to_string(&font.to_string_lossy()).ok()?;
+            let start = from + source[from..].find(&entry)?;
+            from = start + entry.len();
+            Some(start..from)
+        })
+        .collect()
 }
 
 /// Overwrites `//` and `/* */` comments with spaces, so that serde_json accepts the file.
@@ -1389,6 +1434,35 @@ mod tests {
                 );
             },
         );
+    }
+
+    #[test]
+    fn font_locations_point_at_the_entries() {
+        let source = r#"{
+            // "fonts": ["commented.ttf"],
+            "library-paths": { "fonts": "nested" },
+            "edition": "1.20",
+            "fonts": ["a.ttf", "with \"quote\".ttf"]
+        }"#;
+        let project = load_project_file(source).unwrap();
+        let entries: Vec<_> = project
+            .font_locations()
+            .iter()
+            .map(|location| &source[location.span.offset..][..location.span.length])
+            .collect();
+        assert_eq!(entries, [r#""a.ttf""#, r#""with \"quote\".ttf""#]);
+    }
+
+    #[test]
+    fn a_font_with_other_escapes_falls_back_to_the_file() {
+        let source = r#"{ "edition": "1.20", "fonts": ["a\/b.ttf", "c.ttf"] }"#;
+        let project = load_project_file(source).unwrap();
+        let entries: Vec<_> = project
+            .font_locations()
+            .iter()
+            .map(|location| &source[location.span.offset..][..location.span.length])
+            .collect();
+        assert_eq!(entries, ["", r#""c.ttf""#]);
     }
 
     #[test]

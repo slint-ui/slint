@@ -187,9 +187,8 @@ pub struct CompilerConfiguration {
     /// Font files to register, in addition to the fonts that `.slint` files import.
     /// A path that starts with `@` names a file in a library of `library_paths`.
     pub fonts: Vec<std::path::PathBuf>,
-    /// Where `fonts` is set, such as in a project file. An error about one of the fonts
-    /// points there.
-    pub fonts_location: Option<diagnostics::SourceLocation>,
+    /// Where each of `fonts` is set, such as in a project file, for an error about it.
+    pub font_locations: HashMap<std::path::PathBuf, diagnostics::SourceLocation>,
     /// The compiler will look in these paths for library imports.
     pub library_paths: HashMap<String, std::path::PathBuf>,
     /// the name of the style. (eg: "native")
@@ -393,7 +392,7 @@ impl CompilerConfiguration {
             embed_resources,
             include_paths: Default::default(),
             fonts: Default::default(),
-            fonts_location: None,
+            font_locations: Default::default(),
             library_paths: Default::default(),
             style,
             open_import_callback: None,

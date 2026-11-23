@@ -1006,7 +1006,7 @@ struct LibraryProject {
     edition: crate::project_file::SlintEdition,
     include_paths: Vec<PathBuf>,
     library_paths: HashMap<String, PathBuf>,
-    fonts: Vec<PathBuf>,
+    fonts: Vec<(PathBuf, crate::diagnostics::SourceLocation)>,
 }
 
 impl LibraryProject {
@@ -1568,8 +1568,16 @@ impl TypeLoader {
         documents: &[&Document],
         diag: &mut BuildDiagnostics,
     ) -> Vec<(SourcePath, crate::diagnostics::SourceLocation)> {
-        let location = self.compiler_config.fonts_location.clone().unwrap_or_default();
-        let mut fonts = self.resolve_fonts(&self.compiler_config.fonts, None, &location, diag);
+        let application_fonts: Vec<_> = self
+            .compiler_config
+            .fonts
+            .iter()
+            .map(|font| {
+                let location = self.compiler_config.font_locations.get(font);
+                (font.clone(), location.cloned().unwrap_or_default())
+            })
+            .collect();
+        let mut fonts = self.resolve_fonts(&application_fonts, None, diag);
         let mut libraries: Vec<&LibraryProject> = Vec::new();
         for document in documents {
             let Some(path) = document.node.as_ref().map(|node| node.source_file.path()) else {
@@ -1582,18 +1590,7 @@ impl TypeLoader {
             }
         }
         for library in libraries {
-            let location = crate::diagnostics::SourceLocation {
-                source_file: Some(crate::diagnostics::SourceFileInner::from_path_only(
-                    library.source_path.clone(),
-                )),
-                span: Default::default(),
-            };
-            fonts.extend(self.resolve_fonts(
-                &library.fonts,
-                Some(&library.source_path),
-                &location,
-                diag,
-            ));
+            fonts.extend(self.resolve_fonts(&library.fonts, Some(&library.source_path), diag));
         }
         fonts
     }
@@ -1602,13 +1599,12 @@ impl TypeLoader {
     /// `referencing_file`.
     fn resolve_fonts(
         &self,
-        fonts: &[PathBuf],
+        fonts: &[(PathBuf, crate::diagnostics::SourceLocation)],
         referencing_file: Option<&SourcePath>,
-        location: &crate::diagnostics::SourceLocation,
         diag: &mut BuildDiagnostics,
     ) -> Vec<(SourcePath, crate::diagnostics::SourceLocation)> {
         let mut resolved = Vec::new();
-        for font in fonts {
+        for (font, location) in fonts {
             let font = font.to_string_lossy();
             let path = match font.strip_prefix('@') {
                 Some(library_import) => {
@@ -1806,7 +1802,12 @@ impl TypeLoader {
                         edition: project.edition(),
                         include_paths: data.include_paths.unwrap_or_default(),
                         library_paths: data.library_paths.unwrap_or_default(),
-                        fonts: data.fonts.unwrap_or_default(),
+                        fonts: data
+                            .fonts
+                            .unwrap_or_default()
+                            .into_iter()
+                            .zip(project.font_locations())
+                            .collect(),
                     })
                 });
                 state.borrow_mut().tl.library_projects.insert(path, project);
@@ -3372,13 +3373,15 @@ fn configured_fonts_are_registered_with_the_imported_ones() {
         compiler_config.library_paths = HashMap::from([("fonts".into(), fonts_dir.clone())]);
         compiler_config.style = Some("fluent".into());
         compiler_config.embed_resources = crate::EmbedResourcesKind::EmbedAllResources;
-        compiler_config.fonts = fonts;
-        compiler_config.fonts_location = Some(crate::diagnostics::SourceLocation {
+        let location = crate::diagnostics::SourceLocation {
             source_file: Some(crate::diagnostics::SourceFileInner::from_path_only(
                 project_file.clone(),
             )),
             span: Default::default(),
-        });
+        };
+        compiler_config.font_locations =
+            fonts.iter().map(|font| (font.clone(), location.clone())).collect();
+        compiler_config.fonts = fonts;
 
         let mut test_diags = crate::diagnostics::BuildDiagnostics::default();
         let doc_node = crate::parser::parse(
@@ -3481,6 +3484,7 @@ fn the_fonts_of_a_used_library_project_are_registered() {
     assert_eq!(errors.len(), 1, "{errors:?}");
     assert!(errors[0].message().contains("Missing.ttf"), "{errors:?}");
     assert_eq!(errors[0].source_file(), Some(root.join("lib/slint-project.json").as_path()));
+    assert_eq!(errors[0].line_column(), (1, 64));
 
     let font_files: Vec<_> = loader
         .font_files(loader.all_documents(), &mut BuildDiagnostics::discarded())

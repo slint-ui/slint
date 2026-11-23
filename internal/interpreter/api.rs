@@ -3588,6 +3588,7 @@ mod project_file_tests {
                 assert_eq!(errors.len(), 1, "{errors:?}");
                 assert!(errors[0].message().contains("Missing.ttf"), "{errors:?}");
                 assert_eq!(errors[0].source_file(), Some(root.join(FILE_NAME).as_path()));
+                assert_eq!(errors[0].line_column(), (1, 66));
             },
         );
     }
