@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore rrect skpath
+// cSpell: ignore COLR rrect skpath
 
 use std::pin::Pin;
 
@@ -284,6 +284,16 @@ impl<'a> SkiaItemRenderer<'a> {
         width: PhysicalLength,
         height: PhysicalLength,
     ) -> Option<skia_safe::Paint> {
+        // Skia ignores the shader for color glyphs and takes their opacity,
+        // and the color of their 0xFFFF COLR layers, from the paint.
+        if let Brush::SolidColor(color) = &brush {
+            if color.alpha() == 0 {
+                return None;
+            }
+            let mut paint = crate::solid_paint(color);
+            paint.set_alpha_f(paint.alpha_f() * self.current_state.alpha);
+            return Some(paint);
+        }
         let (mut paint, shader) = Self::brush_to_shader(
             self.default_paint().unwrap_or_default(),
             brush,
@@ -1218,13 +1228,11 @@ impl GlyphRenderer for SkiaItemRenderer<'_> {
         &mut self,
         color: &i_slint_core::Color,
     ) -> Option<Self::PlatformBrush> {
-        if color.alpha() == 0 {
-            None
-        } else {
-            let mut paint = self.default_paint().unwrap_or_default();
-            paint.set_shader(crate::color_shader(color));
-            Some(paint)
-        }
+        self.brush_to_paint(
+            Brush::SolidColor(*color),
+            PhysicalLength::new(0.),
+            PhysicalLength::new(0.),
+        )
     }
 
     fn platform_text_stroke_brush(
