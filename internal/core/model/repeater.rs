@@ -158,6 +158,8 @@ pub struct RepeaterLayoutState {
     pub previous_content_y: Coord,
     /// The y position of the item at `offset`.
     pub anchor_y: Coord,
+    /// The y position of the item at `offset` in the viewport, from the previous layout pass.
+    pub previous_offset_y: Coord,
 }
 
 /// Abstraction over a repeater's instance collection so the same algorithm
@@ -430,6 +432,10 @@ fn update_visible_instances(
             new_off += 1;
         }
         (new_off, it_y)
+    } else if content_y_value == state.previous_content_y {
+        // Recomputing the position from `anchor_y` rounds, which can move a row edge across the
+        // viewport edge, so that each pass would add or remove that row.
+        (state.offset, state.previous_offset_y)
     } else {
         // Scrolled up: will instantiate items before offset in the loop below.
         (state.offset, first_item_y + content_y_value)
@@ -552,6 +558,7 @@ fn update_visible_instances(
             props.content_y_set(LogicalLength::new(new_content_y));
         }
         state.previous_content_y = new_content_y;
+        state.previous_offset_y = new_offset_y;
 
         if let Some(request) = scroll_to_row.take() {
             let (top, height) =
