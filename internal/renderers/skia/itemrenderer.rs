@@ -282,6 +282,17 @@ impl<'a> SkiaItemRenderer<'a> {
         width: PhysicalLength,
         height: PhysicalLength,
     ) -> Option<skia_safe::Paint> {
+        // A solid color goes on the paint itself, not into a shader: Skia takes a color glyph's
+        // opacity, and the color of its COLR layers that use the text color (0xFFFF), from the
+        // paint, never from the shader.
+        if let Brush::SolidColor(color) = &brush {
+            if color.alpha() == 0 {
+                return None;
+            }
+            let mut paint = crate::solid_paint(color);
+            paint.set_alpha_f(paint.alpha_f() * self.current_state.alpha);
+            return Some(paint);
+        }
         let (mut paint, shader) = Self::brush_to_shader(
             self.default_paint().unwrap_or_default(),
             brush,
@@ -1204,9 +1215,6 @@ impl GlyphRenderer for SkiaItemRenderer<'_> {
         brush: i_slint_core::Brush,
         size: LogicalSize,
     ) -> Option<Self::PlatformBrush> {
-        if let i_slint_core::Brush::SolidColor(color) = &brush {
-            return self.platform_brush_for_color(color);
-        }
         self.brush_to_paint(
             brush,
             size.width_length() * self.scale_factor,
@@ -1218,15 +1226,11 @@ impl GlyphRenderer for SkiaItemRenderer<'_> {
         &mut self,
         color: &i_slint_core::Color,
     ) -> Option<Self::PlatformBrush> {
-        if color.alpha() == 0 {
-            None
-        } else {
-            // On the paint, not in a shader: Skia takes a color glyph's opacity and the color of
-            // its COLR layers that use the text color (0xFFFF) from the paint, never the shader.
-            let mut paint = crate::solid_paint(color);
-            paint.set_alpha_f(paint.alpha_f() * self.current_state.alpha);
-            Some(paint)
-        }
+        self.brush_to_paint(
+            Brush::SolidColor(*color),
+            PhysicalLength::new(0.),
+            PhysicalLength::new(0.),
+        )
     }
 
     fn platform_text_stroke_brush(
