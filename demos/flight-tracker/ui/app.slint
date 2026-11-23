@@ -928,7 +928,7 @@ component AirportMarker {
 
     Flaps {
         x: 12px;
-        y: -self.height / 2;
+        y: -Math.round(self.height / 2px) * 1px;
         text: root.marker.code;
         size: 12px;
         color: root.destination ? Theme.highlight : white;
@@ -1286,14 +1286,16 @@ export component AppWindow inherits Window {
     }
 
     if root.screen != Screen.entry || root.planned-origin.index >= 0: AirportMarker {
-        x: root.origin-marker.x * 1px;
-        y: root.origin-marker.y * 1px;
+        // On whole pixels: the label's flaps are images and text, which are drawn on whole
+        // pixels each, and would shift against each other as the marker moves between them.
+        x: Math.round(root.origin-marker.x) * 1px;
+        y: Math.round(root.origin-marker.y) * 1px;
         marker: root.origin-marker;
     }
 
     if root.route-shown: AirportMarker {
-        x: root.destination-marker.x * 1px;
-        y: root.destination-marker.y * 1px;
+        x: Math.round(root.destination-marker.x) * 1px;
+        y: Math.round(root.destination-marker.y) * 1px;
         marker: root.destination-marker;
         destination: true;
     }
