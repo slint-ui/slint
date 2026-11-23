@@ -45,9 +45,9 @@ For host integration changes, verify callbacks and models in the running app.
 
 Slint is declarative and reactive: a property binding re-evaluates automatically when
 anything it reads changes.
- 
+
 Read all files in ../../guidance/examples/music-player/ for a short example project.
- 
+
 Property directions: `in` / `out` / `in-out` / `private`. Two-way bind: `a <=> b`.
 Control flow: `if cond : E {}`, `for it[i] in model : E {}`. Shared state & host
 interop: `export global Foo { ... }`. One-time code: `init => { ... }`.
@@ -60,7 +60,7 @@ Read the matching reference before working in that area.
 |---|---|
 | [setup.md](../../guidance/setup.md) | Starting a project / wiring the build (Rust/C++/Node/Python). |
 | [language-and-layout.md](../../guidance/reference/language-and-layout.md) | Writing components; an element won't size/fill as expected. |
-| [project-structure](../../guidance/reference/project-structure.md) | Best Practices & Target Project Structure for a multi-page UI | 
+| [project-structure](../../guidance/reference/project-structure.md) | Best Practices & Target Project Structure for a multi-page UI |
 | [gotchas.md](../../guidance/reference/gotchas.md) | A file won't compile, or colors/units/math/enums behave oddly. |
 | [events-and-overlays.md](../../guidance/reference/events-and-overlays.md) | Clicks/keys/modifiers, or popovers/menus/context menus. |
 | [icons-and-theming.md](../../guidance/reference/icons-and-theming.md) | Icons, or light/dark theming. |
