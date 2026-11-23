@@ -5,15 +5,14 @@
 """Check the Slint crate's file list and its packaged skill's contents and links."""
 
 import os
-from pathlib import Path
 import re
 import shutil
 import subprocess
 import tarfile
 import tempfile
 import unittest
+from pathlib import Path
 from urllib.parse import unquote, urlsplit
-
 
 ROOT = Path(__file__).resolve().parent.parent
 CRATE = ROOT / "api/rs/slint"
@@ -34,7 +33,9 @@ def run(args, cwd):
         key: value for key, value in os.environ.items() if not key.startswith("GIT_")
     }
     env.update(GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM="1")
-    result = subprocess.run(args, cwd=cwd, env=env, capture_output=True, text=True)
+    result = subprocess.run(
+        args, cwd=cwd, env=env, capture_output=True, text=True, check=False
+    )
     if result.returncode:
         raise AssertionError(f"{args} failed:\n{result.stdout}{result.stderr}")
     return result
@@ -112,8 +113,12 @@ class SymposiumPackageTests(unittest.TestCase):
             )
             unpacked = root / "unpacked"
             with tarfile.open(target / "package/slint-0.0.0.crate") as archive:
-                manifest = archive.extractfile("slint-0.0.0/Symposium.toml").read()
-                self.assertEqual(manifest, (CRATE / "Symposium.toml").read_bytes())
+                manifest = archive.extractfile("slint-0.0.0/Symposium.toml")
+                assert manifest is not None
+                with manifest:
+                    self.assertEqual(
+                        manifest.read(), (CRATE / "Symposium.toml").read_bytes()
+                    )
                 for entry in archive.getmembers():
                     prefix = "slint-0.0.0/skills/"
                     if not entry.name.startswith(prefix):
@@ -124,7 +129,10 @@ class SymposiumPackageTests(unittest.TestCase):
                         path.resolve().is_relative_to(unpacked.resolve()), entry.name
                     )
                     path.parent.mkdir(parents=True, exist_ok=True)
-                    path.write_bytes(archive.extractfile(entry).read())
+                    contents = archive.extractfile(entry)
+                    assert contents is not None
+                    with contents:
+                        path.write_bytes(contents.read())
             expected_files = files(SKILLS)
             self.assertEqual(expected_files, files(unpacked))
             self.assertTrue((unpacked / "slint/SKILL.md").is_file())
