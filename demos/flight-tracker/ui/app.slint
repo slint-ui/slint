@@ -1050,9 +1050,6 @@ export component AppWindow inherits Window {
     in property <Marker> origin-marker;
     in property <Marker> destination-marker;
     in property <Aircraft> aircraft;
-    /// The route behind and ahead of the aircraft, as path commands in logical pixels.
-    in property <string> flown-path;
-    in property <string> remaining-path;
     in property <[Label]> labels;
     /// The place of each of the `labels`.
     in property <[LabelPlace]> label-places;
@@ -1127,7 +1124,7 @@ export component AppWindow inherits Window {
     /// Where the controls rest at the bottom.
     property <length> controls-y: root.height - controls.height - root.bottom-edge - (root.narrow ? 0 : 14px);
     /// Whether the globe shows a route: during a flight, or once the planner has one.
-    property <bool> route-shown: root.screen != Screen.entry || (root.planned-origin.index >= 0 && root.planned-destination.index >= 0);
+    out property <bool> route-shown: root.screen != Screen.entry || (root.planned-origin.index >= 0 && root.planned-destination.index >= 0);
     /// Which of the planner's fields the search results are for: 0 for the origin,
     /// 1 for the destination.
     property <int> active-field: 1;
@@ -1286,33 +1283,6 @@ export component AppWindow inherits Window {
         width: 100%;
         height: 100%;
         image-fit: fill;
-    }
-
-    Path {
-        viewbox-width: self.width / 1px;
-        viewbox-height: self.height / 1px;
-        commands: root.remaining-path;
-        stroke: #ffffffa0;
-        stroke-width: 2px;
-        visible: root.remaining-path != "" && root.route-shown;
-    }
-
-    Path {
-        viewbox-width: self.width / 1px;
-        viewbox-height: self.height / 1px;
-        commands: root.flown-path;
-        stroke: Theme.highlight.with-alpha(0.55);
-        stroke-width: 7px;
-        visible: root.flown-path != "" && root.route-shown && Theme.full-detail;
-    }
-
-    Path {
-        viewbox-width: self.width / 1px;
-        viewbox-height: self.height / 1px;
-        commands: root.flown-path;
-        stroke: Theme.accent-light;
-        stroke-width: 2.5px;
-        visible: root.flown-path != "" && root.route-shown;
     }
 
     if root.screen != Screen.entry || root.planned-origin.index >= 0: AirportMarker {

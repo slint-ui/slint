@@ -5,12 +5,13 @@
 
 use std::cell::Cell;
 
-use glam::{Mat4, Vec2, Vec3, Vec4, Vec4Swizzles};
+use glam::{Mat4, Vec2, Vec3, Vec4};
 use slint::wgpu_30::wgpu;
 use wgpu::util::DeviceExt;
 
 use crate::compress;
 use crate::map;
+use crate::patches;
 use crate::tiles;
 
 /// What one frame of the globe shows, see `Globals` in `globe.wgsl`.
@@ -33,38 +34,62 @@ pub struct Frame {
     pub clouds: f32,
     /// The detail windows, see `tiles::Detail::update()`.
     pub windows: [[f32; tiles::WINDOW_FLOATS]; tiles::WINDOWS],
-    /// Draws the globe as a mesh, without the stars, the clouds, and the sun's glare,
-    /// for GPUs too slow to ray trace it.
-    pub low: bool,
+    /// Filters the imagery anisotropically, which keeps it sharp towards the horizon,
+    /// and takes some GPUs a few milliseconds of a frame.
+    pub anisotropic: bool,
+    /// The flight's route, drawn over the globe in this order.
+    pub route: Vec<RouteSegment>,
 }
 
-/// How many segments the cap of `vs_cap` in `globe.wgsl` has around,
-/// as many as `GLOW_SEGMENTS` there, so that the glow meets the globe's outline.
-const CAP_SEGMENTS: u16 = 128;
-/// How many rings the cap has from the point below the camera to the horizon.
-const CAP_RINGS: u16 = 24;
-/// The vertices of `vs_glow` in `globe.wgsl`: six for each of `GLOW_SEGMENTS` by `GLOW_RINGS`.
-const GLOW_VERTICES: u32 = 6 * 128 * 6;
+/// A segment of the route, as `vs_route` in `globe.wgsl` takes it.
+#[repr(C)]
+#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct RouteSegment {
+    pub start: [f32; 3],
+    /// In pixels of the frame.
+    pub width: f32,
+    pub end: [f32; 3],
+    pub unused: f32,
+    /// Linear, with straight alpha.
+    pub color: [f32; 4],
+}
 
-/// The grid of `vs_cap`, as its vertices and the indices of its triangles.
-fn cap_mesh() -> (Vec<[f32; 2]>, Vec<u16>) {
-    let vertices = (0..=CAP_RINGS)
-        .flat_map(|ring| {
-            (0..=CAP_SEGMENTS).map(move |segment| {
-                [segment as f32 / CAP_SEGMENTS as f32, ring as f32 / CAP_RINGS as f32]
+/// How many segments of the route fit into the buffer for them.
+const MAX_ROUTE_SEGMENTS: usize = 1536;
+
+/// How many patches fit into the buffer for them.
+const MAX_PATCHES: usize = 2048;
+/// How many stars there are around the globe.
+const STARS: u32 = 9000;
+/// The vertices of `vs_glow`, `vs_glare`, `vs_limb`, and `vs_glint` in `globe.wgsl`: six for each
+/// of their segments, by their rings.
+const GLOW_VERTICES: u32 = 6 * 128 * 7;
+const GLARE_VERTICES: u32 = 6 * 32 * 32;
+const LIMB_VERTICES: u32 = 6 * 128 * 2;
+const GLINT_VERTICES: u32 = 6 * 24 * 8;
+
+/// The grids of `vs_patch` in `globe.wgsl`, one for each of `patches::SEGMENTS`, as their
+/// vertices and the indices of their triangles, and where each grid's are.
+#[allow(clippy::type_complexity)]
+fn patch_meshes()
+-> (Vec<[f32; 2]>, Vec<u16>, [(i32, std::ops::Range<u32>); patches::SEGMENTS.len()]) {
+    let (mut vertices, mut indices) = (Vec::new(), Vec::new());
+    let ranges = patches::SEGMENTS.map(|segments| {
+        let (base, first) = (vertices.len() as i32, indices.len() as u32);
+        vertices.extend((0..=segments).flat_map(|row| {
+            (0..=segments)
+                .map(move |column| [column as f32 / segments as f32, row as f32 / segments as f32])
+        }));
+        let across = segments + 1;
+        indices.extend((0..segments).flat_map(|row| {
+            (0..segments).flat_map(move |column| {
+                let (top, bottom) = (row * across + column, (row + 1) * across + column);
+                [top, top + 1, bottom, top + 1, bottom + 1, bottom]
             })
-        })
-        .collect();
-    let row = CAP_SEGMENTS + 1;
-    let indices = (0..CAP_RINGS)
-        .flat_map(|ring| {
-            (0..CAP_SEGMENTS).flat_map(move |segment| {
-                let (inner, outer) = (ring * row + segment, (ring + 1) * row + segment);
-                [inner, inner + 1, outer, inner + 1, outer + 1, outer]
-            })
-        })
-        .collect();
-    (vertices, indices)
+        }));
+        (base, first..indices.len() as u32)
+    });
+    (vertices, indices, ranges)
 }
 
 /// An image of the earth, equirectangular like the map, with its mip levels.
@@ -238,66 +263,41 @@ fn bind_group(
     })
 }
 
-/// The pixels of the frame that the globe and the glow of its atmosphere reach, as their left,
-/// top, width, and height.
-/// `None` where the camera is inside the glow.
-fn globe_rectangle(frame: &Frame) -> Option<[u32; 4]> {
-    // The glow that `globe.wgsl` draws around the globe is below what 8 bits hold from here on.
-    const REACH: f32 = 1.16;
-    let distance = frame.eye.length();
-    if distance <= REACH {
-        return None;
-    }
-    // The rays that pass the center at `REACH` form a cone around the direction to it.
-    let axis = -frame.eye / distance;
-    let (side, up) = axis.any_orthonormal_pair();
-    let sine = REACH / distance;
-    let cosine = (1.0 - sine * sine).sqrt();
-    let (mut low, mut high) = (Vec2::MAX, Vec2::MIN);
-    const RAYS: usize = 32;
-    for ray in 0..RAYS {
-        let (s, c) = (ray as f32 / RAYS as f32 * std::f32::consts::TAU).sin_cos();
-        let direction = axis * cosine + (side * c + up * s) * sine;
-        let point = frame.view_projection * (frame.eye + direction).extend(1.0);
-        if point.w <= 0.0 {
-            return None;
-        }
-        let pixel = (point.xy() / point.w * Vec2::new(0.5, -0.5) + 0.5) * frame.viewport;
-        (low, high) = (low.min(pixel), high.max(pixel));
-    }
-    // The cone's outline bulges out between the rays, by less than a hundredth of its size.
-    let margin = (high - low) * 0.01 + 2.0;
-    let low = (low - margin).floor().clamp(Vec2::ZERO, frame.viewport);
-    let high = (high + margin).ceil().clamp(Vec2::ZERO, frame.viewport);
-    let size = (high - low).max(Vec2::ONE);
-    Some([low.x as u32, low.y as u32, size.x as u32, size.y as u32])
-}
-
 pub struct Renderer {
     device: wgpu::Device,
     queue: wgpu::Queue,
     globals: wgpu::Buffer,
-    bind_group: wgpu::BindGroup,
-    pipeline: wgpu::RenderPipeline,
+    /// Without and with anisotropic filtering.
+    bind_groups: [wgpu::BindGroup; 2],
     border_pipeline: wgpu::RenderPipeline,
     border_segments: wgpu::Buffer,
     border_segment_count: u32,
-    cap_pipeline: wgpu::RenderPipeline,
-    cap_vertices: wgpu::Buffer,
-    cap_indices: wgpu::Buffer,
-    cap_index_count: u32,
+    /// For each `patches::Kind`, under a clear sky and under clouds.
+    patch_pipelines: [[wgpu::RenderPipeline; 5]; 2],
+    route_pipeline: wgpu::RenderPipeline,
+    route_segments: wgpu::Buffer,
+    star_pipeline: wgpu::RenderPipeline,
+    stars: wgpu::Buffer,
+    glare_pipeline: wgpu::RenderPipeline,
+    glint_pipeline: wgpu::RenderPipeline,
+    /// The color and the alpha of the globe's smooth outline.
+    limb_pipelines: [wgpu::RenderPipeline; 2],
+    patch_vertices: wgpu::Buffer,
+    patch_indices: wgpu::Buffer,
+    patch_ranges: [(i32, std::ops::Range<u32>); patches::SEGMENTS.len()],
+    patch_instances: wgpu::Buffer,
     glow_pipeline: wgpu::RenderPipeline,
     sun_pipeline: wgpu::RenderPipeline,
     /// Whether the shader encodes sRGB, because the target's format doesn't.
     encode_srgb: bool,
     layout: wgpu::BindGroupLayout,
-    sampler: wgpu::Sampler,
+    /// For the textures of the globe and for the tiles, as in `bind_groups`.
+    samplers: [(wgpu::Sampler, wgpu::Sampler); 2],
     /// The map, the imagery of the day and of the night side, and the clouds.
     views: [wgpu::TextureView; 4],
     /// The detail windows of `tiles.rs`, one per layer.
     tile_texture: wgpu::Texture,
     tile_view: wgpu::TextureView,
-    tile_sampler: wgpu::Sampler,
     tile_format: wgpu::TextureFormat,
     /// Draws the tiles into `tile_texture`, where `draws_tiles()`.
     tile_drawing: Option<TileDrawing>,
@@ -349,7 +349,7 @@ pub fn draws_tiles(device: &wgpu::Device) -> bool {
     device.limits().max_storage_buffers_per_shader_stage > 0
 }
 
-const GLOBAL_FLOATS: usize = 48 + tiles::WINDOWS * tiles::WINDOW_FLOATS;
+const GLOBAL_FLOATS: usize = 32;
 
 impl Renderer {
     pub fn new(
@@ -377,7 +377,16 @@ impl Renderer {
             anisotropy_clamp: 8,
             ..Default::default()
         };
-        let sampler = device.create_sampler(&smooth);
+        // For the textures of the globe and for the tiles, without and with anisotropic
+        // filtering.
+        let samplers = [1, smooth.anisotropy_clamp].map(|anisotropy_clamp| {
+            let smooth = wgpu::SamplerDescriptor { anisotropy_clamp, ..smooth.clone() };
+            let tiles = wgpu::SamplerDescriptor {
+                address_mode_v: wgpu::AddressMode::Repeat,
+                ..smooth.clone()
+            };
+            (device.create_sampler(&smooth), device.create_sampler(&tiles))
+        });
         let globals = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("globe globals"),
             size: std::mem::size_of::<[f32; GLOBAL_FLOATS]>() as u64,
@@ -502,19 +511,21 @@ impl Renderer {
             dimension: Some(wgpu::TextureViewDimension::D2Array),
             ..Default::default()
         });
-        let tile_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            address_mode_v: wgpu::AddressMode::Repeat,
-            ..smooth
+        let bind_groups = samplers.each_ref().map(|(sampler, tile_sampler)| {
+            bind_group(device, &layout, &globals, sampler, &views, (&tile_view, tile_sampler))
         });
-        let bind_group =
-            bind_group(device, &layout, &globals, &sampler, &views, (&tile_view, &tile_sampler));
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("globe"),
             bind_group_layouts: &[Some(&layout)],
             immediate_size: 0,
         });
         let module = device.create_shader_module(wgpu::include_wgsl!("globe.wgsl"));
-        let pipeline = |label, [vertex, fragment]: [&str; 2], buffers: &[_], blend| {
+        let pipeline_with = |label,
+                             [vertex, fragment]: [&str; 2],
+                             buffers: &[_],
+                             blend,
+                             primitive: wgpu::PrimitiveState,
+                             write_mask| {
             device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
                 label: Some(label),
                 layout: Some(&pipeline_layout),
@@ -528,18 +539,24 @@ impl Renderer {
                     module: &module,
                     entry_point: Some(fragment),
                     compilation_options: Default::default(),
-                    targets: &[Some(wgpu::ColorTargetState {
-                        format,
-                        blend,
-                        write_mask: wgpu::ColorWrites::ALL,
-                    })],
+                    targets: &[Some(wgpu::ColorTargetState { format, blend, write_mask })],
                 }),
-                primitive: Default::default(),
+                primitive,
                 depth_stencil: None,
                 multisample: Default::default(),
                 multiview_mask: None,
                 cache: None,
             })
+        };
+        let pipeline = |label, entries, buffers: &[_], blend| {
+            pipeline_with(
+                label,
+                entries,
+                buffers,
+                blend,
+                Default::default(),
+                wgpu::ColorWrites::ALL,
+            )
         };
         let segments = map::border_segments();
         let border_segments = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -552,19 +569,6 @@ impl Renderer {
             step_mode: wgpu::VertexStepMode::Instance,
             attributes: &wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3],
         };
-        // The frame has straight alpha, which the borders leave as it is.
-        let (cap_vertices, cap_indices) = cap_mesh();
-        let cap_index_count = cap_indices.len() as u32;
-        let cap_vertices = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("globe cap"),
-            contents: bytemuck::cast_slice(&cap_vertices),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
-        let cap_indices = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("globe cap"),
-            contents: bytemuck::cast_slice(&cap_indices),
-            usage: wgpu::BufferUsages::INDEX,
-        });
         let grid = wgpu::VertexBufferLayout {
             array_stride: std::mem::size_of::<[f32; 2]>() as u64,
             step_mode: wgpu::VertexStepMode::Vertex,
@@ -595,12 +599,131 @@ impl Renderer {
                 operation: wgpu::BlendOperation::Add,
             },
         };
+        let (patch_vertices, patch_indices, patch_ranges) = patch_meshes();
+        let patch_vertices = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("globe patch"),
+            contents: bytemuck::cast_slice(&patch_vertices),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+        let patch_indices = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("globe patch"),
+            contents: bytemuck::cast_slice(&patch_indices),
+            usage: wgpu::BufferUsages::INDEX,
+        });
+        let patch_instances = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("globe patches"),
+            size: (MAX_PATCHES * std::mem::size_of::<patches::Patch>()) as u64,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let patch_buffers = [
+            Some(grid.clone()),
+            Some(wgpu::VertexBufferLayout {
+                array_stride: std::mem::size_of::<patches::Patch>() as u64,
+                step_mode: wgpu::VertexStepMode::Instance,
+                attributes: &wgpu::vertex_attr_array![1 => Float32x4, 2 => Float32x4],
+            }),
+        ];
+        // The far side of the globe is culled: seen from outside, the triangles go clockwise.
+        let outside = wgpu::PrimitiveState {
+            front_face: wgpu::FrontFace::Cw,
+            cull_mode: Some(wgpu::Face::Back),
+            ..Default::default()
+        };
+        let patch_pipelines = [
+            ["fs_patch_map", "fs_patch_tile", "fs_patch_night"],
+            ["fs_patch_map_clouds", "fs_patch_tile_clouds", "fs_patch_night_clouds"],
+        ]
+        .map(|[map, tile, night]| {
+            // In the order of `patches::Kind`.
+            [(map, None), (tile, None), (night, None), (tile, Some(over)), (night, Some(over))].map(
+                |(fragment, blend)| {
+                    let entries = ["vs_patch", fragment];
+                    let all = wgpu::ColorWrites::ALL;
+                    pipeline_with("globe patch", entries, &patch_buffers, blend, outside, all)
+                },
+            )
+        });
+        let route_segments = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("globe route"),
+            size: (MAX_ROUTE_SEGMENTS * std::mem::size_of::<RouteSegment>()) as u64,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let route = wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<RouteSegment>() as u64,
+            step_mode: wgpu::VertexStepMode::Instance,
+            attributes: &wgpu::vertex_attr_array![0 => Float32x4, 1 => Float32x4, 2 => Float32x4],
+        };
+        let stars = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("globe stars"),
+            contents: bytemuck::cast_slice(&patches::stars(STARS as usize)),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+        let star = wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<[f32; 6]>() as u64,
+            step_mode: wgpu::VertexStepMode::Instance,
+            attributes: &wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3],
+        };
+        // The ground fades into the glow's color by the alpha that the color pipeline writes,
+        // and the frame's alpha fades by the one that the alpha pipeline writes.
+        let fade = |color, alpha| wgpu::BlendState {
+            color: wgpu::BlendComponent {
+                src_factor: color,
+                dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                operation: wgpu::BlendOperation::Add,
+            },
+            alpha: wgpu::BlendComponent {
+                src_factor: alpha,
+                dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                operation: wgpu::BlendOperation::Add,
+            },
+        };
+        let limb_pipelines = [
+            pipeline_with(
+                "globe limb",
+                ["vs_limb", "fs_limb_color"],
+                &[],
+                Some(fade(wgpu::BlendFactor::SrcAlpha, wgpu::BlendFactor::Zero)),
+                Default::default(),
+                wgpu::ColorWrites::COLOR,
+            ),
+            pipeline_with(
+                "globe limb",
+                ["vs_limb", "fs_limb_alpha"],
+                &[],
+                Some(fade(wgpu::BlendFactor::Zero, wgpu::BlendFactor::Zero)),
+                Default::default(),
+                wgpu::ColorWrites::ALPHA,
+            ),
+        ];
         Self {
             device: device.clone(),
             queue: queue.clone(),
             globals,
-            bind_group,
-            pipeline: pipeline("globe", ["vs_main", "fs_main"], &[], None),
+            bind_groups,
+            patch_pipelines,
+            route_pipeline: pipeline(
+                "globe route",
+                ["vs_route", "fs_route"],
+                &[Some(route)],
+                Some(over),
+            ),
+            route_segments,
+            star_pipeline: pipeline(
+                "globe stars",
+                ["vs_star", "fs_star"],
+                &[Some(star)],
+                Some(add),
+            ),
+            stars,
+            glare_pipeline: pipeline("globe glare", ["vs_glare", "fs_glare"], &[], Some(add)),
+            glint_pipeline: pipeline("globe glint", ["vs_glint", "fs_glint"], &[], Some(add)),
+            limb_pipelines,
+            patch_vertices,
+            patch_indices,
+            patch_ranges,
+            patch_instances,
             border_pipeline: pipeline(
                 "globe borders",
                 ["vs_border", "fs_border"],
@@ -609,19 +732,14 @@ impl Renderer {
             ),
             border_segments,
             border_segment_count: segments.len() as u32,
-            cap_pipeline: pipeline("globe cap", ["vs_cap", "fs_cap"], &[Some(grid)], None),
-            cap_vertices,
-            cap_indices,
-            cap_index_count,
             glow_pipeline: pipeline("globe glow", ["vs_glow", "fs_glow"], &[], Some(add)),
             sun_pipeline: pipeline("globe sun", ["vs_sun", "fs_sun"], &[], Some(add)),
             encode_srgb: !format.is_srgb(),
             layout,
-            sampler,
+            samplers,
             views,
             tile_texture,
             tile_view,
-            tile_sampler,
             tile_format,
             tile_drawing,
             tile_draw: Default::default(),
@@ -645,14 +763,16 @@ impl Renderer {
 
     fn set_view(&mut self, index: usize, imagery: &Imagery) {
         self.views[index] = imagery_view(&self.device, &self.queue, imagery);
-        self.bind_group = bind_group(
-            &self.device,
-            &self.layout,
-            &self.globals,
-            &self.sampler,
-            &self.views,
-            (&self.tile_view, &self.tile_sampler),
-        );
+        self.bind_groups = self.samplers.each_ref().map(|(sampler, tile_sampler)| {
+            bind_group(
+                &self.device,
+                &self.layout,
+                &self.globals,
+                sampler,
+                &self.views,
+                (&self.tile_view, tile_sampler),
+            )
+        });
     }
 
     /// Puts a tile into the detail window `layer`, at the slot `slot` of its columns and rows.
@@ -751,22 +871,59 @@ impl Renderer {
         }
     }
 
+    /// Draws the globe of `frame` as the patches of `patches.rs`, with its smooth outline and
+    /// the sun's glint on the water.
+    fn draw_patches(&self, pass: &mut wgpu::RenderPass, frame: &Frame) {
+        let sun = (frame.night > 0.0).then_some(frame.sun);
+        let patches = patches::patches(frame.eye, sun, &frame.windows);
+        let mut instances: Vec<patches::Patch> =
+            patches.0.iter().flat_map(|group| group.iter().flatten()).copied().collect();
+        instances.truncate(MAX_PATCHES);
+        self.queue.write_buffer(&self.patch_instances, 0, bytemuck::cast_slice(&instances));
+        pass.set_vertex_buffer(0, self.patch_vertices.slice(..));
+        pass.set_vertex_buffer(1, self.patch_instances.slice(..));
+        pass.set_index_buffer(self.patch_indices.slice(..), wgpu::IndexFormat::Uint16);
+        let mut first = 0;
+        let pipelines = &self.patch_pipelines[(frame.clouds > 0.0) as usize];
+        for (pipeline, group) in pipelines.iter().zip(&patches.0) {
+            if group.iter().all(Vec::is_empty) {
+                continue;
+            }
+            pass.set_pipeline(pipeline);
+            for (patches, (base, indices)) in group.iter().zip(&self.patch_ranges) {
+                let end = (first + patches.len()).min(instances.len());
+                if end > first {
+                    pass.draw_indexed(indices.clone(), *base, first as u32..end as u32);
+                }
+                first = end;
+            }
+        }
+        let route = &frame.route[..frame.route.len().min(MAX_ROUTE_SEGMENTS)];
+        if !route.is_empty() {
+            self.queue.write_buffer(&self.route_segments, 0, bytemuck::cast_slice(route));
+            pass.set_pipeline(&self.route_pipeline);
+            pass.set_vertex_buffer(0, self.route_segments.slice(..));
+            pass.draw(0..6, 0..route.len() as u32);
+        }
+        for pipeline in &self.limb_pipelines {
+            pass.set_pipeline(pipeline);
+            pass.draw(0..LIMB_VERTICES, 0..1);
+        }
+        pass.set_pipeline(&self.glint_pipeline);
+        pass.draw(0..GLINT_VERTICES, 0..1);
+    }
+
     /// Renders `frame` into the top left of `target`, as large as `frame.viewport`.
     pub fn render(&self, frame: &Frame, target: &wgpu::TextureView) {
         let options = Vec4::new(frame.space, frame.border_width, frame.time, frame.borders);
         let mut globals = [0.0f32; GLOBAL_FLOATS];
         globals[..16].copy_from_slice(&frame.view_projection.to_cols_array());
-        globals[16..32].copy_from_slice(&frame.view_projection.inverse().to_cols_array());
-        globals[32..36].copy_from_slice(&frame.eye.extend(1.0).to_array());
-        globals[36..40].copy_from_slice(&frame.sun.extend(frame.night).to_array());
-        globals[40..44].copy_from_slice(&options.to_array());
-        globals[44..46].copy_from_slice(&frame.viewport.to_array());
-        globals[46] = self.encode_srgb as u8 as f32;
-        globals[47] = frame.clouds;
-        for (window, floats) in frame.windows.iter().enumerate() {
-            let start = 48 + window * tiles::WINDOW_FLOATS;
-            globals[start..start + tiles::WINDOW_FLOATS].copy_from_slice(floats);
-        }
+        globals[16..20].copy_from_slice(&frame.eye.extend(1.0).to_array());
+        globals[20..24].copy_from_slice(&frame.sun.extend(frame.night).to_array());
+        globals[24..28].copy_from_slice(&options.to_array());
+        globals[28..30].copy_from_slice(&frame.viewport.to_array());
+        globals[30] = self.encode_srgb as u8 as f32;
+        globals[31] = frame.clouds;
         self.queue.write_buffer(&self.globals, 0, bytemuck::cast_slice(&globals));
 
         let mut encoder = self.device.create_command_encoder(&Default::default());
@@ -780,11 +937,10 @@ impl Renderer {
                     depth_slice: None,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(if frame.low {
-                            // Space without stars.
-                            wgpu::Color { a: frame.space as f64, ..wgpu::Color::BLACK }
-                        } else {
-                            wgpu::Color::TRANSPARENT
+                        // Space, or nothing where the globe has none around it.
+                        load: wgpu::LoadOp::Clear(wgpu::Color {
+                            a: frame.space as f64,
+                            ..wgpu::Color::BLACK
                         }),
                         store: wgpu::StoreOp::Store,
                     },
@@ -792,29 +948,23 @@ impl Renderer {
                 ..Default::default()
             });
             pass.set_viewport(0.0, 0.0, frame.viewport.x, frame.viewport.y, 0.0, 1.0);
-            pass.set_bind_group(0, &self.bind_group, &[]);
-            if frame.low {
+            pass.set_bind_group(0, &self.bind_groups[frame.anisotropic as usize], &[]);
+            if frame.space > 0.0 {
+                pass.set_pipeline(&self.star_pipeline);
+                pass.set_vertex_buffer(0, self.stars.slice(..));
+                pass.draw(0..3, 0..STARS);
                 // The globe covers the sun where it's in front of it.
-                if frame.space > 0.0 {
-                    pass.set_pipeline(&self.sun_pipeline);
-                    pass.draw(0..6, 0..1);
-                }
-                pass.set_pipeline(&self.cap_pipeline);
-                pass.set_vertex_buffer(0, self.cap_vertices.slice(..));
-                pass.set_index_buffer(self.cap_indices.slice(..), wgpu::IndexFormat::Uint16);
-                pass.draw_indexed(0..self.cap_index_count, 0, 0..1);
-                pass.set_pipeline(&self.glow_pipeline);
-                pass.draw(0..GLOW_VERTICES, 0..1);
-            } else {
-                // Without space around it, the globe leaves the rest of the frame transparent,
-                // as the pass cleared it.
-                if frame.space == 0.0
-                    && let Some([x, y, width, height]) = globe_rectangle(frame)
-                {
-                    pass.set_scissor_rect(x, y, width, height);
-                }
-                pass.set_pipeline(&self.pipeline);
-                pass.draw(0..3, 0..1);
+                pass.set_pipeline(&self.sun_pipeline);
+                pass.draw(0..6, 0..1);
+            }
+            // The patches cover the glow where it reaches under the globe's outline.
+            pass.set_pipeline(&self.glow_pipeline);
+            pass.draw(0..GLOW_VERTICES, 0..1);
+            self.draw_patches(&mut pass, frame);
+            // The glare spills over everything in front of the sun.
+            if frame.space > 0.0 {
+                pass.set_pipeline(&self.glare_pipeline);
+                pass.draw(0..GLARE_VERTICES, 0..1);
             }
             if frame.borders > 0.0 {
                 pass.set_pipeline(&self.border_pipeline);
@@ -823,68 +973,5 @@ impl Renderer {
             }
         }
         self.queue.submit([encoder.finish()]);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::camera::{Pose, surface};
-
-    /// The rays through the pixels around the globe's rectangle pass the globe beyond the reach of
-    /// its glow, with the globe anywhere in the frame, near or far, and tilted.
-    #[test]
-    fn globe_rectangle_holds_the_glow() {
-        let viewport = Vec2::new(640.0, 400.0);
-        let aspect = viewport.x / viewport.y;
-        for (range, tilt, shift) in [
-            (2.6, 0.0, Vec2::ZERO),
-            (4.0, 0.0, Vec2::new(0.5, -0.2)),
-            (1.5, 0.0, Vec2::new(-0.6, 0.3)),
-            (0.6, 50.0, Vec2::new(0.2, 0.4)),
-            (6.0, 20.0, Vec2::new(-0.3, -0.5)),
-        ] {
-            let pose = Pose {
-                target: surface(0.4, 0.3),
-                heading: 0.7,
-                tilt: f32::to_radians(tilt),
-                range,
-            };
-            let view_projection =
-                Mat4::from_translation(shift.extend(0.0)) * pose.view_projection(aspect);
-            let frame = Frame {
-                view_projection,
-                eye: pose.eye(),
-                sun: Vec3::X,
-                night: 1.0,
-                borders: 0.0,
-                border_width: 1.0,
-                viewport,
-                time: 0.0,
-                space: 0.0,
-                clouds: 0.0,
-                windows: Default::default(),
-                low: false,
-            };
-            let [left, top, width, height] = globe_rectangle(&frame).unwrap();
-            let (right, bottom) = (left + width, top + height);
-            let inverse = view_projection.inverse();
-            for y in 0..viewport.y as u32 {
-                for x in 0..viewport.x as u32 {
-                    if (left..right).contains(&x) && (top..bottom).contains(&y) {
-                        continue;
-                    }
-                    let ndc = (Vec2::new(x as f32, y as f32) + 0.5) / viewport
-                        * Vec2::new(2.0, -2.0)
-                        + Vec2::new(-1.0, 1.0);
-                    let near = inverse.project_point3(ndc.extend(0.0));
-                    let far = inverse.project_point3(ndc.extend(1.0));
-                    let direction = (far - near).normalize();
-                    let along = -frame.eye.dot(direction);
-                    let miss = (frame.eye + direction * along).length();
-                    assert!(along <= 0.0 || miss > 1.14, "{miss} at {x}, {y} for range {range}");
-                }
-            }
-        }
     }
 }

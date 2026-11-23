@@ -35,11 +35,10 @@ pub const TILE: u32 = 512;
 pub const WINDOW_TILES: u32 = 4;
 /// The mip levels of a tile, down to the 4 pixels of one compressed block.
 pub const MIPS: u32 = 8;
-/// What the shader gets for each window, see `Detail::update()`.
+/// What `Detail::update()` returns for each window.
 pub const WINDOW_FLOATS: usize = 8 + (WINDOW_TILES * WINDOW_TILES) as usize;
-// `globe.wgsl` spells out these numbers, in its `DetailWindow`, its `detail()`,
-// and its `window_sample()`.
-const _: () = assert!(LEVELS == 3 && WINDOW_TILES == 4 && TILE == 512);
+// `tile_uv()` in `globe.wgsl` spells out the width of a window in pixels.
+const _: () = assert!(WINDOW_TILES * TILE == 2048);
 /// The degrees per pixel of the globe's own imagery.
 const BASE_RESOLUTION: f32 = 360.0 / 4096.0;
 /// How many tiles load at once.
@@ -399,7 +398,7 @@ impl Detail {
     /// While `enabled`, the windows show, and the tiles that are missing are asked for,
     /// those of the day's imagery while `day` and those of the night's lights while `night`.
     ///
-    /// Returns what the shader needs for each window: where the camera looks, in tiles,
+    /// Returns what `patches.rs` needs for each window: where the camera looks, in tiles,
     /// the number of the map's columns and rows, which is 0 without tiles,
     /// how far the tile of each slot has faded in,
     /// and a bit for each slot that holds its tile.

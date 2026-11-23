@@ -5,7 +5,6 @@
 
 use std::cell::RefCell;
 use std::f32::consts::PI;
-use std::fmt::Write;
 use std::rc::Rc;
 use std::time::Duration;
 
@@ -16,7 +15,7 @@ use unicode_segmentation::UnicodeSegmentation;
 use atlas::{Airport, City};
 use camera::{Camera, FOV_Y, MIN_RANGE, Pose, surface};
 use flight::{EARTH_RADIUS_KM, Flight};
-use renderer::{Frame, Renderer};
+use renderer::{Frame, Renderer, RouteSegment};
 
 mod adaptive;
 mod atlas;
@@ -28,6 +27,7 @@ mod flight;
 #[allow(dead_code)]
 mod gibs;
 mod map;
+mod patches;
 mod renderer;
 mod tiles;
 
@@ -87,7 +87,7 @@ const MAX_GLOBE_SCALE: f32 = 2.0;
 /// The most physical pixels per logical pixel the globe renders at in `quality`,
 /// before the adaptive render scale.
 fn globe_density(window: &slint::Window, quality: Quality) -> f32 {
-    let limit = if quality == Quality::Low { 0.4 } else { MAX_GLOBE_SCALE };
+    let limit = if quality == Quality::Low { 1.0 } else { MAX_GLOBE_SCALE };
     window.scale_factor().min(limit)
 }
 /// The kiosk flies between airports within `HUB_KM` of a city with at least `HUB_POPULATION`
@@ -228,23 +228,6 @@ fn daylight(point: Vec3, hours: f32) -> &'static str {
     } else {
         "at dusk"
     }
-}
-
-/// The SVG commands for a line through `points`, with gaps where a point is hidden.
-/// Each point comes with the index of its sample along the route,
-/// and a dashed line draws the segments that end at an odd sample.
-fn path(points: impl Iterator<Item = (usize, Option<Vec2>)>, dashed: bool) -> String {
-    let mut commands = String::new();
-    let mut previous: Option<Vec2> = None;
-    for (sample, point) in points {
-        if let (Some(from), Some(to)) = (previous, point)
-            && (!dashed || sample % 2 == 1)
-        {
-            let _ = write!(commands, "M {:.1} {:.1} L {:.1} {:.1} ", from.x, from.y, to.x, to.y);
-        }
-        previous = point;
-    }
-    commands
 }
 
 /// How far from the ground the camera shows all of `flight`'s route.
@@ -1417,7 +1400,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 
         let flight = &demo.flight;
         let mut markers = [Marker::default(), Marker::default()];
-        let mut paths = [String::new(), String::new()];
+        let mut route: Vec<RouteSegment> = Vec::new();
         let mut aircraft = None;
         // The intro shows the globe alone, without the placeholder flight it starts with.
         if demo.stage != Stage::Intro && !demo.from_intro {
@@ -1432,8 +1415,48 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             let flown = steps.clone().take_while(|(_, t)| *t < progress).chain([(0, progress)]);
             let ahead =
                 [(0, progress)].into_iter().chain(steps.skip_while(|(_, t)| *t <= progress));
-            let on_screen = |(sample, t): (usize, f32)| (sample, screen(t));
-            paths = [path(flown.map(on_screen), false), path(ahead.map(on_screen), true)];
+            // Hidden on the entry screen until both airports are planned.
+            if app.get_route_shown() {
+                // The globe draws the route itself, which is quicker than paths in the UI.
+                // The colors are sRGB, made linear.
+                let linear = |srgb: [u8; 3], alpha: f32| {
+                    let channel = |c: u8| (c as f32 / 255.0).powf(2.2);
+                    [channel(srgb[0]), channel(srgb[1]), channel(srgb[2]), alpha]
+                };
+                let segment = |from: f32, to: f32, width: f32, color: [f32; 4]| RouteSegment {
+                    start: flight.point(from).to_array(),
+                    width: width * density,
+                    end: flight.point(to).to_array(),
+                    unused: 0.0,
+                    color,
+                };
+                let flown: Vec<f32> = flown.clone().map(|(_, t)| t).collect();
+                let ahead: Vec<(usize, f32)> = ahead.clone().collect();
+                for pair in ahead.windows(2) {
+                    // Dashed: the segments that end at an odd sample.
+                    if pair[1].0 % 2 == 1 {
+                        route.push(segment(
+                            pair[0].1,
+                            pair[1].1,
+                            2.0,
+                            linear([255, 255, 255], 0.63),
+                        ));
+                    }
+                }
+                if app.get_quality() != Quality::Low {
+                    for pair in flown.windows(2) {
+                        route.push(segment(
+                            pair[0],
+                            pair[1],
+                            7.0,
+                            linear([0x6c, 0xb4, 0xff], 0.55),
+                        ));
+                    }
+                }
+                for pair in flown.windows(2) {
+                    route.push(segment(pair[0], pair[1], 2.5, linear([0xe2, 0xe3, 0xe8], 1.0)));
+                }
+            }
 
             let nose = (flight.position() + flight.track() * 0.005).normalize();
             aircraft = screen(progress).zip(project(view_projection, nose * 1.0005, size));
@@ -1451,9 +1474,6 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         let [origin, destination] = markers;
         app.set_origin_marker(origin);
         app.set_destination_marker(destination);
-        let [flown, remaining] = paths;
-        app.set_flown_path(flown.into());
-        app.set_remaining_path(remaining.into());
         app.set_aircraft(match aircraft {
             Some((at, ahead)) => Aircraft {
                 shown: true,
@@ -1524,7 +1544,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 time: demo.time,
                 space: zoom_progress,
                 windows,
-                low: app.get_quality() == Quality::Low,
+                anisotropic: app.get_quality() != Quality::Low,
+                route,
                 clouds: match clouds_since {
                     Some(since) if app.get_clouds() => {
                         cloud_strength(eye) * since.elapsed().as_secs_f32().min(1.0)

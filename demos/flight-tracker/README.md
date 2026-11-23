@@ -3,7 +3,7 @@
 # Slint Flight Tracker
 
 Follow a flight across a globe of the earth, like on the moving map of an airplane's entertainment system.
-wgpu renders the globe, and Slint draws the route, the aircraft, the airports, the city names, and the panels with the flight's details on top.
+wgpu renders the globe and the flight's route, and Slint draws the aircraft, the airports, the city names, and the panels with the flight's details on top.
 The globe shows the day and night sides as they are right now, with the lights of the cities on the night side.
 
 The demo opens with the camera rising from the night side until the sun comes up over the horizon.
@@ -73,9 +73,10 @@ Slint renders with wgpu, and the demo renders the globe on Slint's own device:
 
 - `main.rs` requires wgpu with `BackendSelector::require_wgpu_30()`, and gets the device in the rendering notifier.
   Before Slint renders each frame, the demo renders the globe into a texture, and shows it in an `Image` underneath the UI.
-- `globe.wgsl` ray traces the globe, its atmosphere, and the stars in a single pass over the screen, so the globe needs no mesh.
-  In low quality, for GPUs too slow for that, it draws the part of the globe that the camera sees as a mesh instead, and the atmosphere as rings around it.
-  The mesh is lit per vertex, and there are no stars, no clouds, and no glare around the sun.
+- `globe.wgsl` draws the globe as a mesh that's fixed to it, in patches along the grid of the map tiles.
+  `patches.rs` decides once per frame which imagery each patch shows, so that a pixel of the ground takes one sample of it, which small GPUs keep up with at the display's resolution.
+  The mesh is lit per vertex.
+  The atmosphere's glow, the sun's glare, and the stars are meshes of their own.
   The ground is NASA's Blue Marble for July, and the lights on the night side are its Black Marble, both 4096 pixels wide.
   `compress.rs` compresses it to BC1 or ETC2, whichever the GPU supports, to an eighth of its size in GPU memory.
 - `tiles.rs` shows sharper imagery where the camera looks, once it comes close.
@@ -91,13 +92,14 @@ Slint renders with wgpu, and the demo renders the globe on Slint's own device:
 - `background.rs` decodes and compresses the imagery and generates the clouds while the intro plays, so that it starts without waiting for them.
 - `map.rs` computes a map with mip levels from the outlines in `data/` at startup.
   It holds the distances to the coasts, so that the shader draws them sharp at any zoom.
-- The land borders are lines of constant width on the screen, so that they stay sharp at any angle.
+- The land borders and the flight's route are lines of constant width on the screen, so that they stay sharp at any angle.
 - Beside the planner, the frame is transparent but for the globe and its atmosphere, so Slint's background shows through.
   The globe's place there shows the middle of a frame rendered for the whole window, so it grows to the window seamlessly, as space and the stars fade in.
 - `adaptive.rs` keeps the frame rate near 60 fps, or near what the display reaches: it lowers the globe's render scale first, then the quality.
-  High quality blurs the globe behind the panels, medium and low show flat panels, and low also renders the globe at 0.4 pixels per logical pixel.
+  High quality blurs the globe behind the panels, and medium and low show flat panels.
+  Low also filters the imagery more simply, and renders the globe at no more than one pixel per logical pixel.
   The settings pick a quality, or Auto.
-- The route, the aircraft, the airports, and the city names are ordinary Slint elements.
+- The aircraft, the airports, and the city names are ordinary Slint elements.
   Each frame, `main.rs` projects them to the screen with the camera's matrices, and passes their positions to Slint.
 
 The map data comes from [Natural Earth](https://www.naturalearthdata.com/), the airports from [OurAirports](https://ourairports.com/), and the imagery from [NASA's Visible Earth](https://visibleearth.nasa.gov/), all in the public domain.
