@@ -116,6 +116,7 @@ pub fn key_material(
     let _ = write!(key, "src={source_path:?};");
     let _ = write!(key, "style={:?};", config.style);
     let _ = write!(key, "inc={:?};", config.include_paths);
+    let _ = write!(key, "fonts={:?};", config.fonts);
     let mut libs: Vec<_> = config.library_paths.iter().collect();
     libs.sort_by(|a, b| a.0.cmp(b.0));
     let _ = write!(key, "lib={libs:?};");

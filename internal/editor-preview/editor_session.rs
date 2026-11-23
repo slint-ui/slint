@@ -409,6 +409,7 @@ impl EditorSession {
         let ProjectFileData {
             mut include_paths,
             library_paths,
+            mut fonts,
             experimental_features,
             edition,
             schema: _,
@@ -467,6 +468,7 @@ impl EditorSession {
                 let ProjectFileData {
                     include_paths: project_include_paths,
                     library_paths: project_library_paths,
+                    fonts: project_fonts,
                     experimental_features: project_experimental_features,
                     edition: project_edition,
                     schema: _,
@@ -486,10 +488,13 @@ impl EditorSession {
                     });
                 };
                 if let Some(project_include_paths) = project_include_paths {
-                    project_file::append_include_paths(
+                    project_file::append_paths(
                         include_paths.get_or_insert_default(),
                         project_include_paths,
                     );
+                }
+                if let Some(project_fonts) = project_fonts {
+                    project_file::append_paths(fonts.get_or_insert_default(), project_fonts);
                 }
                 merge_project_library_paths(
                     &mut library_paths,
@@ -529,6 +534,7 @@ impl EditorSession {
                 include_paths,
                 library_paths: library_paths
                     .map(|paths| paths.into_iter().map(|(name, (path, _))| (name, path)).collect()),
+                fonts,
                 experimental_features: experimental_features.map(|(features, _)| features),
                 edition: edition.map(|(version, _)| version),
                 schema: None,
@@ -3318,12 +3324,12 @@ mod tests {
         let document_b = project_b.join("main.slint");
         std::fs::write(
             project_a.join(FILE_NAME),
-            r#"{ "edition": "1.20", "$schema": "schema-a", "main": "main.slint", "include-paths": ["include-a"] }"#,
+            r#"{ "edition": "1.20", "$schema": "schema-a", "main": "main.slint", "include-paths": ["include-a"], "fonts": ["a.ttf", "@fonts/shared.ttf"] }"#,
         )
         .unwrap();
         std::fs::write(
             project_b.join(FILE_NAME),
-            r#"{ "edition": "1.20", "include-paths": ["include-b"], "library-paths": {"widgets": "lib.slint"} }"#,
+            r#"{ "edition": "1.20", "include-paths": ["include-b"], "library-paths": {"widgets": "lib.slint"}, "fonts": ["b.ttf", "@fonts/shared.ttf"] }"#,
         )
         .unwrap();
         write_document(&document_a);
@@ -3347,6 +3353,14 @@ mod tests {
             HashMap::from([("widgets".to_string(), project_b.join("lib.slint"))])
         );
         let (merged, _) = session.merged_project_data(Default::default());
+        assert_eq!(
+            merged.fonts,
+            Some(vec![
+                project_a.join("a.ttf"),
+                PathBuf::from("@fonts/shared.ttf"),
+                project_b.join("b.ttf"),
+            ])
+        );
         assert_eq!(merged.schema, None);
         assert_eq!(merged.main, None);
         assert_eq!(merged.experimental_features, None);

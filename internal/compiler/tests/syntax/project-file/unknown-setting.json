@@ -1,4 +1,4 @@
 {
   "unknown_setting": true
-//                |error{unknown field `unknown_setting`, expected one of `$schema`, `library-paths`, `include-paths`, `experimental-features`, `main`, `edition`, `metadata`}
+//                |error{unknown field `unknown_setting`, expected one of `$schema`, `library-paths`, `include-paths`, `fonts`, `experimental-features`, `main`, `edition`, `metadata`}
 }

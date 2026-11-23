@@ -21,6 +21,9 @@ pub struct ProjectFileData {
 
     pub include_paths: Option<Vec<PathBuf>>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fonts: Option<Vec<PathBuf>>,
+
     pub experimental_features: Option<crate::ExperimentalFeatures>,
 
     pub main: Option<PathBuf>,
@@ -538,6 +541,10 @@ impl ProjectFile {
         self.data.include_paths.as_ref()
     }
 
+    pub fn fonts(&self) -> Option<&Vec<PathBuf>> {
+        self.data.fonts.as_ref()
+    }
+
     pub fn experimental_features(&self) -> Option<crate::ExperimentalFeatures> {
         self.data.experimental_features
     }
@@ -621,6 +628,11 @@ impl ProjectFile {
                 *path = resolve_source_relative_path(&project_directory, path.clone());
             }
         }
+        if let Some(fonts) = &mut data.fonts {
+            for path in fonts.iter_mut().filter(|path| !path.to_string_lossy().starts_with('@')) {
+                *path = resolve_source_relative_path(&project_directory, path.clone());
+            }
+        }
         #[expect(deprecated)]
         {
             data.main = self.main().map(|entry| entry.to_legacy_path());
@@ -629,11 +641,11 @@ impl ProjectFile {
     }
 }
 
-/// Appends the `paths` that `include_paths` doesn't contain yet.
-pub fn append_include_paths(include_paths: &mut Vec<PathBuf>, paths: Vec<PathBuf>) {
+/// Appends the `paths` that `existing` doesn't contain yet.
+pub fn append_paths(existing: &mut Vec<PathBuf>, paths: Vec<PathBuf>) {
     for path in paths {
-        if !include_paths.contains(&path) {
-            include_paths.push(path);
+        if !existing.contains(&path) {
+            existing.push(path);
         }
     }
 }
@@ -644,7 +656,10 @@ impl ProjectFileData {
         if let (Some(include_paths), Some(project_paths)) =
             (&mut merged.include_paths, project.include_paths)
         {
-            append_include_paths(include_paths, project_paths);
+            append_paths(include_paths, project_paths);
+        }
+        if let (Some(fonts), Some(project_fonts)) = (&mut merged.fonts, project.fonts) {
+            append_paths(fonts, project_fonts);
         }
         if let (Some(library_paths), Some(project_paths)) =
             (&mut merged.library_paths, project.library_paths)
@@ -661,6 +676,7 @@ impl ProjectFileData {
             schema: _,
             library_paths,
             include_paths,
+            fonts,
             experimental_features,
             main: _,
             edition,
@@ -668,6 +684,9 @@ impl ProjectFileData {
         } = self;
         if let Some(include_paths) = include_paths {
             compiler_config.include_paths = include_paths.clone();
+        }
+        if let Some(fonts) = fonts {
+            compiler_config.fonts = fonts.clone();
         }
         if let Some(library_paths) = library_paths {
             compiler_config.library_paths = library_paths.clone();
@@ -716,8 +735,8 @@ fn deserialize_supported_enum<'de, D: serde::Deserializer<'de>, T: serde::de::De
 impl Overrides {
     /// Applies `project_file` to `config`, then these overrides.
     /// Experimental features set here replace the project file's.
-    /// Include paths and library paths add to those of the project file.
-    /// An include path comes before the project file's,
+    /// Include paths, fonts, and library paths add to those of the project file.
+    /// An include path or a font comes before the project file's,
     /// and a library path replaces the project file's library of the same name.
     pub fn apply(
         &self,
@@ -797,6 +816,7 @@ impl Overrides {
             schema,
             library_paths,
             include_paths,
+            fonts,
             experimental_features,
             main,
             edition,
@@ -805,6 +825,7 @@ impl Overrides {
         replace_if_supplied(&mut self.project.schema, schema);
         replace_if_supplied(&mut self.project.library_paths, library_paths);
         replace_if_supplied(&mut self.project.include_paths, include_paths);
+        replace_if_supplied(&mut self.project.fonts, fonts);
         replace_if_supplied(&mut self.style, style);
         replace_if_supplied(&mut self.project.experimental_features, experimental_features);
         replace_if_supplied(&mut self.project.main, main);
@@ -982,7 +1003,7 @@ mod tests {
     #[test]
     fn override_paths_add_to_the_project_paths() {
         with_project_file_contents(
-            r#"{"edition":"1.20","include-paths":["include","shared"],"library-paths":{"widgets":"lib","icons":"icons"}}"#,
+            r#"{"edition":"1.20","include-paths":["include","shared"],"library-paths":{"widgets":"lib","icons":"icons"},"fonts":["Inter.ttf","Noto.otf"]}"#,
             |path| {
                 let project = ProjectFile::load(path).unwrap();
                 let project_directory = project.source_path().parent();
@@ -993,6 +1014,7 @@ mod tests {
                     project: super::ProjectFileData {
                         include_paths: Some(vec![PathBuf::from("/api"), resolve("shared")]),
                         library_paths: Some(HashMap::from([("widgets".into(), "/api-lib".into())])),
+                        fonts: Some(vec![PathBuf::from("/api.ttf"), resolve("Noto.otf")]),
                         ..Default::default()
                     },
                     ..Default::default()
@@ -1009,6 +1031,10 @@ mod tests {
                         ("icons".into(), resolve("icons")),
                     ])
                 );
+                assert_eq!(
+                    config.fonts,
+                    vec![PathBuf::from("/api.ttf"), resolve("Noto.otf"), resolve("Inter.ttf")]
+                );
             },
         );
     }
@@ -1019,6 +1045,7 @@ mod tests {
             project: super::ProjectFileData {
                 include_paths: Some(vec![PathBuf::from("startup")]),
                 library_paths: Some(HashMap::from([("startup".into(), PathBuf::from("lib"))])),
+                fonts: Some(vec![PathBuf::from("startup.ttf")]),
                 experimental_features: Some(ExperimentalFeatures::all()),
                 ..Default::default()
             },
@@ -1030,6 +1057,7 @@ mod tests {
             project: super::ProjectFileData {
                 include_paths: Some(vec![]),
                 library_paths: Some(HashMap::new()),
+                fonts: Some(vec![]),
                 experimental_features: Some(ExperimentalFeatures::default()),
                 ..Default::default()
             },
@@ -1038,6 +1066,7 @@ mod tests {
         });
         assert_eq!(overrides.project.include_paths, Some(vec![]));
         assert_eq!(overrides.project.library_paths, Some(HashMap::new()));
+        assert_eq!(overrides.project.fonts, Some(vec![]));
         assert_eq!(overrides.style.as_deref(), Some("fluent"));
         assert_eq!(overrides.project.experimental_features, Some(ExperimentalFeatures::default()));
         assert_eq!(overrides.debug_info, Some(false));
@@ -1355,6 +1384,52 @@ mod tests {
     }
 
     #[test]
+    fn unset_fonts_are_not_serialized() {
+        let json = serde_json::to_string(&super::ProjectFileData::default()).unwrap();
+        assert!(!json.contains("fonts"), "{json}");
+    }
+
+    #[test]
+    fn the_fonts_of_a_project_file_at_a_url_are_urls() {
+        let project = ProjectFile::parse(
+            SourcePath::new("https://example.com/app/slint-project.json"),
+            br#"{ "edition": "1.20", "fonts": ["fonts/Font.ttf"] }"#.to_vec(),
+        )
+        .unwrap();
+        let config = project.into_compiler_configuration(OutputFormat::Interpreter);
+        assert_eq!(
+            config.fonts.iter().map(SourcePath::new).collect::<Vec<_>>(),
+            [SourcePath::new("https://example.com/app/fonts/Font.ttf")]
+        );
+        assert!(matches!(SourcePath::new(&config.fonts[0]), SourcePath::Url(_)));
+    }
+
+    #[test]
+    fn fonts_are_relative_to_the_project_file_except_in_a_library() {
+        with_project_file_contents(
+            r#"{
+                "edition": "1.20",
+                "fonts": ["fonts/Inter.ttf", "../shared/Noto.otf", "@material/Roboto.ttf"]
+            }"#,
+            |path| {
+                let project = ProjectFile::load(path).unwrap();
+                let compiler_config =
+                    project.into_compiler_configuration(OutputFormat::Interpreter);
+                let project_directory = path.parent().unwrap();
+
+                assert_eq!(
+                    compiler_config.fonts,
+                    vec![
+                        project_directory.join("fonts/Inter.ttf"),
+                        project_directory.parent().unwrap().join("shared/Noto.otf"),
+                        PathBuf::from("@material/Roboto.ttf"),
+                    ]
+                );
+            },
+        );
+    }
+
+    #[test]
     fn project_file_conversion_preserves_defaults_for_omitted_settings() {
         with_project_file_contents(r#"{ "edition": "1.20" }"#, |path| {
             let project = ProjectFile::load(path).unwrap();
@@ -1363,6 +1438,7 @@ mod tests {
 
             assert_eq!(compiler_config.include_paths, default_config.include_paths);
             assert_eq!(compiler_config.library_paths, default_config.library_paths);
+            assert_eq!(compiler_config.fonts, default_config.fonts);
             assert_eq!(compiler_config.style, default_config.style);
             assert_eq!(compiler_config.experimental_features, default_config.experimental_features);
         });
