@@ -516,15 +516,10 @@ fn test_remove_elements() {
         assert_eq!(model.row_count(), 1); // -> item with value 2 left
         assert_eq!(inner.instances.len(), 0, "Current instance is now cleared as well");
         assert_eq!(
-            inner.layout_state.item_index.row, 0,
-            "row points now to the last remaining item"
+            inner.layout_state.item_index.row, 1,
+            "row points past the end until the ListView layout clamps it"
         );
         assert_eq!(inner.layout_state.item_index.instance_index, 0);
-        assert_eq!(
-            model.row_data(inner.layout_state.item_index.row),
-            Some(2),
-            "row points now to the previous one"
-        );
     }
 
     // Remove last element
@@ -917,6 +912,30 @@ fn test_all_rows_removed() {
     let repeater = repeater_with_window(&model, 0..5, 2);
     model.remove(0..5);
     assert_eq!(state(&repeater), (vec![], CurrentItem { row: 0, instance_index: 0 }));
+}
+
+/// The repeater must not call back into the model from `row_removed`:
+/// the model may still hold a mutable borrow of its rows, as the editor's outline did.
+#[test]
+fn test_rows_removed_while_model_is_borrowed() {
+    let model = TestModel::new(5);
+    let repeater = repeater_with_window(&model, 0..5, 2);
+    // Before:
+    //         0, 1, 2, 3, 4
+    //               ^
+    // Window: |-----------|
+    // After:
+    //         0, 3, 4
+    //            ^
+    // Window: |-----|
+    let mut rows = model.rows.borrow_mut();
+    rows.drain(1..3);
+    model.notify.row_removed(1, 2);
+    drop(rows);
+    assert_eq!(
+        state(&repeater),
+        (vec![Clean(0), Dirty, Dirty], CurrentItem { row: 1, instance_index: 1 })
+    );
 }
 
 #[test]

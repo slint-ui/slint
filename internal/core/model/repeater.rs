@@ -143,14 +143,13 @@ impl CurrentItem {
     }
 
     /// Updates the indexes for `count` rows removed from the model at `index`,
-    /// with `instance_count` instances and `row_count` rows left.
+    /// with `instance_count` instances.
     /// Returns the instances to remove, or `None` if the instances don't change.
     fn rows_removed(
         &mut self,
         instance_count: usize,
         index: usize,
         count: usize,
-        row_count: usize,
     ) -> Option<core::ops::Range<usize>> {
         if count == 0 {
             return None;
@@ -162,7 +161,7 @@ impl CurrentItem {
             if removed_end <= self.row {
                 self.row -= count;
             } else if index <= self.row {
-                self.row = index.min(row_count.saturating_sub(1));
+                self.row = index;
             }
             return None;
         }
@@ -182,7 +181,7 @@ impl CurrentItem {
             } else if start > 0 {
                 Self { row: first_row + start - 1, instance_index: start - 1 }
             } else {
-                Self { row: index.min(row_count.saturating_sub(1)), instance_index: 0 }
+                Self { row: index, instance_index: 0 }
             };
         }
         Some(start..end)
@@ -959,15 +958,11 @@ impl RepeaterInner {
     }
 
     /// Implements [`ModelChangeListener::row_removed`].
-    /// `row_count` is the number of rows after the removal.
     /// Returns whether the instances changed.
-    fn row_removed(&mut self, index: usize, count: usize, row_count: usize) -> bool {
-        let Some(removed) = self.layout_state.item_index.rows_removed(
-            self.instances.len(),
-            index,
-            count,
-            row_count,
-        ) else {
+    fn row_removed(&mut self, index: usize, count: usize) -> bool {
+        let Some(removed) =
+            self.layout_state.item_index.rows_removed(self.instances.len(), index, count)
+        else {
             return false;
         };
         let start = removed.start;
@@ -1026,8 +1021,7 @@ impl<T: RepeatedItemTree> ModelChangeListener for RepeaterTracker<T> {
     }
     /// Notify the peers that rows were removed
     fn row_removed(self: Pin<&Self>, index: usize, count: usize) {
-        let row_count = self.model.get_internal().row_count();
-        if self.inner.borrow_mut().row_removed(index, count, row_count) {
+        if self.inner.borrow_mut().row_removed(index, count) {
             self.instances_changed();
         }
     }
@@ -1814,7 +1808,6 @@ mod ffi {
     }
 
     /// See [`ModelChangeListener::row_removed`].
-    /// `row_count` is the number of rows after the removal.
     /// Returns whether the instances change, and if so, sets `removed` to the instances to remove.
     #[unsafe(no_mangle)]
     pub extern "C" fn slint_repeater_rows_removed(
@@ -1822,11 +1815,10 @@ mod ffi {
         instance_count: usize,
         index: usize,
         count: usize,
-        row_count: usize,
         removed: &mut crate::item_tree::IndexRange,
     ) -> bool {
         item_index
-            .rows_removed(instance_count, index, count, row_count)
+            .rows_removed(instance_count, index, count)
             .map(|range| *removed = range.into())
             .is_some()
     }
