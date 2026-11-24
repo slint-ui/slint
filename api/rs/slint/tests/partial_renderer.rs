@@ -151,6 +151,8 @@ impl WindowAdapter for SkiaTestWindow {
 struct SkiaTestSoftwareBuffer {
     pixels: RefCell<Option<SharedPixelBuffer<slint::Rgba8Pixel>>>,
     last_dirty_region: RefCell<Option<i_slint_core::partial_renderer::DirtyRegion>>,
+    /// The age to report for a buffer that exists, instead of 1.
+    buffer_age: Cell<Option<u8>>,
 }
 
 impl i_slint_renderer_skia::software_surface::RenderBuffer for SkiaTestSoftwareBuffer {
@@ -184,7 +186,7 @@ impl i_slint_renderer_skia::software_surface::RenderBuffer for SkiaTestSoftwareB
             shared_pixel_buffer = None;
         }
 
-        let mut age = 1;
+        let mut age = self.buffer_age.get().unwrap_or(1);
         let pixels = shared_pixel_buffer.get_or_insert_with(|| {
             age = 0;
             SharedPixelBuffer::new(width.get(), height.get())
@@ -978,6 +980,99 @@ fn shadow_redraw_beyond_geometry() {
         window.last_dirty_region_bounding_box_origin(),
         Some(slint::LogicalPosition { x: old_rect_x, y: old_shadow_y })
     );
+}
+
+slint::slint! {
+    #[edition = "1.20"]
+    export component FourRectangles inherits Window {
+        in property <[color]> colors;
+        background: black;
+        for c[i] in root.colors: Rectangle {
+            x: 10px + i * 30px;
+            y: 10px;
+            width: 20px;
+            height: 20px;
+            background: c;
+        }
+    }
+}
+
+/// Shows four red rectangles in a row in the Skia window, after its first frame,
+/// with the model of their colors.
+fn show_four_rectangles() -> (FourRectangles, Rc<SkiaTestWindow>, Rc<slint::VecModel<slint::Color>>)
+{
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+    let window = SKIA_WINDOW.with(|w| w.clone());
+    NEXT_WINDOW_CHOICE.with(|choice| {
+        *choice.borrow_mut() = Some(window.clone());
+    });
+    let ui = FourRectangles::new().unwrap();
+    let colors = Rc::new(slint::VecModel::from(vec![slint::Color::from_rgb_u8(255, 0, 0); 4]));
+    ui.set_colors(colors.clone().into());
+    window.set_size(slint::PhysicalSize::new(200, 100).into());
+    ui.show().unwrap();
+    assert!(window.draw_if_needed());
+    (ui, window, colors)
+}
+
+#[test]
+fn buffer_age_repaints_the_frames_since() {
+    let (_ui, window, colors) = show_four_rectangles();
+    let blue = slint::Color::from_rgb_u8(0, 0, 255);
+
+    // Three frames, each changing one rectangle.
+    for i in 0..3 {
+        colors.set_row_data(i, blue);
+        assert!(window.draw_if_needed());
+    }
+
+    // A buffer four frames old misses those three frames and this one.
+    window.render_buffer.buffer_age.set(Some(4));
+    colors.set_row_data(3, blue);
+    assert!(window.draw_if_needed());
+    assert_eq!(
+        window.last_dirty_region_bounding_box_origin(),
+        Some(slint::LogicalPosition { x: 10., y: 10. })
+    );
+    assert_eq!(
+        window.last_dirty_region_bounding_box_size(),
+        Some(slint::LogicalSize { width: 110., height: 20. })
+    );
+
+    // The history doesn't reach back five frames.
+    window.render_buffer.buffer_age.set(Some(5));
+    colors.set_row_data(0, slint::Color::from_rgb_u8(0, 255, 0));
+    assert!(window.draw_if_needed());
+    assert_eq!(
+        window.last_dirty_region_bounding_box_size(),
+        Some(slint::LogicalSize { width: 200., height: 100. })
+    );
+}
+
+#[test]
+fn snapshot_leaves_the_next_frame_unchanged() {
+    let (_ui, window, colors) = show_four_rectangles();
+    let blue = slint::Color::from_rgb_u8(0, 0, 255);
+    for i in 0..2 {
+        colors.set_row_data(i, blue);
+        assert!(window.draw_if_needed());
+    }
+
+    // A snapshot between frames neither consumes the change to the third rectangle
+    // nor counts as a frame for the buffer's age.
+    colors.set_row_data(2, blue);
+    window.window().take_snapshot().unwrap();
+    window.render_buffer.buffer_age.set(Some(3));
+    assert!(window.draw_if_needed());
+    assert_eq!(
+        window.last_dirty_region_bounding_box_origin(),
+        Some(slint::LogicalPosition { x: 10., y: 10. })
+    );
+    assert_eq!(
+        window.last_dirty_region_bounding_box_size(),
+        Some(slint::LogicalSize { width: 80., height: 20. })
+    );
+    assert_eq!(window.pixel(75, 15), slint::Rgba8Pixel::new(0, 0, 255, 255));
 }
 
 #[test]

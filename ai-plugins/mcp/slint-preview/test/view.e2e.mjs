@@ -58,6 +58,10 @@ const HOST_PAGE = `<!doctype html>
     if (event.source !== frame.contentWindow) return;
     const { id, method, params } = event.data;
     if (method === "ui/notifications/initialized") window.viewInitialized = true;
+    if (method === "ui/notifications/size-changed" && window.resizeToView) {
+      frame.style.width = params.width + "px";
+      frame.style.height = params.height + "px";
+    }
     if (id === undefined) return;
     if (method === "ui/initialize") {
       window.previewDisplayModes = params.appCapabilities.availableDisplayModes;
@@ -152,8 +156,12 @@ before(async () => {
     );
 
     // Headless Chromium renders WebGL only in software.
+    // Use scrollbars that take up layout space so the iframe sizing test can reproduce the feedback loop.
     // cspell:ignore swiftshader
-    browser = await chromium.launch({ args: ["--enable-unsafe-swiftshader"] });
+    browser = await chromium.launch({
+        args: ["--enable-unsafe-swiftshader", "--disable-features=OverlayScrollbar"],
+        ignoreDefaultArgs: ["--hide-scrollbars"],
+    });
     page = await browser.newPage();
     await page.exposeFunction("callServer", async (params) => {
         const { result, error } = await request("tools/call", params);
@@ -499,6 +507,129 @@ test("anchors the tools to the plugin viewport and switches the Slint theme", as
     await waitForBackground(false);
     assert.equal(await toolbar.isVisible(), true);
     await page.locator("iframe").evaluate((element) => { element.style.width = "800px"; element.style.height = "600px"; });
+});
+
+async function resizeIframeToPreview(testContext, { width = "800px", maxHeight = "none" } = {}) {
+    const iframe = page.locator("iframe");
+    testContext.after(async () => {
+        await iframe.evaluate((element) => {
+            window.resizeToView = false;
+            element.style.width = "800px";
+            element.style.height = "600px";
+            element.style.maxHeight = "";
+        });
+    });
+    await iframe.evaluate((element, { width, maxHeight }) => {
+        window.resizeToView = true;
+        window.viewInitialized = false;
+        element.style.width = width;
+        element.style.maxHeight = maxHeight;
+        element.srcdoc = element.srcdoc;
+    }, { width, maxHeight });
+    await page.waitForFunction(() => window.viewInitialized);
+    return iframe;
+}
+
+test("keeps the toolbar inside an iframe sized to a 20px preview", async (testContext) => {
+    const iframe = await resizeIframeToPreview(testContext, { width: "100px" });
+    assertRendered(await preview({ source: COMPONENT("Main") }));
+
+    const toolbar = iframe.contentFrame().getByRole("toolbar", { name: "Preview tools" });
+    const readBounds = () => toolbar.evaluate((element) => {
+        const toolbar = element.getBoundingClientRect();
+        const canvas = document.getElementById("preview").getBoundingClientRect();
+        return {
+            canvasWidth: canvas.width,
+            canvasHeight: canvas.height,
+            fits: toolbar.left >= 0 && toolbar.right <= window.innerWidth
+                && toolbar.top >= canvas.bottom && toolbar.bottom <= window.innerHeight,
+        };
+    });
+    const bounds = await readBounds();
+    assert.equal(bounds.canvasWidth, 20);
+    assert.equal(bounds.canvasHeight, 20);
+    assert.ok(bounds.fits, "the full toolbar fits below the preview");
+
+    const initialHeight = await iframe.evaluate((element) => element.clientHeight);
+    await toolbar.evaluate((element) => {
+        element.style.height = `${element.offsetHeight + 48}px`;
+    });
+    await page.waitForFunction(
+        (previousHeight) => document.querySelector("iframe").clientHeight > previousHeight,
+        initialHeight,
+        { timeout: 5000 },
+    );
+    assert.ok((await readBounds()).fits, "the iframe grows to fit the taller toolbar");
+    await toolbar.getByRole("button", { name: "Annotate" }).click();
+});
+
+test("keeps the toolbar below the preview when the host caps the iframe height", async (testContext) => {
+    const previewHeight = 460;
+    const iframe = await resizeIframeToPreview(testContext, { maxHeight: "480px" });
+    assertRendered(await preview({
+        source: `export component Main inherits Window { width: 540px; height: ${previewHeight}px; background: blue; }`,
+    }));
+
+    const frame = iframe.contentFrame();
+    const canvas = await frame.locator("#preview").boundingBox();
+    const toolbar = await frame.getByRole("toolbar", { name: "Preview tools" }).boundingBox();
+    assert.ok(canvas && toolbar, "the preview and toolbar are visible");
+    const overlap = canvas.y + canvas.height - toolbar.y;
+    assert.ok(overlap <= 0, `the toolbar overlaps the preview by ${overlap}px`);
+
+    await iframe.evaluate((element) => { element.style.maxHeight = "none"; });
+    await page.waitForFunction(
+        (height) => document.querySelector("iframe").contentDocument.getElementById("preview").offsetHeight === height,
+        previewHeight,
+    );
+});
+
+test("preserves iframe width when a tall preview triggers a scrollbar during startup", async (testContext) => {
+    const iframe = await resizeIframeToPreview(testContext, { width: "650px", maxHeight: "480px" });
+    assertRendered(await preview({
+        source: "export component Main inherits Window { width: 1000px; height: 700px; background: blue; }",
+    }));
+    assert.equal(await iframe.evaluate((element) => element.clientWidth), 650);
+});
+
+test("preserves iframe height when the host measures the loaded preview", async (testContext) => {
+    const iframe = await resizeIframeToPreview(testContext, { maxHeight: "480px" });
+    assertRendered(await preview({
+        source: "export component Main inherits Window { width: 1000px; height: 700px; background: blue; }",
+    }));
+
+    const height = await iframe.evaluate(async (element) => {
+        const view = element.contentDocument;
+        for (let pass = 0; pass < 4; pass++) {
+            // Codex measures the root or the bottom edge of the body children.
+            const root = view.getElementById("root");
+            const measuredHeight = root
+                ? root.scrollHeight
+                : Math.max(...Array.from(view.body.children, (child) => child.getBoundingClientRect().bottom));
+            element.style.height = `${measuredHeight}px`;
+            await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        }
+        return element.clientHeight;
+    });
+    assert.equal(height, 480);
+});
+
+test("keeps the preferred height while the host moves the loaded preview to a shorter iframe", async (testContext) => {
+    const iframe = await resizeIframeToPreview(testContext);
+    assertRendered(await preview({
+        source: "export component Main inherits Window { width: 540px; height: 460px; background: blue; }",
+    }));
+
+    const preferredHeight = await iframe.evaluate((element) => element.clientHeight);
+    const measuredHeight = await iframe.evaluate(async (element) => {
+        window.resizeToView = false;
+        for (const height of [800, 200]) {
+            element.style.height = `${height}px`;
+            await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        }
+        return element.contentDocument.getElementById("root").scrollHeight;
+    });
+    assert.equal(measuredHeight, preferredHeight);
 });
 
 test("hides Annotate when the host cannot stage a draft", async () => {

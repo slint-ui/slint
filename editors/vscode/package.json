@@ -62,6 +62,18 @@
     "ui"
   ],
   "contributes": {
+    "mcpServerDefinitionProviders": [
+      {
+        "id": "slint.mcp",
+        "label": "Slint",
+        "when": "!isWeb || remoteName"
+      }
+    ],
+    "chatSkills": [
+      {
+        "path": "./out/mcp/codex-skills/slint/SKILL.md"
+      }
+    ],
     "languages": [
       {
         "id": "slint",
@@ -250,7 +262,8 @@
     ]
   },
   "scripts": {
-    "vscode:prepublish": "pnpm build:wasm_lsp-release && pnpm compile-production && shx echo \"GPL-3.0-only OR LicenseRef-Slint-Software-3.0\" > LICENSE.txt",
+    "vscode:prepublish": "pnpm build:wasm_lsp-release && pnpm compile-production && pnpm build:ai-plugin && shx echo \"GPL-3.0-only OR LicenseRef-Slint-Software-3.0\" > LICENSE.txt",
+    "build:ai-plugin": "node ../../ai-plugins/mcp/slint-preview/build-checker.mjs --release && node package-ai-plugin.mjs",
     "build:lsp": "cargo build -p slint-lsp",
     "build:lsp-release": "cargo build --release -p slint-lsp",
     "build:wasm_lsp": "shx pwd | xargs -I {} wasm-pack build --dev --target web --no-pack ../../tools/lsp --out-dir {}/out -- --no-default-features --features backend-winit,renderer-femtovg,preview",
@@ -273,7 +286,7 @@
   },
   "dependencies": {
     "fs-extra": "11.4.1",
-    "simple-git": "4.0.2",
+    "simple-git": "4.1.0",
     "vscode-languageclient": "9.0.1",
     "vscode-languageserver": "9.0.1",
     "vscode-languageserver-types": "3.18.5"

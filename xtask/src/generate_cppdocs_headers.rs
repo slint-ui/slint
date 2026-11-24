@@ -53,3 +53,33 @@ pub fn generate(experimental: bool) -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
+
+/// Rust's bare-metal Arm targets size a `#[repr(C)]` enum to fit its values,
+/// while a C++ `enum class` without an underlying type is always an `int`.
+#[test]
+fn generated_enums_have_fixed_size() {
+    const HAND_WRITTEN: &[&str] =
+        &["slint_enums.h", "slint_enums_internal.h", "slint_live_preview_enums.h"];
+
+    let root = super::root_dir();
+    let out_dir = root.join("target/cbindgen_enum_test");
+    cbindgen::gen_all(&root, &out_dir, cbindgen::EnabledFeatures::all()).unwrap();
+
+    for entry in std::fs::read_dir(out_dir.join("private")).unwrap() {
+        let path = entry.unwrap().path();
+        let name = path.file_name().unwrap().to_str().unwrap();
+        if !name.ends_with(".h") || HAND_WRITTEN.contains(&name) {
+            continue;
+        }
+        for line in std::fs::read_to_string(&path).unwrap().lines().map(str::trim) {
+            if let Some(declaration) = line.strip_prefix("enum class ")
+                && declaration.ends_with('{')
+            {
+                assert!(
+                    declaration.contains(':'),
+                    "{name}: `{line}` has no underlying type. Use `#[repr(u8)]` or `#[repr(C, u8)]` on the Rust enum"
+                );
+            }
+        }
+    }
+}

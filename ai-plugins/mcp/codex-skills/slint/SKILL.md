@@ -1,9 +1,9 @@
 ---
 name: slint
-description: Write, edit, debug, or review Slint UIs and host-language integration in Codex. Use for Slint docs, development guidance, inline previews, and preview annotations.
+description: Write, edit, debug, or review Slint UIs and host-language integration. Use for Slint docs, development guidance, inline previews, and preview annotations.
 ---
 
-# Slint Skill for Codex
+# Slint
 
 ## Find the Slint Project
 
@@ -26,7 +26,7 @@ Call `fetch` with the result's URL exactly as returned to read the page for that
 If the documentation tools are unavailable, open the matching release at
 `https://releases.slint.dev/<version>/docs` or use the [current Slint docs](https://docs.slint.dev/).
 
-## Check and Preview in Codex
+## Check and Preview
 
 Set `prepare_preview: true` when the session supports MCP Apps and you want to show an interactive preview.
 
@@ -75,14 +75,14 @@ Read the matching reference before working in that area.
 
 | File | Read when… |
 |---|---|
-| [setup.md](../../guidance/setup.md) | Starting a project / wiring the build (Rust/C++/Node/Python). |
-| [language-and-layout.md](../../guidance/reference/language-and-layout.md) | Writing components; an element won't size/fill as expected. |
-| [gotchas.md](../../guidance/reference/gotchas.md) | A file won't compile, or colors/units/math/enums behave oddly. |
-| [events-and-overlays.md](../../guidance/reference/events-and-overlays.md) | Clicks/keys/modifiers, or popovers/menus/context menus. |
-| [icons-and-theming.md](../../guidance/reference/icons-and-theming.md) | Icons, or light/dark theming. |
-| [interop.md](../../guidance/reference/interop.md) | Connecting the UI to host-language logic (models, callbacks, globals). |
-| [polish.md](../../guidance/reference/polish.md) | The UI works but looks rough; reviewing a rendered screenshot. |
-| [debugging-and-mcp.md](../../guidance/reference/debugging-and-mcp.md) | Runtime debugging, headless/CI rendering, screenshots, the MCP server. |
-| [licensing.md](../../guidance/reference/licensing.md) | The user asks about the license, or builds a closed-source app. |
-| [web-embedding.md](../../guidance/reference/web-embedding.md) | Showing a live `.slint` preview in a web page, HTML report, or docs. |
-| [tools-install.md](../../guidance/tools-install.md) | Installing Slint development tools. |
+| [setup.md](guidance/setup.md) | Starting a project / wiring the build (Rust/C++/Node/Python). |
+| [language-and-layout.md](guidance/reference/language-and-layout.md) | Writing components; an element won't size/fill as expected. |
+| [gotchas.md](guidance/reference/gotchas.md) | A file won't compile, or colors/units/math/enums behave oddly. |
+| [events-and-overlays.md](guidance/reference/events-and-overlays.md) | Clicks/keys/modifiers, or popovers/menus/context menus. |
+| [icons-and-theming.md](guidance/reference/icons-and-theming.md) | Icons, or light/dark theming. |
+| [interop.md](guidance/reference/interop.md) | Connecting the UI to host-language logic (models, callbacks, globals). |
+| [polish.md](guidance/reference/polish.md) | The UI works but looks rough; reviewing a rendered screenshot. |
+| [debugging-and-mcp.md](guidance/reference/debugging-and-mcp.md) | Debugging a running app or taking a screenshot with `slint-viewer`. |
+| [licensing.md](guidance/reference/licensing.md) | The user asks about the license, or builds a closed-source app. |
+| [web-embedding.md](guidance/reference/web-embedding.md) | Showing a live `.slint` preview in a web page, HTML report, or docs. |
+| [tools-install.md](guidance/tools-install.md) | Installing Slint development tools. |

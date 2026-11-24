@@ -5,11 +5,13 @@
 
 // cSpell: ignore bufs dmabuf
 
+use std::cell::Cell;
+
 use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 use i_slint_core::graphics::RequestedGraphicsAPI;
 use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::DrawOutcome;
-use i_slint_renderer_skia::{SkiaWGPU30Renderer, SkiaWGPU30RendererExt};
+use i_slint_renderer_skia::{SkiaWGPU30RenderTarget, SkiaWGPU30Renderer, SkiaWGPU30RendererExt};
 use wgpu_30 as wgpu;
 
 use super::dmabuf::init_wgpu;
@@ -25,6 +27,15 @@ pub struct SkiaDmabufRendererAdapter {
     /// Dropped first, waiting for the frames still on the GPU,
     /// which use the renderer's resources and draw into the display's buffers.
     barriers: ScanoutBarriers,
+    /// One for each of the display's buffers, in the same order.
+    /// Declared before `renderer`, so that the Skia surfaces are freed
+    /// while the Skia context and the wgpu device still exist.
+    targets: Vec<SkiaWGPU30RenderTarget>,
+    /// The number of the frame each target holds, for the age that partial rendering needs.
+    /// `None` until a frame got through its release, which keeping the contents requires.
+    held_frames: [Cell<Option<u64>>; BUFFER_COUNT],
+    /// The number of the next frame.
+    next_frame: Cell<u64>,
     renderer: SkiaWGPU30Renderer,
     display: GbmDmabufDisplay,
     device: wgpu::Device,
@@ -46,11 +57,27 @@ impl SkiaDmabufRendererAdapter {
         let display = GbmDmabufDisplay::new(drm_output, &device, BUFFER_COUNT)?;
         let barriers = ScanoutBarriers::new(&device, BUFFER_COUNT)?;
 
-        let renderer = SkiaWGPU30Renderer::new(instance, adapter, device.clone(), queue.clone())?;
+        let mut renderer =
+            SkiaWGPU30Renderer::new(instance, adapter, device.clone(), queue.clone())?;
+        renderer.enable_partial_rendering();
+        let targets = display
+            .textures()
+            .map(|texture| renderer.render_target(texture))
+            .collect::<Result<_, _>>()?;
 
         eprintln!("Using Skia renderer with wgpu, presenting dma-bufs on a DRM plane");
 
-        Ok(Box::new(Self { renderer, display, barriers, device, queue, size }))
+        Ok(Box::new(Self {
+            renderer,
+            targets,
+            held_frames: Default::default(),
+            next_frame: Cell::new(0),
+            display,
+            barriers,
+            device,
+            queue,
+            size,
+        }))
     }
 }
 
@@ -64,12 +91,17 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SkiaDmabufRendererAd
         rotation: RenderingRotation,
     ) -> Result<DrawOutcome, PlatformError> {
         let (index, texture) = self.display.back_buffer();
+        let frame = self.next_frame.get();
+        self.next_frame.set(frame + 1);
+        let held_frame = self.held_frames[index].take();
         let drawn = self
             .barriers
-            .acquire(index, texture)
+            .acquire(index, texture, held_frame.is_some())
             .and_then(|()| {
-                self.renderer.render_to_texture_transformed(
-                    texture,
+                let age = held_frame.map_or(0, |held| u8::try_from(frame - held).unwrap_or(0));
+                self.renderer.render_to_target_transformed(
+                    &self.targets[index],
+                    age,
                     rotation.degrees(),
                     rotation.translation_after_rotation(self.size),
                 )
@@ -79,6 +111,9 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SkiaDmabufRendererAd
                     && self.display.drm_output.takes_sync_files();
                 self.barriers.release(index, texture, export_sync_file)
             });
+        if drawn.is_ok() {
+            self.held_frames[index].set(Some(frame));
+        }
 
         let sync_file = match drawn {
             Ok(sync_file) => sync_file,

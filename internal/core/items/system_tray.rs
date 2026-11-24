@@ -58,6 +58,7 @@ pub struct Params<'a> {
     pub icon: &'a Image,
     pub tooltip: &'a str,
     pub title: &'a str,
+    pub visible: bool,
     pub menu: TrayMenu<'a>,
 }
 
@@ -257,12 +258,13 @@ impl Item for SystemTrayIcon {
                 let ctx = tray_rc.slint_context();
                 let tray = tray.as_pin_ref();
                 // Read outside the menu's tracker, which must only depend on the menu.
-                let (icon, tooltip, title) = (tray.icon(), tray.tooltip(), tray.title());
+                let (icon, tooltip, title, visible) =
+                    (tray.icon(), tray.tooltip(), tray.title(), tray.visible());
                 // Build the menu along with the icon: some tray hosts never re-read a menu
                 // they fetched while empty (#13624).
                 let handle = match tray.with_tracked_menu(|menu| {
                     SystemTrayIconHandle::new(
-                        Params { icon: &icon, tooltip: &tooltip, title: &title, menu },
+                        Params { icon: &icon, tooltip: &tooltip, title: &title, visible, menu },
                         self_weak.clone(),
                         &ctx,
                     )
