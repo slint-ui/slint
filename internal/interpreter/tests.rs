@@ -36,15 +36,14 @@ fn stationary_pointer_cursor_follows_touch_area() {
         i_slint_compiler::poll_ready(compiler.build_from_source(code.into(), Default::default()));
     assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
     let instance = result.component("MainWindow").unwrap().create().unwrap();
-    let cursor = || {
-        i_slint_backend_testing::access_testing_window(instance.window(), |w| w.mouse_cursor())
-    };
+    let cursor =
+        || i_slint_backend_testing::access_testing_window(instance.window(), |w| w.mouse_cursor());
     let pointer = MouseCursorInner::BuiltIn(BuiltInMouseCursor::Pointer);
     let default_cursor = MouseCursorInner::BuiltIn(BuiltInMouseCursor::Default);
 
-    instance.window().dispatch_event(WindowEvent::PointerMoved {
-        position: LogicalPosition::new(10., 10.),
-    });
+    instance
+        .window()
+        .dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(10., 10.) });
     assert_eq!(cursor(), pointer, "hovering the touch area sets the pointer cursor");
 
     instance.set_property("area-x", Value::Number(200.)).unwrap();
