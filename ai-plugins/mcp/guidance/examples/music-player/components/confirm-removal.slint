@@ -1,43 +1,29 @@
-import { Button } from "std-widgets.slint";
+import { Button, StandardButton } from "std-widgets.slint";
 import { Metrics } from "../metrics.slint";
 import { Style } from "../style.slint";
 
 export component ConfirmRemoval inherits PopupWindow {
     callback confirmed();
 
+    forward-focus: cancel;
+
     Rectangle {
         background: Style.surface;
     }
 
-    FocusScope {
-        init => { cancel.focus() }
-
-        KeyBinding {
-            keys: @keys(Escape);
-            activated => { root.close(); }
+    Dialog {
+        Text {
+            text: @tr("Are you sure?");
         }
 
-        VerticalLayout {
-            padding: Metrics.panel-padding;
-            spacing: Metrics.gap;
+        cancel := StandardButton {
+            kind: StandardButtonKind.cancel;
+            clicked => { root.close(); }
+        }
 
-            Text {
-                text: @tr("Are you sure?");
-            }
-
-            HorizontalLayout {
-                spacing: Metrics.gap;
-
-                cancel := Button {
-                    text: @tr("Cancel");
-                    clicked => { root.close(); }
-                }
-
-                Button {
-                    text: @tr("Remove");
-                    clicked => { root.confirmed(); root.close(); }
-                }
-            }
+        StandardButton {
+            kind: StandardButtonKind.yes;
+            clicked => { root.confirmed(); root.close(); }
         }
     }
 }
