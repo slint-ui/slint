@@ -3841,6 +3841,46 @@ mod tests {
     }
 
     #[test]
+    fn fill_kind_switch_keeps_the_color_space() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        super::brushes::setup(&editor.global::<super::Properties>());
+        let pending = connect_fill_editor(
+            &editor,
+            super::FillData {
+                kind: super::BrushKind::Linear,
+                color_space: "oklch".into(),
+                stops: std::rc::Rc::new(VecModel::from(vec![
+                    super::GradientStop {
+                        position: 0.,
+                        color: slint::Color::from_rgb_u8(255, 0, 0),
+                    },
+                    super::GradientStop {
+                        position: 1.,
+                        color: slint::Color::from_rgb_u8(0, 0, 255),
+                    },
+                ]))
+                .into(),
+                ..Default::default()
+            },
+        );
+        let session = editor.global::<super::FillSession>();
+        session.invoke_begin(super::FillSessionRequest {
+            target: super::FillSessionTarget {
+                property_name: "background".into(),
+                ..Default::default()
+            },
+            ..Default::default()
+        });
+        for kind in [super::BrushKind::Radial, super::BrushKind::Conic, super::BrushKind::Linear] {
+            assert!(session.invoke_select_kind(kind));
+            let fill = pending.as_ref().get().unwrap();
+            assert_eq!(fill.kind, kind);
+            assert_eq!(fill.color_space, "oklch", "{kind:?}");
+        }
+    }
+
+    #[test]
     fn fill_overlay_requires_an_editable_rectangle_session() {
         i_slint_backend_testing::init_no_event_loop();
         for kind in [super::BrushKind::Linear, super::BrushKind::Radial, super::BrushKind::Conic] {
