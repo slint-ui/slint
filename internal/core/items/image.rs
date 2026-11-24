@@ -393,11 +393,13 @@ fn current_frame(
             ImageInner::NineSlice(nine) => (&nine.0, Some(nine.1)),
             inner => (inner, None),
         };
-        if let ImageInner::AnimatedImage(animated) = inner {
+        if let ImageInner::Encoded(encoded) = inner
+            && let Some(animated) = encoded.animation()
+        {
             let mut slot = animation.get_or_default().0.borrow_mut();
             let player = match &*slot {
-                Some(player) if player.shows(animated) => player.clone(),
-                _ => slot.insert(animation::ImageAnimation::new(animated.clone())).clone(),
+                Some(player) if player.shows(&animated) => player.clone(),
+                _ => slot.insert(animation::ImageAnimation::new(animated)).clone(),
             };
             drop(slot);
             let frame = player.frame();

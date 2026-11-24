@@ -195,25 +195,20 @@ public:
 
     /// Construct an image from a SharedPixelBuffer of RGB pixels.
     Image(SharedPixelBuffer<Rgb8Pixel> buffer)
-        : data(Data::ImageInner_EmbeddedImage(
-                  cbindgen_private::types::ImageCacheKey::Invalid(),
-                  cbindgen_private::types::SharedImageBuffer::RGB8(
-                          cbindgen_private::types::SharedPixelBuffer<Rgb8Pixel> {
-                                  .width = buffer.width(),
-                                  .height = buffer.height(),
-                                  .data = buffer.m_data })))
+        : data(Data::ImageInner_EmbeddedImage(cbindgen_private::types::SharedImageBuffer::RGB8(
+                  cbindgen_private::types::SharedPixelBuffer<Rgb8Pixel> { .width = buffer.width(),
+                                                                          .height = buffer.height(),
+                                                                          .data = buffer.m_data })))
     {
     }
 
     /// Construct an image from a SharedPixelBuffer of RGBA pixels.
     Image(SharedPixelBuffer<Rgba8Pixel> buffer)
-        : data(Data::ImageInner_EmbeddedImage(
-                  cbindgen_private::types::ImageCacheKey::Invalid(),
-                  cbindgen_private::types::SharedImageBuffer::RGBA8(
-                          cbindgen_private::types::SharedPixelBuffer<Rgba8Pixel> {
-                                  .width = buffer.width(),
-                                  .height = buffer.height(),
-                                  .data = buffer.m_data })))
+        : data(Data::ImageInner_EmbeddedImage(cbindgen_private::types::SharedImageBuffer::RGBA8(
+                  cbindgen_private::types::SharedPixelBuffer<Rgba8Pixel> {
+                          .width = buffer.width(),
+                          .height = buffer.height(),
+                          .data = buffer.m_data })))
     {
     }
 
@@ -227,13 +222,11 @@ public:
     /// This constructor is only available when Slint was configured with
     /// SLINT_FEATURE_IMAGE_PIXEL_FORMAT_RGB565.
     Image(SharedPixelBuffer<Rgb565Pixel> buffer)
-        : data(Data::ImageInner_EmbeddedImage(
-                  cbindgen_private::types::ImageCacheKey::Invalid(),
-                  cbindgen_private::types::SharedImageBuffer::RGB565(
-                          cbindgen_private::types::SharedPixelBuffer<Rgb565Pixel> {
-                                  .width = buffer.width(),
-                                  .height = buffer.height(),
-                                  .data = buffer.m_data })))
+        : data(Data::ImageInner_EmbeddedImage(cbindgen_private::types::SharedImageBuffer::RGB565(
+                  cbindgen_private::types::SharedPixelBuffer<Rgb565Pixel> {
+                          .width = buffer.width(),
+                          .height = buffer.height(),
+                          .data = buffer.m_data })))
     {
     }
 
@@ -247,13 +240,11 @@ public:
     /// This constructor is only available when Slint was configured with
     /// SLINT_FEATURE_IMAGE_PIXEL_FORMAT_GRAY8.
     Image(SharedPixelBuffer<Gray8Pixel> buffer)
-        : data(Data::ImageInner_EmbeddedImage(
-                  cbindgen_private::types::ImageCacheKey::Invalid(),
-                  cbindgen_private::types::SharedImageBuffer::Gray8(
-                          cbindgen_private::types::SharedPixelBuffer<Gray8Pixel> {
-                                  .width = buffer.width(),
-                                  .height = buffer.height(),
-                                  .data = buffer.m_data })))
+        : data(Data::ImageInner_EmbeddedImage(cbindgen_private::types::SharedImageBuffer::Gray8(
+                  cbindgen_private::types::SharedPixelBuffer<Gray8Pixel> {
+                          .width = buffer.width(),
+                          .height = buffer.height(),
+                          .data = buffer.m_data })))
     {
     }
 

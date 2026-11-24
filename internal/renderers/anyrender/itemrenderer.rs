@@ -1175,12 +1175,13 @@ fn load_image(
     let image_inner: &ImageInner = (&image).into();
     match image_inner {
         ImageInner::None => None,
-        ImageInner::EmbeddedImage { buffer, cache_key } => image_cache.borrow_mut().get_or_insert(
-            Some(cache_key.clone()),
-            ImageVariant::Full,
-            || image_buffer_to_peniko_image(buffer),
-        ),
-        ImageInner::Svg(svg) => {
+        ImageInner::EmbeddedImage(buffer) => {
+            image_buffer_to_peniko_image(buffer).map(std::rc::Rc::new)
+        }
+        ImageInner::Encoded(encoded)
+            if encoded.kind() == i_slint_core::graphics::EncodedImageKind::Svg =>
+        {
+            let svg = encoded.svg()?;
             // Query target_width/height here again to ensure that changes will invalidate the item rendering cache.
             let render_size = i_slint_core::graphics::transformed_scalable_render_size(
                 svg.size(),
@@ -1214,27 +1215,16 @@ fn load_image(
                 },
             )
         }
-        ImageInner::StaticTextures(_) => image_cache.borrow_mut().get_or_insert(
-            ImageCacheKey::new(image_inner),
-            ImageVariant::Full,
-            || {
+        ImageInner::StaticTextures(_) | ImageInner::Encoded(_) => image_cache
+            .borrow_mut()
+            .get_or_insert(ImageCacheKey::new(image_inner), ImageVariant::Full, || {
                 let buffer = image_inner.render_to_buffer(None)?;
                 image_buffer_to_peniko_image(&buffer)
-            },
-        ),
+            }),
         ImageInner::NineSlice(n) => load_image(
             n.image(),
             target_size_fn,
             ImageFit::Preserve,
-            scale_factor,
-            transform_scale,
-            image_cache,
-            texture_importer,
-        ),
-        ImageInner::AnimatedImage(animated) => load_image(
-            animated.first_frame(),
-            target_size_fn,
-            image_fit,
             scale_factor,
             transform_scale,
             image_cache,

@@ -49,16 +49,15 @@ pub(crate) enum ImageVariant {
 pub struct ImageConversionCache(HashMap<(ImageCacheKey, ImageVariant), SharedImageData>);
 
 impl ImageConversionCache {
-    /// Look up (or convert and store) the `variant` of the image identified
-    /// by `key`. A `None` (or [`ImageCacheKey::Invalid`]) key means the
-    /// source has no stable identity; the conversion then runs uncached.
+    /// Looks up, or converts and stores, the `variant` of the image at `key`.
+    /// Without a `key`, the conversion runs uncached.
     pub(crate) fn get_or_insert(
         &mut self,
         key: Option<ImageCacheKey>,
         variant: ImageVariant,
         convert: impl FnOnce() -> Option<peniko::ImageData>,
     ) -> Option<SharedImageData> {
-        let Some(key) = key.filter(|key| *key != ImageCacheKey::Invalid) else {
+        let Some(key) = key else {
             return convert().map(Rc::new);
         };
         match self.0.entry((key, variant)) {

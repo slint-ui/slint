@@ -3519,6 +3519,7 @@ dependencies = [
  "async-channel",
  "async-compat",
  "bitflags 2.13.2",
+ "by_address",
  "bytemuck",
  "chrono",
  "const-field-offset",

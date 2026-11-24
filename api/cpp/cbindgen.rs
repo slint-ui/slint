@@ -737,7 +737,7 @@ fn gen_corelib(
                 "PHYSICAL_REGION_MAX_SIZE",
             ],
             "slint_image_internal.h",
-            "#include \"private/slint_color.h\"\nnamespace slint::cbindgen_private { struct ParsedSVG{}; struct HTMLImage{}; struct AnimatedImage{}; struct PhysicalPx; struct StaticStorage; using namespace vtable; namespace types{ struct NineSliceImage{}; using slint::Rgb565Pixel; using slint::Gray8Pixel; } }",
+            "#include \"private/slint_color.h\"\nnamespace slint::cbindgen_private { struct PhysicalPx; struct StaticStorage; template<typename T> using ByAddress = T; using namespace vtable; namespace types{ struct NineSliceImage{}; using slint::Rgb565Pixel; using slint::Gray8Pixel; } }",
         ),
         (
             vec!["Color", "slint_color_brighter", "slint_color_darker",
@@ -925,7 +925,7 @@ fn gen_corelib(
             .with_src(crate_dir.join("graphics/path.rs"))
             .with_src(crate_dir.join("graphics/brush.rs"))
             .with_src(crate_dir.join("graphics/image.rs"))
-            .with_src(crate_dir.join("graphics/image/cache.rs"))
+            .with_src(crate_dir.join("graphics/image/encoded.rs"))
             .with_src(crate_dir.join("../common/pre_rendered.rs"))
             .with_src(crate_dir.join("data_transfer/ffi.rs"))
             .with_src(crate_dir.join("animations.rs"))

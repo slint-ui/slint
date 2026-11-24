@@ -3,7 +3,7 @@
 
 use crate::Property;
 use crate::animations::Instant;
-use crate::graphics::{AnimatedImage, Frame, FrameDecoder, Image, OpaqueImageVTable};
+use crate::graphics::{AnimatedImage, Frame, FrameDecoder, Image};
 use crate::timers::{Timer, TimerMode};
 use alloc::rc::Rc;
 use const_field_offset::FieldOffsets;
@@ -24,7 +24,7 @@ pub(super) struct ImageAnimation {
 
 /// Positions are durations of playback since the start of the first play.
 struct State {
-    image: vtable::VRc<OpaqueImageVTable, AnimatedImage>,
+    image: Rc<AnimatedImage>,
     decoder: Option<FrameDecoder<'static>>,
     frame: Image,
     /// The last frame `seek` skipped, shown if the animation ends on it.
@@ -35,7 +35,7 @@ struct State {
 }
 
 impl State {
-    fn new(image: vtable::VRc<OpaqueImageVTable, AnimatedImage>) -> Self {
+    fn new(image: Rc<AnimatedImage>) -> Self {
         let mut state = Self {
             frame: image.first_frame(),
             image,
@@ -110,7 +110,7 @@ impl State {
 }
 
 impl ImageAnimation {
-    pub(super) fn new(image: vtable::VRc<OpaqueImageVTable, AnimatedImage>) -> Pin<Rc<Self>> {
+    pub(super) fn new(image: Rc<AnimatedImage>) -> Pin<Rc<Self>> {
         Rc::pin(Self {
             redraw: Property::new(()),
             start: now(),
@@ -120,8 +120,8 @@ impl ImageAnimation {
         })
     }
 
-    pub(super) fn shows(&self, image: &vtable::VRc<OpaqueImageVTable, AnimatedImage>) -> bool {
-        *self.state.borrow().image == **image
+    pub(super) fn shows(&self, image: &Rc<AnimatedImage>) -> bool {
+        Rc::ptr_eq(&self.state.borrow().image, image)
     }
 
     /// Returns the frame to show now, and schedules a redraw for when it changes.
@@ -173,12 +173,12 @@ mod tests {
     use crate::graphics::SharedImageBuffer;
     use crate::properties::PropertyTracker;
 
-    fn animated(data: &[u8]) -> vtable::VRc<OpaqueImageVTable, AnimatedImage> {
+    fn animated(data: &[u8]) -> Rc<AnimatedImage> {
         let image = Image::load_from_data(data, Some("png")).unwrap();
-        let crate::graphics::ImageInner::AnimatedImage(animated) = image.0 else {
+        let crate::graphics::ImageInner::Encoded(encoded) = image.0 else {
             panic!("expected an animation")
         };
-        animated
+        encoded.animation().unwrap()
     }
 
     fn state(data: &[u8]) -> State {
@@ -186,7 +186,7 @@ mod tests {
     }
 
     fn color(state: &State) -> [u8; 3] {
-        let crate::graphics::ImageInner::EmbeddedImage { buffer, .. } = &state.frame.0 else {
+        let crate::graphics::ImageInner::EmbeddedImage(buffer) = &state.frame.0 else {
             unreachable!()
         };
         let SharedImageBuffer::RGBA8Premultiplied(pixels) = buffer else {

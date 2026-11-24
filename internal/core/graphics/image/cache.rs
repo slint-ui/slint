@@ -4,22 +4,26 @@
 /*!
 The cache of what's loaded, parsed, or decoded from images, shared by everything on a thread.
 
-Entries are keyed by where the image's data is and by the type of what's made from it,
-so renderers can keep what they make from an image next to the loaded image.
+[`Image`](super::Image) values only say where their encoded data is.
+Loading, parsing an SVG, and decoding pixels go through [`cached`],
+keyed by that location and the type of what's made from it.
+Renderers can keep what they make from the pixels there too.
 */
 
-#[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
-use super::CachedPath;
-use super::{Image, ImageCacheKey, ImageData, ImageInner, SharedImageBuffer};
-use crate::{SharedString, slice::Slice};
+use super::{ImageCacheKey, SharedImageBuffer};
 use alloc::rc::Rc;
 use core::any::{Any, TypeId};
 use std::collections::HashMap;
 
-/// Bytes of entries that the cache keeps.
-const BUDGET: usize = 5 * 1024 * 1024;
+/// Bytes of entries that nothing outside the cache holds, that the cache keeps
+/// so that an image shown again isn't loaded again.
+const UNUSED_BUDGET: usize = 5 * 1024 * 1024;
+
+/// What's cached when making an entry failed, so that it isn't tried again on every use.
+struct Failed;
 
 struct Entry {
+    /// The `T` of the key's `TypeId`, or [`Failed`].
     data: Rc<dyn Any>,
     weight: usize,
     last_use: u64,
@@ -33,18 +37,37 @@ struct ImageCache {
 }
 
 impl ImageCache {
+    fn insert(&mut self, key: (ImageCacheKey, TypeId), entry: Entry) {
+        self.total_weight += entry.weight;
+        if let Some(old) = self.entries.insert(key, entry) {
+            self.total_weight -= old.weight;
+        }
+    }
+
     fn trim(&mut self) {
-        while self.total_weight > BUDGET {
-            let Some(oldest) = self
-                .entries
-                .iter()
-                .min_by_key(|(_, entry)| entry.last_use)
-                .map(|(key, _)| key.clone())
-            else {
+        if self.total_weight <= UNUSED_BUDGET {
+            return;
+        }
+        let is_unused = |entry: &Entry| Rc::strong_count(&entry.data) == 1;
+        let mut unused_weight: usize =
+            self.entries.values().filter(|entry| is_unused(entry)).map(|entry| entry.weight).sum();
+        if unused_weight <= UNUSED_BUDGET {
+            return;
+        }
+        let mut unused: alloc::vec::Vec<_> = self
+            .entries
+            .iter()
+            .filter(|(_, entry)| is_unused(entry))
+            .map(|(key, entry)| (entry.last_use, entry.weight, key.clone()))
+            .collect();
+        unused.sort_unstable_by_key(|(last_use, ..)| *last_use);
+        for (_, weight, key) in unused {
+            self.entries.remove(&key);
+            self.total_weight -= weight;
+            unused_weight -= weight;
+            if unused_weight <= UNUSED_BUDGET {
                 break;
-            };
-            let entry = self.entries.remove(&oldest).unwrap();
-            self.total_weight -= entry.weight;
+            }
         }
     }
 }
@@ -54,15 +77,13 @@ crate::thread_local!(static IMAGE_CACHE: core::cell::RefCell<ImageCache> = Defau
 /// Returns the `T` made from the image at `key`,
 /// or makes it with `create`, which returns it with its size in bytes.
 ///
-/// The cache keeps the most recently used entries within a budget.
-/// Without a valid `key`, or beyond the budget on its own, the result isn't cached.
+/// The result is shared for as long as anything holds it.
+/// Afterwards, the cache keeps the most recently used entries within a budget.
+/// A failure is cached too.
 pub fn cached<T: 'static>(
     key: &ImageCacheKey,
     create: impl FnOnce() -> Option<(T, usize)>,
 ) -> Option<Rc<T>> {
-    if *key == ImageCacheKey::Invalid {
-        return create().map(|(data, _)| Rc::new(data));
-    }
     let cache_key = (key.clone(), TypeId::of::<T>());
     let cached = IMAGE_CACHE.with(|cache| {
         let mut cache = cache.borrow_mut();
@@ -70,30 +91,41 @@ pub fn cached<T: 'static>(
         let clock = cache.clock;
         let entry = cache.entries.get_mut(&cache_key)?;
         entry.last_use = clock;
-        entry.data.clone().downcast::<T>().ok()
+        Some(entry.data.clone().downcast::<T>().ok())
     });
-    if cached.is_some() {
+    if let Some(cached) = cached {
         return cached;
     }
     // `create` may use the cache for other entries, so the cache isn't borrowed while it runs.
-    let (data, weight) = create()?;
-    let data = Rc::new(data);
-    let weight = weight.max(core::mem::size_of::<Entry>());
-    if weight <= BUDGET {
-        IMAGE_CACHE.with(|cache| {
-            let mut cache = cache.borrow_mut();
-            cache.clock += 1;
-            let last_use = cache.clock;
-            cache.total_weight += weight;
-            if let Some(old) =
-                cache.entries.insert(cache_key, Entry { data: data.clone(), weight, last_use })
-            {
-                cache.total_weight -= old.weight;
-            }
-            cache.trim();
-        });
+    let created = create().map(|(data, weight)| (Rc::new(data), weight));
+    let (data, weight): (Rc<dyn Any>, _) = match &created {
+        Some((data, weight)) => (data.clone(), *weight),
+        None => (Rc::new(Failed), core::mem::size_of::<Entry>()),
+    };
+    let weight = weight + held_bytes(key);
+    IMAGE_CACHE.with(|cache| {
+        let mut cache = cache.borrow_mut();
+        cache.clock += 1;
+        let last_use = cache.clock;
+        cache.insert(cache_key, Entry { data, weight, last_use });
+        cache.trim();
+    });
+    created.map(|(data, _)| data)
+}
+
+/// Drops the least recently used entries that nothing holds, beyond the budget.
+pub fn trim() {
+    IMAGE_CACHE.with(|cache| cache.borrow_mut().trim());
+}
+
+/// Returns the bytes of encoded data that `key` holds.
+fn held_bytes(key: &ImageCacheKey) -> usize {
+    match key {
+        ImageCacheKey::Data(data) => data.len(),
+        #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
+        ImageCacheKey::URL(url) => url.len(),
+        _ => 0,
     }
-    Some(data)
 }
 
 /// Returns the size of the pixels of `buffer` in bytes.
@@ -109,121 +141,15 @@ pub(super) fn buffer_weight(buffer: &SharedImageBuffer) -> usize {
     }
 }
 
-fn image_weight(image: &ImageInner) -> usize {
-    match image {
-        ImageInner::None => 0,
-        ImageInner::EmbeddedImage { buffer, .. } => buffer_weight(buffer),
-        #[cfg(feature = "svg")]
-        ImageInner::Svg(svg) => svg.weight_in_bytes(),
-        #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
-        ImageInner::HTMLImage(_) => 512, // Something... the web browser maintainers its own cache. The purpose of this cache is to reduce the amount of DOM elements.
-        ImageInner::StaticTextures(_) => 0,
-        #[cfg(feature = "owned-pre-rendered-resources")]
-        ImageInner::OwnedTextures(textures) => textures.data.len(),
-        ImageInner::BorrowedOpenGLTexture(..) => 0, // Assume storage in GPU memory
-        ImageInner::NineSlice(nine) => image_weight(&nine.0),
-        #[cfg(any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30"))]
-        ImageInner::WGPUTexture(..) => 0, // The texture is imported from the application and will never reside in our cache.
-        ImageInner::AnimatedImage(animated) => animated.weight_in_bytes(),
-    }
-}
-
-/// Returns the image loaded from `key`, or loads it with `load`.
-fn load(
-    key: ImageCacheKey,
-    load: impl FnOnce(ImageCacheKey) -> Option<ImageInner>,
-) -> Option<Image> {
-    let image = cached(&key, || {
-        let image = load(key.clone())?;
-        let weight = image_weight(&image);
-        Some((image, weight))
-    })?;
-    Some(Image(ImageInner::clone(&image)))
-}
-
-#[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
-pub(crate) fn load_image_from_path(_path: &SharedString) -> Option<Image> {
-    None
-}
-
-#[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
-pub(crate) fn load_image_from_path(path: &SharedString) -> Option<Image> {
-    if path.is_empty() {
-        return None;
-    }
-    let cache_key = ImageCacheKey::Path(CachedPath::new(path.as_str()));
-    load(cache_key, |cache_key| {
-        #[cfg(feature = "svg")]
-        if path.ends_with(".svg") || path.ends_with(".svgz") {
-            return Some(ImageInner::Svg(vtable::VRc::new(
-                super::svg::load_from_path(path, cache_key).map_or_else(
-                    |err| {
-                        crate::debug_log!("Error loading SVG from {}: {}", &path, err);
-                        None
-                    },
-                    Some,
-                )?,
-            )));
-        }
-
-        let format = image::ImageFormat::from_path(path.as_str()).ok();
-        let loaded = if format.is_some_and(|format| !super::animated::can_animate(format)) {
-            image::open(path.as_str()).map(|image| ImageInner::EmbeddedImage {
-                cache_key,
-                buffer: super::dynamic_image_to_shared_image_buffer(image),
-            })
-        } else {
-            std::fs::read(path.as_str()).map_err(image::ImageError::IoError).and_then(|data| {
-                let data = crate::SharedVector::from_slice(&data);
-                ImageInner::decode_with_cache_key(cache_key, ImageData::Shared(&data), format)
-            })
-        };
-        loaded.map_err(|err| crate::debug_log!("Error loading image from {}: {}", &path, err)).ok()
-    })
-}
-
-/// Load an image by handing its URL to an `<img>` element for the browser to
-/// fetch. This is a web-only slintpad mechanism, not general network loading.
-#[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
-pub(crate) fn load_as_html_image(url: &str) -> Option<Image> {
-    if url.is_empty() {
-        return None;
-    }
-    load(ImageCacheKey::URL(url.into()), |_| {
-        Some(ImageInner::HTMLImage(vtable::VRc::new(super::htmlimage::HTMLImage::new(url))))
-    })
-}
-
-pub(crate) fn load_image_from_embedded_data(
-    data: Slice<'static, u8>,
-    format: Slice<'_, u8>,
-) -> Option<Image> {
-    load(ImageCacheKey::from_embedded_image_data(data.as_slice()), |cache_key| {
-        ImageInner::load_from_data_with_cache_key(
-            cache_key,
-            ImageData::Static(data.as_slice()),
-            format,
-        )
-    })
-}
-
-#[cfg(all(target_arch = "wasm32", not(target_os = "emscripten"), not(feature = "image-decoders")))]
-pub(crate) fn load_image_from_data_uri(uri: &str, data: &[u8], format: &str) -> Option<Image> {
-    load(ImageCacheKey::URL(uri.into()), |cache_key| {
-        ImageInner::load_from_data_with_cache_key(
-            cache_key,
-            ImageData::Borrowed(data),
-            format.as_bytes().into(),
-        )
-    })
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     fn key(n: usize) -> ImageCacheKey {
-        ImageCacheKey::EmbeddedData(n)
+        static DATA: [u8; 8] = [0; 8];
+        ImageCacheKey::EmbeddedData(by_address::ByAddress(crate::slice::Slice::from_slice(
+            &DATA[n..=n],
+        )))
     }
 
     fn is_cached(n: usize) -> bool {
@@ -232,15 +158,26 @@ mod tests {
     }
 
     #[test]
-    fn shares_and_evicts_beyond_budget() {
-        let third = BUDGET / 3 + 1;
+    fn shares_and_evicts_unused_beyond_budget() {
+        let third = UNUSED_BUDGET / 3 + 1;
         let first = cached(&key(1), || Some((1u32, third))).unwrap();
         cached(&key(2), || Some((2u32, third))).unwrap();
         assert!(Rc::ptr_eq(&first, &cached(&key(1), || None::<(u32, _)>).unwrap()));
+        drop(first);
         cached(&key(3), || Some((3u32, third))).unwrap();
+        trim();
         assert!(is_cached(1) && !is_cached(2) && is_cached(3));
-        cached(&key(4), || Some((4u32, BUDGET + 1))).unwrap();
-        assert!(is_cached(1) && is_cached(3) && !is_cached(4));
+        let huge = cached(&key(4), || Some((4u32, UNUSED_BUDGET * 2))).unwrap();
+        assert!(is_cached(1) && is_cached(3) && is_cached(4));
+        drop(huge);
+        trim();
+        assert!(!is_cached(4));
+    }
+
+    #[test]
+    fn failures_are_cached() {
+        assert!(cached(&key(5), || None::<(u32, usize)>).is_none());
+        assert!(cached::<u32>(&key(5), || unreachable!()).is_none());
     }
 
     #[cfg(feature = "image-decoders")]
@@ -288,5 +225,34 @@ mod tests {
                 .iter()
                 .all(|pixel| *pixel == Rgba8Pixel { r: 0, g: 255, b: 0, a: 255 })
         );
+    }
+
+    #[cfg(feature = "image-decoders")]
+    #[test]
+    fn file_of_another_size_draws_nothing() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let path = temp_dir.path().join("resized.png");
+        image::RgbImage::new(64, 64).save(&path).unwrap();
+        let image = crate::graphics::Image::load_from_path(&path).unwrap();
+        image::RgbImage::new(10, 10).save(&path).unwrap();
+        assert_eq!(image.size(), crate::graphics::IntSize::new(64, 64));
+        assert!(image.to_rgba8().is_none());
+    }
+
+    #[cfg(feature = "image-decoders")]
+    #[test]
+    fn truncated_file_has_a_size_but_no_pixels() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let path = temp_dir.path().join("truncated.png");
+        image::RgbImage::from_fn(64, 64, |x, y| image::Rgb([x as u8, y as u8, 0]))
+            .save(&path)
+            .unwrap();
+        let data = std::fs::read(&path).unwrap();
+        std::fs::write(&path, &data[..data.len() / 2]).unwrap();
+
+        let image = crate::graphics::Image::load_from_path(&path).unwrap();
+        assert_eq!(image.size(), crate::graphics::IntSize::new(64, 64));
+        assert!(image.to_rgba8().is_none());
+        assert!(image.0.decode_shared().is_none());
     }
 }

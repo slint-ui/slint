@@ -161,12 +161,8 @@ fn mouse_cursor_image() -> Image {
         Slice::from_slice(b"svg"),
     );
     let inner: &i_slint_core::ImageInner = (&svg).into();
-    match inner {
-        i_slint_core::ImageInner::Svg(inner) => i_slint_core::ImageInner::EmbeddedImage {
-            cache_key: inner.cache_key().clone(),
-            buffer: inner.render(None).unwrap(),
-        }
-        .into(),
-        _ => svg.clone(),
+    match inner.render_to_buffer(None) {
+        Some(buffer) => i_slint_core::ImageInner::EmbeddedImage(buffer).into(),
+        None => svg.clone(),
     }
 }

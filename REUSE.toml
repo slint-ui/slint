@@ -152,6 +152,7 @@ path = [
   ".github/pull_request_template.md",
 
   "api/cpp/tests/redpixel.png",
+  "api/rs/slint/tests/image_source_change/*.png",
 
   "demos/**.md",
   "demos/**.json",

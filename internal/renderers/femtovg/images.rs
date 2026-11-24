@@ -147,7 +147,10 @@ impl<R: femtovg::Renderer + TextureImporter> Texture<R> {
 
         let image_id = match image {
             #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
-            ImageInner::HTMLImage(html_image) => {
+            ImageInner::Encoded(encoded)
+                if encoded.kind() == i_slint_core::graphics::EncodedImageKind::Html =>
+            {
+                let html_image = encoded.html_image()?;
                 if html_image.is_loaded() {
                     // Anecdotal evidence suggests that HTMLImageElement converts to a texture with
                     // pre-multiplied alpha. It's possible that this is not generally applicable, but it

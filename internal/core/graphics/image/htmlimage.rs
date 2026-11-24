@@ -6,11 +6,12 @@
 use alloc::rc::Rc;
 use alloc::string::String;
 
-use super::ImageCacheKey;
 use crate::Property;
 use crate::graphics::IntSize;
 
+/// An `<img>` element that the browser loads an image with.
 pub struct HTMLImage {
+    /// The element, which a renderer turns into a texture once it's loaded.
     pub dom_element: web_sys::HtmlImageElement,
     /// If present, this boolean property indicates whether the image has been uploaded yet or
     /// if that operation is still pending. If not present, then the image *is* available. This is
@@ -27,6 +28,7 @@ pub struct HTMLImage {
 }
 
 impl HTMLImage {
+    /// Creates an element that loads `url`.
     pub fn new(url: &str) -> Self {
         let is_svg = url.ends_with(".svg") || url.ends_with(".svgz");
         Self::new_impl(url, is_svg, None)
@@ -98,6 +100,7 @@ impl HTMLImage {
         !self.image_load_pending.as_ref().get()
     }
 
+    /// Returns the size of the image, or `None` while it's loading.
     pub fn size(&self) -> Option<IntSize> {
         if let Some(size) = self.svg_intrinsic_size {
             return Some(size);
@@ -118,10 +121,7 @@ impl HTMLImage {
         self.svg_intrinsic_size
     }
 
-    pub fn source(&self) -> alloc::string::String {
-        self.dom_element.src()
-    }
-
+    /// Returns true if the image is an SVG.
     pub fn is_svg(&self) -> bool {
         self.is_svg
     }
@@ -132,15 +132,6 @@ impl Drop for HTMLImage {
         if let Some(url) = &self.object_url {
             let _ = web_sys::Url::revoke_object_url(url);
         }
-    }
-}
-
-impl super::OpaqueImage for HTMLImage {
-    fn size(&self) -> IntSize {
-        self.size().unwrap_or_default()
-    }
-    fn cache_key(&self) -> ImageCacheKey {
-        ImageCacheKey::URL(self.source().into())
     }
 }
 

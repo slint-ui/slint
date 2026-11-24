@@ -205,6 +205,9 @@ pub struct SoftwareRenderer {
     pub(crate) rendering_metrics_collector: Option<Rc<RenderingMetricsCollector>>,
     #[cfg(feature = "systemfonts")]
     pub(crate) text_layout_cache: sharedparley::TextLayoutCache,
+    /// The pixels of the images that are decoded when drawn, per item.
+    #[cfg(feature = "std")]
+    pub(crate) decoded_image_cache: crate::DecodedImageCache,
 }
 
 impl Default for SoftwareRenderer {
@@ -219,6 +222,8 @@ impl Default for SoftwareRenderer {
             repaint_buffer_type: Default::default(),
             #[cfg(feature = "systemfonts")]
             text_layout_cache: Default::default(),
+            #[cfg(feature = "std")]
+            decoded_image_cache: Default::default(),
         }
     }
 }
