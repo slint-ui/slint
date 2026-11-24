@@ -1032,29 +1032,25 @@ impl InterpolatedPropertyValue for Brush {
                 Self::interpolate(b, a, 1. - t)
             }
             (Brush::LinearGradient(lhs), Brush::LinearGradient(rhs)) => {
-                if lhs.0.len() < rhs.0.len() {
-                    Self::interpolate(target_value, self, 1. - t)
-                } else {
-                    let mut new_grad = lhs.clone();
-                    let mut iter = new_grad.0.make_mut_slice().iter_mut();
-                    {
-                        let angle = &mut iter.next().unwrap().position;
-                        *angle = angle.interpolate(&rhs.angle(), t);
-                    }
-                    let color_space = &mut iter.next().unwrap().position;
-                    if t >= 1.0 {
-                        *color_space = encode_color_space(rhs.color_space());
-                    }
-                    for s2 in rhs.stops() {
-                        let s1 = iter.next().unwrap();
-                        s1.color = s1.color.interpolate(&s2.color, t);
-                        s1.position = s1.position.interpolate(&s2.position, t);
-                    }
-                    for x in iter {
-                        x.position = x.position.interpolate(&1.0, t);
-                    }
-                    Brush::LinearGradient(new_grad)
+                // The stops interpolate from the gradient with more stops, so it may be swapped.
+                // The header always goes from lhs to rhs.
+                let (long, short, stops_t) =
+                    if lhs.0.len() < rhs.0.len() { (rhs, lhs, 1. - t) } else { (lhs, rhs, t) };
+                let mut new_grad = long.clone();
+                let s = new_grad.0.make_mut_slice();
+                s[0].position = lhs.angle().interpolate(&rhs.angle(), t);
+                s[LinearGradientBrush::COLOR_SPACE].position =
+                    encode_color_space(if t >= 1.0 { rhs } else { lhs }.color_space());
+                let mut iter = s.iter_mut().skip(LinearGradientBrush::HEADER);
+                for s2 in short.stops() {
+                    let s1 = iter.next().unwrap();
+                    s1.color = s1.color.interpolate(&s2.color, stops_t);
+                    s1.position = s1.position.interpolate(&s2.position, stops_t);
                 }
+                for x in iter {
+                    x.position = x.position.interpolate(&1.0, stops_t);
+                }
+                Brush::LinearGradient(new_grad)
             }
             (Brush::SolidColor(col), Brush::RadialGradient(grad)) => {
                 let mut new_grad = grad.clone();
@@ -1132,40 +1128,37 @@ impl InterpolatedPropertyValue for Brush {
                 Self::interpolate(b, a, 1. - t)
             }
             (Brush::ConicGradient(lhs), Brush::ConicGradient(rhs)) => {
-                if lhs.0.len() < rhs.0.len() {
-                    Self::interpolate(target_value, self, 1. - t)
+                // The stops interpolate from the gradient with more stops, so it may be swapped.
+                // The header always goes from lhs to rhs.
+                let (long, short, stops_t) =
+                    if lhs.0.len() < rhs.0.len() { (rhs, lhs, 1. - t) } else { (lhs, rhs, t) };
+                let mut new_grad = long.clone();
+                let s = new_grad.0.make_mut_slice();
+                let snap = |l: f32, r: f32| if t >= 1.0 { r } else { l };
+                s[0].position = lhs.angle().interpolate(&rhs.angle(), t);
+                // Center: interpolate when both sides are explicit. When one side is the
+                // default (NaN), lhs wins for t < 1 and snaps to rhs at t == 1.
+                if !lhs.center_x().is_nan() && !rhs.center_x().is_nan() {
+                    s[1].position = lhs.center_x().interpolate(&rhs.center_x(), t);
+                    s[2].position = lhs.center_y().interpolate(&rhs.center_y(), t);
                 } else {
-                    let mut new_grad = lhs.clone();
-                    {
-                        let s = new_grad.0.make_mut_slice();
-                        // angle (s[0])
-                        s[0].position = lhs.angle().interpolate(&rhs.angle(), t);
-                        // Center: interpolate when both sides are explicit. When one side is the
-                        // default (NaN), lhs wins for t < 1 and snaps to rhs at t == 1.
-                        if !lhs.center_x().is_nan() && !rhs.center_x().is_nan() {
-                            s[1].position = lhs.center_x().interpolate(&rhs.center_x(), t);
-                            s[2].position = lhs.center_y().interpolate(&rhs.center_y(), t);
-                        } else if t >= 1.0 {
-                            s[1].position = rhs.center_x();
-                            s[2].position = rhs.center_y();
-                        }
-                        if t >= 1.0 {
-                            s[ConicGradientBrush::COLOR_SPACE].position =
-                                encode_color_space(rhs.color_space());
-                        }
-                        let mut rhs_stops = rhs.stops();
-                        let mut iter = s.iter_mut().skip(ConicGradientBrush::HEADER);
-                        for s2 in &mut rhs_stops {
-                            let s1 = iter.next().unwrap();
-                            s1.color = s1.color.interpolate(&s2.color, t);
-                            s1.position = s1.position.interpolate(&s2.position, t);
-                        }
-                        for x in iter {
-                            x.position = x.position.interpolate(&1.0, t);
-                        }
-                    }
-                    Brush::ConicGradient(new_grad)
+                    s[1].position = snap(lhs.center_x(), rhs.center_x());
+                    s[2].position = snap(lhs.center_y(), rhs.center_y());
                 }
+                s[ConicGradientBrush::COLOR_SPACE].position = snap(
+                    encode_color_space(lhs.color_space()),
+                    encode_color_space(rhs.color_space()),
+                );
+                let mut iter = s.iter_mut().skip(ConicGradientBrush::HEADER);
+                for s2 in short.stops() {
+                    let s1 = iter.next().unwrap();
+                    s1.color = s1.color.interpolate(&s2.color, stops_t);
+                    s1.position = s1.position.interpolate(&s2.position, stops_t);
+                }
+                for x in iter {
+                    x.position = x.position.interpolate(&1.0, stops_t);
+                }
+                Brush::ConicGradient(new_grad)
             }
             (a @ Brush::LinearGradient(_), b @ Brush::RadialGradient(_))
             | (a @ Brush::RadialGradient(_), b @ Brush::LinearGradient(_))
@@ -1991,48 +1984,47 @@ fn test_added_stops_interpolate_in_color_space() {
 
 #[test]
 fn test_gradient_interpolation_snaps_color_space_at_end() {
-    let stops = [
+    let two_stops = [
         GradientStop { position: 0.0, color: Color::from_rgb_u8(0, 0, 0) },
         GradientStop { position: 1.0, color: Color::from_rgb_u8(255, 255, 255) },
     ];
-    let linear_src = Brush::LinearGradient(LinearGradientBrush::new(0.0, stops));
-    let linear_dst = Brush::LinearGradient(
-        (LinearGradientBrush::new(0.0, stops)).with_color_space(GradientColorSpace::Oklch),
-    );
-    match linear_src.interpolate(&linear_dst, 0.5) {
-        Brush::LinearGradient(g) => assert_eq!(g.color_space(), GradientColorSpace::Srgb),
-        _ => panic!("Expected LinearGradient"),
-    }
-    match linear_src.interpolate(&linear_dst, 1.0) {
-        Brush::LinearGradient(g) => assert_eq!(g.color_space(), GradientColorSpace::Oklch),
-        _ => panic!("Expected LinearGradient"),
-    }
+    let three_stops = [
+        GradientStop { position: 0.0, color: Color::from_rgb_u8(0, 0, 0) },
+        GradientStop { position: 0.5, color: Color::from_rgb_u8(255, 0, 0) },
+        GradientStop { position: 1.0, color: Color::from_rgb_u8(255, 255, 255) },
+    ];
+    let color_space = |brush: Brush| match brush {
+        Brush::LinearGradient(g) => g.color_space(),
+        Brush::RadialGradient(g) => g.color_space(),
+        Brush::ConicGradient(g) => g.color_space(),
+        Brush::SolidColor(_) => panic!("Expected a gradient"),
+    };
+    let make = |kind: usize, stops: &[GradientStop], space: GradientColorSpace| match kind {
+        0 => Brush::LinearGradient(
+            LinearGradientBrush::new(0.0, stops.iter().copied()).with_color_space(space),
+        ),
+        1 => Brush::RadialGradient(
+            RadialGradientBrush::new_circle(stops.iter().copied()).with_color_space(space),
+        ),
+        _ => Brush::ConicGradient(ConicGradientBrush::new_with_color_space(
+            0.0,
+            space,
+            stops.iter().copied(),
+        )),
+    };
 
-    let radial_src = Brush::RadialGradient(RadialGradientBrush::new_circle(stops));
-    let radial_dst = Brush::RadialGradient(
-        (RadialGradientBrush::new_circle(stops)).with_color_space(GradientColorSpace::Hsl),
-    );
-    match radial_src.interpolate(&radial_dst, 0.5) {
-        Brush::RadialGradient(g) => assert_eq!(g.color_space(), GradientColorSpace::Srgb),
-        _ => panic!("Expected RadialGradient"),
-    }
-    match radial_src.interpolate(&radial_dst, 1.0) {
-        Brush::RadialGradient(g) => assert_eq!(g.color_space(), GradientColorSpace::Hsl),
-        _ => panic!("Expected RadialGradient"),
-    }
-
-    let conic_src = Brush::ConicGradient(ConicGradientBrush::new(0.0, stops));
-    let conic_dst = Brush::ConicGradient(ConicGradientBrush::new_with_color_space(
-        0.0,
-        GradientColorSpace::Oklab,
-        stops,
-    ));
-    match conic_src.interpolate(&conic_dst, 0.5) {
-        Brush::ConicGradient(g) => assert_eq!(g.color_space(), GradientColorSpace::Srgb),
-        _ => panic!("Expected ConicGradient"),
-    }
-    match conic_src.interpolate(&conic_dst, 1.0) {
-        Brush::ConicGradient(g) => assert_eq!(g.color_space(), GradientColorSpace::Oklab),
-        _ => panic!("Expected ConicGradient"),
+    // The gradient with more stops drives the stop interpolation, but the color space
+    // always goes from source to target.
+    for kind in 0..3 {
+        for (src_stops, dst_stops) in [
+            (&two_stops[..], &two_stops[..]),
+            (&two_stops[..], &three_stops[..]),
+            (&three_stops[..], &two_stops[..]),
+        ] {
+            let src = make(kind, src_stops, GradientColorSpace::Srgb);
+            let dst = make(kind, dst_stops, GradientColorSpace::Oklch);
+            assert_eq!(color_space(src.interpolate(&dst, 0.5)), GradientColorSpace::Srgb);
+            assert_eq!(color_space(src.interpolate(&dst, 1.0)), GradientColorSpace::Oklch);
+        }
     }
 }
