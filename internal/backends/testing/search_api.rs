@@ -420,27 +420,13 @@ impl ElementHandle {
 
     /// Visits the elements one level below this one, including clipped-away ones,
     /// until the visitor returns [`ControlFlow::Break`].
-    /// Elements that an optimization merged into this one come first,
-    /// then the elements of popups it shows, then those of its child items.
+    /// The elements of popups it shows come first, then those of its child items.
     #[cfg(feature = "system-testing")]
     pub(crate) fn visit_children<R>(
         &self,
         mut visitor: impl FnMut(ElementHandle) -> ControlFlow<R>,
     ) -> Option<R> {
         let item = self.item.upgrade()?;
-        // A merged element shares its item with the first element, which owns the children.
-        // TODO: The debug info doesn't record which merged element a child item came from,
-        // so the children of merged elements show up as children of the first element.
-        if self.element_index != 0 {
-            return None;
-        }
-        for element_index in 1..item.element_count().unwrap_or(0) {
-            if let ControlFlow::Break(result) =
-                visitor(ElementHandle { item: item.downgrade(), element_index })
-            {
-                return Some(result);
-            }
-        }
         match Self::visit_child_items(&item, &self.active_popups(), &mut visitor) {
             ControlFlow::Break(result) => Some(result),
             ControlFlow::Continue(()) => None,

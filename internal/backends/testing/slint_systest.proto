@@ -285,7 +285,6 @@ message RequestGetElementTree {
 
 // Only over system testing.
 // Requests the children of element_handle, or, without a handle, the root elements of every window.
-// Elements that an optimization merged into an element come first among its children.
 // The children include clipped-away elements, and the elements of popups the element shows.
 message RequestGetElementChildren {
     Handle element_handle = 1;
