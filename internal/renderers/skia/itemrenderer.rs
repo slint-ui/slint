@@ -1369,6 +1369,7 @@ pub fn to_skia_rrect(rect: &PhysicalRect, radius: &PhysicalBorderRadius) -> skia
 impl ItemRendererFeatures for SkiaItemRenderer<'_> {
     const SUPPORTS_TRANSFORMATIONS: bool = true;
     const SUPPORTS_BACKDROP_BLUR: bool = true;
+    const DRAWS_OPACITY_LAYERS: bool = true;
 }
 
 pub fn to_skia_point(point: PhysicalPoint) -> skia_safe::Point {

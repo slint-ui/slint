@@ -955,4 +955,7 @@ pub trait ItemRendererFeatures {
     const SUPPORTS_TRANSFORMATIONS: bool;
     /// The renderer draws [`BackdropBlur`] items, see [`ItemRenderer::draw_backdrop_blur`].
     const SUPPORTS_BACKDROP_BLUR: bool = false;
+    /// The renderer draws the children of an [`Opacity`] item into a layer
+    /// when [`Opacity::need_layer`] says so.
+    const DRAWS_OPACITY_LAYERS: bool = false;
 }

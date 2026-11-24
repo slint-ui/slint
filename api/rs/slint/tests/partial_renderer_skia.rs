@@ -1177,3 +1177,68 @@ fn opacity_layer_child_change_after_scrolling_into_view() {
     ui.set_inner_color(GREEN.into());
     assert_skia_repaints(&window, &[(10, 20, 20, 10)]);
 }
+
+#[test]
+fn opacity_layer_children_beyond_its_geometry() {
+    slint::slint! {
+        #[edition = "1.20"]
+        export component Ui inherits Window {
+            in property child-color <=> child.background;
+            in property grandchild-color <=> grandchild.background;
+            in property crossing-color <=> crossing.background;
+            background: white;
+            Rectangle {
+                // 10,10 20x20
+                x: 10px; y: 10px; width: 20px; height: 20px; background: red;
+                opacity: 0.5;
+                // 70,10 20x20
+                child := Rectangle { x: 60px; y: 0px; width: 20px; height: 20px; background: blue; }
+                Rectangle {
+                    // 10,40 10x10
+                    x: 0px; y: 30px; width: 10px; height: 10px;
+                    // 10,70 20x20
+                    grandchild := Rectangle { x: 0px; y: 30px; width: 20px; height: 20px; background: blue; }
+                }
+            }
+            // Crosses `grandchild` only.
+            crossing := Rectangle { x: 25px; y: 75px; width: 10px; height: 10px; background: yellow; }
+        }
+    }
+
+    let (ui, window) = show_in_skia_window(Ui::new, 120, 120);
+
+    ui.set_child_color(GREEN.into());
+    assert_skia_repaints(&window, &[(70, 10, 20, 20)]);
+    ui.set_grandchild_color(GREEN.into());
+    assert_skia_repaints(&window, &[(10, 70, 20, 20)]);
+    ui.set_crossing_color(GREEN.into());
+    assert_skia_repaints(&window, &[(25, 75, 10, 10)]);
+}
+
+#[test]
+fn opacity_change_after_a_frame_outside_the_layer() {
+    slint::slint! {
+        #[edition = "1.20"]
+        export component Ui inherits Window {
+            in property layer-opacity <=> layer.opacity;
+            in property outside-color <=> outside.background;
+            background: white;
+            layer := Rectangle {
+                // 10,10 20x20
+                x: 10px; y: 10px; width: 20px; height: 20px; background: red;
+                opacity: 0.5;
+                Rectangle { x: 0px; y: 0px; width: 10px; height: 10px; background: blue; }
+                Rectangle { x: 5px; y: 5px; width: 10px; height: 10px; background: blue; }
+            }
+            outside := Rectangle { x: 60px; y: 10px; width: 20px; height: 20px; background: yellow; }
+        }
+    }
+
+    let (ui, window) = show_in_skia_window(Ui::new, 100, 50);
+
+    // `assert_skia_repaints` would draw a full frame, which visits the layer.
+    ui.set_outside_color(GREEN.into());
+    assert!(window.draw_if_needed());
+    ui.set_layer_opacity(0.8);
+    assert_skia_repaints(&window, &[(10, 10, 20, 20)]);
+}

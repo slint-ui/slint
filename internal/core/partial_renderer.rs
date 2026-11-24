@@ -772,6 +772,56 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
             self.dirty_region.draw_intersects(screen_geom)
         })
     }
+
+    /// Whether any descendant of `item_rc` is visible in the clip and dirty region.
+    fn children_are_drawn(&self, item_rc: &ItemRc) -> bool {
+        let transform = self.current_transform();
+        screen_rect(&self.get_current_clip(), &transform)
+            .filter(|clip| self.dirty_region.draw_intersects(*clip))
+            .is_some_and(|clip| self.any_child_drawn(item_rc, &transform, &clip))
+    }
+
+    fn any_child_drawn(
+        &self,
+        parent: &ItemRc,
+        transform: &ItemTransform,
+        clip: &LogicalRect,
+    ) -> bool {
+        let mut child = parent.first_child();
+        while let Some(item) = child {
+            let cached = {
+                let mut cache = self.cache.borrow_mut();
+                item.borrow().cached_rendering_data_offset().get_entry(&mut cache).map(|e| {
+                    let clip_geometry = match &e.data {
+                        CachedItemBoundingBoxAndTransform::ClipItem { geometry, .. } => {
+                            Some(*geometry)
+                        }
+                        _ => None,
+                    };
+                    (*e.data.bounding_rect(), e.data.transform(), clip_geometry)
+                })
+            };
+            let Some((bounding_rect, children_transform, clip_geometry)) = cached else {
+                return true;
+            };
+            if clipped_screen_rect(&bounding_rect, transform, clip)
+                .is_some_and(|rect| self.dirty_region.draw_intersects(rect))
+            {
+                return true;
+            }
+            let children_clip = match clip_geometry {
+                Some(geometry) => clipped_screen_rect(&geometry, transform, clip),
+                None => Some(*clip),
+            };
+            if children_clip.is_some_and(|children_clip| {
+                self.any_child_drawn(&item, &children_transform.then(transform), &children_clip)
+            }) {
+                return true;
+            }
+            child = item.next_sibling();
+        }
+        false
+    }
 }
 
 macro_rules! forward_rendering_call {
@@ -848,7 +898,29 @@ impl<T: ItemRenderer + ItemRendererFeatures> ItemRenderer for PartialRenderer<'_
     forward_rendering_call!(fn draw_backdrop_blur(BackdropBlur));
 
     forward_rendering_call!(fn visit_clip(Clip) -> RenderingResult);
-    forward_rendering_call!(fn visit_opacity(Opacity) -> RenderingResult);
+
+    fn visit_opacity(
+        &mut self,
+        obj: Pin<&Opacity>,
+        item_rc: &ItemRc,
+        size: LogicalSize,
+    ) -> RenderingResult {
+        if T::DRAWS_OPACITY_LAYERS
+            && Opacity::need_layer(
+                item_rc,
+                crate::properties::evaluate_no_tracking(|| obj.opacity()),
+            )
+            && !self.children_are_drawn(item_rc)
+        {
+            return RenderingResult::ContinueRenderingWithoutChildren;
+        }
+        let mut ret = None;
+        Self::do_rendering(self.cache, &obj.cached_rendering_data, item_rc, || {
+            ret = Some(self.actual_renderer.visit_opacity(obj, item_rc, size));
+        });
+        ret.unwrap_or_default()
+    }
+
     forward_rendering_call!(fn visit_layer(Layer) -> RenderingResult);
 
     fn combine_clip(&mut self, rect: LogicalRect, radius: LogicalBorderRadius) -> bool {
