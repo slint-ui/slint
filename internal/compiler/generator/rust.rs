@@ -494,10 +494,10 @@ fn generate_public_component(
         llr::TopLevelComponentType::Window => (
             Some(quote!(
                 // ensure that the window exist as this point so further call to window() don't panic
-                inner.globals.get().unwrap().window_adapter_ref()?;
+                sp::unwrap(inner.globals.get()).window_adapter_ref()?;
             )),
             Some(quote!(
-                let window = inner.globals.get().unwrap().window_adapter_ref()?;
+                let window = sp::unwrap(inner.globals.get()).window_adapter_ref()?;
                 sp::WindowInner::from_pub(window.window()).ensure_tree_instantiated();
             )),
         ),
@@ -507,7 +507,7 @@ fn generate_public_component(
     #[cfg(feature = "bundle-translations")]
     let init_bundle_translations = unit.translations.as_ref().map(|_| {
         quote!(
-            inner.globals.get().unwrap().context().set_static_bundled_languages(_SLINT_BUNDLED_TRANSLATIONS);
+            sp::unwrap(inner.globals.get()).context().set_static_bundled_languages(_SLINT_BUNDLED_TRANSLATIONS);
         )
     });
     #[cfg(not(feature = "bundle-translations"))]
@@ -525,7 +525,7 @@ fn generate_public_component(
             pub fn new_with_existing_window(window: &slint::Window) -> ::core::result::Result<Self, slint::PlatformError> {
                 slint::private_unstable_api::ensure_context()?;
                 let inner = #inner_component_id::new(sp::WindowInner::from_pub(window).context().clone())?;
-                inner.globals.get().unwrap().create_window_from_existing(window)?;
+                sp::unwrap(inner.globals.get()).create_window_from_existing(window)?;
                 #init_bundle_translations
                 #inner_component_id::user_init(sp::VRc::map(inner.clone(), |x| x));
                 #ensure_tree_instantiated
@@ -569,15 +569,15 @@ fn generate_public_component(
                         }
 
                         fn show(&self) -> ::core::result::Result<(), slint::PlatformError> {
-                            self.0.globals.get().unwrap().window_adapter_ref()?.window().show()
+                            sp::unwrap(self.0.globals.get()).window_adapter_ref()?.window().show()
                         }
 
                         fn hide(&self) -> ::core::result::Result<(), slint::PlatformError> {
-                            self.0.globals.get().unwrap().window_adapter_ref()?.window().hide()
+                            sp::unwrap(self.0.globals.get()).window_adapter_ref()?.window().hide()
                         }
 
                         fn window(&self) -> &slint::Window {
-                            self.0.globals.get().unwrap().window_adapter_ref().unwrap().window()
+                            sp::unwrap(self.0.globals.get()).window_adapter_ref().unwrap().window()
                         }
                     }
                 )
@@ -730,7 +730,7 @@ fn generate_shared_globals(
             #[cfg(#new_with_existing_window_enabled)]
             fn create_window_from_existing(&self, window: &slint::Window) -> sp::Result<(), slint::PlatformError> {
                 let adapter = sp::WindowInner::from_pub(window).window_adapter();
-                let root_rc = self.root_item_tree_weak.upgrade().unwrap();
+                let root_rc = sp::unwrap(self.root_item_tree_weak.upgrade());
                 sp::WindowInner::from_pub(adapter.window()).set_component(&root_rc);
                 #apply_constant_scale_factor
                 self.window_adapter.set(adapter).map_err(|_|()).expect("The window shouldn't be initialized before this call");
@@ -803,7 +803,7 @@ fn generate_shared_globals(
             {
                 self.window_adapter.get_or_try_init(|| {
                     let adapter = self.context.create_window_adapter()?;
-                    let root_rc = self.root_item_tree_weak.upgrade().unwrap();
+                    let root_rc = sp::unwrap(self.root_item_tree_weak.upgrade());
                     sp::WindowInner::from_pub(adapter.window()).set_component(&root_rc);
                     #apply_constant_scale_factor
                     ::core::result::Result::Ok(adapter)
@@ -952,7 +952,7 @@ fn generate_model_two_way_binding(
     } else {
         let mut e = quote!(_self.parent.clone());
         for _ in 1..info.parent_level {
-            e = quote!(#e.upgrade().unwrap().parent.clone());
+            e = quote!(sp::unwrap(#e.upgrade()).parent.clone());
         }
         e
     };
@@ -1558,7 +1558,7 @@ fn generate_sub_component_body(
                 _self.#repeater_id.set_model_binding({
                     let self_weak = sp::VRcMapped::downgrade(&self_rc);
                     move || {
-                        let self_rc = self_weak.upgrade().unwrap();
+                        let self_rc = sp::unwrap(self_weak.upgrade());
                         let _self = self_rc.as_pin_ref();
                         (#model) as _
                     }
@@ -1593,7 +1593,7 @@ fn generate_sub_component_body(
                 ));
                 ensure_instantiated_stmts.push(quote!({
                     _changed |= #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).ensure_updated_listview(
-                        || { #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone()).unwrap().into() },
+                        || { #rep_inner_component_id::new(sp::unwrap(_self.self_weak.get()).clone()).unwrap().into() },
                         #content_w, #content_h, #content_y, #lv_w.get(), #lv_h
                     );
                 }));
@@ -1605,7 +1605,7 @@ fn generate_sub_component_body(
                 ));
                 ensure_instantiated_stmts.push(quote!({
                     _changed |= #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).ensure_updated(
-                        || #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone()).unwrap().into()
+                        || #rep_inner_component_id::new(sp::unwrap(_self.self_weak.get()).clone()).unwrap().into()
                     );
                 }));
             }
@@ -2007,7 +2007,7 @@ fn generate_sub_component_body(
                 if millis >= 0 {
                     let interval = ::core::time::Duration::from_millis(millis as u64);
                     if !self.#ident.running() || interval != self.#ident.interval() {
-                        let self_weak = self.self_weak.get().unwrap().clone();
+                        let self_weak = sp::unwrap(self.self_weak.get()).clone();
                         #context.start_timer(&self.#ident, sp::TimerMode::Repeated, interval, move || {
                             if let Some(self_rc) = self_weak.upgrade() {
                                 let _self = self_rc.as_pin_ref();
@@ -2136,7 +2136,7 @@ fn generate_sub_component_body(
                 let _self = self;
                 match dyn_index {
                     #(#repeated_visit_branch)*
-                    _ => panic!("invalid dyn_index {}", dyn_index),
+                    _ => sp::invalid_dyn_index(dyn_index),
                 }
             }
         )
@@ -2154,7 +2154,7 @@ fn generate_sub_component_body(
                 let _self = self;
                 match dyn_index {
                     #(#repeated_subtree_ranges)*
-                    _ => panic!("invalid dyn_index {}", dyn_index),
+                    _ => sp::invalid_dyn_index(dyn_index),
                 }
             }
 
@@ -2162,7 +2162,7 @@ fn generate_sub_component_body(
                 let _self = self;
                 match dyn_index {
                     #(#repeated_subtree_components)*
-                    _ => panic!("invalid dyn_index {}", dyn_index),
+                    _ => sp::invalid_dyn_index(dyn_index),
                 };
             }
         )
@@ -2259,11 +2259,11 @@ fn generate_sub_component_body(
             // Shorthands used by the generated expression code: these accesses are
             // emitted many times, so keep the call sites as small as possible.
             pub(super) fn globals(&self) -> &sp::Rc<SharedGlobals> {
-                self.globals.get().unwrap()
+                sp::unwrap(self.globals.get())
             }
 
             pub(super) fn origin_rc(&self) -> sp::ItemTreeRc {
-                sp::VRcMapped::origin(&self.self_weak.get().unwrap().upgrade().unwrap())
+                sp::VRcMapped::origin(&sp::unwrap(sp::unwrap(self.self_weak.get()).upgrade()))
             }
 
             pub(super) fn init(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>,
@@ -2424,14 +2424,14 @@ fn generate_global(
         quote! {
             #[allow(dead_code, unused)]
             _self.#change_tracker.init(
-                self_rc.globals.get().unwrap().clone(),
+                sp::unwrap(self_rc.globals.get()).clone(),
                 move |global_weak| {
-                    let self_rc = global_weak.upgrade().unwrap().#global_id.clone();
+                    let self_rc = sp::unwrap(global_weak.upgrade()).#global_id.clone();
                     let _self = self_rc.as_ref();
                     #prop.get()
                 },
                 move |global_weak, _| {
-                    let self_rc = global_weak.upgrade().unwrap().#global_id.clone();
+                    let self_rc = sp::unwrap(global_weak.upgrade()).#global_id.clone();
                     let _self = self_rc.as_ref();
                     #code;
                 }
@@ -2509,7 +2509,7 @@ fn generate_global(
                 // Shorthand used by the generated expression code: the member access is
                 // emitted for every global property access, so keep it as small as possible.
                 fn globals(&self) -> sp::Rc<SharedGlobals> {
-                    self.globals.get().unwrap().upgrade().unwrap()
+                    sp::unwrap(sp::unwrap(self.globals.get()).upgrade())
                 }
                 fn new() -> ::core::pin::Pin<sp::Rc<Self>> {
                     sp::Rc::pin(Self::default())
@@ -2545,7 +2545,7 @@ fn generate_global_getters(
                 type StaticSelf = #public_component_id<'static>;
 
                 fn get(component: &'a #root_component_id) -> Self {
-                    Self(component.0.globals.get().unwrap().#global_id.clone(), ::core::marker::PhantomData::default())
+                    Self(sp::unwrap(component.0.globals.get()).#global_id.clone(), ::core::marker::PhantomData::default())
                 }
 
                 fn as_weak(&self) -> slint::Weak<Self::StaticSelf> {
@@ -2602,7 +2602,7 @@ fn generate_item_tree_body(
     let globals = if is_popup {
         quote!(globals)
     } else if parent_ctx.is_some() {
-        quote!(parent.upgrade().unwrap().globals.get().unwrap().clone())
+        quote!(sp::unwrap(sp::unwrap(parent.upgrade()).globals.get()).clone())
     } else {
         quote!(SharedGlobals::new(sp::VRc::downgrade(&self_dyn_rc), context))
     };
@@ -2754,16 +2754,16 @@ fn generate_item_tree_body(
                 impl sp::PinnedDrop for #inner_component_id {
                     fn drop(self: ::core::pin::Pin<&mut #inner_component_id>) {
                         sp::vtable::new_vref!(let vref : VRef<sp::ItemTreeVTable> for sp::ItemTree = self.as_ref().get_ref());
-                        if let Some(wa) = self.globals.get().unwrap().maybe_window_adapter_impl() {
+                        if let Some(wa) = self.globals().maybe_window_adapter_impl() {
                             sp::unregister_item_tree(self.as_ref(), vref, Self::item_array(), &wa);
                         }
                     }
                 }
             )),
             quote!(if do_create {
-                *result = sp::Some(self.globals.get().unwrap().window_adapter_impl());
+                *result = sp::Some(self.globals().window_adapter_impl());
             } else {
-                *result = self.globals.get().unwrap().maybe_window_adapter_impl();
+                *result = self.globals().maybe_window_adapter_impl();
             }),
         )
     } else {
@@ -2787,7 +2787,7 @@ fn generate_item_tree_body(
         quote!(&mut slint::private_unstable_api::no_dynamic_children)
     };
     let default_call = quote!(sp::visit_item_tree(
-        &sp::VRcMapped::origin(&self.as_ref().self_weak.get().unwrap().upgrade().unwrap()),
+        &self.as_ref().origin_rc(),
         self.get_item_tree().as_slice(),
         index,
         order,
@@ -2800,7 +2800,7 @@ fn generate_item_tree_body(
         let ctx = EvaluationContext::new_sub_component(
             root,
             sub_tree.root,
-            RustGeneratorContext { global_access: quote!(_self.globals.get().unwrap()) },
+            RustGeneratorContext { global_access: quote!(_self.globals()) },
             parent_ctx,
         );
         let z_match_arms = z_sorted_nodes.iter().map(|(node_idx, node)| {
@@ -2833,7 +2833,7 @@ fn generate_item_tree_body(
             quote! {
                 #idx_lit => {
                     return sp::visit_item_tree_z_sorted(
-                        &sp::VRcMapped::origin(&self.as_ref().self_weak.get().unwrap().upgrade().unwrap()),
+                        &self.as_ref().origin_rc(),
                         self.get_item_tree().as_slice(),
                         index,
                         order,
@@ -2936,7 +2936,7 @@ fn generate_item_tree_body(
             self: ::core::pin::Pin<&Self>,
             result: &mut sp::Option<sp::SlintContext>,
         ) {
-            *result = sp::Some(self.globals.get().unwrap().context().clone());
+            *result = sp::Some(self.globals().context().clone());
         }
     );
 
@@ -3359,7 +3359,7 @@ fn generate_repeated_component_body(
         let ctx = EvaluationContext::new_sub_component(
             unit,
             repeated.sub_tree.root,
-            RustGeneratorContext { global_access: quote!(_self.globals.get().unwrap()) },
+            RustGeneratorContext { global_access: quote!(_self.globals()) },
             Some(parent_ctx),
         );
         let z_prop = access_member(z_ref, &ctx).get_property();
@@ -3377,13 +3377,13 @@ fn generate_repeated_component_body(
         impl sp::RepeatedItemTree for #inner_component_id {
             type Data = #data_type;
             fn update(&self, _index: usize, _data: Self::Data) {
-                let self_rc = self.self_weak.get().unwrap().upgrade().unwrap();
+                let self_rc = sp::unwrap(sp::unwrap(self.self_weak.get()).upgrade());
                 let _self = self_rc.as_pin_ref();
                 #(#index_prop.set(_index as _);)*
                 #(#set_data_expr)*
             }
             fn init(&self) {
-                let self_rc = self.self_weak.get().unwrap().upgrade().unwrap();
+                let self_rc = sp::unwrap(sp::unwrap(self.self_weak.get()).upgrade());
                 #inner_component_id::user_init(
                     sp::VRcMapped::map(self_rc, |x| x),
                 );
@@ -4908,7 +4908,7 @@ fn compile_builtin_function_call(
                     // lookup. Menus and `is-open`-less popups get a no-op setter.
                     let (is_open_self_weak_decl, is_open_setter) = match &is_open_set_expr {
                         Some(set_expr) => (
-                            quote!(let is_open_self_weak = _self.self_weak.get().unwrap().clone();),
+                            quote!(let is_open_self_weak = sp::unwrap(_self.self_weak.get()).clone();),
                             quote! {
                                 sp::Box::new(move |value: bool| {
                                     if let Some(is_open_self) = is_open_self_weak.upgrade() {
@@ -4923,12 +4923,12 @@ fn compile_builtin_function_call(
                     quote!({
                         let parent_item = &#parent_item;
                         // Use the newly created window adapter if we are able to create one. Otherwise use the parent's one
-                        let shared_global = #compo.globals.get().unwrap();
+                        let shared_global = sp::unwrap(#compo.globals.get());
                         let window_adapter = shared_global.window_adapter_impl();
                         let window = sp::WindowInner::from_pub(window_adapter.window());
                         let globals = #globals_init;
 
-                        let popup_instance = #popup_window_id::new(#compo.self_weak.get().unwrap().clone(), globals).unwrap();
+                        let popup_instance = #popup_window_id::new(sp::unwrap(#compo.self_weak.get()).clone(), globals).unwrap();
                         let popup_instance_vrc = sp::VRc::map(popup_instance.clone(), |x| x);
                         if let Some(current_id) = #compo.#popup_id_name.take() {
                             window.close_popup(current_id);
@@ -4979,10 +4979,10 @@ fn compile_builtin_function_call(
                 let popup_id_name = internal_popup_id(*popup_index as usize);
                 let current_id_tokens = match component_access_tokens {
                     MemberAccess::Option(token_stream) => quote!(
-                        #token_stream.and_then(|a| a.as_pin_ref() #suffix.#popup_id_name.take().map(|id| (a.as_pin_ref() #suffix.globals.get().unwrap().clone(), id)))
+                        #token_stream.and_then(|a| a.as_pin_ref() #suffix.#popup_id_name.take().map(|id| (sp::unwrap(a.as_pin_ref() #suffix.globals.get()).clone(), id)))
                     ),
                     MemberAccess::Direct(token_stream) => {
-                        quote!(#token_stream.as_ref() #suffix.#popup_id_name.take().map(|id|(#token_stream.as_ref() #suffix.globals.get().unwrap().clone(), id)))
+                        quote!(#token_stream.as_ref() #suffix.#popup_id_name.take().map(|id|(sp::unwrap(#token_stream.as_ref() #suffix.globals.get()).clone(), id)))
                     }
                     _ => unreachable!(),
                 };
@@ -5057,11 +5057,11 @@ fn compile_builtin_function_call(
                 let common_init = quote! {
                     let position = #position;
                     let window_adapter = #window_adapter_tokens;
-                    let shared_global = _self.globals.get().unwrap();
+                    let shared_global = sp::unwrap(_self.globals.get());
                     let globals = #menu_globals;
                     let popup_instance = #popup_id::new(globals).unwrap();
                     let popup_instance_vrc = sp::VRc::map(popup_instance.clone(), |x| x);
-                    let parent_weak = _self.self_weak.get().unwrap().clone();
+                    let parent_weak = sp::unwrap(_self.self_weak.get()).clone();
                 };
 
                 if let Expression::NumberLiteral(tree_index) = entries {
@@ -5073,7 +5073,7 @@ fn compile_builtin_function_call(
                     );
                     quote! {{
                         #common_init
-                        let menu_item_tree_instance = #item_tree_id::new(_self.self_weak.get().unwrap().clone()).unwrap();
+                        let menu_item_tree_instance = #item_tree_id::new(sp::unwrap(_self.self_weak.get()).clone()).unwrap();
                         let context_menu_item_tree = sp::VRc::new(sp::MenuFromItemTree::new(sp::VRc::into_dyn(menu_item_tree_instance)));
                         let context_menu_item_tree_ = context_menu_item_tree.clone();
                         {
@@ -5217,9 +5217,9 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::GetWindowDefaultFontSize => {
             quote!(
-                sp::WindowItem::resolved_default_font_size(sp::VRcMapped::origin(
-                    &_self.self_weak.get().unwrap().upgrade().unwrap()
-                ))
+                sp::WindowItem::resolved_default_font_size(sp::VRcMapped::origin(&sp::unwrap(
+                    sp::unwrap(_self.self_weak.get()).upgrade()
+                )))
                 .get()
             )
         }
@@ -5283,7 +5283,7 @@ fn compile_builtin_function_call(
             let global_access = &ctx.generator_state.global_access;
             let context = access_context(ctx);
             quote!({
-                let _root = #global_access.root_item_tree_weak.upgrade().unwrap();
+                let _root = sp::unwrap(#global_access.root_item_tree_weak.upgrade());
                 #context.color_scheme(Some(&_root))
             })
         })(),
@@ -5321,7 +5321,7 @@ fn compile_builtin_function_call(
             let compile_prop = |prop_expr: &Expression| {
                 let binding = compile_expression(prop_expr, ctx);
                 quote!({
-                    let self_weak = _self.self_weak.get().unwrap().clone();
+                    let self_weak = sp::unwrap(_self.self_weak.get()).clone();
                     move || {
                         let Some(self_rc) = self_weak.upgrade() else { return false };
                         let _self = self_rc.as_pin_ref();
@@ -5349,7 +5349,7 @@ fn compile_builtin_function_call(
             };
 
             quote!({
-                let menu_item_tree_instance = #item_tree_id::new(_self.self_weak.get().unwrap().clone()).unwrap();
+                let menu_item_tree_instance = #item_tree_id::new(sp::unwrap(_self.self_weak.get()).clone()).unwrap();
                 #native_impl
                 // These handlers keep the menu item tree alive on the component; the native menu bar
                 // holds only a weak reference to it.
@@ -5399,7 +5399,7 @@ fn compile_builtin_function_call(
             let condition_tokens = if let Some(condition) = rest.first() {
                 let binding = compile_expression(condition, ctx);
                 quote!({
-                    let self_weak = _self.self_weak.get().unwrap().clone();
+                    let self_weak = sp::unwrap(_self.self_weak.get()).clone();
                     move || {
                         let Some(self_rc) = self_weak.upgrade() else { return false };
                         let _self = self_rc.as_pin_ref();
@@ -5417,7 +5417,7 @@ fn compile_builtin_function_call(
             ));
 
             quote!({
-                let menu_item_tree_instance = #item_tree_id::new(_self.self_weak.get().unwrap().clone()).unwrap();
+                let menu_item_tree_instance = #item_tree_id::new(sp::unwrap(_self.self_weak.get()).clone()).unwrap();
                 let menu_vrc = sp::VRc::into_dyn(sp::VRc::new(#menu_from_item_tree));
                 #system_tray.set_menu(&#system_tray_rc, menu_vrc);
             })
