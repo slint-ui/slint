@@ -2659,7 +2659,9 @@ impl<'a, T: RasterCommandSink> SoftwareItemRenderer<'a, T> {
                 )
                 .round()
                 .cast();
-                if let Some(buffer) = image_inner.render_to_buffer(Some(svg_target_size)) {
+                if let Some(buffer) =
+                    image_inner.render_to_buffer(Some(svg_target_size), Some(self.window.context()))
+                {
                     let buf_size = buffer.size().cast::<f32>();
 
                     let alpha = if colorize.alpha() > 0 {
@@ -3058,16 +3060,17 @@ impl<T: RasterCommandSink> i_slint_core::item_rendering::ItemRenderer
         size: LogicalSize,
         _: &CachedRenderingData,
     ) {
+        let context = self.window.context();
         let geom = LogicalRect::from(size);
         if self.should_draw(&geom) {
-            let source = image.source();
+            let source = image.source(context);
 
             let image_inner: &ImageInner = (&source).into();
             let decoded = cfg_select! {
                 feature = "std" => self
                     .decoded_image_cache
                     .get_or_update_cache_entry(_self_rc, || {
-                        <&ImageInner>::from(&image.source()).decode_shared()
+                        <&ImageInner>::from(&image.source(context)).decode_shared(context)
                     })
                     .map(|buffer| ImageInner::EmbeddedImage(SharedImageBuffer::clone(&buffer))),
                 _ => None::<ImageInner>,

@@ -892,6 +892,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         let image_inner: &ImageInner = (&image).into();
 
         let target_size_for_scalable_source = image_inner.is_svg().then(|| target_size.cast());
+        let context = i_slint_core::window::WindowInner::from_pub(self.window).context();
 
         let Some(cached_image) = TextureCacheKey::new(
             image_inner,
@@ -907,6 +908,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
                     target_size_for_scalable_source,
                     Default::default(),
                     Default::default(),
+                    context,
                 )
             })
         })
@@ -917,6 +919,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
                 target_size_for_scalable_source,
                 Default::default(),
                 Default::default(),
+                context,
             )
         }) else {
             return;
@@ -1493,6 +1496,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
         item: Pin<&dyn RenderImage>,
         size: LogicalSize,
     ) {
+        let context = i_slint_core::window::WindowInner::from_pub(self.window).context();
         if size.width <= 0. || size.height <= 0. {
             return;
         }
@@ -1500,10 +1504,10 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
         let transform_scale = self.current_transform_scale();
         let scale_factor = self.scale_factor;
 
-        let image = item.source();
+        let image = item.source(context);
         let cached_image = loop {
             let image_cache_entry = self.graphics_cache.get_or_update_cache_entry(item_rc, || {
-                let image = item.source();
+                let image = item.source(context);
                 let image_inner: &ImageInner = (&image).into();
                 let tiling = item.tiling();
 
@@ -1538,6 +1542,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                                 target_size_for_scalable_source,
                                 image_rendering,
                                 tiling,
+                                context,
                             )
                         },
                     )
@@ -1549,6 +1554,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                         target_size_for_scalable_source,
                         image_rendering,
                         tiling,
+                        context,
                     )
                 })
                 .map(ItemGraphicsCacheEntry::Texture)

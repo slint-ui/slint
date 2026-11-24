@@ -27,6 +27,12 @@ pub struct HTMLImage {
     object_url: Option<String>,
 }
 
+impl core::fmt::Debug for HTMLImage {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_tuple("HTMLImage").field(&self.source()).finish()
+    }
+}
+
 impl HTMLImage {
     /// Creates an element that loads `url`.
     pub fn new(url: &str) -> Self {
@@ -119,6 +125,11 @@ impl HTMLImage {
     /// for SVGs without intrinsic dimensions doesn't reflect their aspect ratio.
     pub fn svg_intrinsic_size(&self) -> Option<IntSize> {
         self.svg_intrinsic_size
+    }
+
+    /// Returns the URL that the element loads.
+    pub fn source(&self) -> alloc::string::String {
+        self.dom_element.src()
     }
 
     /// Returns true if the image is an SVG.

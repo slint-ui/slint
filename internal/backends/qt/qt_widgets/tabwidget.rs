@@ -401,11 +401,13 @@ impl Item for NativeTab {
         orientation: Orientation,
         _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
-        _self_rc: &ItemRc,
+        self_rc: &ItemRc,
     ) -> LayoutInfo {
         let text: qttypes::QString = self.title().as_str().into();
+        let context = self_rc.slint_context();
         let icon: qttypes::QPixmap =
-            crate::qt_window::image_to_pixmap((&self.icon()).into(), None).unwrap_or_default();
+            crate::qt_window::image_to_pixmap((&self.icon()).into(), None, &context)
+                .unwrap_or_default();
         let tab_index: i32 = self.tab_index();
         let num_tabs: i32 = self.num_tabs();
         let widget: NonNull<()> = SlintTypeErasedWidgetPtr::qwidget_ptr(&self.widget_ptr);
@@ -534,14 +536,13 @@ impl Item for NativeTab {
         FocusEventResult::FocusIgnored
     }
 
-    fn_render! { this size painter widget initial_state =>
+    fn_render! { this size painter widget initial_state item_rc =>
         let down: bool = this.pressed();
         let text: qttypes::QString = this.title().as_str().into();
-        let icon: qttypes::QPixmap = crate::qt_window::image_to_pixmap(
-            (&this.icon()).into(),
-            None,
-        )
-        .unwrap_or_default();
+        let context = item_rc.slint_context();
+        let icon: qttypes::QPixmap =
+            crate::qt_window::image_to_pixmap((&this.icon()).into(), None, &context)
+                .unwrap_or_default();
         let enabled: bool = this.enabled();
         let current: i32 = this.current();
         let current_focused: i32 = this.current_focused();

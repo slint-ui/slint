@@ -142,15 +142,13 @@ impl<R: femtovg::Renderer + TextureImporter> Texture<R> {
         target_size_for_scalable_source: Option<euclid::Size2D<u32, PhysicalPx>>,
         scaling: ImageRendering,
         tiling: (ImageTiling, ImageTiling),
+        context: &i_slint_core::SlintContext,
     ) -> Option<Rc<Self>> {
         let image_flags = base_image_flags(scaling, tiling);
 
         let image_id = match image {
             #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
-            ImageInner::Encoded(encoded)
-                if encoded.kind() == i_slint_core::graphics::EncodedImageKind::Html =>
-            {
-                let html_image = encoded.html_image()?;
+            ImageInner::HTMLImage(html_image) => {
                 if html_image.is_loaded() {
                     // Anecdotal evidence suggests that HTMLImageElement converts to a texture with
                     // pre-multiplied alpha. It's possible that this is not generally applicable, but it
@@ -226,7 +224,8 @@ impl<R: femtovg::Renderer + TextureImporter> Texture<R> {
                     .unwrap()
             }
             _ => {
-                let buffer = image.render_to_buffer(target_size_for_scalable_source)?;
+                let buffer =
+                    image.render_to_buffer(target_size_for_scalable_source, Some(context))?;
                 // femtovg has no 16-bit texture format; expand to RGB8 for the upload.
                 #[cfg(feature = "image-pixel-format-rgb565")]
                 let buffer = if let SharedImageBuffer::RGB565(b) = &buffer {

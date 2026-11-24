@@ -358,7 +358,7 @@ mod tests {
             load_animated(include_bytes!("testdata/frames.gif"), image::ImageFormat::Gif);
         assert_eq!(animated.size(), [8, 8].into());
         assert_eq!(
-            still_top_left_pixel(&animated.first_frame().0.render_to_buffer(None).unwrap()),
+            still_top_left_pixel(&animated.first_frame().0.render_to_buffer(None, None).unwrap()),
             [255, 0, 0]
         );
         assert_eq!(frames(&animated), expected_frames());

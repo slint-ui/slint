@@ -187,6 +187,8 @@ pub(crate) struct SlintContextInner {
     pub(crate) timers: crate::timers::TimerListRc,
 
     pub(crate) change_handler_queue: crate::properties::ChangeHandlerQueue,
+    #[cfg(feature = "std")]
+    pub(crate) image_cache: crate::graphics::cache::ImageCache,
 }
 
 /// This context is meant to hold the state and the backend.
@@ -221,7 +223,7 @@ impl SlintContext {
     /// The two share the event loop, the keepalive count, the window hooks, and the xdg app id.
     /// They also share what the platform reports about the system,
     /// such as the color scheme and keyboard modifiers.
-    /// Each keeps its own timers, translations, locale, log handler, and fonts.
+    /// Each keeps its own timers, translations, locale, log handler, fonts, and image cache.
     /// Driving any context on the platform with [`Self::update_timers_and_animations`] drives all of them.
     ///
     /// The new context doesn't become this thread's current one.
@@ -266,6 +268,8 @@ impl SlintContext {
             swash_scale_context: core::cell::RefCell::new(swash::scale::ScaleContext::new()),
             timers,
             change_handler_queue: Default::default(),
+            #[cfg(feature = "std")]
+            image_cache: Default::default(),
         }));
         // The list's deadlines are measured on this context's clock from now on. Done after
         // construction because it needs a handle to the context that owns it.

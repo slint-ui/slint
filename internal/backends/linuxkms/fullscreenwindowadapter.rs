@@ -80,7 +80,8 @@ impl WindowAdapterInternal for FullscreenWindowAdapter {
     fn set_mouse_cursor(&self, cursor: MouseCursorInner) -> MouseCursorHandling {
         // There is no compositor to draw a cursor on top of the frame.
         MouseCursorHandling::render_with_default_image(&cursor, || {
-            self.mouse_cursor_image.get_or_init(mouse_cursor_image).clone()
+            let context = i_slint_core::window::WindowInner::from_pub(&self.window).context();
+            self.mouse_cursor_image.get_or_init(|| mouse_cursor_image(context)).clone()
         })
     }
 }
@@ -155,13 +156,14 @@ impl FullscreenWindowAdapter {
 }
 
 /// The arrow drawn for the built-in cursors, rasterized once instead of in every frame.
-fn mouse_cursor_image() -> Image {
+fn mouse_cursor_image(context: &i_slint_core::SlintContext) -> Image {
     let svg = i_slint_core::graphics::load_image_from_embedded_data(
+        context,
         Slice::from_slice(include_bytes!("mouse-pointer.svg")),
         Slice::from_slice(b"svg"),
     );
     let inner: &i_slint_core::ImageInner = (&svg).into();
-    match inner.render_to_buffer(None) {
+    match inner.render_to_buffer(None, Some(context)) {
         Some(buffer) => i_slint_core::ImageInner::EmbeddedImage(buffer).into(),
         None => svg.clone(),
     }

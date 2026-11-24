@@ -503,7 +503,9 @@ pub fn clip_content_box(
 #[allow(missing_docs)]
 pub trait RenderImage {
     fn target_size(self: Pin<&Self>) -> LogicalSize;
-    fn source(self: Pin<&Self>) -> Image;
+    /// Returns the image to draw now. For an animation, that's its current frame,
+    /// shared through the image cache of `context`.
+    fn source(self: Pin<&Self>, context: &crate::SlintContext) -> Image;
     fn source_clip(self: Pin<&Self>) -> Option<IntRect>;
     fn image_fit(self: Pin<&Self>) -> ImageFit;
     fn rendering(self: Pin<&Self>) -> ImageRendering;

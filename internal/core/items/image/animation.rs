@@ -120,10 +120,6 @@ impl ImageAnimation {
         })
     }
 
-    pub(super) fn shows(&self, image: &Rc<AnimatedImage>) -> bool {
-        Rc::ptr_eq(&self.state.borrow().image, image)
-    }
-
     /// Returns the frame to show now, and schedules a redraw for when it changes.
     pub(super) fn frame(self: &Pin<Rc<Self>>) -> Image {
         let position = now() - self.start;
@@ -178,7 +174,7 @@ mod tests {
         let crate::graphics::ImageInner::Encoded(encoded) = image.0 else {
             panic!("expected an animation")
         };
-        encoded.animation().unwrap()
+        encoded.animation(None).unwrap()
     }
 
     fn state(data: &[u8]) -> State {

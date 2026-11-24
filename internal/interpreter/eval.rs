@@ -1872,13 +1872,18 @@ fn load_image_reference(
     {
         return image.clone();
     }
+    #[cfg(feature = "std")]
+    let context = component_context(ctx);
     let image: Result<_, i_slint_core::graphics::LoadImageError> = match resource_ref {
         Ref::None => Ok(Default::default()),
         #[cfg(feature = "std")]
         Ref::DataUri(data_uri) => i_slint_compiler::data_uri::decode_data_uri(data_uri)
             .ok()
             .and_then(|(data, extension)| {
-                i_slint_core::graphics::load_image_from_data_uri(data_uri, &data, &extension).ok()
+                i_slint_core::graphics::load_image_from_data_uri(
+                    &context, data_uri, &data, &extension,
+                )
+                .ok()
             })
             .ok_or_else(Default::default),
         #[cfg(feature = "std")]
@@ -1889,6 +1894,7 @@ fn load_image_reference(
                 .map(|contents| {
                     let extension = path.extension().unwrap();
                     i_slint_core::graphics::load_image_from_embedded_data(
+                        &context,
                         i_slint_core::slice::Slice::from_slice(contents),
                         i_slint_core::slice::Slice::from_slice(extension.as_bytes()),
                     )
@@ -1896,12 +1902,14 @@ fn load_image_reference(
                 .ok_or_else(Default::default)
         }
         #[cfg(feature = "std")]
-        Ref::Source(SourcePath::File(path)) => i_slint_core::graphics::Image::load_from_path(path),
+        Ref::Source(SourcePath::File(path)) => {
+            i_slint_core::graphics::load_image_from_path(Some(&context), path)
+        }
         #[cfg(feature = "std")]
         Ref::Source(url) => {
             #[cfg(target_arch = "wasm32")]
             {
-                i_slint_core::graphics::load_as_html_image(&url.to_string())
+                i_slint_core::graphics::load_as_html_image(&context, &url.to_string())
             }
             // URL image references only work on the web, where the browser fetches them.
             #[cfg(not(target_arch = "wasm32"))]

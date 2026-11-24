@@ -2074,7 +2074,9 @@ impl WindowInner {
             });
         self.has_active_animations.set(has_active_animations);
         #[cfg(feature = "std")]
-        crate::graphics::cache::trim();
+        if let Some(context) = self.try_context() {
+            context.0.image_cache.trim();
+        }
         Some(result)
     }
 

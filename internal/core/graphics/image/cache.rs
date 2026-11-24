@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 /*!
-The cache of what's loaded, parsed, or decoded from images, shared by everything on a thread.
+The cache of what's loaded, parsed, or decoded from images, one per [`SlintContext`].
 
 [`Image`](super::Image) values only say where their encoded data is.
 Loading, parsing an SVG, and decoding pixels go through [`cached`],
@@ -11,6 +11,7 @@ Renderers can keep what they make from the pixels there too.
 */
 
 use super::{ImageCacheKey, SharedImageBuffer};
+use crate::SlintContext;
 use alloc::rc::Rc;
 use core::any::{Any, TypeId};
 use std::collections::HashMap;
@@ -30,13 +31,13 @@ struct Entry {
 }
 
 #[derive(Default)]
-struct ImageCache {
+struct Entries {
     entries: HashMap<(ImageCacheKey, TypeId), Entry>,
     total_weight: usize,
     clock: u64,
 }
 
-impl ImageCache {
+impl Entries {
     fn insert(&mut self, key: (ImageCacheKey, TypeId), entry: Entry) {
         self.total_weight += entry.weight;
         if let Some(old) = self.entries.insert(key, entry) {
@@ -72,50 +73,65 @@ impl ImageCache {
     }
 }
 
-crate::thread_local!(static IMAGE_CACHE: core::cell::RefCell<ImageCache> = Default::default());
+/// The image cache of a [`SlintContext`].
+#[derive(Default)]
+pub(crate) struct ImageCache(core::cell::RefCell<Entries>);
+
+impl ImageCache {
+    fn cached<T: 'static>(
+        &self,
+        key: &ImageCacheKey,
+        create: impl FnOnce() -> Option<(T, usize)>,
+    ) -> Option<Rc<T>> {
+        let cache_key = (key.clone(), TypeId::of::<T>());
+        let cached = {
+            let mut entries = self.0.borrow_mut();
+            entries.clock += 1;
+            let clock = entries.clock;
+            entries.entries.get_mut(&cache_key).map(|entry| {
+                entry.last_use = clock;
+                entry.data.clone().downcast::<T>().ok()
+            })
+        };
+        if let Some(cached) = cached {
+            return cached;
+        }
+        // `create` may use the cache for other entries, so the cache isn't borrowed while it runs.
+        let created = create().map(|(data, weight)| (Rc::new(data), weight));
+        let (data, weight): (Rc<dyn Any>, _) = match &created {
+            Some((data, weight)) => (data.clone(), *weight),
+            None => (Rc::new(Failed), core::mem::size_of::<Entry>()),
+        };
+        let weight = weight + held_bytes(key);
+        let mut entries = self.0.borrow_mut();
+        entries.clock += 1;
+        let last_use = entries.clock;
+        entries.insert(cache_key, Entry { data, weight, last_use });
+        entries.trim();
+        created.map(|(data, _)| data)
+    }
+
+    /// Drops the least recently used entries that nothing holds, beyond the budget.
+    pub(crate) fn trim(&self) {
+        self.0.borrow_mut().trim();
+    }
+}
 
 /// Returns the `T` made from the image at `key`,
 /// or makes it with `create`, which returns it with its size in bytes.
 ///
-/// The result is shared for as long as anything holds it.
+/// The result is shared through the cache of `context` for as long as anything holds it.
 /// Afterwards, the cache keeps the most recently used entries within a budget.
-/// A failure is cached too.
+/// A failure is cached too. Without a context, nothing is cached.
 pub fn cached<T: 'static>(
+    context: Option<&SlintContext>,
     key: &ImageCacheKey,
     create: impl FnOnce() -> Option<(T, usize)>,
 ) -> Option<Rc<T>> {
-    let cache_key = (key.clone(), TypeId::of::<T>());
-    let cached = IMAGE_CACHE.with(|cache| {
-        let mut cache = cache.borrow_mut();
-        cache.clock += 1;
-        let clock = cache.clock;
-        let entry = cache.entries.get_mut(&cache_key)?;
-        entry.last_use = clock;
-        Some(entry.data.clone().downcast::<T>().ok())
-    });
-    if let Some(cached) = cached {
-        return cached;
+    match context {
+        Some(context) => context.0.image_cache.cached(key, create),
+        None => create().map(|(data, _)| Rc::new(data)),
     }
-    // `create` may use the cache for other entries, so the cache isn't borrowed while it runs.
-    let created = create().map(|(data, weight)| (Rc::new(data), weight));
-    let (data, weight): (Rc<dyn Any>, _) = match &created {
-        Some((data, weight)) => (data.clone(), *weight),
-        None => (Rc::new(Failed), core::mem::size_of::<Entry>()),
-    };
-    let weight = weight + held_bytes(key);
-    IMAGE_CACHE.with(|cache| {
-        let mut cache = cache.borrow_mut();
-        cache.clock += 1;
-        let last_use = cache.clock;
-        cache.insert(cache_key, Entry { data, weight, last_use });
-        cache.trim();
-    });
-    created.map(|(data, _)| data)
-}
-
-/// Drops the least recently used entries that nothing holds, beyond the budget.
-pub fn trim() {
-    IMAGE_CACHE.with(|cache| cache.borrow_mut().trim());
 }
 
 /// Returns the bytes of encoded data that `key` holds.
@@ -152,32 +168,33 @@ mod tests {
         )))
     }
 
-    fn is_cached(n: usize) -> bool {
-        IMAGE_CACHE
-            .with(|cache| cache.borrow().entries.contains_key(&(key(n), TypeId::of::<u32>())))
+    fn is_cached(cache: &ImageCache, n: usize) -> bool {
+        cache.0.borrow().entries.contains_key(&(key(n), TypeId::of::<u32>()))
     }
 
     #[test]
     fn shares_and_evicts_unused_beyond_budget() {
+        let cache = ImageCache::default();
         let third = UNUSED_BUDGET / 3 + 1;
-        let first = cached(&key(1), || Some((1u32, third))).unwrap();
-        cached(&key(2), || Some((2u32, third))).unwrap();
-        assert!(Rc::ptr_eq(&first, &cached(&key(1), || None::<(u32, _)>).unwrap()));
+        let first = cache.cached(&key(1), || Some((1u32, third))).unwrap();
+        cache.cached(&key(2), || Some((2u32, third))).unwrap();
+        assert!(Rc::ptr_eq(&first, &cache.cached(&key(1), || None::<(u32, _)>).unwrap()));
         drop(first);
-        cached(&key(3), || Some((3u32, third))).unwrap();
-        trim();
-        assert!(is_cached(1) && !is_cached(2) && is_cached(3));
-        let huge = cached(&key(4), || Some((4u32, UNUSED_BUDGET * 2))).unwrap();
-        assert!(is_cached(1) && is_cached(3) && is_cached(4));
+        cache.cached(&key(3), || Some((3u32, third))).unwrap();
+        cache.trim();
+        assert!(is_cached(&cache, 1) && !is_cached(&cache, 2) && is_cached(&cache, 3));
+        let huge = cache.cached(&key(4), || Some((4u32, UNUSED_BUDGET * 2))).unwrap();
+        assert!(is_cached(&cache, 1) && is_cached(&cache, 3) && is_cached(&cache, 4));
         drop(huge);
-        trim();
-        assert!(!is_cached(4));
+        cache.trim();
+        assert!(!is_cached(&cache, 4));
     }
 
     #[test]
     fn failures_are_cached() {
-        assert!(cached(&key(5), || None::<(u32, usize)>).is_none());
-        assert!(cached::<u32>(&key(5), || unreachable!()).is_none());
+        let cache = ImageCache::default();
+        assert!(cache.cached(&key(5), || None::<(u32, usize)>).is_none());
+        assert!(cache.cached::<u32>(&key(5), || unreachable!()).is_none());
     }
 
     #[cfg(feature = "image-decoders")]
@@ -253,6 +270,5 @@ mod tests {
         let image = crate::graphics::Image::load_from_path(&path).unwrap();
         assert_eq!(image.size(), crate::graphics::IntSize::new(64, 64));
         assert!(image.to_rgba8().is_none());
-        assert!(image.0.decode_shared().is_none());
     }
 }

@@ -480,6 +480,8 @@ impl ImageCacheKey {
                 Some(Self::EmbeddedData(ByAddress(Slice::from_slice(textures.data.as_slice()))))
             }
             ImageInner::NineSlice(nine) => Self::new(&nine.0),
+            #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
+            ImageInner::HTMLImage(image) => Some(Self::URL(image.source().into())),
             _ => None,
         }
     }
@@ -554,8 +556,8 @@ impl OpaqueImage for WGPUTexture {
     }
 }
 
-/// The data of an [`Image`]. It doesn't hold anything that's local to a thread:
-/// what's loaded or decoded from encoded data is in the [image cache](cache).
+/// The data of an [`Image`]. Except on the web, it doesn't hold anything that's local to a
+/// thread: what's loaded or decoded from encoded data is in the [image cache](cache).
 /// cbindgen:prefix-with-name
 #[derive(Clone, Debug, Default)]
 #[repr(u8)]
@@ -565,6 +567,9 @@ pub enum ImageInner {
     #[default]
     None = 0,
     EmbeddedImage(SharedImageBuffer) = 1,
+    /// An image that the browser loads. The renderer waits for the element to load.
+    #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
+    HTMLImage(alloc::rc::Rc<HTMLImage>) = 4,
     BorrowedOpenGLTexture(BorrowedOpenGLTexture) = 6,
     NineSlice(vtable::VRc<OpaqueImageVTable, NineSliceImage>) = 7,
     #[cfg(any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30"))]
@@ -627,15 +632,20 @@ impl ImageInner {
     /// (when unspecified, will default to the intrinsic size of the image)
     ///
     /// Returns None if the image can't be rendered in a buffer or if the image is empty
+    ///
+    /// An SVG or an animation is parsed through the image cache of `context`, or without a
+    /// context, isn't cached.
+    #[cfg_attr(not(feature = "std"), allow(clippy::only_used_in_recursion))]
     pub fn render_to_buffer(
         &self,
         _target_size_for_scalable_source: Option<euclid::Size2D<u32, PhysicalPx>>,
+        context: Option<&crate::SlintContext>,
     ) -> Option<SharedImageBuffer> {
         match self {
             ImageInner::EmbeddedImage(buffer) => Some(buffer.clone()),
             #[cfg(feature = "std")]
             ImageInner::Encoded(encoded) => {
-                encoded.render_to_buffer(_target_size_for_scalable_source)
+                encoded.render_to_buffer(_target_size_for_scalable_source, context)
             }
             ImageInner::StaticTextures(ts) => {
                 Some(textures_to_buffer(ts.size, &ts.data, &ts.textures))
@@ -644,18 +654,21 @@ impl ImageInner {
             ImageInner::OwnedTextures(textures) => {
                 Some(textures_to_buffer(textures.size, &textures.data, &textures.textures))
             }
-            ImageInner::NineSlice(nine) => nine.0.render_to_buffer(None),
+            ImageInner::NineSlice(nine) => nine.0.render_to_buffer(None, context),
             _ => None,
         }
     }
 
-    /// Returns the pixels of a raster image that's decoded when drawn, shared through
-    /// the [image cache](cache), or `None` for other images or if it fails to decode.
+    /// Returns the pixels of a raster image that's decoded when drawn,
+    /// or `None` for other images and for one that fails to decode.
     #[cfg(feature = "std")]
-    pub fn decode_shared(&self) -> Option<alloc::rc::Rc<SharedImageBuffer>> {
+    pub fn decode_shared(
+        &self,
+        context: &crate::SlintContext,
+    ) -> Option<alloc::rc::Rc<SharedImageBuffer>> {
         match self {
-            ImageInner::Encoded(encoded) => encoded.decode_shared(),
-            ImageInner::NineSlice(nine) => nine.0.decode_shared(),
+            ImageInner::Encoded(encoded) => encoded.decode_shared(Some(context)),
+            ImageInner::NineSlice(nine) => nine.0.decode_shared(context),
             _ => None,
         }
     }
@@ -663,7 +676,9 @@ impl ImageInner {
     /// Returns true if the image is an SVG (either backed by resvg or HTML image wrapper).
     pub fn is_svg(&self) -> bool {
         match self {
-            ImageInner::Encoded(encoded) => encoded.is_svg(),
+            ImageInner::Encoded(encoded) => encoded.kind() == EncodedImageKind::Svg,
+            #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
+            ImageInner::HTMLImage(image) => image.is_svg(),
             _ => false,
         }
     }
@@ -673,6 +688,8 @@ impl ImageInner {
         match self {
             ImageInner::None => Default::default(),
             ImageInner::EmbeddedImage(buffer) => buffer.size(),
+            #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
+            ImageInner::HTMLImage(image) => image.size().unwrap_or_default(),
             ImageInner::StaticTextures(StaticTextures { original_size, .. }) => *original_size,
             #[cfg(feature = "owned-pre-rendered-resources")]
             ImageInner::OwnedTextures(textures) => textures.original_size,
@@ -723,6 +740,8 @@ impl PartialEq for ImageInner {
         match (self, other) {
             (Self::None, Self::None) => true,
             (Self::EmbeddedImage(l), Self::EmbeddedImage(r)) => l == r,
+            #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
+            (Self::HTMLImage(l), Self::HTMLImage(r)) => alloc::rc::Rc::ptr_eq(l, r),
             (Self::StaticTextures(l), Self::StaticTextures(r)) => core::ptr::eq(*l, *r),
             #[cfg(feature = "owned-pre-rendered-resources")]
             (Self::OwnedTextures(l), Self::OwnedTextures(r)) => alloc::sync::Arc::ptr_eq(l, r),
@@ -851,16 +870,7 @@ impl Image {
     ///
     /// This function always fails on the web, where there is no file system.
     pub fn load_from_path(path: &std::path::Path) -> Result<Self, LoadImageError> {
-        cfg_select! {
-            all(target_arch = "wasm32", not(target_os = "emscripten")) => {
-                let _ = path;
-                Err(LoadImageError(()))
-            }
-            _ => {
-                let path: SharedString = path.to_str().ok_or(LoadImageError(()))?.into();
-                encoded::load_from_path(&path).map(Image).ok_or(LoadImageError(()))
-            }
-        }
+        load_image_from_path(None, path)
     }
 
     /// Creates a new Image from the specified shared pixel buffer, where each pixel has three color
@@ -909,7 +919,7 @@ impl Image {
     /// Returns None if the pixels cannot be obtained, for example when the image was created from borrowed OpenGL textures.
     /// For an animated image, returns its first frame.
     pub fn to_rgb8(&self) -> Option<SharedPixelBuffer<Rgb8Pixel>> {
-        self.0.render_to_buffer(None).and_then(|image| match image {
+        self.0.render_to_buffer(None, None).and_then(|image| match image {
             SharedImageBuffer::RGB8(buffer) => Some(buffer),
             // Dropping the alpha channel would change what the image looks like, so these
             // are not converted. The opaque formats below are.
@@ -932,7 +942,7 @@ impl Image {
         &self,
         target_size: Option<euclid::Size2D<u32, PhysicalPx>>,
     ) -> Option<SharedPixelBuffer<Rgba8Pixel>> {
-        self.0.render_to_buffer(target_size).map(|image| match image {
+        self.0.render_to_buffer(target_size, None).map(|image| match image {
             SharedImageBuffer::RGB8(buffer) => SharedPixelBuffer::<Rgba8Pixel> {
                 width: buffer.width,
                 height: buffer.height,
@@ -956,7 +966,7 @@ impl Image {
     /// Returns None if the pixels cannot be obtained, for example when the image was created from borrowed OpenGL textures.
     /// For an animated image, returns its first frame.
     pub fn to_rgba8_premultiplied(&self) -> Option<SharedPixelBuffer<Rgba8Pixel>> {
-        self.0.render_to_buffer(None).map(|image| match image {
+        self.0.render_to_buffer(None, None).map(|image| match image {
             SharedImageBuffer::RGB8(buffer) => SharedPixelBuffer::<Rgba8Pixel> {
                 width: buffer.width,
                 height: buffer.height,
@@ -1172,11 +1182,14 @@ pub fn image_to_rgba8_with_target_size(
 /// Load an image from the decoded payload of a data URI.
 /// This is called by the interpreter.
 pub fn load_image_from_data_uri(
+    context: &crate::SlintContext,
     uri: &str,
     bytes: &[u8],
     format: &str,
 ) -> Result<Image, LoadImageError> {
-    encoded::load_from_data_uri(uri, bytes, format.as_bytes()).map(Image).ok_or(LoadImageError(()))
+    encoded::load_from_data_uri(context, uri, bytes, format.as_bytes())
+        .map(Image)
+        .ok_or(LoadImageError(()))
 }
 
 /// Returns the MIME type for an image file extension, or None if the extension is unknown.
@@ -1291,8 +1304,11 @@ impl BorrowedOpenGLTextureBuilder {
 /// network image loading.
 /// This is called by the interpreter and the generated code.
 #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten"), feature = "std"))]
-pub fn load_as_html_image(url: &str) -> Result<Image, LoadImageError> {
-    encoded::load_as_html_image(url).map(Image).ok_or(LoadImageError(()))
+pub fn load_as_html_image(
+    context: &crate::SlintContext,
+    url: &str,
+) -> Result<Image, LoadImageError> {
+    encoded::load_as_html_image(context, url).map(Image).ok_or(LoadImageError(()))
 }
 
 /// Load an image from an image embedded in the binary.
@@ -1301,10 +1317,37 @@ pub fn load_as_html_image(url: &str) -> Result<Image, LoadImageError> {
     feature = "image-decoders",
     all(target_arch = "wasm32", not(target_os = "emscripten"), feature = "std")
 ))]
-pub fn load_image_from_embedded_data(data: Slice<'static, u8>, format: Slice<'_, u8>) -> Image {
-    encoded::load_from_static_data(data.as_slice(), format.as_slice())
+pub fn load_image_from_embedded_data(
+    context: &crate::SlintContext,
+    data: Slice<'static, u8>,
+    format: Slice<'_, u8>,
+) -> Image {
+    encoded::load_from_static_data(Some(context), data.as_slice(), format.as_slice())
         .map(Image)
         .unwrap_or_default()
+}
+
+/// Like [`Image::load_from_path`], sharing the image through the cache of `context`,
+/// the context of the component that shows it.
+/// This is called by the interpreter and the generated code.
+#[cfg(any(
+    feature = "image-decoders",
+    all(target_arch = "wasm32", not(target_os = "emscripten"), feature = "std")
+))]
+pub fn load_image_from_path(
+    context: Option<&crate::SlintContext>,
+    path: &std::path::Path,
+) -> Result<Image, LoadImageError> {
+    cfg_select! {
+        all(target_arch = "wasm32", not(target_os = "emscripten")) => {
+            let _ = (context, path);
+            Err(LoadImageError(()))
+        }
+        _ => {
+            let path: SharedString = path.to_str().ok_or(LoadImageError(()))?.into();
+            encoded::load_from_path(context, &path).map(Image).ok_or(LoadImageError(()))
+        }
+    }
 }
 
 #[test]
@@ -1840,15 +1883,15 @@ pub(crate) mod ffi {
 
     // Keep the cfg free of target_arch: cbindgen maps target_arch = wasm32 to a C macro and
     // would guard the declaration, but the C++ API is native only and relies on it being there.
+    // C++ components don't know their context, so these load into the current one.
     #[cfg(all(feature = "std", feature = "image-decoders"))]
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_image_load_from_path(path: &SharedString, image: *mut Image) {
-        unsafe {
-            core::ptr::write(
-                image,
-                Image::load_from_path(std::path::Path::new(path.as_str())).unwrap_or_default(),
-            )
-        }
+        let context = crate::SlintContext::current();
+        let loaded =
+            super::load_image_from_path(context.as_ref(), std::path::Path::new(path.as_str()))
+                .unwrap_or_default();
+        unsafe { core::ptr::write(image, loaded) };
     }
 
     #[cfg(all(feature = "std", feature = "image-decoders"))]
@@ -1858,7 +1901,15 @@ pub(crate) mod ffi {
         format: Slice<'static, u8>,
         image: *mut Image,
     ) {
-        unsafe { core::ptr::write(image, super::load_image_from_embedded_data(data, format)) };
+        let context = crate::SlintContext::current();
+        let loaded = super::encoded::load_from_static_data(
+            context.as_ref(),
+            data.as_slice(),
+            format.as_slice(),
+        )
+        .map(Image)
+        .unwrap_or_default();
+        unsafe { core::ptr::write(image, loaded) };
     }
 
     /// Unlike `slint_image_load_from_embedded_data`, this does not go through the image cache,

@@ -27,7 +27,9 @@ fn shared_pixel_data<Pixel: Clone + bytemuck::Pod + Send + Sync>(
 /// `transform_scale` is how much the canvas transform magnifies the image,
 /// see [`i_slint_core::graphics::transformed_scalable_render_size`].
 ///
-/// The result is shared with other items that draw the same image for as long as it's alive.
+/// The result of a raster image is shared with other items that draw the same image,
+/// for as long as it's alive.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn as_skia_image(
     image: Image,
     target_size_fn: &dyn Fn() -> LogicalSize,
@@ -36,13 +38,14 @@ pub(crate) fn as_skia_image(
     transform_scale: f32,
     canvas: &skia_safe::Canvas,
     surface: Option<&dyn crate::Surface>,
+    context: &i_slint_core::SlintContext,
 ) -> Option<Rc<skia_safe::Image>> {
     let image_inner: &ImageInner = (&image).into();
     match image_inner {
         ImageInner::None => None,
         ImageInner::EmbeddedImage(buffer) => image_buffer_to_skia_image(buffer).map(Rc::new),
         ImageInner::Encoded(encoded) if encoded.kind() == EncodedImageKind::Svg => {
-            let svg = encoded.svg()?;
+            let svg = encoded.svg(Some(context))?;
             // Query target_width/height here again to ensure that changes will invalidate the item rendering cache.
             let target_size = i_slint_core::graphics::transformed_scalable_render_size(
                 svg.size(),
@@ -82,6 +85,7 @@ pub(crate) fn as_skia_image(
             transform_scale,
             canvas,
             surface,
+            context,
         ),
         #[cfg(any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30"))]
         ImageInner::WGPUTexture(any_wgpu_texture) => surface
@@ -89,12 +93,13 @@ pub(crate) fn as_skia_image(
             .map(Rc::new),
         _ => {
             let create = || {
-                let image = image_buffer_to_skia_image(&image_inner.render_to_buffer(None)?)?;
+                let buffer = image_inner.render_to_buffer(None, Some(context))?;
+                let image = image_buffer_to_skia_image(&buffer)?;
                 let weight = image.image_info().compute_min_byte_size();
                 Some((image, weight))
             };
             match ImageCacheKey::new(image_inner) {
-                Some(key) => cache::cached(&key, create),
+                Some(key) => cache::cached(Some(context), &key, create),
                 None => create().map(|(image, _)| Rc::new(image)),
             }
         }
@@ -179,7 +184,20 @@ mod tests {
 
     static RED_PNG: &[u8] = include_bytes!("../../../tests/screenshots/cases/image/tiny-1x1.png");
 
-    fn to_skia(image: Image) -> Rc<skia_safe::Image> {
+    struct NoWindows;
+
+    impl i_slint_core::platform::Platform for NoWindows {
+        fn create_window_adapter(
+            &self,
+        ) -> Result<
+            Rc<dyn i_slint_core::window::WindowAdapter>,
+            i_slint_core::platform::PlatformError,
+        > {
+            Err(i_slint_core::platform::PlatformError::NoPlatform)
+        }
+    }
+
+    fn to_skia(image: Image, context: &i_slint_core::SlintContext) -> Rc<skia_safe::Image> {
         let mut surface = skia_safe::surfaces::raster_n32_premul((1, 1)).unwrap();
         as_skia_image(
             image,
@@ -189,17 +207,24 @@ mod tests {
             1.,
             surface.canvas(),
             None,
+            context,
         )
         .unwrap()
     }
 
     #[test]
     fn keyed_images_share_skia_image() {
-        let load =
-            || load_image_from_embedded_data(Slice::from_slice(RED_PNG), Slice::from_slice(b"png"));
+        let context = i_slint_core::SlintContext::new(Box::new(NoWindows));
+        let load = || {
+            load_image_from_embedded_data(
+                &context,
+                Slice::from_slice(RED_PNG),
+                Slice::from_slice(b"png"),
+            )
+        };
         let (first, second) = (load(), load());
-        let first = to_skia(first);
-        let second = to_skia(second);
+        let first = to_skia(first, &context);
+        let second = to_skia(second, &context);
         assert_eq!(first.unique_id(), second.unique_id());
         let pixels = first.peek_pixels().unwrap();
         assert_eq!(pixels.color_type(), skia_safe::ColorType::RGBA8888);
@@ -211,8 +236,9 @@ mod tests {
         let rgb = |pixel: &[u8]| {
             Image::from_rgb8(SharedPixelBuffer::<Rgb8Pixel>::clone_from_slice(pixel, 1, 1))
         };
-        let red = to_skia(rgb(&[255, 0, 0]));
-        let blue = to_skia(rgb(&[0, 0, 255]));
+        let context = i_slint_core::SlintContext::new(Box::new(NoWindows));
+        let red = to_skia(rgb(&[255, 0, 0]), &context);
+        let blue = to_skia(rgb(&[0, 0, 255]), &context);
         assert_eq!(red.peek_pixels().unwrap().bytes().unwrap(), &[255, 0, 0, 255]);
         assert_eq!(blue.peek_pixels().unwrap().bytes().unwrap(), &[0, 0, 255, 255]);
     }

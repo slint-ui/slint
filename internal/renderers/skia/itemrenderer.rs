@@ -429,17 +429,17 @@ impl<'a> SkiaItemRenderer<'a> {
         item: Pin<&dyn RenderImage>,
         dest_rect: PhysicalRect,
     ) {
+        let context = WindowInner::from_pub(self.window).context();
         let tiling = item.tiling();
         let image_fit =
             || if tiling != Default::default() { ImageFit::Preserve } else { item.image_fit() };
         let transform_scale = self.canvas.local_to_device_as_3x3().max_scale();
         let scale_factor = self.scale_factor;
 
-        // TODO: avoid doing creating an SkImage multiple times when the same source is used in multiple image elements
         let skia_image = self.image_cache.get_or_update_cache_entry_unless(
             item_rc,
             || {
-                let image = item.source();
+                let image = item.source(context);
                 super::cached_image::as_skia_image(
                     image,
                     &|| item.target_size(),
@@ -448,6 +448,7 @@ impl<'a> SkiaItemRenderer<'a> {
                     transform_scale,
                     self.canvas,
                     self.surface,
+                    context,
                 )
                 .and_then(|skia_image| {
                     let brush = item.colorize();
@@ -466,7 +467,7 @@ impl<'a> SkiaItemRenderer<'a> {
                             cached.width() as _,
                             cached.height() as _,
                         ),
-                        &item.source(),
+                        &item.source(context),
                         image_fit(),
                         item.target_size(),
                         scale_factor,
@@ -476,7 +477,7 @@ impl<'a> SkiaItemRenderer<'a> {
                 })
             },
         );
-        let source = item.source();
+        let source = item.source(context);
 
         let Some(skia_image) = skia_image else { return };
         let source_size = source.size();
@@ -1087,6 +1088,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
             1.,
             self.canvas,
             self.surface,
+            self.window().context(),
         );
 
         let skia_image = match skia_image {
