@@ -6,10 +6,11 @@
 #include "slint-platform.h"
 #include "esp_lcd_touch.h"
 #include "sdkconfig.h"
+#include "soc/soc_caps.h"
 #include "esp_lcd_types.h"
 
 // The separate raster task needs a second core, and with it the atomics that a recording needs.
-#if defined(SLINT_FEATURE_EXPERIMENTAL) && !CONFIG_FREERTOS_UNICORE
+#if defined(SLINT_FEATURE_EXPERIMENTAL) && SOC_CPU_CORES_NUM > 1 && !CONFIG_FREERTOS_UNICORE
 #    define SLINT_ESP_RASTERIZE_IN_SEPARATE_TASK 1
 #endif
 
@@ -100,11 +101,12 @@ struct SlintPlatformConfiguration
     SlintDisplayPanelType panel_type = SlintDisplayPanelType::Auto;
 #ifdef SLINT_ESP_RASTERIZE_IN_SEPARATE_TASK
     /// Rasterize and present each frame in a separate task, so the event loop already records the
-    /// next frame meanwhile. It needs a frame buffer and a chip with two cores.
+    /// next frame meanwhile. It needs two frame buffers and a chip with two cores,
+    /// and is ignored with a warning otherwise.
     ///
     /// **Note**: This field is still experimental - its API is subject to changes and not
-    /// stabilized yet. To use it, build Slint from source with the environment variable
-    /// `SLINT_ESP_EXPERIMENTAL=1` set when running CMake.
+    /// stabilized yet. To use it, build Slint from source by setting the CMake variable
+    /// `SLINT_ESP_EXPERIMENTAL` to `ON`, or the environment variable of the same name to `1`.
     /// It only exists on chips with two cores.
     bool rasterize_in_separate_task = false;
     /// The stack size in bytes of the task that rasterizes, if `rasterize_in_separate_task` is set.

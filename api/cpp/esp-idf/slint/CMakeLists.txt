@@ -24,7 +24,7 @@ endif()
 
 set(SLINT_FEATURE_FREESTANDING ON)
 set(SLINT_FEATURE_RENDERER_SOFTWARE ON)
-if ("$ENV{SLINT_ESP_EXPERIMENTAL}" STREQUAL "1")
+if (SLINT_ESP_EXPERIMENTAL OR "$ENV{SLINT_ESP_EXPERIMENTAL}" STREQUAL "1")
     # The software renderer API for recording frames is still experimental.
     set(SLINT_FEATURE_EXPERIMENTAL ON)
 endif()

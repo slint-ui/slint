@@ -334,7 +334,12 @@ impl SoftwareRenderer {
     /// Only available on targets with atomic pointers.
     #[cfg(all(feature = "experimental", target_has_atomic = "ptr"))]
     pub fn record_frame(&self, pixels_per_line: usize, num_lines: usize) -> RecordedRasterCommands {
-        let recorder = |scale_factor| RecordedRasterCommands { scale_factor, ..Default::default() };
+        let recorder = |scale_factor| RecordedRasterCommands {
+            scale_factor,
+            pixels_per_line,
+            num_lines,
+            ..Default::default()
+        };
         self.render_frame(pixels_per_line, num_lines, recorder).map(|(_, r)| r).unwrap_or_default()
     }
 

@@ -2128,6 +2128,8 @@ pub struct RecordedRasterCommands {
     commands: Vec<(RasterCommand, core::ops::Range<usize>)>,
     rounded_clips: Vec<RoundedClip>,
     scale_factor: ScaleFactor,
+    pixels_per_line: usize,
+    num_lines: usize,
 }
 
 #[cfg(all(feature = "experimental", target_has_atomic = "ptr"))]
@@ -2139,12 +2141,19 @@ const _: () = {
 #[cfg(all(feature = "experimental", target_has_atomic = "ptr"))]
 impl RecordedRasterCommands {
     /// Rasterizes the frame into `buffer`, like [`SoftwareRenderer::render`] renders it.
-    pub fn rasterize(
-        &self,
-        buffer: &mut [impl TargetPixel],
-        pixel_stride: usize,
-    ) -> PhysicalRegion {
-        let mut buffer = TargetPixelSlice { data: buffer, pixel_stride };
+    ///
+    /// The buffer has the `pixels_per_line` and `num_lines` that
+    /// [`SoftwareRenderer::record_frame`] recorded the frame for,
+    /// so it must hold at least `pixels_per_line * num_lines` pixels.
+    pub fn rasterize(&self, buffer: &mut [impl TargetPixel]) -> PhysicalRegion {
+        assert!(
+            buffer.len() >= self.pixels_per_line * self.num_lines,
+            "buffer of {} pixels is too small for the {} lines of {} pixels that the frame was recorded for",
+            buffer.len(),
+            self.num_lines,
+            self.pixels_per_line,
+        );
+        let mut buffer = TargetPixelSlice { data: buffer, pixel_stride: self.pixels_per_line };
         let mut rasterizer = BufferRasterizer {
             buffer: &mut buffer,
             dirty_range_cache: Vec::new(),
