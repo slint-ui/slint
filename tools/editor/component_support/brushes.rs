@@ -247,8 +247,11 @@ fn create_brush_with_color_space(
                 .with_color_space(color_space),
         ),
         ui::BrushKind::Conic => slint::Brush::ConicGradient(
-            (i_slint_core::graphics::ConicGradientBrush::new(angle, stops.drain(..)))
-                .with_color_space(color_space),
+            i_slint_core::graphics::ConicGradientBrush::new_with_color_space(
+                angle,
+                color_space,
+                stops.drain(..),
+            ),
         ),
     }
 }

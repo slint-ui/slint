@@ -269,8 +269,9 @@ fn eval_expression(
             ))
         }
         Expression::ConicGradient { from_angle, stops, center, color_space } => {
-            let mut gradient = (i_slint_core::graphics::ConicGradientBrush::new(
+            let mut gradient = i_slint_core::graphics::ConicGradientBrush::new_with_color_space(
                 eval_expression(from_angle, local_context, None).try_into().unwrap_or_default(),
+                *color_space,
                 stops.iter().map(|(color, stop)| {
                     let color =
                         eval_expression(color, local_context, None).try_into().unwrap_or_default();
@@ -278,8 +279,7 @@ fn eval_expression(
                         eval_expression(stop, local_context, None).try_into().unwrap_or_default();
                     i_slint_core::graphics::GradientStop { color, position }
                 }),
-            ))
-            .with_color_space(*color_space);
+            );
             if let Some((cx, cy)) = center {
                 let cx: f32 =
                     eval_expression(cx, local_context, None).try_into().unwrap_or_default();

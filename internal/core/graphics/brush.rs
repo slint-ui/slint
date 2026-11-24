@@ -634,6 +634,17 @@ impl ConicGradientBrush {
     /// The angle need to be specified in degrees (CSS `from <angle>` syntax).
     /// The stops don't need to be sorted as this function will normalize and process them.
     pub fn new(angle: f32, stops: impl IntoIterator<Item = GradientStop>) -> Self {
+        Self::new_with_color_space(angle, GradientColorSpace::default(), stops)
+    }
+
+    /// Creates a new conic gradient like [`new()`](Self::new),
+    /// whose stops are interpolated in `color_space`.
+    #[doc(hidden)]
+    pub fn new_with_color_space(
+        angle: f32,
+        color_space: GradientColorSpace,
+        stops: impl IntoIterator<Item = GradientStop>,
+    ) -> Self {
         let stop_iter = stops.into_iter();
         let mut v = SharedVector::with_capacity(Self::HEADER + stop_iter.size_hint().0);
         // Header stops: angle, center_x (NaN=bbox), center_y (NaN=bbox),
@@ -643,7 +654,7 @@ impl ConicGradientBrush {
         v.push(GradientStop { color: Default::default(), position: f32::NAN });
         v.push(GradientStop {
             color: Default::default(),
-            position: encode_color_space(GradientColorSpace::default()),
+            position: encode_color_space(color_space),
         });
         v.extend(stop_iter);
         let mut result = Self(v);
@@ -652,12 +663,6 @@ impl ConicGradientBrush {
             result.apply_rotation(angle);
         }
         result
-    }
-    /// Sets the color space stops are interpolated in, returning `self` for chaining.
-    #[doc(hidden)]
-    pub fn with_color_space(mut self, color_space: GradientColorSpace) -> Self {
-        self.0.make_mut_slice()[Self::COLOR_SPACE].position = encode_color_space(color_space);
-        self
     }
 
     /// Normalizes the gradient stops to be within [0, 1] range with proper boundary stops.
@@ -676,6 +681,7 @@ impl ConicGradientBrush {
 
         // Need to make changes, so copy
         let mut stops: alloc::vec::Vec<_> = stops_slice.to_vec();
+        let color_space = self.color_space();
 
         // Add interpolated boundary stop at 0.0 if needed
         if !has_stop_at_0 {
@@ -687,7 +693,8 @@ impl ConicGradientBrush {
             });
             if let (Some(below), Some(above)) = (stop_below_0, stop_above_0) {
                 let t = (0.0 - below.position) / (above.position - below.position);
-                let color_at_0 = Self::interpolate_color(&below.color, &above.color, t);
+                let color_at_0 =
+                    Self::interpolate_color(&below.color, &above.color, t, color_space);
                 stops.insert(0, GradientStop { position: 0.0, color: color_at_0 });
             } else if let Some(above) = stop_above_0 {
                 stops.insert(0, GradientStop { position: 0.0, color: above.color });
@@ -707,7 +714,8 @@ impl ConicGradientBrush {
 
             if let (Some(below), Some(above)) = (stop_below_1, stop_above_1) {
                 let t = (1.0 - below.position) / (above.position - below.position);
-                let color_at_1 = Self::interpolate_color(&below.color, &above.color, t);
+                let color_at_1 =
+                    Self::interpolate_color(&below.color, &above.color, t, color_space);
                 stops.push(GradientStop { position: 1.0, color: color_at_1 });
             } else if let Some(below) = stop_below_1 {
                 stops.push(GradientStop { position: 1.0, color: below.color });
@@ -732,7 +740,7 @@ impl ConicGradientBrush {
         let angle = self.angle();
         let cx = self.center_x();
         let cy = self.center_y();
-        let color_space = encode_color_space(self.color_space());
+        let color_space = encode_color_space(color_space);
         self.0 = SharedVector::with_capacity(stops.len() + Self::HEADER);
         self.0.push(GradientStop { color: Default::default(), position: angle });
         self.0.push(GradientStop { color: Default::default(), position: cx });
@@ -759,6 +767,7 @@ impl ConicGradientBrush {
 
         // Need to rotate, so copy
         let mut stops: alloc::vec::Vec<_> = self.0.iter().skip(Self::HEADER).copied().collect();
+        let color_space = self.color_space();
 
         // Adjust first stop (at 0.0) to avoid duplicate with stop at 1.0
         if let Some(first) = stops.first_mut()
@@ -801,7 +810,7 @@ impl ConicGradientBrush {
             let gap = 1.0 - last.position + first.position;
             let color_at_0 = if gap > f32::EPSILON {
                 let t = (1.0 - last.position) / gap;
-                Self::interpolate_color(&last.color, &first.color, t)
+                Self::interpolate_color(&last.color, &first.color, t, color_space)
             } else {
                 last.color
             };
@@ -817,7 +826,7 @@ impl ConicGradientBrush {
         // (angle, center_x, center_y, color space)
         let cx = self.center_x();
         let cy = self.center_y();
-        let color_space = encode_color_space(self.color_space());
+        let color_space = encode_color_space(color_space);
         self.0 = SharedVector::with_capacity(stops.len() + Self::HEADER);
         self.0.push(GradientStop { color: Default::default(), position: from_angle });
         self.0.push(GradientStop { color: Default::default(), position: cx });
@@ -902,7 +911,15 @@ impl ConicGradientBrush {
     ///
     /// CSS gradients interpolate in premultiplied RGBA space:
     /// https://www.w3.org/TR/css-color-4/#interpolation-alpha
-    fn interpolate_color(c1: &Color, c2: &Color, factor: f32) -> Color {
+    fn interpolate_color(
+        c1: &Color,
+        c2: &Color,
+        factor: f32,
+        color_space: GradientColorSpace,
+    ) -> Color {
+        if color_space != GradientColorSpace::Srgb {
+            return c1.interpolate_in(*c2, factor, color_space);
+        }
         let argb1 = c1.to_argb_u8();
         let argb2 = c2.to_argb_u8();
 
@@ -1248,7 +1265,8 @@ pub fn resolve_brush<'a>(
     Some(match brush {
         Brush::SolidColor(color) => ResolvedBrush::SolidColor(*color),
         Brush::LinearGradient(gradient) => {
-            let (stops, extent) = sanitize_color_stops(gradient.stops_slice(), true);
+            let (stops, extent) =
+                sanitize_color_stops(gradient.stops_slice(), true, gradient.color_space());
             let (start, mut end) = line_for_angle(gradient.angle(), size.to_untyped());
             if extent != 1.0 {
                 // sanitize_color_stops scaled the offsets down into [0, 1]; scale
@@ -1263,7 +1281,8 @@ pub fn resolve_brush<'a>(
             })
         }
         Brush::RadialGradient(gradient) => {
-            let (stops, extent) = sanitize_color_stops(gradient.stops_slice(), true);
+            let (stops, extent) =
+                sanitize_color_stops(gradient.stops_slice(), true, gradient.color_space());
             let (center_x, center_y) =
                 gradient.center_or_default_scaled(size.width, size.height, scale_factor.get());
             let (radius_x, radius_y) =
@@ -1277,7 +1296,8 @@ pub fn resolve_brush<'a>(
             })
         }
         Brush::ConicGradient(gradient) => {
-            let (stops, _) = sanitize_color_stops(gradient.stops_slice(), false);
+            let (stops, _) =
+                sanitize_color_stops(gradient.stops_slice(), false, gradient.color_space());
             let (center_x, center_y) =
                 gradient.center_or_default_scaled(size.width, size.height, scale_factor.get());
             ResolvedBrush::ConicGradient(ResolvedConicGradient {
@@ -1299,14 +1319,18 @@ pub fn resolve_brush<'a>(
 fn sanitize_color_stops(
     stops: &[GradientStop],
     can_extend: bool,
+    color_space: GradientColorSpace,
 ) -> (Cow<'_, [GradientStop]>, f32) {
-    /// Plain per-channel interpolation, matching how the gradient ramp itself blends.
-    fn color_at(position: f32, a: &GradientStop, b: &GradientStop) -> Color {
+    // sRGB uses plain per-channel interpolation, like the software renderer.
+    let color_at = |position: f32, a: &GradientStop, b: &GradientStop| {
         let t = if b.position > a.position {
             ((position - a.position) / (b.position - a.position)).clamp(0., 1.)
         } else {
             0.
         };
+        if color_space != GradientColorSpace::Srgb {
+            return a.color.interpolate_in(b.color, t, color_space);
+        }
         let (ca, cb) = (a.color.to_argb_u8(), b.color.to_argb_u8());
         let lerp = |x: u8, y: u8| (x as f32 + (y as f32 - x as f32) * t) as u8;
         Color::from_argb_u8(
@@ -1315,7 +1339,7 @@ fn sanitize_color_stops(
             lerp(ca.green, cb.green),
             lerp(ca.blue, cb.blue),
         )
-    }
+    };
 
     // The compiler always produces canonical stop lists, so this fast path is the
     // common case. A NaN position fails these comparisons: slow path.
@@ -1855,7 +1879,7 @@ fn test_color_space_round_trip() {
             space
         );
         assert_eq!(
-            (ConicGradientBrush::new(0.0, stops)).with_color_space(space).color_space(),
+            ConicGradientBrush::new_with_color_space(0.0, space, stops).color_space(),
             space
         );
     }
@@ -1873,7 +1897,7 @@ fn test_gradient_equality_distinguishes_color_space() {
     );
     assert_ne!(
         ConicGradientBrush::new(0.0, stops),
-        (ConicGradientBrush::new(0.0, stops)).with_color_space(GradientColorSpace::Oklch)
+        ConicGradientBrush::new_with_color_space(0.0, GradientColorSpace::Oklch, stops)
     );
 }
 
@@ -1889,9 +1913,11 @@ fn test_color_space_preserved_through_color_transforms() {
     let radial = Brush::RadialGradient(
         (RadialGradientBrush::new_circle(stops)).with_color_space(GradientColorSpace::Oklab),
     );
-    let conic = Brush::ConicGradient(
-        (ConicGradientBrush::new(0.0, stops)).with_color_space(GradientColorSpace::Hsl),
-    );
+    let conic = Brush::ConicGradient(ConicGradientBrush::new_with_color_space(
+        0.0,
+        GradientColorSpace::Hsl,
+        stops,
+    ));
 
     for (brush, expected) in [
         (linear, GradientColorSpace::Oklch),
@@ -1907,17 +1933,60 @@ fn test_color_space_preserved_through_color_transforms() {
             }
         }
     }
+}
 
-    // normalize_stops() and apply_rotation() are exercised by ConicGradientBrush::new() itself.
-    let rotated = (ConicGradientBrush::new(
-        45.0,
-        [
-            GradientStop { position: -0.2, color: Color::from_rgb_u8(255, 0, 0) },
-            GradientStop { position: 1.2, color: Color::from_rgb_u8(0, 0, 255) },
-        ],
-    ))
-    .with_color_space(GradientColorSpace::Oklch);
-    assert_eq!(rotated.color_space(), GradientColorSpace::Oklch);
+#[test]
+fn test_added_stops_interpolate_in_color_space() {
+    let red = Color::from_rgb_u8(255, 0, 0);
+    let blue = Color::from_rgb_u8(0, 0, 255);
+    let space = GradientColorSpace::Oklch;
+    let assert_close = |actual: Color, expected: Color| {
+        let (a, e) = (actual.to_argb_u8(), expected.to_argb_u8());
+        let close = |x: u8, y: u8| x.abs_diff(y) <= 1;
+        assert!(
+            close(a.red, e.red) && close(a.green, e.green) && close(a.blue, e.blue),
+            "{actual:?} != {expected:?}"
+        );
+    };
+    // sRGB would give #4000BF, which is darker than the oklch ramp around it.
+    let oklch_at_three_quarters = red.interpolate_in(blue, 0.75, space);
+    assert_ne!(oklch_at_three_quarters, Color::from_rgb_u8(0x40, 0x00, 0xbf));
+
+    // Rotating by 90° adds a stop at 0 with the color three quarters along the original ramp.
+    let rotated = ConicGradientBrush::new_with_color_space(
+        90.0,
+        space,
+        [GradientStop { position: 0.0, color: red }, GradientStop { position: 1.0, color: blue }],
+    );
+    assert_eq!(rotated.color_space(), space);
+    assert_eq!(rotated.stops().next().unwrap().position, 0.0);
+    assert_close(rotated.stops().next().unwrap().color, oklch_at_three_quarters);
+
+    // Normalizing replaces a stop below 0 with the color at 0.
+    let normalized = ConicGradientBrush::new_with_color_space(
+        0.0,
+        space,
+        [GradientStop { position: -3.0, color: red }, GradientStop { position: 1.0, color: blue }],
+    );
+    assert_close(normalized.stops().next().unwrap().color, oklch_at_three_quarters);
+
+    // Resolving replaces a stop below 0 with the color at 0 too.
+    let linear = Brush::LinearGradient(
+        LinearGradientBrush::new(
+            180.,
+            [
+                GradientStop { position: -3.0, color: red },
+                GradientStop { position: 1.0, color: blue },
+            ],
+        )
+        .with_color_space(space),
+    );
+    let Some(ResolvedBrush::LinearGradient(resolved)) =
+        resolve_brush(&linear, [100., 50.].into(), ScaleFactor::new(1.0))
+    else {
+        panic!("expected a resolved linear gradient");
+    };
+    assert_close(resolved.stops[0].color, oklch_at_three_quarters);
 }
 
 #[test]
@@ -1953,9 +2022,11 @@ fn test_gradient_interpolation_snaps_color_space_at_end() {
     }
 
     let conic_src = Brush::ConicGradient(ConicGradientBrush::new(0.0, stops));
-    let conic_dst = Brush::ConicGradient(
-        (ConicGradientBrush::new(0.0, stops)).with_color_space(GradientColorSpace::Oklab),
-    );
+    let conic_dst = Brush::ConicGradient(ConicGradientBrush::new_with_color_space(
+        0.0,
+        GradientColorSpace::Oklab,
+        stops,
+    ));
     match conic_src.interpolate(&conic_dst, 0.5) {
         Brush::ConicGradient(g) => assert_eq!(g.color_space(), GradientColorSpace::Srgb),
         _ => panic!("Expected ConicGradient"),

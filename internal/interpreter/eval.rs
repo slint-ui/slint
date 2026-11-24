@@ -1074,8 +1074,11 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
         }
         Expression::ConicGradient { from_angle, stops, center, color_space } => {
             let from_angle: f32 = eval_expression(ctx, from_angle).try_into().unwrap_or_default();
-            let mut g = (ConicGradientBrush::new(from_angle, eval_stops(ctx, stops)))
-                .with_color_space(*color_space);
+            let mut g = ConicGradientBrush::new_with_color_space(
+                from_angle,
+                *color_space,
+                eval_stops(ctx, stops),
+            );
             if let Some((cx, cy)) = center {
                 let cx: f32 = eval_expression(ctx, cx).try_into().unwrap_or_default();
                 let cy: f32 = eval_expression(ctx, cy).try_into().unwrap_or_default();

@@ -4564,14 +4564,22 @@ fn compile_struct(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     }
 }
 
-fn compile_gradient_color_space_suffix(color_space: GradientColorSpace) -> TokenStream {
+fn compile_gradient_color_space(color_space: GradientColorSpace) -> TokenStream {
     let variant = match color_space {
-        GradientColorSpace::Srgb => return quote!(),
+        GradientColorSpace::Srgb => quote!(Srgb),
         GradientColorSpace::Oklch => quote!(Oklch),
         GradientColorSpace::Oklab => quote!(Oklab),
         GradientColorSpace::Hsl => quote!(Hsl),
     };
-    quote!(.with_color_space(sp::GradientColorSpace::#variant))
+    quote!(sp::GradientColorSpace::#variant)
+}
+
+fn compile_gradient_color_space_suffix(color_space: GradientColorSpace) -> TokenStream {
+    if color_space == GradientColorSpace::Srgb {
+        return quote!();
+    }
+    let color_space = compile_gradient_color_space(color_space);
+    quote!(.with_color_space(#color_space))
 }
 
 fn compile_linear_gradient(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
@@ -4631,14 +4639,17 @@ fn compile_conic_gradient(expr: &Expression, ctx: &EvaluationContext) -> TokenSt
         unreachable!()
     };
     let from_angle = compile_expression(from_angle, ctx);
-    let color_space = compile_gradient_color_space_suffix(*color_space);
     let stops = stops.iter().map(|(color, stop)| {
         let color = compile_expression(color, ctx);
         let position = compile_expression(stop, ctx);
         quote!(sp::GradientStop{ color: #color, position: #position as _ })
     });
-    let brush_expr =
-        quote!(sp::ConicGradientBrush::new(#from_angle as _, [#(#stops),*]) #color_space);
+    let brush_expr = if *color_space == GradientColorSpace::Srgb {
+        quote!(sp::ConicGradientBrush::new(#from_angle as _, [#(#stops),*]))
+    } else {
+        let color_space = compile_gradient_color_space(*color_space);
+        quote!(sp::ConicGradientBrush::new_with_color_space(#from_angle as _, #color_space, [#(#stops),*]))
+    };
     let brush_expr = if let Some((cx, cy)) = center {
         let cx = compile_expression(cx, ctx);
         let cy = compile_expression(cy, ctx);
