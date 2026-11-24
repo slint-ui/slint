@@ -8,8 +8,7 @@ use futures_util::{
     stream::{SplitSink, SplitStream},
 };
 use i_slint_live_preview::protocol::{
-    LspToPreviewMessage, PROTOCOL_SUBPROTOCOL, PreviewToDebuggerMessage, PreviewToLspMessage,
-    SLINT_VERSION_HEADER, session,
+    LspToPreviewMessage, PROTOCOL_SUBPROTOCOL, PreviewToLspMessage, SLINT_VERSION_HEADER, session,
 };
 use tokio::sync::{mpsc, oneshot};
 use tokio_tungstenite_wasm::{CloseCode, Message, WebSocketStream};
@@ -31,7 +30,6 @@ pub(super) enum ConnectionEvent {
         problem: Option<String>,
     },
     Message(PreviewToLspMessage),
-    DebuggerMessage(PreviewToDebuggerMessage),
     Ended {
         error: Option<String>,
     },
@@ -198,8 +196,8 @@ async fn receive(
                 };
                 match message {
                     PreviewToLspMessage::Pong => last_pong.set(tokio::time::Instant::now()),
-                    PreviewToLspMessage::Debugger(message) => {
-                        let _ = events.send(ConnectionEvent::DebuggerMessage(message));
+                    message @ PreviewToLspMessage::Debugger(_) => {
+                        let _ = events.send(ConnectionEvent::Message(message));
                     }
                     message => forward(events, message),
                 }

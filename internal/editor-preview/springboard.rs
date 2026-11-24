@@ -526,17 +526,17 @@ impl SpringboardTask {
                 let Some(error) = error else { return };
                 self.connection.fail(error);
             }
-            ConnectionEvent::Message(message) => {
-                let _ = self.to_editor.send(message);
-                return;
-            }
-            ConnectionEvent::DebuggerMessage(message) => {
+            ConnectionEvent::Message(PreviewToLspMessage::Debugger(message)) => {
                 let &PreviewToDebuggerMessage::SystemTestResponse { id, .. } = &message;
                 if self.connection.take_pending(id) {
                     let _ = self.to_debugger.send(message);
                 } else {
                     tracing::debug!("Dropping the response to request {id}, which isn't pending");
                 }
+                return;
+            }
+            ConnectionEvent::Message(message) => {
+                let _ = self.to_editor.send(message);
                 return;
             }
             ConnectionEvent::Ended { error } => {

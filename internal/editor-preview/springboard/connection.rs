@@ -137,12 +137,7 @@ impl Connection {
         match &mut self.preview {
             Some(ActivePreview::Remote { connection, .. }) => connection.next_event().await,
             Some(ActivePreview::Local { receiver, .. }) => {
-                receiver.recv().await.map(|message| match message {
-                    PreviewToLspMessage::Debugger(message) => {
-                        ConnectionEvent::DebuggerMessage(message)
-                    }
-                    message => ConnectionEvent::Message(message),
-                })
+                receiver.recv().await.map(ConnectionEvent::Message)
             }
             Some(ActivePreview::Serial { events, board, .. }) => {
                 Some(match events.recv().await? {
