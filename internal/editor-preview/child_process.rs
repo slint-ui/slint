@@ -314,7 +314,9 @@ pub(crate) mod tests {
     #[test]
     #[ignore]
     fn echo_child() {
-        use i_slint_live_preview::protocol::{DebuggerToPreviewMessage, PreviewToDebuggerMessage};
+        use i_slint_live_preview::protocol::{
+            DebuggerToPreviewMessage, PreviewToDebuggerMessage, SystemTestMessage,
+        };
 
         if !fixture_started() {
             return;
@@ -327,7 +329,7 @@ pub(crate) mod tests {
                     DebuggerToPreviewMessage::SystemTestRequest { id, .. },
                 )) => PreviewToLspMessage::Debugger(PreviewToDebuggerMessage::SystemTestResponse {
                     id,
-                    response: Ok(Vec::new()),
+                    response: Ok(SystemTestMessage(Vec::new())),
                 }),
                 _ => PreviewToLspMessage::DebugMessage { location: None, message: line },
             };

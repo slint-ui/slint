@@ -809,7 +809,7 @@ impl SpringboardTask {
 mod tests {
     use super::*;
     use crate::child_process::tests::{component, fixture_config, receive, started};
-    use i_slint_live_preview::protocol::pairing;
+    use i_slint_live_preview::protocol::{SystemTestMessage, pairing};
 
     /// A springboard whose discoveries report what the test sends.
     /// It asks the editor for its settings right away; the request is consumed here.
@@ -1221,7 +1221,7 @@ mod tests {
                     controller_with_debugger("echo_child");
                 controller.send_debugger_message(DebuggerToPreviewMessage::SystemTestRequest {
                     id: 7,
-                    request: vec![1],
+                    request: SystemTestMessage(vec![1]),
                 });
                 let response = tokio::time::timeout(Duration::from_secs(5), debugger.recv())
                     .await
@@ -1246,7 +1246,7 @@ mod tests {
                 started(&mut receiver).await;
                 controller.send_debugger_message(DebuggerToPreviewMessage::SystemTestRequest {
                     id: 7,
-                    request: vec![1],
+                    request: SystemTestMessage(vec![1]),
                 });
                 let response = tokio::time::timeout(Duration::from_secs(5), debugger.recv())
                     .await
@@ -1256,7 +1256,7 @@ mod tests {
                     response,
                     PreviewToDebuggerMessage::SystemTestResponse {
                         id: 7,
-                        response: Ok(Vec::new())
+                        response: Ok(SystemTestMessage(Vec::new()))
                     }
                 );
                 assert!(receiver.try_recv().is_err());
@@ -1286,10 +1286,12 @@ mod tests {
                     .unwrap();
                 controller.send_debugger_message(DebuggerToPreviewMessage::SystemTestRequest {
                     id: 7,
-                    request: vec![1],
+                    request: SystemTestMessage(vec![1]),
                 });
-                let response =
-                    PreviewToDebuggerMessage::SystemTestResponse { id: 7, response: Ok(vec![1]) };
+                let response = PreviewToDebuggerMessage::SystemTestResponse {
+                    id: 7,
+                    response: Ok(SystemTestMessage(vec![1])),
+                };
                 let queued = response.clone();
                 controller
                     .task_sender
@@ -1320,7 +1322,7 @@ mod tests {
                     .unwrap();
                 controller.send_debugger_message(DebuggerToPreviewMessage::SystemTestRequest {
                     id: 7,
-                    request: vec![1],
+                    request: SystemTestMessage(vec![1]),
                 });
                 // The child's answer goes to the dropped receiver, so the request stays pending.
                 controller
@@ -1354,7 +1356,7 @@ mod tests {
                 for _ in 0..2 {
                     controller.send_debugger_message(DebuggerToPreviewMessage::SystemTestRequest {
                         id: 7,
-                        request: vec![1],
+                        request: SystemTestMessage(vec![1]),
                     });
                 }
                 controller
@@ -1389,12 +1391,16 @@ mod tests {
                     .unwrap();
                 controller.send_debugger_message(DebuggerToPreviewMessage::SystemTestRequest {
                     id: 7,
-                    request: vec![1],
+                    request: SystemTestMessage(vec![1]),
                 });
-                let response =
-                    PreviewToDebuggerMessage::SystemTestResponse { id: 7, response: Ok(vec![1]) };
-                let unsolicited =
-                    PreviewToDebuggerMessage::SystemTestResponse { id: 8, response: Ok(vec![2]) };
+                let response = PreviewToDebuggerMessage::SystemTestResponse {
+                    id: 7,
+                    response: Ok(SystemTestMessage(vec![1])),
+                };
+                let unsolicited = PreviewToDebuggerMessage::SystemTestResponse {
+                    id: 8,
+                    response: Ok(SystemTestMessage(vec![2])),
+                };
                 let queued = [unsolicited, response.clone(), response.clone()];
                 controller
                     .task_sender
@@ -1830,8 +1836,10 @@ mod tests {
                 accept_plaintext(&controller).await;
                 initial_request(&mut upstream).await;
 
-                let request =
-                    DebuggerToPreviewMessage::SystemTestRequest { id: 7, request: vec![1] };
+                let request = DebuggerToPreviewMessage::SystemTestRequest {
+                    id: 7,
+                    request: SystemTestMessage(vec![1]),
+                };
                 controller.send_debugger_message(request.clone());
                 let event = viewer
                     .preview_event(|event| matches!(event, PreviewSessionEvent::Debugger(_)))
@@ -1840,8 +1848,10 @@ mod tests {
                     matches!(event, PreviewSessionEvent::Debugger(message) if message == request)
                 );
 
-                let response =
-                    PreviewToDebuggerMessage::SystemTestResponse { id: 7, response: Ok(vec![2]) };
+                let response = PreviewToDebuggerMessage::SystemTestResponse {
+                    id: 7,
+                    response: Ok(SystemTestMessage(vec![2])),
+                };
                 let to_editor = viewer.connection.preview_to_lsp();
                 to_editor.send(&PreviewToLspMessage::Debugger(response.clone())).unwrap();
                 let marker =

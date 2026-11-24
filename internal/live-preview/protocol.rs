@@ -10,7 +10,7 @@ pub mod session;
 mod snapshot_tests;
 mod versioned_url;
 
-pub use debugger::{DebuggerToPreviewMessage, PreviewToDebuggerMessage};
+pub use debugger::{DebuggerToPreviewMessage, PreviewToDebuggerMessage, SystemTestMessage};
 pub use lsp_to_preview::{
     LspToPreview, LspToPreviewMessage, PreviewComponent, PreviewConfig, RemoteConnectionState,
 };

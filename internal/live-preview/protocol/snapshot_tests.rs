@@ -16,7 +16,7 @@ use sha2::Digest as _;
 use super::pairing::{Confirmation, Element, Handshake, Role, Secrets, Token, TokenId};
 use super::{
     DebuggerToPreviewMessage, LspToPreviewMessage, PairingRejection, PreviewComponent,
-    PreviewToDebuggerMessage, PreviewToLspMessage, VersionedUrl, session,
+    PreviewToDebuggerMessage, PreviewToLspMessage, SystemTestMessage, VersionedUrl, session,
 };
 
 const SNAPSHOTS: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/protocol/snapshots.txt");
@@ -99,9 +99,9 @@ fn wire_format_matches_snapshots() {
 
     snapshots.assert_roundtrip(L::Debugger(DebuggerToPreviewMessage::SystemTestRequest {
         id: 7,
-        request: vec![1, 2, 3],
+        request: SystemTestMessage(vec![1, 2, 3]),
     }));
-    for response in [Ok(vec![1, 2, 3]), Err("disabled".into())] {
+    for response in [Ok(SystemTestMessage(vec![1, 2, 3])), Err("disabled".into())] {
         snapshots.assert_roundtrip(P::Debugger(PreviewToDebuggerMessage::SystemTestResponse {
             id: 7,
             response,
