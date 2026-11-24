@@ -2401,7 +2401,7 @@ impl<'a, T: RasterCommandSink> SoftwareItemRenderer<'a, T> {
         enum Pixels {
             Static(&'static [u8]),
             #[cfg(feature = "owned-pre-rendered-resources")]
-            Owned(Rc<StaticTextures<OwnedStorage>>),
+            Owned(alloc::sync::Arc<StaticTextures<OwnedStorage>>),
         }
         let mut draw_textures = |pixels: Pixels,
                                  textures: &[StaticTexture],
