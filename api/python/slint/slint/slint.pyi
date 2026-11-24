@@ -224,10 +224,12 @@ class StyledText:
 class LogicalPosition:
     r"""A 2D position in logical pixels."""
 
-    x: float
-    r"""The horizontal coordinate."""
-    y: float
-    r"""The vertical coordinate."""
+    @property
+    def x(self) -> float:
+        r"""The horizontal coordinate."""
+    @property
+    def y(self) -> float:
+        r"""The vertical coordinate."""
     def __new__(cls, x: float = 0.0, y: float = 0.0) -> Self: ...
     def __eq__(self, other: object) -> bool: ...
     def __hash__(self) -> int: ...
@@ -235,10 +237,12 @@ class LogicalPosition:
 class LogicalSize:
     r"""A 2D size in logical pixels."""
 
-    width: float
-    r"""The width."""
-    height: float
-    r"""The height."""
+    @property
+    def width(self) -> float:
+        r"""The width."""
+    @property
+    def height(self) -> float:
+        r"""The height."""
     def __new__(cls, width: float = 0.0, height: float = 0.0) -> Self: ...
     def __eq__(self, other: object) -> bool: ...
     def __hash__(self) -> int: ...
@@ -246,10 +250,12 @@ class LogicalSize:
 class PhysicalPosition:
     r"""A 2D position in physical pixels."""
 
-    x: int
-    r"""The horizontal coordinate."""
-    y: int
-    r"""The vertical coordinate."""
+    @property
+    def x(self) -> int:
+        r"""The horizontal coordinate."""
+    @property
+    def y(self) -> int:
+        r"""The vertical coordinate."""
     def __new__(cls, x: int = 0, y: int = 0) -> Self: ...
     def __eq__(self, other: object) -> bool: ...
     def __hash__(self) -> int: ...
@@ -257,10 +263,12 @@ class PhysicalPosition:
 class PhysicalSize:
     r"""A 2D size in physical pixels."""
 
-    width: int
-    r"""The width."""
-    height: int
-    r"""The height."""
+    @property
+    def width(self) -> int:
+        r"""The width."""
+    @property
+    def height(self) -> int:
+        r"""The height."""
     def __new__(cls, width: int = 0, height: int = 0) -> Self: ...
     def __eq__(self, other: object) -> bool: ...
     def __hash__(self) -> int: ...

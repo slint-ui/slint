@@ -13,15 +13,20 @@
 use pyo3::prelude::*;
 use std::hash::{Hash, Hasher};
 
+/// Python requires equal objects to hash the same, and `-0.0 == 0.0`.
+fn hash_bits(value: f32) -> u32 {
+    if value == 0.0 { 0 } else { value.to_bits() }
+}
+
 /// A 2D position in logical pixels.
-#[pyclass(name = "LogicalPosition", eq, from_py_object)]
+#[pyclass(name = "LogicalPosition", frozen, eq, from_py_object)]
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct PyLogicalPosition {
     /// The horizontal coordinate.
-    #[pyo3(get, set)]
+    #[pyo3(get)]
     pub x: f32,
     /// The vertical coordinate.
-    #[pyo3(get, set)]
+    #[pyo3(get)]
     pub y: f32,
 }
 
@@ -39,21 +44,21 @@ impl PyLogicalPosition {
 
     fn __hash__(&self) -> u64 {
         let mut h = std::collections::hash_map::DefaultHasher::new();
-        self.x.to_bits().hash(&mut h);
-        self.y.to_bits().hash(&mut h);
+        hash_bits(self.x).hash(&mut h);
+        hash_bits(self.y).hash(&mut h);
         h.finish()
     }
 }
 
 /// A 2D size in logical pixels.
-#[pyclass(name = "LogicalSize", eq, from_py_object)]
+#[pyclass(name = "LogicalSize", frozen, eq, from_py_object)]
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct PyLogicalSize {
     /// The width.
-    #[pyo3(get, set)]
+    #[pyo3(get)]
     pub width: f32,
     /// The height.
-    #[pyo3(get, set)]
+    #[pyo3(get)]
     pub height: f32,
 }
 
@@ -71,21 +76,21 @@ impl PyLogicalSize {
 
     fn __hash__(&self) -> u64 {
         let mut h = std::collections::hash_map::DefaultHasher::new();
-        self.width.to_bits().hash(&mut h);
-        self.height.to_bits().hash(&mut h);
+        hash_bits(self.width).hash(&mut h);
+        hash_bits(self.height).hash(&mut h);
         h.finish()
     }
 }
 
 /// A 2D position in physical pixels.
-#[pyclass(name = "PhysicalPosition", eq, from_py_object)]
+#[pyclass(name = "PhysicalPosition", frozen, eq, from_py_object)]
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct PyPhysicalPosition {
     /// The horizontal coordinate.
-    #[pyo3(get, set)]
+    #[pyo3(get)]
     pub x: i32,
     /// The vertical coordinate.
-    #[pyo3(get, set)]
+    #[pyo3(get)]
     pub y: i32,
 }
 
@@ -109,14 +114,14 @@ impl PyPhysicalPosition {
 }
 
 /// A 2D size in physical pixels.
-#[pyclass(name = "PhysicalSize", eq, from_py_object)]
+#[pyclass(name = "PhysicalSize", frozen, eq, from_py_object)]
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct PyPhysicalSize {
     /// The width.
-    #[pyo3(get, set)]
+    #[pyo3(get)]
     pub width: u32,
     /// The height.
-    #[pyo3(get, set)]
+    #[pyo3(get)]
     pub height: u32,
 }
 

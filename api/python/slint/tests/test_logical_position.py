@@ -50,6 +50,27 @@ def test_logical_size_defaults_to_zero() -> None:
     assert s.height == 0.0
 
 
+def test_logical_hash_of_negative_zero() -> None:
+    assert hash(slint.LogicalPosition(-0.0, 0.0)) == hash(
+        slint.LogicalPosition(0.0, 0.0)
+    )
+    assert hash(slint.LogicalSize(0.0, -0.0)) == hash(slint.LogicalSize(0.0, 0.0))
+
+
+@pytest.mark.parametrize(
+    ("value", "field"),
+    [
+        (slint.LogicalPosition(), "x"),
+        (slint.LogicalSize(), "width"),
+        (slint.PhysicalPosition(), "y"),
+        (slint.PhysicalSize(), "height"),
+    ],
+)
+def test_geometry_is_immutable(value: object, field: str) -> None:
+    with pytest.raises(AttributeError):
+        setattr(value, field, 1)
+
+
 def test_physical_position() -> None:
     p = slint.PhysicalPosition(-10, 20)
     assert (p.x, p.y) == (-10, 20)
