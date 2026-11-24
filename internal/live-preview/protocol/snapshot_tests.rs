@@ -97,14 +97,15 @@ fn wire_format_matches_snapshots() {
         confirmation: Confirmation::for_test(7),
     });
 
-    snapshots.assert_roundtrip(L::DebuggerMessage(DebuggerToPreviewMessage::SystemTestRequest {
+    snapshots.assert_roundtrip(L::Debugger(DebuggerToPreviewMessage::SystemTestRequest {
         id: 7,
         request: vec![1, 2, 3],
     }));
     for response in [Ok(vec![1, 2, 3]), Err("disabled".into())] {
-        snapshots.assert_roundtrip(P::DebuggerMessage(
-            PreviewToDebuggerMessage::SystemTestResponse { id: 7, response },
-        ));
+        snapshots.assert_roundtrip(P::Debugger(PreviewToDebuggerMessage::SystemTestResponse {
+            id: 7,
+            response,
+        }));
     }
 
     let mut sealer = session::Sealer::new([7; 32]);

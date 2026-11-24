@@ -117,7 +117,7 @@ pub enum PreviewToLspMessage {
     ConnectSerial { port: String },
     /// A message for the debugger.
     /// The Springboard passes it on, the LSP drops it.
-    DebuggerMessage(super::PreviewToDebuggerMessage),
+    Debugger(super::PreviewToDebuggerMessage),
 }
 
 impl PreviewToLspMessage {

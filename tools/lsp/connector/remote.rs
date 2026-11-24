@@ -622,7 +622,7 @@ impl RemoteLspToPreview {
                                 Ok(PreviewToLspMessage::Pong) => {
                                     last_pong.set(Instant::now());
                                 }
-                                Ok(PreviewToLspMessage::DebuggerMessage(msg)) => {
+                                Ok(PreviewToLspMessage::Debugger(msg)) => {
                                     tracing::debug!(
                                         "Ignoring debugger message from remote preview server: {msg:?}"
                                     );

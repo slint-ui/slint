@@ -101,7 +101,7 @@ impl DebugAgent {
                 .ok();
                 tracing::debug!("Registered font {url} ({len} bytes)");
             }
-            PreviewSessionEvent::DebuggerMessage(DebuggerToPreviewMessage::SystemTestRequest {
+            PreviewSessionEvent::Debugger(DebuggerToPreviewMessage::SystemTestRequest {
                 id,
                 request,
             }) => {

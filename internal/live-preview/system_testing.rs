@@ -43,7 +43,7 @@ fn spawn_answer(
 fn send(to_editor: &Weak<dyn PreviewToLsp>, id: u64, response: Result<Vec<u8>, String>) {
     let Some(to_editor) = to_editor.upgrade() else { return };
     to_editor
-        .send(&PreviewToLspMessage::DebuggerMessage(PreviewToDebuggerMessage::SystemTestResponse {
+        .send(&PreviewToLspMessage::Debugger(PreviewToDebuggerMessage::SystemTestResponse {
             id,
             response,
         }))
@@ -63,7 +63,7 @@ mod tests {
 
     impl PreviewToLsp for CaptureToDebugger {
         fn send(&self, message: &PreviewToLspMessage) -> crate::protocol::Result<()> {
-            let PreviewToLspMessage::DebuggerMessage(message) = message else {
+            let PreviewToLspMessage::Debugger(message) = message else {
                 unreachable!("System-test responses go to the debugger")
             };
             self.0.borrow_mut().push(message.clone());

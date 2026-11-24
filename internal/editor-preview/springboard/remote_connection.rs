@@ -198,7 +198,7 @@ async fn receive(
                 };
                 match message {
                     PreviewToLspMessage::Pong => last_pong.set(tokio::time::Instant::now()),
-                    PreviewToLspMessage::DebuggerMessage(message) => {
+                    PreviewToLspMessage::Debugger(message) => {
                         let _ = events.send(ConnectionEvent::DebuggerMessage(message));
                     }
                     message => forward(events, message),

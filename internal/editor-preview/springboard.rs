@@ -1294,7 +1294,7 @@ mod tests {
                 controller
                     .task_sender
                     .send(Box::new(move |_| {
-                        sender.send(PreviewToLspMessage::DebuggerMessage(queued)).unwrap();
+                        sender.send(PreviewToLspMessage::Debugger(queued)).unwrap();
                         sender.send(PreviewToLspMessage::Exited).unwrap();
                     }))
                     .unwrap();
@@ -1400,7 +1400,7 @@ mod tests {
                     .task_sender
                     .send(Box::new(move |_| {
                         for message in queued {
-                            sender.send(PreviewToLspMessage::DebuggerMessage(message)).unwrap();
+                            sender.send(PreviewToLspMessage::Debugger(message)).unwrap();
                         }
                         sender.send(PreviewToLspMessage::Exited).unwrap();
                     }))
@@ -1834,14 +1834,16 @@ mod tests {
                     DebuggerToPreviewMessage::SystemTestRequest { id: 7, request: vec![1] };
                 controller.send_debugger_message(request.clone());
                 let event = viewer
-                    .preview_event(|event| matches!(event, PreviewSessionEvent::DebuggerMessage(_)))
+                    .preview_event(|event| matches!(event, PreviewSessionEvent::Debugger(_)))
                     .await;
-                assert!(matches!(event, PreviewSessionEvent::DebuggerMessage(message) if message == request));
+                assert!(
+                    matches!(event, PreviewSessionEvent::Debugger(message) if message == request)
+                );
 
                 let response =
                     PreviewToDebuggerMessage::SystemTestResponse { id: 7, response: Ok(vec![2]) };
                 let to_editor = viewer.connection.preview_to_lsp();
-                to_editor.send(&PreviewToLspMessage::DebuggerMessage(response.clone())).unwrap();
+                to_editor.send(&PreviewToLspMessage::Debugger(response.clone())).unwrap();
                 let marker =
                     PreviewToLspMessage::DebugMessage { location: None, message: "marker".into() };
                 to_editor.send(&marker).unwrap();

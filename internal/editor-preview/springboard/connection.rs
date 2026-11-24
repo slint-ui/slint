@@ -138,7 +138,7 @@ impl Connection {
             Some(ActivePreview::Remote { connection, .. }) => connection.next_event().await,
             Some(ActivePreview::Local { receiver, .. }) => {
                 receiver.recv().await.map(|message| match message {
-                    PreviewToLspMessage::DebuggerMessage(message) => {
+                    PreviewToLspMessage::Debugger(message) => {
                         ConnectionEvent::DebuggerMessage(message)
                     }
                     message => ConnectionEvent::Message(message),
@@ -271,12 +271,12 @@ impl Connection {
         }
         match &self.preview {
             Some(ActivePreview::Local { preview, .. }) => {
-                preview.send_running(&LspToPreviewMessage::DebuggerMessage(message))
+                preview.send_running(&LspToPreviewMessage::Debugger(message))
             }
             Some(ActivePreview::Remote { connection, .. })
                 if self.state == ui::ConnectionState::Connected =>
             {
-                connection.send(LspToPreviewMessage::DebuggerMessage(message))
+                connection.send(LspToPreviewMessage::Debugger(message))
             }
             Some(ActivePreview::Remote { .. }) => {
                 return Err("The viewer isn't connected yet".into());
