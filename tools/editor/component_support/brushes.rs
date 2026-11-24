@@ -80,8 +80,6 @@ pub fn setup(properties_api: &ui::Properties<'_>) {
     });
     properties_api.on_clone_gradient_stops(clone_gradient_stops);
 
-    properties_api.on_create_brush(create_brush);
-
     properties_api.on_color_value_data(color_value_data);
     properties_api.on_color_value_color_edit(color_value_color_edit);
     properties_api.on_color_value_opacity_edit(color_value_opacity_edit);
@@ -212,22 +210,7 @@ fn sorted_gradient_stops(
     result
 }
 
-pub fn create_brush(
-    kind: ui::BrushKind,
-    angle: f32,
-    color: slint::Color,
-    stops: slint::ModelRc<ui::GradientStop>,
-) -> slint::Brush {
-    create_brush_with_color_space(
-        kind,
-        angle,
-        color,
-        stops,
-        i_slint_core::graphics::GradientColorSpace::Srgb,
-    )
-}
-
-fn create_brush_with_color_space(
+fn create_brush(
     kind: ui::BrushKind,
     angle: f32,
     color: slint::Color,
@@ -315,8 +298,7 @@ pub fn fill_from_brush(brush: slint::Brush) -> Option<ui::FillData> {
 
 pub fn fill_brush(fill: ui::FillData) -> slint::Brush {
     let color_space = fill.color_space.parse().unwrap_or_default();
-    let brush =
-        create_brush_with_color_space(fill.kind, fill.angle, fill.color, fill.stops, color_space);
+    let brush = create_brush(fill.kind, fill.angle, fill.color, fill.stops, color_space);
     match brush {
         slint::Brush::RadialGradient(mut g) => {
             if fill.radial_ellipse {
