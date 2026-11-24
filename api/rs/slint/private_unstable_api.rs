@@ -177,20 +177,12 @@ pub fn build_array_chunk(chunk: impl FnOnce()) {
     chunk()
 }
 
-/// [`Option::unwrap`] for the generated code, without a panic location for each call site.
-/// `Option::unwrap` is `#[track_caller]`, so every call site stores its own location in the binary.
+/// [`Option::unwrap`] for the generated code.
 #[inline]
 pub fn unwrap<T>(option: Option<T>) -> T {
-    match option {
-        Some(value) => value,
-        None => unwrap_failed(),
-    }
-}
-
-#[cold]
-#[inline(never)]
-fn unwrap_failed() -> ! {
-    panic!("called `Option::unwrap()` on a `None` value in generated code")
+    // Unlike `Option::unwrap`, this function isn't `#[track_caller]`,
+    // so its callers don't each store a panic location in the binary.
+    option.unwrap()
 }
 
 /// Panics because `dyn_index` doesn't refer to a repeater of the item tree.
