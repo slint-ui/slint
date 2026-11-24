@@ -66,7 +66,7 @@ impl EncodedImage {
         context: Option<&SlintContext>,
     ) -> Option<super::SharedImageBuffer> {
         match self.kind {
-            EncodedImageKind::Raster => self.decode_shared(context).map(|buffer| (*buffer).clone()),
+            EncodedImageKind::Raster => self.decode(),
             #[cfg(feature = "svg")]
             EncodedImageKind::Svg => {
                 match self.svg(context)?.render(_target_size_for_scalable_source) {
@@ -107,16 +107,35 @@ impl EncodedImage {
         }
     }
 
+    /// Decodes a still image into premultiplied RGBA pixels. The result isn't cached.
+    #[cfg(feature = "image-decoders")]
+    pub(crate) fn decode_rgba_premultiplied(
+        &self,
+    ) -> Option<super::SharedPixelBuffer<super::Rgba8Pixel>> {
+        if self.kind != EncodedImageKind::Raster {
+            return None;
+        }
+        let format = image_format(&self.format)?;
+        let decoded = match &self.source {
+            #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
+            ImageCacheKey::Path(path) => std::fs::File::open(path.path.as_str())
+                .map_err(image::ImageError::IoError)
+                .and_then(|file| decode_rgba_premultiplied(std::io::BufReader::new(file), format)),
+            _ => decode_rgba_premultiplied(std::io::Cursor::new(&*self.read()?), format),
+        };
+        decoded.map_err(|err| crate::debug_log!("Error decoding image: {err}")).ok()
+    }
+
     /// Returns the decoded still image, shared through the image cache of `context`.
     #[cfg(feature = "std")]
     pub(crate) fn decode_shared(
         &self,
-        context: Option<&SlintContext>,
+        context: &SlintContext,
     ) -> Option<Rc<super::SharedImageBuffer>> {
         if self.kind != EncodedImageKind::Raster {
             return None;
         }
-        super::cache::cached(context, &self.source, || {
+        super::cache::cached(Some(context), &self.source, || {
             let buffer = self.decode()?;
             let weight = super::cache::buffer_weight(&buffer);
             Some((buffer, weight))
@@ -184,6 +203,45 @@ fn decode_data(data: &[u8], format: image::ImageFormat) -> Option<super::SharedI
         .map(super::dynamic_image_to_shared_image_buffer)
         .map_err(|err| crate::debug_log!("Error decoding image: {err}"))
         .ok()
+}
+
+/// Decodes the still image `data` into premultiplied RGBA pixels.
+#[cfg(feature = "image-decoders")]
+fn decode_rgba_premultiplied(
+    data: impl std::io::BufRead + std::io::Seek,
+    format: image::ImageFormat,
+) -> image::ImageResult<super::SharedPixelBuffer<super::Rgba8Pixel>> {
+    use image::{ColorType, ImageDecoder};
+    let decoder = image::ImageReader::with_format(data, format).into_decoder()?;
+    #[cfg_attr(slint_nightly_test, allow(non_exhaustive_omitted_patterns))]
+    let channels = match decoder.color_type() {
+        ColorType::L8 => 1,
+        ColorType::La8 => 2,
+        ColorType::Rgb8 => 3,
+        ColorType::Rgba8 => 4,
+        _ => {
+            let image = image::DynamicImage::from_decoder(decoder)?.into_rgba8();
+            return Ok(super::rgba_image_to_premultiplied(image));
+        }
+    };
+    let (width, height) = decoder.dimensions();
+    let mut buffer = super::SharedPixelBuffer::<super::Rgba8Pixel>::new(width, height);
+    let bytes = buffer.make_mut_bytes();
+    let pixels = bytes.len() / 4;
+    decoder.read_image(&mut bytes[..pixels * channels])?;
+    // From the end, each RGBA pixel only overwrites decoded pixels that are already expanded.
+    for i in (0..pixels).rev() {
+        let [r, g, b, a] = match bytes[i * channels..(i + 1) * channels] {
+            [l] => [l, l, l, 255],
+            [l, a] => [l, l, l, a],
+            [r, g, b] => [r, g, b, 255],
+            [r, g, b, a] => [r, g, b, a],
+            _ => unreachable!(),
+        };
+        let pixel = super::Image::rgba_to_premultiplied_rgba(super::Rgba8Pixel { r, g, b, a });
+        bytes[i * 4..(i + 1) * 4].copy_from_slice(&[pixel.r, pixel.g, pixel.b, pixel.a]);
+    }
+    Ok(buffer)
 }
 
 /// Returns the image format with the file extension `extension`.
@@ -478,4 +536,53 @@ fn load_html(data: &[u8], extension: &[u8]) -> Option<super::HTMLImage> {
         return None;
     }
     super::HTMLImage::new_from_data(data, mime_type)
+}
+
+#[cfg(all(test, feature = "image-decoders"))]
+mod tests {
+    // cSpell: ignore Luma
+    use super::*;
+
+    /// Returns `buffer` as premultiplied RGBA bytes.
+    fn rgba_bytes(buffer: super::super::SharedImageBuffer) -> alloc::vec::Vec<u8> {
+        match buffer {
+            super::super::SharedImageBuffer::RGB8(pixels) => {
+                pixels.as_bytes().chunks(3).flat_map(|rgb| [rgb[0], rgb[1], rgb[2], 255]).collect()
+            }
+            super::super::SharedImageBuffer::RGBA8Premultiplied(pixels) => pixels.as_bytes().into(),
+            _ => unreachable!(),
+        }
+    }
+
+    #[test]
+    fn decode_rgba_premultiplied_matches_decode() {
+        let pixels =
+            |channels: usize| (0..2 * 3 * channels).map(|i| (i * 37 % 256) as u8).collect();
+        let images = [
+            image::DynamicImage::ImageLuma8(image::ImageBuffer::from_raw(2, 3, pixels(1)).unwrap()),
+            image::DynamicImage::ImageLumaA8(
+                image::ImageBuffer::from_raw(2, 3, pixels(2)).unwrap(),
+            ),
+            image::DynamicImage::ImageRgb8(image::ImageBuffer::from_raw(2, 3, pixels(3)).unwrap()),
+            image::DynamicImage::ImageRgba8(image::ImageBuffer::from_raw(2, 3, pixels(4)).unwrap()),
+            image::DynamicImage::ImageRgba16(
+                image::ImageBuffer::from_raw(2, 3, (0..24).map(|i| i * 2731).collect()).unwrap(),
+            ),
+        ];
+        let encoded = images
+            .iter()
+            .map(|image| (image::ImageFormat::Png, image))
+            .chain([(image::ImageFormat::Jpeg, &images[2])])
+            .map(|(format, image)| {
+                let mut data = std::io::Cursor::new(alloc::vec::Vec::new());
+                image.write_to(&mut data, format).unwrap();
+                (format, data.into_inner())
+            });
+        for (format, data) in encoded {
+            let rgba = decode_rgba_premultiplied(std::io::Cursor::new(&data), format).unwrap();
+            assert_eq!((rgba.width(), rgba.height()), (2, 3), "{format:?}");
+            let expected = rgba_bytes(decode_data(&data, format).unwrap());
+            assert_eq!(rgba.as_bytes(), expected.as_slice(), "{format:?}");
+        }
+    }
 }

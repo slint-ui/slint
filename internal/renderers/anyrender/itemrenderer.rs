@@ -52,7 +52,6 @@ pub struct AnyrenderItemRenderer<'a, S: PaintScene> {
     window: &'a i_slint_core::api::Window,
     scale_factor: ScaleFactor,
     scene: &'a mut S,
-    image_cache: &'a std::cell::RefCell<crate::ImageConversionCache>,
     item_image_cache: &'a ItemCache<Option<crate::SharedImageData>>,
     text_layout_cache: &'a sharedparley::TextLayoutCache,
     texture_importer: Option<&'a dyn crate::TextureImporter>,
@@ -66,7 +65,6 @@ impl<'a, S: PaintScene> AnyrenderItemRenderer<'a, S> {
         width: u32,
         height: u32,
         window: &'a i_slint_core::api::Window,
-        image_cache: &'a std::cell::RefCell<crate::ImageConversionCache>,
         item_image_cache: &'a ItemCache<Option<crate::SharedImageData>>,
         text_layout_cache: &'a sharedparley::TextLayoutCache,
     ) -> Self {
@@ -75,7 +73,6 @@ impl<'a, S: PaintScene> AnyrenderItemRenderer<'a, S> {
             width,
             height,
             window,
-            image_cache,
             item_image_cache,
             text_layout_cache,
             kurbo::Affine::IDENTITY,
@@ -90,7 +87,6 @@ impl<'a, S: PaintScene> AnyrenderItemRenderer<'a, S> {
         width: u32,
         height: u32,
         window: &'a i_slint_core::api::Window,
-        image_cache: &'a std::cell::RefCell<crate::ImageConversionCache>,
         item_image_cache: &'a ItemCache<Option<crate::SharedImageData>>,
         text_layout_cache: &'a sharedparley::TextLayoutCache,
         initial_transform: kurbo::Affine,
@@ -100,7 +96,6 @@ impl<'a, S: PaintScene> AnyrenderItemRenderer<'a, S> {
             window,
             scale_factor,
             scene,
-            image_cache,
             item_image_cache,
             text_layout_cache,
             texture_importer: None,
@@ -246,7 +241,6 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
                     resolve_image_fit(),
                     self.scale_factor,
                     transform_scale,
-                    self.image_cache,
                     self.texture_importer,
                     context,
                 )
@@ -369,7 +363,8 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
                 }) {
                     Some(tile)
                 } else {
-                    self.image_cache.borrow_mut().get_or_insert(
+                    crate::imagecache::converted(
+                        context,
                         ImageCacheKey::new(image_inner),
                         crate::imagecache::ImageVariant::Tile {
                             source_width: image_data.width,
@@ -707,7 +702,6 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
             ImageFit::Fill,
             self.scale_factor,
             1.,
-            self.image_cache,
             self.texture_importer,
             self.window().context(),
         ) else {
@@ -1170,7 +1164,6 @@ fn load_image(
     image_fit: ImageFit,
     scale_factor: ScaleFactor,
     transform_scale: f32,
-    image_cache: &std::cell::RefCell<crate::ImageConversionCache>,
     texture_importer: Option<&dyn crate::TextureImporter>,
     context: &i_slint_core::SlintContext,
 ) -> Option<crate::SharedImageData> {
@@ -1195,7 +1188,8 @@ fn load_image(
                 Default::default(),
                 transform_scale,
             )?;
-            image_cache.borrow_mut().get_or_insert(
+            crate::imagecache::converted(
+                context,
                 ImageCacheKey::new(image_inner),
                 ImageVariant::Sized { width: render_size.width, height: render_size.height },
                 || {
@@ -1219,19 +1213,21 @@ fn load_image(
                 },
             )
         }
-        ImageInner::StaticTextures(_) | ImageInner::Encoded(_) => image_cache
-            .borrow_mut()
-            .get_or_insert(ImageCacheKey::new(image_inner), ImageVariant::Full, || {
-                let buffer = image_inner.render_to_buffer(None, Some(context))?;
+        ImageInner::StaticTextures(_) | ImageInner::Encoded(_) => crate::imagecache::converted(
+            context,
+            ImageCacheKey::new(image_inner),
+            ImageVariant::Full,
+            || {
+                let buffer = image_inner.render_to_premultiplied_buffer(None, context)?;
                 image_buffer_to_peniko_image(&buffer)
-            }),
+            },
+        ),
         ImageInner::NineSlice(n) => load_image(
             n.image(),
             target_size_fn,
             ImageFit::Preserve,
             scale_factor,
             transform_scale,
-            image_cache,
             texture_importer,
             context,
         ),

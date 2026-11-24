@@ -93,7 +93,7 @@ pub(crate) fn as_skia_image(
             .map(Rc::new),
         _ => {
             let create = || {
-                let buffer = image_inner.render_to_buffer(None, Some(context))?;
+                let buffer = image_inner.render_to_premultiplied_buffer(None, context)?;
                 let image = image_buffer_to_skia_image(&buffer)?;
                 let weight = image.image_info().compute_min_byte_size();
                 Some((image, weight))

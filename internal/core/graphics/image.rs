@@ -634,7 +634,8 @@ impl ImageInner {
     /// Returns None if the image can't be rendered in a buffer or if the image is empty
     ///
     /// An SVG or an animation is parsed through the image cache of `context`, or without a
-    /// context, isn't cached.
+    /// context, isn't cached. A still image is decoded on each call;
+    /// [`Self::decode_shared`] shares its pixels through the image cache.
     #[cfg_attr(not(feature = "std"), allow(clippy::only_used_in_recursion))]
     pub fn render_to_buffer(
         &self,
@@ -659,6 +660,22 @@ impl ImageInner {
         }
     }
 
+    /// Like [`Self::render_to_buffer`], but a still image is decoded into premultiplied RGBA
+    /// pixels, which renderers can wrap without a copy.
+    pub fn render_to_premultiplied_buffer(
+        &self,
+        target_size_for_scalable_source: Option<euclid::Size2D<u32, PhysicalPx>>,
+        context: &crate::SlintContext,
+    ) -> Option<SharedImageBuffer> {
+        match self {
+            #[cfg(feature = "image-decoders")]
+            ImageInner::Encoded(encoded) if encoded.kind() == EncodedImageKind::Raster => {
+                encoded.decode_rgba_premultiplied().map(SharedImageBuffer::RGBA8Premultiplied)
+            }
+            _ => self.render_to_buffer(target_size_for_scalable_source, Some(context)),
+        }
+    }
+
     /// Returns the pixels of a raster image that's decoded when drawn,
     /// or `None` for other images and for one that fails to decode.
     #[cfg(feature = "std")]
@@ -667,7 +684,7 @@ impl ImageInner {
         context: &crate::SlintContext,
     ) -> Option<alloc::rc::Rc<SharedImageBuffer>> {
         match self {
-            ImageInner::Encoded(encoded) => encoded.decode_shared(Some(context)),
+            ImageInner::Encoded(encoded) => encoded.decode_shared(context),
             ImageInner::NineSlice(nine) => nine.0.decode_shared(context),
             _ => None,
         }
