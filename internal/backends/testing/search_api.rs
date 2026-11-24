@@ -426,6 +426,9 @@ impl ElementHandle {
         &self,
         mut visitor: impl FnMut(ElementHandle) -> ControlFlow<R>,
     ) -> Option<R> {
+        if !self.has_debug_info() {
+            return None;
+        }
         let item = self.item.upgrade()?;
         match Self::visit_child_items(&item, &self.active_popups(), &mut visitor) {
             ControlFlow::Break(result) => Some(result),
