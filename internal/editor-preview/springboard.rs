@@ -115,6 +115,11 @@ pub enum DebuggerEvent {
     Message { id: u64, message: PreviewToDebuggerMessage },
     /// A message from the preview that answers no request.
     Notification(PreviewToDebuggerNotification),
+    /// The preview's compiler diagnostics for `uri`.
+    Diagnostics { uri: lsp_types::Url, diagnostics: Vec<lsp_types::Diagnostic> },
+    /// The output of a `debug()` call in the preview.
+    /// `location` is the file path, line and column.
+    DebugMessage { location: Option<(PathBuf, usize, usize)>, message: String },
     /// The preview went away, so requests it hasn't answered get no answer.
     PreviewEnded,
 }
@@ -141,7 +146,8 @@ struct SpringboardTask {
 
 impl Springboard {
     /// Passes the preview's messages to the editor on `to_editor`,
-    /// and its debugger messages on `to_debugger`.
+    /// and its debugger messages and diagnostics on `to_debugger`.
+    /// Its `debug()` output goes to both.
     pub fn new(
         local_preview: LocalPreviewConfig,
         to_editor: mpsc::UnboundedSender<PreviewToLspMessage>,
@@ -543,6 +549,21 @@ impl SpringboardTask {
             }
             ConnectionEvent::Message(PreviewToLspMessage::DebuggerNotification(notification)) => {
                 let _ = self.to_debugger.send(DebuggerEvent::Notification(notification));
+                return;
+            }
+            ConnectionEvent::Message(PreviewToLspMessage::Diagnostics {
+                uri, diagnostics, ..
+            }) => {
+                let _ = self.to_debugger.send(DebuggerEvent::Diagnostics { uri, diagnostics });
+                return;
+            }
+            ConnectionEvent::Message(PreviewToLspMessage::DebugMessage { location, message }) => {
+                let _ = self.to_debugger.send(DebuggerEvent::DebugMessage {
+                    location: location.clone(),
+                    message: message.clone(),
+                });
+                let _ =
+                    self.to_editor.send(PreviewToLspMessage::DebugMessage { location, message });
                 return;
             }
             ConnectionEvent::Message(message) => {
@@ -1236,6 +1257,67 @@ mod tests {
         tokio::time::timeout(Duration::from_secs(5), debugger.recv()).await.unwrap().unwrap()
     }
 
+    /// Like [`started`], and takes the copy of the process ID the debugger receives.
+    async fn started_with_debugger(
+        receiver: &mut mpsc::UnboundedReceiver<PreviewToLspMessage>,
+        debugger: &mut mpsc::UnboundedReceiver<DebuggerEvent>,
+    ) {
+        let process_id = started(receiver).await;
+        assert_eq!(
+            receive_debugger(debugger).await,
+            DebuggerEvent::DebugMessage { location: None, message: process_id.to_string() }
+        );
+    }
+
+    #[tokio::test]
+    async fn the_debugger_gets_a_local_previews_console_in_order() {
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                let (controller, mut receiver, mut debugger, _discovery, _usb) =
+                    controller_with_debugger("echo_child");
+                controller.start();
+                started_with_debugger(&mut receiver, &mut debugger).await;
+                let reloaded = PreviewToDebuggerNotification::Reloaded { success: false };
+                let diagnostics = vec![lsp_types::Diagnostic {
+                    severity: Some(lsp_types::DiagnosticSeverity::ERROR),
+                    message: "error".into(),
+                    ..Default::default()
+                }];
+                let location = Some((PathBuf::from("/fixture.slint"), 3, 5));
+                let debug = PreviewToLspMessage::DebugMessage {
+                    location: location.clone(),
+                    message: "debug".into(),
+                };
+                let (sender, endpoint) = mpsc::unbounded_channel();
+                controller
+                    .task_sender
+                    .send(Box::new(move |task| task.connection.replace_local_receiver(endpoint)))
+                    .unwrap();
+                for message in [
+                    PreviewToLspMessage::DebuggerNotification(reloaded.clone()),
+                    PreviewToLspMessage::Diagnostics {
+                        uri: component().url,
+                        version: Some(2),
+                        diagnostics: diagnostics.clone(),
+                    },
+                    debug.clone(),
+                ] {
+                    sender.send(message).unwrap();
+                }
+                for expected in [
+                    DebuggerEvent::Notification(reloaded),
+                    DebuggerEvent::Diagnostics { uri: component().url, diagnostics },
+                    DebuggerEvent::DebugMessage { location, message: "debug".into() },
+                ] {
+                    assert_eq!(receive_debugger(&mut debugger).await, expected);
+                }
+                assert_forwarded(&mut receiver, &[debug]).await;
+                assert!(receiver.try_recv().is_err());
+                controller.shutdown().await;
+            })
+            .await;
+    }
+
     #[tokio::test]
     async fn the_debugger_gets_an_error_without_a_preview() {
         tokio::task::LocalSet::new()
@@ -1265,7 +1347,7 @@ mod tests {
                 let (controller, mut receiver, mut debugger, _discovery, _usb) =
                     controller_with_debugger("echo_child");
                 controller.start();
-                started(&mut receiver).await;
+                started_with_debugger(&mut receiver, &mut debugger).await;
                 controller.send_debugger_message(
                     7,
                     DebuggerToPreviewMessage::SystemTestRequest(SystemTestMessage(vec![1])),
@@ -1287,7 +1369,7 @@ mod tests {
                 let (controller, mut receiver, mut debugger, _discovery, _usb) =
                     controller_with_debugger("echo_child");
                 controller.start();
-                started(&mut receiver).await;
+                started_with_debugger(&mut receiver, &mut debugger).await;
                 let (sender, endpoint) = mpsc::unbounded_channel();
                 controller
                     .task_sender
@@ -1633,15 +1715,10 @@ mod tests {
             viewer.connection.send(PreviewToLspMessage::Exited).unwrap();
             viewer.connection.send(PreviewToLspMessage::Pong).unwrap();
             viewer.connection.send(PreviewToLspMessage::DebugMessage { location: None, message: "after malformed payload".into() }).unwrap();
-            tokio::time::timeout(Duration::from_secs(5), async {
-                loop {
-                    match upstream.recv().await.unwrap() {
-                        PreviewToLspMessage::DebugMessage { message, .. } if message == "after malformed payload" => break,
-                        PreviewToLspMessage::Diagnostics { .. } => {},
-                        message => panic!("Unrelated remote control reached the editor: {message:?}"),
-                    }
-                }
-            }).await.unwrap();
+            match receive(&mut upstream).await {
+                PreviewToLspMessage::DebugMessage { message, .. } if message == "after malformed payload" => {}
+                message => panic!("Unrelated remote control reached the editor: {message:?}"),
+            }
 
             assert!(matches!(viewer.preview_event(|event| matches!(event, PreviewSessionEvent::HighlightFromEditor { .. })).await, PreviewSessionEvent::HighlightFromEditor { url: Some(url), offset: 17 } if url == component().url));
             controller.send(&LspToPreviewMessage::HighlightFromEditor { url: None, offset: 0 });
@@ -1668,7 +1745,8 @@ mod tests {
         tokio::task::LocalSet::new()
             .run_until(async {
                 let mut viewer = Viewer::start(PairingPolicy::Disabled, 0).await;
-                let (controller, mut upstream, discovered, _usb) = controller("echo_child");
+                let (controller, mut upstream, mut debugger, discovered, _usb) =
+                    controller_with_debugger("echo_child");
                 discover(
                     &controller,
                     &discovered,
@@ -1704,7 +1782,15 @@ mod tests {
                 for message in refused.chain(allowed.clone()) {
                     viewer.connection.send(message).unwrap();
                 }
-                assert_forwarded(&mut upstream, &allowed).await;
+                assert_forwarded(&mut upstream, &allowed[1..]).await;
+                assert_eq!(
+                    receive_debugger(&mut debugger).await,
+                    DebuggerEvent::Diagnostics { uri: component().url, diagnostics: Vec::new() }
+                );
+                assert_eq!(
+                    receive_debugger(&mut debugger).await,
+                    DebuggerEvent::DebugMessage { location: None, message: "remote".into() }
+                );
                 let (connection, error) = inspect(&controller, |task| {
                     (task.connection.state, task.connection.error.clone())
                 })
@@ -1762,6 +1848,10 @@ mod tests {
                 assert_eq!(
                     receive_debugger(&mut debugger).await,
                     system_test_response(7, Ok(vec![2]))
+                );
+                assert_eq!(
+                    receive_debugger(&mut debugger).await,
+                    DebuggerEvent::DebugMessage { location: None, message: "marker".into() }
                 );
                 assert_forwarded(&mut upstream, &[marker]).await;
                 controller.close();
