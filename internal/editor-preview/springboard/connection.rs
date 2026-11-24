@@ -1,17 +1,16 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::{collections::HashSet, ffi::OsString, pin::Pin};
+use std::{ffi::OsString, pin::Pin};
 
 use i_slint_live_preview::protocol::{
-    DebuggerToPreviewMessage, LspToPreviewMessage, PreviewToDebuggerMessage, PreviewToLspMessage,
-    pairing,
+    DebuggerToPreviewMessage, LspToPreviewMessage, PreviewToLspMessage, pairing,
 };
 use tokio::sync::{mpsc, oneshot};
 
-use super::LocalPreviewConfig;
 use super::discovery::RemoteViewer;
 use super::remote_connection::{self, ConnectionEvent, DialError, RemoteConnection};
+use super::{DebuggerEvent, LocalPreviewConfig};
 use crate::{
     child_process::ChildProcessLspToPreview,
     remote_authentication::{PairingAnswer, PairingCredentials, PairingPrompt},
@@ -42,34 +41,16 @@ pub(super) struct Connection {
     pub(super) pairing_code_length: Option<u8>,
     pub(super) error: String,
     preview: Option<ActivePreview>,
-    pending_requests: Option<PendingRequests>,
+    end_notice: Option<EndNotice>,
 }
 
-/// The IDs of the system-test requests forwarded to the preview that it hasn't answered.
-/// Dropping it answers them with an error, so the debugger doesn't wait for a preview that's gone.
-struct PendingRequests {
-    ids: HashSet<u64>,
-    to_debugger: mpsc::UnboundedSender<(u64, PreviewToDebuggerMessage)>,
-}
+/// Sends [`DebuggerEvent::PreviewEnded`] when dropped with its preview,
+/// so the debugger stops waiting for answers.
+struct EndNotice(mpsc::UnboundedSender<DebuggerEvent>);
 
-impl PendingRequests {
-    fn new(to_debugger: mpsc::UnboundedSender<(u64, PreviewToDebuggerMessage)>) -> Self {
-        Self { ids: HashSet::new(), to_debugger }
-    }
-}
-
-impl Drop for PendingRequests {
+impl Drop for EndNotice {
     fn drop(&mut self) {
-        let mut ids: Vec<u64> = self.ids.drain().collect();
-        ids.sort_unstable();
-        for id in ids {
-            let _ = self.to_debugger.send((
-                id,
-                PreviewToDebuggerMessage::SystemTestResponse(Err(
-                    "The preview ended before answering".into(),
-                )),
-            ));
-        }
+        let _ = self.0.send(DebuggerEvent::PreviewEnded);
     }
 }
 
@@ -77,7 +58,7 @@ impl Connection {
     pub(super) fn local(
         config: &LocalPreviewConfig,
         arguments: Vec<OsString>,
-        to_debugger: mpsc::UnboundedSender<(u64, PreviewToDebuggerMessage)>,
+        to_debugger: mpsc::UnboundedSender<DebuggerEvent>,
     ) -> Self {
         let (sender, receiver) = mpsc::unbounded_channel();
         let preview = ChildProcessLspToPreview::new(config.executable.clone(), arguments, sender)
@@ -86,7 +67,7 @@ impl Connection {
             Ok(()) => Self {
                 state: ui::ConnectionState::Connected,
                 preview: Some(ActivePreview::Local { preview, receiver }),
-                pending_requests: Some(PendingRequests::new(to_debugger)),
+                end_notice: Some(EndNotice(to_debugger)),
                 ..Default::default()
             },
             Err(error) => Self {
@@ -100,7 +81,7 @@ impl Connection {
     pub(super) fn remote(
         viewer: RemoteViewer,
         credentials: Option<PairingCredentials>,
-        to_debugger: mpsc::UnboundedSender<(u64, PreviewToDebuggerMessage)>,
+        to_debugger: mpsc::UnboundedSender<DebuggerEvent>,
     ) -> Self {
         Self {
             state: ui::ConnectionState::Connecting,
@@ -108,7 +89,7 @@ impl Connection {
                 connection: RemoteConnection::connect(viewer, credentials),
                 pairing_answer: None,
             }),
-            pending_requests: Some(PendingRequests::new(to_debugger)),
+            end_notice: Some(EndNotice(to_debugger)),
             ..Default::default()
         }
     }
@@ -155,14 +136,9 @@ impl Connection {
         }
     }
 
-    /// Marks the request `id` as answered, and returns whether it was pending.
-    pub(super) fn take_pending(&mut self, id: u64) -> bool {
-        self.pending_requests.as_mut().is_some_and(|pending| pending.ids.remove(&id))
-    }
-
     pub(super) fn fail(&mut self, error: String) {
         self.preview = None;
-        self.pending_requests = None;
+        self.end_notice = None;
         self.pairing_code_length = None;
         self.state = ui::ConnectionState::Failed;
         self.error = error;
@@ -255,25 +231,19 @@ impl Connection {
     }
 
     /// Sends the debugger's `message` to the preview, once connected.
-    /// Drops a request that reuses the ID of an unanswered one.
     /// Returns why it wasn't sent.
     pub(super) fn send_debugger_message(
-        &mut self,
+        &self,
         id: u64,
         message: DebuggerToPreviewMessage,
     ) -> Result<(), String> {
-        if self.pending_requests.as_ref().is_some_and(|pending| pending.ids.contains(&id)) {
-            tracing::warn!("Dropping the debugger request {id}, its ID is still unanswered");
-            return Ok(());
-        }
+        let message = LspToPreviewMessage::Debugger { id, message };
         match &self.preview {
-            Some(ActivePreview::Local { preview, .. }) => {
-                preview.send_running(&LspToPreviewMessage::Debugger { id, message })
-            }
+            Some(ActivePreview::Local { preview, .. }) => preview.send_running(&message),
             Some(ActivePreview::Remote { connection, .. })
                 if self.state == ui::ConnectionState::Connected =>
             {
-                connection.send(LspToPreviewMessage::Debugger { id, message })
+                connection.send(message)
             }
             Some(ActivePreview::Remote { .. }) => {
                 return Err("The viewer isn't connected yet".into());
@@ -282,9 +252,6 @@ impl Connection {
                 return Err("Serial previews don't answer debugger requests".into());
             }
             None => return Err("No preview is running".into()),
-        }
-        if let Some(pending) = &mut self.pending_requests {
-            pending.ids.insert(id);
         }
         Ok(())
     }
