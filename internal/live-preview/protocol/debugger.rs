@@ -19,6 +19,15 @@ pub enum PreviewToDebuggerMessage {
     SystemTestResponse(Result<SystemTestMessage, String>),
 }
 
+/// A message from a preview to the debugger that answers no request.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+pub enum PreviewToDebuggerNotification {
+    /// A `SubscriptionNotification` from `slint_systest.proto`,
+    /// pushed by a subscription a system-testing request created.
+    /// It can arrive after the debugger unsubscribed.
+    SubscriptionNotification(SystemTestMessage),
+}
+
 /// A protobuf-encoded message from `slint_systest.proto`.
 /// Human-readable formats carry it as base64, where JSON would spell out every byte as a number.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]

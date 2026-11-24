@@ -119,6 +119,9 @@ pub enum PreviewToLspMessage {
     /// The Springboard passes it on, the LSP drops it.
     /// It carries the `id` of the [`super::LspToPreviewMessage::Debugger`] it answers.
     Debugger { id: u64, message: super::PreviewToDebuggerMessage },
+    /// A message for the debugger that answers no request.
+    /// The Springboard passes it on, the LSP drops it.
+    DebuggerNotification(super::PreviewToDebuggerNotification),
 }
 
 impl PreviewToLspMessage {
