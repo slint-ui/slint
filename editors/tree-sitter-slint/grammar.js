@@ -791,13 +791,10 @@ module.exports = grammar({
           field(
             "arguments",
             seq(
+              // CSS joins the header and `in <color-space>` with `||`.
               choice(
-                seq(
-                  "in",
-                  field("color_space", $.gradient_color_space),
-                  optional(field("angle", $.expression)),
-                ),
-                field("angle", $.expression),
+                seq($._color_interpolation, optional(field("angle", $.expression))),
+                seq(field("angle", $.expression), optional($._color_interpolation)),
               ),
               ",",
               field("colors", commaSep2($.gradient_color)),
@@ -812,7 +809,7 @@ module.exports = grammar({
           field(
             "arguments",
             seq(
-              optional(seq("in", field("color_space", $.gradient_color_space))),
+              optional($._color_interpolation),
               field("type", $.radial_gradient_kind),
               // One radius for a circle, two for an ellipse.
               optional(seq(
@@ -824,6 +821,7 @@ module.exports = grammar({
                 field("center_x", $.expression),
                 field("center_y", $.expression),
               )),
+              optional($._color_interpolation),
               ",",
               field("colors", commaSep2($.gradient_color)),
               optional(","),
@@ -837,13 +835,14 @@ module.exports = grammar({
           field(
             "arguments",
             seq(
-              optional(seq("in", field("color_space", $.gradient_color_space))),
+              optional($._color_interpolation),
               optional(seq("from", field("from_angle", $.expression))),
               optional(seq(
                 "at",
                 field("center_x", $.expression),
                 field("center_y", $.expression),
               )),
+              optional($._color_interpolation),
               optional(","),
               field("colors", commaSep2($.conic_gradient_color)),
               optional(","),
@@ -853,6 +852,8 @@ module.exports = grammar({
         ),
       ),
 
+    _color_interpolation: ($) =>
+      seq("in", field("color_space", $.gradient_color_space)),
     gradient_color_space: (_) => choice("oklch", "oklab", "srgb", "hsl"),
 
     gradient_color: ($) => seq($.argument, optional($.expression)),

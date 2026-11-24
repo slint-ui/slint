@@ -425,7 +425,9 @@ declare_syntax! {
         /// `@image-url("foo.png")`
         AtImageUrl -> [],
         /// `@linear-gradient(...)` or `@radial-gradient(...)`
-        AtGradient -> [*Expression],
+        AtGradient -> [*Expression, *ColorInterpolation],
+        /// `in oklch` inside an `AtGradient`; the second Identifier is the color space
+        ColorInterpolation -> [],
         /// `@tr("foo", ...)`  // the string is a StringLiteral
         AtTr -> [?TrContext, ?TrPlural, *Expression],
         AtMarkdown -> [*Expression],

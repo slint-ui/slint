@@ -23,6 +23,10 @@ component TestCase inherits Rectangle {
         && conic-oklch != @conic-gradient(from 0deg, red 0deg, blue 360deg)
         && conic-oklch == @conic-gradient(in oklch from 0deg, red 0deg, blue 360deg)
         && conic-oklch != conic-hsl
+        && linear-oklch == @linear-gradient(90deg in oklch, red 0%, blue 100%)
+        && radial-oklch == @radial-gradient(circle in oklch, red 0%, blue 100%)
+        && conic-oklch == @conic-gradient(from 0deg in oklch, red 0deg, blue 360deg)
+        && @linear-gradient(in oklch -90deg, red, blue) == @linear-gradient(-90deg in oklch, red, blue)
         // `in <space>` alone (no angle) defaults to 180deg, same as an omitted header.
         && linear-no-angle == @linear-gradient(in oklch 180deg, red 0%, blue 100%)
         // The color space survives color transforms.

@@ -979,7 +979,7 @@ impl Expression {
             },
         }
 
-        let mut all_subs: Vec<_> = node
+        let all_subs: Vec<_> = node
             .children_with_tokens()
             .filter(|n| matches!(n.kind(), SyntaxKind::Comma | SyntaxKind::Expression))
             .collect();
@@ -987,39 +987,60 @@ impl Expression {
         let grad_token = node.child_token(SyntaxKind::Identifier).unwrap();
         let grad_text = grad_token.text();
 
-        let (color_space, had_color_space_clause) = if let Some(in_node) = all_subs
-            .first()
-            .filter(
-                |n| matches!(n, NodeOrToken::Node(node) if node.text().to_string().trim() == "in"),
-            )
-            .cloned()
-        {
-            let space_node = match all_subs.get(1) {
-                Some(n) if n.kind() == SyntaxKind::Expression => n.clone(),
-                _ => {
-                    ctx.diag.push_error("Expected a color space after 'in'".into(), &in_node);
-                    return Expression::Invalid;
-                }
+        let header_len =
+            all_subs.iter().position(|n| n.kind() == SyntaxKind::Comma).unwrap_or(all_subs.len());
+        let mut color_space = GradientColorSpace::Srgb;
+        let mut had_color_space_clause = false;
+        for clause in node.ColorInterpolation() {
+            if had_color_space_clause {
+                ctx.diag.push_error("Only one 'in <color-space>' is allowed".into(), &clause);
+                return Expression::Invalid;
+            }
+            had_color_space_clause = true;
+            if header_len < all_subs.len()
+                && clause.text_range().start() > all_subs[header_len].text_range().start()
+            {
+                ctx.diag.push_error(
+                    "'in <color-space>' must be in the gradient header, before the first comma"
+                        .into(),
+                    &clause,
+                );
+                return Expression::Invalid;
+            }
+            // CSS joins the header and the color space with `||`, so it goes first or last.
+            let header_before = all_subs
+                .iter()
+                .take(header_len)
+                .filter(|n| n.text_range().end() <= clause.text_range().start())
+                .count();
+            if header_before != 0 && header_before != header_len {
+                ctx.diag.push_error(
+                    "'in <color-space>' must be at the start or the end of the gradient header"
+                        .into(),
+                    &clause,
+                );
+                return Expression::Invalid;
+            }
+            let Some(space_token) =
+                clause.children_with_tokens().filter(|t| t.kind() == SyntaxKind::Identifier).nth(1)
+            else {
+                ctx.diag.push_error("Expected a color space after 'in'".into(), &clause);
+                return Expression::Invalid;
             };
-            let space_text = space_node.as_node().unwrap().text().to_string();
-            let space_text = space_text.trim();
-            let space = match GradientColorSpace::from_str(space_text) {
+            let space_text = space_token.as_token().unwrap().text();
+            color_space = match GradientColorSpace::from_str(space_text) {
                 Ok(space) => space,
                 Err(()) => {
                     ctx.diag.push_error(
                         format!(
                             "'{space_text}' is not a valid color space, expected 'srgb', 'oklch', 'oklab', or 'hsl'"
                         ),
-                        &space_node,
+                        &space_token,
                     );
                     return Expression::Invalid;
                 }
             };
-            all_subs.drain(0..2);
-            (space, true)
-        } else {
-            (GradientColorSpace::Srgb, false)
-        };
+        }
 
         // Helper: parse two consecutive length expressions at positions idx and idx+1
         let parse_at_center = |idx: usize,

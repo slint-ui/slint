@@ -1250,14 +1250,32 @@ fn format_at_gradient(
     let mut seen_expression = false;
     for n in node.children_with_tokens() {
         state.skip_all_whitespace = true;
-        if n.kind() == SyntaxKind::Expression {
+        if matches!(n.kind(), SyntaxKind::Expression | SyntaxKind::ColorInterpolation) {
             if seen_expression {
                 state.insert_whitespace(" ");
             }
             seen_expression = true;
         }
-        fold(n, writer, state)?;
+        if let NodeOrToken::Node(clause) = &n
+            && clause.kind() == SyntaxKind::ColorInterpolation
+        {
+            format_color_interpolation(clause, writer, state)?;
+        } else {
+            fold(n, writer, state)?;
+        }
     }
+    Ok(())
+}
+
+fn format_color_interpolation(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    let mut sub = node.children_with_tokens();
+    whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?;
+    whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, " ")?;
+    finish_node(sub, writer, state)?;
     Ok(())
 }
 
@@ -2472,6 +2490,18 @@ mod tests {
         let mut file = Vec::new();
         format_document(doc, &mut FileWriter { file: &mut file }).unwrap();
         assert_eq!(String::from_utf8(file).unwrap(), first_pass);
+    }
+
+    #[test]
+    fn gradient_color_interpolation() {
+        assert_formatting(
+            "A := Rectangle { background: @linear-gradient( 90deg   in  oklch ,red,blue); }",
+            "A := Rectangle {\n    background: @linear-gradient(90deg in oklch, red, blue);\n}\n",
+        );
+        assert_formatting(
+            "A := Rectangle { background: @radial-gradient(in   oklab circle,red,blue); }",
+            "A := Rectangle {\n    background: @radial-gradient(in oklab circle, red, blue);\n}\n",
+        );
     }
 
     #[test]

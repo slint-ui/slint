@@ -38,8 +38,16 @@ export component X inherits Rectangle {
     property<brush> g19: @linear-gradient(in srgb 40deg, red, blue);
     property<brush> g20: @linear-gradient(in hsl 40deg, red, blue);
     property<brush> g21: @linear-gradient(in bogus 40deg, red, blue);
-//                                           >    <error{'bogus' is not a valid color space, expected 'srgb', 'oklch', 'oklab', or 'hsl'}
+//                                           >   <error{'bogus' is not a valid color space, expected 'srgb', 'oklch', 'oklab', or 'hsl'}
     property<brush> g22: @linear-gradient(in oklch, red, blue);
     property<brush> g23: @linear-gradient(in, 40deg, red, blue);
 //                                        ><error{Expected a color space after 'in'}
+    property<brush> g24: @linear-gradient(in oklch -45deg, red, blue);
+    property<brush> g25: @linear-gradient(in oklch (45deg), red, blue);
+    property<brush> g26: @linear-gradient(90deg in oklch, red, blue);
+    property<brush> g27: @linear-gradient(-90deg in hsl, red, blue);
+    property<brush> g28: @linear-gradient(in oklch 90deg in oklab, red, blue);
+//                                                       >      <error{Only one 'in <color-space>' is allowed}
+    property<brush> g29: @linear-gradient(90deg, red, blue in oklch);
+//                                                         >      <error{'in <color-space>' must be in the gradient header, before the first comma}
 }
