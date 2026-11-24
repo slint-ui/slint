@@ -1,0 +1,538 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The `anchors` experimental feature
+
+// Children anchored inside a component, in two levels
+component Card inherits Rectangle {
+    title := Rectangle {
+        left: parent.left + 4px;
+        right: parent.right - 4px;
+        top: parent.top + 2px;
+        height: 10px;
+        mark := Rectangle {
+            right: parent.right;
+            vertical-center: parent.vertical-center;
+            width: 6px;
+            height: 6px;
+        }
+    }
+    body := Rectangle {
+        left: title.left;
+        right: title.right;
+        top: title.bottom + 2px;
+        bottom: parent.bottom - 2px;
+    }
+    // Anchored to a child of a sibling
+    foot := Rectangle {
+        right: mark.left;
+        top: body.top;
+        width: 2px;
+        height: 2px;
+    }
+    out property <length> foot-x: foot.x;
+    out property <length> foot-y: foot.y;
+    out property <length> title-width: title.width;
+    out property <length> mark-x: mark.x;
+    out property <length> mark-y: mark.y;
+    out property <length> body-height: body.bottom - body.top;
+}
+
+component DerivedCard inherits Card {
+    extra := Rectangle {
+        right: parent.right - 1px;
+        bottom: parent.bottom - 1px;
+        width: 3px;
+        height: 3px;
+    }
+    out property <length> extra-x: extra.x;
+    out property <length> extra-y: extra.y;
+}
+
+component Scroller inherits Flickable {
+    content-width: 300px;
+}
+
+export component TestCase inherits Window {
+    width: 200px;
+    height: 100px;
+    in-out property <bool> docked-right;
+    in-out property <bool> horizontal;
+    in-out property <length> scroll;
+
+    icon := Rectangle {
+        left: parent.left + 10px;
+        vertical-center: parent.vertical-center;
+        width: 30px;
+        height: 20px;
+    }
+    label := Rectangle {
+        left: icon.right + 4px;
+        right: parent.right - 6px;
+        top: icon.top;
+        bottom: icon.bottom + 2px;
+    }
+    badge := Rectangle {
+        right: parent.right - 8px;
+        top: parent.top + 8px;
+        width: 16px;
+        height: 12px;
+    }
+    centered := Rectangle {
+        horizontal-center: icon.horizontal-center;
+        width: 10px;
+        y: 1px;
+        height: 2px;
+    }
+    spread := Rectangle {
+        x: 50px;
+        horizontal-center: parent.horizontal-center;
+        top: parent.top;
+        height: icon.bottom - icon.top;
+    }
+    toolbar := Rectangle {
+        left: parent.left;
+        top: parent.top;
+        bottom: parent.bottom;
+        width: 48px;
+
+        states [
+            docked-right when root.docked-right: {
+                left: auto;
+                right: parent.right;
+            }
+            docked-top when root.horizontal: {
+                right: parent.right;
+                bottom: auto;
+                width: auto;
+                height: 24px;
+            }
+        ]
+    }
+
+    for i in 2: Rectangle {
+        left: icon.right + i * 10px;
+        bottom: parent.bottom;
+        width: 5px;
+        height: 5px;
+        Rectangle {
+            right: parent.right;
+            width: 1px;
+        }
+    }
+    if true: Rectangle {
+        right: badge.left;
+        bottom: badge.bottom;
+        width: 1px;
+        height: 1px;
+    }
+
+    card := Card {
+        left: parent.left + 20px;
+        right: parent.right - 20px;
+        top: parent.top + 50px;
+        height: 40px;
+        pin := Rectangle {
+            right: parent.right - 2px;
+            top: parent.top;
+            width: 2px;
+            height: 2px;
+        }
+        // Anchored to an element outside of the component
+        outside-pin := Rectangle {
+            left: icon.left;
+            bottom: parent.bottom;
+            width: 1px;
+            height: 1px;
+        }
+    }
+    holder := Rectangle {
+        x: 30px;
+        y: 5px;
+        width: 50px;
+        height: 20px;
+        cousin := Rectangle {
+            left: badge.left;
+            top: icon.bottom;
+            width: 2px;
+            height: 2px;
+        }
+    }
+    derived := DerivedCard {
+        horizontal-center: parent.horizontal-center;
+        width: 100px;
+        bottom: parent.bottom;
+        height: 30px;
+    }
+    for i in 3: cell := Rectangle {
+        left: parent.left + i * 20px;
+        top: parent.top + 60px;
+        width: 10px;
+        height: 10px;
+        cell-dot := Rectangle {
+            horizontal-center: parent.horizontal-center;
+            vertical-center: parent.vertical-center;
+            width: 4px;
+            height: 2px;
+        }
+        cell-tick := Rectangle {
+            left: icon.left;
+            top: badge.bottom;
+            width: 1px;
+            height: 1px;
+        }
+    }
+    for i in 2: rep-card := Card {
+        left: parent.left + i * 100px;
+        width: 100px;
+        top: card.bottom;
+        bottom: parent.bottom;
+    }
+    if true: flip := Rectangle {
+        left: parent.left;
+        top: parent.top;
+        width: 10px;
+        height: 10px;
+        states [
+            right when root.docked-right: {
+                left: auto;
+                right: parent.right;
+            }
+        ]
+        flip-tag := Rectangle {
+            right: badge.right;
+            vertical-center: icon.vertical-center;
+            width: 4px;
+            height: 4px;
+        }
+    }
+
+    flick := Flickable {
+        x: 100px;
+        y: 30px;
+        width: 90px;
+        height: 20px;
+        content-width: 300px;
+        content-x: root.scroll;
+        // Scrolls with the content
+        in-flick := Rectangle {
+            background: blue;
+            left: parent.left + 5px;
+            top: parent.top;
+            width: 10px;
+            height: 5px;
+        }
+        // Stays with an element outside of the Flickable
+        sticky := Rectangle {
+            background: blue;
+            left: badge.left;
+            top: badge.bottom + 15px;
+            width: 2px;
+            height: 2px;
+        }
+    }
+    scroller := Scroller {
+        x: 10px;
+        y: 80px;
+        width: 50px;
+        height: 10px;
+        content-y: -root.scroll;
+        scroller-sticky := Rectangle {
+            background: blue;
+            right: icon.right;
+            top: badge.top + 74px;
+            width: 2px;
+            height: 2px;
+        }
+    }
+
+    // Distances in an anchor binding
+    measured := Rectangle {
+        left: parent.left + (icon.right - icon.left);
+        right: parent.right - (measured-inner.right - measured-inner.left);
+        top: parent.top;
+        height: 1px;
+        measured-inner := Rectangle {
+            width: 3px;
+        }
+    }
+    // Anchors use the geometry, without the transforms
+    zoom := Rectangle {
+        x: 10px;
+        y: 0px;
+        width: 20px;
+        height: 20px;
+        transform-scale: 2;
+        zoom-target := Rectangle {
+            x: 5px;
+            width: 4px;
+        }
+    }
+    zoom-follower := Rectangle {
+        left: zoom-target.left;
+        top: parent.top;
+        width: 1px;
+        height: 1px;
+    }
+
+    out property <length> measured-x: measured.x;
+    out property <length> measured-width: measured.width;
+    out property <length> zoom-follower-x: zoom-follower.x;
+    out property <length> in-flick-x: in-flick.x;
+    out property <length> sticky-x: sticky.x;
+    out property <length> sticky-y: sticky.y;
+    out property <length> scroller-sticky-x: scroller-sticky.x;
+    out property <length> scroller-sticky-y: scroller-sticky.y;
+    out property <length> card-width: card.right - card.left;
+    out property <length> cousin-x: cousin.x;
+    out property <length> cousin-y: cousin.y;
+    out property <length> cousin-distance: cousin.left - icon.left;
+    out property <length> outside-pin-x: outside-pin.x;
+    out property <length> outside-pin-y: outside-pin.y;
+    out property <length> card-foot-x: card.foot-x;
+    out property <length> card-foot-y: card.foot-y;
+    out property <bool> card-ok: card.x == 20px && card.y == 50px && card.title-width == 152px
+        && card.mark-x == 146px && card.mark-y == 2px && card.body-height == 24px && pin.x == 156px;
+    out property <bool> derived-ok: derived.x == 50px && derived.y == 70px && derived.title-width == 92px
+        && derived.extra-x == 96px && derived.extra-y == 26px;
+    out property <length> gap: label.left - icon.right;
+    out property <bool> label-ok: label.x == 44px && label.width == 150px && label.y == 40px && label.height == 22px;
+    out property <bool> icon-ok: icon.x == 10px && icon.y == 40px;
+    out property <bool> badge-ok: badge.x == 176px && badge.y == 8px;
+    out property <bool> centered-ok: centered.x == 20px;
+    out property <bool> spread-ok: spread.width == 100px && spread.height == 20px && spread.y == 0;
+    out property <length> toolbar-x: toolbar.x;
+    out property <length> toolbar-y: toolbar.y;
+    out property <length> toolbar-width: toolbar.width;
+    out property <length> toolbar-height: toolbar.height;
+    out property <bool> test: gap == 4px && label-ok && icon-ok && badge-ok && centered-ok && spread-ok
+        && card-width == 160px && card-ok && derived-ok
+        && toolbar-x == 0 && toolbar-width == 48px && toolbar-height == 100px;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_gap(), 4.);
+assert!(instance.get_label_ok());
+assert!(instance.get_icon_ok());
+assert!(instance.get_badge_ok());
+assert!(instance.get_centered_ok());
+assert!(instance.get_spread_ok());
+assert_eq!(instance.get_card_width(), 160.);
+assert!(instance.get_card_ok());
+assert!(instance.get_derived_ok());
+assert_eq!(instance.get_cousin_x(), 146.);
+assert_eq!(instance.get_cousin_y(), 55.);
+assert_eq!(instance.get_cousin_distance(), 166.);
+assert_eq!(instance.get_outside_pin_x(), -10.);
+assert_eq!(instance.get_outside_pin_y(), 39.);
+assert_eq!(instance.get_card_foot_x(), 148.);
+assert_eq!(instance.get_card_foot_y(), 14.);
+assert_eq!(instance.get_measured_x(), 30.);
+assert_eq!(instance.get_measured_width(), 167.);
+assert_eq!(instance.get_zoom_follower_x(), 15.);
+assert!(instance.get_test());
+
+// The elements of `for` and `if` can't be referenced from slint code; query them by element id.
+let find = |id: &str| -> Vec<_> {
+    slint_testing::ElementHandle::find_by_element_id(&instance, &format!("TestCase::{id}")).collect()
+};
+
+let in_flick = find("in-flick").remove(0);
+let sticky = find("sticky").remove(0);
+let scroller_sticky = find("scroller-sticky").remove(0);
+assert_eq!(instance.get_in_flick_x(), 5.);
+assert_eq!(instance.get_sticky_x(), 76.);
+assert_eq!(instance.get_sticky_y(), 5.);
+assert_eq!(instance.get_scroller_sticky_x(), 28.);
+assert_eq!(instance.get_scroller_sticky_y(), 2.);
+assert_eq!(in_flick.absolute_position().x, 105.);
+assert_eq!(sticky.absolute_position().x, 176.);
+assert_eq!(sticky.absolute_position().y, 35.);
+assert_eq!(scroller_sticky.absolute_position().x, 38.);
+assert_eq!(scroller_sticky.absolute_position().y, 82.);
+instance.set_scroll(-30.);
+assert_eq!(instance.get_in_flick_x(), 5.);
+assert_eq!(instance.get_sticky_x(), 106.);
+assert_eq!(instance.get_scroller_sticky_y(), -28.);
+assert_eq!(in_flick.absolute_position().x, 75.);
+assert_eq!(sticky.absolute_position().x, 176.);
+assert_eq!(scroller_sticky.absolute_position().y, 82.);
+instance.set_scroll(0.);
+let cells = find("cell");
+assert_eq!(cells.len(), 3);
+let dots = find("cell-dot");
+for (i, (cell, dot)) in cells.iter().zip(&dots).enumerate() {
+    assert_eq!(cell.absolute_position().x, i as f32 * 20.);
+    assert_eq!(cell.absolute_position().y, 60.);
+    assert_eq!(dot.absolute_position().x, i as f32 * 20. + 3.);
+    assert_eq!(dot.absolute_position().y, 64.);
+}
+for tick in find("cell-tick") {
+    assert_eq!(tick.absolute_position().x, 10.);
+    assert_eq!(tick.absolute_position().y, 20.);
+}
+let rep_cards = find("rep-card");
+assert_eq!(rep_cards.len(), 2);
+for (i, card) in rep_cards.iter().enumerate() {
+    assert_eq!(card.absolute_position().x, i as f32 * 100.);
+    assert_eq!(card.absolute_position().y, 90.);
+    assert_eq!(card.size().width, 100.);
+    assert_eq!(card.size().height, 10.);
+}
+let flip = find("flip").remove(0);
+let flip_tag = find("flip-tag").remove(0);
+assert_eq!(flip.absolute_position().x, 0.);
+assert_eq!(flip_tag.absolute_position().x, 188.);
+assert_eq!(flip_tag.absolute_position().y, 48.);
+
+instance.set_docked_right(true);
+assert_eq!(flip.absolute_position().x, 190.);
+assert_eq!(flip_tag.absolute_position().x, 188.);
+assert_eq!(instance.get_toolbar_x(), 152.);
+assert_eq!(instance.get_toolbar_width(), 48.);
+assert_eq!(instance.get_toolbar_height(), 100.);
+instance.set_docked_right(false);
+instance.set_horizontal(true);
+assert_eq!(instance.get_toolbar_x(), 0.);
+assert_eq!(instance.get_toolbar_width(), 200.);
+assert_eq!(instance.get_toolbar_y(), 0.);
+assert_eq!(instance.get_toolbar_height(), 24.);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_gap(), 4.);
+assert(instance.get_label_ok());
+assert(instance.get_icon_ok());
+assert(instance.get_badge_ok());
+assert(instance.get_centered_ok());
+assert(instance.get_spread_ok());
+assert_eq(instance.get_card_width(), 160.);
+assert(instance.get_card_ok());
+assert(instance.get_derived_ok());
+assert_eq(instance.get_cousin_x(), 146.);
+assert_eq(instance.get_cousin_y(), 55.);
+assert_eq(instance.get_cousin_distance(), 166.);
+assert_eq(instance.get_outside_pin_x(), -10.);
+assert_eq(instance.get_outside_pin_y(), 39.);
+assert_eq(instance.get_card_foot_x(), 148.);
+assert_eq(instance.get_card_foot_y(), 14.);
+assert_eq(instance.get_measured_x(), 30.);
+assert_eq(instance.get_measured_width(), 167.);
+assert_eq(instance.get_zoom_follower_x(), 15.);
+assert(instance.get_test());
+
+// The elements of `for` and `if` can't be referenced from slint code; query them by element id.
+auto find = [&](std::string_view id) {
+    return slint::testing::ElementHandle::find_by_element_id(handle, std::string("TestCase::") + std::string(id));
+};
+
+auto in_flick = find("in-flick")[0];
+auto sticky = find("sticky")[0];
+auto scroller_sticky = find("scroller-sticky")[0];
+assert_eq(instance.get_in_flick_x(), 5.);
+assert_eq(instance.get_sticky_x(), 76.);
+assert_eq(instance.get_sticky_y(), 5.);
+assert_eq(instance.get_scroller_sticky_x(), 28.);
+assert_eq(instance.get_scroller_sticky_y(), 2.);
+assert_eq(in_flick.absolute_position().x, 105.f);
+assert_eq(sticky.absolute_position().x, 176.f);
+assert_eq(sticky.absolute_position().y, 35.f);
+assert_eq(scroller_sticky.absolute_position().x, 38.f);
+assert_eq(scroller_sticky.absolute_position().y, 82.f);
+instance.set_scroll(-30.);
+assert_eq(instance.get_in_flick_x(), 5.);
+assert_eq(instance.get_sticky_x(), 106.);
+assert_eq(instance.get_scroller_sticky_y(), -28.);
+assert_eq(in_flick.absolute_position().x, 75.f);
+assert_eq(sticky.absolute_position().x, 176.f);
+assert_eq(scroller_sticky.absolute_position().y, 82.f);
+instance.set_scroll(0.);
+auto cells = find("cell");
+auto dots = find("cell-dot");
+assert_eq(cells.size(), 3);
+for (size_t i = 0; i < cells.size(); ++i) {
+    assert_eq(cells[i].absolute_position().x, i * 20.f);
+    assert_eq(cells[i].absolute_position().y, 60.f);
+    assert_eq(dots[i].absolute_position().x, i * 20.f + 3.f);
+    assert_eq(dots[i].absolute_position().y, 64.f);
+}
+for (auto tick : find("cell-tick")) {
+    assert_eq(tick.absolute_position().x, 10.f);
+    assert_eq(tick.absolute_position().y, 20.f);
+}
+auto rep_cards = find("rep-card");
+assert_eq(rep_cards.size(), 2);
+for (size_t i = 0; i < rep_cards.size(); ++i) {
+    assert_eq(rep_cards[i].absolute_position().x, i * 100.f);
+    assert_eq(rep_cards[i].absolute_position().y, 90.f);
+    assert_eq(rep_cards[i].size().width, 100.f);
+    assert_eq(rep_cards[i].size().height, 10.f);
+}
+auto flip = find("flip")[0];
+auto flip_tag = find("flip-tag")[0];
+assert_eq(flip.absolute_position().x, 0.f);
+assert_eq(flip_tag.absolute_position().x, 188.f);
+assert_eq(flip_tag.absolute_position().y, 48.f);
+
+instance.set_docked_right(true);
+assert_eq(flip.absolute_position().x, 190.f);
+assert_eq(flip_tag.absolute_position().x, 188.f);
+assert_eq(instance.get_toolbar_x(), 152.);
+assert_eq(instance.get_toolbar_width(), 48.);
+assert_eq(instance.get_toolbar_height(), 100.);
+instance.set_docked_right(false);
+instance.set_horizontal(true);
+assert_eq(instance.get_toolbar_x(), 0.);
+assert_eq(instance.get_toolbar_width(), 200.);
+assert_eq(instance.get_toolbar_y(), 0.);
+assert_eq(instance.get_toolbar_height(), 24.);
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.gap, 4);
+assert(instance.label_ok);
+assert(instance.icon_ok);
+assert(instance.badge_ok);
+assert(instance.centered_ok);
+assert(instance.spread_ok);
+assert.equal(instance.card_width, 160);
+assert(instance.card_ok);
+assert(instance.derived_ok);
+assert.equal(instance.cousin_x, 146);
+assert.equal(instance.cousin_y, 55);
+assert.equal(instance.cousin_distance, 166);
+assert.equal(instance.outside_pin_x, -10);
+assert.equal(instance.outside_pin_y, 39);
+assert.equal(instance.card_foot_x, 148);
+assert.equal(instance.card_foot_y, 14);
+assert.equal(instance.measured_x, 30);
+assert.equal(instance.measured_width, 167);
+assert.equal(instance.zoom_follower_x, 15);
+assert.equal(instance.in_flick_x, 5);
+assert.equal(instance.sticky_x, 76);
+assert.equal(instance.sticky_y, 5);
+assert.equal(instance.scroller_sticky_x, 28);
+assert.equal(instance.scroller_sticky_y, 2);
+instance.scroll = -30;
+assert.equal(instance.in_flick_x, 5);
+assert.equal(instance.sticky_x, 106);
+assert.equal(instance.scroller_sticky_y, -28);
+instance.scroll = 0;
+assert(instance.test);
+instance.docked_right = true;
+assert.equal(instance.toolbar_x, 152);
+assert.equal(instance.toolbar_width, 48);
+assert.equal(instance.toolbar_height, 100);
+instance.docked_right = false;
+instance.horizontal = true;
+assert.equal(instance.toolbar_x, 0);
+assert.equal(instance.toolbar_width, 200);
+assert.equal(instance.toolbar_y, 0);
+assert.equal(instance.toolbar_height, 24);
+```
+*/

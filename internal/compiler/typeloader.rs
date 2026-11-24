@@ -2046,6 +2046,8 @@ impl TypeLoader {
             let mut registry = dependency_registry.borrow_mut();
             if is_builtin {
                 registry.experimental_features = crate::ExperimentalFeatures::all();
+                // The document that uses a widget decides whether it has anchors
+                registry.experimental_features.remove(crate::ExperimentalFeature::Anchors);
             }
             registry.expose_internal_types =
                 registry.experimental_features.contains(crate::ExperimentalFeature::InternalTypes);

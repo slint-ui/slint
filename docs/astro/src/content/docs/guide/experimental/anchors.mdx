@@ -1,0 +1,135 @@
+---
+title: Anchors
+description: Experimental anchor properties that place an element relative to the edges of other elements.
+---
+
+{/* Move this section to the "Explicit Placement" part of guide/language/coding/positioning-and-layouts.mdx */}
+
+Use anchors to place an element relative to the edges of other elements,
+without computing `x` and `width` yourself.
+
+> **Note**: Anchors are experimental and subject to change.
+> Enable them with the `anchors` [experimental feature](../overview/).
+> Tracking issue: [slint-ui/slint#183](https://github.com/slint-ui/slint/issues/183).
+
+## Anchoring to Edges
+
+Bind an anchor to an edge of another element, such as the parent or a sibling.
+Add or subtract a length to leave a margin:
+
+```slint
+export component Example inherits Window {
+    width: 200px;
+    height: 100px;
+
+    icon := Rectangle {
+        left: parent.left + 10px;
+        vertical-center: parent.vertical-center;
+        width: 32px;
+        height: 32px;
+        background: blue;
+    }
+    Text {
+        left: icon.right + 4px;
+        vertical-center: icon.vertical-center;
+        text: "Hello";
+    }
+    Rectangle {
+        right: parent.right - 8px;
+        top: parent.top + 8px;
+        width: 16px;
+        height: 16px;
+        background: red;
+    }
+}
+```
+
+The other element doesn't need to be in the same parent, or in the same component.
+Anchors use the geometry of the elements, like `x` and `y`, so transforms don't affect them.
+
+An anchor isn't a length.
+You can't assign a length to it, or mix the horizontal and vertical axes.
+The distance between two anchors of the same axis is a length:
+
+```slint no-test
+left: 10px;                       // error: write parent.left + 10px
+left: other.top;                  // error: top is a vertical anchor
+width: other.right - other.left;  // a length
+```
+
+## Size
+
+On each axis, set at most two of the anchors and the size.
+`x` counts as `left`, and `y` as `top`:
+
+```slint no-test
+left: parent.left + 10px; right: parent.right - 10px;   // the width follows from the anchors
+left: parent.left + 10px; width: 50px;                  // the right edge follows from the width
+```
+
+With a single anchor, the element takes its preferred size.
+Without anchors, the element is centered in its parent, as usual.
+
+## Changing Anchors in States
+
+Set an anchor to `auto` to release it in a state.
+This lets a state change which edges are pinned:
+
+```slint
+export component Example inherits Window {
+    width: 300px;
+    height: 200px;
+    in property <bool> dock-right;
+    in property <bool> horizontal;
+
+    toolbar := Rectangle {
+        left: parent.left;
+        top: parent.top;
+        bottom: parent.bottom;
+        width: 48px;
+        background: gray;
+
+        states [
+            docked-right when root.dock-right: {
+                left: auto;
+                right: parent.right;
+            }
+            docked-top when root.horizontal: {
+                right: parent.right;
+                bottom: auto;
+                width: auto;
+                height: 48px;
+            }
+        ]
+        animate x, y, width, height { duration: 200ms; }
+    }
+}
+```
+
+The two-anchor rule applies to each state separately.
+`width: auto` and `height: auto` release the size on an axis that has anchors.
+Animate `x`, `y`, `width`, and `height` to animate a change of anchors.
+
+## Restrictions
+
+- An element can't anchor to itself or to its children.
+- The root element of a component can't set anchors.
+- The children of a layout can't set anchors, because the layout positions them.
+  Their own children can.
+- An element that a component places with `@children` can't set anchors,
+  unless `@children` is in the root of the component.
+- Use `auto` only as the whole binding of an anchor, not inside an expression.
+  Use a state with `when` to choose anchors from a condition.
+- Anchors can't be animated, or have a two-way binding.
+
+{/* Move this section to the "Common Visual Properties" in reference/common.mdx, after "width, height" */}
+
+## Properties
+
+Every visual element has six anchors:
+
+- `left`, `horizontal-center`, and `right`: the left edge, horizontal center, and right edge of the element.
+- `top`, `vertical-center`, and `bottom`: the top edge, vertical center, and bottom edge of the element.
+
+Bind an anchor to an anchor of the same axis of another element, plus or minus a length.
+A component that declares a property with the name of an anchor shadows that anchor.

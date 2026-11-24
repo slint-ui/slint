@@ -78,6 +78,7 @@ fn create_repeater_components(component: &Rc<Component>) {
                 item_index: Default::default(), // Not determined yet
                 item_index_of_first_children: Default::default(),
                 is_legacy_syntax: original_elem.is_legacy_syntax,
+                has_anchors: original_elem.has_anchors,
                 inline_depth: 0,
                 slot_target: original_elem.slot_target.clone(),
                 slot_default: original_elem.slot_default.clone(),
