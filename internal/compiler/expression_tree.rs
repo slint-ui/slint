@@ -2042,10 +2042,8 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
         Expression::MouseCursor(m) => write!(f, "{m:?}"),
         Expression::LinearGradient { angle, color_space, stops } => {
             write!(f, "@linear-gradient(")?;
-            if *color_space != GradientColorSpace::Srgb {
-                write!(f, "in {} ", color_space)?;
-            }
             pretty_print(f, angle)?;
+            write!(f, "{}", color_space.css_suffix())?;
             for (c, s) in stops {
                 write!(f, ", ")?;
                 pretty_print(f, c)?;
@@ -2056,9 +2054,6 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
         }
         Expression::RadialGradient { center, shape, color_space, stops } => {
             write!(f, "@radial-gradient(")?;
-            if *color_space != GradientColorSpace::Srgb {
-                write!(f, "in {} ", color_space)?;
-            }
             match shape {
                 RadialGradientShape::Circle(r) => {
                     write!(f, "circle")?;
@@ -2083,6 +2078,7 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
                 write!(f, " ")?;
                 pretty_print(f, cy)?;
             }
+            write!(f, "{}", color_space.css_suffix())?;
             for (c, s) in stops {
                 write!(f, ", ")?;
                 pretty_print(f, c)?;
@@ -2093,9 +2089,6 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
         }
         Expression::ConicGradient { from_angle, center, color_space, stops } => {
             write!(f, "@conic-gradient(")?;
-            if *color_space != GradientColorSpace::Srgb {
-                write!(f, "in {} ", color_space)?;
-            }
             write!(f, "from ")?;
             pretty_print(f, from_angle)?;
             if let Some((cx, cy)) = center {
@@ -2104,6 +2097,7 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
                 write!(f, " ")?;
                 pretty_print(f, cy)?;
             }
+            write!(f, "{}", color_space.css_suffix())?;
             for (c, s) in stops {
                 write!(f, ", ")?;
                 pretty_print(f, c)?;

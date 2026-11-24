@@ -362,14 +362,14 @@ pub fn fill_expression(fill: ui::FillData) -> slint::SharedString {
         return color_to_string(fill.color);
     }
     let stops = sorted_gradient_stops(fill.stops);
-    let color_space = if fill.color_space.is_empty() {
-        String::new()
-    } else {
-        format!("in {} ", fill.color_space)
-    };
+    let color_space = fill
+        .color_space
+        .parse::<i_slint_core::graphics::GradientColorSpace>()
+        .unwrap_or_default()
+        .css_suffix();
     if fill.kind == ui::BrushKind::Linear {
         return slint::format!(
-            "@linear-gradient({color_space}{}deg{})",
+            "@linear-gradient({}deg{color_space}{})",
             fill.angle,
             stops
                 .iter()
@@ -398,7 +398,7 @@ pub fn fill_expression(fill: ui::FillData) -> slint::SharedString {
         };
         let shape = if fill.radial_ellipse { "ellipse" } else { "circle" };
         slint::format!(
-            "@radial-gradient({color_space}{shape}{radius}{center}{})",
+            "@radial-gradient({shape}{radius}{center}{color_space}{})",
             stops
                 .iter()
                 .map(|s| format!(
@@ -410,7 +410,7 @@ pub fn fill_expression(fill: ui::FillData) -> slint::SharedString {
         )
     } else {
         slint::format!(
-            "@conic-gradient({color_space}from {}deg{center}, {})",
+            "@conic-gradient(from {}deg{center}{color_space}, {})",
             fill.angle,
             stops
                 .iter()
@@ -868,8 +868,8 @@ mod tests {
                     assert!(!expression.contains("in "), "unexpected 'in' clause in {expression}");
                 } else {
                     assert!(
-                        expression.contains(&format!("in {color_space} ")),
-                        "missing 'in {color_space}' clause in {expression}"
+                        expression.contains(&format!(" in {color_space}, ")),
+                        "missing 'in {color_space}' clause at the end of the header in {expression}"
                     );
                 }
             }

@@ -20,19 +20,22 @@ pub enum GradientColorSpace {
 }
 
 impl GradientColorSpace {
-    /// The `in <space> ` clause that selects this color space at the start of a gradient,
+    /// The ` in <space>` clause that selects this color space after a gradient's header,
     /// or nothing for the default sRGB.
-    pub fn css_prefix(self) -> impl core::fmt::Display {
-        struct CssPrefix(GradientColorSpace);
-        impl core::fmt::Display for CssPrefix {
+    ///
+    /// CSS serializes the clause after the header, so `90deg in oklch`, not `in oklch 90deg`.
+    /// Without a header, trim the leading space.
+    pub fn css_suffix(self) -> impl core::fmt::Display {
+        struct CssSuffix(GradientColorSpace);
+        impl core::fmt::Display for CssSuffix {
             fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
                 match self.0 {
                     GradientColorSpace::Srgb => Ok(()),
-                    space => write!(f, "in {space} "),
+                    space => write!(f, " in {space}"),
                 }
             }
         }
-        CssPrefix(self)
+        CssSuffix(self)
     }
 }
 
@@ -76,7 +79,7 @@ fn display_and_from_str() {
 }
 
 #[test]
-fn css_prefix() {
-    assert_eq!(alloc::format!("{}", GradientColorSpace::Srgb.css_prefix()), "");
-    assert_eq!(alloc::format!("{}", GradientColorSpace::Oklch.css_prefix()), "in oklch ");
+fn css_suffix() {
+    assert_eq!(alloc::format!("{}", GradientColorSpace::Srgb.css_suffix()), "");
+    assert_eq!(alloc::format!("{}", GradientColorSpace::Oklch.css_suffix()), " in oklch");
 }

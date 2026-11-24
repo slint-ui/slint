@@ -105,31 +105,29 @@ fn as_slint_brush(
         ui::BrushKind::Solid => color_to_string(color),
         ui::BrushKind::Linear => {
             slint::format!(
-                "@linear-gradient({}{angle}deg{})",
-                parse_color_space(&color_space).css_prefix(),
+                "@linear-gradient({angle}deg{}{})",
+                parse_color_space(&color_space).css_suffix(),
                 stops_as_string(stops)
             )
         }
         ui::BrushKind::Radial => {
             slint::format!(
-                "@radial-gradient({}circle{})",
-                parse_color_space(&color_space).css_prefix(),
+                "@radial-gradient(circle{}{})",
+                parse_color_space(&color_space).css_suffix(),
                 stops_as_string(stops)
             )
         }
         ui::BrushKind::Conic => {
             let stops = sorted_gradient_stops(stops);
             let angle = angle.rem_euclid(360.0);
-            let prefix = if angle.abs() > f32::EPSILON {
-                slint::format!("from {}deg, ", angle)
-            } else {
-                slint::SharedString::new()
-            };
+            let from =
+                if angle.abs() > f32::EPSILON { format!("from {angle}deg") } else { String::new() };
+            let header = format!("{from}{}", parse_color_space(&color_space).css_suffix());
+            let header = header.trim_start();
+            let separator = if header.is_empty() { "" } else { ", " };
 
             slint::format!(
-                "@conic-gradient({}{}{})",
-                parse_color_space(&color_space).css_prefix(),
-                prefix,
+                "@conic-gradient({header}{separator}{})",
                 stops
                     .iter()
                     .map(|s| format!("{} {}deg", color_to_string(s.color), s.position * 360.0))
@@ -643,6 +641,27 @@ mod tests {
         );
 
         model
+    }
+
+    #[test]
+    fn color_space_follows_the_gradient_header() {
+        for (kind, angle, expected) in [
+            (ui::BrushKind::Linear, 90.0, "@linear-gradient(90deg in oklch, "),
+            (ui::BrushKind::Radial, 0.0, "@radial-gradient(circle in oklch, "),
+            (ui::BrushKind::Conic, 90.0, "@conic-gradient(from 90deg in oklch, "),
+            (ui::BrushKind::Conic, 0.0, "@conic-gradient(in oklch, "),
+            (ui::BrushKind::Conic, 0.0, "@conic-gradient(#"),
+        ] {
+            let color_space = if expected.contains("in oklch") { "oklch" } else { "" };
+            let brush = super::as_slint_brush(
+                kind,
+                angle,
+                slint::Color::default(),
+                make_model(),
+                color_space.into(),
+            );
+            assert!(brush.starts_with(expected), "{brush} doesn't start with {expected}");
+        }
     }
 
     #[test]
