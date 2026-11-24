@@ -26,6 +26,9 @@ pub enum PreviewToDebuggerNotification {
     /// pushed by a subscription a system-testing request created.
     /// It can arrive after the debugger unsubscribed.
     SubscriptionNotification(SystemTestMessage),
+    /// A compilation finished; its `Diagnostics` follow.
+    /// `success` says whether it produced a component to show.
+    Reloaded { success: bool },
 }
 
 /// A protobuf-encoded message from `slint_systest.proto`.

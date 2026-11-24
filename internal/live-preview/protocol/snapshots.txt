@@ -10,6 +10,9 @@ Debugger { id: 7, message: SystemTestResponse(Err("disabled")) }
 Debugger { id: 7, message: SystemTestResponse(Ok(SystemTestMessage([1, 2, 3]))) }
 1a07000003010203
 
+DebuggerNotification(Reloaded { success: true })
+1b0101
+
 DebuggerNotification(SubscriptionNotification(SystemTestMessage([1, 2, 3])))
 1b0003010203
 
