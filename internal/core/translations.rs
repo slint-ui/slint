@@ -321,10 +321,9 @@ pub struct TranslationsBundled {
 }
 
 /// The strings without plural forms that the Rust code generator bundles, in every language.
-///
-/// The table holds byte ranges into one text instead of a `&str` per string.
-/// A position-independent executable would otherwise relocate every pointer at startup,
-/// which turns each page of the table into private memory.
+// A position-independent executable relocates every pointer at startup.
+// With a `&str` per string instead of byte ranges,
+// each page of the table would become private memory.
 #[derive(Clone, Copy)]
 pub struct BundledStrings {
     /// The strings, one after the other.
@@ -344,7 +343,6 @@ impl BundledStrings {
 }
 
 /// The strings with plural forms that the Rust code generator bundles, in every language.
-/// See [`BundledStrings`].
 #[derive(Clone, Copy)]
 pub struct BundledPlurals {
     /// The plural forms, one after the other.

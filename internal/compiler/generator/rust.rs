@@ -6356,7 +6356,7 @@ fn generate_translations(
             None => [0, 0],
         })
         .collect::<Vec<_>>();
-    let ranges = |ranges: &[[u32; 2]]| {
+    let range_tokens = |ranges: &[[u32; 2]]| {
         ranges
             .iter()
             .map(|range| {
@@ -6365,8 +6365,9 @@ fn generate_translations(
             })
             .collect::<Vec<_>>()
     };
-    let (string_ranges, plural_ranges, forms) =
-        (ranges(&string_ranges), ranges(&plural_ranges), ranges(&forms));
+    let string_range_tokens = range_tokens(&string_ranges);
+    let plural_range_tokens = range_tokens(&plural_ranges);
+    let form_tokens = range_tokens(&forms);
     let (string_count, plural_count) = (translations.strings.len(), translations.plurals.len());
 
     let ctx = EvaluationContext {
@@ -6402,13 +6403,13 @@ fn generate_translations(
         const _SLINT_TRANSLATED_TEXT: &str = #text;
         static _SLINT_TRANSLATED_STRINGS: sp::BundledStrings = sp::BundledStrings {
             text: _SLINT_TRANSLATED_TEXT,
-            ranges: &[#(#string_ranges),*],
+            ranges: &[#(#string_range_tokens),*],
             count: #string_count,
         };
         static _SLINT_TRANSLATED_STRINGS_PLURALS: sp::BundledPlurals = sp::BundledPlurals {
             text: _SLINT_TRANSLATED_TEXT,
-            forms: &[#(#forms),*],
-            ranges: &[#(#plural_ranges),*],
+            forms: &[#(#form_tokens),*],
+            ranges: &[#(#plural_range_tokens),*],
             count: #plural_count,
         };
         const _SLINT_TRANSLATED_PLURAL_RULES: &[sp::Option<fn(i32) -> usize>] = &[#(#rules),*];
