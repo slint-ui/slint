@@ -38,6 +38,8 @@ Keys = native.Keys
 DataTransfer = native.DataTransfer
 LogicalPosition = native.LogicalPosition
 LogicalSize = native.LogicalSize
+PhysicalPosition = native.PhysicalPosition
+PhysicalSize = native.PhysicalSize
 StyledText = native.StyledText
 Timer = native.Timer
 TimerMode = native.TimerMode
@@ -70,7 +72,7 @@ class Component:
 
     window: Window
     """The window that renders this component.
-    Use it to take a snapshot with `Window.take_snapshot()`.
+    Use it to read or change the window's position, size, and state, or to take a snapshot.
     Components without a window, such as the ones that inherit from `SystemTrayIcon`, don't have this attribute.
 
     If your `.slint` file declares a property, callback, or function called `window`, it takes the place of this attribute."""
@@ -727,6 +729,8 @@ __all__ = [
     "LogicalSize",
     "MapModel",
     "Model",
+    "PhysicalPosition",
+    "PhysicalSize",
     "ReverseModel",
     "SortModel",
     "StyledText",

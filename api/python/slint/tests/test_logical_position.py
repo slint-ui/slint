@@ -1,7 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-"""Tests for the LogicalPosition and LogicalSize value classes."""
+"""Tests for the LogicalPosition, LogicalSize, PhysicalPosition, and PhysicalSize value classes."""
 
 import typing
 from pathlib import Path
@@ -48,6 +48,28 @@ def test_logical_size_defaults_to_zero() -> None:
     s = slint.LogicalSize()
     assert s.width == 0.0
     assert s.height == 0.0
+
+
+def test_physical_position() -> None:
+    p = slint.PhysicalPosition(-10, 20)
+    assert (p.x, p.y) == (-10, 20)
+    assert slint.PhysicalPosition() == slint.PhysicalPosition(0, 0)
+    assert p == slint.PhysicalPosition(-10, 20)
+    assert p != slint.PhysicalPosition(-10, 21)
+    assert hash(p) == hash(slint.PhysicalPosition(-10, 20))
+    assert repr(p) == "PhysicalPosition(x=-10, y=20)"
+
+
+def test_physical_size() -> None:
+    s = slint.PhysicalSize(100, 50)
+    assert (s.width, s.height) == (100, 50)
+    assert slint.PhysicalSize() == slint.PhysicalSize(0, 0)
+    assert s == slint.PhysicalSize(100, 50)
+    assert s != slint.PhysicalSize(100, 51)
+    assert hash(s) == hash(slint.PhysicalSize(100, 50))
+    assert repr(s) == "PhysicalSize(width=100, height=50)"
+    with pytest.raises(OverflowError):
+        slint.PhysicalSize(-1, 0)
 
 
 def test_round_trip_through_slint_property(tmp_path: Path) -> None:

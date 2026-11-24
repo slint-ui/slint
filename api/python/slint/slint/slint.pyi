@@ -243,6 +243,28 @@ class LogicalSize:
     def __eq__(self, other: object) -> bool: ...
     def __hash__(self) -> int: ...
 
+class PhysicalPosition:
+    r"""A 2D position in physical pixels."""
+
+    x: int
+    r"""The horizontal coordinate."""
+    y: int
+    r"""The vertical coordinate."""
+    def __new__(cls, x: int = 0, y: int = 0) -> Self: ...
+    def __eq__(self, other: object) -> bool: ...
+    def __hash__(self) -> int: ...
+
+class PhysicalSize:
+    r"""A 2D size in physical pixels."""
+
+    width: int
+    r"""The width."""
+    height: int
+    r"""The height."""
+    def __new__(cls, width: int = 0, height: int = 0) -> Self: ...
+    def __eq__(self, other: object) -> bool: ...
+    def __hash__(self) -> int: ...
+
 class Image:
     r"""
     Image objects can be set on Slint Image elements for display. Construct Image objects from a path to an
@@ -340,15 +362,79 @@ class Window:
     r"""
     A window that renders the scene of a component on the screen.
     To get the window of a component, use `Component.window`.
+
+    To place and size the window before you show it, set its `logical_position` and `logical_size`:
+    ```python
+    import slint
+
+    main_window = slint.loader.app.MainWindow()
+    main_window.window.logical_position = slint.LogicalPosition(100, 50)
+    main_window.window.logical_size = slint.LogicalSize(800, 600)
+    main_window.run()
+    ```
+
+    **Note:** The window keeps its component alive only while it's shown.
+    Once the component is gone, all functions and properties of the window raise `RuntimeError`.
     """
+
+    @property
+    def scale_factor(self) -> float:
+        r"""The factor to convert between logical and physical pixels."""
+    logical_position: LogicalPosition
+    r"""
+    The position of the window on the screen, in logical pixels and including the window frame.
+
+    **Note:** Some windowing systems, such as Wayland, don't let you set the position;
+    there, it always reads as `(0, 0)`.
+    """
+    physical_position: PhysicalPosition
+    r"""
+    The position of the window on the screen, in physical pixels and including the window frame.
+
+    **Note:** Some windowing systems, such as Wayland, don't let you set the position;
+    there, it always reads as `(0, 0)`.
+    """
+    logical_size: LogicalSize
+    r"""The size of the window on the screen, in logical pixels and excluding the window frame."""
+    physical_size: PhysicalSize
+    r"""The size of the window on the screen, in physical pixels and excluding the window frame."""
+    @property
+    def visible(self) -> bool:
+        r"""
+        `True` if the window is visible on the screen; `False` otherwise.
+        It can be `False` after `show()`, for example if the user minimized the window.
+        """
+    fullscreen: bool
+    r"""
+    `True` if the window is in full screen mode; `False` otherwise.
+    Set it to enter or leave full screen mode.
+    """
+    maximized: bool
+    r"""
+    `True` if the window is maximized; `False` otherwise.
+    Set it to maximize the window or restore it.
+    """
+    minimized: bool
+    r"""
+    `True` if the window is minimized; `False` otherwise.
+    Set it to minimize the window or restore it.
+    """
+
+    def show(self) -> None:
+        r"""Shows the window on the screen."""
+
+    def hide(self) -> None:
+        r"""Hides the window from the screen."""
+
+    def request_redraw(self) -> None:
+        r"""Issues a request to the windowing system to re-render the contents of the window."""
 
     def take_snapshot(self) -> Image:
         r"""
         Takes a snapshot of the window contents and returns it as an image.
         To get a snapshot in the size of your component, show the window first.
 
-        Raises `RuntimeError` if the backend or renderer can't take snapshots,
-        or if the component of the window no longer exists.
+        Raises `RuntimeError` if the backend or renderer can't take snapshots.
 
         **Note:** This function can be slow, because it re-renders the scene when needed.
 
@@ -467,6 +553,7 @@ def init_translations(
 ) -> None: ...
 def build_features() -> list[str]: ...
 def _configure_test_fonts() -> None: ...
+def _set_window_scale_factor(window: Window, factor: float) -> None: ...
 
 class PyModelBase:
     def notify_row_changed(self, row: int) -> None: ...

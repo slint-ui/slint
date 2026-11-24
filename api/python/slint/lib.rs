@@ -102,6 +102,15 @@ fn _configure_test_fonts() {
     i_slint_backend_testing::configure_test_fonts();
 }
 
+/// Sets the scale factor of a window, in place of the one from the windowing system.
+#[cfg(feature = "backend-testing")]
+#[pyfunction]
+fn _set_window_scale_factor(window: PyRef<'_, window::PyWindow>, factor: f32) -> PyResult<()> {
+    window.dispatch_event(i_slint_core::platform::WindowEvent::ScaleFactorChanged {
+        scale_factor: factor,
+    })
+}
+
 /// Returns the list of optional capabilities that were compiled into the loaded
 /// native binary. This is how Python can tell whether the "dev" binary (with
 /// system-testing and MCP support) was loaded, or just the default lean one.
@@ -226,6 +235,8 @@ fn register_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<brush::PyBrush>()?;
     m.add_class::<geometry::PyLogicalPosition>()?;
     m.add_class::<geometry::PyLogicalSize>()?;
+    m.add_class::<geometry::PyPhysicalPosition>()?;
+    m.add_class::<geometry::PyPhysicalSize>()?;
     m.add_class::<keys::PyKeys>()?;
     m.add_class::<data_transfer::PyDataTransfer>()?;
     m.add_class::<styled_text::PyStyledText>()?;
@@ -242,6 +253,8 @@ fn register_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(build_features, m)?)?;
     #[cfg(feature = "backend-testing")]
     m.add_function(wrap_pyfunction!(_configure_test_fonts, m)?)?;
+    #[cfg(feature = "backend-testing")]
+    m.add_function(wrap_pyfunction!(_set_window_scale_factor, m)?)?;
 
     language::register_all(m.py(), m)?;
 
