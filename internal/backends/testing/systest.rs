@@ -471,7 +471,7 @@ mod tests {
             &i_slint_core::window::WindowInner::from_pub(app.window()).window_adapter(),
         );
         let root = Some(introspection::index_to_handle(
-            state.windows.borrow().values().next().unwrap().root_element_handle,
+            state.root_element_handle(state.window_handles()[0]).unwrap(),
         ));
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let client = Rc::new(TestingClient {
