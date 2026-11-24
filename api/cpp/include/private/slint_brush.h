@@ -15,8 +15,11 @@ namespace slint {
 
 namespace private_api {
 
+using cbindgen_private::types::CONIC_GRADIENT_HEADER;
 using cbindgen_private::types::GradientColorSpace;
 using cbindgen_private::types::GradientStop;
+using cbindgen_private::types::LINEAR_GRADIENT_HEADER;
+using cbindgen_private::types::RADIAL_GRADIENT_HEADER;
 
 inline float encode_gradient_color_space(GradientColorSpace colorSpace)
 {
@@ -51,10 +54,10 @@ public:
     }
 
     /// Returns the number of gradient stops.
-    int stopCount() const { return int(inner.size()) - 2; }
+    int stopCount() const { return int(inner.size()) - int(LINEAR_GRADIENT_HEADER); }
 
     /// Returns a pointer to the first gradient stop; undefined if the gradient has not stops.
-    const GradientStop *stopsBegin() const { return inner.begin() + 2; }
+    const GradientStop *stopsBegin() const { return inner.begin() + LINEAR_GRADIENT_HEADER; }
     /// Returns a pointer past the last gradient stop. The returned pointer cannot be dereferenced,
     /// it can only be used for comparison.
     const GradientStop *stopsEnd() const { return inner.end(); }
@@ -105,10 +108,10 @@ public:
     }
 
     /// Returns the number of gradient stops.
-    int stopCount() const { return int(inner.size()) - 6; }
+    int stopCount() const { return int(inner.size()) - int(RADIAL_GRADIENT_HEADER); }
 
     /// Returns a pointer to the first gradient stop; undefined if the gradient has not stops.
-    const GradientStop *stopsBegin() const { return inner.begin() + 6; }
+    const GradientStop *stopsBegin() const { return inner.begin() + RADIAL_GRADIENT_HEADER; }
     /// Returns a pointer past the last gradient stop. The returned pointer cannot be dereferenced,
     /// it can only be used for comparison.
     const GradientStop *stopsEnd() const { return inner.end(); }
@@ -196,10 +199,10 @@ public:
     float angle() const { return inner[0].position; }
 
     /// Returns the number of gradient stops.
-    int stopCount() const { return int(inner.size()) - 4; }
+    int stopCount() const { return int(inner.size()) - int(CONIC_GRADIENT_HEADER); }
 
     /// Returns a pointer to the first gradient stop; undefined if the gradient has not stops.
-    const GradientStop *stopsBegin() const { return inner.begin() + 4; }
+    const GradientStop *stopsBegin() const { return inner.begin() + CONIC_GRADIENT_HEADER; }
     /// Returns a pointer past the last gradient stop. The returned pointer cannot be dereferenced,
     /// it can only be used for comparison.
     const GradientStop *stopsEnd() const { return inner.end(); }
@@ -297,22 +300,18 @@ Color Brush::color() const
         result.inner = data.solid_color._0;
         break;
     case Tag::LinearGradient:
-        if (data.linear_gradient._0.size() > 2) {
-            result.inner = data.linear_gradient._0[2].color;
+        if (data.linear_gradient._0.size() > private_api::LINEAR_GRADIENT_HEADER) {
+            result.inner = data.linear_gradient._0[private_api::LINEAR_GRADIENT_HEADER].color;
         }
         break;
     case Tag::RadialGradient:
-        // The first 6 stops are the fake header: center_x, center_y, radius_x, radius_y, shape,
-        // color space.
-        if (data.radial_gradient._0.size() > 6) {
-            result.inner = data.radial_gradient._0[6].color;
+        if (data.radial_gradient._0.size() > private_api::RADIAL_GRADIENT_HEADER) {
+            result.inner = data.radial_gradient._0[private_api::RADIAL_GRADIENT_HEADER].color;
         }
         break;
     case Tag::ConicGradient:
-        // First 4 stops are the fake header (angle, center_x, center_y, color space); real stops
-        // start at 4.
-        if (data.conic_gradient._0.size() > 4) {
-            result.inner = data.conic_gradient._0[4].color;
+        if (data.conic_gradient._0.size() > private_api::CONIC_GRADIENT_HEADER) {
+            result.inner = data.conic_gradient._0[private_api::CONIC_GRADIENT_HEADER].color;
         }
         break;
     }

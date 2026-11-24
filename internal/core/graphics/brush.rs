@@ -260,6 +260,19 @@ fn decode_color_space(value: f32) -> GradientColorSpace {
     }
 }
 
+/// Number of fake header stops before the color stops of a [`LinearGradientBrush`]:
+/// angle and color space.
+#[doc(hidden)]
+pub const LINEAR_GRADIENT_HEADER: usize = 2;
+/// Number of fake header stops before the color stops of a [`RadialGradientBrush`]:
+/// center x and y, radius x and y, shape, and color space.
+#[doc(hidden)]
+pub const RADIAL_GRADIENT_HEADER: usize = 6;
+/// Number of fake header stops before the color stops of a [`ConicGradientBrush`]:
+/// angle, center x and y, and color space.
+#[doc(hidden)]
+pub const CONIC_GRADIENT_HEADER: usize = 4;
+
 /// The LinearGradientBrush describes a way of filling a shape with different colors, which
 /// are interpolated between different stops. The colors are aligned with a line that's rotated
 /// by the LinearGradient's angle.
@@ -268,14 +281,17 @@ fn decode_color_space(value: f32) -> GradientColorSpace {
 pub struct LinearGradientBrush(SharedVector<GradientStop>);
 
 impl LinearGradientBrush {
+    const HEADER: usize = LINEAR_GRADIENT_HEADER;
+    const COLOR_SPACE: usize = Self::HEADER - 1;
+
     /// Creates a new linear gradient, described by the specified angle and the provided color stops.
     ///
     /// The angle need to be specified in degrees.
     /// The stops don't need to be sorted as this function will sort them.
     pub fn new(angle: f32, stops: impl IntoIterator<Item = GradientStop>) -> Self {
         let stop_iter = stops.into_iter();
-        let mut encoded_angle_and_stops = SharedVector::with_capacity(stop_iter.size_hint().0 + 2);
-        // The gradient's first two stops are fake stops storing the angle and color space.
+        let mut encoded_angle_and_stops =
+            SharedVector::with_capacity(Self::HEADER + stop_iter.size_hint().0);
         encoded_angle_and_stops.push(GradientStop { color: Default::default(), position: angle });
         encoded_angle_and_stops.push(GradientStop {
             color: Default::default(),
@@ -287,7 +303,7 @@ impl LinearGradientBrush {
     /// Sets the color space stops are interpolated in, returning `self` for chaining.
     #[doc(hidden)]
     pub fn with_color_space(mut self, color_space: GradientColorSpace) -> Self {
-        self.0.make_mut_slice()[1].position = encode_color_space(color_space);
+        self.0.make_mut_slice()[Self::COLOR_SPACE].position = encode_color_space(color_space);
         self
     }
     /// Returns the angle of the linear gradient in degrees.
@@ -297,18 +313,17 @@ impl LinearGradientBrush {
     /// Returns the color space stops are interpolated in.
     #[doc(hidden)]
     pub fn color_space(&self) -> GradientColorSpace {
-        decode_color_space(self.0[1].position)
+        decode_color_space(self.0[Self::COLOR_SPACE].position)
     }
     /// Returns the color stops of the linear gradient.
     /// The stops are sorted by positions.
     pub fn stops(&self) -> impl Iterator<Item = &GradientStop> {
-        // skip the first two fake stops that just contain the angle and color space
-        self.0.iter().skip(2)
+        self.0.iter().skip(Self::HEADER)
     }
 
     /// The color stops as a slice, without the header stops.
     fn stops_slice(&self) -> &[GradientStop] {
-        self.0.as_slice().get(2..).unwrap_or_default()
+        self.0.as_slice().get(Self::HEADER..).unwrap_or_default()
     }
 }
 
@@ -346,7 +361,8 @@ pub const RADIAL_GRADIENT_SHAPE_ELLIPSE: f32 = 1.0;
 pub struct RadialGradientBrush(SharedVector<GradientStop>);
 
 impl RadialGradientBrush {
-    const HEADER: usize = 6;
+    const HEADER: usize = RADIAL_GRADIENT_HEADER;
+    const COLOR_SPACE: usize = Self::HEADER - 1;
     /// Qt and Skia treat a gradient transform with a near-zero determinant as singular,
     /// so a zero radius is resolved to this instead.
     const MIN_RADIUS: f32 = 1e-3;
@@ -389,7 +405,7 @@ impl RadialGradientBrush {
     /// Sets the color space stops are interpolated in, returning `self` for chaining.
     #[doc(hidden)]
     pub fn with_color_space(mut self, color_space: GradientColorSpace) -> Self {
-        self.0.make_mut_slice()[5].position = encode_color_space(color_space);
+        self.0.make_mut_slice()[Self::COLOR_SPACE].position = encode_color_space(color_space);
         self
     }
 
@@ -416,7 +432,7 @@ impl RadialGradientBrush {
     /// Returns the color space stops are interpolated in.
     #[doc(hidden)]
     pub fn color_space(&self) -> GradientColorSpace {
-        decode_color_space(self.0[5].position)
+        decode_color_space(self.0[Self::COLOR_SPACE].position)
     }
 
     /// Returns the color stops of the radial gradient.
@@ -610,7 +626,8 @@ impl PartialEq for ConicGradientBrush {
 }
 
 impl ConicGradientBrush {
-    const HEADER: usize = 4;
+    const HEADER: usize = CONIC_GRADIENT_HEADER;
+    const COLOR_SPACE: usize = Self::HEADER - 1;
 
     /// Creates a new conic gradient, described by the specified angle and the provided color stops.
     ///
@@ -639,7 +656,7 @@ impl ConicGradientBrush {
     /// Sets the color space stops are interpolated in, returning `self` for chaining.
     #[doc(hidden)]
     pub fn with_color_space(mut self, color_space: GradientColorSpace) -> Self {
-        self.0.make_mut_slice()[3].position = encode_color_space(color_space);
+        self.0.make_mut_slice()[Self::COLOR_SPACE].position = encode_color_space(color_space);
         self
     }
 
@@ -825,7 +842,7 @@ impl ConicGradientBrush {
     /// Returns the color space stops are interpolated in.
     #[doc(hidden)]
     pub fn color_space(&self) -> GradientColorSpace {
-        decode_color_space(self.0[3].position)
+        decode_color_space(self.0[Self::COLOR_SPACE].position)
     }
 
     /// Returns the color stops of the conic gradient.
@@ -989,7 +1006,7 @@ impl InterpolatedPropertyValue for Brush {
             }
             (Brush::SolidColor(col), Brush::LinearGradient(grad)) => {
                 let mut new_grad = grad.clone();
-                for x in new_grad.0.make_mut_slice().iter_mut().skip(2) {
+                for x in new_grad.0.make_mut_slice().iter_mut().skip(LinearGradientBrush::HEADER) {
                     x.color = col.interpolate(&x.color, t);
                 }
                 Brush::LinearGradient(new_grad)
@@ -1068,7 +1085,7 @@ impl InterpolatedPropertyValue for Brush {
                     } else {
                         snap(lhs.shape(), rhs.shape())
                     };
-                    s[5].position = snap(
+                    s[RadialGradientBrush::COLOR_SPACE].position = snap(
                         encode_color_space(lhs.color_space()),
                         encode_color_space(rhs.color_space()),
                     );
@@ -1116,7 +1133,8 @@ impl InterpolatedPropertyValue for Brush {
                             s[2].position = rhs.center_y();
                         }
                         if t >= 1.0 {
-                            s[3].position = encode_color_space(rhs.color_space());
+                            s[ConicGradientBrush::COLOR_SPACE].position =
+                                encode_color_space(rhs.color_space());
                         }
                         let mut rhs_stops = rhs.stops();
                         let mut iter = s.iter_mut().skip(ConicGradientBrush::HEADER);
