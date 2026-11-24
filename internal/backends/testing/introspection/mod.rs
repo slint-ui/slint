@@ -1574,6 +1574,72 @@ mod element_children_tests {
     }
 }
 
+/// Elements that the compiler lowers to no item of their own are missing from the tree.
+/// These tests pin that gap.
+#[cfg(all(test, feature = "system-testing"))]
+mod element_children_without_items_tests {
+    use super::*;
+
+    slint::slint! {
+        #[edition = "1.20"]
+        export component App inherits Window {
+            width: 100px;
+            height: 100px;
+            grid := GridLayout {
+                Row { g1 := Text { text: "1"; } g2 := Text { text: "2"; } }
+                Row { g3 := Text { text: "3"; } }
+            }
+            path := Path {
+                width: 50px;
+                height: 50px;
+                stroke: red;
+                stroke-width: 1px;
+                MoveTo { x: 0; y: 0; }
+                LineTo { x: 10; y: 10; }
+            }
+            Timer { interval: 1s; }
+        }
+    }
+
+    /// Returns the ids of the children of the element with the id `parent`,
+    /// or of the window root without one.
+    fn child_ids(parent: Option<&str>) -> Vec<String> {
+        crate::init_no_event_loop();
+        let app = App::new().unwrap();
+        let state = IntrospectionState::new();
+        state.add_window(&window_adapter_for_test(&app));
+        let level = |parent| {
+            dispatch::element_children(&state, parent)
+                .unwrap()
+                .children
+                .into_iter()
+                .map(|child| (child.type_names_and_ids[0].id.clone(), child.handle.unwrap()))
+                .collect::<Vec<_>>()
+        };
+        let mut children = level(None);
+        for id in ["App::root"].into_iter().chain(parent) {
+            let (_, handle) = children.into_iter().find(|(child_id, _)| child_id == id).unwrap();
+            children = level(Some(handle_to_index(handle).unwrap()));
+        }
+        children.into_iter().map(|(id, _)| id).collect()
+    }
+
+    #[test]
+    fn leaves_out_timers() {
+        assert_eq!(child_ids(None), ["App::grid", "App::path"]);
+    }
+
+    #[test]
+    fn lists_grid_cells_without_their_rows() {
+        assert_eq!(child_ids(Some("App::grid")), ["App::g1", "App::g2", "App::g3"]);
+    }
+
+    #[test]
+    fn lists_no_path_commands() {
+        assert!(child_ids(Some("App::path")).is_empty());
+    }
+}
+
 #[test]
 fn test_dispatch_element_properties_stale_handle() {
     let state = IntrospectionState::new();
