@@ -387,54 +387,35 @@ fn generate_texture(
         right -= 1;
         assert!(right > left); // otherwise we would have a transparent image
     }
-    let mut is_opaque = true;
-    enum ColorState {
-        Unset,
-        Different,
-        Rgb([u8; 3]),
-    }
-    let mut color = ColorState::Unset;
-    'outer: for y in top..=bottom {
-        for x in left..=right {
-            let p = image.get_pixel(x, y);
-            let alpha = p[3];
-            if alpha != 255 {
-                is_opaque = false;
-            }
-            if alpha == 0 {
-                continue;
-            }
-            let get_pixel = || match source_format {
-                SourceFormat::RgbaPremultiplied => <[u8; 3]>::try_from(&p.0[0..3])
-                    .unwrap()
-                    .map(|v| (v as u16 * 255 / alpha as u16) as u8),
-                SourceFormat::Rgba => p.0[0..3].try_into().unwrap(),
-            };
-            match color {
-                ColorState::Unset => {
-                    color = ColorState::Rgb(get_pixel());
-                }
-                ColorState::Different => {
-                    if !is_opaque {
-                        break 'outer;
-                    }
-                }
-                ColorState::Rgb([a, b, c]) => {
-                    let px = get_pixel();
-                    if a.abs_diff(px[0]) > 2 || b.abs_diff(px[1]) > 2 || c.abs_diff(px[2]) > 2 {
-                        color = ColorState::Different
-                    }
-                }
-            }
-        }
-    }
+    let pixels = || (top..=bottom).flat_map(|y| (left..=right).map(move |x| (x, y)));
+    let is_opaque = pixels().all(|(x, y)| image.get_pixel(x, y)[3] == 255);
 
-    let (format, color) = match color {
-        ColorState::Rgb([r, g, b]) => {
-            (TexturePixelFormat::AlphaMap, u32::from_be_bytes([0xff, r, g, b]))
-        }
-        _ if is_opaque => (TexturePixelFormat::Rgb, 0),
-        _ => (TexturePixelFormat::RgbaPremultiplied, 0),
+    // A premultiplied pixel with a low alpha can't tell its color, so the most opaque pixel
+    // gives the color, and the others only need to match it once premultiplied.
+    let reference = pixels().map(|(x, y)| *image.get_pixel(x, y)).max_by_key(|p| p[3]).unwrap();
+    let reference_color = match source_format {
+        SourceFormat::RgbaPremultiplied => <[u8; 3]>::try_from(&reference.0[0..3])
+            .unwrap()
+            .map(|v| (v as u16 * 255 / reference[3] as u16) as u8),
+        SourceFormat::Rgba => reference.0[0..3].try_into().unwrap(),
+    };
+    let is_single_color = pixels().map(|(x, y)| image.get_pixel(x, y)).all(|p| {
+        let alpha = p[3] as u16;
+        (0..3).all(|i| match source_format {
+            SourceFormat::RgbaPremultiplied => {
+                p[i].abs_diff(((reference_color[i] as u16 * alpha + 127) / 255) as u8) <= 1
+            }
+            SourceFormat::Rgba => alpha == 0 || p[i].abs_diff(reference_color[i]) <= 2,
+        })
+    });
+
+    let (format, color) = if is_single_color {
+        let [r, g, b] = reference_color;
+        (TexturePixelFormat::AlphaMap, u32::from_be_bytes([0xff, r, g, b]))
+    } else if is_opaque {
+        (TexturePixelFormat::Rgb, 0)
+    } else {
+        (TexturePixelFormat::RgbaPremultiplied, 0)
     };
 
     let rect = IntRect::new(
@@ -704,4 +685,48 @@ fn embed_data_uri(
     let resource_id = push(EmbeddedResourcesKind::DataUriPayload(decoded_data, extension.clone()));
 
     ImageReference::EmbeddedData { resource_id, extension }
+}
+
+#[cfg(all(test, feature = "renderer-software"))]
+mod tests {
+    use super::*;
+
+    fn format_of(image: image::RgbaImage, source_format: SourceFormat) -> TexturePixelFormat {
+        let size = IntSize::new(image.width(), image.height());
+        generate_texture(image, source_format, size).textures[0].format
+    }
+
+    /// Premultiplies a `color` pixel the way the SVG renderer does.
+    fn premultiplied(color: [u8; 3], alpha: u8) -> image::Rgba<u8> {
+        let [r, g, b] = color.map(|v| ((v as u16 * alpha as u16 + 127) / 255) as u8);
+        image::Rgba([r, g, b, alpha])
+    }
+
+    #[test]
+    fn antialiased_single_color_is_an_alpha_map() {
+        // The faint edge pixel comes first, where a premultiplied color is only a rough guess.
+        let alphas = [3, 40, 255, 255, 90, 7];
+        let image = image::RgbaImage::from_fn(alphas.len() as u32, 1, |x, _| {
+            premultiplied([0x33, 0x66, 0x99], alphas[x as usize])
+        });
+        assert_eq!(format_of(image, SourceFormat::RgbaPremultiplied), TexturePixelFormat::AlphaMap);
+    }
+
+    #[test]
+    fn two_colors_stay_premultiplied() {
+        let image = image::RgbaImage::from_fn(4, 1, |x, _| {
+            premultiplied(if x < 2 { [0xff, 0, 0] } else { [0, 0xff, 0] }, 200)
+        });
+        assert_eq!(
+            format_of(image, SourceFormat::RgbaPremultiplied),
+            TexturePixelFormat::RgbaPremultiplied
+        );
+    }
+
+    #[test]
+    fn opaque_gradient_is_rgb() {
+        let image =
+            image::RgbaImage::from_fn(8, 1, |x, _| image::Rgba([x as u8 * 30, 10, 200, 255]));
+        assert_eq!(format_of(image, SourceFormat::Rgba), TexturePixelFormat::Rgb);
+    }
 }
