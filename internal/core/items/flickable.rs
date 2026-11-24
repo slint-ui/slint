@@ -1066,10 +1066,13 @@ impl FlickableDataInner {
             );
             let reduced_motion = Flickable::reduced_motion(flick_rc);
             if reduced_motion && !(inside_bounds_x && inside_bounds_y) {
-                let released_at = LogicalPoint::from_lengths(flick.content_x(), flick.content_y());
-                let target = self.scroll_to(flick, flick_rc, -released_at, ScrollBehavior::Instant);
-                self.pending_flicked |= target != released_at.to_vector();
-                return;
+                if !inside_bounds_x {
+                    self.start_spring_back(flick, flick_rc, Dimension::X, &geo);
+                }
+                if !inside_bounds_y {
+                    self.start_spring_back(flick, flick_rc, Dimension::Y, &geo);
+                }
+                self.pending_flicked = true;
             }
             let estimated_velocity =
                 self.velocity_rb.estimate_velocity(release_time).map(|v| v.velocity);
@@ -1079,6 +1082,9 @@ impl FlickableDataInner {
                                       velocity: Option<f32>,
                                       inside_bounds: bool| {
                 if !inside_bounds {
+                    if reduced_motion {
+                        return None;
+                    }
                     return Some(Self::spring_back(
                         flick,
                         flick_rc,

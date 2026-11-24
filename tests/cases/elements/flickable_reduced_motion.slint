@@ -161,6 +161,35 @@ slint_testing::set_motion_preference(MotionPreference::NoPreference);
 ```
 
 ```rust
+// Content pulled past its left edge goes back at once, and the vertical fling still runs.
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+use slint_testing::{AutoBool, MotionPreference};
+let instance = TestCase::new().unwrap();
+let flickable = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::f")
+    .next()
+    .unwrap();
+slint_testing::set_flickable_physics(&flickable, AutoBool::On, AutoBool::Off);
+slint_testing::set_motion_preference(MotionPreference::Reduced);
+
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(100.0, 400.0) });
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(100.0, 400.0), button: PointerEventButton::Left });
+for (x, y) in [(110.0, 360.0), (120.0, 320.0), (130.0, 280.0), (140.0, 240.0)] {
+    slint_testing::mock_elapsed_time(10);
+    instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(x, y) });
+}
+assert!(instance.get_offset_x() < 0., "the drag pulls the content past its left edge: {}", instance.get_offset_x());
+let released = instance.get_offset_y();
+instance.set_flicked(0);
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(140.0, 240.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_offset_x(), 0.);
+assert_eq!(instance.get_flicked(), 1);
+slint_testing::mock_elapsed_time(50);
+assert!(instance.get_offset_y() > released, "the vertical fling goes on: {released} then {}", instance.get_offset_y());
+assert_eq!(instance.get_offset_x(), 0.);
+slint_testing::set_motion_preference(MotionPreference::NoPreference);
+```
+
+```rust
 // Content that ends up beyond its limits without user interaction is set back at once.
 use slint_testing::{AutoBool, MotionPreference};
 let instance = TestCase::new().unwrap();
