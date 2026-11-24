@@ -1222,10 +1222,7 @@ mod tests {
                     7,
                     DebuggerToPreviewMessage::SystemTestRequest(SystemTestMessage(vec![1])),
                 );
-                let response = tokio::time::timeout(Duration::from_secs(5), debugger.recv())
-                    .await
-                    .unwrap()
-                    .unwrap();
+                let response = receive_debugger(&mut debugger).await;
                 assert!(matches!(
                     response,
                     (7, PreviewToDebuggerMessage::SystemTestResponse(Err(_)))
@@ -1247,10 +1244,7 @@ mod tests {
                     7,
                     DebuggerToPreviewMessage::SystemTestRequest(SystemTestMessage(vec![1])),
                 );
-                let response = tokio::time::timeout(Duration::from_secs(5), debugger.recv())
-                    .await
-                    .unwrap()
-                    .unwrap();
+                let response = receive_debugger(&mut debugger).await;
                 assert_eq!(
                     response,
                     (
@@ -1861,10 +1855,7 @@ mod tests {
                 let marker =
                     PreviewToLspMessage::DebugMessage { location: None, message: "marker".into() };
                 to_editor.send(&marker).unwrap();
-                let received = tokio::time::timeout(Duration::from_secs(5), debugger.recv())
-                    .await
-                    .unwrap()
-                    .unwrap();
+                let received = receive_debugger(&mut debugger).await;
                 assert_eq!(received, response);
                 assert_forwarded(&mut upstream, &[marker]).await;
                 controller.close();
