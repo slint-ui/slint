@@ -3,7 +3,7 @@
 
 //! Handle colors and brushes in the UI
 
-use slint::{Model, VecModel};
+use slint::{Model, SharedString, VecModel};
 
 use crate::preview::ui;
 
@@ -72,6 +72,17 @@ pub fn string_to_color(text: &str) -> Option<slint::Color> {
 
 fn parse_color_space(color_space: &str) -> i_slint_core::graphics::GradientColorSpace {
     color_space.parse().unwrap_or_default()
+}
+
+/// The UI's name for `color_space`, empty for sRGB like `PickerData.reset()`.
+pub fn color_space_to_string(
+    color_space: i_slint_core::graphics::GradientColorSpace,
+) -> SharedString {
+    if color_space == i_slint_core::graphics::GradientColorSpace::Srgb {
+        SharedString::new()
+    } else {
+        slint::format!("{color_space}")
+    }
 }
 
 fn as_json_brush(
