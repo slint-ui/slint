@@ -241,7 +241,6 @@ impl Brush {
     }
 }
 
-#[doc(hidden)]
 pub use i_slint_common::gradient_color_space::GradientColorSpace;
 
 fn encode_color_space(color_space: GradientColorSpace) -> f32 {
@@ -301,7 +300,6 @@ impl LinearGradientBrush {
         Self(encoded_angle_and_stops)
     }
     /// Sets the color space stops are interpolated in, returning `self` for chaining.
-    #[doc(hidden)]
     pub fn with_color_space(mut self, color_space: GradientColorSpace) -> Self {
         self.0.make_mut_slice()[Self::COLOR_SPACE].position = encode_color_space(color_space);
         self
@@ -311,7 +309,6 @@ impl LinearGradientBrush {
         self.0[0].position
     }
     /// Returns the color space stops are interpolated in.
-    #[doc(hidden)]
     pub fn color_space(&self) -> GradientColorSpace {
         decode_color_space(self.0[Self::COLOR_SPACE].position)
     }
@@ -403,7 +400,6 @@ impl RadialGradientBrush {
         Self(v)
     }
     /// Sets the color space stops are interpolated in, returning `self` for chaining.
-    #[doc(hidden)]
     pub fn with_color_space(mut self, color_space: GradientColorSpace) -> Self {
         self.0.make_mut_slice()[Self::COLOR_SPACE].position = encode_color_space(color_space);
         self
@@ -430,7 +426,6 @@ impl RadialGradientBrush {
         self.0[4].position
     }
     /// Returns the color space stops are interpolated in.
-    #[doc(hidden)]
     pub fn color_space(&self) -> GradientColorSpace {
         decode_color_space(self.0[Self::COLOR_SPACE].position)
     }
@@ -639,7 +634,6 @@ impl ConicGradientBrush {
 
     /// Creates a new conic gradient like [`new()`](Self::new),
     /// whose stops are interpolated in `color_space`.
-    #[doc(hidden)]
     pub fn new_with_color_space(
         angle: f32,
         color_space: GradientColorSpace,
@@ -849,7 +843,6 @@ impl ConicGradientBrush {
         self.0[2].position
     }
     /// Returns the color space stops are interpolated in.
-    #[doc(hidden)]
     pub fn color_space(&self) -> GradientColorSpace {
         decode_color_space(self.0[Self::COLOR_SPACE].position)
     }

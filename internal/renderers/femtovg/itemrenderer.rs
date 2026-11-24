@@ -1771,10 +1771,10 @@ fn to_femtovg_color_space(
 ) -> femtovg::ColorSpace {
     use i_slint_core::graphics::GradientColorSpace;
     match color_space {
-        GradientColorSpace::Srgb => femtovg::ColorSpace::Srgb,
         GradientColorSpace::Oklch => femtovg::ColorSpace::Oklch,
         GradientColorSpace::Oklab => femtovg::ColorSpace::Oklab,
         GradientColorSpace::Hsl => femtovg::ColorSpace::Hsl,
+        _ => femtovg::ColorSpace::Srgb,
     }
 }
 

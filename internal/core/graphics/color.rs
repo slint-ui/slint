@@ -734,16 +734,15 @@ struct SpaceComponents {
 impl SpaceComponents {
     fn hue_index(color_space: GradientColorSpace) -> Option<usize> {
         match color_space {
-            GradientColorSpace::Srgb | GradientColorSpace::Oklab => None,
             GradientColorSpace::Oklch => Some(2),
             GradientColorSpace::Hsl => Some(0),
+            _ => None,
         }
     }
 
     fn new(color: Color, color_space: GradientColorSpace) -> Self {
         let rgba = RgbaColor::<f32>::from(color);
         let components = match color_space {
-            GradientColorSpace::Srgb => [rgba.red, rgba.green, rgba.blue],
             GradientColorSpace::Oklab => {
                 let lab = OklabColor::from(rgba);
                 [lab.l, lab.a, lab.b]
@@ -754,6 +753,7 @@ impl SpaceComponents {
                 [lch.lightness, lch.chroma, hue]
             }
             GradientColorSpace::Hsl => rgb_to_hsl(rgba),
+            _ => [rgba.red, rgba.green, rgba.blue],
         };
         Self { components, alpha: rgba.alpha }
     }
@@ -762,12 +762,12 @@ impl SpaceComponents {
         let [x, y, z] = self.components;
         let alpha = self.alpha;
         let rgba = match color_space {
-            GradientColorSpace::Srgb => RgbaColor { red: x, green: y, blue: z, alpha },
             GradientColorSpace::Oklab => OklabColor { l: x, a: y, b: z, alpha }.into(),
             GradientColorSpace::Oklch => {
                 OklchColor { lightness: x, chroma: y, hue: z, alpha }.into()
             }
             GradientColorSpace::Hsl => hsl_to_rgb(self.components, alpha),
+            _ => RgbaColor { red: x, green: y, blue: z, alpha },
         };
         rgba.into()
     }
