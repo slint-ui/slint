@@ -208,12 +208,11 @@ impl IntrospectionState {
 
     pub fn add_window(&self, adapter: &Rc<dyn WindowAdapter>) {
         // A window shows again with a new component when the live preview recompiles.
-        if self.window_handle_for_adapter(adapter).is_some() {
-            return;
+        if self.window_handle_for_adapter(adapter).is_none() {
+            self.windows
+                .borrow_mut()
+                .insert(TrackedWindow { window_adapter: Rc::downgrade(adapter) });
         }
-        let mut windows = self.windows.borrow_mut();
-        windows.retain(|_, window| window.window_adapter.strong_count() > 0);
-        windows.insert(TrackedWindow { window_adapter: Rc::downgrade(adapter) });
     }
 
     /// Returns the root elements of the tracked windows that still show a component.
@@ -228,7 +227,12 @@ impl IntrospectionState {
     }
 
     pub fn window_handles(&self) -> Vec<ArenaIndex> {
-        self.windows.borrow().iter().map(|(index, _)| index).collect()
+        self.windows
+            .borrow()
+            .iter()
+            .filter(|(_, window)| window.window_adapter.strong_count() > 0)
+            .map(|(index, _)| index)
+            .collect()
     }
 
     fn window_handle_for_adapter(&self, adapter: &Rc<dyn WindowAdapter>) -> Option<ArenaIndex> {
@@ -1532,12 +1536,17 @@ mod element_children_tests {
         let state = IntrospectionState::new();
         let first = App::new().unwrap();
         state.add_window(&window_adapter_for_test(&first));
+        let first_window = state.window_handles()[0];
         drop(first);
         let second = App::new().unwrap();
         state.add_window(&window_adapter_for_test(&second));
 
-        assert_eq!(state.windows.borrow().len(), 1);
+        assert_eq!(state.window_handles().len(), 1);
         assert_eq!(names(&children(&state, None)), ["App::root"]);
+        assert_eq!(
+            state.window_adapter(first_window).err().unwrap(),
+            "Attempting to access deleted window"
+        );
     }
 
     #[test]
