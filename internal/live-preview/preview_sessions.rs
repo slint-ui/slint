@@ -51,7 +51,7 @@ pub enum PreviewSessionEvent {
     ContentsChanged,
     HighlightFromEditor { url: Option<Url>, offset: u32 },
     RegisterFont { url: Url, contents: Arc<[u8]> },
-    Debugger(DebuggerToPreviewMessage),
+    Debugger { id: u64, message: DebuggerToPreviewMessage },
 }
 
 pub enum PreviewCompilation {
@@ -283,8 +283,8 @@ impl PreviewSession {
             | LspToPreviewMessage::PairingResponse { .. } => {
                 tracing::warn!("Ignoring pairing message on an established session");
             }
-            LspToPreviewMessage::Debugger(message) => {
-                event_handler(PreviewSessionEvent::Debugger(message));
+            LspToPreviewMessage::Debugger { id, message } => {
+                event_handler(PreviewSessionEvent::Debugger { id, message });
             }
         }
         true

@@ -188,7 +188,7 @@ pub fn lsp_to_preview(message: LspToPreviewMessage) {
         M::PairingHello { .. } | M::PairingResponse { .. } => {
             tracing::warn!("Ignoring a pairing message addressed to a local preview");
         }
-        M::Debugger(message) => {
+        M::Debugger { message, .. } => {
             debug_assert!(false, "The editor sent its preview a debugger message: {message:?}");
             tracing::warn!("Ignoring debugger message {message:?}");
         }

@@ -628,7 +628,7 @@ async fn handle_preview_message(
         | PairingAccepted
         | PairingRejected { .. }
         | Exited
-        | Debugger(..) => {
+        | Debugger { .. } => {
             tracing::debug!("Ignoring message from preview: {message:?}");
         }
         SendWorkspaceEdit { label, edit } => {

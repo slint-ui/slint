@@ -5,20 +5,18 @@
 #[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum DebuggerToPreviewMessage {
     /// A `RequestToAut` from `slint_systest.proto`.
-    /// The preview answers with a [`PreviewToDebuggerMessage::SystemTestResponse`]
-    /// with the same `id`.
-    /// The debugger picks the `id`, unique among its unanswered requests.
-    SystemTestRequest { id: u64, request: SystemTestMessage },
+    /// The preview answers with a [`PreviewToDebuggerMessage::SystemTestResponse`].
+    SystemTestRequest(SystemTestMessage),
 }
 
 /// A message from a preview to the debugger.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum PreviewToDebuggerMessage {
-    /// The `AutResponse` from `slint_systest.proto` to the
-    /// [`DebuggerToPreviewMessage::SystemTestRequest`] with the same `id`,
+    /// The `AutResponse` from `slint_systest.proto` to a
+    /// [`DebuggerToPreviewMessage::SystemTestRequest`],
     /// or an error if the request gets no answer,
     /// such as when no preview runs or it was built without system testing.
-    SystemTestResponse { id: u64, response: Result<SystemTestMessage, String> },
+    SystemTestResponse(Result<SystemTestMessage, String>),
 }
 
 /// A protobuf-encoded message from `slint_systest.proto`.
@@ -57,26 +55,17 @@ mod tests {
 
     #[test]
     fn json_encodes_protobuf_as_base64() {
-        let request = DebuggerToPreviewMessage::SystemTestRequest {
-            id: 7,
-            request: SystemTestMessage(vec![8, 1]),
-        };
+        let request = DebuggerToPreviewMessage::SystemTestRequest(SystemTestMessage(vec![8, 1]));
         let json = serde_json::to_string(&request).unwrap();
-        assert_eq!(json, r#"{"SystemTestRequest":{"id":7,"request":"CAE="}}"#);
+        assert_eq!(json, r#"{"SystemTestRequest":"CAE="}"#);
         assert_eq!(serde_json::from_str::<DebuggerToPreviewMessage>(&json).unwrap(), request);
 
         for response in [Ok(SystemTestMessage(vec![8, 1])), Err("failed".to_string())] {
-            let response = PreviewToDebuggerMessage::SystemTestResponse { id: 7, response };
+            let response = PreviewToDebuggerMessage::SystemTestResponse(response);
             let json = serde_json::to_string(&response).unwrap();
             assert_eq!(serde_json::from_str::<PreviewToDebuggerMessage>(&json).unwrap(), response);
         }
-        let ok = PreviewToDebuggerMessage::SystemTestResponse {
-            id: 7,
-            response: Ok(SystemTestMessage(vec![8, 1])),
-        };
-        assert_eq!(
-            serde_json::to_string(&ok).unwrap(),
-            r#"{"SystemTestResponse":{"id":7,"response":{"Ok":"CAE="}}}"#
-        );
+        let ok = PreviewToDebuggerMessage::SystemTestResponse(Ok(SystemTestMessage(vec![8, 1])));
+        assert_eq!(serde_json::to_string(&ok).unwrap(), r#"{"SystemTestResponse":{"Ok":"CAE="}}"#);
     }
 }

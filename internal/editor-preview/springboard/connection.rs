@@ -49,11 +49,11 @@ pub(super) struct Connection {
 /// Dropping it answers them with an error, so the debugger doesn't wait for a preview that's gone.
 struct PendingRequests {
     ids: HashSet<u64>,
-    to_debugger: mpsc::UnboundedSender<PreviewToDebuggerMessage>,
+    to_debugger: mpsc::UnboundedSender<(u64, PreviewToDebuggerMessage)>,
 }
 
 impl PendingRequests {
-    fn new(to_debugger: mpsc::UnboundedSender<PreviewToDebuggerMessage>) -> Self {
+    fn new(to_debugger: mpsc::UnboundedSender<(u64, PreviewToDebuggerMessage)>) -> Self {
         Self { ids: HashSet::new(), to_debugger }
     }
 }
@@ -63,10 +63,12 @@ impl Drop for PendingRequests {
         let mut ids: Vec<u64> = self.ids.drain().collect();
         ids.sort_unstable();
         for id in ids {
-            let _ = self.to_debugger.send(PreviewToDebuggerMessage::SystemTestResponse {
+            let _ = self.to_debugger.send((
                 id,
-                response: Err("The preview ended before answering".into()),
-            });
+                PreviewToDebuggerMessage::SystemTestResponse(Err(
+                    "The preview ended before answering".into(),
+                )),
+            ));
         }
     }
 }
@@ -75,7 +77,7 @@ impl Connection {
     pub(super) fn local(
         config: &LocalPreviewConfig,
         arguments: Vec<OsString>,
-        to_debugger: mpsc::UnboundedSender<PreviewToDebuggerMessage>,
+        to_debugger: mpsc::UnboundedSender<(u64, PreviewToDebuggerMessage)>,
     ) -> Self {
         let (sender, receiver) = mpsc::unbounded_channel();
         let preview = ChildProcessLspToPreview::new(config.executable.clone(), arguments, sender)
@@ -98,7 +100,7 @@ impl Connection {
     pub(super) fn remote(
         viewer: RemoteViewer,
         credentials: Option<PairingCredentials>,
-        to_debugger: mpsc::UnboundedSender<PreviewToDebuggerMessage>,
+        to_debugger: mpsc::UnboundedSender<(u64, PreviewToDebuggerMessage)>,
     ) -> Self {
         Self {
             state: ui::ConnectionState::Connecting,
@@ -257,21 +259,21 @@ impl Connection {
     /// Returns why it wasn't sent.
     pub(super) fn send_debugger_message(
         &mut self,
+        id: u64,
         message: DebuggerToPreviewMessage,
     ) -> Result<(), String> {
-        let &DebuggerToPreviewMessage::SystemTestRequest { id, .. } = &message;
         if self.pending_requests.as_ref().is_some_and(|pending| pending.ids.contains(&id)) {
             tracing::warn!("Dropping the debugger request {id}, its ID is still unanswered");
             return Ok(());
         }
         match &self.preview {
             Some(ActivePreview::Local { preview, .. }) => {
-                preview.send_running(&LspToPreviewMessage::Debugger(message))
+                preview.send_running(&LspToPreviewMessage::Debugger { id, message })
             }
             Some(ActivePreview::Remote { connection, .. })
                 if self.state == ui::ConnectionState::Connected =>
             {
-                connection.send(LspToPreviewMessage::Debugger(message))
+                connection.send(LspToPreviewMessage::Debugger { id, message })
             }
             Some(ActivePreview::Remote { .. }) => {
                 return Err("The viewer isn't connected yet".into());

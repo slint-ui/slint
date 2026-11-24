@@ -101,10 +101,10 @@ impl DebugAgent {
                 .ok();
                 tracing::debug!("Registered font {url} ({len} bytes)");
             }
-            PreviewSessionEvent::Debugger(DebuggerToPreviewMessage::SystemTestRequest {
+            PreviewSessionEvent::Debugger {
                 id,
-                request,
-            }) => {
+                message: DebuggerToPreviewMessage::SystemTestRequest(request),
+            } => {
                 crate::system_testing::answer_request(id, request, self.to_editor.clone());
             }
         }

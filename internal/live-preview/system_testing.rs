@@ -46,10 +46,10 @@ fn spawn_answer(
 fn send(to_editor: &Weak<dyn PreviewToLsp>, id: u64, response: Result<SystemTestMessage, String>) {
     let Some(to_editor) = to_editor.upgrade() else { return };
     to_editor
-        .send(&PreviewToLspMessage::Debugger(PreviewToDebuggerMessage::SystemTestResponse {
+        .send(&PreviewToLspMessage::Debugger {
             id,
-            response,
-        }))
+            message: PreviewToDebuggerMessage::SystemTestResponse(response),
+        })
         .ok();
 }
 
@@ -62,14 +62,14 @@ mod tests {
     use std::rc::Rc;
 
     #[derive(Default)]
-    struct CaptureToDebugger(RefCell<Vec<PreviewToDebuggerMessage>>);
+    struct CaptureToDebugger(RefCell<Vec<(u64, PreviewToDebuggerMessage)>>);
 
     impl PreviewToLsp for CaptureToDebugger {
         fn send(&self, message: &PreviewToLspMessage) -> crate::protocol::Result<()> {
-            let PreviewToLspMessage::Debugger(message) = message else {
+            let PreviewToLspMessage::Debugger { id, message } = message else {
                 unreachable!("System-test responses go to the debugger")
             };
-            self.0.borrow_mut().push(message.clone());
+            self.0.borrow_mut().push((*id, message.clone()));
             Ok(())
         }
     }
@@ -88,7 +88,7 @@ mod tests {
         context.run_event_loop().unwrap();
         assert!(matches!(
             capture.0.take().as_slice(),
-            [PreviewToDebuggerMessage::SystemTestResponse { id: 7, response: Ok(response) }]
+            [(7, PreviewToDebuggerMessage::SystemTestResponse(Ok(response)))]
                 if !response.0.is_empty()
         ));
     }

@@ -325,12 +325,15 @@ pub(crate) mod tests {
             let line = line.unwrap();
             let reply = match serde_json::from_str(&line) {
                 Ok(LspToPreviewMessage::Quit) => std::process::exit(0),
-                Ok(LspToPreviewMessage::Debugger(
-                    DebuggerToPreviewMessage::SystemTestRequest { id, .. },
-                )) => PreviewToLspMessage::Debugger(PreviewToDebuggerMessage::SystemTestResponse {
+                Ok(LspToPreviewMessage::Debugger {
                     id,
-                    response: Ok(SystemTestMessage(Vec::new())),
-                }),
+                    message: DebuggerToPreviewMessage::SystemTestRequest(_),
+                }) => PreviewToLspMessage::Debugger {
+                    id,
+                    message: PreviewToDebuggerMessage::SystemTestResponse(Ok(SystemTestMessage(
+                        Vec::new(),
+                    ))),
+                },
                 _ => PreviewToLspMessage::DebugMessage { location: None, message: line },
             };
             println!("{}", serde_json::to_string(&reply).unwrap());

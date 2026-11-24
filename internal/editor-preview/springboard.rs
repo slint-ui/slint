@@ -112,7 +112,7 @@ struct SpringboardTask {
     local_preview: LocalPreviewConfig,
     pending_local_launch: Option<oneshot::Receiver<Vec<OsString>>>,
     to_editor: mpsc::UnboundedSender<PreviewToLspMessage>,
-    to_debugger: mpsc::UnboundedSender<PreviewToDebuggerMessage>,
+    to_debugger: mpsc::UnboundedSender<(u64, PreviewToDebuggerMessage)>,
     globals: Vec<slint::Weak<ui::Springboard<'static>>>,
     displayed_endpoints: Arc<RwLock<DisplayedEndpoints>>,
     /// Without Local, in the order the user saved them.
@@ -130,11 +130,11 @@ struct SpringboardTask {
 
 impl Springboard {
     /// Passes the preview's messages to the editor on `to_editor`,
-    /// and its debugger messages on `to_debugger`.
+    /// and its debugger messages on `to_debugger`, with the ID of the request each answers.
     pub fn new(
         local_preview: LocalPreviewConfig,
         to_editor: mpsc::UnboundedSender<PreviewToLspMessage>,
-        to_debugger: mpsc::UnboundedSender<PreviewToDebuggerMessage>,
+        to_debugger: mpsc::UnboundedSender<(u64, PreviewToDebuggerMessage)>,
     ) -> Self {
         Self::spawn(
             local_preview,
@@ -149,7 +149,7 @@ impl Springboard {
     pub fn without_discovery(
         local_preview: LocalPreviewConfig,
         to_editor: mpsc::UnboundedSender<PreviewToLspMessage>,
-        to_debugger: mpsc::UnboundedSender<PreviewToDebuggerMessage>,
+        to_debugger: mpsc::UnboundedSender<(u64, PreviewToDebuggerMessage)>,
     ) -> Self {
         Self::spawn(
             local_preview,
@@ -163,7 +163,7 @@ impl Springboard {
     fn spawn(
         local_preview: LocalPreviewConfig,
         to_editor: mpsc::UnboundedSender<PreviewToLspMessage>,
-        to_debugger: mpsc::UnboundedSender<PreviewToDebuggerMessage>,
+        to_debugger: mpsc::UnboundedSender<(u64, PreviewToDebuggerMessage)>,
         discovery: DiscoveredViewers,
         usb_discovery: UsbDiscovery,
     ) -> Self {
@@ -282,8 +282,9 @@ impl Springboard {
     /// Sends the debugger's `message` to the running preview.
     /// The debugger gets an error response without one.
     /// A request reusing the ID of an unanswered one is dropped.
-    pub fn send_debugger_message(&self, message: DebuggerToPreviewMessage) {
-        let _ = self.task_sender.send(Box::new(move |task| task.send_debugger_message(message)));
+    pub fn send_debugger_message(&self, id: u64, message: DebuggerToPreviewMessage) {
+        let _ =
+            self.task_sender.send(Box::new(move |task| task.send_debugger_message(id, message)));
     }
 }
 
@@ -526,10 +527,9 @@ impl SpringboardTask {
                 let Some(error) = error else { return };
                 self.connection.fail(error);
             }
-            ConnectionEvent::Message(PreviewToLspMessage::Debugger(message)) => {
-                let &PreviewToDebuggerMessage::SystemTestResponse { id, .. } = &message;
+            ConnectionEvent::Message(PreviewToLspMessage::Debugger { id, message }) => {
                 if self.connection.take_pending(id) {
-                    let _ = self.to_debugger.send(message);
+                    let _ = self.to_debugger.send((id, message));
                 } else {
                     tracing::debug!("Dropping the response to request {id}, which isn't pending");
                 }
@@ -552,12 +552,11 @@ impl SpringboardTask {
         self.update_ui();
     }
 
-    fn send_debugger_message(&mut self, message: DebuggerToPreviewMessage) {
-        let &DebuggerToPreviewMessage::SystemTestRequest { id, .. } = &message;
-        if let Err(error) = self.connection.send_debugger_message(message) {
+    fn send_debugger_message(&mut self, id: u64, message: DebuggerToPreviewMessage) {
+        if let Err(error) = self.connection.send_debugger_message(id, message) {
             let _ = self
                 .to_debugger
-                .send(PreviewToDebuggerMessage::SystemTestResponse { id, response: Err(error) });
+                .send((id, PreviewToDebuggerMessage::SystemTestResponse(Err(error))));
         }
     }
 
@@ -830,7 +829,7 @@ mod tests {
     ) -> (
         Springboard,
         mpsc::UnboundedReceiver<PreviewToLspMessage>,
-        mpsc::UnboundedReceiver<PreviewToDebuggerMessage>,
+        mpsc::UnboundedReceiver<(u64, PreviewToDebuggerMessage)>,
         flume::Sender<mdns_sd::ServiceEvent>,
         tokio::sync::watch::Sender<Vec<UsbSerialPort>>,
     ) {
@@ -1219,17 +1218,17 @@ mod tests {
             .run_until(async {
                 let (controller, _receiver, mut debugger, _discovery, _usb) =
                     controller_with_debugger("echo_child");
-                controller.send_debugger_message(DebuggerToPreviewMessage::SystemTestRequest {
-                    id: 7,
-                    request: SystemTestMessage(vec![1]),
-                });
+                controller.send_debugger_message(
+                    7,
+                    DebuggerToPreviewMessage::SystemTestRequest(SystemTestMessage(vec![1])),
+                );
                 let response = tokio::time::timeout(Duration::from_secs(5), debugger.recv())
                     .await
                     .unwrap()
                     .unwrap();
                 assert!(matches!(
                     response,
-                    PreviewToDebuggerMessage::SystemTestResponse { id: 7, response: Err(_) }
+                    (7, PreviewToDebuggerMessage::SystemTestResponse(Err(_)))
                 ));
                 controller.shutdown().await;
             })
@@ -1244,20 +1243,22 @@ mod tests {
                     controller_with_debugger("echo_child");
                 controller.start();
                 started(&mut receiver).await;
-                controller.send_debugger_message(DebuggerToPreviewMessage::SystemTestRequest {
-                    id: 7,
-                    request: SystemTestMessage(vec![1]),
-                });
+                controller.send_debugger_message(
+                    7,
+                    DebuggerToPreviewMessage::SystemTestRequest(SystemTestMessage(vec![1])),
+                );
                 let response = tokio::time::timeout(Duration::from_secs(5), debugger.recv())
                     .await
                     .unwrap()
                     .unwrap();
                 assert_eq!(
                     response,
-                    PreviewToDebuggerMessage::SystemTestResponse {
-                        id: 7,
-                        response: Ok(SystemTestMessage(Vec::new()))
-                    }
+                    (
+                        7,
+                        PreviewToDebuggerMessage::SystemTestResponse(Ok(SystemTestMessage(
+                            Vec::new()
+                        )))
+                    )
                 );
                 assert!(receiver.try_recv().is_err());
                 controller.shutdown().await;
@@ -1265,9 +1266,13 @@ mod tests {
             .await;
     }
 
+    fn debugger_to_lsp((id, message): (u64, PreviewToDebuggerMessage)) -> PreviewToLspMessage {
+        PreviewToLspMessage::Debugger { id, message }
+    }
+
     async fn receive_debugger(
-        debugger: &mut mpsc::UnboundedReceiver<PreviewToDebuggerMessage>,
-    ) -> PreviewToDebuggerMessage {
+        debugger: &mut mpsc::UnboundedReceiver<(u64, PreviewToDebuggerMessage)>,
+    ) -> (u64, PreviewToDebuggerMessage) {
         tokio::time::timeout(Duration::from_secs(5), debugger.recv()).await.unwrap().unwrap()
     }
 
@@ -1284,19 +1289,19 @@ mod tests {
                     .task_sender
                     .send(Box::new(move |task| task.connection.replace_local_receiver(endpoint)))
                     .unwrap();
-                controller.send_debugger_message(DebuggerToPreviewMessage::SystemTestRequest {
-                    id: 7,
-                    request: SystemTestMessage(vec![1]),
-                });
-                let response = PreviewToDebuggerMessage::SystemTestResponse {
-                    id: 7,
-                    response: Ok(SystemTestMessage(vec![1])),
-                };
+                controller.send_debugger_message(
+                    7,
+                    DebuggerToPreviewMessage::SystemTestRequest(SystemTestMessage(vec![1])),
+                );
+                let response = (
+                    7,
+                    PreviewToDebuggerMessage::SystemTestResponse(Ok(SystemTestMessage(vec![1]))),
+                );
                 let queued = response.clone();
                 controller
                     .task_sender
                     .send(Box::new(move |_| {
-                        sender.send(PreviewToLspMessage::Debugger(queued)).unwrap();
+                        sender.send(debugger_to_lsp(queued)).unwrap();
                         sender.send(PreviewToLspMessage::Exited).unwrap();
                     }))
                     .unwrap();
@@ -1320,10 +1325,10 @@ mod tests {
                     .task_sender
                     .send(Box::new(move |task| task.connection.replace_local_receiver(endpoint)))
                     .unwrap();
-                controller.send_debugger_message(DebuggerToPreviewMessage::SystemTestRequest {
-                    id: 7,
-                    request: SystemTestMessage(vec![1]),
-                });
+                controller.send_debugger_message(
+                    7,
+                    DebuggerToPreviewMessage::SystemTestRequest(SystemTestMessage(vec![1])),
+                );
                 // The child's answer goes to the dropped receiver, so the request stays pending.
                 controller
                     .task_sender
@@ -1333,7 +1338,7 @@ mod tests {
                     .unwrap();
                 assert!(matches!(
                     receive_debugger(&mut debugger).await,
-                    PreviewToDebuggerMessage::SystemTestResponse { id: 7, response: Err(_) }
+                    (7, PreviewToDebuggerMessage::SystemTestResponse(Err(_)))
                 ));
                 controller.shutdown().await;
             })
@@ -1354,10 +1359,10 @@ mod tests {
                     .send(Box::new(move |task| task.connection.replace_local_receiver(endpoint)))
                     .unwrap();
                 for _ in 0..2 {
-                    controller.send_debugger_message(DebuggerToPreviewMessage::SystemTestRequest {
-                        id: 7,
-                        request: SystemTestMessage(vec![1]),
-                    });
+                    controller.send_debugger_message(
+                        7,
+                        DebuggerToPreviewMessage::SystemTestRequest(SystemTestMessage(vec![1])),
+                    );
                 }
                 controller
                     .task_sender
@@ -1367,7 +1372,7 @@ mod tests {
                     .unwrap();
                 assert!(matches!(
                     receive_debugger(&mut debugger).await,
-                    PreviewToDebuggerMessage::SystemTestResponse { id: 7, response: Err(_) }
+                    (7, PreviewToDebuggerMessage::SystemTestResponse(Err(_)))
                 ));
                 wait_idle(&controller).await;
                 assert!(debugger.try_recv().is_err());
@@ -1389,24 +1394,24 @@ mod tests {
                     .task_sender
                     .send(Box::new(move |task| task.connection.replace_local_receiver(endpoint)))
                     .unwrap();
-                controller.send_debugger_message(DebuggerToPreviewMessage::SystemTestRequest {
-                    id: 7,
-                    request: SystemTestMessage(vec![1]),
-                });
-                let response = PreviewToDebuggerMessage::SystemTestResponse {
-                    id: 7,
-                    response: Ok(SystemTestMessage(vec![1])),
-                };
-                let unsolicited = PreviewToDebuggerMessage::SystemTestResponse {
-                    id: 8,
-                    response: Ok(SystemTestMessage(vec![2])),
-                };
+                controller.send_debugger_message(
+                    7,
+                    DebuggerToPreviewMessage::SystemTestRequest(SystemTestMessage(vec![1])),
+                );
+                let response = (
+                    7,
+                    PreviewToDebuggerMessage::SystemTestResponse(Ok(SystemTestMessage(vec![1]))),
+                );
+                let unsolicited = (
+                    8,
+                    PreviewToDebuggerMessage::SystemTestResponse(Ok(SystemTestMessage(vec![2]))),
+                );
                 let queued = [unsolicited, response.clone(), response.clone()];
                 controller
                     .task_sender
                     .send(Box::new(move |_| {
                         for message in queued {
-                            sender.send(PreviewToLspMessage::Debugger(message)).unwrap();
+                            sender.send(debugger_to_lsp(message)).unwrap();
                         }
                         sender.send(PreviewToLspMessage::Exited).unwrap();
                     }))
@@ -1836,24 +1841,23 @@ mod tests {
                 accept_plaintext(&controller).await;
                 initial_request(&mut upstream).await;
 
-                let request = DebuggerToPreviewMessage::SystemTestRequest {
-                    id: 7,
-                    request: SystemTestMessage(vec![1]),
-                };
-                controller.send_debugger_message(request.clone());
+                let request =
+                    DebuggerToPreviewMessage::SystemTestRequest(SystemTestMessage(vec![1]));
+                controller.send_debugger_message(7, request.clone());
                 let event = viewer
-                    .preview_event(|event| matches!(event, PreviewSessionEvent::Debugger(_)))
+                    .preview_event(|event| matches!(event, PreviewSessionEvent::Debugger { .. }))
                     .await;
-                assert!(
-                    matches!(event, PreviewSessionEvent::Debugger(message) if message == request)
-                );
+                assert!(matches!(
+                    event,
+                    PreviewSessionEvent::Debugger { id: 7, message } if message == request
+                ));
 
-                let response = PreviewToDebuggerMessage::SystemTestResponse {
-                    id: 7,
-                    response: Ok(SystemTestMessage(vec![2])),
-                };
+                let response = (
+                    7,
+                    PreviewToDebuggerMessage::SystemTestResponse(Ok(SystemTestMessage(vec![2]))),
+                );
                 let to_editor = viewer.connection.preview_to_lsp();
-                to_editor.send(&PreviewToLspMessage::Debugger(response.clone())).unwrap();
+                to_editor.send(&debugger_to_lsp(response.clone())).unwrap();
                 let marker =
                     PreviewToLspMessage::DebugMessage { location: None, message: "marker".into() };
                 to_editor.send(&marker).unwrap();
