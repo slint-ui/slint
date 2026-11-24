@@ -2188,14 +2188,18 @@ fn build(l: &mut Loader) {
         ///
         /// ```slint
         /// export component Example {
+        ///     property <length> menu-x;
+        ///     property <length> menu-y;
         ///     area := ContextMenuArea {
         ///         show(position) => {
-        ///             menu.x = position.x;
-        ///             menu.y = position.y;
+        ///             menu-x = position.x;
+        ///             menu-y = position.y;
         ///             menu.show();
         ///         }
         ///     }
         ///     menu := PopupWindow {
+        ///         x: menu-x;
+        ///         y: menu-y;
         ///         width: 120px;
         ///         height: 60px;
         ///         Rectangle { background: lightgray; }
