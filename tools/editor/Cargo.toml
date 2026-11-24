@@ -29,10 +29,11 @@ path = "gallery/main.rs"
 [features]
 ## Discover preview targets on the local network.
 preview-remote = ["dep:mdns-sd"]
-## Enable the out-of-process system-testing transport, and answer system-testing requests in the preview.
-system-testing = ["slint/system-testing", "i-slint-live-preview/system-testing"]
-## Open the Slint Debugger window from the Window menu or with --debugger.
-debugger = []
+## Enable the out-of-process system-testing transport.
+system-testing = ["slint/system-testing"]
+## Open the Slint Debugger window from the Window menu or with --debugger,
+## and answer its system-testing requests in the preview.
+debugger = ["i-slint-live-preview/system-testing"]
 
 [dependencies]
 i-slint-backend-selector = { workspace = true }
