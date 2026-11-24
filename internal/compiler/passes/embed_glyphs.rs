@@ -11,7 +11,6 @@ use crate::element_type::ElementType;
 use crate::embedded_resources::{BitmapFont, BitmapGlyph, BitmapGlyphs};
 use crate::expression_tree::{BindingExpression, Expression};
 use crate::expression_types::Unit;
-use crate::namedreference::NamedReference;
 use crate::object_tree::*;
 use crate::source_path::SourcePath;
 use smol_str::SmolStr;
@@ -692,8 +691,11 @@ pub fn collect_font_sizes_used(doc: &Document, scale_factor: f64, sizes_seen: &m
             for (name, declaration) in &e.property_declarations {
                 if let Some(target) = &declaration.is_alias {
                     let key = (Rc::as_ptr(&target.element()), target.name().clone());
-                    let alias = NamedReference::new(elem, name.clone());
-                    sources.aliases_by_target.entry(key).or_default().push(alias);
+                    sources
+                        .aliases_by_target
+                        .entry(key)
+                        .or_default()
+                        .push((elem.clone(), name.clone()));
                 }
             }
             let property = match e.base_type.to_string().as_str() {
@@ -709,6 +711,10 @@ pub fn collect_font_sizes_used(doc: &Document, scale_factor: f64, sizes_seen: &m
 
     let mut add_font_size = |logical_size: f64| {
         let pixel_size = (logical_size * scale_factor) as i16;
+        // A size of 0 means the default size at run time: nothing to embed for it.
+        if pixel_size <= 0 {
+            return;
+        }
         match sizes_seen.binary_search(&pixel_size) {
             Ok(_) => {}
             Err(pos) => sizes_seen.insert(pos, pixel_size),
@@ -725,11 +731,15 @@ struct BindingSources {
     /// The elements that instantiate a sub-component, by the sub-component's root element.
     instances_by_root: HashMap<*const RefCell<Element>, Vec<ElementRc>>,
     /// The properties declared as an alias of a property, by the aliased element and name.
-    aliases_by_target: HashMap<(*const RefCell<Element>, SmolStr), Vec<NamedReference>>,
+    aliases_by_target: HashMap<(*const RefCell<Element>, SmolStr), Vec<(ElementRc, SmolStr)>>,
 }
+
+/// How many property references `BindingSources::collect_lengths` follows before giving up.
+const MAX_REFERENCE_DEPTH: usize = 16;
 
 impl BindingSources {
     /// Calls `add` with every constant length that `property` of `elem` can be bound to.
+    /// Only lengths in `px` are found; other units such as `rem` are skipped.
     fn collect_lengths(
         &self,
         elem: &ElementRc,
@@ -737,20 +747,21 @@ impl BindingSources {
         depth: usize,
         add: &mut impl FnMut(f64),
     ) {
-        if depth > 16 {
+        if depth > MAX_REFERENCE_DEPTH {
             return;
         }
         if let Some(binding) = elem.borrow().binding(property) {
             self.collect_lengths_of_binding(&binding, depth, add);
         }
+        // The instance's own binding and the aliases that target the instance. This is not a
+        // property reference, so it doesn't count towards the depth; component instantiation is
+        // acyclic, so this terminates.
         for instance in self.instances_by_root.get(&Rc::as_ptr(elem)).into_iter().flatten() {
-            if let Some(binding) = instance.borrow().binding(property) {
-                self.collect_lengths_of_binding(&binding, depth, add);
-            }
+            self.collect_lengths(instance, property, depth, add);
         }
         let key = (Rc::as_ptr(elem), SmolStr::new(property));
-        for alias in self.aliases_by_target.get(&key).into_iter().flatten() {
-            self.collect_lengths(&alias.element(), alias.name(), depth + 1, add);
+        for (alias_elem, alias_name) in self.aliases_by_target.get(&key).into_iter().flatten() {
+            self.collect_lengths(alias_elem, alias_name, depth + 1, add);
         }
     }
 
@@ -831,6 +842,10 @@ component Alias inherits Rectangle {
     in property <length> font-size <=> txt.font-size;
     txt := Text { text: "alias"; }
 }
+component Card inherits Rectangle {
+    in property <length> title-size <=> l.font-size;
+    l := Label { }
+}
 component Panel inherits Rectangle {
     in property <length> size;
     Label { font-size: root.size; }
@@ -840,6 +855,8 @@ export component Test inherits Window {
     Label { font-size: 140px; }
     Panel { size: 50px; }
     Alias { font-size: 70px; }
+    Card { title-size: 37px; }
+    Label { font-size: 0px; }
     Text { text: "dynamic"; font-size: root.dynamic; }
     Text { text: "literal"; font-size: 20px; }
 }
@@ -855,5 +872,5 @@ export component Test inherits Window {
 
     let mut sizes = Vec::new();
     collect_font_sizes_used(&doc, 1., &mut sizes);
-    assert_eq!(sizes, [20, 30, 50, 70, 140]);
+    assert_eq!(sizes, [20, 30, 37, 50, 70, 140]);
 }
