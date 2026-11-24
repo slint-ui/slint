@@ -5,9 +5,8 @@ All notable changes to this project are documented in this file.
 ## [1.19.1] - 2026-11-24
 
  - AI plugins: Codex shows an interactive preview of your Slint UI inline, which you can open fullscreen.
-   In Codex, Claude Code, and GitHub Copilot, the agent compiles and renders your Slint code,
+   In Codex, Claude Code, and GitHub Copilot in VS Code, the agent compiles and renders your Slint code,
    so it can fix errors and review a screenshot.
-   The VS Code extension sets up the plugin for GitHub Copilot.
  - Fixed two-way bindings to model fields whose names contain `_`. (#15031)
  - `TextInput`, `TextEdit`: A multi-line input no longer selects all its text when focused with Tab.
  - `ListView`: Fixed an empty view after setting `content-y` past the end of its rows.
