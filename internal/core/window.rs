@@ -699,6 +699,9 @@ pub struct WindowInner {
     cursor_image_overlay: RefCell<Option<ImageOverlay>>,
     drag_image_overlay: RefCell<Option<ImageOverlay>>,
     has_active_animations: Cell<bool>,
+    /// The image cache's clock when this window was last drawn.
+    #[cfg(feature = "std")]
+    image_cache_clock: Cell<u64>,
 
     /// ItemRC that currently have the focus (possibly an instance of TextInput)
     pub focus_item: RefCell<crate::item_tree::ItemWeak>,
@@ -775,6 +778,8 @@ impl WindowInner {
             cursor_image_overlay: Default::default(),
             drag_image_overlay: Default::default(),
             has_active_animations: Default::default(),
+            #[cfg(feature = "std")]
+            image_cache_clock: Default::default(),
             pinned_fields: Box::pin(WindowPinnedFields {
                 redraw_tracker,
                 window_properties_tracker,
@@ -2075,7 +2080,10 @@ impl WindowInner {
         self.has_active_animations.set(has_active_animations);
         #[cfg(feature = "std")]
         if let Some(context) = self.try_context() {
-            context.0.image_cache.trim();
+            context
+                .0
+                .image_cache
+                .trim_after_drawing(self.window_adapter().size(), &self.image_cache_clock);
         }
         Some(result)
     }

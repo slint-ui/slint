@@ -17,9 +17,9 @@ use core::any::{Any, TypeId};
 use core::hash::{Hash, Hasher};
 use std::collections::HashMap;
 
-/// Bytes of entries that nothing outside the cache holds, that the cache keeps
+/// How many windows' worth of pixels the cache keeps of what nothing shows,
 /// so that an image shown again isn't loaded again.
-const UNUSED_BUDGET: usize = 5 * 1024 * 1024;
+const UNUSED_WINDOWS: usize = 2;
 
 /// What's cached when making an entry failed, so that it isn't tried again on every use.
 struct Failed;
@@ -84,6 +84,9 @@ struct Entries {
     entries: HashMap<Key, Entry>,
     total_weight: usize,
     clock: u64,
+    fixed_budget: Option<usize>,
+    /// The size of the pixels of the largest window drawn, in bytes.
+    largest_window: usize,
 }
 
 impl Entries {
@@ -94,14 +97,25 @@ impl Entries {
         }
     }
 
-    fn trim(&mut self) {
-        if self.total_weight <= UNUSED_BUDGET {
+    /// Returns the bytes of entries that nothing holds that are kept,
+    /// or `None` to keep them all until a window is drawn.
+    fn budget(&self) -> Option<usize> {
+        self.fixed_budget
+            .or((self.largest_window > 0).then(|| self.largest_window * UNUSED_WINDOWS))
+    }
+
+    /// Drops the least recently used entries that nothing holds and that weren't used after
+    /// `kept_since`, beyond the budget.
+    fn trim(&mut self, kept_since: u64) {
+        let Some(budget) = self.budget() else { return };
+        if self.total_weight <= budget {
             return;
         }
-        let is_unused = |entry: &Entry| Rc::strong_count(&entry.data) == 1;
+        let is_unused =
+            |entry: &Entry| Rc::strong_count(&entry.data) == 1 && entry.last_use <= kept_since;
         let mut unused_weight: usize =
             self.entries.values().filter(|entry| is_unused(entry)).map(|entry| entry.weight).sum();
-        if unused_weight <= UNUSED_BUDGET {
+        if unused_weight <= budget {
             return;
         }
         let mut unused: alloc::vec::Vec<_> = self
@@ -115,7 +129,7 @@ impl Entries {
             self.entries.remove(&key);
             self.total_weight -= weight;
             unused_weight -= weight;
-            if unused_weight <= UNUSED_BUDGET {
+            if unused_weight <= budget {
                 break;
             }
         }
@@ -123,10 +137,33 @@ impl Entries {
 }
 
 /// The image cache of a [`SlintContext`].
-#[derive(Default)]
 pub(crate) struct ImageCache(core::cell::RefCell<Entries>);
 
+impl Default for ImageCache {
+    fn default() -> Self {
+        Self::with_size(size_from_env())
+    }
+}
+
+/// Returns the size in bytes that `SLINT_IMAGE_CACHE_SIZE` sets in MB.
+fn size_from_env() -> Option<usize> {
+    let value = std::env::var("SLINT_IMAGE_CACHE_SIZE").ok()?;
+    match value.trim().parse::<usize>() {
+        Ok(megabytes) => Some(megabytes.saturating_mul(1024 * 1024)),
+        Err(_) => {
+            crate::debug_log!("Ignoring SLINT_IMAGE_CACHE_SIZE={value}: expected a size in MB");
+            None
+        }
+    }
+}
+
 impl ImageCache {
+    /// Makes a cache that keeps `size` bytes of what nothing holds,
+    /// or a size that follows the windows drawn.
+    fn with_size(size: Option<usize>) -> Self {
+        Self(core::cell::RefCell::new(Entries { fixed_budget: size, ..Default::default() }))
+    }
+
     fn cached<T: 'static>(
         &self,
         cache_key: Key,
@@ -155,13 +192,24 @@ impl ImageCache {
         entries.clock += 1;
         let last_use = entries.clock;
         entries.insert(cache_key, Entry { data, weight, last_use });
-        entries.trim();
         created.map(|(data, _)| data)
     }
 
     /// Drops the least recently used entries that nothing holds, beyond the budget.
-    pub(crate) fn trim(&self) {
-        self.0.borrow_mut().trim();
+    /// It runs after a window of `window_size` is drawn, since that's when renderers release
+    /// images. The largest window sets the budget.
+    /// What was used since the window's previous drawing, at `window_clock`, is kept,
+    /// since the window may draw it again without holding it.
+    pub(crate) fn trim_after_drawing(
+        &self,
+        window_size: crate::api::PhysicalSize,
+        window_clock: &core::cell::Cell<u64>,
+    ) {
+        let mut entries = self.0.borrow_mut();
+        let window = window_size.width as usize * window_size.height as usize * 4;
+        entries.largest_window = entries.largest_window.max(window);
+        entries.trim(window_clock.get());
+        window_clock.set(entries.clock);
     }
 }
 
@@ -246,22 +294,64 @@ mod tests {
         cache.0.borrow().entries.contains_key(&key(n))
     }
 
+    fn window() -> crate::api::PhysicalSize {
+        crate::api::PhysicalSize::new(100, 100)
+    }
+
+    /// The budget of a cache whose largest window is `window()`.
+    const BUDGET: usize = 100 * 100 * 4 * UNUSED_WINDOWS;
+
     #[test]
     fn shares_and_evicts_unused_beyond_budget() {
-        let cache = ImageCache::default();
-        let third = UNUSED_BUDGET / 3 + 1;
+        let cache = ImageCache::with_size(None);
+        let clock = Default::default();
+        let third = BUDGET / 3 + 1;
         let first = cache.cached(key(1), || Some((1u32, third))).unwrap();
         cache.cached(key(2), || Some((2u32, third))).unwrap();
         assert!(Rc::ptr_eq(&first, &cache.cached(key(1), || None::<(u32, _)>).unwrap()));
         drop(first);
         cache.cached(key(3), || Some((3u32, third))).unwrap();
-        cache.trim();
+        // Nothing is evicted before a window is drawn, nor what was used since the last drawing.
+        assert!(is_cached(&cache, 1) && is_cached(&cache, 2) && is_cached(&cache, 3));
+        cache.trim_after_drawing(window(), &clock);
+        assert!(is_cached(&cache, 1) && is_cached(&cache, 2) && is_cached(&cache, 3));
+        cache.trim_after_drawing(window(), &clock);
+        // The least recently used of the three unused images is gone.
         assert!(is_cached(&cache, 1) && !is_cached(&cache, 2) && is_cached(&cache, 3));
-        let huge = cache.cached(key(4), || Some((4u32, UNUSED_BUDGET * 2))).unwrap();
+        // An image in use doesn't count, even beyond the budget.
+        let huge = cache.cached(key(4), || Some((4u32, BUDGET * 2))).unwrap();
         assert!(is_cached(&cache, 1) && is_cached(&cache, 3) && is_cached(&cache, 4));
         drop(huge);
-        cache.trim();
+        cache.trim_after_drawing(window(), &clock);
+        cache.trim_after_drawing(window(), &clock);
         assert!(!is_cached(&cache, 4));
+    }
+
+    #[test]
+    fn what_each_frame_uses_is_kept() {
+        let cache = ImageCache::with_size(Some(0));
+        let clock = Default::default();
+        cache.cached(key(0), || Some((0u32, 1))).unwrap();
+        cache.trim_after_drawing(window(), &clock);
+        assert!(is_cached(&cache, 0));
+        cache.cached(key(0), || None::<(u32, usize)>).unwrap();
+        cache.trim_after_drawing(window(), &clock);
+        assert!(is_cached(&cache, 0));
+        // A frame that doesn't use it lets it go.
+        cache.trim_after_drawing(window(), &clock);
+        assert!(!is_cached(&cache, 0));
+    }
+
+    #[test]
+    fn drawing_another_window_keeps_what_a_window_draws() {
+        let cache = ImageCache::with_size(Some(0));
+        let (first, second) = (Default::default(), Default::default());
+        cache.cached(key(7), || Some((7u32, 1))).unwrap();
+        cache.trim_after_drawing(window(), &first);
+        cache.trim_after_drawing(window(), &second);
+        assert!(is_cached(&cache, 7));
+        cache.trim_after_drawing(window(), &first);
+        assert!(!is_cached(&cache, 7));
     }
 
     #[test]
