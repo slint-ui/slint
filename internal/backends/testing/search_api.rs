@@ -429,6 +429,8 @@ impl ElementHandle {
     ) -> Option<R> {
         let item = self.item.upgrade()?;
         // A merged element shares its item with the first element, which owns the children.
+        // TODO: The debug info doesn't record which merged element a child item came from,
+        // so the children of merged elements show up as children of the first element.
         if self.element_index != 0 {
             return None;
         }
