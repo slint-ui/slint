@@ -2477,7 +2477,6 @@ dependencies = [
  "pin-weak",
  "raw-window-handle",
  "read-fonts 0.46.0",
- "scoped-tls-hkt",
  "skia-safe",
  "softbuffer",
  "unicode-segmentation",

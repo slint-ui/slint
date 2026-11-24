@@ -933,6 +933,8 @@ jobs:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'rust_files') }}
         env:
             RUSTFLAGS: -D warnings
+            # Also fail on cargo's own lints, such as unused dependencies.
+            CARGO_BUILD_WARNINGS: deny
         runs-on: blacksmith-4vcpu-ubuntu-2204
         steps:
             - uses: useblacksmith/checkout@v1

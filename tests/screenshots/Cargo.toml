@@ -81,7 +81,6 @@ i-slint-compiler = { workspace = true, optional = true }
 i-slint-backend-testing = { workspace = true, features = ["internal"], optional = true }
 
 image = { workspace = true }
-crossterm = "0.29"
 test_driver_lib = { path = "../driver/driverlib" }
 
 [build-dependencies]
@@ -90,4 +89,5 @@ walkdir = "2.3"
 test_driver_lib = { path = "../driver/driverlib" }
 
 [dev-dependencies]
+crossterm = "0.29"
 raw-window-handle = { version = "0.6" }

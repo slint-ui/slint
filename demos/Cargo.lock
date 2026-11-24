@@ -2508,7 +2508,6 @@ dependencies = [
  "pin-weak",
  "raw-window-handle",
  "read-fonts 0.46.0",
- "scoped-tls-hkt",
  "skia-safe",
  "softbuffer",
  "unicode-segmentation",
@@ -5851,7 +5850,6 @@ version = "1.20.0"
 dependencies = [
  "console_error_panic_hook",
  "serde",
- "serde_json",
  "slint",
  "slint-build",
  "wasm-bindgen",

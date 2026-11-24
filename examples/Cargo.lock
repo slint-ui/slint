@@ -4990,7 +4990,6 @@ dependencies = [
  "pin-weak",
  "raw-window-handle",
  "read-fonts 0.46.0",
- "scoped-tls-hkt",
  "skia-safe",
  "softbuffer",
  "unicode-segmentation",
@@ -5952,7 +5951,6 @@ version = "1.20.0"
 dependencies = [
  "rand",
  "slint",
- "slint-build",
 ]
 
 [[package]]
@@ -7110,7 +7108,6 @@ version = "1.20.0"
 dependencies = [
  "plotters",
  "slint",
- "slint-build",
 ]
 
 [[package]]
@@ -8810,7 +8807,6 @@ dependencies = [
  "console_error_panic_hook",
  "i-slint-backend-testing",
  "serde",
- "serde_json",
  "slint",
  "slint-build",
  "wasm-bindgen",
