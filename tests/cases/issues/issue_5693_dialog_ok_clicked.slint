@@ -1,0 +1,65 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A Dialog that declares `ok-clicked` must run that callback when its OK
+// StandardButton is clicked (#5693). Aliasing the callback to the button
+// recurses through `clicked => { root.ok-clicked(); }`.
+
+import { StandardButton } from "std-widgets.slint";
+
+export component DeclaredDialog inherits Dialog {
+    callback ok-clicked();
+    in-out property <int> clicks: 0;
+    ok-clicked => { clicks += 1; }
+
+    Rectangle {}
+    ok-btn := StandardButton { kind: ok; }
+}
+
+export component WorkaroundDialog inherits Dialog {
+    callback ok-clicked();
+    in-out property <int> clicks: 0;
+    ok-clicked => { clicks += 1; }
+
+    Rectangle {}
+    ok-btn := StandardButton {
+        kind: ok;
+        clicked => { root.ok-clicked(); }
+    }
+}
+
+export component AliasDialog inherits Dialog {
+    in-out property <int> clicks: 0;
+
+    Rectangle {}
+    ok-btn := StandardButton { kind: ok; }
+}
+
+/*
+```rust
+let declared = DeclaredDialog::new().unwrap();
+assert_eq!(declared.get_clicks(), 0);
+let declared_btn = slint_testing::ElementHandle::find_by_element_id(&declared, "DeclaredDialog::ok-btn").next().unwrap();
+assert!(declared_btn.size().width > 0.);
+declared_btn.mock_single_click(slint::platform::PointerEventButton::Left);
+assert_eq!(declared.get_clicks(), 1, "declared ok-clicked was not invoked by the button");
+```
+
+```rust
+let workaround = WorkaroundDialog::new().unwrap();
+assert_eq!(workaround.get_clicks(), 0);
+let workaround_btn = slint_testing::ElementHandle::find_by_element_id(&workaround, "WorkaroundDialog::ok-btn").next().unwrap();
+workaround_btn.mock_single_click(slint::platform::PointerEventButton::Left);
+assert_eq!(workaround.get_clicks(), 1, "existing clicked handler recursed or was dropped");
+```
+
+```rust
+let alias = AliasDialog::new().unwrap();
+let hits = std::rc::Rc::new(std::cell::Cell::new(0));
+let hits_cb = hits.clone();
+alias.on_ok_clicked(move || hits_cb.set(hits_cb.get() + 1));
+let alias_btn = slint_testing::ElementHandle::find_by_element_id(&alias, "AliasDialog::ok-btn").next().unwrap();
+alias_btn.mock_single_click(slint::platform::PointerEventButton::Left);
+assert_eq!(hits.get(), 1, "ok-clicked alias was not invoked by the button");
+```
+*/
