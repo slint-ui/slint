@@ -5,6 +5,19 @@ description: Write, edit, debug, or review Slint UIs and host-language integrati
 
 # Slint Skill for Claude Code
 
+## `.slint` in 30 Seconds
+
+Slint is declarative and reactive: a property binding re-evaluates automatically when
+anything it reads changes.
+
+Read the complete [music player example](../../guidance/examples/music-player/) before writing or editing a widget, including a single-file widget.
+From that directory, read `slint-project.json`, `*.slint`, `components/*.slint`, and `views/*.slint` together.
+The example shows how components use shared styles and layout metrics.
+
+Property directions: `in` / `out` / `in-out` / `private`. Two-way bind: `a <=> b`.
+Control flow: `if cond : E {}`, `for it[i] in model : E {}`. Shared state & host
+interop: `export global Foo { ... }`. One-time code: `init => { ... }`.
+
 ## Find the Slint Project
 
 Look beside the target `.slint` file and up through the workspace for the applicable `slint-project.json`.
@@ -40,17 +53,6 @@ Use the `slint-lsp` language server for hover, go-to-definition, and source diag
 
 Use the returned PNG when sharing a screenshot.
 For host integration changes, verify callbacks and models in the running app.
-
-## `.slint` in 30 Seconds
-
-Slint is declarative and reactive: a property binding re-evaluates automatically when
-anything it reads changes.
-
-Read all files in ../../guidance/examples/music-player/ for a short example project.
-
-Property directions: `in` / `out` / `in-out` / `private`. Two-way bind: `a <=> b`.
-Control flow: `if cond : E {}`, `for it[i] in model : E {}`. Shared state & host
-interop: `export global Foo { ... }`. One-time code: `init => { ... }`.
 
 ## Reference Files
 

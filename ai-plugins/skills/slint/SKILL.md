@@ -8,6 +8,19 @@ description: Use when writing, editing, debugging, or reviewing `.slint` UI code
 For building, debugging, or reviewing apps that use [Slint](https://slint.dev),
 a declarative GUI toolkit for desktop, embedded, mobile, and web.
 
+## `.slint` in 30 Seconds
+
+Slint is declarative and reactive: a property binding re-evaluates automatically when
+anything it reads changes.
+
+Read the complete [music player example](../../guidance/examples/music-player/) before writing or editing a widget, including a single-file widget.
+From that directory, read `slint-project.json`, `*.slint`, `components/*.slint`, and `views/*.slint` together.
+The example shows how components use shared styles and layout metrics.
+
+Property directions: `in` / `out` / `in-out` / `private`. Two-way bind: `a <=> b`.
+Control flow: `if cond : E {}`, `for it[i] in model : E {}`. Shared state & host
+interop: `export global Foo { ... }`. One-time code: `init => { ... }`.
+
 ## Workflow
 
 1. Find the project's Slint version first (`Cargo.toml`/`Cargo.lock`,
@@ -69,17 +82,6 @@ Skim the matching file *before* building in that area, not only when stuck.
 | [licensing.md](guidance/reference/licensing.md) | The user asks about the license, or builds a closed-source app. |
 | [web-embedding.md](guidance/reference/web-embedding.md) | Showing a live `.slint` preview in a web page, HTML report, or docs. |
 | [tools-install.md](guidance/tools-install.md) | Installing `slint-lsp` (language server) or `slint-viewer` (preview / screenshots). |
-
-## `.slint` in 30 Seconds
-
-Slint is declarative and reactive: a property binding re-evaluates automatically when
-anything it reads changes.
-
-Read all files in guidance/examples/music-player/ for a short example project.
-
-Property directions: `in` / `out` / `in-out` / `private`. Two-way bind: `a <=> b`.
-Control flow: `if cond : E {}`, `for it[i] in model : E {}`. Shared state & host
-interop: `export global Foo { ... }`. One-time code: `init => { ... }`.
 
 ## Documentation
 
