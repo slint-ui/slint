@@ -79,10 +79,8 @@ fn end(state: &Weak<IntrospectionState>, sink: &NotificationSink, id: u64) {
 
 /// Makes the calling binding re-evaluate when `element` might have been destroyed,
 /// and returns whether it still exists.
-fn track_existence(state: &Weak<IntrospectionState>, element: &ElementHandle) -> bool {
-    if let Some(state) = state.upgrade() {
-        state.track_windows();
-    }
+fn track_existence(state: &IntrospectionState, element: &ElementHandle) -> bool {
+    state.track_windows();
     element.track_existence();
     element.is_valid()
 }
@@ -102,7 +100,8 @@ struct PropertiesSubscription {
 impl PropertiesSubscription {
     /// Returns None once the element is destroyed, or if the application has no debug info.
     fn properties(&self) -> Option<Vec<proto::TestableProperty>> {
-        track_existence(&self.state, &self.element)
+        let state = self.state.upgrade()?;
+        track_existence(&state, &self.element)
             .then(|| super::testable_properties(&self.element))
             .flatten()
     }
@@ -192,19 +191,60 @@ struct PushedChild {
 
 impl PushedChild {
     fn to_proto(&self) -> proto::ElementChild {
-        super::element_child(&self.element, self.handle, self.has_children)
+        proto::ElementChild {
+            handle: Some(index_to_handle(self.handle)),
+            type_names_and_ids: super::type_names_and_ids(&self.element),
+            has_children: self.has_children,
+        }
     }
 }
 
-fn pin_children(state: &IntrospectionState, children: &Children) -> Vec<PushedChild> {
+fn pin_children(
+    state: &IntrospectionState,
+    children: &[(ElementHandle, bool)],
+) -> Vec<PushedChild> {
     children
-        .children
         .iter()
         .map(|(element, has_children)| {
             let (handle, element) = state.pin_element(element.clone());
             PushedChild { handle, element, has_children: *has_children }
         })
         .collect()
+}
+
+/// Returns the children of `parent`, or the root elements of every window,
+/// or None once `parent` is destroyed.
+fn children(state: &IntrospectionState, parent: Option<&ElementHandle>) -> Option<Children> {
+    use std::ops::ControlFlow;
+    let (children, debug_info_available) = match parent {
+        Some(parent) => {
+            if !track_existence(state, parent) {
+                return None;
+            }
+            parent.instantiate_item_tree();
+            let mut children = Vec::new();
+            parent.visit_children(|child| {
+                children.push(child);
+                ControlFlow::<()>::Continue(())
+            });
+            (children, parent.has_debug_info())
+        }
+        None => {
+            state.track_windows();
+            let roots = state.window_root_elements();
+            let debug_info_available = roots.iter().all(ElementHandle::has_debug_info);
+            (roots, debug_info_available)
+        }
+    };
+    let children = children
+        .into_iter()
+        .map(|child| {
+            child.instantiate_item_tree();
+            let has_children = child.visit_children(|_| ControlFlow::Break(())).is_some();
+            (child, has_children)
+        })
+        .collect();
+    Some(Children { children, debug_info_available })
 }
 
 struct ChildrenSubscription {
@@ -216,26 +256,8 @@ struct ChildrenSubscription {
 }
 
 impl ChildrenSubscription {
-    /// Returns None once the parent is destroyed.
     fn children(&self) -> Option<Children> {
-        if let Some(parent) = &self.parent {
-            if !track_existence(&self.state, parent) {
-                return None;
-            }
-            parent.instantiate_item_tree();
-        }
-        let Some(state) = self.state.upgrade() else { return Some(Children::default()) };
-        state.track_windows();
-        let (children, debug_info_available) = super::children_of(&state, self.parent.as_ref());
-        let children = children
-            .into_iter()
-            .map(|child| {
-                child.instantiate_item_tree();
-                let has_children = super::has_children(&child);
-                (child, has_children)
-            })
-            .collect();
-        Some(Children { children, debug_info_available })
+        children(&*self.state.upgrade()?, self.parent.as_ref())
     }
 
     fn push_changes(&self, children: Option<&Children>) {
@@ -246,7 +268,7 @@ impl ChildrenSubscription {
         if children.children.len() > state.handles_per_response() {
             return end(&self.state, &self.sink, self.id);
         }
-        let new = pin_children(&state, children);
+        let new = pin_children(&state, &children.children);
         let changed = diff_children(&self.pushed.borrow(), &new);
         *self.pushed.borrow_mut() = new;
         if !changed.removed.is_empty()
@@ -308,14 +330,21 @@ fn diff_children(old: &[PushedChild], new: &[PushedChild]) -> proto::ElementChil
     proto::ElementChildrenChanged { removed, inserted, updated }
 }
 
-pub(crate) fn subscribe_element_children(
+/// Lists the children of `parent`, or the root elements of every window.
+/// With a `sink`, it also subscribes to them, unless the response is truncated.
+pub(crate) fn element_children(
     state: &Rc<IntrospectionState>,
     parent: Option<ArenaIndex>,
-    sink: &NotificationSink,
-) -> Result<proto::SubscribeElementChildrenResponse, String> {
-    const REQUEST: &str = "subscribe_element_children";
+    sink: Option<&NotificationSink>,
+) -> Result<proto::GetElementChildrenResponse, String> {
+    const REQUEST: &str = "get_element_children";
     state.ensure_windows_instantiated();
     let parent = parent.map(|parent| state.element(REQUEST, parent)).transpose()?;
+    let Some(sink) = sink else {
+        let children = children(state, parent.as_ref()).ok_or_else(|| destroyed(REQUEST))?;
+        return Ok(response(state, &children).0);
+    };
+
     let subscription_id = state.subscriptions.next_id();
     let subscription = Rc::new(ChildrenSubscription {
         id: subscription_id,
@@ -331,25 +360,31 @@ pub(crate) fn subscribe_element_children(
         |subscription| subscription.children(),
         |subscription, children| subscription.push_changes(children.as_ref()),
     );
-    let Some(children) = children.as_ref() else {
-        return Err(destroyed(REQUEST));
-    };
-    let limit = state.handles_per_response();
-    if children.children.len() > limit {
-        return Err(format!(
-            "The element has {} children, more than the {limit} a subscription can hold",
-            children.children.len()
-        ));
+    let children = Option::as_ref(&children).ok_or_else(|| destroyed(REQUEST))?;
+    let (mut response, pushed) = response(state, children);
+    if !response.truncated {
+        response.subscription_id = subscription_id;
+        *subscription.pushed.borrow_mut() = pushed;
+        state.subscriptions.insert(subscription_id, tracker);
     }
-    let pushed = pin_children(state, children);
-    let initial = pushed.iter().map(PushedChild::to_proto).collect();
-    *subscription.pushed.borrow_mut() = pushed;
-    state.subscriptions.insert(subscription_id, tracker);
-    Ok(proto::SubscribeElementChildrenResponse {
-        subscription_id,
-        children: initial,
+    Ok(response)
+}
+
+/// Returns the response listing `children`, without a subscription,
+/// and the children it lists, pinned.
+fn response(
+    state: &IntrospectionState,
+    children: &Children,
+) -> (proto::GetElementChildrenResponse, Vec<PushedChild>) {
+    let limit = state.handles_per_response();
+    let listed = pin_children(state, &children.children[..children.children.len().min(limit)]);
+    let response = proto::GetElementChildrenResponse {
+        children: listed.iter().map(PushedChild::to_proto).collect(),
+        truncated: children.children.len() > limit,
         debug_info_available: children.debug_info_available,
-    })
+        subscription_id: 0,
+    };
+    (response, listed)
 }
 
 #[cfg(test)]
@@ -413,8 +448,8 @@ mod tests {
             self.state.element_to_handle(element)
         }
 
-        fn subscribe_children(&self, id: &str) -> proto::SubscribeElementChildrenResponse {
-            subscribe_element_children(&self.state, Some(self.element(id)), &self.sink).unwrap()
+        fn subscribe_children(&self, id: &str) -> proto::GetElementChildrenResponse {
+            element_children(&self.state, Some(self.element(id)), Some(&self.sink)).unwrap()
         }
 
         /// Runs the change handlers and returns what they pushed.
@@ -476,8 +511,7 @@ mod tests {
         let stale = ArenaIndex::default();
         let err = subscribe_element_properties(&fixture.state, stale, &fixture.sink).unwrap_err();
         assert!(err.contains("Invalid element handle"), "got: {err}");
-        let err =
-            subscribe_element_children(&fixture.state, Some(stale), &fixture.sink).unwrap_err();
+        let err = element_children(&fixture.state, Some(stale), Some(&fixture.sink)).unwrap_err();
         assert!(err.contains("Invalid element handle"), "got: {err}");
         assert!(fixture.state.subscriptions.trackers.borrow().is_empty());
     }
@@ -640,7 +674,7 @@ mod tests {
         crate::init_no_event_loop();
         let state = Rc::new(IntrospectionState::new());
         let (sink, pushed) = capture();
-        let initial = subscribe_element_children(&state, None, &sink).unwrap();
+        let initial = element_children(&state, None, Some(&sink)).unwrap();
         assert!(initial.children.is_empty());
 
         let app = App::new().unwrap();
@@ -717,11 +751,12 @@ mod tests {
     }
 
     #[test]
-    fn subscribing_to_more_children_than_a_response_holds_errors() {
+    fn a_truncated_response_subscribes_to_nothing() {
         let (_app, state, root) = large(LARGE_COUNT);
         let (sink, _) = capture();
-        let err = subscribe_element_children(&state, Some(root), &sink).unwrap_err();
-        assert!(err.contains("more than"), "got: {err}");
+        let response = element_children(&state, Some(root), Some(&sink)).unwrap();
+        assert!(response.truncated);
+        assert_eq!(response.subscription_id, 0);
         assert!(state.subscriptions.trackers.borrow().is_empty());
         assert!(!state.element_handles.borrow().values().any(TrackedElement::is_pinned));
     }
@@ -730,7 +765,7 @@ mod tests {
     fn growing_more_children_than_a_response_holds_ends_the_subscription() {
         let (app, state, root) = large(1);
         let (sink, pushed) = capture();
-        subscribe_element_children(&state, Some(root), &sink).unwrap();
+        element_children(&state, Some(root), Some(&sink)).unwrap();
         app.set_count(LARGE_COUNT);
         assert_ended(&notifications(&pushed));
         assert!(state.subscriptions.trackers.borrow().is_empty());

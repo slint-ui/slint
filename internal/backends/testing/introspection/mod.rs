@@ -831,48 +831,6 @@ fn testable_properties(element: &ElementHandle) -> Option<Vec<proto::TestablePro
     )
 }
 
-/// Returns the children of `parent`, or the root elements of every window,
-/// and whether the application has the debug info that listing children needs.
-#[cfg(feature = "system-testing")]
-fn children_of(
-    state: &IntrospectionState,
-    parent: Option<&ElementHandle>,
-) -> (Vec<ElementHandle>, bool) {
-    match parent {
-        Some(parent) => {
-            let mut children = Vec::new();
-            parent.visit_children(|child| {
-                children.push(child);
-                std::ops::ControlFlow::<()>::Continue(())
-            });
-            (children, parent.has_debug_info())
-        }
-        None => {
-            let roots = state.window_root_elements();
-            let debug_info_available = roots.iter().all(ElementHandle::has_debug_info);
-            (roots, debug_info_available)
-        }
-    }
-}
-
-#[cfg(feature = "system-testing")]
-fn has_children(element: &ElementHandle) -> bool {
-    element.visit_children(|_| std::ops::ControlFlow::Break(())).is_some()
-}
-
-#[cfg(feature = "system-testing")]
-fn element_child(
-    element: &ElementHandle,
-    handle: ArenaIndex,
-    has_children: bool,
-) -> proto::ElementChild {
-    proto::ElementChild {
-        handle: Some(index_to_handle(handle)),
-        type_names_and_ids: type_names_and_ids(element),
-        has_children,
-    }
-}
-
 pub(crate) fn query_element_descendants(
     element: ElementHandle,
     query_stack: Vec<proto::ElementQueryInstruction>,
@@ -1102,27 +1060,6 @@ pub(crate) mod dispatch {
     ) -> Result<proto::ElementPropertiesResponse, String> {
         let element = state.element("element_properties", element)?;
         Ok(super::element_properties(&element))
-    }
-
-    #[cfg(feature = "system-testing")]
-    pub(crate) fn element_children(
-        state: &IntrospectionState,
-        parent: Option<ArenaIndex>,
-    ) -> Result<proto::GetElementChildrenResponse, String> {
-        state.ensure_windows_instantiated();
-        let parent =
-            parent.map(|parent| state.element("get_element_children", parent)).transpose()?;
-        let (children, debug_info_available) = super::children_of(state, parent.as_ref());
-        let truncated = children.len() > state.handles_per_response();
-        let children = children
-            .into_iter()
-            .take(state.handles_per_response())
-            .map(|child| {
-                let has_children = super::has_children(&child);
-                super::element_child(&child, state.element_to_handle(child.clone()), has_children)
-            })
-            .collect();
-        Ok(proto::GetElementChildrenResponse { children, truncated, debug_info_available })
     }
 
     pub(crate) fn query_element_descendants(
@@ -1531,20 +1468,21 @@ mod element_children_tests {
         }
     }
 
-    fn app_with_state() -> (App, IntrospectionState) {
+    fn app_with_state() -> (App, Rc<IntrospectionState>) {
         crate::init_no_event_loop();
         let app = App::new().unwrap();
-        let state = IntrospectionState::new();
+        let state = Rc::new(IntrospectionState::new());
         state.add_window(&window_adapter_for_test(&app));
         (app, state)
     }
 
     fn children(
-        state: &IntrospectionState,
+        state: &Rc<IntrospectionState>,
         parent: Option<ArenaIndex>,
     ) -> proto::GetElementChildrenResponse {
-        let response = dispatch::element_children(state, parent).unwrap();
+        let response = subscriptions::element_children(state, parent, None).unwrap();
         assert!(response.debug_info_available);
+        assert_eq!(response.subscription_id, 0);
         response
     }
 
@@ -1612,7 +1550,7 @@ mod element_children_tests {
     #[test]
     fn leaves_out_windows_whose_component_was_dropped() {
         crate::init_no_event_loop();
-        let state = IntrospectionState::new();
+        let state = Rc::new(IntrospectionState::new());
         let first = App::new().unwrap();
         state.add_window(&window_adapter_for_test(&first));
         let first_window = state.window_handles()[0];
@@ -1631,7 +1569,7 @@ mod element_children_tests {
     #[test]
     fn returns_no_handle_it_evicted() {
         crate::init_no_event_loop();
-        let state = IntrospectionState::new();
+        let state = Rc::new(IntrospectionState::new());
         // Older handles, so that minting the response's handles evicts.
         let elsewhere: Vec<_> = (0..30).map(|_| hundred_rectangles::App::new().unwrap()).collect();
         for app in &elsewhere {
@@ -1685,10 +1623,10 @@ mod element_children_without_items_tests {
     fn child_ids(parent: Option<&str>) -> Vec<String> {
         crate::init_no_event_loop();
         let app = App::new().unwrap();
-        let state = IntrospectionState::new();
+        let state = Rc::new(IntrospectionState::new());
         state.add_window(&window_adapter_for_test(&app));
         let level = |parent| {
-            dispatch::element_children(&state, parent)
+            subscriptions::element_children(&state, parent, None)
                 .unwrap()
                 .children
                 .into_iter()

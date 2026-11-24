@@ -286,20 +286,14 @@ message RequestGetElementTree {
 // Only over system testing.
 // Requests the children of element_handle, or, without a handle, the root elements of every window.
 // The children include clipped-away elements, and the elements of popups the element shows.
+// Over the debugger transport, it also subscribes to the children,
+// which without a handle includes the roots of windows shown later.
 message RequestGetElementChildren {
     Handle element_handle = 1;
 }
 
 // Only over the debugger transport.
 message RequestSubscribeElementProperties {
-    Handle element_handle = 1;
-}
-
-// Only over the debugger transport.
-// Subscribes to the children of an element, as GetElementChildrenResponse lists them.
-// A missing element_handle subscribes to the root elements of every window,
-// including windows shown later.
-message RequestSubscribeElementChildren {
     Handle element_handle = 1;
 }
 
@@ -352,8 +346,7 @@ message RequestToAUT {
         RequestStopEventRecording request_stop_event_recording = 17;
         RequestGetElementChildren request_get_element_children = 18;
         RequestSubscribeElementProperties request_subscribe_element_properties = 19;
-        RequestSubscribeElementChildren request_subscribe_element_children = 20;
-        RequestUnsubscribe request_unsubscribe = 21;
+        RequestUnsubscribe request_unsubscribe = 20;
     }
 }
 
@@ -491,6 +484,9 @@ message GetElementChildrenResponse {
     // which leaves the window roots without children.
     // True when no window shows a component.
     bool debug_info_available = 3;
+    // The subscription that pushes later changes, which are relative to these children.
+    // 0 when there's none: over TCP, or when truncated is true.
+    uint64 subscription_id = 4;
 }
 
 message SubscribeElementPropertiesResponse {
@@ -501,14 +497,6 @@ message SubscribeElementPropertiesResponse {
     // Same meaning as testable_properties_available in ElementPropertiesResponse.
     // No subscription exists when this is false.
     bool available = 3;
-}
-
-message SubscribeElementChildrenResponse {
-    uint64 subscription_id = 1;
-    // The initial children, which later changes are relative to.
-    repeated ElementChild children = 2;
-    // Same meaning as in GetElementChildrenResponse.
-    bool debug_info_available = 3;
 }
 
 message UnsubscribeResponse {
@@ -545,7 +533,7 @@ message InsertedChildren {
 }
 
 // The observed element was destroyed,
-// or it has more children than a subscription can hold.
+// or it has more children than one response can hold.
 message SubscriptionEnded {
 }
 
@@ -610,7 +598,6 @@ message AUTResponse {
         StopEventRecordingResponse stop_event_recording_response = 18;
         GetElementChildrenResponse get_element_children_response = 19;
         SubscribeElementPropertiesResponse subscribe_element_properties_response = 20;
-        SubscribeElementChildrenResponse subscribe_element_children_response = 21;
-        UnsubscribeResponse unsubscribe_response = 22;
+        UnsubscribeResponse unsubscribe_response = 21;
     }
 }

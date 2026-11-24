@@ -223,7 +223,9 @@ impl TestingClient {
             }
             Req::RequestGetElementChildren(proto::RequestGetElementChildren { element_handle }) => {
                 let parent = element_handle.map(handle_to_index).transpose()?;
-                Resp::GetElementChildrenResponse(dispatch::element_children(state, parent)?)
+                Resp::GetElementChildrenResponse(subscriptions::element_children(
+                    state, parent, sink,
+                )?)
             }
             Req::RequestSubscribeElementProperties(proto::RequestSubscribeElementProperties {
                 element_handle,
@@ -235,15 +237,6 @@ impl TestingClient {
                 Resp::SubscribeElementPropertiesResponse(
                     subscriptions::subscribe_element_properties(state, element_index, sink)?,
                 )
-            }
-            Req::RequestSubscribeElementChildren(proto::RequestSubscribeElementChildren {
-                element_handle,
-            }) => {
-                let sink = sink.ok_or_else(debugger_only)?;
-                let parent = element_handle.map(handle_to_index).transpose()?;
-                Resp::SubscribeElementChildrenResponse(subscriptions::subscribe_element_children(
-                    state, parent, sink,
-                )?)
             }
             Req::RequestUnsubscribe(proto::RequestUnsubscribe { subscription_id }) => {
                 sink.ok_or_else(debugger_only)?;
@@ -476,9 +469,6 @@ mod tests {
     fn subscribing_without_a_sink_errors() {
         let state = Rc::new(IntrospectionState::new());
         for request in [
-            proto::request_to_aut::Msg::RequestSubscribeElementChildren(
-                proto::RequestSubscribeElementChildren { element_handle: None },
-            ),
             proto::request_to_aut::Msg::RequestSubscribeElementProperties(
                 proto::RequestSubscribeElementProperties { element_handle: None },
             ),
