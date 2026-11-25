@@ -1267,7 +1267,6 @@ impl ElementHandle {
             .and_then(|item| item.window_adapter())
             .map(|window_adapter| {
                 let window = WindowInner::from_pub(window_adapter.window());
-                // Makes a binding that visits children re-evaluate when a popup opens or closes.
                 window.popups_generation();
                 window
                     .active_popups()
