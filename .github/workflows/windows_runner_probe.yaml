@@ -1,0 +1,36 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+name: Windows runner probe
+
+on:
+    pull_request:
+        branches: [nigel/windows-8vcpu-probe-base]
+        types: [opened, synchronize]
+
+permissions:
+    contents: read
+
+jobs:
+    build_and_test:
+        strategy:
+            fail-fast: false
+            matrix:
+                phase: [workspace, integration, live-preview]
+        uses: ./.github/workflows/build_and_test_reusable.yaml
+        with:
+            os: blacksmith-4vcpu-windows-2025
+            name: Windows 2025 1.95 (${{ matrix.phase }})
+            rust_version: '1.95'
+            extra_args: '--exclude ffmpeg --exclude gstreamer-player --exclude material-gallery --exclude test-driver-interpreter'
+            require_wgpu: false
+            run_qt: false
+            test_workspace: true
+            test_integration: true
+            windows_test_phase: ${{ matrix.phase }}
+            test_rust_driver: true
+            check_deterministic_output: false
+            build_examples: false
+            test_styles: fluent
+            save_if: false
+            timeout_minutes: 40
