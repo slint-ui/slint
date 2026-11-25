@@ -1851,6 +1851,32 @@ pub fn scalable_render_size(
     (!size.is_empty()).then_some(size)
 }
 
+/// The largest size with the aspect ratio of `source_size` that fits into `target`,
+/// which is the size a scalable image (an SVG) is rasterized at for a `target` render size.
+/// The renderer then stretches the result to `target` as `image-fit` requires.
+///
+/// The side that limits the scale is exactly that of `target`, the other one is rounded up,
+/// matching how `tiny_skia::IntSize::scale_to` scales.
+/// Returns `target` when `source_size` has no area.
+pub fn aspect_preserving_render_size(
+    source_size: IntSize,
+    target: euclid::Size2D<u32, PhysicalPx>,
+) -> euclid::Size2D<u32, PhysicalPx> {
+    if source_size.is_empty() {
+        return target;
+    }
+    let source = source_size.cast::<f32>();
+    let width_for_target_height =
+        (target.height as f32 * source.width / source.height).ceil() as u32;
+    if width_for_target_height < target.width {
+        euclid::size2(width_for_target_height, target.height)
+    } else {
+        let height_for_target_width =
+            (target.width as f32 * source.height / source.width).ceil() as u32;
+        euclid::size2(target.width, height_for_target_width)
+    }
+}
+
 /// The pixel size to rasterize a scalable image (an SVG) at when a transform, such as `transform-scale`, magnifies it by `transform_scale`.
 /// The other arguments are those of [`scalable_render_size`], which gives the size without that transform,
 /// except that `target_size` is the element's logical size.
