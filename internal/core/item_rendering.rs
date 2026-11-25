@@ -252,15 +252,18 @@ pub fn render_item_children(
 ) {
     let mut actual_visitor =
         |component: &ItemTreeRc, index: u32, item: Pin<ItemRef>| -> VisitChildrenResult {
-            renderer.save_state();
             let item_rc = ItemRc::new(component.clone(), index);
 
             let (do_draw, item_origin, item_size) = {
                 #[cfg(feature = "tracing")]
                 let _span = tracing::info_span!("filter_item").entered();
+                if renderer.skip_subtree(&item_rc) {
+                    return VisitChildrenResult::CONTINUE;
+                }
                 renderer.filter_item(&item_rc, window_adapter)
             };
 
+            renderer.save_state();
             renderer.translate(item_origin.to_vector());
 
             // Don't render items that are clipped, with the exception of the Clip or Flickable since
@@ -849,6 +852,11 @@ pub trait ItemRenderer {
     fn draw_string(&mut self, string: &str, color: crate::Color);
 
     fn draw_image_direct(&mut self, image: crate::graphics::Image);
+
+    /// Returns `true` if neither the item nor its descendants need to be rendered.
+    fn skip_subtree(&mut self, _item: &ItemRc) -> bool {
+        false
+    }
 
     /// This is called before it is being rendered (before the draw_* function).
     /// Returns
