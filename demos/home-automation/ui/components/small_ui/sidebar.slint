@@ -1,0 +1,58 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+// SPDX-License-Identifier: MIT
+
+import { LightsTheme } from "lightsTheme.slint";
+import { NavIconButton, NavIconKind } from "icons.slint";
+
+export component LightsSidebar inherits Rectangle {
+    in-out property <int> active-page: 0;
+
+    border-radius: 14px;
+    border-width: 2px;
+    border-color: #5b497088;
+    background: LightsTheme.nav-background;
+
+    Rectangle {
+        x: 4px;
+        y: active-page == 0 ? 19px : active-page == 1 ? 176px : 333px;
+        width: root.width - 8px;
+        height: 138px;
+        border-radius: 13px;
+        background: #583b8148;
+    }
+
+    NavIconButton {
+        x: 0px;
+        y: 19px;
+        width: 100%;
+        kind: NavIconKind.bulb;
+        selected: root.active-page == 0;
+        clicked => {
+            root.active-page = 0;
+        }
+    }
+
+    NavIconButton {
+        x: 0px;
+        y: 176px;
+        width: 100%;
+        kind: NavIconKind.shield;
+        selected: root.active-page == 1;
+        clicked => {
+            root.active-page = 1;
+        }
+    }
+
+    NavIconButton {
+        x: 0px;
+        y: 333px;
+        width: 100%;
+        kind: NavIconKind.climate;
+        selected: root.active-page == 2;
+        clicked => {
+            root.active-page = 2;
+        }
+    }
+}

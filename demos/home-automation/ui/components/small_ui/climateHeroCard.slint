@@ -1,0 +1,246 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+// SPDX-License-Identifier: MIT
+
+import { AppState } from "../../appState.slint";
+import { LightsTheme } from "lightsTheme.slint";
+import { GlassPanel } from "glassPanel.slint";
+import { ShadowText } from "shadowText.slint";
+
+export component ClimateHeroCard inherits GlassPanel {
+    property <int> climate-mode: 1;
+    property <int> target-temp: 22;
+
+    radius: 14px;
+    outline: LightsTheme.panel-border;
+
+    ShadowText {
+        x: 35px;
+        y: 36px;
+        width: 390px;
+        height: 70px;
+        label: "Living Room";
+        size: 50px;
+        weight: FontWeight.bold;
+    }
+
+    ShadowText {
+        x: 35px;
+        y: 98px;
+        width: 290px;
+        height: 90px;
+        label: "21.5°C";
+        size: 70px;
+        weight: FontWeight.bold;
+        text-color: LightsTheme.purple;
+    }
+
+    Text {
+        x: 35px;
+        y: 192px;
+        width: 260px;
+        height: 38px;
+        text: "Heating to";
+        font-family: AppState.default-font-family;
+        font-size: 30px;
+        font-weight: FontWeight.medium;
+        color: LightsTheme.muted-text;
+    }
+
+    Rectangle {
+        x: 418px;
+        y: 35px;
+        width: 1px;
+        height: 176px;
+        background: #65518466;
+    }
+
+    Image {
+        x: 520px;
+        y: 43px;
+        width: 168px;
+        height: 168px;
+        source: @image-url("../../images/primer-icons/meter.svg");
+        colorize: LightsTheme.purple;
+    }
+
+    Rectangle {
+        x: 657px;
+        y: 60px;
+        width: 14px;
+        height: 14px;
+        border-radius: 7px;
+        background: LightsTheme.white;
+    }
+
+    Text {
+        x: 532px;
+        y: 208px;
+        width: 40px;
+        height: 22px;
+        text: "16";
+        font-family: AppState.default-font-family;
+        font-size: 21px;
+        font-weight: FontWeight.bold;
+        color: LightsTheme.muted-text;
+        horizontal-alignment: center;
+    }
+
+    Text {
+        x: 646px;
+        y: 208px;
+        width: 40px;
+        height: 22px;
+        text: "28";
+        font-family: AppState.default-font-family;
+        font-size: 21px;
+        font-weight: FontWeight.bold;
+        color: LightsTheme.muted-text;
+        horizontal-alignment: center;
+    }
+
+    Rectangle {
+        x: 29px;
+        y: 239px;
+        width: 720px;
+        height: 65px;
+        border-radius: 14px;
+        border-width: 2px;
+        border-color: LightsTheme.panel-border-soft;
+        background: #151020a8;
+
+        Rectangle {
+            x: 90px;
+            width: 1px;
+            height: 100%;
+            background: #6b5b8854;
+        }
+
+        Rectangle {
+            x: 265px;
+            width: 1px;
+            height: 100%;
+            background: #6b5b8854;
+        }
+
+        Rectangle {
+            x: 363px;
+            width: 1px;
+            height: 100%;
+            background: #6b5b8854;
+        }
+
+        Rectangle {
+            x: 379px;
+            y: 11px;
+            width: 328px;
+            height: 43px;
+            border-radius: 21px;
+            background: #ffffff0d;
+            border-width: 1px;
+            border-color: #ffffff22;
+
+            Rectangle {
+                x: root.climate-mode * 108px;
+                y: 0px;
+                width: 112px;
+                height: 43px;
+                border-radius: 21px;
+                background: LightsTheme.purple;
+            }
+        }
+
+        Rectangle {
+            x: 0px;
+            y: 0px;
+            width: 90px;
+            height: 65px;
+
+            Text {
+                y: 6px;
+                width: parent.width;
+                height: 51px;
+                text: "−";
+                font-family: AppState.default-font-family;
+                font-size: 40px;
+                color: LightsTheme.muted-text;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+
+            TouchArea {
+                mouse-cursor: MouseCursor.pointer;
+                clicked => {
+                    if (root.target-temp > 16) {
+                        root.target-temp -= 1;
+                    }
+                }
+            }
+        }
+
+        ShadowText {
+            x: 96px;
+            y: 3px;
+            width: 164px;
+            height: 56px;
+            label: root.target-temp + "°C";
+            size: 49px;
+            weight: FontWeight.bold;
+            text-color: LightsTheme.purple;
+        }
+
+        Rectangle {
+            x: 269px;
+            y: 0px;
+            width: 90px;
+            height: 65px;
+
+            Text {
+                y: 6px;
+                width: parent.width;
+                height: 51px;
+                text: "+";
+                font-family: AppState.default-font-family;
+                font-size: 40px;
+                color: LightsTheme.muted-text;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+
+            TouchArea {
+                mouse-cursor: MouseCursor.pointer;
+                clicked => {
+                    if (root.target-temp < 30) {
+                        root.target-temp += 1;
+                    }
+                }
+            }
+        }
+
+        for item[index] in ["Heat", "Auto", "Off"] : Rectangle {
+            x: 379px + index * 109px;
+            y: 0px;
+            width: 109px;
+            height: 65px;
+            background: transparent;
+
+            Text {
+                y: 18px;
+                width: parent.width;
+                height: 30px;
+                text: item;
+                font-family: AppState.default-font-family;
+                font-size: 25px;
+                font-weight: index == root.climate-mode ? FontWeight.bold : FontWeight.normal;
+                color: index == root.climate-mode ? #080810 : LightsTheme.muted-text;
+                horizontal-alignment: center;
+            }
+
+            TouchArea {
+                mouse-cursor: MouseCursor.pointer;
+                clicked => { root.climate-mode = index; }
+            }
+        }
+    }
+}
