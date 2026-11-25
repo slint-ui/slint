@@ -31,9 +31,14 @@ fn font_and_border_example_compiles() {
 
 #[test]
 fn struct_updates_require_experimental_features() {
-    for (binding, feature) in [
-        ("appearance: { border.width: 2px, ..root.preset };", "struct updates"),
-        ("appearance: { ..root.preset };", "struct updates"),
+    for (binding, feature, enabled_error) in [
+        ("appearance: { border.width: 2px, ..root.preset };", "struct updates", None),
+        ("appearance: { ..root.preset };", "struct updates", None),
+        (
+            "appearance: { border.width: 2px };",
+            "struct updates",
+            Some("Dotted fields require a '..base' expression"),
+        ),
     ] {
         let source = format!(
             r#"
@@ -61,6 +66,11 @@ fn struct_updates_require_experimental_features() {
         );
 
         let enabled = compile(&source, true);
-        assert!(!enabled.has_errors(), "{binding}: {:?}", enabled.to_string_vec());
+        let errors: Vec<_> = enabled
+            .iter()
+            .filter(|diag| diag.level() == i_slint_compiler::diagnostics::DiagnosticLevel::Error)
+            .map(|diag| diag.message())
+            .collect();
+        assert_eq!(errors.as_slice(), enabled_error.as_slice(), "{binding}");
     }
 }

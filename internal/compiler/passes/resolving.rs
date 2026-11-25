@@ -2517,7 +2517,15 @@ impl Expression {
         }
         if let Some(member) = node.ObjectMember().find(|m| m.child_token(SyntaxKind::Dot).is_some())
         {
-            ctx.diag.push_error("Dotted fields require a '..base' expression".into(), &member);
+            if !crate::reject_experimental_feature(
+                ctx.diag,
+                ctx.type_register,
+                ExperimentalFeature::StructUpdates,
+                "struct updates",
+                &member,
+            ) {
+                ctx.diag.push_error("Dotted fields require a '..base' expression".into(), &member);
+            }
             return Expression::Invalid;
         }
         let values: BTreeMap<SmolStr, Expression> = node
