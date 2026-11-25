@@ -1671,6 +1671,7 @@ mod tests {
             wait_condition(&controller, |task| task.connection.state == ui::ConnectionState::Connected && task.credentials.len() == 1).await;
             initial_request(&mut upstream).await;
             compile_source(&controller, &mut viewer, 42).await;
+            assert!(matches!(receive(&mut upstream).await, PreviewToLspMessage::Diagnostics { version: Some(42), .. }));
             viewer.connection.send(()).unwrap();
             viewer.connection.send(PreviewToLspMessage::RequestPreview { component: component() }).unwrap();
             viewer.connection.send(PreviewToLspMessage::Exited).unwrap();
