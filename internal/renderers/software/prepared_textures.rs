@@ -49,6 +49,14 @@ impl PreparedTexture {
         let geometry = PhysicalRect::from_size(size);
         let (sampler, _) = Texture::from_target_texture(&sampled, &geometry)?;
         let (buffer_width, buffer_height) = (width as u32, height as u32);
+        // In PSRAM on ESP-IDF, where the PPA can read it.
+        #[cfg(any(target_os = "espidf", target_arch = "xtensa"))]
+        let mut prepared = if colorized {
+            Self::AlphaMap(SharedPixelBuffer::new_dma_reachable(buffer_width, buffer_height))
+        } else {
+            Self::Rgba(SharedPixelBuffer::new_dma_reachable(buffer_width, buffer_height))
+        };
+        #[cfg(not(any(target_os = "espidf", target_arch = "xtensa")))]
         let mut prepared = if colorized {
             Self::AlphaMap(SharedPixelBuffer::new(buffer_width, buffer_height))
         } else {

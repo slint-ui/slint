@@ -59,7 +59,16 @@ unsafe fn drop_inner<T>(inner: NonNull<SharedVectorInner<T>>) {
 
 /// Allocate the memory for the SharedVector with the given capacity. Return the inner with size and refcount set to 1
 fn alloc_with_capacity<T>(capacity: usize) -> NonNull<SharedVectorInner<T>> {
-    let ptr = unsafe { ::alloc::alloc::alloc(compute_inner_layout::<T>(capacity)) };
+    alloc_with_capacity_using(capacity, ::alloc::alloc::alloc)
+}
+
+/// Like `alloc_with_capacity`, with the block from `alloc`.
+/// The global allocator's `dealloc` must be able to free that block.
+fn alloc_with_capacity_using<T>(
+    capacity: usize,
+    alloc: unsafe fn(core::alloc::Layout) -> *mut u8,
+) -> NonNull<SharedVectorInner<T>> {
+    let ptr = unsafe { alloc(compute_inner_layout::<T>(capacity)) };
     assert!(!ptr.is_null(), "allocation of {capacity:?} bytes failed");
     unsafe {
         core::ptr::write(
@@ -195,6 +204,19 @@ impl<T: Clone + PartialEq> SharedVector<T> {
 }
 
 impl<T: Clone> SharedVector<T> {
+    /// Creates a vector of `len` copies of `value`, in memory from `alloc`.
+    /// Writing to it while it is shared, or growing it, moves it to the global allocator.
+    #[cfg_attr(not(any(target_os = "espidf", target_arch = "xtensa")), allow(dead_code))]
+    pub(crate) fn from_elem_using(
+        value: T,
+        len: usize,
+        alloc: unsafe fn(core::alloc::Layout) -> *mut u8,
+    ) -> Self {
+        let mut result = Self { inner: alloc_with_capacity_using::<T>(len, alloc) };
+        result.extend(core::iter::repeat_n(value, len));
+        result
+    }
+
     /// Create a SharedVector from a slice
     pub fn from_slice(slice: &[T]) -> SharedVector<T> {
         Self::from(slice)
@@ -642,6 +664,26 @@ fn simple_test() {
     let def: SharedVector<i32> = Default::default();
     assert_eq!(def, SharedVector::<i32>::default());
     assert_ne!(def, x);
+}
+
+#[test]
+fn from_elem_using_test() {
+    use core::sync::atomic::{AtomicUsize, Ordering};
+    static ALLOCATIONS: AtomicUsize = AtomicUsize::new(0);
+    unsafe fn counting_alloc(layout: core::alloc::Layout) -> *mut u8 {
+        ALLOCATIONS.fetch_add(1, Ordering::Relaxed);
+        unsafe { alloc::alloc::alloc(layout) }
+    }
+
+    let x = SharedVector::from_elem_using(7u8, 5, counting_alloc);
+    assert_eq!(x.as_slice(), &[7; 5]);
+    // One block from `alloc`, which filling it doesn't replace.
+    assert_eq!(ALLOCATIONS.load(Ordering::Relaxed), 1);
+    let mut y = x.clone();
+    y.make_mut_slice()[0] = 1;
+    assert_eq!(x.as_slice(), &[7; 5]);
+    assert_eq!(y.as_slice(), &[1, 7, 7, 7, 7]);
+    assert!(SharedVector::from_elem_using(0u8, 0, counting_alloc).is_empty());
 }
 
 #[test]

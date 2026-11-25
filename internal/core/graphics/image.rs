@@ -150,6 +150,38 @@ impl<Pixel: Clone + Default> SharedPixelBuffer<Pixel> {
     }
 }
 
+#[cfg(any(target_os = "espidf", target_arch = "xtensa"))]
+mod dma_alloc {
+    unsafe extern "C" {
+        /// Defined by the ESP-IDF component. Returns memory the PPA can read, from the
+        /// global allocator's heap when there is no PSRAM left, so `free` releases it.
+        fn slint_alloc_dma(size: usize) -> *mut u8;
+    }
+
+    pub(super) unsafe fn alloc(layout: core::alloc::Layout) -> *mut u8 {
+        unsafe { slint_alloc_dma(layout.size()) }
+    }
+}
+
+#[cfg(any(target_os = "espidf", target_arch = "xtensa"))]
+impl<Pixel: Clone + Default> SharedPixelBuffer<Pixel> {
+    /// Like [`Self::new`], in PSRAM, where the PPA can read it.
+    ///
+    /// Writing to the buffer while it is shared moves it to the global allocator.
+    #[doc(hidden)]
+    pub fn new_dma_reachable(width: u32, height: u32) -> Self {
+        Self {
+            width,
+            height,
+            data: SharedVector::from_elem_using(
+                Pixel::default(),
+                width as usize * height as usize,
+                dma_alloc::alloc,
+            ),
+        }
+    }
+}
+
 impl<Pixel: Clone> SharedPixelBuffer<Pixel> {
     /// Creates a new SharedPixelBuffer by cloning and converting pixels from an existing
     /// slice. This function is useful when another crate was used to allocate an image

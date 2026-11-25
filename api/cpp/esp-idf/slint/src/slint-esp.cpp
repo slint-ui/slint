@@ -16,6 +16,7 @@
 #if SOC_MIPI_DSI_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
 #    include "esp_lcd_mipi_dsi.h"
 #endif
+#include "esp_heap_caps.h"
 #include "esp_log.h"
 
 static const char *TAG = "slint_platform";
@@ -118,6 +119,14 @@ std::chrono::milliseconds EspPlatform<PixelType>::duration_since_start()
 {
     auto ticks = xTaskGetTickCount();
     return std::chrono::milliseconds(pdTICKS_TO_MS(ticks));
+}
+
+// Called by the renderer for the images it prepares, see `SharedPixelBuffer::new_dma_reachable`.
+// The renderer frees the block with `free`, which accepts memory from heap_caps_aligned_alloc.
+extern "C" uint8_t *slint_alloc_dma(uintptr_t size)
+{
+    void *memory = heap_caps_aligned_alloc(64, size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    return static_cast<uint8_t *>(memory ? memory : malloc(size));
 }
 
 #if SOC_LCD_RGB_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
