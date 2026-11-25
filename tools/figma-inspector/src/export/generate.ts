@@ -12,6 +12,7 @@ import type {
     Diagnostic,
 } from "../plugin/snapshot";
 import type { ExportFile, ExportPackage } from "../protocol";
+import { version } from "../../package.json";
 
 /** Rewrite only image-url expressions, never string contents (including labels
  * that happen to contain Slint snippets). No structure is recovered from code. */
@@ -103,6 +104,7 @@ export function generateExport(
         }));
     const external = externalizeImages(converted.source);
     const imports = requiredFonts.map((font) => `// import "${font.path}";`);
+    const edition = version.split(".").slice(0, 2).join(".");
     const diagnostics = [...warnings, ...converted.warnings];
     return {
         warnings: diagnostics,
@@ -112,6 +114,11 @@ export function generateExport(
                 : external.source,
             files: [
                 ...external.files,
+                {
+                    path: "slint-project.json",
+                    encoding: "utf8",
+                    data: `{\n    "edition": "${edition}",\n    "main": "main.slint"\n}\n`,
+                },
                 {
                     path: "fonts/README.txt",
                     encoding: "utf8",
@@ -130,7 +137,7 @@ export function generateExport(
                     path: "README.txt",
                     encoding: "utf8",
                     data:
-                        "Open main.slint in your Slint project. Keep assets/ and fonts/ beside it.\nFont imports are commented out so you can run the export without the font files. See fonts/README.txt for the font checklist and instructions to enable the imports after adding the real fonts.\nText remains native; images are stored in assets/.\n\n" +
+                        "Open this directory or its slint-project.json in the Slint tools, or copy main.slint into your Slint project and keep assets/ and fonts/ beside it.\nFont imports are commented out so you can run the export without the font files. See fonts/README.txt for the font checklist and instructions to enable the imports after adding the real fonts.\nText remains native; images are stored in assets/.\n\n" +
                         warningSummaries(diagnostics)
                             .map((d) => `${d.code}: ${d.message}`)
                             .join("\n") +
