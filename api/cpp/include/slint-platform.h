@@ -762,12 +762,13 @@ public:
     {
         auto process_line_fn = [](void *process_line_callback_ptr, uintptr_t line,
                                   uintptr_t line_start, uintptr_t line_end,
-                                  void (*render_fn)(const void *, PixelType *, std::size_t),
+                                  void (*render_fn)(const void *, PixelType *, uintptr_t),
                                   const void *render_fn_data) {
             (*reinterpret_cast<Callback *>(process_line_callback_ptr))(
                     std::size_t(line), std::size_t(line_start), std::size_t(line_end),
                     [render_fn, render_fn_data](std::span<PixelType> line_span) {
-                        render_fn(render_fn_data, line_span.data(), line_span.size());
+                        render_fn(render_fn_data, line_span.data(),
+                                  static_cast<uintptr_t>(line_span.size()));
                     });
         };
 
@@ -809,6 +810,7 @@ public:
         return PhysicalRegion { r };
     }
 
+#        ifdef SLINT_TARGET_HAS_ATOMIC_PTR
     /// The raster commands of a frame that record_frame() recorded.
     ///
     /// It keeps the images and glyphs that the frame uses alive.
@@ -869,7 +871,10 @@ public:
     /// RecordedRasterCommands::rasterize() into a buffer of \a num_lines lines of
     /// \a pixels_per_line pixels.
     ///
-    /// Only usable on targets with atomic pointers, not on `thumbv6m`: elsewhere it fails to link.
+    /// Rasterize every recording: recording marks the changed areas as clean,
+    /// so a recording dropped without rasterizing loses that frame's changes.
+    ///
+    /// Only available on targets with atomic pointers, so not on `thumbv6m`.
     ///
     /// **Note**: This function is still experimental - its API is subject to changes and not
     /// stabilized yet. To use the function, you must enable the `SLINT_FEATURE_EXPERIMENTAL=ON`
@@ -879,6 +884,7 @@ public:
         return RecordedRasterCommands { cbindgen_private::slint_software_renderer_record_frame(
                 inner, pixels_per_line, num_lines) };
     }
+#        endif
 #    endif
 
     /// This enum describes the rotation that is applied to the buffer when rendering.
