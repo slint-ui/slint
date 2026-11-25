@@ -809,6 +809,7 @@ public:
         return PhysicalRegion { r };
     }
 
+#        ifdef SLINT_TARGET_HAS_ATOMIC_PTR
     /// The raster commands of a frame that record_frame() recorded.
     ///
     /// It keeps the images and glyphs that the frame uses alive.
@@ -872,7 +873,7 @@ public:
     /// Rasterize every recording: recording marks the changed areas as clean,
     /// so a recording dropped without rasterizing loses that frame's changes.
     ///
-    /// Only usable on targets with atomic pointers, not on `thumbv6m`: elsewhere it fails to link.
+    /// Only available on targets with atomic pointers, so not on `thumbv6m`.
     ///
     /// **Note**: This function is still experimental - its API is subject to changes and not
     /// stabilized yet. To use the function, you must enable the `SLINT_FEATURE_EXPERIMENTAL=ON`
@@ -882,6 +883,7 @@ public:
         return RecordedRasterCommands { cbindgen_private::slint_software_renderer_record_frame(
                 inner, pixels_per_line, num_lines) };
     }
+#        endif
 #    endif
 
     /// This enum describes the rotation that is applied to the buffer when rendering.
