@@ -20,6 +20,8 @@ use proto::subscription_notification::Msg as Notification;
 pub(crate) struct Subscriptions {
     last_id: Cell<u64>,
     trackers: RefCell<HashMap<u64, ChangeTracker>>,
+    /// The children subscription of each parent, `None` for the window roots.
+    children_of: RefCell<HashMap<Option<ArenaIndex>, u64>>,
 }
 
 impl Subscriptions {
@@ -35,7 +37,16 @@ impl Subscriptions {
 
     /// Ends the subscription `id`, unless it already ended.
     pub(crate) fn remove(&self, id: u64) {
+        self.children_of.borrow_mut().retain(|_, subscription| *subscription != id);
         self.trackers.borrow_mut().remove(&id);
+    }
+
+    /// Ends the children subscription of `parent`, if there is one.
+    fn remove_children_of(&self, parent: Option<ArenaIndex>) {
+        let id = self.children_of.borrow_mut().remove(&parent);
+        if let Some(id) = id {
+            self.remove(id);
+        }
     }
 }
 
@@ -330,20 +341,22 @@ fn diff_children(old: &[PushedChild], new: &[PushedChild]) -> proto::ElementChil
 }
 
 /// Lists the children of `parent`, or the root elements of every window.
-/// With a `sink`, it also subscribes to them, unless the response is truncated.
+/// With a `sink`, it also subscribes to them, unless the response is truncated,
+/// and ends the previous subscription to them.
 pub(crate) fn element_children(
     state: &Rc<IntrospectionState>,
-    parent: Option<ArenaIndex>,
+    parent_index: Option<ArenaIndex>,
     sink: Option<&NotificationSink>,
 ) -> Result<proto::GetElementChildrenResponse, String> {
     const REQUEST: &str = "get_element_children";
     state.ensure_windows_instantiated();
-    let parent = parent.map(|parent| state.element(REQUEST, parent)).transpose()?;
+    let parent = parent_index.map(|parent| state.element(REQUEST, parent)).transpose()?;
     let Some(sink) = sink else {
         let children = children(state, parent.as_ref()).ok_or_else(|| destroyed(REQUEST))?;
         return Ok(response(state, &children).0);
     };
 
+    state.subscriptions.remove_children_of(parent_index);
     let subscription_id = state.subscriptions.next_id();
     let subscription = Rc::new(ChildrenSubscription {
         id: subscription_id,
@@ -365,6 +378,7 @@ pub(crate) fn element_children(
         response.subscription_id = subscription_id;
         *subscription.pushed.borrow_mut() = pushed;
         state.subscriptions.insert(subscription_id, tracker);
+        state.subscriptions.children_of.borrow_mut().insert(parent_index, subscription_id);
     }
     Ok(response)
 }
@@ -723,21 +737,35 @@ mod tests {
     fn unsubscribing_unpins_the_children() {
         let fixture = Fixture::new();
         let initial = fixture.subscribe_children("App::list");
-        let other = fixture.subscribe_children("App::list");
-        let pinned = |pinned| {
+        assert!(
             initial.children.iter().all(|child| is_pinned(&fixture.state, &child.handle.unwrap()))
-                == pinned
-        };
-        assert!(pinned(true));
+        );
 
         fixture.state.subscriptions.remove(initial.subscription_id);
-        assert!(pinned(true));
-        fixture.state.subscriptions.remove(other.subscription_id);
-        assert!(pinned(false));
+        assert!(!fixture.state.element_handles.borrow().values().any(TrackedElement::is_pinned));
         assert_eq!(fixture.state.pinned_count.get(), 0);
 
         fixture.rows.push(3);
         assert!(fixture.notifications().is_empty());
+    }
+
+    #[test]
+    fn subscribing_to_the_same_children_again_replaces_the_subscription() {
+        let fixture = Fixture::new();
+        let initial = fixture.subscribe_children("App::list");
+        let again = fixture.subscribe_children("App::list");
+        assert_ne!(initial.subscription_id, again.subscription_id);
+        let trackers = fixture.state.subscriptions.trackers.borrow();
+        assert_eq!(trackers.keys().collect::<Vec<_>>(), [&again.subscription_id]);
+        drop(trackers);
+        assert!(
+            again.children.iter().all(|child| is_pinned(&fixture.state, &child.handle.unwrap()))
+        );
+
+        fixture.rows.push(3);
+        ChangeTracker::run_change_handlers();
+        let ids: Vec<_> = fixture.pushed.take().iter().map(|n| n.subscription_id).collect();
+        assert_eq!(ids, [again.subscription_id]);
     }
 
     slint::slint! {

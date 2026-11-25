@@ -288,6 +288,7 @@ message RequestGetElementTree {
 // The children include clipped-away elements, and the elements of popups the element shows.
 // Over the debugger transport, it also subscribes to the children,
 // which without a handle includes the roots of windows shown later.
+// That ends the earlier subscription to the same children, without a SubscriptionEnded.
 message RequestGetElementChildren {
     Handle element_handle = 1;
 }
