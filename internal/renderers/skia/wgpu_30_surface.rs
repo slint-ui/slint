@@ -176,7 +176,12 @@ impl WGPUSurface {
     /// ahead of what Skia draws into it as one.
     /// The application may have left it in another layout, such as by sampling it.
     /// Going through wgpu keeps wgpu's record of the layout true, see `release_vulkan_surface`.
-    pub(crate) fn transition_to_color_target(
+    pub(crate) fn transition_to_color_target(&self, texture: &wgpu::Texture) {
+        *self.color_target_to_transition.borrow_mut() = Some(texture.clone());
+    }
+
+    /// Fails if `texture` lacks a usage that Skia needs to draw into it.
+    pub(crate) fn check_color_target_usage(
         &self,
         texture: &wgpu::Texture,
     ) -> Result<(), PlatformError> {
@@ -197,7 +202,6 @@ impl WGPUSurface {
         if !missing.is_empty() {
             return Err(format!("The texture to render into lacks {missing:?} usage").into());
         }
-        *self.color_target_to_transition.borrow_mut() = Some(texture.clone());
         Ok(())
     }
 

@@ -95,7 +95,6 @@ i-slint-common = { workspace = true, features = ["default"] }
 
 lyon_path = { workspace = true }
 pin-weak = "1"
-scoped-tls-hkt = "0.1"
 strum = { workspace = true }
 winit = { version = "0.30.2", default-features = false, features = ["rwh_06"] }
 raw-window-handle = { version = "0.6", features = ["alloc"] }
@@ -124,6 +123,7 @@ muda = { version = "0.21.1", optional = true, default-features = false }
 vtable = { workspace = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
+scoped-tls-hkt = "0.1"
 web-sys = { workspace = true, features = ["HtmlInputElement", "HtmlCanvasElement", "Window", "Document", "Event", "EventTarget", "FocusEvent", "KeyboardEvent", "InputEvent", "CompositionEvent", "DomStringMap", "ClipboardEvent", "DataTransfer", "Node", "WebGlContextEvent"] }
 wasm-bindgen = { version = "0.2" }
 

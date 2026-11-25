@@ -4,7 +4,9 @@
 use crate::llr::Expression;
 #[cfg(feature = "bundle-translations")]
 use crate::source_path::SourcePath;
+use alloc::string::String;
 use alloc::vec::Vec;
+use core::ops::Range;
 #[cfg(feature = "bundle-translations")]
 use rspolib::TranslatedEntry;
 use smol_str::SmolStr;
@@ -22,16 +24,20 @@ use std::rc::Rc;
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Translations {
-    /// An array with all the array of string
-    /// The first vector index is stored in the LLR.
-    /// The inner vector index is the language id. (The first is the original)
-    /// Only contains the string that are not having plural forms
-    pub strings: Vec<Vec<Option<SmolStr>>>,
-    /// An array with all the strings that are used in a plural form.
-    /// The first vector index is stored in the LLR.
-    /// The inner vector index is the language. (The first is the original string)
-    /// The last vector contains each form
-    pub plurals: Vec<Vec<Option<Vec<SmolStr>>>>,
+    /// The strings and the plural forms of every language, one after the other.
+    pub text: String,
+    /// The range in `text` of each string without plural forms,
+    /// for each language and then each string.
+    /// The LLR refers to a string by its index.
+    /// An empty range stands for a string without translation.
+    pub strings: Vec<Range<u32>>,
+    /// The range in `text` of each plural form.
+    pub forms: Vec<Range<u32>>,
+    /// The range in `forms` of the plural forms of each string with plural forms,
+    /// for each language and then each string.
+    /// The LLR refers to a string by its index.
+    /// An empty range stands for a string without translation.
+    pub plurals: Vec<Range<u32>>,
 
     /// Expression is a function that maps its first and only argument (an integer)
     /// to the plural form index (an integer)
@@ -44,10 +50,51 @@ pub struct Translations {
     pub languages: Vec<(SmolStr, char)>,
 }
 
+impl Translations {
+    /// The number of strings without plural forms.
+    pub fn string_count(&self) -> usize {
+        self.strings.len() / self.languages.len()
+    }
+
+    /// The number of strings with plural forms.
+    pub fn plural_count(&self) -> usize {
+        self.plurals.len() / self.languages.len()
+    }
+
+    /// The string without plural forms at `index` in `language`,
+    /// or `None` if it has no translation in that language.
+    /// The first language, the source, always has the string.
+    pub fn string(&self, language: usize, index: usize) -> Option<&str> {
+        let range = &self.strings[language * self.string_count() + index];
+        (language == 0 || !range.is_empty()).then(|| &self.text[indices(range)])
+    }
+
+    /// The plural forms of the string at `index` in `language`,
+    /// or `None` if it has no translation in that language.
+    pub fn plural_forms(
+        &self,
+        language: usize,
+        index: usize,
+    ) -> Option<impl Iterator<Item = &str> + Clone> {
+        let range = &self.plurals[language * self.plural_count() + index];
+        (!range.is_empty())
+            .then(|| self.forms[indices(range)].iter().map(|form| &self.text[indices(form)]))
+    }
+}
+
+fn indices(range: &Range<u32>) -> Range<usize> {
+    range.start as usize..range.end as usize
+}
+
 #[cfg(feature = "bundle-translations")]
 #[derive(Clone)]
 pub struct TranslationsBuilder {
-    result: Translations,
+    /// Each string without plural forms, in every language.
+    strings: Vec<Vec<Option<SmolStr>>>,
+    /// The plural forms of each string with plural forms, in every language.
+    plurals: Vec<Vec<Option<Vec<SmolStr>>>>,
+    plural_rules: Vec<Option<Expression>>,
+    languages: Vec<(SmolStr, char)>,
     /// Maps (msgid, msgid_plural, msgctx) to the index in the result
     /// (the index is in strings or plurals depending if there is a plural)
     map: HashMap<(SmolStr, SmolStr, SmolStr), usize>,
@@ -121,12 +168,10 @@ impl TranslationsBuilder {
             )));
         }
         Ok(Self {
-            result: Translations {
-                strings: Vec::new(),
-                plurals: Vec::new(),
-                plural_rules,
-                languages,
-            },
+            strings: Vec::new(),
+            plurals: Vec::new(),
+            plural_rules,
+            languages,
             map: HashMap::new(),
             catalogs: Rc::new(catalogs),
         })
@@ -173,16 +218,16 @@ impl TranslationsBuilder {
                             })
                         }))
                         .collect();
-                    self.result.plurals.push(messages);
-                    self.result.plurals.len() - 1
+                    self.plurals.push(messages);
+                    self.plurals.len() - 1
                 } else {
                     let messages = std::iter::once(Some(original.clone()))
                         .chain(messages.map(|opt_entry| {
                             opt_entry.and_then(|entry| entry.msgstr.map(|s| s.to_smolstr()))
                         }))
                         .collect::<Vec<_>>();
-                    self.result.strings.push(messages);
-                    self.result.strings.len() - 1
+                    self.strings.push(messages);
+                    self.strings.len() - 1
                 };
                 Expression::TranslationReference {
                     format_args: format_args.into(),
@@ -193,8 +238,47 @@ impl TranslationsBuilder {
         }
     }
 
+    /// The translations, with equal strings sharing one range of the text.
     pub fn result(self) -> Translations {
-        self.result
+        let to_u32 = |index: usize| u32::try_from(index).unwrap();
+        let mut text = String::new();
+        let mut text_ranges = HashMap::<SmolStr, Range<u32>>::new();
+        let mut text_range = |s: &SmolStr| {
+            text_ranges
+                .entry(s.clone())
+                .or_insert_with(|| {
+                    let start = to_u32(text.len());
+                    text.push_str(s);
+                    start..to_u32(text.len())
+                })
+                .clone()
+        };
+        let languages = 0..self.languages.len();
+        let strings = languages
+            .clone()
+            .flat_map(|language| self.strings.iter().map(move |s| s.get(language)))
+            .map(|s| s.and_then(Option::as_ref).map_or(0..0, &mut text_range))
+            .collect();
+        let mut forms = Vec::new();
+        let plurals = languages
+            .flat_map(|language| self.plurals.iter().map(move |p| p.get(language)))
+            .map(|p| match p.and_then(Option::as_ref) {
+                Some(p) => {
+                    let start = to_u32(forms.len());
+                    forms.extend(p.iter().map(&mut text_range));
+                    start..to_u32(forms.len())
+                }
+                None => 0..0,
+            })
+            .collect();
+        Translations {
+            text,
+            strings,
+            forms,
+            plurals,
+            plural_rules: self.plural_rules,
+            languages: self.languages,
+        }
     }
 
     /// Add all characters in any po file to `characters_seen` if they are not yet there

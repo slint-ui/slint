@@ -1,6 +1,6 @@
 ---
 name: slint
-description: Write, edit, debug, or review Slint UIs and host-language integration in Claude Code. Use for Slint docs, development guidance, local diagnostics, and previews.
+description: Write, edit, debug, or review Slint UIs and host-language integration in Claude Code. Use for Slint docs, development guidance, compiler diagnostics, and first-frame screenshots.
 ---
 
 # Slint Skill for Claude Code
@@ -9,7 +9,7 @@ description: Write, edit, debug, or review Slint UIs and host-language integrati
 
 Look beside the target `.slint` file and up through the workspace for the applicable `slint-project.json`.
 Resolve `main`, include paths, and library paths relative to the directory containing the project file.
-Use `main` for an app preview when the project file selects the entry point.
+Check `main` when the project file selects the entry point.
 
 For Rust, check the owning crate's `Cargo.toml` and any inherited workspace dependencies.
 If the crate uses `slint_build`, read its build script for the entry point and compiler settings.
@@ -21,23 +21,25 @@ The project file's `edition` controls language behavior.
 Find the project's Slint version in its build configuration or lockfile.
 Call `slint-docs` `search` for the element, property, widget, or API you need.
 Pass `version` when the project uses an older release.
+Pass `site: "testing"` to search the Slint UI Testing docs.
 Call `fetch` with the result's URL exactly as returned to read the page for that release.
 
 If the documentation tools are unavailable, open the matching release at
 `https://releases.slint.dev/<version>/docs` or use the [current Slint docs](https://docs.slint.dev/).
 
-## Check and Preview in Claude Code
+Use the `slint-lsp` language server for hover, go-to-definition, and source diagnostics when it is installed.
 
-1. Call `check_slint` with the saved file's absolute `path`.
+## Check Slint and Inspect the First Frame
+
+1. Call `slint-preview`'s `check_slint` with the saved file's absolute `path`.
    If a `slint-project.json` applies, pass its containing directory as the absolute `projectRoot`.
-   Use `source` for a self-contained snippet.
-2. Inspect the diagnostics and PNG.
+   For a self-contained snippet, pass `source` instead of `path`.
+   Pass `style` if the project uses a specific standard widget style.
+2. Inspect the compiler diagnostics and the first-frame PNG.
    Check that layout children align as expected.
    Fix issues and run the check again.
 
-Use the PNG from `check_slint` for the visual review in Claude Code.
-When the host can display MCP Apps, set `prepare_preview: true` in step 1 and call `publish_preview` with the returned `previewId` after step 2.
-
+Use the returned PNG when sharing a screenshot.
 Use the running app or its tests to verify host-language callbacks, models, and application state.
 
 ## `.slint` in 30 Seconds
@@ -77,7 +79,7 @@ Read the matching reference before working in that area.
 | [icons-and-theming.md](../../guidance/reference/icons-and-theming.md) | Icons, or light/dark theming. |
 | [interop.md](../../guidance/reference/interop.md) | Connecting the UI to host-language logic (models, callbacks, globals). |
 | [polish.md](../../guidance/reference/polish.md) | The UI works but looks rough; reviewing a rendered screenshot. |
-| [debugging-and-mcp.md](../../guidance/reference/debugging-and-mcp.md) | Runtime debugging, headless/CI rendering, screenshots, the MCP server. |
+| [debugging-and-mcp.md](../../guidance/reference/debugging-and-mcp.md#mcp-server-for-ai-assisted-debugging) | Debugging or interacting with the running app through its embedded MCP server. |
 | [licensing.md](../../guidance/reference/licensing.md) | The user asks about the license, or builds a closed-source app. |
 | [web-embedding.md](../../guidance/reference/web-embedding.md) | Showing a live `.slint` preview in a web page, HTML report, or docs. |
-| [tools-install.md](../../guidance/tools-install.md) | Installing Slint development tools. |
+| [tools-install.md](../../guidance/tools-install.md) | Installing `slint-lsp`. |

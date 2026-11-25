@@ -199,7 +199,7 @@ test("loadSource", () => {
     ]);
 });
 
-test("accessing `window` on non-windowed components throws", () => {
+test("non-windowed components have no `window` but can be shown and hidden", () => {
     const source = `
         export component Win inherits Window {
             in-out property <string> name: "world";
@@ -217,6 +217,8 @@ test("accessing `window` on non-windowed components throws", () => {
     expect(win[windowSymbol].visible).toBe(false);
     expect(() => tray.window).toThrow();
     expect(() => tray[windowSymbol]).toThrow();
+    tray.hide();
+    tray.show();
 });
 
 test("properties, callbacks, and functions hide built-ins", () => {

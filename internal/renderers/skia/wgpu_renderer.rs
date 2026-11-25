@@ -122,7 +122,8 @@ impl SkiaWGPU29Renderer {
 
         let gr_context = &mut surface.gr_context.borrow_mut();
 
-        surface.transition_to_color_target(texture)?;
+        surface.check_color_target_usage(texture)?;
+        surface.transition_to_color_target(texture);
         let mut skia_surface =
             surface.backend.make_surface(gr_context, texture).ok_or_else(|| {
                 PlatformError::from("Failed to wrap WGPU texture as Skia render target")
@@ -185,8 +186,19 @@ impl SkiaWGPU30Renderer {
     /// `Rgba8Unorm` and `Rgba8UnormSrgb` are supported on all backends,
     /// and `Bgra8Unorm` on Metal and Vulkan too.
     pub fn render_to_texture(&self, texture: &wgpu_30::Texture) -> Result<(), PlatformError> {
-        self.render_to_texture_transformed(texture, 0., (0., 0.))
+        self.render_to_target_transformed(&self.render_target(texture)?, 0, 0., (0., 0.))
     }
+}
+
+/// A wgpu texture that [`SkiaWGPU30RendererExt::render_target`] wrapped for Skia to draw into.
+/// Drop it before the renderer that made it, so that the Skia surface is freed
+/// while the renderer's Skia context and the wgpu device still exist.
+#[doc(hidden)]
+#[cfg(feature = "wgpu-30")]
+pub struct SkiaWGPU30RenderTarget {
+    /// Declared before `texture`, whose image it wraps, to be dropped first.
+    surface: skia_safe::Surface,
+    texture: wgpu_30::Texture,
 }
 
 /// Rendering for Slint's own backends.
@@ -194,23 +206,57 @@ impl SkiaWGPU30Renderer {
 #[doc(hidden)]
 #[cfg(feature = "wgpu-30")]
 pub trait SkiaWGPU30RendererExt {
-    /// Like [`SkiaWGPU30Renderer::render_to_texture`], but rotates the scene by
-    /// `rotation_angle_degrees` around the origin and then moves it by `translation`,
-    /// for a screen mounted in a different orientation than the window's.
-    fn render_to_texture_transformed(
+    /// Wraps `texture` to render into it frame after frame,
+    /// under the same requirements as [`SkiaWGPU30Renderer::render_to_texture`].
+    ///
+    /// Wrapping makes Skia create a Vulkan framebuffer, which is slow with some drivers.
+    /// `render_to_texture` does it every time.
+    fn render_target(
         &self,
         texture: &wgpu_30::Texture,
+    ) -> Result<SkiaWGPU30RenderTarget, PlatformError>;
+
+    /// Like [`SkiaWGPU30Renderer::render_to_texture`], but renders into `target`,
+    /// and rotates the scene by `rotation_angle_degrees` around the origin
+    /// and then moves it by `translation`,
+    /// for a screen mounted in a different orientation than the window's.
+    ///
+    /// `back_buffer_age` is how many frames ago the frame that `target` holds was rendered,
+    /// or 0 when that's unknown, as in `EGL_EXT_buffer_age`.
+    /// With partial rendering enabled, only what changed since then is repainted.
+    fn render_to_target_transformed(
+        &self,
+        target: &SkiaWGPU30RenderTarget,
+        back_buffer_age: u8,
         rotation_angle_degrees: f32,
         translation: (f32, f32),
     ) -> Result<(), PlatformError>;
+
+    /// Repaints only what changed in each frame,
+    /// for targets whose age [`Self::render_to_target_transformed`] gets.
+    fn enable_partial_rendering(&mut self);
 }
 
 #[doc(hidden)]
 #[cfg(feature = "wgpu-30")]
 impl SkiaWGPU30RendererExt for SkiaWGPU30Renderer {
-    fn render_to_texture_transformed(
+    fn render_target(
         &self,
         texture: &wgpu_30::Texture,
+    ) -> Result<SkiaWGPU30RenderTarget, PlatformError> {
+        let surface = self.surface();
+        surface.check_color_target_usage(texture)?;
+        let gr_context = &mut surface.gr_context.borrow_mut();
+        let skia_surface = surface.backend.make_surface(gr_context, texture).ok_or_else(|| {
+            PlatformError::from("Failed to wrap WGPU texture as Skia render target")
+        })?;
+        Ok(SkiaWGPU30RenderTarget { surface: skia_surface, texture: texture.clone() })
+    }
+
+    fn render_to_target_transformed(
+        &self,
+        target: &SkiaWGPU30RenderTarget,
+        back_buffer_age: u8,
         rotation_angle_degrees: f32,
         translation: (f32, f32),
     ) -> Result<(), PlatformError> {
@@ -219,30 +265,38 @@ impl SkiaWGPU30RendererExt for SkiaWGPU30Renderer {
 
         let gr_context = &mut surface.gr_context.borrow_mut();
 
-        surface.transition_to_color_target(texture)?;
-        let mut skia_surface =
-            surface.backend.make_surface(gr_context, texture).ok_or_else(|| {
-                PlatformError::from("Failed to wrap WGPU texture as Skia render target")
-            })?;
+        surface.transition_to_color_target(&target.texture);
+        let mut skia_surface = target.surface.clone();
 
         let window_adapter = self.renderer.window_adapter()?;
         let window = window_adapter.window();
 
-        self.renderer.render_to_canvas(
-            skia_surface.canvas(),
+        // The next frame for this target draws with the same canvas,
+        // which must not keep this frame's rotation and translation.
+        let canvas = skia_surface.canvas();
+        canvas.save();
+        let drawn = self.renderer.render_to_canvas(
+            canvas,
             rotation_angle_degrees,
             translation,
             Some(gr_context),
-            0,
+            back_buffer_age,
             Some(&*surface),
             window,
             true,
-        )?;
-
-        surface.backend.release_surface(gr_context, &mut skia_surface)?;
+        );
+        canvas.restore();
+        // Also after a frame that failed, for Skia to know the image's layout in the next one.
+        let released = surface.backend.release_surface(gr_context, &mut skia_surface);
+        drawn?;
+        released?;
         surface.flush_and_submit(gr_context)?;
 
         Ok(())
+    }
+
+    fn enable_partial_rendering(&mut self) {
+        crate::SkiaRendererExt::enable_partial_rendering(&mut self.renderer);
     }
 }
 

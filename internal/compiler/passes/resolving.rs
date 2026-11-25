@@ -3326,7 +3326,11 @@ fn resolve_two_way_bindings_for_element(
     if !to_infer.is_empty() {
         let mut elem_mut = elem.borrow_mut();
         for (prop_name, inferred) in to_infer {
-            let decl = elem_mut.property_declarations.get_mut(&prop_name).unwrap();
+            // Passes didn't run on a base component from a dependency with errors
+            let Some(decl) = elem_mut.property_declarations.get_mut(&prop_name) else {
+                assert!(diag.has_errors());
+                continue;
+            };
             if inferred.is_property_type() {
                 decl.property_type = inferred;
             } else {

@@ -29,7 +29,8 @@
     "slint-preview": {
       "command": "node",
       "args": [
-        "${CLAUDE_PLUGIN_ROOT}/slint-preview/server.mjs"
+        "${CLAUDE_PLUGIN_ROOT}/slint-preview/server.mjs",
+        "--headless"
       ]
     }
   }

@@ -209,7 +209,7 @@ jobs:
                     - "https://github.com/HELPMEEADICE/Netodia"
                     - "https://github.com/GlitchAwakened/Favnyr"
                     - "https://github.com/KenanSalar/Melodia"
-                    #- "https://github.com/conic-apps/launcher" # uses the parley 0.11 API, and Slint needs parley 0.12
+                    #- "https://github.com/conic-apps/launcher" # uses the parley 0.11 API, and Slint needs parley 0.13
                     - "https://github.com/OpenRsG/OpenFadeR"
                     - "https://github.com/zmactep/patinae"
                     - "https://github.com/Moosync/Moosync"
@@ -363,16 +363,16 @@ jobs:
                           find . -name Cargo.toml | xargs sed -i -E 's/^(rfd = \{ version = "[^"]*", default-features = false)( \})/\1, features = ["gtk3"]\2/'
                           cargo update
                     - git_url: "https://github.com/wilssola/zapive"
-                      # Slint 1.19 moved its unstable fontique API to fontique and parley 0.12
+                      # Slint 1.20 moved its unstable fontique API to fontique and parley 0.13
                       extra_commands: |
-                          grep -rlE 'fontique[_-]0[0-9]+' --include=Cargo.toml --include='*.rs' "$HOME/the_repo/" | xargs -r sed -i -E 's/unstable-fontique-0[0-9]+/unstable-fontique-012/g; s/fontique_0[0-9]+/fontique_012/g'
-                          find "$HOME/the_repo/" -name Cargo.toml | xargs sed -i -E 's/^((fontique|parley)\s*=\s*(\{\s*version\s*=\s*)?)"[=^~]?0\.1[01][.0-9]*"/\1"0.12"/'
+                          grep -rlE 'fontique[_-]0[0-9]+' --include=Cargo.toml --include='*.rs' "$HOME/the_repo/" | xargs -r sed -i -E 's/unstable-fontique-0[0-9]+/unstable-fontique-013/g; s/fontique_0[0-9]+/fontique_013/g'
+                          find "$HOME/the_repo/" -name Cargo.toml | xargs sed -i -E 's/^((fontique|parley)\s*=\s*(\{\s*version\s*=\s*)?)"[=^~]?0\.1[012][.0-9]*"/\1"0.13"/'
                           cargo update
                     - git_url: "https://github.com/dimitribellini/manifold"
-                      # Slint 1.19 moved its unstable fontique API to fontique and parley 0.12
+                      # Slint 1.20 moved its unstable fontique API to fontique and parley 0.13
                       extra_commands: |
-                          grep -rlE 'fontique[_-]0[0-9]+' --include=Cargo.toml --include='*.rs' "$HOME/the_repo/" | xargs -r sed -i -E 's/unstable-fontique-0[0-9]+/unstable-fontique-012/g; s/fontique_0[0-9]+/fontique_012/g'
-                          find "$HOME/the_repo/" -name Cargo.toml | xargs sed -i -E 's/^((fontique|parley)\s*=\s*(\{\s*version\s*=\s*)?)"[=^~]?0\.1[01][.0-9]*"/\1"0.12"/'
+                          grep -rlE 'fontique[_-]0[0-9]+' --include=Cargo.toml --include='*.rs' "$HOME/the_repo/" | xargs -r sed -i -E 's/unstable-fontique-0[0-9]+/unstable-fontique-013/g; s/fontique_0[0-9]+/fontique_013/g'
+                          find "$HOME/the_repo/" -name Cargo.toml | xargs sed -i -E 's/^((fontique|parley)\s*=\s*(\{\s*version\s*=\s*)?)"[=^~]?0\.1[012][.0-9]*"/\1"0.13"/'
                           cargo update
 
         runs-on: "ubuntu-latest"
@@ -582,7 +582,7 @@ jobs:
                       sub_path: "n_music_desktop"
                       extra_commands: |
                           # the android crate asks for the fontique 0.10 feature, so the patched slint is rejected
-                          sed -E -i 's/unstable-fontique-01[01]/unstable-fontique-012/' ../n_music_android/Cargo.toml
+                          sed -E -i 's/unstable-fontique-01[012]/unstable-fontique-013/' ../n_music_android/Cargo.toml
                           cargo update
                           # zune-imageprocs 0.5.1 doesn't handle the enum variants added in 0.5.3
                           cargo update zune-core --precise 0.5.1
@@ -590,7 +590,7 @@ jobs:
                       git_rev: "4a26c2da537f68d1c39995809b5ec2908aa008ba"
                       sub_path: "n_music_android"
                       extra_commands: |
-                          sed -E -i 's/unstable-fontique-01[01]/unstable-fontique-012/' Cargo.toml
+                          sed -E -i 's/unstable-fontique-01[012]/unstable-fontique-013/' Cargo.toml
                           cargo update
                           cargo update zune-core --precise 0.5.1
                     - git_url: "https://github.com/TsaoLun/always-blue"
@@ -972,10 +972,10 @@ jobs:
                       sub_path: "crates/app"
                     - git_url: "https://github.com/zhangxichang/pupu"
                       sub_path: "app"
-                      # Slint 1.19 moved its unstable fontique API to fontique and parley 0.12
+                      # Slint 1.20 moved its unstable fontique API to fontique and parley 0.13
                       extra_commands: |
-                          grep -rlE 'fontique[_-]0[0-9]+' --include=Cargo.toml --include='*.rs' "$HOME/the_repo/" | xargs -r sed -i -E 's/unstable-fontique-0[0-9]+/unstable-fontique-012/g; s/fontique_0[0-9]+/fontique_012/g'
-                          find "$HOME/the_repo/" -name Cargo.toml | xargs sed -i -E 's/^((fontique|parley)\s*=\s*(\{\s*version\s*=\s*)?)"[=^~]?0\.1[01][.0-9]*"/\1"0.12"/'
+                          grep -rlE 'fontique[_-]0[0-9]+' --include=Cargo.toml --include='*.rs' "$HOME/the_repo/" | xargs -r sed -i -E 's/unstable-fontique-0[0-9]+/unstable-fontique-013/g; s/fontique_0[0-9]+/fontique_013/g'
+                          find "$HOME/the_repo/" -name Cargo.toml | xargs sed -i -E 's/^((fontique|parley)\s*=\s*(\{\s*version\s*=\s*)?)"[=^~]?0\.1[012][.0-9]*"/\1"0.13"/'
                           cargo update
                     - git_url: "https://github.com/Amne-Dev/NLC"
                       sub_path: "src/frontend"
@@ -989,10 +989,10 @@ jobs:
                           cargo update
                     - git_url: "https://github.com/sebastian-beca/opendj"
                       sub_path: "crates/app"
-                      # Slint 1.19 moved its unstable fontique API to fontique and parley 0.12
+                      # Slint 1.20 moved its unstable fontique API to fontique and parley 0.13
                       extra_commands: |
-                          grep -rlE 'fontique[_-]0[0-9]+' --include=Cargo.toml --include='*.rs' "$HOME/the_repo/" | xargs -r sed -i -E 's/unstable-fontique-0[0-9]+/unstable-fontique-012/g; s/fontique_0[0-9]+/fontique_012/g'
-                          find "$HOME/the_repo/" -name Cargo.toml | xargs sed -i -E 's/^((fontique|parley)\s*=\s*(\{\s*version\s*=\s*)?)"[=^~]?0\.1[01][.0-9]*"/\1"0.12"/'
+                          grep -rlE 'fontique[_-]0[0-9]+' --include=Cargo.toml --include='*.rs' "$HOME/the_repo/" | xargs -r sed -i -E 's/unstable-fontique-0[0-9]+/unstable-fontique-013/g; s/fontique_0[0-9]+/fontique_013/g'
+                          find "$HOME/the_repo/" -name Cargo.toml | xargs sed -i -E 's/^((fontique|parley)\s*=\s*(\{\s*version\s*=\s*)?)"[=^~]?0\.1[012][.0-9]*"/\1"0.13"/'
                           cargo update
                           # rbox 0.3.1 renamed the waveform fields the project uses
                           for p in rbox-onelib rbox-masterdb rbox-devlib rbox-db rbox-core rbox-anlz; do cargo update $p --precise 0.3.0; done
@@ -1008,10 +1008,10 @@ jobs:
                       sub_path: "rust/frontend"
                       # its .cargo/config.toml links with mold
                       extra_packages: mold
-                      # Slint 1.19 moved its unstable fontique API to fontique and parley 0.12
+                      # Slint 1.20 moved its unstable fontique API to fontique and parley 0.13
                       extra_commands: |
-                          grep -rlE 'fontique[_-]0[0-9]+' --include=Cargo.toml --include='*.rs' "$HOME/the_repo/" | xargs -r sed -i -E 's/unstable-fontique-0[0-9]+/unstable-fontique-012/g; s/fontique_0[0-9]+/fontique_012/g'
-                          find "$HOME/the_repo/" -name Cargo.toml | xargs sed -i -E 's/^((fontique|parley)\s*=\s*(\{\s*version\s*=\s*)?)"[=^~]?0\.1[01][.0-9]*"/\1"0.12"/'
+                          grep -rlE 'fontique[_-]0[0-9]+' --include=Cargo.toml --include='*.rs' "$HOME/the_repo/" | xargs -r sed -i -E 's/unstable-fontique-0[0-9]+/unstable-fontique-013/g; s/fontique_0[0-9]+/fontique_013/g'
+                          find "$HOME/the_repo/" -name Cargo.toml | xargs sed -i -E 's/^((fontique|parley)\s*=\s*(\{\s*version\s*=\s*)?)"[=^~]?0\.1[012][.0-9]*"/\1"0.13"/'
                           cargo update
                     - git_url: "https://github.com/palaashatri/rust-loom"
                       sub_path: "loom-core/crates/loom-ui"
@@ -1038,10 +1038,10 @@ jobs:
                       sub_path: "crates/morune-app"
                       # The next commit removes the Slint app
                       git_rev: f03a1944c9d7376e6fd55e2d66286f62b148dc39
-                      # Slint 1.19 moved its unstable fontique API to fontique and parley 0.12
+                      # Slint 1.20 moved its unstable fontique API to fontique and parley 0.13
                       extra_commands: |
-                          grep -rlE 'fontique[_-]0[0-9]+' --include=Cargo.toml --include='*.rs' "$HOME/the_repo/" | xargs -r sed -i -E 's/unstable-fontique-0[0-9]+/unstable-fontique-012/g; s/fontique_0[0-9]+/fontique_012/g'
-                          find "$HOME/the_repo/" -name Cargo.toml | xargs sed -i -E 's/^((fontique|parley)\s*=\s*(\{\s*version\s*=\s*)?)"[=^~]?0\.1[01][.0-9]*"/\1"0.12"/'
+                          grep -rlE 'fontique[_-]0[0-9]+' --include=Cargo.toml --include='*.rs' "$HOME/the_repo/" | xargs -r sed -i -E 's/unstable-fontique-0[0-9]+/unstable-fontique-013/g; s/fontique_0[0-9]+/fontique_013/g'
+                          find "$HOME/the_repo/" -name Cargo.toml | xargs sed -i -E 's/^((fontique|parley)\s*=\s*(\{\s*version\s*=\s*)?)"[=^~]?0\.1[012][.0-9]*"/\1"0.13"/'
                           cargo update
                           # vergen 9.1 breaks the build script of librespot-core
                           cargo update vergen --precise 9.0.6
@@ -1078,10 +1078,10 @@ jobs:
                       extra_packages: libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev
                     - git_url: "https://github.com/KimP0ssible-no/OpenCRT"
                       sub_path: "crates/opencrt"
-                      # Slint 1.19 moved its unstable fontique API to fontique and parley 0.12
+                      # Slint 1.20 moved its unstable fontique API to fontique and parley 0.13
                       extra_commands: |
-                          grep -rlE 'fontique[_-]0[0-9]+' --include=Cargo.toml --include='*.rs' "$HOME/the_repo/" | xargs -r sed -i -E 's/unstable-fontique-0[0-9]+/unstable-fontique-012/g; s/fontique_0[0-9]+/fontique_012/g'
-                          find "$HOME/the_repo/" -name Cargo.toml | xargs sed -i -E 's/^((fontique|parley)\s*=\s*(\{\s*version\s*=\s*)?)"[=^~]?0\.1[01][.0-9]*"/\1"0.12"/'
+                          grep -rlE 'fontique[_-]0[0-9]+' --include=Cargo.toml --include='*.rs' "$HOME/the_repo/" | xargs -r sed -i -E 's/unstable-fontique-0[0-9]+/unstable-fontique-013/g; s/fontique_0[0-9]+/fontique_013/g'
+                          find "$HOME/the_repo/" -name Cargo.toml | xargs sed -i -E 's/^((fontique|parley)\s*=\s*(\{\s*version\s*=\s*)?)"[=^~]?0\.1[012][.0-9]*"/\1"0.13"/'
                           cargo update
                     - git_url: "https://github.com/pierregouedar/canape"
                       sub_path: "crates/canape-shell"
