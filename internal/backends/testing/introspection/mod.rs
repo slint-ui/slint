@@ -171,13 +171,33 @@ pub(crate) struct TrackedWindow {
 
 /// A tracked element, and the tick of the last reply or request that used its handle.
 pub(crate) struct TrackedElement {
-    element: Rc<ElementHandle>,
+    element: ElementHandle,
+    pin: RefCell<Weak<ElementPin>>,
     last_used: Cell<u64>,
 }
 
 impl TrackedElement {
     fn is_pinned(&self) -> bool {
-        Rc::strong_count(&self.element) > 1
+        self.pin.borrow().strong_count() > 0
+    }
+}
+
+/// Spares the handle of an element from eviction while it lives.
+pub(crate) struct ElementPin {
+    element: ElementHandle,
+    pinned_count: Rc<Cell<usize>>,
+}
+
+impl core::ops::Deref for ElementPin {
+    type Target = ElementHandle;
+    fn deref(&self) -> &ElementHandle {
+        &self.element
+    }
+}
+
+impl Drop for ElementPin {
+    fn drop(&mut self) {
+        self.pinned_count.set(self.pinned_count.get() - 1);
     }
 }
 
@@ -196,6 +216,8 @@ pub(crate) struct IntrospectionState {
     unknown_event_count: Cell<u64>,
     unknown_event_warned: Cell<bool>,
     recording_enabled: Cell<bool>,
+    /// How many tracked elements have a live [`ElementPin`].
+    pinned_count: Rc<Cell<usize>>,
     #[cfg(feature = "system-testing")]
     windows_generation: core::pin::Pin<Box<i_slint_core::Property<u32>>>,
     #[cfg(feature = "system-testing")]
@@ -215,6 +237,7 @@ impl IntrospectionState {
             unknown_event_count: Default::default(),
             unknown_event_warned: Cell::new(false),
             recording_enabled: Cell::new(false),
+            pinned_count: Default::default(),
             #[cfg(feature = "system-testing")]
             windows_generation: Box::pin(Default::default()),
             #[cfg(feature = "system-testing")]
@@ -316,32 +339,23 @@ impl IntrospectionState {
     /// that re-queries doesn't fill the arena with duplicates of what it already has
     /// and evict its own live handles (#13243).
     pub fn element_to_handle(&self, element: ElementHandle) -> ArenaIndex {
-        self.pin_element(element).0
-    }
-
-    /// Like [`Self::element_to_handle`], but eviction spares the handle
-    /// for as long as the returned `Rc` lives.
-    /// Pinned handles don't count toward the cap.
-    fn pin_element(&self, element: ElementHandle) -> (ArenaIndex, Rc<ElementHandle>) {
         let hint = element.identity_hint();
         if let Some(hint) = hint
-            && let Some(pinned) = self.tracked_handle(&element, hint)
+            && let Some(index) = self.tracked_handle(&element, hint)
         {
-            return pinned;
+            return index;
         }
 
         let mut arena = self.element_handles.borrow_mut();
-        let element = Rc::new(element);
-        let index = arena
-            .insert(TrackedElement { element: element.clone(), last_used: Cell::new(self.tick()) });
+        let index = arena.insert(TrackedElement {
+            element,
+            pin: Default::default(),
+            last_used: Cell::new(self.tick()),
+        });
         if let Some(hint) = hint {
             self.element_handle_lookup.borrow_mut().entry(hint).or_default().push(index);
         }
-        let unpinned = if arena.len() > ELEMENT_HANDLE_CAP {
-            arena.values().filter(|tracked| !tracked.is_pinned()).count()
-        } else {
-            arena.len()
-        };
+        let unpinned = arena.len().saturating_sub(self.pinned_count.get());
         if unpinned > ELEMENT_HANDLE_CAP {
             let roots = self.window_root_elements();
             let mut candidates: Vec<(u64, ArenaIndex)> = arena
@@ -368,7 +382,27 @@ impl IntrospectionState {
                 }
             }
         }
-        (index, element)
+        index
+    }
+
+    /// Like [`Self::element_to_handle`], but eviction spares the handle
+    /// for as long as the returned pin lives.
+    /// Pinned handles don't count toward the cap.
+    #[cfg_attr(not(feature = "system-testing"), allow(dead_code))]
+    fn pin_element(&self, element: ElementHandle) -> (ArenaIndex, Rc<ElementPin>) {
+        let index = self.element_to_handle(element);
+        let arena = self.element_handles.borrow();
+        let tracked = &arena[index];
+        if let Some(pin) = tracked.pin.borrow().upgrade() {
+            return (index, pin);
+        }
+        self.pinned_count.set(self.pinned_count.get() + 1);
+        let pin = Rc::new(ElementPin {
+            element: tracked.element.clone(),
+            pinned_count: self.pinned_count.clone(),
+        });
+        *tracked.pin.borrow_mut() = Rc::downgrade(&pin);
+        (index, pin)
     }
 
     /// How many handles one response can return before
@@ -385,11 +419,7 @@ impl IntrospectionState {
 
     /// Returns the handle already tracking `element` and marks it used,
     /// dropping lookup entries whose slot was evicted or whose element is gone.
-    fn tracked_handle(
-        &self,
-        element: &ElementHandle,
-        hint: (u32, usize),
-    ) -> Option<(ArenaIndex, Rc<ElementHandle>)> {
+    fn tracked_handle(&self, element: &ElementHandle, hint: (u32, usize)) -> Option<ArenaIndex> {
         let arena = self.element_handles.borrow();
         let mut lookup = self.element_handle_lookup.borrow_mut();
         let bucket = lookup.get_mut(&hint)?;
@@ -398,7 +428,7 @@ impl IntrospectionState {
             Some(tracked_element) if tracked_element.element.is_valid() => {
                 if tracked_element.element.is_same_element(element) {
                     tracked_element.last_used.set(self.tick());
-                    tracked = Some((*candidate, tracked_element.element.clone()));
+                    tracked = Some(*candidate);
                 }
                 true
             }
@@ -417,7 +447,7 @@ impl IntrospectionState {
             .get(index)
             .map(|tracked| {
                 tracked.last_used.set(self.tick());
-                ElementHandle::clone(&tracked.element)
+                tracked.element.clone()
             })
             .ok_or_else(|| format!("Invalid element handle for {request}"))?;
         if !element.is_valid() {

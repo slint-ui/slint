@@ -10,7 +10,7 @@ use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::rc::{Rc, Weak};
 
-use super::{ArenaIndex, IntrospectionState, index_to_handle, proto};
+use super::{ArenaIndex, ElementPin, IntrospectionState, index_to_handle, proto};
 use crate::ElementHandle;
 use crate::systest::NotificationSink;
 use proto::subscription_notification::Msg as Notification;
@@ -182,10 +182,9 @@ impl PartialEq for Children {
 }
 
 /// A child as the debugger last saw it.
-/// Holding `element` keeps its handle from being evicted.
 struct PushedChild {
     handle: ArenaIndex,
-    element: Rc<ElementHandle>,
+    element: Rc<ElementPin>,
     has_children: bool,
 }
 
@@ -723,6 +722,7 @@ mod tests {
         assert!(pinned(true));
         fixture.state.subscriptions.remove(other.subscription_id);
         assert!(pinned(false));
+        assert_eq!(fixture.state.pinned_count.get(), 0);
 
         fixture.rows.push(3);
         assert!(fixture.notifications().is_empty());
@@ -776,10 +776,11 @@ mod tests {
     fn diff_replaces_all_children_when_survivors_reorder() {
         crate::init_no_event_loop();
         let app = App::new().unwrap();
+        let state = IntrospectionState::new();
         let element = ElementHandle::find_by_element_id(&app, "App::list").next().unwrap();
+        let element = state.pin_element(element).1;
         let mut arena = slotmap::SlotMap::<ArenaIndex, ()>::with_key();
-        let child =
-            |handle| PushedChild { handle, element: Rc::new(element.clone()), has_children: false };
+        let child = |handle| PushedChild { handle, element: element.clone(), has_children: false };
         let [a, b] = std::array::from_fn(|_| arena.insert(()));
         let changed = diff_children(&[child(a), child(b)], &[child(b), child(a)]);
         assert_eq!(changed.removed, [index_to_handle(a), index_to_handle(b)]);
