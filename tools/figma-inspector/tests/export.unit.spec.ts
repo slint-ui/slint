@@ -102,7 +102,7 @@ test.each(["HUG", "FILL"])(
     },
 );
 
-test("one capture produces preview images and native export text with font imports and real assets", async () => {
+test("one capture produces preview images, native export text, a project file with its fonts, and real assets", async () => {
     const output = await result();
     const preview =
         typeof output.source === "string"
@@ -111,15 +111,19 @@ test("one capture produces preview images and native export text with font impor
     expect(preview).not.toContain('text: "Native export text"');
     expect(preview).toContain("data:image/png;base64,");
     expect(output.exportPackage.source).toContain('text: "Native export text"');
-    expect(output.exportPackage.source).toContain(
-        '// import "fonts/example-font-regular.ttf";',
-    );
-    expect(output.exportPackage.source).not.toMatch(/^import "fonts\//m);
+    expect(output.exportPackage.source).not.toContain('import "fonts/');
     const project = requireValue(
         output.exportPackage.files.find((f) => f.path === "slint-project.json"),
     ).data;
-    expect(JSON.parse(project)).toEqual({
+    expect(project).toContain(
+        '// "fonts": ["fonts/example-font-regular.ttf"],',
+    );
+    const enabled = project
+        .replace('// "fonts"', '"fonts"')
+        .replace(/^\s*\/\/.*$/gm, "");
+    expect(JSON.parse(enabled)).toEqual({
         edition: version.split(".").slice(0, 2).join("."),
+        fonts: ["fonts/example-font-regular.ttf"],
         main: "main.slint",
     });
     expect(output.exportPackage.source).not.toContain("data:image");
@@ -142,7 +146,7 @@ test("ZIP has exact syntax-view code, decodable image bytes and a font checklist
     );
     expect(fontReadme).toContain("Example Font / Regular");
     expect(fontReadme).toContain("commented out");
-    expect(fontReadme).toContain("uncomment their import lines");
+    expect(fontReadme).toContain("slint-project.json");
     expect(fontReadme).toContain("removing the leading //");
     expect(zip.file("slint-project.json")).not.toBeNull();
     expect(Object.keys(zip.files).some((name) => name.endsWith(".ttf"))).toBe(
