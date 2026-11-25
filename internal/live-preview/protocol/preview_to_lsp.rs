@@ -115,6 +115,10 @@ pub enum PreviewToLspMessage {
     /// The preview UI asked to show the design on a microcontroller connected to
     /// this serial port. The LSP main process compiles the design and sends it.
     ConnectSerial { port: String },
+    /// A message for the debugger.
+    /// The Springboard passes it on, the LSP drops it.
+    /// It carries the `id` of the [`super::LspToPreviewMessage::Debugger`] it answers.
+    Debugger { id: u64, message: super::PreviewToDebuggerMessage },
 }
 
 impl PreviewToLspMessage {

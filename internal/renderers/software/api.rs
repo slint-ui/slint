@@ -331,6 +331,9 @@ impl SoftwareRenderer {
     /// to rasterize later with [`RecordedRasterCommands::rasterize`],
     /// into a buffer of `num_lines` lines of `pixels_per_line` pixels.
     ///
+    /// Rasterize every recording: recording marks the changed areas as clean,
+    /// so a recording dropped without rasterizing loses that frame's changes.
+    ///
     /// Only available on targets with atomic pointers.
     #[cfg(all(feature = "experimental", target_has_atomic = "ptr"))]
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
