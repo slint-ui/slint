@@ -68,7 +68,7 @@ pub struct BitmapFont<S: Storage> {
     /// The family name of the font, in UTF-8
     pub family_name: S::Slice<u8>,
     /// The code points that have a glyph, sorted.
-    /// A code point's position in this slice is its index in the `glyph_data` of [`BitmapGlyphs`].
+    /// A code point's position in this slice, plus one, is its index in the `glyph_data` of [`BitmapGlyphs`].
     pub character_map: S::Slice<char>,
     /// The font supplied size of the em square.
     pub units_per_em: f32,
@@ -80,8 +80,8 @@ pub struct BitmapFont<S: Storage> {
     pub x_height: f32,
     /// The font's cap-height.
     pub cap_height: f32,
-    /// A vector of pre-rendered glyph sets. Each glyph set must have the same number of glyphs
-    /// as the character map.
+    /// A vector of pre-rendered glyph sets. Each glyph set starts with the `.notdef` glyph, drawn for
+    /// the code points not in the character map, followed by a glyph for each code point of the map.
     pub glyphs: S::Slice<BitmapGlyphs<S>>,
     /// The weight of the font in CSS units (400 is normal).
     pub weight: u16,

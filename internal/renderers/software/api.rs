@@ -6,12 +6,12 @@
 
 #[cfg(all(feature = "experimental", target_has_atomic = "ptr"))]
 pub use crate::RecordedRasterCommands;
-pub use crate::draw_functions::{
-    PremultipliedRgbaColor, Rgb565BigEndianPixel, Rgb565Pixel, TargetPixel,
-};
 pub use crate::minimal_software_window::MinimalSoftwareWindow;
 #[cfg(feature = "experimental")]
 pub use crate::prepared_textures::PreparedTextures;
+pub use crate::target_pixel::{
+    Argb8888Pixel, PremultipliedRgbaColor, Rgb565BigEndianPixel, Rgb565Pixel, TargetPixel,
+};
 #[cfg(feature = "experimental")]
 pub use crate::target_pixel_buffer::{
     DrawRectangleArgs, DrawTextureArgs, TargetPixelBuffer, TexturePixelFormat,
@@ -347,7 +347,12 @@ impl SoftwareRenderer {
     #[cfg(all(feature = "experimental", target_has_atomic = "ptr"))]
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn record_frame(&self, pixels_per_line: usize, num_lines: usize) -> RecordedRasterCommands {
-        let recorder = |scale_factor| RecordedRasterCommands { scale_factor, ..Default::default() };
+        let recorder = |scale_factor| RecordedRasterCommands {
+            scale_factor,
+            pixels_per_line,
+            num_lines,
+            ..Default::default()
+        };
         self.render_frame(pixels_per_line, num_lines, recorder).map(|(_, r)| r).unwrap_or_default()
     }
 

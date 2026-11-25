@@ -42,14 +42,24 @@ const GLYPH_DATA: [u8; 4] = [255, 128, 128, 255];
 
 static GLYPHS: [BitmapGlyphs; 1] = [BitmapGlyphs {
     pixel_size: 4,
-    glyph_data: Slice::from_slice(&[BitmapGlyph {
-        x: 0,
-        y: 0,
-        width: 2,
-        height: 2,
-        x_advance: 3 << 6,
-        data: Slice::from_slice(&GLYPH_DATA),
-    }]),
+    glyph_data: Slice::from_slice(&[
+        BitmapGlyph {
+            x: 0,
+            y: 0,
+            width: 0,
+            height: 0,
+            x_advance: 3 << 6,
+            data: Slice::from_slice(&[]),
+        },
+        BitmapGlyph {
+            x: 0,
+            y: 0,
+            width: 2,
+            height: 2,
+            x_advance: 3 << 6,
+            data: Slice::from_slice(&GLYPH_DATA),
+        },
+    ]),
 }];
 
 const fn static_font(family_name: &'static [u8], sdf: bool) -> BitmapFont {
@@ -86,14 +96,17 @@ fn shared_font(
         cap_height: 4.,
         glyphs: vec![BitmapGlyphs::<OwnedStorage> {
             pixel_size: 4,
-            glyph_data: vec![BitmapGlyph::<OwnedStorage> {
-                x: 0,
-                y: 0,
-                width: 2,
-                height: 2,
-                x_advance: 3 << 6,
-                data: glyph_data.to_vec(),
-            }],
+            glyph_data: vec![
+                BitmapGlyph::<OwnedStorage> { x_advance: 3 << 6, ..Default::default() },
+                BitmapGlyph::<OwnedStorage> {
+                    x: 0,
+                    y: 0,
+                    width: 2,
+                    height: 2,
+                    x_advance: 3 << 6,
+                    data: glyph_data.to_vec(),
+                },
+            ],
         }],
         weight: 400,
         italic: false,

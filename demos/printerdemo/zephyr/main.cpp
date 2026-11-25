@@ -12,7 +12,7 @@ LOG_MODULE_REGISTER(zephyrPrinterDemo, LOG_LEVEL_INF);
 #    include "posix_board_if.h"
 #endif
 
-#include <app_version.h>
+#include <zephyr/app_version.h>
 
 #include "slint-zephyr.h"
 

@@ -104,7 +104,7 @@ jobs:
         run: |
           mkdir -p .triage
           gh pr view "$PR" --repo "$GITHUB_REPOSITORY" \
-            --json number,title,body,author,files,additions,deletions,changedFiles,headRefOid \
+            --json number,title,body,author,files,commits,additions,deletions,changedFiles,headRefOid \
             > .triage/pr.json
           echo "head_sha=$(jq -r .headRefOid .triage/pr.json)" >> "$GITHUB_OUTPUT"
           # Prefixes each added and unchanged line with its line number in the
@@ -132,11 +132,11 @@ jobs:
             --max-turns 40
             --allowedTools "Read(./**),Grep(./**),Glob(./**)"
             --disallowedTools "Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch"
-            --json-schema '{"type":"object","additionalProperties":false,"required":["areas","api","breaking_change","complexity","complexity_reason","new_api","ready","changes","nitpicks","comments"],"properties":{"areas":{"type":"array","items":{"type":"string"},"maxItems":2},"api":{"type":"boolean"},"breaking_change":{"type":"boolean"},"complexity":{"type":"string","enum":["trivial","moderate","high"]},"complexity_reason":{"type":"string","maxLength":300},"new_api":{"type":"string","maxLength":4000},"ready":{"type":"boolean"},"changes":{"type":"string","maxLength":3000},"nitpicks":{"type":"array","maxItems":5,"items":{"type":"string","maxLength":500}},"comments":{"type":"array","maxItems":10,"items":{"type":"object","additionalProperties":false,"required":["path","line","body"],"properties":{"path":{"type":"string"},"line":{"type":"integer","minimum":1},"body":{"type":"string","maxLength":1000}}}}}}'
+            --json-schema '{"type":"object","additionalProperties":false,"required":["areas","api","breaking_change","complexity","complexity_reason","new_api","ready","changes","nitpicks","comments","merge_method"],"properties":{"areas":{"type":"array","items":{"type":"string"},"maxItems":2},"api":{"type":"boolean"},"breaking_change":{"type":"boolean"},"complexity":{"type":"string","enum":["trivial","moderate","high"]},"complexity_reason":{"type":"string","maxLength":300},"new_api":{"type":"string","maxLength":4000},"ready":{"type":"boolean"},"changes":{"type":"string","maxLength":3000},"nitpicks":{"type":"array","maxItems":5,"items":{"type":"string","maxLength":500}},"comments":{"type":"array","maxItems":10,"items":{"type":"object","additionalProperties":false,"required":["path","line","body"],"properties":{"path":{"type":"string"},"line":{"type":"integer","minimum":1},"body":{"type":"string","maxLength":1000}}}},"merge_method":{"type":"string","enum":["rebase","squash"]}}}'
           prompt: |
             Triage and review a pull request to the Slint repository.
 
-            `.triage/pr.json` has its metadata and file list, and `.triage/pr.diff` its diff.
+            `.triage/pr.json` has its metadata, file list, and commits. `.triage/pr.diff` has its diff.
             Each added and unchanged line in the diff starts with its line number in the new version of the file.
             Read the diff in parts if it's large.
             The working directory is the master branch, for looking up where touched code lives and how it's used.
@@ -171,6 +171,7 @@ jobs:
             - `comments`: at most ten inline comments on lines the PR adds or keeps, for items of `changes` only.
               `path` is the file path as in the diff, `line` the number in front of the line in `.triage/pr.diff`,
               and `body` the comment, written like `changes`.
+            - `merge_method`: `squash`, unless the history is clean with multiple commits that stand on their own. (Fixup commits do not make for a clean history)
 
             Area labels:
 
@@ -182,6 +183,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
+      contents: write
       pull-requests: write
       issues: write
     steps:
@@ -310,3 +312,19 @@ jobs:
               const body = [...lines, ...asList([...inline, ...leftover]), ...tail].join('\n');
               await github.rest.issues.createComment({ ...context.repo, issue_number, body });
             }
+
+      - name: Enable auto-merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RESULT: ${{ needs.classify.outputs.result }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+        run: |
+          # gh pr merge --auto can merge immediately on a branch without required reviews.
+          # So only enable auto-merge if the branch requires reviews.
+          base_branch=$(gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json baseRefName --jq .baseRefName)
+          encoded_branch=$(jq -rn --arg branch "$base_branch" '$branch | @uri')
+          requires_review=$(gh api "repos/$GITHUB_REPOSITORY/rules/branches/$encoded_branch" \
+            --jq 'any(.[]; .type == "pull_request" and .parameters.required_approving_review_count > 0)')
+          [ "$requires_review" = true ] || exit 0
+          method=$(jq -r .merge_method <<< "$RESULT")
+          gh pr merge "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --auto "--$method"

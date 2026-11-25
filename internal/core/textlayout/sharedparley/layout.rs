@@ -171,8 +171,8 @@ pub(super) fn layout(
 
     let mut para_y = 0.0;
     for para in paragraphs.iter_mut() {
+        para.layout.set_alignment(inputs.alignment, parley::AlignmentOptions::default());
         para.layout.break_all_lines(max_physical_width.map(|width| width.get()));
-        para.layout.align(inputs.alignment, parley::AlignmentOptions::default());
 
         para.y = PhysicalLength::new(para_y);
         para_y += para.layout.height();

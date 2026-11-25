@@ -30,7 +30,7 @@ fn compile(code: &str) -> slint_interpreter::ComponentDefinition {
     let mut compiler = slint_interpreter::Compiler::default();
     compiler.set_style("fluent".into());
     let path = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/test.slint");
-    let result = spin_on::spin_on(compiler.build_from_source(code.into(), path.into()));
+    let result = i_slint_compiler::poll_ready(compiler.build_from_source(code.into(), path.into()));
     assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
     result.component("TestCase").unwrap()
 }

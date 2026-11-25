@@ -149,61 +149,80 @@ pub(super) fn smooth_scroll_layout(
         };
     };
 
-    let heights = (0..ops.len()).map(|i| ops.height(i).unwrap_or(state.cached_item_height));
-    let (top_anchor, row_height) = row_geometry(state, heights, request.row);
+    let height = |i| ops.height(i).unwrap_or(state.cached_item_height);
+    let heights = (0..ops.len()).map(height);
+    let (top_anchor, row_height) = row_geometry(state, heights.clone(), request.row);
     let distance = alignment.distance(top_anchor + content_y, row_height, viewport_height);
 
     let jump = sim.should_jump(viewport_height, distance).map(|landing| (alignment, landing));
-    let lookahead_limit = sim.lookahead_limit(viewport_height);
+    let lookahead = if distance.abs() <= sim.lookahead_limit(viewport_height) {
+        viewport_height + distance.abs()
+    } else {
+        0 as Coord
+    };
 
-    // lay out the rows up to the target, so that the scroll stops exactly on it.
+    // Lay out the rows up to the target, so that the scroll stops exactly on it.
+    // Measuring the rows changes the estimated distance, so the rows that exist toward the target
+    // stay, up to the middle of the outermost one so that rounding never adds a row beyond it:
+    // otherwise the next pass may drop them and the one after lay them out again.
+    let top = row_geometry(state, heights.clone(), state.item_index.first_row()).0 + content_y;
     let (extra_above, extra_below) = match jump {
         Some((RowAlignment::Top, landing)) => (landing, 0 as Coord),
         Some((RowAlignment::Bottom, landing)) => (0 as Coord, landing + viewport_height),
-        // If the distance is not too large
-        None if distance.abs() <= lookahead_limit => {
-            if distance > 0 as Coord {
-                (distance + viewport_height, 0 as Coord)
-            } else {
-                (0 as Coord, viewport_height - distance)
-            }
+        None if distance > 0 as Coord => {
+            let has_rows = ops.len() > 0;
+            let first_middle = has_rows.then(|| top + height(0) / 2 as Coord);
+            (first_middle.map_or(lookahead, |middle| lookahead.max(-middle)), 0 as Coord)
         }
-        _ => (0 as Coord, 0 as Coord),
+        None => {
+            let last_middle = ops
+                .len()
+                .checked_sub(1)
+                .map(|last| top + heights.sum::<Coord>() - height(last) / 2 as Coord);
+            (
+                0 as Coord,
+                last_middle.map_or(lookahead, |middle| lookahead.max(middle - viewport_height)),
+            )
+        }
     };
     SmoothScrollLayout { jump, extra_above, layout_end: viewport_height + extra_below }
 }
 
 /// The top and height of `row` in content coordinates.
-/// `heights` are the heights of the instances from `state.offset` on.
+/// `heights` are the heights of the instances from the first instance on.
 /// Both are estimates for a row without an instance.
 pub(super) fn row_geometry(
     state: &RepeaterLayoutState,
     heights: impl IntoIterator<Item = Coord>,
     row: usize,
 ) -> (Coord, Coord) {
-    // The instance at `offset` is laid out at `anchor_y`, see `update_visible_instances`.
-    if row < state.offset {
-        return (
-            state.anchor_y - state.cached_item_height * (state.offset - row) as Coord,
-            state.cached_item_height,
-        );
-    }
-    let index = row - state.offset;
-    let mut heights = heights.into_iter();
-    let mut above = 0 as Coord;
-    let mut counted = 0;
-    for height in heights.by_ref().take(index) {
-        above += height;
-        counted += 1;
-    }
-    match heights.next() {
-        Some(height) => (state.anchor_y + above, height),
-        None => {
-            let skipped = index - counted;
-            (
-                state.anchor_y + above + state.cached_item_height * skipped as Coord,
-                state.cached_item_height,
-            )
+    let estimate = state.cached_item_height;
+    let current = state.item_index.instance_index;
+    let index = usize::try_from(row as isize - state.item_index.first_row() as isize).ok();
+    // The tops of the current item's and the row's instances, relative to the first instance.
+    let (mut current_top, mut row_top, mut row_height) = (None, None, None);
+    let (mut measured_top, mut measured) = (0 as Coord, 0);
+    for height in heights {
+        if measured == current {
+            current_top = Some(measured_top);
+        }
+        if Some(measured) == index {
+            row_top = Some(measured_top);
+            row_height = Some(height);
+        }
+        measured_top += height;
+        measured += 1;
+        if measured > current && index.is_none_or(|index| measured > index) {
+            break;
         }
     }
+    // Instances past the measured ones have the estimated height.
+    let extrapolate = |index: usize| measured_top + estimate * (index - measured) as Coord;
+    let row_top = match index {
+        Some(index) => row_top.unwrap_or_else(|| extrapolate(index)),
+        None => estimate * (row as Coord - state.item_index.first_row() as Coord),
+    };
+    let current_top = current_top.unwrap_or_else(|| extrapolate(current));
+    // The current item, the instance at `instance_index`, starts at `anchor_y + snap_offset`.
+    (state.anchor_y + state.snap_offset + row_top - current_top, row_height.unwrap_or(estimate))
 }

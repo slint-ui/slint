@@ -26,8 +26,16 @@
     color: var(--text);
     font: 13px/1.4 system-ui, sans-serif;
   }
+  #preview-content { display: flow-root; }
+  html:has(canvas.fitted:not([hidden])) { overflow-y: clip; }
   [hidden] { display: none !important; }
   #stage { overflow: hidden; }
+  body[data-display-mode="fullscreen"] #stage {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: calc(100dvh - 48px);
+  }
   #preview-frame { position: relative; width: fit-content; max-width: 100%; margin-inline: auto; }
   button, textarea { font: inherit; color: inherit; }
   button {
@@ -49,6 +57,7 @@
     z-index: 2;
     display: flex;
     gap: 6px;
+    width: max-content;
     height: 28px;
     box-sizing: border-box;
     padding: 2px;
@@ -66,9 +75,9 @@
   #annotate { min-width: 102px; }
   #annotate[aria-pressed="true"] { color: var(--accent); }
   #preview-theme { display: flex; gap: 3px; }
-  #annotate:not([hidden]) + #preview-theme { padding-left: 5px; border-left: 1px solid var(--border); }
   #preview-theme button { width: 26px; padding: 0; }
   #preview-theme button[aria-pressed="false"] { border-color: transparent; background: transparent; }
+  #annotate:not([hidden]) + #preview-theme { padding-left: 5px; border-left: 1px solid var(--border); }
   #annotation-layer {
     position: absolute;
     inset: 0;
@@ -144,6 +153,8 @@
 </style>
 </head>
 <body>
+<div id="root">
+<div id="preview-content">
 <div id="status">Waiting for Slint source…</div>
 <section id="crash" hidden role="alert">
   <strong class="error">The preview crashed</strong>
@@ -159,6 +170,8 @@
   </div>
 </div></div>
 <ul id="diagnostics"></ul>
+</div>
+</div>
 <div id="preview-tools" role="toolbar" aria-label="Preview tools" hidden>
   <button id="annotate" type="button" aria-pressed="false" hidden>__ICON_message-square-plus__Annotate</button>
   <div id="preview-theme" role="group" aria-label="Appearance">
@@ -176,6 +189,8 @@
   const CHANNEL = "__CHANNEL__";
   const LEVELS = ["error", "warning", "note"];
 
+  const root = document.getElementById("root");
+  const content = document.getElementById("preview-content");
   const statusEl = document.getElementById("status");
   let canvas = document.getElementById("preview");
   const pristineCanvas = canvas.cloneNode();
@@ -185,7 +200,7 @@
   const crashDetailsEl = document.getElementById("crash-details");
   const retryButton = document.getElementById("retry");
   const frame = document.getElementById("preview-frame");
-  const tools = document.getElementById("preview-tools");
+  const toolbar = document.getElementById("preview-tools");
   const lightButton = document.getElementById("preview-light");
   const darkButton = document.getElementById("preview-dark");
   const annotateButton = document.getElementById("annotate");
@@ -201,6 +216,11 @@
   let renderedInput = null;
   let hostTheme = null;
   let themeOverride = null;
+
+  function applyHostContext(context) {
+    applyTheme(context);
+    if (context?.displayMode) document.body.dataset.displayMode = context.displayMode;
+  }
 
   function positionComment() {
     if (!annotation) return;
@@ -366,7 +386,7 @@
   const nativeMatchMedia = window.matchMedia.bind(window);
   let hostIsDark = nativeMatchMedia(DARK_QUERY).matches;
   const darkQueryLists = [];
-  // A design wider than the view renders at a reduced scale factor, so it stays crisp, rather than the
+  // A design larger than the view renders at a reduced scale factor, so it stays crisp, rather than the
   // browser shrinking the drawn canvas. winit takes the scale factor from devicePixelRatio, watches it
   // through a "(resolution: …dppx)" query, and reads pointer offsets as logical pixels.
   const nativeDevicePixelRatio =
@@ -426,28 +446,41 @@
     for (const list of darkQueryLists) list.dispatchEvent(new Event("change"));
   }
 
+  // The component's preferred size in logical pixels, measured at scale 1.
+  let designSize = null;
   let lastSize = "";
-  new ResizeObserver(() => {
-    // The document's scroll size never drops below the frame's current size, so it can't shrink.
-    const width = Math.ceil(document.body.scrollWidth);
-    const height = Math.ceil(document.body.getBoundingClientRect().height);
+
+  function resizePreview() {
+    // The hidden canvas still takes up space while Slint measures it.
+    if (canvas.style.visibility === "hidden") return;
+    const toolbarBounds = toolbar.getBoundingClientRect();
+    // Reporting the width beside a scrollbar makes the host narrow the iframe.
+    const width = Math.ceil(Math.max(window.innerWidth, toolbarBounds.right + toolbarBounds.left));
+    const toolbarInset = toolbar.hidden ? 0 : parseFloat(getComputedStyle(toolbar).bottom);
+    const toolbarSpace = toolbarBounds.height + 2 * toolbarInset;
+    let preferredHeight = content.getBoundingClientRect().height + toolbarSpace;
+    if (designSize && !canvas.hidden) {
+      const stageBounds = stage.getBoundingClientRect();
+      const widthScale = Math.min(1, Math.max(1, stage.clientWidth) / designSize.width);
+      preferredHeight += designSize.height * widthScale - stageBounds.height;
+      const availableHeight = Math.max(1, window.innerHeight - stageBounds.top - toolbarSpace);
+      const scale = Math.min(widthScale, availableHeight / designSize.height);
+      canvas.style.setProperty("--fit-width", `${designSize.width * scale}px`);
+      canvas.style.setProperty("--fit-height", `${designSize.height * scale}px`);
+      setFitScale(scale);
+    }
+    const height = Math.ceil(preferredHeight);
+    // Codex also measures the root directly. Both paths need the height before viewport fitting.
+    root.style.minHeight = `${height}px`;
     const size = `${width}x${height}`;
     if (size === lastSize) return;
     lastSize = size;
     notify("ui/notifications/size-changed", { width, height });
-  }).observe(document.body);
-
-  // The component's preferred size in logical pixels, measured at scale 1.
-  let designSize = null;
-
-  function fitCanvas() {
-    if (canvas.hidden || !designSize) return;
-    const scale = Math.min(1, stage.clientWidth / designSize.width);
-    canvas.style.setProperty("--fit-width", `${designSize.width * scale}px`);
-    canvas.style.setProperty("--fit-height", `${designSize.height * scale}px`);
-    setFitScale(scale);
   }
-  new ResizeObserver(fitCanvas).observe(stage);
+  const sizeObserver = new ResizeObserver(resizePreview);
+  sizeObserver.observe(content, { box: "border-box" });
+  sizeObserver.observe(toolbar, { box: "border-box" });
+  window.addEventListener("resize", resizePreview);
 
   // Slint sizes the canvas to the component's preferred size only while auto-resizing at scale 1.
   function startMeasuring() {
@@ -463,8 +496,6 @@
     designSize = { width: canvas.offsetWidth, height: canvas.offsetHeight };
     canvas.dataset.slintAutoResizeToPreferred = "false";
     canvas.classList.add("fitted");
-    fitCanvas();
-    canvas.style.visibility = "";
   }
 
   function showStatus(text, className = "") {
@@ -524,7 +555,7 @@
     const { previewId, runtime } = interpreter;
     activePreviewId = null;
     setAnnotationMode(false);
-    tools.hidden = true;
+    toolbar.hidden = true;
     interpreter.panic(new Panic(message));
     interpreter = null;
     instance = null;
@@ -544,12 +575,6 @@
     crashDetailsEl.textContent = `${runtime}\n${message}`;
     crashEl.hidden = false;
     publish({ previewId, runtime, error }).catch(() => {});
-    reportToModel(
-      `The Slint interpreter crashed with ${runtime}. Report the interruption. ` +
-        "Use preview_slint for a fresh interpreter; try one justified retry or preview workaround while preserving the requested UI. " +
-        "Verify recovery with get_preview_screenshot. Stop identical crash loops. " +
-        `If recovery fails, offer a bug report at https://github.com/slint-ui/slint/issues with this diagnostic and a minimal reproducer.\n${message}`,
-    );
   }
 
   // Files compile under this scheme, so the interpreter resolves their images to URLs and loads
@@ -593,11 +618,12 @@
     },
   });
 
+  let imageFailure = null;
   async function readBinaryFile(path) {
     const result = await request("tools/call", { name: "read_binary_file", arguments: { path } });
     const block = result?.content?.[0];
     if (result?.isError || block?.type !== "resource") throw new Error(block?.text ?? "no file data");
-    const bytes = Uint8Array.from(atob(block.resource.blob), (c) => c.charCodeAt(0));
+    const bytes = Uint8Array.from(atob(block.resource.blob), (character) => character.charCodeAt(0));
     return { bytes, mimeType: block.resource.mimeType };
   }
 
@@ -607,7 +633,9 @@
   }
 
   function reportMissingImage(path, message) {
-    reportToModel(`The Slint preview couldn't load image ${path}: ${message}`);
+    imageFailure = `The Slint preview couldn't load image ${path}: ${message}`;
+    showStatus(imageFailure, "error");
+    publish({ previewId: activePreviewId, runtime: interpreter?.runtime, error: imageFailure }).catch(() => {});
   }
 
   async function readSlintFile(path) {
@@ -620,8 +648,9 @@
   let instance = null;
   async function render({ source, path, projectRoot, style }, previewId) {
     setAnnotationMode(false);
-    tools.hidden = true;
+    toolbar.hidden = true;
     renderedInput = null;
+    imageFailure = null;
     // Loading is asynchronous; start it early so it overlaps with source reads.
     const current = loadInterpreter();
     current.previewId = previewId;
@@ -635,22 +664,15 @@
     if (path) {
       showStatus(`Reading ${path}…`);
       publish({ previewId, stage: "reading" }).catch(() => {});
-      try {
-        source = await readSlintFile(path);
-      } catch (e) {
-        showStatus(`Couldn't read ${path}: ${e.message ?? e}`, "error");
-        reportToModel(`The Slint preview couldn't read ${path}: ${e.message ?? e}`);
-        return;
-      }
+      source = await readSlintFile(path);
       url = toFileUrl(path);
       // The interpreter reports only a string rejection as the import error,
       // and continues the include path search for null.
       // cspell:ignore ENOENT ENOTDIR
-      loadImport = (file) =>
-        readSlintFile(fromFileUrl(file)).catch((e) => {
-          const message = String(e.message ?? e);
-          return /^(ENOENT|ENOTDIR):/.test(message) ? null : Promise.reject(message);
-        });
+      loadImport = (file) => readSlintFile(fromFileUrl(file)).catch((error) => {
+        const message = String(error.message ?? error);
+        return /^(ENOENT|ENOTDIR):/.test(message) ? null : Promise.reject(message);
+      });
       // Imported fonts. Interpreters without this parameter ignore it, and fall back to the default font.
       loadResource = (file) => readBinaryFile(fromFileUrl(file)).then(({ bytes }) => bytes);
     }
@@ -672,7 +694,6 @@
       if (e instanceof Panic) throw e;
       if (current === interpreter) interpreter = null;
       showStatus(`Couldn't load the Slint interpreter: ${e}`, "error");
-      reportToModel(`The Slint preview couldn't load the interpreter: ${e}`);
       return;
     }
     showStatus("Compiling…");
@@ -691,14 +712,6 @@
       return li;
     }));
 
-    const problems = diagnostics.filter((d) => d.level <= 1);
-    if (problems.length) {
-      reportToModel(
-        `The Slint preview, with ${current.runtime}, reported:\n` +
-          problems.map((d) => `${location(d)}: ${LEVELS[d.level]}: ${d.message}`).join("\n"),
-      );
-    }
-
     if (!component) {
       canvas.hidden = true;
       showStatus("");
@@ -713,25 +726,15 @@
     );
     await untilPanic(current, instance.show());
     await finishMeasuring();
-    showStatus("");
+    showStatus(imageFailure ?? "", imageFailure ? "error" : "");
     renderedInput = { source, path, projectRoot, style };
-    tools.hidden = false;
+    toolbar.hidden = false;
+    canvas.style.visibility = "";
+    resizePreview();
   }
 
-  // Each preview_slint result names its preview, and each tool input renders the next one.
-  const previewIds = [];
-  const previewIdWaiters = [];
   function resultPreviewId(result) {
-    return result?._meta?.["slint/previewId"] ?? result?.content?.[0]?.text?.match(/^Rendering Slint preview (\S+)\.$/)?.[1];
-  }
-  function receivePreviewId(result) {
-    const id = resultPreviewId(result);
-    if (!id) return;
-    const waiter = previewIdWaiters.shift();
-    waiter ? waiter(id) : previewIds.push(id);
-  }
-  function nextPreviewId() {
-    return previewIds.length ? Promise.resolve(previewIds.shift()) : new Promise((resolve) => previewIdWaiters.push(resolve));
+    return result?._meta?.["slint/previewId"];
   }
 
   function publish(args) {
@@ -745,6 +748,7 @@
   let activePreviewId = null;
 
   function failureText() {
+    if (imageFailure) return imageFailure;
     if (statusEl.className === "error") return statusEl.textContent;
     if (!canvas.hidden) return null;
     return [...diagnosticsEl.children].map((li) => li.textContent).join("\n") || "Nothing was rendered.";
@@ -799,10 +803,6 @@
     }
   }
 
-  function reportToModel(text) {
-    request("ui/update-model-context", { content: [{ type: "text", text, annotations: { audience: ["assistant"] } }] }).catch(() => {});
-  }
-
   window.addEventListener("message", (event) => {
     if (event.source !== window.parent) return;
     const message = event.data;
@@ -814,50 +814,56 @@
       return;
     }
     switch (message.method) {
-      case "ui/notifications/tool-input": {
-        const args = message.params?.arguments ?? {};
-        const startPreview = (previewId) => previewId.then(async (id) => {
+      // The host sends the result on first open and when restoring a saved card.
+      case "ui/notifications/tool-result": {
+        const result = message.params;
+        const previewId = resultPreviewId(result);
+        const recipe = result?._meta?.["slint/preview"];
+        if (!previewId || !recipe) break;
+        const startPreview = async (id, inputs) => {
           activePreviewId = id;
           crashEl.hidden = true;
-          await publish({ previewId: id, stage: "started" });
-          await render(args, id);
-        })
-          .catch((e) => {
-            if (e instanceof Panic) return;
-            if (e instanceof WebAssembly.RuntimeError) {
-              handlePanic(String(e));
+          try {
+            await publish({ previewId: id, stage: "started" });
+            await render(inputs, id);
+          } catch (error) {
+            if (error instanceof Panic) return;
+            if (error instanceof WebAssembly.RuntimeError) {
+              handlePanic(String(error));
               return;
             }
-            showStatus(`The preview failed: ${e.message ?? e}. Reload to try again.`, "error");
-          })
-          .then(async () => startCapturePolling(await previewId))
-          .catch(async (e) => {
-            const error = `Couldn't capture the preview: ${e.message ?? e}`;
-            showStatus(error, "error");
-            await publish({ previewId: await previewId, error }).catch(() => {});
-          });
-        startPreview(nextPreviewId());
+            showStatus(`The preview failed: ${error.message ?? error}. Retry to start again.`, "error");
+          }
+          try {
+            await startCapturePolling(id);
+          } catch (error) {
+            const message = `Couldn't capture the preview: ${error.message ?? error}`;
+            showStatus(message, "error");
+            await publish({ previewId: id, error: message }).catch(() => {});
+          }
+        };
+        startPreview(previewId, recipe);
         retryButton.onclick = async () => {
           retryButton.disabled = true;
           showStatus("Restarting preview…");
           try {
-            const result = await request("tools/call", { name: "preview_slint", arguments: args });
-            const id = resultPreviewId(result);
-            if (!id || result.isError) throw new Error(result.content?.[0]?.text ?? "No preview ID returned");
-            await startPreview(Promise.resolve(id));
-          } catch (e) {
-            showStatus(`Couldn't restart the preview: ${e}`, "error");
+            const checked = await request("tools/call", { name: "check_slint", arguments: { ...recipe, prepare_preview: true } });
+            const id = checked?.structuredContent?.previewId;
+            if (!id || checked.isError) throw new Error(checked?.content?.[0]?.text ?? "The preview check failed");
+            const published = await request("tools/call", { name: "publish_preview", arguments: { previewId: id } });
+            const inputs = published?._meta?.["slint/preview"];
+            if (published.isError || !inputs) throw new Error(published?.content?.[0]?.text ?? "No checked preview inputs returned");
+            await startPreview(id, inputs);
+          } catch (error) {
+            showStatus(`Couldn't restart the preview: ${error.message ?? error}`, "error");
           } finally {
             retryButton.disabled = false;
           }
         };
         break;
       }
-      case "ui/notifications/tool-result":
-        receivePreviewId(message.params);
-        break;
       case "ui/notifications/host-context-changed":
-        applyTheme(message.params);
+        applyHostContext(message.params);
         break;
       case "ui/resource-teardown":
         activePreviewId = null;
@@ -873,10 +879,10 @@
   const result = await request("ui/initialize", {
     protocolVersion: "2026-01-26",
     appInfo: { name: "Slint Preview", version: "1.0.0" },
-    appCapabilities: { availableDisplayModes: ["inline"] },
+    appCapabilities: { availableDisplayModes: ["inline", "fullscreen"] },
   });
   annotateButton.hidden = !result?.hostCapabilities?.experimental?.["openai/message"];
-  applyTheme(result?.hostContext);
+  applyHostContext(result?.hostContext);
   notify("ui/notifications/initialized", {});
 </script>
 </body>

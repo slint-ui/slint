@@ -10,9 +10,10 @@
 //! and submitted on wgpu's queue between the renderer's own submissions.
 //!
 //! The renderer draws into the image as a color target in `COLOR_ATTACHMENT_OPTIMAL`.
-//! [`ScanoutBarriers::acquire`] brings it there from `UNDEFINED` before each frame.
-//! That discards the shown frame, which the renderer repaints in full anyway,
-//! so no ownership acquire has to match the release.
+//! [`ScanoutBarriers::acquire`] brings it there before each frame.
+//! For a renderer that repaints in full, it comes from `UNDEFINED`, discarding the shown frame.
+//! For one that repaints only what changed, an ownership acquire matching the last release
+//! takes the image back from the display with its pixels.
 //! [`ScanoutBarriers::release`] moves the image to `GENERAL` for the display.
 //!
 //! Where wgpu draws into the image, as with FemtoVG, it leaves the image as a color target in
@@ -135,13 +136,21 @@ impl ScanoutBarriers {
         }
     }
 
-    /// Readies `texture`, the image of scanout buffer `index`, for drawing into,
-    /// discarding what it shows.
+    /// Readies `texture`, the image of scanout buffer `index`, for drawing into.
+    ///
+    /// With `keep_contents`, the image keeps the frame that the last [`Self::release`] handed to
+    /// the display, which must have succeeded.
+    /// Otherwise, it discards what the image shows.
     ///
     /// Call [`Self::wait_after_failure`] after a frame failed between this and [`Self::release`]:
     /// only the release's fence tells when the command buffers can be re-recorded.
     /// Fails once rendering has stopped.
-    pub fn acquire(&self, index: usize, texture: &wgpu::Texture) -> Result<(), PlatformError> {
+    pub fn acquire(
+        &self,
+        index: usize,
+        texture: &wgpu::Texture,
+        keep_contents: bool,
+    ) -> Result<(), PlatformError> {
         if let Some(reason) = self.stopped.get() {
             return Err(format!("Rendering has stopped: {reason}").into());
         }
@@ -163,11 +172,19 @@ impl ScanoutBarriers {
             .dst_access_mask(
                 vk::AccessFlags::COLOR_ATTACHMENT_READ | vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
             )
-            .old_layout(vk::ImageLayout::UNDEFINED)
             .new_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
-            .src_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
-            .dst_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
             .subresource_range(COLOR_SUBRESOURCE);
+        let barrier = if keep_contents {
+            barrier
+                .old_layout(vk::ImageLayout::GENERAL)
+                .src_queue_family_index(self.scanout_queue_family_index)
+                .dst_queue_family_index(self.queue_family_index)
+        } else {
+            barrier
+                .old_layout(vk::ImageLayout::UNDEFINED)
+                .src_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
+                .dst_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
+        };
         self.submit_barrier(
             slot.acquire,
             None,
@@ -416,7 +433,7 @@ mod tests {
         // second finds it GENERAL and released, which is the case the acquire exists for.
         for round in 0..4 {
             let (index, texture) = (round % 2, &textures[round % 2]);
-            barriers.acquire(index, texture).expect("acquire");
+            barriers.acquire(index, texture, false).expect("acquire");
 
             let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
             let mut encoder = device.create_command_encoder(&Default::default());
@@ -448,6 +465,7 @@ mod tests {
     /// The way Skia uses the barriers.
     /// wgpu records each image as a color target before the frame, as `render_to_texture` does,
     /// and the next frame starts before the GPU finished the last one.
+    /// Each image keeps its pixels from the second round on, for partial rendering.
     #[test]
     fn frames_drawn_past_wgpu_reuse_command_buffers_only_once_finished() {
         let Some((device, queue)) = validation::device() else { return };
@@ -458,7 +476,7 @@ mod tests {
         let mut sync_files = Vec::new();
         for round in 0..6 {
             let (index, texture) = (round % 2, &textures[round % 2]);
-            barriers.acquire(index, texture).expect("acquire");
+            barriers.acquire(index, texture, round >= 2).expect("acquire");
             let mut encoder = device.create_command_encoder(&Default::default());
             encoder.transition_resources(
                 std::iter::empty(),

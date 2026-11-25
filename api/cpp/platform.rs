@@ -633,11 +633,10 @@ mod software_renderer {
         recorded: *const c_void,
         buffer: *mut Rgb8Pixel,
         buffer_len: usize,
-        pixel_stride: usize,
     ) -> PhysicalRegion {
         unsafe {
             let buffer = core::slice::from_raw_parts_mut(buffer, buffer_len);
-            (*(recorded as *const RecordedRasterCommands)).rasterize(buffer, pixel_stride)
+            (*(recorded as *const RecordedRasterCommands)).rasterize(buffer)
         }
     }
 
@@ -647,11 +646,10 @@ mod software_renderer {
         recorded: *const c_void,
         buffer: *mut u16,
         buffer_len: usize,
-        pixel_stride: usize,
     ) -> PhysicalRegion {
         unsafe {
             let buffer = core::slice::from_raw_parts_mut(buffer as *mut Rgb565Pixel, buffer_len);
-            (*(recorded as *const RecordedRasterCommands)).rasterize(buffer, pixel_stride)
+            (*(recorded as *const RecordedRasterCommands)).rasterize(buffer)
         }
     }
 

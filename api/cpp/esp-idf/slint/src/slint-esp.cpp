@@ -16,6 +16,7 @@
 #if SOC_MIPI_DSI_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
 #    include "esp_lcd_mipi_dsi.h"
 #endif
+#include "esp_heap_caps.h"
 #include "esp_log.h"
 #ifdef SLINT_ESP_CPU_TEXTURES
 #    include <type_traits>
@@ -130,6 +131,14 @@ std::chrono::milliseconds EspPlatform<PixelType>::duration_since_start()
 {
     auto ticks = xTaskGetTickCount();
     return std::chrono::milliseconds(pdTICKS_TO_MS(ticks));
+}
+
+// Called by the renderer for the images it prepares, see `SharedPixelBuffer::new_dma_reachable`.
+// The renderer frees the block with `free`, which accepts memory from heap_caps_aligned_alloc.
+extern "C" uint8_t *slint_alloc_dma(uintptr_t size)
+{
+    void *memory = heap_caps_aligned_alloc(64, size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    return static_cast<uint8_t *>(memory ? memory : malloc(size));
 }
 
 #if SOC_LCD_RGB_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
@@ -378,10 +387,10 @@ void EspPlatform<PixelType>::run_event_loop()
     SemaphoreHandle_t frame_recorded = xSemaphoreCreateBinary();
     SemaphoreHandle_t frame_presented = xSemaphoreCreateBinary();
     xSemaphoreGive(frame_presented);
-    auto raster_task = [this, &recorded, stride, frame_recorded, frame_presented
+    auto raster_task = [this, &recorded, frame_recorded, frame_presented
 #    ifdef SLINT_ESP_CPU_TEXTURES
                         ,
-                        &cpu_textures, &prepared_textures
+                        stride, &cpu_textures, &prepared_textures
 #    endif
     ] {
         SLINT_TRACE_REGISTER_CORE();
@@ -389,10 +398,10 @@ void EspPlatform<PixelType>::run_event_loop()
             xSemaphoreTake(frame_recorded, portMAX_DELAY);
             {
                 SLINT_TRACE_SPAN("redraw");
-                render_and_present([&recorded, stride
+                render_and_present([&recorded
 #    ifdef SLINT_ESP_CPU_TEXTURES
                                     ,
-                                    this, &cpu_textures, &prepared_textures
+                                    stride, this, &cpu_textures, &prepared_textures
 #    endif
                 ](std::span<PixelType> buffer) {
 #    ifdef SLINT_ESP_CPU_TEXTURES
@@ -404,14 +413,17 @@ void EspPlatform<PixelType>::run_event_loop()
                         }
                     }
 #    endif
-                    return recorded->rasterize(buffer, stride);
+                    return recorded->rasterize(buffer);
                 });
             }
             xSemaphoreGive(frame_presented);
         }
     };
+    if (rasterize_in_separate_task && !(buffer1 && buffer2)) {
+        ESP_LOGW(TAG, "rasterize_in_separate_task needs two frame buffers, so it is ignored");
+    }
     TaskHandle_t raster_task_handle = nullptr;
-    const bool pipeline = rasterize_in_separate_task && buffer1
+    const bool pipeline = rasterize_in_separate_task && buffer1 && buffer2
             && xTaskCreate([](void *task) { (*static_cast<decltype(raster_task) *>(task))(); },
                            "slint_raster", raster_task_stack_size, &raster_task,
                            uxTaskPriorityGet(nullptr), &raster_task_handle)
@@ -589,6 +601,7 @@ void EspPlatform<PixelType>::run_event_loop()
         xSemaphoreTake(frame_presented, portMAX_DELAY);
         vTaskDelete(raster_task_handle);
     }
+    recorded.reset();
     vSemaphoreDelete(frame_recorded);
     vSemaphoreDelete(frame_presented);
 #endif

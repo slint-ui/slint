@@ -22,7 +22,7 @@ fn uses_mock_data_folds_to(config: CompilerConfiguration, expected: bool) {
     let mut diagnostics = BuildDiagnostics::default();
     let syntax_node = parse(source.into(), None, None, &mut diagnostics);
     let (doc, diagnostics, _loader) =
-        spin_on::spin_on(compile_syntax_node(syntax_node, diagnostics, config));
+        i_slint_compiler::poll_ready(compile_syntax_node(syntax_node, diagnostics, config));
     assert!(!diagnostics.has_errors(), "{:?}", diagnostics.to_string_vec());
 
     let component = doc.inner_components.last().unwrap();

@@ -1059,19 +1059,26 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
         synthesis: &fontique::Synthesis,
         mut brush: Self::PlatformBrush,
         y_offset: sharedparley::PhysicalLength,
+        _baseline: sharedparley::PhysicalLength,
         glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph>,
     ) {
         let font_id = font_cache::FONT_CACHE.with(|cache| cache.borrow_mut().font(font));
 
+        // femtovg samples its glyph atlas with nearest-neighbor filtering, which is unstable
+        // when a glyph quad lands at exactly half a pixel (femtovg/femtovg#426).
+        // It only snaps the glyph positions, so move the translation's fraction into them.
+        let (dx, dy) =
+            self.translation_origin().map_or((0., 0.), |(x, y)| (x - x.round(), y - y.round()));
+        let mut canvas = self.canvas.borrow_mut();
+        let restore_alignment = Self::pixel_align_origin(&mut canvas, PhysicalPoint::default());
+
         let mut glyphs_it = glyphs_it
             .map(|glyph| femtovg::PositionedGlyph {
-                x: glyph.x,
-                y: glyph.y + y_offset.get(),
+                x: glyph.x + dx,
+                y: glyph.y + y_offset.get() + dy,
                 glyph_id: glyph.id as u16,
             })
             .peekable();
-
-        let mut canvas = self.canvas.borrow_mut();
 
         // Faux italic for a font without an italic face: lean the glyphs to the right around
         // the baseline.
@@ -1095,6 +1102,9 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
         }
 
         if skew.is_some() {
+            canvas.restore();
+        }
+        if restore_alignment {
             canvas.restore();
         }
     }
@@ -1669,7 +1679,11 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                         .push(Texture::adopt(&self.canvas, clipped_image));
                     (clipped_image, Default::default(), texture_size)
                 } else {
-                    (image_id, fit.clip_rect.origin.cast::<f32>(), buf_size)
+                    let origin = euclid::default::Point2D::new(
+                        scale_w * fit.clip_rect.origin.x as f32,
+                        scale_h * fit.clip_rect.origin.y as f32,
+                    );
+                    (image_id, origin, buf_size)
                 };
             let tiled = fit.tiled.unwrap_or_default();
             let fill_paint = femtovg::Paint::image(
