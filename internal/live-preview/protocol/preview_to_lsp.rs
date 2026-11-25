@@ -166,6 +166,8 @@ pub trait PreviewToLsp {
     fn send(&self, message: &PreviewToLspMessage) -> Result<()>;
 
     /// Tell the editor about diagnostics
+    ///
+    /// Sends the files in URL order, so every receiver sees a compilation's diagnostics in the same order.
     fn notify_diagnostics(
         &self,
         diagnostics: BTreeMap<lsp_types::Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)>,
