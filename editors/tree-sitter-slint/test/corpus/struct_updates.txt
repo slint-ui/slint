@@ -1,11 +1,13 @@
 ==================
-Explicit struct updates
+Struct updates and inherited field overrides
 ==================
 
 component Example {
     property <Font> copy: { ..base };
     property <Font> font: { size: 22px, ..base, };
     property <Border> border: { radius.top-left: 12px, ..preset };
+    font.weight: 700;
+    border.radius { top-right: 24px, bottom-left: 24px };
 }
 
 ---
@@ -57,4 +59,24 @@ component Example {
                     (length_value))))
               (struct_update
                 (expression
-                  (simple_identifier))))))))))
+                  (simple_identifier)))))))
+      (property_assignment
+        (simple_identifier)
+        (simple_identifier)
+        (expression
+          (value
+            (int_value))))
+      (grouped_property_assignment
+        (simple_identifier)
+        (simple_identifier)
+        (anon_struct_block
+          (anon_struct_assignment
+            (simple_identifier)
+            (expression
+              (value
+                (length_value))))
+          (anon_struct_assignment
+            (simple_identifier)
+            (expression
+              (value
+                (length_value)))))))))

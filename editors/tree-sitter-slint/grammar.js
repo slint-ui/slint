@@ -299,6 +299,7 @@ module.exports = grammar({
         $.match_element,
         $.property,
         $.property_assignment,
+        $.grouped_property_assignment,
         $.slot_declaration,
         $.slot_assignment,
         $.slot_forwarding,
@@ -361,6 +362,7 @@ module.exports = grammar({
     property_assignment: ($) =>
       seq(
         field("property", $._statement_identifier),
+        repeat(seq(".", $.simple_identifier)),
         ":",
         field(
           "value",
@@ -369,6 +371,14 @@ module.exports = grammar({
             seq($.expression, ";"),
           ),
         ),
+      ),
+
+    grouped_property_assignment: ($) =>
+      seq(
+        field("property", $._statement_identifier),
+        repeat1(seq(".", $.simple_identifier)),
+        $.anon_struct_block,
+        ";",
       ),
 
     in_out_transition: ($) =>

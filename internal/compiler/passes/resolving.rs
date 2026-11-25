@@ -496,6 +496,7 @@ pub fn resolve_expressions(
     type_loader: &crate::typeloader::TypeLoader,
     diag: &mut BuildDiagnostics,
 ) {
+    let mut dotted_bindings = Vec::new();
     for component in doc.inner_components.iter() {
         recurse_elem_with_scope(
             &component.root_element,
@@ -540,8 +541,33 @@ pub fn resolve_expressions(
                         );
                     },
                 );
+
+                let element = elem.borrow();
+                let dotted: Vec<_> = element
+                    .debug
+                    .first()
+                    .into_iter()
+                    .flat_map(|source| source.node.DottedBinding())
+                    .collect();
+                if !dotted.is_empty() {
+                    let mut depth = 0;
+                    let mut base = element.base_type.clone();
+                    while let ElementType::Component(component) = base {
+                        depth += 1;
+                        base = component.root_element.borrow().base_type.clone();
+                    }
+                    dotted_bindings.push((depth, scope.clone(), dotted));
+                }
             },
         );
+    }
+
+    // An inherited base can itself have field overrides.
+    dotted_bindings.sort_by_key(|(depth, _, _)| *depth);
+    for (_, scope, bindings) in dotted_bindings {
+        resolve_dotted_bindings(&scope.0, bindings, doc, type_loader, diag);
+    }
+    for component in &doc.inner_components {
         visit_all_expressions(component, |expression, _| {
             expression.visit_recursive(&mut |expression| {
                 if let Expression::ImageReference {
@@ -554,6 +580,171 @@ pub fn resolve_expressions(
             });
         });
     }
+}
+
+fn resolve_dotted_bindings(
+    scope: &[ElementRc],
+    bindings: Vec<syntax_nodes::DottedBinding>,
+    doc: &Document,
+    type_loader: &crate::typeloader::TypeLoader,
+    diag: &mut BuildDiagnostics,
+) {
+    let elem = scope.last().unwrap();
+    let mut groups = BTreeMap::<_, (_, Vec<(Vec<SmolStr>, SyntaxNode, SyntaxNode)>)>::new();
+    for node in bindings {
+        if crate::reject_experimental_feature(
+            diag,
+            &doc.local_registry,
+            ExperimentalFeature::StructUpdates,
+            "struct field overrides",
+            &node,
+        ) {
+            continue;
+        }
+        let path = struct_field_path(&node.QualifiedName());
+        let Some((property, prefix)) = path.split_first().filter(|(_, fields)| !fields.is_empty())
+        else {
+            continue;
+        };
+        let (_, group) = groups
+            .entry(property.clone())
+            .or_insert_with(|| (SyntaxNode::from(node.clone()), Vec::new()));
+        if let Some(binding) = node.BindingExpression() {
+            group.push((prefix.to_vec(), node.into(), binding.into()));
+        } else if let Some(object) = node.ObjectLiteral() {
+            if let Some(update) = object.ObjectUpdate() {
+                diag.push_error(
+                    "Remove '..base' from a grouped override; it always starts from the inherited value".into(),
+                    &update,
+                );
+                continue;
+            }
+            if object.ObjectMember().next().is_none() {
+                diag.push_error("Expected a field override inside the group".into(), &object);
+                continue;
+            }
+            for member in object.ObjectMember() {
+                let path = prefix.iter().cloned().chain(struct_field_path(&member)).collect();
+                let value = member.Expression().into();
+                group.push((path, member.into(), value));
+            }
+        }
+    }
+
+    for (name, (location, group)) in groups {
+        if group.is_empty() {
+            continue;
+        }
+        #[cfg(feature = "slint-sc")]
+        diag.slint_sc_error("Dotted property bindings are", &location);
+        let property = elem.borrow().lookup_property(&name, PropertyLookupMode::ComponentLocal);
+        let property_name = property.internal_or_resolved_name();
+        if property.property_type == Type::Invalid {
+            diag.push_error(format!("Unknown property '{name}'"), &location);
+            continue;
+        }
+        let Type::Struct(ty) = &property.property_type else {
+            diag.push_error(
+                format!("Dotted overrides require a struct property: '{name}'"),
+                &location,
+            );
+            continue;
+        };
+        if !property.is_local_to_component
+            && matches!(
+                property.property_visibility,
+                PropertyVisibility::Private | PropertyVisibility::Output
+            )
+        {
+            diag.push_error(
+                format!("Cannot assign to '{}' property '{name}'", property.property_visibility),
+                &location,
+            );
+            continue;
+        }
+        if elem.borrow().binding(&property_name).is_some_and(|binding| binding.has_binding()) {
+            diag.push_error(
+                format!("Cannot combine a binding for '{name}' with dotted overrides on the same element"),
+                &location,
+            );
+            continue;
+        }
+        let Some(base) = inherited_struct_base(
+            elem,
+            &property_name,
+            &property.property_type,
+            &type_loader.symbol_counters,
+            &location,
+            diag,
+        ) else {
+            continue;
+        };
+        let mut fields = Vec::new();
+        for (path, node, source) in group {
+            let Some(field_ty) = struct_override_type(&property.property_type, &path, &node, diag)
+            else {
+                continue;
+            };
+            let mut value = Expression::Uncompiled(source);
+            resolve_expression(
+                elem,
+                &mut value,
+                None,
+                field_ty.clone(),
+                scope,
+                &doc.local_registry,
+                type_loader,
+                diag,
+            );
+            fields.push((path, field_ty, value, node));
+        }
+        let expression =
+            lower_struct_update(ty.clone(), base, fields, &type_loader.symbol_counters, diag);
+        let mut binding =
+            BindingExpression::new_with_span(expression, location.to_source_location());
+        binding.priority = 1;
+        binding.from_source = true;
+        elem.borrow_mut().set_binding(property_name, binding);
+    }
+}
+
+fn inherited_struct_base(
+    elem: &ElementRc,
+    property: &SmolStr,
+    ty: &Type,
+    symbols: &SymbolCounters,
+    location: &dyn Spanned,
+    diag: &mut BuildDiagnostics,
+) -> Option<Expression> {
+    let mut base = elem.borrow().base_type.clone();
+    while let ElementType::Component(component) = base {
+        let owner = &component.root_element;
+        let inherited = owner
+            .borrow()
+            .binding(property)
+            .filter(|binding| binding.has_binding())
+            .map(|binding| !binding.two_way_bindings.is_empty());
+        if let Some(two_way) = inherited {
+            if two_way {
+                diag.push_error(
+                    format!("Cannot update '{property}' using an inherited two-way binding"),
+                    location,
+                );
+                return None;
+            }
+            let name = symbols.generate_name("-struct-update-base-");
+            let backing = crate::layout::create_new_prop(elem, name, ty.clone());
+            elem.borrow_mut()
+                .inherited_struct_bases
+                .insert(property.clone(), backing.name().clone());
+            return Some(Expression::PropertyReference(backing));
+        }
+        if owner.borrow().property_declarations.contains_key(property) {
+            break;
+        }
+        base = owner.borrow().base_type.clone();
+    }
+    Some(Expression::default_value_for_type(ty))
 }
 
 /// To be used in [`Expression::from_qualified_name_node`] to specify if the lookup is performed

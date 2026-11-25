@@ -58,9 +58,6 @@ export component StructUpdates inherits Window {
     background: #edf1f5;
 
     private property <Font> caption-font: { size: 14px, weight: 400 };
-    private property <Border> border-preset: {
-        radius: { top-left: 8px, top-right: 8px, bottom-left: 8px, bottom-right: 8px },
-    };
 
     HorizontalLayout {
         padding: 20px;
@@ -69,7 +66,7 @@ export component StructUpdates inherits Window {
         Card {
             Label {
                 text: "Account";
-                font: { size: 16px, weight: 700, ..root.caption-font };
+                font.weight: 700;
             }
             Label {
                 text: "Profile and preferences";
@@ -78,16 +75,16 @@ export component StructUpdates inherits Window {
             }
         }
         Card {
-            border: {
-                width: 2px,
-                color: #0f766e,
-                radius.top-right: 24px,
-                radius.bottom-left: 24px,
-                ..root.border-preset,
+            border.width: 2px;
+            border.color: #0f766e;
+            border.radius {
+                top-right: 24px,
+                bottom-left: 24px,
             };
             Label {
                 text: "Notifications";
-                font: { size: 22px, weight: 700, ..root.caption-font };
+                font.size: 22px;
+                font.weight: 700;
             }
             Label {
                 text: "Review delivery settings";

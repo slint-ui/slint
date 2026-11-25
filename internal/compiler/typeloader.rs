@@ -508,6 +508,7 @@ impl Snapshotter {
         let elem = element.borrow();
 
         target_element.base_type = self.snapshot_element_type(&elem.base_type);
+        target_element.inherited_struct_bases = elem.inherited_struct_bases.clone();
         target_element.slot_target = elem.slot_target.clone();
         target_element.slot_default = elem.slot_default.clone();
         target_element.empty_slot_assignments = elem.empty_slot_assignments.clone();
@@ -2988,6 +2989,38 @@ fn test_load_root_file_tracks_missing_resources() {
         let raw_loader = raw_loader.unwrap();
         assert!(raw_loader.all_files_to_watch().contains(&main_path));
         assert!(raw_loader.all_files_to_watch().contains(&resource_path));
+    }
+}
+
+#[test]
+fn struct_field_overrides_track_resources() {
+    for binding in [
+        r#"appearance.source: @image-url("icon.svg");"#,
+        r#"appearance.nested { source: @image-url("icon.svg") };"#,
+    ] {
+        let mut config = CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+        config.experimental_features = crate::ExperimentalFeature::StructUpdates.into();
+        config.embed_resources = crate::EmbedResourcesKind::Nothing;
+        let mut diag = BuildDiagnostics::default();
+        let path = SourcePath::new(std::env::temp_dir().join("struct-update-resources.slint"));
+        let image = SourcePath::new(std::env::temp_dir().join("icon.svg"));
+        let source = format!(
+            r#"
+            struct Source {{ source: image }}
+            struct Appearance {{ source: image, nested: Source }}
+            component Icon inherits Rectangle {{
+                in property <Appearance> appearance;
+                Image {{ source: root.appearance.source; }}
+                Image {{ source: root.appearance.nested.source; }}
+            }}
+            export component Main inherits Window {{ Icon {{ {binding} }} }}
+        "#
+        );
+        let mut loader = TypeLoader::new(config, &mut diag);
+        let raw = crate::poll_ready(loader.load_root_file(&path, source, true, &mut diag)).unwrap();
+        assert!(!diag.has_errors(), "{:?}", diag.to_string_vec());
+        assert!(loader.all_files_to_watch().contains(&image), "{binding}");
+        assert!(raw.all_files_to_watch().contains(&image), "{binding}");
     }
 }
 
