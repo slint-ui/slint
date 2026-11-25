@@ -314,6 +314,10 @@ export default defineSlintDocsConfig({
                                                   slug: "guide/experimental/named-slots",
                                               },
                                               {
+                                                  label: "Struct Updates",
+                                                  slug: "guide/experimental/struct-updates",
+                                              },
+                                              {
                                                   label: "Shadowable Members",
                                                   slug: "guide/experimental/shadowable",
                                               },

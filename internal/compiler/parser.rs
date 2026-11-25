@@ -344,6 +344,7 @@ declare_syntax! {
         Comma -> ",",
         Semicolon -> ";",
         Bang -> "!",
+        DotDot -> "..",
         Dot -> ".",
         Question -> "?",
         Dollar -> "$",
@@ -453,10 +454,12 @@ declare_syntax! {
         MemberAccess -> [Expression],
         /// `[ ... ]`
         Array -> [ *Expression ],
-        /// `{ foo: bar }`
-        ObjectLiteral -> [ *ObjectMember ],
+        /// `{ foo: bar, ..base }`
+        ObjectLiteral -> [ *ObjectMember, ?ObjectUpdate ],
         /// `foo: bar` inside an ObjectLiteral
         ObjectMember -> [ Expression ],
+        /// `..base` inside an ObjectLiteral
+        ObjectUpdate -> [ Expression ],
         /// `states: [...]`
         States -> [*State],
         /// The DeclaredIdentifier is the state name. The Expression, if any, is the condition.
@@ -1103,6 +1106,15 @@ impl Spanned for Option<SyntaxToken> {
     fn source_file(&self) -> Option<&SourceFile> {
         self.as_ref().and_then(|t| t.source_file())
     }
+}
+
+/// The normalized identifier path of a qualified name or struct literal member.
+pub fn struct_field_path(node: &SyntaxNode) -> Vec<SmolStr> {
+    node.children_with_tokens()
+        .filter_map(NodeOrToken::into_token)
+        .filter(|token| token.kind() == SyntaxKind::Identifier)
+        .map(|token| normalize_identifier(token.text()))
+        .collect()
 }
 
 /// return the normalized identifier string of the first SyntaxKind::Identifier in this node

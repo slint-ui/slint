@@ -1,0 +1,37 @@
+---
+title: Struct Updates
+description: Update struct fields using an explicit base.
+---
+
+Struct updates are experimental and subject to change.
+Enable them with the `struct-updates` [experimental feature](../overview/).
+
+## Updating Struct Values
+
+Use `..base` last in a struct literal to retain fields from a preset.
+Dotted paths change nested fields and keep their siblings.
+
+```slint
+struct Font { size: length, weight: int }
+struct Appearance { font: Font, foreground: color }
+
+export component Example inherits Window {
+    private property <Appearance> preset: {
+        font: { size: 16px, weight: 400 },
+        foreground: black,
+    };
+    out property <Appearance> custom: {
+        font.weight: 700,
+        ..root.preset,
+    };
+}
+```
+
+The result has the base's struct type.
+Assigning an entire nested struct replaces that field.
+The base is evaluated once, followed by the overrides in source order.
+Bindings remain reactive.
+Fields must exist, have compatible values, and appear only once.
+Overlapping paths such as `font` and `font.size` are rejected.
+
+The [font and border example](https://github.com/slint-ui/slint/blob/master/examples/struct-updates/demo.slint) uses explicit bases on custom components.

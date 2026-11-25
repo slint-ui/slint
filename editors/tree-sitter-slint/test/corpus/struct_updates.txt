@@ -1,0 +1,61 @@
+==================
+Explicit struct updates
+==================
+
+component Example {
+    property <Font> copy: { ..base };
+    property <Font> font: { size: 22px, ..base, };
+    property <Border> border: { radius.top-left: 12px, ..preset };
+}
+
+---
+
+(sourcefile
+  (component_definition
+    (user_type_identifier)
+    (block
+      (property
+        (type
+          (user_type_identifier))
+        (simple_identifier)
+        (expression
+          (value
+            (anon_struct_block
+              (struct_update
+                (expression
+                  (simple_identifier)))))))
+      (property
+        (type
+          (user_type_identifier))
+        (simple_identifier)
+        (expression
+          (value
+            (anon_struct_block
+              (anon_struct_assignment
+                (simple_identifier)
+                (expression
+                  (value
+                    (length_value))))
+              (struct_update
+                (expression
+                  (simple_identifier)))))))
+      (property
+        (type
+          (user_type_identifier))
+        (simple_identifier)
+        (expression
+          (value
+            (anon_struct_block
+              (anon_struct_assignment
+                (member_access
+                  (expression
+                    (simple_identifier))
+                  (expression
+                    (simple_identifier)))
+                (expression
+                  (value
+                    (length_value))))
+              (struct_update
+                (expression
+                  (simple_identifier)))))))
+    )))

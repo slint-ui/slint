@@ -259,17 +259,22 @@ module.exports = grammar({
 
     anon_struct_assignment: ($) =>
       seq(
-        field("member", $.simple_identifier),
+        field("member", choice($.simple_identifier, alias($.reference_identifier, $.simple_identifier), $.member_access)),
         ":",
         field("value", $.expression)
       ),
+
+    struct_update: ($) => seq("..", $.expression),
 
     anon_struct_block: ($) =>
       prec(
         100,
         seq(
           "{",
-          commaSep($.anon_struct_assignment),
+          optional(choice(
+            seq(commaSep1($.anon_struct_assignment), optional(seq(",", $.struct_update))),
+            $.struct_update,
+          )),
           optional(","),
           "}",
         ),
