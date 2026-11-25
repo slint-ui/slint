@@ -73,19 +73,30 @@ fn init_tracker<Data: 'static, T: Default + PartialEq + 'static>(
     first.take().expect("ChangeTracker::init evaluates right away")
 }
 
-fn push(sink: &NotificationSink, id: u64, notification: Notification) {
-    sink(
-        proto::SubscriptionNotification { subscription_id: id, msg: Some(notification) }
-            .encode_to_vec(),
-    );
+fn remove(state: &Weak<IntrospectionState>, id: u64) {
+    if let Some(state) = state.upgrade() {
+        state.subscriptions.remove(id);
+    }
+}
+
+/// Pushes `notification`, and ends the subscription `id` if `sink` fails.
+fn push(
+    state: &Weak<IntrospectionState>,
+    sink: &NotificationSink,
+    id: u64,
+    notification: Notification,
+) {
+    let encoded = proto::SubscriptionNotification { subscription_id: id, msg: Some(notification) }
+        .encode_to_vec();
+    if sink(encoded).is_err() {
+        remove(state, id);
+    }
 }
 
 /// Removes the subscription `id`, and tells the debugger through `sink`.
 fn end(state: &Weak<IntrospectionState>, sink: &NotificationSink, id: u64) {
-    push(sink, id, Notification::Ended(proto::SubscriptionEnded {}));
-    if let Some(state) = state.upgrade() {
-        state.subscriptions.remove(id);
-    }
+    push(state, sink, id, Notification::Ended(proto::SubscriptionEnded {}));
+    remove(state, id);
 }
 
 /// Makes the calling binding re-evaluate when `element` might have been destroyed,
@@ -128,6 +139,7 @@ impl PropertiesSubscription {
         *self.last_pushed.borrow_mut() = properties.to_vec();
         if !changed.is_empty() {
             push(
+                &self.state,
                 &self.sink,
                 self.id,
                 Notification::PropertiesChanged(proto::ElementPropertiesChanged { changed }),
@@ -285,7 +297,7 @@ impl ChildrenSubscription {
             || !changed.inserted.is_empty()
             || !changed.updated.is_empty()
         {
-            push(&self.sink, self.id, Notification::ChildrenChanged(changed));
+            push(&self.state, &self.sink, self.id, Notification::ChildrenChanged(changed));
         }
     }
 }
@@ -406,6 +418,7 @@ mod tests {
     use crate::introspection::{
         ELEMENT_HANDLE_CAP, TrackedElement, handle_to_index, window_adapter_for_test,
     };
+    use crate::systest::Disconnected;
     use slint::{Model, VecModel};
 
     slint::slint! {
@@ -492,6 +505,7 @@ mod tests {
         let sink: NotificationSink = Rc::new(move |encoded| {
             let notification = proto::SubscriptionNotification::decode(&encoded[..]).unwrap();
             sink_pushed.borrow_mut().push(notification);
+            Ok(())
         });
         (sink, pushed)
     }
@@ -766,6 +780,23 @@ mod tests {
         ChangeTracker::run_change_handlers();
         let ids: Vec<_> = fixture.pushed.take().iter().map(|n| n.subscription_id).collect();
         assert_eq!(ids, [again.subscription_id]);
+    }
+
+    #[test]
+    fn a_failing_sink_ends_the_subscription() {
+        let fixture = Fixture::new();
+        let sink: NotificationSink = Rc::new(|_| Err(Disconnected));
+        let list = fixture.element("App::list");
+        element_children(&fixture.state, Some(list), Some(&sink)).unwrap();
+        let root = fixture.element("App::root");
+        subscribe_element_properties(&fixture.state, root, &sink).unwrap();
+
+        fixture.rows.push(3);
+        fixture.app.set_counter(2);
+        ChangeTracker::run_change_handlers();
+        assert!(fixture.state.subscriptions.trackers.borrow().is_empty());
+        assert!(fixture.state.subscriptions.children_of.borrow().is_empty());
+        assert_eq!(fixture.state.pinned_count.get(), 0);
     }
 
     slint::slint! {

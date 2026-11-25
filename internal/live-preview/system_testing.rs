@@ -26,7 +26,7 @@ fn spawn_answer(
         context.spawn_local(async move {
             let response = i_slint_backend_testing::systest::handle_encoded_request(
                 &request.0,
-                std::rc::Rc::new(|_| {}),
+                std::rc::Rc::new(|_| Ok(())),
             )
             .await;
             send(&to_editor, id, Ok(SystemTestMessage(response)));

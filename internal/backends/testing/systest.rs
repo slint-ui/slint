@@ -23,7 +23,12 @@ pub fn requested() -> bool {
 
 /// Receives the changes of the subscriptions created through [`handle_encoded_request`],
 /// each a protobuf-encoded `SubscriptionNotification` from `slint_systest.proto`.
-pub type NotificationSink = Rc<dyn Fn(Vec<u8>)>;
+/// Return `Err` when the notification can't be delivered, which ends its subscription.
+pub type NotificationSink = Rc<dyn Fn(Vec<u8>) -> Result<(), Disconnected>>;
+
+/// The receiver of a [`NotificationSink`] is gone.
+#[derive(Debug)]
+pub struct Disconnected;
 
 struct TestingClient {
     state: Rc<IntrospectionState>,
@@ -448,7 +453,7 @@ mod tests {
 
     fn handle_encoded(request: &[u8]) -> Option<proto::aut_response::Msg> {
         let response =
-            futures_lite::future::block_on(handle_encoded_request(request, Rc::new(|_| {})));
+            futures_lite::future::block_on(handle_encoded_request(request, Rc::new(|_| Ok(()))));
         proto::AutResponse::decode(&response[..]).unwrap().msg
     }
 
