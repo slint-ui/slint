@@ -15,6 +15,3 @@ publish = false
 [lib]
 proc-macro = true
 path = "lib.rs"
-
-[dependencies]
-quote = "1.0"

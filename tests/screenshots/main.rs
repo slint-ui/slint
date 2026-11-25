@@ -28,6 +28,14 @@ mod shadow;
 #[cfg(test)]
 include!(concat!(env!("OUT_DIR"), "/generated.rs"));
 
+// Cargo's `unused_dependencies` lint only sees the non-test build.
+#[cfg(feature = "software")]
+use slint as _;
+#[cfg(feature = "skia")]
+use i_slint_renderer_skia as _;
+#[cfg(feature = "anyrender")]
+use anyrender_serialize as _;
+
 fn main() {
     println!("Nothing to see here, please run me through cargo test :)");
 }

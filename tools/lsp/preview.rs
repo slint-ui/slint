@@ -146,6 +146,10 @@ pub fn lsp_to_preview(message: LspToPreviewMessage) {
         Message::PairingHello { .. } | Message::PairingResponse { .. } => {
             tracing::warn!("Ignoring a pairing message addressed to a local preview");
         }
+        Message::Debugger { message, .. } => {
+            debug_assert!(false, "The LSP sent its preview a debugger message: {message:?}");
+            tracing::warn!("Ignoring debugger message {message:?}");
+        }
     }
 }
 
@@ -1536,6 +1540,7 @@ async fn parse_source(
     editor_preview::document_cache::configure_preview(cc, component);
     cc.resource_url_mapper = resource_url_mapper();
     cc.embed_resources = EmbedResourcesKind::ListAllResources;
+    cc.edition = config.default_edition.or(cc.edition);
 
     let (open_file_fallback, source_file_versions) =
         editor_preview::document_cache::document_cache_parts_setup(
@@ -1553,10 +1558,14 @@ async fn parse_source(
             path.to_url().and_then(|url| config.rust_macro_editions.get(&url).copied());
     }
     builder.set_overrides(overrides, i_slint_core::InternalToken);
-    builder.set_project_root(
-        PREVIEW_STATE.with_borrow(|preview_state| preview_state.project_root.clone()),
-        i_slint_core::InternalToken,
-    );
+    let is_project_url = path.as_native_path().is_none()
+        && path.file_name() == Some(i_slint_compiler::project_file::FILE_NAME);
+    if !is_project_url {
+        builder.set_project_root(
+            PREVIEW_STATE.with_borrow(|preview_state| preview_state.project_root.clone()),
+            i_slint_core::InternalToken,
+        );
+    }
     let project_loader = open_file_fallback.clone();
     let project_versions = source_file_versions.clone();
     builder.set_project_file_loader(
@@ -1578,9 +1587,10 @@ async fn parse_source(
         }),
         i_slint_core::InternalToken,
     );
+    // A project URL supplies its own root and entry file through the project loader.
     let (result, raw_type_loader) = builder
         .build_with_raw_type_loader(
-            source_code,
+            source_code.filter(|_| !is_project_url),
             path,
             slint_interpreter::AnimationMode::Running,
             i_slint_core::InternalToken,
@@ -2166,27 +2176,28 @@ pub mod test {
 
         let path = main_test_file_name();
         let source_code = code.get(&path).unwrap().clone();
-        let (diagnostics, compiled, _, versions) = spin_on::spin_on(super::parse_source(
-            crate::preview::test::preview_config(),
-            path.clone(),
-            Some(24),
-            Some(source_code.to_string()),
-            style.to_string(),
-            None,
-            move |path| {
-                let code = code.clone();
+        let (diagnostics, compiled, _, versions) =
+            i_slint_compiler::poll_ready(super::parse_source(
+                crate::preview::test::preview_config(),
+                path.clone(),
+                Some(24),
+                Some(source_code.to_string()),
+                style.to_string(),
+                None,
+                move |path| {
+                    let code = code.clone();
 
-                Box::pin(async move {
-                    let Some(source) = code.get(&path) else {
-                        return Some(Result::Err(std::io::Error::new(
-                            std::io::ErrorKind::NotFound,
-                            "path not found",
-                        )));
-                    };
-                    Some(Ok((Some(24), source.clone())))
-                })
-            },
-        ));
+                    Box::pin(async move {
+                        let Some(source) = code.get(&path) else {
+                            return Some(Result::Err(std::io::Error::new(
+                                std::io::ErrorKind::NotFound,
+                                "path not found",
+                            )));
+                        };
+                        Some(Ok((Some(24), source.clone())))
+                    })
+                },
+            ));
 
         assert!(diagnostics.is_empty());
 
@@ -2249,7 +2260,7 @@ mod tests {
         let source = r#"export component Main inherits Window {
                 Image { source: @image-url("logo.png"); }
             }"#;
-        let (diagnostics, compiled, _, _) = spin_on::spin_on(parse_source(
+        let (diagnostics, compiled, _, _) = i_slint_compiler::poll_ready(parse_source(
             crate::preview::test::preview_config(),
             SourcePath::from_url(&main),
             None,
@@ -2274,15 +2285,16 @@ mod tests {
         };
         let source = r#"import { Button } from "std-widgets.slint";
             export component Main inherits Window { Button {} }"#;
-        let (diagnostics, compiled, imports, versions) = spin_on::spin_on(parse_source(
-            crate::preview::test::preview_config(),
-            SourcePath::from_url(&target.url),
-            None,
-            Some(source.into()),
-            "fluent".into(),
-            None,
-            |_| Box::pin(async { Some(Err(std::io::ErrorKind::NotFound.into())) }),
-        ));
+        let (diagnostics, compiled, imports, versions) =
+            i_slint_compiler::poll_ready(parse_source(
+                crate::preview::test::preview_config(),
+                SourcePath::from_url(&target.url),
+                None,
+                Some(source.into()),
+                "fluent".into(),
+                None,
+                |_| Box::pin(async { Some(Err(std::io::ErrorKind::NotFound.into())) }),
+            ));
         assert!(diagnostics.is_empty(), "{diagnostics:?}");
         let compiled = compiled.unwrap();
         let document_cache = editor_preview::DocumentCache::new_from_raw_parts(
@@ -2317,7 +2329,7 @@ mod tests {
                 state.set_current_component(original.clone());
             });
             let switched_target = replacement.clone();
-            let (diagnostics, _, _, _) = spin_on::spin_on(parse_source(
+            let (diagnostics, _, _, _) = i_slint_compiler::poll_ready(parse_source(
                 crate::preview::test::preview_config(), SourcePath::from_url(&original.url), None,
                 Some(r#"import { Dependency } from "dependency.slint"; export component Main inherits Dependency {}"#.into()),
                 String::new(), None,
@@ -2375,7 +2387,7 @@ mod tests {
                     state.source_code.remove(&manifest);
                 }
             });
-            let (diagnostics, compiled, _, _) = spin_on::spin_on(parse_source(
+            let (diagnostics, compiled, _, _) = i_slint_compiler::poll_ready(parse_source(
                 crate::preview::test::preview_config(),
                 source.clone(),
                 Some(2),
@@ -2406,7 +2418,7 @@ mod tests {
         let directory = tempfile::tempdir().unwrap();
         for file_name in ["main.slint", "main.rs"] {
             let path = SourcePath::new(directory.path().join(file_name));
-            let (diagnostics, compiled, _, versions) = spin_on::spin_on(parse_source(
+            let (diagnostics, compiled, _, versions) = i_slint_compiler::poll_ready(parse_source(
                 crate::preview::test::preview_config(),
                 path.clone(),
                 None,

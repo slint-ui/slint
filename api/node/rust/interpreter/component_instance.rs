@@ -505,6 +505,18 @@ impl JsComponentInstance {
         }
     }
 
+    /// Shows the window, or the tray icon of a component inheriting `SystemTrayIcon`.
+    #[napi]
+    pub fn show(&self) -> Result<()> {
+        self.inner().show().map_err(|e| napi::Error::from_reason(e.to_string()))
+    }
+
+    /// Hides the window, or the tray icon of a component inheriting `SystemTrayIcon`.
+    #[napi]
+    pub fn hide(&self) -> Result<()> {
+        self.inner().hide().map_err(|e| napi::Error::from_reason(e.to_string()))
+    }
+
     #[napi]
     pub fn window(&self, env: &Env, this: This<Object<'_>>) -> Result<JsWindow> {
         let instance = self.inner();

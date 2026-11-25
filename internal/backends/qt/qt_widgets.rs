@@ -55,30 +55,29 @@ macro_rules! get_size {
 }
 
 macro_rules! fn_render {
-    ($this:ident $dpr:ident $size:ident $painter:ident $widget:ident $initial_state:ident => $($tt:tt)*) => {
+    ($this:ident $size:ident $painter:ident $widget:ident $initial_state:ident => $($tt:tt)*) => {
         fn render(self: Pin<&Self>, backend: &mut &mut dyn ItemRenderer, item_rc: &ItemRc, size: LogicalSize) -> RenderingResult {
-            self.animation_tracker();
-            let $dpr: f32 = backend.scale_factor().get();
-
-            let active: bool = backend.window().active();
-            // This should include self.enabled() as well, but not every native widget
-            // has that property right now.
-            let $initial_state = cpp!(unsafe [ active as "bool" ] -> i32 as "int" {
-                QStyle::State state(QStyle::State_None);
-                if (active)
-                    state |= QStyle::State_Active;
-                return (int)state;
-            });
-
+            let scale_factor: f32 = backend.scale_factor().get();
             let $widget: NonNull<()> = SlintTypeErasedWidgetPtr::qwidget_ptr(&self.widget_ptr);
+            let initial_state = |active: bool| {
+                // This should include self.enabled() as well, but not every native widget
+                // has that property right now.
+                cpp!(unsafe [ active as "bool" ] -> i32 as "int" {
+                    QStyle::State state(QStyle::State_None);
+                    if (active)
+                        state |= QStyle::State_Active;
+                    return (int)state;
+                })
+            };
 
+            let window_active = backend.window().active();
             if let Some(painter) = backend.as_any().and_then(|any| <dyn std::any::Any>::downcast_mut::<QPainterPtr>(any)) {
-                let width = size.width * $dpr;
-                let height = size.height * $dpr;
-                if width < 1. || height < 1. {
+                self.animation_tracker();
+                let $initial_state = initial_state(window_active);
+                if size.width * scale_factor < 1. || size.height * scale_factor < 1. {
                     return Default::default();
                 };
-                let $size = qttypes::QSize { width: width as _, height: height as _ };
+                let $size = qttypes::QSize { width: size.width as _, height: size.height as _ };
                 let $this = self;
                 let _workaround = unsafe { $crate::qt_widgets::PainterClipWorkaround::new(painter) };
                 painter.save();
@@ -86,18 +85,29 @@ macro_rules! fn_render {
                 $($tt)*
                 $painter.restore();
             } else {
-                // Fallback: this happen when the Qt backend is not used and the gl backend is used instead
+                // Fallback: this happen when the Qt backend is not used and the gl backend is used instead.
+                // The renderer re-runs this when a property read in it changes.
                 backend.draw_cached_pixmap(
                     item_rc,
                     &|callback| {
+                        self.animation_tracker();
+                        let active = item_rc.window_adapter().is_some_and(|window_adapter| {
+                            WindowInner::from_pub(window_adapter.window()).active()
+                        });
+                        let $initial_state = initial_state(active);
                         let geo = item_rc.geometry();
-                        let width = geo.width() * $dpr;
-                        let height = geo.height() * $dpr;
-                        if width < 1. || height < 1. {
-                            return Default::default();
+                        let $size = qttypes::QSize {
+                            width: geo.width().round() as _,
+                            height: geo.height().round() as _,
                         };
-                        let $size = qttypes::QSize { width: width as _, height: height as _ };
-                        let mut imgarray = QImageWrapArray::new($size, $dpr);
+                        let image_size = qttypes::QSize {
+                            width: (geo.width() * scale_factor).round() as _,
+                            height: (geo.height() * scale_factor).round() as _,
+                        };
+                        if $size.width < 1 || $size.height < 1 || image_size.width < 1 || image_size.height < 1 {
+                            return;
+                        }
+                        let mut imgarray = QImageWrapArray::new(image_size, scale_factor);
                         let img = &mut imgarray.img;
                         let mut painter = cpp!(unsafe [img as "QImage*"] -> QPainterPtr as "std::unique_ptr<QPainter>" {
                             auto painter = std::make_unique<QPainter>(img);

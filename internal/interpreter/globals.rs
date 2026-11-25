@@ -239,6 +239,7 @@ fn install_global_change_trackers(g: &Rc<GlobalInstance>, storage: &Rc<GlobalSto
         let prop_idx = *prop_idx;
         let notify_expr = expr.borrow().clone();
         g.change_trackers[idx].init(
+            storage.context.change_handler_queue(),
             (),
             move |()| -> Value {
                 let Some(st) = weak_storage_get.upgrade() else { return Value::Void };

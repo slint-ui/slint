@@ -60,7 +60,7 @@ struct GlyphCacheKey {
     /// Rendered pixel size.
     pixel_size: PhysicalLength,
     /// Glyph id.
-    glyph_id: core::num::NonZeroU16,
+    glyph_id: u16,
     /// Hash of the normalized variation coordinates.
     coords_hash: u64,
     /// Horizontal sub-pixel bin.
@@ -220,7 +220,7 @@ impl VectorFont {
     /// outline's coverage.
     pub fn render_vector_glyph(
         &self,
-        glyph_id: core::num::NonZeroU16,
+        glyph_id: u16,
         subpixel_bin: u8,
         stroke_width: Option<StrokeWidth>,
         color: Option<[u8; 3]>,
@@ -309,7 +309,7 @@ impl VectorFont {
                         .cap(swash::zeno::Cap::Butt);
                     render.style(stroke);
                 }
-                let image = render.render(&mut scaler, glyph_id.get())?;
+                let image = render.render(&mut scaler, glyph_id)?;
 
                 let placement = image.placement;
                 let pixels = match image.content {
@@ -427,7 +427,7 @@ impl super::GlyphRenderer for VectorFont {
         slint_context: &i_slint_core::SlintContext,
     ) -> Option<super::RenderableGlyph> {
         // A coverage map, like the bitmap fonts' glyphs this path also draws.
-        self.render_vector_glyph(glyph_id, 0, None, None, slint_context).and_then(|glyph| {
+        self.render_vector_glyph(glyph_id.get(), 0, None, None, slint_context).and_then(|glyph| {
             let VectorGlyphPixels::AlphaMap(alpha_map) = glyph.pixels else { return None };
             Some(super::RenderableGlyph {
                 x: glyph.x,

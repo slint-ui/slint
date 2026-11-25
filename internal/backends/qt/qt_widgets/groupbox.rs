@@ -212,7 +212,7 @@ impl Item for NativeGroupBox {
         FocusEventResult::FocusIgnored
     }
 
-    fn_render! { this dpr size painter widget initial_state =>
+    fn_render! { this size painter widget initial_state =>
         let text: qttypes::QString =
             this.title().as_str().into();
         let enabled = this.enabled();
@@ -223,7 +223,6 @@ impl Item for NativeGroupBox {
             text as "QString",
             enabled as "bool",
             size as "QSize",
-            dpr as "float",
             initial_state as "int"
         ] {
             if (auto groupbox = qobject_cast<QGroupBox *>(widget)) {
@@ -239,7 +238,7 @@ impl Item for NativeGroupBox {
             } else {
                 option.palette.setCurrentColorGroup(QPalette::Disabled);
             }
-            option.rect = QRect(QPoint(), size / dpr);
+            option.rect = QRect(QPoint(), size);
             option.text = text;
             option.lineWidth = 1;
             option.midLineWidth = 0;

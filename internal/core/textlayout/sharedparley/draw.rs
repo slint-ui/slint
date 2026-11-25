@@ -55,6 +55,7 @@ pub trait GlyphRenderer: crate::item_rendering::ItemRenderer {
     /// given y offset. The `normalized_coords` are F2Dot14 values in fvar axis order for variable
     /// font rendering. The `synthesis` contains design-space variation settings and faux
     /// bold/italic hints from fontique.
+    /// The `baseline` is the run's baseline, in the same space as the glyphs' `y`.
     fn draw_glyph_run(
         &mut self,
         font: &parley::FontData,
@@ -63,6 +64,7 @@ pub trait GlyphRenderer: crate::item_rendering::ItemRenderer {
         synthesis: &fontique::Synthesis,
         brush: Self::PlatformBrush,
         y_offset: PhysicalLength,
+        baseline: PhysicalLength,
         glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph>,
     );
 
@@ -290,6 +292,7 @@ impl TextParagraph {
                                 &fontique::Synthesis::default(),
                                 default_fill_brush.clone(),
                                 para_y,
+                                PhysicalLength::new(glyph_run.baseline()),
                                 &mut core::iter::once(ellipsis_glyph),
                             );
                         }
@@ -577,6 +580,7 @@ impl TextParagraph {
         let run = glyph_run.run();
         let normalized_coords: &[i16] = bytemuck::cast_slice(run.normalized_coords());
         let synthesis = run.synthesis();
+        let baseline = PhysicalLength::new(glyph_run.baseline());
         let brush = &glyph_run.style().brush;
 
         let (fill_brush, stroke_style) = match override_fill_brush {
@@ -612,6 +616,7 @@ impl TextParagraph {
                         &synthesis,
                         stroke_brush,
                         para_y,
+                        baseline,
                         &mut glyphs.iter().cloned(),
                     );
                 }
@@ -623,6 +628,7 @@ impl TextParagraph {
                     &synthesis,
                     fill_brush.clone(),
                     para_y,
+                    baseline,
                     &mut glyphs.into_iter(),
                 );
             }
@@ -636,6 +642,7 @@ impl TextParagraph {
                     &synthesis,
                     fill_brush.clone(),
                     para_y,
+                    baseline,
                     &mut glyphs.iter().cloned(),
                 );
 
@@ -647,6 +654,7 @@ impl TextParagraph {
                         &synthesis,
                         stroke_brush,
                         para_y,
+                        baseline,
                         &mut glyphs.into_iter(),
                     );
                 }
@@ -659,6 +667,7 @@ impl TextParagraph {
                     &synthesis,
                     fill_brush.clone(),
                     para_y,
+                    baseline,
                     glyphs_it,
                 );
             }
