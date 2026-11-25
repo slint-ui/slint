@@ -197,10 +197,20 @@ pub(super) fn create_forwarding(
         ElementType::Component(c) => lookup_slot(c, target),
         _ => None,
     };
-    if source_slot.is_some_and(|slot| slot.is_collection)
-        || target_slot.as_ref().is_some_and(|slot| slot.is_collection)
+    if source_slot.is_some_and(|s| s.is_collection)
+        || target_slot.as_ref().is_some_and(|s| s.is_collection)
     {
-        diag.push_error("Forwarding collection slots is not supported yet".into(), node);
+        if source_slot.is_some_and(|s| s.is_collection)
+            && target_slot.as_ref().is_some_and(|s| s.is_collection)
+        {
+            return true;
+        }
+        diag.push_error(
+            format!(
+                "Declare both '{source}' and '{target}' as collection slots to forward a collection"
+            ),
+            node,
+        );
         Element::mark_placeholder_rejected(slots, source);
         return false;
     }

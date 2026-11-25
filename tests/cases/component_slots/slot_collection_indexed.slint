@@ -22,6 +22,14 @@ component Group {
     }
 }
 
+component Wrapper {
+    default slot <[implements Entry]> entries;
+    in property <int> index;
+    out property <bool> selected-enabled: group.selected-enabled;
+    out property <string> selected-title: group.selected-title;
+    group := Group { index: root.index; entries << entries; }
+}
+
 component AnyGroup {
     default slot <[*]> entries;
     in property <int> index;
@@ -55,12 +63,12 @@ export component TestCase inherits Window {
             visible: index != 1 || root.second-visible;
         }
     }
-    static-group := Group {
+    static-group := Wrapper {
         index: root.index;
         Item { title: "First"; }
         Item { title: "Second"; enabled: root.second-enabled; }
     }
-    repeated-group := Group {
+    repeated-group := Wrapper {
         index: root.index;
         for name[index] in root.names: Item {
             title: name;

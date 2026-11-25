@@ -1,0 +1,91 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+interface Entry {
+    in property <int> value;
+    callback clicked();
+}
+component Item {
+    in property <int> value;
+    callback clicked();
+}
+component Group {
+    default slot <[implements Entry]> items;
+    for item[index] in items: item {
+        value: index;
+        clicked => { }
+    }
+}
+component FixedGroup inherits Group { Item { } }
+component NamedGroup {
+    slot <[implements Entry]> entries;
+    for entry in entries: entry { }
+}
+component FixedNamedGroup inherits NamedGroup { entries << Item { } }
+component InheritedNamedGroup inherits FixedNamedGroup { }
+export component ReferencedDefault inherits Group {
+    item := Item { }
+    out property <int> value: item.value;
+//                            >         <error{Move references to the default content of slot 'items' inside that content}
+}
+export component ReferencedNamedDefault inherits NamedGroup {
+    entries << item := Item { }
+    public function activate() { item.clicked(); }
+//                                    >     <error{Move references to the default content of slot 'entries' inside that content}
+}
+component NominalEntry { in property <int> value; }
+component StructuralEntry { in property <int> value; }
+component NominalGroup {
+    default slot <[NominalEntry]> entries;
+    for entry in entries: entry { value: 1; }
+}
+component ForwardingWrapper {
+    Group { @children }
+//          >       <error{The @children placeholder is not allowed as a child of 'Group'}
+}
+component NestedCollection {
+    slot <[implements Entry]> entries;
+    Group {
+        for entry in entries: entry { }
+    }
+}
+component ForwardedNominal {
+    default slot <[*]> entries;
+    NominalGroup { entries << entries; }
+}
+component ForwardedStructural {
+    default slot <[*]> entries;
+    Group { items << entries; }
+}
+export component Test inherits Window {
+    NominalGroup { StructuralEntry { } }
+//                 >              <error{Collection slot 'entries' requires 'NominalEntry' or a component inheriting it, but got 'StructuralEntry'}
+    Group { Rectangle { } }
+//          >           <error{Cannot implement 'Entry'.↵- missing 'callback clicked();'↵- missing 'in property <int> value;'}
+    Group { Item { value: 42; } }
+    Group { Item { clicked => { } } }
+//          >   <error{Callback 'clicked' has handlers in both the slot expansion and its supplied component}
+    Group { if true: Item { } }
+//                   >   <error{Conditional children are not supported in collection slots yet}
+    Group {
+        Item { }
+        for i in 2: Item { }
+//                  >   <error{A 'for' loop must be the only child in a collection slot}
+    }
+    FixedGroup { Item { } }
+    FixedGroup {
+        items << { }
+    }
+    FixedNamedGroup {
+        entries << { }
+    }
+    InheritedNamedGroup {
+        entries << { }
+    }
+    ForwardingWrapper { Item { } }
+    NestedCollection { entries << Item { } }
+    ForwardedNominal { StructuralEntry { } }
+//                     >              <error{Collection slot 'entries' requires 'NominalEntry' or a component inheriting it, but got 'StructuralEntry'}
+    ForwardedStructural { Rectangle { } }
+//                        >           <error{Cannot implement 'Entry'.↵- missing 'callback clicked();'↵- missing 'in property <int> value;'}
+}
