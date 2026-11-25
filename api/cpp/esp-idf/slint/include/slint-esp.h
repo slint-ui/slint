@@ -16,6 +16,10 @@
 #ifdef SLINT_FEATURE_EXPERIMENTAL
 #    define SLINT_ESP_CPU_TEXTURES 1
 #endif
+// The PPA draws into the frame buffer from the raster task, and only the ESP32-P4 has one.
+#if defined(SLINT_ESP_RASTERIZE_IN_SEPARATE_TASK) && SOC_PPA_SUPPORTED
+#    define SLINT_ESP_PPA 1
+#endif
 
 /**
  * The type of LCD peripheral that drives the panel.
@@ -127,6 +131,17 @@ struct SlintPlatformConfiguration
     /// When the next image doesn't fit, the renderer drops the images used longest ago.
     /// Larger images aren't prepared, so 0 turns preparing off.
     uint32_t prepared_textures_kib = 8192;
+#endif
+#ifdef SLINT_ESP_PPA
+    /// Draw opaque solid fills and the images that fit in `prepared_textures_kib`
+    /// with the Pixel-Processing Accelerator of the ESP32-P4. The CPU draws everything else.
+    /// It needs `rasterize_in_separate_task`.
+    ///
+    /// **Note**: This field is still experimental - its API is subject to changes and not
+    /// stabilized yet. To use it, build Slint from source with the environment variable
+    /// `SLINT_ESP_EXPERIMENTAL=1` set when running CMake.
+    /// It only exists on chips with a PPA.
+    bool use_ppa = false;
 #endif
 };
 

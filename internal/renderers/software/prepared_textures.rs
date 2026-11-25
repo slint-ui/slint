@@ -27,7 +27,7 @@ pub enum PreparedTexture {
 impl PreparedTexture {
     /// Prepares the image of `texture`.
     /// Returns `None` for textures that aren't embedded images, or that are tiled.
-    fn new(texture: &DrawTextureArgs) -> Option<Self> {
+    fn new(texture: &DrawTextureArgs, blue_first: bool) -> Option<Self> {
         let TextureDataContainer::Static(source) = &texture.data else { return None };
         if texture.tiling.is_some() {
             return None;
@@ -92,10 +92,11 @@ impl PreparedTexture {
                                 _ => ((channel as u16 * 255 + alpha as u16 / 2) / alpha as u16)
                                     .min(255) as u8,
                             };
+                        let (first, third) = if blue_first { (blue, red) } else { (red, blue) };
                         *pixel = Rgba8Pixel::new(
-                            unmultiply(red),
+                            unmultiply(first),
                             unmultiply(green),
-                            unmultiply(blue),
+                            unmultiply(third),
                             alpha,
                         );
                     }
@@ -154,6 +155,7 @@ struct Key {
 #[derive(Default)]
 pub struct PreparedTextures {
     textures: BTreeMap<Key, Entry>,
+    blue_first: bool,
     bytes: usize,
     max_bytes: usize,
     /// Counts the lookups, to tell which image was used last.
@@ -179,6 +181,16 @@ impl PreparedTextures {
     pub fn set_max_bytes(&mut self, max_bytes: usize) {
         self.max_bytes = max_bytes;
         self.drop_until_fits(0);
+    }
+
+    /// Sets whether prepared RGBA images store their color channels blue first, as BGRA,
+    /// for a buffer that reads them in that order. Their pixel format stays `Rgba`.
+    pub fn set_blue_first(&mut self, blue_first: bool) {
+        if self.blue_first != blue_first {
+            self.blue_first = blue_first;
+            self.textures.clear();
+            self.bytes = 0;
+        }
     }
 
     /// Drops the image used longest ago, until `extra` more bytes fit.
@@ -221,7 +233,7 @@ impl PreparedTextures {
         let _span =
             tracing::info_span!("prepare_texture", w = texture.dst_width, h = texture.dst_height)
                 .entered();
-        let texture = PreparedTexture::new(texture)?;
+        let texture = PreparedTexture::new(texture, self.blue_first)?;
         self.drop_until_fits(bytes);
         self.bytes += bytes;
         self.textures.insert(key, Entry { texture: texture.clone(), bytes, last_used: self.clock });
