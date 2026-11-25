@@ -821,7 +821,7 @@ public:
     /// stabilized yet. To use the class, you must enable the `SLINT_FEATURE_EXPERIMENTAL=ON` CMake
     /// option.
     PhysicalRegion render(TargetPixelBuffer<Rgb8Pixel> *buffer,
-                           PreparedTextures &prepared_textures) const
+                          PreparedTextures &prepared_textures) const
     {
         auto wrapper = buffer->wrap();
         auto r = cbindgen_private::slint_software_renderer_render_accel_rgb8(
@@ -836,7 +836,7 @@ public:
     /// stabilized yet. To use the class, you must enable the `SLINT_FEATURE_EXPERIMENTAL=ON` CMake
     /// option.
     PhysicalRegion render(TargetPixelBuffer<Rgb565Pixel> *buffer,
-                           PreparedTextures &prepared_textures) const
+                          PreparedTextures &prepared_textures) const
     {
         auto wrapper = buffer->wrap();
         auto r = cbindgen_private::slint_software_renderer_render_accel_rgb565(

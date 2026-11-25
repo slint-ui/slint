@@ -588,7 +588,9 @@ mod software_renderer {
         prepared_textures: *mut c_void,
     ) -> PhysicalRegion {
         let renderer = unsafe { &*(r as *const SoftwareRenderer) };
-        renderer.render_into_buffer(buffer, unsafe { &mut *(prepared_textures as *mut PreparedTextures) })
+        renderer.render_into_buffer(buffer, unsafe {
+            &mut *(prepared_textures as *mut PreparedTextures)
+        })
     }
 
     #[cfg(feature = "experimental")]
@@ -599,7 +601,9 @@ mod software_renderer {
         prepared_textures: *mut c_void,
     ) -> PhysicalRegion {
         let renderer = unsafe { &*(r as *const SoftwareRenderer) };
-        renderer.render_into_buffer(buffer, unsafe { &mut *(prepared_textures as *mut PreparedTextures) })
+        renderer.render_into_buffer(buffer, unsafe {
+            &mut *(prepared_textures as *mut PreparedTextures)
+        })
     }
 
     #[unsafe(no_mangle)]
