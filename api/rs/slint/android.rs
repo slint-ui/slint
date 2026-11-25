@@ -11,7 +11,8 @@
 //! For convenience, Slint re-exports the content of the [`android-activity`](https://docs.rs/android-activity)  under `slint::android::android_activity`.
 //!
 //! As with every application using the android-activity crate, the entry point to your app will be the `android_main` function.
-//! From that function, you can call [`slint::android::init`](init()) or [`slint::android::init_with_event_listener`](init_with_event_listener)
+//! From that function, you can call [`slint::android::init`](init()) or [`slint::android::init_with_event_listener`](init_with_event_listener).
+//! Use [`BackendBuilder`] to combine an event listener with the other options of the backend.
 //!
 //! # Example
 //!
@@ -109,7 +110,7 @@ use crate::platform::SetPlatformError;
 /// ```rust
 /// # #[cfg(target_os = "android")]
 /// #[unsafe(no_mangle)]
-/// fn android_main(app: slint::android_activity::AndroidApp) {
+/// fn android_main(app: slint::android::AndroidApp) {
 ///     slint::android::BackendBuilder::new(app)
 ///         .with_back_callback_priority(None)
 ///         .with_event_listener(|event| eprintln!("got event {event:?}"))
@@ -122,21 +123,22 @@ use crate::platform::SetPlatformError;
 #[must_use = "call init() to install the backend"]
 pub struct BackendBuilder {
     app: android_activity::AndroidApp,
-    back_callback_priority: Option<Option<u32>>,
+    back_callback_priority: Option<u32>,
     event_listener: Option<alloc::boxed::Box<dyn Fn(&android_activity::PollEvent<'_>)>>,
 }
 
 impl BackendBuilder {
     /// Creates a builder with the same behavior as [`init()`].
     pub fn new(app: android_activity::AndroidApp) -> Self {
-        Self { app, back_callback_priority: None, event_listener: None }
+        Self { app, back_callback_priority: Some(0), event_listener: None }
     }
 
     /// Sets the priority of the `OnBackInvokedCallback` that Slint registers on Android 14
     /// (API 34) and later.
     ///
     /// The callback passes Back to the items as a key event and finishes the activity if no
-    /// item accepts it. Android calls the callback with the highest priority first, so an
+    /// item accepts it.
+    /// Android calls the callback with the highest priority first, so an
     /// application that registers its own callback can choose a priority above or below Slint's.
     /// The default is `Some(0)`, which is `OnBackInvokedDispatcher.PRIORITY_DEFAULT`.
     /// Values above `i32::MAX` count as `i32::MAX`.
@@ -146,7 +148,7 @@ impl BackendBuilder {
     ///
     /// This has no effect before Android 14.
     pub fn with_back_callback_priority(mut self, priority: Option<u32>) -> Self {
-        self.back_callback_priority = Some(priority);
+        self.back_callback_priority = priority;
         self
     }
 
@@ -171,12 +173,10 @@ impl BackendBuilder {
         #[cfg(target_os = "android")]
         {
             use i_slint_backend_android_activity::AndroidPlatform;
-            let mut platform = match self.back_callback_priority {
-                Some(priority) => {
-                    AndroidPlatform::new_with_back_callback_priority(self.app, priority)
-                }
-                None => AndroidPlatform::new(self.app),
-            };
+            let mut platform = AndroidPlatform::new_with_back_callback_priority(
+                self.app,
+                self.back_callback_priority,
+            );
             if let Some(listener) = self.event_listener {
                 platform = platform.with_event_listener(listener);
             }

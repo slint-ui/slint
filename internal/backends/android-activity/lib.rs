@@ -75,11 +75,15 @@ impl AndroidPlatform {
     /// that the backend registers on Android 14 (API 34) and later.
     ///
     /// The callback turns the Back gesture into a key event and finishes the activity
-    /// if no item handles it. `Some(priority)` registers it with that priority, as
-    /// `OnBackInvokedDispatcher.registerOnBackInvokedCallback()` takes it. [`AndroidPlatform::new()`] uses
-    /// [`DEFAULT_BACK_CALLBACK_PRIORITY`]. Priorities above `i32::MAX` count as `i32::MAX`.
+    /// if no item handles it.
+    /// `Some(priority)` registers it with that priority, as
+    /// `OnBackInvokedDispatcher.registerOnBackInvokedCallback()` takes it.
+    /// [`AndroidPlatform::new()`] uses [`DEFAULT_BACK_CALLBACK_PRIORITY`].
+    /// Priorities above `i32::MAX` count as `i32::MAX`.
+    ///
     /// `None` registers no callback, so the application's own handling of Back runs
     /// and Slint doesn't receive Back as a key event.
+    ///
     /// The setting has no effect before Android 14.
     pub fn new_with_back_callback_priority(
         app: AndroidApp,
@@ -120,7 +124,7 @@ impl AndroidPlatform {
         Self::new(app).with_event_listener(listener)
     }
 
-    /// Notify `listener` of the events that the platform processes, as
+    /// Notifies `listener` of the events that the platform processes, as
     /// [`AndroidPlatform::new_with_event_listener()`] does.
     pub fn with_event_listener(mut self, listener: impl Fn(&PollEvent<'_>) + 'static) -> Self {
         self.event_listener = Some(Box::new(listener));
