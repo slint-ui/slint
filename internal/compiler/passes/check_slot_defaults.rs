@@ -46,6 +46,12 @@ pub fn check_slot_defaults(doc: &Document, diag: &mut BuildDiagnostics) {
                 owners.get(&ByAddress(target.clone())).filter(|target| Some(*target) != owner)
             };
             let message = |name: &SmolStr| {
+                let name = if name == crate::object_tree::DEFAULT_SLOT_NAME {
+                    crate::object_tree::slot_collections::default_collection(component)
+                        .map_or_else(|| name.clone(), |slot| slot.name)
+                } else {
+                    name.clone()
+                };
                 format!(
                     "Move references to the default content of slot '{name}' inside that content"
                 )

@@ -1,0 +1,246 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+use super::*;
+
+pub(crate) fn default_collection(component: &Component) -> Option<DeclaredSlot> {
+    component.declared_slots.borrow().iter().find(|s| s.is_default).cloned().or_else(|| {
+        if let ElementType::Component(base) = &component.root_element.borrow().base_type {
+            default_collection(base)
+        } else {
+            None
+        }
+    })
+}
+
+pub(crate) fn validate_assignments(component: &Component, diag: &mut BuildDiagnostics) {
+    recurse_elem(&component.root_element, &(), &mut |parent, _| {
+        let parent = parent.borrow();
+        for child in &parent.children {
+            let element = child.borrow();
+            if element.slot_collection || element.slot_expansion.is_some() {
+                continue;
+            }
+            let slot = element
+                .slot_default
+                .as_ref()
+                .and_then(|name| {
+                    component
+                        .declared_slots
+                        .borrow()
+                        .iter()
+                        .find(|slot| slot.is_collection && slot.insertion_name() == name.as_str())
+                        .cloned()
+                })
+                .or_else(|| {
+                    let ElementType::Component(base) = &parent.base_type else { return None };
+                    match element.slot_target.as_deref() {
+                        Some(name) if name != DEFAULT_SLOT_NAME => {
+                            typed_slots::lookup_slot(base, name)
+                        }
+                        _ => default_collection(base),
+                    }
+                });
+            drop(element);
+            if let Some(slot) = slot.filter(|slot| slot.is_collection) {
+                validate_children(&slot, std::slice::from_ref(child), diag);
+            }
+        }
+    });
+}
+
+pub(crate) fn validate_children(
+    slot: &DeclaredSlot,
+    children: &[ElementRc],
+    diag: &mut BuildDiagnostics,
+) -> bool {
+    let mut valid = true;
+    for child in children {
+        if let Some(interface) = &slot.interface {
+            let node = child.borrow().debug[0].node.clone();
+            valid &= interfaces::validate_interface_implementation(
+                &child.borrow(),
+                &interface.root_element,
+                &interface.id,
+                &node.into(),
+                &interfaces::ImplementBinding::OnSelf,
+                diag,
+            );
+        }
+        if let Some(expected) = &slot.component_type {
+            let mut actual = child.borrow().base_type.clone();
+            while &actual != expected {
+                let ElementType::Component(component) = actual else { break };
+                actual = component.root_element.borrow().base_type.clone();
+            }
+            if &actual != expected {
+                diag.push_error(
+                    format!(
+                        "Collection slot '{}' requires '{expected}' or a component inheriting it, \
+                         but got '{}'",
+                        slot.name,
+                        child.borrow().base_type,
+                    ),
+                    &*child.borrow(),
+                );
+                valid = false;
+            }
+        }
+    }
+    valid
+}
+
+pub(super) fn mark_inherited_defaults(root: &ElementRc) {
+    let ElementType::Component(base) = &root.borrow().base_type else { return };
+    if default_collection(base).is_some() {
+        for child in &root.borrow().children {
+            let mut child = child.borrow_mut();
+            if child.slot_target.is_none()
+                && child.slot_default.is_none()
+                && !child.slot_collection
+                && child.slot_expansion.is_none()
+            {
+                child.slot_default = Some(DEFAULT_SLOT_NAME.into());
+            }
+        }
+    }
+}
+
+pub(super) fn declare(slot: &DeclaredSlot, root: &ElementRc, tr: &TypeRegister) {
+    let metadata = Element {
+        id: slot.name.clone(),
+        base_type: tr.empty_type(),
+        slot_collection: true,
+        debug: root.borrow().debug.clone(),
+        ..Default::default()
+    }
+    .make_rc();
+    let length = crate::layout::create_new_prop(root, "slot-length".into(), Type::Int32);
+    metadata.borrow_mut().property_declarations.insert(
+        "length".into(),
+        PropertyDeclaration {
+            property_type: Type::Int32,
+            visibility: PropertyVisibility::Output,
+            is_alias: Some(length),
+            ..Default::default()
+        },
+    );
+    root.borrow_mut().children.push(metadata);
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(super) fn create_expansion(
+    node: syntax_nodes::RepeatedElement,
+    parent: &ElementRc,
+    insertion_points: &mut BTreeMap<String, ChildrenInsertionPoint>,
+    slots: &mut Vec<DeclaredSlot>,
+    legacy: bool,
+    diag: &mut BuildDiagnostics,
+    tr: &TypeRegister,
+) -> bool {
+    let Some(name) = Element::slot_forwarding_expr_identifier(&node.Expression()) else {
+        return false;
+    };
+    let Some(slot) = slots.iter().find(|s| s.is_collection && s.name == name).cloned() else {
+        return false;
+    };
+    let mut parent_type = parent.borrow().base_type.clone();
+    while let ElementType::Component(component) = parent_type {
+        if component.id == "ListView"
+            && component.node.as_ref().is_some_and(|node| node.source_file.path().is_builtin())
+        {
+            diag.push_error(
+                "Collection slots cannot be expanded directly in 'ListView'; use a model 'for' loop instead".into(),
+                &node.Expression(),
+            );
+            break;
+        }
+        parent_type = component.root_element.borrow().base_type.clone();
+    }
+    let entry_id =
+        node.DeclaredIdentifier().and_then(|n| parser::identifier_text(&n)).unwrap_or_default();
+    let body = node.SubElement().Element();
+    let supplied_name =
+        body.QualifiedName().map(QualifiedTypeName::from_node).map(|n| n.to_smolstr());
+    if entry_id.is_empty() {
+        diag.push_error(
+            format!("Expand slot '{name}' with 'for child[index] in {name}: child {{ ... }}'"),
+            &node,
+        );
+        return true;
+    }
+    if supplied_name.as_ref() != Some(&entry_id) {
+        diag.push_error("Generating collection views is not supported yet".into(), &body);
+        return true;
+    }
+    if node.SubElement().child_token(SyntaxKind::ColonEqual).is_some() {
+        diag.push_error(
+            "A collection placement cannot declare an element identifier".into(),
+            &node,
+        );
+        return true;
+    }
+    let insertion_name = slot.insertion_name();
+    if let Some(existing) = insertion_points.get(insertion_name) {
+        diag.push_error(format!("The slot '{name}' can only appear once in an element"), &node);
+        diag.push_note(format!("The slot '{name}' is already used here"), &existing.node);
+        return true;
+    }
+    for child in body.children() {
+        if !matches!(
+            child.kind(),
+            SyntaxKind::QualifiedName
+                | SyntaxKind::Binding
+                | SyntaxKind::TwoWayBinding
+                | SyntaxKind::CallbackConnection
+                | SyntaxKind::PropertyChangedCallback
+        ) {
+            diag.push_error(
+                "Slot expansions only accept property bindings and callback connections".into(),
+                &child,
+            );
+        }
+    }
+    let base = slot
+        .interface
+        .clone()
+        .map(ElementType::Component)
+        .or_else(|| slot.component_type.clone())
+        .unwrap_or_else(|| tr.empty_type());
+    let Some((template, _, _)) = Element::element_without_children(
+        &body,
+        SmolStr::default(),
+        parent.borrow().base_type.clone(),
+        legacy,
+        diag,
+        tr,
+        Some(base),
+    ) else {
+        return true;
+    };
+    let index_property =
+        crate::layout::create_new_prop(&template, "slot-index".into(), Type::Int32).name().clone();
+    template.borrow_mut().property_declarations.get_mut(&index_property).unwrap().visibility =
+        PropertyVisibility::Output;
+    template.borrow_mut().slot_expansion = Some(SlotExpansion {
+        node: node.clone(),
+        slot_name: name,
+        entry_id,
+        index_id: node
+            .RepeatedIndex()
+            .and_then(|n| parser::identifier_text(&n))
+            .unwrap_or_default(),
+        index_property,
+    });
+    insertion_points.insert(
+        insertion_name.into(),
+        ChildrenInsertionPoint {
+            parent: parent.clone(),
+            insertion_index: parent.borrow().children.len(),
+            node: ChildInsertionPointNode::SlotPlaceholder(node.SubElement()),
+        },
+    );
+    parent.borrow_mut().children.push(template);
+    Element::place_slot_default(&slot.name, parent, slots, legacy, diag, tr);
+    true
+}
