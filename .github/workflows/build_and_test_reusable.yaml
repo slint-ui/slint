@@ -175,6 +175,11 @@ jobs:
               if: runner.os != 'Windows' && inputs.run_qt && inputs.test_workspace
               run: "cargo test --locked --verbose --all-features --workspace ${{ inputs.extra_args }} --exclude slint-node --exclude slint-cpp --exclude slint-python --exclude slint-sc --exclude slint-editor qt:: -- --test-threads=1"
               shell: bash
+            # --all-features above always turns the svg feature on.
+            - name: Check the Skia renderer without SVG support
+              if: inputs.test_workspace
+              run: cargo check --locked -p i-slint-renderer-skia
+              shell: bash
             # The integration tests now live in their own workspace (tests/Cargo.toml).
             # The C++/Node/Python/TypeScript drivers and doctests are run by dedicated jobs in
             # ci.yaml; they need a toolchain this job doesn't install.
