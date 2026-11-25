@@ -1384,6 +1384,7 @@ pub struct Element {
 
     /// This element is part of a `for <xxx> in <model>`:
     pub repeated: Option<RepeatedElementInfo>,
+    pub collection_source: Option<ElementWeak>,
     /// This element is a placeholder to embed an Component at
     pub is_component_placeholder: bool,
 

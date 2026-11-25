@@ -1,0 +1,26 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+interface Entry { in property <string> title; }
+component Page inherits Rectangle { in property <string> title; height: 20px; }
+
+component ListView inherits Rectangle {
+    in-out property <length> content-y;
+    in-out property <length> content-height;
+    in-out property <length> content-width;
+    out property <length> visible-height: root.height;
+    out property <length> visible-width: root.width;
+    default slot <[implements Entry]> rows;
+    HorizontalLayout { for row in rows: Text { text: row.title; } }
+    Flickable {
+        content-y <=> root.content-y;
+        content-height <=> root.content-height;
+        content-width <=> root.content-width;
+        for row in rows: row { }
+    }
+}
+
+export component Test inherits Window {
+    ListView { for title in ["One"]: Page { title: title; } }
+//                                   >   <error{Generating collection views from virtualized 'ListView' children is not supported; use model data for the views instead}
+}
